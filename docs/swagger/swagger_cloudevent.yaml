@@ -1,0 +1,1491 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  CloudeventDetails:
+    properties:
+      account:
+        type: string
+        x-go-name: Account
+      action:
+        type: string
+        x-go-name: Action
+      brand:
+        type: string
+        x-go-name: Brand
+      can_delete:
+        description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanDelete
+      can_update:
+        description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanUpdate
+      cloudprovider_id:
+        type: string
+        x-go-name: CloudproviderId
+      created_at:
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      delete_fail_reason:
+        $ref: '#/definitions/Error'
+      domain_id:
+        description: 域Id
+        type: string
+        x-go-name: DomainId
+      event_id:
+        format: int64
+        type: integer
+        x-go-name: EventId
+      manager:
+        type: string
+        x-go-name: Manager
+      name:
+        type: string
+        x-go-name: Name
+      project_domain:
+        description: 资源归属项目的域名称
+        type: string
+        x-go-name: ProjectDomain
+      provider:
+        type: string
+        x-go-name: Provider
+      request:
+        type: object
+        x-go-name: Request
+      request_id:
+        type: string
+        x-go-name: RequestId
+      resource_type:
+        type: string
+        x-go-name: ResourceType
+      service:
+        type: string
+        x-go-name: Service
+      success:
+        type: boolean
+        x-go-name: Success
+      update_fail_reason:
+        $ref: '#/definitions/Error'
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/cloudevent
+  EnabledStatusStandaloneResourceBaseUpdateInput:
+    properties:
+      description:
+        description: 资源描述
+        type: string
+        x-go-name: Description
+      name:
+        description: 资源名称
+        type: string
+        x-go-name: Name
+      progress:
+        format: float
+        type: number
+        x-go-name: Progress
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  EnabledStatusStandaloneResourceCreateInput:
+    properties:
+      __meta__:
+        additionalProperties:
+          type: string
+        description: 标签列表,最多支持20个
+        example:
+          user:rd: op
+        type: object
+        x-go-name: Metadata
+      description:
+        description: 资源描述
+        example: test create network
+        type: string
+        x-go-name: Description
+      disabled:
+        description: 该资源是否被管理员*人为*禁用, 和enabled互斥
+        type: boolean
+        x-go-name: Disabled
+      dry_run:
+        default: false
+        description: 预检验参数,若为true则仅检查参数,并不真正创建变更
+        type: boolean
+        x-go-name: DryRun
+      enabled:
+        description: 该资源是否被管理员*人为*启用或者禁用
+        type: boolean
+        x-go-name: Enabled
+      generate_name:
+        description: |-
+          生成资源名称的模板，如果name为空，则为必填项
+          description: generated resource name, given a pattern to generate name, required if name is not given
+        example: test###
+        type: string
+        x-go-name: GenerateName
+      is_emulated:
+        description: |-
+          资源是否为模拟资源
+          description: the resource is an emulated resource
+        type: boolean
+        x-go-name: IsEmulated
+      name:
+        description: |-
+          资源名称，如果generate_name为空，则为必填项
+          description: resource name, required if generated_name is not given
+        example: test-network
+        type: string
+        uniqueItems: true
+        x-go-name: Name
+      status:
+        description: 用来存储资源的状态
+        type: string
+        x-go-name: Status
+    required:
+    - name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  EnabledStatusStandaloneResourceDetails:
+    properties:
+      can_delete:
+        description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanDelete
+      can_update:
+        description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanUpdate
+      delete_fail_reason:
+        $ref: '#/definitions/Error'
+      metadata:
+        additionalProperties:
+          type: string
+        description: 标签
+        type: object
+        x-go-name: Metadata
+      update_fail_reason:
+        $ref: '#/definitions/Error'
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  Error:
+    properties:
+      class:
+        type: string
+        x-go-name: Class
+      code:
+        format: int64
+        type: integer
+        x-go-name: Code
+      details:
+        type: string
+        x-go-name: Details
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/httperrors
+  GetDetailsStatusOutput:
+    properties:
+      status:
+        description: 状态
+        type: string
+        x-go-name: Status
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  ModelBaseCreateInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  ModelBaseUpdateInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformDisableInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformEnableInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformStatusInput:
+    properties:
+      host_id:
+        description: call from host id
+        type: string
+        x-go-name: HostId
+      power_states:
+        description: 电源状态
+        type: string
+        x-go-name: PowerStates
+      reason:
+        description: 更改状态的原因描述
+        type: string
+        x-go-name: Reason
+      status:
+        description: 更改的目标状态值
+        type: string
+        x-go-name: Status
+    required:
+    - status
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PurgeSplitTableInput:
+    properties:
+      tables:
+        items:
+          type: string
+        type: array
+        x-go-name: Tables
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  STag:
+    properties:
+      key:
+        description: 标签Kye
+        type: string
+        x-go-name: Key
+      value:
+        description: 标签Value
+        type: string
+        x-go-name: Value
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+  StatusStatistic:
+    properties:
+      TotalCpuCount:
+        description: CPU总量
+        format: int64
+        type: integer
+      TotalDiskSizeMb:
+        description: 存储总量
+        format: int64
+        type: integer
+      TotalMemSizeMb:
+        description: 内存总量
+        format: int64
+        type: integer
+      status_info:
+        items:
+          $ref: '#/definitions/StatusStatisticStatusInfo'
+        type: array
+        x-go-name: StatusInfo
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  StatusStatisticStatusInfo:
+    properties:
+      Status:
+        type: string
+      pending_deleted_count:
+        description: |-
+          回收站数量
+          需要指定pending_delete=all
+        format: int64
+        type: integer
+        x-go-name: PendingDeletedCount
+      total_count:
+        description: 资源总数
+        format: int64
+        type: integer
+        x-go-name: TotalCount
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  TTagSet:
+    items:
+      $ref: '#/definitions/STag'
+    type: array
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+  TTagSetList:
+    items:
+      $ref: '#/definitions/TTagSet'
+    type: array
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+host: '"127.0.0.1:8889"'
+info:
+  contact:
+    email: lizexi@yunion.cn
+    name: Zexi Li
+  description: Cloudevent API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: "1.0"
+paths:
+  /cloudevents:
+    get:
+      description: 列表
+      operationId: cloudevent_ListItemFilter
+      parameters:
+      - default: 20
+        description: 查询限制量
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: 查询偏移量
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+        example: desc|asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: 模糊搜索所有字段
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: |-
+          指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+          支持的操作符如下：
+
+           操作符        | 参数个数 | 举例                                           | 说明                        |
+          ---------------|----------|------------------------------------------------|-----------------------------|
+           in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+           notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+           between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+           ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+           gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+           le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+           lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+           like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+           contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+           startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+           endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+           equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+           notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+           isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+           isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+           isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+           isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+           isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+        in: query
+        items:
+          type: string
+        name: filter
+        type: array
+        x-go-name: Filter
+      - description: |-
+          指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+          和其他表关联的语法如下：
+          joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+          其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+          关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+          举例：
+          guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+        in: query
+        items:
+          type: string
+        name: joint_filter
+        type: array
+        x-go-name: JointFilter
+      - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+        in: query
+        name: filter_any
+        type: boolean
+        x-go-name: FilterAny
+      - description: 返回结果只包含指定的字段
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 用于数据导出，指定导出的数据字段
+        in: query
+        name: export_keys
+        type: string
+        x-go-name: ExportKeys
+      - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+        in: query
+        name: show_fail_reason
+        type: boolean
+        x-go-name: ShowFailReason
+      - description: 指定查询的权限范围，可能值为project, domain or system
+        in: query
+        name: scope
+        type: string
+        x-go-name: Scope
+      - description: 指定项目归属域名称或ID
+        in: query
+        name: project_domain_id
+        type: string
+        x-go-name: ProjectDomainId
+      - description: 对具有域属性的资源，严格匹配域ID
+        in: query
+        items:
+          type: string
+        name: project_domain_ids
+        type: array
+        x-go-name: ProjectDomainIds
+      - description: 按domain名称排序，可能值为asc|desc
+        in: query
+        name: order_by_domain
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByDomain
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: domain_tags
+        x-go-name: DomainTags
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: no_domain_tags
+        x-go-name: NoDomainTags
+      - description: |-
+          列出指定云平台的资源，支持的云平台如下
+
+           Provider  | 开始支持版本 | 平台                                |
+          -----------|------------|-------------------------------------|
+           OneCloud  | 0.0        | OneCloud内置私有云，包括KVM和裸金属管理 |
+           VMware    | 1.2        | VMware vCenter                      |
+           OpenStack | 2.6        | OpenStack M版本以上私有云             |
+           ZStack    | 2.10       | ZStack私有云                         |
+           Aliyun    | 2.0        | 阿里云                               |
+           Aws       | 2.3        | Amazon AWS                          |
+           Azure     | 2.2        | Microsoft Azure                     |
+           Google    | 2.13       | Google Cloud Platform               |
+           Qcloud    | 2.3        | 腾讯云                               |
+           Huawei    | 2.5        | 华为公有云                           |
+           Ucloud    | 2.7        | UCLOUD                               |
+           Ctyun     | 2.13       | 天翼云                               |
+           S3        | 2.11       | 通用s3对象存储                        |
+           Ceph      | 2.11       | Ceph对象存储                         |
+           Xsky      | 2.11       | XSKY启明星辰Ceph对象存储              |
+        enum:
+        - OneCloud
+        - VMware
+        - Aliyun
+        - Qcloud
+        - Azure
+        - Aws
+        - Huawei
+        - OpenStack
+        - Ucloud
+        - ZStack
+        - Google
+        - Ctyun
+        - S3
+        - Ceph
+        - Xsky"
+        in: query
+        items:
+          type: string
+        name: providers
+        type: array
+        x-go-name: Providers
+      - description: |-
+          列出指定云平台品牌的资源，一般来说brand和provider相同，除了以上支持的provider之外，还支持以下band
+
+             Brand  | Provider | 说明        |
+          ----------|----------|------------|
+           DStack   | ZStack   | 滴滴云私有云 |
+        in: query
+        items:
+          type: string
+        name: brands
+        type: array
+        x-go-name: Brands
+      - description: |-
+          列出指定云环境的资源，支持云环境如下：
+
+           CloudEnv  | 说明   |
+          -----------|--------|
+           public    | 公有云  |
+           private   | 私有云  |
+           onpremise | 本地IDC |
+        enum:
+        - public
+        - private
+        - onpremise
+        in: query
+        name: cloud_env
+        type: string
+        x-go-name: CloudEnv
+      - description: 以平台名称排序
+        in: query
+        name: order_by_provider
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByProvider
+      - description: 以平台品牌排序
+        in: query
+        name: order_by_brand
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByBrand
+      - description: 服务类型
+        in: query
+        items:
+          type: string
+        name: service
+        type: array
+        x-go-name: Service
+      - description: 订阅
+        in: query
+        items:
+          type: string
+        name: manager
+        type: array
+        x-go-name: Manager
+      - description: 账号
+        in: query
+        items:
+          type: string
+        name: account
+        type: array
+        x-go-name: Account
+      - description: 操作类型
+        in: query
+        items:
+          type: string
+        name: action
+        type: array
+        x-go-name: Action
+      - description: 资源类别
+        in: query
+        items:
+          type: string
+        name: resource_type
+        type: array
+        x-go-name: ResourceType
+      - description: 执行状态
+        in: query
+        name: success
+        type: boolean
+        x-go-name: Success
+      - description: 操作日志起始时间
+        format: date-time
+        in: query
+        name: since
+        type: string
+        x-go-name: Since
+      - description: 操作日志截止时间
+        format: date-time
+        in: query
+        name: until
+        type: string
+        x-go-name: Until
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_ListItemFilterOutput'
+      summary: 云平台操作日志列表
+      tags:
+      - cloudevent
+    post:
+      description: 新建
+      operationId: cloudevent_ValidateCreateData
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudevent:
+              $ref: '#/definitions/ModelBaseCreateInput'
+            count:
+              default: 1
+              format: int64
+              type: integer
+              x-go-name: Count
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_ValidateCreateDataOutput'
+      summary: 新建
+      tags:
+      - cloudevent
+  /cloudevents/{id}:
+    delete:
+      description: 删除
+      operationId: cloudevent_CustomizeDelete
+      parameters:
+      - description: The Id or Name of cloudevent
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_CustomizeDeleteOutput'
+      summary: 删除
+      tags:
+      - cloudevent
+    get:
+      description: 获取详情
+      operationId: cloudevent_FetchCustomizeColumns
+      parameters:
+      - description: The Id or Name of cloudevent
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_FetchCustomizeColumnsOutput'
+      summary: 获取详情
+      tags:
+      - cloudevent
+    put:
+      description: 更新
+      operationId: cloudevent_ValidateUpdateData
+      parameters:
+      - description: The Id or Name of cloudevent
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudevent:
+              $ref: '#/definitions/ModelBaseUpdateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_ValidateUpdateDataOutput'
+      summary: 更新
+      tags:
+      - cloudevent
+  /cloudevents/distinct-field:
+    get:
+      description: 获取指定资源类的信息DistinctField
+      operationId: cloudevent_GetPropertyDistinctField
+      parameters:
+      - in: query
+        items:
+          type: string
+        name: Field
+        type: array
+      - in: query
+        items:
+          type: string
+        name: ExtraField
+        type: array
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_GetPropertyDistinctFieldOutput'
+      summary: 获取指定资源类的信息DistinctField
+      tags:
+      - cloudevent
+  /cloudevents/purge-splitable:
+    post:
+      description: 执行操作PurgeSplitable
+      operationId: cloudevent_PerformPurgeSplitable
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudevent:
+              $ref: '#/definitions/PurgeSplitTableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_PerformPurgeSplitableOutput'
+      summary: 执行操作PurgeSplitable
+      tags:
+      - cloudevent
+  /cloudevents/splitable:
+    get:
+      description: 获取指定资源类的信息Splitable
+      operationId: cloudevent_GetPropertySplitable
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_GetPropertySplitableOutput'
+      summary: 获取指定资源类的信息Splitable
+      tags:
+      - cloudevent
+  /cloudevents/splitable-export:
+    get:
+      description: 获取指定资源类的信息SplitableExport
+      operationId: cloudevent_GetPropertySplitableExport
+      parameters:
+      - in: query
+        name: table
+        type: string
+        x-go-name: Table
+      - format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/cloudevent_GetPropertySplitableExportOutput'
+      summary: 获取指定资源类的信息SplitableExport
+      tags:
+      - cloudevent
+  /cloudproviders:
+    get:
+      description: 列表
+      operationId: cloudprovider_ListItemFilter
+      parameters:
+      - default: 20
+        description: 查询限制量
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: 查询偏移量
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+        example: desc|asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: 模糊搜索所有字段
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: |-
+          指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+          支持的操作符如下：
+
+           操作符        | 参数个数 | 举例                                           | 说明                        |
+          ---------------|----------|------------------------------------------------|-----------------------------|
+           in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+           notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+           between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+           ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+           gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+           le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+           lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+           like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+           contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+           startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+           endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+           equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+           notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+           isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+           isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+           isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+           isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+           isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+        in: query
+        items:
+          type: string
+        name: filter
+        type: array
+        x-go-name: Filter
+      - description: |-
+          指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+          和其他表关联的语法如下：
+          joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+          其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+          关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+          举例：
+          guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+        in: query
+        items:
+          type: string
+        name: joint_filter
+        type: array
+        x-go-name: JointFilter
+      - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+        in: query
+        name: filter_any
+        type: boolean
+        x-go-name: FilterAny
+      - description: 返回结果只包含指定的字段
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 用于数据导出，指定导出的数据字段
+        in: query
+        name: export_keys
+        type: string
+        x-go-name: ExportKeys
+      - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+        in: query
+        name: show_fail_reason
+        type: boolean
+        x-go-name: ShowFailReason
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（包含这些标签）
+        in: query
+        name: tags
+        x-go-name: Tags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还包含这些标签，OR的关系）
+        in: query
+        name: obj_tags
+        x-go-name: ObjTags
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（不包含这些标签）
+        in: query
+        name: no_tags
+        x-go-name: NoTags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还不包含这些标签，AND的关系）
+        in: query
+        name: no_obj_tags
+        x-go-name: NoObjTags
+      - description: 通过标签排序
+        in: query
+        name: order_by_tag
+        type: string
+        x-go-name: OrderByTag
+      - description: |-
+          deprecated
+          返回资源的标签不包含用户标签
+        in: query
+        name: without_user_meta
+        type: boolean
+        x-go-name: WithoutUserMeta
+      - description: 返回包含用户标签的资源
+        in: query
+        name: with_user_meta
+        type: boolean
+        x-go-name: WithUserMeta
+      - description: 返回包含外部标签的资源
+        in: query
+        name: with_cloud_meta
+        type: boolean
+        x-go-name: WithCloudMeta
+      - description: 返回包含任意标签的资源
+        in: query
+        name: with_any_meta
+        type: boolean
+        x-go-name: WithAnyMeta
+      - description: 返回列表数据中包含资源的标签数据（Metadata）
+        in: query
+        name: with_meta
+        type: boolean
+        x-go-name: WithMeta
+      - description: 显示所有的资源，包括模拟的资源
+        in: query
+        name: show_emulated
+        type: boolean
+        x-go-name: ShowEmulated
+      - description: 以资源ID过滤列表
+        in: query
+        items:
+          type: string
+        name: id
+        type: array
+        x-go-name: Ids
+      - description: 以资源名称过滤列表
+        in: query
+        items:
+          type: string
+        name: name
+        type: array
+        x-go-name: Names
+      - description: 以资源的状态过滤列表
+        in: query
+        items:
+          type: string
+        name: status
+        type: array
+        x-go-name: Status
+      - description: 以资源是否启用/禁用过滤列表
+        in: query
+        name: enabled
+        type: boolean
+        x-go-name: Enabled
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_ListItemFilterOutput'
+      summary: 列表
+      tags:
+      - cloudprovider
+    post:
+      description: 新建
+      operationId: cloudprovider_ValidateCreateData
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              $ref: '#/definitions/EnabledStatusStandaloneResourceCreateInput'
+            count:
+              default: 1
+              format: int64
+              type: integer
+              x-go-name: Count
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_ValidateCreateDataOutput'
+      summary: 新建
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}:
+    delete:
+      description: 删除
+      operationId: cloudprovider_CustomizeDelete
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_CustomizeDeleteOutput'
+      summary: 删除
+      tags:
+      - cloudprovider
+    get:
+      description: 获取详情
+      operationId: cloudprovider_FetchCustomizeColumns
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_FetchCustomizeColumnsOutput'
+      summary: 获取详情
+      tags:
+      - cloudprovider
+    put:
+      description: 更新
+      operationId: cloudprovider_ValidateUpdateData
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              $ref: '#/definitions/EnabledStatusStandaloneResourceBaseUpdateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_ValidateUpdateDataOutput'
+      summary: 更新
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}/class-metadata:
+    get:
+      description: 获取指定信息ClassMetadata
+      operationId: cloudprovider_GetDetailsClassMetadata
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetDetailsClassMetadataOutput'
+      summary: 获取指定信息ClassMetadata
+      tags:
+      - cloudprovider
+    post:
+      description: 执行操作ClassMetadata
+      operationId: cloudprovider_PerformClassMetadata
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_PerformClassMetadataOutput'
+      summary: 更新资源的 class 标签
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}/disable:
+    post:
+      description: 执行操作Disable
+      operationId: cloudprovider_PerformDisable
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              $ref: '#/definitions/PerformDisableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_PerformDisableOutput'
+      summary: 禁用资源
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}/enable:
+    post:
+      description: 执行操作Enable
+      operationId: cloudprovider_PerformEnable
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              $ref: '#/definitions/PerformEnableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_PerformEnableOutput'
+      summary: 启用资源
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}/metadata:
+    get:
+      description: 获取指定信息Metadata
+      operationId: cloudprovider_GetDetailsMetadata
+      parameters:
+      - description: |-
+          指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
+          标签分为
+
+           类型     | 说明                                        |
+          ----------|---------------------------------------------|
+           系统标签 | 平台定义的标签                              |
+           用户标签 | key以user:为前缀，用户自定义标签            |
+           外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 按标签前缀过滤
+        in: query
+        name: prefix
+        type: string
+        x-go-name: Prefix
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetDetailsMetadataOutput'
+      summary: 获取资源标签（元数据）
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}/set-class-metadata:
+    post:
+      description: 执行操作SetClassMetadata
+      operationId: cloudprovider_PerformSetClassMetadata
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_PerformSetClassMetadataOutput'
+      summary: 全量替换资源的所有 class 标签
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}/set-user-metadata:
+    post:
+      description: 执行操作SetUserMetadata
+      operationId: cloudprovider_PerformSetUserMetadata
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_PerformSetUserMetadataOutput'
+      summary: 全量替换资源的所有用户标签
+      tags:
+      - cloudprovider
+  /cloudproviders/{id}/status:
+    get:
+      description: 获取指定信息Status
+      operationId: cloudprovider_GetDetailsStatus
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetDetailsStatusOutput'
+      summary: 获取资源状态
+      tags:
+      - cloudprovider
+    post:
+      description: 执行操作Status
+      operationId: cloudprovider_PerformStatus
+      parameters:
+      - description: The Id or Name of cloudprovider
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              $ref: '#/definitions/PerformStatusInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_PerformStatusOutput'
+      summary: 更新资源状态
+      tags:
+      - cloudprovider
+  /cloudproviders/distinct-field:
+    get:
+      description: 获取指定资源类的信息DistinctField
+      operationId: cloudprovider_GetPropertyDistinctField
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetPropertyDistinctFieldOutput'
+      summary: 获取指定资源类的信息DistinctField
+      tags:
+      - cloudprovider
+  /cloudproviders/purge-splitable:
+    post:
+      description: 执行操作PurgeSplitable
+      operationId: cloudprovider_PerformPurgeSplitable
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            cloudprovider:
+              $ref: '#/definitions/PurgeSplitTableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_PerformPurgeSplitableOutput'
+      summary: 执行操作PurgeSplitable
+      tags:
+      - cloudprovider
+  /cloudproviders/splitable:
+    get:
+      description: 获取指定资源类的信息Splitable
+      operationId: cloudprovider_GetPropertySplitable
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetPropertySplitableOutput'
+      summary: 获取指定资源类的信息Splitable
+      tags:
+      - cloudprovider
+  /cloudproviders/splitable-export:
+    get:
+      description: 获取指定资源类的信息SplitableExport
+      operationId: cloudprovider_GetPropertySplitableExport
+      parameters:
+      - in: query
+        name: table
+        type: string
+        x-go-name: Table
+      - format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetPropertySplitableExportOutput'
+      summary: 获取指定资源类的信息SplitableExport
+      tags:
+      - cloudprovider
+  /cloudproviders/statistics:
+    get:
+      description: 获取指定资源类的信息Statistics
+      operationId: cloudprovider_GetPropertyStatistics
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetPropertyStatisticsOutput'
+      summary: 获取指定资源类的信息Statistics
+      tags:
+      - cloudprovider
+  /cloudproviders/tag-value-pairs:
+    get:
+      description: 获取指定资源类的信息TagValuePairs
+      operationId: cloudprovider_GetPropertyTagValuePairs
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetPropertyTagValuePairsOutput'
+      summary: 获取指定资源类的信息TagValuePairs
+      tags:
+      - cloudprovider
+  /cloudproviders/tag-value-tree:
+    get:
+      description: 获取指定资源类的信息TagValueTree
+      operationId: cloudprovider_GetPropertyTagValueTree
+      responses:
+        "200":
+          $ref: '#/responses/cloudprovider_GetPropertyTagValueTreeOutput'
+      summary: 获取指定资源类的信息TagValueTree
+      tags:
+      - cloudprovider
+produces:
+- application/json
+responses:
+  cloudevent_CustomizeDeleteOutput:
+    schema:
+      properties:
+        cloudevent:
+          $ref: '#/definitions/CloudeventDetails'
+      type: object
+  cloudevent_FetchCustomizeColumnsOutput:
+    schema:
+      properties:
+        cloudevent:
+          $ref: '#/definitions/CloudeventDetails'
+      type: object
+  cloudevent_GetPropertyDistinctFieldOutput: {}
+  cloudevent_GetPropertySplitableExportOutput: {}
+  cloudevent_GetPropertySplitableOutput: {}
+  cloudevent_ListItemFilterOutput:
+    schema:
+      properties:
+        cloudevents:
+          items:
+            $ref: '#/definitions/CloudeventDetails'
+          type: array
+          x-go-name: Output
+        limit:
+          format: int64
+          type: integer
+          x-go-name: Limit
+        offset:
+          format: int64
+          type: integer
+          x-go-name: Offset
+        total:
+          format: int64
+          type: integer
+          x-go-name: Total
+      type: object
+  cloudevent_PerformPurgeSplitableOutput: {}
+  cloudevent_ValidateCreateDataOutput:
+    schema:
+      properties:
+        cloudevent:
+          $ref: '#/definitions/CloudeventDetails'
+      type: object
+  cloudevent_ValidateUpdateDataOutput:
+    schema:
+      properties:
+        cloudevent:
+          $ref: '#/definitions/CloudeventDetails'
+      type: object
+  cloudprovider_CustomizeDeleteOutput:
+    schema:
+      properties:
+        cloudprovider:
+          $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+      type: object
+  cloudprovider_FetchCustomizeColumnsOutput:
+    schema:
+      properties:
+        cloudprovider:
+          $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+      type: object
+  cloudprovider_GetDetailsClassMetadataOutput:
+    schema:
+      properties:
+        cloudprovider:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  cloudprovider_GetDetailsMetadataOutput:
+    schema:
+      properties:
+        cloudprovider:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  cloudprovider_GetDetailsStatusOutput:
+    schema:
+      properties:
+        cloudprovider:
+          $ref: '#/definitions/GetDetailsStatusOutput'
+      type: object
+  cloudprovider_GetPropertyDistinctFieldOutput: {}
+  cloudprovider_GetPropertySplitableExportOutput: {}
+  cloudprovider_GetPropertySplitableOutput: {}
+  cloudprovider_GetPropertyStatisticsOutput:
+    schema:
+      properties:
+        cloudprovider:
+          $ref: '#/definitions/StatusStatistic'
+      type: object
+  cloudprovider_GetPropertyTagValuePairsOutput: {}
+  cloudprovider_GetPropertyTagValueTreeOutput: {}
+  cloudprovider_ListItemFilterOutput:
+    schema:
+      properties:
+        cloudproviders:
+          items:
+            $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+          type: array
+          x-go-name: Output
+        limit:
+          format: int64
+          type: integer
+          x-go-name: Limit
+        offset:
+          format: int64
+          type: integer
+          x-go-name: Offset
+        total:
+          format: int64
+          type: integer
+          x-go-name: Total
+      type: object
+  cloudprovider_PerformClassMetadataOutput: {}
+  cloudprovider_PerformDisableOutput: {}
+  cloudprovider_PerformEnableOutput: {}
+  cloudprovider_PerformPurgeSplitableOutput: {}
+  cloudprovider_PerformSetClassMetadataOutput: {}
+  cloudprovider_PerformSetUserMetadataOutput: {}
+  cloudprovider_PerformStatusOutput: {}
+  cloudprovider_ValidateCreateDataOutput:
+    schema:
+      properties:
+        cloudprovider:
+          $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+      type: object
+  cloudprovider_ValidateUpdateDataOutput:
+    schema:
+      properties:
+        cloudprovider:
+          $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+      type: object
+schemes:
+- https
+- http
+securityDefinitions:
+  keystone:
+    in: header
+    name: X-Auth-Token
+    type: apiKey
+swagger: "2.0"

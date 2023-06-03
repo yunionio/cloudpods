@@ -1,0 +1,3365 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  ChangeOwnerCandidateDomainsOutput:
+    properties:
+      candidates:
+        items:
+          $ref: '#/definitions/SharedDomain'
+        type: array
+        x-go-name: Candidates
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  Error:
+    properties:
+      class:
+        type: string
+        x-go-name: Class
+      code:
+        format: int64
+        type: integer
+        x-go-name: Code
+      details:
+        type: string
+        x-go-name: Details
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/httperrors
+  GetDetailsStatusOutput:
+    properties:
+      status:
+        description: 状态
+        type: string
+        x-go-name: Status
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  GuestImageCreateInput:
+    properties:
+      __meta__:
+        additionalProperties:
+          type: string
+        description: 标签列表,最多支持20个
+        example:
+          user:rd: op
+        type: object
+        x-go-name: Metadata
+      description:
+        description: 资源描述
+        example: test create network
+        type: string
+        x-go-name: Description
+      disk_format:
+        description: 镜像格式
+        type: string
+        x-go-name: DiskFormat
+      dry_run:
+        default: false
+        description: 预检验参数,若为true则仅检查参数,并不真正创建变更
+        type: boolean
+        x-go-name: DryRun
+      encrypt_key_alg:
+        description: 新建密钥算法
+        type: string
+        x-go-name: EncryptKeyAlg
+      encrypt_key_id:
+        description: 加密密钥的ID
+        type: string
+        x-go-name: EncryptKeyId
+      encrypt_key_new:
+        description: 是否新建密钥
+        type: boolean
+        x-go-name: EncryptKeyNew
+      encrypt_key_user_id:
+        description: 加密密钥的用户ID
+        type: string
+        x-go-name: EncryptKeyUserId
+      generate_name:
+        description: |-
+          生成资源名称的模板，如果name为空，则为必填项
+          description: generated resource name, given a pattern to generate name, required if name is not given
+        example: test###
+        type: string
+        x-go-name: GenerateName
+      images:
+        description: 镜像列表
+        items:
+          $ref: '#/definitions/GuestImageCreateInputSubimage'
+        type: array
+        x-go-name: Images
+      is_emulated:
+        description: |-
+          资源是否为模拟资源
+          description: the resource is an emulated resource
+        type: boolean
+        x-go-name: IsEmulated
+      is_public:
+        description: 是否共享
+        type: boolean
+        x-go-name: IsPublic
+      is_system:
+        description: 'description: indicate the resource is a system resource, which
+          is not visible to user'
+        type: boolean
+        x-go-name: IsSystem
+      name:
+        description: |-
+          资源名称，如果generate_name为空，则为必填项
+          description: resource name, required if generated_name is not given
+        example: test-network
+        type: string
+        uniqueItems: true
+        x-go-name: Name
+      notes:
+        description: 备注
+        type: string
+        x-go-name: Notes
+      os_arch:
+        description: CPU架构 x86_64 or aarch64
+        type: string
+        x-go-name: OsArch
+      project_domain_id:
+        description: 指定项目归属域名称或ID
+        type: string
+        x-go-name: ProjectDomainId
+      project_id:
+        description: 指定项目的名称或ID
+        type: string
+        x-go-name: ProjectId
+      properties:
+        additionalProperties:
+          type: string
+        description: 镜像属性
+        type: object
+        x-go-name: Properties
+      protected:
+        description: 是否有删除保护
+        type: boolean
+        x-go-name: Protected
+      public_scope:
+        description: 共享范围
+        type: string
+        x-go-name: PublicScope
+      size:
+        description: 镜像大小, 单位Byte
+        format: int64
+        type: integer
+        x-go-name: Size
+      status:
+        description: 用来存储资源的状态
+        type: string
+        x-go-name: Status
+    required:
+    - name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  GuestImageCreateInputSubimage:
+    properties:
+      disk_format:
+        description: 磁盘格式
+        type: string
+        x-go-name: DiskFormat
+      id:
+        description: Id
+        type: string
+        x-go-name: Id
+      virtual_size:
+        description: 磁盘大小
+        format: int64
+        type: integer
+        x-go-name: VirtualSize
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  GuestImageDetails:
+    properties:
+      can_delete:
+        description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanDelete
+      can_update:
+        description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanUpdate
+      created_at:
+        description: 资源创建时间
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      data_images:
+        items:
+          $ref: '#/definitions/SubImageInfo'
+        type: array
+        x-go-name: DataImages
+      delete_fail_reason:
+        $ref: '#/definitions/Error'
+      deleted:
+        description: 资源是否被删除
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        description: 资源删除时间
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      description:
+        description: 资源描述信息
+        type: string
+        x-go-name: Description
+      disable_delete:
+        type: boolean
+        x-go-name: DisableDelete
+      disk_format:
+        type: string
+        x-go-name: DiskFormat
+      domain_id:
+        description: 域Id
+        type: string
+        x-go-name: DomainId
+      encrypt_alg:
+        description: 加密算法，aes-256 or sm4
+        type: string
+        x-go-name: EncryptAlg
+      encrypt_key:
+        description: 秘钥名称
+        type: string
+        x-go-name: EncryptKey
+      encrypt_key_id:
+        description: 加密密钥ID
+        type: string
+        x-go-name: EncryptKeyId
+      encrypt_key_user:
+        description: 密钥用户
+        type: string
+        x-go-name: EncryptKeyUser
+      encrypt_key_user_domain:
+        description: 密钥用户域
+        type: string
+        x-go-name: EncryptKeyUserDomain
+      encrypt_key_user_domain_id:
+        description: 密钥用户域ID
+        type: string
+        x-go-name: EncryptKeyUserDomainId
+      encrypt_key_user_id:
+        description: 密钥用户ID
+        type: string
+        x-go-name: EncryptKeyUserId
+      freezed:
+        description: 资源是否被冻结
+        type: boolean
+        x-go-name: Freezed
+      id:
+        description: 资源UUID
+        type: string
+        x-go-name: Id
+      is_emulated:
+        description: |-
+          是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
+          list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
+        type: boolean
+        x-go-name: IsEmulated
+      is_public:
+        description: 是否共享
+        type: boolean
+        x-go-name: IsPublic
+      is_system:
+        description: 是否是系统资源
+        type: boolean
+        x-go-name: IsSystem
+      metadata:
+        additionalProperties:
+          type: string
+        description: 标签
+        type: object
+        x-go-name: Metadata
+      min_ram_mb:
+        format: int32
+        type: integer
+        x-go-name: MinRamMb
+      name:
+        description: 资源名称
+        type: string
+        x-go-name: Name
+      os_arch:
+        description: 操作系统 CPU 架构
+        example: x86 arm
+        type: string
+        x-go-name: OsArch
+      pending_deleted:
+        description: 资源是否处于回收站中
+        type: boolean
+        x-go-name: PendingDeleted
+      pending_deleted_at:
+        description: 资源放入回收站时间
+        format: date-time
+        type: string
+        x-go-name: PendingDeletedAt
+      progress:
+        description: 操作进度0-100
+        format: float
+        type: number
+        x-go-name: Progress
+      project:
+        description: |-
+          资源归属项目的名称（向后兼容别名）
+          Deprecated
+        type: string
+        x-go-name: Tenant
+      project_domain:
+        description: 资源归属项目的域名称
+        type: string
+        x-go-name: ProjectDomain
+      project_id:
+        description: |-
+          资源归属项目的ID(向后兼容别名）
+          Deprecated
+        type: string
+        x-go-name: TenantId
+      project_src:
+        description: '云上同步资源是否在本地被更改过配置, local: 更改过, cloud: 未更改过'
+        example: local
+        type: string
+        x-go-name: ProjectSrc
+      properties:
+        type: object
+        x-go-name: Properties
+      protected:
+        type: boolean
+        x-go-name: Protected
+      public_scope:
+        description: 默认共享范围
+        type: string
+        x-go-name: PublicScope
+      public_src:
+        description: '共享设置的来源, local: 本地设置, cloud: 从云上同步过来'
+        example: local
+        type: string
+        x-go-name: PublicSrc
+      root_image:
+        $ref: '#/definitions/SubImageInfo'
+      shared_domains:
+        description: 共享的域列表
+        items:
+          $ref: '#/definitions/SharedDomain'
+        type: array
+        x-go-name: SharedDomains
+      shared_projects:
+        description: 共享的项目列表
+        items:
+          $ref: '#/definitions/SharedProject'
+        type: array
+        x-go-name: SharedProjects
+      size:
+        description: Status     string               `json:"status"`
+        format: int64
+        type: integer
+        x-go-name: Size
+      status:
+        description: 资源状态
+        type: string
+        x-go-name: Status
+      tenant:
+        description: |-
+          资源归属项目的名称
+          alias:project
+        type: string
+        x-go-name: Project
+      tenant_id:
+        description: 项目Id
+        type: string
+        x-go-name: ProjectId
+      update_fail_reason:
+        $ref: '#/definitions/Error'
+      update_version:
+        description: 资源被更新次数
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+      updated_at:
+        description: 资源更新时间
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  ImageCreateInput:
+    properties:
+      __meta__:
+        additionalProperties:
+          type: string
+        description: 标签列表,最多支持20个
+        example:
+          user:rd: op
+        type: object
+        x-go-name: Metadata
+      description:
+        description: 资源描述
+        example: test create network
+        type: string
+        x-go-name: Description
+      disk_format:
+        description: 镜像格式
+        type: string
+        x-go-name: DiskFormat
+      dry_run:
+        default: false
+        description: 预检验参数,若为true则仅检查参数,并不真正创建变更
+        type: boolean
+        x-go-name: DryRun
+      encrypt_key_alg:
+        description: 新建密钥算法
+        type: string
+        x-go-name: EncryptKeyAlg
+      encrypt_key_id:
+        description: 加密密钥的ID
+        type: string
+        x-go-name: EncryptKeyId
+      encrypt_key_new:
+        description: 是否新建密钥
+        type: boolean
+        x-go-name: EncryptKeyNew
+      encrypt_key_user_id:
+        description: 加密密钥的用户ID
+        type: string
+        x-go-name: EncryptKeyUserId
+      generate_name:
+        description: |-
+          生成资源名称的模板，如果name为空，则为必填项
+          description: generated resource name, given a pattern to generate name, required if name is not given
+        example: test###
+        type: string
+        x-go-name: GenerateName
+      is_data:
+        description: 是否是数据盘镜像
+        type: boolean
+        x-go-name: IsData
+      is_emulated:
+        description: |-
+          资源是否为模拟资源
+          description: the resource is an emulated resource
+        type: boolean
+        x-go-name: IsEmulated
+      is_guest_image:
+        description: 是否是主机镜像
+        type: boolean
+        x-go-name: IsGuestImage
+      is_public:
+        description: 是否共享
+        type: boolean
+        x-go-name: IsPublic
+      is_standard:
+        description: 是否是标准镜像
+        type: boolean
+        x-go-name: IsStandard
+      is_system:
+        description: 'description: indicate the resource is a system resource, which
+          is not visible to user'
+        type: boolean
+        x-go-name: IsSystem
+      min_disk:
+        description: 最小系统盘要求
+        format: int32
+        type: integer
+        x-go-name: MinDiskMB
+      min_ram:
+        description: 最小内存要求
+        format: int32
+        type: integer
+        x-go-name: MinRamMB
+      name:
+        description: |-
+          资源名称，如果generate_name为空，则为必填项
+          description: resource name, required if generated_name is not given
+        example: test-network
+        type: string
+        uniqueItems: true
+        x-go-name: Name
+      project_domain_id:
+        description: 指定项目归属域名称或ID
+        type: string
+        x-go-name: ProjectDomainId
+      project_id:
+        description: 指定项目的名称或ID
+        type: string
+        x-go-name: ProjectId
+      properties:
+        additionalProperties:
+          type: string
+        description: 镜像属性
+        type: object
+        x-go-name: Properties
+      protected:
+        description: 是否有删除保护
+        type: boolean
+        x-go-name: Protected
+      public_scope:
+        description: 共享范围
+        type: string
+        x-go-name: PublicScope
+      size:
+        description: 镜像大小, 单位Byte
+        format: int64
+        type: integer
+        x-go-name: Size
+      status:
+        description: 用来存储资源的状态
+        type: string
+        x-go-name: Status
+    required:
+    - name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  ImageDetails:
+    properties:
+      auto_delete_at:
+        description: 自动清除时间
+        format: date-time
+        type: string
+        x-go-name: AutoDeleteAt
+      can_delete:
+        description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanDelete
+      can_update:
+        description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanUpdate
+      checksum:
+        description: 校验和
+        type: string
+        x-go-name: Checksum
+      created_at:
+        description: 资源创建时间
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      delete_fail_reason:
+        $ref: '#/definitions/Error'
+      deleted:
+        description: 资源是否被删除
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        description: 资源删除时间
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      description:
+        description: 资源描述信息
+        type: string
+        x-go-name: Description
+      disable_delete:
+        description: 删除保护
+        type: boolean
+        x-go-name: DisableDelete
+      disk_format:
+        description: 镜像格式
+        type: string
+        x-go-name: DiskFormat
+      domain_id:
+        description: 域Id
+        type: string
+        x-go-name: DomainId
+      encrypt_alg:
+        description: 加密算法，aes-256 or sm4
+        type: string
+        x-go-name: EncryptAlg
+      encrypt_key:
+        description: 秘钥名称
+        type: string
+        x-go-name: EncryptKey
+      encrypt_key_id:
+        description: 加密密钥ID
+        type: string
+        x-go-name: EncryptKeyId
+      encrypt_key_user:
+        description: 密钥用户
+        type: string
+        x-go-name: EncryptKeyUser
+      encrypt_key_user_domain:
+        description: 密钥用户域
+        type: string
+        x-go-name: EncryptKeyUserDomain
+      encrypt_key_user_domain_id:
+        description: 密钥用户域ID
+        type: string
+        x-go-name: EncryptKeyUserDomainId
+      encrypt_key_user_id:
+        description: 密钥用户ID
+        type: string
+        x-go-name: EncryptKeyUserId
+      encrypt_status:
+        description: 加密状态, "",encrypting,encrypted
+        type: string
+        x-go-name: EncryptStatus
+      fast_hash:
+        type: string
+        x-go-name: FastHash
+      freezed:
+        description: 资源是否被冻结
+        type: boolean
+        x-go-name: Freezed
+      id:
+        description: 资源UUID
+        type: string
+        x-go-name: Id
+      is_data:
+        description: 是否是数据盘镜像
+        type: boolean
+        x-go-name: IsData
+      is_emulated:
+        description: |-
+          是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
+          list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
+        type: boolean
+        x-go-name: IsEmulated
+      is_guest_image:
+        description: 是否是主机镜像
+        type: boolean
+        x-go-name: IsGuestImage
+      is_public:
+        description: 是否共享
+        type: boolean
+        x-go-name: IsPublic
+      is_standard:
+        description: 是否是标准镜像
+        type: boolean
+        x-go-name: IsStandard
+      is_system:
+        description: 是否是系统资源
+        type: boolean
+        x-go-name: IsSystem
+      location:
+        description: 存储地址
+        type: string
+        x-go-name: Location
+      metadata:
+        additionalProperties:
+          type: string
+        description: 标签
+        type: object
+        x-go-name: Metadata
+      min_disk:
+        description: 最小系统盘要求
+        format: int32
+        type: integer
+        x-go-name: MinDiskMB
+      min_ram:
+        description: 最小内存要求
+        format: int32
+        type: integer
+        x-go-name: MinRamMB
+      name:
+        description: 资源名称
+        type: string
+        x-go-name: Name
+      os_arch:
+        description: 操作系统 CPU 架构
+        example: x86 arm
+        type: string
+        x-go-name: OsArch
+      oss_checksum:
+        description: |-
+          image copy from url, save origin checksum before probe
+          从镜像时长导入的镜像校验和
+        type: string
+        x-go-name: OssChecksum
+      owner:
+        description: 用户Id
+        type: string
+        x-go-name: Owner
+      pending_deleted:
+        description: 资源是否处于回收站中
+        type: boolean
+        x-go-name: PendingDeleted
+      pending_deleted_at:
+        description: 资源放入回收站时间
+        format: date-time
+        type: string
+        x-go-name: PendingDeletedAt
+      progress:
+        description: 操作进度0-100
+        format: float
+        type: number
+        x-go-name: Progress
+      project:
+        description: |-
+          资源归属项目的名称（向后兼容别名）
+          Deprecated
+        type: string
+        x-go-name: Tenant
+      project_domain:
+        description: 资源归属项目的域名称
+        type: string
+        x-go-name: ProjectDomain
+      project_id:
+        description: |-
+          资源归属项目的ID(向后兼容别名）
+          Deprecated
+        type: string
+        x-go-name: TenantId
+      project_src:
+        description: '云上同步资源是否在本地被更改过配置, local: 更改过, cloud: 未更改过'
+        example: local
+        type: string
+        x-go-name: ProjectSrc
+      properties:
+        additionalProperties:
+          type: string
+        description: 镜像属性信息
+        type: object
+        x-go-name: Properties
+      protected:
+        description: 是否有删除保护
+        type: boolean
+        x-go-name: Protected
+      public_scope:
+        description: 默认共享范围
+        type: string
+        x-go-name: PublicScope
+      public_src:
+        description: '共享设置的来源, local: 本地设置, cloud: 从云上同步过来'
+        example: local
+        type: string
+        x-go-name: PublicSrc
+      shared_domains:
+        description: 共享的域列表
+        items:
+          $ref: '#/definitions/SharedDomain'
+        type: array
+        x-go-name: SharedDomains
+      shared_projects:
+        description: 共享的项目列表
+        items:
+          $ref: '#/definitions/SharedProject'
+        type: array
+        x-go-name: SharedProjects
+      size:
+        description: 镜像大小, 单位Byte
+        format: int64
+        type: integer
+        x-go-name: Size
+      status:
+        description: 资源状态
+        type: string
+        x-go-name: Status
+      tenant:
+        description: |-
+          资源归属项目的名称
+          alias:project
+        type: string
+        x-go-name: Project
+      tenant_id:
+        description: 项目Id
+        type: string
+        x-go-name: ProjectId
+      update_fail_reason:
+        $ref: '#/definitions/Error'
+      update_version:
+        description: 资源被更新次数
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+      updated_at:
+        description: 资源更新时间
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  ImageUpdateStatusInput:
+    properties:
+      reason:
+        description: 更新镜像状态原因
+        type: string
+        x-go-name: Reason
+      status:
+        description: 镜像状态
+        type: string
+        x-go-name: Status
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  PerformChangeProjectOwnerInput:
+    properties:
+      project_domain_id:
+        description: 指定项目归属域名称或ID
+        type: string
+        x-go-name: ProjectDomainId
+      project_id:
+        description: 指定项目的名称或ID
+        type: string
+        x-go-name: ProjectId
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformFreezeInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformPrivateInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformProbeInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  PerformPublicProjectInput:
+    properties:
+      scope:
+        description: 共享项目资源的共享范围，可能的值为：project, domain和system
+        pattern: project|domain|system
+        type: string
+        x-go-name: Scope
+      shared_domain_ids:
+        description: 如果共享范围为域，则在此列表中指定共享的目标域
+        items:
+          type: string
+        type: array
+        x-go-name: SharedDomainIds
+      shared_project_ids:
+        description: 如果共享范围为项目，则在此列表中指定共享的目标项目
+        items:
+          type: string
+        type: array
+        x-go-name: SharedProjectIds
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformStatusInput:
+    properties:
+      host_id:
+        description: call from host id
+        type: string
+        x-go-name: HostId
+      power_states:
+        description: 电源状态
+        type: string
+        x-go-name: PowerStates
+      reason:
+        description: 更改状态的原因描述
+        type: string
+        x-go-name: Reason
+      status:
+        description: 更改的目标状态值
+        type: string
+        x-go-name: Status
+    required:
+    - status
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformUnfreezeInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  ProjectStatistic:
+    properties:
+      Count:
+        format: int64
+        type: integer
+      Id:
+        type: string
+      Name:
+        type: string
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PurgeSplitTableInput:
+    properties:
+      tables:
+        items:
+          type: string
+        type: array
+        x-go-name: Tables
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  SImageQuotaDetail:
+    description: 区域配额详情
+    properties:
+      Image:
+        format: int64
+        type: integer
+      Type:
+        type: string
+      created_at:
+        description: 资源创建时间
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      deleted:
+        description: 资源是否被删除
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        description: 资源删除时间
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      domain:
+        description: 配额适用的项目的域名称
+        type: string
+        x-go-name: Domain
+      domain_id:
+        description: 配额适用的域ID
+        type: string
+        x-go-name: DomainId
+      project:
+        description: 配额适用的项目名称
+        type: string
+        x-go-name: Project
+      project_id:
+        description: 配额适用的项目ID
+        type: string
+        x-go-name: ProjectId
+      update_version:
+        description: 资源被更新次数
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+      updated_at:
+        description: 资源更新时间
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/image/models
+  STag:
+    properties:
+      key:
+        description: 标签Kye
+        type: string
+        x-go-name: Key
+      value:
+        description: 标签Value
+        type: string
+        x-go-name: Value
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+  SetImageQuotaInput:
+    description: 设置镜像配额输入参数
+    properties:
+      Image:
+        format: int64
+        type: integer
+      Type:
+        type: string
+      action:
+        description: |-
+          设置配额操作
+
+           action  | 说明                                      |
+          ---------|-------------------------------------------|
+           add     | 增量增加配额                              |
+           sub     | 增量减少配额                              |
+           reset   | 重置所有配额为0                           |
+           replace | 替换所有配额，对于不存在的配额项，设置为0 |
+           update  | 更新存在的配额                            |
+           delete  | 删除配额                                  |
+        type: string
+        x-go-name: Action
+      created_at:
+        description: 资源创建时间
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      deleted:
+        description: 资源是否被删除
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        description: 资源删除时间
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      domain_id:
+        description: 配额适用的域ID
+        type: string
+        x-go-name: DomainId
+      project_id:
+        description: 配额适用的项目ID
+        type: string
+        x-go-name: ProjectId
+      update_version:
+        description: 资源被更新次数
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+      updated_at:
+        description: 资源更新时间
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/image/models
+  SharableVirtualResourceBaseUpdateInput:
+    properties:
+      description:
+        description: 资源描述
+        type: string
+        x-go-name: Description
+      name:
+        description: 资源名称
+        type: string
+        x-go-name: Name
+      progress:
+        format: float
+        type: number
+        x-go-name: Progress
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  SharedDomain:
+    properties:
+      id:
+        type: string
+        x-go-name: Id
+      name:
+        type: string
+        x-go-name: Name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  SharedProject:
+    properties:
+      domain:
+        type: string
+        x-go-name: Domain
+      domain_id:
+        type: string
+        x-go-name: DomainId
+      id:
+        type: string
+        x-go-name: Id
+      name:
+        type: string
+        x-go-name: Name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  StatusStatistic:
+    properties:
+      TotalCpuCount:
+        description: CPU总量
+        format: int64
+        type: integer
+      TotalDiskSizeMb:
+        description: 存储总量
+        format: int64
+        type: integer
+      TotalMemSizeMb:
+        description: 内存总量
+        format: int64
+        type: integer
+      status_info:
+        items:
+          $ref: '#/definitions/StatusStatisticStatusInfo'
+        type: array
+        x-go-name: StatusInfo
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  StatusStatisticStatusInfo:
+    properties:
+      Status:
+        type: string
+      pending_deleted_count:
+        description: |-
+          回收站数量
+          需要指定pending_delete=all
+        format: int64
+        type: integer
+        x-go-name: PendingDeletedCount
+      total_count:
+        description: 资源总数
+        format: int64
+        type: integer
+        x-go-name: TotalCount
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  SubImageInfo:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      disable_delete:
+        type: boolean
+        x-go-name: DisableDelete
+      disk_format:
+        type: string
+        x-go-name: DiskFormat
+      encrypt_key_id:
+        type: string
+        x-go-name: EncryptKeyId
+      id:
+        type: string
+        x-go-name: ID
+      min_disk_mb:
+        format: int32
+        type: integer
+        x-go-name: MinDiskMB
+      name:
+        type: string
+        x-go-name: Name
+      size:
+        format: int64
+        type: integer
+        x-go-name: Size
+      status:
+        type: string
+        x-go-name: Status
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/image
+  TTagSet:
+    items:
+      $ref: '#/definitions/STag'
+    type: array
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+  TTagSetList:
+    items:
+      $ref: '#/definitions/TTagSet'
+    type: array
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+host: '"127.0.0.1:8889"'
+info:
+  contact:
+    email: lizexi@yunion.cn
+    name: Zexi Li
+  description: Image API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: "1.0"
+paths:
+  /guest_images:
+    get:
+      description: 列表
+      operationId: guest_image_ListItemFilter
+      parameters:
+      - default: 20
+        description: 查询限制量
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: 查询偏移量
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+        example: desc|asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: 模糊搜索所有字段
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: |-
+          指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+          支持的操作符如下：
+
+           操作符        | 参数个数 | 举例                                           | 说明                        |
+          ---------------|----------|------------------------------------------------|-----------------------------|
+           in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+           notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+           between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+           ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+           gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+           le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+           lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+           like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+           contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+           startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+           endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+           equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+           notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+           isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+           isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+           isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+           isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+           isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+        in: query
+        items:
+          type: string
+        name: filter
+        type: array
+        x-go-name: Filter
+      - description: |-
+          指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+          和其他表关联的语法如下：
+          joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+          其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+          关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+          举例：
+          guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+        in: query
+        items:
+          type: string
+        name: joint_filter
+        type: array
+        x-go-name: JointFilter
+      - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+        in: query
+        name: filter_any
+        type: boolean
+        x-go-name: FilterAny
+      - description: 返回结果只包含指定的字段
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 用于数据导出，指定导出的数据字段
+        in: query
+        name: export_keys
+        type: string
+        x-go-name: ExportKeys
+      - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+        in: query
+        name: show_fail_reason
+        type: boolean
+        x-go-name: ShowFailReason
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（包含这些标签）
+        in: query
+        name: tags
+        x-go-name: Tags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还包含这些标签，OR的关系）
+        in: query
+        name: obj_tags
+        x-go-name: ObjTags
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（不包含这些标签）
+        in: query
+        name: no_tags
+        x-go-name: NoTags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还不包含这些标签，AND的关系）
+        in: query
+        name: no_obj_tags
+        x-go-name: NoObjTags
+      - description: 通过标签排序
+        in: query
+        name: order_by_tag
+        type: string
+        x-go-name: OrderByTag
+      - description: |-
+          deprecated
+          返回资源的标签不包含用户标签
+        in: query
+        name: without_user_meta
+        type: boolean
+        x-go-name: WithoutUserMeta
+      - description: 返回包含用户标签的资源
+        in: query
+        name: with_user_meta
+        type: boolean
+        x-go-name: WithUserMeta
+      - description: 返回包含外部标签的资源
+        in: query
+        name: with_cloud_meta
+        type: boolean
+        x-go-name: WithCloudMeta
+      - description: 返回包含任意标签的资源
+        in: query
+        name: with_any_meta
+        type: boolean
+        x-go-name: WithAnyMeta
+      - description: 返回列表数据中包含资源的标签数据（Metadata）
+        in: query
+        name: with_meta
+        type: boolean
+        x-go-name: WithMeta
+      - description: 显示所有的资源，包括模拟的资源
+        in: query
+        name: show_emulated
+        type: boolean
+        x-go-name: ShowEmulated
+      - description: 以资源ID过滤列表
+        in: query
+        items:
+          type: string
+        name: id
+        type: array
+        x-go-name: Ids
+      - description: 以资源名称过滤列表
+        in: query
+        items:
+          type: string
+        name: name
+        type: array
+        x-go-name: Names
+      - description: 以资源的状态过滤列表
+        in: query
+        items:
+          type: string
+        name: status
+        type: array
+        x-go-name: Status
+      - description: 指定查询的权限范围，可能值为project, domain or system
+        in: query
+        name: scope
+        type: string
+        x-go-name: Scope
+      - description: 指定项目归属域名称或ID
+        in: query
+        name: project_domain_id
+        type: string
+        x-go-name: ProjectDomainId
+      - description: 对具有域属性的资源，严格匹配域ID
+        in: query
+        items:
+          type: string
+        name: project_domain_ids
+        type: array
+        x-go-name: ProjectDomainIds
+      - description: 按domain名称排序，可能值为asc|desc
+        in: query
+        name: order_by_domain
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByDomain
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: domain_tags
+        x-go-name: DomainTags
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: no_domain_tags
+        x-go-name: NoDomainTags
+      - description: 指定项目的名称或ID
+        in: query
+        name: project_id
+        type: string
+        x-go-name: ProjectId
+      - description: 对具有项目属性的资源，严格匹配项目ID
+        in: query
+        items:
+          type: string
+        name: project_ids
+        type: array
+        x-go-name: ProjectIds
+      - description: 按project名称排序，可能值为asc|desc
+        in: query
+        name: order_by_project
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByProject
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by project tags
+        in: query
+        name: project_tags
+        x-go-name: ProjectTags
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by no project tags
+        in: query
+        name: no_project_tags
+        x-go-name: NoProjectTags
+      - $ref: '#/definitions/TTagSetList'
+        description: |-
+          ignore
+          project tag fitlers imposed by policy
+        in: query
+        name: policy_project_tags
+        x-go-name: PolicyProjectTags
+      - description: 列表中包含标记为"系统资源"的资源
+        in: query
+        name: system
+        type: boolean
+        x-go-name: System
+      - description: 是否显示回收站内的资源，默认不显示（对实现了回收站的资源有效，例如主机，磁盘，镜像）
+        in: query
+        name: pending_delete
+        type: boolean
+        x-go-name: PendingDelete
+      - description: 以资源是否共享过滤列表
+        in: query
+        name: is_public
+        type: boolean
+        x-go-name: IsPublic
+      - description: 根据资源的共享范围过滤列表，可能值为：system, domain, project
+        in: query
+        name: public_scope
+        type: string
+        x-go-name: PublicScope
+      - description: |-
+          通过操作系统架构过滤
+          x86会过滤出os_arch为空或os_arch=i386或以x86开头的资源
+          arm会过滤出os_arch=aarch64或os_arch=aarch32或者以arm开头的资源
+          其他的输入会过滤出以输入字符开头的资源
+          enmu: x86, arm
+        in: query
+        name: os_arch
+        type: string
+        x-go-name: OsArch
+      - description: 是否删除保护
+        in: query
+        name: protected
+        type: boolean
+        x-go-name: Protected
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_ListItemFilterOutput'
+      summary: 主机镜像列表
+      tags:
+      - guest_image
+    post:
+      description: 新建
+      operationId: guest_image_ValidateCreateData
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            count:
+              default: 1
+              format: int64
+              type: integer
+              x-go-name: Count
+            guest_image:
+              $ref: '#/definitions/GuestImageCreateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_ValidateCreateDataOutput'
+      summary: 新建
+      tags:
+      - guest_image
+  /guest_images/{id}:
+    delete:
+      description: 删除
+      operationId: guest_image_CustomizeDelete
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_CustomizeDeleteOutput'
+      summary: 删除
+      tags:
+      - guest_image
+    get:
+      description: 获取详情
+      operationId: guest_image_FetchCustomizeColumns
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_FetchCustomizeColumnsOutput'
+      summary: 获取详情
+      tags:
+      - guest_image
+    put:
+      description: 更新
+      operationId: guest_image_ValidateUpdateData
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/SharableVirtualResourceBaseUpdateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_ValidateUpdateDataOutput'
+      summary: 更新
+      tags:
+      - guest_image
+  /guest_images/{id}/cancel-delete:
+    post:
+      description: 执行操作CancelDelete
+      operationId: guest_image_PerformCancelDelete
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformCancelDeleteOutput'
+      summary: 执行操作CancelDelete
+      tags:
+      - guest_image
+  /guest_images/{id}/change-owner:
+    post:
+      description: 执行操作ChangeOwner
+      operationId: guest_image_PerformChangeOwner
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/PerformChangeProjectOwnerInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformChangeOwnerOutput'
+      summary: 执行操作ChangeOwner
+      tags:
+      - guest_image
+  /guest_images/{id}/change-owner-candidate-domains:
+    get:
+      description: 获取指定信息ChangeOwnerCandidateDomains
+      operationId: guest_image_GetDetailsChangeOwnerCandidateDomains
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetDetailsChangeOwnerCandidateDomainsOutput'
+      summary: 获取指定信息ChangeOwnerCandidateDomains
+      tags:
+      - guest_image
+  /guest_images/{id}/class-metadata:
+    get:
+      description: 获取指定信息ClassMetadata
+      operationId: guest_image_GetDetailsClassMetadata
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetDetailsClassMetadataOutput'
+      summary: 获取指定信息ClassMetadata
+      tags:
+      - guest_image
+    post:
+      description: 执行操作ClassMetadata
+      operationId: guest_image_PerformClassMetadata
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformClassMetadataOutput'
+      summary: 更新资源的 class 标签
+      tags:
+      - guest_image
+  /guest_images/{id}/freeze:
+    post:
+      description: 执行操作Freeze
+      operationId: guest_image_PerformFreeze
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/PerformFreezeInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformFreezeOutput'
+      summary: freezed update and perform action operation except for unfreeze
+      tags:
+      - guest_image
+  /guest_images/{id}/metadata:
+    get:
+      description: 获取指定信息Metadata
+      operationId: guest_image_GetDetailsMetadata
+      parameters:
+      - description: |-
+          指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
+          标签分为
+
+           类型     | 说明                                        |
+          ----------|---------------------------------------------|
+           系统标签 | 平台定义的标签                              |
+           用户标签 | key以user:为前缀，用户自定义标签            |
+           外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 按标签前缀过滤
+        in: query
+        name: prefix
+        type: string
+        x-go-name: Prefix
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetDetailsMetadataOutput'
+      summary: 获取资源标签（元数据）
+      tags:
+      - guest_image
+  /guest_images/{id}/private:
+    post:
+      description: 执行操作Private
+      operationId: guest_image_PerformPrivate
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/PerformPrivateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformPrivateOutput'
+      summary: 执行操作Private
+      tags:
+      - guest_image
+  /guest_images/{id}/public:
+    post:
+      description: 执行操作Public
+      operationId: guest_image_PerformPublic
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/PerformPublicProjectInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformPublicOutput'
+      summary: 执行操作Public
+      tags:
+      - guest_image
+  /guest_images/{id}/set-class-metadata:
+    post:
+      description: 执行操作SetClassMetadata
+      operationId: guest_image_PerformSetClassMetadata
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformSetClassMetadataOutput'
+      summary: 执行操作SetClassMetadata
+      tags:
+      - guest_image
+  /guest_images/{id}/set-user-metadata:
+    post:
+      description: 执行操作SetUserMetadata
+      operationId: guest_image_PerformSetUserMetadata
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformSetUserMetadataOutput'
+      summary: 全量替换资源的所有用户标签
+      tags:
+      - guest_image
+  /guest_images/{id}/status:
+    get:
+      description: 获取指定信息Status
+      operationId: guest_image_GetDetailsStatus
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetDetailsStatusOutput'
+      summary: 获取资源状态
+      tags:
+      - guest_image
+    post:
+      description: 执行操作Status
+      operationId: guest_image_PerformStatus
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/PerformStatusInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformStatusOutput'
+      summary: 更新资源状态
+      tags:
+      - guest_image
+  /guest_images/{id}/unfreeze:
+    post:
+      description: 执行操作Unfreeze
+      operationId: guest_image_PerformUnfreeze
+      parameters:
+      - description: The Id or Name of guest_image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/PerformUnfreezeInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformUnfreezeOutput'
+      summary: 执行操作Unfreeze
+      tags:
+      - guest_image
+  /guest_images/distinct-field:
+    get:
+      description: 获取指定资源类的信息DistinctField
+      operationId: guest_image_GetPropertyDistinctField
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyDistinctFieldOutput'
+      summary: 获取指定资源类的信息DistinctField
+      tags:
+      - guest_image
+  /guest_images/domain-statistics:
+    get:
+      description: 获取指定资源类的信息DomainStatistics
+      operationId: guest_image_GetPropertyDomainStatistics
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyDomainStatisticsOutput'
+      summary: 获取指定资源类的信息DomainStatistics
+      tags:
+      - guest_image
+  /guest_images/project-statistics:
+    get:
+      description: 获取指定资源类的信息ProjectStatistics
+      operationId: guest_image_GetPropertyProjectStatistics
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyProjectStatisticsOutput'
+      summary: 获取指定资源类的信息ProjectStatistics
+      tags:
+      - guest_image
+  /guest_images/project-tag-value-pairs:
+    get:
+      description: 获取指定资源类的信息ProjectTagValuePairs
+      operationId: guest_image_GetPropertyProjectTagValuePairs
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyProjectTagValuePairsOutput'
+      summary: 获取指定资源类的信息ProjectTagValuePairs
+      tags:
+      - guest_image
+  /guest_images/project-tag-value-tree:
+    get:
+      description: 获取指定资源类的信息ProjectTagValueTree
+      operationId: guest_image_GetPropertyProjectTagValueTree
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyProjectTagValueTreeOutput'
+      summary: 获取指定资源类的信息ProjectTagValueTree
+      tags:
+      - guest_image
+  /guest_images/purge-splitable:
+    post:
+      description: 执行操作PurgeSplitable
+      operationId: guest_image_PerformPurgeSplitable
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            guest_image:
+              $ref: '#/definitions/PurgeSplitTableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_PerformPurgeSplitableOutput'
+      summary: 执行操作PurgeSplitable
+      tags:
+      - guest_image
+  /guest_images/splitable:
+    get:
+      description: 获取指定资源类的信息Splitable
+      operationId: guest_image_GetPropertySplitable
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertySplitableOutput'
+      summary: 获取指定资源类的信息Splitable
+      tags:
+      - guest_image
+  /guest_images/splitable-export:
+    get:
+      description: 获取指定资源类的信息SplitableExport
+      operationId: guest_image_GetPropertySplitableExport
+      parameters:
+      - in: query
+        name: table
+        type: string
+        x-go-name: Table
+      - format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertySplitableExportOutput'
+      summary: 获取指定资源类的信息SplitableExport
+      tags:
+      - guest_image
+  /guest_images/statistics:
+    get:
+      description: 获取指定资源类的信息Statistics
+      operationId: guest_image_GetPropertyStatistics
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyStatisticsOutput'
+      summary: 获取指定资源类的信息Statistics
+      tags:
+      - guest_image
+  /guest_images/tag-value-pairs:
+    get:
+      description: 获取指定资源类的信息TagValuePairs
+      operationId: guest_image_GetPropertyTagValuePairs
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyTagValuePairsOutput'
+      summary: 获取指定资源类的信息TagValuePairs
+      tags:
+      - guest_image
+  /guest_images/tag-value-tree:
+    get:
+      description: 获取指定资源类的信息TagValueTree
+      operationId: guest_image_GetPropertyTagValueTree
+      responses:
+        "200":
+          $ref: '#/responses/guest_image_GetPropertyTagValueTreeOutput'
+      summary: 获取指定资源类的信息TagValueTree
+      tags:
+      - guest_image
+  /image_quotas/{scope}:
+    get:
+      description: 获取所有项目或者域的镜像配额
+      operationId: models_ListImageQuotas
+      parameters:
+      - description: |-
+          只列出主配额
+          require:false
+        in: query
+        name: primary
+        type: boolean
+        x-go-name: Primary
+      - description: |-
+          强制刷新使用量
+          require:false
+        in: query
+        name: refresh
+        type: boolean
+        x-go-name: Refresh
+      - description: 配额所属范围，可能值为projects和domains，分别代表项 目的配额和域的配额
+        in: path
+        name: scope
+        required: true
+        type: string
+        x-go-name: Scope
+      responses:
+        "200":
+          $ref: '#/responses/models_ListImageQuotasOutput'
+      summary: 获取所有项目或者域的镜像配额
+      tags:
+      - image_quota
+  /image_quotas/{scope}/{scopeId}:
+    get:
+      description: 获取指定项目或者域的镜像配额
+      operationId: models_GetImageQuota
+      parameters:
+      - description: |-
+          只列出主配额
+          require:false
+        in: query
+        name: primary
+        type: boolean
+        x-go-name: Primary
+      - description: |-
+          强制刷新使用量
+          require:false
+        in: query
+        name: refresh
+        type: boolean
+        x-go-name: Refresh
+      - description: 指定项目或者域的ID
+        in: path
+        name: scopeId
+        required: true
+        type: string
+        x-go-name: ScopeId
+      - description: 配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
+        in: path
+        name: scope
+        required: true
+        type: string
+        x-go-name: Scope
+      responses:
+        "200":
+          $ref: '#/responses/models_GetImageQuotaOutput'
+      summary: 获取指定项目或者域的镜像配额
+      tags:
+      - image_quota
+    post:
+      description: 设置指定项目或者域的镜像配额
+      operationId: models_SetRegionQuotas
+      parameters:
+      - description: 配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
+        in: path
+        name: scope
+        required: true
+        type: string
+        x-go-name: Scope
+      - description: 指定项目或者域的ID
+        in: path
+        name: scopeId
+        required: true
+        type: string
+        x-go-name: ScopeId
+      - in: body
+        name: body
+        schema:
+          properties:
+            image_quotas:
+              $ref: '#/definitions/SetImageQuotaInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/models_SetRegionQuotasOutput'
+      summary: 设置指定项目或者域的镜像配额
+      tags:
+      - image_quota
+  /images:
+    get:
+      description: 列表
+      operationId: image_ListItemFilter
+      parameters:
+      - default: 20
+        description: 查询限制量
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: 查询偏移量
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+        example: desc|asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: 模糊搜索所有字段
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: |-
+          指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+          支持的操作符如下：
+
+           操作符        | 参数个数 | 举例                                           | 说明                        |
+          ---------------|----------|------------------------------------------------|-----------------------------|
+           in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+           notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+           between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+           ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+           gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+           le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+           lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+           like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+           contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+           startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+           endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+           equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+           notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+           isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+           isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+           isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+           isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+           isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+        in: query
+        items:
+          type: string
+        name: filter
+        type: array
+        x-go-name: Filter
+      - description: |-
+          指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+          和其他表关联的语法如下：
+          joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+          其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+          关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+          举例：
+          guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+        in: query
+        items:
+          type: string
+        name: joint_filter
+        type: array
+        x-go-name: JointFilter
+      - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+        in: query
+        name: filter_any
+        type: boolean
+        x-go-name: FilterAny
+      - description: 返回结果只包含指定的字段
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 用于数据导出，指定导出的数据字段
+        in: query
+        name: export_keys
+        type: string
+        x-go-name: ExportKeys
+      - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+        in: query
+        name: show_fail_reason
+        type: boolean
+        x-go-name: ShowFailReason
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（包含这些标签）
+        in: query
+        name: tags
+        x-go-name: Tags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还包含这些标签，OR的关系）
+        in: query
+        name: obj_tags
+        x-go-name: ObjTags
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（不包含这些标签）
+        in: query
+        name: no_tags
+        x-go-name: NoTags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还不包含这些标签，AND的关系）
+        in: query
+        name: no_obj_tags
+        x-go-name: NoObjTags
+      - description: 通过标签排序
+        in: query
+        name: order_by_tag
+        type: string
+        x-go-name: OrderByTag
+      - description: |-
+          deprecated
+          返回资源的标签不包含用户标签
+        in: query
+        name: without_user_meta
+        type: boolean
+        x-go-name: WithoutUserMeta
+      - description: 返回包含用户标签的资源
+        in: query
+        name: with_user_meta
+        type: boolean
+        x-go-name: WithUserMeta
+      - description: 返回包含外部标签的资源
+        in: query
+        name: with_cloud_meta
+        type: boolean
+        x-go-name: WithCloudMeta
+      - description: 返回包含任意标签的资源
+        in: query
+        name: with_any_meta
+        type: boolean
+        x-go-name: WithAnyMeta
+      - description: 返回列表数据中包含资源的标签数据（Metadata）
+        in: query
+        name: with_meta
+        type: boolean
+        x-go-name: WithMeta
+      - description: 显示所有的资源，包括模拟的资源
+        in: query
+        name: show_emulated
+        type: boolean
+        x-go-name: ShowEmulated
+      - description: 以资源ID过滤列表
+        in: query
+        items:
+          type: string
+        name: id
+        type: array
+        x-go-name: Ids
+      - description: 以资源名称过滤列表
+        in: query
+        items:
+          type: string
+        name: name
+        type: array
+        x-go-name: Names
+      - description: 以资源的状态过滤列表
+        in: query
+        items:
+          type: string
+        name: status
+        type: array
+        x-go-name: Status
+      - description: 指定查询的权限范围，可能值为project, domain or system
+        in: query
+        name: scope
+        type: string
+        x-go-name: Scope
+      - description: 指定项目归属域名称或ID
+        in: query
+        name: project_domain_id
+        type: string
+        x-go-name: ProjectDomainId
+      - description: 对具有域属性的资源，严格匹配域ID
+        in: query
+        items:
+          type: string
+        name: project_domain_ids
+        type: array
+        x-go-name: ProjectDomainIds
+      - description: 按domain名称排序，可能值为asc|desc
+        in: query
+        name: order_by_domain
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByDomain
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: domain_tags
+        x-go-name: DomainTags
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: no_domain_tags
+        x-go-name: NoDomainTags
+      - description: 指定项目的名称或ID
+        in: query
+        name: project_id
+        type: string
+        x-go-name: ProjectId
+      - description: 对具有项目属性的资源，严格匹配项目ID
+        in: query
+        items:
+          type: string
+        name: project_ids
+        type: array
+        x-go-name: ProjectIds
+      - description: 按project名称排序，可能值为asc|desc
+        in: query
+        name: order_by_project
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByProject
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by project tags
+        in: query
+        name: project_tags
+        x-go-name: ProjectTags
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by no project tags
+        in: query
+        name: no_project_tags
+        x-go-name: NoProjectTags
+      - $ref: '#/definitions/TTagSetList'
+        description: |-
+          ignore
+          project tag fitlers imposed by policy
+        in: query
+        name: policy_project_tags
+        x-go-name: PolicyProjectTags
+      - description: 列表中包含标记为"系统资源"的资源
+        in: query
+        name: system
+        type: boolean
+        x-go-name: System
+      - description: 是否显示回收站内的资源，默认不显示（对实现了回收站的资源有效，例如主机，磁盘，镜像）
+        in: query
+        name: pending_delete
+        type: boolean
+        x-go-name: PendingDelete
+      - description: 以资源是否共享过滤列表
+        in: query
+        name: is_public
+        type: boolean
+        x-go-name: IsPublic
+      - description: 根据资源的共享范围过滤列表，可能值为：system, domain, project
+        in: query
+        name: public_scope
+        type: string
+        x-go-name: PublicScope
+      - description: |-
+          通过操作系统架构过滤
+          x86会过滤出os_arch为空或os_arch=i386或以x86开头的资源
+          arm会过滤出os_arch=aarch64或os_arch=aarch32或者以arm开头的资源
+          其他的输入会过滤出以输入字符开头的资源
+          enmu: x86, arm
+        in: query
+        name: os_arch
+        type: string
+        x-go-name: OsArch
+      - description: 以镜像的格式过滤，可能值为：qcow2, iso, vmdk, vhd, raw等
+        in: query
+        items:
+          type: string
+        name: disk_formats
+        type: array
+        x-go-name: DiskFormats
+      - description: 列出是否支持UEFI启动的镜像
+        in: query
+        name: uefi
+        type: boolean
+        x-go-name: Uefi
+      - description: '根据已转换格式过滤, 可能值为: qcow2, vmdk, vhd, raw等'
+        in: query
+        items:
+          type: string
+        name: subFormats
+        type: array
+        x-go-name: SubFormats
+      - description: 是否为标准镜像
+        in: query
+        name: is_standard
+        type: boolean
+        x-go-name: IsStandard
+      - description: 是否删除保护
+        in: query
+        name: protected
+        type: boolean
+        x-go-name: Protected
+      - description: 是否为主机镜像的子镜像
+        in: query
+        name: is_guest_image
+        type: boolean
+        x-go-name: IsGuestImage
+      - description: 是否为数据盘
+        in: query
+        name: is_data
+        type: boolean
+        x-go-name: IsData
+      - description: '操作系统类型，可能值为: Linux, Windows, FreeBSD 等'
+        in: query
+        items:
+          type: string
+        name: os_types
+        type: array
+        x-go-name: OsTypes
+      - description: 操作系统精确匹配
+        in: query
+        name: os_type_precise_match
+        type: boolean
+        x-go-name: OsTypePreciseMatch
+      - description: '操作系统架构, 可能值为: arm, x86 等'
+        in: query
+        items:
+          type: string
+        name: os_archs
+        type: array
+        x-go-name: OsArchs
+      - description: 操作系统架构精确匹配
+        in: query
+        name: os_arch_precise_match
+        type: boolean
+        x-go-name: OsArchPreciseMatch
+      - description: '发行版本，可能值为: CentOS, Ubuntu, Debian, ArchLinux,  OpenEuler 等'
+        in: query
+        items:
+          type: string
+        name: distributions
+        type: array
+        x-go-name: Distributions
+      - description: 发行版精确匹配
+        in: query
+        name: DistributionPreciseMatch
+        type: boolean
+      responses:
+        "200":
+          $ref: '#/responses/image_ListItemFilterOutput'
+      summary: 磁盘镜像列表
+      tags:
+      - image
+    post:
+      description: 新建
+      operationId: image_ValidateCreateData
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            count:
+              default: 1
+              format: int64
+              type: integer
+              x-go-name: Count
+            image:
+              $ref: '#/definitions/ImageCreateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_ValidateCreateDataOutput'
+      summary: 新建
+      tags:
+      - image
+  /images/{id}:
+    delete:
+      description: 删除
+      operationId: image_CustomizeDelete
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_CustomizeDeleteOutput'
+      summary: 删除
+      tags:
+      - image
+    get:
+      description: 获取详情
+      operationId: image_FetchCustomizeColumns
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_FetchCustomizeColumnsOutput'
+      summary: 获取详情
+      tags:
+      - image
+    put:
+      description: 更新
+      operationId: image_ValidateUpdateData
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_ValidateUpdateDataOutput'
+      summary: 更新
+      tags:
+      - image
+  /images/{id}/cancel-delete:
+    post:
+      description: 执行操作CancelDelete
+      operationId: image_PerformCancelDelete
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformCancelDeleteOutput'
+      summary: 执行操作CancelDelete
+      tags:
+      - image
+  /images/{id}/change-owner:
+    post:
+      description: 执行操作ChangeOwner
+      operationId: image_PerformChangeOwner
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PerformChangeProjectOwnerInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformChangeOwnerOutput'
+      summary: 执行操作ChangeOwner
+      tags:
+      - image
+  /images/{id}/change-owner-candidate-domains:
+    get:
+      description: 获取指定信息ChangeOwnerCandidateDomains
+      operationId: image_GetDetailsChangeOwnerCandidateDomains
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_GetDetailsChangeOwnerCandidateDomainsOutput'
+      summary: 获取指定信息ChangeOwnerCandidateDomains
+      tags:
+      - image
+  /images/{id}/class-metadata:
+    get:
+      description: 获取指定信息ClassMetadata
+      operationId: image_GetDetailsClassMetadata
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_GetDetailsClassMetadataOutput'
+      summary: 获取指定信息ClassMetadata
+      tags:
+      - image
+    post:
+      description: 执行操作ClassMetadata
+      operationId: image_PerformClassMetadata
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformClassMetadataOutput'
+      summary: 更新资源的 class 标签
+      tags:
+      - image
+  /images/{id}/freeze:
+    post:
+      description: 执行操作Freeze
+      operationId: image_PerformFreeze
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PerformFreezeInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformFreezeOutput'
+      summary: freezed update and perform action operation except for unfreeze
+      tags:
+      - image
+  /images/{id}/mark-standard:
+    post:
+      description: 执行操作MarkStandard
+      operationId: image_PerformMarkStandard
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformMarkStandardOutput'
+      summary: 执行操作MarkStandard
+      tags:
+      - image
+  /images/{id}/metadata:
+    get:
+      description: 获取指定信息Metadata
+      operationId: image_GetDetailsMetadata
+      parameters:
+      - description: |-
+          指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
+          标签分为
+
+           类型     | 说明                                        |
+          ----------|---------------------------------------------|
+           系统标签 | 平台定义的标签                              |
+           用户标签 | key以user:为前缀，用户自定义标签            |
+           外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 按标签前缀过滤
+        in: query
+        name: prefix
+        type: string
+        x-go-name: Prefix
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_GetDetailsMetadataOutput'
+      summary: 获取资源标签（元数据）
+      tags:
+      - image
+  /images/{id}/private:
+    post:
+      description: 执行操作Private
+      operationId: image_PerformPrivate
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PerformPrivateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformPrivateOutput'
+      summary: 执行操作Private
+      tags:
+      - image
+  /images/{id}/probe:
+    post:
+      description: 执行操作Probe
+      operationId: image_PerformProbe
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PerformProbeInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformProbeOutput'
+      summary: 执行操作Probe
+      tags:
+      - image
+  /images/{id}/public:
+    post:
+      description: 执行操作Public
+      operationId: image_PerformPublic
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PerformPublicProjectInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformPublicOutput'
+      summary: 执行操作Public
+      tags:
+      - image
+  /images/{id}/set-class-metadata:
+    post:
+      description: 执行操作SetClassMetadata
+      operationId: image_PerformSetClassMetadata
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformSetClassMetadataOutput'
+      summary: 执行操作SetClassMetadata
+      tags:
+      - image
+  /images/{id}/set-user-metadata:
+    post:
+      description: 执行操作SetUserMetadata
+      operationId: image_PerformSetUserMetadata
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformSetUserMetadataOutput'
+      summary: 全量替换资源的所有用户标签
+      tags:
+      - image
+  /images/{id}/status:
+    get:
+      description: 获取指定信息Status
+      operationId: image_GetDetailsStatus
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_GetDetailsStatusOutput'
+      summary: 获取资源状态
+      tags:
+      - image
+    post:
+      description: 执行操作Status
+      operationId: image_PerformStatus
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PerformStatusInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformStatusOutput'
+      summary: 更新资源状态
+      tags:
+      - image
+  /images/{id}/subformats:
+    get:
+      description: 获取指定信息Subformats
+      operationId: image_GetDetailsSubformats
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_GetDetailsSubformatsOutput'
+      summary: 获取指定信息Subformats
+      tags:
+      - image
+  /images/{id}/unfreeze:
+    post:
+      description: 执行操作Unfreeze
+      operationId: image_PerformUnfreeze
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PerformUnfreezeInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformUnfreezeOutput'
+      summary: 执行操作Unfreeze
+      tags:
+      - image
+  /images/{id}/update-status:
+    post:
+      description: 执行操作UpdateStatus
+      operationId: image_PerformUpdateStatus
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/ImageUpdateStatusInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformUpdateStatusOutput'
+      summary: 执行操作UpdateStatus
+      tags:
+      - image
+  /images/{id}/update-torrent-status:
+    post:
+      description: 执行操作UpdateTorrentStatus
+      operationId: image_PerformUpdateTorrentStatus
+      parameters:
+      - description: The Id or Name of image
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformUpdateTorrentStatusOutput'
+      summary: 执行操作UpdateTorrentStatus
+      tags:
+      - image
+  /images/detail:
+    get:
+      description: 获取指定资源类的信息Detail
+      operationId: image_GetPropertyDetail
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyDetailOutput'
+      summary: 获取指定资源类的信息Detail
+      tags:
+      - image
+  /images/distinct-field:
+    get:
+      description: 获取指定资源类的信息DistinctField
+      operationId: image_GetPropertyDistinctField
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyDistinctFieldOutput'
+      summary: 获取指定资源类的信息DistinctField
+      tags:
+      - image
+  /images/domain-statistics:
+    get:
+      description: 获取指定资源类的信息DomainStatistics
+      operationId: image_GetPropertyDomainStatistics
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyDomainStatisticsOutput'
+      summary: 获取指定资源类的信息DomainStatistics
+      tags:
+      - image
+  /images/project-statistics:
+    get:
+      description: 获取指定资源类的信息ProjectStatistics
+      operationId: image_GetPropertyProjectStatistics
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyProjectStatisticsOutput'
+      summary: 获取指定资源类的信息ProjectStatistics
+      tags:
+      - image
+  /images/project-tag-value-pairs:
+    get:
+      description: 获取指定资源类的信息ProjectTagValuePairs
+      operationId: image_GetPropertyProjectTagValuePairs
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyProjectTagValuePairsOutput'
+      summary: 获取指定资源类的信息ProjectTagValuePairs
+      tags:
+      - image
+  /images/project-tag-value-tree:
+    get:
+      description: 获取指定资源类的信息ProjectTagValueTree
+      operationId: image_GetPropertyProjectTagValueTree
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyProjectTagValueTreeOutput'
+      summary: 获取指定资源类的信息ProjectTagValueTree
+      tags:
+      - image
+  /images/purge-splitable:
+    post:
+      description: 执行操作PurgeSplitable
+      operationId: image_PerformPurgeSplitable
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            image:
+              $ref: '#/definitions/PurgeSplitTableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/image_PerformPurgeSplitableOutput'
+      summary: 执行操作PurgeSplitable
+      tags:
+      - image
+  /images/splitable:
+    get:
+      description: 获取指定资源类的信息Splitable
+      operationId: image_GetPropertySplitable
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertySplitableOutput'
+      summary: 获取指定资源类的信息Splitable
+      tags:
+      - image
+  /images/splitable-export:
+    get:
+      description: 获取指定资源类的信息SplitableExport
+      operationId: image_GetPropertySplitableExport
+      parameters:
+      - in: query
+        name: table
+        type: string
+        x-go-name: Table
+      - format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertySplitableExportOutput'
+      summary: 获取指定资源类的信息SplitableExport
+      tags:
+      - image
+  /images/statistics:
+    get:
+      description: 获取指定资源类的信息Statistics
+      operationId: image_GetPropertyStatistics
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyStatisticsOutput'
+      summary: 获取指定资源类的信息Statistics
+      tags:
+      - image
+  /images/tag-value-pairs:
+    get:
+      description: 获取指定资源类的信息TagValuePairs
+      operationId: image_GetPropertyTagValuePairs
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyTagValuePairsOutput'
+      summary: 获取指定资源类的信息TagValuePairs
+      tags:
+      - image
+  /images/tag-value-tree:
+    get:
+      description: 获取指定资源类的信息TagValueTree
+      operationId: image_GetPropertyTagValueTree
+      responses:
+        "200":
+          $ref: '#/responses/image_GetPropertyTagValueTreeOutput'
+      summary: 获取指定资源类的信息TagValueTree
+      tags:
+      - image
+produces:
+- application/json
+responses:
+  guest_image_CustomizeDeleteOutput:
+    schema:
+      properties:
+        guest_image:
+          $ref: '#/definitions/GuestImageDetails'
+      type: object
+  guest_image_FetchCustomizeColumnsOutput:
+    schema:
+      properties:
+        guest_image:
+          $ref: '#/definitions/GuestImageDetails'
+      type: object
+  guest_image_GetDetailsChangeOwnerCandidateDomainsOutput:
+    schema:
+      properties:
+        guest_image:
+          $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
+      type: object
+  guest_image_GetDetailsClassMetadataOutput:
+    schema:
+      properties:
+        guest_image:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  guest_image_GetDetailsMetadataOutput:
+    schema:
+      properties:
+        guest_image:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  guest_image_GetDetailsStatusOutput:
+    schema:
+      properties:
+        guest_image:
+          $ref: '#/definitions/GetDetailsStatusOutput'
+      type: object
+  guest_image_GetPropertyDistinctFieldOutput: {}
+  guest_image_GetPropertyDomainStatisticsOutput:
+    schema:
+      properties:
+        guest_image:
+          items:
+            $ref: '#/definitions/ProjectStatistic'
+          type: array
+          x-go-name: Output
+      type: object
+  guest_image_GetPropertyProjectStatisticsOutput:
+    schema:
+      properties:
+        guest_image:
+          items:
+            $ref: '#/definitions/ProjectStatistic'
+          type: array
+          x-go-name: Output
+      type: object
+  guest_image_GetPropertyProjectTagValuePairsOutput: {}
+  guest_image_GetPropertyProjectTagValueTreeOutput: {}
+  guest_image_GetPropertySplitableExportOutput: {}
+  guest_image_GetPropertySplitableOutput: {}
+  guest_image_GetPropertyStatisticsOutput:
+    schema:
+      properties:
+        guest_image:
+          $ref: '#/definitions/StatusStatistic'
+      type: object
+  guest_image_GetPropertyTagValuePairsOutput: {}
+  guest_image_GetPropertyTagValueTreeOutput: {}
+  guest_image_ListItemFilterOutput:
+    schema:
+      properties:
+        guest_images:
+          items:
+            $ref: '#/definitions/GuestImageDetails'
+          type: array
+          x-go-name: Output
+        limit:
+          format: int64
+          type: integer
+          x-go-name: Limit
+        offset:
+          format: int64
+          type: integer
+          x-go-name: Offset
+        total:
+          format: int64
+          type: integer
+          x-go-name: Total
+      type: object
+  guest_image_PerformCancelDeleteOutput: {}
+  guest_image_PerformChangeOwnerOutput: {}
+  guest_image_PerformClassMetadataOutput: {}
+  guest_image_PerformFreezeOutput: {}
+  guest_image_PerformPrivateOutput: {}
+  guest_image_PerformPublicOutput: {}
+  guest_image_PerformPurgeSplitableOutput: {}
+  guest_image_PerformSetClassMetadataOutput: {}
+  guest_image_PerformSetUserMetadataOutput: {}
+  guest_image_PerformStatusOutput: {}
+  guest_image_PerformUnfreezeOutput: {}
+  guest_image_ValidateCreateDataOutput:
+    schema:
+      properties:
+        guest_image:
+          $ref: '#/definitions/GuestImageDetails'
+      type: object
+  guest_image_ValidateUpdateDataOutput:
+    schema:
+      properties:
+        guest_image:
+          $ref: '#/definitions/GuestImageDetails'
+      type: object
+  image_CustomizeDeleteOutput:
+    schema:
+      properties:
+        image:
+          $ref: '#/definitions/ImageDetails'
+      type: object
+  image_FetchCustomizeColumnsOutput:
+    schema:
+      properties:
+        image:
+          $ref: '#/definitions/ImageDetails'
+      type: object
+  image_GetDetailsChangeOwnerCandidateDomainsOutput:
+    schema:
+      properties:
+        image:
+          $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
+      type: object
+  image_GetDetailsClassMetadataOutput:
+    schema:
+      properties:
+        image:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  image_GetDetailsMetadataOutput:
+    schema:
+      properties:
+        image:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  image_GetDetailsStatusOutput:
+    schema:
+      properties:
+        image:
+          $ref: '#/definitions/GetDetailsStatusOutput'
+      type: object
+  image_GetDetailsSubformatsOutput: {}
+  image_GetPropertyDetailOutput: {}
+  image_GetPropertyDistinctFieldOutput: {}
+  image_GetPropertyDomainStatisticsOutput:
+    schema:
+      properties:
+        image:
+          items:
+            $ref: '#/definitions/ProjectStatistic'
+          type: array
+          x-go-name: Output
+      type: object
+  image_GetPropertyProjectStatisticsOutput:
+    schema:
+      properties:
+        image:
+          items:
+            $ref: '#/definitions/ProjectStatistic'
+          type: array
+          x-go-name: Output
+      type: object
+  image_GetPropertyProjectTagValuePairsOutput: {}
+  image_GetPropertyProjectTagValueTreeOutput: {}
+  image_GetPropertySplitableExportOutput: {}
+  image_GetPropertySplitableOutput: {}
+  image_GetPropertyStatisticsOutput:
+    schema:
+      properties:
+        image:
+          $ref: '#/definitions/StatusStatistic'
+      type: object
+  image_GetPropertyTagValuePairsOutput: {}
+  image_GetPropertyTagValueTreeOutput: {}
+  image_ListItemFilterOutput:
+    schema:
+      properties:
+        images:
+          items:
+            $ref: '#/definitions/ImageDetails'
+          type: array
+          x-go-name: Output
+        limit:
+          format: int64
+          type: integer
+          x-go-name: Limit
+        offset:
+          format: int64
+          type: integer
+          x-go-name: Offset
+        total:
+          format: int64
+          type: integer
+          x-go-name: Total
+      type: object
+  image_PerformCancelDeleteOutput: {}
+  image_PerformChangeOwnerOutput: {}
+  image_PerformClassMetadataOutput: {}
+  image_PerformFreezeOutput: {}
+  image_PerformMarkStandardOutput: {}
+  image_PerformPrivateOutput: {}
+  image_PerformProbeOutput: {}
+  image_PerformPublicOutput: {}
+  image_PerformPurgeSplitableOutput: {}
+  image_PerformSetClassMetadataOutput: {}
+  image_PerformSetUserMetadataOutput: {}
+  image_PerformStatusOutput: {}
+  image_PerformUnfreezeOutput: {}
+  image_PerformUpdateStatusOutput: {}
+  image_PerformUpdateTorrentStatusOutput: {}
+  image_ValidateCreateDataOutput:
+    schema:
+      properties:
+        image:
+          $ref: '#/definitions/ImageDetails'
+      type: object
+  image_ValidateUpdateDataOutput:
+    schema:
+      properties:
+        image:
+          $ref: '#/definitions/ImageDetails'
+      type: object
+  models_GetImageQuotaOutput:
+    schema:
+      properties:
+        image_quotas:
+          items:
+            $ref: '#/definitions/SImageQuotaDetail'
+          type: array
+          x-go-name: Output
+      type: object
+  models_ListImageQuotasOutput:
+    schema:
+      properties:
+        image_quotas:
+          items:
+            $ref: '#/definitions/SImageQuotaDetail'
+          type: array
+          x-go-name: Output
+      type: object
+  models_SetRegionQuotasOutput:
+    schema:
+      properties:
+        image_quotas:
+          items:
+            $ref: '#/definitions/SImageQuotaDetail'
+          type: array
+          x-go-name: Output
+      type: object
+schemes:
+- https
+- http
+securityDefinitions:
+  keystone:
+    in: header
+    name: X-Auth-Token
+    type: apiKey
+swagger: "2.0"

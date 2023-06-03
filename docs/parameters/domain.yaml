@@ -1,6 +1,0 @@
-domain_id:
-  name: domain_id
-  type: string
-  required: true
-  in: path
-  description: 域ID

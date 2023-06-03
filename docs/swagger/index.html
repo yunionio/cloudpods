@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Swagger UI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        padding-top: 40px;
+      }
+
+      nav {
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 100;
+      }
+      #links_container {
+          margin: 0;
+          padding: 0;
+          background-color: #0033a0;
+      }
+
+      #links_container li {
+          display: inline-block;
+          padding: 10px;
+          color: white;
+          cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+
+    
+    <nav>
+      <ul id="links_container">
+      </ul>
+    </nav>
+
+    <redoc scroll-y-offset="body > nav"></redoc>
+
+    <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"> </script>
+    <script>
+      function insertParam(key, value) {
+        key = encodeURIComponent(key);
+        value = encodeURIComponent(value);
+
+        
+        var kvp = document.location.search.substr(1).split('&');
+        let i=0;
+
+        for(; i<kvp.length; i++){
+            if (kvp[i].startsWith(key + '=')) {
+                let pair = kvp[i].split('=');
+                pair[1] = value;
+                kvp[i] = pair.join('=');
+                break;
+            }
+        }
+
+        if(i >= kvp.length){
+            kvp[kvp.length] = [key,value].join('=');
+        }
+
+        
+        let params = kvp.join('&');
+
+        
+        document.location.search = params;
+      }
+
+      const apiIdx = 'apiIdx';
+      var urlParams = new URLSearchParams(window.location.search);
+      var apiIdxVal = urlParams.get(apiIdx);
+      if (apiIdxVal) {
+        apiIdxVal = parseInt(apiIdxVal);
+      } else {
+        apiIdxVal = 0;
+      }
+
+      
+      var apis = [
+        
+        {
+          name: 'Cloudevent API',
+          url: './swagger_cloudevent.yaml'
+        },
+		
+        {
+          name: 'Cloudid API',
+          url: './swagger_cloudid.yaml'
+        },
+		
+        {
+          name: 'Compute API',
+          url: './swagger_compute.yaml'
+        },
+		
+        {
+          name: 'Identity API',
+          url: './swagger_identity.yaml'
+        },
+		
+        {
+          name: 'Image API',
+          url: './swagger_image.yaml'
+        },
+		
+        {
+          name: 'Monitor API',
+          url: './swagger_monitor.yaml'
+        },
+		
+        {
+          name: 'Notify API',
+          url: './swagger_notify.yaml'
+        },
+		
+        {
+          name: 'Yunionconf API',
+          url: './swagger_yunionconf.yaml'
+        },
+		
+      ];
+
+      
+      Redoc.init(apis[apiIdxVal].url);
+
+      function onClick() {
+        var url = this.getAttribute('data-link');
+        Redoc.init(url);
+      }
+
+      
+      var $list = document.getElementById('links_container');
+      apis.forEach(function(api, idx) {
+        var $listitem = document.createElement('li');
+        $listitem.setAttribute('data-link', api.url);
+        var tmpIdx = idx;
+        $listitem.innerText = api.name;
+        
+        $listitem.addEventListener('click', function() {
+          var url = this.getAttribute('data-link');
+          insertParam(apiIdx, tmpIdx);
+        });
+        $list.appendChild($listitem);
+      });
+    </script>
+  </body>
+</html>

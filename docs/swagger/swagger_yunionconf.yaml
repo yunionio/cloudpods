@@ -1,0 +1,1848 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  ChangeOwnerCandidateDomainsOutput:
+    properties:
+      candidates:
+        items:
+          $ref: '#/definitions/SharedDomain'
+        type: array
+        x-go-name: Candidates
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  Error:
+    properties:
+      class:
+        type: string
+        x-go-name: Class
+      code:
+        format: int64
+        type: integer
+        x-go-name: Code
+      details:
+        type: string
+        x-go-name: Details
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/httperrors
+  PerformChangeDomainOwnerInput:
+    properties:
+      project_domain_id:
+        description: 指定项目归属域名称或ID
+        type: string
+        x-go-name: ProjectDomainId
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformPrivateInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PerformPublicDomainInput:
+    properties:
+      scope:
+        description: 共享项目资源的共享范围，可能的值为：project, domain和system
+        pattern: project|domain|system
+        type: string
+        x-go-name: Scope
+      shared_domain_ids:
+        description: 如果共享范围为域，则在此列表中指定共享的目标域
+        items:
+          type: string
+        type: array
+        x-go-name: SharedDomainIds
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  PurgeSplitTableInput:
+    properties:
+      tables:
+        items:
+          type: string
+        type: array
+        x-go-name: Tables
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  ResourceBaseCreateInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  ResourceBaseDetails:
+    properties:
+      can_delete:
+        description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanDelete
+      can_update:
+        description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanUpdate
+      delete_fail_reason:
+        $ref: '#/definitions/Error'
+      update_fail_reason:
+        $ref: '#/definitions/Error'
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  ResourceBaseUpdateInput:
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  STag:
+    properties:
+      key:
+        description: 标签Kye
+        type: string
+        x-go-name: Key
+      value:
+        description: 标签Value
+        type: string
+        x-go-name: Value
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+  ScopedPolicyBindInput:
+    properties:
+      scope:
+        $ref: '#/definitions/TRbacScope'
+      target_ids:
+        description: 绑定的目标ID（域或者项目ID)
+        items:
+          type: string
+        type: array
+        x-go-name: TargetIds
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/yunionconf
+  ScopedPolicyBindingDetails:
+    properties:
+      can_delete:
+        description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanDelete
+      can_update:
+        description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanUpdate
+      category:
+        type: string
+        x-go-name: Category
+      created_at:
+        description: 资源创建时间
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      delete_fail_reason:
+        $ref: '#/definitions/Error'
+      deleted:
+        description: 资源是否被删除
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        description: 资源删除时间
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      domain_id:
+        type: string
+        x-go-name: DomainId
+      id:
+        type: string
+        x-go-name: Id
+      policy:
+        type: object
+        x-go-name: Policies
+      policy_id:
+        type: string
+        x-go-name: PolicyId
+      policy_name:
+        type: string
+        x-go-name: PolicyName
+      priority:
+        format: int64
+        type: integer
+        x-go-name: Priority
+      project:
+        type: string
+        x-go-name: Project
+      project_domain:
+        type: string
+        x-go-name: ProjectDomain
+      project_id:
+        type: string
+        x-go-name: ProjectId
+      update_fail_reason:
+        $ref: '#/definitions/Error'
+      update_version:
+        description: 资源被更新次数
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+      updated_at:
+        description: 资源更新时间
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/yunionconf
+  ScopedPolicyCreateInput:
+    properties:
+      __meta__:
+        additionalProperties:
+          type: string
+        description: 标签列表,最多支持20个
+        example:
+          user:rd: op
+        type: object
+        x-go-name: Metadata
+      category:
+        description: 策略类别
+        type: string
+        x-go-name: Category
+      description:
+        description: 资源描述
+        example: test create network
+        type: string
+        x-go-name: Description
+      dry_run:
+        default: false
+        description: 预检验参数,若为true则仅检查参数,并不真正创建变更
+        type: boolean
+        x-go-name: DryRun
+      generate_name:
+        description: |-
+          生成资源名称的模板，如果name为空，则为必填项
+          description: generated resource name, given a pattern to generate name, required if name is not given
+        example: test###
+        type: string
+        x-go-name: GenerateName
+      is_emulated:
+        description: |-
+          资源是否为模拟资源
+          description: the resource is an emulated resource
+        type: boolean
+        x-go-name: IsEmulated
+      is_public:
+        description: 是否共享
+        type: boolean
+        x-go-name: IsPublic
+      name:
+        description: |-
+          资源名称，如果generate_name为空，则为必填项
+          description: resource name, required if generated_name is not given
+        example: test-network
+        type: string
+        uniqueItems: true
+        x-go-name: Name
+      policies:
+        description: 策略定义内容
+        type: object
+        x-go-name: Policies
+      project_domain_id:
+        description: 指定项目归属域名称或ID
+        type: string
+        x-go-name: ProjectDomainId
+      public_scope:
+        description: 共享范围
+        type: string
+        x-go-name: PublicScope
+    required:
+    - name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/yunionconf
+  ScopedPolicyDetails:
+    properties:
+      can_delete:
+        description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanDelete
+      can_update:
+        description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+        example: true
+        type: boolean
+        x-go-name: CanUpdate
+      category:
+        description: 策略类别
+        type: string
+        x-go-name: Category
+      created_at:
+        description: 资源创建时间
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      delete_fail_reason:
+        $ref: '#/definitions/Error'
+      deleted:
+        description: 资源是否被删除
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        description: 资源删除时间
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      description:
+        description: 资源描述信息
+        type: string
+        x-go-name: Description
+      domain_id:
+        description: 域Id
+        type: string
+        x-go-name: DomainId
+      domain_src:
+        description: '归属Domain信息的来源, local: 本地设置, cloud: 从云上同步过来'
+        example: local
+        type: string
+        x-go-name: DomainSrc
+      id:
+        description: 资源UUID
+        type: string
+        x-go-name: Id
+      is_emulated:
+        description: |-
+          是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
+          list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
+        type: boolean
+        x-go-name: IsEmulated
+      is_public:
+        description: 是否共享
+        type: boolean
+        x-go-name: IsPublic
+      metadata:
+        additionalProperties:
+          type: string
+        description: 标签
+        type: object
+        x-go-name: Metadata
+      name:
+        description: 资源名称
+        type: string
+        x-go-name: Name
+      policies:
+        description: 策略内容
+        type: object
+        x-go-name: Policies
+      project_domain:
+        description: 资源归属项目的域名称
+        type: string
+        x-go-name: ProjectDomain
+      public_scope:
+        description: 默认共享范围
+        type: string
+        x-go-name: PublicScope
+      public_src:
+        description: '共享设置的来源, local: 本地设置, cloud: 从云上同步过来'
+        example: local
+        type: string
+        x-go-name: PublicSrc
+      ref_count:
+        format: int64
+        type: integer
+        x-go-name: RefCount
+      shared_domains:
+        description: 共享的域列表
+        items:
+          $ref: '#/definitions/SharedDomain'
+        type: array
+        x-go-name: SharedDomains
+      shared_projects:
+        description: 共享的项目列表
+        items:
+          $ref: '#/definitions/SharedProject'
+        type: array
+        x-go-name: SharedProjects
+      update_fail_reason:
+        $ref: '#/definitions/Error'
+      update_version:
+        description: 资源被更新次数
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+      updated_at:
+        description: 资源更新时间
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/yunionconf
+  ScopedPolicyUpdateInput:
+    properties:
+      description:
+        description: 资源描述
+        type: string
+        x-go-name: Description
+      name:
+        description: 资源名称
+        type: string
+        x-go-name: Name
+      policies:
+        description: 策略定义内容
+        type: object
+        x-go-name: Policies
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/yunionconf
+  SharedDomain:
+    properties:
+      id:
+        type: string
+        x-go-name: Id
+      name:
+        type: string
+        x-go-name: Name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  SharedProject:
+    properties:
+      domain:
+        type: string
+        x-go-name: Domain
+      domain_id:
+        type: string
+        x-go-name: DomainId
+      id:
+        type: string
+        x-go-name: Id
+      name:
+        type: string
+        x-go-name: Name
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis
+  TRbacScope:
+    type: string
+    x-go-package: yunion.io/x/pkg/util/rbacscope
+  TTagSet:
+    items:
+      $ref: '#/definitions/STag'
+    type: array
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+  TTagSetList:
+    items:
+      $ref: '#/definitions/TTagSet'
+    type: array
+    x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+host: '"127.0.0.1:8889"'
+info:
+  contact:
+    email: lizexi@yunion.cn
+    name: Zexi Li
+  description: Yunionconf API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: "1.0"
+paths:
+  /parameters:
+    get:
+      description: 列表
+      operationId: parameter_ListItemFilter
+      parameters:
+      - default: 20
+        description: 查询限制量
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: 查询偏移量
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+        example: desc|asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: 模糊搜索所有字段
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: |-
+          指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+          支持的操作符如下：
+
+           操作符        | 参数个数 | 举例                                           | 说明                        |
+          ---------------|----------|------------------------------------------------|-----------------------------|
+           in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+           notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+           between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+           ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+           gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+           le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+           lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+           like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+           contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+           startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+           endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+           equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+           notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+           isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+           isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+           isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+           isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+           isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+        in: query
+        items:
+          type: string
+        name: filter
+        type: array
+        x-go-name: Filter
+      - description: |-
+          指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+          和其他表关联的语法如下：
+          joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+          其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+          关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+          举例：
+          guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+        in: query
+        items:
+          type: string
+        name: joint_filter
+        type: array
+        x-go-name: JointFilter
+      - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+        in: query
+        name: filter_any
+        type: boolean
+        x-go-name: FilterAny
+      - description: 返回结果只包含指定的字段
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 用于数据导出，指定导出的数据字段
+        in: query
+        name: export_keys
+        type: string
+        x-go-name: ExportKeys
+      - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+        in: query
+        name: show_fail_reason
+        type: boolean
+        x-go-name: ShowFailReason
+      - in: query
+        name: namespace_id
+        type: string
+        x-go-name: NamespaceId
+      - description: 服务名称或ID
+        in: query
+        name: service_id
+        type: string
+        x-go-name: ServiceId
+      - description: 用户名称或ID
+        in: query
+        name: user_id
+        type: string
+        x-go-name: UserId
+      - description: filter by name
+        in: query
+        items:
+          type: string
+        name: name
+        type: array
+        x-go-name: Name
+      responses:
+        "200":
+          $ref: '#/responses/parameter_ListItemFilterOutput'
+      summary: 配置参数列表
+      tags:
+      - parameter
+    post:
+      description: 新建
+      operationId: parameter_ValidateCreateData
+      responses:
+        "200":
+          $ref: '#/responses/parameter_ValidateCreateDataOutput'
+      summary: 新建
+      tags:
+      - parameter
+  /parameters/{id}:
+    delete:
+      description: 删除
+      operationId: parameter_CustomizeDelete
+      parameters:
+      - description: The Id or Name of parameter
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/parameter_CustomizeDeleteOutput'
+      summary: 删除
+      tags:
+      - parameter
+    get:
+      description: 获取详情
+      operationId: parameter_FetchCustomizeColumns
+      parameters:
+      - description: The Id or Name of parameter
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/parameter_FetchCustomizeColumnsOutput'
+      summary: 获取详情
+      tags:
+      - parameter
+    put:
+      description: 更新
+      operationId: parameter_ValidateUpdateData
+      parameters:
+      - description: The Id or Name of parameter
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/parameter_ValidateUpdateDataOutput'
+      summary: 更新
+      tags:
+      - parameter
+  /parameters/distinct-field:
+    get:
+      description: 获取指定资源类的信息DistinctField
+      operationId: parameter_GetPropertyDistinctField
+      responses:
+        "200":
+          $ref: '#/responses/parameter_GetPropertyDistinctFieldOutput'
+      summary: 获取指定资源类的信息DistinctField
+      tags:
+      - parameter
+  /parameters/purge-splitable:
+    post:
+      description: 执行操作PurgeSplitable
+      operationId: parameter_PerformPurgeSplitable
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            parameter:
+              $ref: '#/definitions/PurgeSplitTableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/parameter_PerformPurgeSplitableOutput'
+      summary: 执行操作PurgeSplitable
+      tags:
+      - parameter
+  /parameters/splitable:
+    get:
+      description: 获取指定资源类的信息Splitable
+      operationId: parameter_GetPropertySplitable
+      responses:
+        "200":
+          $ref: '#/responses/parameter_GetPropertySplitableOutput'
+      summary: 获取指定资源类的信息Splitable
+      tags:
+      - parameter
+  /parameters/splitable-export:
+    get:
+      description: 获取指定资源类的信息SplitableExport
+      operationId: parameter_GetPropertySplitableExport
+      parameters:
+      - in: query
+        name: table
+        type: string
+        x-go-name: Table
+      - format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/parameter_GetPropertySplitableExportOutput'
+      summary: 获取指定资源类的信息SplitableExport
+      tags:
+      - parameter
+  /scopedpolicies:
+    get:
+      description: 列表
+      operationId: scopedpolicy_ListItemFilter
+      parameters:
+      - default: 20
+        description: 查询限制量
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: 查询偏移量
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+        example: desc|asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: 模糊搜索所有字段
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: |-
+          指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+          支持的操作符如下：
+
+           操作符        | 参数个数 | 举例                                           | 说明                        |
+          ---------------|----------|------------------------------------------------|-----------------------------|
+           in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+           notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+           between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+           ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+           gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+           le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+           lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+           like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+           contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+           startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+           endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+           equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+           notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+           isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+           isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+           isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+           isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+           isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+        in: query
+        items:
+          type: string
+        name: filter
+        type: array
+        x-go-name: Filter
+      - description: |-
+          指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+          和其他表关联的语法如下：
+          joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+          其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+          关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+          举例：
+          guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+        in: query
+        items:
+          type: string
+        name: joint_filter
+        type: array
+        x-go-name: JointFilter
+      - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+        in: query
+        name: filter_any
+        type: boolean
+        x-go-name: FilterAny
+      - description: 返回结果只包含指定的字段
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 用于数据导出，指定导出的数据字段
+        in: query
+        name: export_keys
+        type: string
+        x-go-name: ExportKeys
+      - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+        in: query
+        name: show_fail_reason
+        type: boolean
+        x-go-name: ShowFailReason
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（包含这些标签）
+        in: query
+        name: tags
+        x-go-name: Tags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还包含这些标签，OR的关系）
+        in: query
+        name: obj_tags
+        x-go-name: ObjTags
+      - $ref: '#/definitions/TTagSet'
+        description: 通过标签过滤（不包含这些标签）
+        in: query
+        name: no_tags
+        x-go-name: NoTags
+      - $ref: '#/definitions/TTagSetList'
+        description: 通过一组标签过滤（还不包含这些标签，AND的关系）
+        in: query
+        name: no_obj_tags
+        x-go-name: NoObjTags
+      - description: 通过标签排序
+        in: query
+        name: order_by_tag
+        type: string
+        x-go-name: OrderByTag
+      - description: |-
+          deprecated
+          返回资源的标签不包含用户标签
+        in: query
+        name: without_user_meta
+        type: boolean
+        x-go-name: WithoutUserMeta
+      - description: 返回包含用户标签的资源
+        in: query
+        name: with_user_meta
+        type: boolean
+        x-go-name: WithUserMeta
+      - description: 返回包含外部标签的资源
+        in: query
+        name: with_cloud_meta
+        type: boolean
+        x-go-name: WithCloudMeta
+      - description: 返回包含任意标签的资源
+        in: query
+        name: with_any_meta
+        type: boolean
+        x-go-name: WithAnyMeta
+      - description: 返回列表数据中包含资源的标签数据（Metadata）
+        in: query
+        name: with_meta
+        type: boolean
+        x-go-name: WithMeta
+      - description: 显示所有的资源，包括模拟的资源
+        in: query
+        name: show_emulated
+        type: boolean
+        x-go-name: ShowEmulated
+      - description: 以资源ID过滤列表
+        in: query
+        items:
+          type: string
+        name: id
+        type: array
+        x-go-name: Ids
+      - description: 以资源名称过滤列表
+        in: query
+        items:
+          type: string
+        name: name
+        type: array
+        x-go-name: Names
+      - description: 指定查询的权限范围，可能值为project, domain or system
+        in: query
+        name: scope
+        type: string
+        x-go-name: Scope
+      - description: 指定项目归属域名称或ID
+        in: query
+        name: project_domain_id
+        type: string
+        x-go-name: ProjectDomainId
+      - description: 对具有域属性的资源，严格匹配域ID
+        in: query
+        items:
+          type: string
+        name: project_domain_ids
+        type: array
+        x-go-name: ProjectDomainIds
+      - description: 按domain名称排序，可能值为asc|desc
+        in: query
+        name: order_by_domain
+        pattern: asc|desc
+        type: string
+        x-go-name: OrderByDomain
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: domain_tags
+        x-go-name: DomainTags
+      - $ref: '#/definitions/TTagSetList'
+        description: filter by domain tags
+        in: query
+        name: no_domain_tags
+        x-go-name: NoDomainTags
+      - description: 以资源是否共享过滤列表
+        in: query
+        name: is_public
+        type: boolean
+        x-go-name: IsPublic
+      - description: 根据资源的共享范围过滤列表，可能值为：system, domain, project
+        in: query
+        name: public_scope
+        type: string
+        x-go-name: PublicScope
+      - description: 策略类别
+        in: query
+        items:
+          type: string
+        name: category
+        type: array
+        x-go-name: Category
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_ListItemFilterOutput'
+      summary: 范围策略列表
+      tags:
+      - scopedpolicy
+    post:
+      description: 新建
+      operationId: scopedpolicy_ValidateCreateData
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            count:
+              default: 1
+              format: int64
+              type: integer
+              x-go-name: Count
+            scopedpolicy:
+              $ref: '#/definitions/ScopedPolicyCreateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_ValidateCreateDataOutput'
+      summary: 新建
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}:
+    delete:
+      description: 删除
+      operationId: scopedpolicy_CustomizeDelete
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_CustomizeDeleteOutput'
+      summary: 删除
+      tags:
+      - scopedpolicy
+    get:
+      description: 获取详情
+      operationId: scopedpolicy_FetchCustomizeColumns
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_FetchCustomizeColumnsOutput'
+      summary: 获取详情
+      tags:
+      - scopedpolicy
+    put:
+      description: 更新
+      operationId: scopedpolicy_ValidateUpdateData
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              $ref: '#/definitions/ScopedPolicyUpdateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_ValidateUpdateDataOutput'
+      summary: 更新
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/bind:
+    post:
+      description: 执行操作Bind
+      operationId: scopedpolicy_PerformBind
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              $ref: '#/definitions/ScopedPolicyBindInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformBindOutput'
+      summary: 执行操作Bind
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/change-owner:
+    post:
+      description: 执行操作ChangeOwner
+      operationId: scopedpolicy_PerformChangeOwner
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              $ref: '#/definitions/PerformChangeDomainOwnerInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformChangeOwnerOutput'
+      summary: 执行操作ChangeOwner
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/change-owner-candidate-domains:
+    get:
+      description: 获取指定信息ChangeOwnerCandidateDomains
+      operationId: scopedpolicy_GetDetailsChangeOwnerCandidateDomains
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetDetailsChangeOwnerCandidateDomainsOutput'
+      summary: 获取指定信息ChangeOwnerCandidateDomains
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/class-metadata:
+    get:
+      description: 获取指定信息ClassMetadata
+      operationId: scopedpolicy_GetDetailsClassMetadata
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetDetailsClassMetadataOutput'
+      summary: 获取指定信息ClassMetadata
+      tags:
+      - scopedpolicy
+    post:
+      description: 执行操作ClassMetadata
+      operationId: scopedpolicy_PerformClassMetadata
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformClassMetadataOutput'
+      summary: 更新资源的 class 标签
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/metadata:
+    get:
+      description: 获取指定信息Metadata
+      operationId: scopedpolicy_GetDetailsMetadata
+      parameters:
+      - description: |-
+          指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
+          标签分为
+
+           类型     | 说明                                        |
+          ----------|---------------------------------------------|
+           系统标签 | 平台定义的标签                              |
+           用户标签 | key以user:为前缀，用户自定义标签            |
+           外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 按标签前缀过滤
+        in: query
+        name: prefix
+        type: string
+        x-go-name: Prefix
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetDetailsMetadataOutput'
+      summary: 获取资源标签（元数据）
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/private:
+    post:
+      description: 执行操作Private
+      operationId: scopedpolicy_PerformPrivate
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              $ref: '#/definitions/PerformPrivateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformPrivateOutput'
+      summary: 执行操作Private
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/public:
+    post:
+      description: 执行操作Public
+      operationId: scopedpolicy_PerformPublic
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              $ref: '#/definitions/PerformPublicDomainInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformPublicOutput'
+      summary: 执行操作Public
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/set-class-metadata:
+    post:
+      description: 执行操作SetClassMetadata
+      operationId: scopedpolicy_PerformSetClassMetadata
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformSetClassMetadataOutput'
+      summary: 全量替换资源的所有 class 标签
+      tags:
+      - scopedpolicy
+  /scopedpolicies/{id}/set-user-metadata:
+    post:
+      description: 执行操作SetUserMetadata
+      operationId: scopedpolicy_PerformSetUserMetadata
+      parameters:
+      - description: The Id or Name of scopedpolicy
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              additionalProperties:
+                type: string
+              type: object
+              x-go-name: Input
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformSetUserMetadataOutput'
+      summary: 全量替换资源的所有用户标签
+      tags:
+      - scopedpolicy
+  /scopedpolicies/distinct-field:
+    get:
+      description: 获取指定资源类的信息DistinctField
+      operationId: scopedpolicy_GetPropertyDistinctField
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetPropertyDistinctFieldOutput'
+      summary: 获取指定资源类的信息DistinctField
+      tags:
+      - scopedpolicy
+  /scopedpolicies/domain-tag-value-pairs:
+    get:
+      description: 获取指定资源类的信息DomainTagValuePairs
+      operationId: scopedpolicy_GetPropertyDomainTagValuePairs
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetPropertyDomainTagValuePairsOutput'
+      summary: 获取指定资源类的信息DomainTagValuePairs
+      tags:
+      - scopedpolicy
+  /scopedpolicies/domain-tag-value-tree:
+    get:
+      description: 获取指定资源类的信息DomainTagValueTree
+      operationId: scopedpolicy_GetPropertyDomainTagValueTree
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetPropertyDomainTagValueTreeOutput'
+      summary: 获取指定资源类的信息DomainTagValueTree
+      tags:
+      - scopedpolicy
+  /scopedpolicies/purge-splitable:
+    post:
+      description: 执行操作PurgeSplitable
+      operationId: scopedpolicy_PerformPurgeSplitable
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicy:
+              $ref: '#/definitions/PurgeSplitTableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_PerformPurgeSplitableOutput'
+      summary: 执行操作PurgeSplitable
+      tags:
+      - scopedpolicy
+  /scopedpolicies/splitable:
+    get:
+      description: 获取指定资源类的信息Splitable
+      operationId: scopedpolicy_GetPropertySplitable
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetPropertySplitableOutput'
+      summary: 获取指定资源类的信息Splitable
+      tags:
+      - scopedpolicy
+  /scopedpolicies/splitable-export:
+    get:
+      description: 获取指定资源类的信息SplitableExport
+      operationId: scopedpolicy_GetPropertySplitableExport
+      parameters:
+      - in: query
+        name: table
+        type: string
+        x-go-name: Table
+      - format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetPropertySplitableExportOutput'
+      summary: 获取指定资源类的信息SplitableExport
+      tags:
+      - scopedpolicy
+  /scopedpolicies/tag-value-pairs:
+    get:
+      description: 获取指定资源类的信息TagValuePairs
+      operationId: scopedpolicy_GetPropertyTagValuePairs
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetPropertyTagValuePairsOutput'
+      summary: 获取指定资源类的信息TagValuePairs
+      tags:
+      - scopedpolicy
+  /scopedpolicies/tag-value-tree:
+    get:
+      description: 获取指定资源类的信息TagValueTree
+      operationId: scopedpolicy_GetPropertyTagValueTree
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicy_GetPropertyTagValueTreeOutput'
+      summary: 获取指定资源类的信息TagValueTree
+      tags:
+      - scopedpolicy
+  /scopedpolicybindings:
+    get:
+      description: 列表
+      operationId: scopedpolicybinding_ListItemFilter
+      parameters:
+      - default: 20
+        description: 查询限制量
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: 查询偏移量
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+        example: desc|asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: 模糊搜索所有字段
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: |-
+          指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+          支持的操作符如下：
+
+           操作符        | 参数个数 | 举例                                           | 说明                        |
+          ---------------|----------|------------------------------------------------|-----------------------------|
+           in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+           notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+           between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+           ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+           gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+           le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+           lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+           like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+           contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+           startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+           endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+           equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+           notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+           isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+           isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+           isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+           isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+           isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+        in: query
+        items:
+          type: string
+        name: filter
+        type: array
+        x-go-name: Filter
+      - description: |-
+          指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+          和其他表关联的语法如下：
+          joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+          其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+          关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+          举例：
+          guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+        in: query
+        items:
+          type: string
+        name: joint_filter
+        type: array
+        x-go-name: JointFilter
+      - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+        in: query
+        name: filter_any
+        type: boolean
+        x-go-name: FilterAny
+      - description: 返回结果只包含指定的字段
+        in: query
+        items:
+          type: string
+        name: field
+        type: array
+        x-go-name: Field
+      - description: 用于数据导出，指定导出的数据字段
+        in: query
+        name: export_keys
+        type: string
+        x-go-name: ExportKeys
+      - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+        in: query
+        name: show_fail_reason
+        type: boolean
+        x-go-name: ShowFailReason
+      - in: query
+        items:
+          type: string
+        name: name
+        type: array
+        x-go-name: Name
+      - in: query
+        name: policy_id
+        type: string
+        x-go-name: PolicyId
+      - in: query
+        name: domain_id
+        type: string
+        x-go-name: DomainId
+      - in: query
+        name: project_id
+        type: string
+        x-go-name: ProjectId
+      - in: query
+        items:
+          type: string
+        name: category
+        type: array
+        x-go-name: Category
+      - in: query
+        name: effective
+        type: boolean
+        x-go-name: Effective
+      - in: query
+        name: scope
+        type: string
+        x-go-name: Scope
+      - in: query
+        name: order_by_scopedpolicy
+        type: string
+        x-go-name: OrderByScopedpolicy
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_ListItemFilterOutput'
+      summary: 范围策略列表
+      tags:
+      - scopedpolicybinding
+    post:
+      description: 新建
+      operationId: scopedpolicybinding_ValidateCreateData
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            count:
+              default: 1
+              format: int64
+              type: integer
+              x-go-name: Count
+            scopedpolicybinding:
+              $ref: '#/definitions/ResourceBaseCreateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_ValidateCreateDataOutput'
+      summary: 新建
+      tags:
+      - scopedpolicybinding
+  /scopedpolicybindings/{id}:
+    delete:
+      description: 删除
+      operationId: scopedpolicybinding_CustomizeDelete
+      parameters:
+      - description: The Id or Name of scopedpolicybinding
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_CustomizeDeleteOutput'
+      summary: 删除
+      tags:
+      - scopedpolicybinding
+    get:
+      description: 获取详情
+      operationId: scopedpolicybinding_FetchCustomizeColumns
+      parameters:
+      - description: The Id or Name of scopedpolicybinding
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_FetchCustomizeColumnsOutput'
+      summary: 获取详情
+      tags:
+      - scopedpolicybinding
+    put:
+      description: 更新
+      operationId: scopedpolicybinding_ValidateUpdateData
+      parameters:
+      - description: The Id or Name of scopedpolicybinding
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicybinding:
+              $ref: '#/definitions/ResourceBaseUpdateInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_ValidateUpdateDataOutput'
+      summary: 更新
+      tags:
+      - scopedpolicybinding
+  /scopedpolicybindings/distinct-field:
+    get:
+      description: 获取指定资源类的信息DistinctField
+      operationId: scopedpolicybinding_GetPropertyDistinctField
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_GetPropertyDistinctFieldOutput'
+      summary: 获取指定资源类的信息DistinctField
+      tags:
+      - scopedpolicybinding
+  /scopedpolicybindings/purge-splitable:
+    post:
+      description: 执行操作PurgeSplitable
+      operationId: scopedpolicybinding_PerformPurgeSplitable
+      parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            scopedpolicybinding:
+              $ref: '#/definitions/PurgeSplitTableInput'
+          type: object
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_PerformPurgeSplitableOutput'
+      summary: 执行操作PurgeSplitable
+      tags:
+      - scopedpolicybinding
+  /scopedpolicybindings/splitable:
+    get:
+      description: 获取指定资源类的信息Splitable
+      operationId: scopedpolicybinding_GetPropertySplitable
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_GetPropertySplitableOutput'
+      summary: 获取指定资源类的信息Splitable
+      tags:
+      - scopedpolicybinding
+  /scopedpolicybindings/splitable-export:
+    get:
+      description: 获取指定资源类的信息SplitableExport
+      operationId: scopedpolicybinding_GetPropertySplitableExport
+      parameters:
+      - in: query
+        name: table
+        type: string
+        x-go-name: Table
+      - format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/scopedpolicybinding_GetPropertySplitableExportOutput'
+      summary: 获取指定资源类的信息SplitableExport
+      tags:
+      - scopedpolicybinding
+produces:
+- application/json
+responses:
+  parameter_CustomizeDeleteOutput:
+    schema:
+      properties:
+        parameter:
+          $ref: '#/definitions/ResourceBaseDetails'
+      type: object
+  parameter_FetchCustomizeColumnsOutput:
+    schema:
+      properties:
+        parameter:
+          $ref: '#/definitions/ResourceBaseDetails'
+      type: object
+  parameter_GetPropertyDistinctFieldOutput: {}
+  parameter_GetPropertySplitableExportOutput: {}
+  parameter_GetPropertySplitableOutput: {}
+  parameter_ListItemFilterOutput:
+    schema:
+      properties:
+        limit:
+          format: int64
+          type: integer
+          x-go-name: Limit
+        offset:
+          format: int64
+          type: integer
+          x-go-name: Offset
+        parameters:
+          items:
+            $ref: '#/definitions/ResourceBaseDetails'
+          type: array
+          x-go-name: Output
+        total:
+          format: int64
+          type: integer
+          x-go-name: Total
+      type: object
+  parameter_PerformPurgeSplitableOutput: {}
+  parameter_ValidateCreateDataOutput:
+    schema:
+      properties:
+        parameter:
+          $ref: '#/definitions/ResourceBaseDetails'
+      type: object
+  parameter_ValidateUpdateDataOutput:
+    schema:
+      properties:
+        parameter:
+          $ref: '#/definitions/ResourceBaseDetails'
+      type: object
+  scopedpolicy_CustomizeDeleteOutput:
+    schema:
+      properties:
+        scopedpolicy:
+          $ref: '#/definitions/ScopedPolicyDetails'
+      type: object
+  scopedpolicy_FetchCustomizeColumnsOutput:
+    schema:
+      properties:
+        scopedpolicy:
+          $ref: '#/definitions/ScopedPolicyDetails'
+      type: object
+  scopedpolicy_GetDetailsChangeOwnerCandidateDomainsOutput:
+    schema:
+      properties:
+        scopedpolicy:
+          $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
+      type: object
+  scopedpolicy_GetDetailsClassMetadataOutput:
+    schema:
+      properties:
+        scopedpolicy:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  scopedpolicy_GetDetailsMetadataOutput:
+    schema:
+      properties:
+        scopedpolicy:
+          additionalProperties:
+            type: string
+          type: object
+          x-go-name: Output
+      type: object
+  scopedpolicy_GetPropertyDistinctFieldOutput: {}
+  scopedpolicy_GetPropertyDomainTagValuePairsOutput: {}
+  scopedpolicy_GetPropertyDomainTagValueTreeOutput: {}
+  scopedpolicy_GetPropertySplitableExportOutput: {}
+  scopedpolicy_GetPropertySplitableOutput: {}
+  scopedpolicy_GetPropertyTagValuePairsOutput: {}
+  scopedpolicy_GetPropertyTagValueTreeOutput: {}
+  scopedpolicy_ListItemFilterOutput:
+    schema:
+      properties:
+        limit:
+          format: int64
+          type: integer
+          x-go-name: Limit
+        offset:
+          format: int64
+          type: integer
+          x-go-name: Offset
+        scopedpolicies:
+          items:
+            $ref: '#/definitions/ScopedPolicyDetails'
+          type: array
+          x-go-name: Output
+        total:
+          format: int64
+          type: integer
+          x-go-name: Total
+      type: object
+  scopedpolicy_PerformBindOutput: {}
+  scopedpolicy_PerformChangeOwnerOutput: {}
+  scopedpolicy_PerformClassMetadataOutput: {}
+  scopedpolicy_PerformPrivateOutput: {}
+  scopedpolicy_PerformPublicOutput: {}
+  scopedpolicy_PerformPurgeSplitableOutput: {}
+  scopedpolicy_PerformSetClassMetadataOutput: {}
+  scopedpolicy_PerformSetUserMetadataOutput: {}
+  scopedpolicy_ValidateCreateDataOutput:
+    schema:
+      properties:
+        scopedpolicy:
+          $ref: '#/definitions/ScopedPolicyDetails'
+      type: object
+  scopedpolicy_ValidateUpdateDataOutput:
+    schema:
+      properties:
+        scopedpolicy:
+          $ref: '#/definitions/ScopedPolicyDetails'
+      type: object
+  scopedpolicybinding_CustomizeDeleteOutput:
+    schema:
+      properties:
+        scopedpolicybinding:
+          $ref: '#/definitions/ScopedPolicyBindingDetails'
+      type: object
+  scopedpolicybinding_FetchCustomizeColumnsOutput:
+    schema:
+      properties:
+        scopedpolicybinding:
+          $ref: '#/definitions/ScopedPolicyBindingDetails'
+      type: object
+  scopedpolicybinding_GetPropertyDistinctFieldOutput: {}
+  scopedpolicybinding_GetPropertySplitableExportOutput: {}
+  scopedpolicybinding_GetPropertySplitableOutput: {}
+  scopedpolicybinding_ListItemFilterOutput:
+    schema:
+      properties:
+        limit:
+          format: int64
+          type: integer
+          x-go-name: Limit
+        offset:
+          format: int64
+          type: integer
+          x-go-name: Offset
+        scopedpolicybindings:
+          items:
+            $ref: '#/definitions/ScopedPolicyBindingDetails'
+          type: array
+          x-go-name: Output
+        total:
+          format: int64
+          type: integer
+          x-go-name: Total
+      type: object
+  scopedpolicybinding_PerformPurgeSplitableOutput: {}
+  scopedpolicybinding_ValidateCreateDataOutput:
+    schema:
+      properties:
+        scopedpolicybinding:
+          $ref: '#/definitions/ScopedPolicyBindingDetails'
+      type: object
+  scopedpolicybinding_ValidateUpdateDataOutput:
+    schema:
+      properties:
+        scopedpolicybinding:
+          $ref: '#/definitions/ScopedPolicyBindingDetails'
+      type: object
+schemes:
+- https
+- http
+securityDefinitions:
+  keystone:
+    in: header
+    name: X-Auth-Token
+    type: apiKey
+swagger: "2.0"

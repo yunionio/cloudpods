@@ -1,6 +1,0 @@
-networkinterfaceId:
-  name: networkinterfaceId
-  required: true
-  in: path
-  type: string
-  description: 弹性网卡名称或ID,建议使用ID
