@@ -1,6 +1,0 @@
-idp_id:
-  name: idp_id
-  type: string
-  required: true
-  in: path
-  description: 认证源ID

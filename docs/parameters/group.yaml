@@ -1,6 +1,0 @@
-group_id:
-  name: group_id
-  type: string
-  required: true
-  in: path
-  description: 组ID

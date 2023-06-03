@@ -1,6 +1,0 @@
-policy_id:
-  name: policy_id
-  type: string
-  required: true
-  in: path
-  description: 权限ID或者名称
