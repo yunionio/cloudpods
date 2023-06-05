@@ -177,7 +177,7 @@ func TestOptionsStructToParams(t *testing.T) {
 			},
 			{
 				In:   &s{[]string{"holy"}},
-				Want: `{"string_slice.0": "holy"}`,
+				Want: `{"string_slice": "holy"}`,
 			},
 			{
 				In:   &s{[]string{"holy", "goblet"}},
@@ -201,7 +201,7 @@ func TestOptionsStructToParams(t *testing.T) {
 			},
 			{
 				In:   &s{[]string{"holy"}},
-				Want: `{"string.0": "holy"}`,
+				Want: `{"string": "holy"}`,
 			},
 			{
 				In:   &s{[]string{"holy", "goblet"}},
