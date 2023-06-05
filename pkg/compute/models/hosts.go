@@ -263,14 +263,24 @@ func (manager *SHostManager) ListItemFilter(
 		}
 	}
 	if len(query.AnyIp) > 0 {
-		hn := HostnetworkManager.Query("baremetal_id").Contains("ip_addr", query.AnyIp).SubQuery()
+		hnQ := HostnetworkManager.Query("baremetal_id") //.Contains("ip_addr", query.AnyIp).SubQuery()
+		conditions := []sqlchemy.ICondition{}
+		for _, ip := range query.AnyIp {
+			conditions = append(conditions, sqlchemy.Contains(hnQ.Field("ip_addr"), ip))
+		}
+		hn := hnQ.Filter(
+			sqlchemy.OR(conditions...),
+		)
+		conditions = []sqlchemy.ICondition{}
+		for _, ip := range query.AnyIp {
+			conditions = append(conditions, sqlchemy.Contains(q.Field("access_ip"), ip))
+			conditions = append(conditions, sqlchemy.Contains(q.Field("ipmi_ip"), ip))
+		}
+		conditions = append(conditions, sqlchemy.In(q.Field("id"), hn))
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Contains(q.Field("access_ip"), query.AnyIp),
-			sqlchemy.Contains(q.Field("ipmi_ip"), query.AnyIp),
-			sqlchemy.In(q.Field("id"), hn),
+			conditions...,
 		))
 	}
-	// var scopeQuery *sqlchemy.SSubQuery
 
 	schedTagStr := query.SchedtagId
 	if len(schedTagStr) > 0 {
