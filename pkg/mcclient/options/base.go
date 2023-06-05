@@ -141,10 +141,15 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 			panic(msg)
 		case reflect.Slice, reflect.Array:
 			l := f.Len()
-			for i := 0; i < l; i++ {
-				namei := fmt.Sprintf("%s.%d", name, i)
-				vali := jsonutils.Marshal(f.Index(i).Interface())
-				p.Set(namei, vali)
+			if l == 1 {
+				vali := jsonutils.Marshal(f.Index(0).Interface())
+				p.Set(name, vali)
+			} else {
+				for i := 0; i < l; i++ {
+					namei := fmt.Sprintf("%s.%d", name, i)
+					vali := jsonutils.Marshal(f.Index(i).Interface())
+					p.Set(namei, vali)
+				}
 			}
 		default:
 			msg := fmt.Sprintf("unsupported field type %s: %s", ft.Name, ft.Type)
