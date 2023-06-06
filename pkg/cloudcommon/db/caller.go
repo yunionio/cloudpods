@@ -103,15 +103,19 @@ func findFunc(modelVal reflect.Value, fName string) (reflect.Value, error) {
 	return funcVal, nil
 }
 
+const (
+	MethodNotFoundError = errors.Error("MethodNotFoundError")
+)
+
 func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
 	funcVal := modelVal.MethodByName(fName)
+	if !funcVal.IsValid() || funcVal.IsNil() {
+		return nil, errors.Wrapf(MethodNotFoundError, "%s method not found, please check service version, current version: %s", fName, version.GetShortString())
+	}
 	return callFunc(funcVal, fName, inputs...)
 }
 
 func callFunc(funcVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
-	if !funcVal.IsValid() || funcVal.IsNil() {
-		return nil, httperrors.NewActionNotFoundError("%s method not found, please check service version, current version: %s", fName, version.GetShortString())
-	}
 	funcType := funcVal.Type()
 	paramLen := funcType.NumIn()
 	if paramLen != len(inputs) {
@@ -250,12 +254,20 @@ func ValidateCreateData(funcName string, manager IModelManager, ctx context.Cont
 }
 
 func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	ret, err := call(manager, "ListItemFilter", ctx, q, userCred, query)
+	return _callListQueryFilter(manager, "ListItemFilter", ctx, q, userCred, query)
+}
+
+func ExtendListQuery(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	return _callListQueryFilter(manager, "ExtendListQuery", ctx, q, userCred, query)
+}
+
+func _callListQueryFilter(manager IModelManager, funcName string, ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	ret, err := call(manager, funcName, ctx, q, userCred, query)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(ret) != 2 {
-		return nil, httperrors.NewInternalServerError("Invald ListItemFilter return value count %d", len(ret))
+		return nil, httperrors.NewInternalServerError("Invald %s return value count %d", funcName, len(ret))
 	}
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err

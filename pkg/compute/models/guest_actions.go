@@ -3468,7 +3468,7 @@ func (manager *SGuestManager) getGuests(userCred mcclient.TokenCredential, data 
 	return guests, nil
 }
 
-func (manager *SGuestManager) getUserMetadata(data jsonutils.JSONObject) (map[string]interface{}, error) {
+func (manager *SGuestManager) getUserMetadata(data jsonutils.JSONObject) (map[string]string, error) {
 	if !data.Contains("metadata") {
 		return nil, httperrors.NewMissingParameterError("metadata")
 	}
@@ -3476,7 +3476,7 @@ func (manager *SGuestManager) getUserMetadata(data jsonutils.JSONObject) (map[st
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("input data not key value dict")
 	}
-	dictStore := map[string]interface{}{}
+	dictStore := make(map[string]string)
 	for k, v := range metadata {
 		dictStore[db.USER_TAG_PREFIX+k], _ = v.GetString()
 	}

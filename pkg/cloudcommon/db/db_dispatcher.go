@@ -280,7 +280,7 @@ func listItemQueryFiltersRaw(manager IModelManager,
 		keys := stringutils2.NewSortedStrings(strings.Split(exportKeys, ","))
 		q, err = manager.ListItemExportKeys(ctx, q, userCred, keys)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ListItemExportKeys")
 		}
 	}
 
@@ -290,33 +290,73 @@ func listItemQueryFiltersRaw(manager IModelManager,
 	// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 	q, err = listItemsQueryByColumn(manager, q, userCred, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "listItemsQueryByColumn")
 	}
 
 	searches := jsonutils.GetQueryStringArray(query, "search")
 	if len(searches) > 0 {
 		q, err = applyListItemsSearchFilters(manager, ctx, q, userCred, searches)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "applyListItemsSearchFilters")
 		}
 	}
 	filterAny, _ := query.Bool("filter_any")
 	filters := jsonutils.GetQueryStringArray(query, "filter")
 	if len(filters) > 0 {
 		q, err = ApplyListItemsGeneralFilters(manager, q, userCred, filters, filterAny)
+		if err != nil {
+			return nil, errors.Wrap(err, "ApplyListItemsGeneralFilters")
+		}
 	}
 	jointFilter := jsonutils.GetQueryStringArray(query, "joint_filter")
 	if len(jointFilter) > 0 {
 		q, err = applyListItemsGeneralJointFilters(manager, q, userCred, jointFilter, filterAny)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "applyListItemsGeneralJointFilters")
 		}
 	}
 	q, err = ListItemFilter(manager, ctx, q, userCred, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ListItemFilter")
 	}
+
+	if isShowDetails(query) {
+		managerVal := reflect.ValueOf(manager)
+		fName := "ExtendListQuery"
+		funcVal := managerVal.MethodByName(fName)
+		if !funcVal.IsValid() || funcVal.IsNil() {
+			oldq := q
+			fields, _ := GetDetailFields(manager, userCred)
+			for _, f := range fields {
+				q = q.AppendField(q.Field(f).Label(f))
+			}
+			q, err = ExtendListQuery(manager, ctx, q, userCred, query)
+			if err != nil {
+				if errors.Cause(err) != MethodNotFoundError {
+					return nil, errors.Wrap(err, "ExtendQuery")
+				} else {
+					// else ignore
+					q = oldq
+				}
+			} else {
+				// force query no details
+				query.(*jsonutils.JSONDict).Set("details", jsonutils.JSONFalse)
+			}
+		}
+	}
+
 	return q, nil
+}
+
+func isShowDetails(query jsonutils.JSONObject) bool {
+	showDetails := false
+	showDetailsJson, _ := query.Get("details")
+	if showDetailsJson != nil {
+		showDetails, _ = showDetailsJson.Bool()
+	} else {
+		showDetails = true
+	}
+	return showDetails
 }
 
 func listItemQueryFilters(manager IModelManager,
@@ -353,13 +393,8 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	listF := mergeFields(metaFields, fieldFilter, allowListResult.Result.IsAllow())
 	listExcludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), listF)
 
-	showDetails := false
-	showDetailsJson, _ := query.Get("details")
-	if showDetailsJson != nil {
-		showDetails, _ = showDetailsJson.Bool()
-	} else {
-		showDetails = true
-	}
+	showDetails := isShowDetails(query)
+
 	var items []interface{}
 	extraResults := make([]*jsonutils.JSONDict, 0)
 	rows, err := q.Rows()

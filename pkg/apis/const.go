@@ -57,7 +57,9 @@ const (
 	USER_TAG_PREFIX      = "user:"
 	SYS_CLOUD_TAG_PREFIX = "sys:"
 	// Such tags have inherited and isolated properties
-	CLASS_TAT_PREFIX = "cls:"
+	CLASS_TAG_PREFIX = "cls:"
+
+	ORGANIZATION_TAG_PREFIX = "org:"
 
 	SKU_STATUS_AVAILABLE = "available"
 	SKU_STATUS_SOLDOUT   = "soldout"

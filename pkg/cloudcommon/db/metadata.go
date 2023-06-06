@@ -45,8 +45,10 @@ const (
 	CLOUD_TAG_PREFIX     = dbapi.CLOUD_TAG_PREFIX
 	USER_TAG_PREFIX      = dbapi.USER_TAG_PREFIX
 	SYS_CLOUD_TAG_PREFIX = dbapi.SYS_CLOUD_TAG_PREFIX
-	CLASS_TAG_PREFIX     = dbapi.CLASS_TAT_PREFIX
+	CLASS_TAG_PREFIX     = dbapi.CLASS_TAG_PREFIX
 	SKU_METADAT_KEY      = "md5"
+
+	ORGANIZATION_TAG_PREFIX = dbapi.ORGANIZATION_TAG_PREFIX
 
 	// TAG_DELETE_RANGE_USER  = "user"
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
@@ -541,14 +543,7 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 		}
 
 		newRecord := SMetadata{}
-		newRecord.SetModelManager(manager, &newRecord)
 
-		newRecord.ObjId = objId
-		newRecord.ObjType = objType
-		newRecord.Id = idStr
-		newRecord.Key = key
-
-		// valStr := stringutils.Interface2String(value)
 		valStr := value
 		valStrLower := strings.ToLower(valStr)
 		if valStrLower == "none" || valStrLower == "null" {
@@ -563,6 +558,13 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 			// no changes
 			continue
 		}
+
+		newRecord.SetModelManager(manager, &newRecord)
+
+		newRecord.ObjId = objId
+		newRecord.ObjType = objType
+		newRecord.Id = idStr
+		newRecord.Key = key
 
 		if len(record.Id) == 0 {
 			err = manager.TableSpec().InsertOrUpdate(ctx, &newRecord)
