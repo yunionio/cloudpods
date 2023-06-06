@@ -56,6 +56,7 @@ type SStorageManager struct {
 	LocalStorageImagecacheManager IImageCacheManger
 	// AgentStorageImagecacheManager IImageCacheManger
 
+	LVMStorageImagecacheManagers        map[string]IImageCacheManger
 	RbdStorageImagecacheManagers        map[string]IImageCacheManger
 	SharedFileStorageImagecacheManagers map[string]IImageCacheManger
 }
@@ -131,6 +132,8 @@ func (s *SStorageManager) Remove(storage IStorage) {
 		delete(s.SharedFileStorageImagecacheManagers, storage.GetStoragecacheId())
 	} else if storage.StorageType() == api.STORAGE_RBD {
 		delete(s.RbdStorageImagecacheManagers, storage.GetStoragecacheId())
+	} else if storage.StorageType() == api.STORAGE_LVM {
+		delete(s.LVMStorageImagecacheManagers, storage.GetStoragecacheId())
 	}
 	for index, iS := range s.Storages {
 		if iS.GetId() == storage.GetId() {
@@ -292,6 +295,9 @@ func (s *SStorageManager) GetStoragecacheById(scId string) IImageCacheManger {
 	if sc, ok := s.RbdStorageImagecacheManagers[scId]; ok {
 		return sc
 	}
+	if sc, ok := s.LVMStorageImagecacheManagers[scId]; ok {
+		return sc
+	}
 	return nil
 }
 
@@ -306,6 +312,18 @@ func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheI
 		if rbdStorage := s.GetStoragecacheById(storagecacheId); rbdStorage == nil {
 			s.AddRbdStorageImagecache(imagecachePath, storage, storagecacheId)
 		}
+	}
+}
+
+func (s *SStorageManager) InitLVMStorageImageCache(storagecacheId, vg string) {
+	if len(storagecacheId) == 0 {
+		return
+	}
+	if s.LVMStorageImagecacheManagers == nil {
+		s.LVMStorageImagecacheManagers = map[string]IImageCacheManger{}
+	}
+	if _, ok := s.LVMStorageImagecacheManagers[storagecacheId]; !ok {
+		s.LVMStorageImagecacheManagers[storagecacheId] = NewLVMImageCacheManager(s, vg, storagecacheId)
 	}
 }
 
