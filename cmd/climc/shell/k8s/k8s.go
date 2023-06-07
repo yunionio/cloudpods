@@ -59,6 +59,9 @@ func init() {
 	initRbac()
 
 	initApp()
+
+	// container registry
+	initContainerRegistry()
 }
 
 var (
