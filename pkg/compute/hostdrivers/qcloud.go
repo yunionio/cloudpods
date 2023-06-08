@@ -42,7 +42,7 @@ func (self *SQcloudHostDriver) GetHostType() string {
 }
 
 func (self *SQcloudHostDriver) GetHypervisor() string {
-	return api.HYPERVISOR_OPENSTACK
+	return api.HYPERVISOR_QCLOUD
 }
 
 func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
