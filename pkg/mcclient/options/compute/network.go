@@ -46,6 +46,7 @@ type NetworkListOptions struct {
 
 	GuestIpStart []string `help:"search by guest_ip_start"`
 	GuestIpEnd   []string `help:"search by guest_ip_end"`
+	IpMatch      []string `help:"search by network ips"`
 
 	BgpType      []string `help:"filter by bgp_type"`
 	HostType     string   `help:"filter by host_type"`

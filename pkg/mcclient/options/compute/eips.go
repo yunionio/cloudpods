@@ -28,6 +28,7 @@ type ElasticipListOptions struct {
 	UsableEipForAssociateId   string `help:"With associate type filter which eip can associate"`
 	OrderByIp                 string
 
+	IpAddr []string
 	options.BaseListOptions
 }
 

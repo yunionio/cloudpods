@@ -49,7 +49,7 @@ type ServerListOptions struct {
 	WithEip            *bool    `help:"Show Servers with EIP"`
 	WithoutEip         *bool    `help:"Show Servers without EIP"`
 	OsType             string   `help:"OS Type" choices:"linux|windows|vmware"`
-	Vpc                string   `help:"Vpc id or name"`
+	Vpc                []string `help:"Vpc id or name"`
 	UsableServerForEip string   `help:"Eip id or name"`
 	WithoutUserMeta    *bool    `help:"Show Servers without user metadata"`
 	EipAssociable      *bool    `help:"Show Servers can associate with eip"`
