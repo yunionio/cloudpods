@@ -240,6 +240,9 @@ type BaseListOptions struct {
 	DomainTags    []string `help:"filter by domain project tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
 	NoDomainTags  []string `help:"filter by no these domain tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
 
+	ProjectOrganizations []string `help:"filter by projects of specified organizations"`
+	DomainOrganizations  []string `help:"filter by domains of specified organizations"`
+
 	Manager      string   `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string   `help:"List objects belonging to the cloud account" json:"account,omitempty"`
 	Provider     []string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Apsara|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack|Google|Ctyun|Cloudpods|Nutanix|BingoCloud|IncloudSphere|JDcloud|Proxmox|Ceph|Ecloud|HCSO|HCS|HCSOP|H3C|S3|RemoteFile" json:"provider,omitempty"`
@@ -256,6 +259,9 @@ type BaseListOptions struct {
 	OrderByTag string `help:"Order results by tag values, composed by a tag key and order, e.g user:部门:ASC"`
 
 	Delete string `help:"show deleted records"`
+
+	Id []string `help:"filter by id"`
+	// Name []string `help:"fitler by name"`
 }
 
 func (opts *BaseListOptions) addTag(keyPrefix, tagstr string, idx int, params *jsonutils.JSONDict) error {
@@ -378,6 +384,9 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 		}
 		noProjTagIdx++
 	}
+	for i, orgId := range opts.ProjectOrganizations {
+		params.Add(jsonutils.NewString(orgId), fmt.Sprintf("project_organizations.%d", i))
+	}
 	domainTagIdx := 0
 	for _, tag := range opts.DomainTags {
 		err := opts.addTagInternal("", "domain_tags", tag, domainTagIdx, params)
@@ -393,6 +402,9 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 			return nil, errors.Wrap(err, "NoDomainTags")
 		}
 		noDomainTagIdx++
+	}
+	for i, orgId := range opts.DomainOrganizations {
+		params.Add(jsonutils.NewString(orgId), fmt.Sprintf("domain_organizations.%d", i))
 	}
 	return params, nil
 }

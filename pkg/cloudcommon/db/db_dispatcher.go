@@ -324,7 +324,7 @@ func listItemQueryFiltersRaw(manager IModelManager,
 		managerVal := reflect.ValueOf(manager)
 		fName := "ExtendListQuery"
 		funcVal := managerVal.MethodByName(fName)
-		if !funcVal.IsValid() || funcVal.IsNil() {
+		if funcVal.IsValid() && !funcVal.IsNil() {
 			oldq := q
 			fields, _ := GetDetailFields(manager, userCred)
 			for _, f := range fields {

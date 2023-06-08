@@ -20,46 +20,38 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type OrganizationBindTask struct {
+type OrganizationSyncTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(OrganizationBindTask{})
+	taskman.RegisterTask(OrganizationSyncTask{})
 }
 
-func (task *OrganizationBindTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	orgNode := obj.(*models.SOrganizationNode)
+func (task *OrganizationSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	org := obj.(*models.SOrganization)
 
-	input := api.OrganizationNodePerformBindInput{}
-	err := task.Params.Unmarshal(&input, "input")
+	resourceType, _ := task.Params.GetString("resource_type")
+
+	log.Debugf("start sync tags to org %s %s resourceType: %s", org.Name, org.Keys, resourceType)
+
+	err := org.SyncTags(ctx, task.UserCred, resourceType)
 	if err != nil {
-		log.Errorf("Unmarshal input %s fail %s", task.Params, err)
-		task.SetStageFailed(ctx, jsonutils.Marshal(err))
-		return
-	}
-
-	log.Debugf("start bind objs to organization %s label %s", orgNode.OrgId, orgNode.FullLabel)
-
-	err = orgNode.BindTargetIds(ctx, task.UserCred, input)
-	if err != nil {
-		log.Errorf("BindTargetIds fail %s", err)
+		log.Errorf("SyncTags fail %s", err)
 		task.SetStageFailed(ctx, jsonutils.Marshal(err))
 		return
 	}
 
 	notes := jsonutils.NewDict()
-	notes.Set("input", jsonutils.Marshal(input))
-	notes.Set("organization", orgNode.GetShortDesc(ctx))
-	logclient.AddActionLogWithStartable(task, orgNode, logclient.ACT_BIND, notes, task.UserCred, true)
-	db.OpsLog.LogEvent(orgNode, db.ACT_BIND, notes, task.UserCred)
+	notes.Set("organization", org.GetShortDesc(ctx))
+	logclient.AddActionLogWithStartable(task, org, logclient.ACT_BIND_DISK, notes, task.UserCred, true)
+	db.OpsLog.LogEvent(org, db.ACT_BIND, notes, task.UserCred)
 
 	task.SetStageComplete(ctx, notes)
 }

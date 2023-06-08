@@ -952,6 +952,29 @@ func GetPropertyTagValueTree(
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
 
+	valueMap, err := GetTagValueCountMap(manager, tagObjType, tagIdField, input.Keys, ctx, userCred, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "AllStringAmp")
+	}
+
+	if input.ShowMap != nil && *input.ShowMap {
+		return jsonutils.Marshal(valueMap), nil
+	}
+
+	tree := constructTree(valueMap, input.Keys)
+	return jsonutils.Marshal(tree), nil
+}
+
+func GetTagValueCountMap(
+	manager IModelManager,
+	tagObjType string,
+	tagIdField string,
+	keys []string,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) ([]map[string]string, error) {
+	var err error
 	objSubQ := manager.Query().SubQuery()
 	objQ := objSubQ.Query(objSubQ.Field(tagIdField), sqlchemy.COUNT("_sub_count_"))
 	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
@@ -960,10 +983,10 @@ func GetPropertyTagValueTree(
 	}
 	objQ = objQ.GroupBy(objSubQ.Field(tagIdField))
 	q := objQ.SubQuery().Query(sqlchemy.SUM(tagValueCountKey, objQ.Field("_sub_count_")))
-	metadataSQ := Metadata.Query().Equals("obj_type", tagObjType).In("key", input.Keys).SubQuery()
+	metadataSQ := Metadata.Query().Equals("obj_type", tagObjType).In("key", keys).SubQuery()
 	groupBy := make([]interface{}, 0)
-	for i, key := range input.Keys {
-		valueFieldName := tagValueKey(i)
+	for i, key := range keys {
+		valueFieldName := TagValueKey(i)
 		subq := metadataSQ.Query().Equals("key", key).SubQuery()
 		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field(tagIdField), subq.Field("obj_id")))
 		q = q.AppendField(
@@ -979,11 +1002,5 @@ func GetPropertyTagValueTree(
 	if err != nil {
 		return nil, errors.Wrap(err, "AllStringAmp")
 	}
-
-	if input.ShowMap != nil && *input.ShowMap {
-		return jsonutils.Marshal(valueMap), nil
-	}
-
-	tree := constructTree(valueMap, input.Keys)
-	return jsonutils.Marshal(tree), nil
+	return valueMap, nil
 }

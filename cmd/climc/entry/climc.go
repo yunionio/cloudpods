@@ -97,11 +97,13 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 	}
 
 	promptRootCmd := promputils.InitRootCmd(prog, desc, parse.GetOptArgs(), parse.GetPosArgs())
+	var errs []error
 	for _, v := range shell.CommandTable {
 		_par, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 
 		if e != nil {
-			return nil, e
+			errs = append(errs, e)
+			continue
 		}
 		promputils.AppendCommand(promptRootCmd, v.Command, v.Desc)
 		cmd := v.Command
@@ -118,6 +120,9 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 			text = strings.TrimRight(text, "]>")
 			promputils.AppendPos(cmd, text, v.HelpString(""), v)
 		}
+	}
+	if len(errs) > 0 {
+		return nil, errors.NewAggregate(errs)
 	}
 	return parse, nil
 }

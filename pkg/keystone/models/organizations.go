@@ -17,25 +17,31 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SOrganizationManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SInfrasResourceBaseManager
 
 	cache *db.SCacheManager[SOrganization]
 }
@@ -44,7 +50,7 @@ var OrganizationManager *SOrganizationManager
 
 func init() {
 	OrganizationManager = &SOrganizationManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SInfrasResourceBaseManager: db.NewInfrasResourceBaseManager(
 			SOrganization{},
 			"organizations_tbl",
 			"organization",
@@ -56,19 +62,13 @@ func init() {
 }
 
 type SOrganization struct {
-	db.SStandaloneResourceBase
-
-	ParentId string `width:"128" charset:"ascii" list:"user" create:"admin_required"`
-
-	Parent string `ignore:"true"`
-
-	RootId string `width:"128" charset:"ascii" list:"user" create:"admin_required"`
-
-	Root string `ignore:"true"`
+	db.SInfrasResourceBase
 
 	Type api.TOrgType `width:"32" charset:"ascii" list:"user" create:"admin_required"`
 
-	Keys []string `width:"256" charset:"utf8" list:"user" create:"admin_optional"`
+	Keys string `width:"256" charset:"utf8" list:"user" create:"admin_optional"`
+
+	Level int `list:"user" create:"admin_required"`
 }
 
 func (manager *SOrganizationManager) fetchOrganizationById(orgId string) (*SOrganization, error) {
@@ -88,7 +88,7 @@ func (manager *SOrganizationManager) fetchOrganizationById(orgId string) (*SOrga
 	return org, nil
 }
 
-// 项目列表
+// 组织列表
 func (manager *SOrganizationManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -97,33 +97,17 @@ func (manager *SOrganizationManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.InfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.ListItemFilter")
 	}
 
 	if len(query.Type) > 0 {
 		q = q.In("type", query.Type)
 	}
 
-	if len(query.RootId) > 0 {
-		orgObj, err := manager.FetchByIdOrName(userCred, query.RootId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), query.RootId)
-			} else {
-				return nil, errors.Wrap(err, "FetchByIdOrName")
-			}
-		}
-		query.RootId = orgObj.GetId()
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("id"), query.RootId),
-			sqlchemy.Equals(q.Field("root_id"), query.RootId),
-		))
-	}
-
-	if query.RootOnly != nil && *query.RootOnly {
-		q = q.Equals("parent_id", api.OrganizationRootParent)
+	if len(query.Key) > 0 {
+		q = q.Contains("keys", query.Key)
 	}
 
 	return q, nil
@@ -135,18 +119,6 @@ func (manager *SOrganizationManager) ExtendListQuery(
 	userCred mcclient.TokenCredential,
 	query api.OrganizationListInput,
 ) (*sqlchemy.SQuery, error) {
-	{
-		// parent
-		subqParent := manager.Query("id", "name").SubQuery()
-		q = q.LeftJoin(subqParent, sqlchemy.Equals(q.Field("parent_id"), subqParent.Field("id")))
-		q = q.AppendField(subqParent.Field("name").Label("parent"))
-	}
-	{
-		// root
-		subqRoot := manager.Query("id", "name").SubQuery()
-		q = q.LeftJoin(subqRoot, sqlchemy.Equals(q.Field("root_id"), subqRoot.Field("id")))
-		q = q.AppendField(subqRoot.Field("name").Label("root"))
-	}
 	return q, nil
 }
 
@@ -158,9 +130,9 @@ func (manager *SOrganizationManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.InfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil
@@ -169,12 +141,18 @@ func (manager *SOrganizationManager) OrderByExtraFields(
 func (manager *SOrganizationManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
 
 	return q, httperrors.ErrNotFound
+}
+
+type SOrganizationDetails struct {
+	apis.InfrasResourceBaseDetails
+
+	SOrganization
 }
 
 func (manager *SOrganizationManager) FetchCustomizeColumns(
@@ -184,11 +162,14 @@ func (manager *SOrganizationManager) FetchCustomizeColumns(
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []SOrganization {
-	rows := make([]SOrganization, len(objs))
+) []SOrganizationDetails {
+	rows := make([]SOrganizationDetails, len(objs))
+	infRows := manager.SInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
-		org := objs[i].(*SOrganization)
-		rows[i] = *org
+		// org := objs[i].(*SOrganization)
+		rows[i] = SOrganizationDetails{
+			InfrasResourceBaseDetails: infRows[i],
+		}
 	}
 	return rows
 }
@@ -204,46 +185,50 @@ func (manager *SOrganizationManager) FetchOrgnaizations(filter func(q *sqlchemy.
 	return ret, nil
 }
 
-func (org *SOrganization) GetOrgChildCount() (int, error) {
-	q := OrganizationManager.Query().Equals("root_id", org.Id)
-	cnt, err := q.CountWithError()
-	if err != nil {
-		return 0, errors.Wrap(err, "CountWithError")
-	}
-	return cnt, nil
+func (org *SOrganization) getNodesQuery() *sqlchemy.SQuery {
+	return OrganizationNodeManager.Query().Equals("org_id", org.Id)
 }
 
-func (org *SOrganization) GetDirectChildCount() (int, error) {
-	q := OrganizationManager.Query().Equals("parent_id", org.Id)
-	cnt, err := q.CountWithError()
-	if err != nil {
-		return 0, errors.Wrap(err, "CountWithError")
-	}
-	return cnt, nil
+func (org *SOrganization) getNodesCount() (int, error) {
+	q := org.getNodesQuery()
+	return q.CountWithError()
 }
 
-func (org *SOrganization) IsRoot() bool {
-	return org.ParentId == api.OrganizationRootParent
+func (org *SOrganization) getNodes() ([]SOrganizationNode, error) {
+	q := org.getNodesQuery()
+	q = q.Asc("level")
+	q = q.Asc("weight")
+	q = q.Asc("full_label")
+	nodes := make([]SOrganizationNode, 0)
+	err := db.FetchModelObjects(OrganizationNodeManager, q, &nodes)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return nodes, nil
+}
+
+func (org *SOrganization) getNode(fullLabel string) (*SOrganizationNode, error) {
+	q := org.getNodesQuery()
+	q = q.Equals("full_label", fullLabel)
+
+	node := &SOrganizationNode{}
+	err := q.First(node)
+	if err != nil {
+		return nil, errors.Wrap(err, "First")
+	}
+	node.SetModelManager(OrganizationNodeManager, node)
+	return node, nil
 }
 
 func (org *SOrganization) ValidateDeleteCondition(ctx context.Context, info *api.ProjectDetails) error {
-	var childCnt int
-	var err error
-	if org.IsRoot() {
-		childCnt, err = org.GetOrgChildCount()
-		if err != nil {
-			return errors.Wrap(err, "GetOrgChildCount")
-		}
-	} else {
-		childCnt, err = org.GetDirectChildCount()
-		if err != nil {
-			return errors.Wrap(err, "GetChildCount")
-		}
+	childCnt, err := org.getNodesCount()
+	if err != nil {
+		return errors.Wrap(err, "getNodesCount")
 	}
 	if childCnt > 0 {
 		return errors.Wrap(httperrors.ErrNotEmpty, "not an empty organization")
 	}
-	return org.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+	return org.SInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (manager *SOrganizationManager) ValidateCreateData(
@@ -255,64 +240,43 @@ func (manager *SOrganizationManager) ValidateCreateData(
 ) (api.OrganizationCreateInput, error) {
 	var err error
 
-	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	input.InfrasResourceBaseCreateInput, err = manager.SInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.InfrasResourceBaseCreateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
+		return input, errors.Wrap(err, "SInfrasResourceBaseManager.ValidateCreateData")
 	}
 
 	if !api.IsValidOrgType(input.Type) {
 		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid organization type %s", input.Type)
 	}
 
-	if len(input.ParentId) > 0 {
-		parentObj, err := manager.FetchByIdOrName(userCred, input.ParentId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return input, httperrors.NewResourceNotFoundError2(manager.Keyword(), input.ParentId)
-			} else {
-				return input, errors.Wrap(err, "FetchByIdOrName")
-			}
-		}
-		parent := parentObj.(*SOrganization)
-		input.Level = parent.Level + 1
-		input.ParentId = parent.Id
-
-		root, err := parent.GetRoot()
-		if err != nil {
-			return input, errors.Wrap(err, "GetRoot")
-		}
-		input.RootId = root.Id
-
-		if root.Info == nil {
-			return input, errors.Wrapf(errors.ErrInvalidStatus, "empty root info")
-		}
-
-		if len(root.Info.Keys) < int(input.Level) {
-			return input, errors.Wrapf(httperrors.ErrTooLarge, "input level more than allowd %d", len(root.Info.Keys))
-		}
-
-		input.Info = &api.SOrganizationInfo{
-			Tags: make(map[string]string),
-		}
-		for k, v := range parent.Info.Tags {
-			input.Info.Tags[k] = v
-		}
-
-		input.Info.Tags[root.Info.Keys[input.Level-1]] = input.Name
-
-	} else {
-		input.ParentId = api.OrganizationRootParent
-		input.RootId = api.OrganizationRootParent
-
-		input.Level = 0
-
-		if input.Info == nil || len(input.Info.Keys) == 0 {
-			return input, errors.Wrap(httperrors.ErrInputParameter, "empy keys")
-		}
-		input.Info.Tags = nil
+	if len(input.Key) == 0 {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "empty key")
 	}
 
+	input.Level = len(input.Key)
+	// keys should be uniq
+	keyMap := make(map[string]struct{})
+	for _, k := range input.Key {
+		if _, ok := keyMap[k]; ok {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "duplicate key %s", k)
+		} else {
+			keyMap[k] = struct{}{}
+		}
+	}
+	input.Keys = api.JoinLabels(input.Key...)
+
 	return input, nil
+}
+
+func (org *SOrganization) CustomizeCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	org.SetShare(rbacscope.ScopeSystem)
+	return org.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (org *SOrganization) PostCreate(
@@ -322,34 +286,8 @@ func (org *SOrganization) PostCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
-	org.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	org.SInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	OrganizationManager.cache.Update(org)
-}
-
-func (org *SOrganization) GetParent() (*SOrganization, error) {
-	if org.ParentId == api.OrganizationRootParent {
-		return nil, nil
-	}
-	parent, err := OrganizationManager.fetchOrganizationById(org.ParentId)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchOrganizationById")
-	}
-	return parent, nil
-}
-
-func (org *SOrganization) GetRoot() (*SOrganization, error) {
-	if org.ParentId == api.OrganizationRootParent {
-		return org, nil
-	}
-	parent, err := org.GetParent()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetParent")
-	}
-	root, err := parent.GetRoot()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetRoot")
-	}
-	return root, nil
 }
 
 func (org *SOrganization) ValidateUpdateData(
@@ -358,12 +296,6 @@ func (org *SOrganization) ValidateUpdateData(
 	query jsonutils.JSONObject,
 	input api.OrganizationUpdateInput,
 ) (api.OrganizationUpdateInput, error) {
-	if !org.IsRoot() {
-		// allow update description only
-		if len(input.Name) > 0 && input.Name != org.Name {
-			return input, errors.Wrap(httperrors.ErrForbidden, "not allow to update name of non-root node")
-		}
-	}
 	return input, nil
 }
 
@@ -373,7 +305,7 @@ func (org *SOrganization) PostUpdate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
-	org.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	org.SInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
 	OrganizationManager.cache.Update(org)
 }
 
@@ -383,54 +315,113 @@ func (org *SOrganization) PerformAddLevel(
 	query jsonutils.JSONObject,
 	input api.OrganizationPerformAddLevelsInput,
 ) (jsonutils.JSONObject, error) {
-	var err error
-	if !org.IsRoot() {
-		org, err = org.GetRoot()
-		if err != nil {
-			return nil, errors.Wrap(err, "GetRoot")
+	keys := api.SplitLabel(org.Keys)
+	for _, nk := range input.Key {
+		if utils.IsInArray(nk, keys) {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "key %s duplicated", nk)
+		} else {
+			keys = append(keys, nk)
 		}
 	}
-	info := *org.Info
-	info.Keys = append(info.Keys, input.Keys...)
-	_, err = db.Update(org, func() error {
-		org.Info = &info
+
+	_, err := db.Update(org, func() error {
+		org.Keys = api.JoinLabels(keys...)
+		org.Level = len(keys)
 		return nil
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "Update")
 	}
+
 	db.OpsLog.LogEvent(org, db.ACT_UPDATE, org.GetShortDesc(ctx), userCred)
 	logclient.AddSimpleActionLog(org, logclient.ACT_UPDATE, org.GetShortDesc(ctx), userCred, true)
 	return nil, nil
 }
 
 func (org *SOrganization) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := org.SStandaloneResourceBase.GetShortDesc(ctx)
-	desc.Set("keys", jsonutils.Marshal(org.Info.Keys))
+	desc := org.SInfrasResourceBase.GetShortDesc(ctx)
+	desc.Set("keys", jsonutils.NewString(org.Keys))
+	desc.Set("level", jsonutils.NewInt(int64(org.Level)))
 	return desc
 }
 
-func (org *SOrganization) PerformBind(
+func (org *SOrganization) GetKeys() []string {
+	return api.SplitLabel(org.Keys)
+}
+
+func (org *SOrganization) PerformAddNode(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input api.OrganizationPerformBindInput,
+	input api.OrganizationPerformAddNodeInput,
 ) (jsonutils.JSONObject, error) {
-	if org.IsRoot() {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot bind to root organization")
+	labels := make([]string, 0)
+
+	for _, k := range org.GetKeys() {
+		if label, ok := input.Tags[k]; !ok {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "missing key %s", k)
+		} else {
+			labels = append(labels, label)
+		}
 	}
-	org.startOrganizationBindTask(ctx, userCred, input)
+
+	for i := 0; i < len(labels); i++ {
+		var weight *int
+		if i == len(labels)-1 {
+			weight = &input.Weight
+		}
+		_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, labels[i], api.JoinLabels(labels[0:i]...), i+1, weight)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to insert node %s", api.JoinLabels(labels[i:i]...))
+		}
+	}
+
 	return nil, nil
 }
 
-func (org *SOrganization) startOrganizationBindTask(
+func (org *SOrganization) PerformSync(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	input api.OrganizationPerformBindInput,
+	query jsonutils.JSONObject,
+	input api.OrganizationPerformSyncInput,
+) (jsonutils.JSONObject, error) {
+	if input.Reset != nil && *input.Reset {
+		err := org.removeAll(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "removeAll")
+		}
+	}
+	err := org.startOrganizationSyncTask(ctx, userCred, input.ResourceType)
+	if err != nil {
+		return nil, errors.Wrap(err, "startOrganizationSyncTask")
+	}
+	return nil, nil
+}
+
+func (org *SOrganization) removeAll(ctx context.Context, userCred mcclient.TokenCredential) error {
+	nodes, err := org.getNodes()
+	if err != nil {
+		return errors.Wrap(err, "getNodes")
+	}
+	for i := range nodes {
+		err := nodes[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "Delete %s", nodes[i].FullLabel)
+		}
+	}
+	return nil
+}
+
+func (org *SOrganization) startOrganizationSyncTask(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	resourceType string,
 ) error {
 	params := jsonutils.NewDict()
-	params.Set("input", jsonutils.Marshal(input))
-	task, err := taskman.TaskManager.NewTask(ctx, "OrganizationBindTask", org, userCred, params, "", "", nil)
+	if len(resourceType) > 0 {
+		params.Add(jsonutils.NewString(resourceType), "resource_type")
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "OrganizationSyncTask", org, userCred, params, "", "", nil)
 	if err != nil {
 		return err
 	}
@@ -438,55 +429,107 @@ func (org *SOrganization) startOrganizationBindTask(
 	return nil
 }
 
-func (org *SOrganization) BindTargetIds(ctx context.Context, userCred mcclient.TokenCredential, input api.OrganizationPerformBindInput) error {
-	var errs []error
-	for _, id := range input.TargetId {
-		err := org.bindTargetId(ctx, userCred, input.ResourceType, id)
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return errors.NewAggregate(errs)
-}
-
-func (org *SOrganization) bindTargetId(ctx context.Context, userCred mcclient.TokenCredential, resType string, idstr string) error {
+func (org *SOrganization) SyncTags(ctx context.Context, userCred mcclient.TokenCredential, resourceType string) error {
 	switch org.Type {
 	case api.OrgTypeProject:
-		return org.bindProject(ctx, userCred, idstr)
+		return org.syncProjectTags(ctx, userCred)
 	case api.OrgTypeDomain:
-		return org.bindDomain(ctx, userCred, idstr)
+		return org.syncDomainTags(ctx, userCred)
 	case api.OrgTypeObject:
-		return org.bindObject(ctx, userCred, resType, idstr)
-	}
-	return errors.Wrapf(errors.ErrNotSupported, "cannot bind to %s %s", resType, idstr)
-}
-
-func (org *SOrganization) bindProject(ctx context.Context, userCred mcclient.TokenCredential, idstr string) error {
-	projObj, err := ProjectManager.FetchById(idstr)
-	if err != nil {
-		return errors.Wrapf(err, "ProjectManager.FetchById %s", idstr)
-	}
-	return projObj.(*SProject).SetOrganizationMetadataAll(ctx, org.Info.Tags, userCred)
-}
-
-func (org *SOrganization) bindDomain(ctx context.Context, userCred mcclient.TokenCredential, idstr string) error {
-	domainObj, err := DomainManager.FetchById(idstr)
-	if err != nil {
-		return errors.Wrapf(err, "DomainManager.FetchById %s", idstr)
-	}
-	return domainObj.(*SDomain).SetOrganizationMetadataAll(ctx, org.Info.Tags, userCred)
-}
-
-func (org *SOrganization) bindObject(ctx context.Context, userCred mcclient.TokenCredential, resType, idstr string) error {
-	s := auth.GetSession(ctx, userCred, consts.GetRegion())
-	module, err := modulebase.GetModule(s, resType)
-	if err != nil {
-		return errors.Wrap(err, "GetModule")
-	}
-	input := jsonutils.Marshal(org.Info.Tags)
-	_, err = module.PerformAction(s, idstr, "set-org-metadata", input)
-	if err != nil {
-		return errors.Wrapf(err, "PerformAction set-org-metadata %s", idstr)
+		return org.syncObjectTags(ctx, userCred, resourceType)
 	}
 	return nil
+}
+
+func (org *SOrganization) syncProjectTags(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return org.syncIModelManagerTags(ctx, userCred, ProjectManager)
+}
+
+func (org *SOrganization) syncIModelManagerTags(ctx context.Context, userCred mcclient.TokenCredential, manager db.IStandaloneModelManager) error {
+	query := jsonutils.NewDict()
+	query.Set("scope", jsonutils.NewString("system"))
+	keys := api.SplitLabel(org.Keys)
+	userKeys := make([]string, len(keys))
+	for i := range keys {
+		userKeys[i] = fmt.Sprintf("%s%s", db.USER_TAG_PREFIX, keys[i])
+	}
+	orgKeys := make([]string, len(keys))
+	for i := range keys {
+		orgKeys[i] = fmt.Sprintf("%s%s", db.ORGANIZATION_TAG_PREFIX, keys[i])
+	}
+	{
+		tagValMaps, err := db.GetTagValueCountMap(manager, manager.Keyword(), "id", userKeys, ctx, userCred, query)
+		if err != nil {
+			return errors.Wrap(err, "GetTagValueCountMap")
+		}
+		for i := range tagValMaps {
+			labels, err := org.syncTagValueMap(ctx, tagValMaps[i])
+			if err != nil {
+				return errors.Wrap(err, "syncTagValueMap")
+			}
+			err = db.CopyTags(ctx, manager.Keyword(), userKeys, labels, orgKeys)
+			if err != nil {
+				return errors.Wrap(err, "copyTags")
+			}
+		}
+	}
+	{
+		tagValMaps, err := db.GetTagValueCountMap(manager, manager.Keyword(), "id", orgKeys, ctx, userCred, query)
+		if err != nil {
+			return errors.Wrap(err, "GetTagValueCountMap")
+		}
+		for i := range tagValMaps {
+			_, err := org.syncTagValueMap(ctx, tagValMaps[i])
+			if err != nil {
+				return errors.Wrap(err, "syncTagValueMap")
+			}
+		}
+	}
+	return nil
+}
+
+func (org *SOrganization) syncDomainTags(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return org.syncIModelManagerTags(ctx, userCred, DomainManager)
+}
+
+func (org *SOrganization) syncObjectTags(ctx context.Context, userCred mcclient.TokenCredential, resourceType string) error {
+	// XXX TODO QJ
+	return errors.Wrap(httperrors.ErrNotImplemented, "not ready yet")
+}
+
+func (org *SOrganization) syncTagValueMap(ctx context.Context, tagVal map[string]string) ([]string, error) {
+	log.Debugf("syncTagValueMap %s", jsonutils.Marshal(tagVal))
+	labels := make([]string, 0)
+	for i := 0; i < org.Level; i++ {
+		key := db.TagValueKey(i)
+		if val, ok := tagVal[key]; ok && val != tagutils.NoValue {
+			labels = append(labels, val)
+			log.Debugf("%d %s %s %s", i, key, val, strings.Join(labels, "/"))
+			_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, val, api.JoinLabels(labels...), i+1, nil)
+			if err != nil {
+				return nil, errors.Wrapf(err, "fail to insert node %s", api.JoinLabels(labels...))
+			}
+		} else {
+			break
+		}
+	}
+	return labels, nil
+}
+
+func (org *SOrganization) GetDetailsNodes(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	nodes, err := org.getNodes()
+	if err != nil {
+		return nil, errors.Wrap(err, "getNodes")
+	}
+	nodeJson := make([]jsonutils.JSONObject, len(nodes))
+	for i := range nodes {
+		nodeJson[i] = jsonutils.Marshal(nodes[i])
+	}
+	results := printutils.ListResult{}
+	results.Data = nodeJson
+	return modulebase.ListResult2JSON(&results), nil
 }

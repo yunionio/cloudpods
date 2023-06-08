@@ -54,9 +54,10 @@ func objectConfirmPolicyTags(ctx context.Context, model IModel, result rbacutils
 	}
 	// now, it is a domain level resource
 	ownerId := model.(IDomainLevelModel).GetOwnerId()
-	domain, err := TenantCacheManager.FetchDomainById(ctx, ownerId.GetProjectDomainId())
+	// domain, err := TenantCacheManager.FetchDomainById(ctx, ownerId.GetProjectDomainId())
+	domain, err := DefaultDomainFetcher(ctx, ownerId.GetProjectDomainId())
 	if err != nil {
-		return errors.Wrap(err, "TenantCacheManager.FetchDomainById")
+		return errors.Wrap(err, "DefaultDomainFetcher")
 	}
 	if !result.DomainTags.Contains(domain.GetTags()) {
 		return httperrors.NewNotSufficientPrivilegeError("domain tags not match (%s,require:%s)", jsonutils.Marshal(domain.GetTags()), result.DomainTags)
@@ -68,9 +69,10 @@ func objectConfirmPolicyTags(ctx context.Context, model IModel, result rbacutils
 	}
 	// now it is a virtual resource/project level resource
 	ownerId = model.(IVirtualModel).GetOwnerId()
-	project, err := TenantCacheManager.FetchTenantById(ctx, ownerId.GetProjectId())
+	// project, err := TenantCacheManager.FetchTenantById(ctx, ownerId.GetProjectId())
+	project, err := DefaultProjectFetcher(ctx, ownerId.GetProjectId(), ownerId.GetProjectDomainId())
 	if err != nil {
-		return errors.Wrap(err, "TenantCacheManager.FetchTenantById")
+		return errors.Wrap(err, "DefaultProjectFetcher")
 	}
 	if !result.ProjectTags.Contains(project.GetTags()) {
 		return httperrors.NewNotSufficientPrivilegeError("project tags not match (%s,require:%s)", jsonutils.Marshal(project.GetTags()), result.ProjectTags)
@@ -90,9 +92,10 @@ func classConfirmPolicyTags(ctx context.Context, manager IModelManager, objectOw
 	}
 	// now the manager is a domain level manager, we should check domain tags
 	if objectOwnerId != nil && objectOwnerId.GetProjectDomainId() != "" {
-		domain, err := TenantCacheManager.FetchDomainById(ctx, objectOwnerId.GetProjectDomainId())
+		// domain, err := TenantCacheManager.FetchDomainById(ctx, objectOwnerId.GetProjectDomainId())
+		domain, err := DefaultDomainFetcher(ctx, objectOwnerId.GetProjectDomainId())
 		if err != nil {
-			return errors.Wrap(err, "TenantCacheManager.FetchDomainById")
+			return errors.Wrap(err, "DefaultDomainFetcher")
 		}
 		if !result.DomainTags.Contains(domain.GetTags()) {
 			return httperrors.NewNotSufficientPrivilegeError("domain tags not match (%s,require:%s)", jsonutils.Marshal(domain.GetTags()), result.DomainTags)
@@ -104,9 +107,10 @@ func classConfirmPolicyTags(ctx context.Context, manager IModelManager, objectOw
 	}
 	// now the manager is project level manager, we should check project tags
 	if objectOwnerId != nil && objectOwnerId.GetProjectId() != "" {
-		project, err := TenantCacheManager.FetchTenantById(ctx, objectOwnerId.GetProjectId())
+		// project, err := TenantCacheManager.FetchTenantById(ctx, objectOwnerId.GetProjectId())
+		project, err := DefaultProjectFetcher(ctx, objectOwnerId.GetProjectId(), objectOwnerId.GetProjectDomainId())
 		if err != nil {
-			return errors.Wrap(err, "TenantCacheManager.FetchTenantById")
+			return errors.Wrap(err, "DefaultProjectFetcher")
 		}
 		if !result.ProjectTags.Contains(project.GetTags()) {
 			return httperrors.NewNotSufficientPrivilegeError("project tags not match (%s,require:%s)", jsonutils.Marshal(project.GetTags()), result.ProjectTags)

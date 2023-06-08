@@ -78,6 +78,9 @@ type ProjectizedResourceListInput struct {
 	// filter by no project tags
 	NoProjectTags tagutils.TTagSetList `json:"no_project_tags"`
 
+	// filter by project organizations
+	ProjectOrganizations []string `json:"project_organizations"`
+
 	// ignore
 	// project tag fitlers imposed by policy
 	PolicyProjectTags tagutils.TTagSetList `json:"policy_project_tags"`

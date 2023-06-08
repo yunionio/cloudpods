@@ -148,6 +148,13 @@ func (manager *SProjectizedResourceBaseManager) ListItemFilter(
 		q = q.In("tenant_id", subq)
 	}
 	tagFilters := tagutils.STagFilters{}
+	if len(query.ProjectOrganizations) > 0 {
+		orgFilters, err := FetchOrganizationTags(ctx, query.ProjectOrganizations, identityapi.OrgTypeProject)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchOrganizationTags")
+		}
+		tagFilters.AddFilters(orgFilters)
+	}
 	if !query.ProjectTags.IsEmpty() {
 		tagFilters.AddFilters(query.ProjectTags)
 	}

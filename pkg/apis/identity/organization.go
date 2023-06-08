@@ -15,12 +15,16 @@
 package identity
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
+	OrganizationLabelSeparator = "/"
+
 	OrganizationRootParent = "<-root-org-node->"
 )
 
@@ -50,29 +54,27 @@ func IsValidOrgType(orgType TOrgType) bool {
 }
 
 type OrganizationListInput struct {
-	apis.StandaloneResourceListInput
+	apis.InfrasResourceBaseListInput
 
 	Type []TOrgType `json:"type"`
 
-	RootId string `json:"root_id"`
-
-	RootOnly *bool `json:"root_only"`
+	Key string `json:"key"`
 }
 
 type OrganizationCreateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.InfrasResourceBaseCreateInput
 
 	Type TOrgType `json:"type"`
 
-	ParentId string `json:"parent_id"`
-
 	// swagger: ignore
-	Level uint8 `json:"level,omitzero"`
+	Level int `json:"level,omitzero"`
 
+	// key
+	Key []string `json:"key"`
+
+	// keys
 	// swagger: ignore
-	RootId string `json:"root_id"`
-
-	Info *SOrganizationInfo `json:"info,omitempty"`
+	Keys string `json:"keys"`
 }
 
 type SOrganizationInfo struct {
@@ -89,15 +91,75 @@ func (info *SOrganizationInfo) String() string {
 }
 
 type OrganizationUpdateInput struct {
-	apis.StandaloneResourceBaseUpdateInput
+	apis.InfrasResourceBaseUpdateInput
 }
 
 type OrganizationPerformAddLevelsInput struct {
-	Keys []string `json:"keys" help:"add keys"`
+	Key []string `json:"key" help:"add keys"`
 }
 
-type OrganizationPerformBindInput struct {
+type OrganizationPerformAddNodeInput struct {
+	Tags   map[string]string
+	Weight int
+}
+
+type OrganizationPerformSyncInput struct {
+	ResourceType string
+
+	Reset *bool
+}
+
+type OrganizationNodePerformBindInput struct {
 	TargetId []string `json:"target_id"`
 
 	ResourceType string `json:"resource_type"`
+}
+
+func IsValidLabel(val string) bool {
+	return !strings.Contains(val, OrganizationLabelSeparator)
+}
+
+func trimLabel(label string) string {
+	return strings.Trim(label, OrganizationLabelSeparator+" ")
+}
+
+func JoinLabels(seg ...string) string {
+	if len(seg) == 0 {
+		return ""
+	}
+	buf := strings.Builder{}
+	buf.WriteString(trimLabel(seg[0]))
+	for _, s := range seg[1:] {
+		buf.WriteString(OrganizationLabelSeparator)
+		buf.WriteString(trimLabel(s))
+	}
+	return buf.String()
+}
+
+func SplitLabel(label string) []string {
+	parts := strings.Split(label, OrganizationLabelSeparator)
+	ret := make([]string, 0)
+	for _, p := range parts {
+		p = trimLabel(p)
+		if len(p) > 0 {
+			ret = append(ret, p)
+		}
+	}
+	return ret
+}
+
+type OrganizationNodeUpdateInput struct {
+	apis.StandaloneResourceBaseUpdateInput
+
+	Weight *int `json:"weight"`
+}
+
+type OrganizationNodeListInput struct {
+	apis.StandaloneResourceListInput
+
+	OrgId string `json:"org_id"`
+
+	OrgType TOrgType `json:"org_type"`
+
+	Level int `json:"level"`
 }
