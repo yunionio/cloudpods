@@ -235,7 +235,7 @@ func (man *SDBInstanceManager) ListItemFilter(
 	}
 
 	if len(query.IpAddr) > 0 {
-		dn := DBInstanceNetworkManager.Query("dbinstance_id").Contains("ip_addr", query.IpAddr)
+		dn := DBInstanceNetworkManager.Query("dbinstance_id").In("ip_addr", query.IpAddr)
 		q = q.Filter(sqlchemy.In(q.Field("id"), dn.SubQuery()))
 	}
 

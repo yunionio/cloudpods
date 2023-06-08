@@ -88,7 +88,7 @@ type ElasticipListInput struct {
 	Mode string `json:"mode"`
 
 	// IP地址
-	IpAddr string `json:"ip_addr"`
+	IpAddr []string `json:"ip_addr"`
 
 	// 绑定资源类型
 	AssociateType string `json:"associate_type"`

@@ -28,7 +28,7 @@ type CloudregionResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Region string `json:"region" yunion-deprecated-by:"cloudregion_id"`
+	Region []string `json:"region" yunion-deprecated-by:"cloudregion_id"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0

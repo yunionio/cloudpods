@@ -154,7 +154,7 @@ type CloudproviderResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Manager string `json:"manager" yunion-deprecated-by:"cloudprovider_id"`
+	Manager []string `json:"manager" yunion-deprecated-by:"cloudprovider_id"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0

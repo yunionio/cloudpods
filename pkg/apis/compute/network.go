@@ -93,11 +93,11 @@ type NetworkListInput struct {
 
 	// description: Exact matching ip address in network.
 	// example: 10.168.222.1
-	Ip string `json:"ip"`
+	Ip []string `json:"ip"`
 
 	// description: Fuzzy matching ip address in network.
 	// example: 10.168.222.1
-	IpMatch string `json:"ip_match"`
+	IpMatch []string `json:"ip_match"`
 
 	IfnameHint []string `json:"ifname_hint"`
 	// 起始IP地址

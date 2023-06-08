@@ -162,15 +162,35 @@ func (manager *SVpcResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.VpcId) > 0 {
-		switch query.VpcId {
-		case api.CLASSIC_VPC_NAME:
-			q = q.Equals("name", api.CLASSIC_VPC_NAME)
-		default:
-			_, err := validators.ValidateModel(userCred, VpcManager, &query.VpcId)
-			if err != nil {
-				return nil, err
+		if len(query.VpcId) == 1 {
+			switch query.VpcId[0] {
+			case api.CLASSIC_VPC_NAME:
+				q = q.Equals("name", api.CLASSIC_VPC_NAME)
+			default:
+				_, err := validators.ValidateModel(userCred, VpcManager, &query.VpcId[0])
+				if err != nil {
+					return nil, err
+				}
+				q = q.Equals("vpc_id", query.VpcId)
 			}
-			q = q.Equals("vpc_id", query.VpcId)
+		} else {
+			conditions := []sqlchemy.ICondition{}
+			for _, vpcId := range query.VpcId {
+				switch vpcId {
+				case api.CLASSIC_VPC_NAME:
+					conditions = append(conditions, sqlchemy.Equals(q.Field("name"), api.CLASSIC_VPC_NAME))
+					// q = q.Equals("name", api.CLASSIC_VPC_NAME)
+				default:
+					_, err := validators.ValidateModel(userCred, VpcManager, &vpcId)
+					if err != nil {
+						return nil, err
+					}
+					conditions = append(conditions, sqlchemy.Equals(q.Field("vpc_id"), vpcId))
+				}
+			}
+			if len(conditions) > 0 {
+				q = q.Filter(sqlchemy.OR(conditions...))
+			}
 		}
 	}
 	subq := VpcManager.Query("id").Snapshot()

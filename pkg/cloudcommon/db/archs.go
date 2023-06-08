@@ -41,24 +41,30 @@ func (manager *SMultiArchResourceBaseManager) ListItemFilter(
 	return ListQueryByArchitecture(q, "os_arch", query.OsArch), nil
 }
 
-func ListQueryByArchitecture(q *sqlchemy.SQuery, fieldKey string, arch string) *sqlchemy.SQuery {
-	if len(arch) == 0 {
+func ListQueryByArchitecture(q *sqlchemy.SQuery, fieldKey string, archs []string) *sqlchemy.SQuery {
+	if len(archs) == 0 {
 		return q
 	}
-	if arch == apis.OS_ARCH_X86 {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Startswith(q.Field(fieldKey), arch),
-			sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_I386),
-			sqlchemy.IsNullOrEmpty(q.Field(fieldKey)),
-		))
-	} else if arch == apis.OS_ARCH_ARM {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Startswith(q.Field(fieldKey), arch),
-			sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH32),
-			sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH64),
-		))
-	} else {
-		q = q.Startswith(fieldKey, arch)
+	conditions := []sqlchemy.ICondition{}
+	for _, arch := range archs {
+		if arch == apis.OS_ARCH_X86 {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field(fieldKey), arch),
+				sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_I386),
+				sqlchemy.IsNullOrEmpty(q.Field(fieldKey)),
+			))
+		} else if arch == apis.OS_ARCH_ARM {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field(fieldKey), arch),
+				sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH32),
+				sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH64),
+			))
+		} else {
+			conditions = append(conditions, sqlchemy.Startswith(q.Field(fieldKey), arch))
+		}
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 	return q
 }
