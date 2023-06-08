@@ -1325,8 +1325,9 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
 	}
 
-	managerStr := query.CloudproviderId
-	if len(managerStr) > 0 {
+	managerStrs := query.CloudproviderId
+	conditions := []sqlchemy.ICondition{}
+	for _, managerStr := range managerStrs {
 		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -1335,7 +1336,10 @@ func (manager *SCloudproviderManager) ListItemFilter(
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		q = q.Equals("id", providerObj.GetId())
+		conditions = append(conditions, sqlchemy.Equals(q.Field("id"), providerObj.GetId()))
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
 	cloudEnvStr := query.CloudEnv

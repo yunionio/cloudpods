@@ -240,7 +240,7 @@ type BaseListOptions struct {
 	DomainTags    []string `help:"filter by domain project tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
 	NoDomainTags  []string `help:"filter by no these domain tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
 
-	Manager      string   `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
+	Manager      []string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string   `help:"List objects belonging to the cloud account" json:"account,omitempty"`
 	Provider     []string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Apsara|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack|Google|Ctyun|Cloudpods|Nutanix|BingoCloud|IncloudSphere|JDcloud|Proxmox|Ceph|Ecloud|HCSO|HCS|HCSOP|H3C|S3|RemoteFile" json:"provider,omitempty"`
 	Brand        []string `help:"List objects belonging to a special brand"`

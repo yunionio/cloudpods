@@ -1700,9 +1700,10 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		q = q.Equals("proxy_setting_id", proxy.GetId())
 	}
 
-	managerStr := query.CloudproviderId
-	if len(managerStr) > 0 {
-		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+	managerStrs := query.CloudproviderId
+	conditions := []sqlchemy.ICondition{}
+	for _, managerStr := range managerStrs {
+		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
@@ -1711,7 +1712,10 @@ func (manager *SCloudaccountManager) ListItemFilter(
 			}
 		}
 		provider := providerObj.(*SCloudprovider)
-		q = q.Equals("id", provider.CloudaccountId)
+		conditions = append(conditions, sqlchemy.Equals(q.Field("id"), provider.CloudaccountId))
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
 	cloudEnvStr := query.CloudEnv

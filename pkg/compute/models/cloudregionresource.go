@@ -52,6 +52,18 @@ func ValidateCloudregionResourceInput(userCred mcclient.TokenCredential, input a
 	return regionObj.(*SCloudregion), input, nil
 }
 
+func ValidateCloudregionId(userCred mcclient.TokenCredential, regionId string) (*SCloudregion, error) {
+	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudregionManager.Keyword(), regionId)
+		} else {
+			return nil, errors.Wrap(err, "CloudregionManager.FetchByIdOrName")
+		}
+	}
+	return regionObj.(*SCloudregion), nil
+}
+
 func (self *SCloudregionResourceBase) GetRegion() (*SCloudregion, error) {
 	region, err := CloudregionManager.FetchById(self.CloudregionId)
 	if err != nil {

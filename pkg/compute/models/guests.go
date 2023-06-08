@@ -244,6 +244,7 @@ func (manager *SGuestManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+
 	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "MultiArchResourceBaseListInput.ListItemFilter")
@@ -519,21 +520,26 @@ func (manager *SGuestManager) ListItemFilter(
 
 	if len(query.ServerType) > 0 {
 		var trueVal, falseVal = true, false
-		switch query.ServerType {
-		case "normal":
-			query.Normal = &falseVal
-			query.Backup = &falseVal
-		case "gpu":
-			query.Gpu = &trueVal
-			query.Backup = &falseVal
-		case "backup":
-			query.Gpu = &falseVal
-			query.Backup = &trueVal
-		case "usb":
-			query.Usb = &trueVal
-			query.Backup = &falseVal
-		default:
-			query.CustomDevType = query.ServerType
+		for _, serverType := range query.ServerType {
+			switch serverType {
+			case "normal":
+				query.Normal = &falseVal
+				query.Backup = &falseVal
+			case "gpu":
+				query.Gpu = &trueVal
+				query.Backup = &falseVal
+			case "backup":
+				query.Gpu = &falseVal
+				query.Backup = &trueVal
+			case "usb":
+				query.Usb = &trueVal
+				query.Backup = &falseVal
+			default:
+				query.CustomDevType = serverType
+				query.Backup = &falseVal
+			}
+		}
+		if query.Backup == nil {
 			query.Backup = &falseVal
 		}
 	}
@@ -545,12 +551,9 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.IsEmpty("backup_host_id")
 		}
 	}
-
-	devTypeQ := func(q *sqlchemy.SQuery, checkType *bool, dType string) *sqlchemy.SQuery {
+	devTypeQ := func(q *sqlchemy.SQuery, checkType *bool, dType string, conditions []sqlchemy.ICondition) []sqlchemy.ICondition {
 		if checkType != nil {
-			conditions := []sqlchemy.ICondition{}
 			isodev := IsolatedDeviceManager.Query().SubQuery()
-
 			isodevCons := []sqlchemy.ICondition{sqlchemy.IsNotNull(isodev.Field("guest_id"))}
 			if len(dType) > 0 {
 				isodevCons = append(isodevCons, sqlchemy.Startswith(isodev.Field("dev_type"), dType))
@@ -565,17 +568,22 @@ func (manager *SGuestManager) ListItemFilter(
 				conditions = append(conditions, cond(q.Field("instance_type"), sq))
 			}
 			conditions = append(conditions, cond(q.Field("id"), sgq))
-			return q.Filter(sqlchemy.OR(conditions...))
+			return conditions
 		}
-		return q
+		return conditions
 	}
 
-	q = devTypeQ(q, query.Normal, "")
-	q = devTypeQ(q, query.Gpu, "GPU")
-	q = devTypeQ(q, query.Usb, api.USB_TYPE)
+	conditions := []sqlchemy.ICondition{}
+
+	conditions = devTypeQ(q, query.Normal, "", conditions)
+	conditions = devTypeQ(q, query.Gpu, "GPU", conditions)
+	conditions = devTypeQ(q, query.Usb, api.USB_TYPE, conditions)
 	if len(query.CustomDevType) > 0 {
 		ct := true
-		q = devTypeQ(q, &ct, query.CustomDevType)
+		conditions = devTypeQ(q, &ct, query.CustomDevType, conditions)
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
 	groupFilter := query.GroupId

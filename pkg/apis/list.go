@@ -352,7 +352,7 @@ type MultiArchResourceBaseListInput struct {
 	// arm会过滤出os_arch=aarch64或os_arch=aarch32或者以arm开头的资源
 	// 其他的输入会过滤出以输入字符开头的资源
 	// enmu: x86, arm
-	OsArch string `json:"os_arch"`
+	OsArch []string `json:"os_arch"`
 }
 
 type AutoDeleteResourceBaseListInput struct {

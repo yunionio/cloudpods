@@ -18,6 +18,23 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+type CloudregionResourceListInput struct {
+	// 区域名称或ID
+	CloudregionId []string `json:"cloudregion_id"`
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	Cloudregion string `json:"cloudregion" yunion-deprecated-by:"cloudregion_id"`
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	Region string `json:"region" yunion-deprecated-by:"cloudregion_id"`
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	RegionId string `json:"region_id" yunion-deprecated-by:"cloudregion_id"`
+}
+
 type CloudregionResourceInput struct {
 	// 区域名称或ID
 	CloudregionId string `json:"cloudregion_id"`
@@ -39,7 +56,7 @@ type RegionalFilterListInput struct {
 	// 过滤位于指定城市区域的资源
 	City string `json:"city"`
 
-	CloudregionResourceInput
+	CloudregionResourceListInput
 
 	// 按区域名称过滤
 	OrderByRegion string `json:"order_by_region"`
