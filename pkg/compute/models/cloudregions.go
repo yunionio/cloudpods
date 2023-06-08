@@ -887,7 +887,7 @@ func (manager *SCloudregionManager) ListItemFilter(
 
 	managerStr := query.CloudproviderId
 	if len(managerStr) > 0 {
-		subq := CloudproviderRegionManager.QueryRelatedRegionIds(nil, managerStr)
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(nil, managerStr...)
 		q = q.In("id", subq)
 	}
 	accountArr := query.CloudaccountId

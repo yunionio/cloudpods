@@ -42,8 +42,8 @@ func init() {
 		}
 		var result *printutils.ListResult
 		var err error
-		if len(args.Manager) > 0 {
-			result, err = modules.CloudproviderregionManager.ListDescendent(s, args.Manager, params)
+		if len(args.Manager) == 1 {
+			result, err = modules.CloudproviderregionManager.ListDescendent(s, args.Manager[0], params)
 		} else if len(args.Region) > 0 {
 			result, err = modules.CloudproviderregionManager.ListDescendent2(s, args.Region, params)
 		} else {
