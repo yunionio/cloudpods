@@ -915,7 +915,7 @@ func (manager *SIsolatedDeviceManager) hostHasDevAddr(hostId, addr string) (bool
 	if err != nil {
 		return false, err
 	}
-	return cnt == 0, nil
+	return cnt != 0, nil
 }
 
 func (manager *SIsolatedDeviceManager) CheckModelIsEmpty(model, vendor, device, devType string) (bool, error) {
