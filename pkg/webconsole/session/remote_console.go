@@ -36,6 +36,7 @@ const (
 	OPENSTACK = api.OPENSTACK
 	SPICE     = api.SPICE
 	WMKS      = api.WMKS
+	WS        = api.WS
 	VMRC      = api.VMRC
 	ZSTACK    = api.ZSTACK
 	CTYUN     = api.CTYUN
@@ -98,24 +99,14 @@ func (info *RemoteConsoleInfo) Connect() error {
 	return nil
 }
 
-// IsNeedShowInfo implements ISessionData interface
-func (info *RemoteConsoleInfo) IsNeedShowInfo() bool {
-	return false
-}
-
-// Reconnect implements ISessionData interface
-func (info *RemoteConsoleInfo) Reconnect() {
-	return
-}
-
 // Scan implements ISessionData interface
 func (info *RemoteConsoleInfo) Scan(byte, func(string)) {
 	return
 }
 
-// ShowInfo implements ISessionData interface
-func (info *RemoteConsoleInfo) ShowInfo() string {
-	return ""
+// IsNeedLogin implements ISessionData interface
+func (info *RemoteConsoleInfo) IsNeedLogin() (bool, error) {
+	return false, nil
 }
 
 func (info *RemoteConsoleInfo) GetClientSession() *mcclient.ClientSession {

@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -123,6 +124,9 @@ func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
 	}
+	if !gotypes.IsNil(body) {
+		body, _ = body.Get("webconsole")
+	}
 	s := auth.Client().NewSession(ctx, o.Options.Region, "", "internal", userCred)
 	return &CloudEnv{
 		ClientSessin: s,
@@ -163,12 +167,16 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	cmd, err := command.NewSSHtoolSolCommand(ctx, env.ClientSessin, env.Params["<ip>"], env.Body)
-	if err != nil {
-		httperrors.GeneralServerError(ctx, w, err)
-		return
-	}
-	handleCommandSession(ctx, cmd, w)
+	ip := env.Params["<ip>"]
+	port, _ := env.Body.Int("port")
+	username, _ := env.Body.GetString("username")
+	password, _ := env.Body.GetString("password")
+	s := session.NewSshSession(ctx, env.ClientSessin, ip, port, username, password)
+	handleSshSession(ctx, s, w)
+}
+
+func handleSshSession(ctx context.Context, session *session.SSshSession, w http.ResponseWriter) {
+	handleDataSession(ctx, session, w, nil, false)
 }
 
 func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -204,9 +212,6 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 		return
 	}
 	query := env.Body
-	if query != nil {
-		query, _ = query.Get("webconsole")
-	}
 	srvId := env.Params["<id>"]
 	info, err := session.NewRemoteConsoleInfoByCloud(env.ClientSessin, srvId, query)
 	if err != nil {
