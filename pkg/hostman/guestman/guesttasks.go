@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
@@ -1002,8 +1003,12 @@ type SGuestLiveMigrateTask struct {
 	timeoutAt        time.Time
 	doTimeoutMigrate bool
 
-	expectDowntime int64
-	dirtySyncCount int64
+	expectDowntime        int64
+	dirtySyncCount        int64
+	diskDriverMirrorIndex int
+
+	onBlockJobsCancelled func()
+	totalTransferMb      int64
 }
 
 func NewGuestLiveMigrateTask(
@@ -1012,6 +1017,13 @@ func NewGuestLiveMigrateTask(
 	task := &SGuestLiveMigrateTask{SKVMGuestInstance: guest, ctx: ctx, params: params}
 	task.expectDowntime = 300 // qemu default downtime 300ms
 	task.MigrateTask = task
+
+	task.totalTransferMb = task.Desc.Mem
+	for i := 0; i < len(task.Desc.Disks); i++ {
+		if utils.IsInStringArray(task.Desc.Disks[i].StorageType, api.STORAGE_LOCAL_TYPES) {
+			task.totalTransferMb += int64(task.Desc.Disks[i].Size)
+		}
+	}
 	return task
 }
 
@@ -1031,7 +1043,25 @@ func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
 
 func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
-		s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
+		s.migrateFailed(fmt.Sprintf("Migrate set capability zero-blocks error: %s", res))
+		return
+	}
+
+	// https://wiki.qemu.org/Features/AutoconvergeLiveMigration
+	s.Monitor.MigrateSetCapability("events", "on", s.onMigrateEnableEvents)
+}
+
+func (s SGuestLiveMigrateTask) onMigrateEnableEvents(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateFailed(fmt.Sprintf("Migrate set capability events error: %s", res))
+		return
+	}
+	s.Monitor.MigrateSetCapability("pause-before-switchover", "on", s.onMigrateSetPauseBeforeSwitchover)
+}
+
+func (s *SGuestLiveMigrateTask) onMigrateSetPauseBeforeSwitchover(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateFailed(fmt.Sprintf("Migrate set capability pause-before-switchover error: %s", res))
 		return
 	}
 
@@ -1040,20 +1070,21 @@ func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 		return
 	}
 
-	cb := func(res string) {
-		if strings.Contains(strings.ToLower(res), "error") {
-			s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
-			return
-		}
-		s.startMigrate()
-	}
 	if s.params.EnableTLS {
-		s.Monitor.MigrateSetCapability("multifd", "off", cb)
+		s.Monitor.MigrateSetCapability("multifd", "off", s.onSetMulitfd)
 		return
 	}
 
 	log.Infof("migrate src guest enable multifd")
-	s.Monitor.MigrateSetCapability("multifd", "on", cb)
+	s.Monitor.MigrateSetCapability("multifd", "on", s.onSetMulitfd)
+}
+
+func (s *SGuestLiveMigrateTask) onSetMulitfd(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateFailed(fmt.Sprintf("Migrate set capability multifd error: %s", res))
+		return
+	}
+	s.startMigrate()
 }
 
 func (s *SGuestLiveMigrateTask) startRamMigrateTimeout() {
@@ -1106,14 +1137,64 @@ func (s *SGuestLiveMigrateTask) startMigrate() {
 	}
 }
 
-func (s *SGuestLiveMigrateTask) doMigrate() {
-	var copyIncremental = false
-	if s.params.IsLocal {
-		// copy disk data
-		copyIncremental = true
+func (s *SGuestLiveMigrateTask) waitMirrorJobsReady() {
+	cb := func(jobs []monitor.BlockJob) {
+		var allReady = true
+		var remaining = s.Desc.Mem * 1024 * 1024
+		var mbps float64
+		for i := 0; i < len(jobs); i++ {
+			if jobs[i].Status != "ready" {
+				allReady = false
+				remaining += (jobs[i].Len - jobs[i].Offset)
+				mbps += float64(jobs[i].Speed) / 1024 / 1024
+			}
+		}
+
+		if !allReady {
+			progress := (1 - float64(remaining)/float64(s.totalTransferMb*1024*1024)) * 100.0
+			hostutils.UpdateServerProgress(context.Background(), s.Id, progress, mbps)
+			time.Sleep(time.Second * 3)
+			s.waitMirrorJobsReady()
+			return
+		}
+		s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
+			false, false, s.setMaxBandwidth)
 	}
-	s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
-		copyIncremental, false, s.setMaxBandwidth)
+	s.Monitor.GetBlockJobs(cb)
+}
+
+func (s *SGuestLiveMigrateTask) mirrorDisks(res string) {
+	if len(res) > 0 {
+		log.Errorf("disk %d driver mirror failed %s", s.diskDriverMirrorIndex, res)
+		s.onDriveMirrorDisksFailed(res)
+		return
+	}
+	if s.diskDriverMirrorIndex == len(s.Desc.Disks) {
+		s.waitMirrorJobsReady()
+		return
+	}
+
+	i := s.diskDriverMirrorIndex
+	s.diskDriverMirrorIndex += 1
+	if utils.IsInStringArray(s.Desc.Disks[i].StorageType, api.STORAGE_LOCAL_TYPES) {
+		var drive = fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index)
+		var target = fmt.Sprintf("nbd:%s:%d:exportname=drive_%d", s.params.DestIp, s.params.NbdServerPort, s.Desc.Disks[i].Index)
+		var speed int64 = 0
+		if s.params.MaxBandwidthMB != nil {
+			speed = *s.params.MaxBandwidthMB * 1024 * 1024
+		}
+		s.Monitor.DriveMirror(s.mirrorDisks, drive, target, "top", s.Desc.Disks[i].Format, true, false, speed)
+	} else {
+		s.mirrorDisks("")
+	}
+}
+
+func (s *SGuestLiveMigrateTask) onDriveMirrorDisksFailed(res string) {
+	s.migrateFailed(fmt.Sprintf("Migrate error: %s", res))
+}
+
+func (s *SGuestLiveMigrateTask) doMigrate() {
+	s.mirrorDisks("")
 }
 
 func (s *SGuestLiveMigrateTask) setMaxBandwidth(res string) {
@@ -1176,28 +1257,21 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 	if status == "completed" {
 		jsonStats := jsonutils.Marshal(stats)
 		log.Infof("migration info %s", jsonStats)
-		s.migrateComplete(jsonStats)
 	} else if status == "failed" || status == "cancelled" {
 		s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", status))
 	} else if status == "active" {
 		var (
-			ramTotal   int64
-			ramRemain  int64
-			mbps       float64
-			diskTotal  int64
-			diskRemain int64
+			ramRemain int64
+			mbps      float64
 		)
 		if stats.RAM != nil {
-			ramTotal = stats.RAM.Total
 			mbps = stats.RAM.Mbps
 			ramRemain = stats.RAM.Remaining
 		}
-		if stats.Disk != nil {
-			diskTotal = stats.Disk.Total
-			diskRemain = stats.Disk.Remaining
+		if ramRemain > 0 {
+			progress := (1 - float64(ramRemain)/float64(s.totalTransferMb*1024*1024)) * 100.0
+			hostutils.UpdateServerProgress(context.Background(), s.Id, progress, mbps)
 		}
-		progress := (1 - float64(diskRemain+ramRemain)/float64(diskTotal+ramTotal)) * 100.0
-		hostutils.UpdateServerProgress(context.Background(), s.Id, progress, mbps)
 
 		if s.params.QuicklyFinish && stats.RAM != nil && stats.RAM.Remaining > 0 {
 			if stats.CPUThrottlePercentage == nil {
@@ -1243,23 +1317,23 @@ func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
 	}
 }
 
-func (s *SGuestLiveMigrateTask) onMigrateReceivedStopEvent() {
-	s.Monitor.GetMigrateStats(func(stats *monitor.MigrationInfo, err error) {
-		if err != nil {
-			log.Errorf("%s get migrate stats failed %s", s.GetName(), err)
-			return
-		}
+func (s *SGuestLiveMigrateTask) migrateContinueFromPreSwitchover() {
+	s.Monitor.MigrateContinue("pre-switchover", s.onMigrateContinue)
+}
 
-		switch *stats.Status {
-		case "completed":
-			s.migrateComplete(jsonutils.Marshal(stats))
-		case "failed", "cancelled":
-			s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", *stats.Status))
-		case "active":
-			time.Sleep(10 * time.Millisecond)
-			s.onMigrateReceivedStopEvent()
-		}
-	})
+func (s *SGuestLiveMigrateTask) onMigrateContinue(res string) {
+	if len(res) > 0 {
+		s.migrateFailed(res)
+	}
+}
+
+func (s *SGuestLiveMigrateTask) onMigrateReceivedPreSwitchoverEvent() {
+	s.onBlockJobsCancelled = s.migrateContinueFromPreSwitchover
+	s.cancelBlockJobs("")
+}
+
+func (s *SGuestLiveMigrateTask) onMigrateReceivedBlockJobError(res string) {
+	s.migrateFailed(res)
 }
 
 func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
@@ -1278,7 +1352,30 @@ func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
 	hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 }
 
+func (s *SGuestLiveMigrateTask) cancelBlockJobs(res string) {
+	log.Infof("%s cancel block jobs %s", s.GetName(), res)
+	if s.diskDriverMirrorIndex == 0 {
+		s.onBlockJobsCancelled()
+		return
+	}
+
+	s.diskDriverMirrorIndex -= 1
+	i := s.diskDriverMirrorIndex
+	if utils.IsInStringArray(s.Desc.Disks[i].StorageType, api.STORAGE_LOCAL_TYPES) {
+		s.Monitor.CancelBlockJob(fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index), false, s.cancelBlockJobs)
+	} else {
+		s.cancelBlockJobs("")
+	}
+}
+
 func (s *SGuestLiveMigrateTask) migrateFailed(msg string) {
+	s.onBlockJobsCancelled = func() {
+		s.onMigrateFailBlockJobsCancelled(msg)
+	}
+	s.cancelBlockJobs("")
+}
+
+func (s *SGuestLiveMigrateTask) onMigrateFailBlockJobsCancelled(msg string) {
 	cleanup := func() {
 		s.MigrateTask = nil
 		if s.c != nil {
@@ -2056,8 +2153,7 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 	}
 	if s.index < len(s.Desc.Disks) {
 		target := fmt.Sprintf("%s:exportname=drive_%d_backend", s.nbdUri, s.index)
-		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
-			target, s.syncMode, "", true, blockReplication)
+		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index), target, s.syncMode, "", true, blockReplication, 0)
 		s.index += 1
 	} else {
 		if s.onSucc != nil {
@@ -2675,15 +2771,7 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 		t.diskIndex = diskIndex
 	}
 
-	t.Monitor.DriveMirror(
-		t.onDriveMirror,
-		fmt.Sprintf("drive_%d", diskIndex),
-		targetDisk.GetPath(),
-		"full",
-		targetDiskFormat,
-		true,
-		false,
-	)
+	t.Monitor.DriveMirror(t.onDriveMirror, fmt.Sprintf("drive_%d", diskIndex), targetDisk.GetPath(), "full", targetDiskFormat, true, false, 0)
 }
 
 func (t *SGuestStorageCloneDiskTask) onDriveMirror(res string) {
@@ -2719,15 +2807,7 @@ func (t *SGuestStorageCloneDiskTask) OnGetBlockJobs(jobs []monitor.BlockJob) {
 				)
 				return
 			}
-			t.Monitor.DriveMirror(
-				t.onDriveMirror,
-				fmt.Sprintf("drive_%d", t.diskIndex),
-				targetDisk.GetPath(),
-				"full",
-				targetDiskFormat,
-				true,
-				false,
-			)
+			t.Monitor.DriveMirror(t.onDriveMirror, fmt.Sprintf("drive_%d", t.diskIndex), targetDisk.GetPath(), "full", targetDiskFormat, true, false, 0)
 		} else {
 			hostutils.TaskFailed(t.ctx, fmt.Sprintf("Disk %s Block job not found", t.params.SourceDisk.GetId()))
 		}

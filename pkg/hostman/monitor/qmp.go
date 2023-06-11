@@ -698,6 +698,11 @@ func (m *QmpMonitor) MigrateIncoming(address string, callback StringCallback) {
 	m.HumanMonitorCommand(cmd, callback)
 }
 
+func (m *QmpMonitor) MigrateContinue(state string, callback StringCallback) {
+	cmd := fmt.Sprintf("migrate_continue %s", state)
+	m.HumanMonitorCommand(cmd, callback)
+}
+
 func (m *QmpMonitor) Migrate(
 	destStr string, copyIncremental, copyFull bool, callback StringCallback,
 ) {
@@ -858,7 +863,7 @@ func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool) {
+func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool, speed int64) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
@@ -871,6 +876,9 @@ func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 			"unmap":  unmap,
 		}
 	)
+	if speed > 0 {
+		args["speed"] = speed
+	}
 	if blockReplication {
 		args["block-replication"] = true
 	}
@@ -949,6 +957,10 @@ func (m *QmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 	}
 	cmd += fmt.Sprintf(" 0.0.0.0:%d", port)
 	m.HumanMonitorCommand(cmd, callback)
+}
+
+func (m *QmpMonitor) StopNbdServer(callback StringCallback) {
+	m.HumanMonitorCommand("nbd_server_stop", callback)
 }
 
 func (m *QmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
