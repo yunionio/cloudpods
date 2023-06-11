@@ -77,6 +77,7 @@ type SDestPrepareMigrate struct {
 type SLiveMigrate struct {
 	Sid            string
 	DestPort       int
+	NbdServerPort  int
 	DestIp         string
 	IsLocal        bool
 	EnableTLS      bool

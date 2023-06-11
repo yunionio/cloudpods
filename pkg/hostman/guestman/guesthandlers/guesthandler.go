@@ -443,6 +443,10 @@ func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, si
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("live_migrate_dest_port")
 	}
+	nbdServerPort, err := body.Int("nbd_server_port")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("live_migrate_dest_port")
+	}
 	destIp, err := body.GetString("dest_ip")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("dest_ip")
@@ -456,6 +460,7 @@ func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, si
 	params := &guestman.SLiveMigrate{
 		Sid:           sid,
 		DestPort:      int(destPort),
+		NbdServerPort: int(nbdServerPort),
 		DestIp:        destIp,
 		IsLocal:       isLocal,
 		EnableTLS:     enableTLS,
