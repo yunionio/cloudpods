@@ -90,13 +90,17 @@ func (self *GuestQgaSetPasswordTask) OnQgaSetUserPassword(ctx context.Context, g
 
 	input := &api.ServerQgaSetPasswordInput{}
 	self.GetParams().Unmarshal(input)
-	if guest.GetMetadata(ctx, "login_account", self.UserCred) == input.Username {
-		info := make(map[string]interface{})
+	info := make(map[string]interface{})
+	loginAccount := guest.GetMetadata(ctx, "login_account", self.UserCred)
+	if loginAccount == input.Username || loginAccount == "" {
 		secret, _ := utils.EncryptAESBase64(guest.Id, input.Password)
 		info["login_key"] = secret
 		info["login_key_timestamp"] = timeutils.UtcNow()
-		guest.SetAllMetadata(ctx, info, self.UserCred)
 	}
+	if loginAccount == "" {
+		info["login_account"] = input.Username
+	}
+	guest.SetAllMetadata(ctx, info, self.UserCred)
 
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SET_USER_PASSWORD, "qga set password success", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
