@@ -47,6 +47,7 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
 // +onecloud:swagger-gen-ignore
@@ -850,10 +851,6 @@ func (self *SCloudaccount) GetCloudaccountByProvider(provider string) ([]SClouda
 	return accounts, nil
 }
 
-const (
-	EMPTY_MD5 = "d751713988987e9331980363e24189ce"
-)
-
 func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, refresh bool) error {
 	dbPolicies, err := self.GetSystemCloudpolicies()
 	if err != nil {
@@ -864,13 +861,14 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context,
 		return nil
 	}
 
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	transport := httputils.GetTransport(true)
-	transport.Proxy = options.Options.HttpTransportProxyFunc()
-	client := &http.Client{Transport: transport}
-	policyBase, index, err := modules.OfflineCloudmeta.GetSkuIndex(s, client, "cloudpolicy_base")
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "get cloudpolicy")
+		return errors.Wrapf(err, "FetchYunionmeta")
+	}
+
+	index, err := meta.Index(CloudpolicyManager.Keyword())
+	if err != nil {
+		return errors.Wrapf(err, "Index")
 	}
 
 	skuMeta := &SCloudpolicy{}
@@ -879,28 +877,16 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context,
 
 	oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
 	newMd5, ok := index[self.Provider]
-	if ok {
-		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
-	}
-
-	if newMd5 == EMPTY_MD5 {
-		log.Debugf("%s cloudpolicy is empty skip syncing", self.Provider)
-		return nil
-	}
-	if len(oldMd5) > 0 && newMd5 == oldMd5 {
-		log.Debugf("%s cloudpolicy not changed skip syncing", self.Provider)
+	if !ok || newMd5 == yunionmeta.EMPTY_MD5 || len(oldMd5) > 0 && newMd5 == oldMd5 {
 		return nil
 	}
 
-	policyUrl := strings.TrimSuffix(policyBase, "/") + fmt.Sprintf("/%s.json", self.Provider)
-	_, body, err := httputils.JSONRequest(client, ctx, httputils.GET, policyUrl, nil, nil, false)
-	if err != nil {
-		return errors.Wrapf(err, "JSONRequest(%s)", policyUrl)
-	}
+	db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+
 	iPolicies := []SCloudpolicy{}
-	err = body.Unmarshal(&iPolicies)
+	err = meta.List(CloudpolicyManager.Keyword(), self.Provider, &iPolicies)
 	if err != nil {
-		return errors.Wrapf(err, "body.Unmarshal")
+		return errors.Wrapf(err, "meta.List")
 	}
 
 	return self.syncSystemCloudpoliciesFromCloud(ctx, userCred, iPolicies, dbPolicies)

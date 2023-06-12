@@ -490,8 +490,8 @@ func (fileSystem *SFileSystem) SyncWithCloudFileSystem(ctx context.Context, user
 	return nil
 }
 
-func (fileSystem *SCloudregion) getZoneIdBySuffix(zoneId string) (string, error) {
-	zones, err := fileSystem.GetZones()
+func (region *SCloudregion) getZoneIdBySuffix(zoneId string) (string, error) {
+	zones, err := region.GetZones()
 	if err != nil {
 		return "", errors.Wrapf(err, "region.GetZones")
 	}

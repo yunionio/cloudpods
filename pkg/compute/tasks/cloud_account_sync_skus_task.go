@@ -86,13 +86,8 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 
 	res, _ := self.GetParams().GetString("resource")
-	meta, err := models.FetchSkuResourcesMeta()
-	if err != nil {
-		self.taskFailed(ctx, account, err)
-		return
-	}
 
-	type SyncFunc func(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, extSkuMeta *models.SSkuResourcesMeta, xor bool) compare.SyncResult
+	type SyncFunc func(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, xor bool) compare.SyncResult
 	var syncFunc SyncFunc
 	for _, region := range regions {
 		switch res {
@@ -103,15 +98,15 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 		case models.DBInstanceSkuManager.Keyword():
 			syncFunc = models.DBInstanceSkuManager.SyncDBInstanceSkus
 		case models.NatSkuManager.Keyword():
-			result := region.SyncNatSkus(ctx, self.GetUserCred(), meta, false)
+			result := region.SyncNatSkus(ctx, self.GetUserCred(), false)
 			log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 		case models.NasSkuManager.Keyword():
-			result := region.SyncNasSkus(ctx, self.GetUserCred(), meta, false)
+			result := region.SyncNasSkus(ctx, self.GetUserCred(), false)
 			log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 		}
 
 		if syncFunc != nil {
-			result := syncFunc(ctx, self.GetUserCred(), &region, meta, false)
+			result := syncFunc(ctx, self.GetUserCred(), &region, false)
 			log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 		}
 	}

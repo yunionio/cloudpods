@@ -17,12 +17,14 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
 type SCloudimageManager struct {
@@ -69,13 +71,13 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 		return
 	}
 
-	meta, err := FetchSkuResourcesMeta()
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
-		log.Errorf("SyncServerSkus.FetchSkuResourcesMeta %s", err)
+		log.Errorf("FetchYunionmeta %v", err)
 		return
 	}
 
-	index, err := meta.getServerSkuIndex()
+	index, err := meta.Index(CloudimageManager.Keyword())
 	if err != nil {
 		log.Errorf("getServerSkuIndex error: %v", err)
 		return
@@ -90,25 +92,17 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 
 		oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
 		newMd5, ok := index[region.ExternalId]
-		if ok {
-			db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
-		}
-
-		if newMd5 == EMPTY_MD5 {
-			log.Infof("%s images is empty skip syncing", region.Name)
+		if !ok || newMd5 == yunionmeta.EMPTY_MD5 || len(oldMd5) > 0 && newMd5 == oldMd5 {
 			continue
 		}
 
-		if len(oldMd5) > 0 && newMd5 == oldMd5 {
-			log.Infof("%s cloud images not changed skip syncing", region.Name)
-			continue
-		}
+		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 
 		err = regions[i].SyncCloudImages(ctx, userCred, !isStart, false)
 		if err != nil {
-			log.Errorf("SyncCloudImages for region %s(%s) error: %v", regions[i].Name, regions[i].Id, err)
 			continue
 		}
+
 		storagecaches, err := regions[i].GetStoragecaches()
 		if err != nil {
 			log.Errorf("GetStoragecaches for region %s(%s) error: %v", regions[i].Name, regions[i].Id, err)
@@ -141,17 +135,27 @@ func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.Token
 	return self.Delete(ctx, userCred)
 }
 
-func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.TokenCredential, image SCachedimage) error {
+func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.TokenCredential, image SCachedimage, region *SCloudregion) error {
 	_cachedImage, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
 			return errors.Wrapf(err, "db.FetchByExternalId(%s)", image.GetGlobalId())
 		}
 		image := &image
-		image.Id = ""
+		image.SetModelManager(CachedimageManager, image)
+		meta, err := yunionmeta.FetchYunionmeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, region.ExternalId, image.GetGlobalId())
+		err = meta.Get(skuUrl, image)
+		if err != nil {
+			return errors.Wrapf(err, "Get")
+		}
+
 		image.IsPublic = true
 		image.ProjectId = "system"
-		image.SetModelManager(CachedimageManager, image)
 		err = CachedimageManager.TableSpec().Insert(ctx, image)
 		if err != nil {
 			return errors.Wrapf(err, "Insert cachedimage")
