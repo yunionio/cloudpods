@@ -33,6 +33,7 @@ type SHostBaseOptions struct {
 	LiveMigrateCpuThrottleMax int64 `default:"99" help:"live migrate auto converge cpu throttle max"`
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
+	NoHpet             bool   `help:"disable qemu hpet timer" default:"false"`
 
 	CdromCount  int `help:"cdrom count" default:"1"`
 	FloppyCount int `help:"floppy count" default:"1"`
