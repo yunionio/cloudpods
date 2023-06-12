@@ -921,6 +921,11 @@ func (s *SKVMGuestInstance) fixGuestMachineType() {
 
 func (s *SKVMGuestInstance) initMachineDesc() {
 	s.Desc.MachineDesc = s.archMan.GenerateMachineDesc(s.Desc.CpuDesc.Accel)
+	if options.HostOptions.NoHpet {
+		noHpet := true
+		s.Desc.NoHpet = &noHpet
+	}
+
 }
 
 func (s *SKVMGuestInstance) initQgaDesc() {

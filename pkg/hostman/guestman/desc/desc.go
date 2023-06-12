@@ -84,6 +84,7 @@ type SGuestHardwareDesc struct {
 	// supported machine type: pc, q35, virt
 	Machine     string
 	MachineDesc *SGuestMachine `json:",omitempty"`
+	NoHpet      *bool          `json:",omitempty"` // i386 target only
 
 	VirtioSerial *SGuestVirtioSerial
 
