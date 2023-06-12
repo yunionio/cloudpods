@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
 type SWafRuleGroupManager struct {
@@ -161,8 +162,8 @@ func (self *SWafRuleGroup) RealDelete(ctx context.Context, userCred mcclient.Tok
 	return self.SStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SSkuResourcesMeta) GetWafGroups(cloudEnv string) ([]SWafRuleGroup, error) {
-	q := WafRuleGroupManager.Query().Equals("cloud_env", cloudEnv).IsTrue("is_system")
+func (manager *SWafRuleGroupManager) GetWafGroups(cloudEnv string) ([]SWafRuleGroup, error) {
+	q := manager.Query().Equals("cloud_env", cloudEnv).IsTrue("is_system")
 	groups := []SWafRuleGroup{}
 	err := db.FetchModelObjects(WafRuleGroupManager, q, &groups)
 	return groups, err
@@ -187,9 +188,9 @@ func (self *SWafRuleGroup) syncWithCloudSku(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (self *SSkuResourcesMeta) newFromCloudWafGroup(ctx context.Context, userCred mcclient.TokenCredential, ext sWafGroup) error {
+func (manager *SWafRuleGroupManager) newFromCloudWafGroup(ctx context.Context, userCred mcclient.TokenCredential, ext sWafGroup) error {
 	group := &ext.SWafRuleGroup
-	group.SetModelManager(WafRuleGroupManager, group)
+	group.SetModelManager(manager, group)
 	group.Status = api.WAF_RULE_GROUP_STATUS_AVAILABLE
 	group.IsPublic = true
 	err := WafRuleGroupManager.TableSpec().Insert(ctx, group)
@@ -204,17 +205,38 @@ func (self *SSkuResourcesMeta) newFromCloudWafGroup(ctx context.Context, userCre
 	return nil
 }
 
-func (self *SSkuResourcesMeta) SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, cloudEnv string, isStart bool) compare.SyncResult {
-	lockman.LockRawObject(ctx, cloudEnv, "waf-rule-group")
-	defer lockman.ReleaseRawObject(ctx, cloudEnv, "waf-rule-group")
+type sWafGroup struct {
+	SWafRuleGroup
+	Rules []SWafRule
+}
+
+func (self sWafGroup) GetGlobalId() string {
+	return self.ExternalId
+}
+
+func (self SWafRule) GetGlobalId() string {
+	return self.ExternalId
+}
+
+func (manager *SWafRuleGroupManager) SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, cloudEnv string, isStart bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, cloudEnv, manager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, cloudEnv, manager.Keyword())
 
 	result := compare.SyncResult{}
-	exts, err := self.getCloudWafGroups(cloudEnv)
+
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
-		result.Error(errors.Wrapf(err, "getWafGroups(%s)", cloudEnv))
+		result.Error(errors.Wrapf(err, "FetchYunionmeta"))
 		return result
 	}
-	dbGroup, err := self.GetWafGroups(cloudEnv)
+
+	exts := []sWafGroup{}
+	err = meta.List(WafRuleManager.Keyword(), cloudEnv, &exts)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "List(%s)", cloudEnv))
+		return result
+	}
+	dbGroup, err := manager.GetWafGroups(cloudEnv)
 	if err != nil {
 		result.Error(errors.Wrapf(err, "GetWafGroups"))
 		return result
@@ -253,7 +275,7 @@ func (self *SSkuResourcesMeta) SyncWafGroups(ctx context.Context, userCred mccli
 		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
-		err = self.newFromCloudWafGroup(ctx, userCred, added[i])
+		err = manager.newFromCloudWafGroup(ctx, userCred, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -264,6 +286,20 @@ func (self *SSkuResourcesMeta) SyncWafGroups(ctx context.Context, userCred mccli
 	return result
 }
 
+func fetchCloudEnvs() ([]string, error) {
+	accounts := []SCloudaccount{}
+	q := CloudaccountManager.Query("provider", "access_url").In("provider", CloudproviderManager.GetPublicProviderProvidersQuery()).Distinct()
+	err := q.All(&accounts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "q.All")
+	}
+	ret := []string{}
+	for i := range accounts {
+		ret = append(ret, api.GetCloudEnv(accounts[i].Provider, accounts[i].AccessUrl))
+	}
+	return ret, nil
+}
+
 func SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	err := func() error {
 		cloudEnvs, err := fetchCloudEnvs()
@@ -271,12 +307,12 @@ func SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, isSta
 			return errors.Wrapf(err, "fetchCloudEnvs")
 		}
 
-		meta, err := FetchSkuResourcesMeta()
+		meta, err := yunionmeta.FetchYunionmeta(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "FetchSkuResourcesMeta")
+			return errors.Wrapf(err, "FetchYunionmeta")
 		}
 
-		index, err := meta.getWafIndex()
+		index, err := meta.Index(WafRuleManager.Keyword())
 		if err != nil {
 			return errors.Wrapf(err, "getWafIndex")
 		}
@@ -288,19 +324,13 @@ func SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, isSta
 
 			oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
 			newMd5, ok := index[cloudEnv]
-			if ok {
-				db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+			if !ok || newMd5 == yunionmeta.EMPTY_MD5 || len(oldMd5) > 0 && newMd5 == oldMd5 {
+				continue
 			}
 
-			if newMd5 == EMPTY_MD5 {
-				log.Debugf("%s Waf group is empty skip syncing", cloudEnv)
-				continue
-			}
-			if len(oldMd5) > 0 && newMd5 == oldMd5 {
-				log.Debugf("%s Waf group not Changed skip syncing", cloudEnv)
-				continue
-			}
-			result := meta.SyncWafGroups(ctx, userCred, cloudEnv, isStart)
+			db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+
+			result := WafRuleGroupManager.SyncWafGroups(ctx, userCred, cloudEnv, isStart)
 			log.Debugf("sync %s waf group result: %s", cloudEnv, result.Result())
 		}
 		return nil

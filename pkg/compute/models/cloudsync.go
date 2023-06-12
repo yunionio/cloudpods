@@ -162,7 +162,7 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 
 	if cnt == 0 {
 		// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
-		if ret := SyncServerSkusByRegion(ctx, userCred, localRegion, nil, xor); ret.IsError() {
+		if ret := SyncServerSkusByRegion(ctx, userCred, localRegion, xor); ret.IsError() {
 			msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), ret.Result())
 			log.Errorln(msg)
 			// 暂时不终止同步

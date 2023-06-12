@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
 type SCloudregionManager struct {
@@ -1159,11 +1161,12 @@ func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient
 	if len(dbImages) > 0 && systemImageCount > 0 && !refresh {
 		return nil
 	}
-	meta, err := FetchSkuResourcesMeta()
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "FetchSkuResourcesMeta")
+		return errors.Wrapf(err, "FetchYunionmeta")
 	}
-	iImages, err := meta.GetCloudimages(self.ExternalId)
+	iImages := []SCachedimage{}
+	err = meta.List(CloudimageManager.Keyword(), self.ExternalId, &iImages)
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudimages")
 	}
@@ -1190,7 +1193,7 @@ func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient
 
 	if !xor {
 		for i := 0; i < len(commonext); i++ {
-			err := commondb[i].syncWithImage(ctx, userCred, commonext[i])
+			err := commondb[i].syncWithImage(ctx, userCred, commonext[i], self)
 			if err != nil {
 				result.UpdateError(errors.Wrapf(err, "updateCachedImage"))
 				continue
@@ -1230,10 +1233,20 @@ func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.T
 			return errors.Wrapf(err, "db.FetchModelObjects(%s)", iImage.GetGlobalId())
 		}
 		image := &iImage
-		image.Id = ""
+		image.SetModelManager(CachedimageManager, image)
+		meta, err := yunionmeta.FetchYunionmeta(ctx)
+		if err != nil {
+			return err
+		}
+
+		skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, self.ExternalId, iImage.GetGlobalId())
+		err = meta.Get(skuUrl, image)
+		if err != nil {
+			return errors.Wrapf(err, "Get")
+		}
+
 		image.IsPublic = true
 		image.ProjectId = "system"
-		image.SetModelManager(CachedimageManager, image)
 		err = CachedimageManager.TableSpec().Insert(ctx, image)
 		if err != nil {
 			return errors.Wrapf(err, "Insert cachedimage")
