@@ -162,6 +162,10 @@ func ParseDMIMemInfo(lines []string) *types.SDMIMemInfo {
 		if val == nil {
 			continue
 		}
+		// skip 'Volatile Size:' line
+		if strings.Contains(line, "Volatile") {
+			continue
+		}
 		value := strings.ToLower(*val)
 		if strings.HasSuffix(value, " mb") {
 			sizeMb, err := strconv.Atoi(strings.TrimSuffix(value, " mb"))
