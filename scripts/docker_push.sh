@@ -188,11 +188,14 @@ make_manifest_image() {
         echo "[$(readlink -f ${BASH_SOURCE}):${LINENO} ${FUNCNAME[0]}] return for DRY_RUN"
         return
     fi
-    docker manifest create --amend $img_name \
+    docker manifest create --amend --insecure $img_name \
         $img_name-amd64 \
         $img_name-arm64
-    docker manifest annotate $img_name $img_name-arm64 --arch arm64
-    docker manifest push $img_name
+    docker manifest annotate $img_name --arch amd64 --os linux $img_name-amd64
+    docker manifest annotate $img_name --arch arm64 --os linux $img_name-arm64
+    docker manifest inspect  ${img_name} | grep -wq amd64
+    docker manifest inspect  ${img_name} | grep -wq arm64
+    docker manifest push --insecure $img_name
 }
 
 ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | xargs)
