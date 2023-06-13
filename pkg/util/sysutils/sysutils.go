@@ -162,6 +162,10 @@ func ParseDMIMemInfo(lines []string) *types.SDMIMemInfo {
 		if val == nil {
 			continue
 		}
+		// skip 'Volatile Size:' line
+		if strings.Contains(line, "Volatile") {
+			continue
+		}
 		value := strings.ToLower(*val)
 		if strings.HasSuffix(value, " mb") {
 			sizeMb, err := strconv.Atoi(strings.TrimSuffix(value, " mb"))
@@ -290,10 +294,9 @@ func GetSerialPorts(lines []string) []string {
 
 // ParseSGMap parse command 'sg_map -x' outputs:
 //
-//  /dev/sg1 0 2 0 0 0 /dev/sda
-//  /dev/sg2 0 2 1 0 0 /dev/sdb
-//  /dev/sg3 0 2 2 0 0 /dev/sdc
-//
+//	/dev/sg1 0 2 0 0 0 /dev/sda
+//	/dev/sg2 0 2 1 0 0 /dev/sdb
+//	/dev/sg3 0 2 2 0 0 /dev/sdc
 func ParseSGMap(lines []string) []compute.SGMapItem {
 	ret := make([]compute.SGMapItem, 0)
 	for _, l := range lines {
