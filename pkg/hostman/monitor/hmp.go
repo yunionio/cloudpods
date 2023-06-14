@@ -320,6 +320,11 @@ func (m *HmpMonitor) MigrateIncoming(address string, callback StringCallback) {
 	m.Query(cmd, callback)
 }
 
+func (m *HmpMonitor) MigrateContinue(state string, callback StringCallback) {
+	cmd := fmt.Sprintf("migrate_continue %s", state)
+	m.Query(cmd, callback)
+}
+
 func (m *HmpMonitor) Migrate(
 	destStr string, copyIncremental, copyFull bool, callback StringCallback,
 ) {
@@ -402,7 +407,7 @@ func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	m.Query(fmt.Sprintf("reload_disk_snapshot_blkdev -n %s %s", device, path), callback)
 }
 
-func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool) {
+func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool, speed int64) {
 	cmd := "drive_mirror -n"
 	if blockReplication {
 		cmd += " -c"
@@ -465,6 +470,10 @@ func (m *HmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 	}
 	cmd += fmt.Sprintf(" 0.0.0.0:%d", port)
 	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) StopNbdServer(callback StringCallback) {
+	m.Query("nbd_server_stop", callback)
 }
 
 func (m *HmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
