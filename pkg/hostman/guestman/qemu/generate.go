@@ -647,6 +647,9 @@ func GenerateStartOptions(
 		opts = append(opts, getMonitorOptions(drvOpt, input.QMPMonitor)...)
 	}
 
+	if input.GuestDesc.NoHpet != nil && *input.GuestDesc.NoHpet {
+		opts = append(opts, drvOpt.NoHpet())
+	}
 	opts = append(opts,
 		drvOpt.RTC(),
 		// drvOpt.Daemonize(),
