@@ -103,6 +103,7 @@ func (rt *ReceiverTriggerVerifyOptions) Params() (jsonutils.JSONObject, error) {
 
 type ReceiverGetSubscriptionOptions struct {
 	ReceiverOptions
+	ShowDisabled bool `help:"List disabled subscription "`
 }
 
 func (rt *ReceiverGetSubscriptionOptions) Params() (jsonutils.JSONObject, error) {

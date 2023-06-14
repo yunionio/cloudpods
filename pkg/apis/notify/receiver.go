@@ -201,3 +201,8 @@ type ReceiverIntellijGetInput struct {
 type ReceiverEnableContactTypeInput struct {
 	EnabledContactTypes []string `json:"enabled_contact_types"`
 }
+
+type ReceiverGetSubscriptionOptions struct {
+	Id           string
+	ShowDisabled bool
+}
