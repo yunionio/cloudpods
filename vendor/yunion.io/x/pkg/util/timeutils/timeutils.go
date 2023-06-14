@@ -63,6 +63,7 @@ const (
 	IsoTimeFormat2         = "2006-01-02 15:04:05Z07:00"
 	IsoNoSecondTimeFormat2 = "2006-01-02 15:04Z07:00"
 	FullIsoNanoTimeFormat2 = "2006-01-02 15:04:05.000000000Z07:00"
+	FullIsoNanoTimeFormat3 = "2006-01-02 15:04:05.000000000"
 
 	RFC2882Format = time.RFC1123
 )
@@ -151,7 +152,7 @@ func toFullIsoNanoTimeFormat(str string) string {
 		}
 	}
 	if pos < 0 { //避免-1越界
-		return str
+		pos = len(subsecStr)
 	}
 	leftOver := subsecStr[pos:]
 	subsecStr = subsecStr[:pos]
@@ -167,6 +168,10 @@ func ParseFullIsoTime(str string) (time.Time, error) {
 
 func ParseFullIsoTime2(str string) (time.Time, error) {
 	return time.Parse(FullIsoNanoTimeFormat2, toFullIsoNanoTimeFormat(str))
+}
+
+func ParseFullIsoTime3(str string) (time.Time, error) {
+	return time.Parse(FullIsoNanoTimeFormat3, toFullIsoNanoTimeFormat(str))
 }
 
 func ParseMysqlTime(str string) (time.Time, error) {
@@ -219,6 +224,8 @@ func ParseTimeStr(str string) (time.Time, error) {
 		return ParseIsoNoSecondTime(str)
 	} else if regutils.MatchFullISOTime2(str) {
 		return ParseFullIsoTime2(str)
+	} else if regutils.MatchFullISOTime3(str) {
+		return ParseFullIsoTime3(str)
 	} else if regutils.MatchISOTime2(str) {
 		return ParseIsoTime2(str)
 	} else if regutils.MatchISONoSecondTime2(str) {
