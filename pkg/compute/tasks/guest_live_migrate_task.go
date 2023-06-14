@@ -473,6 +473,11 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 		self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Get migrate port error: %s", err)))
 		return
 	}
+	nbdServerPort, err := data.Get("nbd_server_port")
+	if err != nil {
+		self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Get nbd server port error: %s", err)))
+		return
+	}
 
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	targetHost := models.HostManager.FetchHostById(targetHostId)
@@ -481,6 +486,7 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	isLocalStorage, _ := self.Params.Get("is_local_storage")
 	body.Set("is_local_storage", isLocalStorage)
 	body.Set("live_migrate_dest_port", liveMigrateDestPort)
+	body.Set("nbd_server_port", nbdServerPort)
 	body.Set("dest_ip", jsonutils.NewString(targetHost.AccessIp))
 	body.Set("enable_tls", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false)))
 	body.Set("quickly_finish", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "quickly_finish", false)))
