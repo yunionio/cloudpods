@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package identity
 
-import "yunion.io/x/onecloud/pkg/apis"
-
-const (
-	CLOUD_TAG_PREFIX     = apis.CLOUD_TAG_PREFIX
-	USER_TAG_PREFIX      = apis.USER_TAG_PREFIX
-	SYS_CLOUD_TAG_PREFIX = apis.SYS_CLOUD_TAG_PREFIX
-	CLASS_TAG_PREFIX     = apis.CLASS_TAG_PREFIX
-
-	ORGANIZATION_TAG_PREFIX = apis.ORGANIZATION_TAG_PREFIX
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
+
+type OrganizationManager struct {
+	modulebase.ResourceManager
+}
+
+var (
+	Organizations OrganizationManager
+)
+
+func init() {
+	Organizations = OrganizationManager{modules.NewIdentityV3Manager("organization", "organizations",
+		[]string{},
+		[]string{"ID", "Name", "Description", "Keys", "Type", "Level"})}
+
+	modules.Register(&Organizations)
+}

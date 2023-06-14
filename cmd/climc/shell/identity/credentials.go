@@ -28,7 +28,7 @@ import (
 func init() {
 	type CredentialListOptions struct {
 		Scope      string `help:"scope" choices:"project|domain|system"`
-		Type       string `help:"credential type" choices:"totp|recovery|aksk|enc_key"`
+		Type       string `help:"credential type" choices:"totp|recovery_secret|aksk|enc_key"`
 		User       string `help:"filter by user"`
 		UserDomain string `help:"the domain of user"`
 	}

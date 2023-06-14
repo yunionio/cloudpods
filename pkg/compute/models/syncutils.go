@@ -26,8 +26,8 @@ import (
 )
 
 type IMetadataSetter interface {
-	SetCloudMetadataAll(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
-	SetSysCloudMetadataAll(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetCloudMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential) error
+	SetSysCloudMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential) error
 	Keyword() string
 	GetName() string
 	GetCloudproviderId() string
@@ -40,7 +40,7 @@ type IVirtualResourceMetadataSetter interface {
 
 func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
 	sysTags := remote.GetSysTags()
-	sysStore := make(map[string]interface{}, 0)
+	sysStore := make(map[string]string, 0)
 	for key, value := range sysTags {
 		sysStore[db.SYS_CLOUD_TAG_PREFIX+key] = value
 	}
@@ -48,7 +48,7 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 
 	tags, err := remote.GetTags()
 	if err == nil {
-		store := make(map[string]interface{}, 0)
+		store := make(map[string]string, 0)
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
 		}
@@ -59,7 +59,7 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 
 func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IVirtualResourceMetadataSetter, remote cloudprovider.IVirtualResource) error {
 	sysTags := remote.GetSysTags()
-	sysStore := make(map[string]interface{}, 0)
+	sysStore := make(map[string]string, 0)
 	for key, value := range sysTags {
 		if key == apis.IS_SYSTEM && value == "true" {
 			model.SetSystemInfo(true)
@@ -80,7 +80,7 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 
 	tags, err := remote.GetTags()
 	if err == nil {
-		store := make(map[string]interface{}, 0)
+		store := make(map[string]string, 0)
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
 		}

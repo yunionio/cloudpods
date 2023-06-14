@@ -2333,13 +2333,15 @@ func (self *SGuest) moreExtraInfo(
 
 	if len(self.BackupHostId) > 0 && (len(fields) == 0 || fields.Contains("backup_host_name") || fields.Contains("backup_host_status")) {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		if len(fields) == 0 || fields.Contains("backup_host_name") {
-			out.BackupHostName = backupHost.Name
+		if backupHost != nil {
+			if len(fields) == 0 || fields.Contains("backup_host_name") {
+				out.BackupHostName = backupHost.Name
+			}
+			if len(fields) == 0 || fields.Contains("backup_host_status") {
+				out.BackupHostStatus = backupHost.HostStatus
+			}
+			out.BackupGuestSyncStatus = self.GetGuestBackupMirrorJobStatus(ctx, userCred)
 		}
-		if len(fields) == 0 || fields.Contains("backup_host_status") {
-			out.BackupHostStatus = backupHost.HostStatus
-		}
-		out.BackupGuestSyncStatus = self.GetGuestBackupMirrorJobStatus(ctx, userCred)
 	}
 
 	if len(fields) == 0 || fields.Contains("can_recycle") {

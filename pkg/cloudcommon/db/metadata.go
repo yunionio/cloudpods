@@ -45,8 +45,10 @@ const (
 	CLOUD_TAG_PREFIX     = dbapi.CLOUD_TAG_PREFIX
 	USER_TAG_PREFIX      = dbapi.USER_TAG_PREFIX
 	SYS_CLOUD_TAG_PREFIX = dbapi.SYS_CLOUD_TAG_PREFIX
-	CLASS_TAG_PREFIX     = dbapi.CLASS_TAT_PREFIX
+	CLASS_TAG_PREFIX     = dbapi.CLASS_TAG_PREFIX
 	SKU_METADAT_KEY      = "md5"
+
+	ORGANIZATION_TAG_PREFIX = dbapi.ORGANIZATION_TAG_PREFIX
 
 	// TAG_DELETE_RANGE_USER  = "user"
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
@@ -541,14 +543,7 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 		}
 
 		newRecord := SMetadata{}
-		newRecord.SetModelManager(manager, &newRecord)
 
-		newRecord.ObjId = objId
-		newRecord.ObjType = objType
-		newRecord.Id = idStr
-		newRecord.Key = key
-
-		// valStr := stringutils.Interface2String(value)
 		valStr := value
 		valStrLower := strings.ToLower(valStr)
 		if valStrLower == "none" || valStrLower == "null" {
@@ -563,6 +558,13 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 			// no changes
 			continue
 		}
+
+		newRecord.SetModelManager(manager, &newRecord)
+
+		newRecord.ObjId = objId
+		newRecord.ObjType = objType
+		newRecord.Id = idStr
+		newRecord.Key = key
 
 		if len(record.Id) == 0 {
 			err = manager.TableSpec().InsertOrUpdate(ctx, &newRecord)
@@ -735,4 +737,45 @@ func metaList2Map(manager IMetadataBaseModelManager, userCred mcclient.TokenCred
 	}
 
 	return metaMap
+}
+
+func CopyTags(ctx context.Context, objType string, keys1 []string, values []string, keys2 []string) error {
+	return Metadata.copyTags(ctx, objType, keys1, values, keys2)
+}
+
+func (manager *SMetadataManager) copyTags(ctx context.Context, objType string, keys1 []string, values []string, keys2 []string) error {
+	for i := 0; i < len(keys1) && i < len(values) && i < len(keys2); i++ {
+		key1 := keys1[i]
+		key2 := keys2[i]
+		value := values[i]
+
+		q := manager.Query("obj_id").Equals("obj_type", objType).Equals("key", key1).Equals("value", value)
+		q2 := manager.Query("obj_id").Equals("obj_type", objType).Equals("key", key2).Equals("value", value)
+		q = q.NotIn("obj_id", q2.SubQuery())
+
+		results := []struct {
+			ObjId string
+		}{}
+		err := q.All(&results)
+		if err != nil {
+			return errors.Wrapf(err, "copy key %s value %s to %s", key1, value, key2)
+		}
+
+		for _, result := range results {
+			record := SMetadata{}
+			record.SetModelManager(manager, &record)
+
+			record.ObjId = result.ObjId
+			record.ObjType = objType
+			record.Id = getObjectIdstr(objType, result.ObjId)
+			record.Key = key2
+			record.Value = value
+
+			err := manager.TableSpec().InsertOrUpdate(ctx, &record)
+			if err != nil {
+				return errors.Wrapf(err, "insert %s", jsonutils.Marshal(record))
+			}
+		}
+	}
+	return nil
 }

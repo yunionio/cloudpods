@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package identity
 
-import "yunion.io/x/onecloud/pkg/apis"
-
-const (
-	CLOUD_TAG_PREFIX     = apis.CLOUD_TAG_PREFIX
-	USER_TAG_PREFIX      = apis.USER_TAG_PREFIX
-	SYS_CLOUD_TAG_PREFIX = apis.SYS_CLOUD_TAG_PREFIX
-	CLASS_TAG_PREFIX     = apis.CLASS_TAG_PREFIX
-
-	ORGANIZATION_TAG_PREFIX = apis.ORGANIZATION_TAG_PREFIX
+import (
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	identity_options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 )
+
+func init() {
+	orgNodeCmd := shell.NewResourceCmd(&modules.OrganizationNodes)
+	orgNodeCmd.List(&identity_options.OrganizationNodeListOptions{})
+	orgNodeCmd.Show(&identity_options.OrganizationNodeIdOptions{})
+}
