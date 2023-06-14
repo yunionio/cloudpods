@@ -75,6 +75,25 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	}
 }
 
+func (self *GuestDetachDiskTask) OnGetGuestStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	statusStr, _ := data.GetString("status")
+	if statusStr == "notfound" {
+		self.OnDetachDiskComplete(ctx, guest, nil)
+		return
+	}
+
+	self.SetStage("OnDetachDiskComplete", nil)
+	if err := guest.StartSyncTask(
+		ctx, self.GetUserCred(), jsonutils.QueryBoolean(self.GetParams(), "sync_desc_only", false), self.GetTaskId(),
+	); err != nil {
+		self.OnDetachDiskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (self *GuestDetachDiskTask) OnGetGuestStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnDetachDiskCompleteFailed(ctx, guest, data)
+}
+
 func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
