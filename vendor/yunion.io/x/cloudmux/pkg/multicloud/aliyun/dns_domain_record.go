@@ -80,9 +80,9 @@ func (client *SAliyunClient) GetAllDomainRecords(domainName string) ([]SDomainRe
 	pageNumber := 0
 	for {
 		pageNumber++
-		records, err := client.DescribeDomainRecords(domainName, pageNumber, 2)
+		records, err := client.DescribeDomainRecords(domainName, pageNumber, 500)
 		if err != nil {
-			return nil, errors.Wrapf(err, "client.DescribeDomainRecords(%d, 20)", len(srecords))
+			return nil, errors.Wrapf(err, "client.DescribeDomainRecords(%d, 500)", len(srecords))
 		}
 		srecords = append(srecords, records.DomainRecords.Record...)
 		if len(srecords) >= records.TotalCount {
