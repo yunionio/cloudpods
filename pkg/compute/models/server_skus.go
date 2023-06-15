@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
 type SServerSkuManager struct {
@@ -1074,7 +1075,7 @@ func (manager *SServerSkuManager) SyncPrivateCloudSkus(
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		err := manager.newFromCloudSku(ctx, userCred, region, added[i])
+		err := manager.newPrivateCloudSku(ctx, userCred, region, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -1145,7 +1146,45 @@ func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredenti
 	return nil
 }
 
-func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSku cloudprovider.ICloudSku) error {
+func (region *SCloudregion) newPublicCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
+	if err != nil {
+		return err
+	}
+	zones, err := region.GetZones()
+	if err != nil {
+		return errors.Wrap(err, "GetZones")
+	}
+	zoneMaps := map[string]string{}
+	for _, zone := range zones {
+		zoneMaps[zone.ExternalId] = zone.Id
+	}
+
+	sku := &SServerSku{}
+	sku.SetModelManager(ServerSkuManager, sku)
+
+	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ServerBase, region.ExternalId, extSku.ExternalId)
+	err = meta.Get(skuUrl, sku)
+	if err != nil {
+		return errors.Wrapf(err, "Get")
+	}
+
+	if len(sku.ZoneId) > 0 {
+		zoneId := yunionmeta.GetZoneIdBySuffix(zoneMaps, sku.ZoneId)
+		if len(zoneId) > 0 {
+			sku.ZoneId = zoneId
+		}
+	}
+
+	// 第一次同步新建的套餐是启用状态
+	sku.Enabled = tristate.True
+	sku.Status = api.SkuStatusReady
+	sku.CloudregionId = region.Id
+	sku.Provider = region.Provider
+	return ServerSkuManager.TableSpec().Insert(ctx, sku)
+}
+
+func (manager *SServerSkuManager) newPrivateCloudSku(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSku cloudprovider.ICloudSku) error {
 	sku := &SServerSku{Provider: region.Provider}
 
 	sku.SetModelManager(manager, sku)
@@ -1157,33 +1196,13 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	sku.CloudregionId = region.Id
 	sku.Name = extSku.GetName()
 
-	sku.SetModelManager(manager, sku)
-
-	err := manager.TableSpec().Insert(ctx, sku)
-	if err != nil {
-		return errors.Wrapf(err, "Insert")
-	}
-	db.OpsLog.LogEvent(sku, db.ACT_CREATE, sku.GetShortDesc(ctx), userCred)
-
-	return nil
-}
-
-func (manager *SServerSkuManager) newPublicCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
-	extSku.Enabled = tristate.True
-	extSku.Status = api.SkuStatusReady
-	return manager.TableSpec().Insert(ctx, &extSku)
+	return manager.TableSpec().Insert(ctx, sku)
 }
 
 func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
 	_, err := db.Update(self, func() error {
-		self.ZoneId = extSku.ZoneId
-		self.InstanceTypeCategory = extSku.InstanceTypeCategory
 		self.PrepaidStatus = extSku.PrepaidStatus
 		self.PostpaidStatus = extSku.PostpaidStatus
-		self.Name = extSku.GetName()
-		self.CpuArch = extSku.CpuArch
-		self.SysDiskType = extSku.SysDiskType
-		self.DataDiskTypes = extSku.DataDiskTypes
 		return nil
 	})
 	return err
@@ -1212,22 +1231,29 @@ func (manager *SServerSkuManager) FetchSkusByRegion(regionID string) ([]SServerS
 	return skus, nil
 }
 
-func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta, xor bool) compare.SyncResult {
+func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) compare.SyncResult {
 	lockman.LockRawObject(ctx, manager.Keyword(), region.Id)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), region.Id)
 
-	syncResult := compare.SyncResult{}
+	result := compare.SyncResult{}
 
-	extSkus, err := extSkuMeta.GetServerSkusByRegionExternalId(region.ExternalId)
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
-		syncResult.Error(err)
-		return syncResult
+		result.Error(errors.Wrapf(err, "FetchYunionmeta"))
+		return result
+	}
+
+	extSkus := []SServerSku{}
+	err = meta.List(manager.Keyword(), region.ExternalId, &extSkus)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "List"))
+		return result
 	}
 
 	dbSkus, err := manager.FetchSkusByRegion(region.GetId())
 	if err != nil {
-		syncResult.Error(err)
-		return syncResult
+		result.Error(err)
+		return result
 	}
 
 	removed := make([]SServerSku, 0)
@@ -1237,8 +1263,8 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 
 	err = compare.CompareSets(dbSkus, extSkus, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		syncResult.Error(err)
-		return syncResult
+		result.Error(err)
+		return result
 	}
 
 	for i := 0; i < len(removed); i += 1 {
@@ -1249,27 +1275,27 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 			err = removed[i].RealDelete(ctx, userCred)
 		}
 		if err != nil {
-			syncResult.DeleteError(err)
+			result.DeleteError(err)
 		} else {
-			syncResult.Delete()
+			result.Delete()
 		}
 	}
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
 			err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
 			if err != nil {
-				syncResult.UpdateError(err)
+				result.UpdateError(err)
 			} else {
-				syncResult.Update()
+				result.Update()
 			}
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		err = manager.newPublicCloudSku(ctx, userCred, added[i])
+		err = region.newPublicCloudSku(ctx, userCred, added[i])
 		if err != nil {
-			syncResult.AddError(err)
+			result.AddError(err)
 		} else {
-			syncResult.Add()
+			result.Add()
 		}
 	}
 
@@ -1279,7 +1305,7 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 		log.Errorf("SchedManager SyncSku %s", err)
 	}
 
-	return syncResult
+	return result
 }
 
 // sku标记为soldout状态。
@@ -1502,4 +1528,78 @@ func (self *SServerSku) GetICloudSku(ctx context.Context) (cloudprovider.ICloudS
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+}
+
+func fetchSkuSyncCloudregions() []SCloudregion {
+	cloudregions := []SCloudregion{}
+	q := CloudregionManager.Query()
+	q = q.In("provider", CloudproviderManager.GetPublicProviderProvidersQuery())
+	err := db.FetchModelObjects(CloudregionManager, q, &cloudregions)
+	if err != nil {
+		log.Errorf("fetchSkuSyncCloudregions.FetchCloudregions failed: %v", err)
+		return nil
+	}
+
+	return cloudregions
+}
+
+// 全量同步sku列表.
+func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if isStart {
+		cnt, err := ServerSkuManager.GetPublicCloudSkuCount()
+		if err != nil {
+			log.Errorf("GetPublicCloudSkuCount fail %s", err)
+			return
+		}
+		if cnt > 0 {
+			log.Debugf("GetPublicCloudSkuCount synced skus, skip...")
+			return
+		}
+	}
+
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
+	if err != nil {
+		log.Errorf("FetchYunionmeta %v", err)
+		return
+	}
+
+	index, err := meta.Index(ServerSkuManager.Keyword())
+	if err != nil {
+		log.Errorf("getServerSkuIndex error: %v", err)
+		return
+	}
+
+	cloudregions := fetchSkuSyncCloudregions()
+	for i := range cloudregions {
+		region := &cloudregions[i]
+
+		skuMeta := &SServerSku{}
+		skuMeta.SetModelManager(ServerSkuManager, skuMeta)
+		skuMeta.Id = region.ExternalId
+
+		oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
+		newMd5, ok := index[region.ExternalId]
+		if !ok || newMd5 == yunionmeta.EMPTY_MD5 || len(oldMd5) > 0 && newMd5 == oldMd5 {
+			continue
+		}
+
+		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+
+		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, false)
+		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
+		log.Debugf(notes)
+	}
+
+	// 清理无效的sku
+	log.Debugf("DeleteInvalidSkus in processing...")
+	ServerSkuManager.PendingDeleteInvalidSku()
+}
+
+// 同步指定region sku列表
+func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) compare.SyncResult {
+	result := compare.SyncResult{}
+	result = ServerSkuManager.SyncServerSkus(ctx, userCred, region, xor)
+	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
+	log.Infof(notes)
+	return result
 }
