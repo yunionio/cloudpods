@@ -1011,9 +1011,6 @@ func (self *SElasticcache) ValidatorChangeSpecData(ctx context.Context, userCred
 	}
 
 	sku := skuV.Model.(*SElasticcacheSku)
-	if sku.Provider != self.GetProviderName() {
-		return nil, httperrors.NewInputParameterError("provider mismatch: %s instance can't use %s sku", self.GetProviderName(), sku.Provider)
-	}
 
 	region, _ := self.GetRegion()
 	if sku.CloudregionId != region.Id {
