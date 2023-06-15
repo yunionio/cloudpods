@@ -574,17 +574,22 @@ func (manager *SExternalProjectManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
-	if len(query.CloudproviderId) > 0 {
-		p, err := CloudproviderManager.FetchByIdOrName(userCred, query.CloudproviderId)
+	managerStrs := query.CloudproviderId
+	conditions := []sqlchemy.ICondition{}
+	for _, managerStr := range managerStrs {
+		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudprovider", query.CloudproviderId)
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
 			}
-			return nil, httperrors.NewGeneralError(err)
 		}
-		q = q.Equals("manager_id", p.GetId())
-		provider := p.(*SCloudprovider)
-		query.CloudaccountId = []string{provider.CloudaccountId}
+		provider := providerObj.(*SCloudprovider)
+		conditions = append(conditions, sqlchemy.Equals(q.Field("id"), provider.CloudaccountId))
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
 	if len(query.CloudaccountId) > 0 {

@@ -60,7 +60,7 @@ type ServerListInput struct {
 	Backup *bool `json:"bakcup"`
 	// 列出指定类型的主机
 	// enum: normal,gpu,usb,backup
-	ServerType string `json:"server_type"`
+	ServerType []string `json:"server_type"`
 	// 列出管理安全组为指定安全组的主机
 	AdminSecgroup string `json:"admin_security"`
 	// 列出Hypervisor为指定值的主机

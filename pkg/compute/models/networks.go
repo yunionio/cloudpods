@@ -2139,39 +2139,42 @@ func (manager *SNetworkManager) ListItemFilter(
 		}
 	}
 
-	ip := ""
+	ips := []string{}
 	exactIpMatch := false
 	if len(input.Ip) > 0 {
 		exactIpMatch = true
-		ip = input.Ip
+		ips = input.Ip
 	} else if len(input.IpMatch) > 0 {
-		ip = input.IpMatch
+		ips = input.IpMatch
 	}
 
-	if len(ip) > 0 {
-		ipIa, err := parseIpToIntArray(ip)
-		if err != nil {
-			return nil, err
+	if len(ips) > 0 {
+		conditions := []sqlchemy.ICondition{}
+		for _, ip := range ips {
+			ipIa, err := parseIpToIntArray(ip)
+			if err != nil {
+				return nil, err
+			}
+
+			ipSa := []string{"0", "0", "0", "0"}
+			for i := range ipIa {
+				ipSa[i] = strconv.Itoa(ipIa[i])
+			}
+			fullIp := strings.Join(ipSa, ".")
+
+			ipField := sqlchemy.INET_ATON(sqlchemy.NewStringField(fullIp))
+			ipStart := sqlchemy.INET_ATON(q.Field("guest_ip_start"))
+			ipEnd := sqlchemy.INET_ATON(q.Field("guest_ip_end"))
+
+			var ipCondtion sqlchemy.ICondition
+			if exactIpMatch {
+				ipCondtion = sqlchemy.Between(ipField, ipStart, ipEnd)
+			} else {
+				ipCondtion = sqlchemy.OR(sqlchemy.Between(ipField, ipStart, ipEnd), sqlchemy.Contains(q.Field("guest_ip_start"), ip), sqlchemy.Contains(q.Field("guest_ip_end"), ip))
+			}
+			conditions = append(conditions, ipCondtion)
 		}
-
-		ipSa := []string{"0", "0", "0", "0"}
-		for i := range ipIa {
-			ipSa[i] = strconv.Itoa(ipIa[i])
-		}
-		fullIp := strings.Join(ipSa, ".")
-
-		ipField := sqlchemy.INET_ATON(sqlchemy.NewStringField(fullIp))
-		ipStart := sqlchemy.INET_ATON(q.Field("guest_ip_start"))
-		ipEnd := sqlchemy.INET_ATON(q.Field("guest_ip_end"))
-
-		var ipCondtion sqlchemy.ICondition
-		if exactIpMatch {
-			ipCondtion = sqlchemy.Between(ipField, ipStart, ipEnd)
-		} else {
-			ipCondtion = sqlchemy.OR(sqlchemy.Between(ipField, ipStart, ipEnd), sqlchemy.Contains(q.Field("guest_ip_start"), ip), sqlchemy.Contains(q.Field("guest_ip_end"), ip))
-		}
-
-		q = q.Filter(ipCondtion)
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
 	if len(input.SchedtagId) > 0 {
