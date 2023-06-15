@@ -238,8 +238,8 @@ func (offering *SInstanceOffering) GetGpuSpec() string {
 	return ""
 }
 
-func (offering *SInstanceOffering) GetGpuCount() int {
-	return 0
+func (offering *SInstanceOffering) GetGpuCount() string {
+	return ""
 }
 
 func (offering *SInstanceOffering) GetGpuMaxCount() int {

@@ -15,6 +15,8 @@
 package cloudpods
 
 import (
+	"fmt"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 
@@ -130,8 +132,8 @@ func (self *SServerSku) GetGpuSpec() string {
 	return self.GpuSpec
 }
 
-func (self *SServerSku) GetGpuCount() int {
-	return self.GpuCount
+func (self *SServerSku) GetGpuCount() string {
+	return fmt.Sprintf("%d", self.GpuCount)
 }
 
 func (self *SServerSku) GetGpuMaxCount() int {
