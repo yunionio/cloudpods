@@ -33,7 +33,7 @@ type SInstanceType struct {
 	CpuCoreCount         int
 	MemorySize           float32
 	EniQuantity          int // 实例规格支持网卡数量
-	GPUAmount            int
+	GPUAmount            string
 	GPUSpec              string
 	InstanceTypeFamily   string
 	InstanceFamilyLevel  string
@@ -182,11 +182,11 @@ func (self *SInstanceType) GetGpuAttachable() bool {
 }
 
 func (self *SInstanceType) GetGpuSpec() string {
-	return ""
+	return self.GPUSpec
 }
 
-func (self *SInstanceType) GetGpuCount() int {
-	return 0
+func (self *SInstanceType) GetGpuCount() string {
+	return self.GPUAmount
 }
 
 func (self *SInstanceType) GetGpuMaxCount() int {
