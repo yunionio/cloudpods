@@ -490,8 +490,9 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourc
 }
 
 func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	cloudproviderStr := input.CloudproviderId
-	if len(cloudproviderStr) > 0 {
+	cloudproviderStrs := input.CloudproviderId
+	managerIds := []string{}
+	for _, cloudproviderStr := range cloudproviderStrs {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, cloudproviderStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -500,12 +501,16 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 			return nil, httperrors.NewGeneralError(err)
 		}
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.Equals(q.Field(managerIdFieldName), provider.GetId()))
+			managerIds = append(managerIds, provider.GetId())
 		} else {
 			sq := subqFunc()
 			sq = sq.Filter(sqlchemy.Equals(sq.Field(managerIdFieldName), provider.GetId()))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
+	}
+
+	if len(managerIds) > 0 {
+		q = q.In(managerIdFieldName, managerIds)
 	}
 
 	cloudaccountArr := input.CloudaccountId
@@ -584,20 +589,26 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 }
 
 func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	regionStr := query.CloudregionId
-	if len(regionStr) > 0 {
-		regionObj, _, err := ValidateCloudregionResourceInput(nil, query.CloudregionResourceInput)
+	regionIds := []string{}
+	for _, region := range query.CloudregionId {
+		regionObj, err := ValidateCloudregionId(nil, region)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
-		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), regionObj.GetId()))
-		} else {
+		regionIds = append(regionIds, regionObj.GetId())
+	}
+	if len(filterField) == 0 {
+		if len(regionIds) > 0 {
+			q = q.In("cloudregion_id", regionIds)
+		}
+	} else {
+		if len(regionIds) > 0 {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.Equals(sq.Field("cloudregion_id"), regionObj.GetId()))
+			sq = sq.Filter(sqlchemy.In(sq.Field("cloudregion_id"), regionIds))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
+
 	if len(query.City) > 0 {
 		subq := CloudregionManager.Query("id").Equals("city", query.City).SubQuery()
 		if len(filterField) == 0 {

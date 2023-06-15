@@ -111,8 +111,20 @@ type VpcResourceInput struct {
 	ExternalAccessMode string `json:"external_access_mode"`
 }
 
+type VpcListItemInput struct {
+	// 关联VPC(ID或Name)
+	VpcId []string `json:"vpc_id"`
+	// swagger:ignore
+	// Deprecated
+	// filter by vpc Id
+	Vpc []string `json:"vpc" yunion-deprecated-by:"vpc_id"`
+
+	// Vpc外网访问模式
+	ExternalAccessMode string `json:"external_access_mode"`
+}
+
 type VpcFilterListInputBase struct {
-	VpcResourceInput
+	VpcListItemInput
 
 	// 按VPC名称排序
 	// pattern:asc|desc
