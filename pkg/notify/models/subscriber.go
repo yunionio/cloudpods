@@ -696,7 +696,7 @@ func (sm *SSubscriberManager) InitializeData() error {
 }
 
 // 根据接受人ID获取订阅
-func getSubscriberByReceiverId(receiverId string) ([]SSubscriber, error) {
+func getSubscriberByReceiverId(receiverId string, showDisabled bool) ([]SSubscriber, error) {
 	// 获取当前接受人所有角色
 	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	query := jsonutils.NewDict()
@@ -719,6 +719,9 @@ func getSubscriberByReceiverId(receiverId string) ([]SSubscriber, error) {
 	// q1 根据角色查找
 	q1 := SubscriberManager.Query()
 	q1 = q1.Equals("type", api.SUBSCRIBER_TYPE_ROLE)
+	if !showDisabled {
+		q1 = q1.Equals("enabled", true)
+	}
 	q1 = q1.In("identification", roleArr)
 	tempRes := []SSubscriber{}
 	err = db.FetchModelObjects(SubscriberManager, q1, &tempRes)
@@ -727,11 +730,15 @@ func getSubscriberByReceiverId(receiverId string) ([]SSubscriber, error) {
 	}
 	results = append(results, tempRes...)
 
+	tempRes = []SSubscriber{}
 	// q2 根据接受人ID查找
 	q2 := SubscriberManager.Query()
+	q2 = q2.Equals("type", api.SUBSCRIBER_TYPE_RECEIVER)
 	srq := SubscriberReceiverManager.Query().Equals("receiver_id", receiverId)
 	srsq := srq.SubQuery()
-	q2 = q2.Equals("type", api.SUBSCRIBER_TYPE_RECEIVER)
+	if !showDisabled {
+		q2 = q2.Equals("enabled", true)
+	}
 	q2.Join(srsq, sqlchemy.Equals(q2.Field("id"), srsq.Field("subscriber_id")))
 	err = db.FetchModelObjects(SubscriberManager, q2, &tempRes)
 	if err != nil {

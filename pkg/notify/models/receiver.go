@@ -785,8 +785,8 @@ func (r *SReceiver) IsOwner(userCred mcclient.TokenCredential) bool {
 }
 
 // 获取用户订阅
-func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverIntellijGetInput) (jsonutils.JSONObject, error) {
-	subscribers, err := getSubscriberByReceiverId(r.Id)
+func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverGetSubscriptionOptions) (jsonutils.JSONObject, error) {
+	subscribers, err := getSubscriberByReceiverId(r.Id, input.ShowDisabled)
 	if err != nil {
 		return nil, errors.Wrap(err, "getSubscriberByReceiverId")
 	}
