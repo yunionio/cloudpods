@@ -264,12 +264,11 @@ func (self *SInstanceType) GetGpuSpec() string {
 	return ""
 }
 
-func (self *SInstanceType) GetGpuCount() int {
+func (self *SInstanceType) GetGpuCount() string {
 	if self.OSExtraSpecs.EcsPerformancetype == "gpu" {
-		return 1
+		return "1"
 	}
-
-	return 0
+	return ""
 }
 
 func (self *SInstanceType) GetGpuMaxCount() int {

@@ -857,7 +857,7 @@ type ICloudSku interface {
 
 	GetGpuAttachable() bool
 	GetGpuSpec() string
-	GetGpuCount() int
+	GetGpuCount() string
 	GetGpuMaxCount() int
 
 	Delete() error

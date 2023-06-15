@@ -106,7 +106,7 @@ type SServerSku struct {
 
 	GpuAttachable tristate.TriState `default:"true" list:"user" create:"admin_optional" update:"admin"`
 	GpuSpec       string            `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
-	GpuCount      int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	GpuCount      string            `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	GpuMaxCount   int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	Provider string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`

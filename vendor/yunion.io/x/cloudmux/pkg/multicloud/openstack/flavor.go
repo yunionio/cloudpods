@@ -276,8 +276,8 @@ func (flavor *SFlavor) GetGpuSpec() string {
 	return ""
 }
 
-func (flavor *SFlavor) GetGpuCount() int {
-	return 0
+func (flavor *SFlavor) GetGpuCount() string {
+	return ""
 }
 
 func (flavor *SFlavor) GetGpuMaxCount() int {
