@@ -254,5 +254,6 @@ const (
 	ACT_ASSOCIATE  = "associate"
 	ACT_DISSOCIATE = "dissociate"
 
-	ACT_BIND = "bind"
+	ACT_BIND     = "bind"
+	ACT_PROGRESS = "progress"
 )
