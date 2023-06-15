@@ -173,8 +173,8 @@ func (insType *SInstanceType) GetGpuSpec() string {
 	return ""
 }
 
-func (insType *SInstanceType) GetGpuCount() int {
-	return 0
+func (insType *SInstanceType) GetGpuCount() string {
+	return ""
 }
 
 func (insType *SInstanceType) GetGpuMaxCount() int {

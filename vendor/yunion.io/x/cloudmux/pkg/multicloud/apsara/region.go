@@ -468,7 +468,7 @@ func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId s
 	}
 	ret := make([]SInstanceType, 0)
 	for _, t := range self.instanceTypes {
-		if t.CpuCoreCount == cpu && memMB == t.memoryMB() && gpu == t.GPUAmount {
+		if t.CpuCoreCount == cpu && memMB == t.memoryMB() && fmt.Sprintf("%d", gpu) == t.GPUAmount {
 			if available == nil || utils.IsInStringArray(t.InstanceTypeId, available) {
 				ret = append(ret, t)
 			}

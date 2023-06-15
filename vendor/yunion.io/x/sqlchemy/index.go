@@ -95,7 +95,7 @@ func (ts *STableSpec) AddIndex(unique bool, cols ...string) bool {
 			return false
 		}
 	}
-	idx := STableIndex{columns: cols, isUnique: unique, ts: ts}
+	idx := NewTableIndex(ts, cols, unique)
 	ts._indexes = append(ts._indexes, idx)
 	return true
 }

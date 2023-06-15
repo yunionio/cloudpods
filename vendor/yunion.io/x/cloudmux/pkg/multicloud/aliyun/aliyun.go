@@ -233,6 +233,7 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 					"TLS handshake timeout",
 					"Client.Timeout exceeded while awaiting headers",
 					"connection reset by peer",
+					"context deadline exceeded",
 					"server misbehaving",
 					"try later",
 					"Another operation is being performed", // Another operation is being performed on the DB instance or the DB instance is faulty(赋予RDS账号权限)

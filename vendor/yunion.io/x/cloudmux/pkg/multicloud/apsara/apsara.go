@@ -257,7 +257,7 @@ func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error
 				if err != nil {
 					return nil, errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
 				}
-				action := params.Get("Action")
+				action := params.Get("OpenApiAction")
 				service := strings.ToLower(params.Get("Product"))
 				respCheck := func(resp *http.Response) {
 					if self.cpcfg.UpdatePermission != nil {
