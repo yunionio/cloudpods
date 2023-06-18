@@ -53,6 +53,7 @@ type ExternalProjectCreateOptions struct {
 	NAME            string
 	CLOUDACCOUNT_ID string
 	ManagerId       string
+	Project         string
 }
 
 func (opts *ExternalProjectCreateOptions) Params() (jsonutils.JSONObject, error) {
