@@ -496,7 +496,7 @@ func (self *SBaseGuestDriver) RequestCPUSetRemove(ctx context.Context, userCred 
 	return httperrors.ErrNotImplemented
 }
 
-func (self *SBaseGuestDriver) QgaRequestGuestPing(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest) error {
+func (self *SBaseGuestDriver) QgaRequestGuestPing(ctx context.Context, header http.Header, host *models.SHost, guest *models.SGuest, async bool, input *api.ServerQgaTimeoutInput) error {
 	return httperrors.ErrNotImplemented
 }
 

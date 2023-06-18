@@ -17,6 +17,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -1056,11 +1057,15 @@ func (self *SKVMGuestDriver) RequestCPUSetRemove(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SKVMGuestDriver) QgaRequestGuestPing(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest) error {
+func (self *SKVMGuestDriver) QgaRequestGuestPing(ctx context.Context, header http.Header, host *models.SHost, guest *models.SGuest, async bool, input *api.ServerQgaTimeoutInput) error {
 	url := fmt.Sprintf("%s/servers/%s/qga-guest-ping", host.ManagerUri, guest.Id)
 	httpClient := httputils.GetDefaultClient()
-	header := task.GetTaskRequestHeader()
-	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, nil, false)
+	body := jsonutils.NewDict()
+	if input != nil {
+		body.Set("timeout", jsonutils.NewInt(int64(input.Timeout)))
+	}
+	body.Set("async", jsonutils.NewBool(async))
+	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
 	if err != nil {
 		return errors.Wrap(err, "host request")
 	}

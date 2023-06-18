@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 )
 
-type SBaseParms struct {
+type SBaseParams struct {
 	Sid  string
 	Body jsonutils.JSONObject
 }
