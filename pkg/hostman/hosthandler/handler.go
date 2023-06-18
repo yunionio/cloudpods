@@ -18,8 +18,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -27,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 type actionFunc func(context.Context, string, jsonutils.JSONObject) (interface{}, error)
@@ -41,6 +46,7 @@ func AddHostHandler(prefix string, app *appsrv.Application) {
 			"sync":                          hostSync,
 			"probe-isolated-devices":        hostProbeIsolatedDevices,
 			"shutdown-servers-on-host-down": setOnHostDown,
+			"restart-host-agent":            hostRestart,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyword, action),
@@ -83,6 +89,17 @@ func hostActions(f actionFunc) appsrv.FilterHandler {
 
 func hostSync(ctx context.Context, hostId string, body jsonutils.JSONObject) (interface{}, error) {
 	return hostinfo.Instance().UpdateSyncInfo(hostId, body)
+}
+
+func hostRestart(ctx context.Context, hostId string, body jsonutils.JSONObject) (interface{}, error) {
+	log.Infof("Received host restart request, going to restart host-agent.")
+	timeutils2.AddTimeout(time.Second*3, func() {
+		utils.DumpAllGoroutineStack(log.Logger().Out)
+		hostinfo.Stop()
+		hostutils.GetWorkManager().Stop()
+		os.Exit(1)
+	})
+	return nil, nil
 }
 
 func hostProbeIsolatedDevices(ctx context.Context, hostId string, body jsonutils.JSONObject) (interface{}, error) {

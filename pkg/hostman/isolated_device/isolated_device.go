@@ -48,6 +48,9 @@ type CloudDeviceInfo struct {
 type IHost interface {
 	GetHostId() string
 	GetSession() *mcclient.ClientSession
+
+	AppendHostError(content string)
+	AppendError(content, objType, id, name string)
 }
 
 type HotPlugOption struct {
@@ -101,7 +104,7 @@ type IsolatedDeviceManager interface {
 	GetDeviceByAddr(addr string) IDevice
 	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error
 	StartDetachTask()
-	BatchCustomProbe() error
+	BatchCustomProbe()
 	AppendDetachedDevice(dev *CloudDeviceInfo)
 	GetQemuParams(devAddrs []string) *QemuParams
 }
@@ -135,32 +138,41 @@ type HostNic struct {
 func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error {
 	man.devices = make([]IDevice, 0)
 	if !skipGPUs {
-		gpus, err := getPassthroughGPUS()
+		gpus, err, warns := getPassthroughGPUS()
 		if err != nil {
 			// ignore getPassthroughGPUS error on old machines without VGA devices
 			log.Errorf("getPassthroughGPUS: %v", err)
-			return nil
-		}
-		for idx, gpu := range gpus {
-			man.devices = append(man.devices, NewGPUHPCDevice(gpu))
-			log.Infof("Add GPU device: %d => %#v", idx, gpu)
+			man.host.AppendError(fmt.Sprintf("get passhtrough gpus %s", err.Error()), "isolated_devices", "", " ")
+		} else {
+			if len(warns) > 0 {
+				for i := 0; i < len(warns); i++ {
+					man.host.AppendError(warns[i].Error(), "isolated_devices", "", " ")
+				}
+			}
+			for idx, gpu := range gpus {
+				man.devices = append(man.devices, NewGPUHPCDevice(gpu))
+				log.Infof("Add GPU device: %d => %#v", idx, gpu)
+			}
 		}
 	}
 
 	if !skipCustomDevs {
 		devModels, err := man.getCustomIsolatedDeviceModels()
 		if err != nil {
-			return errors.Wrap(err, "get custom isolated device models")
-		}
-		for _, devModel := range devModels {
-			devs, err := getPassthroughPCIDevs(devModel)
-			if err != nil {
-				log.Errorf("getPassthroughPCIDevs %v: %s", devModel, err)
-				return nil
-			}
-			for i, dev := range devs {
-				man.devices = append(man.devices, dev)
-				log.Infof("Add general pci device: %d => %#v", i, dev)
+			log.Errorf("get custom isolated device models %s", err.Error())
+			man.host.AppendError(fmt.Sprintf("get custom isolated device models %s", err.Error()), "isolated_devices", "", "")
+		} else {
+			for _, devModel := range devModels {
+				devs, err := getPassthroughPCIDevs(devModel)
+				if err != nil {
+					log.Errorf("getPassthroughPCIDevs %v: %s", devModel, err)
+					man.host.AppendError(fmt.Sprintf("get custom passthrough pci devices %s", err.Error()), "isolated_devices", "", "")
+					continue
+				}
+				for i, dev := range devs {
+					man.devices = append(man.devices, dev)
+					log.Infof("Add general pci device: %d => %#v", i, dev)
+				}
 			}
 		}
 	}
@@ -169,34 +181,38 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustom
 		usbs, err := getPassthroughUSBs()
 		if err != nil {
 			log.Errorf("getPassthroughUSBs: %v", err)
-			return nil
+			man.host.AppendError(fmt.Sprintf("get passthrough usb devices %s", err.Error()), "isolated_devices", "", "")
+		} else {
+			for idx, usb := range usbs {
+				man.devices = append(man.devices, usb)
+				log.Infof("Add USB device: %d => %#v", idx, usb)
+			}
 		}
-		for idx, usb := range usbs {
-			man.devices = append(man.devices, usb)
-			log.Infof("Add USB device: %d => %#v", idx, usb)
-		}
+
 	}
 
 	if len(sriovNics) > 0 {
 		nics, err := getSRIOVNics(sriovNics)
 		if err != nil {
 			log.Errorf("getSRIOVNics: %v", err)
-			return nil
-		}
-		for idx, nic := range nics {
-			man.devices = append(man.devices, nic)
-			log.Infof("Add sriov nic: %d => %#v", idx, nic)
+			man.host.AppendError(fmt.Sprintf("get sriov nic devices %s", err.Error()), "isolated_devices", "", "")
+		} else {
+			for idx, nic := range nics {
+				man.devices = append(man.devices, nic)
+				log.Infof("Add sriov nic: %d => %#v", idx, nic)
+			}
 		}
 	}
 	if len(ovsOffloadNics) > 0 {
 		nics, err := getOvsOffloadNics(ovsOffloadNics)
 		if err != nil {
 			log.Errorf("getOvsOffloadNics: %v", err)
-			return nil
-		}
-		for idx, nic := range nics {
-			man.devices = append(man.devices, nic)
-			log.Infof("Add sriov nic: %d => %#v", idx, nic)
+			man.host.AppendError(fmt.Sprintf("get ovs offload nic devices %s", err.Error()), "isolated_devices", "", "")
+		} else {
+			for idx, nic := range nics {
+				man.devices = append(man.devices, nic)
+				log.Infof("Add sriov nic: %d => %#v", idx, nic)
+			}
 		}
 	}
 
@@ -204,10 +220,11 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustom
 		nvmeDisks, err := getPassthroughNVMEDisks(nvmePciDisks)
 		if err != nil {
 			log.Errorf("getPassthroughNVMEDisks: %v", err)
-			return nil
-		}
-		for i := range nvmeDisks {
-			man.devices = append(man.devices, nvmeDisks[i])
+			man.host.AppendError(fmt.Sprintf("get nvme passthrough disks %s", err.Error()), "isolated_devices", "", "")
+		} else {
+			for i := range nvmeDisks {
+				man.devices = append(man.devices, nvmeDisks[i])
+			}
 		}
 	}
 
@@ -270,13 +287,14 @@ func (man *isolatedDeviceManager) GetDeviceByAddr(addr string) IDevice {
 	return nil
 }
 
-func (man *isolatedDeviceManager) BatchCustomProbe() error {
+func (man *isolatedDeviceManager) BatchCustomProbe() {
 	for i, dev := range man.devices {
 		if err := dev.CustomProbe(i); err != nil {
-			return err
+			man.host.AppendError(
+				fmt.Sprintf("CustomProbe failed %s", err.Error()),
+				"isolated_devices", dev.GetAddr(), dev.GetModelName())
 		}
 	}
-	return nil
 }
 
 func (man *isolatedDeviceManager) AppendDetachedDevice(dev *CloudDeviceInfo) {
