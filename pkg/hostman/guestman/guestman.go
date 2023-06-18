@@ -779,7 +779,7 @@ func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64
 }
 
 func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	syncParams, ok := params.(*SBaseParms)
+	syncParams, ok := params.(*SBaseParams)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}

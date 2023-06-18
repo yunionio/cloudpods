@@ -37,7 +37,7 @@ func (self *SGuestQgaBaseTask) guestPing(ctx context.Context, guest *models.SGue
 	if err != nil {
 		return err
 	}
-	return guest.GetDriver().QgaRequestGuestPing(ctx, self, host, guest)
+	return guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, true, nil)
 }
 
 func (self *SGuestQgaBaseTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {

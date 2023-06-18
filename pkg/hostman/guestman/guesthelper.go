@@ -23,7 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
-type SBaseParms struct {
+type SBaseParams struct {
 	Sid  string
 	Body jsonutils.JSONObject
 }
