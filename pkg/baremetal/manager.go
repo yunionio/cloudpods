@@ -2382,7 +2382,11 @@ func (b *SBaremetalInstance) fetchPowerThermalMetrics(ctx context.Context) ([]in
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "redfishApi.Thermal")
 	}
-	powerMetrics := powers[0].ToMetrics()
+
+	var powerMetrics []influxdb.SKeyValue
+	if len(powers) > 0 {
+		powerMetrics = powers[0].ToMetrics()
+	}
 	thermalMetrics := make([]influxdb.SKeyValue, 0)
 	for _, t := range thermals {
 		thermalMetrics = append(thermalMetrics, t.ToMetric())
