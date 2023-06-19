@@ -232,20 +232,26 @@ func (job *SSendMetricsJob) Do(ctx context.Context, now time.Time) error {
 		return nil
 	}
 	powerMetrics, thermalMetrics, err := job.baremetal.fetchPowerThermalMetrics(ctx)
+	if err != nil {
+		return errors.Wrap(err, "fetchPowerThermalMetrics")
+	}
 	tags := job.baremetal.getTags()
-	metrics := []influxdb.SMetricData{
-		{
+	metrics := []influxdb.SMetricData{}
+	if len(powerMetrics) > 0 {
+		metrics = append(metrics, influxdb.SMetricData{
 			Name:      "power",
 			Tags:      tags,
 			Metrics:   powerMetrics,
 			Timestamp: now,
-		},
-		{
+		})
+	}
+	if len(thermalMetrics) > 0 {
+		metrics = append(metrics, influxdb.SMetricData{
 			Name:      "thermal",
 			Tags:      tags,
 			Metrics:   thermalMetrics,
 			Timestamp: now,
-		},
+		})
 	}
 	err = influxdb.SendMetrics(urls, "telegraf", metrics, false)
 	if err != nil {
