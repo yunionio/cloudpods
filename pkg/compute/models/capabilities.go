@@ -777,7 +777,6 @@ func getIsolatedDeviceInfo(userCred mcclient.TokenCredential, region *SCloudregi
 		))
 	}*/
 	q = q.GroupBy(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
-	q.DebugQuery()
 
 	rows, err := q.Rows()
 	if err != nil {
