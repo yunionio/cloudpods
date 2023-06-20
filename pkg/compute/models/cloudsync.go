@@ -135,9 +135,6 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syn
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncZones for region %s result: %s", localRegion.Name, msg)
 	log.Infof(notes)
-	if result.IsError() {
-		return nil, nil, fmt.Errorf(msg)
-	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	return localZones, remoteZones, nil
 }

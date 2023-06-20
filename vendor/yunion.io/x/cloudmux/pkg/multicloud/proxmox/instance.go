@@ -216,7 +216,7 @@ func (self *SInstance) GetBios() cloudprovider.TBiosType {
 }
 
 func (self *SInstance) GetBootOrder() string {
-	return strings.ToLower(self.Boot)
+	return "cdn"
 }
 
 func (self *SInstance) GetError() error {
