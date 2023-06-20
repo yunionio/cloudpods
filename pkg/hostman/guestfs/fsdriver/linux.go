@@ -1023,19 +1023,25 @@ func (d *SUbuntuRootFs) String() string {
 
 func (d *SUbuntuRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
 	distroKey := "DISTRIB_RELEASE="
+	distroId := "DISTRIB_ID="
 	rel, err := rootFs.FileGetContents("/etc/lsb-release", false)
 	if err != nil {
 		log.Errorf("Get ubuntu release info error: %v", err)
 		return nil
 	}
-	var version string
+	var version, distro string
 	lines := strings.Split(string(rel), "\n")
 	for _, l := range lines {
 		if strings.HasPrefix(l, distroKey) {
 			version = strings.TrimSpace(l[len(distroKey):])
+		} else if strings.HasPrefix(l, distroId) {
+			distro = strings.TrimSpace(l[len(distroId):])
 		}
 	}
-	return deployapi.NewReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
+	if distro == "" {
+		distro = d.GetName()
+	}
+	return deployapi.NewReleaseInfo(distro, version, d.GetArch(rootFs))
 }
 
 func (d *SUbuntuRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
