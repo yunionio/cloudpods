@@ -238,6 +238,9 @@ func (man *SDBInstanceManager) ListItemFilter(
 		dn := DBInstanceNetworkManager.Query("dbinstance_id")
 		conditions := []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddr {
+			if len(ipAddr) == 0 {
+				continue
+			}
 			condition := sqlchemy.Contains(dn.Field("ip_addr"), ipAddr)
 			conditions = append(conditions, condition)
 		}
