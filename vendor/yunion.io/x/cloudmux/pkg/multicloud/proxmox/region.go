@@ -160,13 +160,30 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
-	zone, err := self.GetZone()
+	storages, err := self.GetStorages()
 	if err != nil {
-		return nil, cloudprovider.ErrNotSupported
+		return nil, err
 	}
 	ret := []cloudprovider.ICloudStoragecache{}
-	cache := &SStoragecache{zone: zone}
-	ret = append(ret, cache)
+	localMap := map[string]bool{}
+	isShared := false
+	for i := range storages {
+		storage := &SStoragecache{
+			region:  self,
+			Node:    storages[i].Node,
+			isShare: storages[i].Shared == 1,
+		}
+		if !isShared && storage.isShare {
+			ret = append(ret, storage)
+			isShared = true
+			continue
+		}
+		_, ok := localMap[storages[i].Node]
+		if !ok {
+			localMap[storages[i].Node] = true
+			ret = append(ret, storage)
+		}
+	}
 	return ret, nil
 }
 
@@ -195,8 +212,8 @@ func (self *SRegion) post(res string, params interface{}) (jsonutils.JSONObject,
 	return self.client.post(res, params)
 }
 
-func (self *SRegion) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
-	return self.client.put(res, params, body, retVal)
+func (self *SRegion) put(res string, params url.Values, body jsonutils.JSONObject) error {
+	return self.client.put(res, params, body)
 }
 
 func (self *SRegion) del(res string, params url.Values, retVal interface{}) error {

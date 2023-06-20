@@ -194,16 +194,18 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	vmId := self.zone.region.GetClusterVmMaxId()
 	if vmId == -1 {
 		return nil, errors.Errorf("failed to get vm number by %d", vmId)
-	} else {
-		vmId++
 	}
+	vmId++
 
-	splited := strings.Split(opts.SysDisk.StorageExternalId, "/")
-	storage := splited[2]
+	storage, err := self.zone.region.GetStorage(opts.SysDisk.StorageExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorage")
+	}
 
 	body := map[string]interface{}{
 		"vmid":        vmId,
 		"name":        opts.Name,
+		"ide2":        fmt.Sprintf("%s,media=cdrom", opts.ExternalImageId),
 		"ostype":      "other",
 		"sockets":     1,
 		"cores":       opts.Cpu,
@@ -213,11 +215,19 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		"memory":      opts.MemoryMB,
 		"description": opts.OsDistribution,
 		"scsihw":      "virtio-scsi-pci",
-		"scsi0":       fmt.Sprintf("%s:%d", storage, opts.SysDisk.SizeGB),
+		"net0":        "virtio,bridge=vmbr0,firewall=1",
+		"scsi0":       fmt.Sprintf("%s:%d", storage.Storage, opts.SysDisk.SizeGB),
+	}
+	for i, disk := range opts.DataDisks {
+		storage, err := self.zone.region.GetStorage(disk.StorageExternalId)
+		if err != nil {
+			return nil, err
+		}
+		body[fmt.Sprintf("scsi%d", i+1)] = fmt.Sprintf("%s:%d", storage.Storage, opts.SysDisk.SizeGB)
 	}
 
 	res := fmt.Sprintf("/nodes/%s/qemu", self.Node)
-	_, err := self.zone.region.post(res, jsonutils.Marshal(body))
+	_, err = self.zone.region.post(res, jsonutils.Marshal(body))
 	if err != nil {
 		return nil, err
 	}
@@ -226,12 +236,6 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	vm, err := self.zone.region.GetInstance(vmIdRet)
 	if err != nil {
 		return nil, err
-	}
-
-	for k, _ := range vm.QemuDisks {
-		_, diskName := ParseSubConf(k, ":")
-		opts.SysDisk.Name = diskName.(string)
-		break
 	}
 
 	vm.host = self
@@ -282,7 +286,7 @@ func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	storages, err := self.zone.region.GetStoragesByHost(self.Id)
+	storages, err := self.zone.region.GetStoragesByHost(self.Node)
 	if err != nil {
 		return nil, err
 	}

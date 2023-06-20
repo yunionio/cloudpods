@@ -15,12 +15,18 @@
 package proxmox
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -130,6 +136,7 @@ type ProxmoxError struct {
 	Message string
 	Code    int
 	Params  []string
+	Errors  string
 }
 
 func (self ProxmoxError) Error() string {
@@ -144,8 +151,7 @@ func (ce *ProxmoxError) ParseErrorFromJsonResponse(statusCode int, body jsonutil
 	if ce.Code == 0 && statusCode > 0 {
 		ce.Code = statusCode
 	}
-	if ce.Code == 404 || ce.Code == 400 || ce.Code == 500 {
-		log.Errorf("code: %d", ce.Code)
+	if ce.Code == 404 {
 		return errors.Wrap(cloudprovider.ErrNotFound, ce.Error())
 	}
 	return ce
@@ -177,16 +183,18 @@ func (cli *SProxmoxClient) post(res string, params interface{}) (jsonutils.JSONO
 	if err != nil {
 		return resp, err
 	}
-	taskId, err := resp.GetString("data")
-	if err != nil {
+	ret := struct {
+		TaskId string
+	}{}
+	resp.Unmarshal(&ret)
+	if len(ret.TaskId) > 0 && ret.TaskId != "null" {
+		_, err = cli.waitTask(ret.TaskId)
 		return resp, err
 	}
-	_, err = cli.waitTask(taskId)
-
-	return resp, err
+	return resp, nil
 }
 
-func (cli *SProxmoxClient) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
+func (cli *SProxmoxClient) put(res string, params url.Values, body jsonutils.JSONObject) error {
 	if params != nil {
 		res = fmt.Sprintf("%s?%s", res, params.Encode())
 	}
@@ -194,16 +202,21 @@ func (cli *SProxmoxClient) put(res string, params url.Values, body jsonutils.JSO
 	if err != nil {
 		return err
 	}
-	taskId, err := resp.GetString("data")
-	if err != nil {
+	ret := struct {
+		TaskId string
+	}{}
+	resp.Unmarshal(&ret)
+	if len(ret.TaskId) > 0 && ret.TaskId != "null" {
+		_, err = cli.waitTask(ret.TaskId)
 		return err
 	}
-	_, err = cli.waitTask(taskId)
-
-	return err
+	return nil
 }
 
 func (cli *SProxmoxClient) get(res string, params url.Values, retVal interface{}) error {
+	if len(params) > 0 {
+		res = fmt.Sprintf("%s?%s", res, params.Encode())
+	}
 	resp, err := cli._jsonRequest(httputils.GET, res, nil)
 	if err != nil {
 		return err
@@ -273,17 +286,84 @@ func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res strin
 		header.Set("CSRFPreventionToken", cli.csrfToken)
 	}
 
-	//header.Set("Content-Type", "application/x-www-form-urlencoded")
-	//header.Set("Accept", "application/json")
-
 	req.SetHeader(header)
 	oe := &ProxmoxError{}
 	_, resp, err := client.Send(context.Background(), req, oe, cli.debug)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "with params: %v", params)
 	}
 
 	return resp, nil
+}
+
+func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.Reader) (*SImage, error) {
+	if !strings.HasSuffix(filename, ".iso") {
+		filename = filename + ".iso"
+	}
+	filename = filepath.Base(filename)
+	client := cli.getDefaultClient()
+	res := fmt.Sprintf("/nodes/%s/storage/%s/upload", node, storageName)
+	url := fmt.Sprintf("%s/%s", cli.authURL, strings.TrimPrefix(res, "/"))
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	err := writer.WriteField("content", "iso")
+	if err != nil {
+		return nil, err
+	}
+	part, err := writer.CreateFormFile("filename", filename)
+	if err != nil {
+		return nil, err
+	}
+	_, err = io.Copy(part, reader)
+	if err != nil {
+		return nil, errors.Wrapf(err, "io.Copy")
+	}
+	writer.Close()
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	if len(cli.csrfToken) > 0 && len(cli.csrfToken) > 0 && res != AUTH_ADDR {
+		req.Header.Set("Cookie", "PVEAuthCookie="+cli.authTicket)
+		req.Header.Set("CSRFPreventionToken", cli.csrfToken)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	obj, err := jsonutils.Parse(data)
+	if err != nil {
+		return nil, err
+	}
+	if obj.Contains("errors") {
+		return nil, fmt.Errorf(string(data))
+	}
+
+	now := time.Now()
+	for now.Sub(time.Now()) < time.Minute*1 {
+		images, err := cli.GetImages(node, storageName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetImageStatus")
+		}
+		for i := range images {
+			if strings.HasSuffix(images[i].Volid, filename) {
+				return &images[i], nil
+			}
+		}
+		time.Sleep(time.Second * 10)
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after upload")
 }
 
 func (self *SProxmoxClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

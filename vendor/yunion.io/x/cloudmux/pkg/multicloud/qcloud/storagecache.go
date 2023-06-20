@@ -59,23 +59,6 @@ func (self *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (self *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	// if imageId, err := self.region.createIImage(snapshoutId, imageName, imageDesc); err != nil {
-	// 	return nil, err
-	// } else if image, err := self.region.GetImage(imageId); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	image.storageCache = self
-	// 	iimage := make([]cloudprovider.ICloudImage, 1)
-	// 	iimage[0] = image
-	// 	if err := cloudprovider.WaitStatus(iimage[0], compute.IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return iimage[0], nil
-	// }
-	return nil, nil
-}
-
 func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

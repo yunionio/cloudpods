@@ -141,7 +141,3 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, image *cloudprovide
 
 	return img.Id, nil
 }
-
-func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}

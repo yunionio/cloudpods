@@ -139,6 +139,25 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		}
 	}
 
+	if len(config.ExternalImageId) == 0 {
+		image, err := func() (*models.SCachedimage, error) {
+			cdrom := guest.GetCdrom()
+			if cdrom == nil {
+				return nil, fmt.Errorf("empty cdrom")
+			}
+			return cdrom.GetImage()
+		}()
+		if err != nil {
+			log.Errorf("get cachdimage error: %v", err)
+		} else {
+			config.ExternalImageId = image.ExternalId
+			config.OsDistribution, _ = image.Info.GetString("properties", "os_distribution")
+			config.OsVersion, _ = image.Info.GetString("properties", "os_version")
+			config.OsType, _ = image.Info.GetString("properties", "os_type")
+			config.ImageType = image.ImageType
+		}
+	}
+
 	// 避免因同步包年包月实例billing_cycle失败,导致重置虚拟机密码异常
 	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID && len(guest.BillingCycle) > 0 {
 		bc, err := billing.ParseBillingCycle(guest.BillingCycle)
@@ -639,6 +658,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 			return false, errors.Wrap(err, "iVM.GetIDisks")
 		}
 		ret = len(idisks)
+		log.Debugf("wait vm disk ready, expect %d disks, return %d disks", expect, ret)
 		if ret >= expect { // 有可能自定义镜像里面也有磁盘，会导致返回的磁盘多于创建时的磁盘
 			return true, nil
 		}

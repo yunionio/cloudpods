@@ -47,11 +47,12 @@ type SClusterResource struct {
 }
 
 type SStorageResource struct {
-	Id     string
-	Path   string
-	Node   string
-	Name   string
-	Shared int
+	Id      string
+	Path    string
+	Node    string
+	Name    string
+	Shared  int
+	Content string
 }
 
 type SNodeResource struct {
@@ -75,35 +76,22 @@ func (self *SRegion) GetClusterAllResources() ([]SClusterResource, error) {
 	return resources, err
 }
 
-func (self *SRegion) GetClusterStoragesResources() (map[string]SStorageResource, error) {
+func (self *SRegion) GetClusterResources(resType string) ([]SClusterResource, error) {
 	resources := []SClusterResource{}
-	storageResources := map[string]SStorageResource{}
-	err := self.get("/cluster/resources", url.Values{}, &resources)
-	if err != nil {
-		return nil, err
+	params := url.Values{}
+	if len(resType) > 0 {
+		params.Set("type", resType)
 	}
-
-	for _, res := range resources {
-		if res.Type == "storage" {
-			sres := SStorageResource{
-				Id:     res.Id,
-				Path:   fmt.Sprintf("/nodes/%s/storage/%s", res.Node, res.Storage),
-				Node:   res.Node,
-				Name:   res.Storage,
-				Shared: res.Shared,
-			}
-
-			storageResources[sres.Name] = sres
-		}
-	}
-
-	return storageResources, nil
+	err := self.get("/cluster/resources", params, &resources)
+	return resources, err
 }
 
 func (self *SRegion) GetClusterNodeResources() (map[string]SNodeResource, error) {
 	resources := []SClusterResource{}
 	nodeResources := map[string]SNodeResource{}
-	err := self.get("/cluster/resources", url.Values{}, &resources)
+	params := url.Values{}
+	params.Set("type", "node")
+	err := self.get("/cluster/resources", params, &resources)
 	if err != nil {
 		return nil, err
 	}

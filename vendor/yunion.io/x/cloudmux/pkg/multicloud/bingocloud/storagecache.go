@@ -55,10 +55,6 @@ func (self *SStoragecache) GetStatus() string {
 	return "available"
 }
 
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }

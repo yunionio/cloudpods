@@ -44,7 +44,7 @@ type SManagedVirtualizationHostDriver struct {
 	SVirtualizationHostDriver
 }
 
-func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	input := api.CacheImageInput{}
 	task.GetParams().Unmarshal(&input)
 	image := &cloudprovider.SImageCreateOption{}
@@ -61,8 +61,8 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
-		lockman.LockRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
-		defer lockman.ReleaseRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
+		lockman.LockRawObject(ctx, models.CachedimageManager.Keyword(), fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
+		defer lockman.ReleaseRawObject(ctx, models.CachedimageManager.Keyword(), fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
 
 		log.Debugf("XXX Hold lockman key %p cachedimages %s-%s", ctx, storageCache.Id, image.ImageId)
 

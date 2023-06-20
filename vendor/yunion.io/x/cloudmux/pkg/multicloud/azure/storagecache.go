@@ -184,15 +184,6 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 	return img.GetGlobalId(), nil
 }
 
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	if image, err := self.region.CreateImage(snapshotId, imageName, osType, imageDesc); err != nil {
-		return nil, err
-	} else {
-		image.storageCache = self
-		return image, nil
-	}
-}
-
 func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return self.downloadImage(imageId, extId, path)
 }

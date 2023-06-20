@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -119,6 +120,17 @@ func (self *SGuestcdrom) ejectIso() bool {
 	} else {
 		return false
 	}
+}
+
+func (self *SGuestcdrom) GetImage() (*SCachedimage, error) {
+	if len(self.ImageId) == 0 {
+		return nil, fmt.Errorf("empty image_id")
+	}
+	image, err := CachedimageManager.FetchById(self.ImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CachedimageManager.FetchById(%s)", self.ImageId)
+	}
+	return image.(*SCachedimage), nil
 }
 
 func (self *SGuestcdrom) GetDetails() string {

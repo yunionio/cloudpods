@@ -35,4 +35,5 @@ const (
 	APSARA    = "apsara"
 	JDCLOUD   = "jdcloud"
 	CLOUDPODS = "cloudpods"
+	PROXMOX   = "proxmox"
 )
