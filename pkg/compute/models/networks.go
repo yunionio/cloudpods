@@ -2151,6 +2151,9 @@ func (manager *SNetworkManager) ListItemFilter(
 	if len(ips) > 0 {
 		conditions := []sqlchemy.ICondition{}
 		for _, ip := range ips {
+			if len(ip) == 0 {
+				continue
+			}
 			ipIa, err := parseIpToIntArray(ip)
 			if err != nil {
 				return nil, err
