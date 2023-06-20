@@ -493,6 +493,9 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 	cloudproviderStrs := input.CloudproviderId
 	managerIds := []string{}
 	for _, cloudproviderStr := range cloudproviderStrs {
+		if len(cloudproviderStr) == 0 {
+			continue
+		}
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, cloudproviderStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -591,6 +594,9 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	regionIds := []string{}
 	for _, region := range query.CloudregionId {
+		if len(region) == 0 {
+			continue
+		}
 		regionObj, err := ValidateCloudregionId(nil, region)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateCloudregionResourceInput")
