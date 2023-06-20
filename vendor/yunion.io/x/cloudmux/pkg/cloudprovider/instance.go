@@ -108,6 +108,7 @@ type GuestDiskCreateOptions struct {
 	SizeMb    int
 	UUID      string
 	Driver    string
+	Idx       int
 	StorageId string
 }
 

@@ -16,9 +16,12 @@ package guestdrivers
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/cloudinit"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -85,6 +88,16 @@ func (self *SProxmoxGuestDriver) GetGuestInitialStateAfterCreate() string {
 	return api.VM_READY
 }
 
+func (self *SProxmoxGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if disk.DiskSize/1024%1 > 0 {
+		return fmt.Errorf("Resize disk size must be an integer multiple of 1G")
+	}
+	return nil
+}
+
 func (self *SProxmoxGuestDriver) GetDefaultSysDiskBackend() string {
 	return ""
 }
@@ -102,8 +115,21 @@ func (self *SProxmoxGuestDriver) GetMaxSecurityGroupCount() int {
 	return 0
 }
 
+func (self *SProxmoxGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SProxmoxGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "ProxmoxGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	return subtask.ScheduleRun(nil)
+}
+
 func (self *SProxmoxGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SProxmoxGuestDriver) GetAttachDiskStatus() ([]string, error) {
@@ -111,7 +137,7 @@ func (self *SProxmoxGuestDriver) GetAttachDiskStatus() ([]string, error) {
 }
 
 func (self *SProxmoxGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
-	return []string{api.VM_READY}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SProxmoxGuestDriver) GetRebuildRootStatus() ([]string, error) {
@@ -126,12 +152,23 @@ func (self *SProxmoxGuestDriver) ValidateCreateEip(ctx context.Context, userCred
 	return httperrors.NewInputParameterError("%s not support create eip", self.GetHypervisor())
 }
 
+func (self *SProxmoxGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	driver := models.GetDriver(input.Hypervisor)
+	if len(input.UserData) > 0 && driver != nil && driver.IsNeedInjectPasswordByCloudInit() {
+		_, err := cloudinit.ParseUserData(input.UserData)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return input, nil
+}
+
 func (self *SProxmoxGuestDriver) IsSupportEip() bool {
 	return false
 }
 
 func (self *SProxmoxGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 func (self *SProxmoxGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {

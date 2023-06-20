@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -28,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -95,6 +95,11 @@ type VmBase struct {
 	Sshkeys      string `json:"sshkeys"`
 }
 
+type SInstanceDisk struct {
+	Storage string
+	VolId   string
+}
+
 type SInstance struct {
 	multicloud.SInstanceBase
 	ProxmoxTags
@@ -105,34 +110,37 @@ type SInstance struct {
 	PowerState   string
 	Node         string
 
-	VmID            int         `json:"vmid"`
-	Name            string      `json:"name"`
-	Description     string      `json:"desc"`
-	Pool            string      `json:"pool,omitempty"`
-	Bios            string      `json:"bios"`
-	EFIDisk         QemuDevice  `json:"efidisk,omitempty"`
-	Machine         string      `json:"machine,omitempty"`
-	Onboot          bool        `json:"onboot"`
-	Startup         string      `json:"startup,omitempty"`
-	Tablet          bool        `json:"tablet"`
-	Agent           int         `json:"agent"`
-	Memory          int         `json:"memory"`
-	Balloon         int         `json:"balloon"`
-	QemuOs          string      `json:"ostype"`
-	QemuCores       int         `json:"cores"`
-	QemuSockets     int         `json:"sockets"`
-	QemuVcpus       int         `json:"vcpus"`
-	QemuCpu         string      `json:"cpu"`
-	QemuNuma        bool        `json:"numa"`
-	QemuKVM         bool        `json:"kvm"`
-	Hotplug         string      `json:"hotplug"`
-	QemuIso         string      `json:"iso"`
-	QemuPxe         bool        `json:"pxe"`
-	FullClone       *int        `json:"fullclone"`
-	Boot            string      `json:"boot"`
-	BootDisk        string      `json:"bootdisk,omitempty"`
-	Scsihw          string      `json:"scsihw,omitempty"`
-	QemuDisks       QemuDevices `json:"disk"`
+	VmID        int        `json:"vmid"`
+	Name        string     `json:"name"`
+	Description string     `json:"desc"`
+	Pool        string     `json:"pool,omitempty"`
+	Bios        string     `json:"bios"`
+	EFIDisk     QemuDevice `json:"efidisk,omitempty"`
+	Machine     string     `json:"machine,omitempty"`
+	Onboot      bool       `json:"onboot"`
+	Startup     string     `json:"startup,omitempty"`
+	Tablet      bool       `json:"tablet"`
+	Agent       int        `json:"agent"`
+	Memory      int        `json:"memory"`
+	Balloon     int        `json:"balloon"`
+	QemuOs      string     `json:"ostype"`
+	QemuCores   int        `json:"cores"`
+	QemuSockets int        `json:"sockets"`
+	QemuVcpus   int        `json:"vcpus"`
+	QemuCpu     string     `json:"cpu"`
+	QemuNuma    bool       `json:"numa"`
+	QemuKVM     bool       `json:"kvm"`
+	Hotplug     string     `json:"hotplug"`
+	QemuIso     string     `json:"iso"`
+	QemuPxe     bool       `json:"pxe"`
+	FullClone   *int       `json:"fullclone"`
+	Boot        string     `json:"boot"`
+	BootDisk    string     `json:"bootdisk,omitempty"`
+	Scsihw      string     `json:"scsihw,omitempty"`
+	QemuDisks   map[string][]struct {
+		Driver string
+		DiskId string
+	} `json:"disk"`
 	QemuUnusedDisks QemuDevices `json:"unused_disk"`
 	QemuVga         QemuDevice  `json:"vga,omitempty"`
 	QemuSerials     QemuDevices `json:"serial,omitempty"`
@@ -180,6 +188,7 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
+	self.QemuDisks = ins.QemuDisks
 	return jsonutils.Update(self, ins)
 }
 
@@ -188,11 +197,48 @@ func (self *SInstance) AssignSecurityGroup(id string) error {
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	return self.host.zone.region.AttachDisk(self.VmID, diskId)
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
-	return "", cloudprovider.ErrNotSupported
+	body := map[string]string{}
+	params := url.Values{}
+	storage, err := self.host.zone.region.GetStorage(opts.StorageId)
+	if err != nil {
+		return "", err
+	}
+	driver := fmt.Sprintf("scsi%d", opts.Idx)
+	body[driver] = fmt.Sprintf("%s:%d", storage.Storage, opts.SizeMb/1024)
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", self.Node, self.VmID)
+	err = self.host.zone.region.put(res, params, jsonutils.Marshal(body))
+	if err != nil {
+		return "", err
+	}
+	err = self.Refresh()
+	if err != nil {
+		return "", err
+	}
+	for storageName, disks := range self.QemuDisks {
+		if storageName != storage.Storage {
+			continue
+		}
+		for i := range disks {
+			if disks[i].Driver != driver {
+				continue
+			}
+			volumes, err := self.host.zone.region.GetDisks(self.Node, storage.Storage)
+			if err != nil {
+				return "", err
+			}
+			for i := range volumes {
+				volumes[i].storage = storage
+				if strings.HasSuffix(volumes[i].GetGlobalId(), "|"+volumes[i].VolId) {
+					return volumes[i].GetGlobalId(), nil
+				}
+			}
+		}
+	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
@@ -208,7 +254,26 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return self.host.zone.region.DetachDisk(self.VmID, diskId)
+	diskInfo := strings.Split(diskId, "|")
+	storageName, volId := "", ""
+	if len(diskInfo) == 2 {
+		storageName, volId = diskInfo[0], diskInfo[1]
+	} else if len(diskInfo) == 3 {
+		storageName, volId = diskInfo[1], diskInfo[2]
+	} else {
+		return fmt.Errorf("invalid diskId %s", diskId)
+	}
+	for _storageName, disks := range self.QemuDisks {
+		if storageName != _storageName {
+			continue
+		}
+		for _, disk := range disks {
+			if disk.DiskId == volId {
+				return self.host.zone.region.DetachDisk(self.Node, self.VmID, disk.Driver)
+			}
+		}
+	}
+	return nil
 }
 
 func (self *SInstance) GetBios() cloudprovider.TBiosType {
@@ -243,32 +308,42 @@ func (self *SInstance) VMIdExists(vmId int) (bool, error) {
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	ret := []cloudprovider.ICloudDisk{}
-	id := self.VmID
-
-	exist, err := self.VMIdExists(self.VmID)
+	ins, err := self.host.zone.region.GetInstance(fmt.Sprintf("%d", self.VmID))
 	if err != nil {
 		return nil, err
 	}
-
-	if exist == false {
-		return nil, nil
-	}
-
-	for k, v := range self.QemuDisks {
-		disk, err := self.host.zone.region.GetDisk(k)
+	for storageName, disks := range ins.QemuDisks {
+		diskIds := []string{}
+		for i := range disks {
+			if strings.HasSuffix(disks[i].DiskId, ".iso") {
+				continue
+			}
+			diskIds = append(diskIds, disks[i].DiskId)
+		}
+		disks, err := self.host.zone.region.GetDisks(self.host.Node, storageName)
 		if err != nil {
-			continue
+			return nil, errors.Wrapf(err, "GetDisks")
 		}
-		disk.VmId = id
-		disk.DiskDriver = v["type"].(string)
-		idx, _ := strconv.ParseInt(fmt.Sprintf("%d", v["slot"]), 10, 64)
-		disk.DriverIdx = int(idx)
-		if cache, ok := v["cache"].(string); ok {
-			disk.CacheMode = cache
+		storages, err := self.host.zone.region.GetStoragesByHost(self.Node)
+		if err != nil {
+			return nil, err
 		}
-		ret = append(ret, disk)
+		var storage *SStorage
+		for i := range storages {
+			if storages[i].Storage == storageName {
+				storage = &storages[i]
+			}
+		}
+		if storage == nil {
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "search storage %s", storageName)
+		}
+		for i := range disks {
+			if utils.IsInStringArray(disks[i].VolId, diskIds) {
+				disks[i].storage = storage
+				ret = append(ret, &disks[i])
+			}
+		}
 	}
-
 	return ret, nil
 }
 
@@ -343,7 +418,18 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	return nil, cloudprovider.ErrNotSupported
+	vnc, err := self.host.zone.region.GetVNCInfo(self.Node, self.VmID)
+	if err != nil {
+		return nil, err
+	}
+	ret := &cloudprovider.ServerVncOutput{}
+	params := url.Values{}
+	params.Set("port", fmt.Sprintf("%d", vnc.Port))
+	params.Set("vncticket", vnc.Ticket)
+	ret.Url = fmt.Sprintf("wss://%s:%d/api2/json/nodes/%s/qemu/%d/vncwebsocket?%s", self.host.zone.region.client.host, self.host.zone.region.client.port, self.Node, self.VmID, params.Encode())
+	ret.Protocol = "vnc"
+	ret.Hypervisor = api.HYPERVISOR_PROXMOX
+	return ret, nil
 }
 
 func (self *SInstance) GetVcpuCount() int {
@@ -438,7 +524,6 @@ func (self *SRegion) GetVmPowerStatus(node string, VmId int) string {
 }
 
 func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
-	//ret := &SInstance{}
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, VmId)
 	vmConfig := map[string]interface{}{}
 	vmBase := &VmBase{
@@ -473,31 +558,34 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 	}
 
 	config := SInstance{
-		VmID:            int(VmId),
-		Name:            vmBase.Name,
-		Description:     strings.TrimSpace(vmBase.Description),
-		Tags:            strings.TrimSpace(vmBase.Tags),
-		Args:            strings.TrimSpace(vmBase.Args),
-		Bios:            vmBase.Bios,
-		EFIDisk:         QemuDevice{},
-		Machine:         vmBase.Machine,
-		Onboot:          Itob(vmBase.OnBoot),
-		Startup:         vmBase.Startup,
-		Tablet:          Itob(vmBase.Tablet),
-		QemuOs:          vmBase.Ostype,
-		Memory:          int(vmBase.Memory),
-		QemuCores:       int(vmBase.Cores),
-		QemuSockets:     int(vmBase.Sockets),
-		QemuCpu:         vmBase.Cpu,
-		QemuNuma:        Itob(vmBase.Numa),
-		QemuKVM:         Itob(vmBase.Kvm),
-		Hotplug:         vmBase.Hotplug,
-		QemuVlanTag:     -1,
-		Boot:            vmBase.Boot,
-		BootDisk:        vmBase.Bootdisk,
-		Scsihw:          vmBase.Scsihw,
-		Hookscript:      vmBase.Hookscript,
-		QemuDisks:       QemuDevices{},
+		VmID:        int(VmId),
+		Name:        vmBase.Name,
+		Description: strings.TrimSpace(vmBase.Description),
+		Tags:        strings.TrimSpace(vmBase.Tags),
+		Args:        strings.TrimSpace(vmBase.Args),
+		Bios:        vmBase.Bios,
+		EFIDisk:     QemuDevice{},
+		Machine:     vmBase.Machine,
+		Onboot:      Itob(vmBase.OnBoot),
+		Startup:     vmBase.Startup,
+		Tablet:      Itob(vmBase.Tablet),
+		QemuOs:      vmBase.Ostype,
+		Memory:      int(vmBase.Memory),
+		QemuCores:   int(vmBase.Cores),
+		QemuSockets: int(vmBase.Sockets),
+		QemuCpu:     vmBase.Cpu,
+		QemuNuma:    Itob(vmBase.Numa),
+		QemuKVM:     Itob(vmBase.Kvm),
+		Hotplug:     vmBase.Hotplug,
+		QemuVlanTag: -1,
+		Boot:        vmBase.Boot,
+		BootDisk:    vmBase.Bootdisk,
+		Scsihw:      vmBase.Scsihw,
+		Hookscript:  vmBase.Hookscript,
+		QemuDisks: map[string][]struct {
+			Driver string
+			DiskId string
+		}{},
 		QemuUnusedDisks: QemuDevices{},
 		QemuVga:         QemuDevice{},
 		QemuNetworks:    []SInstanceNic{},
@@ -543,51 +631,36 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 	config.PowerState = self.GetVmPowerStatus(node, VmId)
 
 	// Add disks.
-	diskNames := []string{}
+	diskNames := map[string]string{}
 	for k := range vmConfig {
 		if diskName := rxDiskName.FindStringSubmatch(k); len(diskName) > 0 {
-			diskNames = append(diskNames, diskName[0])
+			diskNames[k] = diskName[0]
 		}
 	}
 
-	for _, diskName := range diskNames {
+	for driver, diskName := range diskNames {
 		diskConfStr := vmConfig[diskName].(string)
-
-		id := rxDeviceID.FindStringSubmatch(diskName)
-		diskID, _ := strconv.Atoi(id[0])
-		diskType := rxDiskType.FindStringSubmatch(diskName)[0]
-
 		diskConfMap := ParsePMConf(diskConfStr, "volume")
 
 		if diskConfMap["volume"].(string) == "none" {
 			continue
 		}
 
-		diskConfMap["slot"] = diskID
-		diskConfMap["type"] = diskType
-
-		storageName, fileName := ParseSubConf(diskConfMap["volume"].(string), ":")
-		diskConfMap["storage"] = storageName
-		diskConfMap["file"] = fileName
-
-		volId := diskConfMap["volume"].(string)
-
-		// cloud-init disks not always have the size sent by the API, which results in a crash
-		if diskConfMap["size"] == nil && strings.Contains(fileName.(string), "cloudinit") {
-			diskConfMap["size"] = "4M" // default cloud-init disk size
+		storageName, _ := ParseSubConf(diskConfMap["volume"].(string), ":")
+		_, ok := config.QemuDisks[storageName]
+		if !ok {
+			config.QemuDisks[storageName] = []struct {
+				Driver string
+				DiskId string
+			}{}
 		}
-
-		var sizeInTerabytes = regexp.MustCompile(`[0-9]+T`)
-		// Convert to gigabytes if disk size was received in terabytes
-		matched := sizeInTerabytes.MatchString(diskConfMap["size"].(string))
-		if matched {
-			diskConfMap["size"] = fmt.Sprintf("%.0fG", DiskSizeGB(diskConfMap["size"]))
-		}
-
-		// And device config to disks map.
-		if len(diskConfMap) > 0 {
-			config.QemuDisks[volId] = diskConfMap
-		}
+		config.QemuDisks[storageName] = append(config.QemuDisks[storageName], struct {
+			Driver string
+			DiskId string
+		}{
+			Driver: driver,
+			DiskId: diskConfMap["volume"].(string),
+		})
 	}
 
 	// Add unused disks
@@ -820,90 +893,12 @@ func (self *SRegion) StopVm(vmId int) error {
 	return err
 }
 
-func (self *SRegion) AttachDisk(vmId int, diskId string) error {
-	id := strconv.Itoa(int(vmId))
-	vm1, err := self.GetInstance(id)
-	if err != nil {
-		return errors.Wrapf(err, "GetInstance(%d)", vmId)
-	}
-	if _, ok := vm1.QemuUnusedDisks[diskId]; !ok {
-		return nil
-	}
-
-	slotsArr := []int{}
-	for _, v := range vm1.QemuDisks {
-		if v["type"] == "scsi" {
-			slotIdx := v["slot"].(int)
-			slotsArr = append(slotsArr, slotIdx)
-		}
-	}
-	sort.Ints(slotsArr)
-	minSlot := slotsArr[0]
-	for idx, _ := range slotsArr {
-		if slotsArr[idx] == minSlot {
-			minSlot++
-		} else {
-			break
-		}
-
-	}
-
+func (self *SRegion) DetachDisk(node string, vmId int, driver string) error {
 	body := map[string]string{}
 	params := url.Values{}
-	diskName := fmt.Sprintf("scsi%d", minSlot)
-	body[diskName] = diskId
-	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", vm1.Node, vm1.VmID)
-	err = self.put(res, params, jsonutils.Marshal(body), nil)
-	if err != nil {
-		return errors.Wrapf(err, "GetInstance(%d) self.put", vmId)
-	}
-	//clear
-	vm1.QemuDisks = make(map[string]map[string]interface{})
-	vm1.QemuUnusedDisks = make(map[string]map[string]interface{})
-
-	vm2, err := self.GetInstance(id)
-	if err != nil {
-		return errors.Wrapf(err, "GetInstance(%d) vm2", vmId)
-	}
-	vm1.QemuDisks = vm2.QemuDisks
-	vm1.QemuUnusedDisks = vm2.QemuUnusedDisks
-
-	return nil
-
-}
-
-func (self *SRegion) DetachDisk(vmId int, diskId string) error {
-	id := strconv.Itoa(int(vmId))
-	vm1, err := self.GetInstance(id)
-	if err != nil {
-		return errors.Wrapf(err, "GetInstance(%d)", vmId)
-	}
-	if v, ok := vm1.QemuDisks[diskId]; !ok {
-		return nil
-	} else {
-		diskName := fmt.Sprintf("%s%d", v["type"].(string), v["slot"].(int))
-		body := map[string]string{}
-		params := url.Values{}
-		body["delete"] = diskName
-		res := fmt.Sprintf("/nodes/%s/qemu/%d/config", vm1.Node, vm1.VmID)
-		err := self.put(res, params, jsonutils.Marshal(body), nil)
-		if err != nil {
-			return errors.Wrapf(err, "GetInstance(%d) self.put", vmId)
-		}
-		//clear
-		vm1.QemuDisks = make(map[string]map[string]interface{})
-		vm1.QemuUnusedDisks = make(map[string]map[string]interface{})
-
-		vm2, err := self.GetInstance(id)
-		if err != nil {
-			return errors.Wrapf(err, "GetInstance(%d) vm2", vmId)
-		}
-		vm1.QemuDisks = vm2.QemuDisks
-		vm1.QemuUnusedDisks = vm2.QemuUnusedDisks
-
-		return nil
-	}
-
+	body["delete"] = driver
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmId)
+	return self.put(res, params, jsonutils.Marshal(body))
 }
 
 func (self *SRegion) ChangeConfig(vmId int, cpu int, memMb int) error {
@@ -934,7 +929,7 @@ func (self *SRegion) ChangeConfig(vmId int, cpu int, memMb int) error {
 
 	params := url.Values{}
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", vm.Node, vmId)
-	return self.put(res, params, jsonutils.Marshal(body), nil)
+	return self.put(res, params, jsonutils.Marshal(body))
 }
 
 func (self *SRegion) ResetVmPassword(vmId int, username, password string) error {
@@ -957,7 +952,7 @@ func (self *SRegion) ResetVmPassword(vmId int, username, password string) error 
 	}
 
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/agent/set-user-password", nodeName, vmId)
-	return self.put(res, params, jsonutils.Marshal(body), nil)
+	return self.put(res, params, jsonutils.Marshal(body))
 
 }
 
@@ -973,6 +968,7 @@ func (self *SRegion) DeleteVM(vmId int) error {
 	res := fmt.Sprintf("/nodes/%s/qemu/%d", vm1.Node, vmId)
 	return self.del(res, params, nil)
 }
+
 func (self *SRegion) GenVM(name, node string, cores, memMB int) (*SInstance, error) {
 
 	vmId := self.GetClusterVmMaxId()
@@ -1009,4 +1005,22 @@ func (self *SRegion) GenVM(name, node string, cores, memMB int) (*SInstance, err
 	}
 
 	return vm, nil
+}
+
+type InstanceVnc struct {
+	Port   int
+	Ticket string
+	Cert   string
+}
+
+func (self *SRegion) GetVNCInfo(node string, vmId int) (*InstanceVnc, error) {
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/vncproxy", node, vmId)
+	resp, err := self.post(res, map[string]interface{}{})
+	if err != nil {
+		return nil, err
+	}
+	ret := struct {
+		Data InstanceVnc
+	}{}
+	return &ret.Data, resp.Unmarshal(&ret)
 }

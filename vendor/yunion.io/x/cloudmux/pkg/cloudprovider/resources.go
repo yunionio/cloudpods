@@ -244,8 +244,6 @@ type ICloudStoragecache interface {
 
 	GetPath() string
 
-	CreateIImage(snapshotId, imageName, osType, imageDesc string) (ICloudImage, error)
-
 	DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error)
 
 	UploadImage(ctx context.Context, image *SImageCreateOption, callback func(float32)) (string, error)

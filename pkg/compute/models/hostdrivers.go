@@ -29,7 +29,7 @@ type IHostDriver interface {
 	GetHostType() string
 	GetHypervisor() string
 
-	CheckAndSetCacheImage(ctx context.Context, host *SHost, storagecache *SStoragecache, task taskman.ITask) error
+	CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, storagecache *SStoragecache, task taskman.ITask) error
 	RequestUncacheImage(ctx context.Context, host *SHost, storageCache *SStoragecache, task taskman.ITask) error
 
 	ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskUpdateInput) (api.DiskUpdateInput, error)

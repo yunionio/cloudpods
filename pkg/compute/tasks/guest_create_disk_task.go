@@ -241,11 +241,9 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 	self.SetStageComplete(ctx, nil)
 }
 
-/*
-func (self *ManagedGuestCreateDiskTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
+type ProxmoxGuestCreateDiskTask struct {
+	ESXiGuestCreateDiskTask
 }
-*/
 
 type ESXiGuestCreateDiskTask struct {
 	SGuestCreateDiskBaseTask
@@ -294,6 +292,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			SizeMb:    disk.DiskSize,
 			UUID:      disk.Id,
 			Driver:    d.Driver,
+			Idx:       d.Index,
 			StorageId: storage.GetExternalId(),
 		}
 		_, err = ivm.CreateDisk(ctx, &opts)
@@ -445,5 +444,6 @@ func init() {
 	taskman.RegisterTask(KVMGuestCreateDiskTask{})
 	taskman.RegisterTask(ManagedGuestCreateDiskTask{})
 	taskman.RegisterTask(ESXiGuestCreateDiskTask{})
+	taskman.RegisterTask(ProxmoxGuestCreateDiskTask{})
 	taskman.RegisterTask(NutanixGuestCreateDiskTask{})
 }

@@ -18,11 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"regexp"
-	"strconv"
-	"strings"
 
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/imagetools"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -37,11 +33,11 @@ type SImage struct {
 
 	imageInfo *imagetools.ImageInfo
 
-	VmId   int
-	Node   string
-	Name   string
-	Format string
-	SizeGB float64
+	Volid   string
+	Size    int64
+	Ctime   int64
+	Content string
+	Format  string
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -49,11 +45,11 @@ func (self *SImage) GetMinRamSizeMb() int {
 }
 
 func (self *SImage) GetId() string {
-	return fmt.Sprintf("%d", self.VmId)
+	return self.Volid
 }
 
 func (self *SImage) GetName() string {
-	return self.Name
+	return self.Volid
 }
 
 func (self *SImage) Delete(ctx context.Context) error {
@@ -81,12 +77,12 @@ func (self *SImage) GetImageType() cloudprovider.TImageType {
 }
 
 func (self *SImage) GetSizeByte() int64 {
-	return int64(self.SizeGB * 1024 * 1024)
+	return self.Size
 }
 
 func (img *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if img.imageInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo(img.Name, "", "", "", "")
+		imgInfo := imagetools.NormalizeImageInfo(img.Volid, "", "", "", "")
 		img.imageInfo = &imgInfo
 	}
 	return img.imageInfo
@@ -113,7 +109,7 @@ func (img *SImage) GetOsLang() string {
 }
 
 func (img *SImage) GetFullOsName() string {
-	return img.Name
+	return ""
 }
 
 func (img *SImage) GetBios() cloudprovider.TBiosType {
@@ -128,122 +124,21 @@ func (self *SImage) GetMinOsDiskSizeGb() int {
 }
 
 func (self *SImage) GetImageFormat() string {
-	return "raw"
+	return self.Format
 }
 
-func (self *SRegion) GetImageList() ([]SImage, error) {
-	ret := []SImage{}
-	resources, err := self.GetClusterVmResources()
+func (self *SProxmoxClient) GetImages(node, storageName string) ([]SImage, error) {
+	images := []SImage{}
+	params := url.Values{}
+	params.Set("content", "iso")
+	path := fmt.Sprintf("/nodes/%s/storage/%s/content", node, storageName)
+	err := self.get(path, params, &images)
 	if err != nil {
 		return nil, err
 	}
-	for _, vm := range resources {
-		if vm.Template == true {
-			image := SImage{
-				VmId: vm.VmId,
-				Name: vm.Name,
-				Node: vm.Node,
-			}
-
-			res := fmt.Sprintf("/nodes/%s/qemu/%d/config", image.Node, image.VmId)
-			vmConfig := map[string]interface{}{}
-			err := self.get(res, url.Values{}, &vmConfig)
-			if err != nil {
-				return nil, err
-			}
-
-			diskNames := []string{}
-			for k := range vmConfig {
-				if diskName := regexp.MustCompile(`(virtio|scsi|sata)\d+`).FindStringSubmatch(k); len(diskName) > 0 {
-					diskNames = append(diskNames, diskName[0])
-				}
-			}
-
-			for _, diskName := range diskNames {
-				diskConfStr := vmConfig[diskName].(string)
-				diskConfMap := ParsePMConf(diskConfStr, "volume")
-
-				if diskConfMap["volume"].(string) == "none" {
-					continue
-				}
-				if diskConfMap["media"] != nil {
-					continue
-				}
-
-				storageName, fileName := ParseSubConf(diskConfMap["volume"].(string), ":")
-				diskConfMap["storage"] = storageName
-				diskConfMap["file"] = fileName
-
-				// cloud-init disks not always have the size sent by the API, which results in a crash
-				if diskConfMap["size"] == nil && strings.Contains(fileName.(string), "cloudinit") {
-					diskConfMap["size"] = "4M" // default cloud-init disk size
-				}
-
-				image.SizeGB += DiskSizeGB(diskConfMap["size"])
-
-			}
-			ret = append(ret, image)
-		}
-	}
-
-	return ret, nil
+	return images, nil
 }
 
-func (self *SRegion) GetImage(id string) (*SImage, error) {
-	image := &SImage{}
-	vmId, err := strconv.Atoi(id)
-	if err != nil {
-		return nil, err
-	}
-	resources, err := self.GetClusterVmResources()
-	if err != nil {
-		return nil, err
-	}
-	if resources[vmId].Template == false {
-		return nil, errors.Errorf("self.GetDisk")
-	}
-	image.VmId = resources[vmId].VmId
-	image.Name = resources[vmId].Name
-	image.Node = resources[vmId].Node
-	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", image.Node, image.VmId)
-	vmConfig := map[string]interface{}{}
-	err = self.get(res, url.Values{}, &vmConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	diskNames := []string{}
-	for k := range vmConfig {
-		if diskName := regexp.MustCompile(`(virtio|scsi|sata)\d+`).FindStringSubmatch(k); len(diskName) > 0 {
-			diskNames = append(diskNames, diskName[0])
-		}
-	}
-
-	for _, diskName := range diskNames {
-		diskConfStr := vmConfig[diskName].(string)
-		diskConfMap := ParsePMConf(diskConfStr, "volume")
-
-		if diskConfMap["volume"].(string) == "none" || diskConfMap["media"].(string) == "cdrom" {
-			continue
-		}
-
-		storageName, fileName := ParseSubConf(diskConfMap["volume"].(string), ":")
-		diskConfMap["storage"] = storageName
-		diskConfMap["file"] = fileName
-
-		// cloud-init disks not always have the size sent by the API, which results in a crash
-		if diskConfMap["size"] == nil && strings.Contains(fileName.(string), "cloudinit") {
-			diskConfMap["size"] = "4M" // default cloud-init disk size
-		}
-
-		var sizeInTerabytes = regexp.MustCompile(`[0-9]+T`)
-		// Convert to gigabytes if disk size was received in terabytes
-		matched := sizeInTerabytes.MatchString(diskConfMap["size"].(string))
-		if matched {
-			image.SizeGB += DiskSizeGB(diskConfMap["size"])
-		}
-
-	}
-
-	return image, nil
+func (self *SRegion) GetImages(node, storageName string) ([]SImage, error) {
+	return self.client.GetImages(node, storageName)
 }

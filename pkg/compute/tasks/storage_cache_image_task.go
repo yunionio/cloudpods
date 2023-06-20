@@ -80,7 +80,7 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 		}
 	}
 
-	err = host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
+	err = host.GetHostDriver().CheckAndSetCacheImage(ctx, self.UserCred, host, storageCache, self)
 	if err != nil {
 		errData := taskman.Error2TaskData(err)
 		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)

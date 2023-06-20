@@ -98,27 +98,6 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	imageId, err := self.region.createIImage(snapshotId, imageName, imageDesc)
-	if err != nil {
-		log.Errorf("createIImage %s %s %s: %s", snapshotId, imageName, imageDesc, err)
-		return nil, errors.Wrap(err, "createIImage")
-	}
-	image, err := self.region.GetImage(imageId)
-	if err != nil {
-		log.Errorf("GetImage %s: %s", imageId, err)
-		return nil, errors.Wrap(err, "GetImage")
-	}
-	image.storageCache = self
-	iimage := make([]cloudprovider.ICloudImage, 1)
-	iimage[0] = image
-	//todo : implement me
-	if err := cloudprovider.WaitStatus(iimage[0], "avaliable", 15*time.Second, 3600*time.Second); err != nil {
-		return nil, errors.Wrap(err, "WaitStatus.iimage")
-	}
-	return iimage[0], nil
-}
-
 func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return self.downloadImage(imageId, extId)
 }
