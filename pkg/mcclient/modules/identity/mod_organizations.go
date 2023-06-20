@@ -30,7 +30,7 @@ var (
 func init() {
 	Organizations = OrganizationManager{modules.NewIdentityV3Manager("organization", "organizations",
 		[]string{},
-		[]string{"ID", "Name", "Description", "Keys", "Type", "Level"})}
+		[]string{"ID", "Name", "Description", "Keys", "Type", "Level", "enabled", "status"})}
 
 	modules.Register(&Organizations)
 }

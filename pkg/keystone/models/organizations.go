@@ -23,7 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -34,14 +34,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SOrganizationManager struct {
-	db.SInfrasResourceBaseManager
+	db.SEnabledStatusInfrasResourceBaseManager
 
 	cache *db.SCacheManager[SOrganization]
 }
@@ -50,7 +49,7 @@ var OrganizationManager *SOrganizationManager
 
 func init() {
 	OrganizationManager = &SOrganizationManager{
-		SInfrasResourceBaseManager: db.NewInfrasResourceBaseManager(
+		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
 			SOrganization{},
 			"organizations_tbl",
 			"organization",
@@ -62,7 +61,7 @@ func init() {
 }
 
 type SOrganization struct {
-	db.SInfrasResourceBase
+	db.SEnabledStatusInfrasResourceBase
 
 	Type api.TOrgType `width:"32" charset:"ascii" list:"user" create:"admin_required"`
 
@@ -97,9 +96,9 @@ func (manager *SOrganizationManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.InfrasResourceBaseListInput)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 
 	if len(query.Type) > 0 {
@@ -130,9 +129,9 @@ func (manager *SOrganizationManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.InfrasResourceBaseListInput)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil
@@ -141,7 +140,7 @@ func (manager *SOrganizationManager) OrderByExtraFields(
 func (manager *SOrganizationManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -150,7 +149,7 @@ func (manager *SOrganizationManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 }
 
 type SOrganizationDetails struct {
-	apis.InfrasResourceBaseDetails
+	apis.EnabledStatusInfrasResourceBaseDetails
 
 	SOrganization
 }
@@ -164,11 +163,11 @@ func (manager *SOrganizationManager) FetchCustomizeColumns(
 	isList bool,
 ) []SOrganizationDetails {
 	rows := make([]SOrganizationDetails, len(objs))
-	infRows := manager.SInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	infRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		// org := objs[i].(*SOrganization)
 		rows[i] = SOrganizationDetails{
-			InfrasResourceBaseDetails: infRows[i],
+			EnabledStatusInfrasResourceBaseDetails: infRows[i],
 		}
 	}
 	return rows
@@ -225,6 +224,9 @@ func (org *SOrganization) ValidateDeleteCondition(ctx context.Context, info *api
 	if err != nil {
 		return errors.Wrap(err, "getNodesCount")
 	}
+	if org.GetEnabled() {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "organization enabled")
+	}
 	if childCnt > 0 {
 		return errors.Wrap(httperrors.ErrNotEmpty, "not an empty organization")
 	}
@@ -240,9 +242,9 @@ func (manager *SOrganizationManager) ValidateCreateData(
 ) (api.OrganizationCreateInput, error) {
 	var err error
 
-	input.InfrasResourceBaseCreateInput, err = manager.SInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.InfrasResourceBaseCreateInput)
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SInfrasResourceBaseManager.ValidateCreateData")
+		return input, errors.Wrap(err, "SEnableStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
 
 	if !api.IsValidOrgType(input.Type) {
@@ -276,6 +278,8 @@ func (org *SOrganization) CustomizeCreate(
 	data jsonutils.JSONObject,
 ) error {
 	org.SetShare(rbacscope.ScopeSystem)
+	org.Enabled = tristate.False
+	org.Status = api.OrganizationStatusReady
 	return org.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -417,6 +421,7 @@ func (org *SOrganization) startOrganizationSyncTask(
 	userCred mcclient.TokenCredential,
 	resourceType string,
 ) error {
+	org.SetStatus(userCred, api.OrganizationStatusSync, "start sync task")
 	params := jsonutils.NewDict()
 	if len(resourceType) > 0 {
 		params.Add(jsonutils.NewString(resourceType), "resource_type")
@@ -516,20 +521,78 @@ func (org *SOrganization) syncTagValueMap(ctx context.Context, tagVal map[string
 	return labels, nil
 }
 
-func (org *SOrganization) GetDetailsNodes(
+func (org *SOrganization) PerformEnable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
+	input apis.PerformEnableInput,
 ) (jsonutils.JSONObject, error) {
-	nodes, err := org.getNodes()
-	if err != nil {
-		return nil, errors.Wrap(err, "getNodes")
+	if !org.GetEnabled() {
+		_, err := org.SEnabledStatusInfrasResourceBase.PerformEnable(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformEnable")
+		}
+		OrganizationManager.cache.Update(org)
+		// disable other org of the same type
+		otherOrgs, err := OrganizationManager.FetchOrgnaizations(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			q = q.Equals("type", org.Type)
+			q = q.NotEquals("id", org.Id)
+			q = q.IsTrue("enabled")
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchOrgnaizations")
+		}
+		for i := range otherOrgs {
+			_, err := otherOrgs[i].PerformDisable(ctx, userCred, query, apis.PerformDisableInput{})
+			if err != nil {
+				return nil, errors.Wrap(err, "PerformDisable")
+			}
+		}
 	}
-	nodeJson := make([]jsonutils.JSONObject, len(nodes))
-	for i := range nodes {
-		nodeJson[i] = jsonutils.Marshal(nodes[i])
+	return nil, nil
+}
+
+func (org *SOrganization) PerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformDisableInput,
+) (jsonutils.JSONObject, error) {
+	if org.GetEnabled() {
+		_, err := org.SEnabledStatusInfrasResourceBase.PerformDisable(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformDisable")
+		}
+		OrganizationManager.cache.Update(org)
 	}
-	results := printutils.ListResult{}
-	results.Data = nodeJson
-	return modulebase.ListResult2JSON(&results), nil
+	return nil, nil
+}
+
+func (org *SOrganization) getProjectOrganization(tags map[string]string) (*api.SProjectOrganization, error) {
+	keys := api.SplitLabel(org.Keys)
+	ret := api.SProjectOrganization{
+		Id:    org.Id,
+		Name:  org.Name,
+		Keys:  keys,
+		Nodes: make([]api.SProjectOrganizationNode, 0, len(keys)),
+	}
+	labels := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if val, ok := tags[k]; ok {
+			labels = append(labels, val)
+			fullLabel := api.JoinLabels(labels...)
+			node, err := org.getNode(fullLabel)
+			if err != nil {
+				return nil, errors.Wrapf(err, "getNode %s", fullLabel)
+			}
+			ret.Nodes = append(ret.Nodes, api.SProjectOrganizationNode{
+				Id:     node.Id,
+				Labels: api.SplitLabel(fullLabel),
+			})
+		} else {
+			break
+		}
+	}
+	return &ret, nil
 }

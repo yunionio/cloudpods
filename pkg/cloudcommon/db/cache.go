@@ -71,3 +71,10 @@ func (cm *SCacheManager[T]) fetchCacheFromDB() error {
 func (cm *SCacheManager[T]) Update(obj *T) {
 	cm.cache.Store((*obj).GetId(), obj)
 }
+
+func (cm *SCacheManager[T]) Range(proc func(key interface{}, value interface{}) bool) {
+	if cm.cache == nil {
+		cm.fetchCacheFromDB()
+	}
+	cm.cache.Range(proc)
+}

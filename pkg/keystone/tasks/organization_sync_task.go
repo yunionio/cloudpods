@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -45,8 +46,11 @@ func (task *OrganizationSyncTask) OnInit(ctx context.Context, obj db.IStandalone
 	if err != nil {
 		log.Errorf("SyncTags fail %s", err)
 		task.SetStageFailed(ctx, jsonutils.Marshal(err))
+		org.SetStatus(task.UserCred, api.OrganizationStatusSyncFailed, err.Error())
 		return
 	}
+
+	org.SetStatus(task.UserCred, api.OrganizationStatusReady, "sync success")
 
 	notes := jsonutils.NewDict()
 	notes.Set("organization", org.GetShortDesc(ctx))

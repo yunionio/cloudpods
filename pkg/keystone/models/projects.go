@@ -464,6 +464,12 @@ func (manager *SProjectManager) FetchCustomizeColumns(
 				rows[i].AdminDomainId = user.DomainId
 			}
 		}
+		projOrg, err := proj.matchOrganizationNodes()
+		if err != nil {
+			log.Errorf("matchOrganizationNodes fail %s", err)
+		} else {
+			rows[i].Organization = projOrg
+		}
 	}
 
 	return rows
@@ -869,4 +875,34 @@ func (project *SProject) setAdminId(ctx context.Context, userCred mcclient.Token
 		logclient.AddSimpleActionLog(project, logclient.ACT_UPDATE, diff, userCred, true)
 	}
 	return nil
+}
+
+func (project *SProject) matchOrganizationNodes() (*api.SProjectOrganization, error) {
+	orgs, err := OrganizationManager.FetchOrgnaizations(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("type", api.OrgTypeProject)
+		q = q.IsTrue("enabled")
+		return q
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchOrgnaizations")
+	}
+	if len(orgs) == 0 {
+		return nil, nil
+	} else if len(orgs) > 1 {
+		return nil, errors.Wrap(httperrors.ErrDuplicateResource, "multiple enabled organizations")
+	}
+	org := &orgs[0]
+	tags, err := project.GetAllOrganizationMetadata()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAllOrganizationMetadata")
+	}
+	if len(tags) == 0 {
+		return nil, nil
+	}
+	log.Debugf("matchOrganizationNodes %s", jsonutils.Marshal(tags))
+	projOrg, err := org.getProjectOrganization(tags)
+	if err != nil {
+		return nil, errors.Wrap(err, "getProjectOrganization")
+	}
+	return projOrg, nil
 }
