@@ -1703,6 +1703,9 @@ func (manager *SCloudaccountManager) ListItemFilter(
 	managerStrs := query.CloudproviderId
 	conditions := []sqlchemy.ICondition{}
 	for _, managerStr := range managerStrs {
+		if len(managerStr) == 0 {
+			continue
+		}
 		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {

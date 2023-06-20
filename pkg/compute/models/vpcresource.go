@@ -163,6 +163,9 @@ func (manager *SVpcResourceBaseManager) ListItemFilter(
 	var err error
 	conditions := []sqlchemy.ICondition{}
 	for _, vpcId := range query.VpcId {
+		if len(vpcId) == 0 {
+			continue
+		}
 		switch vpcId {
 		case api.CLASSIC_VPC_NAME:
 			conditions = append(conditions, sqlchemy.Equals(q.Field("name"), api.CLASSIC_VPC_NAME))

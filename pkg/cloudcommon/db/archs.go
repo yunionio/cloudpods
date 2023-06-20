@@ -47,6 +47,9 @@ func ListQueryByArchitecture(q *sqlchemy.SQuery, fieldKey string, archs []string
 	}
 	conditions := []sqlchemy.ICondition{}
 	for _, arch := range archs {
+		if len(arch) == 0 {
+			continue
+		}
 		if arch == apis.OS_ARCH_X86 {
 			conditions = append(conditions, sqlchemy.OR(
 				sqlchemy.Startswith(q.Field(fieldKey), arch),
