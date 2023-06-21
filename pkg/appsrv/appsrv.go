@@ -123,9 +123,15 @@ func NewApplication(name string, connMax int, db bool) *Application {
 	return &app
 }
 
-func (self *Application) OnException(exception func(method, path string, body jsonutils.JSONObject, err error)) *Application {
-	self.exception = exception
-	return self
+func (app *Application) OnException(exception func(method, path string, body jsonutils.JSONObject, err error)) *Application {
+	app.exception = exception
+	return app
+}
+
+func (app *Application) SetDefaultTimeout(to time.Duration) *Application {
+	log.Infof("adjust application default timeout to %f seconds", to.Seconds())
+	app.processTimeout = to
+	return app
 }
 
 func SplitPath(path string) []string {
@@ -409,9 +415,8 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			)
 			runErr := task.fw.wait(task.ctx, currentWorker)
 			if runErr != nil {
-				switch runErr.(type) {
+				switch je := runErr.(type) {
 				case *httputils.JSONClientError:
-					je := runErr.(*httputils.JSONClientError)
 					httperrors.GeneralServerError(task.ctx, w, je)
 				default:
 					httperrors.InternalServerError(task.ctx, w, "Internal server error")

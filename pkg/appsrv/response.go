@@ -52,6 +52,10 @@ func newResponseWriterChannel(backend http.ResponseWriter) responseWriterChannel
 }
 
 func (w *responseWriterChannel) Header() http.Header {
+	if w.isClosed {
+		// return a dumb header
+		return http.Header{}
+	}
 	return w.backend.Header()
 }
 

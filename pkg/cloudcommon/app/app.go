@@ -18,6 +18,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"yunion.io/x/log"
 
@@ -31,7 +32,7 @@ func InitApp(options *common_options.BaseOptions, dbAccess bool) *appsrv.Applica
 	log.Infof("RequestWorkerCount: %d", options.RequestWorkerCount)
 	app := appsrv.NewApplication(options.ApplicationID, options.RequestWorkerCount, dbAccess)
 	app.CORSAllowHosts(options.CorsHosts)
-
+	app.SetDefaultTimeout(time.Duration(options.DefaultProcessTimeoutSeconds) * time.Second)
 	// app.SetContext(appsrv.APP_CONTEXT_KEY_CACHE, cache)
 	// if dbConn != nil {
 	//	app.SetContext(appsrv.APP_CONTEXT_KEY_DB, dbConn)
