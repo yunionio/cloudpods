@@ -295,15 +295,6 @@ func (manager *SOrganizationNodeManager) ListItemFilter(
 	return q, nil
 }
 
-func (manager *SOrganizationNodeManager) ExtendListQuery(
-	ctx context.Context,
-	q *sqlchemy.SQuery,
-	userCred mcclient.TokenCredential,
-	query api.OrganizationNodeListInput,
-) (*sqlchemy.SQuery, error) {
-	return q, nil
-}
-
 func (manager *SOrganizationNodeManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
