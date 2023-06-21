@@ -199,7 +199,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	var output api.NotificationManagerEventNotifyOutput
 	// contact type
 	contactTypes := input.ContactTypes
-	cts, err := ConfigManager.allContactType()
+	cts, err := ConfigManager.allContactType(userCred.GetProjectDomainId())
 	if err != nil {
 		return output, errors.Wrap(err, "unable to fetch allContactType")
 	}
@@ -707,6 +707,12 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 		return out, errors.Wrapf(err, "get topic by id")
 	}
 	topic := topicModel.(*STopic)
+	groupKeys := []string{}
+	if topic.GroupKeys != nil {
+		groupKeys = *topic.GroupKeys
+	}
+
+	out.GroupTimes = uint(topic.GroupTimes)
 	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
 	msgObj, err := jsonutils.ParseString(no.Message)
 	if err != nil {
@@ -727,7 +733,13 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 			Message: webhookMsg.String(),
 		}, nil
 	}
-
+	for _, key := range groupKeys {
+		keyValue, _ := msg.GetString(key)
+		if len(keyValue) > 0 {
+			out.GroupKey += keyValue
+		}
+	}
+	out.GroupTimes = uint(topic.GroupTimes)
 	if lang == "" {
 		lang = getLangSuffix(ctx)
 	}
