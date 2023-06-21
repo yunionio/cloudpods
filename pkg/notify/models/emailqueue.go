@@ -179,7 +179,7 @@ func (eq *SEmailQueue) doSend(ctx context.Context) {
 	eq.setStatus(ctx, api.EmailSending, nil)
 	driver := GetDriver(api.EMAIL)
 	err = driver.Send(ctx, api.SendParams{
-		EmailMsg: msg,
+		EmailMsg: *msg,
 	})
 	if err != nil {
 		eq.setStatus(ctx, api.EmailFail, err)
