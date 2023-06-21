@@ -793,6 +793,7 @@ func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclien
 	type retStruct struct {
 		SSubscriber
 		TopicName string
+		TopicType string
 	}
 	res := []retStruct{}
 	for _, subscriber := range subscribers {
@@ -804,7 +805,7 @@ func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclien
 		if err != nil {
 			return nil, errors.Wrap(err, "fetch topic by id")
 		}
-		res = append(res, retStruct{subscriber, topic.GetName()})
+		res = append(res, retStruct{SSubscriber: subscriber, TopicName: topic.GetName(), TopicType: topic.Type})
 	}
 	return jsonutils.Marshal(res), nil
 }
