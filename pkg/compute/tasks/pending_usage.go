@@ -53,7 +53,7 @@ func ClearTaskPendingUsage(ctx context.Context, task taskman.ITask) error {
 			return errors.Wrap(err, "task.ClearPendingUsage")
 		}
 	} else {
-		log.Warningf("pendingUsage is not empty after cancel????")
+		log.Warningf("pendingUsage %s is not empty after cancel????", jsonutils.Marshal(pendingUsage).String())
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func ClearTaskPendingRegionUsage(ctx context.Context, task taskman.ITask) error 
 			return errors.Wrap(err, "task.ClearPendingUsage")
 		}
 	} else {
-		log.Warningf("pendingUsage is not empty after cancel????")
+		log.Warningf("pendingUsage %s is not empty after cancel????", jsonutils.Marshal(pendingUsage).String())
 	}
 	return nil
 }
