@@ -567,6 +567,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	var err error
 	var maxLimit int64 = consts.GetMaxPagingLimit()
 	limit, _ := query.Int("limit")
+	forceNoPaging := jsonutils.QueryBoolean(query, "force_no_paging", false)
 	offset, _ := query.Int("offset")
 	pagingMarker, _ := query.GetString("paging_marker")
 	pagingOrderStr, _ := query.GetString("paging_order")
@@ -777,6 +778,10 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 				break
 			}
 		}
+	}
+
+	if forceNoPaging {
+		limit = 0
 	}
 
 	if pagingConf != nil {
