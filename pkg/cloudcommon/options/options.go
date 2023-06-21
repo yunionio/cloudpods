@@ -71,6 +71,8 @@ type BaseOptions struct {
 	RequestWorkerCount int    `default:"8" help:"Request worker thread count, default is 8"`
 	TaskWorkerCount    int    `default:"4" help:"Task manager worker thread count, default is 4"`
 
+	DefaultProcessTimeoutSeconds int `default:"60" help:"request process timeout, default is 60 seconds"`
+
 	EnableSsl   bool   `help:"Enable https"`
 	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
 	SslCertfile string `help:"ssl certification file, normally combines all the certificates in the chain" alias:"cert-file"`
