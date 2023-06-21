@@ -46,4 +46,6 @@ type ProjectDetails struct {
 
 	// 归属该项目的外部资源统计信息
 	ExternalResourceInfo
+
+	Organization *SProjectOrganization
 }

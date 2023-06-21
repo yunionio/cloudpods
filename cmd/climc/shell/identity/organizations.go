@@ -15,11 +15,7 @@
 package identity
 
 import (
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/printutils"
-
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	identity_options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 )
@@ -30,8 +26,6 @@ func init() {
 	orgCmd.Create(&identity_options.OrganizationCreateOptions{})
 	orgCmd.Show(&identity_options.OrganizationIdOptions{})
 	orgCmd.Perform("sync", &identity_options.OrganizationSyncOptions{})
-	orgCmd.GetWithCustomOptionShow("nodes", func(data jsonutils.JSONObject, args shell.IGetOpt) {
-		results := modulebase.JSON2ListResult(data)
-		printutils.PrintJSONList(results, []string{})
-	}, &identity_options.OrganizationShowNodesOptions{})
+	orgCmd.Perform("enable", &identity_options.OrganizationIdOptions{})
+	orgCmd.Perform("disable", &identity_options.OrganizationIdOptions{})
 }

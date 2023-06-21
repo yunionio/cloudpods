@@ -26,6 +26,11 @@ const (
 	OrganizationLabelSeparator = "/"
 
 	OrganizationRootParent = "<-root-org-node->"
+
+	OrganizationStatusInit       = "init"
+	OrganizationStatusReady      = "ready"
+	OrganizationStatusSync       = "sync"
+	OrganizationStatusSyncFailed = "sync_failed"
 )
 
 type TOrgType string
@@ -54,7 +59,7 @@ func IsValidOrgType(orgType TOrgType) bool {
 }
 
 type OrganizationListInput struct {
-	apis.InfrasResourceBaseListInput
+	apis.EnabledStatusInfrasResourceBaseListInput
 
 	Type []TOrgType `json:"type"`
 
@@ -62,7 +67,7 @@ type OrganizationListInput struct {
 }
 
 type OrganizationCreateInput struct {
-	apis.InfrasResourceBaseCreateInput
+	apis.EnabledStatusInfrasResourceBaseCreateInput
 
 	Type TOrgType `json:"type"`
 
@@ -91,7 +96,7 @@ func (info *SOrganizationInfo) String() string {
 }
 
 type OrganizationUpdateInput struct {
-	apis.InfrasResourceBaseUpdateInput
+	apis.EnabledStatusInfrasResourceBaseUpdateInput
 }
 
 type OrganizationPerformAddLevelsInput struct {
@@ -162,4 +167,16 @@ type OrganizationNodeListInput struct {
 	OrgType TOrgType `json:"org_type"`
 
 	Level int `json:"level"`
+}
+
+type SProjectOrganization struct {
+	Id    string
+	Name  string
+	Keys  []string
+	Nodes []SProjectOrganizationNode
+}
+
+type SProjectOrganizationNode struct {
+	Id     string
+	Labels []string
 }
