@@ -72,6 +72,10 @@ func (cm *SCacheManager[T]) Update(obj *T) {
 	cm.cache.Store((*obj).GetId(), obj)
 }
 
+func (cm *SCacheManager[T]) Delete(obj *T) {
+	cm.cache.Delete((*obj).GetId())
+}
+
 func (cm *SCacheManager[T]) Range(proc func(key interface{}, value interface{}) bool) {
 	if cm.cache == nil {
 		cm.fetchCacheFromDB()

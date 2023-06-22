@@ -28,4 +28,5 @@ func init() {
 	orgCmd.Perform("sync", &identity_options.OrganizationSyncOptions{})
 	orgCmd.Perform("enable", &identity_options.OrganizationIdOptions{})
 	orgCmd.Perform("disable", &identity_options.OrganizationIdOptions{})
+	orgCmd.Delete(&identity_options.OrganizationIdOptions{})
 }
