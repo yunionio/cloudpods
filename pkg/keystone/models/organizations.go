@@ -220,17 +220,23 @@ func (org *SOrganization) getNode(fullLabel string) (*SOrganizationNode, error) 
 }
 
 func (org *SOrganization) ValidateDeleteCondition(ctx context.Context, info *api.ProjectDetails) error {
-	childCnt, err := org.getNodesCount()
-	if err != nil {
-		return errors.Wrap(err, "getNodesCount")
-	}
 	if org.GetEnabled() {
 		return errors.Wrap(httperrors.ErrInvalidStatus, "organization enabled")
 	}
-	if childCnt > 0 {
-		return errors.Wrap(httperrors.ErrNotEmpty, "not an empty organization")
-	}
 	return org.SInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
+}
+
+func (org *SOrganization) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := org.removeAll(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "removeAll")
+	}
+	err = org.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "SResourceBase.Delete")
+	}
+	OrganizationManager.cache.Delete(org)
+	return nil
 }
 
 func (manager *SOrganizationManager) ValidateCreateData(
@@ -280,7 +286,7 @@ func (org *SOrganization) CustomizeCreate(
 	org.SetShare(rbacscope.ScopeSystem)
 	org.Enabled = tristate.False
 	org.Status = api.OrganizationStatusReady
-	return org.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return org.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (org *SOrganization) PostCreate(
@@ -290,7 +296,7 @@ func (org *SOrganization) PostCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
-	org.SInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	org.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	OrganizationManager.cache.Update(org)
 }
 
@@ -309,7 +315,7 @@ func (org *SOrganization) PostUpdate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
-	org.SInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
+	org.SEnabledStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
 	OrganizationManager.cache.Update(org)
 }
 
@@ -343,7 +349,7 @@ func (org *SOrganization) PerformAddLevel(
 }
 
 func (org *SOrganization) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := org.SInfrasResourceBase.GetShortDesc(ctx)
+	desc := org.SEnabledStatusInfrasResourceBase.GetShortDesc(ctx)
 	desc.Set("keys", jsonutils.NewString(org.Keys))
 	desc.Set("level", jsonutils.NewInt(int64(org.Level)))
 	return desc
@@ -503,7 +509,6 @@ func (org *SOrganization) syncObjectTags(ctx context.Context, userCred mcclient.
 }
 
 func (org *SOrganization) syncTagValueMap(ctx context.Context, tagVal map[string]string) ([]string, error) {
-	log.Debugf("syncTagValueMap %s", jsonutils.Marshal(tagVal))
 	labels := make([]string, 0)
 	for i := 0; i < org.Level; i++ {
 		key := db.TagValueKey(i)
