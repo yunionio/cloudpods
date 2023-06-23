@@ -17,6 +17,7 @@ package identity
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -66,4 +67,24 @@ func (opts *OrganizationSyncOptions) Params() (jsonutils.JSONObject, error) {
 
 type OrganizationShowNodesOptions struct {
 	OrganizationIdOptions
+}
+
+type OrganizationAddLevelOptions struct {
+	OrganizationIdOptions
+
+	api.OrganizationPerformAddLevelsInput
+}
+
+func (opts *OrganizationAddLevelOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type OrganizationAddNodeOptions struct {
+	OrganizationIdOptions
+
+	api.OrganizationPerformAddNodeInput
+}
+
+func (opts *OrganizationAddNodeOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }

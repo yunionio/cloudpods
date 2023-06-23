@@ -24,4 +24,6 @@ func init() {
 	orgNodeCmd := shell.NewResourceCmd(&modules.OrganizationNodes)
 	orgNodeCmd.List(&identity_options.OrganizationNodeListOptions{})
 	orgNodeCmd.Show(&identity_options.OrganizationNodeIdOptions{})
+	orgNodeCmd.Update(&identity_options.OrganizationNodeUpdateOptions{})
+	orgNodeCmd.Perform("bind", &identity_options.OrganizationNodeBindOptions{})
 }
