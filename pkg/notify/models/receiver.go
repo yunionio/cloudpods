@@ -786,14 +786,16 @@ func (r *SReceiver) IsOwner(userCred mcclient.TokenCredential) bool {
 
 // 获取用户订阅
 func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverGetSubscriptionOptions) (jsonutils.JSONObject, error) {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	subscribers, err := getSubscriberByReceiverId(r.Id, input.ShowDisabled)
 	if err != nil {
 		return nil, errors.Wrap(err, "getSubscriberByReceiverId")
 	}
 	type retStruct struct {
 		SSubscriber
-		TopicName string
-		TopicType string
+		IdentityName string
+		TopicName    string
+		TopicType    string
 	}
 	res := []retStruct{}
 	for _, subscriber := range subscribers {
@@ -808,7 +810,21 @@ func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclien
 		if topic.Enabled == tristate.False {
 			continue
 		}
-		res = append(res, retStruct{SSubscriber: subscriber, TopicName: topic.GetName(), TopicType: topic.Type})
+		identityName := ""
+		if subscriber.Type == api.SUBSCRIBER_TYPE_ROLE {
+			role := identity_api.RoleDetails{}
+			roleDetail, err := identity_modules.RolesV3.GetById(s, subscriber.Identification, nil)
+			if err != nil {
+				log.Warningf("get %s role details err:%s", subscriber.Identification, err)
+			}
+			if roleDetail != nil {
+				roleDetail.Unmarshal(&role)
+				identityName = role.Name
+			}
+		} else {
+			identityName = r.Name
+		}
+		res = append(res, retStruct{SSubscriber: subscriber, IdentityName: identityName, TopicName: topic.GetName(), TopicType: topic.Type})
 	}
 	return jsonutils.Marshal(res), nil
 }
