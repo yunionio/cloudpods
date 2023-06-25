@@ -44,7 +44,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -697,52 +696,58 @@ func (sm *SSubscriberManager) InitializeData() error {
 
 // 根据接受人ID获取订阅
 func getSubscriberByReceiverId(receiverId string, showDisabled bool) ([]SSubscriber, error) {
-	// 获取当前接受人所有角色
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewString(receiverId), "user", "id")
-	resp, err := identity.RoleAssignments.List(s, query)
-	if err != nil {
-		return nil, errors.Wrap(err, "UserCacheManager.FetchUserByIdOrName")
-	}
-	roleAssignments := []identityapi.SRoleAssignment{}
-	err = jsonutils.Update(&roleAssignments, resp.Data)
-	if err != nil {
-		return nil, errors.Wrap(err, "update roleAssignments")
-	}
-	roleArr := []string{}
-	for _, roleAssignment := range roleAssignments {
-		roleArr = append(roleArr, roleAssignment.Role.Id)
-	}
-
 	results := []SSubscriber{}
-	// q1 根据角色查找
-	q1 := SubscriberManager.Query()
-	q1 = q1.Equals("type", api.SUBSCRIBER_TYPE_ROLE)
-	if !showDisabled {
-		q1 = q1.Equals("enabled", true)
-	}
-	q1 = q1.In("identification", roleArr)
-	tempRes := []SSubscriber{}
-	err = db.FetchModelObjects(SubscriberManager, q1, &tempRes)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch role")
-	}
-	results = append(results, tempRes...)
 
-	tempRes = []SSubscriber{}
-	// q2 根据接受人ID查找
-	q2 := SubscriberManager.Query()
-	q2 = q2.Equals("type", api.SUBSCRIBER_TYPE_RECEIVER)
+	tempRes := []SSubscriber{}
+	// q1 根据接受人ID查找(优先)
+	q1 := SubscriberManager.Query()
+	q1 = q1.Equals("type", api.SUBSCRIBER_TYPE_RECEIVER)
 	srq := SubscriberReceiverManager.Query().Equals("receiver_id", receiverId)
 	srsq := srq.SubQuery()
 	if !showDisabled {
-		q2 = q2.Equals("enabled", true)
+		q1 = q1.Equals("enabled", true)
 	}
-	q2.Join(srsq, sqlchemy.Equals(q2.Field("id"), srsq.Field("subscriber_id")))
-	err = db.FetchModelObjects(SubscriberManager, q2, &tempRes)
+	q1.Join(srsq, sqlchemy.Equals(q1.Field("id"), srsq.Field("subscriber_id")))
+	err := db.FetchModelObjects(SubscriberManager, q1, &tempRes)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetch receiver")
+	}
+	results = append(results, tempRes...)
+	roleArr := []string{}
+	// 获取当前接受人所有角色
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.NewString("system"), "scope")
+	query.Add(jsonutils.NewString("user"), "resource")
+	query.Add(jsonutils.NewBool(true), "details")
+	query.Add(jsonutils.NewString("project"), "group_by")
+	query.Add(jsonutils.NewBool(true), "effective")
+	resp, err := identity.RoleAssignments.GetProjectRole(s, receiverId, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "UserCacheManager.FetchUserByIdOrName")
+	}
+	dataArr, _ := resp.GetArray("data")
+	for _, data := range dataArr {
+		groupArr, _ := data.GetArray("groups")
+		for _, group := range groupArr {
+			rolesArr, _ := group.GetArray("roles")
+			for _, role := range rolesArr {
+				roleId, _ := role.GetString("id")
+				roleArr = append(roleArr, roleId)
+			}
+		}
+	}
+	// q2 根据角色查找
+	q2 := SubscriberManager.Query()
+	q2 = q2.Equals("type", api.SUBSCRIBER_TYPE_ROLE)
+	if !showDisabled {
+		q2 = q2.Equals("enabled", true)
+	}
+	q2 = q2.In("identification", roleArr)
+	tempRes = []SSubscriber{}
+	err = db.FetchModelObjects(SubscriberManager, q2, &tempRes)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch role")
 	}
 	results = append(results, tempRes...)
 	return results, nil
