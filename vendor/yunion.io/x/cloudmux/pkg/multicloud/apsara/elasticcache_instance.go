@@ -27,13 +27,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/billing"
 
-	billingapi "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-// https://help.apsara.com/document_detail/60933.html?spm=a2c4g.11186623.6.726.38f82ca9U1Gtxw
+// https://help.aliyun.com/document_detail/60933.html?spm=a2c4g.11186623.6.726.38f82ca9U1Gtxw
 type SElasticcache struct {
 	multicloud.SElasticcacheBase
 	multicloud.SBillingBase
@@ -104,7 +103,6 @@ type SElasticcacheAttribute struct {
 	ReplicationMode     string      `json:"ReplicationMode"`
 	InstanceType        string      `json:"InstanceType"`
 	InstanceStatus      string      `json:"InstanceStatus"`
-	Tags                Tags        `json:"Tags"`
 	Port                int64       `json:"Port"`
 	InstanceClass       string      `json:"InstanceClass"`
 	CreateTime          time.Time   `json:"CreateTime"`
@@ -133,7 +131,11 @@ func (self *SElasticcache) GetId() string {
 }
 
 func (self *SElasticcache) GetName() string {
-	return self.InstanceName
+	if len(self.InstanceName) > 0 {
+		return self.InstanceName
+	}
+
+	return self.InstanceID
 }
 
 func (self *SElasticcache) GetGlobalId() string {
@@ -250,6 +252,7 @@ func (self *SElasticcache) GetZoneId() string {
 		log.Errorf("failed to find zone for elasticcache %s error: %v", self.GetId(), err)
 		return ""
 	}
+
 	return zone.GetGlobalId()
 }
 
@@ -432,37 +435,43 @@ func (self *SElasticcache) GetAttribute() (*SElasticcacheAttribute, error) {
 	params["RegionId"] = self.region.RegionId
 	params["InstanceId"] = self.GetId()
 
-	rets := []SElasticcacheAttribute{}
-	err := DoListAll(self.region.kvsRequest, "DescribeInstanceAttribute", params, []string{"Instances", "DBInstanceAttribute"}, &rets)
+	ret := []SElasticcacheAttribute{}
+	resp, err := self.region.kvsRequest("DescribeInstanceAttribute", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetAttribute")
+		return nil, err
 	}
-
-	count := len(rets)
-	if count >= 1 {
-		self.attribute = &rets[0]
-		return self.attribute, nil
-	} else {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "elasticcache.GetAttribute %s", self.GetId())
+	err = resp.Unmarshal(&ret, "Instances", "DBInstanceAttribute")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
+	for i := range ret {
+		return &ret[i], nil
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.GetId())
 }
 
 func (self *SElasticcache) GetNetInfo() ([]SNetInfo, error) {
+	if len(self.netinfo) > 0 {
+		return self.netinfo, nil
+	}
 	params := make(map[string]string)
 	params["RegionId"] = self.region.RegionId
 	params["InstanceId"] = self.GetId()
 
-	rets := []SNetInfo{}
-	err := DoListAll(self.region.kvsRequest, "DescribeDBInstanceNetInfo", params, []string{"NetInfoItems", "InstanceNetInfo"}, &rets)
+	ret := []SNetInfo{}
+	resp, err := self.region.kvsRequest("DescribeDBInstanceNetInfo", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetNetInfo")
+		return nil, err
 	}
-
-	self.netinfo = rets
+	err = resp.Unmarshal(&ret, "NetInfoItems", "InstanceNetInfo")
+	if err != nil {
+		return nil, err
+	}
+	self.netinfo = ret
 	return self.netinfo, nil
 }
 
-// https://help.apsara.com/document_detail/66742.html?spm=a2c4g.11186623.6.731.54c123d2P02qhk
+// https://help.aliyun.com/document_detail/66742.html?spm=a2c4g.11186623.6.731.54c123d2P02qhk
 func (self *SElasticcache) GetPublicNetInfo() (*SNetInfo, error) {
 	nets, err := self.GetNetInfo()
 	if err != nil {
@@ -486,9 +495,14 @@ func (self *SRegion) GetElasticCaches(instanceIds []string) ([]SElasticcache, er
 	}
 
 	ret := []SElasticcache{}
-	err := DoListAll(self.kvsRequest, "DescribeInstances", params, []string{"Instances", "KVStoreInstance"}, &ret)
+	resp, err := self.kvsRequest("DescribeInstances", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCaches")
+		return nil, err
+	}
+
+	err = resp.Unmarshal(&ret, "Instances", "KVStoreInstance")
+	if err != nil {
+		return nil, err
 	}
 
 	for i := range ret {
@@ -522,18 +536,21 @@ func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasti
 	return ec, nil
 }
 
-// https://help.apsara.com/document_detail/95802.html?spm=a2c4g.11186623.6.746.143e782f3Pfkfg
+// https://help.aliyun.com/document_detail/95802.html?spm=a2c4g.11186623.6.746.143e782f3Pfkfg
 func (self *SRegion) GetElasticCacheAccounts(instanceId string) ([]SElasticcacheAccount, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["InstanceId"] = instanceId
 
 	ret := []SElasticcacheAccount{}
-	err := DoListAll(self.kvsRequest, "DescribeAccounts", params, []string{"Accounts", "Account"}, &ret)
+	resp, err := self.kvsRequest("DescribeAccounts", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheAccounts")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "Accounts", "Account")
+	if err != nil {
+		return nil, err
+	}
 	return ret, nil
 }
 
@@ -544,36 +561,39 @@ func (self *SRegion) GetElasticCacheAccountByName(instanceId string, accountName
 	params["AccountName"] = accountName
 
 	ret := []SElasticcacheAccount{}
-	err := DoListAll(self.kvsRequest, "DescribeAccounts", params, []string{"Accounts", "Account"}, &ret)
+	resp, err := self.kvsRequest("DescribeAccounts", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheAccounts")
+		return nil, err
 	}
-
-	if len(ret) == 1 {
-		return &ret[0], nil
-	} else if len(ret) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, errors.Wrap(fmt.Errorf("%d account with name %s found", len(ret), accountName), "region.GetElasticCacheAccountByName")
+	err = resp.Unmarshal(&ret, "Accounts", "Account")
+	if err != nil {
+		return nil, err
 	}
+	for i := range ret {
+		return &ret[i], nil
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, accountName)
 }
 
-// https://help.apsara.com/document_detail/63889.html?spm=a2c4g.11186623.6.764.3cb43852R7lnoS
+// https://help.aliyun.com/document_detail/63889.html?spm=a2c4g.11186623.6.764.3cb43852R7lnoS
 func (self *SRegion) GetElasticCacheAcls(instanceId string) ([]SElasticcacheAcl, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["InstanceId"] = instanceId
 
 	ret := []SElasticcacheAcl{}
-	err := DoListAll(self.kvsRequest, "DescribeSecurityIps", params, []string{"SecurityIpGroups", "SecurityIpGroup"}, &ret)
+	resp, err := self.kvsRequest("DescribeSecurityIps", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheAcls")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "SecurityIpGroups", "SecurityIpGroup")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
 	return ret, nil
 }
 
-// https://help.apsara.com/document_detail/61081.html?spm=a2c4g.11186623.6.754.10613852qAbEQV
+// https://help.aliyun.com/document_detail/61081.html?spm=a2c4g.11186623.6.754.10613852qAbEQV
 func (self *SRegion) GetElasticCacheBackups(instanceId, startTime, endTime string) ([]SElasticcacheBackup, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
@@ -582,36 +602,47 @@ func (self *SRegion) GetElasticCacheBackups(instanceId, startTime, endTime strin
 	params["EndTime"] = endTime
 
 	ret := []SElasticcacheBackup{}
-	err := DoListAll(self.kvsRequest, "DescribeBackups", params, []string{"Backups", "Backup"}, &ret)
+	resp, err := self.kvsRequest("DescribeBackups", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheBackups")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "Backups", "Backup")
+	if err != nil {
+		return nil, err
+	}
 	return ret, nil
 }
 
-// https://help.apsara.com/document_detail/93078.html?spm=a2c4g.11186623.6.769.58011975YYL5Gl
+// https://help.aliyun.com/document_detail/93078.html?spm=a2c4g.11186623.6.769.58011975YYL5Gl
 func (self *SRegion) GetElasticCacheParameters(instanceId string) ([]SElasticcacheParameter, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["DBInstanceId"] = instanceId
 
 	ret := []SElasticcacheParameter{}
-	err := DoListAll(self.kvsRequest, "DescribeParameters", params, []string{"RunningParameters", "Parameter"}, &ret)
+	resp, err := self.kvsRequest("DescribeParameters", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheParameters")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "RunningParameters", "Parameter")
+	if err != nil {
+		return nil, err
+	}
 	return ret, nil
 }
 
-// https://help.apsara.com/document_detail/60873.html?spm=a2c4g.11174283.6.715.7412dce0qSYemb
+// https://help.aliyun.com/document_detail/60873.html?spm=a2c4g.11174283.6.715.7412dce0qSYemb
 func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["InstanceClass"] = ec.InstanceType
 	params["InstanceName"] = ec.InstanceName
-	params["InstanceType"] = ec.Engine
+	switch ec.Engine {
+	case api.ELASTIC_CACHE_ENGINE_REDIS:
+		params["InstanceType"] = "Redis"
+	case api.ELASTIC_CACHE_ENGINE_MEMCACHED:
+		params["InstanceType"] = "Memcache"
+	}
 	params["EngineVersion"] = ec.EngineVersion
 
 	if len(ec.Password) > 0 {
@@ -639,7 +670,8 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	params["VpcId"] = ec.VpcId
 	params["VSwitchId"] = ec.NetworkId
 	params["ChargeType"] = ec.ChargeType
-	if strings.ToLower(ec.ChargeType) == billingapi.BILLING_TYPE_PREPAID && ec.BillingCycle != nil {
+	if ec.BillingCycle != nil {
+		params["ChargeType"] = "PrePaid"
 		if ec.BillingCycle.GetMonths() >= 1 && ec.BillingCycle.GetMonths() <= 9 {
 			params["Period"] = strconv.Itoa(ec.BillingCycle.GetMonths())
 		} else if ec.BillingCycle.GetMonths() == 12 || ec.BillingCycle.GetMonths() == 24 || ec.BillingCycle.GetMonths() == 36 {
@@ -649,18 +681,16 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 		}
 	}
 
-	ret := &SElasticcache{}
+	ret := &SElasticcache{region: self}
 	err := DoAction(self.kvsRequest, "CreateInstance", params, []string{}, ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.CreateIElasticcaches")
 	}
 	self.SetResourceTags("kvs", "INSTANCE", []string{ret.InstanceID}, ec.Tags, false)
-
-	ret.region = self
 	return ret, nil
 }
 
-// https://help.apsara.com/document_detail/116215.html?spm=a2c4g.11174283.6.736.6b9ddce0c5nsw6
+// https://help.aliyun.com/document_detail/116215.html?spm=a2c4g.11174283.6.736.6b9ddce0c5nsw6
 func (self *SElasticcache) Restart() error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -674,7 +704,7 @@ func (self *SElasticcache) Restart() error {
 	return nil
 }
 
-// https://help.apsara.com/document_detail/60898.html?spm=a2c4g.11186623.6.713.56ec1603KS0xA0
+// https://help.aliyun.com/document_detail/60898.html?spm=a2c4g.11186623.6.713.56ec1603KS0xA0
 func (self *SElasticcache) Delete() error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -687,7 +717,7 @@ func (self *SElasticcache) Delete() error {
 	return nil
 }
 
-// https://help.apsara.com/document_detail/60903.html?spm=a2c4g.11186623.6.711.3f062c92aRJNfw
+// https://help.aliyun.com/document_detail/60903.html?spm=a2c4g.11186623.6.711.3f062c92aRJNfw
 func (self *SElasticcache) ChangeInstanceSpec(spec string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -702,7 +732,7 @@ func (self *SElasticcache) ChangeInstanceSpec(spec string) error {
 	return nil
 }
 
-// https://help.apsara.com/document_detail/61000.html?spm=a2c4g.11186623.6.730.57d66cb0QlQS86
+// https://help.aliyun.com/document_detail/61000.html?spm=a2c4g.11186623.6.730.57d66cb0QlQS86
 func (self *SElasticcache) SetMaintainTime(maintainStartTime, maintainEndTime string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -717,7 +747,7 @@ func (self *SElasticcache) SetMaintainTime(maintainStartTime, maintainEndTime st
 	return nil
 }
 
-// https://help.apsara.com/document_detail/125795.html?spm=a2c4g.11186623.6.719.51542b3593cDKO
+// https://help.aliyun.com/document_detail/125795.html?spm=a2c4g.11186623.6.719.51542b3593cDKO
 func (self *SElasticcache) AllocatePublicConnection(port int) (string, error) {
 	if port < 1024 {
 		port = 6379
@@ -739,7 +769,7 @@ func (self *SElasticcache) AllocatePublicConnection(port int) (string, error) {
 	return conn, nil
 }
 
-// https://help.apsara.com/document_detail/125796.html?spm=a2c4g.11186623.6.720.702a3b23Qayopy
+// https://help.aliyun.com/document_detail/125796.html?spm=a2c4g.11186623.6.720.702a3b23Qayopy
 func (self *SElasticcache) ReleasePublicConnection() error {
 	publicConn := self.GetPublicDNS()
 	if len(publicConn) == 0 {
@@ -759,9 +789,9 @@ func (self *SElasticcache) ReleasePublicConnection() error {
 	return nil
 }
 
-// https://help.apsara.com/document_detail/93603.html?spm=a2c4g.11186623.6.732.10666cf9UVgNPb 修改链接地址
+// https://help.aliyun.com/document_detail/93603.html?spm=a2c4g.11186623.6.732.10666cf9UVgNPb 修改链接地址
 
-// https://help.apsara.com/document_detail/95973.html?spm=a2c4g.11186623.6.742.4698126aH0s4Q5
+// https://help.aliyun.com/document_detail/95973.html?spm=a2c4g.11186623.6.742.4698126aH0s4Q5
 func (self *SElasticcache) CreateAccount(input cloudprovider.SCloudElasticCacheAccountInput) (cloudprovider.ICloudElasticcacheAccount, error) {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -791,7 +821,7 @@ func (self *SElasticcache) CreateAcl(aclName, securityIps string) (cloudprovider
 	return acl, self.region.createAcl(self.GetId(), aclName, securityIps)
 }
 
-// https://help.apsara.com/document_detail/61113.html?spm=a2c4g.11186623.6.770.16a61e7admr0xy
+// https://help.aliyun.com/document_detail/61113.html?spm=a2c4g.11186623.6.770.16a61e7admr0xy
 func (self *SElasticcache) UpdateInstanceParameters(config jsonutils.JSONObject) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -805,7 +835,7 @@ func (self *SElasticcache) UpdateInstanceParameters(config jsonutils.JSONObject)
 	return nil
 }
 
-// https://help.apsara.com/document_detail/61075.html?spm=a2c4g.11186623.6.749.4cba126a2U9xNa
+// https://help.aliyun.com/document_detail/61075.html?spm=a2c4g.11186623.6.749.4cba126a2U9xNa
 func (self *SElasticcache) CreateBackup(desc string) (cloudprovider.ICloudElasticcacheBackup, error) {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -819,7 +849,7 @@ func (self *SElasticcache) CreateBackup(desc string) (cloudprovider.ICloudElasti
 	return nil, nil
 }
 
-// https://help.apsara.com/document_detail/61077.html?spm=a2c4g.11186623.6.750.3d7630be7ziUfg
+// https://help.aliyun.com/document_detail/61077.html?spm=a2c4g.11186623.6.750.3d7630be7ziUfg
 func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElasticCacheBackupPolicyUpdateInput) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -834,7 +864,7 @@ func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElastic
 	return nil
 }
 
-// https://help.apsara.com/document_detail/60931.html?spm=a2c4g.11186623.6.728.5c57292920UKx3
+// https://help.aliyun.com/document_detail/60931.html?spm=a2c4g.11186623.6.728.5c57292920UKx3
 func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheFlushInstanceInput) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -847,7 +877,7 @@ func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheF
 	return nil
 }
 
-// https://help.apsara.com/document_detail/98531.html?spm=5176.11065259.1996646101.searchclickresult.4df474c38Sc2SO
+// https://help.aliyun.com/document_detail/98531.html?spm=5176.11065259.1996646101.searchclickresult.4df474c38Sc2SO
 func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool, password string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = self.GetId()
@@ -885,7 +915,7 @@ func (self *SElasticcache) GetSecurityGroupIds() ([]string, error) {
 func (self *SElasticcache) GetICloudElasticcacheAccount(accountId string) (cloudprovider.ICloudElasticcacheAccount, error) {
 	segs := strings.Split(accountId, "/")
 	if len(segs) < 2 {
-		return nil, errors.Wrap(fmt.Errorf("%s", accountId), "elasticcache.GetICloudElasticcacheAccount invalid account id ")
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "invalid account id")
 	}
 
 	return self.GetICloudElasticcacheAccountByName(segs[1])
