@@ -297,12 +297,14 @@ func (self *SRegion) CreateKubeNodePool(clusterId string, opts *cloudprovider.Ku
 			"enable": false,
 		},
 		"scaling_group": map[string]interface{}{
-			"instance_types":       opts.InstanceTypes,
-			"key_pair":             keyName,
-			"system_disk_category": "cloud_efficiency",
-			"system_disk_size":     opts.RootDiskSizeGb,
-			"vswitch_ids":          opts.NetworkIds,
-			"desired_size":         opts.DesiredInstanceCount,
+			"instance_types":             opts.InstanceTypes,
+			"key_pair":                   keyName,
+			"system_disk_category":       "cloud_efficiency",
+			"internet_max_bandwidth_out": 20,
+			"internet_charge_type":       "PayByTraffic",
+			"system_disk_size":           opts.RootDiskSizeGb,
+			"vswitch_ids":                opts.NetworkIds,
+			"desired_size":               opts.DesiredInstanceCount,
 		},
 	}
 
