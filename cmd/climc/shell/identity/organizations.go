@@ -29,4 +29,6 @@ func init() {
 	orgCmd.Perform("enable", &identity_options.OrganizationIdOptions{})
 	orgCmd.Perform("disable", &identity_options.OrganizationIdOptions{})
 	orgCmd.Delete(&identity_options.OrganizationIdOptions{})
+	orgCmd.Perform("add-level", &identity_options.OrganizationAddLevelOptions{})
+	orgCmd.Perform("add-node", &identity_options.OrganizationAddNodeOptions{})
 }

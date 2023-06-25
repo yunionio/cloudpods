@@ -17,6 +17,7 @@ package identity
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -44,4 +45,24 @@ func (opts *OrganizationNodeIdOptions) GetId() string {
 
 func (opts *OrganizationNodeIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
+}
+
+type OrganizationNodeUpdateOptions struct {
+	OrganizationNodeIdOptions
+
+	Weigth int `help:"update weight of node"`
+}
+
+func (opts *OrganizationNodeUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type OrganizationNodeBindOptions struct {
+	OrganizationNodeIdOptions
+
+	api.OrganizationNodePerformBindInput
+}
+
+func (opts *OrganizationNodeBindOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
