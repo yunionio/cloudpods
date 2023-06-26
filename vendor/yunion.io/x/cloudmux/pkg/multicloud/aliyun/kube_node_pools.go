@@ -172,9 +172,10 @@ func (self *SKubeNodePool) GetNetworkIds() []string {
 func (self *SRegion) DeleteKubeNodePool(clusterId, id string) error {
 	params := map[string]string{
 		"PathPattern": fmt.Sprintf("/clusters/%s/nodepools/%s", clusterId, id),
+		"force":       "true",
 	}
 	_, err := self.k8sRequest("DeleteClusterNodepool", params, map[string]string{})
-	return errors.Wrapf(err, "DeleteCluster")
+	return errors.Wrapf(err, "DeleteClusterNodepool")
 }
 
 func (self *SRegion) GetKubeNodePool(clusterId, id string) (*SKubeNodePool, error) {
