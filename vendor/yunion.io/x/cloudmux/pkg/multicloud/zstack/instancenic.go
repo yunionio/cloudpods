@@ -15,6 +15,8 @@
 package zstack
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -67,7 +69,7 @@ func (nic *SInstanceNic) GetINetworkId() string {
 	}
 	for i := 0; i < len(networks); i++ {
 		if networks[i].Contains(nic.IP) {
-			return networks[i].L3NetworkUUID
+			return fmt.Sprintf("%s/%s", networks[i].L3NetworkUUID, networks[i].UUID)
 		}
 	}
 	return ""
