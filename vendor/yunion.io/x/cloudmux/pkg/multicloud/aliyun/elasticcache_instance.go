@@ -445,33 +445,39 @@ func (self *SElasticcache) GetAttribute() (*SElasticcacheAttribute, error) {
 	params["RegionId"] = self.region.RegionId
 	params["InstanceId"] = self.GetId()
 
-	rets := []SElasticcacheAttribute{}
-	err := DoListAll(self.region.kvsRequest, "DescribeInstanceAttribute", params, []string{"Instances", "DBInstanceAttribute"}, &rets)
+	ret := []SElasticcacheAttribute{}
+	resp, err := self.region.kvsRequest("DescribeInstanceAttribute", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetAttribute")
+		return nil, err
 	}
-
-	count := len(rets)
-	if count >= 1 {
-		self.attribute = &rets[0]
-		return self.attribute, nil
-	} else {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "elasticcache.GetAttribute %s", self.GetId())
+	err = resp.Unmarshal(&ret, "Instances", "DBInstanceAttribute")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
+	for i := range ret {
+		return &ret[i], nil
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.GetId())
 }
 
 func (self *SElasticcache) GetNetInfo() ([]SNetInfo, error) {
+	if len(self.netinfo) > 0 {
+		return self.netinfo, nil
+	}
 	params := make(map[string]string)
 	params["RegionId"] = self.region.RegionId
 	params["InstanceId"] = self.GetId()
 
-	rets := []SNetInfo{}
-	err := DoListAll(self.region.kvsRequest, "DescribeDBInstanceNetInfo", params, []string{"NetInfoItems", "InstanceNetInfo"}, &rets)
+	ret := []SNetInfo{}
+	resp, err := self.region.kvsRequest("DescribeDBInstanceNetInfo", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetNetInfo")
+		return nil, err
 	}
-
-	self.netinfo = rets
+	err = resp.Unmarshal(&ret, "NetInfoItems", "InstanceNetInfo")
+	if err != nil {
+		return nil, err
+	}
+	self.netinfo = ret
 	return self.netinfo, nil
 }
 
@@ -499,9 +505,14 @@ func (self *SRegion) GetElasticCaches(instanceIds []string) ([]SElasticcache, er
 	}
 
 	ret := []SElasticcache{}
-	err := DoListAll(self.kvsRequest, "DescribeInstances", params, []string{"Instances", "KVStoreInstance"}, &ret)
+	resp, err := self.kvsRequest("DescribeInstances", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCaches")
+		return nil, err
+	}
+
+	err = resp.Unmarshal(&ret, "Instances", "KVStoreInstance")
+	if err != nil {
+		return nil, err
 	}
 
 	for i := range ret {
@@ -542,11 +553,14 @@ func (self *SRegion) GetElasticCacheAccounts(instanceId string) ([]SElasticcache
 	params["InstanceId"] = instanceId
 
 	ret := []SElasticcacheAccount{}
-	err := DoListAll(self.kvsRequest, "DescribeAccounts", params, []string{"Accounts", "Account"}, &ret)
+	resp, err := self.kvsRequest("DescribeAccounts", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheAccounts")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "Accounts", "Account")
+	if err != nil {
+		return nil, err
+	}
 	return ret, nil
 }
 
@@ -557,18 +571,18 @@ func (self *SRegion) GetElasticCacheAccountByName(instanceId string, accountName
 	params["AccountName"] = accountName
 
 	ret := []SElasticcacheAccount{}
-	err := DoListAll(self.kvsRequest, "DescribeAccounts", params, []string{"Accounts", "Account"}, &ret)
+	resp, err := self.kvsRequest("DescribeAccounts", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheAccounts")
+		return nil, err
 	}
-
-	if len(ret) == 1 {
-		return &ret[0], nil
-	} else if len(ret) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, errors.Wrap(fmt.Errorf("%d account with name %s found", len(ret), accountName), "region.GetElasticCacheAccountByName")
+	err = resp.Unmarshal(&ret, "Accounts", "Account")
+	if err != nil {
+		return nil, err
 	}
+	for i := range ret {
+		return &ret[i], nil
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, accountName)
 }
 
 // https://help.aliyun.com/document_detail/63889.html?spm=a2c4g.11186623.6.764.3cb43852R7lnoS
@@ -578,11 +592,14 @@ func (self *SRegion) GetElasticCacheAcls(instanceId string) ([]SElasticcacheAcl,
 	params["InstanceId"] = instanceId
 
 	ret := []SElasticcacheAcl{}
-	err := DoListAll(self.kvsRequest, "DescribeSecurityIps", params, []string{"SecurityIpGroups", "SecurityIpGroup"}, &ret)
+	resp, err := self.kvsRequest("DescribeSecurityIps", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheAcls")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "SecurityIpGroups", "SecurityIpGroup")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
 	return ret, nil
 }
 
@@ -595,11 +612,14 @@ func (self *SRegion) GetElasticCacheBackups(instanceId, startTime, endTime strin
 	params["EndTime"] = endTime
 
 	ret := []SElasticcacheBackup{}
-	err := DoListAll(self.kvsRequest, "DescribeBackups", params, []string{"Backups", "Backup"}, &ret)
+	resp, err := self.kvsRequest("DescribeBackups", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheBackups")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "Backups", "Backup")
+	if err != nil {
+		return nil, err
+	}
 	return ret, nil
 }
 
@@ -610,11 +630,14 @@ func (self *SRegion) GetElasticCacheParameters(instanceId string) ([]SElasticcac
 	params["DBInstanceId"] = instanceId
 
 	ret := []SElasticcacheParameter{}
-	err := DoListAll(self.kvsRequest, "DescribeParameters", params, []string{"RunningParameters", "Parameter"}, &ret)
+	resp, err := self.kvsRequest("DescribeParameters", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCacheParameters")
+		return nil, err
 	}
-
+	err = resp.Unmarshal(&ret, "RunningParameters", "Parameter")
+	if err != nil {
+		return nil, err
+	}
 	return ret, nil
 }
 
