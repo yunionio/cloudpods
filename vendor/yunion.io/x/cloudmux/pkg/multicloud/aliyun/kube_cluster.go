@@ -401,7 +401,7 @@ func (self *SRegion) CreateKubeCluster(opts *cloudprovider.KubeClusterCreateOpti
 		"api_audiences":                "https://kubernetes.default.svc",
 		"service_account_issuer":       "https://kubernetes.default.svc",
 		"key_pair":                     keyName,
-		"snat_entry":                   false,
+		"snat_entry":                   true,
 		"ssh_flags":                    true,
 		"tags":                         tags,
 		"cloud_monitor_flags":          true,
