@@ -60,6 +60,14 @@ type SSnapshot struct {
 }
 
 func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	snapshot, err := region.GetSnapshot(snapshotId)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot, nil
+}
+
+func (region *SRegion) GetSnapshot(snapshotId string) (*SSnapshot, error) {
 	resource := "/snapshots/" + snapshotId
 	resp, err := region.bsGet(resource)
 	if err != nil {
@@ -93,7 +101,7 @@ func (snapshot *SSnapshot) IsEmulated() bool {
 }
 
 func (snapshot *SSnapshot) Refresh() error {
-	_snapshot, err := snapshot.region.GetISnapshotById(snapshot.Id)
+	_snapshot, err := snapshot.region.GetSnapshot(snapshot.Id)
 	if err != nil {
 		return err
 	}
