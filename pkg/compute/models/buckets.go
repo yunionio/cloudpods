@@ -261,7 +261,9 @@ func (bucket *SBucket) getStats() cloudprovider.SBucketStats {
 func (bucket *SBucket) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := bucket.SSharableVirtualResourceBase.GetShortDesc(ctx)
 
+	desc.Add(jsonutils.NewInt(bucket.SizeBytesLimit), "size_bytes_limit")
 	desc.Add(jsonutils.NewInt(bucket.SizeBytes), "size_bytes")
+	desc.Add(jsonutils.NewInt(int64(bucket.ObjectCntLimit)), "object_cnt_limit")
 	desc.Add(jsonutils.NewInt(int64(bucket.ObjectCnt)), "object_cnt")
 	desc.Add(jsonutils.NewString(bucket.Acl), "acl")
 	desc.Add(jsonutils.NewString(bucket.StorageClass), "storage_class")
