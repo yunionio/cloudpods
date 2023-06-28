@@ -54,7 +54,8 @@ type SEmailQueue struct {
 
 	SessionId string `width:"256" charset:"utf8" nullable:"false" list:"user" create:"admin_optional"`
 
-	Content jsonutils.JSONObject `length:"long" charset:"utf8" nullable:"false" list:"user" create:"admin_required"`
+	Content     jsonutils.JSONObject `length:"long" charset:"utf8" nullable:"false" list:"user" create:"admin_required"`
+	MoreDetails jsonutils.JSONObject `length:"long" charset:"utf8" nullable:"true" list:"user" create:"admin_optional"`
 
 	ProjectId string `width:"128" charset:"ascii" list:"user" create:"admin_optional" index:"true"`
 	Project   string `width:"128" charset:"utf8" list:"user" create:"admin_optional"`
