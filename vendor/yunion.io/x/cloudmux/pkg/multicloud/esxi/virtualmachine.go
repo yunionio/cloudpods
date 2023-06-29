@@ -1480,7 +1480,35 @@ func (self *SVirtualMachine) relocate(hostId string) error {
 	config.Pool = &pool
 	hrs := targetHs.Reference()
 	config.Host = &hrs
-	config.Datastore = &targetHs.Datastore[0]
+	dss := []types.ManagedObjectReference{}
+	var datastores []mo.Datastore
+	for i := range self.vdisks {
+		ds := self.vdisks[i].getBackingInfo().GetDatastore()
+		if ds != nil {
+			dss = append(dss, *ds)
+		}
+	}
+	dc, err := host.GetDatacenter()
+	if err != nil {
+		return err
+	}
+
+	err = host.manager.references2Objects(dss, DATASTORE_PROPS, &datastores)
+	if err != nil {
+		return err
+	}
+	isShared := true
+	for i := 0; i < len(datastores); i += 1 {
+		ds := NewDatastore(host.manager, &datastores[i], dc)
+		storageType := ds.GetStorageType()
+		if !utils.IsInStringArray(storageType, []string{api.STORAGE_NAS, api.STORAGE_NFS, api.STORAGE_VSAN}) {
+			isShared = false
+			break
+		}
+	}
+	if !isShared {
+		config.Datastore = &targetHs.Datastore[0]
+	}
 	task, err := self.getVmObj().Relocate(ctx, config, types.VirtualMachineMovePriorityDefaultPriority)
 	if err != nil {
 		return errors.Wrap(err, "Relocate")

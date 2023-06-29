@@ -8,7 +8,6 @@ package memory
 import (
 	"bufio"
 	"compress/gzip"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -39,6 +38,10 @@ var (
 	// System log lines will look similar to the following:
 	// ... kernel: [0.000000] Memory: 24633272K/25155024K ...
 	_REGEX_SYSLOG_MEMLINE = regexp.MustCompile(`Memory:\s+\d+K\/(\d+)K`)
+	// regexMemoryBlockDirname matches a subdirectory in either
+	// /sys/devices/system/memory or /sys/devices/system/node/nodeX that
+	// represents information on a specific memory cell/block
+	regexMemoryBlockDirname = regexp.MustCompile(`memory\d+$`)
 )
 
 func (i *Info) load() error {
@@ -65,26 +68,31 @@ func AreaForNode(ctx *context.Context, nodeID int) (*Area, error) {
 		fmt.Sprintf("node%d", nodeID),
 	)
 
-	totUsable, err := memoryTotalUsableBytesFromPath(filepath.Join(path, "meminfo"))
+	var err error
+	var blockSizeBytes uint64
+	var totPhys int64
+	var totUsable int64
+
+	totUsable, err = memoryTotalUsableBytesFromPath(filepath.Join(path, "meminfo"))
 	if err != nil {
 		return nil, err
 	}
 
-	var totPhys int64
-	if _, err := os.Stat(paths.SysDevicesSystemMemory); err == nil {
-		blockSizeBytes, err := memoryBlockSizeBytes(paths.SysDevicesSystemMemory)
-		if err != nil {
-			return nil, err
-		}
-
+	blockSizeBytes, err = memoryBlockSizeBytes(paths.SysDevicesSystemMemory)
+	if err == nil {
 		totPhys, err = memoryTotalPhysicalBytesFromPath(path, blockSizeBytes)
 		if err != nil {
 			return nil, err
 		}
-	} else if errors.Is(err, os.ErrNotExist) {
-		totPhys = totUsable
 	} else {
-		return nil, err
+		// NOTE(jaypipes): Some platforms (e.g. ARM) will not have a
+		// /sys/device/system/memory/block_size_bytes file. If this is the
+		// case, we set physical bytes equal to either the physical memory
+		// determined from syslog or the usable bytes
+		//
+		// see: https://bugzilla.redhat.com/show_bug.cgi?id=1794160
+		// see: https://github.com/jaypipes/ghw/issues/336
+		totPhys = memTotalPhysicalBytesFromSyslog(paths)
 	}
 
 	supportedHP, err := memorySupportedPageSizes(filepath.Join(path, "hugepages"))
@@ -133,29 +141,37 @@ func memTotalPhysicalBytes(paths *linuxpath.Paths) (total int64) {
 	return total
 }
 
+// memoryTotalPhysicalBytesFromPath accepts a directory -- either
+// /sys/devices/system/memory (for the entire system) or
+// /sys/devices/system/node/nodeX (for a specific NUMA node) -- and a block
+// size in bytes and iterates over the sysfs memory block subdirectories,
+// accumulating blocks that are "online" to determine a total physical memory
+// size in bytes
 func memoryTotalPhysicalBytesFromPath(dir string, blockSizeBytes uint64) (int64, error) {
-	// iterate over memory's block /sys/.../memory*,
-	// if the memory block state is 'online' we increment the total
-	// with the memory block size to determine the amount of physical
-	// memory available on this system.
-	// This works for both system-wide:
-	// /sys/devices/system/memory/memory*
-	// and for per-numa-node report:
-	// /sys/devices/system/node/node*/memory*
-
-	sysMemory, err := filepath.Glob(filepath.Join(dir, "memory*"))
+	var total int64
+	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return -1, err
-	} else if sysMemory == nil {
-		return -1, fmt.Errorf("cannot find memory entries in %q", dir)
 	}
-
-	var total int64
-	for _, path := range sysMemory {
-		s, err := ioutil.ReadFile(filepath.Join(path, "state"))
+	// There are many subdirectories of /sys/devices/system/memory or
+	// /sys/devices/system/node/nodeX that are named memory{cell} where {cell}
+	// is a 0-based index of the memory block. These subdirectories contain a
+	// state file (e.g. /sys/devices/system/memory/memory64/state that will
+	// contain the string "online" if that block is active.
+	for _, file := range files {
+		fname := file.Name()
+		// NOTE(jaypipes): we cannot rely on file.IsDir() here because the
+		// memory{cell} sysfs directories are not actual directories.
+		if !regexMemoryBlockDirname.MatchString(fname) {
+			continue
+		}
+		s, err := ioutil.ReadFile(filepath.Join(dir, fname, "state"))
 		if err != nil {
 			return -1, err
 		}
+		// if the memory block state is 'online' we increment the total with
+		// the memory block size to determine the amount of physical
+		// memory available on this system.
 		if strings.TrimSpace(string(s)) != "online" {
 			continue
 		}
