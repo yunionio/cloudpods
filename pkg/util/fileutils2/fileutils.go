@@ -16,6 +16,7 @@ package fileutils2
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -372,4 +373,19 @@ func GetDevUuid(dev string) (map[string]string, error) {
 		}
 	}
 	return map[string]string{}, nil
+}
+
+func IsIsoFile(sPath string) bool {
+	file, err := os.Open(sPath)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	file.Seek(0x8001, 0)
+	buffer := make([]byte, 5)
+	_, err = file.Read(buffer)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(buffer, []byte("CD001"))
 }
