@@ -211,12 +211,9 @@ func (img *SQemuImage) parse() error {
 		img.EncryptAlg = seclib2.TSymEncAlg(info.FormatSpecific.Data.Encrypt.CipherAlg)
 	}
 
-	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) {
-		// test if it is an ISO
-		blkType := fileutils2.GetBlkidType(img.Path)
-		if utils.IsInStringArray(blkType, []string{"iso9660", "udf"}) {
-			img.Format = qemuimgfmt.ISO
-		}
+	// test if it is an ISO
+	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) && fileutils2.IsIsoFile(img.Path) {
+		img.Format = qemuimgfmt.ISO
 	}
 	return nil
 }
