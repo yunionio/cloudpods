@@ -171,7 +171,7 @@ func (self *CephClient) GetCapacity() (*SCapacity, error) {
 	stats := cephStats{}
 	err = resp.Unmarshal(&stats)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ret.Unmarshal")
+		return nil, errors.Wrapf(err, "ret.Unmarshal %s", resp)
 	}
 	result.CapacitySizeKb = stats.Stats.TotalBytes / 1024
 	result.UsedCapacitySizeKb = stats.Stats.TotalUsedBytes / 1024
