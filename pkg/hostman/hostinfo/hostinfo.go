@@ -1498,7 +1498,7 @@ func (h *SHostInfo) PutHostOnline() error {
 	}
 
 	_, err := modules.Hosts.PerformAction(
-		h.GetSession(), h.HostId, "online", data)
+		h.GetSession(), h.HostId, api.HOST_ONLINE, data)
 	if err != nil {
 		logclient.AddSimpleActionLog(h, logclient.ACT_ONLINE, data, hostutils.GetComputeSession(context.Background()).GetToken(), false)
 	}
@@ -2062,7 +2062,7 @@ func (h *SHostInfo) unregister() {
 		input := api.HostOfflineInput{
 			Reason: "host stop",
 		}
-		_, err := modules.Hosts.PerformAction(h.GetSession(), h.HostId, "offline", jsonutils.Marshal(input))
+		_, err := modules.Hosts.PerformAction(h.GetSession(), h.HostId, api.HOST_OFFLINE, jsonutils.Marshal(input))
 		if err != nil {
 			if errors.Cause(err) == httperrors.ErrResourceNotFound {
 				log.Errorf("host not found on region, may be removed, exit cleanly")
