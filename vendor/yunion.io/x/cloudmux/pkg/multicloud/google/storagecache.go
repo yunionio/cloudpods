@@ -168,10 +168,6 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, image *cloudprovide
 	return _image.GetGlobalId(), nil
 }
 
-func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
 	cache := &SStoragecache{region: region}
 	return []cloudprovider.ICloudStoragecache{cache}, nil

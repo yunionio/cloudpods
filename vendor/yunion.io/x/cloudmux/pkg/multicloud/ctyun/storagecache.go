@@ -31,10 +31,6 @@ type SStoragecache struct {
 	region *SRegion
 }
 
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
 func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, update func(progress float32)) (string, error) {
 	return "", cloudprovider.ErrNotSupported
 }

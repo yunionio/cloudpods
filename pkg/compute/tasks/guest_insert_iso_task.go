@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -78,7 +79,7 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
 	size, err := data.Int("size")
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "get image size").Error()))
 		return
 	}
 	name, _ := data.GetString("name")

@@ -119,25 +119,6 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-// 目前支持使用vhd、zvhd、vmdk、qcow2、raw、zvhd2、vhdx、qcow、vdi或qed格式镜像文件创建私有镜像。
-// 快速通道功能可快速完成镜像制作，但镜像文件需转换为raw或zvhd2格式并完成镜像优化。
-// https://support.huaweicloud.com/api-ims/zh-cn_topic_0083905788.html
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	if imageId, err := self.region.createIImage(snapshotId, imageName, imageDesc); err != nil {
-		return nil, err
-	} else if image, err := self.region.GetImage(imageId); err != nil {
-		return nil, err
-	} else {
-		image.storageCache = self
-		iimage := make([]cloudprovider.ICloudImage, 1)
-		iimage[0] = image
-		if err := cloudprovider.WaitStatus(iimage[0], "avaliable", 15*time.Second, 3600*time.Second); err != nil {
-			return nil, err
-		}
-		return iimage[0], nil
-	}
-}
-
 func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	return self.uploadImage(ctx, image, callback)
 }

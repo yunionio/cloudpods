@@ -16,10 +16,10 @@ package proxmox
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -32,27 +32,30 @@ type SStorage struct {
 
 	zone *SZone
 
-	Id   string
-	Node string
+	Storage string `json:"storage"`
+	Status  string
+	Id      string
+	Node    string
 
-	Total        int64   `json:"total"`
-	Storage      string  `json:"storage"`
-	Shared       int     `json:"shared"`
-	Used         int64   `json:"used"`
-	Content      string  `json:"content"`
-	Active       int     `json:"active"`
-	UsedFraction float64 `json:"used_fraction"`
-	Avail        int64   `json:"avail"`
-	Enabled      int     `json:"enabled"`
-	Type         string  `json:"type"`
+	Shared     int    `json:"shared"`
+	Content    string `json:"content"`
+	MaxDisk    int64  `json:"maxdisk"`
+	Disk       int64  `json:"disk"`
+	PluginType string `json:"plugintype"`
 }
 
 func (self *SStorage) GetName() string {
+	if self.Shared == 0 {
+		return fmt.Sprintf("%s-%s", self.Node, self.Storage)
+	}
 	return self.Storage
 }
 
 func (self *SStorage) GetId() string {
-	return self.Id
+	if self.Shared == 0 {
+		return self.Id
+	}
+	return self.Storage
 }
 
 func (self *SStorage) GetGlobalId() string {
@@ -60,13 +63,13 @@ func (self *SStorage) GetGlobalId() string {
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := self.zone.region.GetDisks(self.Id)
+	disks, err := self.zone.region.GetDisks(self.Node, self.Storage)
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudDisk{}
 	for i := range disks {
-		disks[i].region = self.zone.region
+		disks[i].storage = self
 		ret = append(ret, &disks[i])
 	}
 	return ret, nil
@@ -77,29 +80,39 @@ func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudpr
 }
 
 func (self *SStorage) GetCapacityMB() int64 {
-	return int64(self.Total / 1024 / 1024)
+	return int64(self.MaxDisk / 1024 / 1024)
 }
 
 func (self *SStorage) GetCapacityUsedMB() int64 {
-	return int64(self.Used / 1024 / 1024)
+	return int64(self.Disk / 1024 / 1024)
 }
 
 func (self *SStorage) GetEnabled() bool {
-	return true
+	if strings.Contains(self.Content, "images") {
+		return true
+	}
+	return false
 }
 
 func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	disk, err := self.zone.region.GetDisk(id)
+	disks, err := self.GetIDisks()
 	if err != nil {
-		return nil, cloudprovider.ErrNotFound
+		return nil, err
 	}
-
-	return disk, nil
+	for i := range disks {
+		if disks[i].GetGlobalId() == id {
+			return disks[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	cache := &SStoragecache{zone: self.zone}
-	return cache
+	return &SStoragecache{
+		region:  self.zone.region,
+		Node:    self.Node,
+		isShare: self.Shared == 1,
+	}
 }
 
 func (self *SStorage) GetMediumType() string {
@@ -111,6 +124,9 @@ func (self *SStorage) GetMountPoint() string {
 }
 
 func (self *SStorage) GetStatus() string {
+	if self.Status != "available" {
+		return api.STORAGE_OFFLINE
+	}
 	return api.STORAGE_ONLINE
 }
 
@@ -131,7 +147,7 @@ func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (self *SStorage) GetStorageType() string {
-	return strings.ToLower(self.Type)
+	return strings.ToLower(self.PluginType)
 }
 
 func (self *SStorage) IsSysDiskStore() bool {
@@ -153,78 +169,52 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 
 func (self *SRegion) GetStorages() ([]SStorage, error) {
 	storages := []SStorage{}
-	resources, err := self.GetClusterStoragesResources()
+	resources, err := self.GetClusterResources("storage")
 	if err != nil {
 		return nil, err
 	}
 
-	for _, res := range resources {
-		storage := &SStorage{}
-		status := fmt.Sprintf("%s/status", res.Path)
-		err := self.get(status, url.Values{}, storage)
-		if err != nil {
-			return nil, err
-		}
+	jsonutils.Update(&storages, resources)
 
-		storage.Id = res.Id
-		storage.Node = res.Node
-		// not support storageCache, so chanege the type name.
-		if storage.Type == "rbd" {
-			storage.Type = "cephrbd"
+	storageMap := map[string]bool{}
+	ret := []SStorage{}
+	for i := range storages {
+		if storages[i].Shared == 0 {
+			ret = append(ret, storages[i])
+			continue
 		}
-		if storage.Storage == "" {
-			storage.Storage = res.Name
+		if _, ok := storageMap[storages[i].Storage]; !ok {
+			ret = append(ret, storages[i])
+			storageMap[storages[i].Storage] = true
 		}
-
-		storages = append(storages, *storage)
 	}
 
-	return storages, nil
+	return ret, nil
 }
 
-func (self *SRegion) GetStoragesByHost(hostId string) ([]SStorage, error) {
-	storages := []SStorage{}
-	nodeName := ""
-	splited := strings.Split(hostId, "/")
-	nodeName = splited[1]
-
-	res := fmt.Sprintf("/nodes/%s/storage", nodeName)
-	err := self.get(res, url.Values{}, &storages)
+func (self *SRegion) GetStoragesByHost(node string) ([]SStorage, error) {
+	storages, err := self.GetStorages()
 	if err != nil {
 		return nil, err
 	}
-
+	ret := []SStorage{}
 	for i := range storages {
-		id := fmt.Sprintf("storage/%s/%s", nodeName, storages[i].Storage)
-		storages[i].Node = nodeName
-		storages[i].Id = id
-		if storages[i].Type == "rbd" {
-			storages[i].Type = "cephrbd"
+		if storages[i].Shared == 1 || storages[i].Node == node {
+			ret = append(ret, storages[i])
 		}
 	}
-
-	return storages, nil
+	return ret, nil
 }
 
 func (self *SRegion) GetStorage(id string) (*SStorage, error) {
-	ret := &SStorage{}
-
-	//"id": "storage/nodeNAME/strogeNAME",
-	splited := strings.Split(id, "/")
-	nodeName := ""
-	storageName := ""
-
-	if len(splited) == 3 {
-		nodeName, storageName = splited[1], splited[2]
+	storages, err := self.GetStorages()
+	if err != nil {
+		return nil, err
 	}
-
-	status := fmt.Sprintf("/nodes/%s/storage/%s/status", nodeName, storageName)
-	err := self.get(status, url.Values{}, ret)
-	ret.Id = id
-	ret.Node = nodeName
-	if ret.Type == "rbd" {
-		ret.Type = "cephrbd"
+	for i := range storages {
+		if storages[i].GetGlobalId() == id {
+			return &storages[i], nil
+		}
 	}
-
-	return ret, err
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }

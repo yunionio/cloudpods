@@ -2096,7 +2096,7 @@ func syncPublicCloudProviderInfo(
 				syncResults.Add(CachedimageManager, result)
 
 				msg := result.Result()
-				log.Infof("syncCloudImages result: %s", msg)
+				log.Infof("syncCloudImages for %s result: %s", storageCachePairs[i].local.GetName(), msg)
 			}
 		}
 	}

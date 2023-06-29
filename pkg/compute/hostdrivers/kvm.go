@@ -161,7 +161,7 @@ func (self *SKVMHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb in
 	return nil
 }
 
-func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	input := api.CacheImageInput{}
 	task.GetParams().Unmarshal(&input)
 

@@ -45,6 +45,7 @@ const (
 	APSARA    = api.APSARA
 	JDCLOUD   = api.JDCLOUD
 	CLOUDPODS = api.CLOUDPODS
+	PROXMOX   = api.PROXMOX
 )
 
 type RemoteConsoleInfo struct {
@@ -123,7 +124,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getQcloudURL()
 	case CLOUDPODS:
 		return info.getCloudpodsURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)

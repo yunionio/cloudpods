@@ -81,10 +81,6 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SStoragecache) UploadImage(ctx context.Context, opts *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
 	reader, size, err := opts.GetReader(opts.ImageId, string(qemuimgfmt.QCOW2))
 	if err != nil {

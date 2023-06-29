@@ -20,29 +20,22 @@ import (
 	"net/url"
 	"strings"
 
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
-
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
 type SDisk struct {
 	multicloud.SDisk
 	ProxmoxTags
 
-	region *SRegion
-
-	Storage    string
-	Node       string
-	DiskDriver string
-	DriverIdx  int
-	VmId       int
-	CacheMode  string
+	storage *SStorage
 
 	Format  string `json:"format"`
 	Size    int64  `json:"size"`
+	Vmid    string
 	VolId   string `json:"volid"`
 	Name    string `json:"name"`
 	Parent  string `json:"parent"`
@@ -50,7 +43,14 @@ type SDisk struct {
 }
 
 func (self *SDisk) GetName() string {
-	return self.Name
+	if len(self.Name) > 0 {
+		return self.Name
+	}
+	info := strings.Split(self.VolId, ":")
+	if len(info) == 2 {
+		return info[1]
+	}
+	return self.VolId
 }
 
 func (self *SDisk) GetId() string {
@@ -58,11 +58,28 @@ func (self *SDisk) GetId() string {
 }
 
 func (self *SDisk) GetGlobalId() string {
-	return self.GetId()
+	if self.storage.Shared == 1 {
+		return fmt.Sprintf("%s|%s", self.storage.Storage, self.VolId)
+	}
+	return fmt.Sprintf("%s|%s|%s", self.storage.Node, self.storage.Storage, self.VolId)
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SDisk) Refresh() error {
+	disks, err := self.storage.zone.region.GetDisks(self.storage.Node, self.storage.Storage)
+	if err != nil {
+		return err
+	}
+	for i := range disks {
+		disks[i].storage = self.storage
+		if disks[i].GetGlobalId() == self.GetGlobalId() {
+			return jsonutils.Update(self, disks[i])
+		}
+	}
+	return errors.Wrapf(cloudprovider.ErrNotFound, self.VolId)
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
@@ -70,7 +87,7 @@ func (self *SDisk) Delete(ctx context.Context) error {
 }
 
 func (self *SDisk) GetCacheMode() string {
-	return self.CacheMode
+	return "none"
 }
 
 func (self *SDisk) GetFsFormat() string {
@@ -82,7 +99,7 @@ func (self *SDisk) GetIsNonPersistent() bool {
 }
 
 func (self *SDisk) GetDriver() string {
-	return self.DiskDriver
+	return "virto"
 }
 
 func (self *SDisk) GetDiskType() string {
@@ -118,7 +135,22 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
-	return self.region.ResizeDisk(self.VolId, int(sizeMb/1024))
+	vm, err := self.storage.zone.region.GetInstance(self.Vmid)
+	if err != nil {
+		return errors.Wrapf(err, "GetInstance")
+	}
+	for _storageName, disks := range vm.QemuDisks {
+		if _storageName != self.storage.Storage {
+			continue
+		}
+		for _, disk := range disks {
+			if disk.DiskId != self.VolId {
+				continue
+			}
+			return self.storage.zone.region.ResizeDisk(vm.Node, self.Vmid, disk.Driver, int(sizeMb-int64(self.GetDiskSizeMB()))/1024)
+		}
+	}
+	return errors.Wrapf(cloudprovider.ErrNotFound, self.VolId)
 }
 
 func (self *SDisk) GetTemplateId() string {
@@ -130,8 +162,7 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	DataStoreId := fmt.Sprintf("storage/%s/%s", self.Node, self.Storage)
-	return self.region.GetStorage(DataStoreId)
+	return self.storage, nil
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
@@ -142,95 +173,24 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
-func (self *SRegion) GetDisks(storageId string) ([]SDisk, error) {
+func (self *SRegion) GetDisks(node, storageName string) ([]SDisk, error) {
 	vols := []SDisk{}
-	disks := []SDisk{}
-
-	splited := strings.Split(storageId, "/")
-	nodeName := ""
-	storageName := ""
-
-	if len(splited) == 3 {
-		nodeName, storageName = splited[1], splited[2]
-	}
-
-	res := fmt.Sprintf("/nodes/%s/storage/%s/content", nodeName, storageName)
-	err := self.get(res, url.Values{}, &vols)
+	params := url.Values{}
+	params.Set("content", "images")
+	res := fmt.Sprintf("/nodes/%s/storage/%s/content", node, storageName)
+	err := self.get(res, params, &vols)
 	if err != nil {
 		return nil, err
 	}
-	for i := range vols {
-		_, diskName := ParseSubConf(vols[i].VolId, ":")
-		if err != nil {
-			continue
-		}
-		vols[i].Storage = storageName
-		vols[i].Node = nodeName
-		vols[i].Name = diskName.(string)
-
-		disks = append(disks, vols[i])
-	}
-
-	return disks, nil
+	return vols, nil
 }
 
-func (self *SRegion) GetDisk(Id string) (*SDisk, error) {
-
-	vols := []SDisk{}
-	nodeName := ""
-	storageName, diskName := ParseSubConf(Id, ":")
-	resources, err := self.GetClusterStoragesResources()
-	if err != nil {
-		return nil, err
-	}
-
-	if res, ok := resources[storageName]; !ok {
-		return nil, errors.Errorf("self.GetDisk")
-	} else {
-		nodeName = res.Node
-	}
-
-	res := fmt.Sprintf("/nodes/%s/storage/%s/content", nodeName, storageName)
-	err = self.get(res, url.Values{}, &vols)
-	if err != nil {
-		return nil, errors.Wrapf(err, "self.GetDisk")
-	}
-
-	for _, vol := range vols {
-		if vol.VolId == Id {
-			ret := &SDisk{
-				region:  self,
-				Storage: storageName,
-				Node:    nodeName,
-				Format:  vol.Format,
-				Size:    vol.Size,
-				VolId:   vol.VolId,
-				Name:    diskName.(string),
-				Parent:  vol.Parent,
-				VmId:    vol.VmId,
-				Content: vol.Content,
-			}
-			return ret, nil
-		}
-	}
-
-	return nil, errors.Errorf("self.GetDisk failed to get disk by %s", Id)
-}
-
-func (self *SRegion) ResizeDisk(id string, sizeGb int) error {
-	disk, err := self.GetDisk(id)
-	if err != nil {
-		return errors.Wrapf(err, "GetDisk(%s)", id)
-	}
-	// not support unmount disk
-	if disk.VmId < 1 {
-		return nil
-	}
+func (self *SRegion) ResizeDisk(node string, vmId string, driver string, sizeGb int) error {
 	body := map[string]interface{}{
-		"disk": fmt.Sprintf("%s%d", disk.DiskDriver, disk.DriverIdx),
-		"size": sizeGb,
+		"disk": driver,
+		"size": fmt.Sprintf("+%dG", sizeGb),
 	}
 
-	res := fmt.Sprintf("/nodes/%s/qemu/%d/resize", disk.Node, disk.VmId)
-	return self.put(res, nil, jsonutils.Marshal(body), nil)
+	res := fmt.Sprintf("/nodes/%s/qemu/%s/resize", node, vmId)
+	return self.put(res, nil, jsonutils.Marshal(body))
 }

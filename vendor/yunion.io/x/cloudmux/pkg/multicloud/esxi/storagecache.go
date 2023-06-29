@@ -277,10 +277,6 @@ func (self *SDatastoreImageCache) GetIImageById(extId string) (cloudprovider.ICl
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SDatastoreImageCache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SDatastoreImageCache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }

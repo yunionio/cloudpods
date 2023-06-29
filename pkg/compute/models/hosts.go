@@ -892,6 +892,13 @@ func (self *SHost) GetHoststorages() []SHoststorage {
 	return hoststorages
 }
 
+func (self *SHost) GetStorages() ([]SStorage, error) {
+	sq := HoststorageManager.Query("storage_id").Equals("host_id", self.Id).SubQuery()
+	q := StorageManager.Query().In("id", sq)
+	storages := []SStorage{}
+	return storages, db.FetchModelObjects(StorageManager, q, &storages)
+}
+
 func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 	hoststorage := SHoststorage{}
 	hoststorage.SetModelManager(HoststorageManager, &hoststorage)
