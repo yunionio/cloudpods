@@ -371,7 +371,7 @@ func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.Token
 
 func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != api.STORAGE_OFFLINE {
-		err := self.SetStatus(userCred, api.STORAGE_OFFLINE, "")
+		err := self.SetStatus(userCred, api.STORAGE_OFFLINE, data.String())
 		if err != nil {
 			return nil, err
 		}

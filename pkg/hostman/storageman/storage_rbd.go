@@ -394,12 +394,14 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	if len(s.StorageId) > 0 {
 		client, err := s.GetClient()
 		if err != nil {
-			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", nil)
+			reason := jsonutils.Marshal(map[string]string{"reason": errors.Wrapf(err, "GetClient").Error()})
+			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, api.STORAGE_OFFLINE, reason)
 		}
 		defer client.Close()
 		capacity, err := client.GetCapacity()
 		if err != nil {
-			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", nil)
+			reason := jsonutils.Marshal(map[string]string{"reason": errors.Wrapf(err, "GetCapacity").Error()})
+			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, api.STORAGE_OFFLINE, reason)
 		}
 
 		content = map[string]interface{}{
