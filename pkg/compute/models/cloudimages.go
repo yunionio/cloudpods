@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -136,38 +137,48 @@ func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.TokenCredential, image SCachedimage, region *SCloudregion) error {
-	_cachedImage, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
+	if err != nil {
+		return err
+	}
+
+	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, region.ExternalId, image.GetGlobalId())
+
+	obj, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
 			return errors.Wrapf(err, "db.FetchByExternalId(%s)", image.GetGlobalId())
 		}
-		image := &image
-		image.SetModelManager(CachedimageManager, image)
-		meta, err := yunionmeta.FetchYunionmeta(ctx)
-		if err != nil {
-			return err
-		}
 
-		skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, region.ExternalId, image.GetGlobalId())
-		err = meta.Get(skuUrl, image)
+		cachedImage := &SCachedimage{}
+		cachedImage.SetModelManager(CachedimageManager, cachedImage)
+
+		err = meta.Get(skuUrl, cachedImage)
 		if err != nil {
 			return errors.Wrapf(err, "Get")
 		}
 
-		image.IsPublic = true
-		image.ProjectId = "system"
-		err = CachedimageManager.TableSpec().Insert(ctx, image)
+		cachedImage.IsPublic = true
+		cachedImage.ProjectId = "system"
+		err = CachedimageManager.TableSpec().Insert(ctx, cachedImage)
 		if err != nil {
 			return errors.Wrapf(err, "Insert cachedimage")
 		}
 		return nil
 	}
-	cachedImage := _cachedImage.(*SCachedimage)
-	_, err = db.Update(cachedImage, func() error {
-		cachedImage.Info = image.Info
-		cachedImage.Size = image.Size
-		cachedImage.UEFI = image.UEFI
-		return nil
-	})
-	return err
+	cachedImage := obj.(*SCachedimage)
+	if gotypes.IsNil(cachedImage.Info) {
+		err = meta.Get(skuUrl, &image)
+		if err != nil {
+			return errors.Wrapf(err, "Get")
+		}
+		_, err := db.Update(cachedImage, func() error {
+			cachedImage.Info = image.Info
+			cachedImage.Size = image.Size
+			cachedImage.UEFI = image.UEFI
+			return nil
+		})
+		return err
+	}
+	return nil
 }
