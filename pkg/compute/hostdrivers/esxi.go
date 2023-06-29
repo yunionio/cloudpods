@@ -52,7 +52,7 @@ func (self *SESXiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb i
 	return nil
 }
 
-func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
 	if err != nil {

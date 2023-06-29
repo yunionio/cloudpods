@@ -52,7 +52,7 @@ func (self *SBaremetalHostDriver) IsDisableImageCache(host *models.SHost) (bool,
 	return agent.DisableImageCache, nil
 }
 
-func (self *SBaremetalHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+func (self *SBaremetalHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	input := api.CacheImageInput{}
 	task.GetParams().Unmarshal(&input)
 	_, err := models.CachedimageManager.FetchById(input.ImageId)
