@@ -34,10 +34,11 @@ const (
 type VpcAgentOptions struct {
 	VpcProvider string `default:"ovn"`
 
-	APISyncIntervalSeconds      int  `default:"10"`
-	APIRunDelayMilliseconds     int  `default:"100"`
-	APIListBatchSize            int  `default:"1024"`
-	FetchDataFromComputeService bool `default:"false"`
+	APISyncIntervalSeconds  int `default:"10"`
+	APIRunDelayMilliseconds int `default:"100"`
+	APIListBatchSize        int `default:"1024"`
+	// TODO: set this to true, becuase https://github.com/yunionio/cloudpods/issues/17273 is not fixed
+	FetchDataFromComputeService bool `default:"true"`
 
 	OvnWorkerCheckInterval int    `default:"180"`
 	OvnNorthDatabase       string `help:"address for accessing ovn north database.  Default to local unix socket"`
