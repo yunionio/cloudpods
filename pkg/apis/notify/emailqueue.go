@@ -79,6 +79,8 @@ type EmailQueueCreateInput struct {
 	// swagger: ignore
 	Roles string `json:"roles"`
 
+	MoreDetails map[string]string `json:"more_datails"`
+
 	SessionId string `json:"session_id"`
 }
 
