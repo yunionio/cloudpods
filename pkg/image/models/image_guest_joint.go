@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
@@ -113,6 +114,10 @@ func (gm *SGuestImageJointManager) GetImagesByGuestImageId(guestImageId string) 
 	return gm.GetImagesByFilter(guestImageId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q
 	})
+}
+
+func (gt *SGuestImageJoint) GetId() string {
+	return fmt.Sprintf("guestimage-%s-image-%s", gt.GuestImageId, gt.ImageId)
 }
 
 func (gt *SGuestImageJoint) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
