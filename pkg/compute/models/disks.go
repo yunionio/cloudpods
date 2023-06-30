@@ -340,6 +340,8 @@ func (manager *SDiskManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 
 func (self *SDisk) GetGuestDiskCount() (int, error) {
 	guestdisks := GuestdiskManager.Query()
+	guests := GuestManager.Query().SubQuery()
+	guestdisks = guestdisks.Join(guests, sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))
 	return guestdisks.Equals("disk_id", self.Id).CountWithError()
 }
 
