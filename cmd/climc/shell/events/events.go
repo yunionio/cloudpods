@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 type BaseEventListOptions struct {
@@ -76,6 +77,10 @@ func doMonitorEventList(s *mcclient.ClientSession, args *EventListOptions) error
 
 func doNotifyEventList(s *mcclient.ClientSession, args *EventListOptions) error {
 	return DoEventList(modules.NotifyLogs, s, args)
+}
+
+func doK8sEventList(s *mcclient.ClientSession, args *EventListOptions) error {
+	return DoEventList(*k8s.Logs.ResourceManager, s, args)
 }
 
 func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
@@ -146,6 +151,12 @@ func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args
 
 func init() {
 	R(&EventListOptions{}, "event-show", "Show operation event logs", doComputeEventList)
+	R(&EventListOptions{}, "region-event-show", "Show operation event logs", doComputeEventList)
+	R(&EventListOptions{}, "glance-event-show", "Show operation event logs", doImageEventList)
+	R(&EventListOptions{}, "keystone-event-show", "Show operation event logs", doIdentityEventList)
+	R(&EventListOptions{}, "monitor-event-show", "Show operation event logs", doMonitorEventList)
+	R(&EventListOptions{}, "notify-event-show", "Show operation event logs", doNotifyEventList)
+	R(&EventListOptions{}, "kube-event-show", "Show operation event logs", doK8sEventList)
 
 	R(&TypeEventListOptions{}, "server-event", "Show operation event logs of server", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"server"}}
