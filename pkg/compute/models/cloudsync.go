@@ -557,7 +557,9 @@ func syncVpcNatgateways(ctx context.Context, userCred mcclient.TokenCredential, 
 				return
 			}
 
-			syncNatGatewayEips(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
+			if syncRange.IsNotSkipSyncResource(ElasticipManager) {
+				syncNatGatewayEips(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
+			}
 			syncNatDTable(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i], syncRange.Xor)
 			syncNatSTable(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i], syncRange.Xor)
 		}()
@@ -1004,9 +1006,12 @@ func syncVMPeripherals(
 	if err != nil {
 		log.Errorf("syncVMDisks error %s", err)
 	}
-	err = syncVMEip(ctx, userCred, provider, local, remote)
-	if err != nil {
-		log.Errorf("syncVMEip error %s", err)
+	account, _ := provider.GetCloudaccount()
+	if account == nil || account.IsNotSkipSyncResource(ElasticipManager) {
+		err = syncVMEip(ctx, userCred, provider, local, remote)
+		if err != nil {
+			log.Errorf("syncVMEip error %s", err)
+		}
 	}
 	err = syncVMSecgroups(ctx, userCred, provider, local, remote)
 	if err != nil {
@@ -1156,7 +1161,7 @@ func syncRegionDBInstances(
 				return
 			}
 
-			syncDBInstanceResource(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
+			syncDBInstanceResource(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i], syncRange)
 		}()
 	}
 }
@@ -1202,14 +1207,14 @@ func syncNATSkus(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 		return
 	}
 	result := func() compare.SyncResult {
-		defer syncResults.AddSqlCost(DBInstanceSkuManager)()
+		defer syncResults.AddSqlCost(NatSkuManager)()
 		return localRegion.SyncPrivateCloudNatSkus(ctx, userCred, skus)
 	}()
 
-	syncResults.Add(NasSkuManager, result)
+	syncResults.Add(NatSkuManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncNasSkus for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncNatSkus for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -1233,7 +1238,7 @@ func syncCacheSkus(ctx context.Context, userCred mcclient.TokenCredential, syncR
 		return localRegion.SyncPrivateCloudCacheSkus(ctx, userCred, skus)
 	}()
 
-	syncResults.Add(NasSkuManager, result)
+	syncResults.Add(ElasticcacheSkuManager, result)
 
 	msg := result.Result()
 	log.Infof("SyncRedisSkus for region %s result: %s", localRegion.Name, msg)
@@ -1242,7 +1247,14 @@ func syncCacheSkus(ctx context.Context, userCred mcclient.TokenCredential, syncR
 	}
 }
 
-func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) {
+func syncDBInstanceResource(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	localInstance *SDBInstance,
+	remoteInstance cloudprovider.ICloudDBInstance,
+	syncRange *SSyncRange,
+) {
 	err := syncDBInstanceNetwork(ctx, userCred, syncResults, localInstance, remoteInstance)
 	if err != nil {
 		log.Errorf("syncDBInstanceNetwork error: %v", err)
@@ -1255,9 +1267,11 @@ func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredenti
 	if err != nil {
 		log.Errorf("syncDBInstanceParameters error: %v", err)
 	}
-	err = syncDBInstanceDatabases(ctx, userCred, syncResults, localInstance, remoteInstance)
-	if err != nil {
-		log.Errorf("syncDBInstanceParameters error: %v", err)
+	if syncRange.IsNotSkipSyncResource(DBInstanceBackupManager) {
+		err = syncDBInstanceDatabases(ctx, userCred, syncResults, localInstance, remoteInstance)
+		if err != nil {
+			log.Errorf("syncDBInstanceParameters error: %v", err)
+		}
 	}
 	err = syncDBInstanceAccounts(ctx, userCred, syncResults, localInstance, remoteInstance)
 	if err != nil {
@@ -1963,26 +1977,40 @@ func syncPublicCloudProviderInfo(
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
 		syncRegionSkus(ctx, userCred, localRegion, syncRange.Xor)
-		SyncRegionDBInstanceSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
-		SyncRegionNatSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
-		SyncRegionNasSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(DBInstanceManager) {
+			SyncRegionDBInstanceSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
+		}
+		if syncRange.IsNotSkipSyncResource(NatSkuManager) {
+			SyncRegionNatSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
+		}
+		if syncRange.IsNotSkipSyncResource(NasSkuManager) {
+			SyncRegionNasSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
+		}
 	} else {
 		syncSkusFromPrivateCloud(ctx, userCred, syncResults, localRegion, remoteRegion, syncRange.Xor)
 		if cloudprovider.IsSupportRds(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_RDS) {
-			syncDBInstanceSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			if syncRange.IsNotSkipSyncResource(DBInstanceManager) {
+				syncDBInstanceSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
 		}
 		if cloudprovider.IsSupportNAT(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAT) {
-			syncNATSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			if syncRange.IsNotSkipSyncResource(NatSkuManager) {
+				syncNATSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
 		}
 		if cloudprovider.IsSupportElasticCache(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CACHE) {
-			syncCacheSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			if syncRange.IsNotSkipSyncResource(ElasticcacheManager) {
+				syncCacheSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
 		}
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
 
 	if cloudprovider.IsSupportObjectstore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE) {
-		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(BucketManager) {
+			syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportCompute(driver) {
@@ -1991,12 +2019,16 @@ func syncPublicCloudProviderInfo(
 			if !(driver.GetFactory().IsPublicCloud() && !syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK)) {
 				syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
-			syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			if syncRange.IsNotSkipSyncResource(ElasticipManager) {
+				syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
 		}
 
 		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
-			// sync snapshot policies before sync disks
-			syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			if syncRange.IsNotSkipSyncResource(SnapshotPolicyManager) {
+				// sync snapshot policies before sync disks
+				syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
 
 			for j := 0; j < len(localZones); j += 1 {
 
@@ -2016,71 +2048,113 @@ func syncPublicCloudProviderInfo(
 			}
 
 			// sync snapshots after sync disks
-			syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			if syncRange.IsNotSkipSyncResource(SnapshotManager) {
+				syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
 		}
 	}
 
 	if cloudprovider.IsSupportNAS(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAS) {
-		syncRegionAccessGroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		syncRegionFileSystems(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		if syncRange.IsNotSkipSyncResource(AccessGroupManager) {
+			syncRegionAccessGroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
+		if syncRange.IsNotSkipSyncResource(FileSystemManager) {
+			syncRegionFileSystems(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 	}
 
 	if cloudprovider.IsSupportLoadbalancer(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_LOADBALANCER) {
-		syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		if syncRange.IsNotSkipSyncResource(LoadbalancerAclManager) {
+			syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
+		if syncRange.IsNotSkipSyncResource(LoadbalancerCertificateManager) {
+			syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
+		if syncRange.IsNotSkipSyncResource(LoadbalancerManager) {
+			syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 	}
 
 	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
-		syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		if syncRange.IsNotSkipSyncResource(NetworkInterfaceManager) {
+			syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 	}
 
 	if cloudprovider.IsSupportRds(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_RDS) {
-		syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		if syncRange.IsNotSkipSyncResource(DBInstanceManager) {
+			syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
+		if syncRange.IsNotSkipSyncResource(DBInstanceBackupManager) {
+			syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 	}
 
 	if cloudprovider.IsSupportElasticCache(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CACHE) {
-		syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		if syncRange.IsNotSkipSyncResource(ElasticcacheManager) {
+			syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 	}
 
 	if cloudprovider.IsSupportWaf(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_WAF) {
-		syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
-		syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
-		syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(WafIPSetManager) {
+			syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
+		if syncRange.IsNotSkipSyncResource(WafRegexSetManager) {
+			syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
+		if syncRange.IsNotSkipSyncResource(WafInstanceManager) {
+			syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportMongoDB(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MONGO_DB) {
-		syncMongoDBs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(MongoDBManager) {
+			syncMongoDBs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportElasticSearch(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_ES) {
-		syncElasticSearchs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(ElasticSearchManager) {
+			syncElasticSearchs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportKafka(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_KAFKA) {
-		syncKafkas(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(KafkaManager) {
+			syncKafkas(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportApp(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_APP) {
-		syncApps(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(AppManager) {
+			syncApps(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportContainer(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CONTAINER) {
-		syncKubeClusters(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(KubeClusterManager) {
+			syncKubeClusters(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportTablestore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_TABLESTORE) {
-		syncTablestore(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(TablestoreManager) {
+			syncTablestore(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportModelartsPool(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MODELARTES) {
-		syncModelartsPoolSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
-		syncModelartsPools(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(ModelartsPoolManager) {
+			syncModelartsPoolSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			syncModelartsPools(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportMiscResources(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MISC) {
-		syncMiscResources(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(MiscResourceManager) {
+			syncMiscResources(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+		}
 	}
 
 	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
@@ -2197,7 +2271,9 @@ func syncOnPremiseCloudProviderInfo(
 	localRegion := CloudregionManager.FetchDefaultRegion()
 
 	if cloudprovider.IsSupportObjectstore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE) {
-		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, iregion, syncRange.Xor)
+		if syncRange.IsNotSkipSyncResource(BucketManager) {
+			syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, iregion, syncRange.Xor)
+		}
 	}
 
 	var storageCachePairs []sStoragecacheSyncPair
