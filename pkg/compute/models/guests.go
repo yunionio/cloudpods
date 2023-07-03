@@ -450,11 +450,23 @@ func (manager *SGuestManager) ListItemFilter(
 		}
 		guestEip := guestEipQ.Filter(sqlchemy.OR(conditions...))
 
+		metadataQ := db.Metadata.Query("obj_id")
+		conditions = []sqlchemy.ICondition{}
+		for _, ipAddr := range query.IpAddrs {
+			conditions = append(conditions, sqlchemy.AND(
+				sqlchemy.Contains(metadataQ.Field("value"), ipAddr),
+				sqlchemy.Equals(metadataQ.Field("key"), "sync_ips"),
+				sqlchemy.Equals(metadataQ.Field("obj_type"), "server"),
+			))
+		}
+		metadataQ = metadataQ.Filter(sqlchemy.OR(conditions...))
+
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("id"), gn.SubQuery()),
 			sqlchemy.In(q.Field("id"), guestEip.SubQuery()),
 			sqlchemy.In(q.Field("id"), vipq.SubQuery()),
 			sqlchemy.In(q.Field("id"), vipeipq.SubQuery()),
+			sqlchemy.In(q.Field("id"), metadataQ.SubQuery()),
 		))
 	}
 
@@ -518,6 +530,52 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.In("id", sq)
 	}
 
+	devTypeQ := func(q *sqlchemy.SQuery, checkType, backup *bool, dType string, conditions []sqlchemy.ICondition) []sqlchemy.ICondition {
+		if checkType != nil {
+			isodev := IsolatedDeviceManager.Query().SubQuery()
+			isodevCons := []sqlchemy.ICondition{sqlchemy.IsNotNull(isodev.Field("guest_id"))}
+			if len(dType) > 0 {
+				isodevCons = append(isodevCons, sqlchemy.Startswith(isodev.Field("dev_type"), dType))
+			}
+			sgq := isodev.Query(isodev.Field("guest_id")).Filter(sqlchemy.AND(isodevCons...))
+			cond := sqlchemy.NotIn
+			if *checkType {
+				cond = sqlchemy.In
+			}
+			if dType == "GPU" {
+				sq := ServerSkuManager.Query("name").GT("gpu_count", 0).Distinct().SubQuery()
+				if backup != nil {
+					afterAnd := sqlchemy.AND
+					if *backup {
+						backupCond := sqlchemy.IsNotEmpty(q.Field("backup_host_id"))
+						conditions = append(conditions, afterAnd(cond(q.Field("instance_type"), sq), backupCond))
+					} else {
+						backupCond := sqlchemy.IsEmpty(q.Field("backup_host_id"))
+						conditions = append(conditions, afterAnd(cond(q.Field("instance_type"), sq), backupCond))
+					}
+				} else {
+					conditions = append(conditions, cond(q.Field("instance_type"), sq))
+				}
+			} else {
+				if backup != nil {
+					afterAnd := sqlchemy.AND
+					if *backup {
+						backupCond := sqlchemy.IsNotEmpty(q.Field("backup_host_id"))
+						conditions = append(conditions, afterAnd(cond(q.Field("id"), sgq), backupCond))
+					} else {
+						backupCond := sqlchemy.IsEmpty(q.Field("backup_host_id"))
+						conditions = append(conditions, afterAnd(cond(q.Field("id"), sgq), backupCond))
+					}
+				} else {
+					conditions = append(conditions, cond(q.Field("id"), sgq))
+				}
+			}
+			return conditions
+		}
+		return conditions
+	}
+
+	conditions := []sqlchemy.ICondition{}
 	if len(query.ServerType) > 0 {
 		var trueVal, falseVal = true, false
 		for _, serverType := range query.ServerType {
@@ -538,50 +596,20 @@ func (manager *SGuestManager) ListItemFilter(
 				query.CustomDevType = serverType
 				query.Backup = &falseVal
 			}
-		}
-		if query.Backup == nil {
-			query.Backup = &falseVal
+
+			conditions = devTypeQ(q, query.Normal, query.Backup, "", conditions)
+			conditions = devTypeQ(q, query.Gpu, query.Backup, "GPU", conditions)
+			conditions = devTypeQ(q, query.Usb, query.Backup, api.USB_TYPE, conditions)
+			if len(query.CustomDevType) > 0 {
+				ct := true
+				conditions = devTypeQ(q, &ct, query.Backup, query.CustomDevType, conditions)
+			}
+			query.Normal = nil
+			query.Gpu = nil
+			query.Backup = nil
 		}
 	}
 
-	if query.Backup != nil {
-		if *query.Backup {
-			q = q.IsNotEmpty("backup_host_id")
-		} else {
-			q = q.IsEmpty("backup_host_id")
-		}
-	}
-	devTypeQ := func(q *sqlchemy.SQuery, checkType *bool, dType string, conditions []sqlchemy.ICondition) []sqlchemy.ICondition {
-		if checkType != nil {
-			isodev := IsolatedDeviceManager.Query().SubQuery()
-			isodevCons := []sqlchemy.ICondition{sqlchemy.IsNotNull(isodev.Field("guest_id"))}
-			if len(dType) > 0 {
-				isodevCons = append(isodevCons, sqlchemy.Startswith(isodev.Field("dev_type"), dType))
-			}
-			sgq := isodev.Query(isodev.Field("guest_id")).Filter(sqlchemy.AND(isodevCons...))
-			cond := sqlchemy.NotIn
-			if *checkType {
-				cond = sqlchemy.In
-			}
-			if dType == "GPU" {
-				sq := ServerSkuManager.Query("name").GT("gpu_count", 0).Distinct().SubQuery()
-				conditions = append(conditions, cond(q.Field("instance_type"), sq))
-			}
-			conditions = append(conditions, cond(q.Field("id"), sgq))
-			return conditions
-		}
-		return conditions
-	}
-
-	conditions := []sqlchemy.ICondition{}
-
-	conditions = devTypeQ(q, query.Normal, "", conditions)
-	conditions = devTypeQ(q, query.Gpu, "GPU", conditions)
-	conditions = devTypeQ(q, query.Usb, api.USB_TYPE, conditions)
-	if len(query.CustomDevType) > 0 {
-		ct := true
-		conditions = devTypeQ(q, &ct, query.CustomDevType, conditions)
-	}
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
