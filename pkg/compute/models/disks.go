@@ -3033,6 +3033,14 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 	}
 	region, _ := storage.GetRegion()
 
+	account, err := provider.GetCloudaccount()
+	if err != nil {
+		return
+	}
+	if account != nil && !account.IsNotSkipSyncResource(SnapshotManager) {
+		return
+	}
+
 	extSnapshots, err := extDisk.GetISnapshots()
 	if err != nil {
 		syncResult.Error(err)
