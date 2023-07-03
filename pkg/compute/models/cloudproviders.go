@@ -657,6 +657,12 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 || len(syncRange.Resources) > 0 {
 		syncRange.DeepSync = true
 	}
+	syncRange.SkipSyncResources = []string{}
+	if account.SkipSyncResources != nil {
+		for _, res := range *account.SkipSyncResources {
+			syncRange.SkipSyncResources = append(syncRange.SkipSyncResources, res)
+		}
+	}
 	if self.CanSync() || syncRange.Force {
 		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}

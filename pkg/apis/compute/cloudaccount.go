@@ -211,6 +211,9 @@ type CloudaccountCreateInput struct {
 
 	// 是否立即开始同步资源
 	StartSync *bool `json:"start_sync"`
+
+	// 跳过指定资源同步
+	SkipSyncResources SkipSyncResources `json:"skip_sync_resources"`
 }
 
 type SProjectMappingResourceInput struct {
@@ -375,6 +378,10 @@ type CloudaccountUpdateInput struct {
 
 	// 临时清除缺失的权限提示，云账号权限缺失依然会自动刷新
 	CleanLakeOfPermissions bool `json:"clean_lake_of_permissions"`
+
+	SkipSyncResources       *SkipSyncResources `json:"skip_sync_resources"`
+	AddSkipSyncResources    []string           `json:"add_skip_sync_resources"`
+	RemoveSkipSyncResources []string           `json:"remove_skip_sync_resources"`
 
 	ReadOnly bool `json:"read_only"`
 }
@@ -546,13 +553,50 @@ type SyncRangeInput struct {
 	Zone   []string `json:"zone"`
 	Host   []string `json:"host"`
 
+	// swagger: ignore
+	SkipSyncResources []string `json:"skip_sync_resources"`
+
 	// 按资源类型同步，可输入多个
 	// enmu: project, compute, network, eip, loadbalancer, objectstore, rds, cache, event, cloudid, dnszone, public_ip, intervpcnetwork, saml_auth, quota, nat, nas, waf, mongodb, es, kafka, app, cdn, container, ipv6_gateway, tablestore, modelarts, vpcpeer, misc
 	Resources []string `json:"resources" choices:"project|compute|network|eip|loadbalancer|objectstore|rds|cache|event|cloudid|dnszone|public_ip|intervpcnetwork|saml_auth|quota|nat|nas|waf|mongodb|es|kafka|app|cdn|container|ipv6_gateway|tablestore|modelarts|vpcpeer|misc"`
 }
 
+type iRes interface {
+	Keyword() string
+}
+
+func (self *SyncRangeInput) IsNotSkipSyncResource(res iRes) bool {
+	return !utils.IsInStringArray(res.Keyword(), self.SkipSyncResources)
+}
+
 type SAccountPermission struct {
 	Permissions []string
+}
+
+type SkipSyncResources []string
+
+func (s SkipSyncResources) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s *SkipSyncResources) Add(res string) {
+	if !utils.IsInStringArray(res, *s) {
+		*s = append(*s, res)
+	}
+}
+
+func (s *SkipSyncResources) Remove(res string) {
+	ret := []string{}
+	for _, r := range *s {
+		if r != res {
+			ret = append(ret, r)
+		}
+	}
+	*s = ret
+}
+
+func (s SkipSyncResources) IsZero() bool {
+	return len(s) == 0
 }
 
 type SAccountPermissions map[string]SAccountPermission
@@ -568,5 +612,9 @@ func (s SAccountPermissions) IsZero() bool {
 func init() {
 	gotypes.RegisterSerializable(reflect.TypeOf(&SAccountPermissions{}), func() gotypes.ISerializable {
 		return &SAccountPermissions{}
+	})
+
+	gotypes.RegisterSerializable(reflect.TypeOf(&SkipSyncResources{}), func() gotypes.ISerializable {
+		return &SkipSyncResources{}
 	})
 }
