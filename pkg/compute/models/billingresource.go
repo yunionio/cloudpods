@@ -287,15 +287,13 @@ func (bm *SBillingResourceCheckManager) Fetch(resourceIds []string, advanceDays 
 	return ret, nil
 }
 
-var advanceDays []int = []int{1, 3, 30}
-
 func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	billingResourceManagers := []IBillingModelManager{
 		GuestManager,
 		DBInstanceManager,
 		ElasticcacheManager,
 	}
-	for _, advanceDay := range advanceDays {
+	for _, advanceDay := range options.Options.ResourceExpiredNotifyDays {
 		for _, manager := range billingResourceManagers {
 			expiredModels, err := manager.GetExpiredModels(advanceDay)
 			if err != nil {
@@ -316,10 +314,14 @@ func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCr
 				em := expiredModels[i]
 				check, ok := checks[em.GetId()]
 				if !ok {
+					detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
+						details.Set("advance_days", jsonutils.NewInt(int64(advanceDay)))
+					}
 					notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-						Obj:         em,
-						Action:      notifyclient.ActionExpiredRelease,
-						AdvanceDays: advanceDay,
+						Obj:                 em,
+						ObjDetailsDecorator: detailsDecro,
+						Action:              notifyclient.ActionExpiredRelease,
+						AdvanceDays:         advanceDay,
 					})
 					err := BillingResourceCheckManager.Create(ctx, em.GetId(), manager.Keyword(), advanceDay)
 					if err != nil {

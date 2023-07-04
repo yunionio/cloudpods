@@ -104,6 +104,7 @@ func init() {
 		return nil
 	})
 	type NotificationEventInput struct {
+		AdvanceDays  int
 		Event        string
 		Priority     string
 		MsgBody      string
@@ -122,6 +123,7 @@ func init() {
 			return fmt.Errorf("msg_body should be a json string, like '{'name': 'hello'}'")
 		}
 		params := api.NotificationManagerEventNotifyInput{
+			AdvanceDays:     args.AdvanceDays,
 			ReceiverIds:     []string{},
 			ResourceDetails: dict,
 			Event:           args.Event,
