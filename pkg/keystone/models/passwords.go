@@ -24,11 +24,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -232,19 +234,12 @@ func (pwd *SPassword) NeedSendNotify(ctx context.Context, userCred mcclient.Toke
 
 	sub := expireTime.Sub(nowTime)
 	subDay := int(sub.Hours() / 24)
-	switch {
-	case subDay == 7:
+	if utils.IsInArray(subDay, options.Options.PwdExpiredNotifyDays) {
 		localUser, err := LocalUserManager.fetchLocalUser("", "", pwd.LocalUserId)
 		if err != nil {
 			return errors.Wrap(err, "fetchLocalUser error:")
 		}
-		pwd.EventNotify(ctx, userCred, notify.ActionPasswordExpireSoon, localUser.Name, 7)
-	case subDay == 1:
-		localUser, err := LocalUserManager.fetchLocalUser("", "", pwd.LocalUserId)
-		if err != nil {
-			return errors.Wrap(err, "fetchLocalUser error:")
-		}
-		pwd.EventNotify(ctx, userCred, notify.ActionPasswordExpireSoon, localUser.Name, 1)
+		pwd.EventNotify(ctx, userCred, notify.ActionPasswordExpireSoon, localUser.Name, subDay)
 	}
 	return nil
 }
@@ -255,6 +250,7 @@ func (pwd *SPassword) EventNotify(ctx context.Context, userCred mcclient.TokenCr
 
 	detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
 		details.Set("account", jsonutils.NewString(userName))
+		details.Set("advance_days", jsonutils.NewInt(int64(advanceDays)))
 	}
 	pwd.Password = ""
 
