@@ -317,5 +317,6 @@ const (
 	ACT_ENCRYPT_FAIL  = "encrypt_fail"
 	ACT_ENCRYPT_DONE  = "encrypted"
 
-	ACT_BIND = "bind"
+	ACT_BIND   = "bind"
+	ACT_UNBIND = "unbind"
 )
