@@ -256,7 +256,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		err = s.session.Wait()
 		if err != nil {
-			log.Errorf("ssh exist from server: %v", err)
+			s.StdinPipe.Write([]byte(err.Error()))
 		}
 	}()
 
