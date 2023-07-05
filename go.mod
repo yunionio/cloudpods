@@ -83,12 +83,12 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230629091720-06b0a3679659
-	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230704115544-46184b6aad76
+	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.0.1-0.20230613081559-f38e2cb344b4
+	yunion.io/x/pkg v1.0.1-0.20230705150700-c631d3f97d59
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v1.1.2-0.20230615091740-63854d9b514e
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
