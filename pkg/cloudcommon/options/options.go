@@ -146,6 +146,8 @@ type HostCommonOptions struct {
 	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 
 	EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
+
+	ExecutorConnectTimeoutSeconds int `help:"executor client connection timeout in seconds, default is 30" default:"30"`
 }
 
 type DBOptions struct {

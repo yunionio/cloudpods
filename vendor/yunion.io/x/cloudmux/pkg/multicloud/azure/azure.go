@@ -155,6 +155,8 @@ func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 }
 
 func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, error) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
 	_client, ok := self.clientCache[resource]
 	if ok {
 		return _client, nil
@@ -212,8 +214,6 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, 
 		client.RequestInspector = LogRequest()
 	}
 	ret.client = &client
-	self.lock.Lock()
-	defer self.lock.Unlock()
 	self.clientCache[resource] = ret
 	return ret, nil
 }
