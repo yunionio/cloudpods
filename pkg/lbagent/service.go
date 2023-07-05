@@ -57,6 +57,7 @@ func StartService() {
 
 	if opts.EnableRemoteExecutor {
 		execlient.Init(opts.ExecutorSocketPath)
+		execlient.SetTimeoutSeconds(opts.ExecutorConnectTimeoutSeconds)
 		procutils.SetRemoteExecutor()
 	}
 

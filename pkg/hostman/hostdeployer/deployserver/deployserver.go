@@ -460,6 +460,7 @@ func (s *SDeployService) InitService() {
 	log.Infof("exec socket path: %s", DeployOption.ExecutorSocketPath)
 	if DeployOption.EnableRemoteExecutor {
 		execlient.Init(DeployOption.ExecutorSocketPath)
+		execlient.SetTimeoutSeconds(DeployOption.ExecutorConnectTimeoutSeconds)
 		procutils.SetRemoteExecutor()
 	}
 

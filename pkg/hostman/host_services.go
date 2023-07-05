@@ -63,6 +63,7 @@ func (host *SHostService) InitService() {
 	log.Infof("exec socket path: %s", options.HostOptions.ExecutorSocketPath)
 	if options.HostOptions.EnableRemoteExecutor {
 		execlient.Init(options.HostOptions.ExecutorSocketPath)
+		execlient.SetTimeoutSeconds(options.HostOptions.ExecutorConnectTimeoutSeconds)
 		procutils.SetRemoteExecutor()
 	}
 }

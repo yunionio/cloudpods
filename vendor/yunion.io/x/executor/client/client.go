@@ -16,7 +16,23 @@ import (
 	"yunion.io/x/executor/apis"
 )
 
-var exec *Executor
+const (
+	defaultTimeoutSecs = 3
+)
+
+var (
+	exec *Executor
+
+	timeoutSeconds = defaultTimeoutSecs
+)
+
+func SetTimeoutSeconds(secs int) {
+	timeoutSeconds = secs
+}
+
+func GetTimeoutSeconds() int {
+	return timeoutSeconds
+}
 
 type Executor struct {
 	socketPath string
@@ -94,7 +110,7 @@ type Cmd struct {
 func grcpDialWithUnixSocket(ctx context.Context, socketPath string) (*grpc.ClientConn, error) {
 	return grpc.DialContext(
 		ctx, socketPath,
-		grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(time.Second*3),
+		grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(time.Second*time.Duration(timeoutSeconds)),
 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 			return net.DialTimeout("unix", addr, timeout)
 		}),

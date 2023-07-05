@@ -57,9 +57,10 @@ const (
 	DELETE = THttpMethod("DELETE")
 	OPTION = THttpMethod("OPTION")
 
-	IdleConnTimeout       = 60
-	TLSHandshakeTimeout   = 10
-	ResponseHeaderTimeout = 30
+	ConnectionTimeoutSeconds     = 120
+	IdleConnTimeoutSeconds       = 60
+	TLSHandshakeTimeoutSeconds   = 10
+	ResponseHeaderTimeoutSeconds = 30
 )
 
 var (
@@ -306,7 +307,7 @@ func GetAdaptiveTransport(insecure bool) *http.Transport {
 }
 
 func adptiveDial(ctx context.Context, network, addr string) (net.Conn, error) {
-	conn, err := net.DialTimeout(network, addr, 10*time.Second)
+	conn, err := net.DialTimeout(network, addr, ConnectionTimeoutSeconds*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -321,17 +322,17 @@ func getTransport(insecure bool, adaptive bool, timeout time.Duration) *http.Tra
 		// (keep-alive) connection will remain idle before closing
 		// itself.
 		// Zero means no limit.
-		IdleConnTimeout: IdleConnTimeout * time.Second,
+		IdleConnTimeout: IdleConnTimeoutSeconds * time.Second,
 		// 建立TCP连接后，等待TLS握手的超时时间
 		// TLSHandshakeTimeout specifies the maximum amount of time waiting to
 		// wait for a TLS handshake. Zero means no timeout.
-		TLSHandshakeTimeout: TLSHandshakeTimeout * time.Second,
+		TLSHandshakeTimeout: TLSHandshakeTimeoutSeconds * time.Second,
 		// 发送请求后，等待服务端http响应的超时时间
 		// ResponseHeaderTimeout, if non-zero, specifies the amount of
 		// time to wait for a server's response headers after fully
 		// writing the request (including its body, if any). This
 		// time does not include the time to read the response body.
-		ResponseHeaderTimeout: ResponseHeaderTimeout * time.Second,
+		ResponseHeaderTimeout: ResponseHeaderTimeoutSeconds * time.Second,
 		// 当请求携带Expect: 100-continue时，等待服务端100响应的超时时间
 		// ExpectContinueTimeout, if non-zero, specifies the amount of
 		// time to wait for a server's first response headers after fully
@@ -363,7 +364,7 @@ func getTransport(insecure bool, adaptive bool, timeout time.Duration) *http.Tra
 			// With or without a timeout, the operating system may impose
 			// its own earlier timeout. For instance, TCP timeouts are
 			// often around 3 minutes.
-			Timeout: 10 * time.Second,
+			Timeout: ConnectionTimeoutSeconds * time.Second,
 			//
 			// KeepAlive specifies the interval between keep-alive
 			// probes for an active network connection.
