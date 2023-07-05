@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -301,7 +302,9 @@ func (manager *SModelBaseManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo
 
 func (manager *SModelBaseManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
 	splitableExportPath := fmt.Sprintf("/%s/splitable-export", manager.KeywordPlural())
-	if r.Method == http.MethodGet && (len(r.URL.Query().Get("export_keys")) > 0 || r.URL.Path == splitableExportPath) {
+	if r.Method == http.MethodGet && (len(r.URL.Query().Get("export_keys")) > 0 ||
+		r.URL.Query().Has("force_no_paging") ||
+		strings.HasSuffix(r.URL.Path, splitableExportPath)) {
 		return time.Hour * 2
 	}
 	return -time.Second
@@ -534,7 +537,7 @@ func (manager *SModelBaseManager) AllowPerformPurgeSplitable(ctx context.Context
 func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PurgeSplitTableInput) (jsonutils.JSONObject, error) {
 	splitable := manager.GetIModelManager().GetImmutableInstance(ctx, userCred, query).GetSplitTable()
 	if splitable == nil {
-		return jsonutils.Marshal(map[string][]string{"tables": []string{}}), nil
+		return jsonutils.Marshal(map[string][]string{"tables": {}}), nil
 	}
 	ret, err := splitable.Purge(input.Tables)
 	if err != nil {
