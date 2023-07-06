@@ -596,6 +596,10 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 	for i, d := range disks {
 		if i == 0 {
 			params["SystemDisk.Category"] = d.Category
+			if d.Category == api.STORAGE_CLOUD_ESSD_PL0 {
+				params["SystemDisk.Category"] = api.STORAGE_CLOUD_ESSD
+				params["SystemDisk.PerformanceLevel"] = "PL0"
+			}
 			if d.Category == api.STORAGE_CLOUD_ESSD_PL2 {
 				params["SystemDisk.Category"] = api.STORAGE_CLOUD_ESSD
 				params["SystemDisk.PerformanceLevel"] = "PL2"
@@ -610,6 +614,10 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 		} else {
 			params[fmt.Sprintf("DataDisk.%d.Size", i)] = fmt.Sprintf("%d", d.Size)
 			params[fmt.Sprintf("DataDisk.%d.Category", i)] = d.Category
+			if d.Category == api.STORAGE_CLOUD_ESSD_PL0 {
+				params[fmt.Sprintf("DataDisk.%d.Category", i)] = api.STORAGE_CLOUD_ESSD
+				params[fmt.Sprintf("DataDisk.%d..PerformanceLevel", i)] = "PL0"
+			}
 			if d.Category == api.STORAGE_CLOUD_ESSD_PL2 {
 				params[fmt.Sprintf("DataDisk.%d.Category", i)] = api.STORAGE_CLOUD_ESSD
 				params[fmt.Sprintf("DataDisk.%d..PerformanceLevel", i)] = "PL2"

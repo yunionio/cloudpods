@@ -248,6 +248,10 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	}
 	params["Encrypted"] = "false"
 	params["DiskCategory"] = category
+	if category == api.STORAGE_CLOUD_ESSD_PL0 {
+		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
+		params["PerformanceLevel"] = "PL0"
+	}
 	if category == api.STORAGE_CLOUD_ESSD_PL2 {
 		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
 		params["PerformanceLevel"] = "PL2"

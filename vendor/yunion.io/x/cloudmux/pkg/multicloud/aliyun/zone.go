@@ -197,6 +197,8 @@ func (self *SZone) fetchStorages() error {
 		storage := SStorage{zone: self, storageType: sc}
 		self.istorages = append(self.istorages, &storage)
 		if sc == api.STORAGE_CLOUD_ESSD {
+			storage_l0 := SStorage{zone: self, storageType: api.STORAGE_CLOUD_ESSD_PL0}
+			self.istorages = append(self.istorages, &storage_l0)
 			storage_l2 := SStorage{zone: self, storageType: api.STORAGE_CLOUD_ESSD_PL2}
 			self.istorages = append(self.istorages, &storage_l2)
 			storage_l3 := SStorage{zone: self, storageType: api.STORAGE_CLOUD_ESSD_PL3}
@@ -302,7 +304,7 @@ func (self *SZone) getSysDiskCategories() []string {
 		}
 	}
 	if utils.IsInStringArray(api.STORAGE_CLOUD_ESSD, ret) {
-		ret = append(ret, []string{api.STORAGE_CLOUD_ESSD_PL2, api.STORAGE_CLOUD_ESSD_PL3}...)
+		ret = append(ret, []string{api.STORAGE_CLOUD_ESSD_PL2, api.STORAGE_CLOUD_ESSD_PL3, api.STORAGE_CLOUD_ESSD_PL0}...)
 	}
 	return ret
 }
