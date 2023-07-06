@@ -25,9 +25,11 @@ const (
 	STORAGE_PUBLIC_CLOUD     = "cloud"
 	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
 	STORAGE_CLOUD_SSD        = "cloud_ssd"
+	STORAGE_CLOUD_ESSD_PL0   = "cloud_essd_pl0" // 增强型(Enhanced)SSD 云盘, 单盘最高随机读写IOPS 1万
 	STORAGE_CLOUD_ESSD       = "cloud_essd"     // 增强型(Enhanced)SSD 云盘, 单盘最高随机读写IOPS 5万
 	STORAGE_CLOUD_ESSD_PL2   = "cloud_essd_pl2" // 单盘最高随机读写IOPS 10万
 	STORAGE_CLOUD_ESSD_PL3   = "cloud_essd_pl3" // 单盘最高随机读写IOPS 100万
+	STORAGE_CLOUD_AUTO       = "cloud_auto"     // ESSD AutoPL
 	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd"  // 单块本地SSD盘, 容量最大不能超过800 GiB
 	STORAGE_LOCAL_HDD_PRO    = "local_hdd_pro"  // 实例规格族d1ne和d1搭载的SATA HDD本地盘
 	STORAGE_LOCAL_SSD_PRO    = "local_ssd_pro"  // 实例规格族i2、i2g、i1、ga1和gn5等搭载的NVMe

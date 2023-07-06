@@ -72,7 +72,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := make([]SDisk, 0)
 	offset := 0
 	storageType := self.storageType
-	if self.storageType == api.STORAGE_CLOUD_ESSD_PL2 || self.storageType == api.STORAGE_CLOUD_ESSD_PL3 {
+	if self.storageType == api.STORAGE_CLOUD_ESSD_PL2 || self.storageType == api.STORAGE_CLOUD_ESSD_PL3 || self.storageType == api.STORAGE_CLOUD_ESSD_PL0 {
 		storageType = api.STORAGE_CLOUD_ESSD
 	}
 	for {
@@ -82,6 +82,8 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		performanceLevel := ""
 		switch self.storageType {
+		case api.STORAGE_CLOUD_ESSD_PL0:
+			performanceLevel = "PL0"
 		case api.STORAGE_CLOUD_ESSD:
 			performanceLevel = "PL1"
 		case api.STORAGE_CLOUD_ESSD_PL2:

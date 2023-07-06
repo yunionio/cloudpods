@@ -72,9 +72,11 @@ func (self *SAliyunGuestDriver) GetStorageTypes() []string {
 	return []string{
 		api.STORAGE_CLOUD_EFFICIENCY,
 		api.STORAGE_CLOUD_SSD,
+		api.STORAGE_CLOUD_ESSD_PL0,
 		api.STORAGE_CLOUD_ESSD,
 		api.STORAGE_CLOUD_ESSD_PL2,
 		api.STORAGE_CLOUD_ESSD_PL3,
+		api.STORAGE_CLOUD_AUTO,
 		api.STORAGE_PUBLIC_CLOUD,
 		api.STORAGE_EPHEMERAL_SSD,
 	}
@@ -144,10 +146,12 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		case api.STORAGE_EPHEMERAL_SSD:
 			minGB = 5
 			maxGB = 800
+		case api.STORAGE_CLOUD_AUTO, api.STORAGE_CLOUD_ESSD_PL0:
+			minGB = 40
+			maxGB = 32768
 		}
-		if i == 0 {
-			minGB = 20
-			maxGB = 500
+		if i == 0 && (disk.SizeMb < 20*1024 || disk.SizeMb > 500*1024) {
+			return nil, httperrors.NewInputParameterError("The system disk size must be in the range of 20GB ~ 500Gb")
 		}
 		if disk.SizeMb < minGB*1024 || disk.SizeMb > maxGB*1024 {
 			return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of %dGB ~ %dGB", disk.Backend, minGB, maxGB)
@@ -183,18 +187,24 @@ func (self *SAliyunGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 		},
 		Storages: cloudprovider.Storage{
 			DataDisk: []cloudprovider.StorageInfo{
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_EFFICIENCY, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD_PL2, MaxSizeGb: 32768, MinSizeGb: 461, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD_PL3, MaxSizeGb: 32768, MinSizeGb: 1261, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_PUBLIC_CLOUD, MaxSizeGb: 2000, MinSizeGb: 5, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_EPHEMERAL_SSD, MaxSizeGb: 800, MinSizeGb: 5, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_EFFICIENCY, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD_PL0, MaxSizeGb: 32768, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD_PL2, MaxSizeGb: 32768, MinSizeGb: 461, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD_PL3, MaxSizeGb: 32768, MinSizeGb: 1261, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_AUTO, MaxSizeGb: 32768, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_PUBLIC_CLOUD, MaxSizeGb: 2000, MinSizeGb: 5, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_EPHEMERAL_SSD, MaxSizeGb: 800, MinSizeGb: 5, StepSizeGb: 1, Resizable: true},
 			},
 			SysDisk: []cloudprovider.StorageInfo{
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_EFFICIENCY, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_EFFICIENCY, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD_PL0, MaxSizeGb: 32768, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD_PL2, MaxSizeGb: 32768, MinSizeGb: 461, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_ESSD_PL3, MaxSizeGb: 32768, MinSizeGb: 1261, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CLOUD_AUTO, MaxSizeGb: 32768, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
 			},
 		},
 	}
