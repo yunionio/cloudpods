@@ -1339,9 +1339,14 @@ func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.J
 	if params.Contains("name") {
 		name, _ = params.GetString("name")
 	}
+	// avoid spec.identity.hostName error
+	hostname := strings.ReplaceAll(name, "_", "")
+	if len(hostname) > 15 {
+		hostname = hostname[:15]
+	}
 	if osName == "Linux" {
 		linuxPrep := types.CustomizationLinuxPrep{
-			HostName: &types.CustomizationFixedName{Name: name},
+			HostName: &types.CustomizationFixedName{Name: hostname},
 			Domain:   domain,
 			TimeZone: "Asia/Shanghai",
 		}
@@ -1357,7 +1362,7 @@ func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.J
 				OrgName:   "Yunion",
 				ProductId: "",
 				ComputerName: &types.CustomizationFixedName{
-					Name: name,
+					Name: hostname,
 				},
 			},
 			Identification: types.CustomizationIdentification{},
