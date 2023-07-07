@@ -4019,16 +4019,43 @@ func (self *SGuest) CreateNetworksOnHost(
 		if err != nil {
 			return errors.Wrap(err, "self.attach2NetworkDesc")
 		}
-		net := gns[0].GetNetwork()
 		if netConfig.SriovDevice != nil {
-			netConfig.SriovDevice.NetworkIndex = &gns[0].Index
-			netConfig.SriovDevice.WireId = net.WireId
-			err = self.createIsolatedDeviceOnHost(ctx, userCred, host, netConfig.SriovDevice, pendingUsageZone)
+			err = self.allocSriovNicDevice(ctx, userCred, host, &gns[0], netConfig, pendingUsageZone)
 			if err != nil {
-				return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
+				return errors.Wrap(err, "self.allocSriovNicDevice")
 			}
 		}
 
+	}
+	return nil
+}
+
+func (self *SGuest) allocSriovNicDevice(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	host *SHost,
+	gn *SGuestnetwork, netConfig *api.NetworkConfig,
+	pendingUsageZone quotas.IQuota,
+) error {
+	net := gn.GetNetwork()
+	netConfig.SriovDevice.NetworkIndex = &gn.Index
+	netConfig.SriovDevice.WireId = net.WireId
+	err := self.createIsolatedDeviceOnHost(ctx, userCred, host, netConfig.SriovDevice, pendingUsageZone)
+	if err != nil {
+		return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
+	}
+	dev, err := self.GetIsolatedDeviceByNetworkIndex(gn.Index)
+	if err != nil {
+		return errors.Wrap(err, "self.GetIsolatedDeviceByNetworkIndex")
+	}
+	if dev.OvsOffloadInterface != "" {
+		_, err = db.Update(gn, func() error {
+			gn.Ifname = dev.OvsOffloadInterface
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update sriov network ifname")
+		}
 	}
 	return nil
 }
@@ -4100,7 +4127,11 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 				}
 				sriovWires = wires
 			}
-			if !utils.IsInStringArray(net.WireId, sriovWires) {
+			vpc, err := net.GetVpc()
+			if err != nil {
+				return nil, errors.Wrap(err, "attach2NamedNetworkDesc get vpc by network")
+			}
+			if vpc.Id == api.DEFAULT_VPC_ID && !utils.IsInStringArray(net.WireId, sriovWires) {
 				return nil, fmt.Errorf("no available sriov nic for wire %s", net.WireId)
 			}
 		}
