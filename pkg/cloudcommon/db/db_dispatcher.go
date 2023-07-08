@@ -699,7 +699,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			return &emptyList, nil
 		}
 	}
-	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) {
+	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) && !forceNoPaging {
 		limit = maxLimit
 	}
 
