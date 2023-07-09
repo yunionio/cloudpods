@@ -146,6 +146,11 @@ func (d *SLVMDisk) Probe() error {
 	return nil
 }
 
+func (d *SLVMDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
+	_, err := d.Delete(ctx, api.DiskDeleteInput{})
+	return err
+}
+
 func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	diskInfo, ok := params.(*jsonutils.JSONDict)
 	if !ok {
@@ -306,14 +311,8 @@ func (d *SLVMDisk) createFromTemplate(
 		return nil, errors.Wrapf(err, "NewQemuImage(%s)", cacheImagePath)
 	}
 
-	if size > cacheImage.SizeBytes {
-		if err = lvmutils.LvCreateFromSnapshot(d.GetLvPath(), cacheImagePath, cacheImage.SizeBytes); err != nil {
-			return nil, errors.Wrap(err, "lv create from snapshot")
-		}
-	} else {
-		if err = lvmutils.LvCreate(d.Storage.GetPath(), d.Id, cacheImage.SizeBytes); err != nil {
-			return nil, errors.Wrap(err, "lv create")
-		}
+	if err = lvmutils.LvCreateFromSnapshot(d.GetLvPath(), cacheImagePath, cacheImage.SizeBytes); err != nil {
+		return nil, errors.Wrap(err, "lv create from snapshot")
 	}
 
 	return d.GetDiskDesc(), nil
