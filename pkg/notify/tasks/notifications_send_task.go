@@ -271,6 +271,9 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			robot := receivers[i].receiver.(*models.SRobot)
 			driver := models.GetDriver(fmt.Sprintf("%s-robot", robot.Type))
 			params.Receivers.Contact = robot.Address
+			params.Header = robot.Header
+			params.Body = robot.Body
+			params.MsgKey = robot.MsgKey
 			err = driver.Send(params)
 			if err != nil {
 				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
