@@ -514,8 +514,9 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		}
 		task.taskObjects = objs
 
-		lockman.LockClass(ctx, objResManager, task.UserCred.GetProjectId())
-		defer lockman.ReleaseClass(ctx, objResManager, task.UserCred.GetProjectId())
+		// TODO: Currently, there is no need to lock the objResManager class.
+		// lockman.LockClass(ctx, objResManager, task.UserCred.GetProjectId())
+		// defer lockman.ReleaseClass(ctx, objResManager, task.UserCred.GetProjectId())
 
 		params[1] = reflect.ValueOf(objs)
 	} else {
