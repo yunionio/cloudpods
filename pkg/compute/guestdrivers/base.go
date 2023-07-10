@@ -369,8 +369,8 @@ func (self *SBaseGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_CONFIG
 }
 
-func (self *SBaseGuestDriver) GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+func (self *SBaseGuestDriver) GetDefaultAccount(osType, osDist, imageType string) string {
+	if strings.ToLower(osType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
 		return api.VM_DEFAULT_WINDOWS_LOGIN_USER
 	}
 	return api.VM_DEFAULT_LINUX_LOGIN_USER
