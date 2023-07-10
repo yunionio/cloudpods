@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -200,6 +201,23 @@ func (as *SAgentStorage) tryRenameVm(ctx context.Context, vm *esxi.SVirtualMachi
 	return err
 }
 
+type esxiVm struct {
+	UUID string
+	Name string
+}
+
+func (self esxiVm) Keyword() string {
+	return "server"
+}
+
+func (self esxiVm) GetId() string {
+	return self.UUID
+}
+
+func (self esxiVm) GetName() string {
+	return self.Name
+}
+
 func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
 	init := false
 	dataDict := data.(*jsonutils.JSONDict)
@@ -322,6 +340,9 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		})
 		customize := false
 		if err != nil {
+			model := &esxiVm{}
+			dataDict.Unmarshal(model, "desc")
+			logclient.AddSimpleActionLog(model, logclient.ACT_VM_DEPLOY, errors.Wrapf(err, "DeployGuestFs"), hostutils.GetComputeSession(context.Background()).GetToken(), false)
 			log.Errorf("unable to DeployGuestFs: %v", err)
 			customize = true
 		} else if deploy == nil {
