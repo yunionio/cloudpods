@@ -278,14 +278,14 @@ func (self *SQcloudGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 	}
 }
 
-func (self *SQcloudGuestDriver) GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+func (self *SQcloudGuestDriver) GetDefaultAccount(osType, osDist, imageType string) string {
 	userName := api.VM_DEFAULT_LINUX_LOGIN_USER
-	if desc.ImageType == "system" {
-		if desc.OsDistribution == "Ubuntu" {
+	if imageType == "system" {
+		if osDist == "Ubuntu" {
 			userName = "ubuntu"
 		}
 	}
-	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+	if strings.ToLower(osType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
 		userName = api.VM_DEFAULT_WINDOWS_LOGIN_USER
 	}
 

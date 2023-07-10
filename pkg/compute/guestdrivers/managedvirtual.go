@@ -464,7 +464,13 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 
 	desc := cloudprovider.SManagedVMCreateConfig{}
 	// 账号必须在desc.GetConfig()之前设置，避免默认用户不能正常注入
-	desc.Account = guest.GetDriver().GetDefaultAccount(desc)
+	osInfo := struct {
+		OsType         string
+		OsDistribution string
+		ImageType      string
+	}{}
+	config.Unmarshal(&osInfo, "desc")
+	desc.Account = guest.GetDriver().GetDefaultAccount(osInfo.OsType, osInfo.OsDistribution, osInfo.ImageType)
 	err = desc.GetConfig(config)
 	if err != nil {
 		return errors.Wrapf(err, "desc.GetConfig")
