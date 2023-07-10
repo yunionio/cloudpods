@@ -5724,11 +5724,22 @@ func (self *SGuest) GetIVM(ctx context.Context) (cloudprovider.ICloudVM, error) 
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHost")
 	}
-	ihost, err := host.GetIHost(ctx)
+	iregion, err := host.GetIRegion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ihost, err := iregion.GetIHostById(host.ExternalId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIHost")
 	}
-	return ihost.GetIVMById(self.ExternalId)
+	ivm, err := ihost.GetIVMById(self.ExternalId)
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+		return iregion.GetIVMById(self.ExternalId)
+	}
+	return ivm, nil
 }
 
 func (self *SGuest) PendingDetachScalingGroup() error {
