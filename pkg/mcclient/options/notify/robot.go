@@ -16,6 +16,7 @@ package notify
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -36,10 +37,25 @@ type RobotCreateOptions struct {
 	Type    string `choices:"feishu|dingtalk|workwx|webhook"`
 	Address string
 	Lang    string
+	Header  string
+	Body    string
+	MsgKey  string
 }
 
 func (rc *RobotCreateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(rc), nil
+	dict := jsonutils.NewDict()
+	jsonutils.Update(&dict, rc)
+	header, err := jsonutils.Parse([]byte(rc.Header))
+	if err != nil {
+		return nil, errors.Wrap(err, "parse header")
+	}
+	dict.Set("header", header)
+	body, err := jsonutils.Parse([]byte(rc.Body))
+	if err != nil {
+		return nil, errors.Wrap(err, "parse body")
+	}
+	dict.Set("body", body)
+	return dict, nil
 }
 
 type RobotOptions struct {
@@ -62,8 +78,23 @@ type RobotUpdateOptions struct {
 type SrobotUpdateOptions struct {
 	Address string
 	Lang    string
+	Header  string
+	Body    string
+	MsgKey  string
 }
 
 func (ru *RobotUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(ru.SrobotUpdateOptions), nil
+	dict := jsonutils.NewDict()
+	jsonutils.Update(&dict, ru)
+	header, err := jsonutils.Parse([]byte(ru.Header))
+	if err != nil {
+		return nil, errors.Wrap(err, "parse header")
+	}
+	dict.Set("header", header)
+	body, err := jsonutils.Parse([]byte(ru.Body))
+	if err != nil {
+		return nil, errors.Wrap(err, "parse body")
+	}
+	dict.Set("body", body)
+	return dict, nil
 }
