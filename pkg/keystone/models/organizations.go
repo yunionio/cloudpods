@@ -326,6 +326,13 @@ func (org *SOrganization) PerformAddLevel(
 	input api.OrganizationPerformAddLevelsInput,
 ) (jsonutils.JSONObject, error) {
 	keys := api.SplitLabel(org.Keys)
+
+	if len(input.Tags) > 0 {
+		if len(input.Tags) != len(input.Key)+len(keys) {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "inconsist level of key %d and tags %d", len(input.Key), len(input.Tags))
+		}
+	}
+
 	for _, nk := range input.Key {
 		if utils.IsInArray(nk, keys) {
 			return nil, errors.Wrapf(httperrors.ErrInputParameter, "key %s duplicated", nk)
@@ -345,6 +352,14 @@ func (org *SOrganization) PerformAddLevel(
 
 	db.OpsLog.LogEvent(org, db.ACT_UPDATE, org.GetShortDesc(ctx), userCred)
 	logclient.AddSimpleActionLog(org, logclient.ACT_UPDATE, org.GetShortDesc(ctx), userCred, true)
+
+	if len(input.Tags) > 0 {
+		_, err := org.PerformAddNode(ctx, userCred, query, input.OrganizationPerformAddNodeInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "AddNode")
+		}
+	}
+
 	return nil, nil
 }
 
@@ -369,7 +384,7 @@ func (org *SOrganization) PerformAddNode(
 
 	for _, k := range org.GetKeys() {
 		if label, ok := input.Tags[k]; !ok {
-			return nil, errors.Wrapf(httperrors.ErrInputParameter, "missing key %s", k)
+			break
 		} else {
 			labels = append(labels, label)
 		}

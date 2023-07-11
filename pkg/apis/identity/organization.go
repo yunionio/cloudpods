@@ -101,6 +101,8 @@ type OrganizationUpdateInput struct {
 
 type OrganizationPerformAddLevelsInput struct {
 	Key []string `json:"key" help:"add keys"`
+
+	OrganizationPerformAddNodeInput
 }
 
 type OrganizationPerformAddNodeInput struct {
