@@ -296,12 +296,13 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	return &eips[0], nil
 }
 
-func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, projectId string) (*SEipAddress, error) {
+func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, projectId, bgpType string) (*SEipAddress, error) {
 	params := make(map[string]string)
 
 	if len(name) > 0 {
 		params["Name"] = name
 	}
+	params["RegionId"] = region.RegionId
 	params["Bandwidth"] = fmt.Sprintf("%d", bwMbps)
 	params["InternetChargeType"] = string(chargeType)
 	params["InstanceChargeType"] = "PostPaid"
@@ -309,17 +310,19 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 	if len(projectId) > 0 {
 		params["ResourceGroupId"] = projectId
 	}
+	params["ISP"] = "BGP"
+	if bgpType == "BGP_PRO" {
+		params["ISP"] = "BGP_PRO"
+	}
 
 	body, err := region.vpcRequest("AllocateEipAddress", params)
 	if err != nil {
-		log.Errorf("AllocateEipAddress fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "AllocateEipAddress")
 	}
 
 	eipId, err := body.GetString("AllocationId")
 	if err != nil {
-		log.Errorf("fail to get AllocationId after EIP allocation??? %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "get AllocationId after created")
 	}
 
 	return region.GetEip(eipId)
@@ -333,7 +336,7 @@ func (region *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloud
 	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
 		ctype = InternetChargeByBandwidth
 	}
-	return region.AllocateEIP(opts.Name, opts.BandwidthMbps, ctype, opts.ProjectId)
+	return region.AllocateEIP(opts.Name, opts.BandwidthMbps, ctype, opts.ProjectId, opts.BGPType)
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
