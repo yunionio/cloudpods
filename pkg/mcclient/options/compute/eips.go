@@ -43,7 +43,7 @@ type EipCreateOptions struct {
 	Bandwidth  *int    `help:"Bandwidth in Mbps"`
 	IpAddr     *string `help:"IP address of the EIP" json:"ip_addr"`
 	Network    *string `help:"Network of the EIP"`
-	BgpType    *string `help:"BgpType of the EIP" positional:"false"`
+	BgpType    *string `help:"BgpType of the EIP" positional:"false" choices:"BGP|BGP_PRO"`
 	ChargeType *string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
 }
 

@@ -828,26 +828,6 @@ func (self *SRegion) UpdateInstancePassword(instId string, passwd string) error 
 	return self.updateInstance(instId, "", "", passwd, "", "")
 }
 
-// func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-// 	eips, total, err := self.GetSnapshots("", 0, 50)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	for len(eips) < total {
-// 		var parts []SEipAddress
-// 		parts, total, err = self.GetEips("", len(eips), 50)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		eips = append(eips, parts...)
-// 	}
-// 	ret := make([]cloudprovider.ICloudEIP, len(eips))
-// 	for i := 0; i < len(eips); i += 1 {
-// 		ret[i] = &eips[i]
-// 	}
-// 	return ret, nil
-// }
-
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips, total, err := self.GetEips("", "", "", 0, 50)
 	if err != nil {

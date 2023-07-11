@@ -26,7 +26,7 @@ func (sqlite *SSqliteBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, chang
 	ret := make([]string, 0)
 
 	for _, idx := range changes.RemoveIndexes {
-		sql := fmt.Sprintf("DROP INDEX IF EXISTS `%s`.`%s`", ts.Name(), idx.Name())
+		sql := fmt.Sprintf("DROP INDEX IF EXISTS `%s`.`%s`", ts.Name(), idx.RawName())
 		ret = append(ret, sql)
 		log.Infof("%s;", sql)
 	}

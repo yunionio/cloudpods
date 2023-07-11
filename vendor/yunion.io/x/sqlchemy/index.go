@@ -22,19 +22,23 @@ import (
 
 type STableIndex struct {
 	// name     string
-	columns  []string
-	isUnique bool
+	columns    []string
+	rawColumns []string
+	isUnique   bool
 
 	ts ITableSpec
 }
 
 func NewTableIndex(ts ITableSpec, cols []string, unique bool) STableIndex {
+	rawCols := make([]string, len(cols))
+	copy(rawCols, cols)
 	sort.Sort(TColumnNames(cols))
 	return STableIndex{
 		// name:     name,
-		columns:  cols,
-		isUnique: unique,
-		ts:       ts,
+		columns:    cols,
+		rawColumns: rawCols,
+		isUnique:   unique,
+		ts:         ts,
 	}
 }
 
@@ -60,9 +64,13 @@ func (index *STableIndex) Name() string {
 	return fmt.Sprintf("ix_%s_%s", index.ts.Name(), strings.Join(index.columns, "_"))
 }
 
+func (index *STableIndex) RawName() string {
+	return fmt.Sprintf("ix_%s_%s", index.ts.Name(), strings.Join(index.rawColumns, "_"))
+}
+
 func (index STableIndex) clone(ts ITableSpec) STableIndex {
-	cols := make([]string, len(index.columns))
-	copy(cols, index.columns)
+	cols := make([]string, len(index.rawColumns))
+	copy(cols, index.rawColumns)
 	return NewTableIndex(ts, cols, index.isUnique)
 }
 
