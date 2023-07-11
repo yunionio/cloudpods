@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
@@ -35,20 +35,37 @@ func (self *SWebhookSender) GetSenderType() string {
 }
 
 func (self *SWebhookSender) Send(args api.SendParams) error {
-	log.Infoln("this is in webhookSend ")
 	body, err := jsonutils.ParseString(args.Message)
 	if err != nil {
-		log.Errorf("unable to parse %q: %v", args.Message, err)
+		return errors.Wrapf(err, "unable to parse %q", args.Message)
 	}
 	if _, ok := body.(*jsonutils.JSONString); err != nil || ok {
 		dict := jsonutils.NewDict()
-		dict.Set("Msg", jsonutils.NewString(args.Message))
+		if len(args.MsgKey) == 0 {
+			dict.Set("Msg", jsonutils.NewString(args.Message))
+		} else {
+			dict.Set(args.MsgKey, jsonutils.NewString(args.Message))
+		}
+		if args.Body != nil {
+			jsonutils.Update(dict, args.Body)
+		}
 		body = dict
 	}
 	event := strings.ToUpper(args.Event)
 	header := http.Header{}
+	if args.Header != nil {
+		resmap, _ := args.Header.GetMap()
+		for k, v := range resmap {
+			vStr, err := v.GetString()
+			if err != nil {
+				continue
+			}
+			header.Set(k, vStr)
+		}
+	}
+
 	header.Set(EVENT_HEADER, event)
-	_, _, err = httputils.JSONRequest(cli, ctx, httputils.POST, args.Receivers.Contact, header, body, true)
+	_, _, err = httputils.JSONRequest(cli, ctx, httputils.POST, args.Receivers.Contact, header, body, false)
 	return err
 }
 
