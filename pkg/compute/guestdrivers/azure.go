@@ -244,7 +244,7 @@ func (self *SAzureGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCa
 	}
 }
 
-func (self *SAzureGuestDriver) GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+func (self *SAzureGuestDriver) GetDefaultAccount(osType, osDist, imageType string) string {
 	return api.VM_AZURE_DEFAULT_LOGIN_USER
 }
 
