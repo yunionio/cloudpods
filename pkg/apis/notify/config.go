@@ -149,6 +149,9 @@ type SendParams struct {
 	Event               string
 	Receivers           SNotifyReceiver
 	EmailMsg            *SEmailMessage
+	Header              jsonutils.JSONObject
+	Body                jsonutils.JSONObject
+	MsgKey              string
 	DomainId            string
 	RemoteTemplateParam SRemoteTemplateParam
 }
