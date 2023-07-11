@@ -118,11 +118,10 @@ func (self *SAwsGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 	}
 }
 
-func (self *SAwsGuestDriver) GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+func (self *SAwsGuestDriver) GetDefaultAccount(osType, osDist, imageType string) string {
+	if strings.ToLower(osType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
 		return api.VM_DEFAULT_WINDOWS_LOGIN_USER
 	}
-
 	return api.VM_AWS_DEFAULT_LOGIN_USER
 }
 
