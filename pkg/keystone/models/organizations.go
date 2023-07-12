@@ -327,17 +327,22 @@ func (org *SOrganization) PerformAddLevel(
 ) (jsonutils.JSONObject, error) {
 	keys := api.SplitLabel(org.Keys)
 
-	if len(input.Tags) > 0 {
-		if len(input.Tags) != len(input.Key)+len(keys) {
-			return nil, errors.Wrapf(httperrors.ErrInputParameter, "inconsist level of key %d and tags %d", len(input.Key), len(input.Tags))
-		}
-	}
-
 	for _, nk := range input.Key {
 		if utils.IsInArray(nk, keys) {
 			return nil, errors.Wrapf(httperrors.ErrInputParameter, "key %s duplicated", nk)
 		} else {
 			keys = append(keys, nk)
+		}
+	}
+
+	if len(input.Tags) > 0 {
+		if len(input.Tags) != len(keys) {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "inconsist level of key %d and tags %d", len(keys), len(input.Tags))
+		}
+		for _, k := range keys {
+			if _, ok := input.Tags[k]; !ok {
+				return nil, errors.Wrapf(httperrors.ErrInputParameter, "missing value for key %s", k)
+			}
 		}
 	}
 
@@ -395,7 +400,7 @@ func (org *SOrganization) PerformAddNode(
 		if i == len(labels)-1 {
 			weight = &input.Weight
 		}
-		_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, labels[i], api.JoinLabels(labels[0:i]...), i+1, weight)
+		_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, labels[i], api.JoinLabels(labels[0:i+1]...), i+1, weight)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to insert node %s", api.JoinLabels(labels[i:i]...))
 		}

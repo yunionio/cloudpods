@@ -248,6 +248,11 @@ func init() {
 		return doIdentityEventList(s, &nargs)
 	})
 
+	R(&TypeEventListOptions{}, "organization-event", "Show operation event logs of keystone organizations", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"organization"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
 	R(&TypeEventListOptions{}, "role-event", "Show operation event logs of keystone roles", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"role"}}
 		return doIdentityEventList(s, &nargs)
