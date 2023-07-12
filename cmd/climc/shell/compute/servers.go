@@ -114,6 +114,7 @@ func init() {
 	cmd.BatchPerform("enable-memclean", new(options.ServerIdsOptions))
 	cmd.Perform("qga-set-password", &options.ServerQgaSetPassword{})
 	cmd.Perform("qga-command", &options.ServerQgaCommand{})
+	cmd.Perform("qga-ping", &options.ServerQgaPing{})
 	cmd.Perform("set-password", &options.ServerSetPasswordOptions{})
 	cmd.Perform("set-boot-index", &options.ServerSetBootIndexOptions{})
 
