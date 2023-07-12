@@ -162,23 +162,9 @@ func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *model
 }
 
 func (self *SESXiGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	iRegion, err := host.GetIRegion(ctx)
+	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return nil, err
-	}
-	ihost, err := iRegion.GetIHostById(host.ExternalId)
-	if err != nil {
-		return nil, err
-	}
-	iVM, err := ihost.GetIVMById(guest.ExternalId)
-	if err != nil {
-		if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
-		}
-		iVM, err = iRegion.GetIVMById(guest.ExternalId)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return iVM.GetVNCInfo(input)
 }
@@ -463,15 +449,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 
 func (self *SESXiGuestDriver) RequestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		host, _ := guest.GetHost()
-		if host == nil {
-			return nil, errors.Error("fail to get host of guest")
-		}
-		ihost, err := host.GetIHost(ctx)
-		if err != nil {
-			return nil, err
-		}
-		ivm, err := ihost.GetIVMById(guest.GetExternalId())
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -487,15 +465,7 @@ func (self *SESXiGuestDriver) RequestSuspendOnHost(ctx context.Context, guest *m
 
 func (self *SESXiGuestDriver) RequestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		host, _ := guest.GetHost()
-		if host == nil {
-			return nil, errors.Error("fail to get host of guest")
-		}
-		ihost, err := host.GetIHost(ctx)
-		if err != nil {
-			return nil, err
-		}
-		ivm, err := ihost.GetIVMById(guest.GetExternalId())
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, err
 		}
