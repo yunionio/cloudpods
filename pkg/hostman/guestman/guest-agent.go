@@ -16,7 +16,6 @@ package guestman
 
 import (
 	"context"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -24,22 +23,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
-
-const (
-	QGA_LOCK_TIMEOUT = time.Second * 5
-	QGA_EXEC_TIMEOUT = time.Second * 10
-)
-
-func qgaExec(timeout time.Duration, qgaFunc func(chan error)) error {
-	c := make(chan error, 1)
-	go qgaFunc(c)
-	select {
-	case <-time.After(timeout):
-		return errors.Errorf("qga command no resp after %fs", timeout.Seconds())
-	case err := <-c:
-		return err
-	}
-}
 
 func (m *SGuestManager) checkAndInitGuestQga(sid string) (*SKVMGuestInstance, error) {
 	guest, _ := m.GetServer(sid)
@@ -64,52 +47,60 @@ func (m *SGuestManager) QgaGuestSetPassword(ctx context.Context, params interfac
 		return nil, err
 	}
 
-	f := func(c chan error) {
-		if guest.guestAgent.TryLock(QGA_LOCK_TIMEOUT) {
-			defer guest.guestAgent.Unlock()
-			c <- guest.guestAgent.GuestSetUserPassword(input.Username, input.Password, input.Crypted)
-		} else {
-			c <- errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+	if guest.guestAgent.TryLock() {
+		defer guest.guestAgent.Unlock()
+		err = guest.guestAgent.GuestSetUserPassword(input.Username, input.Password, input.Crypted)
+		if err != nil {
+			return nil, errors.Wrap(err, "qga set user password")
 		}
+		return nil, nil
 	}
-	err = qgaExec(QGA_EXEC_TIMEOUT, f)
-	return nil, err
+	return nil, errors.Errorf("qga unfinished last cmd, is qga unavailable?")
 }
 
 func (m *SGuestManager) QgaGuestPing(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	input := params.(*SBaseParms)
+	input := params.(*SBaseParams)
 	guest, err := m.checkAndInitGuestQga(input.Sid)
 	if err != nil {
 		return nil, err
 	}
 
-	f := func(c chan error) {
-		if guest.guestAgent.TryLock(QGA_LOCK_TIMEOUT) {
-			defer guest.guestAgent.Unlock()
-			c <- guest.guestAgent.GuestPing()
-		} else {
-			c <- errors.Errorf("qga unfinished last cmd, is qga unavailable?")
-		}
+	timeout := -1
+	if to, err := input.Body.Int("timeout"); err == nil {
+		timeout = int(to)
 	}
-	err = qgaExec(QGA_EXEC_TIMEOUT, f)
-	return nil, err
+
+	if guest.guestAgent.TryLock() {
+		defer guest.guestAgent.Unlock()
+		err = guest.guestAgent.GuestPing(timeout)
+		if err != nil {
+			return nil, errors.Wrap(err, "qga guest ping")
+		}
+		return nil, nil
+	}
+	return nil, errors.Errorf("qga unfinished last cmd, is qga unavailable?")
 }
 
-func (m *SGuestManager) QgaCommand(cmd *monitor.Command, sid string) (string, error) {
+func (m *SGuestManager) QgaCommand(cmd *monitor.Command, sid string, execTimeout int) (string, error) {
 	guest, err := m.checkAndInitGuestQga(sid)
 	if err != nil {
 		return "", err
 	}
 	var res []byte
-	f := func(c chan error) {
-		if guest.guestAgent.TryLock(QGA_LOCK_TIMEOUT) {
-			defer guest.guestAgent.Unlock()
-			res, err = guest.guestAgent.QgaCommand(cmd)
-			c <- err
-		} else {
-			c <- errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+	if guest.guestAgent.TryLock() {
+		defer guest.guestAgent.Unlock()
+
+		if execTimeout > 0 {
+			guest.guestAgent.SetTimeout(execTimeout)
+			defer guest.guestAgent.ResetTimeout()
 		}
+		res, err = guest.guestAgent.QgaCommand(cmd)
+		if err != nil {
+			err = errors.Wrapf(err, "exec qga command %s", cmd.Execute)
+		}
+	} else {
+		err = errors.Errorf("qga unfinished last cmd, is qga unavailable?")
 	}
-	err = qgaExec(QGA_EXEC_TIMEOUT, f)
+
 	return string(res), err
 }
