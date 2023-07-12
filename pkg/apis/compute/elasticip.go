@@ -72,7 +72,14 @@ type SElasticipCreateInput struct {
 	// 指定新建EIP的地址
 	IpAddr string `json:"ip_addr"`
 
-	// description: BgpType for the new eip
+	// 线路类型
+	//
+	//
+	//
+	// | 平台       |    支持类型            |  说明 |
+	// | ---        |    --------            | ---   |
+	// |Aliyun      | BGP, BGP_PRO(精品线路)           | 部分区域不支持BGP_PRO|
+	// default: BGP
 	BgpType string `json:"bgp_type"`
 
 	BandwidthMb int `json:"bandwidth"`
