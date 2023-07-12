@@ -525,7 +525,38 @@ func (self *SESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context,
 		}
 	}
 
-	return self.SManagedVirtualizedGuestDriver.OnGuestDeployTaskDataReceived(ctx, guest, task, data)
+	err := self.SManagedVirtualizedGuestDriver.OnGuestDeployTaskDataReceived(ctx, guest, task, data)
+	if err != nil {
+		return nil
+	}
+
+	osInfo := struct {
+		Arch    string
+		Distro  string
+		Os      string
+		Version string
+	}{}
+	data.Unmarshal(&osInfo)
+
+	osinfo := map[string]interface{}{}
+	for k, v := range map[string]string{
+		"os_arch":         osInfo.Arch,
+		"os_distribution": osInfo.Distro,
+		"os_type":         osInfo.Os,
+		"os_name":         osInfo.Os,
+		"os_version":      osInfo.Version,
+	} {
+		if len(v) > 0 {
+			osinfo[k] = v
+		}
+	}
+	if len(osinfo) > 0 {
+		err := guest.SetAllMetadata(ctx, osinfo, task.GetUserCred())
+		if err != nil {
+			return errors.Wrap(err, "SetAllMetadata")
+		}
+	}
+	return nil
 }
 
 func (self *SESXiGuestDriver) AllowReconfigGuest() bool {
