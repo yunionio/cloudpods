@@ -215,7 +215,7 @@ func IsNetworkAvailable(
 		}
 	}
 
-	if req.SriovDevice != nil {
+	if req.SriovDevice != nil && n.VpcId == computeapi.DEFAULT_VPC_ID {
 		err := checkSriovNic(c, n.WireId, req.SriovDevice)
 		if err != nil {
 			return FailReason{
