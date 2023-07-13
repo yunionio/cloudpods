@@ -203,26 +203,39 @@ func (lbc *SLoadbalancerCluster) ValidateUpdateData(ctx context.Context, userCre
 }
 
 func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	refCnts, err := lbc.refCounts()
+	if err != nil {
+		return errors.Wrap(err, "refCounts")
+	}
+	errs := make([]error, 0)
+	for k, cnt := range refCnts {
+		errs = append(errs, httperrors.NewResourceBusyError("lbcluster %s(%s) is still referred to by %d %s",
+			lbc.Id, lbc.Name, cnt, k))
+	}
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	}
+	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+}
+
+func (lbc *SLoadbalancerCluster) refCounts() (map[string]int, error) {
+	ret := make(map[string]int)
 	men := []db.IModelManager{
 		LoadbalancerManager,
 	}
-	lbcId := lbc.Id
 	for _, man := range men {
-		t := man.TableSpec().Instance()
-		pdF := t.Field("pending_deleted")
-		n, err := t.Query().
-			Equals("cluster_id", lbcId).
-			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-			CountWithError()
+		q := man.Query().Equals("cluster_id", lbc.Id)
+		pdF := q.Field("pending_deleted")
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF)))
+		n, err := q.CountWithError()
 		if err != nil {
-			return httperrors.NewInternalServerError("get lbcluster refcount fail %v", err)
+			return nil, httperrors.NewInternalServerError("get lbcluster refcount fail %v", err)
 		}
 		if n > 0 {
-			return httperrors.NewResourceBusyError("lbcluster %s(%s) is still referred to by %d %s",
-				lbcId, lbc.Name, n, man.KeywordPlural())
+			ret[man.KeywordPlural()] = n
 		}
 	}
-	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+	return ret, nil
 }
 
 func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
@@ -245,6 +258,8 @@ func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
 			ZoneResourceInfo:          zoneRows[i],
 			WireResourceInfoBase:      wireRows[i].WireResourceInfoBase,
 		}
+		lbc := objs[i].(*SLoadbalancerCluster)
+		rows[i].RefCounts, _ = lbc.refCounts()
 	}
 
 	return rows

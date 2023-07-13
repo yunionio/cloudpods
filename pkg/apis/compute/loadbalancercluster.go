@@ -22,6 +22,8 @@ type LoadbalancerClusterDetails struct {
 	WireResourceInfoBase
 
 	SLoadbalancerCluster
+
+	RefCounts map[string]int
 }
 
 type LoadbalancerClusterResourceInfo struct {
