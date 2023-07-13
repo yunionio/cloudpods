@@ -293,18 +293,22 @@ func (self *SCloudaccount) ValidateUpdateData(
 		input.Options = optionsJson
 	}
 
-	if self.SkipSyncResources == nil {
-		self.SkipSyncResources = &api.SkipSyncResources{}
+	skipSyncResources := &api.SkipSyncResources{}
+	if self.SkipSyncResources != nil {
+		for _, res := range *self.SkipSyncResources {
+			skipSyncResources.Add(res)
+		}
 	}
 	if input.SkipSyncResources != nil {
-		self.SkipSyncResources = input.SkipSyncResources
+		skipSyncResources = input.SkipSyncResources
 	}
 	for _, res := range input.AddSkipSyncResources {
-		self.SkipSyncResources.Add(res)
+		skipSyncResources.Add(res)
 	}
 	for _, res := range input.RemoveSkipSyncResources {
-		self.SkipSyncResources.Remove(res)
+		skipSyncResources.Remove(res)
 	}
+	input.SkipSyncResources = skipSyncResources
 
 	factory, err := self.GetProviderFactory()
 	if err != nil {
