@@ -402,6 +402,7 @@ func (self *SGuestnetwork) checkOrAllocateIfname(network *SNetwork, preferIfname
 	if !man.ifnameUsed(preferIfname) {
 		return preferIfname, nil
 	}
+
 	ifname := self.generateIfname(network, self.Virtual, false)
 	if !man.ifnameUsed(ifname) {
 		return ifname, nil
@@ -568,7 +569,7 @@ func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	if routes != nil && len(routes) > 0 {
 		desc.Routes = jsonutils.Marshal(routes)
 	}
-	desc.Ifname = self.GetIfname()
+	desc.Ifname = self.Ifname
 	desc.Masklen = net.GuestIpMask
 	desc.Driver = self.Driver
 	desc.NumQueues = self.NumQueues
@@ -876,15 +877,6 @@ func (self *SGuestnetwork) GetVirtualIPs() []string {
 		}
 	}
 	return ips
-}
-
-func (self *SGuestnetwork) GetIfname() string {
-	if self.Driver == api.NETWORK_DRIVER_VFIO {
-		if dev, _ := self.GetIsolatedDevice(); dev != nil && dev.OvsOffloadInterface != "" {
-			return dev.OvsOffloadInterface
-		}
-	}
-	return self.Ifname
 }
 
 func (self *SGuestnetwork) GetIsolatedDevice() (*SIsolatedDevice, error) {

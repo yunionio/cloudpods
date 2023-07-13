@@ -591,7 +591,10 @@ func (manager *SIsolatedDeviceManager) findHostUnusedByDevConfig(model, devType,
 		q.Equals("dev_type", devType)
 	}
 	if wireId != "" {
-		q = q.Equals("wire_id", wireId)
+		wire := WireManager.FetchWireById(wireId)
+		if wire.VpcId == api.DEFAULT_VPC_ID {
+			q = q.Equals("wire_id", wireId)
+		}
 	}
 	err := db.FetchModelObjects(manager, q, &devs)
 	if err != nil {

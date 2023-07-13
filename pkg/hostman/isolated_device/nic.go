@@ -281,10 +281,6 @@ func getOvsOffloadNics(hostNics []HostNic) ([]*sOvsOffloadNicDevice, error) {
 		}
 		log.Infof("nic %s link mode %s", nics[i].Interface, linkMode)
 		if strings.TrimSpace(linkMode) != "switchdev" {
-			err = fileutils2.FilePutContents(devlinkPath, "switchdev\n", false)
-			if err != nil {
-				return nil, errors.Wrap(err, "fileutils2.FilePutContents linkMode")
-			}
 			for j := 0; j < len(vfs); j++ {
 				if strings.HasPrefix(vfs[j].Name(), "virtfn") {
 					vfPath, err := filepath.EvalSymlinks(path.Join(nicDir, vfs[j].Name()))
@@ -301,6 +297,10 @@ func getOvsOffloadNics(hostNics []HostNic) ([]*sOvsOffloadNicDevice, error) {
 						return nil, errors.Wrap(err, "unbindDriver")
 					}
 				}
+			}
+			err = fileutils2.FilePutContents(devlinkPath, "switchdev\n", false)
+			if err != nil {
+				return nil, errors.Wrap(err, "fileutils2.FilePutContents linkMode")
 			}
 		}
 
