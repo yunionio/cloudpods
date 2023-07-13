@@ -559,8 +559,11 @@ func (o baseOptions_aarch64) SerialDevice() []string {
 	return nil
 }
 
-func (o baseOptions_aarch64) QGA(_ string) []string {
-	return nil
+func (o baseOptions_aarch64) QGA(homeDir string) []string {
+	return []string{
+		fmt.Sprintf("-chardev socket,path=%s,server,nowait,id=qga0", path.Join(homeDir, "qga.sock")),
+		o.Device("virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"),
+	}
 }
 
 func (o baseOptions_aarch64) PvpanicDevice() string {
