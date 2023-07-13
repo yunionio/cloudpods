@@ -238,24 +238,38 @@ func (lbc *SLoadbalancerCluster) ValidateUpdateData(
 }
 
 func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	men := []db.IModelManager{
-		LoadbalancerManager,
+	refCnts, err := lbc.refCounts()
+	if err != nil {
+		return errors.Wrap(err, "refCounts")
 	}
-	lbcId := lbc.Id
-	for _, man := range men {
-		t := man.TableSpec().Instance()
-		n, err := t.Query().
-			Equals("cluster_id", lbcId).
-			CountWithError()
-		if err != nil {
-			return httperrors.NewInternalServerError("get lbcluster refcount fail %v", err)
-		}
-		if n > 0 {
-			return httperrors.NewResourceBusyError("lbcluster %s(%s) is still referred to by %d %s",
-				lbcId, lbc.Name, n, man.KeywordPlural())
-		}
+	errs := make([]error, 0)
+	for k, cnt := range refCnts {
+		errs = append(errs, httperrors.NewResourceBusyError("lbcluster %s(%s) is still referred to by %d %s",
+			lbc.Id, lbc.Name, cnt, k))
+	}
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
 	}
 	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+}
+
+func (lbc *SLoadbalancerCluster) refCounts() (map[string]int, error) {
+	ret := make(map[string]int)
+	men := []db.IModelManager{
+		LoadbalancerManager,
+		LoadbalancerAgentManager,
+	}
+	for _, man := range men {
+		q := man.Query().Equals("cluster_id", lbc.Id)
+		n, err := q.CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("get lbcluster refcount fail %v", err)
+		}
+		if n > 0 {
+			ret[man.KeywordPlural()] = n
+		}
+	}
+	return ret, nil
 }
 
 func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
@@ -278,6 +292,8 @@ func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
 			ZoneResourceInfo:          zoneRows[i],
 			WireResourceInfoBase:      wireRows[i].WireResourceInfoBase,
 		}
+		lbc := objs[i].(*SLoadbalancerCluster)
+		rows[i].RefCounts, _ = lbc.refCounts()
 	}
 
 	return rows
