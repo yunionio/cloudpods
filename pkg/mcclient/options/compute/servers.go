@@ -1225,6 +1225,7 @@ type ServerMakeSshableOptions struct {
 	User       string `help:"ssh username for ssh connection" default:"root"`
 	PrivateKey string `help:"ssh privatekey for ssh connection"`
 	Password   string `help:"ssh password for ssh connection"`
+	Port       int    `help:"ssh port for ssh connection"`
 }
 
 func (opts *ServerMakeSshableOptions) Params() (jsonutils.JSONObject, error) {
