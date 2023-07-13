@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -642,6 +643,23 @@ func (manager *SGuestTemplateManager) ListItemFilter(
 		q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VpcFilterListInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+		}
+	}
+	if len(input.CloudEnv) > 0 {
+		cloudregions := CloudregionManager.Query().SubQuery()
+		q = q.Join(cloudregions, sqlchemy.Equals(q.Field("cloudregion_id"), cloudregions.Field("id")))
+		switch input.CloudEnv {
+		case api.CLOUD_ENV_PUBLIC_CLOUD:
+			q = q.Filter(sqlchemy.In(cloudregions.Field("provider"), CloudproviderManager.GetPublicProviderProvidersQuery()))
+		case api.CLOUD_ENV_PRIVATE_CLOUD:
+			q = q.Filter(sqlchemy.In(cloudregions.Field("provider"), CloudproviderManager.GetPrivateProviderProvidersQuery()))
+		case api.CLOUD_ENV_ON_PREMISE:
+			q = q.Filter(sqlchemy.Equals(cloudregions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD))
+		case api.CLOUD_ENV_PRIVATE_ON_PREMISE:
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(cloudregions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+				sqlchemy.In(cloudregions.Field("provider"), CloudproviderManager.GetPrivateProviderProvidersQuery()),
+			))
 		}
 	}
 	if len(input.BillingType) > 0 {
