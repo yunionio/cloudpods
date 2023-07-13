@@ -309,6 +309,12 @@ func (self *SCloudaccount) ValidateUpdateData(
 		skipSyncResources.Remove(res)
 	}
 	input.SkipSyncResources = skipSyncResources
+	if len(*skipSyncResources) == 0 {
+		db.Update(self, func() error {
+			self.SkipSyncResources = nil
+			return nil
+		})
+	}
 
 	factory, err := self.GetProviderFactory()
 	if err != nil {
