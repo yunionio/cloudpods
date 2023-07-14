@@ -15,6 +15,7 @@
 package guestman
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -94,7 +95,8 @@ type SGuestManager struct {
 	qemuMachineCpuMax map[string]uint
 	qemuMaxMem        int
 
-	cpuSet *CpuSetCounter
+	cpuSet     *CpuSetCounter
+	pythonPath string
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
@@ -160,6 +162,37 @@ func (m *SGuestManager) InitQemuMaxMems(maxMems uint) {
 	if maxMems > arch.X86_MAX_MEM_MB {
 		arch.X86_MAX_MEM_MB = maxMems
 	}
+}
+
+func (m *SGuestManager) InitPythonPath() error {
+	defer func() {
+		log.Infof("Python path %s", m.pythonPath)
+	}()
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("which", "python").Output()
+	if err == nil {
+		m.pythonPath = string(bytes.TrimSpace(out))
+		return nil
+	}
+	log.Infof("No python found %s: %s", out, err)
+
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("which", "python3").Output()
+	if err == nil {
+		m.pythonPath = string(bytes.TrimSpace(out))
+		return nil
+	}
+	log.Infof("No python3 found %s: %s", out, err)
+
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("which", "python2").Output()
+	if err == nil {
+		m.pythonPath = string(bytes.TrimSpace(out))
+		return nil
+	}
+	log.Infof("No python2 found %s: %s", out, err)
+	return errors.Errorf("No python/python2/python3 found in PATH")
+}
+
+func (m *SGuestManager) getPythonPath() string {
+	return m.pythonPath
 }
 
 func (m *SGuestManager) QemuLogDir() string {

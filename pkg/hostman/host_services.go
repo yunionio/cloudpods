@@ -95,6 +95,9 @@ func (host *SHostService) RunService() {
 		hostInstance.GetQemuMachineInfoList(), hostInstance.GetKVMMaxCpus(),
 	)
 	guestman.GetGuestManager().InitQemuMaxMems(uint(hostInstance.GetMemoryTotal()))
+	if err := guestman.GetGuestManager().InitPythonPath(); err != nil {
+		log.Fatalf("Guest manager init python path %s", err)
+	}
 
 	hostInstance.StartRegister(2, func() {
 		guestChan = guestman.GetGuestManager().Bootstrap()
