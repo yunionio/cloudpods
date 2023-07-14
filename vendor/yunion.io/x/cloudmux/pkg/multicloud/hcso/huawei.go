@@ -353,6 +353,7 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, project.ID),
 			HealthStatus: project.GetHealthStatus(),
+			Desc:         project.GetDescription(),
 		}
 
 		subAccounts = append(subAccounts, s)

@@ -176,7 +176,7 @@ func (ce *HuaweiClientError) Error() string {
 	return jsonutils.Marshal(ce).String()
 }
 
-func (ce *HuaweiClientError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+func (ce *HuaweiClientError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
 	if body != nil {
 		body.Unmarshal(ce)
 	}
