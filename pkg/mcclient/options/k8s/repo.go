@@ -50,9 +50,12 @@ func (o *RepoGetOptions) Params() (jsonutils.JSONObject, error) {
 
 type RepoCreateOptions struct {
 	RepoGetOptions
-	Type   string `help:"Repository type" choices:"internal|external"`
-	URL    string `help:"Repository url"`
-	Public bool   `help:"Make repostitory public"`
+	Type     string `help:"Repository type" choices:"internal|external"`
+	URL      string `help:"Repository url"`
+	Public   bool   `help:"Make repostitory public"`
+	Backend  string `help:"Repository backend" choices:"common|nexus"`
+	Username string `help:"Repository auth username"`
+	Password string `help:"Repository auth password"`
 }
 
 func (o RepoCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -65,13 +68,24 @@ func (o RepoCreateOptions) Params() (jsonutils.JSONObject, error) {
 	if o.Public {
 		params.Add(jsonutils.JSONTrue, "is_public")
 	}
+	if o.Backend != "" {
+		params.Add(jsonutils.NewString(o.Backend), "backend")
+	}
+	if o.Username != "" {
+		params.Add(jsonutils.NewString(o.Username), "username")
+	}
+	if o.Password != "" {
+		params.Add(jsonutils.NewString(o.Password), "password")
+	}
 	return params, nil
 }
 
 type RepoUpdateOptions struct {
 	RepoGetOptions
-	Name string `help:"Repository name to change"`
-	Url  string `help:"Repository url to change"`
+	Name     string `help:"Repository name to change"`
+	Url      string `help:"Repository url to change"`
+	Username string `help:"Repository auth username"`
+	Password string `help:"Repository auth password"`
 }
 
 func (o RepoUpdateOptions) GetId() string {
@@ -85,6 +99,12 @@ func (o RepoUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if o.Url != "" {
 		params.Add(jsonutils.NewString(o.Url), "url")
+	}
+	if o.Username != "" {
+		params.Add(jsonutils.NewString(o.Username), "username")
+	}
+	if o.Password != "" {
+		params.Add(jsonutils.NewString(o.Password), "password")
 	}
 	return params, nil
 }
