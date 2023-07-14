@@ -212,10 +212,10 @@ func NewJsonRequest(method THttpMethod, url string, params interface{}) *JsonBas
 }
 
 type JsonResponse interface {
-	ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error
+	ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error
 }
 
-func (ce *JSONClientError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+func (ce *JSONClientError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
 	body.Unmarshal(ce)
 	if ce.Code == 0 {
 		ce.Code = statusCode
@@ -734,7 +734,7 @@ func (client *JsonClient) Send(ctx context.Context, req JsonRequest, response Js
 		return resp.Header, jrbody, &ce
 	}
 
-	return resp.Header, jrbody, response.ParseErrorFromJsonResponse(resp.StatusCode, jrbody)
+	return resp.Header, jrbody, response.ParseErrorFromJsonResponse(resp.StatusCode, resp.Status, jrbody)
 }
 
 func IsRedirectError(err error) bool {

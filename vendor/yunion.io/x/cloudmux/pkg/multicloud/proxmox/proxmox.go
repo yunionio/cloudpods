@@ -137,13 +137,15 @@ type ProxmoxError struct {
 	Code    int
 	Params  []string
 	Errors  string
+	Status  string
 }
 
 func (self ProxmoxError) Error() string {
-	return fmt.Sprintf("[%d] %s with params %s", self.Code, self.Message, self.Params)
+	return jsonutils.Marshal(self).String()
 }
 
-func (ce *ProxmoxError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+func (ce *ProxmoxError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
+	ce.Status = status
 	if body != nil {
 		body.Unmarshal(ce)
 		log.Errorf("error: %v", body.PrettyString())
@@ -290,7 +292,7 @@ func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res strin
 	oe := &ProxmoxError{}
 	_, resp, err := client.Send(context.Background(), req, oe, cli.debug)
 	if err != nil {
-		return nil, errors.Wrapf(err, "with params: %v", params)
+		return nil, err
 	}
 
 	return resp, nil

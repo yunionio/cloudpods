@@ -759,7 +759,7 @@ func (ae AzureResponseError) Error() string {
 	return jsonutils.Marshal(ae).String()
 }
 
-func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
 	if body != nil {
 		body.Unmarshal(ae)
 	}

@@ -310,6 +310,8 @@ type SHCSOAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	cloudprovider.SHCSOEndpoints
 	SAccessKeyCredential
+
+	DefaultRegion string `json:"default_region"`
 }
 
 func (opts *SHCSOAccountCreateOptions) Params() (jsonutils.JSONObject, error) {

@@ -595,6 +595,7 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			Account:          fmt.Sprintf("%s/%s", self.accessKey, project.ID),
 			HealthStatus:     project.GetHealthStatus(),
 			DefaultProjectId: "0",
+			Desc:             project.GetDescription(),
 		}
 		for j := range self.iregions {
 			region := self.iregions[j].(*SRegion)
