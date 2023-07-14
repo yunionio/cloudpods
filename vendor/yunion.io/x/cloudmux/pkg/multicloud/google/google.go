@@ -860,7 +860,7 @@ func (g *gError) Error() string {
 	return jsonutils.Marshal(g).String()
 }
 
-func (g *gError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+func (g *gError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
 	if body != nil {
 		body.Unmarshal(g)
 	}

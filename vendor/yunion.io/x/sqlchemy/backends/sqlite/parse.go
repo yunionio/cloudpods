@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	indexPattern = `\((?P<cols>` + "`" + `\w+` + "`" + `(,\s*` + "`" + `\w+` + "`" + `)*)\)`
+	indexPattern = `CREATE\s+INDEX\s+` + "`" + `(?P<name>\w+)` + "`" + `\s+ON\s+` + "`" + `(?P<tblname>\w+)` + "`" + `\s*\((?P<cols>` + "`" + `\w+` + "`" + `(,\s*` + "`" + `\w+` + "`" + `)*)\)`
 )
 
 var (
@@ -39,7 +39,7 @@ type sSqliteTableInfo struct {
 func (ti *sSqliteTableInfo) parseTableIndex(ts sqlchemy.ITableSpec) (sqlchemy.STableIndex, error) {
 	matches := indexRegexp.FindAllStringSubmatch(ti.Sql, -1)
 	if len(matches) > 0 {
-		return sqlchemy.NewTableIndex(ts, sqlchemy.FetchColumns(matches[0][1]), false), nil
+		return sqlchemy.NewTableIndex(ts, matches[0][1], sqlchemy.FetchColumns(matches[0][3]), false), nil
 	}
 	return sqlchemy.STableIndex{}, errors.ErrNotFound
 }

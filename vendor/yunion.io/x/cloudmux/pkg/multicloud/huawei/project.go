@@ -38,6 +38,10 @@ func (self *SProject) GetRegionID() string {
 	return strings.Split(self.Name, "_")[0]
 }
 
+func (self *SProject) GetDescription() string {
+	return self.Description
+}
+
 func (self *SProject) GetHealthStatus() string {
 	if self.Enabled {
 		return api.CLOUD_PROVIDER_HEALTH_NORMAL

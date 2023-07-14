@@ -15,10 +15,12 @@
 package huawei
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -57,6 +59,8 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 	metrics := []interface{}{}
 	namespace, dimesionName, metricNames := "SYS.ECS", "instance_id", []string{
 		"cpu_util",
+		"mem_util",
+		"disk_util_inband",
 		"network_incoming_bytes_aggregate_rate",
 		"network_outgoing_bytes_aggregate_rate",
 		"disk_read_bytes_rate",
@@ -97,6 +101,10 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 		switch metricData[i].MetricName {
 		case "cpu_util":
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_CPU_USAGE
+		case "disk_util_inband":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
+		case "mem_util":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_MEM_USAGE
 		case "network_incoming_bytes_aggregate_rate":
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_NET_BPS_RX
 			tags = map[string]string{"net_type": "internet"}
@@ -111,6 +119,72 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS
 		case "disk_write_requests_rate":
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS
+		default:
+			log.Warningf("invalid metricName %s for %s %s", metricData[i].MetricName, opts.ResourceType, opts.ResourceId)
+			continue
+		}
+		for _, value := range metricData[i].Datapoints {
+			metricValue := cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+				Tags:      tags,
+			}
+			ret.Values = append(ret.Values, metricValue)
+		}
+		result = append(result, ret)
+	}
+	return result, nil
+}
+
+func (self *SHuaweiClient) getServerAgentMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	if strings.ToLower(opts.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		return []cloudprovider.MetricValues{}, nil
+	}
+	params := map[string]interface{}{
+		"from":   opts.StartTime.UnixMilli(),
+		"to":     opts.EndTime.UnixMilli(),
+		"period": "1",
+		"filter": "average",
+	}
+	metrics := []interface{}{}
+	namespace, dimesionName, metricNames := "AGT.ECS", "instance_id", []string{
+		"mem_usedPercent",
+	}
+	for _, metricName := range metricNames {
+		metrics = append(metrics, map[string]interface{}{
+			"namespace":   namespace,
+			"metric_name": metricName,
+			"dimensions": []map[string]string{
+				{
+					"name":  dimesionName,
+					"value": opts.ResourceId,
+				},
+			},
+		})
+	}
+	params["metrics"] = metrics
+	resp, err := self.monitorPost("batch-query-metric-data", params)
+	if err != nil {
+		return nil, err
+	}
+	metricData := []MetricData{}
+	err = resp.Unmarshal(&metricData, "metrics")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	result := []cloudprovider.MetricValues{}
+	for i := range metricData {
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData[i].Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		tags := map[string]string{}
+		switch metricData[i].MetricName {
+		case "mem_usedPercent":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_MEM_USAGE
+		case "disk_usedPercent":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
 		default:
 			log.Warningf("invalid metricName %s for %s %s", metricData[i].MetricName, opts.ResourceType, opts.ResourceId)
 			continue
@@ -545,7 +619,16 @@ func (self *SHuaweiClient) getModelartsPoolMetrics(opts *cloudprovider.MetricLis
 func (self *SHuaweiClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	switch opts.ResourceType {
 	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
-		return self.getServerMetrics(opts)
+		ret, err := self.getServerMetrics(opts)
+		if err != nil {
+			return nil, err
+		}
+		agent, err := self.getServerAgentMetrics(opts)
+		if err != nil {
+			return ret, nil
+		}
+		ret = append(ret, agent...)
+		return ret, nil
 	case cloudprovider.METRIC_RESOURCE_TYPE_REDIS:
 		return self.getRedisMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_RDS:

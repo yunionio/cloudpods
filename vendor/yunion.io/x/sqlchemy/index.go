@@ -21,24 +21,22 @@ import (
 )
 
 type STableIndex struct {
-	// name     string
-	columns    []string
-	rawColumns []string
-	isUnique   bool
+	name    string
+	columns []string
+
+	isUnique bool
 
 	ts ITableSpec
 }
 
-func NewTableIndex(ts ITableSpec, cols []string, unique bool) STableIndex {
-	rawCols := make([]string, len(cols))
-	copy(rawCols, cols)
+func NewTableIndex(ts ITableSpec, name string, cols []string, unique bool) STableIndex {
 	sort.Sort(TColumnNames(cols))
 	return STableIndex{
-		// name:     name,
-		columns:    cols,
-		rawColumns: rawCols,
-		isUnique:   unique,
-		ts:         ts,
+		name:    name,
+		columns: cols,
+
+		isUnique: unique,
+		ts:       ts,
 	}
 }
 
@@ -61,17 +59,14 @@ func (cols TColumnNames) Less(i, j int) bool {
 }
 
 func (index *STableIndex) Name() string {
+	if len(index.name) > 0 {
+		return index.name
+	}
 	return fmt.Sprintf("ix_%s_%s", index.ts.Name(), strings.Join(index.columns, "_"))
 }
 
-func (index *STableIndex) RawName() string {
-	return fmt.Sprintf("ix_%s_%s", index.ts.Name(), strings.Join(index.rawColumns, "_"))
-}
-
 func (index STableIndex) clone(ts ITableSpec) STableIndex {
-	cols := make([]string, len(index.rawColumns))
-	copy(cols, index.rawColumns)
-	return NewTableIndex(ts, cols, index.isUnique)
+	return NewTableIndex(ts, "", index.columns, index.isUnique)
 }
 
 func (index *STableIndex) IsIdentical(cols ...string) bool {
@@ -97,13 +92,17 @@ func (index *STableIndex) QuotedColumns() []string {
 
 // AddIndex adds a SQL index over multiple columns for a Table
 // param unique: indicates a unique index cols: name of columns
-func (ts *STableSpec) AddIndex(unique bool, cols ...string) bool {
+func (ts *STableSpec) addIndexWithName(name string, unique bool, cols ...string) bool {
 	for i := 0; i < len(ts._indexes); i++ {
 		if ts._indexes[i].IsIdentical(cols...) {
 			return false
 		}
 	}
-	idx := NewTableIndex(ts, cols, unique)
+	idx := NewTableIndex(ts, name, cols, unique)
 	ts._indexes = append(ts._indexes, idx)
 	return true
+}
+
+func (ts *STableSpec) AddIndex(unique bool, cols ...string) bool {
+	return ts.addIndexWithName("", unique, cols...)
 }
