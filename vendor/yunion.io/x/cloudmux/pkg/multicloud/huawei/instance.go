@@ -346,6 +346,10 @@ func (self *SInstance) GetCreatedAt() time.Time {
 	return self.Created
 }
 
+func (self *SInstance) GetDescription() string {
+	return self.Description
+}
+
 // charging_mode “0”：按需计费  “1”：按包年包月计费
 func (self *SInstance) GetExpiredAt() time.Time {
 	if len(self.Metadata.MeteringOrderId) > 0 {

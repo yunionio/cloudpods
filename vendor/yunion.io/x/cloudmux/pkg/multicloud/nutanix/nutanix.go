@@ -355,7 +355,7 @@ func (self *sNutanixError) Error() string {
 	return jsonutils.Marshal(self).String()
 }
 
-func (self *sNutanixError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+func (self *sNutanixError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
 	if body != nil {
 		body.Unmarshal(self)
 	}
