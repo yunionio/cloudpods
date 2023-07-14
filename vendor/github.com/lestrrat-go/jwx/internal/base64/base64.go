@@ -1,13 +1,22 @@
 package base64
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/binary"
-	"strings"
+
+	"github.com/pkg/errors"
 )
 
+func Encode(src []byte) []byte {
+	enc := base64.RawURLEncoding
+	dst := make([]byte, enc.EncodedLen(len(src)))
+	enc.Encode(dst, src)
+	return dst
+}
+
 func EncodeToStringStd(src []byte) string {
-	return base64.RawStdEncoding.EncodeToString(src)
+	return base64.StdEncoding.EncodeToString(src)
 }
 
 func EncodeToString(src []byte) string {
@@ -28,17 +37,30 @@ func EncodeUint64ToString(v uint64) string {
 	return EncodeToString(data[i:])
 }
 
-func DecodeString(src string) ([]byte, error) {
-	var isRaw = !strings.HasSuffix(src, "=")
-	if strings.ContainsAny(src, "+/") {
-		if isRaw {
-			return base64.RawStdEncoding.DecodeString(src)
-		}
-		return base64.StdEncoding.DecodeString(src)
+func Decode(src []byte) ([]byte, error) {
+	var enc *base64.Encoding
+
+	var isRaw = !bytes.HasSuffix(src, []byte{'='})
+	var isURL = !bytes.ContainsAny(src, "+/")
+	switch {
+	case isRaw && isURL:
+		enc = base64.RawURLEncoding
+	case isURL:
+		enc = base64.URLEncoding
+	case isRaw:
+		enc = base64.RawStdEncoding
+	default:
+		enc = base64.StdEncoding
 	}
 
-	if isRaw {
-		return base64.RawURLEncoding.DecodeString(src)
+	dst := make([]byte, enc.DecodedLen(len(src)))
+	n, err := enc.Decode(dst, src)
+	if err != nil {
+		return nil, errors.Wrap(err, `failed to decode source`)
 	}
-	return base64.URLEncoding.DecodeString(src)
+	return dst[:n], nil
+}
+
+func DecodeString(src string) ([]byte, error) {
+	return Decode([]byte(src))
 }

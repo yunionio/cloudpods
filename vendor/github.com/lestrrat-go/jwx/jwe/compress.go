@@ -5,6 +5,7 @@ import (
 	"compress/flate"
 	"io/ioutil"
 
+	"github.com/lestrrat-go/jwx/internal/pool"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/pkg/errors"
 )
@@ -18,8 +19,10 @@ func compress(plaintext []byte, alg jwa.CompressionAlgorithm) ([]byte, error) {
 		return plaintext, nil
 	}
 
-	var output bytes.Buffer
-	w, _ := flate.NewWriter(&output, 1)
+	buf := pool.GetBytesBuffer()
+	defer pool.ReleaseBytesBuffer(buf)
+
+	w, _ := flate.NewWriter(buf, 1)
 	in := plaintext
 	for len(in) > 0 {
 		n, err := w.Write(in)
@@ -31,5 +34,8 @@ func compress(plaintext []byte, alg jwa.CompressionAlgorithm) ([]byte, error) {
 	if err := w.Close(); err != nil {
 		return nil, errors.Wrap(err, "failed to close compression writer")
 	}
-	return output.Bytes(), nil
+
+	ret := make([]byte, buf.Len())
+	copy(ret, buf.Bytes())
+	return ret, nil
 }

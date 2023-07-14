@@ -2,10 +2,9 @@ package mapiter
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 // Iterate creates an iterator from arbitrary map types. This is not
@@ -17,7 +16,7 @@ func Iterate(ctx context.Context, m interface{}) (Iterator, error) {
 	mrv := reflect.ValueOf(m)
 
 	if mrv.Kind() != reflect.Map {
-		return nil, errors.Errorf(`argument must be a map (%s)`, mrv.Type())
+		return nil, fmt.Errorf(`argument must be a map (%s)`, mrv.Type())
 	}
 
 	ch := make(chan *Pair)
@@ -105,6 +104,7 @@ func (i *iter) Next(ctx context.Context) bool {
 		return true
 	}
 
+	//nolint:govet
 	return false // never reached
 }
 
@@ -120,7 +120,7 @@ func Walk(ctx context.Context, s Source, v Visitor) error {
 	for i := s.Iterate(ctx); i.Next(ctx); {
 		pair := i.Pair()
 		if err := v.Visit(pair.Key, pair.Value); err != nil {
-			return errors.Wrapf(err, `failed to visit key %s`, pair.Key)
+			return fmt.Errorf(`failed to visit key %s: %w`, pair.Key, err)
 		}
 	}
 	return nil
@@ -133,13 +133,13 @@ func AsMap(ctx context.Context, s interface{}, v interface{}) error {
 	case reflect.Map:
 		x, err := Iterate(ctx, s)
 		if err != nil {
-			return errors.Wrap(err, `failed to iterate over map type`)
+			return fmt.Errorf(`failed to iterate over map type: %w`, err)
 		}
 		iter = x
 	default:
 		ssrc, ok := s.(Source)
 		if !ok {
-			return errors.Errorf(`cannot iterate over %T: not a mapiter.Source type`, s)
+			return fmt.Errorf(`cannot iterate over %T: not a mapiter.Source type`, s)
 		}
 		iter = ssrc.Iterate(ctx)
 	}
@@ -148,12 +148,12 @@ func AsMap(ctx context.Context, s interface{}, v interface{}) error {
 
 	// dst MUST be a pointer to a map type
 	if kind := dst.Kind(); kind != reflect.Ptr {
-		return errors.Errorf(`dst must be a pointer to a map (%s)`, dst.Type())
+		return fmt.Errorf(`dst must be a pointer to a map (%s)`, dst.Type())
 	}
 
 	dst = dst.Elem()
 	if dst.Kind() != reflect.Map {
-		return errors.Errorf(`dst must be a pointer to a map (%s)`, dst.Type())
+		return fmt.Errorf(`dst must be a pointer to a map (%s)`, dst.Type())
 	}
 
 	if dst.IsNil() {
@@ -162,7 +162,7 @@ func AsMap(ctx context.Context, s interface{}, v interface{}) error {
 
 	// dst must be assignable
 	if !dst.CanSet() {
-		return errors.New(`dst is not writeable`)
+		return fmt.Errorf(`dst is not writeable`)
 	}
 
 	keytyp := dst.Type().Key()
@@ -175,10 +175,17 @@ func AsMap(ctx context.Context, s interface{}, v interface{}) error {
 		rvvalue := reflect.ValueOf(pair.Value)
 
 		if !rvkey.Type().AssignableTo(keytyp) {
-			return errors.Errorf(`cannot assign key of type %s to map key of type %s`, rvkey.Type(), keytyp)
+			return fmt.Errorf(`cannot assign key of type %s to map key of type %s`, rvkey.Type(), keytyp)
 		}
-		if !rvvalue.Type().AssignableTo(valtyp) {
-			return errors.Errorf(`cannot assign value of type %s to map value of type %s`, rvvalue.Type(), valtyp)
+
+		switch rvvalue.Kind() {
+		// we can only check if we can assign to rvvalue to valtyp if it's non-nil
+		case reflect.Invalid:
+			rvvalue = reflect.New(valtyp).Elem()
+		default:
+			if !rvvalue.Type().AssignableTo(valtyp) {
+				return fmt.Errorf(`cannot assign value of type %s to map value of type %s`, rvvalue.Type(), valtyp)
+			}
 		}
 
 		dst.SetMapIndex(rvkey, rvvalue)

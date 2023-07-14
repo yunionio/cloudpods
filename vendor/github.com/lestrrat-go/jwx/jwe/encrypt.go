@@ -4,9 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/lestrrat-go/jwx/buffer"
+	"github.com/lestrrat-go/jwx/internal/base64"
 	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/pdebug"
 	"github.com/pkg/errors"
 )
 
@@ -17,10 +16,12 @@ var encryptCtxPool = sync.Pool{
 }
 
 func getEncryptCtx() *encryptCtx {
+	//nolint:forcetypeassert
 	return encryptCtxPool.Get().(*encryptCtx)
 }
 
 func releaseEncryptCtx(ctx *encryptCtx) {
+	ctx.protected = nil
 	ctx.contentEncrypter = nil
 	ctx.generator = nil
 	ctx.keyEncrypters = nil
@@ -32,25 +33,22 @@ func releaseEncryptCtx(ctx *encryptCtx) {
 func (e encryptCtx) Encrypt(plaintext []byte) (*Message, error) {
 	bk, err := e.generator.Generate()
 	if err != nil {
-		if pdebug.Enabled {
-			pdebug.Printf("Failed to generate key: %s", err)
-		}
 		return nil, errors.Wrap(err, "failed to generate key")
 	}
 	cek := bk.Bytes()
 
-	if pdebug.Enabled {
-		pdebug.Printf("Encrypt: generated cek len = %d", len(cek))
+	if e.protected == nil {
+		// shouldn't happen, but...
+		e.protected = NewHeaders()
 	}
 
-	protected := NewHeaders()
-	if err := protected.Set(ContentEncryptionKey, e.contentEncrypter.Algorithm()); err != nil {
+	if err := e.protected.Set(ContentEncryptionKey, e.contentEncrypter.Algorithm()); err != nil {
 		return nil, errors.Wrap(err, `failed to set "enc" in protected header`)
 	}
 
 	compression := e.compress
 	if compression != jwa.NoCompress {
-		if err := protected.Set(CompressionKey, compression); err != nil {
+		if err := e.protected.Set(CompressionKey, compression); err != nil {
 			return nil, errors.Wrap(err, `failed to set "zip" in protected header`)
 		}
 	}
@@ -69,23 +67,25 @@ func (e encryptCtx) Encrypt(plaintext []byte) (*Message, error) {
 				return nil, errors.Wrap(err, "failed to set header")
 			}
 		}
+
 		enckey, err := enc.Encrypt(cek)
 		if err != nil {
-			if pdebug.Enabled {
-				pdebug.Printf("Failed to encrypt key: %s", err)
-			}
 			return nil, errors.Wrap(err, `failed to encrypt key`)
 		}
-		if err := r.SetEncryptedKey(enckey.Bytes()); err != nil {
-			return nil, errors.Wrap(err, "failed to set encrypted key")
+		if enc.Algorithm() == jwa.ECDH_ES || enc.Algorithm() == jwa.DIRECT {
+			if len(e.keyEncrypters) > 1 {
+				return nil, errors.Errorf("unable to support multiple recipients for ECDH-ES")
+			}
+			cek = enckey.Bytes()
+		} else {
+			if err := r.SetEncryptedKey(enckey.Bytes()); err != nil {
+				return nil, errors.Wrap(err, "failed to set encrypted key")
+			}
 		}
 		if hp, ok := enckey.(populater); ok {
 			if err := hp.Populate(r.Headers()); err != nil {
 				return nil, errors.Wrap(err, "failed to populate")
 			}
-		}
-		if pdebug.Enabled {
-			pdebug.Printf("Encrypt: encrypted_key = %x (%d)", enckey.Bytes(), len(enckey.Bytes()))
 		}
 		recipients[i] = r
 	}
@@ -93,14 +93,14 @@ func (e encryptCtx) Encrypt(plaintext []byte) (*Message, error) {
 	// If there's only one recipient, you want to include that in the
 	// protected header
 	if len(recipients) == 1 {
-		h, err := mergeHeaders(context.TODO(), protected, recipients[0].Headers())
+		h, err := e.protected.Merge(context.TODO(), recipients[0].Headers())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to merge protected headers")
 		}
-		protected = h
+		e.protected = h
 	}
 
-	aad, err := protected.Encode()
+	aad, err := e.protected.Encode()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to base64 encode protected headers")
 	}
@@ -113,27 +113,16 @@ func (e encryptCtx) Encrypt(plaintext []byte) (*Message, error) {
 	// ...on the other hand, there's only one content cipher.
 	iv, ciphertext, tag, err := e.contentEncrypter.Encrypt(cek, plaintext, aad)
 	if err != nil {
-		if pdebug.Enabled {
-			pdebug.Printf("Failed to encrypt: %s", err)
-		}
 		return nil, errors.Wrap(err, "failed to encrypt payload")
-	}
-
-	if pdebug.Enabled {
-		pdebug.Printf("Encrypt.Encrypt: cek        = %x (%d)", cek, len(cek))
-		pdebug.Printf("Encrypt.Encrypt: aad        = %x", aad)
-		pdebug.Printf("Encrypt.Encrypt: ciphertext = %x", ciphertext)
-		pdebug.Printf("Encrypt.Encrypt: iv         = %x", iv)
-		pdebug.Printf("Encrypt.Encrypt: tag        = %x", tag)
 	}
 
 	msg := NewMessage()
 
-	decodedAad, err := buffer.FromBase64(aad)
+	decodedAad, err := base64.Decode(aad)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to decode base64")
 	}
-	if err := msg.Set(AuthenticatedDataKey, decodedAad.Bytes()); err != nil {
+	if err := msg.Set(AuthenticatedDataKey, decodedAad); err != nil {
 		return nil, errors.Wrapf(err, `failed to set %s`, AuthenticatedDataKey)
 	}
 	if err := msg.Set(CipherTextKey, ciphertext); err != nil {
@@ -142,7 +131,7 @@ func (e encryptCtx) Encrypt(plaintext []byte) (*Message, error) {
 	if err := msg.Set(InitializationVectorKey, iv); err != nil {
 		return nil, errors.Wrapf(err, `failed to set %s`, InitializationVectorKey)
 	}
-	if err := msg.Set(ProtectedHeadersKey, protected); err != nil {
+	if err := msg.Set(ProtectedHeadersKey, e.protected); err != nil {
 		return nil, errors.Wrapf(err, `failed to set %s`, ProtectedHeadersKey)
 	}
 	if err := msg.Set(RecipientsKey, recipients); err != nil {

@@ -2,10 +2,9 @@ package arrayiter
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 func Iterate(ctx context.Context, a interface{}) (Iterator, error) {
@@ -14,7 +13,7 @@ func Iterate(ctx context.Context, a interface{}) (Iterator, error) {
 	switch arv.Kind() {
 	case reflect.Array, reflect.Slice:
 	default:
-		return nil, errors.Errorf(`argument must be an array/slice (%s)`, arv.Type())
+		return nil, fmt.Errorf(`argument must be an array/slice (%s)`, arv.Type())
 	}
 
 	ch := make(chan *Pair)
@@ -103,6 +102,7 @@ func (i *iter) Next(ctx context.Context) bool {
 		return true
 	}
 
+	//nolint:govet
 	return false // never reached
 }
 
@@ -118,7 +118,7 @@ func Walk(ctx context.Context, s Source, v Visitor) error {
 	for i := s.Iterate(ctx); i.Next(ctx); {
 		pair := i.Pair()
 		if err := v.Visit(pair.Index, pair.Value); err != nil {
-			return errors.Wrapf(err, `failed to visit index %d`, pair.Index)
+			return fmt.Errorf(`failed to visit index %d: %w`, pair.Index, err)
 		}
 	}
 	return nil
@@ -130,13 +130,13 @@ func AsArray(ctx context.Context, s interface{}, v interface{}) error {
 	case reflect.Array, reflect.Slice:
 		x, err := Iterate(ctx, s)
 		if err != nil {
-			return errors.Wrap(err, `failed to iterate over array/slice type`)
+			return fmt.Errorf(`failed to iterate over array/slice type: %w`, err)
 		}
 		iter = x
 	default:
 		ssrc, ok := s.(Source)
 		if !ok {
-			return errors.Errorf(`cannot iterate over %T: not a arrayiter.Source type`, s)
+			return fmt.Errorf(`cannot iterate over %T: not a arrayiter.Source type`, s)
 		}
 		iter = ssrc.Iterate(ctx)
 	}
@@ -145,14 +145,14 @@ func AsArray(ctx context.Context, s interface{}, v interface{}) error {
 
 	// dst MUST be a pointer to a array type
 	if kind := dst.Kind(); kind != reflect.Ptr {
-		return errors.Errorf(`dst must be a pointer to a array (%s)`, dst.Type())
+		return fmt.Errorf(`dst must be a pointer to a array (%s)`, dst.Type())
 	}
 
 	dst = dst.Elem()
 	switch dst.Kind() {
 	case reflect.Array, reflect.Slice:
 	default:
-		return errors.Errorf(`dst must be a pointer to an array or slice (%s)`, dst.Type())
+		return fmt.Errorf(`dst must be a pointer to an array or slice (%s)`, dst.Type())
 	}
 
 	var pairs []*Pair
@@ -164,7 +164,7 @@ func AsArray(ctx context.Context, s interface{}, v interface{}) error {
 	switch dst.Kind() {
 	case reflect.Array:
 		if len(pairs) < dst.Len() {
-			return errors.Errorf(`dst array does not have enough space for elements (%d, want %d)`, dst.Len(), len(pairs))
+			return fmt.Errorf(`dst array does not have enough space for elements (%d, want %d)`, dst.Len(), len(pairs))
 		}
 	case reflect.Slice:
 		if dst.IsNil() {
@@ -174,7 +174,7 @@ func AsArray(ctx context.Context, s interface{}, v interface{}) error {
 
 	// dst must be assignable
 	if !dst.CanSet() {
-		return errors.New(`dst is not writeable`)
+		return fmt.Errorf(`dst is not writeable`)
 	}
 
 	elemtyp := dst.Type().Elem()
@@ -182,7 +182,7 @@ func AsArray(ctx context.Context, s interface{}, v interface{}) error {
 		rvvalue := reflect.ValueOf(pair.Value)
 
 		if !rvvalue.Type().AssignableTo(elemtyp) {
-			return errors.Errorf(`cannot assign key of type %s to map key of type %s`, rvvalue.Type(), elemtyp)
+			return fmt.Errorf(`cannot assign key of type %s to map key of type %s`, rvvalue.Type(), elemtyp)
 		}
 
 		dst.Index(pair.Index).Set(rvvalue)

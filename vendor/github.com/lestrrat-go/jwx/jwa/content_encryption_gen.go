@@ -4,6 +4,8 @@ package jwa
 
 import (
 	"fmt"
+	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -20,6 +22,32 @@ const (
 	A256CBC_HS512 ContentEncryptionAlgorithm = "A256CBC-HS512" // AES-CBC + HMAC-SHA512 (256)
 	A256GCM       ContentEncryptionAlgorithm = "A256GCM"       // AES-GCM (256)
 )
+
+var allContentEncryptionAlgorithms = map[ContentEncryptionAlgorithm]struct{}{
+	A128CBC_HS256: {},
+	A128GCM:       {},
+	A192CBC_HS384: {},
+	A192GCM:       {},
+	A256CBC_HS512: {},
+	A256GCM:       {},
+}
+
+var listContentEncryptionAlgorithmOnce sync.Once
+var listContentEncryptionAlgorithm []ContentEncryptionAlgorithm
+
+// ContentEncryptionAlgorithms returns a list of all available values for ContentEncryptionAlgorithm
+func ContentEncryptionAlgorithms() []ContentEncryptionAlgorithm {
+	listContentEncryptionAlgorithmOnce.Do(func() {
+		listContentEncryptionAlgorithm = make([]ContentEncryptionAlgorithm, 0, len(allContentEncryptionAlgorithms))
+		for v := range allContentEncryptionAlgorithms {
+			listContentEncryptionAlgorithm = append(listContentEncryptionAlgorithm, v)
+		}
+		sort.Slice(listContentEncryptionAlgorithm, func(i, j int) bool {
+			return string(listContentEncryptionAlgorithm[i]) < string(listContentEncryptionAlgorithm[j])
+		})
+	})
+	return listContentEncryptionAlgorithm
+}
 
 // Accept is used when conversion from values given by
 // outside sources (such as JSON payloads) is required
@@ -39,9 +67,7 @@ func (v *ContentEncryptionAlgorithm) Accept(value interface{}) error {
 		}
 		tmp = ContentEncryptionAlgorithm(s)
 	}
-	switch tmp {
-	case A128CBC_HS256, A128GCM, A192CBC_HS384, A192GCM, A256CBC_HS512, A256GCM:
-	default:
+	if _, ok := allContentEncryptionAlgorithms[tmp]; !ok {
 		return errors.Errorf(`invalid jwa.ContentEncryptionAlgorithm value`)
 	}
 
