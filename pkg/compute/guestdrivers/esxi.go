@@ -221,6 +221,10 @@ func (self *SESXiGuestDriver) GetDeployStatus() ([]string, error) {
 }
 
 func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	for i := 0; i < len(data.Disks); i++ {
+		data.Disks[i].Format = "vmdk"
+	}
+
 	// check disk config
 	if len(data.Disks) == 0 {
 		return data, nil
@@ -243,6 +247,7 @@ func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred m
 	for i, subImage := range image.SubImages {
 		nDataDisk := *rootDisk
 		nDataDisk.SizeMb = subImage.MinDiskMB
+		nDataDisk.Format = "vmdk"
 		nDataDisk.Index = i
 		if i > 0 {
 			nDataDisk.ImageId = ""
