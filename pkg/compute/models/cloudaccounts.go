@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/httputils"
@@ -836,9 +837,18 @@ func (self *SCloudaccount) StartSyncCloudAccountInfoTask(ctx context.Context, us
 	if data != nil {
 		params.Update(data)
 	}
-	if syncRange != nil {
-		params.Add(jsonutils.Marshal(syncRange), "sync_range")
+	if gotypes.IsNil(syncRange) {
+		syncRange = &SSyncRange{}
+		syncRange.FullSync = true
+		syncRange.DeepSync = true
 	}
+	syncRange.SkipSyncResources = []string{}
+	if self.SkipSyncResources != nil {
+		for _, res := range *self.SkipSyncResources {
+			syncRange.SkipSyncResources = append(syncRange.SkipSyncResources, res)
+		}
+	}
+	params.Add(jsonutils.Marshal(syncRange), "sync_range")
 
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncInfoTask", self, userCred, params, "", "", nil)
 	if err != nil {
