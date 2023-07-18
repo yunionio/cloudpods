@@ -116,6 +116,8 @@ type BaseOptions struct {
 
 	PlatformName  string            `help:"identity name of this platform" default:"Cloudpods"`
 	PlatformNames map[string]string `help:"identity name of this platform by language"`
+
+	EnableAppProfiling bool `help:"enable profiling API" default:"false"`
 }
 
 const (
