@@ -110,6 +110,8 @@ type SServerSku struct {
 	GpuMaxCount   int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	Provider string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
+
+	Md5 string `width:"32" charset:"utf8" nullable:"true"`
 }
 
 func (manager *SServerSkuManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
@@ -1199,10 +1201,29 @@ func (manager *SServerSkuManager) newPrivateCloudSku(ctx context.Context, userCr
 	return manager.TableSpec().Insert(ctx, sku)
 }
 
-func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
-	_, err := db.Update(self, func() error {
-		self.PrepaidStatus = extSku.PrepaidStatus
-		self.PostpaidStatus = extSku.PostpaidStatus
+func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSku SServerSku) error {
+	if self.Md5 == extSku.Md5 {
+		return nil
+	}
+
+	meta, err := yunionmeta.FetchYunionmeta(ctx)
+	if err != nil {
+		return err
+	}
+
+	sku := &SServerSku{}
+	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ServerBase, region.ExternalId, extSku.ExternalId)
+	err = meta.Get(skuUrl, sku)
+	if err != nil {
+		return errors.Wrapf(err, "Get")
+	}
+
+	_, err = db.Update(self, func() error {
+		self.PrepaidStatus = sku.PrepaidStatus
+		self.PostpaidStatus = sku.PostpaidStatus
+		self.SysDiskType = sku.SysDiskType
+		self.DataDiskTypes = sku.DataDiskTypes
+		self.Md5 = sku.Md5
 		return nil
 	})
 	return err
@@ -1282,7 +1303,7 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 	}
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
-			err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
+			err = commondb[i].syncWithCloudSku(ctx, userCred, region, commonext[i])
 			if err != nil {
 				result.UpdateError(err)
 			} else {
@@ -1306,75 +1327,6 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 	}
 
 	return result
-}
-
-// sku标记为soldout状态。
-func (manager *SServerSkuManager) MarkAsSoldout(ctx context.Context, id string) error {
-	if len(id) == 0 {
-		log.Debugf("MarkAsSoldout sku id should not be emtpy")
-		return nil
-	}
-
-	isku, err := manager.FetchById(id)
-	if err != nil {
-		return err
-	}
-
-	sku, ok := isku.(*SServerSku)
-	if !ok {
-		return fmt.Errorf("%s is not a sku object", id)
-	}
-
-	_, err = manager.TableSpec().Update(ctx, sku, func() error {
-		sku.PrepaidStatus = api.SkuStatusSoldout
-		sku.PostpaidStatus = api.SkuStatusSoldout
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// sku标记为soldout状态。
-func (manager *SServerSkuManager) MarkAllAsSoldout(ctx context.Context, ids []string) error {
-	var err error
-	for _, id := range ids {
-		err = manager.MarkAsSoldout(ctx, id)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// 获取同一个zone下所有Available状态的sku id
-func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) ([]string, error) {
-	q := manager.Query()
-	if len(zoneId) == 0 {
-		return nil, fmt.Errorf("FetchAllAvailableSkuIdByZoneId zone id should not be emtpy")
-	}
-
-	skus := make([]SServerSku, 0)
-	q = q.Equals("zone_id", zoneId)
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable),
-		sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable)))
-
-	err := db.FetchModelObjects(manager, q, &skus)
-	if err != nil {
-		return nil, err
-	}
-
-	ids := make([]string, len(skus))
-	for i := range skus {
-		ids[i] = skus[i].GetId()
-	}
-
-	return ids, nil
 }
 
 func (manager *SServerSkuManager) initializeSkuStatus() error {
