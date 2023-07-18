@@ -37,6 +37,9 @@ func InitApp(options *common_options.BaseOptions, dbAccess bool) *appsrv.Applica
 	// if dbConn != nil {
 	//	app.SetContext(appsrv.APP_CONTEXT_KEY_DB, dbConn)
 	//}
+	if options.EnableAppProfiling {
+		app.EnableProfiling()
+	}
 	return app
 }
 
