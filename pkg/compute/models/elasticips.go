@@ -1595,6 +1595,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	// eip.AutoDellocate = tristate.True
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
+	eip.BgpType = args.BgpType
 	eip.AutoDellocate = tristate.NewFromBool(autoDellocate)
 	ownerCred := userCred.(mcclient.IIdentityProvider)
 	if vm != nil {
