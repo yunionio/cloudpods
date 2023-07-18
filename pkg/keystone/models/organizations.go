@@ -67,7 +67,7 @@ type SOrganization struct {
 
 	Keys string `width:"256" charset:"utf8" list:"user" create:"admin_optional"`
 
-	Level int `list:"user" create:"admin_required"`
+	Level int `list:"user" create:"admin_optional"`
 }
 
 func (manager *SOrganizationManager) fetchOrganizationById(orgId string) (*SOrganization, error) {
@@ -257,9 +257,10 @@ func (manager *SOrganizationManager) ValidateCreateData(
 		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid organization type %s", input.Type)
 	}
 
-	if len(input.Key) == 0 {
-		return input, errors.Wrap(httperrors.ErrInputParameter, "empty key")
-	}
+	// allow empty key
+	// if len(input.Key) == 0 {
+	//	return input, errors.Wrap(httperrors.ErrInputParameter, "empty key")
+	// }
 
 	input.Level = len(input.Key)
 	// keys should be uniq
@@ -328,6 +329,9 @@ func (org *SOrganization) PerformAddLevel(
 	keys := api.SplitLabel(org.Keys)
 
 	for _, nk := range input.Key {
+		if len(nk) == 0 {
+			return nil, errors.Wrap(httperrors.ErrInputParameter, "empty key")
+		}
 		if utils.IsInArray(nk, keys) {
 			return nil, errors.Wrapf(httperrors.ErrInputParameter, "key %s duplicated", nk)
 		} else {
@@ -354,6 +358,8 @@ func (org *SOrganization) PerformAddLevel(
 	if err != nil {
 		return nil, errors.Wrap(err, "Update")
 	}
+
+	OrganizationManager.cache.Update(org)
 
 	db.OpsLog.LogEvent(org, db.ACT_UPDATE, org.GetShortDesc(ctx), userCred)
 	logclient.AddSimpleActionLog(org, logclient.ACT_UPDATE, org.GetShortDesc(ctx), userCred, true)
@@ -397,10 +403,12 @@ func (org *SOrganization) PerformAddNode(
 
 	for i := 0; i < len(labels); i++ {
 		var weight *int
+		var desc string
 		if i == len(labels)-1 {
 			weight = &input.Weight
+			desc = input.Description
 		}
-		_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, labels[i], api.JoinLabels(labels[0:i+1]...), i+1, weight)
+		_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, labels[i], api.JoinLabels(labels[0:i+1]...), i+1, weight, desc)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to insert node %s", api.JoinLabels(labels[i:i]...))
 		}
@@ -535,7 +543,7 @@ func (org *SOrganization) syncTagValueMap(ctx context.Context, tagVal map[string
 		if val, ok := tagVal[key]; ok && val != tagutils.NoValue {
 			labels = append(labels, val)
 			log.Debugf("%d %s %s %s", i, key, val, strings.Join(labels, "/"))
-			_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, val, api.JoinLabels(labels...), i+1, nil)
+			_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, val, api.JoinLabels(labels...), i+1, nil, "")
 			if err != nil {
 				return nil, errors.Wrapf(err, "fail to insert node %s", api.JoinLabels(labels...))
 			}

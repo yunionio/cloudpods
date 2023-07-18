@@ -103,13 +103,14 @@ func generateId(orgId string, fullLabel string, level int) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId string, label string, fullLabel string, level int, weight *int) (*SOrganizationNode, error) {
+func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId string, label string, fullLabel string, level int, weight *int, desc string) (*SOrganizationNode, error) {
 	node := &SOrganizationNode{
 		OrgId:     orgId,
 		FullLabel: fullLabel,
 		Level:     level,
 		Weight:    weight,
 	}
+	node.Description = desc
 	node.Name = label
 	node.Id = generateId(orgId, fullLabel, level)
 
@@ -250,7 +251,7 @@ func (orgNode *SOrganizationNode) ValidateUpdateData(
 		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
 	// not allow to update name
-	if input.Name != orgNode.Name {
+	if len(input.Name) > 0 && input.Name != orgNode.Name {
 		return input, errors.Wrap(httperrors.ErrForbidden, "not allow to update name")
 	}
 	return input, nil
