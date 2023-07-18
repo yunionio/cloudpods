@@ -151,6 +151,7 @@ var (
 
 			"is_slave_node",
 			"config_sync_period_seconds",
+			"enable_app_profiling",
 
 			// ############################
 			// db blacklist options

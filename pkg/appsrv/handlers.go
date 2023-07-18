@@ -51,7 +51,7 @@ func CORSHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
     }
 }*/
 
-func AddPProfHandler(prefix string, app *Application) {
+func addPProfHandler(prefix string, app *Application) {
 	pp := "/debug/pprof"
 	if prefix != "" {
 		prefix = fmt.Sprintf("%s/%s", prefix, pp)
