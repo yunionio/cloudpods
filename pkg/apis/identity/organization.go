@@ -106,8 +106,9 @@ type OrganizationPerformAddLevelsInput struct {
 }
 
 type OrganizationPerformAddNodeInput struct {
-	Tags   map[string]string
-	Weight int
+	Tags        map[string]string
+	Weight      int
+	Description string
 }
 
 type OrganizationPerformSyncInput struct {
