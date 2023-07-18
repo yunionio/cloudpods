@@ -194,6 +194,13 @@ func (self *SESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]str
 	return []string{api.VM_READY}, nil
 }
 
+func (self *SESXiGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {
+	for i := range newDisks {
+		newDisks[i].Format = "vmdk"
+	}
+	return nil
+}
+
 func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
 	return false
 }
