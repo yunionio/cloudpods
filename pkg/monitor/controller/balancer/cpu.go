@@ -127,6 +127,9 @@ func newCPUCandidate(gst jsonutils.JSONObject, host *HostResource, ds *tsdb.Data
 	}
 
 	metric := metrics.Get(res.GetId())
+	if metric == nil {
+		return nil, errors.Errorf("not found resource %q metric from %#v", res.GetId(), metrics.indexes)
+	}
 	usage := metric.Values["usage_active"]
 	return &cpuCandidate{
 		guestResource: res,
