@@ -15,11 +15,14 @@
 package k8s
 
 import (
+	"io"
 	"os"
+	"strings"
 
 	"github.com/cheggaaa/pb/v3"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
@@ -59,6 +62,43 @@ func initContainerRegistry() {
 			return err
 		}
 		printObject(img)
+		return nil
+	})
+
+	type DownloadOptions struct {
+		REGISTRY string `help:"The name or id of registry" json:"-"`
+		NAME     string `help:"The name of image, e.g. 'influxdb:1.7.7'"`
+		Output   string `help:"Saved file path"`
+	}
+	R(new(DownloadOptions), "k8s-container-registry-download-image", "Download container image to a file", func(s *mcclient.ClientSession, args *DownloadOptions) error {
+		parts := strings.Split(args.NAME, ":")
+		if len(parts) != 2 {
+			return errors.Errorf("invalid NAME %q, use format <name>:<tag>", args.NAME)
+		}
+		name := parts[0]
+		tag := parts[1]
+		fileName, src, size, err := k8s.ContainerRegistries.DownloadImage(s, args.REGISTRY, name, tag)
+		if err != nil {
+			return errors.Wrap(err, "download chart")
+		}
+		output := args.Output
+		if output == "" && fileName != "" {
+			output = fileName
+		}
+		if output == "" {
+			return errors.Errorf("--output filepath must provide")
+		}
+		f, err := os.Create(output)
+		if err != nil {
+			return errors.Wrapf(err, "create saved file: %q", args.Output)
+		}
+		defer f.Close()
+		var sink io.Writer = f
+		bar := pb.Full.Start64(size)
+		barReader := bar.NewProxyReader(src)
+		if _, err := io.Copy(sink, barReader); err != nil {
+			return errors.Wrap(err, "save chart")
+		}
 		return nil
 	})
 }
