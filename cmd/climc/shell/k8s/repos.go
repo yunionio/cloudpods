@@ -15,12 +15,14 @@
 package k8s
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/cheggaaa/pb/v3"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
@@ -62,6 +64,38 @@ func initRepo() {
 			return err
 		}
 		printObject(ret)
+		return nil
+	})
+
+	type DownloadOptions struct {
+		REPO    string `help:"The name or id of helm repository`
+		CHART   string `help:"The name of chart"`
+		Output  string `help:"Saved file path"`
+		Version string `help:"The version of chart"`
+	}
+	R(new(DownloadOptions), "k8s-repo-download-chart", "Download helm chart to a file", func(s *mcclient.ClientSession, args *DownloadOptions) error {
+		chartFileName, src, size, err := k8s.Repos.DownloadChart(s, args.REPO, args.CHART, args.Version)
+		if err != nil {
+			return errors.Wrap(err, "download chart")
+		}
+		output := args.Output
+		if output == "" && chartFileName != "" {
+			output = chartFileName
+		}
+		if output == "" {
+			return errors.Errorf("--output filepath must provide")
+		}
+		f, err := os.Create(output)
+		if err != nil {
+			return errors.Wrapf(err, "create saved file: %q", args.Output)
+		}
+		defer f.Close()
+		var sink io.Writer = f
+		bar := pb.Full.Start64(size)
+		barReader := bar.NewProxyReader(src)
+		if _, err := io.Copy(sink, barReader); err != nil {
+			return errors.Wrap(err, "save chart")
+		}
 		return nil
 	})
 }
