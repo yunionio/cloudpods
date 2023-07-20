@@ -104,6 +104,19 @@ func generateId(orgId string, fullLabel string, level int) string {
 }
 
 func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId string, label string, fullLabel string, level int, weight *int, desc string) (*SOrganizationNode, error) {
+	id := generateId(orgId, fullLabel, level)
+	obj, err := manager.FetchById(id)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return nil, errors.Wrap(err, "FetchById")
+		}
+		// not exist
+	} else {
+		// exist
+		if len(desc) == 0 {
+			desc = obj.(*SOrganizationNode).Description
+		}
+	}
 	node := &SOrganizationNode{
 		OrgId:     orgId,
 		FullLabel: fullLabel,
@@ -112,9 +125,9 @@ func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId s
 	}
 	node.Description = desc
 	node.Name = label
-	node.Id = generateId(orgId, fullLabel, level)
+	node.Id = id
 
-	err := manager.TableSpec().InsertOrUpdate(ctx, node)
+	err = manager.TableSpec().InsertOrUpdate(ctx, node)
 	if err != nil {
 		return nil, errors.Wrap(err, "InsertOrUpdate")
 	}
