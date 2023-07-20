@@ -50,7 +50,8 @@ func (opts *OrganizationNodeIdOptions) Params() (jsonutils.JSONObject, error) {
 type OrganizationNodeUpdateOptions struct {
 	OrganizationNodeIdOptions
 
-	Weigth int `help:"update weight of node"`
+	Weigth      int    `help:"update weight of node"`
+	Description string `help:"update description"`
 }
 
 func (opts *OrganizationNodeUpdateOptions) Params() (jsonutils.JSONObject, error) {
