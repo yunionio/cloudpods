@@ -18,8 +18,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -61,4 +64,28 @@ func (m *ContainerRegistryManager) UploadImage(s *mcclient.ClientSession, id str
 		return nil, err
 	}
 	return json, nil
+}
+
+func (m *ContainerRegistryManager) DownloadImage(s *mcclient.ClientSession, id string, imageName string, imageTag string) (string, io.Reader, int64, error) {
+	params := map[string]string{
+		"image_name": imageName,
+		"tag":        imageTag,
+	}
+	query := jsonutils.Marshal(params)
+	path := fmt.Sprintf("/%s/%s/download-image", m.URLPath(), url.PathEscape(id))
+	queryString := query.QueryString()
+	if len(queryString) > 0 {
+		path = fmt.Sprintf("%s?%s", path, queryString)
+	}
+	resp, err := modulebase.RawRequest(*m.ResourceManager.ResourceManager, s, "GET", path, nil, nil)
+	if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		sizeBytes, err := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+		if err != nil {
+			log.Errorf("Download image unknown size")
+			sizeBytes = -1
+		}
+		return resp.Header.Get("Image-Filename"), resp.Body, sizeBytes, nil
+	}
+	_, _, err = s.ParseJSONResponse("", resp, err)
+	return "", nil, -1, err
 }
