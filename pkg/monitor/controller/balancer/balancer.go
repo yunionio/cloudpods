@@ -266,6 +266,8 @@ func findGuestsOfHost(drv IMetricDriver, host IHost, ds *tsdb.DataSource, ms *mo
 	}
 
 	ret := make([]ICandidate, 0)
+	found := false
+	errs := []error{}
 	for _, obj := range objs {
 		gHostId, err := obj.GetString("host_id")
 		if err != nil {
@@ -291,14 +293,23 @@ func findGuestsOfHost(drv IMetricDriver, host IHost, ds *tsdb.DataSource, ms *mo
 			}
 			c, err := drv.GetCandidate(obj, host, ds)
 			if err != nil {
-				return nil, errors.Wrapf(err, "drv.GetCandidate of guest %s", obj)
+				errs = append(errs, errors.Wrapf(err, "drv.GetCandidate of guest %s", obj))
+				continue
+
 			}
 			if c.GetScore() == 0 {
 				log.Debugf("ignore guest %s cause %s score is 0", c.GetName(), drv.GetType())
 				continue
 			}
 			ret = append(ret, c)
+			found = true
 		}
+	}
+	if !found {
+		return nil, errors.NewAggregate(errs)
+	}
+	if len(errs) != 0 {
+		log.Warningf("not all guests found: %s", errors.NewAggregate(errs))
 	}
 	return ret, nil
 }
