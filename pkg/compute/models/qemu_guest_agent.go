@@ -79,8 +79,13 @@ func (self *SGuest) PerformQgaPing(
 		return nil, httperrors.NewBadRequestError("can't use qga in vm status: %s", self.Status)
 	}
 
+	res := jsonutils.NewDict()
 	host, _ := self.GetHost()
-	return nil, self.GetDriver().QgaRequestGuestPing(ctx, mcclient.GetTokenHeaders(userCred), host, self, false, input)
+	err := self.GetDriver().QgaRequestGuestPing(ctx, mcclient.GetTokenHeaders(userCred), host, self, false, input)
+	if err != nil {
+		res.Set("ping_error", jsonutils.NewString(err.Error()))
+	}
+	return res, nil
 }
 
 func (self *SGuest) PerformQgaCommand(
