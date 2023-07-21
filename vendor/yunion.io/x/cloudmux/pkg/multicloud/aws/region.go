@@ -261,7 +261,7 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval
 	return self.client.request(self.RegionId, RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval, true)
 }
 
-func (self *SRegion) redisRequest(apiName string, params map[string]string, retval interface{}) error {
+func (self *SRegion) ecRequest(apiName string, params map[string]string, retval interface{}) error {
 	return self.client.request(self.RegionId, ELASTICACHE_SERVICE_NAME, ELASTICACHE_SERVICE_ID, "2015-02-02", apiName, params, retval, true)
 }
 

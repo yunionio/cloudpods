@@ -23,9 +23,22 @@ import (
 type SchedtagConfig struct {
 	apis.Meta
 
-	Id           string `json:"id"`
-	Strategy     string `json:"strategy"`
-	Weight       int    `json:"weight"`
+	// swagger: ignore
+	Id string `json:"id"`
+	// 调度策略
+	// required: 必须使用
+	// prefer: 尽量使用
+	// avoid: 避免使用
+	// exclude: 禁止使用
+	// enmu: required, prefer, avoid, exclude
+	Strategy string `json:"strategy"`
+	// swagger: ignore
+	Weight int `json:"weight"`
+	// 资源类型
+	// hosts: 宿主机
+	// networks: 网络
+	// storages: 存储
+	// enmu: hosts, storages, networks
 	ResourceType string `json:"resource_type"`
 }
 

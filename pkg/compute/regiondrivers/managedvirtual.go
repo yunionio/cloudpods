@@ -1685,17 +1685,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 				return nil, errors.Wrap(err, "GetICloudElasticcacheAccounts")
 			}
 
-			result := models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, iaccounts)
-			log.Infof("SyncElasticcacheAccounts %s", result.Result())
+			models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, iaccounts)
 
 			account, err := ec.GetAdminAccount()
-			if err != nil {
-				return nil, errors.Wrap(err, "GetAdminAccount")
-			}
-
-			err = account.SavePassword(params.Password)
-			if err != nil {
-				return nil, errors.Wrap(err, "SavePassword")
+			if err == nil {
+				account.SavePassword(params.Password)
 			}
 		}
 
@@ -1706,8 +1700,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 				if !(errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented) {
 					return nil, errors.Wrap(err, "GetICloudElasticcacheAcls")
 				}
-				result := models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, iacls)
-				log.Infof("SyncElasticcacheAcls %s", result.Result())
+				models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, iacls)
 			}
 		}
 
@@ -1718,8 +1711,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 				if !(errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotSupported) {
 					return nil, errors.Wrap(err, "GetICloudElasticcacheParameters")
 				}
-				result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
-				log.Infof("SyncElasticcacheParameters %s", result.Result())
+				models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
 			}
 		}
 		return nil, nil
@@ -1833,24 +1825,28 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx cont
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	if len(ec.ExternalId) == 0 {
+		return nil
+	}
+
 	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.GetIRegion")
+		return errors.Wrap(err, "GetIRegion")
 	}
 
 	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
 	if errors.Cause(err) == cloudprovider.ErrNotFound {
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.GetIElasticcacheById")
+		return errors.Wrap(err, "GetIElasticcacheById")
 	}
 
 	err = iec.Delete()
 	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.Delete")
+		return errors.Wrap(err, "Delete")
 	}
 
-	return cloudprovider.WaitDeleted(iec, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitDeleted(iec, 10*time.Second, 10*time.Minute)
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestSetElasticcacheMaintainTime(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {

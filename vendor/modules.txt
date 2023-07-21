@@ -218,7 +218,6 @@ github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/acm
 github.com/aws/aws-sdk-go/service/cloudtrail
 github.com/aws/aws-sdk-go/service/ec2
-github.com/aws/aws-sdk-go/service/elasticache
 github.com/aws/aws-sdk-go/service/elbv2
 github.com/aws/aws-sdk-go/service/iam
 github.com/aws/aws-sdk-go/service/organizations
@@ -1440,7 +1439,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230720081437-38d4b6ea7d8a
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230721092909-9ee22ee0fdd9
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing

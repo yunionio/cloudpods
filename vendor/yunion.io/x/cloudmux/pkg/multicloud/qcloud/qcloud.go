@@ -943,10 +943,8 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 		if isError(err, []string{"UnauthorizedOperation.NotFinanceAuth"}) {
 			return nil, cloudprovider.ErrNoBalancePermission
 		}
-		log.Errorf("DescribeAccountBalance fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "DescribeAccountBalance")
 	}
-	log.Debugf("%s", body)
 	balanceCent, _ := body.Float("Balance")
 	balance.AvailableAmount = balanceCent / 100.0
 	return &balance, nil

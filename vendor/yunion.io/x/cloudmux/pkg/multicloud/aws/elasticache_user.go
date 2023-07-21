@@ -15,8 +15,7 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/service/elasticache"
-
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -24,54 +23,32 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-func (region *SRegion) DescribeUsers(engine string) ([]*elasticache.User, error) {
-	ecClient, err := region.getAwsElasticacheClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getAwsElasticacheClient")
-	}
-
-	input := elasticache.DescribeUsersInput{}
-	if len(engine) > 0 {
-		input.Engine = &engine
-	}
-	marker := ""
-	maxrecords := (int64)(50)
-	input.MaxRecords = &maxrecords
-
-	users := []*elasticache.User{}
-	for {
-		if len(marker) >= 0 {
-			input.Marker = &marker
-		}
-		out, err := ecClient.DescribeUsers(&input)
-		if err != nil {
-			return nil, errors.Wrap(err, "ecClient.DescribeCacheClusters")
-		}
-		users = append(users, out.Users...)
-
-		if out.Marker != nil && len(*out.Marker) > 0 {
-			marker = *out.Marker
-		} else {
-			break
-		}
-	}
-
-	return users, nil
+type Authentication struct {
+	PasswordCount int64  `xml:"PasswordCount"`
+	Type          string `xml:"Type"`
 }
 
 type SElasticacheUser struct {
 	multicloud.SElasticcacheAccountBase
 	AwsTags
 	region *SRegion
-	user   *elasticache.User
+
+	ARN            string         `xml:"Arn"`
+	AccessString   string         `xml:"AccessString"`
+	Authentication Authentication `xml:"Authentication"`
+	Engine         string         `xml:"Engine"`
+	Status         string         `xml:"Status"`
+	UserGroupIds   []string       `xml:"UserGroupIds>member"`
+	UserId         string         `xml:"UserId"`
+	UserName       string         `xml:"UserName"`
 }
 
 func (self *SElasticacheUser) GetId() string {
-	return *self.user.UserId
+	return self.UserId
 }
 
 func (self *SElasticacheUser) GetName() string {
-	return *self.user.UserName
+	return self.UserName
 }
 
 func (self *SElasticacheUser) GetGlobalId() string {
@@ -79,11 +56,8 @@ func (self *SElasticacheUser) GetGlobalId() string {
 }
 
 func (self *SElasticacheUser) GetStatus() string {
-	if self.user == nil || self.user.Status == nil {
-		return ""
-	}
 	//  "active", "modifying" or "deleting"
-	switch *self.user.Status {
+	switch self.Status {
 	case "active":
 		return api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE
 	case "modifying":
@@ -91,21 +65,21 @@ func (self *SElasticacheUser) GetStatus() string {
 	case "deleting":
 		return api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETING
 	default:
-		return ""
+		return self.Status
 	}
 }
 
 func (self *SElasticacheUser) Refresh() error {
-	users, err := self.region.DescribeUsers("")
+	users, err := self.region.GetCacheUsers("", self.UserId)
 	if err != nil {
 		return errors.Wrap(err, "region.DescribeUsers")
 	}
 	for i := range users {
-		if users[i] != nil && users[i].UserId != nil && *users[i].UserId == self.GetId() {
-			self.user = users[i]
+		if users[i].UserId == self.UserId {
+			return jsonutils.Update(self, users[i])
 		}
 	}
-	return nil
+	return errors.Wrapf(cloudprovider.ErrNotFound, self.UserId)
 }
 
 func (self *SElasticacheUser) GetAccountType() string {
@@ -113,10 +87,7 @@ func (self *SElasticacheUser) GetAccountType() string {
 }
 
 func (self *SElasticacheUser) GetAccountPrivilege() string {
-	if self.user != nil && self.user.AccessString != nil {
-		return *self.user.AccessString
-	}
-	return ""
+	return self.AccessString
 }
 
 func (self *SElasticacheUser) Delete() error {
@@ -129,4 +100,30 @@ func (self *SElasticacheUser) ResetPassword(input cloudprovider.SCloudElasticCac
 
 func (self *SElasticacheUser) UpdateAccount(input cloudprovider.SCloudElasticCacheAccountUpdateInput) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (region *SRegion) GetCacheUsers(engine, userId string) ([]SElasticacheUser, error) {
+	params := map[string]string{}
+	if len(engine) > 0 {
+		params["Engine"] = engine
+	}
+	if len(userId) > 0 {
+		params["UserId"] = userId
+	}
+	ret := []SElasticacheUser{}
+	for {
+		part := struct {
+			Marker string             `xml:"Marker"`
+			Users  []SElasticacheUser `xml:"Users>member"`
+		}{}
+		err := region.ecRequest("DescribeUsers", params, &part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Users...)
+		if len(part.Marker) == 0 || len(part.Users) == 0 {
+			break
+		}
+	}
+	return ret, nil
 }
