@@ -31,7 +31,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/log"
@@ -321,15 +320,6 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 	return s, nil
 }
 
-func (region *SRegion) getAwsElasticacheClient() (*elasticache.ElastiCache, error) {
-	session, err := region.getAwsSession()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getDefaultSession")
-	}
-	session.ClientConfig(ELASTICACHE_SERVICE_NAME)
-	return elasticache.New(session), nil
-}
-
 func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
 	session, err := client.getDefaultSession(true)
 	if err != nil {
@@ -554,7 +544,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
-		cloudprovider.CLOUD_CAPABILITY_CACHE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_NAT + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,

@@ -19,8 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/elasticache"
-
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -28,42 +27,13 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-func (region *SRegion) DescribeSnapshots(replicaGroupId string, snapshotName string) ([]*elasticache.Snapshot, error) {
-	ecClient, err := region.getAwsElasticacheClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getAwsElasticacheClient")
-	}
-
-	input := elasticache.DescribeSnapshotsInput{}
-	if len(replicaGroupId) > 0 {
-		input.ReplicationGroupId = &replicaGroupId
-	}
-	if len(snapshotName) > 0 {
-		input.SnapshotName = &snapshotName
-	}
-	marker := ""
-	maxrecords := (int64)(50)
-	input.MaxRecords = &maxrecords
-
-	snapshot := []*elasticache.Snapshot{}
-	for {
-		if len(marker) >= 0 {
-			input.Marker = &marker
-		}
-		out, err := ecClient.DescribeSnapshots(&input)
-		if err != nil {
-			return nil, errors.Wrap(err, "ecClient.DescribeCacheClusters")
-		}
-		snapshot = append(snapshot, out.Snapshots...)
-
-		if out.Marker != nil && len(*out.Marker) > 0 {
-			marker = *out.Marker
-		} else {
-			break
-		}
-	}
-
-	return snapshot, nil
+type NodeSnapshot struct {
+	CacheClusterId      string    `xml:"CacheClusterId"`
+	CacheNodeCreateTime time.Time `xml:"CacheNodeCreateTime"`
+	CacheNodeId         string    `xml:"CacheNodeId"`
+	CacheSize           string    `xml:"CacheSize"`
+	NodeGroupId         string    `xml:"NodeGroupId"`
+	SnapshotCreateTime  time.Time `xml:"SnapshotCreateTime"`
 }
 
 type SElasticacheSnapshop struct {
@@ -71,15 +41,41 @@ type SElasticacheSnapshop struct {
 	AwsTags
 	region *SRegion
 
-	snapshot *elasticache.Snapshot
+	ARN                         string         `xml:"Arn"`
+	AutoMinorVersionUpgrade     bool           `xml:"AutoMinorVersionUpgrade"`
+	AutomaticFailover           string         `xml:"AutomaticFailover"`
+	CacheClusterCreateTime      time.Time      `xml:"CacheClusterCreateTime"`
+	CacheClusterId              string         `xml:"CacheClusterId"`
+	CacheNodeType               string         `xml:"CacheNodeType"`
+	CacheParameterGroupName     string         `xml:"CacheParameterGroupName"`
+	CacheSubnetGroupName        string         `xml:"CacheSubnetGroupName"`
+	Engine                      string         `xml:"Engine"`
+	EngineVersion               string         `xml:"EngineVersion"`
+	KmsKeyId                    string         `xml:"KmsKeyId"`
+	NodeSnapshots               []NodeSnapshot `xml:"NodeSnapshots>NodeSnapshot"`
+	NumCacheNodes               int64          `xml:"NumCacheNodes"`
+	NumNodeGroups               int64          `xml:"NumNodeGroups"`
+	Port                        int64          `xml:"Port"`
+	PreferredAvailabilityZone   string         `xml:"PreferredAvailabilityZone"`
+	PreferredMaintenanceWindow  string         `xml:"PreferredMaintenanceWindow"`
+	PreferredOutpostArn         string         `xml:"PreferredOutpostArn"`
+	ReplicationGroupDescription string         `xml:"ReplicationGroupDescription"`
+	ReplicationGroupId          string         `xml:"ReplicaGroupId"`
+	SnapshotName                string         `xml:"SnapshotName"`
+	SnapshotRetentionLimit      int64          `xml:"SnapshotRetentionLimit"`
+	SnapshotSource              string         `xml:"SnapshotSource"`
+	SnapshotStatus              string         `xml:"SnapshotStatus"`
+	SnapshotWindow              string         `xml:"SnapshotWindow"`
+	TopicArn                    string         `xml:"TopicArn"`
+	VpcId                       string         `xml:"VpcId"`
 }
 
 func (self *SElasticacheSnapshop) GetId() string {
-	return *self.snapshot.SnapshotName
+	return self.SnapshotName
 }
 
 func (self *SElasticacheSnapshop) GetName() string {
-	return *self.snapshot.SnapshotName
+	return self.SnapshotName
 }
 
 func (self *SElasticacheSnapshop) GetGlobalId() string {
@@ -87,11 +83,8 @@ func (self *SElasticacheSnapshop) GetGlobalId() string {
 }
 
 func (self *SElasticacheSnapshop) GetStatus() string {
-	if self.snapshot == nil || self.snapshot.SnapshotStatus == nil {
-		return api.ELASTIC_CACHE_BACKUP_STATUS_UNKNOWN
-	}
 	// creating | available | restoring | copying | deleting
-	switch *self.snapshot.SnapshotStatus {
+	switch self.SnapshotStatus {
 	case "creating":
 		return api.ELASTIC_CACHE_BACKUP_STATUS_CREATING
 	case "available":
@@ -103,53 +96,44 @@ func (self *SElasticacheSnapshop) GetStatus() string {
 	case "deleting":
 		return api.ELASTIC_CACHE_BACKUP_STATUS_DELETING
 	default:
-		return ""
+		return self.SnapshotStatus
 	}
 }
 
 func (self *SElasticacheSnapshop) Refresh() error {
-	snapshots, err := self.region.DescribeSnapshots("", self.GetName())
+	snapshots, err := self.region.GetCacheSnapshots(self.ReplicationGroupId, self.GetName())
 	if err != nil {
 		return errors.Wrapf(err, `self.region.DescribeSnapshots("", %s)`, self.GetName())
 	}
-
-	if len(snapshots) == 0 {
-		return cloudprovider.ErrNotFound
+	for i := range snapshots {
+		if snapshots[i].SnapshotName == self.SnapshotName {
+			return jsonutils.Update(self, snapshots[i])
+		}
 	}
-	if len(snapshots) > 1 {
-		return cloudprovider.ErrDuplicateId
-	}
-
-	self.snapshot = snapshots[0]
-	return nil
+	return errors.Wrapf(cloudprovider.ErrNotFound, self.GetName())
 }
 
 func (self *SElasticacheSnapshop) GetBackupSizeMb() int {
 	total := 0
-	if self.snapshot != nil && len(self.snapshot.NodeSnapshots) > 0 {
-		for i := range self.snapshot.NodeSnapshots {
-			if self.snapshot.NodeSnapshots[i] != nil && self.snapshot.NodeSnapshots[0].CacheSize != nil {
-				sizeStr := *self.snapshot.NodeSnapshots[0].CacheSize
-				splited := strings.Split(sizeStr, " ")
-				if len(splited) != 2 {
-					return 0
-				}
-				size, err := strconv.Atoi(splited[0])
-				if err != nil {
-					return 0
-				}
-				switch splited[1] {
-				case "MB":
-					total += size
-				case "GB":
-					total += size * 1024
-				case "TB":
-					total += size * 1024 * 1024
-				}
-			}
+	for i := range self.NodeSnapshots {
+		sizeStr := self.NodeSnapshots[i].CacheSize
+		splited := strings.Split(sizeStr, " ")
+		if len(splited) != 2 {
+			return 0
+		}
+		size, err := strconv.Atoi(splited[0])
+		if err != nil {
+			return 0
+		}
+		switch splited[1] {
+		case "MB":
+			total += size
+		case "GB":
+			total += size * 1024
+		case "TB":
+			total += size * 1024 * 1024
 		}
 	}
-
 	return total
 }
 
@@ -158,17 +142,14 @@ func (self *SElasticacheSnapshop) GetBackupType() string {
 }
 
 func (self *SElasticacheSnapshop) GetBackupMode() string {
-	if self.snapshot != nil && self.snapshot.SnapshotSource != nil {
-		source := *self.snapshot.SnapshotSource
-		// automated manual
-		switch source {
-		case "automated":
-			return api.ELASTIC_CACHE_BACKUP_MODE_AUTOMATED
-		case "manual":
-			return api.ELASTIC_CACHE_BACKUP_MODE_MANUAL
-		default:
-			return source
-		}
+	// automated manual
+	switch self.SnapshotSource {
+	case "automated":
+		return api.ELASTIC_CACHE_BACKUP_MODE_AUTOMATED
+	case "manual":
+		return api.ELASTIC_CACHE_BACKUP_MODE_MANUAL
+	default:
+		return self.SnapshotSource
 	}
 	return ""
 }
@@ -178,13 +159,8 @@ func (self *SElasticacheSnapshop) GetDownloadURL() string {
 }
 
 func (self *SElasticacheSnapshop) GetStartTime() time.Time {
-	if self.snapshot == nil {
-		return time.Time{}
-	}
-	for _, nodeSnapshot := range self.snapshot.NodeSnapshots {
-		if nodeSnapshot != nil && nodeSnapshot.SnapshotCreateTime != nil {
-			return *nodeSnapshot.SnapshotCreateTime
-		}
+	for _, nodeSnapshot := range self.NodeSnapshots {
+		return nodeSnapshot.SnapshotCreateTime
 	}
 	return time.Time{}
 }
@@ -199,4 +175,31 @@ func (self *SElasticacheSnapshop) Delete() error {
 
 func (self *SElasticacheSnapshop) RestoreInstance(instanceId string) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (region *SRegion) GetCacheSnapshots(replicaGroupId string, snapshotName string) ([]SElasticacheSnapshop, error) {
+	params := map[string]string{}
+	if len(replicaGroupId) > 0 {
+		params["ReplicationGroupId"] = replicaGroupId
+	}
+	if len(snapshotName) > 0 {
+		params["SnapshotName"] = snapshotName
+	}
+	ret := []SElasticacheSnapshop{}
+	for {
+		part := struct {
+			Snapshots []SElasticacheSnapshop `xml:"Snapshots>Snapshot"`
+			Marker    string
+		}{}
+		err := region.ecRequest("DescribeSnapshots", params, &part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Snapshots...)
+		if len(part.Snapshots) == 0 || len(part.Marker) == 0 {
+			return nil, err
+		}
+		params["Marker"] = part.Marker
+	}
+	return ret, nil
 }

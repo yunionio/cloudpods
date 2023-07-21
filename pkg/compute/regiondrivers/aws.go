@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -64,6 +65,31 @@ func (self *SAwsRegionDriver) IsSupportedDBInstance() bool {
 
 func (self *SAwsRegionDriver) GetRdsSupportSecgroupCount() int {
 	return 1
+}
+
+func (self *SAwsRegionDriver) IsSupportedElasticcache() bool {
+	return true
+}
+
+func (self *SAwsRegionDriver) IsSupportedElasticcacheSecgroup() bool {
+	return false
+}
+
+func (self *SAwsRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
+	return 0
+}
+
+func (self *SAwsRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ElasticcacheCreateInput) (*api.ElasticcacheCreateInput, error) {
+	if len(input.Password) > 0 && len(input.Password) < 16 {
+		passwd := seclib2.RandomPassword2(30)
+		input.Password = ""
+		for _, s := range passwd {
+			if ok, _ := utils.InArray(s, []rune{'!', '&', '#', '$', '^', '<', '>', '-', '.'}); ok || unicode.IsDigit(s) || unicode.IsLetter(s) {
+				input.Password += string(s)
+			}
+		}
+	}
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateElasticcacheData(ctx, userCred, ownerId, input)
 }
 
 func (self *SAwsRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {

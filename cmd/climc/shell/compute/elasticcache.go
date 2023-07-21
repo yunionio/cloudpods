@@ -15,174 +15,30 @@
 package compute
 
 import (
-	"fmt"
-
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.ElasticcacheSkus).WithKeyword("elastic-cache-sku")
-	cmd.PerformClass("sync-skus", &options.SkuSyncOptions{})
-
-	R(&options.BaseListOptions{}, "elastic-cache-list", "List elastisc cache instance", func(s *mcclient.ClientSession, opts *options.BaseListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-
-		result, err := modules.ElasticCache.List(s, params)
-		if err != nil {
-			return err
-		}
-
-		printList(result, nil)
-		return nil
-	})
-
-	R(&options.ElasticCacheCreateOptions{}, "elastic-cache-create", "Create elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheCreateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-
-		if len(opts.SecgroupIds) > 0 {
-			params.Set("secgroup_ids", jsonutils.NewStringArray(opts.SecgroupIds))
-		}
-
-		result, err := modules.ElasticCache.Create(s, params)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-restart", "Restart elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "restart", nil)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-flush-instance", "Flush elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "flush-instance", nil)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-syncstatus", "Sync elastisc cache instance status", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "syncstatus", nil)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-sync", "Sync elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "sync", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-delete", "Delete elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		result, err := modules.ElasticCache.Delete(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	type ElasticCacheChangeSpecOptions struct {
-		options.ElasticCacheIdOptions
-		Sku string `help:"elastic cache sku id"`
-	}
-
-	R(&ElasticCacheChangeSpecOptions{}, "elastic-cache-change-spec", "Change elastisc cache instance specification", func(s *mcclient.ClientSession, opts *ElasticCacheChangeSpecOptions) error {
-		params := jsonutils.NewDict()
-		params.Set("sku", jsonutils.NewString(opts.Sku))
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "change-spec", params)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	type ElasticCacheMainteananceTimeOptions struct {
-		options.ElasticCacheIdOptions
-		START_TIME string `help:"elastic cache sku maintenance start time,format: HH:mm"`
-		END_TIME   string `help:"elastic cache sku maintenance end time, format: HH:mm"`
-	}
-
-	R(&ElasticCacheMainteananceTimeOptions{}, "elastic-cache-set-maintenance-time", "set elastisc cache instance maintenance time", func(s *mcclient.ClientSession, opts *ElasticCacheMainteananceTimeOptions) error {
-		params := jsonutils.NewDict()
-		start := fmt.Sprintf("%sZ", opts.START_TIME)
-		end := fmt.Sprintf("%sZ", opts.END_TIME)
-		params.Set("maintain_start_time", jsonutils.NewString(start))
-		params.Set("maintain_end_time", jsonutils.NewString(end))
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "set-maintain-time", params)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-allocate-public-connect", "Allocate elastisc cache instance public access connection", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "allocate-public-connection", nil)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-enable-auth", "Enable elastisc cache instance auth", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		params := jsonutils.NewDict()
-		params.Set("auth_mode", jsonutils.NewString("on"))
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "update-auth-mode", params)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-disable-auth", "Disable elastisc cache instance auth", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
-		params := jsonutils.NewDict()
-		params.Set("auth_mode", jsonutils.NewString("off"))
-		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "update-auth-mode", params)
-		if err != nil {
-			return err
-		}
-
-		printObject(result)
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.ElasticCache).WithKeyword("elastic-cache")
+	cmd.List(&compute.ElasticCacheListOptions{})
+	cmd.Show(&compute.ElasticCacheIdOption{})
+	cmd.Create(&compute.ElasticCacheCreateOptions{})
+	cmd.Delete(&compute.ElasticCacheIdOption{})
+	cmd.Perform("restart", &compute.ElasticCacheIdOption{})
+	cmd.Perform("flush-instance", &compute.ElasticCacheIdOption{})
+	cmd.Perform("syncstatus", &compute.ElasticCacheIdOption{})
+	cmd.Perform("sync", &compute.ElasticCacheIdOption{})
+	cmd.Perform("change-spec", &compute.ElasticCacheChangeSpecOptions{})
+	cmd.Perform("set-maintenance-time", &compute.ElasticCacheMainteananceTimeOptions{})
+	cmd.Perform("allocate-public-connection", &compute.ElasticCacheIdOption{})
+	cmd.PerformWithKeyword("enable-auth", "update-auth-mode", &compute.ElasticCacheEnableAuthOptions{})
+	cmd.PerformWithKeyword("disable-auth", "update-auth-mode", &compute.ElasticCacheDisableAuthOptions{})
 
 	type ElasticCacheAccountResetPasswordOptions struct {
 		options.ElasticCacheIdOptions
