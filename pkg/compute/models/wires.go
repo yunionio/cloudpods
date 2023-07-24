@@ -560,7 +560,7 @@ func (manager *SWireManager) totalCountQ(
 		hostsQ2 = CloudProviderFilter(hostsQ2, hostsQ2.Field("manager_id"), providers, brands, cloudEnv)
 	}
 	if len(rangeObjs) > 0 {
-		hostsQ2 = RangeObjectsFilter(hostsQ2, rangeObjs, nil, hostsQ.Field("zone_id"), hostsQ.Field("manager_id"), hostsQ.Field("id"), nil)
+		hostsQ2 = RangeObjectsFilter(hostsQ2, rangeObjs, nil, hostsQ2.Field("zone_id"), hostsQ2.Field("manager_id"), hostsQ2.Field("id"), nil)
 	}
 	hosts2 := hostsQ2.SubQuery()
 
