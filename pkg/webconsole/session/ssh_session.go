@@ -39,6 +39,8 @@ type SSshSession struct {
 	us *mcclient.ClientSession
 	id string
 
+	// vm name
+	name string
 	Host string
 
 	Port       int64
@@ -47,14 +49,18 @@ type SSshSession struct {
 	Password   string
 }
 
-func NewSshSession(ctx context.Context, us *mcclient.ClientSession, ip string, port int64, username, password string) *SSshSession {
+func NewSshSession(ctx context.Context, us *mcclient.ClientSession, name, ip string, port int64, username, password string) *SSshSession {
 	ret := &SSshSession{
 		us:       us,
 		id:       stringutils.UUID4(),
 		Port:     port,
 		Host:     ip,
+		name:     name,
 		Username: username,
 		Password: password,
+	}
+	if len(ret.name) == 0 {
+		ret.name = ret.Username
 	}
 	if port <= 0 {
 		ret.Port = 22
@@ -79,7 +85,7 @@ func (s *SSshSession) GetProtocol() string {
 }
 
 func (s *SSshSession) GetRecordObject() *recorder.Object {
-	return nil
+	return recorder.NewObject(s.id, s.name, "server", s.Username, jsonutils.Marshal(map[string]interface{}{"ip": s.Host, "port": s.Port}))
 }
 
 func (s *SSshSession) GetCommand() *exec.Cmd {
