@@ -463,6 +463,9 @@ func (opts *SCloudAccountIdOptions) Params() (jsonutils.JSONObject, error) {
 type SVMwareCloudAccountUpdateCredentialOptions struct {
 	SCloudAccountIdOptions
 	SUserPasswordCredential
+
+	Host string `help:"VMware VCenter/ESXi host"`
+	Port string `help:"VMware VCenter/ESXi host port" default:"443"`
 }
 
 func (opts *SVMwareCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
