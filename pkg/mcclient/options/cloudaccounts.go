@@ -118,8 +118,9 @@ type SCloudAccountCreateBaseOptions struct {
 	Desc  string `help:"Description" token:"desc" json:"description"`
 	Brand string `help:"Brand of cloud account" choices:"DStack"`
 
-	AutoCreateProject bool `help:"Enable the account with same name project"`
-	EnableAutoSync    bool `help:"Enable automatically synchronize resources of this account"`
+	AutoCreateProject            bool `help:"Enable the account with same name project"`
+	AutoCreateProjectForProvider bool `help:"Is Auto Create Project For Provider"`
+	EnableAutoSync               bool `help:"Enable automatically synchronize resources of this account"`
 
 	SyncIntervalSeconds int `help:"Interval to synchronize if auto sync is enable" metavar:"SECONDS"`
 
