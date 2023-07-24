@@ -171,7 +171,8 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	port, _ := env.Body.Int("port")
 	username, _ := env.Body.GetString("username")
 	password, _ := env.Body.GetString("password")
-	s := session.NewSshSession(ctx, env.ClientSessin, ip, port, username, password)
+	name, _ := env.Body.GetString("name")
+	s := session.NewSshSession(ctx, env.ClientSessin, name, ip, port, username, password)
 	handleSshSession(ctx, s, w)
 }
 
