@@ -723,12 +723,17 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		return nil, err
 	}
 
+	accountAccessUrl := self.AccessUrl
+	if len(account.AccessUrl) > 0 {
+		accountAccessUrl = account.AccessUrl
+	}
+
 	changed := false
 	if len(account.Secret) > 0 || len(account.Account) > 0 {
 		// check duplication
 		q := self.GetModelManager().Query()
 		q = q.Equals("account", account.Account)
-		q = q.Equals("access_url", self.AccessUrl)
+		q = q.Equals("access_url", accountAccessUrl)
 		q = q.NotEquals("id", self.Id)
 		cnt, err := q.CountWithError()
 		if err != nil {
@@ -766,7 +771,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	_, accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
 		Name:          self.Name,
 		Vendor:        self.Provider,
-		URL:           self.AccessUrl,
+		URL:           accountAccessUrl,
 		Account:       account.Account,
 		Secret:        account.Secret,
 		Options:       self.Options,
@@ -797,7 +802,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 						return nil
 					})
 					if err != nil {
-						return nil, err
+						return nil, errors.Wrap(err, "save account for cloud provider")
 					}
 				}
 			}
@@ -807,12 +812,12 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "save account")
 		}
 
 		err = self.savePassword(account.Secret)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "save password")
 		}
 
 		for _, provider := range self.GetCloudproviders() {
@@ -821,9 +826,33 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		changed = true
 	}
 
+	if len(account.AccessUrl) > 0 && account.AccessUrl != self.AccessUrl {
+		// save accessUrl
+
+		for _, cloudprovider := range self.GetCloudproviders() {
+			_, err = db.Update(&cloudprovider, func() error {
+				cloudprovider.AccessUrl = strings.ReplaceAll(cloudprovider.AccessUrl, self.AccessUrl, account.AccessUrl)
+				return nil
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "save access_url for cloud provider")
+			}
+		}
+
+		_, err = db.Update(self, func() error {
+			self.AccessUrl = account.AccessUrl
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "save access_url")
+		}
+
+		changed = true
+	}
+
 	if changed {
-		db.OpsLog.LogEvent(self, db.ACT_UPDATE, account.Account, userCred)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE_CREDENTIAL, account.Account, userCred, true)
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, account, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE_CREDENTIAL, account, userCred, true)
 
 		self.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
 		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "", nil)
