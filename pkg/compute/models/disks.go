@@ -2452,6 +2452,11 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			snps, _ := snapshots[diskIds[i]]
 			rows[i].ManualSnapshotCount = len(snps)
 		}
+		disk := objs[i].(*SDisk)
+		if len(disk.StorageId) == 0 && disk.Status == api.VM_SCHEDULE_FAILED {
+			rows[i].Brand = "Unknown"
+			rows[i].Provider = "Unknown"
+		}
 	}
 
 	return rows
