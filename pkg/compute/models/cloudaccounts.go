@@ -129,6 +129,10 @@ type SCloudaccount struct {
 	// example: false
 	AutoCreateProject bool `list:"domain" create:"domain_optional"`
 
+	// 是否根据云订阅自动在本地创建对应项目
+	// example: false
+	AutoCreateProjectForProvider bool `list:"domain" create:"domain_optional"`
+
 	// 云API版本
 	Version string `width:"32" charset:"ascii" nullable:"true" list:"domain"`
 
@@ -1138,6 +1142,14 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 			}
 			newCloudprovider.DomainId = ownerId.GetProjectDomainId()
 			newCloudprovider.ProjectId = ownerId.GetProjectId()
+			if self.AutoCreateProjectForProvider {
+				domainId, projectId, err := self.getOrCreateTenant(ctx, newCloudprovider.Name, newCloudprovider.DomainId, "", subAccount.Desc)
+				if err != nil {
+					return nil, errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", newCloudprovider.Name)
+				}
+				newCloudprovider.ProjectId = projectId
+				newCloudprovider.DomainId = domainId
+			}
 		}
 
 		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
