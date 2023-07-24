@@ -62,6 +62,7 @@ func NewSshServer(s *session.SSession) (*WebsocketServer, error) {
 }
 
 type WebSocketBufferWriter struct {
+	s  *session.SSession
 	ws *websocket.Conn
 }
 
@@ -77,6 +78,9 @@ func (w *WebSocketBufferWriter) Write(p []byte) (int, error) {
 			}
 		}
 		p = []byte(string(buf))
+	}
+	if w.s != nil {
+		go w.s.GetRecorder().Write("", string(p))
 	}
 	err := w.ws.WriteMessage(websocket.BinaryMessage, p)
 	return len(p), err
@@ -131,6 +135,7 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	wsWriter := WebSocketBufferWriter{
+		s:  s.Session,
 		ws: s.ws,
 	}
 
@@ -209,6 +214,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					data, _ := base64.StdEncoding.DecodeString(input.Data.Data)
 					input.Data.Data = string(data)
 				}
+				go s.Session.GetRecorder().Write(input.Data.Data, "")
 				_, err = s.StdinPipe.Write([]byte(input.Data.Data))
 				if err != nil {
 					log.Errorf("write %s error: %v", input.Data.Data, err)
