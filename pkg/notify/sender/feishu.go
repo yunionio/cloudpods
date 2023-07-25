@@ -14,6 +14,7 @@
 package sender
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -38,7 +39,7 @@ func (self *SFeishuSender) GetSenderType() string {
 const ApiSendMessageForFeishuByOpenId = feishu.ApiRobotSendMessage + "?receive_id_type=open_id"
 
 // 发送飞书消息
-func (feishuSender *SFeishuSender) Send(args api.SendParams) error {
+func (feishuSender *SFeishuSender) Send(ctx context.Context, args api.SendParams) error {
 	// 发送通知消息体
 	body := map[string]interface{}{
 		"open_id":  args.Receivers.Contact,
@@ -49,7 +50,7 @@ func (feishuSender *SFeishuSender) Send(args api.SendParams) error {
 	} // 添加bearer token请求头
 	header := http.Header{}
 	header.Add("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[fmt.Sprintf("%s-%s", api.FEISHU, args.DomainId)].Content.AccessToken))
-	rep, err := sendRequest(ApiSendMessageForFeishuByOpenId, httputils.POST, header, nil, jsonutils.Marshal(body))
+	rep, err := sendRequest(ctx, ApiSendMessageForFeishuByOpenId, httputils.POST, header, nil, jsonutils.Marshal(body))
 	if err == nil {
 		return nil
 	}
@@ -63,12 +64,12 @@ func (feishuSender *SFeishuSender) Send(args api.SendParams) error {
 	}
 	switch code {
 	case "99991663": //token过期
-		err = feishuSender.GetAccessToken(fmt.Sprintf("%s-%s", api.FEISHU, args.DomainId))
+		err = feishuSender.GetAccessToken(ctx, fmt.Sprintf("%s-%s", api.FEISHU, args.DomainId))
 		if err != nil {
 			return errors.Wrap(err, "tenant token invalid && getToken err")
 		}
 		header.Set("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[fmt.Sprintf("%s-%s", api.FEISHU, args.DomainId)].Content.AccessToken))
-		_, err = sendRequest(ApiSendMessageForFeishuByOpenId, httputils.POST, header, nil, jsonutils.Marshal(body))
+		_, err = sendRequest(ctx, ApiSendMessageForFeishuByOpenId, httputils.POST, header, nil, jsonutils.Marshal(body))
 		if err == nil {
 			return nil
 		}
@@ -80,7 +81,7 @@ func (feishuSender *SFeishuSender) Send(args api.SendParams) error {
 }
 
 // 校验appId与appSecret
-func (feishuSender *SFeishuSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (feishuSender *SFeishuSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	rep, err := feishuSender.getAccessToken(config.AppId, config.AppSecret)
 	if err == nil {
 		return "", nil
@@ -96,12 +97,12 @@ func (feishuSender *SFeishuSender) ValidateConfig(config api.NotifyConfig) (stri
 }
 
 // 根据用户手机号获取用户的open_id
-func (feishuSender *SFeishuSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (feishuSender *SFeishuSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	body := jsonutils.NewDict()
 	body.Set("mobiles", jsonutils.NewArray(jsonutils.NewString(mobile)))
 	header := http.Header{}
 	// 考虑到获取用户id需求较少，可通过直接更新token来避免token失效
-	err := feishuSender.GetAccessToken(domainId)
+	err := feishuSender.GetAccessToken(ctx, domainId)
 	if err != nil {
 		return "", errors.Wrap(err, "GetAccessToken")
 	}
@@ -110,7 +111,7 @@ func (feishuSender *SFeishuSender) ContactByMobile(mobile, domainId string) (str
 	params.Set("mobiles", mobile)
 
 	header.Set("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[fmt.Sprintf("%s-%s", api.FEISHU, domainId)].Content.AccessToken))
-	resp, err := sendRequest(ApiFetchUserID, httputils.GET, header, params, body)
+	resp, err := sendRequest(ctx, ApiFetchUserID, httputils.GET, header, params, body)
 	if err != nil {
 		return "", err
 	}
@@ -155,7 +156,7 @@ func (feishuSender *SFeishuSender) RegisterConfig(config models.SConfig) {
 }
 
 // 获取token
-func (feishuSender *SFeishuSender) GetAccessToken(domainId string) error {
+func (feishuSender *SFeishuSender) GetAccessToken(ctx context.Context, domainId string) error {
 	key := fmt.Sprintf("%s-%s", api.FEISHU, domainId)
 	appId, appSecret := models.ConfigMap[key].Content.AppId, models.ConfigMap[key].Content.AppSecret
 	resp, err := feishuSender.getAccessToken(appId, appSecret)

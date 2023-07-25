@@ -14,6 +14,8 @@
 package sender
 
 import (
+	"context"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
@@ -28,11 +30,11 @@ func (self *SWebconsoleSender) GetSenderType() string {
 	return api.WEBCONSOLE
 }
 
-func (self *SWebconsoleSender) Send(args api.SendParams) error {
+func (self *SWebconsoleSender) Send(ctx context.Context, args api.SendParams) error {
 	return nil
 }
 
-func (websender *SWebconsoleSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (websender *SWebconsoleSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -48,7 +50,7 @@ func (websender *SWebconsoleSender) DeleteConfig(config api.NotifyConfig) error 
 	return cloudprovider.ErrNotImplemented
 }
 
-func (websender *SWebconsoleSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (websender *SWebconsoleSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -72,7 +74,7 @@ func (websender *SWebconsoleSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (websender *SWebconsoleSender) GetAccessToken(key string) error {
+func (websender *SWebconsoleSender) GetAccessToken(ctx context.Context, key string) error {
 	return nil
 }
 

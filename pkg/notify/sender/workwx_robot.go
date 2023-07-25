@@ -14,6 +14,7 @@
 package sender
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -33,7 +34,7 @@ func (workwxRobotSender *SWorkwxRobotSender) GetSenderType() string {
 	return api.WORKWX_ROBOT
 }
 
-func (workwxRobotSender *SWorkwxRobotSender) Send(args api.SendParams) error {
+func (workwxRobotSender *SWorkwxRobotSender) Send(ctx context.Context, args api.SendParams) error {
 	errs := []error{}
 	content := fmt.Sprintf("# %s\n\n%s", args.Title, args.Message)
 	mid := map[string]interface{}{
@@ -42,7 +43,7 @@ func (workwxRobotSender *SWorkwxRobotSender) Send(args api.SendParams) error {
 			"content": content,
 		},
 	}
-	req, err := sendRequest(args.Receivers.Contact, httputils.POST, nil, nil, jsonutils.Marshal(mid))
+	req, err := sendRequest(ctx, args.Receivers.Contact, httputils.POST, nil, nil, jsonutils.Marshal(mid))
 	if err != nil {
 		return errors.Wrap(err, "sendRequest")
 	}
@@ -56,11 +57,11 @@ func (workwxRobotSender *SWorkwxRobotSender) Send(args api.SendParams) error {
 	return errors.NewAggregate(errs)
 }
 
-func (workwxRobotSender *SWorkwxRobotSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (workwxRobotSender *SWorkwxRobotSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (workwxRobotSender *SWorkwxRobotSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (workwxRobotSender *SWorkwxRobotSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -84,7 +85,7 @@ func (workwxRobotSender *SWorkwxRobotSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (workwxRobotSender *SWorkwxRobotSender) GetAccessToken(key string) error {
+func (workwxRobotSender *SWorkwxRobotSender) GetAccessToken(ctx context.Context, key string) error {
 	return nil
 }
 

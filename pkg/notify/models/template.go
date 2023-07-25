@@ -225,8 +225,8 @@ func (tm *STemplateManager) FillWithTemplate(ctx context.Context, lang string, n
 	// if strings.Contains(no.Topic, "-cn") || strings.Contains(no.Topic, "-en") {
 	// 	no.Topic = no.Topic[:len(no.Topic)-3]
 	// }
-	var q *sqlchemy.SQuery
-	q = tm.Query().Equals("topic", strings.ToUpper(no.Topic)).Equals("lang", lang).In("contact_type", []string{CONTACTTYPE_ALL, no.ContactType})
+
+	q := tm.Query().Equals("topic", strings.ToUpper(no.Topic)).Equals("lang", lang).In("contact_type", []string{CONTACTTYPE_ALL, no.ContactType})
 	err = db.FetchModelObjects(tm, q, &templates)
 	if errors.Cause(err) == sql.ErrNoRows || len(templates) == 0 {
 		// no such template, return as is
