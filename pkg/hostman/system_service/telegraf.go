@@ -21,8 +21,10 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type STelegraf struct {
@@ -214,11 +216,43 @@ func (s *STelegraf) BgReloadConf(kwargs map[string]interface{}) {
 }
 
 func (s *STelegraf) ReloadTelegraf() error {
-	log.Infof("Start reolad telegraf...")
+	log.Infof("Start reloading telegraf...")
+	errs := []error{}
+	if err := s.reloadTelegrafByDocker(); err != nil {
+		errs = append(errs, errors.Wrap(err, "reloadTelegrafByDocker"))
+		if err := s.reloadTelegrafByHTTP(); err != nil {
+			errs = append(errs, errors.Wrap(err, "reloadTelegrafByHTTP"))
+			return errors.NewAggregate(errs)
+		}
+	}
+	log.Infof("Finish reloading telegraf")
+	return nil
+}
+
+func (s *STelegraf) reloadTelegrafByDocker() error {
+	log.Infof("Reloading telegraf by docker...")
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", "/usr/bin/docker ps --filter 'label=io.kubernetes.container.name=telegraf' --format '{{.ID}}'").Output()
+	if err != nil {
+		return errors.Wrap(err, "using docker ps find telegraf container")
+	}
+	id := strings.TrimSpace(string(output))
+	if len(id) == 0 {
+		return errors.Errorf("not found telegraf running container")
+	}
+	if err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", "/usr/bin/docker restart "+id).Run(); err != nil {
+		return errors.Wrapf(err, "restart telegraf container %q", id)
+	}
+	return nil
+}
+
+func (s *STelegraf) reloadTelegrafByHTTP() error {
 	telegrafReoladUrl := "http://127.0.0.1:8087/reload"
-	_, _, err := httputils.JSONRequest(
+	log.Infof("Reloading telegraf by %q ...", telegrafReoladUrl)
+	if _, _, err := httputils.JSONRequest(
 		httputils.GetDefaultClient(), context.Background(),
 		"POST", telegrafReoladUrl, nil, nil, false,
-	)
-	return err
+	); err != nil {
+		return errors.Wrap(err, "reload telegraf by http reload api")
+	}
+	return nil
 }
