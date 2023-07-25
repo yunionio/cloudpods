@@ -258,7 +258,11 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 	}
 
 	for i := range rows {
-		rows[i] = objs[i].(*SGuest).moreExtraInfo(ctx, rows[i], userCred, query, fields, isList)
+		rows[i] = guests[i].moreExtraInfo(ctx, rows[i], userCred, query, fields, isList)
+		if len(guests[i].HostId) == 0 && guests[i].Status == api.VM_SCHEDULE_FAILED {
+			rows[i].Brand = "Unknown"
+			rows[i].Provider = "Unknown"
+		}
 	}
 
 	return rows
