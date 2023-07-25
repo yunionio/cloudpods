@@ -52,14 +52,22 @@ func init() {
 			return err
 		}
 		connectParams := resp.GetConnectParams()
-		if protocol, err := resp.GetConnectProtocol(); err != nil {
+		protocol, err := resp.GetConnectProtocol()
+		if err != nil {
 			return err
-		} else if !utils.IsInStringArray(protocol, []string{
+		}
+		if !utils.IsInStringArray(protocol, []string{
 			command.PROTOCOL_TTY, webconsole_api.VNC,
 			webconsole_api.SPICE, webconsole_api.WMKS, webconsole_api.WS,
 		}) {
 			fmt.Println(connectParams)
 			return nil
+		}
+		if protocol == webconsole_api.WS {
+			u, err = url.Parse(fmt.Sprintf("%s/ws", opt.WebconsoleUrl))
+			if err != nil {
+				return err
+			}
 		}
 
 		newQuery := url.Values{}

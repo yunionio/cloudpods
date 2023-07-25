@@ -20,8 +20,8 @@ import (
 	"io"
 	"net/http"
 	"time"
-	"unicode/utf8"
 
+	"github.com/anacrolix/sync"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
@@ -62,28 +62,21 @@ func NewSshServer(s *session.SSession) (*WebsocketServer, error) {
 }
 
 type WebSocketBufferWriter struct {
-	s  *session.SSession
-	ws *websocket.Conn
+	s    *session.SSession
+	ws   *websocket.Conn
+	lock sync.Mutex
 }
 
 func (w *WebSocketBufferWriter) Write(p []byte) (int, error) {
-	if !utf8.Valid(p) {
-		bufStr := string(p)
-		buf := make([]rune, 0, len(bufStr))
-		for _, r := range bufStr {
-			if r == utf8.RuneError {
-				buf = append(buf, []rune("@")...)
-			} else {
-				buf = append(buf, r)
-			}
-		}
-		p = []byte(string(buf))
-	}
-	if w.s != nil {
-		go w.s.GetRecorder().Write("", string(p))
-	}
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	go w.s.GetRecorder().Write("", string(p))
 	err := w.ws.WriteMessage(websocket.BinaryMessage, p)
-	return len(p), err
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
@@ -148,7 +141,7 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 		ssh.TTY_OP_OSPEED: 14400,
 	}
 
-	err = s.session.RequestPty("xterm", 120, 32, modes)
+	err = s.session.RequestPty("xterm-256color", 120, 32, modes)
 	if err != nil {
 		return errors.Wrapf(err, "request pty xterm")
 	}
