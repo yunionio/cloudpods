@@ -82,6 +82,15 @@ func (self *SESXiProviderFactory) ValidateUpdateCloudaccountCredential(ctx conte
 		Account: input.Username,
 		Secret:  input.Password,
 	}
+	if len(input.Host) > 0 {
+		if !regutils.MatchIPAddr(input.Host) && !regutils.MatchDomainName(input.Host) {
+			return output, errors.Wrap(cloudprovider.ErrInputParameter, "host should be ip or domain name")
+		}
+		output.AccessUrl = fmt.Sprintf("https://%s:%d/sdk", input.Host, input.Port)
+		if input.Port == 0 || input.Port == 443 {
+			output.AccessUrl = fmt.Sprintf("https://%s/sdk", input.Host)
+		}
+	}
 	return output, nil
 }
 
