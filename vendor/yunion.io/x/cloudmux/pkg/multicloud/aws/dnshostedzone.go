@@ -220,8 +220,8 @@ func (client *SAwsClient) GetHostedZones() ([]SHostedZone, error) {
 		if !*ret.IsTruncated {
 			break
 		}
-		if ret.Marker != nil {
-			Marker = *ret.Marker
+		if ret.NextMarker != nil {
+			Marker = *ret.NextMarker
 		}
 
 	}

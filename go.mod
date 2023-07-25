@@ -7,6 +7,7 @@ require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/LeeEirc/terminalparser v0.0.0-20220328021224-de16b7643ea4
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
+	github.com/anacrolix/sync v0.0.0-20180808010631-44578de4e778
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
@@ -83,7 +84,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230721092909-9ee22ee0fdd9
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230725101829-eeaabf101216
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
@@ -121,7 +122,6 @@ require (
 	github.com/anacrolix/log v0.0.0-20180808012509-286fcf906b48 // indirect
 	github.com/anacrolix/missinggo v0.0.0-20181129073415-3237bf955fed // indirect
 	github.com/anacrolix/mmsg v0.0.0-20180808012353-5adb2c1127c0 // indirect
-	github.com/anacrolix/sync v0.0.0-20180808010631-44578de4e778 // indirect
 	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572 // indirect
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
