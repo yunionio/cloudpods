@@ -66,3 +66,9 @@ type CloudregionResourceInfo struct {
 	// example: 59e7bc87-a6b3-4c39-8f02-c68e8243d4e4
 	RegionExtId string `json:"region_ext_id"`
 }
+
+type CloudregionPurgeInput struct {
+	// 云订阅Id, 若region底下不存在任何资源,会删除当前region
+	// required: true
+	ManagerId string `json:"manager_id"`
+}

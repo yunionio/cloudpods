@@ -53,7 +53,7 @@ func (self *SNatDEntryDeleteTask) taskComplete(ctx context.Context, dnat *models
 	if nat != nil {
 		logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_DELETE_SNAT, dnat, self.UserCred, true)
 	}
-	dnat.Purge(ctx, self.UserCred)
+	dnat.RealDelete(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 

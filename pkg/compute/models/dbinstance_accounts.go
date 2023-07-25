@@ -654,7 +654,7 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 				if passwd, err := locals[i].GetPassword(); err == nil && len(passwd) > 0 {
 					password = passwd
 				}
-				err := locals[i].Purge(ctx, userCred)
+				err := locals[i].RealDelete(ctx, userCred)
 				if err != nil {
 					result.DeleteError(err)
 					continue
@@ -671,7 +671,7 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 		_, ok := remoteMaps[key]
 		if !ok {
 			for i := range accounts {
-				err := accounts[i].Purge(ctx, userCred)
+				err := accounts[i].RealDelete(ctx, userCred)
 				if err != nil {
 					result.DeleteError(err)
 					continue
@@ -766,7 +766,7 @@ func (manager *SDBInstanceAccountManager) InitializeData() error {
 		return errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range accounts {
-		err = accounts[i].Purge(context.Background(), nil)
+		err = accounts[i].RealDelete(context.Background(), nil)
 		if err != nil {
 			return errors.Wrapf(err, "purge %s", accounts[i].Id)
 		}

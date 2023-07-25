@@ -800,71 +800,11 @@ func (self *SHost) StartDeleteBaremetalTask(ctx context.Context, userCred mcclie
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	DeleteResourceJointSchedtags(self, ctx, userCred)
-
-	// delete tap devices
-	if err := NetTapServiceManager.removeTapServicesByHostId(ctx, userCred, self.Id); err != nil {
-		return errors.Wrap(err, "NetTapServiceManager.getTapServicesByHostId")
-	}
-	if err := NetTapFlowManager.removeTapFlowsByHostId(ctx, userCred, self.Id); err != nil {
-		return errors.Wrap(err, "NetTapFlowManager.getTapFlowsByHostId")
-	}
-
-	IsolatedDeviceManager.DeleteDevicesByHost(ctx, userCred, self)
-
-	for _, hoststorage := range self.GetHoststorages() {
-		storage := hoststorage.GetStorage()
-		if storage != nil && storage.IsLocal() {
-			cnt, err := storage.GetDiskCount()
-			if err != nil {
-				return errors.Wrapf(err, "GetDiskCount")
-			}
-			if cnt > 0 {
-				return httperrors.NewNotEmptyError("Inconsistent: local storage is not empty???")
-			}
-		}
-	}
-	for _, hoststorage := range self.GetHoststorages() {
-		storage := hoststorage.GetStorage()
-		hoststorage.Delete(ctx, userCred)
-		if storage != nil && storage.IsLocal() {
-			storage.Delete(ctx, userCred)
-		}
-	}
-	for _, bn := range self.GetBaremetalnetworks() {
-		self.DeleteBaremetalnetwork(ctx, userCred, &bn, false)
-	}
-	for _, netif := range self.GetNetInterfaces() {
-		netif.Remove(ctx, userCred)
-	}
-	for _, hostwire := range self.GetHostwires() {
-		hostwire.Detach(ctx, userCred)
-		// hostwire.Delete(ctx, userCred) ???
-	}
-	baremetalStorage := self.GetBaremetalstorage()
-	if baremetalStorage != nil {
-		store := baremetalStorage.GetStorage()
-		baremetalStorage.Delete(ctx, userCred)
-		if store != nil {
-			store.Delete(ctx, userCred)
-		}
-	}
-	backends, err := self.GetLoadbalancerBackends()
-	if err != nil {
-		return errors.Wrapf(err, "GetLoadbalancerBackends")
-	}
-	for i := range backends {
-		err := backends[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "backend real delete %s", backends[i].Id)
-		}
-	}
-	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+	return self.purge(ctx, userCred)
 }
 
 func (self *SHost) GetLoadbalancerBackends() ([]SLoadbalancerBackend, error) {
@@ -3931,6 +3871,14 @@ func (self *SHost) PerformStart(ctx context.Context, userCred mcclient.TokenCred
 	params.Set("force_reboot", jsonutils.NewBool(false))
 	params.Set("action", jsonutils.NewString("start"))
 	return self.PerformMaintenance(ctx, userCred, nil, params)
+}
+
+func (self *SHost) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.GetEnabled() {
+		return nil, httperrors.NewInvalidStatusError("Host is not disabled")
+	}
+	return nil, self.purge(ctx, userCred)
 }
 
 func (self *SHost) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
