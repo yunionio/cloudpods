@@ -15,20 +15,22 @@
 package models
 
 import (
+	"context"
+
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 )
 
 type ISenderDriver interface {
 	GetSenderType() string
-	Send(args api.SendParams) error
-	ValidateConfig(api.NotifyConfig) (string, error)
-	ContactByMobile(mobile, domainId string) (string, error)
+	Send(ctx context.Context, args api.SendParams) error
+	ValidateConfig(ctx context.Context, args api.NotifyConfig) (string, error)
+	ContactByMobile(ctx context.Context, mobile, domainId string) (string, error)
 	IsRobot() bool
 	IsPersonal() bool
 	IsSystemConfigContactType() bool
 	IsValid() bool
 	IsPullType() bool
-	GetAccessToken(domainId string) error
+	GetAccessToken(ctx context.Context, domainId string) error
 	RegisterConfig(config SConfig)
 }
 
@@ -69,6 +71,6 @@ func GetValidPersonalSenderTypes() []string {
 }
 
 func GetDriver(sendType string) ISenderDriver {
-	driver, _ := driverTable[sendType]
+	driver := driverTable[sendType]
 	return driver
 }

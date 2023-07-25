@@ -15,6 +15,7 @@
 package sender
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -54,7 +55,7 @@ func (emailSender *SEmailSender) GetSenderType() string {
 	return api.EMAIL
 }
 
-func (emailSender *SEmailSender) Send(args api.SendParams) error {
+func (emailSender *SEmailSender) Send(ctx context.Context, args api.SendParams) error {
 	// 初始化emaliClient
 	hostNmae, hostPort, userName, password := models.ConfigMap[api.EMAIL].Content.Hostname, models.ConfigMap[api.EMAIL].Content.Hostport, models.ConfigMap[api.EMAIL].Content.Username, models.ConfigMap[api.EMAIL].Content.Password
 	dialer := gomail.NewDialer(hostNmae, hostPort, userName, password)
@@ -161,7 +162,7 @@ func (emailSender *SEmailSender) Send(args api.SendParams) error {
 	return nil
 }
 
-func (emailSender *SEmailSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (emailSender *SEmailSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	errChan := make(chan error, 1)
 	go func() {
 		dialer := gomail.NewDialer(config.Hostname, config.Hostport, config.Username, config.Password)
@@ -192,7 +193,7 @@ func (emailSender *SEmailSender) ValidateConfig(config api.NotifyConfig) (string
 	}
 }
 
-func (emailSender *SEmailSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (emailSender *SEmailSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	return "", nil
 }
 
@@ -216,16 +217,16 @@ func (emailSender *SEmailSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (emailSender *SEmailSender) GetAccessToken(key string) error {
+func (emailSender *SEmailSender) GetAccessToken(ctx context.Context, key string) error {
 	return nil
 }
 
-func (emailSender *SEmailSender) sendMessageWithToken(uri string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (emailSender *SEmailSender) sendMessageWithToken(ctx context.Context, uri string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if params == nil {
 		params = url.Values{}
 	}
 	params.Set("access_token", models.ConfigMap[api.WORKWX].Content.AccessToken)
-	return sendRequest(uri, httputils.POST, nil, params, jsonutils.Marshal(body))
+	return sendRequest(ctx, uri, httputils.POST, nil, params, jsonutils.Marshal(body))
 }
 
 func (emailSender *SEmailSender) RegisterConfig(config models.SConfig) {

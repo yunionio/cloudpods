@@ -33,11 +33,10 @@ var (
 	cli = &http.Client{
 		Transport: httputils.GetTransport(true),
 	}
-	ctx = context.Background()
 )
 
 // 通知请求
-func sendRequest(url string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func sendRequest(ctx context.Context, url string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if header == nil {
 		header = http.Header{}
 	}

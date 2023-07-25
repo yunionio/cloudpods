@@ -78,23 +78,27 @@ type RobotUpdateOptions struct {
 type SrobotUpdateOptions struct {
 	Address string
 	Lang    string
-	Header  string
-	Body    string
+	Header  *string
+	Body    *string
 	MsgKey  string
 }
 
 func (ru *RobotUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	dict := jsonutils.NewDict()
 	jsonutils.Update(&dict, ru)
-	header, err := jsonutils.Parse([]byte(ru.Header))
-	if err != nil {
-		return nil, errors.Wrap(err, "parse header")
+	if ru.Header != nil {
+		header, err := jsonutils.Parse([]byte(*ru.Header))
+		if err != nil {
+			return nil, errors.Wrap(err, "parse header")
+		}
+		dict.Set("header", header)
 	}
-	dict.Set("header", header)
-	body, err := jsonutils.Parse([]byte(ru.Body))
-	if err != nil {
-		return nil, errors.Wrap(err, "parse body")
+	if ru.Body != nil {
+		body, err := jsonutils.Parse([]byte(*ru.Body))
+		if err != nil {
+			return nil, errors.Wrap(err, "parse body")
+		}
+		dict.Set("body", body)
 	}
-	dict.Set("body", body)
 	return dict, nil
 }

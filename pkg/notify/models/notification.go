@@ -132,10 +132,6 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		}
 	}
 	input.Receivers = idSet.UnsortedList()
-	if len(input.Receivers)+len(input.Contacts) == 0 {
-		return input, httperrors.NewInputParameterError("no valid receiver or contact")
-	}
-
 	if len(input.Receivers)+len(input.Contacts)+len(input.Robots) == 0 {
 		return input, httperrors.NewInputParameterError("no valid receiver or contact")
 	}
@@ -724,7 +720,7 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 	webhookMsg.Set("action", jsonutils.NewString(aStr))
 	webhookMsg.Set("result", jsonutils.NewString(resultStr))
 	webhookMsg.Set("resource_details", msg)
-	if no.ContactType == api.WEBHOOK {
+	if no.ContactType == api.WEBHOOK || no.ContactType == api.WEBHOOK_ROBOT {
 		return api.SendParams{
 			Title:   no.Event.StringWithDeli("_"),
 			Message: webhookMsg.String(),

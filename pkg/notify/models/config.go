@@ -89,7 +89,7 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	}
 	driver := GetDriver(input.Type)
 	// validate
-	message, err := driver.ValidateConfig(api.NotifyConfig{
+	message, err := driver.ValidateConfig(ctx, api.NotifyConfig{
 		SNotifyConfigContent: *input.Content,
 		Attribution:          input.Attribution,
 		DomainId:             input.ProjectDomainId,
@@ -136,7 +136,7 @@ func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 	// check if changed
 	if input.Content != nil {
 		driver := GetDriver(c.Type)
-		message, err := driver.ValidateConfig(api.NotifyConfig{
+		message, err := driver.ValidateConfig(ctx, api.NotifyConfig{
 			DomainId:             c.DomainId,
 			Attribution:          c.Attribution,
 			SNotifyConfigContent: *input.Content,
@@ -332,7 +332,7 @@ func (cm *SConfigManager) PerformValidate(ctx context.Context, userCred mcclient
 	}
 	// validate
 	driver := GetDriver(input.Type)
-	message, err := driver.ValidateConfig(api.NotifyConfig{
+	message, err := driver.ValidateConfig(ctx, api.NotifyConfig{
 		SNotifyConfigContent: *input.Content,
 		DomainId:             userCred.GetDomainId(),
 	})
@@ -355,7 +355,7 @@ func (confManager *SConfigManager) InitializeData() error {
 	for _, config := range res {
 		driver := GetDriver(config.Type)
 		driver.RegisterConfig(config)
-		err := driver.GetAccessToken(config.DomainId)
+		err := driver.GetAccessToken(context.Background(), config.DomainId)
 		if err != nil {
 			session := auth.GetAdminSession(context.Background(), options.Options.Region)
 			logclient.AddSimpleActionLog(&config, logclient.ACT_INIT_NOTIFY_CONFIGMAP, err, session.GetToken(), false)

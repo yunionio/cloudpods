@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -75,7 +76,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	event, err := models.EventManager.GetEvent(notification.EventId)
 	if err != nil {
-		if !strings.Contains(err.Error(), "no rows in result set") {
+		if err != sql.ErrNoRows {
 			self.taskFailed(ctx, notification, errors.Wrapf(err, "GetEvent").Error(), true)
 			return
 		}
@@ -105,17 +106,17 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			continue
 		}
 		// check contact enabled
-		enabled, err := receiver.IsEnabledContactType(notification.ContactType)
-		if err != nil {
-			logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "GetEnabledContactTypes"), self.GetUserCred(), false)
-			continue
-		}
 		if notification.ContactType == apis.WEBHOOK {
 			notification.ContactType = apis.WEBHOOK_ROBOT
 		}
 		if receiver.IsRobot() {
 			robot := receiver.(*models.SRobot)
 			notification.ContactType = fmt.Sprintf("%s-robot", robot.Type)
+		}
+		enabled, err := receiver.IsEnabledContactType(notification.ContactType)
+		if err != nil {
+			logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "GetEnabledContactTypes"), self.GetUserCred(), false)
+			continue
 		}
 		driver := models.GetDriver(notification.ContactType)
 		if driver == nil || !enabled {
@@ -202,7 +203,11 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			continue
 		}
 		// send
-		p, err := notification.GetTemplate(ctx, event.TopicId, lang, nn)
+		topicId := ""
+		if event != nil {
+			topicId = event.TopicId
+		}
+		p, err := notification.GetTemplate(ctx, topicId, lang, nn)
 		if err != nil {
 			logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "FillWithTemplate(%s)", lang), self.GetUserCred(), false)
 			continue
@@ -210,7 +215,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		if event != nil {
 			p.Event = event.Event
 		}
-		if notification.ContactType != apis.MOBILE {
+		if notification.ContactType != apis.MOBILE && notification.ContactType != apis.WEBHOOK_ROBOT {
 			switch lang {
 			case apis.TEMPLATE_LANG_CN:
 				p.Message += "\n来自 " + options.Options.ApiServer
@@ -274,7 +279,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			params.Header = robot.Header
 			params.Body = robot.Body
 			params.MsgKey = robot.MsgKey
-			err = driver.Send(params)
+			err = driver.Send(ctx, params)
 			if err != nil {
 				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
 			}
@@ -294,7 +299,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 				mobile := strings.Join(mobileArr, "")
 				params.Receivers.Contact = mobile
 			}
-			err = driver.Send(params)
+			err = driver.Send(ctx, params)
 			if err != nil {
 				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
 			}
@@ -302,7 +307,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			receiver := receivers[i].receiver.(*models.SContact)
 			params.Receivers.Contact, _ = receiver.GetContact(notification.ContactType)
 			driver := models.GetDriver(notification.ContactType)
-			err = driver.Send(params)
+			err = driver.Send(ctx, params)
 			if err != nil {
 				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
 			}

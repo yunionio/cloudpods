@@ -37,11 +37,11 @@ func (websocket *SWebsocketSender) GetSenderType() string {
 	return api.WEBSOCKET
 }
 
-func (websocket *SWebsocketSender) Send(params api.SendParams) error {
-	return websocket.send(params)
+func (websocket *SWebsocketSender) Send(ctx context.Context, params api.SendParams) error {
+	return websocket.send(ctx, params)
 }
 
-func (websocket *SWebsocketSender) send(args api.SendParams) error {
+func (websocket *SWebsocketSender) send(ctx context.Context, args api.SendParams) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("notify"), "obj_type")
 	params.Add(jsonutils.NewString(""), "obj_id")
@@ -101,15 +101,15 @@ func (websocket *SWebsocketSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (websocket *SWebsocketSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (websocket *SWebsocketSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	return "", nil
 }
 
-func (websocket *SWebsocketSender) GetAccessToken(key string) error {
+func (websocket *SWebsocketSender) GetAccessToken(ctx context.Context, key string) error {
 	return nil
 }
 
-func (websocket *SWebsocketSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (websocket *SWebsocketSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 

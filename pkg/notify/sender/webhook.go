@@ -14,6 +14,7 @@
 package sender
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -34,13 +35,10 @@ func (self *SWebhookSender) GetSenderType() string {
 	return api.WEBHOOK_ROBOT
 }
 
-func (self *SWebhookSender) Send(args api.SendParams) error {
-	body, err := jsonutils.ParseString(args.Message)
-	if err != nil {
-		return errors.Wrapf(err, "unable to parse %q", args.Message)
-	}
-	if _, ok := body.(*jsonutils.JSONString); err != nil || ok {
-		dict := jsonutils.NewDict()
+func (self *SWebhookSender) Send(ctx context.Context, args api.SendParams) error {
+	dict := jsonutils.NewDict()
+	header := http.Header{}
+	if len(args.Event) == 0 {
 		if len(args.MsgKey) == 0 {
 			dict.Set("Msg", jsonutils.NewString(args.Message))
 		} else {
@@ -49,10 +47,23 @@ func (self *SWebhookSender) Send(args api.SendParams) error {
 		if args.Body != nil {
 			jsonutils.Update(dict, args.Body)
 		}
-		body = dict
+	} else {
+		body, err := jsonutils.ParseString(args.Message)
+		if err != nil {
+			return errors.Wrapf(err, "unable to parse %q", args.Message)
+		}
+		jsonutils.Update(dict, body)
+		if len(args.MsgKey) == 0 {
+			dict.Set("Msg", jsonutils.NewString(args.Message))
+		} else {
+			dict.Set(args.MsgKey, jsonutils.NewString(args.Message))
+		}
+		if args.Body != nil {
+			jsonutils.Update(dict, args.Body)
+		}
+		event := strings.ToUpper(args.Event)
+		header.Set(EVENT_HEADER, event)
 	}
-	event := strings.ToUpper(args.Event)
-	header := http.Header{}
 	if args.Header != nil {
 		resmap, _ := args.Header.GetMap()
 		for k, v := range resmap {
@@ -64,12 +75,11 @@ func (self *SWebhookSender) Send(args api.SendParams) error {
 		}
 	}
 
-	header.Set(EVENT_HEADER, event)
-	_, _, err = httputils.JSONRequest(cli, ctx, httputils.POST, args.Receivers.Contact, header, body, false)
-	return err
+	_, _, err := httputils.JSONRequest(cli, ctx, httputils.POST, args.Receivers.Contact, header, dict, false)
+	return errors.Wrap(err, "webhook send")
 }
 
-func (websender *SWebhookSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (websender *SWebhookSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -85,7 +95,7 @@ func (websender *SWebhookSender) DeleteConfig(config api.NotifyConfig) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (websender *SWebhookSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (websender *SWebhookSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -109,7 +119,7 @@ func (websender *SWebhookSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (websender *SWebhookSender) GetAccessToken(key string) error {
+func (websender *SWebhookSender) GetAccessToken(ctx context.Context, key string) error {
 	return nil
 }
 
