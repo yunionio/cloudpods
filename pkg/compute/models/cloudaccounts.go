@@ -1142,22 +1142,21 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 			}
 			newCloudprovider.DomainId = ownerId.GetProjectDomainId()
 			newCloudprovider.ProjectId = ownerId.GetProjectId()
+
+		}
+
+		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
+		err = func() error {
+			lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
 			if self.AutoCreateProjectForProvider {
 				domainId, projectId, err := self.getOrCreateTenant(ctx, newCloudprovider.Name, newCloudprovider.DomainId, "", subAccount.Desc)
 				if err != nil {
-					return nil, errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", newCloudprovider.Name)
+					return errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", newCloudprovider.Name)
 				}
 				newCloudprovider.ProjectId = projectId
 				newCloudprovider.DomainId = domainId
 			}
-		}
-
-		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
-
-		err = func() error {
-			lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
-			defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
-
 			newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
 			if err != nil {
 				return err
