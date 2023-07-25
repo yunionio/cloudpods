@@ -163,18 +163,6 @@ func (self *SStorage) getFakeDeletedSnapshots() ([]SSnapshot, error) {
 }
 
 func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	// delete all hidden snapshots
-	fakeDeletedSnapshots, err := self.getFakeDeletedSnapshots()
-	if err != nil {
-		return errors.Wrap(err, "getFakeDeletedSnapshots")
-	}
-	for i := range fakeDeletedSnapshots {
-		err := fakeDeletedSnapshots[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrap(err, "fakeDeletedSnapshots.Delete")
-		}
-	}
-	DeleteResourceJointSchedtags(self, ctx, userCred)
 	ok, err := self.IsNeedDeleteStoragecache()
 	if err != nil {
 		return err
@@ -187,9 +175,9 @@ func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredent
 	}
 	if len(self.ManagerId) > 0 {
 		db.SharedResourceManager.CleanModelShares(ctx, userCred, self.GetIInfrasModel())
-		return db.RealDeleteModel(ctx, userCred, self)
+		return self.purge(ctx, userCred)
 	}
-	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+	return self.purge(ctx, userCred)
 }
 
 func (self *SStorage) IsNeedDeleteStoragecache() (bool, error) {
@@ -907,16 +895,7 @@ func (self *SStorage) syncRemoveCloudStorage(ctx context.Context, userCred mccli
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx, nil)
-	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, api.STORAGE_OFFLINE, "sync to delete")
-		if err == nil {
-			_, err = self.PerformDisable(ctx, userCred, nil, nil)
-		}
-	} else {
-		err = self.Delete(ctx, userCred)
-	}
-	return err
+	return self.purge(ctx, userCred)
 }
 
 var CapacityUsedCloudStorageProvider = []string{

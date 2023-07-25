@@ -16,11 +16,8 @@ package tasks
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -44,51 +41,22 @@ func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	providers := account.GetCloudproviders()
 
-	if len(providers) == 0 {
-		self.OnAllCloudProviderDeleteComplete(ctx, account, nil)
-		return
-	}
-
-	self.SetStage("OnAllCloudProviderDeleteComplete", nil)
-
 	for i := range providers {
-		err := providers[i].StartCloudproviderDeleteTask(ctx, self.UserCred, self.GetTaskId())
+		err := providers[i].RealDelete(ctx, self.UserCred)
 		if err != nil {
-			// very unlikely
+			providers[i].SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
 			account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
 	}
-}
 
-func (self *CloudAccountDeleteTask) OnAllCloudProviderDeleteComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	account := obj.(*models.SCloudaccount)
-
-	// check providers deleted success
-	count, err := account.GetProviderCount()
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		self.OnAllCloudProviderDeleteCompleteFailed(ctx, obj, jsonutils.NewString(err.Error()))
+	err := account.RealDelete(ctx, self.UserCred)
+	if err != nil {
+		account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
-
-	if count > 0 {
-		self.OnAllCloudProviderDeleteCompleteFailed(ctx, obj, jsonutils.NewString(fmt.Sprintf("cloudprovider deleted failed count %d", count)))
-		return
-	}
-
-	account.RealDelete(ctx, self.UserCred)
-
 	self.SetStageComplete(ctx, nil)
-
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_DELETE, nil, self.UserCred, true)
-}
-
-func (self *CloudAccountDeleteTask) OnAllCloudProviderDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	account := obj.(*models.SCloudaccount)
-
-	account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, body.String())
-	self.SetStageFailed(ctx, body)
-
-	logclient.AddActionLogWithStartable(self, account, logclient.ACT_DELETE, body, self.UserCred, false)
 }

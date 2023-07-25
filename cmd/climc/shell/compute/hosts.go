@@ -41,6 +41,7 @@ func init() {
 	cmd.GetProperty(&compute.HostStatusStatisticsOptions{})
 
 	cmd.Perform("ping", &options.BaseIdOptions{})
+	cmd.Perform("purge", &options.BaseIdOptions{})
 	cmd.Perform("undo-convert", &options.BaseIdOptions{})
 	cmd.Perform("maintenance", &options.BaseIdOptions{})
 	cmd.Perform("unmaintenance", &options.BaseIdOptions{})

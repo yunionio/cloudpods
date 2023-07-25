@@ -504,8 +504,7 @@ func (manager *SCloudregionManager) SyncRegions(
 	added := make([]cloudprovider.ICloudRegion, 0)
 	err = compare.CompareSets(dbRegions, regions, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		log.Errorf("compare regions fail %s", err)
-		syncResult.Error(err)
+		syncResult.Error(errors.Wrapf(err, "CompareSets"))
 		return nil, nil, nil, syncResult
 	}
 	for i := 0; i < len(removed); i += 1 {
@@ -552,15 +551,7 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	// 不要设置region状态不可用, 同一个公有云，不同账号可能获取的region数量不一样
-	cpr := CloudproviderRegionManager.FetchByIds(cloudProvider.Id, self.Id)
-	if cpr != nil {
-		err := cpr.Detach(ctx, userCred)
-		if err == nil {
-			cpr.removeCapabilities(ctx, userCred)
-		}
-	}
-	return nil
+	return self.purgeAll(ctx, cloudProvider.Id)
 }
 
 func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, cloudRegion cloudprovider.ICloudRegion, provider *SCloudprovider) error {
@@ -1110,6 +1101,16 @@ func (self *SCloudregion) GetDynamicConditionInput() *jsonutils.JSONDict {
 
 func (self *SCloudregion) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SCloudregion) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.CloudregionPurgeInput) (jsonutils.JSONObject, error) {
+	if self.Id == api.DEFAULT_REGION_ID {
+		return nil, httperrors.NewProtectedResourceError("not allow to delete default cloud region")
+	}
+	if len(input.ManagerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager_id")
+	}
+	return nil, self.purgeAll(ctx, input.ManagerId)
 }
 
 func (self *SCloudregion) GetSchedtagJointManager() ISchedtagJointManager {

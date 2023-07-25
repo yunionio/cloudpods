@@ -68,9 +68,6 @@ type SZone struct {
 	Contacts   string `width:"256" charset:"utf8" get:"user" update:"admin"`
 	NameCn     string `width:"256" charset:"utf8"`
 	ManagerUri string `width:"256" charset:"ascii" list:"admin" update:"admin"`
-
-	// 区域Id
-	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 }
 
 func (manager *SZoneManager) GetContextManagers() [][]db.IModelManager {
@@ -285,6 +282,7 @@ func (manager *SZoneManager) SyncZones(
 	userCred mcclient.TokenCredential,
 	region *SCloudregion,
 	zones []cloudprovider.ICloudZone,
+	provider *SCloudprovider,
 	xor bool,
 ) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
 	lockman.LockRawObject(ctx, "zones", region.Id)
@@ -312,7 +310,7 @@ func (manager *SZoneManager) SyncZones(
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].syncRemoveCloudZone(ctx, userCred)
+		err = removed[i].syncRemoveCloudZone(ctx, userCred, provider)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -344,16 +342,11 @@ func (manager *SZoneManager) SyncZones(
 	return localZones, remoteZones, syncResult
 }
 
-func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return errors.Wrapf(err, "ValidateDeleteCondition")
-	}
-	// self.RemoveI18ns(ctx, userCred, self)
-	return self.Delete(ctx, userCred)
+	return self.purgeAll(ctx, provider.Id)
 }
 
 func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.TokenCredential, extZone cloudprovider.ICloudZone, region *SCloudregion) error {
@@ -979,6 +972,13 @@ func (self *SZone) GetDynamicConditionInput() *jsonutils.JSONDict {
 
 func (self *SZone) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SZone) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ZonePurgeInput) (jsonutils.JSONObject, error) {
+	if len(input.ManagerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager_id")
+	}
+	return nil, self.purgeAll(ctx, input.ManagerId)
 }
 
 func (self *SZone) GetSchedtagJointManager() ISchedtagJointManager {

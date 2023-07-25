@@ -1599,62 +1599,18 @@ func (self *SCloudprovider) Delete(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	var err error
-
-	for _, manager := range []IPurgeableManager{
-		BucketManager,
-		HostManager,
-		SnapshotManager,
-		SnapshotPolicyManager,
-		StorageManager,
-		StoragecacheManager,
-		SecurityGroupCacheManager,
-		LoadbalancerManager,
-		LoadbalancerBackendGroupManager,
-		CachedLoadbalancerAclManager,
-		CachedLoadbalancerCertificateManager,
-		LoadbalancerCertificateManager,
-		NatGatewayManager,
-		DBInstanceManager,
-		DBInstanceBackupManager,
-		ElasticcacheManager,
-		AccessGroupCacheManager,
-		FileSystemManager,
-		WafRuleGroupCacheManager,
-		WafIPSetCacheManager,
-		WafRegexSetCacheManager,
-		WafInstanceManager,
-		AppManager,
-		VpcManager,
-		GlobalVpcManager,
-		ElasticipManager,
-		MongoDBManager,
-		ElasticSearchManager,
-		KafkaManager,
-		CDNDomainManager,
-		TablestoreManager,
-		NetworkInterfaceManager,
-		KubeClusterManager,
-		InterVpcNetworkManager,
-		CloudproviderRegionManager,
-		CloudregionManager,
-		CloudproviderQuotaManager,
-		ModelartsPoolManager,
-	} {
-		err = manager.purgeAll(ctx, userCred, self.Id)
-		if err != nil {
-			return errors.Wrapf(err, "purge %s", manager.Keyword())
-		}
-		log.Debugf("%s purgeall success!", manager.Keyword())
-	}
-
-	CloudproviderCapabilityManager.removeCapabilities(ctx, userCred, self.Id)
-	err = DnsZoneCacheManager.removeCaches(ctx, userCred, self.Id)
+	regions, err := self.GetRegions()
 	if err != nil {
-		return errors.Wrapf(err, "remove dns caches")
+		return errors.Wrapf(err, "GetRegions")
 	}
 
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	for i := range regions {
+		err = regions[i].purgeAll(ctx, self.Id)
+		if err != nil {
+			return err
+		}
+	}
+	return self.purge(ctx, userCred)
 }
 
 func (self *SCloudprovider) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -1668,8 +1624,7 @@ func (self *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, us
 		return errors.Wrapf(err, "NewTask")
 	}
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SCloudprovider) GetRegionDriver() (IRegionDriver, error) {

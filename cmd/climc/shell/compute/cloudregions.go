@@ -24,26 +24,14 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudregions).WithKeyword("cloud-region")
-	cmd.PerformClass("sync-skus", &options.CloudregionSkuSyncOptions{})
-	cmd.Perform("sync-images", &options.CloudregionIdOptions{})
-
-	R(&options.SkuTaskQueryOptions{}, "cloud-region-sync-task-show", "Show details of skus sync tasks", func(s *mcclient.ClientSession, args *options.SkuTaskQueryOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-
-		result, err := modules.Cloudregions.Get(s, "sync-tasks", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
+	cmd.PerformClass("sync-skus", &compute.CloudregionSkuSyncOptions{})
+	cmd.Perform("sync-images", &compute.CloudregionIdOptions{})
+	cmd.Perform("purge", &compute.CloudregionPurgeOptions{})
 
 	type CloudregionListOptions struct {
 		options.BaseListOptions

@@ -17,7 +17,6 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
@@ -25,5 +24,5 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.NasSkus).WithKeyword("nas-sku")
 	cmd.List(&compute.NasSkuListOption{})
 	cmd.Show(&compute.NasSkuIdOption{})
-	cmd.PerformClass("sync-skus", &options.SkuSyncOptions{})
+	cmd.PerformClass("sync-skus", &compute.SkuSyncOptions{})
 }
