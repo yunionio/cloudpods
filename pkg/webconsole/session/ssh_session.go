@@ -59,9 +59,6 @@ func NewSshSession(ctx context.Context, us *mcclient.ClientSession, name, ip str
 		Username: username,
 		Password: password,
 	}
-	if len(ret.name) == 0 {
-		ret.name = ret.Username
-	}
 	if port <= 0 {
 		ret.Port = 22
 	}
@@ -85,6 +82,9 @@ func (s *SSshSession) GetProtocol() string {
 }
 
 func (s *SSshSession) GetRecordObject() *recorder.Object {
+	if len(s.name) == 0 {
+		s.name = s.Username
+	}
 	return recorder.NewObject(s.id, s.name, "server", s.Username, jsonutils.Marshal(map[string]interface{}{"ip": s.Host, "port": s.Port}))
 }
 
