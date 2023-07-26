@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"golang.org/x/text/language"
 
@@ -91,7 +92,7 @@ func (rm *SRobotManager) ValidateCreateData(ctx context.Context, userCred mcclie
 	input.SetEnabled()
 	input.Status = api.ROBOT_STATUS_READY
 	driver := GetDriver(fmt.Sprintf("%s-robot", input.Type))
-	err = driver.Send(api.SendParams{
+	err = driver.Send(ctx, api.SendParams{
 		Receivers: api.SNotifyReceiver{
 			Contact:  input.Address,
 			DomainId: input.ProjectDomainId,
@@ -103,7 +104,10 @@ func (rm *SRobotManager) ValidateCreateData(ctx context.Context, userCred mcclie
 		Message: "This is a verification message, please ignore.",
 	})
 	if err != nil {
-		return input, err
+		if errors.ErrConnectRefused == errors.Cause(err) {
+			return input, errors.Wrapf(errors.ErrNotImplemented, "url not allow :%s", err.Error())
+		}
+		return input, errors.Wrap(err, "robot validate")
 	}
 	return input, nil
 }
@@ -150,13 +154,39 @@ func (r *SRobot) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 	}
 	if len(input.Address) > 0 {
 		// check Address
-		dirver := GetDriver(r.Type)
-		err := dirver.Send(api.SendParams{})
+		dirver := GetDriver(fmt.Sprintf("%s-robot", r.Type))
+		err := dirver.Send(ctx, api.SendParams{
+			Header:  input.Header,
+			Body:    input.Body,
+			MsgKey:  input.MsgKey,
+			Title:   "Validate",
+			Message: "This is a verification message, please ignore.",
+			Receivers: api.SNotifyReceiver{
+				Contact: input.Address,
+			},
+		})
 		if err != nil {
+			if errors.ErrConnectRefused == errors.Cause(err) {
+				return input, errors.Wrapf(errors.ErrNotImplemented, "url not allow :%s", err.Error())
+			}
 			return input, errors.Wrap(err, "unable to validate address")
 		}
 	}
 	return input, nil
+}
+
+func (r *SRobot) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	db.Update(r, func() error {
+		header, ok := data.Get("header")
+		if ok == nil && header.IsZero() {
+			r.Header = nil
+		}
+		body, ok := data.Get("body")
+		if ok == nil && body.IsZero() {
+			r.Body = nil
+		}
+		return nil
+	})
 }
 
 func (r *SRobot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -188,7 +218,7 @@ func (r *SRobot) IsEnabled() bool {
 }
 
 func (r *SRobot) IsEnabledContactType(ctype string) (bool, error) {
-	return ctype == api.ROBOT || ctype == api.WEBHOOK, nil
+	return strings.Contains(ctype, api.ROBOT) || ctype == api.WEBHOOK, nil
 }
 
 func (r *SRobot) IsVerifiedContactType(ctype string) (bool, error) {

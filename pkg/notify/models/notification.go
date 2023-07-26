@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"html"
+	"html/template"
 	"strings"
 	"time"
 
@@ -128,10 +130,6 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		}
 	}
 	input.Receivers = idSet.UnsortedList()
-	if len(input.Receivers)+len(input.Contacts) == 0 {
-		return input, httperrors.NewInputParameterError("no valid receiver or contact")
-	}
-
 	if len(input.Receivers)+len(input.Contacts)+len(input.Robots) == 0 {
 		return input, httperrors.NewInputParameterError("no valid receiver or contact")
 	}
@@ -699,4 +697,119 @@ func (n *SNotification) GetNotOKReceivers() ([]SReceiver, error) {
 
 func (n *SNotification) TaskInsert() error {
 	return NotificationManager.TableSpec().Insert(context.Background(), n)
+}
+
+// 获取消息文案
+func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, no api.SsNotification) (api.SendParams, error) {
+	if len(n.EventId) == 0 || n.ContactType == api.MOBILE {
+		return TemplateManager.FillWithTemplate(ctx, lang, no)
+	}
+
+	out, event := api.SendParams{}, no.Event
+	topicModel, err := TopicManager.FetchById(topicId)
+	if err != nil {
+		return out, errors.Wrapf(err, "get topic by id")
+	}
+	topic := topicModel.(*STopic)
+	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
+	msgObj, err := jsonutils.ParseString(no.Message)
+	if err != nil {
+		return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
+	}
+	msg := msgObj.(*jsonutils.JSONDict)
+	if info, _ := TemplateManager.GetCompanyInfo(ctx); len(info.Name) > 0 {
+		msg.Set("brand", jsonutils.NewString(info.Name))
+	}
+	webhookMsg := jsonutils.NewDict()
+	webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
+	webhookMsg.Set("action", jsonutils.NewString(aStr))
+	webhookMsg.Set("result", jsonutils.NewString(resultStr))
+	webhookMsg.Set("resource_details", msg)
+	if no.ContactType == api.WEBHOOK || no.ContactType == api.WEBHOOK_ROBOT {
+		return api.SendParams{
+			Title:   no.Event.StringWithDeli("_"),
+			Message: webhookMsg.String(),
+		}, nil
+	}
+
+	if lang == "" {
+		lang = getLangSuffix(ctx)
+	}
+
+	// 文案关键字翻译
+	tag := languageTag(lang)
+	rtDis := notifyclientI18nTable.LookupByLang(tag, rtStr)
+	if len(rtDis) == 0 {
+		rtDis = rtStr
+	}
+	aDis := notifyclientI18nTable.LookupByLang(tag, aStr)
+	if len(aDis) == 0 {
+		aDis = aStr
+	}
+	resultDis := notifyclientI18nTable.LookupByLang(tag, resultStr)
+	if len(resultDis) == 0 {
+		resultDis = resultStr
+	}
+	templateParams := webhookMsg
+	templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
+	templateParams.Set("resource_type_display", jsonutils.NewString(rtDis))
+	templateParams.Set("action_display", jsonutils.NewString(aDis))
+	templateParams.Set("result_display", jsonutils.NewString(resultDis))
+
+	var stemplateTitle *template.Template
+	var stemplateContent *template.Template
+
+	failedReason := []error{}
+	switch lang {
+	case api.TEMPLATE_LANG_CN:
+		stemplateTitle, err = template.New("template").Parse(topic.TitleCn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_cn template:%s", err.Error()))
+		}
+		stemplateContent, err = template.New("template").Parse(topic.ContentCn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_cn template:%s", err.Error()))
+		}
+	case api.TEMPLATE_LANG_EN:
+		stemplateTitle, err = template.New("template").Parse(topic.TitleEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_EN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_en template:%s", err.Error()))
+		}
+		stemplateContent, err = template.New("template").Parse(topic.ContentEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_en template:%s", err.Error()))
+		}
+	default:
+		failedReason = append(failedReason, errors.Errorf("empty lang"))
+		stemplateTitle, err = template.New("template").Parse(topic.TitleEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_EN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_en template:%s", err.Error()))
+		}
+		stemplateContent, err = template.New("template").Parse(topic.ContentEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_en template:%s", err.Error()))
+		}
+	}
+	if len(failedReason) > 0 {
+		return out, errors.NewAggregate(failedReason)
+	}
+	tmpTitle := strings.Builder{}
+	tmpContent := strings.Builder{}
+	err = stemplateTitle.Execute(&tmpTitle, templateParams.Interface())
+	if err != nil {
+		failedReason = append(failedReason, errors.Errorf("unable to stemplateTitle.Execute:%s", err.Error()))
+	}
+	err = stemplateContent.Execute(&tmpContent, templateParams.Interface())
+	if err != nil {
+		failedReason = append(failedReason, errors.Errorf("unable to stemplateContent.Execute:%s", err.Error()))
+	}
+	out.Title = html.UnescapeString(tmpTitle.String())
+	out.Message = html.UnescapeString(tmpContent.String())
+	return out, errors.NewAggregate(failedReason)
 }

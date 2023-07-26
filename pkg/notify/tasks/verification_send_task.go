@@ -116,7 +116,7 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	param.EmailMsg = emailMsg
 	driver := models.GetDriver(contactType)
-	err = driver.Send(param)
+	err = driver.Send(ctx, param)
 	// err = models.NotifyService.Send(ctx, contactType, param)
 	if err != nil {
 		self.taskFailed(ctx, receiver, err.Error())
