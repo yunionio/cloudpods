@@ -59,6 +59,7 @@ type SNetworkInterface struct {
 	InstanceId           string
 	CreationTime         time.Time
 	MacAddress           string
+	ServiceManaged       bool
 	NetworkInterfaceName string
 	PrivateIpSets        SPrivateIpSets
 	ResourceGroupId      string
@@ -71,6 +72,12 @@ type SNetworkInterface struct {
 	NetworkInterfaceId   string
 	PrimaryIpAddress     string
 	PrivateIpAddress     string
+
+	Attachment struct {
+		InstanceId              string
+		DeviceIndex             int
+		TrunkNetworkInterfaceId string
+	}
 }
 
 func (nic *SNetworkInterface) GetName() string {
@@ -107,23 +114,26 @@ func (nic *SNetworkInterface) GetStatus() string {
 
 func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
 	interfaces := []SNetworkInterface{}
+	nextToken := ""
 	for {
-		parts, total, err := region.GetNetworkInterfaces("", len(interfaces), 50)
+		parts, _nextToken, err := region.GetNetworkInterfaces("", "Available", nextToken, 500)
 		if err != nil {
 			return nil, err
 		}
 		interfaces = append(interfaces, parts...)
-		if len(interfaces) >= total {
+		if len(_nextToken) == 0 {
 			break
 		}
+		nextToken = _nextToken
 	}
 	ret := []cloudprovider.ICloudNetworkInterface{}
 	for i := 0; i < len(interfaces); i++ {
 		// 阿里云实例的弹性网卡已经在guestnetwork同步了
-		if len(interfaces[i].InstanceId) == 0 {
-			interfaces[i].region = region
-			ret = append(ret, &interfaces[i])
+		if interfaces[i].ServiceManaged {
+			continue
 		}
+		interfaces[i].region = region
+		ret = append(ret, &interfaces[i])
 	}
 	return ret, nil
 }
@@ -137,31 +147,36 @@ func (nic *SNetworkInterface) GetICloudInterfaceAddresses() ([]cloudprovider.ICl
 	return address, nil
 }
 
-func (region *SRegion) GetNetworkInterfaces(instanceId string, offset int, limit int) ([]SNetworkInterface, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
+func (region *SRegion) GetNetworkInterfaces(instanceId, status string, nextToken string, maxResults int) ([]SNetworkInterface, string, error) {
+	if maxResults > 500 || maxResults <= 0 {
+		maxResults = 500
 	}
 
 	params := map[string]string{
 		"RegionId":   region.RegionId,
-		"PageSize":   fmt.Sprintf("%d", limit),
-		"PageNumber": fmt.Sprintf("%d", (offset/limit)+1),
+		"MaxResults": fmt.Sprintf("%d", maxResults),
+	}
+	if len(nextToken) > 0 {
+		params["NextToken"] = nextToken
 	}
 
 	if len(instanceId) > 0 {
 		params["InstanceId"] = instanceId
 	}
+	if len(status) > 0 {
+		params["Status"] = status
+	}
 
 	body, err := region.ecsRequest("DescribeNetworkInterfaces", params)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "DescribeNetworkInterfaces")
+		return nil, "", errors.Wrap(err, "DescribeNetworkInterfaces")
 	}
 
 	interfaces := []SNetworkInterface{}
 	err = body.Unmarshal(&interfaces, "NetworkInterfaceSets", "NetworkInterfaceSet")
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "Unmarshal")
+		return nil, "", errors.Wrap(err, "Unmarshal")
 	}
-	total, _ := body.Int("TotalCount")
-	return interfaces, int(total), nil
+	nextToken, _ = body.GetString("NextToken")
+	return interfaces, nextToken, nil
 }
