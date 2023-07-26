@@ -15,6 +15,7 @@
 package sender
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -36,7 +37,7 @@ func (dingSender *SDingTalkSender) GetSenderType() string {
 	return api.DINGTALK
 }
 
-func (dingSender *SDingTalkSender) Send(args api.SendParams) error {
+func (dingSender *SDingTalkSender) Send(ctx context.Context, args api.SendParams) error {
 	body := map[string]interface{}{
 		"agent_id": models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AgentId,
 		"msg": map[string]interface{}{
@@ -50,21 +51,21 @@ func (dingSender *SDingTalkSender) Send(args api.SendParams) error {
 	}
 	params := url.Values{}
 	params.Set("access_token", models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AccessToken)
-	req, err := sendRequest(ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
+	req, err := sendRequest(ctx, ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
 	if err != nil {
 		subCode, _ := req.GetString("sub_code")
 		switch subCode {
 		// token失效或不合法
 		case "40014":
 			// 尝试重新获取token
-			err = dingSender.GetAccessToken(fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId))
+			err = dingSender.GetAccessToken(ctx, fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId))
 			if err != nil {
 				return errors.Wrap(err, "reset token")
 			}
 			// 重新发送通知
 			params = url.Values{}
 			params.Set("access_token", models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AccessToken)
-			req, err = sendRequest(ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
+			req, err = sendRequest(ctx, ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
 			if err != nil {
 				return errors.Wrap(err, "dingtalk resend message")
 			}
@@ -80,13 +81,13 @@ func (dingSender *SDingTalkSender) Send(args api.SendParams) error {
 		"agent_id": models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AgentId,
 		"task_id":  task_id,
 	}
-	_, err = sendRequest(ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
+	_, err = sendRequest(ctx, ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
 	return err
 }
 
-func (dingSender *SDingTalkSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (dingSender *SDingTalkSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	// 校验accesstoken
-	_, err := dingSender.getAccessToken(config.AppKey, config.AppSecret)
+	_, err := dingSender.getAccessToken(ctx, config.AppKey, config.AppSecret)
 	if err != nil {
 		if strings.Contains(err.Error(), "40089") {
 			return "invalid AppKey or AppSecret", err
@@ -96,8 +97,8 @@ func (dingSender *SDingTalkSender) ValidateConfig(config api.NotifyConfig) (stri
 	return "", nil
 }
 
-func (dingSender *SDingTalkSender) ContactByMobile(mobile, domainId string) (string, error) {
-	err := dingSender.GetAccessToken(domainId)
+func (dingSender *SDingTalkSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
+	err := dingSender.GetAccessToken(ctx, domainId)
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +107,7 @@ func (dingSender *SDingTalkSender) ContactByMobile(mobile, domainId string) (str
 	})
 	params := url.Values{}
 	params.Set("access_token", models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, domainId)].Content.AccessToken)
-	res, err := sendRequest(ApiDingtalkGetUserByMobile, httputils.POST, nil, params, body)
+	res, err := sendRequest(ctx, ApiDingtalkGetUserByMobile, httputils.POST, nil, params, body)
 	if err != nil {
 		return "", errors.Wrap(err, "get user by mobile")
 	}
@@ -141,10 +142,10 @@ func (dingSender *SDingTalkSender) RegisterConfig(config models.SConfig) {
 	models.ConfigMap[fmt.Sprintf("%s-%s", config.Type, config.DomainId)] = config
 }
 
-func (dingSender *SDingTalkSender) GetAccessToken(domainId string) error {
+func (dingSender *SDingTalkSender) GetAccessToken(ctx context.Context, domainId string) error {
 	key := fmt.Sprintf("%s-%s", api.DINGTALK, domainId)
 	appKey, appSecret := models.ConfigMap[key].Content.AppKey, models.ConfigMap[key].Content.AppSecret
-	token, err := dingSender.getAccessToken(appKey, appSecret)
+	token, err := dingSender.getAccessToken(ctx, appKey, appSecret)
 	if err != nil {
 		return errors.Wrap(err, "dingtalk getAccessToken")
 	}
@@ -152,11 +153,11 @@ func (dingSender *SDingTalkSender) GetAccessToken(domainId string) error {
 	return nil
 }
 
-func (dingSender *SDingTalkSender) getAccessToken(appKey, appSecret string) (string, error) {
+func (dingSender *SDingTalkSender) getAccessToken(ctx context.Context, appKey, appSecret string) (string, error) {
 	params := url.Values{}
 	params.Set("appkey", appKey)
 	params.Set("appsecret", appSecret)
-	res, err := sendRequest(ApiDingtalkGetToken, httputils.GET, nil, params, nil)
+	res, err := sendRequest(ctx, ApiDingtalkGetToken, httputils.GET, nil, params, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "get dingtalk token")
 	}

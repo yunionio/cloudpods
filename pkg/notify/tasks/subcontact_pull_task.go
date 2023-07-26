@@ -105,7 +105,7 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 			if utils.IsInStringArray(contactType, PullContactType) {
 				content := ""
 				driver := models.GetDriver(contactType)
-				content, err = driver.ContactByMobile(mobile, self.UserCred.GetDomainId())
+				content, err = driver.ContactByMobile(ctx, mobile, self.UserCred.GetDomainId())
 				if err != nil {
 					var reason string
 					if errors.Cause(err) == apis.ErrNoSuchMobile {

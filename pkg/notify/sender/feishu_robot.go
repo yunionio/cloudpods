@@ -14,6 +14,7 @@
 package sender
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -36,7 +37,7 @@ func (feishuRobotSender *SFeishuRobotSender) GetSenderType() string {
 	return api.FEISHU_ROBOT
 }
 
-func (feishuRobotSender *SFeishuRobotSender) Send(args api.SendParams) error {
+func (feishuRobotSender *SFeishuRobotSender) Send(ctx context.Context, args api.SendParams) error {
 	var token string
 	var errs []error
 	title, msg := args.Title, args.Message
@@ -73,11 +74,11 @@ func (feishuRobotSender *SFeishuRobotSender) Send(args api.SendParams) error {
 	return errors.NewAggregate(errs)
 }
 
-func (feishuRobotSender *SFeishuRobotSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (feishuRobotSender *SFeishuRobotSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (feishuRobotSender *SFeishuRobotSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (feishuRobotSender *SFeishuRobotSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -101,7 +102,7 @@ func (feishuRobotSender *SFeishuRobotSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (feishuRobotSender *SFeishuRobotSender) GetAccessToken(key string) error {
+func (feishuRobotSender *SFeishuRobotSender) GetAccessToken(ctx context.Context, key string) error {
 	return nil
 }
 

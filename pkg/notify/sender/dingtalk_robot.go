@@ -15,6 +15,7 @@
 package sender
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -39,8 +40,7 @@ type SDingTalkRobotSender struct {
 func (dingRobotSender *SDingTalkRobotSender) GetSenderType() string {
 	return api.DINGTALK_ROBOT
 }
-
-func (dingRobotSender *SDingTalkRobotSender) Send(args api.SendParams) error {
+func (dingRobotSender *SDingTalkRobotSender) Send(ctx context.Context, args api.SendParams) error {
 	var token string
 	var atStr strings.Builder
 	title, msg := args.Title, args.Message
@@ -71,11 +71,11 @@ func (dingRobotSender *SDingTalkRobotSender) Send(args api.SendParams) error {
 	return errors.Wrap(err, "this is res err")
 }
 
-func (dingRobotSender *SDingTalkRobotSender) ValidateConfig(config api.NotifyConfig) (string, error) {
+func (dingRobotSender *SDingTalkRobotSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (dingRobotSender *SDingTalkRobotSender) ContactByMobile(mobile, domainId string) (string, error) {
+func (dingRobotSender *SDingTalkRobotSender) ContactByMobile(ctx context.Context, mobile, domainId string) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -99,7 +99,7 @@ func (dingRobotSender *SDingTalkRobotSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (dingRobotSender *SDingTalkRobotSender) GetAccessToken(key string) error {
+func (dingRobotSender *SDingTalkRobotSender) GetAccessToken(ctx context.Context, key string) error {
 	return nil
 }
 
