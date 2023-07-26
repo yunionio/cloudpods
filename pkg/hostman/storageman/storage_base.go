@@ -263,16 +263,7 @@ func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonut
 	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
 		s.StorageConf = dconf
 	}
-	if strings.HasPrefix(s.Path, "/opt/cloud") {
-		return nil
-	}
-	if !s.isSetStorageInfo && options.HostOptions.EnableRemoteExecutor {
-		err := s.bindMountTo(s.Path)
-		if err == nil {
-			s.isSetStorageInfo = true
-		}
-		return err
-	}
+	s.BindMountStoragePath(s.Path)
 	return nil
 }
 
@@ -283,6 +274,21 @@ func (s *SBaseStorage) SyncStorageSize() (api.SHostStorageStat, error) {
 	stat.CapacityMb = int64(s.GetCapacity())
 	stat.ActualCapacityUsedMb = int64(s.GetUsedSizeMb())
 	return stat, nil
+}
+
+func (s *SBaseStorage) BindMountStoragePath(sPath string) error {
+	if strings.HasPrefix(sPath, "/opt/cloud") {
+		return nil
+	}
+	if s.isSetStorageInfo || !options.HostOptions.EnableRemoteExecutor {
+		return nil
+	}
+
+	err := s.bindMountTo(sPath)
+	if err == nil {
+		s.isSetStorageInfo = true
+	}
+	return err
 }
 
 func (s *SBaseStorage) bindMountTo(sPath string) error {
