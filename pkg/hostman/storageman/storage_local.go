@@ -310,9 +310,15 @@ func (s *SLocalStorage) Accessible() error {
 		}
 		if !fileutils2.IsDir(s.Path) {
 			c <- fmt.Errorf("path %s isn't directory", s.Path)
+			return
+		}
+		if err := s.BindMountStoragePath(s.Path); err != nil {
+			c <- err
+			return
 		}
 		if !fileutils2.Writable(s.Path) {
 			c <- fmt.Errorf("dir %s not writable", s.Path)
+			return
 		}
 		c <- nil
 	}()
