@@ -97,10 +97,9 @@ func (p *NetworkSchedtagPredicate) IsResourceMatchInput(ctx context.Context, inp
 }
 
 func (p *NetworkSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
-	// network := res.(*api.CandidateNetwork)
-	// net := input.(*netW)
-	// return IsNetworkAvailable(ctx, c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
-	return nil
+	network := res.(*api.CandidateNetwork)
+	net := input.(*netW)
+	return IsNetworkAvailable(ctx, c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
 }
 
 func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {
