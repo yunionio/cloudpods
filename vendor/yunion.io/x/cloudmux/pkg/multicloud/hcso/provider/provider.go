@@ -217,8 +217,12 @@ func (self *SHCSOProvider) GetIRegionById(extId string) (cloudprovider.ICloudReg
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SHCSOProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
+func (self *SHCSOProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SHCSOProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

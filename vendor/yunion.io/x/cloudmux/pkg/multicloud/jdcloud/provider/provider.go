@@ -144,18 +144,24 @@ func (p *SJdcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (p *SJdcloudProvider) GetBalance() (float64, string, error) {
+func (p *SJdcloudProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	ret := &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}
 	balance, err := p.client.DescribeAccountAmount()
 	if err != nil {
-		return 0.0, api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION, errors.Wrap(err, "DescribeAccountAmount")
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION
+		return ret, errors.Wrap(err, "DescribeAccountAmount")
 	}
-	amount, _ := jsonutils.Marshal(balance).Float("totalAmount")
-	if amount < 0 {
-		return amount, api.CLOUD_PROVIDER_HEALTH_ARREARS, nil
-	} else if amount < 50 {
-		return amount, api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT, nil
+	ret.Amount, _ = jsonutils.Marshal(balance).Float("totalAmount")
+	if ret.Amount < 0 {
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+	} else if ret.Amount < 50 {
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
 	}
-	return amount, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
+	return ret, nil
 }
 
 func (p *SJdcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

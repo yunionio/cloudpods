@@ -161,8 +161,12 @@ func (self *SApsaraProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SApsaraProvider) GetBalance() (float64, string, error) {
-	return 0, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
+func (self *SApsaraProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SApsaraProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

@@ -190,16 +190,18 @@ func (self *SHuaweiProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SHuaweiProvider) GetBalance() (float64, string, error) {
+func (self *SHuaweiProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	ret := &cloudprovider.SBalanceInfo{Currency: "CNY", Status: api.CLOUD_PROVIDER_HEALTH_UNKNOWN}
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
-		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
+		return ret, err
 	}
-	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
+	ret.Amount = balance.AvailableAmount
+	ret.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	if balance.AvailableAmount < 0.0 && balance.CreditAmount < 0.0 {
-		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_ARREARS
 	}
-	return balance.AvailableAmount, status, nil
+	return ret, nil
 }
 
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

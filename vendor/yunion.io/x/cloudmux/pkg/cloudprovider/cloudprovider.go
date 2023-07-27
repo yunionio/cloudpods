@@ -247,6 +247,12 @@ type ICloudProviderFactory interface {
 	GetAccountIdEqualizer() func(origin, now string) bool
 }
 
+type SBalanceInfo struct {
+	Currency string
+	Amount   float64
+	Status   string
+}
+
 type ICloudProvider interface {
 	GetFactory() ICloudProviderFactory
 
@@ -261,7 +267,7 @@ type ICloudProvider interface {
 
 	GetOnPremiseIRegion() (ICloudRegion, error)
 
-	GetBalance() (float64, string, error)
+	GetBalance() (*SBalanceInfo, error)
 
 	GetSubAccounts() ([]SSubAccount, error)
 	GetAccountId() string

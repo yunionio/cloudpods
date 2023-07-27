@@ -132,8 +132,12 @@ func (self *SZStackProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SZStackProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, cloudprovider.ErrNotSupported
+func (self *SZStackProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SZStackProvider) GetCloudRegionExternalIdPrefix() string {

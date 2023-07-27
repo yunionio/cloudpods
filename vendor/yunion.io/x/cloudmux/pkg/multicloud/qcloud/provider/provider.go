@@ -286,16 +286,23 @@ func (self *SQcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegi
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SQcloudProvider) GetBalance() (float64, string, error) {
+func (self *SQcloudProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	ret := &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+	}
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
-		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
+		return ret, nil
 	}
-	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
-	if balance.AvailableAmount < 0.0 {
-		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+	ret.Amount = balance.Balance
+	ret.Currency = balance.Currency
+	ret.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+	if ret.Amount < 0.0 {
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_ARREARS
 	}
-	return balance.AvailableAmount, status, nil
+	return ret, nil
 }
 
 func (self *SQcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

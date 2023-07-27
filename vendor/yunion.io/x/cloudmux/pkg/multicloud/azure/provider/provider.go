@@ -191,8 +191,16 @@ func (self *SAzureProvider) GetIRegionById(id string) (cloudprovider.ICloudRegio
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SAzureProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (self *SAzureProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	ret := &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_UNKNOWN,
+	}
+	if self.client.GetAccessEnv() == api.CLOUD_ACCESS_ENV_AZURE_GLOBAL {
+		ret.Currency = "USD"
+	}
+	return ret, cloudprovider.ErrNotSupported
 }
 
 func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

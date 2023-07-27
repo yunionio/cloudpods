@@ -149,8 +149,12 @@ func (p *SEcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion,
 	return iregion, nil
 }
 
-func (p *SEcloudProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (p *SEcloudProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (p *SEcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

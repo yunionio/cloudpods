@@ -119,8 +119,12 @@ func (self *SObjectStoreProvider) GetIRegionById(id string) (cloudprovider.IClou
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SObjectStoreProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (self *SObjectStoreProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SObjectStoreProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {

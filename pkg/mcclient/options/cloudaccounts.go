@@ -143,6 +143,8 @@ type SCloudAccountCreateBaseOptions struct {
 	EnableResourceSync bool
 
 	SkipSyncResources []string `help:"Skip sync resource, etc snapshot"`
+
+	Currency string `choices:"CNY|USD"`
 }
 
 type SVMwareCloudAccountCreateOptions struct {
@@ -639,6 +641,8 @@ type SCloudAccountUpdateBaseOptions struct {
 	RemoveSkipSyncResources []string
 
 	Desc string `help:"Description" json:"description" token:"desc"`
+
+	Currency string `choices:"CNY|USD"`
 }
 
 func (opts *SCloudAccountUpdateBaseOptions) Params() (jsonutils.JSONObject, error) {

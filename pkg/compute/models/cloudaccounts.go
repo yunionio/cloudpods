@@ -115,6 +115,10 @@ type SCloudaccount struct {
 	// example: 124.2
 	Balance float64 `list:"domain" width:"20" precision:"6"`
 
+	// 账户余额货币类型
+	// enmu: CNY, USD
+	Currency string `width:"5" charset:"utf8" nullable:"false" list:"domain" create:"domain_optional" update:"domain"`
+
 	// 上次账号探测时间
 	ProbeAt time.Time `list:"domain"`
 
@@ -2047,16 +2051,16 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 	if err != nil {
 		return nil, errors.Wrap(err, "account.getProviderInternal")
 	}
-	balance, status, err := manager.GetBalance()
+	balance, err := manager.GetBalance()
 	if err != nil {
 		switch err {
 		case cloudprovider.ErrNotSupported:
-			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+			balance.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		case cloudprovider.ErrNoBalancePermission:
-			status = api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION
+			balance.Status = api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION
 		default:
-			status = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
-			if account.Status != status {
+			balance.Status = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
+			if account.Status != balance.Status {
 				logclient.AddSimpleActionLog(account, logclient.ACT_PROBE, errors.Wrapf(err, "GetBalance"), userCred, false)
 			}
 		}
@@ -2073,14 +2077,15 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		isPublic := factory.IsPublicCloud()
 		account.IsPublicCloud = tristate.NewFromBool(isPublic)
 		account.IsOnPremise = factory.IsOnPremise()
-		account.Balance = balance
+		account.Balance = balance.Amount
 		if !options.Options.CloudaccountHealthStatusCheck {
-			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+			balance.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
-		// if len(account.AccountId) == 0 || account.AccountId != manager.GetAccountId() {
+		if len(account.Currency) == 0 && len(balance.Currency) > 0 {
+			account.Currency = balance.Currency
+		}
 		account.AccountId = manager.GetAccountId()
-		// }
-		account.HealthStatus = status
+		account.HealthStatus = balance.Status
 		account.ProbeAt = timeutils.UtcNow()
 		account.Version = version
 		account.Sysinfo = sysInfo

@@ -271,8 +271,16 @@ func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion,
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SAwsProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (self *SAwsProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	ret := &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}
+	if self.client.GetAccessEnv() == api.CLOUD_ACCESS_ENV_AWS_GLOBAL {
+		ret.Currency = "USD"
+	}
+	return ret, cloudprovider.ErrNotSupported
 }
 
 func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
