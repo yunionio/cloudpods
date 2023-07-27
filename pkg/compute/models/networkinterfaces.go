@@ -284,24 +284,7 @@ func (self *SNetworkInterface) syncRemoveCloudNetworkInterface(ctx context.Conte
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		self.SetStatus(userCred, api.NETWORK_INTERFACE_STATUS_UNKNOWN, "sync to delete")
-		return errors.Wrapf(err, "ValidateDeleteCondition")
-	}
-
-	networks, err := self.GetNetworks()
-	if err != nil {
-		return errors.Wrapf(err, "GetNetworks")
-	}
-	for i := range networks {
-		err = networks[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "Delete networkinterfacenetwork %d", networks[i].RowId)
-		}
-	}
-
-	return self.Delete(ctx, userCred)
+	return self.purge(ctx, userCred)
 }
 
 func (self *SNetworkInterface) SyncWithCloudNetworkInterface(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudNetworkInterface) error {

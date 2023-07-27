@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -37,12 +36,11 @@ func init() {
 	taskman.RegisterTask(VpcDeleteTask{})
 }
 
-func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err jsonutils.JSONObject) {
-	log.Errorf("vpc delete task fail: %s", err)
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.String())
+func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err error) {
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_DELETE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -50,22 +48,22 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETING, "")
 	region, err := vpc.GetRegion()
 	if err != nil {
-		self.taskFailed(ctx, vpc, jsonutils.NewString(errors.Wrap(err, "vpc.GetRegion").Error()))
+		self.taskFailed(ctx, vpc, errors.Wrap(err, "vpc.GetRegion"))
 		return
 	}
 
 	self.SetStage("OnDeleteVpcComplete", nil)
 	err = region.GetDriver().RequestDeleteVpc(ctx, self.UserCred, region, vpc, self)
 	if err != nil {
-		self.taskFailed(ctx, vpc, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, vpc, errors.Wrapf(err, "RequestDeleteVpc"))
 		return
 	}
 }
 
 func (self *VpcDeleteTask) OnDeleteVpcComplete(ctx context.Context, vpc *models.SVpc, body jsonutils.JSONObject) {
-	err := vpc.Purge(ctx, self.UserCred)
+	err := vpc.RealDelete(ctx, self.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, vpc, jsonutils.NewString(errors.Wrap(err, "vpc.Purge").Error()))
+		self.taskFailed(ctx, vpc, errors.Wrap(err, "RealDelete"))
 		return
 	}
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATING, vpc.GetShortDesc(ctx), self.UserCred)
@@ -78,5 +76,5 @@ func (self *VpcDeleteTask) OnDeleteVpcComplete(ctx context.Context, vpc *models.
 }
 
 func (self *VpcDeleteTask) OnDeleteVpcCompleteFailed(ctx context.Context, vpc *models.SVpc, reason jsonutils.JSONObject) {
-	self.taskFailed(ctx, vpc, reason)
+	self.taskFailed(ctx, vpc, errors.Errorf(reason.String()))
 }

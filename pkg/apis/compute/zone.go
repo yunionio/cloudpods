@@ -121,3 +121,9 @@ type ZoneResourceInfo struct {
 
 	CloudregionResourceInfo
 }
+
+type ZonePurgeInput struct {
+	// 云订阅Id, 若zone底下不存在任何资源,会删除当前zone
+	// required: true
+	ManagerId string `json:"manager_id"`
+}

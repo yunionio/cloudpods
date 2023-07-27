@@ -2272,16 +2272,6 @@ func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
-	projects, err := self.GetExternalProjects()
-	if err != nil {
-		return errors.Wrap(err, "GetExternalProjects")
-	}
-	for i := range projects {
-		err = projects[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "project %s Delete", projects[i].Id)
-		}
-	}
 	caches, err := self.GetDnsZoneCaches()
 	if err != nil {
 		return errors.Wrapf(err, "GetDnsZoneCaches")
@@ -2292,7 +2282,7 @@ func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.Tok
 			return errors.Wrapf(err, "dns zone cache %s delete", caches[i].Id)
 		}
 	}
-	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+	return self.purge(ctx, userCred)
 }
 
 func (self *SCloudaccount) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

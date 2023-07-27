@@ -75,7 +75,7 @@ func (self *DBInstanceDatabaseDeleteTask) DeleteDBInstanceDatabase(ctx context.C
 		}
 	}
 
-	err = database.Purge(ctx, self.UserCred)
+	err = database.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		self.taskFailed(ctx, database, errors.Wrap(err, "database.Purge"))
 		return

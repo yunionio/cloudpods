@@ -129,7 +129,7 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syn
 	}
 	localZones, remoteZones, result := func() ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
 		defer syncResults.AddSqlCost(ZoneManager)()
-		return ZoneManager.SyncZones(ctx, userCred, localRegion, zones, xor)
+		return ZoneManager.SyncZones(ctx, userCred, localRegion, zones, provider, xor)
 	}()
 	syncResults.Add(ZoneManager, result)
 	msg := result.Result()

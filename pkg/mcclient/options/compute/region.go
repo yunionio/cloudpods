@@ -12,13 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
-	"fmt"
-
 	"yunion.io/x/jsonutils"
 )
+
+type CloudregionIdOptions struct {
+	ID string `help:"Cloudregion Id"`
+}
+
+func (opts *CloudregionIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *CloudregionIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+type CloudregionPurgeOptions struct {
+	CloudregionIdOptions
+	MANAGER_ID string
+}
+
+func (opts *CloudregionPurgeOptions) Params() (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(opts.MANAGER_ID), "manager_id")
+	return ret, nil
+}
 
 type SkuSyncOptions struct {
 	// 云平台名称
@@ -33,21 +54,6 @@ func (opts *SkuSyncOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
-type SkuTaskQueryOptions struct {
-	// 异步任务ID
-	TaskIds []string `json:"task_ids" help:"task ids"`
-}
-
-func (opts *SkuTaskQueryOptions) Params() (jsonutils.JSONObject, error) {
-	if len(opts.TaskIds) == 0 {
-		return nil, fmt.Errorf("task_ids is empty")
-	}
-
-	params := jsonutils.NewDict()
-	params.Set("task_ids", jsonutils.Marshal(opts.TaskIds))
-	return params, nil
-}
-
 type CloudregionSkuSyncOptions struct {
 	RESOURCE string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku"`
 	SkuSyncOptions
@@ -55,16 +61,4 @@ type CloudregionSkuSyncOptions struct {
 
 func (opts *CloudregionSkuSyncOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
-}
-
-type CloudregionIdOptions struct {
-	ID string `help:"Cloudregion Id"`
-}
-
-func (opts *CloudregionIdOptions) GetId() string {
-	return opts.ID
-}
-
-func (opts *CloudregionIdOptions) Params() (jsonutils.JSONObject, error) {
-	return nil, nil
 }

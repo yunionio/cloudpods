@@ -23,11 +23,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.ElasticcacheSkus).WithKeyword("elastic-cache-sku")
-	cmd.PerformClass("sync-skus", &options.SkuSyncOptions{})
+	cmd.PerformClass("sync-skus", &compute.SkuSyncOptions{})
 
 	R(&options.BaseListOptions{}, "elastic-cache-list", "List elastisc cache instance", func(s *mcclient.ClientSession, opts *options.BaseListOptions) error {
 		params, err := options.ListStructToParams(opts)
@@ -408,20 +409,6 @@ func init() {
 		}
 
 		printList(result, nil)
-		return nil
-	})
-
-	R(&options.SkuTaskQueryOptions{}, "elastic-cache-sku-sync-task-show", "Show details of skus sync tasks", func(s *mcclient.ClientSession, args *options.SkuTaskQueryOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-
-		result, err := modules.ElasticcacheSkus.Get(s, "sync-tasks", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
 		return nil
 	})
 

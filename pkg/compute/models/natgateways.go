@@ -769,27 +769,7 @@ func (self *SNatGateway) Delete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SNatGateway) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	dnats, err := self.GetDTable()
-	if err != nil {
-		return errors.Wrap(err, "fetch dnat table failed")
-	}
-	snats, err := self.GetSTable()
-	if err != nil {
-		return errors.Wrap(err, "fetch snat table failed")
-	}
-	for i := range dnats {
-		err = dnats[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "delete dnat %s failed", dnats[i].GetId())
-		}
-	}
-	for i := range snats {
-		err = snats[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "delete snat %s failed", snats[i].GetId())
-		}
-	}
-	return self.SInfrasResourceBase.Delete(ctx, userCred)
+	return self.purge(ctx, userCred)
 }
 
 type SNatEntryManager struct {

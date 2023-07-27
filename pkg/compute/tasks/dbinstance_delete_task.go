@@ -88,14 +88,9 @@ func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, 
 		return
 	}
 	if !region.GetDriver().IsSupportKeepDBInstanceManualBackup() || jsonutils.QueryBoolean(self.Params, "purge", false) {
-		err := rds.PurgeBackups(ctx, self.UserCred, api.BACKUP_MODE_MANUAL)
+		err = rds.RealDelete(ctx, self.UserCred)
 		if err != nil {
-			self.taskFailed(ctx, rds, errors.Wrap(err, "rds.PurgeManualBackups"))
-			return
-		}
-		err = rds.Purge(ctx, self.UserCred)
-		if err != nil {
-			self.taskFailed(ctx, rds, errors.Wrap(err, "rds.Purge"))
+			self.taskFailed(ctx, rds, errors.Wrap(err, "Delete"))
 			return
 		}
 		//notifyclient.NotifyWebhook(ctx, self.UserCred, rds, notifyclient.ActionDelete)
@@ -122,7 +117,7 @@ func (self *DBInstanceDeleteTask) DeleteBackups(ctx context.Context, instance *m
 			backups[i].StartDBInstanceBackupDeleteTask(ctx, self.UserCred, "")
 		}
 	}
-	err := instance.Purge(ctx, self.UserCred)
+	err := instance.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		self.taskFailed(ctx, instance, errors.Wrap(err, "instance.Purge"))
 		return
