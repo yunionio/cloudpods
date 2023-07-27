@@ -190,8 +190,12 @@ func (self *SOpenStackProvider) GetIRegionById(extId string) (cloudprovider.IClo
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SOpenStackProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, cloudprovider.ErrNotSupported
+func (self *SOpenStackProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SOpenStackProvider) GetCloudRegionExternalIdPrefix() string {

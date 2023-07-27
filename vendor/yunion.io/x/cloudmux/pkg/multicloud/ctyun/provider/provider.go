@@ -166,8 +166,12 @@ func (self *SCtyunProvider) GetIRegionById(id string) (cloudprovider.ICloudRegio
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SCtyunProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (self *SCtyunProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_UNKNOWN,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SCtyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

@@ -274,20 +274,23 @@ func (self *SAliyunProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SAliyunProvider) GetBalance() (float64, string, error) {
+func (self *SAliyunProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	ret := &cloudprovider.SBalanceInfo{Currency: "CNY", Status: api.CLOUD_PROVIDER_HEALTH_UNKNOWN}
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
-		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
+		return ret, err
 	}
-	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
+	ret.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+	ret.Currency = balance.Currency
 	if balance.CreditAmount+balance.MybankCreditAmount <= 0 {
 		if balance.AvailableAmount < 0 {
-			status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+			ret.Status = api.CLOUD_PROVIDER_HEALTH_ARREARS
 		} else if balance.AvailableAmount < 100 {
-			status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
+			ret.Status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
 		}
 	}
-	return balance.AvailableAmount, status, nil
+	ret.Amount = balance.AvailableAmount
+	return ret, nil
 }
 
 func (self *SAliyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
