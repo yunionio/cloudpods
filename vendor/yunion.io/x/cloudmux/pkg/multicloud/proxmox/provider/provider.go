@@ -173,8 +173,12 @@ func (self *SProxmoxProvider) GetIRegionById(id string) (cloudprovider.ICloudReg
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SProxmoxProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (self *SProxmoxProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SProxmoxProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

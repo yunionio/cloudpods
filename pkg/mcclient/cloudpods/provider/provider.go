@@ -111,8 +111,11 @@ func (self *SCloudpodsProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SCloudpodsProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (self *SCloudpodsProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SCloudpodsProvider) GetBucketCannedAcls(regionId string) []string {

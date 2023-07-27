@@ -929,15 +929,12 @@ func (client *SQcloudClient) GetIStorageById(id string) (cloudprovider.ICloudSto
 }
 
 type SAccountBalance struct {
-	AvailableAmount     float64
-	AvailableCashAmount float64
-	CreditAmount        float64
-	MybankCreditAmount  float64
-	Currency            string
+	Balance  float64
+	Uin      int64
+	Currency string
 }
 
 func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
-	balance := SAccountBalance{}
 	body, err := client.billingRequest("DescribeAccountBalance", nil)
 	if err != nil {
 		if isError(err, []string{"UnauthorizedOperation.NotFinanceAuth"}) {
@@ -945,9 +942,16 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 		}
 		return nil, errors.Wrapf(err, "DescribeAccountBalance")
 	}
-	balanceCent, _ := body.Float("Balance")
-	balance.AvailableAmount = balanceCent / 100.0
-	return &balance, nil
+	balance := &SAccountBalance{Currency: "CNY"}
+	err = body.Unmarshal(balance)
+	if err != nil {
+		return nil, err
+	}
+	balance.Balance = balance.Balance / 100.0
+	if balance.Uin >= 200000000000 {
+		balance.Currency = "USD"
+	}
+	return balance, nil
 }
 
 func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
