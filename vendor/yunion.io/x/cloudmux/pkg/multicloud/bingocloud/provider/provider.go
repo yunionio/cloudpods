@@ -140,8 +140,12 @@ func (self *SBingoCloudProvider) GetIRegionById(id string) (cloudprovider.ICloud
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SBingoCloudProvider) GetBalance() (float64, string, error) {
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+func (self *SBingoCloudProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+	return &cloudprovider.SBalanceInfo{
+		Amount:   0.0,
+		Currency: "CNY",
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, cloudprovider.ErrNotSupported
 }
 
 func (self *SBingoCloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

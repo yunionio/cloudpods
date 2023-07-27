@@ -214,6 +214,10 @@ type CloudaccountCreateInput struct {
 
 	// 跳过指定资源同步
 	SkipSyncResources SkipSyncResources `json:"skip_sync_resources"`
+
+	// 货币类型
+	// enmu: CNY, USD
+	Currency string `json:"currency"`
 }
 
 type SProjectMappingResourceInput struct {
@@ -384,6 +388,8 @@ type CloudaccountUpdateInput struct {
 	RemoveSkipSyncResources []string           `json:"remove_skip_sync_resources"`
 
 	ReadOnly bool `json:"read_only"`
+
+	Currency string `json:"currency"`
 }
 
 type CloudaccountPerformPublicInput struct {
