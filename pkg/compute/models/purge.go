@@ -16,1150 +16,94 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"time"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-var LB_CERTS_TO_BE_PURGE = map[string][]string{}
-
-type IPurgeableManager interface {
-	Keyword() string
-	purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error
-}
-
-func (eipManager *SElasticipManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	eips := make([]SElasticip, 0)
-	err := fetchByManagerId(eipManager, providerId, &eips)
+func (self *SCloudregion) purgeAll(ctx context.Context, managerId string) error {
+	zones, err := self.GetZones()
 	if err != nil {
-		return err
-	}
-	for i := range eips {
-		err := eips[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (eip *SElasticip) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, eip)
-	defer lockman.ReleaseObject(ctx, eip)
-
-	err := eip.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return eip.RealDelete(ctx, userCred)
-}
-
-func (hostManager *SHostManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	hosts := make([]SHost, 0)
-	err := fetchByManagerId(hostManager, providerId, &hosts)
-	if err != nil {
-		return err
-	}
-	for i := range hosts {
-		err := hosts[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, host)
-	defer lockman.ReleaseObject(ctx, host)
-
-	_, err := host.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
-	if err != nil {
-		return errors.Wrapf(err, "PerformDisable")
-	}
-
-	guests, err := host.GetGuests()
-	if err != nil {
-		return errors.Wrapf(err, "host.GetGuests")
-	}
-	for i := range guests {
-		err := guests[i].purge(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "purge guest %s", guests[i].Id)
-		}
-	}
-
-	// clean all disks on locally attached storages
-	storages := host._getAttachedStorages(tristate.None, tristate.None, api.HOST_STORAGE_LOCAL_TYPES)
-	for i := range storages {
-		err := storages[i].purgeDisks(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "purgeDisks for storage %s", storages[i].Name)
-		}
-	}
-
-	err = host.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
-	}
-
-	return host.RealDelete(ctx, userCred)
-}
-
-func (guest *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, guest)
-	defer lockman.ReleaseObject(ctx, guest)
-
-	guest.SetDisableDelete(userCred, false)
-
-	IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, userCred)
-	guest.RevokeAllSecgroups(ctx, userCred)
-	guest.LeaveAllGroups(ctx, userCred)
-	guest.DetachAllNetworks(ctx, userCred)
-	guest.EjectAllIso(userCred)
-	guest.EjectAllVfd(userCred)
-	guest.DeleteEip(ctx, userCred)
-	guest.purgeInstanceSnapshots(ctx, userCred)
-	guest.DeleteAllDisksInDB(ctx, userCred)
-	if !utils.IsInStringArray(guest.Hypervisor, HypervisorIndependentInstanceSnapshot) {
-		guest.DeleteAllInstanceSnapshotInDB(ctx, userCred)
-	}
-
-	err := guest.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
-	}
-	return guest.RealDelete(ctx, userCred)
-}
-
-func (guest *SGuest) purgeInstanceSnapshots(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, guest)
-	defer lockman.ReleaseObject(ctx, guest)
-
-	iss, err := guest.GetInstanceSnapshots()
-	if err != nil {
-		return errors.Wrap(err, "unable to GetInstanceSnapshots")
-	}
-	for i := range iss {
-		err := iss[i].purge(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "unable to purge InstanceSnapshot %s", iss[i].Id)
-		}
-	}
-	return nil
-}
-
-func (is *SInstanceSnapshot) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, is)
-	defer lockman.ReleaseObject(ctx, is)
-
-	return is.RealDelete(ctx, userCred)
-}
-
-func (storage *SStorage) purgeDisks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, storage)
-	defer lockman.ReleaseObject(ctx, storage)
-
-	disks := storage.GetDisks()
-	for i := range disks {
-		err := disks[i].purge(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "purge disk %s", disks[i].Id)
-		}
-	}
-	return nil
-}
-
-func (disk *SDisk) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, disk)
-	defer lockman.ReleaseObject(ctx, disk)
-
-	err := disk.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
-	}
-
-	return disk.RealDelete(ctx, userCred)
-}
-
-func (manager *SCachedLoadbalancerCertificateManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lbcs := make([]SCachedLoadbalancerCertificate, 0)
-	err := fetchByManagerId(manager, providerId, &lbcs)
-	if err != nil {
-		return err
-	}
-
-	lbcertIds := []string{}
-	if certs, ok := LB_CERTS_TO_BE_PURGE[providerId]; ok {
-		lbcertIds = certs
-	}
-
-	for i := range lbcs {
-		err := lbcs[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-
-		if len(lbcs[i].CertificateId) > 0 && !utils.IsInStringArray(lbcs[i].CertificateId, lbcertIds) {
-			lbcertIds = append(lbcertIds, lbcs[i].CertificateId)
-		}
-	}
-	LB_CERTS_TO_BE_PURGE[providerId] = lbcertIds
-	return nil
-}
-
-func (lbcert *SCachedLoadbalancerCertificate) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbcert)
-	defer lockman.ReleaseObject(ctx, lbcert)
-
-	err := lbcert.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return lbcert.RealDelete(ctx, userCred)
-}
-
-func (manager *SLoadbalancerCertificateManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	if certs, ok := LB_CERTS_TO_BE_PURGE[providerId]; ok {
-		lbcs := make([]SLoadbalancerCertificate, 0)
-		err := db.FetchModelObjects(manager, manager.Query().In("id", certs), &lbcs)
-		if err != nil {
-			return err
-		}
-		for i := range lbcs {
-			err := lbcs[i].purge(ctx, userCred)
-			if err != nil {
-				return err
-			}
-		}
-
-		delete(LB_CERTS_TO_BE_PURGE, providerId)
-	}
-	return nil
-}
-
-func (lbcert *SLoadbalancerCertificate) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbcert)
-	defer lockman.ReleaseObject(ctx, lbcert)
-
-	if !lbcert.PendingDeleted {
-		// 内容完整的证书不需要删除
-		if lbcert.IsComplete() {
-			return nil
-		}
-
-		caches, err := lbcert.GetCachedCerts()
-		if err != nil {
-			return errors.Wrap(err, "GetCachedCerts")
-		}
-
-		if len(caches) > 0 {
-			log.Debugf("the lb cert %s (%s) is in use.can not purge.", lbcert.Name, lbcert.Id)
-			return nil
-		}
-		return lbcert.DoPendingDelete(ctx, userCred)
-	}
-
-	return nil
-}
-
-func (manager *SCachedLoadbalancerAclManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lbacls := make([]SCachedLoadbalancerAcl, 0)
-	err := fetchByManagerId(manager, providerId, &lbacls)
-	if err != nil {
-		return err
-	}
-	for i := range lbacls {
-		err := lbacls[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lbacl *SCachedLoadbalancerAcl) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbacl)
-	defer lockman.ReleaseObject(ctx, lbacl)
-
-	err := lbacl.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return lbacl.RealDelete(ctx, userCred)
-}
-
-func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lbbgs := make([]SLoadbalancerBackendGroup, 0)
-	err := fetchByLbVpcManagerId(manager, providerId, &lbbgs)
-	if err != nil {
-		return err
-	}
-	for i := range lbbgs {
-		err := lbbgs[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (manager *SLoadbalancerManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lbs := make([]SLoadbalancer, 0)
-	err := fetchByManagerId(manager, providerId, &lbs)
-	if err != nil {
-		return err
-	}
-	for i := range lbs {
-		err := lbs[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (manager *SLoadbalancernetworkManager) getAllLoadbalancerNetworks(lbId string) ([]SLoadbalancerNetwork, error) {
-	lbnets := make([]SLoadbalancerNetwork, 0)
-	q := manager.Query().Equals("loadbalancer_id", lbId)
-	err := db.FetchModelObjects(manager, q, &lbnets)
-	if err != nil {
-		log.Errorf("getAllLoadbalancerNetworks fail %s", err)
-		return nil, err
-	}
-	return lbnets, nil
-}
-
-func (lb *SLoadbalancer) detachAllNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lbnets, err := LoadbalancernetworkManager.getAllLoadbalancerNetworks(lb.Id)
-	if err != nil {
-		return err
-	}
-	for i := range lbnets {
-		err = lbnets[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lb *SLoadbalancer) purgeBackendGroups(ctx context.Context, userCred mcclient.TokenCredential) error {
-	backendGroups, err := lb.GetLoadbalancerBackendgroups()
-	if err != nil {
-		return err
-	}
-	for i := range backendGroups {
-		err = backendGroups[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lb *SLoadbalancer) purgeListeners(ctx context.Context, userCred mcclient.TokenCredential) error {
-	listeners, err := lb.GetLoadbalancerListeners()
-	if err != nil {
-		return err
-	}
-	for i := range listeners {
-		err = listeners[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lb)
-	defer lockman.ReleaseObject(ctx, lb)
-
-	lb.DeletePreventionOff(lb, userCred)
-
-	var err error
-
-	if lb.BackendGroupId != "" {
-		_, err = db.UpdateWithLock(ctx, lb, func() error {
-			//避免 purge backendgroups 时循环依赖
-			lb.BackendGroupId = ""
-			return nil
-		})
-
-		if err != nil {
-			return fmt.Errorf("loadbalancer %s(%s): clear up backend group error: %v", lb.Name, lb.Id, err)
-		}
-	}
-
-	err = lb.detachAllNetworks(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lb.DeleteEip(ctx, userCred, false)
-	if err != nil {
-		return err
-	}
-
-	err = lb.purgeBackendGroups(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lb.purgeListeners(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lb.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	lb.RealDelete(ctx, userCred)
-	return nil
-}
-
-func (lbl *SLoadbalancerListener) purgeListenerRules(ctx context.Context, userCred mcclient.TokenCredential) error {
-	listenerRules, err := lbl.GetLoadbalancerListenerRules()
-	if err != nil {
-		return err
-	}
-
-	for i := range listenerRules {
-		err = listenerRules[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lbl *SLoadbalancerListener) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbl)
-	defer lockman.ReleaseObject(ctx, lbl)
-
-	err := lbl.purgeListenerRules(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lbl.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	lbl.RealDelete(ctx, userCred)
-	return nil
-}
-
-func (lblr *SLoadbalancerListenerRule) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lblr)
-	defer lockman.ReleaseObject(ctx, lblr)
-
-	err := lblr.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return lblr.RealDelete(ctx, userCred)
-}
-
-func (lbbg *SLoadbalancerBackendGroup) purgeBackends(ctx context.Context, userCred mcclient.TokenCredential) error {
-	backends, err := lbbg.GetBackends()
-	if err != nil {
-		return err
-	}
-	for i := range backends {
-		err = backends[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lbbg *SLoadbalancerBackendGroup) purgeListeners(ctx context.Context, userCred mcclient.TokenCredential) error {
-	listeners, err := lbbg.GetLoadbalancerListeners()
-	if err != nil {
-		return err
-	}
-	for i := range listeners {
-		err = listeners[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lbbg *SLoadbalancerBackendGroup) purgeListenerrules(ctx context.Context, userCred mcclient.TokenCredential) error {
-	rules, err := lbbg.GetLoadbalancerListenerRules()
-	if err != nil {
-		return err
-	}
-	for i := range rules {
-		err = rules[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbbg)
-	defer lockman.ReleaseObject(ctx, lbbg)
-
-	err := lbbg.purgeBackends(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lbbg.purgeListeners(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lbbg.purgeListenerrules(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lbbg.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
-	}
-
-	lbbg.RealDelete(ctx, userCred)
-	return nil
-}
-
-func (lbb *SLoadbalancerBackend) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbb)
-	defer lockman.ReleaseObject(ctx, lbb)
-
-	err := lbb.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return lbb.RealDelete(ctx, userCred)
-}
-
-func (manager *SSnapshotManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	snapshots := make([]SSnapshot, 0)
-	err := fetchByManagerId(manager, providerId, &snapshots)
-	if err != nil {
-		return err
-	}
-	for i := range snapshots {
-		err := snapshots[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (snapshot *SSnapshot) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, snapshot)
-	defer lockman.ReleaseObject(ctx, snapshot)
-
-	if snapshot.Status == api.SNAPSHOT_DELETING {
-		snapshot.SetStatus(userCred, api.SNAPSHOT_READY, "for purge")
-	}
-
-	err := snapshot.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return errors.Wrapf(err, "ValidatePurgeCondition for snapshot %s(%s)", snapshot.Name, snapshot.Id)
-	}
-	return snapshot.RealDelete(ctx, userCred)
-}
-
-func (manager *SSnapshotPolicyCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential,
-	providerId string) error {
-	// delete snapshot policy cache belong to manager
-	spCaches := make([]SSnapshotPolicyCache, 0)
-	err := fetchByManagerId(SnapshotPolicyCacheManager, providerId, &spCaches)
-	if err != nil {
-		return err
-	}
-	for i := range spCaches {
-		err := spCaches[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (spc *SSnapshotPolicyCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, spc)
-	defer lockman.ReleaseObject(ctx, spc)
-	err := spc.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return spc.RealDetele(ctx, userCred)
-}
-
-func (manager *SSnapshotPolicyManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	// delete snapshot policy cache belong to manager
-	return SnapshotPolicyCacheManager.purgeAll(ctx, userCred, providerId)
-}
-
-func (manager *SStoragecacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	scs := make([]SStoragecache, 0)
-	err := fetchByManagerId(manager, providerId, &scs)
-	if err != nil {
-		return err
-	}
-	for i := range scs {
-		err := scs[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (sc *SStoragecache) purgeAllCachedimages(ctx context.Context, userCred mcclient.TokenCredential) error {
-	cachedimages, err := sc.getCachedImages()
-	if err != nil {
-		return errors.Wrapf(err, "getCachedImages for storagecache %s(%s)", sc.Name, sc.Id)
-	}
-	for i := range cachedimages {
-		err := cachedimages[i].syncRemoveCloudImage(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (sc *SStoragecache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, sc)
-	defer lockman.ReleaseObject(ctx, sc)
-
-	err := sc.purgeAllCachedimages(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = sc.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return sc.Delete(ctx, userCred)
-}
-
-func (manager *SStorageManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	storages := make([]SStorage, 0)
-	err := fetchByManagerId(manager, providerId, &storages)
-	if err != nil {
-		return err
-	}
-	for i := range storages {
-		err := storages[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (storage *SStorage) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, storage)
-	defer lockman.ReleaseObject(ctx, storage)
-
-	err := storage.purgeDisks(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = storage.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return storage.Delete(ctx, userCred)
-}
-
-func (manager *SVpcManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	vpcs := make([]SVpc, 0)
-	err := fetchByManagerId(manager, providerId, &vpcs)
-	if err != nil {
-		return err
-	}
-	for i := range vpcs {
-		err := vpcs[i].Purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (manager *SGlobalVpcManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	gvpcs := make([]SGlobalVpc, 0)
-	err := fetchByManagerId(manager, providerId, &gvpcs)
-	if err != nil {
-		return err
-	}
-	for i := range gvpcs {
-		err := gvpcs[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purgeGuestnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	q := GuestnetworkManager.Query().Equals("network_id", net.Id)
-	gns := make([]SGuestnetwork, 0)
-	err := db.FetchModelObjects(GuestnetworkManager, q, &gns)
-	if err != nil {
-		return err
-	}
-	for i := range gns {
-		err = gns[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purgeHostnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	q := HostnetworkManager.Query().Equals("network_id", net.Id)
-	hns := make([]SHostnetwork, 0)
-	err := db.FetchModelObjects(HostnetworkManager, q, &hns)
-	if err != nil {
-		return err
-	}
-	for i := range hns {
-		err = hns[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purgeGroupnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	q := GroupnetworkManager.Query().Equals("network_id", net.Id)
-	grns := make([]SGroupnetwork, 0)
-	err := db.FetchModelObjects(GroupnetworkManager, q, &grns)
-	if err != nil {
-		return err
-	}
-	for i := range grns {
-		err = grns[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purgeLoadbalancernetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	q := LoadbalancernetworkManager.Query().Equals("network_id", net.Id)
-	lbns := make([]SLoadbalancerNetwork, 0)
-	err := db.FetchModelObjects(LoadbalancernetworkManager, q, &lbns)
-	if err != nil {
-		return err
-	}
-	for i := range lbns {
-		err = lbns[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purgeEipnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	q := ElasticipManager.Query().Equals("network_id", net.Id)
-	eips := make([]SElasticip, 0)
-	err := db.FetchModelObjects(ElasticipManager, q, &eips)
-	if err != nil {
-		return err
-	}
-	for i := range eips {
-		err = eips[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purgeReservedIps(ctx context.Context, userCred mcclient.TokenCredential) error {
-	q := ReservedipManager.Query().Equals("network_id", net.Id)
-	rips := make([]SReservedip, 0)
-	err := db.FetchModelObjects(ReservedipManager, q, &rips)
-	if err != nil {
-		return err
-	}
-	for i := range rips {
-		err = rips[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (nic *SNetworkInterface) purgeNetworkAddres(ctx context.Context, userCred mcclient.TokenCredential) error {
-	networks, err := nic.GetNetworks()
-	if err != nil {
-		return err
-	}
-
-	for i := range networks {
-		err := networks[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (nic *SNetworkInterface) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, nic)
-	defer lockman.ReleaseObject(ctx, nic)
-
-	err := nic.purgeNetworkAddres(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = nic.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return nic.Delete(ctx, userCred)
-}
-
-func (net *SNetwork) purgeDBInstanceNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	dbNets, err := net.GetDBInstanceNetworks()
-	if err != nil {
-		return errors.Wrapf(err, "GetDBInstanceNetworks")
-	}
-	for i := range dbNets {
-		err = dbNets[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "Delete %d", dbNets[i].RowId)
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purgeNetworkInterfaces(ctx context.Context, userCred mcclient.TokenCredential) error {
-	networkinterfaceIds := NetworkinterfacenetworkManager.Query("networkinterface_id").Equals("network_id", net.Id).Distinct().SubQuery()
-	q := NetworkInterfaceManager.Query().In("id", networkinterfaceIds)
-	interfaces := make([]SNetworkInterface, 0)
-	err := db.FetchModelObjects(NetworkInterfaceManager, q, &interfaces)
-	if err != nil {
-		return err
-	}
-	for i := range interfaces {
-		err = interfaces[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, net)
-	defer lockman.ReleaseObject(ctx, net)
-
-	err := net.purgeGuestnetworks(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeGuestnetworks")
-	}
-	err = net.purgeHostnetworks(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeHostnetworks")
-	}
-	err = net.purgeGroupnetworks(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeGroupnetworks")
-	}
-	err = net.purgeLoadbalancernetworks(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeLoadbalancernetworks")
-	}
-	err = net.purgeEipnetworks(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeEipnetworks")
-	}
-	err = net.purgeReservedIps(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeReservedIps")
-	}
-
-	err = net.purgeNetworkInterfaces(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeNetworkInterfaces")
-	}
-
-	err = net.purgeDBInstanceNetworks(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeDBInstanceNetworks")
-	}
-
-	err = net.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return errors.Wrapf(err, "ValidateDeleteCondition")
-	}
-	return net.RealDelete(ctx, userCred)
-}
-
-func (wire *SWire) purgeNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	nets, err := wire.getNetworks(nil, nil, rbacscope.ScopeNone)
-	if err != nil {
-		return err
-	}
-	for i := range nets {
-		err := nets[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (wire *SWire) purgeHostwires(ctx context.Context, userCred mcclient.TokenCredential) error {
-	hws, _ := wire.GetHostwires()
-	for j := range hws {
-		err := hws[j].Detach(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (wire *SWire) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, wire)
-	defer lockman.ReleaseObject(ctx, wire)
-
-	err := wire.purgeNetworks(ctx, userCred)
-	if err != nil {
-		return err
-	}
-	err = wire.purgeHostwires(ctx, userCred)
-	if err != nil {
-		return err
-	}
-	err = wire.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return wire.Delete(ctx, userCred)
-}
-
-func (vpc *SVpc) purgeWires(ctx context.Context, userCred mcclient.TokenCredential) error {
-	wires, err := vpc.GetWires()
-	if err != nil {
-		return errors.Wrapf(err, "GetWres for vpc %s", vpc.Id)
-	}
-	for i := range wires {
-		err := wires[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (self *SVpc) purgeIPv6Gateways(ctx context.Context, userCred mcclient.TokenCredential) error {
-	gws, err := self.GetIPv6Gateways()
-	if err != nil {
-		return errors.Wrapf(err, "GetIPv6Gateways for vpc %s", self.Id)
-	}
-	for i := range gws {
-		err := gws[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (vpc *SVpc) purgeVpcPeeringConnections(ctx context.Context, userCred mcclient.TokenCredential) error {
-	vpcPCs, err := vpc.GetVpcPeeringConnections()
-	if err != nil {
-		return err
-	}
-	for i := range vpcPCs {
-		err := vpcPCs[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (vpc *SVpc) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, vpc)
-	defer lockman.ReleaseObject(ctx, vpc)
-
-	err := vpc.purgeVpcPeeringConnections(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = vpc.purgeIPv6Gateways(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeIPv6Gateways")
-	}
-
-	err = vpc.purgeWires(ctx, userCred)
-	if err != nil {
-		return err
-	}
-	err = vpc.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return vpc.RealDelete(ctx, userCred)
-}
-
-func (dn *SNatDEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := dn.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return dn.RealDelete(ctx, userCred)
-}
-
-func (sn *SNatSEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := sn.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return sn.RealDelete(ctx, userCred)
-}
-
-func (manager *SCloudproviderregionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	cprs, err := CloudproviderRegionManager.fetchRecordsByCloudproviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range cprs {
-		err = cprs[i].Detach(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (zone *SZone) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, zone)
-	defer lockman.ReleaseObject(ctx, zone)
-
-	err := zone.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return zone.Delete(ctx, userCred)
-}
-
-func (self *SCloudregion) purgeSkus(ctx context.Context, userCred mcclient.TokenCredential) error {
-	skus, err := self.GetServerSkus()
-	if err != nil {
-		return errors.Wrapf(err, "GetServerSkus")
-	}
-	for i := range skus {
-		err = skus[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	natSkus, err := self.GetNatSkus()
-	if err != nil {
-		return errors.Wrapf(err, "GetNatSkus")
-	}
-	for i := range natSkus {
-		err = natSkus[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "delete nat sku %s", natSkus[i].Id)
-		}
-	}
-	rdsSkus, err := self.GetDBInstanceSkus()
-	if err != nil {
-		return errors.Wrapf(err, "GetDBInstanceSkus")
-	}
-	for i := range rdsSkus {
-		err = rdsSkus[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "delete rds sku %s", rdsSkus[i].Id)
-		}
-	}
-	cacheSkus, err := self.GetElasticcacheSkus()
-	if err != nil {
-		return errors.Wrapf(err, "GetElasticcacheSkus")
-	}
-	for i := range cacheSkus {
-		err = cacheSkus[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "delete cache sku %s", cacheSkus[i].Id)
-		}
-	}
-	modelartsSku, err := self.GetModelartsPoolSkus()
-	if err != nil {
-		return errors.Wrapf(err, "GetModelartsPoolSkus")
-	}
-	for i := range modelartsSku {
-		err = modelartsSku[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "delete modelarts sku %s", modelartsSku[i].Id)
-		}
-	}
-	return nil
-}
-
-func (self *SCloudregion) purgeMiscResources(ctx context.Context, userCred mcclient.TokenCredential) error {
-	misc, err := self.GetMiscResources()
-	if err != nil {
-		return errors.Wrapf(err, "GetServerSkus")
-	}
-	for i := range misc {
-		err = misc[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (region *SCloudregion) purgeZones(ctx context.Context, userCred mcclient.TokenCredential) error {
-	zones, err := region.GetZones()
-	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetZones")
 	}
 	for i := range zones {
-		err = zones[i].Purge(ctx, userCred)
+		lockman.LockObject(ctx, &zones[i])
+		defer lockman.ReleaseObject(ctx, &zones[i])
+
+		err = zones[i].purgeAll(ctx, managerId)
+		if err != nil {
+			return errors.Wrapf(err, "zone purgeAll %s", zones[i].Name)
+		}
+	}
+	err = self.purgeAccessGroups(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeAccessGroups")
+	}
+	err = self.purgeApps(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeApps")
+	}
+	err = self.purgeLoadbalancers(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeLoadbalancers")
+	}
+	err = self.purgeKubeClusters(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeKubeClusters")
+	}
+	err = self.purgeRds(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeRds")
+	}
+	err = self.purgeRedis(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeRedis")
+	}
+	err = self.purgeVpcs(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeVpcs")
+	}
+	err = self.purgeResources(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeResources")
+	}
+	err = self.ValidateDeleteCondition(ctx, nil)
+	if err != nil {
+		return nil
+	}
+	// 资源清理完成后, 清理region下面的套餐
+	err = self.purgeSkuResources(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "purgeSkuResources")
+	}
+	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, nil)
+}
+
+func (self *SCloudregion) purgeSkuResources(ctx context.Context) error {
+	rdsSkus := DBInstanceSkuManager.Query("id").Equals("cloudregion_id", self.Id)
+	redisSkus := ElasticcacheSkuManager.Query("id").Equals("cloudregion_id", self.Id)
+	artsSkus := ModelartsPoolSkuManager.Query("id").Equals("cloudregion_id", self.Id)
+	nasSkus := NasSkuManager.Query("id").Equals("cloudregion_id", self.Id)
+	natSkus := NatSkuManager.Query("id").Equals("cloudregion_id", self.Id)
+	skus := ServerSkuManager.Query("id").Equals("cloudregion_id", self.Id)
+
+	pairs := []purgePair{
+		{manager: ServerSkuManager, key: "id", q: skus},
+		{manager: NatSkuManager, key: "id", q: natSkus},
+		{manager: NasSkuManager, key: "id", q: nasSkus},
+		{manager: ModelartsPoolSkuManager, key: "id", q: artsSkus},
+		{manager: ElasticcacheSkuManager, key: "id", q: redisSkus},
+		{manager: DBInstanceSkuManager, key: "id", q: rdsSkus},
+	}
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1167,50 +111,53 @@ func (region *SCloudregion) purgeZones(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (region *SCloudregion) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, region)
-	defer lockman.ReleaseObject(ctx, region)
+func (self *SCloudregion) purgeVpcs(ctx context.Context, managerId string) error {
+	vpcs := VpcManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	wires := WireManager.Query("id").In("vpc_id", vpcs.SubQuery())
+	networks := NetworkManager.Query("id").In("wire_id", wires.SubQuery())
+	bns := HostnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	rdsnetworks := DBInstanceNetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	groupnetworks := GroupnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	lbnetworks := LoadbalancernetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	netmacs := NetworkIpMacManager.Query("id").In("network_id", networks.SubQuery())
+	netaddrs := NetworkAddressManager.Query("id").In("network_id", networks.SubQuery())
+	nis := NetworkinterfacenetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	rips := ReservedipManager.Query("id").In("network_id", networks.SubQuery())
+	sns := ScalingGroupNetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	schedtags := NetworkschedtagManager.Query("row_id").In("network_id", networks.SubQuery())
+	nats := NatGatewayManager.Query("id").In("vpc_id", vpcs.SubQuery())
+	stables := NatSEntryManager.Query("id").In("natgateway_id", nats.SubQuery())
 
-	err := region.purgeSkus(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeSkus")
+	dtables := NatDEntryManager.Query("id").In("natgateway_id", nats.SubQuery())
+	routes := RouteTableManager.Query("id").In("vpc_id", vpcs.SubQuery())
+	intervpcroutes := InterVpcNetworkRouteSetManager.Query("id").In("vpc_id", vpcs.SubQuery())
+	peers := VpcPeeringConnectionManager.Query("id").In("vpc_id", vpcs.SubQuery())
+	ipv6 := IPv6GatewayManager.Query("id").In("vpc_id", vpcs.SubQuery())
+
+	pairs := []purgePair{
+		{manager: IPv6GatewayManager, key: "id", q: ipv6},
+		{manager: VpcPeeringConnectionManager, key: "id", q: peers},
+		{manager: InterVpcNetworkRouteSetManager, key: "id", q: intervpcroutes},
+		{manager: RouteTableManager, key: "id", q: routes},
+		{manager: NatDEntryManager, key: "id", q: dtables},
+		{manager: NatSEntryManager, key: "id", q: stables},
+		{manager: NatGatewayManager, key: "id", q: nats},
+		{manager: NetworkschedtagManager, key: "row_id", q: schedtags},
+		{manager: ScalingGroupNetworkManager, key: "row_id", q: sns},
+		{manager: ReservedipManager, key: "id", q: rips},
+		{manager: NetworkinterfacenetworkManager, key: "row_id", q: nis},
+		{manager: NetworkAddressManager, key: "id", q: netaddrs},
+		{manager: NetworkIpMacManager, key: "id", q: netmacs},
+		{manager: LoadbalancernetworkManager, key: "row_id", q: lbnetworks},
+		{manager: GroupnetworkManager, key: "row_id", q: groupnetworks},
+		{manager: DBInstanceNetworkManager, key: "row_id", q: rdsnetworks},
+		{manager: HostnetworkManager, key: "row_id", q: bns},
+		{manager: NetworkManager, key: "id", q: networks},
+		{manager: WireManager, key: "id", q: wires},
+		{manager: VpcManager, key: "id", q: vpcs},
 	}
-
-	err = region.purgeZones(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = region.purgeMiscResources(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeMiscResources")
-	}
-
-	err = region.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return region.Delete(ctx, userCred)
-}
-
-func (manager *SCloudregionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	regions, err := manager.getCloudregionsByProviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range regions {
-		c, err := CloudproviderRegionManager.Query().NotEquals("cloudprovider_id", providerId).Equals("cloudregion_id", regions[i].GetId()).CountWithError()
-		if err != nil && errors.Cause(err) != sql.ErrNoRows {
-			return err
-		}
-		// 仍然有其他provider在使用该region
-		if c > 0 {
-			log.Infof("cloud region is using by other providers.skipped purge region %s with id %s", regions[i].GetName(), regions[i].GetId())
-			return nil
-		}
-
-		err = regions[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1218,26 +165,130 @@ func (manager *SCloudregionManager) purgeAll(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (table *SNatSEntry) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, table)
-	defer lockman.ReleaseObject(ctx, table)
+func (self *SVpc) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	wires := WireManager.Query("id").Equals("vpc_id", self.Id)
+	networks := NetworkManager.Query("id").In("wire_id", wires.SubQuery())
+	bns := HostnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	rdsnetworks := DBInstanceNetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	groupnetworks := GroupnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	lbnetworks := LoadbalancernetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	netmacs := NetworkIpMacManager.Query("id").In("network_id", networks.SubQuery())
+	netaddrs := NetworkAddressManager.Query("id").In("network_id", networks.SubQuery())
+	nis := NetworkinterfacenetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	rips := ReservedipManager.Query("id").In("network_id", networks.SubQuery())
+	sns := ScalingGroupNetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	schedtags := NetworkschedtagManager.Query("row_id").In("network_id", networks.SubQuery())
+	nats := NatGatewayManager.Query("id").Equals("vpc_id", self.Id)
+	stables := NatSEntryManager.Query("id").In("natgateway_id", nats.SubQuery())
+	dtables := NatDEntryManager.Query("id").In("natgateway_id", nats.SubQuery())
+	routes := RouteTableManager.Query("id").Equals("vpc_id", self.Id)
+	dnszones := DnsZoneVpcManager.Query("row_id").Equals("vpc_id", self.Id)
+	intervpcroutes := InterVpcNetworkRouteSetManager.Query("id").Equals("vpc_id", self.Id)
+	ipv6 := IPv6GatewayManager.Query("id").Equals("vpc_id", self.Id)
 
-	err := table.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
+	pairs := []purgePair{
+		{manager: IPv6GatewayManager, key: "id", q: ipv6},
+		{manager: InterVpcNetworkRouteSetManager, key: "id", q: intervpcroutes},
+		{manager: DnsZoneVpcManager, key: "row_id", q: dnszones},
+		{manager: RouteTableManager, key: "id", q: routes},
+		{manager: NatDEntryManager, key: "id", q: dtables},
+		{manager: NatSEntryManager, key: "id", q: stables},
+		{manager: NatGatewayManager, key: "id", q: nats},
+		{manager: NetworkschedtagManager, key: "row_id", q: schedtags},
+		{manager: ScalingGroupNetworkManager, key: "row_id", q: sns},
+		{manager: ReservedipManager, key: "id", q: rips},
+		{manager: NetworkinterfacenetworkManager, key: "row_id", q: nis},
+		{manager: NetworkAddressManager, key: "id", q: netaddrs},
+		{manager: NetworkIpMacManager, key: "id", q: netmacs},
+		{manager: LoadbalancernetworkManager, key: "id", q: lbnetworks},
+		{manager: GroupnetworkManager, key: "id", q: groupnetworks},
+		{manager: DBInstanceNetworkManager, key: "row_id", q: rdsnetworks},
+		{manager: HostnetworkManager, key: "row_id", q: bns},
+		{manager: NetworkManager, key: "id", q: networks},
+		{manager: WireManager, key: "id", q: wires},
 	}
-
-	return table.RealDelete(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
+		if err != nil {
+			return err
+		}
+	}
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (nat *SNatGateway) purgeSTables(ctx context.Context, userCred mcclient.TokenCredential) error {
-	tables, err := nat.GetSTable()
-	if err != nil {
-		return err
+func (self *SNetworkInterface) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	nis := NetworkinterfacenetworkManager.Query("row_id").In("networkinterface_id", self.Id)
+	pairs := []purgePair{
+		{manager: NetworkinterfacenetworkManager, key: "row_id", q: nis},
 	}
+	for i := range pairs {
+		err := pairs[i].purgeAll()
+		if err != nil {
+			return err
+		}
+	}
+	return self.SModelBase.Delete(ctx, userCred)
+}
 
-	for i := range tables {
-		err = tables[i].purge(ctx, userCred)
+func (self *SNatGateway) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	stables := NatSEntryManager.Query("id").Equals("natgateway_id", self.Id)
+	dtables := NatDEntryManager.Query("id").Equals("natgateway_id", self.Id)
+
+	pairs := []purgePair{
+		{manager: NatDEntryManager, key: "id", q: dtables},
+		{manager: NatSEntryManager, key: "id", q: stables},
+	}
+	for i := range pairs {
+		err := pairs[i].purgeAll()
+		if err != nil {
+			return err
+		}
+	}
+	return self.SInfrasResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SCloudregion) purgeResources(ctx context.Context, managerId string) error {
+	buckets := BucketManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	ess := ElasticSearchManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	eips := ElasticipManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	kafkas := KafkaManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	misc := MiscResourceManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	arts := ModelartsPoolManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	mongodbs := MongoDBManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	nics := NetworkInterfaceManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	nicips := NetworkinterfacenetworkManager.Query("row_id").In("networkinterface_id", nics.SubQuery())
+	seccaches := SecurityGroupCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	policycaches := SnapshotPolicyCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	snapshots := SnapshotManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	tables := TablestoreManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	wafs := WafInstanceManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	ipsetcaches := WafIPSetCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	regsetcaches := WafRegexSetCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	wafgroups := WafRuleGroupCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	cprs := CloudproviderRegionManager.Query("row_id").Equals("cloudprovider_id", managerId).Equals("cloudregion_id", self.Id)
+
+	pairs := []purgePair{
+		{manager: CloudproviderRegionManager, key: "row_id", q: cprs},
+		{manager: WafRuleGroupCacheManager, key: "id", q: wafgroups},
+		{manager: WafRegexSetCacheManager, key: "id", q: regsetcaches},
+		{manager: WafIPSetCacheManager, key: "id", q: ipsetcaches},
+		{manager: WafInstanceManager, key: "id", q: wafs},
+		{manager: TablestoreManager, key: "id", q: tables},
+		{manager: SnapshotManager, key: "id", q: snapshots},
+		{manager: SnapshotPolicyCacheManager, key: "id", q: policycaches},
+		{manager: SecurityGroupCacheManager, key: "id", q: seccaches},
+		{manager: NetworkinterfacenetworkManager, key: "row_id", q: nicips},
+		{manager: NetworkInterfaceManager, key: "id", q: nics},
+		{manager: MongoDBManager, key: "id", q: mongodbs},
+		{manager: ModelartsPoolManager, key: "id", q: arts},
+		{manager: MiscResourceManager, key: "id", q: misc},
+		{manager: KafkaManager, key: "id", q: kafkas},
+		{manager: ElasticipManager, key: "id", q: eips},
+		{manager: ElasticSearchManager, key: "id", q: ess},
+		{manager: BucketManager, key: "id", q: buckets},
+	}
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1245,26 +296,25 @@ func (nat *SNatGateway) purgeSTables(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (table *SNatDEntry) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, table)
-	defer lockman.ReleaseObject(ctx, table)
+func (self *SCloudregion) purgeRedis(ctx context.Context, managerId string) error {
+	vpcs := VpcManager.Query("id").Equals("cloudregion_id", self.Id).Equals("manager_id", managerId)
+	redis := ElasticcacheManager.Query("id").In("vpc_id", vpcs.SubQuery())
+	redisAcls := ElasticcacheAclManager.Query("id").In("elasticcache_id", redis.SubQuery())
+	backups := ElasticcacheBackupManager.Query("id").In("elasticcache_id", redis.SubQuery())
+	parameters := ElasticcacheParameterManager.Query("id").In("elasticcache_id", redis.SubQuery())
+	secgroups := ElasticcachesecgroupManager.Query("row_id").In("elasticcache_id", redis.SubQuery())
+	accounts := ElasticcacheAccountManager.Query("id").In("elasticcache_id", redis.SubQuery())
 
-	err := table.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
+	pairs := []purgePair{
+		{manager: ElasticcacheAccountManager, key: "id", q: accounts},
+		{manager: ElasticcachesecgroupManager, key: "row_id", q: secgroups},
+		{manager: ElasticcacheParameterManager, key: "id", q: parameters},
+		{manager: ElasticcacheBackupManager, key: "id", q: backups},
+		{manager: ElasticcacheAclManager, key: "id", q: redisAcls},
+		{manager: ElasticcacheManager, key: "id", q: redis},
 	}
-
-	return table.RealDelete(ctx, userCred)
-}
-
-func (nat *SNatGateway) purgeDTables(ctx context.Context, userCred mcclient.TokenCredential) error {
-	tables, err := nat.GetDTable()
-	if err != nil {
-		return err
-	}
-
-	for i := range tables {
-		err = tables[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1272,37 +322,28 @@ func (nat *SNatGateway) purgeDTables(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (nat *SNatGateway) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, nat)
-	defer lockman.ReleaseObject(ctx, nat)
+func (self *SCloudregion) purgeRds(ctx context.Context, managerId string) error {
+	rds := DBInstanceManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	rdsNetworks := DBInstanceNetworkManager.Query("row_id").In("dbinstance_id", rds.SubQuery())
+	rdsBackups := DBInstanceBackupManager.Query("id").In("dbinstance_id", rds.SubQuery())
+	rdsAccounts := DBInstanceAccountManager.Query("id").In("dbinstance_id", rds.SubQuery())
+	rdsSecgroups := DBInstanceSecgroupManager.Query("row_id").In("dbinstance_id", rds.SubQuery())
+	rdsDbs := DBInstanceDatabaseManager.Query("id").In("dbinstance_id", rds.SubQuery())
+	rdsParamenters := DBInstanceParameterManager.Query("id").In("dbinstance_id", rds.SubQuery())
+	rdsPrivileges := DBInstancePrivilegeManager.Query("id").In("dbinstanceaccount_id", rdsAccounts.SubQuery())
 
-	err := nat.purgeDTables(ctx, userCred)
-	if err != nil {
-		return err
+	pairs := []purgePair{
+		{manager: DBInstancePrivilegeManager, key: "id", q: rdsPrivileges},
+		{manager: DBInstanceParameterManager, key: "id", q: rdsParamenters},
+		{manager: DBInstanceDatabaseManager, key: "id", q: rdsDbs},
+		{manager: DBInstanceSecgroupManager, key: "row_id", q: rdsSecgroups},
+		{manager: DBInstanceAccountManager, key: "id", q: rdsAccounts},
+		{manager: DBInstanceBackupManager, key: "id", q: rdsBackups},
+		{manager: DBInstanceNetworkManager, key: "row_id", q: rdsNetworks},
+		{manager: DBInstanceManager, key: "id", q: rds},
 	}
-
-	err = nat.purgeSTables(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	nat.DeletePreventionOff(nat, userCred)
-
-	err = nat.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return nat.RealDelete(ctx, userCred)
-}
-
-func (manager *SNatGatewayManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	nats, err := manager.getNatgatewaysByProviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range nats {
-		err = nats[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1310,13 +351,45 @@ func (manager *SNatGatewayManager) purgeAll(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (manager *SNetworkInterfaceManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	nics, err := manager.getNetworkInterfacesByProviderId(providerId)
-	if err != nil {
-		return err
+func (self *SDBInstance) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	rdsNetworks := DBInstanceNetworkManager.Query("row_id").Equals("dbinstance_id", self.Id)
+	rdsBackups := DBInstanceBackupManager.Query("id").Equals("dbinstance_id", self.Id)
+	rdsAccounts := DBInstanceAccountManager.Query("id").Equals("dbinstance_id", self.Id)
+	rdsSecgroups := DBInstanceSecgroupManager.Query("row_id").Equals("dbinstance_id", self.Id)
+	rdsDbs := DBInstanceDatabaseManager.Query("id").Equals("dbinstance_id", self.Id)
+	rdsParamenters := DBInstanceParameterManager.Query("id").Equals("dbinstance_id", self.Id)
+	rdsPrivileges := DBInstancePrivilegeManager.Query("id").In("dbinstanceaccount_id", rdsAccounts.SubQuery())
+
+	pairs := []purgePair{
+		{manager: DBInstancePrivilegeManager, key: "id", q: rdsPrivileges},
+		{manager: DBInstanceParameterManager, key: "id", q: rdsParamenters},
+		{manager: DBInstanceDatabaseManager, key: "id", q: rdsDbs},
+		{manager: DBInstanceSecgroupManager, key: "row_id", q: rdsSecgroups},
+		{manager: DBInstanceAccountManager, key: "id", q: rdsAccounts},
+		{manager: DBInstanceBackupManager, key: "id", q: rdsBackups},
+		{manager: DBInstanceNetworkManager, key: "row_id", q: rdsNetworks},
 	}
-	for i := range nics {
-		err = nics[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
+		if err != nil {
+			return err
+		}
+	}
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SCloudregion) purgeKubeClusters(ctx context.Context, managerId string) error {
+	kubeClusters := KubeClusterManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	kubeNodes := KubeNodeManager.Query("id").In("cloud_kube_cluster_id", kubeClusters.SubQuery())
+	kubePools := KubeNodePoolManager.Query("id").In("cloud_kube_cluster_id", kubeClusters.SubQuery())
+
+	pairs := []purgePair{
+		{manager: KubeNodePoolManager, key: "id", q: kubePools},
+		{manager: KubeNodeManager, key: "id", q: kubeNodes},
+		{manager: KubeClusterManager, key: "id", q: kubeClusters},
+	}
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1324,25 +397,28 @@ func (manager *SNetworkInterfaceManager) purgeAll(ctx context.Context, userCred 
 	return nil
 }
 
-func (bucket *SBucket) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, bucket)
-	defer lockman.ReleaseObject(ctx, bucket)
+func (self *SCloudregion) purgeLoadbalancers(ctx context.Context, managerId string) error {
+	cacheAcls := CachedLoadbalancerAclManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	cacheCerts := CachedLoadbalancerCertificateManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	lbs := LoadbalancerManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	lbnetworks := LoadbalancernetworkManager.Query("row_id").In("loadbalancer_id", lbs.SubQuery())
+	lblis := LoadbalancerListenerManager.Query("id").In("loadbalancer_id", lbs.SubQuery())
+	lbbgs := LoadbalancerBackendGroupManager.Query("id").In("loadbalancer_id", lbs.SubQuery())
+	backends := LoadbalancerBackendManager.Query("id").In("backend_group_id", lbbgs.SubQuery())
+	lbrules := LoadbalancerListenerRuleManager.Query("id").In("listener_id", lblis.SubQuery())
 
-	err := bucket.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
+	pairs := []purgePair{
+		{manager: LoadbalancerBackendManager, key: "id", q: backends},
+		{manager: LoadbalancerListenerRuleManager, key: "id", q: lbrules},
+		{manager: LoadbalancerBackendGroupManager, key: "id", q: lbbgs},
+		{manager: LoadbalancerListenerManager, key: "id", q: lblis},
+		{manager: LoadbalancernetworkManager, key: "row_id", q: lbnetworks},
+		{manager: CachedLoadbalancerCertificateManager, key: "id", q: cacheCerts},
+		{manager: CachedLoadbalancerAclManager, key: "id", q: cacheAcls},
+		{manager: LoadbalancerManager, key: "id", q: lbs},
 	}
-	return bucket.RealDelete(ctx, userCred)
-}
-
-func (bucketManager *SBucketManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	buckets := make([]SBucket, 0)
-	err := fetchByManagerId(bucketManager, providerId, &buckets)
-	if err != nil {
-		return err
-	}
-	for i := range buckets {
-		err := buckets[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1350,37 +426,16 @@ func (bucketManager *SBucketManager) purgeAll(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (account *SDBInstanceAccount) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, account)
-	defer lockman.ReleaseObject(ctx, account)
+func (self *SCloudregion) purgeApps(ctx context.Context, managerId string) error {
+	apps := AppManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	envs := AppEnvironmentManager.Query("id").In("app_id", apps.SubQuery())
 
-	privileges, err := account.GetDBInstancePrivileges()
-	if err != nil {
-		return errors.Wrap(err, "account.GetDBInstancePrivileges")
+	pairs := []purgePair{
+		{manager: AppEnvironmentManager, key: "id", q: envs},
+		{manager: AppManager, key: "id", q: apps},
 	}
-
-	for _, privilege := range privileges {
-		err = privilege.Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "privilege.Delete() %s", privilege.Id)
-		}
-	}
-
-	err = account.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return account.RealDelete(ctx, userCred)
-}
-
-func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclient.TokenCredential) error {
-	accounts, err := instance.GetDBInstanceAccounts()
-	if err != nil {
-		return err
-	}
-
-	for i := range accounts {
-		err = accounts[i].Purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1388,37 +443,18 @@ func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclien
 	return nil
 }
 
-func (database *SDBInstanceDatabase) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, database)
-	defer lockman.ReleaseObject(ctx, database)
+func (self *SCloudregion) purgeAccessGroups(ctx context.Context, managerId string) error {
+	fs := FileSystemManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	ags := AccessGroupCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	mts := MountTargetManager.Query("id").In("file_system_id", fs.SubQuery())
 
-	privileges, err := database.GetDBInstancePrivileges()
-	if err != nil {
-		return errors.Wrap(err, "database.GetDBInstancePrivileges")
+	pairs := []purgePair{
+		{manager: MountTargetManager, key: "id", q: mts},
+		{manager: AccessGroupCacheManager, key: "id", q: ags},
+		{manager: FileSystemManager, key: "id", q: fs},
 	}
-
-	for _, privilege := range privileges {
-		err = privilege.Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "privilege.Delete() %s", privilege.Id)
-		}
-	}
-
-	err = database.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return database.RealDelete(ctx, userCred)
-}
-
-func (instance *SDBInstance) purgeDatabases(ctx context.Context, userCred mcclient.TokenCredential) error {
-	databases, err := instance.GetDBDatabases()
-	if err != nil {
-		return err
-	}
-
-	for i := range databases {
-		err = databases[i].Purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1426,25 +462,85 @@ func (instance *SDBInstance) purgeDatabases(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (parameter *SDBInstanceParameter) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, parameter)
-	defer lockman.ReleaseObject(ctx, parameter)
-
-	err := parameter.ValidateDeleteCondition(ctx, nil)
+func (self *SZone) purgeAll(ctx context.Context, managerId string) error {
+	err := self.purgeStorages(ctx, managerId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "purgeStorages")
 	}
-	return parameter.Delete(ctx, userCred)
+	err = self.purgeHosts(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeHosts")
+	}
+	err = self.purgeWires(ctx, managerId)
+	if err != nil {
+		return errors.Wrapf(err, "purgeWires")
+	}
+	err = self.ValidateDeleteCondition(ctx, nil)
+	if err != nil {
+		return nil
+	}
+
+	return self.SStandaloneResourceBase.Delete(ctx, nil)
 }
 
-func (instance *SDBInstance) purgeParameters(ctx context.Context, userCred mcclient.TokenCredential) error {
-	parameters, err := instance.GetDBParameters()
-	if err != nil {
-		return err
-	}
+type purgePair struct {
+	manager db.IModelManager
+	key     string
+	q       *sqlchemy.SQuery
+}
 
-	for i := range parameters {
-		err = parameters[i].purge(ctx, userCred)
+func (self *purgePair) purgeAll() error {
+	sq := self.q.SubQuery()
+	sql := fmt.Sprintf(
+		"update %s set deleted = true, deleted_at = ? where %s in (%s) and deleted = false",
+		self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+	)
+	vars := []interface{}{time.Now()}
+	vars = append(vars, self.q.Variables()...)
+	switch self.manager.Keyword() {
+	case GuestcdromManager.Keyword(), GuestFloppyManager.Keyword():
+		sql = fmt.Sprintf(
+			"update %s set image_id = null, updated_at = ? where %s in (%s) and image_id is not null",
+			self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+		)
+	case NetInterfaceManager.Keyword():
+		sql = fmt.Sprintf(
+			"delete from %s where %s in (%s)",
+			self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+		)
+		vars = append([]interface{}{}, self.q.Variables()...)
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		sql, vars...,
+	)
+	if err != nil {
+		return errors.Wrapf(err, sql, self.q.Variables()...)
+	}
+	return nil
+}
+
+func (self *SZone) purgeStorages(ctx context.Context, managerId string) error {
+	storages := StorageManager.Query("id").Equals("manager_id", managerId).Equals("zone_id", self.Id)
+	schedtags := StorageschedtagManager.Query("row_id").In("storage_id", storages.SubQuery())
+	snapshots := SnapshotManager.Query("id").In("storage_id", storages.SubQuery()).IsTrue("fake_deleted")
+	hoststorages := HoststorageManager.Query("row_id").In("storage_id", storages.SubQuery())
+	disks := DiskManager.Query("id").In("storage_id", storages.SubQuery())
+	diskbackups := DiskBackupManager.Query("id").In("disk_id", disks.SubQuery())
+	guestdisks := GuestdiskManager.Query("row_id").In("disk_id", disks.SubQuery())
+	diskpolicies := SnapshotPolicyDiskManager.Query("row_id").In("disk_id", disks.SubQuery())
+
+	pairs := []purgePair{
+		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
+		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
+		{manager: SnapshotManager, key: "id", q: snapshots},
+		{manager: DiskBackupManager, key: "id", q: diskbackups},
+		{manager: DiskManager, key: "id", q: disks},
+		{manager: StorageschedtagManager, key: "row_id", q: schedtags},
+		{manager: HoststorageManager, key: "row_id", q: hoststorages},
+		{manager: StorageManager, key: "id", q: storages},
+	}
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1452,117 +548,91 @@ func (instance *SDBInstance) purgeParameters(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (network *SDBInstanceNetwork) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, network)
-	defer lockman.ReleaseObject(ctx, network)
+func (self *SStorage) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	schedtags := StorageschedtagManager.Query("row_id").Equals("storage_id", self.Id)
+	snapshots := SnapshotManager.Query("id").Equals("storage_id", self.Id).IsTrue("fake_deleted")
+	hoststorages := HoststorageManager.Query("row_id").Equals("storage_id", self.Id)
+	disks := DiskManager.Query("id").Equals("storage_id", self.Id)
+	diskbackups := DiskBackupManager.Query("id").In("disk_id", disks.SubQuery())
+	guestdisks := GuestdiskManager.Query("row_id").In("disk_id", disks.SubQuery())
+	diskpolicies := SnapshotPolicyDiskManager.Query("row_id").In("disk_id", disks.SubQuery())
 
-	err := network.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return errors.Wrapf(err, "ValidateDeleteCondition")
+	pairs := []purgePair{
+		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
+		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
+		{manager: SnapshotManager, key: "id", q: snapshots},
+		{manager: DiskBackupManager, key: "id", q: diskbackups},
+		{manager: DiskManager, key: "id", q: disks},
+		{manager: StorageschedtagManager, key: "row_id", q: schedtags},
+		{manager: HoststorageManager, key: "row_id", q: hoststorages},
 	}
-	return network.Delete(ctx, userCred)
-}
-
-func (instance *SDBInstance) purgeNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
-	networks, err := instance.GetDBNetworks()
-	if err != nil {
-		return errors.Wrapf(err, "GetDBNetworks")
-	}
-	for i := range networks {
-		err = networks[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
-			return errors.Wrapf(err, "networks.purge %d", networks[i].RowId)
+			return err
 		}
 	}
-	return nil
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SDBInstanceSecgroup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+func (self *SZone) purgeHosts(ctx context.Context, managerId string) error {
+	hosts := HostManager.Query("id").Equals("manager_id", managerId).Equals("zone_id", self.Id)
+	isolateds := IsolatedDeviceManager.Query("id").In("host_id", hosts.SubQuery())
+	hoststorages := HoststorageManager.Query("row_id").In("host_id", hosts.SubQuery())
+	hostwires := HostwireManager.Query("row_id").In("host_id", hosts.SubQuery())
+	guests := GuestManager.Query("id").In("host_id", hosts.SubQuery())
+	guestdisks := GuestdiskManager.Query("row_id").In("guest_id", guests.SubQuery())
+	guestnetworks := GuestnetworkManager.Query("row_id").In("guest_id", guests.SubQuery())
+	guestcdroms := GuestcdromManager.Query("row_id").In("id", guests.SubQuery())
+	guestvfd := GuestFloppyManager.Query("row_id").In("id", guests.SubQuery())
+	guestgroups := GroupguestManager.Query("row_id").In("guest_id", guests.SubQuery())
+	guestsecgroups := GuestsecgroupManager.Query("row_id").In("guest_id", guests.SubQuery())
+	instancesnapshots := InstanceSnapshotManager.Query("id").In("guest_id", guests.SubQuery())
+	instancebackups := InstanceBackupManager.Query("id").In("guest_id", guests.SubQuery())
+	publicIps := ElasticipManager.Query("id").Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP).
+		Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).In("associate_id", guests.SubQuery())
+	tapService := NetTapServiceManager.Query("id").Equals("type", api.TapServiceHost).In("target_id", hosts.SubQuery())
+	tapFlows := NetTapFlowManager.Query("id").In("tap_id", tapService.SubQuery())
+	tapNics := NetTapFlowManager.Query("id").Equals("type", api.TapFlowVSwitch).In("source_id", hosts.SubQuery())
+	backends := LoadbalancerBackendManager.Query("id").In("backend_id", hosts.SubQuery())
+	hostnetworks := HostnetworkManager.Query("row_id").In("baremetal_id", hosts.SubQuery())
+	netinterfaces := NetInterfaceManager.Query("baremetal_id").In("baremetal_id", hosts.SubQuery())
+	storageIds := HoststorageManager.Query("storage_id").In("host_id", hosts.SubQuery())
+	storages := StorageManager.Query("id").Equals("storage_type", api.STORAGE_BAREMETAL).In("id", storageIds.SubQuery())
+	guestTapService := NetTapServiceManager.Query("id").Equals("type", api.TapServiceGuest).In("target_id", guests.SubQuery())
+	guestTapFlows := NetTapFlowManager.Query("id").In("tap_id", tapService.SubQuery())
+	guestTapNics := NetTapFlowManager.Query("id").Equals("type", api.TapFlowGuestNic).In("source_id", guests.SubQuery())
+	guestBackends := LoadbalancerBackendManager.Query("id").In("backend_id", guests.SubQuery())
 
-	return self.Detach(ctx, userCred)
-}
-
-func (instance *SDBInstance) purgeSecgroups(ctx context.Context, userCred mcclient.TokenCredential) error {
-	secgroups, err := instance.GetDBInstanceSecgroups()
-	if err != nil {
-		return errors.Wrapf(err, "GetDBInstanceSecgroups")
+	pairs := []purgePair{
+		{manager: LoadbalancerBackendManager, key: "id", q: guestBackends},
+		{manager: NetTapFlowManager, key: "id", q: guestTapNics},
+		{manager: NetTapFlowManager, key: "id", q: guestTapFlows},
+		{manager: NetTapServiceManager, key: "id", q: guestTapService},
+		{manager: StorageManager, key: "id", q: storages},
+		{manager: NetInterfaceManager, key: "baremetal_id", q: netinterfaces},
+		{manager: HostnetworkManager, key: "row_id", q: hostnetworks},
+		{manager: LoadbalancerBackendManager, key: "id", q: backends},
+		{manager: NetTapFlowManager, key: "id", q: tapNics},
+		{manager: NetTapFlowManager, key: "id", q: tapFlows},
+		{manager: NetTapServiceManager, key: "id", q: tapService},
+		{manager: ElasticipManager, key: "id", q: publicIps},
+		{manager: GuestsecgroupManager, key: "row_id", q: guestsecgroups},
+		{manager: GroupguestManager, key: "row_id", q: guestgroups},
+		{manager: GuestcdromManager, key: "row_id", q: guestcdroms},
+		{manager: GuestFloppyManager, key: "row_id", q: guestvfd},
+		{manager: GuestnetworkManager, key: "row_id", q: guestnetworks},
+		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
+		{manager: InstanceSnapshotManager, key: "id", q: instancesnapshots},
+		{manager: InstanceBackupManager, key: "id", q: instancebackups},
+		{manager: GuestManager, key: "id", q: guests},
+		{manager: HoststorageManager, key: "row_id", q: hoststorages},
+		{manager: HostwireManager, key: "row_id", q: hostwires},
+		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
+		{manager: HostManager, key: "id", q: hosts},
 	}
-	for i := range secgroups {
-		err = secgroups[i].purge(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "secgroups.purge %d", secgroups[i].RowId)
-		}
-	}
-	return nil
-}
-
-func (instance *SDBInstance) PurgeBackups(ctx context.Context, userCred mcclient.TokenCredential, mode string) error {
-	backups, err := instance.GetDBInstanceBackupByMode(mode)
-	if err != nil {
-		return errors.Wrap(err, "instance.GetDBInstanceBackups")
-	}
-	for _, backup := range backups {
-		err = backup.purge(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "backup.purge %s(%s)", backup.Name, backup.Id)
-		}
-	}
-	return nil
-}
-
-func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, instance)
-	defer lockman.ReleaseObject(ctx, instance)
-
-	instance.DeletePreventionOff(instance, userCred)
-
-	err := instance.purgeAccounts(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeAccounts")
-	}
-
-	err = instance.purgeDatabases(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeDatabases")
-	}
-
-	err = instance.purgeParameters(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeParameters")
-	}
-
-	err = instance.purgeNetwork(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeNetwork")
-	}
-
-	err = instance.purgeSecgroups(ctx, userCred)
-	if err != nil {
-		return errors.Wrapf(err, "purgeSecgroups")
-	}
-
-	err = instance.PurgeBackups(ctx, userCred, api.BACKUP_MODE_AUTOMATED)
-	if err != nil {
-		return errors.Wrap(err, "instance.purgeBackups")
-	}
-
-	err = instance.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return errors.Wrapf(err, "ValidateDeleteCondition")
-	}
-
-	return instance.RealDelete(ctx, userCred)
-}
-
-func (manager *SDBInstanceManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	instances, err := manager.getDBInstancesByProviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range instances {
-		err = instances[i].Purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
@@ -1570,413 +640,195 @@ func (manager *SDBInstanceManager) purgeAll(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (backup *SDBInstanceBackup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, backup)
-	defer lockman.ReleaseObject(ctx, backup)
+func (self *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	isolateds := IsolatedDeviceManager.Query("id").Equals("host_id", self.Id)
+	hoststorages := HoststorageManager.Query("row_id").Equals("host_id", self.Id)
+	hostwires := HostwireManager.Query("row_id").Equals("host_id", self.Id)
+	guests := GuestManager.Query("id").Equals("host_id", self.Id)
+	guestdisks := GuestdiskManager.Query("row_id").In("guest_id", guests.SubQuery())
+	guestnetworks := GuestnetworkManager.Query("row_id").In("guest_id", guests.SubQuery())
+	guestcdroms := GuestcdromManager.Query("row_id").In("id", guests.SubQuery())
+	guestvfd := GuestFloppyManager.Query("row_id").In("id", guests.SubQuery())
+	guestgroups := GroupguestManager.Query("row_id").In("guest_id", guests.SubQuery())
+	guestsecgroups := GuestsecgroupManager.Query("row_id").In("guest_id", guests.SubQuery())
+	instancesnapshots := InstanceSnapshotManager.Query("id").In("guest_id", guests.SubQuery())
+	instancebackups := InstanceBackupManager.Query("id").In("guest_id", guests.SubQuery())
+	publicIps := ElasticipManager.Query("id").Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP).
+		Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).In("associate_id", guests.SubQuery())
+	tapService := NetTapServiceManager.Query("id").Equals("type", api.TapServiceHost).Equals("target_id", self.Id)
+	tapFlows := NetTapFlowManager.Query("id").In("tap_id", tapService.SubQuery())
+	tapNics := NetTapFlowManager.Query("id").Equals("type", api.TapFlowVSwitch).Equals("source_id", self.Id)
+	backends := LoadbalancerBackendManager.Query("id").Equals("backend_id", self.Id)
+	hostnetworks := HostnetworkManager.Query("row_id").Equals("baremetal_id", self.Id)
+	netinterfaces := NetInterfaceManager.Query("baremetal_id").Equals("baremetal_id", self.Id)
+	storageIds := HoststorageManager.Query("storage_id").Equals("host_id", self.Id)
+	storages := StorageManager.Query("id").Equals("storage_type", api.STORAGE_BAREMETAL).In("id", storageIds.SubQuery())
 
-	err := backup.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
+	pairs := []purgePair{
+		{manager: StorageManager, key: "id", q: storages},
+		{manager: NetInterfaceManager, key: "baremetal_id", q: netinterfaces},
+		{manager: HostnetworkManager, key: "row_id", q: hostnetworks},
+		{manager: LoadbalancerBackendManager, key: "id", q: backends},
+		{manager: NetTapFlowManager, key: "id", q: tapNics},
+		{manager: NetTapFlowManager, key: "id", q: tapFlows},
+		{manager: NetTapServiceManager, key: "id", q: tapService},
+		{manager: ElasticipManager, key: "id", q: publicIps},
+		{manager: GuestsecgroupManager, key: "row_id", q: guestsecgroups},
+		{manager: GroupguestManager, key: "row_id", q: guestgroups},
+		{manager: GuestcdromManager, key: "row_id", q: guestcdroms},
+		{manager: GuestFloppyManager, key: "row_id", q: guestvfd},
+		{manager: GuestnetworkManager, key: "row_id", q: guestnetworks},
+		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
+		{manager: InstanceSnapshotManager, key: "id", q: instancesnapshots},
+		{manager: InstanceBackupManager, key: "id", q: instancebackups},
+		{manager: GuestManager, key: "id", q: guests},
+		{manager: HoststorageManager, key: "row_id", q: hoststorages},
+		{manager: HostwireManager, key: "row_id", q: hostwires},
+		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
 	}
-	return backup.RealDelete(ctx, userCred)
-}
-
-func (manager *SDBInstanceBackupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	backups, err := manager.getDBInstanceBackupsByProviderId(providerId)
-	if err != nil {
-		return err
-	}
-	for i := range backups {
-		err = backups[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	defer func() {
+		HostManager.ClearSchedDescCache(self.Id)
+	}()
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (instance *SElasticcache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, instance)
-	defer lockman.ReleaseObject(ctx, instance)
+func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	guestdisks := GuestdiskManager.Query("row_id").Equals("guest_id", self.Id)
+	guestnetworks := GuestnetworkManager.Query("row_id").Equals("guest_id", self.Id)
+	guestcdroms := GuestcdromManager.Query("row_id").Equals("id", self.Id)
+	guestvfd := GuestFloppyManager.Query("row_id").Equals("id", self.Id)
+	guestgroups := GroupguestManager.Query("row_id").Equals("guest_id", self.Id)
+	guestsecgroups := GuestsecgroupManager.Query("row_id").Equals("guest_id", self.Id)
+	instancesnapshots := InstanceSnapshotManager.Query("id").Equals("guest_id", self.Id)
+	instancebackups := InstanceBackupManager.Query("id").Equals("guest_id", self.Id)
+	publicIps := ElasticipManager.Query("id").Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP).
+		Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).Equals("associate_id", self.Id)
+	tapService := NetTapServiceManager.Query("id").Equals("type", api.TapServiceGuest).Equals("target_id", self.Id)
+	tapFlows := NetTapFlowManager.Query("id").In("tap_id", tapService.SubQuery())
+	tapNics := NetTapFlowManager.Query("id").Equals("type", api.TapFlowGuestNic).Equals("source_id", self.Id)
+	backends := LoadbalancerBackendManager.Query("id").Equals("backend_id", self.Id)
 
-	instance.DeletePreventionOff(instance, userCred)
-
-	return instance.RealDelete(ctx, userCred)
-}
-
-func (manager *SElasticcacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	instances, err := manager.getElasticcachesByProviderId(providerId)
-	if err != nil {
-		return err
+	pairs := []purgePair{
+		{manager: LoadbalancerBackendManager, key: "id", q: backends},
+		{manager: NetTapFlowManager, key: "id", q: tapNics},
+		{manager: NetTapFlowManager, key: "id", q: tapFlows},
+		{manager: NetTapServiceManager, key: "id", q: tapService},
+		{manager: ElasticipManager, key: "id", q: publicIps},
+		{manager: GuestsecgroupManager, key: "row_id", q: guestsecgroups},
+		{manager: GroupguestManager, key: "row_id", q: guestgroups},
+		{manager: GuestcdromManager, key: "row_id", q: guestcdroms},
+		{manager: GuestFloppyManager, key: "row_id", q: guestvfd},
+		{manager: GuestnetworkManager, key: "row_id", q: guestnetworks},
+		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
+		{manager: InstanceSnapshotManager, key: "id", q: instancesnapshots},
+		{manager: InstanceBackupManager, key: "id", q: instancebackups},
 	}
-	for i := range instances {
-		err = instances[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
-func (manager *SSecurityGroupCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	caches := []SSecurityGroupCache{}
-	err := fetchByManagerId(manager, providerId, &caches)
-	if err != nil {
-		return err
+func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
+	wires := WireManager.Query("id").Equals("zone_id", self.Id)
+	vpcs := VpcManager.Query().SubQuery()
+	wires = wires.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
+		Filter(sqlchemy.Equals(vpcs.Field("manager_id"), managerId))
+
+	hostwires := HostwireManager.Query("row_id").In("wire_id", wires.SubQuery())
+	isolateds := IsolatedDeviceManager.Query("id").In("wire_id", wires.SubQuery())
+	networks := NetworkManager.Query("id").In("wire_id", wires.SubQuery())
+	bns := HostnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	rdsnetworks := DBInstanceNetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	groupnetworks := GroupnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	lbnetworks := LoadbalancernetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	netmacs := NetworkIpMacManager.Query("id").In("network_id", networks.SubQuery())
+	netaddrs := NetworkAddressManager.Query("id").In("network_id", networks.SubQuery())
+	nis := NetworkinterfacenetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	rips := ReservedipManager.Query("id").In("network_id", networks.SubQuery())
+	sns := ScalingGroupNetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	schedtags := NetworkschedtagManager.Query("row_id").In("network_id", networks.SubQuery())
+
+	pairs := []purgePair{
+		{manager: NetworkschedtagManager, key: "row_id", q: schedtags},
+		{manager: ScalingGroupNetworkManager, key: "row_id", q: sns},
+		{manager: ReservedipManager, key: "id", q: rips},
+		{manager: NetworkinterfacenetworkManager, key: "row_id", q: nis},
+		{manager: NetworkAddressManager, key: "id", q: netaddrs},
+		{manager: NetworkIpMacManager, key: "id", q: netmacs},
+		{manager: LoadbalancernetworkManager, key: "row_id", q: lbnetworks},
+		{manager: GroupnetworkManager, key: "row_id", q: groupnetworks},
+		{manager: DBInstanceNetworkManager, key: "row_id", q: rdsnetworks},
+		{manager: HostnetworkManager, key: "row_id", q: bns},
+		{manager: NetworkManager, key: "id", q: networks},
+		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
+		{manager: HostwireManager, key: "row_id", q: hostwires},
+		{manager: WireManager, key: "id", q: wires},
 	}
-	for i := range caches {
-		err := caches[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (quota *SCloudproviderQuota) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, quota)
-	defer lockman.ReleaseObject(ctx, quota)
-
-	err := quota.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return quota.Delete(ctx, userCred)
-}
-
-func (manager *SCloudproviderQuotaManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	quotas := []SCloudproviderQuota{}
-	err := fetchByManagerId(manager, providerId, &quotas)
-	if err != nil {
-		return err
-	}
-	for i := range quotas {
-		err := quotas[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (assignment *SPolicyAssignment) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, assignment)
-	defer lockman.ReleaseObject(ctx, assignment)
-
-	err := assignment.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return errors.Wrapf(err, "assignment.ValidateDeleteCondition(%s(%s))", assignment.Name, assignment.Id)
-	}
-
-	return assignment.Delete(ctx, userCred)
-}
-
-func (definition *SPolicyDefinition) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, definition)
-	defer lockman.ReleaseObject(ctx, definition)
-
-	assignments, err := definition.GetPolicyAssignments()
-	if err != nil {
-		return errors.Wrap(err, "definition.GetPolicyAssignments")
-	}
-
-	for i := range assignments {
-		err = assignments[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
 	}
 
-	err = definition.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return definition.Delete(ctx, userCred)
+	return nil
 }
 
-func (manager *SPolicyDefinitionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	definitions := []SPolicyDefinition{}
-	err := fetchByManagerId(manager, providerId, &definitions)
-	if err != nil {
-		return err
+func (self *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	cprs := CloudproviderRegionManager.Query("row_id").Equals("cloudprovider_id", self.Id)
+	capability := CloudproviderCapabilityManager.Query("cloudprovider_id").Equals("cloudprovider_id", self.Id)
+	cdn := CDNDomainManager.Query("id").Equals("manager_id", self.Id)
+	vpcs := GlobalVpcManager.Query("id").Equals("manager_id", self.Id)
+	intervpcs := InterVpcNetworkManager.Query("id").Equals("manager_id", self.Id)
+	intervpcnetworks := InterVpcNetworkVpcManager.Query("row_id").In("inter_vpc_network_id", intervpcs.SubQuery())
+
+	pairs := []purgePair{
+		{manager: InterVpcNetworkVpcManager, key: "row_id", q: intervpcnetworks},
+		{manager: InterVpcNetworkManager, key: "id", q: intervpcs},
+		{manager: GlobalVpcManager, key: "id", q: vpcs},
+		{manager: CDNDomainManager, key: "id", q: cdn},
+		{manager: CloudproviderRegionManager, key: "row_id", q: cprs},
+		{manager: CloudproviderCapabilityManager, key: "cloudprovider_id", q: capability},
 	}
-	for i := range definitions {
-		err := definitions[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SAccessGroupCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+func (self *SCloudaccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	projects := ExternalProjectManager.Query("id").Equals("cloudaccount_id", self.Id)
+	dnszonecaches := DnsZoneCacheManager.Query("id").Equals("cloudaccount_id", self.Id)
+	dnszoneIds := DnsZoneCacheManager.Query("dns_zone_id").Equals("cloudaccount_id", self.Id)
+	dnszones := DnsZoneManager.Query("id").Equals("zone_type", "PublicZone").In("id", dnszoneIds.SubQuery())
+	records := DnsRecordSetManager.Query("id").In("dns_zone_id", dnszones.SubQuery())
+	dnspolicy := DnsRecordSetTrafficPolicyManager.Query("row_id").In("dns_recordset_id", records.SubQuery())
 
-	return self.RealDelete(ctx, userCred)
-}
-
-func (manager *SAccessGroupCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	caches := []SAccessGroupCache{}
-	err := fetchByManagerId(manager, providerId, &caches)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
+	pairs := []purgePair{
+		{manager: DnsRecordSetTrafficPolicyManager, key: "row_id", q: dnspolicy},
+		{manager: DnsRecordSetManager, key: "id", q: records},
+		{manager: DnsZoneManager, key: "id", q: dnszones},
+		{manager: DnsZoneCacheManager, key: "id", q: dnszonecaches},
+		{manager: ExternalProjectManager, key: "id", q: projects},
 	}
-
-	for i := range caches {
-		err := caches[i].purge(ctx, userCred)
+	for i := range pairs {
+		err := pairs[i].purgeAll()
 		if err != nil {
-			return errors.Wrapf(err, "cache purge")
+			return err
 		}
 	}
-
-	return nil
-}
-
-func (self *SFileSystem) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
-
-	return self.RealDelete(ctx, userCred)
-}
-
-func (manager *SFileSystemManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	files := []SFileSystem{}
-	err := fetchByManagerId(manager, providerId, &files)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-
-	for i := range files {
-		err := files[i].purge(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "cache purge")
-		}
-	}
-
-	return nil
-}
-
-func (vpcPC *SVpcPeeringConnection) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, vpcPC)
-	defer lockman.ReleaseObject(ctx, vpcPC)
-	return vpcPC.RealDelete(ctx, userCred)
-}
-
-func (manager *SInterVpcNetworkManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	networks := []SInterVpcNetwork{}
-	err := fetchByManagerId(manager, providerId, &networks)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range networks {
-		err := networks[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "inter vpc network delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SWafRuleGroupCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	caches := []SWafRuleGroupCache{}
-	err := fetchByManagerId(manager, providerId, &caches)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range caches {
-		err := caches[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "cache delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SWafIPSetCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	caches := []SWafIPSetCache{}
-	err := fetchByManagerId(manager, providerId, &caches)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range caches {
-		err := caches[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "cache delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SWafRegexSetCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	caches := []SWafRegexSetCache{}
-	err := fetchByManagerId(manager, providerId, &caches)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range caches {
-		err := caches[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "cache delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SWafInstanceManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	ins := []SWafInstance{}
-	err := fetchByManagerId(manager, providerId, &ins)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range ins {
-		err := ins[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "cache delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SMongoDBManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	dbs := []SMongoDB{}
-	err := fetchByManagerId(manager, providerId, &dbs)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range dbs {
-		err := dbs[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "cache delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SElasticSearchManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	ess := []SElasticSearch{}
-	err := fetchByManagerId(manager, providerId, &ess)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range ess {
-		lockman.LockObject(ctx, &ess[i])
-		defer lockman.ReleaseObject(ctx, &ess[i])
-
-		err := ess[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "elastic search delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SKafkaManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	kafkas := []SKafka{}
-	err := fetchByManagerId(manager, providerId, &kafkas)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range kafkas {
-		lockman.LockObject(ctx, &kafkas[i])
-		defer lockman.ReleaseObject(ctx, &kafkas[i])
-
-		err := kafkas[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "kafka delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SCDNDomainManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	domains := []SCDNDomain{}
-	err := fetchByManagerId(manager, providerId, &domains)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range domains {
-		lockman.LockObject(ctx, &domains[i])
-		defer lockman.ReleaseObject(ctx, &domains[i])
-
-		err := domains[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "cdn domain delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SKubeClusterManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	clusters := []SKubeCluster{}
-	err := fetchByManagerId(manager, providerId, &clusters)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range clusters {
-		lockman.LockObject(ctx, &clusters[i])
-		defer lockman.ReleaseObject(ctx, &clusters[i])
-
-		err := clusters[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "kube cluster delete")
-		}
-	}
-	return nil
-}
-
-func (manager *STablestoreManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	tablestores := make([]STablestore, 0)
-	err := fetchByManagerId(manager, providerId, &tablestores)
-	if err != nil {
-		return err
-	}
-	for i := range tablestores {
-		lockman.LockObject(ctx, &tablestores[i])
-		defer lockman.ReleaseObject(ctx, &tablestores[i])
-
-		err := tablestores[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "real delete %s", tablestores[i].Id)
-		}
-	}
-	return nil
-}
-
-func (manager *SModelartsPoolManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	ess := []SModelartsPool{}
-	err := fetchByManagerId(manager, providerId, &ess)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range ess {
-		lockman.LockObject(ctx, &ess[i])
-		defer lockman.ReleaseObject(ctx, &ess[i])
-
-		err := ess[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "modelarts pool delete")
-		}
-	}
-	return nil
-}
-
-func (manager *SModelartsPoolSkuManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	poolSku := []SModelartsPoolSku{}
-	err := fetchByManagerId(manager, providerId, &poolSku)
-	if err != nil {
-		return errors.Wrapf(err, "fetchByManagerId")
-	}
-	for i := range poolSku {
-		lockman.LockObject(ctx, &poolSku[i])
-		defer lockman.ReleaseObject(ctx, &poolSku[i])
-
-		err := poolSku[i].Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "modelarts pool delete")
-		}
-	}
-	return nil
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }

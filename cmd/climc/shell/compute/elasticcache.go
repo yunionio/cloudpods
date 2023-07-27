@@ -267,20 +267,6 @@ func init() {
 		return nil
 	})
 
-	R(&options.SkuTaskQueryOptions{}, "elastic-cache-sku-sync-task-show", "Show details of skus sync tasks", func(s *mcclient.ClientSession, args *options.SkuTaskQueryOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-
-		result, err := modules.ElasticcacheSkus.Get(s, "sync-tasks", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
 	R(&options.ResourceMetadataOptions{}, "elastic-cache-add-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {

@@ -74,7 +74,7 @@ func (self *DBInstanceAccountDeleteTask) DeleteDBInstanceAccount(ctx context.Con
 		}
 	}
 
-	err = account.Purge(ctx, self.UserCred)
+	err = account.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		self.taskFailed(ctx, account, errors.Wrap(err, "account.Purge"))
 		return

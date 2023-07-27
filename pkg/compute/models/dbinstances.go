@@ -1211,7 +1211,7 @@ func (self *SDBInstance) Delete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SDBInstance) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SVirtualResourceBase.Delete(ctx, userCred)
+	return self.purge(ctx, userCred)
 }
 
 func (self *SDBInstance) GetDBInstanceParameters() ([]SDBInstanceParameter, error) {
@@ -1505,7 +1505,7 @@ func (manager *SDBInstanceManager) SyncDBInstances(
 }
 
 func (self *SDBInstance) syncRemoveCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := self.Purge(ctx, userCred)
+	err := self.RealDelete(ctx, userCred)
 	if err != nil {
 		return err
 	}

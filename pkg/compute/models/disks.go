@@ -1496,7 +1496,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 		skip, key := IsNeedSkipSync(commonext[i])
 		if skip {
 			log.Infof("delete disk %s(%s) with tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
-			err := commondb[i].purge(ctx, userCred)
+			err := commondb[i].RealDelete(ctx, userCred)
 			if err != nil {
 				syncResult.DeleteError(err)
 				continue
@@ -1633,11 +1633,6 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 	err = self.ValidatePurgeCondition(ctx)
 	if err != nil {
 		self.SetStatus(userCred, api.DISK_UNKNOWN, "missing original disk after sync")
-		return err
-	}
-	// detach joint modle aboutsnapshotpolicy and disk
-	err = SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, userCred, nil, self)
-	if err != nil {
 		return err
 	}
 	err = self.RealDelete(ctx, userCred)
@@ -2212,9 +2207,19 @@ func (self *SDisk) Delete(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := self.DetachAllSnapshotpolicies(ctx, userCred)
-	if err != nil {
-		log.Errorf("unable to DetachAllSnapshotpolicies: %v", err)
+	diskbackups := DiskBackupManager.Query("id").Equals("disk_id", self.Id)
+	guestdisks := GuestdiskManager.Query("row_id").Equals("disk_id", self.Id)
+	diskpolicies := SnapshotPolicyDiskManager.Query("row_id").Equals("disk_id", self.Id)
+	pairs := []purgePair{
+		{manager: DiskBackupManager, key: "id", q: diskbackups},
+		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
+		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
+	}
+	for i := range pairs {
+		err := pairs[i].purgeAll()
+		if err != nil {
+			return err
+		}
 	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
