@@ -15,8 +15,11 @@
 package fsdriver
 
 import (
+	"debug/elf"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -372,52 +375,47 @@ func (l *sLinuxRootFs) GetOs() string {
 }
 
 func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
-	getOsArch64 := func(dir string) string {
-		files := rootFs.ListDir(dir, false)
-		for i := 0; i < len(files); i++ {
-			if strings.HasPrefix(files[i], "ld-") {
-				if strings.Contains(files[i], apis.OS_ARCH_AARCH64) {
-					return apis.OS_ARCH_AARCH64
-				} else if strings.Contains(files[i], apis.OS_ARCH_X86) {
-					return apis.OS_ARCH_X86_64
-				}
-			}
+	// search lib64 first
+	for _, dir := range []string{"/usr/lib64", "/lib64", "/usr/lib", "/lib"} {
+		if !rootFs.Exists(dir, false) {
+			continue
 		}
-		return ""
-	}
-	getOsArch32 := func(dir string) string {
 		files := rootFs.ListDir(dir, false)
 		for i := 0; i < len(files); i++ {
 			if strings.HasPrefix(files[i], "ld-") {
-				if strings.Contains(files[i], apis.OS_ARCH_ARM) {
+				p := rootFs.GetLocalPath(path.Join(dir, files[i]), false)
+				fileInfo, err := os.Stat(p)
+				if err != nil {
+					log.Errorf("stat file %s: %s", p, err)
+					continue
+				}
+				if fileInfo.IsDir() {
+					continue
+				}
+				rp, err := filepath.EvalSymlinks(p)
+				if err != nil {
+					log.Errorf("readlink of %s: %s", p, err)
+					continue
+				}
+				elfHeader, err := elf.Open(rp)
+				if err != nil {
+					log.Errorf("failed read file elf %s: %s", rp, err)
+					continue
+				}
+				// https://en.wikipedia.org/wiki/Executable_and_Linkable_Format#File_header
+				switch elfHeader.Machine {
+				case elf.EM_X86_64:
+					return apis.OS_ARCH_X86_64
+				case elf.EM_386:
+					return apis.OS_ARCH_X86_32
+				case elf.EM_AARCH64:
+					return apis.OS_ARCH_AARCH64
+				case elf.EM_ARM:
 					return apis.OS_ARCH_AARCH32
 				}
 			}
 		}
-		return apis.OS_ARCH_X86_32
 	}
-
-	if rootFs.Exists("/lib64", false) {
-		if osArch := getOsArch64("/lib64"); osArch != "" {
-			return osArch
-		}
-	}
-	if rootFs.Exists("/usr/lib64", false) {
-		if osArch := getOsArch64("/usr/lib64"); osArch != "" {
-			return osArch
-		}
-	}
-	if rootFs.Exists("/lib", false) {
-		if osArch := getOsArch32("/lib"); osArch != "" {
-			return osArch
-		}
-	}
-	if rootFs.Exists("/usr/lib", false) {
-		if osArch := getOsArch32("/usr/lib"); osArch != "" {
-			return osArch
-		}
-	}
-
 	return apis.OS_ARCH_X86_64
 }
 
