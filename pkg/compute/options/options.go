@@ -189,7 +189,7 @@ type ComputeOptions struct {
 
 	KeepDeletedSnapshotDays int `help:"The day of cleanup snapshot" default:"30"`
 	// 弹性伸缩中的ecs一般会有特殊的系统标签，通过指定这些标签可以忽略这部分ecs的同步, 指定多个key需要以 ',' 分隔
-	SkipServerBySysTagKeys  string `help:"skip server,disk sync and create with system tags" default:"acs:autoscaling:scalingGroupId"`
+	SkipServerBySysTagKeys  string `help:"skip server,disk sync and create with system tags" default:""`
 	SkipServerByUserTagKeys string `help:"skip server,disk sync and create with user tags" default:""`
 
 	EnableMonitorAgent bool `help:"enable public cloud vm monitor agent" default:"false"`
