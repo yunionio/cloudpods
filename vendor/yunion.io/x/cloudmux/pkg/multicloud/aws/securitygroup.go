@@ -174,6 +174,7 @@ func (self *SRegion) AddSecurityGroupRule(secGrpId string, direction secrules.TS
 		rule := rules[i]
 		if len(rule.Ports) > 0 {
 			for _, port := range rule.Ports {
+				params[fmt.Sprintf("IpPermissions.%d.IpProtocol", idx)] = "-1"
 				if rule.Protocol != secrules.PROTO_ANY {
 					params[fmt.Sprintf("IpPermissions.%d.IpProtocol", idx)] = strings.ToLower(rule.Protocol)
 				}
@@ -186,6 +187,7 @@ func (self *SRegion) AddSecurityGroupRule(secGrpId string, direction secrules.TS
 			}
 			continue
 		}
+		params[fmt.Sprintf("IpPermissions.%d.IpProtocol", idx)] = "-1"
 		if rule.Protocol != secrules.PROTO_ANY {
 			params[fmt.Sprintf("IpPermissions.%d.IpProtocol", idx)] = strings.ToLower(rule.Protocol)
 		}
