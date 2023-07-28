@@ -221,20 +221,24 @@ func (self *SCloudaccount) getCloudprovidersInternal(enabled tristate.TriState) 
 	return cloudproviders
 }
 
-func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context, info *api.CloudaccountDetail) error {
 	if self.GetEnabled() {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
-	if self.Status == api.CLOUD_PROVIDER_CONNECTED && self.getSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+	if gotypes.IsNil(info) {
+		cnt, err := CloudaccountManager.TotalResourceCount([]string{self.Id})
+		if err != nil {
+			return errors.Wrapf(err, "TotalResourceCount")
+		}
+		info = &api.CloudaccountDetail{}
+		info.SAccountUsage, _ = cnt[self.Id]
+	}
+	if self.Status == api.CLOUD_PROVIDER_CONNECTED && info.SyncCount > 0 {
 		return httperrors.NewInvalidStatusError("account is not idle")
 	}
-	cloudproviders := self.GetCloudproviders()
-	for i := 0; i < len(cloudproviders); i++ {
-		if err := cloudproviders[i].ValidateDeleteCondition(ctx, nil); err != nil {
-			return httperrors.NewInvalidStatusError("provider %s: %v", cloudproviders[i].Name, err)
-		}
+	if info.EnabledProviderCount > 0 {
+		return httperrors.NewInvalidStatusError("account has enabled provider")
 	}
-
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
@@ -1273,27 +1277,6 @@ func (self *SCloudaccount) GetDiskCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getProjectIds() []string {
-	q := CloudproviderManager.Query("tenant_id").Equals("cloudaccount_id", self.Id).Distinct()
-	rows, err := q.Rows()
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-	ret := make([]string, 0)
-	for rows.Next() {
-		var projId string
-		err := rows.Scan(&projId)
-		if err != nil {
-			return nil
-		}
-		if len(projId) > 0 && utils.IsInStringArray(projId, ret) {
-			ret = append(ret, projId)
-		}
-	}
-	return ret
-}
-
 func (self *SCloudaccount) GetCloudEnv() string {
 	if self.IsOnPremise {
 		return api.CLOUD_ENV_ON_PREMISE
@@ -1308,35 +1291,174 @@ func (self *SCloudaccount) GetEnvironment() string {
 	return self.AccessUrl
 }
 
-func (self *SCloudaccount) getMoreDetails(ctx context.Context, out api.CloudaccountDetail) api.CloudaccountDetail {
-	out.EipCount, _ = self.GetEipCount()
-	out.VpcCount, _ = self.GetVpcCount()
-	out.DiskCount, _ = self.GetDiskCount()
-	out.HostCount, _ = self.GetHostCount()
-	out.GuestCount, _ = self.GetGuestCount()
-	out.StorageCount, _ = self.GetStorageCount()
-	out.ProviderCount, _ = self.GetProviderCount()
-	out.RoutetableCount, _ = self.GetRoutetableCount()
-	out.StoragecacheCount, _ = self.GetStoragecacheCount()
+type SAccountUsageCount struct {
+	Id string
+	api.SAccountUsage
+}
 
-	out.Projects = []api.ProviderProject{}
-	for _, projectId := range self.getProjectIds() {
-		if proj, _ := db.TenantCacheManager.FetchTenantById(ctx, projectId); proj != nil {
-			project := api.ProviderProject{
-				Tenant:   proj.Name,
-				TenantId: proj.Id,
-			}
-			out.Projects = append(out.Projects, project)
-		}
+func (nm *SCloudaccountManager) query(manager db.IModelManager, field string, accountIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
 	}
-	out.SyncStatus2 = self.getSyncStatus2()
-	out.CloudEnv = self.GetCloudEnv()
-	if len(self.ProjectId) > 0 {
-		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), self.ProjectId); proj != nil {
-			out.Tenant = proj.Name
-		}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("cloudaccount_id"),
+		sqlchemy.COUNT(field),
+	).In("cloudaccount_id", accountIds).GroupBy(sq.Field("cloudaccount_id")).SubQuery()
+}
+
+func (manager *SCloudaccountManager) TotalResourceCount(accountIds []string) (map[string]api.SAccountUsage, error) {
+	// eip
+	eipSQ := manager.query(ElasticipManager, "eip_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(providers, sqlchemy.Equals(sq.Field("manager_id"), providers.Field("id")))
+	})
+
+	// vpc
+	vpcSQ := manager.query(VpcManager, "vpc_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(providers, sqlchemy.Equals(sq.Field("manager_id"), providers.Field("id")))
+	})
+
+	// disk
+	diskSQ := manager.query(DiskManager, "disk_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		storages := StorageManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(storages, sqlchemy.Equals(sq.Field("storage_id"), storages.Field("id"))).
+			LeftJoin(providers, sqlchemy.Equals(storages.Field("manager_id"), providers.Field("id")))
+	})
+
+	// host
+	hostSQ := manager.query(HostManager, "host_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(providers, sqlchemy.Equals(sq.Field("manager_id"), providers.Field("id")))
+	})
+
+	// guest
+	guestSQ := manager.query(GuestManager, "guest_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		hosts := HostManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(hosts, sqlchemy.Equals(sq.Field("host_id"), hosts.Field("id"))).
+			LeftJoin(providers, sqlchemy.Equals(hosts.Field("manager_id"), providers.Field("id")))
+	})
+
+	// storage
+	storageSQ := manager.query(StorageManager, "storage_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(providers, sqlchemy.Equals(sq.Field("manager_id"), providers.Field("id")))
+	})
+
+	// provider
+	providerSQ := manager.query(CloudproviderManager, "provider_cnt", accountIds, nil)
+
+	// enabled provider
+	enabledProviderSQ := manager.query(CloudproviderManager, "enabled_provider_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsTrue("enabled")
+	})
+
+	// route
+	routeSQ := manager.query(RouteTableManager, "routetable_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		vpcs := VpcManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(vpcs, sqlchemy.Equals(sq.Field("vpc_id"), vpcs.Field("id"))).
+			LeftJoin(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
+	})
+
+	// scache
+	scacheSQ := manager.query(StoragecacheManager, "storagecache_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(providers, sqlchemy.Equals(sq.Field("manager_id"), providers.Field("id")))
+	})
+
+	// sync count
+	syncSQ := manager.query(CloudproviderRegionManager, "sync_cnt", accountIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		providers := CloudproviderManager.Query().SubQuery()
+		sq := q.NotEquals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE).SubQuery()
+		return sq.Query(
+			sq.Field("row_id").Label("id"),
+			providers.Field("cloudaccount_id").Label("cloudaccount_id"),
+		).LeftJoin(providers, sqlchemy.Equals(sq.Field("cloudprovider_id"), providers.Field("id")))
+	})
+
+	accounts := manager.Query().SubQuery()
+	accountQ := accounts.Query(
+		sqlchemy.SUM("eip_count", eipSQ.Field("eip_cnt")),
+		sqlchemy.SUM("vpc_count", vpcSQ.Field("vpc_cnt")),
+		sqlchemy.SUM("disk_count", diskSQ.Field("disk_cnt")),
+		sqlchemy.SUM("host_count", hostSQ.Field("host_cnt")),
+		sqlchemy.SUM("guest_count", guestSQ.Field("guest_cnt")),
+		sqlchemy.SUM("storage_count", storageSQ.Field("storage_cnt")),
+		sqlchemy.SUM("provider_count", providerSQ.Field("provider_cnt")),
+		sqlchemy.SUM("enabled_provider_count", enabledProviderSQ.Field("enabled_provider_cnt")),
+		sqlchemy.SUM("routetable_count", routeSQ.Field("routetable_cnt")),
+		sqlchemy.SUM("storagecache_count", scacheSQ.Field("storagecache_cnt")),
+		sqlchemy.SUM("sync_count", syncSQ.Field("sync_cnt")),
+	)
+
+	accountQ.AppendField(accountQ.Field("id"))
+
+	accountQ = accountQ.LeftJoin(eipSQ, sqlchemy.Equals(accountQ.Field("id"), eipSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(vpcSQ, sqlchemy.Equals(accountQ.Field("id"), vpcSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(diskSQ, sqlchemy.Equals(accountQ.Field("id"), diskSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(hostSQ, sqlchemy.Equals(accountQ.Field("id"), hostSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(guestSQ, sqlchemy.Equals(accountQ.Field("id"), guestSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(storageSQ, sqlchemy.Equals(accountQ.Field("id"), storageSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(providerSQ, sqlchemy.Equals(accountQ.Field("id"), providerSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(enabledProviderSQ, sqlchemy.Equals(accountQ.Field("id"), enabledProviderSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(routeSQ, sqlchemy.Equals(accountQ.Field("id"), routeSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(scacheSQ, sqlchemy.Equals(accountQ.Field("id"), scacheSQ.Field("cloudaccount_id")))
+	accountQ = accountQ.LeftJoin(syncSQ, sqlchemy.Equals(accountQ.Field("id"), syncSQ.Field("cloudaccount_id")))
+
+	accountQ = accountQ.Filter(sqlchemy.In(accountQ.Field("id"), accountIds)).GroupBy(accountQ.Field("id"))
+
+	accountCount := []SAccountUsageCount{}
+	err := accountQ.All(&accountCount)
+	if err != nil {
+		return nil, errors.Wrapf(err, "accountQ.All")
 	}
-	return out
+
+	result := map[string]api.SAccountUsage{}
+	for i := range accountCount {
+		result[accountCount[i].Id] = accountCount[i].SAccountUsage
+	}
+
+	return result, nil
 }
 
 func (manager *SCloudaccountManager) FetchCustomizeColumns(
@@ -1350,6 +1472,14 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 	rows := make([]api.CloudaccountDetail, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	pmRows := manager.SProjectMappingResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	accounts := make([]*SCloudaccount, len(objs))
+	accountIds := make([]string, len(objs))
+	for i := range objs {
+		account := objs[i].(*SCloudaccount)
+		accountIds[i] = account.Id
+		accounts[i] = account
+	}
 
 	proxySettings := make(map[string]proxy.SProxySetting)
 	{
@@ -1370,6 +1500,22 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 			return rows
 		}
 	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		obj := &db.SProjectizedResourceBase{ProjectId: accounts[i].ProjectId}
+		obj.DomainId = accounts[i].DomainId
+		virObjs[i] = obj
+	}
+	projManager := &db.SProjectizedResourceBaseManager{}
+	projRows := projManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, stringutils2.SSortedStrings{}, isList)
+
+	usage, err := manager.TotalResourceCount(accountIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+
 	for i := range rows {
 		account := objs[i].(*SCloudaccount)
 		detail := api.CloudaccountDetail{
@@ -1384,7 +1530,13 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 			detail.ProxySetting.HTTPSProxy = proxySetting.HTTPSProxy
 			detail.ProxySetting.NoProxy = proxySetting.NoProxy
 		}
-		rows[i] = account.getMoreDetails(ctx, detail)
+		rows[i].CloudEnv = account.GetCloudEnv()
+		rows[i].ProjectizedResourceInfo = projRows[i]
+		rows[i].SAccountUsage, _ = usage[accountIds[i]]
+		rows[i].SyncStatus2 = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+		if rows[i].SyncCount > 0 {
+			rows[i].SyncStatus2 = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+		}
 	}
 
 	return rows
@@ -2303,12 +2455,10 @@ func (self *SCloudaccount) StartCloudaccountDeleteTask(ctx context.Context, user
 
 func (self *SCloudaccount) getSyncStatus2() string {
 	cprs := CloudproviderRegionManager.Query().SubQuery()
-	providers := CloudproviderManager.Query().SubQuery()
+	providers := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).SubQuery()
 
-	q := cprs.Query()
+	q := cprs.Query().NotEquals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 	q = q.Join(providers, sqlchemy.Equals(cprs.Field("cloudprovider_id"), providers.Field("id")))
-	q = q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), self.Id))
-	q = q.Filter(sqlchemy.NotEquals(cprs.Field("sync_status"), api.CLOUD_PROVIDER_SYNC_STATUS_IDLE))
 
 	cnt, err := q.CountWithError()
 	if err != nil {
