@@ -1223,6 +1223,14 @@ func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.
 		self.PostpaidStatus = sku.PostpaidStatus
 		self.SysDiskType = sku.SysDiskType
 		self.DataDiskTypes = sku.DataDiskTypes
+		self.CpuArch = sku.CpuArch
+		self.InstanceTypeFamily = sku.InstanceTypeFamily
+		self.InstanceTypeCategory = sku.InstanceTypeCategory
+		self.LocalCategory = sku.LocalCategory
+		self.NicType = sku.NicType
+		self.GpuAttachable = sku.GpuAttachable
+		self.GpuSpec = sku.GpuSpec
+		self.GpuCount = sku.GpuCount
 		self.Md5 = sku.Md5
 		return nil
 	})
