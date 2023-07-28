@@ -113,6 +113,7 @@ var (
 			"global_https_proxy",
 			"ignore_nonrunning_guests",
 			"platform_name",
+			"enable_cloud_shell",
 			"platform_names",
 		},
 	}
