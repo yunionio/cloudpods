@@ -26,7 +26,7 @@ var (
 func init() {
 	Cloudaccounts = modules.NewComputeManager("cloudaccount", "cloudaccounts",
 		[]string{"ID", "Name", "Enabled", "Status", "Access_url",
-			"balance", "error_count", "health_status",
+			"balance", "currency", "error_count", "health_status",
 			"Sync_Status", "Last_sync",
 			"guest_count", "project_domain", "domain_id",
 			"Provider", "Brand",

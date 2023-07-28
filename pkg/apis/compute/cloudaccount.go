@@ -357,6 +357,7 @@ func (self CloudaccountDetail) GetMetricTags() map[string]string {
 		"brand":             self.Brand,
 		"domain_id":         self.DomainId,
 		"project_domain":    self.ProjectDomain,
+		"currency":          self.Currency,
 	}
 	return ret
 }
