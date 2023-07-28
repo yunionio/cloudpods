@@ -117,7 +117,7 @@ type SCloudaccount struct {
 
 	// 账户余额货币类型
 	// enmu: CNY, USD
-	Currency string `width:"5" charset:"utf8" nullable:"false" list:"domain" create:"domain_optional" update:"domain"`
+	Currency string `width:"5" charset:"utf8" nullable:"false" list:"user" create:"domain_optional" update:"domain"`
 
 	// 上次账号探测时间
 	ProbeAt time.Time `list:"domain"`

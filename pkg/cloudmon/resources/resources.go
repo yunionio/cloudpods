@@ -903,8 +903,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 	}
 	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType)
 	if err != nil {
+		log.Errorf("Get influxdb %s service url: %v", options.Options.SessionEndpointType, err)
 		return
 	}
-	influxdb.SendMetrics(urls, "meter_db", metrics, false)
-	return
+	if err := influxdb.SendMetrics(urls, "meter_db", metrics, true); err != nil {
+		log.Errorf("SendMetrics to meter_db: %v", err)
+		return
+	}
 }
