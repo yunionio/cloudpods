@@ -220,7 +220,6 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		return output, errors.Wrap(err, "unable to get receive")
 	}
 	receiverIds = append(receiverIds, receiverIds1...)
-
 	// robot
 	var robots []string
 	_robots, err := SubscriberManager.robot(topic.Id, input.ProjectDomainId, input.ProjectId)
@@ -252,7 +251,9 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	message := jsonutils.Marshal(input.ResourceDetails).String()
 
 	// append default receiver
-	receiverIds = append(receiverIds, input.ReceiverIds...)
+	if len(input.Event) == 0 {
+		receiverIds = append(receiverIds, input.ReceiverIds...)
+	}
 	// fillter non-existed receiver
 	receivers, err := ReceiverManager.FetchByIdOrNames(ctx, receiverIds...)
 	if err != nil {
