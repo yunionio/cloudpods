@@ -492,6 +492,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	acl.ExternalId = extAcl.GetGlobalId()
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
+	acl.Name = extAcl.GetName()
 
 	aclEntites := SLoadbalancerAclEntries{}
 	for _, entry := range extAcl.GetAclEntries() {
