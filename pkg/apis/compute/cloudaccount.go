@@ -280,31 +280,7 @@ type ProviderProject struct {
 	TenantId string `json:"tenant_id"`
 }
 
-type CloudaccountDetail struct {
-	apis.EnabledStatusInfrasResourceBaseDetails
-	SCloudaccount
-
-	// 子订阅项目信息
-	Projects []ProviderProject `json:"projects"`
-
-	// 同步时间间隔
-	// example: 3600
-	SyncIntervalSeconds int `json:"sync_interval_seconds"`
-
-	// 同步状态
-	SyncStatus2 string `json:"sync_stauts2"`
-
-	// 云账号环境类型
-	// public: 公有云
-	// private: 私有云
-	// onpremise: 本地IDC
-	// example: public
-	CloudEnv string `json:"cloud_env"`
-
-	// 云账号项目名称
-	// example: system
-	Tenant string `json:"tenant"`
-
+type SAccountUsage struct {
 	// 弹性公网Ip数量
 	// example: 2
 	EipCount int `json:"eip_count,allowempty"`
@@ -333,6 +309,10 @@ type CloudaccountDetail struct {
 	// example: 1
 	ProviderCount int `json:"provider_count,allowempty"`
 
+	// 启用的子订阅数量
+	// example: 1
+	EnabledProviderCount int `json:"enabled_provider_count,allowempty"`
+
 	// 路由表数量
 	// example: 0
 	RoutetableCount int `json:"routetable_count,allowempty"`
@@ -340,6 +320,32 @@ type CloudaccountDetail struct {
 	// 存储缓存数量
 	// example: 10
 	StoragecacheCount int `json:"storagecache_count,allowempty"`
+
+	// 并发同步数量
+	SyncCount int `json:"sync_count,allowempty"`
+}
+
+type CloudaccountDetail struct {
+	apis.EnabledStatusInfrasResourceBaseDetails
+	SCloudaccount
+
+	// 同步时间间隔
+	// example: 3600
+	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+
+	// 同步状态
+	SyncStatus2 string `json:"sync_stauts2"`
+
+	// 云账号环境类型
+	// public: 公有云
+	// private: 私有云
+	// onpremise: 本地IDC
+	// example: public
+	CloudEnv string `json:"cloud_env"`
+
+	apis.ProjectizedResourceInfo
+
+	SAccountUsage
 
 	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
 
