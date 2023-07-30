@@ -96,14 +96,7 @@ func (s *SNFSStorage) SetStorageInfo(storageId, storageName string, conf jsonuti
 	if err := s.checkAndMount(); err != nil {
 		return errors.Errorf("Fail to mount storage to mountpoint: %s, %s", s.Path, err)
 	}
-	if !s.isSetStorageInfo && !strings.HasPrefix(s.Path, "/opt/cloud") {
-		err := s.bindMountTo(s.Path)
-		if err != nil {
-			return err
-		}
-		s.isSetStorageInfo = true
-	}
-	return nil
+	return s.BindMountStoragePath(s.Path)
 }
 
 func (s *SNFSStorage) checkAndMount() error {
