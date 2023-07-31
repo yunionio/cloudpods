@@ -51,6 +51,7 @@ const (
 
 func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
+	app.AddHandler("POST", ApiPathPrefix+"climc/shell", auth.Authenticate(handleClimcShell))
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
 	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
@@ -170,9 +171,10 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	ip := env.Params["<ip>"]
 	port, _ := env.Body.Int("port")
 	username, _ := env.Body.GetString("username")
+	keepusername, _ := env.Body.Bool("keep_username")
 	password, _ := env.Body.GetString("password")
 	name, _ := env.Body.GetString("name")
-	s := session.NewSshSession(ctx, env.ClientSessin, name, ip, port, username, password)
+	s := session.NewSshSession(ctx, env.ClientSessin, name, ip, port, username, password, keepusername)
 	handleSshSession(ctx, s, w)
 }
 
@@ -199,6 +201,26 @@ func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Re
 		return
 	}
 	cmd, err := command.NewIpmitoolSolCommand(&info, env.ClientSessin)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	handleCommandSession(ctx, cmd, w)
+}
+
+func handleClimcShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	env, err := fetchCloudEnv(ctx, w, r)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	info := command.ClimcSshInfo{}
+	err = env.Body.Unmarshal(&info)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	cmd, err := command.NewClimcSshCommand(&info, env.ClientSessin)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
