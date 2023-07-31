@@ -1518,17 +1518,17 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		account := objs[i].(*SCloudaccount)
-		detail := api.CloudaccountDetail{
+		rows[i] = api.CloudaccountDetail{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ProjectMappingResourceInfo:             pmRows[i],
 			LastSyncCost:                           account.GetLastSyncCost(),
 		}
 		if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
-			detail.ProxySetting.Id = proxySetting.Id
-			detail.ProxySetting.Name = proxySetting.Name
-			detail.ProxySetting.HTTPProxy = proxySetting.HTTPProxy
-			detail.ProxySetting.HTTPSProxy = proxySetting.HTTPSProxy
-			detail.ProxySetting.NoProxy = proxySetting.NoProxy
+			rows[i].ProxySetting.Id = proxySetting.Id
+			rows[i].ProxySetting.Name = proxySetting.Name
+			rows[i].ProxySetting.HTTPProxy = proxySetting.HTTPProxy
+			rows[i].ProxySetting.HTTPSProxy = proxySetting.HTTPSProxy
+			rows[i].ProxySetting.NoProxy = proxySetting.NoProxy
 		}
 		rows[i].CloudEnv = account.GetCloudEnv()
 		rows[i].ProjectizedResourceInfo = projRows[i]
