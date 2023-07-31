@@ -558,6 +558,15 @@ function nic_mtu() {
 		}
 	}
 
+	// set rescue flag to input
+	if s.Desc.RescueMode {
+		input.RescueInitdPath = s.SourceDesc.RescueInitdPath
+		input.RescueKernelPath = s.SourceDesc.RescueKernelPath
+		input.RescueDiskPath = s.SourceDesc.RescueDiskPath
+		input.RescueDiskDeviceBus = s.SourceDesc.RescueDiskDeviceBus
+		input.RescueDiskDeviceSlot = s.SourceDesc.RescueDiskDeviceSlot
+	}
+
 	qemuOpts, err := qemu.GenerateStartOptions(input)
 	if err != nil {
 		return "", errors.Wrap(err, "GenerateStartCommand")
