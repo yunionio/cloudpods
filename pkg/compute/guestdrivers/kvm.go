@@ -1171,5 +1171,30 @@ func (self *SKVMGuestDriver) RequestSetNicTrafficLimit(ctx context.Context, task
 	if err != nil {
 		return errors.Wrap(err, "host request")
 	}
+
+	return nil
+}
+
+func (self *SKVMGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	header := self.getTaskRequestHeader(task)
+	client := httputils.GetDefaultClient()
+	url := fmt.Sprintf("%s/servers/%s/start-rescue", host.ManagerUri, guest.Id)
+	_, _, err := httputils.JSONRequest(client, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (self *SKVMGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	header := self.getTaskRequestHeader(task)
+	client := httputils.GetDefaultClient()
+	url := fmt.Sprintf("%s/servers/%s/stop-rescue", host.ManagerUri, guest.Id)
+	_, _, err := httputils.JSONRequest(client, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -184,6 +184,8 @@ type SGuest struct {
 	QgaStatus string `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional"`
 	// power_states limit in [on, off, unknown]
 	PowerStates string `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional"`
+	// Used for guest rescue
+	RescueMode bool `nullable:"false" default:"false" list:"user" create:"optional"`
 }
 
 func (manager *SGuestManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
@@ -4917,6 +4919,8 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		EncryptKeyId: self.EncryptKeyId,
 
 		IsDaemon: self.IsDaemon.Bool(),
+
+		RescueMode: self.RescueMode,
 	}
 
 	if len(self.BackupHostId) > 0 {
