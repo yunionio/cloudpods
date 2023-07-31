@@ -114,6 +114,12 @@ type SGuestHardwareDesc struct {
 	PCIControllers []*PCIController `json:",omitempty"`
 
 	AnonymousPCIDevs []*PCIDevice `json:",omitempty"`
+
+	RescueInitdPath      string `json:",omitempty"` // rescue initramfs path
+	RescueKernelPath     string `json:",omitempty"` // rescue kernel path
+	RescueDiskPath       string `json:",omitempty"` // rescue disk path
+	RescueDiskDeviceBus  uint   `json:",omitempty"` // rescue disk device bus
+	RescueDiskDeviceSlot uint   `json:",omitempty"` // rescue disk device slot
 }
 
 type SGuestIsaSerial struct {
@@ -336,6 +342,8 @@ type SGuestControlDesc struct {
 	SrcMacCheck        bool
 
 	EncryptKeyId string
+
+	RescueMode bool // rescue mode
 }
 
 type SGuestMetaDesc struct {
