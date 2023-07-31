@@ -14,12 +14,7 @@
 
 package aws
 
-import (
-	"github.com/aws/aws-sdk-go/service/pricing"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
-)
+import "fmt"
 
 type Product struct {
 	ProductFamily string     `json:"productFamily"`
@@ -28,6 +23,13 @@ type Product struct {
 }
 
 type Attributes struct {
+	Availabilityzone            string `json:"availabilityzone"`
+	Classicnetworkingsupport    string `json:"classicnetworkingsupport"`
+	GPUMemory                   string `json:"gpuMemory"`
+	Instancesku                 string `json:"instancesku"`
+	Marketoption                string `json:"marketoption"`
+	RegionCode                  string `json:"regionCode"`
+	Vpcnetworkingsupport        string `json:"vpcnetworkingsupport"`
 	EnhancedNetworkingSupported string `json:"enhancedNetworkingSupported"`
 	IntelTurboAvailable         string `json:"intelTurboAvailable"`
 	Memory                      string `json:"memory"`
@@ -104,41 +106,66 @@ type SInstnaceType struct {
 	PublicationDate string  `json:"publicationDate"`
 }
 
-func (self *SRegion) GetInstanceTypes(nextToken string) ([]SInstnaceType, string, error) {
-	input := &pricing.GetProductsInput{}
-	input.SetServiceCode("AmazonEC2")
+func (self *SRegion) GetInstanceTypes() ([]SInstnaceType, error) {
+	filters := map[string]string{
+		"regionCode":      self.RegionId,
+		"operatingSystem": "Linux",
+		"licenseModel":    "No License required",
+		"productFamily":   "Compute Instance",
+		"operation":       "RunInstances",
+		"preInstalledSw":  "NA",
+		"tenancy":         "Shared",
+		"capacitystatus":  "Used",
+	}
+
+	params := []ProductFilter{}
+
+	for k, v := range filters {
+		params = append(params, ProductFilter{
+			Type:  "TERM_MATCH",
+			Field: k,
+			Value: v,
+		})
+	}
+
+	ret := []SInstnaceType{}
+	var nextToken string
+	for {
+		parts, _nextToken, err := self.GetProducts("AmazonEC2", params, nextToken)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, parts...)
+		if len(_nextToken) == 0 || len(parts) == 0 {
+			break
+		}
+		nextToken = _nextToken
+	}
+	return ret, nil
+}
+
+type Sku struct {
+	InstanceType string `xml:"instanceType"`
+}
+
+func (self *SRegion) DescribeInstanceTypes(arch string, nextToken string) ([]Sku, string, error) {
+	params := map[string]string{}
 	if len(nextToken) > 0 {
-		input.SetNextToken(nextToken)
+		params["NextToken"] = nextToken
 	}
-	GetFilter := func(k, v string) pricing.Filter {
-		filter := pricing.Filter{}
-		filter.SetType("TERM_MATCH")
-		filter.SetField(k)
-		filter.SetValue(v)
-		return filter
+	idx := 1
+	if len(arch) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "processor-info.supported-architecture"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = arch
+		idx++
 	}
-	f1 := GetFilter("regionCode", self.RegionId)
-	f2 := GetFilter("operatingSystem", "Linux")
-	f3 := GetFilter("licenseModel", "No License required")
-	f4 := GetFilter("productFamily", "Compute Instance")
-	f5 := GetFilter("operation", "RunInstances")
-	f6 := GetFilter("preInstalledSw", "NA")
-	f7 := GetFilter("tenancy", "Shared")
-	f8 := GetFilter("capacitystatus", "Used")
-	input.SetFilters([]*pricing.Filter{&f1, &f2, &f3, &f4, &f5, &f6, &f7, &f8})
-	s, err := self.client.getAwsSession("ap-south-1", false)
+	ret := struct {
+		InstanceTypeSet []Sku  `xml:"instanceTypeSet>item"`
+		NextToken       string `xml:"nextToken"`
+	}{}
+	err := self.ec2Request("DescribeInstanceTypes", params, &ret)
 	if err != nil {
 		return nil, "", err
 	}
-
-	cli := pricing.New(s)
-	output, err := cli.GetProducts(input)
-	if err != nil {
-		return nil, "", errors.Wrap(err, "SZone.GetServerSku.GetProducts")
-	}
-	if output.NextToken != nil {
-		nextToken = *output.NextToken
-	}
-	ret := []SInstnaceType{}
-	return ret, nextToken, jsonutils.Update(&ret, output.PriceList)
+	return ret.InstanceTypeSet, ret.NextToken, nil
 }

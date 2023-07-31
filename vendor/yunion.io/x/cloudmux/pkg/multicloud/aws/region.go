@@ -145,6 +145,9 @@ const (
 
 	EKS_SERVICE_NAME = "eks"
 	EKS_SERVICE_ID   = "EKS"
+
+	PRICING_SERVICE_NAME = "api.pricing"
+	PRICING_SERVICE_ID   = "Pricing"
 )
 
 type SRegion struct {
