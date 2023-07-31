@@ -201,6 +201,9 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	req.ApiName = apiName
 	req.Scheme = "http"
 	req.Method = "POST"
+	if strings.HasPrefix(domain, "public.") {
+		req.Scheme = "https"
+	}
 	id := ""
 	if params != nil {
 		for k, v := range params {

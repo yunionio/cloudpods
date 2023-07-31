@@ -25,7 +25,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/corehandlers"
 	"github.com/aws/aws-sdk-go/aws/request"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
-	"github.com/aws/aws-sdk-go/private/protocol/restjson"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -50,6 +49,10 @@ func (self *SAwsClient) invoke(regionId, serviceName, serviceId, apiVersion stri
 		Endpoint:      c.Endpoint,
 		APIVersion:    apiVersion,
 	}
+	if serviceName == PRICING_SERVICE_NAME {
+		metadata.TargetPrefix = "AWSPriceListService"
+		metadata.JSONVersion = "1.1"
+	}
 
 	if self.debug {
 		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody))
@@ -60,7 +63,7 @@ func (self *SAwsClient) invoke(regionId, serviceName, serviceId, apiVersion stri
 	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
 	client.Handlers.Build.PushBackNamed(JsonBuildHandler)
 	client.Handlers.Unmarshal.PushBackNamed(UnmarshalJsonHandler)
-	client.Handlers.UnmarshalMeta.PushBackNamed(restjson.UnmarshalMetaHandler)
+	//client.Handlers.UnmarshalMeta.PushBackNamed(restjson.UnmarshalMetaHandler)
 	client.Handlers.UnmarshalError.PushBackNamed(UnmarshalJsonErrorHandler)
 	client.Handlers.Validate.Remove(corehandlers.ValidateEndpointHandler)
 	return jsonInvoke(client, apiName, path, params, retval, true)
@@ -122,6 +125,11 @@ func JsonBuild(r *request.Request) {
 		r.SetBufferBody([]byte(jsonutils.Marshal(r.Params).String()))
 	}
 
+	if len(r.ClientInfo.APIVersion) > 0 {
+		jsonVersion := r.ClientInfo.JSONVersion
+		r.HTTPRequest.Header.Set("Content-Type", "application/x-amz-json-"+jsonVersion)
+	}
+
 	if v := r.HTTPRequest.Header.Get("Content-Type"); len(v) == 0 {
 		r.HTTPRequest.Header.Set("Content-Type", "application/json")
 	}
@@ -131,10 +139,6 @@ func JsonBuild(r *request.Request) {
 		r.HTTPRequest.Header.Add("X-Amz-Target", target)
 	}
 
-	if ct, v := r.HTTPRequest.Header.Get("Content-Type"), r.ClientInfo.JSONVersion; len(ct) == 0 && len(v) != 0 {
-		jsonVersion := r.ClientInfo.JSONVersion
-		r.HTTPRequest.Header.Set("Content-Type", "application/x-amz-json-"+jsonVersion)
-	}
 }
 
 var UnmarshalJsonHandler = request.NamedHandler{Name: "yunion.query.UnmarshalJson", Fn: UnmarshalJson}
@@ -185,6 +189,7 @@ var UnmarshalJsonErrorHandler = request.NamedHandler{
 
 type sAwsInvokeError struct {
 	Message string
+	Type    string `json:"__type"`
 }
 
 func (self sAwsInvokeError) Error() string {
