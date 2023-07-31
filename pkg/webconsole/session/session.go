@@ -133,7 +133,7 @@ type SSession struct {
 	recorder      recorder.Recoder
 }
 
-func (s SSession) GetConnectParams(params url.Values) (string, error) {
+func (s *SSession) GetConnectParams(params url.Values) (string, error) {
 	if params == nil {
 		params = url.Values(make(map[string][]string))
 	}

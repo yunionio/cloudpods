@@ -81,7 +81,12 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 		return nil, errors.Wrap(err, "KubeClusters")
 	}
 	if len(clusters.Data) == 0 {
-		return nil, httperrors.NewNotFoundError("cluster system-default not found")
+		// maybe running in docker compose environment, so try to use ssh way
+		if data, err := m.DoClimcSshConnect(s, "climc", 22); err != nil {
+			return nil, httperrors.NewNotFoundError(errors.Wrap(err, "cluster system-default not found, try to use ssh way").Error())
+		} else {
+			return data, nil
+		}
 	}
 	clusterId, _ := clusters.Data[0].GetString("id")
 	if len(clusterId) == 0 {
@@ -146,4 +151,17 @@ func (m WebConsoleManager) DoSshConnect(s *mcclient.ClientSession, id string, pa
 
 func (m WebConsoleManager) DoServerConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoConnect(s, "server", id, "", params)
+}
+
+func (m WebConsoleManager) DoClimcSshConnect(s *mcclient.ClientSession, ip string, port int) (jsonutils.JSONObject, error) {
+	data := jsonutils.Marshal(map[string]interface{}{
+		"username":      "root",
+		"keep_username": true,
+		"ip_addr":       ip,
+		"port":          port,
+		"name":          "climc",
+	})
+	body := jsonutils.NewDict()
+	body.Set("webconsole", data)
+	return m.DoConnect(s, "climc", "shell", "", body)
 }
