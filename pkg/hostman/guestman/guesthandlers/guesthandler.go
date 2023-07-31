@@ -97,6 +97,8 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"qga-set-password":         qgaGuestSetPassword,
 			"qga-guest-ping":           qgaGuestPing,
 			"qga-command":              qgaCommand,
+			"start-rescue":             guestStartRescue,
+			"stop-rescue":              guestStopRescue,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -853,4 +855,16 @@ func qgaCommand(ctx context.Context, userCred mcclient.TokenCredential, sid stri
 	}
 
 	return gm.QgaCommand(qgaCmd, sid, input.Timeout)
+}
+
+// guestStartRescue prepare rescue files
+func guestStartRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	// Start rescue guest
+	return guestman.GetGuestManager().GuestStartRescue(ctx, userCred, sid, body)
+}
+
+// guestStopRescue clear rescue files
+func guestStopRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	// Stop rescue guest
+	return guestman.GetGuestManager().GuestStopRescue(ctx, userCred, sid, body)
 }

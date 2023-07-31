@@ -101,6 +101,54 @@ func (s *SGuestStopTask) CheckGuestRunningLater() {
 	s.checkGuestRunning()
 }
 
+// SGuestStartRescueTask Start a rescue vm
+type SGuestStartRescueTask struct {
+	*SKVMGuestInstance
+	ctx                 context.Context
+	BaremetalManagerUri string
+}
+
+func NewGuestStartRescueTask(guest *SKVMGuestInstance, ctx context.Context, baremetalManagerUri string) *SGuestStartRescueTask {
+	return &SGuestStartRescueTask{
+		SKVMGuestInstance:   guest,
+		ctx:                 ctx,
+		BaremetalManagerUri: baremetalManagerUri,
+	}
+}
+
+func (s *SGuestStartRescueTask) Start() {
+	if err := s.prepareRescue(s.ctx, s.BaremetalManagerUri); err != nil {
+		log.Errorf("prepareRescue fail %s", err)
+		hostutils.TaskFailed(s.ctx, err.Error())
+		return
+	}
+
+	hostutils.TaskComplete(s.ctx, nil)
+}
+
+// SGuestStopRescueTask Stop a rescue vm, clean rescue files
+type SGuestStopRescueTask struct {
+	*SKVMGuestInstance
+	ctx context.Context
+}
+
+func NewGuestStopRescueTask(guest *SKVMGuestInstance, ctx context.Context) *SGuestStopRescueTask {
+	return &SGuestStopRescueTask{
+		SKVMGuestInstance: guest,
+		ctx:               ctx,
+	}
+}
+
+func (s *SGuestStopRescueTask) Start() {
+	if err := s.clearRescue(s.ctx); err != nil {
+		log.Errorf("clearRescue fail %s", err)
+		hostutils.TaskFailed(s.ctx, err.Error())
+		return
+	}
+
+	hostutils.TaskComplete(s.ctx, nil)
+}
+
 type SGuestSuspendTask struct {
 	*SKVMGuestInstance
 	ctx              context.Context
