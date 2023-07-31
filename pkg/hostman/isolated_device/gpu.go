@@ -63,7 +63,7 @@ func getPassthroughGPUS() ([]*PCIDevice, error) {
 	for _, dev := range gpus {
 		if drv, err := dev.getKernelDriver(); err != nil {
 			log.Errorf("Device %#v get kernel driver error: %v", dev, err)
-		} else if drv == VFIO_PCI_KERNEL_DRIVER {
+		} else if drv == "" || drv == VFIO_PCI_KERNEL_DRIVER {
 			ret = append(ret, dev)
 		} else {
 			log.Warningf("GPU %v use kernel driver %q, skip it", dev, drv)
