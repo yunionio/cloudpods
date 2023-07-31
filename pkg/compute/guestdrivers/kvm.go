@@ -90,8 +90,8 @@ func (self *SKVMGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 			SysDisk: []cloudprovider.StorageInfo{
 				{
 					StorageType: api.STORAGE_LOCAL,
-					MinSizeGb:   30,
-					MaxSizeGb:   2048,
+					MinSizeGb:   options.Options.LocalSysDiskMinSizeGB,
+					MaxSizeGb:   options.Options.LocalSysDiskMaxSizeGB,
 					StepSizeGb:  1,
 					Resizable:   true,
 				},
