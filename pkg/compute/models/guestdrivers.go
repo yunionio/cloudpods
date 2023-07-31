@@ -241,6 +241,9 @@ type IGuestDriver interface {
 	FetchMonitorUrl(ctx context.Context, guest *SGuest) string
 	RequestResetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *SHost, guest *SGuest, input []api.ServerNicTrafficLimit) error
 	RequestSetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *SHost, guest *SGuest, input []api.ServerNicTrafficLimit) error
+
+	RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *SHost, guest *SGuest) error
+	RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *SHost, guest *SGuest) error
 }
 
 var guestDrivers map[string]IGuestDriver

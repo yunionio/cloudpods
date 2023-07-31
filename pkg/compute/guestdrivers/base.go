@@ -536,3 +536,11 @@ func (self *SBaseGuestDriver) RequestResetNicTrafficLimit(ctx context.Context, t
 func (self *SBaseGuestDriver) RequestSetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input []api.ServerNicTrafficLimit) error {
 	return httperrors.ErrNotImplemented
 }
+
+func (self *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	return httperrors.ErrNotImplemented
+}
+
+func (self *SBaseGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	return httperrors.ErrNotImplemented
+}

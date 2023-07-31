@@ -865,6 +865,8 @@ type GuestJsonDesc struct {
 	EncryptKeyId string `json:"encrypt_key_id,omitempty"`
 
 	IsDaemon bool `json:"is_daemon"`
+
+	RescueMode bool `json:"rescue_mode"`
 }
 
 type ServerSetBootIndexInput struct {
