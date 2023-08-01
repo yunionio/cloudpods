@@ -1072,6 +1072,27 @@ func (self *SCloudaccount) getDefaultExternalProject(id string) (*SExternalProje
 	return &projects[0], nil
 }
 
+func (self *SCloudaccount) removeSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, subAccounts []cloudprovider.SSubAccount) error {
+	accounts := []string{}
+	for i := range subAccounts {
+		accounts = append(accounts, subAccounts[i].Account)
+	}
+	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).NotIn("account", accounts)
+	providers := []SCloudprovider{}
+	err := db.FetchModelObjects(CloudproviderManager, q, &providers)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range providers {
+		log.Debugf("remove cloudprovider %s(%s)", providers[i].Name, providers[i].Id)
+		err = providers[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "RealDelete")
+		}
+	}
+	return nil
+}
+
 func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclient.TokenCredential, subAccount cloudprovider.SSubAccount) (*SCloudprovider, bool, error) {
 	isNew := false
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).Equals("account", subAccount.Account)
@@ -2254,24 +2275,17 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 }
 
 func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred mcclient.TokenCredential, subAccounts []cloudprovider.SSubAccount) []SCloudprovider {
-	oldProviders := account.GetCloudproviders()
-	existProviders := make([]SCloudprovider, 0)
-	existProviderKeys := make(map[string]int)
 	for i := 0; i < len(subAccounts); i += 1 {
-		provider, _, err := account.importSubAccount(ctx, userCred, subAccounts[i])
+		_, _, err := account.importSubAccount(ctx, userCred, subAccounts[i])
 		if err != nil {
 			log.Errorf("importSubAccount fail %s", err)
-		} else {
-			existProviders = append(existProviders, *provider)
-			existProviderKeys[provider.Id] = 1
 		}
 	}
-	for i := range oldProviders {
-		if _, exist := existProviderKeys[oldProviders[i].Id]; !exist {
-			oldProviders[i].markProviderDisconnected(ctx, userCred, "invalid subaccount")
-		}
+	err := account.removeSubAccounts(ctx, userCred, subAccounts)
+	if err != nil {
+		log.Errorf("removeSubAccounts error: %v", err)
 	}
-	return existProviders
+	return account.GetCloudproviders()
 }
 
 func (self *SCloudaccount) setSubAccountStatus() error {
