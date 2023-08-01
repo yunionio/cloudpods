@@ -708,6 +708,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			}
 			for t := range servers {
 				tags := projectTags.GetTags(servers[t].ProjectId)
+				if servers[t].Metadata == nil {
+					server := servers[t]
+					server.Metadata = map[string]string{}
+					servers[t] = server
+				}
 				for k, v := range tags {
 					if strings.HasPrefix(k, db.USER_TAG_PREFIX) {
 						servers[t].Metadata[k] = v
