@@ -284,6 +284,9 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 	}
 	for k, v := range self.Metadata {
 		if strings.HasPrefix(k, db.USER_TAG_PREFIX) {
+			if strings.Contains(k, "login_key") || strings.Contains(v, "=") {
+				continue
+			}
 			ret[k] = v
 		}
 	}

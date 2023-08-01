@@ -446,7 +446,7 @@ func (job *SCronJob) runJobInWorker(isStart bool, startTime time.Time) {
 		}
 	}()
 
-	log.Debugf("Cron job: %s started, startTime: %s", job.Name, startTime)
+	log.Debugf("Cron job: %s started, startTime: %s", job.Name, startTime.Format(time.RFC3339))
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Cron-Service")
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASKNAME, fmt.Sprintf("%s-%d", job.Name, time.Now().Unix()))
