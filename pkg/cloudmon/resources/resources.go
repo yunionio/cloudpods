@@ -171,9 +171,9 @@ func (self *SBaseResources) init() error {
 
 func (self *SBaseResources) increment() error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	timeFilter := fmt.Sprintf("imported_at.gt('%s')", self.importedAt)
+	timeFilter := fmt.Sprintf("imported_at.gt('%s')", self.importedAt.Format(time.RFC3339))
 	if self.importedAt.IsZero() {
-		timeFilter = fmt.Sprintf("created_at.gt('%s')", self.createdAt)
+		timeFilter = fmt.Sprintf("created_at.gt('%s')", self.createdAt.Format(time.RFC3339))
 	}
 	query := map[string]interface{}{
 		"limit":      20,
@@ -239,7 +239,7 @@ func (self *SBaseResources) increment() error {
 
 func (self *SBaseResources) decrement() error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	timeFilter := fmt.Sprintf("deleted_at.gt('%s')", self.deletedAt)
+	timeFilter := fmt.Sprintf("deleted_at.gt('%s')", self.deletedAt.Format(time.RFC3339))
 	query := map[string]interface{}{
 		"limit":      20,
 		"scope":      "system",
@@ -271,6 +271,7 @@ func (self *SBaseResources) decrement() error {
 		baseInfo := sBaseInfo{}
 		ret[i].Unmarshal(&baseInfo)
 		if len(baseInfo.ExternalId) == 0 && self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() &&
+			self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword() &&
 			self.manager.GetKeyword() != identity.Projects.GetKeyword() {
 			continue
 		}
@@ -301,7 +302,7 @@ func (self *SBaseResources) decrement() error {
 
 func (self *SBaseResources) update() error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	timeFilter := fmt.Sprintf("updated_at.gt('%s')", self.updatedAt)
+	timeFilter := fmt.Sprintf("updated_at.gt('%s')", self.updatedAt.Format(time.RFC3339))
 	query := map[string]interface{}{
 		"limit":          20,
 		"scope":          "system",
@@ -334,10 +335,10 @@ func (self *SBaseResources) update() error {
 		if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
 			projectTags.SetTags(baseInfo.Id, baseInfo.Metadata)
 		}
-		if len(baseInfo.ExternalId) == 0 {
-			continue
-		}
 		key := baseInfo.ExternalId
+		if len(key) == 0 {
+			key = baseInfo.Id
+		}
 		self.resourceLock.Lock()
 		self.Resources[key] = ret[i]
 		self.resourceLock.Unlock()
