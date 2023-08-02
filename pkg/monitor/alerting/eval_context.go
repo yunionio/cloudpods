@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/monitor/options"
 )
 
 // EvalContext is the context object for an alert evaluation.
@@ -204,13 +205,14 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 		}
 		desc += "Error: " + c.Error.Error()
 	}
+	tz, _ := time.LoadLocation(options.Options.TimeZone)
 	return monitor.NotificationTemplateConfig{
 		Title:        c.GetNotificationTitle(),
 		Name:         c.Rule.Name,
 		ResourceName: c.GetResourceNameOfMathes(nil),
 		Matches:      c.GetEvalMatches(),
-		StartTime:    c.StartTime.Format("2006-01-02 15:04:05"),
-		EndTime:      c.EndTime.Format("2006-01-02 15:04:05"),
+		StartTime:    c.StartTime.In(tz).Format("2006-01-02 15:04:05"),
+		EndTime:      c.EndTime.In(tz).Format("2006-01-02 15:04:05"),
 		Description:  desc,
 		Level:        c.Rule.Level,
 		NoDataFound:  c.NoDataFound,
