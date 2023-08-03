@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -27,11 +28,14 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/billing"
+	notifyapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -240,8 +244,8 @@ type IBillingModel interface {
 }
 
 func fetchExpiredModels(manager db.IModelManager, advanceDay int) ([]IBillingModel, error) {
-	upLimit := time.Now().AddDate(0, 0, advanceDay)
-	downLimit := time.Now().AddDate(0, 0, advanceDay-1)
+	upLimit := time.Now().AddDate(0, 0, advanceDay+1)
+	downLimit := time.Now().AddDate(0, 0, advanceDay)
 	v := reflect.MakeSlice(reflect.SliceOf(manager.TableSpec().DataType()), 0, 0)
 	q := manager.Query().LE("expired_at", upLimit).GE("expired_at", downLimit)
 
@@ -293,7 +297,27 @@ func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCr
 		DBInstanceManager,
 		ElasticcacheManager,
 	}
-	for _, advanceDay := range options.Options.ResourceExpiredNotifyDays {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	resp, err := notify.NotifyTopic.List(s, jsonutils.Marshal(map[string]interface{}{
+		"filter": fmt.Sprintf("name.equals('%s')", notifyapi.DefaultResourceRelease),
+		"scope":  "system",
+	}))
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "list topics"))
+		return
+	}
+	topics := []notifyapi.TopicDetails{}
+	err = jsonutils.Update(&topics, resp.Data)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "update topic"))
+		return
+	}
+	if len(topics) != 1 {
+		log.Errorln(errors.Wrapf(errors.ErrNotSupported, "len topics :%d", len(topics)))
+		return
+	}
+
+	for _, advanceDay := range topics[0].AdvanceDays {
 		for _, manager := range billingResourceManagers {
 			expiredModels, err := manager.GetExpiredModels(advanceDay)
 			if err != nil {
@@ -332,10 +356,14 @@ func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCr
 				if check.LastCheck.AddDate(0, 0, advanceDay).After(em.GetExpiredAt()) {
 					continue
 				}
+				detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
+					details.Set("advance_days", jsonutils.NewInt(int64(advanceDay)))
+				}
 				notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-					Obj:         em,
-					Action:      notifyclient.ActionExpiredRelease,
-					AdvanceDays: advanceDay,
+					ObjDetailsDecorator: detailsDecro,
+					Obj:                 em,
+					Action:              notifyclient.ActionExpiredRelease,
+					AdvanceDays:         advanceDay,
 				})
 				_, err := db.Update(check, func() error {
 					check.LastCheck = time.Now()

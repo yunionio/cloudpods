@@ -33,26 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-type TopicListOptions struct {
-	options.BaseListOptions
-}
-
-func (opts *TopicListOptions) Params() (jsonutils.JSONObject, error) {
-	return options.ListStructToParams(opts)
-}
-
-type TopicOptions struct {
-	ID string `help:"Id or Name of topic"`
-}
-
-func (so *TopicOptions) GetId() string {
-	return so.ID
-}
-
-func (so *TopicOptions) Params() (jsonutils.JSONObject, error) {
-	return nil, nil
-}
-
 type SubscriberCreateOptions struct {
 	TopicId               string   `positional:"true"`
 	ResourceScope         string   `positional:"true" choices:"system|domain|project"`
