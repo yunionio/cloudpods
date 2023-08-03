@@ -45,6 +45,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
 
@@ -331,6 +332,9 @@ func (self *SAzureClient) _get(resourceId string, params url.Values, retVal inte
 	if err != nil {
 		return err
 	}
+	if gotypes.IsNil(body) {
+		return fmt.Errorf("empty response")
+	}
 	err = body.Unmarshal(retVal)
 	if err != nil {
 		return err
@@ -347,6 +351,9 @@ func (self *SAzureClient) gcreate(resource string, body jsonutils.JSONObject, re
 	result, err := self.msGraphRequest("POST", path, body)
 	if err != nil {
 		return errors.Wrapf(err, "msGraphRequest")
+	}
+	if gotypes.IsNil(result) {
+		return fmt.Errorf("empty response")
 	}
 	if retVal != nil {
 		return result.Unmarshal(retVal)
@@ -377,6 +384,9 @@ func (self *SAzureClient) _glist(resource string, params url.Values, retVal inte
 	body, err := self.msGraphRequest("GET", path, nil)
 	if err != nil {
 		return err
+	}
+	if gotypes.IsNil(body) {
+		return fmt.Errorf("empty response")
 	}
 	err = body.Unmarshal(retVal, "value")
 	if err != nil {
@@ -682,6 +692,11 @@ func (self *SAzureClient) create(resourceGroup, resourceType, name string, body 
 	if err != nil {
 		return errors.Wrapf(err, "jsonRequest")
 	}
+
+	if gotypes.IsNil(resp) {
+		return fmt.Errorf("empty response")
+	}
+
 	if retVal != nil {
 		return resp.Unmarshal(retVal)
 	}
@@ -698,6 +713,10 @@ func (self *SAzureClient) CheckNameAvailability(resourceType, name string) (bool
 	if err != nil {
 		return false, errors.Wrapf(err, "post(%s)", path)
 	}
+	if gotypes.IsNil(resp) {
+		return false, fmt.Errorf("empty response")
+	}
+
 	output := sNameAvailableOutput{}
 	err = resp.Unmarshal(&output)
 	if err != nil {
@@ -723,6 +742,10 @@ func (self *SAzureClient) update(body jsonutils.JSONObject, retVal interface{}) 
 	if err != nil {
 		return err
 	}
+	if gotypes.IsNil(resp) {
+		return fmt.Errorf("empty response")
+	}
+
 	if retVal != nil {
 		return resp.Unmarshal(retVal)
 	}

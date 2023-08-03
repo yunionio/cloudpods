@@ -948,7 +948,11 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 }
 
 func (self *SRegion) GetBuckets() ([]SBucket, error) {
-	resp, err := self.ossRequest("GetService", map[string]string{})
+	params := map[string]string{
+		"AccountInfo": self.client.getAccountInfo(),
+	}
+
+	resp, err := self.ossRequest("GetService", params)
 	if err != nil {
 		return nil, err
 	}
@@ -1053,7 +1057,7 @@ func (self *SRegion) DeleteIBucket(name string) error {
 
 func (self *SRegion) GetBucket(name string) (*SBucket, error) {
 	params := map[string]string{
-		"AccountInfo":      "aaa",
+		"AccountInfo":      self.client.getAccountInfo(),
 		"x-acs-instanceid": name,
 		"Params":           jsonutils.Marshal(map[string]string{"BucketName": name}).String(),
 	}
