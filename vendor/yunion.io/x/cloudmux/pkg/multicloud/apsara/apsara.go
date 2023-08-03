@@ -17,6 +17,7 @@ package apsara
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -320,6 +321,20 @@ func (self *SApsaraClient) ecsRequest(apiName string, params map[string]string) 
 	}
 	domain := self.getDomain(APSARA_PRODUCT_ECS)
 	return productRequest(cli, APSARA_PRODUCT_ECS, domain, APSARA_API_VERSION, apiName, params, self.debug)
+}
+
+func (self *SApsaraClient) getAccountInfo() string {
+	account := map[string]string{
+		"aliyunPk":         "",
+		"accountStructure": "",
+		"parentPk":         "26842",
+		"accessKeyId":      self.accessKey,
+		"accessKeySecret":  self.accessSecret,
+		"partnerPk":        "",
+		"sourceIp":         "",
+		"securityToken":    "",
+	}
+	return base64.StdEncoding.EncodeToString([]byte(jsonutils.Marshal(account).String()))
 }
 
 func (self *SApsaraClient) ossRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

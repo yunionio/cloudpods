@@ -67,7 +67,7 @@ func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
 
 func (self *SRegion) GetBucketAcl(bucket string) string {
 	params := map[string]string{
-		"AccountInfo":      "aaa",
+		"AccountInfo":      self.GetClient().getAccountInfo(),
 		"x-acs-instanceid": bucket,
 		"Params":           jsonutils.Marshal(map[string]string{"BucketName": bucket, "acl": "acl"}).String(),
 	}
@@ -160,7 +160,7 @@ func (self *SRegion) GetBucketCapacity(bucket string, department int) (int64, er
 			"region":     self.RegionId,
 		}).String(),
 		// 此参数必传，可以设任意值
-		"AccountInfo": "aaa",
+		"AccountInfo": self.GetClient().getAccountInfo(),
 		"Department":  fmt.Sprintf("%d", department),
 	}
 	resp, err := self.ossRequest("GetBucketStorageCapacity", params)
