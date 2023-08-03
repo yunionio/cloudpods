@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -26,13 +27,14 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis/notify"
+	notifyapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -120,11 +122,11 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 }
 
 func validatePasswordComplexity(password string) error {
-	if o.Options.PasswordMinimalLength > 0 && len(password) < o.Options.PasswordMinimalLength {
+	if options.Options.PasswordMinimalLength > 0 && len(password) < o.Options.PasswordMinimalLength {
 		return errors.Wrap(httperrors.ErrWeakPassword, "too simple password")
 	}
-	if o.Options.PasswordCharComplexity > 0 {
-		complexity := o.Options.PasswordCharComplexity
+	if options.Options.PasswordCharComplexity > 0 {
+		complexity := options.Options.PasswordCharComplexity
 		if complexity > 4 {
 			complexity = 4
 		}
@@ -140,13 +142,13 @@ func (manager *SPasswordManager) validatePassword(localUserId int, password stri
 	if err != nil {
 		return errors.Wrap(err, "validatePasswordComplexity")
 	}
-	if !skipHistoryCheck && o.Options.PasswordUniqueHistoryCheck > 0 {
+	if !skipHistoryCheck && options.Options.PasswordUniqueHistoryCheck > 0 {
 		shaPass := shaPassword(password)
 		histPasses, err := manager.fetchByLocaluserId(localUserId)
 		if err != nil {
 			return errors.Wrap(err, "manager.fetchByLocaluserId")
 		}
-		for i := 0; i < len(histPasses) && i < o.Options.PasswordUniqueHistoryCheck; i += 1 {
+		for i := 0; i < len(histPasses) && i < options.Options.PasswordUniqueHistoryCheck; i += 1 {
 			if histPasses[i].Password == shaPass {
 				return errors.Error("repeated password")
 			}
@@ -168,8 +170,8 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string, 
 	rec.SetModelManager(PasswordManager, rec)
 	now := time.Now()
 	rec.CreatedAtInt = now.UnixNano() / 1000
-	if o.Options.PasswordExpirationSeconds > 0 && !isSystemAccount {
-		rec.ExpiresAt = now.Add(time.Second * time.Duration(o.Options.PasswordExpirationSeconds))
+	if options.Options.PasswordExpirationSeconds > 0 && !isSystemAccount {
+		rec.ExpiresAt = now.Add(time.Second * time.Duration(options.Options.PasswordExpirationSeconds))
 		rec.ExpiresAtInt = rec.ExpiresAt.UnixNano() / 1000
 	}
 	err = manager.TableSpec().Insert(context.TODO(), rec)
@@ -234,19 +236,36 @@ func (pwd *SPassword) NeedSendNotify(ctx context.Context, userCred mcclient.Toke
 
 	sub := expireTime.Sub(nowTime)
 	subDay := int(sub.Hours() / 24)
-	if utils.IsInArray(subDay, options.Options.PwdExpiredNotifyDays) {
+	s := GetDefaultClientSession(ctx, userCred, options.Options.Region)
+	resp, err := notify.NotifyTopic.List(s, jsonutils.Marshal(map[string]interface{}{
+		"filter": fmt.Sprintf("name.equals('%s')", notifyapi.DefaultPasswordExpire),
+		"scope":  "system",
+	}))
+	if err != nil {
+		return errors.Wrap(err, "list topics")
+	}
+	topics := []notifyapi.TopicDetails{}
+	err = jsonutils.Update(&topics, resp.Data)
+	if err != nil {
+		return errors.Wrap(err, "update topic")
+	}
+	if len(topics) != 1 {
+		return errors.Wrapf(errors.ErrNotSupported, "len topics :%d", len(topics))
+	}
+
+	if utils.IsInArray(subDay, topics[0].AdvanceDays) {
 		localUser, err := LocalUserManager.fetchLocalUser("", "", pwd.LocalUserId)
 		if err != nil {
 			return errors.Wrap(err, "fetchLocalUser error:")
 		}
-		pwd.EventNotify(ctx, userCred, notify.ActionPasswordExpireSoon, localUser.Name, subDay)
+		pwd.EventNotify(ctx, userCred, notifyapi.ActionPasswordExpireSoon, localUser.Name, subDay)
 	}
 	return nil
 }
 
 // 密码即将失效消息通知
-func (pwd *SPassword) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action notify.SAction, userName string, advanceDays int) {
-	resourceType := notify.TOPIC_RESOURCE_USER
+func (pwd *SPassword) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action notifyapi.SAction, userName string, advanceDays int) {
+	resourceType := notifyapi.TOPIC_RESOURCE_USER
 
 	detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
 		details.Set("account", jsonutils.NewString(userName))

@@ -74,16 +74,17 @@ func init() {
 type STopic struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	Type       string               `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
-	Resources  uint64               `nullable:"false"`
-	Actions    uint32               `nullable:"false"`
-	Results    tristate.TriState    `default:"true"`
-	TitleCn    string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	TitleEn    string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	ContentCn  string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	ContentEn  string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	GroupKeys  *api.STopicGroupKeys `nullable:"true"`
-	GroupTimes uint32               `nullable:"true"`
+	Type        string               `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
+	Resources   uint64               `nullable:"false"`
+	Actions     uint32               `nullable:"false"`
+	Results     tristate.TriState    `default:"true"`
+	TitleCn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	TitleEn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	ContentCn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	ContentEn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	GroupKeys   *api.STopicGroupKeys `nullable:"true"`
+	GroupTimes  uint32               `nullable:"true"`
+	AdvanceDays []int                `nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 
 	WebconsoleDisable tristate.TriState
 }
@@ -463,6 +464,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionPasswordExpireSoon,
 			)
+			t.AdvanceDays = []int{1, 7}
 			t.Type = notify.TOPIC_TYPE_SECURITY
 			t.Results = tristate.True
 			t.ContentCn = api.PWD_EXPIRE_SOON_CONTENT_CN
@@ -480,6 +482,7 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.addAction(notify.ActionExpiredRelease)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.AdvanceDays = []int{1, 7, 30}
 			t.Results = tristate.True
 			t.ContentCn = api.EXPIRED_RELEASE_CONTENT_CN
 			t.ContentEn = api.EXPIRED_RELEASE_CONTENT_EN
@@ -509,9 +512,6 @@ func (sm *STopicManager) InitializeData() error {
 			}
 
 			_, err := db.Update(topic, func() error {
-				if t.Type == "" {
-					log.Infoln("this is err Name:", t.Name)
-				}
 				topic.Name = t.Name
 				topic.Resources = t.Resources
 				topic.Actions = t.Actions
@@ -520,25 +520,28 @@ func (sm *STopicManager) InitializeData() error {
 				topic.WebconsoleDisable = t.WebconsoleDisable
 				topic.GroupKeys = t.GroupKeys
 				topic.GroupTimes = t.GroupTimes
-				if len(topic.ContentCn) == 0 {
+				if len(topic.AdvanceDays) == 0 {
+					topic.AdvanceDays = t.AdvanceDays
+				}
+				if len(topic.ContentCn) == 0 || topic.Name == DefaultPasswordExpire || topic.Name == DefaultResourceRelease {
 					if len(t.ContentCn) == 0 {
 						t.ContentCn = api.COMMON_CONTENT_CN
 					}
 					topic.ContentCn = t.ContentCn
 				}
-				if len(topic.ContentEn) == 0 {
+				if len(topic.ContentEn) == 0 || topic.Name == DefaultPasswordExpire || topic.Name == DefaultResourceRelease {
 					if len(t.ContentEn) == 0 {
 						t.ContentEn = api.COMMON_CONTENT_EN
 					}
 					topic.ContentEn = t.ContentEn
 				}
-				if len(topic.TitleCn) == 0 {
+				if len(topic.TitleCn) == 0 || topic.Name == DefaultPasswordExpire || topic.Name == DefaultResourceRelease {
 					if len(t.TitleCn) == 0 {
 						t.TitleCn = api.COMMON_TITLE_CN
 					}
 					topic.TitleCn = t.TitleCn
 				}
-				if len(topic.TitleEn) == 0 {
+				if len(topic.TitleEn) == 0 || topic.Name == DefaultPasswordExpire || topic.Name == DefaultResourceRelease {
 					if len(t.TitleEn) == 0 {
 						t.TitleEn = api.COMMON_TITLE_EN
 					}
@@ -605,8 +608,8 @@ func (sm *STopicManager) ValidateCreateData(ctx context.Context, userCred mcclie
 	return nil, httperrors.NewForbiddenError("prohibit creation")
 }
 
-func (ss *STopic) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return input, httperrors.NewForbiddenError("update prohibited")
+func (ss *STopic) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.TopicUpdateInput) (api.TopicUpdateInput, error) {
+	return input, nil
 }
 
 func (ss *STopic) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
