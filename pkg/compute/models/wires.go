@@ -227,27 +227,13 @@ func (manager *SWireManager) GetOrCreateWireForClassicNetwork(ctx context.Contex
 	return wire, nil
 }
 
-func (wire *SWire) getHostwireQuery() *sqlchemy.SQuery {
-	return HostwireManager.Query().Equals("wire_id", wire.Id)
-}
-
 func (wire *SWire) HostCount() (int, error) {
-	q := HostwireManager.Query().Equals("wire_id", wire.Id).GroupBy("host_id")
+	q := NetInterfaceManager.Query().Equals("wire_id", wire.Id).GroupBy("baremetal_id")
 	return q.CountWithError()
 }
 
-func (wire *SWire) GetHostwires() ([]SHostwire, error) {
-	q := wire.getHostwireQuery()
-	hostwires := make([]SHostwire, 0)
-	err := db.FetchModelObjects(HostwireManager, q, &hostwires)
-	if err != nil {
-		return nil, err
-	}
-	return hostwires, nil
-}
-
 func (self *SWire) GetHosts() ([]SHost, error) {
-	sq := HostwireManager.Query("host_id").Equals("wire_id", self.Id)
+	sq := NetInterfaceManager.Query("baremetal_id").Equals("wire_id", self.Id)
 	q := HostManager.Query().In("id", sq)
 	hosts := []SHost{}
 	err := db.FetchModelObjects(HostManager, q, &hosts)
@@ -751,10 +737,10 @@ func (manager *SWireManager) totalCountQ3(
 
 func filterWiresCountQuery(q *sqlchemy.SQuery, hostTypes, providers, brands []string, cloudEnv string, rangeObjs []db.IStandaloneModel) *sqlchemy.SQuery {
 	if len(hostTypes) > 0 {
-		hostwires := HostwireManager.Query().SubQuery()
+		hostwires := NetInterfaceManager.Query().SubQuery()
 		hosts := HostManager.Query().SubQuery()
 		hostWireQ := hostwires.Query(hostwires.Field("wire_id"))
-		hostWireQ = hostWireQ.Join(hosts, sqlchemy.Equals(hostWireQ.Field("host_id"), hosts.Field("id")))
+		hostWireQ = hostWireQ.Join(hosts, sqlchemy.Equals(hostWireQ.Field("baremetal_id"), hosts.Field("id")))
 		hostWireQ = hostWireQ.Filter(sqlchemy.In(hosts.Field("host_type"), hostTypes))
 		hostWireQ = hostWireQ.GroupBy(hostwires.Field("wire_id"))
 		hostWireSQ := hostWireQ.SubQuery()
@@ -1073,17 +1059,16 @@ func (wire *SWire) getEnabledHosts() []SHost {
 	hosts := make([]SHost, 0)
 
 	hostQuery := HostManager.Query().SubQuery()
-	hostwireQuery := HostwireManager.Query().SubQuery()
+	hostNetifQuery := NetInterfaceManager.Query().SubQuery()
 
 	q := hostQuery.Query()
-	q = q.Join(hostwireQuery, sqlchemy.AND(sqlchemy.Equals(hostQuery.Field("id"), hostwireQuery.Field("host_id")),
-		sqlchemy.IsFalse(hostwireQuery.Field("deleted"))))
+	q = q.Join(hostNetifQuery, sqlchemy.Equals(hostQuery.Field("id"), hostNetifQuery.Field("baremetal_id")))
 	q = q.Filter(sqlchemy.IsTrue(hostQuery.Field("enabled")))
 	q = q.Filter(sqlchemy.Equals(hostQuery.Field("host_status"), api.HOST_ONLINE))
 	if wire.isOneCloudVpcWire() {
 		q = q.Filter(sqlchemy.NOT(sqlchemy.IsNullOrEmpty(hostQuery.Field("ovn_version"))))
 	} else {
-		q = q.Filter(sqlchemy.Equals(hostwireQuery.Field("wire_id"), wire.Id))
+		q = q.Filter(sqlchemy.Equals(hostNetifQuery.Field("wire_id"), wire.Id))
 	}
 
 	err := db.FetchModelObjects(HostManager, q, &hosts)
@@ -1271,7 +1256,7 @@ func (w *SWire) StartMergeNetwork(ctx context.Context, userCred mcclient.TokenCr
 
 func (wm *SWireManager) handleWireIdChange(ctx context.Context, args *wireIdChangeArgs) error {
 	handlers := []wireIdChangeHandler{
-		HostwireManager,
+		// HostwireManager,
 		NetworkManager,
 		LoadbalancerClusterManager,
 		NetInterfaceManager,
@@ -1345,13 +1330,13 @@ func (manager *SWireManager) ListItemFilter(
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), hostStr)
 		}
-		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
+		sq := NetInterfaceManager.Query("wire_id").Equals("baremetal_id", hostObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
 	}
 	if len(query.HostType) > 0 {
 		hs := HostManager.Query("id").Equals("host_type", query.HostType).SubQuery()
-		sq := HostwireManager.Query("wire_id")
-		sq = sq.Join(hs, sqlchemy.Equals(sq.Field("host_id"), hs.Field("id")))
+		sq := NetInterfaceManager.Query("wire_id")
+		sq = sq.Join(hs, sqlchemy.Equals(sq.Field("baremetal_id"), hs.Field("id")))
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
 	}
 
@@ -1423,14 +1408,14 @@ type SWireUsageCount struct {
 	api.WireUsage
 }
 
-func (wm *SWireManager) query(manager db.IModelManager, field string, wireIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
-	q := manager.Query()
+func wmquery(manager db.IModelManager, uniqField, field string, wireIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query("wire_id", uniqField)
 
 	if filter != nil {
 		q = filter(q)
 	}
 
-	sq := q.SubQuery()
+	sq := q.Distinct().SubQuery()
 
 	return sq.Query(
 		sq.Field("wire_id"),
@@ -1440,8 +1425,8 @@ func (wm *SWireManager) query(manager db.IModelManager, field string, wireIds []
 
 func (manager *SWireManager) TotalResourceCount(wireIds []string) (map[string]api.WireUsage, error) {
 	// network
-	networkSQ := manager.query(NetworkManager, "network_cnt", wireIds, nil)
-	hostSQ := manager.query(HostwireManager, "host_cnt", wireIds, nil)
+	networkSQ := wmquery(NetworkManager, "id", "network_cnt", wireIds, nil)
+	hostSQ := wmquery(NetInterfaceManager, "baremetal_id", "host_cnt", wireIds, nil)
 
 	wires := manager.Query().SubQuery()
 	wireQ := wires.Query(
@@ -1551,7 +1536,7 @@ func (model *SWire) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	if err != nil {
 		log.Errorf("unable to getvpc of wire %s: %s", model.GetId(), vpc.GetId())
 	}
-	err = db.InheritFromTo(ctx, vpc, model)
+	err = db.InheritFromTo(ctx, userCred, vpc, model)
 	if err != nil {
 		log.Errorf("unable to inhert vpc to model %s: %s", model.GetId(), err.Error())
 	}

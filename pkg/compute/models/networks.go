@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -140,21 +141,21 @@ func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (self *SNetwork) getMtu() int {
+func (self *SNetwork) getMtu() int16 {
 	baseMtu := options.Options.DefaultMtu
 
 	wire, _ := self.GetWire()
 	if wire != nil {
 		if IsOneCloudVpcResource(wire) {
-			return options.Options.OvnUnderlayMtu - api.VPC_OVN_ENCAP_COST
+			return int16(options.Options.OvnUnderlayMtu - api.VPC_OVN_ENCAP_COST)
 		} else if wire.Mtu != 0 {
-			return wire.Mtu
+			return int16(wire.Mtu)
 		} else {
-			return baseMtu
+			return int16(baseMtu)
 		}
 	}
 
-	return baseMtu
+	return int16(baseMtu)
 }
 
 func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
@@ -438,8 +439,8 @@ func (self *SNetwork) GetDomain() string {
 	}
 }
 
-func (self *SNetwork) GetRoutes() [][]string {
-	ret := make([][]string, 0)
+func (self *SNetwork) GetRoutes() []types.SRoute {
+	ret := make([]types.SRoute, 0)
 	routes := self.GetMetadataJson(context.Background(), "static_routes", nil)
 	if routes != nil {
 		routesMap, err := routes.GetMap()
@@ -448,7 +449,7 @@ func (self *SNetwork) GetRoutes() [][]string {
 		}
 		for net, routeJson := range routesMap {
 			route, _ := routeJson.GetString()
-			ret = append(ret, []string{net, route})
+			ret = append(ret, types.SRoute{net, route})
 		}
 	}
 	return ret
@@ -2064,21 +2065,20 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.In("wire_id", wires).Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	}
 
-	hostStr := input.HostId
-	if len(hostStr)+len(input.HostType) > 0 {
+	if len(input.HostId)+len(input.HostType) > 0 {
 		type sSimpleHost struct {
 			Id         string
 			OvnVersion string
 		}
 		hq := HostManager.Query("id", "ovn_version")
 		switch {
-		case len(hostStr) > 0 && len(input.HostType) > 0:
+		case len(input.HostId) > 0 && len(input.HostType) > 0:
 			hq = hq.Filter(sqlchemy.OR(
-				sqlchemy.Equals(hq.Field("id"), hostStr),
+				sqlchemy.Equals(hq.Field("id"), input.HostId),
 				sqlchemy.Equals(hq.Field("host_type"), input.HostType),
 			))
-		case len(hostStr) > 0:
-			hq = hq.Equals("id", hostStr)
+		case len(input.HostId) > 0:
+			hq = hq.Equals("id", input.HostId)
 		case len(input.HostType) > 0:
 			hq = hq.Equals("host_type", input.HostType)
 		}
@@ -2095,15 +2095,15 @@ func (manager *SNetworkManager) ListItemFilter(
 				ovnVersion = true
 			}
 		}
-		sq := HostwireManager.Query("wire_id")
+		sq := NetInterfaceManager.Query("wire_id")
 		switch len(hostids) {
 		case 0:
 			// hack for empty hostwire
 			sq = sq.IsTrue("deleted")
 		case 1:
-			sq = sq.Equals("host_id", hostids[0])
+			sq = sq.Equals("baremetal_id", hostids[0])
 		default:
-			sq = sq.In("host_id", hostids)
+			sq = sq.In("baremetal_id", hostids)
 		}
 		if ovnVersion {
 			vpcSub := VpcManager.Query("id").Equals("cloudregion_id", "default").NotEquals("id", api.DEFAULT_VPC_ID).SubQuery()
@@ -2125,7 +2125,7 @@ func (manager *SNetworkManager) ListItemFilter(
 		}
 		hoststorages := HoststorageManager.Query("host_id").Equals("storage_id", storage.GetId()).SubQuery()
 		hostSq := HostManager.Query("id").In("id", hoststorages).SubQuery()
-		sq := HostwireManager.Query("wire_id").In("host_id", hostSq)
+		sq := NetInterfaceManager.Query("wire_id").In("baremetal_id", hostSq)
 
 		ovnHosts := HostManager.Query().In("id", hoststorages).IsNotEmpty("ovn_version")
 		if n, _ := ovnHosts.CountWithError(); n > 0 {
@@ -2279,9 +2279,9 @@ func (manager *SNetworkManager) ListItemFilter(
 				return nil, errors.Wrap(err, "SchedtagManager.FetchByIdOrName")
 			}
 		}
-		subq := HostwireManager.Query("wire_id")
+		subq := NetInterfaceManager.Query("wire_id")
 		hostschedtags := HostschedtagManager.Query().Equals("schedtag_id", schedTagObj.GetId()).SubQuery()
-		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), subq.Field("host_id")))
+		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), subq.Field("baremetal_id")))
 		q = q.In("wire_id", subq.SubQuery())
 	}
 
@@ -2765,7 +2765,7 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to get wire")
 		}
-		err = db.InheritFromTo(ctx, wire, newNetwork)
+		err = db.InheritFromTo(ctx, userCred, wire, newNetwork)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to inherit wire")
 		}

@@ -256,7 +256,7 @@ func (manager *SNetTapServiceManager) ValidateCreateData(
 		}
 		if len(input.MacAddr) > 0 {
 			input.MacAddr = netutils.FormatMacAddr(input.MacAddr)
-			nic := host.GetNetInterface(input.MacAddr)
+			nic := host.GetNetInterface(input.MacAddr, 1)
 			if nic == nil {
 				return input, errors.Wrap(errors.ErrNotFound, "host.GetNetInterface")
 			}

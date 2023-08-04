@@ -12,23 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package stringutils2
 
-import (
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-)
+import "testing"
 
-var (
-	Hostwires modulebase.JointResourceManager
-)
-
-func init() {
-	Hostwires = modules.NewJointComputeManager("hostwire", "hostwires",
-		[]string{"Host_ID", "Host", "Wire_ID", "Wire",
-			"Bridge", "Interface", "Mac_addr", "is_master"},
-		[]string{},
-		&Hosts,
-		&Wires)
-	modules.RegisterCompute(&Hostwires)
+func TestHashIdsMac(t *testing.T) {
+	mac := HashIdsMac("123", "456")
+	want := "ff:96:9e:ef:6e:ca"
+	if want != mac {
+		t.Errorf("got: %s want: %s", mac, want)
+	}
 }

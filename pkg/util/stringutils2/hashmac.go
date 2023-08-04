@@ -12,32 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package stringutils2
 
-import "yunion.io/x/cloudmux/pkg/apis/compute"
+import (
+	"crypto/sha256"
+	"fmt"
+	"strings"
+)
 
-type HostnetworkDetails struct {
-	HostJointResourceDetails
-
-	SHostnetwork
-
-	// IP子网名称
-	Network string `json:"network"`
-
-	// 二层网络名称
-	Wire string `json:"wire"`
-	// 二层网络ID
-	WireId string `json:"wire_id"`
-
-	NicType compute.TNicType `json:"nic_type"`
-}
-
-type HostnetworkListInput struct {
-	HostJointsListInput
-	NetworkFilterListInput
-
-	// IP地址
-	IpAddr []string `json:"ip_addr"`
-	// MAC地址
-	MacAddr []string `json:"mac_addr"`
+func HashIdsMac(ids ...string) string {
+	h := sha256.New()
+	for _, id := range ids {
+		h.Write([]byte(id))
+	}
+	sum := h.Sum(nil)
+	hexStr := make([]string, 6)
+	hexStr[0] = "ff"
+	for i := 1; i < 6; i++ {
+		hexStr[i] = fmt.Sprintf("%02x", sum[i])
+	}
+	return strings.Join(hexStr, ":")
 }

@@ -17,6 +17,7 @@ package fsdriver
 import (
 	"fmt"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -67,9 +68,9 @@ func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
 			Gateway:   nics[i].Gateway,
 			Ifname:    nics[i].Ifname,
 			Routes:    deployapi.ConvertRoutes(nics[i].Routes),
-			NicType:   nics[i].NicType,
+			NicType:   compute.TNicType(nics[i].NicType),
 			LinkUp:    nics[i].LinkUp,
-			Mtu:       int(nics[i].Mtu),
+			Mtu:       int16(nics[i].Mtu),
 			TeamWith:  nics[i].TeamWith,
 		}
 	}

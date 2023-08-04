@@ -313,7 +313,7 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 	}
 	// deploy docker mtu
 	{
-		minMtu := -1
+		minMtu := int16(-1)
 		for _, nic := range nics {
 			if nic.Mtu > 0 && (minMtu > nic.Mtu || minMtu < 0) {
 				minMtu = nic.Mtu

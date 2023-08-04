@@ -64,7 +64,7 @@ type EthernetConfig struct {
 	Gateway4    string               `json:"gateway4"`
 	Routes      []*Route             `json:"routes"`
 	Nameservers *Nameservers         `json:"nameservers"`
-	Mtu         int                  `json:"mtu,omitzero"`
+	Mtu         int16                `json:"mtu,omitzero"`
 }
 
 type Route struct {

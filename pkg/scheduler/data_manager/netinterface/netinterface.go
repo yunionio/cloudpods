@@ -30,8 +30,8 @@ func NewResourceManager() common.IResourceManager[models.SNetInterface] {
 	return cm
 }
 
-func GetId(hostId, wireId, mac string) string {
-	return fmt.Sprintf("%s/%s/%s", hostId, wireId, mac)
+func GetId(hostId, wireId, mac string, vlanId int) string {
+	return fmt.Sprintf("%s/%s/%s/%d", hostId, wireId, mac, vlanId)
 }
 
 func NewResourceStore() common.IResourceStore[models.SNetInterface] {
@@ -39,13 +39,14 @@ func NewResourceStore() common.IResourceStore[models.SNetInterface] {
 		models.NetInterfaceManager,
 		compute.Networkinterfaces,
 		func(o models.SNetInterface) string {
-			return GetId(o.BaremetalId, o.WireId, o.Mac)
+			return GetId(o.BaremetalId, o.WireId, o.Mac, o.VlanId)
 		},
 		func(o *jsonutils.JSONDict) string {
-			hostId, _ := o.GetString("host_id")
+			hostId, _ := o.GetString("baremetal_id")
 			wireId, _ := o.GetString("wire_id")
 			mac, _ := o.GetString("mac")
-			return GetId(hostId, wireId, mac)
+			vlan, _ := o.Int("vlan_id")
+			return GetId(hostId, wireId, mac, int(vlan))
 		},
 	)
 }

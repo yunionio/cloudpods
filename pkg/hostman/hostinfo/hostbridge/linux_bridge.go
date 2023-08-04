@@ -135,7 +135,7 @@ func (l *SLinuxBridgeDriver) SetupBridgeDev() error {
 }
 
 func (d *SLinuxBridgeDriver) PersistentConfig() error {
-	l := iproute2.NewLink(d.bridge.String()).Address(d.inter.Mac).MTU(d.inter.Mtu)
+	l := iproute2.NewLink(d.bridge.String()).Address(d.inter.GetMac()).MTU(d.inter.Mtu)
 	if err := l.Err(); err != nil {
 		return fmt.Errorf("Linux bridge set mac address failed: %v", err)
 	}

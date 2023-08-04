@@ -62,6 +62,8 @@ type SHostnetwork struct {
 	IpAddr string `width:"16" charset:"ascii" list:"domain"`
 	// MAC地址
 	MacAddr string `width:"18" charset:"ascii" list:"domain"`
+	// VLAN
+	VlanId int `nullable:"false" default:"1" list:"domain"`
 }
 
 func (manager *SHostnetworkManager) GetMasterFieldName() string {
@@ -86,6 +88,7 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 	hostIds := make([]string, len(rows))
 	netIds := make([]string, len(rows))
 	macIds := make([]string, len(rows))
+	vlanIds := make([]int, len(rows))
 
 	for i := range rows {
 		rows[i] = api.HostnetworkDetails{
@@ -94,6 +97,7 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 		hostIds[i] = objs[i].(*SHostnetwork).BaremetalId
 		netIds[i] = objs[i].(*SHostnetwork).NetworkId
 		macIds[i] = objs[i].(*SHostnetwork).MacAddr
+		vlanIds[i] = objs[i].(*SHostnetwork).VlanId
 	}
 
 	hostIdMaps, err := db.FetchIdNameMap2(HostManager, hostIds)
@@ -106,13 +110,6 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 		log.Errorf("fetchNetWireMap netIds fail %s", err)
 		return rows
 	}
-	netifs := make(map[string]SNetInterface)
-	netifQ := NetInterfaceManager.Query("mac", "nic_type")
-	err = db.FetchQueryObjectsByIds(netifQ, "mac", macIds, &netifs)
-	if err != nil {
-		log.Errorf("FetchQueryObjectsByIds macIds fail %s", err)
-		return rows
-	}
 
 	for i := range rows {
 		if name, ok := hostIdMaps[hostIds[i]]; ok {
@@ -123,7 +120,8 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 			rows[i].Wire = nw.WireName
 			rows[i].WireId = nw.WireId
 		}
-		if netif, ok := netifs[macIds[i]]; ok {
+		netif, _ := NetInterfaceManager.FetchByMacVlan(macIds[i], vlanIds[i])
+		if netif != nil {
 			rows[i].NicType = netif.NicType
 		}
 	}
@@ -179,9 +177,8 @@ func (bn *SHostnetwork) GetNetwork() *SNetwork {
 	return nil
 }
 
-func (bn *SHostnetwork) GetNetInterface() *SNetInterface {
-	netIf, _ := NetInterfaceManager.FetchByMac(bn.MacAddr)
-	return netIf
+func (bn *SHostnetwork) GetNetInterface() (*SNetInterface, error) {
+	return NetInterfaceManager.FetchByMacVlan(bn.MacAddr, bn.VlanId)
 }
 
 func (bn *SHostnetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

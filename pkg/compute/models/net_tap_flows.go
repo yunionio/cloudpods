@@ -278,7 +278,7 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 			return input, errors.Wrapf(httperrors.ErrNotSupported, "host type %s not supported", host.HostType)
 		}
 		wire := wireObj.(*SWire)
-		netifs := host.GetNetifsOnWire(wire)
+		netifs := host.getNetifsOnWire(wire.Id)
 		if len(netifs) == 0 {
 			return input, errors.Wrapf(httperrors.ErrInvalidStatus, "host %s and wire %s not attached", input.HostId, input.WireId)
 		}
@@ -460,14 +460,14 @@ func (flow *SNetTapFlow) getMirrorConfig(needTapHostIp bool) (api.SMirrorConfig,
 	host := HostManager.FetchHostById(hostId)
 	if len(wireId) > 0 {
 		// classic network
-		hws := host.getHostwiresOfId(wireId)
-		if len(hws) == 0 {
+		netifs := host.getNetifsOnWire(wireId)
+		if len(netifs) == 0 {
 			return ret, errors.Error("invalid flow? no valid hostwire")
 		}
-		if len(hws) > 1 {
+		if len(netifs) > 1 {
 			return ret, errors.Error("invalid flow? host and wire have multiple hostwires")
 		}
-		ret.Bridge = hws[0].Bridge
+		ret.Bridge = netifs[0].Bridge
 	}
 	ret.HostIp = host.AccessIp
 	ret.FlowId = flow.FlowId

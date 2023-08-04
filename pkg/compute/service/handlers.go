@@ -254,7 +254,7 @@ func InitHandlers(app *appsrv.Application) {
 	}
 
 	for _, manager := range []db.IJointModelManager{
-		models.HostwireManager,
+		models.HostwireManagerDeprecated,
 		models.HostnetworkManager,
 		models.HoststorageManager,
 		models.HostschedtagManager,

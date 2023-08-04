@@ -579,7 +579,7 @@ func (self *SZone) purgeHosts(ctx context.Context, managerId string) error {
 	hosts := HostManager.Query("id").Equals("manager_id", managerId).Equals("zone_id", self.Id)
 	isolateds := IsolatedDeviceManager.Query("id").In("host_id", hosts.SubQuery())
 	hoststorages := HoststorageManager.Query("row_id").In("host_id", hosts.SubQuery())
-	hostwires := HostwireManager.Query("row_id").In("host_id", hosts.SubQuery())
+	hostwires := HostwireManagerDeprecated.Query("row_id").In("host_id", hosts.SubQuery())
 	guests := GuestManager.Query("id").In("host_id", hosts.SubQuery())
 	guestdisks := GuestdiskManager.Query("row_id").In("guest_id", guests.SubQuery())
 	guestnetworks := GuestnetworkManager.Query("row_id").In("guest_id", guests.SubQuery())
@@ -627,7 +627,7 @@ func (self *SZone) purgeHosts(ctx context.Context, managerId string) error {
 		{manager: InstanceBackupManager, key: "id", q: instancebackups},
 		{manager: GuestManager, key: "id", q: guests},
 		{manager: HoststorageManager, key: "row_id", q: hoststorages},
-		{manager: HostwireManager, key: "row_id", q: hostwires},
+		{manager: HostwireManagerDeprecated, key: "row_id", q: hostwires},
 		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
 		{manager: HostManager, key: "id", q: hosts},
 	}
@@ -643,7 +643,7 @@ func (self *SZone) purgeHosts(ctx context.Context, managerId string) error {
 func (self *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	isolateds := IsolatedDeviceManager.Query("id").Equals("host_id", self.Id)
 	hoststorages := HoststorageManager.Query("row_id").Equals("host_id", self.Id)
-	hostwires := HostwireManager.Query("row_id").Equals("host_id", self.Id)
+	hostwires := HostwireManagerDeprecated.Query("row_id").Equals("host_id", self.Id)
 	guests := GuestManager.Query("id").Equals("host_id", self.Id)
 	guestdisks := GuestdiskManager.Query("row_id").In("guest_id", guests.SubQuery())
 	guestnetworks := GuestnetworkManager.Query("row_id").In("guest_id", guests.SubQuery())
@@ -683,7 +683,7 @@ func (self *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 		{manager: InstanceBackupManager, key: "id", q: instancebackups},
 		{manager: GuestManager, key: "id", q: guests},
 		{manager: HoststorageManager, key: "row_id", q: hoststorages},
-		{manager: HostwireManager, key: "row_id", q: hostwires},
+		{manager: HostwireManagerDeprecated, key: "row_id", q: hostwires},
 		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
 	}
 	for i := range pairs {
@@ -744,7 +744,7 @@ func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
 	wires = wires.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
 		Filter(sqlchemy.Equals(vpcs.Field("manager_id"), managerId))
 
-	hostwires := HostwireManager.Query("row_id").In("wire_id", wires.SubQuery())
+	hostwires := HostwireManagerDeprecated.Query("row_id").In("wire_id", wires.SubQuery())
 	isolateds := IsolatedDeviceManager.Query("id").In("wire_id", wires.SubQuery())
 	networks := NetworkManager.Query("id").In("wire_id", wires.SubQuery())
 	bns := HostnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
@@ -771,7 +771,7 @@ func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
 		{manager: HostnetworkManager, key: "row_id", q: bns},
 		{manager: NetworkManager, key: "id", q: networks},
 		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
-		{manager: HostwireManager, key: "row_id", q: hostwires},
+		{manager: HostwireManagerDeprecated, key: "row_id", q: hostwires},
 		{manager: WireManager, key: "id", q: wires},
 	}
 	for i := range pairs {

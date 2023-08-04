@@ -99,13 +99,12 @@ func (host *SHostService) RunService() {
 		log.Fatalf("Guest manager init python path %s", err)
 	}
 
-	hostInstance.StartRegister(2, func() {
-		guestChan = guestman.GetGuestManager().Bootstrap()
-		// hostmetrics after guestmanager bootstrap
-		hostmetrics.Init()
-		hostmetrics.Start()
-	})
-	<-hostinfo.Instance().IsRegistered // wait host and guest init
+	hostInstance.StartRegister(2)
+	// <-hostinfo.Instance().IsRegistered // wait host and guest init
+	guestChan = guestman.GetGuestManager().Bootstrap()
+	// hostmetrics after guestmanager bootstrap
+	hostmetrics.Init()
+	hostmetrics.Start()
 
 	host.initHandlers(app)
 

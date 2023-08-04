@@ -16,6 +16,8 @@ package esxi
 
 import (
 	"yunion.io/x/pkg/tristate"
+
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 )
 
 type SHostNicInfo struct {
@@ -27,7 +29,7 @@ type SHostNicInfo struct {
 	IpAddr  string
 	IpAddr6 string
 	Mtu     int32
-	NicType string
+	NicType compute.TNicType
 
 	DVPortGroup string
 
@@ -45,6 +47,10 @@ func (nic *SHostNicInfo) GetDriver() string {
 
 func (nic *SHostNicInfo) GetMac() string {
 	return nic.Mac
+}
+
+func (nic *SHostNicInfo) GetVlanId() int {
+	return 1
 }
 
 func (nic *SHostNicInfo) GetIndex() int8 {
@@ -79,7 +85,7 @@ func (nic *SHostNicInfo) GetMtu() int32 {
 }
 
 func (nic *SHostNicInfo) GetNicType() string {
-	return nic.NicType
+	return string(nic.NicType)
 }
 
 func (nic *SHostNicInfo) GetDVPortGroup() string {

@@ -87,6 +87,10 @@ func (s *SRbdStorage) StorageType() string {
 	return api.STORAGE_RBD
 }
 
+func (s *SRbdStorage) IsLocal() bool {
+	return false
+}
+
 func (s *SRbdStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 	return ""
 }

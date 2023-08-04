@@ -17,18 +17,20 @@ package types
 import (
 	"net"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/pkg/util/netutils"
 )
 
 type SNic struct {
-	Type    string   `json:"nic_type"`
+	Type compute.TNicType `json:"nic_type"`
+
 	Domain  string   `json:"domain"`
 	Wire    string   `json:"wire"`
 	IpAddr  string   `json:"ip_addr"`
 	WireId  string   `json:"wire_id"`
 	NetId   string   `json:"net_id"`
-	Rate    int64    `json:"rate"`
-	Mtu     int64    `json:"mtu"`
+	Rate    int      `json:"rate"`
+	Mtu     int16    `json:"mtu"`
 	Mac     string   `json:"mac"`
 	Dns     string   `json:"dns"`
 	Ntp     string   `json:"ntp"`
@@ -37,6 +39,13 @@ type SNic struct {
 	Gateway string   `json:"gateway"`
 	LinkUp  bool     `json:"link_up"`
 	Routes  []SRoute `json:"routes,omitempty"`
+
+	Interface string `json:"interface"`
+	Bridge    string `json:"bridge"`
+
+	VlanId int `json:"vlan_id"`
+
+	Bandwidth int `json:"bandwidth"`
 }
 
 type SRoute []string
@@ -64,7 +73,7 @@ type SServerNic struct {
 	NetId     string   `json:"net_id"`
 	Mac       string   `json:"mac"`
 	BandWidth int      `json:"bw"`
-	Mtu       int      `json:"mtu,omitempty"`
+	Mtu       int16    `json:"mtu,omitempty"`
 	Dns       string   `json:"dns"`
 	Ntp       string   `json:"ntp"`
 	Net       string   `json:"net"`
@@ -72,9 +81,11 @@ type SServerNic struct {
 	Gateway   string   `json:"gateway"`
 	Ifname    string   `json:"ifname"`
 	Routes    []SRoute `json:"routes,omitempty"`
-	NicType   string   `json:"nic_type,omitempty"`
-	LinkUp    bool     `json:"link_up,omitempty"`
-	TeamWith  string   `json:"team_with,omitempty"`
+
+	NicType compute.TNicType `json:"nic_type,omitempty"`
+
+	LinkUp   bool   `json:"link_up,omitempty"`
+	TeamWith string `json:"team_with,omitempty"`
 
 	TeamingMaster *SServerNic   `json:"-"`
 	TeamingSlaves []*SServerNic `json:"-"`
@@ -103,6 +114,6 @@ func (n SServerNic) ToNic() SNic {
 		Gateway: n.Gateway,
 		Routes:  n.Routes,
 		LinkUp:  n.LinkUp,
-		Mtu:     int64(n.Mtu),
+		Mtu:     n.Mtu,
 	}
 }

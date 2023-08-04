@@ -14,7 +14,10 @@
 
 package compute
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/jsonutils"
+)
 
 type GuestnetworkDetails struct {
 	GuestJointResourceDetails
@@ -91,7 +94,7 @@ type GuestnetworkBaseDesc struct {
 	Masklen int8                 `json:"masklen"`
 	Vlan    int                  `json:"vlan"`
 	Bw      int                  `json:"bw"`
-	Mtu     int                  `json:"mtu"`
+	Mtu     int16                `json:"mtu"`
 	Index   int8                 `json:"index"`
 
 	Bridge    string `json:"bridge"`
@@ -125,6 +128,8 @@ type GuestnetworkJsonDesc struct {
 	// baremetal
 	Rate        int    `json:"rate"`
 	BaremetalId string `json:"baremetal_id"`
-	NicType     string `json:"nic_type"`
-	LinkUp      bool   `json:"link_up"`
+
+	NicType compute.TNicType `json:"nic_type"`
+
+	LinkUp bool `json:"link_up"`
 }

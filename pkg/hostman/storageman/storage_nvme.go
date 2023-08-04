@@ -171,6 +171,10 @@ func (s *SNVMEStorage) StorageType() string {
 	return api.STORAGE_NVME_PT
 }
 
+func (s *SNVMEStorage) IsLocal() bool {
+	return true
+}
+
 func (s *SNVMEStorage) GetComposedName() string {
 	p := strings.ReplaceAll(s.Path, ".", "_")
 	p = strings.ReplaceAll(s.Path, ":", "_")

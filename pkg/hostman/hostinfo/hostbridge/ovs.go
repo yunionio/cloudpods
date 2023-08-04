@@ -101,7 +101,7 @@ func (o *SOVSBridgeDriver) SetupBridgeDev() error {
 func (d *SOVSBridgeDriver) PersistentConfig() error {
 	args := []string{
 		"ovs-vsctl", "set", "Bridge", d.bridge.String(),
-		"other-config:hwaddr=" + d.inter.Mac,
+		"other-config:hwaddr=" + d.inter.GetMac(),
 	}
 	output, err := procutils.NewCommand(args[0], args[1:]...).Output()
 	if err != nil {

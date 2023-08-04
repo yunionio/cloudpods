@@ -57,9 +57,9 @@ const (
 	HOST_OFFLINE  = compute.HOST_OFFLINE
 	HOST_DISABLED = "offline"
 
-	NIC_TYPE_IPMI  = compute.NIC_TYPE_IPMI
-	NIC_TYPE_ADMIN = compute.NIC_TYPE_ADMIN
-	// #NIC_TYPE_NORMAL = 'normal'
+	NIC_TYPE_IPMI   = compute.NIC_TYPE_IPMI
+	NIC_TYPE_ADMIN  = compute.NIC_TYPE_ADMIN
+	NIC_TYPE_NORMAL = compute.NIC_TYPE_NORMAL
 
 	BAREMETAL_INIT           = "init"
 	BAREMETAL_PREPARE        = "prepare"
@@ -140,7 +140,8 @@ var HOST_TYPES = []string{
 	HOST_TYPE_H3C,
 }
 
-var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
+var ALL_NIC_TYPES = []compute.TNicType{NIC_TYPE_IPMI, NIC_TYPE_ADMIN, NIC_TYPE_NORMAL}
+var HOST_NIC_TYPES = []compute.TNicType{NIC_TYPE_ADMIN, NIC_TYPE_NORMAL}
 
 const (
 	ACCESS_MAC_ANY = "00:00:00:00:00:00"

@@ -914,7 +914,7 @@ func syncHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncR
 	wires, err := func() ([]cloudprovider.ICloudWire, error) {
 		defer func() {
 			if syncResults != nil {
-				syncResults.AddRequestCost(HostwireManager)()
+				syncResults.AddRequestCost(NetInterfaceManager)()
 			}
 		}()
 		return remoteHost.GetIWires()
@@ -927,18 +927,18 @@ func syncHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncR
 	result := func() compare.SyncResult {
 		defer func() {
 			if syncResults != nil {
-				syncResults.AddSqlCost(HostwireManager)()
+				syncResults.AddSqlCost(NetInterfaceManager)()
 			}
 		}()
 		return localHost.SyncHostWires(ctx, userCred, wires)
 	}()
 
 	if syncResults != nil {
-		syncResults.Add(HostwireManager, result)
+		syncResults.Add(NetInterfaceManager, result)
 	}
 
 	msg := result.Result()
-	notes := fmt.Sprintf("SyncHostWires for host %s result: %s", localHost.Name, msg)
+	notes := fmt.Sprintf("SyncHostWires/NetInterfaces for host %s result: %s", localHost.Name, msg)
 	log.Infof(notes)
 	if result.IsError() {
 		return
@@ -2342,12 +2342,12 @@ func syncOnPremiseHostWires(ctx context.Context, userCred mcclient.TokenCredenti
 	func() {
 		defer func() {
 			if syncResults != nil {
-				syncResults.AddSqlCost(HostwireManager)()
+				syncResults.AddSqlCost(NetInterfaceManager)()
 			}
 		}()
 		result := localHost.SyncEsxiHostWires(ctx, userCred, remoteHost)
 		if syncResults != nil {
-			syncResults.Add(HostwireManager, result)
+			syncResults.Add(NetInterfaceManager, result)
 		}
 
 		msg := result.Result()

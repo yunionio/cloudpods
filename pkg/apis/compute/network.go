@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 const (
@@ -302,7 +303,7 @@ type NetworkDetails struct {
 	Ports int `json:"ports"`
 
 	// 路由信息
-	Routes    [][]string                 `json:"routes"`
+	Routes    []types.SRoute             `json:"routes"`
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 }
 
