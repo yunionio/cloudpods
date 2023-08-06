@@ -136,6 +136,11 @@ func (x86 *X86) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*de
 	var accel, cpuType, vendor, level string
 	var features = make(map[string]bool, 0)
 	if s.IsKvmSupport() {
+		if isCPUIntel {
+			vendor = "GenuineIntel"
+		} else if isCPUAMD {
+			vendor = "AuthenticAMD"
+		}
 		accel = "kvm"
 		if s.GetOsName() == qemu.OS_NAME_MACOS {
 			cpuType = "Penryn"
