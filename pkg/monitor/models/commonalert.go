@@ -884,7 +884,10 @@ func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails
 		}
 		if fieldDes, ok := influxdbMeasurements[0].FieldDescriptions[field]; ok {
 			metricDetails.FieldDescription = fieldDes
-			if metricDetails.FieldDescription.Unit == monitor.METRIC_UNIT_COUNT {
+			if utils.IsInStringArray(metricDetails.FieldDescription.Unit, []string{
+				monitor.METRIC_UNIT_COUNT,
+				monitor.METRIC_UNIT_NULL,
+			}) {
 				metricDetails.FieldDescription.Unit = ""
 			}
 			if len(metricDetails.FieldOpt) != 0 {
