@@ -292,7 +292,7 @@ func init() {
 	RegistryMetricCreateInput("cloudaccount_balance", "Cloud account balance",
 		monitor.METRIC_RES_TYPE_CLOUDACCOUNT,
 		monitor.METRIC_DATABASE_METER, 1, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_RMB, 1),
+			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_NULL, 1),
 		})
 
 	// haproxy
