@@ -381,18 +381,29 @@ func newBaseOptions_x86_64() *baseOptions_x86_64 {
 }
 
 func (o *baseOptions_x86_64) CPU(input CPUOption, osName string) (string, string, error) {
-	var accel, cpuType string
+	var accel, cpuType, vendor string
 	if input.EnableKVM {
+		if input.IsCPUIntel {
+			vendor = "GenuineIntel"
+		} else if input.IsCPUAMD {
+			vendor = "AuthenticAMD"
+		}
 		accel = "kvm"
 		cpuType = ""
 		if osName == OS_NAME_MACOS {
 			cpuType = "Penryn,vendor=GenuineIntel"
 		} else if input.HostCPUPassthrough {
 			cpuType = "host"
+			if len(vendor) > 0 {
+				cpuType += fmt.Sprintf(",vendor=%s", vendor)
+			}
 			// https://unix.stackexchange.com/questions/216925/nmi-received-for-unknown-reason-20-do-you-have-a-strange-power-saving-mode-ena
 			cpuType += ",+kvm_pv_eoi"
 		} else {
 			cpuType = "qemu64"
+			if len(vendor) > 0 {
+				cpuType += fmt.Sprintf(",vendor=%s", vendor)
+			}
 			cpuType += ",+kvm_pv_eoi"
 			if input.IsCPUIntel {
 				cpuType += ",+vmx"
