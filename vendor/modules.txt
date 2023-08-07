@@ -1438,7 +1438,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230804055523-9c707c67e05f
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230807074306-1afe20f5d67a
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1490,6 +1490,8 @@ yunion.io/x/cloudmux/pkg/multicloud/huawei/obs
 yunion.io/x/cloudmux/pkg/multicloud/huawei/provider
 yunion.io/x/cloudmux/pkg/multicloud/jdcloud
 yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/ksyun
+yunion.io/x/cloudmux/pkg/multicloud/ksyun/provider
 yunion.io/x/cloudmux/pkg/multicloud/loader
 yunion.io/x/cloudmux/pkg/multicloud/nutanix
 yunion.io/x/cloudmux/pkg/multicloud/nutanix/provider

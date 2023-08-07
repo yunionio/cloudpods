@@ -29,6 +29,7 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/hcso/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/huawei/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider" // public clouds
+	_ "yunion.io/x/cloudmux/pkg/multicloud/ksyun/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/nutanix/provider" // private clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/provider"

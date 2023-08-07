@@ -25,6 +25,7 @@ const (
 	CITY_HU_HE_HAO_TE   = "Huhehaote"    //呼和浩特
 	CITY_HANG_ZHOU      = "Hangzhou"     //杭州
 	CITY_SHANG_HAI      = "Shanghai"     //上海
+	CITY_QING_YANG      = "Qingyang"     //庆阳
 	CITY_SHEN_ZHEN      = "Shenzhen"     //深圳
 	CITY_HONG_KONG      = "Hongkong"     //香港
 	CITY_NING_XIA       = "Ningxia"      //宁夏

@@ -1278,3 +1278,33 @@ func (opts *SRemoteFileAccountCreateOptions) Params() (jsonutils.JSONObject, err
 	params.(*jsonutils.JSONDict).Add(jsonutils.NewString(api.CLOUD_PROVIDER_REMOTEFILE), "provider")
 	return params, nil
 }
+
+type SKsyunCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredential
+}
+
+func (opts *SKsyunCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ksyun"), "provider")
+	return params, nil
+}
+
+type SKsyunCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SKsyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	return params, nil
+}
+
+type SKsyunCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SAccessKeyCredential
+}
+
+func (opts *SKsyunCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

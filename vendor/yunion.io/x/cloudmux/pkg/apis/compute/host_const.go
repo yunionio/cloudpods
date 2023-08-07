@@ -42,6 +42,7 @@ const (
 	HOST_TYPE_PROXMOX        = "proxmox"
 	HOST_TYPE_REMOTEFILE     = "remotefile"
 	HOST_TYPE_H3C            = "h3c"
+	HOST_TYPE_KSYUN          = "ksyun"
 
 	// # possible status
 	HOST_ONLINE  = "online"
