@@ -38,6 +38,12 @@ var (
 		City:        CITY_SHANG_HAI,
 		CountryCode: COUNTRY_CODE_CN,
 	}
+	RegionQingYang = cloudprovider.SGeographicInfo{
+		Latitude:    35.73,
+		Longitude:   107.61,
+		City:        CITY_QING_YANG,
+		CountryCode: COUNTRY_CODE_CN,
+	}
 	RegionGuangzhou = cloudprovider.SGeographicInfo{
 		Latitude:    23.12911,
 		Longitude:   113.264385,

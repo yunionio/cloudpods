@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/cloudmux/pkg/apis/compute"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+)
 
 const (
 	HOST_TYPE_BAREMETAL  = "baremetal"
@@ -48,6 +50,7 @@ const (
 	HOST_TYPE_PROXMOX        = compute.HOST_TYPE_PROXMOX
 	HOST_TYPE_REMOTEFILE     = compute.HOST_TYPE_REMOTEFILE
 	HOST_TYPE_H3C            = compute.HOST_TYPE_H3C
+	HOST_TYPE_KSYUN          = compute.HOST_TYPE_KSYUN
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
@@ -138,6 +141,7 @@ var HOST_TYPES = []string{
 	HOST_TYPE_PROXMOX,
 	HOST_TYPE_REMOTEFILE,
 	HOST_TYPE_H3C,
+	HOST_TYPE_KSYUN,
 }
 
 var ALL_NIC_TYPES = []compute.TNicType{NIC_TYPE_IPMI, NIC_TYPE_ADMIN, NIC_TYPE_NORMAL}
