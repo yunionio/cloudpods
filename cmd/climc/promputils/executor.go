@@ -75,7 +75,7 @@ func Executor(s string) {
 	} else {
 		session.GetClient().SetDebug(false)
 	}
-	if subparser.IsHelpSet() {
+	if subparser != nil && subparser.IsHelpSet() {
 		fmt.Print(subparser.HelpString())
 		return
 	}
