@@ -24,7 +24,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"beijing-1":   {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
 	"hunan-1":     {Latitude: 28.2277765095, Longitude: 112.9388453666, City: api.CITY_CHANG_SHA, CountryCode: api.COUNTRY_CODE_CN},
 	"wuxi-1":      {Latitude: 31.2983479333, Longitude: 120.5831894861, City: api.CITY_SU_ZHOU, CountryCode: api.COUNTRY_CODE_CN},
-	"dongguan-1":  {Latitude: 23.129110, Longitude: 113.264381, City: api.CITY_GUANG_ZHOU, CountryCode: api.COUNTRY_CODE_CN},
+	"dongguan-1":  api.RegionSuzhou,
 	"yaan-1":      {Latitude: 30.572815, Longitude: 104.066803, City: api.CITY_CHENG_DU, CountryCode: api.COUNTRY_CODE_CN},
 	"zhengzhou-1": {Latitude: 34.7533581487, Longitude: 113.6313915479, City: api.CITY_ZHENG_ZHOU, CountryCode: api.COUNTRY_CODE_CN},
 	"beijing-2":   {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
