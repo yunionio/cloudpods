@@ -60,12 +60,13 @@ type SRobot struct {
 	db.SSharableVirtualResourceBase
 	db.SEnabledResourceBase
 
-	Type    string               `width:"16" nullable:"false" create:"required" get:"user" list:"user" index:"true"`
-	Address string               `nullable:"false" create:"required" update:"user" get:"user" list:"user"`
-	Lang    string               `width:"16" nullable:"false" create:"required" update:"user" get:"user" list:"user"`
-	Header  jsonutils.JSONObject `length:"long" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	Body    jsonutils.JSONObject `length:"long" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	MsgKey  string               `width:"16" nullable:"true"  update:"user" get:"user" list:"user"`
+	Type        string               `width:"16" nullable:"false" create:"required" get:"user" list:"user" index:"true"`
+	Address     string               `nullable:"false" create:"required" update:"user" get:"user" list:"user"`
+	Lang        string               `width:"16" nullable:"false" create:"required" update:"user" get:"user" list:"user"`
+	Header      jsonutils.JSONObject `length:"long" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	Body        jsonutils.JSONObject `length:"long" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	MsgKey      string               `width:"16" nullable:"true"  update:"user" get:"user" list:"user"`
+	UseTemplate tristate.TriState    `default:"false" list:"domain" update:"user" create:"admin_optional"`
 }
 
 var RobotList = []string{api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT, api.WEBHOOK, api.WEBHOOK_ROBOT}
@@ -109,6 +110,7 @@ func (rm *SRobotManager) ValidateCreateData(ctx context.Context, userCred mcclie
 		}
 		return input, errors.Wrap(err, "robot validate")
 	}
+
 	return input, nil
 }
 

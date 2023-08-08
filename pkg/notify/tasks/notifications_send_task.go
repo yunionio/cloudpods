@@ -100,7 +100,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		rn.AfterSend(ctx, false, reason)
 		failedRecord = append(failedRecord, fmt.Sprintf("%s: %s", rn.ReceiverID, reason))
 	}
-
+	robotUseTemplate := false
 	for i := range rns {
 		receiver, err := rns[i].Receiver()
 		if err != nil {
@@ -119,6 +119,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		if receiver.IsRobot() {
 			robot := receiver.(*models.SRobot)
 			notification.ContactType = fmt.Sprintf("%s-robot", robot.Type)
+			robotUseTemplate = robot.UseTemplate.Bool()
 		}
 		enabled, err := receiver.IsEnabledContactType(notification.ContactType)
 		if err != nil {
@@ -166,7 +167,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 	}
 
-	nn, err := notification.Notification()
+	nn, err := notification.Notification(robotUseTemplate)
 	if err != nil {
 		self.taskFailed(ctx, notification, errors.Wrapf(err, "Notification").Error(), true)
 		return
