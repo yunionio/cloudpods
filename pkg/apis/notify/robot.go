@@ -16,6 +16,7 @@ package notify
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
@@ -32,10 +33,11 @@ type RobotCreateInput struct {
 	Address string `json:"address"`
 	// description: Language preference
 	// example: zh_CN
-	Lang   string               `json:"lang"`
-	Header jsonutils.JSONObject `json:"header"`
-	Body   jsonutils.JSONObject `json:"body"`
-	MsgKey string               `json:"msg_key"`
+	Lang        string               `json:"lang"`
+	Header      jsonutils.JSONObject `json:"header"`
+	Body        jsonutils.JSONObject `json:"body"`
+	MsgKey      string               `json:"msg_key"`
+	UseTemplate tristate.TriState    `json:"use_template"`
 }
 
 type RobotDetails struct {

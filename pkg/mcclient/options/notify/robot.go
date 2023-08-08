@@ -17,6 +17,7 @@ package notify
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -33,28 +34,36 @@ func (rl *RobotListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type RobotCreateOptions struct {
-	NAME    string
-	Type    string `choices:"feishu|dingtalk|workwx|webhook"`
-	Address string
-	Lang    string
-	Header  string
-	Body    string
-	MsgKey  string
+	NAME        string
+	Type        string `choices:"feishu|dingtalk|workwx|webhook"`
+	Address     string
+	Lang        string
+	Header      string
+	Body        string
+	MsgKey      string
+	UseTemplate bool `help:"just for webhook"`
 }
 
 func (rc *RobotCreateOptions) Params() (jsonutils.JSONObject, error) {
 	dict := jsonutils.NewDict()
 	jsonutils.Update(&dict, rc)
-	header, err := jsonutils.Parse([]byte(rc.Header))
-	if err != nil {
-		return nil, errors.Wrap(err, "parse header")
+	if len(rc.Header) > 0 {
+		header, err := jsonutils.Parse([]byte(rc.Header))
+		if err != nil {
+			return nil, errors.Wrap(err, "parse header")
+		}
+		dict.Set("header", header)
 	}
-	dict.Set("header", header)
-	body, err := jsonutils.Parse([]byte(rc.Body))
-	if err != nil {
-		return nil, errors.Wrap(err, "parse body")
+
+	if len(rc.Body) > 0 {
+		body, err := jsonutils.Parse([]byte(rc.Body))
+		if err != nil {
+			return nil, errors.Wrap(err, "parse body")
+		}
+		dict.Set("body", body)
 	}
-	dict.Set("body", body)
+
+	dict.Set("use_template", jsonutils.Marshal(rc.UseTemplate))
 	return dict, nil
 }
 
@@ -76,11 +85,12 @@ type RobotUpdateOptions struct {
 }
 
 type SrobotUpdateOptions struct {
-	Address string
-	Lang    string
-	Header  *string
-	Body    *string
-	MsgKey  string
+	Address     string
+	Lang        string
+	Header      *string
+	Body        *string
+	MsgKey      string
+	UseTemplate tristate.TriState
 }
 
 func (ru *RobotUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -99,6 +109,11 @@ func (ru *RobotUpdateOptions) Params() (jsonutils.JSONObject, error) {
 			return nil, errors.Wrap(err, "parse body")
 		}
 		dict.Set("body", body)
+	}
+	if ru.UseTemplate.IsFalse() {
+		dict.Set("use_template", jsonutils.JSONFalse)
+	} else if ru.UseTemplate.IsTrue() {
+		dict.Set("use_template", jsonutils.JSONTrue)
 	}
 	return dict, nil
 }
