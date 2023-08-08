@@ -532,7 +532,7 @@ func (n *SNotification) receiveDetails(userCred mcclient.TokenCredential, scope 
 func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.NotificationDetails) (api.NotificationDetails, error) {
 	// get title adn content
 	lang := getLangSuffix(ctx)
-	nn, err := n.Notification()
+	nn, err := n.Notification(false)
 	if err != nil {
 		return out, err
 	}
@@ -552,7 +552,7 @@ func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.To
 	return out, nil
 }
 
-func (n *SNotification) Notification() (api.SsNotification, error) {
+func (n *SNotification) Notification(robotUseTemplate bool) (api.SsNotification, error) {
 	if n.EventId == "" {
 		return api.SsNotification{
 			ContactType: n.ContactType,
@@ -566,11 +566,12 @@ func (n *SNotification) Notification() (api.SsNotification, error) {
 	}
 	e, _ := parseEvent(event.Event)
 	return api.SsNotification{
-		ContactType: n.ContactType,
-		Topic:       n.Topic,
-		Message:     event.Message,
-		Event:       e,
-		AdvanceDays: event.AdvanceDays,
+		ContactType:      n.ContactType,
+		Topic:            n.Topic,
+		Message:          event.Message,
+		Event:            e,
+		AdvanceDays:      event.AdvanceDays,
+		RobotUseTemplate: robotUseTemplate,
 	}, nil
 }
 
@@ -727,7 +728,8 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 	webhookMsg.Set("action", jsonutils.NewString(aStr))
 	webhookMsg.Set("result", jsonutils.NewString(resultStr))
 	webhookMsg.Set("resource_details", msg)
-	if no.ContactType == api.WEBHOOK || no.ContactType == api.WEBHOOK_ROBOT {
+
+	if (no.ContactType == api.WEBHOOK || no.ContactType == api.WEBHOOK_ROBOT) && !no.RobotUseTemplate {
 		return api.SendParams{
 			Title:   no.Event.StringWithDeli("_"),
 			Message: webhookMsg.String(),

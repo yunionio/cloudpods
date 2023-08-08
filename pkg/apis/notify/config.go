@@ -98,11 +98,12 @@ type ConfigManagerGetTypesOutput struct {
 }
 
 type SsNotification struct {
-	ContactType string
-	Topic       string
-	Message     string
-	Event       SNotifyEvent
-	AdvanceDays int
+	ContactType      string
+	Topic            string
+	Message          string
+	Event            SNotifyEvent
+	AdvanceDays      int
+	RobotUseTemplate bool
 }
 
 type SBatchSendParams struct {
