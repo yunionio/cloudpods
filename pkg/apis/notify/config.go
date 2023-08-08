@@ -16,6 +16,7 @@ package notify
 
 import (
 	"reflect"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -140,6 +141,14 @@ type SSendParams struct {
 	Receiver       SNotifyReceiver
 }
 
+type SNotificationGroupSearchInput struct {
+	StartTime   time.Time
+	EndTime     time.Time
+	GroupKey    string
+	ReceiverId  string
+	ContactType string
+}
+
 type SendParams struct {
 	Title               string
 	Message             string
@@ -148,12 +157,15 @@ type SendParams struct {
 	Topic               string
 	Event               string
 	Receivers           SNotifyReceiver
-	EmailMsg            *SEmailMessage
+	EmailMsg            SEmailMessage
 	Header              jsonutils.JSONObject
 	Body                jsonutils.JSONObject
 	MsgKey              string
 	DomainId            string
 	RemoteTemplateParam SRemoteTemplateParam
+	GroupKey            string
+	GroupTimes          uint
+	ReceiverId          string
 }
 
 type SRemoteTemplateParam struct {

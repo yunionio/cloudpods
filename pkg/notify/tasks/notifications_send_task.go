@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -63,6 +64,12 @@ type ReceiverSpec struct {
 	rNotificaion *models.SReceiverNotification
 }
 
+var notificationSendMap sync.Map
+var notificationGroupLock sync.Mutex
+
+func init() {
+	notificationGroupLock = sync.Mutex{}
+}
 func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	notification := obj.(*models.SNotification)
 	if notification.Status == apis.NOTIFICATION_STATUS_OK {
@@ -102,7 +109,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 		// check receiver enabled
 		if !receiver.IsEnabled() {
-			sendFail(&rns[i], fmt.Sprintf("disabled receiver"))
+			sendFail(&rns[i], "disabled receiver")
 			continue
 		}
 		// check contact enabled
@@ -134,35 +141,6 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			sendFail(&rns[i], fmt.Sprintf("unverified contactType %q", notification.ContactType))
 			continue
 		}
-
-		// contact, err := receiver.GetContact(notification.ContactType)
-		// if err != nil {
-		// 	logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "GetContact(%s)", notification.ContactType), self.GetUserCred(), false)
-		// 	continue
-		// }
-
-		// notifyRecv := receiver.GetNotifyReceiver()
-		// notifyRecv.Lang, _ = receiver.GetTemplateLang(ctx)
-		// notifyRecv.Contact = contact
-		// cv := ReceiverSpec{
-		// 	receiver:     notifyRecv,
-		// 	rNotificaion: &rns[i],
-		// }
-		// switch notifyRecv.Lang {
-		// case "":
-		// 	receivers = append(receivers, cv)
-		// case apis.TEMPLATE_LANG_EN:
-		// 	receiversEn = append(receiversEn, cv)
-		// case apis.TEMPLATE_LANG_CN:
-		// 	receiversCn = append(receiversCn, cv)
-		// }
-		// lang, err := receiver.GetTemplateLang(ctx)
-		// if err != nil {
-		// 	reason := fmt.Sprintf("fail to GetTemplateLang: %s", err.Error())
-		// 	sendFail(&rns[i], reason)
-		// 	continue
-		// }
-
 		lang, err := receiver.GetTemplateLang(ctx)
 		if err != nil {
 			reason := fmt.Sprintf("fail to GetTemplateLang: %s", err.Error())
@@ -219,8 +197,11 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			switch lang {
 			case apis.TEMPLATE_LANG_CN:
 				p.Message += "\n来自 " + options.Options.ApiServer
+				tz, _ := time.LoadLocation(options.Options.TimeZone)
+				p.Message += "\n发生于 " + time.Now().In(tz).Format("2006-01-02 15:04:05")
 			case apis.TEMPLATE_LANG_EN:
 				p.Message += "\nfrom " + options.Options.ApiServer
+				p.Message += "\nat " + time.Now().In(time.UTC).Format("2006-01-02 15:04:05")
 			}
 		}
 
@@ -271,6 +252,9 @@ type FailedReceiverSpec struct {
 }
 
 func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context, notification *models.SNotification, receivers []ReceiverSpec, params apis.SendParams) (fails []FailedReceiverSpec, err error) {
+	if notification.ContactType == apis.WEBCONSOLE {
+		return
+	}
 	for i := range receivers {
 		if receivers[i].receiver.IsRobot() {
 			robot := receivers[i].receiver.(*models.SRobot)
@@ -288,7 +272,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			params.Receivers.Contact, _ = receiver.GetContact(notification.ContactType)
 			driver := models.GetDriver(notification.ContactType)
 			if notification.ContactType == apis.EMAIL {
-				params.EmailMsg = &apis.SEmailMessage{
+				params.EmailMsg = apis.SEmailMessage{
 					To:      []string{receiver.Email},
 					Subject: params.Title,
 					Body:    params.Message,
@@ -299,7 +283,23 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 				mobile := strings.Join(mobileArr, "")
 				params.Receivers.Contact = mobile
 			}
-			err = driver.Send(ctx, params)
+			params.ReceiverId = receiver.Id
+			if len(params.GroupKey) > 0 && params.GroupTimes > 0 {
+				notificationGroupLock.Lock()
+				if _, ok := notificationSendMap.Load(params.GroupKey + receiver.Id + notification.ContactType); ok {
+					err = models.NotificationGroupManager.TaskCreate(ctx, notification.ContactType, params)
+				} else {
+					err = models.NotificationGroupManager.TaskCreate(ctx, notification.ContactType, params)
+					if err != nil {
+						fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
+					}
+					err = driver.Send(ctx, params)
+					createTimeTicker(ctx, driver, params, receiver.Id, notification.ContactType)
+				}
+				notificationGroupLock.Unlock()
+			} else {
+				err = driver.Send(ctx, params)
+			}
 			if err != nil {
 				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
 			}
@@ -313,6 +313,41 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			}
 		}
 	}
-
 	return fails, nil
+}
+
+func createTimeTicker(ctx context.Context, driver models.ISenderDriver, params apis.SendParams, receiverId, contactType string) {
+	// 创建一个计时器，每秒触发一次
+	// params.GroupTimes = 5
+	timer := time.NewTicker(time.Duration(params.GroupTimes) * time.Minute)
+	notificationSendMap.Store(params.GroupKey+receiverId+contactType, apis.SNotificationGroupSearchInput{
+		GroupKey:    params.GroupKey,
+		ReceiverId:  receiverId,
+		ContactType: contactType,
+		StartTime:   time.Now(),
+		EndTime:     time.Now().Add(time.Duration(params.GroupTimes) * time.Minute),
+	})
+
+	// 启动一个goroutine来处理计时器触发的事件
+	go func() {
+		for {
+			// 等待计时器触发的事件
+			<-timer.C
+			// 处理计时器触发的事件
+			arrValue, ok := notificationSendMap.Load(params.GroupKey + receiverId + contactType)
+			if !ok {
+				return
+			}
+			input := arrValue.(apis.SNotificationGroupSearchInput)
+			// 组装聚合后的消息
+			sendParams, err := models.NotificationGroupManager.TaskSend(ctx, input)
+			if err != nil {
+				log.Errorln("TaskSend err:", err)
+				return
+			}
+			driverT := models.GetDriver(contactType)
+			driverT.Send(ctx, *sendParams)
+			notificationSendMap.Delete(params.GroupKey + receiverId + contactType)
+		}
+	}()
 }

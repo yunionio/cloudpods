@@ -255,8 +255,9 @@ func (cm *SConfigManager) availableContactTypes(domainId string) ([]string, erro
 	return sets.NewString(ret...).UnsortedList(), nil
 }
 
-func (cm *SConfigManager) allContactType() ([]string, error) {
+func (cm *SConfigManager) allContactType(domainid string) ([]string, error) {
 	q := cm.Query("type")
+	q = q.Equals("domain_id", domainid)
 	allTypes := make([]struct {
 		Type string
 	}, 0, 3)

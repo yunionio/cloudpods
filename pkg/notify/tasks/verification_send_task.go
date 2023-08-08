@@ -114,7 +114,7 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	if len(emailMsg.Body) == 0 {
 		emailMsg.Body = param.Message
 	}
-	param.EmailMsg = emailMsg
+	param.EmailMsg = *emailMsg
 	driver := models.GetDriver(contactType)
 	err = driver.Send(ctx, param)
 	// err = models.NotifyService.Send(ctx, contactType, param)

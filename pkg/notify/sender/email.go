@@ -152,7 +152,7 @@ func (emailSender *SEmailSender) Send(ctx context.Context, args api.SendParams) 
 		gmsg.SetHeader("From", models.ConfigMap[api.EMAIL].Content.SenderAddress)
 		gmsg.SetHeader("To", args.Receivers.Contact)
 		gmsg.SetHeader("Subject", args.Title)
-		gmsg.SetBody("text/html", args.Message)
+		gmsg.SetBody("text/html", args.EmailMsg.Body)
 		dialer.StartTLSPolicy = gomail.MandatoryStartTLS
 		if err := dialer.DialAndSend(gmsg); err != nil {
 			return errors.Wrap(err, "send email")

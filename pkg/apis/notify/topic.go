@@ -35,3 +35,5 @@ type PerformEnableInput struct {
 
 type PerformDisableInput struct {
 }
+
+type STopicGroupKeys []string
