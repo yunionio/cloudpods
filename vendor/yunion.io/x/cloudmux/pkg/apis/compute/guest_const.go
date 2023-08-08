@@ -74,6 +74,7 @@ const (
 	HYPERVISOR_REMOTEFILE     = "remotefile"
 	HYPERVISOR_H3C            = "h3c"
 	HYPERVISOR_KSYUN          = "ksyun"
+	HYPERVISOR_BAIDU          = "baidu"
 )
 
 const (

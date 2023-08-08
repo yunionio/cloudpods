@@ -1308,3 +1308,33 @@ type SKsyunCloudAccountUpdateCredentialOptions struct {
 func (opts *SKsyunCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type SBaiduCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredential
+}
+
+func (opts *SBaiduCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Baidu"), "provider")
+	return params, nil
+}
+
+type SBaiduCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SBaiduCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	return params, nil
+}
+
+type SBaiduCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SAccessKeyCredential
+}
+
+func (opts *SBaiduCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
