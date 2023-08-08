@@ -88,22 +88,16 @@ func (self *SKVMGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 		},
 		Storages: cloudprovider.Storage{
 			SysDisk: []cloudprovider.StorageInfo{
-				{
-					StorageType: api.STORAGE_LOCAL,
-					MinSizeGb:   options.Options.LocalSysDiskMinSizeGB,
-					MaxSizeGb:   options.Options.LocalSysDiskMaxSizeGB,
-					StepSizeGb:  1,
-					Resizable:   true,
-				},
+				{StorageType: api.STORAGE_LOCAL, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_RBD, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_NFS, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_GPFS, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
 			},
 			DataDisk: []cloudprovider.StorageInfo{
-				{
-					StorageType: api.STORAGE_LOCAL,
-					MinSizeGb:   options.Options.LocalDataDiskMinSizeGB,
-					MaxSizeGb:   options.Options.LocalDataDiskMaxSizeGB,
-					StepSizeGb:  1,
-					Resizable:   true,
-				},
+				{StorageType: api.STORAGE_LOCAL, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_RBD, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_NFS, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_GPFS, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
 			},
 		},
 	}
