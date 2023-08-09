@@ -57,6 +57,7 @@ func init() {
 	cmd.CreateWithKeyword("create-remotefile", &options.SRemoteFileAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-ksyun", &options.SKsyunCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-baidu", &options.SBaiduCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-cucloud", &options.SCucloudCloudAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})
@@ -80,6 +81,7 @@ func init() {
 	cmd.UpdateWithKeyword("update-proxmox", &options.SProxmoxAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-ksyun", &options.SKsyunCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-baidu", &options.SBaiduCloudAccountUpdateOptions{})
+	cmd.UpdateWithKeyword("update-cucloud", &options.SCucloudCloudAccountUpdateOptions{})
 
 	cmd.Perform("update-credential", &options.CloudaccountUpdateCredentialOptions{})
 
@@ -106,6 +108,7 @@ func init() {
 	cmd.PerformWithKeyword("update-credential-proxmox", "update-credential", &options.SProxmoxAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-ksyun", "update-credential", &options.SKsyunCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-baidu", "update-credential", &options.SBaiduCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("update-credential-cucloud", "update-credential", &options.SCucloudCloudAccountUpdateCredentialOptions{})
 
 	cmd.PerformWithKeyword("test-connectivity-google", "test-connectivity", &options.SGoogleCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-vmware", "test-connectivity", &options.SVMwareCloudAccountUpdateCredentialOptions{})

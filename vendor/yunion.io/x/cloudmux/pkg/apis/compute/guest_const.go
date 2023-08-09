@@ -75,6 +75,7 @@ const (
 	HYPERVISOR_H3C            = "h3c"
 	HYPERVISOR_KSYUN          = "ksyun"
 	HYPERVISOR_BAIDU          = "baidu"
+	HYPERVISOR_CUCLOUD        = "cucloud"
 )
 
 const (

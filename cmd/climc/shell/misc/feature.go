@@ -64,6 +64,7 @@ func init() {
 		"bingocloud",
 		"ksyun",
 		"baidu",
+		"cucloud",
 	}
 
 	const (
