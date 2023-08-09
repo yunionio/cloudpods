@@ -1,0 +1,54 @@
+name: Climc Docker Image
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - 'releases/**'
+      - 'main'
+      - 'master'
+    paths:
+      - 'cmd/climc/**.go'
+      - 'pkg/mcclient/**.go'
+      - 'vendor/yunion.io/x/structarg/**.go'
+jobs:
+  build_climc:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 8
+        
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.18'
+        
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+      
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Login to Aliyun Container Registry (ACR)
+      uses: aliyun/acr-login@v1
+      with:
+        login-server: https://registry.cn-beijing.aliyuncs.com
+        region-id: cn-beijing
+        username: "${{ secrets.ACR_USERNAME }}"
+        password: "${{ secrets.ACR_PASSWORD }}"
+        
+    - name: Build And Push Docker Image
+      shell: bash
+      run: |
+          set -o xtrace
+          export GO111MODULE=on
+          branch="${GITHUB_REF#refs/heads/}"
+          timestamp=`TZ="Asia/Shanghai" date +"%Y%m%d%H%M%S"`
+          export VERSION="$branch-$timestamp-solo"
+          export GOOS=linux
+          export ARCH=all
+          export REGISTRY=registry.cn-beijing.aliyuncs.com/yuniondev
+          make image climc
