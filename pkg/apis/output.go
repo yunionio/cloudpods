@@ -176,6 +176,8 @@ type ProjectizedResourceInfo struct {
 	// 资源归属项目的名称（向后兼容别名）
 	// Deprecated
 	Tenant string `json:"project" yunion-deprecated-by:"tenant"`
+
+	ProjectMetadata map[string]string `json:"project_metadata"`
 }
 
 type ScopedResourceBaseInfo struct {
