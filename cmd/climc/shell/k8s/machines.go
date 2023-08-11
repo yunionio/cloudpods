@@ -31,4 +31,5 @@ func initKubeMachine() {
 	cmd.Perform("terminate", new(o.IdentOptions))
 	cmd.Get("networkaddress", new(o.MachineListNetworkAddressOptions))
 	cmd.Perform("attach-networkaddress", new(o.MachineAttachNetworkAddressOptions))
+	cmd.Perform("post-prepare-resource", new(o.IdentOptions))
 }
