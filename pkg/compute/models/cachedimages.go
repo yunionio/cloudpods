@@ -990,6 +990,16 @@ func (manager *SCachedimageManager) InitializeData() error {
 			return errors.Wrapf(err, "db.Update(%s)", images[i].Id)
 		}
 	}
+
+	q = manager.Query().IsNullOrEmpty("info")
+	err = db.FetchModelObjects(manager, q, &images)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range images {
+		db.RealDeleteModel(context.Background(), nil, &images[i])
+	}
+
 	return nil
 }
 
