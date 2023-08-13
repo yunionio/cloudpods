@@ -45,10 +45,11 @@ func (task *OrganizationBindTask) OnInit(ctx context.Context, obj db.IStandalone
 		task.SetStageFailed(ctx, jsonutils.Marshal(err))
 		return
 	}
+	bind := jsonutils.QueryBoolean(task.Params, "bind", true)
 
-	log.Debugf("start bind objs to organization %s label %s", orgNode.OrgId, orgNode.FullLabel)
+	log.Debugf("start bind objs to organization %s label %s bind: %v", orgNode.OrgId, orgNode.FullLabel, bind)
 
-	err = orgNode.BindTargetIds(ctx, task.UserCred, input)
+	err = orgNode.BindTargetIds(ctx, task.UserCred, input, bind)
 	if err != nil {
 		log.Errorf("BindTargetIds fail %s", err)
 		task.SetStageFailed(ctx, jsonutils.Marshal(err))
