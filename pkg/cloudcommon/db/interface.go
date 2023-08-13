@@ -284,6 +284,8 @@ type IStandaloneModel interface {
 	// IsAlterNameUnique(name string, projectId string) bool
 	// GetExternalId() string
 
+	SetName(name string)
+
 	StandaloneModelManager() IStandaloneModelManager
 
 	GetIStandaloneModel() IStandaloneModel

@@ -42,8 +42,7 @@ type IdentityBaseResourceListInput struct {
 type EnabledIdentityBaseResourceListInput struct {
 	IdentityBaseResourceListInput
 
-	// filter by enabled status
-	Enabled *bool `json:"enabled"`
+	apis.EnabledResourceBaseListInput
 }
 
 type ProjectFilterListInput struct {

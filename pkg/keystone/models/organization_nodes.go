@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -41,6 +42,7 @@ import (
 
 type SOrganizationNodeManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SPendingDeletedBaseManager
 }
 
 var OrganizationNodeManager *SOrganizationNodeManager
@@ -60,6 +62,7 @@ func init() {
 
 type SOrganizationNode struct {
 	db.SStandaloneResourceBase `name:""`
+	db.SPendingDeletedBase
 
 	OrgId string `width:"36" charset:"ascii" list:"user" create:"admin_required"`
 
@@ -399,4 +402,32 @@ func (manager *SOrganizationNodeManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
+}
+
+func (manager *SOrganizationNodeManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+	q = manager.SPendingDeletedBaseManager.FilterBySystemAttributes(manager.GetIStandaloneModelManager(), q, userCred, query, scope)
+	return q
+}
+
+func (orgNode *SOrganizationNode) ValidateDeleteCondition(ctx context.Context, info *api.ProjectDetails) error {
+	childCnt, err := orgNode.GetDirectChildCount()
+	if err != nil {
+		return errors.Wrap(err, "GetDirectChildCount")
+	}
+	if childCnt > 0 {
+		return errors.Wrapf(httperrors.ErrNotEmpty, "childnodes %d", childCnt)
+	}
+	return orgNode.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+}
+
+// fake delete
+func (orgNode *SOrganizationNode) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if !orgNode.PendingDeleted {
+		err := orgNode.SPendingDeletedBase.MarkPendingDelete(orgNode.GetIStandaloneModel(), ctx, userCred, "")
+		if err != nil {
+			return errors.Wrap(err, "MarkPendingDelete")
+		}
+	}
+	return nil
 }

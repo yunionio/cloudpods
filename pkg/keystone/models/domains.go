@@ -17,12 +17,15 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -37,6 +40,7 @@ import (
 
 type SDomainManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SPendingDeletedBaseManager
 }
 
 var (
@@ -57,6 +61,7 @@ func init() {
 
 type SDomain struct {
 	db.SStandaloneResourceBase
+	db.SPendingDeletedBase
 
 	// 额外信息
 	Extra *jsonutils.JSONDict `nullable:"true"`
@@ -336,10 +341,10 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	if policyCnt > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by policy")
 	}
-	external, _, _ := domain.getExternalResources()
+	/*external, _, _ := domain.getExternalResources()
 	if len(external) > 0 {
 		return httperrors.NewNotEmptyError("domain contains external resources")
-	}
+	}*/
 	return nil
 }
 
@@ -483,7 +488,15 @@ func (domain *SDomain) Delete(ctx context.Context, userCred mcclient.TokenCreden
 	if err != nil {
 		return errors.Wrap(err, "domain.DeleteUserGroups")
 	}
-	return domain.SStandaloneResourceBase.Delete(ctx, userCred)
+	// return domain.SStandaloneResourceBase.Delete(ctx, userCred)
+	if !domain.PendingDeleted {
+		newName := fmt.Sprintf("%s-deleted-%s", domain.Name, timeutils.ShortDate(timeutils.UtcNow()))
+		err := domain.SPendingDeletedBase.MarkPendingDelete(domain, ctx, userCred, newName)
+		if err != nil {
+			return errors.Wrap(err, "MarkPendingDelete")
+		}
+	}
+	return nil
 }
 
 func (domain *SDomain) getIdmapping() (*SIdmapping, error) {
@@ -587,4 +600,17 @@ func (domain *SDomain) PerformUnlinkIdp(
 		return nil, errors.Wrap(err, "domain.UnlinkIdp")
 	}
 	return nil, nil
+}
+
+func (manager *SDomainManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+	q = manager.SPendingDeletedBaseManager.FilterBySystemAttributes(manager.GetIStandaloneModelManager(), q, userCred, query, scope)
+	return q
+}
+
+func (manager *SDomainManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil && scope != rbacscope.ScopeSystem {
+		q = q.Equals("id", owner.GetProjectDomainId())
+	}
+	return manager.SStandaloneResourceBaseManager.FilterByOwner(q, man, userCred, owner, scope)
 }

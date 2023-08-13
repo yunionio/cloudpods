@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
@@ -873,7 +872,7 @@ func (user *SUser) ValidatePurgeCondition(ctx context.Context, info *api.UserDet
 	if user.IsAdminUser() {
 		return httperrors.NewForbiddenError("cannot delete system user")
 	}
-	if gotypes.IsNil(info) {
+	/*if gotypes.IsNil(info) {
 		info = &api.UserDetails{}
 		scopResource, err := UserManager.FetchScopeResources([]string{user.Id})
 		if err != nil {
@@ -887,7 +886,7 @@ func (user *SUser) ValidatePurgeCondition(ctx context.Context, info *api.UserDet
 				return httperrors.NewNotEmptyError("user contains %d external resources %s", cnt, k)
 			}
 		}
-	}
+	}*/
 	return nil
 }
 

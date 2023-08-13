@@ -466,7 +466,7 @@ func (role *SRole) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 
 func (role *SRole) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.SharedResourceManager.CleanModelShares(ctx, userCred, role)
-	return role.SIdentityBaseResource.Delete(ctx, userCred)
+	return role.SIdentityBaseResource.RealDelete(ctx, userCred)
 }
 
 func (manager *SRoleManager) ValidateCreateData(

@@ -124,6 +124,7 @@ func (manager *SUserCacheManager) FetchUserFromKeystone(ctx context.Context, idS
 	query := jsonutils.NewDict()
 	query.Set("scope", jsonutils.NewString("system"))
 	query.Set("system", jsonutils.JSONTrue)
+	query.Set("pending_delete", jsonutils.NewString("all"))
 
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	user, err := modules.UsersV3.GetById(s, idStr, query)
