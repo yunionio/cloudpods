@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -42,7 +41,6 @@ type NBDDriver struct {
 	lvms                  []*SKVMGuestLVMPartition
 	imageRootBackFilePath string
 	imageInfo             qemuimg.SImageInfo
-	acquiredLvm           bool
 	nbdDev                string
 }
 
@@ -60,20 +58,21 @@ func init() {
 }
 
 func (d *NBDDriver) Connect() error {
-	pathType := lvmTool.GetPathType(d.rootImagePath())
-	if pathType == LVM_PATH || pathType == PATH_TYPE_UNKNOWN {
-		lvmTool.Acquire(d.rootImagePath())
-		d.acquiredLvm = true
-	}
-
 	d.nbdDev = GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
 		return errors.Errorf("Cannot get nbd device")
 	}
+
+	rootPath := d.rootImagePath()
+	pathType, lock := lvmTool.Acquire(rootPath)
+	if pathType != NON_LVM_PATH {
+		lock.Lock()
+		defer lock.Unlock()
+	}
+
 	if err := QemuNbdConnect(d.imageInfo, d.nbdDev); err != nil {
 		return err
 	}
-
 	var tried uint = 0
 	for len(d.partitions) == 0 && tried < MAX_TRIES {
 		time.Sleep((1 << tried) * time.Second)
@@ -85,19 +84,21 @@ func (d *NBDDriver) Connect() error {
 		tried += 1
 	}
 
+	log.Infof("path type %s: %v", d.nbdDev, pathType)
 	if pathType == LVM_PATH {
 		if _, err := d.setupLVMS(); err != nil {
 			return err
 		}
 	} else if pathType == PATH_TYPE_UNKNOWN {
 		hasLVM, err := d.setupLVMS()
+		log.Infof("%s hasLVM %v err %v", d.nbdDev, hasLVM, err)
 		if err != nil {
 			return err
 		}
 
 		// no lvm partition found and has partitions
 		if !hasLVM && len(d.partitions) > 0 {
-			d.cacheNonLVMImagePath()
+			lvmTool.CacheNonLvmImagePath(rootPath)
 		}
 	}
 	return nil
@@ -142,15 +143,6 @@ func (d *NBDDriver) rootImagePath() string {
 		}
 	}
 	return d.imageRootBackFilePath
-}
-
-func (d *NBDDriver) isNonLvmImagePath() bool {
-	pathType := lvmTool.GetPathType(d.rootImagePath())
-	return pathType == NON_LVM_PATH
-}
-
-func (d *NBDDriver) cacheNonLVMImagePath() {
-	lvmTool.CacheNonLvmImagePath(d.rootImagePath())
 }
 
 func (d *NBDDriver) setupLVMS() (bool, error) {
@@ -203,23 +195,15 @@ func (d *NBDDriver) findLVMPartitions(partDev string) string {
 
 func (d *NBDDriver) Disconnect() error {
 	if len(d.nbdDev) > 0 {
-		defer d.lvmDisconnectNotify()
+		pathType, lock := lvmTool.Acquire(d.rootImagePath())
+		if pathType != NON_LVM_PATH {
+			lock.Lock()
+			defer lock.Unlock()
+		}
 		d.putdownLVMs()
 		return d.disconnect()
 	} else {
 		return nil
-	}
-}
-
-func (d *NBDDriver) lvmDisconnectNotify() {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("Catch panic on LvmDisconnectNotify %v \n %s", r, debug.Stack())
-		}
-	}()
-	pathType := lvmTool.GetPathType(d.rootImagePath())
-	if d.acquiredLvm || pathType != NON_LVM_PATH {
-		lvmTool.Release(d.rootImagePath())
 	}
 }
 

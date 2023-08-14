@@ -36,50 +36,59 @@ const (
 	NON_LVM_PATH      = 2
 )
 
+type SImageProp struct {
+	HasLVMPartition bool
+	lock            *sync.Mutex
+}
+
 type SLVMImageConnectUniqueToolSet struct {
-	lvms    map[string]*sync.Mutex
-	nonLvms map[string]struct{}
-	lock    *sync.Mutex
+	*sync.Map
+	lock *sync.Mutex
 }
 
 func NewLVMImageConnectUniqueToolSet() *SLVMImageConnectUniqueToolSet {
 	return &SLVMImageConnectUniqueToolSet{
-		lvms:    make(map[string]*sync.Mutex),
-		nonLvms: make(map[string]struct{}),
-		lock:    new(sync.Mutex),
+		Map:  &sync.Map{},
+		lock: &sync.Mutex{},
 	}
 }
 
 func (s *SLVMImageConnectUniqueToolSet) CacheNonLvmImagePath(imagePath string) {
+	if im, ok := s.Load(imagePath); ok {
+		imgProp := im.(*SImageProp)
+		imgProp.HasLVMPartition = false
+	}
+}
+
+func (s *SLVMImageConnectUniqueToolSet) loadImagePath(imagePath string) (*SImageProp, bool) {
 	s.lock.Lock()
-	s.nonLvms[imagePath] = struct{}{}
-	s.lock.Unlock()
-}
-
-func (s *SLVMImageConnectUniqueToolSet) GetPathType(imagePath string) int {
-	if _, ok := s.nonLvms[imagePath]; ok {
-		return NON_LVM_PATH
-	}
-	if _, ok := s.lvms[imagePath]; ok {
-		return LVM_PATH
-	}
-	return PATH_TYPE_UNKNOWN
-}
-
-func (s *SLVMImageConnectUniqueToolSet) Release(imagePath string) {
-	if _, ok := s.lvms[imagePath]; ok {
-		s.lvms[imagePath].Unlock()
+	defer s.lock.Unlock()
+	im, ok := s.Load(imagePath)
+	if !ok {
+		imgProp := &SImageProp{
+			HasLVMPartition: true, // set has lvm partition default
+			lock:            new(sync.Mutex),
+		}
+		s.Store(imagePath, imgProp)
+		return imgProp, false
+	} else {
+		return im.(*SImageProp), ok
 	}
 }
 
-func (s *SLVMImageConnectUniqueToolSet) Acquire(imagePath string) {
-	s.lock.Lock()
-	if _, ok := s.lvms[imagePath]; !ok {
-		s.lvms[imagePath] = new(sync.Mutex)
+func (s *SLVMImageConnectUniqueToolSet) Acquire(imagePath string) (int, *sync.Mutex) {
+	var lock *sync.Mutex
+	pathType := PATH_TYPE_UNKNOWN
+	imgProp, ok := s.loadImagePath(imagePath)
+	if imgProp.HasLVMPartition {
+		if ok {
+			pathType = LVM_PATH
+		}
+		lock = imgProp.lock
+	} else {
+		pathType = NON_LVM_PATH
 	}
-	s.lock.Unlock()
-
-	s.lvms[imagePath].Lock()
+	return pathType, lock
 }
 
 type SKVMGuestLVMPartition struct {
