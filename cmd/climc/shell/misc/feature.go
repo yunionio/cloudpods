@@ -65,6 +65,7 @@ func init() {
 		"ksyun",
 		"baidu",
 		"cucloud",
+		"qingcloud",
 	}
 
 	const (
