@@ -17,16 +17,12 @@ package notify
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
-	"yunion.io/x/onecloud/pkg/mcclient/options/notify"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/notify"
 )
 
 func init() {
-	cmd1 := shell.NewResourceCmd(&modules.NotifySubscriber).WithKeyword("notify-subscriber")
-	cmd1.List(new(notify.SubscriberListOptions))
-	cmd1.Create(new(notify.SubscriberCreateOptions))
-	cmd1.Show(new(notify.SubscriberOptions))
-	cmd1.Delete(new(notify.SubscriberOptions))
-	cmd1.Perform("change", new(notify.SubscriberChangeOptions))
-	cmd1.Perform("enable", new(notify.SubscriberOptions))
-	cmd1.Perform("disable", new(notify.SubscriberOptions))
+	cmd := shell.NewResourceCmd(&modules.NotifyTopic).WithKeyword("notify-topic")
+	cmd.List(new(options.TopicListOptions))
+	cmd.Update(new(options.TopicUpdateOptions))
+	cmd.Show(new(options.TopicOptions))
 }
