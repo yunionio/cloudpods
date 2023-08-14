@@ -39,6 +39,7 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/openstack/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/proxmox/provider" // private clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/qcloud/provider"
+	_ "yunion.io/x/cloudmux/pkg/multicloud/qingcloud/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/remotefile/provider" // private clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider"     // object storages
 	_ "yunion.io/x/cloudmux/pkg/multicloud/zstack/provider"     // private clouds
