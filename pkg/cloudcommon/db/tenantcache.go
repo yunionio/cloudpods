@@ -236,6 +236,7 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 	if len(domainId) > 0 {
 		query.Set("domain_id", jsonutils.NewString(domainId))
 	}
+	query.Set("pending_delete", jsonutils.NewString("all"))
 
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	tenant, err := modules.Projects.GetById(s, idStr, query)
@@ -431,6 +432,7 @@ func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(ctx context.C
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(domainId), "domain_id")
 	params.Add(jsonutils.JSONTrue, "details")
+	params.Add(jsonutils.NewString("all"), "pending_delete")
 	tenants, err := modules.Projects.List(s, params)
 	if err != nil {
 		return errors.Wrap(err, "Projects.List")

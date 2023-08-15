@@ -465,7 +465,7 @@ func (policy *SPolicy) CustomizeCreate(ctx context.Context, userCred mcclient.To
 
 func (policy *SPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.SharedResourceManager.CleanModelShares(ctx, userCred, policy)
-	return policy.SEnabledIdentityBaseResource.Delete(ctx, userCred)
+	return policy.SEnabledIdentityBaseResource.RealDelete(ctx, userCred)
 }
 
 func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {

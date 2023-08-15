@@ -31,3 +31,8 @@ func (s SCachedTenant) objType() string {
 		return "project"
 	}
 }
+
+type SCachedUser struct {
+	SCachedTenant
+	Lang string
+}

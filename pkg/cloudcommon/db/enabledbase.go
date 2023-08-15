@@ -33,10 +33,14 @@ type SEnabledResourceBase struct {
 	Enabled tristate.TriState `default:"false" list:"user" create:"optional"`
 }
 
-type IEnabledBase interface {
-	IModel
+type IEnabledBaseInterface interface {
 	SetEnabled(enabled bool)
 	GetEnabled() bool
+}
+
+type IEnabledBase interface {
+	IModel
+	IEnabledBaseInterface
 }
 
 func (m *SEnabledResourceBase) SetEnabled(enabled bool) {

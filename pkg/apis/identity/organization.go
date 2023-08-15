@@ -59,7 +59,10 @@ func IsValidOrgType(orgType TOrgType) bool {
 }
 
 type OrganizationListInput struct {
-	apis.EnabledStatusInfrasResourceBaseListInput
+	EnabledIdentityBaseResourceListInput
+	apis.SharableResourceBaseListInput
+	apis.StatusResourceBaseListInput
+	// apis.EnabledStatusInfrasResourceBaseListInput
 
 	Type []TOrgType `json:"type"`
 
@@ -67,7 +70,10 @@ type OrganizationListInput struct {
 }
 
 type OrganizationCreateInput struct {
-	apis.EnabledStatusInfrasResourceBaseCreateInput
+	EnabledIdentityBaseResourceCreateInput
+	apis.SharableResourceBaseCreateInput
+	apis.StatusBaseResourceCreateInput
+	// apis.EnabledStatusInfrasResourceBaseCreateInput
 
 	Type TOrgType `json:"type"`
 
@@ -96,7 +102,10 @@ func (info *SOrganizationInfo) String() string {
 }
 
 type OrganizationUpdateInput struct {
-	apis.EnabledStatusInfrasResourceBaseUpdateInput
+	EnabledIdentityBaseUpdateInput
+	// apis.SharableResourceBaseUpdateInput
+	// apis.StatusResourceBaseUpdateInput
+	// apis.EnabledStatusInfrasResourceBaseUpdateInput
 }
 
 type OrganizationPerformAddLevelsInput struct {

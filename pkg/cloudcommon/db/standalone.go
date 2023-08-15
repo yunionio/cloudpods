@@ -139,6 +139,10 @@ func (model *SStandaloneResourceBase) GetName() string {
 	return model.Name
 }
 
+func (model *SStandaloneResourceBase) SetName(name string) {
+	model.Name = name
+}
+
 func (model *SStandaloneResourceBase) GetIStandaloneModel() IStandaloneModel {
 	return model.GetVirtualObject().(IStandaloneModel)
 }

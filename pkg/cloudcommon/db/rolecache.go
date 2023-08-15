@@ -122,6 +122,7 @@ func (manager *SRoleCacheManager) FetchRoleFromKeystone(ctx context.Context, idS
 	query := jsonutils.NewDict()
 	query.Set("scope", jsonutils.NewString("system"))
 	query.Set("system", jsonutils.JSONTrue)
+	query.Set("pending_delete", jsonutils.NewString("all"))
 
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	role, err := modules.RolesV3.GetById(s, idStr, query)
