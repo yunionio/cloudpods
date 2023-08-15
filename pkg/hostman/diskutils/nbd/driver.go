@@ -200,7 +200,9 @@ func (d *NBDDriver) Disconnect() error {
 			lock.Lock()
 			defer lock.Unlock()
 		}
-		d.putdownLVMs()
+		if !d.putdownLVMs() {
+			return fmt.Errorf("failed putdown lvm devices %s", d.nbdDev)
+		}
 		return d.disconnect()
 	} else {
 		return nil
@@ -217,11 +219,14 @@ func (d *NBDDriver) disconnect() error {
 	return nil
 }
 
-func (d *NBDDriver) putdownLVMs() {
+func (d *NBDDriver) putdownLVMs() bool {
 	for _, lvm := range d.lvms {
-		lvm.PutdownDevice()
+		if !lvm.PutdownDevice() {
+			return false
+		}
 	}
 	d.lvms = []*SKVMGuestLVMPartition{}
+	return true
 }
 
 func (d *NBDDriver) GetPartitions() []fsdriver.IDiskPartition {
