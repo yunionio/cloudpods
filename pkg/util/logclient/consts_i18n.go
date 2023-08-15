@@ -1386,4 +1386,10 @@ func init() {
 		EN("Dissociate").
 		CN("解除关联"),
 	)
+
+	o.Set(ACT_ADD_BASTION_SERVER, i18n.NewTableEntry().
+		EN("Add Bastionhost Server").
+		CN("添加实例到堡垒机"),
+	)
+
 }
