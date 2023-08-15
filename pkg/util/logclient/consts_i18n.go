@@ -1396,4 +1396,10 @@ func init() {
 		EN("Progress").
 		CN("进展"),
 	)
+
+	o.Set(ACT_ADD_BASTION_SERVER, i18n.NewTableEntry().
+		EN("Add Bastionhost Server").
+		CN("添加实例到堡垒机"),
+	)
+
 }
