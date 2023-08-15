@@ -21,12 +21,14 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -214,6 +216,37 @@ func (p *SKVMGuestLVMPartition) FindPartitions() []*kvmpart.SKVMGuestDiskPartiti
 	return parts
 }
 
+func (p *SKVMGuestLVMPartition) UmountPartitions() error {
+	files, err := ioutil.ReadDir("/dev/" + p.vgname)
+	if err == nil {
+		for _, f := range files {
+			partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())
+			out, err := procutils.NewCommand("umount", partPath).Output()
+			if err != nil {
+				log.Errorf("failed umount part %s: %s", partPath, out)
+			}
+		}
+	}
+
+	if !os.IsNotExist(err) {
+		return errors.Errorf("unable to readir /dev/%s: %v", p.vgname, err)
+	}
+	lvs, err := p.lvs()
+	if err != nil {
+		return errors.Errorf("unable to list lvs: %v", err)
+	}
+	for _, lvname := range lvs {
+		partPath := fmt.Sprintf("/dev/mapper/%s-%s", p.vgname, lvname)
+		if fileutils2.Exists(partPath) {
+			out, err := procutils.NewCommand("umount", partPath).Output()
+			if err != nil {
+				log.Errorf("failed umount part %s: %s", partPath, out)
+			}
+		}
+	}
+	return nil
+}
+
 var gexp *regexp.Regexp = regexp.MustCompile(`\s+`)
 
 func (p *SKVMGuestLVMPartition) lvs() ([]string, error) {
@@ -239,9 +272,23 @@ func (p *SKVMGuestLVMPartition) lvs() ([]string, error) {
 }
 
 func (p *SKVMGuestLVMPartition) PutdownDevice() bool {
-	if !p.vgActivate(false) {
+	var deactivate = false
+	for i := 0; i < 10; i++ {
+		if !p.vgActivate(false) {
+			log.Errorf("failed deactivate %s", p.vgname)
+			if err := p.UmountPartitions(); err != nil {
+				log.Warningf("failed umount partitions %s", err)
+			}
+			time.Sleep(time.Second * 3)
+		} else {
+			deactivate = true
+			break
+		}
+	}
+	if !deactivate {
 		return false
 	}
+
 	if len(p.originVgname) == 0 || !p.needChangeName {
 		return true
 	}
