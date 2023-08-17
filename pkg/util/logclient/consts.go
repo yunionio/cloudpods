@@ -256,4 +256,6 @@ const (
 
 	ACT_BIND     = "bind"
 	ACT_PROGRESS = "progress"
+
+	ACT_ADD_BASTION_SERVER = "add_bastion_server"
 )
