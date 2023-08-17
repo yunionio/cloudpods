@@ -82,6 +82,12 @@ type Command struct {
 	Args    interface{} `json:"arguments,omitempty"`
 }
 
+type NetworkModify struct {
+	Device  string `json:"device"`
+	Ipmask  string `json:"ipmask"`
+	Gateway string `json:"gateway"`
+}
+
 type Version struct {
 	Package string `json:"package"`
 	QEMU    struct {

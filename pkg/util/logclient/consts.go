@@ -227,6 +227,8 @@ const (
 
 	ACT_RESTART_NETWORK = "restart_network"
 
+	ACT_QGA_NETWORK_INPUT = "qga_network_input"
+
 	ACT_RECOVERY = "recovery"
 	ACT_PACK     = "pack"
 	ACT_UNPACK   = "unpack"

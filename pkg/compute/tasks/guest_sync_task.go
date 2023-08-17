@@ -64,7 +64,58 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 			self.SetStageComplete(ctx, nil)
 			return
 		}
-		if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
+		preMac, err := self.Params.GetString("prev_mac")
+		if err != nil {
+			log.Errorf("unable to get prev_mac when restart_network is true when sync guest")
+			self.SetStageComplete(ctx, nil)
+			return
+		}
+		ipMask, err := self.Params.GetString("ip_mask")
+		if err != nil {
+			log.Errorf("unable to get ip_mask when restart_network is true when sync guest")
+			self.SetStageComplete(ctx, nil)
+			return
+		}
+		gateway, err := self.Params.GetString("gateway")
+		if err != nil {
+			log.Errorf("unable to get gateway when restart_network is true when sync guest")
+			self.SetStageComplete(ctx, nil)
+			return
+		}
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, guest.QgaStatus, self.UserCred, false)
+		_, err = guest.PerformQgaStatus(ctx, self.UserCred)
+		if err != nil {
+			guest.UpdateQgaStatus(api.QGA_STATUS_UNKNOWN)
+		} else {
+			guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
+		}
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, err, self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, guest.QgaStatus, self.UserCred, false)
+		if guest.Hypervisor == api.HYPERVISOR_KVM && guest.Status == api.VM_RESTART_NETWORK && guest.QgaStatus == api.QGA_STATUS_AVAILABLE {
+			guest.UpdateQgaStatus(api.QGA_STATUS_EXCUTING)
+			ifnameDevice, _ := guest.PerformGetIfname(ctx, self.UserCred, preMac)
+			if ifnameDevice == "" {
+				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, "找不到相应mac地址的网卡名称", self.UserCred, false)
+			}
+			_, err := guest.PerformSetNetwork(ctx, self.UserCred, ifnameDevice, ipMask, gateway)
+			//如果第一次执行失败，再执行一次
+			if err != nil {
+				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, err, self.UserCred, false)
+				_, err = guest.PerformSetNetwork(ctx, self.UserCred, ifnameDevice, ipMask, gateway)
+			}
+			guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
+			//如果第二次执行失败，使用ansible修改网络配置
+			if err != nil {
+				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, err, self.UserCred, false)
+				if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
+					guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, true)
+				} else {
+					guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, false)
+				}
+			} else {
+				guest.SetStatus(self.UserCred, api.VM_RUNNING, "on qga set network success")
+			}
+		} else if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
 			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, true)
 		} else {
 			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, false)

@@ -97,6 +97,9 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"qga-set-password":         qgaGuestSetPassword,
 			"qga-guest-ping":           qgaGuestPing,
 			"qga-command":              qgaCommand,
+			"qga-guest-info-task":      qgaGuestInfoTask,
+			"qga-get-network":          qgaGetNetwork,
+			"qga-set-network":          qgaSetNetwork,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -853,4 +856,39 @@ func qgaCommand(ctx context.Context, userCred mcclient.TokenCredential, sid stri
 	}
 
 	return gm.QgaCommand(qgaCmd, sid, input.Timeout)
+}
+
+func qgaGuestInfoTask(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	return gm.QgaGuestInfoTask(sid)
+}
+
+func qgaGetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	return gm.QgaGetNetwork(sid)
+}
+
+func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	input := computeapi.ServerQgaSetNetworkInput{}
+	err := body.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal input to ServerQgaSetNetworkInput: %s", err.Error())
+	}
+	if input.Device == "" {
+		return nil, httperrors.NewMissingParameterError("device")
+	}
+	if input.Ipmask == "" {
+		return nil, httperrors.NewMissingParameterError("ipmask")
+	}
+	if input.Gateway == "" {
+		return nil, httperrors.NewMissingParameterError("gateway")
+	}
+
+	qgaNetMod := &monitor.NetworkModify{
+		Device:  input.Device,
+		Ipmask:  input.Ipmask,
+		Gateway: input.Gateway,
+	}
+	return gm.QgaSetNetwork(qgaNetMod, sid, input.Timeout)
 }

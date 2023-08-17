@@ -2339,6 +2339,15 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
+	//Get the detailed description of the NIC
+	networkJsonDesc := ngn[0].getJsonDesc()
+	networkJsonDescJSONObject := jsonutils.Marshal(networkJsonDesc)
+	newIpAddr, _ := networkJsonDescJSONObject.GetString("ip")
+	newMacAddr, _ := networkJsonDescJSONObject.GetString("mac")
+	newMaskLen, _ := networkJsonDescJSONObject.GetString("masklen")
+	newGateway, _ := networkJsonDescJSONObject.GetString("gateway")
+	Ip_mask := fmt.Sprintf("%s/%s", newIpAddr, newMaskLen)
+
 	notes := jsonutils.NewDict()
 	if gn != nil {
 		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
@@ -2354,12 +2363,58 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && (self.Status == api.VM_RUNNING || self.Status == api.VM_BLOCK_STREAM) {
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
+		taskData.Set("prev_mac", jsonutils.NewString(newMacAddr))
+		taskData.Set("ip_mask", jsonutils.NewString(Ip_mask))
+		taskData.Set("gateway", jsonutils.NewString(newGateway))
 		if self.Status == api.VM_BLOCK_STREAM {
 			taskData.Set("in_block_stream", jsonutils.JSONTrue)
 		}
 		self.SetStatus(userCred, api.VM_RESTART_NETWORK, "restart network")
 	}
 	return nil, self.startSyncTask(ctx, userCred, true, "", taskData)
+}
+
+func (self *SGuest) PerformQgaStatus(ctx context.Context, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	//Judging the status based on the execution of the guest-info command
+	return self.PerformQgaGuestInfoTask(ctx, userCred, nil, nil)
+}
+func (self *SGuest) PerformGetIfname(ctx context.Context, userCred mcclient.TokenCredential, mac string) (string, error) {
+	//Find the network card according to the mac address, if it is empty, it means no network card is found
+	ifnameData, err := self.PerformQgaGetNetwork(ctx, userCred, nil, nil)
+	if err != nil {
+		return "", err
+	}
+	//Get the name of the network card
+	var parsedData []qga.IfnameDetail
+	if err := json.Unmarshal([]byte(ifnameData.String()), &parsedData); err != nil {
+		return "", err
+	}
+
+	var ifname_device string
+	//Finding a network card by its mac address
+	for _, detail := range parsedData {
+		if detail.HardwareAddress == mac {
+			ifname_device = detail.Name
+		}
+	}
+	return ifname_device, nil
+}
+func (self *SGuest) PerformSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, device string, ipMask string, gateway string) (jsonutils.JSONObject, error) {
+
+	inputQgaNet := &api.ServerQgaSetNetworkInput{
+		Device:  device,
+		Ipmask:  ipMask,
+		Gateway: gateway,
+	}
+
+	// if success, log network related information
+	notesNetwork := jsonutils.NewDict()
+	notesNetwork.Add(jsonutils.NewString(inputQgaNet.Device), "Device")
+	notesNetwork.Add(jsonutils.NewString(inputQgaNet.Ipmask), "Ipmask")
+	notesNetwork.Add(jsonutils.NewString(inputQgaNet.Gateway), "Gateway")
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_RESTART_NETWORK, notesNetwork, userCred, true)
+
+	return self.PerformQgaSetNetwork(ctx, userCred, nil, inputQgaNet)
 }
 
 func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDetachnetworkInput) (jsonutils.JSONObject, error) {
