@@ -1,9 +1,7 @@
 name: Glance Docker Image
 
 on:
-  pull_request:
-    types:
-      - closed
+  push:
     branches:
       - 'releases/**'
       - 'main'
@@ -15,7 +13,6 @@ on:
       - 'vendor/yunion.io/x/jsonutils/**.go'
 jobs:
   build_glance:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
