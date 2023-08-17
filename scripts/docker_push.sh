@@ -132,7 +132,7 @@ buildx_and_push() {
         return
     fi
     docker buildx build -t "$tag" --platform "linux/$arch" -f "$2" "$3" --push
-    docker pull "$tag"
+    docker pull --platform "linux/$arch" "$tag"
 }
 
 get_image_name() {
@@ -213,14 +213,11 @@ make_manifest_image() {
         docker push $img_name-arm64
     fi
 
-    docker manifest create --amend --insecure $img_name \
+    docker buildx imagetools create -t $img_name \
         $img_name-amd64 \
         $img_name-arm64
-    docker manifest annotate $img_name --arch amd64 --os linux $img_name-amd64
-    docker manifest annotate $img_name --arch arm64 --os linux $img_name-arm64
     docker manifest inspect ${img_name} | grep -wq amd64
     docker manifest inspect ${img_name} | grep -wq arm64
-    docker manifest push --insecure $img_name
 }
 
 ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | xargs)

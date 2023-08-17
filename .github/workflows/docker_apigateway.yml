@@ -7,6 +7,8 @@ on:
       - 'main'
       - 'master'
     paths:
+      - 'pkg/appsrv/**.go'
+      - 'pkg/cloudcommon/db/**.go'
       - 'pkg/apigateway/**.go'
       - 'pkg/apis/apigateway/**.go'
       - 'pkg/mcclient/modules/**.go'
@@ -32,7 +34,7 @@ jobs:
     - name: Login to Aliyun Container Registry (ACR)
       uses: docker/login-action@v2
       with:
-        registry: https://registry.cn-beijing.aliyuncs.com
+        registry: https://registry.us-west-1.aliyuncs.com
         username: ${{ secrets.ACR_USERNAME }}
         password: ${{ secrets.ACR_PASSWORD }}
        
@@ -46,5 +48,5 @@ jobs:
           export VERSION="$branch-$timestamp-solo"
           export GOOS=linux
           export ARCH=all
-          export REGISTRY=registry.cn-beijing.aliyuncs.com/yunion-dev
+          export REGISTRY=registry.us-west-1.aliyuncs.com/yunion-dev
           make image apigateway
