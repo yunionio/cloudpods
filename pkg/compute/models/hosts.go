@@ -4551,7 +4551,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 	}
 	netif, err := NetInterfaceManager.FetchByMacVlan(mac, vlanId)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if errors.Cause(err) != sql.ErrNoRows {
 			return httperrors.NewInternalServerError("fail to fetch netif by mac %s: %s", mac, err)
 		}
 		// else not found
