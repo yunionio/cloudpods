@@ -96,11 +96,7 @@ func (manager *SNetInterfaceManager) FetchByMacVlan(mac string, vlanId int) (*SN
 	ret := &SNetInterface{}
 	err := q.First(ret)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, nil
-		} else {
-			return nil, errors.Wrap(err, "Query")
-		}
+		return nil, errors.Wrapf(err, "First")
 	}
 	ret.SetModelManager(manager, ret)
 	return ret, nil
