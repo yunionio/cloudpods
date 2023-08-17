@@ -1,4 +1,4 @@
-name: Apigateway Docker Image
+name: Esxi Agent Docker Image
 
 on:
   push:
@@ -7,11 +7,10 @@ on:
       - 'main'
       - 'master'
     paths:
-      - 'pkg/apigateway/**.go'
-      - 'pkg/apis/apigateway/**.go'
-      - 'pkg/mcclient/modules/**.go'
+      - 'pkg/esxi/**.go'
+
 jobs:
-  build_apigateway:
+  build_webconsole:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -35,7 +34,7 @@ jobs:
         registry: https://registry.cn-beijing.aliyuncs.com
         username: ${{ secrets.ACR_USERNAME }}
         password: ${{ secrets.ACR_PASSWORD }}
-       
+        
     - name: Build And Push Docker Image
       shell: bash
       run: |
@@ -47,4 +46,4 @@ jobs:
           export GOOS=linux
           export ARCH=all
           export REGISTRY=registry.cn-beijing.aliyuncs.com/yunion-dev
-          make image apigateway
+          make image esxi-agent
