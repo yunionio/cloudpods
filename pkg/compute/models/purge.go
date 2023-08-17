@@ -74,6 +74,15 @@ func (self *SCloudregion) purgeAll(ctx context.Context, managerId string) error 
 	if err != nil {
 		return errors.Wrapf(err, "purgeResources")
 	}
+
+	cprCount, err := CloudproviderRegionManager.Query().Equals("cloudregion_id", self.Id).CountWithError()
+	if err != nil {
+		return errors.Wrapf(err, "cpr count")
+	}
+	// 部分cloudprovider依然有此region, 避免直接删除
+	if cprCount > 0 {
+		return nil
+	}
 	err = self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil
