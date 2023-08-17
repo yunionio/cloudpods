@@ -466,21 +466,18 @@ func (self *SVirtualMachine) startVM(ctx context.Context) error {
 
 	err := self.makeNicsStartConnected(ctx)
 	if err != nil {
-		log.Errorf("self.makeNicsStartConnected %s", err)
-		return err
+		return errors.Wrapf(err, "makeNicStartConnected")
 	}
 
 	vm := self.getVmObj()
 
 	task, err := vm.PowerOn(ctx)
 	if err != nil {
-		log.Errorf("vm.PowerOn %s", err)
-		return err
+		return errors.Wrapf(err, "PowerOn")
 	}
 	err = task.Wait(ctx)
 	if err != nil {
-		log.Errorf("task.Wait %s", err)
-		return err
+		return errors.Wrapf(err, "task.Wait")
 	}
 	return nil
 }
@@ -593,8 +590,7 @@ func (self *SVirtualMachine) doUnregister(ctx context.Context) error {
 
 	err := vm.Unregister(ctx)
 	if err != nil {
-		log.Errorf("vm.Unregister(ctx) fail %s", err)
-		return err
+		return errors.Wrapf(err, "Unregister")
 	}
 	return nil
 }

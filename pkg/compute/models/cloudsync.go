@@ -2547,13 +2547,6 @@ func SyncCloudaccountResources(ctx context.Context, userCred mcclient.TokenCrede
 		}
 	}
 
-	if cloudprovider.IsSupportDnsZone(provider) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_DNSZONE) {
-		err = syncDns(ctx, userCred, SSyncResultSet{}, account, provider, syncRange.Xor)
-		if err != nil {
-			log.Errorf("Sync dns zone for account %s error: %v", account.Name, err)
-		}
-	}
-
 	return nil
 }
 
@@ -2585,34 +2578,6 @@ func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 	return nil
 }
 
-func syncDns(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, account *SCloudaccount, provider cloudprovider.ICloudProvider, xor bool) error {
-	lockman.LockRawObject(ctx, DnsZoneCacheManager.Keyword(), account.Id)
-	defer lockman.ReleaseRawObject(ctx, DnsZoneCacheManager.Keyword(), account.Id)
-
-	dnsZones, err := provider.GetICloudDnsZones()
-	if err != nil {
-		return errors.Wrapf(err, "GetICloudDnsZones")
-	}
-	localZones, remoteZones, result := account.SyncDnsZones(ctx, userCred, dnsZones, xor)
-	notes := fmt.Sprintf("Sync dns zones for cloudaccount %s result: %s", account.Name, result.Result())
-	log.Infof(notes)
-	account.SyncError(result, notes, userCred)
-	for i := 0; i < len(localZones); i++ {
-		func() {
-			lockman.LockObject(ctx, &localZones[i])
-			defer lockman.ReleaseObject(ctx, &localZones[i])
-
-			if localZones[i].Deleted {
-				return
-			}
-
-			result := localZones[i].SyncDnsRecordSets(ctx, userCred, account.Provider, remoteZones[i], xor)
-			log.Infof("Sync dns records for dns zone %s result: %s", localZones[i].GetName(), result.Result())
-		}()
-	}
-	return nil
-}
-
 func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, syncRange *SSyncRange) error {
 	driver, err := provider.GetProvider(ctx)
 	if err != nil {
@@ -2630,6 +2595,13 @@ func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCred
 		err = syncInterVpcNetworks(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("syncInterVpcNetworks error: %v", err)
+		}
+	}
+
+	if cloudprovider.IsSupportDnsZone(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_DNSZONE) {
+		err = syncDnsZones(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		if err != nil {
+			log.Errorf("syncDnsZones error: %v", err)
 		}
 	}
 
@@ -2673,6 +2645,27 @@ func syncInterVpcNetworks(ctx context.Context, userCred mcclient.TokenCredential
 			continue
 		}
 		localNetwork[i].SyncInterVpcNetworkRouteSets(ctx, userCred, remoteNetwork[i], xor)
+	}
+	return nil
+}
+
+func syncDnsZones(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, xor bool) error {
+	dnsZones, err := driver.GetICloudDnsZones()
+	if err != nil {
+		return errors.Wrapf(err, "GetICloudInterVpcNetworks")
+	}
+	localZones, remoteZones, result := provider.SyncDnsZones(ctx, userCred, dnsZones, xor)
+	notes := fmt.Sprintf("Sync dns zones for cloudaccount %s result: %s", provider.Name, result.Result())
+	log.Infof(notes)
+	provider.SyncError(result, notes, userCred)
+	for i := range localZones {
+		lockman.LockObject(ctx, &localZones[i])
+		defer lockman.ReleaseObject(ctx, &localZones[i])
+
+		if localZones[i].Deleted {
+			continue
+		}
+		localZones[i].SyncRecords(ctx, userCred, remoteZones[i], xor)
 	}
 	return nil
 }

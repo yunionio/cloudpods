@@ -16,8 +16,8 @@ package aliyun
 
 import (
 	"strconv"
+	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -38,7 +38,7 @@ type SPvtzRecord struct {
 	Status   string `json:"Status"`
 	Value    string `json:"Value"`
 	Rr       string `json:"Rr"`
-	RecordID int64  `json:"RecordId"`
+	RecordId string `json:"RecordId"`
 	TTL      int64  `json:"Ttl"`
 	Type     string `json:"Type"`
 	Priority int64  `json:"Priority"`
@@ -88,7 +88,7 @@ func (client *SAliyunClient) GetAllZoneRecords(ZoneId string) ([]SPvtzRecord, er
 	return srecords, nil
 }
 
-func (client *SAliyunClient) AddZoneRecord(ZoneId string, opts cloudprovider.DnsRecordSet) (string, error) {
+func (client *SAliyunClient) AddZoneRecord(ZoneId string, opts *cloudprovider.DnsRecord) (string, error) {
 	params := map[string]string{}
 	params["Action"] = "AddZoneRecord"
 	params["Rr"] = opts.DnsName
@@ -103,8 +103,7 @@ func (client *SAliyunClient) AddZoneRecord(ZoneId string, opts cloudprovider.Dns
 	if err != nil {
 		return "", errors.Wrap(err, "AddZoneRecord")
 	}
-	recordId := ""
-	return recordId, ret.Unmarshal(&recordId, "RecordId")
+	return ret.GetString("RecordId")
 }
 
 // https://help.aliyun.com/document_detail/66251.html?spm=a2c4g.11186623.6.596.15d55563zpsSWE
@@ -113,28 +112,10 @@ func (client *SAliyunClient) SetZoneRecordStatus(recordId string, status string)
 	params := map[string]string{}
 	params["Action"] = "SetZoneRecordStatus"
 	params["RecordId"] = recordId
-	params["Status"] = status
+	params["Status"] = strings.ToUpper(status)
 	_, err := client.pvtzRequest("SetZoneRecordStatus", params)
 	if err != nil {
 		return errors.Wrap(err, "SetZoneRecordStatus")
-	}
-	return nil
-}
-
-func (client *SAliyunClient) UpdateZoneRecord(opts cloudprovider.DnsRecordSet) error {
-	params := map[string]string{}
-	params["Action"] = "UpdateZoneRecord"
-	params["RecordId"] = opts.ExternalId
-	params["Rr"] = opts.DnsName
-	params["Type"] = string(opts.DnsType)
-	params["Value"] = opts.DnsValue
-	params["Ttl"] = strconv.FormatInt(opts.Ttl, 10)
-	if opts.DnsType == cloudprovider.DnsTypeMX {
-		params["Priority"] = strconv.FormatInt(opts.MxPriority, 10)
-	}
-	_, err := client.pvtzRequest("UpdateZoneRecord", params)
-	if err != nil {
-		return errors.Wrap(err, "UpdateZoneRecord")
 	}
 	return nil
 }
@@ -151,7 +132,7 @@ func (client *SAliyunClient) DeleteZoneRecord(RecordId string) error {
 }
 
 func (self *SPvtzRecord) GetGlobalId() string {
-	return strconv.FormatInt(self.RecordID, 10)
+	return self.RecordId
 }
 
 func (self *SPvtzRecord) GetDnsName() string {
@@ -178,6 +159,10 @@ func (self *SPvtzRecord) GetTTL() int64 {
 	return self.TTL
 }
 
+func (self *SPvtzRecord) Delete() error {
+	return self.szone.client.DeleteZoneRecord(self.RecordId)
+}
+
 func (self *SPvtzRecord) GetMxPriority() int64 {
 	if self.GetDnsType() == cloudprovider.DnsTypeMX {
 		return self.Priority
@@ -193,6 +178,32 @@ func (self *SPvtzRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 	return ""
 }
 
-func (self *SPvtzRecord) GetPolicyOptions() *jsonutils.JSONDict {
+func (client *SAliyunClient) UpdateZoneRecord(id string, opts *cloudprovider.DnsRecord) error {
+	params := map[string]string{}
+	params["Action"] = "UpdateZoneRecord"
+	params["RecordId"] = id
+	params["Rr"] = opts.DnsName
+	params["Type"] = string(opts.DnsType)
+	params["Value"] = opts.DnsValue
+	params["Ttl"] = strconv.FormatInt(opts.Ttl, 10)
+	if opts.DnsType == cloudprovider.DnsTypeMX {
+		params["Priority"] = strconv.FormatInt(opts.MxPriority, 10)
+	}
+	_, err := client.pvtzRequest("UpdateZoneRecord", params)
+	if err != nil {
+		return errors.Wrap(err, "UpdateZoneRecord")
+	}
 	return nil
+}
+
+func (self *SPvtzRecord) Update(opts *cloudprovider.DnsRecord) error {
+	return self.szone.client.UpdateZoneRecord(self.RecordId, opts)
+}
+
+func (self *SPvtzRecord) Enable() error {
+	return self.szone.client.SetZoneRecordStatus(self.RecordId, "ENABLE")
+}
+
+func (self *SPvtzRecord) Disable() error {
+	return self.szone.client.SetZoneRecordStatus(self.RecordId, "DISABLE")
 }

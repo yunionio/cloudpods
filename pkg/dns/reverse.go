@@ -22,6 +22,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 
+	"yunion.io/x/pkg/gotypes"
+
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -43,9 +45,9 @@ func (r *SRegionDNS) getNameForIp(ip string, state request.Request) ([]msg.Servi
 	}
 
 	// 1. try local dns records table
-	records := models.DnsRecordManager.QueryDnsIps(req.ProjectId(), req.Name(), req.Type())
-	for _, rec := range records {
-		return []msg.Service{{Host: rec.Addr, TTL: uint32(rec.Ttl)}}, nil
+	rec, _ := models.DnsRecordManager.QueryDns(req.ProjectId(), req.Name(), req.Type())
+	if !gotypes.IsNil(rec) {
+		return []msg.Service{{Host: rec.DnsValue, TTL: uint32(rec.TTL)}}, nil
 	}
 
 	// 2. try hosts table

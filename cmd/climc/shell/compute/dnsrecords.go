@@ -15,129 +15,18 @@
 package compute
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	R(&options.DNSListOptions{}, "dns-list", "List dns records", func(s *mcclient.ClientSession, opts *options.DNSListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.DNSRecords.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.DNSRecords.GetColumns(s))
-		return nil
-	})
-
-	R(&options.DNSCreateOptions{}, "dns-create", "Create dns record", func(s *mcclient.ClientSession, opts *options.DNSCreateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		rec, e := modules.DNSRecords.Create(s, params)
-		if e != nil {
-			return e
-		}
-		printObject(rec)
-		return nil
-	})
-
-	R(&options.DNSGetOptions{}, "dns-show", "Show details of a dns records", func(s *mcclient.ClientSession, opts *options.DNSGetOptions) error {
-		dns, e := modules.DNSRecords.Get(s, opts.ID, nil)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSUpdateOptions{}, "dns-update", "Update details of a dns records", func(s *mcclient.ClientSession, opts *options.DNSUpdateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		dns, e := modules.DNSRecords.Update(s, opts.ID, params)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSGetOptions{}, "dns-delete", "Delete a dns record", func(s *mcclient.ClientSession, opts *options.DNSGetOptions) error {
-		dns, e := modules.DNSRecords.Delete(s, opts.ID, nil)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSGetOptions{}, "dns-public", "Make a dns record publicly available", func(s *mcclient.ClientSession, opts *options.DNSGetOptions) error {
-		dns, e := modules.DNSRecords.PerformAction(s, opts.ID, "public", nil)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSGetOptions{}, "dns-private", "Make a dns record private", func(s *mcclient.ClientSession, opts *options.DNSGetOptions) error {
-		dns, e := modules.DNSRecords.PerformAction(s, opts.ID, "private", nil)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSGetOptions{}, "dns-enable", "Enable dns record", func(s *mcclient.ClientSession, opts *options.DNSGetOptions) error {
-		dns, e := modules.DNSRecords.PerformAction(s, opts.ID, "enable", nil)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSGetOptions{}, "dns-disable", "Disable dns record", func(s *mcclient.ClientSession, opts *options.DNSGetOptions) error {
-		dns, e := modules.DNSRecords.PerformAction(s, opts.ID, "disable", nil)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSUpdateRecordsOptions{}, "dns-add-records", "Add DNS records to a name", func(s *mcclient.ClientSession, opts *options.DNSUpdateRecordsOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		dns, e := modules.DNSRecords.PerformAction(s, opts.ID, "add-records", params)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
-	R(&options.DNSUpdateRecordsOptions{}, "dns-remove-records", "Remove DNS records from a name", func(s *mcclient.ClientSession, opts *options.DNSUpdateRecordsOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		dns, e := modules.DNSRecords.PerformAction(s, opts.ID, "remove-records", params)
-		if e != nil {
-			return e
-		}
-		printObject(dns)
-		return nil
-	})
-
+	cmd := shell.NewResourceCmd(&modules.DnsRecords).WithKeyword("dns-record")
+	cmd.List(&compute.DnsRecordListOptions{})
+	cmd.Create(&compute.DnsRecordCreateOptions{})
+	cmd.Update(&compute.DnsRecordUpdateOptions{})
+	cmd.Show(&compute.DnsRecordIdOptions{})
+	cmd.Delete(&compute.DnsRecordIdOptions{})
+	cmd.Perform("enable", &compute.DnsRecordIdOptions{})
+	cmd.Perform("disable", &compute.DnsRecordIdOptions{})
 }

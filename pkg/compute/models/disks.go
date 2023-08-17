@@ -1095,8 +1095,7 @@ func (self *SDisk) GetIDisk(ctx context.Context) (cloudprovider.ICloudDisk, erro
 	}
 	iStorage, err := self.GetIStorage(ctx)
 	if err != nil {
-		log.Errorf("fail to find iStorage: %v", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIStorage")
 	}
 	return iStorage.GetIDiskById(self.GetExternalId())
 }

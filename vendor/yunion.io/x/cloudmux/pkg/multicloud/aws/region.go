@@ -136,6 +136,7 @@ const (
 	CLOUD_TRAIL_SERVICE_ID   = "cloudtrail"
 
 	ROUTE53_SERVICE_NAME = "route53"
+	ROUTE53_SERVICE_ID   = "Route 53"
 
 	ELASTICACHE_SERVICE_NAME = "elasticache"
 	ELASTICACHE_SERVICE_ID   = "ElastiCache"

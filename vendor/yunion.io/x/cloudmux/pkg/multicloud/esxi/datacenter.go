@@ -311,7 +311,7 @@ func (dc *SDatacenter) fetchVmsFromCache(vmRefs []types.ManagedObjectReference) 
 	for i := range ihosts {
 		ivms, err := ihosts[i].GetIVMs()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetIVMs")
 		}
 		for i := range ivms {
 			vm := ivms[i].(*SVirtualMachine)

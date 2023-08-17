@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/ovsdb/types"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/utils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -892,14 +893,9 @@ func (keeper *OVNNorthboundKeeper) ClaimDnsRecords(ctx context.Context, vpcs age
 		if !dnsrecord.Enabled.Bool() {
 			continue
 		}
-		name := dnsrecord.Name
-		for _, r := range dnsrecord.GetInfo() {
-			prefs := []string{"A:", "AAAA:"}
-			for _, pref := range prefs {
-				if strings.HasPrefix(r, pref) {
-					names[name] = append(names[name], r[len(pref):])
-				}
-			}
+		name := fmt.Sprintf("%s.%s", dnsrecord.Name, dnsrecord.DnsZone.Name)
+		if utils.IsInStringArray(dnsrecord.DnsType, []string{"A", "AAAA"}) {
+			names[name] = append(names[name], dnsrecord.DnsValue)
 		}
 	}
 	if len(names) == 0 {
