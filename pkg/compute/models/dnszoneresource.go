@@ -16,13 +16,12 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -30,7 +29,9 @@ type SDnsZoneResourceBase struct {
 	DnsZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" json:"dns_zone_id"`
 }
 
-type SDnsZoneResourceBaseManager struct{}
+type SDnsZoneResourceBaseManager struct {
+	SManagedResourceBaseManager
+}
 
 func (manager *SDnsZoneResourceBaseManager) ListItemFilter(
 	ctx context.Context,
@@ -39,14 +40,21 @@ func (manager *SDnsZoneResourceBaseManager) ListItemFilter(
 	query api.DnsZoneFilterListBase,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.DnsZoneId) > 0 {
-		dnsZone, err := DnsZoneManager.FetchByIdOrName(userCred, query.DnsZoneId)
+		_, err := validators.ValidateModel(userCred, DnsZoneManager, &query.DnsZoneId)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("dns_zone", query.DnsZoneId)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, err
 		}
-		q = q.Equals("dns_zone_id", dnsZone.GetId())
+		q = q.Equals("dns_zone_id", query.DnsZoneId)
 	}
+
+	subq := DnsZoneManager.Query("id").Snapshot()
+	subq, err := manager.SManagedResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	if subq.IsAltered() {
+		q = q.Filter(sqlchemy.In(q.Field("dns_zone_id"), subq.SubQuery()))
+	}
+
 	return q, nil
 }

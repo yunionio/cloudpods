@@ -20,13 +20,13 @@ import (
 )
 
 var (
-	DNSRecords modulebase.ResourceManager
+	DnsRecords modulebase.ResourceManager
 )
 
 func init() {
-	DNSRecords = modules.NewComputeManager("dnsrecord", "dnsrecords",
-		[]string{"ID", "Name", "Records", "TTL", "is_public"},
+	DnsRecords = modules.NewComputeManager("dnsrecord", "dnsrecords",
+		[]string{},
 		[]string{})
 
-	modules.RegisterCompute(&DNSRecords)
+	modules.RegisterCompute(&DnsRecords)
 }

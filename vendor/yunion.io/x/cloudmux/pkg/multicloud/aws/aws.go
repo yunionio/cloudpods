@@ -320,15 +320,6 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 	return s, nil
 }
 
-func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
-	session, err := client.getDefaultSession(true)
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getDefaultSession()")
-	}
-	session.ClientConfig(ROUTE53_SERVICE_NAME)
-	return session, nil
-}
-
 func (self *SAwsClient) invalidateIBuckets() {
 	self.iBuckets = nil
 }
@@ -530,6 +521,10 @@ func (self *SAwsClient) GetAccessEnv() string {
 
 func (self *SAwsClient) iamRequest(apiName string, params map[string]string, retval interface{}) error {
 	return self.request("", IAM_SERVICE_NAME, IAM_SERVICE_ID, "2010-05-08", apiName, params, retval, true)
+}
+
+func (self *SAwsClient) dnsRequest(apiName string, params map[string]string, retval interface{}) error {
+	return self.request("", ROUTE53_SERVICE_NAME, ROUTE53_SERVICE_ID, "2013-04-01", apiName, params, retval, true)
 }
 
 func (self *SAwsClient) stsRequest(apiName string, params map[string]string, retval interface{}) error {

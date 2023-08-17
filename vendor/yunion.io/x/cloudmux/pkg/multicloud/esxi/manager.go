@@ -539,8 +539,7 @@ func (cli *SESXiClient) references2Objects(refs []types.ManagedObjectReference, 
 	pc := property.DefaultCollector(cli.client.Client)
 	err := pc.Retrieve(cli.context, refs, fixProps(props), dst)
 	if err != nil {
-		log.Errorf("pc.Retrieve fail %s", err)
-		return err
+		return errors.Wrapf(err, "Retrieve")
 	}
 	return nil
 }
@@ -642,8 +641,7 @@ func (cli *SESXiClient) IsHostIpExists(hostIp string) (bool, error) {
 
 	hostRef, err := searchIndex.FindByIp(cli.context, nil, cli.getPrivateId(hostIp), false)
 	if err != nil {
-		log.Errorf("searchIndex.FindByIp fail %s", err)
-		return false, err
+		return false, errors.Wrapf(err, "FindByIp %s", hostIp)
 	}
 	if hostRef == nil {
 		return false, nil
@@ -656,8 +654,7 @@ func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 
 	hostRef, err := searchIndex.FindByIp(cli.context, nil, cli.getPrivateId(hostIp), false)
 	if err != nil {
-		log.Errorf("searchIndex.FindByIp fail %s", err)
-		return nil, errors.Wrap(err, "searchIndex.FindByIp")
+		return nil, errors.Wrapf(err, "FindByIp %s", hostIp)
 	}
 
 	if hostRef == nil {
@@ -667,8 +664,7 @@ func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 	var host mo.HostSystem
 	err = cli.reference2Object(hostRef.Reference(), HOST_SYSTEM_PROPS, &host)
 	if err != nil {
-		log.Errorf("reference2Object fail %s", err)
-		return nil, errors.Wrap(err, "cli.reference2Object")
+		return nil, errors.Wrapf(err, "reference2Object %s", hostIp)
 	}
 
 	h := NewHost(cli, &host, nil)

@@ -23,7 +23,6 @@ import (
 
 type SDnsZoneVpcManager struct {
 	db.SJointResourceBaseManager
-	SDnsZoneResourceBaseManager
 }
 
 var DnsZoneVpcManager *SDnsZoneVpcManager
@@ -33,7 +32,7 @@ func init() {
 		DnsZoneVpcManager = &SDnsZoneVpcManager{
 			SJointResourceBaseManager: db.NewJointResourceBaseManager(
 				SDnsZoneVpc{},
-				"dns_zonevpcs_tbl",
+				"dnszonevpcs_tbl",
 				"dns_zonevpc",
 				"dns_zonevpcs",
 				DnsZoneManager,

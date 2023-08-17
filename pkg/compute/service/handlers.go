@@ -92,7 +92,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScalingGroupGuestManager,
 		models.ScalingGroupNetworkManager,
 
-		models.DnsRecordSetTrafficPolicyManager,
 		models.CloudimageManager,
 
 		models.WafRuleStatementManager,
@@ -132,8 +131,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.SecurityGroupManager,
 		models.SecurityGroupCacheManager,
 		models.SecurityGroupRuleManager,
-		// models.VCenterManager,
-		models.DnsRecordManager,
 		models.ElasticipManager,
 		models.NatGatewayManager,
 		models.NatDEntryManager,
@@ -192,9 +189,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.PolicyAssignmentManager,
 
 		models.DnsZoneManager,
-		models.DnsZoneCacheManager,
-		models.DnsRecordSetManager,
-		models.DnsTrafficPolicyManager,
+		models.DnsRecordManager,
 
 		models.VpcPeeringConnectionManager,
 		models.InterVpcNetworkManager,

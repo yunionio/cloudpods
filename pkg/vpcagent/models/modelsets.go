@@ -39,6 +39,7 @@ type ModelSetsMaxUpdatedAt struct {
 	Elasticips         time.Time
 	NetworkAddresses   time.Time
 
+	DnsZones   time.Time
 	DnsRecords time.Time
 
 	RouteTables time.Time
@@ -65,6 +66,7 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		Elasticips:         apihelper.PseudoZeroTime,
 		NetworkAddresses:   apihelper.PseudoZeroTime,
 
+		DnsZones:   apihelper.PseudoZeroTime,
 		DnsRecords: apihelper.PseudoZeroTime,
 
 		RouteTables: apihelper.PseudoZeroTime,
@@ -91,6 +93,7 @@ type ModelSets struct {
 	Elasticips         Elasticips
 	NetworkAddresses   NetworkAddresses
 
+	DnsZones   DnsZones
 	DnsRecords DnsRecords
 
 	RouteTables RouteTables
@@ -118,6 +121,7 @@ func NewModelSets() *ModelSets {
 		Elasticips:         Elasticips{},
 		NetworkAddresses:   NetworkAddresses{},
 
+		DnsZones:   DnsZones{},
 		DnsRecords: DnsRecords{},
 
 		RouteTables: RouteTables{},
@@ -147,6 +151,7 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.Elasticips,
 		mss.NetworkAddresses,
 
+		mss.DnsZones,
 		mss.DnsRecords,
 
 		mss.RouteTables,
@@ -179,6 +184,7 @@ func (mss *ModelSets) copy_() *ModelSets {
 		Elasticips:         mss.Elasticips.Copy().(Elasticips),
 		NetworkAddresses:   mss.NetworkAddresses.Copy().(NetworkAddresses),
 
+		DnsZones:   mss.DnsZones.Copy().(DnsZones),
 		DnsRecords: mss.DnsRecords.Copy().(DnsRecords),
 
 		RouteTables: mss.RouteTables.Copy().(RouteTables),
@@ -283,6 +289,8 @@ func (mss *ModelSets) join() bool {
 	msg = append(msg, "mss.LoadbalancerNetworks.joinLoadbalancerListeners(mss.LoadbalancerListeners)")
 	p = append(p, mss.LoadbalancerListeners.joinLoadbalancerAcls(mss.LoadbalancerAcls))
 	msg = append(msg, "mss.LoadbalancerListeners.joinLoadbalancerAcls(mss.LoadbalancerAcls)")
+	p = append(p, mss.DnsZones.joinRecords(mss.DnsRecords))
+	msg = append(msg, "mss.Vpcs.joinRecords(mss.DnsRecords)")
 	ret := true
 	var failMsg []string
 	for i, b := range p {
