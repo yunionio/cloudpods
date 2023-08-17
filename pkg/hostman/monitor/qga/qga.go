@@ -18,7 +18,11 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -243,6 +247,280 @@ func (qga *QemuGuestAgent) GuestInfo() (*GuestInfo, error) {
 		return nil, errors.Wrap(err, "unmarshal raw response")
 	}
 	return res, nil
+}
+
+func (qga *QemuGuestAgent) GuestInfoTask() ([]byte, error) {
+	info, err := qga.GuestInfo()
+	if err != nil {
+		return nil, err
+	}
+	cmd := &monitor.Command{
+		Execute: "guest-info",
+	}
+	var i = 0
+	for ; i < len(info.SupportedCommands); i++ {
+		if info.SupportedCommands[i].Name == cmd.Execute {
+			break
+		}
+	}
+	if i > len(info.SupportedCommands) {
+		return nil, errors.Errorf("unsupported command %s", cmd.Execute)
+	}
+	if !info.SupportedCommands[i].Enabled {
+		return nil, errors.Errorf("command %s not enabled", cmd.Execute)
+	}
+	res, err := qga.execCmd(cmd, true, -1)
+	if err != nil {
+		return nil, err
+	}
+	return *res, nil
+}
+
+type IPAddress struct {
+	IPAddress     string `json:"ip-address"`
+	IPAddressType string `json:"ip-address-type"`
+	Prefix        int    `json:"prefix"`
+}
+
+type IfnameDetail struct {
+	HardwareAddress string      `json:"hardware-address"`
+	IPAddresses     []IPAddress `json:"ip-addresses"`
+	Name            string      `json:"name"`
+	Statistics      struct {
+		RxBytes   int `json:"rx-bytes"`
+		RxDropped int `json:"rx-dropped"`
+		RxErrs    int `json:"rx-errs"`
+		RxPackets int `json:"rx-packets"`
+		TxBytes   int `json:"tx-bytes"`
+		TxDropped int `json:"tx-dropped"`
+		TxErrs    int `json:"tx-errs"`
+		TxPackets int `json:"tx-packets"`
+	} `json:"statistics"`
+}
+
+func (qga *QemuGuestAgent) QgaGetNetwork() ([]byte, error) {
+	cmd := &monitor.Command{
+		Execute: "guest-network-get-interfaces",
+	}
+	res, err := qga.execCmd(cmd, true, -1)
+	if err != nil {
+		return nil, err
+	}
+	return *res, nil
+}
+
+type GuestOsInfo struct {
+	Id            string `json:"id"`
+	KernelRelease string `json:"kernel-release"`
+	KernelVersion string `json:"kernel-version"`
+	Machine       string `json:"machine"`
+	Name          string `json:"name"`
+	PrettyName    string `json:"pretty-name"`
+	Version       string `json:"version"`
+	VersionId     string `json:"version-id"`
+}
+
+func (qga *QemuGuestAgent) QgaGuestGetOsInfo() (*GuestOsInfo, error) {
+	//run guest-get-osinfo
+	cmdOsInfo := &monitor.Command{
+		Execute: "guest-get-osinfo",
+	}
+	rawResOsInfo, err := qga.execCmd(cmdOsInfo, true, -1)
+	resOsInfo := new(GuestOsInfo)
+	err = json.Unmarshal(*rawResOsInfo, resOsInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal raw response")
+	}
+	return resOsInfo, nil
+}
+
+func (qga *QemuGuestAgent) QgaFileOpen(path string) (int, error) {
+	//file open
+	cmdFileOpen := &monitor.Command{
+		Execute: "guest-file-open",
+		Args: map[string]interface{}{
+			"path": path,
+			"mode": "w+",
+		},
+	}
+	rawResFileOpen, err := qga.execCmd(cmdFileOpen, true, -1)
+	if err != nil {
+		return 0, err
+	}
+	fileNum, err := strconv.ParseInt(string(*rawResFileOpen), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return int(fileNum), nil
+}
+
+func (qga *QemuGuestAgent) QgaFileWrite(fileNum int, content string) error {
+	contentEncode := base64.StdEncoding.EncodeToString([]byte(content))
+	//write shell to file
+	cmdFileWrite := &monitor.Command{
+		Execute: "guest-file-write",
+		Args: map[string]interface{}{
+			"handle":  fileNum,
+			"buf-b64": contentEncode,
+		},
+	}
+	_, err := qga.execCmd(cmdFileWrite, true, -1)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (qga *QemuGuestAgent) QgaFileClose(fileNum int) error {
+	//close file
+	cmdFileClose := &monitor.Command{
+		Execute: "guest-file-close",
+		Args: map[string]interface{}{
+			"handle": fileNum,
+		},
+	}
+	_, err := qga.execCmd(cmdFileClose, true, -1)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ParseIPAndSubnet(input string) (string, string, error) {
+	//Converting IP/MASK format to IP and MASK
+	parts := strings.Split(input, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("Invalid input format")
+	}
+
+	ip := parts[0]
+	subnetSizeStr := parts[1]
+
+	subnetSize := 0
+	for _, c := range subnetSizeStr {
+		if c < '0' || c > '9' {
+			return "", "", fmt.Errorf("Invalid subnet size")
+		}
+		subnetSize = subnetSize*10 + int(c-'0')
+	}
+
+	mask := net.CIDRMask(subnetSize, 32)
+	subnetMask := net.IP(mask).To4().String()
+	return ip, subnetMask, nil
+}
+
+func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify) ([]byte, error) {
+	//Getting information about the operating system
+	resOsInfo, err := qga.QgaGuestGetOsInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	//Judgement based on id, currently only windows and other systems are judged
+	if resOsInfo.Id == "mswindows" {
+		ip, subnetMask, err := ParseIPAndSubnet(qgaNetMod.Ipmask)
+		if err != nil {
+			return nil, err
+		}
+		networkCmd := fmt.Sprintf("netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s gateway=%s && "+
+			"netsh interface ip set address name=\"%s\" dhcp",
+			qgaNetMod.Device, ip, subnetMask, qgaNetMod.Gateway, qgaNetMod.Device)
+
+		//Save commands executed by windows to the host computer
+		qgaWinTest := "/tmp/qgaWinScripts.txt"
+		fileOsInfo, err := os.Create(qgaWinTest)
+		if err != nil {
+			return nil, err
+		}
+		// Guaranteed closure of files
+		defer fileOsInfo.Close()
+
+		_, err = fileOsInfo.Write([]byte(networkCmd))
+		if err != nil {
+			return nil, err
+		}
+
+		//Execute windows command
+		arg := []string{"/c", networkCmd}
+		cmdPath := "C:\\Windows\\System32\\cmd.exe"
+		cmdExecNet := &monitor.Command{
+			Execute: "guest-exec",
+			Args: map[string]interface{}{
+				"path":           cmdPath,
+				"arg":            arg,
+				"env":            []string{},
+				"input-data":     "",
+				"capture-output": true,
+			},
+		}
+		resExec, err := qga.execCmd(cmdExecNet, true, -1)
+		if err != nil {
+			return nil, err
+		}
+		return *resExec, nil
+
+	} else {
+		//Network Configuration Script Contents
+		networkCmd := fmt.Sprintf("#!/bin/bash\nset +e\n"+
+			"/sbin/ip -4 address flush dev %s\n/sbin/ip -4 address add %s dev %s\n"+
+			"/sbin/ip route del default dev %s\n/sbin/ip route add default via %s dev %s\n",
+			qgaNetMod.Device, qgaNetMod.Ipmask, qgaNetMod.Device, qgaNetMod.Device, qgaNetMod.Gateway, qgaNetMod.Device)
+
+		//Write the contents of the script to the virtual machine file
+		fileFileOpenPath := "/tmp/deviceRestart.sh"
+		returnFileNum, err := qga.QgaFileOpen(fileFileOpenPath)
+		if err != nil {
+			return nil, err
+		}
+
+		//shell script write to file
+		err = qga.QgaFileWrite(returnFileNum, networkCmd)
+		if err != nil {
+			return nil, err
+		}
+
+		//file close
+		err = qga.QgaFileClose(returnFileNum)
+		if err != nil {
+			return nil, err
+		}
+
+		//Adding execution permissions to a file
+		shellAddAuth := "chmod +x " + fileFileOpenPath
+		arg := []string{"-c", shellAddAuth}
+		cmdAddAuth := &monitor.Command{
+			Execute: "guest-exec",
+			Args: map[string]interface{}{
+				"path":           "/bin/bash",
+				"arg":            arg,
+				"env":            []string{},
+				"input-data":     "",
+				"capture-output": true,
+			},
+		}
+		_, err = qga.execCmd(cmdAddAuth, true, -1)
+		if err != nil {
+			return nil, err
+		}
+
+		//Executing shell scripts
+		cmdExecShell := &monitor.Command{
+			Execute: "guest-exec",
+			Args: map[string]interface{}{
+				"path":           fileFileOpenPath,
+				"arg":            []string{},
+				"env":            []string{},
+				"input-data":     "",
+				"capture-output": true,
+			},
+		}
+		resExec, err := qga.execCmd(cmdExecShell, true, -1)
+		if err != nil {
+			return nil, err
+		}
+		return *resExec, nil
+	}
+
 }
 
 /*
