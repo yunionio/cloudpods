@@ -82,29 +82,36 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 			self.SetStageComplete(ctx, nil)
 			return
 		}
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, guest.QgaStatus, self.UserCred, false)
+		//Print the status of QgaStatus before running
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, guest.QgaStatus, self.UserCred, true)
+		//Use the qga's guestinfo command to determine if the qga is available.
 		_, err = guest.PerformQgaStatus(ctx, self.UserCred)
+		//Updating the QgaStatus after execution
 		if err != nil {
 			guest.UpdateQgaStatus(api.QGA_STATUS_UNKNOWN)
 		} else {
 			guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
 		}
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, err, self.UserCred, false)
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, guest.QgaStatus, self.UserCred, false)
+		//Printing the QgaStatus after execution
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, err, self.UserCred, true)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, guest.QgaStatus, self.UserCred, true)
+		//If qga is available, set up the network with qga, otherwise use ansible
 		if guest.Hypervisor == api.HYPERVISOR_KVM && guest.Status == api.VM_RESTART_NETWORK && guest.QgaStatus == api.QGA_STATUS_AVAILABLE {
 			guest.UpdateQgaStatus(api.QGA_STATUS_EXCUTING)
+			//Get information about the network card
 			ifnameDevice, _ := guest.PerformGetIfname(ctx, self.UserCred, preMac)
 			if ifnameDevice == "" {
 				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, "找不到相应mac地址的网卡名称", self.UserCred, false)
 			}
+			//Setting up the network using qga
 			_, err := guest.PerformSetNetwork(ctx, self.UserCred, ifnameDevice, ipMask, gateway)
-			//如果第一次执行失败，再执行一次
+			//If the first execution fails, execute it again
 			if err != nil {
 				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, err, self.UserCred, false)
 				_, err = guest.PerformSetNetwork(ctx, self.UserCred, ifnameDevice, ipMask, gateway)
 			}
 			guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
-			//如果第二次执行失败，使用ansible修改网络配置
+			//If the second execution fails, use ansible to modify the network configuration
 			if err != nil {
 				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, err, self.UserCred, false)
 				if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {

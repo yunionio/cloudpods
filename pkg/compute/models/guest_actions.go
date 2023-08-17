@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
