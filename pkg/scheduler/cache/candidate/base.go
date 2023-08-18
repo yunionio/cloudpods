@@ -32,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudregion"
-	"yunion.io/x/onecloud/pkg/scheduler/data_manager/hostwire"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/netinterface"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
@@ -624,10 +623,10 @@ func (b *BaseHostDesc) fillSharedDomains() error {
 func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networkGetter) error {
 	hostId := host.Id
 
-	hostwires := hostwire.GetByHost(hostId)
+	netifs := netinterface.GetByHost(hostId)
 	wireIds := sets.NewString()
-	for _, hw := range hostwires {
-		wireIds.Insert(hw.WireId)
+	for _, netif := range netifs {
+		wireIds.Insert(netif.WireId)
 	}
 
 	nets := make([]computemodels.SNetwork, 0)
@@ -650,7 +649,6 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networ
 	}
 
 	// netifs := host.GetNetInterfaces()
-	netifs := netinterface.GetByHost(hostId)
 	netifIndexs := make(map[string][]computemodels.SNetInterface, 0)
 	for _, netif := range netifs {
 		if !netif.IsUsableServernic() {
