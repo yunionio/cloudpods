@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 	"unicode"
-	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -60,6 +59,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
