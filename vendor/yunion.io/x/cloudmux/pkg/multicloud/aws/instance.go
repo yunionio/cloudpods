@@ -457,13 +457,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	addTags := map[string]string{}
-	addTags["Name"] = name
-	Arn := self.GetArn()
-	err := self.host.zone.region.TagResources([]string{Arn}, addTags)
-	if err != nil {
-		return errors.Wrapf(err, "self.host.zone.region.TagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(addTags).String())
-	}
+	self.SetTags(map[string]string{"Name": name}, false)
 	return nil
 }
 
@@ -1272,54 +1266,7 @@ func (self *SInstance) GetError() error {
 }
 
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	oldTagsJson, err := FetchTags(ec2Client, self.InstanceId)
-	if err != nil {
-		return errors.Wrapf(err, "FetchTags(self.host.zone.region.ec2Client, %s)", self.InstanceId)
-	}
-	_oldTags := TagSpec{}
-	err = oldTagsJson.Unmarshal(&_oldTags.Tags)
-	if err != nil {
-		return errors.Wrapf(err, "(%s).Unmarshal(oldTags)", oldTagsJson.String())
-	}
-	oldTags, err := _oldTags.GetTags()
-	if err != nil {
-		return errors.Wrapf(err, "GetTags")
-	}
-	addTags := map[string]string{}
-	for k, v := range tags {
-		if _, ok := oldTags[k]; !ok {
-			addTags[k] = v
-		} else {
-			if oldTags[k] != v {
-				addTags[k] = v
-			}
-		}
-	}
-	delTags := []string{}
-	if replace {
-		for k := range oldTags {
-			if _, ok := tags[k]; !ok {
-				if !strings.HasPrefix(k, "aws:") && k != "Name" {
-					delTags = append(delTags, k)
-				}
-			}
-		}
-	}
-	Arn := self.GetArn()
-	err = self.host.zone.region.UntagResources([]string{Arn}, delTags)
-	if err != nil {
-		return errors.Wrapf(err, "UntagResources")
-	}
-	delete(addTags, "Name")
-	err = self.host.zone.region.TagResources([]string{Arn}, addTags)
-	if err != nil {
-		return errors.Wrapf(err, "TagResources")
-	}
-	return nil
+	return self.host.zone.region.setTags("instance", self.InstanceId, tags, replace)
 }
 
 func (self *SInstance) GetAccountId() string {
@@ -1329,19 +1276,6 @@ func (self *SInstance) GetAccountId() string {
 		return ""
 	}
 	return identity.Account
-}
-
-func (self *SInstance) GetArn() string {
-	partition := ""
-	switch self.host.zone.region.client.GetAccessEnv() {
-	case api.CLOUD_ACCESS_ENV_AWS_GLOBAL:
-		partition = "aws"
-	case api.CLOUD_ACCESS_ENV_AWS_CHINA:
-		partition = "aws-cn"
-	default:
-		partition = "aws"
-	}
-	return fmt.Sprintf("arn:%s:ec2:%s:%s:instance/%s", partition, self.host.zone.region.GetId(), self.GetAccountId(), self.InstanceId)
 }
 
 func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {

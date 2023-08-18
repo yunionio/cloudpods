@@ -294,3 +294,7 @@ func (self *SEipAddress) GetExpiredAt() time.Time {
 func (self *SEipAddress) GetProjectId() string {
 	return ""
 }
+
+func (self *SEipAddress) SetTags(tags map[string]string, replace bool) error {
+	return self.region.setTags("elastic-ip", self.AllocationId, tags, replace)
+}
