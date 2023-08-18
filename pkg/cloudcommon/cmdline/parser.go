@@ -277,6 +277,18 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.SriovDevice = &compute.IsolatedDeviceConfig{
 				Model: p[len("sriov-nic-model="):],
 			}
+		} else if strings.HasPrefix(p, "rx-traffic-limit=") {
+			var err error
+			netConfig.RxTrafficLimit, err = strconv.ParseInt(p[len("rx-traffic-limit="):], 10, 0)
+			if err != nil {
+				return nil, errors.Wrap(err, "parse rx-traffic-limit")
+			}
+		} else if strings.HasPrefix(p, "tx-traffic-limit=") {
+			var err error
+			netConfig.TxTrafficLimit, err = strconv.ParseInt(p[len("tx-traffic-limit="):], 10, 0)
+			if err != nil {
+				return nil, errors.Wrap(err, "parse tx-traffic-limit")
+			}
 		} else if utils.IsInStringArray(p, compute.ALL_NETWORK_TYPES) {
 			netConfig.NetType = p
 		} else {

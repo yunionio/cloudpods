@@ -378,6 +378,11 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		downscript := s.getNicDownScriptPath(nic)
 		cmd += fmt.Sprintf("%s %s\n", downscript, nic.Ifname)
 	}
+	traffic, err := guestManager.GetGuestTrafficRecord(s.Id)
+	if err != nil {
+		return "", errors.Wrap(err, "get guest traffic record")
+	}
+	input.NicTraffics = traffic
 
 	if input.HugepagesEnabled {
 		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", s.Desc.Uuid)
@@ -772,6 +777,34 @@ func (s *SKVMGuestInstance) WriteMigrateCerts(certs map[string]string) error {
 	}
 	if err := qemucerts.CreateByMap(pkiDir, certs); err != nil {
 		return errors.Wrapf(err, "create by map %#v", certs)
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) SetNicDown(index int8) error {
+	var nic *desc.SGuestNetwork
+	for i := range s.Desc.Nics {
+		if s.Desc.Nics[i].Index == index {
+			nic = s.Desc.Nics[i]
+			break
+		}
+	}
+	if nic == nil {
+		return errors.Errorf("guest %s has no nic index %d", s.GetName(), index)
+	}
+	scriptPath := s.getNicDownScriptPath(nic)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", scriptPath).Output()
+	if err != nil {
+		return errors.Wrapf(err, "failed run nic down script %s", out)
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) SetNicUp(nic *desc.SGuestNetwork) error {
+	scriptPath := s.getNicUpScriptPath(nic)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", scriptPath).Output()
+	if err != nil {
+		return errors.Wrapf(err, "failed run nic down script %s", out)
 	}
 	return nil
 }

@@ -891,6 +891,17 @@ func (o *ServerSetBootIndexOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
+type ServerNicTrafficLimitOptions struct {
+	ServerIdOptions
+	MAC            string `help:"guest network mac address"`
+	RxTrafficLimit *int64 `help:" rx traffic limit, unit Byte"`
+	TxTrafficLimit *int64 `help:" tx traffic limit, unit Byte"`
+}
+
+func (o *ServerNicTrafficLimitOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type ServerSaveImageOptions struct {
 	ServerIdOptions
 	IMAGE     string `help:"Image name" json:"name"`

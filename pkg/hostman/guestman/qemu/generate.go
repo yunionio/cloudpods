@@ -16,6 +16,7 @@ package qemu
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -412,12 +413,25 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 	opts := make([]string, 0)
 	nics := input.GuestDesc.Nics
 
+	//input.guest
 	for idx := range nics {
 		if nics[idx].Driver == api.NETWORK_DRIVER_VFIO {
 			continue
 		}
+		var nicTrafficExceed = false
+		if input.NicTraffics != nil {
+			nicTraffic, ok := input.NicTraffics[strconv.Itoa(int(nics[idx].Index))]
+			if ok {
+				if nics[idx].TxTrafficLimit > 0 && nicTraffic.TxTraffic > nics[idx].TxTrafficLimit {
+					nicTrafficExceed = true
+				}
+				if nics[idx].RxTrafficLimit > 0 && nicTraffic.RxTraffic > nics[idx].RxTrafficLimit {
+					nicTrafficExceed = true
+				}
+			}
+		}
 
-		netDevOpt, err := getNicNetdevOption(drvOpt, nics[idx], input.IsKVMSupport)
+		netDevOpt, err := getNicNetdevOption(drvOpt, nics[idx], input.IsKVMSupport, nicTrafficExceed)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getNicNetdevOption %v", nics[idx])
 		}
@@ -430,7 +444,7 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 	return opts, nil
 }
 
-func getNicNetdevOption(drvOpt QemuOptions, nic *desc.SGuestNetwork, isKVMSupport bool) (string, error) {
+func getNicNetdevOption(drvOpt QemuOptions, nic *desc.SGuestNetwork, isKVMSupport bool, nicTrafficExceed bool) (string, error) {
 	if nic.Ifname == "" {
 		return "", errors.Error("ifname is empty")
 	}
@@ -450,7 +464,9 @@ func getNicNetdevOption(drvOpt QemuOptions, nic *desc.SGuestNetwork, isKVMSuppor
 			opt += fmt.Sprintf(",queues=%d", nic.NumQueues)
 		}
 	}
-	opt += fmt.Sprintf(",script=%s", nic.UpscriptPath)
+	if !nicTrafficExceed {
+		opt += fmt.Sprintf(",script=%s", nic.UpscriptPath)
+	}
 	opt += fmt.Sprintf(",downscript=%s", nic.DownscriptPath)
 	return opt, nil
 }
@@ -579,6 +595,7 @@ type GenerateStartOptionsInput struct {
 
 	GuestDesc    *desc.SGuestDesc
 	IsKVMSupport bool
+	NicTraffics  map[string]api.SNicTrafficRecord
 
 	EnableUUID       bool
 	OsName           string

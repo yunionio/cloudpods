@@ -108,6 +108,9 @@ const (
 	VM_SYNC_CONFIG = compute.VM_SYNC_CONFIG
 	VM_SYNC_FAIL   = "sync_fail"
 
+	VM_SYNC_TRAFFIC_LIMIT        = "sync_traffic_limit"
+	VM_SYNC_TRAFFIC_LIMIT_FAILED = "sync_traffic_limit_failed"
+
 	VM_START_RESIZE_DISK  = "start_resize_disk"
 	VM_RESIZE_DISK        = "resize_disk"
 	VM_RESIZE_DISK_FAILED = "resize_disk_fail"
