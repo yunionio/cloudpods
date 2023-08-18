@@ -79,7 +79,7 @@ func (self *NatGatewayRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStan
 			return
 		}
 		logclient.AddActionLogWithStartable(self, nat, logclient.ACT_UPDATE_TAGS, err, self.GetUserCred(), false)
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, nat, err)
 		return
 	}
 	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, self.GetUserCred(), true)
