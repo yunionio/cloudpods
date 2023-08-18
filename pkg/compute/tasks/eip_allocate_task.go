@@ -80,8 +80,9 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		BandwidthMbps: eip.Bandwidth,
 		ChargeType:    eip.ChargeType,
 		BGPType:       eip.BgpType,
-		IP:            eip.IpAddr,
+		Ip:            eip.IpAddr,
 	}
+	args.Tags, _ = eip.GetAllUserMetadata()
 
 	if eip.NetworkId != "" {
 		_network, err := models.NetworkManager.FetchById(eip.NetworkId)

@@ -286,32 +286,40 @@ func (region *SRegion) GetEips(eipId string, associatedId, addr string, offset i
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId, "", "", 0, 1)
+	eips, _, err := region.GetEips(eipId, "", "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
-	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range eips {
+		if eips[i].AllocationId == eipId {
+			eips[i].region = region
+			return &eips[i], nil
+		}
 	}
-	return &eips[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, eipId)
 }
 
-func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, projectId, bgpType string) (*SEipAddress, error) {
+func (region *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error) {
 	params := make(map[string]string)
-
-	if len(name) > 0 {
-		params["Name"] = name
+	if len(opts.Name) > 0 {
+		params["Name"] = opts.Name
 	}
 	params["RegionId"] = region.RegionId
-	params["Bandwidth"] = fmt.Sprintf("%d", bwMbps)
-	params["InternetChargeType"] = string(chargeType)
+	params["Bandwidth"] = fmt.Sprintf("%d", opts.BandwidthMbps)
+	switch opts.ChargeType {
+	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
+		params["InternetChargeType"] = string(InternetChargeByTraffic)
+	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+		params["InternetChargeType"] = string(InternetChargeByBandwidth)
+
+	}
 	params["InstanceChargeType"] = "PostPaid"
 	params["ClientToken"] = utils.GenRequestId(20)
-	if len(projectId) > 0 {
-		params["ResourceGroupId"] = projectId
+	if len(opts.ProjectId) > 0 {
+		params["ResourceGroupId"] = opts.ProjectId
 	}
 	params["ISP"] = "BGP"
-	if bgpType == "BGP_PRO" {
+	if opts.BGPType == "BGP_PRO" {
 		params["ISP"] = "BGP_PRO"
 	}
 
@@ -325,18 +333,20 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 		return nil, errors.Wrapf(err, "get AllocationId after created")
 	}
 
-	return region.GetEip(eipId)
+	eip, err := region.GetEip(eipId)
+	if err != nil {
+		return nil, err
+	}
+	if len(opts.Tags) == 0 {
+		return eip, nil
+	}
+	cloudprovider.WaitStatus(eip, api.EIP_STATUS_READY, time.Second*5, time.Minute*1)
+	eip.SetTags(opts.Tags, false)
+	return eip, nil
 }
 
 func (region *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	var ctype TInternetChargeType
-	switch opts.ChargeType {
-	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
-		ctype = InternetChargeByTraffic
-	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
-		ctype = InternetChargeByBandwidth
-	}
-	return region.AllocateEIP(opts.Name, opts.BandwidthMbps, ctype, opts.ProjectId, opts.BGPType)
+	return region.AllocateEIP(opts)
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
@@ -395,4 +405,8 @@ func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
 
 func (self *SEipAddress) GetProjectId() string {
 	return self.ResourceGroupId
+}
+
+func (self *SEipAddress) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags(ALIYUN_SERVICE_VPC, "EIP", self.AllocationId, tags, replace)
 }

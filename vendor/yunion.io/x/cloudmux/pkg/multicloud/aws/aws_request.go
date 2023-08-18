@@ -158,6 +158,12 @@ func (self sAwsError) Error() string {
 func UnmarshalError(r *request.Request) {
 	defer r.HTTPResponse.Body.Close()
 
+	defer func() {
+		if r.Error != nil {
+			log.Errorf("request: %s %s error: %v", r.HTTPRequest.URL.String(), r.Params, r.Error)
+		}
+	}()
+
 	result, err := xj.Convert(r.HTTPResponse.Body)
 	if err != nil {
 		r.Error = errors.Wrapf(err, "xj.Convert")
@@ -224,10 +230,10 @@ func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion str
 	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
 	client.Handlers.UnmarshalError.PushBackNamed(UnmarshalErrorHandler)
 	client.Handlers.Validate.Remove(corehandlers.ValidateEndpointHandler)
-	return jsonRequest(client, apiName, params, retval, true)
+	return jsonRequest(client, apiName, params, retval)
 }
 
-func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}, debug bool) error {
+func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}) error {
 	op := &request.Operation{
 		Name:       apiName,
 		HTTPMethod: "POST",
