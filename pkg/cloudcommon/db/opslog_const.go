@@ -316,4 +316,7 @@ const (
 	ACT_ENCRYPT_START = "encrypt_start"
 	ACT_ENCRYPT_FAIL  = "encrypt_fail"
 	ACT_ENCRYPT_DONE  = "encrypted"
+
+	ACT_SYNC_TRAFFIC_LIMIT      = "sync_traffic_limit"
+	ACT_SYNC_TRAFFIC_LIMIT_FAIL = "sync_traffic_limit_fail"
 )

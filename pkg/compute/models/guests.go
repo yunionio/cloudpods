@@ -3270,10 +3270,12 @@ type Attach2NetworkArgs struct {
 	RequireDesignatedIP bool
 	UseDesignatedIP     bool
 
-	BwLimit   int
-	NicDriver string
-	NumQueues int
-	NicConfs  []SNicConfig
+	BwLimit        int
+	NicDriver      string
+	NumQueues      int
+	RxTrafficLimit int64
+	TxTrafficLimit int64
+	NicConfs       []SNicConfig
 
 	Virtual bool
 
@@ -3293,10 +3295,12 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		requireDesignatedIP: args.RequireDesignatedIP,
 		useDesignatedIP:     args.UseDesignatedIP,
 
-		bwLimit:   args.BwLimit,
-		nicDriver: args.NicDriver,
-		numQueues: args.NumQueues,
-		nicConf:   args.NicConfs[i],
+		bwLimit:        args.BwLimit,
+		nicDriver:      args.NicDriver,
+		numQueues:      args.NumQueues,
+		txTrafficLimit: args.TxTrafficLimit,
+		rxTrafficLimit: args.RxTrafficLimit,
+		nicConf:        args.NicConfs[i],
 
 		virtual: args.Virtual,
 
@@ -3325,11 +3329,13 @@ type attach2NetworkOnceArgs struct {
 	requireDesignatedIP bool
 	useDesignatedIP     bool
 
-	bwLimit     int
-	nicDriver   string
-	numQueues   int
-	nicConf     SNicConfig
-	teamWithMac string
+	bwLimit        int
+	nicDriver      string
+	numQueues      int
+	nicConf        SNicConfig
+	teamWithMac    string
+	rxTrafficLimit int64
+	txTrafficLimit int64
 
 	virtual bool
 
@@ -3394,12 +3400,14 @@ func (self *SGuest) attach2NetworkOnce(
 		requireDesignatedIP: args.requireDesignatedIP,
 		useDesignatedIP:     args.useDesignatedIP,
 
-		ifname:      args.nicConf.Ifname,
-		macAddr:     args.nicConf.Mac,
-		bwLimit:     args.bwLimit,
-		nicDriver:   nicDriver,
-		numQueues:   args.numQueues,
-		teamWithMac: args.teamWithMac,
+		ifname:         args.nicConf.Ifname,
+		macAddr:        args.nicConf.Mac,
+		bwLimit:        args.bwLimit,
+		nicDriver:      nicDriver,
+		numQueues:      args.numQueues,
+		teamWithMac:    args.teamWithMac,
+		rxTrafficLimit: args.rxTrafficLimit,
+		txTrafficLimit: args.txTrafficLimit,
 
 		virtual: args.virtual,
 	}
@@ -4141,6 +4149,8 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			NicDriver:           netConfig.Driver,
 			NumQueues:           netConfig.NumQueues,
 			BwLimit:             netConfig.BwLimit,
+			RxTrafficLimit:      netConfig.RxTrafficLimit,
+			TxTrafficLimit:      netConfig.TxTrafficLimit,
 			Virtual:             netConfig.Vip,
 			TryReserved:         netConfig.Reserved,
 			AllocDir:            allocDir,

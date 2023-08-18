@@ -255,4 +255,6 @@ const (
 	ACT_DISSOCIATE = "dissociate"
 
 	ACT_ADD_BASTION_SERVER = "add_bastion_server"
+
+	ACT_SYNC_TRAFFIC_LIMIT = "sync_traffic_limit"
 )

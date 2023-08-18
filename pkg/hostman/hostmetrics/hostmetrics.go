@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/netutils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -219,10 +220,88 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 		reportData[gm.Id] = s.collectGmReport(gm, prevUsage)
 		s.prevPids[gm.Id] = gm.Pid
 	}
+	s.saveNicTraffics(reportData, gms)
 
 	s.prevReportData = reportData
 	ret = s.toTelegrafReportData(reportData)
 	return
+}
+
+func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMetrics, gms map[string]*SGuestMonitor) {
+	guestman.GetGuestManager().TrafficLock.Lock()
+	defer guestman.GetGuestManager().TrafficLock.Unlock()
+	var guestNicsTraffics = make(map[string]map[string]compute.SNicTrafficRecord)
+	for guestId, data := range reportData {
+		gm := gms[guestId]
+		guestTrafficRecord, err := guestman.GetGuestManager().GetGuestTrafficRecord(gm.Id)
+		if err != nil {
+			log.Errorf("failed get guest traffic record %s", err)
+			continue
+		}
+		guestTraffics := make(map[string]compute.SNicTrafficRecord)
+		for i := range gm.Nics {
+			if gm.Nics[i].RxTrafficLimit <= 0 && gm.Nics[i].TxTrafficLimit <= 0 {
+				continue
+			}
+
+			var nicIo *NetIOMetric
+			for j := range data.VmNetio {
+				if gm.Nics[i].Index == int8(data.VmNetio[j].Meta.Index) {
+					nicIo = data.VmNetio[j]
+					break
+				}
+			}
+			if nicIo == nil {
+				log.Warningf("failed found report data for nic %s", gm.Nics[i].Ifname)
+				continue
+			}
+			nicTraffic := compute.SNicTrafficRecord{}
+			for index, record := range guestTrafficRecord {
+				if index == strconv.Itoa(nicIo.Meta.Index) {
+					nicTraffic.RxTraffic += record.RxTraffic
+					nicTraffic.TxTraffic += record.TxTraffic
+				}
+			}
+
+			if gm.Nics[i].RxTrafficLimit > 0 || gm.Nics[i].TxTrafficLimit > 0 {
+				var nicDown, nicHasBeenSetDown = false, false
+				if nicTraffic.RxTraffic >= gm.Nics[i].RxTrafficLimit || nicTraffic.RxTraffic >= gm.Nics[i].TxTrafficLimit {
+					// record traffic excced, nic must has been set down
+					nicHasBeenSetDown = true
+				}
+				if gm.Nics[i].RxTrafficLimit > 0 {
+					nicTraffic.RxTraffic += int64(nicIo.TimeDiff * nicIo.BPSRecv / 8)
+					if nicTraffic.RxTraffic >= gm.Nics[i].RxTrafficLimit {
+						// nic down
+						nicDown = true
+					}
+				}
+				if gm.Nics[i].TxTrafficLimit > 0 {
+					nicTraffic.TxTraffic += int64(nicIo.TimeDiff * nicIo.BPSSent / 8)
+					if nicTraffic.TxTraffic >= gm.Nics[i].TxTrafficLimit {
+						// nic down
+						nicDown = true
+					}
+				}
+				guestTraffics[strconv.Itoa(nicIo.Meta.Index)] = nicTraffic
+				if !nicHasBeenSetDown && nicDown {
+					log.Infof("guest %s nic %d traffic exceed, set nic down", gm.Id, nicIo.Meta.Index)
+					gm.SetNicDown(nicIo.Meta.Index)
+				}
+			}
+		}
+		if len(guestTraffics) == 0 {
+			continue
+		}
+		guestNicsTraffics[gm.Id] = guestTraffics
+		if err = guestman.GetGuestManager().SaveGuestTrafficRecord(gm.Id, guestTraffics); err != nil {
+			log.Errorf("failed save guest %s traffic record %v", gm.Id, guestTraffics)
+			continue
+		}
+	}
+	if len(guestNicsTraffics) > 0 {
+		guestman.SyncGuestNicsTraffics(guestNicsTraffics)
+	}
 }
 
 func (s *SGuestMonitorCollector) toTelegrafReportData(data map[string]*GuestMetrics) string {
@@ -368,6 +447,7 @@ func (s *SGuestMonitorCollector) reportNetIo(cur, prev *NetIOMetric) {
 	timeOld := prev.Meta.Uptime
 	diffTime := float64(timeCur - timeOld)
 
+	cur.TimeDiff = diffTime
 	if diffTime > 0 {
 		if cur.BytesSent < prev.BytesSent {
 			cur.BPSSent = float64(cur.BytesSent*8) / diffTime
@@ -418,6 +498,16 @@ func NewGuestMonitor(name, id string, pid int, nics []*desc.SGuestNetwork, cpuCo
 		return nil, err
 	}
 	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc, "", "", "", "", ""}, nil
+}
+
+func (m *SGuestMonitor) SetNicDown(index int) {
+	guest, ok := guestman.GetGuestManager().GetServer(m.Id)
+	if !ok {
+		return
+	}
+	if err := guest.SetNicDown(int8(index)); err != nil {
+		log.Errorf("guest %s SetNicDown failed %s", m.Id, err)
+	}
 }
 
 func (m *SGuestMonitor) UpdateVmName(name string) {
@@ -531,14 +621,14 @@ func (m *SGuestMonitor) Netio() []*NetIOMetric {
 		data.Meta.NetId = nic.NetId
 		data.Meta.Uptime, _ = host.Uptime()
 
-		data.BytesSent = nicStat.BytesSent
-		data.BytesRecv = nicStat.BytesRecv
-		data.PacketsRecv = nicStat.PacketsRecv
-		data.PacketsSent = nicStat.PacketsSent
-		data.ErrIn = nicStat.Errin
-		data.ErrOut = nicStat.Errout
-		data.DropIn = nicStat.Dropin
-		data.DropOut = nicStat.Dropout
+		data.BytesSent = nicStat.BytesRecv
+		data.BytesRecv = nicStat.BytesSent
+		data.PacketsRecv = nicStat.PacketsSent
+		data.PacketsSent = nicStat.PacketsRecv
+		data.ErrIn = nicStat.Errout
+		data.ErrOut = nicStat.Errin
+		data.DropIn = nicStat.Dropout
+		data.DropOut = nicStat.Dropin
 		res = append(res, data)
 	}
 	return res
@@ -561,6 +651,8 @@ type NetIOMetric struct {
 	BPSSent float64 `json:"bps_sent"`
 	PPSRecv float64 `json:"pps_recv"`
 	PPSSent float64 `json:"pps_sent"`
+
+	TimeDiff float64 `json:"-"`
 }
 
 func (n *NetIOMetric) ToMap() map[string]interface{} {
