@@ -121,7 +121,7 @@ func (self *SElb) GetSysTags() map[string]string {
 }
 
 func (self *SElb) GetTags() (map[string]string, error) {
-	return self.region.FetchElbTags(self.LoadBalancerArn)
+	return self.region.DescribeElbTags(self.LoadBalancerArn)
 }
 
 func (self *SElb) GetAddress() string {
@@ -391,18 +391,77 @@ func (self *SRegion) CreateElbBackendgroup(opts *cloudprovider.SLoadbalancerBack
 }
 
 func (self *SElb) SetTags(tags map[string]string, replace bool) error {
-	oldTags, err := self.region.FetchElbTags(self.LoadBalancerArn)
+	return self.region.setElbTags(self.LoadBalancerArn, tags, replace)
+}
+
+func (self *SRegion) setElbTags(arn string, tags map[string]string, replace bool) error {
+	oldTags, err := self.DescribeElbTags(arn)
 	if err != nil {
-		return errors.Wrapf(err, "self.region.FetchElbTags(%s)", self.LoadBalancerArn)
+		return errors.Wrapf(err, "DescribeElbTags")
 	}
-	err = self.region.UpdateResourceTags(self.LoadBalancerArn, oldTags, tags, replace)
-	if err != nil {
-		return errors.Wrap(err, "self.region.UpdateResourceTags(self.LoadBalancerArn, oldTags, tags, replace)")
+	added, removed := map[string]string{}, map[string]string{}
+	for k, v := range tags {
+		oldValue, ok := oldTags[k]
+		if !ok {
+			added[k] = v
+		} else if oldValue != v {
+			removed[k] = oldValue
+			added[k] = v
+		}
+	}
+	if replace {
+		for k, v := range oldTags {
+			newValue, ok := tags[k]
+			if !ok {
+				removed[k] = v
+			} else if v != newValue {
+				added[k] = newValue
+				removed[k] = v
+			}
+		}
+	}
+	if len(removed) > 0 {
+		err = self.RemoveElbTags(arn, removed)
+		if err != nil {
+			return errors.Wrapf(err, "RemoveElbTags %s", removed)
+		}
+	}
+	if len(added) > 0 {
+		return self.AddElbTags(arn, added)
 	}
 	return nil
 }
 
-func (self *SRegion) FetchElbTags(arn string) (map[string]string, error) {
+func (self *SRegion) AddElbTags(arn string, tags map[string]string) error {
+	params := map[string]string{
+		"ResourceArns.member.1": arn,
+	}
+	idx := 1
+	for k, v := range tags {
+		params[fmt.Sprintf("Tags.member.%d.Key", idx)] = k
+		params[fmt.Sprintf("Tags.member.%d.Value", idx)] = v
+		idx++
+	}
+	ret := struct {
+	}{}
+	return self.elbRequest("AddTags", params, &ret)
+}
+
+func (self *SRegion) RemoveElbTags(arn string, tags map[string]string) error {
+	params := map[string]string{
+		"ResourceArns.member.1": arn,
+	}
+	idx := 1
+	for k := range tags {
+		params[fmt.Sprintf("TagKeys.member.%d", idx)] = k
+		idx++
+	}
+	ret := struct {
+	}{}
+	return self.elbRequest("RemoveTags", params, &ret)
+}
+
+func (self *SRegion) DescribeElbTags(arn string) (map[string]string, error) {
 	ret := struct {
 		TagDescriptions []struct {
 			ResourceArn string `xml:"ResourceArn"`
