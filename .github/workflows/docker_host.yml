@@ -1,9 +1,7 @@
 name: Host Docker Image
 
 on:
-  pull_request:
-    types:
-      - closed
+  push:
     branches:
       - 'releases/**'
       - 'main'
@@ -13,7 +11,6 @@ on:
       - 'pkg/apis/host/**.go'
 jobs:
   build_host:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
