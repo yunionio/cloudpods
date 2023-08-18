@@ -22,6 +22,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -288,22 +290,57 @@ func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
-func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string, projectId string) (*SEipAddress, error) {
+func (self *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error) {
+	var ctype TInternetChargeType
+	switch opts.ChargeType {
+	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
+		ctype = InternetChargeByTraffic
+	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+		ctype = InternetChargeByBandwidth
+	}
+
+	// todo: 如何避免hardcode。集成到cloudmeta服务中？
+	if len(opts.BGPType) == 0 {
+		switch self.GetId() {
+		case "cn-north-1", "cn-east-2", "cn-south-1":
+			opts.BGPType = "5_sbgp"
+		case "cn-northeast-1":
+			opts.BGPType = "5_telcom"
+		case "cn-north-4", "ap-southeast-1", "ap-southeast-2", "eu-west-0":
+			opts.BGPType = "5_bgp"
+		case "cn-southwest-2":
+			opts.BGPType = "5_sbgp"
+		default:
+			opts.BGPType = "5_bgp"
+		}
+	}
+
+	// 华为云EIP名字最大长度64
+	if len(opts.Name) > 64 {
+		opts.Name = opts.Name[:64]
+	}
+
+	tags := []string{}
+	for k, v := range opts.Tags {
+		tags = append(tags, fmt.Sprintf("%s*%s", k, v))
+	}
+
 	params := map[string]interface{}{
 		"bandwidth": map[string]interface{}{
-			"name":        name,
-			"size":        bwMbps,
+			"name":        opts.Name,
+			"size":        opts.BandwidthMbps,
 			"share_type":  "PER",
-			"charge_mode": chargeType,
+			"charge_mode": ctype,
 		},
 		"publicip": map[string]interface{}{
-			"type":       bgpType,
+			"type":       opts.BGPType,
 			"ip_version": 4,
-			"alias":      name,
+			"alias":      opts.Name,
+			"tags":       tags,
 		},
 	}
-	if len(projectId) > 0 {
-		params["enterprise_project_id"] = projectId
+	if len(opts.ProjectId) > 0 {
+		params["enterprise_project_id"] = opts.ProjectId
 	}
 	resp, err := self.vpcCreate("publicips", params)
 	if err != nil {
@@ -393,4 +430,50 @@ func (self *SRegion) GetEips(portId string, addrs []string) ([]SEipAddress, erro
 		eips[i].region = self
 	}
 	return eips, nil
+}
+
+func (self *SRegion) setEipTags(id string, existedTags, tags map[string]string, replace bool) error {
+	deleteTagsKey := []string{}
+	for k := range existedTags {
+		if replace {
+			deleteTagsKey = append(deleteTagsKey, k)
+		} else {
+			if _, ok := tags[k]; ok {
+				deleteTagsKey = append(deleteTagsKey, k)
+			}
+		}
+	}
+	if len(deleteTagsKey) > 0 {
+		for _, k := range deleteTagsKey {
+			url := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v2.0/%s/publicips/%s/tags/%s", self.ID, self.client.projectId, id, k)
+			_, err := self.client.request(httputils.DELETE, url, nil, nil)
+			if err != nil {
+				return errors.Wrapf(err, "remove tags")
+			}
+		}
+	}
+	if len(tags) > 0 {
+		params := map[string]interface{}{
+			"action": "create",
+		}
+		add := []map[string]string{}
+		for k, v := range tags {
+			add = append(add, map[string]string{"key": k, "value": v})
+		}
+		params["tags"] = add
+		url := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v2.0/%s/publicips/%s/tags/action", self.ID, self.client.projectId, id)
+		_, err := self.client.request(httputils.POST, url, nil, params)
+		if err != nil {
+			return errors.Wrapf(err, "add tags")
+		}
+	}
+	return nil
+}
+
+func (self *SEipAddress) SetTags(tags map[string]string, replace bool) error {
+	existedTags, err := self.GetTags()
+	if err != nil {
+		return errors.Wrap(err, "self.GetTags()")
+	}
+	return self.region.setEipTags(self.ID, existedTags, tags, replace)
 }

@@ -253,7 +253,7 @@ func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudE
 	if err != nil {
 		return nil, err
 	}
-	vip, err := region.CreateVirtualIP(eip.Name, "", eip.IP, networkInfo[0])
+	vip, err := region.CreateVirtualIP(eip.Name, "", eip.Ip, networkInfo[0])
 	if err != nil {
 		return nil, err
 	}

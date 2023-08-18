@@ -428,7 +428,7 @@ func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudE
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetNetwork(%s)", eip.NetworkExternalId)
 	}
-	ieip, err := region.CreateEip(network.NetworkId, eip.NetworkExternalId, eip.IP, eip.ProjectId)
+	ieip, err := region.CreateEip(network.NetworkId, eip.NetworkExternalId, eip.Ip, eip.ProjectId)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateEip")
 	}
