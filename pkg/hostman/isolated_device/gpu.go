@@ -370,7 +370,7 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 }
 
 func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool) error {
-	if !utils.IsInStringArray(d.ClassCode, []string{CLASS_CODE_VGA, CLASS_CODE_VGA}) {
+	if !utils.IsInStringArray(d.ClassCode, []string{CLASS_CODE_VGA, CLASS_CODE_3D}) {
 		return nil
 	}
 	isBootVGA, err := d.IsBootVGA()
