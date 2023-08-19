@@ -2032,6 +2032,12 @@ func (h *SHostInfo) getNicsOvsOffloadInterfaces(nics []string) ([]isolated_devic
 }
 
 func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
+	for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
+		if out, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Output(); err != nil {
+			log.Errorf("failed probe driver %s: %s %s", driver, out, err)
+		}
+	}
+
 	offloadNics, err := h.getNicsOvsOffloadInterfaces(options.HostOptions.OvsOffloadNics)
 	if err != nil {
 		return nil, err
