@@ -162,7 +162,7 @@ func (self *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEI
 	input.ProjectId = opts.ProjectId
 	input.NetworkId = opts.NetworkExternalId
 	input.BgpType = opts.BGPType
-	input.IpAddr = opts.IP
+	input.IpAddr = opts.Ip
 	eip := &SEip{region: self}
 	return eip, self.create(&modules.Elasticips, input, eip)
 }

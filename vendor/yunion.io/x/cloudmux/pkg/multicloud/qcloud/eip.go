@@ -280,24 +280,27 @@ func (region *SRegion) GetEips(eipId string, instanceId string, offset int, limi
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId, "", 0, 1)
+	eips, _, err := region.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
-	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range eips {
+		if eips[i].AddressId == eipId {
+			eips[i].region = region
+			return &eips[i], nil
+		}
 	}
-	return &eips[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, eipId)
 }
 
-func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType string) (*SEipAddress, error) {
+func (region *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error) {
 	params := make(map[string]string)
-	params["AddressName"] = name
-	if len(name) > 20 {
-		params["AddressName"] = name[:20]
+	params["AddressName"] = opts.Name
+	if len(opts.Name) > 20 {
+		params["AddressName"] = opts.Name[:20]
 	}
-	if bwMbps > 0 {
-		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bwMbps)
+	if opts.BandwidthMbps > 0 {
+		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", opts.BandwidthMbps)
 	}
 
 	_, totalCount, err := region.GetBandwidthPackages([]string{}, 0, 50)
@@ -305,12 +308,18 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType string) (
 		return nil, errors.Wrapf(err, "GetBandwidthPackages")
 	}
 	if totalCount == 0 {
-		switch chargeType {
+		switch opts.ChargeType {
 		case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 			params["InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
 		case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
 			params["InternetChargeType"] = "BANDWIDTH_POSTPAID_BY_HOUR"
 		}
+	}
+	idx := 0
+	for k, v := range opts.Tags {
+		params[fmt.Sprintf("Tags.%d.Key", idx)] = k
+		params[fmt.Sprintf("Tags.%d.Value", idx)] = v
+		idx++
 	}
 
 	addRessSet := []string{}
@@ -327,8 +336,13 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType string) (
 
 // https://cloud.tencent.com/document/api/215/16699
 // 腾讯云eip不支持指定项目
-func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	return region.AllocateEIP(eip.Name, eip.BandwidthMbps, eip.ChargeType)
+func (region *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	eip, err := region.AllocateEIP(opts)
+	if err != nil {
+		return nil, err
+	}
+	eip.region = region
+	return eip, nil
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
@@ -421,4 +435,8 @@ func (self *SRegion) ChangeEipBindWidth(eipId string, bw int, chargeType string)
 
 func (self *SEipAddress) GetProjectId() string {
 	return ""
+}
+
+func (self *SEipAddress) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags("vpc", "eip", []string{self.AddressId}, tags, replace)
 }

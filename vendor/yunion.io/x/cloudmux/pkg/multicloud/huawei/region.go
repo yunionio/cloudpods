@@ -437,44 +437,13 @@ func (self *SRegion) CreateVpc(name, cidr, desc string) (*SVpc, error) {
 // 华东-上海二：5_sbgp
 // 华北-北京一：5_bgp、5_sbgp
 // 亚太-香港：5_bgp
-func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	var ctype TInternetChargeType
-	switch eip.ChargeType {
-	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
-		ctype = InternetChargeByTraffic
-	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
-		ctype = InternetChargeByBandwidth
-	}
-
-	// todo: 如何避免hardcode。集成到cloudmeta服务中？
-	if len(eip.BGPType) == 0 {
-		switch self.GetId() {
-		case "cn-north-1", "cn-east-2", "cn-south-1":
-			eip.BGPType = "5_sbgp"
-		case "cn-northeast-1":
-			eip.BGPType = "5_telcom"
-		case "cn-north-4", "ap-southeast-1", "ap-southeast-2", "eu-west-0":
-			eip.BGPType = "5_bgp"
-		case "cn-southwest-2":
-			eip.BGPType = "5_sbgp"
-		default:
-			eip.BGPType = "5_bgp"
-		}
-	}
-
-	// 华为云EIP名字最大长度64
-	if len(eip.Name) > 64 {
-		eip.Name = eip.Name[:64]
-	}
-
-	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType, eip.ProjectId)
-	ieip.region = self
+func (self *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	eip, err := self.AllocateEIP(opts)
 	if err != nil {
 		return nil, err
 	}
-
-	err = cloudprovider.WaitStatus(ieip, api.EIP_STATUS_READY, 5*time.Second, 60*time.Second)
-	return ieip, err
+	err = cloudprovider.WaitStatus(eip, api.EIP_STATUS_READY, 5*time.Second, time.Minute)
+	return eip, err
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
