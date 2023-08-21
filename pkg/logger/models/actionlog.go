@@ -220,6 +220,8 @@ func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		"service":  self.Service,
 		"action":   self.Action,
 		"obj_type": self.ObjType,
+		"severity": string(self.Severity),
+		"kind":     string(self.Severity),
 	} {
 		db.DistinctFieldManager.InsertOrUpdate(ctx, ActionLog, k, v)
 	}
@@ -402,7 +404,7 @@ func (manager *SActionlogManager) InitializeData() error {
 	if len(fileds) > 0 {
 		return nil
 	}
-	for _, key := range []string{"service", "obj_type", "action"} {
+	for _, key := range []string{"service", "obj_type", "action", "severity", "kind"} {
 		values, err := db.FetchDistinctField(manager, key)
 		if err != nil {
 			return errors.Wrapf(err, "db.FetchDistinctField")
