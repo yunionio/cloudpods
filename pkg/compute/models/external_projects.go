@@ -68,7 +68,9 @@ type SExternalProject struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
-
+	// 优先级，同一个本地项目映射多个云上项目，优先级高的优先选择
+	// 数值越高，优先级越大
+	Priority         int    `default:"0" list:"user" update:"user" list:"user"`
 	ExternalDomainId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 归属云账号ID
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
