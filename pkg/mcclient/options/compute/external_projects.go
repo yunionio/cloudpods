@@ -59,3 +59,12 @@ type ExternalProjectCreateOptions struct {
 func (opts *ExternalProjectCreateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type ExternalProjectUpdateOptions struct {
+	options.BaseUpdateOptions
+	Priority *int
+}
+
+func (opts *ExternalProjectUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

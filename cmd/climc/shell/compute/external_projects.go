@@ -25,6 +25,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&compute.ExternalProjects).WithKeyword("external-project")
 	cmd.List(&opts.ExternalProjectListOptions{})
 	cmd.Create(&opts.ExternalProjectCreateOptions{})
+	cmd.Update(&opts.ExternalProjectUpdateOptions{})
 	cmd.Show(&options.BaseIdOptions{})
 	cmd.Perform("change-project", &opts.ExterProjectChagneProjectOptions{})
 }

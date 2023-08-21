@@ -532,6 +532,15 @@ func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.
 	return desc
 }
 
+func (model *SVirtualResourceBase) SetProjectSrc(src apis.TOwnerSource) {
+	if model.ProjectSrc != string(src) {
+		Update(model, func() error {
+			model.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
+			return nil
+		})
+	}
+}
+
 func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider) {
 	if model.ProjectSrc != string(apis.OWNER_SOURCE_LOCAL) && ownerId != nil && len(ownerId.GetProjectId()) > 0 {
 		diff, _ := Update(model, func() error {
