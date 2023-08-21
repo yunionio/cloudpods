@@ -1742,6 +1742,11 @@ func (h *SHostInfo) probeSyncIsolatedDevicesStep() {
 }
 
 func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
+	for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
+		if out, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Output(); err != nil {
+			log.Errorf("failed probe driver %s: %s %s", driver, out, err)
+		}
+	}
 	if err := h.IsolatedDeviceMan.ProbePCIDevices(options.HostOptions.DisableGPU, options.HostOptions.DisableUSB); err != nil {
 		return nil, errors.Wrap(err, "ProbePCIDevices")
 	}
