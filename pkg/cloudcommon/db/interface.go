@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -359,6 +360,7 @@ type IVirtualModel interface {
 	IsOwner(userCred mcclient.TokenCredential) bool
 	// IsAdmin(userCred mcclient.TokenCredential) bool
 
+	SetProjectSrc(apis.TOwnerSource)
 	SyncCloudProjectId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider)
 
 	GetIVirtualModel() IVirtualModel
