@@ -292,7 +292,7 @@ func syncRegionVPCs(
 				return
 			}
 
-			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
+			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], nil, syncRange)
 			if localRegion.GetDriver().IsSecurityGroupBelongVpc() ||
 				(localRegion.GetDriver().IsSecurityGroupBelongGlobalVpc() && !utils.IsInStringArray(localVpcs[j].GlobalvpcId, globalVpcIds)) || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
 				if len(localVpcs[j].GlobalvpcId) > 0 {
@@ -655,7 +655,7 @@ func syncNatSTable(
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
-func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
+func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, zone *SZone, syncRange *SSyncRange) {
 	wires, err := func() ([]cloudprovider.ICloudWire, error) {
 		defer func() {
 			if syncResults != nil {
@@ -675,7 +675,7 @@ func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 				syncResults.AddSqlCost(WireManager)()
 			}
 		}()
-		return WireManager.SyncWires(ctx, userCred, localVpc, wires, provider, syncRange.Xor)
+		return WireManager.SyncWires(ctx, userCred, localVpc, wires, provider, syncRange.Xor, zone)
 	}()
 
 	if syncResults != nil {
@@ -687,6 +687,11 @@ func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 	log.Infof(notes)
 	provider.SyncError(result, notes, userCred)
 	if result.IsError() {
+		return
+	}
+
+	if localVpc.Id == api.DEFAULT_VPC_ID {
+		// do not sync on-premise Vpc Network
 		return
 	}
 
@@ -898,7 +903,8 @@ func syncZoneHosts(
 			}
 
 			newCachePairs = syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], storageCachePairs, syncRange.Xor)
-			syncHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
+			syncHostNics(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
+			// syncHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
 			syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 		}()
 	}
@@ -943,14 +949,14 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 	return newCacheIds
 }
 
-func syncHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
-	wires, err := func() ([]cloudprovider.ICloudWire, error) {
+/*func syncHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
+	netifs, err := func() ([]cloudprovider.ICloudHostNetInterface, error) {
 		defer func() {
 			if syncResults != nil {
 				syncResults.AddRequestCost(NetInterfaceManager)()
 			}
 		}()
-		return remoteHost.GetIWires()
+		return remoteHost.GetIHostNics()
 	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetIWires for host %s failed %s", remoteHost.GetName(), err)
@@ -963,7 +969,7 @@ func syncHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncR
 				syncResults.AddSqlCost(NetInterfaceManager)()
 			}
 		}()
-		return localHost.SyncHostWires(ctx, userCred, wires)
+		return localHost.SyncHostNetInterfaces(ctx, userCred, netifs)
 	}()
 
 	if syncResults != nil {
@@ -978,7 +984,7 @@ func syncHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncR
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-}
+}*/
 
 func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, localHost *SHost, remoteHost cloudprovider.ICloudHost, syncRange *SSyncRange) {
 	vms, err := func() ([]cloudprovider.ICloudVM, error) {
@@ -2243,7 +2249,7 @@ func syncPublicCloudProviderInfo(
 	return nil
 }
 
-func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, iregion cloudprovider.ICloudRegion) (*SZone, error) {
+func getZoneForOnPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, iregion cloudprovider.ICloudRegion) (*SZone, error) {
 	extHosts, err := iregion.GetIHosts()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to GetIHosts")
@@ -2269,16 +2275,10 @@ func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCr
 	return nil, errors.Wrapf(errors.ErrNotFound, "no suitable zone with accessIp %s", ips)
 }
 
-func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, iregion cloudprovider.ICloudRegion, driver cloudprovider.ICloudProvider, syncRange *SSyncRange) []sStoragecacheSyncPair {
+func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, iregion cloudprovider.ICloudRegion, driver cloudprovider.ICloudProvider, zone *SZone, syncRange *SSyncRange) []sStoragecacheSyncPair {
 	istorages, err := iregion.GetIStorages()
 	if err != nil {
 		msg := fmt.Sprintf("GetIStorages for provider %s failed %s", provider.GetName(), err)
-		log.Errorf(msg)
-		return nil
-	}
-	zone, err := getZoneForPremiseCloudRegion(ctx, userCred, iregion)
-	if err != nil {
-		msg := fmt.Sprintf("Can't get zone for Premise cloud region %s error: %v", iregion.GetName(), err)
 		log.Errorf(msg)
 		return nil
 	}
@@ -2344,7 +2344,25 @@ func syncOnPremiseCloudProviderInfo(
 
 	var storageCachePairs []sStoragecacheSyncPair
 	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
-		storageCachePairs = syncOnPremiseCloudProviderStorage(ctx, userCred, syncResults, provider, iregion, driver, syncRange)
+		remoteVpcs, err := iregion.GetIVpcs()
+		if err != nil {
+			msg := fmt.Sprintf("GetIVpcs for provider %s failed %s", provider.GetName(), err)
+			log.Errorf(msg)
+			return err
+		}
+		zone, err := getZoneForOnPremiseCloudRegion(ctx, userCred, iregion)
+		if err != nil {
+			msg := fmt.Sprintf("Can't get zone for Premise cloud region %s error: %v", iregion.GetName(), err)
+			log.Errorf(msg)
+			return errors.Wrap(err, "getZoneForOnPremiseCloudRegion")
+		}
+		{
+			// sync wires
+			localVpc := VpcManager.FetchDefaultVpc()
+			syncVpcWires(ctx, userCred, syncResults, provider, localVpc, remoteVpcs[0], zone, syncRange)
+		}
+
+		storageCachePairs = syncOnPremiseCloudProviderStorage(ctx, userCred, syncResults, provider, iregion, driver, zone, syncRange)
 		ihosts, err := func() ([]cloudprovider.ICloudHost, error) {
 			defer syncResults.AddRequestCost(HostManager)()
 			return iregion.GetIHosts()
@@ -2375,8 +2393,8 @@ func syncOnPremiseCloudProviderInfo(
 			if len(newCachePairs) > 0 {
 				storageCachePairs = append(storageCachePairs, newCachePairs...)
 			}
-			syncHostNics(ctx, userCred, provider, &localHosts[i], remoteHosts[i])
-			syncOnPremiseHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
+			syncHostNics(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
+			// syncOnPremiseHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
 			syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 		}
 	}
@@ -2403,7 +2421,7 @@ func syncOnPremiseCloudProviderInfo(
 	return nil
 }
 
-func syncOnPremiseHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
+/*func syncOnPremiseHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
 	log.Infof("start to sync OnPremeseHostWires")
 	if provider.Provider != api.CLOUD_PROVIDER_VMWARE {
 		return
@@ -2429,15 +2447,25 @@ func syncOnPremiseHostWires(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 		db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	}()
-}
+}*/
 
-func syncHostNics(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
-	result := localHost.SyncHostExternalNics(ctx, userCred, remoteHost)
+func syncHostNics(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
+	defer func() {
+		if syncResults != nil {
+			syncResults.AddSqlCost(NetInterfaceManager)()
+		}
+	}()
+	result := localHost.SyncHostExternalNics(ctx, userCred, remoteHost, provider)
+	if syncResults != nil {
+		syncResults.Add(NetInterfaceManager, result)
+	}
 	msg := result.Result()
-	notes := fmt.Sprintf("SyncHostWires for host %s result: %s", localHost.Name, msg)
+	notes := fmt.Sprintf("SyncHostExternalNics for host %s result: %s", localHost.Name, msg)
 	log.Infof(notes)
 	if result.IsError() {
 		return
+	} else {
+		log.Infof(notes)
 	}
 }
 

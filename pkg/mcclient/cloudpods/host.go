@@ -18,10 +18,12 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
@@ -32,211 +34,226 @@ type SHost struct {
 	api.HostDetails
 }
 
-func (self *SHost) GetGlobalId() string {
-	return self.Id
+func (host *SHost) GetGlobalId() string {
+	return host.Id
 }
 
-func (self *SHost) GetId() string {
-	return self.Id
+func (host *SHost) GetId() string {
+	return host.Id
 }
 
-func (self *SHost) GetName() string {
-	return self.Name
+func (host *SHost) GetName() string {
+	return host.Name
 }
 
-func (self *SHost) GetStatus() string {
-	return self.Status
+func (host *SHost) GetStatus() string {
+	return host.Status
 }
 
-func (self *SHost) GetAccessIp() string {
-	return self.AccessIp
+func (host *SHost) GetAccessIp() string {
+	return host.AccessIp
 }
 
-func (self *SHost) GetOvnVersion() string {
-	return self.OvnVersion
+func (host *SHost) GetOvnVersion() string {
+	return host.OvnVersion
 }
 
-func (self *SHost) Refresh() error {
-	host, err := self.zone.region.GetHost(self.Id)
+func (host *SHost) Refresh() error {
+	host, err := host.zone.region.GetHost(host.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, host)
+	return jsonutils.Update(host, host)
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	wires, err := self.zone.region.GetWires("", self.Id)
+func (host *SHost) getIWires() ([]cloudprovider.ICloudWire, error) {
+	wires, err := host.zone.region.GetWires("", host.Id)
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudWire{}
 	for i := range wires {
-		vpc, _ := self.zone.region.GetVpc(wires[i].VpcId)
+		vpc, _ := host.zone.region.GetVpc(wires[i].VpcId)
 		wires[i].vpc = vpc
 		ret = append(ret, &wires[i])
 	}
 	return ret, nil
 }
 
-func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	storages, err := self.zone.region.GetStorages("", self.Id)
+func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	storages, err := host.zone.region.GetStorages("", host.Id)
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudStorage{}
 	for i := range storages {
-		storages[i].region = self.zone.region
+		storages[i].region = host.zone.region
 		ret = append(ret, &storages[i])
 	}
 	return ret, nil
 }
 
-func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	storage, err := self.zone.region.GetStorage(id)
+func (host *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	storage, err := host.zone.region.GetStorage(id)
 	if err != nil {
 		return nil, err
 	}
 	return storage, nil
 }
 
-func (self *SHost) GetEnabled() bool {
-	return self.Enabled != nil && *self.Enabled
+func (host *SHost) GetEnabled() bool {
+	return host.Enabled != nil && *host.Enabled
 }
 
-func (self *SHost) GetHostStatus() string {
-	return self.HostStatus
+func (host *SHost) GetHostStatus() string {
+	return host.HostStatus
 }
 
-func (self *SHost) GetAccessMac() string {
-	return self.AccessMac
+func (host *SHost) GetAccessMac() string {
+	return host.AccessMac
 }
 
-func (self *SHost) GetSysInfo() jsonutils.JSONObject {
-	return jsonutils.Marshal(self.SysInfo)
+func (host *SHost) GetSysInfo() jsonutils.JSONObject {
+	return jsonutils.Marshal(host.SysInfo)
 }
 
-func (self *SHost) GetSN() string {
-	return self.SN
+func (host *SHost) GetSN() string {
+	return host.SN
 }
 
-func (self *SHost) GetCpuCount() int {
-	return self.CpuCount
+func (host *SHost) GetCpuCount() int {
+	return host.CpuCount
 }
 
-func (self *SHost) GetNodeCount() int8 {
-	return int8(self.NodeCount)
+func (host *SHost) GetNodeCount() int8 {
+	return int8(host.NodeCount)
 }
 
-func (self *SHost) GetCpuDesc() string {
-	return self.CpuDesc
+func (host *SHost) GetCpuDesc() string {
+	return host.CpuDesc
 }
 
-func (self *SHost) GetCpuMhz() int {
-	return self.CpuMhz
+func (host *SHost) GetCpuMhz() int {
+	return host.CpuMhz
 }
 
-func (self *SHost) GetCpuCmtbound() float32 {
-	return self.CpuCmtbound
+func (host *SHost) GetCpuCmtbound() float32 {
+	return host.CpuCmtbound
 }
 
-func (self *SHost) GetMemSizeMB() int {
-	return self.MemSize
+func (host *SHost) GetMemSizeMB() int {
+	return host.MemSize
 }
 
-func (self *SHost) GetMemCmtbound() float32 {
-	return self.MemCmtbound
+func (host *SHost) GetMemCmtbound() float32 {
+	return host.MemCmtbound
 }
 
-func (self *SHost) GetReservedMemoryMb() int {
-	return self.MemReserved
+func (host *SHost) GetReservedMemoryMb() int {
+	return host.MemReserved
 }
 
-func (self *SHost) GetStorageSizeMB() int {
-	return self.StorageSize
+func (host *SHost) GetStorageSizeMB() int {
+	return host.StorageSize
 }
 
-func (self *SHost) GetStorageType() string {
-	return self.StorageType
+func (host *SHost) GetStorageType() string {
+	return host.StorageType
 }
 
-func (self *SHost) GetHostType() string {
+func (host *SHost) GetHostType() string {
 	return api.HOST_TYPE_CLOUDPODS
 }
 
-func (self *SHost) GetIsMaintenance() bool {
-	return self.IsMaintenance
+func (host *SHost) GetIsMaintenance() bool {
+	return host.IsMaintenance
 }
 
-func (self *SHost) GetVersion() string {
-	return self.Version
+func (host *SHost) GetVersion() string {
+	return host.Version
 }
 
-func (self *SHost) GetSchedtags() ([]string, error) {
+func (host *SHost) GetSchedtags() ([]string, error) {
 	ret := []string{}
-	for _, tag := range self.Schedtags {
+	for _, tag := range host.Schedtags {
 		ret = append(ret, tag.Name)
 	}
 	return ret, nil
 }
 
 type SHostNic struct {
-	api.HostnetworkDetails
+	host *SHost
+
+	nic *types.SNic
 }
 
-func (self *SHostNic) GetDriver() string {
+func (hn *SHostNic) GetDriver() string {
 	return ""
 }
 
-func (self *SHostNic) GetDevice() string {
-	return ""
+func (hn *SHostNic) GetDevice() string {
+	return hn.nic.Interface
 }
 
-func (self *SHostNic) GetMac() string {
-	return self.MacAddr
+func (hn *SHostNic) GetMac() string {
+	return hn.nic.Mac
 }
 
-func (self *SHostNic) GetIndex() int8 {
-	return int8(self.RowId)
-}
-
-func (self *SHostNic) IsLinkUp() tristate.TriState {
-	return tristate.True
-}
-
-func (self *SHostNic) GetMtu() int32 {
+func (hn *SHostNic) GetIndex() int8 {
 	return 0
 }
 
-func (self *SHostNic) GetNicType() string {
-	return string(self.NicType)
+func (hn *SHostNic) IsLinkUp() tristate.TriState {
+	if hn.nic.LinkUp {
+		return tristate.True
+	}
+	return tristate.False
 }
 
-func (self *SHostNic) GetVlanId() int {
-	return -1
+func (hn *SHostNic) GetMtu() int32 {
+	return int32(hn.nic.Mtu)
 }
 
-func (self *SHostNic) GetBridge() string {
-	return ""
+func (hn *SHostNic) GetNicType() string {
+	return string(hn.nic.Type)
 }
 
-func (self *SHostNic) GetIpAddr() string {
-	return self.IpAddr
+func (hn *SHostNic) GetVlanId() int {
+	return hn.nic.VlanId
 }
 
-func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+func (hn *SHostNic) GetBridge() string {
+	return hn.nic.Bridge
+}
+
+func (hn *SHostNic) GetIpAddr() string {
+	return hn.nic.IpAddr
+}
+
+func (hn *SHostNic) GetIWire() cloudprovider.ICloudWire {
+	wires, err := hn.host.getIWires()
+	if err != nil {
+		log.Errorf("SHostNic.GetIWire fail %s", err)
+		return nil
+	}
+	for i := range wires {
+		if wires[i].GetId() == hn.nic.WireId {
+			return wires[i]
+		}
+	}
+	return nil
+}
+
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
 	nics := []SHostNic{}
-	params := map[string]interface{}{
-		"scope":   "system",
-		"details": "true",
+
+	for i := range host.NicInfo {
+		nics = append(nics, SHostNic{
+			host: host,
+			nic:  host.NicInfo[i],
+		})
 	}
-	resp, err := modules.Baremetalnetworks.ListDescendent(self.zone.region.cli.s, self.Id, jsonutils.Marshal(params))
-	if err != nil {
-		return nil, err
-	}
-	err = jsonutils.Update(&nics, resp.Data)
-	if err != nil {
-		return nil, err
-	}
+
 	ret := []cloudprovider.ICloudHostNetInterface{}
 	for i := range nics {
 		ret = append(ret, &nics[i])
@@ -244,44 +261,48 @@ func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 	return ret, nil
 }
 
-func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	hypervisor := api.HOSTTYPE_HYPERVISOR[self.HostType]
-	ins, err := self.zone.region.CreateInstance(self.Id, hypervisor, opts)
+func (host *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	hypervisor := api.HOSTTYPE_HYPERVISOR[host.HostType]
+	ins, err := host.zone.region.CreateInstance(host.Id, hypervisor, opts)
 	if err != nil {
 		return nil, err
 	}
-	ins.host = self
+	ins.host = host
 	return ins, nil
 }
 
-func (self *SRegion) GetHost(id string) (*SHost, error) {
+func (region *SRegion) GetHost(id string) (*SHost, error) {
 	host := &SHost{}
-	return host, self.cli.get(&modules.Hosts, id, nil, host)
-}
-
-func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	host, err := self.region.GetHost(id)
+	err := region.cli.get(&modules.Hosts, id, nil, host)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "get")
 	}
-	host.zone = self
 	return host, nil
 }
 
-func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	hosts, err := self.region.GetHosts(self.Id)
+func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	host, err := zone.region.GetHost(id)
+	if err != nil {
+		return nil, err
+	}
+	host.zone = zone
+	return host, nil
+}
+
+func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	hosts, err := zone.region.GetHosts(zone.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHosts")
 	}
 	ret := []cloudprovider.ICloudHost{}
 	for i := range hosts {
-		hosts[i].zone = self
+		hosts[i].zone = zone
 		ret = append(ret, &hosts[i])
 	}
 	return ret, nil
 }
 
-func (self *SRegion) GetHosts(zoneId string) ([]SHost, error) {
+func (region *SRegion) GetHosts(zoneId string) ([]SHost, error) {
 	params := map[string]interface{}{
 		"baremetal": false,
 	}
@@ -289,5 +310,9 @@ func (self *SRegion) GetHosts(zoneId string) ([]SHost, error) {
 		params["zone_id"] = zoneId
 	}
 	ret := []SHost{}
-	return ret, self.list(&modules.Hosts, params, &ret)
+	err := region.list(&modules.Hosts, params, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "list")
+	}
+	return ret, nil
 }

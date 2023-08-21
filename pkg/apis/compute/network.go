@@ -305,6 +305,8 @@ type NetworkDetails struct {
 	// 路由信息
 	Routes    []types.SRoute             `json:"routes"`
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
+
+	IsClassic bool `json:"is_classic"`
 }
 
 type NetworkIpMacDetails struct {

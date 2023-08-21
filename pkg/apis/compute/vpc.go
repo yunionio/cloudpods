@@ -55,6 +55,9 @@ type VpcResourceInfoBase struct {
 
 	// VPC外部Id
 	VpcExtId string `json:"vpc_ext_id"`
+
+	// 是否为经典网络
+	IsDefaultVpc bool `json:"is_default_vpc"`
 }
 
 type VpcResourceInfo struct {

@@ -30,7 +30,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -5249,7 +5248,7 @@ func (hh *SHost) UpdateDiskConfig(userCred mcclient.TokenCredential, layouts []b
 }
 
 // TODO: support multithreaded operation
-func (host *SHost) SyncEsxiHostWires(ctx context.Context, userCred mcclient.TokenCredential, remoteHost cloudprovider.ICloudHost) compare.SyncResult {
+/*func (host *SHost) SyncEsxiHostWires(ctx context.Context, userCred mcclient.TokenCredential, remoteHost cloudprovider.ICloudHost) compare.SyncResult {
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
@@ -5295,7 +5294,7 @@ func (host *SHost) SyncEsxiHostWires(ctx context.Context, userCred mcclient.Toke
 	log.Infof("after sync: %s", jsonutils.Marshal(host2wires))
 	ca.SetHost2Wire(ctx, userCred, host2wires)
 	return result
-}
+}*/
 
 /*func (host *SHost) findHostwire(hostwires []SHostwire, wireId string, mac string) *SHostwire {
 	for i := range hostwires {
@@ -5315,7 +5314,9 @@ func (host *SHost) findNetIfs(netIfs []SNetInterface, mac string, vlanId int) *S
 	return nil
 }
 
-func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.TokenCredential, ihost cloudprovider.ICloudHost) compare.SyncResult {
+func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.TokenCredential, ihost cloudprovider.ICloudHost, provider *SCloudprovider) compare.SyncResult {
+	log.Debugf("SyncHostExternalNics %s-%s", host.Name, ihost.GetName())
+
 	result := compare.SyncResult{}
 
 	netIfs := host.GetHostNetInterfaces()
@@ -5453,7 +5454,17 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 		if len(bridge) > 0 {
 			strBridge = &bridge
 		}
-		err = host.addNetif(ctx, userCred, extNic.GetMac(), extNic.GetVlanId(), "", extNic.GetIpAddr(), 0,
+		wireId := ""
+		extWire := extNic.GetIWire()
+		if extWire != nil {
+			wire, err := WireManager.FetchWireByExternalId(provider.Id, extWire.GetGlobalId())
+			if err != nil {
+				result.AddError(err)
+			} else {
+				wireId = wire.Id
+			}
+		}
+		err = host.addNetif(ctx, userCred, extNic.GetMac(), extNic.GetVlanId(), wireId, extNic.GetIpAddr(), 0,
 			compute.TNicType(extNic.GetNicType()), extNic.GetIndex(),
 			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, strNetIf, strBridge, true, true)
 		if err != nil {

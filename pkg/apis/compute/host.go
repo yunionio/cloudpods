@@ -300,7 +300,10 @@ type HostFilterListInputBase struct {
 	HostResourceInput
 
 	// 以宿主机序列号过滤
-	HostSN string `json:"host_sn"`
+	HostSN []string `json:"host_sn"`
+
+	// 以宿主机对接二层网络过滤
+	HostWireId string `json:"host_wire_id"`
 
 	// 以宿主机名称排序
 	OrderByHost string `json:"order_by_host"`
