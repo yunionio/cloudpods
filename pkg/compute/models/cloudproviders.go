@@ -1921,7 +1921,7 @@ func (self *SCloudprovider) GetExternalProjectsByProjectIdOrName(projectId, name
 			sqlchemy.Equals(q.Field("name"), name),
 			sqlchemy.Equals(q.Field("tenant_id"), projectId),
 		),
-	)
+	).Desc("priority")
 	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
 	if err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")

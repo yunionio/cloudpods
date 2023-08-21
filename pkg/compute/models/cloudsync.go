@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -2410,6 +2411,7 @@ func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, mo
 			return nil, errors.Wrapf(err, "GetCloudaccount")
 		}
 		if rm != nil && rm.Enabled.Bool() && rm.IsNeedResourceSync() {
+			model.SetProjectSrc(apis.OWNER_SOURCE_CLOUD)
 			extTags, err := extModel.GetTags()
 			if err != nil {
 				return nil, errors.Wrapf(err, "extModel.GetTags")
