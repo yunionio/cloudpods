@@ -2166,3 +2166,22 @@ func (self *SCloudprovider) PerformSetSyncing(ctx context.Context, userCred mccl
 	}
 	return nil, nil
 }
+
+func (self *SCloudprovider) SyncError(result compare.SyncResult, iNotes interface{}, userCred mcclient.TokenCredential) {
+	if result.IsError() {
+		account := &SCloudaccount{}
+		account.Id = self.CloudaccountId
+		account.Name = self.Account
+		if len(account.Name) == 0 {
+			account.Name = self.Name
+		}
+		account.SetModelManager(CloudaccountManager, account)
+		logclient.AddSimpleActionLog(account, logclient.ACT_CLOUD_SYNC, iNotes, userCred, false)
+	}
+}
+
+func (self *SCloudaccount) SyncError(result compare.SyncResult, iNotes interface{}, userCred mcclient.TokenCredential) {
+	if result.IsError() {
+		logclient.AddSimpleActionLog(self, logclient.ACT_CLOUD_SYNC, iNotes, userCred, false)
+	}
+}
