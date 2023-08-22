@@ -221,7 +221,7 @@ func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		"action":   self.Action,
 		"obj_type": self.ObjType,
 		"severity": string(self.Severity),
-		"kind":     string(self.Severity),
+		"kind":     string(self.Kind),
 	} {
 		db.DistinctFieldManager.InsertOrUpdate(ctx, ActionLog, k, v)
 	}
