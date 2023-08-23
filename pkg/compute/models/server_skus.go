@@ -66,6 +66,8 @@ func init() {
 	}
 	ServerSkuManager.NameRequireAscii = false
 	ServerSkuManager.SetVirtualObject(ServerSkuManager)
+	// CREATE INDEX sku_index  ON serverskus_tbl (`deleted`, `is_emulated`, `provider`, `cloudregion_id`, `postpaid_status`, `prepaid_status`)
+	ServerSkuManager.TableSpec().AddIndex(false, "deleted", "is_emulated", "provider", "cloudregion_id", "postpaid_status", "prepaid_status")
 }
 
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
