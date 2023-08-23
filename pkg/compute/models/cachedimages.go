@@ -61,6 +61,7 @@ func init() {
 		),
 	}
 	CachedimageManager.SetVirtualObject(CachedimageManager)
+	CachedimageManager.TableSpec().AddIndex(false, "deleted", "domain_id", "tenant_id", "image_type")
 }
 
 type SCachedimage struct {
@@ -877,7 +878,8 @@ func (manager *SCachedimageManager) ListItemFilter(
 		}
 
 		if idFilter {
-			q = q.In("id", subq)
+			subQ := subq.Distinct().SubQuery()
+			q = q.Join(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("cachedimage_id")))
 		}
 	}
 

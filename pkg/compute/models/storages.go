@@ -64,6 +64,7 @@ func init() {
 		),
 	}
 	StorageManager.SetVirtualObject(StorageManager)
+	StorageManager.TableSpec().AddIndex(false, "deleted", "status", "enabled", "zone_id", "storagecache_id")
 }
 
 type SStorage struct {
