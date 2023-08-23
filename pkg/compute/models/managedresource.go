@@ -248,6 +248,8 @@ func (manager *SManagedResourceBaseManager) FetchCustomizeColumns(
 	for i := range rows {
 		if account, ok := accounts[rows[i].AccountId]; ok {
 			rows[i].Account = account.Name
+			rows[i].AccountStatus = account.Status
+			rows[i].AccountHealthStatus = account.HealthStatus
 			rows[i].Brand = account.Brand
 			rows[i].Provider = account.Provider
 			rows[i].CloudEnv = account.GetCloudEnv()
