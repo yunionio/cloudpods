@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SSyncableBaseResource struct {
@@ -1030,23 +1031,23 @@ func syncVMPeripherals(
 	driver cloudprovider.ICloudProvider,
 ) {
 	err := syncVMNics(ctx, userCred, provider, host, local, remote)
-	if err != nil {
-		log.Errorf("syncVMNics error %s", err)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+		logclient.AddSimpleActionLog(local, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "syncVMNics"), userCred, false)
 	}
 	err = syncVMDisks(ctx, userCred, provider, driver, host, local, remote)
-	if err != nil {
-		log.Errorf("syncVMDisks error %s", err)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+		logclient.AddSimpleActionLog(local, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "syncVMDisks"), userCred, false)
 	}
 	account, _ := provider.GetCloudaccount()
 	if account == nil || account.IsNotSkipSyncResource(ElasticipManager) {
 		err = syncVMEip(ctx, userCred, provider, local, remote)
-		if err != nil {
-			log.Errorf("syncVMEip error %s", err)
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+			logclient.AddSimpleActionLog(local, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "syncVMEip"), userCred, false)
 		}
 	}
 	err = syncVMSecgroups(ctx, userCred, provider, local, remote)
-	if err != nil {
-		log.Errorf("syncVMSecgroups error %s", err)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+		logclient.AddSimpleActionLog(local, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "syncVMSecgroups"), userCred, false)
 	}
 	result := local.SyncInstanceSnapshots(ctx, userCred, provider)
 	if result.IsError() {
