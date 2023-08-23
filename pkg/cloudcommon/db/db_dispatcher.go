@@ -573,6 +573,12 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	pagingOrderStr, _ := query.GetString("paging_order")
 	pagingOrder := sqlchemy.QueryOrderType(strings.ToUpper(pagingOrderStr))
 
+	// export data only
+	exportLimit, err := query.Int("export_limit")
+	if query.Contains("export_keys") && err == nil {
+		limit = exportLimit
+	}
+
 	var (
 		q           *sqlchemy.SQuery
 		useRawQuery bool
@@ -701,12 +707,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) && !forceNoPaging {
 		limit = maxLimit
-	}
-
-	// export data only
-	exportLimit, err := query.Int("export_limit")
-	if query.Contains("export_keys") && err == nil {
-		limit = exportLimit
 	}
 
 	// orders defined in pagingConf should have the highest priority
