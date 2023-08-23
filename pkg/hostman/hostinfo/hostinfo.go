@@ -1596,6 +1596,10 @@ func (h *SHostInfo) PutHostOnline() error {
 
 func (h *SHostInfo) onGetHostNetworkInfo(hostInfo *api.HostDetails) error {
 	for _, nicInfo := range hostInfo.NicInfo {
+		if len(nicInfo.WireId) == 0 {
+			// no wire info, ignore
+			continue
+		}
 		nic := h.getMatchNic(nicInfo.Mac, nicInfo.VlanId)
 		if nic != nil {
 			if nicInfo.Bandwidth < 1 {
@@ -1625,6 +1629,12 @@ func (h *SHostInfo) uploadNetworkInfo() error {
 		if h.isVirtualFunction(pnic.Dev) {
 			continue
 		}
+		nic := h.getMatchNic(pnic.Mac.String(), 1)
+		if nic != nil {
+			// no need to report managed NIC
+			continue
+		}
+		// only report unmanaged physical NIC
 		err := h.doSendPhysicalNicInfo(pnic)
 		if err != nil {
 			return errors.Wrapf(err, "doSendPhysicalNicInfo %s", pnic.Dev)
