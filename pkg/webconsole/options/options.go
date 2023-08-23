@@ -29,7 +29,7 @@ type WebConsoleOptions struct {
 	IpmitoolPath             string `help:"ipmitool binary path used to connect baremetal sol" default:"/usr/bin/ipmitool"`
 	EnableAutoLogin          bool   `help:"allow webconsole to log in directly with the cloudroot public key" default:"false"`
 	ApsaraConsoleAddr        string `help:"Apsara console addr" default:"https://xxxx.com.cn/module/ecs/vnc/index.html"`
-	AliyunVncVersion         string `help:"Aliyun vnc version" default:"0.0.8"`
+	AliyunConsoleAddr        string `help:"Aliyun vnc addr" default:"https://ecs.console.aliyun.com/vnc/index.htm"`
 	SshSessionTimeoutMinutes int    `help:"ssh timeout session" default:"-1"`
 }
 
