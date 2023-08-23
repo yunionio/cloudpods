@@ -557,37 +557,45 @@ func (manager *SStorageManager) FetchCustomizeColumns(
 		tagMap[tags[i].StorageId] = append(tagMap[tags[i].StorageId], desc)
 	}
 
-	q = HoststorageManager.Query("storage_id", "host_id").In("storage_id", storageIds)
-	hoststorages, err := q.Rows()
+	sq := HoststorageManager.Query().In("storage_id", storageIds).SubQuery()
+	hosts := HostManager.Query().SubQuery()
+	q = sq.Query(
+		sq.Field("storage_id"),
+		sq.Field("host_id"),
+		hosts.Field("name"),
+		hosts.Field("status"),
+		hosts.Field("host_status"),
+	).LeftJoin(hosts, sqlchemy.Equals(sq.Field("host_id"), hosts.Field("id")))
+
+	hs := []struct {
+		StorageId  string
+		HostId     string
+		Name       string
+		Status     string
+		HostStatus string
+	}{}
+	err = q.All(&hs)
 	if err != nil {
+		log.Errorf("query host error: %v", err)
 		return rows
 	}
-	defer hoststorages.Close()
-	hostIds := []string{}
-	storageMap := make(map[string][]string, len(objs))
-	for hoststorages.Next() {
-		var storageId, hostId string
-		hoststorages.Scan(&storageId, &hostId)
-		if _, ok := storageMap[storageId]; !ok {
-			storageMap[storageId] = []string{}
+
+	hoststorages := map[string][]api.StorageHost{}
+	for _, h := range hs {
+		_, ok := hoststorages[h.StorageId]
+		if !ok {
+			hoststorages[h.StorageId] = []api.StorageHost{}
 		}
-		storageMap[storageId] = append(storageMap[storageId], hostId)
-		hostIds = append(hostIds, hostId)
+		hoststorages[h.StorageId] = append(hoststorages[h.StorageId], api.StorageHost{
+			Id:         h.HostId,
+			Name:       h.Name,
+			Status:     h.Status,
+			HostStatus: h.HostStatus,
+		})
 	}
-	hostMap, err := db.FetchIdNameMap2(HostManager, hostIds)
-	if err != nil {
-		return rows
-	}
+
 	for i := range rows {
-		hostIds, ok := storageMap[storageIds[i]]
-		if ok {
-			rows[i].Hosts = []api.StorageHost{}
-			for _, hostId := range hostIds {
-				if name, ok := hostMap[hostId]; ok {
-					rows[i].Hosts = append(rows[i].Hosts, api.StorageHost{Id: hostId, Name: name})
-				}
-			}
-		}
+		rows[i].Hosts, _ = hoststorages[storageIds[i]]
 		tags, ok := tagMap[storageIds[i]]
 		if ok {
 			rows[i].Schedtags = tags
