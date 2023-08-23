@@ -75,7 +75,7 @@ func (cli *SESXiClient) scanAllNetworks() ([]mo.Network, error) {
 	return monets, nil
 }
 
-func (cli *SESXiClient) networkName(refV string) (string, error) {
+/*func (cli *SESXiClient) networkName(refV string) (string, error) {
 	if cli.networkQueryMap == nil {
 		nets, err := cli.scanAllNetworks()
 		if err != nil {
@@ -91,7 +91,7 @@ func (cli *SESXiClient) networkName(refV string) (string, error) {
 		return "", nil
 	}
 	return iter.(string), nil
-}
+}*/
 
 func (cli *SESXiClient) hostVMIPsPro(ctx context.Context, hosts []mo.HostSystem) (SNetworkInfoPro, error) {
 	ret := SNetworkInfoPro{
@@ -190,7 +190,7 @@ func vpgMapKey(prefix, key string) string {
 	return fmt.Sprintf("%s-%s", prefix, key)
 }
 
-func (cli *SESXiClient) macVlanMap(mohost *mo.HostSystem, movm *mo.VirtualMachine, dvpgMap sVPGMap) (map[string]SIPProc, error) {
+/*func (cli *SESXiClient) macVlanMap(mohost *mo.HostSystem, movm *mo.VirtualMachine, dvpgMap sVPGMap) (map[string]SIPProc, error) {
 	vpgMap := cli.getVPGMap(mohost)
 	ret := make(map[string]SIPProc, 2)
 	for _, device := range movm.Config.Hardware.Device {
@@ -224,7 +224,7 @@ func (cli *SESXiClient) macVlanMap(mohost *mo.HostSystem, movm *mo.VirtualMachin
 		}
 	}
 	return ret, nil
-}
+}*/
 
 type SNetworkInfoPro struct {
 	SNetworkInfoBase

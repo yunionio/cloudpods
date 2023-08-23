@@ -5533,7 +5533,11 @@ func (hh *SHost) EsxiRequest(ctx context.Context, method httputils.THttpMethod, 
 }
 
 func (hh *SHost) GetAgent(at api.TAgentType) *SBaremetalagent {
-	return BaremetalagentManager.GetAgent(at, hh.ZoneId)
+	agent := BaremetalagentManager.GetAgent(at, hh.ZoneId)
+	if agent == nil {
+		agent = BaremetalagentManager.GetAgent(at, "")
+	}
+	return agent
 }
 
 func (hh *SHost) isAgentReady(agentType api.TAgentType) bool {
@@ -5546,7 +5550,7 @@ func (hh *SHost) isAgentReady(agentType api.TAgentType) bool {
 }
 
 func (hh *SHost) doAgentRequest(agentType api.TAgentType, ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	agent := BaremetalagentManager.GetAgent(agentType, hh.ZoneId)
+	agent := hh.GetAgent(agentType)
 	if agent == nil {
 		return nil, fmt.Errorf("no valid %s", agentType)
 	}

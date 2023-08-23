@@ -1148,7 +1148,7 @@ func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, hos
 		return nil, errors.Error(spec.Error[0].LocalizedMessage)
 	}
 
-	lease, err := pool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, host.GetoHostSystem())
+	lease, err := pool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, host.GetHostSystem())
 	if err != nil {
 		return nil, err
 	}

@@ -32,10 +32,6 @@ type SHost struct {
 	zone *SZone
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
-}
-
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.zone.GetIStorages()
 }
@@ -283,7 +279,11 @@ func (self *SHost) _createVM(name, hostname string, imgId string,
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SHost) GetIsMaintenance() bool {

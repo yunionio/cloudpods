@@ -18,9 +18,10 @@ import (
 	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
-type SHostNicInfo struct {
+type sHostNicInfo struct {
 	Dev     string
 	Driver  string
 	Mac     string
@@ -31,67 +32,88 @@ type SHostNicInfo struct {
 	Mtu     int32
 	NicType compute.TNicType
 
-	DVPortGroup string
+	VlanId int
 
 	IpAddrPrefixLen  int8
 	IpAddr6PrefixLen int8
+
+	host    *SHost
+	network IVMNetwork
 }
 
-func (nic *SHostNicInfo) GetDevice() string {
+func (nic *sHostNicInfo) GetDevice() string {
 	return nic.Dev
 }
 
-func (nic *SHostNicInfo) GetDriver() string {
+func (nic *sHostNicInfo) GetDriver() string {
 	return nic.Driver
 }
 
-func (nic *SHostNicInfo) GetMac() string {
-	return nic.Mac
+func (nic *sHostNicInfo) GetMac() string {
+	if len(nic.Mac) > 0 {
+		return nic.Mac
+	}
+	if nic.network != nil {
+		return cloudprovider.HashIdsMac(nic.host.GetGlobalId(), nic.network.GetId())
+	}
+	panic("sHostNicInfo: empty mac and network?")
 }
 
-func (nic *SHostNicInfo) GetVlanId() int {
+func (nic *sHostNicInfo) GetVlanId() int {
+	if nic.VlanId > 0 {
+		return nic.VlanId
+	}
 	return 1
 }
 
-func (nic *SHostNicInfo) GetIndex() int8 {
+func (nic *sHostNicInfo) GetIndex() int8 {
 	return nic.Index
 }
 
-func (nic *SHostNicInfo) IsLinkUp() tristate.TriState {
+func (nic *sHostNicInfo) IsLinkUp() tristate.TriState {
 	if nic.LinkUp {
 		return tristate.True
 	}
 	return tristate.False
 }
 
-func (nic *SHostNicInfo) GetIpAddr() string {
+func (nic *sHostNicInfo) GetIpAddr() string {
 	return nic.IpAddr
 }
 
-func (nic *SHostNicInfo) GetIpAddrPrefixLen() int8 {
+func (nic *sHostNicInfo) GetIpAddrPrefixLen() int8 {
 	return nic.IpAddrPrefixLen
 }
 
-func (nic *SHostNicInfo) GetIpAddr6() string {
+func (nic *sHostNicInfo) GetIpAddr6() string {
 	return nic.IpAddr6
 }
 
-func (nic *SHostNicInfo) GetIpAddr6PrefixLen() int8 {
+func (nic *sHostNicInfo) GetIpAddr6PrefixLen() int8 {
 	return nic.IpAddr6PrefixLen
 }
 
-func (nic *SHostNicInfo) GetMtu() int32 {
+func (nic *sHostNicInfo) GetMtu() int32 {
 	return nic.Mtu
 }
 
-func (nic *SHostNicInfo) GetNicType() string {
+func (nic *sHostNicInfo) GetNicType() string {
 	return string(nic.NicType)
 }
 
-func (nic *SHostNicInfo) GetDVPortGroup() string {
-	return nic.DVPortGroup
+func (nic *sHostNicInfo) GetBridge() string {
+	if nic.network != nil {
+		return nic.network.GetId()
+	}
+	return ""
 }
 
-func (nic *SHostNicInfo) GetBridge() string {
-	return nic.DVPortGroup
+func (nic *sHostNicInfo) GetIWire() cloudprovider.ICloudWire {
+	if nic.network != nil {
+		return &sWire{
+			network: nic.network,
+			client:  nic.host.manager,
+		}
+	}
+	return nil
 }

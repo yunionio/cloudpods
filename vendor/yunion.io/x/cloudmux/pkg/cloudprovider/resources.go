@@ -282,7 +282,7 @@ type ICloudHost interface {
 	GetIVMs() ([]ICloudVM, error)
 	GetIVMById(id string) (ICloudVM, error)
 
-	GetIWires() ([]ICloudWire, error)
+	// GetIWires() ([]ICloudWire, error)
 	GetIStorages() ([]ICloudStorage, error)
 	GetIStorageById(id string) (ICloudStorage, error)
 
@@ -656,6 +656,7 @@ type ICloudHostNetInterface interface {
 	GetMtu() int32
 	GetNicType() string
 	GetBridge() string
+	GetIWire() ICloudWire
 }
 
 type ICloudLoadbalancer interface {
