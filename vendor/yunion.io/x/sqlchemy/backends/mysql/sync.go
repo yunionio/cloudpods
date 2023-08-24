@@ -34,27 +34,27 @@ func (mysql *SMySQLBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes
 	alters := make([]string, 0)
 	// first check if primary key is modifed
 	changePrimary := false
-	oldHasPrimary := false
+	// oldHasPrimary := false
 	for _, col := range changes.RemoveColumns {
 		if col.IsPrimary() {
 			changePrimary = true
-			oldHasPrimary = true
+			// oldHasPrimary = true
 		}
 	}
 	for _, cols := range changes.UpdatedColumns {
 		if cols.OldCol.IsPrimary() != cols.NewCol.IsPrimary() {
 			changePrimary = true
 		}
-		if cols.OldCol.IsPrimary() {
-			oldHasPrimary = true
-		}
+		// if cols.OldCol.IsPrimary() {
+		//	oldHasPrimary = true
+		// }
 	}
 	for _, col := range changes.AddColumns {
 		if col.IsPrimary() {
 			changePrimary = true
 		}
 	}
-	if changePrimary && oldHasPrimary {
+	if changePrimary {
 		sql := fmt.Sprintf("DROP PRIMARY KEY")
 		alters = append(alters, sql)
 	}

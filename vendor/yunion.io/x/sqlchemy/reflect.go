@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
@@ -72,9 +71,9 @@ func GetStringValue(dat interface{}) string {
 	serializable, ok := value.Interface().(gotypes.ISerializable)
 	if ok {
 		return serializable.String()
+	} else {
+		return jsonutils.Marshal(value.Interface()).String()
 	}
-	log.Errorf("cannot convert %v to string", value)
-	return ""
 }
 
 func setValueBySQLString(value reflect.Value, val string) error {
@@ -138,6 +137,9 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		if err != nil {
 			return errors.Wrapf(err, "jsonutils.ParseString %s", val)
 		}
+		if jsonV == jsonutils.JSONNull {
+			return nil
+		}
 		jsonA, err := jsonV.GetArray()
 		if err != nil {
 			return errors.Wrap(err, "jsonV.GetArray")
@@ -159,9 +161,12 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		if err != nil {
 			return errors.Wrapf(err, "jsonutils.ParseString %s", val)
 		}
+		if jsonV == jsonutils.JSONNull {
+			return nil
+		}
 		jsonM, err := jsonV.GetMap()
 		if err != nil {
-			return errors.Wrapf(err, "jsonV.GetMap")
+			return errors.Wrapf(err, "jsonV.GetMap val %s json %s", val, jsonV)
 		}
 		mapValue := reflect.MakeMap(value.Type())
 		value.Set(mapValue)
@@ -192,6 +197,9 @@ func setValueBySQLString(value reflect.Value, val string) error {
 			jsonV, err := jsonutils.ParseString(val)
 			if err != nil {
 				return errors.Wrapf(err, "%s not a json string: %s", val, err)
+			}
+			if jsonV == jsonutils.JSONNull {
+				return nil
 			}
 			newVal := reflect.New(value.Type())
 			err = jsonV.Unmarshal(newVal.Interface())

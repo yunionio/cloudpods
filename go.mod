@@ -36,6 +36,7 @@ require (
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.5.2
 	github.com/google/gopacket v1.1.17
+	github.com/google/uuid v1.3.0
 	github.com/googollee/go-socket.io v0.0.0-20181214084611-0ad7206c347a
 	github.com/gorilla/mux v1.7.0
 	github.com/gorilla/websocket v1.4.1
@@ -102,19 +103,16 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
+	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
+	yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.0.1-0.20230420104238-bbd084afbdfe
+	yunion.io/x/pkg v1.0.1-0.20230711090507-0aafe0f0c9db
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20230422192549-7a9668176f46
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
 
-require (
-	github.com/google/uuid v1.3.0
-	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
-	yunion.io/x/jsonutils v0.0.0-20220106020632-953b71a4c3a8
-)
+require yunion.io/x/sqlchemy v1.1.2-0.20230823191329-dc02ac3a547c
 
 require (
 	cloud.google.com/go v0.65.0 // indirect

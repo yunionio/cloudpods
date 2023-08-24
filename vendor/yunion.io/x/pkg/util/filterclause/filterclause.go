@@ -43,7 +43,7 @@ func (jfc *SJointFilterClause) GetJointFilter(q *sqlchemy.SQuery) sqlchemy.ICond
 }
 
 func (jfc *SJointFilterClause) GetJointModelName() string {
-	return jfc.JointModel[:len(jfc.JointModel)-1]
+	return strings.TrimSuffix(jfc.JointModel, "s")
 }
 
 func condFunc(field sqlchemy.IQueryField, params []string, cond func(field sqlchemy.IQueryField, val string) sqlchemy.ICondition) sqlchemy.ICondition {
