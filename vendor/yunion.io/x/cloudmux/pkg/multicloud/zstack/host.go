@@ -80,7 +80,7 @@ func (region *SRegion) GetHost(hostId string) (*SHost, error) {
 	return host, nil
 }
 
-func (host *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
+func (host *SHost) getIWires() ([]cloudprovider.ICloudWire, error) {
 	wires, err := host.zone.region.GetWires(host.ZoneUUID, "", host.ClusterUUID)
 	if err != nil {
 		return nil, err
@@ -467,7 +467,11 @@ func (region *SRegion) CreateInstance(desc *cloudprovider.SManagedVMCreateConfig
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+	wires, err := host.getIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "getIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SHost) GetIsMaintenance() bool {

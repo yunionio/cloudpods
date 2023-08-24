@@ -207,7 +207,7 @@ func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
 }
 
 func (self *SESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
-	return []string{api.VM_READY}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {

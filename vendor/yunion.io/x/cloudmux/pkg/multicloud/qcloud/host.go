@@ -262,10 +262,6 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	return ivms, nil
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
-}
-
 func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewString(CLOUD_PROVIDER_QCLOUD), "manufacture")
@@ -277,7 +273,11 @@ func (self *SHost) IsEmulated() bool {
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SHost) GetIsMaintenance() bool {

@@ -142,8 +142,20 @@ func (manager *SHostResourceBaseManager) ListItemFilter(
 		q = q.Equals(manager.getHostIdFieldName(), hostObj.GetId())
 	}
 	if len(query.HostSN) > 0 {
-		sq := HostManager.Query("id").Equals("sn", query.HostSN).SubQuery()
+		sq := HostManager.Query("id").In("sn", query.HostSN).SubQuery()
 		q = q.In(manager.getHostIdFieldName(), sq)
+	}
+	if len(query.HostWireId) > 0 {
+		wireObj, err := WireManager.FetchByIdOrName(userCred, query.HostWireId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), query.HostWireId)
+			} else {
+				return nil, errors.Wrap(err, "WireManager.FetchByIdOrName")
+			}
+		}
+		netifsQ := NetInterfaceManager.Query("baremetal_id").Equals("wire_id", wireObj.GetId()).Distinct().SubQuery()
+		q = q.In(manager.getHostIdFieldName(), netifsQ)
 	}
 	subq := HostManager.Query("id").Snapshot()
 	subq, err := manager.SZoneResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.ZonalFilterListInput)

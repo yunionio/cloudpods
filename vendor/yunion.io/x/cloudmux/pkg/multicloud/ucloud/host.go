@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -83,10 +84,6 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 
 	vm.host = self
 	return &vm, nil
-}
-
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -180,8 +177,12 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	return &vm, err
 }
 
-func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "getIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 type SInstanceType struct {

@@ -58,11 +58,17 @@ func (cols TColumnNames) Less(i, j int) bool {
 	}
 }
 
+const IndexLimit int = 64
+
 func (index *STableIndex) Name() string {
 	if len(index.name) > 0 {
 		return index.name
 	}
-	return fmt.Sprintf("ix_%s_%s", index.ts.Name(), strings.Join(index.columns, "_"))
+	name := fmt.Sprintf("ix_%s_%s", index.ts.Name(), strings.Join(index.columns, "_"))
+	if len(name) > IndexLimit {
+		name = name[:IndexLimit]
+	}
+	return name
 }
 
 func (index STableIndex) clone(ts ITableSpec) STableIndex {

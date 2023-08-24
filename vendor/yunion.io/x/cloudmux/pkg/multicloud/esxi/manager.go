@@ -25,7 +25,6 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	xj "github.com/basgys/goxml2json"
@@ -62,6 +61,8 @@ var (
 
 	defaultDcId = "esxi-default-datacenter"
 )
+
+var _ cloudprovider.ICloudRegion = (*SESXiClient)(nil)
 
 func init() {
 	defaultDc.ManagedEntity.Name = "Datacenter"
@@ -115,15 +116,17 @@ func (cfg *ESXiClientConfig) Managed(managed bool) *ESXiClientConfig {
 type SESXiClient struct {
 	*ESXiClientConfig
 
-	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
+	multicloud.SRegionEipBase
 	multicloud.SNoObjectStorageRegion
+	multicloud.SRegionLbBase
 
 	client  *govmomi.Client
 	context context.Context
 
-	datacenters     []*SDatacenter
-	networkQueryMap *sync.Map
+	datacenters []*SDatacenter
+
+	fakeVpc *sFakeVpc
 }
 
 func NewESXiClient(cfg *ESXiClientConfig) (*SESXiClient, error) {
@@ -140,6 +143,10 @@ func NewESXiClient2(cfg *ESXiClientConfig) (*SESXiClient, error) {
 	err := cli.connect()
 	if err != nil {
 		return nil, err
+	}
+
+	cli.fakeVpc = &sFakeVpc{
+		client: cli,
 	}
 
 	if !cli.IsVCenter() {
@@ -494,6 +501,17 @@ func (cli *SESXiClient) scanMObjectsWithFilter(folder types.ManagedObjectReferen
 	return nil
 }
 
+func fixProps(props []string) []string {
+	for _, key := range []string{
+		"name", "parent",
+	} {
+		if !utils.IsInArray(key, props) {
+			props = append(props, key)
+		}
+	}
+	return props
+}
+
 func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props []string, dst interface{}) error {
 	dstValue := reflect.Indirect(reflect.ValueOf(dst))
 	dstType := dstValue.Type()
@@ -509,7 +527,7 @@ func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props 
 
 	defer v.Destroy(cli.context)
 
-	err = v.Retrieve(cli.context, []string{resType}, props, dst)
+	err = v.Retrieve(cli.context, []string{resType}, fixProps(props), dst)
 	if err != nil {
 		return errors.Wrapf(err, "v.Retrieve %s", resType)
 	}
@@ -519,7 +537,7 @@ func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props 
 
 func (cli *SESXiClient) references2Objects(refs []types.ManagedObjectReference, props []string, dst interface{}) error {
 	pc := property.DefaultCollector(cli.client.Client)
-	err := pc.Retrieve(cli.context, refs, props, dst)
+	err := pc.Retrieve(cli.context, refs, fixProps(props), dst)
 	if err != nil {
 		log.Errorf("pc.Retrieve fail %s", err)
 		return err
@@ -529,7 +547,7 @@ func (cli *SESXiClient) references2Objects(refs []types.ManagedObjectReference, 
 
 func (cli *SESXiClient) reference2Object(ref types.ManagedObjectReference, props []string, dst interface{}) error {
 	pc := property.DefaultCollector(cli.client.Client)
-	err := pc.RetrieveOne(cli.context, ref, props, dst)
+	err := pc.RetrieveOne(cli.context, ref, fixProps(props), dst)
 	if err != nil {
 		return errors.Wrap(err, "pc.RetrieveOne")
 	}

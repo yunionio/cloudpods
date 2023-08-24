@@ -773,7 +773,7 @@ func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	for _, s := range host.GetHoststorages() {
 		storage := s.GetStorage()
 		if storage == nil {
-			log.Warningf("%s invoke s.GetStorage return nil", storage.Id)
+			log.Warningf("%s invoke s.GetStorage return nil", s.StorageId)
 			continue
 		}
 		cs := &api.CandidateStorage{

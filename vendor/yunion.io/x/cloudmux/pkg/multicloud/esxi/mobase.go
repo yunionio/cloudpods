@@ -71,8 +71,10 @@ func (self *SManagedObject) fetchPath() []string {
 	path := make([]string, 0)
 	obj := self.object.Entity()
 	for obj != nil {
-		path = append(path, obj.Name)
 		obj = self.getParentEntity(obj)
+		if obj != nil {
+			path = append(path, obj.Name)
+		}
 	}
 	reverseArray(path)
 	return path

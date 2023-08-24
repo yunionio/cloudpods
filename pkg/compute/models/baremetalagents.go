@@ -225,7 +225,11 @@ func (manager *SBaremetalagentManager) FetchCustomizeColumns(
 }
 
 func (manager *SBaremetalagentManager) GetAgent(agentType api.TAgentType, zoneId string) *SBaremetalagent {
-	q := manager.Query().Equals("agent_type", agentType).Equals("zone_id", zoneId).Asc("created_at")
+	q := manager.Query().Equals("agent_type", agentType)
+	if len(zoneId) > 0 {
+		q = q.Equals("zone_id", zoneId)
+	}
+	q = q.Asc("created_at")
 	agents := make([]SBaremetalagent, 0)
 	err := db.FetchModelObjects(manager, q, &agents)
 	if err != nil {

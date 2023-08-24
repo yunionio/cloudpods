@@ -793,12 +793,12 @@ func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
 	return nil
 }
 
-func (self *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	cprs := CloudproviderRegionManager.Query("row_id").Equals("cloudprovider_id", self.Id)
-	capability := CloudproviderCapabilityManager.Query("cloudprovider_id").Equals("cloudprovider_id", self.Id)
-	cdn := CDNDomainManager.Query("id").Equals("manager_id", self.Id)
-	vpcs := GlobalVpcManager.Query("id").Equals("manager_id", self.Id)
-	intervpcs := InterVpcNetworkManager.Query("id").Equals("manager_id", self.Id)
+func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	cprs := CloudproviderRegionManager.Query("row_id").Equals("cloudprovider_id", cprvd.Id)
+	capability := CloudproviderCapabilityManager.Query("cloudprovider_id").Equals("cloudprovider_id", cprvd.Id)
+	cdn := CDNDomainManager.Query("id").Equals("manager_id", cprvd.Id)
+	vpcs := GlobalVpcManager.Query("id").Equals("manager_id", cprvd.Id)
+	intervpcs := InterVpcNetworkManager.Query("id").Equals("manager_id", cprvd.Id)
 	intervpcnetworks := InterVpcNetworkVpcManager.Query("row_id").In("inter_vpc_network_id", intervpcs.SubQuery())
 
 	pairs := []purgePair{
@@ -815,13 +815,13 @@ func (self *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenCr
 			return err
 		}
 	}
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return cprvd.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SCloudaccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	projects := ExternalProjectManager.Query("id").Equals("cloudaccount_id", self.Id)
-	dnszonecaches := DnsZoneCacheManager.Query("id").Equals("cloudaccount_id", self.Id)
-	dnszoneIds := DnsZoneCacheManager.Query("dns_zone_id").Equals("cloudaccount_id", self.Id)
+func (caccount *SCloudaccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	projects := ExternalProjectManager.Query("id").Equals("cloudaccount_id", caccount.Id)
+	dnszonecaches := DnsZoneCacheManager.Query("id").Equals("cloudaccount_id", caccount.Id)
+	dnszoneIds := DnsZoneCacheManager.Query("dns_zone_id").Equals("cloudaccount_id", caccount.Id)
 	dnszones := DnsZoneManager.Query("id").Equals("zone_type", "PublicZone").In("id", dnszoneIds.SubQuery())
 	records := DnsRecordSetManager.Query("id").In("dns_zone_id", dnszones.SubQuery())
 	dnspolicy := DnsRecordSetTrafficPolicyManager.Query("row_id").In("dns_recordset_id", records.SubQuery())
@@ -839,5 +839,5 @@ func (self *SCloudaccount) purge(ctx context.Context, userCred mcclient.TokenCre
 			return err
 		}
 	}
-	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+	return caccount.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }

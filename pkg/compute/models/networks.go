@@ -3009,9 +3009,16 @@ func (net *SNetwork) PerformSwitchWire(
 	query jsonutils.JSONObject,
 	input *api.NetworkSwitchWireInput,
 ) (jsonutils.JSONObject, error) {
-	err := net.ValidateDeleteCondition(ctx, nil)
+	/*err := net.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(httperrors.ErrResourceBusy, "network in use")
+	}*/
+	vpc, err := net.GetVpc()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetVpc")
+	}
+	if !vpc.IsDefault {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "default vpc only")
 	}
 
 	wireObj, err := WireManager.FetchByIdOrName(userCred, input.WireId)

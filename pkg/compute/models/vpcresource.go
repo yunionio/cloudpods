@@ -137,6 +137,7 @@ func (manager *SVpcResourceBaseManager) FetchCustomizeColumns(
 			vpc := vpcs[vpcIds[i]]
 			rows[i].Vpc = vpc.Name
 			rows[i].VpcExtId = vpc.ExternalId
+			rows[i].IsDefaultVpc = vpc.IsDefault
 			rows[i].CloudregionId = vpc.CloudregionId
 			rows[i].ManagerId = vpc.ManagerId
 		}

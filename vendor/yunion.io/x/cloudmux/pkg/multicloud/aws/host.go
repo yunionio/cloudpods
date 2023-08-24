@@ -91,10 +91,6 @@ func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
 	return &ivms[0], nil
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
-}
-
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.zone.GetIStorages()
 }
@@ -257,8 +253,12 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	return "", fmt.Errorf("Failed to create, instance type should not be empty")
 }
 
-func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (self *SHost) GetIsMaintenance() bool {

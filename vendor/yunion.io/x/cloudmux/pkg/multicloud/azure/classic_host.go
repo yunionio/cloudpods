@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -145,12 +146,12 @@ func (self *SClassicHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	}
 }
 
-func (self *SClassicHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIClassicWires()
-}
-
 func (host *SClassicHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+	wires, err := host.zone.GetIClassicWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIClassicWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SClassicHost) GetIsMaintenance() bool {

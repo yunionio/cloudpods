@@ -19,18 +19,31 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
+
+type SNetworkSummary struct {
+	Name       string
+	Accessible bool
+	IpPoolName string
+	IpPoolId   int32
+}
 
 type IVMNetwork interface {
 	GetId() string
 	GetName() string
-	GetVlanId() int32
-	GetNumPorts() int32
-	GetActivePorts() []string
 	GetType() string
-	ContainHost(host *SHost) bool
-	SetHostPortGroup(pg types.HostPortGroup)
+
+	Summary() SNetworkSummary
+	SummaryText() string
+
+	GetHosts() []types.ManagedObjectReference
+
+	GetDatacenter() (*SDatacenter, error)
+
+	GetPath() []string
 }
 
 const (
@@ -43,17 +56,17 @@ const (
 	VLAN_MODE_TRUNK = "trunk"
 )
 
-var NETWORK_PROPS = []string{"name", "parent", "host"}
-var DVPORTGROUP_PROPS = []string{"name", "parent", "host", "config", "key"}
+var NETWORK_PROPS = []string{"name", "parent", "host", "summary"}
+var DVPORTGROUP_PROPS = []string{"name", "parent", "host", "summary", "config", "key"}
 
 type SNetwork struct {
 	SManagedObject
-	HostPortGroup types.HostPortGroup
+	// HostPortGroup types.HostPortGroup
 }
 
 type SDistributedVirtualPortgroup struct {
 	SManagedObject
-	HostPortGroup types.HostPortGroup
+	// HostPortGroup types.HostPortGroup
 }
 
 func NewNetwork(manager *SESXiClient, net *mo.Network, dc *SDatacenter) *SNetwork {
@@ -76,35 +89,23 @@ func (net *SNetwork) GetType() string {
 	return NET_TYPE_NETWORK
 }
 
-func (net *SNetwork) GetVlanId() int32 {
-	return net.HostPortGroup.Spec.VlanId
-}
-
-func (net *SNetwork) GetVlanMode() string {
-	return VLAN_MODE_NONE
-}
-
-func (net *SNetwork) GetNumPorts() int32 {
-	return -1
-}
-
-func (net *SNetwork) GetActivePorts() []string {
-	return nil
-}
-
-func (net *SNetwork) ContainHost(host *SHost) bool {
-	objs := net.getMONetwork().Host
-	moHost := host.getHostSystem()
-	for _, obj := range objs {
-		if obj.Value == moHost.Reference().Value {
-			return true
-		}
+func (net *SNetwork) Summary() SNetworkSummary {
+	moNet := net.getMONetwork()
+	summary := moNet.Summary.GetNetworkSummary()
+	return SNetworkSummary{
+		Accessible: summary.Accessible,
+		Name:       summary.Name,
+		IpPoolName: summary.IpPoolName,
+		IpPoolId:   summary.IpPoolId,
 	}
-	return false
 }
 
-func (net *SNetwork) SetHostPortGroup(pg types.HostPortGroup) {
-	net.HostPortGroup = pg
+func (net *SNetwork) SummaryText() string {
+	return jsonutils.Marshal(net.Summary()).String()
+}
+
+func (net *SNetwork) GetHosts() []types.ManagedObjectReference {
+	return net.getMONetwork().Host
 }
 
 func (net *SDistributedVirtualPortgroup) getMODVPortgroup() *mo.DistributedVirtualPortgroup {
@@ -117,6 +118,21 @@ func (net *SDistributedVirtualPortgroup) GetName() string {
 
 func (net *SDistributedVirtualPortgroup) GetType() string {
 	return NET_TYPE_DVPORTGROUP
+}
+
+func (net *SDistributedVirtualPortgroup) Summary() SNetworkSummary {
+	moNet := net.getMODVPortgroup()
+	summary := moNet.Summary.GetNetworkSummary()
+	return SNetworkSummary{
+		Accessible: summary.Accessible,
+		Name:       summary.Name,
+		IpPoolName: summary.IpPoolName,
+		IpPoolId:   summary.IpPoolId,
+	}
+}
+
+func (net *SDistributedVirtualPortgroup) SummaryText() string {
+	return jsonutils.Marshal(net.Summary()).String()
 }
 
 func (net *SDistributedVirtualPortgroup) GetVlanId() int32 {
@@ -165,19 +181,8 @@ func (net *SDistributedVirtualPortgroup) GetActivePorts() []string {
 	return nil
 }
 
-func (net *SDistributedVirtualPortgroup) ContainHost(host *SHost) bool {
-	objs := net.getMODVPortgroup().Host
-	moHost := host.getHostSystem()
-	for _, obj := range objs {
-		if obj.Value == moHost.Reference().Value {
-			return true
-		}
-	}
-	return false
-}
-
-func (net *SDistributedVirtualPortgroup) SetHostPortGroup(pg types.HostPortGroup) {
-	net.HostPortGroup = pg
+func (net *SDistributedVirtualPortgroup) GetHosts() []types.ManagedObjectReference {
+	return net.getMODVPortgroup().Host
 }
 
 func (net *SDistributedVirtualPortgroup) Uplink() bool {
@@ -260,4 +265,70 @@ func (net *SDistributedVirtualPortgroup) AddHostToDVS(host *SHost) (err error) {
 		return nil
 	}
 	return err
+}
+
+func (dc *SDatacenter) resolveNetworks(netMobs []types.ManagedObjectReference) ([]IVMNetwork, error) {
+	netPortMobs := make([]types.ManagedObjectReference, 0)
+	netNetMobs := make([]types.ManagedObjectReference, 0)
+
+	for i := range netMobs {
+		// log.Debugf("type: %s value: %s", netMobs[i].Type, netMobs[i].Value)
+		if netMobs[i].Type == "DistributedVirtualPortgroup" {
+			netPortMobs = append(netPortMobs, netMobs[i])
+		} else {
+			netNetMobs = append(netNetMobs, netMobs[i])
+		}
+	}
+
+	nets := make([]IVMNetwork, 0)
+
+	if len(netPortMobs) > 0 {
+		moPorts := make([]mo.DistributedVirtualPortgroup, 0)
+		err := dc.manager.references2Objects(netPortMobs, DVPORTGROUP_PROPS, &moPorts)
+		if err != nil {
+			return nil, errors.Wrap(err, "references2Objects")
+		}
+		for i := range moPorts {
+			port := NewDistributedVirtualPortgroup(dc.manager, &moPorts[i], dc)
+			nets = append(nets, port)
+		}
+	}
+	if len(netNetMobs) > 0 {
+		moNets := make([]mo.Network, 0)
+		err := dc.manager.references2Objects(netNetMobs, NETWORK_PROPS, &moNets)
+		if err != nil {
+			return nil, errors.Wrap(err, "references2Objects")
+		}
+		for i := range moNets {
+			net := NewNetwork(dc.manager, &moNets[i], dc)
+			nets = append(nets, net)
+		}
+	}
+
+	return nets, nil
+}
+
+func (cli *SESXiClient) GetNetworks() ([]IVMNetwork, error) {
+	dcs, err := cli.GetDatacenters()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDatacenters")
+	}
+	netMap := make(map[string]IVMNetwork)
+	nets := make([]IVMNetwork, 0)
+	for _, dc := range dcs {
+		dcNets, err := dc.GetNetworks()
+		if err != nil {
+			return nil, errors.Wrap(err, "Datacenter.GetNetworks")
+		}
+		for i := range dcNets {
+			net := dcNets[i]
+			if _, ok := netMap[net.GetId()]; !ok {
+				netMap[net.GetId()] = net
+				nets = append(nets, net)
+			} else {
+				log.Errorf("network %s(%s) already exist in other datacenter", net.GetName(), net.GetId())
+			}
+		}
+	}
+	return nets, nil
 }

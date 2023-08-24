@@ -123,10 +123,6 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	return &vm, err
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
-}
-
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.zone.GetIStorages()
 }
@@ -239,8 +235,12 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	return vm, err
 }
 
-func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
