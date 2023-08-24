@@ -307,16 +307,19 @@ func (f *SLocalGuestFS) FilePutContents(sPath, content string, modAppend, caseIn
 	if len(sPath) > 0 {
 		return fileutils2.FilePutContents(sPath, content, modAppend)
 	} else {
-		return fmt.Errorf("Cann't put content")
+		return fmt.Errorf("Can't put content to empty Path")
 	}
 }
 
 func (f *SLocalGuestFS) GenerateSshHostKeys() error {
-	cmd := []string{"chroot", f.mountPath, "ssh-keygen", "-A"}
-	output, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
-	if err != nil {
-		log.Errorf("ssh-keygen host keys fail: %s, %s", err, output)
-		return fmt.Errorf("%s", output)
+	for _, cmd := range [][]string{
+		{f.mountPath, "touch", "/dev/null"},
+		{f.mountPath, "/usr/bin/ssh-keygen", "-A"},
+	} {
+		output, err := procutils.NewCommand("chroot", cmd...).Output()
+		if err != nil {
+			return errors.Wrapf(err, "GenerateSshHostKeys %s %s", strings.Join(cmd, " "), output)
+		}
 	}
 	return nil
 }
