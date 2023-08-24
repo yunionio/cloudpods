@@ -1432,13 +1432,13 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
+# yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 ## explicit; go 1.12
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20220106020632-953b71a4c3a8
-## explicit; go 1.12
+# yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19
+## explicit; go 1.18
 yunion.io/x/jsonutils
 # yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 ## explicit; go 1.12
@@ -1449,7 +1449,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.0.1-0.20230420104238-bbd084afbdfe
+# yunion.io/x/pkg v1.0.1-0.20230711090507-0aafe0f0c9db
 ## explicit; go 1.18
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
@@ -1486,7 +1486,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.2-0.20230422192549-7a9668176f46
+# yunion.io/x/sqlchemy v1.1.2-0.20230823191329-dc02ac3a547c
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends

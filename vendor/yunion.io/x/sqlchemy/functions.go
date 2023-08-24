@@ -73,7 +73,7 @@ func (ff *SFunctionFieldBase) Name() string {
 
 // Label implementation of SFunctionFieldBase for IQueryField
 func (ff *SFunctionFieldBase) Label(label string) IQueryField {
-	if len(label) > 0 && label != ff.alias {
+	if len(label) > 0 {
 		ff.alias = label
 	}
 	return ff

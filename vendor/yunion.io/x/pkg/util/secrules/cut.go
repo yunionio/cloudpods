@@ -101,10 +101,15 @@ func (srcs securityRuleCuts) cutOutProtocol(protocol string) securityRuleCuts {
 	return r
 }
 
-func (srcs securityRuleCuts) cutOutIPNet(n *net.IPNet) securityRuleCuts {
+func (srcs securityRuleCuts) cutOutIPNet(protocol string, n *net.IPNet) securityRuleCuts {
 	r := securityRuleCuts{}
 	ar2 := netutils.NewIPV4AddrRangeFromIPNet(n)
 	for _, src := range srcs {
+		if src.r.Protocol != protocol && protocol != PROTO_ANY {
+			src_ := src
+			r = append(r, src_)
+			continue
+		}
 		sr := src.r
 		ar := netutils.NewIPV4AddrRangeFromIPNet(sr.IPNet)
 		left, subs := ar.Substract(ar2)
@@ -131,13 +136,18 @@ func (srcs securityRuleCuts) cutOutIPNet(n *net.IPNet) securityRuleCuts {
 	return r
 }
 
-func (srcs securityRuleCuts) cutOutPortRange(portStart, portEnd uint16) securityRuleCuts {
+func (srcs securityRuleCuts) cutOutPortRange(protocol string, portStart, portEnd uint16) securityRuleCuts {
 	pr1 := &portRange{
 		start: portStart,
 		end:   portEnd,
 	}
 	r := securityRuleCuts{}
 	for _, src := range srcs {
+		if src.r.Protocol != protocol {
+			src_ := src
+			r = append(r, src_)
+			continue
+		}
 		sr := src.r
 		if len(sr.Ports) > 0 {
 			ps := newPortsFromInts(sr.Ports...)
@@ -196,9 +206,14 @@ func (srcs securityRuleCuts) cutOutPortRange(portStart, portEnd uint16) security
 	return r
 }
 
-func (srcs securityRuleCuts) cutOutPorts(ps1 []uint16) securityRuleCuts {
+func (srcs securityRuleCuts) cutOutPorts(protocol string, ps1 []uint16) securityRuleCuts {
 	r := securityRuleCuts{}
 	for _, src := range srcs {
+		if src.r.Protocol != protocol {
+			src_ := src
+			r = append(r, src_)
+			continue
+		}
 		sr := src.r
 		if len(sr.Ports) > 0 {
 			ps0 := newPortsFromInts(sr.Ports...)

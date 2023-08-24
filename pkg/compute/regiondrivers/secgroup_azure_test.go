@@ -69,8 +69,8 @@ func TestAzureRuleSync(t *testing.T) {
 			},
 			Common: []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "in:allow tcp", 4094),
-				ruleWithName("", "in:allow udp", 4095),
+				ruleWithName("", "in:allow udp", 4094),
+				ruleWithName("", "in:allow tcp", 4095),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
@@ -92,15 +92,13 @@ func TestAzureRuleSync(t *testing.T) {
 			},
 			Common: []cloudprovider.SecurityRule{
 				ruleWithName("allow-icmp", "in:allow icmp", 400),
-			},
-			InAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "in:allow tcp", 398),
-				ruleWithName("", "in:allow udp", 399),
-			},
-			OutAdds: []cloudprovider.SecurityRule{},
-			InDels: []cloudprovider.SecurityRule{
 				ruleWithName("allow-tcp", "in:allow tcp", 300),
 			},
+			InAdds: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:allow udp", 300),
+			},
+			OutAdds: []cloudprovider.SecurityRule{},
+			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
 		{
@@ -113,14 +111,14 @@ func TestAzureRuleSync(t *testing.T) {
 			DestRules: []cloudprovider.SecurityRule{
 				ruleWithName("allow-tcp-22", "in:allow tcp 22", 300),
 			},
-			Common: []cloudprovider.SecurityRule{
-				ruleWithName("allow-tcp-22", "in:allow tcp 22", 300),
-			},
+			Common: []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "in:allow tcp 33", 299),
+				ruleWithName("", "in:allow tcp 22,33", 4095),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
-			InDels:  []cloudprovider.SecurityRule{},
+			InDels: []cloudprovider.SecurityRule{
+				ruleWithName("allow-tcp-22", "in:allow tcp 22", 300),
+			},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
 		{
@@ -141,17 +139,17 @@ func TestAzureRuleSync(t *testing.T) {
 				ruleWithName("in_allow_tcp_1050_4010", "in:allow tcp 1050", 4010),
 			},
 			Common: []cloudprovider.SecurityRule{
-				ruleWithName("in_allow_tcp_22_4013", "in:allow tcp 22", 4013),
 				ruleWithName("in_allow_udp_55_4014", "in:allow udp 55", 4014),
-				ruleWithName("in_allow_tcp_1002_4012", "in:allow tcp 1002", 4012),
-				ruleWithName("in_allow_tcp_1050_4010", "in:allow tcp 1050", 4010),
 			},
 			InAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "in:allow tcp 1011", 4011),
+				ruleWithName("", "in:allow tcp 22,1002,1011,1050", 4095),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
+				ruleWithName("in_allow_tcp_22_4013", "in:allow tcp 22", 4013),
+				ruleWithName("in_allow_tcp_1002_4012", "in:allow tcp 1002", 4012),
 				ruleWithName("in_allow_tcp_1010_4011", "in:allow tcp 1010", 4011),
+				ruleWithName("in_allow_tcp_1050_4010", "in:allow tcp 1050", 4010),
 			},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
@@ -175,19 +173,19 @@ func TestAzureRuleSync(t *testing.T) {
 				ruleWithName("in_allow_tcp_1050_4010", "in:allow tcp 1050", 4010),
 				ruleWithName("in_allow_tcp_1055_4009", "in:allow tcp 1055", 4009),
 			},
-			Common: []cloudprovider.SecurityRule{
-				ruleWithName("in_allow_tcp_22_4013", "in:allow tcp 22", 4013),
-				ruleWithName("in_allow_udp_55_4014", "in:allow udp 55", 4014),
-				ruleWithName("in_allow_tcp_1002_4012", "in:allow tcp 1002", 4012),
-				ruleWithName("in_allow_tcp_1012_4011", "in:allow tcp 1012", 4011),
-				ruleWithName("in_allow_tcp_1050_4010", "in:allow tcp 1050", 4010),
-			},
+			Common: []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "in:allow icmp", 4009),
-				ruleWithName("", "in:allow udp 1055", 4008),
+				ruleWithName("", "in:allow icmp", 4095),
+				ruleWithName("", "in:allow tcp 22,1002,1012,1050", 4094),
+				ruleWithName("", "in:allow udp 55,1055", 4093),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
+				ruleWithName("in_allow_udp_55_4014", "in:allow udp 55", 4014),
+				ruleWithName("in_allow_tcp_22_4013", "in:allow tcp 22", 4013),
+				ruleWithName("in_allow_tcp_1002_4012", "in:allow tcp 1002", 4012),
+				ruleWithName("in_allow_tcp_1012_4011", "in:allow tcp 1012", 4011),
+				ruleWithName("in_allow_tcp_1050_4010", "in:allow tcp 1050", 4010),
 				ruleWithName("in_allow_tcp_1055_4009", "in:allow tcp 1055", 4009),
 			},
 			OutDels: []cloudprovider.SecurityRule{},
