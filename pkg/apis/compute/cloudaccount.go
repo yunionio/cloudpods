@@ -548,7 +548,8 @@ type CloudaccountSyncSkusInput struct {
 }
 
 type CloudaccountProjectMappingInput struct {
-	AutoCreateProject bool `json:"auto_create_project"`
+	AutoCreateProject            bool `json:"auto_create_project"`
+	AutoCreateProjectForProvider bool `json:"auto_create_project_for_provider"`
 
 	ProjectId string `json:"project_id"`
 
