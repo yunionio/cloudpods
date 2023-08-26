@@ -612,7 +612,14 @@ func MountSSHRootfs(tool *disktool.SSHPartitionTool, term *ssh.Client, layouts [
 }
 
 func (p *SSHPartition) GenerateSshHostKeys() error {
-	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/bin/ssh-keygen -A", p.mountPath)
-	_, err := p.term.Run(cmd)
-	return errors.Wrap(err, "GenerateSshHostKeys")
+	for _, cmd := range []string{
+		"touch /dev/null",
+		"/usr/bin/ssh-keygen -A",
+	} {
+		_, err := p.term.Run(fmt.Sprintf("/usr/sbin/chroot %s %s", p.mountPath, cmd))
+		if err != nil {
+			return errors.Wrapf(err, "GenerateSshHostKeys exec %s", cmd)
+		}
+	}
+	return nil
 }
