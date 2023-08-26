@@ -42,8 +42,8 @@ func init() {
 	taskman.RegisterTask(GuestBatchCreateTask{})
 }
 
-func (self *GuestBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
-	params := self.GetParams()
+func (task *GuestBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	params := getBatchParamsAtIndex(task, 0)
 	input, err := cmdline.FetchScheduleInputByJSON(params)
 	if err != nil {
 		return nil, fmt.Errorf("Unmarsh to schedule input: %v", err)
@@ -51,16 +51,16 @@ func (self *GuestBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, err
 	return input, err
 }
 
-func (self *GuestBatchCreateTask) GetDisks() ([]*api.DiskConfig, error) {
-	input, err := self.GetSchedParams()
+func (task *GuestBatchCreateTask) GetDisks() ([]*api.DiskConfig, error) {
+	input, err := task.GetSchedParams()
 	if err != nil {
 		return nil, err
 	}
 	return input.Disks, nil
 }
 
-func (self *GuestBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
-	disks, err := self.GetDisks()
+func (task *GuestBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
+	disks, err := task.GetDisks()
 	if err != nil {
 		return nil, err
 	}
@@ -70,46 +70,46 @@ func (self *GuestBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
 	return disks[0], nil
 }
 
-func (self *GuestBatchCreateTask) GetCreateInput() (*api.ServerCreateInput, error) {
+func (task *GuestBatchCreateTask) GetCreateInput(data jsonutils.JSONObject) (*api.ServerCreateInput, error) {
 	input := new(api.ServerCreateInput)
-	err := self.GetParams().Unmarshal(input)
+	err := data.Unmarshal(input)
 	return input, err
 }
 
-func (self *GuestBatchCreateTask) clearPendingUsage(ctx context.Context, guest *models.SGuest) {
-	ClearTaskPendingUsage(ctx, self)
-	ClearTaskPendingRegionUsage(ctx, self)
+func (task *GuestBatchCreateTask) clearPendingUsage(ctx context.Context, guest *models.SGuest) {
+	ClearTaskPendingUsage(ctx, task)
+	ClearTaskPendingRegionUsage(ctx, task)
 }
 
-func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
-	StartScheduleObjects(ctx, self, objs)
+func (task *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
+	StartScheduleObjects(ctx, task, objs)
 }
 
-func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
+func (task *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject, index int) {
 	guest := obj.(*models.SGuest)
 	if guest.DisableDelete.IsTrue() {
-		guest.SetDisableDelete(self.UserCred, false)
+		guest.SetDisableDelete(task.UserCred, false)
 	}
-	self.clearPendingUsage(ctx, guest)
-	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
+	task.clearPendingUsage(ctx, guest)
+	task.SSchedTask.OnScheduleFailCallback(ctx, obj, reason, index)
 }
 
-func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
+func (task *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource, index int) {
 	guest := obj.(*models.SGuest)
-	guest.SetHostIdWithBackup(self.UserCred, master.HostId, slave.HostId)
-	self.SaveScheduleResult(ctx, obj, master)
+	guest.SetHostIdWithBackup(task.UserCred, master.HostId, slave.HostId)
+	task.SaveScheduleResult(ctx, obj, master, index)
 }
 
-func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest *models.SGuest, candidate *schedapi.CandidateResource) error {
+func (task *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest *models.SGuest, candidate *schedapi.CandidateResource, data *jsonutils.JSONDict) error {
 	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage, 0)
+	err := task.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
 
 	if conditionparser.IsTemplate(guest.Name) {
 		guestInfo := guest.GetShortDesc(ctx)
-		generateName := guest.GetMetadata(ctx, "generate_name", self.UserCred)
+		generateName := guest.GetMetadata(ctx, "generate_name", task.UserCred)
 		if len(generateName) == 0 {
 			generateName = guest.Name
 		}
@@ -146,40 +146,42 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		log.Errorf("guest.GetQuotaKeys fail %s", err)
 	}
 	quotaCpuMem.SetKeys(keys)
-	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem, true) // success
-	self.SetPendingUsage(&pendingUsage, 0)
+	err = quotas.CancelPendingUsage(ctx, task.UserCred, &pendingUsage, &quotaCpuMem, true) // success
+	task.SetPendingUsage(&pendingUsage, 0)
 
-	input, err := self.GetCreateInput()
+	input, err := task.GetCreateInput(data)
 	if err != nil {
 		log.Errorf("GetCreateInput fail %s", err)
-	}
-
-	if host.IsPrepaidRecycle() {
-		input, err = host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, input)
-		if err != nil {
-			log.Errorf("host.SetGuestCreateNetworkAndDiskParams fail %s", err)
-			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
-			return err
-		}
-		params := input.JSON(input)
-		self.SaveParams(params)
-	}
-
-	input, err = self.GetCreateInput()
-	if err != nil {
-		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
+		guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
 
+	if host.IsPrepaidRecycle() {
+		input, err = host.SetGuestCreateNetworkAndDiskParams(ctx, task.UserCred, input)
+		if err != nil {
+			log.Errorf("host.SetGuestCreateNetworkAndDiskParams fail %s", err)
+			guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())
+			return err
+		}
+		// params := input.JSON(input)
+		// task.SaveParams(params)
+	}
+
+	/*input, err = task.GetCreateInput(data)
+	if err != nil {
+		guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())
+		return err
+	}*/
+
 	pendingRegionUsage := models.SRegionQuota{}
-	self.GetPendingUsage(&pendingRegionUsage, 1)
+	task.GetPendingUsage(&pendingRegionUsage, 1)
 	// allocate networks
-	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingRegionUsage, &pendingUsage, candidate.Nets)
-	self.SetPendingUsage(&pendingUsage, 0)
-	self.SetPendingUsage(&pendingRegionUsage, 1)
+	err = guest.CreateNetworksOnHost(ctx, task.UserCred, host, input.Networks, &pendingRegionUsage, &pendingUsage, candidate.Nets)
+	task.SetPendingUsage(&pendingUsage, 0)
+	task.SetPendingUsage(&pendingRegionUsage, 1)
 	if err != nil {
 		log.Errorf("Network failed: %s", err)
-		guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
+		guest.SetStatus(task.UserCred, api.VM_NETWORK_FAILED, err.Error())
 		return err
 	}
 
@@ -189,7 +191,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	// allocate eips
 	if input.EipBw > 0 {
-		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, &models.NewEipForVMOnHostArgs{
+		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, task.UserCred, &models.NewEipForVMOnHostArgs{
 			Bandwidth:     input.EipBw,
 			BgpType:       input.EipBgpType,
 			ChargeType:    input.EipChargeType,
@@ -199,20 +201,20 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 			Host:         host,
 			PendingUsage: &pendingRegionUsage,
 		})
-		self.SetPendingUsage(&pendingRegionUsage, 1)
+		task.SetPendingUsage(&pendingRegionUsage, 1)
 		if err != nil {
 			log.Errorf("guest.CreateElasticipOnHost failed: %s", err)
-			guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
+			guest.SetStatus(task.UserCred, api.VM_NETWORK_FAILED, err.Error())
 			return err
 		}
 		input.Eip = eip.Id
 	}
 
 	// allocate disks
-	extraDisks, err := guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, input.BaremetalDiskConfigs, input.Disks)
+	extraDisks, err := guest.GetDriver().PrepareDiskRaidConfig(task.UserCred, host, input.BaremetalDiskConfigs, input.Disks)
 	if err != nil {
 		log.Errorf("PrepareDiskRaidConfig fail: %s", err)
-		guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, err.Error())
+		guest.SetStatus(task.UserCred, api.VM_DISK_FAILED, err.Error())
 		return err
 	}
 	if len(extraDisks) > 0 {
@@ -224,39 +226,39 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		backupCandidateDisks = candidate.BackupCandidate.Disks
 	}
 	// 纳管的云需要有关联关系后,在做deploy时才有磁盘的信息
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate.Disks, backupCandidateDisks, true)
-	self.SetPendingUsage(&pendingUsage, 0)
+	err = guest.CreateDisksOnHost(ctx, task.UserCred, host, input.Disks, &pendingUsage, true, true, candidate.Disks, backupCandidateDisks, true)
+	task.SetPendingUsage(&pendingUsage, 0)
 
 	if err != nil {
 		log.Errorf("Disk create failed: %s", err)
-		guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, err.Error())
+		guest.SetStatus(task.UserCred, api.VM_DISK_FAILED, err.Error())
 		return err
 	}
 
 	// allocate GPUs
-	err = guest.CreateIsolatedDeviceOnHost(ctx, self.UserCred, host, input.IsolatedDevices, &pendingUsage)
-	self.SetPendingUsage(&pendingUsage, 0)
+	err = guest.CreateIsolatedDeviceOnHost(ctx, task.UserCred, host, input.IsolatedDevices, &pendingUsage)
+	task.SetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Errorf("IsolatedDevices create failed: %s", err)
-		guest.SetStatus(self.UserCred, api.VM_DEVICE_FAILED, err.Error())
+		guest.SetStatus(task.UserCred, api.VM_DEVICE_FAILED, err.Error())
 		return err
 	}
 
 	// join groups
 	if input.InstanceGroupIds != nil && len(input.InstanceGroupIds) != 0 {
-		err := guest.JoinGroups(ctx, self.UserCred, input.InstanceGroupIds)
+		err := guest.JoinGroups(ctx, task.UserCred, input.InstanceGroupIds)
 		if err != nil {
 			log.Errorf("Join Groups failed: %v", err)
-			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 	}
 
 	if guest.IsPrepaidRecycle() {
-		err := host.RebuildRecycledGuest(ctx, self.UserCred, guest)
+		err := host.RebuildRecycledGuest(ctx, task.UserCred, guest)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
-			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 
@@ -266,46 +268,48 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 			resetPassword = *input.ResetPassword
 		}
 		passwd := input.Password
-		err = guest.StartRebuildRootTask(ctx, self.UserCred, "", false, autoStart, passwd, resetPassword, true)
+		err = guest.StartRebuildRootTask(ctx, task.UserCred, "", false, autoStart, passwd, resetPassword, true)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
-			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 		return nil
 	}
 
-	err = guest.StartGuestCreateTask(ctx, self.UserCred, input, nil, self.GetId())
+	err = guest.StartGuestCreateTask(ctx, task.UserCred, input, nil, task.GetId())
 	if err != nil {
 		log.Errorf("start guest create task fail %s", err)
-		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
+		guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
 	return nil
 }
 
-func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
+func (task *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource, index int) {
 	var err error
 	hostId := candidate.HostId
 	guest := obj.(*models.SGuest)
 	if len(guest.HostId) == 0 {
-		guest.OnScheduleToHost(ctx, self.UserCred, hostId)
+		guest.OnScheduleToHost(ctx, task.UserCred, hostId)
 	}
 
-	err = self.allocateGuestOnHost(ctx, guest, candidate)
+	data := getBatchParamsAtIndex(task, index)
+
+	err = task.allocateGuestOnHost(ctx, guest, candidate, data)
 	if err != nil {
-		self.clearPendingUsage(ctx, guest)
-		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err, self.GetUserCred(), false)
-		notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		task.clearPendingUsage(ctx, guest)
+		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, task.UserCred)
+		logclient.AddActionLogWithStartable(task, obj, logclient.ACT_ALLOCATE, err, task.GetUserCred(), false)
+		notifyclient.EventNotify(ctx, task.GetUserCred(), notifyclient.SEventNotifyParam{
 			Obj:    guest,
 			Action: notifyclient.ActionCreateBackupServer,
 			IsFail: true,
 		})
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 
-func (self *GuestBatchCreateTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
-	self.SetStageComplete(ctx, nil)
+func (task *GuestBatchCreateTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
+	task.SetStageComplete(ctx, nil)
 }

@@ -96,7 +96,7 @@ func (self *DiskBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 	self.SetStage("OnCreateDisk", params)
 
 	params.Set("parent_task_id", jsonutils.NewString(self.GetTaskId()))
-	models.DiskManager.OnCreateComplete(ctx, []db.IModel{disk}, self.UserCred, ownerId, nil, params)
+	models.DiskManager.OnCreateComplete(ctx, []db.IModel{disk}, self.UserCred, ownerId, nil, []jsonutils.JSONObject{params})
 }
 
 func (self *DiskBackupRecoveryTask) OnCreateDisk(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {

@@ -33,7 +33,7 @@ func RunBatchCreateTask(
 	ctx context.Context,
 	items []db.IModel,
 	userCred mcclient.TokenCredential,
-	data jsonutils.JSONObject,
+	data []jsonutils.JSONObject,
 	pendingUsage SQuota,
 	pendingRegionUsage SRegionQuota,
 	taskName string,
@@ -43,11 +43,14 @@ func RunBatchCreateTask(
 	for i, t := range items {
 		taskItems[i] = t.(db.IStandaloneModel)
 	}
-	params := data.(*jsonutils.JSONDict)
+	params := jsonutils.NewDict()
+	params.Set("data", jsonutils.NewArray(data...))
+
 	task, err := taskman.TaskManager.NewParallelTask(ctx, taskName, taskItems, userCred, params, parentTaskId, "", &pendingUsage, &pendingRegionUsage)
 	if err != nil {
 		return errors.Wrapf(err, "NewParallelTask %s", taskName)
 	}
+
 	return task.ScheduleRun(nil)
 }
 

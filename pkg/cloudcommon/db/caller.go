@@ -253,6 +253,22 @@ func ValidateCreateData(funcName string, manager IModelManager, ctx context.Cont
 	return mergeInputOutputData(data, resVal), nil
 }
 
+func ExpandBatchCreateData(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict, index int) (*jsonutils.JSONDict, error) {
+	funcName := "ExpandBatchCreateData"
+	ret, err := call(manager, funcName, ctx, userCred, ownerId, query, data, index)
+	if err != nil {
+		return nil, errors.Wrapf(err, "call %s", funcName)
+	}
+	if len(ret) != 2 {
+		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
+	}
+	resVal := ret[0]
+	if err := ValueToError(ret[1]); err != nil {
+		return nil, errors.Wrap(err, "ValueToError")
+	}
+	return mergeInputOutputData(data, resVal), nil
+}
+
 func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	return _callListQueryFilter(manager, "ListItemFilter", ctx, q, userCred, query)
 }

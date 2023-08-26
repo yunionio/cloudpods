@@ -536,8 +536,8 @@ func (manager *SInstanceBackupManager) ValidateCreateData(ctx context.Context, u
 	return input, nil
 }
 
-func (manager *SInstanceBackupManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	packageName, _ := data.GetString("package_name")
+func (manager *SInstanceBackupManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
+	packageName, _ := data[0].GetString("package_name")
 	params := jsonutils.NewDict()
 	params.Set("package_name", jsonutils.NewString(packageName))
 	for i := range items {

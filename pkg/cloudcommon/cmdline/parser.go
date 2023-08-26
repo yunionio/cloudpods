@@ -239,6 +239,17 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.Mac = netutils.MacUnpackHex(p)
 		} else if strings.HasPrefix(p, "wire=") {
 			netConfig.Wire = p[len("wire="):]
+		} else if strings.HasPrefix(p, "macs=") {
+			macSegs := strings.Split(p[len("macs="):], ",")
+			macs := make([]string, len(macSegs))
+			for i := range macSegs {
+				macs[i] = netutils.MacUnpackHex(macSegs[i])
+			}
+			netConfig.Macs = macs
+		} else if strings.HasPrefix(p, "ips=") {
+			netConfig.Addresses = strings.Split(p[len("ips="):], ",")
+		} else if strings.HasPrefix(p, "ip6s=") {
+			netConfig.Addresses6 = strings.Split(p[len("ip6s="):], ",")
 		} else if p == "[require_designated_ip]" {
 			netConfig.RequireDesignatedIP = true
 		} else if p == "[random_exit]" {

@@ -39,7 +39,7 @@ func init() {
 	taskman.RegisterTask(DiskBatchCreateTask{})
 }
 
-func (self *DiskBatchCreateTask) getNeedScheduleDisks(objs []db.IStandaloneModel) []db.IStandaloneModel {
+func (task *DiskBatchCreateTask) getNeedScheduleDisks(objs []db.IStandaloneModel) []db.IStandaloneModel {
 	toSchedDisks := make([]db.IStandaloneModel, 0)
 	for _, obj := range objs {
 		disk := obj.(*models.SDisk)
@@ -50,32 +50,37 @@ func (self *DiskBatchCreateTask) getNeedScheduleDisks(objs []db.IStandaloneModel
 	return toSchedDisks
 }
 
-func (self *DiskBatchCreateTask) clearPendingUsage(ctx context.Context, disk *models.SDisk) {
-	ClearTaskPendingUsage(ctx, self)
-	ClearTaskPendingRegionUsage(ctx, self)
+func (task *DiskBatchCreateTask) clearPendingUsage(ctx context.Context, disk *models.SDisk) {
+	ClearTaskPendingUsage(ctx, task)
+	ClearTaskPendingRegionUsage(ctx, task)
 }
 
-func (self *DiskBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
-	toSchedDisks := self.getNeedScheduleDisks(objs)
+func (task *DiskBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
+	toSchedDisks := task.getNeedScheduleDisks(objs)
 	if len(toSchedDisks) == 0 {
-		self.SetStage("OnScheduleComplete", nil)
+		task.SetStage("OnScheduleComplete", nil)
 		// create not need schedule disks directly
 		for _, disk := range objs {
-			self.startCreateDisk(ctx, disk.(*models.SDisk))
+			task.startCreateDisk(ctx, disk.(*models.SDisk))
 		}
 		return
 	}
-	StartScheduleObjects(ctx, self, toSchedDisks)
+	StartScheduleObjects(ctx, task, toSchedDisks)
 }
 
-func (self *DiskBatchCreateTask) GetCreateInput() (*api.DiskCreateInput, error) {
+func (task *DiskBatchCreateTask) GetCreateInput(data jsonutils.JSONObject) (*api.DiskCreateInput, error) {
 	input := new(api.DiskCreateInput)
-	err := self.GetParams().Unmarshal(input)
+	err := data.Unmarshal(input)
 	return input, err
 }
 
-func (self *DiskBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
-	input, err := self.GetCreateInput()
+func (task *DiskBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	data := getBatchParamsAtIndex(task, 0)
+	return task.getSchedParamsInternal(data)
+}
+
+func (task *DiskBatchCreateTask) getSchedParamsInternal(data jsonutils.JSONObject) (*schedapi.ScheduleInput, error) {
+	input, err := task.GetCreateInput(data)
 	if err != nil {
 		return nil, err
 	}
@@ -85,16 +90,16 @@ func (self *DiskBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, erro
 	return ret, err
 }
 
-func (self *DiskBatchCreateTask) GetDisks() ([]*api.DiskConfig, error) {
-	input, err := self.GetSchedParams()
+func (task *DiskBatchCreateTask) GetDisks(data jsonutils.JSONObject) ([]*api.DiskConfig, error) {
+	input, err := task.getSchedParamsInternal(data)
 	if err != nil {
 		return nil, err
 	}
 	return input.Disks, nil
 }
 
-func (self *DiskBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
-	disks, err := self.GetDisks()
+func (task *DiskBatchCreateTask) GetFirstDisk(data jsonutils.JSONObject) (*api.DiskConfig, error) {
+	disks, err := task.GetDisks(data)
 	if err != nil {
 		return nil, err
 	}
@@ -104,37 +109,39 @@ func (self *DiskBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
 	return disks[0], nil
 }
 
-func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
-	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
+func (task *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject, index int) {
+	task.SSchedTask.OnScheduleFailCallback(ctx, obj, reason, index)
 	disk := obj.(*models.SDisk)
 	log.Errorf("Schedule disk %s failed", disk.Name)
-	self.clearPendingUsage(ctx, disk)
+	task.clearPendingUsage(ctx, disk)
 }
 
-func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
+func (task *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource, index int) {
 	var err error
 	disk := obj.(*models.SDisk)
 	// pendingUsage := models.SQuota{}
-	// err = self.GetPendingUsage(&pendingUsage, 0)
+	// err = task.GetPendingUsage(&pendingUsage, 0)
 	// if err != nil {
 	// 	log.Errorf("GetPendingUsage fail %s", err)
 	// }
 
-	// input, _ := self.GetCreateInput()
+	// input, _ := task.GetCreateInput()
 	// quotaPlatform := models.GetQuotaPlatformID(input.Hypervisor)
 
 	// quotaStorage := models.SQuota{Storage: disk.DiskSize}
 
 	onError := func(err error) {
-		self.clearPendingUsage(ctx, disk)
-		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, "")
-		logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, err, self.UserCred, false)
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+		task.clearPendingUsage(ctx, disk)
+		disk.SetStatus(task.UserCred, api.DISK_ALLOC_FAILED, "")
+		logclient.AddActionLogWithStartable(task, disk, logclient.ACT_ALLOCATE, err, task.UserCred, false)
+		task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, task.UserCred)
 		notifyclient.NotifySystemErrorWithCtx(ctx, disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 	}
 
-	diskConfig, err := self.GetFirstDisk()
+	data := getBatchParamsAtIndex(task, index)
+
+	diskConfig, err := task.GetFirstDisk(data)
 	if err != nil {
 		onError(err)
 		return
@@ -152,12 +159,12 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 		return
 	}
 
-	self.startCreateDisk(ctx, disk)
+	task.startCreateDisk(ctx, disk)
 }
 
-func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *models.SDisk) {
+func (task *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *models.SDisk) {
 	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage, 0)
+	err := task.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Warningf("GetPendingUsage fail %s", err)
 	}
@@ -168,12 +175,12 @@ func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *mode
 		log.Warningf("disk.GetQuotaKeys fail %s", err)
 	}
 	quotaStorage.SetKeys(keys)
-	quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage, true) // success
-	self.SetPendingUsage(&pendingUsage, 0)
+	quotas.CancelPendingUsage(ctx, task.UserCred, &pendingUsage, &quotaStorage, true) // success
+	task.SetPendingUsage(&pendingUsage, 0)
 
-	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, disk.SnapshotId, self.GetTaskId())
+	disk.StartDiskCreateTask(ctx, task.GetUserCred(), false, disk.SnapshotId, task.GetTaskId())
 }
 
-func (self *DiskBatchCreateTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
-	self.SetStageComplete(ctx, nil)
+func (task *DiskBatchCreateTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
+	task.SetStageComplete(ctx, nil)
 }
