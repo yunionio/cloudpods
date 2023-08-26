@@ -63,11 +63,7 @@ func TestKvmRuleSync(t *testing.T) {
 			},
 			Common: []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "in:allow tcp 1521", 1),
-				ruleWithName("", "in:allow tcp 3389", 1),
-				ruleWithName("", "in:allow tcp 443", 1),
-				ruleWithName("", "in:allow tcp 6379", 1),
-				ruleWithName("", "in:allow tcp 80", 1),
+				ruleWithName("", "in:allow tcp 80,443,1521,3389,6379", 1),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{

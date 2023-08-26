@@ -54,6 +54,7 @@ func parseIndexes(ts sqlchemy.ITableSpec, defStr string) []sqlchemy.STableIndex 
 	for i := range matches {
 		tcs[i] = sqlchemy.NewTableIndex(
 			ts,
+			matches[i][2],
 			fetchColumns(matches[i][3]),
 			len(matches[i][1]) > 0,
 		)
