@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -55,6 +56,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -886,6 +888,22 @@ func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclie
 	data.Set("ip", jsonutils.NewString(ip))
 	data.Set("in_block_stream", jsonutils.NewBool(inBlockStream))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, device string, ipMask string, gateway string, prevIp string, inBlockStream bool) error {
+	data := jsonutils.NewDict()
+	data.Set("device", jsonutils.NewString(device))
+	data.Set("ipMask", jsonutils.NewString(ipMask))
+	data.Set("gateway", jsonutils.NewString(gateway))
+	data.Set("prevIp", jsonutils.NewString(prevIp))
+	data.Set("inBlockStream", jsonutils.NewBool(inBlockStream))
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestQgaRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
 	} else {
@@ -2088,6 +2106,14 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
+	//Get the detailed description of the NIC
+	networkJsonDesc := ngn[0].getJsonDesc()
+	newIpAddr := networkJsonDesc.Ip
+	newMacAddr := networkJsonDesc.Mac
+	newMaskLen := networkJsonDesc.Masklen
+	newGateway := networkJsonDesc.Gateway
+	ipMask := fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
+
 	notes := jsonutils.NewDict()
 	if gn != nil {
 		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
@@ -2103,12 +2129,41 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && (self.Status == api.VM_RUNNING || self.Status == api.VM_BLOCK_STREAM) {
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
+		taskData.Set("prev_mac", jsonutils.NewString(newMacAddr))
+		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
+		taskData.Set("gateway", jsonutils.NewString(newGateway))
 		if self.Status == api.VM_BLOCK_STREAM {
 			taskData.Set("in_block_stream", jsonutils.JSONTrue)
 		}
 		self.SetStatus(userCred, api.VM_RESTART_NETWORK, "restart network")
 	}
 	return nil, self.startSyncTask(ctx, userCred, true, "", taskData)
+}
+
+func (self *SGuest) PerformQgaStatus(ctx context.Context, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	//Judging the status based on the execution of the guest-info command
+	return self.PerformQgaGuestInfoTask(ctx, userCred, nil, nil)
+}
+
+func (self *SGuest) PerformGetIfname(ctx context.Context, userCred mcclient.TokenCredential, mac string) (string, error) {
+	//Find the network card according to the mac address, if it is empty, it means no network card is found
+	ifnameData, err := self.PerformQgaGetNetwork(ctx, userCred, nil, nil)
+	if err != nil {
+		return "", err
+	}
+	//Get the name of the network card
+	var parsedData []qga.IfnameDetail
+	if err := json.Unmarshal([]byte(ifnameData.String()), &parsedData); err != nil {
+		return "", err
+	}
+	var ifnameDevice string
+	//Finding a network card by its mac address
+	for _, detail := range parsedData {
+		if detail.HardwareAddress == mac {
+			ifnameDevice = detail.Name
+		}
+	}
+	return ifnameDevice, nil
 }
 
 func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDetachnetworkInput) (jsonutils.JSONObject, error) {
