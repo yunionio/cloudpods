@@ -1155,13 +1155,13 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
 		err = func() error {
-			lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
-			defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
-			newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
-			if err != nil {
-				return err
-			}
 			if self.AutoCreateProjectForProvider {
+				lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
+				if err != nil {
+					return err
+				}
 				domainId, projectId, err := self.getOrCreateTenant(ctx, newCloudprovider.Name, newCloudprovider.DomainId, "", subAccount.Desc)
 				if err != nil {
 					return errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", newCloudprovider.Name)
@@ -3157,18 +3157,29 @@ func (account *SCloudaccount) PerformProjectMapping(ctx context.Context, userCre
 		}
 	}
 
-	if len(input.ProjectId) == 0 {
+	if len(input.ProjectId) == 0 && !input.AutoCreateProjectForProvider {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "empty project_id")
 	}
-	t, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, input.ProjectId, account.DomainId)
-	if err != nil {
-		return nil, errors.Wrap(err, "FetchTenantByIdOrNameInDomain")
+	if input.AutoCreateProject {
+		t, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, input.ProjectId, account.DomainId)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchTenantByIdOrNameInDomain")
+		}
+		input.ProjectId = t.Id
 	}
-	input.ProjectId = t.Id
 
-	_, err = db.Update(account, func() error {
+	if input.AutoCreateProjectForProvider {
+		t, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, "system", account.DomainId)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchTenantByIdOrNameInDomain")
+		}
+		input.ProjectId = t.Id
+	}
+
+	_, err := db.Update(account, func() error {
 		account.ProjectId = input.ProjectId
 		account.AutoCreateProject = input.AutoCreateProject
+		account.AutoCreateProjectForProvider = input.AutoCreateProjectForProvider
 		account.ProjectMappingId = input.ProjectMappingId
 		if input.EnableProjectSync != nil {
 			account.EnableProjectSync = tristate.NewFromBool(*input.EnableProjectSync)
