@@ -744,7 +744,7 @@ func (d *sDebianLikeRootFs) GetReleaseInfo(rootFs IDiskPartition, driver IDebian
 
 func (d *sDebianLikeRootFs) RootSignatures() []string {
 	sig := d.sLinuxRootFs.RootSignatures()
-	return append([]string{"/etc/hostname"}, sig...)
+	return append([]string{"/etc/issue"}, sig...)
 }
 
 func (d *sDebianLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
