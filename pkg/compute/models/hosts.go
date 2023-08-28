@@ -2451,20 +2451,24 @@ type SGuestSyncResult struct {
 }
 
 func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
-	if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerBySysTagKeys) == 0 {
+	if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerByUserTagKeys) == 0 {
 		return false, ""
 	}
-	keys := strings.Split(options.Options.SkipServerBySysTagKeys, ",")
-	for key := range ext.GetSysTags() {
-		if utils.IsInStringArray(key, keys) {
-			return true, key
+	if keys := strings.Split(options.Options.SkipServerBySysTagKeys, ","); len(keys) > 0 {
+		for key := range ext.GetSysTags() {
+			key = strings.Trim(key, "")
+			if len(key) > 0 && utils.IsInStringArray(key, keys) {
+				return true, key
+			}
 		}
 	}
-	userKeys := strings.Split(options.Options.SkipServerByUserTagKeys, ",")
-	tags, _ := ext.GetTags()
-	for key := range tags {
-		if utils.IsInStringArray(key, userKeys) {
-			return true, key
+	if userKeys := strings.Split(options.Options.SkipServerByUserTagKeys, ","); len(userKeys) > 0 {
+		tags, _ := ext.GetTags()
+		for key := range tags {
+			key = strings.Trim(key, "")
+			if len(key) > 0 && utils.IsInStringArray(key, userKeys) {
+				return true, key
+			}
 		}
 	}
 	return false, ""
