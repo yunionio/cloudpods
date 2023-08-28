@@ -109,7 +109,7 @@ type SHostInfo struct {
 	Domain_id      string
 
 	FullName string
-	SysError map[string]string
+	SysError map[string][]api.HostError
 
 	IoScheduler string
 }
@@ -1118,7 +1118,7 @@ func (h *SHostInfo) initHostRecord() (*api.HostDetails, error) {
 	}
 
 	h.HostId = hostInfo.Id
-	err = h.updateHostMetadata(hostInfo.Name)
+	hostInfo, err = h.updateHostMetadata(hostInfo.Name)
 	if err != nil {
 		return nil, errors.Wrap(err, "updateHostMetadata")
 	}
@@ -1197,7 +1197,7 @@ func (h *SHostInfo) ensureMasterNetworks() (string, error) {
 	if len(res.Data) == 0 {
 		wireId, err = h.tryCreateNetworkOnWire()
 	} else if len(res.Data) == 1 {
-		wireId, _ := res.Data[0].GetString("wire_id")
+		wireId, _ = res.Data[0].GetString("wire_id")
 	} else {
 		err = errors.Wrapf(httperrors.ErrConflict, "find multiple match network (%d) for access network", len(res.Data))
 	}
@@ -1463,12 +1463,7 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 		return nil, errors.Wrap(err, "unmarshal host details failed")
 	}
 
-	err = h.onUpdateHostInfoSucc(&hostDetails)
-	if err != nil {
-		return nil, errors.Wrap(err, "onUpdateHostInfoSucc")
-	}
-
-	return hostDetails, nil
+	return &hostDetails, nil
 }
 
 func json2HostDetails(res jsonutils.JSONObject) (*api.HostDetails, error) {
@@ -1533,7 +1528,7 @@ func (h *SHostInfo) updateHostReservedMem(reserved int) error {
 	content.Set("mem_reserved", jsonutils.NewInt(int64(reserved)))
 	_, err := modules.Hosts.Update(h.GetSession(), h.HostId, content)
 	if err != nil {
-		return nil, errors.Wrap(err, "Update mem_reserved")
+		return errors.Wrap(err, "Update mem_reserved")
 	}
 	return nil
 }
@@ -1572,9 +1567,7 @@ func (h *SHostInfo) getReservedMemMb() int {
 }
 
 func (h *SHostInfo) PutHostOnline() error {
-	if len(h.SysError) > 0 && !options.HostOptions.StartHostIgnoreSysError {
-		log.Fatalf("Can't put host online, unless resolve these problem %v", h.SysError)
-	} else if len(h.SysError) > 0 && options.HostOptions.StartHostIgnoreSysError {
+	if len(h.SysError) > 0 {
 		log.Errorf("Host sys error: %v", h.SysError)
 	}
 
@@ -1806,7 +1799,7 @@ func (h *SHostInfo) initLocalStorageImageManager() error {
 		body := jsonutils.NewDict()
 		body.Set("name", jsonutils.NewString(fmt.Sprintf(
 			"local-%s-%s", h.FullName, time.Now().String())))
-		body.Set("path", jsonutils.NewString(path))
+		body.Set("path", jsonutils.NewString(localImageCachePath))
 		body.Set("external_id", jsonutils.NewString(h.HostId))
 		sc, err := modules.Storagecaches.Create(h.GetSession(), body)
 		if err != nil {
@@ -1877,12 +1870,16 @@ func (h *SHostInfo) initStoragesInternal(hoststorages []jsonutils.JSONObject) {
 					params.Set("is_root_partiton", jsonutils.JSONTrue)
 					_, err := modules.Hoststorages.Update(h.GetSession(), h.HostId, storageId, nil, params)
 					if err != nil {
-						h.AppendError(fmt.Sprintf("Request update host storage %s with params %s: %s", storageId, params, err),
+						h.AppendError(
+							fmt.Sprintf("Request update host storage %s with params %s: %s", storageId, params, err),
 							"storages", storageId, storageName)
 					}
 				}
 				if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
-					return errors.Wrapf(err, "Set storage info %s/%s/%s", storageId, storageName, storageConf)
+					h.AppendError(
+						fmt.Sprintf("Set storage info %s/%s/%s failed: %s", storageId, storageName, storageConf, err),
+						"storages", storageId, storageName)
+					continue
 				}
 				if storagetype == api.STORAGE_LVM {
 					// lvm set storage image cache info
@@ -1906,6 +1903,9 @@ func (h *SHostInfo) initStoragesInternal(hoststorages []jsonutils.JSONObject) {
 			// only local storage need to do the sync
 			continue
 		}
+		storageId := s.GetId()
+		storageName := s.GetStorageName()
+		storageConf := s.GetStorageConf()
 		if err := s.SetStorageInfo(s.GetId(), s.GetStorageName(), s.GetStorageConf()); err != nil {
 			h.AppendError(fmt.Sprintf("Set storage info %s/%s/%s failed: %s", storageId, storageName, storageConf, err.Error()),
 				"storages", storageId, storageName)
@@ -2035,12 +2035,10 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		return nil, err
 	}
 	sriovNics := h.getNicsInterfaces(options.HostOptions.SRIOVNics)
-	if err := h.IsolatedDeviceMan.ProbePCIDevices(
+	h.IsolatedDeviceMan.ProbePCIDevices(
 		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB, options.HostOptions.DisableCustomDevice,
-		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs,
-	); err != nil {
-		return nil, errors.Wrap(err, "ProbePCIDevices")
-	}
+		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs, options.HostOptions.AMDVgpuPFs, options.HostOptions.NVIDIAVgpuPFs,
+	)
 
 	objs, err := h.getRemoteIsolatedDevices()
 	if err != nil {
@@ -2051,7 +2049,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		if err := obj.Unmarshal(&info); err != nil {
 			return nil, errors.Wrapf(err, "unmarshal isolated device %s to cloud device info", obj)
 		}
-		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr)
+		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr, info.MdevId)
 		if dev != nil {
 			dev.SetDeviceInfo(info)
 		} else {
@@ -2112,7 +2110,7 @@ func (h *SHostInfo) AppendError(content, errType, id, name string) {
 	if !ok {
 		h.SysError[errType] = make([]api.HostError, 0)
 	}
-	es = append(es, api.HostError{Type: errType, Id: id, Name: name, Content: content, Time: time.Now()})
+	h.SysError[errType] = append(es, api.HostError{Type: errType, Id: id, Name: name, Content: content, Time: time.Now()})
 }
 
 func (h *SHostInfo) RemoveErrorType(errType string) {
@@ -2391,7 +2389,7 @@ func NewHostInfo() (*SHostInfo, error) {
 
 	res.Nics = make([]*SNIC, 0)
 	// res.IsRegistered = make(chan struct{})
-	res.SysError = make(map[string]string)
+	res.SysError = map[string][]api.HostError{}
 
 	if !options.HostOptions.DisableProbeKubelet {
 		kubeletDir := options.HostOptions.KubeletRunDirectory

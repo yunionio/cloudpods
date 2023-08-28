@@ -495,15 +495,20 @@ func generateUsbDeviceOption(usbControllerId string, usb *desc.UsbDevice) string
 	return cmd
 }
 
-func generateVfioDeviceOption(devs []*desc.VFIODevice) []string {
+func generateVfioDeviceOption(dev *desc.SGuestIsolatedDevice) []string {
 	opts := make([]string, 0)
 
-	for i := 0; i < len(devs); i++ {
-		cmd := generatePCIDeviceOption(devs[i].PCIDevice)
-		cmd += fmt.Sprintf(",host=%s", devs[i].HostAddr)
-		if devs[i].XVga {
-			cmd += ",x-vga=on"
+	for i := 0; i < len(dev.VfioDevs); i++ {
+		cmd := generatePCIDeviceOption(dev.VfioDevs[i].PCIDevice)
+		if dev.MdevId != "" {
+			cmd += fmt.Sprintf(",sysfsdev=/sys/bus/mdev/devices/%s", dev.MdevId)
+		} else {
+			cmd += fmt.Sprintf(",host=%s", dev.VfioDevs[i].HostAddr)
+			if dev.VfioDevs[i].XVga {
+				cmd += ",x-vga=on"
+			}
 		}
+
 		opts = append(opts, cmd)
 	}
 	return opts
@@ -516,9 +521,10 @@ func generateIsolatedDeviceOptions(guestDesc *desc.SGuestDesc) []string {
 			opts = append(opts,
 				generateUsbDeviceOption(guestDesc.Usb.Id, guestDesc.IsolatedDevices[i].Usb),
 			)
+			//} else if guestDesc.IsolatedDevices[i].DevType {
 		} else if len(guestDesc.IsolatedDevices[i].VfioDevs) > 0 {
 			opts = append(opts,
-				generateVfioDeviceOption(guestDesc.IsolatedDevices[i].VfioDevs)...,
+				generateVfioDeviceOption(guestDesc.IsolatedDevices[i])...,
 			)
 		}
 	}
