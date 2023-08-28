@@ -1908,7 +1908,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		for i := 0; i < len(devs); i++ {
 			// check first
 			dev := devs[i]
-			if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+			if !utils.IsInStringArray(dev.DevType, api.VALID_ATTACH_TYPES) {
 				if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 					msg := fmt.Sprintf("Can't separately detach dev type %s", dev.DevType)
 					logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
@@ -1941,7 +1941,7 @@ func (self *SGuest) startDetachIsolateDeviceWithoutNic(ctx context.Context, user
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+	if !utils.IsInStringArray(dev.DevType, api.VALID_ATTACH_TYPES) {
 		if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 			msg := fmt.Sprintf("Can't separately detach dev type %s", dev.DevType)
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
@@ -2035,7 +2035,7 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 		return httperrors.NewBadRequestError("guest %s host %s isolated device not enough", self.GetName(), host.GetName())
 	}
 	dev := devs[0]
-	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+	if !utils.IsInStringArray(dev.DevType, api.VALID_ATTACH_TYPES) {
 		if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 			return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
 		} else {
@@ -2072,7 +2072,7 @@ func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred 
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+	if !utils.IsInStringArray(dev.DevType, api.VALID_ATTACH_TYPES) {
 		if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 			return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
 		} else {

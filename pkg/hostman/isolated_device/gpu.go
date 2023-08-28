@@ -56,17 +56,25 @@ const (
 	DEFAULT_CPU_CMD = "host,kvm=off"
 )
 
-func getPassthroughGPUS() ([]*PCIDevice, error, []error) {
+func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 	lines, err := getGPUPCIStr()
 	if err != nil {
 		return nil, err, nil
 	}
 	warns := make([]error, 0)
 	devs := []*PCIDevice{}
+	log.Infof("filter address %v", filteredAddrs)
 	for _, line := range lines {
-		dev, err := NewPCIDevice(line)
-		if err != nil {
-			warns = append(warns, err)
+		dev := parseLspci(line)
+		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
+			continue
+		}
+		if err := dev.checkSameIOMMUGroupDevice(); err != nil {
+			warns = append(warns, errors.Wrapf(err, "get dev %s iommu group devices", dev.Addr))
+			continue
+		}
+		if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga); err != nil {
+			warns = append(warns, errors.Wrapf(err, "force bind vfio-pci driver %s", dev.Addr))
 			continue
 		}
 		devs = append(devs, dev)
@@ -86,25 +94,9 @@ func getPassthroughGPUS() ([]*PCIDevice, error, []error) {
 	return ret, nil, warns
 }
 
-// merge to getPassthroughGPUS
-func detectGPUS() ([]*PCIDevice, error) {
-	lines, err := getGPUPCIStr()
-	if err != nil {
-		return nil, err
-	}
-	devs := []*PCIDevice{}
-	for _, line := range lines {
-		dev, err := NewPCIDevice(line)
-		if err != nil {
-			return nil, err
-		}
-		devs = append(devs, dev)
-	}
-	return devs, nil
-}
-
 func getGPUPCIStr() ([]string, error) {
-	ret, err := bashOutput("lspci -nnmm | egrep '3D|VGA'")
+	cmd := "lspci -nnmm | egrep '3D|VGA'"
+	ret, err := bashOutput(cmd)
 	if err != nil {
 		return nil, err
 	}

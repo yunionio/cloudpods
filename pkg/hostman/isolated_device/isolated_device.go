@@ -16,6 +16,7 @@ package isolated_device
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -43,6 +44,7 @@ type CloudDeviceInfo struct {
 	VendorDeviceId string `json:"vendor_device_id"`
 	Addr           string `json:"addr"`
 	DetectedOnHost bool   `json:"detected_on_host"`
+	MdevId         string `json:"mdev_id"`
 }
 
 type IHost interface {
@@ -76,7 +78,6 @@ type IDevice interface {
 	GetModelName() string
 	CustomProbe(idx int) error
 	SetDeviceInfo(info CloudDeviceInfo)
-	SetDetectedOnHost(isDetected bool)
 	DetectByAddr() error
 
 	GetPassthroughOptions() map[string]string
@@ -94,15 +95,19 @@ type IDevice interface {
 	// NVMe disk
 	GetNVMESizeMB() int
 
+	// legacy nvidia vgpu
+	GetMdevId() string
+	GetNVIDIAVgpuProfile() map[string]string
+
 	GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error)
 	GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error)
 }
 
 type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
-	GetDeviceByIdent(vendorDevId string, addr string) IDevice
+	GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error
+	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string)
 	StartDetachTask()
 	BatchCustomProbe()
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -129,68 +134,83 @@ func (man *isolatedDeviceManager) GetDevices() []IDevice {
 	return man.devices
 }
 
+func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string) {
+	if skipGPUs {
+		return
+	}
+	filteredAddrs := []string{}
+	filteredAddrs = append(filteredAddrs, amdVgpuPFs...)
+	filteredAddrs = append(filteredAddrs, nvidiaVgpuPFs...)
+	for i := 0; i < len(man.devices); i++ {
+		filteredAddrs = append(filteredAddrs, man.devices[i].GetAddr())
+	}
+
+	gpus, err, warns := getPassthroughGPUS(filteredAddrs)
+	if err != nil {
+		// ignore getPassthroughGPUS error on old machines without VGA devices
+		log.Errorf("getPassthroughGPUS: %v", err)
+		man.host.AppendError(fmt.Sprintf("get passhtrough gpus %s", err.Error()), "isolated_devices", "", " ")
+	} else {
+		if len(warns) > 0 {
+			for i := 0; i < len(warns); i++ {
+				man.host.AppendError(warns[i].Error(), "isolated_devices", "", " ")
+			}
+		}
+		for idx, gpu := range gpus {
+			man.devices = append(man.devices, NewGPUHPCDevice(gpu))
+			log.Infof("Add GPU device: %d => %#v", idx, gpu)
+		}
+	}
+}
+
+func (man *isolatedDeviceManager) probeCustomPCIDevs(skipCustomDevs bool) {
+	if skipCustomDevs {
+		return
+	}
+	devModels, err := man.getCustomIsolatedDeviceModels()
+	if err != nil {
+		log.Errorf("get custom isolated device models %s", err.Error())
+		man.host.AppendError(fmt.Sprintf("get custom isolated device models %s", err.Error()), "isolated_devices", "", "")
+	} else {
+		for _, devModel := range devModels {
+			devs, err := getPassthroughPCIDevs(devModel)
+			if err != nil {
+				log.Errorf("getPassthroughPCIDevs %v: %s", devModel, err)
+				man.host.AppendError(fmt.Sprintf("get custom passthrough pci devices %s", err.Error()), "isolated_devices", "", "")
+				continue
+			}
+			for i, dev := range devs {
+				man.devices = append(man.devices, dev)
+				log.Infof("Add general pci device: %d => %#v", i, dev)
+			}
+		}
+	}
+}
+
+func (man *isolatedDeviceManager) probeUSBs(skipUSBs bool) {
+	if skipUSBs {
+		return
+	}
+
+	usbs, err := getPassthroughUSBs()
+	if err != nil {
+		log.Errorf("getPassthroughUSBs: %v", err)
+		man.host.AppendError(fmt.Sprintf("get passthrough usb devices %s", err.Error()), "isolated_devices", "", "")
+	} else {
+		for idx, usb := range usbs {
+			man.devices = append(man.devices, usb)
+			log.Infof("Add USB device: %d => %#v", idx, usb)
+		}
+	}
+}
+
 type HostNic struct {
 	Bridge    string
 	Interface string
 	Wire      string
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error {
-	man.devices = make([]IDevice, 0)
-	if !skipGPUs {
-		gpus, err, warns := getPassthroughGPUS()
-		if err != nil {
-			// ignore getPassthroughGPUS error on old machines without VGA devices
-			log.Errorf("getPassthroughGPUS: %v", err)
-			man.host.AppendError(fmt.Sprintf("get passhtrough gpus %s", err.Error()), "isolated_devices", "", " ")
-		} else {
-			if len(warns) > 0 {
-				for i := 0; i < len(warns); i++ {
-					man.host.AppendError(warns[i].Error(), "isolated_devices", "", " ")
-				}
-			}
-			for idx, gpu := range gpus {
-				man.devices = append(man.devices, NewGPUHPCDevice(gpu))
-				log.Infof("Add GPU device: %d => %#v", idx, gpu)
-			}
-		}
-	}
-
-	if !skipCustomDevs {
-		devModels, err := man.getCustomIsolatedDeviceModels()
-		if err != nil {
-			log.Errorf("get custom isolated device models %s", err.Error())
-			man.host.AppendError(fmt.Sprintf("get custom isolated device models %s", err.Error()), "isolated_devices", "", "")
-		} else {
-			for _, devModel := range devModels {
-				devs, err := getPassthroughPCIDevs(devModel)
-				if err != nil {
-					log.Errorf("getPassthroughPCIDevs %v: %s", devModel, err)
-					man.host.AppendError(fmt.Sprintf("get custom passthrough pci devices %s", err.Error()), "isolated_devices", "", "")
-					continue
-				}
-				for i, dev := range devs {
-					man.devices = append(man.devices, dev)
-					log.Infof("Add general pci device: %d => %#v", i, dev)
-				}
-			}
-		}
-	}
-
-	if !skipUSBs {
-		usbs, err := getPassthroughUSBs()
-		if err != nil {
-			log.Errorf("getPassthroughUSBs: %v", err)
-			man.host.AppendError(fmt.Sprintf("get passthrough usb devices %s", err.Error()), "isolated_devices", "", "")
-		} else {
-			for idx, usb := range usbs {
-				man.devices = append(man.devices, usb)
-				log.Infof("Add USB device: %d => %#v", idx, usb)
-			}
-		}
-
-	}
-
+func (man *isolatedDeviceManager) probeSRIOVNics(sriovNics []HostNic) {
 	if len(sriovNics) > 0 {
 		nics, err := getSRIOVNics(sriovNics)
 		if err != nil {
@@ -203,6 +223,9 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustom
 			}
 		}
 	}
+}
+
+func (man *isolatedDeviceManager) probeOffloadNICS(ovsOffloadNics []HostNic) {
 	if len(ovsOffloadNics) > 0 {
 		nics, err := getOvsOffloadNics(ovsOffloadNics)
 		if err != nil {
@@ -215,7 +238,9 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustom
 			}
 		}
 	}
+}
 
+func (man *isolatedDeviceManager) probeNVMEDisks(nvmePciDisks []string) {
 	if len(nvmePciDisks) > 0 {
 		nvmeDisks, err := getPassthroughNVMEDisks(nvmePciDisks)
 		if err != nil {
@@ -227,8 +252,70 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustom
 			}
 		}
 	}
+}
 
-	return nil
+func (man *isolatedDeviceManager) probeAMDVgpus(amdVgpuPFs []string) {
+	if len(amdVgpuPFs) > 0 {
+		pattern := `^([0-9a-f]{2}):([0-9a-f]{2})\.([0-9a-f])$`
+		for idx := range amdVgpuPFs {
+			matched, _ := regexp.MatchString(pattern, amdVgpuPFs[idx])
+			if !matched {
+				err := errors.Errorf("probeAMDVgpus invaild input pci address %s", amdVgpuPFs[idx])
+				log.Errorln(err)
+				man.host.AppendError(err.Error(), "isolated_devices", "", "")
+				continue
+			}
+
+			vgpus, err := getSRIOVGpus(amdVgpuPFs[idx])
+			if err != nil {
+				log.Errorf("getSRIOVGpus: %s", err)
+				man.host.AppendError(fmt.Sprintf("get amd sriov vgpus %s", err.Error()), "isolated_devices", "", "")
+			} else {
+				for i := range vgpus {
+					man.devices = append(man.devices, vgpus[i])
+				}
+			}
+		}
+	}
+}
+
+func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
+	if len(nvidiaVgpuPFs) > 0 {
+		pattern := `^([0-9a-f]{2}):([0-9a-f]{2})\.([0-9a-f])$`
+		for idx := range nvidiaVgpuPFs {
+			matched, _ := regexp.MatchString(pattern, nvidiaVgpuPFs[idx])
+			if !matched {
+				err := errors.Errorf("probeNVIDIAVgpus invaild input pci address %s", nvidiaVgpuPFs[idx])
+				log.Errorln(err)
+				man.host.AppendError(err.Error(), "isolated_devices", "", "")
+				continue
+			}
+			vgpus, err := getNvidiaVGpus(nvidiaVgpuPFs[idx])
+			if err != nil {
+				log.Errorf("getNvidiaVGpus: %s", err)
+				man.host.AppendError(fmt.Sprintf("get nvidia vgpus %s", err.Error()), "isolated_devices", "", "")
+			} else {
+				for i := range vgpus {
+					man.devices = append(man.devices, vgpus[i])
+				}
+			}
+		}
+	}
+}
+
+func (man *isolatedDeviceManager) ProbePCIDevices(
+	skipGPUs, skipUSBs, skipCustomDevs bool,
+	sriovNics, ovsOffloadNics []HostNic,
+	nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string,
+) {
+	man.devices = make([]IDevice, 0)
+	man.probeUSBs(skipUSBs)
+	man.probeCustomPCIDevs(skipCustomDevs)
+	man.probeSRIOVNics(sriovNics)
+	man.probeOffloadNICS(ovsOffloadNics)
+	man.probeAMDVgpus(amdVgpuPFs)
+	man.probeNVIDIAVgpus(nvidiaVgpuPFs)
+	man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs)
 }
 
 type IsolatedDeviceModel struct {
@@ -260,9 +347,9 @@ func (man *isolatedDeviceManager) getSession() *mcclient.ClientSession {
 	return man.host.GetSession()
 }
 
-func (man *isolatedDeviceManager) GetDeviceByIdent(vendorDevId string, addr string) IDevice {
+func (man *isolatedDeviceManager) GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice {
 	for _, dev := range man.devices {
-		if dev.GetVendorDeviceId() == vendorDevId && dev.GetAddr() == addr {
+		if dev.GetVendorDeviceId() == vendorDevId && dev.GetAddr() == addr && dev.GetMdevId() == mdevId {
 			return dev
 		}
 	}
@@ -379,10 +466,6 @@ func (dev *sBaseDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	}
 }
 
-func (dev *sBaseDevice) SetDetectedOnHost(probe bool) {
-	dev.detectedOnHost = probe
-}
-
 func SyncDeviceInfo(session *mcclient.ClientSession, hostId string, dev IDevice) (jsonutils.JSONObject, error) {
 	if len(dev.GetHostId()) == 0 {
 		dev.SetHostId(hostId)
@@ -428,6 +511,14 @@ func (dev *sBaseDevice) GetNVMESizeMB() int {
 	return -1
 }
 
+func (dev *sBaseDevice) GetNVIDIAVgpuProfile() map[string]string {
+	return nil
+}
+
+func (dev *sBaseDevice) GetMdevId() string {
+	return ""
+}
+
 func (dev *sBaseDevice) GetModelName() string {
 	if dev.dev.ModelName != "" {
 		return dev.dev.ModelName
@@ -471,6 +562,14 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 		data["nvme_size_mb"] = dev.GetNVMESizeMB()
 	}
 
+	if dev.GetMdevId() != "" {
+		data["mdev_id"] = dev.GetMdevId()
+	}
+	if profile := dev.GetNVIDIAVgpuProfile(); profile != nil {
+		for k, v := range profile {
+			data[k] = v
+		}
+	}
 	return jsonutils.Marshal(data).(*jsonutils.JSONDict)
 }
 
