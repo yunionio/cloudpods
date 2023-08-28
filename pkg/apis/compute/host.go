@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"time"
+
 	cloudmux "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
@@ -598,4 +600,16 @@ type HostRemoveNetifInput struct {
 	HostNetifInput
 
 	Reserve *bool `json:"reserve"`
+}
+
+type HostError struct {
+	Type    string
+	Id      string
+	Name    string
+	Content string
+	Time    time.Time
+}
+
+type HostSyncErrorsInput struct {
+	HostErrors []HostError
 }

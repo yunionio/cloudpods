@@ -63,6 +63,7 @@ func init() {
 	cmd.BatchPerform("reserve-cpus", &compute.HostReserveCpusOptions{})
 	cmd.BatchPerform("unreserve-cpus", &options.BaseIdsOptions{})
 	cmd.BatchPerform("auto-migrate-on-host-down", &compute.HostAutoMigrateOnHostDownOptions{})
+	cmd.BatchPerform("restart-host-agent", &options.BaseIdsOptions{})
 
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})
