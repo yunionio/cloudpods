@@ -4059,6 +4059,17 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 	return nil, nil
 }
 
+func (self *SHost) PerformRestartHostAgent(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	_, err := self.Request(ctx, userCred, "POST", fmt.Sprintf("/hosts/%s/restart-host-agent", self.Id),
+		mcclient.GetTokenHeaders(userCred), data)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
 func (self *SHost) PerformAutoMigrateOnHostDown(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.HostAutoMigrateInput,
 ) (jsonutils.JSONObject, error) {

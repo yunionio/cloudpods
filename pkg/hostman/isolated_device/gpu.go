@@ -56,24 +56,37 @@ const (
 	DEFAULT_CPU_CMD = "host,kvm=off"
 )
 
-func getPassthroughGPUS() ([]*PCIDevice, error) {
-	gpus, err := detectGPUS()
+func getPassthroughGPUS() ([]*PCIDevice, error, []error) {
+	lines, err := getGPUPCIStr()
 	if err != nil {
-		return nil, err
+		return nil, err, nil
+	}
+	warns := make([]error, 0)
+	devs := []*PCIDevice{}
+	for _, line := range lines {
+		dev, err := NewPCIDevice(line)
+		if err != nil {
+			warns = append(warns, err)
+			continue
+		}
+		devs = append(devs, dev)
 	}
 	ret := []*PCIDevice{}
-	for _, dev := range gpus {
+	for _, dev := range devs {
 		if drv, err := dev.getKernelDriver(); err != nil {
-			log.Errorf("Device %#v get kernel driver error: %v", dev, err)
+			log.Errorf("Device %s get kernel driver error: %s", dev.Addr, err.Error())
+			warns = append(warns, fmt.Errorf("Device %s get kernel driver error: %s", dev.Addr, err.Error()))
 		} else if drv == "" || drv == VFIO_PCI_KERNEL_DRIVER {
 			ret = append(ret, dev)
 		} else {
 			log.Warningf("GPU %v use kernel driver %q, skip it", dev, drv)
+			warns = append(warns, fmt.Errorf("GPU %s use kernel driver %s, skip it", dev.Addr, drv))
 		}
 	}
-	return ret, nil
+	return ret, nil, warns
 }
 
+// merge to getPassthroughGPUS
 func detectGPUS() ([]*PCIDevice, error) {
 	lines, err := getGPUPCIStr()
 	if err != nil {
