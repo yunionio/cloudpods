@@ -221,11 +221,10 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 		return nil, err
 	}
 	for i := 0; i < len(storages); i++ {
-		if utils.IsInStringArray(storages[i].GetStorageType(), self.localstorages) {
+		storage, ok := storages[i].(*SStorage)
+		if !ok {
 			continue
-			//return &SStorage{zone: self, storageType: strings.ToUpper(storages[i].GetStorageType())}, nil
 		}
-		storage := storages[i].(*SStorage)
 		if strings.ToLower(storage.storageType) == strings.ToLower(category) {
 			return storage, nil
 		}
