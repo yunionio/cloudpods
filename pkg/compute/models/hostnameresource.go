@@ -26,7 +26,7 @@ import (
 )
 
 type SHostnameResourceBase struct {
-	Hostname string `width:"60" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	Hostname string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SHostnameResourceBaseManager struct {
