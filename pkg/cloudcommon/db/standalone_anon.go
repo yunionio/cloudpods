@@ -48,7 +48,7 @@ type SStandaloneAnonResourceBase struct {
 	Id string `width:"128" charset:"ascii" primary:"true" list:"user" create:"optional" json:"id"`
 
 	// 资源描述信息
-	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional" json:"description"`
+	Description string `length:"0" charset:"utf8" get:"user" list:"user" update:"user" create:"optional" json:"description"`
 
 	// 是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
 	// list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
