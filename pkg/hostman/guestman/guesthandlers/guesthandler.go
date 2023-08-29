@@ -97,6 +97,8 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"qga-set-password":         qgaGuestSetPassword,
 			"qga-guest-ping":           qgaGuestPing,
 			"qga-command":              qgaCommand,
+			"reset-nic-traffic-limit":  guestResetNicTrafficLimit,
+			"set-nic-traffic-limit":    guestSetNicTrafficLimit,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -803,6 +805,31 @@ func guestMemorySnapshotDelete(ctx context.Context, w http.ResponseWriter, r *ht
 	hostutils.DelayTask(ctx, gm.DoDeleteMemorySnapshot, &guestman.SMemorySnapshotDelete{
 		GuestMemorySnapshotDeleteRequest: input,
 	})
+}
+
+func guestResetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(computeapi.ServerNicTrafficLimit)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, httperrors.NewInputParameterError("failed unmarshal input %s", err)
+	}
+
+	hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+		return nil, guestman.GetGuestManager().ResetGuestNicTrafficLimit(sid, input)
+	}, nil)
+
+	return nil, nil
+}
+
+func guestSetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(computeapi.ServerNicTrafficLimit)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, httperrors.NewInputParameterError("failed unmarshal input %s", err)
+	}
+
+	hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+		return nil, guestman.GetGuestManager().SetGuestNicTrafficLimit(sid, input)
+	}, nil)
+	return nil, nil
 }
 
 func qgaGuestSetPassword(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {

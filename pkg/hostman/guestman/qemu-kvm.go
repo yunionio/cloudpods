@@ -955,6 +955,10 @@ func (s *SKVMGuestInstance) QgaPath() string {
 	return path.Join(s.HomeDir(), "qga.sock")
 }
 
+func (s *SKVMGuestInstance) NicTrafficRecordPath() string {
+	return path.Join(s.HomeDir(), "nic_traffic.json")
+}
+
 func (s *SKVMGuestInstance) InitQga() error {
 	guestAgent, err := qga.NewQemuGuestAgent(s.Id, s.QgaPath())
 	if err != nil {

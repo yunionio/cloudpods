@@ -6363,6 +6363,39 @@ func (hh *SHost) GetPinnedCpusetCores(ctx context.Context, userCred mcclient.Tok
 	return ret, nil
 }
 
+func (h *SHost) PerformSyncGuestNicTraffics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guestTraffics, err := data.GetMap()
+	if err != nil {
+		return nil, errors.Wrap(err, "get guest traffics")
+	}
+	for guestId, nicTraffics := range guestTraffics {
+		nicTrafficMap := make(map[string]api.SNicTrafficRecord)
+		err = nicTraffics.Unmarshal(&nicTrafficMap)
+		if err != nil {
+			log.Errorf("failed unmarshal guest %s nic traffics %s", guestId, err)
+			continue
+		}
+
+		guest := GuestManager.FetchGuestById(guestId)
+		gns, err := guest.GetNetworks("")
+		if err != nil {
+			log.Errorf("failed fetch guest %s networks %s", guestId, err)
+			continue
+		}
+		for i := range gns {
+			nicTraffic, ok := nicTrafficMap[strconv.Itoa(int(gns[i].Index))]
+			if !ok {
+				continue
+			}
+			if err = gns[i].UpdateNicTrafficUsed(nicTraffic.RxTraffic, nicTraffic.TxTraffic); err != nil {
+				log.Errorf("failed update guestnetwork %d traffic used %s", gns[i].RowId, err)
+				continue
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (h *SHost) GetDetailsAppOptions(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return h.Request(ctx, userCred, httputils.GET, "/app-options", nil, nil)
 }

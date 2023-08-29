@@ -1016,3 +1016,9 @@ type ServerSetLiveMigrateParamsInput struct {
 	MaxBandwidthMB  *int64
 	DowntimeLimitMS *int64
 }
+
+type ServerNicTrafficLimit struct {
+	Mac            string `json:"mac"`
+	RxTrafficLimit *int64 `json:"rx_traffic_limit"`
+	TxTrafficLimit *int64 `json:"tx_traffic_limit"`
+}
