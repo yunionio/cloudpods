@@ -660,7 +660,9 @@ func (manager *SUserManager) FetchScopeResources(userIds []string) (map[string]a
 				ExtResourcesNextUpdate: res.LastUpdate.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second),
 			}
 		}
-		result[res.OwnerId].ExtResource[res.Resource] = res.ResCount
+		if res.ResCount > 0 {
+			result[res.OwnerId].ExtResource[res.Resource] = res.ResCount
+		}
 	}
 	return result, nil
 }
