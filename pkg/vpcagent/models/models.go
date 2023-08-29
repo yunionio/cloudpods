@@ -203,11 +203,25 @@ func (el *Elasticip) Copy() *Elasticip {
 
 type DnsRecord struct {
 	compute_models.SDnsRecord
+
+	DnsZone *DnsZone
 }
 
 func (el *DnsRecord) Copy() *DnsRecord {
 	return &DnsRecord{
 		SDnsRecord: el.SDnsRecord,
+	}
+}
+
+type DnsZone struct {
+	compute_models.SDnsZone
+
+	Records DnsRecords
+}
+
+func (el *DnsZone) Copy() *DnsZone {
+	return &DnsZone{
+		SDnsZone: el.SDnsZone,
 	}
 }
 

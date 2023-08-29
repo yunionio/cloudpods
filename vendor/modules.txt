@@ -222,7 +222,6 @@ github.com/aws/aws-sdk-go/service/elbv2
 github.com/aws/aws-sdk-go/service/iam
 github.com/aws/aws-sdk-go/service/organizations
 github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi
-github.com/aws/aws-sdk-go/service/route53
 github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/sso
 github.com/aws/aws-sdk-go/service/sso/ssoiface
@@ -1438,7 +1437,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230828034552-97591d4b9ce6
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230829065343-09bd470458fa
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing

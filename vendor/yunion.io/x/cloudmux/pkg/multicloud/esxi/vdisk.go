@@ -25,6 +25,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -354,8 +355,7 @@ func (disk *SVirtualDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	dsObj := disk.getBackingInfo().GetDatastore()
 	dc, err := disk.vm.GetDatacenter()
 	if err != nil {
-		log.Errorf("fail to find datacenter %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetDatacenter")
 	}
 	istorage, err := dc.GetIStorageByMoId(moRefId(*dsObj))
 	if err != nil {
@@ -430,8 +430,7 @@ func (disk *SVirtualDisk) GetMountpoint() string {
 func (disk *SVirtualDisk) Delete(ctx context.Context) error {
 	istorage, err := disk.GetIStorage()
 	if err != nil {
-		log.Errorf("disk.GetIStorage() fail %s", err)
-		return err
+		return errors.Wrapf(err, "GetIStorage")
 	}
 	ds := istorage.(*SDatastore)
 	return ds.Delete2(ctx, disk.getBackingInfo().GetFileName(), false, false)
@@ -463,16 +462,13 @@ func (disk *SVirtualDisk) Resize(ctx context.Context, newSizeMb int64) error {
 	vm := disk.vm.getVmObj()
 
 	task, err := vm.Reconfigure(ctx, spec)
-
 	if err != nil {
-		log.Errorf("vm.Reconfigure fail %s", err)
-		return err
+		return errors.Wrapf(err, "Reconfigure")
 	}
 
 	err = task.Wait(ctx)
 	if err != nil {
-		log.Errorf("task.Wait fail %s", err)
-		return err
+		return errors.Wrapf(err, "task.Wait")
 	}
 
 	return err

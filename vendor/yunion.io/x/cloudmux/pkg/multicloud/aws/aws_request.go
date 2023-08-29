@@ -16,6 +16,7 @@ package aws
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -92,7 +93,7 @@ func Unmarshal(r *request.Request) {
 			case xml.CharData:
 				continue
 			case xml.StartElement:
-				if typed.Name.Local == r.Operation.Name+"Result" {
+				if typed.Name.Local == r.Operation.Name+"Result" || typed.Name.Local == r.Operation.Name+"Response" {
 					err = decoder.DecodeElement(r.Data, &typed)
 					if err != nil {
 						r.Error = awserr.NewRequestFailure(
@@ -114,22 +115,48 @@ func Unmarshal(r *request.Request) {
 var buildHandler = request.NamedHandler{Name: "yunion.query.Build", Fn: Build}
 
 func Build(r *request.Request) {
-	body := url.Values{
-		"Action":  {r.Operation.Name},
-		"Version": {r.ClientInfo.APIVersion},
+	body := url.Values{}
+	if !strings.HasPrefix(r.HTTPRequest.URL.Host, "route53") {
+		body.Set("Action", r.Operation.Name)
+		body.Set("Version", r.ClientInfo.APIVersion)
 	}
+	var params map[string]string = map[string]string{}
 	if r.Params != nil {
-		if params, ok := r.Params.(map[string]string); ok {
+		var ok bool
+		params, ok = r.Params.(map[string]string)
+		if ok {
 			for k, v := range params {
 				body.Add(k, v)
 			}
 		}
 	}
 
-	if r.Config.LogLevel != nil && r.Config.LogLevel.AtLeast(aws.LogDebugWithHTTPBody) {
+	if r.Config.LogLevel != nil && r.Config.LogLevel.AtLeast(aws.LogDebugWithHTTPBody) && r.ClientInfo.ServiceID != ROUTE53_SERVICE_ID {
 		log.Debugf("params: %s", body.Encode())
 	}
 
+	if r.ClientInfo.ServiceID == ROUTE53_SERVICE_ID {
+		switch r.HTTPRequest.Method {
+		case "GET":
+			r.HTTPRequest.URL.RawQuery = body.Encode()
+			return
+		case "POST":
+			body, err := xml.MarshalIndent(AwsXmlRequest{
+				params: params,
+				Local:  r.Operation.Name + "Request",
+				Spec:   "https://route53.amazonaws.com/doc/2013-04-01/",
+			}, "", "  ")
+			if err != nil {
+				r.Error = errors.Wrapf(err, "Marshal xml request")
+				return
+			}
+			if r.Config.LogLevel != nil && r.Config.LogLevel.AtLeast(aws.LogDebugWithHTTPBody) {
+				log.Debugf("params: %s", string(body))
+			}
+			r.SetBufferBody(body)
+		}
+		return
+	}
 	if !r.IsPresigned() {
 		r.HTTPRequest.Method = "POST"
 		r.HTTPRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
@@ -191,7 +218,7 @@ func UnmarshalError(r *request.Request) {
 		}
 	}
 
-	if strings.Contains(respErr.Errors.Code, "NotFound") || respErr.Errors.Code == "NoSuchEntity" {
+	if strings.Contains(respErr.Errors.Code, "NotFound") || strings.HasPrefix(respErr.Errors.Code, "NoSuch") {
 		r.Error = errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(respErr).String())
 		return
 	}
@@ -223,7 +250,7 @@ func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion str
 		c.Config.LogLevel = &logLevel
 	}
 
-	client := client.New(*c.Config, metadata, c.Handlers)
+	client := client.New(*c.Config.WithMaxRetries(0), metadata, c.Handlers)
 	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
 	client.Handlers.Build.PushBackNamed(buildHandler)
 	client.Handlers.Unmarshal.PushBackNamed(UnmarshalHandler)
@@ -234,10 +261,50 @@ func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion str
 }
 
 func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}) error {
+	method, path := "POST", "/"
+	if cli.ServiceID == ROUTE53_SERVICE_ID {
+		for _, prefix := range []string{"List", "Get"} {
+			if strings.HasPrefix(apiName, prefix) {
+				method = "GET"
+			}
+		}
+		if strings.HasPrefix(apiName, "Delete") {
+			method = "DELETE"
+		}
+		// https://github.com/aws/aws-sdk-go/blob/main/service/route53/api.go
+		for k, v := range map[string]string{
+			"ListHostedZones":            "hostedzone",
+			"ListGeoLocations":           "geolocations",
+			"CreateHostedZone":           "hostedzone",
+			"GetHostedZone":              "",
+			"DeleteHostedZone":           "",
+			"AssociateVPCWithHostedZone": "",
+			"ListResourceRecordSets":     "",
+			"ChangeResourceRecordSets":   "",
+		} {
+			if apiName == k {
+				path = fmt.Sprintf("/2013-04-01/%s", v)
+				if id, ok := params["Id"]; ok {
+					path = fmt.Sprintf("/2013-04-01/%s", strings.TrimPrefix(id, "/"))
+					suffix, _ := map[string]string{
+						"AssociateVPCWithHostedZone":    "associatevpc",
+						"DisassociateVPCFromHostedZone": "disassociatevpc",
+						"ListResourceRecordSets":        "rrset",
+						"ChangeResourceRecordSets":      "rrset",
+					}[k]
+					if len(suffix) > 0 {
+						path = fmt.Sprintf("/2013-04-01/%s/%s", strings.TrimPrefix(id, "/"), suffix)
+					}
+					delete(params, "Id")
+				}
+			}
+		}
+	}
+
 	op := &request.Operation{
 		Name:       apiName,
-		HTTPMethod: "POST",
-		HTTPPath:   "/",
+		HTTPMethod: method,
+		HTTPPath:   path,
 		Paginator: &request.Paginator{
 			InputTokens:     []string{"NextToken"},
 			OutputTokens:    []string{"NextToken"},

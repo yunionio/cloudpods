@@ -800,8 +800,14 @@ func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenC
 	vpcs := GlobalVpcManager.Query("id").Equals("manager_id", cprvd.Id)
 	intervpcs := InterVpcNetworkManager.Query("id").Equals("manager_id", cprvd.Id)
 	intervpcnetworks := InterVpcNetworkVpcManager.Query("row_id").In("inter_vpc_network_id", intervpcs.SubQuery())
+	dnszones := DnsZoneManager.Query("id").Equals("manager_id", cprvd.Id)
+	records := DnsRecordManager.Query("id").In("dns_zone_id", dnszones.SubQuery())
+	dnsVpcs := DnsZoneVpcManager.Query("row_id").In("dns_zone_id", dnszones.SubQuery())
 
 	pairs := []purgePair{
+		{manager: DnsZoneVpcManager, key: "row_id", q: dnsVpcs},
+		{manager: DnsRecordManager, key: "id", q: records},
+		{manager: DnsZoneManager, key: "id", q: dnszones},
 		{manager: InterVpcNetworkVpcManager, key: "row_id", q: intervpcnetworks},
 		{manager: InterVpcNetworkManager, key: "id", q: intervpcs},
 		{manager: GlobalVpcManager, key: "id", q: vpcs},
@@ -820,17 +826,8 @@ func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenC
 
 func (caccount *SCloudaccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	projects := ExternalProjectManager.Query("id").Equals("cloudaccount_id", caccount.Id)
-	dnszonecaches := DnsZoneCacheManager.Query("id").Equals("cloudaccount_id", caccount.Id)
-	dnszoneIds := DnsZoneCacheManager.Query("dns_zone_id").Equals("cloudaccount_id", caccount.Id)
-	dnszones := DnsZoneManager.Query("id").Equals("zone_type", "PublicZone").In("id", dnszoneIds.SubQuery())
-	records := DnsRecordSetManager.Query("id").In("dns_zone_id", dnszones.SubQuery())
-	dnspolicy := DnsRecordSetTrafficPolicyManager.Query("row_id").In("dns_recordset_id", records.SubQuery())
 
 	pairs := []purgePair{
-		{manager: DnsRecordSetTrafficPolicyManager, key: "row_id", q: dnspolicy},
-		{manager: DnsRecordSetManager, key: "id", q: records},
-		{manager: DnsZoneManager, key: "id", q: dnszones},
-		{manager: DnsZoneCacheManager, key: "id", q: dnszonecaches},
 		{manager: ExternalProjectManager, key: "id", q: projects},
 	}
 	for i := range pairs {

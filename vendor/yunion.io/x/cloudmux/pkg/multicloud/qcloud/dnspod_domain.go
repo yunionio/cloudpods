@@ -17,7 +17,7 @@ package qcloud
 import (
 	"fmt"
 	"strconv"
-	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -28,7 +28,7 @@ import (
 )
 
 type SDomian struct {
-	multicloud.SResourceBase
+	multicloud.SVirtualResourceBase
 	QcloudTags
 	client *SQcloudClient
 
@@ -79,7 +79,7 @@ func (self *SQcloudClient) GetDomains(key string, offset int, limit int) ([]SDom
 }
 
 func (self *SQcloudClient) GetDomain(domain string) (*SDomian, error) {
-	domains, _, err := self.GetDomains(domain, 0, 2)
+	domains, _, err := self.GetDomains(domain, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +112,19 @@ func (self *SQcloudClient) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, e
 	return result, nil
 }
 
+func (self *SDomian) GetIDnsRecordById(id string) (cloudprovider.ICloudDnsRecord, error) {
+	records, err := self.GetIDnsRecords()
+	if err != nil {
+		return nil, err
+	}
+	for i := range records {
+		if records[i].GetGlobalId() == id {
+			return records[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SQcloudClient) CreateDomian(domianName string) (*SDomian, error) {
 	params := map[string]string{}
 	params["Domain"] = domianName
@@ -119,7 +132,14 @@ func (self *SQcloudClient) CreateDomian(domianName string) (*SDomian, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateDomain")
 	}
-	return self.GetDomain(domianName)
+	for i := 0; i < 3; i++ {
+		domain, err := self.GetDomain(domianName)
+		if err == nil {
+			return domain, nil
+		}
+		time.Sleep(time.Second * 10)
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domianName)
 }
 
 func (self *SQcloudClient) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
@@ -189,10 +209,6 @@ func (self *SDomian) GetZoneType() cloudprovider.TDnsZoneType {
 	return cloudprovider.PublicZone
 }
 
-func (self *SDomian) GetOptions() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SDomian) GetICloudVpcIds() ([]string, error) {
 	return nil, nil
 }
@@ -205,7 +221,7 @@ func (self *SDomian) RemoveVpc(vpc *cloudprovider.SPrivateZoneVpc) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SDomian) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet, error) {
+func (self *SDomian) GetIDnsRecords() ([]cloudprovider.ICloudDnsRecord, error) {
 	records := []SDnsRecord{}
 	for {
 		part, total, err := self.client.GetDnsRecords(self.Name, len(records), 1000)
@@ -217,7 +233,7 @@ func (self *SDomian) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet, er
 			break
 		}
 	}
-	result := []cloudprovider.ICloudDnsRecordSet{}
+	result := []cloudprovider.ICloudDnsRecord{}
 	for i := 0; i < len(records); i++ {
 		records[i].domain = self
 		result = append(result, &records[i])
@@ -225,57 +241,8 @@ func (self *SDomian) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet, er
 	return result, nil
 }
 
-func (self *SDomian) AddDnsRecordSet(opts *cloudprovider.DnsRecordSet) error {
-	values := strings.Split(opts.DnsValue, "*")
-	for i := 0; i < len(values); i++ {
-		opts.DnsValue = values[i]
-		recordId, err := self.client.CreateDnsRecord(opts, self.Name)
-		if err != nil {
-			return errors.Wrapf(err, "CreateDnsRecord")
-		}
-		opts.ExternalId = recordId
-	}
-	return nil
-}
-
-func (self *SDomian) UpdateDnsRecordSet(opts *cloudprovider.DnsRecordSet) error {
-	values := strings.Split(opts.DnsValue, "*")
-	for i := 0; i < len(values); i++ {
-		opts.DnsValue = values[i]
-		err := self.client.ModifyDnsRecord(opts, self.Name)
-		if err != nil {
-			return errors.Wrapf(err, "ModifyDnsRecord")
-		}
-	}
-	return nil
-}
-
-func (self *SDomian) RemoveDnsRecordSet(opts *cloudprovider.DnsRecordSet) error {
-	return self.client.DeleteDnsRecord(opts.ExternalId, self.GetName())
-}
-
-func (self *SDomian) SyncDnsRecordSets(common, add, del, update []cloudprovider.DnsRecordSet) error {
-	for i := 0; i < len(del); i++ {
-		err := self.RemoveDnsRecordSet(&del[i])
-		if err != nil {
-			return errors.Wrapf(err, "RemoveDnsRecordSet(%s)", del[i].ExternalId)
-		}
-	}
-
-	for i := 0; i < len(add); i++ {
-		err := self.AddDnsRecordSet(&add[i])
-		if err != nil {
-			return errors.Wrapf(err, "AddDnsRecordSet(%s)", add[i].Id)
-		}
-	}
-
-	for i := 0; i < len(update); i++ {
-		err := self.UpdateDnsRecordSet(&update[i])
-		if err != nil {
-			return errors.Wrapf(err, "UpdateDnsRecordSet(%s)", update[i].ExternalId)
-		}
-	}
-	return nil
+func (self *SDomian) AddDnsRecord(opts *cloudprovider.DnsRecord) (string, error) {
+	return self.client.CreateDnsRecord(opts, self.Name)
 }
 
 func (self *SDomian) GetDnsProductType() cloudprovider.TDnsProductType {

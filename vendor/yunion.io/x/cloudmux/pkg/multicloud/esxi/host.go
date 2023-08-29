@@ -214,7 +214,7 @@ func (host *SHost) fetchVMs(all bool) error {
 
 	dc, err := host.GetDatacenter()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetDatacenter")
 	}
 
 	var vms []*SVirtualMachine
@@ -226,7 +226,7 @@ func (host *SHost) fetchVMs(all bool) error {
 
 	vms, err = dc.fetchVms(hostVms, all)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "dc.fetchVMs")
 	}
 	for _, vm := range vms {
 		if vm.IsTemplate() {
@@ -241,7 +241,7 @@ func (host *SHost) fetchVMs(all bool) error {
 func (host *SHost) GetIVMs2() ([]cloudprovider.ICloudVM, error) {
 	err := host.fetchVMs(true)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "fetchVMs")
 	}
 	return host.vms, nil
 }
@@ -249,7 +249,7 @@ func (host *SHost) GetIVMs2() ([]cloudprovider.ICloudVM, error) {
 func (host *SHost) GetTemplateVMs() ([]*SVirtualMachine, error) {
 	err := host.fetchVMs(false)
 	if err != nil {
-		return nil, errors.Wrap(err, "SHost.fetchVMs")
+		return nil, errors.Wrap(err, "fetchVMs")
 	}
 	return host.tempalteVMs, nil
 }

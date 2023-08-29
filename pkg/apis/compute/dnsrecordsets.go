@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -28,15 +27,8 @@ import (
 
 const (
 	DNS_RECORDSET_STATUS_AVAILABLE = compute.DNS_RECORDSET_STATUS_AVAILABLE
+	DNS_RECORDSET_STATUS_CREATING  = apis.STATUS_CREATING
 )
-
-type DnsRecordPolicy struct {
-	// 平台
-	Provider      string              `json:"provider"`
-	PolicyType    string              `json:"policy_type"`
-	PolicyValue   string              `json:"policy_value"`
-	PolicyOptions *jsonutils.JSONDict `json:"policy_options"`
-}
 
 type DnsRecordSetCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
@@ -47,7 +39,8 @@ type DnsRecordSetCreateInput struct {
 	TTL        int64  `json:"ttl"`
 	MxPriority int64  `json:"mx_priority"`
 
-	TrafficPolicies []DnsRecordPolicy `json:"traffic_policies"`
+	PolicyType  string `json:"policy_type"`
+	PolicyValue string `json:"policy_value"`
 }
 
 type DnsRecordSetUpdateInput struct {
@@ -57,15 +50,11 @@ type DnsRecordSetUpdateInput struct {
 	DnsValue   string `json:"dns_value"`
 	TTL        *int64 `json:"ttl"`
 	MxPriority *int64 `json:"mx_priority"`
-
-	TrafficPolicies []DnsRecordPolicy
 }
 
 type DnsRecordSetDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 	SDnsRecordSet
-
-	TrafficPolicies []DnsRecordPolicy
 
 	DnsZone string `json:"dns_zone"`
 }
@@ -82,10 +71,6 @@ type DnsRecordEnableInput struct {
 
 type DnsRecordDisableInput struct {
 	apis.PerformDisableInput
-}
-
-type DnsRecordSetTrafficPoliciesInput struct {
-	TrafficPolicies []DnsRecordPolicy `json:"traffic_policies"`
 }
 
 func (recordset *SDnsRecordSet) ValidateDnsrecordValue() error {

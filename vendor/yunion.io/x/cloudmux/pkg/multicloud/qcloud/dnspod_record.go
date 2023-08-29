@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -47,7 +46,7 @@ type SDnsRecord struct {
 	MX            int64  `json:"MX"`
 	MonitorStatus string `json:"MonitorStatus"`
 	Name          string `json:"Name"`
-	RecordId      int    `json:"RecordId"`
+	RecordId      int64  `json:"RecordId"`
 	Remark        string `json:"Remark"`
 	Status        string `json:"Status"`
 	TTL           int64  `json:"TTL"`
@@ -111,7 +110,7 @@ func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyValue) string {
 }
 
 // https://cloud.tencent.com/document/api/1427/56180
-func (self *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) (string, error) {
+func (self *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecord, domainName string) (string, error) {
 	params := map[string]string{}
 	recordline := GetRecordLineLineType(opts.PolicyValue)
 	if opts.Ttl < 600 {
@@ -143,7 +142,7 @@ func (self *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, dom
 }
 
 // https://cloud.tencent.com/document/api/1427/56157
-func (self *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
+func (self *SQcloudClient) ModifyDnsRecord(domainName, recordId string, opts *cloudprovider.DnsRecord) error {
 	params := map[string]string{}
 	recordline := GetRecordLineLineType(opts.PolicyValue)
 	if opts.Ttl < 600 {
@@ -157,7 +156,7 @@ func (self *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, dom
 		subDomain = "@"
 	}
 	params["Domain"] = domainName
-	params["RecordId"] = opts.ExternalId
+	params["RecordId"] = recordId
 	params["SubDomain"] = subDomain
 	params["RecordType"] = string(opts.DnsType)
 	params["TTL"] = strconv.FormatInt(opts.Ttl, 10)
@@ -181,7 +180,7 @@ func (client *SQcloudClient) ModifyRecordStatus(status, recordId, domain string)
 	params := map[string]string{}
 	params["Domain"] = domain
 	params["RecordId"] = recordId
-	params["Status"] = status // “disable” 和 “enable”
+	params["Status"] = strings.ToUpper(status) // “disable” 和 “enable”
 	_, err := client.dnsRequest("ModifyRecordStatus", params)
 	if err != nil {
 		return errors.Wrapf(err, "ModifyRecordStatus")
@@ -255,8 +254,8 @@ func (self *SDnsRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 	}
 }
 
-func (self *SDnsRecord) GetPolicyOptions() *jsonutils.JSONDict {
-	return nil
+func (self *SDnsRecord) Delete() error {
+	return self.domain.client.DeleteDnsRecord(self.GetGlobalId(), self.domain.Name)
 }
 
 func (self *SDnsRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
@@ -292,4 +291,16 @@ func (self *SDnsRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 	default:
 		return cloudprovider.DnsPolicyValueEmpty
 	}
+}
+
+func (self *SDnsRecord) Enable() error {
+	return self.domain.client.ModifyRecordStatus("enable", self.GetGlobalId(), self.domain.Name)
+}
+
+func (self *SDnsRecord) Disable() error {
+	return self.domain.client.ModifyRecordStatus("disable", self.GetGlobalId(), self.domain.Name)
+}
+
+func (self *SDnsRecord) Update(opts *cloudprovider.DnsRecord) error {
+	return self.domain.client.ModifyDnsRecord(self.domain.Name, self.GetGlobalId(), opts)
 }

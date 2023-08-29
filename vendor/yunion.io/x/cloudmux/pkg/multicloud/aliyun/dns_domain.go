@@ -27,16 +27,16 @@ import (
 )
 
 type SDomain struct {
-	multicloud.SResourceBase
+	multicloud.SVirtualResourceBase
 	AliyunTags
 	client      *SAliyunClient
 	ttlMinValue int64
 	PunyCode    string     `json:"PunyCode"`
 	VersionCode string     `json:"VersionCode"`
-	InstanceID  string     `json:"InstanceId"`
+	InstanceId  string     `json:"InstanceId"`
 	AliDomain   bool       `json:"AliDomain"`
 	DomainName  string     `json:"DomainName"`
-	DomainID    string     `json:"DomainId"`
+	DomainId    string     `json:"DomainId"`
 	DNSServers  DNSServers `json:"DnsServers"`
 	GroupID     string     `json:"GroupId"`
 }
@@ -60,7 +60,7 @@ type sDomains struct {
 // https://help.aliyun.com/document_detail/29758.html?spm=a2c4g.11186623.6.653.2ad93b59euq4oF
 type SDNSProduct struct {
 	client                *SAliyunClient
-	InstanceID            string `json:"InstanceId"`
+	InstanceId            string `json:"InstanceId"`
 	VersionCode           string `json:"VersionCode"`
 	VersionName           string `json:"VersionName"`
 	StartTime             int64  `json:"StartTime"`
@@ -246,7 +246,7 @@ func (client *SAliyunClient) DeleteDomain(domainName string) error {
 }
 
 func (self *SDomain) GetId() string {
-	return self.DomainID
+	return self.DomainId
 }
 
 func (self *SDomain) GetName() string {
@@ -275,96 +275,58 @@ func (self *SDomain) Refresh() error {
 func (self *SDomain) GetZoneType() cloudprovider.TDnsZoneType {
 	return cloudprovider.PublicZone
 }
-func (self *SDomain) GetOptions() *jsonutils.JSONDict {
-	return nil
-}
 
 func (self *SDomain) GetICloudVpcIds() ([]string, error) {
 	return nil, nil
 }
+
 func (self *SDomain) AddVpc(vpc *cloudprovider.SPrivateZoneVpc) error {
 	return cloudprovider.ErrNotSupported
 }
+
 func (self *SDomain) RemoveVpc(vpc *cloudprovider.SPrivateZoneVpc) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SDomain) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet, error) {
-	irecords := []cloudprovider.ICloudDnsRecordSet{}
+func (self *SDomain) GetIDnsRecords() ([]cloudprovider.ICloudDnsRecord, error) {
+	irecords := []cloudprovider.ICloudDnsRecord{}
 	records, err := self.client.GetAllDomainRecords(self.DomainName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.client.GetAllDomainRecords(%s)", self.DomainName)
 	}
 	for i := 0; i < len(records); i++ {
+		records[i].domain = self
 		irecords = append(irecords, &records[i])
 	}
 	return irecords, nil
 }
 
-func (self *SDomain) SyncDnsRecordSets(common, add, del, update []cloudprovider.DnsRecordSet) error {
-	for i := 0; i < len(common); i++ {
-		if len(common[i].Desc) > 0 {
-			err := self.client.UpdateDomainRecordRemark(common[i].ExternalId, common[i].Desc)
-			if err != nil {
-				return errors.Wrapf(err, "UpdateDomainRecordRemark")
-			}
+func (self *SDomain) GetIDnsRecordById(id string) (cloudprovider.ICloudDnsRecord, error) {
+	records, err := self.GetIDnsRecords()
+	if err != nil {
+		return nil, err
+	}
+	for i := range records {
+		if records[i].GetGlobalId() == id {
+			return records[i], nil
 		}
 	}
-	for i := 0; i < len(del); i++ {
-		err := self.client.DeleteDomainRecord(del[i].ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "self.client.DeleteDomainRecord(%s)", del[i].ExternalId)
-		}
-	}
+	return nil, cloudprovider.ErrNotFound
+}
 
-	for i := 0; i < len(add); i++ {
-		recordId, err := self.client.AddDomainRecord(self.DomainName, add[i])
-		if err != nil {
-			return errors.Wrapf(err, "self.client.AddDomainRecord(%s,%s)", self.DomainName, jsonutils.Marshal(add[i]).String())
-		}
-		if !add[i].Enabled {
-			// Enable: 启用解析 Disable: 暂停解析
-			err = self.client.SetDomainRecordStatus(recordId, "Disable")
-			if err != nil {
-				return errors.Wrapf(err, "self.client.SetDomainRecordStatus(%s,%t)", recordId, add[i].Enabled)
-			}
-		}
-		if len(add[i].Desc) > 0 {
-			err = self.client.UpdateDomainRecordRemark(recordId, add[i].Desc)
-			if err != nil {
-				return errors.Wrapf(err, "UpdateDomainRecordRemark")
-			}
-		}
+func (self *SDomain) AddDnsRecord(opts *cloudprovider.DnsRecord) (string, error) {
+	recordId, err := self.client.AddDomainRecord(self.DomainName, opts)
+	if err != nil {
+		return "", errors.Wrapf(err, "AddDomainRecord(%s)", self.DomainName)
 	}
-
-	for i := 0; i < len(update); i++ {
+	if !opts.Enabled {
 		// Enable: 启用解析 Disable: 暂停解析
-		status := "Enable"
-		if !update[i].Enabled {
-			status = "Disable"
-		}
-		err := self.client.SetDomainRecordStatus(update[i].ExternalId, status)
-		if err != nil {
-			return errors.Wrapf(err, "self.client.SetDomainRecordStatus(%s,%t)", update[i].ExternalId, update[i].Enabled)
-		}
-		domainRecord, err := self.client.DescribeDomainRecordInfo(update[i].ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "self.client.DescribeDomainRecordInfo(%s)", update[i].ExternalId)
-		}
-		if !domainRecord.match(update[i]) {
-			err = self.client.UpdateDomainRecord(update[i])
-			if err != nil {
-				return errors.Wrapf(err, "self.client.UpdateDomainRecord(%s)", jsonutils.Marshal(update[i]).String())
-			}
-		}
-		if len(update[i].Desc) > 0 {
-			err = self.client.UpdateDomainRecordRemark(update[i].ExternalId, update[i].Desc)
-			if err != nil {
-				return errors.Wrapf(err, "UpdateDomainRecordRemark")
-			}
-		}
+		self.client.SetDomainRecordStatus(recordId, "Disable")
 	}
-	return nil
+	if len(opts.Desc) > 0 {
+		self.client.UpdateDomainRecordRemark(recordId, opts.Desc)
+	}
+	return recordId, nil
 }
 
 func (self *SDomain) Delete() error {

@@ -45,38 +45,32 @@ func (self *DnsZoneDeleteTask) taskFailed(ctx context.Context, dnsZone *models.S
 }
 
 func (self *DnsZoneDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dnsZone := obj.(*models.SDnsZone)
+	zone := obj.(*models.SDnsZone)
 
-	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
-	caches, err := dnsZone.GetDnsZoneCaches()
+	iZone, err := zone.GetICloudDnsZone(ctx)
 	if err != nil {
-		self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetDnsZoneCaches"))
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			self.taskComplete(ctx, zone)
+			return
+		}
+		self.taskFailed(ctx, zone, errors.Wrapf(err, "GetICloudDnsZone"))
 		return
 	}
-	for i := range caches {
-		if !isPurge {
-			iDnsZone, err := caches[i].GetICloudDnsZone(ctx)
-			if err != nil {
-				if errors.Cause(err) == cloudprovider.ErrNotFound {
-					caches[i].Delete(ctx, self.GetUserCred())
-					continue
-				}
-				self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetICloudDnsZone for cache %s(%s)", caches[i].Name, caches[i].Id))
-				return
-			}
-			err = iDnsZone.Delete()
-			if err != nil {
-				self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "iDnsZone.Delete"))
-				return
-			}
-		}
-		caches[i].Delete(ctx, self.GetUserCred())
+
+	err = iZone.Delete()
+	if err != nil {
+		self.taskFailed(ctx, zone, errors.Wrapf(err, "Delete"))
+		return
 	}
 
-	dnsZone.RealDelete(ctx, self.GetUserCred())
-	logclient.AddActionLogWithContext(ctx, dnsZone, logclient.ACT_DELETE, nil, self.UserCred, true)
+	self.taskComplete(ctx, zone)
+}
+
+func (self *DnsZoneDeleteTask) taskComplete(ctx context.Context, zone *models.SDnsZone) {
+	zone.RealDelete(ctx, self.GetUserCred())
+	logclient.AddActionLogWithContext(ctx, zone, logclient.ACT_DELETE, nil, self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
-		Obj:    dnsZone,
+		Obj:    zone,
 		Action: notifyclient.ActionDelete,
 	})
 	self.SetStageComplete(ctx, nil)

@@ -19,12 +19,12 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -37,82 +37,73 @@ func init() {
 	taskman.RegisterTask(DnsZoneCreateTask{})
 }
 
-func (self *DnsZoneCreateTask) taskFailed(ctx context.Context, dnsZone *models.SDnsZone, err error) {
-	dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_CREATE_FAILE, err.Error())
-	db.OpsLog.LogEvent(dnsZone, db.ACT_CREATE, dnsZone.GetShortDesc(ctx), self.GetUserCred())
-	logclient.AddActionLogWithContext(ctx, dnsZone, logclient.ACT_CREATE, err, self.UserCred, false)
+func (self *DnsZoneCreateTask) taskFailed(ctx context.Context, zone *models.SDnsZone, err error) {
+	zone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_CREATE_FAILE, err.Error())
+	db.OpsLog.LogEvent(zone, db.ACT_CREATE, zone.GetShortDesc(ctx), self.GetUserCred())
+	logclient.AddActionLogWithContext(ctx, zone, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dnsZone := obj.(*models.SDnsZone)
-
-	caches, err := dnsZone.GetDnsZoneCaches()
-	if err != nil {
-		self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetDnsZoneCaches"))
+	zone := obj.(*models.SDnsZone)
+	if len(zone.ManagerId) == 0 {
+		self.taskComplete(ctx, zone)
 		return
 	}
 
-	for i := range caches {
-		provider, err := caches[i].GetProvider(ctx)
-		if err != nil {
-			self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetProvider"))
-			return
-		}
-
-		opts := cloudprovider.SDnsZoneCreateOptions{
-			Name:     dnsZone.Name,
-			Desc:     dnsZone.Description,
-			ZoneType: cloudprovider.TDnsZoneType(dnsZone.ZoneType),
-			Options:  dnsZone.Options,
-		}
-		if dnsZone.ZoneType == string(cloudprovider.PrivateZone) {
-			vpcs, err := caches[i].GetVpcs()
-			if err != nil {
-				self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetVpcs"))
-				return
-			}
-			for _, vpc := range vpcs {
-				iVpc, err := vpc.GetIVpc(ctx)
-				if err != nil {
-					self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetIVpc for vpc %s", vpc.Name))
-					return
-				}
-				opts.Vpcs = append(opts.Vpcs, cloudprovider.SPrivateZoneVpc{
-					Id:       iVpc.GetGlobalId(),
-					RegionId: iVpc.GetRegion().GetId(),
-				})
-			}
-		}
-
-		iDnsZone, err := provider.CreateICloudDnsZone(&opts)
-		if err != nil {
-			self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "CreateICloudDnsZone"))
-			return
-		}
-
-		err = caches[i].SyncWithCloudDnsZone(ctx, self.GetUserCred(), iDnsZone)
-		if err != nil {
-			self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "SyncWithCloudDnsZone"))
-			return
-		}
-
-		logclient.AddActionLogWithContext(ctx, &caches[i], logclient.ACT_CREATE, nil, self.UserCred, true)
+	provider, err := zone.GetProvider(ctx)
+	if err != nil {
+		self.taskFailed(ctx, zone, errors.Wrapf(err, "GetProviderIdsQuery"))
+		return
 	}
 
-	self.SetStage("OnSyncRecordSetComplete", nil)
-	dnsZone.StartDnsZoneSyncRecordSetsTask(ctx, self.GetUserCred(), self.GetTaskId())
-}
+	opts := &cloudprovider.SDnsZoneCreateOptions{
+		Name:     zone.Name,
+		Desc:     zone.Description,
+		ZoneType: cloudprovider.TDnsZoneType(zone.ZoneType),
+		Vpcs:     []cloudprovider.SPrivateZoneVpc{},
+	}
 
-func (self *DnsZoneCreateTask) OnSyncRecordSetComplete(ctx context.Context, dnsZone *models.SDnsZone, data jsonutils.JSONObject) {
-	dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
-	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
-		Obj:    dnsZone,
-		Action: notifyclient.ActionCreate,
+	if zone.ZoneType == string(cloudprovider.PrivateZone) {
+		vpcs, err := zone.GetVpcs()
+		if err != nil {
+			self.taskFailed(ctx, zone, errors.Wrapf(err, "GetVpcs"))
+			return
+		}
+		for i := range vpcs {
+			region, err := vpcs[i].GetRegion()
+			if err != nil {
+				self.taskFailed(ctx, zone, errors.Wrapf(err, "GetRegion"))
+				return
+			}
+			opts.Vpcs = append(opts.Vpcs, cloudprovider.SPrivateZoneVpc{
+				Id:       vpcs[i].ExternalId,
+				RegionId: region.GetRegionExtId(),
+			})
+		}
+	}
+
+	iZone, err := provider.CreateICloudDnsZone(opts)
+	if err != nil {
+		self.taskFailed(ctx, zone, errors.Wrapf(err, "CreateICloudDnsZone"))
+		return
+	}
+	_, err = db.Update(zone, func() error {
+		zone.ExternalId = iZone.GetGlobalId()
+		return nil
 	})
-	self.SetStageComplete(ctx, nil)
+	if err != nil {
+		self.taskFailed(ctx, zone, errors.Wrapf(err, "set external id"))
+		return
+	}
+
+	result := zone.SyncRecords(ctx, self.UserCred, iZone, false)
+	log.Infof("sync records for zone %s result: %s", zone.Name, result.Result())
+
+	self.taskComplete(ctx, zone)
 }
 
-func (self *DnsZoneCreateTask) OnSyncRecordSetCompleteFailed(ctx context.Context, dnsZone *models.SDnsZone, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data)
+func (self *DnsZoneCreateTask) taskComplete(ctx context.Context, zone *models.SDnsZone) {
+	zone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
+	self.SetStageComplete(ctx, nil)
 }
