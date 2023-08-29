@@ -465,23 +465,16 @@ func (self *SRegion) DescribeElbTags(arn string) (map[string]string, error) {
 	ret := struct {
 		TagDescriptions []struct {
 			ResourceArn string `xml:"ResourceArn"`
-			Tags        []struct {
-				Key   string
-				Value string
-			} `xml:"Tags>member"`
+			AwsTags
 		} `xml:"TagDescriptions>member"`
 	}{}
 	err := self.elbRequest("DescribeTags", map[string]string{"ResourceArns.member.1": arn}, &ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeTags")
 	}
-	result := map[string]string{}
 	for _, res := range ret.TagDescriptions {
 		if res.ResourceArn == arn {
-			for _, tag := range res.Tags {
-				result[tag.Key] = tag.Value
-			}
-			return result, nil
+			return res.AwsTags.GetTags()
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
