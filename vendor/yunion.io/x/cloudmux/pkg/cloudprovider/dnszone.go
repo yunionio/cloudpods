@@ -15,10 +15,6 @@
 package cloudprovider
 
 import (
-	"fmt"
-	"strings"
-
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -529,7 +525,6 @@ type SDnsZoneCreateOptions struct {
 	Desc     string
 	ZoneType TDnsZoneType
 	Vpcs     []SPrivateZoneVpc
-	Options  *jsonutils.JSONDict
 }
 
 func IsSupportPolicyValue(v1 TDnsPolicyValue, arr []TDnsPolicyValue) bool {
@@ -537,161 +532,15 @@ func IsSupportPolicyValue(v1 TDnsPolicyValue, arr []TDnsPolicyValue) bool {
 	return isIn
 }
 
-type DnsRecordSet struct {
-	Id         string
-	ExternalId string
+type DnsRecord struct {
+	Desc     string
+	DnsName  string
+	DnsType  TDnsType
+	DnsValue string
 
-	Desc string
-
-	Enabled       bool
-	DnsName       string
-	DnsType       TDnsType
-	DnsValue      string
-	Status        string
-	Ttl           int64
-	MxPriority    int64
-	PolicyType    TDnsPolicyType
-	PolicyValue   TDnsPolicyValue
-	PolicyOptions *jsonutils.JSONDict
-}
-
-func (r DnsRecordSet) GetGlobalId() string {
-	return r.ExternalId
-}
-
-func (r DnsRecordSet) GetName() string {
-	return r.DnsName
-}
-
-func (r DnsRecordSet) GetDnsName() string {
-	return r.DnsName
-}
-
-func (r DnsRecordSet) GetDnsValue() string {
-	return r.DnsValue
-}
-
-func (r DnsRecordSet) GetPolicyType() TDnsPolicyType {
-	return r.PolicyType
-}
-
-func (r DnsRecordSet) GetPolicyOptions() *jsonutils.JSONDict {
-	return r.PolicyOptions
-}
-
-func (r DnsRecordSet) GetPolicyValue() TDnsPolicyValue {
-	return r.PolicyValue
-}
-
-func (r DnsRecordSet) GetStatus() string {
-	return r.Status
-}
-
-func (r DnsRecordSet) GetTTL() int64 {
-	return r.Ttl
-}
-
-func (r DnsRecordSet) GetDnsType() TDnsType {
-	return r.DnsType
-}
-
-func (r DnsRecordSet) GetEnabled() bool {
-	return r.Enabled
-}
-
-func (r DnsRecordSet) GetMxPriority() int64 {
-	return r.MxPriority
-}
-
-func (record DnsRecordSet) Equals(r DnsRecordSet) bool {
-	if strings.ToLower(record.DnsName) != strings.ToLower(r.DnsName) {
-		return false
-	}
-	if record.DnsType != r.DnsType {
-		return false
-	}
-	if record.DnsValue != r.DnsValue {
-		return false
-	}
-	if record.PolicyType != r.PolicyType {
-		return false
-	}
-	if record.PolicyValue != r.PolicyValue {
-		return false
-	}
-	if record.Ttl != r.Ttl {
-		return false
-	}
-	if record.Enabled != r.Enabled {
-		return false
-	}
-	if record.DnsType == DnsTypeMX && record.MxPriority != r.MxPriority {
-		return false
-	}
-	return IsPolicyOptionEquals(record.PolicyOptions, r.PolicyOptions)
-}
-
-func (record DnsRecordSet) String() string {
-	return fmt.Sprintf("%s-%s-%s-%s-%s", record.DnsType, record.DnsName, record.DnsValue, record.PolicyType, record.PolicyValue)
-}
-
-func IsPolicyOptionEquals(o1, o2 *jsonutils.JSONDict) bool {
-	if o1 == nil {
-		o1 = jsonutils.NewDict()
-	}
-	if o2 == nil {
-		o2 = jsonutils.NewDict()
-	}
-	return o1.Equals(o2)
-}
-
-func CompareDnsRecordSet(iRecords []ICloudDnsRecordSet, local []DnsRecordSet, debug bool) ([]DnsRecordSet, []DnsRecordSet, []DnsRecordSet, []DnsRecordSet) {
-	common, added, removed, updated := []DnsRecordSet{}, []DnsRecordSet{}, []DnsRecordSet{}, []DnsRecordSet{}
-
-	localMaps := map[string]DnsRecordSet{}
-	remoteMaps := map[string]DnsRecordSet{}
-	for i := range iRecords {
-		record := DnsRecordSet{
-			ExternalId: iRecords[i].GetGlobalId(),
-
-			DnsName:       iRecords[i].GetDnsName(),
-			DnsType:       iRecords[i].GetDnsType(),
-			DnsValue:      iRecords[i].GetDnsValue(),
-			Status:        iRecords[i].GetStatus(),
-			Enabled:       iRecords[i].GetEnabled(),
-			Ttl:           iRecords[i].GetTTL(),
-			MxPriority:    iRecords[i].GetMxPriority(),
-			PolicyType:    iRecords[i].GetPolicyType(),
-			PolicyValue:   iRecords[i].GetPolicyValue(),
-			PolicyOptions: iRecords[i].GetPolicyOptions(),
-		}
-		remoteMaps[record.String()] = record
-	}
-	for i := range local {
-		localMaps[local[i].String()] = local[i]
-	}
-
-	for key, record := range localMaps {
-		remoteRecord, ok := remoteMaps[key]
-		if ok {
-			record.ExternalId = remoteRecord.ExternalId
-			remoteRecord.Id = record.Id
-			if !record.Equals(remoteRecord) {
-				updated = append(updated, remoteRecord)
-			} else {
-				common = append(common, record)
-			}
-		} else {
-			added = append(added, record)
-		}
-	}
-
-	for key, record := range remoteMaps {
-		_, ok := localMaps[key]
-		if !ok {
-			removed = append(removed, record)
-		}
-	}
-
-	return common, added, removed, updated
+	Enabled     bool
+	Ttl         int64
+	MxPriority  int64
+	PolicyType  TDnsPolicyType
+	PolicyValue TDnsPolicyValue
 }

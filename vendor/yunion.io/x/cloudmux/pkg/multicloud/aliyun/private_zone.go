@@ -28,10 +28,10 @@ import (
 var allowedTtls = []int64{5, 10, 15, 20, 30, 60, 120, 300, 600, 1800, 3600, 43200, 86400}
 
 type SPvtzVpc struct {
-	VpcID      string `json:"VpcId"`
+	VpcId      string `json:"VpcId"`
 	RegionName string `json:"RegionName"`
 	VpcName    string `json:"VpcName"`
-	RegionID   string `json:"RegionId"`
+	RegionId   string `json:"RegionId"`
 }
 
 type SPvtzBindVpcs struct {
@@ -43,10 +43,9 @@ type SPrivateZone struct {
 	AliyunTags
 	client *SAliyunClient
 
-	// RequestID       string        `json:"RequestId"`
-	ZoneID          string        `json:"ZoneId"`
+	ZoneId          string        `json:"ZoneId"`
 	SlaveDNS        string        `json:"SlaveDns"`
-	ResourceGroupID string        `json:"ResourceGroupId"`
+	ResourceGroupId string        `json:"ResourceGroupId"`
 	ProxyPattern    string        `json:"ProxyPattern"`
 	CreateTime      string        `json:"CreateTime"`
 	Remark          string        `json:"Remark"`
@@ -65,7 +64,7 @@ type sPrivateZones struct {
 }
 
 type SPrivateZones struct {
-	RequestID  string        `json:"RequestId"`
+	RequestId  string        `json:"RequestId"`
 	PageSize   int           `json:"PageSize"`
 	PageNumber int           `json:"PageNumber"`
 	TotalPages int           `json:"TotalPages"`
@@ -116,9 +115,9 @@ func (client *SAliyunClient) GetAllZonesInfo() ([]SPrivateZone, error) {
 		return nil, errors.Wrap(err, "client.GetAllZones()")
 	}
 	for i := 0; i < len(szones); i++ {
-		spvtz, err := client.DescribeZoneInfo(szones[i].ZoneID)
+		spvtz, err := client.DescribeZoneInfo(szones[i].ZoneId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "client.DescribeZoneInfo(%s)", szones[i].ZoneID)
+			return nil, errors.Wrapf(err, "client.DescribeZoneInfo(%s)", szones[i].ZoneId)
 		}
 		spvtzs = append(spvtzs, *spvtz)
 	}
@@ -132,6 +131,7 @@ func (client *SAliyunClient) GetPrivateICloudDnsZones() ([]cloudprovider.ICloudD
 		return nil, errors.Wrap(err, "client.GetAllZonesInfo()")
 	}
 	for i := 0; i < len(szones); i++ {
+		szones[i].client = client
 		izones = append(izones, &szones[i])
 	}
 	return izones, nil
@@ -160,7 +160,7 @@ func (client *SAliyunClient) GetPrivateICloudDnsZoneById(id string) (cloudprovid
 	}
 	index := -1
 	for i := 0; i < len(pvtzs); i++ {
-		if pvtzs[i].ZoneID == id {
+		if pvtzs[i].ZoneId == id {
 			index = i
 			break
 		}
@@ -260,7 +260,7 @@ func (client *SAliyunClient) UnBindZoneVpcs(zoneId string) error {
 }
 
 func (self *SPrivateZone) GetId() string {
-	return self.ZoneID
+	return self.ZoneId
 }
 
 func (self *SPrivateZone) GetName() string {
@@ -276,9 +276,9 @@ func (self *SPrivateZone) GetStatus() string {
 }
 
 func (self *SPrivateZone) Refresh() error {
-	szone, err := self.client.DescribeZoneInfo(self.ZoneID)
+	szone, err := self.client.DescribeZoneInfo(self.ZoneId)
 	if err != nil {
-		return errors.Wrapf(err, "self.client.DescribeZoneInfo(%s)", self.ZoneID)
+		return errors.Wrapf(err, "self.client.DescribeZoneInfo(%s)", self.ZoneId)
 	}
 	return jsonutils.Update(self, szone)
 }
@@ -287,14 +287,10 @@ func (self *SPrivateZone) GetZoneType() cloudprovider.TDnsZoneType {
 	return cloudprovider.PrivateZone
 }
 
-func (self *SPrivateZone) GetOptions() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SPrivateZone) GetICloudVpcIds() ([]string, error) {
 	var ret []string
 	for i := 0; i < len(self.BindVpcs.Vpc); i++ {
-		ret = append(ret, self.BindVpcs.Vpc[i].VpcID)
+		ret = append(ret, self.BindVpcs.Vpc[i].VpcId)
 	}
 	return ret, nil
 }
@@ -303,34 +299,34 @@ func (self *SPrivateZone) AddVpc(vpc *cloudprovider.SPrivateZoneVpc) error {
 	vpcs := []cloudprovider.SPrivateZoneVpc{}
 	for i := 0; i < len(self.BindVpcs.Vpc); i++ {
 		vpc := cloudprovider.SPrivateZoneVpc{}
-		vpc.Id = self.BindVpcs.Vpc[i].VpcID
-		vpc.RegionId = self.BindVpcs.Vpc[i].RegionID
+		vpc.Id = self.BindVpcs.Vpc[i].VpcId
+		vpc.RegionId = self.BindVpcs.Vpc[i].RegionId
 		vpcs = append(vpcs, vpc)
 	}
 	vpcs = append(vpcs, *vpc)
-	return self.client.BindZoneVpcs(self.ZoneID, vpcs)
+	return self.client.BindZoneVpcs(self.ZoneId, vpcs)
 }
 
 func (self *SPrivateZone) RemoveVpc(vpc *cloudprovider.SPrivateZoneVpc) error {
 	vpcs := []cloudprovider.SPrivateZoneVpc{}
 	for i := 0; i < len(self.BindVpcs.Vpc); i++ {
 		newVpc := cloudprovider.SPrivateZoneVpc{}
-		if self.BindVpcs.Vpc[i].VpcID == vpc.Id && self.BindVpcs.Vpc[i].RegionID == vpc.RegionId {
+		if self.BindVpcs.Vpc[i].VpcId == vpc.Id && self.BindVpcs.Vpc[i].RegionId == vpc.RegionId {
 			continue
 		}
-		newVpc.Id = self.BindVpcs.Vpc[i].VpcID
-		newVpc.RegionId = self.BindVpcs.Vpc[i].RegionID
+		newVpc.Id = self.BindVpcs.Vpc[i].VpcId
+		newVpc.RegionId = self.BindVpcs.Vpc[i].RegionId
 		vpcs = append(vpcs, newVpc)
 	}
-	return self.client.BindZoneVpcs(self.ZoneID, vpcs)
+	return self.client.BindZoneVpcs(self.ZoneId, vpcs)
 }
 
-func (self *SPrivateZone) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet, error) {
-	zonerecords, err := self.client.GetAllZoneRecords(self.ZoneID)
+func (self *SPrivateZone) GetIDnsRecords() ([]cloudprovider.ICloudDnsRecord, error) {
+	zonerecords, err := self.client.GetAllZoneRecords(self.ZoneId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "self.client.GetAllZoneRecords(%s)", self.ZoneID)
+		return nil, errors.Wrapf(err, "self.client.GetAllZoneRecords(%s)", self.ZoneId)
 	}
-	result := []cloudprovider.ICloudDnsRecordSet{}
+	result := []cloudprovider.ICloudDnsRecord{}
 	for i := 0; i < len(zonerecords); i++ {
 		zonerecords[i].szone = self
 		result = append(result, &zonerecords[i])
@@ -338,54 +334,38 @@ func (self *SPrivateZone) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSe
 	return result, nil
 }
 
-func (self *SPrivateZone) SyncDnsRecordSets(common, add, del, update []cloudprovider.DnsRecordSet) error {
-	for i := 0; i < len(del); i++ {
-		err := self.client.DeleteZoneRecord(del[i].ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "self.client.DeleteZoneRecord(%s)", del[i].ExternalId)
+func (self *SPrivateZone) GetIDnsRecordById(id string) (cloudprovider.ICloudDnsRecord, error) {
+	records, err := self.GetIDnsRecords()
+	if err != nil {
+		return nil, err
+	}
+	for i := range records {
+		if records[i].GetGlobalId() == id {
+			return records[i], nil
 		}
 	}
+	return nil, cloudprovider.ErrNotFound
+}
 
-	for i := 0; i < len(add); i++ {
-		recordId, err := self.client.AddZoneRecord(self.ZoneID, add[i])
-		if err != nil {
-			return errors.Wrapf(err, "self.client.AddZoneRecord(%s,%s)", self.ZoneID, jsonutils.Marshal(add[i]).String())
-		}
-		if !add[i].Enabled {
-			err = self.client.SetZoneRecordStatus(recordId, "DISABLE")
-			if err != nil {
-				return errors.Wrapf(err, "self.client.SetZoneRecordStatus(%s,%t)", recordId, add[i].Enabled)
-			}
-		}
+func (self *SPrivateZone) AddDnsRecord(opts *cloudprovider.DnsRecord) (string, error) {
+	recordId, err := self.client.AddZoneRecord(self.ZoneId, opts)
+	if err != nil {
+		return "", errors.Wrapf(err, "AddZoneRecord(%s)", self.ZoneId)
 	}
-
-	for i := 0; i < len(update); i++ {
-		// ENABLE: 启用解析 DISABLE: 暂停解析
-		status := "ENABLE"
-		if !update[i].Enabled {
-			status = "DISABLE"
-		}
-		err := self.client.SetZoneRecordStatus(update[i].ExternalId, status)
-		if err != nil {
-			return errors.Wrapf(err, "self.client.SetZoneRecordStatus(%s,%t)", update[i].ExternalId, update[i].Enabled)
-		}
-		err = self.client.UpdateZoneRecord(update[i])
-		if err != nil {
-			return errors.Wrapf(err, "self.client.UpdateZoneRecord(%s)", jsonutils.Marshal(update[i]).String())
-		}
+	if !opts.Enabled {
+		self.client.SetZoneRecordStatus(recordId, "DISABLE")
 	}
-
-	return nil
+	return recordId, nil
 }
 
 func (self *SPrivateZone) Delete() error {
 	if len(self.BindVpcs.Vpc) > 0 {
-		err := self.client.UnBindZoneVpcs(self.ZoneID)
+		err := self.client.UnBindZoneVpcs(self.ZoneId)
 		if err != nil {
-			return errors.Wrapf(err, "self.client.UnBindZoneVpcs(%s)", self.ZoneID)
+			return errors.Wrapf(err, "self.client.UnBindZoneVpcs(%s)", self.ZoneId)
 		}
 	}
-	return self.client.DeleteZone(self.ZoneID)
+	return self.client.DeleteZone(self.ZoneId)
 }
 
 func (self *SPrivateZone) GetDnsProductType() cloudprovider.TDnsProductType {
@@ -402,4 +382,8 @@ func (self *SPrivateZone) GetProperlyTTL(ttl int64) int64 {
 		}
 	}
 	return allowedTtls[len(allowedTtls)-1]
+}
+
+func (self *SPrivateZone) GetProjectId() string {
+	return self.ResourceGroupId
 }

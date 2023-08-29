@@ -41,6 +41,7 @@ type (
 	Guestnetworks  map[string]*Guestnetwork  // key: rowId
 	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
 
+	DnsZones   map[string]*DnsZone
 	DnsRecords map[string]*DnsRecord
 
 	RouteTables map[string]*RouteTable
@@ -748,8 +749,48 @@ func (set Elasticips) Copy() apihelper.IModelSet {
 	return setCopy
 }
 
+func (set DnsZones) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.DnsZones
+}
+
+func (set DnsZones) DBModelManager() db.IModelManager {
+	return models.DnsZoneManager
+}
+
+func (set DnsZones) NewModel() db.IModel {
+	return &DnsZone{}
+}
+
+func (set DnsZones) AddModel(i db.IModel) {
+	m := i.(*DnsZone)
+	set[m.Id] = m
+}
+
+func (set DnsZones) Copy() apihelper.IModelSet {
+	setCopy := DnsZones{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (ms DnsZones) joinRecords(subEntries DnsRecords) bool {
+	correct := true
+	for _, subEntry := range subEntries {
+		zoneId := subEntry.DnsZoneId
+		m, ok := ms[zoneId]
+		if !ok {
+			log.Warningf("dns_zone_id %s of record %s(%s) is not present", zoneId, subEntry.Name, subEntry.Id)
+			correct = false
+			continue
+		}
+		subEntry.DnsZone = m
+	}
+	return correct
+}
+
 func (set DnsRecords) ModelManager() mcclient_modulebase.IBaseManager {
-	return &mcclient_modules.DNSRecords
+	return &mcclient_modules.DnsRecords
 }
 
 func (set DnsRecords) DBModelManager() db.IModelManager {

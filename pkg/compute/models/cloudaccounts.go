@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
@@ -2424,16 +2423,6 @@ func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
-	caches, err := self.GetDnsZoneCaches()
-	if err != nil {
-		return errors.Wrapf(err, "GetDnsZoneCaches")
-	}
-	for i := range caches {
-		err = caches[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "dns zone cache %s delete", caches[i].Id)
-		}
-	}
 	return self.purge(ctx, userCred)
 }
 
@@ -3018,92 +3007,6 @@ func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCr
 
 	syncRange := SSyncRange{}
 	return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "", nil)
-}
-
-func (self *SCloudaccount) GetDnsZoneCaches() ([]SDnsZoneCache, error) {
-	caches := []SDnsZoneCache{}
-	q := DnsZoneCacheManager.Query().Equals("cloudaccount_id", self.Id)
-	err := db.FetchModelObjects(DnsZoneCacheManager, q, &caches)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	return caches, nil
-}
-
-func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.TokenCredential, dnsZones []cloudprovider.ICloudDnsZone, xor bool) ([]SDnsZone, []cloudprovider.ICloudDnsZone, compare.SyncResult) {
-	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
-	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
-
-	result := compare.SyncResult{}
-
-	localZones := []SDnsZone{}
-	remoteZones := []cloudprovider.ICloudDnsZone{}
-
-	dbZones, err := self.GetDnsZoneCaches()
-	if err != nil {
-		result.Error(errors.Wrapf(err, "GetDnsZoneCaches"))
-		return nil, nil, result
-	}
-
-	removed := make([]SDnsZoneCache, 0)
-	commondb := make([]SDnsZoneCache, 0)
-	commonext := make([]cloudprovider.ICloudDnsZone, 0)
-	added := make([]cloudprovider.ICloudDnsZone, 0)
-
-	err = compare.CompareSets(dbZones, dnsZones, &removed, &commondb, &commonext, &added)
-	if err != nil {
-		result.Error(err)
-		return nil, nil, result
-	}
-
-	for i := 0; i < len(removed); i += 1 {
-		if len(removed[i].ExternalId) > 0 {
-			err = removed[i].syncRemove(ctx, userCred)
-			if err != nil {
-				result.DeleteError(err)
-				continue
-			}
-			result.Delete()
-		}
-	}
-
-	for i := 0; i < len(commondb); i += 1 {
-		if !xor {
-			err = commondb[i].SyncWithCloudDnsZone(ctx, userCred, commonext[i])
-			if err != nil {
-				result.UpdateError(errors.Wrapf(err, "SyncWithCloudDnsZone"))
-				continue
-			}
-		}
-		zone, err := commondb[i].GetDnsZone()
-		if err != nil {
-			result.UpdateError(errors.Wrapf(err, "GetDnsZone"))
-			continue
-		}
-		localZones = append(localZones, *zone)
-		remoteZones = append(remoteZones, commonext[i])
-
-		result.Update()
-	}
-
-	for i := 0; i < len(added); i += 1 {
-		dnsZone, isNew, err := DnsZoneManager.newFromCloudDnsZone(ctx, userCred, added[i], self)
-		if err != nil {
-			result.AddError(err)
-			continue
-		}
-		if !isNew {
-			_, err = dnsZone.newCache(ctx, userCred, self.Id, added[i])
-			if err != nil {
-				result.AddError(errors.Wrapf(err, "newCache"))
-			}
-		}
-		result.Add()
-		localZones = append(localZones, *dnsZone)
-		remoteZones = append(remoteZones, added[i])
-	}
-
-	return localZones, remoteZones, result
 }
 
 type SVs2Wire struct {

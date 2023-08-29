@@ -65,6 +65,10 @@ func (r recordRequest) Name() string {
 	return name
 }
 
+func (r recordRequest) Zone() string {
+	return r.state.Zone
+}
+
 func (r recordRequest) IsPlainName() bool {
 	nl := dns.CountLabel(r.Name())
 	return nl == 1

@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type SDnsZoneListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	VpcId     string `help:"Filter dns zone by vpc"`
 	ZoneType  string `help:"Filter dns zone by zone type" choices:"PublicZone|PrivateZone"`
@@ -28,7 +29,7 @@ type SDnsZoneListOptions struct {
 }
 
 func (opts *SDnsZoneListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return options.ListStructToParams(opts)
 }
 
 type SDnsZoneIdOptions struct {
@@ -44,24 +45,14 @@ func (opts *SDnsZoneIdOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type DnsZoneCreateOptions struct {
-	EnabledStatusCreateOptions
-	ZONE_TYPE      string   `choices:"PublicZone|PrivateZone" metavar:"zone_type"`
-	VpcIds         []string `help:"Vpc Ids"`
-	CloudaccountId string   `help:"Cloudaccount id"`
-	Options        string
+	options.EnabledStatusCreateOptions
+	ZoneType  string   `choices:"PublicZone|PrivateZone" metavar:"zone_type" default:"PrivateZone"`
+	VpcIds    []string `help:"Vpc Ids"`
+	ManagerId string   `help:"Manager id"`
 }
 
 func (opts *DnsZoneCreateOptions) Params() (jsonutils.JSONObject, error) {
-	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
-	params.Remove("options")
-	if len(opts.Options) > 0 {
-		options, err := jsonutils.Parse([]byte(opts.Options))
-		if err != nil {
-			return nil, errors.Wrapf(err, "jsonutils.Parse")
-		}
-		params.Add(options, "options")
-	}
-	return params, nil
+	return jsonutils.Marshal(opts), nil
 }
 
 type DnsZoneCapabilitiesOptions struct {
@@ -73,24 +64,6 @@ func (opts *DnsZoneCapabilitiesOptions) GetId() string {
 
 func (opts *DnsZoneCapabilitiesOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
-}
-
-type DnsZoneCacheOptions struct {
-	SDnsZoneIdOptions
-	CLOUDACCOUNT_ID string
-}
-
-func (opts *DnsZoneCacheOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string]string{"cloudaccount_id": opts.CLOUDACCOUNT_ID}), nil
-}
-
-type DnsZoneUncacheOptions struct {
-	SDnsZoneIdOptions
-	CLOUDACCOUNT_ID string
-}
-
-func (opts *DnsZoneUncacheOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string]string{"cloudaccount_id": opts.CLOUDACCOUNT_ID}), nil
 }
 
 type DnsZoneAddVpcsOptions struct {

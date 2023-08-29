@@ -1023,6 +1023,10 @@ func (self *SCloudregion) GetRegionInfo(ctx context.Context) api.CloudregionReso
 	}
 }
 
+func (self *SCloudregion) GetRegionExtId() string {
+	return fetchExternalId(self.ExternalId)
+}
+
 func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
 	if len(self.ExternalId) > 0 && len(self.ManagerId) == 0 {
 		return httperrors.NewConflictError("Cannot update external resource")

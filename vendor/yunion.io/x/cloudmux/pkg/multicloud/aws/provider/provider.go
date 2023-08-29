@@ -79,7 +79,7 @@ func (self *SAwsProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDns
 
 func (self *SAwsProviderFactory) GetSupportedDnsTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType {
 	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsType{
-		cloudprovider.PublicZone: []cloudprovider.TDnsType{
+		cloudprovider.PublicZone: {
 			cloudprovider.DnsTypeA,
 			cloudprovider.DnsTypeAAAA,
 			cloudprovider.DnsTypeCAA,
@@ -93,7 +93,7 @@ func (self *SAwsProviderFactory) GetSupportedDnsTypes() map[cloudprovider.TDnsZo
 			cloudprovider.DnsTypeNAPTR,
 			cloudprovider.DnsTypeSPF,
 		},
-		cloudprovider.PrivateZone: []cloudprovider.TDnsType{
+		cloudprovider.PrivateZone: {
 			cloudprovider.DnsTypeA,
 			cloudprovider.DnsTypeAAAA,
 			cloudprovider.DnsTypeCAA,
@@ -112,7 +112,7 @@ func (self *SAwsProviderFactory) GetSupportedDnsTypes() map[cloudprovider.TDnsZo
 
 func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType {
 	return map[cloudprovider.TDnsZoneType][]cloudprovider.TDnsPolicyType{
-		cloudprovider.PublicZone: []cloudprovider.TDnsPolicyType{
+		cloudprovider.PublicZone: {
 			cloudprovider.DnsPolicyTypeSimple,
 			cloudprovider.DnsPolicyTypeByGeoLocation,
 			cloudprovider.DnsPolicyTypeWeighted,
@@ -120,7 +120,7 @@ func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.
 			cloudprovider.DnsPolicyTypeMultiValueAnswer,
 			cloudprovider.DnsPolicyTypeLatency,
 		},
-		cloudprovider.PrivateZone: []cloudprovider.TDnsPolicyType{
+		cloudprovider.PrivateZone: {
 			cloudprovider.DnsPolicyTypeSimple,
 			cloudprovider.DnsPolicyTypeWeighted,
 			cloudprovider.DnsPolicyTypeFailover,
@@ -359,11 +359,15 @@ func (self *SAwsProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, er
 }
 
 func (self *SAwsProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
-	return self.client.GetHostedZoneById(id)
+	zone, err := self.client.GetDnsZone(id)
+	if err != nil {
+		return nil, err
+	}
+	return &zone.HostedZone, nil
 }
 
 func (self *SAwsProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
-	return self.client.CreateHostedZone(opts)
+	return self.client.CreateDnsZone(opts)
 }
 
 func (self *SAwsProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
