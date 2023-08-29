@@ -2967,6 +2967,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			}
 		}
 		hostname := pinyinutils.Text2Pinyin(extVM.GetHostname())
+		if len(hostname) > 128 {
+			hostname = hostname[:128]
+		}
 		if extVM.GetName() != hostname {
 			self.Hostname = hostname
 		}
