@@ -93,7 +93,7 @@ func Unmarshal(r *request.Request) {
 			case xml.CharData:
 				continue
 			case xml.StartElement:
-				if typed.Name.Local == r.Operation.Name+"Result" || typed.Name.Local == r.Operation.Name+"Response" {
+				if typed.Name.Local == r.Operation.Name+"Result" || (typed.Name.Local == r.Operation.Name+"Response" && r.ClientInfo.ServiceID == ROUTE53_SERVICE_ID) {
 					err = decoder.DecodeElement(r.Data, &typed)
 					if err != nil {
 						r.Error = awserr.NewRequestFailure(
