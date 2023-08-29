@@ -1304,6 +1304,9 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		satCapa = map[string]int64{}
 		mdtCapa = map[string]int64{}
 		sdtCapa = map[string]int64{}
+
+		mCapaUsed = map[string]int64{}
+		sCapaUsed = map[string]int64{}
 	)
 	var add = func(m, s map[string]int64, mediumType, storageType string, capa int64) (map[string]int64, map[string]int64) {
 		_, ok := m[mediumType]
@@ -1325,6 +1328,7 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		}
 		mCapa, sCapa = add(mCapa, sCapa, stat.MediumType, stat.StorageType, int64(stat.Capacity-stat.Reserved))
 		tVCapa += float64(stat.Capacity-stat.Reserved) * float64(stat.Cmtbound)
+		mCapaUsed, sCapaUsed = add(mCapaUsed, sCapaUsed, stat.MediumType, stat.StorageType, int64(stat.UsedCapacity))
 		tUsed += int64(stat.UsedCapacity)
 		cUsed += stat.UsedCount
 		tFailed += int64(stat.FailedCapacity)
@@ -1343,6 +1347,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		StorageTypeCapacity:         sCapa,
 		CapacityVirtual:             tVCapa,
 		CapacityUsed:                tUsed,
+		MediumeCapacityUsed:         mCapaUsed,
+		StorageTypeCapacityUsed:     sCapaUsed,
 		CountUsed:                   cUsed,
 		CapacityUnready:             tFailed,
 		CountUnready:                cFailed,
