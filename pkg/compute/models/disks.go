@@ -738,15 +738,15 @@ func (disk *SDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
-func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
 	input := api.DiskCreateInput{}
-	err := data.Unmarshal(&input)
+	err := data[0].Unmarshal(&input)
 	if err != nil {
 		log.Errorf("!!!data.Unmarshal api.DiskCreateInput fail %s", err)
 	}
 
 	pendingUsage := getDiskResourceRequirements(ctx, userCred, ownerId, input, len(items))
-	parentTaskId, _ := data.GetString("parent_task_id")
+	parentTaskId, _ := data[0].GetString("parent_task_id")
 	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, SRegionQuota{}, "DiskBatchCreateTask", parentTaskId)
 }
 

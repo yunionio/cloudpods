@@ -204,7 +204,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(
 }
 
 func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, items []db.IModel,
-	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
 	for i := range items {
 		sp := items[i].(*SSnapshotPolicy)
 		db.Update(sp, func() error {

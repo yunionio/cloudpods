@@ -50,10 +50,10 @@ type IScheduleTask interface {
 	SetStageFailed(ctx context.Context, reason jsonutils.JSONObject)
 
 	OnStartSchedule(obj IScheduleModel)
-	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject)
+	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject, index int)
 	// OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
-	SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource)
-	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource)
+	SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource, index int)
+	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource, index int)
 	OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject)
 }
 
@@ -67,7 +67,7 @@ func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
 	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE, "")
 }
 
-func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
+func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject, index int) {
 	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE_FAILED, reason.String())
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, reason, self.GetUserCred(), false)
@@ -78,11 +78,11 @@ func (self *SSchedTask) OnScheduleComplete(ctx context.Context, items []db.IStan
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *SSchedTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
+func (self *SSchedTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource, index int) {
 	// ...
 }
 
-func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
+func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource, index int) {
 	// ...
 }
 
@@ -160,8 +160,8 @@ func onSchedulerRequestFail(
 	objs []IScheduleModel,
 	reason jsonutils.JSONObject,
 ) {
-	for _, obj := range objs {
-		onObjScheduleFail(ctx, task, obj, reason)
+	for i, obj := range objs {
+		onObjScheduleFail(ctx, task, obj, reason, i)
 	}
 	task.OnScheduleFailed(ctx, reason)
 	cancelPendingUsage(ctx, task)
@@ -172,6 +172,7 @@ func onObjScheduleFail(
 	task IScheduleTask,
 	obj IScheduleModel,
 	msg jsonutils.JSONObject,
+	idx int,
 ) {
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)
@@ -181,7 +182,7 @@ func onObjScheduleFail(
 	if msg != nil {
 		reason = jsonutils.NewArray(reason, msg)
 	}
-	task.OnScheduleFailCallback(ctx, obj, reason)
+	task.OnScheduleFailCallback(ctx, obj, reason, idx)
 }
 
 type sortedIScheduleModelList []IScheduleModel
@@ -198,7 +199,7 @@ func onSchedulerResults(
 ) {
 	if len(objs) == 0 {
 		// sched with out object can't clean sched cache immediately
-		task.SaveScheduleResult(ctx, nil, results[0])
+		task.SaveScheduleResult(ctx, nil, results[0], 0)
 		return
 	}
 	sort.Sort(sortedIScheduleModelList(objs))
@@ -208,16 +209,16 @@ func onSchedulerResults(
 		result := results[idx]
 
 		if len(result.Error) != 0 {
-			onObjScheduleFail(ctx, task, obj, jsonutils.NewString(result.Error))
+			onObjScheduleFail(ctx, task, obj, jsonutils.NewString(result.Error), idx)
 			continue
 		}
 
 		if result.BackupCandidate == nil {
 			// normal schedule
-			onScheduleSucc(ctx, task, obj, result)
+			onScheduleSucc(ctx, task, obj, result, idx)
 		} else {
 			// backup schedule
-			onMasterSlaveScheduleSucc(ctx, task, obj, result, result.BackupCandidate)
+			onMasterSlaveScheduleSucc(ctx, task, obj, result, result.BackupCandidate, idx)
 		}
 		succCount += 1
 	}
@@ -232,10 +233,11 @@ func onMasterSlaveScheduleSucc(
 	task IScheduleTask,
 	obj IScheduleModel,
 	master, slave *schedapi.CandidateResource,
+	index int,
 ) {
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)
-	task.SaveScheduleResultWithBackup(ctx, obj, master, slave)
+	task.SaveScheduleResultWithBackup(ctx, obj, master, slave, index)
 	models.HostManager.ClearSchedDescSessionCache(master.HostId, master.SessionId)
 	models.HostManager.ClearSchedDescSessionCache(slave.HostId, slave.SessionId)
 }
@@ -245,11 +247,28 @@ func onScheduleSucc(
 	task IScheduleTask,
 	obj IScheduleModel,
 	candidate *schedapi.CandidateResource,
+	index int,
 ) {
 	hostId := candidate.HostId
 	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 
-	task.SaveScheduleResult(ctx, obj, candidate)
+	task.SaveScheduleResult(ctx, obj, candidate, index)
 	models.HostManager.ClearSchedDescSessionCache(candidate.HostId, candidate.SessionId)
+}
+
+func getBatchParamsAtIndex(task taskman.ITask, index int) *jsonutils.JSONDict {
+	var data *jsonutils.JSONDict
+	params := task.GetParams()
+	paramsArray, _ := params.GetArray("data")
+	if len(paramsArray) > 0 {
+		if len(paramsArray) > index {
+			data = paramsArray[index].(*jsonutils.JSONDict)
+		} else {
+			data = paramsArray[0].(*jsonutils.JSONDict)
+		}
+	} else {
+		data = params
+	}
+	return data
 }

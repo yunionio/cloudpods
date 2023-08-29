@@ -64,14 +64,26 @@ type NetworkConfig struct {
 	// requried: false
 	Mac string `json:"mac"`
 
-	// 子网内的IPv4地址, 若不指定会安装子网的地址分配策略分配一个IP地址
+	// 如果是批量创建，指定每个网卡MAC地址
+	// requried: false
+	Macs []string `json:"macs"`
+
+	// 子网内的IPv4地址, 若不指定会按照子网的地址分配策略分配一个IP地址
 	// required: false
 	Address string `json:"address"`
+
+	// 如果是批量创建，指定每台主机子网内的IPv4地址
+	// required: false
+	Addresses []string `json:"addresses"`
 
 	// 子网内的IPv6地址
 	// required: false
 	// swagger:ignore
 	Address6 string `json:"address6"`
+
+	// 如果是批量创建，指定每台主机子网内的IPv4地址
+	// required: false
+	Addresses6 []string `json:"addresses6"`
 
 	// 驱动方式
 	// 若指定镜像的网络驱动方式，此参数会被覆盖

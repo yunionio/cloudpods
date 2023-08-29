@@ -129,7 +129,7 @@ func (self *InstanceSnapshotAndCloneTask) doGuestCreate(
 			continue
 		}
 		isp.AddRefCount(ctx)
-		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, self.UserCred, nil, params)
+		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, self.UserCred, nil, []jsonutils.JSONObject{params})
 	}
 	if len(errStr) > 0 {
 		return fmt.Errorf(errStr)

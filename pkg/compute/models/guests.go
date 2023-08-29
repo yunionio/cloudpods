@@ -1339,6 +1339,33 @@ func parseInstanceBackup(input *api.ServerCreateInput) (*api.ServerCreateInput, 
 	return input, nil
 }
 
+func (manager *SGuestManager) ExpandBatchCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data *jsonutils.JSONDict,
+	index int,
+) (*api.ServerCreateInput, error) {
+	input, err := cmdline.FetchServerCreateInputByJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	for i := range input.Networks {
+		if index < len(input.Networks[i].Macs) {
+			input.Networks[i].Mac = input.Networks[i].Macs[index]
+		}
+		if index < len(input.Networks[i].Addresses) {
+			input.Networks[i].Address = input.Networks[i].Addresses[index]
+		}
+		if index < len(input.Networks[i].Addresses6) {
+			input.Networks[i].Address6 = input.Networks[i].Addresses6[index]
+		}
+	}
+	log.Debugf("ExpandBatchCreateData %s", jsonutils.Marshal(input))
+	return input, nil
+}
+
 func (manager *SGuestManager) validateCreateData(
 	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data *jsonutils.JSONDict) (*api.ServerCreateInput, error) {
@@ -2279,9 +2306,9 @@ func (manager *SGuestManager) SetPropertiesWithInstanceSnapshot(
 	}
 }
 
-func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
 	input := api.ServerCreateInput{}
-	data.Unmarshal(&input)
+	data[0].Unmarshal(&input)
 	if len(input.InstanceSnapshotId) > 0 {
 		manager.SetPropertiesWithInstanceSnapshot(ctx, userCred, input.InstanceSnapshotId, items)
 	}

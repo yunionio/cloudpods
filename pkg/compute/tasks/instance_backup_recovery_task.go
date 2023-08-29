@@ -106,7 +106,7 @@ func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStan
 	params.Set("guest_id", jsonutils.NewString(guest.Id))
 	self.SetStage("OnCreateGuest", params)
 	params.Set("parent_task_id", jsonutils.NewString(self.GetTaskId()))
-	models.GuestManager.OnCreateComplete(ctx, []db.IModel{guest}, self.UserCred, ownerId, nil, params)
+	models.GuestManager.OnCreateComplete(ctx, []db.IModel{guest}, self.UserCred, ownerId, nil, []jsonutils.JSONObject{params})
 }
 
 func (self *InstanceBackupRecoveryTask) OnCreateGuest(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
