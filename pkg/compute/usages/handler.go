@@ -725,12 +725,13 @@ func StorageUsage(
 	)
 
 	count[fmt.Sprintf("%s", dPrefix)] = result.CapacityUsed
-	for s, capa := range result.StorageTypeCapacity {
+	for s, capa := range result.StorageTypeCapacityUsed {
 		count[fmt.Sprintf("%s.storage_type.%s", dPrefix, s)] = capa
 	}
-	for m, capa := range result.MediumeCapacity {
+	for m, capa := range result.MediumeCapacityUsed {
 		count[fmt.Sprintf("%s.medium_type.%s", dPrefix, m)] = capa
 	}
+
 	count[fmt.Sprintf("%s.count", dPrefix)] = result.CountUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
 	count[fmt.Sprintf("%s.unready.count", dPrefix)] = result.CountUnready
