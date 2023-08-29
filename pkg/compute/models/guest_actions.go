@@ -5265,6 +5265,54 @@ func (guest *SGuest) StartDeleteGuestSnapshots(ctx context.Context, userCred mcc
 	return nil
 }
 
+func (self *SGuest) PerformResetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input *api.ServerNicTrafficLimit) (jsonutils.JSONObject, error) {
+
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return nil, httperrors.NewUnsupportOperationError("The guest status need be %s or %s, current is %s", api.VM_READY, api.VM_RUNNING, self.Status)
+	}
+	input.Mac = strings.ToLower(input.Mac)
+	_, err := self.GetGuestnetworkByMac(input.Mac)
+	if err != nil {
+		return nil, errors.Wrap(err, "get guest network by mac")
+	}
+
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	params.Set("old_status", jsonutils.NewString(self.Status))
+	self.SetStatus(userCred, api.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestResetNicTrafficsTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	task.ScheduleRun(nil)
+	return nil, nil
+}
+
+func (self *SGuest) PerformSetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input *api.ServerNicTrafficLimit) (jsonutils.JSONObject, error) {
+
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return nil, httperrors.NewUnsupportOperationError("The guest status need be %s or %s, current is %s", api.VM_READY, api.VM_RUNNING, self.Status)
+	}
+	if input.RxTrafficLimit == nil && input.TxTrafficLimit == nil {
+		return nil, httperrors.NewBadRequestError("rx/tx traffic not provider")
+	}
+	input.Mac = strings.ToLower(input.Mac)
+	_, err := self.GetGuestnetworkByMac(input.Mac)
+	if err != nil {
+		return nil, errors.Wrap(err, "get guest network by mac")
+	}
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	params.Set("old_status", jsonutils.NewString(self.Status))
+	self.SetStatus(userCred, api.VM_SYNC_TRAFFIC_LIMIT, "GuestSetNicTrafficsTask")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestSetNicTrafficsTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	task.ScheduleRun(nil)
+	return nil, nil
+}
+
 func (self *SGuest) PerformBindGroups(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 

@@ -89,6 +89,12 @@ type SGuestnetwork struct {
 	NumQueues int `nullable:"true" default:"1" list:"user" update:"user"`
 	// 带宽限制，单位mbps
 	BwLimit int `nullable:"false" default:"0" list:"user"`
+	// 下行流量限制，单位 bytes
+	RxTrafficLimit int64 `nullable:"false" default:"0" list:"user"`
+	RxTrafficUsed  int64 `nullable:"false" default:"0" list:"user"`
+	// 上行流量限制，单位 bytes
+	TxTrafficLimit int64 `nullable:"false" default:"0" list:"user"`
+	TxTrafficUsed  int64 `nullable:"false" default:"0" list:"user"`
 	// 网卡序号
 	Index int8 `nullable:"false" default:"0" list:"user" update:"user"`
 	// 是否为虚拟接口（无IP）
@@ -229,12 +235,14 @@ type newGuestNetworkArgs struct {
 	requireDesignatedIP bool
 	useDesignatedIP     bool
 
-	ifname      string
-	macAddr     string
-	bwLimit     int
-	nicDriver   string
-	numQueues   int
-	teamWithMac string
+	ifname         string
+	macAddr        string
+	bwLimit        int
+	nicDriver      string
+	numQueues      int
+	teamWithMac    string
+	rxTrafficLimit int64
+	txTrafficLimit int64
 
 	virtual bool
 }
@@ -274,6 +282,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	}
 	gn.Driver = driver
 	gn.NumQueues = numQueues
+	gn.RxTrafficLimit = args.rxTrafficLimit
+	gn.TxTrafficLimit = args.txTrafficLimit
 	if bwLimit >= 0 {
 		gn.BwLimit = bwLimit
 	}
@@ -573,6 +583,8 @@ func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.Masklen = net.GuestIpMask
 	desc.Driver = self.Driver
 	desc.NumQueues = self.NumQueues
+	desc.RxTrafficLimit = self.RxTrafficLimit
+	desc.TxTrafficLimit = self.TxTrafficLimit
 	desc.Vlan = net.VlanId
 	desc.Bw = self.getBandwidth()
 	desc.Mtu = self.getMtu(net)
@@ -598,6 +610,28 @@ func (self *SGuestnetwork) IsSriovWithoutOffload() bool {
 		return false
 	}
 	return true
+}
+
+func (self *SGuestnetwork) UpdateNicTrafficUsed(rx, tx int64) error {
+	_, err := db.Update(self, func() error {
+		self.RxTrafficUsed = rx
+		self.TxTrafficUsed = tx
+		return nil
+	})
+	return err
+}
+
+func (self *SGuestnetwork) UpdateNicTrafficLimit(rx, tx *int64) error {
+	_, err := db.Update(self, func() error {
+		if rx != nil {
+			self.RxTrafficLimit = *rx
+		}
+		if tx != nil {
+			self.TxTrafficLimit = *tx
+		}
+		return nil
+	})
+	return err
 }
 
 func (manager *SGuestnetworkManager) GetGuestByAddress(address string) *SGuest {

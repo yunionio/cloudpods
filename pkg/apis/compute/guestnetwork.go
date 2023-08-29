@@ -77,22 +77,24 @@ type GuestnetworkUpdateInput struct {
 }
 
 type GuestnetworkBaseDesc struct {
-	Net     string               `json:"net"`
-	NetId   string               `json:"net_id"`
-	Mac     string               `json:"mac"`
-	Virtual bool                 `json:"virtual"`
-	Ip      string               `json:"ip"`
-	Gateway string               `json:"gateway"`
-	Dns     string               `json:"dns"`
-	Domain  string               `json:"domain"`
-	Ntp     string               `json:"ntp"`
-	Routes  jsonutils.JSONObject `json:"routes"`
-	Ifname  string               `json:"ifname"`
-	Masklen int8                 `json:"masklen"`
-	Vlan    int                  `json:"vlan"`
-	Bw      int                  `json:"bw"`
-	Mtu     int                  `json:"mtu"`
-	Index   int8                 `json:"index"`
+	Net            string               `json:"net"`
+	NetId          string               `json:"net_id"`
+	Mac            string               `json:"mac"`
+	Virtual        bool                 `json:"virtual"`
+	Ip             string               `json:"ip"`
+	Gateway        string               `json:"gateway"`
+	Dns            string               `json:"dns"`
+	Domain         string               `json:"domain"`
+	Ntp            string               `json:"ntp"`
+	Routes         jsonutils.JSONObject `json:"routes"`
+	Ifname         string               `json:"ifname"`
+	Masklen        int8                 `json:"masklen"`
+	Vlan           int                  `json:"vlan"`
+	Bw             int                  `json:"bw"`
+	Mtu            int                  `json:"mtu"`
+	Index          int8                 `json:"index"`
+	RxTrafficLimit int64                `json:"rx_traffic_limit"`
+	TxTrafficLimit int64                `json:"tx_traffic_limit"`
 
 	Bridge    string `json:"bridge"`
 	WireId    string `json:"wire_id"`
@@ -127,4 +129,9 @@ type GuestnetworkJsonDesc struct {
 	BaremetalId string `json:"baremetal_id"`
 	NicType     string `json:"nic_type"`
 	LinkUp      bool   `json:"link_up"`
+}
+
+type SNicTrafficRecord struct {
+	RxTraffic int64
+	TxTraffic int64
 }

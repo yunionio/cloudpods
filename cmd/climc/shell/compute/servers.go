@@ -117,6 +117,8 @@ func init() {
 	cmd.Perform("qga-ping", &options.ServerQgaPing{})
 	cmd.Perform("set-password", &options.ServerSetPasswordOptions{})
 	cmd.Perform("set-boot-index", &options.ServerSetBootIndexOptions{})
+	cmd.Perform("reset-nic-traffic-limit", &options.ServerNicTrafficLimitOptions{})
+	cmd.Perform("set-nic-traffic-limit", &options.ServerNicTrafficLimitOptions{})
 
 	cmd.Get("vnc", new(options.ServerVncOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
