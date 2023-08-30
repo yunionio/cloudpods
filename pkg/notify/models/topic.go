@@ -81,8 +81,8 @@ type STopic struct {
 	TitleEn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	ContentCn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	ContentEn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	GroupKeys   *api.STopicGroupKeys `nullable:"true"`
-	GroupTimes  uint32               `nullable:"true"`
+	GroupKeys   *api.STopicGroupKeys `nullable:"true" list:"user"  update:"user"`
+	GroupTimes  uint32               `nullable:"true" list:"user"  update:"user"`
 	AdvanceDays []int                `nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 
 	WebconsoleDisable tristate.TriState
