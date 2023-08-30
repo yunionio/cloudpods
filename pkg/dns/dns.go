@@ -339,7 +339,7 @@ func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Servic
 			return uint32(ttl)
 		}
 	)
-	rec, err := models.DnsRecordManager.QueryDns(projId, req.Name(), req.Type())
+	rec, err := models.DnsRecordManager.QueryDns(projId, req.Name(), "")
 	if err != nil {
 		log.Errorf("QueryDns %s %s error: %v", req.Type(), req.Name(), err)
 		return
