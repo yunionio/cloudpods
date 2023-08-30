@@ -19,9 +19,11 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
@@ -213,16 +215,32 @@ func (self *SHost) fetchVMs(all bool) error {
 	}
 
 	var vms []*SVirtualMachine
-	hostVms := self.getHostSystem().Vm
-	if len(hostVms) == 0 {
-		// log.Errorf("host VMs are nil!!!!!")
-		return nil
+	for i := 1; i < 3; i++ {
+		hostVms := self.getHostSystem().Vm
+		if len(hostVms) == 0 {
+			return nil
+		}
+
+		vms, err = dc.fetchVms(hostVms, all)
+		if err != nil {
+			e := errors.Cause(err)
+			// 机器刚删除时, hostVms若不刷新, 会有类似错误: ServerFaultCode: The object 'vim.VirtualMachine:vm-1053' has already been deleted or has not been completely created
+			// https://github.com/vmware/govmomi/pull/1916/files
+			if soap.IsSoapFault(e) {
+				_, ok := soap.ToSoapFault(e).VimFault().(types.ManagedObjectNotFound)
+				if ok {
+					time.Sleep(time.Second * 10)
+					self.Refresh()
+					continue
+				}
+			}
+			return errors.Wrapf(err, "dc.fetchVMs")
+		}
+	}
+	if err != nil {
+		return errors.Wrapf(err, "dc.fetchVms")
 	}
 
-	vms, err = dc.fetchVms(hostVms, all)
-	if err != nil {
-		return errors.Wrapf(err, "dc.fetchVMs")
-	}
 	for _, vm := range vms {
 		if vm.IsTemplate() {
 			self.tempalteVMs = append(self.tempalteVMs, vm)
