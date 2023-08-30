@@ -163,6 +163,7 @@ type ComputeOptions struct {
 
 	SyncExtDiskSnapshotIntervalMinutes int  `help:"sync snapshot for external disk" default:"20"`
 	AutoReconcileBackupServers         bool `help:"auto reconcile backup servers" default:"false"`
+	SetKVMServerAsDaemonOnCreate       bool `help:"set kvm guest as daemon server on create" default:"false"`
 
 	SCapabilityOptions
 	SASControllerOptions
