@@ -89,6 +89,8 @@ type SSubscriber struct {
 	ResourceAttributionName string `width:"128" charset:"utf8" list:"user" create:"optional"`
 	Scope                   string `width:"128" charset:"ascii" nullable:"false" create:"required"`
 	DomainId                string `width:"128" charset:"ascii" nullable:"false" create:"optional"`
+
+	GroupTimes uint32 `nullable:"true" list:"user"  update:"user"`
 }
 
 func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers []string) ([]string, error) {

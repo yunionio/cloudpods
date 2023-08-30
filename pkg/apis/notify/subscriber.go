@@ -57,6 +57,8 @@ type SubscriberCreateInput struct {
 	// description: scope
 	// enum: system,domain
 	Scope string
+
+	GroupTimes uint32
 }
 
 type SubscriberChangeInput struct {

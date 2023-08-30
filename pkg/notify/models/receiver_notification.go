@@ -67,6 +67,8 @@ type SReceiverNotification struct {
 	SendBy       string `width:"128"`
 	Status       string `width:"36" charset:"ascii"`
 	FailedReason string `width:"1024"`
+
+	GroupTimes uint32 `nullable:"true" list:"user"  update:"user"`
 }
 
 func (self *SReceiverNotificationManager) InitializeData() error {
@@ -118,6 +120,7 @@ func (rnm *SReceiverNotificationManager) CreateContact(ctx context.Context, user
 		Contact:        contact,
 		Status:         api.RECEIVER_NOTIFICATION_RECEIVED,
 		SendBy:         userCred.GetUserId(),
+		GroupTimes:     0,
 	}
 	return rn, rnm.TableSpec().Insert(ctx, rn)
 }
