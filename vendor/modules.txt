@@ -1456,7 +1456,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230829080514-3fd3f713f1b8
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230830094742-3858d66f9cbf
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
