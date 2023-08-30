@@ -554,7 +554,14 @@ func (man *SDnsRecordManager) QueryDns(projectId, name, kind string) (*SDnsRecor
 		sqlchemy.CONCAT("dns", recSQ.Field("name"), sqlchemy.NewStringField("."), zones.Field("name")).Label("dns_name"),
 	).Join(zones, sqlchemy.Equals(recSQ.Field("dns_zone_id"), zones.Field("id")))
 
-	q := rec.SubQuery().Query().Equals("dns_name", name)
+	sq := rec.SubQuery()
+	q := sq.Query().Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(sq.Field("dns_name"), name),
+			// support *.example.com resolve
+			sqlchemy.Equals(sq.Field("dns_name"), "*."+name),
+		),
+	)
 	ret := &SDnsRecord{}
 	return ret, q.First(ret)
 }
