@@ -129,10 +129,6 @@ func (self *SDatastore) Refresh() error {
 	return nil
 }
 
-func (self *SDatastore) IsEmulated() bool {
-	return false
-}
-
 func (self *SDatastore) getVolumeId() (string, error) {
 	moStore := self.getDatastore()
 	switch fsInfo := moStore.Info.(type) {
