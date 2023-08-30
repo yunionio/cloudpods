@@ -780,7 +780,3 @@ func (self *SESXiGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred
 	params.Add(jsonutils.JSONTrue, "delete_snapshots")
 	return self.SBaseGuestDriver.StartDeleteGuestTask(ctx, userCred, guest, params, parentTaskId)
 }
-
-func (self *SESXiGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
-	return nil
-}
