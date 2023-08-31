@@ -523,7 +523,7 @@ func (manager *SDBInstanceSkuManager) SyncDBInstanceSkus(
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].Delete(ctx, userCred)
+		err = db.RealDeleteModel(ctx, userCred, &removed[i])
 		if err != nil {
 			result.DeleteError(err)
 		} else {
