@@ -351,7 +351,7 @@ func (swire *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.T
 
 	vpc, _ := swire.GetVpc()
 	cloudprovider := vpc.GetCloudprovider()
-	if swire.ExternalId == WireManager.getWireExternalIdForClassicNetwork(cloudprovider.Provider, swire.VpcId, swire.ZoneId) {
+	if cloudprovider == nil || swire.ExternalId == WireManager.getWireExternalIdForClassicNetwork(cloudprovider.Provider, swire.VpcId, swire.ZoneId) {
 		return nil
 	}
 

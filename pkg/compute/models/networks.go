@@ -3003,16 +3003,35 @@ func (net *SNetwork) IsClassic() bool {
 	return false
 }
 
+func (net *SNetwork) getAttachedHosts() ([]SHost, error) {
+	hns := HostnetworkManager.Query().Equals("network_id", net.Id)
+	hns = hns.AppendField(hns.Field("baremetal_id").Label("host_id"))
+	guestsQ := GuestManager.Query()
+	gnsQ := GuestnetworkManager.Query().Equals("network_id", net.Id).SubQuery()
+	guestsQ = guestsQ.Join(gnsQ, sqlchemy.Equals(guestsQ.Field("id"), gnsQ.Field("guest_id")))
+	guestsQ = guestsQ.IsNotEmpty("host_id")
+	guestsQ = guestsQ.AppendField(guestsQ.Field("host_id"))
+
+	unionQ := sqlchemy.Union(hns, guestsQ).Query().SubQuery()
+	q := HostManager.Query()
+	q = q.Join(unionQ, sqlchemy.Equals(q.Field("id"), unionQ.Field("host_id")))
+	q = q.Distinct()
+
+	hosts := make([]SHost, 0)
+	err := db.FetchModelObjects(HostManager, q, &hosts)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return hosts, nil
+}
+
 func (net *SNetwork) PerformSwitchWire(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input *api.NetworkSwitchWireInput,
 ) (jsonutils.JSONObject, error) {
-	/*err := net.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return nil, errors.Wrap(httperrors.ErrResourceBusy, "network in use")
-	}*/
+
 	vpc, err := net.GetVpc()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVpc")
@@ -3037,6 +3056,21 @@ func (net *SNetwork) PerformSwitchWire(
 	if oldWire.VpcId != wire.VpcId {
 		return nil, errors.Wrapf(httperrors.ErrConflict, "cannot switch wires of other vpc")
 	}
+
+	hosts, err := net.getAttachedHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "getAttachedHosts")
+	}
+	unreachedHost := make([]string, 0)
+	for i := range hosts {
+		if !hosts[i].IsAttach2Wire(wire.Id) {
+			unreachedHost = append(unreachedHost, hosts[i].Name)
+		}
+	}
+	if len(unreachedHost) > 0 {
+		return nil, errors.Wrapf(httperrors.ErrConflict, "wire %s not reachable for hosts %s", wire.Name, strings.Join(unreachedHost, ","))
+	}
+
 	diff, err := db.Update(net, func() error {
 		net.WireId = wire.Id
 		return nil
