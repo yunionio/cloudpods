@@ -518,6 +518,13 @@ func (self *purgePair) purgeAll() error {
 			self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
 		)
 		vars = append([]interface{}{}, self.q.Variables()...)
+	// sku需要直接删除，避免数据库积累数据导致查询缓慢
+	case DBInstanceSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), ServerSkuManager.Keyword():
+		sql = fmt.Sprintf(
+			"delete from %s where %s in (%s)",
+			self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+		)
+		vars = append([]interface{}{}, self.q.Variables()...)
 	}
 	_, err := sqlchemy.GetDB().Exec(
 		sql, vars...,
