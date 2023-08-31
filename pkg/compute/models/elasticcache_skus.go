@@ -398,7 +398,7 @@ func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context
 		if cnt, _ := removed[i].GetElasticcacheCount(); cnt > 0 {
 			err = removed[i].MarkAsSoldout(ctx)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
+			err = db.RealDeleteModel(ctx, userCred, &removed[i])
 		}
 		if err != nil {
 			syncResult.DeleteError(err)

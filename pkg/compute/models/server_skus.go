@@ -624,7 +624,7 @@ func (self *SServerSku) Delete(ctx context.Context, userCred mcclient.TokenCrede
 
 func (self *SServerSku) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ServerSkuManager.ClearSchedDescCache(true)
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return db.RealDeleteModel(ctx, userCred, self)
 }
 
 func (self *SServerSku) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
