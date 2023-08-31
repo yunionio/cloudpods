@@ -3004,17 +3004,18 @@ func (net *SNetwork) IsClassic() bool {
 }
 
 func (net *SNetwork) getAttachedHosts() ([]SHost, error) {
-	hns := HostnetworkManager.Query().Equals("network_id", net.Id)
-	hns = hns.AppendField(hns.Field("baremetal_id").Label("host_id"))
+	// hns := HostnetworkManager.Query().Equals("network_id", net.Id)
+	// hns = hns.AppendField(hns.Field("baremetal_id").Label("host_id"))
 	guestsQ := GuestManager.Query()
 	gnsQ := GuestnetworkManager.Query().Equals("network_id", net.Id).SubQuery()
 	guestsQ = guestsQ.Join(gnsQ, sqlchemy.Equals(guestsQ.Field("id"), gnsQ.Field("guest_id")))
 	guestsQ = guestsQ.IsNotEmpty("host_id")
 	guestsQ = guestsQ.AppendField(guestsQ.Field("host_id"))
 
-	unionQ := sqlchemy.Union(hns, guestsQ).Query().SubQuery()
+	guestsSubQ := guestsQ.SubQuery()
+	// unionQ := sqlchemy.Union(hns, guestsQ).Query().SubQuery()
 	q := HostManager.Query()
-	q = q.Join(unionQ, sqlchemy.Equals(q.Field("id"), unionQ.Field("host_id")))
+	q = q.Join(guestsSubQ, sqlchemy.Equals(q.Field("id"), guestsSubQ.Field("host_id")))
 	q = q.Distinct()
 
 	hosts := make([]SHost, 0)
@@ -3081,6 +3082,33 @@ func (net *SNetwork) PerformSwitchWire(
 
 	logclient.AddActionLogWithContext(ctx, net, logclient.ACT_UPDATE, diff, userCred, true)
 	db.OpsLog.LogEvent(net, db.ACT_UPDATE, diff, userCred)
+
+	// fix vmware hostnics wire
+	hns, err := HostnetworkManager.fetchHostnetworksByNetwork(net.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "HostnetworkManager.fetchHostnetworksByNetwork")
+	}
+
+	for i := range hns {
+		nic, err := hns[i].GetNetInterface()
+		if err != nil {
+			return nil, errors.Wrap(err, "Hostnetwork.GetNetInterface")
+		}
+		log.Errorf("PerformSwitchWire: change wireId for nic %s for hostnetwork %s", jsonutils.Marshal(nic), jsonutils.Marshal(hns[i]))
+		if len(nic.Bridge) > 0 {
+			log.Warningf("PerformSwitchWire: non-empty wireId %s for hostnetwork %s", jsonutils.Marshal(nic), jsonutils.Marshal(hns[i]))
+			continue
+		}
+		if nic.WireId != wire.Id {
+			_, err := db.Update(nic, func() error {
+				nic.WireId = wire.Id
+				return nil
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "Update NetInterface")
+			}
+		}
+	}
 
 	return nil, nil
 }
