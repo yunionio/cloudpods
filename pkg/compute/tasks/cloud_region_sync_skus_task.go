@@ -33,7 +33,7 @@ type CloudRegionSyncSkusTask struct {
 }
 
 func init() {
-	taskman.RegisterTask(CloudRegionSyncSkusTask{})
+	taskman.RegisterTaskAndWorker(CloudRegionSyncSkusTask{}, SkuSyncWorkerManager)
 }
 
 func (self *CloudRegionSyncSkusTask) taskFailed(ctx context.Context, region *models.SCloudregion, msg string) {

@@ -162,13 +162,7 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 
 	if cnt == 0 {
 		// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
-		if ret := SyncServerSkusByRegion(ctx, userCred, localRegion, xor); ret.IsError() {
-			msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), ret.Result())
-			log.Errorln(msg)
-			// 暂时不终止同步
-			// logSyncFailed(provider, task, msg)
-			return
-		}
+		localRegion.StartSyncSkusTask(ctx, userCred, ServerSkuManager.Keyword())
 	}
 
 	if localRegion.GetDriver().IsSupportedElasticcache() {
@@ -179,9 +173,22 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 		}
 
 		if cnt == 0 {
-			SyncElasticCacheSkusByRegion(ctx, userCred, localRegion, xor)
+			localRegion.StartSyncSkusTask(ctx, userCred, ElasticcacheSkuManager.Keyword())
 		}
 	}
+
+	if localRegion.GetDriver().IsSupportedDBInstance() {
+		cnt, err = DBInstanceSkuManager.GetSkuCountByRegion(regionId)
+		if err != nil {
+			log.Errorf("DBInstanceSkuManager.GetSkuCountByRegion fail %s", err)
+			return
+		}
+
+		if cnt == 0 {
+			localRegion.StartSyncSkusTask(ctx, userCred, DBInstanceSkuManager.Keyword())
+		}
+	}
+
 }
 
 func syncRegionEips(
@@ -2046,9 +2053,6 @@ func syncPublicCloudProviderInfo(
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
 		syncRegionSkus(ctx, userCred, localRegion, syncRange.Xor)
-		if syncRange.IsNotSkipSyncResource(DBInstanceManager) {
-			SyncRegionDBInstanceSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
-		}
 		if syncRange.IsNotSkipSyncResource(NatSkuManager) {
 			SyncRegionNatSkus(ctx, userCred, localRegion.Id, true, syncRange.Xor)
 		}
