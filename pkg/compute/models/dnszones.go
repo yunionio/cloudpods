@@ -156,7 +156,7 @@ func (manager *SDnsZoneManager) ValidateCreateData(
 	if !gotypes.IsNil(provider) {
 		switch provider.Provider {
 		case api.CLOUD_PROVIDER_AWS:
-			if len(input.VpcIds) == 0 {
+			if len(input.VpcIds) == 0 && input.ZoneType == string(cloudprovider.PrivateZone) {
 				return nil, httperrors.NewMissingParameterError("vpc_ids")
 			}
 		}
