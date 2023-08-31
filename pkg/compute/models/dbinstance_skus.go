@@ -470,6 +470,11 @@ func (manager *SDBInstanceSkuManager) GetInstanceTypes(provider, cloudregionId, 
 	return manager.GetDBStringArray(q)
 }
 
+func (manager *SDBInstanceSkuManager) GetSkuCountByRegion(regionId string) (int, error) {
+	q := manager.Query().Equals("cloudregion_id", regionId)
+	return q.CountWithError()
+}
+
 func (manager *SDBInstanceSkuManager) GetDBInstanceSkus(provider, cloudregionId, engine, version, category, storageType string) ([]SDBInstanceSku, error) {
 	skus := []SDBInstanceSku{}
 	q := manager.Query("name").Equals("provider", provider).Equals("cloudregion_id", cloudregionId).Equals("engine", engine).Equals("engine_version", version).Distinct()

@@ -1290,6 +1290,16 @@ func (self *SCloudregion) StartSyncImagesTask(ctx context.Context, userCred mccl
 	return nil
 }
 
+func (self *SCloudregion) StartSyncSkusTask(ctx context.Context, userCred mcclient.TokenCredential, res string) error {
+	params := jsonutils.NewDict()
+	params.Set("resource", jsonutils.NewString(res))
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudRegionSyncSkusTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "CloudRegionSyncSkusTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
 func (self *SCloudregion) GetCloudprovider() (*SCloudprovider, error) {
 	if len(self.ManagerId) == 0 {
 		return nil, sql.ErrNoRows
