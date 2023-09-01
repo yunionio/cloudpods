@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -156,9 +157,8 @@ type SGuestCreateFromLibvirt struct {
 }
 
 type SGuestIoThrottle struct {
-	Sid  string
-	BPS  int64
-	IOPS int64
+	Sid   string
+	Input *compute.ServerSetDiskIoThrottleInput
 }
 
 type SGuestCreateFromEsxi struct {
