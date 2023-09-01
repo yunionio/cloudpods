@@ -668,6 +668,11 @@ func (manager *SDnsZoneManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 		return q, nil
 	}
 
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
 	return q, httperrors.ErrNotFound
 }
 
