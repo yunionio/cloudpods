@@ -88,6 +88,7 @@ func (self *DnsRecordDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 }
 
 func (self *DnsRecordDeleteTask) taskComplete(ctx context.Context, zone *models.SDnsZone, record *models.SDnsRecord) {
+	logclient.AddActionLogWithContext(ctx, zone, logclient.ACT_DELETE, record, self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    record,
 		Action: notifyclient.ActionDelete,
