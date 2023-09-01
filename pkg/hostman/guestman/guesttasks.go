@@ -833,7 +833,7 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevi
 		t.syncDevice()
 	}
 
-	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr, dev.MdevId)
 	if devObj == nil {
 		cb(fmt.Sprintf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr))
 		return
@@ -850,7 +850,7 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevi
 
 func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice) {
 	var err error
-	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr, dev.MdevId)
 	if devObj == nil {
 		err = errors.Errorf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr)
 		log.Errorln(err)
