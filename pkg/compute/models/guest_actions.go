@@ -4657,34 +4657,64 @@ func (guest *SGuest) StartGuestDiskResizeTask(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SGuest) PerformIoThrottle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformIoThrottle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerSetDiskIoThrottleInput) (jsonutils.JSONObject, error) {
 	if self.Hypervisor != api.HYPERVISOR_KVM {
 		return nil, httperrors.NewBadRequestError("Hypervisor %s can't do io throttle", self.Hypervisor)
 	}
-	if self.Status != api.VM_RUNNING {
+	if self.Status != api.VM_RUNNING && self.Status != api.VM_READY {
 		return nil, httperrors.NewServerStatusError("Cannot do io throttle in status %s", self.Status)
 	}
-	bpsMb, err := data.Int("bps")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("bps")
+
+	for diskId, bpsMb := range input.Bps {
+		if bpsMb < 0 {
+			return nil, httperrors.NewInputParameterError("disk %s bps must > 0", diskId)
+		}
+		disk := DiskManager.FetchDiskById(diskId)
+		if disk == nil {
+			return nil, httperrors.NewNotFoundError("disk %s not found", diskId)
+		}
 	}
-	if bpsMb < 0 {
-		return nil, httperrors.NewInputParameterError("bps must > 0")
+
+	for diskId, iops := range input.IOPS {
+		if iops < 0 {
+			return nil, httperrors.NewInputParameterError("disk %s iops must > 0", diskId)
+		}
+		disk := DiskManager.FetchDiskById(diskId)
+		if disk == nil {
+			return nil, httperrors.NewNotFoundError("disk %s not found", diskId)
+		}
 	}
-	iops, err := data.Int("iops")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("iops")
+
+	if err := self.UpdateIoThrottle(input); err != nil {
+		return nil, errors.Wrap(err, "update io throttles")
 	}
-	if iops < 0 {
-		return nil, httperrors.NewInputParameterError("iops must > 0")
-	}
-	return nil, self.StartBlockIoThrottleTask(ctx, userCred, bpsMb, iops)
+	return nil, self.StartBlockIoThrottleTask(ctx, userCred, input)
 }
 
-func (self *SGuest) StartBlockIoThrottleTask(ctx context.Context, userCred mcclient.TokenCredential, bpsMb, iops int64) error {
-	params := jsonutils.NewDict()
-	params.Set("bps", jsonutils.NewInt(bpsMb))
-	params.Set("iops", jsonutils.NewInt(iops))
+func (self *SGuest) UpdateIoThrottle(input *api.ServerSetDiskIoThrottleInput) error {
+	gds, err := self.GetGuestDisks()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(gds); i++ {
+		_, err := db.Update(&gds[i], func() error {
+			if bps, ok := input.Bps[gds[i].DiskId]; ok {
+				gds[i].Bps = bps
+			}
+			if iops, ok := input.IOPS[gds[i].DiskId]; ok {
+				gds[i].Iops = iops
+			}
+			return nil
+		})
+		if err != nil {
+			return nil
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) StartBlockIoThrottleTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerSetDiskIoThrottleInput) error {
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	params.Set("old_status", jsonutils.NewString(self.Status))
 	self.SetStatus(userCred, api.VM_IO_THROTTLE, "start block io throttle task")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestBlockIoThrottleTask", self, userCred, params, "", "", nil)

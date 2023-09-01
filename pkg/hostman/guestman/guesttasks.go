@@ -2565,29 +2565,28 @@ func (task *SGuestHotplugCpuMemTask) onSucc() {
 type SGuestBlockIoThrottleTask struct {
 	*SKVMGuestInstance
 
-	ctx  context.Context
-	bps  int64
-	iops int64
+	ctx context.Context
 }
 
-func (task *SGuestBlockIoThrottleTask) Start() error {
-	task.findBlockDevices()
-	return nil
+func (task *SGuestBlockIoThrottleTask) Start() {
+	go task.startDoIoThrottle(0)
 }
 
-func (task *SGuestBlockIoThrottleTask) findBlockDevices() {
-	task.Monitor.GetBlocks(task.onBlockDriversSucc)
-}
-
-func (task *SGuestBlockIoThrottleTask) onBlockDriversSucc(blocks []monitor.QemuBlock) {
-	drivers := make([]string, 0)
-	for i := 0; i < len(blocks); i++ {
-		if strings.HasPrefix(blocks[i].Device, "drive_") {
-			drivers = append(drivers, blocks[i].Device)
+func (task *SGuestBlockIoThrottleTask) startDoIoThrottle(idx int) {
+	if idx < len(task.Desc.Disks) {
+		_cb := func(res string) {
+			if len(res) > 0 {
+				task.taskFail(res)
+			} else {
+				task.startDoIoThrottle(idx + 1)
+			}
 		}
+		task.Monitor.BlockIoThrottle(
+			fmt.Sprintf("drive_%d", task.Desc.Disks[idx].Index),
+			int64(task.Desc.Disks[idx].Bps), int64(task.Desc.Disks[idx].Iops), _cb)
+	} else {
+		task.taskComplete(nil)
 	}
-	log.Infof("Drivers %s do io throttle bps %d iops %d", drivers, task.bps, task.iops)
-	task.doIoThrottle(drivers)
 }
 
 func (task *SGuestBlockIoThrottleTask) taskFail(reason string) {
@@ -2601,23 +2600,6 @@ func (task *SGuestBlockIoThrottleTask) taskFail(reason string) {
 func (task *SGuestBlockIoThrottleTask) taskComplete(data jsonutils.JSONObject) {
 	if taskId := task.ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		hostutils.TaskComplete(task.ctx, data)
-	}
-}
-
-func (task *SGuestBlockIoThrottleTask) doIoThrottle(drivers []string) {
-	if len(drivers) == 0 {
-		task.taskComplete(nil)
-	} else {
-		driver := drivers[0]
-		drivers = drivers[1:]
-		_cb := func(res string) {
-			if len(res) > 0 {
-				task.taskFail(res)
-			} else {
-				task.doIoThrottle(drivers)
-			}
-		}
-		task.Monitor.BlockIoThrottle(driver, task.bps, task.iops, _cb)
 	}
 }
 
