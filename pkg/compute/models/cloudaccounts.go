@@ -2188,6 +2188,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.
 					delete(cloudaccountProbe, id)
 				}()
 				log.Debugf("syncAccountStatus %s %s", id, name)
+				ctx = context.WithValue(ctx, "id", id)
 				err := account.syncAccountStatus(ctx, userCred)
 				if err != nil {
 					log.Errorf("unable to syncAccountStatus for cloudaccount %s: %s", account.Id, err.Error())
