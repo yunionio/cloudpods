@@ -343,6 +343,11 @@ type ServerConfigs struct {
 	// required: false
 	Backup bool `json:"backup"`
 
+	// 设置为 daemon 虚机
+	// default: nil
+	// required: false
+	IsDaemon *bool `json:"is_daemon"`
+
 	// swagger:ignore
 	// 创建虚拟机数量
 	// default: 1

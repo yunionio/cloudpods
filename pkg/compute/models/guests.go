@@ -1606,6 +1606,13 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, httperrors.NewBadRequestError("Miss operating system???")
 	}
 
+	if input.Hypervisor == api.HYPERVISOR_KVM {
+		if input.IsDaemon == nil && options.Options.SetKVMServerAsDaemonOnCreate {
+			setDaemon := true
+			input.IsDaemon = &setDaemon
+		}
+	}
+
 	hypervisor = input.Hypervisor
 	if hypervisor != api.HYPERVISOR_CONTAINER {
 		// support sku here
