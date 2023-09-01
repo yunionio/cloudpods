@@ -297,10 +297,6 @@ func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(ctx, userCred, self, "config")
-}
-
 func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	sensitive := jsonutils.QueryBoolean(query, "sensitive", false)
 	if sensitive {
@@ -1333,10 +1329,6 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 	}
 }
 
-func (idp *SIdentityProvider) AllowGetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) bool {
-	return db.IsDomainAllowGetSpec(ctx, userCred, idp, "saml-metadata")
-}
-
 func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) (api.GetIdpSamlMetadataOutput, error) {
 	output := api.GetIdpSamlMetadataOutput{}
 	if !saml.IsSAMLEnabled() {
@@ -1360,10 +1352,6 @@ func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCr
 	}
 	output.Metadata = string(xmlBytes)
 	return output, nil
-}
-
-func (idp *SIdentityProvider) AllowGetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) bool {
-	return db.IsDomainAllowGetSpec(ctx, userCred, idp, "sso-redirect-uri")
 }
 
 func (idp *SIdentityProvider) GetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) (api.GetIdpSsoRedirectUriOutput, error) {

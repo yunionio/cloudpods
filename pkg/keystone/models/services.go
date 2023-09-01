@@ -153,10 +153,6 @@ func (service *SService) PostDelete(ctx context.Context, userCred mcclient.Token
 	logclient.AddActionLogWithContext(ctx, service, logclient.ACT_DELETE, nil, userCred, true)
 }
 
-func (service *SService) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(ctx, userCred, service, "config")
-}
-
 func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var whiteList, blackList map[string][]string
 	if service.isCommonService() {
