@@ -939,8 +939,22 @@ func (m *SGuestManager) GuestIoThrottle(ctx context.Context, params interface{})
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(guestIoThrottle.Sid)
+	for i := range guest.Desc.Disks {
+		diskId := guest.Desc.Disks[i].DiskId
+		if bps, ok := guestIoThrottle.Input.Bps[diskId]; ok {
+			guest.Desc.Disks[i].Bps = bps
+		}
+		if iops, ok := guestIoThrottle.Input.IOPS[diskId]; ok {
+			guest.Desc.Disks[i].Iops = iops
+		}
+	}
+	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+		return nil, errors.Wrap(err, "guest save desc")
+	}
+
 	if guest.IsRunning() {
-		return nil, guest.BlockIoThrottle(ctx, guestIoThrottle.BPS, guestIoThrottle.IOPS)
+		guest.BlockIoThrottle(ctx)
+		return nil, nil
 	}
 	return nil, httperrors.NewInvalidStatusError("Guest not running")
 }

@@ -280,18 +280,15 @@ func guestIoThrottle(ctx context.Context, userCred mcclient.TokenCredential, sid
 	if !guest.IsRunning() {
 		return nil, httperrors.NewInvalidStatusError("Not running")
 	}
-	bps, err := body.Int("bps")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("bps")
+
+	input := new(computeapi.ServerSetDiskIoThrottleInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal params failed %s", err)
 	}
-	iops, err := body.Int("iops")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("iops")
-	}
+
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().GuestIoThrottle, &guestman.SGuestIoThrottle{
-		Sid:  sid,
-		BPS:  bps,
-		IOPS: iops,
+		Sid:   sid,
+		Input: input,
 	})
 	return nil, nil
 }

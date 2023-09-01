@@ -2440,11 +2440,7 @@ func (s *SKVMGuestInstance) SyncQemuCmdline(cmdline string) {
 func (s *SKVMGuestInstance) doBlockIoThrottle() {
 	disks := s.Desc.Disks
 	if len(disks) > 0 {
-		bps := disks[0].Bps
-		iops := disks[0].Iops
-		if bps > 0 || iops > 0 {
-			s.BlockIoThrottle(context.Background(), int64(bps), int64(iops))
-		}
+		s.BlockIoThrottle(context.Background())
 	}
 }
 
@@ -2757,9 +2753,9 @@ func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, diskId string,
 	task.Start()
 }
 
-func (s *SKVMGuestInstance) BlockIoThrottle(ctx context.Context, bps, iops int64) error {
-	task := SGuestBlockIoThrottleTask{s, ctx, bps, iops}
-	return task.Start()
+func (s *SKVMGuestInstance) BlockIoThrottle(ctx context.Context) {
+	task := SGuestBlockIoThrottleTask{s, ctx}
+	task.Start()
 }
 
 func (s *SKVMGuestInstance) IsSharedStorage() bool {

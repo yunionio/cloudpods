@@ -858,6 +858,13 @@ type ServerSetBootIndexInput struct {
 	Cdroms map[string]int8 `json:"cdroms"`
 }
 
+type ServerSetDiskIoThrottleInput struct {
+	// key disk id, value bps
+	Bps map[string]int `json:"bps"`
+	// key disk id, value
+	IOPS map[string]int `json:"iops"`
+}
+
 type ServerChangeStorageInput struct {
 	TargetStorageId string `json:"target_storage_id"`
 	KeepOriginDisk  bool   `json:"keep_origin_disk"`
