@@ -1193,8 +1193,9 @@ func (o *ServerPrepaidRecycleOptions) Params() (jsonutils.JSONObject, error) {
 
 type ServerIoThrottle struct {
 	ServerIdOptions
-	BPS  int `help:"bps(MB) of throttle" json:"bps"`
-	IOPS int `help:"iops of throttle" json:"iops"`
+
+	DiskBps  map[string]int `help:"disk bps of throttle, input diskId=BPS" json:"bps"`
+	DiskIOPS map[string]int `help:"disk iops of throttle, input diskId=IOPS" json:"iops"`
 }
 
 func (o *ServerIoThrottle) Params() (jsonutils.JSONObject, error) {
