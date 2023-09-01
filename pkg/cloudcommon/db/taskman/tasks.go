@@ -172,10 +172,6 @@ func (manager *STaskManager) FetchTaskById(taskId string) *STask {
 	return manager.fetchTask(taskId)
 }
 
-func (self *STask) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(ctx, userCred, self) || userCred.GetProjectId() == self.UserCred.GetProjectId()
-}
-
 func (self *STask) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false
 }
