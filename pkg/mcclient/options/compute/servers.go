@@ -253,6 +253,7 @@ type ServerConfigs struct {
 	ResourceType                 string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Backup                       bool   `help:"Create server with backup server"`
 	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
+	Daemon                       *bool  `help:"Set as a daemon server" json:"is_daemon"`
 
 	Schedtag []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	Disk     []string `help:"
@@ -297,6 +298,7 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 		ResourceType:     o.ResourceType,
 		Backup:           o.Backup,
 		Count:            o.Count,
+		IsDaemon:         o.Daemon,
 	}
 	for i, d := range o.Disk {
 		disk, err := cmdline.ParseDiskConfig(d, i)
