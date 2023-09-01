@@ -161,8 +161,7 @@ type SHostOptions struct {
 	HostHealthTimeout int `help:"host health timeout" default:"30"`
 	HostLeaseTimeout  int `help:"lease timeout" default:"10"`
 
-	SyncStorageInfoDurationSecond int  `help:"sync storage size duration, unit is second, default is every 2 minutes" default:"120"`
-	StartHostIgnoreSysError       bool `help:"start host agent ignore sys error" default:"false"`
+	SyncStorageInfoDurationSecond int `help:"sync storage size duration, unit is second, default is every 2 minutes" default:"120"`
 
 	DisableProbeKubelet bool   `help:"Disable probe kubelet config" default:"false"`
 	KubeletRunDirectory string `help:"Kubelet config file path" default:"/var/lib/kubelet"`
@@ -175,6 +174,8 @@ type SHostOptions struct {
 	SRIOVNics           []string `help:"nics enable sriov" json:"sriov_nics"`
 	OvsOffloadNics      []string `help:"nics enable ovs offload" json:"ovs_offload_nics"`
 	PTNVMEConfigs       []string `help:"passthrough nvme disk pci address and size"`
+	AMDVgpuPFs          []string `help:"amd vgpu pf pci addresses"`
+	NVIDIAVgpuPFs       []string `help:"nvidia vgpu pf pci addresses"`
 
 	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
 

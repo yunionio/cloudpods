@@ -56,42 +56,49 @@ const (
 	DEFAULT_CPU_CMD = "host,kvm=off"
 )
 
-func getPassthroughGPUS() ([]*PCIDevice, error) {
-	gpus, err := detectGPUS()
+func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
+	lines, err := getGPUPCIStr()
 	if err != nil {
-		return nil, err
+		return nil, err, nil
 	}
+
+	warns := make([]error, 0)
+	devs := []*PCIDevice{}
+	log.Infof("filter address %v", filteredAddrs)
+	for _, line := range lines {
+		dev := parseLspci(line)
+		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
+			continue
+		}
+		if err := dev.checkSameIOMMUGroupDevice(); err != nil {
+			warns = append(warns, errors.Wrapf(err, "get dev %s iommu group devices", dev.Addr))
+			continue
+		}
+		if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga); err != nil {
+			warns = append(warns, errors.Wrapf(err, "force bind vfio-pci driver %s", dev.Addr))
+			continue
+		}
+		devs = append(devs, dev)
+	}
+
 	ret := []*PCIDevice{}
-	for _, dev := range gpus {
+	for _, dev := range devs {
 		if drv, err := dev.getKernelDriver(); err != nil {
-			log.Errorf("Device %#v get kernel driver error: %v", dev, err)
+			log.Errorf("Device %s get kernel driver error: %s", dev.Addr, err.Error())
+			warns = append(warns, fmt.Errorf("Device %s get kernel driver error: %s", dev.Addr, err.Error()))
 		} else if drv == "" || drv == VFIO_PCI_KERNEL_DRIVER {
 			ret = append(ret, dev)
 		} else {
 			log.Warningf("GPU %v use kernel driver %q, skip it", dev, drv)
+			warns = append(warns, fmt.Errorf("GPU %s use kernel driver %s, skip it", dev.Addr, drv))
 		}
 	}
-	return ret, nil
-}
-
-func detectGPUS() ([]*PCIDevice, error) {
-	lines, err := getGPUPCIStr()
-	if err != nil {
-		return nil, err
-	}
-	devs := []*PCIDevice{}
-	for _, line := range lines {
-		dev, err := NewPCIDevice(line)
-		if err != nil {
-			return nil, err
-		}
-		devs = append(devs, dev)
-	}
-	return devs, nil
+	return ret, nil, warns
 }
 
 func getGPUPCIStr() ([]string, error) {
-	ret, err := bashOutput("lspci -nnmm | egrep '3D|VGA'")
+	cmd := "lspci -nnmm | egrep '3D|VGA'"
+	ret, err := bashOutput(cmd)
 	if err != nil {
 		return nil, err
 	}
