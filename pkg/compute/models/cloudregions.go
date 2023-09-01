@@ -1040,20 +1040,12 @@ func (self *SCloudregion) SyncVpcs(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (self *SCloudregion) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	capa, err := GetCapabilities(ctx, userCred, query, self, nil)
 	if err != nil {
 		return nil, err
 	}
 	return jsonutils.Marshal(&capa), nil
-}
-
-func (self *SCloudregion) AllowGetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (self *SCloudregion) GetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

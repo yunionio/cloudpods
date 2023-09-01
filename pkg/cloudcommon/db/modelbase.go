@@ -606,11 +606,6 @@ func (model *SModelBase) GetShortDescV2(ctx context.Context) *apis.ModelBaseShor
 	return &apis.ModelBaseShortDescDetail{ResName: model.Keyword()}
 }
 
-// get hooks
-func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return false
-}
-
 func (model *SModelBase) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
 	return nil
 }
