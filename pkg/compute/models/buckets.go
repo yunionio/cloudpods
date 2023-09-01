@@ -722,14 +722,6 @@ func (manager *SBucketManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (bucket *SBucket) AllowGetDetailsObjects(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	input api.BucketGetObjectsInput,
-) bool {
-	return bucket.IsOwner(userCred)
-}
-
 // 获取bucket的对象列表
 //
 // 获取bucket的对象列表
@@ -763,7 +755,7 @@ func (bucket *SBucket) GetDetailsObjects(
 	}
 	objects, nextMarker, err := cloudprovider.GetPagedObjects(iBucket, prefix, isRecursive, marker, int(limit))
 	if err != nil {
-		return output, httperrors.NewInternalServerError("fail to get objects: %s", err)
+		return output, err
 	}
 	for i := range objects {
 		output.Data = append(output.Data, cloudprovider.ICloudObject2Struct(objects[i]))
@@ -1218,14 +1210,6 @@ func (bucket *SBucket) ValidateDeleteCondition(ctx context.Context, info jsonuti
 	return bucket.ValidatePurgeCondition(ctx)
 }
 
-func (bucket *SBucket) AllowGetDetailsAcl(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return bucket.IsOwner(userCred)
-}
-
 // 获取对象或bucket的ACL
 //
 // 获取对象或bucket的ACL
@@ -1334,14 +1318,6 @@ func (bucket *SBucket) PerformDeleteWebsite(
 	return nil, nil
 }
 
-func (bucket *SBucket) AllowGetDetailsWebsite(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return bucket.IsOwner(userCred)
-}
-
 func (bucket *SBucket) GetDetailsWebsite(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1444,14 +1420,6 @@ func (bucket *SBucket) PerformDeleteCors(
 	return nil, nil
 }
 
-func (bucket *SBucket) AllowGetDetailsCors(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return bucket.IsOwner(userCred)
-}
-
 func (bucket *SBucket) GetDetailsCors(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1479,14 +1447,6 @@ func (bucket *SBucket) GetDetailsCors(
 	}
 
 	return rules, nil
-}
-
-func (bucket *SBucket) AllowGetDetailsCdnDomain(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return bucket.IsOwner(userCred)
 }
 
 func (bucket *SBucket) GetDetailsCdnDomain(
@@ -1555,14 +1515,6 @@ func (bucket *SBucket) PerformSetReferer(
 	return nil, nil
 }
 
-func (bucket *SBucket) AllowGetDetailsReferer(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return bucket.IsOwner(userCred)
-}
-
 func (bucket *SBucket) GetDetailsReferer(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1585,14 +1537,6 @@ func (bucket *SBucket) GetDetailsReferer(
 	}
 
 	return conf, nil
-}
-
-func (bucket *SBucket) AllowGetDetailsPolicy(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return bucket.IsOwner(userCred)
 }
 
 func (bucket *SBucket) GetDetailsPolicy(
@@ -1813,14 +1757,6 @@ func (bucket *SBucket) PerformLimit(
 	}
 
 	return nil, nil
-}
-
-func (bucket *SBucket) AllowGetDetailsAccessInfo(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return bucket.IsOwner(userCred)
 }
 
 func (bucket *SBucket) GetDetailsAccessInfo(

@@ -121,10 +121,6 @@ func (model *SStatusResourceBase) IsInStatus(status ...string) bool {
 	return utils.IsInArray(model.Status, status)
 }
 
-/*func (model *SStatusStandaloneResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "status")
-}*/
-
 // 获取资源状态
 func (model *SStatusResourceBase) GetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.GetDetailsStatusOutput, error) {
 	ret := apis.GetDetailsStatusOutput{}
