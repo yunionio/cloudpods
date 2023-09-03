@@ -121,6 +121,7 @@ func (self *SGuest) PerformQgaSetNetwork(
 	if self.PowerStates != api.VM_POWER_STATES_ON {
 		return nil, httperrors.NewBadRequestError("can't use qga in vm status: %s", self.Status)
 	}
+	self.SetStatus(userCred, api.VM_QGA_SET_NETWORK, "")
 	self.UpdateQgaStatus(api.QGA_STATUS_EXCUTING)
 	if input.Device == "" {
 		return nil, httperrors.NewMissingParameterError("device")

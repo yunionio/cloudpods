@@ -37,7 +37,6 @@ func init() {
 
 func (self *GuestQgaRestartNetworkTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.GetUserCred(), api.VM_QGA_SET_NETWORK, "use qga restart network")
 	self.SetStage("OnRestartNetwork", nil)
 	err := guest.StartSyncTask(ctx, self.GetUserCred(), false, self.Id)
 	if err != nil {
@@ -49,27 +48,34 @@ func (self *GuestQgaRestartNetworkTask) OnInit(ctx context.Context, obj db.IStan
 func (self *GuestQgaRestartNetworkTask) OnRestartNetwork(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	device, _ := self.Params.GetString("device")
-	ipMask, _ := self.Params.GetString("ipMask")
+	ipMask, _ := self.Params.GetString("ip_mask")
 	gateway, _ := self.Params.GetString("gateway")
-	prevIp, _ := self.Params.GetString("prevIp")
-	inBlockStream, _ := self.Params.Bool("inBlockStream")
+	prevIp, _ := self.Params.GetString("prev_ip")
+	inBlockStream, _ := self.Params.Bool("in_block_stream")
 	time.Sleep(10 * time.Second)
 	_, err := self.PerformSetNetwork(ctx, obj, device, ipMask, gateway)
+	//the first set maybe fail,if failed, try again
 	if err != nil {
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, err, self.UserCred, false)
 		_, err = self.PerformSetNetwork(ctx, obj, device, ipMask, gateway)
+		if err != nil {
+			logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, err, self.UserCred, false)
+			self.taskFailed(ctx, guest, prevIp, inBlockStream, err)
+			return
+		}
 	}
-	if err != nil {
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, err, self.UserCred, false)
-		self.taskFailed(ctx, guest, prevIp, inBlockStream, err)
-		return
-	}
-	err = guest.StartSyncTask(ctx, self.GetUserCred(), false, self.Id)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, "qga restart network success", self.UserCred, true)
+	guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestQgaRestartNetworkTask) PerformSetNetwork(ctx context.Context, obj db.IStandaloneModel, device string, ipMask string, gateway string) (jsonutils.JSONObject, error) {
 	guest := obj.(*models.SGuest)
+	host, err := guest.GetHost()
+	if err != nil {
+		self.taskFailed(ctx, guest, "", false, err)
+		return nil, err
+	}
 	inputQgaNet := &api.ServerQgaSetNetworkInput{
 		Device:  device,
 		Ipmask:  ipMask,
@@ -77,16 +83,13 @@ func (self *GuestQgaRestartNetworkTask) PerformSetNetwork(ctx context.Context, o
 	}
 
 	// if success, log network related information
-	notesNetwork := jsonutils.NewDict()
-	notesNetwork.Add(jsonutils.NewString(inputQgaNet.Device), "Device")
-	notesNetwork.Add(jsonutils.NewString(inputQgaNet.Ipmask), "Ipmask")
-	notesNetwork.Add(jsonutils.NewString(inputQgaNet.Gateway), "Gateway")
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, notesNetwork, self.UserCred, true)
-	return guest.PerformQgaSetNetwork(ctx, self.UserCred, nil, inputQgaNet)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, inputQgaNet, self.UserCred, true)
+	return guest.GetDriver().QgaRequestSetNetwork(ctx, self.UserCred, jsonutils.Marshal(inputQgaNet), host, guest)
 }
 
 func (self *GuestQgaRestartNetworkTask) taskFailed(ctx context.Context, guest *models.SGuest, prevIp string, inBlockStream bool, err error) {
 	guest.SetStatus(self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
+	guest.UpdateQgaStatus(api.QGA_STATUS_EXECUTE_FAILED)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, jsonutils.NewString(err.Error()), self.UserCred, false)
 	if prevIp != "" {
 		//use ansible to restart network
