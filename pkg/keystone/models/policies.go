@@ -76,7 +76,7 @@ func init() {
 
 type SPolicy struct {
 	SEnabledIdentityBaseResource
-	db.SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
+	db.SSharableBaseResource `"is_public->create":"domain_optional" "public_scope->create":"domain_optional"`
 
 	// swagger:ignore
 	// Deprecated
