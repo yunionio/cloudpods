@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -91,7 +92,13 @@ func init() {
 		vers := map[string]string{}
 		for _, service := range services {
 			serviceType, _ := service.GetString("type")
-			if utils.IsInStringArray(serviceType, []string{"offlinecloudmeta"}) {
+			if utils.IsInStringArray(serviceType, []string{
+				apis.SERVICE_TYPE_OFFLINE_CLOUDMETA,
+				apis.SERVICE_TYPE_CLOUDMETA,
+				apis.SERVICE_TYPE_INFLUXDB,
+				apis.SERVICE_TYPE_ETCD,
+				"torrent-tracker",
+			}) {
 				continue
 			}
 			ver, err := modules.GetVersion(s, serviceType)
