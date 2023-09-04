@@ -311,7 +311,7 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 	query := req.Query()
 
 	module2, e := modulebase.GetModule(session, req.Spec())
-	if e != nil {
+	if e != nil || module.GetSpecificMethods().Has(req.Spec()) {
 		obj, e := module.GetSpecific(session, req.ResID(), req.Spec(), query)
 		if e != nil {
 			httperrors.GeneralServerError(ctx, w, e)
