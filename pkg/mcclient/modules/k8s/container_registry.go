@@ -44,11 +44,13 @@ type ContainerRegistryManager struct {
 }
 
 func NewContainerRegistryManager() *ContainerRegistryManager {
-	return &ContainerRegistryManager{
+	man := &ContainerRegistryManager{
 		ResourceManager: NewResourceManager("container_registry", "container_registries",
 			NewResourceCols("Url", "Type"),
 			NewColumns()),
 	}
+	man.SetSpecificMethods("images")
+	return man
 }
 
 func (m *ContainerRegistryManager) UploadImage(s *mcclient.ClientSession, id string, params jsonutils.JSONObject, body io.Reader, size int64) (jsonutils.JSONObject, error) {
