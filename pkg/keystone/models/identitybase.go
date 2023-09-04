@@ -104,7 +104,7 @@ func NewEnabledIdentityBaseResourceManager(dt interface{}, tableName string, key
 type SEnabledIdentityBaseResource struct {
 	SIdentityBaseResource
 
-	db.SEnabledResourceBase `enabled=>default:"true" enabled=>list:"user" enabled=>update:"domain" enabled=>create:"domain_optional"`
+	db.SEnabledResourceBase `"enabled->default":"true" "enabled->list":"user" "enabled->update":"domain" "enabled->create":"domain_optional"`
 }
 
 func (model *SIdentityBaseResource) GetIIdentityModelManager() IIdentityModelManager {
