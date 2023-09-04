@@ -1188,6 +1188,13 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 				}
 				newCloudprovider.ProjectId = projectId
 				newCloudprovider.DomainId = domainId
+			} else {
+				lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
+				if err != nil {
+					return err
+				}
 			}
 			return CloudproviderManager.TableSpec().Insert(ctx, &newCloudprovider)
 		}()
