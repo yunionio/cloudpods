@@ -478,6 +478,7 @@ func (host *SHost) fetchNicInfo(debug bool) []sHostNicInfo {
 		}
 	}
 
+	visited := make(map[string]IVMNetwork)
 	dc, err := host.GetDatacenter()
 	if err != nil {
 		log.Errorf("fetchNicInfo GetDatacenter fail %s", err)
@@ -486,10 +487,9 @@ func (host *SHost) fetchNicInfo(debug bool) []sHostNicInfo {
 		for _, pg := range moHost.Config.Network.Portgroup {
 			// log.Debugf("portgroup: %s %#v", jsonutils.Marshal(pg), pg)
 			netName := pg.Spec.Name
-			net, err := dc.getNetworkByName(netName)
-			if err != nil {
-				log.Errorf("fetchNicInfo dc.getNetworkByName fail %s", err)
-			} else {
+			net, _ := dc.getNetworkByName(netName)
+			if net != nil {
+				visited[net.GetName()] = net
 				info := sHostNicInfo{
 					host:    host,
 					network: net,
@@ -502,6 +502,32 @@ func (host *SHost) fetchNicInfo(debug bool) []sHostNicInfo {
 				info.VlanId = int(pg.Spec.VlanId)
 				nicInfoList = append(nicInfoList, info)
 			}
+		}
+	}
+
+	networks, err := host.GetNetworks()
+	if err != nil {
+		log.Errorf("GetNetworks %s", err)
+	} else {
+		for i := range networks {
+			net := networks[i]
+
+			if _, ok := visited[net.GetName()]; ok {
+				continue
+			}
+			visited[net.GetName()] = net
+
+			info := sHostNicInfo{
+				host:    host,
+				network: net,
+			}
+			info.Dev = net.GetVswitchName()
+			info.Driver = net.GetType()
+			info.LinkUp = true
+			info.Mtu = 1500
+			info.Index = int8(len(nicInfoList))
+			info.VlanId = int(net.GetVlanId())
+			nicInfoList = append(nicInfoList, info)
 		}
 	}
 

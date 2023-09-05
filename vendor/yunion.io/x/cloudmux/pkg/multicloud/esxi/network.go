@@ -36,6 +36,9 @@ type IVMNetwork interface {
 	GetName() string
 	GetType() string
 
+	GetVlanId() int32
+	GetVswitchName() string
+
 	Summary() SNetworkSummary
 	SummaryText() string
 
@@ -106,6 +109,14 @@ func (net *SNetwork) SummaryText() string {
 
 func (net *SNetwork) GetHosts() []types.ManagedObjectReference {
 	return net.getMONetwork().Host
+}
+
+func (net *SNetwork) GetVlanId() int32 {
+	return 1
+}
+
+func (net *SNetwork) GetVswitchName() string {
+	return ""
 }
 
 func (net *SDistributedVirtualPortgroup) getMODVPortgroup() *mo.DistributedVirtualPortgroup {
@@ -198,6 +209,17 @@ func (net *SDistributedVirtualPortgroup) GetDVSUuid() (string, error) {
 		return "", errors.Wrap(err, "reference2Object")
 	}
 	return dvs.Uuid, nil
+}
+
+func (net *SDistributedVirtualPortgroup) GetVswitchName() string {
+	dvgp := net.getMODVPortgroup()
+	var dvs mo.DistributedVirtualSwitch
+	err := net.manager.reference2Object(*dvgp.Config.DistributedVirtualSwitch, []string{"name"}, &dvs)
+	if err != nil {
+		log.Errorf("retrieve DistributedVirtualSwitch fail %s", err)
+		return ""
+	}
+	return dvs.Name
 }
 
 func (net *SDistributedVirtualPortgroup) FindPort() (*types.DistributedVirtualPort, error) {

@@ -42,7 +42,11 @@ func (wire *sWire) GetName() string {
 }
 
 func (wire *sWire) GetGlobalId() string {
-	return wire.network.GetId()
+	if wire.client.IsVCenter() {
+		return fmt.Sprintf("%s/%s", wire.client.GetUUID(), wire.network.GetId())
+	} else {
+		return wire.network.GetId()
+	}
 }
 
 func (wire *sWire) GetCreatedAt() time.Time {

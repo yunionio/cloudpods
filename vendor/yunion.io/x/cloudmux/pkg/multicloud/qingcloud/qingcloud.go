@@ -231,6 +231,10 @@ func (self *SQingCloudClient) request(service, action, regionId string, params m
 	}
 	retCode, _ := resp.Int("ret_code")
 	if retCode > 0 {
+		// https://docs.qingcloud.com/product/api/common/error_code.html
+		if retCode == 1200 {
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, resp.String())
+		}
 		return nil, errors.Errorf(resp.String())
 	}
 	return resp, nil

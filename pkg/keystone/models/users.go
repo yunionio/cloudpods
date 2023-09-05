@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -833,18 +834,25 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)
 	}
 	if enabled, _ := data.Bool("enabled"); enabled {
-		localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+		err := user.clearFailedAuth()
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return
-			}
-			log.Errorf("unable to fetch localUser of user %q in domain %q: %v", user.Id, user.DomainId, err)
-			return
-		}
-		if err = localUser.ClearFailedAuth(); err != nil {
-			log.Errorf("unable to clear failed auth: %v", err)
+			log.Errorf("clearFailedAuth %s", err)
 		}
 	}
+}
+
+func (user *SUser) clearFailedAuth() error {
+	localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return errors.Wrapf(err, "unable to fetch localUser of user %q in domain %q", user.Id, user.DomainId)
+	}
+	if err = localUser.ClearFailedAuth(); err != nil {
+		return errors.Wrap(err, "unable to clear failed auth")
+	}
+	return nil
 }
 
 func (user *SUser) ValidateDeleteCondition(ctx context.Context, info *api.UserDetails) error {
@@ -1305,4 +1313,17 @@ func (user *SUser) PerformResetCredentials(
 		}
 	}
 	return nil, nil
+}
+
+func (user *SUser) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformEnableInput,
+) (jsonutils.JSONObject, error) {
+	err := user.clearFailedAuth()
+	if err != nil {
+		log.Errorf("clearFailedAuth %s", err)
+	}
+	return user.SEnabledIdentityBaseResource.PerformEnable(ctx, userCred, query, input)
 }

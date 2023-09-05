@@ -5330,16 +5330,17 @@ func (host *SHost) findNetIfs(netIfs []SNetInterface, mac string, vlanId int) *S
 }
 
 func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.TokenCredential, ihost cloudprovider.ICloudHost, provider *SCloudprovider) compare.SyncResult {
-	log.Debugf("SyncHostExternalNics %s-%s", host.Name, ihost.GetName())
-
 	result := compare.SyncResult{}
 
 	netIfs := host.GetHostNetInterfaces()
 	extNics, err := ihost.GetIHostNics()
 	if err != nil {
+		log.Errorf("GetIHostNics fail %s", err)
 		result.Error(err)
 		return result
 	}
+
+	log.Debugf("SyncHostExternalNics for host %s netIfs %d ihost %s extNics %d", host.Name, len(netIfs), ihost.GetName(), len(extNics))
 
 	disables := make([]*SNetInterface, 0)
 	enables := make([]cloudprovider.ICloudHostNetInterface, 0)
@@ -5377,13 +5378,28 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 						enables = append(enables, extNics[j])
 					}
 				} else {
+					wireId := ""
+					extWire := extNics[j].GetIWire()
+					if extWire != nil {
+						wire, err := WireManager.FetchWireByExternalId(provider.Id, extWire.GetGlobalId())
+						if err != nil {
+							result.AddError(err)
+						} else {
+							wireId = wire.Id
+						}
+					}
 					// in sync, sync interface and bridge
-					if netIfs[i].Bridge != extNics[j].GetBridge() || netIfs[i].Interface != extNics[j].GetDevice() {
-						db.Update(&netIfs[i], func() error {
+					if netIfs[i].Bridge != extNics[j].GetBridge() || netIfs[i].Interface != extNics[j].GetDevice() || netIfs[i].WireId != wireId {
+						_, err := db.Update(&netIfs[i], func() error {
 							netIfs[i].Interface = extNics[j].GetDevice()
 							netIfs[i].Bridge = extNics[j].GetBridge()
+							netIfs[i].WireId = wireId
 							return nil
 						})
+						if err != nil {
+							result.Error(errors.Wrap(err, "update interface and bridge fail"))
+							return result
+						}
 					}
 				}
 				break
@@ -5428,8 +5444,11 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 		}
 	}
 
+	log.Debugf("SyncHostExternalNics %s remove %d disable %d enable %d add %d", host.Name, len(removes), len(disables), len(enables), len(adds))
+
 	for i := len(removes) - 1; i >= 0; i -= 1 {
-		err = host.RemoveNetif(ctx, userCred, removes[i].netif, removes[i].reserveIp)
+		log.Debugf("remove netif %s", removes[i].netif.Mac)
+		err := host.RemoveNetif(ctx, userCred, removes[i].netif, removes[i].reserveIp)
 		if err != nil {
 			result.DeleteError(err)
 		} else {
@@ -5438,7 +5457,8 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 	}
 
 	for i := len(disables) - 1; i >= 0; i -= 1 {
-		err = host.DisableNetif(ctx, userCred, disables[i], false)
+		log.Debugf("disable netif %s", disables[i].Mac)
+		err := host.DisableNetif(ctx, userCred, disables[i], false)
 		if err != nil {
 			result.DeleteError(err)
 		} else {
@@ -5449,6 +5469,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 	for i := 0; i < len(enables); i += 1 {
 		netif := host.GetNetInterface(enables[i].GetMac(), enables[i].GetVlanId())
 		// always true reserved address pool
+		log.Debugf("enable netif %s", enables[i].GetMac())
 		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", true, true)
 		if err != nil {
 			result.AddError(err)
@@ -5458,6 +5479,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 	}
 
 	for i := 0; i < len(adds); i += 1 {
+		log.Debugf("add netif %s", adds[i].netif.GetMac())
 		// always try reserved pool
 		extNic := adds[i].netif
 		var strNetIf, strBridge *string

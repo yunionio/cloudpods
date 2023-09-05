@@ -125,22 +125,7 @@ type SInstance struct {
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	udata := &ec2.BlobAttributeValue{}
-	udata.SetValue([]byte(userData))
-
-	input := &ec2.ModifyInstanceAttributeInput{}
-	input.SetUserData(udata)
-	input.SetInstanceId(self.GetId())
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.ModifyInstanceAttribute(input)
-	if err != nil {
-		return errors.Wrap(err, "ModifyInstanceAttribute")
-	}
-
-	return nil
+	return self.host.zone.region.ModifyInstanceAttribute(self.InstanceId, &SInstanceAttr{UserData: userData})
 }
 
 func (self *SInstance) GetUserData() (string, error) {
@@ -556,7 +541,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return self.host.zone.region.ChangeVMConfig2(self.ZoneId, self.InstanceId, instanceType, nil)
+	return self.host.zone.region.ChangeVMConfig2(self.InstanceId, instanceType)
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
@@ -945,50 +930,37 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
-	params := &ec2.StartInstancesInput{}
-	params.SetInstanceIds([]*string{&instanceId})
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"InstanceId.1": instanceId,
 	}
-	_, err = ec2Client.StartInstances(params)
-	return errors.Wrap(err, "StartInstances")
+	ret := struct{}{}
+	return self.ec2Request("StartInstances", params, &ret)
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	params := &ec2.StopInstancesInput{}
-	params.SetInstanceIds([]*string{&instanceId})
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"InstanceId.1": instanceId,
 	}
-	_, err = ec2Client.StopInstances(params)
-	return errors.Wrap(err, "StopInstances")
+	if isForce {
+		params["Force"] = "true"
+	}
+	ret := struct{}{}
+	return self.ec2Request("StopInstances", params, &ret)
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
-	// 检查删除保护状态.如果已开启则先关闭删除保护再进行删除操作
-	protect, err := self.deleteProtectStatusVM(instanceId)
+	disableApiTermination := false
+	err := self.ModifyInstanceAttribute(instanceId, &SInstanceAttr{
+		DisableApiTermination: &disableApiTermination,
+	})
 	if err != nil {
 		return err
 	}
-
-	if protect {
-		log.Warningf("DeleteVM instance %s which termination protect is in open status", instanceId)
-		err = self.deleteProtectVM(instanceId, false)
-		if err != nil {
-			return err
-		}
+	params := map[string]string{
+		"InstanceId.1": instanceId,
 	}
-
-	params := &ec2.TerminateInstancesInput{}
-	params.SetInstanceIds([]*string{&instanceId})
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.TerminateInstances(params)
-	return errors.Wrap(err, "TerminateInstances")
+	ret := struct{}{}
+	return self.ec2Request("TerminateInstances", params, &ret)
 }
 
 func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
@@ -1150,91 +1122,63 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	return tempInstance.Disks[0], nil
 }
 
-func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
-	params := &ec2.ModifyInstanceAttributeInput{}
-	params.SetInstanceId(instanceId)
-
-	t := &ec2.AttributeValue{Value: &instanceType}
-	params.SetInstanceType(t)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.ModifyInstanceAttribute(params)
-	if err != nil {
-		return fmt.Errorf("Failed to change vm config, specification not supported. %s", err.Error())
-	} else {
-		return nil
-	}
+func (self *SRegion) ChangeVMConfig2(instanceId string, instanceType string) error {
+	return self.ModifyInstanceAttribute(instanceId, &SInstanceAttr{InstanceType: instanceType})
 }
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
-	params := &ec2.DetachVolumeInput{}
-	params.SetInstanceId(instanceId)
-	params.SetVolumeId(diskId)
-	log.Debugf("DetachDisk %s", params.String())
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"VolumeId":   diskId,
 	}
 
-	_, err = ec2Client.DetachVolume(params)
+	ret := struct{}{}
+	err := self.ec2Request("DetachVolume", params, &ret)
 	if err != nil {
-		if strings.Contains(err.Error(), fmt.Sprintf("'%s'is in the 'available' state", diskId)) {
+		if strings.Contains(err.Error(), "in the 'available' state") {
 			return nil
 		}
-		//InvalidVolume.NotFound: The volume 'vol-0a9eeda0a70a8d7fe' does not exist
-		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
-		return errors.Wrap(err, "ec2Client.DetachVolume")
+		return errors.Wrapf(err, "DetachVolume")
 	}
+
 	return nil
 }
 
 func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName string) error {
-	params := &ec2.AttachVolumeInput{}
-	params.SetInstanceId(instanceId)
-	params.SetVolumeId(diskId)
-	params.SetDevice(deviceName)
-	log.Debugf("AttachDisk %s", params.String())
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"VolumeId":   diskId,
+		"Device":     deviceName,
 	}
-	_, err = ec2Client.AttachVolume(params)
-	return errors.Wrap(err, "AttachVolume")
+
+	ret := struct{}{}
+	return self.ec2Request("AttachVolume", params, &ret)
 }
 
-func (self *SRegion) deleteProtectStatusVM(instanceId string) (bool, error) {
-	p := &ec2.DescribeInstanceAttributeInput{}
-	p.SetInstanceId(instanceId)
-	p.SetAttribute("disableApiTermination")
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return false, errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeInstanceAttribute(p)
-	if err != nil {
-		return false, err
-	}
-
-	return *ret.DisableApiTermination.Value, nil
+type SInstanceAttr struct {
+	DisableApiTermination *bool
+	InstanceType          string
+	UserData              string
 }
 
-func (self *SRegion) deleteProtectVM(instanceId string, disableDelete bool) error {
-	p2 := &ec2.ModifyInstanceAttributeInput{
-		DisableApiTermination: &ec2.AttributeBooleanValue{Value: &disableDelete},
-		InstanceId:            &instanceId,
+func (self *SRegion) ModifyInstanceAttribute(instanceId string, opts *SInstanceAttr) error {
+	params := map[string]string{
+		"InstanceId": instanceId,
 	}
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	if len(opts.InstanceType) > 0 {
+		params["InstanceType.Value"] = opts.InstanceType
 	}
-	_, err = ec2Client.ModifyInstanceAttribute(p2)
-	return errors.Wrap(err, "ModifyInstanceAttribute")
+	if len(opts.UserData) > 0 {
+		params["UserData.Value"] = base64.StdEncoding.Strict().EncodeToString([]byte(opts.UserData))
+	}
+	if opts.DisableApiTermination != nil {
+		params["DisableApiTermination.Value"] = fmt.Sprintf("%v", opts.DisableApiTermination)
+	}
+	ret := struct{}{}
+	return self.ec2Request("ModifyInstanceAttribute", params, &ret)
 }
 
 func (self *SRegion) getPasswordData(instanceId string) (string, error) {

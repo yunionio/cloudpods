@@ -34,6 +34,8 @@ func init() {
 	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("enable", &identity_options.UserDetailOptions{})
+	cmd.Perform("disable", &identity_options.UserDetailOptions{})
 
 	/*type UserListOptions struct {
 		options.BaseListOptions

@@ -994,9 +994,15 @@ func (manager *SGuestnetworkManager) FetchByIdsAndIpMac(guestId string, netId st
 }
 
 func (manager *SGuestnetworkManager) FetchByGuestId(guestId string) ([]SGuestnetwork, error) {
-	q := manager.Query().
-		Equals("guest_id", guestId)
-	q = q.Asc(q.Field("index"))
+	return manager.fetchGuestNetworks(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("guest_id", guestId).Asc(q.Field("index"))
+		return q
+	})
+}
+
+func (manager *SGuestnetworkManager) fetchGuestNetworks(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SGuestnetwork, error) {
+	q := manager.Query()
+	q = filter(q)
 	var rets []SGuestnetwork
 	if err := db.FetchModelObjects(manager, q, &rets); err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
