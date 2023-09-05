@@ -47,7 +47,7 @@ func NewInfrasResourceBaseManager(
 
 type SInfrasResourceBase struct {
 	SDomainLevelResourceBase
-	SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
+	SSharableBaseResource `"is_public->create":"domain_optional" "public_scope->create":"domain_optional"`
 }
 
 func (manager *SInfrasResourceBaseManager) GetIInfrasModelManager() IInfrasModelManager {
