@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -41,6 +42,8 @@ type BaseManager struct {
 
 	columns      []string
 	adminColumns []string
+
+	specificMethods sets.String
 }
 
 func NewBaseManager(serviceType, endpointType, version string, columns, adminColumns []string) *BaseManager {
@@ -49,9 +52,18 @@ func NewBaseManager(serviceType, endpointType, version string, columns, adminCol
 		endpointType: endpointType,
 		version:      version,
 		// apiVersion:   apiVersion,
-		columns:      columns,
-		adminColumns: adminColumns,
+		columns:         columns,
+		adminColumns:    adminColumns,
+		specificMethods: sets.NewString(),
 	}
+}
+
+func (m *BaseManager) GetSpecificMethods() sets.String {
+	return m.specificMethods
+}
+
+func (m *BaseManager) SetSpecificMethods(ms ...string) {
+	m.specificMethods = sets.NewString(ms...)
 }
 
 func (this *BaseManager) GetColumns(session *mcclient.ClientSession) []string {

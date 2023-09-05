@@ -33,6 +33,7 @@ func initContainerRegistry() {
 	cmd := NewK8sResourceCmd(k8s.ContainerRegistries)
 	cmd.List(new(o.RegistryListOptions))
 	cmd.Show(new(o.RegistryGetOptions))
+	cmd.Delete(new(o.RegistryGetOptions))
 	cmd.Create(new(o.RegistryCreateOptions))
 	cmd.Get("images", new(o.RegistryGetImagesOptions))
 	cmd.Get("image-tags", new(o.RegistryGetImageTagsOptions))
