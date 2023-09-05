@@ -120,7 +120,7 @@ build_image() {
         if [[ "$tag" == *"amd64" || "$ARCH" == "" || "$ARCH" == "amd64" || "$ARCH" == "x86_64" || "$ARCH" == "x86" ]]; then
             docker buildx build -t "$tag" -f "$file" "$path" --push --platform linux/amd64
         elif [[ "$tag" == *"arm64" || "$ARCH" == "arm64" ]]; then
-            docker buildx build -t "$tag" -f "$file" "$path" --push --platform linux/amd64
+            docker buildx build -t "$tag" -f "$file" "$path" --push --platform linux/arm64
         else
             docker buildx build -t "$tag" -f "$file" "$path" --push
         fi
