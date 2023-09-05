@@ -51,7 +51,7 @@ func InitSyncWorkers(count int) {
 	syncWorkerRing = hashring.New(syncWorkerIndexes)
 	syncAccountWorker = appsrv.NewWorkerManager(
 		"cloudAccountProbeWorkerManager",
-		1,
+		10,
 		2048,
 		true,
 	)
