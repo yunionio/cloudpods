@@ -30,7 +30,7 @@ import (
 
 type SSharableVirtualResourceBase struct {
 	SVirtualResourceBase
-	SSharableBaseResource `"is_public=>create":"optional" "public_scope=>create":"optional"`
+	SSharableBaseResource `"is_public->create":"optional" "public_scope->create":"optional"`
 	// IsPublic    bool   `default:"false" nullable:"false" create:"domain_optional" list:"user" json:"is_public"`
 	// PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" create:"domain_optional" list:"user" json:"public_scope"`
 }
