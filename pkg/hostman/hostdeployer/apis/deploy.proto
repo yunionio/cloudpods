@@ -88,6 +88,7 @@ message DeployInfo {
   bool enable_cloud_init = 8;
   string login_account = 9;
   Telegraf telegraf = 10;
+  string user_data = 11;
 }
 
 message Telegraf {

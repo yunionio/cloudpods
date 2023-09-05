@@ -18,10 +18,14 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
-	"fmt"
 	"io/ioutil"
+	"strings"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/cloudinit"
+	"yunion.io/x/pkg/util/osprofile"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -58,16 +62,32 @@ func Decode(encodeUserdata string) (string, error) {
 	return string(data), nil
 }
 
-func ValidateUserdata(data string) error {
+func ValidateUserdata(data string, osType string) error {
 	if len(data) == 0 {
 		return nil
 	}
+	_, err := cloudinit.ParseUserData(data)
+	if err != nil {
+		if osType == osprofile.OS_TYPE_WINDOWS {
+			if strings.HasPrefix(data, "[bat]\n") || strings.HasPrefix(data, "[powershell]\n") {
+				// valid
+			} else {
+				return errors.Wrap(httperrors.ErrInputParameter, "invalid windows scripts")
+			}
+		} else {
+			if strings.HasPrefix(data, "#!/bin/sh\n") || strings.HasPrefix(data, "#!/bin/bash\n") || strings.HasPrefix(data, "#!/usr/bin/env bash") {
+				// valid
+			} else {
+				return errors.Wrap(httperrors.ErrInputParameter, "invalid shell scripts")
+			}
+		}
+	}
 	encodeData, err := Encode(data)
 	if err != nil {
-		return errors.Wrapf(err, "Encode data")
+		return errors.Wrapf(httperrors.ErrInputParameter, "Encode data error %s", err)
 	}
 	if len(encodeData) > UserdataLimitSize {
-		return errors.New(fmt.Sprintf("user data size %d large limit %d", len(encodeData), UserdataLimitSize))
+		return errors.Wrapf(httperrors.ErrInputParameter, "user data size %d large limit %d", len(encodeData), UserdataLimitSize)
 	}
 	return nil
 }

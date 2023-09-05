@@ -188,12 +188,15 @@ func (f *SLocalGuestFS) Stat(usrDir string, caseInsensitive bool) os.FileInfo {
 }
 
 func (f *SLocalGuestFS) Symlink(src string, dst string, caseInsensitive bool) error {
-	dir := path.Dir(src)
-	if err := f.Mkdir(path.Dir(src), 0755, caseInsensitive); err != nil {
+	dir := path.Dir(dst)
+	if err := f.Mkdir(dir, 0755, caseInsensitive); err != nil {
 		return errors.Wrapf(err, "Mkdir %s", dir)
 	}
-	src = f.GetLocalPath(src, caseInsensitive)
-	dst = f.GetLocalPath(dst, caseInsensitive)
+	if f.Exists(dst, caseInsensitive) {
+		f.Remove(dst, caseInsensitive)
+	}
+	dir = f.GetLocalPath(dir, caseInsensitive)
+	dst = path.Join(dir, path.Base(dst))
 	return os.Symlink(src, dst)
 }
 

@@ -381,27 +381,11 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
-	disk, err := self.GetDisk(diskId)
-	if err != nil {
-		return err
+	params := map[string]string{
+		"VolumeId": diskId,
 	}
-
-	if disk.Status != ec2.VolumeStateAvailable {
-		return fmt.Errorf("disk status not in %s", ec2.VolumeStateAvailable)
-	}
-	params := &ec2.DeleteVolumeInput{}
-	if len(diskId) <= 0 {
-		return fmt.Errorf("disk id should not be empty")
-	}
-
-	params.SetVolumeId(diskId)
-	log.Debugf("DeleteDisk with params: %s", params.String())
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.DeleteVolume(params)
-	return err
+	ret := struct{}{}
+	return self.ec2Request("DeleteVolume", params, &ret)
 }
 
 func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
