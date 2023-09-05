@@ -80,6 +80,10 @@ type sStoragecacheSyncPair struct {
 	isNew  bool
 }
 
+func (self *sStoragecacheSyncPair) isValid() bool {
+	return self.local != nil && self.region != nil && self.remote != nil
+}
+
 func (pair *sStoragecacheSyncPair) syncCloudImages(ctx context.Context, userCred mcclient.TokenCredential, xor bool) compare.SyncResult {
 	return pair.local.SyncCloudImages(ctx, userCred, pair.remote, pair.region, xor)
 }
@@ -794,8 +798,11 @@ func syncZoneStorages(
 			}
 
 			if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) && !isInCache(newCacheIds, localStorages[i].StoragecacheId) {
-				cachePair := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i], syncRange.Xor)
-				if cachePair.remote != nil && cachePair.local != nil {
+				cachePair, err := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i], syncRange.Xor)
+				if err != nil {
+					log.Errorf("syncStorageCaches for storage %s(%s) error: %v", localStorages[i].Name, localStorages[i].Id, err)
+				}
+				if cachePair.isValid() {
 					newCacheIds = append(newCacheIds, cachePair)
 				}
 			}
@@ -807,29 +814,29 @@ func syncZoneStorages(
 	return newCacheIds
 }
 
-func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage, xor bool) (cachePair sStoragecacheSyncPair) {
+func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage, xor bool) (sStoragecacheSyncPair, error) {
+	var cachePair sStoragecacheSyncPair
 	log.Debugf("syncStorageCaches for storage %s", localStorage.GetId())
 	remoteCache := remoteStorage.GetIStoragecache()
 	if remoteCache == nil {
-		log.Errorf("remote storageCache is nil")
-		return
+		return cachePair, fmt.Errorf("remote storageCache is nil")
 	}
 	localCache, isNew, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache, provider, xor)
 	if err != nil {
-		msg := fmt.Sprintf("SyncWithCloudStoragecache for storage %s failed %s", remoteStorage.GetName(), err)
-		log.Errorf(msg)
-		return
+		return cachePair, errors.Wrapf(err, "SyncWithCloudStoragecache provider %s with storage %s(%s)", provider.Name, localStorage.Name, localStorage.Id)
 	}
 	err = localStorage.SetStoragecache(userCred, localCache)
 	if err != nil {
-		msg := fmt.Sprintf("localStorage %s set cache failed: %s", localStorage.GetName(), err)
-		log.Errorf(msg)
+		return cachePair, errors.Wrapf(err, "SetStoragecache %s(%s)", localCache.Name, localCache.Id)
 	}
 	cachePair.local = localCache
 	cachePair.remote = remoteCache
 	cachePair.isNew = isNew
-	cachePair.region, _ = localStorage.GetRegion()
-	return
+	cachePair.region, err = localStorage.GetRegion()
+	if err != nil {
+		return cachePair, errors.Wrapf(err, "GetRegion for storage %s", localStorage.Id)
+	}
+	return cachePair, nil
 }
 
 func syncStorageDisks(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage, syncRange *SSyncRange) {
@@ -943,7 +950,11 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 	for i := 0; i < len(localStorages); i += 1 {
 		syncMetadata(ctx, userCred, &localStorages[i], remoteStorages[i])
 		if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) && !isInCache(newCacheIds, localStorages[i].StoragecacheId) {
-			cachePair := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i], xor)
+			cachePair, err := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i], xor)
+			if err != nil {
+				log.Errorf("syncStorageCaches for host %s(%s) error: %v", localHost.Name, localHost.Id, err)
+				continue
+			}
 			if cachePair.remote != nil && cachePair.local != nil {
 				newCacheIds = append(newCacheIds, cachePair)
 			}
@@ -2310,8 +2321,11 @@ func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.To
 			}
 
 			if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) {
-				cachePair := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i], syncRange.Xor)
-				if cachePair.remote != nil && cachePair.local != nil {
+				cachePair, err := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i], syncRange.Xor)
+				if err != nil {
+					log.Errorf("syncStorageCaches for storage %s(%s) error: %v", localStorages[i].Name, localStorages[i].Id, err)
+				}
+				if cachePair.isValid() {
 					storageCachePairs = append(storageCachePairs, cachePair)
 				}
 			}
