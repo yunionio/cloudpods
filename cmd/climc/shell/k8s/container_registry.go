@@ -67,20 +67,38 @@ func initContainerRegistry() {
 	})
 
 	type DownloadOptions struct {
-		REGISTRY string `help:"The name or id of registry" json:"-"`
 		NAME     string `help:"The name of image, e.g. 'influxdb:1.7.7'"`
+		Registry string `help:"The name or id of registry" json:"-"`
 		Output   string `help:"Saved file path"`
+		Insecure bool   `help:"Set insecure"`
+		Username string `help:"Image registry username, effective only when --registry is not specified"`
+		Password string `help:"Image registry password, effective only when --registry is not specified"`
 	}
 	R(new(DownloadOptions), "k8s-container-registry-download-image", "Download container image to a file", func(s *mcclient.ClientSession, args *DownloadOptions) error {
-		parts := strings.Split(args.NAME, ":")
-		if len(parts) != 2 {
-			return errors.Errorf("invalid NAME %q, use format <name>:<tag>", args.NAME)
-		}
-		name := parts[0]
-		tag := parts[1]
-		fileName, src, size, err := k8s.ContainerRegistries.DownloadImage(s, args.REGISTRY, name, tag)
-		if err != nil {
-			return errors.Wrap(err, "download chart")
+		var (
+			fileName string
+			src      io.Reader
+			size     int64
+			err      error
+		)
+		if args.Registry != "" {
+			parts := strings.Split(args.NAME, ":")
+			if len(parts) != 2 {
+				return errors.Errorf("invalid NAME %q, use format <name>:<tag>", args.NAME)
+			}
+			name := parts[0]
+			tag := parts[1]
+			fileName, src, size, err = k8s.ContainerRegistries.DownloadImage(s, args.Registry, name, tag)
+			if err != nil {
+				return errors.Wrap(err, "download chart")
+			}
+		} else {
+			fileName, src, size, err = k8s.ContainerRegistries.DownloadImageByManager(s, &k8s.DownloadImageByManagerInput{
+				Insecure: args.Insecure,
+				Image:    args.NAME,
+				Username: args.Username,
+				Password: args.Password,
+			})
 		}
 		output := args.Output
 		if output == "" && fileName != "" {
