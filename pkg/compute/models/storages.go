@@ -718,7 +718,7 @@ func (self *SStorage) getZone() (*SZone, error) {
 func (self *SStorage) GetRegion() (*SCloudregion, error) {
 	zone, err := self.getZone()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "getZone")
 	}
 	return zone.GetRegion()
 }
