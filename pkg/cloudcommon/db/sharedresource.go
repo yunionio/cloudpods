@@ -99,6 +99,14 @@ func (manager *SSharedResourceManager) shareToTarget(
 	var requireScope rbacscope.TRbacScope
 	resScope := model.GetModelManager().ResourceScope()
 	switch resScope {
+	case rbacscope.ScopeUser:
+		switch targetType {
+		case SharedTargetDomain:
+			// should have system-level privileges
+			requireScope = rbacscope.ScopeSystem
+		case SharedTargetProject:
+			requireScope = rbacscope.ScopeDomain
+		}
 	case rbacscope.ScopeProject:
 		switch targetType {
 		case SharedTargetProject:
