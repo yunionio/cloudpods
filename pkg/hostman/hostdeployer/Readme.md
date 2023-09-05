@@ -1,8 +1,8 @@
 ```sh
 $ protoc --version
 libprotoc 3.21.5
-$ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
-$ go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+$ GOPROXY=direct go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+$ GOPROXY=direct go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
 ```
 
 ```sh

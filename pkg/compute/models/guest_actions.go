@@ -3322,7 +3322,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) setUserData(ctx context.Context, userCred mcclient.TokenCredential, data string) error {
-	if err := userdata.ValidateUserdata(data); err != nil {
+	if err := userdata.ValidateUserdata(data, self.OsType); err != nil {
 		return err
 	}
 	encodeData, err := userdata.Encode(data)

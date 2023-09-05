@@ -565,9 +565,6 @@ func (l *sLinuxRootFs) enableSerialConsoleSystemd(rootFs IDiskPartition) error {
 			log.Errorf("Enable %s root login: %v", tty, err)
 		}
 		sPath := fmt.Sprintf("/etc/systemd/system/getty.target.wants/getty@%s.service", tty)
-		if rootFs.Exists(sPath, false) {
-			rootFs.Remove(sPath, false)
-		}
 		if err := rootFs.Symlink("/usr/lib/systemd/system/getty@.service", sPath, false); err != nil {
 			return errors.Wrapf(err, "Symbol link tty %s", tty)
 		}
