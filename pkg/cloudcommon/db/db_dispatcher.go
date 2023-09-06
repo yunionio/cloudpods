@@ -1813,6 +1813,9 @@ func (dispatcher *DBModelDispatcher) FetchUpdateHeaderData(ctx context.Context, 
 
 func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
+	if data == nil {
+		data = jsonutils.NewDict()
+	}
 	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
