@@ -552,3 +552,29 @@ func (tenant *STenant) GetAllClassMetadata() (map[string]string, error) {
 	}
 	return ret, nil
 }
+
+func (manager *STenantCacheManager) ConvertIds(ids []string, isDomain bool) ([]string, error) {
+	var q *sqlchemy.SQuery
+	if isDomain {
+		q = manager.GetDomainQuery("id")
+	} else {
+		q = manager.GetTenantQuery("id")
+	}
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("id"), ids),
+		sqlchemy.In(q.Field("name"), ids),
+	))
+	q = q.Distinct()
+	results := []struct {
+		Id string
+	}{}
+	err := q.All(&results)
+	if err != nil {
+		return nil, errors.Wrap(err, "query")
+	}
+	ret := make([]string, len(results))
+	for i := range results {
+		ret[i] = results[i].Id
+	}
+	return ret, nil
+}
