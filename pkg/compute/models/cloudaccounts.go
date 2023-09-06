@@ -3085,16 +3085,8 @@ func (account *SCloudaccount) PerformProjectMapping(ctx context.Context, userCre
 	if len(input.ProjectId) == 0 && !input.AutoCreateProjectForProvider {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "empty project_id")
 	}
-	if input.AutoCreateProject {
+	if input.AutoCreateProject || input.AutoCreateProjectForProvider {
 		t, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, input.ProjectId, account.DomainId)
-		if err != nil {
-			return nil, errors.Wrap(err, "FetchTenantByIdOrNameInDomain")
-		}
-		input.ProjectId = t.Id
-	}
-
-	if input.AutoCreateProjectForProvider {
-		t, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, "system", account.DomainId)
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchTenantByIdOrNameInDomain")
 		}
