@@ -2895,9 +2895,11 @@ func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.C
 			return nil, errors.Wrapf(err, "unmarshal to array of deployapi.DeployContent")
 		}
 	}
+	userData, _ := s.desc.GetString("user_data")
 	deployInfo := deployapi.NewDeployInfo(publicKey, deployArray,
 		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "",
 		false, "",
+		userData,
 	)
 	return s.deployFs(tool, term, deployInfo)
 }

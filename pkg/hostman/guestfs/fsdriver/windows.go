@@ -160,7 +160,6 @@ func (w *SWindowsRootFs) GetArch(hostCpuArch string) string {
 		return apis.OS_ARCH_X86_64
 	} else if w.rootFs.Exists("/program files (arm)", true) {
 		return apis.OS_ARCH_AARCH64
-
 	}
 	if hostCpuArch == apis.OS_ARCH_AARCH32 {
 		return apis.OS_ARCH_AARCH32
