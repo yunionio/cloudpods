@@ -1901,7 +1901,8 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
-	if err := userdata.ValidateUserdata(input.UserData); err != nil {
+	// validate UserData
+	if err := userdata.ValidateUserdata(input.UserData, input.OsType); err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
 	}
 

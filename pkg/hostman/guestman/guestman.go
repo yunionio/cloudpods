@@ -753,6 +753,7 @@ func (m *SGuestManager) startDeploy(
 			password, deployParams.IsInit, false,
 			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser,
 			enableCloudInit, loginAccount, deployTelegraf, telegrafConfig,
+			guest.Desc.UserData,
 		),
 	)
 	if err != nil {

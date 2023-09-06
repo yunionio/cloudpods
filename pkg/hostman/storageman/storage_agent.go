@@ -34,6 +34,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -221,6 +222,7 @@ func (self esxiVm) GetName() string {
 func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
 	init := false
 	dataDict := data.(*jsonutils.JSONDict)
+	log.Debugf("dataDict: %s", dataDict)
 	action, _ := dataDict.GetString("action")
 	var (
 		needDeploy = true
@@ -286,26 +288,6 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	vmref := vm.GetMoid()
 	rootPath := disks[0].(*esxi.SVirtualDisk).GetFilename()
 
-	key := deployapi.SSHKeys{}
-	err = dataDict.Unmarshal(&key)
-	if err != nil {
-		return nil, errors.Wrapf(err, "%s: unmarshal to deployapi.SSHKeys", hostutils.ParamsError.Error())
-	}
-
-	deployArray := make([]*deployapi.DeployContent, 0)
-	if dataDict.Contains("deploys") {
-		err = dataDict.Unmarshal(&deployArray, "deploys")
-		if err != nil {
-			return nil, errors.Wrapf(err, "%s: unmarshal to array of deployapi.DeployContent", hostutils.ParamsError.Error())
-		}
-	}
-
-	resetPassword := jsonutils.QueryBoolean(dataDict, "reset_password", false)
-	passwd, _ := dataDict.GetString("password")
-	if resetPassword && len(passwd) == 0 {
-		passwd = seclib.RandomPassword(12)
-	}
-
 	log.Debugf("host: %s, port: %d, user: %s, passwd: %s", info.Host, info.Port, info.Account, info.Password)
 	var deploy *deployapi.DeployGuestFsResponse
 	if needDeploy {
@@ -322,21 +304,55 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 			return nil, errors.Wrapf(err, "%s: unmarshal to guestDesc", hostutils.ParamsError.Error())
 		}
 
-		desc, _ := dataDict.Get("desc")
+		var desc = new(desc.SGuestDesc)
+		err := dataDict.Unmarshal(desc, "desc")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal Guest Desc")
+		}
+		// desc, _ := dataDict.Get("desc")
 		guestDesc.Hypervisor = api.HYPERVISOR_ESXI
+
+		key := deployapi.SSHKeys{}
+		err = dataDict.Unmarshal(&key)
+		if err != nil {
+			return nil, errors.Wrapf(err, "%s: unmarshal to deployapi.SSHKeys", hostutils.ParamsError.Error())
+		}
+
+		deployArray := make([]*deployapi.DeployContent, 0)
+		if dataDict.Contains("deploys") {
+			err = dataDict.Unmarshal(&deployArray, "deploys")
+			if err != nil {
+				return nil, errors.Wrapf(err, "%s: unmarshal to array of deployapi.DeployContent", hostutils.ParamsError.Error())
+			}
+		}
+
+		passwd, _ := dataDict.GetString("password")
+		resetPassword := jsonutils.QueryBoolean(dataDict, "reset_password", false)
+		if resetPassword && len(passwd) == 0 {
+			passwd = seclib.RandomPassword(12)
+		}
+
+		enableCloudInit := jsonutils.QueryBoolean(dataDict, "enable_cloud_init", false)
+		loginAccount, _ := dataDict.GetString("login_account")
+		deployTelegraf := jsonutils.QueryBoolean(dataDict, "deploy_telegraf", false)
+		telegrafConfig, _ := dataDict.GetString("telegraf_conf")
+		if deployTelegraf && telegrafConfig == "" {
+			return nil, errors.Errorf("missing telegraf_conf")
+		}
+
+		deployInfo := deployapi.NewDeployInfo(&key, deployArray, passwd, init, false,
+			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser,
+			enableCloudInit, loginAccount, deployTelegraf, telegrafConfig,
+			desc.UserData,
+		)
+		log.Debugf("deployInfo: %s", jsonutils.Marshal(deployInfo))
 		deploy, err = deployclient.GetDeployClient().DeployGuestFs(ctx, &deployapi.DeployParams{
 			DiskInfo: &deployapi.DiskInfo{
 				Path: rootPath,
 			},
-			GuestDesc: &guestDesc,
-			DeployInfo: &deployapi.DeployInfo{
-				PublicKey:               &key,
-				Deploys:                 deployArray,
-				Password:                passwd,
-				IsInit:                  init,
-				WindowsDefaultAdminUser: true,
-			},
-			VddkInfo: &vddkInfo,
+			GuestDesc:  &guestDesc,
+			DeployInfo: deployInfo,
+			VddkInfo:   &vddkInfo,
 		})
 		customize := false
 		if err != nil {
@@ -352,9 +368,9 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 			log.Errorf("unable to DeployGuestFs: os is empty")
 			customize = true
 		}
-		if customize == true {
+		if customize {
 			as.waitVmToolsVersion(ctx, vm)
-			err = vm.DoCustomize(ctx, desc)
+			err = vm.DoCustomize(ctx, jsonutils.Marshal(desc))
 			if err != nil {
 				log.Errorf("unable to DoCustomize for vm %s: %v", vm.GetId(), err)
 			}

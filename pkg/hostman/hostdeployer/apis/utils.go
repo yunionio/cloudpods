@@ -37,6 +37,7 @@ func NewDeployInfo(
 	loginAccount string,
 	enableTelegraf bool,
 	telegrafConf string,
+	userData string,
 ) *DeployInfo {
 	depInfo := &DeployInfo{
 		PublicKey:               publicKey,
@@ -54,6 +55,7 @@ func NewDeployInfo(
 			TelegrafConf: telegrafConf,
 		}
 	}
+	depInfo.UserData = userData
 	return depInfo
 }
 

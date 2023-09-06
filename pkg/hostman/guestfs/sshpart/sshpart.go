@@ -268,9 +268,16 @@ func (p *SSHPartition) GetLocalPath(sPath string, caseI bool) string {
 }
 
 func (f *SSHPartition) Symlink(src string, dst string, caseInsensitive bool) error {
-	f.Mkdir(path.Dir(dst), 0755, caseInsensitive)
-	odstDir := f.GetLocalPath(path.Dir(dst), caseInsensitive)
-	return f.osSymlink(src, path.Join(odstDir, path.Base(dst)))
+	odstDir := path.Dir(dst)
+	if err := f.Mkdir(odstDir, 0755, caseInsensitive); err != nil {
+		return errors.Wrapf(err, "Mkdir %s", odstDir)
+	}
+	if f.Exists(dst, caseInsensitive) {
+		f.Remove(dst, caseInsensitive)
+	}
+	odstDir = f.GetLocalPath(odstDir, caseInsensitive)
+	dst = path.Join(odstDir, path.Base(dst))
+	return f.osSymlink(src, dst)
 }
 
 func (p *SSHPartition) Exists(sPath string, caseInsensitive bool) bool {
