@@ -398,10 +398,15 @@ func init() {
 	type ServerRemoveExtraOption struct {
 		ID  string `help:"ID or name of server"`
 		KEY string `help:"Option key"`
+
+		Value string `help:"Option value"`
 	}
 	R(&ServerRemoveExtraOption{}, "server-remove-extra-options", "Remove server extra options", func(s *mcclient.ClientSession, args *ServerRemoveExtraOption) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.KEY), "key")
+		if len(args.Value) > 0 {
+			params.Add(jsonutils.NewString(args.Value), "value")
+		}
 		result, err := modules.Servers.PerformAction(s, args.ID, "del-extra-option", params)
 		if err != nil {
 			return err
