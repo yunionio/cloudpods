@@ -69,6 +69,9 @@ func (e *SEventManager) CreateEvent(ctx context.Context, event, topicId, message
 }
 
 func (e *SEventManager) GetEvent(id string) (*SEvent, error) {
+	if len(id) == 0 {
+		return nil, nil
+	}
 	if consts.OpsLogWithClickhouse {
 		eventModel, err := e.FetchById(id)
 		if err != nil {
