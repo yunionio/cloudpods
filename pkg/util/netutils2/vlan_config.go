@@ -21,6 +21,8 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SVlanConfig struct {
@@ -34,11 +36,15 @@ const (
 )
 
 func parseVlanConfig() (map[string]*SVlanConfig, error) {
-	content, err := ioutil.ReadFile(vlanConfigPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "ReadFile")
+	var content string
+	if fileutils2.IsFile(vlanConfigPath) {
+		cont, err := ioutil.ReadFile(vlanConfigPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "ReadFile")
+		}
+		content = string(cont)
 	}
-	return parseVlanConfigContent(string(content))
+	return parseVlanConfigContent(content)
 }
 
 func parseVlanConfigContent(content string) (map[string]*SVlanConfig, error) {
