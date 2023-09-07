@@ -468,9 +468,10 @@ func (opts *BaseUpdateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type BasePublicOptions struct {
-	ID            string   `help:"ID or name of resource" json:"-"`
-	Scope         string   `help:"sharing scope" choices:"system|domain"`
-	SharedDomains []string `help:"share to domains"`
+	ID             string   `help:"ID or name of resource" json:"-"`
+	Scope          string   `help:"sharing scope" choices:"system|domain|project"`
+	SharedDomains  []string `help:"share to domains"`
+	SharedProjects []string `help:"share to projects"`
 }
 
 func (opts *BasePublicOptions) GetId() string {

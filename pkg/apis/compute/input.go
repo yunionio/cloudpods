@@ -38,6 +38,7 @@ type DeletePreventableCreateInput struct {
 
 type KeypairListInput struct {
 	apis.UserResourceListInput
+	apis.SharableResourceBaseListInput
 
 	// 加密类型
 	// example: RSA

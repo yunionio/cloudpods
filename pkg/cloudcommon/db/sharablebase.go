@@ -217,7 +217,47 @@ func SharableManagerValidateCreateData(
 func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		resScope := manager.ResourceScope()
-		if resScope == rbacscope.ScopeProject && scope == rbacscope.ScopeProject {
+		if resScope == rbacscope.ScopeUser {
+			targetProjectId := owner.GetProjectId()
+			if len(targetProjectId) == 0 {
+				targetProjectId = userCred.GetProjectId()
+			}
+			subq := SharedResourceManager.Query("resource_id")
+			subq = subq.Equals("resource_type", manager.Keyword())
+			subq = subq.Equals("target_project_id", targetProjectId)
+			subq = subq.Equals("target_type", SharedTargetProject)
+			subq2 := SharedResourceManager.Query("resource_id")
+			subq2 = subq2.Equals("resource_type", manager.Keyword())
+			subq2 = subq2.Equals("target_project_id", owner.GetProjectDomainId())
+			subq2 = subq2.Equals("target_type", SharedTargetDomain)
+			filters := []sqlchemy.ICondition{
+				sqlchemy.AND(
+					sqlchemy.IsTrue(q.Field("is_public")),
+					sqlchemy.Equals(q.Field("public_scope"), rbacscope.ScopeSystem),
+				),
+				sqlchemy.AND(
+					sqlchemy.IsTrue(q.Field("is_public")),
+					sqlchemy.Equals(q.Field("public_scope"), rbacscope.ScopeDomain),
+					sqlchemy.OR(
+						sqlchemy.In(q.Field("id"), subq2.SubQuery()),
+					),
+				),
+				sqlchemy.In(q.Field("id"), subq.SubQuery()),
+			}
+			ownerUserId := owner.GetUserId()
+			if len(ownerUserId) > 0 {
+				filters = append(filters, sqlchemy.Equals(q.Field("owner_id"), ownerUserId))
+			}
+			q = q.Filter(sqlchemy.OR(filters...))
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+				}
+			}
+		} else if resScope == rbacscope.ScopeProject && scope == rbacscope.ScopeProject {
 			ownerProjectId := owner.GetProjectId()
 			if len(ownerProjectId) > 0 {
 				subq := SharedResourceManager.Query("resource_id")
