@@ -67,6 +67,8 @@ type SReceiverNotification struct {
 	SendBy       string `width:"128"`
 	Status       string `width:"36" charset:"ascii"`
 	FailedReason string `width:"1024"`
+	// minutes
+	GroupTimes uint32
 }
 
 func (self *SReceiverNotificationManager) InitializeData() error {
@@ -81,10 +83,11 @@ func (self *SReceiverNotification) GetReceiver() (*SReceiver, error) {
 	return recv.(*SReceiver), nil
 }
 
-func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mcclient.TokenCredential, receiverID, notificationID string) (*SReceiverNotification, error) {
+func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mcclient.TokenCredential, receiverID string, groupTimes uint32, notificationID string) (*SReceiverNotification, error) {
 	rn := &SReceiverNotification{
 		ReceiverID:     receiverID,
 		NotificationID: notificationID,
+		GroupTimes:     groupTimes,
 		ReceiverType:   api.RECEIVER_TYPE_USER,
 		Status:         api.RECEIVER_NOTIFICATION_RECEIVED,
 		SendBy:         userCred.GetUserId(),
@@ -92,13 +95,14 @@ func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mc
 	return rn, rnm.TableSpec().Insert(ctx, rn)
 }
 
-func (rnm *SReceiverNotificationManager) CreateRobot(ctx context.Context, userCred mcclient.TokenCredential, RobotID, notificationID string) (*SReceiverNotification, error) {
+func (rnm *SReceiverNotificationManager) CreateRobot(ctx context.Context, userCred mcclient.TokenCredential, RobotID string, groupTimes uint32, notificationID string) (*SReceiverNotification, error) {
 	rn := &SReceiverNotification{
 		ReceiverID:     RobotID,
 		NotificationID: notificationID,
 		ReceiverType:   api.RECEIVER_TYPE_ROBOT,
 		Status:         api.RECEIVER_NOTIFICATION_RECEIVED,
 		SendBy:         userCred.GetUserId(),
+		GroupTimes:     groupTimes,
 	}
 	return rn, rnm.TableSpec().Insert(ctx, rn)
 }

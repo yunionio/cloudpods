@@ -264,6 +264,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			params.Header = robot.Header
 			params.Body = robot.Body
 			params.MsgKey = robot.MsgKey
+			params.GroupTimes = uint(receivers[i].rNotificaion.GroupTimes)
 			err = driver.Send(ctx, params)
 			if err != nil {
 				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
@@ -271,6 +272,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 		} else if receivers[i].receiver.IsReceiver() {
 			receiver := receivers[i].receiver.(*models.SReceiver)
 			params.Receivers.Contact, _ = receiver.GetContact(notification.ContactType)
+			params.GroupTimes = uint(receivers[i].rNotificaion.GroupTimes)
 			driver := models.GetDriver(notification.ContactType)
 			if notification.ContactType == apis.EMAIL {
 				params.EmailMsg = apis.SEmailMessage{

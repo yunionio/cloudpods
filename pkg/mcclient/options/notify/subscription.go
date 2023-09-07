@@ -43,6 +43,8 @@ type SubscriberCreateOptions struct {
 	RoleScope             string   `help:"required if type is 'role'"`
 	Robot                 string   `help:"required if type is 'robot'"`
 	Scope                 string   `positional:"true"`
+	// minutes
+	GroupTimes int
 }
 
 func (sc *SubscriberCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -79,6 +81,8 @@ type SubscriberChangeOptions struct {
 	Role      string
 	RoleScope string
 	Robot     string
+	// minutes
+	GroupTimes *int
 }
 
 func (ssr *SubscriberChangeOptions) Params() (jsonutils.JSONObject, error) {

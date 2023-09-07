@@ -165,8 +165,9 @@ type SendParams struct {
 	DomainId            string
 	RemoteTemplateParam SRemoteTemplateParam
 	GroupKey            string
-	GroupTimes          uint
-	ReceiverId          string
+	// minutes
+	GroupTimes uint
+	ReceiverId string
 }
 
 type SRemoteTemplateParam struct {

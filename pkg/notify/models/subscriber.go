@@ -89,6 +89,8 @@ type SSubscriber struct {
 	ResourceAttributionName string `width:"128" charset:"utf8" list:"user" create:"optional"`
 	Scope                   string `width:"128" charset:"ascii" nullable:"false" create:"required"`
 	DomainId                string `width:"128" charset:"ascii" nullable:"false" create:"optional"`
+	// minutes
+	GroupTimes uint32 `nullable:"true" list:"user"  update:"user"`
 }
 
 func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers []string) ([]string, error) {
@@ -227,6 +229,11 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 			return input, httperrors.NewForbiddenError("repeated with existing subscribers")
 		}
 	}
+	if input.GroupTimes != nil {
+		if *input.GroupTimes < 0 {
+			return input, httperrors.NewInputParameterError("invalidate group_times %d", input.GroupTimes)
+		}
+	}
 	return input, nil
 }
 
@@ -308,6 +315,16 @@ func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.Token
 			return nil, errors.Wrap(err, "unable to update subscriber")
 		}
 	}
+	if input.GroupTimes != nil {
+		_, err := db.Update(s, func() error {
+			s.GroupTimes = *input.GroupTimes
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to update subscriber group_times")
+		}
+	}
+
 	return nil, nil
 }
 
@@ -433,14 +450,15 @@ func (s *SSubscriber) roleIdentification(ctx context.Context) (api.Identificatio
 	return ret, nil
 }
 
-func (srm *SSubscriberManager) robot(tid, projectDomainId, projectId string) ([]string, error) {
+func (srm *SSubscriberManager) robot(tid, projectDomainId, projectId string) (map[string]uint32, error) {
 	srs, err := srm.findSuitableOnes(tid, projectDomainId, projectId, api.SUBSCRIBER_TYPE_ROBOT)
 	if err != nil {
 		return nil, err
 	}
-	robotIds := make([]string, len(srs))
+	robotIds := make(map[string]uint32)
 	for i := range srs {
-		robotIds[i] = srs[i].Identification
+		// robotIds[i] = srs[i].Identification
+		robotIds[srs[i].Identification] = srs[i].GroupTimes
 	}
 	return robotIds, nil
 }
@@ -474,30 +492,34 @@ func (srm *SSubscriberManager) findSuitableOnes(tid, projectDomainId, projectId 
 }
 
 // TODO: Use cache to increase speed
-func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string, projectDomainId string, projectId string) ([]string, error) {
+func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string, projectDomainId string, projectId string) (map[string]uint32, error) {
 	srs, err := srm.findSuitableOnes(tid, projectDomainId, projectId, api.SUBSCRIBER_TYPE_RECEIVER, api.SUBSCRIBER_TYPE_ROLE)
 	if err != nil {
 		return nil, err
 	}
-	receivers := make([]string, 0, len(srs))
+	receivers := make(map[string]uint32)
 	roleMap := make(map[string][]string, 3)
-	receivermap := make(map[string]*[]string, 3)
+	receivermap := make(map[string]map[string]uint32, 3)
+	identificationMapToSub := make(map[string]SSubscriber)
 	for _, sr := range srs {
 		if sr.Type == api.SUBSCRIBER_TYPE_RECEIVER {
 			rIds, err := sr.getReceivers()
 			if err != nil {
 				return nil, errors.Wrap(err, "unable to get receivers")
 			}
-			receivers = append(receivers, rIds...)
+			for _, receiveId := range rIds {
+				// receivers = append(receivers, api.SReceiverWithGroupTimes{ReceiverId: receiveId, GroupTimes: sr.GroupTimes})
+				receivers[receiveId] = sr.GroupTimes
+			}
 		} else if sr.Type == api.SUBSCRIBER_TYPE_ROLE {
+			identificationMapToSub[sr.Identification] = sr
 			roleMap[sr.RoleScope] = append(roleMap[sr.RoleScope], sr.Identification)
-			receivermap[sr.RoleScope] = &[]string{}
+			receivermap[sr.RoleScope] = map[string]uint32{}
 		}
 	}
 	errgo, _ := errgroup.WithContext(ctx)
 	for _scope, _roles := range roleMap {
 		scope, roles := _scope, _roles
-		receivers := receivermap[scope]
 		errgo.Go(func() error {
 			query := jsonutils.NewDict()
 			query.Set("roles", jsonutils.NewStringArray(roles))
@@ -528,7 +550,9 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 					if err != nil {
 						return errors.Wrap(err, "unable to get user.id from result of RoleAssignments.List")
 					}
-					*receivers = append(*receivers, id)
+					if _, ok := receivermap[scope][id]; !ok {
+						receivermap[scope][id] = identificationMapToSub[scope].GroupTimes
+					}
 				}
 			}
 			return nil
@@ -538,11 +562,16 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 	if err != nil {
 		return nil, err
 	}
+
 	for _, res := range receivermap {
-		receivers = append(receivers, *res...)
+		for receive, time := range res {
+			if _, ok := receivers[receive]; !ok {
+				receivers[receive] = time
+			}
+		}
 	}
 	// de-duplication
-	return sets.NewString(receivers...).UnsortedList(), nil
+	return receivers, nil
 }
 
 func (sr *SSubscriber) getReceivers() ([]string, error) {
