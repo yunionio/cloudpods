@@ -650,15 +650,23 @@ func (h *SHostInfo) PreventArpFlux() {
 // set swappiness=0 to avoid swap
 // set vfs_cache_pressure=300 to avoid stale pagecache
 func (h *SHostInfo) tuneSystem() {
+	minMemMb := h.getKubeReservedMemMb()
+	if minMemMb < 100 {
+		minMemMb = 100
+	}
+	minMemKB := fmt.Sprintf("%d", 2*minMemMb*1024)
 	kv := map[string]string{
 		"/proc/sys/vm/swappiness":                        "0",
 		"/proc/sys/vm/vfs_cache_pressure":                "350",
+		"/proc/sys/vm/min_free_kbytes":                   minMemKB,
 		"/proc/sys/net/ipv4/tcp_mtu_probing":             "2",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh1":    "1024",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh2":    "4096",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh3":    "8192",
 		"/sys/module/kvm/parameters/ignore_msrs":         "1",
 		"/sys/module/kvm/parameters/report_ignored_msrs": "0",
+
+		"/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal": "1",
 	}
 	for k, v := range kv {
 		sysutils.SetSysConfig(k, v)
