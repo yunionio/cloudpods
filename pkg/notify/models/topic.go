@@ -83,7 +83,6 @@ type STopic struct {
 	ContentCn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	ContentEn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	GroupKeys   *api.STopicGroupKeys `nullable:"true" list:"user"  update:"user"`
-	GroupTimes  uint32               `nullable:"true" list:"user"  update:"user"`
 	AdvanceDays []int                `nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 
 	WebconsoleDisable tristate.TriState
@@ -317,7 +316,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.COMMON_TITLE_EN
 			groupKeys := []string{"action_display"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
-			t.GroupTimes = 60
 		case DefaultSystemExceptionEvent:
 			t.addResources(
 				notify.TOPIC_RESOURCE_HOST,
@@ -392,7 +390,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.SYNC_ACCOUNT_STATUS_TITLE_EN
 			groupKeys := []string{"name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
-			t.GroupTimes = 60
 		case DefaultNetOutOfSync:
 			t.addResources(
 				notify.TOPIC_RESOURCE_NET,
@@ -408,7 +405,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.NET_OUT_OF_SYNC_TITLE_EN
 			groupKeys := []string{"service_name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
-			t.GroupTimes = 60
 		case DefaultMysqlOutOfSync:
 			t.addResources(
 				notify.TOPIC_RESOURCE_DBINSTANCE,
@@ -424,7 +420,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.MYSQL_OUT_OF_SYNC_TITLE_EN
 			groupKeys := []string{"ip"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
-			t.GroupTimes = 60
 		case DefaultServiceAbnormal:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVICE,
@@ -440,7 +435,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.SERVICE_ABNORMAL_TITLE_EN
 			groupKeys := []string{"service_name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
-			t.GroupTimes = 60
 		case DefaultServerPanicked:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -456,7 +450,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.SERVER_PANICKED_TITLE_EN
 			groupKeys := []string{"name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
-			t.GroupTimes = 60
 		case DefaultPasswordExpire:
 			t.addResources(
 				notify.TOPIC_RESOURCE_USER,
@@ -519,7 +512,6 @@ func (sm *STopicManager) InitializeData() error {
 				topic.Results = t.Results
 				topic.WebconsoleDisable = t.WebconsoleDisable
 				topic.GroupKeys = t.GroupKeys
-				topic.GroupTimes = t.GroupTimes
 				if len(topic.AdvanceDays) == 0 {
 					topic.AdvanceDays = t.AdvanceDays
 				}
