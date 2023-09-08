@@ -1,4 +1,12 @@
-
-.DS_Store
-.idea/
-go.sum
+/bin
+/vendor
+/vendor.pb
+.DS_STORE
+/.idea
+/.vscode
+*.o
+*.out
+profile.cov
+*.prof
+*.svg
+*/node_modules

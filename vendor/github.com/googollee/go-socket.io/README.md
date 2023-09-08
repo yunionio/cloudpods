@@ -1,14 +1,23 @@
-# socket.io
+# go-socket.io
 
-[![GoDoc](http://godoc.org/github.com/googollee/go-socket.io?status.svg)](http://godoc.org/github.com/googollee/go-socket.io) [![Build Status](https://travis-ci.org/googollee/go-socket.io.svg)](https://travis-ci.org/googollee/go-socket.io)
+[![GoDoc](http://godoc.org/github.com/googollee/go-socket.io?status.svg)](http://godoc.org/github.com/googollee/go-socket.io) 
+[![Build Status](https://github.com/googollee/go-socket.io/workflows/Unit%20tests/badge.svg)](https://github.com/googollee/go-socket.io/actions/workflows/unittest.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/googollee/go-socket.io)](https://goreportcard.com/report/github.com/googollee/go-socket.io)
 
-**Please use v1.4 branch, or import "gopkg.in/googollee/go-socket.io.v1". I have no time to maintain master branch now**
+go-socket.io is library an implementation of [Socket.IO](http://socket.io) in Golang, which is a realtime application framework.
 
-go-socket.io is an implementation of [socket.io](http://socket.io) in golang, which is a realtime application framework.
+Current this library supports 1.4 version of the Socket.IO client. It supports room, namespaces and broadcast at now.
 
-It is compatible with latest implementation of socket.io in node.js, and supports room and namespace.
+**Help wanted** This project is looking for contributors to help fix bugs and implement new features. Please check [Issue 192](https://github.com/googollee/go-socket.io/issues/192). All help is much appreciated.
 
-* for compatability with socket.io 0.9.x, please use branch 0.9.x *
+## Contents
+
+- [Install](#install)
+- [Example](#example)
+- [FAQ](#faq)
+- [Engine.io](#engineio)
+- [Community](#community)
+- [License](#license)
 
 ## Install
 
@@ -28,100 +37,31 @@ and use `socketio` as the package name inside the code.
 
 ## Example
 
-Please check the example folder for details.
+Please check more examples into folder in project for details. [Examples](https://github.com/googollee/go-socket.io/tree/master/_examples)
 
-```go
-package main
+## FAQ
 
-import (
-	"log"
-	"net/http"
+It is some popular questions about this repository: 
 
-	"github.com/googollee/go-socket.io"
-)
+- Is this library supported socket.io version 2?
+    - No, but if you wanna you can help to do it. Join us in community chat Telegram   
+- How to use go-socket.io with CORS?
+    - Please see examples in [directory](https://github.com/googollee/go-socket.io/tree/master/_examples)
+- What is minimal version Golang support for this library?
+    - We required Go 1.9 or upper!
+- How to user?
+    - Go-socket.io compatibility with Socket.IO 0.9.x, please use branch 0.9.x * or tag go-socket.io@v0.9.1
 
-func main() {
-	server, err := socketio.NewServer(nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	server.On("connection", func(so socketio.Socket) {
-		log.Println("on connection")
-		so.Join("chat")
-		so.On("chat message", func(msg string) {
-			log.Println("emit:", so.Emit("chat message", msg))
-			server.BroadcastTo("chat", "chat message", msg)
-		})
-		so.On("disconnection", func() {
-			log.Println("on disconnect")
-		})
-	})
-	server.On("error", func(so socketio.Socket, err error) {
-		log.Println("error:", err)
-	})
+## Community
 
-	http.Handle("/socket.io/", server)
-	http.Handle("/", http.FileServer(http.Dir("./asset")))
-	log.Println("Serving at localhost:5000...")
-	log.Fatal(http.ListenAndServe(":5000", nil))
-}
-```
+Telegram chat: [@go_socketio](https://t.me/go_socketio)
 
-## Acknowledgements in go-socket.io 1.X.X
+## Engineio
 
-[See documentation about acknowledgements](http://socket.io/docs/#sending-and-getting-data-(acknowledgements))
+This project contains a sub-package called `engineio`. This used to be a separate package under https://github.com/googollee/go-engine.io.
 
-##### Sending ACK with data from SERVER to CLIENT
-
-* Client-side
-
-```javascript
- //using client-side socket.io-1.X.X.js
- socket.emit('some:event', JSON.stringify(someData), function(data){
-       console.log('ACK from server wtih data: ', data));
- });
-```
-
-* Server-side
-
-```go
-// The return type may vary depending on whether you will return
-// In golang implementation of socket.io don't used callbacks for acknowledgement,
-// but used return value, which wrapped into ack package and returned to the client's callback in JavaScript
-so.On("some:event", func(msg string) string {
-	return msg //Sending ack with data in msg back to client, using "return statement"
-})
-```
-
-##### Sending ACK with data from CLIENT to SERVER
-
-* Client-side
-
-```javascript
-//using client-side socket.io-1.X.X.js
-//last parameter of "on" handler is callback for sending ack to server with data or without data
-socket.on('some:event', function (msg, sendAckCb) {
-    //Sending ACK with data to server after receiving some:event from server
-    sendAckCb(JSON.stringify(data)); // for example used serializing to JSON
-}
-```
-
-* Server-side
-
-```go
-//You can use Emit or BroadcastTo with last parameter as callback for handling ack from client
-//Sending packet to room "room_name" and event "some:event"
-so.BroadcastTo("room_name", "some:event", dataForClient, func (so socketio.Socket, data string) {
-	log.Println("Client ACK with data: ", data)
-})
-
-// Or
-
-so.Emit("some:event", dataForClient, func (so socketio.Socket, data string) {
-	log.Println("Client ACK with data: ", data)
-})
-```
+It contains the `engine.io` analog implementation of the original node-package. https://github.com/socketio/engine.io It can be used without the socket.io-implementation. Please check the README.md in `engineio/`.
 
 ## License
 
-The 3-clause BSD License  - see LICENSE for more details
+The 3-clause BSD License  - see [LICENSE](https://opensource.org/licenses/BSD-3-Clause) for more details

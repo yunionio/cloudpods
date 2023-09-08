@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	_ "yunion.io/x/onecloud/pkg/notify/sender"
+	"yunion.io/x/onecloud/pkg/notify/socket"
 )
 
 const (
@@ -30,6 +31,7 @@ const (
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	socket.AddSocketHandlers("", app)
 	models.InitEventLog()
 	models.InitEmailQueue()
 

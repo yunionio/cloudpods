@@ -1,0 +1,8 @@
+run:
+  timeout: 3m
+  deadline: 5m
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

@@ -466,6 +466,9 @@ github.com/golang/protobuf/ptypes/timestamp
 # github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
 ## explicit
 github.com/golang/snappy
+# github.com/gomodule/redigo v1.8.4
+## explicit; go 1.14
+github.com/gomodule/redigo/redis
 # github.com/google/btree v1.0.1
 ## explicit; go 1.12
 github.com/google/btree
@@ -490,24 +493,26 @@ github.com/googleapis/gax-go/v2
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
 github.com/googleapis/gnostic/openapiv2
-# github.com/googollee/go-engine.io v0.0.0-20180829091931-e2f255711dcb
-## explicit
-github.com/googollee/go-engine.io
-github.com/googollee/go-engine.io/message
-github.com/googollee/go-engine.io/parser
-github.com/googollee/go-engine.io/polling
-github.com/googollee/go-engine.io/transport
-github.com/googollee/go-engine.io/websocket
-# github.com/googollee/go-socket.io v0.0.0-20181214084611-0ad7206c347a
-## explicit
+# github.com/googollee/go-socket.io v1.7.0
+## explicit; go 1.16
 github.com/googollee/go-socket.io
+github.com/googollee/go-socket.io/engineio
+github.com/googollee/go-socket.io/engineio/frame
+github.com/googollee/go-socket.io/engineio/packet
+github.com/googollee/go-socket.io/engineio/payload
+github.com/googollee/go-socket.io/engineio/session
+github.com/googollee/go-socket.io/engineio/transport
+github.com/googollee/go-socket.io/engineio/transport/polling
+github.com/googollee/go-socket.io/engineio/transport/utils
+github.com/googollee/go-socket.io/engineio/transport/websocket
+github.com/googollee/go-socket.io/parser
 # github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1
 ## explicit
 github.com/gopherjs/gopherjs/js
 # github.com/gorilla/mux v1.7.0
 ## explicit
 github.com/gorilla/mux
-# github.com/gorilla/websocket v1.4.1
+# github.com/gorilla/websocket v1.4.2
 ## explicit; go 1.12
 github.com/gorilla/websocket
 # github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
