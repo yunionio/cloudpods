@@ -2406,10 +2406,16 @@ func (self *SGuest) moreExtraInfo(
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
 		if backupHost != nil {
 			if len(fields) == 0 || fields.Contains("backup_host_name") {
-				out.BackupHostName = backupHost.Name
+				out.BackupHostName = "unknown"
+				if backupHost != nil {
+					out.BackupHostName = backupHost.Name
+				}
 			}
 			if len(fields) == 0 || fields.Contains("backup_host_status") {
-				out.BackupHostStatus = backupHost.HostStatus
+				out.BackupHostStatus = "unknown"
+				if backupHost != nil {
+					out.BackupHostStatus = backupHost.HostStatus
+				}
 			}
 			out.BackupGuestSyncStatus = self.GetGuestBackupMirrorJobStatus(ctx, userCred)
 		}
