@@ -19,22 +19,25 @@ import (
 	"crypto/md5"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/aokoli/goutils"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"golang.org/x/crypto/ssh"
 
-	"yunion.io/x/pkg/errors"
-
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 )
 
 type SKeypair struct {
-	KeyPairFingerPrint string
-	KeyPairName        string
+	KeyPairFingerPrint string    `xml:"keyFingerprint"`
+	KeyName            string    `xml:"keyName"`
+	KeyPairId          string    `xml:"keyPairId"`
+	KeyType            string    `xml:"keyType"`
+	CreateTime         time.Time `xml:"createTime"`
+	PublicKey          string    `xml:"publicKey"`
 }
 
 // 只支持计算Openssh ras 格式公钥转换成DER格式后的MD5。
@@ -52,7 +55,8 @@ func md5Fingerprint(publickey string) (string, error) {
 
 	switch pk.Type() {
 	case ssh.KeyAlgoRSA:
-		rsaPK, ok := cryptoPub.CryptoPublicKey().(*rsa.PublicKey)
+		pubKey := cryptoPub.CryptoPublicKey()
+		rsaPK, ok := pubKey.(*rsa.PublicKey)
 		if !ok {
 			return "", fmt.Errorf("crypto public key trans to ras publickey failed")
 		}
@@ -76,57 +80,34 @@ func md5Fingerprint(publickey string) (string, error) {
 	return ret.String(), nil
 }
 
-func (self *SRegion) GetKeypairs(finger string, name string, offset int, limit int) ([]SKeypair, int, error) {
-	params := &ec2.DescribeKeyPairsInput{}
-	filters := []*ec2.Filter{}
+func (self *SRegion) GetKeypairs(finger string, name string) ([]SKeypair, error) {
+	params := map[string]string{
+		"IncludePublicKey": "true",
+	}
 	if len(finger) > 0 {
-		filters = AppendSingleValueFilter(filters, "fingerprint", finger)
+		params["Filter.1.Name"] = "fingerprint"
+		params["Filter.1.Value.1"] = finger
 	}
 
 	if len(name) > 0 {
-		params.SetKeyNames([]*string{&name})
+		params["KeyName"] = name
 	}
 
-	if len(filters) > 0 {
-		params.SetFilters(filters)
-	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeKeyPairs(params)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	keypairs := []SKeypair{}
-	for _, item := range ret.KeyPairs {
-		if err := FillZero(item); err != nil {
-			return nil, 0, err
-		}
-
-		keypairs = append(keypairs, SKeypair{*item.KeyFingerprint, *item.KeyName})
-	}
-
-	return keypairs, len(keypairs), nil
+	ret := struct {
+		KeySet []SKeypair `xml:"keySet>item"`
+	}{}
+	err := self.ec2Request("DescribeKeyPairs", params, &ret)
+	return ret.KeySet, err
 }
 
 // Aws貌似不支持ssh-dss格式密钥
 func (self *SRegion) ImportKeypair(name string, pubKey string) (*SKeypair, error) {
-	params := &ec2.ImportKeyPairInput{}
-	params.SetKeyName(name)
-	params.SetPublicKeyMaterial([]byte(pubKey))
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"KeyName":           name,
+		"PublicKeyMaterial": base64.StdEncoding.EncodeToString([]byte(pubKey)),
 	}
-	ret, err := ec2Client.ImportKeyPair(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "ImportKeyPair")
-	} else {
-		return &SKeypair{StrVal(ret.KeyFingerprint), StrVal(ret.KeyName)}, nil
-	}
+	ret := &SKeypair{}
+	return ret, self.ec2Request("ImportKeyPair", params, ret)
 }
 
 func (self *SRegion) AttachKeypair(instanceId string, keypairName string) error {
@@ -144,12 +125,14 @@ func (self *SRegion) lookUpAwsKeypair(publicKey string) (string, error) {
 		return "", err
 	}
 
-	ks, total, err := self.GetKeypairs(fingerprint, "", 0, 1)
-	if total < 1 {
-		return "", fmt.Errorf("keypair not found %s", err)
-	} else {
-		return ks[0].KeyPairName, nil
+	keyparis, err := self.GetKeypairs(fingerprint, "")
+	if err != nil {
+		return "", errors.Wrapf(err, "GetKeypairs")
 	}
+	if len(keyparis) > 0 {
+		return keyparis[0].KeyName, nil
+	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, publicKey)
 }
 
 func (self *SRegion) importAwsKeypair(publicKey string) (string, error) {
@@ -162,11 +145,11 @@ func (self *SRegion) importAwsKeypair(publicKey string) (string, error) {
 	if k, e := self.ImportKeypair(name, publicKey); e != nil {
 		return "", fmt.Errorf("keypair import error %s", e)
 	} else {
-		return k.KeyPairName, nil
+		return k.KeyName, nil
 	}
 }
 
-func (self *SRegion) syncKeypair(publicKey string) (string, error) {
+func (self *SRegion) SyncKeypair(publicKey string) (string, error) {
 	name, e := self.lookUpAwsKeypair(publicKey)
 	if e == nil {
 		return name, nil

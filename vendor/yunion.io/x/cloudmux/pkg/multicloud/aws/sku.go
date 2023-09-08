@@ -14,7 +14,12 @@
 
 package aws
 
-import "fmt"
+import (
+	"fmt"
+
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
+)
 
 type Product struct {
 	ProductFamily string     `json:"productFamily"`
@@ -98,7 +103,7 @@ type PricePerUnit struct {
 	CNY float64 `json:"CNY"`
 }
 
-type SInstnaceType struct {
+type SInstanceType struct {
 	Product         Product `json:"product"`
 	ServiceCode     string  `json:"serviceCode"`
 	Terms           Terms   `json:"terms"`
@@ -106,7 +111,34 @@ type SInstnaceType struct {
 	PublicationDate string  `json:"publicationDate"`
 }
 
-func (self *SRegion) GetInstanceTypes() ([]SInstnaceType, error) {
+type InstanceType struct {
+	InstanceType string `xml:"instanceType"`
+	MemoryInfo   struct {
+		SizeInMiB int `xml:"sizeInMiB"`
+	} `xml:"memoryInfo"`
+}
+
+func (self *SRegion) GetInstanceType(name string) (*InstanceType, error) {
+	params := map[string]string{
+		"InstanceType.1": name,
+	}
+	ret := struct {
+		InstanceTypeSet []InstanceType `xml:"instanceTypeSet>item"`
+		NextToken       string         `xml:"nextToken"`
+	}{}
+	err := self.ec2Request("DescribeInstanceTypes", params, &ret)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ret.InstanceTypeSet {
+		if ret.InstanceTypeSet[i].InstanceType == name {
+			return &ret.InstanceTypeSet[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+}
+
+func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
 	filters := map[string]string{
 		"regionCode":      self.RegionId,
 		"operatingSystem": "Linux",
@@ -128,7 +160,7 @@ func (self *SRegion) GetInstanceTypes() ([]SInstnaceType, error) {
 		})
 	}
 
-	ret := []SInstnaceType{}
+	ret := []SInstanceType{}
 	var nextToken string
 	for {
 		parts, _nextToken, err := self.GetProducts("AmazonEC2", params, nextToken)

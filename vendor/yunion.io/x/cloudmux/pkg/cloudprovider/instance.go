@@ -101,7 +101,10 @@ type SDiskInfo struct {
 	StorageExternalId string
 	StorageType       string
 	SizeGB            int
+	Iops              int
 	Name              string
+	// aws gp3 only
+	Throughput int
 }
 
 type GuestDiskCreateOptions struct {

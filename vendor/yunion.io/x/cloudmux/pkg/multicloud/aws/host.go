@@ -20,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -57,8 +56,7 @@ func (self *SHost) IsEmulated() bool {
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms := make([]SInstance, 0)
-	vms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, nil, len(vms), 50)
+	vms, err := self.zone.region.GetInstances(self.zone.ZoneName, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetInstances")
 	}
@@ -71,24 +69,18 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	return ivms, nil
 }
 
-func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
-	if len(gid) == 0 {
-		log.Errorf("GetIVMById guest id is empty")
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIVMById")
-	}
-
-	ivms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, []string{gid}, 0, 1)
+func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	vms, err := self.zone.region.GetInstances(self.zone.ZoneName, "", []string{id})
 	if err != nil {
 		return nil, errors.Wrap(err, "GetInstances")
 	}
-	if len(ivms) == 0 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstances")
+	for i := range vms {
+		if vms[i].InstanceId == id {
+			vms[i].host = self
+			return &vms[i], nil
+		}
 	}
-	if len(ivms) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	ivms[0].host = self
-	return &ivms[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -160,7 +152,6 @@ func (self *SHost) GetHostType() string {
 func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	inst, err := self.zone.region.GetInstance(instanceId)
 	if err != nil {
-		log.Errorf("GetInstance %s: %s", instanceId, err)
 		return nil, errors.Wrap(err, "GetInstance")
 	}
 	inst.host = self
@@ -168,89 +159,60 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.InstanceType,
+	vm, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.InstanceType,
 		desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks,
-		desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.Tags, desc.EnableMonitorAgent)
+		desc.PublicKey, desc.ExternalSecgroupIds, desc.UserData, desc.Tags, desc.EnableMonitorAgent)
 	if err != nil {
 		return nil, errors.Wrap(err, "_createVM")
 	}
-
-	vm, err := self.GetInstanceById(vmId)
-	if err != nil {
-		log.Errorf("GetInstanceById %s: %s", vmId, err)
-		return nil, errors.Wrap(err, "GetInstanceById")
-	}
-
+	vm.host = self
 	return vm, err
 }
 
 func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo, instanceType string,
 	networkId, ipAddr, desc, passwd string,
-	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string, userData string,
+	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupIds []string, userData string,
 	tags map[string]string, enableMonitorAgent bool,
-) (string, error) {
-	// 网络配置及安全组绑定
-	net := self.zone.getNetworkById(networkId)
-	if net == nil {
-		return "", fmt.Errorf("invalid network ID %s", networkId)
+) (*SInstance, error) {
+	if len(instanceType) == 0 {
+		return nil, fmt.Errorf("missing instance type params")
 	}
-
-	if net.wire == nil {
-		log.Errorf("network's wire is empty")
-		return "", fmt.Errorf("network's wire is empty")
-	}
-
-	if net.wire.vpc == nil {
-		log.Errorf("wire's vpc is empty")
-		return "", fmt.Errorf("wire's vpc is empty")
-	}
-
 	// 同步keypair
 	var err error
 	keypair := ""
 	if len(publicKey) > 0 {
-		keypair, err = self.zone.region.syncKeypair(publicKey)
+		keypair, err = self.zone.region.SyncKeypair(publicKey)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
 	// 镜像及硬盘配置
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
-		log.Errorf("getiamge %s fail %s", imgId, err)
-		return "", err
+		return nil, errors.Wrapf(err, "GetImage(%s)", imgId)
 	}
 	if img.Status != ImageStatusAvailable {
-		log.Errorf("image %s status %s", imgId, img.Status)
-		return "", fmt.Errorf("image not ready")
+		return nil, fmt.Errorf("image not ready status: %s", img.Status)
 	}
 
-	disks := make([]SDisk, len(dataDisks)+1)
-	disks[0].Size = img.SizeGB
-	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > img.SizeGB {
-		disks[0].Size = sysDisk.SizeGB
+	disks := make([]cloudprovider.SDiskInfo, len(dataDisks)+1)
+	disks[0].SizeGB = img.GetMinOsDiskSizeGb()
+	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > img.GetMinOsDiskSizeGb() {
+		disks[0].SizeGB = sysDisk.SizeGB
 	}
-	disks[0].Category = sysDisk.StorageType
+	disks[0].StorageType = sysDisk.StorageType
 
 	for i, dataDisk := range dataDisks {
-		disks[i+1].Size = dataDisk.SizeGB
-		disks[i+1].Category = dataDisk.StorageType
+		disks[i+1].SizeGB = dataDisk.SizeGB
+		disks[i+1].StorageType = dataDisk.StorageType
 	}
 
-	// 创建实例
-	if len(instanceType) > 0 {
-		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData, tags, enableMonitorAgent)
-		if err != nil {
-			log.Errorf("Failed for %s: %s", instanceType, err)
-			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
-		} else {
-			return vmId, nil
-		}
+	instance, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupIds, self.zone.ZoneName, desc, disks, ipAddr, keypair, userData, tags, enableMonitorAgent)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateInstance")
 	}
-
-	return "", fmt.Errorf("Failed to create, instance type should not be empty")
+	return instance, nil
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {

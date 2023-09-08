@@ -28,11 +28,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-type SElbBackendGroups struct {
-	NextMarker   string
-	TargetGroups []SElbBackendGroup `xml:"TargetGroups>member"`
-}
-
 type SElbBackendGroup struct {
 	multicloud.SResourceBase
 	AwsTags
