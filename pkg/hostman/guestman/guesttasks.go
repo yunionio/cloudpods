@@ -17,6 +17,7 @@ package guestman
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"regexp"
@@ -814,8 +815,9 @@ func (s *SGuestLiveMigrateTask) setMaxBandwidth(res string) {
 		return
 	}
 
-	var maxBandwidth int64 = 0
-	if s.params.MaxBandwidthMB != nil {
+	// default set bandwidth no limit
+	var maxBandwidth int64 = math.MaxInt64
+	if s.params.MaxBandwidthMB != nil && *s.params.MaxBandwidthMB > 0 {
 		maxBandwidth = *s.params.MaxBandwidthMB * 1024 * 1024
 	}
 
