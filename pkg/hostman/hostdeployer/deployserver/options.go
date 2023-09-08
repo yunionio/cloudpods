@@ -35,6 +35,8 @@ type SDeployOptions struct {
 	CommonConfigFile  string `help:"common config file for container"`
 
 	DeployTempDir string `help:"temp dir for deployer" default:"/opt/cloud/workspace/run/deploy"`
+
+	AllowVmSELinux bool `help:"turn off vm selinux" default:"false" json:"allow_vm_selinux"`
 }
 
 var DeployOption SDeployOptions
@@ -58,6 +60,7 @@ func Parse() (hostOpts SDeployOptions) {
 		}
 	}
 	consts.SetDeployTempDir(hostOpts.DeployTempDir)
+	consts.SetAllowVmSELinux(hostOpts.AllowVmSELinux)
 	return hostOpts
 }
 
