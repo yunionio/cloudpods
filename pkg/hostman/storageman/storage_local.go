@@ -258,8 +258,13 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		res, err = modules.Storages.Put(
 			hostutils.GetComputeSession(context.Background()),
 			s.StorageId, content)
+		if err != nil {
+			log.Errorf("SyncStorageInfo Failed: %s: %s", content, err)
+			return nil, errors.Wrapf(err, "Storages.Put %s", s.StorageId)
+		}
 	} else {
-		mediumType, err := s.GetMediumType()
+		var mediumType string
+		mediumType, err = s.GetMediumType()
 		if err != nil {
 			log.Errorf("failed get medium type %s %s", s.GetPath(), err)
 		} else {
@@ -268,11 +273,13 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 
 		res, err = modules.Storages.Create(
 			hostutils.GetComputeSession(context.Background()), content)
+		if err != nil {
+			log.Errorf("SyncStorageInfo Failed: %s: %s", content, err)
+			return nil, errors.Wrapf(err, "Storages.Create %s", content)
+		}
 	}
-	if err != nil {
-		log.Errorf("SyncStorageInfo Failed: %s: %s", content, err)
-	}
-	return res, err
+
+	return res, nil
 }
 
 func (s *SLocalStorage) GetDiskById(diskId string) (IDisk, error) {
