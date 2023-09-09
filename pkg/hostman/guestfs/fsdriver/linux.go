@@ -35,6 +35,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/coreosutils"
@@ -160,7 +161,9 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 }
 
 func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {
-	l.DisableSelinux(rootFs)
+	if !consts.AllowVmSELinux() {
+		l.DisableSelinux(rootFs)
+	}
 	if !enableCloudInit && isInit {
 		l.DisableCloudinit(rootFs)
 	}

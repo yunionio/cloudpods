@@ -16,6 +16,8 @@ package consts
 
 var (
 	deployTempDir = ""
+
+	allowVmSELinux = false
 )
 
 func DeployTempDir() string {
@@ -24,4 +26,12 @@ func DeployTempDir() string {
 
 func SetDeployTempDir(dir string) {
 	deployTempDir = dir
+}
+
+func AllowVmSELinux() bool {
+	return allowVmSELinux
+}
+
+func SetAllowVmSELinux(allow bool) {
+	allowVmSELinux = allow
 }
