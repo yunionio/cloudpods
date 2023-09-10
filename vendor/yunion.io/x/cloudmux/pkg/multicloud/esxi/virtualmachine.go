@@ -852,10 +852,7 @@ func (svm *SVirtualMachine) fetchHardwareInfo() error {
 
 		if reflectutils.StructContains(devType, etherType) {
 			vnic := NewVirtualNIC(svm, dev, len(svm.vnics))
-			if len(vnic.GetIP()) > 0 {
-				// only nics with ip is valid
-				svm.vnics = append(svm.vnics, vnic)
-			}
+			svm.vnics = append(svm.vnics, vnic)
 		} else if reflectutils.StructContains(devType, diskType) {
 			svm.vdisks = append(svm.vdisks, NewVirtualDisk(svm, dev, len(svm.vdisks)))
 		} else if reflectutils.StructContains(devType, vgaType) {
