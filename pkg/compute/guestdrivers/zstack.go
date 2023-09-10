@@ -85,7 +85,7 @@ func (self *SZStackGuestDriver) GetMaxSecurityGroupCount() int {
 }
 
 func (self *SZStackGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
-	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
+	return chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SZStackGuestDriver) GetDetachDiskStatus() ([]string, error) {

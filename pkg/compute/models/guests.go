@@ -2962,43 +2962,21 @@ func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.T
 }
 
 func (g *SGuest) SyncOsInfo(ctx context.Context, userCred mcclient.TokenCredential, extVM cloudprovider.IOSInfo) error {
-	// save os info
-	osinfo := map[string]interface{}{}
-	for k, v := range map[string]string{
-		"os_full_name":    extVM.GetFullOsName(),
-		"os_name":         string(extVM.GetOsType()),
-		"os_arch":         extVM.GetOsArch(),
-		"os_type":         string(extVM.GetOsType()),
-		"os_distribution": extVM.GetOsDist(),
-		"os_version":      extVM.GetOsVersion(),
-		"os_language":     extVM.GetOsLang(),
-	} {
-		if len(v) == 0 {
-			continue
-		}
-		osinfo[k] = v
-	}
-	if len(osinfo) > 0 {
-		err := g.SetAllMetadata(ctx, osinfo, userCred)
-		if err != nil {
-			return errors.Wrap(err, "SetAllMetadata")
-		}
-	}
-	return nil
+	return g.GetDriver().SyncOsInfo(ctx, userCred, g, extVM)
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, syncStatus bool) error {
+func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, syncStatus bool) error {
 	recycle := false
 
-	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
+	if provider.GetFactory().IsSupportPrepaidResources() && g.IsPrepaidRecycle() {
 		recycle = true
 	}
 
-	diff, err := db.UpdateWithLock(ctx, self, func() error {
+	diff, err := db.UpdateWithLock(ctx, g, func() error {
 		if options.Options.EnableSyncName && !recycle {
-			newName, _ := db.GenerateAlterName(self, extVM.GetName())
-			if len(newName) > 0 && newName != self.Name {
-				self.Name = newName
+			newName, _ := db.GenerateAlterName(g, extVM.GetName())
+			if len(newName) > 0 && newName != g.Name {
+				g.Name = newName
 			}
 		}
 		hostname := pinyinutils.Text2Pinyin(extVM.GetHostname())
@@ -3006,64 +2984,64 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			hostname = hostname[:128]
 		}
 		if extVM.GetName() != hostname {
-			self.Hostname = hostname
+			g.Hostname = hostname
 		}
-		if !self.IsFailureStatus() && syncStatus {
-			self.Status = extVM.GetStatus()
-			self.PowerStates = extVM.GetPowerStates()
-			self.inferPowerStates()
+		if !g.IsFailureStatus() && syncStatus {
+			g.Status = extVM.GetStatus()
+			g.PowerStates = extVM.GetPowerStates()
+			g.inferPowerStates()
 		}
 
-		self.VcpuCount = extVM.GetVcpuCount()
-		self.BootOrder = extVM.GetBootOrder()
-		self.Vga = extVM.GetVga()
-		self.Vdi = extVM.GetVdi()
+		g.VcpuCount = extVM.GetVcpuCount()
+		g.BootOrder = extVM.GetBootOrder()
+		g.Vga = extVM.GetVga()
+		g.Vdi = extVM.GetVdi()
 		if len(extVM.GetOsArch()) > 0 {
-			self.OsArch = extVM.GetOsArch()
+			g.OsArch = extVM.GetOsArch()
 		}
-		if len(self.OsType) == 0 {
-			self.OsType = string(extVM.GetOsType())
+		if len(g.OsType) == 0 {
+			g.OsType = string(extVM.GetOsType())
 		}
-		if len(self.Bios) == 0 {
-			self.Bios = string(extVM.GetBios())
+		if len(g.Bios) == 0 {
+			g.Bios = string(extVM.GetBios())
 		}
-		self.Machine = extVM.GetMachine()
+		g.Machine = extVM.GetMachine()
 		if !recycle {
-			self.HostId = host.Id
+			g.HostId = host.Id
 		}
-		self.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
-		self.Throughput = extVM.GetThroughput()
+		g.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
+		g.Throughput = extVM.GetThroughput()
 
 		instanceType := extVM.GetInstanceType()
 
 		if len(instanceType) > 0 {
-			self.InstanceType = instanceType
+			g.InstanceType = instanceType
 		}
 
 		memSizeMb := extVM.GetVmemSizeMB()
-		if self.VmemSize == 0 || self.VmemSize != memSizeMb {
+		if g.VmemSize == 0 || g.VmemSize != memSizeMb {
 			if memSizeMb > 0 {
-				self.VmemSize = memSizeMb
+				g.VmemSize = memSizeMb
 			} else {
 				sku, _ := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider.GetFactory().GetName(), false)
 				if sku != nil && sku.MemorySizeMB > 0 {
-					self.VmemSize = sku.MemorySizeMB
+					g.VmemSize = sku.MemorySizeMB
 				}
 			}
 		}
 
-		self.Hypervisor = extVM.GetHypervisor()
+		g.Hypervisor = extVM.GetHypervisor()
 
-		if len(self.Description) == 0 {
-			self.Description = extVM.GetDescription()
+		if len(g.Description) == 0 {
+			g.Description = extVM.GetDescription()
 		}
-		self.IsEmulated = extVM.IsEmulated()
+		g.IsEmulated = extVM.IsEmulated()
 
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
-			self.BillingType = extVM.GetBillingType()
-			self.ExpiredAt = extVM.GetExpiredAt()
-			if self.GetDriver().IsSupportSetAutoRenew() {
-				self.AutoRenew = extVM.IsAutoRenew()
+			g.BillingType = extVM.GetBillingType()
+			g.ExpiredAt = extVM.GetExpiredAt()
+			if g.GetDriver().IsSupportSetAutoRenew() {
+				g.AutoRenew = extVM.IsAutoRenew()
 			}
 		}
 		return nil
@@ -3073,22 +3051,22 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		return err
 	}
 
-	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	db.OpsLog.LogSyncUpdate(g, diff, userCred)
 
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-			Obj:    self,
+			Obj:    g,
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
 
-	self.SyncOsInfo(ctx, userCred, extVM)
+	g.SyncOsInfo(ctx, userCred, extVM)
 
-	syncVirtualResourceMetadata(ctx, userCred, self, extVM)
-	SyncCloudProject(ctx, userCred, self, syncOwnerId, extVM, host.ManagerId)
+	syncVirtualResourceMetadata(ctx, userCred, g, extVM)
+	SyncCloudProject(ctx, userCred, g, syncOwnerId, extVM, host.ManagerId)
 
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
-		vhost, _ := self.GetHost()
+		vhost, _ := g.GetHost()
 		err = vhost.syncWithCloudPrepaidVM(extVM, host)
 		if err != nil {
 			return err
