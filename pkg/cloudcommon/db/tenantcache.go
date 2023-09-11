@@ -336,6 +336,14 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 		log.Errorf("FetchTenantbyId fail %s", err)
 		return nil, errors.Wrapf(err, "TenantCache FetchById %s", item.Id)
 	}
+	// clean cache metadata
+	if item.PendingDeleted && saveMeta {
+		for k := range item.Metadata {
+			if strings.HasPrefix(k, USER_TAG_PREFIX) {
+				item.Metadata[k] = "none"
+			}
+		}
+	}
 	now := time.Now().UTC()
 	if err == nil {
 		obj := objo.(*STenant)
