@@ -73,6 +73,7 @@ type GuestdiskJsonDesc struct {
 	CacheMode        string `json:"cache_mode"`
 	AioMode          string `json:"aio_mode"`
 	Iops             int    `json:"iops"`
+	Throughput       int    `json:"throughput"`
 	Bps              int    `json:"bps"`
 	Size             int    `json:"size"`
 	TemplateId       string `json:"template_id"`

@@ -202,6 +202,16 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.NVMEDevice = &compute.IsolatedDeviceConfig{
 				Model: str,
 			}
+		case "iops":
+			diskConfig.Iops, _ = strconv.Atoi(str)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse disk iops %s", str)
+			}
+		case "throughput":
+			diskConfig.Throughput, _ = strconv.Atoi(str)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse disk iops %s", str)
+			}
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}
