@@ -33,6 +33,8 @@ type ClusterListOptions struct {
 	FederatedResourceId string `json:"federated_resource_id"`
 	FederatedUsed       *bool  `json:"-"`
 	FederatedUnused     *bool  `json:"-"`
+	ManagerId           string `json:"manager_id"`
+	CloudRegionId       string `json:"cloudregion_id"`
 }
 
 func (o *ClusterListOptions) Params() (jsonutils.JSONObject, error) {
