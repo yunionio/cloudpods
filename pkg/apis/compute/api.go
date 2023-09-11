@@ -247,6 +247,13 @@ type DiskConfig struct {
 	//swagger:ignore
 	ExistingPath string `json:"existing_path"`
 
+	// requried:false
+	Iops int `json:"iops"`
+
+	// 磁盘吞吐量, 仅对aws gp3生效
+	// 范围: 125-1000
+	Throughput int `json:"throughput"`
+
 	// NVNe device
 	NVMEDevice *IsolatedDeviceConfig `json:"nvme_device"`
 }

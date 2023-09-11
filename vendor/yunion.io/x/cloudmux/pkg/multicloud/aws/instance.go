@@ -326,7 +326,19 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if len(self.PublicIpAddress) > 0 {
-		return self.host.zone.region.GetEipByIpAddress(self.PublicIpAddress)
+		eip, err := self.host.zone.region.GetEipByIpAddress(self.PublicIpAddress)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				eip := SEipAddress{region: self.host.zone.region}
+				eip.region = self.host.zone.region
+				eip.PublicIp = self.PublicIpAddress
+				eip.InstanceId = self.InstanceId
+				eip.AllocationId = self.InstanceId // fixed. AllocationId等于InstanceId即表示为 仿真EIP。
+				return &eip, nil
+			}
+			return nil, err
+		}
+		return eip, nil
 	}
 	for _, nic := range self.NetworkInterfaces {
 		if len(nic.Association.PublicIp) > 0 {
@@ -477,14 +489,36 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	err := self.host.zone.region.StopVM(self.InstanceId, opts.IsForce)
+	err := cloudprovider.Wait(time.Second*4, time.Minute*10, func() (bool, error) {
+		if utils.IsInStringArray(self.State.Name, []string{"running", "pending", "stopping", "stopped"}) {
+			return true, nil
+		}
+		err := self.Refresh()
+		if err != nil {
+			return false, err
+		}
+		return false, nil
+	})
 	if err != nil {
-		return err
+		log.Errorf("wait instance status stoped, current status: %s error: %v", self.State.Name, err)
 	}
-	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return self.host.zone.region.StopVM(self.InstanceId, opts.IsForce)
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
+	err := cloudprovider.Wait(time.Second*4, time.Minute*10, func() (bool, error) {
+		if utils.IsInStringArray(self.State.Name, []string{"running", "pending", "stopping", "stopped"}) {
+			return true, nil
+		}
+		err := self.Refresh()
+		if err != nil {
+			return false, err
+		}
+		return false, nil
+	})
+	if err != nil {
+		log.Errorf("wait instance status stoped to delete, current status: %s error: %v", self.State.Name, err)
+	}
 	return self.host.zone.region.DeleteVM(self.InstanceId)
 }
 
@@ -673,6 +707,13 @@ func (self *SRegion) GetInstances(zoneId, imageId string, ids []string) ([]SInst
 		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = imageId
 		idx++
 	}
+	// skip terminated instance
+	params[fmt.Sprintf("Filter.%d.Name", idx)] = "instance-state-name"
+	for i, state := range []string{"pending", "running", "shutting-down", "stopping", "stopped"} {
+		params[fmt.Sprintf("Filter.%d.Value.%d", idx, i+1)] = state
+	}
+	idx++
+
 	for i, id := range ids {
 		params[fmt.Sprintf("InstanceId.%d", i+1)] = id
 	}
@@ -754,6 +795,9 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 			api.STORAGE_GP3_SSD,
 		}) {
 			params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.Iops", i+1)] = fmt.Sprintf("%d", iops)
+		}
+		if disk.Throughput >= 125 && disk.Throughput <= 1000 && disk.StorageType == api.STORAGE_GP3_SSD {
+			params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.Throughput", i+1)] = fmt.Sprintf("%d", disk.Throughput)
 		}
 	}
 

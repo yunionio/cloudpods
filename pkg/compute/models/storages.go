@@ -1406,6 +1406,8 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 	disk.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 	disk.DomainId = ownerId.GetProjectDomainId()
 	disk.IsSystem = isSystem
+	disk.Iops = diskConfig.Iops
+	disk.Throughput = diskConfig.Throughput
 
 	if self.MediumType == api.DISK_TYPE_SSD {
 		disk.IsSsd = true

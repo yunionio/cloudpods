@@ -195,18 +195,13 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	if img.Status != ImageStatusAvailable {
 		return nil, fmt.Errorf("image not ready status: %s", img.Status)
 	}
-
-	disks := make([]cloudprovider.SDiskInfo, len(dataDisks)+1)
-	disks[0].SizeGB = img.GetMinOsDiskSizeGb()
-	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > img.GetMinOsDiskSizeGb() {
-		disks[0].SizeGB = sysDisk.SizeGB
+	if len(dataDisks) == 0 {
+		dataDisks = []cloudprovider.SDiskInfo{}
 	}
-	disks[0].StorageType = sysDisk.StorageType
-
-	for i, dataDisk := range dataDisks {
-		disks[i+1].SizeGB = dataDisk.SizeGB
-		disks[i+1].StorageType = dataDisk.StorageType
+	if sysDisk.SizeGB < img.GetMinOsDiskSizeGb() {
+		sysDisk.SizeGB = img.GetMinOsDiskSizeGb()
 	}
+	disks := append([]cloudprovider.SDiskInfo{sysDisk}, dataDisks...)
 
 	instance, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupIds, self.zone.ZoneName, desc, disks, ipAddr, keypair, userData, tags, enableMonitorAgent)
 	if err != nil {

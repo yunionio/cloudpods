@@ -180,13 +180,14 @@ func (self *SGuestdisk) GetJsonDescAtHost(ctx context.Context, host *SHost) *api
 
 func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, disk *SDisk) *api.GuestdiskJsonDesc {
 	desc := &api.GuestdiskJsonDesc{
-		DiskId:    disk.Id,
-		Driver:    self.Driver,
-		CacheMode: self.CacheMode,
-		AioMode:   self.AioMode,
-		Iops:      self.Iops,
-		Bps:       self.Bps,
-		Size:      disk.DiskSize,
+		DiskId:     disk.Id,
+		Driver:     self.Driver,
+		CacheMode:  self.CacheMode,
+		AioMode:    self.AioMode,
+		Iops:       self.Iops,
+		Throughput: disk.Throughput,
+		Bps:        self.Bps,
+		Size:       disk.DiskSize,
 	}
 	desc.TemplateId = disk.GetTemplateId()
 	storage, _ := disk.GetStorage()
