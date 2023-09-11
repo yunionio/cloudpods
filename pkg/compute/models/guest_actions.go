@@ -2046,6 +2046,20 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 		}
 	}
 
+	if dev.DevType == api.LEGACY_VGPU_TYPE {
+		devs, err := self.GetIsolatedDevices()
+		if err != nil {
+			return errors.Wrap(err, "get isolated devices")
+		}
+		for i := range devs {
+			if devs[i].DevType == api.LEGACY_VGPU_TYPE {
+				return httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
+			} else if utils.IsInStringArray(devs[i].DevType, api.VALID_GPU_TYPES) {
+				return httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
+			}
+		}
+	}
+
 	defer func() { go host.ClearSchedDescCache() }()
 	for i := 0; i < len(devs); i++ {
 		err = self.attachIsolatedDevice(ctx, userCred, &devs[i], nil, nil)
@@ -2085,6 +2099,21 @@ func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred 
 	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't attach GPU when status is %q", self.GetStatus())
 	}
+
+	if dev.DevType == api.LEGACY_VGPU_TYPE {
+		devs, err := self.GetIsolatedDevices()
+		if err != nil {
+			return errors.Wrap(err, "get isolated devices")
+		}
+		for i := range devs {
+			if devs[i].DevType == api.LEGACY_VGPU_TYPE {
+				return httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
+			} else if utils.IsInStringArray(devs[i].DevType, api.VALID_GPU_TYPES) {
+				return httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
+			}
+		}
+	}
+
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
