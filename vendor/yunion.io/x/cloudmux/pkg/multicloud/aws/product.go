@@ -29,7 +29,7 @@ type ProductFilter struct {
 	Value string `json:"Value"`
 }
 
-func (self *SRegion) GetProducts(serviceCode string, filters []ProductFilter, nextToken string) ([]SInstnaceType, string, error) {
+func (self *SRegion) GetProducts(serviceCode string, filters []ProductFilter, nextToken string) ([]SInstanceType, string, error) {
 	params := map[string]interface{}{
 		"ServiceCode": serviceCode,
 	}
@@ -48,13 +48,13 @@ func (self *SRegion) GetProducts(serviceCode string, filters []ProductFilter, ne
 	if err != nil {
 		return nil, "", err
 	}
-	result := []SInstnaceType{}
+	result := []SInstanceType{}
 	for _, list := range ret.PriceList {
 		obj, err := jsonutils.ParseString(list)
 		if err != nil {
 			return nil, "", errors.Wrapf(err, "jsonutils.ParseString")
 		}
-		product := SInstnaceType{}
+		product := SInstanceType{}
 		err = obj.Unmarshal(&product)
 		if err != nil {
 			return nil, "", errors.Wrapf(err, "Unmarshal")

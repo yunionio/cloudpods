@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/jsonutils"
@@ -87,7 +85,6 @@ func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImag
 
 	part, err := self.region.GetImage(extId)
 	if err != nil {
-		log.Errorf("GetImage %s %s", extId, err)
 		return nil, errors.Wrap(err, "GetImage")
 	}
 	part.storageCache = self
@@ -108,7 +105,7 @@ func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	err := self.region.initVmimport()
+	err := self.region.InitVmimport()
 	if err != nil {
 		return "", errors.Wrap(err, "initVmimport")
 	}
@@ -193,7 +190,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 	}
 
 	// add name tag
-	self.region.addTags(task.ImageId, "Name", image.ImageId)
+	//self.region.addTags(task.ImageId, "Name", image.ImageId)
 	if callback != nil {
 		callback(100)
 	}
@@ -204,35 +201,58 @@ func (self *SStoragecache) downloadImage(imageId string, extId string) (jsonutil
 	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
 	bucketName := GetBucketName(self.region.GetId(), imageId)
 	if err := self.region.checkBucket(bucketName); err != nil {
-		log.Errorf("checkBucket %s: %s", bucketName, err)
 		return nil, errors.Wrap(err, "checkBucket")
 	}
 
 	instanceId, err := self.region.GetInstanceIdByImageId(extId)
 	if err != nil {
-		log.Errorf("GetInstanceIdByImageId %s: %s", extId, err)
 		return nil, errors.Wrap(err, "GetInstanceIdByImageId")
-	}
-
-	ec2Client, err := self.region.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
 	}
 
 	task, err := self.region.ExportImage(instanceId, imageId)
 	if err != nil {
-		log.Errorf("ExportImage %s %s: %s", instanceId, imageId, err)
 		return nil, errors.Wrap(err, "ExportImage")
 	}
 
-	taskParams := &ec2.DescribeExportTasksInput{}
-	taskParams.SetExportTaskIds([]*string{&task.TaskId})
-	if err := ec2Client.WaitUntilExportTaskCompleted(taskParams); err != nil {
-		log.Errorf("WaitUntilExportTaskCompleted %#v %s", taskParams, err)
-		return nil, errors.Wrap(err, "WaitUntilExportTaskCompleted")
+	err = cloudprovider.Wait(time.Second*10, time.Hour*1, func() (bool, error) {
+		task, err := self.region.DescribeExportTasks(task.TaskId)
+		if err != nil {
+			return false, errors.Wrapf(err, "DescribeExportTasks")
+		}
+		if task.State == "completed" {
+			return true, nil
+		}
+		log.Debugf("task %s status %s expected %s", task.ExportTaskId, task.State, "completed")
+		return false, nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "Wati Export Task")
 	}
-
 	return nil, cloudprovider.ErrNotSupported
+}
+
+type SExportTask struct {
+	ExportTaskId string `xml:"exportTaskId"`
+	State        string `xml:"state"`
+}
+
+func (self *SRegion) DescribeExportTasks(id string) (*SExportTask, error) {
+	params := map[string]string{
+		"ExportTaskId.1": id,
+	}
+	ret := struct {
+		ExportTaskSet []SExportTask `xml:"exportTaskSet>item"`
+	}{}
+	err := self.ec2Request("DescribeExportTasks", params, &ret)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ret.ExportTaskSet {
+		if ret.ExportTaskSet[i].ExportTaskId == id {
+			return &ret.ExportTaskSet[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) CheckBucket(bucketName string) error {
@@ -242,16 +262,13 @@ func (self *SRegion) CheckBucket(bucketName string) error {
 func (self *SRegion) checkBucket(bucketName string) error {
 	exists, err := self.IsBucketExist(bucketName)
 	if err != nil {
-		log.Errorf("IsBucketExist %s: %s", bucketName, err)
 		return errors.Wrap(err, "IsBucketExist")
 	}
 
 	if !exists {
 		return fmt.Errorf("bucket %s not found", bucketName)
-	} else {
-		return nil
 	}
-
+	return nil
 }
 
 func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
@@ -309,19 +326,13 @@ func (self *SRegion) GetARNPartition() string {
 
 func (self *SRegion) initVmimportRole() error {
 	/*需要api access token 具备iam Full access权限*/
-	iamClient, err := self.getIamClient()
-	if err != nil {
-		return err
-	}
-
 	// search role vmimport
 	rolename := "vmimport"
-	ret, _ := iamClient.GetRole(&iam.GetRoleInput{RoleName: &rolename})
-	// todo: 这里得区分是not found.还是其他错误
-	if ret.Role != nil && ret.Role.RoleId != nil {
-		return nil
-	} else {
-		// create it
+	_, err := self.client.GetRole(rolename)
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return errors.Wrapf(err, "GetRole")
+		}
 		roleDoc := `{
    "Version": "2012-10-17",
    "Statement": [
@@ -337,32 +348,35 @@ func (self *SRegion) initVmimportRole() error {
       }
    ]
 }`
-		params := &iam.CreateRoleInput{}
-		params.SetDescription("vmimport role for image import")
-		params.SetRoleName(rolename)
-		params.SetAssumeRolePolicyDocument(roleDoc)
-
-		_, err = iamClient.CreateRole(params)
-		return err
+		params := map[string]string{
+			"Description":              "vmimport role for image import",
+			"RoleName":                 rolename,
+			"AssumeRolePolicyDocument": roleDoc,
+		}
+		ret := struct{}{}
+		return self.client.iamRequest("CreateRole", params, &ret)
 	}
+	return nil
 }
 
 func (self *SRegion) initVmimportRolePolicy() error {
 	/*需要api access token 具备iam Full access权限*/
-	iamClient, err := self.getIamClient()
-	if err != nil {
-		return err
-	}
-
 	partition := self.GetARNPartition()
 	roleName := "vmimport"
 	policyName := "vmimport"
-	ret, err := iamClient.GetRolePolicy(&iam.GetRolePolicyInput{RoleName: &roleName, PolicyName: &policyName})
-	// todo: 这里得区分是not found.还是其他错误.
-	if ret.PolicyName != nil {
+	params := map[string]string{
+		"PolicyName": policyName,
+		"RoleName":   roleName,
+	}
+	ret := struct{}{}
+	err := self.client.iamRequest("GetRolePolicy", params, &ret)
+	if err == nil {
 		return nil
-	} else {
-		rolePolicy := `{
+	}
+	if errors.Cause(err) != cloudprovider.ErrNotFound {
+		return err
+	}
+	rolePolicy := `{
    "Version":"2012-10-17",
    "Statement":[
       {
@@ -389,16 +403,15 @@ func (self *SRegion) initVmimportRolePolicy() error {
       }
    ]
 }`
-		params := &iam.PutRolePolicyInput{}
-		params.SetPolicyDocument(fmt.Sprintf(rolePolicy, partition, "imgcache-*"))
-		params.SetPolicyName(policyName)
-		params.SetRoleName(roleName)
-		_, err = iamClient.PutRolePolicy(params)
-		return err
+	params = map[string]string{
+		"PolicyDocument": fmt.Sprintf(rolePolicy, partition, "imgcache-*"),
+		"PolicyName":     policyName,
+		"RoleName":       roleName,
 	}
+	return self.client.iamRequest("PutRolePolicy", params, &ret)
 }
 
-func (self *SRegion) initVmimport() error {
+func (self *SRegion) InitVmimport() error {
 	if err := self.initVmimportRole(); err != nil {
 		return err
 	}
@@ -410,38 +423,7 @@ func (self *SRegion) initVmimport() error {
 	return nil
 }
 
-func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (string, error) {
-	params := &ec2.CreateImageInput{}
-	params.SetDescription(imageDesc)
-	params.SetName(imageName)
-	block := &ec2.BlockDeviceMapping{}
-	block.SetDeviceName("/dev/sda1")
-	ebs := &ec2.EbsBlockDevice{}
-	ebs.SetSnapshotId(snapshotId)
-	ebs.SetDeleteOnTermination(true)
-	block.SetEbs(ebs)
-	blockList := []*ec2.BlockDeviceMapping{block}
-	params.SetBlockDeviceMappings(blockList)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.CreateImage(params)
-	if err != nil {
-		return "", err
-	}
-	return *ret.ImageId, nil
-}
-
-func (self *SRegion) getStoragecache() *SStoragecache {
-	if self.storageCache == nil {
-		self.storageCache = &SStoragecache{region: self}
-	}
-	return self.storageCache
-}
-
 func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
-	storageCache := region.getStoragecache()
-	return []cloudprovider.ICloudStoragecache{storageCache}, nil
+	cache := region.getStorageCache()
+	return []cloudprovider.ICloudStoragecache{cache}, nil
 }

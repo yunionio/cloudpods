@@ -574,12 +574,14 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 		return nil, errors.Wrapf(err, "RemoteDeployGuestForCreate.GetIHost")
 	}
 
-	iVM, err := func() (cloudprovider.ICloudVM, error) {
+	var iVM cloudprovider.ICloudVM = nil
+	iVM, err = func() (cloudprovider.ICloudVM, error) {
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
-		iVM, err := func() (cloudprovider.ICloudVM, error) {
-			iVM, err := ihost.CreateVM(&desc)
+		tryCnt := 0
+		iVM, err = func() (cloudprovider.ICloudVM, error) {
+			iVM, err = ihost.CreateVM(&desc)
 			if err == nil || !options.Options.EnableAutoSwitchServerSku {
 				return iVM, err
 			}
@@ -589,7 +591,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 			}
 			oldSku := desc.InstanceType
 			for i := range skus {
-				if skus[i].Name != oldSku {
+				if skus[i].Name != oldSku && len(skus[i].Name) > 0 {
 					desc.InstanceType = skus[i].Name
 					log.Infof("try switch server sku from %s to %s for create %s", oldSku, desc.InstanceType, guest.Name)
 					iVM, err = ihost.CreateVM(&desc)
@@ -600,12 +602,13 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 						})
 						return iVM, nil
 					}
+					tryCnt++
 				}
 			}
 			return iVM, err
 		}()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "After try %d skus", tryCnt)
 		}
 
 		db.SetExternalId(guest, userCred, iVM.GetGlobalId())

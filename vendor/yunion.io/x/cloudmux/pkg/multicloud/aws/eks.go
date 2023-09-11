@@ -366,7 +366,7 @@ func (self *SRegion) CreateNodegroup(cluster string, opts *cloudprovider.KubeNod
 		"subnets": opts.NetworkIds,
 	}
 	if len(opts.PublicKey) > 0 {
-		keypairName, err := self.syncKeypair(opts.PublicKey)
+		keypairName, err := self.SyncKeypair(opts.PublicKey)
 		if err != nil {
 			return nil, errors.Wrapf(err, "syncKeypair")
 		}

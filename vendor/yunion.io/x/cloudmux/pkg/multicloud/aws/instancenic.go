@@ -15,13 +15,7 @@
 package aws
 
 import (
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
-
-	"yunion.io/x/pkg/errors"
+	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
@@ -57,93 +51,73 @@ func (self *SInstanceNic) GetDriver() string {
 }
 
 func (self *SInstanceNic) GetINetworkId() string {
-	return self.instance.VpcAttributes.NetworkId
+	return self.instance.SubnetId
 }
 
-func (self *SInstanceNic) getEc2Client() *ec2.EC2 {
-	ec2Client, err := self.instance.host.zone.region.getEc2Client()
-	if err != nil {
-		return nil
+func (self *SRegion) GetSubAddress(nicId string) ([]string, error) {
+	params := map[string]string{
+		"NetworkInterfaceId.1": nicId,
 	}
-	return ec2Client
-}
-
-func (self *SInstanceNic) GetSubAddress() ([]string, error) {
-	var (
-		ec2Client = self.getEc2Client()
-		id        = self.GetId()
-		input     = &ec2.DescribeNetworkInterfacesInput{
-			NetworkInterfaceIds: []*string{
-				aws.String(id),
-			},
+	ret := struct {
+		NextToken           string `xml:"nextToken"`
+		NetworkInterfaceSet []struct {
+			NetworkInterfaceId    string `xml:"networkInterfaceId"`
+			PrivateIpAddress      string `xml:"privateIpAddress"`
+			PrivateIpAddressesSet []struct {
+				PrivateIpAddress string `xml:"privateIpAddress"`
+				Primary          bool   `xml:"primary"`
+			} `xml:"privateIpAddressesSet>item"`
+		} `xml:"networkInterfaceSet>item"`
+	}{}
+	err := self.ec2Request("DescribeNetworkInterfaces", params, &ret)
+	if err != nil {
+		return nil, err
+	}
+	ipAddrs := []string{}
+	for _, net := range ret.NetworkInterfaceSet {
+		if net.NetworkInterfaceId != nicId {
+			continue
 		}
-	)
-	output, err := ec2Client.DescribeNetworkInterfaces(input)
-	if err != nil {
-		return nil, errors.Wrapf(err, "aws ec2 DescribeNetworkInterfaces")
-	}
-	if got := len(output.NetworkInterfaces); got != 1 {
-		return nil, errors.Errorf("got aws %d network interface, want 1", got)
-	}
-	networkInterface := output.NetworkInterfaces[0]
-	if got := aws.StringValue(networkInterface.NetworkInterfaceId); got != id {
-		return nil, errors.Errorf("got aws network interface %s, want %s", got, id)
-	}
-	var ipAddrs []string
-	for _, privateIp := range networkInterface.PrivateIpAddresses {
-		if !aws.BoolValue(privateIp.Primary) {
-			ipAddrs = append(ipAddrs, *privateIp.PrivateIpAddress)
+		for _, addr := range net.PrivateIpAddressesSet {
+			if !addr.Primary {
+				ipAddrs = append(ipAddrs, addr.PrivateIpAddress)
+			}
 		}
 	}
 	return ipAddrs, nil
 }
 
-func (self *SInstanceNic) AssignAddress(ipAddrs []string) error {
-	var (
-		ec2Client = self.getEc2Client()
-		id        = self.GetId()
-		input     = &ec2.AssignPrivateIpAddressesInput{
-			NetworkInterfaceId: aws.String(id),
-			PrivateIpAddresses: aws.StringSlice(ipAddrs),
-		}
-	)
-	_, err := ec2Client.AssignPrivateIpAddresses(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case "PrivateIpAddressLimitExceeded":
-				return errors.Wrapf(cloudprovider.ErrAddressCountExceed, "aws ec2 AssignPrivateIpAddresses: %v", err)
-			}
-		}
-		return errors.Wrapf(err, "aws ec2 AssignPrivateIpAddresses")
+func (self *SInstanceNic) GetSubAddress() ([]string, error) {
+	return self.instance.host.zone.region.GetSubAddress(self.id)
+}
+
+func (self *SRegion) AssignAddres(nicId string, ipAddrs []string) error {
+	params := map[string]string{
+		"NetworkInterfaceId": nicId,
 	}
-	return nil
+	for i, addr := range ipAddrs {
+		params[fmt.Sprintf("PrivateIpAddress.%d", i+1)] = addr
+	}
+	ret := struct{}{}
+	return self.ec2Request("AssignPrivateIpAddresses", params, &ret)
+}
+
+func (self *SInstanceNic) AssignAddress(ipAddrs []string) error {
+	return self.instance.host.zone.region.AssignAddres(self.id, ipAddrs)
+}
+
+func (self *SRegion) UnassignAddress(nicId string, ipAddrs []string) error {
+	params := map[string]string{
+		"NetworkInterfaceId": nicId,
+	}
+	for i, addr := range ipAddrs {
+		params[fmt.Sprintf("PrivateIpAddress.%d", i+1)] = addr
+	}
+	ret := struct{}{}
+	return self.ec2Request("UnassignPrivateIpAddresses", params, &ret)
+
 }
 
 func (self *SInstanceNic) UnassignAddress(ipAddrs []string) error {
-	var (
-		ec2Client = self.getEc2Client()
-		id        = self.GetId()
-		input     = &ec2.UnassignPrivateIpAddressesInput{
-			NetworkInterfaceId: aws.String(id),
-			PrivateIpAddresses: aws.StringSlice(ipAddrs),
-		}
-	)
-	_, err := ec2Client.UnassignPrivateIpAddresses(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case "InvalidNetworkInterfaceID.NotFound":
-				return nil
-			case "InvalidParameterValue":
-				msg := aerr.Message()
-				// "Some of the specified addresses are not assigned to interface eni-xxxxxxxxxxxxxxxxx"
-				if strings.Contains(msg, " addresses are not assigned to interface ") {
-					return nil
-				}
-			}
-		}
-		return errors.Wrapf(err, "aws ec2 UnassignPrivateIpAddresses")
-	}
-	return nil
+	return self.instance.host.zone.region.UnassignAddress(self.id, ipAddrs)
 }

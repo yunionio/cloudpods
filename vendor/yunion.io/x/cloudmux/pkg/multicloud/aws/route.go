@@ -30,13 +30,13 @@ type SRoute struct {
 	Origin               string `json:"Origin"`
 	State                string `json:"State"`
 	// only one exist
-	GatewayID              *string `json:"GatewayId,omitempty"`
-	NatGatewayID           *string `json:"NatGatewayId,omitempty"`
-	InstanceID             *string `json:"InstanceId,omitempty"`
-	LocalGatewayID         *string `json:"LocalGatewayId,omitempty"`
-	NetworkInterfaceID     *string `json:"NetworkInterfaceId,omitempty"`
-	TransitGatewayID       *string `json:"TransitGatewayId,omitempty"`
-	VpcPeeringConnectionID *string `json:"VpcPeeringConnectionId,omitempty"`
+	GatewayId              string `xml:"gatewayId,omitempty"`
+	NatGatewayId           string `xml:"natGatewayId,omitempty"`
+	InstanceId             string `xml:"instanceId,omitempty"`
+	LocalGatewayId         string `xml:"localGatewayId,omitempty"`
+	NetworkInterfaceId     string `xml:"networkInterfaceId,omitempty"`
+	TransitGatewayId       string `xml:"transitGatewayId,omitempty"`
+	VpcPeeringConnectionId string `xml:"vpcPeeringConnectionId,omitempty"`
 }
 
 func (self *SRoute) GetId() string {
@@ -110,27 +110,26 @@ func (self *SRoute) GetNextHopType() string {
 }
 
 func (self *SRoute) GetNextHop() string {
-	if self.NatGatewayID != nil {
-		return *self.NatGatewayID
+	if len(self.NatGatewayId) > 0 {
+		return self.NatGatewayId
 	}
-	if self.GatewayID != nil {
-		return *self.GatewayID
+	if len(self.GatewayId) > 0 {
+		return self.GatewayId
 	}
-	if self.InstanceID != nil {
-		return *self.InstanceID
+	if len(self.InstanceId) > 0 {
+		return self.InstanceId
 	}
-	if self.LocalGatewayID != nil {
-		return *self.LocalGatewayID
+	if len(self.LocalGatewayId) > 0 {
+		return self.LocalGatewayId
 	}
-	if self.NetworkInterfaceID != nil {
-		return *self.NetworkInterfaceID
+	if len(self.NetworkInterfaceId) > 0 {
+		return self.NetworkInterfaceId
 	}
-	if self.TransitGatewayID != nil {
-		return *self.TransitGatewayID
+	if len(self.TransitGatewayId) > 0 {
+		return self.TransitGatewayId
 	}
-	if self.VpcPeeringConnectionID != nil {
-		return *self.VpcPeeringConnectionID
+	if len(self.VpcPeeringConnectionId) > 0 {
+		return self.VpcPeeringConnectionId
 	}
-
 	return ""
 }

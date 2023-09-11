@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/iam"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -167,33 +165,87 @@ func (self *SElbCertificate) ParsePublicKey() (*x509.Certificate, error) {
 }
 
 func (self *SRegion) getPublicKey(certName string) (string, error) {
-	client, err := self.getIamClient()
-	if err != nil {
-		return "", err
+	params := map[string]string{
+		"ServerCertificateName": certName,
 	}
-
-	params := &iam.GetServerCertificateInput{}
-	params.SetServerCertificateName(certName)
-	ret, err := client.GetServerCertificate(params)
-	if err != nil {
-		return "", err
-	}
-
-	return StrVal(ret.ServerCertificate.CertificateBody), nil
+	ret := struct {
+		ServerCertificate struct {
+			CertificateBody string `xml:"CertificateBody"`
+		} `xml:"ServerCertificate"`
+	}{}
+	return ret.ServerCertificate.CertificateBody, self.client.iamRequest("GetServerCertificate", params, &ret)
 }
 
 func (self *SRegion) deleteElbCertificate(certName string) error {
-	client, err := self.getIamClient()
+	params := map[string]string{
+		"ServerCertificateName": certName,
+	}
+	ret := struct{}{}
+	return self.client.iamRequest("DeleteServerCertificate", params, &ret)
+}
+
+func (self *SRegion) CreateLoadbalancerCertifacate(opts *cloudprovider.SLoadbalancerCertificate) (string, error) {
+	params := map[string]string{
+		"ServerCertificateName": opts.Name,
+		"PrivateKey":            opts.PrivateKey,
+		"CertificateBody":       opts.Certificate,
+	}
+	ret := struct {
+		ServerCertificateMetadata struct {
+			Arn string `xml:"Arn"`
+		} `xml:"ServerCertificateMetadata"`
+	}{}
+
+	err := self.client.iamRequest("UploadServerCertificate", params, &ret)
 	if err != nil {
-		return err
+		return "", errors.Wrapf(err, "UploadServerCertificate")
+	}
+	return ret.ServerCertificateMetadata.Arn, nil
+}
+
+func (self *SRegion) CreateILoadBalancerCertificate(opts *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	arn, err := self.CreateLoadbalancerCertifacate(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateLoadbalancerCertifacate")
 	}
 
-	params := &iam.DeleteServerCertificateInput{}
-	params.SetServerCertificateName(certName)
-	_, err = client.DeleteServerCertificate(params)
-	if err != nil {
-		return err
-	}
+	// wait upload cert success
+	err = cloudprovider.Wait(5*time.Second, 30*time.Second, func() (bool, error) {
+		_, err := self.GetILoadBalancerCertificateById(arn)
+		if err == nil {
+			return true, nil
+		}
 
-	return nil
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return false, nil
+		} else {
+			return false, err
+		}
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "region.CreateILoadBalancerCertificate.Wait")
+	}
+	return self.GetILoadBalancerCertificateById(arn)
+}
+
+func (self *SRegion) ListServerCertificates() ([]SElbCertificate, error) {
+	params := map[string]string{}
+	ret := []SElbCertificate{}
+	for {
+		part := struct {
+			IsTruncated                   bool              `xml:"IsTruncated"`
+			ServerCertificateMetadataList []SElbCertificate `xml:"ServerCertificateMetadataList>member"`
+			Marker                        string            `xml:"Marker"`
+		}{}
+		err := self.client.iamRequest("ListServerCertificates", params, &part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListServerCertificates")
+		}
+		ret = append(ret, part.ServerCertificateMetadataList...)
+		if len(part.Marker) == 0 || len(part.ServerCertificateMetadataList) == 0 {
+			break
+		}
+		params["Marker"] = part.Marker
+	}
+	return ret, nil
 }

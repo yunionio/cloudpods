@@ -76,11 +76,10 @@ func (self *SNetwork) Refresh() error {
 
 func (self *SNetwork) GetSysTags() map[string]string {
 	data := map[string]string{}
-	routes, _ := self.wire.vpc.region.GetRouteTablesByNetworkId(self.GetId())
+	routes, _ := self.wire.vpc.region.GetRouteTables("", self.SubnetId, "", "", false)
 	if len(routes) == 0 {
-		routes, _ = self.wire.vpc.region.GetRouteTables(self.VpcId, true)
+		routes, _ = self.wire.vpc.region.GetRouteTables(self.VpcId, "", "", "", true)
 	}
-
 	support_eip := false
 	if len(routes) >= 1 {
 		for i := range routes[0].Routes {
@@ -163,7 +162,7 @@ func (self *SRegion) ModifySubnetAttribute(subnetId string, assignPublicIp bool)
 	return self.ec2Request("ModifySubnetAttribute", params, &ret)
 }
 
-func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr, desc string) (string, error) {
+func (self *SRegion) CreateNetwork(zoneId string, vpcId string, name string, cidr, desc string) (*SNetwork, error) {
 	params := map[string]string{
 		"AvailabilityZone":                zoneId,
 		"VpcId":                           vpcId,
@@ -183,13 +182,13 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 
 	err := self.ec2Request("CreateSubnet", params, &ret)
 	if err != nil {
-		return "", errors.Wrapf(err, "CreateSubnet")
+		return nil, errors.Wrapf(err, "CreateSubnet")
 	}
-	return ret.Subnet.SubnetId, nil
+	return &ret.Subnet, nil
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
-	networks, err := self.GetNetwroks([]string{networkId}, "")
+	networks, err := self.GetNetwroks([]string{networkId}, "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetNetwroks")
 	}
@@ -208,12 +207,18 @@ func (self *SRegion) DeleteNetwork(id string) error {
 	return self.ec2Request("DeleteSubnet", params, nil)
 }
 
-func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, error) {
+func (self *SRegion) GetNetwroks(ids []string, zoneId, vpcId string) ([]SNetwork, error) {
 	params := map[string]string{}
 	idx := 1
 	if len(vpcId) > 0 {
 		params[fmt.Sprintf("Filter.%d.Name", idx)] = "vpc-id"
 		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = vpcId
+		idx++
+	}
+	if len(zoneId) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "availability-zone"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = zoneId
+		idx++
 	}
 	for i, id := range ids {
 		params[fmt.Sprintf("SubnetId.%d", i+1)] = id

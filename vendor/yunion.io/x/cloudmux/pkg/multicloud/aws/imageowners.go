@@ -35,15 +35,7 @@ func getSystemOwnerIds() []string {
 	return keys
 }
 
-func stringArray2StringPtrArray(arr []string) []*string {
-	ret := make([]*string, len(arr))
-	for i := range arr {
-		ret[i] = &arr[i]
-	}
-	return ret
-}
-
-func imageOwnerTypes2Strings(owners []TImageOwnerType, rawIds []string) []*string {
+func imageOwnerTypes2Strings(owners []TImageOwnerType, rawIds []string) []string {
 	ownerIds := make([]string, 0)
 	for i := range owners {
 		switch owners[i] {
@@ -55,7 +47,7 @@ func imageOwnerTypes2Strings(owners []TImageOwnerType, rawIds []string) []*strin
 		}
 	}
 	ownerIds = append(ownerIds, rawIds...)
-	return stringArray2StringPtrArray(ownerIds)
+	return ownerIds
 }
 
 type SAWSImagePublisherInfo struct {
@@ -187,6 +179,9 @@ var ubuntuReleases = map[string]string{
 	"bionic":   "18.04",
 	"cosmic":   "18.10",
 	"disco":    "19.04",
+	"focal":    "20.04",
+	"jammy":    "22.04",
+	"lunar":    "23.04",
 }
 
 var ubuntuReleasePattern = regexp.MustCompile(`-\d+\.\d+-`)
@@ -538,7 +533,10 @@ func getImageOSType(image SImage) string {
 	if ok {
 		return ownerInfo.GetOSType(image)
 	}
-	return image.OSType
+	if strings.Contains(strings.ToLower(image.Platform), "windows") {
+		return string(cloudprovider.OsTypeWindows)
+	}
+	return string(cloudprovider.OsTypeLinux)
 }
 
 func getImageOSDist(image SImage) string {
@@ -568,12 +566,12 @@ func getImageOSBuildID(image SImage) string {
 func comapreImageBuildIds(ver1 string, img2 SImage) int {
 	ownerInfo, ok := awsImagePublishers[img2.OwnerId]
 	if ok && ownerInfo.CompareBuilds != nil {
-		return ownerInfo.CompareBuilds(ver1, img2.OSBuildId)
+		return ownerInfo.CompareBuilds(ver1, getImageOSBuildID(img2))
 	}
-	return strings.Compare(ver1, img2.OSBuildId)
+	return strings.Compare(ver1, getImageOSBuildID(img2))
 }
 
-func getImageType(image SImage) cloudprovider.TImageType {
+func getImageType(image *SImage) cloudprovider.TImageType {
 	_, ok := awsImagePublishers[image.OwnerId]
 	if ok {
 		return cloudprovider.ImageTypeSystem
