@@ -30,7 +30,7 @@ import (
 type SLBListenerRule struct {
 	multicloud.SResourceBase
 	multicloud.SLoadbalancerRedirectBase
-	multicloud.QcloudTags
+	multicloud.STagBase
 	listener *SLBListener
 
 	Domain            string      `json:"Domain"`
