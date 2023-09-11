@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -1321,14 +1322,27 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 			}
 		}
 	}
+
+	ch := make(chan struct{}, options.Options.SkuBatchSync)
+	defer close(ch)
+	var wg sync.WaitGroup
 	for i := 0; i < len(added); i += 1 {
-		err = region.newPublicCloudSku(ctx, userCred, added[i])
-		if err != nil {
-			result.AddError(err)
-		} else {
-			result.Add()
-		}
+		ch <- struct{}{}
+		wg.Add(1)
+		go func(sku SServerSku) {
+			defer func() {
+				wg.Done()
+				<-ch
+			}()
+			err = region.newPublicCloudSku(ctx, userCred, sku)
+			if err != nil {
+				result.AddError(err)
+			} else {
+				result.Add()
+			}
+		}(added[i])
 	}
+	wg.Wait()
 
 	// notfiy sched manager
 	_, err = scheduler.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region), false)
