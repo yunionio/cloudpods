@@ -109,6 +109,7 @@ type ComputeOptions struct {
 	RepeatWeekdaysLimit int `default:"7" help:"day point of every weekday, default 7 points"`
 
 	ServerSkuSyncIntervalMinutes int `default:"60" help:"Interval to sync public cloud server skus, defualt is 1 hour"`
+	SkuBatchSync                 int `default:"5" help:"How many skus can be sync in a batch"`
 
 	// sku sync
 	SyncSkusDay  int `default:"1" help:"Days auto sync skus data, default 1 day"`
