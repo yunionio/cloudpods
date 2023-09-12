@@ -436,14 +436,21 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 			self.DomainId = domainId
 			self.ProjectId = projectId
 		}
+		cache, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, self.ProjectId, self.DomainId)
+		if err != nil {
+			return errors.Wrapf(err, "FetchProject %s", self.ProjectId)
+		}
+		if cache.PendingDeleted {
+			desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+			_, self.ProjectId, err = account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
+			if err != nil {
+				return errors.Wrapf(err, "getOrCreateTenant")
+			}
+			return nil
+		}
 		if pm == nil && account.AutoCreateProject && options.Options.EnableAutoRenameProject && oldName != self.Name {
 			count, _ := self.GetProjectCount()
 			if count == 1 {
-				cache, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, self.ProjectId, self.DomainId)
-				if err != nil {
-					log.Errorf("FetchByIdOrName %s", self.ProjectId)
-					return nil
-				}
 				params := map[string]string{"name": self.Name}
 				_, err = identity.Projects.Update(s, self.ProjectId, jsonutils.Marshal(params))
 				if err != nil {

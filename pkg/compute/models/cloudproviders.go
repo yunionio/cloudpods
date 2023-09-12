@@ -444,6 +444,9 @@ func (account *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domai
 		}
 		return createTenant(ctx, name, domainId, desc)
 	}
+	if tenant.PendingDeleted {
+		return createTenant(ctx, name, domainId, desc)
+	}
 	share := account.GetSharedInfo()
 	if tenant.DomainId == account.DomainId || (share.PublicScope == rbacscope.ScopeSystem ||
 		(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
