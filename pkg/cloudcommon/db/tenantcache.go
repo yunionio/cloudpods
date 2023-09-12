@@ -350,6 +350,10 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 		if obj.Id == item.Id && obj.Name == item.Name && obj.Domain == item.ProjectDomain && obj.DomainId == item.DomainId {
 			Update(obj, func() error {
 				obj.LastCheck = now
+				obj.PendingDeleted = item.PendingDeleted
+				if obj.PendingDeleted {
+					obj.PendingDeletedAt = item.PendingDeletedAt
+				}
 				return nil
 			})
 			if saveMeta {
@@ -363,6 +367,10 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 			obj.Domain = item.ProjectDomain
 			obj.DomainId = item.DomainId
 			obj.LastCheck = now
+			obj.PendingDeleted = item.PendingDeleted
+			if obj.PendingDeleted {
+				obj.PendingDeletedAt = item.PendingDeletedAt
+			}
 			return nil
 		})
 		if err != nil {
@@ -381,6 +389,10 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 		obj.Domain = item.ProjectDomain
 		obj.DomainId = item.DomainId
 		obj.LastCheck = now
+		obj.PendingDeleted = item.PendingDeleted
+		if obj.PendingDeleted {
+			obj.PendingDeletedAt = item.PendingDeletedAt
+		}
 		err = manager.TableSpec().InsertOrUpdate(ctx, obj)
 		if err != nil {
 			return nil, errors.Wrap(err, "InsertOrUpdate")

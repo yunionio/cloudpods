@@ -2619,6 +2619,7 @@ func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncProjects for account %s result: %s", account.Name, msg)
+	log.Infof(notes)
 	account.SyncError(result, notes, userCred)
 	if result.IsError() {
 		return err
