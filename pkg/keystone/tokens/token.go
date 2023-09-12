@@ -283,6 +283,7 @@ func (t *SAuthToken) getTokenV3(
 	token.Token.User.Displayname = user.Displayname
 	token.Token.User.Email = user.Email
 	token.Token.User.Mobile = user.Mobile
+	token.Token.User.IsSystemAccount = user.IsSystemAccount
 	token.Token.Context = t.Context
 
 	tk, err := t.EncodeFernetToken()
@@ -379,6 +380,7 @@ func (t *SAuthToken) getTokenV2(
 	token.User.Name = user.Name
 	token.User.Id = user.Id
 	token.User.Username = user.Name
+	token.User.IsSystemAccount = user.IsSystemAccount
 	token.Context = t.Context
 
 	tk, err := t.EncodeFernetToken()

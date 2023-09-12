@@ -260,4 +260,9 @@ const (
 	ACT_ADD_BASTION_SERVER = "add_bastion_server"
 
 	ACT_SYNC_TRAFFIC_LIMIT = "sync_traffic_limit"
+
+	ACT_GENERATE_REPORT     = "generate_report"
+	ACT_REPORT_COLLECT_DATA = "report_collect_data"
+	ACT_REPORT_SEND         = "report_send"
+	ACT_REPORT_TEMPLATE     = "report_template"
 )

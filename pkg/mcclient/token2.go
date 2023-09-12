@@ -62,7 +62,8 @@ type KeystoneUserV2 struct {
 	// 用户名
 	Name string `json:"name"`
 	// 用户username
-	Username string `json:"username"`
+	Username        string `json:"username"`
+	IsSystemAccount bool   `json:"is_system_account"`
 	// 用户角色列表
 	Roles []KeystoneRoleV2 `json:"roles"`
 }
@@ -161,6 +162,10 @@ func (token *TokenCredentialV2) GetUserName() string {
 
 func (token *TokenCredentialV2) GetUserId() string {
 	return token.User.Id
+}
+
+func (token *TokenCredentialV2) IsSystemAccount() bool {
+	return token.User.IsSystemAccount
 }
 
 func (token *TokenCredentialV2) GetRoles() []string {

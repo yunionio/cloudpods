@@ -183,6 +183,10 @@ func (this *SSimpleToken) GetServiceCatalog() IServiceCatalog {
 	return nil
 }
 
+func (this *SSimpleToken) IsSystemAccount() bool {
+	return true
+}
+
 func (this *SSimpleToken) GetLoginSource() string {
 	return this.Context.Source
 }

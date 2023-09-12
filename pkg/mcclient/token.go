@@ -107,4 +107,5 @@ type TokenCredential interface {
 
 	GetLoginSource() string
 	GetLoginIp() string
+	IsSystemAccount() bool
 }

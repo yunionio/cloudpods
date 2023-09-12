@@ -24,18 +24,20 @@ import (
 )
 
 type BaseActionListOptions struct {
-	Scope      string   `help:"scope" choices:"project|domain|system"`
-	Since      string   `help:"Show logs since specific date" metavar:"DATETIME"`
-	Until      string   `help:"Show logs until specific date" metavar:"DATETIME"`
-	Limit      int64    `help:"Limit number of logs" default:"20"`
-	Offset     int64    `help:"Offset"`
-	Ascending  bool     `help:"Ascending order"`
-	Descending bool     `help:"Descending order"`
-	Action     []string `help:"Log action"`
-	Search     string   `help:"Filter action logs by obj_name, using 'like' syntax."`
-	Admin      bool     `help:"admin mode"`
-	Succ       bool     `help:"Show success action log only"`
-	Fail       bool     `help:"Show failed action log only"`
+	Scope         string   `help:"scope" choices:"project|domain|system"`
+	Since         string   `help:"Show logs since specific date" metavar:"DATETIME"`
+	Until         string   `help:"Show logs until specific date" metavar:"DATETIME"`
+	Limit         int64    `help:"Limit number of logs" default:"20"`
+	Offset        int64    `help:"Offset"`
+	Ascending     bool     `help:"Ascending order"`
+	Descending    bool     `help:"Descending order"`
+	Action        []string `help:"Log action"`
+	Search        string   `help:"Filter action logs by obj_name, using 'like' syntax."`
+	Admin         bool     `help:"admin mode"`
+	Succ          bool     `help:"Show success action log only"`
+	Fail          bool     `help:"Show failed action log only"`
+	SystemAccount bool     `help:"Show system account log"`
+	NormalAccount bool     `help:"Show normal account log"`
 
 	User    []string `help:"filter by operator user"`
 	Project []string `help:"filter by owner project"`
@@ -113,6 +115,17 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	if args.Fail {
 		params.Add(jsonutils.JSONFalse, "success")
 	}
+
+	if args.SystemAccount && args.NormalAccount {
+		return fmt.Errorf("system account and normal account can't go together")
+	}
+	if args.SystemAccount {
+		params.Add(jsonutils.JSONTrue, "is_system_account")
+	}
+	if args.NormalAccount {
+		params.Add(jsonutils.JSONFalse, "is_system_account")
+	}
+
 	logs, err := modules.Actions.List(s, params)
 	if err != nil {
 		return err
