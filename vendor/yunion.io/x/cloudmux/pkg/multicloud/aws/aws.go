@@ -366,6 +366,9 @@ func (client *SAwsClient) fetchBuckets() error {
 	s3cli := s3.New(s)
 	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
 	if err != nil {
+		if e, ok := err.(awserr.Error); ok && e.Code() == "AccessDenied" {
+			return errors.Wrapf(cloudprovider.ErrForbidden, e.Message())
+		}
 		return errors.Wrap(err, "ListBuckets")
 	}
 
