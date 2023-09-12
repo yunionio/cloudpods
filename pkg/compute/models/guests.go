@@ -1828,6 +1828,23 @@ func (manager *SGuestManager) validateCreateData(
 		input.IsolatedDevices[idx] = devConfig
 	}
 
+	nvidiaVgpuCnt := 0
+	gpuCnt := 0
+	for i := 0; i < len(input.IsolatedDevices); i++ {
+		if input.IsolatedDevices[i].DevType == api.LEGACY_VGPU_TYPE {
+			nvidiaVgpuCnt += 1
+		} else if utils.IsInStringArray(input.IsolatedDevices[i].DevType, api.VALID_GPU_TYPES) {
+			gpuCnt += 1
+		}
+	}
+
+	if nvidiaVgpuCnt > 1 {
+		return nil, httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
+	}
+	if nvidiaVgpuCnt > 0 && gpuCnt > 0 {
+		return nil, httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
+	}
+
 	keypairId := input.KeypairId
 	if len(keypairId) > 0 {
 		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairId)
