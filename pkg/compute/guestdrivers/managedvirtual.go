@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
-	"yunion.io/x/pkg/util/cloudinit"
 	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -243,13 +242,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if input.Cdrom != "" {
 		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
-	}
-	driver := models.GetDriver(input.Hypervisor)
-	if len(input.UserData) > 0 && driver != nil && driver.IsNeedInjectPasswordByCloudInit() {
-		_, err := cloudinit.ParseUserData(input.UserData)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return input, nil
 }

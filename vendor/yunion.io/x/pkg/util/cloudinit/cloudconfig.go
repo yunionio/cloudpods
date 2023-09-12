@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 )
@@ -233,10 +234,15 @@ func (conf *SCloudConfig) UserDataScript() string {
 	}
 	shells = append(shells, conf.Runcmd...)
 
-	// 允许密码及root登录(谷歌云镜像默认会禁止root及密码登录)
-	shells = append(shells, `sed -i "s/.*PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config`)
-	shells = append(shells, `sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config`)
-	shells = append(shells, `systemctl restart sshd`)
+	if conf.DisableRoot == 0 {
+		shells = append(shells, `sed -i "s/.*PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config`)
+	}
+	if conf.SshPwauth == SSH_PASSWORD_AUTH_ON {
+		shells = append(shells, `sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config`)
+	}
+	if conf.DisableRoot == 0 || conf.SshPwauth == SSH_PASSWORD_AUTH_ON {
+		shells = append(shells, `systemctl restart sshd`)
+	}
 
 	for _, pkg := range conf.Packages {
 		shells = append(shells, "which yum &>/dev/null && yum install -y "+pkg)
@@ -285,16 +291,28 @@ func ParseUserDataBase64(b64data string) (*SCloudConfig, error) {
 	return ParseUserData(string(data))
 }
 
+func parseShell(data string) (*SCloudConfig, error) {
+	info := strings.Split(data, "\n")
+	ret := &SCloudConfig{
+		Runcmd:    []string{},
+		SshPwauth: SSH_PASSWORD_AUTH_ON,
+	}
+	for _, cmd := range info {
+		if strings.HasPrefix(cmd, "#") || len(strings.Trim(cmd, "")) == 0 {
+			continue
+		}
+		ret.Runcmd = append(ret.Runcmd, cmd)
+	}
+	return ret, nil
+}
+
 func ParseUserData(data string) (*SCloudConfig, error) {
 	if !strings.HasPrefix(data, CLOUD_CONFIG_HEADER) {
-		msg := "invalid userdata, not starting with #cloud-config"
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
+		return parseShell(data)
 	}
 	jsonConf, err := jsonutils.ParseYAML(data)
 	if err != nil {
-		log.Errorf("parse userdata yaml error %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "ParseYAML")
 	}
 	jsonDict := jsonConf.(*jsonutils.JSONDict)
 	if jsonDict.Contains("users") {

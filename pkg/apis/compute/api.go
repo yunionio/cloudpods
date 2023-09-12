@@ -390,7 +390,7 @@ type ServerCreateInput struct {
 	VcpuCount int `json:"vcpu_count"`
 
 	// 用户自定义启动脚本
-	// 部分平台只支持 #cloud-config yaml 格式(由于部分平台密码依赖cloud-init注入密码信息,所以不支持特殊类型的user data)
+	// 支持 #cloud-config yaml 格式及shell脚本
 	// 支持特殊user data平台: Aliyun, Qcloud, Azure, Apsara, Ucloud
 	// required: false
 	UserData string `json:"user_data"`
