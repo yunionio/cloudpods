@@ -17,11 +17,12 @@ package db
 import identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 
 type SCachedTenant struct {
-	Id            string            `json:"id"`
-	Name          string            `json:"name"`
-	DomainId      string            `json:"domain_id"`
-	ProjectDomain string            `json:"project_domain"`
-	Metadata      map[string]string `json:"metadata"`
+	Id             string            `json:"id"`
+	Name           string            `json:"name"`
+	DomainId       string            `json:"domain_id"`
+	ProjectDomain  string            `json:"project_domain"`
+	Metadata       map[string]string `json:"metadata"`
+	PendingDeleted bool              `json:"pending_deleted"`
 }
 
 func (s SCachedTenant) objType() string {

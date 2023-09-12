@@ -123,7 +123,7 @@ func syncProjects(ctx context.Context) error {
 			// update project cache
 			item := SCachedTenant{}
 			err := results.Data[i].Unmarshal(&item)
-			if err != nil {
+			if err == nil {
 				TenantCacheManager.Save(ctx, item, true)
 			}
 			offset++
@@ -152,7 +152,7 @@ func syncUsers(ctx context.Context) error {
 			// update user cache
 			item := SCachedUser{}
 			err := results.Data[i].Unmarshal(&item)
-			if err != nil {
+			if err == nil {
 				UserCacheManager.Save(ctx, item.Id, item.Name, item.DomainId, item.ProjectDomain, item.Lang)
 			}
 			offset++
