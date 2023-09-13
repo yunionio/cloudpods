@@ -444,8 +444,8 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 	return ret, nil
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name)
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.host.zone.region.UpdateVM(self.InstanceId, input)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -785,13 +785,14 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SRegion) UpdateVM(instanceId string, name string) error {
+func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUpdateOptions) error {
 	/*
 			api: ModifyInstanceAttribute
 		    https://help.apsara.com/document_detail/25503.html?spm=a2c4g.11186623.4.1.DrgpjW
 	*/
 	params := make(map[string]string)
-	params["InstanceName"] = name
+	params["InstanceName"] = input.NAME
+	params["Description"] = input.Description
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 

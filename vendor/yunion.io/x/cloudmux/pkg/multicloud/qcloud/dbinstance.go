@@ -15,6 +15,7 @@
 package qcloud
 
 import (
+	"context"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -60,4 +61,11 @@ func (self *SRegion) CreateIDBInstance(opts *cloudprovider.SManagedDBInstanceCre
 		return rds, nil
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "For %s", opts.Engine)
+}
+
+func (rds *SMySQLInstance) Update(ctx context.Context, input cloudprovider.SDBInstanceUpdateOptions) error {
+	if strings.HasPrefix(rds.InstanceId, "cdb") {
+		return rds.region.Update(rds.InstanceId, input.NAME)
+	}
+	return errors.ErrNotImplemented
 }

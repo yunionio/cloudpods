@@ -886,3 +886,15 @@ func (self *SHuaweiClient) patchRequest(method httputils.THttpMethod, url string
 	}
 	return respValue, err
 }
+
+func (self *SHuaweiClient) dbinstanceSetName(instanceId string, params map[string]interface{}) error {
+	uri := fmt.Sprintf("https://rds.%s.myhuaweicloud.com/v3/%s/instances/%s/name", self.clientRegion, self.projectId, instanceId)
+	_, err := self.request(httputils.PUT, uri, nil, params)
+	return err
+}
+
+func (self *SHuaweiClient) dbinstanceSetDesc(instanceId string, params map[string]interface{}) error {
+	uri := fmt.Sprintf("https://rds.%s.myhuaweicloud.com/v3/%s/instances/%s/alias", self.clientRegion, self.projectId, instanceId)
+	_, err := self.request(httputils.PUT, uri, nil, params)
+	return err
+}

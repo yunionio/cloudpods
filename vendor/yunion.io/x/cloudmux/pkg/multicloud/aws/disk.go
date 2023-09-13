@@ -412,3 +412,7 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 func (self *SDisk) GetProjectId() string {
 	return ""
 }
+
+func (self *SDisk) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

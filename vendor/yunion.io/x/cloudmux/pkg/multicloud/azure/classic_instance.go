@@ -296,7 +296,7 @@ func (self *SClassicInstance) RebuildRoot(ctx context.Context, desc *cloudprovid
 	//return self.host.zone.region.ReplaceSystemDisk(self.ID, imageId, passwd, publicKey, int32(sysSizeGB))
 }
 
-func (self *SClassicInstance) UpdateVM(ctx context.Context, name string) error {
+func (self *SClassicInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

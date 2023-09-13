@@ -453,8 +453,8 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 	return ret, nil
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name)
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.host.zone.region.UpdateVM(self.InstanceId, input.NAME)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {

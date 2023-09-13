@@ -2412,6 +2412,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 			return nil, errors.Wrap(err, "iRds.SetTags")
 		}
 		logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+
+		err = iRds.Update(ctx, cloudprovider.SDBInstanceUpdateOptions{NAME: instance.Name, Description: instance.Description})
+		if err != nil {
+			if errors.Cause(err) != cloudprovider.ErrNotSupported {
+				return nil, errors.Wrap(err, "iRds.Update")
+			}
+		}
 		return nil, nil
 	})
 	return nil

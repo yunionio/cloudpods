@@ -400,7 +400,7 @@ func (self *SInstance) UpdateUserData(userData string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

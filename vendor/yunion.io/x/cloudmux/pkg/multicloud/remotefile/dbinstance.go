@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 )
 
 type SDBInstance struct {
@@ -213,4 +214,8 @@ func (self *SRegion) GetIDBInstanceById(id string) (cloudprovider.ICloudDBInstan
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (instance *SDBInstance) Update(ctx context.Context, input cloudprovider.SDBInstanceUpdateOptions) error {
+	return errors.ErrNotImplemented
 }

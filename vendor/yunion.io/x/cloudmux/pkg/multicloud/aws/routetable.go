@@ -291,3 +291,7 @@ func (self *SRegion) DeleteRouteTable(rid string) error {
 	ret := struct{}{}
 	return self.ec2Request("DeleteRouteTable", params, &ret)
 }
+
+func (self *SRoute) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

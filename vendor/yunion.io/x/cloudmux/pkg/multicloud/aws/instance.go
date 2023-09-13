@@ -522,9 +522,12 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return self.host.zone.region.DeleteVM(self.InstanceId)
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	self.SetTags(map[string]string{"Name": name}, false)
-	return nil
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.host.zone.region.UpdateVM(self.InstanceId, input)
+}
+
+func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.setTags("instance", instanceId, map[string]string{"Name": input.NAME, "Description": input.Description}, false)
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
@@ -895,11 +898,6 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	return self.ec2Request("TerminateInstances", params, &ret)
 }
 
-func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
-	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/set-hostname.html
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, image *SImage, sysDiskSizeGB int, keypair string, userdata string) (string, error) {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
@@ -1145,4 +1143,8 @@ func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudpro
 		return nil, errors.Wrapf(err, "SaveImage")
 	}
 	return image, nil
+}
+
+func (ins *SInstance) GetDescription() string {
+	return ins.AwsTags.GetDescription()
 }

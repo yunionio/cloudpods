@@ -368,7 +368,7 @@ type ICloudVM interface {
 	StopVM(ctx context.Context, opts *ServerStopOptions) error
 	DeleteVM(ctx context.Context) error
 
-	UpdateVM(ctx context.Context, name string) error
+	UpdateVM(ctx context.Context, input SInstanceUpdateOptions) error
 
 	UpdateUserData(userData string) error
 
@@ -991,6 +991,8 @@ type ICloudDBInstance interface {
 	CreateIBackup(conf *SDBInstanceBackupCreateConfig) (string, error)
 
 	RecoveryFromBackup(conf *SDBInstanceRecoveryConfig) error
+
+	Update(ctx context.Context, input SDBInstanceUpdateOptions) error
 
 	Delete() error
 }

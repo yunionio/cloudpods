@@ -145,3 +145,7 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, category)
 }
+
+func (self *SZone) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

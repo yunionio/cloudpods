@@ -609,8 +609,8 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.GetId(), name)
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.host.zone.region.UpdateVM(self.GetId(), input)
 }
 
 // https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0032380449.html
@@ -1149,10 +1149,11 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	return err
 }
 
-func (self *SRegion) UpdateVM(instanceId, name string) error {
+func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUpdateOptions) error {
 	params := jsonutils.NewDict()
 	serverObj := jsonutils.NewDict()
-	serverObj.Add(jsonutils.NewString(name), "name")
+	serverObj.Add(jsonutils.NewString(input.NAME), "name")
+	serverObj.Add(jsonutils.NewString(input.Description), "description")
 	params.Add(serverObj, "server")
 
 	_, err := self.ecsClient.Servers.Update(instanceId, params)

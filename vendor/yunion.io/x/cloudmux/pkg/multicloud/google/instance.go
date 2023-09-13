@@ -483,7 +483,7 @@ func (instance *SInstance) DeleteVM(ctx context.Context) error {
 	return instance.host.zone.region.Delete(instance.SelfLink)
 }
 
-func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (instance *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

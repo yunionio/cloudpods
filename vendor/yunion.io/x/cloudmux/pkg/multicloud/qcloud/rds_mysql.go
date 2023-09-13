@@ -921,3 +921,15 @@ func (self *SRegion) GetIMySQLs() ([]cloudprovider.ICloudDBInstance, error) {
 	}
 	return ret, nil
 }
+
+func (self *SRegion) Update(id, name string) error {
+	params := map[string]string{
+		"InstanceId":   id,
+		"InstanceName": name,
+	}
+	_, err := self.cdbRequest("ModifyDBInstanceName", params)
+	if err != nil {
+		return errors.Wrapf(err, "cdbRequest")
+	}
+	return nil
+}

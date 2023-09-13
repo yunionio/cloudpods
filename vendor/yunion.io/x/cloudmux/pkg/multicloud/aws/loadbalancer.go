@@ -43,6 +43,7 @@ type SElb struct {
 	multicloud.SVirtualResourceBase
 	region *SRegion
 
+	AwsTags
 	Type                  string             `xml:"Type"`
 	Scheme                string             `xml:"Scheme"`
 	IPAddressType         string             `xml:"IpAddressType"`
@@ -120,7 +121,11 @@ func (self *SElb) GetSysTags() map[string]string {
 }
 
 func (self *SElb) GetTags() (map[string]string, error) {
-	return self.region.DescribeElbTags(self.LoadBalancerArn)
+	tagBase, err := self.region.DescribeElbTags(self.LoadBalancerArn)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeElbTags")
+	}
+	return tagBase.GetTags()
 }
 
 func (self *SElb) GetAddress() string {
@@ -401,9 +406,13 @@ func (self *SElb) SetTags(tags map[string]string, replace bool) error {
 }
 
 func (self *SRegion) setElbTags(arn string, tags map[string]string, replace bool) error {
-	oldTags, err := self.DescribeElbTags(arn)
+	tagBase, err := self.DescribeElbTags(arn)
 	if err != nil {
 		return errors.Wrapf(err, "DescribeElbTags")
+	}
+	oldTags, err := tagBase.GetTags()
+	if err != nil {
+		return errors.Wrap(err, "get tags")
 	}
 	added, removed := map[string]string{}, map[string]string{}
 	for k, v := range tags {
@@ -467,7 +476,7 @@ func (self *SRegion) RemoveElbTags(arn string, tags map[string]string) error {
 	return self.elbRequest("RemoveTags", params, &ret)
 }
 
-func (self *SRegion) DescribeElbTags(arn string) (map[string]string, error) {
+func (self *SRegion) DescribeElbTags(arn string) (*AwsTags, error) {
 	ret := struct {
 		TagDescriptions []struct {
 			ResourceArn string `xml:"ResourceArn"`
@@ -480,7 +489,7 @@ func (self *SRegion) DescribeElbTags(arn string) (map[string]string, error) {
 	}
 	for _, res := range ret.TagDescriptions {
 		if res.ResourceArn == arn {
-			return res.AwsTags.GetTags()
+			return &res.AwsTags, nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
@@ -546,4 +555,12 @@ func (self *SRegion) CreateLoadbalancer(opts *cloudprovider.SLoadbalancerCreateO
 		return &ret.LoadBalancers[i], nil
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
+}
+
+func (self *SElb) GetDescription() string {
+	tags, _ := self.region.DescribeElbTags(self.LoadBalancerArn)
+	if tags == nil {
+		return ""
+	}
+	return tags.GetDescription()
 }

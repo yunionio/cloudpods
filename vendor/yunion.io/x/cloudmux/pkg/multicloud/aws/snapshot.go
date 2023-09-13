@@ -194,3 +194,7 @@ func (self *SRegion) DeleteSnapshot(id string) error {
 func (self *SSnapshot) GetProjectId() string {
 	return ""
 }
+
+func (self *SSnapshot) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

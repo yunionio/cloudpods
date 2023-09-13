@@ -243,10 +243,11 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return self.host.zone.region.cli.delete(&modules.Servers, self.Id)
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	if self.Name != name {
-		input := api.ServerUpdateInput{}
-		input.Name = name
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	if self.Name != input.NAME {
+		param := api.ServerUpdateInput{}
+		param.Name = input.NAME
+		param.Description = input.Description
 		self.host.zone.region.cli.update(&modules.Servers, self.Id, input)
 		return cloudprovider.WaitMultiStatus(self, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
 	}

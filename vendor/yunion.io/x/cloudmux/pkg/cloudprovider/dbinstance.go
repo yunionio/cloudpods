@@ -112,3 +112,8 @@ type SDBInstanceRecoveryConfig struct {
 	Databases                  map[string]string
 	OriginDBInstanceExternalId string
 }
+
+type SDBInstanceUpdateOptions struct {
+	NAME        string
+	Description string
+}

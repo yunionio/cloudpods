@@ -249,3 +249,7 @@ func (self *SRegion) ListServerCertificates() ([]SElbCertificate, error) {
 	}
 	return ret, nil
 }
+
+func (self *SElbCertificate) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

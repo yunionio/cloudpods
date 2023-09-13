@@ -459,6 +459,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	desc := cloudprovider.SManagedVMCreateConfig{}
+	desc.Description = guest.Description
 	// 账号必须在desc.GetConfig()之前设置，避免默认用户不能正常注入
 	osInfo := struct {
 		OsType         string
@@ -1434,7 +1435,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Conte
 		return err
 	}
 
-	err = iVM.UpdateVM(ctx, guest.Name)
+	err = iVM.UpdateVM(ctx, cloudprovider.SInstanceUpdateOptions{NAME: guest.Name, Description: guest.Description})
 	if err != nil {
 		if errors.Cause(err) != cloudprovider.ErrNotSupported {
 			return errors.Wrap(err, "iVM.UpdateVM")

@@ -174,3 +174,7 @@ func (self *SRegion) DeleteNodegroup(cluster, name string) error {
 	}{}
 	return self.eksRequest("DeleteNodegroup", "/clusters/{name}/node-groups/{nodegroupName}", params, &ret)
 }
+
+func (self *SNodeGroup) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}
