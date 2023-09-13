@@ -104,11 +104,6 @@ func (self *SSubscriptionManager) LoadSystemAlerts() error {
 	return nil
 }
 
-func (self *SSubscriptionManager) AllowPerformWrite(ctx context.Context,
-	userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
 func (self *SSubscriptionManager) SetAlert(alert *models.SCommonAlert) {
 	self.systemAlerts.Store(alert.GetId(), alert)
 }
