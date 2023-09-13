@@ -44,7 +44,8 @@ type ActionLogListInput struct {
 
 	Service []string `json:"service"`
 
-	Success *bool `json:"success"`
+	Success         *bool `json:"success"`
+	IsSystemAccount *bool `json:"is_system_account"`
 
 	Ip []string `json:"ip"`
 

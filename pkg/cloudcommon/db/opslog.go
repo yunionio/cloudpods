@@ -46,7 +46,7 @@ type SOpsLogManager struct {
 type SOpsLog struct {
 	SLogBase
 
-	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`
