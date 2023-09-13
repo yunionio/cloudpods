@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -194,11 +195,15 @@ func (self *SDatastoreImageCache) getTemplateVMsFromCache() ([]*SVirtualMachine,
 func (self *SDatastore) GetICloudImages(cache *SDatastoreImageCache) ([]cloudprovider.ICloudImage, error) {
 	ret := make([]cloudprovider.ICloudImage, 0, 2)
 
+	ids := []string{}
 	if self.datacenter.ihosts != nil {
 		vms, err := self.getTemplateVMsFromCache()
 		if err == nil {
 			for i := range vms {
-				ret = append(ret, NewVMTemplate(vms[i], cache))
+				if !utils.IsInStringArray(vms[i].GetGlobalId(), ids) {
+					ret = append(ret, NewVMTemplate(vms[i], cache))
+					ids = append(ids, vms[i].GetGlobalId())
+				}
 			}
 			return ret, nil
 		}
@@ -214,10 +219,16 @@ func (self *SDatastore) GetICloudImages(cache *SDatastoreImageCache) ([]cloudpro
 	}
 
 	for i := range realTemplates {
-		ret = append(ret, NewVMTemplate(realTemplates[i], cache))
+		if !utils.IsInStringArray(realTemplates[i].GetGlobalId(), ids) {
+			ret = append(ret, NewVMTemplate(realTemplates[i], cache))
+			ids = append(ids, realTemplates[i].GetGlobalId())
+		}
 	}
 	for i := range fakeTemplates {
-		ret = append(ret, NewVMTemplate(fakeTemplates[i], cache))
+		if !utils.IsInStringArray(fakeTemplates[i].GetGlobalId(), ids) {
+			ret = append(ret, NewVMTemplate(fakeTemplates[i], cache))
+			ids = append(ids, fakeTemplates[i].GetGlobalId())
+		}
 	}
 	return ret, nil
 }
@@ -230,6 +241,7 @@ func (self *SDatastoreImageCache) GetIImageInTemplateVMs() ([]cloudprovider.IClo
 	if err != nil {
 		return nil, err
 	}
+	ids := []string{}
 	ret := []cloudprovider.ICloudImage{}
 	for i := range storages {
 		storage := storages[i].(*SDatastore)
@@ -240,7 +252,12 @@ func (self *SDatastoreImageCache) GetIImageInTemplateVMs() ([]cloudprovider.IClo
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, images...)
+		for i := range images {
+			if !utils.IsInStringArray(images[i].GetGlobalId(), ids) {
+				ret = append(ret, images[i])
+				ids = append(ids, images[i].GetGlobalId())
+			}
+		}
 	}
 	return ret, nil
 }
