@@ -522,7 +522,7 @@ func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.
 	tc, _ := TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
 	if tc != nil {
 		desc.Add(jsonutils.NewString(tc.GetName()), "owner_tenant")
-		metadata, _ := GetVisiableMetadata(ctx, tc, nil)
+		metadata, _ := GetVisibleMetadata(ctx, tc, nil)
 		desc.Set("project_tags", jsonutils.Marshal(metadata))
 	}
 	return desc
