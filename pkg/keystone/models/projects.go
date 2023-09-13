@@ -618,14 +618,6 @@ func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, r
 	return validateAssignPolicies(userCred, project.Id, assignPolicies)
 }
 
-func (project *SProject) AllowPerformJoin(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.SProjectAddUserGroupInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, project, "join")
-}
-
 // 将用户或组加入项目
 func (project *SProject) PerformJoin(
 	ctx context.Context,
@@ -702,14 +694,6 @@ func (project *SProject) PerformJoin(
 	}
 
 	return nil, nil
-}
-
-func (project *SProject) AllowPerformLeave(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, project, "leave")
 }
 
 // 将用户或组移出项目

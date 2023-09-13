@@ -171,10 +171,6 @@ func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient
 	return result, nil
 }
 
-func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
-	return db.IsAdminAllowUpdateSpec(ctx, userCred, service, "config")
-}
-
 func (service *SService) isCommonService() bool {
 	if service.Type == consts.COMMON_SERVICE {
 		return true
