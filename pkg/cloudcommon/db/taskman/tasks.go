@@ -124,10 +124,6 @@ func (manager *STaskManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlc
 	return q
 }
 
-func (manager *STaskManager) AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *STaskManager) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, taskId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := runTask(taskId, data)
 	if err != nil {

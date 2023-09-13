@@ -60,20 +60,12 @@ func (model *SSharableVirtualResourceBase) IsShared() bool {
 	return SharableModelIsShared(model)
 }
 
-func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) bool {
-	return true
-}
-
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
 	err := SharablePerformPublic(model.GetISharableVirtualModel(), ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
 	return nil, nil
-}
-
-func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) bool {
-	return true
 }
 
 func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
