@@ -275,10 +275,6 @@ func (manager *SModelBaseManager) OnCreateComplete(ctx context.Context, items []
 	// do nothing
 }
 
-func (manager *SModelBaseManager) AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, httperrors.NewActionNotFoundError("Action %s not found, please check service version, current version: %s", action, version.GetShortString())
 }
@@ -530,10 +526,6 @@ func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context
 	return nil, httperrors.NewResourceNotFoundError("table %s not found", input.Table)
 }
 
-func (manager *SModelBaseManager) AllowPerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PurgeSplitTableInput) (jsonutils.JSONObject, error) {
 	splitable := manager.GetIModelManager().GetImmutableInstance(ctx, userCred, query).GetSplitTable()
 	if splitable == nil {
@@ -617,10 +609,6 @@ func (model *SModelBase) CustomizeCreate(ctx context.Context, userCred mcclient.
 
 func (model *SModelBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 
-}
-
-func (model *SModelBase) AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
 }
 
 func (model *SModelBase) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

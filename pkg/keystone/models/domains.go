@@ -558,15 +558,6 @@ func (manager *SDomainManager) ValidateCreateData(
 	return input, nil
 }
 
-func (domain *SDomain) AllowPerformUnlinkIdp(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.UserUnlinkIdpInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, domain, "unlink-idp")
-}
-
 // domain和IDP的指定entityId解除关联
 func (domain *SDomain) PerformUnlinkIdp(
 	ctx context.Context,
