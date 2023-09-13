@@ -1376,4 +1376,14 @@ func init() {
 		EN("Done").
 		CN("完成"),
 	)
+
+	o.Set(ACT_SET_USER_PASSWORD, i18n.NewTableEntry().
+		EN("Set Password For User").
+		CN("设置用户密码"),
+	)
+
+	o.Set(ACT_DISK_CHANGE_STORAGE, i18n.NewTableEntry().
+		EN("Disk Change Storage").
+		CN("磁盘更换存储"),
+	)
 }
