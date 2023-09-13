@@ -1392,4 +1392,19 @@ func init() {
 		CN("添加实例到堡垒机"),
 	)
 
+	o.Set(ACT_SET_USER_PASSWORD, i18n.NewTableEntry().
+		EN("Set Password For User").
+		CN("设置用户密码"),
+	)
+
+	o.Set(ACT_DISK_CHANGE_STORAGE, i18n.NewTableEntry().
+		EN("Disk Change Storage").
+		CN("磁盘更换存储"),
+	)
+
+	o.Set(ACT_SYNC_TRAFFIC_LIMIT, i18n.NewTableEntry().
+		EN("Sync Nic Traffic Limit").
+		CN("同步网卡流量限制"),
+	)
+
 }
