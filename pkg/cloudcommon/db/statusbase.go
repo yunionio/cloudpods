@@ -17,6 +17,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -101,7 +102,11 @@ func statusBaseSetStatus(model IStatusBaseModel, userCred mcclient.TokenCredenti
 			notes = fmt.Sprintf("%s: %s", notes, reason)
 		}
 		OpsLog.LogEvent(model, ACT_UPDATE_STATUS, notes, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_STATUS, notes, userCred, true)
+		success := true
+		if strings.Contains(status, "fail") || status == apis.STATUS_UNKNOWN {
+			success = false
+		}
+		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_STATUS, notes, userCred, success)
 	}
 	return nil
 }
