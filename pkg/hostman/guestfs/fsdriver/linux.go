@@ -88,7 +88,7 @@ func (l *sLinuxRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
 #
 # You can get the list of RPC commands using \"qemu-ga --blacklist='?'\".
 # There should be no spaces between commas and commands in the blacklist.
-BLACKLIST_RPC=guest-file-read,guest-file-seek,guest-file-flush,guest-exec-status
+# BLACKLIST_RPC=guest-file-open,guest-file-close,guest-file-read,guest-file-write,guest-file-seek,guest-file-flush,guest-exec,guest-exec-status
 
 # Fsfreeze hook script specification.
 #
@@ -102,10 +102,8 @@ BLACKLIST_RPC=guest-file-read,guest-file-seek,guest-file-flush,guest-exec-status
 FSFREEZE_HOOK_PATHNAME=/etc/qemu-ga/fsfreeze-hook"
 `
 
-	if rootFs.Exists(etcSysconfigQemuga, false) {
-		if err := rootFs.FilePutContents(etcSysconfigQemuga, blackListContent, false, false); err != nil {
-			return errors.Wrap(err, "etcSysconfigQemuga error")
-		}
+	if err := rootFs.FilePutContents(etcSysconfigQemuga, blackListContent, false, false); err != nil {
+		return errors.Wrap(err, "etcSysconfigQemuga error")
 	}
 	return nil
 }

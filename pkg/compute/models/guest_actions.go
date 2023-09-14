@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -922,15 +921,7 @@ func (self *SGuest) startSyncTask(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, firewallOnly bool, parentTaskId string) error {
-
-	data := jsonutils.NewDict()
-	if firewallOnly {
-		data.Add(jsonutils.JSONTrue, "fw_only")
-	} else if err := self.SetStatus(userCred, api.VM_SYNC_CONFIG, ""); err != nil {
-		log.Errorln(err)
-		return err
-	}
-	return self.doSyncTask(ctx, data, userCred, parentTaskId)
+	return self.startSyncTask(ctx, userCred, firewallOnly, parentTaskId, jsonutils.NewDict())
 }
 
 func (self *SGuest) StartSyncTaskWithoutSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, fwOnly bool, parentTaskId string) error {
@@ -2129,6 +2120,8 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
 		taskData.Set("prev_mac", jsonutils.NewString(newMacAddr))
+		net := ngn[0].GetNetwork()
+		taskData.Set("is_vpc_network", jsonutils.NewBool(net.isOneCloudVpcNetwork()))
 		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
 		taskData.Set("gateway", jsonutils.NewString(newGateway))
 		if self.Status == api.VM_BLOCK_STREAM {
@@ -2136,23 +2129,19 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		}
 		self.SetStatus(userCred, api.VM_RESTART_NETWORK, "restart network")
 	}
-	return nil, self.startSyncTask(ctx, userCred, true, "", taskData)
-}
-
-func (self *SGuest) PerformQgaStatus(ctx context.Context, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	//Judging the status based on the execution of the guest-info command
-	return self.PerformQgaPing(ctx, userCred, nil, nil)
+	return nil, self.startSyncTask(ctx, userCred, false, "", taskData)
 }
 
 func (self *SGuest) GetIfNameByMac(ctx context.Context, userCred mcclient.TokenCredential, mac string) (string, error) {
 	//Find the network card according to the mac address, if it is empty, it means no network card is found
-	ifnameData, err := self.PerformQgaGetNetwork(ctx, userCred, nil, nil)
+	host, _ := self.GetHost()
+	ifnameData, err := self.GetDriver().QgaRequestGetNetwork(ctx, userCred, nil, host, self)
 	if err != nil {
 		return "", err
 	}
 	//Get the name of the network card
 	var parsedData []api.IfnameDetail
-	if err := json.Unmarshal([]byte(ifnameData.String()), &parsedData); err != nil {
+	if err := ifnameData.Unmarshal(&parsedData); err != nil {
 		return "", err
 	}
 	var ifnameDevice string

@@ -135,7 +135,7 @@ func (m *SGuestManager) QgaSetNetwork(netmod *monitor.NetworkModify, sid string,
 			guest.guestAgent.SetTimeout(execTimeout)
 			defer guest.guestAgent.ResetTimeout()
 		}
-		res, err = guest.guestAgent.QgaSetNetwork(netmod)
+		err = guest.guestAgent.QgaSetNetwork(netmod)
 		if err != nil {
 			return "", errors.Wrapf(err, "modify %s network failed", netmod.Device)
 		}

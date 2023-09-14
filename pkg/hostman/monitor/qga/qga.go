@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -177,7 +176,7 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTi
 		return nil, nil
 	}
 
-	if readTimeout < 0 {
+	if readTimeout <= 0 {
 		readTimeout = qga.readTimeout
 	}
 	err = qga.rwc.SetReadDeadline(time.Now().Add(time.Duration(readTimeout) * time.Millisecond))
@@ -407,171 +406,56 @@ func (qga *QemuGuestAgent) QgaAddFileExec(filePath string) error {
 	}
 	return nil
 }
-func (qga *QemuGuestAgent) QgaExecShellScript(filePath string) ([]byte, error) {
-	cmdExecShell := &monitor.Command{
-		Execute: "guest-exec",
-		Args: map[string]interface{}{
-			"path":           filePath,
-			"arg":            []string{},
-			"env":            []string{},
-			"input-data":     "",
-			"capture-output": true,
-		},
-	}
-	res, err := qga.execCmd(cmdExecShell, true, -1)
-	if err != nil {
-		return nil, err
-	}
-	return *res, nil
-}
 
-func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify) ([]byte, error) {
+func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify) error {
 	ip, subnetMask, err := ParseIPAndSubnet(qgaNetMod.Ipmask)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	networkCmd := fmt.Sprintf("netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s gateway=%s && "+
-		"netsh interface ip set address name=\"%s\" dhcp",
-		qgaNetMod.Device, ip, subnetMask, qgaNetMod.Gateway, qgaNetMod.Device)
+	networkCmd := fmt.Sprintf(
+		"netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s gateway=%s & "+
+			"netsh interface ip set address name=\"%s\" dhcp",
+		qgaNetMod.Device, ip, subnetMask, qgaNetMod.Gateway, qgaNetMod.Device,
+	)
 
-	//Save commands executed by windows to the host computer
-	qgaWinTest := "/tmp/qgaWinScripts.txt"
-	fileOsInfo, err := os.Create(qgaWinTest)
-	if err != nil {
-		return nil, err
-	}
-	// Guaranteed closure of files
-	defer fileOsInfo.Close()
-
-	_, err = fileOsInfo.Write([]byte(networkCmd))
-	if err != nil {
-		return nil, err
-	}
-
-	//Execute windows command
-	arg := []string{"/c", networkCmd}
-	cmdPath := "C:\\Windows\\System32\\cmd.exe"
+	log.Infof("networkCmd: %s", networkCmd)
+	arg := []string{"/C", networkCmd}
 	cmdExecNet := &monitor.Command{
 		Execute: "guest-exec",
 		Args: map[string]interface{}{
-			"path":           cmdPath,
+			"path":           "C:\\Windows\\System32\\cmd.exe",
 			"arg":            arg,
 			"env":            []string{},
 			"input-data":     "",
 			"capture-output": true,
 		},
 	}
-	resExec, err := qga.execCmd(cmdExecNet, true, -1)
+	_, err = qga.execCmd(cmdExecNet, true, -1)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return *resExec, nil
+	return nil
 }
 
-func (qga *QemuGuestAgent) QgaSetLinuxNetworkWithDhcpRoute(qgaNetMod *monitor.NetworkModify) ([]byte, error) {
-	networkCmd := fmt.Sprintf("#!/bin/bash\nset +e\n"+
-		"/sbin/dhclient -r %s\n/sbin/dhclient %s\n/sbin/ip link set dev %s down\n/sbin/ip link set dev %s up\n",
-		qgaNetMod.Device, qgaNetMod.Device, qgaNetMod.Device, qgaNetMod.Device)
-
-	//Write the contents of the script to the virtual machine file
-	fileCreatePath := "/tmp/deviceRestart.sh"
-	returnFileNum, err := qga.QgaFileOpen(fileCreatePath)
-	if err != nil {
-		return nil, err
-	}
-
-	//shell script write to file
-	err = qga.QgaFileWrite(returnFileNum, networkCmd)
-	if err != nil {
-		return nil, err
-	}
-
-	//file close
-	err = qga.QgaFileClose(returnFileNum)
-	if err != nil {
-		return nil, err
-	}
-
-	//Adding execution permissions to a file
-	err = qga.QgaAddFileExec(fileCreatePath)
-	if err != nil {
-		return nil, err
-	}
-
-	//Executing shell scripts
-	resExec, err := qga.QgaExecShellScript(fileCreatePath)
-	if err != nil {
-		return nil, err
-	}
-	return resExec, nil
+func (qga *QemuGuestAgent) QgaSetLinuxNetwork(qgaNetMod *monitor.NetworkModify) error {
+	args := []string{"-c", fmt.Sprintf("/sbin/dhclient -r %s && /sbin/dhclient -1 %s", qgaNetMod.Device, qgaNetMod.Device)}
+	_, err := qga.GuestExecCommand("/bin/bash", args, []string{}, "", false)
+	return err
 }
 
-func (qga *QemuGuestAgent) QgaSetLinuxNetworkWithStaticRoute(qgaNetMod *monitor.NetworkModify) ([]byte, error) {
-	networkCmd := fmt.Sprintf("#!/bin/bash\nset +e\n/sbin/ip -4 address flush dev %s\n/sbin/dhclient -r %s\n/sbin/dhclient %s\n",
-		qgaNetMod.Device, qgaNetMod.Device, qgaNetMod.Device)
-
-	//Write the contents of the script to the virtual machine file
-	fileCreatePath := "/tmp/deviceRestart.sh"
-	returnFileNum, err := qga.QgaFileOpen(fileCreatePath)
-	if err != nil {
-		return nil, err
-	}
-
-	//shell script write to file
-	err = qga.QgaFileWrite(returnFileNum, networkCmd)
-	if err != nil {
-		return nil, err
-	}
-
-	//file close
-	err = qga.QgaFileClose(returnFileNum)
-	if err != nil {
-		return nil, err
-	}
-
-	//Adding execution permissions to a file
-	err = qga.QgaAddFileExec(fileCreatePath)
-	if err != nil {
-		return nil, err
-	}
-
-	//Executing shell scripts
-	resExec, err := qga.QgaExecShellScript(fileCreatePath)
-	if err != nil {
-		return nil, err
-	}
-	return resExec, nil
-}
-
-func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify) ([]byte, error) {
+func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify) error {
 	//Getting information about the operating system
 	resOsInfo, err := qga.QgaGuestGetOsInfo()
 	if err != nil {
-		return nil, err
+		return errors.Wrap(err, "get os info")
 	}
 
 	//Judgement based on id, currently only windows and other systems are judged
 	switch resOsInfo.Id {
 	case "mswindows":
-		resExec, err := qga.QgaSetWindowsNetwork(qgaNetMod)
-		return resExec, err
-	case "centos":
-		if resOsInfo.VersionId == "7" {
-			resExec, err := qga.QgaSetLinuxNetworkWithStaticRoute(qgaNetMod)
-			return resExec, err
-		} else {
-			resExec, err := qga.QgaSetLinuxNetworkWithDhcpRoute(qgaNetMod)
-			return resExec, err
-		}
-	case "ubuntu":
-		resExec, err := qga.QgaSetLinuxNetworkWithDhcpRoute(qgaNetMod)
-		return resExec, err
-	case "debian":
-		resExec, err := qga.QgaSetLinuxNetworkWithStaticRoute(qgaNetMod)
-		return resExec, err
+		return qga.QgaSetWindowsNetwork(qgaNetMod)
 	default:
-		resExec, err := qga.QgaSetLinuxNetworkWithDhcpRoute(qgaNetMod)
-		return resExec, err
+		return qga.QgaSetLinuxNetwork(qgaNetMod)
 	}
 }
 

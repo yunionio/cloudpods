@@ -16,9 +16,11 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -52,73 +54,69 @@ func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	if fwOnly, _ := self.GetParams().Bool("fw_only"); fwOnly {
-		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
-		if restart, _ := self.Params.Bool("restart_network"); !restart {
-			self.SetStageComplete(ctx, nil)
-			return
-		}
-		prevIp, err := self.Params.GetString("prev_ip")
-		if err != nil {
-			log.Errorf("unable to get prev_ip when restart_network is true when sync guest")
-			self.SetStageComplete(ctx, nil)
-			return
-		}
-		preMac, err := self.Params.GetString("prev_mac")
-		if err != nil {
-			log.Errorf("unable to get prev_mac when restart_network is true when sync guest")
-			self.SetStageComplete(ctx, nil)
-			return
-		}
-		ipMask, err := self.Params.GetString("ip_mask")
-		if err != nil {
-			log.Errorf("unable to get ip_mask when restart_network is true when sync guest")
-			self.SetStageComplete(ctx, nil)
-			return
-		}
-		gateway, err := self.Params.GetString("gateway")
-		if err != nil {
-			log.Errorf("unable to get gateway when restart_network is true when sync guest")
-			self.SetStageComplete(ctx, nil)
-			return
-		}
-		//Use the qga's guestinfo command to determine if the qga is available.
-		_, err = guest.PerformQgaStatus(ctx, self.UserCred)
-		//Updating the QgaStatus after execution
-		if err != nil {
-			guest.UpdateQgaStatus(api.QGA_STATUS_UNKNOWN)
-		} else {
-			guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
-		}
-		//If qga is available, set up the network with qga, otherwise use ansible
-		if guest.Hypervisor == api.HYPERVISOR_KVM && guest.Status == api.VM_RESTART_NETWORK && guest.QgaStatus == api.QGA_STATUS_AVAILABLE {
-			//err = guest.UpdateQgaStatus(api.QGA_STATUS_EXCUTING)
-			if err != nil {
-				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_STATUS_UPDATE, err, self.UserCred, false)
-			}
-			//Get information about the network card
-			ifnameDevice, _ := guest.GetIfNameByMac(ctx, self.UserCred, preMac)
-			if ifnameDevice == "" {
-				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, "找不到相应mac地址的网卡名称", self.UserCred, false)
-			}
-			inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false)
-			//Setting up the network using qga
-			guest.StartQgaRestartNetworkTask(ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, prevIp, inBlockStream)
-			//err = guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
-			if err != nil {
-				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_STATUS_UPDATE, err, self.UserCred, false)
-			}
-		} else if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
-			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, true)
-		} else {
-			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, false)
-		}
-		self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	if restart, _ := self.Params.Bool("restart_network"); restart {
+		self.StartRestartNetworkTask(ctx, guest)
 	} else if data.Contains("task") {
 		// XXX this is only applied to KVM, which will call task_complete twice
 		self.SetStage("on_disk_sync_complete", nil)
 	} else {
 		self.OnDiskSyncComplete(ctx, guest, data)
+	}
+}
+
+func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, guest *models.SGuest) {
+	defer self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	prevIp, err := self.Params.GetString("prev_ip")
+	if err != nil {
+		log.Errorf("unable to get prev_ip when restart_network is true when sync guest")
+		return
+	}
+	inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false)
+	if guest.Hypervisor != api.HYPERVISOR_KVM {
+		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, inBlockStream)
+		return
+	}
+	preMac, err := self.Params.GetString("prev_mac")
+	if err != nil {
+		log.Errorf("unable to get prev_mac when restart_network is true when sync guest")
+		return
+	}
+	ipMask, err := self.Params.GetString("ip_mask")
+	if err != nil {
+		log.Errorf("unable to get ip_mask when restart_network is true when sync guest")
+		return
+	}
+	gateway, err := self.Params.GetString("gateway")
+	if err != nil {
+		log.Errorf("unable to get gateway when restart_network is true when sync guest")
+		return
+	}
+	isVpcNetwork := jsonutils.QueryBoolean(self.Params, "is_vpc_network", false)
+
+	// try use qga restart network
+	err = func() error {
+		host, _ := guest.GetHost()
+		err = guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{1000})
+		if err != nil {
+			return errors.Wrap(err, "qga guest-ping")
+		}
+		ifnameDevice, err := guest.GetIfNameByMac(ctx, self.UserCred, preMac)
+		if err != nil {
+			return errors.Wrap(err, "get ifname by mac")
+		}
+		if ifnameDevice == "" {
+			return errors.Errorf("failed find ifname")
+		}
+		if isVpcNetwork {
+			// wait for vpcagent sync network topo
+			time.Sleep(10 * time.Second)
+		}
+		return guest.StartQgaRestartNetworkTask(
+			ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, prevIp, inBlockStream)
+	}()
+	if err != nil {
+		log.Errorf("guest %s failed start qga restart network task: %s", guest.GetName(), err)
+		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, inBlockStream)
 	}
 }
 

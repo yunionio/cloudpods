@@ -859,18 +859,6 @@ func (o *ServerQgaGuestInfoTask) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
-type ServerQgaSetNetwork struct {
-	ServerIdOptions
-
-	DEVICE  string `help:"network connection"`
-	IPMASK  string `help:"ip/mask"`
-	GATEWAY string `help:"gateway"`
-}
-
-func (o *ServerQgaSetNetwork) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(o)
-}
-
 type ServerQgaGetNetwork struct {
 	ServerIdOptions
 }

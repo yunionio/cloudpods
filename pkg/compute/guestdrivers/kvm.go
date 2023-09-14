@@ -1064,7 +1064,6 @@ func (self *SKVMGuestDriver) QgaRequestGuestInfoTask(ctx context.Context, userCr
 }
 
 func (self *SKVMGuestDriver) QgaRequestSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
-	//设置请求的url地址
 	url := fmt.Sprintf("%s/servers/%s/qga-set-network", host.ManagerUri, guest.Id)
 	httpClient := httputils.GetDefaultClient()
 	header := mcclient.GetTokenHeaders(userCred)
