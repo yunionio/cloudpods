@@ -637,6 +637,58 @@ func (dev *sBaseDevice) CustomProbe(idx int) error {
 	return nil
 }
 
+func (dev *sBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
+	ret := make([]*HotPlugOption, 0)
+
+	var masterDevOpt *HotPlugOption
+	for i := 0; i < len(isolatedDev.VfioDevs); i++ {
+		opts := map[string]string{
+			"host": isolatedDev.VfioDevs[i].HostAddr,
+			"bus":  isolatedDev.VfioDevs[i].BusStr(),
+			"addr": isolatedDev.VfioDevs[i].SlotFunc(),
+			"id":   isolatedDev.VfioDevs[i].Id,
+		}
+		if isolatedDev.VfioDevs[i].Multi != nil {
+			if *isolatedDev.VfioDevs[i].Multi {
+				opts["multifunction"] = "on"
+			} else {
+				opts["multifunction"] = "off"
+			}
+		}
+		if isolatedDev.VfioDevs[i].XVga {
+			opts["x-vga"] = "on"
+		}
+		devOpt := &HotPlugOption{
+			Device:  isolatedDev.VfioDevs[i].DevType,
+			Options: opts,
+		}
+		if isolatedDev.VfioDevs[i].Function == 0 {
+			masterDevOpt = devOpt
+		} else {
+			ret = append(ret, devOpt)
+		}
+	}
+	// if PCI slot function 0 already assigned, qemu will reject hotplug function
+	// so put function 0 at the enda
+	if masterDevOpt == nil {
+		return nil, errors.Errorf("GPU Device no function 0 found")
+	}
+	ret = append(ret, masterDevOpt)
+	return ret, nil
+}
+
+func (dev *sBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
+	if len(isolatedDev.VfioDevs) == 0 {
+		return nil, errors.Errorf("device %s no pci ids", isolatedDev.Id)
+	}
+
+	return []*HotUnplugOption{
+		{
+			Id: isolatedDev.VfioDevs[0].Id,
+		},
+	}, nil
+}
+
 func ParseOutput(output []byte, doTrim bool) []string {
 	lines := make([]string, 0)
 	for _, line := range strings.Split(string(output), "\n") {
