@@ -427,3 +427,7 @@ func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, 
 	cache := region.getStorageCache()
 	return []cloudprovider.ICloudStoragecache{cache}, nil
 }
+
+func (self *SStoragecache) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

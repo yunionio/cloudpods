@@ -246,3 +246,7 @@ func (self *SRegion) GetNetwroks(ids []string, zoneId, vpcId string) ([]SNetwork
 func (self *SNetwork) GetProjectId() string {
 	return ""
 }
+
+func (self *SNetwork) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

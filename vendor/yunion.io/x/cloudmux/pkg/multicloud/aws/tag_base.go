@@ -64,6 +64,25 @@ func (self AwsTags) GetName() string {
 	return ""
 }
 
+func (self AwsTags) GetDescription() string {
+	for _, tag := range self.TagSet {
+		if strings.ToLower(tag.Key) == "description" {
+			return tag.Value
+		}
+	}
+	for _, tag := range self.TagList {
+		if strings.ToLower(tag.Key) == "description" {
+			return tag.Value
+		}
+	}
+	for _, tag := range self.Tags {
+		if strings.ToLower(tag.Key) == "description" {
+			return tag.Value
+		}
+	}
+	return ""
+}
+
 func (self *AwsTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.TagSet {

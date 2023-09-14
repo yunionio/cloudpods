@@ -429,3 +429,7 @@ func (self *SKubeCluster) CreateIKubeNodePool(opts *cloudprovider.KubeNodePoolCr
 	}
 	return nodegroup, nil
 }
+
+func (self *SKubeCluster) GetDescription() string {
+	return ""
+}

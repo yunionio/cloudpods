@@ -329,7 +329,7 @@ func (in *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (in *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (in *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

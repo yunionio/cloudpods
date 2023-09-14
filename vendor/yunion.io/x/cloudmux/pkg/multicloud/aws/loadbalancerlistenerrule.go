@@ -191,3 +191,7 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, opts *cloudprovide
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
+
+func (self *SElbListenerRule) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

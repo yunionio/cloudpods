@@ -320,3 +320,7 @@ func (self *SRegion) GetElbBackendgroupAttributes(id string) (map[string]string,
 	}
 	return result, nil
 }
+
+func (self *SElbBackendGroup) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

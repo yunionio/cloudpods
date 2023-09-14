@@ -115,3 +115,7 @@ func (self *SRegion) SyncElbBackend(backendId, serverId string, oldPort, newPort
 
 	return nil
 }
+
+func (self *SElbBackend) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

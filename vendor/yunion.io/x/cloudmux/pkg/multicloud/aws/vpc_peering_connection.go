@@ -219,3 +219,7 @@ func (self *SVpcPeeringConnection) Delete() error {
 func (self *SVpcPeeringConnection) GetEnabled() bool {
 	return true
 }
+
+func (self *SVpcPeeringConnection) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

@@ -354,10 +354,10 @@ func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*clo
 	return ret, nil
 }
 
-func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (instance *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	params := map[string]interface{}{
 		"updateVmInstance": map[string]string{
-			"name": name,
+			"name": input.NAME,
 		},
 	}
 	return instance.host.zone.region.UpdateVM(instance.UUID, jsonutils.Marshal(params))

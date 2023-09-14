@@ -140,3 +140,7 @@ func (self *SStorage) GetMountPoint() string {
 func (self *SStorage) IsSysDiskStore() bool {
 	return true
 }
+
+func (self *SStorage) GetDescription() string {
+	return ""
+}

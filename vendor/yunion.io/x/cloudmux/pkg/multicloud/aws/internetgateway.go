@@ -59,3 +59,7 @@ func (i *SInternetGateway) Refresh() error {
 func (i *SInternetGateway) IsEmulated() bool {
 	return false
 }
+
+func (self *SInternetGateway) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

@@ -119,3 +119,7 @@ func (instance *SDBInstanceBase) GetIops() int {
 func (instance *SDBInstanceBase) GetDiskSizeUsedMB() int {
 	return 0
 }
+
+func (instance *SDBInstanceBase) Update(ctx context.Context, input cloudprovider.SDBInstanceUpdateOptions) error {
+	return errors.Wrap(errors.ErrNotImplemented, "DBInsatnce Update")
+}

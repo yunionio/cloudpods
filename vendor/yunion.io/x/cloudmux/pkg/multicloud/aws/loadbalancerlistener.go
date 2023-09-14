@@ -626,3 +626,7 @@ func (self *SRegion) DeleteElbListener(id string) error {
 func (self *SRegion) UpdateRulesPriority(rules []cloudprovider.ICloudLoadbalancerListenerRule) error {
 	return nil
 }
+
+func (self *SElbListener) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

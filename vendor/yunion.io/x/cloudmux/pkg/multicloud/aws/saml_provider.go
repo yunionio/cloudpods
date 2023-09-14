@@ -176,3 +176,7 @@ func (self *SAwsClient) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProv
 	}
 	return ret, nil
 }
+
+func (self *SAMLProvider) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

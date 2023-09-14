@@ -101,3 +101,7 @@ func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cl
 	}
 	return network, nil
 }
+
+func (self *SWire) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}
