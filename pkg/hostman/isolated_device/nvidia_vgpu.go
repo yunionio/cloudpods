@@ -151,14 +151,21 @@ func (dev *sNVIDIAVgpuDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolated
 
 	var masterDevOpt *HotPlugOption
 	for i := 0; i < len(isolatedDev.VfioDevs); i++ {
-		cmd := isolatedDev.VfioDevs[i].HostAddr
-		if optCmd := isolatedDev.VfioDevs[i].OptionsStr(); len(optCmd) > 0 {
-			cmd += fmt.Sprintf(",%s", optCmd)
-		}
+		sysfsdev := path.Join("/sys/bus/mdev/devices", isolatedDev.MdevId)
 		opts := map[string]string{
-			"sysfsdev": path.Join("/sys/bus/mdev/devices", isolatedDev.MdevId),
+			"sysfsdev": sysfsdev,
+			"bus":      isolatedDev.VfioDevs[i].BusStr(),
+			"addr":     isolatedDev.VfioDevs[i].SlotFunc(),
 			"id":       isolatedDev.VfioDevs[i].Id,
 		}
+		if isolatedDev.VfioDevs[i].Multi != nil {
+			if *isolatedDev.VfioDevs[i].Multi {
+				opts["multifunction"] = "on"
+			} else {
+				opts["multifunction"] = "off"
+			}
+		}
+
 		devOpt := &HotPlugOption{
 			Device:  isolatedDev.VfioDevs[i].DevType,
 			Options: opts,
