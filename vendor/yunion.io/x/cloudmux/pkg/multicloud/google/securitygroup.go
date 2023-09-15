@@ -105,7 +105,7 @@ func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]clou
 		case "all":
 			rule.Protocol = secrules.PROTO_ANY
 		default:
-			return nil, fmt.Errorf("unsupport protocol %s", allow.IPProtocol)
+			continue
 		}
 		ipRanges := firewall.SourceRanges
 		if rule.Direction == secrules.DIR_OUT {

@@ -263,6 +263,42 @@ func (rds *SDBInstance) GetPort() int {
 	return rds.Endpoint.Port
 }
 
+func (rds *SDBInstance) GetDescription() string {
+	return rds.AwsTags.GetDescription()
+}
+
+func (rds *SDBInstance) Update(ctx context.Context, input cloudprovider.SDBInstanceUpdateOptions) error {
+	if len(input.NAME) > 0 {
+		params := map[string]string{
+			"DBInstanceIdentifier": input.NAME,
+			"ApplyImmediately":     "true",
+		}
+		err := rds.region.rdsRequest("ModifyDBInstance", params, nil)
+		if err != nil {
+			return errors.Wrap(err, "ModifyDBInstance")
+		}
+	}
+	return rds.SetTags(map[string]string{"Description": input.Description}, true)
+}
+
+func (region *SRegion) Update(instanceId string, input cloudprovider.SDBInstanceUpdateOptions) error {
+	dbinstance, err := region.GetDBInstance(instanceId)
+	if err != nil {
+		return errors.Wrap(err, "GetDBInstance")
+	}
+	if len(input.NAME) > 0 {
+		params := map[string]string{
+			"DBInstanceIdentifier": input.NAME,
+			"ApplyImmediately":     "true",
+		}
+		err := region.rdsRequest("ModifyDBInstance", params, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return dbinstance.SetTags(map[string]string{"Description": input.Description}, true)
+}
+
 func (rds *SDBInstance) GetMaintainTime() string {
 	return rds.PreferredMaintenanceWindow
 }
