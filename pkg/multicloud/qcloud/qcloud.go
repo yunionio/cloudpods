@@ -1002,8 +1002,12 @@ func (client *SQcloudClient) fetchBuckets() error {
 				log.Errorf("fail to find region %s", regionStr)
 				continue
 			}
+			zoneId := bInfo.Region
 			zone, _ = region.(*SRegion).getZoneById(bInfo.Region)
-			log.Debugf("find zonal bucket %s", zone.GetId())
+			if zone != nil {
+				zoneId = zone.GetId()
+			}
+			log.Debugf("find zonal bucket %s", zoneId)
 		}
 		b := SBucket{
 			region:     region.(*SRegion),
