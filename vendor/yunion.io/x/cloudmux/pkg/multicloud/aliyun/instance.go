@@ -190,6 +190,10 @@ func (self *SInstance) GetName() string {
 	return self.InstanceId
 }
 
+func (self *SInstance) GetDescription() string {
+	return self.Description
+}
+
 func (self *SInstance) GetHostname() string {
 	return self.HostName
 }
