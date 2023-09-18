@@ -16,7 +16,9 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/pkg/errors"
@@ -498,39 +500,74 @@ type purgePair struct {
 	q       *sqlchemy.SQuery
 }
 
-func (self *purgePair) purgeAll() error {
+func (self *purgePair) queryIds() ([]string, error) {
+	ids := []string{}
 	sq := self.q.SubQuery()
+	q := sq.Query(sq.Field(self.key))
+	rows, err := q.Rows()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return ids, nil
+		}
+		return ids, errors.Wrap(err, "Query")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		err := rows.Scan(&id)
+		if err != nil {
+			return ids, errors.Wrap(err, "rows.Scan")
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (self *purgePair) purgeAll() error {
+	ids, err := self.queryIds()
+	if err != nil {
+		return errors.Wrapf(err, "Query ids")
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	vars := []interface{}{}
+	placeholders := make([]string, len(ids))
+	for i := range placeholders {
+		placeholders[i] = "?"
+		vars = append(vars, ids[i])
+	}
+	placeholder := strings.Join(placeholders, ",")
 	sql := fmt.Sprintf(
 		"update %s set deleted = true, deleted_at = ? where %s in (%s) and deleted = false",
-		self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+		self.manager.TableSpec().Name(), self.key, placeholder,
 	)
-	vars := []interface{}{time.Now()}
-	vars = append(vars, self.q.Variables()...)
 	switch self.manager.Keyword() {
 	case GuestcdromManager.Keyword(), GuestFloppyManager.Keyword():
 		sql = fmt.Sprintf(
 			"update %s set image_id = null, updated_at = ? where %s in (%s) and image_id is not null",
-			self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+			self.manager.TableSpec().Name(), self.key, placeholder,
 		)
+		vars = append([]interface{}{time.Now()}, vars...)
 	case NetInterfaceManager.Keyword():
 		sql = fmt.Sprintf(
 			"delete from %s where %s in (%s)",
-			self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+			self.manager.TableSpec().Name(), self.key, placeholder,
 		)
-		vars = append([]interface{}{}, self.q.Variables()...)
 	// sku需要直接删除，避免数据库积累数据导致查询缓慢
 	case DBInstanceSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), ServerSkuManager.Keyword():
 		sql = fmt.Sprintf(
 			"delete from %s where %s in (%s)",
-			self.manager.TableSpec().Name(), self.key, sq.Query(sq.Field(self.key)).String(),
+			self.manager.TableSpec().Name(), self.key, placeholder,
 		)
-		vars = append([]interface{}{}, self.q.Variables()...)
+	default:
+		vars = append([]interface{}{time.Now()}, vars...)
 	}
-	_, err := sqlchemy.GetDB().Exec(
+	_, err = sqlchemy.GetDB().Exec(
 		sql, vars...,
 	)
 	if err != nil {
-		return errors.Wrapf(err, sql, self.q.Variables()...)
+		return errors.Wrapf(err, strings.ReplaceAll(sql, "?", "%s"), vars...)
 	}
 	return nil
 }
