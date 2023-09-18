@@ -1538,6 +1538,15 @@ func (manager *SStorageManager) FetchStorageByIds(ids []string) ([]SStorage, err
 func (manager *SStorageManager) InitializeData() error {
 	storages := make([]SStorage, 0)
 	q := manager.Query()
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("zone_id")),
+			sqlchemy.AND(
+				sqlchemy.IsNullOrEmpty(q.Field("storagecache_id")),
+				sqlchemy.Equals(q.Field("storage_type"), api.STORAGE_RBD),
+			),
+		),
+	)
 	err := db.FetchModelObjects(manager, q, &storages)
 	if err != nil {
 		return err

@@ -82,10 +82,12 @@ func (self *SStoragecache) getStorages() []SStorage {
 func (self *SStoragecache) getValidStorages() []SStorage {
 	storages := []SStorage{}
 	q := StorageManager.Query()
+	zones := ZoneManager.Query().Equals("status", api.ZONE_ENABLE).SubQuery()
 	q = q.Equals("storagecache_id", self.Id).
 		Filter(sqlchemy.In(q.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
 		Filter(sqlchemy.IsTrue(q.Field("enabled"))).
 		Filter(sqlchemy.IsFalse(q.Field("deleted")))
+	q = q.Join(zones, sqlchemy.Equals(q.Field("zone_id"), zones.Field("id")))
 	err := db.FetchModelObjects(StorageManager, q, &storages)
 	if err != nil {
 		return nil
