@@ -43,7 +43,7 @@ func TestIsMetadataKeySystemAdmin(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsMetadataKeySystemAdmin(tt.key); got != tt.want {
+			if got := isMetadataKeySystemAdmin(tt.key); got != tt.want {
 				t.Errorf("IsMetadataKeySystemAdmin() = %v, want %v", got, tt.want)
 			}
 		})
@@ -69,7 +69,7 @@ func TestIsMetadataKeySysTag(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsMetadataKeySysTag(tt.key); got != tt.want {
+			if got := isMetadataKeySysTag(tt.key); got != tt.want {
 				t.Errorf("IsMetadataKeySysTag() = %v, want %v", got, tt.want)
 			}
 		})
@@ -100,7 +100,7 @@ func TestIsMetadataKeyVisiable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsMetadataKeyVisiable(tt.key); got != tt.want {
+			if got := IsMetadataKeyVisible(tt.key); got != tt.want {
 				t.Errorf("IsMetadataKeyVisiable() = %v, want %v", got, tt.want)
 			}
 		})
@@ -161,7 +161,7 @@ func TestGetVisiableMetadata(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetVisiableMetadata(nil, tt.model, nil)
+			got, err := GetVisibleMetadata(nil, tt.model, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetVisiableMetadata() error = %v, wantErr %v", err, tt.wantErr)
 				return
