@@ -598,7 +598,7 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), managerId))
 		})
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "FetchByExternalIdAndManagerId %s", ext.GetBackendId())
 		}
 
 		guest := instance.(*SGuest)

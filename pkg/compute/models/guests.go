@@ -3529,7 +3529,7 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 			Filter(sqlchemy.Equals(vpc.Field("manager_id"), host.ManagerId))
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot find network of external_id %s: %v", vnetId, err)
+		return nil, errors.Wrapf(err, "Cannot find network of external_id %s", vnetId)
 	}
 	localNet := localNetObj.(*SNetwork)
 	return localNet, nil
@@ -3827,6 +3827,9 @@ func (self *SGuest) fixSysDiskIndex() error {
 	sysDisk.SetModelManager(GuestdiskManager, sysDisk)
 	err := sysQ.First(sysDisk)
 	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil
+		}
 		return err
 	}
 	if sysDisk.Index == 0 {
