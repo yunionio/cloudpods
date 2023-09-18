@@ -281,7 +281,7 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context,
 		return _vpc.(*SVpc), nil
 	}
 	if errors.Cause(err) != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "db.FetchByExternalId")
+		return nil, errors.Wrapf(err, "db.FetchByExternalId %s", externalId)
 	}
 	vpc := &SVpc{}
 	vpc.IsDefault = false
@@ -324,7 +324,7 @@ func (self *SVpc) GetNetworkByExtId(extId string) (*SNetwork, error) {
 		return q
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetNetworkByExtId(%s)", extId)
 	}
 	return network.(*SNetwork), nil
 }
@@ -1660,7 +1660,7 @@ func (self *SVpc) GetVpcPeeringConnectionByExtId(extId string) (*SVpcPeeringConn
 		return q.Equals("vpc_id", self.Id)
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "FetchByExternalIdAndManagerId %s", extId)
 	}
 	return peer.(*SVpcPeeringConnection), nil
 }
@@ -1670,7 +1670,7 @@ func (self *SVpc) GetAccepterVpcPeeringConnectionByExtId(extId string) (*SVpcPee
 		return q.Equals("peer_vpc_id", self.Id)
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "FetchByExternalIdAndManagerId %s", extId)
 	}
 	return peer.(*SVpcPeeringConnection), nil
 }
