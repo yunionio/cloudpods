@@ -69,6 +69,20 @@ func (self *SGuest) PerformQgaSetPassword(
 	return nil, nil
 }
 
+func (self *SGuest) PerformQgaPing(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.ServerQgaTimeoutInput,
+) (jsonutils.JSONObject, error) {
+	if self.Status != api.VM_RUNNING {
+		return nil, httperrors.NewBadRequestError("can't use qga in vm status: %s", self.Status)
+	}
+
+	host, _ := self.GetHost()
+	return nil, self.GetDriver().QgaRequestGuestPing(ctx, mcclient.GetTokenHeaders(userCred), host, self, false, input)
+}
+
 func (self *SGuest) PerformQgaCommand(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -82,10 +96,5 @@ func (self *SGuest) PerformQgaCommand(
 		return nil, httperrors.NewMissingParameterError("command")
 	}
 	host, _ := self.GetHost()
-	self.SetStatus(userCred, api.VM_QGA_COMMAND_EXECUTING, "qga command")
-	self.UpdateQgaStatus(api.QGA_STATUS_EXCUTING)
-	defer self.SetStatus(userCred, api.VM_RUNNING, "qga comm")
-	defer self.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
-
 	return self.GetDriver().RequestQgaCommand(ctx, userCred, jsonutils.Marshal(input), host, self)
 }

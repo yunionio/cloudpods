@@ -255,7 +255,7 @@ func guestSync(ctx context.Context, userCred mcclient.TokenCredential, sid strin
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestSync, &guestman.SBaseParms{
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestSync, &guestman.SBaseParams{
 		Sid:  sid,
 		Body: body,
 	})
@@ -831,24 +831,31 @@ func qgaGuestSetPassword(ctx context.Context, userCred mcclient.TokenCredential,
 
 func qgaGuestPing(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	gm := guestman.GetGuestManager()
-	hostutils.DelayTask(ctx, gm.QgaGuestPing, &guestman.SBaseParms{Sid: sid})
-	return nil, nil
+	params := &guestman.SBaseParams{Sid: sid, Body: body}
+	if jsonutils.QueryBoolean(body, "async", true) {
+		hostutils.DelayTask(ctx, gm.QgaGuestPing, params)
+		return nil, nil
+	} else {
+		return gm.QgaGuestPing(ctx, params)
+	}
 }
 
 func qgaCommand(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	gm := guestman.GetGuestManager()
-	cmdStr, err := body.GetString("command")
+	input := computeapi.ServerQgaCommandInput{}
+	err := body.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("command")
+		return nil, httperrors.NewInputParameterError("unmarshal input to ServerQgaCommandInput: %s", err.Error())
 	}
-	cmdJson, err := jsonutils.ParseString(cmdStr)
+	cmdJson, err := jsonutils.ParseString(input.Command)
 	if err != nil {
-		return nil, errors.Errorf("parse qga command")
+		return nil, httperrors.NewInputParameterError("failed parse qga command")
 	}
 	qgaCmd := &monitor.Command{}
 	err = cmdJson.Unmarshal(qgaCmd)
 	if err != nil {
-		return nil, errors.Errorf("unmarshal qga command")
+		return nil, httperrors.NewInputParameterError("failed unmarshal qga command")
 	}
-	return gm.QgaCommand(qgaCmd, sid)
+
+	return gm.QgaCommand(qgaCmd, sid, input.Timeout)
 }

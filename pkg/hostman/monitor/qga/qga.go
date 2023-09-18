@@ -20,7 +20,9 @@ import (
 	"encoding/json"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -28,31 +30,73 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 )
 
-type QemuGuestAgent struct {
-	id string
+const QGA_DEFAULT_READ_TIMEOUT_SECOND int = 5
 
-	scanner *bufio.Scanner
-	rwc     net.Conn
-	c       chan struct{}
-	mutex   *sync.Mutex
+type QemuGuestAgent struct {
+	id            string
+	qgaSocketPath string
+
+	scanner     *bufio.Scanner
+	rwc         net.Conn
+	tm          *TryMutex
+	mutex       *sync.Mutex
+	readTimeout int
+}
+
+type TryMutex struct {
+	mu sync.Mutex
+}
+
+func (m *TryMutex) TryLock() bool {
+	return atomic.CompareAndSwapInt32((*int32)(unsafe.Pointer(&m.mu)), 0, 1)
+}
+
+func (m *TryMutex) Unlock() {
+	atomic.StoreInt32((*int32)(unsafe.Pointer(&m.mu)), 0)
 }
 
 func NewQemuGuestAgent(id, qgaSocketPath string) (*QemuGuestAgent, error) {
-	conn, err := net.Dial("unix", qgaSocketPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "dial qga socket")
+	qga := &QemuGuestAgent{
+		id:            id,
+		qgaSocketPath: qgaSocketPath,
+		tm:            &TryMutex{},
+		mutex:         &sync.Mutex{},
+		readTimeout:   QGA_DEFAULT_READ_TIMEOUT_SECOND * 1000,
 	}
-	return &QemuGuestAgent{
-		id:      id,
-		rwc:     conn,
-		scanner: bufio.NewScanner(conn),
-		c:       make(chan struct{}, 1),
-		mutex:   &sync.Mutex{},
-	}, nil
+	err := qga.connect()
+	if err != nil {
+		return nil, err
+	}
+	return qga, nil
+}
+
+func (qga *QemuGuestAgent) SetTimeout(timeout int) {
+	qga.readTimeout = timeout
+}
+
+func (qga *QemuGuestAgent) ResetTimeout() {
+	qga.readTimeout = QGA_DEFAULT_READ_TIMEOUT_SECOND * 1000
+}
+
+func (qga *QemuGuestAgent) connect() error {
+	conn, err := net.Dial("unix", qga.qgaSocketPath)
+	if err != nil {
+		return errors.Wrap(err, "dial qga socket")
+	}
+	qga.rwc = conn
+	qga.scanner = bufio.NewScanner(conn)
+	return nil
 }
 
 func (qga *QemuGuestAgent) Close() error {
-	return qga.rwc.Close()
+	err := qga.rwc.Close()
+	if err != nil {
+		return err
+	}
+
+	qga.scanner = nil
+	qga.rwc = nil
+	return nil
 }
 
 func (qga *QemuGuestAgent) write(cmd []byte) error {
@@ -69,23 +113,13 @@ func (qga *QemuGuestAgent) write(cmd []byte) error {
 }
 
 // Lock before execute qemu guest agent commands
-func (qga *QemuGuestAgent) Lock() {
-	qga.c <- struct{}{}
-}
-
-// Lock before execute qemu guest agent commands
-func (qga *QemuGuestAgent) TryLock(timeout time.Duration) bool {
-	select {
-	case qga.c <- struct{}{}:
-		return true
-	case <-time.After(timeout):
-		return false
-	}
+func (qga *QemuGuestAgent) TryLock() bool {
+	return atomic.CompareAndSwapInt32((*int32)(unsafe.Pointer(&qga.tm.mu)), 0, 1)
 }
 
 // Unlock after execute qemu guest agent commands
 func (qga *QemuGuestAgent) Unlock() {
-	<-qga.c
+	atomic.StoreInt32((*int32)(unsafe.Pointer(&qga.tm.mu)), 0)
 }
 
 func (qga *QemuGuestAgent) QgaCommand(cmd *monitor.Command) ([]byte, error) {
@@ -105,14 +139,26 @@ func (qga *QemuGuestAgent) QgaCommand(cmd *monitor.Command) ([]byte, error) {
 	if !info.SupportedCommands[i].Enabled {
 		return nil, errors.Errorf("command %s not enabled", cmd.Execute)
 	}
-	res, err := qga.execCmd(cmd, info.SupportedCommands[i].SuccessResp)
+	res, err := qga.execCmd(cmd, info.SupportedCommands[i].SuccessResp, -1)
 	if err != nil {
 		return nil, err
 	}
 	return *res, nil
 }
 
-func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool) (*json.RawMessage, error) {
+func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTimeout int) (*json.RawMessage, error) {
+	if qga.TryLock() {
+		qga.Unlock()
+		return nil, errors.Errorf("qga exec cmd but not locked")
+	}
+
+	if qga.rwc == nil {
+		err := qga.connect()
+		if err != nil {
+			return nil, errors.Wrap(err, "qga connect")
+		}
+	}
+
 	rawCmd, err := json.Marshal(cmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal qga cmd")
@@ -127,7 +173,16 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool) (*json
 		return nil, nil
 	}
 
+	if readTimeout < 0 {
+		readTimeout = qga.readTimeout
+	}
+	err = qga.rwc.SetReadDeadline(time.Now().Add(time.Duration(readTimeout) * time.Millisecond))
+	if err != nil {
+		return nil, errors.Wrap(err, "set read deadline")
+	}
+
 	if !qga.scanner.Scan() {
+		defer qga.Close()
 		return nil, errors.Wrap(qga.scanner.Err(), "qga scanner")
 	}
 	var objmap map[string]*json.RawMessage
@@ -149,11 +204,11 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool) (*json
 	}
 }
 
-func (qga *QemuGuestAgent) GuestPing() error {
+func (qga *QemuGuestAgent) GuestPing(timeout int) error {
 	cmd := &monitor.Command{
 		Execute: "guest-ping",
 	}
-	_, err := qga.execCmd(cmd, true)
+	_, err := qga.execCmd(cmd, true, timeout)
 	return err
 }
 
@@ -175,7 +230,7 @@ func (qga *QemuGuestAgent) GuestInfo() (*GuestInfo, error) {
 		Execute: "guest-info",
 	}
 
-	rawRes, err := qga.execCmd(cmd, true)
+	rawRes, err := qga.execCmd(cmd, true, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +277,7 @@ func (qga *QemuGuestAgent) GuestSetUserPassword(username, password string, crypt
 			"crypted":  crypted,
 		},
 	}
-	_, err := qga.execCmd(cmd, true)
+	_, err := qga.execCmd(cmd, true, -1)
 	if err != nil {
 		return err
 	}
@@ -280,7 +335,7 @@ func (qga *QemuGuestAgent) GuestExecCommand(
 			"capture-output": captureOutput,
 		},
 	}
-	rawRes, err := qga.execCmd(qgaCmd, true)
+	rawRes, err := qga.execCmd(qgaCmd, true, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +409,7 @@ func (qga *QemuGuestAgent) GuestExecStatusCommand(pid int) (*GuestExecStatus, er
 			"pid": pid,
 		},
 	}
-	rawRes, err := qga.execCmd(cmd, true)
+	rawRes, err := qga.execCmd(cmd, true, -1)
 	if err != nil {
 		return nil, err
 	}
