@@ -77,6 +77,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"src-prepare-migrate":      guestSrcPrepareMigrate,
 			"dest-prepare-migrate":     guestDestPrepareMigrate,
 			"live-migrate":             guestLiveMigrate,
+			"cancel-live-migrate":      guestCancelLiveMigrate,
 			"resume":                   guestResume,
 			"block-replication":        guestBlockReplication,
 			"slave-block-stream-disks": slaveGuestBlockStreamDisks,
@@ -472,6 +473,25 @@ func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, si
 
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveMigrate, params)
 	return nil, nil
+}
+
+func guestCancelLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	if guest.MigrateTask == nil {
+		return nil, httperrors.NewBadRequestError("Guest %s not in migrating", sid)
+	}
+	guest.MigrateTask.SetLiveMigrateCancelled()
+	var c = make(chan string)
+	cb := func(res string) {
+		c <- res
+	}
+	guest.Monitor.MigrateCancel(cb)
+	var res = <-c
+	lines := strings.Split(res, "\\r\\n")
+	return strDict{"results": strings.Join(lines, "\n")}, nil
 }
 
 func guestResume(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {

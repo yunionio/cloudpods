@@ -845,6 +845,18 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models
 	return nil
 }
 
+func (self *SKVMGuestDriver) RequestCancelLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
+	host, _ := guest.GetHost()
+	url := fmt.Sprintf("%s/servers/%s/cancel-live-migrate", host.ManagerUri, guest.Id)
+	httpClient := httputils.GetDefaultClient()
+	header := mcclient.GetTokenHeaders(userCred)
+	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, jsonutils.NewDict(), false)
+	if err != nil {
+		return errors.Wrap(err, "host request")
+	}
+	return nil
+}
+
 func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	if guest.Status == api.VM_RUNNING && guest.GetMetadata(ctx, "hot_remove_nic", nil) != "enable" {
 		return httperrors.NewBadRequestError("Guest %s can't hot remove nic", guest.GetName())
