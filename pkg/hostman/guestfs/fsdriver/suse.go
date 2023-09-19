@@ -12,18 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
-
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
-)
-
-func init() {
-	cmd := shell.NewResourceCmd(&modules.NetworkAddresses).WithContextManager(&modules.Wires)
-	// cmd.BatchCreate(&options.NetworkAddressCreateOptions{})
-	cmd.List(&options.NetworkAddressListOptions{})
-	cmd.Show(&options.NetworkAddressIdOptions{})
-	cmd.BatchDelete(&options.NetworkAddressIdsOptions{})
-}
+package fsdriver
