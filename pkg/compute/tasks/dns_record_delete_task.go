@@ -47,14 +47,14 @@ func (self *DnsRecordDeleteTask) taskFailed(ctx context.Context, record *models.
 func (self *DnsRecordDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	record := obj.(*models.SDnsRecord)
 
-	if len(record.ExternalId) == 0 {
-		self.taskComplete(ctx, nil, record)
-		return
-	}
-
 	zone, err := record.GetDnsZone()
 	if err != nil {
 		self.taskFailed(ctx, record, errors.Wrapf(err, "GetDnsZone"))
+		return
+	}
+
+	if len(record.ExternalId) == 0 {
+		self.taskComplete(ctx, zone, record)
 		return
 	}
 
