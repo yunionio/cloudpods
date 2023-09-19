@@ -1003,6 +1003,7 @@ type SGuestLiveMigrateTask struct {
 
 	timeoutAt        time.Time
 	doTimeoutMigrate bool
+	cancelled        bool
 
 	expectDowntime        int64
 	dirtySyncCount        int64
@@ -1255,12 +1256,14 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStats(stats *monitor.MigrationInfo, 
 */
 
 func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo) {
-	status := *stats.Status
+	status := string(*stats.Status)
 	if status == "completed" {
 		jsonStats := jsonutils.Marshal(stats)
 		log.Infof("migration info %s", jsonStats)
-	} else if status == "failed" || status == "cancelled" {
+	} else if status == "failed" {
 		s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", status))
+	} else if status == "cancelled" {
+		s.migrateFailed(status)
 	} else if status == "active" {
 		var (
 			ramRemain int64
@@ -1335,7 +1338,9 @@ func (s *SGuestLiveMigrateTask) onMigrateReceivedPreSwitchoverEvent() {
 }
 
 func (s *SGuestLiveMigrateTask) onMigrateReceivedBlockJobError(res string) {
-	s.migrateFailed(res)
+	if !s.cancelled {
+		s.migrateFailed(res)
+	}
 }
 
 func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
@@ -1394,6 +1399,10 @@ func (s *SGuestLiveMigrateTask) onMigrateFailBlockJobsCancelled(msg string) {
 	} else {
 		cleanup()
 	}
+}
+
+func (s *SGuestLiveMigrateTask) SetLiveMigrateCancelled() {
+	s.cancelled = true
 }
 
 /**

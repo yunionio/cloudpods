@@ -238,6 +238,7 @@ type Monitor interface {
 	GetMigrateStatus(callback StringCallback)
 	MigrateStartPostcopy(callback StringCallback)
 	GetMigrateStats(callback MigrateStatsCallback)
+	MigrateCancel(cb StringCallback)
 
 	ReloadDiskBlkdev(device, path string, callback StringCallback)
 	SetVncPassword(proto, password string, callback StringCallback)
