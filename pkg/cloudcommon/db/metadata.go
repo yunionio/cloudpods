@@ -658,8 +658,9 @@ func isAllowGetMetadata(ctx context.Context, obj IModel, userCred mcclient.Token
 				return true
 			}
 		}
+		return false
 	}
-	return false
+	return true
 }
 
 func (manager *SMetadataManager) GetAll(ctx context.Context, obj IModel, keys []string, keyPrefix string, userCred mcclient.TokenCredential) (map[string]string, error) {
