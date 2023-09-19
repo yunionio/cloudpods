@@ -712,7 +712,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 				return q.Equals("manager_id", provider.Id)
 			})
 			if err != nil {
-				return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchVpcId")
+				return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchVpcId %s", vpcId)
 			}
 			instance.VpcId = vpc.GetId()
 		}
@@ -726,7 +726,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 					Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
 			})
 			if err != nil {
-				return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchNetworkId")
+				return nil, errors.Wrapf(err, "newFromCloudElasticcache.FetchNetworkId %s", networkId)
 			}
 			instance.NetworkId = network.GetId()
 		}
