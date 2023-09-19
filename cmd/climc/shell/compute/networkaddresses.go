@@ -22,8 +22,8 @@ import (
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.NetworkAddresses).WithContextManager(&modules.Wires)
-	cmd.BatchCreate(&options.NetworkAddressCreateOptions{})
+	// cmd.BatchCreate(&options.NetworkAddressCreateOptions{})
 	cmd.List(&options.NetworkAddressListOptions{})
 	cmd.Show(&options.NetworkAddressIdOptions{})
-	cmd.Delete(&options.NetworkAddressIdOptions{})
+	cmd.BatchDelete(&options.NetworkAddressIdsOptions{})
 }
