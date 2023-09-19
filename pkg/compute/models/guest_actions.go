@@ -615,11 +615,8 @@ func (self *SGuest) PerformCancelLiveMigrate(
 	if self.Status != api.VM_LIVE_MIGRATING {
 		return nil, httperrors.NewServerStatusError("cannot set migrate params in status %s", self.Status)
 	}
-	monitorInput := &api.ServerMonitorInput{
-		COMMAND: "migrate_cancel",
-		QMP:     false,
-	}
-	return self.SendMonitorCommand(ctx, userCred, monitorInput)
+
+	return nil, self.GetDriver().RequestCancelLiveMigrate(ctx, self, userCred)
 }
 
 func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

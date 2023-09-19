@@ -544,12 +544,29 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 	return nil
 }
 
-func (self *GuestLiveMigrateTask) OnLiveMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if !jsonutils.QueryBoolean(self.Params, "keep_dest_guest_on_failed", false) {
-		targetHostId, _ := self.Params.GetString("target_host_id")
-		guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+func (task *GuestLiveMigrateTask) OnLiveMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if reason, _ := data.GetString("__reason__"); reason == "cancelled" {
+		task.Params.Set("migrate_cancelled", jsonutils.JSONTrue)
 	}
-	self.TaskFailed(ctx, guest, data)
+
+	if !jsonutils.QueryBoolean(task.Params, "keep_dest_guest_on_failed", false) {
+		targetHostId, _ := task.Params.GetString("target_host_id")
+		task.SetStage("OnGuestUndeployed", nil)
+		guest.StartUndeployGuestTask(ctx, task.UserCred, task.Id, targetHostId)
+	} else {
+		task.OnGuestUndeployed(ctx, guest, data)
+	}
+}
+
+func (task *GuestLiveMigrateTask) OnGuestUndeployed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	task.TaskFailed(ctx, guest, data)
+	if jsonutils.QueryBoolean(task.Params, "migrate_cancelled", false) {
+		guest.StartSyncstatus(ctx, task.UserCred, "")
+	}
+}
+
+func (task *GuestLiveMigrateTask) OnGuestUndeployedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	task.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

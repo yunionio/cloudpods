@@ -694,6 +694,7 @@ type SGuestLiveMigrateTask struct {
 
 	timeoutAt        time.Time
 	doTimeoutMigrate bool
+	cancelled        bool
 
 	expectDowntime int64
 	dirtySyncCount int64
@@ -866,13 +867,15 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStats(stats *monitor.MigrationInfo, 
 */
 
 func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo) {
-	status := *stats.Status
+	status := string(*stats.Status)
 	if status == "completed" {
 		jsonStats := jsonutils.Marshal(stats)
 		log.Infof("migration info %s", jsonStats)
 		s.migrateComplete(jsonStats)
-	} else if status == "failed" || status == "cancelled" {
+	} else if status == "failed" {
 		s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", status))
+	} else if status == "cancelled" {
+		s.migrateFailed(status)
 	} else if status == "active" {
 		var (
 			ramTotal   int64
@@ -943,12 +946,13 @@ func (s *SGuestLiveMigrateTask) onMigrateReceivedStopEvent() {
 			log.Errorf("%s get migrate stats failed %s", s.GetName(), err)
 			return
 		}
-
 		switch *stats.Status {
 		case "completed":
 			s.migrateComplete(jsonutils.Marshal(stats))
-		case "failed", "cancelled":
+		case "failed":
 			s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", *stats.Status))
+		case "cancelled":
+			s.migrateFailed("cancelled")
 		case "active":
 			time.Sleep(10 * time.Millisecond)
 			s.onMigrateReceivedStopEvent()
@@ -989,6 +993,10 @@ func (s *SGuestLiveMigrateTask) migrateFailed(msg string) {
 	} else {
 		cleanup()
 	}
+}
+
+func (s *SGuestLiveMigrateTask) SetLiveMigrateCancelled() {
+	s.cancelled = true
 }
 
 /**

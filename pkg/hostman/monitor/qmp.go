@@ -782,6 +782,10 @@ func (m *QmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) MigrateCancel(cb StringCallback) {
+	m.HumanMonitorCommand("migrate_cancel", cb)
+}
+
 func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	var (
 		cmd = &Command{Execute: "migrate-start-postcopy"}
