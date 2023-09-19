@@ -532,7 +532,7 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 		subq := networks.Query(networks.Field("id"))
-		subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("network_id")))
+		subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
 		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		return subq
 	})
