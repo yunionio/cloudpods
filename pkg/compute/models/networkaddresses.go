@@ -538,7 +538,7 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 		return subq
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "ManagedResourceFilterByAccount")
 	}
 
 	return q, nil
