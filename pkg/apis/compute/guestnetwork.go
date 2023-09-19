@@ -31,6 +31,8 @@ type GuestnetworkDetails struct {
 
 	// EipAddr associate with this guestnetwork
 	EipAddr string `json:"eip_addr"`
+
+	NetworkAddresses []NetworkAddrConf `json:"network_addresses"`
 }
 
 type GuestnetworkShortDesc struct {
