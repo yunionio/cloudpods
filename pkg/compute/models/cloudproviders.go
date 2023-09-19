@@ -1906,8 +1906,8 @@ func (provider *SCloudprovider) GetChangeOwnerCandidateDomainIds() []string {
 }
 
 func (cprvd *SCloudprovider) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
-	if cprvd.Provider == api.CLOUD_PROVIDER_AZURE {
-		return cprvd.SyncAzureProject(ctx, userCred, id)
+	if cprvd.Provider == api.CLOUD_PROVIDER_AZURE || cprvd.Provider == api.CLOUD_PROVIDER_ALIYUN {
+		return cprvd.SyncManagerProject(ctx, userCred, id)
 	}
 	account, err := cprvd.GetCloudaccount()
 	if err != nil {
@@ -1932,7 +1932,7 @@ func (cprvd *SCloudprovider) GetExternalProjectsByProjectIdOrName(projectId, nam
 	return projects, nil
 }
 
-func (cprvd *SCloudprovider) SyncAzureProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
+func (cprvd *SCloudprovider) SyncManagerProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
 	lockman.LockRawObject(ctx, "projects", cprvd.Id)
 	defer lockman.ReleaseRawObject(ctx, "projects", cprvd.Id)
 
@@ -2002,7 +2002,6 @@ func (cprvd *SCloudprovider) SyncAzureProject(ctx context.Context, userCred mccl
 	}
 
 	return extProj.ExternalId, nil
-
 }
 
 func (cprvd *SCloudprovider) GetSchedtags() []SSchedtag {
