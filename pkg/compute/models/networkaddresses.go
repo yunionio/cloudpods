@@ -508,12 +508,12 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 
 	q, err = man.SStandaloneAnonResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneAnonResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneAnonResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = man.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, input.NetworkFilterListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
 	}
 
 	if len(input.GuestId) > 0 {
@@ -533,10 +533,13 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 		subq := networks.Query(networks.Field("id"))
-		subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("network_id")))
+		subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
 		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		return subq
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "ManagedResourceFilterByAccount")
+	}
 
 	return q, nil
 }
