@@ -45,7 +45,8 @@ type NetworkAddressCreateInput struct {
 
 	Type      string
 	NetworkId string
-	IPAddr    string
+	IPAddr    string   `json:"ip_addr"`
+	IPAddrs   []string `json:"ip_addrs"`
 }
 
 type NetworkAddressListInput struct {
