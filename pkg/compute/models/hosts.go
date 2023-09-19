@@ -2303,7 +2303,7 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 		return q.Equals("manager_id", provider.Id)
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Cause(err) == sql.ErrNoRows {
 			// no cloud storage found, this may happen for on-premise host
 			// create the storage right now
 			zone, _ := self.GetZone()
@@ -2537,7 +2537,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 			sq := HostManager.Query().SubQuery()
 			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
 		})
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			log.Errorf("failed to found guest by externalId %s error: %v", added[i].GetGlobalId(), err)
 			continue
 		}

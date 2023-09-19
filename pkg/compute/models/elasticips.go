@@ -617,9 +617,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 				Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
 		})
 		if err != nil {
-			msg := fmt.Sprintf("failed to found network by externalId %s error: %v", networkId, err)
-			log.Errorf(msg)
-			return nil, errors.Error(msg)
+			return nil, errors.Wrapf(err, "failed to found network by externalId %s", networkId)
 		}
 		eip.NetworkId = network.GetId()
 	}
@@ -951,15 +949,15 @@ func (self *SElasticip) AssociateNatGateway(ctx context.Context, userCred mcclie
 }
 
 func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, provider *SCloudprovider, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider) (*SElasticip, error) {
-	eipObj, err := db.FetchByExternalIdAndManagerId(manager, extEip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	eipId := extEip.GetGlobalId()
+	eipObj, err := db.FetchByExternalIdAndManagerId(manager, eipId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Equals("manager_id", provider.Id)
 	})
 	if err == nil {
 		return eipObj.(*SElasticip), nil
 	}
-	if err != sql.ErrNoRows {
-		log.Errorf("FetchByExternalId fail %s", err)
-		return nil, err
+	if errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrapf(err, "FetchByExternalIdAndManagerId %s", eipId)
 	}
 
 	return manager.newFromCloudEip(ctx, userCred, extEip, provider, region, syncOwnerId)
