@@ -54,6 +54,13 @@ func (self *SResourceGroup) GetName() string {
 	return self.Name
 }
 
+func (self *SResourceGroup) GetAccountId() string {
+	if len(self.AccountId) == 0 {
+		return self.client.accessKey
+	}
+	return self.AccountId
+}
+
 func (self *SResourceGroup) Refresh() error {
 	group, err := self.client.GetResourceGroup(self.Id)
 	if err != nil {

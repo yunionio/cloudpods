@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -320,6 +321,7 @@ func SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, isSta
 		for _, cloudEnv := range cloudEnvs {
 			skuMeta := &SWafRuleGroup{}
 			skuMeta.SetModelManager(WafRuleGroupManager, skuMeta)
+			skuMeta.DomainId = identity_api.DEFAULT_DOMAIN_ID
 			skuMeta.Id = cloudEnv
 
 			oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
