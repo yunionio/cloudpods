@@ -586,8 +586,18 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccounts := make([]cloudprovider.SSubAccount, 0)
 	for i := range projects {
 		project := projects[i]
-		// name 为MOS的project是华为云内部的一个特殊project。不需要同步到本地
-		if strings.ToLower(project.Name) == "mos" {
+
+		find := false
+		for j := range self.iregions {
+			region := self.iregions[j].(*SRegion)
+			if strings.Contains(project.Name, region.ID) {
+				find = true
+				break
+			}
+		}
+		if !find {
+			// name 为MOS的project是华为云内部的一个特殊project。不需要同步到本地
+			// skip invalid project
 			continue
 		}
 		// https://www.huaweicloud.com/notice/2018/20190618171312411.html
