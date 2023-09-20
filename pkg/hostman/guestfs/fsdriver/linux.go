@@ -80,6 +80,35 @@ func getHostname(hostname, domain string) string {
 	}
 }
 
+func (l *sLinuxRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
+	etcSysconfigQemuga := "/etc/sysconfig/qemu-ga"
+	blackListContent := `# This is a systemd environment file, not a shell script.
+# It provides settings for \"/lib/systemd/system/qemu-guest-agent.service\".
+
+# Comma-separated blacklist of RPCs to disable, or empty list to enable all.
+#
+# You can get the list of RPC commands using \"qemu-ga --blacklist='?'\".
+# There should be no spaces between commas and commands in the blacklist.
+# BLACKLIST_RPC=guest-file-open,guest-file-close,guest-file-read,guest-file-write,guest-file-seek,guest-file-flush,guest-exec,guest-exec-status
+
+# Fsfreeze hook script specification.
+#
+# FSFREEZE_HOOK_PATHNAME=/dev/null           : disables the feature.
+#
+# FSFREEZE_HOOK_PATHNAME=/path/to/executable : enables the feature with the
+# specified binary or shell script.
+#
+# FSFREEZE_HOOK_PATHNAME=                    : enables the feature with the
+# default value (invoke \"qemu-ga --help\" to interrogate).
+FSFREEZE_HOOK_PATHNAME=/etc/qemu-ga/fsfreeze-hook"
+`
+
+	if err := rootFs.FilePutContents(etcSysconfigQemuga, blackListContent, false, false); err != nil {
+		return errors.Wrap(err, "etcSysconfigQemuga error")
+	}
+	return nil
+}
+
 func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain string, ips []string) error {
 	var etcHosts = "/etc/hosts"
 	var oldHostFile string
@@ -158,6 +187,37 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 		usrDir = path.Join("/home", selUsr)
 	}
 	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false)
+}
+
+func (d *SCoreOsRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
+	etcSysconfigQemuga := "/etc/sysconfig/qemu-ga"
+	blackListContent := `# This is a systemd environment file, not a shell script.
+# It provides settings for \"/lib/systemd/system/qemu-guest-agent.service\".
+
+# Comma-separated blacklist of RPCs to disable, or empty list to enable all.
+#
+# You can get the list of RPC commands using \"qemu-ga --blacklist='?'\".
+# There should be no spaces between commas and commands in the blacklist.
+# BLACKLIST_RPC=guest-file-open,guest-file-close,guest-file-read,guest-file-write,guest-file-seek,guest-file-flush,guest-exec,guest-exec-status
+
+# Fsfreeze hook script specification.
+#
+# FSFREEZE_HOOK_PATHNAME=/dev/null           : disables the feature.
+#
+# FSFREEZE_HOOK_PATHNAME=/path/to/executable : enables the feature with the
+# specified binary or shell script.
+#
+# FSFREEZE_HOOK_PATHNAME=                    : enables the feature with the
+# default value (invoke \"qemu-ga --help\" to interrogate).
+FSFREEZE_HOOK_PATHNAME=/etc/qemu-ga/fsfreeze-hook"
+`
+
+	if rootFs.Exists(etcSysconfigQemuga, false) {
+		if err := rootFs.FilePutContents(etcSysconfigQemuga, blackListContent, false, false); err != nil {
+			return errors.Wrap(err, "etcSysconfigQemuga error")
+		}
+	}
+	return nil
 }
 
 func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {
