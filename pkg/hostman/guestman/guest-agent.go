@@ -104,3 +104,59 @@ func (m *SGuestManager) QgaCommand(cmd *monitor.Command, sid string, execTimeout
 
 	return string(res), err
 }
+
+func (m *SGuestManager) QgaGuestInfoTask(sid string) (string, error) {
+	guest, err := m.checkAndInitGuestQga(sid)
+	if err != nil {
+		return "", err
+	}
+	var res []byte
+	if guest.guestAgent.TryLock() {
+		defer guest.guestAgent.Unlock()
+		res, err = guest.guestAgent.GuestInfoTask()
+		if err != nil {
+			return "", errors.Wrap(err, "qga guest info task")
+		}
+		return string(res), nil
+	}
+	return "", errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+}
+
+func (m *SGuestManager) QgaSetNetwork(netmod *monitor.NetworkModify, sid string, execTimeout int) (string, error) {
+	guest, err := m.checkAndInitGuestQga(sid)
+	if err != nil {
+		return "", err
+	}
+	var res []byte
+	if guest.guestAgent.TryLock() {
+		defer guest.guestAgent.Unlock()
+
+		if execTimeout > 0 {
+			guest.guestAgent.SetTimeout(execTimeout)
+			defer guest.guestAgent.ResetTimeout()
+		}
+		err = guest.guestAgent.QgaSetNetwork(netmod)
+		if err != nil {
+			return "", errors.Wrapf(err, "modify %s network failed", netmod.Device)
+		}
+		return string(res), nil
+	}
+	return "", errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+}
+
+func (m *SGuestManager) QgaGetNetwork(sid string) (string, error) {
+	guest, err := m.checkAndInitGuestQga(sid)
+	if err != nil {
+		return "", err
+	}
+	var res []byte
+	if guest.guestAgent.TryLock() {
+		defer guest.guestAgent.Unlock()
+		res, err = guest.guestAgent.QgaGetNetwork()
+		if err != nil {
+			return "", errors.Wrap(err, "qga get network fail")
+		}
+		return string(res), nil
+	}
+	return "", errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+}

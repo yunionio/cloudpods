@@ -16,14 +16,19 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/vpcagent"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -52,29 +57,74 @@ func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	if fwOnly, _ := self.GetParams().Bool("fw_only"); fwOnly {
-		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
-		if restart, _ := self.Params.Bool("restart_network"); !restart {
-			self.SetStageComplete(ctx, nil)
-			return
-		}
-		prevIp, err := self.Params.GetString("prev_ip")
-		if err != nil {
-			log.Errorf("unable to get prev_ip when restart_network is true when sync guest")
-			self.SetStageComplete(ctx, nil)
-			return
-		}
-		if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
-			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, true)
-		} else {
-			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, false)
-		}
-		self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	if restart, _ := self.Params.Bool("restart_network"); restart {
+		self.StartRestartNetworkTask(ctx, guest)
 	} else if data.Contains("task") {
 		// XXX this is only applied to KVM, which will call task_complete twice
 		self.SetStage("on_disk_sync_complete", nil)
 	} else {
 		self.OnDiskSyncComplete(ctx, guest, data)
+	}
+}
+
+func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, guest *models.SGuest) {
+	defer self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	prevIp, err := self.Params.GetString("prev_ip")
+	if err != nil {
+		log.Errorf("unable to get prev_ip when restart_network is true when sync guest")
+		return
+	}
+	inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false)
+	if guest.Hypervisor != api.HYPERVISOR_KVM {
+		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, inBlockStream)
+		return
+	}
+	preMac, err := self.Params.GetString("prev_mac")
+	if err != nil {
+		log.Errorf("unable to get prev_mac when restart_network is true when sync guest")
+		return
+	}
+	ipMask, err := self.Params.GetString("ip_mask")
+	if err != nil {
+		log.Errorf("unable to get ip_mask when restart_network is true when sync guest")
+		return
+	}
+	gateway, err := self.Params.GetString("gateway")
+	if err != nil {
+		log.Errorf("unable to get gateway when restart_network is true when sync guest")
+		return
+	}
+	isVpcNetwork := jsonutils.QueryBoolean(self.Params, "is_vpc_network", false)
+
+	// try use qga restart network
+	err = func() error {
+		host, _ := guest.GetHost()
+		err = guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{1000})
+		if err != nil {
+			return errors.Wrap(err, "qga guest-ping")
+		}
+		ifnameDevice, err := guest.GetIfNameByMac(ctx, self.UserCred, preMac)
+		if err != nil {
+			return errors.Wrap(err, "get ifname by mac")
+		}
+		if ifnameDevice == "" {
+			return errors.Errorf("failed find ifname")
+		}
+
+		if isVpcNetwork {
+			err = vpcagent.VpcAgent.DoSync(auth.GetAdminSession(ctx, options.Options.Region))
+			if err != nil {
+				log.Errorf("vpcagent.VpcAgent.DoSync fail %s", err)
+			}
+			// wait for vpcagent sync network topo
+			time.Sleep(10 * time.Second)
+		}
+		return guest.StartQgaRestartNetworkTask(
+			ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, prevIp, inBlockStream)
+	}()
+	if err != nil {
+		log.Errorf("guest %s failed start qga restart network task: %s", guest.GetName(), err)
+		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, inBlockStream)
 	}
 }
 
