@@ -157,7 +157,6 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	ret.Path = imgCache.GetPath()
 
 	var (
-		name string
 		size int64
 	)
 	if desc := imgCache.GetDesc(); desc != nil {
@@ -172,7 +171,7 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 			ret.Size = fi.Size()
 		}
 	}
-	if len(name) == 0 {
+	if len(ret.Name) == 0 {
 		ret.Name = input.ImageId
 	}
 
