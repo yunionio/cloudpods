@@ -99,8 +99,10 @@ type HostListInput struct {
 	CpuCount []int `json:"cpu_count"`
 	// 内存大小,单位Mb
 	MemSize []int `json:"mem_size"`
-	// 存储类型
+	// 存储类型(磁盘类型，sdd, rotate, hybrid)
 	StorageType []string `json:"storage_type"`
+	// 宿主机绑定存储类型
+	HostStorageType []string `json:"host_storage_type"`
 	// IPMI地址
 	IpmiIp []string `json:"ipmi_ip"`
 	// 宿主机状态
