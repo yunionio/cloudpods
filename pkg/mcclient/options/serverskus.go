@@ -27,6 +27,7 @@ type ServerSkusListOptions struct {
 	Name                   string  `help:"Name of Sku"`
 	PostpaidStatus         string  `help:"Postpaid status" choices:"soldout|available"`
 	PrepaidStatus          string  `help:"Prepaid status" choices:"soldout|available"`
+	CpuArch                string  `help:"Cpu Arch" choices:"x86|arm"`
 	Enabled                *bool   `help:"Filter enabled skus"`
 	Distinct               bool    `help:"distinct sku by name"`
 	OrderByTotalGuestCount string

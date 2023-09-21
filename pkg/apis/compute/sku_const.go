@@ -80,6 +80,10 @@ type ServerSkuListInput struct {
 	// 按套餐名称去重
 	Distinct bool `json:"distinct"`
 
+	// 根据cpu架构过滤
+	// enmu: arm, x86
+	CpuArch []string `json:"cpu_arch"`
+
 	// 按关联虚拟机数量排序
 	OrderByTotalGuestCount string `json:"order_by_total_guest_count"`
 }
