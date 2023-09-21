@@ -129,6 +129,9 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	if err = rootfs.DeployHosts(partition, hn, domain, ips); err != nil {
 		return nil, errors.Wrap(err, "DeployHosts")
 	}
+	if err = rootfs.DeployQgaBlackList(partition); err != nil {
+		return nil, fmt.Errorf("DeployQgaBlackList: %v", err)
+	}
 	if err = rootfs.DeployNetworkingScripts(partition, nics); err != nil {
 		return nil, errors.Wrap(err, "DeployNetworkingScripts")
 	}

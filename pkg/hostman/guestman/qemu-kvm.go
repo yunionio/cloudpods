@@ -2025,6 +2025,7 @@ func getNicBridge(nic *desc.SGuestNetwork) string {
 }
 
 func onNicChange(oldNic, newNic *desc.SGuestNetwork) error {
+	log.Infof("nic changed old: %s new: %s", jsonutils.Marshal(oldNic), jsonutils.Marshal(newNic))
 	// override network base desc
 	oldNic.GuestnetworkBaseDesc = newNic.GuestnetworkBaseDesc
 
