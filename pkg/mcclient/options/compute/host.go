@@ -21,20 +21,21 @@ import (
 )
 
 type HostListOptions struct {
-	Schedtag  string   `help:"List hosts in schedtag"`
-	Zone      string   `help:"List hosts in zone"`
-	Region    string   `help:"List hosts in region"`
-	Wire      string   `help:"List hosts in wire"`
-	Image     string   `help:"List hosts cached images" json:"cachedimage"`
-	Storage   string   `help:"List hosts attached to storages"`
-	Baremetal string   `help:"List hosts that is managed by baremetal system" choices:"true|false"`
-	Empty     bool     `help:"show empty host" json:"-"`
-	Occupied  bool     `help:"show occupid host" json:"-"`
-	Enabled   bool     `help:"Show enabled host only" json:"-"`
-	Disabled  bool     `help:"Show disabled host only" json:"-"`
-	HostType  string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun"`
-	AnyMac    string   `help:"Mac matches one of the host's interface"`
-	AnyIp     []string `help:"IP matches one of the host's interface"`
+	Schedtag        string   `help:"List hosts in schedtag"`
+	Zone            string   `help:"List hosts in zone"`
+	Region          string   `help:"List hosts in region"`
+	Wire            string   `help:"List hosts in wire"`
+	Image           string   `help:"List hosts cached images" json:"cachedimage"`
+	Storage         string   `help:"List hosts attached to storages"`
+	Baremetal       string   `help:"List hosts that is managed by baremetal system" choices:"true|false"`
+	Empty           bool     `help:"show empty host" json:"-"`
+	Occupied        bool     `help:"show occupid host" json:"-"`
+	Enabled         bool     `help:"Show enabled host only" json:"-"`
+	Disabled        bool     `help:"Show disabled host only" json:"-"`
+	HostType        string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun"`
+	AnyMac          string   `help:"Mac matches one of the host's interface"`
+	AnyIp           []string `help:"IP matches one of the host's interface"`
+	HostStorageType []string `help:"List host in host_storage_type"`
 
 	IsBaremetal *bool `help:"filter host list by is_baremetal=true|false"`
 

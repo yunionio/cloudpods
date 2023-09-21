@@ -327,6 +327,15 @@ func (manager *SHostManager) ListItemFilter(
 		}
 	}
 
+	hostStorageType := query.HostStorageType
+	if len(hostStorageType) > 0 {
+		hoststorages := HoststorageManager.Query()
+		storages := StorageManager.Query().In("storage_type", hostStorageType).SubQuery()
+		hq := hoststorages.Join(storages, sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id"))).SubQuery()
+		scopeQuery := hq.Query(hq.Field("host_id")).SubQuery()
+		q = q.In("id", scopeQuery)
+	}
+
 	hypervisorStr := query.Hypervisor
 	if len(hypervisorStr) > 0 {
 		hostType, ok := api.HYPERVISOR_HOSTTYPE[hypervisorStr]
