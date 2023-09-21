@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/vmware/govmomi/nfc"
 	"github.com/vmware/govmomi/object"
@@ -1408,20 +1409,30 @@ func (svm *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.JS
 	spec.NicSettingMap = maps
 
 	var (
-		osName string
-		name   = "yunionhost"
+		osName   string
+		name     = "yunionhost"
+		hostname = name
 	)
 	if params.Contains("os_name") {
 		osName, _ = params.GetString("os_name")
 	}
 	if params.Contains("name") {
 		name, _ = params.GetString("name")
+		hostname = name
+	}
+	if params.Contains("hostname") {
+		hostname, _ = params.GetString("hostname")
 	}
 	// avoid spec.identity.hostName error
-	hostname := strings.ReplaceAll(name, "_", "")
-	if len(hostname) > 15 {
-		hostname = hostname[:15]
-	}
+	hostname = func() string {
+		ret := ""
+		for _, s := range hostname {
+			if unicode.IsDigit(s) || unicode.IsLetter(s) || s == '-' {
+				ret += string(s)
+			}
+		}
+		return ret
+	}()
 	if osName == "Linux" {
 		linuxPrep := types.CustomizationLinuxPrep{
 			HostName: &types.CustomizationFixedName{Name: hostname},
@@ -1430,6 +1441,9 @@ func (svm *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.JS
 		}
 		spec.Identity = &linuxPrep
 	} else if osName == "Windows" {
+		if len(hostname) > 15 {
+			hostname = hostname[:15]
+		}
 		sysPrep := types.CustomizationSysprep{
 			GuiUnattended: types.CustomizationGuiUnattended{
 				TimeZone:  210,
