@@ -781,6 +781,14 @@ func (hh *SHost) validateDeleteCondition(ctx context.Context, purge bool) error 
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Not an empty host")
 	}
+	cnt, err = hh.GetBackupGuestCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetBackupGuestCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("Not an empty host")
+	}
+
 	for _, hoststorage := range hh.GetHoststorages() {
 		storage := hoststorage.GetStorage()
 		if storage != nil && storage.IsLocal() {
@@ -1619,6 +1627,11 @@ func (hh *SHost) GetGuestsBackupOnThisHost() []SGuest {
 		return nil
 	}
 	return guests
+}
+
+func (hh *SHost) GetBackupGuestCount() (int, error) {
+	q := GuestManager.Query().Equals("backup_host_id", hh.Id)
+	return q.CountWithError()
 }
 
 func (hh *SHost) GetGuestCount() (int, error) {
@@ -4270,8 +4283,13 @@ func (hh *SHost) PerformReserveCpus(
 		return nil, err
 	}
 
-	if !sets.NewInt(allCores...).HasAll(cs.ToSlice()...) {
+	hSets := sets.NewInt(allCores...)
+	cSlice := cs.ToSlice()
+	if !hSets.HasAll(cSlice...) {
 		return nil, httperrors.NewInputParameterError("Host cores not contains input %v", input.Cpus)
+	}
+	if hSets.Len() == len(cSlice) {
+		return nil, httperrors.NewInputParameterError("Can't reserve host all cpus")
 	}
 
 	if input.Mems != "" {
