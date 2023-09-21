@@ -1619,11 +1619,17 @@ func getNicBridge(nic jsonutils.JSONObject) string {
 }
 
 func onNicChange(oldNic, newNic jsonutils.JSONObject) error {
+	log.Infof("nic changed old: %s new: %s", oldNic.String(), newNic.String())
 	oldbr := getNicBridge(oldNic)
 	oldifname, _ := oldNic.GetString("ifname")
 	newbr := getNicBridge(newNic)
 	newifname, _ := newNic.GetString("ifname")
 	newvlan, _ := newNic.Int("vlan")
+
+	oldNicDict := oldNic.(*jsonutils.JSONDict)
+	newNicDict := newNic.(*jsonutils.JSONDict)
+	oldNicDict.Update(newNicDict)
+
 	if oldbr != newbr {
 		// bridge changed
 		if oldifname == newifname {

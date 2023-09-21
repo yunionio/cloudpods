@@ -278,6 +278,10 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
 }
 
+func (w *SWindowsRootFs) DeployQgaBlackList(part IDiskPartition) error {
+	return nil
+}
+
 func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
 	mainNic, err := netutils2.GetMainNicFromDeployApi(nics)
 	if err != nil {
