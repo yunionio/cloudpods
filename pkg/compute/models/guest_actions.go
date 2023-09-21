@@ -2638,10 +2638,6 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s for %s, requires %s", self.Status, self.GetHypervisor(), changeStatus)
 	}
 
-	if self.Status == api.VM_READY && self.ShutdownMode == api.VM_SHUTDOWN_MODE_STOP_CHARGING {
-		return nil, httperrors.NewInvalidStatusError("Cannot change config with %s", self.ShutdownMode)
-	}
-
 	_, err = self.GetHost()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHost")
