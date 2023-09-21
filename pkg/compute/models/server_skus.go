@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -761,6 +762,32 @@ func (manager *SServerSkuManager) ListItemFilter(
 		}
 	}
 
+	conditions := []sqlchemy.ICondition{}
+	for _, arch := range query.CpuArch {
+		if len(arch) == 0 {
+			continue
+		}
+		if arch == apis.OS_ARCH_X86 {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field("cpu_arch"), arch),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_I386),
+				sqlchemy.IsNullOrEmpty(q.Field("cpu_arch")),
+			))
+		} else if arch == apis.OS_ARCH_ARM {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field("cpu_arch"), arch),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_AARCH32),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_AARCH64),
+				sqlchemy.IsNullOrEmpty(q.Field("cpu_arch")),
+			))
+		} else {
+			conditions = append(conditions, sqlchemy.Startswith(q.Field("cpu_arch"), arch))
+		}
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
+	}
+
 	if query.Distinct {
 		q = q.GroupBy(q.Field("name"))
 	}
@@ -817,7 +844,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.Equals("prepaid_status", query.PrepaidStatus)
 	}
 
-	conditions := []sqlchemy.ICondition{}
+	conditions = []sqlchemy.ICondition{}
 	for _, sizeMb := range query.MemorySizeMb {
 		// 按区间查询内存, 避免0.75G这样的套餐不好过滤
 		if sizeMb > 0 {
