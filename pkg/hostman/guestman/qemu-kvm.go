@@ -114,6 +114,10 @@ func (s *SKVMGuestInstance) IsValid() bool {
 	return false
 }
 
+func (m *SKVMGuestInstance) GetMigrateTask() *SGuestLiveMigrateTask {
+	return m.migrateTask
+}
+
 func (s *SKVMGuestInstance) GetId() string {
 	id, _ := s.Desc.GetString("uuid")
 	return id
