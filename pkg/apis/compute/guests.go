@@ -984,9 +984,44 @@ type ServerQemuInfo struct {
 	Cmdline string `json:"cmdline"`
 }
 
+type IPAddress struct {
+	IPAddress     string `json:"ip-address"`
+	IPAddressType string `json:"ip-address-type"`
+	Prefix        int    `json:"prefix"`
+}
+
+type IfnameDetail struct {
+	HardwareAddress string      `json:"hardware-address"`
+	IPAddresses     []IPAddress `json:"ip-addresses"`
+	Name            string      `json:"name"`
+	Statistics      struct {
+		RxBytes   int `json:"rx-bytes"`
+		RxDropped int `json:"rx-dropped"`
+		RxErrs    int `json:"rx-errs"`
+		RxPackets int `json:"rx-packets"`
+		TxBytes   int `json:"tx-bytes"`
+		TxDropped int `json:"tx-dropped"`
+		TxErrs    int `json:"tx-errs"`
+		TxPackets int `json:"tx-packets"`
+	} `json:"statistics"`
+}
+
 type ServerQgaSetPasswordInput struct {
 	Username string
 	Password string
+}
+
+type ServerQgaGuestInfoTaskInput struct {
+}
+
+type ServerQgaSetNetworkInput struct {
+	ServerQgaTimeoutInput
+	Device  string
+	Ipmask  string
+	Gateway string
+}
+
+type ServerQgaGetNetworkInput struct {
 }
 
 type ServerQgaTimeoutInput struct {

@@ -64,6 +64,10 @@ func (m *SEsxiRootFs) DeployHostname(part IDiskPartition, hostname, domain strin
 	return nil
 }
 
+func (m *SEsxiRootFs) DeployQgaBlackList(part IDiskPartition) error {
+	return nil
+}
+
 func (m *SEsxiRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips []string) error {
 	return nil
 }
