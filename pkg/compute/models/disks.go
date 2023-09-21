@@ -2220,7 +2220,7 @@ func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
 	}
 	for i := range pairs {
-		err := pairs[i].purgeAll()
+		err := pairs[i].purgeAll(ctx)
 		if err != nil {
 			return err
 		}
