@@ -369,7 +369,7 @@ func (self *SDnsZone) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 		{manager: DnsRecordManager, key: "id", q: records},
 	}
 	for i := range pairs {
-		err := pairs[i].purgeAll()
+		err := pairs[i].purgeAll(ctx)
 		if err != nil {
 			return err
 		}
