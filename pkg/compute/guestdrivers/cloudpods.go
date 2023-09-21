@@ -92,6 +92,10 @@ func (self *SCloudpodsGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
+func (self *SCloudpodsGuestDriver) GetUserDataType() string {
+	return cloudprovider.CLOUD_SHELL_WITHOUT_ENCRYPT
+}
+
 func (self *SCloudpodsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	if guest.GetDiskIndex(disk.Id) <= 0 && guest.Status == api.VM_RUNNING {
 		return httperrors.NewUnsupportOperationError("Cann't online resize root disk")
