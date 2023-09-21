@@ -110,6 +110,10 @@ func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models
 	if err != nil {
 		self.taskFailed(ctx, disk, errors.Wrapf(err, "UploadDisk"))
 		return
+	} else {
+		// notify guest save image task to resume guest
+		// disk save task waiting for image uploaded to refresh imagecache
+		self.NotifyParentTaskComplete(ctx, jsonutils.NewDict(), false)
 	}
 }
 
