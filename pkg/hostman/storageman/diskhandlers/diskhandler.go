@@ -209,7 +209,7 @@ func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		DiskInfo: diskInfo.(*jsonutils.JSONDict),
 	}
 
-	hostutils.DelayTaskWithoutReqctx(ctx, storage.SaveToGlance, info)
+	hostutils.DelayTask(ctx, storage.SaveToGlance, info)
 	hostutils.ResponseOk(ctx, w)
 }
 
