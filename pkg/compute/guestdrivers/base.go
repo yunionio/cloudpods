@@ -437,7 +437,11 @@ func (self *SBaseGuestDriver) RequestLiveMigrate(ctx context.Context, guest *mod
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestLiveMigrate")
 }
 
-func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+func (drv *SBaseGuestDriver) RequestCancelLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCancelLiveMigrate")
+}
+
+func (drv *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	return input, nil
 }
 
