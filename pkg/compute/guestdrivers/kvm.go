@@ -218,6 +218,13 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 	} else {
 		port = findVNCPort(results)
 	}
+	if port < 5900 {
+		return nil, httperrors.NewResourceNotReadyError("invalid vnc port %d", port)
+	}
+
+	if len(host.AccessIp) == 0 {
+		return nil, httperrors.NewResourceNotReadyError("the host %s loses its ip address", host.Name)
+	}
 
 	password := guest.GetMetadata(ctx, "__vnc_password", userCred)
 
