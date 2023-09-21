@@ -2447,18 +2447,20 @@ func (s *SKVMGuestInstance) doBlockIoThrottle() {
 
 func (s *SKVMGuestInstance) onGuestPrelaunch() error {
 	s.LiveMigrateDestPort = nil
-	if options.HostOptions.SetVncPassword {
-		s.SetVncPassword()
-	}
-	if s.isMemcleanEnabled() {
-		if err := s.startMemCleaner(); err != nil {
-			return err
+	if !s.Desc.IsSlave {
+		if options.HostOptions.SetVncPassword {
+			s.SetVncPassword()
 		}
+		if s.isMemcleanEnabled() {
+			if err := s.startMemCleaner(); err != nil {
+				return err
+			}
+		}
+		s.OnResumeSyncMetadataInfo()
+		s.GuestPrelaunchSetCgroup()
+		s.optimizeOom()
+		s.doBlockIoThrottle()
 	}
-	s.OnResumeSyncMetadataInfo()
-	s.GuestPrelaunchSetCgroup()
-	s.optimizeOom()
-	s.doBlockIoThrottle()
 	return nil
 }
 
