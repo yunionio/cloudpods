@@ -1297,7 +1297,18 @@ func (h *SHostInfo) ensureHostRecord(zoneId string) (jsonutils.JSONObject, error
 		h.Domain_id = hosts[0].DomainId
 		h.HostId = hosts[0].Id
 		h.Project_domain = strings.ReplaceAll(hosts[0].ProjectDomain, " ", "+")
+
+		// 上次未能正常offline, 补充一次健康日志
+		if hosts[0].HostStatus == api.HOST_ONLINE {
+			reason := fmt.Sprintf("The host status is online when it staring. Maybe the control center was down earlier")
+			logclient.AddSimpleActionLog(h, logclient.ACT_HEALTH_CHECK, map[string]string{"reason": reason}, hostutils.GetComputeSession(context.Background()).GetToken(), false)
+			data := jsonutils.NewDict()
+			data.Add(jsonutils.NewString(h.GetName()), "name")
+			data.Add(jsonutils.NewString(reason), "message")
+			notifyclient.SystemExceptionNotify(context.TODO(), napi.ActionSystemException, napi.TOPIC_RESOURCE_HOST, data)
+		}
 	}
+
 	return h.updateOrCreateHost(h.HostId)
 }
 
