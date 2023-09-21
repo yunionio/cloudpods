@@ -743,7 +743,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 	}
 
 	if domainStr := query.ProjectDomainId; len(domainStr) > 0 {
-		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, domainStr)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
