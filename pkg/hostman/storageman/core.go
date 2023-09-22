@@ -57,6 +57,7 @@ type SStorageManager struct {
 	// AgentStorageImagecacheManager IImageCacheManger
 
 	LVMStorageImagecacheManagers        map[string]IImageCacheManger
+	CLVMStorageImagecacheManagers       map[string]IImageCacheManger
 	RbdStorageImagecacheManagers        map[string]IImageCacheManger
 	SharedFileStorageImagecacheManagers map[string]IImageCacheManger
 }
@@ -91,8 +92,8 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 		}
 	}
 
-	for i, d := range options.HostOptions.LVMVolumeGroups {
-		s := NewLVMStorage(ret, d, i)
+	for _, d := range options.HostOptions.LVMVolumeGroups {
+		s := NewLVMStorage(ret, d)
 		if err := s.Accessible(); err == nil {
 			ret.Storages = append(ret.Storages, s)
 			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
@@ -134,6 +135,8 @@ func (s *SStorageManager) Remove(storage IStorage) {
 		delete(s.RbdStorageImagecacheManagers, storage.GetStoragecacheId())
 	} else if storage.StorageType() == api.STORAGE_LVM {
 		delete(s.LVMStorageImagecacheManagers, storage.GetStoragecacheId())
+	} else if storage.StorageType() == api.STORAGE_CLVM {
+		delete(s.CLVMStorageImagecacheManagers, storage.GetStoragecacheId())
 	}
 	for index, iS := range s.Storages {
 		if iS.GetId() == storage.GetId() {
@@ -298,6 +301,10 @@ func (s *SStorageManager) GetStoragecacheById(scId string) IImageCacheManger {
 	if sc, ok := s.LVMStorageImagecacheManagers[scId]; ok {
 		return sc
 	}
+	if sc, ok := s.CLVMStorageImagecacheManagers[scId]; ok {
+		return sc
+	}
+
 	return nil
 }
 
@@ -309,8 +316,12 @@ func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheI
 	if utils.IsInStringArray(storageType, api.SHARED_FILE_STORAGE) {
 		s.InitSharedFileStorageImagecache(storagecacheId, imagecachePath)
 	} else if storageType == api.STORAGE_RBD {
-		if rbdStorage := s.GetStoragecacheById(storagecacheId); rbdStorage == nil {
+		if rbdStorageCache := s.GetStoragecacheById(storagecacheId); rbdStorageCache == nil {
 			s.AddRbdStorageImagecache(imagecachePath, storage, storagecacheId)
+		}
+	} else if storageType == api.STORAGE_CLVM {
+		if clvmStorageCache := s.GetStoragecacheById(storagecacheId); clvmStorageCache == nil {
+			s.AddCLVMStorageImagecache(storage.GetPath(), storage, storagecacheId)
 		}
 	}
 }
@@ -336,6 +347,16 @@ func (s *SStorageManager) InitSharedFileStorageImagecache(storagecacheId, path s
 	}
 	if _, ok := s.SharedFileStorageImagecacheManagers[storagecacheId]; !ok {
 		s.SharedFileStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, storagecacheId)
+	}
+}
+
+func (s *SStorageManager) AddCLVMStorageImagecache(imagecachePath string, storage IStorage, storagecacheId string) {
+	if s.CLVMStorageImagecacheManagers == nil {
+		s.CLVMStorageImagecacheManagers = map[string]IImageCacheManger{}
+	}
+	if _, ok := s.RbdStorageImagecacheManagers[storagecacheId]; !ok {
+		imagecache := NewLVMImageCacheManager(s, imagecachePath, storagecacheId)
+		s.CLVMStorageImagecacheManagers[storagecacheId] = imagecache
 	}
 }
 

@@ -353,6 +353,7 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 		return nil, fmt.Errorf("Fail to Create disk %s", createParams.DiskId)
 	}
 
+	log.Infof("storage %v start create disk", createParams.Storage.StorageType())
 	switch {
 	case len(createParams.DiskInfo.SnapshotId) > 0:
 		log.Infof("CreateDiskFromSnpashot %s", createParams)

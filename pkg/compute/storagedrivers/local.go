@@ -76,6 +76,10 @@ func (self *SLVMStorageDriver) ValidateCreateSnapshotData(ctx context.Context, u
 	return errors.Errorf("lvm storage unsupported create snapshot")
 }
 
+func (self *SLVMStorageDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
+	return nil
+}
+
 type SNVMEPassthroughStorageDriver struct {
 	SBaseStorageDriver
 }
