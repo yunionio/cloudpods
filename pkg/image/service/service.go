@@ -15,6 +15,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,7 +23,10 @@ import (
 	"time"
 
 	execlient "yunion.io/x/executor/client"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/qemuimgfmt"
+	"yunion.io/x/pkg/utils"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
@@ -38,6 +42,8 @@ import (
 	_ "yunion.io/x/onecloud/pkg/image/policy"
 	_ "yunion.io/x/onecloud/pkg/image/tasks"
 	"yunion.io/x/onecloud/pkg/image/torrent"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -94,6 +100,14 @@ func StartService() {
 		log.Infof("Auth complete!!")
 	})
 
+	if ok, err := hasVmwareAccount(); err != nil {
+		log.Errorf("failed	get vmware cloudaccounts")
+	} else if ok {
+		if !utils.IsInStringArray(string(qemuimgfmt.VMDK), options.Options.TargetImageFormats) {
+			options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimgfmt.VMDK))
+		}
+	}
+
 	trackers := torrent.GetTrackers()
 	if len(trackers) == 0 {
 		log.Errorf("no valid torrent-tracker")
@@ -148,6 +162,17 @@ func StartService() {
 			procutils.NewCommand("umount", options.Options.S3MountPoint).Run()
 		}
 	})
+}
+
+func hasVmwareAccount() (bool, error) {
+	q := jsonutils.NewDict()
+	q.Add(jsonutils.NewString("system"), "scope")
+	q.Add(jsonutils.NewString("brand"), "VMware")
+	res, err := compute.Cloudaccounts.List(auth.GetAdminSession(context.Background(), options.Options.Region), q)
+	if err != nil {
+		return false, err
+	}
+	return res.Total > 0, nil
 }
 
 func initS3() {
