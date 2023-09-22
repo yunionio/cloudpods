@@ -169,7 +169,7 @@ func (self *SDisk) getDevice() string {
 
 func (self *SDisk) GetDiskType() string {
 	device := self.getDevice()
-	if strings.HasSuffix(device, "a") {
+	if strings.HasSuffix(device, "a") || strings.HasSuffix(device, "1") {
 		return api.DISK_TYPE_SYS
 	}
 	return api.DISK_TYPE_DATA
