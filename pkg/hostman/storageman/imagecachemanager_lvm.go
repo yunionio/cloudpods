@@ -46,6 +46,7 @@ func NewLVMImageCacheManager(manager IStorageManager, cachePath string, storagec
 	imageCacheManager.cachePath = cachePath
 	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
 
+	imageCacheManager.loadCache(context.Background())
 	return imageCacheManager
 }
 

@@ -34,9 +34,8 @@ type LvNames struct {
 }
 
 func GetLvNames(vg string) ([]string, error) {
-	lvs, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"lvm", "lvs", "--reportformat", "json", "-o", "lv_name", vg,
-	).Output()
+	cmd := fmt.Sprintf("lvm lvs --reportformat json -o lv_name %s 2>/dev/null", vg)
+	lvs, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "lvm lvs")
 	}
@@ -64,9 +63,8 @@ type LvOrigin struct {
 }
 
 func GetLvOrigin(lvPath string) (string, error) {
-	lvs, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"lvm", "lvs", "--reportformat", "json", "-o", "origin", lvPath,
-	).Output()
+	cmd := fmt.Sprintf("lvm lvs --reportformat json -o origin %s 2>/dev/null", lvPath)
+	lvs, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
 	if err != nil {
 		return "", errors.Wrap(err, "lvm lvs")
 	}
@@ -99,9 +97,8 @@ type VgReports struct {
 }
 
 func GetVgProps(vg string) (*VgProps, error) {
-	out, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"lvm", "vgs", "--reportformat", "json", "-o", "vg_free,vg_size,vg_extent_size", "--units=B", vg,
-	).Output()
+	cmd := fmt.Sprintf("lvm vgs --reportformat json -o vg_free,vg_size,vg_extent_size --units=B %s 2>/dev/null", vg)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
 	if err != nil {
 		return nil, errors.Wrapf(err, "exec lvm command: %s", out)
 	}
@@ -209,6 +206,14 @@ $size1 $size2 linear $2 0" | dmsetup create $3
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", dmCreateScript, "--", lv1, lv2, dmName).Output()
 	if err != nil {
 		return errors.Wrapf(err, "create device mapper failed %s", out)
+	}
+	return nil
+}
+
+func VgDisplay(vgName string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("lvm", "vgdisplay", vgName).Output()
+	if err != nil {
+		return errors.Wrapf(err, "vgdisplay %s failed %s", vgName, out)
 	}
 	return nil
 }
