@@ -2216,10 +2216,10 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.
 					delete(cloudaccountProbe, id)
 				}()
 				log.Debugf("syncAccountStatus %s %s", id, name)
-				ctx = context.WithValue(ctx, "id", id)
-				lockman.LockObject(ctx, account)
-				defer lockman.ReleaseObject(ctx, account)
-				err := account.syncAccountStatus(ctx, userCred)
+				idctx := context.WithValue(ctx, "id", id)
+				lockman.LockObject(idctx, account)
+				defer lockman.ReleaseObject(idctx, account)
+				err := account.syncAccountStatus(idctx, userCred)
 				if err != nil {
 					log.Errorf("unable to syncAccountStatus for cloudaccount %s: %s", account.Id, err.Error())
 				}
