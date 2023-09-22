@@ -1737,9 +1737,8 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 		usedMap := self.GetUsedAddresses()
 		for usedIpStr := range usedMap {
-			usedIp, _ := netutils.NewIPV4Addr(usedIpStr)
-			if !netRange.Contains(usedIp) {
-				return input, httperrors.NewInputParameterError("Address been assigned out of new range")
+			if usedIp, err := netutils.NewIPV4Addr(usedIpStr); err == nil && !netRange.Contains(usedIp) {
+				return input, httperrors.NewInputParameterError("Address %s been assigned out of new range", usedIpStr)
 			}
 		}
 
