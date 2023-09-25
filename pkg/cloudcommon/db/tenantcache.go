@@ -581,7 +581,7 @@ func (manager *STenantCacheManager) ConvertIds(ids []string, isDomain bool) ([]s
 		q = manager.GetTenantQuery("id")
 	}
 	q = q.Filter(sqlchemy.OR(
-		sqlchemy.In(q.Field("id"), ids),
+		sqlchemy.In(q.Field("id"), stringutils2.RemoveUtf8Strings(ids)),
 		sqlchemy.In(q.Field("name"), ids),
 	))
 	q = q.Distinct()
