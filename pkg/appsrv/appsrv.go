@@ -21,7 +21,9 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
+	olog "log"
 	"math/rand"
 	"net"
 	"net/http"
@@ -481,6 +483,9 @@ func (app *Application) initServer(addr string) *http.Server {
 		ReadHeaderTimeout: app.readHeaderTimeout,
 		WriteTimeout:      app.writeTimeout,
 		MaxHeaderBytes:    1 << 20,
+		// fix aliyun elb healt check tls error
+		// issue like: https://github.com/megaease/easegress/issues/481
+		ErrorLog: olog.New(io.Discard, "", olog.LstdFlags),
 	}
 	return s
 }
