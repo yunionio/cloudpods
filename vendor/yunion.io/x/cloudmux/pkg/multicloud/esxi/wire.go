@@ -16,11 +16,11 @@ package esxi
 
 import (
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/vmware/govmomi/vim25/mo"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
@@ -101,50 +101,60 @@ func (wire *sWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cl
 	return nil, errors.ErrNotSupported
 }
 
-func (wire *sWire) getAvailableIps() ([]string, error) {
+func (wire *sWire) getAvailableIpsMacs() ([]string, []string, error) {
 	var hosts []mo.HostSystem
 	err := wire.client.references2Objects(wire.network.GetHosts(), HOST_PROPS, &hosts)
 	if err != nil {
-		return nil, errors.Wrap(err, "references2Objects HOST_PROPS")
+		return nil, nil, errors.Wrap(err, "references2Objects HOST_PROPS")
 	}
-	ret := make([]string, 0)
+	retIps := make([]string, 0)
+	retMacs := make([]string, 0)
 	for i := range hosts {
 		h := hosts[i]
-		ips, err := wire.getAvailableIpsOnHost(h)
+		ips, macs, err := wire.getAvailableIpsMacsOnHost(h)
 		if err != nil {
-			return nil, errors.Wrapf(err, "getAvailableIpsOnHost %s", h.Name)
+			return nil, nil, errors.Wrapf(err, "getAvailableIpsOnHost %s", h.Name)
 		}
-		ret = append(ret, ips...)
+		retIps = append(retIps, ips...)
+		retMacs = append(retMacs, macs...)
 	}
-	return ret, nil
+	return retIps, retMacs, nil
 }
 
-func (wire *sWire) getAvailableIpsOnVM(vm mo.VirtualMachine) []string {
-	ret := make([]string, 0)
+func (wire *sWire) getAvailableIpsMacsOnVM(vm mo.VirtualMachine) ([]string, []string) {
+	ips := make([]string, 0)
+	macs := make([]string, 0)
 	for _, net := range vm.Guest.Net {
 		if net.Network != wire.GetName() {
 			continue
 		}
+		if len(net.MacAddress) > 0 {
+			mac := netutils.FormatMacAddr(net.MacAddress)
+			if len(mac) > 0 {
+				macs = append(macs, mac)
+			}
+		}
 		for _, ip := range net.IpAddress {
 			if regutils.MatchIP4Addr(ip) {
-				ret = append(ret, ip)
+				ips = append(ips, ip)
 			}
 		}
 	}
-	return ret
+	return ips, macs
 }
 
-func (wire *sWire) getAvailableIpsOnHost(host mo.HostSystem) ([]string, error) {
+func (wire *sWire) getAvailableIpsMacsOnHost(host mo.HostSystem) ([]string, []string, error) {
 	var vms []mo.VirtualMachine
 	err := wire.client.references2Objects(host.Vm, VM_PROPS, &vms)
 	if err != nil {
-		return nil, errors.Wrap(err, "references2Objects VM_PROPS")
+		return nil, nil, errors.Wrap(err, "references2Objects VM_PROPS")
 	}
-	ret := make([]string, 0)
+	retIps := make([]string, 0)
+	retMacs := make([]string, 0)
 	for _, vm := range vms {
-		ips := wire.getAvailableIpsOnVM(vm)
-		ret = append(ret, ips...)
+		ips, macs := wire.getAvailableIpsMacsOnVM(vm)
+		retIps = append(retIps, ips...)
+		retMacs = append(retMacs, macs...)
 	}
-	sort.Strings(ret)
-	return ret, nil
+	return retIps, retMacs, nil
 }

@@ -83,14 +83,14 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231012115543-6b397e680423
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231018084051-f3c745277c53
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.0.1-0.20231012131524-8a175238485b
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20231011114043-0d203453d3e2
+	yunion.io/x/sqlchemy v1.1.2-0.20231017172907-561e7f013926
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
@@ -233,6 +233,8 @@ require (
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/vmware/govmomi v0.20.1 // indirect
+	github.com/volcengine/ve-tos-golang-sdk/v2 v2.6.2 // indirect
+	github.com/volcengine/volc-sdk-golang v1.0.23 // indirect
 	github.com/willf/bitset v1.1.9 // indirect
 	github.com/willf/bloom v2.0.3+incompatible // indirect
 	github.com/xuri/efp v0.0.0-20220603152613-6918739fd470 // indirect
@@ -253,7 +255,6 @@ require (
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

@@ -24,9 +24,12 @@ func (wire *sWire) GetSysTags() map[string]string {
 	if dc != nil {
 		tags["datacenter"] = dc.GetName()
 	}
-	ips, _ := wire.getAvailableIps()
+	ips, macs, _ := wire.getAvailableIpsMacs()
 	if len(ips) > 0 {
 		tags["vm_ips"] = compactIPs(ips)
+	}
+	if len(macs) > 0 {
+		tags["vm_macs"] = compactMacs(macs)
 	}
 	paths := wire.network.GetPath()
 	for i := 3; i < len(paths); i++ {

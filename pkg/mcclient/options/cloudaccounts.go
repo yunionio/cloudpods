@@ -346,6 +346,17 @@ func (opts *SUcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, er
 	return params, nil
 }
 
+type SVolcengineCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredential
+}
+
+func (opts *SVolcengineCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("VolcEngine"), "provider")
+	return params, nil
+}
+
 type SZStackCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SUserPasswordCredential
@@ -562,6 +573,15 @@ type SUcloudCloudAccountUpdateCredentialOptions struct {
 }
 
 func (opts *SUcloudCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SVolcengineCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SUserPasswordCredential
+}
+
+func (opts *SVolcengineCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
@@ -937,6 +957,14 @@ type SUcloudCloudAccountUpdateOptions struct {
 }
 
 func (opts *SUcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SVolcengineCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SVolcengineCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
