@@ -1,4 +1,4 @@
-// Copyright 2019 Yunion
+// Copyright 2023 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,4 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache // import "yunion.io/x/onecloud/pkg/keystone/cache"
+package volcengine
+
+import (
+	"fmt"
+	"strings"
+)
+
+func isError(err error, code string) bool {
+	errStr := fmt.Sprintf("%s", err)
+	if strings.Index(errStr, code) > 0 {
+		return true
+	} else {
+		return false
+	}
+}
