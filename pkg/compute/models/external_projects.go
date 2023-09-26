@@ -655,16 +655,26 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 		return nil, httperrors.NewForbiddenError("account %s not share for domain %s", account.Name, tenant.DomainId)
 	}
 
+	oldTenant, _ := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, self.ProjectId, self.DomainId)
+	oldDomain, oldProject := "", ""
+	if oldTenant != nil {
+		oldDomain, oldProject = oldTenant.Domain, oldTenant.Name
+	}
+
 	notes := struct {
 		OldProjectId string
+		OldProject   string
 		OldDomainId  string
+		OldDomain    string
 		NewProjectId string
 		NewProject   string
 		NewDomainId  string
 		NewDomain    string
 	}{
 		OldProjectId: self.ProjectId,
+		OldProject:   oldProject,
 		OldDomainId:  self.DomainId,
+		OldDomain:    oldDomain,
 		NewProjectId: tenant.Id,
 		NewProject:   tenant.Name,
 		NewDomainId:  tenant.DomainId,
