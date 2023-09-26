@@ -75,10 +75,6 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 		return
 	}
 	inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false)
-	if guest.Hypervisor != api.HYPERVISOR_KVM {
-		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, inBlockStream)
-		return
-	}
 	preMac, err := self.Params.GetString("prev_mac")
 	if err != nil {
 		log.Errorf("unable to get prev_mac when restart_network is true when sync guest")
@@ -124,7 +120,8 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 	}()
 	if err != nil {
 		log.Errorf("guest %s failed start qga restart network task: %s", guest.GetName(), err)
-		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, inBlockStream)
+		guest.SetStatus(self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, jsonutils.NewString(err.Error()), self.UserCred, false)
 	}
 }
 
