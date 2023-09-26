@@ -85,9 +85,5 @@ func (self *GuestQgaRestartNetworkTask) taskFailed(ctx context.Context, guest *m
 	guest.SetStatus(self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
 	guest.UpdateQgaStatus(api.QGA_STATUS_EXECUTE_FAILED)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, jsonutils.NewString(err.Error()), self.UserCred, false)
-	if prevIp != "" {
-		//use ansible to restart network
-		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, inBlockStream)
-	}
 	self.SetStageFailed(ctx, nil)
 }
