@@ -132,7 +132,7 @@ func rangeObjHandler(
 		if !refresh {
 			cached := usageCache.Get(key)
 			if cached != nil {
-				response(w, cached)
+				response(w, "usage", cached)
 				return
 			}
 		}
@@ -142,7 +142,7 @@ func rangeObjHandler(
 			return
 		}
 		usageCache.AtomicSet(key, usage)
-		response(w, usage)
+		response(w, "usage", usage)
 	}
 }
 
@@ -172,9 +172,9 @@ func AddUsageHandler(prefix string, app *appsrv.Application) {
 	}
 }
 
-func response(w http.ResponseWriter, obj interface{}) {
+func response(w http.ResponseWriter, key string, obj interface{}) {
 	body := map[string]interface{}{
-		"usage": obj,
+		key: obj,
 	}
 	appsrv.SendStruct(w, body)
 }
