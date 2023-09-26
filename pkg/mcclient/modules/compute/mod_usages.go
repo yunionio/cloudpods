@@ -43,7 +43,19 @@ type UsageManager struct {
 	managers map[TUsageManager]IUsageManager
 }
 
+type HistoryUsageManager struct {
+	modulebase.ResourceManager
+	managers map[TUsageManager]IUsageManager
+}
+
 func (this *UsageManager) RegisterManager(manType TUsageManager, man IUsageManager) {
+	if this.managers == nil {
+		this.managers = make(map[TUsageManager]IUsageManager, 0)
+	}
+	this.managers[manType] = man
+}
+
+func (this *HistoryUsageManager) RegisterManager(manType TUsageManager, man IUsageManager) {
 	if this.managers == nil {
 		this.managers = make(map[TUsageManager]IUsageManager, 0)
 	}
@@ -90,7 +102,8 @@ func (this *UsageManager) GetImageUsage(s *mcclient.ClientSession, params jsonut
 }
 
 var (
-	Usages *UsageManager
+	Usages        *UsageManager
+	HistoryUsages *HistoryUsageManager
 )
 
 func init() {
@@ -101,6 +114,13 @@ func init() {
 	}
 
 	modules.RegisterCompute(Usages)
+
+	HistoryUsages = &HistoryUsageManager{
+		ResourceManager: modules.NewComputeManager("history-usage", "history-usages",
+			[]string{},
+			[]string{}),
+	}
+	modules.RegisterCompute(HistoryUsages)
 }
 
 func InitUsages() {
