@@ -18,7 +18,7 @@ Cloudpods是一款开源的基础设施管理工具软件，运行场景复杂�
 
 ## 贡献代码
 
-我们非常欢迎和感谢开发者向项目提交代码PR，流程细节请查看 [CONTRIBUTING](https://www.cloudpods.org/zh/docs/contribute/contrib/).
+我们非常欢迎和感谢开发者向项目提交代码PR，流程细节请查看 [CONTRIBUTING](https://www.cloudpods.org/zh/docs/development/contrib/).
 
 ### 修复BUG
 

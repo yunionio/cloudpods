@@ -239,7 +239,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 
 ## 安装部署
 
-- [All in One 安装](https://www.cloudpods.org/zh/docs/quickstart/allinone/)：在 CentOS 7 或 Debian 10 等发行版里搭建全功能 Cloudpods 服务，可以快速体验**内置私有云**和**多云管理**的功能。
+- [All in One 安装](https://www.cloudpods.org/zh/docs/quickstart/allinone-converge/)：在 CentOS 7 或 Debian 10 等发行版里搭建全功能 Cloudpods 服务，可以快速体验**内置私有云**和**多云管理**的功能。
 - [Kubernetes Helm 安装](https://www.cloudpods.org/zh/docs/quickstart/k8s/)：在已有 Kubernetes 集群上通过 Helm 部署一套 Cloudpods CMP 服务，可以体验**多云管理**的功能。
 - [Docker Compose 安装](https://www.cloudpods.org/zh/docs/quickstart/docker-compose/)：通过 Docker Compose 部署 Cloudpods CMP 服务，可以迅速体验**多云管理**的功能。
 - [高可用安装](https://www.cloudpods.org/zh/docs/setup/ha-ce/)：在生产环境中使用高可用的方式部署 Cloudpods 服务，包括**内置私有云**和**多云管理**的功能。
