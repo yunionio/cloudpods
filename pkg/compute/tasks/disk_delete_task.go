@@ -116,14 +116,16 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 		return
 	}
 
+	purgeParams := jsonutils.QueryBoolean(self.Params, "purge", false)
+
 	host, err := storage.GetMasterHost()
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows && !purgeParams {
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("storage.GetMasterHost"))
 		return
 	}
 
 	isPurge := false
-	if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if (host == nil || !host.GetEnabled()) && purgeParams {
 		isPurge = true
 	}
 	disk.SetStatus(self.UserCred, api.DISK_DEALLOC, "")
