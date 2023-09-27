@@ -28,6 +28,7 @@ type CycleTimerCreateInput struct {
 	// enum: day,week,month
 	CycleType string `json:"cycle_type"`
 
+	CycleHour int `json:"cycle_hour"`
 	// description: 分(0-59)
 	// example: 13
 	Minute int `json:"minute"`

@@ -243,6 +243,7 @@ func (st *SScheduledTask) PostCreate(ctx context.Context, userCred mcclient.Toke
 			Hour:      input.CycleTimer.Hour,
 			StartTime: input.CycleTimer.StartTime,
 			EndTime:   input.CycleTimer.EndTime,
+			CycleNum:  input.CycleTimer.CycleNum,
 			NextTime:  time.Time{},
 		}
 		st.SetWeekDays(input.CycleTimer.WeekDays)
