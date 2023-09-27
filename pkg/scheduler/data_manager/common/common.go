@@ -91,19 +91,22 @@ func (m *CommonResourceManager[O]) SyncOnce() error {
 	return m.GetStore().Init()
 }
 
+type FGetDBObject func(man db.IModelManager, id string, obj *jsonutils.JSONDict) (db.IModel, error)
+
 type ResourceStore[O lockman.ILockedObject] struct {
-	dataMap    *sync.Map
-	modelMan   db.IModelManager
-	res        informer.IResourceManager
-	getId      func(O) string
-	getWatchId func(*jsonutils.JSONDict) string
+	dataMap     *sync.Map
+	modelMan    db.IModelManager
+	res         informer.IResourceManager
+	getId       func(O) string
+	getWatchId  func(*jsonutils.JSONDict) string
+	getDBObject FGetDBObject
 }
 
 func NewResourceStore[O lockman.ILockedObject](
 	modelMan db.IModelManager,
 	res informer.IResourceManager,
 ) IResourceStore[O] {
-	return newResourceStore[O](modelMan, res, nil, nil)
+	return newResourceStore[O](modelMan, res, nil, nil, nil)
 }
 
 func NewJointResourceStore[O lockman.ILockedObject](
@@ -111,8 +114,9 @@ func NewJointResourceStore[O lockman.ILockedObject](
 	res informer.IResourceManager,
 	getId func(O) string,
 	getWatchId func(*jsonutils.JSONDict) string,
+	getDBObject FGetDBObject,
 ) IResourceStore[O] {
-	return newResourceStore(modelMan, res, getId, getWatchId)
+	return newResourceStore(modelMan, res, getId, getWatchId, getDBObject)
 }
 
 func newResourceStore[O lockman.ILockedObject](
@@ -120,6 +124,7 @@ func newResourceStore[O lockman.ILockedObject](
 	res informer.IResourceManager,
 	getId func(O) string,
 	getWatchId func(*jsonutils.JSONDict) string,
+	getDBObject FGetDBObject,
 ) IResourceStore[O] {
 	if getId == nil {
 		getId = func(o O) string {
@@ -132,12 +137,18 @@ func newResourceStore[O lockman.ILockedObject](
 			return id
 		}
 	}
+	if getDBObject == nil {
+		getDBObject = func(man db.IModelManager, id string, o *jsonutils.JSONDict) (db.IModel, error) {
+			return man.FetchById(id)
+		}
+	}
 	return &ResourceStore[O]{
-		dataMap:    new(sync.Map),
-		modelMan:   modelMan,
-		res:        res,
-		getId:      getId,
-		getWatchId: getWatchId,
+		dataMap:     new(sync.Map),
+		modelMan:    modelMan,
+		res:         res,
+		getId:       getId,
+		getWatchId:  getWatchId,
+		getDBObject: getDBObject,
 	}
 }
 
@@ -189,7 +200,7 @@ func (s *ResourceStore[O]) GetAll() []O {
 func (s *ResourceStore[O]) Add(obj *jsonutils.JSONDict) {
 	id := s.getWatchId(obj)
 	if id != "" {
-		dbObj, err := s.modelMan.FetchById(id)
+		dbObj, err := s.getDBObject(s.modelMan, id, obj)
 		if err == nil {
 			v := reflect.ValueOf(dbObj)
 			tmpObj := v.Elem().Interface()
