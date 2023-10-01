@@ -64,8 +64,7 @@ func (d *sLinuxRootFs) deployUserDataByCron(userData string) error {
 
 func (d *sLinuxRootFs) deployUserDataBySystemd(userData string) error {
 	const scriptPath = "/etc/userdata.sh"
-	const runScriptPath = "/etc/run-userdata.sh"
-	const serviceName = "cloud-userdata.service"
+	const serviceName = "cloud-userdata"
 
 	{
 		config, err := cloudinit.ParseUserData(userData)
@@ -76,55 +75,25 @@ func (d *sLinuxRootFs) deployUserDataBySystemd(userData string) error {
 			scripts = config.UserDataScript()
 		}
 		scripts += "\n"
-		scripts += fmt.Sprintf("systemctl disable --now %s\n", serviceName)
+		if d.isSupportSystemd() {
+			// diable systemd service
+			scripts += fmt.Sprintf("systemctl disable --now %s\n", serviceName)
+		} else {
+			// cleanup crontab
+			scripts += fmt.Sprintf("crontab -l 2>/dev/null | grep -v '%s') |crontab -\n", scriptPath)
+		}
 
 		err = d.rootFs.FilePutContents(scriptPath, scripts, false, false)
 		if err != nil {
 			return errors.Wrap(err, "save user_data fail")
 		}
 	}
-
 	{
-		runScripts := fmt.Sprintf(`#!/bin/bash
-/bin/bash %s >> /var/log/cloud-userdata.log 2>&1
-`, scriptPath)
-		err := d.rootFs.FilePutContents(runScriptPath, runScripts, false, false)
+		err := d.installInitScript(serviceName, scriptPath)
 		if err != nil {
-			return errors.Wrap(err, "save user_data fail")
-		}
-		err = d.rootFs.Chmod(runScriptPath, 0755, false)
-		if err != nil {
-			return errors.Wrap(err, "chmod user_data fail")
+			return errors.Wrap(err, "installInitScript")
 		}
 	}
-
-	{
-		var unitPath = fmt.Sprintf("/usr/lib/systemd/system/%s", serviceName)
-		var enablePath = fmt.Sprintf("/etc/systemd/system/multi-user.target.wants/%s", serviceName)
-		var unitContent = fmt.Sprintf(`[Unit]
-Description=Run once
-After=local-fs.target
-After=network.target
-
-[Service]
-ExecStart=%s
-RemainAfterExit=true
-Type=oneshot
-
-[Install]
-WantedBy=multi-user.target
-`, runScriptPath)
-		err := d.rootFs.FilePutContents(unitPath, unitContent, false, false)
-		if err != nil {
-			return errors.Wrap(err, "save user_data unit fail")
-		}
-
-		err = d.rootFs.Symlink(unitPath, enablePath, false)
-		if err != nil {
-			return errors.Wrap(err, "create user_data symlink fail")
-		}
-	}
-
 	return nil
 }
 

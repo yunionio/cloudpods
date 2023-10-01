@@ -235,6 +235,18 @@ func (f *SLocalGuestFS) CheckOrAddUser(user, homeDir string, isSys bool) (realHo
 				err = errors.Wrap(err, "chage")
 				return
 			}
+			if !f.Exists(realHomeDir, false) {
+				err = f.Mkdir(realHomeDir, 0700, false)
+				if err != nil {
+					err = errors.Wrapf(err, "Mkdir %s", realHomeDir)
+				} else {
+					cmd := []string{"chroot", f.mountPath, "chown", user, realHomeDir}
+					err = procutils.NewCommand(cmd[0], cmd[1:]...).Run()
+					if err != nil {
+						err = errors.Wrap(err, "chown")
+					}
+				}
+			}
 		}
 		return
 	}

@@ -228,11 +228,12 @@ func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployap
 		l.DisableCloudinit(rootFs)
 	}
 	var yunionroot = YUNIONROOT_USER
-	rootdir := path.Join(cloudrootDirectory, yunionroot)
+	var rootdir string // := path.Join(cloudrootDirectory, yunionroot)
 	var err error
 	if rootdir, err = rootFs.CheckOrAddUser(yunionroot, cloudrootDirectory, true); err != nil {
 		return errors.Wrap(err, "unable to CheckOrAddUser")
 	}
+	log.Infof("DeployYunionroot %s home %s", yunionroot, rootdir)
 	err = DeployAuthorizedKeys(rootFs, rootdir, pubkeys, true)
 	if err != nil {
 		log.Infof("DeployAuthorizedKeys error: %s", err.Error())
@@ -738,7 +739,12 @@ func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "chmod supervise run script")
 	}
-	// add crontab: start telegraf on guest boot
+	initCmd := fmt.Sprintf("%s/supervise %s", cloudMonitorPath, telegrafPath)
+	err = d.installInitScript("telegraf", initCmd)
+	if err != nil {
+		return false, errors.Wrap(err, "installInitScript")
+	}
+	/* // add crontab: start telegraf on guest boot
 	cronJob := fmt.Sprintf("@reboot %s/supervise %s", cloudMonitorPath, telegrafPath)
 	if procutils.NewCommand("chroot", part.GetMountPath(), "crontab", "-l", "|", "grep", cronJob).Run() == nil {
 		// if cronjob exist, return success
@@ -749,7 +755,7 @@ func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
 	).Output()
 	if err != nil {
 		return false, errors.Wrapf(err, "add crontab %s", output)
-	}
+	}*/
 	return true, nil
 }
 
