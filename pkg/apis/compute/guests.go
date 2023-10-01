@@ -1003,3 +1003,40 @@ type ServerSetLiveMigrateParamsInput struct {
 	MaxBandwidthMB  *int64
 	DowntimeLimitMS *int64
 }
+
+type ServerNicTrafficLimit struct {
+	Mac            string `json:"mac"`
+	RxTrafficLimit *int64 `json:"rx_traffic_limit"`
+	TxTrafficLimit *int64 `json:"tx_traffic_limit"`
+}
+
+type GuestAddSubIpsInput struct {
+	Mac    string   `json:"mac"`
+	IpAddr string   `json:"ip_addr"`
+	Count  int      `json:"count"`
+	SubIps []string `json:"sub_ips"`
+
+	Reserved bool `json:"reserved"`
+
+	AllocDir IPAllocationDirection `json:"alloc_dir"`
+}
+
+type NetworkAddrConf struct {
+	Id      string `json:"id"`
+	Type    string `json:"type"`
+	IpAddr  string `json:"ip_addr"`
+	Masklen int    `json:"masklen"`
+	Gateway string `json:"gateway"`
+}
+
+type ServerLoginInfoInput struct {
+	PrivateKey string `json:"private_key"`
+}
+
+type ServerLoginInfoOutput struct {
+	Username string `json:"username"`
+	Updated  string `json:"updated"`
+	LoginKey string `json:"login_key"`
+	Keypair  string `json:"keypair"`
+	Password string `json:"password"`
+}
