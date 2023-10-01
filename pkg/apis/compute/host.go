@@ -615,3 +615,12 @@ type HostError struct {
 type HostSyncErrorsInput struct {
 	HostErrors []HostError
 }
+
+type HostLoginInfoInput struct {
+}
+
+type HostLoginInfoOutput struct {
+	Ip       string `json:"ip"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
