@@ -741,11 +741,10 @@ func (self *SGuest) PerformSetPassword(ctx context.Context, userCred mcclient.To
 		}
 		return self.PerformQgaSetPassword(ctx, userCred, query, inputQga)
 	} else {
-		inputDeploy := api.ServerDeployInput{
-			Password:      input.Password,
-			ResetPassword: input.ResetPassword,
-			AutoStart:     input.AutoStart,
-		}
+		inputDeploy := api.ServerDeployInput{}
+		inputDeploy.AutoStart = input.AutoStart
+		inputDeploy.Password = input.Password
+		inputDeploy.ResetPassword = input.ResetPassword
 		return self.PerformDeploy(ctx, userCred, query, inputDeploy)
 	}
 }
@@ -776,7 +775,12 @@ func (self *SGuest) GetOldPassword(ctx context.Context, userCred mcclient.TokenC
 	return password
 }
 
-func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDeployInput) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformDeploy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ServerDeployInput,
+) (jsonutils.JSONObject, error) {
 	self.saveOldPassword(ctx, userCred)
 
 	if input.DeleteKeypair || len(input.KeypairId) > 0 {
@@ -1564,8 +1568,12 @@ func (self *SGuest) setKeypairId(userCred mcclient.TokenCredential, keypairId st
 }
 
 // 重装系统(更换系统镜像)
-func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerRebuildRootInput) (*api.SGuest, error) {
-
+func (self *SGuest) PerformRebuildRoot(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.ServerRebuildRootInput,
+) (*api.SGuest, error) {
 	input, err := self.GetDriver().ValidateRebuildRoot(ctx, userCred, self, input)
 	if err != nil {
 		return nil, err
@@ -1644,19 +1652,18 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 	if input.AutoStart != nil {
 		autoStart = *input.AutoStart
 	}
+
 	var needStop = false
 	if self.Status == api.VM_RUNNING {
 		needStop = true
 	}
-	resetPasswd := true
-	if input.ResetPassword != nil {
-		resetPasswd = *input.ResetPassword
-	}
+	resetPasswd := input.ResetPassword
+
 	passwd := input.Password
 	if len(passwd) > 0 {
 		err = seclib2.ValidatePassword(passwd)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ValidatePassword")
 		}
 	}
 
@@ -1684,7 +1691,9 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		allDisks = *input.AllDisks
 	}
 
-	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, passwd, resetPasswd, allDisks)
+	input.ResetPassword = resetPasswd
+
+	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, allDisks, &input.ServerDeployInputBase)
 }
 
 func (self *SGuest) GetTemplateId() string {
@@ -1695,7 +1704,7 @@ func (self *SGuest) GetTemplateId() string {
 	return ""
 }
 
-func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool) error {
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, allDisk bool, deployInput *api.ServerDeployInputBase) error {
 	data := jsonutils.NewDict()
 	if len(imageId) == 0 {
 		imageId = self.GetTemplateId()
@@ -1710,20 +1719,22 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	if autoStart {
 		data.Set("auto_start", jsonutils.JSONTrue)
 	}
-	if resetPasswd {
+	/*if resetPasswd {
 		data.Set("reset_password", jsonutils.JSONTrue)
 	} else {
 		data.Set("reset_password", jsonutils.JSONFalse)
 	}
 	if len(passwd) > 0 {
 		data.Set("password", jsonutils.NewString(passwd))
-	}
+	}*/
 
 	if allDisk {
 		data.Set("all_disks", jsonutils.JSONTrue)
 	} else {
 		data.Set("all_disks", jsonutils.JSONFalse)
 	}
+	data.Set("deploy_params", jsonutils.Marshal(deployInput))
+
 	self.SetStatus(userCred, api.VM_REBUILD_ROOT, "request start rebuild root")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestRebuildRootTask", self, userCred, data, "", "", nil)
 	if err != nil {
