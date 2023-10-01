@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -69,6 +70,23 @@ func init() {
 	cmd.Get("vnc", &options.BaseIdOptions{})
 	cmd.Get("app-options", &options.BaseIdOptions{})
 	cmd.Get("tap-config", &options.BaseIdOptions{})
+	cmd.GetWithCustomShow("nics", func(data jsonutils.JSONObject) {
+		results := printutils.ListResult{}
+		err := data.Unmarshal(&results)
+		if err == nil {
+			printutils.PrintJSONList(&results, []string{
+				"mac",
+				"vlan_id",
+				"interface",
+				"bridge",
+				"ip_addr",
+				"net",
+				"wire",
+			})
+		} else {
+			fmt.Println("error", err)
+		}
+	}, &options.BaseIdOptions{})
 
 	R(&options.BaseIdOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *options.BaseIdOptions) error {
 		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
