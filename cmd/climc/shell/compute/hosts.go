@@ -71,11 +71,7 @@ func init() {
 	cmd.Get("tap-config", &options.BaseIdOptions{})
 
 	R(&options.BaseIdOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *options.BaseIdOptions) error {
-		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
-		if e != nil {
-			return e
-		}
-		i, e := modules.Hosts.GetLoginInfo(s, srvid, nil)
+		i, e := modules.Hosts.PerformAction(s, args.ID, "login_info", nil)
 		if e != nil {
 			return e
 		}
@@ -576,11 +572,7 @@ func init() {
 		Port int    `help:"SSH service port" default:"22"`
 	}
 	R(&HostSSHLoginOptions{}, "host-ssh", "SSH login of a host", func(s *mcclient.ClientSession, args *HostSSHLoginOptions) error {
-		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
-		if e != nil {
-			return e
-		}
-		i, e := modules.Hosts.GetLoginInfo(s, srvid, nil)
+		i, e := modules.Hosts.PerformAction(s, args.ID, "login_info", nil)
 		privateKey := ""
 		if e != nil {
 			if httputils.ErrorCode(e) == 404 || e.Error() == "ciphertext too short" {
