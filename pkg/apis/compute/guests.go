@@ -144,13 +144,17 @@ type ServerRebuildRootInput struct {
 	// required: true
 	ImageId string `json:"image_id"`
 	// swagger: ignore
-	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
+	// Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
 	// 秘钥Id
-	KeypairId     string `json:"keypair_id"`
-	ResetPassword *bool  `json:"reset_password"`
-	Password      string `json:"password"`
-	AutoStart     *bool  `json:"auto_start"`
-	AllDisks      *bool  `json:"all_disks"`
+	// KeypairId     string `json:"keypair_id"`
+	// ResetPassword *bool  `json:"reset_password"`
+	// Password      string `json:"password"`
+
+	AutoStart *bool `json:"auto_start"`
+
+	AllDisks *bool `json:"all_disks"`
+
+	ServerDeployInputBase
 }
 
 type ServerResumeInput struct {
@@ -687,6 +691,15 @@ type ServerMigrateNetworkInput struct {
 type ServerDeployInput struct {
 	apis.Meta
 
+	ServerDeployInputBase
+
+	// 部署完成后是否自动启动
+	// 若虚拟机重置密码后需要重启生效，并且当前虚拟机状态为running, 此参数默认为true
+	// 若虚拟机状态为ready, 指定此参数后，部署完成后，虚拟机会自动启动
+	AutoStart bool `json:"auto_start"`
+}
+
+type ServerDeployInputBase struct {
 	// swagger: ignore
 	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
 	// 秘钥Id
@@ -701,10 +714,7 @@ type ServerDeployInput struct {
 	ResetPassword bool `json:"reset_password"`
 	// 重置指定密码
 	Password string `json:"password"`
-	// 部署完成后是否自动启动
-	// 若虚拟机重置密码后需要重启生效，并且当前虚拟机状态为running, 此参数默认为true
-	// 若虚拟机状态为ready, 指定此参数后，部署完成后，虚拟机会自动启动
-	AutoStart bool `json:"auto_start"`
+
 	// swagger: ignore
 	Restart bool `json:"restart"`
 
