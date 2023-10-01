@@ -1081,3 +1081,15 @@ type NetworkAddrConf struct {
 	Masklen int    `json:"masklen"`
 	Gateway string `json:"gateway"`
 }
+
+type ServerLoginInfoInput struct {
+	PrivateKey string `json:"private_key"`
+}
+
+type ServerLoginInfoOutput struct {
+	Username string `json:"username"`
+	Updated  string `json:"updated"`
+	LoginKey string `json:"login_key"`
+	Keypair  string `json:"keypair"`
+	Password string `json:"password"`
+}

@@ -301,11 +301,6 @@ func init() {
 	})
 
 	R(&options.ServerLoginInfoOptions{}, "server-logininfo", "Get login info of a server", func(s *mcclient.ClientSession, opts *options.ServerLoginInfoOptions) error {
-		srvid, e := modules.Servers.GetId(s, opts.ID, nil)
-		if e != nil {
-			return e
-		}
-
 		params := jsonutils.NewDict()
 		if len(opts.Key) > 0 {
 			privateKey, e := ioutil.ReadFile(opts.Key)
@@ -315,7 +310,7 @@ func init() {
 			params.Add(jsonutils.NewString(string(privateKey)), "private_key")
 		}
 
-		i, e := modules.Servers.GetLoginInfo(s, srvid, params)
+		i, e := modules.Servers.PerformAction(s, opts.ID, "login_info", params)
 		if e != nil {
 			return e
 		}
@@ -867,7 +862,7 @@ func init() {
 			privateKey = string(key)
 		}
 
-		i, e := modules.Servers.GetLoginInfo(s, srvid, params)
+		i, e := modules.Servers.PerformAction(s, srvid, "login_info", params)
 		if e != nil {
 			return e
 		}
