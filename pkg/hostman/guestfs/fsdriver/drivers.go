@@ -47,6 +47,7 @@ func Init(initPrivatePrefixes []string, cloudrootDir string) error {
 		NewFangdeDeskRootfs, NewUKylinRootfs,
 		NewCentosRootFs, NewFedoraRootFs,
 		NewRhelRootFs,
+		NewOpenSuseRootFs,
 		NewDebianRootFs, NewCirrosRootFs, NewCirrosNewRootFs, NewUbuntuRootFs,
 		NewGentooRootFs, NewArchLinuxRootFs, NewOpenWrtRootFs, NewCoreOsRootFs,
 		NewOpenEulerRootFs,
