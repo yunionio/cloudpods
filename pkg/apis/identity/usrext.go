@@ -39,4 +39,6 @@ type SUserExtended struct {
 	IsLocal              bool
 	// IdpId         string
 	// IdpName       string
+
+	AuditIds []string
 }

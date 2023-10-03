@@ -157,6 +157,8 @@ func (self *SSAMLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 
 	idp.TryUserJoinProject(self.samlConfig.SIdpAttributeOptions, ctx, usr, domain.Id, attrs)
 
+	extUser.AuditIds = []string{resp.ID}
+
 	return extUser, nil
 }
 
