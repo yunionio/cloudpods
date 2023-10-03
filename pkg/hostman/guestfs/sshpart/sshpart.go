@@ -415,6 +415,18 @@ func (p *SSHPartition) CheckOrAddUser(user, homeDir string, isSys bool) (realHom
 					err = nil
 				}
 			}
+			if !p.Exists(realHomeDir, false) {
+				err = p.Mkdir(realHomeDir, 0700, false)
+				if err != nil {
+					err = errors.Wrapf(err, "Mkdir %s", realHomeDir)
+				} else {
+					cmd := []string{"/usr/sbin/chroot", p.mountPath, "chown", user, realHomeDir}
+					_, err = p.term.Run(strings.Join(cmd, " "))
+					if err != nil {
+						err = errors.Wrap(err, "chown")
+					}
+				}
+			}
 		}
 		return
 	}
