@@ -16,6 +16,7 @@ package tokens
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -40,6 +41,9 @@ func AddHandler(app *appsrv.Application) {
 	app.AddHandler2("GET", "/v3/auth/tokens", authenticateToken(verifyTokensV3), nil, "verify_tokens_v3", nil)
 	app.AddHandler2("GET", "/v3/auth/policies", authenticateToken(fetchTokenPolicies), nil, "fetch_token_policies", nil)
 	app.AddHandler2("POST", "/v3/auth/policies", authenticateToken(postTokenPolicies), nil, "post_token_policies", nil)
+
+	app.AddHandler2("DELETE", "/v3/auth/tokens", authenticateToken(invalidateTokenV3), nil, "delete_tokens_v3", nil)
+	app.AddHandler2("GET", "/v3/auth/tokens/invalid", authenticateToken(fetchInvalidTokensV3), nil, "fetch_revoked_tokens_v3", nil)
 }
 
 func FetchAuthContext(authCtx mcclient.SAuthContext, r *http.Request) mcclient.SAuthContext {
@@ -131,6 +135,24 @@ type VerifyTokenV2Param struct {
 func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
 	tokenStr := params["<token>"]
+
+	valid, err := models.TokenCacheManager.IsValid(tokenStr)
+	if err == nil {
+		if !valid {
+			httperrors.InvalidCredentialError(ctx, w, "invalid token")
+			return
+		} else {
+			// passthrough
+		}
+	} else {
+		if errors.Cause(err) != sql.ErrNoRows {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		} else {
+			// passthrough
+		}
+	}
+
 	token, err := verifyCommon(ctx, w, tokenStr)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
@@ -179,6 +201,24 @@ type VerifyTokenV3Param struct {
 //	  200: tokens_AuthenticateV3Output
 func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	tokenStr := r.Header.Get(api.AUTH_SUBJECT_TOKEN_HEADER)
+
+	valid, err := models.TokenCacheManager.IsValid(tokenStr)
+	if err == nil {
+		if !valid {
+			httperrors.InvalidCredentialError(ctx, w, "invalid token")
+			return
+		} else {
+			// passthrough
+		}
+	} else {
+		if errors.Cause(err) != sql.ErrNoRows {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		} else {
+			// passthrough
+		}
+	}
+
 	token, err := verifyCommon(ctx, w, tokenStr)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)

@@ -16,6 +16,7 @@ package sql
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -81,6 +82,8 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 		return nil, errors.Wrap(err, "usrExt.VerifyPassword")
 	}
 	localUser.ClearFailedAuth()
+
+	usrExt.AuditIds = []string{fmt.Sprintf("%d", localUser.Id)}
 	return usrExt, nil
 }
 

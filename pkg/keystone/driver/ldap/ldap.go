@@ -308,5 +308,7 @@ func (drv *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 		return nil, errors.Wrap(err, "Authenticate error")
 	}
 
+	usrExt.AuditIds = []string{username}
+
 	return usrExt, nil
 }
