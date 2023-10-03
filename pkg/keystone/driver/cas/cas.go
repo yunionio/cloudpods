@@ -163,6 +163,10 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 
 	idp.TryUserJoinProject(self.casConfig.SIdpAttributeOptions, ctx, usr, domain.Id, attrs)
 
+	extUser.AuditIds = []string{
+		ident.CASTicket.Id,
+	}
+
 	return extUser, nil
 }
 

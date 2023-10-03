@@ -118,6 +118,8 @@ func (self *SOAuth2Driver) Authenticate(ctx context.Context, ident mcclient.SAut
 
 	idp.TryUserJoinProject(options, ctx, usr, domain.Id, attrs)
 
+	extUser.AuditIds = []string{ident.OAuth2.Code}
+
 	return extUser, nil
 }
 
