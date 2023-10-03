@@ -14,3 +14,4 @@ jobs:
           actions: 'check-inactive'
           inactive-label: 'stale'
           inactive-day: 30
+          exclude-labels: 'announcement'
