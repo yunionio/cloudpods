@@ -7,7 +7,7 @@ on:
 jobs:
   issue-closed-remove-labels:
     runs-on: ubuntu-latest
-    if: !contains(github.event.issue.labels.*.name, 'stale')
+    if: "!contains(github.event.issue.labels.*.name, 'stale')"
     steps:
       - name: Remove statle labels when issue that hasn't stale label is closed
         uses: actions-cool/issues-helper@v2
