@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/golang-plus/uuid"
-	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"

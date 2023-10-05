@@ -100,6 +100,8 @@ func StartService() {
 		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 		cron.AddJobEveryFewDays("CheckAllUserPasswordIsExpired", 1, 8, 0, 0, models.CheckAllUserPasswordIsExpired, true)
 
+		cron.AddJobEveryFewHour("RemoveObsoleteInvalidTokens", 6, 0, 0, models.RemoveObsoleteInvalidTokens, true)
+
 		cron.Start()
 		defer cron.Stop()
 	}
