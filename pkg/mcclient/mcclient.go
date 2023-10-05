@@ -91,41 +91,41 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 	return &client
 }
 
-func (this *Client) HttpClient() *http.Client {
-	return this.httpconn
+func (client *Client) HttpClient() *http.Client {
+	return client.httpconn
 }
 
-func (this *Client) SetHttpTransportProxyFunc(proxyFunc httputils.TransportProxyFunc) {
-	httputils.SetClientProxyFunc(this.httpconn, proxyFunc)
+func (client *Client) SetHttpTransportProxyFunc(proxyFunc httputils.TransportProxyFunc) {
+	httputils.SetClientProxyFunc(client.httpconn, proxyFunc)
 }
 
-func (this *Client) GetClient() *http.Client {
-	return this.httpconn
+func (client *Client) GetClient() *http.Client {
+	return client.httpconn
 }
 
-func (this *Client) SetTransport(ts http.RoundTripper) {
-	this.httpconn.Transport = ts
+func (client *Client) SetTransport(ts http.RoundTripper) {
+	client.httpconn.Transport = ts
 }
 
-func (this *Client) SetDebug(debug bool) {
-	this.debug = debug
+func (client *Client) SetDebug(debug bool) {
+	client.debug = debug
 }
 
-func (this *Client) GetDebug() bool {
-	return this.debug
+func (client *Client) GetDebug() bool {
+	return client.debug
 }
 
-func (this *Client) AuthVersion() string {
-	pos := strings.LastIndexByte(this.authUrl, '/')
+func (client *Client) AuthVersion() string {
+	pos := strings.LastIndexByte(client.authUrl, '/')
 	if pos > 0 {
-		return this.authUrl[pos+1:]
+		return client.authUrl[pos+1:]
 	} else {
 		return ""
 	}
 }
 
-func (this *Client) NewAuthTokenCredential() TokenCredential {
-	if this.AuthVersion() == "v3" {
+func (client *Client) NewAuthTokenCredential() TokenCredential {
+	if client.AuthVersion() == "v3" {
 		return &TokenCredentialV3{}
 	}
 	return &TokenCredentialV2{}
@@ -153,15 +153,15 @@ func joinUrl(baseUrl, path string) string {
 	return fmt.Sprintf("%s%s", baseUrl, path)
 }
 
-func (this *Client) rawRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body io.Reader) (*http.Response, error) {
-	return httputils.Request(this.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, this.debug)
+func (client *Client) rawRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body io.Reader) (*http.Response, error) {
+	return httputils.Request(client.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, client.debug)
 }
 
-func (this *Client) jsonRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return httputils.JSONRequest(this.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, this.debug)
+func (client *Client) jsonRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	return httputils.JSONRequest(client.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, client.debug)
 }
 
-func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, projectDomain, token string, aCtx SAuthContext) (TokenCredential, error) {
+func (client *Client) _authV3(domainName, uname, passwd, projectId, projectName, projectDomain, token string, aCtx SAuthContext) (TokenCredential, error) {
 	input := SAuthenticationInputV3{}
 	if len(uname) > 0 && len(passwd) > 0 { // Password authentication
 		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_PASSWORD}
@@ -190,24 +190,24 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, p
 		// }
 	}
 	input.Auth.Context = aCtx
-	return this._authV3Input(input)
+	return client._authV3Input(input)
 }
 
-func (this *Client) _authV3Input(input SAuthenticationInputV3) (TokenCredential, error) {
-	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, jsonutils.Marshal(&input))
+func (client *Client) _authV3Input(input SAuthenticationInputV3) (TokenCredential, error) {
+	hdr, rbody, err := client.jsonRequest(context.Background(), client.authUrl, "", "POST", "/auth/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
 		return nil, err
 	}
 
 	tokenId := hdr.Get("X-Subject-Token")
 	if len(tokenId) == 0 {
-		return nil, fmt.Errorf("No X-Subject-Token in header")
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "No X-Subject-Token in header")
 	}
-	ret, err := this.unmarshalV3Token(rbody, tokenId)
+	ret, err := client.unmarshalV3Token(rbody, tokenId)
 	return ret, err
 }
 
-func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string, aCtx SAuthContext) (TokenCredential, error) {
+func (client *Client) _authV2(uname, passwd, tenantId, tenantName, token string, aCtx SAuthContext) (TokenCredential, error) {
 	input := SAuthenticationInputV2{}
 	input.Auth.PasswordCredentials.Username = uname
 	input.Auth.PasswordCredentials.Password = passwd
@@ -221,144 +221,170 @@ func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string, a
 		input.Auth.Token.Id = token
 	}
 	input.Auth.Context = aCtx
-	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/tokens", nil, jsonutils.Marshal(&input))
+	_, rbody, err := client.jsonRequest(context.Background(), client.authUrl, "", "POST", "/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
 		return nil, err
 	}
-	return this.unmarshalV2Token(rbody)
+	return client.unmarshalV2Token(rbody)
 }
 
-func (this *Client) Authenticate(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
-	return this.AuthenticateApi(uname, passwd, domainName, tenantName, tenantDomain)
+func (client *Client) Authenticate(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
+	return client.AuthenticateApi(uname, passwd, domainName, tenantName, tenantDomain)
 }
 
-func (this *Client) AuthenticateApi(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
-	return this.AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain, AuthSourceAPI)
+func (client *Client) AuthenticateApi(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
+	return client.AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain, AuthSourceAPI)
 }
 
-func (this *Client) AuthenticateWeb(uname, passwd, domainName, tenantName, tenantDomain string, cliIp string) (TokenCredential, error) {
+func (client *Client) AuthenticateWeb(uname, passwd, domainName, tenantName, tenantDomain string, cliIp string) (TokenCredential, error) {
 	aCtx := SAuthContext{
 		Source: AuthSourceWeb,
 		Ip:     cliIp,
 	}
-	return this.authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain, aCtx)
+	return client.authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain, aCtx)
 }
 
-func (this *Client) AuthenticateOperator(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
-	return this.AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain, AuthSourceOperator)
+func (client *Client) AuthenticateOperator(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
+	return client.AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain, AuthSourceOperator)
 }
 
-func (this *Client) AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain string, source string) (TokenCredential, error) {
+func (client *Client) AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain string, source string) (TokenCredential, error) {
 	aCtx := SAuthContext{
 		Source: source,
 	}
-	return this.authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain, aCtx)
+	return client.authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain, aCtx)
 }
 
-func (this *Client) authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain string, aCtx SAuthContext) (TokenCredential, error) {
-	if this.AuthVersion() == "v3" {
-		return this._authV3(domainName, uname, passwd, "", tenantName, tenantDomain, "", aCtx)
+func (client *Client) authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain string, aCtx SAuthContext) (TokenCredential, error) {
+	if client.AuthVersion() == "v3" {
+		return client._authV3(domainName, uname, passwd, "", tenantName, tenantDomain, "", aCtx)
 	}
-	return this._authV2(uname, passwd, "", tenantName, "", aCtx)
+	return client._authV2(uname, passwd, "", tenantName, "", aCtx)
 }
 
-func (this *Client) unmarshalV3Token(rbody jsonutils.JSONObject, tokenId string) (cred TokenCredential, err error) {
+func (client *Client) unmarshalV3Token(rbody jsonutils.JSONObject, tokenId string) (cred TokenCredential, err error) {
 	cred = &TokenCredentialV3{Id: tokenId}
 	err = rbody.Unmarshal(cred)
 	if err != nil {
-		err = fmt.Errorf("Invalid response when unmarshal V3 Token: %v", err)
+		err = errors.Wrap(err, "Invalid response when unmarshal V3 Token")
 	}
 	cata := cred.GetServiceCatalog()
 	if cata == nil || cata.Len() == 0 {
 		log.Warningf("No service catalog avaiable")
 	} else {
-		this.SetServiceCatalog(cata)
+		client.SetServiceCatalog(cata)
 	}
 	return
 }
 
-func (this *Client) unmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCredential, err error) {
+func (client *Client) unmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCredential, err error) {
 	access, err := rbody.Get("access")
 	if err == nil {
 		cred = &TokenCredentialV2{}
 		err = access.Unmarshal(cred)
 		if err != nil {
-			err = fmt.Errorf("Invalid response when unmarshal V2 Token: %s", err)
+			err = errors.Wrap(err, "Invalid response when unmarshal V2 Token")
 		}
 		cata := cred.GetServiceCatalog()
 		if cata == nil || cata.Len() == 0 {
 			log.Warningf("No srvice catalog avaiable")
 		} else {
-			this.SetServiceCatalog(cata)
+			client.SetServiceCatalog(cata)
 		}
 		return
 	}
-	err = fmt.Errorf("Invalid response: no access object")
+	err = errors.Wrap(httperrors.ErrInvalidFormat, "Invalid response: no access object")
 	return
 }
 
-func (this *Client) verifyV3(adminToken, token string) (TokenCredential, error) {
+func (client *Client) verifyV3(adminToken, token string) (TokenCredential, error) {
 	header := http.Header{}
 	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
 	header.Add(api.AUTH_SUBJECT_TOKEN_HEADER, token)
-	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", "/auth/tokens", header, nil)
+	_, rbody, err := client.jsonRequest(context.Background(), client.authUrl, "", "GET", "/auth/tokens", header, nil)
 	if err != nil {
 		return nil, err
 	}
-	return this.unmarshalV3Token(rbody, token)
+	return client.unmarshalV3Token(rbody, token)
 }
 
-func (this *Client) verifyV2(adminToken, token string) (TokenCredential, error) {
+func (client *Client) verifyV2(adminToken, token string) (TokenCredential, error) {
 	header := http.Header{}
 	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
 	verifyUrl := fmt.Sprintf("/tokens/%s", token)
-	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", verifyUrl, header, nil)
+	_, rbody, err := client.jsonRequest(context.Background(), client.authUrl, "", "GET", verifyUrl, header, nil)
 	if err != nil {
 		return nil, err
 	}
-	return this.unmarshalV2Token(rbody)
+	return client.unmarshalV2Token(rbody)
 }
 
-func (this *Client) Verify(adminToken, token string) (cred TokenCredential, err error) {
-	if this.AuthVersion() == "v3" {
-		return this.verifyV3(adminToken, token)
+func (client *Client) Verify(adminToken, token string) (cred TokenCredential, err error) {
+	if client.AuthVersion() == "v3" {
+		return client.verifyV3(adminToken, token)
 	}
-	return this.verifyV2(adminToken, token)
+	return client.verifyV2(adminToken, token)
 }
 
-func (this *Client) SetTenant(tenantId, tenantName, tenantDomain string, token TokenCredential) (TokenCredential, error) {
-	return this.SetProject(tenantId, tenantName, tenantDomain, token)
+func (client *Client) Invalidate(ctx context.Context, adminToken, token string) error {
+	header := http.Header{}
+	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
+	header.Add(api.AUTH_SUBJECT_TOKEN_HEADER, token)
+	_, _, err := client.jsonRequest(ctx, client.authUrl, "", "DELETE", "/auth/tokens", header, nil)
+	if err != nil {
+		return errors.Wrap(err, "jsonRequest")
+	}
+	return nil
 }
 
-func (this *Client) AuthenticateToken(token string, projName, projDomain string, source string) (TokenCredential, error) {
+func (client *Client) FetchInvalidTokens(ctx context.Context, adminToken string) ([]string, error) {
+	header := http.Header{}
+	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
+	_, resp, err := client.jsonRequest(ctx, client.authUrl, "", "GET", "/auth/tokens/invalid", header, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonRequest")
+	}
+	tokens := make([]string, 0)
+	err = resp.Unmarshal(&tokens, "tokens")
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	return tokens, nil
+}
+
+func (client *Client) SetTenant(tenantId, tenantName, tenantDomain string, token TokenCredential) (TokenCredential, error) {
+	return client.SetProject(tenantId, tenantName, tenantDomain, token)
+}
+
+func (client *Client) AuthenticateToken(token string, projName, projDomain string, source string) (TokenCredential, error) {
 	aCtx := SAuthContext{
 		Source: source,
 	}
-	if this.AuthVersion() == "v3" {
-		return this._authV3("", "", "", "", projName, projDomain, token, aCtx)
+	if client.AuthVersion() == "v3" {
+		return client._authV3("", "", "", "", projName, projDomain, token, aCtx)
 	} else {
-		return this._authV2("", "", "", projName, token, aCtx)
+		return client._authV2("", "", "", projName, token, aCtx)
 	}
 }
 
-func (this *Client) SetProject(tenantId, tenantName, tenantDomain string, token TokenCredential) (TokenCredential, error) {
+func (client *Client) SetProject(tenantId, tenantName, tenantDomain string, token TokenCredential) (TokenCredential, error) {
 	aCtx := SAuthContext{
 		Source: token.GetLoginSource(),
 		Ip:     token.GetLoginIp(),
 	}
-	if this.AuthVersion() == "v3" {
-		return this._authV3("", "", "", tenantId, tenantName, tenantDomain, token.GetTokenString(), aCtx)
+	if client.AuthVersion() == "v3" {
+		return client._authV3("", "", "", tenantId, tenantName, tenantDomain, token.GetTokenString(), aCtx)
 	} else {
-		return this._authV2("", "", "", tenantName, token.GetTokenString(), aCtx)
+		return client._authV2("", "", "", tenantName, token.GetTokenString(), aCtx)
 	}
 }
 
-func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfaceType string) (*api.EndpointDetails, error) {
-	if this.AuthVersion() != "v3" {
-		return nil, errors.Errorf("current version %s not support get internal etcd endpoint", this.AuthVersion())
+func (client *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfaceType string) (*api.EndpointDetails, error) {
+	if client.AuthVersion() != "v3" {
+		return nil, errors.Errorf("current version %s not support get internal etcd endpoint", client.AuthVersion())
 	}
 
-	_, err := this.GetServiceCatalog().getServiceURL(apis.SERVICE_TYPE_ETCD, region, "", interfaceType)
+	_, err := client.GetServiceCatalog().getServiceURL(apis.SERVICE_TYPE_ETCD, region, "", interfaceType)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +397,7 @@ func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfa
 	params.Add(jsonutils.NewString(region), "region")
 
 	epUrl := "/endpoints?" + params.QueryString()
-	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, token.GetTokenString(), httputils.GET, epUrl, nil, nil)
+	_, rbody, err := client.jsonRequest(context.Background(), client.authUrl, token.GetTokenString(), httputils.GET, epUrl, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "get internal etcd endpoint")
 	}
@@ -392,7 +418,7 @@ func (this *Client) GetCommonEtcdEndpoint(token TokenCredential, region, interfa
 	return endpoint, nil
 }
 
-func (this *Client) GetCommonEtcdTLSConfig(endpoint *api.EndpointDetails) (*tls.Config, error) {
+func (client *Client) GetCommonEtcdTLSConfig(endpoint *api.EndpointDetails) (*tls.Config, error) {
 	if endpoint.CertId == "" {
 		return nil, nil
 	}
@@ -402,13 +428,13 @@ func (this *Client) GetCommonEtcdTLSConfig(endpoint *api.EndpointDetails) (*tls.
 	return seclib2.InitTLSConfigByData(caData, certData, keyData)
 }
 
-func (this *Client) NewSession(ctx context.Context, region, zone, endpointType string, token TokenCredential) *ClientSession {
+func (client *Client) NewSession(ctx context.Context, region, zone, endpointType string, token TokenCredential) *ClientSession {
 	cata := token.GetServiceCatalog()
-	if this.GetServiceCatalog() == nil {
+	if client.GetServiceCatalog() == nil {
 		if cata == nil || cata.Len() == 0 {
 			log.Warningf("Missing service catalog in token")
 		} else {
-			this.SetServiceCatalog(cata)
+			client.SetServiceCatalog(cata)
 		}
 	}
 	if ctx == nil {
@@ -416,7 +442,7 @@ func (this *Client) NewSession(ctx context.Context, region, zone, endpointType s
 	}
 	return &ClientSession{
 		ctx:                 ctx,
-		client:              this,
+		client:              client,
 		region:              region,
 		zone:                zone,
 		endpointType:        endpointType,

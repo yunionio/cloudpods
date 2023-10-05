@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -921,6 +922,10 @@ func (user *SUser) Delete(ctx context.Context, userCred mcclient.TokenCredential
 		err = PasswordManager.delete(localUser.Id)
 		if err != nil {
 			return errors.Wrap(err, "PasswordManager.delete")
+		}
+		batchErr := TokenCacheManager.BatchInvalidate(ctx, api.AUTH_METHOD_PASSWORD, []string{fmt.Sprintf("%d", localUser.Id)})
+		if batchErr != nil {
+			log.Errorf("BatchInvalidate fail %s", batchErr)
 		}
 	}
 

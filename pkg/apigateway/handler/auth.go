@@ -656,8 +656,14 @@ func doLogout(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	token, _, _ := fetchAuthInfo(ctx, req)
 	if token != nil {
 		// valid login, log the event
-		user := logclient.NewSimpleObject(token.GetUserId(), token.GetUserName(), "user")
-		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_LOGOUT, "", token, true)
+		err := auth.Remove(ctx, token.GetTokenString())
+		if err != nil {
+			log.Errorf("remove token fail %s", err)
+			return
+		} else {
+			user := logclient.NewSimpleObject(token.GetUserId(), token.GetUserName(), "user")
+			logclient.AddActionLogWithContext(ctx, user, logclient.ACT_LOGOUT, "", token, true)
+		}
 	}
 	clearAuthCookie(w)
 	appsrv.DisableClientCache(w)
