@@ -170,7 +170,7 @@ func newAuthManager(cli *mcclient.Client, info *AuthInfo) *authManager {
 		accessKeyCache:   newAccessKeyCache(),
 	}
 	authm.InitSync(authm)
-	authm.startRefreshRevokeTokens()
+	go authm.startRefreshRevokeTokens()
 	return authm
 }
 
