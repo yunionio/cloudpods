@@ -37,7 +37,7 @@ func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 	acl := cloudprovider.ACLPrivate
-	obscli, err := o.bucket.region.getOBSClient()
+	obscli, err := o.bucket.region.getOBSClient("")
 	if err != nil {
 		log.Errorf("o.bucket.region.GetOssClient error %s", err)
 		return acl
@@ -55,7 +55,7 @@ func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 }
 
 func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
-	obscli, err := o.bucket.region.getOBSClient()
+	obscli, err := o.bucket.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "o.bucket.region.getOBSClient")
 	}
@@ -74,7 +74,7 @@ func (o *SObject) GetMeta() http.Header {
 	if o.Meta != nil {
 		return o.Meta
 	}
-	obscli, err := o.bucket.region.getOBSClient()
+	obscli, err := o.bucket.region.getOBSClient("")
 	if err != nil {
 		log.Errorf("getOBSClient fail %s", err)
 		return nil

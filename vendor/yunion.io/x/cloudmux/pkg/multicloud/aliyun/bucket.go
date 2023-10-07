@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -775,4 +776,215 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 	}
 
 	return result, nil
+}
+
+type SBucketPolicyStatement struct {
+	Version   string                          `json:"Version"`
+	Statement []SBucketPolicyStatementDetails `json:"Statement"`
+}
+
+type SBucketPolicyStatementDetails struct {
+	Action    []string                          `json:"Action"`
+	Effect    string                            `json:"Effect"`
+	Principal []string                          `json:"Principal"`
+	Resource  []string                          `json:"Resource"`
+	Condition map[string]map[string]interface{} `json:"Condition"`
+}
+
+func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
+	policies, err := b.getPolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "getPolicy")
+	}
+	return b.localPolicyToCloudprovider(policies), nil
+}
+
+func (b *SBucket) getPolicy() ([]SBucketPolicyStatementDetails, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOssClient")
+	}
+	resStr, err := osscli.GetBucketPolicy(b.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBucketPolicy")
+	}
+	obj, err := jsonutils.Parse([]byte(resStr))
+	if err != nil {
+		return nil, errors.Wrap(err, "Parse resStr")
+	}
+	policies := []SBucketPolicyStatementDetails{}
+	return policies, obj.Unmarshal(&policies, "Statement")
+}
+
+func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	policies, err := b.getPolicy()
+	if err != nil {
+		return errors.Wrap(err, "getPolicy")
+	}
+	param := SBucketPolicyStatement{}
+	param.Version = "1"
+	param.Statement = policies
+	resources := []string{}
+	for i := range policy.ResourcePath {
+		resources = append(resources, fmt.Sprintf("acs:oss:*:%s:%s%s", b.region.client.GetAccountId(), b.Name, policy.ResourcePath[i]))
+	}
+	ids := []string{}
+	for i := range policy.PrincipalId {
+		id := strings.Split(policy.PrincipalId[i], ":")
+		if len(id) == 1 {
+			ids = append(ids, "*")
+		}
+		if len(id) == 2 {
+			// 没有子账号，默认和主账号相同
+			if len(id[1]) == 0 {
+				id[1] = "*"
+			}
+			ids = append(ids, id[1])
+		}
+		if len(id) > 2 {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "Invalida PrincipalId Input")
+		}
+	}
+
+	param.Statement = append(param.Statement, SBucketPolicyStatementDetails{
+		Resource: resources,
+		// Principal: policy.PrincipalId,
+		Principal: ids,
+		Effect:    policy.Effect,
+		Condition: policy.Condition,
+		Action:    b.cannedActionToAction(policy.CannedAction),
+	})
+	err = osscli.SetBucketPolicy(b.Name, jsonutils.Marshal(param).String())
+	if err != nil {
+		return errors.Wrap(err, "SetBucketPolicy")
+	}
+	return nil
+}
+
+func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatement, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOssClient")
+	}
+
+	param := SBucketPolicyStatement{}
+	param.Version = "1"
+	param.Statement = []SBucketPolicyStatementDetails{}
+
+	policies, err := b.getPolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "getPolicy")
+	}
+	for i, policy := range policies {
+		if utils.IsInStringArray(fmt.Sprintf("%d", i), id) {
+			continue
+		}
+		param.Statement = append(param.Statement, policy)
+	}
+	if len(param.Statement) > 0 {
+		err = osscli.SetBucketPolicy(b.Name, jsonutils.Marshal(param).String())
+		if err != nil {
+			return nil, err
+		}
+	}
+	return b.localPolicyToCloudprovider(param.Statement), nil
+}
+
+func (b *SBucket) localPolicyToCloudprovider(policies []SBucketPolicyStatementDetails) []cloudprovider.SBucketPolicyStatement {
+	res := []cloudprovider.SBucketPolicyStatement{}
+	for _, policy := range policies {
+		res = append(res, cloudprovider.SBucketPolicyStatement{
+			Principal:    map[string][]string{"acs": policy.Principal},
+			Action:       policy.Action,
+			Effect:       policy.Effect,
+			Resource:     b.getResourcePaths(policy.Resource),
+			Condition:    policy.Condition,
+			CannedAction: b.actionToCannedAction(policy.Action),
+		})
+	}
+	return res
+}
+
+var readActions = []string{
+	"oss:GetObject",
+	"oss:GetObjectAcl",
+	"oss:ListObjects",
+	"oss:RestoreObject",
+	"oss:GetVodPlaylist",
+	"oss:ListObjectVersions",
+	"oss:GetObjectVersion",
+	"oss:GetObjectVersionAcl",
+	"oss:RestoreObjectVersion",
+}
+
+var readWriteActions = []string{
+	"oss:GetObject",
+	"oss:PutObject",
+	"oss:GetObjectAcl",
+	"oss:PutObjectAcl",
+	"oss:ListObjects",
+	"oss:AbortMultipartUpload",
+	"oss:ListParts",
+	"oss:RestoreObject",
+	"oss:GetVodPlaylist",
+	"oss:PostVodPlaylist",
+	"oss:PublishRtmpStream",
+	"oss:ListObjectVersions",
+	"oss:GetObjectVersion",
+	"oss:GetObjectVersionAcl",
+	"oss:RestoreObjectVersion",
+}
+
+var fullControlActions = []string{"oss:*"}
+
+func (b *SBucket) cannedActionToAction(s string) []string {
+	switch s {
+	case "Read":
+		return readActions
+	case "ReadWrite":
+		return readWriteActions
+	case "FullControl":
+		return fullControlActions
+	default:
+		return nil
+	}
+}
+
+func (b *SBucket) actionToCannedAction(actions []string) string {
+	if len(actions) == len(readActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, readActions) {
+				return ""
+			}
+		}
+		return "Read"
+	} else if len(actions) == len(fullControlActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, fullControlActions) {
+				return ""
+			}
+		}
+		return "FullControl"
+	} else if len(actions) == len(readWriteActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, readWriteActions) {
+				return ""
+			}
+		}
+		return "ReadWrite"
+	} else {
+		return ""
+	}
+}
+
+func (b *SBucket) getResourcePaths(paths []string) []string {
+	res := []string{}
+	for _, path := range paths {
+		res = append(res, strings.TrimPrefix(path, b.Name))
+	}
+	return res
 }

@@ -155,6 +155,8 @@ type SBucketPolicyStatementInput struct {
 	// ip 条件
 	IpEquals    []string
 	IpNotEquals []string
+	// 触发授权的条件
+	Condition map[string]map[string]interface{}
 }
 
 type SBucketMultipartUploads struct {

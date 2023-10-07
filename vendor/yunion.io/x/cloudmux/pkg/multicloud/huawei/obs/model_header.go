@@ -9,27 +9,24 @@
 // under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations under the License.
-
 package obs
 
-import (
-	"encoding/xml"
-	"fmt"
-)
-
-// ObsError defines error response from OBS
-type ObsError struct {
-	BaseModel
-	Status   string
-	XMLName  xml.Name `xml:"Error"`
-	Code     string   `xml:"Code" json:"code"`
-	Message  string   `xml:"Message" json:"message"`
-	Resource string   `xml:"Resource"`
-	HostId   string   `xml:"HostId"`
+// ISseHeader defines the sse encryption header
+type ISseHeader interface {
+	GetEncryption() string
+	GetKey() string
 }
 
-// Format print obs error's log
-func (err ObsError) Error() string {
-	return fmt.Sprintf("obs: service returned error: Status=%s, Code=%s, Message=%s, RequestId=%s",
-		err.Status, err.Code, err.Message, err.RequestId)
+// SseKmsHeader defines the SseKms header
+type SseKmsHeader struct {
+	Encryption string
+	Key        string
+	isObs      bool
+}
+
+// SseCHeader defines the SseC header
+type SseCHeader struct {
+	Encryption string
+	Key        string
+	KeyMD5     string
 }
