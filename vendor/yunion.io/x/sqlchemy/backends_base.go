@@ -125,6 +125,11 @@ func (bb *SBaseBackend) TIMESTAMPADD(name string, field IQueryField, offsetSecon
 	return NewFunctionField(name, `TIMESTAMPADD(SECOND, `+fmt.Sprintf("%d", offsetSeconds)+`, %s)`, field)
 }
 
+// DATE_FORMAT represents a SQL function DATE_FORMAT
+func (bb *SBaseBackend) DATE_FORMAT(name string, field IQueryField, format string) IQueryField {
+	return NewFunctionField(name, `DATE_FORMAT(%s, "`+strings.ReplaceAll(format, "%", "%%")+`")`, field)
+}
+
 // INET_ATON represents a SQL function INET_ATON
 func (bb *SBaseBackend) INET_ATON(field IQueryField) IQueryField {
 	return NewFunctionField("", `INET_ATON(%s)`, field)

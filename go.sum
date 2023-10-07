@@ -1174,8 +1174,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230922055518-0b8dd444c8bf h1:7lo3kA2IZzJGLQ/jLP8h7J1e44kOoKhtsJrJv7aZRYg=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230922055518-0b8dd444c8bf/go.mod h1:2sgCN7nRPQL3woLfdgqLDd92vwAHqtlz3KKiHxC5BAw=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231007091338-25eba853c185 h1:yFs/GDzyHAg9k0MZTaoXcWUH+VVh569TU8FzOyWZb5Y=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231007091338-25eba853c185/go.mod h1:2sgCN7nRPQL3woLfdgqLDd92vwAHqtlz3KKiHxC5BAw=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32 h1:v7POYkQwo1XzOxBoIoRVr/k0V9Y5JyjpshlIFa9raug=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
@@ -1193,7 +1193,7 @@ yunion.io/x/pkg v1.0.1-0.20230912084455-1393f31347db h1:yxiqu3C7wDnL3M8Nn54QmBp+
 yunion.io/x/pkg v1.0.1-0.20230912084455-1393f31347db/go.mod h1:ksCJVQ+DwKrJ5QBEoU8pzrDFfDaZVAFH/iJ6yQCYxJk=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8J50Cise/HCylsOJngmo=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
-yunion.io/x/sqlchemy v1.1.2-0.20230823191329-dc02ac3a547c h1:9R2cTcmPBUno1P2YI321nztK1Jpu7QRBNbnHsI1uX1Q=
-yunion.io/x/sqlchemy v1.1.2-0.20230823191329-dc02ac3a547c/go.mod h1:uuPVZEyEq3sWd5vf9VjGSy6lZzof22X87OEHw9sddJQ=
+yunion.io/x/sqlchemy v1.1.2-0.20231007084448-f8ee76b8ed79 h1:SLnUKzFVaGw2BWP/vNjsf2ZuCbXVLBrNgZMheNJI178=
+yunion.io/x/sqlchemy v1.1.2-0.20231007084448-f8ee76b8ed79/go.mod h1:uuPVZEyEq3sWd5vf9VjGSy6lZzof22X87OEHw9sddJQ=
 yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6 h1:WuWXhY3DvhdRTzWCJ/kwt3Ss6KIq7+KqJwb+esvNGwU=
 yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6/go.mod h1:EP6NSv2C0zzqBDTKumv8hPWLb3XvgMZDHQRfyuOrQng=
