@@ -52,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -634,6 +635,13 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "", data)
 	} else {
 		self.SubmitSyncAccountTask(ctx, userCred, nil)
+	}
+
+	if self.Brand == api.CLOUD_PROVIDER_VMWARE {
+		_, err := image.Images.PerformClassAction(auth.GetAdminSession(ctx, options.Options.Region), "vmware-account-added", nil)
+		if err != nil {
+			log.Errorf("failed inform glance vmware account added: %s", err)
+		}
 	}
 }
 
