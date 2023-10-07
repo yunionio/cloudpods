@@ -49,18 +49,20 @@ func invalidateToken(ctx context.Context, tokenStr string) error {
 	if adminToken == nil || len(tokenStr) == 0 {
 		return httperrors.NewForbiddenError("missing auth token")
 	}
-	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "delete").Result.IsDeny() {
-		return httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
-	}
-	token := SAuthToken{}
-	err := token.ParseFernetToken(tokenStr)
+	token, err := TokenStrDecode(tokenStr)
 	if err != nil {
 		return httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
-	err = models.TokenCacheManager.Invalidate(ctx, tokenStr, token.ExpiresAt, token.Method, token.AuditIds)
-	if err != nil {
-		return errors.Wrap(err, "Insert")
+
+	if adminToken.GetUserId() != token.UserId && adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "delete").Result.IsDeny() {
+		return httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
 	}
+
+	err = models.TokenCacheManager.Invalidate(ctx, adminToken, tokenStr)
+	if err != nil {
+		return errors.Wrap(err, "Invalidate")
+	}
+
 	return nil
 }
 

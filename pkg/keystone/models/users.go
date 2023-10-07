@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -838,17 +837,24 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		}
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)
 	}
-	if enabled, _ := data.Bool("enabled"); enabled {
-		localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
-		if err != nil {
-			if err == sql.ErrNoRows {
+	if enabled, err := data.Bool("enabled"); err == nil {
+		if enabled {
+			localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return
+				}
+				log.Errorf("unable to fetch localUser of user %q in domain %q: %v", user.Id, user.DomainId, err)
 				return
 			}
-			log.Errorf("unable to fetch localUser of user %q in domain %q: %v", user.Id, user.DomainId, err)
-			return
-		}
-		if err = localUser.ClearFailedAuth(); err != nil {
-			log.Errorf("unable to clear failed auth: %v", err)
+			if err = localUser.ClearFailedAuth(); err != nil {
+				log.Errorf("unable to clear failed auth: %v", err)
+			}
+		} else {
+			batchErr := TokenCacheManager.BatchInvalidateByUserId(ctx, userCred, user.Id)
+			if batchErr != nil {
+				log.Errorf("BatchInvalidateByUserId fail %s", batchErr)
+			}
 		}
 	}
 }
@@ -923,9 +929,12 @@ func (user *SUser) Delete(ctx context.Context, userCred mcclient.TokenCredential
 		if err != nil {
 			return errors.Wrap(err, "PasswordManager.delete")
 		}
-		batchErr := TokenCacheManager.BatchInvalidate(ctx, api.AUTH_METHOD_PASSWORD, []string{fmt.Sprintf("%d", localUser.Id)})
+	}
+
+	{
+		batchErr := TokenCacheManager.BatchInvalidateByUserId(ctx, userCred, user.Id)
 		if batchErr != nil {
-			log.Errorf("BatchInvalidate fail %s", batchErr)
+			log.Errorf("BatchInvalidateByUserId fail %s", batchErr)
 		}
 	}
 

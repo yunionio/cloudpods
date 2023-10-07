@@ -12,26 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokens
+package cache
 
 import (
-	"context"
+	"time"
 
-	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 )
 
-func FernetTokenVerifier(ctx context.Context, tokenStr string) (mcclient.TokenCredential, error) {
-	token, err := TokenStrDecode(tokenStr)
-	if err != nil {
-		return nil, httperrors.NewInvalidCredentialError("invalid token %s", err)
-	}
-	userCred, err := token.GetSimpleUserCred(tokenStr)
-	if err != nil {
-		return nil, err
-	}
-	log.Debugf("FernetTokenVerify %s %#v %#v", tokenStr, token, userCred)
-	return userCred, nil
+var (
+	tokenCache *hashcache.Cache
+)
+
+func Init(expire int) {
+	tokenCache = hashcache.NewCache(2048, time.Duration(expire/2)*time.Second)
+}
+
+func Save(tokenStr string, token interface{}) {
+	tokenCache.AtomicSet(tokenStr, token)
+}
+
+func Remove(tokenStr string) {
+	tokenCache.AtomicRemove(tokenStr)
+}
+
+func Get(tokenStr string) interface{} {
+	return tokenCache.AtomicGet(tokenStr)
 }
