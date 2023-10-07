@@ -487,9 +487,9 @@ func getOBSEndpoint(regionId string) string {
 	return fmt.Sprintf("obs.%s.myhuaweicloud.com", regionId)
 }
 
-func (self *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
+func (self *SHuaweiClient) getOBSClient(regionId string, signType obs.SignatureType) (*obs.ObsClient, error) {
 	endpoint := getOBSEndpoint(regionId)
-	cli, err := obs.New(self.accessKey, self.accessSecret, endpoint)
+	cli, err := obs.New(self.accessKey, self.accessSecret, endpoint, obs.WithSignature(signType))
 	if err != nil {
 		return nil, err
 	}
@@ -517,7 +517,7 @@ func (self *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error)
 }
 
 func (self *SHuaweiClient) fetchBuckets() error {
-	obscli, err := self.getOBSClient(HUAWEI_DEFAULT_REGION)
+	obscli, err := self.getOBSClient(HUAWEI_DEFAULT_REGION, "")
 	if err != nil {
 		return errors.Wrap(err, "getOBSClient")
 	}
@@ -905,6 +905,12 @@ func (self *SHuaweiClient) dbinstanceSetName(instanceId string, params map[strin
 
 func (self *SHuaweiClient) dbinstanceSetDesc(instanceId string, params map[string]interface{}) error {
 	uri := fmt.Sprintf("https://rds.%s.myhuaweicloud.com/v3/%s/instances/%s/alias", self.clientRegion, self.projectId, instanceId)
+	_, err := self.request(httputils.PUT, uri, nil, params)
+	return err
+}
+
+func (self *SHuaweiClient) setPolicy(instanceId string, params map[string]interface{}) error {
+	uri := fmt.Sprintf("https://%s.obs.%s.myhuaweicloud.com?policy", instanceId, self.clientRegion)
 	_, err := self.request(httputils.PUT, uri, nil, params)
 	return err
 }

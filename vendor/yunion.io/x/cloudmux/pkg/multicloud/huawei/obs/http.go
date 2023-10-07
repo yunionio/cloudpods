@@ -1,17 +1,3 @@
-// Copyright 2019 Yunion
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 // Copyright 2019 Huawei Technologies Co.,Ltd.
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 // this file except in compliance with the License.  You may obtain a copy of the
@@ -29,6 +15,7 @@ package obs
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"net"
@@ -48,7 +35,7 @@ func prepareHeaders(headers map[string][]string, meta bool, isObs bool) map[stri
 				continue
 			}
 			_key := strings.ToLower(key)
-			if _, ok := allowed_request_http_header_metadata_names[_key]; !ok && !strings.HasPrefix(key, HEADER_PREFIX) && !strings.HasPrefix(key, HEADER_PREFIX_OBS) {
+			if _, ok := allowedRequestHTTPHeaderMetadataNames[_key]; !ok && !strings.HasPrefix(key, HEADER_PREFIX) && !strings.HasPrefix(key, HEADER_PREFIX_OBS) {
 				if !meta {
 					continue
 				}
@@ -66,53 +53,65 @@ func prepareHeaders(headers map[string][]string, meta bool, isObs bool) map[stri
 	return _headers
 }
 
-func (obsClient ObsClient) doActionWithoutBucket(action, method string, input ISerializable, output IBaseModel) error {
-	return obsClient.doAction(action, method, "", "", input, output, true, true)
+func (obsClient ObsClient) doActionWithoutBucket(action, method string, input ISerializable, output IBaseModel, extensions []extensionOptions) error {
+	return obsClient.doAction(action, method, "", "", input, output, true, true, extensions)
 }
 
-func (obsClient ObsClient) doActionWithBucketV2(action, method, bucketName string, input ISerializable, output IBaseModel) error {
+func (obsClient ObsClient) doActionWithBucketV2(action, method, bucketName string, input ISerializable, output IBaseModel, extensions []extensionOptions) error {
 	if strings.TrimSpace(bucketName) == "" && !obsClient.conf.cname {
 		return errors.New("Bucket is empty")
 	}
-	return obsClient.doAction(action, method, bucketName, "", input, output, false, true)
+	return obsClient.doAction(action, method, bucketName, "", input, output, false, true, extensions)
 }
 
-func (obsClient ObsClient) doActionWithBucket(action, method, bucketName string, input ISerializable, output IBaseModel) error {
+func (obsClient ObsClient) doActionWithBucket(action, method, bucketName string, input ISerializable, output IBaseModel, extensions []extensionOptions) error {
 	if strings.TrimSpace(bucketName) == "" && !obsClient.conf.cname {
 		return errors.New("Bucket is empty")
 	}
-	return obsClient.doAction(action, method, bucketName, "", input, output, true, true)
+	return obsClient.doAction(action, method, bucketName, "", input, output, true, true, extensions)
 }
 
-func (obsClient ObsClient) doActionWithBucketAndKey(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel) error {
-	return obsClient._doActionWithBucketAndKey(action, method, bucketName, objectKey, input, output, true)
+func (obsClient ObsClient) doActionWithBucketAndKey(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, extensions []extensionOptions) error {
+	return obsClient._doActionWithBucketAndKey(action, method, bucketName, objectKey, input, output, true, extensions)
 }
 
-func (obsClient ObsClient) doActionWithBucketAndKeyUnRepeatable(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel) error {
-	return obsClient._doActionWithBucketAndKey(action, method, bucketName, objectKey, input, output, false)
-}
-
-func (obsClient ObsClient) _doActionWithBucketAndKey(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, repeatable bool) error {
+func (obsClient ObsClient) doActionWithBucketAndKeyV2(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, extensions []extensionOptions) error {
 	if strings.TrimSpace(bucketName) == "" && !obsClient.conf.cname {
 		return errors.New("Bucket is empty")
 	}
 	if strings.TrimSpace(objectKey) == "" {
 		return errors.New("Key is empty")
 	}
-	return obsClient.doAction(action, method, bucketName, objectKey, input, output, true, repeatable)
+	return obsClient.doAction(action, method, bucketName, objectKey, input, output, false, true, extensions)
 }
 
-func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, xmlResult bool, repeatable bool) error {
+func (obsClient ObsClient) doActionWithBucketAndKeyUnRepeatable(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, extensions []extensionOptions) error {
+	return obsClient._doActionWithBucketAndKey(action, method, bucketName, objectKey, input, output, false, extensions)
+}
+
+func (obsClient ObsClient) _doActionWithBucketAndKey(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, repeatable bool, extensions []extensionOptions) error {
+	if strings.TrimSpace(bucketName) == "" && !obsClient.conf.cname {
+		return errors.New("Bucket is empty")
+	}
+	if strings.TrimSpace(objectKey) == "" {
+		return errors.New("Key is empty")
+	}
+	return obsClient.doAction(action, method, bucketName, objectKey, input, output, true, repeatable, extensions)
+}
+
+func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, xmlResult bool, repeatable bool, extensions []extensionOptions) error {
 
 	var resp *http.Response
 	var respError error
 	doLog(LEVEL_INFO, "Enter method %s...", action)
 	start := GetCurrentTimestamp()
+	isObs := obsClient.conf.signature == SignatureObs
 
-	params, headers, data, err := input.trans(obsClient.conf.signature == SignatureObs)
+	params, headers, data, err := input.trans(isObs)
 	if err != nil {
 		return err
 	}
+
 	if params == nil {
 		params = make(map[string]string)
 	}
@@ -121,27 +120,34 @@ func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string
 		headers = make(map[string][]string)
 	}
 
+	for _, extension := range extensions {
+		if extensionHeader, ok := extension.(extensionHeaders); ok {
+			if _err := extensionHeader(headers, isObs); err != nil {
+				doLog(LEVEL_INFO, fmt.Sprintf("set header with error: %v", _err))
+			}
+		} else {
+			doLog(LEVEL_INFO, "Unsupported extensionOptions")
+		}
+	}
+
 	switch method {
 	case HTTP_GET:
-		resp, respError = obsClient.doHttpGet(bucketName, objectKey, params, headers, data, repeatable)
+		resp, respError = obsClient.doHTTPGet(bucketName, objectKey, params, headers, data, repeatable)
 	case HTTP_POST:
-		resp, respError = obsClient.doHttpPost(bucketName, objectKey, params, headers, data, repeatable)
+		resp, respError = obsClient.doHTTPPost(bucketName, objectKey, params, headers, data, repeatable)
 	case HTTP_PUT:
-		resp, respError = obsClient.doHttpPut(bucketName, objectKey, params, headers, data, repeatable)
+		resp, respError = obsClient.doHTTPPut(bucketName, objectKey, params, headers, data, repeatable)
 	case HTTP_DELETE:
-		resp, respError = obsClient.doHttpDelete(bucketName, objectKey, params, headers, data, repeatable)
+		resp, respError = obsClient.doHTTPDelete(bucketName, objectKey, params, headers, data, repeatable)
 	case HTTP_HEAD:
-		resp, respError = obsClient.doHttpHead(bucketName, objectKey, params, headers, data, repeatable)
+		resp, respError = obsClient.doHTTPHead(bucketName, objectKey, params, headers, data, repeatable)
 	case HTTP_OPTIONS:
-		resp, respError = obsClient.doHttpOptions(bucketName, objectKey, params, headers, data, repeatable)
+		resp, respError = obsClient.doHTTPOptions(bucketName, objectKey, params, headers, data, repeatable)
 	default:
 		respError = errors.New("Unexpect http method error")
 	}
 	if respError == nil && output != nil {
-		respError = ParseResponseToBaseModel(resp, output, xmlResult, obsClient.conf.signature == SignatureObs)
-		if respError != nil {
-			doLog(LEVEL_WARN, "Parse response to BaseModel with error: %v", respError)
-		}
+		respError = HandleHttpResponse(action, headers, output, resp, xmlResult, isObs)
 	} else {
 		doLog(LEVEL_WARN, "Do http request with error: %v", respError)
 	}
@@ -153,72 +159,45 @@ func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string
 	return respError
 }
 
-func (obsClient ObsClient) doHttpGet(bucketName, objectKey string, params map[string]string,
+func (obsClient ObsClient) doHTTPGet(bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
-	return obsClient.doHttp(HTTP_GET, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
+	return obsClient.doHTTP(HTTP_GET, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
-func (obsClient ObsClient) doHttpHead(bucketName, objectKey string, params map[string]string,
+func (obsClient ObsClient) doHTTPHead(bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
-	return obsClient.doHttp(HTTP_HEAD, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
+	return obsClient.doHTTP(HTTP_HEAD, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
-func (obsClient ObsClient) doHttpOptions(bucketName, objectKey string, params map[string]string,
+func (obsClient ObsClient) doHTTPOptions(bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
-	return obsClient.doHttp(HTTP_OPTIONS, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
+	return obsClient.doHTTP(HTTP_OPTIONS, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
-func (obsClient ObsClient) doHttpDelete(bucketName, objectKey string, params map[string]string,
+func (obsClient ObsClient) doHTTPDelete(bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
-	return obsClient.doHttp(HTTP_DELETE, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
+	return obsClient.doHTTP(HTTP_DELETE, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
-func (obsClient ObsClient) doHttpPut(bucketName, objectKey string, params map[string]string,
+func (obsClient ObsClient) doHTTPPut(bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
-	return obsClient.doHttp(HTTP_PUT, bucketName, objectKey, params, prepareHeaders(headers, true, obsClient.conf.signature == SignatureObs), data, repeatable)
+	return obsClient.doHTTP(HTTP_PUT, bucketName, objectKey, params, prepareHeaders(headers, true, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
-func (obsClient ObsClient) doHttpPost(bucketName, objectKey string, params map[string]string,
+func (obsClient ObsClient) doHTTPPost(bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
-	return obsClient.doHttp(HTTP_POST, bucketName, objectKey, params, prepareHeaders(headers, true, obsClient.conf.signature == SignatureObs), data, repeatable)
+	return obsClient.doHTTP(HTTP_POST, bucketName, objectKey, params, prepareHeaders(headers, true, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
-func (obsClient ObsClient) doHttpWithSignedUrl(action, method string, signedUrl string, actualSignedRequestHeaders http.Header, data io.Reader, output IBaseModel, xmlResult bool) (respError error) {
-	req, err := http.NewRequest(method, signedUrl, data)
-	if err != nil {
-		return err
+func prepareAgentHeader(clientUserAgent string) string {
+	userAgent := USER_AGENT
+	if clientUserAgent != "" {
+		userAgent = clientUserAgent
 	}
-	if obsClient.conf.ctx != nil {
-		req = req.WithContext(obsClient.conf.ctx)
-	}
-	var resp *http.Response
+	return userAgent
+}
 
-	doLog(LEVEL_INFO, "Do %s with signedUrl %s...", action, signedUrl)
-
-	req.Header = actualSignedRequestHeaders
-	if value, ok := req.Header[HEADER_HOST_CAMEL]; ok {
-		req.Host = value[0]
-		delete(req.Header, HEADER_HOST_CAMEL)
-	} else if value, ok := req.Header[HEADER_HOST]; ok {
-		req.Host = value[0]
-		delete(req.Header, HEADER_HOST)
-	}
-
-	if value, ok := req.Header[HEADER_CONTENT_LENGTH_CAMEL]; ok {
-		req.ContentLength = StringToInt64(value[0], -1)
-		delete(req.Header, HEADER_CONTENT_LENGTH_CAMEL)
-	} else if value, ok := req.Header[HEADER_CONTENT_LENGTH]; ok {
-		req.ContentLength = StringToInt64(value[0], -1)
-		delete(req.Header, HEADER_CONTENT_LENGTH)
-	}
-
-	req.Header[HEADER_USER_AGENT_CAMEL] = []string{USER_AGENT}
-	start := GetCurrentTimestamp()
-	resp, err = obsClient.httpClient.Do(req)
-	if isInfoLogEnabled() {
-		doLog(LEVEL_INFO, "Do http request cost %d ms", (GetCurrentTimestamp() - start))
-	}
-
+func (obsClient ObsClient) getSignedURLResponse(action string, output IBaseModel, xmlResult bool, resp *http.Response, err error, start int64) (respError error) {
 	var msg interface{}
 	if err != nil {
 		respError = err
@@ -246,22 +225,71 @@ func (obsClient ObsClient) doHttpWithSignedUrl(action, method string, signedUrl 
 	if isDebugLogEnabled() {
 		doLog(LEVEL_DEBUG, "End method %s, obsclient cost %d ms", action, (GetCurrentTimestamp() - start))
 	}
+	return
+}
+
+func (obsClient ObsClient) doHTTPWithSignedURL(action, method string, signedURL string, actualSignedRequestHeaders http.Header, data io.Reader, output IBaseModel, xmlResult bool) (respError error) {
+	req, err := http.NewRequest(method, signedURL, data)
+	if err != nil {
+		return err
+	}
+	if obsClient.conf.ctx != nil {
+		req = req.WithContext(obsClient.conf.ctx)
+	}
+	var resp *http.Response
+
+	var isSecurityToken bool
+	var securityToken string
+	var query []string
+	parmas := strings.Split(signedURL, "?")
+	if len(parmas) > 1 {
+		query = strings.Split(parmas[1], "&")
+		for _, value := range query {
+			if strings.HasPrefix(value, HEADER_STS_TOKEN_AMZ+"=") || strings.HasPrefix(value, HEADER_STS_TOKEN_OBS+"=") {
+				if value[len(HEADER_STS_TOKEN_AMZ)+1:] != "" {
+					securityToken = value[len(HEADER_STS_TOKEN_AMZ)+1:]
+					isSecurityToken = true
+				}
+			}
+		}
+	}
+	logSignedURL := signedURL
+	if isSecurityToken {
+		logSignedURL = strings.Replace(logSignedURL, securityToken, "******", -1)
+	}
+	doLog(LEVEL_INFO, "Do %s with signedUrl %s...", action, logSignedURL)
+
+	req.Header = actualSignedRequestHeaders
+	if value, ok := req.Header[HEADER_HOST_CAMEL]; ok {
+		req.Host = value[0]
+		delete(req.Header, HEADER_HOST_CAMEL)
+	} else if value, ok := req.Header[HEADER_HOST]; ok {
+		req.Host = value[0]
+		delete(req.Header, HEADER_HOST)
+	}
+
+	if value, ok := req.Header[HEADER_CONTENT_LENGTH_CAMEL]; ok {
+		req.ContentLength = StringToInt64(value[0], -1)
+		delete(req.Header, HEADER_CONTENT_LENGTH_CAMEL)
+	} else if value, ok := req.Header[HEADER_CONTENT_LENGTH]; ok {
+		req.ContentLength = StringToInt64(value[0], -1)
+		delete(req.Header, HEADER_CONTENT_LENGTH)
+	}
+
+	userAgent := prepareAgentHeader(obsClient.conf.userAgent)
+	req.Header[HEADER_USER_AGENT_CAMEL] = []string{userAgent}
+	start := GetCurrentTimestamp()
+	resp, err = obsClient.httpClient.Do(req)
+	if isInfoLogEnabled() {
+		doLog(LEVEL_INFO, "Do http request cost %d ms", (GetCurrentTimestamp() - start))
+	}
+
+	respError = obsClient.getSignedURLResponse(action, output, xmlResult, resp, err, start)
 
 	return
 }
 
-func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool) (resp *http.Response, respError error) {
-
-	bucketName = strings.TrimSpace(bucketName)
-
-	method = strings.ToUpper(method)
-
-	var redirectUrl string
-	var requestUrl string
-	maxRetryCount := obsClient.conf.maxRetryCount
-	maxRedirectCount := obsClient.conf.maxRedirectCount
-
+func prepareData(headers map[string][]string, data interface{}) (io.Reader, error) {
 	var _data io.Reader
 	if data != nil {
 		if dataStr, ok := data.(string); ok {
@@ -279,77 +307,207 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 			return nil, errors.New("Data is not a valid io.Reader")
 		}
 	}
+	return _data, nil
+}
+
+func (obsClient ObsClient) getRequest(redirectURL, requestURL string, redirectFlag bool, _data io.Reader, method,
+	bucketName, objectKey string, params map[string]string, headers map[string][]string) (*http.Request, error) {
+	if redirectURL != "" {
+		if !redirectFlag {
+			parsedRedirectURL, err := url.Parse(redirectURL)
+			if err != nil {
+				return nil, err
+			}
+			requestURL, err = obsClient.doAuth(method, bucketName, objectKey, params, headers, parsedRedirectURL.Host)
+			if err != nil {
+				return nil, err
+			}
+			if parsedRequestURL, err := url.Parse(requestURL); err != nil {
+				return nil, err
+			} else if parsedRequestURL.RawQuery != "" && parsedRedirectURL.RawQuery == "" {
+				redirectURL += "?" + parsedRequestURL.RawQuery
+			}
+		}
+		requestURL = redirectURL
+	} else {
+		var err error
+		requestURL, err = obsClient.doAuth(method, bucketName, objectKey, params, headers, "")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req, err := http.NewRequest(method, requestURL, _data)
+	if obsClient.conf.ctx != nil {
+		req = req.WithContext(obsClient.conf.ctx)
+	}
+	if err != nil {
+		return nil, err
+	}
+	doLog(LEVEL_DEBUG, "Do request with url [%s] and method [%s]", requestURL, method)
+	return req, nil
+}
+
+func logHeaders(headers map[string][]string, signature SignatureType) {
+	if isDebugLogEnabled() {
+		auth := headers[HEADER_AUTH_CAMEL]
+		delete(headers, HEADER_AUTH_CAMEL)
+
+		var isSecurityToken bool
+		var securityToken []string
+		if securityToken, isSecurityToken = headers[HEADER_STS_TOKEN_AMZ]; isSecurityToken {
+			headers[HEADER_STS_TOKEN_AMZ] = []string{"******"}
+		} else if securityToken, isSecurityToken = headers[HEADER_STS_TOKEN_OBS]; isSecurityToken {
+			headers[HEADER_STS_TOKEN_OBS] = []string{"******"}
+		}
+		doLog(LEVEL_DEBUG, "Request headers: %v", headers)
+		headers[HEADER_AUTH_CAMEL] = auth
+		if isSecurityToken {
+			if signature == SignatureObs {
+				headers[HEADER_STS_TOKEN_OBS] = securityToken
+			} else {
+				headers[HEADER_STS_TOKEN_AMZ] = securityToken
+			}
+		}
+	}
+}
+
+func prepareReq(headers map[string][]string, req, lastRequest *http.Request, clientUserAgent string) *http.Request {
+	for key, value := range headers {
+		if key == HEADER_HOST_CAMEL {
+			req.Host = value[0]
+			delete(headers, key)
+		} else if key == HEADER_CONTENT_LENGTH_CAMEL {
+			req.ContentLength = StringToInt64(value[0], -1)
+			delete(headers, key)
+		} else {
+			req.Header[key] = value
+		}
+	}
+
+	lastRequest = req
+
+	userAgent := prepareAgentHeader(clientUserAgent)
+	req.Header[HEADER_USER_AGENT_CAMEL] = []string{userAgent}
+
+	if lastRequest != nil {
+		req.Host = lastRequest.Host
+		req.ContentLength = lastRequest.ContentLength
+	}
+	return lastRequest
+}
+
+func canNotRetry(repeatable bool, statusCode int) bool {
+	if !repeatable || (statusCode >= 400 && statusCode < 500) || statusCode == 304 {
+		return true
+	}
+	return false
+}
+
+func isRedirectErr(location string, redirectCount, maxRedirectCount int) bool {
+	if location != "" && redirectCount < maxRedirectCount {
+		return true
+	}
+	return false
+}
+
+func setRedirectFlag(statusCode int, method string) (redirectFlag bool) {
+	if statusCode == 302 && method == HTTP_GET {
+		redirectFlag = true
+	} else {
+		redirectFlag = false
+	}
+	return
+}
+
+func prepareRetry(resp *http.Response, headers map[string][]string, _data io.Reader, msg interface{}) (io.Reader, *http.Response, error) {
+	if resp != nil {
+		_err := resp.Body.Close()
+		checkAndLogErr(_err, LEVEL_WARN, "Failed to close resp body")
+		resp = nil
+	}
+
+	if _, ok := headers[HEADER_DATE_CAMEL]; ok {
+		headers[HEADER_DATE_CAMEL] = []string{FormatUtcToRfc1123(time.Now().UTC())}
+	}
+
+	if _, ok := headers[HEADER_DATE_AMZ]; ok {
+		headers[HEADER_DATE_AMZ] = []string{FormatUtcToRfc1123(time.Now().UTC())}
+	}
+
+	if _, ok := headers[HEADER_AUTH_CAMEL]; ok {
+		delete(headers, HEADER_AUTH_CAMEL)
+	}
+	doLog(LEVEL_WARN, "Failed to send request with reason:%v, will try again", msg)
+	if r, ok := _data.(*strings.Reader); ok {
+		_, err := r.Seek(0, 0)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else if r, ok := _data.(*bytes.Reader); ok {
+		_, err := r.Seek(0, 0)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else if r, ok := _data.(*fileReaderWrapper); ok {
+		fd, err := os.Open(r.filePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		fileReaderWrapper := &fileReaderWrapper{filePath: r.filePath}
+		fileReaderWrapper.mark = r.mark
+		fileReaderWrapper.reader = fd
+		fileReaderWrapper.totalCount = r.totalCount
+		_data = fileReaderWrapper
+		_, err = fd.Seek(r.mark, 0)
+		if err != nil {
+			errMsg := fd.Close()
+			checkAndLogErr(errMsg, LEVEL_WARN, "Failed to close with reason: %v", errMsg)
+			return nil, nil, err
+		}
+	} else if r, ok := _data.(*readerWrapper); ok {
+		_, err := r.seek(0, 0)
+		if err != nil {
+			return nil, nil, err
+		}
+		r.readedCount = 0
+	}
+	return _data, resp, nil
+}
+
+func (obsClient ObsClient) doHTTP(method, bucketName, objectKey string, params map[string]string,
+	headers map[string][]string, data interface{}, repeatable bool) (resp *http.Response, respError error) {
+
+	bucketName = strings.TrimSpace(bucketName)
+
+	method = strings.ToUpper(method)
+
+	var redirectURL string
+	var requestURL string
+	maxRetryCount := obsClient.conf.maxRetryCount
+	maxRedirectCount := obsClient.conf.maxRedirectCount
+
+	_data, _err := prepareData(headers, data)
+	if _err != nil {
+		return nil, _err
+	}
 
 	var lastRequest *http.Request
 	redirectFlag := false
 	for i, redirectCount := 0, 0; i <= maxRetryCount; i++ {
-		if redirectUrl != "" {
-			if !redirectFlag {
-				parsedRedirectUrl, err := url.Parse(redirectUrl)
-				if err != nil {
-					return nil, err
-				}
-				requestUrl, err = obsClient.doAuth(method, bucketName, objectKey, params, headers, parsedRedirectUrl.Host)
-				if err != nil {
-					return nil, err
-				}
-				if parsedRequestUrl, err := url.Parse(requestUrl); err != nil {
-					return nil, err
-				} else if parsedRequestUrl.RawQuery != "" && parsedRedirectUrl.RawQuery == "" {
-					redirectUrl += "?" + parsedRequestUrl.RawQuery
-				}
-			}
-			requestUrl = redirectUrl
-		} else {
-			var err error
-			requestUrl, err = obsClient.doAuth(method, bucketName, objectKey, params, headers, "")
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		req, err := http.NewRequest(method, requestUrl, _data)
+		req, err := obsClient.getRequest(redirectURL, requestURL, redirectFlag, _data,
+			method, bucketName, objectKey, params, headers)
 		if err != nil {
 			return nil, err
 		}
-		if obsClient.conf.ctx != nil {
-			req = req.WithContext(obsClient.conf.ctx)
-		}
-		doLog(LEVEL_DEBUG, "Do request with url [%s] and method [%s]", requestUrl, method)
 
-		if isDebugLogEnabled() {
-			auth := headers[HEADER_AUTH_CAMEL]
-			delete(headers, HEADER_AUTH_CAMEL)
-			doLog(LEVEL_DEBUG, "Request headers: %v", headers)
-			headers[HEADER_AUTH_CAMEL] = auth
-		}
+		logHeaders(headers, obsClient.conf.signature)
 
-		for key, value := range headers {
-			if key == HEADER_HOST_CAMEL {
-				req.Host = value[0]
-				delete(headers, key)
-			} else if key == HEADER_CONTENT_LENGTH_CAMEL {
-				req.ContentLength = StringToInt64(value[0], -1)
-				delete(headers, key)
-			} else {
-				req.Header[key] = value
-			}
-		}
-
-		lastRequest = req
-
-		req.Header[HEADER_USER_AGENT_CAMEL] = []string{USER_AGENT}
-
-		if lastRequest != nil {
-			req.Host = lastRequest.Host
-			req.ContentLength = lastRequest.ContentLength
-		}
+		lastRequest = prepareReq(headers, req, lastRequest, obsClient.conf.userAgent)
 
 		start := GetCurrentTimestamp()
 		resp, err = obsClient.httpClient.Do(req)
-		if isInfoLogEnabled() {
-			doLog(LEVEL_INFO, "Do http request cost %d ms", (GetCurrentTimestamp() - start))
-		}
+		doLog(LEVEL_INFO, "Do http request cost %d ms", (GetCurrentTimestamp() - start))
 
 		var msg interface{}
 		if err != nil {
@@ -362,23 +520,21 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 		} else {
 			doLog(LEVEL_DEBUG, "Response headers: %v", resp.Header)
 			if resp.StatusCode < 300 {
+				respError = nil
 				break
-			} else if !repeatable || (resp.StatusCode >= 400 && resp.StatusCode < 500) || resp.StatusCode == 304 {
+			} else if canNotRetry(repeatable, resp.StatusCode) {
 				respError = ParseResponseToObsError(resp, obsClient.conf.signature == SignatureObs)
 				resp = nil
 				break
 			} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-				if location := resp.Header.Get(HEADER_LOCATION_CAMEL); location != "" && redirectCount < maxRedirectCount {
-					redirectUrl = location
-					doLog(LEVEL_WARN, "Redirect request to %s", redirectUrl)
+				location := resp.Header.Get(HEADER_LOCATION_CAMEL)
+				if isRedirectErr(location, redirectCount, maxRedirectCount) {
+					redirectURL = location
+					doLog(LEVEL_WARN, "Redirect request to %s", redirectURL)
 					msg = resp.Status
 					maxRetryCount++
 					redirectCount++
-					if resp.StatusCode == 302 && method == HTTP_GET {
-						redirectFlag = true
-					} else {
-						redirectFlag = false
-					}
+					redirectFlag = setRedirectFlag(resp.StatusCode, method)
 				} else {
 					respError = ParseResponseToObsError(resp, obsClient.conf.signature == SignatureObs)
 					resp = nil
@@ -389,51 +545,16 @@ func (obsClient ObsClient) doHttp(method, bucketName, objectKey string, params m
 			}
 		}
 		if i != maxRetryCount {
-			if resp != nil {
-				_err := resp.Body.Close()
-				if _err != nil {
-					doLog(LEVEL_WARN, "Failed to close resp body with reason: %v", _err)
-				}
-				resp = nil
+			_data, resp, err = prepareRetry(resp, headers, _data, msg)
+			if err != nil {
+				return nil, err
 			}
-			if _, ok := headers[HEADER_AUTH_CAMEL]; ok {
-				delete(headers, HEADER_AUTH_CAMEL)
-			}
-			doLog(LEVEL_WARN, "Failed to send request with reason:%v, will try again", msg)
-			if r, ok := _data.(*strings.Reader); ok {
-				_, err := r.Seek(0, 0)
-				if err != nil {
-					return nil, err
-				}
-			} else if r, ok := _data.(*bytes.Reader); ok {
-				_, err := r.Seek(0, 0)
-				if err != nil {
-					return nil, err
-				}
-			} else if r, ok := _data.(*fileReaderWrapper); ok {
-				fd, err := os.Open(r.filePath)
-				if err != nil {
-					return nil, err
-				}
-				defer func() {
-					errMsg := fd.Close()
-					if errMsg != nil {
-						doLog(LEVEL_WARN, "Failed to close with reason: %v", errMsg)
-					}
-				}()
-				fileReaderWrapper := &fileReaderWrapper{filePath: r.filePath}
-				fileReaderWrapper.mark = r.mark
-				fileReaderWrapper.reader = fd
-				fileReaderWrapper.totalCount = r.totalCount
-				_data = fileReaderWrapper
-				_, err = fd.Seek(r.mark, 0)
-				if err != nil {
-					return nil, err
-				}
-			} else if r, ok := _data.(*readerWrapper); ok {
-				_, err := r.seek(0, 0)
-				if err != nil {
-					return nil, err
+			if r, ok := _data.(*fileReaderWrapper); ok {
+				if _fd, _ok := r.reader.(*os.File); _ok {
+					defer func() {
+						errMsg := _fd.Close()
+						checkAndLogErr(errMsg, LEVEL_WARN, "Failed to close with reason: %v", errMsg)
+					}()
 				}
 			}
 			time.Sleep(time.Duration(float64(i+2) * rand.Float64() * float64(time.Second)))
