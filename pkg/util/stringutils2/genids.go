@@ -12,26 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokens
+package stringutils2
 
 import (
-	"context"
-
-	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"crypto/sha256"
+	"fmt"
 )
 
-func FernetTokenVerifier(ctx context.Context, tokenStr string) (mcclient.TokenCredential, error) {
-	token, err := TokenStrDecode(tokenStr)
-	if err != nil {
-		return nil, httperrors.NewInvalidCredentialError("invalid token %s", err)
+func GenId(ids ...string) string {
+	h := sha256.New()
+	for _, id := range ids {
+		h.Write([]byte(id))
 	}
-	userCred, err := token.GetSimpleUserCred(tokenStr)
-	if err != nil {
-		return nil, err
-	}
-	log.Debugf("FernetTokenVerify %s %#v %#v", tokenStr, token, userCred)
-	return userCred, nil
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

@@ -16,7 +16,6 @@ package tokens
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -136,20 +136,15 @@ func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
 	tokenStr := params["<token>"]
 
-	valid, err := models.TokenCacheManager.IsValid(tokenStr)
-	if err == nil {
-		if !valid {
-			httperrors.InvalidCredentialError(ctx, w, "invalid token")
+	cachedToken := cache.Get(tokenStr)
+	if cachedToken != nil {
+		if v2token, ok := cachedToken.(*mcclient.TokenCredentialV2); ok && v2token.IsValid() {
+			ret := jsonutils.NewDict()
+			ret.Add(jsonutils.Marshal(v2token), "access")
+			appsrv.SendJSON(w, ret)
 			return
 		} else {
-			// passthrough
-		}
-	} else {
-		if errors.Cause(err) != sql.ErrNoRows {
-			httperrors.GeneralServerError(ctx, w, err)
-			return
-		} else {
-			// passthrough
+			cache.Remove(tokenStr)
 		}
 	}
 
@@ -202,20 +197,15 @@ type VerifyTokenV3Param struct {
 func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	tokenStr := r.Header.Get(api.AUTH_SUBJECT_TOKEN_HEADER)
 
-	valid, err := models.TokenCacheManager.IsValid(tokenStr)
-	if err == nil {
-		if !valid {
-			httperrors.InvalidCredentialError(ctx, w, "invalid token")
+	cachedToken := cache.Get(tokenStr)
+	if cachedToken != nil {
+		if v3token, ok := cachedToken.(*mcclient.TokenCredentialV3); ok && v3token.IsValid() {
+			w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, v3token.Id)
+			v3token.Id = ""
+			appsrv.SendJSON(w, jsonutils.Marshal(v3token))
 			return
 		} else {
-			// passthrough
-		}
-	} else {
-		if errors.Cause(err) != sql.ErrNoRows {
-			httperrors.GeneralServerError(ctx, w, err)
-			return
-		} else {
-			// passthrough
+			cache.Remove(tokenStr)
 		}
 	}
 
@@ -269,12 +259,11 @@ func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (
 	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
 	}
-	token := SAuthToken{}
-	err := token.ParseFernetToken(tokenStr)
+	token, err := TokenStrDecode(tokenStr)
 	if err != nil {
 		return nil, httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
-	return &token, nil
+	return token, nil
 }
 
 func authenticateToken(f appsrv.FilterHandler) appsrv.FilterHandler {
