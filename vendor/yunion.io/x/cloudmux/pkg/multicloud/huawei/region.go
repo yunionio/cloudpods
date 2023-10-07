@@ -89,9 +89,9 @@ func (self *SRegion) getOBSEndpoint() string {
 	return getOBSEndpoint(self.GetId())
 }
 
-func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
+func (self *SRegion) getOBSClient(signType obs.SignatureType) (*obs.ObsClient, error) {
 	if self.obsClient == nil {
-		obsClient, err := self.client.getOBSClient(self.GetId())
+		obsClient, err := self.client.getOBSClient(self.GetId(), signType)
 		if err != nil {
 			return nil, err
 		}
@@ -702,7 +702,7 @@ func str2StorageClass(storageClassStr string) (obs.StorageClassType, error) {
 }
 
 func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
-	obsClient, err := region.getOBSClient()
+	obsClient, err := region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "region.getOBSClient")
 	}
@@ -745,7 +745,7 @@ func obsHttpCode(err error) int {
 }
 
 func (region *SRegion) DeleteIBucket(name string) error {
-	obsClient, err := region.getOBSClient()
+	obsClient, err := region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "region.getOBSClient")
 	}
@@ -762,7 +762,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 }
 
 func (region *SRegion) HeadBucket(name string) (*obs.BaseModel, error) {
-	obsClient, err := region.getOBSClient()
+	obsClient, err := region.getOBSClient("")
 	if err != nil {
 		return nil, errors.Wrap(err, "region.getOBSClient")
 	}

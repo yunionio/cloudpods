@@ -1302,3 +1302,58 @@ func (b *SStorageAccount) CopyPart(ctx context.Context, key string, uploadId str
 
 	return blockId, nil
 }
+
+func (bucket *SStorageAccount) DeleteCORS() error {
+	return bucket.SetCORS([]cloudprovider.SBucketCORSRule{})
+}
+
+func (bucket *SStorageAccount) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
+	cli, err := bucket.getBlobServiceClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "getBlobServiceClient")
+	}
+
+	conf, err := cli.GetServiceProperties()
+	if err != nil {
+		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return nil, errors.Wrapf(err, "osscli.GetBucketCORS(%s)", bucket.Name)
+		}
+	}
+	result := []cloudprovider.SBucketCORSRule{}
+	for i := range conf.Cors.CorsRule {
+		result = append(result, cloudprovider.SBucketCORSRule{
+			AllowedOrigins: strings.Split(conf.Cors.CorsRule[i].AllowedOrigins, ","),
+			AllowedMethods: strings.Split(conf.Cors.CorsRule[i].AllowedMethods, ","),
+			AllowedHeaders: strings.Split(conf.Cors.CorsRule[i].AllowedHeaders, ","),
+			MaxAgeSeconds:  conf.Cors.CorsRule[i].MaxAgeInSeconds,
+			ExposeHeaders:  strings.Split(conf.Cors.CorsRule[i].ExposedHeaders, ","),
+			Id:             strconv.Itoa(i),
+		})
+	}
+	return result, nil
+}
+
+func (bucket *SStorageAccount) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
+	cli, err := bucket.getBlobServiceClient()
+	if err != nil {
+		return errors.Wrap(err, "getBlobServiceClient")
+	}
+	corsRoles := []storage.CorsRule{}
+	for _, rule := range rules {
+		corsRoles = append(corsRoles, storage.CorsRule{
+			AllowedOrigins:  strings.Join(rule.AllowedOrigins, ","),
+			AllowedMethods:  strings.Join(rule.AllowedMethods, ","),
+			AllowedHeaders:  strings.Join(rule.AllowedHeaders, ","),
+			MaxAgeInSeconds: rule.MaxAgeSeconds,
+			ExposedHeaders:  strings.Join(rule.ExposeHeaders, ","),
+		})
+	}
+	cors := &storage.Cors{
+		CorsRule: corsRoles,
+	}
+
+	cli.SetServiceProperties(storage.ServiceProperties{
+		Cors: cors,
+	})
+	return nil
+}
