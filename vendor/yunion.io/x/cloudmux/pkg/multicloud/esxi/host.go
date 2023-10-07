@@ -17,6 +17,7 @@ package esxi
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -30,7 +31,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -1102,54 +1105,31 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 3)
 
-	addDeviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 3)
-
-	// change nic if set
-	if params.Nics != nil && len(params.Nics) > 0 {
-		// get origin nics
-		originNics := make([]types.BaseVirtualDevice, 0, 1)
-		for _, nic := range from.vnics {
-			originNics = append(originNics, nic.getVirtualEthernetCard())
+	macAddrs := []string{}
+	for _, nic := range params.Nics {
+		index, _ := nic.Int("index")
+		mac, _ := nic.GetString("mac")
+		macAddrs = append(macAddrs, mac)
+		bridge, _ := nic.GetString("bridge")
+		driver := "e1000"
+		if nic.Contains("driver") {
+			driver, _ = nic.GetString("driver")
 		}
-		nicIndex := 0
-		nics := params.Nics
-		for _, nic := range nics {
-			index, _ := nic.Int("index")
-			mac, _ := nic.GetString("mac")
-			bridge, _ := nic.GetString("bridge")
-			driver := "e1000"
-			if nic.Contains("driver") {
-				driver, _ = nic.GetString("driver")
-			}
-			if host.isVersion50() {
-				driver = "e1000"
-			}
-			var vlanId int64 = 1
-			if nic.Contains("vlan") {
-				vlanId, _ = nic.Int("vlan")
-			}
-			dev, err := NewVNICDev(host, mac, driver, bridge, int32(vlanId), 4000, 100, int32(index))
-			if err != nil {
-				return nil, errors.Wrap(err, "NewVNICDev")
-			}
-			op := types.VirtualDeviceConfigSpecOperationAdd
-			if nicIndex < len(originNics) {
-				// edit
-				op = types.VirtualDeviceConfigSpecOperationEdit
-				host.changeNic(originNics[nicIndex], dev)
-				dev = originNics[nicIndex]
-				deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
-					Operation: op,
-					Device:    dev,
-				})
-			} else {
-				addDeviceChange = append(addDeviceChange, &types.VirtualDeviceConfigSpec{
-					Operation: op,
-					Device:    dev,
-				})
-			}
-			nicIndex += 1
+		if host.isVersion50() {
+			driver = "e1000"
 		}
+		var vlanId int64 = 1
+		if nic.Contains("vlan") {
+			vlanId, _ = nic.Int("vlan")
+		}
+		dev, err := NewVNICDev(host, mac, driver, bridge, int32(vlanId), 4000, 100, int32(index))
+		if err != nil {
+			return nil, errors.Wrap(err, "NewVNICDev")
+		}
+		deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
+			Operation: types.VirtualDeviceConfigSpecOperationAdd,
+			Device:    dev,
+		})
 	}
 
 	if len(params.Disks) > 0 && snapshot == nil {
@@ -1165,7 +1145,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 				if host.isVersion50() {
 					driver = "scsi"
 				}
-				addDeviceChange = append(deviceChange, addDevSpec(NewSCSIDev(key, 100, driver)))
+				deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(key, 100, driver)))
 			}
 		} else {
 			ideDevs, err := from.FindController(ctx, "ide")
@@ -1174,8 +1154,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 			}
 			if len(ideDevs) == 0 {
 				// add ide driver
-				addDeviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
-				addDeviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 1)))
+				deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
 			}
 		}
 	}
@@ -1199,11 +1178,10 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 	hostref := host.GetoHostSystem().Reference()
 	dsref := ds.getDatastoreObj().Reference()
 	relocateSpec := types.VirtualMachineRelocateSpec{
-		DeviceChange: deviceChange,
-		Folder:       &folderref,
-		Pool:         &poolref,
-		Host:         &hostref,
-		Datastore:    &dsref,
+		Folder:    &folderref,
+		Pool:      &poolref,
+		Host:      &hostref,
+		Datastore: &dsref,
 	}
 	cloneSpec := &types.VirtualMachineCloneSpec{
 		PowerOn:  false,
@@ -1244,11 +1222,26 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		return nil, errors.Error("clone successfully but unable to NewVirtualMachine")
 	}
 
+	// remove old nics
+	svm := vm.getVirtualMachine()
+	for i := range svm.Config.Hardware.Device {
+		dev := svm.Config.Hardware.Device[i]
+		devType := reflect.Indirect(reflect.ValueOf(dev)).Type()
+		etherType := reflect.TypeOf((*types.VirtualEthernetCard)(nil)).Elem()
+		if reflectutils.StructContains(devType, etherType) {
+			nic := NewVirtualNIC(vm, dev, i)
+			if !utils.IsInStringArray(nic.GetMAC(), macAddrs) {
+				deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
+					Operation: types.VirtualDeviceConfigSpecOperationRemove,
+					Device:    nic.getVirtualEthernetCard(),
+				})
+			}
+		}
+	}
 	if snapshot != nil {
 		return vm, nil
 	}
 
-	deviceChange = addDeviceChange
 	// adjust disk
 	var i int
 	if len(params.Disks) > 0 {
