@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -28,14 +29,16 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 var TokenCacheManager *STokenCacheManager
 
 func init() {
 	TokenCacheManager = &STokenCacheManager{
-		SModelBaseManager: db.NewModelBaseManager(
+		SStandaloneAnonResourceBaseManager: db.NewStandaloneAnonResourceBaseManager(
 			STokenCache{},
 			"token_cache_tbl",
 			"token_cache",
@@ -46,17 +49,25 @@ func init() {
 }
 
 type STokenCache struct {
-	db.SModelBase
+	db.SStandaloneAnonResourceBase
 
-	Token     string    `width:"700" charset:"ascii" nullable:"false" primary:"true"`
+	// Token     string    `width:"64" charset:"ascii" nullable:"false" primary:"true"`
 	ExpiredAt time.Time `nullable:"false"`
 	Valid     bool
-	Method    string `width:"32" charset:"ascii"`
-	AuditIds  string `width:"700" charset:"utf8" index:"true"`
+
+	Method   string `width:"32" charset:"ascii"`
+	AuditIds string `width:"256" charset:"utf8" index:"true"`
+
+	UserId    string `width:"128" charset:"ascii" nullable:"false"`
+	ProjectId string `width:"128" charset:"ascii" nullable:"true"`
+	DomainId  string `width:"128" charset:"ascii" nullable:"true"`
+
+	Source string `width:"16" charset:"ascii"`
+	Ip     string `width:"64" charset:"ascii"`
 }
 
 type STokenCacheManager struct {
-	db.SModelBaseManager
+	db.SStandaloneAnonResourceBaseManager
 }
 
 func joinAuditIds(ids []string) string {
@@ -64,88 +75,101 @@ func joinAuditIds(ids []string) string {
 	return strings.Join(ids, ",")
 }
 
-func (manager *STokenCacheManager) Save(ctx context.Context, token string, expiredAt time.Time, method string, auditIds []string) error {
-	return manager.insert(ctx, token, expiredAt, true, method, auditIds)
-}
-
-func (manager *STokenCacheManager) Invalidate(ctx context.Context, token string, expiredAt time.Time, method string, auditIds []string) error {
-	return manager.insert(ctx, token, expiredAt, false, method, auditIds)
-}
-
-func (manager *STokenCacheManager) BatchInvalidate(ctx context.Context, method string, auditIds []string) error {
-	invalidQueue := []sCacheCredential{
-		{
-			Method:   method,
-			AuditIds: auditIds,
-		},
+func (manager *STokenCacheManager) Save(ctx context.Context, tokenStr string, expiredAt time.Time, method string, auditIds []string, userId, projId, domainId, source, ip string) error {
+	token, err := manager.FetchToken(tokenStr)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return errors.Wrap(err, "FetchToken")
 	}
-	for i := 0; i < len(invalidQueue); i++ {
-		queues, err := manager.batchInvalidateInternal(ctx, invalidQueue[i])
-		if err != nil {
-			return errors.Wrap(err, "batchInvalidateInternal")
-		}
-		if len(queues) > 0 {
-			invalidQueue = append(invalidQueue, queues...)
-		}
+	if token == nil || !token.Valid {
+		return manager.insert(ctx, tokenStr, expiredAt, true, method, auditIds, userId, projId, domainId, source, ip)
 	}
 	return nil
 }
 
-type sCacheCredential struct {
-	Method   string
-	AuditIds []string
+func (manager *STokenCacheManager) Invalidate(ctx context.Context, userCred mcclient.TokenCredential, tokenStr string) error {
+	token, err := manager.FetchToken(tokenStr)
+	if err != nil {
+		return errors.Wrap(err, "FetchToken")
+	}
+	err = token.invalidate(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "token.invalidate")
+	}
+	return nil
 }
 
-func (manager *STokenCacheManager) batchInvalidateInternal(ctx context.Context, cred sCacheCredential) ([]sCacheCredential, error) {
-	q := manager.Query().Equals("method", cred.Method).Equals("audit_ids", joinAuditIds(cred.AuditIds))
+func (manager *STokenCacheManager) BatchInvalidateByUserId(ctx context.Context, userCred mcclient.TokenCredential, uid string) error {
+	return manager.batchInvalidateInternal(ctx, userCred, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("user_id", uid)
+		return q
+	})
+}
+
+func (manager *STokenCacheManager) BatchInvalidate(ctx context.Context, userCred mcclient.TokenCredential, method string, auditIds []string) error {
+	return manager.batchInvalidateInternal(ctx, userCred, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("method", method).Equals("audit_ids", joinAuditIds(auditIds))
+		return q
+	})
+}
+
+func (manager *STokenCacheManager) batchInvalidateInternal(ctx context.Context, userCred mcclient.TokenCredential, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) error {
+	q := manager.Query().IsTrue("valid")
+	q = filter(q)
 	tokens := make([]STokenCache, 0)
 	err := db.FetchModelObjects(manager, q, &tokens)
 	if err != nil {
-		return nil, errors.Wrap(err, "FetchModelObjects")
+		return errors.Wrap(err, "FetchModelObjects")
 	}
 	if len(tokens) == 0 {
-		return nil, nil
+		return nil
 	}
-	queues := make([]sCacheCredential, 0)
+	errs := make([]error, 0)
 	for i := range tokens {
 		token := tokens[i]
-		queues = append(queues, sCacheCredential{
-			Method:   api.AUTH_METHOD_TOKEN,
-			AuditIds: []string{token.Token},
-		})
+		err := token.invalidate(ctx, userCred)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "batchInvalidateInternal token %s", token.Id))
+		}
 	}
-	err = manager.TableSpec().GetTableSpec().UpdateBatch(
-		map[string]interface{}{
-			"valid": false,
-		},
-		map[string]interface{}{
-			"method":    cred.Method,
-			"audit_ids": joinAuditIds(cred.AuditIds),
-		},
-	)
-	return queues, errors.Wrap(err, "UpdateBatch")
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	}
+	return nil
 }
 
-func (manager *STokenCacheManager) insert(ctx context.Context, token string, expiredAt time.Time, valid bool, method string, auditIds []string) error {
+func (manager *STokenCacheManager) insert(ctx context.Context, token string, expiredAt time.Time, valid bool, method string, auditIds []string, userId, projectId, domainId, source, ip string) error {
 	val := STokenCache{
-		Token:     token,
+		SStandaloneAnonResourceBase: db.SStandaloneAnonResourceBase{
+			Id: token,
+		},
 		ExpiredAt: expiredAt,
 		Valid:     valid,
 		Method:    method,
 		AuditIds:  joinAuditIds(auditIds),
+		UserId:    userId,
+		ProjectId: projectId,
+		DomainId:  domainId,
+		Source:    source,
+		Ip:        ip,
 	}
 	err := manager.TableSpec().InsertOrUpdate(ctx, &val)
 	return errors.Wrap(err, "InsertOrUpdate")
 }
 
-func (manager *STokenCacheManager) IsValid(token string) (bool, error) {
-	q := manager.Query().Equals("token", token)
-	tokenCache := STokenCache{}
-	err := q.First(&tokenCache)
+func (manager *STokenCacheManager) FetchToken(tokenStr string) (*STokenCache, error) {
+	obj, err := manager.FetchById(tokenStr)
 	if err != nil {
-		return false, errors.Wrap(err, "Query")
+		return nil, errors.Wrap(err, "FetchById")
 	}
-	return tokenCache.Valid, nil
+	return obj.(*STokenCache), nil
+}
+
+func (manager *STokenCacheManager) IsValid(tokenStr string) (bool, error) {
+	token, err := manager.FetchToken(tokenStr)
+	if err != nil {
+		return false, errors.Wrap(err, "FetchToken")
+	}
+	return token.Valid, nil
 }
 
 func (manager *STokenCacheManager) removeObsolete() error {
@@ -164,7 +188,7 @@ func RemoveObsoleteInvalidTokens(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (manager *STokenCacheManager) FetchInvalidTokens() ([]string, error) {
-	q := manager.Query("token").IsFalse("valid")
+	q := manager.Query("id").IsFalse("valid")
 	tokens := make([]STokenCache, 0)
 	err := db.FetchModelObjects(manager, q, &tokens)
 	if err != nil {
@@ -172,7 +196,28 @@ func (manager *STokenCacheManager) FetchInvalidTokens() ([]string, error) {
 	}
 	ret := make([]string, len(tokens))
 	for i := range tokens {
-		ret[i] = tokens[i].Token
+		ret[i] = tokens[i].Id
 	}
 	return ret, nil
+}
+
+func (token *STokenCache) invalidate(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := TokenCacheManager.BatchInvalidate(ctx, userCred, api.AUTH_METHOD_TOKEN, []string{token.Id})
+	if err != nil {
+		return errors.Wrapf(err, "BatchInvalidate subtoken %s", token.Id)
+	}
+
+	_, err = db.Update(token, func() error {
+		token.Valid = false
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "update")
+	}
+
+	cache.Remove(token.Id)
+
+	logclient.AddActionLogWithContext(ctx, token, logclient.ACT_DELETE, token.GetShortDesc(ctx), userCred, true)
+
+	return nil
 }

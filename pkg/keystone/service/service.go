@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
@@ -89,6 +90,8 @@ func StartService() {
 	common_app.InitBaseAuth(&opts.BaseOptions)
 
 	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
+
+	cache.Init(opts.TokenExpirationSeconds)
 
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
