@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -649,7 +650,7 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 		}
 	}
 	if conf == nil {
-		return nil, nil
+		return []cloudprovider.SBucketCORSRule{}, nil
 	}
 	result := []cloudprovider.SBucketCORSRule{}
 	for i := range conf.CORSRules {
@@ -797,4 +798,268 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 	}
 
 	return result, nil
+}
+
+type SBucketPolicyStatement struct {
+	Version   string                          `json:"Version"`
+	Id        string                          `json:"Id"`
+	Statement []SBucketPolicyStatementDetails `json:"Statement"`
+}
+
+type SBucketPolicyStatementDetails struct {
+	Sid       string                            `json:"Sid"`
+	Principal map[string][]string               `json:"Principal"`
+	Action    []string                          `json:"Action"`
+	Resource  []string                          `json:"Resource"`
+	Effect    string                            `json:"Effect"`
+	Condition map[string]map[string]interface{} `json:"Condition"`
+}
+
+func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
+	policies, err := b.getPolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "get policy")
+	}
+	res := []cloudprovider.SBucketPolicyStatement{}
+	for _, policy := range policies {
+		temp := cloudprovider.SBucketPolicyStatement{}
+		temp.Action = policy.Action
+		temp.Principal = policy.Principal
+		temp.Effect = policy.Effect
+		temp.Resource = policy.Resource
+		temp.ResourcePath = policy.Resource
+		temp.CannedAction = b.actionToCannedAction(policy.Action)
+		temp.Id = policy.Sid
+		temp.Condition = policy.Condition
+		res = append(res, temp)
+	}
+	return res, nil
+}
+
+func (b *SBucket) getPolicy() ([]SBucketPolicyStatementDetails, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetS3Client")
+	}
+	input := s3.GetBucketPolicyInput{}
+	input.SetBucket(b.Name)
+	conf, err := s3cli.GetBucketPolicy(&input)
+	if err != nil {
+		if !strings.Contains(err.Error(), "NoSuch") {
+			return nil, errors.Wrapf(err, "s3cli.GetBucketCors(%s)", b.Name)
+		}
+	}
+	if conf == nil {
+		return []SBucketPolicyStatementDetails{}, nil
+	}
+	if conf.Policy == nil {
+		return nil, errors.ErrNotFound
+	}
+	obj, err := jsonutils.Parse([]byte(*conf.Policy))
+	if err != nil {
+		return nil, errors.Wrap(err, "parse policy")
+	}
+	policies := []SBucketPolicyStatementDetails{}
+	err = obj.Unmarshal(&policies, "Statement")
+	if err != nil {
+		return nil, errors.Wrap(err, "Statement")
+	}
+	err = obj.Unmarshal(&policies, "Statement")
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal")
+	}
+	return policies, nil
+}
+
+func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) error {
+	old, err := b.getPolicy()
+	if err != nil && err != errors.ErrNotFound {
+		return errors.Wrap(err, "getPolicy")
+	}
+	if old == nil {
+		old = []SBucketPolicyStatementDetails{}
+	}
+	ids := []string{}
+	for i := range policy.PrincipalId {
+		id := strings.Split(policy.PrincipalId[i], ":")
+		if len(id) == 1 {
+			ids = append(ids, id...)
+		}
+		if len(id) == 2 {
+			// 没有主账号id,设为owner id
+			if len(id[0]) == 0 {
+				id[0] = b.region.client.accountId
+			}
+			// 没有子账号，默认和主账号相同
+			if len(id[1]) == 0 {
+				// id[1] = id[0]
+				ids = append(ids, id[0])
+				continue
+			}
+			ids = append(ids, fmt.Sprintf("arn:%s:iam::%s:user/%s", b.region.GetARNPartition(), id[0], id[1]))
+		}
+		if len(id) > 2 {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "Invalida PrincipalId Input")
+		}
+	}
+
+	old = append(old, SBucketPolicyStatementDetails{
+		Effect:   policy.Effect,
+		Action:   b.getAction(policy.CannedAction),
+		Resource: b.getResources(policy.ResourcePath),
+		Sid:      utils.GenRequestId(20),
+		Principal: map[string][]string{
+			// "AWS": b.getPrincipal(policy.PrincipalId, policy.AccountId),
+			"AWS": ids,
+		},
+		Condition: policy.Condition,
+	})
+	return b.setPolicy(old)
+}
+
+func (b *SBucket) setPolicy(policies []SBucketPolicyStatementDetails) error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	input := s3.PutBucketPolicyInput{}
+	input.Bucket = &b.Name
+	// example
+	// test := `{"Statement":[{"Action":["s3:GetBucketAcl"],"Effect":"Allow","Principal":{"Service":["config.amazonaws.com"]},"Resource":["arn:aws-cn:s3:::config-bucket-2xxxxx6"],"Sid":"AWSConfigBucketPermissionsCheck"},{"Action":["s3:PutObject"],"Effect":"Allow","Principal":{"Service":["config.amazonaws.com"]},"Resource":["arn:aws-cn:s3:::config-bucket-2xxxxx6/AWSLogs/2xxxxx6/Config/*"],"Sid":"AWSConfigBucketDelivery"},{"Action":["s3:PutObject"],"Effect":"Allow","Principal":{"Service":["config.amazonaws.com"]},"Resource":["arn:aws-cn:s3:::config-bucket-2xxxxx6/AWSLogs/2xxxxx6/Config/*"],"Sid":"test"}]}`
+	param := SBucketPolicyStatement{}
+	param.Statement = policies
+
+	policyStr := jsonutils.Marshal(param).String()
+	input.Policy = &policyStr
+	_, err = s3cli.PutBucketPolicy(&input)
+	if err != nil {
+		return errors.Wrap(err, "PutBucketPolicy")
+	}
+	return nil
+}
+
+func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatement, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetS3Client")
+	}
+
+	policies, err := b.getPolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPolicy")
+	}
+	needKeep := []SBucketPolicyStatementDetails{}
+	for i, policy := range policies {
+		if utils.IsInStringArray(fmt.Sprintf("%d", i), id) {
+			continue
+		}
+		needKeep = append(needKeep, policy)
+	}
+	_, err = s3cli.DeleteBucketPolicy(&s3.DeleteBucketPolicyInput{Bucket: &b.Name})
+	if err != nil {
+		return nil, errors.Wrap(err, "DeleteBucketPolicy")
+	}
+
+	if len(needKeep) > 0 {
+		err = b.setPolicy(needKeep)
+		if err != nil {
+			return nil, errors.Wrap(err, "setPolicy")
+		}
+	}
+	res := []cloudprovider.SBucketPolicyStatement{}
+	for _, policy := range needKeep {
+		temp := cloudprovider.SBucketPolicyStatement{}
+		temp.Action = policy.Action
+		temp.Principal = policy.Principal
+		temp.Effect = policy.Effect
+		temp.Resource = policy.Resource
+		temp.ResourcePath = policy.Resource
+		temp.CannedAction = b.actionToCannedAction(policy.Action)
+		temp.Id = policy.Sid
+		temp.Condition = policy.Condition
+		res = append(res, temp)
+	}
+	return res, nil
+}
+
+func (b *SBucket) getResources(paths []string) []string {
+	res := []string{}
+	for _, path := range paths {
+		res = append(res, fmt.Sprintf("arn:%s:s3:::%s%s", b.region.GetARNPartition(), b.Name, path))
+	}
+	return res
+}
+
+func (b *SBucket) getPrincipal(principalIds []string, accountId string) []string {
+	res := []string{}
+	for _, id := range principalIds {
+		res = append(res, fmt.Sprintf("arn:%s:iam::%s:user/%s", b.region.GetARNPartition(), accountId, id))
+	}
+	return res
+}
+
+func (b *SBucket) getAwsAction(actions []string) []string {
+	res := []string{}
+	for _, action := range actions {
+		res = append(res, fmt.Sprintf("s3:%s", action))
+	}
+	return res
+}
+
+var readActions = []string{
+	"s3:Get*",
+	"s3:List*",
+}
+
+var readWriteActions = []string{
+	"s3:Get*",
+	"s3:List*",
+	"s3:Create*",
+	"s3:Put*",
+	"s3:Delete*",
+	"s3:Create*",
+	"s3:AbortMultipartUpload",
+}
+
+var fullControlActions = []string{
+	"s3:*",
+}
+
+func (b *SBucket) getAction(s string) []string {
+	switch s {
+	case "Read":
+		return readActions
+	case "ReadWrite":
+		return readWriteActions
+	case "FullControl":
+		return fullControlActions
+	default:
+		return nil
+	}
+}
+
+func (b *SBucket) actionToCannedAction(actions []string) string {
+	if len(actions) == len(readActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, readActions) {
+				return ""
+			}
+		}
+		return "Read"
+	} else if len(actions) == len(fullControlActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, fullControlActions) {
+				return ""
+			}
+		}
+		return "FullControl"
+	} else if len(actions) == len(readWriteActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, readWriteActions) {
+				return ""
+			}
+		}
+		return "ReadWrite"
+	}
+	return ""
 }
