@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/cloudinit"
 	"yunion.io/x/pkg/util/osprofile"
@@ -659,10 +660,18 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			networkInterfaces := []SNetworkInterface{}
 			eipAddress := SEipAddress{}
 			for _, n := range instance.NetworkInterfaces {
-				i := SNetworkInterface{
-					MacAddress:         *n.MacAddress,
-					NetworkInterfaceId: *n.NetworkInterfaceId,
-					PrivateIpAddress:   *n.PrivateIpAddress,
+				if gotypes.IsNil(n) {
+					continue
+				}
+				i := SNetworkInterface{}
+				if !gotypes.IsNil(n.MacAddress) {
+					i.MacAddress = *n.MacAddress
+				}
+				if !gotypes.IsNil(n.NetworkInterfaceId) {
+					i.NetworkInterfaceId = *n.NetworkInterfaceId
+				}
+				if !gotypes.IsNil(n.PrivateIpAddress) {
+					i.PrivateIpAddress = *n.PrivateIpAddress
 				}
 				networkInterfaces = append(networkInterfaces, i)
 
