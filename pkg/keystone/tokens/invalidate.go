@@ -16,6 +16,7 @@ package tokens
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -50,20 +51,21 @@ func invalidateToken(ctx context.Context, tokenStr string) error {
 	if adminToken == nil || len(tokenStr) == 0 {
 		return httperrors.NewForbiddenError("missing auth token")
 	}
-	token, err := TokenStrDecode(tokenStr)
+	token, err := TokenStrDecode(ctx, tokenStr)
 	if err != nil {
 		return httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
-
 	if adminToken.GetUserId() != token.UserId && adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "delete").Result.IsDeny() {
-		return httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
+		return httperrors.NewForbiddenError("%s not allow to delete token", adminToken.GetUserName())
 	}
-
 	err = models.TokenCacheManager.Invalidate(ctx, adminToken, tokenStr)
 	if err != nil {
-		return errors.Wrap(err, "Invalidate")
+		if errors.Cause(err) == sql.ErrNoRows {
+			return errors.Wrap(ErrTokenNotFound, tokenStr)
+		} else {
+			return errors.Wrap(err, "Invalidate")
+		}
 	}
-
 	return nil
 }
 

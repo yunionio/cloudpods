@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -178,23 +177,54 @@ func (t *SAuthToken) Encode() ([]byte, error) {
 	return t.getPayload().Encode()
 }
 
-func TokenStrDecode(tokenStr string) (*SAuthToken, error) {
+func (t *SAuthToken) IsExpired() bool {
+	return t.ValidDuration() <= 0
+}
+
+func (t *SAuthToken) ValidDuration() time.Duration {
+	return time.Until(t.ExpiresAt)
+}
+
+func TokenStrDecode(ctx context.Context, tokenStr string) (*SAuthToken, error) {
+	var fernetToken string
+	if len(tokenStr) > api.AUTH_TOKEN_LENGTH {
+		// old style fernet token, convert to new token of sha256 hash of fernetToken
+		fernetToken = tokenStr
+		tokenStr = stringutils2.GenId(fernetToken)
+	}
 	token, err := models.TokenCacheManager.FetchToken(tokenStr)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			// not found
-			token := &SAuthToken{}
-			err := token.parseFernetToken(tokenStr)
-			if err != nil {
-				return nil, errors.Wrap(err, "parseFernetToken")
+			if len(fernetToken) > 0 {
+				// try to decode fernetToken
+				token := &SAuthToken{}
+				err := token.parseFernetToken(fernetToken)
+				if err != nil {
+					return nil, errors.Wrap(err, "parseFernetToken")
+				}
+				if token.IsExpired() {
+					return nil, ErrExpiredToken
+				}
+				// we should save the token for later use
+				{
+					err := models.TokenCacheManager.Save(ctx, tokenStr, token.ExpiresAt, token.Method, token.AuditIds,
+						token.UserId, token.ProjectId, token.DomainId, token.Context.Source, token.Context.Ip)
+					if err != nil {
+						log.Errorf("TokenStrDecode: save token fail %s", err)
+					}
+				}
+				return token, nil
+			} else {
+				// ??? not a fernetToken
+				return nil, errors.Wrapf(ErrTokenNotFound, "token %q not found", tokenStr)
 			}
-			return token, nil
 		} else {
 			return nil, errors.Wrap(err, "FetchToken")
 		}
 	} else {
 		if !token.Valid {
-			return nil, errors.Wrap(httperrors.ErrInvalidCredential, "invalid token")
+			return nil, ErrInvalidToken
 		}
 		return &SAuthToken{
 			UserId:    token.UserId,
@@ -216,7 +246,7 @@ func TokenStrDecode(tokenStr string) (*SAuthToken, error) {
 func (t *SAuthToken) parseFernetToken(tokenStr string) error {
 	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr)) // , time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
 	if tk == nil {
-		return errors.Wrapf(ErrInvalidToken, tokenStr)
+		return errors.Wrapf(ErrInvalidFernetToken, tokenStr)
 	}
 	err := t.Decode(tk)
 	if err != nil {
@@ -245,7 +275,9 @@ func (t *SAuthToken) encodeShortToken() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "encodeFernetToken")
 	}
-	return stringutils2.GenId(tk), nil
+	stk := stringutils2.GenId(tk)
+	// log.Debugf("encodeShortToken %s => %s", tk, stk)
+	return stk, nil
 }
 
 func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, error) {
