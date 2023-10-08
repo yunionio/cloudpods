@@ -14,7 +14,11 @@
 
 package tokens
 
-import "yunion.io/x/pkg/errors"
+import (
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
 const (
 	ErrVerMismatch        = errors.Error("version mismatch")
@@ -31,3 +35,19 @@ const (
 	ErrInvalidAccessKeyId = errors.Error("invalid access key id")
 	ErrExpiredAccessKey   = errors.Error("expired access key")
 )
+
+func init() {
+	httperrors.RegisterErrorHttpCode(ErrVerMismatch, 401)
+	httperrors.RegisterErrorHttpCode(ErrProjectDisabled, 401)
+	httperrors.RegisterErrorHttpCode(ErrUserDisabled, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidToken, 401)
+	httperrors.RegisterErrorHttpCode(ErrExpiredToken, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidFernetToken, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidAuthMethod, 401)
+	httperrors.RegisterErrorHttpCode(ErrUserNotFound, 401)
+	httperrors.RegisterErrorHttpCode(ErrDomainDisabled, 401)
+	httperrors.RegisterErrorHttpCode(ErrEmptyAuth, 401)
+	httperrors.RegisterErrorHttpCode(ErrUserNotInProject, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidAccessKeyId, 401)
+	httperrors.RegisterErrorHttpCode(ErrExpiredAccessKey, 401)
+}
