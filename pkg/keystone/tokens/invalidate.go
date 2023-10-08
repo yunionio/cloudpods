@@ -18,6 +18,7 @@ import (
 	"context"
 	"net/http"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -73,7 +74,14 @@ func invalidateToken(ctx context.Context, tokenStr string) error {
 // keystone v3获取被删除的token的列表API
 //
 func fetchInvalidTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-
+	tokens, err := fetchInvalidTokens(ctx)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	resp := jsonutils.NewDict()
+	resp.Add(jsonutils.NewStringArray(tokens), "tokens")
+	appsrv.SendJSON(w, resp)
 }
 
 func fetchInvalidTokens(ctx context.Context) ([]string, error) {
