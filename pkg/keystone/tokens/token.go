@@ -16,6 +16,7 @@ package tokens
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 
@@ -25,10 +26,13 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
@@ -48,7 +52,7 @@ func GetDefaultToken() string {
 			AuditIds:  []string{utils.GenRequestId(16)},
 		}
 		var err error
-		defaultAuthTokenStr, err = defaultAuthToken.EncodeFernetToken()
+		defaultAuthTokenStr, err = defaultAuthToken.encodeFernetToken()
 		if err != nil {
 			log.Fatalf("defaultAuthToken.EncodeFernetToken fail: %s", err)
 		}
@@ -174,7 +178,42 @@ func (t *SAuthToken) Encode() ([]byte, error) {
 	return t.getPayload().Encode()
 }
 
-func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
+func TokenStrDecode(tokenStr string) (*SAuthToken, error) {
+	token, err := models.TokenCacheManager.FetchToken(tokenStr)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			// not found
+			token := &SAuthToken{}
+			err := token.parseFernetToken(tokenStr)
+			if err != nil {
+				return nil, errors.Wrap(err, "parseFernetToken")
+			}
+			return token, nil
+		} else {
+			return nil, errors.Wrap(err, "FetchToken")
+		}
+	} else {
+		if !token.Valid {
+			return nil, errors.Wrap(httperrors.ErrInvalidCredential, "invalid token")
+		}
+		return &SAuthToken{
+			UserId:    token.UserId,
+			ProjectId: token.ProjectId,
+			DomainId:  token.DomainId,
+
+			Method:    token.Method,
+			ExpiresAt: token.ExpiredAt,
+			AuditIds:  strings.Split(token.AuditIds, ","),
+
+			Context: mcclient.SAuthContext{
+				Source: token.Source,
+				Ip:     token.Ip,
+			},
+		}, nil
+	}
+}
+
+func (t *SAuthToken) parseFernetToken(tokenStr string) error {
 	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr)) // , time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
 	if tk == nil {
 		return errors.Wrapf(ErrInvalidToken, tokenStr)
@@ -189,7 +228,7 @@ func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
 	return nil
 }
 
-func (t *SAuthToken) EncodeFernetToken() (string, error) {
+func (t *SAuthToken) encodeFernetToken() (string, error) {
 	tk, err := t.Encode()
 	if err != nil {
 		return "", errors.Wrap(err, "encode error")
@@ -199,6 +238,14 @@ func (t *SAuthToken) EncodeFernetToken() (string, error) {
 		return "", errors.Wrap(err, "TokenKeysManager.Encrypt")
 	}
 	return string(ftk), nil
+}
+
+func (t *SAuthToken) encodeShortToken() (string, error) {
+	tk, err := t.encodeFernetToken()
+	if err != nil {
+		return "", errors.Wrap(err, "encodeFernetToken")
+	}
+	return stringutils2.GenId(tk), nil
 }
 
 func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, error) {
@@ -286,7 +333,7 @@ func (t *SAuthToken) getTokenV3(
 	token.Token.User.IsSystemAccount = user.IsSystemAccount
 	token.Token.Context = t.Context
 
-	tk, err := t.EncodeFernetToken()
+	tk, err := t.encodeShortToken()
 	if err != nil {
 		return nil, errors.Wrap(err, "EncodeFernetToken")
 	}
@@ -356,9 +403,9 @@ func (t *SAuthToken) getTokenV3(
 		}
 
 		policyNames, _, _ := models.RolePolicyManager.GetMatchPolicyGroup(&token, time.Time{}, true)
-		token.Token.Policies.Project, _ = policyNames[rbacscope.ScopeProject]
-		token.Token.Policies.Domain, _ = policyNames[rbacscope.ScopeDomain]
-		token.Token.Policies.System, _ = policyNames[rbacscope.ScopeSystem]
+		token.Token.Policies.Project = policyNames[rbacscope.ScopeProject]
+		token.Token.Policies.Domain = policyNames[rbacscope.ScopeDomain]
+		token.Token.Policies.System = policyNames[rbacscope.ScopeSystem]
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {
@@ -368,6 +415,15 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Catalog = endpoints.GetKeystoneCatalogV3()
 		}
 	}
+
+	{
+		err := models.TokenCacheManager.Save(ctx, token.Id, t.ExpiresAt, t.Method, t.AuditIds, t.UserId, t.ProjectId, t.DomainId, t.Context.Source, t.Context.Ip)
+		if err != nil {
+			return nil, errors.Wrap(err, "Save Token")
+		}
+		cache.Save(token.Id, &token)
+	}
+
 	return &token, nil
 }
 
@@ -383,7 +439,7 @@ func (t *SAuthToken) getTokenV2(
 	token.User.IsSystemAccount = user.IsSystemAccount
 	token.Context = t.Context
 
-	tk, err := t.EncodeFernetToken()
+	tk, err := t.encodeShortToken()
 	if err != nil {
 		return nil, errors.Wrap(err, "EncodeFernetToken")
 	}
@@ -433,6 +489,14 @@ func (t *SAuthToken) getTokenV2(
 		if endpoints != nil {
 			token.ServiceCatalog = endpoints.GetKeystoneCatalogV2()
 		}
+	}
+
+	{
+		err := models.TokenCacheManager.Save(ctx, token.Token.Id, t.ExpiresAt, t.Method, t.AuditIds, t.UserId, t.ProjectId, t.DomainId, t.Context.Source, t.Context.Ip)
+		if err != nil {
+			return nil, errors.Wrap(err, "Save Token")
+		}
+		cache.Save(token.Token.Id, &token)
 	}
 
 	return &token, nil
