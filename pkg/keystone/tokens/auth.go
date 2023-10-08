@@ -46,25 +46,9 @@ func authUserByTokenV3(ctx context.Context, input mcclient.SAuthenticationInputV
 }
 
 func authUserByToken(ctx context.Context, tokenStr string) (*api.SUserExtended, error) {
-	valid, err := models.TokenCacheManager.IsValid(tokenStr)
-	if err == nil {
-		if !valid {
-			return nil, errors.Wrap(httperrors.ErrInvalidCredential, "invalid token")
-		} else {
-			// passthrough
-		}
-	} else {
-		if errors.Cause(err) != sql.ErrNoRows {
-			return nil, errors.Wrap(err, "TokenCacheManager.IsValid")
-		} else {
-			// passthrough
-		}
-	}
-
-	token := SAuthToken{}
-	err = token.ParseFernetToken(tokenStr)
+	token, err := TokenStrDecode(tokenStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "token.ParseFernetToken")
+		return nil, errors.Wrap(err, "token.TokenStrDecode")
 	}
 	extUser, err := models.UserManager.FetchUserExtended(token.UserId, "", "", "")
 	if err != nil {
@@ -566,8 +550,6 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		return nil, errors.Wrap(err, "getTokenV3")
 	}
 
-	models.TokenCacheManager.Save(ctx, tokenV3.Id, token.ExpiresAt, token.Method, token.AuditIds)
-
 	return tokenV3, nil
 }
 
@@ -657,8 +639,6 @@ func _authenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2)
 	if err != nil {
 		return nil, errors.Wrap(err, "getTokenV2")
 	}
-
-	models.TokenCacheManager.Save(ctx, tokenV2.Token.Id, token.ExpiresAt, token.Method, token.AuditIds)
 
 	return tokenV2, nil
 }

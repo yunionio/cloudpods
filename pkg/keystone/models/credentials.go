@@ -373,7 +373,7 @@ func (cred *SCredential) Delete(ctx context.Context, userCred mcclient.TokenCred
 
 	if cred.Type == api.ACCESS_SECRET_TYPE {
 		// clean tokens auth by this AKSK
-		err := TokenCacheManager.BatchInvalidate(ctx, api.AUTH_METHOD_AKSK, []string{cred.Id})
+		err := TokenCacheManager.BatchInvalidate(ctx, userCred, api.AUTH_METHOD_AKSK, []string{cred.Id})
 		if err != nil {
 			log.Errorf("BatchInvalidate token failed %s", err)
 		}
