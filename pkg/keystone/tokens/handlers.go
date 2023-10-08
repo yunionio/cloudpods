@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
@@ -66,6 +67,11 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 	}
 	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV2(ctx, input)
+	if err != nil {
+		log.Errorf("AuthenticateV2 error %s", err)
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
 	if token == nil {
 		httperrors.UnauthorizedError(ctx, w, "unauthorized %s", err)
 		return
@@ -90,6 +96,7 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV3(ctx, input)
 	if err != nil {
+		log.Errorf("AuthenticateV3 error %s", err)
 		switch errors.Cause(err) {
 		case sqlchemy.ErrDuplicateEntry:
 			httperrors.ConflictError(ctx, w, "duplicate username")

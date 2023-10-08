@@ -346,7 +346,12 @@ func (t *SAuthToken) getTokenV3(
 
 	if len(roles) == 0 {
 		if project != nil || domain != nil {
-			return nil, ErrUserNotInProject
+			if project != nil {
+				return nil, errors.Wrapf(ErrUserNotInProject, "project %q", project.Name)
+			}
+			if domain != nil {
+				return nil, errors.Wrapf(ErrUserNotInProject, "domain %q", domain.Name)
+			}
 		}
 		/*extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
 		if err != nil {
@@ -453,7 +458,7 @@ func (t *SAuthToken) getTokenV2(
 
 	if len(roles) == 0 {
 		if project != nil {
-			return nil, ErrUserNotInProject
+			return nil, errors.Wrapf(ErrUserNotInProject, "project %q", project.Name)
 		}
 		extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
 		if err != nil {
