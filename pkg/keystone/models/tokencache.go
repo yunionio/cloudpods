@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -51,7 +50,7 @@ func init() {
 type STokenCache struct {
 	db.SStandaloneAnonResourceBase
 
-	// Token     string    `width:"64" charset:"ascii" nullable:"false" primary:"true"`
+	// Token     string    `width:"700" charset:"ascii" nullable:"false" primary:"true"`
 	ExpiredAt time.Time `nullable:"false"`
 	Valid     bool
 
@@ -76,14 +75,7 @@ func joinAuditIds(ids []string) string {
 }
 
 func (manager *STokenCacheManager) Save(ctx context.Context, tokenStr string, expiredAt time.Time, method string, auditIds []string, userId, projId, domainId, source, ip string) error {
-	token, err := manager.FetchToken(tokenStr)
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return errors.Wrap(err, "FetchToken")
-	}
-	if token == nil || !token.Valid {
-		return manager.insert(ctx, tokenStr, expiredAt, true, method, auditIds, userId, projId, domainId, source, ip)
-	}
-	return nil
+	return manager.insert(ctx, tokenStr, expiredAt, true, method, auditIds, userId, projId, domainId, source, ip)
 }
 
 func (manager *STokenCacheManager) Invalidate(ctx context.Context, userCred mcclient.TokenCredential, tokenStr string) error {
@@ -162,14 +154,6 @@ func (manager *STokenCacheManager) FetchToken(tokenStr string) (*STokenCache, er
 		return nil, errors.Wrap(err, "FetchById")
 	}
 	return obj.(*STokenCache), nil
-}
-
-func (manager *STokenCacheManager) IsValid(tokenStr string) (bool, error) {
-	token, err := manager.FetchToken(tokenStr)
-	if err != nil {
-		return false, errors.Wrap(err, "FetchToken")
-	}
-	return token.Valid, nil
 }
 
 func (manager *STokenCacheManager) removeObsolete() error {

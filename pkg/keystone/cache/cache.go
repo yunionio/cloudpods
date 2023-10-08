@@ -17,7 +17,9 @@ package cache
 import (
 	"time"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
@@ -37,5 +39,9 @@ func Remove(tokenStr string) {
 }
 
 func Get(tokenStr string) interface{} {
+	if len(tokenStr) > api.AUTH_TOKEN_LENGTH {
+		// hash
+		tokenStr = stringutils2.GenId(tokenStr)
+	}
 	return tokenCache.AtomicGet(tokenStr)
 }
