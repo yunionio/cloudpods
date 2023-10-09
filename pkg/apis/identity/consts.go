@@ -84,6 +84,8 @@ const (
 	IdentitySyncStatusIdle    = "idle"
 
 	MinimalSyncIntervalSeconds = 5 * 60 // 5 minutes
+
+	AUTH_TOKEN_LENGTH = 64
 )
 
 var (

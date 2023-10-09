@@ -46,7 +46,7 @@ func authUserByTokenV3(ctx context.Context, input mcclient.SAuthenticationInputV
 }
 
 func authUserByToken(ctx context.Context, tokenStr string) (*api.SUserExtended, error) {
-	token, err := TokenStrDecode(tokenStr)
+	token, err := TokenStrDecode(ctx, tokenStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "token.TokenStrDecode")
 	}
