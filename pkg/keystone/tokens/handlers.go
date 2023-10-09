@@ -266,7 +266,7 @@ func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (
 	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
 	}
-	token, err := TokenStrDecode(tokenStr)
+	token, err := TokenStrDecode(ctx, tokenStr)
 	if err != nil {
 		return nil, httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
