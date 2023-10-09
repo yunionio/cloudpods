@@ -227,9 +227,14 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 			}
 		}
 	}
-	if fpath := disk.GetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, nil); len(fpath) > 0 {
+	if fpath := disk.GetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, nil); len(fpath) > 0 {
+		guest := self.getGuest()
+		if sid := guest.GetMetadata(ctx, api.SERVER_META_CONVERT_FROM_ESXI, nil); len(sid) > 0 {
+			desc.EsxiFlatFilePath = fpath
+		} else {
+			desc.Url = fpath
+		}
 		desc.MergeSnapshot = true
-		desc.EsxiFlatFilePath = fpath
 	}
 	desc.Fs = disk.GetFsFormat()
 	desc.Mountpoint = self.Mountpoint

@@ -173,6 +173,17 @@ type SEsxiAccessInfo struct {
 	GuestExtId string
 }
 
+type SGuestCreateFromCloudpods struct {
+	Sid                 string
+	GuestDesc           *desc.SGuestDesc
+	CloudpodsAccessInfo SCloudpodsAccessInfo
+}
+
+type SCloudpodsAccessInfo struct {
+	HostIp        string
+	OriginDisksId []string
+}
+
 type SQgaGuestSetPassword struct {
 	*hostapi.GuestSetPasswordRequest
 	Sid string
