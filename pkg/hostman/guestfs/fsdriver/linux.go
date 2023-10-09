@@ -145,7 +145,7 @@ func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, defa
 		return sUser, nil
 	}
 	var selUsr string
-	if defaultRootUser && rootFs.Exists("/root", false) {
+	if defaultRootUser && rootFs.Exists("/root", false) && l.GetIRootFsDriver().AllowAdminLogin() {
 		selUsr = ROOT_USER
 	} else {
 		usrs := rootFs.ListDir("/home", false)
@@ -173,6 +173,9 @@ func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, pub
 			secret, err = seclib2.EncryptBase64(publicKey, password)
 		} else {
 			secret, err = utils.EncryptAESBase64(gid, password)
+		}
+		if err != nil {
+			return "", errors.Wrap(err, "Encryption")
 		}
 		// put /.autorelabel if selinux enabled
 		err = rootFs.FilePutContents("/.autorelabel", "", false, false)
@@ -1167,6 +1170,10 @@ func (d *SUKylinRootfs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 	info := d.SUbuntuRootFs.GetReleaseInfo(rootFs)
 	info.Distro = d.GetName()
 	return info
+}
+
+func (d *SUKylinRootfs) AllowAdminLogin() bool {
+	return false
 }
 
 type sRedhatLikeRootFs struct {

@@ -129,7 +129,7 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, de
 	selUsr := ""
 	isWin10NonPro := w.IsWindows10NonPro()
 	// Win10 try not to use Administrator users // Win 10 professional can use Adminsitrator
-	if _, ok := users[admin]; ok && windowsDefaultAdminUser && !isWin10NonPro {
+	if _, ok := users[admin]; ok && windowsDefaultAdminUser && !isWin10NonPro && w.GetIRootFsDriver().AllowAdminLogin() {
 		selUsr = admin
 	} else {
 		// Looking for an unlocked user who is not an Administrator

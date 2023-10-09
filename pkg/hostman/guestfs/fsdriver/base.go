@@ -144,6 +144,10 @@ func (r *sGuestRootFsDriver) CleanNetworkScripts(rootFs IDiskPartition) error {
 	return nil
 }
 
+func (r *sGuestRootFsDriver) AllowAdminLogin() bool {
+	return true
+}
+
 const (
 	modeAuthorizedKeysRWX = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	modeAuthorizedKeysRW  = syscall.S_IRUSR | syscall.S_IWUSR
