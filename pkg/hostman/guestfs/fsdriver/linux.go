@@ -80,7 +80,13 @@ func getHostname(hostname, domain string) string {
 }
 
 func (l *sLinuxRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
-	etcSysconfigQemuga := "/etc/sysconfig/qemu-ga"
+	var modeRwxOwner = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
+	var qgaConfDir = "/etc/sysconfig"
+	var etcSysconfigQemuga = path.Join(qgaConfDir, "qemu-ga")
+
+	if err := rootFs.Mkdir(qgaConfDir, modeRwxOwner, false); err != nil {
+		return errors.Wrap(err, "mkdir qga conf dir")
+	}
 	blackListContent := `# This is a systemd environment file, not a shell script.
 # It provides settings for \"/lib/systemd/system/qemu-guest-agent.service\".
 
@@ -189,7 +195,13 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 }
 
 func (d *SCoreOsRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
-	etcSysconfigQemuga := "/etc/sysconfig/qemu-ga"
+	var modeRwxOwner = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
+	var qgaConfDir = "/etc/sysconfig"
+	var etcSysconfigQemuga = path.Join(qgaConfDir, "qemu-ga")
+
+	if err := rootFs.Mkdir(qgaConfDir, modeRwxOwner, false); err != nil {
+		return errors.Wrap(err, "mkdir qga conf dir")
+	}
 	blackListContent := `# This is a systemd environment file, not a shell script.
 # It provides settings for \"/lib/systemd/system/qemu-guest-agent.service\".
 
