@@ -96,6 +96,8 @@ type IRootFsDriver interface {
 
 	PrepareFsForTemplate(IDiskPartition) error
 	CleanNetworkScripts(rootFs IDiskPartition) error
+
+	AllowAdminLogin() bool
 }
 
 type IDebianRootFsDriver interface {

@@ -80,3 +80,7 @@ func (c *SNeoKylinRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
 	c.disableSerialConsoleSystemd(rootFs)
 	return nil
 }
+
+func (c *SNeoKylinRootFs) AllowAdminLogin() bool {
+	return false
+}
