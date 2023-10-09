@@ -1444,7 +1444,8 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 	meta, _ := jsonutils.Marshal(h.getSysInfo()).GetMap()
 	input.Metadata = map[string]string{}
 	for k, v := range meta {
-		input.Metadata[k] = v.String()
+		val, _ := v.GetString()
+		input.Metadata[k] = val
 	}
 	input.Version = version.GetShortString()
 
