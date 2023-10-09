@@ -15,9 +15,10 @@
 package compute
 
 const (
-	SERVER_META_CONVERT_FROM_ESXI = "__server_convert_from_esxi"
-	SERVER_META_CONVERTED_SERVER  = "__server_converted_to"
-	DISK_META_ESXI_FLAT_FILE_PATH = "__esxi_flat_file_path"
+	SERVER_META_CONVERT_FROM_ESXI      = "__server_convert_from_esxi"
+	SERVER_META_CONVERT_FROM_CLOUDPODS = "__server_convert_from_cloudpods"
+	SERVER_META_CONVERTED_SERVER       = "__server_converted_to"
+	DISK_META_REMOTE_ACCESS_PATH       = "__remote_access_path"
 )
 
 type SImportNic struct {

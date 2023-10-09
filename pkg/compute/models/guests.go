@@ -1527,8 +1527,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 
 		switch {
-		case imgSupportUEFI == nil:
-		case *imgSupportUEFI:
+		case imgSupportUEFI != nil && *imgSupportUEFI:
 			if len(input.Bios) == 0 {
 				input.Bios = "UEFI"
 			} else if input.Bios != "UEFI" {
