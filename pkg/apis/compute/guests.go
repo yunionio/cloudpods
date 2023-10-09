@@ -442,7 +442,7 @@ type GuestAutoRenewInput struct {
 	Duration string `json:"duration"`
 }
 
-type ConvertEsxiToKvmInput struct {
+type ConvertToKvmInput struct {
 	apis.Meta
 
 	// target hypervisor
