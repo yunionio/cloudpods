@@ -97,10 +97,14 @@ func (self *GuestSchedStartTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 func (self *GuestSchedStartTask) StartScheduler(ctx context.Context, guest *models.SGuest) {
 	host, _ := guest.GetHost()
-	if guestsMem := host.GetRunningGuestMemorySize(); guestsMem < 0 {
-		self.TaskFailed(ctx, guest, jsonutils.NewString("Guest Start Failed: Can't Get Host Guests Memory"))
+	if request := host.GetRunningGuestResourceUsage(); request == nil {
+		self.TaskFailed(ctx, guest, jsonutils.NewString("Guest Start Failed: Can't Get Host Guests CPU Memory Usage"))
 	} else {
-		if float32(guestsMem+guest.VmemSize) > host.GetVirtualMemorySize() {
+		if float32(request.GuestVmemSize+guest.VmemSize) > host.GetVirtualMemorySize() {
+			log.Infof("host memory not enough to start guest")
+			self.ScheduleFailed(ctx, guest)
+		} else if request.GuestVcpuCount+guest.VcpuCount > int(host.GetVirtualCPUCount()) {
+			log.Infof("host cpu not enough to start guest")
 			self.ScheduleFailed(ctx, guest)
 		} else {
 			self.ScheduleSucc(ctx, guest)
@@ -124,7 +128,7 @@ func (self *GuestSchedStartTask) OnGuestMigrateFailed(ctx context.Context, guest
 
 func (self *GuestSchedStartTask) ScheduleSucc(ctx context.Context, guest *models.SGuest) {
 	self.SetStageComplete(ctx, nil)
-	guest.GuestNonSchedStartTask(ctx, self.UserCred, nil, "")
+	guest.GuestNonSchedStartTask(ctx, self.UserCred, self.Params, "")
 }
 
 func (self *GuestSchedStartTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
