@@ -1677,12 +1677,8 @@ func (hh *SHost) GetNotReadyGuestsMemorySize() (int, error) {
 	return stat.GuestVmemSize, nil
 }
 
-func (hh *SHost) GetRunningGuestMemorySize() int {
-	res := hh.getGuestsResource(api.VM_RUNNING)
-	if res != nil {
-		return res.GuestVmemSize
-	}
-	return -1
+func (hh *SHost) GetRunningGuestResourceUsage() *SHostGuestResourceUsage {
+	return hh.getGuestsResource(api.VM_RUNNING)
 }
 
 func (hh *SHost) GetBaremetalnetworksQuery() *sqlchemy.SQuery {
@@ -3730,6 +3726,13 @@ func (hh *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 		return input, errors.Errorf("host mem is hugepage, cannot update mem_cmtbound")
 	}
 
+	if input.CpuReserved != nil {
+		info := hh.GetMetadata(ctx, api.HOSTMETA_RESERVED_CPUS_INFO, nil)
+		if len(info) > 0 {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "host cpu has been reserved, cannot update cpu_reserved")
+		}
+	}
+
 	input.HostSizeAttributes, err = HostManager.ValidateSizeParams(input.HostSizeAttributes)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateSizeParams")
@@ -3890,8 +3893,12 @@ func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo,
 	return info, nil
 }
 
-func (hh *SHost) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
-	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (hh *SHost) PerformStart(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.HostPerformStartInput,
+) (jsonutils.JSONObject, error) {
 	if !hh.IsBaremetal {
 		return nil, httperrors.NewBadRequestError("Cannot start a non-baremetal host")
 	}
@@ -3907,7 +3914,7 @@ func (hh *SHost) PerformStart(ctx context.Context, userCred mcclient.TokenCreden
 		//		return nil, httperrors.NewBadRequestError("Cannot start baremetal with active guest")
 		//	}
 		hh.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
-		return guest.PerformStart(ctx, userCred, query, data)
+		return guest.PerformStart(ctx, userCred, query, api.GuestPerformStartInput{})
 	}
 	params := jsonutils.NewDict()
 	params.Set("force_reboot", jsonutils.NewBool(false))
