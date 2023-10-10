@@ -1016,8 +1016,12 @@ func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.Token
 	return self.GetDriver().StartResumeTask(ctx, userCred, self, nil, parentTaskId)
 }
 
-func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
-	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformStart(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.GuestPerformStartInput,
+) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND}) {
 		if err := self.ValidateEncryption(ctx, userCred); err != nil {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
@@ -1033,10 +1037,7 @@ func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCre
 			}
 		}
 		if self.isAllDisksReady() {
-			var kwargs *jsonutils.JSONDict
-			if data != nil {
-				kwargs = data.(*jsonutils.JSONDict)
-			}
+			kwargs := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 			err := self.GetDriver().PerformStart(ctx, userCred, self, kwargs)
 			return nil, err
 		} else {
