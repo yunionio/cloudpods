@@ -16,7 +16,9 @@ package balancer
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -89,10 +91,27 @@ func (c *cpuCondition) GetSourceThresholdDelta(threshold float64, host IHost) fl
 	return host.GetCurrent() - threshold
 }
 
-func (m *cpuCondition) IsFitTarget(t ITarget, c ICandidate) error {
+func (m *cpuCondition) IsFitTarget(settings *monitor.MigrationAlertSettings, t ITarget, c ICandidate) error {
+	src := settings.Source
+	srcHostIds := []string{}
+	if src != nil {
+		srcHostIds = src.HostIds
+	}
 	tCPUCnt := t.(*targetCPUHost).GetCPUCount()
-	if t.GetCurrent()+c.(*cpuCandidate).getTargetScore(tCPUCnt) < m.GetThreshold() {
+	tScore := t.GetCurrent() + c.(*cpuCandidate).getTargetScore(tCPUCnt)
+	ltThreshold := tScore < m.GetThreshold()
+	if ltThreshold {
 		return nil
+	}
+
+	MAX_THRESHOLD := 95.0
+	// only when srcHostIds isn't empty
+	if len(srcHostIds) != 0 {
+		if !ltThreshold && !sets.NewString(srcHostIds...).Has(t.GetId()) && tScore < MAX_THRESHOLD {
+			// if target host is not in source specified hosts and calculate score less than MAX_THRESHOLD
+			log.Infof("let host:%s:current(%f) + guest:%s:score(%f) < MAX_THRESHOLD(%f) to fit target, because it's not in source specified hosts", t.GetName(), t.GetCurrent(), c.GetName(), c.GetScore(), MAX_THRESHOLD)
+			return nil
+		}
 	}
 	return errors.Errorf("host:%s:current(%f) + guest:%s:score(%f) >= threshold(%f)", t.GetName(), t.GetCurrent(), c.GetName(), c.GetScore(), m.GetThreshold())
 }
