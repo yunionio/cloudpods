@@ -15,6 +15,7 @@
 package clickhouse
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
@@ -44,6 +45,16 @@ func (click *SClickhouseBackend) Name() sqlchemy.DBBackendName {
 
 func (click *SClickhouseBackend) CaseInsensitiveLikeString() string {
 	return "ILIKE"
+}
+
+func (click *SClickhouseBackend) RegexpWhereClause(cond *sqlchemy.SRegexpConition) string {
+	var buf bytes.Buffer
+	buf.WriteString("match(")
+	buf.WriteString(cond.GetLeft().Reference())
+	buf.WriteString(", ")
+	buf.WriteString(sqlchemy.VarConditionWhereClause(cond.GetRight()))
+	buf.WriteString(")")
+	return buf.String()
 }
 
 // CanUpdate returns wether the backend supports update
