@@ -1105,3 +1105,9 @@ type ServerLoginInfoOutput struct {
 	Keypair  string `json:"keypair"`
 	Password string `json:"password"`
 }
+
+type GuestPerformStartInput struct {
+	// 指定启动虚拟机的Qemu版本，可选值：2.12.1, 4.2.0
+	// 仅适用于KVM虚拟机
+	QemuVersion string `json:"qemu_version"`
+}
