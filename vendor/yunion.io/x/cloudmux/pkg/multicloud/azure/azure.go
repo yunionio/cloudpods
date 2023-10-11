@@ -450,11 +450,8 @@ func (self *SAzureClient) list(resource string, params url.Values, retVal interf
 func (self *SAzureClient) getService(path string) string {
 	for _, service := range []string{
 		"microsoft.compute",
-		"microsoft.classiccompute",
 		"microsoft.network",
-		"microsoft.classicnetwork",
 		"microsoft.storage",
-		"microsoft.classicstorage",
 		"microsoft.billing",
 		"microsoft.insights",
 		"microsoft.authorization",
@@ -500,8 +497,6 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 			return "2019-04-01"
 		}
 		return "2018-06-01"
-	} else if utils.IsInStringArray("microsoft.classiccompute", info) {
-		return "2016-04-01"
 	} else if utils.IsInStringArray("microsoft.network", info) {
 		if utils.IsInStringArray("virtualnetworks", info) {
 			return "2018-08-01"
@@ -522,8 +517,6 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 			return "2018-06-01"
 		}
 		return "2018-06-01"
-	} else if utils.IsInStringArray("microsoft.classicnetwork", info) {
-		return "2016-04-01"
 	} else if utils.IsInStringArray("microsoft.storage", info) {
 		if utils.IsInStringArray("storageaccounts", info) {
 			return "2016-12-01"
@@ -536,10 +529,6 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		}
 		if utils.IsInStringArray("usages", info) {
 			return "2018-07-01"
-		}
-	} else if utils.IsInStringArray("microsoft.classicstorage", info) {
-		if utils.IsInStringArray("storageaccounts", info) {
-			return "2016-04-01"
 		}
 	} else if utils.IsInStringArray("microsoft.billing", info) {
 		return "2018-03-01-preview"

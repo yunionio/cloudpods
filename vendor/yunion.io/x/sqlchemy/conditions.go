@@ -492,6 +492,23 @@ func Like(f IQueryField, v string) ICondition {
 	return &c
 }
 
+// SRegexpConition represents REGEXP operation in a SQL query
+type SRegexpConition struct {
+	STupleCondition
+}
+
+// WhereClause implementation for SRegexpConition for ICondition
+func (t *SRegexpConition) WhereClause() string {
+	// op := t.left.database().backend.CaseInsensitiveRegexpString()
+	return tupleConditionWhereClause(&t.STupleCondition, SQL_OP_REGEXP)
+}
+
+// Regexp SQL operator
+func Regexp(f IQueryField, v string) ICondition {
+	c := SRegexpConition{NewTupleCondition(f, v)}
+	return &c
+}
+
 // ContainsAny is a OR combination of serveral Contains conditions
 func ContainsAny(f IQueryField, v []string) ICondition {
 	conds := make([]ICondition, len(v))

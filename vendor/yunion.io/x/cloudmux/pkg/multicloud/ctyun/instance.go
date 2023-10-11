@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/utils"
@@ -41,100 +40,90 @@ type SInstance struct {
 	host  *SHost
 	image *SImage
 
-	vmDetails *InstanceDetails
-
-	HostID                           string               `json:"hostId"`
-	ID                               string               `json:"id"`
-	Name                             string               `json:"name"`
-	Status                           string               `json:"status"`
-	TenantID                         string               `json:"tenant_id"`
-	Metadata                         Metadata             `json:"metadata"`
-	Image                            Image                `json:"image"`
-	Flavor                           FlavorObj            `json:"flavor"`
-	Addresses                        map[string][]Address `json:"addresses"`
-	UserID                           string               `json:"user_id"`
-	Created                          time.Time            `json:"created"`
-	DueDate                          *time.Time           `json:"dueDate"`
-	SecurityGroups                   []SecurityGroup      `json:"security_groups"`
-	OSEXTAZAvailabilityZone          string               `json:"OS-EXT-AZ:availability_zone"`
-	OSExtendedVolumesVolumesAttached []Volume             `json:"os-extended-volumes:volumes_attached"`
-	MasterOrderId                    string               `json:"masterOrderId"`
-}
-
-type InstanceDetails struct {
-	HostID     string      `json:"hostId"`
-	Name       string      `json:"name"`
-	Status     string      `json:"status"`
-	PrivateIPS []PrivateIP `json:"privateIps"`
-	PublicIPS  []PublicIP  `json:"publicIps"`
-	Volumes    []Volume    `json:"volumes"`
-	Created    string      `json:"created"`
-	FlavorObj  FlavorObj   `json:"flavorObj"`
-}
-
-type Address struct {
-	Addr               string `json:"addr"`
-	OSEXTIPSType       string `json:"OS-EXT-IPS:type"`
-	Version            int64  `json:"version"`
-	OSEXTIPSMACMACAddr string `json:"OS-EXT-IPS-MAC:mac_addr"`
-}
-
-type Image struct {
-	Id string `json:"id"`
-}
-
-type SecurityGroup struct {
-	Name string `json:"name"`
-}
-
-type FlavorObj struct {
-	Name    string `json:"name"`
-	CPUNum  int    `json:"cpuNum"`
-	MemSize int    `json:"memSize"`
-	ID      string `json:"id"`
-}
-
-type PrivateIP struct {
-	ID      string `json:"id"`
-	Address string `json:"address"`
-}
-
-type PublicP struct {
-	ID        string `json:"id"`
-	Address   string `json:"address"`
-	Bandwidth string `json:"bandwidth"`
+	AzName         string
+	ExpiredTime    string
+	CreatedTime    time.Time
+	ProjectId      string
+	AttachedVolume []string
+	InstanceId     string
+	DisplayName    string
+	InstanceName   string
+	OsType         int
+	InstanceStatus string
+	OnDemand       bool
+	KeypairName    string
+	Addresses      []struct {
+		VpcName     string
+		AddressList []struct {
+			Addr    string
+			Version int
+			Type    string
+		}
+	}
+	SecGroupList []struct {
+		SecurityGroupName string
+		SecurityGroupId   string
+	}
+	VipInfoList   []interface{}
+	AffinityGroup string
+	Image         struct {
+		ImageId   string
+		ImageName string
+	}
+	Flavor struct {
+		FlavorId     string
+		FlavorName   string
+		FlavorCPU    int
+		FlavorRAM    int
+		GpuType      string
+		GpuCount     string
+		GpuVendor    string
+		VideoMemSize string
+	}
+	ResourceId      string
+	UpdatedTime     time.Time
+	AvailableDay    int
+	ZabbixName      string
+	PrivateIP       string
+	PrivateIPv6     string
+	VipCount        int
+	VpcId           string
+	VpcName         string
+	SubnetIDList    []string
+	FixedIPList     []string
+	FloatingIP      string
+	NetworkCardList []SInstanceNic
 }
 
 func (self *SInstance) GetBillingType() string {
-	if self.DueDate != nil {
+	if len(self.ExpiredTime) > 0 {
 		return billing_api.BILLING_TYPE_PREPAID
-	} else {
-		return billing_api.BILLING_TYPE_POSTPAID
 	}
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SInstance) GetCreatedAt() time.Time {
-	return self.Created
+	return self.CreatedTime
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	if self.DueDate == nil {
-		return time.Time{}
+	if len(self.ExpiredTime) > 0 {
+		expire, _ := strconv.Atoi(self.ExpiredTime)
+		return time.Unix(int64(expire/1000), 0)
 	}
-
-	return *self.DueDate
+	return time.Time{}
 }
 
 func (self *SInstance) GetId() string {
-	return self.ID
+	return self.InstanceId
 }
 
 func (self *SInstance) GetName() string {
-	return self.Name
+	return self.DisplayName
 }
 
 func (self *SInstance) GetHostname() string {
-	return self.Name
+	return self.InstanceName
 }
 
 func (self *SInstance) GetGlobalId() string {
@@ -142,152 +131,101 @@ func (self *SInstance) GetGlobalId() string {
 }
 
 func (self *SInstance) GetStatus() string {
-	switch self.Status {
-	case "RUNNING", "ACTIVE":
-		return api.VM_RUNNING
-	case "RESTARTING", "BUILD", "RESIZE", "VERIFY_RESIZE":
-		return api.VM_STARTING
-	case "STOPPING", "HARD_REBOOT":
-		return api.VM_STOPPING
-	case "STOPPED", "SHUTOFF":
+	switch self.InstanceStatus {
+	case "backingup":
+		return api.VM_BACKUP_CREATING
+	case "creating", "master_order_creating":
+		return api.VM_DEPLOYING
+	case "expired", "freezing", "stopped":
 		return api.VM_READY
+	case "stopping":
+		return api.VM_STOPPING
+	case "rebuild":
+		return api.VM_REBUILD_ROOT
+	case "restarting", "starting":
+		return api.VM_STARTING
+	case "running":
+		return api.VM_RUNNING
 	default:
 		return api.VM_UNKNOWN
 	}
 }
 
 func (self *SInstance) Refresh() error {
-	new, err := self.host.zone.region.GetVMById(self.GetId())
+	vm, err := self.host.zone.region.GetInstance(self.GetId())
 	if err != nil {
 		return err
 	}
-
-	new.host = self.host
-	if err != nil {
-		return err
-	}
-
-	if new.Status == "DELETED" {
-		log.Debugf("Instance already terminated.")
-		return cloudprovider.ErrNotFound
-	}
-
-	// update details
-	detail, err := self.host.zone.region.GetVMDetails(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "SInstance.Refresh.GetDetails")
-	}
-
-	self.vmDetails = detail
-	return jsonutils.Update(self, new)
-}
-
-func (self *SInstance) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, vm)
 }
 
 func (self *SInstance) GetProjectId() string {
-	return ""
+	return self.ProjectId
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
 
-// GET http://ctyun-api-url/apiproxy/v3/queryDataDiskByVMId
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	details, err := self.GetDetails()
+	storages, err := self.host.zone.GetStorages()
 	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetIDisks.GetDetails")
+		return nil, err
 	}
-
-	disks := []SDisk{}
-	for i := range details.Volumes {
-		volume := details.Volumes[i]
-		disk, err := self.host.zone.region.GetDisk(volume.ID)
+	ret := []cloudprovider.ICloudDisk{}
+	for _, diskId := range self.AttachedVolume {
+		disk, err := self.host.zone.region.GetDisk(diskId)
 		if err != nil {
-			return nil, errors.Wrap(err, "SInstance.GetIDisks.GetDisk")
+			return nil, errors.Wrapf(err, "GetDisk %s", diskId)
 		}
-
-		disks = append(disks, *disk)
-	}
-
-	for i := 0; i < len(disks); i += 1 {
-		// 将系统盘放到第0个位置
-		if disks[i].Bootable == "true" {
-			_temp := disks[0]
-			disks[0] = disks[i]
-			disks[i] = _temp
+		find := false
+		for i := range storages {
+			if disk.DiskType == storages[i].storageType {
+				disk.storage = &storages[i]
+				find = true
+				break
+			}
 		}
+		if !find {
+			return nil, fmt.Errorf("failed to found disk storage type %s", disk.DiskType)
+		}
+		ret = append(ret, disk)
 	}
-
-	idisks := make([]cloudprovider.ICloudDisk, len(disks))
-	for i := range disks {
-		disk := disks[i]
-		idisks[i] = &disk
-	}
-
-	return idisks, nil
+	return ret, nil
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	nics, err := self.host.zone.region.GetNics(self.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetINics")
+	ret := []cloudprovider.ICloudNic{}
+	for i := range self.NetworkCardList {
+		self.NetworkCardList[i].instance = self
+		ret = append(ret, &self.NetworkCardList[i])
 	}
-
-	inics := make([]cloudprovider.ICloudNic, len(nics))
-	for i := range nics {
-		inics[i] = &nics[i]
-	}
-
-	return inics, nil
+	return ret, nil
 }
 
-// GET http://ctyun-api-urlapiproxy/v3/queryNetworkByVMId
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	detail, err := self.GetDetails()
+	if len(self.FloatingIP) == 0 {
+		return nil, nil
+	}
+	eips, err := self.host.zone.region.GetEips("ACTIVE")
 	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetIEIP.GetDetails")
+		return nil, err
 	}
-
-	if len(detail.PublicIPS) > 0 {
-		return self.host.zone.region.GetEip(detail.PublicIPS[0].ID)
+	for i := range eips {
+		if eips[i].EipAddress == self.FloatingIP {
+			eips[i].region = self.host.zone.region
+			return &eips[i], nil
+		}
 	}
-
-	return nil, nil
-}
-
-func (self *SInstance) GetDetails() (*InstanceDetails, error) {
-	if self.vmDetails != nil {
-		return self.vmDetails, nil
-	}
-
-	detail, err := self.host.zone.region.GetVMDetails(self.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetDetails")
-	}
-
-	self.vmDetails = detail
-	return self.vmDetails, nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.FloatingIP)
 }
 
 func (self *SInstance) GetVcpuCount() int {
-	details, err := self.GetDetails()
-	if err == nil {
-		return details.FlavorObj.CPUNum
-	}
-
-	return self.Flavor.CPUNum
+	return self.Flavor.FlavorCPU
 }
 
 func (self *SInstance) GetVmemSizeMB() int {
-	details, err := self.GetDetails()
-	if err == nil {
-		return details.FlavorObj.MemSize * 1024
-	}
-
-	return self.Flavor.MemSize * 1024
+	return self.Flavor.FlavorRAM
 }
 
 func (self *SInstance) GetBootOrder() string {
@@ -307,19 +245,14 @@ func (self *SInstance) GetImage() (*SImage, error) {
 		return self.image, nil
 	}
 
-	image, err := self.host.zone.region.GetImage(self.Image.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetImage")
-	}
-
-	self.image = image
-	return self.image, nil
+	var err error
+	self.image, err = self.host.zone.region.GetImage(self.Image.ImageId)
+	return self.image, err
 }
 
 func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.Image %s", err)
 		return cloudprovider.OsTypeLinux
 	}
 	return image.GetOsType()
@@ -328,8 +261,7 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 func (self *SInstance) GetFullOsName() string {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.Image %s", err)
-		return ""
+		return self.image.ImageName
 	}
 	return image.GetFullOsName()
 }
@@ -337,7 +269,6 @@ func (self *SInstance) GetFullOsName() string {
 func (self *SInstance) GetBios() cloudprovider.TBiosType {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.Image %s", err)
 		return cloudprovider.BIOS
 	}
 	return image.GetBios()
@@ -346,7 +277,6 @@ func (self *SInstance) GetBios() cloudprovider.TBiosType {
 func (self *SInstance) GetOsArch() string {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.Image %s", err)
 		return ""
 	}
 	return image.GetOsArch()
@@ -355,7 +285,6 @@ func (self *SInstance) GetOsArch() string {
 func (self *SInstance) GetOsDist() string {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.Image %s", err)
 		return ""
 	}
 	return image.GetOsDist()
@@ -364,7 +293,6 @@ func (self *SInstance) GetOsDist() string {
 func (self *SInstance) GetOsVersion() string {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.Image %s", err)
 		return ""
 	}
 	return image.GetOsVersion()
@@ -373,7 +301,6 @@ func (self *SInstance) GetOsVersion() string {
 func (self *SInstance) GetOsLang() string {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.Image %s", err)
 		return ""
 	}
 	return image.GetOsLang()
@@ -384,62 +311,15 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) GetInstanceType() string {
-	return self.Flavor.ID
+	return self.Flavor.FlavorName
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
-	if len(self.SecurityGroups) == 0 {
-		return []string{}, nil
+	ret := []string{}
+	for _, sec := range self.SecGroupList {
+		ret = append(ret, sec.SecurityGroupId)
 	}
-
-	if len(self.MasterOrderId) > 0 {
-		return self.getSecurityGroupIdsByMasterOrderId(self.MasterOrderId)
-	}
-
-	secgroups, err := self.host.zone.region.GetSecurityGroups("")
-	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetSecurityGroupIds.GetSecurityGroups")
-	}
-
-	names := []string{}
-	for i := range self.SecurityGroups {
-		names = append(names, self.SecurityGroups[i].Name)
-	}
-
-	ids := []string{}
-	for i := range secgroups {
-		// todo: bugfix 如果安全组重名比较尴尬
-		if utils.IsInStringArray(secgroups[i].Name, names) {
-			ids = append(ids, secgroups[i].ResSecurityGroupID)
-		}
-	}
-
-	return ids, nil
-}
-
-func (self *SInstance) getSecurityGroupIdsByMasterOrderId(orderId string) ([]string, error) {
-	orders, err := self.host.zone.region.GetOrder(self.MasterOrderId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetSecurityGroupIds.GetOrder")
-	}
-
-	if len(orders) == 0 {
-		return nil, nil
-	}
-
-	for i := range orders {
-		secgroups := orders[i].ResourceConfigMap.SecurityGroups
-		if len(secgroups) > 0 {
-			ids := []string{}
-			for j := range secgroups {
-				ids = append(ids, secgroups[j].ID)
-			}
-
-			return ids, nil
-		}
-	}
-
-	return nil, nil
+	return ret, nil
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
@@ -488,262 +368,175 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	err := self.host.zone.region.StartVM(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "Instance.StartVM")
-	}
-
-	err = cloudprovider.WaitStatus(self, api.VM_RUNNING, 5*time.Second, 300*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "Instance.StartVM.WaitStatus")
-	}
-	return nil
+	return self.host.zone.region.StartVM(self.GetId())
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	err := self.host.zone.region.StopVM(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "Instance.StopVM")
-	}
-
-	err = cloudprovider.WaitStatus(self, api.VM_READY, 5*time.Second, 300*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "Instance.StopVM.WaitStatus")
-	}
-	return nil
+	return self.host.zone.region.StopVM(self.GetId())
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	err := self.host.zone.region.DeleteVM(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "SInstance.DeleteVM")
-	}
+	return self.host.zone.region.DeleteVM(self.GetId())
+}
 
-	err = cloudprovider.WaitDeleted(self, 10*time.Second, 180*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "Instance.DeleteVM.WaitDeleted")
+func (self *SRegion) UpdateVM(vmId string, name string) error {
+	params := map[string]interface{}{
+		"instanceID":  vmId,
+		"displayName": name,
 	}
-	return nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/update-instance", params)
+	return err
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return cloudprovider.ErrNotSupported
+	if self.DisplayName == name {
+		return nil
+	}
+	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	currentImage, err := self.GetImage()
+func (self *SRegion) RebuildRoot(vmId string, opts *cloudprovider.SManagedVMRebuildRootConfig) error {
+	params := map[string]interface{}{
+		"instanceID": vmId,
+		"password":   opts.Password,
+		"imageID":    opts.ImageId,
+	}
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/rebuild-instance", params)
+	return err
+}
+
+func (self *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	oldDiskId := self.AttachedVolume[0]
+	err := self.host.zone.region.RebuildRoot(self.InstanceId, opts)
 	if err != nil {
-		return "", errors.Wrap(err, "Instance.RebuildRoot")
+		return "", err
 	}
-
-	publicKeyName := ""
-	if len(config.PublicKey) > 0 {
-		publicKeyName, err = self.host.zone.region.syncKeypair(config.PublicKey)
-		if err != nil {
-			return "", errors.Wrap(err, "Instance.RebuildRoot.syncKeypair")
-		}
-	}
-
-	jobId := ""
-	if currentImage.GetId() != config.ImageId {
-		jobId, err = self.host.zone.region.SwitchVMOs(self.GetId(), config.Password, publicKeyName, config.ImageId)
-		if err != nil {
-			return "", errors.Wrap(err, "SInstance.RebuildRoot.SwitchVMOs")
-		}
-	} else {
-		jobId, err = self.host.zone.region.RebuildVM(self.GetId(), config.Password, publicKeyName)
-		if err != nil {
-			return "", errors.Wrap(err, "SInstance.RebuildRoot.RebuildVM")
-		}
-	}
-
-	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
-		statusJson, err := self.host.zone.region.GetJob(jobId)
-		if err != nil {
-			if strings.Contains(err.Error(), "job fail") {
-				return false, err
-			}
-
-			return false, nil
-		}
-
-		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
+	cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
+		self.Refresh()
+		if oldDiskId != self.AttachedVolume[0] {
 			return true, nil
-		} else if status == "FAILED" {
-			return false, fmt.Errorf("RebuildRoot job %s failed", jobId)
-		} else {
-			return false, nil
 		}
+		return false, nil
 	})
-	if err != nil {
-		return "", errors.Wrap(err, "Instance.RebuildRoot.Wait")
-	}
+	return self.AttachedVolume[0], nil
+}
 
-	err = self.Refresh()
-	if err != nil {
-		return "", err
+func (self *SRegion) AttachKeypair(vmId, keyName string) error {
+	params := map[string]interface{}{
+		"instanceID":  vmId,
+		"keyPairName": keyName,
 	}
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/keypair/attach-instance", params)
+	return err
+}
 
-	idisks, err := self.GetIDisks()
-	if err != nil {
-		return "", err
+func (self *SRegion) DetachKeypair(vmId, keyName string) error {
+	params := map[string]interface{}{
+		"instanceID":  vmId,
+		"keyPairName": keyName,
 	}
-
-	if len(idisks) == 0 {
-		return "", fmt.Errorf("server %s has no volume attached.", self.GetId())
-	}
-
-	return idisks[0].GetId(), nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/keypair/detach-instance", params)
+	return err
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	if len(password) == 0 {
-		return cloudprovider.ErrNotSupported
+	if len(password) > 0 {
+		return self.host.zone.region.ResetVMPassword(self.GetId(), password)
 	}
-
-	// 只支持重置密码
-	return self.host.zone.region.ResetVMPassword(self.GetId(), password)
-}
-
-func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
-	jobId, err := self.host.zone.region.ChangeVMConfig(self.GetId(), config.InstanceType)
-	if err != nil {
-		return errors.Wrap(err, "Instance.ChangeConfig")
-	}
-
-	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
-		statusJson, err := self.host.zone.region.GetJob(jobId)
+	if len(publicKey) > 0 {
+		keypair, err := self.host.zone.region.syncKeypair(publicKey)
 		if err != nil {
-			if strings.Contains(err.Error(), "job fail") {
-				return false, err
-			}
-
-			return false, nil
+			return errors.Wrapf(err, "syncKeypair")
 		}
-
-		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
-			return true, nil
-		} else if status == "FAILED" {
-			return false, fmt.Errorf("ChangeConfig job %s failed", jobId)
-		} else {
-			return false, nil
-		}
-	})
-	if err != nil {
-		return errors.Wrap(err, "Instance.ChangeConfig.Wait")
+		return self.host.zone.region.AttachKeypair(self.InstanceId, keypair.KeyPairName)
 	}
-
+	if deleteKeypair && len(self.KeypairName) > 0 {
+		return self.host.zone.region.DetachKeypair(self.InstanceId, self.KeypairName)
+	}
 	return nil
 }
 
-// http://ctyun-api-url/apiproxy/v3/queryVncUrl
+func (self *SRegion) ChangeVMConfig(id, instanceType string) error {
+	skus, err := self.GetServerSkus("")
+	if err != nil {
+		return errors.Wrapf(err, "GetServerSkus")
+	}
+	for i := range skus {
+		if skus[i].FlavorName == instanceType {
+			instanceType = skus[i].FlavorId
+			break
+		}
+	}
+	params := map[string]interface{}{
+		"instanceID":  id,
+		"clientToken": utils.GenRequestId(20),
+		"flavorID":    instanceType,
+	}
+	_, err = self.post(SERVICE_ECS, "/v4/ecs/update-flavor-spec", params)
+	return err
+}
+
+func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	return self.host.zone.region.ChangeVMConfig(self.GetId(), config.InstanceType)
+}
+
+func (self *SRegion) GetInstanceVnc(vmId string) (string, error) {
+	params := map[string]interface{}{
+		"instanceID": vmId,
+	}
+	resp, err := self.list(SERVICE_ECS, "/v4/ecs/vnc/details", params)
+	if err != nil {
+		return "", err
+	}
+	return resp.GetString("returnObj", "token")
+}
+
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	url, err := self.host.zone.region.GetInstanceVNCUrl(self.GetId())
+	url, err := self.host.zone.region.GetInstanceVnc(self.InstanceId)
 	if err != nil {
 		return nil, err
 	}
+	protocol := "ctyun"
+	if strings.HasPrefix(url, "wss") {
+		protocol = "vnc"
+	}
 	ret := &cloudprovider.ServerVncOutput{
 		Url:        url,
-		Protocol:   "ctyun",
+		Protocol:   protocol,
 		InstanceId: self.GetId(),
 		Hypervisor: api.HYPERVISOR_CTYUN,
 	}
 	return ret, nil
 }
 
-func (self *SInstance) NextDeviceName() (string, error) {
-	details, err := self.GetDetails()
-	if err != nil {
-		return "", errors.Wrap(err, "SInstance.NextDeviceName.GetDetails")
+func (self *SRegion) AttachDisk(id, diskId string) error {
+	params := map[string]interface{}{
+		"diskID":     diskId,
+		"instanceID": id,
 	}
-
-	disks := []*SDisk{}
-	for i := range details.Volumes {
-		disk, err := self.host.zone.region.GetDisk(details.Volumes[i].ID)
-		if err != nil {
-			return "", errors.Wrap(err, "SInstance.NextDeviceName.GetDisk")
-		}
-
-		disks = append(disks, disk)
-	}
-
-	prefix := "s"
-	if len(disks) > 0 && strings.Contains(disks[0].GetMountpoint(), "/vd") {
-		prefix = "v"
-	}
-
-	currents := []string{}
-	for _, disk := range disks {
-		currents = append(currents, strings.ToLower(disk.GetMountpoint()))
-	}
-
-	for i := 0; i < 25; i++ {
-		device := fmt.Sprintf("/dev/%sd%s", prefix, string([]byte{byte(98 + i)}))
-		if ok, _ := utils.InStringArray(device, currents); !ok {
-			return device, nil
-		}
-	}
-
-	return "", fmt.Errorf("disk devicename out of index, current deivces: %s", currents)
+	_, err := self.post(SERVICE_EBS, "/v4/ebs/attach-ebs", params)
+	return err
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	device, err := self.NextDeviceName()
-	if err != nil {
-		return errors.Wrap(err, "Instance.AttachDisk.NextDeviceName")
-	}
+	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
+}
 
-	_, err = self.host.zone.region.AttachDisk(self.GetId(), diskId, device)
-	if err != nil {
-		return errors.Wrap(err, "Instance.AttachDisk")
+func (self *SRegion) DetachDisk(id, diskId string) error {
+	params := map[string]interface{}{
+		"diskID":     diskId,
+		"instanceID": id,
 	}
-
-	disk, err := self.host.zone.region.GetDisk(diskId)
-	if err != nil {
-		return errors.Wrap(err, "AttachDisk.GetDisk")
-	}
-
-	err = cloudprovider.WaitStatusWithDelay(disk, api.DISK_READY, 10*time.Second, 5*time.Second, 180*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "Instance.DetachDisk.WaitStatusWithDelay")
-	}
-
-	if disk.Status != "in-use" {
-		return errors.Wrap(fmt.Errorf("disk status %s", disk.Status), "Instance.DetachDisk.Status")
-	}
-
-	return nil
+	_, err := self.post(SERVICE_EBS, "/v4/ebs/detach-ebs", params)
+	return err
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	disk, err := self.host.zone.region.GetDisk(diskId)
-	if err != nil {
-		return errors.Wrap(err, "DetachDisk.Wait")
-	}
-
-	if len(disk.Attachments) == 0 {
-		return errors.Wrap(err, "Instance.DetachDisk")
-	}
-
-	_, err = self.host.zone.region.DetachDisk(self.GetId(), diskId, disk.Attachments[0].Device)
-	if err != nil {
-		return errors.Wrap(err, "Instance.DetachDisk")
-	}
-
-	err = cloudprovider.WaitStatusWithDelay(disk, api.DISK_READY, 10*time.Second, 5*time.Second, 180*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "Instance.DetachDisk.WaitStatusWithDelay")
-	}
-
-	if disk.Status != "available" {
-		return errors.Wrap(fmt.Errorf("disk status %s", disk.Status), "Instance.DetachDisk.Status")
-	}
-
-	return nil
+	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
 }
 
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
@@ -759,548 +552,177 @@ func (self *SInstance) GetError() error {
 	return nil
 }
 
-type SDiskDetails struct {
-	HostID     string      `json:"hostId"`
-	Name       string      `json:"name"`
-	Status     string      `json:"status"`
-	PrivateIPS []PrivateIP `json:"privateIps"`
-	PublicIPS  []PublicIP  `json:"publicIps"`
-	Volumes    []Volume    `json:"volumes"`
-	Created    string      `json:"created"`
-	FlavorObj  FlavorObj   `json:"flavorObj"`
-}
-
-type PublicIP struct {
-	ID        string `json:"id"`
-	Address   string `json:"address"`
-	Bandwidth string `json:"bandwidth"`
-}
-
-type Volume struct {
-	ID       string `json:"id"`
-	Status   string `json:"status"`
-	Type     string `json:"type"`
-	Size     string `json:"size"`
-	Name     string `json:"name"`
-	Bootable bool   `json:"bootable"`
-}
-
-func (self *SRegion) GetVMDetails(vmId string) (*InstanceDetails, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-		"vmId":     vmId,
-	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVMDetail", params)
+func (self *SRegion) CreateInstance(zoneId string, opts *cloudprovider.SManagedVMCreateConfig) (string, error) {
+	image, err := self.GetImage(opts.ExternalImageId)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVMDetails.DoGet")
+		return "", errors.Wrapf(err, "GetImage %s", opts.ExternalImageId)
 	}
-
-	details := &InstanceDetails{}
-	err = resp.Unmarshal(details, "returnObj")
+	if image.DiskSize > opts.SysDisk.SizeGB {
+		opts.SysDisk.SizeGB = image.DiskSize
+	}
+	if opts.SysDisk.SizeGB < 40 {
+		opts.SysDisk.SizeGB = 40
+	}
+	skus, err := self.GetServerSkus("")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVMDetails.Unmarshal")
+		return "", errors.Wrapf(err, "GetServerSkus")
 	}
-
-	return details, nil
-}
-
-type SVncInfo struct {
-	Type string `json:"type"`
-	URL  string `json:"url"`
-}
-
-func (self *SRegion) GetInstanceVNCUrl(vmId string) (string, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-		"vmId":     vmId,
-	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/queryVncUrl", params)
-	if err != nil {
-		return "", errors.Wrap(err, "")
-	}
-
-	ret := SVncInfo{}
-	err = resp.Unmarshal(&ret, "returnObj", "console")
-	if err != nil {
-		return "", errors.Wrap(err, "")
-	}
-
-	return ret.URL, nil
-}
-
-/*
-创建主机接口目前没有绑定密钥的参数选项，不支持绑定密码。
-但是重装系统接口支持绑定密钥
-*/
-func (self *SRegion) CreateInstance(zoneId, name, imageId, osType, flavorRef, vpcid, subnetId, secGroupId, adminPass, volumetype string, volumeSize int, dataDisks []cloudprovider.SDiskInfo) (string, error) {
-	rootParams := jsonutils.NewDict()
-	rootParams.Set("volumetype", jsonutils.NewString(volumetype))
-	if volumeSize > 0 {
-		rootParams.Set("size", jsonutils.NewInt(int64(volumeSize)))
-	}
-
-	nicParams := jsonutils.NewArray()
-	nicParam := jsonutils.NewDict()
-	nicParam.Set("subnet_id", jsonutils.NewString(subnetId))
-	nicParams.Add(nicParam)
-
-	secgroupParams := jsonutils.NewArray()
-	secgroupParam := jsonutils.NewDict()
-	secgroupParam.Set("id", jsonutils.NewString(secGroupId))
-	secgroupParams.Add(secgroupParam)
-
-	extParams := jsonutils.NewDict()
-	extParams.Set("regionID", jsonutils.NewString(self.GetId()))
-
-	serverParams := jsonutils.NewDict()
-	serverParams.Set("availability_zone", jsonutils.NewString(zoneId))
-	serverParams.Set("name", jsonutils.NewString(name))
-	serverParams.Set("imageRef", jsonutils.NewString(imageId))
-	serverParams.Set("root_volume", rootParams)
-	serverParams.Set("flavorRef", jsonutils.NewString(flavorRef))
-	serverParams.Set("osType", jsonutils.NewString(osType))
-	serverParams.Set("vpcid", jsonutils.NewString(vpcid))
-	serverParams.Set("security_groups", secgroupParams)
-	serverParams.Set("nics", nicParams)
-	serverParams.Set("adminPass", jsonutils.NewString(adminPass))
-	serverParams.Set("count", jsonutils.NewString("1"))
-	serverParams.Set("extendparam", extParams)
-
-	if dataDisks != nil && len(dataDisks) > 0 {
-		dataDisksParams := jsonutils.NewArray()
-		for i := range dataDisks {
-			dataDiskParams := jsonutils.NewDict()
-			dataDiskParams.Set("volumetype", jsonutils.NewString(dataDisks[i].StorageType))
-			dataDiskParams.Set("size", jsonutils.NewInt(int64(dataDisks[i].SizeGB)))
-			dataDisksParams.Add(dataDiskParams)
+	for i := range skus {
+		if skus[i].FlavorName == opts.InstanceType {
+			opts.InstanceType = skus[i].FlavorId
+			break
 		}
-
-		serverParams.Set("data_volumes", dataDisksParams)
+	}
+	disks := []map[string]interface{}{}
+	for _, disk := range opts.DataDisks {
+		disks = append(disks, map[string]interface{}{
+			"diskName": disk.Name,
+			"diskSize": disk.SizeGB,
+			"diskType": disk.StorageType,
+		})
+	}
+	nets := map[string]interface{}{
+		"subnetID": opts.ExternalNetworkId,
+		"isMaster": true,
+	}
+	if len(opts.IpAddr) > 0 {
+		nets["fixedIP"] = opts.IpAddr
+	}
+	imageType, _ := map[string]int{
+		"private":   0,
+		"public":    1,
+		"shared":    2,
+		"safe":      3,
+		"community": 4,
+	}[image.Visibility]
+	params := map[string]interface{}{
+		"clientToken":     utils.GenRequestId(20),
+		"userPassword":    opts.Password,
+		"imageID":         opts.ExternalImageId,
+		"imageType":       imageType,
+		"userData":        opts.UserData,
+		"instanceName":    opts.Hostname,
+		"displayName":     opts.Name,
+		"flavorID":        opts.InstanceType,
+		"onDemand":        true,
+		"extIP":           "0",
+		"vpcID":           opts.ExternalVpcId,
+		"bootDiskType":    opts.SysDisk.StorageType,
+		"bootDiskSize":    opts.SysDisk.SizeGB,
+		"secGroupList":    opts.ExternalSecgroupIds,
+		"azName":          zoneId,
+		"dataDiskList":    disks,
+		"networkCardList": []map[string]interface{}{nets},
 	}
 
-	vmParams := jsonutils.NewDict()
-	vmParams.Set("server", serverParams)
-
-	params := map[string]jsonutils.JSONObject{
-		"createVMInfo": vmParams,
+	if len(opts.PublicKey) > 0 {
+		keypair, err := self.syncKeypair(opts.PublicKey)
+		if err != nil {
+			return "", errors.Wrapf(err, "syncKeypair")
+		}
+		params["keyPairID"] = keypair.KeyPairId
 	}
 
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/createVM", params)
+	if opts.BillingCycle != nil {
+		params["onDemand"] = false
+		if opts.BillingCycle.AutoRenew {
+			params["autoRenewStatus"] = "true"
+		}
+		if opts.BillingCycle.GetYears() > 0 {
+			params["cycleType"] = "YEAR"
+			params["cycleCount"] = opts.BillingCycle.GetYears()
+		} else if opts.BillingCycle.GetMonths() > 0 {
+			params["cycleType"] = "MONTH"
+			params["cycleCount"] = opts.BillingCycle.GetMonths()
+		}
+	}
+
+	resp, err := self.post(SERVICE_ECS, "/v4/ecs/create-instance", params)
 	if err != nil {
-		return "", errors.Wrap(err, "SRegion.CreateInstance.DoPost")
+		return "", err
 	}
 
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("returnObj", "message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.CreateInstance.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
+	orderId, err := resp.GetString("returnObj", "masterOrderID")
 	if err != nil {
-		return "", errors.Wrap(err, "SRegion.CreateInstance.Unmarshal")
+		return "", err
 	}
 
-	return jobId, nil
+	return self.GetResourceId(orderId)
 }
 
-// vm & nic job
-func (self *SRegion) GetJob(jobId string) (jsonutils.JSONObject, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-		"jobId":    jobId,
+func (self *SRegion) GetResourceId(orderId string) (string, error) {
+	params := map[string]interface{}{
+		"masterOrderId": orderId,
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/queryJobStatus", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetJob.DoGet")
+	for i := 0; i < 10; i++ {
+		resp, err := self.list(SERVICE_ECS, "/v4/order/query-uuid", params)
+		if err != nil {
+			return "", err
+		}
+		ids := []string{}
+		resp.Unmarshal(&ids, "returnObj", "resourceUUID")
+		for i := range ids {
+			return ids[i], nil
+		}
+		time.Sleep(time.Second * 10)
 	}
-
-	ret := jsonutils.NewDict()
-	err = resp.Unmarshal(&ret, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetJob.Unmarshal")
-	}
-
-	return ret, nil
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "failed get uuid by order id: %s", orderId)
 }
 
-// 查询云硬盘备份JOB状态信息
-func (self *SRegion) GetVbsJob(jobId string) (jsonutils.JSONObject, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-		"jobId":    jobId,
+func (self *SRegion) AssignSecurityGroup(vmId, groupId string) error {
+	params := map[string]interface{}{
+		"securityGroupID": groupId,
+		"instanceID":      vmId,
+		"action":          "joinSecurityGroup",
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVbsJob", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVbsJob.DoGet")
-	}
-
-	ret := jsonutils.NewDict()
-	err = resp.Unmarshal(&ret, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVbsJob.Unmarshal")
-	}
-
-	return ret, nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/vpc/join-security-group", params)
+	return err
 }
 
-// 查询云硬盘JOB状态信息
-func (self *SRegion) GetVolumeJob(jobId string) (jsonutils.JSONObject, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-		"jobId":    jobId,
+func (self *SRegion) UnsignSecurityGroup(vmId, groupId string) error {
+	params := map[string]interface{}{
+		"securityGroupID": groupId,
+		"instanceID":      vmId,
+		"action":          "joinSecurityGroup",
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/queryVolumeJob", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVolumeJob.DoGet")
-	}
-
-	ret := jsonutils.NewDict()
-	err = resp.Unmarshal(&ret, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVolumeJob.Unmarshal")
-	}
-
-	return ret, nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/vpc/leave-security-group", params)
+	return err
 }
 
-// POST http://ctyun-api-url/apiproxy/v3/addSecurityGroup 绑定安全组
-func (self *SRegion) AssignSecurityGroup(vmId, securityGroupRuleId string) error {
-	securityParams := jsonutils.NewDict()
-	securityParams.Set("regionId", jsonutils.NewString(self.GetId()))
-	securityParams.Set("vmId", jsonutils.NewString(vmId))
-	securityParams.Set("securityGroupRuleId", jsonutils.NewString(securityGroupRuleId))
-
-	params := map[string]jsonutils.JSONObject{
-		"securityGroup": securityParams,
+func (self *SRegion) StartVM(id string) error {
+	params := map[string]interface{}{
+		"instanceID": id,
 	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/addSecurityGroup", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.AssignSecurityGroup.DoPost")
-	}
-
-	return nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/start-instance", params)
+	return err
 }
 
-// POST http://ctyun-api-url/apiproxy/v3/removeSecurityGroup 解绑安全组
-func (self *SRegion) UnsignSecurityGroup(vmId, securityGroupRuleId string) error {
-	securityParams := jsonutils.NewDict()
-	securityParams.Set("regionId", jsonutils.NewString(self.GetId()))
-	securityParams.Set("vmId", jsonutils.NewString(vmId))
-	securityParams.Set("securityGroupRuleId", jsonutils.NewString(securityGroupRuleId))
-
-	params := map[string]jsonutils.JSONObject{
-		"securityGroup": securityParams,
+func (self *SRegion) StopVM(id string) error {
+	params := map[string]interface{}{
+		"instanceID": id,
 	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/removeSecurityGroup", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.UnsignSecurityGroup.DoPost")
-	}
-
-	return nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/stop-instance", params)
+	return err
 }
 
-func (self *SRegion) StartVM(vmId string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
+func (self *SRegion) DeleteVM(id string) error {
+	params := map[string]interface{}{
+		"instanceID":  id,
+		"clientToken": utils.GenRequestId(20),
 	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/ondemand/startVM", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.StartVm.DoPost")
-	}
-
-	return nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/unsubscribe-instance", params)
+	return err
 }
 
-func (self *SRegion) StopVM(vmId string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
-	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/ondemand/stopVM", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.StopVM.DoPost")
-	}
-
-	return nil
-}
-
-func (self *SRegion) DeleteVM(vmId string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
-	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/ondemand/deleteVM", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.DeleteVM.DoPost")
-	}
-
-	return nil
-}
-
-func (self *SRegion) RestartVM(vmId string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
-		"type":     jsonutils.NewString("SOFT"),
-	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/ondemand/restartVM", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.RestartVM.DoPost")
-	}
-
-	return nil
-}
-
-func (self *SRegion) SwitchVMOs(vmId, adminPass, keyName, imageRef string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
-		"imageRef": jsonutils.NewString(imageRef),
-	}
-
-	if len(keyName) > 0 {
-		params["keyName"] = jsonutils.NewString(keyName)
-	} else if len(adminPass) > 0 {
-		params["adminPass"] = jsonutils.NewString(adminPass)
-	} else {
-		return "", errors.Wrap(fmt.Errorf("require public key or password"), "SRegion.SwitchVMOs")
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/switchSys", params)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.SwitchVMOs.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("returnObj", "message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.SwitchVMOs.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.SwitchVMOs.Unmarshal")
-	}
-
-	return jobId, nil
-}
-
-func (self *SRegion) RebuildVM(vmId, adminPass, keyName string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
-	}
-
-	if len(keyName) > 0 {
-		params["keyName"] = jsonutils.NewString(keyName)
-	} else if len(adminPass) > 0 {
-		params["adminPass"] = jsonutils.NewString(adminPass)
-	} else {
-		return "", errors.Wrap(fmt.Errorf("require public key or password"), "SRegion.RebuildVM")
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/reInstallSys", params)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.RebuildVM.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("returnObj", "message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.RebuildVM.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.RebuildVM.Unmarshal")
-	}
-
-	return jobId, nil
-}
-
-func (self *SRegion) AttachDisk(vmId, volumeId, device string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"volumeId": jsonutils.NewString(volumeId),
-		"vmId":     jsonutils.NewString(vmId),
-		"device":   jsonutils.NewString(device),
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/attachVolume", params)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.AttachDisk.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("returnObj", "message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.AttachDisk.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.AttachDisk.Unmarshal")
-	}
-
-	return jobId, nil
-}
-
-func (self *SRegion) DetachDisk(vmId, volumeId, device string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"volumeId": jsonutils.NewString(volumeId),
-		"vmId":     jsonutils.NewString(vmId),
-		"device":   jsonutils.NewString(device),
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/uninstallVolume", params)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.DetachDisk.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("returnObj", "message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.DetachDisk.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.DetachDisk.Unmarshal")
-	}
-
-	return jobId, nil
-}
-
-func (self *SRegion) ChangeVMConfig(vmId, flavorId string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
-		"flavorId": jsonutils.NewString(flavorId),
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/upgradeVM", params)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.ChangeVMConfig.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("returnObj", "message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.ChangeVMConfig.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.ChangeVMConfig.Unmarshal")
-	}
-
-	return jobId, nil
-}
-
-// POST http://ctyun-api-url/apiproxy/v3/order/placeRenewOrder 续订
 func (self *SRegion) RenewVM(vmId string, bc *billing.SBillingCycle) ([]string, error) {
-	if bc == nil {
-		return nil, errors.Wrap(fmt.Errorf("SBillingCycle is nil"), "Region.RenewVM")
-	}
-
-	resourcePackage := jsonutils.NewDict()
-	month := bc.GetMonths()
-	switch {
-	case month <= 11:
-		resourcePackage.Set("cycleCount", jsonutils.NewString(strconv.Itoa(month)))
-		resourcePackage.Set("cycleType", jsonutils.NewString("3"))
-	case month == 12:
-		resourcePackage.Set("cycleCount", jsonutils.NewString("1"))
-		resourcePackage.Set("cycleType", jsonutils.NewString("5"))
-	case month == 24:
-		resourcePackage.Set("cycleCount", jsonutils.NewString("1"))
-		resourcePackage.Set("cycleType", jsonutils.NewString("6"))
-	case month == 36:
-		resourcePackage.Set("cycleCount", jsonutils.NewString("1"))
-		resourcePackage.Set("cycleType", jsonutils.NewString("7"))
-	default:
-		return nil, errors.Wrap(fmt.Errorf("unsupported month duration %d. expected 1~11, 12, 24, 36", month), "Region.RenewVM")
-	}
-
-	vmIds := jsonutils.NewArray()
-	vmIds.Add(jsonutils.NewString(vmId))
-	resourcePackage.Set("resourceIds", vmIds)
-
-	params := map[string]jsonutils.JSONObject{
-		"resourceDetailJson": resourcePackage,
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/order/placeRenewOrder", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.RenewVM.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "submitted")
-	if !ok {
-		msg, _ := resp.GetString("returnObj", "message")
-		return nil, errors.Wrap(fmt.Errorf(msg), "SRegion.RenewVM.JobFailed")
-	}
-
-	type OrderPlacedEventsElement struct {
-		ErrorMessage string `json:"errorMessage"`
-		Submitted    bool   `json:"submitted"`
-		NewOrderID   string `json:"newOrderId"`
-		NewOrderNo   string `json:"newOrderNo"`
-		TotalPrice   int64  `json:"totalPrice"`
-	}
-
-	orders := []OrderPlacedEventsElement{}
-	err = resp.Unmarshal(&orders, "returnObj", "orderPlacedEvents")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.RenewVM.Unmarshal")
-	}
-
-	orderIds := []string{}
-	for i := range orders {
-		orderIds = append(orderIds, orders[i].NewOrderID)
-	}
-
-	return orderIds, nil
+	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) ResetVMPassword(vmId, password string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vmId":     jsonutils.NewString(vmId),
-		"password": jsonutils.NewString(password),
+func (self *SRegion) ResetVMPassword(id, password string) error {
+	params := map[string]interface{}{
+		"instanceID":  id,
+		"newPassword": password,
 	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/resetVmPassword", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.ResetVMPassword.DoPost")
-	}
-
-	return nil
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/reset-password", params)
+	return err
 }

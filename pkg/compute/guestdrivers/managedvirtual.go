@@ -523,6 +523,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 						})
 						return iVM, nil
 					}
+					log.Errorf("use sku %s error: %v", desc.InstanceType, err)
 				}
 			}
 			return iVM, err

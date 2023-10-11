@@ -12,13 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package ctyun
 
-type SEipBase struct {
-	SResourceBase
-	SBillingBase
+type SProduct struct {
+	Ebs struct {
+		StorageType []struct {
+			Type string
+			Name string
+		}
+	}
+	Other struct {
+		Region string
+	}
 }
 
-func (self *SEipBase) GetINetworkId() string {
-	return ""
+func (self *SRegion) GetProduct() (*SProduct, error) {
+	resp, err := self.list(SERVICE_ECS, "/v4/region/get-products", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SProduct{}
+	return ret, resp.Unmarshal(ret, "returnObj")
 }
