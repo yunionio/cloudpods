@@ -58,7 +58,7 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	switch protocol {
 	case session.VNC, session.SPICE:
 		info := sessionObj.ISessionData.(*session.RemoteConsoleInfo)
-		if info.Hypervisor == api.HYPERVISOR_OPENSTACK || info.Hypervisor == api.HYPERVISOR_PROXMOX {
+		if info.Hypervisor == api.HYPERVISOR_OPENSTACK || info.Hypervisor == api.HYPERVISOR_PROXMOX || info.Hypervisor == api.HYPERVISOR_CTYUN {
 			srv, err = NewWebsocketProxyServer(sessionObj)
 		} else {
 			srv, err = NewWebsockifyServer(sessionObj)

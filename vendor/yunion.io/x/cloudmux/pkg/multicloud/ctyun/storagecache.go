@@ -60,7 +60,7 @@ func (self *SStoragecache) Refresh() error {
 }
 
 func (self *SStoragecache) IsEmulated() bool {
-	return false
+	return true
 }
 
 func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
@@ -68,7 +68,7 @@ func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error
 }
 
 func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
-	imagesSelf, err := self.region.GetImages(ImageOwnerSelf)
+	imagesSelf, err := self.region.GetImages("private")
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetImages")
 	}
@@ -83,7 +83,7 @@ func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudIm
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
 	image, err := self.region.GetImage(extId)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStoragecache.GetIImageById.GetImage")
+		return nil, errors.Wrap(err, "GetImage")
 	}
 
 	image.storageCache = self

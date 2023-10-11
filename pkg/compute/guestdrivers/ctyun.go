@@ -71,7 +71,11 @@ func (self *SCtyunGuestDriver) GetDefaultSysDiskBackend() string {
 }
 
 func (self *SCtyunGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+	return []string{api.VM_RUNNING}, nil
+}
+
+func (self *SCtyunGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return false
 }
 
 func (self *SCtyunGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -95,11 +99,11 @@ func (self *SCtyunGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]st
 }
 
 func (self *SCtyunGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SCtyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return api.VM_RUNNING
+	return api.VM_READY
 }
 
 func (self *SCtyunGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

@@ -88,9 +88,10 @@ const (
 	STORAGE_GOOGLE_PD_BALANCED = "pd-balanced" //平衡永久性磁盘
 
 	// ctyun storage type
-	STORAGE_CTYUN_SSD  = "SSD"  // 超高IO云硬盘
-	STORAGE_CTYUN_SAS  = "SAS"  // 高IO云硬盘
-	STORAGE_CTYUN_SATA = "SATA" // 普通IO云硬盘
+	STORAGE_CTYUN_SSD        = "SSD"        // 超高IO云硬盘
+	STORAGE_CTYUN_SAS        = "SAS"        // 高IO云硬盘
+	STORAGE_CTYUN_SATA       = "SATA"       // 普通IO云硬盘
+	STORAGE_CTYUN_SSD_GENRIC = "SSD-genric" // 超高IO
 
 	// jd cloud storage type
 	STORAGE_JDCLOUD_GP1 = "ssd.gp1"     // 通用型SSD云硬盘

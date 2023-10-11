@@ -286,27 +286,16 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
-	data := jsonutils.NewDict()
-
-	iCloudStorage, err := storage.GetIStorage(ctx)
-	if err != nil {
-		return err
-	}
-
-	iDisk, err := iCloudStorage.GetIDiskById(disk.GetExternalId())
-	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			task.ScheduleRun(data)
-			return nil
-		}
-		return err
-	}
-
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		err := iDisk.Delete(ctx)
-		return nil, err
+		idisk, err := disk.GetIDisk(ctx)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+		return nil, idisk.Delete(ctx)
 	})
-
 	return nil
 }
 

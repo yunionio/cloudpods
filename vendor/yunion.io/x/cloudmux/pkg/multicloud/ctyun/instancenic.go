@@ -15,18 +15,21 @@
 package ctyun
 
 import (
-	"yunion.io/x/pkg/errors"
-
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type SInstanceNic struct {
-	instance  *SInstance
-	FixedIPS  []FixedIP `json:"fixed_ips"`
-	PortState string    `json:"port_state"`
-	PortID    string    `json:"port_id"`
-	MACAddr   string    `json:"mac_addr"`
-	NetID     string    `json:"net_id"`
+	instance *SInstance
+
+	IPv4Address   string
+	IPv6Address   []string
+	IsMaster      bool
+	SubnetCidr    string
+	NetworkCardId string
+	Gateway       string
+	SecurityGroup []string
+	SubnetId      string
 
 	cloudprovider.DummyICloudNic
 }
@@ -37,19 +40,16 @@ type FixedIP struct {
 }
 
 func (self *SInstanceNic) GetIP() string {
-	if len(self.FixedIPS) == 0 {
-		return ""
-	}
-
-	return self.FixedIPS[0].IPAddress
+	return self.IPv4Address
 }
 
 func (self *SInstanceNic) GetMAC() string {
-	return self.MACAddr
+	ip, _ := netutils.NewIPV4Addr(self.GetIP())
+	return ip.ToMac("fa:16:")
 }
 
 func (self *SInstanceNic) GetId() string {
-	return ""
+	return self.NetworkCardId
 }
 
 func (self *SInstanceNic) GetDriver() string {
@@ -61,34 +61,5 @@ func (self *SInstanceNic) InClassicNetwork() bool {
 }
 
 func (self *SInstanceNic) GetINetworkId() string {
-	return self.NetID
-}
-
-func (self *SRegion) GetNics(vmId string) ([]SInstanceNic, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-		"vmId":     vmId,
-	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/queryNetworkCards", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetNics.DoGet")
-	}
-
-	ret := make([]SInstanceNic, 0)
-	err = resp.Unmarshal(&ret, "returnObj", "interfaceAttachments")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetNics.Unmarshal")
-	}
-
-	for i := range ret {
-		ins, err := self.GetVMById(vmId)
-		if err != nil {
-			return nil, errors.Wrap(err, "SRegion.GetNics")
-		}
-
-		ret[i].instance = ins
-	}
-
-	return ret, nil
+	return self.SubnetId
 }
