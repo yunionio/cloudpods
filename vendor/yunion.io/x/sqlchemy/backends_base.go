@@ -60,8 +60,8 @@ func (bb *SBaseBackend) CaseInsensitiveLikeString() string {
 	return "LIKE"
 }
 
-func (bb *SBaseBackend) CaseInsensitiveRegexpString() string {
-	return "REGEXP"
+func (bb *SBaseBackend) RegexpWhereClause(cond *SRegexpConition) string {
+	return tupleConditionWhereClause(&cond.STupleCondition, SQL_OP_REGEXP)
 }
 
 func (bb *SBaseBackend) UnionAllString() string {
