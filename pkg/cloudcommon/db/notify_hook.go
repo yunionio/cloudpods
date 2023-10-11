@@ -22,9 +22,13 @@ import (
 
 var (
 	updateNotifyHook updateNotifyHookFunc
+	createNotifyHook createNotifyHookFunc
+	deleteNotifyHook deleteNotifyHookFunc
 )
 
 type updateNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, obj IModel)
+type createNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, obj IModel)
+type deleteNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, obj IModel)
 
 func SetUpdateNotifyHook(f updateNotifyHookFunc) {
 	if updateNotifyHook != nil {
@@ -33,9 +37,37 @@ func SetUpdateNotifyHook(f updateNotifyHookFunc) {
 	updateNotifyHook = f
 }
 
+func SetCreateNotifyHook(f createNotifyHookFunc) {
+	if createNotifyHook != nil {
+		panic("createNotifyHook already set")
+	}
+	createNotifyHook = f
+}
+
+func SetDeleteNotifyHook(f deleteNotifyHookFunc) {
+	if deleteNotifyHook != nil {
+		panic("deleteNotifyHook already set")
+	}
+	deleteNotifyHook = f
+}
+
 func CallUpdateNotifyHook(ctx context.Context, userCred mcclient.TokenCredential, obj IModel) {
 	if updateNotifyHook == nil {
 		return
 	}
 	updateNotifyHook(ctx, userCred, obj)
+}
+
+func CallCreateNotifyHook(ctx context.Context, userCred mcclient.TokenCredential, obj IModel) {
+	if createNotifyHook == nil {
+		return
+	}
+	createNotifyHook(ctx, userCred, obj)
+}
+
+func CallDeleteNotifyHook(ctx context.Context, userCred mcclient.TokenCredential, obj IModel) {
+	if deleteNotifyHook == nil {
+		return
+	}
+	deleteNotifyHook(ctx, userCred, obj)
 }

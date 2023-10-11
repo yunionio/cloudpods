@@ -115,6 +115,11 @@ func init() {
 			api.TEMPLATE_LANG_CN,
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_HOST,
+			"host",
+			"宿主机",
+		},
+		sI18nElme{
 			api.TOPIC_RESOURCE_SERVER,
 			"virtual machine",
 			"虚拟机",
