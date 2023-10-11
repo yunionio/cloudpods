@@ -16,10 +16,8 @@ package provider
 
 import (
 	"context"
-	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -76,26 +74,10 @@ func (self *SCtyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx cont
 }
 
 func (self *SCtyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
-	segs := strings.Split(cfg.Account, "/")
-	projectId := ""
-	account := cfg.Account
-	if len(segs) == 2 {
-		projectId = segs[1]
-		account = segs[0]
-	}
-
-	options := cloudprovider.SCtyunExtraOptions{}
-	if cfg.Options != nil {
-		err := cfg.Options.Unmarshal(&options)
-		if err != nil {
-			log.Debugf("cfg.Options.Unmarshal %s", err)
-		}
-	}
-
 	client, err := ctyun.NewSCtyunClient(
 		ctyun.NewSCtyunClientConfig(
-			account, cfg.Secret, &options,
-		).ProjectId(projectId).CloudproviderConfig(cfg),
+			cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
 		return nil, err
@@ -111,20 +93,8 @@ func (self *SCtyunProviderFactory) GetClientRC(info cloudprovider.SProviderInfo)
 		"CTYUN_ACCESS_URL": info.Url,
 		"CTYUN_ACCESS_KEY": info.Account,
 		"CTYUN_SECRET":     info.Secret,
-		"CTYUN_REGION":     ctyun.CTYUN_DEFAULT_REGION,
+		"CTYUN_REGION":     "cn-beijing-5",
 	}
-
-	options := cloudprovider.SCtyunExtraOptions{}
-	if info.Options != nil {
-		err := info.Options.Unmarshal(&options)
-		if err != nil {
-			log.Debugf("info.Options.Unmarshal %s", err)
-		}
-	}
-	if len(options.CrmBizId) > 0 {
-		ret["CTYUN_CRM_BIZ_ID"] = options.CrmBizId
-	}
-
 	return ret, nil
 }
 
@@ -154,12 +124,11 @@ func (self *SCtyunProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	regions := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
-	info.Add(jsonutils.NewString(ctyun.CTYUN_API_VERSION), "api_version")
 	return info, nil
 }
 
 func (self *SCtyunProvider) GetVersion() string {
-	return ctyun.CTYUN_API_VERSION
+	return ""
 }
 
 func (self *SCtyunProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

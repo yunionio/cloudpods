@@ -599,6 +599,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 						})
 						return iVM, nil
 					}
+					log.Errorf("use sku %s error: %v", desc.InstanceType, err)
 					tryCnt++
 				}
 			}

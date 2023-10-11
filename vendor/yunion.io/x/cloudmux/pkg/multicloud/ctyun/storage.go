@@ -16,10 +16,9 @@ package ctyun
 
 import (
 	"fmt"
-	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -27,16 +26,11 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-var StorageTypes = []string{
-	api.STORAGE_CTYUN_SAS,
-	api.STORAGE_CTYUN_SATA,
-	api.STORAGE_CTYUN_SSD,
-}
-
 type SStorage struct {
 	multicloud.SStorageBase
 	CtyunTags
 	zone        *SZone
+	Name        string
 	storageType string
 }
 
@@ -45,7 +39,7 @@ func (self *SStorage) GetId() string {
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId(), self.Name)
 }
 
 func (self *SStorage) GetGlobalId() string {
@@ -54,10 +48,6 @@ func (self *SStorage) GetGlobalId() string {
 
 func (self *SStorage) GetStatus() string {
 	return api.STORAGE_ONLINE
-}
-
-func (self *SStorage) Refresh() error {
-	return nil
 }
 
 func (self *SStorage) IsEmulated() bool {
@@ -72,29 +62,19 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 	return self.zone
 }
 
-// http://ctyun-api-url/apiproxy/v3/ondemand/queryVolumes
-//  http://ctyun-api-url/apiproxy/v3/queryDataDisks
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks, err := self.zone.region.GetDisks()
 	if err != nil {
 		return nil, err
 	}
-
-	// 按storage type 过滤出disk
-	filtedDisks := make([]SDisk, 0)
+	ret := []cloudprovider.ICloudDisk{}
 	for i := range disks {
-		disk := disks[i]
-		if disk.VolumeType == self.storageType && disk.AvailabilityZone == self.zone.GetId() {
-			filtedDisks = append(filtedDisks, disk)
+		if disks[i].DiskType == self.storageType && (len(disks[i].AzName) == 0 || disks[i].AzName == self.zone.AzDisplayName) {
+			disks[i].storage = self
+			ret = append(ret, &disks[i])
 		}
 	}
-
-	idisks := make([]cloudprovider.ICloudDisk, len(filtedDisks))
-	for i := 0; i < len(filtedDisks); i += 1 {
-		filtedDisks[i].storage = self
-		idisks[i] = &filtedDisks[i]
-	}
-	return idisks, nil
+	return ret, nil
 }
 
 func (self *SStorage) GetStorageType() string {
@@ -102,11 +82,10 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == api.STORAGE_CTYUN_SSD {
+	if strings.Contains(self.storageType, "SSD") {
 		return api.DISK_TYPE_SSD
-	} else {
-		return api.DISK_TYPE_ROTATE
 	}
+	return api.DISK_TYPE_ROTATE
 }
 
 func (self *SStorage) GetCapacityMB() int64 {
@@ -126,26 +105,21 @@ func (self *SStorage) GetEnabled() bool {
 }
 
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	disk, err := self.zone.region.CreateDisk(self.zone.GetId(), conf.Name, self.GetStorageType(), strconv.Itoa(conf.SizeGb))
+	disk, err := self.zone.region.CreateDisk(self.zone.GetId(), conf.Name, self.GetStorageType(), conf.SizeGb)
 	if err != nil {
-		return nil, errors.Wrap(err, "Storage.CreateIDisk.CreateDisk")
+		return nil, errors.Wrap(err, "CreateDisk")
 	}
-
+	disk.storage = self
 	return disk, nil
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	if len(idStr) == 0 {
-		log.Debugf("GetIDiskById disk id should not be empty")
-		return nil, cloudprovider.ErrNotFound
-	}
-
-	if disk, err := self.zone.region.GetDisk(idStr); err != nil {
+	disk, err := self.zone.region.GetDisk(idStr)
+	if err != nil {
 		return nil, err
-	} else {
-		disk.storage = self
-		return disk, nil
 	}
+	disk.storage = self
+	return disk, nil
 }
 
 func (self *SStorage) GetMountPoint() string {
@@ -157,8 +131,5 @@ func (self *SStorage) IsSysDiskStore() bool {
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
-	if self.storageCache == nil {
-		self.storageCache = &SStoragecache{region: self}
-	}
-	return self.storageCache
+	return &SStoragecache{region: self}
 }

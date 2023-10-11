@@ -16,10 +16,12 @@ package ctyun
 
 import (
 	"fmt"
-	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -27,109 +29,70 @@ import (
 )
 
 type SRegion struct {
-	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
+	multicloud.SNoLbRegion
 	multicloud.SNoObjectStorageRegion
 
-	client       *SCtyunClient
-	storageCache *SStoragecache
+	client *SCtyunClient
 
-	//
-	initialled bool
+	product *SProduct
 
-	RegionName     string
-	Description    string `json:"description"`
-	ID             string `json:"id"`
-	ParentRegionID string `json:"parent_region_id"`
-	Type           string `json:"type"`
-
-	izones []cloudprovider.ICloudZone
-	ivpcs  []cloudprovider.ICloudVpc
+	IsMultiZones bool
+	RegionParent string
+	RegionId     string
+	RegionType   string
+	ZoneList     []string
+	RegionName   string
 }
 
-func (self *SRegion) fetchIVpcs() error {
-	vpcs, err := self.GetVpcs()
-	if err != nil {
-		return errors.Wrap(err, "SRegion.fetchIVpcs")
+func (self *SRegion) list(service, res string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	if gotypes.IsNil(params) {
+		params = map[string]interface{}{}
 	}
-
-	self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
-	for i := range vpcs {
-		vpc := vpcs[i]
-		vpc.region = self
-		self.ivpcs = append(self.ivpcs, &vpc)
-	}
-
-	return nil
+	params["regionID"] = self.RegionId
+	return self.client.list(service, res, params)
 }
 
-func (self *SRegion) fetchInfrastructure() error {
-	if err := self.fetchIVpcs(); err != nil {
-		return err
+func (self *SRegion) post(service, res string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	if gotypes.IsNil(params) {
+		params = map[string]interface{}{}
 	}
-
-	for i := 0; i < len(self.ivpcs); i += 1 {
-		vpc := self.ivpcs[i].(*SVpc)
-		wire := SWire{region: self, vpc: vpc}
-		vpc.addWire(&wire)
-
-		for j := 0; j < len(self.izones); j += 1 {
-			zone := self.izones[j].(*SZone)
-			zone.addWire(&wire)
-		}
-
-		vpc.fetchNetworks()
-	}
-	return nil
+	params["regionID"] = self.RegionId
+	return self.client.post(service, res, params)
 }
 
-func (self *SRegion) GetVpcs() ([]SVpc, error) {
-	vpcs := make([]SVpc, 0)
-	params := map[string]string{
-		"regionId": self.GetId(),
+func (self *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, error) {
+	params := map[string]interface{}{
+		"clientToken": utils.GenRequestId(20),
+		"name":        opts.NAME,
+		"description": opts.Desc,
+		"CIDR":        opts.CIDR,
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/getVpcs", params)
+	resp, err := self.post(SERVICE_VPC, "/v4/vpc/create", params)
 	if err != nil {
 		return nil, err
 	}
-
-	err = resp.Unmarshal(&vpcs, "returnObj")
+	vpcId, err := resp.GetString("returnObj", "vpcID")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "get vpcID")
 	}
-
-	return vpcs, nil
-}
-
-func (self *SRegion) CreateVpc(name, cidr string) (*SVpc, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"name":     jsonutils.NewString(name),
-		"cidr":     jsonutils.NewString(cidr),
-	}
-	resp, err := self.client.DoPost("/apiproxy/v3/createVPC", params)
-	if err != nil {
-		return nil, err
-	}
-
-	vpc := &SVpc{}
-	err = resp.Unmarshal(vpc, "returnObj")
-	if err != nil {
-		return nil, err
-	}
-
-	vpc.ResVpcID, _ = resp.GetString("returnObj", "id")
-	vpc.region = self
-	return vpc, nil
+	return self.GetVpc(vpcId)
 }
 
 func (self *SRegion) GetClient() *SCtyunClient {
 	return self.client
 }
 
+func (self *SRegion) GetCloudEnv() string {
+	return api.CLOUD_PROVIDER_CTYUN
+}
+
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return self.GetSecurityGroupDetails(secgroupId)
+	sec, err := self.GetSecurityGroup(secgroupId)
+	if err != nil {
+		return nil, err
+	}
+	return sec, nil
 }
 
 func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
@@ -139,7 +102,7 @@ func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFi
 	}
 
 	for i := range segroups {
-		if segroups[i].Name == opts.Name {
+		if segroups[i].GetName() == opts.Name {
 			return &segroups[i], nil
 		}
 	}
@@ -157,7 +120,11 @@ func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreat
 }
 
 func (self *SRegion) GetId() string {
-	return self.ID
+	id, ok := CtyunRegionIdMap[self.RegionId]
+	if ok {
+		return id
+	}
+	return self.RegionId
 }
 
 func (self *SRegion) GetName() string {
@@ -171,70 +138,88 @@ func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 	return table
 }
 
+func (self *SRegion) getProduct() (*SProduct, error) {
+	if !gotypes.IsNil(self.product) {
+		return self.product, nil
+	}
+	var err error
+	self.product, err = self.GetProduct()
+	return self.product, err
+}
+
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.ID)
+	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.GetId())
 }
 
 func (self *SRegion) GetStatus() string {
+	product, err := self.getProduct()
+	if err != nil {
+		return api.CLOUD_REGION_STATUS_OUTOFSERVICE
+	}
+	if len(product.Other.Region) == 0 {
+		return api.CLOUD_REGION_STATUS_OUTOFSERVICE
+	}
 	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
-func (self *SRegion) Refresh() error {
-	return nil
-}
-
-func (self *SRegion) IsEmulated() bool {
-	return false
-}
-
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
-	if info, ok := LatitudeAndLongitude[self.ID]; ok {
+	id := self.GetId()
+	if info, ok := LatitudeAndLongitude[id]; ok {
 		return info
 	}
 	return cloudprovider.SGeographicInfo{}
 }
 
-// http://ctyun-api-url/apiproxy/v3/order/getZoneConfig
+func (self *SRegion) getDefaultZone() *SZone {
+	return &SZone{
+		region:        self,
+		AzDisplayName: "默认可用区",
+		Name:          "default",
+	}
+}
+
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if self.izones == nil || self.initialled == false {
-		var err error
-		err = self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
-
-		self.initialled = true
+	zones, err := self.GetZones()
+	if err != nil {
+		return nil, err
 	}
-	return self.izones, nil
+	ret := []cloudprovider.ICloudZone{}
+	for i := range zones {
+		zones[i].region = self
+		ret = append(ret, &zones[i])
+	}
+	if len(ret) == 0 {
+		ret = append(ret, self.getDefaultZone())
+	}
+	return ret, nil
 }
 
-// http://ctyun-api-url/apiproxy/v3/getVpcs
-// http://ctyun-api-url/apiproxy/v3/getVpcs
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self.ivpcs == nil || self.initialled == false {
-		err := self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
-
-		self.initialled = true
+	vpcs, err := self.GetVpcs()
+	if err != nil {
+		return nil, err
 	}
-	return self.ivpcs, nil
+	ret := []cloudprovider.ICloudVpc{}
+	for i := range vpcs {
+		vpcs[i].region = self
+		ret = append(ret, &vpcs[i])
+	}
+	return ret, nil
 }
 
-// http://ctyun-api-url/apiproxy/v3/ondemand/queryIps
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, err := self.GetEips()
+	eips, err := self.GetEips("")
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetIEips.GetEips")
 	}
 
-	ieips := make([]cloudprovider.ICloudEIP, len(eips))
+	ret := []cloudprovider.ICloudEIP{}
 	for i := range eips {
-		ieips[i] = &eips[i]
+		eips[i].region = self
+		ret = append(ret, &eips[i])
 	}
 
-	return ieips, nil
+	return ret, nil
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
@@ -247,7 +232,7 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 			return ivpcs[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
@@ -264,52 +249,43 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 }
 
 func (self *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
-	return self.GetEip(id)
+	eip, err := self.GetEip(id)
+	if err != nil {
+		return nil, err
+	}
+	return eip, nil
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return self.GetVMById(id)
+	vm, err := self.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	return vm, nil
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return self.GetDisk(id)
-}
-
-func (self *SRegion) DeleteSecurityGroup(securityGroupId string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId":        jsonutils.NewString(self.GetId()),
-		"securityGroupId": jsonutils.NewString(securityGroupId),
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/deleteSecurityGroup", params)
+	disk, err := self.GetDisk(id)
 	if err != nil {
-		return errors.Wrap(err, "SRegion.DeleteSecurityGroup.DoPost")
+		return nil, err
 	}
-
-	var statusCode int
-	err = resp.Unmarshal(&statusCode, "statusCode")
-	if statusCode != 800 {
-		return errors.Wrap(fmt.Errorf(strconv.Itoa(statusCode)), "SRegion.DeleteSecurityGroup.JobFailed")
-	}
-
-	return nil
+	return disk, nil
 }
 
 func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
-	return self.CreateVpc(opts.NAME, opts.CIDR)
+	vpc, err := self.CreateVpc(opts)
+	if err != nil {
+		return nil, err
+	}
+	return vpc, nil
 }
 
-func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	zones, err := self.GetIZones()
+func (self *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	eip, err := self.CreateEip(opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateEIP.GetIZones")
+		return nil, err
 	}
-
-	if len(zones) == 0 {
-		return nil, errors.Wrap(errors.ErrNotFound, "SRegion.CreateEIP.GetIZones")
-	}
-
-	return self.CreateEip(zones[0].GetId(), eip.Name, strconv.Itoa(eip.BandwidthMbps), "PER", eip.ChargeType)
+	return eip, nil
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
@@ -341,21 +317,11 @@ func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId
 }
 
 func (self *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPolicy, error) {
-	polices, err := self.GetDiskBackupPolices()
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetISnapshotPolicies.GetDiskBackupPolices")
-	}
-
-	ipolices := make([]cloudprovider.ICloudSnapshotPolicy, len(polices))
-	for i := range polices {
-		ipolices[i] = &polices[i]
-	}
-
-	return ipolices, nil
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) GetISnapshotPolicyById(snapshotPolicyId string) (cloudprovider.ICloudSnapshotPolicy, error) {
-	return self.GetDiskBackupPolicy(snapshotPolicyId)
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
@@ -441,45 +407,54 @@ func (self *SRegion) GetProvider() string {
 	return api.CLOUD_PROVIDER_CTYUN
 }
 
-func (self *SRegion) GetInstances(instanceId string) ([]SInstance, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-	}
-
-	if len(instanceId) > 0 {
-		params["instanceId"] = instanceId
-	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVMs", params)
+func (self *SRegion) GetInstance(id string) (*SInstance, error) {
+	vms, err := self.GetInstances("", []string{id})
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetInstances.DoGet")
+		return nil, err
 	}
-
-	ret := make([]SInstance, 0)
-	err = resp.Unmarshal(&ret, "returnObj", "servers")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetInstances.Unmarshal")
+	for i := range vms {
+		if vms[i].GetGlobalId() == id {
+			return &vms[i], nil
+		}
 	}
-
-	return ret, nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SRegion) GetInstanceFlavors() ([]FlavorObj, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
+func (self *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, error) {
+	pageNo := 1
+	params := map[string]interface{}{
+		"pageNo":   pageNo,
+		"pageSize": 50,
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/order/getFlavors", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetInstanceFlavors.DoGet")
+	if len(ids) > 0 {
+		params["instanceIDList"] = strings.Join(ids, ",")
 	}
-
-	ret := make([]FlavorObj, 0)
-	err = resp.Unmarshal(&ret, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetInstanceFlavors.Unmarshal")
+	if len(zoneId) > 0 {
+		params["azName"] = zoneId
 	}
-
+	ret := []SInstance{}
+	for {
+		resp, err := self.post(SERVICE_ECS, "/v4/ecs/list-instances", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			ReturnObj struct {
+				Results []SInstance
+			}
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.ReturnObj.Results...)
+		if len(ret) >= part.TotalCount || len(part.ReturnObj.Results) == 0 {
+			break
+		}
+		pageNo++
+		params["pageNo"] = pageNo
+	}
 	return ret, nil
 }
 

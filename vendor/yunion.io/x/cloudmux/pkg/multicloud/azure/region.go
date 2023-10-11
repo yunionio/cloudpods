@@ -309,32 +309,15 @@ func (self *SRegion) ListVpcs() ([]SVpc, error) {
 	return result, nil
 }
 
-func (self *SRegion) ListClassicVpcs() ([]SClassicVpc, error) {
-	result := []SClassicVpc{}
-	err := self.list("Microsoft.ClassicNetwork/virtualNetworks", url.Values{}, &result)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListClassicVpcs")
-	}
-	return result, nil
-}
-
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	vpcs, err := self.ListVpcs()
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListVpcs")
 	}
-	classicVpcs, err := self.ListClassicVpcs()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListClassicVpcs")
-	}
 	ret := []cloudprovider.ICloudVpc{}
 	for i := range vpcs {
 		vpcs[i].region = self
 		ret = append(ret, &vpcs[i])
-	}
-	for i := range classicVpcs {
-		classicVpcs[i].region = self
-		ret = append(ret, &classicVpcs[i])
 	}
 	return ret, nil
 }
@@ -381,10 +364,6 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetEips")
 	}
-	classicEips, err := region.GetClassicEips()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetClassicEips")
-	}
 	ieips := []cloudprovider.ICloudEIP{}
 	for i := 0; i < len(eips); i++ {
 		if len(eips[i].GetIpAddr()) == 0 {
@@ -397,24 +376,10 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		eips[i].region = region
 		ieips = append(ieips, &eips[i])
 	}
-	for i := 0; i < len(classicEips); i++ {
-		if len(classicEips[i].GetIpAddr()) == 0 {
-			continue
-		}
-		_, err := netutils.NewIPV4Addr(classicEips[i].GetIpAddr())
-		if err != nil {
-			continue
-		}
-		classicEips[i].region = region
-		ieips = append(ieips, &classicEips[i])
-	}
 	return ieips, nil
 }
 
 func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	if strings.Contains(strings.ToLower(secgroupId), "microsoft.classicnetwork") {
-		return region.GetClassicSecurityGroupDetails(secgroupId)
-	}
 	return region.GetSecurityGroupDetails(secgroupId)
 }
 
@@ -432,9 +397,6 @@ func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroup
 }
 
 func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	if opts.VpcId == "classic" {
-		return region.CreateClassicSecurityGroup(opts.Name)
-	}
 	return region.CreateSecurityGroup(opts)
 }
 

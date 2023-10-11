@@ -37,6 +37,10 @@ func init() {
 }
 
 func (self *SCtyunRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+func (self *SCtyunRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
 }
 

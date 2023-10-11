@@ -17,10 +17,3 @@ package cloudprovider
 type SAWSExtraOptions struct {
 	AWSAssumeRoleName string `json:"aws_assume_role_name"`
 }
-
-type SCtyunExtraOptions struct {
-	// customInfo type=1
-	CrmBizId string `help:"ctyun crm user biz id. eg. ACMB1000000000123456 " json:"crm_biz_id" default:"$CTYUN_CRM_BIZ_ID"`
-	// customInfo type=2
-	// OptionsAccountId string `help:"ctyun account id." json:"options_account_id"`
-}
