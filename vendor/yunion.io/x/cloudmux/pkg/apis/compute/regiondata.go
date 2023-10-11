@@ -21,14 +21,14 @@ import (
 var (
 	// China
 	RegionBeijing = cloudprovider.SGeographicInfo{
-		Latitude:    39.90419989999999,
-		Longitude:   116.4073963,
+		Latitude:    39.904,
+		Longitude:   116.407,
 		City:        CITY_BEI_JING,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionNingxia = cloudprovider.SGeographicInfo{
-		Latitude:    37.198731,
-		Longitude:   106.1580937,
+		Latitude:    37.199,
+		Longitude:   106.158,
 		City:        CITY_NING_XIA,
 		CountryCode: COUNTRY_CODE_CN,
 	}
@@ -45,8 +45,8 @@ var (
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionGuangzhou = cloudprovider.SGeographicInfo{
-		Latitude:    23.12911,
-		Longitude:   113.264385,
+		Latitude:    23.129,
+		Longitude:   113.264,
 		City:        CITY_GUANG_ZHOU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
@@ -57,26 +57,38 @@ var (
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionDalian = cloudprovider.SGeographicInfo{
-		Latitude:    38.91400300000001,
-		Longitude:   121.614682,
+		Latitude:    38.914,
+		Longitude:   121.615,
 		City:        CITY_DA_LIAN,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionGuiyang = cloudprovider.SGeographicInfo{
-		Latitude:    26.6470035286,
-		Longitude:   106.6302113880,
+		Latitude:    26.647,
+		Longitude:   106.63,
 		City:        CITY_GUI_YANG,
 		CountryCode: COUNTRY_CODE_CN,
 	}
+	RegionHaerbin = cloudprovider.SGeographicInfo{
+		Latitude:    45.757,
+		Longitude:   126.57,
+		City:        CITY_HAE_BIN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionZhengzhou = cloudprovider.SGeographicInfo{
+		Latitude:    34.743,
+		Longitude:   113.498,
+		City:        CITY_ZHENG_ZHOU,
+		CountryCode: COUNTRY_CODE_CN,
+	}
 	RegionNeimenggu = cloudprovider.SGeographicInfo{
-		Latitude:    41.0178713,
-		Longitude:   113.094978,
+		Latitude:    41.018,
+		Longitude:   113.095,
 		City:        CITY_NEI_MENG_GU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionQingdao = cloudprovider.SGeographicInfo{
-		Latitude:    36.067108,
-		Longitude:   120.382607,
+		Latitude:    36.067,
+		Longitude:   120.383,
 		City:        CITY_QING_DAO,
 		CountryCode: COUNTRY_CODE_CN,
 	}
@@ -87,20 +99,20 @@ var (
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionZhangjiakou = cloudprovider.SGeographicInfo{
-		Latitude:    40.767544,
-		Longitude:   114.886337,
+		Latitude:    40.768,
+		Longitude:   114.886,
 		City:        CITY_ZHANG_JIA_KOU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionHuhehaote = cloudprovider.SGeographicInfo{
-		Latitude:    40.842358,
-		Longitude:   111.749992,
+		Latitude:    40.842,
+		Longitude:   111.75,
 		City:        CITY_HU_HE_HAO_TE,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionHangzhou = cloudprovider.SGeographicInfo{
-		Latitude:    30.274084,
-		Longitude:   120.155067,
+		Latitude:    30.274,
+		Longitude:   120.155,
 		City:        CITY_HANG_ZHOU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
@@ -110,71 +122,161 @@ var (
 		City:        CITY_WU_HAN,
 		CountryCode: COUNTRY_CODE_CN,
 	}
+	RegionFoshan = cloudprovider.SGeographicInfo{
+		Latitude:    23.009,
+		Longitude:   113.024,
+		City:        CITY_FO_SHAN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionXian = cloudprovider.SGeographicInfo{
+		Latitude:    34.26,
+		Longitude:   108.802,
+		City:        CITY_XI_AN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionLanzhou = cloudprovider.SGeographicInfo{
+		Latitude:    36.078,
+		Longitude:   103.596,
+		City:        CITY_LAN_ZHOU,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionWuhu = cloudprovider.SGeographicInfo{
+		Latitude:    31.3285,
+		Longitude:   118.312,
+		City:        CITY_WU_HU,
+		CountryCode: COUNTRY_CODE_CN,
+	}
 	RegionShenzhen = cloudprovider.SGeographicInfo{
-		Latitude:    22.543097,
-		Longitude:   114.057861,
+		Latitude:    22.543,
+		Longitude:   114.058,
 		City:        CITY_SHEN_ZHEN,
 		CountryCode: COUNTRY_CODE_CN,
 	}
+	RegionKunming = cloudprovider.SGeographicInfo{
+		Latitude:    25.021,
+		Longitude:   102.659,
+		City:        CITY_KUN_MING,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionHefei = cloudprovider.SGeographicInfo{
+		Latitude:    31.855,
+		Longitude:   117.204,
+		City:        CITY_HE_FEI,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionFujian = cloudprovider.SGeographicInfo{
+		Latitude:    25.925,
+		Longitude:   116.98,
+		City:        CITY_FU_JIAN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionJinzhong = cloudprovider.SGeographicInfo{
+		Latitude:    37.699,
+		Longitude:   112.662,
+		City:        CITY_JIN_ZHONG,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionNanning = cloudprovider.SGeographicInfo{
+		Latitude:    22.822,
+		Longitude:   108.204,
+		City:        CITY_NAN_NING,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionChengzhou = cloudprovider.SGeographicInfo{
+		Latitude:    25.777,
+		Longitude:   112.975,
+		City:        CITY_CHENG_ZHOU,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionChangsha = cloudprovider.SGeographicInfo{
+		Latitude:    28.176,
+		Longitude:   112.86,
+		City:        CITY_CHANG_SHA,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionJiangxi = cloudprovider.SGeographicInfo{
+		Latitude:    27.274,
+		Longitude:   114.713,
+		City:        CITY_JIANG_XI,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionHunan = cloudprovider.SGeographicInfo{
+		Latitude:    27.274,
+		Longitude:   114.713,
+		City:        CITY_JIANG_XI,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionHaikou = cloudprovider.SGeographicInfo{
+		Latitude:    20.012,
+		Longitude:   110.236,
+		City:        CITY_HAI_KOU,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionTianjin = cloudprovider.SGeographicInfo{
+		Latitude:    39.125,
+		Longitude:   117.131,
+		City:        CITY_TIAN_JIN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
 	RegionChengdu = cloudprovider.SGeographicInfo{
-		Latitude:    30.572815,
-		Longitude:   104.066803,
+		Latitude:    30.573,
+		Longitude:   104.067,
 		City:        CITY_CHENG_DU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionHeyuan = cloudprovider.SGeographicInfo{
-		Latitude:    23.7292717,
-		Longitude:   114.6965786,
+		Latitude:    23.729,
+		Longitude:   114.697,
 		City:        CITY_HE_YUAN,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionWulanchabu = cloudprovider.SGeographicInfo{
-		Latitude:    41.0178065,
-		Longitude:   113.094978,
+		Latitude:    41.018,
+		Longitude:   113.095,
 		City:        CITY_WU_LAN_CHA_BU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionChongqing = cloudprovider.SGeographicInfo{
-		Latitude:    29.431585,
-		Longitude:   106.912254,
+		Latitude:    29.432,
+		Longitude:   106.912,
 		City:        CITY_CHONG_QING,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionNanjing = cloudprovider.SGeographicInfo{
-		Latitude:    32.0584065670,
-		Longitude:   118.7964897811,
+		Latitude:    32.058,
+		Longitude:   118.796,
 		City:        CITY_NAN_JING,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 
 	// Asia
 	RegionTaiwan = cloudprovider.SGeographicInfo{
-		Latitude:    25.0443,
+		Latitude:    25.044,
 		Longitude:   121.509,
 		City:        CITY_TAI_WAN,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionHongkong = cloudprovider.SGeographicInfo{
-		Latitude:    22.396427,
-		Longitude:   114.109497,
+		Latitude:    22.396,
+		Longitude:   114.109,
 		City:        CITY_HONG_KONG,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionTokyo = cloudprovider.SGeographicInfo{
-		Latitude:    35.709026,
-		Longitude:   139.731995,
+		Latitude:    35.709,
+		Longitude:   139.732,
 		City:        CITY_TOKYO,
 		CountryCode: COUNTRY_CODE_JP,
 	}
 	RegionOsaka = cloudprovider.SGeographicInfo{
-		Latitude:    34.6937378,
-		Longitude:   135.5021651,
+		Latitude:    34.694,
+		Longitude:   135.502,
 		City:        CITY_OSAKA,
 		CountryCode: COUNTRY_CODE_JP,
 	}
 	RegionSeoul = cloudprovider.SGeographicInfo{
-		Latitude:    34.6937378,
-		Longitude:   135.5021651,
+		Latitude:    34.694,
+		Longitude:   135.502,
 		City:        CITY_SEOUL,
 		CountryCode: COUNTRY_CODE_KR,
 	}
@@ -186,8 +288,8 @@ var (
 	}
 
 	RegionMumbai = cloudprovider.SGeographicInfo{
-		Latitude:    19.07599,
-		Longitude:   72.877393,
+		Latitude:    19.076,
+		Longitude:   72.877,
 		City:        CITY_MUMBAI,
 		CountryCode: COUNTRY_CODE_IN,
 	}
@@ -211,54 +313,54 @@ var (
 		CountryCode: COUNTRY_CODE_IN,
 	}
 	RegionHyderabad = cloudprovider.SGeographicInfo{
-		Latitude:    17.4123318,
-		Longitude:   78.3256457,
+		Latitude:    17.412,
+		Longitude:   78.326,
 		City:        CITY_HYDERABAD,
 		CountryCode: COUNTRY_CODE_IN,
 	}
 
 	RegionSingapore = cloudprovider.SGeographicInfo{
-		Latitude:    1.352083,
-		Longitude:   103.819839,
+		Latitude:    1.352,
+		Longitude:   103.82,
 		City:        CITY_SINGAPORE,
 		CountryCode: COUNTRY_CODE_SG,
 	}
 	// 雅加达
 	RegionJakarta = cloudprovider.SGeographicInfo{
-		Latitude:    -6.175110,
-		Longitude:   106.865036,
+		Latitude:    -6.175,
+		Longitude:   106.865,
 		City:        CITY_JAKARTA,
 		CountryCode: COUNTRY_CODE_ID,
 	}
 	RegionKualaLumpur = cloudprovider.SGeographicInfo{
-		Latitude:    3.139003,
-		Longitude:   101.686852,
+		Latitude:    3.139,
+		Longitude:   101.687,
 		City:        CITY_KUALA_LUMPUR,
 		CountryCode: COUNTRY_CODE_MY,
 	}
 	RegionBangkok = cloudprovider.SGeographicInfo{
-		Latitude:    13.7563309,
-		Longitude:   100.5017651,
+		Latitude:    13.756,
+		Longitude:   100.502,
 		City:        CITY_BANGKOK,
 		CountryCode: COUNTRY_CODE_TH,
 	}
 
 	RegionSydney = cloudprovider.SGeographicInfo{
-		Latitude:    -33.8688197,
-		Longitude:   151.2092955,
+		Latitude:    -33.869,
+		Longitude:   151.209,
 		City:        CITY_SYDNEY,
 		CountryCode: COUNTRY_CODE_AU,
 	}
 	// 墨尔本
 	RegionMelbourne = cloudprovider.SGeographicInfo{
-		Latitude:    -37.813611,
-		Longitude:   144.963056,
+		Latitude:    -37.814,
+		Longitude:   144.963,
 		City:        CITY_MELBOURNE,
 		CountryCode: COUNTRY_CODE_AU,
 	}
 	//亚拉伦拉 澳大利亚
 	RegionYarralumla = cloudprovider.SGeographicInfo{
-		Latitude:    -35.3016,
+		Latitude:    -35.302,
 		Longitude:   149.078,
 		City:        CITY_YARRALUMLA,
 		CountryCode: COUNTRY_CODE_AU,
@@ -266,69 +368,69 @@ var (
 
 	// Africa
 	RegionCapeTown = cloudprovider.SGeographicInfo{
-		Latitude:    -33.9152209,
-		Longitude:   18.3758904,
+		Latitude:    -33.915,
+		Longitude:   18.376,
 		City:        CITY_CAPE_TOWN,
 		CountryCode: COUNTRY_CODE_ZA,
 	}
 	// 比勒陀利亚
 	RegionPretoria = cloudprovider.SGeographicInfo{
-		Latitude:    -25.716667,
-		Longitude:   28.283333,
+		Latitude:    -25.717,
+		Longitude:   28.283,
 		City:        CITY_PRETORIA,
 		CountryCode: COUNTRY_CODE_ZA,
 	}
 	RegionJohannesburg = cloudprovider.SGeographicInfo{
-		Latitude:    -26.1714537,
-		Longitude:   27.8999389,
+		Latitude:    -26.171,
+		Longitude:   27.9,
 		City:        CITY_JOHANNESBURG,
 		CountryCode: COUNTRY_CODE_ZA,
 	}
 
 	// Middleeast
 	RegionBahrain = cloudprovider.SGeographicInfo{
-		Latitude:    25.9408826,
-		Longitude:   50.4474957,
+		Latitude:    25.941,
+		Longitude:   50.447,
 		City:        CITY_BAHRAIN,
 		CountryCode: COUNTRY_CODE_BH,
 	}
 	// 迪拜
 	RegionDubai = cloudprovider.SGeographicInfo{
-		Latitude:    25.263056,
-		Longitude:   55.297222,
+		Latitude:    25.263,
+		Longitude:   55.297,
 		City:        CITY_DUBAI,
 		CountryCode: COUNTRY_CODE_AE,
 	}
 	// 阿布扎比
 	RegionAbuDhabi = cloudprovider.SGeographicInfo{
-		Latitude:    24.3867414,
-		Longitude:   54.3938162,
+		Latitude:    24.387,
+		Longitude:   54.394,
 		City:        CITY_ABU_DHABI,
 		CountryCode: COUNTRY_CODE_AE,
 	}
 
 	// Europe
 	RegionFinland = cloudprovider.SGeographicInfo{
-		Latitude:    64.8255731,
-		Longitude:   21.5432837,
+		Latitude:    64.826,
+		Longitude:   21.543,
 		City:        CITY_FINLAND,
 		CountryCode: COUNTRY_CODE_FI,
 	}
 	RegionBelgium = cloudprovider.SGeographicInfo{
-		Latitude:    50.499734,
-		Longitude:   3.9057517,
+		Latitude:    50.5,
+		Longitude:   3.906,
 		City:        CITY_BELGIUM,
 		CountryCode: COUNTRY_CODE_BE,
 	}
 	RegionLondon = cloudprovider.SGeographicInfo{
-		Latitude:    51.507351,
-		Longitude:   -0.127758,
+		Latitude:    51.507,
+		Longitude:   -0.128,
 		City:        CITY_LONDON,
 		CountryCode: COUNTRY_CODE_GB,
 	}
 	RegionHalton = cloudprovider.SGeographicInfo{
-		Latitude:    53.3331,
-		Longitude:   -2.6957,
+		Latitude:    53.333,
+		Longitude:   -2.696,
 		City:        CITY_HALTON,
 		CountryCode: COUNTRY_CODE_GB,
 	}
@@ -339,125 +441,125 @@ var (
 		CountryCode: COUNTRY_CODE_GB,
 	}
 	RegionFrankfurt = cloudprovider.SGeographicInfo{
-		Latitude:    51.165691,
-		Longitude:   10.451526,
+		Latitude:    51.166,
+		Longitude:   10.452,
 		City:        CITY_FRANKFURT,
 		CountryCode: COUNTRY_CODE_DE,
 	}
 	RegionHolland = cloudprovider.SGeographicInfo{
-		Latitude:    52.2076831,
-		Longitude:   4.1585786,
+		Latitude:    52.208,
+		Longitude:   4.159,
 		City:        CITY_HOLLAND,
 		CountryCode: COUNTRY_CODE_NL,
 	}
 	RegionZurich = cloudprovider.SGeographicInfo{
-		Latitude:    47.3774497,
-		Longitude:   8.5016958,
+		Latitude:    47.377,
+		Longitude:   8.502,
 		City:        CITY_ZURICH,
 		CountryCode: COUNTRY_CODE_CH,
 	}
 	RegionMilan = cloudprovider.SGeographicInfo{
-		Latitude:    45.4627124,
-		Longitude:   9.1076929,
+		Latitude:    45.463,
+		Longitude:   9.108,
 		City:        CITY_MILAN,
 		CountryCode: COUNTRY_CODE_IT,
 	}
 	RegionWarsaw = cloudprovider.SGeographicInfo{
-		Latitude:    52.233333,
-		Longitude:   21.016667,
+		Latitude:    52.233,
+		Longitude:   21.017,
 		City:        CITY_WARSAW,
 		CountryCode: COUNTRY_CODE_PL,
 	}
 	RegionMadrid = cloudprovider.SGeographicInfo{
-		Latitude:    40.4378698,
-		Longitude:   -3.8196188,
+		Latitude:    40.438,
+		Longitude:   -3.82,
 		City:        CITY_MADRID,
 		CountryCode: COUNTRY_CODE_ES,
 	}
 	RegionIreland = cloudprovider.SGeographicInfo{
-		Latitude:    53.41291,
-		Longitude:   -8.24389,
+		Latitude:    53.413,
+		Longitude:   -8.244,
 		City:        CITY_IRELAND,
 		CountryCode: COUNTRY_CODE_IE,
 	}
 	RegionDublin = cloudprovider.SGeographicInfo{
-		Latitude:    53.349722,
-		Longitude:   -6.260278,
+		Latitude:    53.35,
+		Longitude:   -6.26,
 		City:        CITY_DUBLIN,
 		CountryCode: COUNTRY_CODE_IE,
 	}
 	RegionParis = cloudprovider.SGeographicInfo{
-		Latitude:    48.856614,
-		Longitude:   2.3522219,
+		Latitude:    48.857,
+		Longitude:   2.352,
 		City:        CITY_PARIS,
 		CountryCode: COUNTRY_CODE_FR,
 	}
 	RegionAllier = cloudprovider.SGeographicInfo{
-		Latitude:    46.5178,
-		Longitude:   3.3592,
+		Latitude:    46.518,
+		Longitude:   3.359,
 		City:        CITY_ALLIER,
 		CountryCode: COUNTRY_CODE_FR,
 	}
 	RegionTarn = cloudprovider.SGeographicInfo{
-		Latitude:    43.8656,
+		Latitude:    43.866,
 		Longitude:   1.505,
 		City:        CITY_TARN,
 		CountryCode: COUNTRY_CODE_FR,
 	}
 	RegionStockholm = cloudprovider.SGeographicInfo{
-		Latitude:    59.1946,
+		Latitude:    59.195,
 		Longitude:   18.47,
 		City:        CITY_STOCKHOLM,
 		CountryCode: COUNTRY_CODE_SE,
 	}
 	RegionDelmenhorst = cloudprovider.SGeographicInfo{
-		Latitude:    53.050556,
-		Longitude:   8.631667,
+		Latitude:    53.051,
+		Longitude:   8.632,
 		City:        CITY_DELMENHORST,
 		CountryCode: COUNTRY_CODE_DE,
 	}
 	RegionGeneva = cloudprovider.SGeographicInfo{
-		Latitude:    46.201667,
-		Longitude:   6.146944,
+		Latitude:    46.202,
+		Longitude:   6.147,
 		City:        CITY_GENEVA,
 		CountryCode: COUNTRY_CODE_CH,
 	}
 	RegionStavanger = cloudprovider.SGeographicInfo{
-		Latitude:    58.963333,
-		Longitude:   5.718889,
+		Latitude:    58.963,
+		Longitude:   5.719,
 		City:        CITY_STAVANGER,
 		CountryCode: COUNTRY_CODE_NO,
 	}
 	RegionOslo = cloudprovider.SGeographicInfo{
-		Latitude:    59.905556,
-		Longitude:   10.768333,
+		Latitude:    59.906,
+		Longitude:   10.768,
 		City:        CITY_OSLO,
 		CountryCode: COUNTRY_CODE_NO,
 	}
 
 	RegionMoscow = cloudprovider.SGeographicInfo{
-		Latitude:    55.755825,
-		Longitude:   37.617298,
+		Latitude:    55.756,
+		Longitude:   37.617,
 		City:        CITY_MOSCOW,
 		CountryCode: COUNTRY_CODE_RU,
 	}
 
 	// America
 	RegionMontreal = cloudprovider.SGeographicInfo{
-		Latitude:    45.5580206,
-		Longitude:   -73.8003414,
+		Latitude:    45.558,
+		Longitude:   -73.8,
 		City:        CITY_MONTREAL,
 		CountryCode: COUNTRY_CODE_CA,
 	}
 	RegionToronto = cloudprovider.SGeographicInfo{
-		Latitude:    43.653225,
-		Longitude:   -79.383186,
+		Latitude:    43.653,
+		Longitude:   -79.383,
 		City:        CITY_TORONTO,
 		CountryCode: COUNTRY_CODE_CA,
 	}
 	RegionCanadaCentral = cloudprovider.SGeographicInfo{
-		Latitude:    56.130366,
-		Longitude:   -106.346771,
+		Latitude:    56.13,
+		Longitude:   -106.347,
 		City:        CITY_CANADA_CENTRAL,
 		CountryCode: COUNTRY_CODE_CA,
 	}
@@ -469,42 +571,42 @@ var (
 	}
 
 	RegionSaoPaulo = cloudprovider.SGeographicInfo{
-		Latitude:    -23.5505199,
-		Longitude:   -46.6333094,
+		Latitude:    -23.551,
+		Longitude:   -46.633,
 		City:        CITY_SAO_PAULO,
 		CountryCode: COUNTRY_CODE_BR,
 	}
 	// 里约热内卢
 	RegionRioDeJaneiro = cloudprovider.SGeographicInfo{
-		Latitude:    -22.9083,
-		Longitude:   -43.1964,
+		Latitude:    -22.908,
+		Longitude:   -43.196,
 		City:        CITY_RIO_DE_JANEIRO,
 		CountryCode: COUNTRY_CODE_BR,
 	}
 
 	RegionMexico = cloudprovider.SGeographicInfo{
-		Latitude:    55.1182908,
-		Longitude:   141.0377645,
+		Latitude:    55.118,
+		Longitude:   141.038,
 		City:        CITY_MEXICO,
 		CountryCode: COUNTRY_CODE_MX,
 	}
 
 	RegionSantiago = cloudprovider.SGeographicInfo{
-		Latitude:    -33.45206,
-		Longitude:   -70.676031,
+		Latitude:    -33.452,
+		Longitude:   -70.676,
 		City:        CITY_SANTIAGO,
 		CountryCode: COUNTRY_CODE_CL,
 	}
 
 	RegionIowa = cloudprovider.SGeographicInfo{
-		Latitude:    41.9328655,
-		Longitude:   -94.5106809,
+		Latitude:    41.933,
+		Longitude:   -94.511,
 		City:        CITY_IOWA,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionCarolina = cloudprovider.SGeographicInfo{
-		Latitude:    33.6194409,
-		Longitude:   -82.0475635,
+		Latitude:    33.619,
+		Longitude:   -82.047,
 		City:        CITY_SOUTH_CAROLINA,
 		CountryCode: COUNTRY_CODE_US,
 	}
@@ -516,8 +618,8 @@ var (
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionVirginia = cloudprovider.SGeographicInfo{
-		Latitude:    37.4315734,
-		Longitude:   -78.6568942,
+		Latitude:    37.432,
+		Longitude:   -78.657,
 		City:        CITY_VIRGINIA,
 		CountryCode: COUNTRY_CODE_US,
 	}
@@ -528,14 +630,14 @@ var (
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionChicago = cloudprovider.SGeographicInfo{
-		Latitude:    41.8819,
-		Longitude:   -87.6278,
+		Latitude:    41.882,
+		Longitude:   -87.628,
 		City:        CITY_CHICAGO,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionPhoenix = cloudprovider.SGeographicInfo{
-		Latitude:    33.4483,
-		Longitude:   -112.0739,
+		Latitude:    33.448,
+		Longitude:   -112.074,
 		City:        CITY_PHOENIX,
 		CountryCode: COUNTRY_CODE_US,
 	}
@@ -546,87 +648,87 @@ var (
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionSanFrancisco = cloudprovider.SGeographicInfo{
-		Latitude:    37.7775,
-		Longitude:   -122.4164,
+		Latitude:    37.778,
+		Longitude:   -122.416,
 		City:        CITY_SAN_FRANCISCO,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionSiliconValley = cloudprovider.SGeographicInfo{
-		Latitude:    37.387474,
-		Longitude:   -122.057541,
+		Latitude:    37.387,
+		Longitude:   -122.058,
 		City:        CITY_SILICONVALLEY,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionNothVirginia = cloudprovider.SGeographicInfo{
-		Latitude:    37.4315734,
-		Longitude:   -78.6568942,
+		Latitude:    37.432,
+		Longitude:   -78.657,
 		City:        CITY_N_VIRGINIA,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionOregon = cloudprovider.SGeographicInfo{
-		Latitude:    43.8041334,
-		Longitude:   -120.5542012,
+		Latitude:    43.804,
+		Longitude:   -120.554,
 		City:        CITY_OREGON,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionLosAngeles = cloudprovider.SGeographicInfo{
-		Latitude:    34.0522342,
-		Longitude:   -118.2436849,
+		Latitude:    34.052,
+		Longitude:   -118.244,
 		City:        CITY_LOS_ANGELES,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionSaltLakeCity = cloudprovider.SGeographicInfo{
-		Latitude:    40.7767168,
-		Longitude:   -111.9905243,
+		Latitude:    40.777,
+		Longitude:   -111.991,
 		City:        CITY_SALT_LAKE_CITY,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionLasVegas = cloudprovider.SGeographicInfo{
-		Latitude:    36.1249185,
-		Longitude:   -115.3150811,
+		Latitude:    36.125,
+		Longitude:   -115.315,
 		City:        CITY_LAS_VEGAS,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionDallas = cloudprovider.SGeographicInfo{
-		Latitude:    32.7844251,
-		Longitude:   -96.8913045,
+		Latitude:    32.784,
+		Longitude:   -96.891,
 		City:        CITY_DALLAS,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionColumbus = cloudprovider.SGeographicInfo{
-		Latitude:    32.0879267,
-		Longitude:   34.7622266,
+		Latitude:    32.088,
+		Longitude:   34.762,
 		City:        CITY_TEL_AVIV,
 		CountryCode: COUNTRY_CODE_IL,
 	}
 	RegionNorthCalifornia = cloudprovider.SGeographicInfo{
-		Latitude:    38.8375215,
-		Longitude:   -120.8958242,
+		Latitude:    38.838,
+		Longitude:   -120.896,
 		City:        CITY_N_CALIFORNIA,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionOhio = cloudprovider.SGeographicInfo{
-		Latitude:    40.4172871,
-		Longitude:   -82.90712300000001,
+		Latitude:    40.417,
+		Longitude:   -82.907,
 		City:        CITY_OHIO,
 		CountryCode: COUNTRY_CODE_US,
 	}
 
 	RegionUSGOVWest = cloudprovider.SGeographicInfo{
-		Latitude:    37.09024,
-		Longitude:   -95.712891,
+		Latitude:    37.09,
+		Longitude:   -95.713,
 		City:        CITY_US_GOV_WEST,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionJioIndiaWest = cloudprovider.SGeographicInfo{
-		Latitude:    22.4707,
-		Longitude:   70.0577,
+		Latitude:    22.471,
+		Longitude:   70.058,
 		City:        CITY_JAMNAGAR,
 		CountryCode: COUNTRY_CODE_IN,
 	}
 	RegionJioIndiaCentral = cloudprovider.SGeographicInfo{
-		Latitude:    21.1466,
-		Longitude:   79.0889,
+		Latitude:    21.147,
+		Longitude:   79.09,
 		City:        CITY_NAGPUR,
 		CountryCode: COUNTRY_CODE_IN,
 	}
