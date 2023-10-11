@@ -14,11 +14,84 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/regutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
+
+const (
+	DNS_RECORDSET_STATUS_AVAILABLE = compute.DNS_RECORDSET_STATUS_AVAILABLE
+	DNS_RECORDSET_STATUS_CREATING  = apis.STATUS_CREATING
+)
 
 type DnsRecordCreateInput struct {
-	apis.AdminSharableVirtualResourceBaseCreateInput
+	apis.EnabledStatusStandaloneResourceCreateInput
+
+	DnsZoneId  string `json:"dns_zone_id"`
+	DnsType    string `json:"dns_type"`
+	DnsValue   string `json:"dns_value"`
+	TTL        int64  `json:"ttl"`
+	MxPriority int64  `json:"mx_priority"`
+
+	PolicyType  string `json:"policy_type"`
+	PolicyValue string `json:"policy_value"`
 }
 
 type DnsRecordUpdateInput struct {
+	apis.EnabledStatusStandaloneResourceBaseUpdateInput
+
+	DnsType    string `json:"dns_type"`
+	DnsValue   string `json:"dns_value"`
+	TTL        *int64 `json:"ttl"`
+	MxPriority *int64 `json:"mx_priority"`
+}
+
+type DnsRecordDetails struct {
+	apis.EnabledStatusStandaloneResourceDetails
+	SDnsRecord
+
+	DnsZone string `json:"dns_zone"`
+}
+
+type DnsRecordListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+
+	DnsZoneFilterListBase
+}
+
+type DnsRecordEnableInput struct {
+	apis.PerformEnableInput
+}
+
+type DnsRecordDisableInput struct {
+	apis.PerformDisableInput
+}
+
+func (record *SDnsRecord) ValidateDnsrecordValue() error {
+	switch cloudprovider.TDnsType(record.DnsType) {
+	case cloudprovider.DnsTypeMX:
+		if record.MxPriority < 1 || record.MxPriority > 50 {
+			return httperrors.NewOutOfRangeError("mx_priority range limited to [1,50]")
+		}
+		if !regutils.MatchDomainName(record.DnsValue) {
+			return httperrors.NewInputParameterError("invalid domain %s for MX record", record.DnsValue)
+		}
+	case cloudprovider.DnsTypeA:
+		if !regutils.MatchIP4Addr(record.DnsValue) {
+			return httperrors.NewInputParameterError("invalid ipv4 %s for A record", record.DnsValue)
+		}
+	case cloudprovider.DnsTypeAAAA:
+		if !regutils.MatchIP6Addr(record.DnsValue) {
+			return httperrors.NewInputParameterError("invalid ipv6 %s for AAAA record", record.DnsValue)
+		}
+	case cloudprovider.DnsTypeCNAME:
+		if !regutils.MatchDomainName(record.DnsValue) {
+			return httperrors.NewInputParameterError("invalid domain %s for CNAME record", record.DnsValue)
+		}
+	}
+	return nil
 }
