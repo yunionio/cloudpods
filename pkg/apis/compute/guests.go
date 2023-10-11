@@ -449,6 +449,9 @@ type ConvertToKvmInput struct {
 	TargetHypervisor string `json:"target_hypervisor"`
 	// 指定转换的宿主机
 	PreferHost string `json:"prefer_host"`
+
+	// dest guest network configs
+	Networks []*NetworkConfig `json:"networks"`
 }
 
 type GuestSaveToTemplateInput struct {

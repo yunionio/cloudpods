@@ -153,3 +153,28 @@ func guestCreateFromEsxi(ctx context.Context, userCred mcclient.TokenCredential,
 		})
 	return nil, nil
 }
+
+func guestCreateFromCloudpods(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	err := guestman.GetGuestManager().PrepareCreate(sid)
+	if err != nil {
+		return nil, err
+	}
+
+	var guestDesc = new(desc.SGuestDesc)
+	err = body.Unmarshal(guestDesc, "desc")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
+	}
+	var disksAccessInfo = guestman.SCloudpodsAccessInfo{}
+	err = body.Unmarshal(&disksAccessInfo, "cloudpods_access_info")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("cloudpods_access_info")
+	}
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestCreateFromCloudpods,
+		&guestman.SGuestCreateFromCloudpods{
+			Sid:                 sid,
+			GuestDesc:           guestDesc,
+			CloudpodsAccessInfo: disksAccessInfo,
+		})
+	return nil, nil
+}

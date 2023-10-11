@@ -4137,8 +4137,8 @@ func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcc
 			SnapshotManager.AddRefCount(disk.SnapshotId, -1)
 			disk.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONFalse, userCred)
 		}
-		if len(disk.GetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, nil)) > 0 {
-			disk.SetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, "", userCred)
+		if len(disk.GetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, nil)) > 0 {
+			disk.SetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, "", userCred)
 		}
 	}
 	return nil, nil

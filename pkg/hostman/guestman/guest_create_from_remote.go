@@ -119,3 +119,49 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 	}
 	return ret, nil
 }
+
+func (m *SGuestManager) GuestCreateFromCloudpods(
+	ctx context.Context, params interface{},
+) (jsonutils.JSONObject, error) {
+	createConfig, ok := params.(*SGuestCreateFromCloudpods)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest, _ := m.GetServer(createConfig.Sid)
+	if err := guest.SaveSourceDesc(createConfig.GuestDesc); err != nil {
+		return nil, err
+	}
+	guest.Desc = new(desc.SGuestDesc)
+	jsonutils.Marshal(createConfig.GuestDesc).Unmarshal(guest.Desc)
+	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+		return nil, err
+	}
+	var err error
+	var ret = jsonutils.NewDict()
+	disksDesc := guest.SourceDesc.Disks
+	for i := 0; i < len(disksDesc); i++ {
+		storageId := disksDesc[i].StorageId
+		storage := storageman.GetManager().GetStorage(storageId)
+		if storage == nil {
+			err = errors.Wrapf(err, "get storage %s", storageId)
+			break
+		}
+		//var diskInfo jsonutils.JSONObject
+		diskId := disksDesc[i].DiskId
+		iDisk := storage.CreateDisk(diskId)
+		diskUrl := fmt.Sprintf("http://%s:48885/%s",
+			createConfig.CloudpodsAccessInfo.HostIp, createConfig.CloudpodsAccessInfo.OriginDisksId[i])
+		if err = iDisk.CreateFromImageFuse(ctx, diskUrl, 0, nil); err != nil {
+			log.Errorf("failed create disk %s from fuse %s", diskUrl, err)
+			break
+		}
+		diskInfo := jsonutils.NewDict()
+		diskInfo.Set("origin_disk_url", jsonutils.NewString(diskUrl))
+		diskInfo.Set("access_path", jsonutils.NewString(iDisk.GetPath()))
+		ret.Set(diskId, diskInfo)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
