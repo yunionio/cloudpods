@@ -153,7 +153,7 @@ func (task *GuestConvertCloudpodsToKvmTask) RequestHostCreateGuestFromCloudpods(
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	params.Set("desc", jsonutils.Marshal(desc))
 	params.Set("cloudpods_access_info", accessInfo)
-	url := fmt.Sprintf("%s/servers/%s/create-form-cloudpods", host.ManagerUri, guest.Id)
+	url := fmt.Sprintf("%s/servers/%s/create-from-cloudpods", host.ManagerUri, guest.Id)
 	header := task.GetTaskRequestHeader()
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
 	if err != nil {
@@ -176,7 +176,7 @@ func (task *GuestConvertCloudpodsToKvmTask) GetAccessInfo(guest *models.SGuest) 
 		return nil, err
 	}
 	for i := 0; i < len(gds); i++ {
-		disks = append(disks, gds[i].Id)
+		disks = append(disks, gds[i].ExternalId)
 	}
 	ret.Set("origin_disks_id", jsonutils.NewStringArray(disks))
 	return ret, nil
@@ -203,10 +203,6 @@ func (task *GuestConvertCloudpodsToKvmTask) OnHostCreateGuest(
 			return
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.UserCred)
-	}
-	if err := guest.ConvertEsxiNetworks(targetGuest); err != nil {
-		task.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
-		return
 	}
 	task.TaskComplete(ctx, guest, targetGuest)
 }
