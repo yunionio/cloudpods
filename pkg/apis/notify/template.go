@@ -226,7 +226,7 @@ const (
 	，请尽快前往控制台进行处理
 	{{- end -}}`
 	COMMON_CONTENT_EN = `{{- $d := .resource_details -}}
-	Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} has been {{ .action_display }} {{ .result_display }}
+	Your {{- if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} has been {{ .action_display }} {{ .result_display }}
 	{{- if eq .result "failed" -}}
 	. And please go to the console as soon as possible to process.
 	{{- end -}}`
@@ -432,7 +432,7 @@ const (
 // 资源变更通知
 const (
 	UPDATE_TITLE_CN = `{{- $d := .resource_details -}}
-	if {{ $d.project }}
+	 {{- if $d.project -}}
 	{{ $d.project }}项目的
 	{{- end -}}
 	{{ .resource_type_display }}{{ $d.name }}{{ .action_display }}成功`
@@ -440,7 +440,7 @@ const (
 	The {{ .resource_type }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} {{ .action_display }} successfully`
 	UPDATE_CONTENT_CN = `{{- $d := .resource_details -}}
 	您
-	if {{$d.project }}
+	 {{- if $d.project -}}
 	在{{ $d.project }}项目
 	{{- end -}}
 	{{- if $d.brand -}}

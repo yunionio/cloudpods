@@ -160,6 +160,7 @@ func (sm *STopicManager) InitializeData() error {
 		switch name {
 		case DefaultResourceCreateDelete:
 			t.addResources(
+				notify.TOPIC_RESOURCE_HOST,
 				notify.TOPIC_RESOURCE_SERVER,
 				notify.TOPIC_RESOURCE_SCALINGGROUP,
 				notify.TOPIC_RESOURCE_IMAGE,
@@ -203,6 +204,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.COMMON_TITLE_EN
 		case DefaultResourceChangeConfig:
 			t.addResources(
+				notify.TOPIC_RESOURCE_HOST,
 				notify.TOPIC_RESOURCE_SERVER,
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
@@ -220,6 +222,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 				notify.TOPIC_RESOURCE_USER,
+				notify.TOPIC_RESOURCE_HOST,
 			)
 			t.addAction(notify.ActionUpdate)
 			t.addAction(notify.ActionRebuildRoot)
