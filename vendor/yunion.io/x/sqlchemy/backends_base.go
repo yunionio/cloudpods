@@ -60,6 +60,10 @@ func (bb *SBaseBackend) CaseInsensitiveLikeString() string {
 	return "LIKE"
 }
 
+func (bb *SBaseBackend) CaseInsensitiveRegexpString() string {
+	return "REGEXP"
+}
+
 func (bb *SBaseBackend) UnionAllString() string {
 	return "UNION ALL"
 }

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -27,58 +28,31 @@ type SZone struct {
 	multicloud.SResourceBase
 	CtyunTags
 	region *SRegion
-	host   *SHost
 
-	iwires    []cloudprovider.ICloudWire
-	istorages []cloudprovider.ICloudStorage
-	/* 支持的磁盘种类集合 */
-	storageTypes []string
-
-	RegionID string `json:"regionId"`
-	ZoneID   string `json:"zoneId"`
-	ZoneName string `json:"zoneName"`
-	ZoneType string `json:"zoneType"`
-}
-
-func getZoneGlobalId(region *SRegion, zoneId string) string {
-	return fmt.Sprintf("%s/%s", region.GetGlobalId(), zoneId)
-}
-
-func (self *SZone) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
+	AzDisplayName string
+	Name          string
 }
 
 func (self *SZone) GetId() string {
-	return self.ZoneID
+	return self.Name
 }
 
 func (self *SZone) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_CTYUN_CN, self.ZoneID)
+	return self.AzDisplayName
 }
 
 func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(self.ZoneID)
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(self.AzDisplayName)
 	return table
 }
 
 func (self *SZone) GetGlobalId() string {
-	return getZoneGlobalId(self.region, self.GetId())
+	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.Name)
 }
 
 func (self *SZone) GetStatus() string {
-	return "enable"
-}
-
-func (self *SZone) Refresh() error {
-	return nil
-}
-
-func (self *SZone) IsEmulated() bool {
-	return false
+	return api.ZONE_ENABLE
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
@@ -97,55 +71,82 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
-		}
+func (self *SZone) GetStorages() ([]SStorage, error) {
+	product, err := self.region.getProduct()
+	if err != nil {
+		return nil, errors.Wrapf(err, "getProduct")
 	}
-	return self.istorages, nil
+	ret := []SStorage{}
+	for i := range product.Ebs.StorageType {
+		storage := SStorage{
+			zone:        self,
+			storageType: product.Ebs.StorageType[i].Type,
+			Name:        product.Ebs.StorageType[i].Name,
+		}
+		ret = append(ret, storage)
+	}
+	return ret, nil
+}
+
+func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	storages, err := self.GetStorages()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudStorage{}
+	for i := range storages {
+		ret = append(ret, &storages[i])
+	}
+	return ret, nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
-		}
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
 	}
-	for i := 0; i < len(self.istorages); i += 1 {
-		if self.istorages[i].GetGlobalId() == id {
-			return self.istorages[i], nil
+	for i := 0; i < len(storages); i += 1 {
+		if storages[i].GetGlobalId() == id {
+			return storages[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SZone) getHost() *SHost {
-	if self.host == nil {
-		self.host = &SHost{zone: self}
-	}
-	return self.host
-}
-
-func (self *SZone) fetchStorages() error {
-	self.getStorageType()
-	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
-
-	for i, sc := range self.storageTypes {
-		storage := SStorage{zone: self, storageType: sc}
-		self.istorages[i] = &storage
-	}
-	return nil
-}
-
-func (self *SZone) getStorageType() {
-	if len(self.storageTypes) == 0 {
-		self.storageTypes = StorageTypes
-	}
+	return &SHost{zone: self}
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.iwires, nil
+	vpcs, err := self.region.GetVpcs()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		vpcs[i].region = self.region
+		wires, err := vpcs[i].GetIWires()
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, wires...)
+	}
+	return ret, nil
+}
+
+func (self *SRegion) GetZones() ([]SZone, error) {
+	resp, err := self.list(SERVICE_ECS, "/v4/region/get-zones", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := struct {
+		ReturnObj struct {
+			ZoneList []SZone
+		}
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret.ReturnObj.ZoneList, nil
 }

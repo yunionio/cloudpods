@@ -15,89 +15,98 @@
 package ctyun
 
 import (
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
+	"fmt"
+	"net"
+	"strings"
+	"time"
+
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
 )
 
 type SSecurityGroupRule struct {
 	secgroup *SSecurityGroup
 
-	PortRangeMax    int64  `json:"port_range_max"`
-	SecurityGroupID string `json:"security_group_id"`
-	RemoteGroupId   string `json:"remote_group_id"`
-	Description     string `json:"description"`
-	RemoteIPPrefix  string `json:"remote_ip_prefix"`
-	Protocol        string `json:"protocol"`
-	Ethertype       string `json:"ethertype"`
-	UpdatedAt       string `json:"updated_at"`
-	Direction       string `json:"direction"`
-	TenantID        string `json:"tenant_id"`
-	ID              string `json:"id"`
-	ProjectID       string `json:"project_id"`
-	PortRangeMin    int64  `json:"port_range_min"`
-	CreatedAt       string `json:"created_at"`
+	Direction       string
+	Priority        int
+	Ethertype       string
+	Protocol        string
+	DestCidrIP      string
+	Description     string
+	Origin          string
+	CreateTime      time.Time
+	Id              string
+	Action          string
+	SecurityGroupId string
+	Range           string
 }
 
-func (self *SRegion) GetSecurityGroupRules(secgroupId string) ([]SSecurityGroupRule, error) {
-	params := map[string]string{
-		"regionId":        self.GetId(),
-		"securityGroupId": secgroupId,
+func (self *SSecurityGroupRule) toRule() (cloudprovider.SecurityRule, error) {
+	ret := cloudprovider.SecurityRule{Id: self.Id, Name: self.Description}
+
+	rule := secrules.SecurityRule{
+		Direction: secrules.DIR_IN,
+		Action:    secrules.SecurityRuleAllow,
+		Protocol:  strings.ToLower(self.Protocol),
+		Priority:  self.Priority,
+	}
+	if self.Direction == "egress" {
+		rule.Direction = secrules.DIR_OUT
+	}
+	if self.Action != "accept" {
+		rule.Action = secrules.SecurityRuleDeny
 	}
 
-	resp, err := self.client.DoGet("/apiproxy/v3/getSecurityGroupRules", params)
+	var err error
+	_, rule.IPNet, err = net.ParseCIDR(self.DestCidrIP)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupRules.DoGet")
+		return ret, err
+	}
+	if self.Range != "Any" {
+		err = rule.ParsePorts(self.Range)
+		if err != nil {
+			return ret, err
+		}
 	}
 
-	ret := make([]SSecurityGroupRule, 0)
-	err = resp.Unmarshal(&ret, "returnObj", "security_group_rules")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupRules.Unmarshal")
-	}
-
-	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupRules.GetSecurityGroupDetails")
-	}
-
-	for i := range ret {
-		ret[i].secgroup = secgroup
-	}
-
+	ret.SecurityRule = rule
 	return ret, nil
 }
 
-func (self *SRegion) CreateSecurityGroupRule(groupId, direction, ethertype, protocol, remoteIpPrefix string, portRangeMin, portRangeMax int64) error {
-	ruleParams := jsonutils.NewDict()
-	ruleParams.Set("regionId", jsonutils.NewString(self.GetId()))
-	ruleParams.Set("securityGroupId", jsonutils.NewString(groupId))
-	ruleParams.Set("direction", jsonutils.NewString(direction))
-	ruleParams.Set("ethertype", jsonutils.NewString(ethertype))
-
-	if len(protocol) > 0 {
-		ruleParams.Set("protocol", jsonutils.NewString(protocol))
+func (self *SRegion) CreateSecurityGroupRule(groupId string, r secrules.SecurityRule) error {
+	priority := 100 - r.Priority
+	if priority < 1 || priority > 100 {
+		priority = 100
 	}
-
-	if len(remoteIpPrefix) > 0 {
-		ruleParams.Set("remoteIpPrefix", jsonutils.NewString(remoteIpPrefix))
+	rule := map[string]interface{}{
+		"direction":   "egress",
+		"action":      "accept",
+		"priority":    priority,
+		"protocol":    strings.ToUpper(r.Protocol),
+		"ethertype":   "IPv4",
+		"destCidrIp":  r.IPNet.String(),
+		"description": r.Description,
+		"range":       "1-65535",
 	}
-
-	if portRangeMin > 0 {
-		ruleParams.Set("portRangeMin", jsonutils.NewInt(portRangeMin))
+	api := "/v4/vpc/create-security-group-egress"
+	if r.Direction == secrules.DIR_IN {
+		rule["direction"] = "ingress"
+		api = "/v4/vpc/create-security-group-ingress"
 	}
-
-	if portRangeMax > 0 {
-		ruleParams.Set("portRangeMax", jsonutils.NewInt(portRangeMax))
+	if len(r.Ports) == 1 {
+		rule["range"] = fmt.Sprintf("%d", r.Ports[0])
+	} else if r.PortStart > 0 && r.PortEnd > 0 {
+		rule["range"] = fmt.Sprintf("%d-%d", r.PortStart, r.PortEnd)
 	}
-
-	params := map[string]jsonutils.JSONObject{
-		"jsonStr": ruleParams,
+	if r.Action == secrules.SecurityRuleDeny {
+		rule["action"] = "drop"
 	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/createSecurityGroupRule", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.CreateSecurityGroupRule.DoPost")
+	params := map[string]interface{}{
+		"securityGroupID":    groupId,
+		"clientToken":        utils.GenRequestId(20),
+		"securityGroupRules": []map[string]interface{}{rule},
 	}
-
+	_, err := self.post(SERVICE_VPC, api, params)
 	return err
 }

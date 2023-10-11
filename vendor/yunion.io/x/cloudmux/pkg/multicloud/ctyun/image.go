@@ -16,7 +16,6 @@ package ctyun
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,13 +27,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-const (
-	ImageOwnerPublic string = "gold"    // 公共镜像：gold
-	ImageOwnerSelf   string = "private" // 私有镜像：private
-	ImageOwnerShared string = "shared"  // 共享镜像：shared
-)
-
-// http://ctyun-api-url/apiproxy/v3/order/getImages
 type SImage struct {
 	multicloud.SImageBase
 	CtyunTags
@@ -43,16 +35,34 @@ type SImage struct {
 	// normalized image info
 	imgInfo *imagetools.ImageInfo
 
-	ID        string `json:"id"`
-	OSType    string `json:"osType"`
-	Platform  string `json:"platform"`
-	Name      string `json:"name"`
-	OSBit     int64  `json:"osBit"`
-	OSVersion string `json:"osVersion"`
-	MinRAM    int64  `json:"minRam"`
-	MinDisk   int64  `json:"minDisk"`
-	ImageType string `json:"imageType"`
-	Virtual   bool   `json:"virtual"`
+	Architecture     string
+	AzName           string
+	BootMode         string
+	ContainerFormat  string
+	CreatedTime      int
+	Description      string
+	DestinationUser  string
+	DiskFormat       string
+	DiskId           string
+	DiskSize         int
+	ImageClass       string
+	ImageId          string
+	ImageName        string
+	ImageType        string
+	MaximumRAM       string
+	MinimumRAM       string
+	OsDistro         string
+	OsType           string
+	OsVersion        string
+	ProjectId        string
+	SharedListLength string
+	Size             int64
+	SourceServerId   string
+	SourceUser       string
+	Status           string
+	Tags             string
+	UpdatedTime      string
+	Visibility       string
 }
 
 func (self *SImage) GetCreatedAt() time.Time {
@@ -60,11 +70,11 @@ func (self *SImage) GetCreatedAt() time.Time {
 }
 
 func (self *SImage) GetId() string {
-	return self.ID
+	return self.ImageId
 }
 
 func (self *SImage) GetName() string {
-	return self.Name
+	return self.ImageName
 }
 
 func (self *SImage) GetGlobalId() string {
@@ -72,15 +82,25 @@ func (self *SImage) GetGlobalId() string {
 }
 
 func (self *SImage) GetStatus() string {
-	return api.CACHED_IMAGE_STATUS_ACTIVE
+	switch self.Status {
+	case "accepted", "active":
+		return api.CACHED_IMAGE_STATUS_ACTIVE
+	case "deactivated", "deactivating", "deleted", "deleting", "pending_delete", "rejected":
+		return api.CACHED_IMAGE_STATUS_DELETING
+	case "error", "killed":
+		return api.CACHED_IMAGE_STATUS_UNKNOWN
+	case "importing", "queued", "reactivating", "saving", "syncing", "uploading", "waiting":
+		return api.CACHED_IMAGE_STATUS_CACHING
+	}
+	return api.CACHED_IMAGE_STATUS_UNKNOWN
 }
 
 func (self *SImage) Refresh() error {
-	new, err := self.storageCache.region.GetImage(self.GetId())
+	image, err := self.storageCache.region.GetImage(self.GetId())
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	return jsonutils.Update(self, image)
 }
 
 func (self *SImage) IsEmulated() bool {
@@ -96,29 +116,41 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (self *SImage) GetSizeByte() int64 {
-	return self.MinDisk * 1024 * 1024 * 1024
+	return self.Size
 }
 
 func (self *SImage) GetImageType() cloudprovider.TImageType {
-	switch self.ImageType {
-	case "gold":
-		return cloudprovider.ImageTypeSystem
+	switch self.Visibility {
 	case "private":
 		return cloudprovider.ImageTypeCustomized
+	case "public":
+		return cloudprovider.ImageTypeSystem
 	case "shared":
 		return cloudprovider.ImageTypeShared
+	case "safe", "community":
+		return cloudprovider.ImageTypeMarket
 	default:
 		return cloudprovider.ImageTypeCustomized
 	}
 }
 
 func (self *SImage) GetImageStatus() string {
-	return cloudprovider.IMAGE_STATUS_ACTIVE
+	switch self.Status {
+	case "accepted", "active":
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	case "deactivated", "deactivating", "deleted", "deleting", "pending_delete", "rejected":
+		return cloudprovider.IMAGE_STATUS_DELETED
+	case "error", "killed":
+		return cloudprovider.IMAGE_STATUS_KILLED
+	case "importing", "queued", "reactivating", "saving", "syncing", "uploading", "waiting":
+		return cloudprovider.IMAGE_STATUS_QUEUED
+	}
+	return cloudprovider.IMAGE_STATUS_KILLED
 }
 
 func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if self.imgInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo(self.OSVersion, strconv.Itoa(int(self.OSBit)), self.OSType, self.Platform, self.OSVersion)
+		imgInfo := imagetools.NormalizeImageInfo(self.ImageName, self.Architecture, self.OsType, self.OsDistro, self.OsVersion)
 		self.imgInfo = &imgInfo
 	}
 	return self.imgInfo
@@ -153,15 +185,15 @@ func (self *SImage) GetBios() cloudprovider.TBiosType {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return int(self.MinDisk)
+	return self.DiskSize
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
-	return int(self.MinRAM)
+	return 0
 }
 
 func (self *SImage) GetImageFormat() string {
-	return ""
+	return self.DiskFormat
 }
 
 func (self *SImage) GetCreateTime() time.Time {
@@ -169,46 +201,66 @@ func (self *SImage) GetCreateTime() time.Time {
 }
 
 func (self *SRegion) GetImages(imageType string) ([]SImage, error) {
-	params := map[string]string{
-		"regionId":  self.GetId(),
-		"imageType": imageType,
+	pageNo := 1
+	params := map[string]interface{}{
+		"pageNo":   pageNo,
+		"pageSize": 10000,
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/order/getImages", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetImages.DoGet")
+	switch imageType {
+	case "private":
+		params["visibility"] = 0
+	case "public":
+		params["visibility"] = 1
+	case "shared":
+		params["visibility"] = 2
+	case "safe":
+		params["visibility"] = 3
+	case "community":
+		params["visibility"] = 4
 	}
-
-	images := make([]SImage, 0)
-	err = resp.Unmarshal(&images, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetImages.Unmarshal")
-	}
-
-	for i := range images {
-		images[i].storageCache = &SStoragecache{
-			region: self,
+	ret := []SImage{}
+	for {
+		resp, err := self.list(SERVICE_IMAGE, "/v4/image/list", params)
+		if err != nil {
+			return nil, err
 		}
+		part := struct {
+			ReturnObj struct {
+				Images []SImage
+			}
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		ret = append(ret, part.ReturnObj.Images...)
+		if len(part.ReturnObj.Images) == 0 || len(ret) >= part.TotalCount {
+			break
+		}
+		pageNo++
+		params["pageNo"] = pageNo
 	}
-
-	return images, nil
+	return ret, nil
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, err := self.GetImages("")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetImage.GetImages")
+	params := map[string]interface{}{
+		"imageID": imageId,
 	}
-
-	for i := range images {
-		if images[i].GetId() == imageId {
-			images[i].storageCache = &SStoragecache{
-				region: self,
-			}
-
-			return &images[i], nil
+	resp, err := self.list(SERVICE_IMAGE, "/v4/image/detail", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := []SImage{}
+	err = resp.Unmarshal(&ret, "returnObj", "images")
+	if err != nil {
+		return nil, err
+	}
+	for i := range ret {
+		if ret[i].ImageId == imageId {
+			return &ret[i], nil
 		}
 	}
-
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetImage")
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, imageId)
 }
