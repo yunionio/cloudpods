@@ -867,6 +867,8 @@ func (drv *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx contex
 			return nil, errors.Wrapf(err, "ivm.DeleteVM")
 		}
 
+		cloudprovider.WaitDeleted(ivm, time.Second*10, time.Minute*3)
+
 		disks, err := guest.GetDisks()
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetDisks")
