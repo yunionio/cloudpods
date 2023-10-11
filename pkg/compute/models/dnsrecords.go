@@ -87,8 +87,8 @@ func (manager *SDnsRecordManager) ValidateCreateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	input *api.DnsRecordSetCreateInput,
-) (*api.DnsRecordSetCreateInput, error) {
+	input *api.DnsRecordCreateInput,
+) (*api.DnsRecordCreateInput, error) {
 	var err error
 	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
 	if err != nil {
@@ -105,14 +105,14 @@ func (manager *SDnsRecordManager) ValidateCreateData(
 		return nil, err
 	}
 
-	recordset := api.SDnsRecordSet{}
-	recordset.DnsZoneId = input.DnsZoneId
-	recordset.DnsType = input.DnsType
-	recordset.DnsValue = input.DnsValue
-	recordset.TTL = input.TTL
-	recordset.MxPriority = input.MxPriority
+	record := api.SDnsRecord{}
+	record.DnsZoneId = input.DnsZoneId
+	record.DnsType = input.DnsType
+	record.DnsValue = input.DnsValue
+	record.TTL = input.TTL
+	record.MxPriority = input.MxPriority
 
-	err = recordset.ValidateDnsrecordValue()
+	err = record.ValidateDnsrecordValue()
 	if err != nil {
 		return input, err
 	}
@@ -168,7 +168,7 @@ func (manager *SDnsRecordManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.DnsRecordSetListInput,
+	query api.DnsRecordListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
@@ -190,12 +190,12 @@ func (manager *SDnsRecordManager) FetchCustomizeColumns(
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []api.DnsRecordSetDetails {
-	rows := make([]api.DnsRecordSetDetails, len(objs))
+) []api.DnsRecordDetails {
+	rows := make([]api.DnsRecordDetails, len(objs))
 	enRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneIds := make([]string, len(objs))
 	for i := range rows {
-		rows[i] = api.DnsRecordSetDetails{
+		rows[i] = api.DnsRecordDetails{
 			EnabledStatusStandaloneResourceDetails: enRows[i],
 		}
 		record := objs[i].(*SDnsRecord)
@@ -334,7 +334,7 @@ func (self *SDnsRecord) StartDeleteTask(ctx context.Context, userCred mcclient.T
 }
 
 // 更新
-func (self *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.DnsRecordSetUpdateInput) (*api.DnsRecordSetUpdateInput, error) {
+func (self *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.DnsRecordUpdateInput) (*api.DnsRecordUpdateInput, error) {
 	var err error
 	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
 	if err != nil {
@@ -346,19 +346,19 @@ func (self *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclien
 		return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetDnsZone"))
 	}
 
-	recordset := api.SDnsRecordSet{
+	record := api.SDnsRecord{
 		DnsType:  self.DnsType,
 		DnsValue: self.DnsValue,
 	}
 
 	if len(input.DnsType) == 0 {
-		recordset.DnsType = input.DnsType
+		record.DnsType = input.DnsType
 	}
 	if len(input.DnsValue) == 0 {
-		recordset.DnsValue = input.DnsValue
+		record.DnsValue = input.DnsValue
 	}
 
-	err = recordset.ValidateDnsrecordValue()
+	err = record.ValidateDnsrecordValue()
 	if err != nil {
 		return input, err
 	}
