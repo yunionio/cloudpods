@@ -63,10 +63,6 @@ func (self *SZone) getHost() *SHost {
 	return &SHost{zone: self}
 }
 
-func (self *SZone) getClassicHost() *SClassicHost {
-	return &SClassicHost{zone: self}
-}
-
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return self.region
 }
@@ -80,24 +76,6 @@ func (self *SZone) ListStorageTypes() []SStorage {
 	return storages
 }
 
-func (self *SRegion) ListClassicStorageTypes() []SClassicStorage {
-	storages := []SClassicStorage{}
-	for _, storageType := range []string{STORAGE_LRS, STORAGE_GRS} {
-		storage := SClassicStorage{AccountType: storageType, region: self}
-		storages = append(storages, storage)
-	}
-	return storages
-}
-
-func (self *SZone) GetIClassicStorages() []cloudprovider.ICloudStorage {
-	ret := []cloudprovider.ICloudStorage{}
-	storages := self.region.ListClassicStorageTypes()
-	for i := range storages {
-		ret = append(ret, &storages[i])
-	}
-	return ret
-}
-
 func (self *SZone) getIStorages() []cloudprovider.ICloudStorage {
 	ret := []cloudprovider.ICloudStorage{}
 	storages := self.ListStorageTypes()
@@ -109,9 +87,7 @@ func (self *SZone) getIStorages() []cloudprovider.ICloudStorage {
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	ret := self.getIStorages()
-	ret = append(ret, self.GetIClassicStorages()...)
-	return ret, nil
+	return self.getIStorages(), nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -141,21 +117,7 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	return []cloudprovider.ICloudHost{self.getHost(), self.getClassicHost()}, nil
-}
-
-func (self *SZone) GetIClassicWires() ([]cloudprovider.ICloudWire, error) {
-	wires := []cloudprovider.ICloudWire{}
-	classicVpcs, err := self.region.ListClassicVpcs()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListClassicVpcs")
-	}
-	for i := range classicVpcs {
-		classicVpcs[i].region = self.region
-		wire := &SClassicWire{vpc: &classicVpcs[i], zone: self}
-		wires = append(wires, wire)
-	}
-	return wires, nil
+	return []cloudprovider.ICloudHost{self.getHost()}, nil
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
@@ -169,10 +131,5 @@ func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 		wire := &SWire{vpc: &vpcs[i], zone: self}
 		wires = append(wires, wire)
 	}
-	classWires, err := self.GetIClassicWires()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetIClassicWires")
-	}
-	wires = append(wires, classWires...)
 	return wires, nil
 }

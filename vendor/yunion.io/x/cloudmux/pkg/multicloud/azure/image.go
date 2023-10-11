@@ -43,6 +43,12 @@ const (
 
 type OperatingSystemStateTypes string
 
+type SubResource struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+	Type string `json:"type,omitempty"`
+}
+
 type ImageOSDisk struct {
 	OsType             string       `json:"osType,omitempty"`
 	OsState            string       `json:"osState,omitempty"`

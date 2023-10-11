@@ -56,6 +56,8 @@ type IBackend interface {
 	//
 	CaseInsensitiveLikeString() string
 	//
+	CaseInsensitiveRegexpString() string
+	//
 	UnionAllString() string
 	//
 	UnionDistinctString() string

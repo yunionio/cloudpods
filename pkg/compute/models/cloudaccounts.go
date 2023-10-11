@@ -480,7 +480,6 @@ func (manager *SCloudaccountManager) validateCreateData(
 		input.Options = jsonutils.NewDict()
 	}
 	input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints))
-	input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SCtyunExtraOptions))
 
 	if len(input.DefaultRegion) > 0 {
 		input.Options.Add(jsonutils.NewString(input.DefaultRegion), "default_region")
