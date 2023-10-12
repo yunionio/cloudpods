@@ -135,6 +135,9 @@ func (self *sCtyunError) ParseErrorFromJsonResponse(statusCode int, status strin
 	if body != nil {
 		body.Unmarshal(self)
 	}
+	if strings.Contains(self.Message, "signature verification failed") {
+		return errors.Wrapf(cloudprovider.ErrInvalidAccessKey, jsonutils.Marshal(self).String())
+	}
 	return self
 }
 
