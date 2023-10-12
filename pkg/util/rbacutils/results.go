@@ -51,13 +51,32 @@ func (matches TPolicyMatches) GetResult() SPolicyResult {
 	result := SPolicyResult{
 		Result: Deny,
 	}
+	isWideDomainTag, isWideProjectTag, isWideObjectTag := false, false, false
 	for _, match := range matches {
 		if match.Rule.Result == Allow {
 			result.Result = Allow
-			result.DomainTags = result.DomainTags.Append(match.DomainTags)
-			result.ProjectTags = result.ProjectTags.Append(match.ProjectTags)
-			result.ObjectTags = result.ObjectTags.Append(match.ObjectTags)
+			result.DomainTags = append(result.DomainTags, match.DomainTags)
+			result.ProjectTags = append(result.ProjectTags, match.ProjectTags)
+			result.ObjectTags = append(result.ObjectTags, match.ObjectTags)
+			if len(match.DomainTags) == 0 {
+				isWideDomainTag = true
+			}
+			if len(match.ProjectTags) == 0 {
+				isWideProjectTag = true
+			}
+			if len(match.ObjectTags) == 0 {
+				isWideObjectTag = true
+			}
 		}
+	}
+	if isWideDomainTag {
+		result.DomainTags = tagutils.TTagSetList{}
+	}
+	if isWideProjectTag {
+		result.ProjectTags = tagutils.TTagSetList{}
+	}
+	if isWideObjectTag {
+		result.ObjectTags = tagutils.TTagSetList{}
 	}
 	return result
 }
