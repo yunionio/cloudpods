@@ -83,7 +83,7 @@ func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.TokenCredential, projectId string, isAdmin bool, publicOnly bool) {
 	var privKey, pubKey string
 
-	if isAdmin && userCred.IsAllow(rbacscope.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
+	if isAdmin && len(projectId) == 0 && userCred.IsAllow(rbacscope.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
 		privKey, pubKey, _ = GetSshAdminKeypair(ctx)
 	} else {
 		privKey, pubKey, _ = GetSshProjectKeypair(ctx, projectId)

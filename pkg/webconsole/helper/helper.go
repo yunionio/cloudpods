@@ -39,7 +39,7 @@ func GetValidPrivateKey(host string, port int64, username string, projectId stri
 			if projectId == "" {
 				return nil, errors.Error("project_id is empty")
 			}
-			key, err := compute.Sshkeypairs.GetById(admin, projectId, jsonutils.Marshal(map[string]bool{"admin": true}))
+			key, err := compute.Sshkeypairs.GetById(admin, projectId, jsonutils.Marshal(map[string]string{}))
 			if err != nil {
 				return nil, errors.Wrapf(err, "Sshkeypairs.GetById(%s)", projectId)
 			}
@@ -85,7 +85,7 @@ func GetValidPrivateKey(host string, port int64, username string, projectId stri
 		addr := fmt.Sprintf("%s:%d", host, port)
 		client, err := ssh.Dial("tcp", addr, config)
 		if err != nil {
-			errs = append(errs, errors.Wrapf(err, "dial %s", addr))
+			errs = append(errs, errors.Wrapf(err, "dial %s by %s", addr, username))
 			continue
 		}
 		defer client.Close()
