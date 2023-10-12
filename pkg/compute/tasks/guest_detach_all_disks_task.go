@@ -33,7 +33,7 @@ func init() {
 }
 
 func (self *GuestDetachAllDisksTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStage("on_disk_delete_complete", nil)
+	self.SetStage("OnDiskDeleteComplete", nil)
 	self.OnDiskDeleteComplete(ctx, obj, data)
 }
 
