@@ -346,7 +346,7 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Con
 func (task *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	task.SetStage("on_sync_status_complete", nil)
+	task.SetStage("OnSyncStatusComplete", nil)
 	err := guest.StartSyncstatus(ctx, task.UserCred, task.GetTaskId())
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))

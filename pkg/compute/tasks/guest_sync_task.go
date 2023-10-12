@@ -61,7 +61,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 		self.StartRestartNetworkTask(ctx, guest)
 	} else if data.Contains("task") {
 		// XXX this is only applied to KVM, which will call task_complete twice
-		self.SetStage("on_disk_sync_complete", nil)
+		self.SetStage("OnDiskSyncComplete", nil)
 	} else {
 		self.OnDiskSyncComplete(ctx, guest, data)
 	}
@@ -129,7 +129,7 @@ func (self *GuestSyncConfTask) OnDiskSyncComplete(ctx context.Context, guest *mo
 	if jsonutils.QueryBoolean(self.Params, "without_sync_status", false) {
 		self.OnSyncStatusComplete(ctx, guest, nil)
 	} else {
-		self.SetStage("on_sync_status_complete", nil)
+		self.SetStage("OnSyncStatusComplete", nil)
 		guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 	}
 }

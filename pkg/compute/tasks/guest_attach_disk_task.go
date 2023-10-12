@@ -66,7 +66,7 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 	disk.SetStatus(self.UserCred, api.DISK_ATTACHING, "Disk attach")
-	self.SetStage("on_sync_config_complete", nil)
+	self.SetStage("OnSyncConfigComplete", nil)
 	guest.GetDriver().RequestAttachDisk(ctx, guest, disk, self)
 }
 
