@@ -120,13 +120,11 @@ func (self *SCtyunClient) getUrl(service, resource string) (string, error) {
 }
 
 type sCtyunError struct {
-	StatusCode int    `json:"StatusCode"`
-	RequestId  string `json:"RequestId"`
-	ErrorMsg   struct {
-		Code    string `json:"Code"`
-		Message string `json:"Message"`
-		Type    string `json:"Type"`
-	} `json:"Error"`
+	StatusCode string
+	Code       string
+	EopErrCode string
+	RequestId  string
+	Message    string
 }
 
 func (self *sCtyunError) Error() string {
@@ -137,7 +135,6 @@ func (self *sCtyunError) ParseErrorFromJsonResponse(statusCode int, status strin
 	if body != nil {
 		body.Unmarshal(self)
 	}
-	self.StatusCode = statusCode
 	return self
 }
 
@@ -211,7 +208,8 @@ func (self *SCtyunClient) sign(req *http.Request) (string, error) {
 
 	kTime := hmacSha256([]byte(self.accessSecret), []byte(eopDate))
 	kAk := hmacSha256(kTime, []byte(self.accessKey))
-	kDate := hmacSha256(kAk, []byte(time.Now().Format("20060102")))
+	t := strings.Split(eopDate, "T")[0]
+	kDate := hmacSha256(kAk, []byte(t))
 	signBase64 := base64.StdEncoding.EncodeToString(hmacSha256(kDate, []byte(signStr)))
 
 	return fmt.Sprintf("%s Headers=ctyun-eop-request-id;eop-date Signature=%s", self.accessKey, signBase64), nil
@@ -222,7 +220,8 @@ func (self *SCtyunClient) Do(req *http.Request) (*http.Response, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("ctyun-eop-request-id", utils.GenRequestId(20))
-	req.Header.Set("eop-date", time.Now().Format("20060102T150405Z"))
+	sh, _ := time.LoadLocation("Asia/Shanghai")
+	req.Header.Set("eop-date", time.Now().In(sh).Format("20060102T150405Z"))
 
 	signature, err := self.sign(req)
 	if err != nil {
