@@ -56,6 +56,8 @@ type IBackend interface {
 	//
 	CaseInsensitiveLikeString() string
 	//
+	RegexpWhereClause(cond *SRegexpConition) string
+	//
 	UnionAllString() string
 	//
 	UnionDistinctString() string
@@ -97,6 +99,8 @@ type IBackend interface {
 	CAST(field IQueryField, typeStr string, fieldname string) IQueryField
 	// TIMESTAMPADD
 	TIMESTAMPADD(name string, field IQueryField, offsetSeconds int) IQueryField
+	// DATE_FORMAT
+	DATE_FORMAT(name string, field IQueryField, format string) IQueryField
 	// INET_ATON
 	INET_ATON(field IQueryField) IQueryField
 	// AND_Val
