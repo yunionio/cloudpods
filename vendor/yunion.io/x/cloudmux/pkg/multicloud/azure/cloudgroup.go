@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/pinyinutils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
@@ -192,16 +193,10 @@ func (self *SAzureClient) DeleteGroup(id string) error {
 func (self *SAzureClient) CreateGroup(name, desc string) (*SCloudgroup, error) {
 	params := map[string]interface{}{
 		"displayName":     name,
+		"mailNickname":    pinyinutils.Text2Pinyin(name),
 		"mailEnabled":     false,
 		"securityEnabled": true,
 	}
-	nickName := ""
-	for _, s := range name {
-		if s >= 0 && s <= 127 {
-			nickName += string(s)
-		}
-	}
-	params["mailNickname"] = nickName
 	if len(desc) > 0 {
 		params["Description"] = desc
 	}
