@@ -832,7 +832,7 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 
 	// user data
 	if len(userData) > 0 {
-		params["UserData"] = base64.StdEncoding.EncodeToString([]byte(userData))
+		params["UserData"] = userData
 	}
 
 	// ip address
@@ -1055,7 +1055,7 @@ func (self *SRegion) ModifyInstanceAttribute(instanceId string, opts *SInstanceA
 		params["InstanceType.Value"] = opts.InstanceType
 	}
 	if len(opts.UserData) > 0 {
-		params["UserData.Value"] = base64.StdEncoding.Strict().EncodeToString([]byte(opts.UserData))
+		params["UserData.Value"] = opts.UserData
 	}
 	if opts.DisableApiTermination != nil {
 		params["DisableApiTermination.Value"] = fmt.Sprintf("%v", opts.DisableApiTermination)
