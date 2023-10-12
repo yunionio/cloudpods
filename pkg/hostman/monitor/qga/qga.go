@@ -82,6 +82,9 @@ func (qga *QemuGuestAgent) ResetTimeout() {
 }
 
 func (qga *QemuGuestAgent) connect() error {
+	qga.mutex.Lock()
+	defer qga.mutex.Unlock()
+
 	conn, err := net.Dial("unix", qga.qgaSocketPath)
 	if err != nil {
 		return errors.Wrap(err, "dial qga socket")
@@ -92,6 +95,12 @@ func (qga *QemuGuestAgent) connect() error {
 }
 
 func (qga *QemuGuestAgent) Close() error {
+	qga.mutex.Lock()
+	defer qga.mutex.Unlock()
+
+	if qga.rwc == nil {
+		return nil
+	}
 	err := qga.rwc.Close()
 	if err != nil {
 		return err
