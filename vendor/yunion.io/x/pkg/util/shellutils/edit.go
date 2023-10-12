@@ -18,9 +18,27 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 )
+
+var editors = []string{
+	"vim",
+	"vi",
+	"nvim",
+	"nano",
+}
+
+func findEditor() string {
+	for _, prog := range editors {
+		cmd := exec.Command(prog, "--version")
+		if err := cmd.Run(); err == nil {
+			return prog
+		}
+	}
+	return ""
+}
 
 func Edit(yaml string) (string, error) {
 	tmpfile, err := ioutil.TempFile("", "policy-blob")
@@ -36,7 +54,11 @@ func Edit(yaml string) (string, error) {
 		return "", errors.Wrap(err, "tmpfile.Close")
 	}
 
-	cmd := exec.Command("vim", tmpfile.Name())
+	editor := findEditor()
+	if len(editor) == 0 {
+		return "", errors.Wrapf(errors.ErrNotFound, "no editor found, supported editors are: %s", strings.Join(editors, ","))
+	}
+	cmd := exec.Command(editor, tmpfile.Name())
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	err = cmd.Run()
