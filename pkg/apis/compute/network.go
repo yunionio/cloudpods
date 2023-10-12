@@ -302,6 +302,8 @@ type NetworkDetails struct {
 	// 端口数量
 	Ports int `json:"ports"`
 
+	Dns string `json:"dns"`
+
 	// 路由信息
 	Routes    []types.SRoute             `json:"routes"`
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`

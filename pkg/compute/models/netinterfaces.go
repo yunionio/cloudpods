@@ -177,7 +177,7 @@ func (netIf *SNetInterface) networkToNic(ipAddr string, network *SNetwork, nic *
 		if len(network.GuestGateway) > 0 && regutils.MatchIP4Addr(network.GuestGateway) {
 			nic.Gateway = network.GuestGateway
 		}
-		nic.Dns = network.GetDNS()
+		nic.Dns = network.GetDNS("")
 		nic.Domain = network.GetDomain()
 		nic.Ntp = network.GetNTP()
 
