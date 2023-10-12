@@ -583,7 +583,7 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 		desc.Ip = gn.IpAddr
 	}
 	desc.Gateway = net.GuestGateway
-	desc.Dns = net.GetDNS()
+	desc.Dns = net.GetDNS("")
 	desc.Domain = net.GetDomain()
 	desc.Ntp = net.GetNTP()
 

@@ -388,11 +388,11 @@ func (self *SNetwork) GetNetAddr() netutils.IPV4Addr {
 	return startIp.NetAddr(self.GuestIpMask)
 }
 
-func (self *SNetwork) GetDNS() string {
+func (self *SNetwork) GetDNS(zoneName string) string {
 	if len(self.GuestDns) > 0 {
 		return self.GuestDns
-	} else {
-		zoneName := ""
+	}
+	if len(zoneName) == 0 {
 		wire, _ := self.GetWire()
 		if wire != nil {
 			zone, _ := wire.GetZone()
@@ -400,15 +400,15 @@ func (self *SNetwork) GetDNS() string {
 				zoneName = zone.Name
 			}
 		}
-		srvs, _ := auth.GetDNSServers(options.Options.Region, zoneName)
-		if len(srvs) > 0 {
-			return strings.Join(srvs, ",")
-		}
-		if len(options.Options.DNSServer) > 0 {
-			return options.Options.DNSServer
-		}
-		return api.DefaultDNSServers
 	}
+	srvs, _ := auth.GetDNSServers(options.Options.Region, zoneName)
+	if len(srvs) > 0 {
+		return strings.Join(srvs, ",")
+	}
+	if len(options.Options.DNSServer) > 0 {
+		return options.Options.DNSServer
+	}
+	return api.DefaultDNSServers
 }
 
 func (self *SNetwork) GetNTP() string {
@@ -1073,6 +1073,7 @@ func (manager *SNetworkManager) FetchCustomizeColumns(
 		rows[i].Ports = network.GetPorts()
 		rows[i].Routes = network.GetRoutes()
 		rows[i].Schedtags = GetSchedtagsDetailsToResourceV2(network, ctx)
+		rows[i].Dns = network.GetDNS(rows[i].Zone)
 
 		netIds[i] = network.Id
 	}
