@@ -310,7 +310,7 @@ func init() {
 			params.Add(jsonutils.NewString(string(privateKey)), "private_key")
 		}
 
-		i, e := modules.Servers.PerformAction(s, opts.ID, "login_info", params)
+		i, e := modules.Servers.PerformAction(s, opts.ID, "login-info", params)
 		if e != nil {
 			return e
 		}
@@ -862,7 +862,7 @@ func init() {
 			privateKey = string(key)
 		}
 
-		i, e := modules.Servers.PerformAction(s, srvid, "login_info", params)
+		i, e := modules.Servers.PerformAction(s, srvid, "login-info", params)
 		if e != nil {
 			return e
 		}
