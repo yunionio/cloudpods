@@ -89,7 +89,7 @@ func init() {
 	}, &options.BaseIdOptions{})
 
 	R(&options.BaseIdOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *options.BaseIdOptions) error {
-		i, e := modules.Hosts.PerformAction(s, args.ID, "login_info", nil)
+		i, e := modules.Hosts.PerformAction(s, args.ID, "login-info", nil)
 		if e != nil {
 			return e
 		}
@@ -590,7 +590,7 @@ func init() {
 		Port int    `help:"SSH service port" default:"22"`
 	}
 	R(&HostSSHLoginOptions{}, "host-ssh", "SSH login of a host", func(s *mcclient.ClientSession, args *HostSSHLoginOptions) error {
-		i, e := modules.Hosts.PerformAction(s, args.ID, "login_info", nil)
+		i, e := modules.Hosts.PerformAction(s, args.ID, "login-info", nil)
 		privateKey := ""
 		if e != nil {
 			if httputils.ErrorCode(e) == 404 || e.Error() == "ciphertext too short" {
