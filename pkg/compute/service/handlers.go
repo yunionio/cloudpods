@@ -46,6 +46,7 @@ func InitHandlers(app *appsrv.Application) {
 	quotas.AddQuotaHandler(&models.InfrasQuotaManager.SQuotaBaseManager, "", app)
 
 	usages.AddUsageHandler("", app)
+	usages.AddHistoryUsageHandler("", app)
 	capabilities.AddCapabilityHandler("", app)
 	specs.AddSpecHandler("", app)
 	sshkeys.AddSshKeysHandler("", app)
