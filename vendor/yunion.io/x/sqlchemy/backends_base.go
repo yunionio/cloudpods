@@ -60,6 +60,10 @@ func (bb *SBaseBackend) CaseInsensitiveLikeString() string {
 	return "LIKE"
 }
 
+func (bb *SBaseBackend) RegexpWhereClause(cond *SRegexpConition) string {
+	return tupleConditionWhereClause(&cond.STupleCondition, SQL_OP_REGEXP)
+}
+
 func (bb *SBaseBackend) UnionAllString() string {
 	return "UNION ALL"
 }
@@ -123,6 +127,11 @@ func (bb *SBaseBackend) CAST(field IQueryField, typeStr string, fieldname string
 // TimestampAdd represents a SQL function TimestampAdd
 func (bb *SBaseBackend) TIMESTAMPADD(name string, field IQueryField, offsetSeconds int) IQueryField {
 	return NewFunctionField(name, `TIMESTAMPADD(SECOND, `+fmt.Sprintf("%d", offsetSeconds)+`, %s)`, field)
+}
+
+// DATE_FORMAT represents a SQL function DATE_FORMAT
+func (bb *SBaseBackend) DATE_FORMAT(name string, field IQueryField, format string) IQueryField {
+	return NewFunctionField(name, `DATE_FORMAT(%s, "`+strings.ReplaceAll(format, "%", "%%")+`")`, field)
 }
 
 // INET_ATON represents a SQL function INET_ATON
