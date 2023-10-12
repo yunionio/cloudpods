@@ -90,7 +90,8 @@ func init() {
 	}
 	HostManager.SetVirtualObject(HostManager)
 	HostManager.SetAlias("baremetal", "baremetals")
-	HostManager.NameRequireAscii = false
+	notifyclient.AddNotifyDBHookResources(HostManager.KeywordPlural(), GuestManager.AliasPlural())
+	GuestManager.NameRequireAscii = false
 }
 
 type SHost struct {
