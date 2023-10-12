@@ -49,12 +49,8 @@ func (self *SCtyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Co
 	if len(input.AccessKeySecret) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
-	if len(input.Environment) == 0 {
-		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "environment")
-	}
 	output.Account = input.AccessKeyId
 	output.Secret = input.AccessKeySecret
-	output.AccessUrl = input.Environment
 	return output, nil
 }
 
@@ -90,7 +86,6 @@ func (self *SCtyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig)
 
 func (self *SCtyunProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	ret := map[string]string{
-		"CTYUN_ACCESS_URL": info.Url,
 		"CTYUN_ACCESS_KEY": info.Account,
 		"CTYUN_SECRET":     info.Secret,
 		"CTYUN_REGION":     "cn-beijing-5",
@@ -139,8 +134,8 @@ func (self *SCtyunProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
 	return &cloudprovider.SBalanceInfo{
 		Amount:   0.0,
 		Currency: "CNY",
-		Status:   api.CLOUD_PROVIDER_HEALTH_UNKNOWN,
-	}, cloudprovider.ErrNotSupported
+		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}, nil
 }
 
 func (self *SCtyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
