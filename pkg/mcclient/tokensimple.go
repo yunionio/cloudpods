@@ -44,6 +44,8 @@ type SSimpleToken struct {
 	RoleIds string
 	Expires time.Time
 
+	SystemAccount bool
+
 	Context SAuthContext
 }
 
@@ -184,7 +186,7 @@ func (this *SSimpleToken) GetServiceCatalog() IServiceCatalog {
 }
 
 func (this *SSimpleToken) IsSystemAccount() bool {
-	return true
+	return this.SystemAccount
 }
 
 func (this *SSimpleToken) GetLoginSource() string {
@@ -218,6 +220,7 @@ func SimplifyToken(token TokenCredential) TokenCredential {
 			Source: token.GetLoginSource(),
 			Ip:     token.GetLoginIp(),
 		},
+		SystemAccount: token.IsSystemAccount(),
 	}
 }
 
