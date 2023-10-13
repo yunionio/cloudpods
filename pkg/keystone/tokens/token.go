@@ -286,13 +286,14 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
 	ret := mcclient.SSimpleToken{
-		Token:    token,
-		UserId:   t.UserId,
-		User:     userExt.Name,
-		Domain:   userExt.DomainName,
-		DomainId: userExt.DomainId,
-		Expires:  t.ExpiresAt,
-		Context:  t.Context,
+		Token:         token,
+		UserId:        t.UserId,
+		User:          userExt.Name,
+		Domain:        userExt.DomainName,
+		DomainId:      userExt.DomainId,
+		Expires:       t.ExpiresAt,
+		Context:       t.Context,
+		SystemAccount: userExt.IsSystemAccount,
 	}
 	var roles []models.SRole
 	if len(t.ProjectId) > 0 {
