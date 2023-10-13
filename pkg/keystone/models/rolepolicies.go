@@ -494,6 +494,9 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred api.IRbacI
 			case rbacscope.ScopeProject:
 				consolePolicyName = options.Options.ProjectDashboardPolicy
 			}
+			if len(consolePolicyName) == 0 {
+				continue
+			}
 			names, policies, err = appendPolicy(names, policies, scope, consolePolicyName, nameOnly)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "appendConsolePolicy %s %s", scope, consolePolicyName)
