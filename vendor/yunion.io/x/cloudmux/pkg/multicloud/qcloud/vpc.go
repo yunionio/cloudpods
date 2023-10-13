@@ -33,8 +33,6 @@ type SVpc struct {
 
 	iwires []cloudprovider.ICloudWire
 
-	secgroups []cloudprovider.ICloudSecurityGroup
-
 	CidrBlock       string
 	CreatedTime     time.Time
 	DhcpOptionsId   string
@@ -86,23 +84,7 @@ func (self *SVpc) SetTags(tags map[string]string, replace bool) error {
 }
 
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	secgroups := make([]SSecurityGroup, 0)
-	for {
-		parts, total, err := self.region.GetSecurityGroups([]string{}, self.VpcId, "", len(secgroups), 50)
-		if err != nil {
-			return nil, err
-		}
-		secgroups = append(secgroups, parts...)
-		if len(secgroups) >= total {
-			break
-		}
-	}
-	isecgroups := make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].region = self.region
-		isecgroups[i] = &secgroups[i]
-	}
-	return isecgroups, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {

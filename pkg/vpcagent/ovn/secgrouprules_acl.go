@@ -167,7 +167,7 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 	match = strings.Join(matches, " && ")
 
 	acl := &ovn_nb.ACL{
-		Priority:  rule.Priority,
+		Priority:  int64(rule.Priority),
 		Direction: dir,
 		Match:     match,
 		Action:    action,

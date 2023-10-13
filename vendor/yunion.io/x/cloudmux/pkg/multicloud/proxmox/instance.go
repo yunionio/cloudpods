@@ -192,10 +192,6 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, ins)
 }
 
-func (self *SInstance) AssignSecurityGroup(id string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	return cloudprovider.ErrNotSupported
 }

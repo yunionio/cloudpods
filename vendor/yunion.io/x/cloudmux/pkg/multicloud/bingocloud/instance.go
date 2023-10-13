@@ -152,10 +152,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return ret, nil
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return nil
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"GroupId": secgroupIds[0]})
 }

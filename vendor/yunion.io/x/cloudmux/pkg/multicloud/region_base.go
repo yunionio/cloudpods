@@ -47,6 +47,10 @@ func (r *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISnapshots")
 }
 
+func (r *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISecurityGroups")
+}
+
 func (r *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIStorageById")
 }
@@ -360,10 +364,6 @@ func (self *SRegionSecurityGroupBase) CreateISecurityGroup(conf *cloudprovider.S
 
 func (self *SRegionSecurityGroupBase) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISecurityGroupById")
-}
-
-func (self *SRegionSecurityGroupBase) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISecurityGroupByName")
 }
 
 type SRegionEipBase struct {

@@ -32,8 +32,7 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires    []cloudprovider.ICloudWire
-	secgroups []cloudprovider.ICloudSecurityGroup
+	iwires []cloudprovider.ICloudWire
 
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
@@ -81,20 +80,6 @@ func (self *SVpc) fetchNetworks() error {
 		wire := self.getWireByRegionId(self.region.GetId())
 		networks[i].wire = wire
 		wire.addNetwork(&networks[i])
-	}
-	return nil
-}
-
-// 华为云安全组可以被同region的VPC使用
-func (self *SVpc) fetchSecurityGroups() error {
-	secgroups, err := self.region.GetSecurityGroups("", "")
-	if err != nil {
-		return err
-	}
-
-	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	for i := 0; i < len(secgroups); i++ {
-		self.secgroups[i] = &secgroups[i]
 	}
 	return nil
 }
@@ -154,13 +139,7 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	if self.secgroups == nil {
-		err := self.fetchSecurityGroups()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return self.secgroups, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
@@ -335,9 +314,9 @@ func (self *SRegion) DeleteVpc(vpcId string) error {
 			return errors.Wrap(err, "GetSecurityGroups")
 		}
 		for _, secgroup := range secgroups {
-			err = self.DeleteSecurityGroup(secgroup.ID)
+			err = self.DeleteSecurityGroup(secgroup.Id)
 			if err != nil {
-				return errors.Wrapf(err, "DeleteSecurityGroup(%s)", secgroup.ID)
+				return errors.Wrapf(err, "DeleteSecurityGroup(%s)", secgroup.Id)
 			}
 		}
 	}

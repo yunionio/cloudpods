@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/utils"
@@ -36,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -316,6 +318,34 @@ func (drv *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Contex
 	if input.Cdrom != "" {
 		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
 	}
+	var vpc *models.SVpc = nil
+	for _, network := range input.Networks {
+		netObj, err := validators.ValidateModel(userCred, models.NetworkManager, &network.Network)
+		if err == nil {
+			net := netObj.(*models.SNetwork)
+			vpc, err = net.GetVpc()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetVpc")
+			}
+		}
+	}
+	for i := range input.Secgroups {
+		if input.Secgroups[i] == api.SECGROUP_DEFAULT_ID {
+			continue
+		}
+		if gotypes.IsNil(vpc) {
+			return nil, httperrors.NewMissingParameterError("nets")
+		}
+		secObj, err := validators.ValidateModel(userCred, models.SecurityGroupManager, &input.Secgroups[i])
+		if err != nil {
+			return nil, err
+		}
+		secgroup := secObj.(*models.SSecurityGroup)
+		err = vpc.CheckSecurityGroupConsistent(secgroup)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return input, nil
 }
 
@@ -475,39 +505,6 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 
 	desc.Tags, _ = guest.GetAllUserMetadata()
 
-	//创建并同步安全组规则, 仅新建的安全组会同步规则
-	{
-		vpc, err := guest.GetVpc()
-		if err != nil {
-			return errors.Wrap(err, "guest.GetVpc")
-		}
-		region, err := vpc.GetRegion()
-		if err != nil {
-			return errors.Wrap(err, "vpc.GetRegion")
-		}
-
-		vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc)
-		if err != nil {
-			return errors.Wrap(err, "GetSecurityGroupVpcId")
-		}
-
-		secgroups, err := guest.GetSecgroups()
-		if err != nil {
-			return errors.Wrap(err, "GetSecgroups")
-		}
-		for i, secgroup := range secgroups {
-			externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, desc.ProjectId, "")
-			if err != nil {
-				return errors.Wrap(err, "RequestSyncSecurityGroup")
-			}
-
-			desc.ExternalSecgroupIds = append(desc.ExternalSecgroupIds, externalId)
-			if i == 0 {
-				desc.ExternalSecgroupId = externalId
-			}
-		}
-	}
-
 	desc.UserData, err = desc.GetUserData()
 	if err != nil {
 		return errors.Wrapf(err, "GetUserData")
@@ -569,6 +566,17 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "RemoteDeployGuestForCreate.GetIHost")
+	}
+
+	secgroups, err := guest.GetSecgroups()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSecgroups")
+	}
+	desc.ExternalSecgroupIds = []string{}
+	for _, secgroup := range secgroups {
+		if len(secgroup.ExternalId) > 0 {
+			desc.ExternalSecgroupIds = append(desc.ExternalSecgroupIds, secgroup.ExternalId)
+		}
 	}
 
 	var iVM cloudprovider.ICloudVM = nil
@@ -1181,43 +1189,21 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 }
 
 func (drv *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	secgroups, err := guest.GetSecgroups()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecgroups")
+	}
+
 	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return err
 	}
 
-	vpc, err := guest.GetVpc()
-	if err != nil {
-		return errors.Wrap(err, "guest.GetVpc")
-	}
-
-	region, _ := host.GetRegion()
-
-	vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc)
-	if err != nil {
-		return errors.Wrap(err, "GetSecurityGroupVpcId")
-	}
-
-	remoteProjectId := ""
-	provider := host.GetCloudprovider()
-	if provider != nil {
-		remoteProjectId, err = provider.SyncProject(ctx, task.GetUserCred(), guest.ProjectId)
-		if err != nil {
-			logclient.AddSimpleActionLog(guest, logclient.ACT_SYNC_CLOUD_PROJECT, err, task.GetUserCred(), false)
-		}
-	}
-
-	secgroups, err := guest.GetSecgroups()
-	if err != nil {
-		return errors.Wrap(err, "GetSecgroups")
-	}
 	externalIds := []string{}
 	for _, secgroup := range secgroups {
-		externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, remoteProjectId, "")
-		if err != nil {
-			return errors.Wrap(err, "RequestSyncSecurityGroup")
+		if len(secgroup.ExternalId) > 0 {
+			externalIds = append(externalIds, secgroup.ExternalId)
 		}
-		externalIds = append(externalIds, externalId)
 	}
 	return iVM.SetSecurityGroups(externalIds)
 }

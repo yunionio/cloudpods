@@ -17,11 +17,10 @@ package tasks
 import (
 	"context"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -38,45 +37,39 @@ func init() {
 }
 
 func (self *SecurityGroupDeleteTask) taskFailed(ctx context.Context, secgroup *models.SSecurityGroup, err error) {
-	secgroup.SetStatus(self.UserCred, api.SECGROUP_STATUS_READY, "")
+	secgroup.SetStatus(self.UserCred, apis.STATUS_DELETE_FAILED, "")
 	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SecurityGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	secgroup := obj.(*models.SSecurityGroup)
-	caches, err := secgroup.GetSecurityGroupCaches()
+
+	region, err := secgroup.GetRegion()
 	if err != nil {
-		self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetSecurityGroupCaches"))
+		self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 
-	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
-
-	for i := range caches {
-		if !isPurge {
-			iSecgroup, err := caches[i].GetISecurityGroup(ctx)
-			if err != nil {
-				if errors.Cause(err) == cloudprovider.ErrNotFound {
-					caches[i].RealDelete(ctx, self.GetUserCred())
-					continue
-				}
-				self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetISecurityGroup for cache %s(%s)", caches[i].Name, caches[i].Id))
-				return
-			}
-			err = iSecgroup.Delete()
-			if err != nil {
-				self.taskFailed(ctx, secgroup, errors.Wrapf(err, "iSecgroup.Delete"))
-				return
-			}
-		}
-		caches[i].RealDelete(ctx, self.GetUserCred())
+	driver := region.GetDriver()
+	self.SetStage("OnSecurityGroupDeleteComplete", nil)
+	err = driver.RequestDeleteSecurityGroup(ctx, self.GetUserCred(), secgroup, self)
+	if err != nil {
+		self.taskFailed(ctx, secgroup, errors.Wrapf(err, "RequestDeleteSecurityGroup"))
+		return
 	}
 
+}
+
+func (self *SecurityGroupDeleteTask) OnSecurityGroupDeleteComplete(ctx context.Context, secgroup *models.SSecurityGroup, data jsonutils.JSONObject) {
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    secgroup,
 		Action: notifyclient.ActionDelete,
 	})
 	secgroup.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *SecurityGroupDeleteTask) OnSecurityGroupDeleteCompleteFailed(ctx context.Context, secgroup *models.SSecurityGroup, data jsonutils.JSONObject) {
+	self.taskFailed(ctx, secgroup, errors.Errorf(data.String()))
 }

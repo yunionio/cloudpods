@@ -43,9 +43,6 @@ type Client struct {
 	Port                 *modules.SPortManager
 	Projects             *modules.SProjectManager
 	Regions              *modules.SRegionManager
-	SecurityGroupRules   *modules.SSecgroupRuleManager
-	SecurityGroups       *modules.SSecurityGroupManager
-	NovaSecurityGroups   *modules.SSecurityGroupManager
 	Servers              *modules.SServerManager
 	ServersV2            *modules.SServerManager
 	NovaServers          *modules.SServerManager
@@ -129,9 +126,6 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Domains.SetHttpClient(httpClient)
 	self.Keypairs.SetHttpClient(httpClient)
 	self.Orders.SetHttpClient(httpClient)
-	self.SecurityGroupRules.SetHttpClient(httpClient)
-	self.SecurityGroups.SetHttpClient(httpClient)
-	self.NovaSecurityGroups.SetHttpClient(httpClient)
 	self.Subnets.SetHttpClient(httpClient)
 	self.Users.SetHttpClient(httpClient)
 	self.Interface.SetHttpClient(httpClient)
@@ -203,9 +197,6 @@ func (self *Client) initManagers() {
 		self.Domains = modules.NewDomainManager(self.cfg)
 		self.Keypairs = modules.NewKeypairManager(self.cfg)
 		self.Orders = modules.NewOrderManager(self.cfg)
-		self.SecurityGroupRules = modules.NewSecgroupRuleManager(self.cfg)
-		self.SecurityGroups = modules.NewSecurityGroupManager(self.cfg)
-		self.NovaSecurityGroups = modules.NewNovaSecurityGroupManager(self.cfg)
 		self.Subnets = modules.NewSubnetManager(self.cfg)
 		self.Users = modules.NewUserManager(self.cfg)
 		self.Interface = modules.NewInterfaceManager(self.cfg)

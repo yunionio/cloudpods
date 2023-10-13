@@ -561,7 +561,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instances[0], nil
 }
 
-func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupId string,
+func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupIds []string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId, osType string,
 	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
@@ -570,7 +570,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
 	params["InstanceType"] = instanceType
-	params["SecurityGroupId"] = securityGroupId
+	for _, id := range securityGroupIds {
+		params["SecurityGroupId"] = id
+	}
 	params["ZoneId"] = zoneId
 	params["InstanceName"] = name
 	if len(hostname) > 0 {
@@ -981,10 +983,6 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		return &eip, nil
 	}
 	return nil, nil
-}
-
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.AssignSecurityGroup(secgroupId, self.InstanceId)
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {

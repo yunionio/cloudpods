@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -102,33 +101,7 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	firewalls, err := vpc.region.client.GetFirewalls(vpc.Network, 0, "")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetFirewalls")
-	}
-	gvpc := &SGlobalNetwork{client: vpc.region.client}
-	err = vpc.region.GetBySelfId(vpc.Network, gvpc)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetGlobalNetwork")
-	}
-	isecgroups := []cloudprovider.ICloudSecurityGroup{}
-	allInstance := false
-	tags := []string{}
-	for _, firewall := range firewalls {
-		if len(firewall.TargetServiceAccounts) > 0 {
-			secgroup := &SSecurityGroup{gvpc: gvpc, ServiceAccount: firewall.TargetServiceAccounts[0]}
-			isecgroups = append(isecgroups, secgroup)
-		} else if len(firewall.TargetTags) > 0 && !utils.IsInStringArray(firewall.TargetTags[0], tags) {
-			secgroup := &SSecurityGroup{gvpc: gvpc, Tag: firewall.TargetTags[0]}
-			tags = append(tags, firewall.TargetTags[0])
-			isecgroups = append(isecgroups, secgroup)
-		} else if !allInstance {
-			secgroup := &SSecurityGroup{gvpc: gvpc}
-			isecgroups = append(isecgroups, secgroup)
-			allInstance = true
-		}
-	}
-	return isecgroups, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (vpc *SVpc) getWire() *SWire {

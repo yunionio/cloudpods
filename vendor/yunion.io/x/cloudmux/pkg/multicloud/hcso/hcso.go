@@ -67,14 +67,15 @@ func (self *SHuaweiClient) getDefaultClient() *http.Client {
 	}
 	self.httpClient = self.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := self.httpClient.Transport.(*http.Transport)
-	self.httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	self.httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		service, method, path := strings.Split(req.URL.Host, ".")[0], req.Method, req.URL.Path
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if resp.StatusCode == 403 {
 				if self.cpcfg.UpdatePermission != nil {
 					self.cpcfg.UpdatePermission(service, fmt.Sprintf("%s %s", method, path))
 				}
 			}
+			return nil
 		}
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" {
@@ -87,6 +88,46 @@ func (self *SHuaweiClient) getDefaultClient() *http.Client {
 	return self.httpClient
 }
 
+func (self *SHuaweiClient) list(service, regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.GET, nil)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.GET, url, query, nil)
+}
+
+func (self *SHuaweiClient) delete(service, regionId, resource string) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.DELETE, nil)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.DELETE, url, nil, nil)
+}
+
+func (self *SHuaweiClient) post(service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.POST, params)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.POST, url, nil, params)
+}
+
+func (self *SHuaweiClient) patch(service, regionId, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.PATCH, params)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.PATCH, url, query, params)
+}
+
+func (self *SHuaweiClient) put(service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.PUT, params)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.PUT, url, nil, params)
+}
+
 func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	client := self.getAkClient()
 	if len(query) > 0 {
@@ -97,10 +138,12 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 		body = jsonutils.Marshal(params)
 	}
 	header := http.Header{}
-	if len(self.projectId) > 0 {
+	if len(self.projectId) > 0 && !strings.Contains(url, "eps") {
 		header.Set("X-Project-Id", self.projectId)
 	}
-	if strings.Contains(url, "/OS-CREDENTIAL/credentials") && len(self.ownerId) > 0 {
+	if (strings.Contains(url, "/OS-CREDENTIAL/") ||
+		strings.Contains(url, "/users") ||
+		strings.Contains(url, "eps.myhuaweicloud.com")) && len(self.ownerId) > 0 {
 		header.Set("X-Domain-Id", self.ownerId)
 	}
 	var resp jsonutils.JSONObject
@@ -115,6 +158,92 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 		break
 	}
 	return resp, err
+}
+
+func (self *SHuaweiClient) getUrl(service, regionId, resource string, method httputils.THttpMethod, params map[string]interface{}) (string, error) {
+	url := ""
+	resource = strings.TrimPrefix(resource, "/")
+	switch service {
+	case SERVICE_IAM:
+		endpoint := self.resetEndpoint(self.endpoints.Iam, "iam-pub")
+		url = fmt.Sprintf("https://%s/v3.0/%s", resource, endpoint)
+		if !strings.HasPrefix(resource, "OS-") {
+			url = fmt.Sprintf("https://%s/v3/%s", endpoint, resource)
+		}
+	case SERVICE_ELB:
+		endpoint := self.resetEndpoint(self.endpoints.Elb, "elb")
+		url = fmt.Sprintf("https://%s/v2/%s/%s", endpoint, self.projectId, resource)
+	case SERVICE_VPC:
+		endpoint := self.resetEndpoint(self.endpoints.Vpc, "vpc")
+		version := "v1"
+		if strings.HasPrefix(resource, "vpc/") {
+			version = "v3"
+		}
+		url = fmt.Sprintf("https://%s/%s/%s/%s", endpoint, version, self.projectId, resource)
+	case SERVICE_CES:
+		endpoint := self.resetEndpoint(self.endpoints.Ces, "ces")
+		url = fmt.Sprintf("https://%s/v1.0/%s/%s", endpoint, self.projectId, resource)
+	case SERVICE_MODELARTS:
+		endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+		url = fmt.Sprintf("https://%s/v2/%s/%s", endpoint, self.projectId, resource)
+		if strings.HasPrefix(resource, "networks") || strings.HasPrefix(resource, "resourceflavors") {
+			url = fmt.Sprintf("https://%s/v1/%s/%s", endpoint, self.projectId, resource)
+		}
+	case SERVICE_RDS:
+		endpoint := self.resetEndpoint(self.endpoints.Rds, "rds")
+		url = fmt.Sprintf("https://%s/v3/%s/%s", endpoint, self.projectId, resource)
+	case SERVICE_ECS:
+		version := "v1"
+		for _, prefix := range []string{
+			"os-availability-zone",
+			"servers",
+			"os-keypairs",
+		} {
+			if strings.HasPrefix(resource, prefix) || strings.Contains(resource, "os-security-groups") {
+				version = "v2.1"
+				break
+			}
+		}
+		if strings.HasSuffix(resource, "action") && !gotypes.IsNil(params) {
+			for _, k := range []string{"addSecurityGroup", "removeSecurityGroup"} {
+				_, ok := params[k]
+				if ok {
+					version = "v2.1"
+					break
+				}
+			}
+		}
+		endpoint := self.resetEndpoint(self.endpoints.Ecs, "ecs")
+		url = fmt.Sprintf("https://%s/%s/%s/%s", endpoint, version, self.projectId, resource)
+	case SERVICE_EPS:
+		endpoint := self.resetEndpoint(self.endpoints.Eps, "eps")
+		url = fmt.Sprintf("https://%s/v1.0/%s", endpoint, resource)
+	case SERVICE_EVS:
+		version := "v2"
+		endpoint := self.resetEndpoint(self.endpoints.Evs, "evs")
+		url = fmt.Sprintf("https://%s/%s/%s/%s", endpoint, version, self.projectId, resource)
+	case SERVICE_BSS:
+		endpoint := self.resetEndpoint(self.endpoints.Bss, "bss")
+		url = fmt.Sprintf("https://%s/v2/%s", endpoint, resource)
+	case SERVICE_SFS:
+		endpoint := self.resetEndpoint(self.endpoints.SfsTurbo, "sfs-turbo")
+		url = fmt.Sprintf("https://%s/v1/%s/%s", endpoint, self.projectId, resource)
+	case SERVICE_IMS:
+		endpoint := self.resetEndpoint(self.endpoints.Ims, "ims")
+		url = fmt.Sprintf("https://%s/v2/%s", endpoint, resource)
+	case SERVICE_DCS:
+		endpoint := self.resetEndpoint(self.endpoints.Dcs, "dcs")
+		url = fmt.Sprintf("https://%s/v2/%s/%s", endpoint, self.projectId, resource)
+	case SERVICE_CTS:
+		endpoint := self.resetEndpoint(self.endpoints.Cts, "cts")
+		url = fmt.Sprintf("https://%s/v3/%s/%s", endpoint, self.projectId, resource)
+	case SERVICE_NAT:
+		endpoint := self.resetEndpoint(self.endpoints.Nat, "nat")
+		url = fmt.Sprintf("https://%s/v2/%s/%s", endpoint, self.projectId, resource)
+	default:
+		return "", fmt.Errorf("invalid service %s", service)
+	}
+	return url, nil
 }
 
 func requestWithRetry(client *akClient, ctx context.Context, method httputils.THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {

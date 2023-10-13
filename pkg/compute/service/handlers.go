@@ -131,7 +131,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.IsolatedDeviceManager,
 		models.IsolatedDeviceModelManager,
 		models.SecurityGroupManager,
-		models.SecurityGroupCacheManager,
 		models.SecurityGroupRuleManager,
 		models.ElasticipManager,
 		models.NatGatewayManager,

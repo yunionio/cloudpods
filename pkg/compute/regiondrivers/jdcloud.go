@@ -36,7 +36,3 @@ func (self *SJDcloudRegionDriver) GetProvider() string {
 func (self *SJDcloudRegionDriver) IsCertificateBelongToRegion() bool {
 	return false
 }
-
-func (self *SJDcloudRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}

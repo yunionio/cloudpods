@@ -35,18 +35,6 @@ func (self *SCucloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_CUCLOUD
 }
 
-func (self *SCucloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
-}
-
-func (self *SCucloudRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
-}
-
-func (self *SCucloudRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
 func (self *SCucloudRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return nil
 }

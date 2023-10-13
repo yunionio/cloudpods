@@ -16,15 +16,13 @@ package jdcloud
 
 import (
 	"fmt"
-	"net"
 
 	commodels "github.com/jdcloud-api/jdcloud-sdk-go/services/common/models"
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vpc/apis"
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vpc/client"
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vpc/models"
 
-	"yunion.io/x/pkg/util/secrules"
-
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -57,72 +55,16 @@ func (sg *SSecurityGroup) GetDescription() string {
 	return sg.Description
 }
 
-func (sg *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	rules := sg.SecurityGroupRules
-	srs := make([]cloudprovider.SecurityRule, 0, len(rules))
-	for i := range rules {
-		rule := secrules.SecurityRule{
-			Priority: 1,
-		}
-
-		if rules[i].Direction == 0 {
-			rule.Direction = secrules.SecurityRuleIngress
-		} else {
-			rule.Direction = secrules.SecurityRuleEgress
-		}
-
-		switch rules[i].Protocol {
-		case 6:
-			rule.Protocol = secrules.PROTO_TCP
-		case 17:
-			rule.Protocol = secrules.PROTO_UDP
-		case 1:
-			rule.Protocol = secrules.PROTO_ICMP
-		case 300:
-			rule.Protocol = secrules.PROTO_ANY
-		}
-
-		_, rule.IPNet, _ = net.ParseCIDR(rules[i].AddressPrefix)
-		rule.Description = rules[i].Description
-		rule.PortStart = rules[i].FromPort
-		rule.PortEnd = rules[i].ToPort
-		rule.Action = secrules.SecurityRuleAllow
-
-		if rules[i].RuleType == "default" && rules[i].FromPort == 0 && rules[i].ToPort == 0 {
-			rule.Action = secrules.SecurityRuleDeny
-		}
-
-		sr := cloudprovider.SecurityRule{
-			Id:           rules[i].RuleId,
-			SecurityRule: rule,
-		}
-		srs = append(srs, sr)
-	}
-	return srs, nil
+func (sg *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (sg *SSecurityGroup) GetStatus() string {
-	return ""
-}
-
-func (sg *SSecurityGroup) IsEmulated() bool {
-	return false
-}
-
-func (sg *SSecurityGroup) Refresh() error {
-	return nil
+	return api.SECGROUP_STATUS_READY
 }
 
 func (sg *SSecurityGroup) Delete() error {
 	return cloudprovider.ErrNotImplemented
-}
-
-func (sg *SSecurityGroup) GetProjectId() string {
-	return ""
-}
-
-func (sg *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	return nil
 }
 
 func (r *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string, pageNumber int, pageSize int) ([]SSecurityGroup, int, error) {

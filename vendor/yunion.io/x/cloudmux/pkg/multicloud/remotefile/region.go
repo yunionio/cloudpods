@@ -250,19 +250,6 @@ func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICl
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.client.GetSecgroups()
-	if err != nil {
-		return nil, err
-	}
-	for i := range secgroups {
-		if secgroups[i].GetName() == opts.Name {
-			return &secgroups[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
 	lbs, err := self.client.GetLoadbalancers()
 	if err != nil {

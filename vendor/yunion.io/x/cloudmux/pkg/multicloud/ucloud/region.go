@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -201,35 +200,28 @@ func (self *SRegion) DeleteSecurityGroup(secgroupId string) error {
 	return self.DoAction("DeleteFirewall", params, nil)
 }
 
-func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return self.GetSecurityGroupById(secgroupId)
-}
-
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.GetSecurityGroups("", "", opts.Name)
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := self.GetSecurityGroups("", "", "")
 	if err != nil {
 		return nil, err
 	}
-	if len(secgroups) == 0 {
-		return nil, cloudprovider.ErrNotFound
+
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := 0; i < len(secgroups); i++ {
+		secgroups[i].region = self
+		ret = append(ret, &secgroups[i])
 	}
-	if len(secgroups) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return ret, nil
+}
+
+func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return self.GetSecurityGroup(secgroupId)
 }
 
 func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	externalId, err := self.CreateDefaultSecurityGroup(opts.Name, opts.Desc, opts.InRules)
+	externalId, err := self.CreateSecurityGroup(opts.Name, opts.Desc)
 	if err != nil {
 		return nil, err
-	}
-	if opts.OnCreated != nil {
-		opts.OnCreated(externalId)
-	}
-	err = self.syncSecgroupRules(externalId, opts.InRules)
-	if err != nil {
-		return nil, errors.Wrapf(err, "syncSecgroupRules")
 	}
 	return self.GetISecurityGroupById(externalId)
 }
@@ -498,75 +490,6 @@ func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
 	} else {
 		return SInstance{}, fmt.Errorf("GetInstanceByID %s %d found.", instanceId, len(instances))
 	}
-}
-
-// GRE协议被忽略了
-func toUcloudSecRule(rule cloudprovider.SecurityRule) []string {
-	net := rule.IPNet.String()
-	action := "DROP"
-	if rule.Action == secrules.SecurityRuleAllow {
-		action = "ACCEPT"
-	}
-
-	rules := make([]string, 0)
-	_rules := generatorRule(rule.Protocol, net, action, rule.PortStart, rule.PortEnd, rule.Priority)
-	rules = append(rules, _rules...)
-	return rules
-}
-
-func generatorRule(protocol, net, action string, startPort, endPort, priority int) []string {
-	rules := make([]string, 0)
-
-	var ports string
-	if startPort <= 0 || endPort <= 0 {
-		ports = "1-65535"
-	} else if startPort == endPort {
-		ports = fmt.Sprintf("%d", startPort)
-	} else {
-		ports = fmt.Sprintf("%d-%d", startPort, endPort)
-	}
-	prio := "LOW"
-	switch priority {
-	case 1:
-		prio = "LOW"
-	case 2:
-		prio = "MEDIUM"
-	case 3:
-		prio = "HIGH"
-	}
-
-	template := fmt.Sprintf("%s|%s|%s|%s|%s|", "%s", "%s", net, action, prio)
-	switch protocol {
-	case secrules.PROTO_ANY:
-		rules = append(rules, fmt.Sprintf(template, "TCP", ports))
-		rules = append(rules, fmt.Sprintf(template, "UDP", ports))
-		rules = append(rules, fmt.Sprintf(template, "ICMP", ""))
-	case secrules.PROTO_TCP:
-		rules = append(rules, fmt.Sprintf(template, "TCP", ports))
-	case secrules.PROTO_UDP:
-		rules = append(rules, fmt.Sprintf(template, "UDP", ports))
-	case secrules.PROTO_ICMP:
-		rules = append(rules, fmt.Sprintf(template, "ICMP", ""))
-	}
-
-	return rules
-}
-
-// https://docs.ucloud.cn/api/unet-api/update_firewall
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []cloudprovider.SecurityRule) error {
-	_rules := []string{}
-	for _, r := range rules {
-		_rules = append(_rules, toUcloudSecRule(r)...)
-	}
-
-	params := NewUcloudParams()
-	params.Set("FWId", secgroupId)
-	for i, r := range _rules {
-		N := i + 1
-		params.Set(fmt.Sprintf("Rule.%d", N), r)
-	}
-
-	return self.DoAction("UpdateFirewall", params, nil)
 }
 
 func (self *SRegion) GetClient() *SUcloudClient {

@@ -106,7 +106,7 @@ type SUcloudClient struct {
 func NewUcloudClient(cfg *UcloudClientConfig) (*SUcloudClient, error) {
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if cfg.cpcfg.ReadOnly {
 			if req.ContentLength > 0 {
 				body, err := ioutil.ReadAll(req.Body)
@@ -403,6 +403,7 @@ func (self *SUcloudClient) GetCapabilities() []string {
 		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,

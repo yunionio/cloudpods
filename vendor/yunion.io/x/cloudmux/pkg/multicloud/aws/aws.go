@@ -177,7 +177,7 @@ func (self *SAwsClient) ec2Request(regionId string, apiName string, params map[s
 func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*session.Session, error) {
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response) error, error) {
 		var action string
 		if req.ContentLength > 0 && !strings.Contains(req.URL.Host, ".s3.") {
 			body, err := ioutil.ReadAll(req.Body)
@@ -194,7 +194,7 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 
 		service := strings.Split(req.URL.Host, ".")[0]
 		method, path := req.Method, req.URL.Path
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if resp.StatusCode == 403 {
 				if client.cpcfg.UpdatePermission != nil {
 					if len(action) > 0 {
@@ -204,6 +204,7 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 					}
 				}
 			}
+			return nil
 		}
 
 		if client.cpcfg.ReadOnly {
@@ -489,6 +490,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
