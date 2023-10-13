@@ -25,6 +25,8 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 
 ### Summary & UI
 
+![](https://www.cloudpods.org/zh/docs/introduce/images/interface1.gif)
+
 <details>
   <summary>
   Multi-cloud management that is able to manage a wide range of cloud providers, including private cloud, such as OpenStack, and public clouds, such as AWS, Azure, Google Cloud, Alibaba Cloud, Tencent Cloud, Huawei Cloud, etc.
@@ -32,7 +34,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <ul>
     <li>
       <p>Cloud account create form</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudselect.png" alt="multi cloud management">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/cloudselect.png" alt="multi cloud management">
     </li>
     <li>
       <p>Cloud accounts list</p>
@@ -40,7 +42,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
     </li>
     <li>
       <p>Multi public cloud VM list</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/publicvmlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/publicvmlist.png">
     </li>
   </ul>
 </details>
@@ -56,8 +58,8 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
     </li>
     <li>
       <p>Create VM instance form</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm1.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm2.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createkvmvm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createkvmvm2.png">
     </li>
     <li>
       <p>VNC and SSH login page</p>
@@ -73,23 +75,23 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
     </li>
     <li>
       <p>VPC list</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vpclist.png">
     </li>
     <li>
       <p>Wire list (Classic Network)</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/wirelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/wirelist.png">
     </li>
     <li>
       <p>IPsubnet list</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/ipsubnetlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/ipsubnetlist.png">
     </li> 
     <li>
       <p>Eip list (VPC Network)</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vpclist.png">
     </li>
     <li>
       <p>LB list</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/lblist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/lblist.png">
     </li>   
   </ul>
 </details>
@@ -101,15 +103,15 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <ul>
     <li>
       <p>BareMetal list</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/physicalmachinelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/physicalmachinelist.png">
     </li>
     <li>
       <p>Baremetal Management</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addphysicalmachine.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/addphysicalmachine.png">
     </li>
     <li>
       <p>Create OS on BareMetal</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createbaremetal.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createbaremetal.png">
     </li>
     <li>ARM64 baremetal supported</li>
   </ul>
@@ -122,16 +124,16 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <ul>
     <li>
       <p>sql, LDAP supported</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/idplist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/idplist.png">
     </li>
     <li>
       <p>Multi-tenancy system, include domain, project, group, user, role, policy</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/domainlist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/projectlist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/grouplist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/userlist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/rolelist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/policylist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/domainlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/projectlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/grouplist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/userlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/rolelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/policylist.png">
   </ul>
 </details>
 
@@ -142,24 +144,24 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <ul>
     <li>
       <p>Add VMware account</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmware.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createvmware.png">
     </li>
     <li>
       <p>VMware account list</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vmwarelist.png">
     </li>
     <li>
       <p>Automatic creation of wire</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarewirelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vmwarewirelist.png">
     </li>
     <li>
       <p>Automatic creation of ipsubnet</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwareipsubnetlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vmwareipsubnetlist.png">
     </li>
     <li>
       <p>Create a VMware VM instance</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm1.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm2.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createvmwarevm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createvmwarevm2.png">
     </li>
   </ul>
 </details>
@@ -172,19 +174,19 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <ul>
     <li>
       <p>Enable the SSO login function of the cloud account (aliyun as an example)</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/enablecloudsso.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/enablecloudsso.png">
     </li>
     <li>
       <p>create saml users</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addsamluser.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/addsamluser.png">
     </li>
     <li>
       <p>Cloud SSO entry</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudssoentry.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/cloudssoentry.png">
     </li>
     <li>
       <p>Cloud SSO - SSO login user</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudsamluser.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/cloudsamluser.png">
     </li>
     <li>
       <p>Sign in to the public cloud platform with SSO</p>
@@ -263,13 +265,13 @@ Please check this [issue](https://github.com/yunionio/cloudpods/issues/11427) fo
 
 You may contact us by:
 
-* [Subscription](https://www.yunion.cn/subscription/index.html)
-
-* Bilibili: [Cloudpods](https://space.bilibili.com/3493131737631540/)
+* Enterprise Support: [Subscription](https://www.yunion.cn/subscription/index.html)
 
 * WeChat: please scan the following QRCode to contact us
 
 <img src="https://www.cloudpods.org/images/contact_me_qr_20230321.png" alt="WeChat QRCode">
+
+* Bilibili: [Cloudpods](https://space.bilibili.com/3493131737631540/)
 
 ## Changelog
 
