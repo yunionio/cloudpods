@@ -62,6 +62,31 @@ func (self *SGlobalNetwork) Refresh() error {
 	return jsonutils.Update(self, gvpc)
 }
 
+func (self *SGlobalNetwork) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	firewalls, err := self.client.GetFirewalls(self.SelfLink, 0, "")
+	if err != nil {
+		return nil, err
+	}
+	groups := map[string]*SSecurityGroup{}
+	for i := range firewalls {
+		if len(firewalls[i].TargetTags) == 0 {
+			continue
+		}
+		_, ok := groups[firewalls[i].TargetTags[0]]
+		if !ok {
+			groups[firewalls[i].TargetTags[0]] = &SSecurityGroup{Rules: []SFirewall{}}
+		}
+		groups[firewalls[i].TargetTags[0]].gvpc = self
+		groups[firewalls[i].TargetTags[0]].Tag = firewalls[i].TargetTags[0]
+		groups[firewalls[i].TargetTags[0]].Rules = append(groups[firewalls[i].TargetTags[0]].Rules, firewalls[i])
+	}
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for _, group := range groups {
+		ret = append(ret, group)
+	}
+	return ret, nil
+}
+
 func (cli *SGoogleClient) GetGlobalNetwork(id string) (*SGlobalNetwork, error) {
 	net := &SGlobalNetwork{client: cli}
 	return net, cli.ecsGet("global/networks", id, net)

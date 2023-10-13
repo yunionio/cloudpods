@@ -369,10 +369,6 @@ func (instance *SInstance) GetExpiredAt() time.Time {
 	return time.Time{}
 }
 
-func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "AssignSecurityGroup")
-}
-
 func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetSecurityGroups")
 }
@@ -547,7 +543,7 @@ func (region *SRegion) CreateInstance(
 	hostname string,
 	imageId string,
 	instanceType string,
-	securityGroupId string,
+	securityGroupIds []string,
 	zoneId string,
 	desc string,
 	passwd string,
@@ -603,7 +599,9 @@ func (region *SRegion) CreateInstance(
 
 	params["NetworkInterfaces.1.SubnetId"] = ipAddr
 	// currently only support binding the first NetworkInterface securitygroup
-	params["NetworkInterfaces.1.SecurityGroupIds.1"] = securityGroupId
+	for idx, id := range securityGroupIds {
+		params[fmt.Sprintf("NetworkInterfaces.1.SecurityGroupIds.%d", idx+1)] = id
+	}
 
 	if bc != nil {
 		params["InstanceChargeType"] = "PrePaid"

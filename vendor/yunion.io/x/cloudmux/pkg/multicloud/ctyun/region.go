@@ -87,6 +87,19 @@ func (self *SRegion) GetCloudEnv() string {
 	return api.CLOUD_PROVIDER_CTYUN
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := self.GetSecurityGroups()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := range secgroups {
+		secgroups[i].region = self
+		ret = append(ret, &secgroups[i])
+	}
+	return ret, nil
+}
+
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
 	sec, err := self.GetSecurityGroup(secgroupId)
 	if err != nil {
@@ -95,25 +108,10 @@ func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICl
 	return sec, nil
 }
 
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	segroups, err := self.GetSecurityGroups(opts.VpcId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetISecurityGroupByName.GetSecurityGroups")
-	}
-
-	for i := range segroups {
-		if segroups[i].GetName() == opts.Name {
-			return &segroups[i], nil
-		}
-	}
-
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetISecurityGroupByName.GetSecurityGroups")
-}
-
 func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	secgroup, err := self.CreateSecurityGroup(opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "Region.CreateISecurityGroup")
+		return nil, errors.Wrap(err, "CreateISecurityGroup")
 	}
 
 	return secgroup, nil

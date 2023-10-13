@@ -379,21 +379,21 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ieips, nil
 }
 
-func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return region.GetSecurityGroupDetails(secgroupId)
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := self.ListSecgroups()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListSecgroups")
+	}
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := range secgroups {
+		secgroups[i].region = self
+		ret = append(ret, &secgroups[i])
+	}
+	return ret, nil
 }
 
-func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	if strings.Contains(strings.ToLower(opts.VpcId), "microsoft.classicnetwork") {
-		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "not support classic secgroup")
-	}
-	resource := fmt.Sprintf("subscriptions/%s/resourcegroups/%s/providers/microsoft.network/networksecuritygroups/%s", region.client.subscriptionId, opts.ProjectId, opts.Name)
-	secgroup := &SSecurityGroup{region: region}
-	err := region.get(resource, url.Values{}, secgroup)
-	if err != nil {
-		return nil, errors.Wrapf(err, "get(%s)", resource)
-	}
-	return secgroup, nil
+func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.GetSecurityGroupDetails(secgroupId)
 }
 
 func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {

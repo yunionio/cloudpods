@@ -215,10 +215,6 @@ func (client *SESXiClient) GetISecurityGroupById(id string) (cloudprovider.IClou
 	return nil, errors.ErrNotSupported
 }
 
-func (client *SESXiClient) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	return nil, errors.ErrNotSupported
-}
-
 func (client *SESXiClient) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	return nil, errors.ErrNotSupported
 }

@@ -2283,7 +2283,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to update db %s", err)
+		log.Errorf("Failed to update db %s for account %s", err, account.Name)
 	} else {
 		db.OpsLog.LogSyncUpdate(account, diff, userCred)
 	}

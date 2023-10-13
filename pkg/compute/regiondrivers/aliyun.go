@@ -49,14 +49,6 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
-func (self *SAliyunRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
-}
-
-func (self *SAliyunRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
-}
-
 func (self *SAliyunRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ALIYUN
 }
@@ -751,4 +743,34 @@ func (self *SAliyunRegionDriver) ValidateCreateWafInstanceData(ctx context.Conte
 
 func (self *SAliyunRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
 	return input, httperrors.NewUnsupportOperationError("not supported create rule")
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		rule := input.Rules[i]
+		if rule.Priority == nil {
+			return nil, httperrors.NewMissingParameterError("priority")
+		}
+
+		if *rule.Priority < 1 || *rule.Priority > 100 {
+			return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *rule.Priority)
+		}
+
+		if len(rule.Ports) > 0 && strings.Contains(input.Rules[i].Ports, ",") {
+			return nil, httperrors.NewInputParameterError("invalid ports %s", input.Rules[i].Ports)
+		}
+	}
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+}
+
+func (self *SAliyunRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Priority != nil && *input.Priority < 1 || *input.Priority > 100 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
+	}
+
+	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
 }

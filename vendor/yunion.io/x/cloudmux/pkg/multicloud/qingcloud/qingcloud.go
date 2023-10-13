@@ -131,7 +131,7 @@ func (cli *SQingCloudClient) getDefaultClient() *http.Client {
 	httputils.SetClientProxyFunc(cli.client, cli.cpcfg.ProxyFunc)
 	ts, _ := cli.client.Transport.(*http.Transport)
 	ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if cli.cpcfg.ReadOnly {
 			if req.Method == "GET" {
 				return nil, nil

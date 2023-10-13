@@ -377,16 +377,17 @@ func (self *SRemoteFileClient) GetIProjects() ([]cloudprovider.ICloudProject, er
 
 func (self *SRemoteFileClient) GetCapabilities() []string {
 	caps := []string{
-		cloudprovider.CLOUD_CAPABILITY_PROJECT,
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
-		cloudprovider.CLOUD_CAPABILITY_NETWORK,
-		cloudprovider.CLOUD_CAPABILITY_EIP,
-		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_EIP + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
-		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
-		cloudprovider.CLOUD_CAPABILITY_RDS,
-		cloudprovider.CLOUD_CAPABILITY_CACHE,
-		cloudprovider.CLOUD_CAPABILITY_MISC,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_RDS + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CACHE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_MISC + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

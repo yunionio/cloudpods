@@ -452,10 +452,6 @@ func (self *SInstance) GetMachine() string {
 	return "pc"
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.SetSecurityGroups([]string{secgroupId})
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	return self.host.zone.region.assignSecurityGroups(secgroupIds, self.InstanceId)
 }

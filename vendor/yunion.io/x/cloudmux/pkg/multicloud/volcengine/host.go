@@ -177,7 +177,7 @@ func (host *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
 	vmId, err := host._createVM(desc.Name, desc.Hostname, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB,
 		desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password,
-		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle,
+		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupIds, desc.UserData, desc.BillingCycle,
 		desc.ProjectId, desc.Tags, desc.SPublicIpInfo)
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 func (host *SHost) _createVM(name string, hostname string, imgId string,
 	sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
 	networkID string, ipAddr string, desc string, passwd string,
-	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string,
+	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupIds []string,
 	userData string, bc *billing.SBillingCycle, projectId string,
 	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
 ) (string, error) {
@@ -234,15 +234,10 @@ func (host *SHost) _createVM(name string, hostname string, imgId string,
 		disks[i+1].VolumeType = storage.storageType
 	}
 
-	_, err = host.zone.region.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return "", errors.Wrapf(err, "GetSecurityGroup fail")
-	}
-
 	if len(instanceType) == 0 {
 		return "", fmt.Errorf("instance type must be specified")
 	}
-	vmId, err := host.zone.region.CreateInstance(name, hostname, imgId, instanceType, secgroupId, host.zone.ZoneId, desc, passwd, disks, networkID, ipAddr, keypair, userData, bc, projectId, tags)
+	vmId, err := host.zone.region.CreateInstance(name, hostname, imgId, instanceType, secgroupIds, host.zone.ZoneId, desc, passwd, disks, networkID, ipAddr, keypair, userData, bc, projectId, tags)
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed to create %s", instanceType)
 	}

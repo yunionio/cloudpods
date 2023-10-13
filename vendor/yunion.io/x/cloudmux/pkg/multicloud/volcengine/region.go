@@ -444,25 +444,10 @@ func (region *SRegion) GetCapabilities() []string {
 }
 
 // Security Group
-func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	externalId, err := region.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc, conf.ProjectId)
+func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	externalId, err := region.CreateSecurityGroup(opts)
 	if err != nil {
 		return nil, err
-	}
-	if conf.OnCreated != nil {
-		conf.OnCreated(externalId)
-	}
-	outRules := conf.OutRules
-	if len(outRules) > 0 && outRules[0].String() == "out:allow any" {
-		outRules = outRules[1:]
-	}
-	rules := append(conf.InRules, outRules...)
-	for _, rule := range rules {
-		rule.Priority = 101 - rule.Priority
-		err = region.addSecurityGroupRule(externalId, rule)
-		if err != nil {
-			return nil, err
-		}
 	}
 	err = cloudprovider.Wait(5*time.Second, time.Minute, func() (bool, error) {
 		_, err := region.GetISecurityGroupById(externalId)
@@ -479,21 +464,7 @@ func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCre
 }
 
 func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return region.GetSecurityGroupDetails(secgroupId)
-}
-
-func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, _, err := region.GetSecurityGroups(opts.VpcId, opts.Name, nil, 1, 100)
-	if err != nil {
-		return nil, err
-	}
-	for _, secgroup := range secgroups {
-		if secgroup.SecurityGroupName == opts.Name {
-			secgroup.region = region
-			return &secgroup, nil
-		}
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s not found", opts.Name)
+	return region.GetSecurityGroup(secgroupId)
 }
 
 func (region *SRegion) DeleteISecurityGroupById(secgroupId string) error {

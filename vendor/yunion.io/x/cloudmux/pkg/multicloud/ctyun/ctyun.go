@@ -151,7 +151,7 @@ func (cli *SCtyunClient) getDefaultClient() *http.Client {
 	httputils.SetClientProxyFunc(cli.client, cli.cpcfg.ProxyFunc)
 	ts, _ := cli.client.Transport.(*http.Transport)
 	ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if req.Method == "GET" {
 			return nil, nil
 		}
@@ -377,6 +377,7 @@ func (self *SCtyunClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 	}
 	return caps

@@ -164,7 +164,7 @@ func (cli *SProxmoxClient) getDefaultClient() *http.Client {
 	httputils.SetClientProxyFunc(client, cli.cpcfg.ProxyFunc)
 	ts, _ := client.Transport.(*http.Transport)
 	ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if cli.cpcfg.ReadOnly {
 			if req.Method == "GET" || req.Method == "HEAD" {
 				return nil, nil

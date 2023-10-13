@@ -172,7 +172,7 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, 
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" || (req.Method == "POST" && strings.HasSuffix(req.URL.Path, "oauth2/token")) {
 				return nil, nil
@@ -515,6 +515,9 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		}
 		if utils.IsInStringArray("applicationgatewayavailablewafrulesets", info) {
 			return "2018-06-01"
+		}
+		if utils.IsInStringArray("securityrules", info) {
+			return "2023-05-01"
 		}
 		return "2018-06-01"
 	} else if utils.IsInStringArray("microsoft.storage", info) {
@@ -1068,6 +1071,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,

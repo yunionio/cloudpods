@@ -367,9 +367,11 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			log.Errorf("failed to attach disk %s into instance %s error: %v", diskIds[i], instance.Name, err)
 		}
 	}
-	err = host.zone.region.AssignSecurityGroup(instance.UUID, desc.ExternalSecgroupId)
-	if err != nil {
-		return nil, err
+	for _, id := range desc.ExternalSecgroupIds {
+		err = host.zone.region.AssignSecurityGroup(instance.UUID, id)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return host.GetIVMById(instance.UUID)
 }

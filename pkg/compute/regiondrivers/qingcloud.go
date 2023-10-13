@@ -35,18 +35,6 @@ func (self *SQingCloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_QINGCLOUD
 }
 
-func (self *SQingCloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
-}
-
-func (self *SQingCloudRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
-}
-
-func (self *SQingCloudRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
 func (self *SQingCloudRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return nil
 }

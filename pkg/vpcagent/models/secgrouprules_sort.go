@@ -57,7 +57,7 @@ func (el *SecurityGroup) securityGroupRules(basePriority int64) []*SecurityGroup
 	rs := make([]*SecurityGroupRule, 0, len(el.SecurityGroupRules))
 	for _, r := range el.SecurityGroupRules {
 		r = r.Copy()
-		r.Priority += basePriority
+		r.Priority += int(basePriority)
 		rs = append(rs, r)
 	}
 	return rs

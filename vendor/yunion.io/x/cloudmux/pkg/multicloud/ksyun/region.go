@@ -92,10 +92,6 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

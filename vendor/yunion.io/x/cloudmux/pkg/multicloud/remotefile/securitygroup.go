@@ -14,9 +14,13 @@
 
 package remotefile
 
-import "yunion.io/x/cloudmux/pkg/cloudprovider"
+import (
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
+)
 
 type SSecurityGroup struct {
+	multicloud.SSecurityGroup
 	SResourceBase
 
 	VpcId string
@@ -27,16 +31,12 @@ func (self *SSecurityGroup) GetDescription() string {
 	return self.Desc
 }
 
-func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	return []cloudprovider.SecurityRule{}, nil
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	return []cloudprovider.ISecurityGroupRule{}, nil
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
 	return self.VpcId
-}
-
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	return cloudprovider.ErrNotSupported
 }
 
 func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {

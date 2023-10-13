@@ -35,18 +35,6 @@ func (self *SBaiduRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_BAIDU
 }
 
-func (self *SBaiduRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
-}
-
-func (self *SBaiduRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
-}
-
-func (self *SBaiduRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
 func (self *SBaiduRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return nil
 }

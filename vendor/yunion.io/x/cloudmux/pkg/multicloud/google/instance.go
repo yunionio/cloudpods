@@ -363,108 +363,13 @@ func (instance *SInstance) GetInstanceType() string {
 	return instance.machineType
 }
 
-func (instance *SInstance) AssignSecurityGroup(id string) error {
-	for _, secgrpType := range []string{SECGROUP_TYPE_TAG, SECGROUP_TYPE_SERVICE_ACCOUNT} {
-		if strings.Contains(id, fmt.Sprintf("/%s/", secgrpType)) {
-			idx := strings.LastIndex(id, "/") + 1
-			if idx <= 0 {
-				return fmt.Errorf("invalid secgroup %s with id %s", secgrpType, id)
-			}
-			secgroup := id[idx:]
-			switch secgrpType {
-			case SECGROUP_TYPE_TAG:
-				tag := strings.ToLower(secgroup)
-				if !utils.IsInStringArray(tag, instance.Tags.Items) {
-					instance.Tags.Items = append(instance.Tags.Items, tag)
-					return instance.host.zone.region.SetResourceTags(instance.SelfLink, instance.Tags)
-				}
-			case SECGROUP_TYPE_SERVICE_ACCOUNT:
-				if len(instance.ServiceAccounts) > 0 {
-					return fmt.Errorf("instance %s has already set serviceAccount %s", instance.Name, instance.ServiceAccounts[0].Email)
-				}
-				return instance.host.zone.region.SetServiceAccount(instance.SelfLink, secgroup)
-			}
-		}
-	}
-	return fmt.Errorf("unknown secgroup type %s", id)
-}
-
 func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
-	secgroupIds := []string{}
-	isecgroups := []cloudprovider.ICloudSecurityGroup{}
-	for _, networkinterface := range instance.NetworkInterfaces {
-		vpc := SVpc{region: instance.host.zone.region}
-		err := instance.host.zone.region.GetBySelfId(networkinterface.Subnetwork, &vpc)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetGlobalNetwork")
-		}
-		_isecgroups, err := vpc.GetISecurityGroups()
-		if err != nil {
-			return nil, errors.Wrap(err, "vpc.GetISecurityGroups")
-		}
-		isecgroups = append(isecgroups, _isecgroups...)
-		for _, isecgroup := range _isecgroups {
-			if len(instance.ServiceAccounts) > 0 && isecgroup.GetName() == instance.ServiceAccounts[0].Email {
-				secgroupIds = append(secgroupIds, isecgroup.GetGlobalId())
-			}
-			gvpcInfo := strings.Split(vpc.Network, "/")
-			gvpcName := gvpcInfo[len(gvpcInfo)-1]
-			if isecgroup.GetName() == gvpcName && !strings.Contains(isecgroup.GetGlobalId(), fmt.Sprintf("/%s/", SECGROUP_TYPE_TAG)) {
-				secgroupIds = append(secgroupIds, isecgroup.GetGlobalId())
-			}
-		}
-	}
-	if len(instance.NetworkInterfaces) == 1 {
-		for _, secgroup := range isecgroups {
-			if utils.IsInStringArray(secgroup.GetName(), instance.Tags.Items) && strings.Contains(secgroup.GetGlobalId(), fmt.Sprintf("/%s/", SECGROUP_TYPE_TAG)) {
-				secgroupIds = append(secgroupIds, secgroup.GetGlobalId())
-			}
-		}
-	}
-	return secgroupIds, nil
+	return instance.Tags.Items, nil
 }
 
 func (instance *SInstance) SetSecurityGroups(ids []string) error {
-	secgroups := map[string][]string{}
-	for _, id := range ids {
-		for _, secgrpType := range []string{SECGROUP_TYPE_TAG, SECGROUP_TYPE_SERVICE_ACCOUNT} {
-			if strings.Contains(id, fmt.Sprintf("/%s/", secgrpType)) {
-				idx := strings.LastIndex(id, "/") + 1
-				if idx <= 0 {
-					return fmt.Errorf("invalid secgroup %s with id %s", secgrpType, id)
-				}
-				secgroup := id[idx:]
-				if len(secgroup) == 0 {
-					return fmt.Errorf("invalid secgroup %s with id %s", secgrpType, id)
-				}
-				if _, ok := secgroups[secgrpType]; !ok {
-					secgroups[secgrpType] = []string{}
-				}
-				if !utils.IsInStringArray(secgroup, secgroups[secgrpType]) {
-					secgroups[secgrpType] = append(secgroups[secgrpType], secgroup)
-				}
-			}
-		}
-	}
-	if tags, ok := secgroups[SECGROUP_TYPE_TAG]; ok && len(tags) > 0 {
-		for _, tag := range tags {
-			tag = strings.ToLower(tag)
-			if !utils.IsInStringArray(tag, instance.Tags.Items) {
-				instance.Tags.Items = append(instance.Tags.Items, tag)
-			}
-		}
-		err := instance.host.zone.region.SetResourceTags(instance.SelfLink, instance.Tags)
-		if err != nil {
-			return errors.Wrap(err, "SetTags")
-		}
-	}
-	if serviceAccounts, ok := secgroups[SECGROUP_TYPE_SERVICE_ACCOUNT]; ok && len(serviceAccounts) > 0 {
-		if len(serviceAccounts) > 1 {
-			return fmt.Errorf("can not set multi service account for google instance")
-		}
-		return instance.host.zone.region.SetServiceAccount(instance.SelfLink, serviceAccounts[0])
-	}
-	return nil
+	instance.Tags.Items = ids
+	return instance.host.zone.region.SetResourceTags(instance.SelfLink, instance.Tags)
 }
 
 func (instance *SInstance) GetHypervisor() string {
@@ -628,43 +533,10 @@ func (region *SRegion) CreateInstance(zone, name, desc, instanceType string, cpu
 	return region._createVM(zone, conf)
 }
 
-func (region *SRegion) getSecgroupByIds(ids []string) (map[string][]string, error) {
-	secgroups := map[string][]string{}
-	for _, id := range ids {
-		for _, secgrpType := range []string{SECGROUP_TYPE_TAG, SECGROUP_TYPE_SERVICE_ACCOUNT} {
-			if strings.Contains(id, fmt.Sprintf("/%s/", secgrpType)) {
-				idx := strings.LastIndex(id, "/") + 1
-				if idx <= 0 {
-					return nil, fmt.Errorf("invalid secgroup %s for %s", id, secgrpType)
-				}
-				secgroup := id[idx:]
-				if len(secgroup) == 0 {
-					return nil, fmt.Errorf("invalid secgroup %s for %s", id, secgrpType)
-				}
-				if _, ok := secgroups[secgrpType]; !ok {
-					secgroups[secgrpType] = []string{}
-				}
-				if !utils.IsInStringArray(secgroup, secgroups[secgrpType]) {
-					secgroups[secgrpType] = append(secgroups[secgrpType], secgroup)
-				}
-			}
-		}
-	}
-	return secgroups, nil
-}
-
 func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
 	vpc, err := region.GetVpc(desc.ExternalNetworkId)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetNetwork")
-	}
-	secgroups, err := region.getSecgroupByIds(desc.ExternalSecgroupIds)
-	if err != nil {
-		return nil, errors.Wrap(err, "getSecgroupByIds")
-	}
-	serviceAccounts, ok := secgroups[SECGROUP_TYPE_SERVICE_ACCOUNT]
-	if ok && len(serviceAccounts) > 1 {
-		return nil, fmt.Errorf("Security groups are distributed across multiple service accounts")
 	}
 	if len(desc.InstanceType) == 0 {
 		desc.InstanceType = fmt.Sprintf("custom-%d-%d", desc.Cpu, desc.MemoryMB)
@@ -728,14 +600,12 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		params["labels"] = labels
 	}
 
-	if tags, ok := secgroups[SECGROUP_TYPE_TAG]; ok && len(tags) > 0 {
-		for i := range tags {
-			tags[i] = strings.ToLower(tags[i])
-		}
+	if len(desc.ExternalSecgroupIds) > 0 {
 		params["tags"] = map[string][]string{
-			"items": tags,
+			"items": desc.ExternalSecgroupIds,
 		}
 	}
+
 	if len(desc.UserData) > 0 {
 		params["metadata"] = map[string]interface{}{
 			"items": []struct {
@@ -753,24 +623,24 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 			},
 		}
 	}
-	if len(serviceAccounts) > 0 {
-		params["serviceAccounts"] = []struct {
-			Email  string
-			Scopes []string
-		}{
-			{
-				Email: serviceAccounts[0],
-				Scopes: []string{
-					"https://www.googleapis.com/auth/devstorage.read_only",
-					"https://www.googleapis.com/auth/logging.write",
-					"https://www.googleapis.com/auth/monitoring.write",
-					"https://www.googleapis.com/auth/servicecontrol",
-					"https://www.googleapis.com/auth/service.management.readonly",
-					"https://www.googleapis.com/auth/trace.append",
-				},
-			},
-		}
-	}
+	//if len(serviceAccounts) > 0 {
+	//	params["serviceAccounts"] = []struct {
+	//		Email  string
+	//		Scopes []string
+	//	}{
+	//		{
+	//			Email: serviceAccounts[0],
+	//			Scopes: []string{
+	//				"https://www.googleapis.com/auth/devstorage.read_only",
+	//				"https://www.googleapis.com/auth/logging.write",
+	//				"https://www.googleapis.com/auth/monitoring.write",
+	//				"https://www.googleapis.com/auth/servicecontrol",
+	//				"https://www.googleapis.com/auth/service.management.readonly",
+	//				"https://www.googleapis.com/auth/trace.append",
+	//			},
+	//		},
+	//	}
+	//}
 	log.Debugf("create google instance params: %s", jsonutils.Marshal(params).String())
 	instance := &SInstance{}
 	resource := fmt.Sprintf("zones/%s/instances", zone)

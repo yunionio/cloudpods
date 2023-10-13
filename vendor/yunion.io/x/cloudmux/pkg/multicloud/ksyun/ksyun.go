@@ -143,7 +143,7 @@ func (cli *SKsyunClient) getDefaultClient() *http.Client {
 	httputils.SetClientProxyFunc(cli.client, cli.cpcfg.ProxyFunc)
 	ts, _ := cli.client.Transport.(*http.Transport)
 	ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		params, err := url.ParseQuery(req.URL.RawQuery)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)

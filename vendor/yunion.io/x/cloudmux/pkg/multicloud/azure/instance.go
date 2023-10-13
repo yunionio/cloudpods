@@ -1039,10 +1039,6 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	return nil, nil
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.SetSecurityGroup(self.ID, secgroupId)
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	if len(secgroupIds) == 1 {
 		return self.host.zone.region.SetSecurityGroup(self.ID, secgroupIds[0])
