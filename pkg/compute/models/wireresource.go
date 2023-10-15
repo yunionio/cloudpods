@@ -55,40 +55,48 @@ func ValidateWireResourceInput(userCred mcclient.TokenCredential, input api.Wire
 	return wireObj.(*SWire), input, nil
 }
 
-func (self *SWireResourceBase) GetWire() (*SWire, error) {
-	w, err := WireManager.FetchById(self.WireId)
+func (wireRes *SWireResourceBase) GetWire() (*SWire, error) {
+	w, err := WireManager.FetchById(wireRes.WireId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetWire(%s)", self.WireId)
+		return nil, errors.Wrapf(err, "GetWire(%s)", wireRes.WireId)
 	}
 	return w.(*SWire), nil
 }
 
-func (self *SWireResourceBase) GetCloudproviderId() string {
-	vpc, _ := self.GetVpc()
-	if vpc != nil {
-		return vpc.ManagerId
+func (wireRes *SWireResourceBase) GetCloudproviderId() string {
+	wire, _ := wireRes.GetWire()
+	if wire != nil {
+		return wire.ManagerId
 	}
 	return ""
 }
 
-func (self *SWireResourceBase) GetVpc() (*SVpc, error) {
-	wire, err := self.GetWire()
+func (wireRes *SWireResourceBase) GetProviderName() string {
+	wire, _ := wireRes.GetWire()
+	if wire == nil {
+		return wire.GetProviderName()
+	}
+	return ""
+}
+
+func (wireRes *SWireResourceBase) GetVpc() (*SVpc, error) {
+	wire, err := wireRes.GetWire()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetWire")
 	}
 	return wire.GetVpc()
 }
 
-func (self *SWireResourceBase) GetRegion() (*SCloudregion, error) {
-	vpc, err := self.GetVpc()
+func (wireRes *SWireResourceBase) GetRegion() (*SCloudregion, error) {
+	vpc, err := wireRes.GetVpc()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetVpc")
 	}
 	return vpc.GetRegion()
 }
 
-func (self *SWireResourceBase) GetZone() (*SZone, error) {
-	wire, err := self.GetWire()
+func (wireRes *SWireResourceBase) GetZone() (*SZone, error) {
+	wire, err := wireRes.GetWire()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetWire")
 	}
@@ -125,6 +133,7 @@ func (manager *SWireResourceBaseManager) FetchCustomizeColumns(
 
 	vpcList := make([]interface{}, len(rows))
 	zoneList := make([]interface{}, len(rows))
+	managerList := make([]interface{}, len(rows))
 	for i := range rows {
 		rows[i] = api.WireResourceInfo{}
 		if _, ok := wires[wireIds[i]]; ok {
@@ -135,14 +144,17 @@ func (manager *SWireResourceBaseManager) FetchCustomizeColumns(
 		}
 		vpcList[i] = &SVpcResourceBase{rows[i].VpcId}
 		zoneList[i] = &SZoneResourceBase{rows[i].ZoneId}
+		managerList[i] = &SManagedResourceBase{wires[wireIds[i]].ManagerId}
 	}
 
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, vpcList, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, zoneList, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, managerList, fields, isList)
 
 	for i := range rows {
 		rows[i].VpcResourceInfo = vpcRows[i]
 		rows[i].Zone = zoneRows[i].Zone
+		rows[i].ManagedResourceInfo = managerRows[i]
 	}
 	return rows
 }
@@ -153,7 +165,6 @@ func (manager *SWireResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.WireFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	var err error
 	if len(query.WireId) > 0 {
 		wireObj, _, err := ValidateWireResourceInput(userCred, query.WireResourceInput)
 		if err != nil {
@@ -164,9 +175,20 @@ func (manager *SWireResourceBaseManager) ListItemFilter(
 
 	wireQ := WireManager.Query("id").Snapshot()
 
-	wireQ, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, wireQ, userCred, query.VpcFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	{
+		var err error
+		mangedFilter := query.ManagedResourceListInput
+		query.ManagedResourceListInput = api.ManagedResourceListInput{}
+		wireQ, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, wireQ, userCred, query.VpcFilterListInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+		}
+		wireQ, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, wireQ, userCred, mangedFilter)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+		}
+		// recover managed filter
+		query.ManagedResourceListInput = mangedFilter
 	}
 
 	if len(query.ZoneList()) > 0 {
@@ -244,7 +266,7 @@ func (manager *SWireResourceBaseManager) OrderByExtraFields(
 	}
 	orderQ := WireManager.Query("id")
 	orderSubQ := orderQ.SubQuery()
-	orderQ, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
+	_, orders, fields := manager.GetOrderBySubQuery(orderQ, orderSubQ, orderQ.Field("id"), userCred, query, nil, nil)
 	q = q.LeftJoin(orderSubQ, sqlchemy.Equals(q.Field("wire_id"), orderSubQ.Field("id")))
 	q = db.OrderByFields(q, orders, fields)
 	return q, nil
@@ -323,8 +345,8 @@ func (manager *SWireResourceBaseManager) GetExportKeys() []string {
 	return keys
 }
 
-func (self *SWireResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	wire, _ := self.GetWire()
+func (wireRes *SWireResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	wire, _ := wireRes.GetWire()
 	if wire != nil {
 		return wire.GetChangeOwnerCandidateDomainIds()
 	}

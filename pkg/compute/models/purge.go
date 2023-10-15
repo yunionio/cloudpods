@@ -561,6 +561,10 @@ func (self *purgePair) purgeAll(ctx context.Context) error {
 				"delete from %s where %s in (%s)",
 				self.manager.TableSpec().Name(), self.key, placeholder,
 			)
+		case NetworkAdditionalWireManager.Keyword():
+			sql = fmt.Sprintf("delete from `%s` where `wire_id` in (%s)",
+				self.manager.TableSpec().Name(), placeholder,
+			)
 		default:
 			vars = append([]interface{}{time.Now()}, vars...)
 		}
@@ -815,10 +819,10 @@ func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
-	wires := WireManager.Query("id").Equals("zone_id", self.Id)
-	vpcs := VpcManager.Query().SubQuery()
-	wires = wires.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
-		Filter(sqlchemy.Equals(vpcs.Field("manager_id"), managerId))
+	wires := WireManager.Query("id").Equals("zone_id", self.Id).Equals("manager_id", managerId)
+	// vpcs := VpcManager.Query().SubQuery()
+	// wires = wires.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
+	// Filter(sqlchemy.Equals(vpcs.Field("manager_id"), managerId))
 
 	hostwires := HostwireManagerDeprecated.Query("row_id").In("wire_id", wires.SubQuery())
 	isolateds := IsolatedDeviceManager.Query("id").In("wire_id", wires.SubQuery())
@@ -848,6 +852,7 @@ func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
 		{manager: NetworkManager, key: "id", q: networks},
 		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
 		{manager: HostwireManagerDeprecated, key: "row_id", q: hostwires},
+		{manager: NetworkAdditionalWireManager, key: "id", q: wires},
 		{manager: WireManager, key: "id", q: wires},
 	}
 	for i := range pairs {
