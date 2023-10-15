@@ -349,11 +349,11 @@ func (svpc *SVpc) GetRouteTableCount() (int, error) {
 	return svpc.GetRouteTableQuery().CountWithError()
 }
 
-func (svpc *SVpc) getCloudProviderInfo() SCloudProviderInfo {
+/*func (svpc *SVpc) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := svpc.GetRegion()
 	provider := svpc.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
-}
+}*/
 
 func (svpc *SVpc) GetRegion() (*SCloudregion, error) {
 	region, err := CloudregionManager.FetchById(svpc.CloudregionId)
@@ -1374,6 +1374,8 @@ func (svpc *SVpc) initWire(ctx context.Context, zone *SZone, externalId string) 
 	wire.DomainId = svpc.DomainId
 	wire.IsPublic = svpc.IsPublic
 	wire.PublicScope = svpc.PublicScope
+
+	wire.ManagerId = svpc.ManagerId
 
 	wire.SetModelManager(WireManager, wire)
 	err := WireManager.TableSpec().Insert(ctx, wire)

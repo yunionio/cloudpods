@@ -40,7 +40,7 @@ func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
 func WaitIfaceIps(ifname string) (*net.Interface, []net.IP, error) {
 	iface, err := net.InterfaceByName(ifname)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "net.InterfaceByName")
+		return nil, nil, errors.Wrapf(err, "net.InterfaceByName %s", ifname)
 	}
 	var ips []net.IP
 	MAX := 60
