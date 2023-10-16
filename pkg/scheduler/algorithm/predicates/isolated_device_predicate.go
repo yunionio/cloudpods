@@ -38,10 +38,22 @@ func (f *IsolatedDevicePredicate) Clone() core.FitPredicate {
 
 func (f *IsolatedDevicePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
-	if len(data.IsolatedDevices) == 0 {
-		return false, nil
+	if len(data.IsolatedDevices) > 0 {
+		return true, nil
 	}
-	return true, nil
+	networks := data.Networks
+	for i := 0; i < len(networks); i++ {
+		if networks[i].SriovDevice != nil {
+			return true, nil
+		}
+	}
+	disks := data.Disks
+	for i := 0; i < len(disks); i++ {
+		if disks[i].NVMEDevice != nil {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
