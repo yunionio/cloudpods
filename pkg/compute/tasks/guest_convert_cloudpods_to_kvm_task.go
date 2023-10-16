@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
 
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient/cloudpods"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -66,13 +68,63 @@ func (task *GuestConvertCloudpodsToKvmTask) GetSchedParams() (*schedapi.Schedule
 }
 
 func (task *GuestConvertCloudpodsToKvmTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	StartScheduleObjects(ctx, task, []db.IStandaloneModel{obj})
-}
-
-func (task *GuestConvertCloudpodsToKvmTask) OnStartSchedule(obj IScheduleModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(task.UserCred, api.VM_CONVERTING, "")
-	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERTING, "", task.UserCred)
+	ivm, _ := guest.GetIVM(context.Background())
+	instance := ivm.(*cloudpods.SInstance)
+	vmDetails, err := instance.GetDetails()
+	if err != nil {
+		task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed get ivm details %s", err)))
+		return
+	}
+	// update guest profiles
+	_, err = db.Update(guest, func() error {
+		if vmDetails.IsDaemon == nil {
+			guest.IsDaemon = tristate.False
+		} else {
+			guest.IsDaemon = tristate.NewFromBool(*vmDetails.IsDaemon)
+		}
+		guest.Bios = vmDetails.Bios
+		guest.Vdi = vmDetails.Vdi
+		guest.Machine = vmDetails.Machine
+		guest.Vga = vmDetails.Vga
+		guest.OsType = vmDetails.OsType
+		guest.OsArch = vmDetails.OsArch
+
+		return nil
+	})
+	if err != nil {
+		task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update vm properties %s", err)))
+		return
+	}
+
+	metadata := make(map[string]interface{}, 0)
+	for k, v := range vmDetails.Metadata {
+		switch k {
+		case api.VM_METADATA_LOGIN_ACCOUNT:
+			passwd, err := utils.DescryptAESBase64(instance.Id, v)
+			if err == nil {
+				metadata[k], _ = utils.EncryptAESBase64(guest.Id, passwd)
+			}
+		case api.VM_METADATA_LOGIN_KEY, api.VM_METADATA_OS_ARCH, api.VM_METADATA_OS_DISTRO, api.VM_METADATA_OS_NAME, api.VM_METADATA_OS_VERSION:
+			metadata[k] = v
+		case "telegraf_deployed", "__os_profile__":
+			metadata[k] = v
+		}
+	}
+
+	err = guest.SetAllMetadata(ctx, metadata, task.UserCred)
+	if err != nil {
+		task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update vm metadatas %s", err)))
+		return
+	}
+
+	err = instance.VMSetStatus(api.VM_CONVERTING)
+	if err != nil {
+		task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed set ivm status %s", err)))
+		return
+	}
+
+	StartScheduleObjects(ctx, task, []db.IStandaloneModel{obj})
 }
 
 func (task *GuestConvertCloudpodsToKvmTask) OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject) {
@@ -87,6 +139,11 @@ func (task *GuestConvertCloudpodsToKvmTask) taskFailed(ctx context.Context, gues
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT_FAIL, reason, task.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, reason, task.UserCred, false)
 	logclient.AddSimpleActionLog(targetGuest, logclient.ACT_VM_CONVERT, reason, task.UserCred, false)
+
+	ivm, _ := guest.GetIVM(context.Background())
+	instance := ivm.(*cloudpods.SInstance)
+	instance.VMSetStatus(api.VM_READY)
+
 	task.SetStageFailed(ctx, reason)
 }
 
@@ -97,6 +154,9 @@ func (task *GuestConvertCloudpodsToKvmTask) getTargetGuest() *models.SGuest {
 
 func (task *GuestConvertCloudpodsToKvmTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource, index int) {
 	guest := obj.(*models.SGuest)
+	guest.SetStatus(task.UserCred, api.VM_CONVERTING, "")
+	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERTING, "", task.UserCred)
+
 	targetGuest := task.getTargetGuest()
 	err := targetGuest.OnScheduleToHost(ctx, task.UserCred, target.HostId)
 	if err != nil {
@@ -214,31 +274,12 @@ func (task *GuestConvertCloudpodsToKvmTask) OnHostCreateGuestFailed(
 }
 
 func (task *GuestConvertCloudpodsToKvmTask) TaskComplete(ctx context.Context, guest, targetGuest *models.SGuest) {
+	ivm, _ := guest.GetIVM(context.Background())
+	instance := ivm.(*cloudpods.SInstance)
+	instance.VMSetStatus(api.VM_CONVERTED)
+
 	guest.SetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, targetGuest.Id, task.UserCred)
 	guest.SetStatus(task.UserCred, api.VM_CONVERTED, "")
-
-	//  TODO: from ivm get logininfo and set origin guest status
-	if osProfile := guest.GetMetadata(ctx, "__os_profile__", task.UserCred); len(osProfile) > 0 {
-		targetGuest.SetMetadata(ctx, "__os_profile__", osProfile, task.UserCred)
-	}
-	if account := guest.GetMetadata(ctx, api.VM_METADATA_LOGIN_ACCOUNT, task.UserCred); len(account) > 0 {
-		targetGuest.SetMetadata(ctx, api.VM_METADATA_LOGIN_ACCOUNT, account, task.UserCred)
-	}
-	if loginKey := guest.GetMetadata(ctx, api.VM_METADATA_LOGIN_KEY, task.UserCred); len(loginKey) > 0 {
-		passwd, _ := utils.DescryptAESBase64(guest.Id, loginKey)
-		if len(passwd) > 0 {
-			secret, err := utils.EncryptAESBase64(targetGuest.Id, passwd)
-			if err == nil {
-				targetGuest.SetMetadata(ctx, api.VM_METADATA_LOGIN_KEY, secret, task.UserCred)
-			}
-		}
-	}
-	for _, k := range []string{api.VM_METADATA_OS_ARCH, api.VM_METADATA_OS_DISTRO, api.VM_METADATA_OS_NAME, api.VM_METADATA_OS_VERSION} {
-		if v := guest.GetMetadata(ctx, k, task.UserCred); len(v) > 0 {
-			targetGuest.SetMetadata(ctx, k, v, task.UserCred)
-		}
-	}
-
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT, "", task.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, "", task.UserCred, true)
 	task.SetStageComplete(ctx, nil)

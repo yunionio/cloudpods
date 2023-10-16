@@ -163,5 +163,5 @@ func (m *SGuestManager) GuestCreateFromCloudpods(
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return ret, nil
 }

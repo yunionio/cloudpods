@@ -200,6 +200,8 @@ func (self *SGuest) createConvertedServer(
 			}
 		}
 		createInput.Vdi = api.VM_VDI_PROTOCOL_VNC
+	} else {
+		createInput.Disks[0].ImageId = ""
 	}
 
 	lockman.LockClass(ctx, GuestManager, userCred.GetProjectId())
