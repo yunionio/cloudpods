@@ -67,6 +67,7 @@ func getDefaultAdminCred() *mcclient.SSimpleToken {
 	token.ProjectDomain = prj.GetDomain().Name
 	rol, _ := RoleManager.FetchRole("", api.SystemAdminRole, api.DEFAULT_DOMAIN_ID, "")
 	token.Roles = rol.Name
+	token.SystemAccount = true
 	token.RoleIds = rol.Id
 	return &token
 }
