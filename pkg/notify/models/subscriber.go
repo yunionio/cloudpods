@@ -497,10 +497,14 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 	if err != nil {
 		return nil, err
 	}
+	// 接受人-聚合时间
 	receivers := make(map[string]uint32)
+	// 角色-接受人
 	roleMap := make(map[string][]string, 3)
+	// 接受角色-接受人-聚合时间
 	receivermap := make(map[string]map[string]uint32, 3)
-	identificationMapToSub := make(map[string]SSubscriber)
+	// 聚合时间
+	roleGroupTimes := 0
 	for _, sr := range srs {
 		if sr.Type == api.SUBSCRIBER_TYPE_RECEIVER {
 			rIds, err := sr.getReceivers()
@@ -512,7 +516,7 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 				receivers[receiveId] = sr.GroupTimes
 			}
 		} else if sr.Type == api.SUBSCRIBER_TYPE_ROLE {
-			identificationMapToSub[sr.Identification] = sr
+			roleGroupTimes = int(sr.GroupTimes)
 			roleMap[sr.RoleScope] = append(roleMap[sr.RoleScope], sr.Identification)
 			receivermap[sr.RoleScope] = map[string]uint32{}
 		}
@@ -551,7 +555,7 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 						return errors.Wrap(err, "unable to get user.id from result of RoleAssignments.List")
 					}
 					if _, ok := receivermap[scope][id]; !ok {
-						receivermap[scope][id] = identificationMapToSub[scope].GroupTimes
+						receivermap[scope][id] = uint32(roleGroupTimes)
 					}
 				}
 			}
@@ -565,7 +569,7 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 
 	for _, res := range receivermap {
 		for receive, time := range res {
-			if _, ok := receivers[receive]; !ok {
+			if t, ok := receivers[receive]; !ok || t == 0 {
 				receivers[receive] = time
 			}
 		}
