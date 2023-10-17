@@ -53,7 +53,7 @@ func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.I
 
 	baremetal.SetStatus(self.UserCred, api.BAREMETAL_CONVERTING, "")
 
-	self.SetStage("on_guest_deploy_complete", nil)
+	self.SetStage("OnGuestDeployComplete", nil)
 
 	guest := self.getGuest()
 	params, _ := self.Params.Get("server_params")

@@ -87,10 +87,10 @@ func (drv *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gues
 		}
 	}
 	if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
-		task.SetStage("on_auto_start_guest", nil)
+		task.SetStage("OnAutoStartGuest", nil)
 		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
 	} else {
-		task.SetStage("on_sync_status_complete", nil)
+		task.SetStage("OnSyncStatusComplete", nil)
 		return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
 	}
 }
