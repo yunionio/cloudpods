@@ -43,7 +43,7 @@ func init() {
 func (self *GuestCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_CREATE_NETWORK, "")
-	self.SetStage("on_wait_guest_networks_ready", nil)
+	self.SetStage("OnWaitGuestNetworksReady", nil)
 	self.OnWaitGuestNetworksReady(ctx, obj, nil)
 }
 
@@ -218,10 +218,10 @@ func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.ISt
 	}
 
 	if jsonutils.QueryBoolean(self.GetParams(), "auto_start", false) {
-		self.SetStage("on_auto_start_guest", nil)
+		self.SetStage("OnAutoStartGuest", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
 	} else {
-		self.SetStage("on_sync_status_complete", nil)
+		self.SetStage("OnSyncStatusComplete", nil)
 		guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 	}
 }
