@@ -81,6 +81,7 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 	allNics := make([]*types.SServerNic, 0)
 	bondNics := make([]*types.SServerNic, 0)
 
+	var netDevPrefix = GetNetDevPrefix(nics)
 	for i := range nics {
 		// skip nics without mac
 		if len(nics[i].Mac) == 0 {
@@ -94,7 +95,7 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 		if teamNic == nil {
 			// no teaming nic
 			nnic := nics[i]
-			nnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, nnic.Index)
+			nnic.Name = fmt.Sprintf("%s%d", netDevPrefix, nnic.Index)
 			allNics = append(allNics, nnic)
 			continue
 		}
@@ -102,11 +103,11 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 		master := nics[i]
 		nnic := *nics[i]
 		tnic := *teamNic
-		nnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, nnic.Index)
+		nnic.Name = fmt.Sprintf("%s%d", netDevPrefix, nnic.Index)
 		nnic.TeamingMaster = master
 		nnic.Ip = ""
 		nnic.Gateway = ""
-		tnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, tnic.Index)
+		tnic.Name = fmt.Sprintf("%s%d", netDevPrefix, tnic.Index)
 		tnic.TeamingMaster = master
 		tnic.Ip = ""
 		tnic.Gateway = ""
