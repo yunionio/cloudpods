@@ -91,7 +91,7 @@ require (
 	yunion.io/x/pkg v1.0.1-0.20231012131524-8a175238485b
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v1.1.2-0.20231011114043-0d203453d3e2
-	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
+	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
 require (
