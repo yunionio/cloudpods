@@ -40,8 +40,8 @@ func (d *SAnolisRootFs) String() string {
 }
 
 func (d *SAnolisRootFs) RootSignatures() []string {
-	sig := d.sRedhatLikeRootFs.RootSignatures()
-	return append([]string{"/etc/anolis-release"}, sig...)
+	sig := d.sLinuxRootFs.RootSignatures()
+	return append([]string{"/etc/sysconfig/network", "/etc/anolis-release"}, sig...)
 }
 
 func (d *SAnolisRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
