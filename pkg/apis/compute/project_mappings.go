@@ -143,6 +143,8 @@ type SProjectMappingAccount struct {
 }
 
 type ProjectMappingDetails struct {
+	SProjectMapping
+
 	apis.EnabledStatusInfrasResourceBaseDetails
 
 	Rules []ProjectMappingRuleInfoDetails
