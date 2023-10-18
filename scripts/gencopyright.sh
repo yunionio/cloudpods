@@ -32,7 +32,7 @@ function patch() {
 
 for top in $@
 do
-    for f in $(find $top ! -name "*zz_generated*.go" -iname "*.go")
+    for f in $(find $top ! -name "*zz_generated*.go" ! -name "*.pb.go" -iname "*.go")
     do
         patch $f
     done

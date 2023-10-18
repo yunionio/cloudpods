@@ -1,4 +1,4 @@
-// Copyright 2023 Yunion
+// Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,18 +115,14 @@ func (self *SVolcengineGuestDriver) GetInstanceCapability() cloudprovider.SInsta
 		},
 		Storages: cloudprovider.Storage{
 			DataDisk: []cloudprovider.StorageInfo{
-				cloudprovider.StorageInfo{
-					{StorageType: api.STORAGE_VOLCENGINE_PTSSD, MaxSizeGb: 8192, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-					{StorageType: api.STORAGE_VOLCENGINE_PL0, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-					{StorageType: api.STORAGE_VOLCENGINE_FlexPL, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
-				},
+				{StorageType: api.STORAGE_VOLC_CLOUD_PTSSD, MaxSizeGb: 8192, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_VOLC_CLOUD_PL0, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_VOLC_CLOUD_FLEXPL, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
 			},
 			SysDisk: []cloudprovider.StorageInfo{
-				cloudprovider.StorageInfo{
-					{StorageType: api.STORAGE_VOLCENGINE_PTSSD, MaxSizeGb: 500, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
-					{StorageType: api.STORAGE_VOLCENGINE_PL0, MaxSizeGb: 2048, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
-					{StorageType: api.STORAGE_VOLCENGINE_FlexPL, MaxSizeGb: 2048, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
-				},
+				{StorageType: api.STORAGE_VOLC_CLOUD_PTSSD, MaxSizeGb: 500, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_VOLC_CLOUD_PL0, MaxSizeGb: 2048, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_VOLC_CLOUD_FLEXPL, MaxSizeGb: 2048, MinSizeGb: 40, StepSizeGb: 1, Resizable: true},
 			},
 		},
 	}
