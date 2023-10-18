@@ -103,3 +103,14 @@ func compactIPs(ips []string) string {
 	}
 	return strings.Join(lines, ";")
 }
+
+func compactMacs(macs []string) string {
+	ret := make([]string, 0)
+	sort.Strings(macs)
+	for i := range macs {
+		if len(ret) == 0 || ret[len(ret)-1] != macs[i] {
+			ret = append(ret, macs[i])
+		}
+	}
+	return strings.Join(macs, ",")
+}

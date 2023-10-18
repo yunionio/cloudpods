@@ -43,6 +43,7 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/remotefile/provider" // private clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider"     // object storages
 	_ "yunion.io/x/cloudmux/pkg/multicloud/zstack/provider"     // private clouds
+	_ "yunion.io/x/cloudmux/pkg/multicloud/volcengine/provider"
 )
 
 func init() {

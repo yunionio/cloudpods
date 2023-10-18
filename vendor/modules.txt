@@ -915,6 +915,13 @@ github.com/vmware/govmomi/vim25/progress
 github.com/vmware/govmomi/vim25/soap
 github.com/vmware/govmomi/vim25/types
 github.com/vmware/govmomi/vim25/xml
+# github.com/volcengine/ve-tos-golang-sdk/v2 v2.6.2
+## explicit; go 1.13
+github.com/volcengine/ve-tos-golang-sdk/v2/tos
+github.com/volcengine/ve-tos-golang-sdk/v2/tos/enum
+# github.com/volcengine/volc-sdk-golang v1.0.23
+## explicit; go 1.14
+github.com/volcengine/volc-sdk-golang/base
 # github.com/willf/bitset v1.1.9
 ## explicit
 github.com/willf/bitset
@@ -1051,6 +1058,7 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.1.0
 ## explicit
 golang.org/x/sync/errgroup
+golang.org/x/sync/singleflight
 # golang.org/x/sys v0.9.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
@@ -1243,8 +1251,6 @@ gopkg.in/alexcesaro/quotedprintable.v3
 # gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d
 ## explicit
 gopkg.in/asn1-ber.v1
-# gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-## explicit; go 1.11
 # gopkg.in/fatih/set.v0 v0.2.1
 ## explicit
 gopkg.in/fatih/set.v0
@@ -1432,7 +1438,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231012115543-6b397e680423
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231018084051-f3c745277c53
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1512,6 +1518,8 @@ yunion.io/x/cloudmux/pkg/multicloud/remotefile
 yunion.io/x/cloudmux/pkg/multicloud/remotefile/provider
 yunion.io/x/cloudmux/pkg/multicloud/ucloud
 yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/volcengine
+yunion.io/x/cloudmux/pkg/multicloud/volcengine/provider
 yunion.io/x/cloudmux/pkg/multicloud/zstack
 yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
 # yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
@@ -1586,7 +1594,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.2-0.20231011114043-0d203453d3e2
+# yunion.io/x/sqlchemy v1.1.2-0.20231017172907-561e7f013926
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
