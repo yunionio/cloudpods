@@ -79,7 +79,7 @@ func (zone *SZone) GetGlobalId() string {
 }
 
 func (zone *SZone) GetName() string {
-	return fmt.Sprintf("%s", zone.ZoneId)
+	return fmt.Sprintf(zone.ZoneId)
 }
 
 func (zone *SZone) GetI18n() cloudprovider.SModelI18nTable {

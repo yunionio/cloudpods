@@ -282,7 +282,7 @@ func (region *SRegion) CreateNatGateway(opts *cloudprovider.NatGatewayCreateOpti
 			return &nat, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s not found", natId)
+	return nil, errors.Wrapf(err, "%s not found", natId)
 }
 
 func (region *SRegion) DeleteNatGateway(natId string, isForce bool) error {
