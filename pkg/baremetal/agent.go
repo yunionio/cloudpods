@@ -58,7 +58,7 @@ func newBaremetalAgent() (*SBaremetalAgent, error) {
 		return nil, err
 	}
 	// set guest fs NetDevPrefix
-	fsdriver.NetDevPrefix = "en"
+	fsdriver.NetDevPrefix = fsdriver.NetDevPrefixEN
 	return agent, nil
 }
 
