@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 
@@ -26,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 const (
@@ -48,6 +50,11 @@ func Nics() ([]*types.SNicDevInfo, error) {
 			} /*else if (fi.Mode() & os.ModeSymlink) == 0 {
 				continue
 			}*/
+			if fileutils2.Exists(path.Join(netPath, "device", "infiniband")) {
+				// skip infiniband nic
+				continue
+			}
+
 			speedStr := GetSysConfigQuiet(filepath.Join(netPath, "speed"))
 			speed := 0
 			if len(speedStr) > 0 {
