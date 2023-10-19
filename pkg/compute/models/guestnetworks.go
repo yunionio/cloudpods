@@ -889,8 +889,8 @@ func (gn *SGuestnetwork) IsAllocated() bool {
 	return false
 }
 
-func GetIPTenantIdPairs() {
-	/*
+/* func GetIPTenantIdPairs() {
+
 			from guests import Guests
 		        from hosts import Hosts
 		        from sqlalchemy.sql.expression import bindparam
@@ -903,8 +903,8 @@ func GetIPTenantIdPairs() {
 		                        .join(Hosts, and_(Hosts.id==Guests.host_id,
 		                                            Hosts.deleted==False))
 		        return q.all()
-	*/
-}
+
+} */
 
 func (gn *SGuestnetwork) GetVirtualIPs() []string {
 	ips := make([]string, 0)

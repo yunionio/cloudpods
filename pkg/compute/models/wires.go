@@ -72,6 +72,8 @@ type SWire struct {
 	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 
+	SManagedResourceBase
+
 	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" update:""`
 	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"domain_required" update:""`
 
@@ -204,14 +206,14 @@ func (manager *SWireManager) GetOrCreateWireForClassicNetwork(ctx context.Contex
 		name = fmt.Sprintf("emulate for zone %s vpc %s classic network", zone.Name, vpc.Id)
 	}
 	_wire, err := db.FetchByExternalIdAndManagerId(manager, externalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		sq := VpcManager.Query().SubQuery()
-		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("vpc_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), vpc.ManagerId))
+		q = q.Equals("manager_id", vpc.ManagerId)
+		return q
 	})
 	if err == nil {
 		return _wire.(*SWire), nil
 	}
 	if errors.Cause(err) != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "db.FetchByExternalId")
+		return nil, errors.Wrap(err, "db.FetchByExternalIdAndManagerId")
 	}
 	wire := &SWire{}
 	wire.VpcId = vpc.Id
@@ -220,6 +222,7 @@ func (manager *SWireManager) GetOrCreateWireForClassicNetwork(ctx context.Contex
 	wire.ExternalId = externalId
 	wire.IsEmulated = true
 	wire.Name = name
+	wire.ManagerId = vpc.ManagerId
 	err = manager.TableSpec().Insert(ctx, wire)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert wire for classic network")
@@ -376,6 +379,8 @@ func (swire *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Tok
 			swire.Description = extWire.GetDescription()
 		}
 
+		swire.ManagerId = provider.Id
+
 		if zone != nil {
 			swire.ZoneId = zone.Id
 		} else {
@@ -436,6 +441,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.Status = extWire.GetStatus()
 	wire.Description = extWire.GetDescription()
 	wire.VpcId = vpc.Id
+	wire.ManagerId = provider.Id
 	region, err := vpc.GetRegion()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRegion for vpc %s(%s)", vpc.Name, vpc.Id)
@@ -765,8 +771,8 @@ func filterWiresCountQuery(q *sqlchemy.SQuery, hostTypes, providers, brands []st
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		vpcs := VpcManager.Query().SubQuery()
 		q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
-		q = CloudProviderFilter(q, vpcs.Field("manager_id"), providers, brands, cloudEnv)
-		q = RangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), q.Field("zone_id"), vpcs.Field("manager_id"), nil, nil)
+		q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+		q = RangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), q.Field("zone_id"), q.Field("manager_id"), nil, nil)
 	}
 
 	return q
@@ -862,7 +868,12 @@ func (manager *SWireManager) TotalCount(
 }
 
 func (swire *SWire) getNetworkQuery(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	q := NetworkManager.Query().Equals("wire_id", swire.Id)
+	additionalNicIds := NetworkAdditionalWireManager.networkIdQuery(swire.Id)
+	q := NetworkManager.Query()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.Equals(q.Field("wire_id"), swire.Id),
+		sqlchemy.In(q.Field("id"), additionalNicIds.SubQuery()),
+	))
 	if ownerId != nil {
 		q = NetworkManager.FilterByOwner(q, NetworkManager, userCred, ownerId, scope)
 	}
@@ -1044,15 +1055,37 @@ func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverTy
 }
 
 func (manager *SWireManager) InitializeData() error {
-	wires := make([]SWire, 0)
-	q := manager.Query()
-	q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("vpc_id")), sqlchemy.IsEmpty(q.Field("status")), sqlchemy.Equals(q.Field("status"), "init"), sqlchemy.Equals(q.Field("status"), api.WIRE_STATUS_READY_DEPRECATED)))
-	err := db.FetchModelObjects(manager, q, &wires)
-	if err != nil {
-		return err
+	{
+		err := manager.initVpcId()
+		if err != nil {
+			return errors.Wrap(err, "initVpcId")
+		}
 	}
-	for _, w := range wires {
-		db.Update(&w, func() error {
+	{
+		err := manager.initManagerId()
+		if err != nil {
+			return errors.Wrap(err, "initManagerId")
+		}
+	}
+	return nil
+}
+
+func (manager *SWireManager) initVpcId() error {
+	wires, err := manager.FetchWires(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsEmpty(q.Field("vpc_id")),
+			sqlchemy.IsEmpty(q.Field("status")),
+			sqlchemy.Equals(q.Field("status"), "init"),
+			sqlchemy.Equals(q.Field("status"), api.WIRE_STATUS_READY_DEPRECATED),
+		))
+		return q
+	})
+	if err != nil {
+		return errors.Wrap(err, "FetchWires")
+	}
+	for i := range wires {
+		w := wires[i]
+		_, err := db.Update(&w, func() error {
 			if len(w.VpcId) == 0 {
 				w.VpcId = api.DEFAULT_VPC_ID
 			}
@@ -1061,8 +1094,53 @@ func (manager *SWireManager) InitializeData() error {
 			}
 			return nil
 		})
+		if err != nil {
+			return errors.Wrap(err, "Update")
+		}
 	}
 	return nil
+}
+
+func (manager *SWireManager) initManagerId() error {
+	wires, err := manager.FetchWires(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		vpcs := VpcManager.Query().SubQuery()
+		q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(q.Field("manager_id")),
+			sqlchemy.NotEquals(q.Field("manager_id"), vpcs.Field("manager_id")),
+		))
+		q = q.IsNullOrEmpty("manager_id")
+		return q
+	})
+	if err != nil {
+		return errors.Wrap(err, "FetchWires")
+	}
+	for i := range wires {
+		w := wires[i]
+		vpc, err := w.GetVpc()
+		if err != nil {
+			return errors.Wrap(err, "GetVpc")
+		}
+		_, err = db.Update(&w, func() error {
+			w.ManagerId = vpc.ManagerId
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "Update")
+		}
+	}
+	return nil
+}
+
+func (manager *SWireManager) FetchWires(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SWire, error) {
+	wires := make([]SWire, 0)
+	q := manager.Query()
+	q = filter(q)
+	err := db.FetchModelObjects(manager, q, &wires)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return wires, nil
 }
 
 func (wire *SWire) isOneCloudVpcWire() bool {
@@ -1129,17 +1207,12 @@ func (manager *SWireManager) FetchWireById(wireId string) *SWire {
 }
 
 func (manager *SWireManager) FetchWireByExternalId(managerId, extId string) (*SWire, error) {
-	vpcsQ := VpcManager.Query("id")
-	vpcsQ = vpcsQ.Filter(sqlchemy.OR(
-		sqlchemy.Equals(vpcsQ.Field("manager_id"), managerId),
-		sqlchemy.Equals(vpcsQ.Field("id"), api.DEFAULT_VPC_ID),
-	))
-	vpcs := vpcsQ.SubQuery()
-	q := manager.Query().In("vpc_id", vpcs).Equals("external_id", extId)
-	wires := make([]SWire, 0)
-	err := db.FetchModelObjects(manager, q, &wires)
+	wires, err := manager.FetchWires(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("manager_id", managerId).Equals("external_id", extId)
+		return q
+	})
 	if err != nil {
-		return nil, errors.Wrap(err, "FetchModelObjects")
+		return nil, errors.Wrap(err, "FetchWires")
 	}
 	switch len(wires) {
 	case 0:
@@ -1338,9 +1411,18 @@ func (manager *SWireManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	{
+		managedFilter := query.ManagedResourceListInput
+		query.ManagedResourceListInput = api.ManagedResourceListInput{}
+		q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+		}
+		q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, managedFilter)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+		}
+		query.ManagedResourceListInput = managedFilter
 	}
 
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
@@ -1505,6 +1587,8 @@ func (manager *SWireManager) FetchCustomizeColumns(
 	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	managerList := make([]interface{}, len(rows))
 	wireIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.WireDetails{
@@ -1514,26 +1598,30 @@ func (manager *SWireManager) FetchCustomizeColumns(
 		}
 		wire := objs[i].(*SWire)
 		wireIds[i] = wire.Id
+		managerList[i] = &SManagedResourceBase{wire.ManagerId}
 	}
 
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, managerList, fields, isList)
 	usage, err := manager.TotalResourceCount(wireIds)
 	if err != nil {
 		log.Errorf("TotalResourceCount error: %v", err)
 		return rows
 	}
 	for i := range rows {
-		rows[i].WireUsage, _ = usage[wireIds[i]]
+		rows[i].WireUsage = usage[wireIds[i]]
+		rows[i].ManagedResourceInfo = managerRows[i]
 	}
 
 	return rows
 }
 
 func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc) error {
-	wires := []SWire{}
-	q := man.Query().Equals("vpc_id", vpc.Id)
-	err := db.FetchModelObjects(man, q, &wires)
+	wires, err := man.FetchWires(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("vpc_id", vpc.Id)
+		return q
+	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "FetchWires")
 	}
 	var errs []error
 	for i := range wires {
@@ -1545,17 +1633,17 @@ func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient
 	return errors.NewAggregate(errs)
 }
 
-func (swire *SWire) IsManaged() bool {
+/*func (swire *SWire) IsManaged() bool {
 	vpc, _ := swire.GetVpc()
 	if vpc == nil {
 		return false
 	}
 	return vpc.IsManaged()
-}
+}*/
 
 func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	vpc, _ := model.GetVpc()
 	if !data.Contains("public_scope") {
-		vpc, _ := model.GetVpc()
 		if !model.IsManaged() && db.IsAdminAllowPerform(ctx, userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && vpc != nil && vpc.IsPublic && vpc.PublicScope == string(rbacscope.ScopeSystem) {
 			model.SetShare(rbacscope.ScopeSystem)
 		} else {
@@ -1564,6 +1652,7 @@ func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(model.PublicScope))
 	}
 	model.Status = api.WIRE_STATUS_AVAILABLE
+	model.ManagerId = vpc.ManagerId
 	return model.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -1713,4 +1802,23 @@ func (swire *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.To
 		ret.Networks = append(ret.Networks, network)
 	}
 	return ret, nil
+}
+
+func (wire *SWire) GetCloudproviderId() string {
+	return wire.SManagedResourceBase.GetCloudproviderId()
+}
+
+func (wire *SWire) GetCloudprovider() *SCloudprovider {
+	return wire.SManagedResourceBase.GetCloudprovider()
+}
+
+func (wire *SWire) GetProviderName() string {
+	return wire.SManagedResourceBase.GetProviderName()
+}
+
+func (wire *SWire) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if err := NetworkAdditionalWireManager.DeleteWire(ctx, wire.Id); err != nil {
+		return errors.Wrap(err, "NetworkAdditionalWireManager.DeleteWire")
+	}
+	return wire.SStatusInfrasResourceBase.Delete(ctx, userCred)
 }

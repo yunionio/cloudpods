@@ -3382,6 +3382,8 @@ func (self *SGuest) Attach2Network(
 	userCred mcclient.TokenCredential,
 	args Attach2NetworkArgs,
 ) ([]SGuestnetwork, error) {
+	log.Debugf("Attach2Network %s", jsonutils.Marshal(args))
+
 	onceArgs := args.onceArgs(0)
 	firstNic, err := self.attach2NetworkOnce(ctx, userCred, onceArgs)
 	if err != nil {
@@ -3522,11 +3524,10 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 		return host.getNetworkOfIPOnHost(ip)
 	}
 	localNetObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, vnetId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		vpc := VpcManager.Query().SubQuery()
+		// vpc := VpcManager.Query().SubQuery()
 		wire := WireManager.Query().SubQuery()
 		return q.Join(wire, sqlchemy.Equals(q.Field("wire_id"), wire.Field("id"))).
-			Join(vpc, sqlchemy.Equals(wire.Field("vpc_id"), vpc.Field("id"))).
-			Filter(sqlchemy.Equals(vpc.Field("manager_id"), host.ManagerId))
+			Filter(sqlchemy.Equals(wire.Field("manager_id"), host.ManagerId))
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot find network of external_id %s", vnetId)
@@ -3565,6 +3566,8 @@ func (self *SGuest) SyncVMNics(
 		result.Error(errors.Wrapf(err, "compare.CompareSets"))
 		return result
 	}
+
+	log.Debugf("SyncVMNics: removed: %d common: %d add: %d", len(removed), len(commondb), len(added))
 
 	for i := 0; i < len(removed); i += 1 {
 		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{removed[i]}, false, false)
@@ -3638,12 +3641,16 @@ func (self *SGuest) SyncVMNics(
 			TryReserved:         true,
 			AllocDir:            api.IPAllocationDefault,
 			RequireDesignatedIP: true,
-			UseDesignatedIP:     true,
+			UseDesignatedIP:     false,
 			NicConfs:            []SNicConfig{nicConf},
 		})
 		if err != nil {
 			result.AddError(err)
 			continue
+		}
+		if len(ipList) > 0 {
+			// shift
+			ipList = ipList[1:]
 		}
 		result.Add()
 		for i := range guestnetworks {

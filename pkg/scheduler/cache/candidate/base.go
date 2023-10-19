@@ -634,7 +634,12 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networ
 	nets := make([]computemodels.SNetwork, 0)
 	allNets := network.Manager.GetStore().GetAll()
 	for _, net := range allNets {
-		if wireIds.Has(net.WireId) {
+		netAdditionalWireIds, err := computemodels.NetworkAdditionalWireManager.FetchNetworkAdditionalWireIds(net.Id)
+		if err != nil {
+			log.Errorf("NetworkAdditionalWireManager.FetchNetworkAdditionalWireIds %s error %s", net.Id, err)
+			netAdditionalWireIds = []string{}
+		}
+		if wireIds.Has(net.WireId) || wireIds.HasAny(netAdditionalWireIds...) {
 			nets = append(nets, net)
 		}
 	}
