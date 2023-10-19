@@ -300,6 +300,12 @@ func checkCycleTimerCreateInput(in api.CycleTimerCreateInput) (api.CycleTimerCre
 		return in, fmt.Errorf("hour should between 0 and 23")
 	}
 	switch in.CycleType {
+	case api.TIMER_TYPE_HOUR:
+		if in.CycleHour <= 0 || in.CycleHour >= 24 {
+			return in, fmt.Errorf("cycle_hour should between 0 and 23")
+		}
+		in.WeekDays = []int{}
+		in.MonthDays = []int{}
 	case api.TIMER_TYPE_DAY:
 		in.WeekDays = []int{}
 		in.MonthDays = []int{}

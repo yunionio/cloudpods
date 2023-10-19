@@ -39,6 +39,7 @@ const (
 	ST_ACTIVITY_STATUS_REJECT       = "reject"       // 拒绝
 
 	TIMER_TYPE_ONCE  = "once"
+	TIMER_TYPE_HOUR  = "hour"
 	TIMER_TYPE_DAY   = "day"
 	TIMER_TYPE_WEEK  = "week"
 	TIMER_TYPE_MONTH = "month"

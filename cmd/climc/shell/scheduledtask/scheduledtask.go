@@ -73,9 +73,10 @@ func init() {
 	}
 
 	type CycleTimer struct {
-		CycleCycleType string `help:"Cycle type for cycle timer" json:"cycle_type" choices:"day|week|month"`
+		CycleCycleType string `help:"Cycle type for cycle timer" json:"cycle_type" choices:"hour|day|week|month"`
 		CycleMinute    int    `help:"Minute of cycle timer" json:"minute"`
 		CycleHour      int    `help:"Hour of cycle timer" json:"hour"`
+		CycleCycleNum  int    `help:"Cycle count of cycle timer" json:"cycle_num"`
 		CycleWeekdays  []int  `help:"Weekdays for cycle timer" json:"weekdays"`
 		CycleMonthDays []int  `help:"Month days for cycle timer" json:"month_days"`
 		CycleStartTime string `help:"Start time for cycle timer, format:'2006-01-02 15:04:05'" json:"start_time"`
@@ -123,6 +124,7 @@ func init() {
 			},
 			CycleTimer: apis.CycleTimerCreateInput{
 				CycleType: args.CycleCycleType,
+				CycleNum:  args.CycleCycleNum,
 				Minute:    args.CycleMinute,
 				Hour:      args.CycleHour,
 				WeekDays:  args.CycleWeekdays,
