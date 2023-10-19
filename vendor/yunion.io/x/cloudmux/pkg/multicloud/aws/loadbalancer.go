@@ -303,7 +303,7 @@ func (self *SRegion) GetElbBackendgroups(elbId, id string) ([]SElbBackendGroup, 
 			NextMarker   string             `xml:"NextMarker"`
 			TargetGroups []SElbBackendGroup `xml:"TargetGroups>member"`
 		}{}
-		err := self.elbRequest("DescribeTargetGroups", params, part)
+		err := self.elbRequest("DescribeTargetGroups", params, &part)
 		if err != nil {
 			return nil, errors.Wrapf(err, "DescribeTargetGroups")
 		}
