@@ -309,6 +309,8 @@ type NetworkDetails struct {
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 
 	IsClassic bool `json:"is_classic"`
+
+	AdditionalWires []SSimpleWire `json:"additional_wires"`
 }
 
 type NetworkIpMacDetails struct {
@@ -451,4 +453,10 @@ type NetworkSwitchWireInput struct {
 	// required: true
 	// example: bcast0
 	WireId string `json:"wire_id"`
+}
+
+type NetworSyncAdditionalWiresInput struct {
+	apis.Meta
+
+	WireIds []string `json:"wire_ids"`
 }

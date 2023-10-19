@@ -88,6 +88,11 @@ type WireResourceInfo struct {
 	Zone string `json:"zone"`
 }
 
+type SSimpleWire struct {
+	Wire   string
+	WireId string
+}
+
 type WireUpdateInput struct {
 	apis.InfrasResourceBaseUpdateInput
 

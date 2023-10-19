@@ -230,3 +230,17 @@ func (opts *NetworkSwitchWireOptions) GetId() string {
 func (opts *NetworkSwitchWireOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type NetworkSyncAdditionalWiresOptions struct {
+	ID string `help:"ID or Name of resource to update"`
+
+	api.NetworSyncAdditionalWiresInput
+}
+
+func (opts *NetworkSyncAdditionalWiresOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *NetworkSyncAdditionalWiresOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
