@@ -1649,6 +1649,14 @@ func (img *SImage) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 	return ret, nil
 }
 
+func (m *SImageManager) PerformVmwareAccountAdded(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
+	log.Infof("perform vmware account added")
+	if !utils.IsInStringArray(string(qemuimg.VMDK), options.Options.TargetImageFormats) {
+		options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimg.VMDK))
+	}
+	return nil, nil
+}
+
 /*func (image *SImage) getRealPath() string {
 	diskPath := image.GetPath("")
 	if !fileutils2.Exists(diskPath) {
