@@ -636,7 +636,7 @@ func (u *Unit) setScore(id string, val score.SScore, prefer tristate.TriState) {
 
 	scoreObj.ScoreBucket.SetScore(val, prefer)
 
-	log.V(10).Infof("SetScore: %q -> %s", id, val.String())
+	log.V(10).Infof("SetScore: %q -> %s, prefer: %s", id, val.String(), prefer)
 }
 
 func (u *Unit) SetScore(id string, val score.SScore) {
