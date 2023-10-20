@@ -157,20 +157,47 @@ func (h HostPriorityList) Len() int {
 	return len(h)
 }
 
-func (h HostPriorityList) Less(i, j int) bool {
+func (h HostPriorityList) compareNormalScore(i, j int) bool {
 	s1 := h[i].Score.ScoreBucket
 	s2 := h[j].Score.ScoreBucket
-	preferScorei, preferScorej := s1.PreferScore()-s1.AvoidScore(), s2.PreferScore()-s1.AvoidScore()
-
-	if preferScorei != preferScorej {
-		return preferScorei < preferScorej
-	}
-
 	normalScorei, normalScorej := s1.NormalScore(), s2.NormalScore()
 	if normalScorei == normalScorej {
 		return h[i].Host < h[j].Host
 	}
 	return normalScorei < normalScorej
+}
+
+func (h HostPriorityList) Less(i, j int) bool {
+	si := h[i].Score.ScoreBucket
+	sj := h[j].Score.ScoreBucket
+
+	if si.PreferScore() > 0 || sj.PreferScore() > 0 {
+		if si.PreferScore() != 0 && sj.PreferScore() != 0 {
+			// both have prefer tags
+			return h.compareNormalScore(i, j)
+		}
+		if si.PreferScore() <= 0 {
+			return true
+		}
+		if sj.PreferScore() <= 0 {
+			return false
+		}
+	}
+
+	if si.AvoidScore() > 0 || sj.AvoidScore() > 0 {
+		if si.AvoidScore() != 0 && sj.AvoidScore() != 0 {
+			// both have avoid tags
+			return h.compareNormalScore(i, j)
+		}
+		if si.AvoidScore() > 0 {
+			return true
+		}
+		if sj.AvoidScore() > 0 {
+			return false
+		}
+	}
+
+	return h.compareNormalScore(i, j)
 }
 
 func (h HostPriorityList) Swap(i, j int) {
