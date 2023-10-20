@@ -1905,6 +1905,7 @@ func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredent
 	if len(subimgs) == 0 {
 		needConvert = true
 	} else {
+		supportedFormats := make([]string, 0)
 		for i := 0; i < len(subimgs); i += 1 {
 			if !utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) && subimgs[i].Format != img.DiskFormat {
 				// no need to have this subformat
@@ -1918,6 +1919,10 @@ func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredent
 			if subimgs[i].Status != api.IMAGE_STATUS_ACTIVE {
 				needConvert = true
 			}
+			supportedFormats = append(supportedFormats, subimgs[i].Format)
+		}
+		if len(supportedFormats) < len(options.Options.TargetImageFormats) {
+			needConvert = true
 		}
 	}
 	log.Debugf("doConvert imageStatus %s %v", img.Status, needConvert)
