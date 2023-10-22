@@ -2678,8 +2678,9 @@ func (hh *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mccl
 }
 
 func (hh *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error) {
-	var q1, q2 *sqlchemy.SQuery
+	var q1, q2, q3 *sqlchemy.SQuery
 	{
+		// classic network
 		networks := NetworkManager.Query()
 		netifs := NetInterfaceManager.Query().SubQuery()
 		hosts := HostManager.Query().SubQuery()
@@ -2690,6 +2691,7 @@ func (hh *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error
 		q1 = q1.Filter(sqlchemy.Equals(hosts.Field("id"), hh.Id))
 	}
 	{
+		// vpc network
 		networks := NetworkManager.Query()
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
@@ -2712,8 +2714,21 @@ func (hh *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error
 			),
 		)
 	}
+	{
+		// network additional wires
+		networks := NetworkManager.Query()
+		networkAdditionalWires := NetworkAdditionalWireManager.Query().SubQuery()
+		netifs := NetInterfaceManager.Query().SubQuery()
+		hosts := HostManager.Query().SubQuery()
+		q3 = networks
+		q3 = q3.Join(networkAdditionalWires, sqlchemy.Equals(networks.Field("id"), networkAdditionalWires.Field("network_id")))
+		q3 = q3.Join(netifs, sqlchemy.Equals(netifs.Field("wire_id"), networkAdditionalWires.Field("wire_id")))
+		q3 = q3.Join(hosts, sqlchemy.Equals(hosts.Field("id"), netifs.Field("baremetal_id")))
+		q3 = q3.Filter(sqlchemy.Equals(networks.Field("id"), netId))
+		q3 = q3.Filter(sqlchemy.Equals(hosts.Field("id"), hh.Id))
+	}
 
-	q := sqlchemy.Union(q1, q2).Query()
+	q := sqlchemy.Union(q1, q2, q3).Query().Distinct()
 
 	net := SNetwork{}
 	net.SetModelManager(NetworkManager, &net)

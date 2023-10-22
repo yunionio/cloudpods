@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -1067,6 +1068,12 @@ func (manager *SWireManager) InitializeData() error {
 			return errors.Wrap(err, "initManagerId")
 		}
 	}
+	{
+		err := manager.cleanNoVpcWires()
+		if err != nil {
+			return errors.Wrap(err, "cleanNoVpcWires")
+		}
+	}
 	return nil
 }
 
@@ -1127,6 +1134,25 @@ func (manager *SWireManager) initManagerId() error {
 		})
 		if err != nil {
 			return errors.Wrap(err, "Update")
+		}
+	}
+	return nil
+}
+
+func (manager *SWireManager) cleanNoVpcWires() error {
+	wires, err := manager.FetchWires(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		// find wires whose VPC was deleted
+		deletedVpcs := VpcManager.RawQuery("id").IsTrue("deleted").SubQuery()
+		q = q.Join(deletedVpcs, sqlchemy.Equals(q.Field("vpc_id"), deletedVpcs.Field("id")))
+		return q
+	})
+	if err != nil {
+		return errors.Wrap(err, "FetchWires")
+	}
+	for i := range wires {
+		err := wires[i].Delete(context.Background(), auth.AdminCredential())
+		if err != nil {
+			return errors.Wrapf(err, "Delete wire %s", wires[i].Id)
 		}
 	}
 	return nil
