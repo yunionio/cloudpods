@@ -66,8 +66,8 @@ func (manager *SNetworkAdditionalWireManager) newRecord(ctx context.Context, net
 	return errors.Wrap(err, "InsertOrUpdate")
 }
 
-func (manager *SNetworkAdditionalWireManager) networkIdQuery(wireId string) *sqlchemy.SQuery {
-	q := manager.Query("network_id").Equals("wire_id", wireId)
+func (manager *SNetworkAdditionalWireManager) Query(fields ...string) *sqlchemy.SQuery {
+	q := manager.SModelBaseManager.Query(fields...)
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.IsTrue(q.Field("synced")),
 		sqlchemy.IsTrue(q.Field("marked")),
@@ -75,12 +75,13 @@ func (manager *SNetworkAdditionalWireManager) networkIdQuery(wireId string) *sql
 	return q
 }
 
+func (manager *SNetworkAdditionalWireManager) networkIdQuery(wireId string) *sqlchemy.SQuery {
+	q := manager.Query("network_id").Equals("wire_id", wireId)
+	return q
+}
+
 func (manager *SNetworkAdditionalWireManager) fetchNetworkAdditionalWireIdsQuery(netId string) *sqlchemy.SQuery {
 	q := manager.Query("wire_id").Equals("network_id", netId)
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.IsTrue(q.Field("synced")),
-		sqlchemy.IsTrue(q.Field("marked")),
-	))
 	return q
 }
 

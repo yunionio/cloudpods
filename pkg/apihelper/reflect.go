@@ -123,6 +123,7 @@ func GetModels(opts *GetModelsOptions) error {
 			// "external_id.isnullorempty()", // len(external_id) > 0 is for pubcloud objects
 		)
 		listOptions.CloudEnv = "onpremise"
+		// listOptions.Provider = []string{"OneCloud"}
 	}
 	if inter, ok := opts.ModelSet.(IModelSetFilter); ok {
 		filter := inter.ModelFilter()
