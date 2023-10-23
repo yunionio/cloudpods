@@ -41,6 +41,7 @@ type SCapabilities struct {
 	Hypervisors []string `json:",allowempty"`
 
 	Brands                           []string `json:",allowempty"`
+	EnabledBrands                    []string `json:",allowempty"`
 	DisabledBrands                   []string `json:",allowempty"`
 	ComputeEngineBrands              []string `json:",allowempty"`
 	DisabledComputeEngineBrands      []string `json:",allowempty"`
@@ -374,29 +375,41 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 
 	capa.NetworkManageBrands = append(capa.NetworkManageBrands, api.ONECLOUD_BRAND_ONECLOUD)
 
+	capa.EnabledBrands = []string{}
 	capa.DisabledBrands = []string{}
 	var appendBrand = func(enabled *[]string, disabled *[]string, readOnlyEnabled *[]string, readOnlyDisabled *[]string, brand, capability string, isEnable, readOnly bool) {
+		if !utils.IsInArray(brand, capa.Brands) {
+			capa.Brands = append(capa.Brands, brand)
+		}
 		if readOnly {
 			if isEnable {
-				*readOnlyEnabled = append(*readOnlyEnabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.ReadOnlyBrands) {
+				if !utils.IsInArray(brand, *readOnlyEnabled) {
+					*readOnlyEnabled = append(*readOnlyEnabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.ReadOnlyBrands) {
 					capa.ReadOnlyBrands = append(capa.ReadOnlyBrands, brand)
 				}
 			} else {
-				*readOnlyDisabled = append(*readOnlyDisabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.ReadOnlyDisabledBrands) {
+				if !utils.IsInArray(brand, *readOnlyDisabled) {
+					*readOnlyDisabled = append(*readOnlyDisabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.ReadOnlyDisabledBrands) {
 					capa.ReadOnlyDisabledBrands = append(capa.ReadOnlyDisabledBrands, brand)
 				}
 			}
 		} else {
 			if isEnable {
-				*enabled = append(*enabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.Brands) {
-					capa.Brands = append(capa.Brands, brand)
+				if !utils.IsInArray(brand, *enabled) {
+					*enabled = append(*enabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.EnabledBrands) {
+					capa.EnabledBrands = append(capa.EnabledBrands, brand)
 				}
 			} else {
-				*disabled = append(*disabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.DisabledBrands) {
+				if !utils.IsInArray(brand, *disabled) {
+					*disabled = append(*disabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.DisabledBrands) {
 					capa.DisabledBrands = append(capa.DisabledBrands, brand)
 				}
 			}
