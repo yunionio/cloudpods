@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/libguestfs"
@@ -93,9 +92,7 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 		return new(deployapi.DeployGuestFsResponse), errors.Wrap(err, "GetIDisk")
 	}
 	defer disk.Cleanup()
-	if len(req.GuestDesc.Hypervisor) == 0 {
-		req.GuestDesc.Hypervisor = comapi.HYPERVISOR_KVM
-	}
+
 	if err := disk.Connect(); err != nil {
 		log.Errorf("Failed to connect %s disk: %s", req.GuestDesc.Hypervisor, err)
 		return new(deployapi.DeployGuestFsResponse), errors.Wrap(err, "Connect")
