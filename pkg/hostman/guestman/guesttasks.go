@@ -1196,7 +1196,17 @@ func (s *SGuestLiveMigrateTask) onDriveMirrorDisksFailed(res string) {
 }
 
 func (s *SGuestLiveMigrateTask) doMigrate() {
-	s.mirrorDisks("")
+	if s.params.NbdServerPort > 0 {
+		s.mirrorDisks("")
+	} else {
+		var copyIncremental = false
+		if s.params.IsLocal {
+			// copy disk data
+			copyIncremental = true
+		}
+		s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
+			copyIncremental, false, s.setMaxBandwidth)
+	}
 }
 
 func (s *SGuestLiveMigrateTask) setMaxBandwidth(res string) {
