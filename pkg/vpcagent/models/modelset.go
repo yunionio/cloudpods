@@ -17,6 +17,7 @@ package models
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apihelper"
@@ -184,6 +185,12 @@ func (set Wires) IncludeEmulated() bool {
 	return true
 }
 
+func (set Wires) ModelParamFilter() jsonutils.JSONObject {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("OneCloud"), "provider")
+	return params
+}
+
 func (ms Wires) joinNetworks(subEntries Networks) bool {
 	correct := true
 	for _, subEntry := range subEntries {
@@ -338,6 +345,12 @@ func (set Networks) ModelManager() mcclient_modulebase.IBaseManager {
 
 func (set Networks) DBModelManager() db.IModelManager {
 	return models.NetworkManager
+}
+
+func (set Networks) ModelParamFilter() jsonutils.JSONObject {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("OneCloud"), "provider")
+	return params
 }
 
 func (set Networks) NewModel() db.IModel {

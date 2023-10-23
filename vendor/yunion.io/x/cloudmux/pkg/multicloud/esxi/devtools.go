@@ -163,11 +163,11 @@ func NewVNICDev(host *SHost, mac, driver string, bridge string, vlanId int32, ke
 
 	inet, err := host.getNetworkById(bridge)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetNetworkById")
+		return nil, errors.Wrapf(err, "GetNetworkById %s on host %s", bridge, host.GetName())
 	}
 
 	if inet == nil {
-		return nil, errors.Error(fmt.Sprintf("Bridge %s VLAN %d not found", bridge, vlanId))
+		return nil, errors.Wrapf(errors.ErrNotFound, "Bridge %s not found on host %s", bridge, host.GetName())
 	}
 
 	var backing types.BaseVirtualDeviceBackingInfo
