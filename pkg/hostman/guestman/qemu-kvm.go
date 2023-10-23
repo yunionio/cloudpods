@@ -1180,6 +1180,15 @@ func (s *SKVMGuestInstance) getMemoryDevices() ([]monitor.MemoryDeviceInfo, erro
 	return res, err
 }
 
+func (s *SKVMGuestInstance) hasVirtioBlkDriver() bool {
+	for i := range s.Desc.Disks {
+		if s.Desc.Disks[i].Driver == "virtio" {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 	if s.LiveMigrateDestPort != nil && ctx != nil && !s.IsSlave() {
 		// dest migrate guest
@@ -1190,14 +1199,20 @@ func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 			hostutils.TaskFailed(ctx, err.Error())
 			return
 		}
-		nbdServerPort := s.manager.GetNBDServerFreePort()
-		defer s.manager.unsetPort(nbdServerPort)
-		err = s.migrateStartNbdServer(nbdServerPort)
-		if err != nil {
-			hostutils.TaskFailed(ctx, err.Error())
-			return
+
+		if s.hasVirtioBlkDriver() {
+			// virtio driver bind iothread, need migrate use driver mirror
+			nbdServerPort := s.manager.GetNBDServerFreePort()
+			defer s.manager.unsetPort(nbdServerPort)
+			err = s.migrateStartNbdServer(nbdServerPort)
+			if err != nil {
+				hostutils.TaskFailed(ctx, err.Error())
+				return
+			}
+			body.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
+		} else {
+			body.Set("nbd_server_disabled", jsonutils.JSONTrue)
 		}
-		body.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
 
 		if s.LiveMigrateUseTls {
 			s.setDestMigrateTLS(ctx, body)
