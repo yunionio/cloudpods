@@ -138,4 +138,28 @@ func init() {
 		}
 		return nil
 	})
+	type NotificationContactInput struct {
+		Subject     string
+		Body        string
+		ContactType []string
+		ReceiverIds []string
+		RobotIds    []string
+		RoleIds     []string
+	}
+
+	R(&NotificationContactInput{}, "notify-contact-send", "Send notify event message", func(s *mcclient.ClientSession, args *NotificationContactInput) error {
+		params := api.NotificationManagerContactNotifyInput{
+			Subject:      args.Subject,
+			Body:         args.Body,
+			ReceiverIds:  args.ReceiverIds,
+			ContactTypes: args.ContactType,
+			RobotIds:     args.RobotIds,
+			RoleIds:      args.RoleIds,
+		}
+		_, err := modules.Notification.PerformClassAction(s, "contact-notify", jsonutils.Marshal(params))
+		if err != nil {
+			return fmt.Errorf("unable to ContactNotify: %s", err)
+		}
+		return nil
+	})
 }
