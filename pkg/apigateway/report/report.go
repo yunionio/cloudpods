@@ -36,33 +36,35 @@ import (
 )
 
 type sReport struct {
-	GenerateName       string
-	UUID               string
-	Version            string
-	OsDist             string
-	OsVersion          string
-	QemuVersion        string
-	CpuArchitecture    string
-	Brands             string
-	HostCnt            int64
-	KvmHostCnt         int64
-	HostCpuCnt         int64
-	HostMemSizeMb      int64
-	BaremetalCnt       int64
-	BaremetalCpuCnt    int64
-	BaremetalMemSizeMb int64
-	ServerCnt          int64
-	ServerCpuCnt       int64
-	ServerMemSizeMb    int64
-	DiskCnt            int64
-	DiskSizeMb         int64
-	BucketCnt          int64
-	RdsCnt             int64
-	MongoDBCnt         int64
-	KafkaCnt           int64
-	UserCnt            int64
-	ProjectCnt         int64
-	DomainCnt          int64
+	GenerateName           string
+	UUID                   string
+	Version                string
+	OsDist                 string
+	OsVersion              string
+	QemuVersion            string
+	CpuArchitecture        string
+	Brands                 string
+	HostCnt                int64
+	KvmHostCnt             int64
+	VmwareHostCnt          int64
+	HostCpuCnt             int64
+	HostMemSizeMb          int64
+	BaremetalCnt           int64
+	BaremetalCpuCnt        int64
+	BaremetalMemSizeMb     int64
+	BaremetalStorageSizeGb int64
+	ServerCnt              int64
+	ServerCpuCnt           int64
+	ServerMemSizeMb        int64
+	DiskCnt                int64
+	DiskSizeMb             int64
+	BucketCnt              int64
+	RdsCnt                 int64
+	MongoDBCnt             int64
+	KafkaCnt               int64
+	UserCnt                int64
+	ProjectCnt             int64
+	DomainCnt              int64
 }
 
 func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -83,12 +85,23 @@ func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool
 		resp, err := compute.Hosts.List(s, jsonutils.Marshal(map[string]interface{}{
 			"scope":      "system",
 			"hypervisor": api.HYPERVISOR_KVM,
-			"limit":      20,
+			"limit":      1,
 		}))
 		if err != nil {
 			return nil, errors.Wrapf(err, "Hosts.List")
 		}
 		ret.KvmHostCnt = int64(resp.Total)
+
+		resp, err = compute.Hosts.List(s, jsonutils.Marshal(map[string]interface{}{
+			"scope":      "system",
+			"hypervisor": api.HYPERVISOR_ESXI,
+			"limit":      1,
+		}))
+		if err != nil {
+			return nil, errors.Wrapf(err, "Hosts.List")
+		}
+		ret.VmwareHostCnt = int64(resp.Total)
+
 		osDists, osVersions, qemuVersions, archs := []string{}, []string{}, []string{}, []string{}
 		hosts := []api.HostDetails{}
 		jsonutils.Update(&hosts, resp.Data)
@@ -147,6 +160,10 @@ func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool
 		ret.RdsCnt, _ = usage.Int("all.rds")
 		ret.MongoDBCnt, _ = usage.Int("all.mongodb")
 		ret.KafkaCnt, _ = usage.Int("all.kafka")
+		ret.BaremetalCnt, _ = usage.Int("baremetals")
+		ret.BaremetalCpuCnt, _ = usage.Int("baremetals.cpu")
+		ret.BaremetalMemSizeMb, _ = usage.Int("baremetals.memory")
+		ret.BaremetalStorageSizeGb, _ = usage.Int("baremetals.storage_gb")
 		usage, err = identity.IdentityUsages.GetUsage(s, system)
 		if err != nil {
 			return nil, errors.Wrapf(err, "IdentityUsages.GetUsage")
