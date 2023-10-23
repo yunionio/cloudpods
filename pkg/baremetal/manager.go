@@ -2935,6 +2935,7 @@ func (s *SBaremetalServer) deployFs(tool *disktool.SSHPartitionTool, term *ssh.C
 	if err != nil {
 		return nil, errors.Wrap(err, "To deploy desc fail")
 	}
+	deployDesc.Hypervisor = api.HYPERVISOR_BAREMETAL
 	deployDesc, err = s.reIndexDescNics(term, deployDesc)
 	if err != nil {
 		return nil, errors.Wrap(err, "reIndexDescNics")

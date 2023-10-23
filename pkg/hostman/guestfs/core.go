@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
+	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
@@ -129,9 +130,13 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	if err = rootfs.DeployHosts(partition, hn, domain, ips); err != nil {
 		return nil, errors.Wrap(err, "DeployHosts")
 	}
-	if err = rootfs.DeployQgaBlackList(partition); err != nil {
-		return nil, fmt.Errorf("DeployQgaBlackList: %v", err)
+
+	if guestDesc.Hypervisor == comapi.HYPERVISOR_KVM {
+		if err = rootfs.DeployQgaBlackList(partition); err != nil {
+			return nil, fmt.Errorf("DeployQgaBlackList: %v", err)
+		}
 	}
+
 	if err = rootfs.DeployNetworkingScripts(partition, nics); err != nil {
 		return nil, errors.Wrap(err, "DeployNetworkingScripts")
 	}
