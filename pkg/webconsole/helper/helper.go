@@ -39,7 +39,7 @@ func GetValidPrivateKey(host string, port int64, username string, projectId stri
 			if projectId == "" {
 				return nil, errors.Error("project_id is empty")
 			}
-			key, err := compute.Sshkeypairs.GetById(admin, projectId, jsonutils.Marshal(map[string]string{}))
+			key, err := compute.Sshkeypairs.GetById(admin, projectId, jsonutils.Marshal(map[string]bool{"admin": true}))
 			if err != nil {
 				return nil, errors.Wrapf(err, "Sshkeypairs.GetById(%s)", projectId)
 			}
