@@ -70,6 +70,7 @@ var notificationGroupLock sync.Mutex
 func init() {
 	notificationGroupLock = sync.Mutex{}
 }
+
 func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	notification := obj.(*models.SNotification)
 	if notification.Status == apis.NOTIFICATION_STATUS_OK {

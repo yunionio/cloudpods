@@ -1294,3 +1294,7 @@ func (r *SReceiver) IsRobot() bool {
 func (r *SReceiver) IsReceiver() bool {
 	return true
 }
+
+func (r *SReceiver) GetName() string {
+	return r.Name
+}
