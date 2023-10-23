@@ -365,6 +365,22 @@ func (self *SInstance) LiveMigrateVM(hostId string) error {
 	return err
 }
 
+func (self *SInstance) GetDetails() (*api.ServerDetails, error) {
+	ret := &api.ServerDetails{}
+	err := self.host.zone.region.cli.get(&modules.Servers, self.Id, nil, ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (self *SInstance) VMSetStatus(status string) error {
+	input := apis.PerformStatusInput{}
+	input.Status = status
+	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "status", input)
+	return err
+}
+
 func (self *SInstance) GetError() error {
 	if utils.IsInStringArray(self.Status, []string{api.VM_DISK_FAILED, api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED}) {
 		return fmt.Errorf("vm create failed with status %s", self.Status)
