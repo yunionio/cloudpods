@@ -177,7 +177,7 @@ func (task *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 			return nil
 		})
 		// TODO: update flat file path on guest start
-		err = disk.SetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, esxiFlatFilePath, task.UserCred)
+		err = disk.SetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, esxiFlatFilePath, task.UserCred)
 		if err != nil {
 			log.Errorf("disk set metadata failed %s", err)
 			task.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))

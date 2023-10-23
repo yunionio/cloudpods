@@ -294,7 +294,7 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, hos
 
 	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
-	if flatPath := disk.GetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, nil); flatPath != "" {
+	if flatPath := disk.GetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, nil); flatPath != "" {
 		body.Set("esxi_flat_file_path", jsonutils.NewString(flatPath))
 	}
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)

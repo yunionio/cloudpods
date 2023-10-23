@@ -86,6 +86,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"cancel-block-replication": guestCancelBlockReplication,
 			"create-from-libvirt":      guestCreateFromLibvirt,
 			"create-form-esxi":         guestCreateFromEsxi,
+			"create-from-cloudpods":    guestCreateFromCloudpods,
 			"open-forward":             guestOpenForward,
 			"list-forward":             guestListForward,
 			"close-forward":            guestCloseForward,
