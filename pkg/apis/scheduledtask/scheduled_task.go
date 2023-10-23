@@ -122,7 +122,7 @@ type TimerCreateInput struct {
 type CycleTimerCreateInput struct {
 
 	// description: 周期类型
-	// enum: day,week,month
+	// enum: hour,day,week,month
 	CycleType string `json:"cycle_type"`
 
 	// description: 分(0-59)
@@ -132,6 +132,10 @@ type CycleTimerCreateInput struct {
 	// description: 时(0-23)
 	// example: 13
 	Hour int `json:"hour"`
+
+	// 频率为小时或天时启用，泛指间隔单位
+	// example: 2
+	CycleNum int `json:"cycle_num"`
 
 	// description: 每周的周几; 1-7, 1: Monday, 7: Sunday
 	// example: [1,3,5,7]

@@ -355,7 +355,7 @@ func init() {
 			"加入回收站",
 		},
 		sI18nElme{
-			string(api.ActionSyncUpdate),
+			string(api.ActionSyncCreate),
 			"sync_create",
 			"同步新建",
 		},
@@ -365,7 +365,7 @@ func init() {
 			"同步更新",
 		},
 		sI18nElme{
-			string(api.ActionSyncUpdate),
+			string(api.ActionSyncDelete),
 			"sync_delete",
 			"同步删除",
 		},

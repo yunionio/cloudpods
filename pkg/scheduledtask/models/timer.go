@@ -36,6 +36,9 @@ type STimer struct {
 	Minute int `nullable:"false"`
 	// 0-23
 	Hour int `nullable:"false"`
+
+	CycleNum int `nullable:"false"`
+
 	// 0-7 1 is Monday 0 is unlimited
 	WeekDays uint8 `nullable:"false"`
 	// 0-31 0 is unlimited
@@ -98,9 +101,22 @@ func (st *STimer) Update(now time.Time) {
 				suitTime.Minute(), 0, 0, suitTime.Location())
 			break
 		}
+	case st.CycleNum != 0:
+		switch st.Type {
+		case api.TIMER_TYPE_HOUR:
+			newNextTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, time.UTC).In(now.Location())
+			if now.After(newNextTime) {
+				newNextTime = newNextTime.Add(time.Duration(st.CycleNum) * time.Hour)
+			}
+		case api.TIMER_TYPE_DAY:
+			newNextTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, time.UTC).In(now.Location())
+			if now.After(newNextTime) {
+				newNextTime = newNextTime.AddDate(0, st.CycleNum, 0)
+			}
+		}
+
 	default:
 		// day
-
 	}
 	log.Debugf("The final NextTime: %s", newNextTime)
 	st.NextTime = newNextTime
@@ -304,7 +320,16 @@ func checkCycleTimerCreateInput(in api.CycleTimerCreateInput) (api.CycleTimerCre
 		return in, fmt.Errorf("hour should between 0 and 23")
 	}
 	switch in.CycleType {
+	case api.TIMER_TYPE_HOUR:
+		if in.CycleNum <= 0 || in.CycleNum >= 24 {
+			return in, fmt.Errorf("hour cycle_num should between 1 and 23")
+		}
+		in.WeekDays = []int{}
+		in.MonthDays = []int{}
 	case api.TIMER_TYPE_DAY:
+		if in.CycleNum <= 0 {
+			return in, fmt.Errorf("day cycle_num must upper than 0")
+		}
 		in.WeekDays = []int{}
 		in.MonthDays = []int{}
 	case api.TIMER_TYPE_WEEK:
