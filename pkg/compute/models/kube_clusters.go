@@ -133,10 +133,10 @@ func (manager *SKubeClusterManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i] = api.KubeClusterDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
-			ManagedResourceInfo:                    managerRows[i],
-			CloudregionResourceInfo:                regionRows[i],
 			VpcResourceInfo:                        vpcRows[i],
 		}
+		rows[i].ManagedResourceInfo = managerRows[i]
+		rows[i].CloudregionResourceInfo = regionRows[i]
 	}
 	return rows
 }
