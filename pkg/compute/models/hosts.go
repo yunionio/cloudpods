@@ -859,7 +859,10 @@ func (hh *SHost) GetStorages() ([]SStorage, error) {
 	sq := HoststorageManager.Query("storage_id").Equals("host_id", hh.Id).SubQuery()
 	q := StorageManager.Query().In("id", sq)
 	storages := []SStorage{}
-	return storages, db.FetchModelObjects(StorageManager, q, &storages)
+	if err := db.FetchModelObjects(StorageManager, q, &storages); err != nil {
+		return nil, err
+	}
+	return storages, nil
 }
 
 func (hh *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
