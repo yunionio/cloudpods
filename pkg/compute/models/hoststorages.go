@@ -133,7 +133,10 @@ func (self *SHoststorage) GetHost() *SHost {
 }
 
 func (self *SHoststorage) GetStorage() *SStorage {
-	storage, _ := StorageManager.FetchById(self.StorageId)
+	storage, err := StorageManager.FetchById(self.StorageId)
+	if err != nil {
+		log.Errorf("Hoststorage fetch storage %q error: %v", self.StorageId, err)
+	}
 	if storage != nil {
 		return storage.(*SStorage)
 	}
