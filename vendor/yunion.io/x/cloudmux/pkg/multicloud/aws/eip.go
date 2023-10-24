@@ -209,8 +209,8 @@ func (self *SRegion) GetEips(id, ip, associateId string) ([]SEipAddress, error) 
 		if err == nil {
 			return result.AddressesSet, nil
 		}
-		if e, ok := err.(*sAwsError); ok && e.Errors.Code == "InvalidAllocationID.NotFound" {
-			time.Sleep(time.Second * 30)
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			time.Sleep(time.Second * 10)
 			continue
 		}
 		return nil, errors.Wrapf(err, "DescribeAddresses")
