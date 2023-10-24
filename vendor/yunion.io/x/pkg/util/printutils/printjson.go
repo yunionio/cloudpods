@@ -37,10 +37,17 @@ func PrintJSONList(list *ListResult, columns []string) {
 				colsWithDataMap[k] = true
 			}
 		}
+		prefixCols := []string{}
 		for k := range colsWithDataMap {
-			colsWithData = append(colsWithData, k)
+			if sets.NewString("id", "name").Has(strings.ToLower(k)) {
+				prefixCols = append(prefixCols, k)
+			} else {
+				colsWithData = append(colsWithData, k)
+			}
 		}
+		sort.Strings(prefixCols)
 		sort.Strings(colsWithData)
+		colsWithData = append(prefixCols, colsWithData...)
 	} else {
 		colsWithDataMap := make(map[string]bool)
 		for _, obj := range list.Data {
