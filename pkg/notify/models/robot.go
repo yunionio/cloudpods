@@ -296,3 +296,7 @@ func GetRobotTypeById(id string) (string, error) {
 	robot := imode.(*SRobot)
 	return robot.Type, nil
 }
+
+func (r *SRobot) GetName() string {
+	return r.Name
+}
