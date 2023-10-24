@@ -69,8 +69,6 @@ type KubeClusterDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 
 	SKubeCluster
-	ManagedResourceInfo
-	CloudregionResourceInfo
 	VpcResourceInfo
 }
 
