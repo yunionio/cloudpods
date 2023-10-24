@@ -30,26 +30,49 @@ const (
 
 var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
-		/*
-			{
-				Auth:  true,
-				Scope: rbacscope.ScopeProject,
-				Rules: []rbacutils.SRbacRule{
-					{
-						Service:  api.SERVICE_TYPE,
-						Resource: "image_quotas",
-						Action:   PolicyActionGet,
-						Result:   rbacutils.Allow,
-					},
-					{
-						Service:  api.SERVICE_TYPE,
-						Resource: "image_quotas",
-						Action:   PolicyActionList,
-						Result:   rbacutils.Allow,
-					},
+		{
+			Auth:  true,
+			Scope: rbacscope.ScopeProject,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "image_quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "image_quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				/*{
+					Service:  api.SERVICE_TYPE,
+					Resource: "images",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "images",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "guestimages",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "guestimages",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				*/
 			},
-		*/
+		},
 		{
 			// for anonymous update torrent status
 			Auth:  false,
