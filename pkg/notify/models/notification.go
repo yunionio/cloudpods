@@ -37,7 +37,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/notify/options"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -330,6 +333,111 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 			ContactType: api.ROBOT,
 			Reason:      err.Error(),
 		})
+	}
+	return output, nil
+}
+
+func (nm *SNotificationManager) PerformContactNotify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NotificationManagerContactNotifyInput) (api.NotificationManagerEventNotifyOutput, error) {
+	var output api.NotificationManagerEventNotifyOutput
+
+	params := api.SendParams{
+		Title:   input.Subject,
+		Message: input.Body,
+		EmailMsg: api.SEmailMessage{
+			Body: input.Body,
+		},
+		DomainId: userCred.GetDomainId(),
+	}
+	// 机器人订阅
+	if len(input.RobotIds) > 0 {
+		robots := []SRobot{}
+		q := RobotManager.Query().In("id", input.RobotIds)
+		err := db.FetchModelObjects(RobotManager, q, &robots)
+		if err != nil {
+			output.FailedList = append(output.FailedList, api.FailedElem{ContactType: "robot", Reason: errors.Wrapf(err, "unable to fetch robots:%s", jsonutils.Marshal(input.RobotIds).String()).Error()})
+			return output, errors.Wrapf(err, "unable to fetch robots:%s", jsonutils.Marshal(input.RobotIds).String())
+		}
+		for _, robot := range robots {
+			go func(ctx context.Context, userCred mcclient.TokenCredential, robot SRobot, params api.SendParams) {
+				params.Header = robot.Header
+				params.Body = robot.Body
+				params.MsgKey = robot.MsgKey
+				params.Receivers = api.SNotifyReceiver{
+					Contact: robot.Address,
+				}
+				driver := GetDriver(fmt.Sprintf("%s-robot", robot.Type))
+				err = driver.Send(ctx, params)
+				if err != nil {
+					logclient.AddSimpleActionLog(&robot, "contact send", err, userCred, false)
+				}
+			}(ctx, userCred, robot, params)
+		}
+	}
+	// 传入接受人id声明map保证唯一
+	receivermap := map[string]struct{}{}
+	for _, receiverId := range input.ReceiverIds {
+		receivermap[receiverId] = struct{}{}
+	}
+	// 存在角色接受人
+	if len(input.RoleIds) > 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		query := jsonutils.NewDict()
+		query.Set("roles", jsonutils.NewStringArray(input.RoleIds))
+		query.Set("effective", jsonutils.JSONTrue)
+		listRet, err := modules.RoleAssignments.List(s, query)
+		if err != nil {
+			return output, errors.Wrap(err, "unable to list RoleAssignments")
+		}
+		userList := []struct {
+			User struct {
+				Id string `json:"id"`
+			} `json:"user"`
+		}{}
+		jsonutils.Update(&userList, listRet.Data)
+		for _, user := range userList {
+			receivermap[user.User.Id] = struct{}{}
+		}
+	}
+	// 声明接受人数组
+	receiverIds := []string{}
+	// 输入接受人与角色去重
+	for receiverId := range receivermap {
+		receiverIds = append(receiverIds, receiverId)
+	}
+	// 接受人ID存在的情况下
+	if len(receiverIds) > 0 {
+		receivers, err := ReceiverManager.FetchByIDs(ctx, receiverIds...)
+		if err != nil {
+			return output, errors.Wrap(err, "FetchByIDs")
+		}
+		// 对于每个接受人根据通知渠道逐一发送
+		for _, receiver := range receivers {
+			// 用户没有启用的情况
+			if receiver.Enabled.IsNone() {
+				continue
+			}
+			// 获取启用的通知渠道
+			enabledContactTypes, err := receiver.GetEnabledContactTypes()
+			if err != nil {
+				continue
+			}
+			for _, contactType := range input.ContactTypes {
+				// 通知渠道没有启用
+				if !utils.IsInStringArray(contactType, enabledContactTypes) {
+					continue
+				}
+				// 发送
+				go func(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiver SReceiver, params api.SendParams) {
+					contact, _ := receiver.GetContact(contactType)
+					params.Receivers = api.SNotifyReceiver{Contact: contact}
+					driver := GetDriver(contactType)
+					err = driver.Send(ctx, params)
+					if err != nil {
+						logclient.AddSimpleActionLog(&receiver, "contact send", err, userCred, false)
+					}
+				}(ctx, userCred, contactType, receiver, params)
+			}
+		}
 	}
 	return output, nil
 }
