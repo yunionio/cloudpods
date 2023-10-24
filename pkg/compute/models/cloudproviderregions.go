@@ -622,3 +622,18 @@ func (manager *SCloudproviderregionManager) ListItemExportKeys(ctx context.Conte
 
 	return q, nil
 }
+
+func (manager *SCloudproviderregionManager) FetchCloudproviderRegions(filter func(q *sqlchemy.SQuery) (*sqlchemy.SQuery, error)) ([]SCloudproviderregion, error) {
+	q := manager.Query()
+	var err error
+	q, err = filter(q)
+	if err != nil {
+		return nil, errors.Wrap(err, "filter")
+	}
+	ret := make([]SCloudproviderregion, 0)
+	err = db.FetchModelObjects(manager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return ret, nil
+}

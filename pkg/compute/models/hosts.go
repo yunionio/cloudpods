@@ -1779,11 +1779,15 @@ func (hh *SHost) GetHostDriver() IHostDriver {
 	return GetHostDriver(hh.HostType)
 }
 
-func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SCloudprovider) ([]SHost, error) {
+func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, region *SCloudregion, provider *SCloudprovider) ([]SHost, error) {
 	hosts := make([]SHost, 0)
 	q := manager.Query()
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
+	}
+	if region != nil {
+		zoneQ := ZoneManager.Query().Equals("cloudregion_id", region.Id).SubQuery()
+		q = q.Join(zoneQ, sqlchemy.Equals(q.Field("zone_id"), zoneQ.Field("id")))
 	}
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
@@ -1799,7 +1803,7 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 	return hosts, nil
 }
 
-func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost, xor bool) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, region *SCloudregion, hosts []cloudprovider.ICloudHost, xor bool) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 	key := provider.Id
 	if zone != nil {
 		key = fmt.Sprintf("%s-%s", zone.Id, provider.Id)
@@ -1807,15 +1811,16 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	lockman.LockRawObject(ctx, manager.Keyword(), key)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), key)
 
-	localHosts := make([]SHost, 0)
-	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 	syncResult := compare.SyncResult{}
 
-	dbHosts, err := manager.getHostsByZoneProvider(zone, provider)
+	dbHosts, err := manager.getHostsByZoneProvider(zone, region, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
 	}
+
+	localHosts := make([]SHost, 0)
+	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 
 	removed := make([]SHost, 0)
 	commondb := make([]SHost, 0)
