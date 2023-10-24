@@ -772,14 +772,14 @@ func (b *BaseHostDesc) GetHypervisorDriver() computemodels.IGuestDriver {
 
 func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	ss := make([]*api.CandidateStorage, 0)
-	for _, s := range host.GetHoststorages() {
-		storage := s.GetStorage()
-		if storage == nil {
-			log.Warningf("%s invoke s.GetStorage return nil", storage.Id)
-			continue
-		}
+	storages, err := host.GetStorages()
+	if err != nil {
+		return errors.Wrapf(err, "host %s/%s get storages", b.Name, b.Id)
+	}
+	for _, tmpS := range storages {
+		storage := tmpS
 		cs := &api.CandidateStorage{
-			SStorage:           storage,
+			SStorage:           &storage,
 			ActualFreeCapacity: storage.Capacity - storage.ActualCapacityUsed,
 		}
 		if b.GetHypervisorDriver() == nil {
