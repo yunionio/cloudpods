@@ -580,10 +580,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 	}
 	params["Description"] = desc
 	params["InternetChargeType"] = "PayByTraffic"
-	params["InternetMaxBandwidthIn"] = "200"
-	params["InternetMaxBandwidthOut"] = "100"
 	if publicIp.PublicIpBw > 0 {
 		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", publicIp.PublicIpBw)
+		params["InternetMaxBandwidthIn"] = "200"
 	}
 	if publicIp.PublicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
 		params["InternetChargeType"] = "PayByBandwidth"
@@ -614,6 +613,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 				params["SystemDisk.Category"] = api.STORAGE_CLOUD_ESSD
 				params["SystemDisk.PerformanceLevel"] = "PL3"
 			}
+			if d.Category == api.STORAGE_CLOUD_AUTO {
+				params["SystemDisk.BurstingEnabled"] = "true"
+			}
 			params["SystemDisk.Size"] = fmt.Sprintf("%d", d.Size)
 			params["SystemDisk.DiskName"] = d.GetName()
 			params["SystemDisk.Description"] = d.Description
@@ -631,6 +633,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 			if d.Category == api.STORAGE_CLOUD_ESSD_PL3 {
 				params[fmt.Sprintf("DataDisk.%d.Category", i)] = api.STORAGE_CLOUD_ESSD
 				params[fmt.Sprintf("DataDisk.%d..PerformanceLevel", i)] = "PL3"
+			}
+			if d.Category == api.STORAGE_CLOUD_AUTO {
+				params[fmt.Sprintf("DataDisk.%d.BurstingEnabled", i)] = "true"
 			}
 			params[fmt.Sprintf("DataDisk.%d.DiskName", i)] = d.GetName()
 			params[fmt.Sprintf("DataDisk.%d.Description", i)] = d.Description
@@ -676,13 +681,32 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 
 	params["ClientToken"] = utils.GenRequestId(20)
 
-	body, err := self.ecsRequest("CreateInstance", params)
+	resp, err := self.ecsRequest("RunInstances", params)
 	if err != nil {
-		log.Errorf("CreateInstance fail %s", err)
-		return "", err
+		return "", errors.Wrapf(err, "RunInstances")
 	}
-	instanceId, _ := body.GetString("InstanceId")
-	return instanceId, nil
+	ids := []string{}
+	err = resp.Unmarshal(&ids, "InstanceIdSets", "InstanceIdSet")
+	if err != nil {
+		return "", errors.Wrapf(err, "Unmarshal")
+	}
+	for _, id := range ids {
+		err = cloudprovider.Wait(time.Second*3, time.Minute, func() (bool, error) {
+			_, err := self.GetInstance(id)
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					return false, nil
+				}
+				return false, err
+			}
+			return true, nil
+		})
+		if err != nil {
+			return "", errors.Wrapf(cloudprovider.ErrNotFound, "after vm %s created", id)
+		}
+		return id, nil
+	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
 func (self *SRegion) AllocatePublicIpAddress(instanceId string) (string, error) {
