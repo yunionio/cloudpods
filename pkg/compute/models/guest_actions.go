@@ -1028,11 +1028,15 @@ func (self *SGuest) PerformStart(
 		}
 		if !self.guestDisksStorageTypeIsShared() {
 			host, _ := self.GetHost()
-			guestsMem, err := host.GetNotReadyGuestsMemorySize()
+			guestStats, err := host.GetNotReadyGuestsStat()
 			if err != nil {
 				return nil, err
 			}
-			if float32(guestsMem+self.VmemSize) > host.GetVirtualMemorySize() {
+
+			if float32(guestStats.GuestVcpuCount+self.VcpuCount) > host.GetVirtualCPUCount() {
+				return nil, httperrors.NewInsufficientResourceError("host virtual cpu not enough")
+			}
+			if float32(guestStats.GuestVmemSize+self.VmemSize) > host.GetVirtualMemorySize() {
 				return nil, httperrors.NewInsufficientResourceError("host virtual memory not enough")
 			}
 		}
