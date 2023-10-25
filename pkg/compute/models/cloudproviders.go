@@ -112,6 +112,10 @@ type SCloudprovider struct {
 	// 云账号的平台信息
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 
+	// 云上同步资源是否在本地被更改过配置, local: 更改过, cloud: 未更改过
+	// example: local
+	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:"cloud" json:"project_src"`
+
 	SProjectMappingResourceBase
 }
 
@@ -464,21 +468,25 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 		return errors.Wrap(err, "getOrCreateTenant")
 	}
 
-	return self.saveProject(userCred, domainId, projectId)
+	return self.saveProject(userCred, domainId, projectId, true)
 }
 
-func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, domainId, projectId string) error {
-	if projectId != self.ProjectId {
-		diff, err := db.Update(self, func() error {
-			self.DomainId = domainId
-			self.ProjectId = projectId
+func (cprvd *SCloudprovider) saveProject(userCred mcclient.TokenCredential, domainId, projectId string, auto bool) error {
+	if projectId != cprvd.ProjectId {
+		diff, err := db.Update(cprvd, func() error {
+			cprvd.DomainId = domainId
+			cprvd.ProjectId = projectId
+			// 自动改变项目时不改变配置，仅在performChangeOnwer（手动更改项目）时改变
+			if !auto {
+				cprvd.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
+			}
 			return nil
 		})
 		if err != nil {
 			log.Errorf("update projectId fail: %s", err)
 			return err
 		}
-		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+		db.OpsLog.LogEvent(cprvd, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil
 }
@@ -739,7 +747,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		NewDomain:    tenant.Domain,
 	}
 
-	err = self.saveProject(userCred, tenant.DomainId, tenant.Id)
+	err = self.saveProject(userCred, tenant.DomainId, tenant.Id, false)
 	if err != nil {
 		log.Errorf("Update cloudprovider error: %v", err)
 		return nil, httperrors.NewGeneralError(err)
