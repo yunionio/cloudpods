@@ -2033,6 +2033,12 @@ func (h *SHostInfo) getNicsOvsOffloadInterfaces(nics []string) ([]isolated_devic
 }
 
 func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
+	if !h.IsKvmSupport() {
+		// skip probe isolated device on kvm not supported
+		log.Errorf("KVM is not supported, skip probe isolated devices")
+		return nil, nil
+	}
+
 	for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
 		if out, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Output(); err != nil {
 			log.Errorf("failed probe driver %s: %s %s", driver, out, err)
