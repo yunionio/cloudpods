@@ -852,7 +852,6 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 				sqlchemy.NotIn(q.Field("id"), ElasticcachesecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
 			),
 		)
-		q.DebugQuery()
 		secgroups := []SSecurityGroup{}
 		err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups)
 		if err != nil {
