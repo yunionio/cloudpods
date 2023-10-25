@@ -256,7 +256,10 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 					log.Warningf("Cannot access non-master account with root account!!")
 					subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION
 				}
-				subAccount.Name = fmt.Sprintf("%s/%s", account.Name, account.ID)
+				subAccount.Name = account.ID
+				if len(account.Name) > 0 {
+					subAccount.Name = fmt.Sprintf("%s/%s", account.Name, account.ID)
+				}
 				subAccount.Account = fmt.Sprintf("%s/%s", self.accessKey, account.ID)
 			}
 			subAccounts = append(subAccounts, subAccount)
