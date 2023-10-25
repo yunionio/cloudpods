@@ -168,7 +168,7 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SAliyunGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return api.VM_READY
+	return api.VM_RUNNING
 }
 
 func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
