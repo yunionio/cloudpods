@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -774,39 +773,10 @@ func (self *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecur
 	return ret, nil
 }
 
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.GetSecurityGroups(opts.VpcId, opts.Name, "")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetSecurityGroups")
-	}
-	for i := range secgroups {
-		if secgroups[i].GetName() == opts.Name {
-			secgroups[i].region = self
-			return &secgroups[i], nil
-		}
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, opts.Name)
-}
-
 func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	groupId, err := self.CreateSecurityGroup(opts.VpcId, opts.Name, opts.Desc)
+	groupId, err := self.CreateSecurityGroup(opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateSecurityGroup")
-	}
-	if opts.OnCreated != nil {
-		opts.OnCreated(groupId)
-	}
-	self.RemoveSecurityGroupRule(groupId, *secrules.MustParseSecurityRule("in:allow any"))
-	self.RemoveSecurityGroupRule(groupId, *secrules.MustParseSecurityRule("out:allow any"))
-	inRules := opts.InRules.AllowList()
-	outRules := opts.OutRules.AllowList()
-	err = self.AddSecurityGroupRule(groupId, secrules.DIR_IN, inRules)
-	if err != nil {
-		return nil, errors.Wrapf(err, "AddSecurityGroupRule")
-	}
-	err = self.AddSecurityGroupRule(groupId, secrules.DIR_OUT, outRules)
-	if err != nil {
-		return nil, errors.Wrapf(err, "AddSecurityGroupRule")
 	}
 	return self.GetISecurityGroupById(groupId)
 }

@@ -140,10 +140,6 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, ins)
 }
 
-func (self *SInstance) AssignSecurityGroup(id string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
 	driver := opts.Driver
 	if !utils.IsInStringArray(driver, []string{"ide", "scsi", "pci", "sata"}) {

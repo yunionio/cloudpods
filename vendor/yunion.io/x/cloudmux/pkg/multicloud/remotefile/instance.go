@@ -56,10 +56,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds, nil
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	return cloudprovider.ErrNotSupported
 }

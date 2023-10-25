@@ -40,7 +40,6 @@ func InitDB() error {
 		WireManager,
 		StorageManager,
 		SecurityGroupManager,
-		SecurityGroupCacheManager,
 		NetworkManager,
 		NetworkAddressManager,
 		NetworkIpMacManager,

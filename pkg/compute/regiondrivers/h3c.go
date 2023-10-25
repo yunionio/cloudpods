@@ -32,10 +32,6 @@ func (self *SH3CRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_H3C
 }
 
-func (self *SH3CRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
 func (self *SH3CRegionDriver) IsSupportedElasticcacheSecgroup() bool {
 	return false
 }

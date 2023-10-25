@@ -51,6 +51,7 @@ const (
 	STATUS_DELETE_FAILED = "delete_failed"
 	STATUS_UNKNOWN       = "unknown"
 	STATUS_CREATING      = "creating"
+	STATUS_AVAILABLE     = "available"
 	STATUS_CREATE_FAILED = "create_failed"
 
 	CLOUD_TAG_PREFIX     = "ext:"

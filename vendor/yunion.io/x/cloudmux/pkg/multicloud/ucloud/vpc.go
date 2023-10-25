@@ -31,8 +31,7 @@ type SVPC struct {
 
 	region *SRegion
 
-	iwires    []cloudprovider.ICloudWire
-	secgroups []cloudprovider.ICloudSecurityGroup
+	iwires []cloudprovider.ICloudWire
 
 	CreateTime  int64         `json:"CreateTime"`
 	Name        string        `json:"Name"`
@@ -112,13 +111,7 @@ func (self *SVPC) GetIWires() ([]cloudprovider.ICloudWire, error) {
 // 由于Ucloud 安全组和vpc没有直接关联，这里是返回同一个项目下的防火墙列表，会导致重复同步的问题。
 // https://docs.ucloud.cn/api/unet-api/grant_firewall
 func (self *SVPC) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	if self.secgroups == nil {
-		err := self.fetchSecurityGroups()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return self.secgroups, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (self *SVPC) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
@@ -223,20 +216,4 @@ func (self *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
 	networks := make([]SNetwork, 0)
 	err := self.DoAction("DescribeSubnet", params, &networks)
 	return networks, err
-}
-
-// UCLOUD 同一个项目共用安全组（防火墙）
-func (self *SVPC) fetchSecurityGroups() error {
-	secgroups, err := self.region.GetSecurityGroups("", "", "")
-	if err != nil {
-		return err
-	}
-
-	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].vpc = self
-		secgroups[i].region = self.region
-		self.secgroups[i] = &secgroups[i]
-	}
-	return nil
 }

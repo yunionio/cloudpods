@@ -119,22 +119,7 @@ func (region *SRegion) DeleteVpc(vpcId string) error {
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	err := vpc.region.client.fetchProjects()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchProjects")
-	}
-	iSecgroups := []cloudprovider.ICloudSecurityGroup{}
-	for _, project := range vpc.region.client.projects {
-		secgroups, err := vpc.region.GetSecurityGroups(project.Id, "")
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetSecurityGroups(%s)", project.Id)
-		}
-		for i := 0; i < len(secgroups); i++ {
-			secgroups[i].region = vpc.region
-			iSecgroups = append(iSecgroups, &secgroups[i])
-		}
-	}
-	return iSecgroups, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (vpc *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {

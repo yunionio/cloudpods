@@ -789,10 +789,6 @@ func (svm *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu int32, vmem
 	return svm.Refresh()
 }
 
-func (svm *SVirtualMachine) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (svm *SVirtualMachine) SetSecurityGroups(secgroupIds []string) error {
 	return cloudprovider.ErrNotImplemented
 }

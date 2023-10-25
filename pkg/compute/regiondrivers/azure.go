@@ -16,10 +16,13 @@ package regiondrivers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/pinyinutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -39,14 +42,6 @@ func init() {
 
 func (self *SAzureRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_AZURE
-}
-
-func (self *SAzureRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
-}
-
-func (self *SAzureRegionDriver) GenerateSecurityGroupName(name string) string {
-	return pinyinutils.Text2Pinyin(name)
 }
 
 func (self *SAzureRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
@@ -86,4 +81,63 @@ func (self *SAzureRegionDriver) ValidateCreateWafInstanceData(ctx context.Contex
 
 func (self *SAzureRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
 	return input, nil
+}
+
+func (self *SAzureRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		rule := input.Rules[i]
+		if rule.Priority == nil {
+			return nil, httperrors.NewMissingParameterError("priority")
+		}
+
+		if *rule.Priority < 100 || *rule.Priority > 4096 {
+			return nil, httperrors.NewInputParameterError("invalid priority %d, range 100-4096", *rule.Priority)
+		}
+	}
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+}
+
+func (self *SAzureRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Priority != nil && *input.Priority < 100 || *input.Priority > 4096 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 100-4096", *input.Priority)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
+func (self *SAzureRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("cloudregion_id", vpc.CloudregionId)
+	}, nil
+}
+
+func (self *SAzureRegionDriver) CreateDefaultSecurityGroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	vpc *models.SVpc,
+) (*models.SSecurityGroup, error) {
+	newGroup := &models.SSecurityGroup{}
+	newGroup.SetModelManager(models.SecurityGroupManager, newGroup)
+	newGroup.Name = fmt.Sprintf("default-auto-%d", time.Now().Unix())
+	newGroup.Description = "auto generage"
+	newGroup.ManagerId = vpc.ManagerId
+	newGroup.CloudregionId = vpc.CloudregionId
+	newGroup.DomainId = ownerId.GetDomainId()
+	newGroup.ProjectId = ownerId.GetProjectId()
+	err := models.SecurityGroupManager.TableSpec().Insert(ctx, newGroup)
+	if err != nil {
+		return nil, errors.Wrapf(err, "insert")
+	}
+
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	driver := region.GetDriver()
+	err = driver.RequestCreateSecurityGroup(ctx, userCred, newGroup, api.SSecgroupRuleResourceSet{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "RequestCreateSecurityGroup")
+	}
+	return newGroup, nil
 }

@@ -405,10 +405,6 @@ func (self *SInstance) GetInstanceType() string {
 	}
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.assignSecurityGroups(self.GetId(), secgroupId)
-}
-
 // https://docs.ucloud.cn/api/unet-api/grant_firewall
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	if len(secgroupIds) == 0 {

@@ -27,20 +27,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-type SSecurityGroupRule struct {
-	ZStackBasic
-	SecurityGroupUUID       string `json:"securityGroupUuid"`
-	Type                    string `json:"type"`
-	IPVersion               int    `json:"ipVersion"`
-	StartPort               int    `json:"startPort"`
-	EndPort                 int    `json:"endPort"`
-	Protocol                string `json:"protocol"`
-	State                   string `json:"state"`
-	AllowedCIDR             string `json:"allowedCidr"`
-	RemoteSecurityGroupUUID string `json:"remoteSecurityGroupUuid"`
-	ZStackTime
-}
-
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
 	ZStackTags
@@ -83,7 +69,7 @@ func (region *SRegion) GetSecurityGroups(secgroupId string, instanceId string, n
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	return api.NORMAL_VPC_ID
+	return ""
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -98,40 +84,13 @@ func (self *SSecurityGroup) GetDescription() string {
 	return self.Description
 }
 
-func (rule *SSecurityGroupRule) toRule() (cloudprovider.SecurityRule, error) {
-	r := cloudprovider.SecurityRule{
-		SecurityRule: secrules.SecurityRule{
-			Direction: secrules.DIR_IN,
-			Action:    secrules.SecurityRuleAllow,
-			Priority:  1,
-			Protocol:  secrules.PROTO_ANY,
-			PortStart: rule.StartPort,
-			PortEnd:   rule.EndPort,
-		},
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	ret := []cloudprovider.ISecurityGroupRule{}
+	for i := range self.Rules {
+		self.Rules[i].region = self.region
+		ret = append(ret, &self.Rules[i])
 	}
-	r.ParseCIDR(rule.AllowedCIDR)
-	if rule.Type == "Egress" {
-		r.Direction = secrules.DIR_OUT
-	}
-	if rule.Protocol != "ALL" {
-		r.Protocol = strings.ToLower(rule.Protocol)
-	}
-	return r, nil
-}
-
-func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	rules := []cloudprovider.SecurityRule{}
-	rules = append(rules, cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")})
-	for i := 0; i < len(self.Rules); i++ {
-		if self.Rules[i].IPVersion == 4 {
-			rule, err := self.Rules[i].toRule()
-			if err != nil {
-				return nil, err
-			}
-			rules = append(rules, rule)
-		}
-	}
-	return rules, nil
+	return ret, nil
 }
 
 func (self *SSecurityGroup) GetName() string {
@@ -139,79 +98,57 @@ func (self *SSecurityGroup) GetName() string {
 }
 
 func (self *SSecurityGroup) GetStatus() string {
-	return ""
-}
-
-func (self *SSecurityGroup) IsEmulated() bool {
-	return false
+	return api.SECGROUP_STATUS_READY
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	new, err := self.region.GetSecurityGroup(self.UUID)
+	group, err := self.region.GetSecurityGroup(self.UUID)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	return jsonutils.Update(self, group)
 }
 
 func (self *SSecurityGroup) GetProjectId() string {
 	return ""
 }
 
-func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.SecurityRule) error {
-	ruleParam := []map[string]interface{}{}
-	for _, rule := range rules {
-		Type := "Ingress"
-		if rule.Direction == secrules.DIR_OUT {
-			Type = "Egress"
-		}
-		protocol := "ALL"
-		if rule.Protocol != secrules.PROTO_ANY {
-			protocol = strings.ToUpper(rule.Protocol)
-		}
-		if rule.Protocol == secrules.PROTO_ICMP || rule.Protocol == secrules.PROTO_ANY {
-			rule.PortStart = -1
-			rule.PortEnd = -1
-			rule.Ports = []int{}
-		}
-		if len(rule.Ports) > 0 {
-			for _, port := range rule.Ports {
-				ruleParam = append(ruleParam, map[string]interface{}{
-					"type":        Type,
-					"startPort":   port,
-					"endPort":     port,
-					"protocol":    protocol,
-					"allowedCidr": rule.IPNet.String(),
-				})
-			}
+func (region *SRegion) CreateSecurityGroupRule(secgroupId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) error {
+	ruleParam := map[string]interface{}{
+		"allowedCidr": opts.CIDR,
+		"type":        "Ingress",
+		"protocol":    "ALL",
+	}
+	if opts.Direction == secrules.DIR_OUT {
+		ruleParam["type"] = "Egress"
+	}
+	if opts.Protocol != secrules.PROTO_ANY {
+		ruleParam["protocol"] = strings.ToUpper(opts.Protocol)
+	}
+	if opts.Protocol == secrules.PROTO_ICMP || opts.Protocol == secrules.PROTO_ANY {
+		opts.Ports = ""
+	}
+	if opts.Protocol == secrules.PROTO_TCP || opts.Protocol == secrules.PROTO_UDP {
+		if len(opts.Ports) == 0 {
+			ruleParam["startPort"] = "0"
+			ruleParam["endPort"] = "65535"
 		} else {
-			if protocol != "ALL" {
-				// TCP UDP端口不能为-1
-				if (rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP) &&
-					(rule.PortStart <= 0 && rule.PortEnd <= 0) {
-					rule.PortStart = 0
-					rule.PortEnd = 65535
+			if strings.Contains(opts.Ports, "-") {
+				info := strings.Split(opts.Ports, "-")
+				if len(info) == 2 {
+					ruleParam["startPort"] = info[0]
+					ruleParam["endPort"] = info[1]
 				}
-				ruleParam = append(ruleParam, map[string]interface{}{
-					"type":        Type,
-					"startPort":   rule.PortStart,
-					"endPort":     rule.PortEnd,
-					"protocol":    protocol,
-					"allowedCidr": rule.IPNet.String(),
-				})
 			} else {
-				ruleParam = append(ruleParam, map[string]interface{}{
-					"type":        Type,
-					"protocol":    protocol,
-					"allowedCidr": rule.IPNet.String(),
-				})
+				ruleParam["startPort"] = opts.Ports
+				ruleParam["endPort"] = opts.Ports
 			}
 		}
 	}
 	if len(ruleParam) > 0 {
 		params := map[string]interface{}{
 			"params": map[string]interface{}{
-				"rules": ruleParam,
+				"rules": []map[string]interface{}{ruleParam},
 			},
 		}
 		return region.client.create(fmt.Sprintf("security-groups/%s/rules", secgroupId), jsonutils.Marshal(params), nil)
@@ -243,12 +180,7 @@ func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCrea
 	if err != nil {
 		return nil, err
 	}
-	if opts.OnCreated != nil {
-		opts.OnCreated(secgroup.UUID)
-	}
-	rules := opts.InRules.AllowList()
-	rules = append(rules, opts.OutRules.AllowList()...)
-	return secgroup, region.AddSecurityGroupRule(secgroup.UUID, rules)
+	return secgroup, nil
 }
 
 func (self *SSecurityGroup) Delete() error {

@@ -194,13 +194,6 @@ func (self *SInstance) GetProjectId() string {
 	return self.TenantId
 }
 
-func (self *SInstance) AssignSecurityGroup(id string) error {
-	input := api.GuestAssignSecgroupInput{}
-	input.SecgroupId = id
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "assign-secgroup", input)
-	return err
-}
-
 func (self *SInstance) SetSecurityGroups(ids []string) error {
 	if self.Hypervisor == api.HYPERVISOR_ESXI {
 		return nil

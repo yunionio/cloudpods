@@ -15,9 +15,9 @@
 package cloudprovider
 
 import (
-	"sort"
+	"fmt"
+	"strings"
 
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 )
 
@@ -26,97 +26,43 @@ type SecurityGroupReference struct {
 	Name string
 }
 
-type SecurityGroupFilterOptions struct {
-	VpcId     string
-	Name      string
-	ProjectId string
-}
-
 type SecurityGroupCreateInput struct {
 	Name      string
 	Desc      string
 	VpcId     string
 	ProjectId string
-	// 安全组刚创建, 但是未设置安全组规则时
-	OnCreated func(id string)
 
-	// 默认优先级从低到高排序, 端口会被分离, 不会出现[10,20]这种规则
-	InRules SecurityRuleSet
-	// 同上
-	OutRules SecurityRuleSet
+	Tags map[string]string
 }
 
-type SecurityRule struct {
-	secrules.SecurityRule
-	Name string
-	Id   string
+type SecurityGroupRuleCreateOptions struct {
+	Desc      string
+	Priority  int
+	Protocol  string
+	Ports     string
+	Direction secrules.TSecurityRuleDirection
+	CIDR      string
+	Action    secrules.TSecurityRuleAction
 }
 
-type SecurityRuleSet []SecurityRule
-
-func (srs SecurityRuleSet) Len() int {
-	return len(srs)
+type SecurityGroupRuleUpdateOptions struct {
+	CIDR     string
+	Action   secrules.TSecurityRuleAction
+	Desc     string
+	Ports    string
+	Protocol string
+	Priority int
 }
 
-func (srs SecurityRuleSet) Swap(i, j int) {
-	srs[i], srs[j] = srs[j], srs[i]
-}
-
-func (srs SecurityRuleSet) Less(i, j int) bool {
-	if srs[i].Priority > srs[j].Priority {
-		return true
-	} else if srs[i].Priority == srs[j].Priority {
-		return srs[i].String() < srs[j].String()
+func (self *SecurityGroupRuleCreateOptions) String() string {
+	ret := fmt.Sprintf("%s_%s_%s", self.Direction, self.Action, self.Protocol)
+	if len(self.CIDR) > 0 {
+		ret += "_" + self.CIDR
 	}
-	return false
-}
-
-func (srs SecurityRuleSet) String() string {
-	sort.Sort(srs)
-	rules := secrules.SecurityRuleSet{}
-	for i := range srs {
-		rules = append(rules, srs[i].SecurityRule)
+	if len(self.Ports) > 0 {
+		ret += "_" + self.Ports
 	}
-	return rules.String()
-}
-
-func (srs SecurityRuleSet) AllowList() secrules.SecurityRuleSet {
-	sort.Sort(srs)
-	rules := secrules.SecurityRuleSet{}
-	for i := range srs {
-		rules = append(rules, srs[i].SecurityRule)
-	}
-	return rules.AllowList()
-}
-
-func GetSecurityGroupRules(sec ICloudSecurityGroup) (SecurityRuleSet, secrules.SecurityRuleSet, secrules.SecurityRuleSet, error) {
-	rules, err := sec.GetRules()
-	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "GetRules")
-	}
-	for i := range rules {
-		if err := rules[i].ValidateRule(); err != nil && errors.Cause(err) != secrules.ErrInvalidPriority {
-			return nil, nil, nil, errors.Wrapf(err, "ValidateRule")
-		}
-	}
-	in, out := SplitRulesByDirection(rules)
-	sort.Sort(SecurityRuleSet(rules))
-	return rules, in, out, nil
-}
-
-func SplitRulesByDirection(rules []SecurityRule) (secrules.SecurityRuleSet, secrules.SecurityRuleSet) {
-	in, out := secrules.SecurityRuleSet{}, secrules.SecurityRuleSet{}
-	for i := range rules {
-		switch rules[i].Direction {
-		case secrules.DIR_IN:
-			in = append(in, rules[i].SecurityRule)
-		case secrules.DIR_OUT:
-			out = append(out, rules[i].SecurityRule)
-		}
-	}
-
-	// 优先级高到低
-	sort.Sort(in)
-	sort.Sort(out)
-	return in, out
+	ret = strings.ReplaceAll(ret, ".", "_")
+	ret = strings.ReplaceAll(ret, ",", "_")
+	return ret
 }

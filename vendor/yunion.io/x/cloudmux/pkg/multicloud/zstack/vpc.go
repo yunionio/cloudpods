@@ -92,15 +92,7 @@ func (vpc *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := vpc.region.GetSecurityGroups("", "", "")
-	if err != nil {
-		return nil, err
-	}
-	isecgroups := []cloudprovider.ICloudSecurityGroup{}
-	for i := 0; i < len(secgroups); i++ {
-		isecgroups = append(isecgroups, &secgroups[i])
-	}
-	return isecgroups, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (vpc *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {

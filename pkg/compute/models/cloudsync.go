@@ -292,7 +292,6 @@ func syncRegionVPCs(
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-	globalVpcIds := []string{}
 	for j := 0; j < len(localVpcs); j += 1 {
 		func() {
 			// lock vpc
@@ -304,14 +303,8 @@ func syncRegionVPCs(
 			}
 
 			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], nil, syncRange)
-			if localRegion.GetDriver().IsSecurityGroupBelongVpc() ||
-				(localRegion.GetDriver().IsSecurityGroupBelongGlobalVpc() && !utils.IsInStringArray(localVpcs[j].GlobalvpcId, globalVpcIds)) || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
-				if len(localVpcs[j].GlobalvpcId) > 0 {
-					globalVpcIds = append(globalVpcIds, localVpcs[j].GlobalvpcId)
-				}
-				if syncRange.IsNotSkipSyncResource(SecurityGroupManager) {
-					syncVpcSecGroup(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
-				}
+			if syncRange.IsNotSkipSyncResource(SecurityGroupManager) {
+				syncVpcSecGroup(ctx, userCred, syncResults, provider, localRegion, &localVpcs[j], remoteVpcs[j], syncRange)
 			}
 			syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncVpcPeerConnections(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
@@ -464,7 +457,58 @@ func syncVpcPeerConnections(
 	}
 }
 
-func syncVpcSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
+func syncRegionSecGroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	remoteRegion cloudprovider.ICloudRegion,
+	syncRange *SSyncRange,
+) {
+	secgroups, err := func() ([]cloudprovider.ICloudSecurityGroup, error) {
+		defer syncResults.AddRequestCost(SecurityGroupManager)()
+		return remoteRegion.GetISecurityGroups()
+	}()
+	if err != nil {
+		msg := fmt.Sprintf("GetISecurityGroups for region %s failed %s", localRegion.Name, err)
+		log.Errorf(msg)
+		return
+	}
+	groups := []cloudprovider.ICloudSecurityGroup{}
+	for i := range secgroups {
+		// skip vpc secgroup
+		if len(secgroups[i].GetVpcId()) > 0 {
+			continue
+		}
+		groups = append(groups, secgroups[i])
+	}
+
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(SecurityGroupManager)()
+		return localRegion.SyncSecgroups(ctx, userCred, provider, nil, groups, syncRange.Xor)
+	}()
+	syncResults.Add(SecurityGroupManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncSecurityGroup for region %s result: %s", localRegion.Name, msg)
+	log.Infof(notes)
+	provider.SyncError(result, notes, userCred)
+	if result.IsError() {
+		return
+	}
+}
+
+func syncVpcSecGroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	localVpc *SVpc,
+	remoteVpc cloudprovider.ICloudVpc,
+	syncRange *SSyncRange,
+) {
 	secgroups, err := func() ([]cloudprovider.ICloudSecurityGroup, error) {
 		defer syncResults.AddRequestCost(SecurityGroupManager)()
 		return remoteVpc.GetISecurityGroups()
@@ -475,14 +519,23 @@ func syncVpcSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syn
 		return
 	}
 
-	_, _, result := func() ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+	groups := []cloudprovider.ICloudSecurityGroup{}
+	for i := range secgroups {
+		// skip vpc secgroup
+		if len(secgroups[i].GetVpcId()) == 0 {
+			continue
+		}
+		groups = append(groups, secgroups[i])
+	}
+
+	result := func() compare.SyncResult {
 		defer syncResults.AddSqlCost(SecurityGroupManager)()
-		return SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc, syncRange.Xor)
+		return localRegion.SyncSecgroups(ctx, userCred, provider, localVpc, groups, syncRange.Xor)
 	}()
-	syncResults.Add(SecurityGroupCacheManager, result)
+	syncResults.Add(SecurityGroupManager, result)
 
 	msg := result.Result()
-	notes := fmt.Sprintf("SyncSecurityGroupCaches for VPC %s result: %s", localVpc.Name, msg)
+	notes := fmt.Sprintf("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
 	log.Infof(notes)
 	provider.SyncError(result, notes, userCred)
 	if result.IsError() {
@@ -2108,6 +2161,11 @@ func syncPublicCloudProviderInfo(
 			if syncRange.IsNotSkipSyncResource(ElasticipManager) {
 				syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
+
+			if syncRange.IsNotSkipSyncResource(SecurityGroupManager) {
+				syncRegionSecGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
+
 		}
 
 		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
@@ -2728,10 +2786,28 @@ func syncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, sync
 		return err
 	}
 
-	result := provider.SyncGlobalVpcs(ctx, userCred, gvpcs, xor)
+	localVpcs, remoteVpcs, result := provider.SyncGlobalVpcs(ctx, userCred, gvpcs, xor)
 	notes := fmt.Sprintf("Sync global vpcs for cloudprovider %s result: %s", provider.GetName(), result.Result())
 	log.Infof(notes)
 	provider.SyncError(result, notes, userCred)
+
+	for i := range localVpcs {
+		lockman.LockObject(ctx, &localVpcs[i])
+		defer lockman.ReleaseObject(ctx, &localVpcs[i])
+
+		if localVpcs[i].Deleted {
+			continue
+		}
+		secgroups, err := remoteVpcs[i].GetISecurityGroups()
+		if err != nil {
+			log.Errorf("GetISecurityGroup for global vpc %s error: %v", localVpcs[i].Name, err)
+			continue
+		}
+		result := localVpcs[i].SyncSecgroups(ctx, userCred, secgroups, xor)
+		notes := fmt.Sprintf("Sync security group for global vpc %s result: %s", localVpcs[i].Name, result.Result())
+		log.Infof(notes)
+	}
+
 	return nil
 }
 

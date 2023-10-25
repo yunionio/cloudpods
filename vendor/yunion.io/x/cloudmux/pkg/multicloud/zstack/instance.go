@@ -552,10 +552,6 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	return nil, cloudprovider.ErrDuplicateId
 }
 
-func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return instance.host.zone.region.AssignSecurityGroup(instance.UUID, secgroupId)
-}
-
 func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	currentIds, err := instance.GetSecurityGroupIds()
 	if err != nil {

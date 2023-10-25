@@ -1713,12 +1713,27 @@ func (self *SElasticcache) OnMetadataUpdated(ctx context.Context, userCred mccli
 }
 
 func (self *SElasticcache) getSecgroupsBySecgroupExternalIds(externalIds []string) ([]SSecurityGroup, error) {
-	vpc, _ := self.GetVpc()
-	if vpc == nil {
-		return nil, errors.Wrap(errors.ErrNotFound, "GetVpc")
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpc")
+	}
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	filter, err := region.GetDriver().GetSecurityGroupFilter(vpc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSecurityGroupFilter")
 	}
 
-	return getSecgroupsBySecgroupExternalIds(vpc.ManagerId, externalIds)
+	q := SecurityGroupManager.Query().In("external_id", externalIds)
+	q = filter(q)
+	secgroups := []SSecurityGroup{}
+	err = db.FetchModelObjects(SecurityGroupManager, q, &secgroups)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return secgroups, nil
 }
 
 func (self *SElasticcache) GetElasticcacheSecgroups() ([]SElasticcachesecgroup, error) {
@@ -1729,6 +1744,17 @@ func (self *SElasticcache) GetElasticcacheSecgroups() ([]SElasticcachesecgroup, 
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return ess, nil
+}
+
+func (self *SElasticcache) GetSecgroups() ([]SSecurityGroup, error) {
+	ret := []SSecurityGroup{}
+	sq := ElasticcachesecgroupManager.Query("secgroup_id").Equals("elasticcache_id", self.Id)
+	q := SecurityGroupManager.Query().In("id", sq.SubQuery())
+	err := db.FetchModelObjects(SecurityGroupManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return ret, nil
 }
 
 func (self *SElasticcache) validateSecgroupInput(secgroups []string) error {

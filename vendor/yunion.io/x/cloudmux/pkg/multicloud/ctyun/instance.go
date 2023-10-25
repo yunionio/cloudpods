@@ -322,10 +322,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return ret, nil
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.AssignSecurityGroup(self.GetId(), secgroupId)
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	currentIds, err := self.GetSecurityGroupIds()
 	if err != nil {

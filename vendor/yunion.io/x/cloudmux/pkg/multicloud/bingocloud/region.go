@@ -222,3 +222,25 @@ func (self *SRegion) GetISnapshotById(id string) (cloudprovider.ICloudSnapshot, 
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	var groups []SSecurityGroup
+	nextToken := ""
+	for {
+		part, _nextToken, err := self.GetSecurityGroups("", "", nextToken)
+		if err != nil {
+			return nil, err
+		}
+		groups = append(groups, part...)
+		if len(_nextToken) == 0 || len(part) == 0 {
+			break
+		}
+		nextToken = _nextToken
+	}
+	var ret []cloudprovider.ICloudSecurityGroup
+	for i := range groups {
+		groups[i].region = self
+		ret = append(ret, &groups[i])
+	}
+	return ret, nil
+}

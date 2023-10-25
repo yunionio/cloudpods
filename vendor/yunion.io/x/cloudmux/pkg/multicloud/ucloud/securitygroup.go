@@ -16,12 +16,9 @@ package ucloud
 
 import (
 	"fmt"
-	"math/rand"
 	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
@@ -35,29 +32,20 @@ type SSecurityGroup struct {
 	multicloud.SSecurityGroup
 	UcloudTags
 	region *SRegion
-	vpc    *SVPC // 安全组在UCLOUD实际上与VPC是没有直接关联的。这里的vpc字段只是为了统一，仅仅是标记是哪个VPC在操作该安全组。
 
-	CreateTime    int64  `json:"CreateTime"`
-	FWID          string `json:"FWId"`
-	GroupID       string `json:"GroupId"`
-	Name          string `json:"Name"`
-	Remark        string `json:"Remark"`
-	ResourceCount int    `json:"ResourceCount"`
-	Rule          []Rule `json:"Rule"`
-	Tag           string `json:"Tag"`
-	Type          string `json:"Type"`
+	CreateTime    int64               `json:"CreateTime"`
+	FWID          string              `json:"FWId"`
+	GroupID       string              `json:"GroupId"`
+	Name          string              `json:"Name"`
+	Remark        string              `json:"Remark"`
+	ResourceCount int                 `json:"ResourceCount"`
+	Rule          []SecurityGroupRule `json:"Rule"`
+	Tag           string              `json:"Tag"`
+	Type          string              `json:"Type"`
 }
 
 func (self *SSecurityGroup) GetProjectId() string {
 	return self.region.client.projectId
-}
-
-type Rule struct {
-	DstPort      string `json:"DstPort"`
-	Priority     string `json:"Priority"`
-	ProtocolType string `json:"ProtocolType"`
-	RuleAction   string `json:"RuleAction"`
-	SrcIP        string `json:"SrcIP"`
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -77,119 +65,55 @@ func (self *SSecurityGroup) GetGlobalId() string {
 }
 
 func (self *SSecurityGroup) GetStatus() string {
-	return ""
+	return api.SECGROUP_STATUS_READY
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if new, err := self.region.GetSecurityGroupById(self.GetId()); err != nil {
+	group, err := self.region.GetSecurityGroup(self.GetId())
+	if err != nil {
 		return err
-	} else {
-		return jsonutils.Update(self, new)
 	}
-}
-
-func (self *SSecurityGroup) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, group)
 }
 
 func (self *SSecurityGroup) GetDescription() string {
 	return self.Remark
 }
 
-func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) (cloudprovider.SecurityRule, error) {
-	secrule := cloudprovider.SecurityRule{}
-	switch rule.Priority {
-	case "HIGH":
-		secrule.Priority = 3
-	case "MEDIUM":
-		secrule.Priority = 2
-	case "LOW":
-		secrule.Priority = 1
-	default:
-		secrule.Priority = 1
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	ret := []cloudprovider.ISecurityGroupRule{}
+	for i := range self.Rule {
+		self.Rule[i].secgroup = self
+		ret = append(ret, &self.Rule[i])
 	}
-
-	switch rule.RuleAction {
-	case "ACCEPT":
-		secrule.Action = secrules.SecurityRuleAllow
-	case "DROP":
-		secrule.Action = secrules.SecurityRuleDeny
-	default:
-		secrule.Action = secrules.SecurityRuleDeny
-	}
-
-	secrule.ParseCIDR(rule.SrcIP)
-	secrule.Protocol = strings.ToLower(rule.ProtocolType)
-	secrule.Direction = secrules.SecurityRuleIngress
-	err := secrule.ParsePorts(rule.DstPort)
-	if err != nil {
-		return secrule, errors.Wrapf(err, "ParsePorts(%s)", rule.DstPort)
-	}
-
-	return secrule, nil
-}
-
-// https://docs.ucloud.cn/network/firewall/firewall
-// 只有入方向规则
-func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	rules := make([]cloudprovider.SecurityRule, 0)
-	for _, r := range self.Rule {
-		rule, err := self.UcloudSecRuleToOnecloud(r)
-		if err != nil {
-			log.Errorf("failed to convert rule for group %s(%s) error: %v", self.Name, self.GroupID, err)
-			continue
-		}
-		rules = append(rules, rule)
-	}
-
-	return rules, nil
+	return ret, nil
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	// 无vpc关联的安全组统一返回normal
-	return api.NORMAL_VPC_ID
+	return ""
 }
 
-func (self *SRegion) GetSecurityGroupById(secGroupId string) (*SSecurityGroup, error) {
+func (self *SRegion) GetSecurityGroup(secGroupId string) (*SSecurityGroup, error) {
 	secgroups, err := self.GetSecurityGroups(secGroupId, "", "")
 	if err != nil {
 		return nil, err
 	}
-
-	if len(secgroups) == 1 {
-		return &secgroups[0], nil
-	} else if len(secgroups) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, fmt.Errorf("GetSecurityGroupById %s %d found", secGroupId, len(secgroups))
+	for i := range secgroups {
+		secgroups[i].region = self
+		if secgroups[i].GetGlobalId() == secGroupId {
+			return &secgroups[i], nil
+		}
 	}
-}
-
-func randomString(prefix string, length int) string {
-	bytes := []byte("0123456789abcdefghijklmnopqrstuvwxyz")
-	result := []byte{}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 0; i < length; i++ {
-		result = append(result, bytes[r.Intn(len(bytes))])
-	}
-	return prefix + string(result)
-}
-
-func (self *SRegion) CreateDefaultSecurityGroup(name, description string, rules []cloudprovider.SecurityRule) (string, error) {
-	// 减少安全组名称冲突
-	name = randomString(name, 4)
-	return self.CreateSecurityGroup(name, description, []string{"TCP|1-65535|0.0.0.0/0|ACCEPT|LOW", "UDP|1-65535|0.0.0.0/0|ACCEPT|LOW", "ICMP||0.0.0.0/0|ACCEPT|LOW"})
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, secGroupId)
 }
 
 // https://docs.ucloud.cn/api/unet-api/create_firewall
-func (self *SRegion) CreateSecurityGroup(name, description string, rules []string) (string, error) {
+func (self *SRegion) CreateSecurityGroup(name, description string) (string, error) {
 	params := NewUcloudParams()
 	params.Set("Name", name)
 	params.Set("Remark", description)
-	if len(rules) == 0 {
-		return "", fmt.Errorf("CreateSecurityGroup required at least one rule")
-	}
 
+	rules := []string{"TCP|22|0.0.0.0/0|ACCEPT|LOW", "TCP|3389|0.0.0.0/0|ACCEPT|LOW", "ICMP||0.0.0.0/0|ACCEPT|LOW"}
 	for i, rule := range rules {
 		params.Set(fmt.Sprintf("Rule.%d", i), rule)
 	}
@@ -207,7 +131,52 @@ func (self *SRegion) CreateSecurityGroup(name, description string, rules []strin
 	return firewall.FWId, nil
 }
 
-// https://docs.ucloud.cn/api/unet-api/describe_firewall
+func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
+	params := NewUcloudParams()
+	params.Set("FWId", self.FWID)
+	idx := 0
+	for _, rule := range self.Rule {
+		params.Set(fmt.Sprintf("Rule.%d", idx), rule.String())
+		idx++
+	}
+	if len(opts.Ports) == 0 {
+		opts.Ports = "1-65535"
+	}
+	if opts.Protocol == secrules.PROTO_ICMP || opts.Protocol == "gre" {
+		opts.Ports = ""
+	}
+	if opts.Protocol == secrules.PROTO_ANY {
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "protocol any")
+	}
+	action := "DROP"
+	if opts.Action == secrules.SecurityRuleAllow {
+		action = "ACCEPT"
+	}
+	priority := "LOW"
+	if opts.Priority == 1 {
+		priority = "HIGH"
+	} else if opts.Priority == 2 {
+		priority = "MEDIUM"
+	}
+	rule := fmt.Sprintf("%s|%s|%s|%s|%s|%s", strings.ToUpper(opts.Protocol), opts.Ports, opts.CIDR, action, priority, opts.Desc)
+	params.Set(fmt.Sprintf("Rule.%d", idx), rule)
+	err := self.region.DoAction("UpdateFirewall", params, nil)
+	if err != nil {
+		return nil, err
+	}
+	err = self.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	for i := range self.Rule {
+		if self.Rule[i].String() == rule {
+			self.Rule[i].secgroup = self
+			return &self.Rule[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
+}
+
 func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string, name string) ([]SSecurityGroup, error) {
 	secgroups := make([]SSecurityGroup, 0)
 
@@ -238,14 +207,6 @@ func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string, nam
 	}
 
 	return result, nil
-}
-
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	if len(inAdds) == 0 && len(inDels) == 0 {
-		return nil
-	}
-	rules := append(common, inAdds...)
-	return self.region.syncSecgroupRules(self.FWID, rules)
 }
 
 func (self *SSecurityGroup) Delete() error {

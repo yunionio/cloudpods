@@ -15,13 +15,12 @@
 package volcengine
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io"
+	"crypto/tls"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	tos "github.com/volcengine/ve-tos-golang-sdk/v2/tos"
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -63,6 +63,9 @@ type VolcEngineClientConfig struct {
 	secretKey string
 	accountId string
 	debug     bool
+
+	client *http.Client
+	lock   sync.Mutex
 }
 
 func NewVolcEngineClientConfig(accessKey, secretKey string) *VolcEngineClientConfig {
@@ -223,6 +226,47 @@ func (client *SVolcEngineClient) GetProjects() ([]SProject, error) {
 	return client.projects, nil
 }
 
+func (cli *SVolcEngineClient) getDefaultClient() *http.Client {
+	cli.lock.Lock()
+	defer cli.lock.Unlock()
+	if !gotypes.IsNil(cli.client) {
+		return cli.client
+	}
+	cli.client = httputils.GetAdaptiveTimeoutClient()
+	httputils.SetClientProxyFunc(cli.client, cli.cpcfg.ProxyFunc)
+	ts, _ := cli.client.Transport.(*http.Transport)
+	ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
+		if cli.cpcfg.ReadOnly {
+			action := req.URL.Query().Get("Action")
+			if len(action) > 0 {
+				for _, prefix := range []string{"Get", "Describe", "List"} {
+					if strings.HasPrefix(action, prefix) {
+						return nil, nil
+					}
+				}
+			}
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+		}
+		return nil, nil
+	})
+	return cli.client
+}
+
+type sCred struct {
+	client *SVolcEngineClient
+
+	cred sdk.Credentials
+}
+
+func (self *sCred) Do(req *http.Request) (*http.Response, error) {
+	cli := self.client.getDefaultClient()
+
+	req = self.cred.Sign(req)
+
+	return cli.Do(req)
+}
+
 func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string, apiVersion string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 
 	query := url.Values{
@@ -258,23 +302,15 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 		}
 	}
 
-	req, err := http.NewRequest(string(method), u.String(), nil)
-	if err != nil {
-		fmt.Println("Failed to build request:", err)
-		return nil, err
+	req := httputils.NewJsonRequest(method, u.String(), nil)
+	vErr := &sVolcError{}
+	_cli := &sCred{
+		client: client,
+		cred:   cred,
 	}
-	req = cred.Sign(req)
-	resp, err := http.DefaultClient.Do(req)
-	rbody, _ := io.ReadAll(resp.Body)
-	resp.Body = io.NopCloser(bytes.NewBuffer(rbody))
-	_, result, err := httputils.ParseJSONResponse("", resp, err, client.debug)
-	if err != nil {
-		jrbody, _ := jsonutils.Parse(rbody)
-		errorCode, _ := jrbody.GetString("ResponseMetadata", "Error", "Code")
-		errorMessage, _ := jrbody.GetString("ResponseMetadata", "Error", "Message")
-		return nil, errors.Wrapf(err, errorCode, errorMessage)
-	}
-	return result, nil
+	cli := httputils.NewJsonClient(_cli)
+	_, resp, err := cli.Send(context.Background(), req, vErr, client.debug)
+	return resp, err
 }
 
 func (client *SVolcEngineClient) getSdkCredential(region string, service string, token string) sdk.Credentials {
@@ -300,6 +336,31 @@ func (client *SVolcEngineClient) getDefaultCredential(region string, service str
 		SessionToken:    "",
 	}
 	return cred
+}
+
+type sVolcError struct {
+	StatusCode   int
+	RequestId    string
+	Action       string
+	Version      string
+	Service      string
+	Region       string
+	ErrorMessage struct {
+		Code    string
+		Message string
+	} `json:"Error"`
+}
+
+func (self *sVolcError) Error() string {
+	return jsonutils.Marshal(self).String()
+}
+
+func (self *sVolcError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
+	if body != nil {
+		body.Unmarshal(self, "ResponseMetadata")
+	}
+	self.StatusCode = statusCode
+	return self
 }
 
 func (client *SVolcEngineClient) ecsRequest(region string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -379,6 +440,7 @@ func (region *SVolcEngineClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 	}

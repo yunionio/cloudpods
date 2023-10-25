@@ -163,7 +163,7 @@ func (self *SHost) GetVersion() string {
 // 不支持user data
 // 不支持指定keypair
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.ExternalSecgroupId, desc.BillingCycle)
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.ExternalSecgroupIds, desc.BillingCycle)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func ParseInstanceType(instanceType string) (SInstanceType, error) {
 
 func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo, cpu, memMB int, instanceType string,
 	networkId, ipAddr, desc, passwd string,
-	dataDisks []cloudprovider.SDiskInfo, secgroupId string, bc *billing.SBillingCycle) (string, error) {
+	dataDisks []cloudprovider.SDiskInfo, secgroupIds []string, bc *billing.SBillingCycle) (string, error) {
 	// 网络配置及安全组绑定
 	net, _ := self.zone.region.getNetwork(networkId)
 	if net == nil {
@@ -239,10 +239,6 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	if net.wire.vpc == nil {
 		log.Errorf("wire's vpc is empty")
 		return "", fmt.Errorf("wire's vpc is empty")
-	}
-
-	if len(secgroupId) == 0 {
-		return "", fmt.Errorf("CreateVM no secgroupId specified")
 	}
 
 	if len(passwd) == 0 {
@@ -287,7 +283,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 		}
 	}
 
-	vmId, err = self.zone.region.CreateInstance(name, imgId, i.UHostType, passwd, net.wire.vpc.GetId(), networkId, secgroupId, self.zone.ZoneId, desc, ipAddr, i.CPU, i.MemoryMB, i.GPU, disks, bc)
+	vmId, err = self.zone.region.CreateInstance(name, imgId, i.UHostType, passwd, net.wire.vpc.GetId(), networkId, secgroupIds, self.zone.ZoneId, desc, ipAddr, i.CPU, i.MemoryMB, i.GPU, disks, bc)
 	if err != nil {
 		return "", fmt.Errorf("Failed to create: %v", err)
 	}
@@ -298,7 +294,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 // https://docs.ucloud.cn/api/uhost-api/create_uhost_instance
 // https://docs.ucloud.cn/api/uhost-api/specification
 // 支持8-30位字符, 不能包含[A-Z],[a-z],[0-9]和[()`~!@#$%^&*-+=_|{}[]:;'<>,.?/]之外的非法字符
-func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, SubnetId, securityGroupId,
+func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, SubnetId string, securityGroupId []string,
 	zoneId, desc, ipAddr string, cpu, memMB, gpu int, disks []SDisk, bc *billing.SBillingCycle) (string, error) {
 	params := NewUcloudParams()
 	params.Set("Zone", zoneId)
@@ -311,7 +307,9 @@ func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, Su
 	params.Set("Memory", memMB)
 	params.Set("VPCId", vpcId)
 	params.Set("SubnetId", SubnetId)
-	params.Set("SecurityGroupId", securityGroupId)
+	for _, id := range securityGroupId {
+		params.Set("SecurityGroupId", id)
+	}
 	if gpu > 0 {
 		params.Set("GPU", gpu)
 	}

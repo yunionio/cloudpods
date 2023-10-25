@@ -51,13 +51,12 @@ func ValidateSecurityGroupResourceInput(userCred mcclient.TokenCredential, query
 	return secgrpObj.(*SSecurityGroup), query, nil
 }
 
-func (self *SSecurityGroupResourceBase) GetSecGroup() *SSecurityGroup {
+func (self *SSecurityGroupResourceBase) GetSecGroup() (*SSecurityGroup, error) {
 	secgrp, err := SecurityGroupManager.FetchById(self.SecgroupId)
 	if err != nil {
-		log.Errorf("failed to find secgroup %s error: %v", self.SecgroupId, err)
-		return nil
+		return nil, errors.Wrapf(err, "FetchById %s", self.SecgroupId)
 	}
-	return secgrp.(*SSecurityGroup)
+	return secgrp.(*SSecurityGroup), nil
 }
 
 func (manager *SSecurityGroupResourceBaseManager) FetchCustomizeColumns(
