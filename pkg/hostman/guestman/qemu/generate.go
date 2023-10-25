@@ -169,10 +169,16 @@ func generateMachineOption(machine string, machineDesc *desc.SGuestMachine) stri
 }
 
 func generateSMPOption(cpu *desc.SGuestCpu) string {
-	return fmt.Sprintf(
-		"-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d",
-		cpu.Cpus, cpu.Sockets, cpu.Cores, cpu.MaxCpus,
-	)
+	if cpu.MaxCpus%2 > 0 {
+		return fmt.Sprintf(
+			"-smp cpus=%d,maxcpus=%d", cpu.Cpus, cpu.MaxCpus,
+		)
+	} else {
+		return fmt.Sprintf(
+			"-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d",
+			cpu.Cpus, cpu.Sockets, cpu.Cores, cpu.MaxCpus,
+		)
+	}
 }
 
 func generateCPUOption(cpu *desc.SGuestCpu) string {

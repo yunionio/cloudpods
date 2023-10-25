@@ -1053,7 +1053,7 @@ func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 	s.Monitor.MigrateSetCapability("events", "on", s.onMigrateEnableEvents)
 }
 
-func (s SGuestLiveMigrateTask) onMigrateEnableEvents(res string) {
+func (s *SGuestLiveMigrateTask) onMigrateEnableEvents(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
 		s.migrateFailed(fmt.Sprintf("Migrate set capability events error: %s", res))
 		return
