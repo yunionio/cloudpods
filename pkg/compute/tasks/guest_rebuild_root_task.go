@@ -160,14 +160,22 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 		self.markFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
+	var bios = "BIOS"
+	isUefi, _ := imginfo.Properties["uefi_support"]
+	if isUefi == "true" {
+		bios = "UEFI"
+	}
+	log.Infof("guest rebuild root new bios %s", bios)
+
 	err = guest.SetMetadata(ctx, "__os_profile__", osprof, self.UserCred)
 	if err != nil {
 		self.markFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	if guest.OsType != osprof.OSType {
+	if guest.OsType != osprof.OSType || guest.Bios != bios {
 		_, err := db.Update(guest, func() error {
 			guest.OsType = osprof.OSType
+			guest.Bios = bios
 			return nil
 		})
 		if err != nil {
