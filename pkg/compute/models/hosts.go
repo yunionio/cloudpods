@@ -1915,8 +1915,7 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		return nil
 	})
 	if err != nil {
-		log.Errorf("syncWithCloudZone error %s", err)
-		return err
+		return errors.Wrapf(err, "syncWithCloudZone")
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -1932,8 +1931,10 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		return err
 	}
 
-	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
-		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
+	if len(diff) > 0 {
+		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
+		}
 	}
 
 	return nil
