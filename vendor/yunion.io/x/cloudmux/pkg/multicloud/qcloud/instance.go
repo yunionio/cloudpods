@@ -549,7 +549,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instances[0], nil
 }
 
-func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupId string,
+func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupIds []string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId string,
 	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType,
@@ -559,7 +559,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
 	params["InstanceType"] = instanceType
-	params["SecurityGroupIds.0"] = securityGroupId
+	for i, id := range securityGroupIds {
+		params[fmt.Sprintf("SecurityGroupIds.%d", i)] = id
+	}
 	params["Placement.Zone"] = zoneId
 	if len(projectId) > 0 {
 		params["Placement.ProjectId"] = projectId
@@ -896,11 +898,6 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 		return err
 	}
 	return nil
-}
-
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	params := map[string]string{"SecurityGroups.0": secgroupId}
-	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params, true)
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {

@@ -1905,6 +1905,55 @@ func (svpc *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 	return ret, nil
 }
 
+func (self *SVpc) CheckSecurityGroupConsistent(secgroup *SSecurityGroup) error {
+	if secgroup.Status != api.SECGROUP_STATUS_READY {
+		return httperrors.NewInvalidStatusError("security group %s status is not ready", secgroup.Name)
+	}
+	if len(secgroup.ExternalId) == 0 {
+		return httperrors.NewInvalidStatusError("The security group %s does not have an external id", secgroup.Name)
+	}
+	if len(secgroup.VpcId) > 0 {
+		if secgroup.VpcId != self.Id {
+			return httperrors.NewInvalidStatusError("The security group does not belong to the vpc")
+		}
+	} else if len(secgroup.CloudregionId) > 0 {
+		if secgroup.CloudregionId != self.CloudregionId {
+			return httperrors.NewInvalidStatusError("The security group and vpc are in different areas")
+		}
+	} else if len(secgroup.GlobalvpcId) > 0 {
+		if secgroup.GlobalvpcId != self.GlobalvpcId {
+			return httperrors.NewInvalidStatusError("The security group and vpc are in different global vpc")
+		}
+	}
+	return nil
+}
+
+func (self *SVpc) GetDefaultSecurityGroup(ownerId mcclient.IIdentityProvider, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (*SSecurityGroup, error) {
+	q := SecurityGroupManager.Query().Equals("status", api.SECGROUP_STATUS_READY).Like("name", "default%")
+
+	q = filter(q)
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("public_scope"), "system"),
+				sqlchemy.Equals(q.Field("is_public"), true),
+			),
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
+				sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
+			),
+		),
+	)
+
+	ret := &SSecurityGroup{}
+	ret.SetModelManager(SecurityGroupManager, ret)
+	err := q.First(ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (manager *SVpcManager) FetchVpcById(id string) *SVpc {
 	obj, err := manager.FetchById(id)
 	if err != nil {

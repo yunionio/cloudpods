@@ -755,8 +755,7 @@ func fetchDBInstanceZones(rdsIds []string) map[string][]sDBInstanceZone {
 }
 
 func (self *SDBInstance) getSecgroupsByExternalIds(externalIds []string) ([]SSecurityGroup, error) {
-	sq := SecurityGroupCacheManager.Query("secgroup_id").In("external_id", externalIds).Equals("manager_id", self.ManagerId)
-	q := SecurityGroupManager.Query().In("id", sq.SubQuery())
+	q := SecurityGroupManager.Query().In("external_id", externalIds).Equals("manager_id", self.ManagerId)
 	secgroups := []SSecurityGroup{}
 	err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups)
 	if err != nil {

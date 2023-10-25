@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	randutil "yunion.io/x/pkg/util/rand"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -69,12 +71,14 @@ func (self *SKVMRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
-func (self *SKVMRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
-}
-
-func (self *SKVMRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
+func (self *SKVMRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		err := input.Rules[i].Check()
+		if err != nil {
+			return input, httperrors.NewInputParameterError("rule %d is invalid: %s", i, err)
+		}
+	}
+	return input, nil
 }
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
@@ -1529,4 +1533,82 @@ func (self *SKVMRegionDriver) requestAssociateEipWithLoadbalancer(
 		return errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
 	}
 	return nil
+}
+
+func (self *SKVMRegionDriver) RequestCreateSecurityGroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	secgroup *models.SSecurityGroup,
+	rules api.SSecgroupRuleResourceSet,
+) error {
+	_, err := db.Update(secgroup, func() error {
+		secgroup.VpcId = ""
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, r := range rules {
+		rule := &models.SSecurityGroupRule{
+			Priority:    int(*r.Priority),
+			Protocol:    r.Protocol,
+			Ports:       r.Ports,
+			Direction:   r.Direction,
+			CIDR:        r.CIDR,
+			Action:      r.Action,
+			Description: r.Description,
+		}
+		rule.SecgroupId = secgroup.Id
+		models.SecurityGroupRuleManager.TableSpec().Insert(ctx, rule)
+	}
+	secgroup.SetStatus(userCred, api.SECGROUP_STATUS_READY, "")
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestPrepareSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, secgroups []models.SSecurityGroup, vpc *models.SVpc, callback func(ids []string) error, task taskman.ITask) error {
+	return task.ScheduleRun(nil)
+}
+
+func (self *SKVMRegionDriver) RequestDeleteSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *models.SSecurityGroup, task taskman.ITask) error {
+	return task.ScheduleRun(nil)
+}
+
+func (self *SKVMRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Priority != nil {
+		if *input.Priority < 1 || *input.Priority > 100 {
+			return nil, httperrors.NewInputParameterError("invalid priority %d", input.Priority)
+		}
+	}
+	if input.Action != nil {
+		if !utils.IsInStringArray(*input.Action, []string{string(secrules.SecurityRuleAllow), string(secrules.SecurityRuleDeny)}) {
+			return nil, httperrors.NewInputParameterError("invalid action %s", *input.Action)
+		}
+	}
+	if input.Protocol != nil {
+		if !utils.IsInStringArray(*input.Protocol, []string{
+			secrules.PROTO_ANY,
+			secrules.PROTO_UDP,
+			secrules.PROTO_TCP,
+			secrules.PROTO_ICMP,
+		}) {
+			return nil, httperrors.NewInputParameterError("invalid protocol %s", *input.Protocol)
+		}
+	}
+
+	if input.Ports != nil {
+		rule := secrules.SecurityRule{}
+		err := rule.ParsePorts(*input.Ports)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
+		}
+	}
+
+	if input.CIDR != nil {
+		_, _, err := net.ParseCIDR(*input.CIDR)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid cidr %s", *input.CIDR)
+		}
+	}
+
+	return input, nil
 }

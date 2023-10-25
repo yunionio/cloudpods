@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -989,6 +990,21 @@ func (self *SKVMGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 			return nil, errors.Wrap(err, "validateMachineType")
 		}
 	}
+
+	for i := range input.Secgroups {
+		if input.Secgroups[i] == api.SECGROUP_DEFAULT_ID {
+			continue
+		}
+		secObj, err := validators.ValidateModel(userCred, models.SecurityGroupManager, &input.Secgroups[i])
+		if err != nil {
+			return nil, err
+		}
+		secgroup := secObj.(*models.SSecurityGroup)
+		if secgroup.CloudregionId != api.DEFAULT_REGION_ID {
+			return nil, httperrors.NewInputParameterError("invalid secgroup %s", secgroup.Name)
+		}
+	}
+
 	return input, nil
 }
 

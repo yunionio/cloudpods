@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -49,7 +48,6 @@ type SVpc struct {
 
 	iwires []cloudprovider.ICloudWire
 
-	secgroups   []cloudprovider.ICloudSecurityGroup
 	routeTables []cloudprovider.ICloudRouteTable
 
 	CidrBlock    string
@@ -171,34 +169,17 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SVpc) fetchSecurityGroups() error {
-	secgroups := make([]SSecurityGroup, 0)
-	for {
-		parts, total, err := self.region.GetSecurityGroups(self.VpcId, "", []string{}, len(secgroups), 50)
-		if err != nil {
-			return err
-		}
-		secgroups = append(secgroups, parts...)
-		if len(secgroups) >= total {
-			break
-		}
-	}
-	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].region = self.region
-		self.secgroups[i] = &secgroups[i]
-	}
-	return nil
-}
-
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	if self.secgroups == nil {
-		err := self.fetchSecurityGroups()
-		if err != nil {
-			return nil, err
-		}
+	groups, err := self.region.GetSecurityGroups(self.VpcId, "", nil)
+	if err != nil {
+		return nil, err
 	}
-	return self.secgroups, nil
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := range groups {
+		groups[i].region = self.region
+		ret = append(ret, &groups[i])
+	}
+	return ret, nil
 }
 
 func (self *SVpc) fetchRouteTables() error {
@@ -245,17 +226,14 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 }
 
 func (self *SVpc) Delete() error {
-	err := self.fetchSecurityGroups()
+	secgroups, err := self.region.GetSecurityGroups(self.VpcId, "", nil)
 	if err != nil {
-		log.Errorf("fetchSecurityGroup for VPC delete fail %s", err)
-		return err
+		return errors.Wrapf(err, "GetSecurityGroups")
 	}
-	for i := 0; i < len(self.secgroups); i += 1 {
-		secgroup := self.secgroups[i].(*SSecurityGroup)
-		err := self.region.DeleteSecurityGroup(secgroup.SecurityGroupId)
+	for i := 0; i < len(secgroups); i += 1 {
+		err := self.region.DeleteSecurityGroup(secgroups[i].SecurityGroupId)
 		if err != nil {
-			log.Errorf("deleteSecurityGroup for VPC delete fail %s", err)
-			return err
+			return errors.Wrapf(err, "DeleteSecurityGroup %s", secgroups[i].SecurityGroupId)
 		}
 	}
 	return self.region.DeleteVpc(self.VpcId)

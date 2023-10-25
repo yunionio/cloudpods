@@ -77,6 +77,9 @@ type SCapabilities struct {
 	VpcPeerBrands         []string `json:",allowempty"`
 	DisabledVpcPeerBrands []string `json:",allowempty"`
 
+	SecurityGroupBrands         []string `json:",allowempty"`
+	DisabledSecurityGroupBrands []string `json:",allowempty"`
+
 	ReadOnlyBrands                           []string `json:",allowempty"`
 	ReadOnlyDisabledBrands                   []string `json:",allowempty"`
 	ReadOnlyComputeEngineBrands              []string `json:",allowempty"`
@@ -112,6 +115,9 @@ type SCapabilities struct {
 
 	ReadOnlyVpcPeerBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledVpcPeerBrands []string `json:",allowempty"`
+
+	ReadOnlySecurityGroupBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledSecurityGroupBrands []string `json:",allowempty"`
 
 	ResourceTypes      []string           `json:",allowempty"`
 	StorageTypes       []string           `json:",allowempty"` // going to remove on 2.14
@@ -454,6 +460,8 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 				appendBrand(&capa.ContainerBrands, &capa.DisabledContainerBrands, &capa.ReadOnlyContainerBrands, &capa.ReadOnlyDisabledContainerBrands, brand, capability, enabled, readOnly)
 			case cloudprovider.CLOUD_CAPABILITY_VPC_PEER:
 				appendBrand(&capa.VpcPeerBrands, &capa.DisabledVpcPeerBrands, &capa.ReadOnlyVpcPeerBrands, &capa.ReadOnlyDisabledVpcPeerBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP:
+				appendBrand(&capa.SecurityGroupBrands, &capa.DisabledSecurityGroupBrands, &capa.ReadOnlySecurityGroupBrands, &capa.ReadOnlyDisabledSecurityGroupBrands, brand, capability, enabled, readOnly)
 			default:
 			}
 		}

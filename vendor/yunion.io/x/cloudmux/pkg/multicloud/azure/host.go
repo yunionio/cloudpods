@@ -61,7 +61,11 @@ func (self *SHost) Refresh() error {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	nic, err := self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.NameEn), desc.IpAddr, desc.ExternalNetworkId, desc.ExternalSecgroupId)
+	secgroupId := ""
+	for _, id := range desc.ExternalSecgroupIds {
+		secgroupId = id
+	}
+	nic, err := self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.NameEn), desc.IpAddr, desc.ExternalNetworkId, secgroupId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateNetworkInterface")
 	}

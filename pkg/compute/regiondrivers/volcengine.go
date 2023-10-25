@@ -16,6 +16,7 @@ package regiondrivers
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -33,18 +34,6 @@ type SVolcengineRegionDriver struct {
 func init() {
 	driver := SVolcengineRegionDriver{}
 	models.RegisterRegionDriver(&driver)
-}
-
-func (self *SVolcengineRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
-func (self *SVolcengineRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
-}
-
-func (self *SVolcengineRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
 }
 
 func (self *SVolcengineRegionDriver) GetProvider() string {
@@ -65,4 +54,28 @@ func (self *SVolcengineRegionDriver) ValidateCreateVpcData(ctx context.Context, 
 		return input, httperrors.NewInputParameterError("%s request the mask range should be less than or equal to 29", self.GetProvider())
 	}
 	return input, nil
+}
+
+func (self *SVolcengineRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		if input.Rules[i].Priority == nil {
+			return nil, httperrors.NewMissingParameterError("priority")
+		}
+		if *input.Rules[i].Priority < 1 || *input.Rules[i].Priority > 100 {
+			return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Rules[i].Priority)
+		}
+	}
+	return input, nil
+}
+
+func (self *SVolcengineRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Priority != nil && *input.Priority < 1 || *input.Priority > 100 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
+	}
+
+	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
 }

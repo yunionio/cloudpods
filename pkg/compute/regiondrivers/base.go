@@ -23,8 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
-	"yunion.io/x/pkg/util/pinyinutils"
-	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -228,44 +227,21 @@ func (self *SBaseRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mc
 	return fmt.Errorf("Not implement RequestDeleteVpc")
 }
 
-func (self *SBaseRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
+func (self *SBaseRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateSecurityGroupInput")
 }
 
-func (self *SBaseRegionDriver) GenerateSecurityGroupName(name string) string {
-	return pinyinutils.Text2Pinyin(name)
+func (self *SBaseRegionDriver) RequestCreateSecurityGroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	secgroup *models.SSecurityGroup,
+	rules api.SSecgroupRuleResourceSet,
+) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateSecurityGroup")
 }
 
-func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, remoteProjectId string, task taskman.ITask) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCacheSecurityGroup")
-}
-
-func (self *SBaseRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return false
-}
-
-func (self *SBaseRegionDriver) IsVpcBelongGlobalVpc() bool {
-	return false
-}
-
-func (self *SBaseRegionDriver) IsSecurityGroupBelongGlobalVpc() bool {
-	return false
-}
-
-func (self *SBaseRegionDriver) GetDefaultSecurityGroupVpcId() string {
-	return api.NORMAL_VPC_ID
-}
-
-func (self *SBaseRegionDriver) GetSecurityGroupPublicScope(service string) rbacscope.TRbacScope {
-	return rbacscope.ScopeSystem
-}
-
-func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc) (string, error) {
-	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "GetSecurityGroupVpcId")
-}
-
-func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId, service string) (string, error) {
-	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncSecurityGroup")
+func (self *SBaseRegionDriver) RequestDeleteSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *models.SSecurityGroup, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestDeleteSecurityGroup")
 }
 
 func (self *SBaseRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
@@ -508,4 +484,28 @@ func (self *SBaseRegionDriver) RequestCreateKubeCluster(ctx context.Context, use
 
 func (self *SBaseRegionDriver) RequestCreateKubeNodePool(ctx context.Context, userCred mcclient.TokenCredential, pool *models.SKubeNodePool, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateKubeNodePool")
+}
+
+func (drv *SBaseRegionDriver) RequestPrepareSecurityGroups(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	secgroups []models.SSecurityGroup,
+	vpc *models.SVpc,
+	callback func(ids []string) error,
+	task taskman.ITask,
+) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestPrepareSecurityGroups")
+}
+
+func (drv *SBaseRegionDriver) CreateDefaultSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, vpc *models.SVpc) (*models.SSecurityGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateDefaultSecurityGroup")
+}
+
+func (drv *SBaseRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetSecurityGroupFilter")
+}
+
+func (self *SBaseRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateUpdateSecurityGroupInput")
 }

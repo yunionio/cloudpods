@@ -427,23 +427,23 @@ func (self *SAliyunClient) fetchVpcEndpoints() error {
 func (self *SAliyunClient) _getSdkClient(regionId string) (*sdk.Client, error) {
 	transport := httputils.GetAdaptiveTransport(true)
 	transport.Proxy = self.cpcfg.ProxyFunc
-	ts := cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+	ts := cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response) error, error) {
 		params, err := url.ParseQuery(req.URL.RawQuery)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
 		}
 		service := strings.Split(req.URL.Host, ".")[0]
 		action := params.Get("Action")
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if self.cpcfg.UpdatePermission != nil && resp.StatusCode >= 400 && resp.ContentLength > 0 {
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					return
+					return nil
 				}
 				resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 				obj, err := jsonutils.Parse(body)
 				if err != nil {
-					return
+					return nil
 				}
 				ret := struct{ Code string }{}
 				obj.Unmarshal(&ret)
@@ -455,6 +455,7 @@ func (self *SAliyunClient) _getSdkClient(regionId string) (*sdk.Client, error) {
 					self.cpcfg.UpdatePermission(service, action)
 				}
 			}
+			return nil
 		}
 		for _, prefix := range []string{"Get", "List", "Describe", "Query"} {
 			if strings.HasPrefix(action, prefix) {
@@ -652,12 +653,13 @@ func (client *SAliyunClient) getOssClientByEndpoint(endpoint string) (*oss.Clien
 	// oss use no timeout client so as to send/download large files
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response) error, error) {
 		path, method := req.URL.Path, req.Method
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if client.cpcfg.UpdatePermission != nil && resp.StatusCode == 403 {
 				client.cpcfg.UpdatePermission("oss", fmt.Sprintf("%s %s", method, path))
 			}
+			return nil
 		}
 		if client.cpcfg.ReadOnly {
 			if req.Method == "GET" || req.Method == "HEAD" {
@@ -959,6 +961,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,

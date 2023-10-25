@@ -138,6 +138,8 @@ func (self *SCloudregion) purgeVpcs(ctx context.Context, managerId string) error
 	schedtags := NetworkschedtagManager.Query("row_id").In("network_id", networks.SubQuery())
 	nats := NatGatewayManager.Query("id").In("vpc_id", vpcs.SubQuery())
 	stables := NatSEntryManager.Query("id").In("natgateway_id", nats.SubQuery())
+	secgroups := SecurityGroupManager.Query("id").In("vpc_id", vpcs.SubQuery())
+	rules := SecurityGroupRuleManager.Query("id").In("secgroup_id", secgroups.SubQuery())
 
 	dtables := NatDEntryManager.Query("id").In("natgateway_id", nats.SubQuery())
 	routes := RouteTableManager.Query("id").In("vpc_id", vpcs.SubQuery())
@@ -146,6 +148,8 @@ func (self *SCloudregion) purgeVpcs(ctx context.Context, managerId string) error
 	ipv6 := IPv6GatewayManager.Query("id").In("vpc_id", vpcs.SubQuery())
 
 	pairs := []purgePair{
+		{manager: SecurityGroupRuleManager, key: "id", q: rules},
+		{manager: SecurityGroupManager, key: "id", q: secgroups},
 		{manager: IPv6GatewayManager, key: "id", q: ipv6},
 		{manager: VpcPeeringConnectionManager, key: "id", q: peers},
 		{manager: InterVpcNetworkRouteSetManager, key: "id", q: intervpcroutes},
@@ -196,8 +200,12 @@ func (self *SVpc) purge(ctx context.Context, userCred mcclient.TokenCredential) 
 	dnszones := DnsZoneVpcManager.Query("row_id").Equals("vpc_id", self.Id)
 	intervpcroutes := InterVpcNetworkRouteSetManager.Query("id").Equals("vpc_id", self.Id)
 	ipv6 := IPv6GatewayManager.Query("id").Equals("vpc_id", self.Id)
+	secgroups := SecurityGroupManager.Query("id").Equals("vpc_id", self.Id)
+	rules := SecurityGroupRuleManager.Query("id").In("secgroup_id", secgroups.SubQuery())
 
 	pairs := []purgePair{
+		{manager: SecurityGroupRuleManager, key: "id", q: rules},
+		{manager: SecurityGroupManager, key: "id", q: secgroups},
 		{manager: IPv6GatewayManager, key: "id", q: ipv6},
 		{manager: InterVpcNetworkRouteSetManager, key: "id", q: intervpcroutes},
 		{manager: DnsZoneVpcManager, key: "row_id", q: dnszones},
@@ -268,7 +276,8 @@ func (self *SCloudregion) purgeResources(ctx context.Context, managerId string) 
 	mongodbs := MongoDBManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	nics := NetworkInterfaceManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	nicips := NetworkinterfacenetworkManager.Query("row_id").In("networkinterface_id", nics.SubQuery())
-	seccaches := SecurityGroupCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	secgroups := SecurityGroupManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	rules := SecurityGroupRuleManager.Query("id").In("secgroup_id", secgroups.SubQuery())
 	policycaches := SnapshotPolicyCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	snapshots := SnapshotManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	tables := TablestoreManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
@@ -287,7 +296,8 @@ func (self *SCloudregion) purgeResources(ctx context.Context, managerId string) 
 		{manager: TablestoreManager, key: "id", q: tables},
 		{manager: SnapshotManager, key: "id", q: snapshots},
 		{manager: SnapshotPolicyCacheManager, key: "id", q: policycaches},
-		{manager: SecurityGroupCacheManager, key: "id", q: seccaches},
+		{manager: SecurityGroupRuleManager, key: "id", q: rules},
+		{manager: SecurityGroupManager, key: "id", q: secgroups},
 		{manager: NetworkinterfacenetworkManager, key: "row_id", q: nicips},
 		{manager: NetworkInterfaceManager, key: "id", q: nics},
 		{manager: MongoDBManager, key: "id", q: mongodbs},
@@ -557,6 +567,11 @@ func (self *purgePair) purgeAll(ctx context.Context) error {
 			)
 		// sku需要直接删除，避免数据库积累数据导致查询缓慢
 		case DBInstanceSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), ServerSkuManager.Keyword():
+			sql = fmt.Sprintf(
+				"delete from %s where %s in (%s)",
+				self.manager.TableSpec().Name(), self.key, placeholder,
+			)
+		case SecurityGroupRuleManager.Keyword():
 			sql = fmt.Sprintf(
 				"delete from %s where %s in (%s)",
 				self.manager.TableSpec().Name(), self.key, placeholder,
@@ -870,6 +885,8 @@ func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenC
 	capability := CloudproviderCapabilityManager.Query("cloudprovider_id").Equals("cloudprovider_id", cprvd.Id)
 	cdn := CDNDomainManager.Query("id").Equals("manager_id", cprvd.Id)
 	vpcs := GlobalVpcManager.Query("id").Equals("manager_id", cprvd.Id)
+	secgroups := SecurityGroupManager.Query("id").In("globalvpc_id", vpcs.SubQuery())
+	rules := SecurityGroupRuleManager.Query("id").In("secgroup_id", secgroups.SubQuery())
 	intervpcs := InterVpcNetworkManager.Query("id").Equals("manager_id", cprvd.Id)
 	intervpcnetworks := InterVpcNetworkVpcManager.Query("row_id").In("inter_vpc_network_id", intervpcs.SubQuery())
 	dnszones := DnsZoneManager.Query("id").Equals("manager_id", cprvd.Id)
@@ -882,6 +899,8 @@ func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenC
 		{manager: DnsZoneManager, key: "id", q: dnszones},
 		{manager: InterVpcNetworkVpcManager, key: "row_id", q: intervpcnetworks},
 		{manager: InterVpcNetworkManager, key: "id", q: intervpcs},
+		{manager: SecurityGroupRuleManager, key: "id", q: rules},
+		{manager: SecurityGroupManager, key: "id", q: secgroups},
 		{manager: GlobalVpcManager, key: "id", q: vpcs},
 		{manager: CDNDomainManager, key: "id", q: cdn},
 		{manager: CloudproviderRegionManager, key: "row_id", q: cprs},

@@ -872,11 +872,11 @@ func (region *SRegion) GetMigrations(instanceId string, migrationType string) (j
 	return migrations, nil
 }
 
-func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
+func (self *SRegion) AssignSecurityGroup(instanceId, projectId, secgroupId string) error {
 	if secgroupId == SECGROUP_NOT_SUPPORT {
 		return fmt.Errorf("Security groups are not supported. Security group components are not installed")
 	}
-	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
+	secgroup, err := self.GetSecurityGroup(secgroupId)
 	if err != nil {
 		return errors.Wrapf(err, "GetSecurityGroup(%s)", secgroupId)
 	}
@@ -885,8 +885,8 @@ func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
 			"name": secgroup.Name,
 		},
 	}
-	resource := fmt.Sprintf("/servers/%s/action", instance.Id)
-	_, err = instance.host.zone.region.ecsDo(instance.GetProjectId(), resource, params)
+	resource := fmt.Sprintf("/servers/%s/action", instanceId)
+	_, err = self.ecsDo(projectId, resource, params)
 	return err
 }
 
@@ -931,7 +931,7 @@ func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	}
 	for _, add := range set.Difference(newG, local).List() {
 		secgroupId := add.(string)
-		err := instance.AssignSecurityGroup(secgroupId)
+		err := instance.host.zone.region.AssignSecurityGroup(instance.Id, instance.GetProjectId(), secgroupId)
 		if err != nil {
 			return errors.Wrapf(err, "AssignSecurityGroup(%s)", secgroupId)
 		}

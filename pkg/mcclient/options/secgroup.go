@@ -36,6 +36,7 @@ type SecgroupListOptions struct {
 	Direction    string `help:"Filter secgroup by ports" choices:"all|in|out"`
 	DBInstance   string `help:"Filter secgroups bound to specified rds" json:"dbinstance"`
 	Cloudregion  string `help:"Filter secgroups by region"`
+	VpcId        string
 	Cloudaccount string `help:"Filter secgroups by account"`
 	WithCache    bool   `help:"Whether to bring cache information"`
 }
@@ -46,6 +47,8 @@ func (opts *SecgroupListOptions) Params() (jsonutils.JSONObject, error) {
 
 type SecgroupCreateOptions struct {
 	BaseCreateOptions
+	VpcId string
+	Tags  []string
 	Rules []string `help:"security rule to create"`
 }
 
@@ -63,6 +66,18 @@ func (opts *SecgroupCreateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if len(rules) > 0 {
 		params.Add(jsonutils.Marshal(rules), "rules")
+	}
+	params.Remove("tags")
+	tags := map[string]string{}
+	for _, tag := range opts.Tags {
+		info := strings.Split(tag, "=")
+		if len(info) != 2 {
+			return nil, fmt.Errorf("invalid tag %s, tag should like key=value", tag)
+		}
+		tags["user:"+info[0]] = info[1]
+	}
+	if len(tags) > 0 {
+		params.Set("__meta__", jsonutils.Marshal(tags))
 	}
 	return params, nil
 }

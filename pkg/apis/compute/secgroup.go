@@ -83,12 +83,17 @@ type SSecgroupRuleResource struct {
 	Description string `json:"description"`
 }
 
+type SSecgroupRuleResourceSet []SSecgroupRuleResource
+
 type SSecgroupRuleCreateInput struct {
 	apis.ResourceBaseCreateInput
 	SSecgroupRuleResource
 
 	// swagger:ignore
 	Secgroup string `json:"secgroup"  yunion-deprecated-by:"secgroup_id"`
+
+	// swagger: ignore
+	Status string `json:"status"`
 
 	// 安全组ID
 	// required: true
@@ -98,7 +103,37 @@ type SSecgroupRuleCreateInput struct {
 type SSecgroupRuleUpdateInput struct {
 	apis.ResourceBaseUpdateInput
 
-	SSecgroupRuleResource
+	Priority *int    `json:"priority"`
+	Ports    *string `json:"ports"`
+	// ip或cidr地址, 若指定peer_secgroup_id此参数不生效
+	// example: 192.168.222.121
+	CIDR *string `json:"cidr"`
+
+	// 协议
+	// required: true
+	//
+	//
+	//
+	// | protocol | name    |
+	// | -------- | ----    |
+	// | any      | 所有协议|
+	// | tcp      | TCP     |
+	// | icmp     | ICMP    |
+	// | udp      | UDP     |
+	// enum: any, tcp, udp, icmp
+	Protocol *string `json:"protocol"`
+
+	// 行为
+	// deny: 拒绝
+	// allow: 允许
+	// enum: deny, allow
+	// required: true
+	Action *string `json:"action"`
+
+	// 规则描述信息
+	// requried: false
+	// example: test to create rule
+	Description string `json:"description"`
 }
 
 func (input *SSecgroupRuleResource) Check() error {
@@ -137,6 +172,17 @@ func (input *SSecgroupRuleResource) Check() error {
 type SSecgroupCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
+	// vpc id
+	// defualt: default
+	VpcResourceInput
+	// swagger: ignore
+	CloudproviderResourceInput
+	// swagger: ignore
+	CloudregionResourceInput
+
+	// swagger: ignore
+	GlobalvpcId string `json:"globalvpc_id"`
+
 	// 规则列表
 	// required: false
 	Rules []SSecgroupRuleCreateInput `json:"rules"`
@@ -144,18 +190,12 @@ type SSecgroupCreateInput struct {
 
 type SecgroupListInput struct {
 	apis.SharableVirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ServerResourceInput
 
 	DBInstanceResourceInput
 	ELasticcacheResourceInput
-
-	// equals
-	Equals string
-
-	// 按缓存数量排序
-	// pattern:asc|desc
-	OrderByCacheCnt string `json:"order_by_cache_cnt"`
 
 	// 按缓存关联主机数排序
 	// pattern:asc|desc
@@ -174,25 +214,14 @@ type SecgroupListInput struct {
 	// example: in
 	Direction string `json:"direction"`
 
+	VpcId string `json:"vpc_id"`
 	RegionalFilterListInput
-
 	ManagedResourceListInput
-	WithCache bool `json:"witch_cache"`
-}
-
-type SecurityGroupCacheListInput struct {
-	apis.StatusStandaloneResourceListInput
-	apis.ExternalizedResourceBaseListInput
-
-	ManagedResourceListInput
-	RegionalFilterListInput
-
-	VpcFilterListInput
-	SecgroupFilterListInput
 }
 
 type SecurityGroupRuleListInput struct {
 	apis.ResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
 	SecgroupFilterListInput
 
 	Projects []string `json:"projects"`
@@ -232,6 +261,9 @@ type SecgroupDetails struct {
 	apis.SharableVirtualResourceDetails
 	SSecurityGroup
 
+	VpcResourceInfo
+	GlobalVpcResourceInfo
+
 	// 关联云主机数量, 不包含回收站云主机
 	GuestCnt int `json:"guest_cnt,allowempty"`
 
@@ -243,15 +275,6 @@ type SecgroupDetails struct {
 
 	// 所有关联的资源数量
 	TotalCnt int `json:"total_cnt,allowempty"`
-
-	// 安全组缓存数量
-	CacheCnt int `json:"cache_cnt,allowempty"`
-	// 规则信息
-	Rules []SecgroupRuleDetails `json:"rules"`
-	// 入方向规则信息
-	InRules []SecgroupRuleDetails `json:"in_rules"`
-	// 出方向规则信息
-	OutRules []SecgroupRuleDetails `json:"out_rules"`
 }
 
 type SecurityGroupResourceInfo struct {
@@ -292,18 +315,6 @@ type ElasticcachesecgroupDetails struct {
 	Secgroup string `json:"secgroup"`
 }
 
-type SecgroupMergeInput struct {
-	// 安全组id列表
-	SecgroupIds []string `json:"secgroup_ids"`
-
-	// swagger:ignore
-	// Deprecated
-	Secgroups []string `json:"secgroup" yunion-deprecated-by:"secgroup_ids"`
-}
-
-type SecurityGroupPurgeInput struct {
-}
-
 type SecurityGroupCloneInput struct {
 	Name        string
 	Description string
@@ -330,6 +341,5 @@ func (self *SSecurityGroupRef) Sum() {
 	self.TotalCnt = self.GuestCnt + self.AdminGuestCnt + self.RdsCnt + self.RedisCnt
 }
 
-type SecurityGroupCacheInput struct {
-	VpcId string `json:"vpc_id"`
+type SecurityGroupSyncstatusInput struct {
 }

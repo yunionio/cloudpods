@@ -15,10 +15,10 @@
 package bingocloud
 
 import (
-	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
@@ -28,7 +28,7 @@ import (
 )
 
 type SSecurityGroup struct {
-	multicloud.SResourceBase
+	multicloud.SSecurityGroup
 	BingoTags
 	region *SRegion
 
@@ -42,24 +42,6 @@ type SSecurityGroup struct {
 	IPPermissions              []IPPermissions `json:"ipPermissions"`
 	IPPermissionsEgress        []IPPermissions `json:"ipPermissionsEgress"`
 	OwnerId                    string          `json:"ownerId"`
-}
-
-type IPPermissions struct {
-	BoundType   string `json:"boundType"`
-	Description string `json:"description"`
-	FromPort    int    `json:"fromPort"`
-	IPProtocol  string `json:"ipProtocol"`
-	Groups      []struct {
-		GroupId   string
-		GroupName string
-	} `json:"groups"`
-	IPRanges []struct {
-		CIdRIP string `json:"cidrIp"`
-	} `json:"ipRanges"`
-	L2Accept     string `json:"l2Accept"`
-	PermissionId string `json:"permissionId"`
-	Policy       string `json:"policy"`
-	ToPort       int    `json:"toPort"`
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -86,115 +68,84 @@ func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupRefere
 	return []cloudprovider.SecurityGroupReference{}, nil
 }
 
-func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	var ret []cloudprovider.SecurityRule
-	for _, _rule := range append(self.IPPermissionsEgress, self.IPPermissions...) {
-		if len(_rule.Groups) > 0 {
-			continue
-		}
-		rule := cloudprovider.SecurityRule{}
-		rule.Direction = secrules.DIR_IN
-		rule.Priority = 1
-		rule.Action = secrules.SecurityRuleAllow
-		rule.Protocol = secrules.PROTO_ANY
-		rule.Description = _rule.Description
-		if _rule.BoundType == "Out" {
-			rule.Direction = secrules.DIR_OUT
-		}
-		if _rule.Policy == "DROP" {
-			rule.Action = secrules.SecurityRuleDeny
-		}
-		if _rule.IPProtocol != "all" {
-			rule.Protocol = _rule.IPProtocol
-		}
-		if rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP {
-			rule.PortStart, rule.PortEnd = _rule.FromPort, _rule.ToPort
-		}
-
-		for _, ip := range _rule.IPRanges {
-			if ip.CIdRIP == "::/0" {
-				ip.CIdRIP = "0.0.0.0/0"
-			}
-			rule.ParseCIDR(ip.CIdRIP)
-			err := rule.ValidateRule()
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, rule)
-		}
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	ret := []cloudprovider.ISecurityGroupRule{}
+	for i := range self.IPPermissionsEgress {
+		self.IPPermissionsEgress[i].direction = secrules.DIR_OUT
+		ret = append(ret, &self.IPPermissionsEgress[i])
+	}
+	for i := range self.IPPermissions {
+		self.IPPermissions[i].direction = secrules.DIR_IN
+		ret = append(ret, &self.IPPermissions[i])
 	}
 	return ret, nil
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	return api.NORMAL_VPC_ID
+	return ""
 }
 
 func (self *SSecurityGroup) GetStatus() string {
 	return api.SECGROUP_STATUS_READY
 }
 
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, r := range append(inDels, outDels...) {
-		err := self.region.deleteSecurityGroupRule(self.GroupId, r)
-		if err != nil {
-			if strings.Contains(err.Error(), "InvalidPermission.NotFound") {
-				continue
-			}
-			return errors.Wrapf(err, "deleteSecurityGroupRule %s %d %s", r.Name, r.Priority, r.String())
-		}
-	}
-	for _, r := range append(inAdds, outAdds...) {
-		err := self.region.addSecurityGroupRules(self.GroupId, r)
-		if err != nil {
-			return errors.Wrapf(err, "addSecurityGroupRules %d %s", r.Priority, r.String())
-		}
-	}
-	return nil
-}
-
 func (self *SSecurityGroup) Delete() error {
 	return self.region.deleteSecurityGroup(self.GroupId)
 }
 
-func (self *SRegion) deleteSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
-	allInputs := securityRuleToBingoCloud(secGrpId, rule)
-
-	for _, input := range allInputs {
-		data, _ := json.Marshal(&input)
-		params := make(map[string]string)
-		_ = json.Unmarshal(data, &params)
-
-		_, err := self.invoke("RevokeSecurityGroupIngress", params)
-		if err != nil {
-			log.Debugf("deleteSecurityGroupRule %s %s", rule.Direction, err.Error())
-			return err
-		}
+func (self *SRegion) CreateSecurityGroupRules(secGrpId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) error {
+	params := map[string]string{
+		"GroupId":    secGrpId,
+		"IpProtocol": "all",
+		"BoundType":  "In",
+		"Policy":     "DROP",
+		"FromPort":   "0",
+		"ToPort":     "65535",
+	}
+	if opts.Protocol != secrules.PROTO_ANY {
+		params["IpProtocol"] = opts.Protocol
+	}
+	if opts.Direction == secrules.DIR_OUT {
+		params["BoundType"] = "Out"
+	}
+	if opts.Action == secrules.SecurityRuleAllow {
+		params["Policy"] = "ACCEPT"
 	}
 
-	return nil
-}
-
-func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.SecurityRule) error {
-	allInputs := securityRuleToBingoCloud(secGrpId, rule)
-
-	for _, input := range allInputs {
-		data, _ := json.Marshal(&input)
-		params := make(map[string]string)
-		_ = json.Unmarshal(data, &params)
-
-		_, err := self.invoke("AuthorizeSecurityGroupIngress", params)
-		if err == nil {
-			continue
-		}
-		if err != nil && strings.Contains(err.Error(), "InvalidPermission.Duplicate") {
-			log.Debugf("addSecurityGroupRule %s %s", rule.Direction, err.Error())
-			continue
+	start, end := 0, 0
+	if len(opts.Ports) > 0 {
+		if strings.Contains(opts.Ports, "-") {
+			ports := strings.Split(opts.Ports, "-")
+			if len(ports) != 2 {
+				return errors.Errorf("invalid ports %s", opts.Ports)
+			}
+			var err error
+			_start, _end := ports[0], ports[1]
+			start, err = strconv.Atoi(_start)
+			if err != nil {
+				return errors.Errorf("invalid start port %s", _start)
+			}
+			end, err = strconv.Atoi(_end)
+			if err != nil {
+				return errors.Errorf("invalid end port %s", _end)
+			}
 		} else {
-			return err
+			port, err := strconv.Atoi(opts.Ports)
+			if err != nil {
+				return errors.Errorf("invalid ports %s", opts.Ports)
+			}
+			start, end = port, port
 		}
 	}
+	if start > 0 && end > 0 {
+		params["FromPort"] = fmt.Sprintf("%d", start)
+		params["ToPort"] = fmt.Sprintf("%d", end)
+	}
 
+	_, err := self.invoke("AuthorizeSecurityGroupIngress", params)
+	if err == nil {
+		return errors.Wrapf(err, "AuthorizeSecurityGroupIngress")
+	}
 	return nil
 }
 
@@ -240,20 +191,6 @@ func (self *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecur
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	groups, _, err := self.GetSecurityGroups("", opts.Name, "")
-	if err != nil {
-		return nil, err
-	}
-	for i := range groups {
-		if groups[i].GetName() == opts.Name {
-			groups[i].region = self
-			return &groups[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SRegion) deleteSecurityGroup(id string) error {
 	params := map[string]string{}
 	params["GroupId"] = id
@@ -267,10 +204,10 @@ type SecurityGroupCreateOutput struct {
 	GroupId string
 }
 
-func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	params := map[string]string{}
-	if len(conf.Name) > 0 {
-		params["GroupName"] = conf.Name
+	if len(opts.Name) > 0 {
+		params["GroupName"] = opts.Name
 	}
 	resp, err := self.invoke("CreateSecurityGroup", params)
 	if err != nil {
@@ -280,29 +217,7 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 	ret := &SecurityGroupCreateOutput{}
 	_ = resp.Unmarshal(&ret)
 
-	if conf.OnCreated != nil {
-		conf.OnCreated(ret.GroupId)
-	}
-
 	if ret.Return {
-		//rule := cloudprovider.SecurityRule{
-		//	ExternalId: ret.GroupId,
-		//	SecurityRule: secrules.SecurityRule{
-		//		Action:    secrules.SecurityRuleAllow,
-		//		Protocol:  secrules.PROTO_ANY,
-		//		Direction: secrules.DIR_IN,
-		//		Priority:  1,
-		//		Ports:     []int{},
-		//		PortStart: 1,
-		//		PortEnd:   65535,
-		//	},
-		//}
-		//rule.ParseCIDR("0.0.0.0/0")
-		//err = self.addSecurityGroupRules(ret.GroupId, rule)
-		//if err != nil {
-		//	_ = self.deleteSecurityGroup(ret.GroupId)
-		//	return nil, err
-		//}
 		return self.GetISecurityGroupById(ret.GroupId)
 	}
 

@@ -198,7 +198,7 @@ func (self *SRegion) GetSysDefaultSecgroupId() (string, error) {
 		return "", errors.Wrapf(err, "GetSecurityGroups")
 	}
 	if len(secs) > 0 {
-		return secs[0].ID, nil
+		return secs[0].Id, nil
 	}
 	return "", fmt.Errorf("not found default security group")
 }

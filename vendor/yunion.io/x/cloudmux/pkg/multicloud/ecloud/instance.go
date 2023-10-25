@@ -302,10 +302,6 @@ func (in *SInstance) GetVmemSizeMB() int {
 	return in.Vmemory
 }
 
-func (in *SInstance) AssignSecurityGroup(id string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (in *SInstance) SetSecurityGroups(ids []string) error {
 	return cloudprovider.ErrNotImplemented
 }

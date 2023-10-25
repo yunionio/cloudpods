@@ -17,33 +17,34 @@ package compute
 import "yunion.io/x/cloudmux/pkg/apis/compute"
 
 const (
-	VM_INIT            = compute.VM_INIT
-	VM_UNKNOWN         = compute.VM_UNKNOWN
-	VM_SCHEDULE        = "schedule"
-	VM_SCHEDULE_FAILED = "sched_fail"
-	VM_CREATE_NETWORK  = "network"
-	VM_NETWORK_FAILED  = "net_fail"
-	VM_DEVICE_FAILED   = "dev_fail"
-	VM_CREATE_FAILED   = compute.VM_CREATE_FAILED
-	VM_CREATE_DISK     = "disk"
-	VM_DISK_FAILED     = "disk_fail"
-	VM_IMAGE_CACHING   = "image_caching" // 缓存镜像中
-	VM_START_DEPLOY    = "start_deploy"
-	VM_DEPLOYING       = compute.VM_DEPLOYING
-	VM_DEPLOY_FAILED   = compute.VM_DEPLOY_FAILED
-	VM_READY           = compute.VM_READY
-	VM_START_START     = compute.VM_START_START
-	VM_STARTING        = compute.VM_STARTING
-	VM_START_FAILED    = "start_fail" // # = ready
-	VM_RUNNING         = compute.VM_RUNNING
-	VM_START_STOP      = compute.VM_START_STOP
-	VM_STOPPING        = compute.VM_STOPPING
-	VM_STOP_FAILED     = "stop_fail" // # = running
-	VM_RENEWING        = "renewing"
-	VM_RENEW_FAILED    = "renew_failed"
-	VM_ATTACH_DISK     = "attach_disk"
-	VM_DETACH_DISK     = "detach_disk"
-	VM_UNSYNC          = "unsync"
+	VM_INIT                  = compute.VM_INIT
+	VM_UNKNOWN               = compute.VM_UNKNOWN
+	VM_SCHEDULE              = "schedule"
+	VM_SCHEDULE_FAILED       = "sched_fail"
+	VM_CREATE_NETWORK        = "network"
+	VM_NETWORK_FAILED        = "net_fail"
+	VM_DEVICE_FAILED         = "dev_fail"
+	VM_CREATE_FAILED         = compute.VM_CREATE_FAILED
+	VM_CREATE_DISK           = "disk"
+	VM_DISK_FAILED           = "disk_fail"
+	VM_SECURITY_GROUP_FAILED = "security_group_fail"
+	VM_IMAGE_CACHING         = "image_caching" // 缓存镜像中
+	VM_START_DEPLOY          = "start_deploy"
+	VM_DEPLOYING             = compute.VM_DEPLOYING
+	VM_DEPLOY_FAILED         = compute.VM_DEPLOY_FAILED
+	VM_READY                 = compute.VM_READY
+	VM_START_START           = compute.VM_START_START
+	VM_STARTING              = compute.VM_STARTING
+	VM_START_FAILED          = "start_fail" // # = ready
+	VM_RUNNING               = compute.VM_RUNNING
+	VM_START_STOP            = compute.VM_START_STOP
+	VM_STOPPING              = compute.VM_STOPPING
+	VM_STOP_FAILED           = "stop_fail" // # = running
+	VM_RENEWING              = "renewing"
+	VM_RENEW_FAILED          = "renew_failed"
+	VM_ATTACH_DISK           = "attach_disk"
+	VM_DETACH_DISK           = "detach_disk"
+	VM_UNSYNC                = "unsync"
 
 	VM_BACKUP_STARTING         = "backup_starting"
 	VM_BACKUP_STOPING          = "backup_stopping"

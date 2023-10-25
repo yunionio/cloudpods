@@ -35,18 +35,6 @@ func (self *SKsyunRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_KSYUN
 }
 
-func (self *SKsyunRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
-}
-
-func (self *SKsyunRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
-}
-
-func (self *SKsyunRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
 func (self *SKsyunRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return nil
 }
