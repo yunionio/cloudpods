@@ -1095,3 +1095,70 @@ func (self *SCollectByMetricTypeDriver) CollectK8sMetrics(ctx context.Context, m
 
 	return self.sendMetrics(ctx, manager, "k8s", len(res), metrics)
 }
+
+func (driver *SCollectByMetricTypeDriver) CollectLoadbalancerMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.LoadbalancerDetails, start, end time.Time) error {
+	metrics := []influxdb.SMetricData{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for _, _metricType := range cloudprovider.ALL_LB_METRIC_TYPES {
+		wg.Add(1)
+		go func(metricType cloudprovider.TMetricType) {
+			defer func() {
+				wg.Done()
+			}()
+			opts := &cloudprovider.MetricListOptions{
+				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_LB,
+				MetricType:   metricType,
+				StartTime:    start,
+				EndTime:      end,
+			}
+			data, err := provider.GetMetrics(opts)
+			if err != nil {
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("get slb %s(%s) %s error: %v", manager.Name, manager.Id, metricType, err)
+					return
+				}
+				return
+			}
+			for _, value := range data {
+				slb, ok := res[value.Id]
+				if !ok {
+					continue
+				}
+				tags := []influxdb.SKeyValue{}
+				for k, v := range slb.GetMetricTags() {
+					tags = append(tags, influxdb.SKeyValue{
+						Key:   k,
+						Value: v,
+					})
+				}
+				for _, v := range value.Values {
+					metric := influxdb.SMetricData{
+						Name:      value.MetricType.Name(),
+						Timestamp: v.Timestamp,
+						Tags:      []influxdb.SKeyValue{},
+						Metrics: []influxdb.SKeyValue{
+							{
+								Key:   value.MetricType.Key(),
+								Value: strconv.FormatFloat(v.Value, 'E', -1, 64),
+							},
+						},
+					}
+					for k, v := range v.Tags {
+						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+							Key:   k,
+							Value: v,
+						})
+					}
+					metric.Tags = append(metric.Tags, tags...)
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
+				}
+			}
+		}(_metricType)
+	}
+	wg.Wait()
+
+	return driver.sendMetrics(ctx, manager, "slb", len(res), metrics)
+}
