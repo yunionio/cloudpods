@@ -94,6 +94,9 @@ func (self *SPermission) GetProtocol() string {
 }
 
 func (self *SPermission) GetPorts() string {
+	if self.PortRange == "-1/-1" || self.PortRange == "1/65535" || self.PortRange == "" {
+		return ""
+	}
 	info := strings.Split(self.PortRange, "/")
 	if len(info) != 2 {
 		return ""
