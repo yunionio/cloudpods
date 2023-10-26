@@ -3497,6 +3497,7 @@ func (self *SManagedVirtualizationRegionDriver) CreateDefaultSecurityGroup(
 	newGroup.SetModelManager(models.SecurityGroupManager, newGroup)
 	newGroup.Name = fmt.Sprintf("default-auto-%d", time.Now().Unix())
 	newGroup.Description = "auto generage"
+	// 部分云可能不需要vpcId, 创建完安全组后会自动置空
 	newGroup.VpcId = vpc.Id
 	newGroup.ManagerId = vpc.ManagerId
 	newGroup.CloudregionId = vpc.CloudregionId
