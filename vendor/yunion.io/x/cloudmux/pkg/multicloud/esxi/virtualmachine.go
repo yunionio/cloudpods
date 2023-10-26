@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/imagetools"
 	"yunion.io/x/pkg/util/netutils"
@@ -112,6 +113,10 @@ func (self *SVirtualMachine) GetSecurityGroupIds() ([]string, error) {
 }
 
 func (self *SVirtualMachine) GetTags() (map[string]string, error) {
+	// not support tags
+	if gotypes.IsNil(self.manager.client.ServiceContent.CustomFieldsManager) {
+		return nil, cloudprovider.ErrNotSupported
+	}
 	ret := map[int32]string{}
 	for _, val := range self.object.Entity().ExtensibleManagedObject.AvailableField {
 		ret[val.Key] = val.Name
@@ -160,6 +165,10 @@ func (self *SVirtualMachine) GetSysTags() map[string]string {
 }
 
 func (svm *SVirtualMachine) SetTags(tags map[string]string, replace bool) error {
+	// not support tags
+	if gotypes.IsNil(svm.manager.client.ServiceContent.CustomFieldsManager) {
+		return cloudprovider.ErrNotSupported
+	}
 	oldTags, err := svm.GetTags()
 	if err != nil {
 		return errors.Wrapf(err, "GetTags")
