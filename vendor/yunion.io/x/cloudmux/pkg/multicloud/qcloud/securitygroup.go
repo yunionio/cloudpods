@@ -291,11 +291,24 @@ func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreate
 }
 
 func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
-	err := self.region.CreateSecurityGroupRule(self.SecurityGroupId, opts)
+	rules, err := self.region.GetSecurityGroupRules(self.SecurityGroupId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSecurityGroupRules")
+	}
+	maxPriority := 0
+	for i := range rules {
+		if rules[i].GetDirection() == opts.Direction && rules[i].PolicyIndex > maxPriority {
+			maxPriority = rules[i].PolicyIndex
+		}
+	}
+	if opts.Priority > maxPriority {
+		opts.Priority = maxPriority
+	}
+	err = self.region.CreateSecurityGroupRule(self.SecurityGroupId, opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateSecurityGroupRule")
 	}
-	rules, err := self.region.GetSecurityGroupRules(self.SecurityGroupId)
+	rules, err = self.region.GetSecurityGroupRules(self.SecurityGroupId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetSecurityGroupRules")
 	}
