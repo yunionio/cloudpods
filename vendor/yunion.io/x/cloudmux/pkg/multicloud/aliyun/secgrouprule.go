@@ -119,7 +119,7 @@ func (self *SPermission) Delete() error {
 }
 
 func (self *SPermission) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.UpdateSecurityGroupRule(self.SecurityGroupId, self.SecurityGroupRuleId, self.GetDirection(), opts.Desc)
 }
 
 func (self *SRegion) GetSecurityGroupRules(id string) ([]SPermission, error) {
@@ -157,6 +157,20 @@ func (self *SRegion) DeleteSecurityGroupRule(groupId string, direction secrules.
 		"ClientToken":           utils.GenRequestId(20),
 		"SecurityGroupId":       groupId,
 		"SecurityGroupRuleId.1": ruleId,
+	}
+	_, err := self.ecsRequest(action, params)
+	return err
+}
+
+func (self *SRegion) UpdateSecurityGroupRule(groupId, ruleId string, direction secrules.TSecurityRuleDirection, desc string) error {
+	params := map[string]string{
+		"ClientToken":         utils.GenRequestId(20),
+		"SecurityGroupId":     groupId,
+		"SecurityGroupRuleId": ruleId,
+	}
+	action := "ModifySecurityGroupRule"
+	if direction == secrules.DIR_OUT {
+		action = "ModifySecurityGroupEgressRule"
 	}
 	_, err := self.ecsRequest(action, params)
 	return err

@@ -619,15 +619,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 }
 
 func (self *SHuaWeiRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
-	if input.Priority != nil && *input.Priority < 1 || *input.Priority > 100 {
-		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
-	}
-
-	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
-		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
-	}
-
-	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+	return nil, httperrors.NewNotSupportedError("not support update security group rule")
 }
 
 func (self *SHuaWeiRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {

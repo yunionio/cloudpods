@@ -149,5 +149,20 @@ func (self *SRegion) DeleteSecgroupRule(groupId, ruleId string, direction secrul
 }
 
 func (self *SSecurityGroupRule) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return cloudprovider.ErrNotImplemented
+	return self.secgroup.region.UpdateSecurityGroupRule(self.secgroup.Id, self.Id, self.GetDirection(), opts)
+}
+
+func (self *SRegion) UpdateSecurityGroupRule(groupId, id string, direction secrules.TSecurityRuleDirection, opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
+	api := "/v4/vpc/modify-security-group-egress"
+	if direction == secrules.DIR_IN {
+		api = "/v4/vpc/modify-security-group-ingress"
+	}
+	params := map[string]interface{}{
+		"securityGroupID":     groupId,
+		"securityGroupRuleID": id,
+		"description":         opts.Desc,
+		"clientToken":         utils.GenRequestId(20),
+	}
+	_, err := self.post(SERVICE_VPC, api, params)
+	return err
 }
