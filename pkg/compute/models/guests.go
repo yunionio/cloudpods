@@ -5783,7 +5783,7 @@ func (self *SGuest) GetIVM(ctx context.Context) (cloudprovider.ICloudVM, error) 
 	}
 	iregion, err := host.GetIRegion(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIRegion")
 	}
 	ihost, err := iregion.GetIHostById(host.ExternalId)
 	if err != nil {
@@ -5792,7 +5792,7 @@ func (self *SGuest) GetIVM(ctx context.Context) (cloudprovider.ICloudVM, error) 
 	ivm, err := ihost.GetIVMById(self.ExternalId)
 	if err != nil {
 		if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetIVMById(%s)", self.ExternalId)
 		}
 		return iregion.GetIVMById(self.ExternalId)
 	}
