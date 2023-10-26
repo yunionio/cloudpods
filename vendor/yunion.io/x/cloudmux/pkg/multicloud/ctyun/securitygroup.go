@@ -15,7 +15,6 @@
 package ctyun
 
 import (
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -138,42 +137,30 @@ func (self *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
 }
 
 func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
+	ruleIds := []string{}
+	for _, rule := range self.SecurityGroupRuleList {
+		if !utils.IsInStringArray(rule.Id, ruleIds) {
+			ruleIds = append(ruleIds, rule.Id)
+		}
+	}
 	err := self.region.CreateSecurityGroupRule(self.Id, opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateSecurityGroupRule")
 	}
-	searchRule := func() (cloudprovider.ISecurityGroupRule, error) {
-		err = self.Refresh()
+	for i := 0; i < 3; i++ {
+		err := self.Refresh()
 		if err != nil {
 			return nil, errors.Wrapf(err, "Refresh")
 		}
-		rules, err := self.GetRules()
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetRules")
-		}
-		for i := range rules {
-			if rules[i].GetDirection() == opts.Direction &&
-				rules[i].GetProtocol() == opts.Protocol &&
-				rules[i].GetAction() == opts.Action &&
-				strings.Join(rules[i].GetCIDRs(), ",") == opts.CIDR &&
-				rules[i].GetPriority() == opts.Priority &&
-				rules[i].GetPorts() == opts.Ports {
-				return rules[i], nil
+		for i := range self.SecurityGroupRuleList {
+			if !utils.IsInStringArray(self.SecurityGroupRuleList[i].Id, ruleIds) {
+				self.SecurityGroupRuleList[i].secgroup = self
+				return &self.SecurityGroupRuleList[i], nil
 			}
 		}
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
+		time.Sleep(time.Second * 3)
 	}
-	cloudprovider.Wait(time.Second*5, time.Minute, func() (bool, error) {
-		_, err := searchRule()
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	})
-	return searchRule()
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
 func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
