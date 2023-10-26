@@ -355,9 +355,6 @@ var (
 					"globalvpcs",
 					"vpc_peering_connections",
 					"eips",
-					"dns_recordsets",
-					"dns_trafficpolicies",
-					"dns_zonecaches",
 					"dns_zones",
 					"dnsrecords",
 				},
@@ -523,7 +520,7 @@ var (
 	}
 
 	adminPerformActions = map[string]map[string][]string{
-		"compute": map[string][]string{
+		"compute": {
 			"servers": []string{
 				"snapshot-and-clone",
 				"createdisk",
@@ -539,7 +536,7 @@ var (
 				"delete",
 			},
 		},
-		"k8s": map[string][]string{
+		"k8s": {
 			"kubeclusters": []string{
 				"add-machines",
 				"delete-machines",
@@ -564,6 +561,7 @@ var (
 			Description:   "Domain administrator",
 			Policies: []string{
 				"domain-admin",
+				"sys-basic-viewer",
 			},
 			IsPublic: true,
 		},
@@ -573,6 +571,8 @@ var (
 			Description:   "Project owner",
 			Policies: []string{
 				"project-admin",
+				"sys-basic-viewer",
+				"domain-basic-viewer",
 			},
 			IsPublic: true,
 		},

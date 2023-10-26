@@ -20,6 +20,91 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 )
 
+var sysBasicViewPolicy = `
+policy:
+  compute:
+    zones:
+      '*': deny
+      list: allow
+      get: allow
+    cloudregions:
+      '*': deny
+      list: allow
+      get: allow
+    cachedimages:
+      '*': deny
+      list: allow
+      get: allow
+    dbinstance_skus:
+      '*': deny
+      list: allow
+      get: allow
+    elasticcacheskus:
+      '*': deny
+      list: allow
+      get: allow
+    serverskus:
+      '*': deny
+      list: allow
+      get: allow
+    nat_skus:
+      '*': deny
+      list: allow
+      get: allow
+    nas_skus:
+      '*': deny
+      list: allow
+      get: allow
+    modelarts_skus:
+      '*': deny
+      list: allow
+      get: allow
+    loadbalancerclusters:
+      '*': deny
+      list: allow
+      get: allow
+    schedtags:
+      '*': deny
+      list: allow
+      get: allow
+    capabilities:
+      '*': deny
+      list: allow
+`
+
+var domainBasicViewPolicy = `
+policy:
+  compute:
+    cloudaccounts:
+      '*': deny
+      list: allow
+      get: allow
+    cloudproviders:
+      '*': deny
+      list: allow
+      get: allow
+    domain_quotas:
+      '*': deny
+      list: allow
+      get: allow
+    infras_quotas:
+      '*': deny
+      list: allow
+      get: allow
+    vpcs:
+      '*': deny
+      list: allow
+      get: allow
+    wires:
+      '*': deny
+      list: allow
+      get: allow
+    proxysettings:
+      '*': deny
+      list: allow
+      get: allow
+`
+
 var opsAdminPolicy = `
 policy:
   '*':
@@ -253,6 +338,13 @@ var predefinedPolicyData = []SPolicyData{
 		DescriptionCN: "全局审计管理员权限",
 	},
 	{
+		Name:          "sys-basic-viewer",
+		Scope:         rbacscope.ScopeSystem,
+		Policy:        toJson(sysBasicViewPolicy),
+		Description:   "System-wide basic viewer",
+		DescriptionCN: "全局基础资源只读权限",
+	},
+	{
 		Name:          "domain-opsadmin",
 		Scope:         rbacscope.ScopeDomain,
 		Policy:        toJson(opsAdminPolicy),
@@ -272,6 +364,13 @@ var predefinedPolicyData = []SPolicyData{
 		Policy:        toJson(adtAdminPolicy),
 		Description:   "Domain-wide audit manager",
 		DescriptionCN: "组织审计管理员权限",
+	},
+	{
+		Name:          "domain-basic-viewer",
+		Scope:         rbacscope.ScopeDomain,
+		Policy:        toJson(domainBasicViewPolicy),
+		Description:   "Domain-wide basic viewer",
+		DescriptionCN: "组织基础资源只读权限",
 	},
 	{
 		Name:          "normal-user",
