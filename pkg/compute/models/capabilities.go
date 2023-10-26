@@ -372,6 +372,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
+		capa.SecurityGroupBrands = append(capa.SecurityGroupBrands, api.ONECLOUD_BRAND_ONECLOUD)
 		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
 

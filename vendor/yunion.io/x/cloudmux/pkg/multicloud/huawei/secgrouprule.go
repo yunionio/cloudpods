@@ -38,6 +38,7 @@ type SecurityGroupRule struct {
 	RemoteIPPrefix  string
 	SecurityGroupId string
 	TenantId        string
+	Priority        int
 }
 
 func (self *SecurityGroupRule) GetGlobalId() string {
@@ -56,7 +57,7 @@ func (self *SecurityGroupRule) GetDirection() secrules.TSecurityRuleDirection {
 }
 
 func (self *SecurityGroupRule) GetPriority() int {
-	return 0
+	return self.Priority
 }
 
 func (self *SecurityGroupRule) GetAction() secrules.TSecurityRuleAction {
@@ -85,7 +86,14 @@ type SPageInfo struct {
 }
 
 func (self *SecurityGroupRule) GetCIDRs() []string {
-	ret := []string{self.RemoteIPPrefix + self.RemoteGroupId}
+	ip := self.RemoteIPPrefix + self.RemoteGroupId
+	if len(ip) == 0 {
+		ip = "0.0.0.0"
+		if self.Ethertype == "IPv6" {
+			ip = "::/0"
+		}
+	}
+	ret := []string{ip}
 	return ret
 }
 
@@ -158,9 +166,9 @@ func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider
 		return nil, errors.Wrapf(err, "create rule")
 	}
 	ret := &SecurityGroupRule{}
-	return ret, resp.Unmarshal(ret)
+	return ret, resp.Unmarshal(ret, "security_group_rule")
 }
 
 func (self *SecurityGroupRule) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
