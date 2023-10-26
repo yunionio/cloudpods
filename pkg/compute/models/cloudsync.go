@@ -945,7 +945,7 @@ func syncZoneHosts(
 	}
 	localHosts, remoteHosts, result := func() ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 		defer syncResults.AddSqlCost(HostManager)()
-		return HostManager.SyncHosts(ctx, userCred, provider, localZone, hosts, syncRange.Xor)
+		return HostManager.SyncHosts(ctx, userCred, provider, localZone, nil, hosts, syncRange.Xor)
 	}()
 
 	syncResults.Add(HostManager, result)
@@ -2453,7 +2453,7 @@ func syncOnPremiseCloudProviderInfo(
 
 		localHosts, remoteHosts, result := func() ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 			defer syncResults.AddSqlCost(HostManager)()
-			return HostManager.SyncHosts(ctx, userCred, provider, nil, ihosts, syncRange.Xor)
+			return HostManager.SyncHosts(ctx, userCred, provider, zone, nil, ihosts, syncRange.Xor)
 		}()
 
 		syncResults.Add(HostManager, result)
