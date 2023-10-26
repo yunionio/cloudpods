@@ -1661,7 +1661,7 @@ func (self *SHost) GetRunningGuestCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SHost) GetNotReadyGuestsMemorySize() (int, error) {
+func (self *SHost) GetNotReadyGuestsStat() (*SHostGuestResourceUsage, error) {
 	guests := GuestManager.Query().SubQuery()
 	q := guests.Query(sqlchemy.COUNT("guest_count"),
 		sqlchemy.SUM("guest_vcpu_count", guests.Field("vcpu_count")),
@@ -1673,9 +1673,9 @@ func (self *SHost) GetNotReadyGuestsMemorySize() (int, error) {
 	stat := SHostGuestResourceUsage{}
 	err := q.First(&stat)
 	if err != nil {
-		return -1, err
+		return nil, err
 	}
-	return stat.GuestVmemSize, nil
+	return &stat, nil
 }
 
 func (hh *SHost) GetRunningGuestResourceUsage() *SHostGuestResourceUsage {
