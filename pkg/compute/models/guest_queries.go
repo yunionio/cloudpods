@@ -675,7 +675,7 @@ func fetchGuestKeypairs(guestIds []string) map[string]sGuestKeypair {
 
 func fetchGuestGpuInstanceTypes(guestIds []string) []string {
 	sq := GuestManager.Query("instance_type").In("id", guestIds).SubQuery()
-	q := ServerSkuManager.Query("name").In("name", sq).GT("gpu_count", 0).Distinct()
+	q := ServerSkuManager.Query("name").In("name", sq).IsNotEmpty("gpu_spec").Distinct()
 	instanceTypes := []string{}
 	skus, _ := q.AllStringMap()
 	for i := range skus {
