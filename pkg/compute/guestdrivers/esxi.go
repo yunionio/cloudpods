@@ -810,3 +810,23 @@ func (self *SESXiGuestDriver) SyncOsInfo(ctx context.Context, userCred mcclient.
 	}
 	return nil
 }
+
+func (drv *SESXiGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVm, err := guest.GetIVM(ctx)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, errors.Wrapf(err, "GetIVM")
+		}
+
+		err = iVm.DeleteVM(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DeleteVM")
+		}
+
+		return nil, cloudprovider.WaitDeleted(iVm, time.Second*10, time.Minute*3)
+	})
+	return nil
+}
