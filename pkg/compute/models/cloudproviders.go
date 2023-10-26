@@ -1473,8 +1473,11 @@ func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, us
 	if err != nil {
 		return err
 	}
-	provider.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
-	return provider.ClearSchedDescCache()
+	if provider.Status != api.CLOUD_PROVIDER_DISCONNECTED {
+		provider.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
+		return provider.ClearSchedDescCache()
+	}
+	return nil
 }
 
 func (cprvd *SCloudprovider) updateName(ctx context.Context, userCred mcclient.TokenCredential, name, desc string) error {
