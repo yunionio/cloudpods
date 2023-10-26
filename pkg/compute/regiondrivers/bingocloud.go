@@ -16,11 +16,8 @@ package regiondrivers
 
 import (
 	"context"
-	"fmt"
 	"strings"
-	"time"
 
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -68,35 +65,4 @@ func (self *SBingoCloudRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (f
 	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Equals("cloudregion_id", vpc.CloudregionId)
 	}, nil
-}
-
-func (self *SBingoCloudRegionDriver) CreateDefaultSecurityGroup(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
-	vpc *models.SVpc,
-) (*models.SSecurityGroup, error) {
-	newGroup := &models.SSecurityGroup{}
-	newGroup.SetModelManager(models.SecurityGroupManager, newGroup)
-	newGroup.Name = fmt.Sprintf("default-auto-%d", time.Now().Unix())
-	newGroup.Description = "auto generage"
-	newGroup.ManagerId = vpc.ManagerId
-	newGroup.CloudregionId = vpc.CloudregionId
-	newGroup.DomainId = ownerId.GetDomainId()
-	newGroup.ProjectId = ownerId.GetProjectId()
-	err := models.SecurityGroupManager.TableSpec().Insert(ctx, newGroup)
-	if err != nil {
-		return nil, errors.Wrapf(err, "insert")
-	}
-
-	region, err := vpc.GetRegion()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegion")
-	}
-	driver := region.GetDriver()
-	err = driver.RequestCreateSecurityGroup(ctx, userCred, newGroup, api.SSecgroupRuleResourceSet{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "RequestCreateSecurityGroup")
-	}
-	return newGroup, nil
 }
