@@ -335,25 +335,31 @@ func (self *SSecurityGroup) Delete() error {
 }
 
 func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
-	err := self.region.CreateSecurityGroupRule(self.SecurityGroupId, opts)
+	rules, err := self.region.GetSecurityGroupRules(self.SecurityGroupId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSecurityGroupRules")
+	}
+	ruleIds := []string{}
+	for _, r := range rules {
+		ruleIds = append(ruleIds, r.SecurityGroupRuleId)
+	}
+	err = self.region.CreateSecurityGroupRule(self.SecurityGroupId, opts)
 	if err != nil {
 		return nil, err
 	}
-	rules, err := self.region.GetSecurityGroupRules(self.SecurityGroupId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetSecurityGroupDetails")
-	}
-	for i := range rules {
-		rule := rules[i]
-		if rule.Priority == opts.Priority &&
-			strings.Join(rule.GetCIDRs(), ",") == opts.CIDR &&
-			rule.GetAction() == opts.Action &&
-			rule.GetProtocol() == opts.Protocol &&
-			rule.GetPorts() == opts.Ports &&
-			rule.GetDirection() == opts.Direction {
-			rule.region = self.region
-			return &rule, nil
+	for i := 0; i < 3; i++ {
+		rules, err := self.region.GetSecurityGroupRules(self.SecurityGroupId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecurityGroupRules")
 		}
+		for i := range rules {
+			rule := rules[i]
+			if utils.IsInStringArray(rule.SecurityGroupRuleId, ruleIds) {
+				rule.region = self.region
+				return &rule, nil
+			}
+		}
+		time.Sleep(time.Second * 3)
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }

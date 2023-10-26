@@ -159,5 +159,33 @@ func (self *SRegion) GetSecurityGroupRules(secGroupId string) ([]SecurityGroupRu
 }
 
 func (self *SecurityGroupRule) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return cloudprovider.ErrNotImplemented
+	return self.secgroup.region.UpdateSecurityGroupRule(self.secgroup.SecurityGroupId, self.PolicyIndex, self.GetDirection(), opts)
+}
+
+func (self *SRegion) UpdateSecurityGroupRule(groupId string, idx int, direction secrules.TSecurityRuleDirection, opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
+	params := map[string]string{
+		"SecurityGroupId": groupId,
+	}
+	prefix := "SecurityGroupPolicySet.Ingress.0."
+	if direction == secrules.DIR_OUT {
+		prefix = "SecurityGroupPolicySet.Egress.0."
+	}
+	if len(opts.Ports) == 0 || opts.Protocol == secrules.PROTO_ANY {
+		opts.Ports = "all"
+	}
+	if opts.Protocol == secrules.PROTO_ANY {
+		opts.Protocol = "ALL"
+	}
+	action := "ACCEPT"
+	if opts.Action == secrules.SecurityRuleDeny {
+		action = "DROP"
+	}
+	params[prefix+"PolicyIndex"] = fmt.Sprintf("%d", idx)
+	params[prefix+"Protocol"] = strings.ToUpper(opts.Protocol)
+	params[prefix+"Port"] = opts.Ports
+	params[prefix+"CidrBlock"] = opts.CIDR
+	params[prefix+"Action"] = action
+	params[prefix+"PolicyDescription"] = opts.Desc
+	_, err := self.vpcRequest("ReplaceSecurityGroupPolicy", params)
+	return err
 }
