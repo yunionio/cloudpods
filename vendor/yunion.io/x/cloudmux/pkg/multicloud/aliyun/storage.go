@@ -32,7 +32,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -160,13 +159,11 @@ func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	diskId, err := self.zone.region.CreateDisk(self.zone.ZoneId, self.storageType, conf.Name, conf.SizeGb, conf.Desc, conf.ProjectId)
 	if err != nil {
-		log.Errorf("createDisk fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "CreateDisk")
 	}
 	disk, err := self.zone.region.getDisk(diskId)
 	if err != nil {
-		log.Errorf("getDisk fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetDisk")
 	}
 	disk.storage = self
 	return disk, nil

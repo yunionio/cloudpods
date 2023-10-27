@@ -260,6 +260,9 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
 		params["PerformanceLevel"] = "PL3"
 	}
+	if category == api.STORAGE_CLOUD_AUTO {
+		params["BurstingEnabled"] = "true"
+	}
 
 	if len(projectId) > 0 {
 		params["ResourceGroupId"] = projectId
