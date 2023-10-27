@@ -764,7 +764,7 @@ func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
-	if input.Priority != nil && *input.Priority < 1 || *input.Priority > 100 {
+	if input.Priority != nil && (*input.Priority < 1 || *input.Priority > 100) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
 	}
 
