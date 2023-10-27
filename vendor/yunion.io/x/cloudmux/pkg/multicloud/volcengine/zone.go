@@ -21,13 +21,8 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
-
-var StorageTypes = []string{
-	api.STORAGE_VOLCENGINE_FlexPL,
-	api.STORAGE_VOLCENGINE_PL0,
-	api.STORAGE_VOLCENGINE_PTSSD,
-}
 
 type SSupportedResource struct {
 	Status string
@@ -46,11 +41,8 @@ type SZone struct {
 
 	host *SHost
 
-	istorages          []cloudprovider.ICloudStorage
 	Status             string
 	AvailableResources []SAvailableResource
-
-	storageTypes []string
 
 	ZoneId    string
 	RegionId  string
@@ -92,10 +84,6 @@ func (zone *SZone) GetStatus() string {
 	return api.ZONE_ENABLE
 }
 
-func (zone *SZone) Refresh() error {
-	return nil
-}
-
 func (zone *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return zone.region
 }
@@ -125,24 +113,6 @@ func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIHostById")
 }
 
-// Storage
-func (zone *SZone) getStorageType() {
-	if len(zone.storageTypes) == 0 {
-		zone.storageTypes = StorageTypes
-	}
-}
-
-func (zone *SZone) fetchStorages() error {
-	zone.getStorageType()
-	zone.istorages = make([]cloudprovider.ICloudStorage, len(zone.storageTypes))
-
-	for i, sc := range zone.storageTypes {
-		storage := SStorage{zone: zone, storageType: sc}
-		zone.istorages[i] = &storage
-	}
-	return nil
-}
-
 func (zone *SZone) getStorageByCategory(category string) (*SStorage, error) {
 	storages, err := zone.GetIStorages()
 	if err != nil {
@@ -154,30 +124,67 @@ func (zone *SZone) getStorageByCategory(category string) (*SStorage, error) {
 			return storage, nil
 		}
 	}
-	return nil, fmt.Errorf("no such storage %s", category)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "getStorageByCategory %s", category)
+}
+
+func (zone *SZone) GetStorages() ([]SStorage, error) {
+	storages, err := zone.region.GetStorageTypes("")
+	if err != nil {
+		return nil, err
+	}
+	ret := []SStorage{}
+	for i := range storages {
+		if utils.IsInStringArray(zone.ZoneId, storages[i].Zones) {
+			ret = append(ret, SStorage{storageType: storages[i].Id, zone: zone})
+		}
+	}
+	ret = append(ret, SStorage{storageType: api.STORAGE_VOLCENGINE_PTSSD, zone: zone})
+	return ret, nil
 }
 
 func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if zone.istorages == nil {
-		err := zone.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
-		}
+	storages, err := zone.GetStorages()
+	if err != nil {
+		return nil, err
 	}
-	return zone.istorages, nil
+	ret := []cloudprovider.ICloudStorage{}
+	for i := range storages {
+		ret = append(ret, &storages[i])
+	}
+	return ret, nil
 }
 
 func (zone *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	if zone.istorages == nil {
-		err := zone.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
+	storages, err := zone.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := range storages {
+		if storages[i].GetGlobalId() == id {
+			return storages[i], nil
 		}
 	}
-	for i := 0; i < len(zone.istorages); i += 1 {
-		if zone.istorages[i].GetGlobalId() == id {
-			return zone.istorages[i], nil
-		}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SRegion) GetStorageTypes(zoneId string) ([]sStorageType, error) {
+	if len(self.storageTypes) > 0 {
+		return self.storageTypes, nil
 	}
-	return nil, cloudprovider.ErrNotFound
+	params := map[string]string{
+		"PageSize": "100",
+	}
+	if len(zoneId) > 0 {
+		params["ZoneId"] = zoneId
+	}
+	resp, err := self.storageRequest("DescribeVolumeType", params)
+	if err != nil {
+		return nil, err
+	}
+	self.storageTypes = []sStorageType{}
+	err = resp.Unmarshal(&self.storageTypes, "VolumeTypes")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal VolumeTypes")
+	}
+	return self.storageTypes, nil
 }

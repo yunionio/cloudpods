@@ -123,7 +123,7 @@ func (client *SVolcEngineClient) fetchRegions() error {
 		return errors.Wrapf(err, "DescribeRegions")
 	}
 	regions := make([]SRegion, 0)
-	err = body.Unmarshal(&regions, "Result", "Regions")
+	err = body.Unmarshal(&regions, "Regions")
 	if err != nil {
 		return errors.Wrapf(err, "resp.Unmarshal")
 	}
@@ -310,7 +310,13 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 	}
 	cli := httputils.NewJsonClient(_cli)
 	_, resp, err := cli.Send(context.Background(), req, vErr, client.debug)
-	return resp, err
+	if err != nil {
+		return nil, errors.Wrapf(err, apiName)
+	}
+	if resp.Contains("Result") {
+		return resp.Get("Result")
+	}
+	return resp, nil
 }
 
 func (client *SVolcEngineClient) getSdkCredential(region string, service string, token string) sdk.Credentials {

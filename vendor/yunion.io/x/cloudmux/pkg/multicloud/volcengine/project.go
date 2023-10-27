@@ -82,7 +82,7 @@ func (client *SVolcEngineClient) GetProject(name string) (*SProject, error) {
 		return nil, err
 	}
 	project := &SProject{client: client}
-	err = body.Unmarshal(project, "Result")
+	err = body.Unmarshal(project)
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
@@ -102,11 +102,11 @@ func (client *SVolcEngineClient) ListProjects(limit int, offset int) ([]SProject
 		return nil, 0, errors.Wrap(err, "iamRequest.ListProjects")
 	}
 	projects := []SProject{}
-	err = resp.Unmarshal(&projects, "Result", "Projects")
+	err = resp.Unmarshal(&projects, "Projects")
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("Result", "Total")
+	total, _ := resp.Int("Total")
 	return projects, int(total), nil
 }
 
