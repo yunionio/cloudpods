@@ -74,7 +74,7 @@ func (self *SUcloudRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 }
 
 func (self *SUcloudRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
-	if input.Priority != nil && *input.Priority < 1 || *input.Priority > 3 {
+	if input.Priority != nil && (*input.Priority < 1 || *input.Priority > 3) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-3", *input.Priority)
 	}
 
