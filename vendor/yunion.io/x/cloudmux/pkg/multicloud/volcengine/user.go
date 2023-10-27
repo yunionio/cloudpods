@@ -54,7 +54,7 @@ func (client *SVolcEngineClient) GetCallerIdentity() (*SCallerIdentity, error) {
 	}
 	id := &SCallerIdentity{}
 	users := []SUser{}
-	err = body.Unmarshal(&users, "Result", "UserMetadata")
+	err = body.Unmarshal(&users, "UserMetadata")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}

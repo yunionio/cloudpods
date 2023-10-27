@@ -220,11 +220,11 @@ func (region *SRegion) GetNatGateways(vpcId string, natGatewayId string, pageNum
 		return nil, 0, errors.Wrapf(err, "DescribeNatGateways")
 	}
 	gateways := make([]SNatGateway, 0)
-	err = body.Unmarshal(&gateways, "Result", "NatGateways")
+	err = body.Unmarshal(&gateways, "NatGateways")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "body.Unmarshal")
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return gateways, int(total), nil
 }
 
@@ -257,7 +257,7 @@ func (region *SRegion) CreateNatGateway(opts *cloudprovider.NatGatewayCreateOpti
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateNatGateway")
 	}
-	natId, err := resp.GetString("Result", "NatGatewayId")
+	natId, err := resp.GetString("NatGatewayId")
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Get(NatGatewayId)")
 	}

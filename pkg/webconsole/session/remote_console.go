@@ -30,22 +30,23 @@ import (
 )
 
 const (
-	VNC       = api.VNC
-	ALIYUN    = api.ALIYUN
-	QCLOUD    = api.QCLOUD
-	OPENSTACK = api.OPENSTACK
-	SPICE     = api.SPICE
-	WMKS      = api.WMKS
-	WS        = api.WS
-	VMRC      = api.VMRC
-	ZSTACK    = api.ZSTACK
-	CTYUN     = api.CTYUN
-	HUAWEI    = api.HUAWEI
-	HCS       = api.HCS
-	APSARA    = api.APSARA
-	JDCLOUD   = api.JDCLOUD
-	CLOUDPODS = api.CLOUDPODS
-	PROXMOX   = api.PROXMOX
+	VNC        = api.VNC
+	ALIYUN     = api.ALIYUN
+	QCLOUD     = api.QCLOUD
+	OPENSTACK  = api.OPENSTACK
+	SPICE      = api.SPICE
+	WMKS       = api.WMKS
+	WS         = api.WS
+	VMRC       = api.VMRC
+	ZSTACK     = api.ZSTACK
+	CTYUN      = api.CTYUN
+	HUAWEI     = api.HUAWEI
+	HCS        = api.HCS
+	APSARA     = api.APSARA
+	JDCLOUD    = api.JDCLOUD
+	CLOUDPODS  = api.CLOUDPODS
+	PROXMOX    = api.PROXMOX
+	VOLCENGINE = api.VOLC_ENGINE
 )
 
 type RemoteConsoleInfo struct {
@@ -124,7 +125,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getQcloudURL()
 	case CLOUDPODS:
 		return info.getCloudpodsURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX, VOLCENGINE:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)

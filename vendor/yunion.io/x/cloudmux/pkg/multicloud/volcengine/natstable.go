@@ -138,11 +138,11 @@ func (region *SRegion) GetSnatEntries(natGatewayId string, pageNumber int, pageS
 		return nil, 0, errors.Wrapf(err, "DescribeSNATEntries fail")
 	}
 	entries := make([]SSNATEntry, 0)
-	err = body.Unmarshal(&entries, "Result", "SnatEntries")
+	err = body.Unmarshal(&entries, "SnatEntries")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal entries fail")
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return entries, int(total), nil
 }
 
@@ -155,7 +155,7 @@ func (region *SRegion) GetSnatEntry(natGatewayId string, snatEntryID string) (SS
 		return SSNATEntry{}, errors.Wrapf(err, "DescribeSnatEntries fail")
 	}
 	entries := make([]SSNATEntry, 0)
-	err = body.Unmarshal(&entries, "Result", "SnatEntries")
+	err = body.Unmarshal(&entries, "SnatEntries")
 	if err != nil {
 		return SSNATEntry{}, errors.Wrapf(err, "Unmarshal entries fail")
 	}
@@ -182,7 +182,7 @@ func (region *SRegion) CreateSnatEntry(rule cloudprovider.SNatSRule, natGatewayI
 		return "", err
 	}
 
-	entryID, _ := body.GetString("Result", "SnatEntryId")
+	entryID, _ := body.GetString("SnatEntryId")
 	return entryID, nil
 }
 

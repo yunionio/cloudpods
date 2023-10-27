@@ -70,7 +70,7 @@ func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCrea
 	if err != nil {
 		return "", errors.Wrap(err, "CreateSecurityGroup")
 	}
-	return body.GetString("Result", "SecurityGroupId")
+	return body.GetString("SecurityGroupId")
 }
 
 func (region *SRegion) GetSecurityGroup(secGroupId string) (*SSecurityGroup, error) {
@@ -95,7 +95,7 @@ func (region *SRegion) GetSecurityGroupRules(secGroupId string) ([]SSecurityGrou
 		return nil, err
 	}
 	ret := []SSecurityGroupRule{}
-	err = body.Unmarshal(&ret, "Result", "Permissions")
+	err = body.Unmarshal(&ret, "Permissions")
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal security group details fail")
 	}
@@ -198,12 +198,12 @@ func (region *SRegion) GetSecurityGroups(vpcId, name string, securityGroupIds []
 	}
 
 	secgrps := make([]SSecurityGroup, 0)
-	err = body.Unmarshal(&secgrps, "Result", "SecurityGroups")
+	err = body.Unmarshal(&secgrps, "SecurityGroups")
 	if err != nil {
 		log.Errorf("Unmarshal security groups fail %s", err)
 		return nil, 0, err
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return secgrps, int(total), nil
 }
 
