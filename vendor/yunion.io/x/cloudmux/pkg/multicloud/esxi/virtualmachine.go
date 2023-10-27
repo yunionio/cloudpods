@@ -271,6 +271,12 @@ func (self *SVirtualMachine) Refresh() error {
 	var moObj mo.VirtualMachine
 	err := self.manager.reference2Object(self.object.Reference(), VIRTUAL_MACHINE_PROPS, &moObj)
 	if err != nil {
+		if e := errors.Cause(err); soap.IsSoapFault(e) {
+			_, ok := soap.ToSoapFault(e).VimFault().(types.ManagedObjectNotFound)
+			if ok {
+				return cloudprovider.ErrNotFound
+			}
+		}
 		return err
 	}
 	base.object = &moObj
