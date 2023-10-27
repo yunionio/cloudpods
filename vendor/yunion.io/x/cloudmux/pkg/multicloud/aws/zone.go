@@ -17,9 +17,7 @@ package aws
 import (
 	"fmt"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -40,79 +38,54 @@ type SZone struct {
 	multicloud.SResourceBase
 	AwsTags
 	region *SRegion
-	host   *SHost
 
-	iwires []cloudprovider.ICloudWire
-
-	ZoneId    string // 沿用阿里云ZoneId,对应Aws ZoneName
-	LocalName string
-	State     string
-}
-
-func (self *SZone) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
-}
-
-func (self *SZone) getHost() *SHost {
-	if self.host == nil {
-		self.host = &SHost{zone: self}
-	}
-	return self.host
+	ZoneName           string `xml:"zoneName"`
+	ZoneId             string `xml:"zoneId"`
+	ZoneState          string `xml:"zoneState"`
+	RegionName         string `xml:"regionName"`
+	GroupName          string `xml:"groupName"`
+	OptInStatus        string `xml:"optInStatus"`
+	NetworkBorderGroup string `xml:"networkBorderGroup"`
+	ZoneType           string `xml:"zoneType"`
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.iwires, nil
-}
-
-func (self *SZone) getNetworkById(networkId string) *SNetwork {
-	log.Debugf("Search in wires %d", len(self.iwires))
-	for i := 0; i < len(self.iwires); i += 1 {
-		log.Debugf("Search in wire %s", self.iwires[i].GetName())
-		wire := self.iwires[i].(*SWire)
-		net := wire.getNetworkById(networkId)
-		if net != nil {
-			return net
-		}
+	vpcs, err := self.region.GetVpcs(nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpcs")
 	}
-	return nil
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		vpcs[i].region = self.region
+		ret = append(ret, &SWire{zone: self, vpc: &vpcs[i]})
+	}
+	return ret, nil
 }
 
 func (self *SZone) GetId() string {
-	return self.ZoneId
+	return self.ZoneName
 }
 
 func (self *SZone) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, self.LocalName)
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, self.ZoneName)
 }
 
 func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
-	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_EN, self.LocalName)
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_EN, self.ZoneName)
 	table := cloudprovider.SModelI18nTable{}
 	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
 	return table
 }
 
 func (self *SZone) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.ZoneId)
+	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.ZoneName)
 }
 
 func (self *SZone) GetStatus() string {
-	if self.State == "unavailable" {
-		return api.ZONE_SOLDOUT
-	} else {
+	if self.ZoneState == "available" {
 		return api.ZONE_ENABLE
 	}
-}
-
-func (self *SZone) Refresh() error {
-	return nil
-}
-
-func (self *SZone) IsEmulated() bool {
-	return false
+	return api.ZONE_SOLDOUT
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
@@ -120,13 +93,19 @@ func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	return []cloudprovider.ICloudHost{self.getHost()}, nil
+	host := &SHost{zone: self}
+	return []cloudprovider.ICloudHost{host}, nil
 }
 
 func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	host := self.getHost()
-	if host.GetGlobalId() == id {
-		return host, nil
+	hosts, err := self.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	for i := range hosts {
+		if hosts[i].GetGlobalId() == id {
+			return hosts[i], nil
+		}
 	}
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIHostById")
 }
@@ -164,46 +143,9 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 			return storage, nil
 		}
 	}
-	return nil, fmt.Errorf("No such storage %s", category)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, category)
 }
 
-func (self *SRegion) getZoneById(id string) (*SZone, error) {
-	izones, err := self.GetIZones()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetIZones")
-	}
-	for i := 0; i < len(izones); i += 1 {
-		zone := izones[i].(*SZone)
-		if zone.ZoneId == id {
-			return zone, nil
-		}
-	}
-	return nil, fmt.Errorf("no such zone %s", id)
-}
-
-func (self *SRegion) TestStorageAvailable(zoneId, storageType string) (bool, error) {
-	params := map[string]string{
-		"AvailabilityZone": zoneId,
-		"ClientToken":      utils.GenRequestId(20),
-		"DryRun":           "true",
-		"Size":             "125",
-		"VolumeType":       storageType,
-	}
-	iops, ok := map[string]string{
-		api.STORAGE_GP3_SSD: "3000",
-		api.STORAGE_IO1_SSD: "100",
-		api.STORAGE_IO2_SSD: "100",
-	}[storageType]
-	if ok {
-		params["Iops"] = iops
-	}
-	ret := struct{}{}
-	err := self.ec2Request("CreateVolume", params, &ret)
-	if err != nil {
-		if e, ok := err.(*sAwsError); ok && e.Errors.Code == "DryRunOperation" {
-			return true, nil
-		}
-		return false, errors.Wrapf(err, "CreateVolume")
-	}
-	return true, nil
+func (self *SZone) GetDescription() string {
+	return self.AwsTags.GetDescription()
 }

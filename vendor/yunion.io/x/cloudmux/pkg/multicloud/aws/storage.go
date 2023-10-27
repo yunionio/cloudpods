@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -66,16 +65,12 @@ func (self *SStorage) GetStatus() string {
 	return api.STORAGE_ONLINE
 }
 
-func (self *SStorage) Refresh() error {
-	return nil
+func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
+	return self.zone.region.getStorageCache()
 }
 
 func (self *SStorage) IsEmulated() bool {
 	return true
-}
-
-func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	return self.zone.region.getStoragecache()
 }
 
 func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
@@ -83,17 +78,9 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks := make([]SDisk, 0)
-	for {
-		parts, total, err := self.zone.region.GetDisks("", self.zone.GetId(), self.storageType, nil, len(disks), 50)
-		if err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, errors.Wrap(err, "GetDisks")
-		}
-		disks = append(disks, parts...)
-		if len(disks) >= total {
-			break
-		}
+	disks, err := self.zone.region.GetDisks("", self.zone.GetId(), self.storageType, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDisks")
 	}
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
@@ -133,28 +120,21 @@ func (self *SStorage) GetEnabled() bool {
 }
 
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	diskId, err := self.zone.region.CreateDisk(self.zone.ZoneId, self.storageType, conf.Name, conf.SizeGb, "", conf.Desc)
+	disk, err := self.zone.region.CreateDisk(self.zone.ZoneName, self.storageType, conf.Name, conf.SizeGb, conf.Iops, conf.Throughput, "", conf.Desc)
 	if err != nil {
-		log.Errorf("createDisk fail %s", err)
 		return nil, errors.Wrap(err, "CreateDisk")
-	}
-	disk, err := self.zone.region.GetDisk(diskId)
-	if err != nil {
-		log.Errorf("getDisk  %s fail %s", diskId, err)
-		return nil, errors.Wrap(err, "GetDisk")
 	}
 	disk.storage = self
 	return disk, nil
 }
 
-func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	if disk, err := self.zone.region.GetDisk(idStr); err != nil {
-		log.Errorf("GetDisk %s: %s", idStr, err)
-		return nil, errors.Wrap(err, "GetDisk")
-	} else {
-		disk.storage = self
-		return disk, nil
+func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	disk, err := self.zone.region.GetDisk(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisk %s", id)
 	}
+	disk.storage = self
+	return disk, nil
 }
 
 func (self *SStorage) GetMountPoint() string {
@@ -163,4 +143,8 @@ func (self *SStorage) GetMountPoint() string {
 
 func (self *SStorage) IsSysDiskStore() bool {
 	return true
+}
+
+func (self *SStorage) GetDescription() string {
+	return ""
 }

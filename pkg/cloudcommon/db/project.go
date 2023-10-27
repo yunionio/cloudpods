@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/reflectutils"
@@ -189,12 +190,14 @@ func (manager *SProjectizedResourceBaseManager) FetchCustomizeColumns(
 	isList bool,
 ) []apis.ProjectizedResourceInfo {
 	ret := make([]apis.ProjectizedResourceInfo, len(objs))
+	resIds := make([]string, len(objs))
 	if len(fields) == 0 || fields.Contains("project_domain") || fields.Contains("tenant") {
 		projectIds := stringutils2.SSortedStrings{}
 		for i := range objs {
 			var base *SProjectizedResourceBase
 			reflectutils.FindAnonymouStructPointer(objs[i], &base)
 			if base != nil && len(base.ProjectId) > 0 {
+				resIds[i] = getObjectIdstr("project", base.ProjectId)
 				projectIds = stringutils2.Append(projectIds, base.ProjectId)
 			}
 		}
@@ -216,6 +219,26 @@ func (manager *SProjectizedResourceBaseManager) FetchCustomizeColumns(
 			}
 		}
 	}
+
+	if fields == nil || fields.Contains("__meta__") {
+		q := Metadata.Query("id", "key", "value")
+		metaKeyValues := make(map[string][]SMetadata)
+		err := FetchQueryObjectsByIds(q, "id", resIds, &metaKeyValues)
+		if err != nil {
+			log.Errorf("FetchQueryObjectsByIds metadata fail %s", err)
+			return ret
+		}
+
+		for i := range objs {
+			if metaList, ok := metaKeyValues[resIds[i]]; ok {
+				ret[i].ProjectMetadata = map[string]string{}
+				for _, meta := range metaList {
+					ret[i].ProjectMetadata[meta.Key] = meta.Value
+				}
+			}
+		}
+	}
+
 	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range ret {
 		ret[i].DomainizedResourceInfo = domainRows[i]

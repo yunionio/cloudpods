@@ -21,9 +21,6 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.NotifyTopic).WithKeyword("notify-topic")
-	cmd.List(new(notify.TopicListOptions))
-
 	cmd1 := shell.NewResourceCmd(&modules.NotifySubscriber).WithKeyword("notify-subscriber")
 	cmd1.List(new(notify.SubscriberListOptions))
 	cmd1.Create(new(notify.SubscriberCreateOptions))

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -35,40 +36,35 @@ func init() {
 	taskman.RegisterTask(DnsZoneSyncstatusTask{})
 }
 
-func (self *DnsZoneSyncstatusTask) taskComplete(ctx context.Context, dnsZone *models.SDnsZone) {
-	dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
+func (self *DnsZoneSyncstatusTask) taskFailed(ctx context.Context, zone *models.SDnsZone, err error) {
+	zone.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *DnsZoneSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dnsZone := obj.(*models.SDnsZone)
+	zone := obj.(*models.SDnsZone)
 
-	caches, err := dnsZone.GetDnsZoneCaches()
-	if err != nil {
-		self.taskComplete(ctx, dnsZone)
+	if len(zone.ManagerId) == 0 {
+		self.taskComplete(ctx, zone)
 		return
 	}
 
-	for i := range caches {
-		if len(caches[i].ExternalId) > 0 {
-			status := api.DNS_ZONE_CACHE_STATUS_UNKNOWN
-			iZone, err := caches[i].GetICloudDnsZone(ctx)
-			if err != nil {
-				logclient.AddActionLogWithContext(ctx, &caches[i], logclient.ACT_SYNC_STATUS, errors.Wrapf(err, "GetICloudDnsZone"), self.UserCred, false)
-			} else {
-				status = iZone.GetStatus()
-			}
-			if caches[i].Status != status {
-				caches[i].SetStatus(self.GetUserCred(), status, "")
-			}
-			if len(caches) == 1 {
-				account, _ := caches[i].GetCloudaccount()
-				if account != nil {
-					dnsZone.SyncDnsRecordSets(ctx, self.GetUserCred(), account.Provider, iZone, false)
-				}
-			}
-		}
+	iZone, err := zone.GetICloudDnsZone(ctx)
+	if err != nil {
+		self.taskFailed(ctx, zone, errors.Wrapf(err, "GetICloudDnsZone"))
+		return
 	}
 
-	self.taskComplete(ctx, dnsZone)
+	result := zone.SyncRecords(ctx, self.UserCred, iZone, false)
+	if result.IsError() {
+		logclient.AddActionLogWithContext(ctx, zone, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "SyncRecords"), self.UserCred, false)
+	}
+
+	zone.SetStatus(self.UserCred, iZone.GetStatus(), "")
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DnsZoneSyncstatusTask) taskComplete(ctx context.Context, dnsZone *models.SDnsZone) {
+	dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
+	self.SetStageComplete(ctx, nil)
 }

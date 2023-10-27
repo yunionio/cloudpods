@@ -59,7 +59,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		desc.SysDisk, desc.Cpu, desc.MemoryMB,
 		desc.InstanceType, desc.ExternalNetworkId,
 		desc.IpAddr, desc.Description, desc.Password,
-		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId,
+		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupIds,
 		desc.UserData, desc.BillingCycle, desc.ProjectId, desc.PublicIpBw, desc.PublicIpChargeType, desc.Tags, desc.OsType)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 func (self *SHost) _createVM(name, hostname string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
 	networkId string, ipAddr string, desc string, passwd string,
-	diskSizes []cloudprovider.SDiskInfo, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle, projectId string,
+	diskSizes []cloudprovider.SDiskInfo, publicKey string, secgroupIds []string, userData string, bc *billing.SBillingCycle, projectId string,
 	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType,
 	tags map[string]string, osType string,
 ) (string, error) {
@@ -126,7 +126,7 @@ func (self *SHost) _createVM(name, hostname string, imgId string, sysDisk cloudp
 
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, hostname, imgId, instanceType, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags, osType)
+		vmId, err := self.zone.region.CreateInstance(name, hostname, imgId, instanceType, secgroupIds, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags, osType)
 		if err != nil {
 			return "", errors.Wrapf(err, "Failed to create specification %s", instanceType)
 		}
@@ -145,7 +145,7 @@ func (self *SHost) _createVM(name, hostname string, imgId string, sysDisk cloudp
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceType
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, hostname, imgId, instanceTypeId, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags, osType)
+		vmId, err = self.zone.region.CreateInstance(name, hostname, imgId, instanceTypeId, secgroupIds, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData, bc, projectId, publicIpBw, publicIpChargeType, tags, osType)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {
@@ -262,10 +262,6 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	return ivms, nil
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
-}
-
 func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewString(CLOUD_PROVIDER_QCLOUD), "manufacture")
@@ -277,7 +273,11 @@ func (self *SHost) IsEmulated() bool {
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SHost) GetIsMaintenance() bool {

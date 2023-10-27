@@ -95,7 +95,12 @@ func (c *SBooleanColumn) ConvertFromString(str string) interface{} {
 
 // ConvertFromValue implementation of STristateColumn for IColumnSpec
 func (c *SBooleanColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal := val.(bool)
+	var bVal bool
+	if c.IsPointer() {
+		bVal = *val.(*bool)
+	} else {
+		bVal = val.(bool)
+	}
 	if bVal {
 		return 1
 	}

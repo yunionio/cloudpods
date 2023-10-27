@@ -59,6 +59,27 @@ const (
 
 	HUAWEI_DEFAULT_REGION = "cn-north-1"
 	HUAWEI_API_VERSION    = "2018-12-25"
+
+	SERVICE_IAM       = "iam"
+	SERVICE_ELB       = "elb"
+	SERVICE_VPC       = "vpc"
+	SERVICE_CES       = "ces"
+	SERVICE_RDS       = "rds"
+	SERVICE_ECS       = "ecs"
+	SERVICE_EPS       = "eps"
+	SERVICE_EVS       = "evs"
+	SERVICE_BSS       = "bss"
+	SERVICE_SFS       = "sfs-turbo"
+	SERVICE_CTS       = "cts"
+	SERVICE_NAT       = "nat"
+	SERVICE_BMS       = "bms"
+	SERVICE_CCI       = "cci"
+	SERVICE_CSBS      = "csbs"
+	SERVICE_IMS       = "ims"
+	SERVICE_AS        = "as"
+	SERVICE_CCE       = "cce"
+	SERVICE_DCS       = "dcs"
+	SERVICE_MODELARTS = "modelarts"
 )
 
 var HUAWEI_REGION_CACHES sync.Map
@@ -172,14 +193,15 @@ func (self *SHuaweiClient) getDefaultClient() *http.Client {
 	}
 	self.httpClient = self.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := self.httpClient.Transport.(*http.Transport)
-	self.httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	self.httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		service, method, path := strings.Split(req.URL.Host, ".")[0], req.Method, req.URL.Path
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if resp.StatusCode == 403 {
 				if self.cpcfg.UpdatePermission != nil {
 					self.cpcfg.UpdatePermission(service, fmt.Sprintf("%s %s", method, path))
 				}
 			}
+			return nil
 		}
 		if self.cpcfg.ReadOnly {
 			// get or metric skip read only check
@@ -340,6 +362,11 @@ func (self *SHuaweiClient) vpcCreate(regionId, resource string, params map[strin
 	return self.request(httputils.POST, uri, url.Values{}, params)
 }
 
+func (self *SHuaweiClient) vpcPost(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.POST, uri, url.Values{}, params)
+}
+
 func (self *SHuaweiClient) vpcGet(regionId, resource string) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
 	return self.request(httputils.GET, uri, url.Values{}, nil)
@@ -389,10 +416,12 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 		body = jsonutils.Marshal(params)
 	}
 	header := http.Header{}
-	if len(self.projectId) > 0 {
+	if len(self.projectId) > 0 && !strings.Contains(url, "eps") {
 		header.Set("X-Project-Id", self.projectId)
 	}
-	if strings.Contains(url, "/OS-CREDENTIAL/credentials") && len(self.ownerId) > 0 {
+	if (strings.Contains(url, "/OS-CREDENTIAL/") ||
+		strings.Contains(url, "/users") ||
+		strings.Contains(url, "eps.myhuaweicloud.com")) && len(self.ownerId) > 0 {
 		header.Set("X-Domain-Id", self.ownerId)
 	}
 	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, header, body, self.debug)
@@ -482,22 +511,23 @@ func getOBSEndpoint(regionId string) string {
 	return fmt.Sprintf("obs.%s.myhuaweicloud.com", regionId)
 }
 
-func (self *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
+func (self *SHuaweiClient) getOBSClient(regionId string, signType obs.SignatureType) (*obs.ObsClient, error) {
 	endpoint := getOBSEndpoint(regionId)
-	cli, err := obs.New(self.accessKey, self.accessSecret, endpoint)
+	cli, err := obs.New(self.accessKey, self.accessSecret, endpoint, obs.WithSignature(signType))
 	if err != nil {
 		return nil, err
 	}
 	client := cli.GetClient()
 	ts, _ := client.Transport.(*http.Transport)
-	client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		method, path := req.Method, req.URL.Path
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if resp.StatusCode == 403 {
 				if self.cpcfg.UpdatePermission != nil {
 					self.cpcfg.UpdatePermission("obs", fmt.Sprintf("%s %s", method, path))
 				}
 			}
+			return nil
 		}
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" || req.Method == "HEAD" {
@@ -512,7 +542,7 @@ func (self *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error)
 }
 
 func (self *SHuaweiClient) fetchBuckets() error {
-	obscli, err := self.getOBSClient(HUAWEI_DEFAULT_REGION)
+	obscli, err := self.getOBSClient(HUAWEI_DEFAULT_REGION, "")
 	if err != nil {
 		return errors.Wrap(err, "getOBSClient")
 	}
@@ -581,8 +611,18 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccounts := make([]cloudprovider.SSubAccount, 0)
 	for i := range projects {
 		project := projects[i]
-		// name 为MOS的project是华为云内部的一个特殊project。不需要同步到本地
-		if strings.ToLower(project.Name) == "mos" {
+
+		find := false
+		for j := range self.iregions {
+			region := self.iregions[j].(*SRegion)
+			if strings.Contains(project.Name, region.ID) {
+				find = true
+				break
+			}
+		}
+		if !find {
+			// name 为MOS的project是华为云内部的一个特殊project。不需要同步到本地
+			// skip invalid project
 			continue
 		}
 		// https://www.huaweicloud.com/notice/2018/20190618171312411.html
@@ -765,6 +805,7 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
@@ -880,4 +921,133 @@ func (self *SHuaweiClient) patchRequest(method httputils.THttpMethod, url string
 		return nil, err
 	}
 	return respValue, err
+}
+
+func (self *SHuaweiClient) dbinstanceSetName(instanceId string, params map[string]interface{}) error {
+	uri := fmt.Sprintf("https://rds.%s.myhuaweicloud.com/v3/%s/instances/%s/name", self.clientRegion, self.projectId, instanceId)
+	_, err := self.request(httputils.PUT, uri, nil, params)
+	return err
+}
+
+func (self *SHuaweiClient) dbinstanceSetDesc(instanceId string, params map[string]interface{}) error {
+	uri := fmt.Sprintf("https://rds.%s.myhuaweicloud.com/v3/%s/instances/%s/alias", self.clientRegion, self.projectId, instanceId)
+	_, err := self.request(httputils.PUT, uri, nil, params)
+	return err
+}
+
+func (self *SHuaweiClient) setPolicy(instanceId string, params map[string]interface{}) error {
+	uri := fmt.Sprintf("https://%s.obs.%s.myhuaweicloud.com?policy", instanceId, self.clientRegion)
+	_, err := self.request(httputils.PUT, uri, nil, params)
+	return err
+}
+
+func (self *SHuaweiClient) list(service, regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.GET, nil)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.GET, url, query, nil)
+}
+
+func (self *SHuaweiClient) delete(service, regionId, resource string) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.DELETE, nil)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.DELETE, url, nil, nil)
+}
+
+func (self *SHuaweiClient) getUrl(service, regionId, resource string, method httputils.THttpMethod, params map[string]interface{}) (string, error) {
+	url := ""
+	resource = strings.TrimPrefix(resource, "/")
+	switch service {
+	case SERVICE_IAM:
+		url = fmt.Sprintf("https://iam.myhuaweicloud.com/v3.0/%s", resource)
+		if !strings.HasPrefix(resource, "OS-") {
+			url = fmt.Sprintf("https://iam.myhuaweicloud.com/v3/%s", resource)
+		}
+	case SERVICE_ELB:
+		url = fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_VPC:
+		version := "v1"
+		if strings.HasPrefix(resource, "vpc/") {
+			version = "v3"
+		}
+		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/%s/%s/%s", regionId, version, self.projectId, resource)
+	case SERVICE_CES:
+		url = fmt.Sprintf("https://ces.%s.myhuaweicloud.com/v1.0/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_MODELARTS:
+		url = fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+		if strings.HasPrefix(resource, "networks") || strings.HasPrefix(resource, "resourceflavors") {
+			url = fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+		}
+	case SERVICE_RDS:
+		url = fmt.Sprintf("https://rds.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_ECS:
+		version := "v1"
+		for _, prefix := range []string{
+			"os-availability-zone",
+			"servers",
+			"os-keypairs",
+		} {
+			if strings.HasPrefix(resource, prefix) || strings.Contains(resource, "os-security-groups") {
+				version = "v2.1"
+				break
+			}
+		}
+		if strings.HasSuffix(resource, "action") && !gotypes.IsNil(params) {
+			for _, k := range []string{"addSecurityGroup", "removeSecurityGroup"} {
+				_, ok := params[k]
+				if ok {
+					version = "v2.1"
+					break
+				}
+			}
+		}
+		url = fmt.Sprintf("https://ecs.%s.myhuaweicloud.com/%s/%s/%s", regionId, version, self.projectId, resource)
+	case SERVICE_EPS:
+		url = fmt.Sprintf("https://eps.myhuaweicloud.com/v1.0/%s", resource)
+	case SERVICE_EVS:
+		version := "v2"
+		url = fmt.Sprintf("https://evs.%s.myhuaweicloud.com/%s/%s/%s", regionId, version, self.projectId, resource)
+	case SERVICE_BSS:
+		url = fmt.Sprintf("https://bss.myhuaweicloud.com/v2/%s", resource)
+	case SERVICE_SFS:
+		url = fmt.Sprintf("https://sfs-turbo.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_IMS:
+		url = fmt.Sprintf("https://ims.%s.myhuaweicloud.com/v2/%s", regionId, resource)
+	case SERVICE_DCS:
+		url = fmt.Sprintf("https://dcs.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_CTS:
+		url = fmt.Sprintf("https://cts.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_NAT:
+		url = fmt.Sprintf("https://nat.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+	default:
+		return "", fmt.Errorf("invalid service %s", service)
+	}
+	return url, nil
+}
+
+func (self *SHuaweiClient) post(service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.POST, params)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.POST, url, nil, params)
+}
+
+func (self *SHuaweiClient) patch(service, regionId, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.PATCH, params)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.PATCH, url, query, params)
+}
+
+func (self *SHuaweiClient) put(service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	url, err := self.getUrl(service, regionId, resource, httputils.PUT, params)
+	if err != nil {
+		return nil, err
+	}
+	return self.request(httputils.PUT, url, nil, params)
 }

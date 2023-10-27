@@ -21,11 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -37,57 +35,44 @@ type SMountInstances struct {
 	MountInstance []string
 }
 
+type VolumeAttachment struct {
+	AttachTime          time.Time `xml:"attachTime"`
+	DeleteOnTermination bool      `xml:"deleteOnTermination"`
+	Device              string    `xml:"device"`
+	InstanceId          string    `xml:"instanceId"`
+	State               string    `xml:"status"`
+	VolumeId            string    `xml:"volumeId"`
+}
+
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
 	AwsTags
 
-	RegionId string
-	ZoneId   string // AvailabilityZone
-	DiskId   string // VolumeId
+	AvailabilityZone string `xml:"availabilityZone"`
+	VolumeId         string `xml:"volumeId"`
 
-	DiskName         string // Tag Name
-	Size             int    // Size GB
-	Category         string // VolumeType
-	Type             string // system | data
-	Status           string // State
-	AttachmentStatus string // attachment.status
-	Device           string // Device
-	InstanceId       string // InstanceId
-	Encrypted        bool   // Encrypted
-	SourceSnapshotId string // SnapshotId
-	Iops             int    // Iops
-
-	CreationTime time.Time // CreateTime
-	AttachedTime time.Time // AttachTime
-	DetachedTime time.Time
-
-	DeleteWithInstance            bool // DeleteOnTermination
-	EnableAutoSnapshot            bool
-	EnableAutomatedSnapshotPolicy bool
-
-	/*下面这些字段也许不需要*/
-	AutoSnapshotPolicyId string
-	DeleteAutoSnapshot   bool
-	Description          string
-	DiskChargeType       InstanceChargeType
-	ExpiredTime          time.Time
-	ImageId              string
-	MountInstances       SMountInstances
-	Portable             bool
-	ProductCode          string
-	ResourceGroupId      string
+	Size        int                `xml:"size"`
+	VolumeType  string             `xml:"volumeType"`
+	State       string             `xml:"status"`
+	Encrypted   bool               `xml:"encrypted"`
+	SnapshotId  string             `xml:"snapshotId"`
+	Iops        int                `xml:"iops"`
+	Throughput  int                `xml:"throughput"`
+	CreateTime  time.Time          `xml:"createTime"`
+	Attachments []VolumeAttachment `xml:"attachmentSet>item"`
 }
 
 func (self *SDisk) GetId() string {
-	return self.DiskId
+	return self.VolumeId
 }
 
 func (self *SDisk) GetName() string {
-	if len(self.DiskName) > 0 {
-		return self.DiskName
+	name := self.AwsTags.GetName()
+	if len(name) > 0 {
+		return name
 	}
-	return self.DiskId
+	return self.VolumeId
 }
 
 func (self *SDisk) GetIops() int {
@@ -95,12 +80,12 @@ func (self *SDisk) GetIops() int {
 }
 
 func (self *SDisk) GetGlobalId() string {
-	return self.DiskId
+	return self.VolumeId
 }
 
 func (self *SDisk) GetStatus() string {
 	// creating | available | in-use | deleting | deleted | error
-	switch self.Status {
+	switch self.State {
 	case "creating":
 		return api.DISK_ALLOCATING
 	case "deleting":
@@ -113,28 +98,23 @@ func (self *SDisk) GetStatus() string {
 }
 
 func (self *SDisk) Refresh() error {
-	new, err := self.storage.zone.region.GetDisk(self.DiskId)
+	disk, err := self.storage.zone.region.GetDisk(self.VolumeId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
-}
-
-func (self *SDisk) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, disk)
 }
 
 func (self *SDisk) GetBillingType() string {
-	// todo: implement me
 	return billing.BILLING_TYPE_POSTPAID
 }
 
 func (self *SDisk) GetCreatedAt() time.Time {
-	return self.CreationTime
+	return self.CreateTime
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	return self.ExpiredTime
+	return time.Time{}
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -150,15 +130,49 @@ func (self *SDisk) GetDiskSizeMB() int {
 }
 
 func (self *SDisk) GetIsAutoDelete() bool {
-	return self.DeleteWithInstance
+	for _, attach := range self.Attachments {
+		if attach.DeleteOnTermination == true {
+			return true
+		}
+	}
+	return false
+}
+
+func (self *SDisk) getInstanceId() string {
+	for _, attach := range self.Attachments {
+		if len(attach.InstanceId) > 0 {
+			return attach.InstanceId
+		}
+	}
+	return ""
 }
 
 func (self *SDisk) GetTemplateId() string {
-	return self.ImageId
+	instanceId := self.getInstanceId()
+	if len(instanceId) > 0 {
+		ins, err := self.storage.zone.region.GetInstance(instanceId)
+		if err == nil {
+			return ins.ImageId
+		}
+	}
+	return ""
+}
+
+func (self *SDisk) getDevice() string {
+	for _, dev := range self.Attachments {
+		if len(dev.Device) > 0 {
+			return dev.Device
+		}
+	}
+	return ""
 }
 
 func (self *SDisk) GetDiskType() string {
-	return self.Type
+	device := self.getDevice()
+	if strings.HasSuffix(device, "a") || strings.HasSuffix(device, "1") {
+		return api.DISK_TYPE_SYS
+	}
+	return api.DISK_TYPE_DATA
 }
 
 func (self *SDisk) GetFsFormat() string {
@@ -182,360 +196,209 @@ func (self *SDisk) GetMountpoint() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
-		log.Errorf("Failed to find disk %s when delete", self.DiskId)
-		return nil
-	}
-	return self.storage.zone.region.DeleteDisk(self.DiskId)
+	return self.storage.zone.region.DeleteDisk(self.VolumeId)
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc); err != nil {
-		log.Errorf("createSnapshot fail %s", err)
-		return nil, errors.Wrap(err, "CreateSnapshot")
-	} else if snapshot, err := self.getSnapshot(snapshotId); err != nil {
-		log.Errorf("getSnapshot %s", snapshotId)
-		return nil, errors.Wrap(err, "getSnapshot")
-	} else {
-		snapshot.region = self.storage.zone.region
-		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
-			return nil, errors.Wrap(err, "WaitStatus.snapshot")
-		}
-		return snapshot, nil
+	snapshot, err := self.storage.zone.region.CreateSnapshot(self.VolumeId, name, desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateSnapshot")
 	}
+	return snapshot, nil
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshot, err := self.getSnapshot(snapshotId); err != nil {
-		return nil, errors.Wrap(err, "getSnapshot")
-	} else {
-		snapshot.region = self.storage.zone.region
-		return snapshot, nil
+	snapshot, err := self.storage.zone.region.GetSnapshot(snapshotId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSnapshot")
 	}
+	snapshot.region = self.storage.zone.region
+	return snapshot, nil
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots := make([]SSnapshot, 0)
-	for {
-		if parts, total, err := self.storage.zone.region.GetSnapshots("", self.DiskId, "", []string{}, 0, 20); err != nil {
-			log.Errorf("GetSnapshots fail %s", err)
-			return nil, errors.Wrap(err, "GetSnapshots")
-		} else {
-			snapshots = append(snapshots, parts...)
-			if len(snapshots) >= total {
-				break
-			}
-		}
+	snapshots, err := self.storage.zone.region.GetSnapshots(self.VolumeId, "", nil)
+	if err != nil {
+		return nil, err
 	}
-	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	ret := []cloudprovider.ICloudSnapshot{}
 	for i := 0; i < len(snapshots); i++ {
 		snapshots[i].region = self.storage.zone.region
-		isnapshots[i] = &snapshots[i]
+		ret = append(ret, &snapshots[i])
 	}
-	return isnapshots, nil
+	return ret, nil
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMb int64) error {
-	err := self.storage.zone.region.resizeDisk(self.DiskId, newSizeMb)
+	err := self.storage.zone.region.ResizeDisk(self.VolumeId, newSizeMb/1024)
 	if err != nil {
 		return err
 	}
-
 	return cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 5*time.Second, 5*time.Second, 90*time.Second)
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
+	if self.State != "available" {
+		return "", errors.Wrapf(cloudprovider.ErrInvalidStatus, "invalid status %s", self.State)
+	}
+	disk, err := self.storage.zone.region.CreateDisk(self.AvailabilityZone, self.VolumeType, self.GetName(), self.GetDiskSizeMB()/1024, self.Iops, self.Throughput, snapshotId, self.GetDescription())
+	if err != nil {
+		return "", errors.Wrapf(err, "CreateDisk")
+	}
+	err = self.storage.zone.region.DeleteDisk(self.VolumeId)
+	if err != nil {
+		self.storage.zone.region.DeleteDisk(disk.VolumeId)
+		return "", err
+	}
+	return disk.VolumeId, nil
 }
 
-func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
-	if len(snapshotId) == 0 {
-		return nil, fmt.Errorf("GetSnapshot snapshot id should not be empty.")
+func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType string, diskIds []string) ([]SDisk, error) {
+	params := map[string]string{}
+	for i, diskId := range diskIds {
+		params[fmt.Sprintf("VolumeId.%d", i+1)] = diskId
 	}
-
-	if snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
-		return nil, errors.Wrap(err, "GetSnapshots")
-	} else if total != 1 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
-	} else {
-		return &snapshots[0], nil
-	}
-}
-
-func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
-	params := &ec2.DescribeVolumesInput{}
-	filters := make([]*ec2.Filter, 0)
+	idx := 1
 	if len(instanceId) > 0 {
-		filters = AppendSingleValueFilter(filters, "attachment.instance-id", instanceId)
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "attachment.instance-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = instanceId
+		idx++
 	}
-
 	if len(zoneId) > 0 {
-		filters = AppendSingleValueFilter(filters, "availability-zone", zoneId)
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "availability-zone"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = zoneId
+		idx++
 	}
-
 	if len(storageType) > 0 {
-		filters = AppendSingleValueFilter(filters, "volume-type", storageType)
-	}
-
-	if len(filters) > 0 {
-		params.SetFilters(filters)
-	}
-
-	if len(diskIds) > 0 {
-		params.SetVolumeIds(ConvertedList(diskIds))
-	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeVolumes(params)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "DescribeVolumes")
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "volume-type"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = storageType
+		idx++
 	}
 
 	disks := []SDisk{}
-	for _, item := range ret.Volumes {
-		if err := FillZero(item); err != nil {
-			return nil, 0, err
+
+	for {
+		part := struct {
+			VolumeSet []SDisk `xml:"volumeSet>item"`
+			NextToken string  `xml:"nextToken"`
+		}{}
+
+		err := self.ec2Request("DescribeVolumes", params, &part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeVolumes")
 		}
-
-		tagspec := TagSpec{}
-		tagspec.LoadingEc2Tags(item.Tags)
-
-		disk := SDisk{}
-		disk.ZoneId = *item.AvailabilityZone
-		disk.Status = *item.State
-		disk.DiskName = tagspec.GetNameTag()
-		disk.Size = int(*item.Size)
-		disk.Category = *item.VolumeType
-		disk.RegionId = self.RegionId
-		disk.SourceSnapshotId = *item.SnapshotId
-		disk.Encrypted = *item.Encrypted
-		disk.DiskId = *item.VolumeId
-		disk.Iops = int(*item.Iops)
-		disk.CreationTime = *item.CreateTime
-		jsonutils.Update(&disk.AwsTags.TagSet, item.Tags)
-		if len(item.Attachments) > 0 {
-			disk.DeleteWithInstance = *item.Attachments[0].DeleteOnTermination
-			disk.AttachedTime = *item.Attachments[0].AttachTime
-			disk.AttachmentStatus = *item.Attachments[0].State
-			disk.Device = StrVal(item.Attachments[0].Device)
-			disk.InstanceId = StrVal(item.Attachments[0].InstanceId)
-			// todo: 需要通过describe-instances 的root device 判断是否是系统盘
-			// todo: 系统盘需要放在返回disks列表的首位
-			if len(disk.InstanceId) > 0 {
-				instance, err := self.GetInstance(disk.InstanceId)
-				if err != nil {
-					log.Debugf("%s", err)
-					return nil, 0, err
-				}
-
-				if disk.Device == instance.RootDeviceName {
-					disk.Type = api.DISK_TYPE_SYS
-					disk.ImageId = instance.ImageId
-				} else {
-					disk.Type = api.DISK_TYPE_DATA
-				}
-			} else {
-				disk.Type = api.DISK_TYPE_DATA
-			}
+		disks = append(disks, part.VolumeSet...)
+		if len(part.VolumeSet) == 0 || len(part.NextToken) == 0 {
+			break
 		}
-
-		disks = append(disks, disk)
+		params["NextToken"] = part.NextToken
 	}
 
-	// 	系统盘必须放在第零个位置
-	sort.Slice(disks, func(i, j int) bool {
-		if disks[i].Type == api.DISK_TYPE_SYS {
-			return true
-		}
+	if len(instanceId) > 0 {
+		// 	系统盘必须放在第零个位置
+		sort.Slice(disks, func(i, j int) bool {
+			return disks[i].getDevice() < disks[j].getDevice()
+		})
+	}
 
-		if disks[j].Type != api.DISK_TYPE_SYS && disks[i].Device < disks[j].Device {
-			return true
-		}
-
-		return false
-	})
-
-	return disks, len(disks), nil
+	return disks, nil
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	if len(diskId) == 0 {
-		// return nil, fmt.Errorf("GetDisk diskId should not be empty.")
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisk")
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "empty disk id")
 	}
-	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
+	disks, err := self.GetDisks("", "", "", []string{diskId})
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
 			return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisks")
-		} else {
-			return nil, errors.Wrap(err, "GetDisks")
+		}
+		return nil, errors.Wrap(err, "GetDisks")
+	}
+	for i := range disks {
+		if disks[i].VolumeId == diskId {
+			return &disks[i], nil
 		}
 	}
-	if total != 1 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisk")
-	}
-	return &disks[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
-	disk, err := self.GetDisk(diskId)
-	if err != nil {
-		return err
+	params := map[string]string{
+		"VolumeId": diskId,
 	}
-
-	if disk.Status != ec2.VolumeStateAvailable {
-		return fmt.Errorf("disk status not in %s", ec2.VolumeStateAvailable)
-	}
-	params := &ec2.DeleteVolumeInput{}
-	if len(diskId) <= 0 {
-		return fmt.Errorf("disk id should not be empty")
-	}
-
-	params.SetVolumeId(diskId)
-	log.Debugf("DeleteDisk with params: %s", params.String())
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.DeleteVolume(params)
-	return err
+	ret := struct{}{}
+	return self.ec2Request("DeleteVolume", params, &ret)
 }
 
-func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
+func (self *SRegion) ResizeDisk(diskId string, sizeGb int64) error {
 	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/volume_constraints.html
 	// MBR -> 2 TiB
 	// GPT -> 16 TiB
 	// size unit GiB
-	sizeGb := sizeMb / 1024
-	params := &ec2.ModifyVolumeInput{}
-	if sizeGb > 0 {
-		params.SetSize(sizeGb)
-	} else {
-		return fmt.Errorf("size should great than 0")
+	params := map[string]string{
+		"Size":     fmt.Sprintf("%d", sizeGb),
+		"VolumeId": diskId,
 	}
-
-	if len(diskId) <= 0 {
-		return fmt.Errorf("disk id should not be empty")
-	} else {
-		params.SetVolumeId(diskId)
-	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.ModifyVolume(params)
-	return err
-}
-
-func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
-	// 这里实际是回滚快照
-	disk, err := self.GetDisk(diskId)
-	if err != nil {
-		log.Debugf("resetDisk %s:%s", diskId, err.Error())
-		return "", err
-	}
-
-	params := &ec2.CreateVolumeInput{}
-	if len(snapshotId) > 0 {
-		params.SetSnapshotId(snapshotId)
-	}
-	params.SetSize(int64(disk.Size))
-	params.SetVolumeType(disk.Category)
-	params.SetAvailabilityZone(disk.ZoneId)
-	//tags, _ := disk.Tags.GetTagSpecifications()
-	//params.SetTagSpecifications([]*ec2.TagSpecification{tags})
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.CreateVolume(params)
-	if err != nil {
-		log.Debugf("resetDisk %s: %s", params.String(), err.Error())
-		return "", err
-	}
-
-	// detach disk
-	if disk.Status == ec2.VolumeStateInUse {
-		err := self.DetachDisk(disk.InstanceId, diskId)
-		if err != nil {
-			log.Debugf("resetDisk %s %s: %s", disk.InstanceId, diskId, err.Error())
-			return "", err
-		}
-
-		err = ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
-		if err != nil {
-			log.Debugf("resetDisk :%s", err.Error())
-			return "", err
-		}
-	}
-
-	err = self.AttachDisk(disk.InstanceId, *ret.VolumeId, disk.Device)
-	if err != nil {
-		log.Debugf("resetDisk %s %s %s: %s", disk.InstanceId, *ret.VolumeId, disk.Device, err.Error())
-		return "", err
-	}
-
-	// 绑定成功后删除原磁盘
-	return StrVal(ret.VolumeId), self.DeleteDisk(diskId)
+	ret := struct{}{}
+	return self.ec2Request("ModifyVolume", params, &ret)
 }
 
 // io1类型的卷需要指定IOPS参数,最大不超过32000。这里根据aws网站的建议值进行设置
 // io2类型的卷需要指定IOPS参数,最大不超过64000。
 // GenDiskIops Base 100, 卷每增加2G。IOPS增加1。最多到3000 iops
 func GenDiskIops(diskType string, sizeGB int) int64 {
-	if diskType == api.STORAGE_IO1_SSD || diskType == api.STORAGE_IO2_SSD {
+	switch diskType {
+	case api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD:
 		iops := int64(100 + sizeGB/2)
-		if iops < 3000 {
+		if iops < 32000 {
 			return iops
-		} else {
-			return 3000
 		}
+		return 100
+	case api.STORAGE_GP3_SSD:
+		return 3000
 	}
-
 	return 0
 }
 
-func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
-	tagspec := TagSpec{ResourceType: "volume"}
-	tagspec.SetNameTag(name)
-	tagspec.SetDescTag(desc)
-	ec2Tags, _ := tagspec.GetTagSpecifications()
-
-	params := &ec2.CreateVolumeInput{}
-	params.SetAvailabilityZone(zoneId)
-	params.SetVolumeType(category)
-	params.SetSize(int64(sizeGb))
+func (self *SRegion) CreateDisk(zoneId string, volumeType string, name string, sizeGb, iops, throughput int, snapshotId string, desc string) (*SDisk, error) {
+	params := map[string]string{
+		"AvailabilityZone": zoneId,
+		"ClientToken":      utils.GenRequestId(20),
+		"Size":             fmt.Sprintf("%d", sizeGb),
+		"VolumeType":       volumeType,
+	}
+	tagIdx := 1
+	if len(name) > 0 {
+		params[fmt.Sprintf("TagSpecification.%d.ResourceType", tagIdx)] = "volume"
+		params[fmt.Sprintf("TagSpecification.%d.Tag.1.Key", tagIdx)] = "Name"
+		params[fmt.Sprintf("TagSpecification.%d.Tag.1.Value", tagIdx)] = name
+		if len(desc) > 0 {
+			params[fmt.Sprintf("TagSpecification.%d.Tag.2.Key", tagIdx)] = "Description"
+			params[fmt.Sprintf("TagSpecification.%d.Tag.2.Value", tagIdx)] = desc
+		}
+		tagIdx++
+	}
 	if len(snapshotId) > 0 {
-		params.SetSnapshotId(snapshotId)
+		params["SnapshotId"] = snapshotId
+	}
+	if throughput >= 125 && throughput <= 1000 && volumeType == api.STORAGE_GP3_SSD {
+		params["Throughput"] = fmt.Sprintf("%d", throughput)
 	}
 
-	if iops := GenDiskIops(category, sizeGb); iops > 0 {
-		params.SetIops(iops)
+	if iops == 0 {
+		iops = int(GenDiskIops(volumeType, sizeGb))
 	}
 
-	params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tags})
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
+	if utils.IsInStringArray(volumeType, []string{
+		api.STORAGE_IO1_SSD,
+		api.STORAGE_IO2_SSD,
+		api.STORAGE_GP3_SSD,
+	}) {
+		params["Iops"] = fmt.Sprintf("%d", iops)
 	}
-	ret, err := ec2Client.CreateVolume(params)
-	if err != nil {
-		return "", err
-	}
-
-	paramsWait := &ec2.DescribeVolumesInput{}
-	paramsWait.SetVolumeIds([]*string{ret.VolumeId})
-	err = ec2Client.WaitUntilVolumeAvailable(paramsWait)
-	if err != nil {
-		return "", err
-	}
-	return StrVal(ret.VolumeId), nil
+	ret := &SDisk{}
+	return ret, self.ec2Request("CreateVolume", params, ret)
 }
 
 func (disk *SDisk) GetAccessPath() string {
@@ -543,10 +406,13 @@ func (disk *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Rebuild(ctx context.Context) error {
-	_, err := self.storage.zone.region.resetDisk(self.DiskId, "")
-	return err
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) GetProjectId() string {
 	return ""
+}
+
+func (self *SDisk) GetDescription() string {
+	return self.AwsTags.GetDescription()
 }

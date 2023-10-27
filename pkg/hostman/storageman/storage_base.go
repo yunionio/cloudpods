@@ -100,6 +100,8 @@ type IStorage interface {
 	GetStoragecacheId() string
 	SetStoragecacheId(storagecacheId string)
 
+	IsLocal() bool
+
 	SetPath(string)
 	GetPath() string
 

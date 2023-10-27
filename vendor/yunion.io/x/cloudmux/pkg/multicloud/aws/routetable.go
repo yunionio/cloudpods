@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -34,24 +32,24 @@ type SRouteTable struct {
 	region *SRegion
 	vpc    *SVpc
 
-	Associations    []Association `json:"Associations"`
-	PropagatingVgws []string      `json:"PropagatingVgws"`
-	RouteTableID    string        `json:"RouteTableId"`
-	Routes          []SRoute      `json:"Routes"`
-	VpcID           string        `json:"VpcId"`
-	OwnerID         string        `json:"OwnerId"`
+	Associations    []Association `xml:"associationSet>item"`
+	PropagatingVgws []string      `xml:"propagatingVgwSet>item"`
+	RouteTableId    string        `xml:"routeTableId"`
+	Routes          []SRoute      `xml:"routeSet>item"`
+	VpcId           string        `json:"vpcId"`
+	OwnerId         string        `json:"ownerId"`
 }
 
 type Association struct {
-	Main                    bool    `json:"Main"`
-	RouteTableAssociationID string  `json:"RouteTableAssociationId"`
-	RouteTableID            string  `json:"RouteTableId"`
-	GatewayID               *string `json:"GatewayId,omitempty"`
-	SubnetID                *string `json:"SubnetId,omitempty"`
+	Main                    bool    `xml:"main"`
+	RouteTableAssociationId string  `xml:"routeTableAssociationId"`
+	RouteTableId            string  `xml:"routeTableId"`
+	GatewayId               *string `xml:"gatewayId"`
+	SubnetId                *string `xml:"subnetId"`
 }
 
 func (self *SRouteTable) GetId() string {
-	return self.RouteTableID
+	return self.RouteTableId
 }
 
 func (self *SRouteTable) GetName() string {
@@ -69,19 +67,9 @@ func (self *SRouteTable) GetStatus() string {
 func (self *SRouteTable) Refresh() error {
 	ret, err := self.region.GetRouteTable(self.GetId())
 	if err != nil {
-		return errors.Wrap(err, "SRouteTable.Refresh.GetRouteTable")
+		return errors.Wrap(err, "GetRouteTable")
 	}
-
-	err = jsonutils.Update(self, ret)
-	if err != nil {
-		return errors.Wrap(err, "SRouteTable.Refresh.Update")
-	}
-
-	return nil
-}
-
-func (self *SRouteTable) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, ret)
 }
 
 func (self *SRouteTable) GetDescription() string {
@@ -93,7 +81,7 @@ func (self *SRouteTable) GetRegionId() string {
 }
 
 func (self *SRouteTable) GetVpcId() string {
-	return self.VpcID
+	return self.VpcId
 }
 
 func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
@@ -108,19 +96,19 @@ func (self *SRouteTable) GetType() cloudprovider.RouteTableType {
 func (self *SRouteTable) GetAssociations() []cloudprovider.RouteTableAssociation {
 	result := []cloudprovider.RouteTableAssociation{}
 	for i := range self.Associations {
-		if self.Associations[i].GatewayID != nil {
+		if self.Associations[i].GatewayId != nil {
 			association := cloudprovider.RouteTableAssociation{
-				AssociationId:        self.Associations[i].RouteTableAssociationID,
+				AssociationId:        self.Associations[i].RouteTableAssociationId,
 				AssociationType:      cloudprovider.RouteTableAssociaToRouter,
-				AssociatedResourceId: *self.Associations[i].GatewayID,
+				AssociatedResourceId: *self.Associations[i].GatewayId,
 			}
 			result = append(result, association)
 		}
-		if self.Associations[i].SubnetID != nil {
+		if self.Associations[i].SubnetId != nil {
 			association := cloudprovider.RouteTableAssociation{
-				AssociationId:        self.Associations[i].RouteTableAssociationID,
+				AssociationId:        self.Associations[i].RouteTableAssociationId,
 				AssociationType:      cloudprovider.RouteTableAssociaToSubnet,
-				AssociatedResourceId: *self.Associations[i].SubnetID,
+				AssociatedResourceId: *self.Associations[i].SubnetId,
 			}
 			result = append(result, association)
 		}
@@ -129,9 +117,9 @@ func (self *SRouteTable) GetAssociations() []cloudprovider.RouteTableAssociation
 }
 
 func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
-	err := self.region.CreateRoute(self.RouteTableID, route.Destination, route.NextHop)
+	err := self.region.CreateRoute(self.RouteTableId, route.Destination, route.NextHop)
 	if err != nil {
-		return errors.Wrapf(err, "self.region.CreateRoute(%s,%s,%s)", self.RouteTableID, route.Destination, route.NextHop)
+		return errors.Wrapf(err, "self.region.CreateRoute(%s,%s,%s)", self.RouteTableId, route.Destination, route.NextHop)
 	}
 	return nil
 }
@@ -141,9 +129,9 @@ func (self *SRouteTable) UpdateRoute(route cloudprovider.RouteSet) error {
 	if len(routeInfo) != 2 {
 		return errors.Wrap(cloudprovider.ErrNotSupported, "invalid route info")
 	}
-	err := self.region.RemoveRoute(self.RouteTableID, routeInfo[0])
+	err := self.region.RemoveRoute(self.RouteTableId, routeInfo[0])
 	if err != nil {
-		return errors.Wrapf(err, "self.region.RemoveRoute(%s,%s)", self.RouteTableID, route.Destination)
+		return errors.Wrapf(err, "self.region.RemoveRoute(%s,%s)", self.RouteTableId, route.Destination)
 	}
 
 	err = self.CreateRoute(route)
@@ -154,9 +142,9 @@ func (self *SRouteTable) UpdateRoute(route cloudprovider.RouteSet) error {
 }
 
 func (self *SRouteTable) RemoveRoute(route cloudprovider.RouteSet) error {
-	err := self.region.RemoveRoute(self.RouteTableID, route.Destination)
+	err := self.region.RemoveRoute(self.RouteTableId, route.Destination)
 	if err != nil {
-		return errors.Wrapf(err, "self.region.RemoveRoute(%s,%s)", self.RouteTableID, route.Destination)
+		return errors.Wrapf(err, "self.region.RemoveRoute(%s,%s)", self.RouteTableId, route.Destination)
 	}
 	return nil
 }
@@ -171,195 +159,139 @@ func (self *SRouteTable) GetIRoutes() ([]cloudprovider.ICloudRoute, error) {
 	return iroutes, nil
 }
 
-func (self *SRegion) GetRouteTables(vpcId string, mainRouteOnly bool) ([]SRouteTable, error) {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
+func (self *SRegion) GetRouteTables(vpcId, subnetId, vpcPeerId, rid string, mainRouteOnly bool) ([]SRouteTable, error) {
+	params := map[string]string{}
+	if len(rid) > 0 {
+		params["RouteTableId.1"] = rid
 	}
-
-	input := &ec2.DescribeRouteTablesInput{}
-	filters := make([]*ec2.Filter, 0)
-	filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
+	idx := 1
+	if len(vpcId) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "vpc-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = vpcId
+		idx++
+	}
 	if mainRouteOnly {
-		filters = AppendSingleValueFilter(filters, "association.main", "true")
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "association.main"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = "true"
+		idx++
 	}
-
-	input.SetFilters(filters)
-
-	ret, err := ec2Client.DescribeRouteTables(input)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetRouteTables.DescribeRouteTables")
+	if len(subnetId) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "association.subnet-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = subnetId
+		idx++
 	}
-
-	routeTables := make([]SRouteTable, len(ret.RouteTables))
-	err = unmarshalAwsOutput(ret, "RouteTables", routeTables)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetRouteTables.unmarshalAwsOutput")
+	if len(vpcPeerId) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "route.vpc-peering-connection-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = vpcPeerId
+		idx++
 	}
-
-	for i := range routeTables {
-		routeTables[i].region = self
+	ret := []SRouteTable{}
+	for {
+		part := struct {
+			NextToken     string        `xml:"nextToken"`
+			RouteTableSet []SRouteTable `xml:"routeTableSet>item"`
+		}{}
+		err := self.ec2Request("DescribeRouteTables", params, &part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.RouteTableSet...)
+		if len(part.NextToken) == 0 || len(part.RouteTableSet) == 0 {
+			break
+		}
+		params["NextToken"] = part.NextToken
 	}
-
-	return routeTables, nil
+	return ret, nil
 }
 
-func (self *SRegion) CreateRoute(routeTableId string, DestinationCIDRBlock string, targetId string) error {
-	input := &ec2.CreateRouteInput{}
-	input.RouteTableId = &routeTableId
-	input.DestinationCidrBlock = &DestinationCIDRBlock
+func (self *SRegion) CreateRoute(routeTableId string, cidr string, targetId string) error {
+	segs := strings.Split(targetId, "-")
+	if len(segs) == 0 {
+		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
+	}
+	params := map[string]string{
+		"RouteTableId":         routeTableId,
+		"DestinationCidrBlock": cidr,
+	}
+	switch segs[0] {
+	case "i":
+		params["InstanceId"] = targetId
+	case "igw", "vgw":
+		params["GatewayId"] = targetId
+	case "pcx":
+		params["VpcPeeringConnectionId"] = targetId
+	case "eni":
+		params["NetworkInterfaceId"] = targetId
+	case "nat":
+		params["NatGatewayId"] = targetId
+	case "eigw":
+		params["EgressOnlyInternetGatewayId"] = targetId
+	default:
+		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
+	}
+	ret := struct{}{}
+	return self.ec2Request("CreateRoute", params, &ret)
+}
+
+func (self *SRegion) ReplaceRoute(routeTableId string, cidr string, targetId string) error {
+	params := map[string]string{
+		"RouteTableId":         routeTableId,
+		"DestinationCidrBlock": cidr,
+	}
 	segs := strings.Split(targetId, "-")
 	if len(segs) == 0 {
 		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
 	}
 	switch segs[0] {
 	case "i":
-		input.InstanceId = &targetId
+		params["InstanceId"] = targetId
 	case "igw", "vgw":
-		input.GatewayId = &targetId
+		params["GatewayId"] = targetId
 	case "pcx":
-		input.VpcPeeringConnectionId = &targetId
+		params["VpcPeeringConnectionId"] = targetId
 	case "eni":
-		input.NetworkInterfaceId = &targetId
+		params["NetworkInterfaceId"] = targetId
 	case "nat":
-		input.NatGatewayId = &targetId
+		params["NatGatewayId"] = targetId
 	case "eigw":
-		input.EgressOnlyInternetGatewayId = &targetId
+		params["EgressOnlyInternetGatewayId"] = targetId
 	default:
 		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
 	}
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.CreateRoute(input)
-	if err != nil {
-		return errors.Wrapf(err, "self.ec2Client.CreateRoute(%s)", jsonutils.Marshal(input).String())
-	}
-	return nil
+	ret := struct{}{}
+	return self.ec2Request("eplaceRoute", params, &ret)
 }
 
-func (self *SRegion) ReplaceRoute(routeTableId string, DestinationCIDRBlock string, targetId string) error {
-	input := &ec2.ReplaceRouteInput{}
-	input.RouteTableId = &routeTableId
-	input.DestinationCidrBlock = &DestinationCIDRBlock
-	segs := strings.Split(targetId, "-")
-	if len(segs) == 0 {
-		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
+func (self *SRegion) RemoveRoute(routeTableId string, cidr string) error {
+	params := map[string]string{
+		"RouteTableId":         routeTableId,
+		"DestinationCidrBlock": cidr,
 	}
-	switch segs[0] {
-	case "i":
-		input.InstanceId = &targetId
-	case "igw", "vgw":
-		input.GatewayId = &targetId
-	case "pcx":
-		input.VpcPeeringConnectionId = &targetId
-	case "eni":
-		input.NetworkInterfaceId = &targetId
-	case "nat":
-		input.NatGatewayId = &targetId
-	case "eigw":
-		input.EgressOnlyInternetGatewayId = &targetId
-	default:
-		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
-	}
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.ReplaceRoute(input)
-	if err != nil {
-		return errors.Wrapf(err, "self.ec2Client.ReplaceRouteInput(%s)", jsonutils.Marshal(input).String())
-	}
-	return nil
-}
-
-func (self *SRegion) RemoveRoute(routeTableId string, DestinationCIDRBlock string) error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	input := &ec2.DeleteRouteInput{}
-	input.RouteTableId = &routeTableId
-	input.DestinationCidrBlock = &DestinationCIDRBlock
-	_, err = ec2Client.DeleteRoute(input)
-	if err != nil {
-		return errors.Wrapf(err, "self.ec2Client.DeleteRoute(%s)", jsonutils.Marshal(input).String())
-	}
-	return nil
-}
-
-func (self *SRegion) GetRouteTablesByNetworkId(netId string) ([]SRouteTable, error) {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-
-	input := &ec2.DescribeRouteTablesInput{}
-	filter := &ec2.Filter{}
-	filter.SetName("association.subnet-id")
-	filter.SetValues([]*string{&netId})
-	input.SetFilters([]*ec2.Filter{filter})
-
-	ret, err := ec2Client.DescribeRouteTables(input)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetRouteTables.DescribeRouteTables")
-	}
-
-	routeTables := make([]SRouteTable, len(ret.RouteTables))
-	err = unmarshalAwsOutput(ret, "RouteTables", routeTables)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetRouteTables.unmarshalAwsOutput")
-	}
-
-	for i := range routeTables {
-		routeTables[i].region = self
-	}
-
-	return routeTables, nil
+	ret := struct{}{}
+	return self.ec2Request("DeleteRoute", params, &ret)
 }
 
 func (self *SRegion) GetRouteTable(id string) (*SRouteTable, error) {
-	ec2Client, err := self.getEc2Client()
+	tables, err := self.GetRouteTables("", "", "", id, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
+		return nil, err
 	}
-
-	input := &ec2.DescribeRouteTablesInput{}
-	input.RouteTableIds = []*string{&id}
-	ret, err := ec2Client.DescribeRouteTables(input)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetRouteTables.DescribeRouteTables")
+	for i := range tables {
+		if tables[i].GetGlobalId() == id {
+			return &tables[i], nil
+		}
 	}
-
-	routeTables := make([]SRouteTable, len(ret.RouteTables))
-	err = unmarshalAwsOutput(ret, "RouteTables", routeTables)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetRouteTables.unmarshalAwsOutput")
-	}
-
-	if len(routeTables) == 1 {
-		routeTables[0].region = self
-		return &routeTables[0], nil
-	} else if len(routeTables) == 0 {
-		return nil, errors.ErrNotFound
-	} else {
-		return nil, errors.ErrDuplicateId
-	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) DeleteRouteTable(rid string) error {
-	input := &ec2.DeleteRouteTableInput{}
-	input.SetRouteTableId(rid)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"RouteTableId": rid,
 	}
-	_, err = ec2Client.DeleteRouteTable(input)
-	if err != nil {
-		return errors.Wrap(err, "DeleteRouteTable")
-	}
+	ret := struct{}{}
+	return self.ec2Request("DeleteRouteTable", params, &ret)
+}
 
-	return nil
+func (self *SRoute) GetDescription() string {
+	return self.AwsTags.GetDescription()
 }

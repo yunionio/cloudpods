@@ -21,12 +21,14 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -36,50 +38,59 @@ const (
 	NON_LVM_PATH      = 2
 )
 
+type SImageProp struct {
+	HasLVMPartition bool
+	lock            *sync.Mutex
+}
+
 type SLVMImageConnectUniqueToolSet struct {
-	lvms    map[string]*sync.Mutex
-	nonLvms map[string]struct{}
-	lock    *sync.Mutex
+	*sync.Map
+	lock *sync.Mutex
 }
 
 func NewLVMImageConnectUniqueToolSet() *SLVMImageConnectUniqueToolSet {
 	return &SLVMImageConnectUniqueToolSet{
-		lvms:    make(map[string]*sync.Mutex),
-		nonLvms: make(map[string]struct{}),
-		lock:    new(sync.Mutex),
+		Map:  &sync.Map{},
+		lock: &sync.Mutex{},
 	}
 }
 
 func (s *SLVMImageConnectUniqueToolSet) CacheNonLvmImagePath(imagePath string) {
+	if im, ok := s.Load(imagePath); ok {
+		imgProp := im.(*SImageProp)
+		imgProp.HasLVMPartition = false
+	}
+}
+
+func (s *SLVMImageConnectUniqueToolSet) loadImagePath(imagePath string) (*SImageProp, bool) {
 	s.lock.Lock()
-	s.nonLvms[imagePath] = struct{}{}
-	s.lock.Unlock()
-}
-
-func (s *SLVMImageConnectUniqueToolSet) GetPathType(imagePath string) int {
-	if _, ok := s.nonLvms[imagePath]; ok {
-		return NON_LVM_PATH
-	}
-	if _, ok := s.lvms[imagePath]; ok {
-		return LVM_PATH
-	}
-	return PATH_TYPE_UNKNOWN
-}
-
-func (s *SLVMImageConnectUniqueToolSet) Release(imagePath string) {
-	if _, ok := s.lvms[imagePath]; ok {
-		s.lvms[imagePath].Unlock()
+	defer s.lock.Unlock()
+	im, ok := s.Load(imagePath)
+	if !ok {
+		imgProp := &SImageProp{
+			HasLVMPartition: true, // set has lvm partition default
+			lock:            new(sync.Mutex),
+		}
+		s.Store(imagePath, imgProp)
+		return imgProp, false
+	} else {
+		return im.(*SImageProp), ok
 	}
 }
 
-func (s *SLVMImageConnectUniqueToolSet) Acquire(imagePath string) {
-	s.lock.Lock()
-	if _, ok := s.lvms[imagePath]; !ok {
-		s.lvms[imagePath] = new(sync.Mutex)
+func (s *SLVMImageConnectUniqueToolSet) Acquire(imagePath string) (int, *sync.Mutex) {
+	var lock *sync.Mutex
+	pathType := PATH_TYPE_UNKNOWN
+	imgProp, ok := s.loadImagePath(imagePath)
+	if imgProp.HasLVMPartition {
+		if ok {
+			pathType = LVM_PATH
+		}
+		lock = imgProp.lock
+	} else {
+		pathType = NON_LVM_PATH
 	}
-	s.lock.Unlock()
-
-	s.lvms[imagePath].Lock()
+	return pathType, lock
 }
 
 type SKVMGuestLVMPartition struct {
@@ -205,6 +216,37 @@ func (p *SKVMGuestLVMPartition) FindPartitions() []*kvmpart.SKVMGuestDiskPartiti
 	return parts
 }
 
+func (p *SKVMGuestLVMPartition) UmountPartitions() error {
+	files, err := ioutil.ReadDir("/dev/" + p.vgname)
+	if err == nil {
+		for _, f := range files {
+			partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())
+			out, err := procutils.NewCommand("umount", partPath).Output()
+			if err != nil {
+				log.Errorf("failed umount part %s: %s", partPath, out)
+			}
+		}
+	}
+
+	if !os.IsNotExist(err) {
+		return errors.Errorf("unable to readir /dev/%s: %v", p.vgname, err)
+	}
+	lvs, err := p.lvs()
+	if err != nil {
+		return errors.Errorf("unable to list lvs: %v", err)
+	}
+	for _, lvname := range lvs {
+		partPath := fmt.Sprintf("/dev/mapper/%s-%s", p.vgname, lvname)
+		if fileutils2.Exists(partPath) {
+			out, err := procutils.NewCommand("umount", partPath).Output()
+			if err != nil {
+				log.Errorf("failed umount part %s: %s", partPath, out)
+			}
+		}
+	}
+	return nil
+}
+
 var gexp *regexp.Regexp = regexp.MustCompile(`\s+`)
 
 func (p *SKVMGuestLVMPartition) lvs() ([]string, error) {
@@ -230,9 +272,23 @@ func (p *SKVMGuestLVMPartition) lvs() ([]string, error) {
 }
 
 func (p *SKVMGuestLVMPartition) PutdownDevice() bool {
-	if !p.vgActivate(false) {
+	var deactivate = false
+	for i := 0; i < 10; i++ {
+		if !p.vgActivate(false) {
+			log.Errorf("failed deactivate %s", p.vgname)
+			if err := p.UmountPartitions(); err != nil {
+				log.Warningf("failed umount partitions %s", err)
+			}
+			time.Sleep(time.Second * 3)
+		} else {
+			deactivate = true
+			break
+		}
+	}
+	if !deactivate {
 		return false
 	}
+
 	if len(p.originVgname) == 0 || !p.needChangeName {
 		return true
 	}

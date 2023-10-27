@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostdhcp"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -167,12 +168,12 @@ func (m *SMemory) GetHugepages() (sysutils.THugepages, error) {
 }
 
 type SNIC struct {
-	Inter   string
-	Bridge  string
-	Ip      string
-	Network string
-	WireId  string
-	Mask    int
+	Inter  string
+	Bridge string
+	Ip     string
+	Wire   string
+	WireId string
+	Mask   int
 
 	Bandwidth  int
 	BridgeDev  hostbridge.IBridgeDriver
@@ -203,10 +204,17 @@ func (n *SNIC) SetupDhcpRelay() error {
 	return nil
 }
 
-func (n *SNIC) SetWireId(wire, wireId string, bandwidth int64) {
-	n.Network = wire
+func (n *SNIC) SetWireId(wire, wireId string, bandwidth int64) error {
+	if len(n.Wire) == 0 {
+		n.Wire = wire
+	} else if n.Wire != wire {
+		return errors.Wrapf(httperrors.ErrConflict, "expect wire %s != assign wire %s", n.Wire, wire)
+	} else {
+		// match
+	}
 	n.WireId = wireId
 	n.Bandwidth = int(bandwidth)
+	return nil
 }
 
 func (n *SNIC) ExitCleanup() {
@@ -226,7 +234,7 @@ func NewNIC(desc string) (*SNIC, error) {
 	if regutils.MatchIP4Addr(data[2]) {
 		nic.Ip = data[2]
 	} else {
-		nic.Network = data[2]
+		nic.Wire = data[2]
 	}
 	nic.Bandwidth = 1000
 
@@ -291,7 +299,7 @@ func NewNIC(desc string) (*SNIC, error) {
 	if isDHCP, err := nic.BridgeDev.DisableDHCPClient(); err != nil {
 		return nil, errors.Wrap(err, "disable dhcp client")
 	} else if isDHCP {
-		Instance().SysWarning["dhcp"] = "dhcp client is enabled before host agent start, please disable it"
+		Instance().AppendHostError("dhcp client is enabled before host agent start, please disable it")
 	}
 
 	var dhcpRelay []string

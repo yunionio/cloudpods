@@ -82,6 +82,12 @@ type Command struct {
 	Args    interface{} `json:"arguments,omitempty"`
 }
 
+type NetworkModify struct {
+	Device  string `json:"device"`
+	Ipmask  string `json:"ipmask"`
+	Gateway string `json:"gateway"`
+}
+
 type Version struct {
 	Package string `json:"package"`
 	QEMU    struct {
@@ -459,91 +465,32 @@ func (m *QmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 
 func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("change %s %s", dev, path), callback)
-	// var (
-	// 	args = map[string]interface{}{
-	// 		"arguments": map[string]interface{}{
-	// 			"device": dev,
-	// 			"target": path,
-	// 		},
-	// 	}
-	// 	cmd = &Command{
-	// 		Execute: "change",
-	// 		Args:    args,
-	// 	}
-
-	// 	cb = func(res *Response) {
-	// 		callback(m.actionResult(res))
-	// 	}
-	// )
-
-	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) EjectCdrom(dev string, callback StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("eject -f %s", dev), callback)
-	// XXX: 同下
-	// var (
-	// 	args = map[string]interface{}{
-	// 		"arguments": map[string]interface{}{
-	// 			"device": dev,
-	// 			"force":  true,
-	// 		},
-	// 	}
-	// 	cmd = &Command{
-	// 		Execute: "eject",
-	// 		Args:    args,
-	// 	}
-
-	// 	cb = func(res *Response) {
-	// 		callback(m.actionResult(res))
-	// 	}
-	// )
-
-	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) DriveDel(idstr string, callback StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("drive_del %s", idstr), callback)
-	// XXX: 同下
-	// var (
-	// 	args = map[string]interface{}{
-	// 		"arguments": map[string]interface{}{
-	// 			"device": idstr,
-	// 		},
-	// 	}
-	// 	cmd = &Command{
-	// 		Execute: "drive_del",
-	// 		Args:    args,
-	// 	}
-
-	// 	cb = func(res *Response) {
-	// 		callback(m.actionResult(res))
-	// 	}
-	// )
-
-	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) DeviceDel(idstr string, callback StringCallback) {
-	m.HumanMonitorCommand(fmt.Sprintf("device_del %s", idstr), callback)
-	// XXX: 同下
-	// var (
-	// 	args = map[string]interface{}{
-	// 		"arguments": map[string]interface{}{
-	// 			"device": idstr,
-	// 		},
-	// 	}
-	// 	cmd = &Command{
-	// 		Execute: "device_del",
-	// 		Args:    args,
-	// 	}
+	//m.HumanMonitorCommand(fmt.Sprintf("device_del %s", idstr), callback)
+	var (
+		args = map[string]interface{}{
+			"id": idstr,
+		}
+		cmd = &Command{
+			Execute: "device_del",
+			Args:    args,
+		}
 
-	// 	cb = func(res *Response) {
-	// 		callback(m.actionResult(res))
-	// 	}
-	// )
-
-	// m.Query(cmd, cb)
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+	m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) ObjectDel(idstr string, callback StringCallback) {
@@ -582,54 +529,27 @@ func (m *QmpMonitor) DriveAdd(bus, node string, params map[string]string, callba
 
 	cmd = fmt.Sprintf("%s %s %s", cmd, bus, strings.Join(paramsKvs, ","))
 	m.HumanMonitorCommand(cmd, callback)
-	// XXX: 同下
-	// var (
-	// 	args = map[string]interface{}{
-	// 		"arguments": map[string]interface{}{
-	// 			"bus":    bus,
-	// 			"params": params,
-	// 		},
-	// 	}
-	// 	cmd = &Command{
-	// 		Execute: "drive_add",
-	// 		Args:    args,
-	// 	}
-
-	// 	cb = func(res *Response) {
-	// 		callback(m.actionResult(res))
-	// 	}
-	// )
-
-	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) DeviceAdd(dev string, params map[string]string, callback StringCallback) {
-	var paramsKvs = []string{}
-	for k, v := range params {
-		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
+	args := map[string]interface{}{
+		"driver": dev,
 	}
-	cmd := fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ","))
-	m.HumanMonitorCommand(cmd, callback)
 
-	// XXX: 参数不对，之后再调，先用着hmp的参数
-	// var (
-	// 	args = map[string]interface{}{
-	// 		"arguments": map[string]interface{}{
-	// 			"driver": dev,
-	// 			"params": params,
-	// 		},
-	// 	}
-	// 	cmd = &Command{
-	// 		Execute: "device_add",
-	// 		Args:    args,
-	// 	}
+	for k, v := range params {
+		args[k] = v
+	}
 
-	// 	cb = func(res *Response) {
-	// 		callback(m.actionResult(res))
-	// 	}
-	// )
+	cmd := &Command{
+		Execute: "device_add",
+		Args:    args,
+	}
 
-	// m.Query(cmd, cb)
+	cb := func(res *Response) {
+		callback(m.actionResult(res))
+	}
+
+	m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) MigrateSetDowntime(dtSec float64, callback StringCallback) {
@@ -679,21 +599,6 @@ func (m *QmpMonitor) MigrateSetParameter(key string, val interface{}, callback S
 }
 
 func (m *QmpMonitor) MigrateIncoming(address string, callback StringCallback) {
-	/*
-			 * var (
-			 * 	cb = func(res *Response) {
-			 * 		callback(m.actionResult(res))
-			 * 	}
-			 * 	cmd = &Command{
-			 * 		Execute: "migrate-incoming",
-			 * 		Args: map[string]interface{}{
-			 * 			"uri": address,
-			 * 		},
-			 * 	}
-			 * )
-		     *
-			 * m.Query(cmd, cb)
-	*/
 	cmd := fmt.Sprintf("migrate_incoming %s", address)
 	m.HumanMonitorCommand(cmd, callback)
 }
@@ -786,6 +691,10 @@ func (m *QmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
 		}
 	)
 	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) MigrateCancel(cb StringCallback) {
+	m.HumanMonitorCommand("migrate_cancel", cb)
 }
 
 func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {

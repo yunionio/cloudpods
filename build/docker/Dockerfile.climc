@@ -1,7 +1,7 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:20210901
+FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:20230731.5
 
 ADD ./build/climc/root/opt /opt
 
-RUN cat /opt/yunion/scripts/motd/climc.sh >> /root/.bashrc
+RUN cp /opt/yunion/scripts/motd/climc.sh /etc/profile.d/climc.sh && ln -sf /etc/profile.d/climc.sh /root/.bashrc
 
 ADD ./_output/alpine-build/bin/climc ./_output/alpine-build/bin/*cli /opt/yunion/bin/

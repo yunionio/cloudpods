@@ -32,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudregion"
-	"yunion.io/x/onecloud/pkg/scheduler/data_manager/hostwire"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/netinterface"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
@@ -624,16 +623,23 @@ func (b *BaseHostDesc) fillSharedDomains() error {
 func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networkGetter) error {
 	hostId := host.Id
 
-	hostwires := hostwire.GetByHost(hostId)
+	netifs := netinterface.GetByHost(hostId)
 	wireIds := sets.NewString()
-	for _, hw := range hostwires {
-		wireIds.Insert(hw.WireId)
+	for _, netif := range netifs {
+		if netif.NicType != computeapi.NIC_TYPE_IPMI && len(netif.WireId) > 0 {
+			wireIds.Insert(netif.WireId)
+		}
 	}
 
 	nets := make([]computemodels.SNetwork, 0)
 	allNets := network.Manager.GetStore().GetAll()
 	for _, net := range allNets {
-		if wireIds.Has(net.WireId) {
+		netAdditionalWireIds, err := computemodels.NetworkAdditionalWireManager.FetchNetworkAdditionalWireIds(net.Id)
+		if err != nil {
+			log.Errorf("NetworkAdditionalWireManager.FetchNetworkAdditionalWireIds %s error %s", net.Id, err)
+			netAdditionalWireIds = []string{}
+		}
+		if wireIds.Has(net.WireId) || wireIds.HasAny(netAdditionalWireIds...) {
 			nets = append(nets, net)
 		}
 	}
@@ -650,16 +656,13 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networ
 	}
 
 	// netifs := host.GetNetInterfaces()
-	netifs := netinterface.GetByHost(hostId)
+	// netifs := netinterface.GetByHost(hostId)
 	netifIndexs := make(map[string][]computemodels.SNetInterface, 0)
 	for _, netif := range netifs {
 		if !netif.IsUsableServernic() {
 			continue
 		}
 		wireId := netif.WireId
-		if wireId == "" {
-			continue
-		}
 		if _, exist := netifIndexs[wireId]; !exist {
 			netifIndexs[wireId] = make([]computemodels.SNetInterface, 0)
 		}
@@ -772,14 +775,14 @@ func (b *BaseHostDesc) GetHypervisorDriver() computemodels.IGuestDriver {
 
 func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	ss := make([]*api.CandidateStorage, 0)
-	for _, s := range host.GetHoststorages() {
-		storage := s.GetStorage()
-		if storage == nil {
-			log.Warningf("%s invoke s.GetStorage return nil", storage.Id)
-			continue
-		}
+	storages, err := host.GetStorages()
+	if err != nil {
+		return errors.Wrapf(err, "host %s/%s get storages", b.Name, b.Id)
+	}
+	for _, tmpS := range storages {
+		storage := tmpS
 		cs := &api.CandidateStorage{
-			SStorage:           storage,
+			SStorage:           &storage,
 			ActualFreeCapacity: storage.Capacity - storage.ActualCapacityUsed,
 		}
 		if b.GetHypervisorDriver() == nil {

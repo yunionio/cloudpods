@@ -77,6 +77,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"src-prepare-migrate":      guestSrcPrepareMigrate,
 			"dest-prepare-migrate":     guestDestPrepareMigrate,
 			"live-migrate":             guestLiveMigrate,
+			"cancel-live-migrate":      guestCancelLiveMigrate,
 			"resume":                   guestResume,
 			"block-replication":        guestBlockReplication,
 			"slave-block-stream-disks": slaveGuestBlockStreamDisks,
@@ -85,6 +86,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"cancel-block-replication": guestCancelBlockReplication,
 			"create-from-libvirt":      guestCreateFromLibvirt,
 			"create-form-esxi":         guestCreateFromEsxi,
+			"create-from-cloudpods":    guestCreateFromCloudpods,
 			"open-forward":             guestOpenForward,
 			"list-forward":             guestListForward,
 			"close-forward":            guestCloseForward,
@@ -97,6 +99,11 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"qga-set-password":         qgaGuestSetPassword,
 			"qga-guest-ping":           qgaGuestPing,
 			"qga-command":              qgaCommand,
+			"reset-nic-traffic-limit":  guestResetNicTrafficLimit,
+			"set-nic-traffic-limit":    guestSetNicTrafficLimit,
+			"qga-guest-info-task":      qgaGuestInfoTask,
+			"qga-get-network":          qgaGetNetwork,
+			"qga-set-network":          qgaSetNetwork,
 			"start-rescue":             guestStartRescue,
 			"stop-rescue":              guestStopRescue,
 		} {
@@ -280,18 +287,15 @@ func guestIoThrottle(ctx context.Context, userCred mcclient.TokenCredential, sid
 	if !guest.IsRunning() {
 		return nil, httperrors.NewInvalidStatusError("Not running")
 	}
-	bps, err := body.Int("bps")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("bps")
+
+	input := new(computeapi.ServerSetDiskIoThrottleInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal params failed %s", err)
 	}
-	iops, err := body.Int("iops")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("iops")
-	}
+
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().GuestIoThrottle, &guestman.SGuestIoThrottle{
-		Sid:  sid,
-		BPS:  bps,
-		IOPS: iops,
+		Sid:   sid,
+		Input: input,
 	})
 	return nil, nil
 }
@@ -445,10 +449,14 @@ func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, si
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("live_migrate_dest_port")
 	}
-	nbdServerPort, err := body.Int("nbd_server_port")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("live_migrate_dest_port")
+	var nbdServerPort int64 = -1
+	if body.Contains("nbd_server_port") {
+		nbdServerPort, err = body.Int("nbd_server_port")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("live_migrate_dest_port")
+		}
 	}
+
 	destIp, err := body.GetString("dest_ip")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("dest_ip")
@@ -475,6 +483,25 @@ func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, si
 
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveMigrate, params)
 	return nil, nil
+}
+
+func guestCancelLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	if guest.MigrateTask == nil {
+		return nil, httperrors.NewBadRequestError("Guest %s not in migrating", sid)
+	}
+	guest.MigrateTask.SetLiveMigrateCancelled()
+	var c = make(chan string)
+	cb := func(res string) {
+		c <- res
+	}
+	guest.Monitor.MigrateCancel(cb)
+	var res = <-c
+	lines := strings.Split(res, "\\r\\n")
+	return strDict{"results": strings.Join(lines, "\n")}, nil
 }
 
 func guestResume(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
@@ -807,6 +834,31 @@ func guestMemorySnapshotDelete(ctx context.Context, w http.ResponseWriter, r *ht
 	})
 }
 
+func guestResetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(computeapi.ServerNicTrafficLimit)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, httperrors.NewInputParameterError("failed unmarshal input %s", err)
+	}
+
+	hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+		return nil, guestman.GetGuestManager().ResetGuestNicTrafficLimit(sid, input)
+	}, nil)
+
+	return nil, nil
+}
+
+func guestSetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(computeapi.ServerNicTrafficLimit)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, httperrors.NewInputParameterError("failed unmarshal input %s", err)
+	}
+
+	hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+		return nil, guestman.GetGuestManager().SetGuestNicTrafficLimit(sid, input)
+	}, nil)
+	return nil, nil
+}
+
 func qgaGuestSetPassword(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	input := new(hostapi.GuestSetPasswordRequest)
 	if err := body.Unmarshal(input); err != nil {
@@ -855,6 +907,41 @@ func qgaCommand(ctx context.Context, userCred mcclient.TokenCredential, sid stri
 	}
 
 	return gm.QgaCommand(qgaCmd, sid, input.Timeout)
+}
+
+func qgaGuestInfoTask(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	return gm.QgaGuestInfoTask(sid)
+}
+
+func qgaGetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	return gm.QgaGetNetwork(sid)
+}
+
+func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	input := computeapi.ServerQgaSetNetworkInput{}
+	err := body.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal input to ServerQgaSetNetworkInput: %s", err.Error())
+	}
+	if input.Device == "" {
+		return nil, httperrors.NewMissingParameterError("device")
+	}
+	if input.Ipmask == "" {
+		return nil, httperrors.NewMissingParameterError("ipmask")
+	}
+	if input.Gateway == "" {
+		return nil, httperrors.NewMissingParameterError("gateway")
+	}
+
+	qgaNetMod := &monitor.NetworkModify{
+		Device:  input.Device,
+		Ipmask:  input.Ipmask,
+		Gateway: input.Gateway,
+	}
+	return gm.QgaSetNetwork(qgaNetMod, sid, input.Timeout)
 }
 
 // guestStartRescue prepare rescue files

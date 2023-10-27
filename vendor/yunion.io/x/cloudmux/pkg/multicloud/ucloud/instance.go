@@ -405,10 +405,6 @@ func (self *SInstance) GetInstanceType() string {
 	}
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.assignSecurityGroups(self.GetId(), secgroupId)
-}
-
 // https://docs.ucloud.cn/api/unet-api/grant_firewall
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	if len(secgroupIds) == 0 {
@@ -454,8 +450,8 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return self.host.zone.region.DeleteVM(self.GetId())
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.GetId(), name)
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.host.zone.region.UpdateVM(self.GetId(), input.NAME)
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {

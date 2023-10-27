@@ -42,7 +42,6 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudaccount"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudprovider"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudregion"
-	"yunion.io/x/onecloud/pkg/scheduler/data_manager/hostwire"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/netinterface"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/schedtag"
@@ -130,7 +129,6 @@ func StartService() error {
 				cloudaccount.Manager.Start,
 				wire.Manager.Start,
 				network.Manager.Start,
-				hostwire.GetManager().Start,
 				netinterface.GetManager().Start,
 			} {
 				f(ctx)

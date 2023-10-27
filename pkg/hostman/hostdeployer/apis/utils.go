@@ -37,6 +37,7 @@ func NewDeployInfo(
 	loginAccount string,
 	enableTelegraf bool,
 	telegrafConf string,
+	userData string,
 ) *DeployInfo {
 	depInfo := &DeployInfo{
 		PublicKey:               publicKey,
@@ -54,6 +55,7 @@ func NewDeployInfo(
 			TelegrafConf: telegrafConf,
 		}
 	}
+	depInfo.UserData = userData
 	return depInfo
 }
 
@@ -142,7 +144,7 @@ func GuestnetworksDescToDeployDesc(guestnetworks []*desc.SGuestNetwork) []*Nic {
 		if nic.Manual != nil {
 			nics[i].Manual = *nic.Manual
 		}
-		nics[i].NicType = nic.NicType
+		nics[i].NicType = string(nic.NicType)
 		nics[i].LinkUp = nic.LinkUp
 		nics[i].Mtu = int64(nic.Mtu)
 		//nics[i].Name = nic.Name

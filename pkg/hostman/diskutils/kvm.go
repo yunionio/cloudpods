@@ -111,7 +111,9 @@ func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool 
 		} else {
 			if partitions[i].Mount() {
 				support := rootfs.DetectIsUEFISupport(partitions[i])
-				partitions[i].Umount()
+				if err := partitions[i].Umount(); err != nil {
+					log.Errorf("failed umount %s: %s", partitions[i].GetPartDev(), err)
+				}
 				if support {
 					return true
 				}
@@ -145,7 +147,9 @@ func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, e
 				return fs, nil
 			}
 			errs = append(errs, err)
-			partitions[i].Umount()
+			if err := partitions[i].Umount(); err != nil {
+				log.Errorf("failed umount %s: %s", partitions[i].GetPartDev(), err)
+			}
 		}
 	}
 	if len(partitions) == 0 {

@@ -253,7 +253,7 @@ func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudE
 	if err != nil {
 		return nil, err
 	}
-	vip, err := region.CreateVirtualIP(eip.Name, "", eip.IP, networkInfo[0])
+	vip, err := region.CreateVirtualIP(eip.Name, "", eip.Ip, networkInfo[0])
 	if err != nil {
 		return nil, err
 	}
@@ -320,22 +320,21 @@ func (region *SRegion) DeleteISkuByName(name string) error {
 	return nil
 }
 
-func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return region.GetSecurityGroup(secgroupId)
-}
-
-func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := region.GetSecurityGroups("", "", opts.Name)
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := self.GetSecurityGroups("", "", "")
 	if err != nil {
 		return nil, err
 	}
-	if len(secgroups) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := 0; i < len(secgroups); i++ {
+		secgroups[i].region = self
+		ret = append(ret, &secgroups[i])
 	}
-	if len(secgroups) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return ret, nil
+}
+
+func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.GetSecurityGroup(secgroupId)
 }
 
 func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {

@@ -30,22 +30,23 @@ import (
 )
 
 const (
-	VNC       = api.VNC
-	ALIYUN    = api.ALIYUN
-	QCLOUD    = api.QCLOUD
-	OPENSTACK = api.OPENSTACK
-	SPICE     = api.SPICE
-	WMKS      = api.WMKS
-	WS        = api.WS
-	VMRC      = api.VMRC
-	ZSTACK    = api.ZSTACK
-	CTYUN     = api.CTYUN
-	HUAWEI    = api.HUAWEI
-	HCS       = api.HCS
-	APSARA    = api.APSARA
-	JDCLOUD   = api.JDCLOUD
-	CLOUDPODS = api.CLOUDPODS
-	PROXMOX   = api.PROXMOX
+	VNC        = api.VNC
+	ALIYUN     = api.ALIYUN
+	QCLOUD     = api.QCLOUD
+	OPENSTACK  = api.OPENSTACK
+	SPICE      = api.SPICE
+	WMKS       = api.WMKS
+	WS         = api.WS
+	VMRC       = api.VMRC
+	ZSTACK     = api.ZSTACK
+	CTYUN      = api.CTYUN
+	HUAWEI     = api.HUAWEI
+	HCS        = api.HCS
+	APSARA     = api.APSARA
+	JDCLOUD    = api.JDCLOUD
+	CLOUDPODS  = api.CLOUDPODS
+	PROXMOX    = api.PROXMOX
+	VOLCENGINE = api.VOLC_ENGINE
 )
 
 type RemoteConsoleInfo struct {
@@ -124,7 +125,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getQcloudURL()
 	case CLOUDPODS:
 		return info.getCloudpodsURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX, VOLCENGINE:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
@@ -161,14 +162,13 @@ func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
 	if info.OsName == "Windows" {
 		isWindows = "true"
 	}
-	base := fmt.Sprintf("https://g.alicdn.com/aliyun/ecs-console-vnc2/%s/index.html", options.Options.AliyunVncVersion)
 	params := url.Values{
 		"vncUrl":     {info.Url},
 		"instanceId": {info.InstanceId},
 		"isWindows":  {isWindows},
 		"password":   {info.Password},
 	}
-	return info.getConnParamsURL(base, params), nil
+	return info.getConnParamsURL(options.Options.AliyunConsoleAddr, params), nil
 }
 
 func (info *RemoteConsoleInfo) getCloudpodsURL() (string, error) {

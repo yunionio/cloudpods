@@ -16,12 +16,10 @@ package ctyun
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -31,79 +29,33 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-// http://ctyun-api-url/apiproxy/v3/ondemand/queryVolumes
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
 	CtyunTags
 	multicloud.SBillingBase
 
-	diskDetails *DiskDetails
-
-	ID                  string       `json:"id"`
-	Status              string       `json:"status"`
-	Name                string       `json:"name"`
-	CreatedAt           int64        `json:"created_at"`
-	UpdatedAt           string       `json:"updated_at"`
-	Multiattach         bool         `json:"multiattach"`
-	ReplicationStatus   string       `json:"replication_status"`
-	SizeGB              int64        `json:"size"`
-	Metadata            Metadata     `json:"metadata"`
-	VolumeType          string       `json:"volume_type"`
-	UserID              string       `json:"user_id"`
-	Shareable           bool         `json:"shareable"`
-	Encrypted           bool         `json:"encrypted"`
-	Bootable            string       `json:"bootable"`
-	AvailabilityZone    string       `json:"availability_zone"`
-	Attachments         []Attachment `json:"attachments"`
-	MasterOrderID       string       `json:"masterOrderId"`
-	WorkOrderResourceID string       `json:"workOrderResourceId"`
-	ExpireTime          int64        `json:"expireTime"`
-	IsFreeze            int64        `json:"isFreeze"`
-}
-
-type Attachment struct {
-	VolumeID     string `json:"volume_id"`
-	AttachmentID string `json:"attachment_id"`
-	AttachedAt   string `json:"attached_at"`
-	ServerID     string `json:"server_id"`
-	Device       string `json:"device"`
-	ID           string `json:"id"`
-}
-
-type Metadata struct {
-	OrderID          string `json:"orderID"`
-	AttachedMode     string `json:"attached_mode"`
-	ResourceSpecCode string `json:"resourceSpecCode"`
-	ProductID        string `json:"productID"`
-	Readonly         string `json:"readonly"`
-}
-
-type DiskDetails struct {
-	ID                  string `json:"id"`
-	ResEbsID            string `json:"resEbsId"`
-	Size                int64  `json:"size"`
-	Name                string `json:"name"`
-	RegionID            string `json:"regionId"`
-	AccountID           string `json:"accountId"`
-	UserID              string `json:"userId"`
-	HostID              string `json:"hostId"`
-	OrderID             string `json:"orderId"`
-	Status              int64  `json:"status"`
-	Type                string `json:"type"`
-	VolumeStatus        int64  `json:"volumeStatus"`
-	CreateDate          int64  `json:"createDate"`
-	DueDate             int64  `json:"dueDate"`
-	ZoneID              string `json:"zoneId"`
-	ZoneName            string `json:"zoneName"`
-	IsSysVolume         int64  `json:"isSysVolume"`
-	IsPackaged          int64  `json:"isPackaged"`
-	WorkOrderResourceID string `json:"workOrderResourceId"`
-	IsFreeze            int64  `json:"isFreeze"`
+	DiskName       string
+	DiskFreeze     bool
+	IsPackaged     bool
+	DiskMode       string
+	MultiAttach    bool
+	ProjectId      string
+	RegionId       string
+	DiskType       string
+	ExpireTime     string
+	IsEncrypt      bool
+	DiskSize       int
+	AzName         string
+	DiskStatus     string
+	CreateTime     int64
+	DiskId         string
+	InstanceId     string
+	IsSystemVolume bool
 }
 
 func (self *SDisk) GetBillingType() string {
-	if self.ExpireTime > 0 {
+	if len(self.ExpireTime) > 0 {
 		return billing_api.BILLING_TYPE_PREPAID
 	}
 
@@ -111,27 +63,23 @@ func (self *SDisk) GetBillingType() string {
 }
 
 func (self *SDisk) GetCreatedAt() time.Time {
-	return time.Unix(self.CreatedAt/1000, 0)
+	return time.Unix(self.CreateTime/1000, 0)
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	if self.ExpireTime == 0 {
+	if len(self.ExpireTime) == 0 {
 		return time.Time{}
 	}
-
-	return time.Unix(self.ExpireTime/1000, 0)
+	at, _ := strconv.Atoi(self.ExpireTime)
+	return time.Unix(int64(at/1000), 0)
 }
 
 func (self *SDisk) GetId() string {
-	return self.ID
+	return self.DiskId
 }
 
 func (self *SDisk) GetName() string {
-	if len(self.Name) > 0 {
-		return self.Name
-	}
-
-	return self.ID
+	return self.DiskName
 }
 
 func (self *SDisk) GetGlobalId() string {
@@ -139,62 +87,36 @@ func (self *SDisk) GetGlobalId() string {
 }
 
 func (self *SDisk) GetStatus() string {
-	switch self.Status {
-	case "creating", "downloading":
-		return api.DISK_ALLOCATING
-	case "available", "in-use":
-		return api.DISK_READY
-	case "error":
-		return api.DISK_ALLOC_FAILED
-	case "attaching":
-		return api.DISK_ATTACHING
-	case "detaching":
-		return api.DISK_DETACHING
-	case "restoring-backup":
-		return api.DISK_REBUILD
-	case "backing-up":
-		return api.DISK_BACKUP_STARTALLOC
-	case "error_restoring":
-		return api.DISK_BACKUP_ALLOC_FAILED
-	case "uploading":
-		return api.DISK_SAVING
-	case "extending":
-		return api.DISK_RESIZING
-	case "error_extending":
-		return api.DISK_ALLOC_FAILED
+	switch self.DiskStatus {
 	case "deleting":
 		return api.DISK_DEALLOC
-	case "error_deleting":
-		return api.DISK_DEALLOC_FAILED
-	case "rollbacking":
-		return api.DISK_REBUILD
-	case "error_rollbacking":
-		return api.DISK_UNKNOWN
+	case "creating":
+		return api.DISK_ALLOCATING
+	case "detaching":
+		return api.DISK_DETACHING
+	case "detached", "attached", "expired", "freezing", "available", "in-use":
+		return api.DISK_READY
+	case "attaching":
+		return api.DISK_ATTACHING
+	case "extending", "resizing":
+		return api.DISK_RESIZING
+	case "backup", "backupRestoring":
+		return api.DISK_BACKUP_STARTALLOC
 	default:
 		return api.DISK_UNKNOWN
 	}
 }
 
 func (self *SDisk) Refresh() error {
-	new, err := self.storage.zone.region.GetDisk(self.GetId())
+	disk, err := self.storage.zone.region.GetDisk(self.GetId())
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
-}
-
-func (self *SDisk) IsEmulated() bool {
-	return false
-}
-
-func (self *SDisk) GetSysTags() map[string]string {
-	data := map[string]string{}
-	data["hypervisor"] = api.HYPERVISOR_CTYUN
-	return data
+	return jsonutils.Update(self, disk)
 }
 
 func (self *SDisk) GetProjectId() string {
-	return ""
+	return self.ProjectId
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -210,47 +132,29 @@ func (self *SDisk) GetDiskFormat() string {
 }
 
 func (self *SDisk) GetDiskSizeMB() int {
-	return int(self.SizeGB * 1024)
+	return int(self.DiskSize * 1024)
 }
 
 func (self *SDisk) GetIsAutoDelete() bool {
-	if len(self.Attachments) == 0 {
-		return false
-	}
-
-	if self.Bootable == "true" {
-		return true
-	}
-
-	return false
+	return self.IsSystemVolume
 }
 
 func (self *SDisk) GetTemplateId() string {
-	if len(self.Attachments) > 0 && len(self.Attachments[0].ServerID) > 0 {
-		server, err := self.storage.zone.region.GetVMById(self.Attachments[0].ServerID)
-		if err != nil {
-			log.Errorf("SDisk.GetTemplateId %s", err)
-			return ""
-		}
-
-		image, err := server.GetImage()
-		if err != nil {
-			log.Errorf("SDisk.GetImage %s", err)
-			return ""
-		}
-
-		return image.GetId()
+	if len(self.InstanceId) == 0 || !self.IsSystemVolume {
+		return ""
 	}
-
-	return ""
+	vm, err := self.storage.zone.region.GetInstance(self.InstanceId)
+	if err != nil {
+		return ""
+	}
+	return vm.Image.ImageId
 }
 
 func (self *SDisk) GetDiskType() string {
-	if self.Bootable == "true" {
+	if self.IsSystemVolume {
 		return api.DISK_TYPE_SYS
-	} else {
-		return api.DISK_TYPE_DATA
 	}
+	return api.DISK_TYPE_DATA
 }
 
 func (self *SDisk) GetFsFormat() string {
@@ -262,7 +166,7 @@ func (self *SDisk) GetIsNonPersistent() bool {
 }
 
 func (self *SDisk) GetDriver() string {
-	return "scsi"
+	return self.DiskMode
 }
 
 func (self *SDisk) GetCacheMode() string {
@@ -270,10 +174,6 @@ func (self *SDisk) GetCacheMode() string {
 }
 
 func (self *SDisk) GetMountpoint() string {
-	if len(self.Attachments) > 0 {
-		return self.Attachments[0].Device
-	}
-
 	return ""
 }
 
@@ -282,60 +182,27 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	_, err := self.storage.zone.region.DeleteDisk(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "SDisk.Delete")
-	}
-
-	return nil
+	return self.storage.zone.region.DeleteDisk(self.GetId())
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-// POST http://ctyun-api-url/apiproxy/v3/ondemand/createVBS
 func (self *SDisk) GetISnapshot(idStr string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-// no snapshot api opened
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
-// POST http://ctyun-api-url/apiproxy/v3/ondemand/updateDiskBackupPolicy
 func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 	return []string{}, nil
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	jobId, err := self.storage.zone.region.ResizeDisk(self.GetId(), strconv.Itoa(int(newSizeMB/1024)))
-	if err != nil {
-		return errors.Wrap(err, "Disk.Resize")
-	}
-
-	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
-		statusJson, err := self.storage.zone.region.GetVolumeJob(jobId)
-		// ctyun 偶尔会报客户端错误，其实job已经到后台执行了
-		if err != nil {
-			log.Debugf("Ctyun.SDisk.Resize.GetVolumeJob %s", err)
-			return false, nil
-		}
-
-		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
-			return true, nil
-		} else if status == "FAILED" {
-			return false, fmt.Errorf("Resize job %s failed", jobId)
-		} else {
-			return false, nil
-		}
-	})
-	if err != nil {
-		return errors.Wrap(err, "Disk.Resize.Wait")
-	}
-
-	return nil
+	return self.storage.zone.region.ResizeDisk(self.GetId(), newSizeMB/1024)
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
@@ -346,254 +213,92 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SDisk) GetDiskDetails() (*DiskDetails, error) {
-	if self.diskDetails != nil {
-		return self.diskDetails, nil
-	}
-
-	details, err := self.storage.zone.region.GetDiskDetailByDiskId(self.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SDisk.GetDiskDetails.GetDiskDetailByDiskId")
-	}
-
-	self.diskDetails = details
-	return self.diskDetails, nil
-}
-
 func (self *SRegion) GetDisks() ([]SDisk, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
+	pageNo := 1
+	params := map[string]interface{}{
+		"pageNo":   pageNo,
+		"pageSize": 100,
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVolumes", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetDisks.DoGet")
-	}
-
-	disks := make([]SDisk, 0)
-	err = resp.Unmarshal(&disks, "returnObj", "volumes")
-	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetDisks.Unmarshal")
-	}
-
-	for i := range disks {
-		izone, err := self.GetIZoneById(getZoneGlobalId(self, disks[i].AvailabilityZone))
+	ret := []SDisk{}
+	for {
+		resp, err := self.list(SERVICE_EBS, "/v4/ebs/list-ebs", params)
 		if err != nil {
-			return nil, errors.Wrap(err, "SRegion.GetDisk.GetIZoneById")
+			return nil, err
 		}
-
-		disks[i].storage = &SStorage{
-			zone:        izone.(*SZone),
-			storageType: disks[i].VolumeType,
+		part := struct {
+			ReturnObj struct {
+				DiskList []SDisk
+			}
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
 		}
+		ret = append(ret, part.ReturnObj.DiskList...)
+		if len(ret) >= part.TotalCount || len(part.ReturnObj.DiskList) == 0 {
+			break
+		}
+		pageNo++
+		params["pageNo"] = pageNo
 	}
-
-	return disks, nil
+	return ret, nil
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
-		"volumeId": diskId,
+	params := map[string]interface{}{
+		"diskID": diskId,
 	}
 
-	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVolumes", params)
+	resp, err := self.list(SERVICE_EBS, "/v4/ebs/info-ebs", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetDisk.DoGet")
+		return nil, err
 	}
-
-	disks := make([]SDisk, 0)
-	err = resp.Unmarshal(&disks, "returnObj", "volumes")
-	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetDisks.Unmarshal")
-	}
-
-	if len(disks) == 0 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetDisk")
-	} else if len(disks) == 1 {
-		izone, err := self.GetIZoneById(getZoneGlobalId(self, disks[0].AvailabilityZone))
-		if err != nil {
-			return nil, errors.Wrap(err, "SRegion.GetDisk.GetIZoneById")
-		}
-
-		disks[0].storage = &SStorage{
-			zone:        izone.(*SZone),
-			storageType: disks[0].VolumeType,
-		}
-
-		return &disks[0], nil
-	} else {
-		return nil, errors.Wrap(cloudprovider.ErrDuplicateId, "SRegion.GetDisk")
-	}
+	ret := &SDisk{}
+	return ret, resp.Unmarshal(ret, "returnObj")
 }
 
-func (self *SRegion) GetDiskDetailByDiskId(diskId string) (*DiskDetails, error) {
-	params := map[string]string{
-		"volumeId": diskId,
-		"regionId": self.GetId(),
+func (self *SRegion) CreateDisk(zoneId, name, diskType string, size int) (*SDisk, error) {
+	params := map[string]interface{}{
+		"clientToken": utils.GenRequestId(20),
+		"diskMode":    "VBD",
+		"diskType":    diskType,
+		"diskName":    name,
+		"diskSize":    size,
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/queryDataDiskDetail", params)
+	if len(zoneId) > 0 && zoneId != "default" {
+		params["azName"] = zoneId
+	}
+	resp, err := self.post(SERVICE_EBS, "/v4/ebs/new-ebs", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetDiskDetailByDiskId.DoGet")
+		return nil, err
 	}
-
-	disk := &DiskDetails{}
-	err = resp.Unmarshal(disk, "returnObj")
+	orderId, err := resp.GetString("returnObj", "masterOrderID")
 	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetDiskDetailByDiskId.Unmarshal")
+		return nil, errors.Wrapf(err, "get order id")
 	}
-
-	return disk, nil
-}
-
-func (self *SRegion) CreateDisk(zoneId, name, diskType, size string) (*SDisk, error) {
-	diskParams := jsonutils.NewDict()
-	diskParams.Set("regionId", jsonutils.NewString(self.GetId()))
-	diskParams.Set("zoneId", jsonutils.NewString(zoneId))
-	diskParams.Set("name", jsonutils.NewString(name))
-	diskParams.Set("type", jsonutils.NewString(diskType))
-	diskParams.Set("size", jsonutils.NewString(size))
-	diskParams.Set("count", jsonutils.NewString("1"))
-
-	params := map[string]jsonutils.JSONObject{
-		"createVolumeInfo": diskParams,
-	}
-
-	disks, err := self.GetDisks()
+	diskId, err := self.GetResourceId(orderId)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateDisk.GetDisks")
+		return nil, errors.Wrapf(err, "GetResourceId")
 	}
-
-	diskIds := []string{}
-	for i := range disks {
-		diskIds = append(diskIds, disks[i].GetId())
-	}
-
-	_, err = self.client.DoPost("/apiproxy/v3/ondemand/createVolume", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "Region.CreateDisk.DoPost")
-	}
-
-	// 查询job结果一直报错，目前先用替代办法查找新硬盘ID，可能不准确。后续需要替换其它方法
-	diskId := ""
-	cloudprovider.Wait(3*time.Second, 300*time.Second, func() (b bool, err error) {
-		disks, err := self.GetDisks()
-		if err != nil {
-			return false, err
-		}
-
-		for i := range disks {
-			if !utils.IsInStringArray(disks[i].GetId(), diskIds) {
-				diskId = disks[i].GetId()
-				return true, nil
-			}
-		}
-
-		return false, nil
-	})
-
 	return self.GetDisk(diskId)
 }
 
-func (self *SRegion) CreateDiskBackup(name, volumeId, desc string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId":    jsonutils.NewString(self.GetId()),
-		"volumeId":    jsonutils.NewString(volumeId),
-		"name":        jsonutils.NewString(name),
-		"description": jsonutils.NewString(desc),
+func (self *SRegion) DeleteDisk(diskId string) error {
+	params := map[string]interface{}{
+		"clientToken": utils.GenRequestId(20),
+		"diskID":      diskId,
 	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/createVBS", params)
-	if err != nil {
-		return "", errors.Wrap(err, "Region.CreateDiskBackup.DoPost")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "Region.CreateDiskBackup.Unmarshal")
-	}
-
-	return jobId, nil
+	_, err := self.post(SERVICE_EBS, "/v4/ebs/refund-ebs", params)
+	return err
 }
 
-func (self *SRegion) DeleteDisk(volumeId string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"volumeId": jsonutils.NewString(volumeId),
+func (self *SRegion) ResizeDisk(diskId string, newSizeGB int64) error {
+	params := map[string]interface{}{
+		"clientToken": utils.GenRequestId(20),
+		"diskSize":    newSizeGB,
+		"diskID":      diskId,
 	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/deleteVolume", params)
-	if err != nil {
-		msg, _ := resp.GetString("message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.DeleteDisk.DoPost")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.DeleteDisk.Unmarshal")
-	}
-
-	return jobId, nil
-}
-
-func (self *SRegion) ResizeDisk(volumeId string, newSizeGB string) (string, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"volumeId": jsonutils.NewString(volumeId),
-		"newSize":  jsonutils.NewString(newSizeGB),
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/expandVolumeSize", params)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.ResizeDisk.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.ResizeDisk.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.ResizeDisk.Unmarshal")
-	}
-
-	return jobId, nil
-}
-
-func (self *SRegion) RestoreDisk(volumeId, backupId string) (string, error) {
-	diskBackupParams := jsonutils.NewDict()
-	diskBackupParams.Set("regionId", jsonutils.NewString(self.GetId()))
-	diskBackupParams.Set("backupId", jsonutils.NewString(backupId))
-	diskBackupParams.Set("volumeId", jsonutils.NewString(volumeId))
-
-	params := map[string]jsonutils.JSONObject{
-		"diskBackup": diskBackupParams,
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/restoreDiskBackup", params)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.RestoreDisk.DoPost")
-	}
-
-	var ok bool
-	err = resp.Unmarshal(&ok, "returnObj", "status")
-	if !ok {
-		msg, _ := resp.GetString("message")
-		return "", errors.Wrap(fmt.Errorf(msg), "SRegion.RestoreDisk.JobFailed")
-	}
-
-	var jobId string
-	err = resp.Unmarshal(&jobId, "returnObj", "data")
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.RestoreDisk.Unmarshal")
-	}
-
-	return jobId, nil
+	_, err := self.post(SERVICE_EBS, "/v4/ebs/resize-ebs", params)
+	return err
 }

@@ -14,20 +14,42 @@
 
 package tokens
 
-import "yunion.io/x/pkg/errors"
+import (
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
 const (
-	ErrVerMismatch        = errors.Error("version mismatch")
-	ErrProjectDisabled    = errors.Error("project disabled")
-	ErrUserDisabled       = errors.Error("user disabled")
-	ErrInvalidToken       = errors.Error("invalid token")
-	ErrExpiredToken       = errors.Error("expired token")
-	ErrInvalidFernetToken = errors.Error("invalid fernet token")
-	ErrInvalidAuthMethod  = errors.Error("invalid auth methods")
-	ErrUserNotFound       = errors.Error("user not found")
-	ErrDomainDisabled     = errors.Error("domain is disabled")
-	ErrEmptyAuth          = errors.Error("empty auth request")
-	ErrUserNotInProject   = errors.Error("user not in project")
-	ErrInvalidAccessKeyId = errors.Error("invalid access key id")
-	ErrExpiredAccessKey   = errors.Error("expired access key")
+	ErrVerMismatch        = errors.Error("[auth] version mismatch")
+	ErrProjectDisabled    = errors.Error("[auth] project disabled")
+	ErrUserDisabled       = errors.Error("[auth] user disabled")
+	ErrInvalidToken       = errors.Error("[auth] invalid token")
+	ErrExpiredToken       = errors.Error("[auth] expired token")
+	ErrInvalidFernetToken = errors.Error("[auth] invalid fernet token")
+	ErrInvalidAuthMethod  = errors.Error("[auth] invalid auth methods")
+	ErrUserNotFound       = errors.Error("[auth] user not found")
+	ErrDomainDisabled     = errors.Error("[auth] domain is disabled")
+	ErrEmptyAuth          = errors.Error("[auth] empty auth request")
+	ErrUserNotInProject   = errors.Error("[auth] user not in project")
+	ErrInvalidAccessKeyId = errors.Error("[auth] invalid access key id")
+	ErrExpiredAccessKey   = errors.Error("[auth] expired access key")
+	ErrTokenNotFound      = errors.Error("[auth] token not found")
 )
+
+func init() {
+	httperrors.RegisterErrorHttpCode(ErrVerMismatch, 401)
+	httperrors.RegisterErrorHttpCode(ErrProjectDisabled, 401)
+	httperrors.RegisterErrorHttpCode(ErrUserDisabled, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidToken, 401)
+	httperrors.RegisterErrorHttpCode(ErrExpiredToken, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidFernetToken, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidAuthMethod, 401)
+	httperrors.RegisterErrorHttpCode(ErrUserNotFound, 401)
+	httperrors.RegisterErrorHttpCode(ErrDomainDisabled, 401)
+	httperrors.RegisterErrorHttpCode(ErrEmptyAuth, 401)
+	httperrors.RegisterErrorHttpCode(ErrUserNotInProject, 401)
+	httperrors.RegisterErrorHttpCode(ErrInvalidAccessKeyId, 401)
+	httperrors.RegisterErrorHttpCode(ErrExpiredAccessKey, 401)
+	httperrors.RegisterErrorHttpCode(ErrTokenNotFound, 401)
+}

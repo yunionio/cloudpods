@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -30,12 +31,17 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
+var (
+	SkuSyncWorkerManager *appsrv.SWorkerManager
+)
+
 type CloudAccountSyncSkusTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(CloudAccountSyncSkusTask{})
+	SkuSyncWorkerManager = appsrv.NewWorkerManager("SkuSyncWorkerManager", 8, 1024, false)
+	taskman.RegisterTaskAndWorker(CloudAccountSyncSkusTask{}, SkuSyncWorkerManager)
 }
 
 func (self *CloudAccountSyncSkusTask) taskFailed(ctx context.Context, account *models.SCloudaccount, err error) {

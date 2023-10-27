@@ -68,7 +68,9 @@ type SExternalProject struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
-
+	// 优先级，同一个本地项目映射多个云上项目，优先级高的优先选择
+	// 数值越高，优先级越大
+	Priority         int    `default:"0" list:"user" update:"user" list:"user"`
 	ExternalDomainId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 归属云账号ID
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -330,7 +332,38 @@ func (self *SExternalProject) syncRemoveCloudProject(ctx context.Context, userCr
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	err := func() error {
+		account, err := self.GetCloudaccount()
+		if err != nil {
+			return errors.Wrapf(err, "GetCloudaccount")
+		}
+		if !account.AutoCreateProject || !options.Options.EnableAutoRenameProject {
+			return nil
+		}
+		pm, _ := account.GetProjectMapping()
+		if pm != nil {
+			return nil
+		}
+		count, _ := self.GetProjectCount()
+		if count != 1 {
+			return nil
+		}
+		s := auth.GetAdminSession(ctx, consts.GetRegion())
+		_, err = identity.Projects.Delete(s, self.ProjectId, nil)
+		if err != nil {
+			return errors.Wrapf(err, "try auto delete project %s error: %v", self.Name, err)
+		}
+		return nil
+	}()
+	if err != nil {
+		log.Errorf("syncRemoveCloudProject %s(%s) error: %v", self.Name, self.Id, err)
+	}
+
 	return self.Delete(ctx, userCred)
+}
+
+func (self *SExternalProject) GetProjectCount() (int, error) {
+	return ExternalProjectManager.Query().Equals("tenant_id", self.ProjectId).CountWithError()
 }
 
 func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, ext cloudprovider.ICloudProject) error {
@@ -340,6 +373,58 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 	for _, provider := range providers {
 		providerMaps[provider.Account] = provider.Id
 	}
+
+	domainId := ""
+	projectId := ""
+	share := account.GetSharedInfo()
+	if self.DomainId != account.DomainId && !(share.PublicScope == rbacscope.ScopeSystem ||
+		(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(self.DomainId, share.SharedDomains))) {
+		projectId = account.ProjectId
+		domainId = account.DomainId
+		if account.AutoCreateProject {
+			desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+			var err error
+			domainId, projectId, err = account.getOrCreateTenant(ctx, self.Name, "", "", desc)
+			if err != nil {
+				return errors.Wrapf(err, "getOrCreateTenant")
+			}
+		}
+		return nil
+	}
+
+	pm, _ := account.GetProjectMapping()
+	if pm != nil && pm.Enabled.IsTrue() && pm.IsNeedProjectSync() && self.ProjectSrc != string(apis.OWNER_SOURCE_LOCAL) {
+		extTags, err := ext.GetTags()
+		if err != nil {
+			return errors.Wrapf(err, "extModel.GetTags")
+		}
+		find := false
+		if pm.Rules != nil {
+			for _, rule := range *pm.Rules {
+				var newProj string
+				var isMatch bool
+				domainId, projectId, newProj, isMatch = rule.IsMatchTags(extTags)
+				if isMatch && len(newProj) > 0 {
+					domainId, projectId, err = account.getOrCreateTenant(ctx, newProj, "", "", "auto create from tag")
+					if err != nil {
+						log.Errorf("getOrCreateTenant(%s) error: %v", newProj, err)
+						continue
+					}
+					find = true
+					break
+				}
+			}
+		}
+		if !find && account.AutoCreateProject {
+			desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+			domainId, projectId, err = account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
+			if err != nil {
+				return errors.Wrapf(err, "getOrCreateTenant")
+			}
+		}
+	}
+
+	oldName := self.Name
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = ext.GetName()
 		self.IsEmulated = ext.IsEmulated()
@@ -347,87 +432,35 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 		if accountId := ext.GetAccountId(); len(accountId) > 0 {
 			self.ManagerId, _ = providerMaps[accountId]
 		}
-		share := account.GetSharedInfo()
-		if self.DomainId != account.DomainId && !(share.PublicScope == rbacscope.ScopeSystem ||
-			(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(self.DomainId, share.SharedDomains))) {
-			self.ProjectId = account.ProjectId
-			self.DomainId = account.DomainId
-			if account.AutoCreateProject {
-				desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
-				domainId, projectId, err := account.getOrCreateTenant(ctx, self.Name, "", "", desc)
-				if err != nil {
-					log.Errorf("failed to get or create tenant %s(%s) %v", self.Name, self.ExternalId, err)
-				} else {
-					self.ProjectId = projectId
-					self.DomainId = domainId
-				}
+		if len(domainId) > 0 && len(projectId) > 0 {
+			self.DomainId = domainId
+			self.ProjectId = projectId
+		}
+		cache, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, self.ProjectId, self.DomainId)
+		if err != nil {
+			return errors.Wrapf(err, "FetchProject %s", self.ProjectId)
+		}
+		if cache.PendingDeleted {
+			desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+			_, self.ProjectId, err = account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
+			if err != nil {
+				return errors.Wrapf(err, "getOrCreateTenant")
 			}
 			return nil
 		}
-		pm, _ := account.GetProjectMapping()
-		if pm != nil && pm.Enabled.IsTrue() && pm.IsNeedProjectSync() && self.ProjectSrc != string(apis.OWNER_SOURCE_LOCAL) {
-			extTags, err := ext.GetTags()
-			if err != nil {
-				return errors.Wrapf(err, "extModel.GetTags")
-			}
-			find := false
-			if pm.Rules != nil {
-				for _, rule := range *pm.Rules {
-					domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
-					if isMatch && len(newProj) > 0 {
-						domainId, projectId, err = account.getOrCreateTenant(context.TODO(), newProj, "", "", "auto create from tag")
-						if err != nil {
-							log.Errorf("getOrCreateTenant(%s) error: %v", newProj, err)
-							continue
-						}
-						if len(domainId) > 0 && len(projectId) > 0 {
-							self.DomainId = domainId
-							self.ProjectId = projectId
-							find = true
-							break
-						}
-					}
-				}
-			}
-			if !find && account.AutoCreateProject {
-				desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
-				domainId, projectId, err := account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
+		if pm == nil && account.AutoCreateProject && options.Options.EnableAutoRenameProject && oldName != self.Name {
+			count, _ := self.GetProjectCount()
+			if count == 1 {
+				params := map[string]string{"name": self.Name}
+				_, err = identity.Projects.Update(s, self.ProjectId, jsonutils.Marshal(params))
 				if err != nil {
-					log.Errorf("failed to get or create tenant %s(%s) %v", self.Name, self.ExternalId, err)
-				} else {
-					self.DomainId = domainId
-					self.ProjectId = projectId
+					return errors.Wrapf(err, "update project name from %s -> %s", oldName, self.Name)
 				}
-			}
-		} else if account.AutoCreateProject && options.Options.EnableAutoRenameProject {
-			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
-			if err != nil {
-				return errors.Wrapf(err, "TenantCacheManager.FetchTenantById(%s)", self.ProjectId)
-			}
-			if tenant.Name != self.Name {
-				proj, err := db.TenantCacheManager.FetchTenantByNameInDomain(ctx, self.Name, tenant.DomainId)
-				if err != nil {
-					if errors.Cause(err) == sql.ErrNoRows {
-						params := map[string]string{"name": self.Name}
-						_, err := identity.Projects.Update(s, tenant.Id, jsonutils.Marshal(params))
-						if err != nil {
-							return errors.Wrapf(err, "update project name from %s -> %s", tenant.Name, self.Name)
-						}
-						_, err = db.Update(tenant, func() error {
-							tenant.Name = self.Name
-							return nil
-						})
-						return err
-					}
-					return errors.Wrapf(err, "FetchTenantByName(%s)", self.Name)
-				}
-				if proj.DomainId == account.DomainId ||
-					share.PublicScope == rbacscope.ScopeSystem ||
-					(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(proj.DomainId, share.SharedDomains)) {
-					self.ProjectId = proj.Id
-					self.DomainId = proj.DomainId
+				_, err = db.Update(cache, func() error {
+					cache.Name = self.Name
 					return nil
-				}
+				})
+				return err
 			}
 		}
 		return nil
@@ -622,16 +655,26 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 		return nil, httperrors.NewForbiddenError("account %s not share for domain %s", account.Name, tenant.DomainId)
 	}
 
+	oldTenant, _ := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, self.ProjectId, self.DomainId)
+	oldDomain, oldProject := "", ""
+	if oldTenant != nil {
+		oldDomain, oldProject = oldTenant.Domain, oldTenant.Name
+	}
+
 	notes := struct {
 		OldProjectId string
+		OldProject   string
 		OldDomainId  string
+		OldDomain    string
 		NewProjectId string
 		NewProject   string
 		NewDomainId  string
 		NewDomain    string
 	}{
 		OldProjectId: self.ProjectId,
+		OldProject:   oldProject,
 		OldDomainId:  self.DomainId,
+		OldDomain:    oldDomain,
 		NewProjectId: tenant.Id,
 		NewProject:   tenant.Name,
 		NewDomainId:  tenant.DomainId,

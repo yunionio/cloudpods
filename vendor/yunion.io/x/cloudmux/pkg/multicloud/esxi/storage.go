@@ -129,10 +129,6 @@ func (self *SDatastore) Refresh() error {
 	return nil
 }
 
-func (self *SDatastore) IsEmulated() bool {
-	return false
-}
-
 func (self *SDatastore) getVolumeId() (string, error) {
 	moStore := self.getDatastore()
 	switch fsInfo := moStore.Info.(type) {
@@ -324,8 +320,7 @@ func (self *SDatastore) FetchFakeTempateVMs(regex string) ([]*SVirtualMachine, e
 func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
 	dc, err := self.GetDatacenter()
 	if err != nil {
-		log.Errorf("SDatastore GetDatacenter fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetDatacenter")
 	}
 	vms := self.getDatastore().Vm
 	if len(vms) == 0 {
@@ -333,7 +328,7 @@ func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
 	}
 	svms, err := dc.fetchVmsFromCache(vms)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "fetchVmsFromCache")
 	}
 	ret := make([]cloudprovider.ICloudVM, len(svms))
 	for i := range svms {
@@ -345,8 +340,7 @@ func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
 func (self *SDatastore) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
 	vms, err := self.getVMs()
 	if err != nil {
-		log.Errorf("self.getVMs fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "getVMs")
 	}
 	for i := 0; i < len(vms); i += 1 {
 		vm := vms[i].(*SVirtualMachine)
@@ -1148,7 +1142,7 @@ func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, hos
 		return nil, errors.Error(spec.Error[0].LocalizedMessage)
 	}
 
-	lease, err := pool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, host.GetoHostSystem())
+	lease, err := pool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, host.GetHostSystem())
 	if err != nil {
 		return nil, err
 	}

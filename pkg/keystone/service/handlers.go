@@ -75,6 +75,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.IdentityQuotaManager,
 		models.IdentityUsageManager,
 		models.IdentityPendingUsageManager,
+
+		models.TokenCacheManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

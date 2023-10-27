@@ -87,6 +87,26 @@ func initKubeCluster() {
 		return nil
 	})
 
+	type SetKubeconfigOptions struct {
+		o.IdentOptions
+		FILE string `json:"filepath of kubeconfig"`
+	}
+	R(new(SetKubeconfigOptions), cmdN("set-kubeconfig"), "Set kubeconfig of a cluster", func(s *mcclient.ClientSession, args *SetKubeconfigOptions) error {
+		content, err := ioutil.ReadFile(args.FILE)
+		if err != nil {
+			return errors.Wrapf(err, "read file content of %q", args.FILE)
+		}
+		input := map[string]string{
+			"kubeconfig": string(content),
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "set-kubeconfig", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 	R(&o.ClusterGetAddonsOpt{}, cmdN("addons"), "Get addon manifest of a cluster", func(s *mcclient.ClientSession, args *o.ClusterGetAddonsOpt) error {
 		params, err := args.Params()
 		if err != nil {

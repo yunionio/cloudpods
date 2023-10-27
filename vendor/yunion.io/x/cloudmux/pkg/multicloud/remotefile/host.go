@@ -16,6 +16,7 @@ package remotefile
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -129,8 +130,12 @@ func (self *SHost) GetVersion() string {
 	return ""
 }
 
-func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	wires, err := host.getIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "getIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -189,7 +194,7 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
+func (self *SHost) getIWires() ([]cloudprovider.ICloudWire, error) {
 	wires := make([]cloudprovider.ICloudWire, len(self.Wires))
 	for i := 0; i < len(self.Wires); i++ {
 		wires[i] = &self.Wires[i]

@@ -140,10 +140,6 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, ins)
 }
 
-func (self *SInstance) AssignSecurityGroup(id string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
 	driver := opts.Driver
 	if !utils.IsInStringArray(driver, []string{"ide", "scsi", "pci", "sata"}) {
@@ -400,7 +396,7 @@ func (self *SInstance) UpdateUserData(userData string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

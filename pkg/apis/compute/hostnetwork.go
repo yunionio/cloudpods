@@ -14,6 +14,8 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 type HostnetworkDetails struct {
 	HostJointResourceDetails
 
@@ -27,7 +29,7 @@ type HostnetworkDetails struct {
 	// 二层网络ID
 	WireId string `json:"wire_id"`
 
-	NicType string `json:"nic_type"`
+	NicType compute.TNicType `json:"nic_type"`
 }
 
 type HostnetworkListInput struct {

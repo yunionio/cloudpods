@@ -41,7 +41,7 @@ type SBaremetalagent struct {
 	db.SStandaloneResourceBase
 	SZoneResourceBase `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 
-	Status     string `width:"36" charset:"ascii" nullable:"false" default:"disable" list:"user" create:"optional"`
+	Status     string `width:"36" charset:"ascii" nullable:"false" default:"disable" create:"optional"`
 	AccessIp   string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_required"`
 	// ZoneId     string `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
@@ -225,7 +225,11 @@ func (manager *SBaremetalagentManager) FetchCustomizeColumns(
 }
 
 func (manager *SBaremetalagentManager) GetAgent(agentType api.TAgentType, zoneId string) *SBaremetalagent {
-	q := manager.Query().Equals("agent_type", agentType).Equals("zone_id", zoneId).Asc("created_at")
+	q := manager.Query().Equals("agent_type", agentType)
+	if len(zoneId) > 0 {
+		q = q.Equals("zone_id", zoneId)
+	}
+	q = q.Asc("created_at")
 	agents := make([]SBaremetalagent, 0)
 	err := db.FetchModelObjects(manager, q, &agents)
 	if err != nil {

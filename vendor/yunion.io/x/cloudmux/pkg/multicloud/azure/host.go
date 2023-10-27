@@ -61,7 +61,11 @@ func (self *SHost) Refresh() error {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	nic, err := self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.NameEn), desc.IpAddr, desc.ExternalNetworkId, desc.ExternalSecgroupId)
+	secgroupId := ""
+	for _, id := range desc.ExternalSecgroupIds {
+		secgroupId = id
+	}
+	nic, err := self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.NameEn), desc.IpAddr, desc.ExternalNetworkId, secgroupId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateNetworkInterface")
 	}
@@ -292,12 +296,12 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	return ivms, nil
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
-}
-
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SHost) GetIsMaintenance() bool {

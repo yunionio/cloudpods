@@ -17,13 +17,11 @@ package aws
 import (
 	"fmt"
 	"strings"
-	"time"
-
-	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -40,23 +38,18 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires []cloudprovider.ICloudWire
-
-	RegionId                string
-	VpcId                   string
-	VpcName                 string
-	CidrBlock               string
-	CidrBlockAssociationSet []string
-	IsDefault               bool
-	Status                  string
-	InstanceTenancy         string
-}
-
-func (self *SVpc) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
+	VpcId                   string `xml:"vpcId"`
+	CidrBlock               string `xml:"cidrBlock"`
+	CidrBlockAssociationSet []struct {
+		CidrBlock      string `xml:"cidrBlock"`
+		AssociationId  string `xml:"associationId"`
+		CidrBlockState struct {
+			State string `xml:"state"`
+		} `xml:"cidrBlockState"`
+	} `xml:"cidrBlockAssociationSet>item"`
+	IsDefault       bool   `xml:"isDefault"`
+	Status          string `xml:"state"`
+	InstanceTenancy string `xml:"instanceTenancy"`
 }
 
 func (self *SVpc) GetId() string {
@@ -64,8 +57,9 @@ func (self *SVpc) GetId() string {
 }
 
 func (self *SVpc) GetName() string {
-	if len(self.VpcName) > 0 {
-		return self.VpcName
+	name := self.AwsTags.GetName()
+	if len(name) > 0 {
+		return name
 	}
 	return self.VpcId
 }
@@ -79,6 +73,7 @@ func (self *SVpc) GetStatus() string {
 	if self.InstanceTenancy == "dedicated" {
 		return api.VPC_STATUS_UNAVAILABLE
 	}
+	// pending | available
 	return strings.ToLower(self.Status)
 }
 
@@ -99,17 +94,26 @@ func (self *SVpc) GetIsDefault() bool {
 }
 
 func (self *SVpc) GetCidrBlock() string {
-	return strings.Join(self.CidrBlockAssociationSet, ",")
+	cidr := []string{self.CidrBlock}
+	for _, ip := range self.CidrBlockAssociationSet {
+		if !utils.IsInStringArray(ip.CidrBlock, cidr) {
+			cidr = append(cidr, ip.CidrBlock)
+		}
+	}
+	return strings.Join(cidr, ",")
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, errors.Wrap(err, "fetchNetworks")
-		}
+	zones, err := self.region.GetZones("")
+	if err != nil {
+		return nil, err
 	}
-	return self.iwires, nil
+	ret := []cloudprovider.ICloudWire{}
+	for i := range zones {
+		zones[i].region = self.region
+		ret = append(ret, &SWire{zone: &zones[i], vpc: self})
+	}
+	return ret, nil
 }
 
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
@@ -124,8 +128,9 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	}
 	return ret, nil
 }
+
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
-	tables, err := self.region.GetRouteTables(self.GetId(), false)
+	tables, err := self.region.GetRouteTables(self.GetId(), "", "", "", false)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpc.GetIRouteTables")
 	}
@@ -186,98 +191,65 @@ func (self *SVpc) Delete() error {
 }
 
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, errors.Wrap(err, "fetchNetworks")
-		}
-	}
-	for i := 0; i < len(self.iwires); i += 1 {
-		if self.iwires[i].GetGlobalId() == wireId {
-			return self.iwires[i], nil
-		}
-	}
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIWireById")
-}
-
-func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
-	for i := 0; i < len(self.iwires); i += 1 {
-		wire := self.iwires[i].(*SWire)
-		if wire.zone.ZoneId == zoneId {
-			return wire
-		}
-	}
-
-	zone, err := self.region.getZoneById(zoneId)
+	wires, err := self.GetIWires()
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &SWire{
-		zone: zone,
-		vpc:  self,
+	for i := range wires {
+		if wires[i].GetGlobalId() == wireId {
+			return wires[i], nil
+		}
 	}
-}
-
-func (self *SVpc) fetchNetworks() error {
-	networks, err := self.region.GetNetwroks(nil, self.VpcId)
-	if err != nil {
-		return errors.Wrapf(err, "GetNetwroks(%s)", self.VpcId)
-	}
-
-	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByZoneId(networks[i].AvailabilityZone)
-		networks[i].wire = wire
-		wire.addNetwork(&networks[i])
-	}
-	return nil
-}
-
-func (self *SVpc) revokeSecurityGroup(secgroupId string, instanceId string, keep bool) error {
-	return self.region.revokeSecurityGroup(secgroupId, instanceId, keep)
-}
-
-func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) error {
-	return self.region.assignSecurityGroup(secgroupId, instanceId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, wireId)
 }
 
 func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
-	svpcPCs, err := self.getRequesterVpcPeeringConnections()
+	peers, err := self.region.DescribeVpcPeeringConnections("", self.VpcId, "")
 	if err != nil {
-		return nil, errors.Wrap(err, "self.getSVpcPeeringConnections()")
+		return nil, err
 	}
 	ret := []cloudprovider.ICloudVpcPeeringConnection{}
-	for i := range svpcPCs {
-		ret = append(ret, svpcPCs[i])
+	for i := range peers {
+		peers[i].vpc = self
+		ret = append(ret, &peers[i])
 	}
 	return ret, nil
 }
 
 func (self *SVpc) GetICloudAccepterVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
-	svpcPCs, err := self.getAccepterVpcPeeringConnections()
+	peers, err := self.region.DescribeVpcPeeringConnections("", "", self.VpcId)
 	if err != nil {
-		return nil, errors.Wrap(err, "self.getAccepterVpcPeeringConnections()")
+		return nil, err
 	}
 	ret := []cloudprovider.ICloudVpcPeeringConnection{}
-	for i := range svpcPCs {
-		ret = append(ret, svpcPCs[i])
+	for i := range peers {
+		peers[i].vpc = self
+		ret = append(ret, &peers[i])
 	}
 	return ret, nil
 }
 
 func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
-	vpcPc, err := self.getSVpcPeeringConnectionById(id)
+	peer, err := self.region.GetVpcPeeringConnectionById(id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "getSVpcPeeringConnectionById(%s)", id)
+		return nil, err
 	}
-	return vpcPc, nil
+	peer.vpc = self
+	return peer, nil
 }
 
 func (self *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (cloudprovider.ICloudVpcPeeringConnection, error) {
-	return self.createSVpcPeeringConnection(opts)
+	peer, err := self.region.CreateVpcPeeringConnection(self.VpcId, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateVpcPeeringConnection")
+	}
+	peer.vpc = self
+	return peer, nil
 }
 
 func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
-	return self.acceptSVpcPeeringConnection(id)
+	_, err := self.region.AcceptVpcPeeringConnection(id)
+	return errors.Wrapf(err, "AcceptVpcPeeringConnection")
 }
 
 func (self *SVpc) GetAuthorityOwnerId() string {
@@ -287,112 +259,6 @@ func (self *SVpc) GetAuthorityOwnerId() string {
 		return ""
 	}
 	return identity.Account
-}
-
-func (self *SVpc) getSVpcPeeringConnectionById(id string) (*SVpcPeeringConnection, error) {
-	vpcPC, err := self.region.GetVpcPeeringConnectionById(id)
-	if err != nil {
-		return nil, errors.Wrapf(err, "self.region.GetVpcPeeringConnectionById(%s)", id)
-	}
-	if vpcPC.Status.Code != nil && (*vpcPC.Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleted ||
-		*vpcPC.Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleting) {
-		return nil, cloudprovider.ErrNotFound
-	}
-	svpcPC := SVpcPeeringConnection{}
-	svpcPC.vpc = self
-	svpcPC.vpcPC = vpcPC
-	return &svpcPC, nil
-}
-
-func (self *SVpc) getRequesterVpcPeeringConnections() ([]*SVpcPeeringConnection, error) {
-	vpcPCs, err := self.region.DescribeRequesterVpcPeeringConnections(self.VpcId)
-	if err != nil {
-		return nil, errors.Wrap(err, "self.region.DescribeRequesterVpcPeeringConnections()")
-	}
-	ivpcPCs := []*SVpcPeeringConnection{}
-	for i := range vpcPCs {
-		if vpcPCs[i].Status.Code != nil && (*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleted ||
-			*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleting) {
-			continue
-		}
-		svpcPC := SVpcPeeringConnection{}
-		svpcPC.vpc = self
-		svpcPC.vpcPC = vpcPCs[i]
-		ivpcPCs = append(ivpcPCs, &svpcPC)
-	}
-	return ivpcPCs, nil
-}
-
-func (self *SVpc) getAccepterVpcPeeringConnections() ([]*SVpcPeeringConnection, error) {
-	vpcPCs, err := self.region.DescribeAccepterVpcPeeringConnections(self.VpcId)
-	if err != nil {
-		return nil, errors.Wrap(err, "self.region.DescribeAccepterVpcPeeringConnections()")
-	}
-	ivpcPCs := []*SVpcPeeringConnection{}
-	for i := range vpcPCs {
-		if vpcPCs[i].Status.Code != nil && (*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleted ||
-			*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleting) {
-			continue
-		}
-		svpcPC := SVpcPeeringConnection{}
-		svpcPC.vpc = self
-		svpcPC.vpcPC = vpcPCs[i]
-		ivpcPCs = append(ivpcPCs, &svpcPC)
-	}
-	return ivpcPCs, nil
-}
-
-func (self *SVpc) createSVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (*SVpcPeeringConnection, error) {
-	svpcPC := SVpcPeeringConnection{}
-	vpcPC, err := self.region.CreateVpcPeeringConnection(self.VpcId, opts)
-	if err != nil {
-		return nil, errors.Wrapf(err, " self.region.CreateVpcPeeringConnection(%s,%s)", self.VpcId, jsonutils.Marshal(opts).String())
-	}
-	svpcPC.vpc = self
-	svpcPC.vpcPC = vpcPC
-	err = cloudprovider.WaitMultiStatus(&svpcPC, []string{api.VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT,
-		api.VPC_PEERING_CONNECTION_STATUS_ACTIVE,
-		api.VPC_PEERING_CONNECTION_STATUS_DELETING}, 5*time.Second, 60*time.Second)
-	if err != nil {
-		return nil, errors.Wrap(err, "cloudprovider.WaitMultiStatus")
-	}
-	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_DELETING {
-		return nil, errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcpeeringconnection:%s  invalidate status", jsonutils.Marshal(svpcPC.vpcPC).String())
-	}
-	return &svpcPC, nil
-}
-
-func (self *SVpc) acceptSVpcPeeringConnection(id string) error {
-	svpcPC, err := self.getSVpcPeeringConnectionById(id)
-	if err != nil {
-		return errors.Wrapf(err, "self.getSVpcPeeringConnectionById(%s)", id)
-	}
-	//	其他region 创建的连接请求,有短暂的provisioning状态
-	err = cloudprovider.WaitMultiStatus(svpcPC, []string{api.VPC_PEERING_CONNECTION_STATUS_ACTIVE,
-		api.VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT,
-		api.VPC_PEERING_CONNECTION_STATUS_DELETING}, 5*time.Second, 60*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "cloudprovider.WaitMultiStatus")
-	}
-	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_DELETING {
-		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcpeeringconnection:%s  invalidate status", jsonutils.Marshal(svpcPC.vpcPC).String())
-	}
-
-	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT {
-		_, err := self.region.AcceptVpcPeeringConnection(id)
-		if err != nil {
-			return errors.Wrapf(err, "self.region.AcceptVpcPeeringConnection(%s)", id)
-		}
-	}
-	err = cloudprovider.WaitMultiStatus(svpcPC, []string{api.VPC_PEERING_CONNECTION_STATUS_ACTIVE,
-		api.VPC_PEERING_CONNECTION_STATUS_DELETING}, 5*time.Second, 60*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "cloudprovider.WaitMultiStatus")
-	}
-	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_DELETING {
-		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcpeeringconnection:%s  invalidate status", jsonutils.Marshal(svpcPC.vpcPC).String())
-	}
-	return nil
 }
 
 func (self *SVpc) IsSupportSetExternalAccess() bool {
@@ -413,26 +279,17 @@ func (self *SVpc) GetExternalAccessMode() string {
 }
 
 func (self *SVpc) AttachInternetGateway(igwId string) error {
-	ec2Client, err := self.region.getEc2Client()
+	params := map[string]string{
+		"InternetGatewayId": igwId,
+		"VpcId":             self.VpcId,
+	}
+	ret := struct{}{}
+	err := self.region.ec2Request("AttachInternetGateway", params, &ret)
 	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+		return errors.Wrapf(err, "AttachInternetGateway")
 	}
 
-	input := ec2.AttachInternetGatewayInput{}
-	input.SetInternetGatewayId(igwId)
-	input.SetVpcId(self.GetId())
-
-	_, err = ec2Client.AttachInternetGateway(&input)
-	if err != nil {
-		return errors.Wrap(err, "AttachInternetGateway")
-	}
-
-	err = self.AddDefaultInternetGatewayRoute(igwId)
-	if err != nil {
-		return errors.Wrap(err, "AddDefaultInternetGatewayRoute")
-	}
-
-	return nil
+	return self.AddDefaultInternetGatewayRoute(igwId)
 }
 
 func (self *SVpc) AddDefaultInternetGatewayRoute(igwId string) error {
@@ -440,20 +297,11 @@ func (self *SVpc) AddDefaultInternetGatewayRoute(igwId string) error {
 	if err != nil {
 		return errors.Wrap(err, "GetMainRouteTable")
 	}
-
-	defaultRoute := cloudprovider.RouteSet{}
-	defaultRoute.NextHop = igwId
-	defaultRoute.Destination = "0.0.0.0/0"
-	err = rt.CreateRoute(defaultRoute)
-	if err != nil {
-		return errors.Wrap(err, "CreateRoute")
-	}
-
-	return nil
+	return self.region.CreateRoute(rt.RouteTableId, "0.0.0.0/0", igwId)
 }
 
 func (self *SVpc) GetMainRouteTable() (*SRouteTable, error) {
-	rt, err := self.region.GetRouteTables(self.GetId(), true)
+	rt, err := self.region.GetRouteTables(self.GetId(), "", "", "", true)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRouteTables")
 	}
@@ -473,7 +321,7 @@ func (self *SVpc) DetachInternetGateways() error {
 
 	if len(igws) > 0 {
 		for i := range igws {
-			err = self.DetachInternetGateway(igws[i].GetId())
+			err = self.region.DetachInternetGateway(self.VpcId, igws[i].GetId())
 			if err != nil {
 				return errors.Wrap(err, "DetachInternetGateway")
 			}
@@ -483,39 +331,21 @@ func (self *SVpc) DetachInternetGateways() error {
 	return nil
 }
 
-func (self *SVpc) DetachInternetGateway(igwId string) error {
-	ec2Client, err := self.region.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) DetachInternetGateway(vpcId, igwId string) error {
+	params := map[string]string{
+		"InternetGatewayId": igwId,
+		"VpcId":             vpcId,
 	}
-
-	input := ec2.DetachInternetGatewayInput{}
-	input.SetInternetGatewayId(igwId)
-	input.SetVpcId(self.GetId())
-
-	_, err = ec2Client.DetachInternetGateway(&input)
-	if err != nil {
-		return errors.Wrap(err, "DetachInternetGateway")
-	}
-
-	return nil
+	ret := struct{}{}
+	return self.ec2Request("DetachInternetGateway", params, &ret)
 }
 
-func (self *SVpc) DeleteInternetGateway(igwId string) error {
-	ec2Client, err := self.region.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) DeleteInternetGateway(id string) error {
+	params := map[string]string{
+		"InternetGatewayId": id,
 	}
-
-	input := ec2.DeleteInternetGatewayInput{}
-	input.SetInternetGatewayId(igwId)
-
-	_, err = ec2Client.DeleteInternetGateway(&input)
-	if err != nil {
-		return errors.Wrap(err, "DeleteInternetGateway")
-	}
-
-	return nil
+	ret := struct{}{}
+	return self.ec2Request("DeleteInternetGateway", params, &ret)
 }
 
 func (self *SVpc) DeleteInternetGateways() error {
@@ -524,17 +354,15 @@ func (self *SVpc) DeleteInternetGateways() error {
 		return errors.Wrap(err, "GetInternetGateways")
 	}
 
-	if len(igws) > 0 {
-		for i := range igws {
-			err = self.DetachInternetGateway(igws[i].GetId())
-			if err != nil {
-				return errors.Wrap(err, "DetachInternetGateway")
-			}
+	for i := range igws {
+		err = self.region.DetachInternetGateway(self.VpcId, igws[i].GetId())
+		if err != nil {
+			return errors.Wrap(err, "DetachInternetGateway")
+		}
 
-			err = self.DeleteInternetGateway(igws[i].GetId())
-			if err != nil {
-				return errors.Wrap(err, "DeleteInternetGateway")
-			}
+		err = self.region.DeleteInternetGateway(igws[i].GetId())
+		if err != nil {
+			return errors.Wrap(err, "DeleteInternetGateway")
 		}
 	}
 
@@ -542,161 +370,106 @@ func (self *SVpc) DeleteInternetGateways() error {
 }
 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
-	if len(vpcId) == 0 {
-		return nil, fmt.Errorf("GetVpc vpc id should not be empty.")
-	}
-
 	vpcs, err := self.GetVpcs([]string{vpcId})
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVpcs")
 	}
-	if len(vpcs) != 1 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getVpc")
+	for i := range vpcs {
+		if vpcs[i].VpcId == vpcId {
+			vpcs[i].region = self
+			return &vpcs[i], nil
+		}
 	}
-	vpcs[0].region = self
-	return &vpcs[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, vpcId)
 }
 
-func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string, keep bool) error {
-	// todo : keep ? 直接使用assignSecurityGroup 即可？
-	return nil
-}
-
-func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
-	return self.assignSecurityGroups([]*string{&secgroupId}, instanceId)
-}
-
-func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId string) error {
+func (self *SRegion) assignSecurityGroups(secgroupIds []string, instanceId string) error {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return errors.Wrap(err, "GetInstance")
 	}
 
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-
 	for _, eth := range instance.NetworkInterfaces {
-		params := &ec2.ModifyNetworkInterfaceAttributeInput{}
-		params.SetNetworkInterfaceId(eth.NetworkInterfaceId)
-		params.SetGroups(secgroupIds)
-
-		_, err := ec2Client.ModifyNetworkInterfaceAttribute(params)
+		params := map[string]string{
+			"NetworkInterfaceId": eth.NetworkInterfaceId,
+		}
+		for i, groupId := range secgroupIds {
+			params[fmt.Sprintf("SecurityGroupId.%d", i+1)] = groupId
+		}
+		ret := struct{}{}
+		err = self.ec2Request("ModifyNetworkInterfaceAttribute", params, &ret)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "ModifyNetworkInterfaceAttribute")
 		}
 	}
 
 	return nil
 }
 
-func (self *SRegion) DeleteSecurityGroup(secGrpId string) error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) DeleteSecurityGroup(id string) error {
+	params := map[string]string{
+		"GroupId": id,
 	}
-
-	params := &ec2.DeleteSecurityGroupInput{}
-	params.SetGroupId(secGrpId)
-
-	_, err = ec2Client.DeleteSecurityGroup(params)
-	return errors.Wrap(err, "DeleteSecurityGroup")
+	ret := struct{}{}
+	return self.ec2Request("DeleteSecurityGroup", params, &ret)
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"VpcId": vpcId,
 	}
-
-	params := &ec2.DeleteVpcInput{}
-	params.SetVpcId(vpcId)
-
-	_, err = ec2Client.DeleteVpc(params)
-	return errors.Wrap(err, "DeleteVpc")
+	ret := struct{}{}
+	return self.ec2Request("DeleteVpc", params, &ret)
 }
 
-func (self *SRegion) GetVpcs(vpcId []string) ([]SVpc, error) {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
+func (self *SRegion) GetVpcs(vpcIds []string) ([]SVpc, error) {
+	params := map[string]string{}
+	for i, id := range vpcIds {
+		params[fmt.Sprintf("VpcId.%d", i+1)] = id
 	}
-
-	params := &ec2.DescribeVpcsInput{}
-	if len(vpcId) > 0 {
-		params.SetVpcIds(ConvertedList(vpcId))
-	}
-
-	ret, err := ec2Client.DescribeVpcs(params)
-	err = parseNotFoundError(err)
-	if err != nil {
-		return nil, err
-	}
-
-	vpcs := []SVpc{}
-	for _, item := range ret.Vpcs {
-		if err := FillZero(item); err != nil {
+	ret := []SVpc{}
+	for {
+		part := struct {
+			NextToken string `xml:"nextToken"`
+			VpcSet    []SVpc `xml:"vpcSet>item"`
+		}{}
+		err := self.ec2Request("DescribeVpcs", params, &part)
+		if err != nil {
 			return nil, err
 		}
-		cidrBlockAssociationSet := []string{}
-		for i := range item.CidrBlockAssociationSet {
-			cidr := item.CidrBlockAssociationSet[i]
-			if cidr.CidrBlockState.State != nil && *cidr.CidrBlockState.State == "associated" {
-				cidrBlockAssociationSet = append(cidrBlockAssociationSet, *cidr.CidrBlock)
-			}
+		ret = append(ret, part.VpcSet...)
+		if len(part.NextToken) == 0 || len(part.VpcSet) == 0 {
+			break
 		}
-
-		tagspec := TagSpec{ResourceType: "vpc"}
-		tagspec.LoadingEc2Tags(item.Tags)
-
-		vpc := SVpc{
-			region:                  self,
-			RegionId:                self.RegionId,
-			VpcId:                   *item.VpcId,
-			VpcName:                 tagspec.GetNameTag(),
-			CidrBlock:               *item.CidrBlock,
-			CidrBlockAssociationSet: cidrBlockAssociationSet,
-			IsDefault:               *item.IsDefault,
-			Status:                  *item.State,
-			InstanceTenancy:         *item.InstanceTenancy,
-		}
-		jsonutils.Update(&vpc.AwsTags.TagSet, item.Tags)
-		vpcs = append(vpcs, vpc)
+		params["NextToken"] = part.NextToken
 	}
-
-	return vpcs, nil
+	return ret, nil
 }
 
 func (self *SRegion) GetInternetGateways(vpcId string) ([]SInternetGateway, error) {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-
-	input := ec2.DescribeInternetGatewaysInput{}
-	filters := make([]*ec2.Filter, 0)
+	params := map[string]string{}
+	idx := 1
 	if len(vpcId) > 0 {
-		filters = AppendSingleValueFilter(filters, "attachment.vpc-id", vpcId)
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "attachment.vpc-id"
+		params[fmt.Sprintf("Filter.%d.Value", idx)] = vpcId
+		idx++
 	}
 
-	if len(filters) > 0 {
-		input.SetFilters(filters)
+	ret := []SInternetGateway{}
+	for {
+		part := struct {
+			NextToken          string             `xml:"nextToken"`
+			InternetGatewaySet []SInternetGateway `xml:"internetGatewaySet>item"`
+		}{}
+		err := self.ec2Request("DescribeInternetGateways", params, &part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeInternetGateways")
+		}
+		ret = append(ret, part.InternetGatewaySet...)
+		if len(part.NextToken) == 0 || len(part.InternetGatewaySet) == 0 {
+			break
+		}
+		params["NextToken"] = part.NextToken
 	}
-	output, err := ec2Client.DescribeInternetGateways(&input)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeInternetGateways")
-	}
-
-	igws := make([]SInternetGateway, len(output.InternetGateways))
-	err = unmarshalAwsOutput(output, "InternetGateways", &igws)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput")
-	}
-
-	for i := range igws {
-		igws[i].region = self
-	}
-
-	return igws, nil
+	return ret, nil
 }

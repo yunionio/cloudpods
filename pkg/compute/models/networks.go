@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -140,21 +141,21 @@ func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (self *SNetwork) getMtu() int {
+func (self *SNetwork) getMtu() int16 {
 	baseMtu := options.Options.DefaultMtu
 
 	wire, _ := self.GetWire()
 	if wire != nil {
 		if IsOneCloudVpcResource(wire) {
-			return options.Options.OvnUnderlayMtu - api.VPC_OVN_ENCAP_COST
+			return int16(options.Options.OvnUnderlayMtu - api.VPC_OVN_ENCAP_COST)
 		} else if wire.Mtu != 0 {
-			return wire.Mtu
+			return int16(wire.Mtu)
 		} else {
-			return baseMtu
+			return int16(baseMtu)
 		}
 	}
 
-	return baseMtu
+	return int16(baseMtu)
 }
 
 func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
@@ -387,11 +388,11 @@ func (self *SNetwork) GetNetAddr() netutils.IPV4Addr {
 	return startIp.NetAddr(self.GuestIpMask)
 }
 
-func (self *SNetwork) GetDNS() string {
+func (self *SNetwork) GetDNS(zoneName string) string {
 	if len(self.GuestDns) > 0 {
 		return self.GuestDns
-	} else {
-		zoneName := ""
+	}
+	if len(zoneName) == 0 {
 		wire, _ := self.GetWire()
 		if wire != nil {
 			zone, _ := wire.GetZone()
@@ -399,15 +400,15 @@ func (self *SNetwork) GetDNS() string {
 				zoneName = zone.Name
 			}
 		}
-		srvs, _ := auth.GetDNSServers(options.Options.Region, zoneName)
-		if len(srvs) > 0 {
-			return strings.Join(srvs, ",")
-		}
-		if len(options.Options.DNSServer) > 0 {
-			return options.Options.DNSServer
-		}
-		return api.DefaultDNSServers
 	}
+	srvs, _ := auth.GetDNSServers(options.Options.Region, zoneName)
+	if len(srvs) > 0 {
+		return strings.Join(srvs, ",")
+	}
+	if len(options.Options.DNSServer) > 0 {
+		return options.Options.DNSServer
+	}
+	return api.DefaultDNSServers
 }
 
 func (self *SNetwork) GetNTP() string {
@@ -438,8 +439,8 @@ func (self *SNetwork) GetDomain() string {
 	}
 }
 
-func (self *SNetwork) GetRoutes() [][]string {
-	ret := make([][]string, 0)
+func (self *SNetwork) GetRoutes() []types.SRoute {
+	ret := make([]types.SRoute, 0)
 	routes := self.GetMetadataJson(context.Background(), "static_routes", nil)
 	if routes != nil {
 		routesMap, err := routes.GetMap()
@@ -448,7 +449,7 @@ func (self *SNetwork) GetRoutes() [][]string {
 		}
 		for net, routeJson := range routesMap {
 			route, _ := routeJson.GetString()
-			ret = append(ret, []string{net, route})
+			ret = append(ret, types.SRoute{net, route})
 		}
 	}
 	return ret
@@ -1072,6 +1073,8 @@ func (manager *SNetworkManager) FetchCustomizeColumns(
 		rows[i].Ports = network.GetPorts()
 		rows[i].Routes = network.GetRoutes()
 		rows[i].Schedtags = GetSchedtagsDetailsToResourceV2(network, ctx)
+		rows[i].Dns = network.GetDNS(rows[i].Zone)
+		rows[i].AdditionalWires = network.fetchAdditionalWires()
 
 		netIds[i] = network.Id
 	}
@@ -1736,9 +1739,8 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 		usedMap := self.GetUsedAddresses()
 		for usedIpStr := range usedMap {
-			usedIp, _ := netutils.NewIPV4Addr(usedIpStr)
-			if !netRange.Contains(usedIp) {
-				return input, httperrors.NewInputParameterError("Address been assigned out of new range")
+			if usedIp, err := netutils.NewIPV4Addr(usedIpStr); err == nil && !netRange.Contains(usedIp) {
+				return input, httperrors.NewInputParameterError("Address %s been assigned out of new range", usedIpStr)
 			}
 		}
 
@@ -1889,19 +1891,25 @@ func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	vpc, _ := self.GetVpc()
+func (net *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	net.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	vpc, _ := net.GetVpc()
 	if vpc != nil && vpc.IsManaged() {
-		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", self, userCred, data.(*jsonutils.JSONDict), "", "", nil)
+		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", net, userCred, data.(*jsonutils.JSONDict), "", "", nil)
 		if err != nil {
 			log.Errorf("networkcreateTask create fail: %s", err)
 		} else {
 			task.ScheduleRun(nil)
 		}
 	} else {
-		self.SetStatus(userCred, api.NETWORK_STATUS_AVAILABLE, "")
-		if err := self.ClearSchedDescCache(); err != nil {
+		{
+			err := net.syncAdditionalWires(ctx, nil)
+			if err != nil {
+				log.Errorf("syncAdditionalWires error: %s", err)
+			}
+		}
+		net.SetStatus(userCred, api.NETWORK_STATUS_AVAILABLE, "")
+		if err := net.ClearSchedDescCache(); err != nil {
 			log.Errorf("network post create clear schedcache error: %v", err)
 		}
 	}
@@ -1963,6 +1971,9 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 	}
 	if err := self.SSharableVirtualResourceBase.Delete(ctx, userCred); err != nil {
 		return err
+	}
+	if err := NetworkAdditionalWireManager.DeleteNetwork(ctx, self.Id); err != nil {
+		return errors.Wrap(err, "NetworkAdditionalWireManager.DeleteNetwork")
 	}
 	self.ClearSchedDescCache()
 	return nil
@@ -2038,9 +2049,31 @@ func (manager *SNetworkManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
-	q, err = manager.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, input.WireFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
+	{
+		wireFilter := input.WireResourceInput
+		input.Wire = ""
+		input.WireId = ""
+		q, err = manager.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, input.WireFilterListInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
+		}
+		if len(wireFilter.WireId) > 0 {
+			wireObj, err := WireManager.FetchByIdOrName(userCred, wireFilter.WireId)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), wireFilter.WireId)
+				} else {
+					return nil, errors.Wrapf(err, "WireManager.FetchByIdOrName %s", wireFilter.WireId)
+				}
+			}
+			wireFilter.WireId = wireObj.GetId()
+			wireFilter.Wire = wireObj.GetName()
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("wire_id"), wireFilter.WireId),
+				sqlchemy.In(q.Field("id"), NetworkAdditionalWireManager.networkIdQuery(wireFilter.WireId).SubQuery()),
+			))
+		}
+		input.WireResourceInput = wireFilter
 	}
 
 	if len(input.RouteTableId) > 0 {
@@ -2064,21 +2097,20 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.In("wire_id", wires).Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	}
 
-	hostStr := input.HostId
-	if len(hostStr)+len(input.HostType) > 0 {
+	if len(input.HostId)+len(input.HostType) > 0 {
 		type sSimpleHost struct {
 			Id         string
 			OvnVersion string
 		}
 		hq := HostManager.Query("id", "ovn_version")
 		switch {
-		case len(hostStr) > 0 && len(input.HostType) > 0:
+		case len(input.HostId) > 0 && len(input.HostType) > 0:
 			hq = hq.Filter(sqlchemy.OR(
-				sqlchemy.Equals(hq.Field("id"), hostStr),
+				sqlchemy.Equals(hq.Field("id"), input.HostId),
 				sqlchemy.Equals(hq.Field("host_type"), input.HostType),
 			))
-		case len(hostStr) > 0:
-			hq = hq.Equals("id", hostStr)
+		case len(input.HostId) > 0:
+			hq = hq.Equals("id", input.HostId)
 		case len(input.HostType) > 0:
 			hq = hq.Equals("host_type", input.HostType)
 		}
@@ -2095,15 +2127,15 @@ func (manager *SNetworkManager) ListItemFilter(
 				ovnVersion = true
 			}
 		}
-		sq := HostwireManager.Query("wire_id")
+		sq := NetInterfaceManager.Query("wire_id")
 		switch len(hostids) {
 		case 0:
 			// hack for empty hostwire
 			sq = sq.IsTrue("deleted")
 		case 1:
-			sq = sq.Equals("host_id", hostids[0])
+			sq = sq.Equals("baremetal_id", hostids[0])
 		default:
-			sq = sq.In("host_id", hostids)
+			sq = sq.In("baremetal_id", hostids)
 		}
 		if ovnVersion {
 			vpcSub := VpcManager.Query("id").Equals("cloudregion_id", "default").NotEquals("id", api.DEFAULT_VPC_ID).SubQuery()
@@ -2125,7 +2157,7 @@ func (manager *SNetworkManager) ListItemFilter(
 		}
 		hoststorages := HoststorageManager.Query("host_id").Equals("storage_id", storage.GetId()).SubQuery()
 		hostSq := HostManager.Query("id").In("id", hoststorages).SubQuery()
-		sq := HostwireManager.Query("wire_id").In("host_id", hostSq)
+		sq := NetInterfaceManager.Query("wire_id").In("baremetal_id", hostSq)
 
 		ovnHosts := HostManager.Query().In("id", hoststorages).IsNotEmpty("ovn_version")
 		if n, _ := ovnHosts.CountWithError(); n > 0 {
@@ -2279,9 +2311,9 @@ func (manager *SNetworkManager) ListItemFilter(
 				return nil, errors.Wrap(err, "SchedtagManager.FetchByIdOrName")
 			}
 		}
-		subq := HostwireManager.Query("wire_id")
+		subq := NetInterfaceManager.Query("wire_id")
 		hostschedtags := HostschedtagManager.Query().Equals("schedtag_id", schedTagObj.GetId()).SubQuery()
-		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), subq.Field("host_id")))
+		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), subq.Field("baremetal_id")))
 		q = q.In("wire_id", subq.SubQuery())
 	}
 
@@ -2380,9 +2412,15 @@ func (self *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
 	return self.SSharableVirtualResourceBase.ValidateUpdateCondition(ctx)
 }
 
-func (self *SNetwork) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query, data jsonutils.JSONObject) {
-	self.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-	self.ClearSchedDescCache()
+func (net *SNetwork) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query, data jsonutils.JSONObject) {
+	net.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	net.ClearSchedDescCache()
+	if net.IsClassic() {
+		err := net.syncAdditionalWires(ctx, nil)
+		if err != nil {
+			log.Errorf("syncAdditionalWires error %s", err)
+		}
+	}
 }
 
 // 清除IP子网数据
@@ -2392,9 +2430,9 @@ func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return nil, err
 	}
-	vpc, _ := self.GetVpc()
-	if vpc != nil && len(vpc.ExternalId) > 0 {
-		provider := vpc.GetCloudprovider()
+	wire, _ := self.GetWire()
+	if wire != nil && len(wire.ExternalId) > 0 {
+		provider := wire.GetCloudprovider()
 		if provider != nil && provider.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Cannot purge network on enabled cloud provider")
 		}
@@ -2765,7 +2803,7 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to get wire")
 		}
-		err = db.InheritFromTo(ctx, wire, newNetwork)
+		err = db.InheritFromTo(ctx, userCred, wire, newNetwork)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to inherit wire")
 		}
@@ -3003,15 +3041,36 @@ func (net *SNetwork) IsClassic() bool {
 	return false
 }
 
+func (net *SNetwork) getAttachedHosts() ([]SHost, error) {
+	guestsQ := GuestManager.Query()
+	gnsQ := GuestnetworkManager.Query().Equals("network_id", net.Id).SubQuery()
+	guestsQ = guestsQ.Join(gnsQ, sqlchemy.Equals(guestsQ.Field("id"), gnsQ.Field("guest_id")))
+	guestsQ = guestsQ.IsNotEmpty("host_id")
+	guestsQ = guestsQ.AppendField(guestsQ.Field("host_id"))
+
+	guestsSubQ := guestsQ.SubQuery()
+	// unionQ := sqlchemy.Union(hns, guestsQ).Query().SubQuery()
+	q := HostManager.Query()
+	q = q.Join(guestsSubQ, sqlchemy.Equals(q.Field("id"), guestsSubQ.Field("host_id")))
+	q = q.Distinct()
+
+	hosts := make([]SHost, 0)
+	err := db.FetchModelObjects(HostManager, q, &hosts)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return hosts, nil
+}
+
 func (net *SNetwork) PerformSwitchWire(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input *api.NetworkSwitchWireInput,
 ) (jsonutils.JSONObject, error) {
-	err := net.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return nil, errors.Wrap(httperrors.ErrResourceBusy, "network in use")
+
+	if !net.IsClassic() {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "default vpc only")
 	}
 
 	wireObj, err := WireManager.FetchByIdOrName(userCred, input.WireId)
@@ -3030,6 +3089,24 @@ func (net *SNetwork) PerformSwitchWire(
 	if oldWire.VpcId != wire.VpcId {
 		return nil, errors.Wrapf(httperrors.ErrConflict, "cannot switch wires of other vpc")
 	}
+
+	hosts, err := net.getAttachedHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "getAttachedHosts")
+	}
+	unreachedHost := make([]string, 0)
+	for i := range hosts {
+		if hosts[i].HostType == api.HOST_TYPE_ESXI {
+			continue
+		}
+		if !hosts[i].IsAttach2Wire(wire.Id) {
+			unreachedHost = append(unreachedHost, hosts[i].Name)
+		}
+	}
+	if len(unreachedHost) > 0 {
+		return nil, errors.Wrapf(httperrors.ErrConflict, "wire %s not reachable for hosts %s", wire.Name, strings.Join(unreachedHost, ","))
+	}
+
 	diff, err := db.Update(net, func() error {
 		net.WireId = wire.Id
 		return nil
@@ -3038,8 +3115,84 @@ func (net *SNetwork) PerformSwitchWire(
 		return nil, errors.Wrap(err, "update wire_id")
 	}
 
+	{
+		err := net.syncAdditionalWires(ctx, nil)
+		if err != nil {
+			log.Errorf("syncAdditionalWires fail %s", err)
+		}
+	}
+
 	logclient.AddActionLogWithContext(ctx, net, logclient.ACT_UPDATE, diff, userCred, true)
 	db.OpsLog.LogEvent(net, db.ACT_UPDATE, diff, userCred)
 
+	// fix vmware hostnics wire
+	hns, err := HostnetworkManager.fetchHostnetworksByNetwork(net.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "HostnetworkManager.fetchHostnetworksByNetwork")
+	}
+
+	for i := range hns {
+		nic, err := hns[i].GetNetInterface()
+		if err != nil {
+			return nil, errors.Wrap(err, "Hostnetwork.GetNetInterface")
+		}
+		log.Errorf("PerformSwitchWire: change wireId for nic %s for hostnetwork %s", jsonutils.Marshal(nic), jsonutils.Marshal(hns[i]))
+		if len(nic.Bridge) > 0 {
+			log.Warningf("PerformSwitchWire: non-empty wireId %s for hostnetwork %s", jsonutils.Marshal(nic), jsonutils.Marshal(hns[i]))
+			continue
+		}
+		if nic.WireId != wire.Id {
+			_, err := db.Update(nic, func() error {
+				nic.WireId = wire.Id
+				return nil
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "Update NetInterface")
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func (net *SNetwork) fetchAdditionalWires() []api.SSimpleWire {
+	wires, err := NetworkAdditionalWireManager.FetchNetworkAdditionalWires(net.Id)
+	if err != nil {
+		log.Errorf("NetworkAdditionalWireManager.FetchNetworkAdditionalWires error %s", err)
+	}
+	return wires
+}
+
+func (net *SNetwork) PerformSyncAdditionalWires(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.NetworSyncAdditionalWiresInput,
+) (jsonutils.JSONObject, error) {
+	if !net.IsClassic() {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "default vpc only")
+	}
+
+	wireIds := make([]string, 0)
+	errs := make([]error, 0)
+	for _, wireId := range input.WireIds {
+		wireObj, err := WireManager.FetchByIdOrName(userCred, wireId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				errs = append(errs, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), wireId))
+			} else {
+				errs = append(errs, errors.Wrapf(err, "WireManager.FetchByIdOrNam %s", wireId))
+			}
+		}
+		wireIds = append(wireIds, wireObj.GetId())
+	}
+	if len(errs) > 0 {
+		return nil, errors.NewAggregate(errs)
+	}
+
+	err := net.syncAdditionalWires(ctx, wireIds)
+	if err != nil {
+		return nil, errors.Wrap(err, "syncAdditionalWires")
+	}
 	return nil, nil
 }

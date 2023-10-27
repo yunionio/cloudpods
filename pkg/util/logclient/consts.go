@@ -208,8 +208,8 @@ const (
 	ACT_SEND_VERIFICATION = "send_verification"
 	ACT_REPULL_SUBCONTACT = "repull_subcontact"
 
-	ACT_SYNC_VPCS        = "sync_vpcs"
-	ACT_SYNC_RECORD_SETS = "sync_record_sets"
+	ACT_ADD_VPCS    = "add_vpcs"
+	ACT_REMOVE_VPCS = "remove_vpcs"
 
 	ACT_DETACH_ALERTRESOURCE          = "detach_alertresoruce"
 	ACT_NETWORK_ADD_VPC               = "network_add_vpc"
@@ -228,6 +228,10 @@ const (
 	ACT_MERGE_NETWORK = "merge_network"
 
 	ACT_RESTART_NETWORK = "restart_network"
+
+	ACT_QGA_NETWORK_INPUT   = "qga_network_input"
+	ACT_QGA_STATUS_UPDATE   = "qga_status_update"
+	ACT_QGA_NETWORK_SUCCESS = "qga_network_success"
 
 	ACT_RECOVERY = "recovery"
 	ACT_PACK     = "pack"
@@ -258,4 +262,16 @@ const (
 
 	ACT_BIND     = "bind"
 	ACT_PROGRESS = "progress"
+
+	ACT_ADD_BASTION_SERVER = "add_bastion_server"
+
+	ACT_SYNC_TRAFFIC_LIMIT = "sync_traffic_limit"
+
+	ACT_GENERATE_REPORT     = "generate_report"
+	ACT_REPORT_COLLECT_DATA = "report_collect_data"
+	ACT_REPORT_SEND         = "report_send"
+	ACT_REPORT_TEMPLATE     = "report_template"
+
+	ACT_CREATE_SECURITY_GROUP_RULE = "create_security_group_rule"
+	ACT_DELETE_SECURITY_GROUP_RULE = "delete_security_group_rule"
 )

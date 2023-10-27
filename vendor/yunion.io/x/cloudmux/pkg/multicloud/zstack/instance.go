@@ -354,10 +354,10 @@ func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*clo
 	return ret, nil
 }
 
-func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (instance *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	params := map[string]interface{}{
 		"updateVmInstance": map[string]string{
-			"name": name,
+			"name": input.NAME,
 		},
 	}
 	return instance.host.zone.region.UpdateVM(instance.UUID, jsonutils.Marshal(params))
@@ -550,10 +550,6 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		return &eips[0], nil
 	}
 	return nil, cloudprovider.ErrDuplicateId
-}
-
-func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return instance.host.zone.region.AssignSecurityGroup(instance.UUID, secgroupId)
 }
 
 func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {

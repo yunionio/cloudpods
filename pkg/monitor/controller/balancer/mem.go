@@ -80,7 +80,7 @@ func (m *memCondition) GetSourceThresholdDelta(threshold float64, host IHost) fl
 	return threshold - host.GetCurrent()
 }
 
-func (m *memCondition) IsFitTarget(t ITarget, c ICandidate) error {
+func (m *memCondition) IsFitTarget(settings *monitor.MigrationAlertSettings, t ITarget, c ICandidate) error {
 	if t.GetCurrent()-c.GetScore() > m.GetThreshold() {
 		return nil
 	}

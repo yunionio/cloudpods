@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -631,6 +632,46 @@ func (user *SUser) GetCredentialCount() (int, error) {
 	return q.CountWithError()
 }
 
+func (manager *SUserManager) FetchScopeResources(userIds []string) (map[string]api.ExternalResourceInfo, error) {
+	resources := ScopeResourceManager.Query().In("owner_id", userIds).SubQuery()
+	q := resources.Query(
+		resources.Field("resource"),
+		resources.Field("owner_id"),
+		sqlchemy.SUM("res_count", resources.Field("count")),
+		sqlchemy.MAX("last_update", resources.Field("updated_at")),
+	)
+	q = q.GroupBy(resources.Field("resource"))
+	ret := []struct {
+		Resource   string
+		OwnerId    string
+		ResCount   int
+		LastUpdate time.Time
+	}{}
+	err := q.All(&ret)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]api.ExternalResourceInfo{}
+	for _, res := range ret {
+		if res.ResCount <= 0 {
+			continue
+		}
+		_, ok := result[res.OwnerId]
+		if ok {
+			result[res.OwnerId].ExtResource[res.Resource] = res.ResCount
+		} else {
+			result[res.OwnerId] = api.ExternalResourceInfo{
+				ExtResource: map[string]int{
+					res.Resource: res.ResCount,
+				},
+				ExtResourcesLastUpdate: res.LastUpdate,
+				ExtResourcesNextUpdate: res.LastUpdate.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second),
+			}
+		}
+	}
+	return result, nil
+}
+
 func (manager *SUserManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -658,7 +699,14 @@ func (manager *SUserManager) FetchCustomizeColumns(
 		return rows
 	}
 
+	scopeResources, err := manager.FetchScopeResources(userIds)
+	if err != nil {
+		log.Errorf("FetchScopeResources error: %v", err)
+		return rows
+	}
+
 	for i := range rows {
+		rows[i].ExternalResourceInfo, _ = scopeResources[userIds[i]]
 		if idps, ok := idpsMaps[userIds[i]]; ok {
 			if len(idps) > 0 {
 				// rows[i].IdpResourceInfo = idps[0].IdpResourceInfo
@@ -695,17 +743,6 @@ func userExtra(ctx context.Context, userCred mcclient.TokenCredential, user *SUs
 		out.IsLocal = true
 	} else {
 		out.IsLocal = false
-	}
-
-	external, update, _ := user.getExternalResources()
-	if len(external) > 0 {
-		out.ExtResource = external
-		out.ExtResourcesLastUpdate = update
-		if update.IsZero() {
-			update = time.Now()
-		}
-		nextUpdate := update.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
-		out.ExtResourcesNextUpdate = nextUpdate
 	}
 
 	projects, _ := ProjectManager.FetchUserProjects(user.Id)
@@ -800,22 +837,36 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		}
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)
 	}
-	if enabled, _ := data.Bool("enabled"); enabled {
-		localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return
+	if enabled, err := data.Bool("enabled"); err == nil {
+		if enabled {
+			err := user.clearFailedAuth()
+			if err != nil {
+				log.Errorf("clearFailedAuth %s", err)
 			}
-			log.Errorf("unable to fetch localUser of user %q in domain %q: %v", user.Id, user.DomainId, err)
-			return
-		}
-		if err = localUser.ClearFailedAuth(); err != nil {
-			log.Errorf("unable to clear failed auth: %v", err)
+		} else {
+			batchErr := TokenCacheManager.BatchInvalidateByUserId(ctx, userCred, user.Id)
+			if batchErr != nil {
+				log.Errorf("BatchInvalidateByUserId fail %s", batchErr)
+			}
 		}
 	}
 }
 
-func (user *SUser) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (user *SUser) clearFailedAuth() error {
+	localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return errors.Wrapf(err, "unable to fetch localUser of user %q in domain %q", user.Id, user.DomainId)
+	}
+	if err = localUser.ClearFailedAuth(); err != nil {
+		return errors.Wrap(err, "unable to clear failed auth")
+	}
+	return nil
+}
+
+func (user *SUser) ValidateDeleteCondition(ctx context.Context, info *api.UserDetails) error {
 	idMappings, err := user.getIdmappings()
 	if err != nil {
 		return errors.Wrap(err, "getIdmappings")
@@ -831,21 +882,32 @@ func (user *SUser) ValidateDeleteCondition(ctx context.Context, info jsonutils.J
 			}
 		}
 	}
-	err = user.ValidatePurgeCondition(ctx)
+	err = user.ValidatePurgeCondition(ctx, info)
 	if err != nil {
-		return errors.Wrap(err, "ValidatePurgeCondition")
+		return err
 	}
 	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
-func (user *SUser) ValidatePurgeCondition(ctx context.Context) error {
-	external, _, _ := user.getExternalResources()
-	if len(external) > 0 {
-		return httperrors.NewNotEmptyError("user contains external resources")
-	}
+func (user *SUser) ValidatePurgeCondition(ctx context.Context, info *api.UserDetails) error {
 	if user.IsAdminUser() {
 		return httperrors.NewForbiddenError("cannot delete system user")
 	}
+	/*if gotypes.IsNil(info) {
+		info = &api.UserDetails{}
+		scopResource, err := UserManager.FetchScopeResources([]string{user.Id})
+		if err != nil {
+			return errors.Wrapf(err, "FetchScopeResources")
+		}
+		info.ExternalResourceInfo, _ = scopResource[user.Id]
+	}
+	if len(info.ExtResource) > 0 {
+		for k, cnt := range info.ExtResource {
+			if cnt > 0 {
+				return httperrors.NewNotEmptyError("user contains %d external resources %s", cnt, k)
+			}
+		}
+	}*/
 	return nil
 }
 
@@ -873,6 +935,13 @@ func (user *SUser) Delete(ctx context.Context, userCred mcclient.TokenCredential
 		err = PasswordManager.delete(localUser.Id)
 		if err != nil {
 			return errors.Wrap(err, "PasswordManager.delete")
+		}
+	}
+
+	{
+		batchErr := TokenCacheManager.BatchInvalidateByUserId(ctx, userCred, user.Id)
+		if batchErr != nil {
+			log.Errorf("BatchInvalidateByUserId fail %s", batchErr)
 		}
 	}
 
@@ -1259,6 +1328,38 @@ func (user *SUser) PerformResetCredentials(
 		err := CredentialManager.DeleteAll(ctx, userCred, user.Id, api.RECOVERY_SECRETS_TYPE)
 		if err != nil {
 			return nil, errors.Wrapf(err, "DeleteAll %s", api.RECOVERY_SECRETS_TYPE)
+		}
+	}
+	return nil, nil
+}
+
+func (user *SUser) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformEnableInput,
+) (jsonutils.JSONObject, error) {
+	err := user.clearFailedAuth()
+	if err != nil {
+		log.Errorf("clearFailedAuth %s", err)
+	}
+	return user.SEnabledIdentityBaseResource.PerformEnable(ctx, userCred, query, input)
+}
+
+func (user *SUser) PerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformDisableInput,
+) (jsonutils.JSONObject, error) {
+	_, err := user.SEnabledIdentityBaseResource.PerformDisable(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledIdentityBaseResource.PerformDisable")
+	}
+	{
+		batchErr := TokenCacheManager.BatchInvalidateByUserId(ctx, userCred, user.Id)
+		if batchErr != nil {
+			log.Errorf("BatchInvalidateByUserId fail %s", batchErr)
 		}
 	}
 	return nil, nil

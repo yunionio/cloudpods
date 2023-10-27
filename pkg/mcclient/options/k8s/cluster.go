@@ -17,6 +17,7 @@ package k8s
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -32,6 +33,8 @@ type ClusterListOptions struct {
 	FederatedResourceId string `json:"federated_resource_id"`
 	FederatedUsed       *bool  `json:"-"`
 	FederatedUnused     *bool  `json:"-"`
+	ManagerId           string `json:"manager_id"`
+	CloudRegionId       string `json:"cloudregion_id"`
 }
 
 func (o *ClusterListOptions) Params() (jsonutils.JSONObject, error) {
@@ -60,6 +63,7 @@ type AddMachineOptions struct {
 
 type K8SClusterCreateOptions struct {
 	NAME string `help:"Name of cluster"`
+	File string `help:"JSON file of create body"`
 	// ClusterType  string `help:"Cluster cluster type" choices:"default|serverless"`
 	ResourceType string `help:"Cluster cluster type" choices:"host|guest"`
 	// CloudType         string `help:"Cluster cloud type" choices:"private|public|hybrid"`
@@ -148,6 +152,17 @@ func (o K8SClusterCreateOptions) getAddonsConfig() (jsonutils.JSONObject, error)
 }
 
 func (o K8SClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
+	if o.File != "" {
+		content, err := os.ReadFile(o.File)
+		if err != nil {
+			return nil, errors.Wrapf(err, "read file: %s", o.File)
+		}
+		obj, err := jsonutils.Parse(content)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse file %s content: %s", o.File, content)
+		}
+		return obj, nil
+	}
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	/*

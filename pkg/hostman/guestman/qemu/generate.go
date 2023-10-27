@@ -16,6 +16,7 @@ package qemu
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -168,10 +169,16 @@ func generateMachineOption(machine string, machineDesc *desc.SGuestMachine) stri
 }
 
 func generateSMPOption(cpu *desc.SGuestCpu) string {
-	return fmt.Sprintf(
-		"-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d",
-		cpu.Cpus, cpu.Sockets, cpu.Cores, cpu.MaxCpus,
-	)
+	if cpu.MaxCpus%2 > 0 {
+		return fmt.Sprintf(
+			"-smp cpus=%d,maxcpus=%d", cpu.Cpus, cpu.MaxCpus,
+		)
+	} else {
+		return fmt.Sprintf(
+			"-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d",
+			cpu.Cpus, cpu.Sockets, cpu.Cores, cpu.MaxCpus,
+		)
+	}
 }
 
 func generateCPUOption(cpu *desc.SGuestCpu) string {
@@ -435,12 +442,25 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 	opts := make([]string, 0)
 	nics := input.GuestDesc.Nics
 
+	//input.guest
 	for idx := range nics {
 		if nics[idx].Driver == api.NETWORK_DRIVER_VFIO {
 			continue
 		}
+		var nicTrafficExceed = false
+		if input.NicTraffics != nil {
+			nicTraffic, ok := input.NicTraffics[strconv.Itoa(int(nics[idx].Index))]
+			if ok {
+				if nics[idx].TxTrafficLimit > 0 && nicTraffic.TxTraffic > nics[idx].TxTrafficLimit {
+					nicTrafficExceed = true
+				}
+				if nics[idx].RxTrafficLimit > 0 && nicTraffic.RxTraffic > nics[idx].RxTrafficLimit {
+					nicTrafficExceed = true
+				}
+			}
+		}
 
-		netDevOpt, err := getNicNetdevOption(drvOpt, nics[idx], input.IsKVMSupport)
+		netDevOpt, err := getNicNetdevOption(drvOpt, nics[idx], input.IsKVMSupport, nicTrafficExceed)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getNicNetdevOption %v", nics[idx])
 		}
@@ -453,7 +473,7 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 	return opts, nil
 }
 
-func getNicNetdevOption(drvOpt QemuOptions, nic *desc.SGuestNetwork, isKVMSupport bool) (string, error) {
+func getNicNetdevOption(drvOpt QemuOptions, nic *desc.SGuestNetwork, isKVMSupport bool, nicTrafficExceed bool) (string, error) {
 	if nic.Ifname == "" {
 		return "", errors.Error("ifname is empty")
 	}
@@ -473,7 +493,9 @@ func getNicNetdevOption(drvOpt QemuOptions, nic *desc.SGuestNetwork, isKVMSuppor
 			opt += fmt.Sprintf(",queues=%d", nic.NumQueues)
 		}
 	}
-	opt += fmt.Sprintf(",script=%s", nic.UpscriptPath)
+	if !nicTrafficExceed {
+		opt += fmt.Sprintf(",script=%s", nic.UpscriptPath)
+	}
 	opt += fmt.Sprintf(",downscript=%s", nic.DownscriptPath)
 	return opt, nil
 }
@@ -518,15 +540,20 @@ func generateUsbDeviceOption(usbControllerId string, usb *desc.UsbDevice) string
 	return cmd
 }
 
-func generateVfioDeviceOption(devs []*desc.VFIODevice) []string {
+func generateVfioDeviceOption(dev *desc.SGuestIsolatedDevice) []string {
 	opts := make([]string, 0)
 
-	for i := 0; i < len(devs); i++ {
-		cmd := generatePCIDeviceOption(devs[i].PCIDevice)
-		cmd += fmt.Sprintf(",host=%s", devs[i].HostAddr)
-		if devs[i].XVga {
-			cmd += ",x-vga=on"
+	for i := 0; i < len(dev.VfioDevs); i++ {
+		cmd := generatePCIDeviceOption(dev.VfioDevs[i].PCIDevice)
+		if dev.MdevId != "" {
+			cmd += fmt.Sprintf(",sysfsdev=/sys/bus/mdev/devices/%s", dev.MdevId)
+		} else {
+			cmd += fmt.Sprintf(",host=%s", dev.VfioDevs[i].HostAddr)
+			if dev.VfioDevs[i].XVga {
+				cmd += ",x-vga=on"
+			}
 		}
+
 		opts = append(opts, cmd)
 	}
 	return opts
@@ -539,9 +566,10 @@ func generateIsolatedDeviceOptions(guestDesc *desc.SGuestDesc) []string {
 			opts = append(opts,
 				generateUsbDeviceOption(guestDesc.Usb.Id, guestDesc.IsolatedDevices[i].Usb),
 			)
+			//} else if guestDesc.IsolatedDevices[i].DevType {
 		} else if len(guestDesc.IsolatedDevices[i].VfioDevs) > 0 {
 			opts = append(opts,
-				generateVfioDeviceOption(guestDesc.IsolatedDevices[i].VfioDevs)...,
+				generateVfioDeviceOption(guestDesc.IsolatedDevices[i])...,
 			)
 		}
 	}
@@ -602,6 +630,7 @@ type GenerateStartOptionsInput struct {
 
 	GuestDesc    *desc.SGuestDesc
 	IsKVMSupport bool
+	NicTraffics  map[string]api.SNicTrafficRecord
 
 	EnableUUID       bool
 	OsName           string

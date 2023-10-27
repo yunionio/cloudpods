@@ -56,10 +56,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds, nil
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	return cloudprovider.ErrNotSupported
 }
@@ -100,7 +96,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

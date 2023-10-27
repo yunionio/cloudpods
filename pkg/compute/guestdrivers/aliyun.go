@@ -83,7 +83,7 @@ func (self *SAliyunGuestDriver) GetStorageTypes() []string {
 }
 
 func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
-	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
+	return chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SAliyunGuestDriver) GetDetachDiskStatus() ([]string, error) {
@@ -168,7 +168,7 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SAliyunGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return api.VM_READY
+	return api.VM_RUNNING
 }
 
 func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {

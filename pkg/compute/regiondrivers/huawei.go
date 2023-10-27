@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -41,17 +42,6 @@ type SHuaWeiRegionDriver struct {
 func init() {
 	driver := SHuaWeiRegionDriver{}
 	models.RegisterRegionDriver(&driver)
-}
-
-func (self *SHuaWeiRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
-}
-
-func (self *SHuaWeiRegionDriver) GenerateSecurityGroupName(name string) string {
-	if strings.ToLower(name) == "default" {
-		return "DefaultGroup"
-	}
-	return name
 }
 
 func (self *SHuaWeiRegionDriver) GetProvider() string {
@@ -607,4 +597,32 @@ func (self *SHuaWeiRegionDriver) IsSupportedNatGateway() bool {
 
 func (self *SHuaWeiRegionDriver) IsSupportedNas() bool {
 	return true
+}
+
+func (self *SHuaWeiRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		rule := input.Rules[i]
+		if input.Rules[i].Priority == nil {
+			return nil, httperrors.NewMissingParameterError("priority")
+		}
+		if *input.Rules[i].Priority < 1 || *input.Rules[i].Priority > 100 {
+			return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Rules[i].Priority)
+		}
+
+		if len(rule.Ports) > 0 && strings.Contains(input.Rules[i].Ports, ",") {
+			return nil, httperrors.NewInputParameterError("invalid ports %s", input.Rules[i].Ports)
+		}
+
+	}
+	return input, nil
+}
+
+func (self *SHuaWeiRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	return nil, httperrors.NewNotSupportedError("not support update security group rule")
+}
+
+func (self *SHuaWeiRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("cloudregion_id", vpc.CloudregionId).Equals("manager_id", vpc.ManagerId)
+	}, nil
 }

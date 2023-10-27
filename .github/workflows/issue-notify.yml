@@ -1,0 +1,17 @@
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  notify-author-comment:
+    runs-on: ubuntu-latest
+    if: (github.event.issue.user.id == github.event.comment.user.id) && !github.event.issue.pull_request
+    # find context from: https://docs.github.com/en/webhooks/webhook-events-and-payloads#issue_comment
+    steps:
+      - name: feishu notify
+        uses: zexi/action-issues-notify@v1
+        with:
+          url: ${{ secrets.FEISHU_BOT_WEBHOOK_URL }}
+          issue_title: "${{ github.event.comment.user.login }} 回复了 issue: ${{ github.event.issue.title }}"
+          issue_body: "${{ tojson(github.event.comment.body) }}"
+          issue_link_url: "${{github.event.comment.html_url}}"

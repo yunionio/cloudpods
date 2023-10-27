@@ -30,17 +30,16 @@ type SDataDisk struct {
 	AzureTags
 	region *SRegion
 
-	Lun            int32
-	Name           string                 `json:"name,omitempty"`
-	DiskName       string                 `json:"diskName,omitempty"`
-	Vhd            *VirtualHardDisk       `json:"vhd,omitempty"`
-	Caching        string                 `json:"caching,omitempty"`
-	DiskSizeGB     TAzureInt32            `json:"diskSizeGB,omitempty"`
-	IoType         string                 `json:"ioType,omitempty"`
-	CreateOption   string                 `json:"createOption,omitempty"`
-	ManagedDisk    *ManagedDiskParameters `json:"managedDisk,omitempty"`
-	VhdUri         string                 `json:"vhdUri,omitempty"`
-	StorageAccount *SubResource           `json:"storageAccount,omitempty"`
+	Lun          int32
+	Name         string                 `json:"name,omitempty"`
+	DiskName     string                 `json:"diskName,omitempty"`
+	Vhd          *VirtualHardDisk       `json:"vhd,omitempty"`
+	Caching      string                 `json:"caching,omitempty"`
+	DiskSizeGB   TAzureInt32            `json:"diskSizeGB,omitempty"`
+	IoType       string                 `json:"ioType,omitempty"`
+	CreateOption string                 `json:"createOption,omitempty"`
+	ManagedDisk  *ManagedDiskParameters `json:"managedDisk,omitempty"`
+	VhdUri       string                 `json:"vhdUri,omitempty"`
 }
 
 func (self *SDataDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {

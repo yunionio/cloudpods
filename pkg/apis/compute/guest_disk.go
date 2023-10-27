@@ -68,29 +68,29 @@ type GuestdiskUpdateInput struct {
 }
 
 type GuestdiskJsonDesc struct {
-	DiskId           string `json:"disk_id"`
-	Driver           string `json:"driver"`
-	CacheMode        string `json:"cache_mode"`
-	AioMode          string `json:"aio_mode"`
-	Iops             int    `json:"iops"`
-	Bps              int    `json:"bps"`
-	Size             int    `json:"size"`
-	TemplateId       string `json:"template_id"`
-	ImagePath        string `json:"image_path"`
-	StorageId        string `json:"storage_id"`
-	StorageType      string `json:"storage_type"`
-	Migrating        bool   `json:"migrating"`
-	Path             string `json:"path"`
-	Format           string `json:"format"`
-	Index            int8   `json:"index"`
-	BootIndex        *int8  `json:"boot_index"`
-	MergeSnapshot    bool   `json:"merge_snapshot"`
-	EsxiFlatFilePath string `json:"esxi_flat_file_path"`
-	Fs               string `json:"fs"`
-	Mountpoint       string `json:"mountpoint"`
-	Dev              string `json:"dev"`
-	IsSSD            bool   `json:"is_ssd"`
-	NumQueues        uint8  `json:"num_queues"`
+	DiskId        string `json:"disk_id"`
+	Driver        string `json:"driver"`
+	CacheMode     string `json:"cache_mode"`
+	AioMode       string `json:"aio_mode"`
+	Iops          int    `json:"iops"`
+	Throughput    int    `json:"throughput"`
+	Bps           int    `json:"bps"`
+	Size          int    `json:"size"`
+	TemplateId    string `json:"template_id"`
+	ImagePath     string `json:"image_path"`
+	StorageId     string `json:"storage_id"`
+	StorageType   string `json:"storage_type"`
+	Migrating     bool   `json:"migrating"`
+	Path          string `json:"path"`
+	Format        string `json:"format"`
+	Index         int8   `json:"index"`
+	BootIndex     *int8  `json:"boot_index"`
+	MergeSnapshot bool   `json:"merge_snapshot"`
+	Fs            string `json:"fs"`
+	Mountpoint    string `json:"mountpoint"`
+	Dev           string `json:"dev"`
+	IsSSD         bool   `json:"is_ssd"`
+	NumQueues     uint8  `json:"num_queues"`
 
 	// esxi
 	ImageInfo struct {
@@ -101,5 +101,6 @@ type GuestdiskJsonDesc struct {
 
 	TargetStorageId string `json:"target_storage_id"`
 
-	Url string `json:"url"`
+	EsxiFlatFilePath string `json:"esxi_flat_file_path"`
+	Url              string `json:"url"`
 }

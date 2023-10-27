@@ -26,6 +26,7 @@ type SKeystoneCacheObjectManager struct {
 
 type SKeystoneCacheObject struct {
 	SStandaloneResourceBase
+	SPendingDeletedBase
 
 	DomainId string `width:"128" charset:"ascii" nullable:"true"`
 	Domain   string `width:"128" charset:"utf8" nullable:"true"`

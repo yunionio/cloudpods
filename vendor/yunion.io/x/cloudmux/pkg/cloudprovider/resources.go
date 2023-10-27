@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/samlutils"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 type ICloudResource interface {
@@ -83,9 +84,10 @@ type ICloudRegion interface {
 	GetIVMById(id string) (ICloudVM, error)
 	GetIDiskById(id string) (ICloudDisk, error)
 
+	// 仅返回region级别的安全组, vpc下面的安全组需要在ICloudVpc底下返回
+	GetISecurityGroups() ([]ICloudSecurityGroup, error)
 	GetISecurityGroupById(secgroupId string) (ICloudSecurityGroup, error)
-	GetISecurityGroupByName(opts *SecurityGroupFilterOptions) (ICloudSecurityGroup, error)
-	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
+	CreateISecurityGroup(opts *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
 
 	CreateIVpc(opts *VpcCreateOptions) (ICloudVpc, error)
 	CreateInternetGateway() (ICloudInternetGateway, error)
@@ -282,7 +284,7 @@ type ICloudHost interface {
 	GetIVMs() ([]ICloudVM, error)
 	GetIVMById(id string) (ICloudVM, error)
 
-	GetIWires() ([]ICloudWire, error)
+	// GetIWires() ([]ICloudWire, error)
 	GetIStorages() ([]ICloudStorage, error)
 	GetIStorageById(id string) (ICloudStorage, error)
 
@@ -357,18 +359,15 @@ type ICloudVM interface {
 	GetInstanceType() string
 
 	GetSecurityGroupIds() ([]string, error)
-	AssignSecurityGroup(secgroupId string) error
 	SetSecurityGroups(secgroupIds []string) error
 
 	GetHypervisor() string
-
-	// GetSecurityGroup() ICloudSecurityGroup
 
 	StartVM(ctx context.Context) error
 	StopVM(ctx context.Context, opts *ServerStopOptions) error
 	DeleteVM(ctx context.Context) error
 
-	UpdateVM(ctx context.Context, name string) error
+	UpdateVM(ctx context.Context, input SInstanceUpdateOptions) error
 
 	UpdateUserData(userData string) error
 
@@ -469,10 +468,26 @@ type ICloudSecurityGroup interface {
 
 	GetDescription() string
 	// 返回的优先级字段(priority)要求数字越大优先级越高, 若有默认不可修改的allow规则依然需要返回
-	GetRules() ([]SecurityRule, error)
+	GetRules() ([]ISecurityGroupRule, error)
 	GetVpcId() string
 
+	CreateRule(opts *SecurityGroupRuleCreateOptions) (ISecurityGroupRule, error)
+
 	GetReferences() ([]SecurityGroupReference, error)
+	Delete() error
+}
+
+type ISecurityGroupRule interface {
+	GetGlobalId() string
+	GetDirection() secrules.TSecurityRuleDirection
+	GetPriority() int
+	GetAction() secrules.TSecurityRuleAction
+	GetProtocol() string
+	GetPorts() string
+	GetDescription() string
+	GetCIDRs() []string
+
+	Update(opts *SecurityGroupRuleUpdateOptions) error
 	Delete() error
 }
 
@@ -563,6 +578,9 @@ type ICloudSnapshotPolicy interface {
 type ICloudGlobalVpc interface {
 	ICloudResource
 
+	GetISecurityGroups() ([]ICloudSecurityGroup, error)
+	CreateISecurityGroup(opts *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
+
 	Delete() error
 }
 
@@ -649,12 +667,14 @@ type ICloudHostNetInterface interface {
 	GetDevice() string
 	GetDriver() string
 	GetMac() string
+	GetVlanId() int
 	GetIndex() int8
 	IsLinkUp() tristate.TriState
 	GetIpAddr() string
 	GetMtu() int32
 	GetNicType() string
 	GetBridge() string
+	GetIWire() ICloudWire
 }
 
 type ICloudLoadbalancer interface {
@@ -990,6 +1010,8 @@ type ICloudDBInstance interface {
 
 	RecoveryFromBackup(conf *SDBInstanceRecoveryConfig) error
 
+	Update(ctx context.Context, input SDBInstanceUpdateOptions) error
+
 	Delete() error
 }
 
@@ -1263,24 +1285,25 @@ type ICloudgroup interface {
 }
 
 type ICloudDnsZone interface {
-	ICloudResource
+	IVirtualResource
 
 	GetZoneType() TDnsZoneType
-	GetOptions() *jsonutils.JSONDict
 
 	GetICloudVpcIds() ([]string, error)
 	AddVpc(*SPrivateZoneVpc) error
 	RemoveVpc(*SPrivateZoneVpc) error
 
-	GetIDnsRecordSets() ([]ICloudDnsRecordSet, error)
-	SyncDnsRecordSets(common, add, del, update []DnsRecordSet) error
+	GetIDnsRecords() ([]ICloudDnsRecord, error)
+	GetIDnsRecordById(id string) (ICloudDnsRecord, error)
+
+	AddDnsRecord(*DnsRecord) (string, error)
 
 	Delete() error
 
 	GetDnsProductType() TDnsProductType
 }
 
-type ICloudDnsRecordSet interface {
+type ICloudDnsRecord interface {
 	GetGlobalId() string
 
 	GetDnsName() string
@@ -1291,9 +1314,14 @@ type ICloudDnsRecordSet interface {
 	GetTTL() int64
 	GetMxPriority() int64
 
+	Update(*DnsRecord) error
+
+	Enable() error
+	Disable() error
+
 	GetPolicyType() TDnsPolicyType
 	GetPolicyValue() TDnsPolicyValue
-	GetPolicyOptions() *jsonutils.JSONDict
+	Delete() error
 }
 
 type ICloudVpcPeeringConnection interface {

@@ -20,7 +20,6 @@ import (
 
 	"github.com/vmware/govmomi/vim25/types"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -162,67 +161,15 @@ var getNetwork func(bridge, vlanId string) (IVMNetwork, error)
 func NewVNICDev(host *SHost, mac, driver string, bridge string, vlanId int32, key, ctlKey, index int32) (types.BaseVirtualDevice, error) {
 	desc := types.Description{Label: fmt.Sprintf("Network adapter %d", index+1), Summary: "VM Network"}
 
-	newGetNetwork := func(bridge string, vlanId int32) (IVMNetwork, error) {
-		if len(bridge) == 0 {
-			log.Warningf("empty bridge for host %s, vlanId %d, mac %s", host.GetGlobalId(), vlanId, mac)
-			return nil, nil
-		}
-		vs, err := findVirtualSwitch(host, bridge)
-		if err != nil {
-			return nil, errors.Wrapf(err, "findVirtualSwitch for host %s bridge %s", host.GetGlobalId(), bridge)
-		}
-		if vs == nil {
-			log.Infof("can't find vs via host %s, bridge %s", host.GetId(), bridge)
-			return nil, nil
-		}
-		network, err := vs.FindNetworkByVlanID(vlanId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "FindNetworkByVlanID for vlanId %q", vlanId)
-		}
-		return network, nil
-	}
-
-	oldGetNework := func(bridge string, vlanId int32) (IVMNetwork, error) {
-		var inet IVMNetwork
-		var err error
-		if (vlanId == 0 || vlanId == 1) && len(bridge) > 0 {
-			inet, err = host.findDVPGById(bridge)
-			if err != nil {
-				log.Errorf("fail to find dvportgroup by name %s: %s", bridge, err)
-			}
-		}
-		if inet == nil || reflect.ValueOf(inet).IsNil() {
-			inet, err = host.FindNetworkByVlanID(vlanId)
-			if err != nil {
-				log.Errorf("fail to find network by vlanid %d: %s", vlanId, err)
-			}
-		}
-		if inet == nil || reflect.ValueOf(inet).IsNil() {
-			return nil, nil
-		}
-		return inet, nil
-	}
-
-	inet, err := newGetNetwork(bridge, vlanId)
+	inet, err := host.getNetworkById(bridge)
 	if err != nil {
-		return nil, err
-	}
-	if inet == nil {
-		log.Infof("no find network via new method")
-		inet, err = oldGetNework(bridge, vlanId)
-		if err != nil {
-			return nil, err
-		}
+		return nil, errors.Wrapf(err, "GetNetworkById %s on host %s", bridge, host.GetName())
 	}
 
 	if inet == nil {
-		return nil, errors.Error(fmt.Sprintf("Brige %s VLAN %d not found", bridge, vlanId))
+		return nil, errors.Wrapf(errors.ErrNotFound, "Bridge %s not found on host %s", bridge, host.GetName())
 	}
 
-	var (
-		False = false
-		True  = true
-	)
 	var backing types.BaseVirtualDeviceBackingInfo
 	switch inet.(type) {
 	case *SDistributedVirtualPortgroup:

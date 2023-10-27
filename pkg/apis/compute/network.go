@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 const (
@@ -301,9 +302,15 @@ type NetworkDetails struct {
 	// 端口数量
 	Ports int `json:"ports"`
 
+	Dns string `json:"dns"`
+
 	// 路由信息
-	Routes    [][]string                 `json:"routes"`
+	Routes    []types.SRoute             `json:"routes"`
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
+
+	IsClassic bool `json:"is_classic"`
+
+	AdditionalWires []SSimpleWire `json:"additional_wires"`
 }
 
 type NetworkIpMacDetails struct {
@@ -446,4 +453,10 @@ type NetworkSwitchWireInput struct {
 	// required: true
 	// example: bcast0
 	WireId string `json:"wire_id"`
+}
+
+type NetworSyncAdditionalWiresInput struct {
+	apis.Meta
+
+	WireIds []string `json:"wire_ids"`
 }

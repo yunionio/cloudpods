@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	o "yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -56,42 +55,49 @@ const (
 	DEFAULT_CPU_CMD = "host,kvm=off"
 )
 
-func getPassthroughGPUS() ([]*PCIDevice, error) {
-	gpus, err := detectGPUS()
-	if err != nil {
-		return nil, err
-	}
-	ret := []*PCIDevice{}
-	for _, dev := range gpus {
-		if drv, err := dev.getKernelDriver(); err != nil {
-			log.Errorf("Device %#v get kernel driver error: %v", dev, err)
-		} else if drv == VFIO_PCI_KERNEL_DRIVER {
-			ret = append(ret, dev)
-		} else {
-			log.Warningf("GPU %v use kernel driver %q, skip it", dev, drv)
-		}
-	}
-	return ret, nil
-}
-
-func detectGPUS() ([]*PCIDevice, error) {
+func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 	lines, err := getGPUPCIStr()
 	if err != nil {
-		return nil, err
+		return nil, err, nil
 	}
+
+	warns := make([]error, 0)
 	devs := []*PCIDevice{}
+	log.Infof("filter address %v", filteredAddrs)
 	for _, line := range lines {
-		dev, err := NewPCIDevice(line)
-		if err != nil {
-			return nil, err
+		dev := parseLspci(line)
+		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
+			continue
+		}
+		if err := dev.checkSameIOMMUGroupDevice(); err != nil {
+			warns = append(warns, errors.Wrapf(err, "get dev %s iommu group devices", dev.Addr))
+			continue
+		}
+		if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga); err != nil {
+			warns = append(warns, errors.Wrapf(err, "force bind vfio-pci driver %s", dev.Addr))
+			continue
 		}
 		devs = append(devs, dev)
 	}
-	return devs, nil
+
+	ret := []*PCIDevice{}
+	for _, dev := range devs {
+		if drv, err := dev.getKernelDriver(); err != nil {
+			log.Errorf("Device %s get kernel driver error: %s", dev.Addr, err.Error())
+			warns = append(warns, fmt.Errorf("Device %s get kernel driver error: %s", dev.Addr, err.Error()))
+		} else if drv == "" || drv == VFIO_PCI_KERNEL_DRIVER {
+			ret = append(ret, dev)
+		} else {
+			log.Warningf("GPU %v use kernel driver %q, skip it", dev, drv)
+			warns = append(warns, fmt.Errorf("GPU %s use kernel driver %s, skip it", dev.Addr, drv))
+		}
+	}
+	return ret, nil, warns
 }
 
 func getGPUPCIStr() ([]string, error) {
-	ret, err := bashOutput("lspci -nnmm | egrep '3D|VGA'")
+	cmd := "lspci -nnmm | egrep '3D|VGA'"
+	ret, err := bashOutput(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -209,53 +215,6 @@ func (dev *sGPUBaseDevice) GetQemuId() string {
 	return fmt.Sprintf("dev_%s", strings.ReplaceAll(dev.GetAddr(), ":", "_"))
 }
 
-func (dev *sGPUBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
-	ret := make([]*HotPlugOption, 0)
-
-	var masterDevOpt *HotPlugOption
-	for i := 0; i < len(isolatedDev.VfioDevs); i++ {
-		cmd := isolatedDev.VfioDevs[i].HostAddr
-		if optCmd := isolatedDev.VfioDevs[i].OptionsStr(); len(optCmd) > 0 {
-			cmd += fmt.Sprintf(",%s", optCmd)
-		}
-		opts := map[string]string{
-			"host": cmd,
-			"id":   isolatedDev.VfioDevs[i].Id,
-		}
-		if isolatedDev.VfioDevs[i].XVga {
-			opts["x-vga"] = "on"
-		}
-		devOpt := &HotPlugOption{
-			Device:  isolatedDev.VfioDevs[i].DevType,
-			Options: opts,
-		}
-		if isolatedDev.VfioDevs[i].Function == 0 {
-			masterDevOpt = devOpt
-		} else {
-			ret = append(ret, devOpt)
-		}
-	}
-	// if PCI slot function 0 already assigned, qemu will reject hotplug function
-	// so put function 0 at the enda
-	if masterDevOpt == nil {
-		return nil, errors.Errorf("GPU Device no function 0 found")
-	}
-	ret = append(ret, masterDevOpt)
-	return ret, nil
-}
-
-func (dev *sGPUBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
-	if len(isolatedDev.VfioDevs) == 0 {
-		return nil, errors.Errorf("device %s no pci ids", isolatedDev.Id)
-	}
-
-	return []*HotUnplugOption{
-		{
-			Id: isolatedDev.VfioDevs[0].Id,
-		},
-	}, nil
-}
-
 func getGuestAddr(index int) string {
 	vAddr := fmt.Sprintf("0x%x", 21+index) // from 0x15 above
 	return vAddr
@@ -370,7 +329,7 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 }
 
 func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool) error {
-	if !utils.IsInStringArray(d.ClassCode, []string{CLASS_CODE_VGA, CLASS_CODE_VGA}) {
+	if !utils.IsInStringArray(d.ClassCode, []string{CLASS_CODE_VGA, CLASS_CODE_3D}) {
 		return nil
 	}
 	isBootVGA, err := d.IsBootVGA()

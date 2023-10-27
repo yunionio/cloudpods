@@ -71,10 +71,11 @@ func (opt *WebConsoleBaremetalOptions) Params() (*jsonutils.JSONDict, error) {
 
 type WebConsoleSshOptions struct {
 	WebConsoleOptions
-	IP       string `help:"IP to connect" json:"-"`
-	Port     int    `help:"Remote server port"`
-	Username string `help:"Remote server username"`
-	Password string `help:"Remote server password"`
+	IP           string `help:"IP to connect" json:"-"`
+	Port         int    `help:"Remote server port"`
+	Username     string `help:"Remote server username"`
+	KeepUsername bool   `help:"Keep remove username`
+	Password     string `help:"Remote server password"`
 }
 
 func (opt *WebConsoleSshOptions) Params() (*jsonutils.JSONDict, error) {

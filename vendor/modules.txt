@@ -204,7 +204,6 @@ github.com/aws/aws-sdk-go/internal/strings
 github.com/aws/aws-sdk-go/internal/sync/singleflight
 github.com/aws/aws-sdk-go/private/checksum
 github.com/aws/aws-sdk-go/private/protocol
-github.com/aws/aws-sdk-go/private/protocol/ec2query
 github.com/aws/aws-sdk-go/private/protocol/eventstream
 github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi
 github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
@@ -215,15 +214,9 @@ github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/restjson
 github.com/aws/aws-sdk-go/private/protocol/restxml
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
-github.com/aws/aws-sdk-go/service/acm
 github.com/aws/aws-sdk-go/service/cloudtrail
-github.com/aws/aws-sdk-go/service/ec2
-github.com/aws/aws-sdk-go/service/elbv2
-github.com/aws/aws-sdk-go/service/iam
 github.com/aws/aws-sdk-go/service/organizations
-github.com/aws/aws-sdk-go/service/pricing
 github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi
-github.com/aws/aws-sdk-go/service/route53
 github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/sso
 github.com/aws/aws-sdk-go/service/sso/ssoiface
@@ -922,6 +915,13 @@ github.com/vmware/govmomi/vim25/progress
 github.com/vmware/govmomi/vim25/soap
 github.com/vmware/govmomi/vim25/types
 github.com/vmware/govmomi/vim25/xml
+# github.com/volcengine/ve-tos-golang-sdk/v2 v2.6.2
+## explicit; go 1.13
+github.com/volcengine/ve-tos-golang-sdk/v2/tos
+github.com/volcengine/ve-tos-golang-sdk/v2/tos/enum
+# github.com/volcengine/volc-sdk-golang v1.0.23
+## explicit; go 1.14
+github.com/volcengine/volc-sdk-golang/base
 # github.com/willf/bitset v1.1.9
 ## explicit
 github.com/willf/bitset
@@ -1058,6 +1058,7 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.1.0
 ## explicit
 golang.org/x/sync/errgroup
+golang.org/x/sync/singleflight
 # golang.org/x/sys v0.9.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
@@ -1250,8 +1251,6 @@ gopkg.in/alexcesaro/quotedprintable.v3
 # gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d
 ## explicit
 gopkg.in/asn1-ber.v1
-# gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-## explicit; go 1.11
 # gopkg.in/fatih/set.v0 v0.2.1
 ## explicit
 gopkg.in/fatih/set.v0
@@ -1439,7 +1438,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230728032735-a478fc65fa32
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231027081824-0385f4b175c2
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1457,10 +1456,14 @@ yunion.io/x/cloudmux/pkg/multicloud/azure
 yunion.io/x/cloudmux/pkg/multicloud/azure/concurrent
 yunion.io/x/cloudmux/pkg/multicloud/azure/progress
 yunion.io/x/cloudmux/pkg/multicloud/azure/provider
+yunion.io/x/cloudmux/pkg/multicloud/baidu
+yunion.io/x/cloudmux/pkg/multicloud/baidu/provider
 yunion.io/x/cloudmux/pkg/multicloud/bingocloud
 yunion.io/x/cloudmux/pkg/multicloud/bingocloud/provider
 yunion.io/x/cloudmux/pkg/multicloud/ctyun
 yunion.io/x/cloudmux/pkg/multicloud/ctyun/provider
+yunion.io/x/cloudmux/pkg/multicloud/cucloud
+yunion.io/x/cloudmux/pkg/multicloud/cucloud/provider
 yunion.io/x/cloudmux/pkg/multicloud/ecloud
 yunion.io/x/cloudmux/pkg/multicloud/ecloud/provider
 yunion.io/x/cloudmux/pkg/multicloud/esxi
@@ -1491,6 +1494,8 @@ yunion.io/x/cloudmux/pkg/multicloud/huawei/obs
 yunion.io/x/cloudmux/pkg/multicloud/huawei/provider
 yunion.io/x/cloudmux/pkg/multicloud/jdcloud
 yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/ksyun
+yunion.io/x/cloudmux/pkg/multicloud/ksyun/provider
 yunion.io/x/cloudmux/pkg/multicloud/loader
 yunion.io/x/cloudmux/pkg/multicloud/nutanix
 yunion.io/x/cloudmux/pkg/multicloud/nutanix/provider
@@ -1507,10 +1512,14 @@ yunion.io/x/cloudmux/pkg/multicloud/proxmox
 yunion.io/x/cloudmux/pkg/multicloud/proxmox/provider
 yunion.io/x/cloudmux/pkg/multicloud/qcloud
 yunion.io/x/cloudmux/pkg/multicloud/qcloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/qingcloud
+yunion.io/x/cloudmux/pkg/multicloud/qingcloud/provider
 yunion.io/x/cloudmux/pkg/multicloud/remotefile
 yunion.io/x/cloudmux/pkg/multicloud/remotefile/provider
 yunion.io/x/cloudmux/pkg/multicloud/ucloud
 yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/volcengine
+yunion.io/x/cloudmux/pkg/multicloud/volcengine/provider
 yunion.io/x/cloudmux/pkg/multicloud/zstack
 yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
 # yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
@@ -1530,7 +1539,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.0.1-0.20230711090507-0aafe0f0c9db
+# yunion.io/x/pkg v1.0.1-0.20231024115515-6dc7eade60ad
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
@@ -1585,13 +1594,13 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.2-0.20230712025503-b1892bc5944c
+# yunion.io/x/sqlchemy v1.1.2-0.20231017172907-561e7f013926
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse
 yunion.io/x/sqlchemy/backends/mysql
 yunion.io/x/sqlchemy/backends/sqlite
-# yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
+# yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 ## explicit; go 1.12
 yunion.io/x/structarg

@@ -17,6 +17,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -101,7 +102,11 @@ func statusBaseSetStatus(model IStatusBaseModel, userCred mcclient.TokenCredenti
 			notes = fmt.Sprintf("%s: %s", notes, reason)
 		}
 		OpsLog.LogEvent(model, ACT_UPDATE_STATUS, notes, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_STATUS, notes, userCred, true)
+		success := true
+		if strings.Contains(status, "fail") || status == apis.STATUS_UNKNOWN {
+			success = false
+		}
+		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_STATUS, notes, userCred, success)
 	}
 	return nil
 }
@@ -118,12 +123,8 @@ func StatusBasePerformStatus(model IStatusBaseModel, userCred mcclient.TokenCred
 }
 
 func (model *SStatusResourceBase) IsInStatus(status ...string) bool {
-	return utils.IsInStringArray(model.Status, status)
+	return utils.IsInArray(model.Status, status)
 }
-
-/*func (model *SStatusStandaloneResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "status")
-}*/
 
 // 获取资源状态
 func (model *SStatusResourceBase) GetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.GetDetailsStatusOutput, error) {

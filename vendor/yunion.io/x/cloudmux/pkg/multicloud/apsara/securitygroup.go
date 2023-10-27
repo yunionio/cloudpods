@@ -16,7 +16,6 @@ package apsara
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -39,25 +38,6 @@ const (
 	InternetNicType SecurityGroupPermissionNicType = "internet"
 )
 
-type SPermission struct {
-	CreateTime              time.Time
-	Description             string
-	DestCidrIp              string
-	DestGroupId             string
-	DestGroupName           string
-	DestGroupOwnerAccount   string
-	Direction               string
-	IpProtocol              string
-	NicType                 SecurityGroupPermissionNicType
-	Policy                  string
-	PortRange               string
-	Priority                int
-	SourceCidrIp            string
-	SourceGroupId           string
-	SourceGroupName         string
-	SourceGroupOwnerAccount string
-}
-
 type SPermissions struct {
 	Permission []SPermission
 }
@@ -75,7 +55,7 @@ type SSecurityGroup struct {
 	multicloud.SSecurityGroup
 	ApsaraTags
 
-	vpc               *SVpc
+	region            *SRegion
 	CreationTime      time.Time
 	Description       string
 	SecurityGroupId   string
@@ -117,21 +97,17 @@ func (self *SSecurityGroup) GetCreatedAt() time.Time {
 	return self.CreationTime
 }
 
-func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	rules := make([]cloudprovider.SecurityRule, 0)
-	secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId)
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	ret := make([]cloudprovider.ISecurityGroupRule, 0)
+	rules, err := self.region.GetSecurityGroupRules(self.SecurityGroupId)
 	if err != nil {
 		return nil, err
 	}
-	for _, permission := range secgrp.Permissions.Permission {
-		rule, err := permission.toRule()
-		if err != nil {
-			log.Errorf("convert rule %s for group %s(%s) error: %v", permission.Description, self.SecurityGroupName, self.SecurityGroupId, err)
-			continue
-		}
-		rules = append(rules, rule)
+	for i := range rules {
+		rules[i].region = self.region
+		ret = append(ret, &rules[i])
 	}
-	return rules, nil
+	return ret, nil
 }
 
 func (self *SSecurityGroup) GetName() string {
@@ -150,11 +126,25 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	group, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId)
+	group, err := self.region.GetSecurityGroup(self.SecurityGroupId)
 	if err != nil {
 		return err
 	}
 	return jsonutils.Update(self, group)
+}
+
+func (self *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
+	groups, _, err := self.GetSecurityGroups("", "", []string{id}, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	for i := range groups {
+		if groups[i].SecurityGroupId == id {
+			groups[i].region = self
+			return &groups[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetSecurityGroups(vpcId, name string, securityGroupIds []string, offset int, limit int) ([]SSecurityGroup, int, error) {
@@ -192,22 +182,29 @@ func (self *SRegion) GetSecurityGroups(vpcId, name string, securityGroupIds []st
 	return secgrps, int(total), nil
 }
 
-func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["SecurityGroupId"] = secGroupId
-
-	body, err := self.ecsRequest("DescribeSecurityGroupAttribute", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeSecurityGroupAttribute")
+func (self *SRegion) GetSecurityGroupRules(id string) ([]SPermission, error) {
+	params := map[string]string{
+		"SecurityGroupId": id,
+		"RegionId":        self.RegionId,
 	}
-
-	secgrp := SSecurityGroup{}
-	err = body.Unmarshal(&secgrp)
+	resp, err := self.ecsRequest("DescribeSecurityGroupAttribute", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "body.Unmarshal")
+		return nil, err
 	}
-	return &secgrp, nil
+	ret := struct {
+		Permissions struct {
+			Permission []SPermission
+		}
+		SecurityGroupId string
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ret.Permissions.Permission {
+		ret.Permissions.Permission[i].SecurityGroupId = ret.SecurityGroupId
+	}
+	return ret.Permissions.Permission, nil
 }
 
 func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc, projectId string) (string, error) {
@@ -400,53 +397,6 @@ func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule secrules.Securit
 	}
 }
 
-func (self *SPermission) toRule() (cloudprovider.SecurityRule, error) {
-	rule := cloudprovider.SecurityRule{
-		SecurityRule: secrules.SecurityRule{
-			Action:      secrules.SecurityRuleDeny,
-			Direction:   secrules.DIR_IN,
-			Priority:    self.Priority,
-			Description: self.Description,
-			PortStart:   -1,
-			PortEnd:     -1,
-		},
-	}
-	if strings.ToLower(self.Policy) == "accept" {
-		rule.Action = secrules.SecurityRuleAllow
-	}
-
-	cidr := self.SourceCidrIp
-	if self.Direction == "egress" {
-		rule.Direction = secrules.DIR_OUT
-		cidr = self.DestCidrIp
-	}
-
-	rule.ParseCIDR(cidr)
-
-	switch strings.ToLower(self.IpProtocol) {
-	case "tcp", "udp", "icmp":
-		rule.Protocol = strings.ToLower(self.IpProtocol)
-	case "all":
-		rule.Protocol = secrules.PROTO_ANY
-	default:
-		return rule, fmt.Errorf("unsupported protocal %s", self.IpProtocol)
-	}
-
-	port, ports := "", strings.Split(self.PortRange, "/")
-	if ports[0] == ports[1] {
-		if ports[0] != "-1" {
-			port = ports[0]
-		}
-	} else if ports[0] != "1" && ports[1] != "65535" {
-		port = fmt.Sprintf("%s-%s", ports[0], ports[1])
-	}
-	err := rule.ParsePorts(port)
-	if err != nil {
-		return rule, errors.Wrapf(err, "ParsePorts(%s)", port)
-	}
-	return rule, nil
-}
-
 func (self *SRegion) AssignSecurityGroup(secgroupId, instanceId string) error {
 	return self.SetSecurityGroups([]string{secgroupId}, instanceId)
 }
@@ -492,5 +442,5 @@ func (self *SRegion) DeleteSecurityGroup(secGrpId string) error {
 }
 
 func (self *SSecurityGroup) Delete() error {
-	return self.vpc.region.DeleteSecurityGroup(self.SecurityGroupId)
+	return self.region.DeleteSecurityGroup(self.SecurityGroupId)
 }

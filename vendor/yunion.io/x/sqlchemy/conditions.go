@@ -336,7 +336,7 @@ func tupleConditionWhereClause(t *STupleCondition, op string) string {
 	buf.WriteByte(' ')
 	buf.WriteString(op)
 	buf.WriteByte(' ')
-	buf.WriteString(varConditionWhereClause(t.right))
+	buf.WriteString(VarConditionWhereClause(t.right))
 	return buf.String()
 }
 
@@ -359,7 +359,7 @@ func questionMark(count int) string {
 	}
 }
 
-func varConditionWhereClause(v interface{}) string {
+func VarConditionWhereClause(v interface{}) string {
 	switch q := v.(type) {
 	case IQueryField:
 		return q.Reference()
@@ -393,6 +393,14 @@ func NewTupleCondition(l IQueryField, r interface{}) STupleCondition {
 	return STupleCondition{left: l, right: r}
 }
 
+func (t *STupleCondition) GetLeft() IQueryField {
+	return t.left
+}
+
+func (t *STupleCondition) GetRight() interface{} {
+	return t.right
+}
+
 // Variables implementation of STupleCondition for ICondition
 func (t *STupleCondition) Variables() []interface{} {
 	return varConditionVariables(t.right)
@@ -410,7 +418,7 @@ type SInCondition struct {
 }
 
 func inConditionWhereClause(t *STupleCondition, op string) string {
-	v := varConditionWhereClause(t.right)
+	v := VarConditionWhereClause(t.right)
 	if len(v) != 0 {
 		return tupleConditionWhereClause(t, op)
 	}
@@ -489,6 +497,22 @@ func (t *SLikeCondition) WhereClause() string {
 // Like SQL operator
 func Like(f IQueryField, v string) ICondition {
 	c := SLikeCondition{NewTupleCondition(f, v)}
+	return &c
+}
+
+// SRegexpConition represents REGEXP operation in a SQL query
+type SRegexpConition struct {
+	STupleCondition
+}
+
+// WhereClause implementation for SRegexpConition for ICondition
+func (t *SRegexpConition) WhereClause() string {
+	return t.left.database().backend.RegexpWhereClause(t)
+}
+
+// Regexp SQL operator
+func Regexp(f IQueryField, v string) ICondition {
+	c := SRegexpConition{NewTupleCondition(f, v)}
 	return &c
 }
 
@@ -648,7 +672,7 @@ type SBetweenCondition struct {
 // WhereClause implementation of SBetweenCondition for ICondition
 func (t *SBetweenCondition) WhereClause() string {
 	ret := tupleConditionWhereClause(&t.STupleCondition, SQL_OP_BETWEEN)
-	return fmt.Sprintf("%s AND %s", ret, varConditionWhereClause(t.right2))
+	return fmt.Sprintf("%s AND %s", ret, VarConditionWhereClause(t.right2))
 }
 
 // Between SQL operator

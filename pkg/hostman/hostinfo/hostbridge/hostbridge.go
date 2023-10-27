@@ -37,6 +37,7 @@ import (
 type IBridgeDriver interface {
 	ConfirmToConfig() (bool, error)
 	GetMac() string
+	GetVlanId() int
 	FetchConfig()
 	Setup(IBridgeDriver) error
 	SetupAddresses(net.IPMask) error
@@ -113,10 +114,17 @@ func (d *SBaseBridgeDriver) FetchConfig() {
 }
 
 func (d *SBaseBridgeDriver) GetMac() string {
-	if len(d.bridge.Mac) == 0 {
-		d.bridge.FetchConfig()
+	if len(d.inter.GetMac()) == 0 {
+		d.inter.FetchConfig()
 	}
-	return d.bridge.Mac
+	return d.inter.GetMac()
+}
+
+func (d *SBaseBridgeDriver) GetVlanId() int {
+	if len(d.inter.GetMac()) == 0 {
+		d.inter.FetchConfig()
+	}
+	return d.inter.VlanId
 }
 
 func (d *SBaseBridgeDriver) Bridge() string {

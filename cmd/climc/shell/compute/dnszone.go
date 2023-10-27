@@ -22,23 +22,20 @@ import (
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.DnsZones).WithKeyword("dns-zone")
-	cmd.List(&options.SDnsZoneListOptions{})
-	cmd.Show(&options.SDnsZoneIdOptions{})
-	cmd.ClassShow(&options.DnsZoneCapabilitiesOptions{})
-	cmd.Delete(&options.SDnsZoneIdOptions{})
-	cmd.Create(&options.DnsZoneCreateOptions{})
-	cmd.Perform("syncstatus", &options.SDnsZoneIdOptions{})
-	cmd.Perform("sync-recordsets", &options.SDnsZoneIdOptions{})
-	cmd.Perform("cache", &options.DnsZoneCacheOptions{})
-	cmd.Perform("uncache", &options.DnsZoneUncacheOptions{})
-	cmd.Perform("purge", &options.SDnsZoneIdOptions{})
-	cmd.Perform("add-vpcs", &options.DnsZoneAddVpcsOptions{})
-	cmd.Perform("remove-vpcs", &options.DnsZoneRemoveVpcsOptions{})
+	cmd.List(&compute.SDnsZoneListOptions{})
+	cmd.Show(&compute.SDnsZoneIdOptions{})
+	cmd.ClassShow(&compute.DnsZoneCapabilitiesOptions{})
+	cmd.Delete(&compute.SDnsZoneIdOptions{})
+	cmd.Create(&compute.DnsZoneCreateOptions{})
+	cmd.Perform("syncstatus", &compute.SDnsZoneIdOptions{})
+	cmd.Perform("purge", &compute.SDnsZoneIdOptions{})
+	cmd.Perform("add-vpcs", &compute.DnsZoneAddVpcsOptions{})
+	cmd.Perform("remove-vpcs", &compute.DnsZoneRemoveVpcsOptions{})
 	cmd.GetWithCustomShow("exports", func(result jsonutils.JSONObject) {
 		rr := make(map[string]string)
 		err := result.Unmarshal(&rr)
@@ -49,5 +46,5 @@ func init() {
 		for _, v := range rr {
 			fmt.Printf("%s\n", v)
 		}
-	}, &options.SDnsZoneIdOptions{})
+	}, &compute.SDnsZoneIdOptions{})
 }

@@ -1,0 +1,50 @@
+name: Scheduler Docker Image
+
+on:
+  push:
+    branches:
+      - 'releases/**'
+      - 'main'
+      - 'master'
+    paths:
+      - 'pkg/scheduler/**.go'
+      - 'pkg/apis/scheduler/**.go'
+
+jobs:
+  build_webconsole:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 8
+        
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.18'
+        
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+      
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Login to Aliyun Container Registry (ACR)
+      uses: docker/login-action@v2
+      with:
+        registry: https://registry.us-west-1.aliyuncs.com
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+        
+    - name: Build And Push Docker Image
+      shell: bash
+      run: |
+          set -o xtrace
+          export GO111MODULE=on
+          branch="${GITHUB_REF#refs/heads/}"
+          timestamp=`TZ="Asia/Shanghai" date +"%Y%m%d%H%M%S"`
+          export VERSION="$branch-$timestamp-solo"
+          export GOOS=linux
+          export ARCH=all
+          export REGISTRY=registry.us-west-1.aliyuncs.com/yunion-dev
+          make image scheduler

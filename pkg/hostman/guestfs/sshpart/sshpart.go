@@ -268,9 +268,16 @@ func (p *SSHPartition) GetLocalPath(sPath string, caseI bool) string {
 }
 
 func (f *SSHPartition) Symlink(src string, dst string, caseInsensitive bool) error {
-	f.Mkdir(path.Dir(dst), 0755, caseInsensitive)
-	odstDir := f.GetLocalPath(path.Dir(dst), caseInsensitive)
-	return f.osSymlink(src, path.Join(odstDir, path.Base(dst)))
+	odstDir := path.Dir(dst)
+	if err := f.Mkdir(odstDir, 0755, caseInsensitive); err != nil {
+		return errors.Wrapf(err, "Mkdir %s", odstDir)
+	}
+	if f.Exists(dst, caseInsensitive) {
+		f.Remove(dst, caseInsensitive)
+	}
+	odstDir = f.GetLocalPath(odstDir, caseInsensitive)
+	dst = path.Join(odstDir, path.Base(dst))
+	return f.osSymlink(src, dst)
 }
 
 func (p *SSHPartition) Exists(sPath string, caseInsensitive bool) bool {
@@ -406,6 +413,18 @@ func (p *SSHPartition) CheckOrAddUser(user, homeDir string, isSys bool) (realHom
 					return
 				} else {
 					err = nil
+				}
+			}
+			if !p.Exists(realHomeDir, false) {
+				err = p.Mkdir(realHomeDir, 0700, false)
+				if err != nil {
+					err = errors.Wrapf(err, "Mkdir %s", realHomeDir)
+				} else {
+					cmd := []string{"/usr/sbin/chroot", p.mountPath, "chown", user, realHomeDir}
+					_, err = p.term.Run(strings.Join(cmd, " "))
+					if err != nil {
+						err = errors.Wrap(err, "chown")
+					}
 				}
 			}
 		}
@@ -612,7 +631,14 @@ func MountSSHRootfs(tool *disktool.SSHPartitionTool, term *ssh.Client, layouts [
 }
 
 func (p *SSHPartition) GenerateSshHostKeys() error {
-	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/bin/ssh-keygen -A", p.mountPath)
-	_, err := p.term.Run(cmd)
-	return errors.Wrap(err, "GenerateSshHostKeys")
+	for _, cmd := range []string{
+		"touch /dev/null",
+		"/usr/bin/ssh-keygen -A",
+	} {
+		_, err := p.term.Run(fmt.Sprintf("/usr/sbin/chroot %s %s", p.mountPath, cmd))
+		if err != nil {
+			return errors.Wrapf(err, "GenerateSshHostKeys exec %s", cmd)
+		}
+	}
+	return nil
 }

@@ -27,8 +27,9 @@ type SEip struct {
 	ChargeType        string
 	BGPType           string
 	NetworkExternalId string
-	IP                string
+	Ip                string
 	ProjectId         string
+	Tags              map[string]string
 }
 
 type AssociateConfig struct {

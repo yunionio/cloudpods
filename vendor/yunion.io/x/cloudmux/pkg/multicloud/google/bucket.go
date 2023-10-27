@@ -526,3 +526,48 @@ func (region *SRegion) PutObject(bucket string, name string, input io.Reader, si
 func (region *SRegion) DeleteBucket(name string) error {
 	return region.StorageDelete("b/" + name)
 }
+
+type SBucketCORSRule struct {
+	Cors []SCORSDetails
+}
+type SCORSDetails struct {
+	Origin         []string `json:"origin"`
+	Method         []string `json:"method"`
+	ResponseHeader []string `json:"responseHeader"`
+	MaxAgeSeconds  int      `json:"maxAgeSeconds"`
+}
+
+func (bucket *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
+	res := []cloudprovider.SBucketCORSRule{}
+	corss := SBucketCORSRule{}
+	err := bucket.region.StorageGet(fmt.Sprintf("b/%s?fields=cors", bucket.Name), &corss)
+	if err != nil {
+		return nil, errors.Wrap(err, "StorageGet cors")
+	}
+	for _, cors := range corss.Cors {
+		temp := cloudprovider.SBucketCORSRule{}
+		temp.AllowedHeaders = cors.ResponseHeader
+		temp.AllowedMethods = cors.Method
+		temp.AllowedOrigins = cors.Origin
+		temp.MaxAgeSeconds = cors.MaxAgeSeconds
+		res = append(res, temp)
+	}
+	return res, nil
+}
+
+func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
+	params := []map[string]interface{}{}
+	for _, rule := range rules {
+		params = append(params, map[string]interface{}{
+			"origin":         rule.AllowedOrigins,
+			"method":         rule.AllowedMethods,
+			"responseHeader": rule.AllowedHeaders,
+			"maxAgeSeconds":  rule.MaxAgeSeconds,
+		})
+	}
+	return b.region.StoragePut(fmt.Sprintf("b/%s?fields=cors", b.Name), jsonutils.Marshal(map[string]interface{}{"cors": params}), nil)
+}
+
+func (b *SBucket) DeleteCORS() error {
+	return b.region.StoragePut(fmt.Sprintf("b/%s?fields=cors", b.Name), nil, nil)
+}

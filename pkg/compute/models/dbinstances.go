@@ -755,8 +755,7 @@ func fetchDBInstanceZones(rdsIds []string) map[string][]sDBInstanceZone {
 }
 
 func (self *SDBInstance) getSecgroupsByExternalIds(externalIds []string) ([]SSecurityGroup, error) {
-	sq := SecurityGroupCacheManager.Query("secgroup_id").In("external_id", externalIds).Equals("manager_id", self.ManagerId)
-	q := SecurityGroupManager.Query().In("id", sq.SubQuery())
+	q := SecurityGroupManager.Query().In("external_id", externalIds).Equals("manager_id", self.ManagerId)
 	secgroups := []SSecurityGroup{}
 	err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups)
 	if err != nil {
@@ -1672,6 +1671,9 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.Category = ext.GetCategory()
 		self.Status = ext.GetStatus()
 		self.Port = ext.GetPort()
+		if len(ext.GetDescription()) > 0 {
+			self.Description = ext.GetDescription()
+		}
 		if iops := ext.GetIops(); iops > 0 {
 			self.Iops = iops
 		}
@@ -1775,6 +1777,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.ConnectionStr = extInstance.GetConnectionStr()
 	instance.StorageType = extInstance.GetStorageType()
 	instance.InternalConnectionStr = extInstance.GetInternalConnectionStr()
+	instance.Description = extInstance.GetDescription()
 
 	instance.MaintainTime = extInstance.GetMaintainTime()
 	instance.SetZoneIds(extInstance)
@@ -2159,4 +2162,10 @@ func (self *SDBInstance) GetExpiredAt() time.Time {
 
 func (db *SDBInstance) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	db.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	if len(db.ExternalId) > 0 && (data.Contains("name") || data.Contains("description")) {
+		err := db.StartRemoteUpdateTask(ctx, userCred, false, "")
+		if err != nil {
+			log.Errorf("StartRemoteUpdateTask fail: %s", err)
+		}
+	}
 }

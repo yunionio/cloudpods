@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -66,6 +68,8 @@ func init() {
 	}
 	ServerSkuManager.NameRequireAscii = false
 	ServerSkuManager.SetVirtualObject(ServerSkuManager)
+	// CREATE INDEX sku_index  ON serverskus_tbl (`deleted`, `is_emulated`, `provider`, `cloudregion_id`, `postpaid_status`, `prepaid_status`)
+	ServerSkuManager.TableSpec().AddIndex(false, "deleted", "is_emulated", "provider", "cloudregion_id", "postpaid_status", "prepaid_status")
 }
 
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
@@ -622,7 +626,7 @@ func (self *SServerSku) Delete(ctx context.Context, userCred mcclient.TokenCrede
 
 func (self *SServerSku) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ServerSkuManager.ClearSchedDescCache(true)
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return db.RealDeleteModel(ctx, userCred, self)
 }
 
 func (self *SServerSku) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -739,7 +743,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 	}
 
 	if domainStr := query.ProjectDomainId; len(domainStr) > 0 {
-		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, domainStr)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
@@ -756,6 +760,32 @@ func (manager *SServerSkuManager) ListItemFilter(
 		if len(providers) == 1 && utils.IsInStringArray(providers[0], cloudprovider.GetPublicProviders()) {
 			publicCloud = true
 		}
+	}
+
+	conditions := []sqlchemy.ICondition{}
+	for _, arch := range query.CpuArch {
+		if len(arch) == 0 {
+			continue
+		}
+		if arch == apis.OS_ARCH_X86 {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field("cpu_arch"), arch),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_I386),
+				sqlchemy.IsNullOrEmpty(q.Field("cpu_arch")),
+			))
+		} else if arch == apis.OS_ARCH_ARM {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field("cpu_arch"), arch),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_AARCH32),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_AARCH64),
+				sqlchemy.IsNullOrEmpty(q.Field("cpu_arch")),
+			))
+		} else {
+			conditions = append(conditions, sqlchemy.Startswith(q.Field("cpu_arch"), arch))
+		}
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
 	if query.Distinct {
@@ -814,7 +844,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.Equals("prepaid_status", query.PrepaidStatus)
 	}
 
-	conditions := []sqlchemy.ICondition{}
+	conditions = []sqlchemy.ICondition{}
 	for _, sizeMb := range query.MemorySizeMb {
 		// 按区间查询内存, 避免0.75G这样的套餐不好过滤
 		if sizeMb > 0 {
@@ -1319,14 +1349,27 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 			}
 		}
 	}
+
+	ch := make(chan struct{}, options.Options.SkuBatchSync)
+	defer close(ch)
+	var wg sync.WaitGroup
 	for i := 0; i < len(added); i += 1 {
-		err = region.newPublicCloudSku(ctx, userCred, added[i])
-		if err != nil {
-			result.AddError(err)
-		} else {
-			result.Add()
-		}
+		ch <- struct{}{}
+		wg.Add(1)
+		go func(sku SServerSku) {
+			defer func() {
+				wg.Done()
+				<-ch
+			}()
+			err = region.newPublicCloudSku(ctx, userCred, sku)
+			if err != nil {
+				result.AddError(err)
+			} else {
+				result.Add()
+			}
+		}(added[i])
 	}
+	wg.Wait()
 
 	// notfiy sched manager
 	_, err = scheduler.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region), false)

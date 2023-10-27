@@ -15,9 +15,6 @@
 package policy
 
 import (
-	"yunion.io/x/pkg/util/rbacscope"
-
-	api "yunion.io/x/onecloud/pkg/apis/notify"
 	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -33,150 +30,152 @@ const (
 
 var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeUser,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "receivers",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "receivers",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "receivers",
-					Action:   PolicyActionCreate,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "receivers",
-					Action:   PolicyActionUpdate,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "receivers",
-					Action:   PolicyActionDelete,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "receivers",
-					Action:   PolicyActionPerform,
-					Result:   rbacutils.Allow,
-				},
-			},
-		},
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeSystem,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "topics",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "topics",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
+		/*
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeUser,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "receivers",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "receivers",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "receivers",
+						Action:   PolicyActionCreate,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "receivers",
+						Action:   PolicyActionUpdate,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "receivers",
+						Action:   PolicyActionDelete,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "receivers",
+						Action:   PolicyActionPerform,
+						Result:   rbacutils.Allow,
+					},
 				},
 			},
-		},
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeSystem,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionCreate,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionUpdate,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionDelete,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionPerform,
-					Result:   rbacutils.Allow,
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeSystem,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "topics",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "topics",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
 				},
 			},
-		},
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeDomain,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionCreate,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionUpdate,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionDelete,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "subscribers",
-					Action:   PolicyActionPerform,
-					Result:   rbacutils.Allow,
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeSystem,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionCreate,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionUpdate,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionDelete,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionPerform,
+						Result:   rbacutils.Allow,
+					},
 				},
 			},
-		},
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeDomain,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionCreate,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionUpdate,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionDelete,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "subscribers",
+						Action:   PolicyActionPerform,
+						Result:   rbacutils.Allow,
+					},
+				},
+			},
+		*/
 	}
 )
 

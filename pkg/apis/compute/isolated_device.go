@@ -79,6 +79,9 @@ type IsolatedDeviceCreateInput struct {
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
 	Addr string `json:"addr"`
 
+	// legacy vgpu mdev id
+	MdevId string `json:"mdev_id"`
+
 	// 设备VendorId
 	VendorDeviceId string `json:"vendor_device_id"`
 }
@@ -111,6 +114,7 @@ type IsolatedDeviceJsonDesc struct {
 	OvsOffloadInterface string `json:"ovs_offload_interface"`
 	DiskIndex           int8   `json:"disk_index"`
 	NvmeSizeMB          int    `json:"nvme_size_mb"`
+	MdevId              string `json:"mdev_id"`
 }
 
 type IsolatedDeviceModelCreateInput struct {

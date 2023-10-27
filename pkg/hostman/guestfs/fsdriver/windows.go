@@ -129,7 +129,7 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, de
 	selUsr := ""
 	isWin10NonPro := w.IsWindows10NonPro()
 	// Win10 try not to use Administrator users // Win 10 professional can use Adminsitrator
-	if _, ok := users[admin]; ok && windowsDefaultAdminUser && !isWin10NonPro {
+	if _, ok := users[admin]; ok && windowsDefaultAdminUser && !isWin10NonPro && w.GetIRootFsDriver().AllowAdminLogin() {
 		selUsr = admin
 	} else {
 		// Looking for an unlocked user who is not an Administrator
@@ -160,7 +160,6 @@ func (w *SWindowsRootFs) GetArch(hostCpuArch string) string {
 		return apis.OS_ARCH_X86_64
 	} else if w.rootFs.Exists("/program files (arm)", true) {
 		return apis.OS_ARCH_AARCH64
-
 	}
 	if hostCpuArch == apis.OS_ARCH_AARCH32 {
 		return apis.OS_ARCH_AARCH32
@@ -278,6 +277,10 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
 }
 
+func (w *SWindowsRootFs) DeployQgaBlackList(part IDiskPartition) error {
+	return nil
+}
+
 func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
 	mainNic, err := netutils2.GetMainNicFromDeployApi(nics)
 	if err != nil {
@@ -326,7 +329,7 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 			dnslist := netutils2.GetNicDns(snic)
 			if len(dnslist) > 0 {
 				lines = append(lines, fmt.Sprintf(
-					`      netsh interface ip set dns name="%%%%b" source=static addr=%s ddns=disabled suffix=interface`, dnslist[0]))
+					`      netsh interface ip set dns name="%%%%b" source=static addr=%s`, dnslist[0]))
 				if len(dnslist) > 1 {
 					for i := 1; i < len(dnslist); i++ {
 						lines = append(lines, fmt.Sprintf(`      netsh interface ip add dns "%%%%b" %s index=%d`, dnslist[i], i+1))

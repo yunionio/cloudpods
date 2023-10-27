@@ -370,9 +370,9 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context, info *api.Pro
 	if proj.IsAdminProject() {
 		return httperrors.NewForbiddenError("cannot delete system project")
 	}
-	if len(info.ExtResource) > 0 {
+	/*if len(info.ExtResource) > 0 {
 		return httperrors.NewNotEmptyError("project contains external resources")
-	}
+	}*/
 	if info.UserCount > 0 {
 		return httperrors.NewNotEmptyError("project contains user")
 	}
@@ -380,6 +380,10 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context, info *api.Pro
 		return httperrors.NewNotEmptyError("project contains group")
 	}
 	return proj.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
+}
+
+func (proj *SProject) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return proj.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
 func (proj *SProject) IsAdminProject() bool {
@@ -614,14 +618,6 @@ func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, r
 	return validateAssignPolicies(userCred, project.Id, assignPolicies)
 }
 
-func (project *SProject) AllowPerformJoin(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.SProjectAddUserGroupInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, project, "join")
-}
-
 // 将用户或组加入项目
 func (project *SProject) PerformJoin(
 	ctx context.Context,
@@ -698,14 +694,6 @@ func (project *SProject) PerformJoin(
 	}
 
 	return nil, nil
-}
-
-func (project *SProject) AllowPerformLeave(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, project, "leave")
 }
 
 // 将用户或组移出项目
@@ -905,4 +893,11 @@ func (project *SProject) matchOrganizationNodes() (*api.SProjectOrganization, er
 		return nil, errors.Wrap(err, "getProjectOrganization")
 	}
 	return projOrg, nil
+}
+
+func (manager *SProjectManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil && scope != rbacscope.ScopeSystem && scope != rbacscope.ScopeDomain {
+		q = q.Equals("id", owner.GetProjectId())
+	}
+	return manager.SIdentityBaseResourceManager.FilterByOwner(q, man, userCred, owner, scope)
 }

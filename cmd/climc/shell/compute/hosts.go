@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -63,18 +64,32 @@ func init() {
 	cmd.BatchPerform("reserve-cpus", &compute.HostReserveCpusOptions{})
 	cmd.BatchPerform("unreserve-cpus", &options.BaseIdsOptions{})
 	cmd.BatchPerform("auto-migrate-on-host-down", &compute.HostAutoMigrateOnHostDownOptions{})
+	cmd.BatchPerform("restart-host-agent", &options.BaseIdsOptions{})
 
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})
 	cmd.Get("app-options", &options.BaseIdOptions{})
 	cmd.Get("tap-config", &options.BaseIdOptions{})
+	cmd.GetWithCustomShow("nics", func(data jsonutils.JSONObject) {
+		results := printutils.ListResult{}
+		err := data.Unmarshal(&results)
+		if err == nil {
+			printutils.PrintJSONList(&results, []string{
+				"mac",
+				"vlan_id",
+				"interface",
+				"bridge",
+				"ip_addr",
+				"net",
+				"wire",
+			})
+		} else {
+			fmt.Println("error", err)
+		}
+	}, &options.BaseIdOptions{})
 
 	R(&options.BaseIdOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *options.BaseIdOptions) error {
-		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
-		if e != nil {
-			return e
-		}
-		i, e := modules.Hosts.GetLoginInfo(s, srvid, nil)
+		i, e := modules.Hosts.PerformAction(s, args.ID, "login-info", nil)
 		if e != nil {
 			return e
 		}
@@ -575,11 +590,7 @@ func init() {
 		Port int    `help:"SSH service port" default:"22"`
 	}
 	R(&HostSSHLoginOptions{}, "host-ssh", "SSH login of a host", func(s *mcclient.ClientSession, args *HostSSHLoginOptions) error {
-		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
-		if e != nil {
-			return e
-		}
-		i, e := modules.Hosts.GetLoginInfo(s, srvid, nil)
+		i, e := modules.Hosts.PerformAction(s, args.ID, "login-info", nil)
 		privateKey := ""
 		if e != nil {
 			if httputils.ErrorCode(e) == 404 || e.Error() == "ciphertext too short" {

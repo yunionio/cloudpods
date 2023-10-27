@@ -24,8 +24,7 @@ import (
 )
 
 func FernetTokenVerifier(ctx context.Context, tokenStr string) (mcclient.TokenCredential, error) {
-	token := SAuthToken{}
-	err := token.ParseFernetToken(tokenStr)
+	token, err := TokenStrDecode(ctx, tokenStr)
 	if err != nil {
 		return nil, httperrors.NewInvalidCredentialError("invalid token %s", err)
 	}

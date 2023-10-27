@@ -38,6 +38,7 @@ type DeletePreventableCreateInput struct {
 
 type KeypairListInput struct {
 	apis.UserResourceListInput
+	apis.SharableResourceBaseListInput
 
 	// 加密类型
 	// example: RSA
@@ -122,10 +123,6 @@ type BaremetalagentListInput struct {
 	AgentType []string `json:"agent_type"`
 }
 
-type DnsRecordListInput struct {
-	apis.AdminSharableVirtualResourceListInput
-}
-
 type DynamicschedtagListInput struct {
 	apis.StandaloneResourceListInput
 	SchedtagFilterListInput
@@ -167,12 +164,6 @@ type SnapshotPolicyListInput struct {
 	OrderByBindDiskCount string `json:"order_by_bind_disk_count"`
 	// 是否启用？
 	IsActivated *bool `json:"is_activated"`
-}
-
-type DnsRecordDetails struct {
-	apis.AdminSharableVirtualResourceDetails
-
-	SDnsRecord
 }
 
 type HostnameInput struct {

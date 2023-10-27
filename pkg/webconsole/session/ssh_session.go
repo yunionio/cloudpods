@@ -29,8 +29,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/webconsole/helper"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/recorder"
 )
@@ -46,18 +45,22 @@ type SSshSession struct {
 	Port       int64
 	PrivateKey string
 	Username   string
-	Password   string
+	// 保持原有 Username ，不实用 cloudroot 的同时使用 PrivateKey
+	KeepUsername bool
+	Password     string
 }
 
-func NewSshSession(ctx context.Context, us *mcclient.ClientSession, name, ip string, port int64, username, password string) *SSshSession {
+func NewSshSession(ctx context.Context, us *mcclient.ClientSession,
+	name, ip string, port int64, username, password string, KeepUsername bool) *SSshSession {
 	ret := &SSshSession{
-		us:       us,
-		id:       stringutils.UUID4(),
-		Port:     port,
-		Host:     ip,
-		name:     name,
-		Username: username,
-		Password: password,
+		us:           us,
+		id:           stringutils.UUID4(),
+		Port:         port,
+		Host:         ip,
+		name:         name,
+		Username:     username,
+		KeepUsername: KeepUsername,
+		Password:     password,
 	}
 	if port <= 0 {
 		ret.Port = 22
@@ -113,41 +116,17 @@ func (s *SSshSession) IsNeedLogin() (bool, error) {
 	if !o.Options.EnableAutoLogin {
 		return true, nil
 	}
-	privateKey, err := func() (string, error) {
-		ctx := context.Background()
-		admin := auth.GetAdminSession(ctx, o.Options.Region)
-		key, err := compute.Sshkeypairs.GetById(admin, s.us.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
-		if err != nil {
-			return "", errors.Wrapf(err, "Sshkeypairs.GetById(%s)", s.us.GetProjectId())
+	if !s.KeepUsername {
+		s.Username = "cloudroot"
+	} else {
+		if s.Username == "" {
+			return true, errors.Error("username is empty")
 		}
-		privKey, err := key.GetString("private_key")
-		if err != nil {
-			return "", errors.Wrapf(err, "get private_key")
-		}
-		signer, err := ssh.ParsePrivateKey([]byte(privKey))
-		if err != nil {
-			return "", errors.Wrapf(err, "ParsePrivateKey")
-		}
-		config := &ssh.ClientConfig{
-			Timeout:         time.Second,
-			User:            "cloudroot",
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(signer),
-			},
-		}
-		addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
-		client, err := ssh.Dial("tcp", addr, config)
-		if err != nil {
-			return "", errors.Wrapf(err, "dial %s", addr)
-		}
-		defer client.Close()
-		return privKey, nil
-	}()
-	if err != nil {
-		return true, err
 	}
-	s.Username = "cloudroot"
+	privateKey, err := helper.GetValidPrivateKey(s.Host, s.Port, s.Username, s.us.GetProjectId())
+	if err != nil {
+		return true, errors.Wrap(err, "try to use cloud admin private_key for ssh login")
+	}
 	s.PrivateKey = privateKey
 	return false, nil
 }

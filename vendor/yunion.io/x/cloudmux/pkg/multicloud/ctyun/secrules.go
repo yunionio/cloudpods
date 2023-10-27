@@ -15,89 +15,154 @@
 package ctyun
 
 import (
-	"yunion.io/x/jsonutils"
+	"strings"
+	"time"
+
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
 )
 
 type SSecurityGroupRule struct {
 	secgroup *SSecurityGroup
 
-	PortRangeMax    int64  `json:"port_range_max"`
-	SecurityGroupID string `json:"security_group_id"`
-	RemoteGroupId   string `json:"remote_group_id"`
-	Description     string `json:"description"`
-	RemoteIPPrefix  string `json:"remote_ip_prefix"`
-	Protocol        string `json:"protocol"`
-	Ethertype       string `json:"ethertype"`
-	UpdatedAt       string `json:"updated_at"`
-	Direction       string `json:"direction"`
-	TenantID        string `json:"tenant_id"`
-	ID              string `json:"id"`
-	ProjectID       string `json:"project_id"`
-	PortRangeMin    int64  `json:"port_range_min"`
-	CreatedAt       string `json:"created_at"`
+	Direction       string
+	Priority        int
+	Ethertype       string
+	Protocol        string
+	DestCidrIP      string
+	Description     string
+	Origin          string
+	CreateTime      time.Time
+	Id              string
+	Action          string
+	SecurityGroupId string
+	Range           string
 }
 
-func (self *SRegion) GetSecurityGroupRules(secgroupId string) ([]SSecurityGroupRule, error) {
-	params := map[string]string{
-		"regionId":        self.GetId(),
-		"securityGroupId": secgroupId,
-	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/getSecurityGroupRules", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupRules.DoGet")
-	}
-
-	ret := make([]SSecurityGroupRule, 0)
-	err = resp.Unmarshal(&ret, "returnObj", "security_group_rules")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupRules.Unmarshal")
-	}
-
-	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupRules.GetSecurityGroupDetails")
-	}
-
-	for i := range ret {
-		ret[i].secgroup = secgroup
-	}
-
-	return ret, nil
+func (self *SSecurityGroupRule) GetGlobalId() string {
+	return self.Id
 }
 
-func (self *SRegion) CreateSecurityGroupRule(groupId, direction, ethertype, protocol, remoteIpPrefix string, portRangeMin, portRangeMax int64) error {
-	ruleParams := jsonutils.NewDict()
-	ruleParams.Set("regionId", jsonutils.NewString(self.GetId()))
-	ruleParams.Set("securityGroupId", jsonutils.NewString(groupId))
-	ruleParams.Set("direction", jsonutils.NewString(direction))
-	ruleParams.Set("ethertype", jsonutils.NewString(ethertype))
-
-	if len(protocol) > 0 {
-		ruleParams.Set("protocol", jsonutils.NewString(protocol))
+func (self *SSecurityGroupRule) GetDirection() secrules.TSecurityRuleDirection {
+	if self.Direction == "egress" {
+		return secrules.DIR_OUT
 	}
+	return secrules.DIR_IN
+}
 
-	if len(remoteIpPrefix) > 0 {
-		ruleParams.Set("remoteIpPrefix", jsonutils.NewString(remoteIpPrefix))
+func (self *SSecurityGroupRule) GetPriority() int {
+	return self.Priority
+}
+
+func (self *SSecurityGroupRule) GetAction() secrules.TSecurityRuleAction {
+	if self.Action == "accept" {
+		return secrules.SecurityRuleAllow
 	}
+	return secrules.SecurityRuleDeny
+}
 
-	if portRangeMin > 0 {
-		ruleParams.Set("portRangeMin", jsonutils.NewInt(portRangeMin))
+func (self *SSecurityGroupRule) GetProtocol() string {
+	return strings.ToLower(self.Protocol)
+}
+
+func (self *SSecurityGroupRule) GetPorts() string {
+	if strings.ToLower(self.Range) == "any" {
+		return ""
 	}
+	return self.Range
+}
 
-	if portRangeMax > 0 {
-		ruleParams.Set("portRangeMax", jsonutils.NewInt(portRangeMax))
-	}
+func (self *SSecurityGroupRule) GetDescription() string {
+	return self.Description
+}
 
-	params := map[string]jsonutils.JSONObject{
-		"jsonStr": ruleParams,
-	}
+func (self *SSecurityGroupRule) GetCIDRs() []string {
+	return []string{self.DestCidrIP}
+}
 
-	_, err := self.client.DoPost("/apiproxy/v3/createSecurityGroupRule", params)
+func (self *SSecurityGroupRule) Delete() error {
+	err := self.secgroup.region.DeleteSecgroupRule(self.SecurityGroupId, self.Id, self.GetDirection())
 	if err != nil {
-		return errors.Wrap(err, "SRegion.CreateSecurityGroupRule.DoPost")
+		return errors.Wrapf(err, "Delete")
 	}
+	// wait rule deleted
+	cloudprovider.Wait(time.Second*5, time.Minute, func() (bool, error) {
+		secgroup, err := self.secgroup.region.GetSecurityGroup(self.secgroup.Id)
+		if err != nil {
+			return false, nil
+		}
+		for _, rule := range secgroup.SecurityGroupRuleList {
+			if rule.Id == self.Id {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	return nil
+}
 
+func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) error {
+	rule := map[string]interface{}{
+		"direction":   "egress",
+		"action":      "accept",
+		"priority":    opts.Priority,
+		"protocol":    strings.ToUpper(opts.Protocol),
+		"ethertype":   "IPv4",
+		"destCidrIp":  opts.CIDR,
+		"description": opts.Desc,
+		"range":       "1-65535",
+	}
+	api := "/v4/vpc/create-security-group-egress"
+	if opts.Direction == secrules.DIR_IN {
+		rule["direction"] = "ingress"
+		api = "/v4/vpc/create-security-group-ingress"
+	}
+	if len(opts.Ports) > 0 {
+		rule["range"] = opts.Ports
+	}
+	if opts.Action == secrules.SecurityRuleDeny {
+		rule["action"] = "drop"
+	}
+	params := map[string]interface{}{
+		"securityGroupID":    groupId,
+		"clientToken":        utils.GenRequestId(20),
+		"securityGroupRules": []map[string]interface{}{rule},
+	}
+	_, err := self.post(SERVICE_VPC, api, params)
+	return err
+}
+
+func (self *SRegion) DeleteSecgroupRule(groupId, ruleId string, direction secrules.TSecurityRuleDirection) error {
+	params := map[string]interface{}{
+		"securityGroupID":     groupId,
+		"securityGroupRuleID": ruleId,
+		"clientToken":         utils.GenRequestId(20),
+	}
+	api := "/v4/vpc/revoke-security-group-egress"
+	if direction == secrules.DIR_IN {
+		api = "/v4/vpc/revoke-security-group-ingress"
+	}
+	_, err := self.post(SERVICE_VPC, api, params)
+	return err
+}
+
+func (self *SSecurityGroupRule) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
+	return self.secgroup.region.UpdateSecurityGroupRule(self.secgroup.Id, self.Id, self.GetDirection(), opts)
+}
+
+func (self *SRegion) UpdateSecurityGroupRule(groupId, id string, direction secrules.TSecurityRuleDirection, opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
+	api := "/v4/vpc/modify-security-group-egress"
+	if direction == secrules.DIR_IN {
+		api = "/v4/vpc/modify-security-group-ingress"
+	}
+	params := map[string]interface{}{
+		"securityGroupID":     groupId,
+		"securityGroupRuleID": id,
+		"description":         opts.Desc,
+		"clientToken":         utils.GenRequestId(20),
+	}
+	_, err := self.post(SERVICE_VPC, api, params)
 	return err
 }

@@ -110,7 +110,7 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 	cloudproviders := cloudaccount.GetEnabledCloudproviders()
 
 	if len(cloudproviders) > 0 {
-		self.SetStage("on_cloudaccount_sync_complete", nil)
+		self.SetStage("OnCloudaccountSyncComplete", nil)
 		for i := range cloudproviders {
 			cloudproviders[i].StartSyncCloudProviderInfoTask(ctx, self.UserCred, &syncRange, self.GetId())
 		}

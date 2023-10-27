@@ -140,8 +140,10 @@ type SStorageCapacityInfo struct {
 }
 
 type StorageHost struct {
-	Id   string
-	Name string
+	Id         string
+	Name       string
+	Status     string
+	HostStatus string
 }
 
 type StorageDetails struct {

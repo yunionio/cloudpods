@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -140,6 +141,17 @@ func (c *TokenCacheVerify) Verify(ctx context.Context, cli *mcclient.Client, adm
 	return cred, nil
 }
 
+func (c *TokenCacheVerify) Remove(ctx context.Context, cli *mcclient.Client, adminToken, token string) error {
+	c.DeleteToken(token)
+
+	err := cli.Invalidate(ctx, adminToken, token)
+	if err != nil {
+		return errors.Wrap(err, "Invalidate")
+	}
+
+	return nil
+}
+
 type authManager struct {
 	syncman.SSyncManager
 
@@ -158,7 +170,33 @@ func newAuthManager(cli *mcclient.Client, info *AuthInfo) *authManager {
 		accessKeyCache:   newAccessKeyCache(),
 	}
 	authm.InitSync(authm)
+	go authm.startRefreshRevokeTokens()
 	return authm
+}
+
+func (a *authManager) startRefreshRevokeTokens() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		err := a.refreshRevokeTokens(context.Background())
+		if err != nil {
+			log.Errorf("%s", err)
+		}
+	}
+	ticker.Stop()
+}
+
+func (a *authManager) refreshRevokeTokens(ctx context.Context) error {
+	if a.adminCredential == nil {
+		return fmt.Errorf("refreshRevokeTokens: No valid admin token credential")
+	}
+	tokens, err := a.client.FetchInvalidTokens(ctx, a.adminCredential.GetTokenString())
+	if err != nil {
+		return errors.Wrap(err, "client.FetchInvalidTokens")
+	}
+	for _, token := range tokens {
+		a.tokenCacheVerify.DeleteToken(token)
+	}
+	return nil
 }
 
 func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {
@@ -174,13 +212,24 @@ func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclien
 
 func (a *authManager) verify(ctx context.Context, token string) (mcclient.TokenCredential, error) {
 	if a.adminCredential == nil {
-		return nil, fmt.Errorf("No valid admin token credential")
+		return nil, errors.Wrap(httperrors.ErrInvalidCredential, "No valid admin token credential")
 	}
 	cred, err := a.tokenCacheVerify.Verify(ctx, a.client, a.adminCredential.GetTokenString(), token)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "tokenCacheVerify.Verify")
 	}
 	return cred, nil
+}
+
+func (a *authManager) remove(ctx context.Context, token string) error {
+	if a.adminCredential == nil {
+		return errors.Wrap(httperrors.ErrInvalidCredential, "No valid admin token credential")
+	}
+	err := a.tokenCacheVerify.Remove(ctx, a.client, a.adminCredential.GetTokenString(), token)
+	if err != nil {
+		return errors.Wrap(err, "tokenCacheVerify.Remove")
+	}
+	return nil
 }
 
 var (
@@ -310,6 +359,10 @@ func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
 
 func Verify(ctx context.Context, tokenId string) (mcclient.TokenCredential, error) {
 	return manager.verify(ctx, tokenId)
+}
+
+func Remove(ctx context.Context, tokenId string) error {
+	return manager.remove(ctx, tokenId)
 }
 
 func VerifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {

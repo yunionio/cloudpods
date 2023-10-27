@@ -428,7 +428,7 @@ func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudE
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetNetwork(%s)", eip.NetworkExternalId)
 	}
-	ieip, err := region.CreateEip(network.NetworkId, eip.NetworkExternalId, eip.IP, eip.ProjectId)
+	ieip, err := region.CreateEip(network.NetworkId, eip.NetworkExternalId, eip.Ip, eip.ProjectId)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateEip")
 	}
@@ -551,19 +551,23 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return region.GetSecurityGroup(secgroupId)
 }
 
-func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := region.GetSecurityGroups(opts.ProjectId, opts.Name)
+func (region *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	err := region.client.fetchProjects()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fetchProjects")
 	}
-	if len(secgroups) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	iSecgroups := []cloudprovider.ICloudSecurityGroup{}
+	for _, project := range region.client.projects {
+		secgroups, err := region.GetSecurityGroups(project.Id, "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecurityGroups(%s)", project.Id)
+		}
+		for i := 0; i < len(secgroups); i++ {
+			secgroups[i].region = region
+			iSecgroups = append(iSecgroups, &secgroups[i])
+		}
 	}
-	if len(secgroups) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	secgroups[0].region = region
-	return &secgroups[0], nil
+	return iSecgroups, nil
 }
 
 func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {

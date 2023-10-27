@@ -45,6 +45,27 @@ const (
 	CLOUD_PROVIDER_HUAWEI_EN = "HCSO"
 
 	HUAWEI_API_VERSION = ""
+
+	SERVICE_IAM       = "iam"
+	SERVICE_ELB       = "elb"
+	SERVICE_VPC       = "vpc"
+	SERVICE_CES       = "ces"
+	SERVICE_RDS       = "rds"
+	SERVICE_ECS       = "ecs"
+	SERVICE_EPS       = "eps"
+	SERVICE_EVS       = "evs"
+	SERVICE_BSS       = "bss"
+	SERVICE_SFS       = "sfs-turbo"
+	SERVICE_CTS       = "cts"
+	SERVICE_NAT       = "nat"
+	SERVICE_BMS       = "bms"
+	SERVICE_CCI       = "cci"
+	SERVICE_CSBS      = "csbs"
+	SERVICE_IMS       = "ims"
+	SERVICE_AS        = "as"
+	SERVICE_CCE       = "cce"
+	SERVICE_DCS       = "dcs"
+	SERVICE_MODELARTS = "modelarts"
 )
 
 var HUAWEI_REGION_CACHES sync.Map
@@ -160,7 +181,7 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" {
 				return nil, nil
@@ -182,7 +203,7 @@ func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" {
 				return nil, nil
@@ -474,6 +495,7 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,

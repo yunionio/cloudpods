@@ -15,9 +15,6 @@
 package policy
 
 import (
-	"yunion.io/x/pkg/util/rbacscope"
-
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -33,78 +30,80 @@ const (
 
 var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeSystem,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudpolicies",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudpolicies",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-			},
-		},
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeDomain,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudgroups",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudgroups",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
+		/*
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeSystem,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "cloudpolicies",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "cloudpolicies",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
 				},
 			},
-		},
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeUser,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudusers",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudusers",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-			},
-		},
-		{
-			Auth:  true,
-			Scope: rbacscope.ScopeUser,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "samlusers",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "samlusers",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeDomain,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "cloudgroups",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "cloudgroups",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
 				},
 			},
-		},
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeUser,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "cloudusers",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "cloudusers",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
+				},
+			},
+			{
+				Auth:  true,
+				Scope: rbacscope.ScopeUser,
+				Rules: []rbacutils.SRbacRule{
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "samlusers",
+						Action:   PolicyActionList,
+						Result:   rbacutils.Allow,
+					},
+					{
+						Service:  api.SERVICE_TYPE,
+						Resource: "samlusers",
+						Action:   PolicyActionGet,
+						Result:   rbacutils.Allow,
+					},
+				},
+			},
+		*/
 	}
 )
 

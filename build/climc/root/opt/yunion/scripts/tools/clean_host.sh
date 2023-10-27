@@ -47,6 +47,11 @@ do
     climc server-purge $i > /dev/null
 done
 
+for i in $(climc server-list --admin --limit 2048 --system  --filter "backup_host_id.equals($HOSTID)" | egrep '[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}' | awk '{print $2}')
+do
+    climc server-delete-backup $i > /dev/null
+done
+
 echo "3. Clean disks on $HOSTNAME($HOSTID)"
 
 for storageid in $(climc host-storage-list --host $HOSTID --show-emulated | egrep '[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}' | awk '{print $4}')

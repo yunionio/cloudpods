@@ -17,7 +17,6 @@ package aws
 import (
 	"fmt"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -30,8 +29,6 @@ type SWire struct {
 	AwsTags
 	zone *SZone
 	vpc  *SVpc
-
-	inetworks []cloudprovider.ICloudNetwork
 }
 
 func (self *SWire) GetId() string {
@@ -50,10 +47,6 @@ func (self *SWire) GetStatus() string {
 	return api.WIRE_STATUS_AVAILABLE
 }
 
-func (self *SWire) Refresh() error {
-	return nil
-}
-
 func (self *SWire) IsEmulated() bool {
 	return true
 }
@@ -67,13 +60,16 @@ func (self *SWire) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if self.inetworks == nil {
-		err := self.vpc.fetchNetworks()
-		if err != nil {
-			return nil, errors.Wrap(err, "fetchNetworks")
-		}
+	networks, err := self.vpc.region.GetNetwroks(nil, self.zone.ZoneName, self.vpc.VpcId)
+	if err != nil {
+		return nil, err
 	}
-	return self.inetworks, nil
+	ret := []cloudprovider.ICloudNetwork{}
+	for i := range networks {
+		networks[i].wire = self
+		ret = append(ret, &networks[i])
+	}
+	return ret, nil
 }
 
 func (self *SWire) GetBandwidth() int {
@@ -81,62 +77,31 @@ func (self *SWire) GetBandwidth() int {
 }
 
 func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
-	networks, err := self.GetINetworks()
+	networks, err := self.vpc.region.GetNetwroks([]string{netid}, self.zone.ZoneName, self.vpc.VpcId)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetINetworks")
+		return nil, err
 	}
-	for i := 0; i < len(networks); i += 1 {
-		if networks[i].GetGlobalId() == netid {
-			return networks[i], nil
+	for i := range networks {
+		networks[i].wire = self
+		if networks[i].GetGlobalId() == netid || networks[i].GetId() == netid {
+			return &networks[i], nil
 		}
 	}
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetINetworkById")
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetINetworkById %s", netid)
 }
 
 func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	networkId, err := self.zone.region.createNetwork(self.zone.ZoneId, self.vpc.VpcId, opts.Name, opts.Cidr, opts.Desc)
+	network, err := self.zone.region.CreateNetwork(self.zone.ZoneName, self.vpc.VpcId, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
-		return nil, errors.Wrap(err, "createNetwork")
+		return nil, errors.Wrap(err, "CreateNetwork")
 	}
+	network.wire = self
 	if opts.AssignPublicIp {
-		self.zone.region.ModifySubnetAttribute(networkId, opts.AssignPublicIp)
-	}
-	self.inetworks = nil
-	network := self.getNetworkById(networkId)
-	if network == nil {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "getNetworkById(%s)", networkId)
+		self.zone.region.ModifySubnetAttribute(network.SubnetId, opts.AssignPublicIp)
 	}
 	return network, nil
 }
 
-func (self *SWire) getNetworkById(networkId string) *SNetwork {
-	networks, err := self.GetINetworks()
-	if err != nil {
-		return nil
-	}
-	log.Debugf("search for networks %d", len(networks))
-	for i := 0; i < len(networks); i += 1 {
-		log.Debugf("search %s", networks[i].GetName())
-		network := networks[i]
-		if network.GetId() == networkId {
-			return network.(*SNetwork)
-		}
-	}
-	return nil
-}
-
-func (self *SWire) addNetwork(network *SNetwork) {
-	if self.inetworks == nil {
-		self.inetworks = make([]cloudprovider.ICloudNetwork, 0)
-	}
-	find := false
-	for i := 0; i < len(self.inetworks); i += 1 {
-		if self.inetworks[i].GetId() == network.SubnetId {
-			find = true
-			break
-		}
-	}
-	if !find {
-		self.inetworks = append(self.inetworks, network)
-	}
+func (self *SWire) GetDescription() string {
+	return self.AwsTags.GetDescription()
 }

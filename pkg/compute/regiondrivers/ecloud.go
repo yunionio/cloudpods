@@ -15,8 +15,6 @@
 package regiondrivers
 
 import (
-	"yunion.io/x/pkg/util/pinyinutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -32,12 +30,4 @@ func init() {
 
 func (self *SEcloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ECLOUD
-}
-
-func (self *SEcloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
-}
-
-func (self *SEcloudRegionDriver) GenerateSecurityGroupName(name string) string {
-	return pinyinutils.Text2Pinyin(name)
 }

@@ -21,7 +21,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/appctx"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -44,17 +44,16 @@ func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	if !userCred.IsAllow(rbacscope.ScopeDomain, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
 		publicOnly = true
 	}
-	params := appctx.AppContextParams(ctx)
+	params, query, _ := appsrv.FetchEnv(ctx, w, r)
 	projectId := params["<tenant_id>"]
 	if len(projectId) == 0 {
 		httperrors.InputParameterError(ctx, w, "empty project_id/tenant_id")
 		return
 	}
-	params, query, _ := appsrv.FetchEnv(ctx, w, r)
 	domainId, _ := jsonutils.GetAnyString2(query, db.DomainFetchKeys)
 	tenant, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, projectId, domainId)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Cause(err) == sql.ErrNoRows {
 			httperrors.ResourceNotFoundError(ctx, w, "tenant/project %s not found", projectId)
 			return
 		} else {
@@ -63,9 +62,8 @@ func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	isAdmin := jsonutils.QueryBoolean(query, "admin", false)
-
-	sendSshKey(ctx, w, userCred, tenant.Id, isAdmin, publicOnly)
+	// get project key of specific project
+	sendSshKey(ctx, w, userCred, tenant.Id, false, publicOnly)
 }
 
 func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -77,14 +75,20 @@ func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	}
 	isAdmin := jsonutils.QueryBoolean(query, "admin", false)
 
+	// get owner project key or get admin key if admin presents
 	sendSshKey(ctx, w, userCred, userCred.GetProjectId(), isAdmin, false)
 }
 
 func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.TokenCredential, projectId string, isAdmin bool, publicOnly bool) {
 	var privKey, pubKey string
 
-	if isAdmin && userCred.IsAllow(rbacscope.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
-		privKey, pubKey, _ = GetSshAdminKeypair(ctx)
+	if isAdmin {
+		if userCred.IsAllow(rbacscope.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
+			privKey, pubKey, _ = GetSshAdminKeypair(ctx)
+		} else {
+			httperrors.ForbiddenError(ctx, w, "not allow to access admin key")
+			return
+		}
 	} else {
 		privKey, pubKey, _ = GetSshProjectKeypair(ctx, projectId)
 	}

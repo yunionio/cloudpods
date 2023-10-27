@@ -45,6 +45,10 @@ func (s *SGPFSStorage) StorageType() string {
 	return api.STORAGE_GPFS
 }
 
+func (s *SGPFSStorage) IsLocal() bool {
+	return false
+}
+
 func NewGPFSStorage(manager *SStorageManager, path string) *SGPFSStorage {
 	ret := &SGPFSStorage{}
 	ret.SNasStorage = *NewNasStorage(manager, path, ret)

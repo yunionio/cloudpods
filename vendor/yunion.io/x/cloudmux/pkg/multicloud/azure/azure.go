@@ -45,6 +45,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
 
@@ -171,7 +172,7 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, 
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" || (req.Method == "POST" && strings.HasSuffix(req.URL.Path, "oauth2/token")) {
 				return nil, nil
@@ -331,6 +332,9 @@ func (self *SAzureClient) _get(resourceId string, params url.Values, retVal inte
 	if err != nil {
 		return err
 	}
+	if gotypes.IsNil(body) {
+		return fmt.Errorf("empty response")
+	}
 	err = body.Unmarshal(retVal)
 	if err != nil {
 		return err
@@ -347,6 +351,9 @@ func (self *SAzureClient) gcreate(resource string, body jsonutils.JSONObject, re
 	result, err := self.msGraphRequest("POST", path, body)
 	if err != nil {
 		return errors.Wrapf(err, "msGraphRequest")
+	}
+	if gotypes.IsNil(result) {
+		return fmt.Errorf("empty response")
 	}
 	if retVal != nil {
 		return result.Unmarshal(retVal)
@@ -377,6 +384,9 @@ func (self *SAzureClient) _glist(resource string, params url.Values, retVal inte
 	body, err := self.msGraphRequest("GET", path, nil)
 	if err != nil {
 		return err
+	}
+	if gotypes.IsNil(body) {
+		return fmt.Errorf("empty response")
 	}
 	err = body.Unmarshal(retVal, "value")
 	if err != nil {
@@ -440,11 +450,8 @@ func (self *SAzureClient) list(resource string, params url.Values, retVal interf
 func (self *SAzureClient) getService(path string) string {
 	for _, service := range []string{
 		"microsoft.compute",
-		"microsoft.classiccompute",
 		"microsoft.network",
-		"microsoft.classicnetwork",
 		"microsoft.storage",
-		"microsoft.classicstorage",
 		"microsoft.billing",
 		"microsoft.insights",
 		"microsoft.authorization",
@@ -490,8 +497,6 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 			return "2019-04-01"
 		}
 		return "2018-06-01"
-	} else if utils.IsInStringArray("microsoft.classiccompute", info) {
-		return "2016-04-01"
 	} else if utils.IsInStringArray("microsoft.network", info) {
 		if utils.IsInStringArray("virtualnetworks", info) {
 			return "2018-08-01"
@@ -511,9 +516,10 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		if utils.IsInStringArray("applicationgatewayavailablewafrulesets", info) {
 			return "2018-06-01"
 		}
+		if utils.IsInStringArray("securityrules", info) {
+			return "2023-05-01"
+		}
 		return "2018-06-01"
-	} else if utils.IsInStringArray("microsoft.classicnetwork", info) {
-		return "2016-04-01"
 	} else if utils.IsInStringArray("microsoft.storage", info) {
 		if utils.IsInStringArray("storageaccounts", info) {
 			return "2016-12-01"
@@ -526,10 +532,6 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		}
 		if utils.IsInStringArray("usages", info) {
 			return "2018-07-01"
-		}
-	} else if utils.IsInStringArray("microsoft.classicstorage", info) {
-		if utils.IsInStringArray("storageaccounts", info) {
-			return "2016-04-01"
 		}
 	} else if utils.IsInStringArray("microsoft.billing", info) {
 		return "2018-03-01-preview"
@@ -682,6 +684,11 @@ func (self *SAzureClient) create(resourceGroup, resourceType, name string, body 
 	if err != nil {
 		return errors.Wrapf(err, "jsonRequest")
 	}
+
+	if gotypes.IsNil(resp) {
+		return fmt.Errorf("empty response")
+	}
+
 	if retVal != nil {
 		return resp.Unmarshal(retVal)
 	}
@@ -698,6 +705,10 @@ func (self *SAzureClient) CheckNameAvailability(resourceType, name string) (bool
 	if err != nil {
 		return false, errors.Wrapf(err, "post(%s)", path)
 	}
+	if gotypes.IsNil(resp) {
+		return false, fmt.Errorf("empty response")
+	}
+
 	output := sNameAvailableOutput{}
 	err = resp.Unmarshal(&output)
 	if err != nil {
@@ -723,6 +734,10 @@ func (self *SAzureClient) update(body jsonutils.JSONObject, retVal interface{}) 
 	if err != nil {
 		return err
 	}
+	if gotypes.IsNil(resp) {
+		return fmt.Errorf("empty response")
+	}
+
 	if retVal != nil {
 		return resp.Unmarshal(retVal)
 	}
@@ -769,6 +784,12 @@ func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, status 
 			msg = body.String()
 		}
 		return errors.Wrap(cloudprovider.ErrNotFound, msg)
+	}
+	if ae.AzureError.Code == "AuthorizationFailed" {
+		return errors.Wrapf(cloudprovider.ErrForbidden, jsonutils.Marshal(ae).String())
+	}
+	if ae.AzureError.Code == "ResourceCollectionRequestsThrottled" {
+		return errors.Wrapf(cloudprovider.ErrTooManyRequests, jsonutils.Marshal(ae).String())
 	}
 	if len(ae.OdataError.Code) > 0 || len(ae.AzureError.Code) > 0 || (len(ae.Code) > 0 && len(ae.Message) > 0) {
 		return ae
@@ -1050,6 +1071,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,

@@ -22,7 +22,7 @@ func HasSuffixIgnoreCase(str string, suffix string) bool {
 	if len(str) < len(suffix) {
 		return false
 	}
-	return strings.EqualFold(str[len(str)-len(suffix):len(str)], suffix)
+	return strings.EqualFold(str[len(str)-len(suffix):], suffix)
 }
 
 func HasPrefixIgnoreCase(str string, prefix string) bool {

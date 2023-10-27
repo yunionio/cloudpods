@@ -23,9 +23,8 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/pinyinutils"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -45,14 +44,6 @@ type SAwsRegionDriver struct {
 func init() {
 	driver := SAwsRegionDriver{}
 	models.RegisterRegionDriver(&driver)
-}
-
-func (self *SAwsRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
-}
-
-func (self *SAwsRegionDriver) GenerateSecurityGroupName(name string) string {
-	return pinyinutils.Text2Pinyin(name)
 }
 
 func (self *SAwsRegionDriver) GetProvider() string {
@@ -310,10 +301,6 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.
 	return task.ScheduleRun(nil)
 }
 
-func (self *SAwsRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
 func (self *SAwsRegionDriver) IsCertificateBelongToRegion() bool {
 	return false
 }
@@ -331,57 +318,23 @@ func (self *SAwsRegionDriver) ValidateCreateVpcData(ctx context.Context, userCre
 
 func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		provider := vpc.GetCloudprovider()
-		if provider == nil {
-			return nil, fmt.Errorf("vpc %s(%s) related provider not  found", vpc.GetName(), vpc.GetName())
-		}
-
-		region, err := vpc.GetIRegion(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "vpc.GetIRegion")
-		}
-		ivpc, err := region.GetIVpcById(vpc.GetExternalId())
+		ivpc, err := vpc.GetIVpc(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				// already deleted, do nothing
 				return nil, nil
 			}
-			return nil, errors.Wrap(err, "region.GetIVpcById")
-		}
-
-		// remove related secgroups
-		segs, err := ivpc.GetISecurityGroups()
-		if err != nil {
-			return nil, errors.Wrap(err, "GetISecurityGroups")
-		}
-
-		for i := range segs {
-			// 默认安全组不需要删除
-			if segs[i].GetName() == "default" {
-				log.Debugf("RequestDeleteVpc delete secgroup skipped default secgroups %s(%s)", segs[i].GetName(), segs[i].GetId())
-				continue
-			}
-
-			err = segs[i].Delete()
-			if err != nil {
-				return nil, errors.Wrap(err, "DeleteSecurityGroup")
-			}
-		}
-
-		_, _, result := models.SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, []cloudprovider.ICloudSecurityGroup{}, vpc, true)
-		if result.IsError() {
-			return nil, fmt.Errorf("SyncSecurityGroupCaches %s", result.Result())
+			return nil, errors.Wrap(err, "GetIVpc")
 		}
 
 		err = ivpc.Delete()
 		if err != nil {
-			return nil, errors.Wrap(err, "ivpc.Delete")
+			return nil, errors.Wrap(err, "Delete")
 		}
 		err = cloudprovider.WaitDeleted(ivpc, 10*time.Second, 300*time.Second)
 		if err != nil {
 			return nil, errors.Wrap(err, "cloudprovider.WaitDeleted")
 		}
-
 		return nil, nil
 	})
 	return nil
@@ -471,4 +424,30 @@ func (self *SAwsRegionDriver) ValidateCreateWafInstanceData(ctx context.Context,
 
 func (self *SAwsRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
 	return input, nil
+}
+
+func (self *SAwsRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		if input.Rules[i].Action != string(secrules.SecurityRuleAllow) {
+			return nil, httperrors.NewInputParameterError("invalid action %s, only support allow", input.Rules[i].Action)
+		}
+
+		if len(input.Rules[i].Ports) > 0 && strings.Contains(input.Rules[i].Ports, ",") {
+			return nil, httperrors.NewInputParameterError("invalid ports %s", input.Rules[i].Ports)
+		}
+
+	}
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+}
+
+func (self *SAwsRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Action != nil && *input.Action != string(secrules.SecurityRuleAllow) {
+		return nil, httperrors.NewInputParameterError("invalid action %s", *input.Action)
+	}
+
+	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
 }

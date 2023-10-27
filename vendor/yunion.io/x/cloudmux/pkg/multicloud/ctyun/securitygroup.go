@@ -15,14 +15,13 @@
 package ctyun
 
 import (
-	"fmt"
-	"net"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
 
-	apis "yunion.io/x/cloudmux/pkg/apis/compute"
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -32,57 +31,17 @@ type SSecurityGroup struct {
 	CtyunTags
 	region *SRegion
 
-	ResSecurityGroupID string `json:"resSecurityGroupId"`
-	Name               string `json:"name"`
-	AccountID          string `json:"accountId"`
-	UserID             string `json:"userId"`
-	RegionID           string `json:"regionId"`
-	ZoneID             string `json:"zoneId"`
-	VpcID              string `json:"vpcId"`
-	CreateDate         int64  `json:"createDate"`
-	Status             int64  `json:"status"`
-}
+	SecurityGroupName string
+	Id                string
+	VMNum             int
+	Origin            string
+	//VpcName           string
+	//VpcId             string
+	CreationTime time.Time
+	Description  string
+	ProjectId    string
 
-func (self *SRegion) delSecurityGroupRule(secGrpRuleId string) error {
-	return self.DeleteSecurityGroupRule(secGrpRuleId)
-}
-
-func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule secrules.SecurityRule) error {
-	direction := ""
-	if rule.Direction == secrules.SecurityRuleIngress {
-		direction = "ingress"
-	} else {
-		direction = "egress"
-	}
-
-	protocal := rule.Protocol
-	if rule.Protocol == secrules.PROTO_ANY {
-		protocal = ""
-	}
-
-	// imcp协议默认为any
-	if rule.Protocol == secrules.PROTO_ICMP {
-		return self.addSecurityGroupRule(secGrpId, direction, "-1", "-1", protocal, rule.IPNet.String())
-	}
-
-	if len(rule.Ports) > 0 {
-		for _, port := range rule.Ports {
-			portStr := fmt.Sprintf("%d", port)
-			err := self.addSecurityGroupRule(secGrpId, direction, portStr, portStr, protocal, rule.IPNet.String())
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		portStart := fmt.Sprintf("%d", rule.PortStart)
-		portEnd := fmt.Sprintf("%d", rule.PortEnd)
-		err := self.addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocal, rule.IPNet.String())
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	SecurityGroupRuleList []SSecurityGroupRule
 }
 
 func (self *SSecurityGroup) Delete() error {
@@ -90,14 +49,11 @@ func (self *SSecurityGroup) Delete() error {
 }
 
 func (self *SSecurityGroup) GetId() string {
-	return self.ResSecurityGroupID
+	return self.Id
 }
 
 func (self *SSecurityGroup) GetName() string {
-	if len(self.Name) > 0 {
-		return self.Name
-	}
-	return self.ResSecurityGroupID
+	return self.SecurityGroupName
 }
 
 func (self *SSecurityGroup) GetGlobalId() string {
@@ -105,264 +61,131 @@ func (self *SSecurityGroup) GetGlobalId() string {
 }
 
 func (self *SSecurityGroup) GetStatus() string {
-	return ""
+	return api.SECGROUP_STATUS_READY
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if new, err := self.region.GetSecurityGroupDetails(self.GetId()); err != nil {
+	sec, err := self.region.GetSecurityGroup(self.GetId())
+	if err != nil {
 		return err
-	} else {
-		return jsonutils.Update(self, new)
 	}
-}
-
-func (self *SSecurityGroup) IsEmulated() bool {
-	return false
+	self.SecurityGroupRuleList = nil
+	return jsonutils.Update(self, sec)
 }
 
 func (self *SSecurityGroup) GetDescription() string {
-	return ""
+	return self.Description
 }
 
-// 判断是否兼容云端安全组规则
-func compatibleSecurityGroupRule(r SSecurityGroupRule) bool {
-	// 忽略了源地址是安全组的规则
-	if len(r.RemoteGroupId) > 0 {
-		return false
-	}
-
-	// 忽略IPV6
-	if r.Ethertype == "IPv6" {
-		return false
-	}
-
-	return true
+func (self *SSecurityGroup) GetTags() (map[string]string, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "GetTags")
 }
 
-func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	_rules, err := self.region.GetSecurityGroupRules(self.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SSecurityGroup.GetRules.GetSecurityGroupRules")
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	rules := make([]cloudprovider.ISecurityGroupRule, 0)
+	for i := range self.SecurityGroupRuleList {
+		self.SecurityGroupRuleList[i].secgroup = self
+		rules = append(rules, &self.SecurityGroupRuleList[i])
 	}
-
-	rules := make([]cloudprovider.SecurityRule, 0)
-	for _, r := range _rules {
-		if !compatibleSecurityGroupRule(r) {
-			continue
-		}
-
-		rule, err := self.GetSecurityRule(r)
-		if err != nil {
-			return rules, err
-		}
-
-		rules = append(rules, rule)
-	}
-
 	return rules, nil
 }
 
-func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule) (cloudprovider.SecurityRule, error) {
-	var err error
-	var direction secrules.TSecurityRuleDirection
-	if remoteRule.Direction == "ingress" {
-		direction = secrules.SecurityRuleIngress
-	} else {
-		direction = secrules.SecurityRuleEgress
-	}
-
-	protocol := secrules.PROTO_ANY
-	if remoteRule.Protocol != "" {
-		protocol = remoteRule.Protocol
-	}
-
-	var portStart int
-	var portEnd int
-	if protocol == secrules.PROTO_ICMP {
-		portStart = -1
-		portEnd = -1
-	} else {
-		portStart = int(remoteRule.PortRangeMin)
-		portEnd = int(remoteRule.PortRangeMax)
-	}
-
-	ipNet := &net.IPNet{}
-	if len(remoteRule.RemoteIPPrefix) > 0 {
-		_, ipNet, err = net.ParseCIDR(remoteRule.RemoteIPPrefix)
-	} else {
-		_, ipNet, err = net.ParseCIDR("0.0.0.0/0")
-	}
-
-	if err != nil {
-		return cloudprovider.SecurityRule{}, err
-	}
-
-	rule := cloudprovider.SecurityRule{
-		SecurityRule: secrules.SecurityRule{
-			Priority:    1,
-			Action:      secrules.SecurityRuleAllow,
-			IPNet:       ipNet,
-			Protocol:    protocol,
-			Direction:   direction,
-			PortStart:   portStart,
-			PortEnd:     portEnd,
-			Ports:       nil,
-			Description: remoteRule.Description,
-		},
-	}
-
-	err = rule.ValidateRule()
-	return rule, err
-}
-
 func (self *SSecurityGroup) GetVpcId() string {
-	return apis.NORMAL_VPC_ID
+	return ""
 }
 
-func (self *SRegion) GetSecurityGroupDetails(groupId string) (*SSecurityGroup, error) {
-	params := map[string]string{
-		"regionId":        self.GetId(),
-		"securityGroupId": groupId,
+func (self *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
+	params := map[string]interface{}{
+		"securityGroupID": id,
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/querySecurityGroupDetail", params)
+	resp, err := self.list(SERVICE_VPC, "/v4/vpc/describe-security-group-attribute", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupDetails")
+		return nil, err
 	}
-
 	ret := &SSecurityGroup{region: self}
-	err = resp.Unmarshal(&ret, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupDetails.Unmarshal")
-	}
+	return ret, resp.Unmarshal(ret, "returnObj")
+}
 
+func (self *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
+	pageNo := 1
+	params := map[string]interface{}{
+		"pageNo":   pageNo,
+		"pageSize": 50,
+	}
+	ret := []SSecurityGroup{}
+	for {
+		resp, err := self.list(SERVICE_VPC, "/v4/vpc/query-security-groups", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			ReturnObj  []SSecurityGroup
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.ReturnObj...)
+		if len(ret) >= part.TotalCount || len(part.ReturnObj) == 0 {
+			break
+		}
+		pageNo++
+		params["pageNo"] = pageNo
+	}
 	return ret, nil
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
+func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
+	ruleIds := []string{}
+	for _, rule := range self.SecurityGroupRuleList {
+		if !utils.IsInStringArray(rule.Id, ruleIds) {
+			ruleIds = append(ruleIds, rule.Id)
+		}
 	}
-
-	if len(vpcId) > 0 {
-		params["vpcId"] = vpcId
-	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/getSecurityGroups", params)
+	err := self.region.CreateSecurityGroupRule(self.Id, opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroups")
+		return nil, errors.Wrapf(err, "CreateSecurityGroupRule")
 	}
-
-	ret := make([]SSecurityGroup, 0)
-	err = resp.Unmarshal(&ret, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSecurityGroups.Unmarshal")
+	for i := 0; i < 3; i++ {
+		err := self.Refresh()
+		if err != nil {
+			return nil, errors.Wrapf(err, "Refresh")
+		}
+		for i := range self.SecurityGroupRuleList {
+			if !utils.IsInStringArray(self.SecurityGroupRuleList[i].Id, ruleIds) {
+				self.SecurityGroupRuleList[i].secgroup = self
+				return &self.SecurityGroupRuleList[i], nil
+			}
+		}
+		time.Sleep(time.Second * 3)
 	}
-
-	for i := range ret {
-		ret[i].region = self
-	}
-
-	return ret, nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
 func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"name":     jsonutils.NewString(opts.Name),
+	params := map[string]interface{}{
+		"clientToken": utils.GenRequestId(20),
+		"vpcID":       opts.VpcId,
+		"name":        opts.Name,
+		"description": opts.Desc,
 	}
-
-	if len(opts.VpcId) > 0 && opts.VpcId != apis.NORMAL_VPC_ID {
-		params["vpcId"] = jsonutils.NewString(opts.VpcId)
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/createSecurityGroup", params)
+	resp, err := self.post(SERVICE_VPC, "/v4/vpc/create-security-group", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateSecurityGroup.DoPost")
+		return nil, err
 	}
-
-	secgroupId, err := resp.GetString("returnObj", "id")
+	id, err := resp.GetString("returnObj", "securityGroupID")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateSecurityGroup.GetSecgroupId")
+		return nil, errors.Wrapf(err, "get secgroup id")
 	}
-
-	if opts.OnCreated != nil {
-		opts.OnCreated(secgroupId)
-	}
-
-	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateSecurityGroup.GetISecurityGroupById")
-	}
-
-	secRules, _ := self.GetSecurityGroupRules(secgroup.GetId())
-	for _, rule := range secRules {
-		if len(rule.RemoteGroupId) > 0 || rule.Ethertype != "IPv4" {
-			continue
-		}
-		err := self.delSecurityGroupRule(rule.ID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "delete rule %s", rule.ID)
-		}
-	}
-
-	rules := opts.InRules.AllowList()
-	rules = append(rules, opts.OutRules.AllowList()...)
-	for _, r := range rules {
-		err := self.AddSecurityGroupRules(secgroup.ResSecurityGroupID, r)
-		if err != nil {
-			return nil, errors.Wrapf(err, "addSecurityGroupRule(%d %s)", r.Priority, r.String())
-		}
-	}
-	return secgroup, nil
+	return self.GetSecurityGroup(id)
 }
 
-func (self *SRegion) DeleteSecurityGroupRule(securityGroupRuleId string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId":            jsonutils.NewString(self.GetId()),
-		"securityGroupRuleId": jsonutils.NewString(securityGroupRuleId),
+func (self *SRegion) DeleteSecurityGroup(id string) error {
+	params := map[string]interface{}{
+		"clientToken":     utils.GenRequestId(20),
+		"securityGroupID": id,
 	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/deleteSecurityGroupRule", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.DeleteSecurityGroupRule.DoPost")
-	}
-
+	_, err := self.post(SERVICE_VPC, "/v4/vpc/delete-security-group", params)
 	return err
-}
-
-func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocol, ipNet string) error {
-	secgroupObj := jsonutils.NewDict()
-	secgroupObj.Add(jsonutils.NewString(self.GetId()), "regionId")
-	secgroupObj.Add(jsonutils.NewString(secGrpId), "securityGroupId")
-	secgroupObj.Add(jsonutils.NewString(direction), "direction")
-	secgroupObj.Add(jsonutils.NewString(ipNet), "remoteIpPrefix")
-	secgroupObj.Add(jsonutils.NewString("IPv4"), "ethertype")
-	// 端口为空或者1-65535
-	if len(portStart) > 0 && portStart != "0" && portStart != "-1" {
-		secgroupObj.Add(jsonutils.NewString(portStart), "portRangeMin")
-	}
-	if len(portEnd) > 0 && portEnd != "0" && portEnd != "-1" {
-		secgroupObj.Add(jsonutils.NewString(portEnd), "portRangeMax")
-	}
-	if len(protocol) > 0 {
-		secgroupObj.Add(jsonutils.NewString(protocol), "protocol")
-	}
-
-	params := map[string]jsonutils.JSONObject{
-		"jsonStr": secgroupObj,
-	}
-
-	resp, err := self.client.DoPost("/apiproxy/v3/createSecurityGroupRule", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.DoPost")
-	}
-
-	rule := SSecurityGroupRule{}
-	err = resp.Unmarshal(&rule, "returnObj")
-	if err != nil {
-		return errors.Wrap(err, "SRegion.Unmarshal")
-	}
-
-	return nil
 }

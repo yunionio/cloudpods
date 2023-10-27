@@ -28,11 +28,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-type SElbBackendGroups struct {
-	NextMarker   string
-	TargetGroups []SElbBackendGroup `xml:"TargetGroups>member"`
-}
-
 type SElbBackendGroup struct {
 	multicloud.SResourceBase
 	AwsTags
@@ -324,4 +319,8 @@ func (self *SRegion) GetElbBackendgroupAttributes(id string) (map[string]string,
 		result[attr.Key] = attr.Value
 	}
 	return result, nil
+}
+
+func (self *SElbBackendGroup) GetDescription() string {
+	return self.AwsTags.GetDescription()
 }

@@ -144,18 +144,19 @@ func NewGoogleClient(cfg *GoogleClientConfig) (*SGoogleClient, error) {
 
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		service := strings.Split(req.URL.Host, ".")[0]
 		if service == "www" {
 			service = strings.Split(req.URL.Path, "/")[0]
 		}
 		method, path := req.Method, req.URL.Path
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if resp.StatusCode == 403 {
 				if cfg.cpcfg.UpdatePermission != nil {
 					cfg.cpcfg.UpdatePermission(service, fmt.Sprintf("%s %s", method, path))
 				}
 			}
+			return nil
 		}
 		if cfg.cpcfg.ReadOnly {
 			if req.Method == "GET" {
@@ -937,10 +938,9 @@ func (client *SGoogleClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 		subAccount := cloudprovider.SSubAccount{}
 		subAccount.Name = project.Name
 		subAccount.Account = fmt.Sprintf("%s/%s", project.ProjectId, client.clientEmail)
-		if project.LifecycleState == "ACTIVE" {
-			subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
-		} else {
-			subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_ARREARS
+		subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
+		if project.LifecycleState != "ACTIVE" {
+			continue
 		}
 		accounts = append(accounts, subAccount)
 	}
@@ -999,6 +999,7 @@ func (self *SGoogleClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,

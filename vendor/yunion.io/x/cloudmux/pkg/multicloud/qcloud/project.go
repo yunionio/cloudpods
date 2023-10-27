@@ -77,7 +77,7 @@ func (client *SQcloudClient) GetProjects(offset, limit int) ([]SProject, int, er
 	if limit < 1 || limit > 1000 {
 		limit = 1000
 	}
-	params := map[string]string{"AllList": "1"}
+	params := map[string]string{"AllList": "0"}
 	params["Limit"] = fmt.Sprintf("%d", limit)
 	params["Offset"] = fmt.Sprintf("%d", offset)
 

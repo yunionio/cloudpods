@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -76,11 +77,13 @@ func (c *SFangdeRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
 }
 
 type SFangdeDeskRootfs struct {
-	*SUbuntuRootFs
+	*sDebianLikeRootFs
 }
 
 func NewFangdeDeskRootfs(part IDiskPartition) IRootFsDriver {
-	return &SFangdeDeskRootfs{SUbuntuRootFs: NewUbuntuRootFs(part).(*SUbuntuRootFs)}
+	driver := new(SFangdeDeskRootfs)
+	driver.sDebianLikeRootFs = newDebianLikeRootFs(part)
+	return driver
 }
 
 func (d *SFangdeDeskRootfs) GetName() string {
@@ -93,11 +96,36 @@ func (d *SFangdeDeskRootfs) String() string {
 
 func (d *SFangdeDeskRootfs) RootSignatures() []string {
 	sig := d.sDebianLikeRootFs.RootSignatures()
-	return append([]string{"/etc/lsb-release", "/etc/Guestos-release"}, sig...)
+	return append([]string{"/etc/lsb-release", "/etc/nfs/info"}, sig...)
 }
 
 func (d *SFangdeDeskRootfs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
-	info := d.SUbuntuRootFs.GetReleaseInfo(rootFs)
-	info.Distro = d.GetName()
-	return info
+	rel, err := rootFs.FileGetContents("/etc/nfs/info", false)
+	if err != nil {
+		log.Errorf("SFangdeDeskRootfs open /etc/nfs/info fail %s", err)
+		return nil
+	}
+	var distro, version string
+	lines := strings.Split(string(rel), "\n")
+	for _, l := range lines {
+		parts := strings.Split(strings.TrimSpace(l), "=")
+		if len(parts) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		if len(key) == 0 {
+			continue
+		}
+		val := strings.TrimSpace(parts[1])
+		if key == "NAME" {
+			distro = strings.Trim(val, `'"`)
+		} else if key == "VERSION" {
+			version = strings.Trim(val, `'"`)
+		}
+	}
+	return deployapi.NewReleaseInfo(distro, version, d.GetArch(rootFs))
+}
+
+func (d *SFangdeDeskRootfs) AllowAdminLogin() bool {
+	return false
 }

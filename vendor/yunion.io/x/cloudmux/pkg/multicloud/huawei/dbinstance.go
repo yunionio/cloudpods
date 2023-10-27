@@ -19,10 +19,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
@@ -527,6 +526,9 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 			process, _ := job.GetString("process")
 			log.Debugf("create dbinstance job %s status: %s process: %s", jobId, status, process)
 			if status == "Completed" {
+				region.UpdateVM(instance.Id, cloudprovider.SInstanceUpdateOptions{
+					Description: desc.Description,
+				})
 				return true, nil
 			}
 			if status == "Failed" {
@@ -777,4 +779,36 @@ func (region *SRegion) RecoveryDBInstanceFromBackup(target, origin string, backu
 
 func (rds *SDBInstance) Renew(bc billing.SBillingCycle) error {
 	return rds.region.RenewInstance(rds.Id, bc)
+}
+
+func (rds *SDBInstance) Update(ctx context.Context, input cloudprovider.SDBInstanceUpdateOptions) error {
+	return rds.region.Update(rds.Id, input)
+}
+
+func (region *SRegion) Update(instanceId string, input cloudprovider.SDBInstanceUpdateOptions) error {
+	if len(input.NAME) > 0 {
+		err := region.ModifyDBInstanceName(instanceId, input.NAME)
+		if err != nil {
+			return errors.Wrap(err, "update dbinstance name")
+		}
+	}
+	err := region.ModifyDBInstanceDesc(instanceId, input.Description)
+	if err != nil {
+		return errors.Wrap(err, "update dbinstance name")
+	}
+	return nil
+}
+
+func (region *SRegion) ModifyDBInstanceName(instanceId string, name string) error {
+	params := map[string]interface{}{
+		"name": name,
+	}
+	return region.client.dbinstanceSetName(instanceId, params)
+}
+
+func (region *SRegion) ModifyDBInstanceDesc(instanceId string, desc string) error {
+	params := map[string]interface{}{
+		"alias": desc,
+	}
+	return region.client.dbinstanceSetDesc(instanceId, params)
 }

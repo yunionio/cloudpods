@@ -51,6 +51,7 @@ const (
 	STATUS_DELETE_FAILED = "delete_failed"
 	STATUS_UNKNOWN       = "unknown"
 	STATUS_CREATING      = "creating"
+	STATUS_AVAILABLE     = "available"
 	STATUS_CREATE_FAILED = "create_failed"
 
 	CLOUD_TAG_PREFIX     = "ext:"
@@ -76,6 +77,33 @@ var (
 		SERVICE_TYPE_KEYSTONE,
 		SERVICE_TYPE_ETCD,
 		SERVICE_TYPE_INFLUXDB,
+		SERVICE_TYPE_CLOUDMON,
+		SERVICE_TYPE_METER,
+		SERVICE_TYPE_CLOUDEVENT,
+		SERVICE_TYPE_ANSIBLE,
+		SERVICE_TYPE_INFLUXDB,
+		SERVICE_TYPE_APIMAP,
+		SERVICE_TYPE_LOG,
+		"autoupdate",
+		"yunionagent",
+		"webconsole",
+		"esxiagent",
+		"s3gateway",
+		"common",
+		"websocket",
+		"echarts-ssr",
+		"lbagent",
+		"vpcagent",
+		"cloudwatcher",
+		"cloudnet",
+		"repo",
+		"cloudproxy",
+		"apigateway",
+		"yunionapi",
+		"billing",
+		"etcd",
+		"itsm",
+		"ntp",
 	}
 )
 

@@ -43,7 +43,7 @@ func init() {
 func (self *GuestCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_CREATE_NETWORK, "")
-	self.SetStage("on_wait_guest_networks_ready", nil)
+	self.SetStage("OnWaitGuestNetworksReady", nil)
 	self.OnWaitGuestNetworksReady(ctx, obj, nil)
 }
 
@@ -68,8 +68,7 @@ func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *mod
 	}
 }
 
-func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
+func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, "allocation failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
@@ -82,8 +81,51 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	self.SetStageFailed(ctx, data)
 }
 
-func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
+func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	secgroups, err := guest.GetSecgroups()
+	if err != nil {
+		self.OnSecurityGroupPreparedFailed(ctx, guest, jsonutils.NewString(errors.Wrapf(err, "GetSecgroups").Error()))
+		return
+	}
+	if len(secgroups) == 0 {
+		self.OnSecurityGroupPrepared(ctx, guest, nil)
+		return
+	}
+
+	vpc, err := guest.GetVpc()
+	if err != nil {
+		self.OnSecurityGroupPreparedFailed(ctx, guest, jsonutils.NewString(errors.Wrapf(err, "GetVpc").Error()))
+		return
+	}
+	region, err := vpc.GetRegion()
+	if err != nil {
+		self.OnSecurityGroupPreparedFailed(ctx, guest, jsonutils.NewString(errors.Wrapf(err, "GetRegion").Error()))
+		return
+	}
+	self.SetStage("OnSecurityGroupPrepared", nil)
+	err = region.GetDriver().RequestPrepareSecurityGroups(ctx, self.UserCred, guest.GetOwnerId(), secgroups, vpc, func(ids []string) error {
+		return guest.SaveSecgroups(ctx, self.UserCred, ids)
+	}, self)
+	if err != nil {
+		self.OnSecurityGroupPreparedFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+}
+
+func (self *GuestCreateTask) OnSecurityGroupPreparedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_SECURITY_GROUP_FAILED, "prepare security group failed")
+	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionCreate,
+		IsFail: true,
+	})
+
+	self.SetStageFailed(ctx, data)
+}
+
+func (self *GuestCreateTask) OnSecurityGroupPrepared(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	cdrom, _ := self.Params.GetString("cdrom")
 	var bootIndex *int8
 	if self.Params.Contains("cdrom_boot_index") {
@@ -96,12 +138,11 @@ func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandal
 		self.SetStage("OnCdromPrepared", nil)
 		guest.GetDriver().RequestGuestCreateInsertIso(ctx, cdrom, bootIndex, self, guest)
 	} else {
-		self.OnCdromPrepared(ctx, obj, data)
+		self.OnCdromPrepared(ctx, guest, data)
 	}
 }
 
-func (self *GuestCreateTask) OnCdromPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
+func (self *GuestCreateTask) OnCdromPrepared(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	log.Infof("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 	log.Infof("DEPLOY GUEST %s", guest.Name)
 	log.Infof("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
@@ -218,10 +259,10 @@ func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.ISt
 	}
 
 	if jsonutils.QueryBoolean(self.GetParams(), "auto_start", false) {
-		self.SetStage("on_auto_start_guest", nil)
+		self.SetStage("OnAutoStartGuest", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
 	} else {
-		self.SetStage("on_sync_status_complete", nil)
+		self.SetStage("OnSyncStatusComplete", nil)
 		guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 	}
 }

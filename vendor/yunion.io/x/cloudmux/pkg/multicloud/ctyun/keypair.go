@@ -20,134 +20,101 @@ import (
 	"time"
 
 	"github.com/aokoli/goutils"
-	"golang.org/x/crypto/ssh"
 
-	"yunion.io/x/jsonutils"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 )
 
-// GET http://ctyun-api-url/apiproxy/v3/querySSH
-// POST http://ctyun-api-url/apiproxy/v3/deleteSSH
 type SKeypair struct {
-	Fingerprint string `json:"fingerprint"`
-	Name        string `json:"name"`
-	PublicKey   string `json:"public_key"`
+	Fingerprint string
+	KeyPairName string
+	KeyPairId   string
+	PublicKey   string
 }
 
-func (self *SRegion) getFingerprint(publicKey string) (string, error) {
-	pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
-	if err != nil {
-		return "", fmt.Errorf("publicKey error %s", err)
+func (self *SRegion) GetKeypairs(name string) ([]SKeypair, error) {
+	pageNo := 1
+	params := map[string]interface{}{
+		"pageNo":   pageNo,
+		"pageSize": 50,
 	}
-
-	return ssh.FingerprintSHA256(pk), nil
-}
-
-// GET http://ctyun-api-url/apiproxy/v3/querySSH
-func (self *SRegion) GetKeypairs() ([]SKeypair, int, error) {
-	params := map[string]string{
-		"regionId": self.GetId(),
+	if len(name) > 0 {
+		params["queryContent"] = name
 	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/querySSH", params)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "SRegion.GetKeypairs.DoGet")
-	}
-
-	keypairs := []jsonutils.JSONObject{}
-	err = resp.Unmarshal(&keypairs, "returnObj", "keypairs")
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "SRegion.GetKeypairs.Unmarshal")
-	}
-
 	ret := []SKeypair{}
-	for i := range keypairs {
-		k, err := keypairs[i].Get("keypair")
+	for {
+		resp, err := self.post(SERVICE_ECS, "/v4/ecs/keypair/details", params)
 		if err != nil {
-			return nil, 0, errors.Wrap(err, "SRegion.GetKeypairs")
+			return nil, err
 		}
-
-		keypair := SKeypair{}
-		err = k.Unmarshal(&keypair)
+		part := struct {
+			ReturnObj struct {
+				Results []SKeypair
+			}
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
 		if err != nil {
-			return nil, 0, errors.Wrap(err, "SRegion.GetKeypairs.Unmarshal")
+			return nil, errors.Wrapf(err, "Unmarshal")
 		}
-
-		ret = append(ret, keypair)
+		ret = append(ret, part.ReturnObj.Results...)
+		if len(ret) >= part.TotalCount || len(part.ReturnObj.Results) == 0 {
+			break
+		}
+		pageNo++
+		params["pageNo"] = pageNo
 	}
-
-	return ret, len(ret), nil
+	return ret, nil
 }
 
-func (self *SRegion) GetKeypair(name string) (*SKeypair, error) {
-	keypairs, _, err := self.GetKeypairs()
+func (self *SRegion) lookUpKeypair(publicKey string) (*SKeypair, error) {
+	keypairs, err := self.GetKeypairs("")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetKeypair.GetKeypairs")
+		return nil, err
 	}
-
 	for i := range keypairs {
-		if keypairs[i].Name == name {
+		if keypairs[i].PublicKey == publicKey {
 			return &keypairs[i], nil
 		}
 	}
-
-	return nil, errors.Wrap(errors.ErrNotFound, "SRegion.GetKeypair")
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "by public key")
 }
 
-func (self *SRegion) lookUpKeypair(publicKey string) (string, error) {
-	keypairs, _, err := self.GetKeypairs()
-	if err != nil {
-		return "", err
+func (self *SRegion) ImportKeypair(name, publicKey string) (*SKeypair, error) {
+	params := map[string]interface{}{
+		"keyPairName": name,
+		"publicKey":   publicKey,
 	}
-
-	fingerprint, err := self.getFingerprint(publicKey)
+	_, err := self.post(SERVICE_ECS, "/v4/ecs/keypair/import-keypair", params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	for _, keypair := range keypairs {
-		if keypair.Fingerprint == fingerprint {
-			return keypair.Name, nil
+	keypairs, err := self.GetKeypairs(name)
+	if err != nil {
+		return nil, err
+	}
+	for i := range keypairs {
+		if keypairs[i].KeyPairName == name {
+			return &keypairs[i], nil
 		}
 	}
-
-	return "", fmt.Errorf("keypair not found %s", err)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after create %s", name)
 }
 
-// POST http://ctyun-api-url/apiproxy/v3/createSSH
-func (self *SRegion) ImportKeypair(name, publicKey string) (*SKeypair, error) {
-	params := map[string]jsonutils.JSONObject{
-		"regionId":  jsonutils.NewString(self.GetId()),
-		"name":      jsonutils.NewString(name),
-		"publicKey": jsonutils.NewString(publicKey),
-	}
-
-	_, err := self.client.DoPost("/apiproxy/v3/createSSH", params)
+func (self *SRegion) importKeypair(publicKey string) (*SKeypair, error) {
+	prefix, err := goutils.RandomAlphabetic(6)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.ImportKeypair.DoPost")
-	}
-
-	return self.GetKeypair(name)
-}
-
-func (self *SRegion) importKeypair(publicKey string) (string, error) {
-	prefix, e := goutils.RandomAlphabetic(6)
-	if e != nil {
-		return "", fmt.Errorf("publicKey error %s", e)
+		return nil, fmt.Errorf("publicKey error %s", err)
 	}
 
 	name := prefix + strconv.FormatInt(time.Now().Unix(), 10)
-	if k, e := self.ImportKeypair(name, publicKey); e != nil {
-		return "", fmt.Errorf("keypair import error %s", e)
-	} else {
-		return k.Name, nil
-	}
+	return self.ImportKeypair(name, publicKey)
 }
 
-func (self *SRegion) syncKeypair(publicKey string) (string, error) {
-	name, e := self.lookUpKeypair(publicKey)
-	if e == nil {
-		return name, nil
+func (self *SRegion) syncKeypair(publicKey string) (*SKeypair, error) {
+	key, err := self.lookUpKeypair(publicKey)
+	if err == nil {
+		return key, nil
 	}
 	return self.importKeypair(publicKey)
 }

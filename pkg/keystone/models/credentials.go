@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
@@ -161,14 +162,14 @@ func (manager *SCredentialManager) ValidateCreateData(
 	return input, nil
 }
 
-func (self *SCredential) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+func (cred *SCredential) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	return cred.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CredentialUpdateInput) (api.CredentialUpdateInput, error) {
+func (cred *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CredentialUpdateInput) (api.CredentialUpdateInput, error) {
 	var err error
 
-	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	input.StandaloneResourceBaseUpdateInput, err = cred.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
@@ -210,13 +211,13 @@ func credentialExtra(cred *SCredential, out api.CredentialDetails) api.Credentia
 	return out
 }
 
-func (self *SCredential) getBlob() []byte {
-	return keys.CredentialKeyManager.Decrypt([]byte(self.EncryptedBlob))
+func (cred *SCredential) getBlob() []byte {
+	return keys.CredentialKeyManager.Decrypt([]byte(cred.EncryptedBlob))
 }
 
-func (self *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error) {
-	if self.Type == api.ACCESS_SECRET_TYPE || self.Type == api.OIDC_CREDENTIAL_TYPE {
-		blobJson, err := jsonutils.Parse(self.getBlob())
+func (cred *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error) {
+	if cred.Type == api.ACCESS_SECRET_TYPE || cred.Type == api.OIDC_CREDENTIAL_TYPE {
+		blobJson, err := jsonutils.Parse(cred.getBlob())
 		if err != nil {
 			return nil, errors.Wrap(err, "jsonutils.Parse")
 		}
@@ -245,8 +246,8 @@ func (manager *SCredentialManager) FilterByOwner(q *sqlchemy.SQuery, man db.Filt
 	return q
 }
 
-func (self *SCredential) GetOwnerId() mcclient.IIdentityProvider {
-	owner := db.SOwnerId{UserId: self.UserId}
+func (cred *SCredential) GetOwnerId() mcclient.IIdentityProvider {
+	owner := db.SOwnerId{UserId: cred.UserId}
 	return &owner
 }
 
@@ -361,5 +362,22 @@ func (manager *SCredentialManager) DeleteAll(ctx context.Context, userCred mccli
 			return errors.Wrap(err, "Delete")
 		}
 	}
+	return nil
+}
+
+func (cred *SCredential) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := cred.SStandaloneResourceBase.Delete(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "SStandaloneResourceBase.Delete")
+	}
+
+	if cred.Type == api.ACCESS_SECRET_TYPE {
+		// clean tokens auth by this AKSK
+		err := TokenCacheManager.BatchInvalidate(ctx, userCred, api.AUTH_METHOD_AKSK, []string{cred.Id})
+		if err != nil {
+			log.Errorf("BatchInvalidate token failed %s", err)
+		}
+	}
+
 	return nil
 }

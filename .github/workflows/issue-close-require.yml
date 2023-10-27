@@ -1,0 +1,20 @@
+name: Issue Close Require
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+
+jobs:
+  issue-close-require:
+    runs-on: ubuntu-latest
+    steps:
+      - name: need reproduce
+        uses: actions-cool/issues-helper@v2
+        with:
+          actions: 'close-issues'
+          labels: 'state/awaiting user feedback'
+          inactive-day: 37
+          body: |
+            If you do not provide feedback for more than 37 days, we will close the issue and you can either reopen it or submit a new issue.
+
+            您超过 37 天未反馈信息，我们将关闭该 issue，如有需求您可以重新打开或者提交新的 issue。

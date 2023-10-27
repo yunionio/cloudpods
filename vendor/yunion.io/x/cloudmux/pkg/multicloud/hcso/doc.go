@@ -13,3 +13,9 @@
 // limitations under the License.
 
 package hcso // import huawei "yunion.io/x/cloudmux/pkg/multicloud/hcso"
+
+/*
+接口调用
+ecs相关
+
+*/

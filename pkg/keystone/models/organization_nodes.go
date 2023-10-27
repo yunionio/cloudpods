@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -41,6 +42,7 @@ import (
 
 type SOrganizationNodeManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SPendingDeletedBaseManager
 }
 
 var OrganizationNodeManager *SOrganizationNodeManager
@@ -60,6 +62,7 @@ func init() {
 
 type SOrganizationNode struct {
 	db.SStandaloneResourceBase `name:""`
+	db.SPendingDeletedBase
 
 	OrgId string `width:"36" charset:"ascii" list:"user" create:"admin_required"`
 
@@ -113,6 +116,9 @@ func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId s
 		// not exist
 	} else {
 		// exist
+		if weight == nil {
+			weight = obj.(*SOrganizationNode).Weight
+		}
 		if len(desc) == 0 {
 			desc = obj.(*SOrganizationNode).Description
 		}
@@ -141,7 +147,17 @@ func (orgNode *SOrganizationNode) PerformBind(
 	query jsonutils.JSONObject,
 	input api.OrganizationNodePerformBindInput,
 ) (jsonutils.JSONObject, error) {
-	orgNode.startOrganizationBindTask(ctx, userCred, input)
+	orgNode.startOrganizationBindTask(ctx, userCred, input, true)
+	return nil, nil
+}
+
+func (orgNode *SOrganizationNode) PerformUnbind(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.OrganizationNodePerformBindInput,
+) (jsonutils.JSONObject, error) {
+	orgNode.startOrganizationBindTask(ctx, userCred, input, false)
 	return nil, nil
 }
 
@@ -149,9 +165,11 @@ func (orgNode *SOrganizationNode) startOrganizationBindTask(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	input api.OrganizationNodePerformBindInput,
+	bind bool,
 ) error {
 	params := jsonutils.NewDict()
 	params.Set("input", jsonutils.Marshal(input))
+	params.Set("bind", jsonutils.NewBool(bind))
 	task, err := taskman.TaskManager.NewTask(ctx, "OrganizationBindTask", orgNode, userCred, params, "", "", nil)
 	if err != nil {
 		return err
@@ -160,10 +178,19 @@ func (orgNode *SOrganizationNode) startOrganizationBindTask(
 	return nil
 }
 
-func (orgNode *SOrganizationNode) BindTargetIds(ctx context.Context, userCred mcclient.TokenCredential, input api.OrganizationNodePerformBindInput) error {
+func (orgNode *SOrganizationNode) BindTargetIds(ctx context.Context, userCred mcclient.TokenCredential, input api.OrganizationNodePerformBindInput, bind bool) error {
+	tags, err := orgNode.GetTags()
+	if err != nil {
+		return errors.Wrap(err, "GetTags")
+	}
+	if !bind {
+		for k := range tags {
+			tags[k] = "None"
+		}
+	}
 	var errs []error
 	for _, id := range input.TargetId {
-		err := orgNode.bindTargetId(ctx, userCred, input.ResourceType, id)
+		err := orgNode.bindTargetId(ctx, userCred, input.ResourceType, id, tags)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -171,18 +198,18 @@ func (orgNode *SOrganizationNode) BindTargetIds(ctx context.Context, userCred mc
 	return errors.NewAggregate(errs)
 }
 
-func (orgNode *SOrganizationNode) bindTargetId(ctx context.Context, userCred mcclient.TokenCredential, resType string, idstr string) error {
+func (orgNode *SOrganizationNode) bindTargetId(ctx context.Context, userCred mcclient.TokenCredential, resType string, idstr string, tags map[string]string) error {
 	org, err := OrganizationManager.fetchOrganizationById(orgNode.OrgId)
 	if err != nil {
 		return errors.Wrap(err, "fetchOrganizationById")
 	}
 	switch org.Type {
 	case api.OrgTypeProject:
-		return orgNode.bindProject(ctx, userCred, idstr)
+		return orgNode.bindProject(ctx, userCred, idstr, tags)
 	case api.OrgTypeDomain:
-		return orgNode.bindDomain(ctx, userCred, idstr)
+		return orgNode.bindDomain(ctx, userCred, idstr, tags)
 	case api.OrgTypeObject:
-		return orgNode.bindObject(ctx, userCred, resType, idstr)
+		return orgNode.bindObject(ctx, userCred, resType, idstr, tags)
 	}
 	return errors.Wrapf(errors.ErrNotSupported, "cannot bind to %s %s", resType, idstr)
 }
@@ -203,39 +230,27 @@ func (orgNode *SOrganizationNode) GetTags() (map[string]string, error) {
 	return tags, nil
 }
 
-func (orgNode *SOrganizationNode) bindProject(ctx context.Context, userCred mcclient.TokenCredential, idstr string) error {
+func (orgNode *SOrganizationNode) bindProject(ctx context.Context, userCred mcclient.TokenCredential, idstr string, tags map[string]string) error {
 	projObj, err := ProjectManager.FetchById(idstr)
 	if err != nil {
 		return errors.Wrapf(err, "ProjectManager.FetchById %s", idstr)
 	}
-	tags, err := orgNode.GetTags()
-	if err != nil {
-		return errors.Wrap(err, "GetTags")
-	}
 	return projObj.(*SProject).SetOrganizationMetadataAll(ctx, tags, userCred)
 }
 
-func (orgNode *SOrganizationNode) bindDomain(ctx context.Context, userCred mcclient.TokenCredential, idstr string) error {
+func (orgNode *SOrganizationNode) bindDomain(ctx context.Context, userCred mcclient.TokenCredential, idstr string, tags map[string]string) error {
 	domainObj, err := DomainManager.FetchById(idstr)
 	if err != nil {
 		return errors.Wrapf(err, "DomainManager.FetchById %s", idstr)
 	}
-	tags, err := orgNode.GetTags()
-	if err != nil {
-		return errors.Wrap(err, "GetTags")
-	}
 	return domainObj.(*SDomain).SetOrganizationMetadataAll(ctx, tags, userCred)
 }
 
-func (orgNode *SOrganizationNode) bindObject(ctx context.Context, userCred mcclient.TokenCredential, resType, idstr string) error {
+func (orgNode *SOrganizationNode) bindObject(ctx context.Context, userCred mcclient.TokenCredential, resType, idstr string, tags map[string]string) error {
 	s := auth.GetSession(ctx, userCred, consts.GetRegion())
 	module, err := modulebase.GetModule(s, resType)
 	if err != nil {
 		return errors.Wrap(err, "GetModule")
-	}
-	tags, err := orgNode.GetTags()
-	if err != nil {
-		return errors.Wrap(err, "GetTags")
 	}
 	input := jsonutils.Marshal(tags)
 	_, err = module.PerformAction(s, idstr, "set-org-metadata", input)
@@ -387,4 +402,32 @@ func (manager *SOrganizationNodeManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
+}
+
+func (manager *SOrganizationNodeManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+	q = manager.SPendingDeletedBaseManager.FilterBySystemAttributes(manager.GetIStandaloneModelManager(), q, userCred, query, scope)
+	return q
+}
+
+func (orgNode *SOrganizationNode) ValidateDeleteCondition(ctx context.Context, info *api.ProjectDetails) error {
+	childCnt, err := orgNode.GetDirectChildCount()
+	if err != nil {
+		return errors.Wrap(err, "GetDirectChildCount")
+	}
+	if childCnt > 0 {
+		return errors.Wrapf(httperrors.ErrNotEmpty, "childnodes %d", childCnt)
+	}
+	return orgNode.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+}
+
+// fake delete
+func (orgNode *SOrganizationNode) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if !orgNode.PendingDeleted {
+		err := orgNode.SPendingDeletedBase.MarkPendingDelete(orgNode.GetIStandaloneModel(), ctx, userCred, "")
+		if err != nil {
+			return errors.Wrap(err, "MarkPendingDelete")
+		}
+	}
+	return nil
 }

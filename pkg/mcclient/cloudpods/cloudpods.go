@@ -96,7 +96,7 @@ func (self *SCloudpodsClient) auth() error {
 	client := mcclient.NewClient(self.authURL, 0, self.debug, true, "", "")
 	client.SetHttpTransportProxyFunc(self.cpcfg.ProxyFunc)
 	ts, _ := client.GetClient().Transport.(*http.Transport)
-	client.SetTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	client.SetTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" || req.Method == "HEAD" {
 				return nil, nil

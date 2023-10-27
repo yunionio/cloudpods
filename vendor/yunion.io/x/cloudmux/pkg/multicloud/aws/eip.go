@@ -165,7 +165,18 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
-	return self.region.AssociateEip(self.AllocationId, conf.InstanceId)
+	for i := 0; i < 3; i++ {
+		err := self.region.AssociateEip(self.AllocationId, conf.InstanceId)
+		if err == nil {
+			return nil
+		}
+		if e, ok := err.(*sAwsError); ok && e.Errors.Code == "InvalidAllocationID.NotFound" {
+			time.Sleep(time.Second * 30)
+			continue
+		}
+		return errors.Wrapf(err, "AssociateEip")
+	}
+	return nil
 }
 
 func (self *SEipAddress) Dissociate() error {
@@ -193,8 +204,15 @@ func (self *SRegion) GetEips(id, ip, associateId string) ([]SEipAddress, error) 
 	result := struct {
 		AddressesSet []SEipAddress `xml:"addressesSet>item"`
 	}{}
-	err := self.ec2Request("DescribeAddresses", params, &result)
-	if err != nil {
+	for i := 0; i < 3; i++ {
+		err := self.ec2Request("DescribeAddresses", params, &result)
+		if err == nil {
+			return result.AddressesSet, nil
+		}
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			time.Sleep(time.Second * 10)
+			continue
+		}
 		return nil, errors.Wrapf(err, "DescribeAddresses")
 	}
 	return result.AddressesSet, nil
@@ -293,4 +311,8 @@ func (self *SEipAddress) GetExpiredAt() time.Time {
 
 func (self *SEipAddress) GetProjectId() string {
 	return ""
+}
+
+func (self *SEipAddress) SetTags(tags map[string]string, replace bool) error {
+	return self.region.setTags("elastic-ip", self.AllocationId, tags, replace)
 }

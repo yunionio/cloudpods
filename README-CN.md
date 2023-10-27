@@ -23,12 +23,14 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 
 ### 概览 & UI 展示
 
+![](https://www.cloudpods.org/zh/docs/introduce/images/interface1.gif)
+
 <details>
   <summary>管理多云资源的功能，可以管理大多数的主流云，包括私有云，例如OpenStack，以及公有云，例如AWS，Azure，GCP，阿里云，华为云和腾讯云等</summary>
   <ul>
     <li>
       <p>云帐号纳管</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudselect.png" alt="multi cloud management">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/cloudselect.png" alt="multi cloud management">
     </li>
     <li>
       <p>云帐号列表</p>
@@ -36,7 +38,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
     </li>
     <li>
       <p>公有云虚拟机列表</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/publicvmlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/publicvmlist.png">
     </li>
   </ul>
 </details>
@@ -52,8 +54,8 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
     </li>
     <li>
       <p>虚拟机创建页面</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm1.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm2.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createkvmvm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createkvmvm2.png">
     </li>
     <li>
       <p>虚拟机可通过 VNC 或者 SSH 登录</p>
@@ -69,23 +71,23 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
     </li>
     <li>
       <p>VPC列表</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vpclist.png">
     </li>
     <li>
       <p>二层网络列表（经典网络）</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/wirelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/wirelist.png">
     </li>
     <li>
       <p>IP子网列表</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/ipsubnetlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/ipsubnetlist.png">
     </li> 
     <li>
       <p>弹性公网IP列表（VPC网络）</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vpclist.png">
     </li>
     <li>
       <p>LB列表</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/lblist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/lblist.png">
     </li>
   </ul>
 </details>
@@ -101,11 +103,11 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
     </li>
     <li>
       <p>物理机纳管</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addphysicalmachine.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/addphysicalmachine.png">
     </li>
     <li>
       <p>安装操作系统</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createbaremetal.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createbaremetal.png">
     </li>
     <li>支持 ARM64 的物理机服务器</li>
   </ul>
@@ -116,16 +118,16 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <ul>
     <li>
       <p>支持本地sql、LDAP 等认证源</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/idplist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/idplist.png">
     </li>
     <li>
       <p>多租户系统，包括域，项目，组，用户，角色和权限等</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/domainlist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/projectlist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/grouplist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/userlist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/rolelist.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/policylist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/domainlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/projectlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/grouplist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/userlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/rolelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/policylist.png">
     </li>
   </ul>
 </details>
@@ -137,24 +139,24 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <ul>
     <li>
       <p>添加VMware云账号</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmware.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createvmware.png">
     </li>
     <li>
       <p>VMware云账号列表</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vmwarelist.png">
     </li>
     <li>
       <p>自动创建二层网络</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarewirelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vmwarewirelist.png">
     </li>
     <li>
       <p>自动创建IP子网</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwareipsubnetlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/vmwareipsubnetlist.png">
     </li>
     <li>
       <p>新建VMware虚拟机</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm1.png">
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm2.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createvmwarevm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/createvmwarevm2.png">
     </li>
   </ul>
 </details>
@@ -167,19 +169,19 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <ul>
     <li>
       <p>为云账号开启免密登录（以阿里云为例）</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/enablecloudsso.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/enablecloudsso.png">
     </li>
     <li>
       <p>将Cloudpods平台用户添加为免密登录用户</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addsamluser.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/addsamluser.png">
     </li>
     <li>
       <p>多云统一登录入口</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudssoentry.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/cloudssoentry.png">
     </li>
     <li>
       <p>多云统一登录-免密登录用户列表</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudsamluser.png">
+      <img src="https://www.cloudpods.org/zh/docs/practice/images/cloudsamluser.png">
     </li>
     <li>
       <p>Cloudpods平台用户免密登录阿里云</p>
@@ -239,7 +241,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 
 ## 安装部署
 
-- [All in One 安装](https://www.cloudpods.org/zh/docs/quickstart/allinone/)：在 CentOS 7 或 Debian 10 等发行版里搭建全功能 Cloudpods 服务，可以快速体验**内置私有云**和**多云管理**的功能。
+- [All in One 安装](https://www.cloudpods.org/zh/docs/quickstart/allinone-converge/)：在 CentOS 7 或 Debian 10 等发行版里搭建全功能 Cloudpods 服务，可以快速体验**内置私有云**和**多云管理**的功能。
 - [Kubernetes Helm 安装](https://www.cloudpods.org/zh/docs/quickstart/k8s/)：在已有 Kubernetes 集群上通过 Helm 部署一套 Cloudpods CMP 服务，可以体验**多云管理**的功能。
 - [Docker Compose 安装](https://www.cloudpods.org/zh/docs/quickstart/docker-compose/)：通过 Docker Compose 部署 Cloudpods CMP 服务，可以迅速体验**多云管理**的功能。
 - [高可用安装](https://www.cloudpods.org/zh/docs/setup/ha-ce/)：在生产环境中使用高可用的方式部署 Cloudpods 服务，包括**内置私有云**和**多云管理**的功能。
@@ -258,13 +260,13 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 
 您可以通过如下方式联系我们：
 
-* [服务订阅](https://www.yunion.cn/subscription/index.html)
-
-* 哔哩哔哩: [Cloudpods](https://space.bilibili.com/3493131737631540/)
+* 企业级支持: [服务订阅](https://www.yunion.cn/subscription/index.html)
 
 * 微信: 请扫描如下二维码联系我们
 
 <img src="https://www.cloudpods.org/images/contact_me_qr_20230321.png" alt="WeChat QRCode">
+
+* 哔哩哔哩: [Cloudpods](https://space.bilibili.com/3493131737631540/)
 
 ## 版本历史
 

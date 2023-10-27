@@ -180,7 +180,7 @@ func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
 }
 
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
-	netifs := host.GetNetInterfaces()
+	netifs := host.GetHostNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string][]models.SNetInterface, 0)
 
@@ -332,6 +332,10 @@ func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest
 	desc := guest.GetJsonDescAtBaremetal(ctx, host)
 	config := jsonutils.NewDict()
 	config.Set("desc", jsonutils.Marshal(desc))
+	params := task.GetParams()
+	if params.Length() > 0 {
+		config.Add(params, "params")
+	}
 	headers := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/start", host.Id, guest.Id)
 	_, err := host.BaremetalSyncRequest(ctx, "POST", url, headers, config)

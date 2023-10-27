@@ -38,7 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
-	ylog "yunion.io/x/log"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 	_ "yunion.io/x/sqlchemy/backends"
@@ -167,7 +168,7 @@ func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *d
 		}
 		fallthrough
 	default:
-		ylog.Warningf("Not processed state: %#v", state)
+		log.Warningf("Not processed state: %#v", state)
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
 		_, err = plugin.A(r, zone, state, nil, opt)
 	}
@@ -207,6 +208,15 @@ var (
 
 // Services implements the ServiceBackend interface
 func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
+	defer func() {
+		if len(services) == 0 {
+			log.Infof(`%s:%s %s - %d "%s %s empty response"`, state.RemoteAddr(), state.Port(), state.Proto(), state.Len(), state.Type(), state.Name())
+			return
+		}
+		for _, service := range services {
+			log.Infof(`%s:%s %s - %d "%s IN %s %s"`, state.RemoteAddr(), state.Port(), state.Proto(), state.Len(), state.Type(), state.Name(), jsonutils.Marshal(service).String())
+		}
+	}()
 	switch state.QType() {
 	case dns.TypeTXT:
 		t, _ := dnsutil.TrimZone(state.Name(), state.Zone)
@@ -322,83 +332,55 @@ func (r *SRegionDNS) Name() string {
 func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Service) {
 	var (
 		projId = req.ProjectId()
-		name   = req.Name()
-		getTtl = func(ttl int) uint32 {
+		getTtl = func(ttl int64) uint32 {
 			if ttl == 0 {
 				return defaultTTL
 			}
 			return uint32(ttl)
 		}
-		rec = models.DnsRecordManager.QueryDns(projId, name)
 	)
-
-	if rec == nil {
+	rec, err := models.DnsRecordManager.QueryDns(projId, req.Name(), "")
+	if err != nil {
+		log.Errorf("QueryDns %s %s error: %v", req.Type(), req.Name(), err)
 		return
 	}
-	if req.state.QType() != dns.TypeCNAME && rec.IsCNAME() {
-		name = rec.GetCNAME()
-		recs = append(recs, msg.Service{
-			Host: name,
-			TTL:  getTtl(rec.Ttl),
-		})
-		// github.com/coredns/coredns/plugin.{A,AAAA} will call
-		// Services again later for these CNAME
-		return recs
-	}
 
-	var (
-		qtype   = req.Type()
-		pref    = qtype + ":"
-		prefLen = len(pref)
-	)
-	for _, recStr := range rec.GetInfo() {
-		if !strings.HasPrefix(recStr, pref) {
-			continue
+	if req.IsSRV() {
+		// priority weight port host
+		parts := strings.SplitN(rec.DnsValue, " ", 4)
+		if len(parts) != 4 {
+			log.Errorf("Invalid SRV records: %q", rec.DnsValue)
+			return
 		}
-		val := recStr[prefLen:]
-		if req.IsSRV() {
-			parts := strings.SplitN(val, ":", 4)
-			if len(parts) < 2 {
-				ylog.Errorf("Invalid SRV records: %q", val)
-				continue
-			}
-			host := parts[0]
-			port, err := strconv.Atoi(parts[1])
-			if err != nil {
-				ylog.Errorf("SRV: invalid port: %s", val)
-				continue
-			}
-			priority := 0
-			weight := 100
-			if len(parts) >= 3 {
-				var err error
-				weight, err = strconv.Atoi(parts[2])
-				if err != nil {
-					ylog.Errorf("SRV: invalid weight: %s", val)
-					continue
-				}
-				if len(parts) >= 4 {
-					priority, err = strconv.Atoi(parts[3])
-					if err != nil {
-						ylog.Errorf("SRV: invalid priority: %s", val)
-						continue
-					}
-				}
-			}
-			recs = append(recs, msg.Service{
-				Host:     host,
-				Port:     port,
-				Weight:   weight,
-				Priority: priority,
-				TTL:      getTtl(rec.Ttl),
-			})
-		} else {
-			recs = append(recs, msg.Service{
-				Host: val,
-				TTL:  getTtl(rec.Ttl),
-			})
+		_priority, _weight, _port, host := parts[0], parts[1], parts[2], parts[3]
+		priority, err := strconv.Atoi(_priority)
+		if err != nil {
+			log.Errorf("SRV: invalid priority: %s", _priority)
+			return
 		}
+		weight, err := strconv.Atoi(_weight)
+		if err != nil {
+			log.Errorf("SRV: invalid weight: %s", _weight)
+			return
+		}
+		port, err := strconv.Atoi(_port)
+		if err != nil {
+			log.Errorf("SRV: invalid port: %s", _port)
+			return
+		}
+		recs = append(recs, msg.Service{
+			Host:     host,
+			Port:     port,
+			Weight:   weight,
+			Priority: priority,
+			TTL:      getTtl(rec.TTL),
+		})
+		return
 	}
+	recs = append(recs, msg.Service{
+		Host: rec.DnsValue,
+		TTL:  getTtl(rec.TTL),
+	})
 	return
 }
 
@@ -467,13 +449,13 @@ func (r *SRegionDNS) findInternalRecordIps(req *recordRequest) []string {
 	if !r.K8sSkip {
 		k8sCli, err := r.getK8sClient()
 		if err != nil {
-			ylog.Warningf("Get k8s client error: %v, skip it.", err)
+			log.Warningf("Get k8s client error: %v, skip it.", err)
 			return nil
 		}
 		// 3. try k8s service backends
 		ips, err := getK8sServiceBackends(k8sCli, req)
 		if err != nil {
-			ylog.Errorf("Get k8s service backends error: %v", err)
+			log.Errorf("Get k8s service backends error: %v", err)
 		}
 		return ips
 	}

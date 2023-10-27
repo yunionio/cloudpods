@@ -32,32 +32,47 @@ func (mysql *SMySQLBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes
 	}
 
 	alters := make([]string, 0)
+
 	// first check if primary key is modifed
 	changePrimary := false
-	oldHasPrimary := false
 	for _, col := range changes.RemoveColumns {
 		if col.IsPrimary() {
 			changePrimary = true
-			oldHasPrimary = true
+			break
 		}
 	}
-	for _, cols := range changes.UpdatedColumns {
-		if cols.OldCol.IsPrimary() != cols.NewCol.IsPrimary() {
-			changePrimary = true
-		}
-		if cols.OldCol.IsPrimary() {
-			oldHasPrimary = true
-		}
-	}
-	for _, col := range changes.AddColumns {
-		if col.IsPrimary() {
-			changePrimary = true
+	if !changePrimary {
+		for _, cols := range changes.UpdatedColumns {
+			if cols.OldCol.IsPrimary() != cols.NewCol.IsPrimary() {
+				changePrimary = true
+				break
+			}
 		}
 	}
-	if changePrimary && oldHasPrimary {
-		sql := fmt.Sprintf("DROP PRIMARY KEY")
-		alters = append(alters, sql)
+	if !changePrimary {
+		for _, col := range changes.AddColumns {
+			if col.IsPrimary() {
+				changePrimary = true
+				break
+			}
+		}
 	}
+	// in case of a primary key change, we first need to drop primary key.
+	// BUT if a mysql table has no primary key at all,
+	// exec drop primary key will cause error
+	if changePrimary {
+		oldHasPrimary := false
+		for _, col := range changes.OldColumns {
+			if col.IsPrimary() {
+				oldHasPrimary = true
+				break
+			}
+		}
+		if oldHasPrimary {
+			alters = append(alters, "DROP PRIMARY KEY")
+		}
+	}
+
 	/* IGNORE DROP STATEMENT */
 	for _, col := range changes.RemoveColumns {
 		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())

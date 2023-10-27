@@ -573,6 +573,12 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	pagingOrderStr, _ := query.GetString("paging_order")
 	pagingOrder := sqlchemy.QueryOrderType(strings.ToUpper(pagingOrderStr))
 
+	// export data only
+	exportLimit, err := query.Int("export_limit")
+	if query.Contains("export_keys") && err == nil {
+		limit = exportLimit
+	}
+
 	var (
 		q           *sqlchemy.SQuery
 		useRawQuery bool
@@ -701,12 +707,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) && !forceNoPaging {
 		limit = maxLimit
-	}
-
-	// export data only
-	exportLimit, err := query.Int("export_limit")
-	if query.Contains("export_keys") && err == nil {
-		limit = exportLimit
 	}
 
 	// orders defined in pagingConf should have the highest priority
@@ -1427,12 +1427,20 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		notes := model.GetShortDesc(ctx)
 		OpsLog.LogEvent(model, ACT_CREATE, notes, userCred)
 		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, notes, userCred, true)
+		CallCreateNotifyHook(ctx, userCred, model)
 	}
-	manager.OnCreateComplete(ctx, []IModel{model}, userCred, ownerId, query, data)
+	manager.OnCreateComplete(ctx, []IModel{model}, userCred, ownerId, query, []jsonutils.JSONObject{data})
 	return getItemDetails(manager, model, ctx, userCred, query)
 }
 
-func expandMultiCreateParams(manager IModelManager, data jsonutils.JSONObject, count int) ([]jsonutils.JSONObject, error) {
+func expandMultiCreateParams(manager IModelManager,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+	count int,
+) ([]jsonutils.JSONObject, error) {
 	jsonDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, httperrors.NewInputParameterError("body is not a json?")
@@ -1450,7 +1458,16 @@ func expandMultiCreateParams(manager IModelManager, data jsonutils.JSONObject, c
 	}
 	ret := make([]jsonutils.JSONObject, count)
 	for i := 0; i < count; i += 1 {
-		ret[i] = jsonDict.Copy()
+		input, err := ExpandBatchCreateData(manager, ctx, userCred, ownerId, query, jsonDict.Copy(), i)
+		if err != nil {
+			if errors.Cause(err) == MethodNotFoundError {
+				ret[i] = jsonDict.Copy()
+			} else {
+				return nil, errors.Wrap(err, "ExpandBatchCreateData")
+			}
+		} else {
+			ret[i] = input
+		}
 	}
 	return ret, nil
 }
@@ -1508,7 +1525,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 			return nil, errors.Wrap(err, "manager.BatchPreValidate")
 		}
 
-		multiData, err = expandMultiCreateParams(manager, data, count)
+		multiData, err = expandMultiCreateParams(manager, ctx, userCred, ownerId, query, data, count)
 		if err != nil {
 			return nil, errors.Wrap(err, "expandMultiCreateParams")
 		}
@@ -1517,6 +1534,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		ret := make([]sCreateResult, len(multiData))
 		for i := range multiData {
 			var model IModel
+			log.Debugf("batchCreateDoCreateItem %d %s", i, multiData[i].String())
 			model, err = batchCreateDoCreateItem(manager, ctx, userCred, ownerId, query, multiData[i], i+1)
 			if err == nil {
 				ret[i] = sCreateResult{model: model, err: nil}
@@ -1576,7 +1594,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
 		defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-		manager.OnCreateComplete(ctx, models, userCred, ownerId, query, multiData[0])
+		manager.OnCreateComplete(ctx, models, userCred, ownerId, query, multiData)
 	}
 	return results, nil
 }
@@ -1796,6 +1814,9 @@ func (dispatcher *DBModelDispatcher) FetchUpdateHeaderData(ctx context.Context, 
 
 func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
+	if data == nil {
+		data = jsonutils.NewDict()
+	}
 	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
@@ -1857,6 +1878,7 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 	if userCred != nil {
 		OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
 		logclient.AddSimpleActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
+		CallDeleteNotifyHook(ctx, userCred, item)
 	}
 	if _, ok := item.(IStandaloneModel); ok && len(item.GetId()) > 0 {
 		err := Metadata.RemoveAll(ctx, item, userCred)

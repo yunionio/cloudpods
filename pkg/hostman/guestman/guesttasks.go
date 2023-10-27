@@ -17,6 +17,7 @@ package guestman
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"regexp"
@@ -881,7 +882,7 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevi
 		t.syncDevice()
 	}
 
-	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr, dev.MdevId)
 	if devObj == nil {
 		cb(fmt.Sprintf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr))
 		return
@@ -898,7 +899,7 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevi
 
 func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice) {
 	var err error
-	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr, dev.MdevId)
 	if devObj == nil {
 		err = errors.Errorf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr)
 		log.Errorln(err)
@@ -1050,6 +1051,7 @@ type SGuestLiveMigrateTask struct {
 
 	timeoutAt        time.Time
 	doTimeoutMigrate bool
+	cancelled        bool
 
 	expectDowntime        int64
 	dirtySyncCount        int64
@@ -1099,7 +1101,7 @@ func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 	s.Monitor.MigrateSetCapability("events", "on", s.onMigrateEnableEvents)
 }
 
-func (s SGuestLiveMigrateTask) onMigrateEnableEvents(res string) {
+func (s *SGuestLiveMigrateTask) onMigrateEnableEvents(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
 		s.migrateFailed(fmt.Sprintf("Migrate set capability events error: %s", res))
 		return
@@ -1242,7 +1244,17 @@ func (s *SGuestLiveMigrateTask) onDriveMirrorDisksFailed(res string) {
 }
 
 func (s *SGuestLiveMigrateTask) doMigrate() {
-	s.mirrorDisks("")
+	if s.params.NbdServerPort > 0 {
+		s.mirrorDisks("")
+	} else {
+		var copyIncremental = false
+		if s.params.IsLocal {
+			// copy disk data
+			copyIncremental = true
+		}
+		s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
+			copyIncremental, false, s.setMaxBandwidth)
+	}
 }
 
 func (s *SGuestLiveMigrateTask) setMaxBandwidth(res string) {
@@ -1251,8 +1263,9 @@ func (s *SGuestLiveMigrateTask) setMaxBandwidth(res string) {
 		return
 	}
 
-	var maxBandwidth int64 = 0
-	if s.params.MaxBandwidthMB != nil {
+	// default set bandwidth no limit
+	var maxBandwidth int64 = math.MaxInt64
+	if s.params.MaxBandwidthMB != nil && *s.params.MaxBandwidthMB > 0 {
 		maxBandwidth = *s.params.MaxBandwidthMB * 1024 * 1024
 	}
 
@@ -1301,12 +1314,14 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStats(stats *monitor.MigrationInfo, 
 */
 
 func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo) {
-	status := *stats.Status
+	status := string(*stats.Status)
 	if status == "completed" {
 		jsonStats := jsonutils.Marshal(stats)
 		log.Infof("migration info %s", jsonStats)
-	} else if status == "failed" || status == "cancelled" {
+	} else if status == "failed" {
 		s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", status))
+	} else if status == "cancelled" {
+		s.migrateFailed(status)
 	} else if status == "active" {
 		var (
 			ramRemain int64
@@ -1381,7 +1396,9 @@ func (s *SGuestLiveMigrateTask) onMigrateReceivedPreSwitchoverEvent() {
 }
 
 func (s *SGuestLiveMigrateTask) onMigrateReceivedBlockJobError(res string) {
-	s.migrateFailed(res)
+	if !s.cancelled {
+		s.migrateFailed(res)
+	}
 }
 
 func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
@@ -1440,6 +1457,10 @@ func (s *SGuestLiveMigrateTask) onMigrateFailBlockJobsCancelled(msg string) {
 	} else {
 		cleanup()
 	}
+}
+
+func (s *SGuestLiveMigrateTask) SetLiveMigrateCancelled() {
+	s.cancelled = true
 }
 
 /**
@@ -2613,29 +2634,28 @@ func (task *SGuestHotplugCpuMemTask) onSucc() {
 type SGuestBlockIoThrottleTask struct {
 	*SKVMGuestInstance
 
-	ctx  context.Context
-	bps  int64
-	iops int64
+	ctx context.Context
 }
 
-func (task *SGuestBlockIoThrottleTask) Start() error {
-	task.findBlockDevices()
-	return nil
+func (task *SGuestBlockIoThrottleTask) Start() {
+	go task.startDoIoThrottle(0)
 }
 
-func (task *SGuestBlockIoThrottleTask) findBlockDevices() {
-	task.Monitor.GetBlocks(task.onBlockDriversSucc)
-}
-
-func (task *SGuestBlockIoThrottleTask) onBlockDriversSucc(blocks []monitor.QemuBlock) {
-	drivers := make([]string, 0)
-	for i := 0; i < len(blocks); i++ {
-		if strings.HasPrefix(blocks[i].Device, "drive_") {
-			drivers = append(drivers, blocks[i].Device)
+func (task *SGuestBlockIoThrottleTask) startDoIoThrottle(idx int) {
+	if idx < len(task.Desc.Disks) {
+		_cb := func(res string) {
+			if len(res) > 0 {
+				task.taskFail(res)
+			} else {
+				task.startDoIoThrottle(idx + 1)
+			}
 		}
+		task.Monitor.BlockIoThrottle(
+			fmt.Sprintf("drive_%d", task.Desc.Disks[idx].Index),
+			int64(task.Desc.Disks[idx].Bps), int64(task.Desc.Disks[idx].Iops), _cb)
+	} else {
+		task.taskComplete(nil)
 	}
-	log.Infof("Drivers %s do io throttle bps %d iops %d", drivers, task.bps, task.iops)
-	task.doIoThrottle(drivers)
 }
 
 func (task *SGuestBlockIoThrottleTask) taskFail(reason string) {
@@ -2649,23 +2669,6 @@ func (task *SGuestBlockIoThrottleTask) taskFail(reason string) {
 func (task *SGuestBlockIoThrottleTask) taskComplete(data jsonutils.JSONObject) {
 	if taskId := task.ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		hostutils.TaskComplete(task.ctx, data)
-	}
-}
-
-func (task *SGuestBlockIoThrottleTask) doIoThrottle(drivers []string) {
-	if len(drivers) == 0 {
-		task.taskComplete(nil)
-	} else {
-		driver := drivers[0]
-		drivers = drivers[1:]
-		_cb := func(res string) {
-			if len(res) > 0 {
-				task.taskFail(res)
-			} else {
-				task.doIoThrottle(drivers)
-			}
-		}
-		task.Monitor.BlockIoThrottle(driver, task.bps, task.iops, _cb)
 	}
 }
 

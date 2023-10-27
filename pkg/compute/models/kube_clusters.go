@@ -71,7 +71,7 @@ type SKubeCluster struct {
 	SVpcResourceBase         `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
 
-	Version string `width:"12" charset:"utf8" nullable:"false" list:"admin" create:"domain_optional"`
+	Version string `width:"24" charset:"utf8" nullable:"false" list:"admin" create:"domain_optional"`
 
 	// 本地KubeserverId
 	ExternalClusterId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
@@ -133,10 +133,10 @@ func (manager *SKubeClusterManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i] = api.KubeClusterDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
-			ManagedResourceInfo:                    managerRows[i],
-			CloudregionResourceInfo:                regionRows[i],
 			VpcResourceInfo:                        vpcRows[i],
 		}
+		rows[i].ManagedResourceInfo = managerRows[i]
+		rows[i].CloudregionResourceInfo = regionRows[i]
 	}
 	return rows
 }

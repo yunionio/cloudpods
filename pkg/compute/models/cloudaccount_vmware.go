@@ -250,6 +250,13 @@ func (account *SCloudaccount) createNetworks(ctx context.Context, zoneId string,
 	for i := range capWires {
 		// if len(capWires[i].GuestNetworks)+len(capWires[i].HostNetworks) == 0 {
 		if len(capWires[i].HostNetworks) == 0 {
+			for _, host := range capWires[i].Hosts {
+				ret[host.Id] = append(ret[host.Id], SVs2Wire{
+					VsId:        capWires[i].VsId,
+					Distributed: capWires[i].Distributed,
+					Mac:         host.Mac,
+				})
+			}
 			continue
 		}
 		var wireId = capWires[i].WireId

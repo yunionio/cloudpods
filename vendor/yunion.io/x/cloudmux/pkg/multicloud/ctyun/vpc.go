@@ -29,35 +29,28 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires    []cloudprovider.ICloudWire
-	secgroups []cloudprovider.ICloudSecurityGroup
-
-	ResVpcID   string `json:"resVpcId"`
-	Name       string `json:"name"`
-	CIDR       string `json:"cidr"`
-	ZoneID     string `json:"zoneId"`
-	ZoneName   string `json:"zoneName"`
-	VpcStatus  string `json:"vpcStatus"`
-	RegionID   string `json:"regionId"`
-	CreateDate int64  `json:"createDate"`
-}
-
-func (self *SVpc) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
+	VpcId          string
+	Name           string
+	Description    string
+	CIDR           string
+	Ipv6Enabled    bool
+	SubnetIDs      []string
+	NatGatewayIDs  []string
+	ProjectId      string
+	Ipv6CIDRS      []string
+	EnableIpv6     bool
+	SecondaryCIDRS []string
 }
 
 func (self *SVpc) GetId() string {
-	return self.ResVpcID
+	return self.VpcId
 }
 
 func (self *SVpc) GetName() string {
 	if len(self.Name) > 0 {
 		return self.Name
 	}
-	return self.ResVpcID
+	return self.VpcId
 }
 
 func (self *SVpc) GetGlobalId() string {
@@ -69,15 +62,11 @@ func (self *SVpc) GetStatus() string {
 }
 
 func (self *SVpc) Refresh() error {
-	new, err := self.region.GetVpc(self.GetId())
+	vpc, err := self.region.GetVpc(self.GetId())
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
-}
-
-func (self *SVpc) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, vpc)
 }
 
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
@@ -93,25 +82,11 @@ func (self *SVpc) GetCidrBlock() string {
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return self.iwires, nil
+	return []cloudprovider.ICloudWire{&SWire{vpc: self}}, nil
 }
 
-// http://ctyun-api-url/apiproxy/v3/getSecurityGroupRules
-// http://ctyun-api-url/apiproxy/v3/getSecurityGroups
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	if self.secgroups == nil {
-		err := self.fetchSecurityGroups()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return self.secgroups, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
@@ -127,106 +102,71 @@ func (self *SVpc) Delete() error {
 	return self.region.DeleteVpc(self.GetId())
 }
 
-func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
-	}
-	for i := 0; i < len(self.iwires); i += 1 {
-		if self.iwires[i].GetGlobalId() == wireId {
-			return self.iwires[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SVpc) fetchSecurityGroups() error {
-	secgroups, err := self.region.GetSecurityGroups("")
+func (self *SVpc) GetIWireById(id string) (cloudprovider.ICloudWire, error) {
+	wires, err := self.GetIWires()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	for i := 0; i < len(secgroups); i++ {
-		self.secgroups[i] = &secgroups[i]
-	}
-
-	return nil
-}
-
-func (self *SVpc) getWireByRegionId(regionId string) *SWire {
-	if len(regionId) == 0 {
-		return nil
-	}
-
-	for i := 0; i < len(self.iwires); i++ {
-		wire := self.iwires[i].(*SWire)
-
-		if wire.region.GetId() == regionId {
-			return wire
+	for i := range wires {
+		if wires[i].GetGlobalId() == id {
+			return wires[i], nil
 		}
 	}
-
-	return nil
-}
-
-func (self *SVpc) fetchNetworks() error {
-	networks, err := self.region.GetNetwroks(self.GetId())
-	if err != nil {
-		return err
-	}
-
-	if len(networks) == 0 {
-		self.iwires = []cloudprovider.ICloudWire{&SWire{region: self.region, vpc: self}}
-		return nil
-	}
-
-	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByRegionId(self.region.GetId())
-		networks[i].wire = wire
-		wire.addNetwork(&networks[i])
-	}
-
-	return nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
-	params := map[string]string{
-		"vpcId":    vpcId,
-		"regionId": self.GetId(),
+	params := map[string]interface{}{
+		"vpcID": vpcId,
 	}
-
-	vpc := &SVpc{}
-	resp, err := self.client.DoGet("/apiproxy/v3/queryVPCDetail", params)
+	resp, err := self.list(SERVICE_VPC, "/v4/vpc/query", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVpc.DoGet")
+		return nil, err
 	}
-
-	if id, _ := resp.GetString("returnObj", "resVpcId"); len(id) == 0 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetVpc.GetID")
-	}
-
+	vpc := &SVpc{region: self}
 	err = resp.Unmarshal(vpc, "returnObj")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVpc.Unmarshal")
+		return nil, errors.Wrapf(err, "Unmarshal")
 	}
-
-	vpc.region = self
 	return vpc, nil
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
-	params := map[string]jsonutils.JSONObject{
-		"regionId": jsonutils.NewString(self.GetId()),
-		"vpcId":    jsonutils.NewString(vpcId),
+	params := map[string]interface{}{
+		"vpcID": vpcId,
 	}
+	_, err := self.post(SERVICE_VPC, "/v4/vpc/delete", params)
+	return err
+}
 
-	_, err := self.client.DoPost("/apiproxy/v3/deleteVPC", params)
-	if err != nil {
-		return errors.Wrap(err, "SRegion.DeleteVpc.DoPost")
+func (self *SRegion) GetVpcs() ([]SVpc, error) {
+	pageNo := 1
+	params := map[string]interface{}{
+		"pageNo":   pageNo,
+		"pageSize": 50,
 	}
-
-	return nil
+	ret := []SVpc{}
+	for {
+		resp, err := self.list(SERVICE_VPC, "/v4/vpc/list", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			ReturnObj struct {
+				Vpcs []SVpc
+			}
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.ReturnObj.Vpcs...)
+		if len(ret) >= part.TotalCount || len(part.ReturnObj.Vpcs) == 0 {
+			break
+		}
+		pageNo++
+		params["pageNo"] = pageNo
+	}
+	return ret, nil
 }

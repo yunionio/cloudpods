@@ -41,6 +41,7 @@ type SCapabilities struct {
 	Hypervisors []string `json:",allowempty"`
 
 	Brands                           []string `json:",allowempty"`
+	EnabledBrands                    []string `json:",allowempty"`
 	DisabledBrands                   []string `json:",allowempty"`
 	ComputeEngineBrands              []string `json:",allowempty"`
 	DisabledComputeEngineBrands      []string `json:",allowempty"`
@@ -75,6 +76,9 @@ type SCapabilities struct {
 
 	VpcPeerBrands         []string `json:",allowempty"`
 	DisabledVpcPeerBrands []string `json:",allowempty"`
+
+	SecurityGroupBrands         []string `json:",allowempty"`
+	DisabledSecurityGroupBrands []string `json:",allowempty"`
 
 	ReadOnlyBrands                           []string `json:",allowempty"`
 	ReadOnlyDisabledBrands                   []string `json:",allowempty"`
@@ -111,6 +115,9 @@ type SCapabilities struct {
 
 	ReadOnlyVpcPeerBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledVpcPeerBrands []string `json:",allowempty"`
+
+	ReadOnlySecurityGroupBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledSecurityGroupBrands []string `json:",allowempty"`
 
 	ResourceTypes      []string           `json:",allowempty"`
 	StorageTypes       []string           `json:",allowempty"` // going to remove on 2.14
@@ -365,6 +372,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
+		capa.SecurityGroupBrands = append(capa.SecurityGroupBrands, api.ONECLOUD_BRAND_ONECLOUD)
 		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
 
@@ -374,29 +382,41 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 
 	capa.NetworkManageBrands = append(capa.NetworkManageBrands, api.ONECLOUD_BRAND_ONECLOUD)
 
+	capa.EnabledBrands = []string{}
 	capa.DisabledBrands = []string{}
 	var appendBrand = func(enabled *[]string, disabled *[]string, readOnlyEnabled *[]string, readOnlyDisabled *[]string, brand, capability string, isEnable, readOnly bool) {
+		if !utils.IsInArray(brand, capa.Brands) {
+			capa.Brands = append(capa.Brands, brand)
+		}
 		if readOnly {
 			if isEnable {
-				*readOnlyEnabled = append(*readOnlyEnabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.ReadOnlyBrands) {
+				if !utils.IsInArray(brand, *readOnlyEnabled) {
+					*readOnlyEnabled = append(*readOnlyEnabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.ReadOnlyBrands) {
 					capa.ReadOnlyBrands = append(capa.ReadOnlyBrands, brand)
 				}
 			} else {
-				*readOnlyDisabled = append(*readOnlyDisabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.ReadOnlyDisabledBrands) {
+				if !utils.IsInArray(brand, *readOnlyDisabled) {
+					*readOnlyDisabled = append(*readOnlyDisabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.ReadOnlyDisabledBrands) {
 					capa.ReadOnlyDisabledBrands = append(capa.ReadOnlyDisabledBrands, brand)
 				}
 			}
 		} else {
 			if isEnable {
-				*enabled = append(*enabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.Brands) {
-					capa.Brands = append(capa.Brands, brand)
+				if !utils.IsInArray(brand, *enabled) {
+					*enabled = append(*enabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.EnabledBrands) {
+					capa.EnabledBrands = append(capa.EnabledBrands, brand)
 				}
 			} else {
-				*disabled = append(*disabled, brand)
-				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.DisabledBrands) {
+				if !utils.IsInArray(brand, *disabled) {
+					*disabled = append(*disabled, brand)
+				}
+				if !utils.IsInArray(brand, capa.DisabledBrands) {
 					capa.DisabledBrands = append(capa.DisabledBrands, brand)
 				}
 			}
@@ -441,6 +461,8 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 				appendBrand(&capa.ContainerBrands, &capa.DisabledContainerBrands, &capa.ReadOnlyContainerBrands, &capa.ReadOnlyDisabledContainerBrands, brand, capability, enabled, readOnly)
 			case cloudprovider.CLOUD_CAPABILITY_VPC_PEER:
 				appendBrand(&capa.VpcPeerBrands, &capa.DisabledVpcPeerBrands, &capa.ReadOnlyVpcPeerBrands, &capa.ReadOnlyDisabledVpcPeerBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP:
+				appendBrand(&capa.SecurityGroupBrands, &capa.DisabledSecurityGroupBrands, &capa.ReadOnlySecurityGroupBrands, &capa.ReadOnlyDisabledSecurityGroupBrands, brand, capability, enabled, readOnly)
 			default:
 			}
 		}

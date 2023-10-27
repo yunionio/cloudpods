@@ -26,22 +26,22 @@ type SInternetGateway struct {
 	AwsTags
 	region *SRegion
 
-	Attachments       []InternetGatewayAttachment `json:"Attachments"`
-	InternetGatewayID string                      `json:"InternetGatewayId"`
-	OwnerID           string                      `json:"OwnerId"`
+	Attachments       []InternetGatewayAttachment `xml:"attachmentSet>item"`
+	InternetGatewayId string                      `xml:"internetGatewayId"`
+	OwnerId           string                      `xml:"ownerId"`
 }
 
 type InternetGatewayAttachment struct {
-	State string `json:"State"`
-	VpcID string `json:"VpcId"`
+	State string `xml:"state"`
+	VpcId string `xml:"vpcId"`
 }
 
 func (i *SInternetGateway) GetId() string {
-	return i.InternetGatewayID
+	return i.InternetGatewayId
 }
 
 func (i *SInternetGateway) GetName() string {
-	return i.InternetGatewayID
+	return i.InternetGatewayId
 }
 
 func (i *SInternetGateway) GetGlobalId() string {
@@ -58,4 +58,8 @@ func (i *SInternetGateway) Refresh() error {
 
 func (i *SInternetGateway) IsEmulated() bool {
 	return false
+}
+
+func (self *SInternetGateway) GetDescription() string {
+	return self.AwsTags.GetDescription()
 }

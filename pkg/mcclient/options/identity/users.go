@@ -34,3 +34,24 @@ type UserListOptions struct {
 func (opts *UserListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
+
+type UserIdOptions struct {
+	ID string `help:"ID or name of user"`
+}
+
+func (opts *UserIdOptions) GetId() string {
+	return opts.ID
+}
+
+type UserDetailOptions struct {
+	UserIdOptions
+	Domain string `help:"Domain"`
+}
+
+func (opts *UserDetailOptions) Params() (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	if len(opts.Domain) > 0 {
+		ret.Add(jsonutils.NewString(opts.Domain), "domain_id")
+	}
+	return ret, nil
+}

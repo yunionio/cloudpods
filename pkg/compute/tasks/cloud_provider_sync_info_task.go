@@ -100,7 +100,6 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoCompleteFailed(
 
 func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
-	provider.CleanSchedCache()
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
 	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
@@ -108,7 +107,6 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoComplete(ctx conte
 
 func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
-	provider.CleanSchedCache()
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_FAILED, "", self.UserCred)
 	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, false)
 	self.SetStageFailed(ctx, nil)

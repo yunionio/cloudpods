@@ -18,6 +18,7 @@ import (
 	"os"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/object"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -61,6 +62,8 @@ type IDiskPartition interface {
 }
 
 type IRootFsDriver interface {
+	object.IObject
+
 	GetPartition() IDiskPartition
 	GetName() string
 	String() string
@@ -72,6 +75,7 @@ type IRootFsDriver interface {
 	GetOs() string
 	DeployHostname(part IDiskPartition, hn, domain string) error
 	DeployHosts(part IDiskPartition, hn, domain string, ips []string) error
+	DeployQgaBlackList(part IDiskPartition) error
 	DeployNetworkingScripts(IDiskPartition, []*types.SServerNic) error
 	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*types.SServerNic) error
 	DeployUdevSubsystemScripts(IDiskPartition) error
@@ -84,6 +88,7 @@ type IRootFsDriver interface {
 	DisableSerialConsole(IDiskPartition) error
 	CommitChanges(IDiskPartition) error
 	DeployFiles(deploys []*deployapi.DeployContent) error
+	DeployUserData(userData string) error
 	DeployTelegraf(config string) (bool, error)
 	DetectIsUEFISupport(IDiskPartition) bool
 	IsCloudinitInstall() bool
@@ -91,6 +96,8 @@ type IRootFsDriver interface {
 
 	PrepareFsForTemplate(IDiskPartition) error
 	CleanNetworkScripts(rootFs IDiskPartition) error
+
+	AllowAdminLogin() bool
 }
 
 type IDebianRootFsDriver interface {

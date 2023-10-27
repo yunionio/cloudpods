@@ -165,6 +165,7 @@ func (d *SBaseDisk) GetZoneId() string {
 func (d *SBaseDisk) DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 	deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
 	deployGuestDesc := deployapi.GuestStructDescToDeployDesc(guestDesc)
+	deployGuestDesc.Hypervisor = api.HYPERVISOR_KVM
 	ret, err := deployclient.GetDeployClient().DeployGuestFs(
 		context.Background(), &deployapi.DeployParams{
 			DiskInfo:   diskInfo,

@@ -146,3 +146,75 @@ func (cli *SESXiClient) GetIStoragecacheById(idstr string) (cloudprovider.ICloud
 func (cli *SESXiClient) GetISkus() ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
+
+func (cli *SESXiClient) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
+	return []cloudprovider.ICloudVpc{cli.fakeVpc}, nil
+}
+
+func (client *SESXiClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	return nil, errors.ErrNotSupported
+}
+
+func (client *SESXiClient) GetId() string {
+	return client.GetUUID()
+}
+
+func (client *SESXiClient) GetName() string {
+	return client.cpcfg.Name
+}
+
+func (client *SESXiClient) GetGlobalId() string {
+	return client.GetUUID()
+}
+
+func (client *SESXiClient) GetStatus() string {
+	return "available"
+}
+
+func (client *SESXiClient) GetCloudEnv() string {
+	return ""
+}
+
+func (client *SESXiClient) Refresh() error {
+	return nil
+}
+
+func (client *SESXiClient) IsEmulated() bool {
+	return true
+}
+
+func (client *SESXiClient) GetSysTags() map[string]string {
+	return nil
+}
+
+func (client *SESXiClient) GetTags() (map[string]string, error) {
+	return nil, errors.Wrap(errors.ErrNotImplemented, "GetTags")
+}
+
+func (client *SESXiClient) SetTags(tags map[string]string, replace bool) error {
+	return errors.ErrNotImplemented
+}
+
+func (client *SESXiClient) GetGeographicInfo() cloudprovider.SGeographicInfo {
+	return cloudprovider.SGeographicInfo{}
+}
+
+func (client *SESXiClient) GetIZones() ([]cloudprovider.ICloudZone, error) {
+	return nil, errors.ErrNotSupported
+}
+
+func (client *SESXiClient) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
+	return nil, errors.ErrNotSupported
+}
+
+func (client *SESXiClient) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+	return nil, errors.ErrNotSupported
+}
+
+func (client *SESXiClient) GetISecurityGroupById(id string) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, errors.ErrNotSupported
+}
+
+func (client *SESXiClient) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, errors.ErrNotSupported
+}

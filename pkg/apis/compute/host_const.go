@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/cloudmux/pkg/apis/compute"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+)
 
 const (
 	HOST_TYPE_BAREMETAL  = "baremetal"
@@ -36,6 +38,7 @@ const (
 	HOST_TYPE_HCS            = compute.HOST_TYPE_HCS
 	HOST_TYPE_OPENSTACK      = compute.HOST_TYPE_OPENSTACK
 	HOST_TYPE_UCLOUD         = compute.HOST_TYPE_UCLOUD
+	HOST_TYPE_VOLCENGINE     = compute.HOST_TYPE_VOLCENGINE
 	HOST_TYPE_ZSTACK         = compute.HOST_TYPE_ZSTACK
 	HOST_TYPE_GOOGLE         = compute.HOST_TYPE_GOOGLE
 	HOST_TYPE_CTYUN          = compute.HOST_TYPE_CTYUN
@@ -48,6 +51,10 @@ const (
 	HOST_TYPE_PROXMOX        = compute.HOST_TYPE_PROXMOX
 	HOST_TYPE_REMOTEFILE     = compute.HOST_TYPE_REMOTEFILE
 	HOST_TYPE_H3C            = compute.HOST_TYPE_H3C
+	HOST_TYPE_KSYUN          = compute.HOST_TYPE_KSYUN
+	HOST_TYPE_BAIDU          = compute.HOST_TYPE_BAIDU
+	HOST_TYPE_CUCLOUD        = compute.HOST_TYPE_CUCLOUD
+	HOST_TYPE_QINGCLOUD      = compute.HOST_TYPE_QINGCLOUD
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
@@ -57,9 +64,9 @@ const (
 	HOST_OFFLINE  = compute.HOST_OFFLINE
 	HOST_DISABLED = "offline"
 
-	NIC_TYPE_IPMI  = compute.NIC_TYPE_IPMI
-	NIC_TYPE_ADMIN = compute.NIC_TYPE_ADMIN
-	// #NIC_TYPE_NORMAL = 'normal'
+	NIC_TYPE_IPMI   = compute.NIC_TYPE_IPMI
+	NIC_TYPE_ADMIN  = compute.NIC_TYPE_ADMIN
+	NIC_TYPE_NORMAL = compute.NIC_TYPE_NORMAL
 
 	BAREMETAL_INIT           = "init"
 	BAREMETAL_PREPARE        = "prepare"
@@ -127,6 +134,7 @@ var HOST_TYPES = []string{
 	HOST_TYPE_HCSOP,
 	HOST_TYPE_OPENSTACK,
 	HOST_TYPE_UCLOUD,
+	HOST_TYPE_VOLCENGINE,
 	HOST_TYPE_ZSTACK,
 	HOST_TYPE_CTYUN,
 	HOST_TYPE_GOOGLE,
@@ -138,9 +146,14 @@ var HOST_TYPES = []string{
 	HOST_TYPE_PROXMOX,
 	HOST_TYPE_REMOTEFILE,
 	HOST_TYPE_H3C,
+	HOST_TYPE_KSYUN,
+	HOST_TYPE_BAIDU,
+	HOST_TYPE_CUCLOUD,
+	HOST_TYPE_QINGCLOUD,
 }
 
-var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
+var ALL_NIC_TYPES = []compute.TNicType{NIC_TYPE_IPMI, NIC_TYPE_ADMIN, NIC_TYPE_NORMAL}
+var HOST_NIC_TYPES = []compute.TNicType{NIC_TYPE_ADMIN, NIC_TYPE_NORMAL}
 
 const (
 	ACCESS_MAC_ANY = "00:00:00:00:00:00"
@@ -162,6 +175,7 @@ const (
 const (
 	HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN     = "__auto_migrate_on_host_down"
 	HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN = "__auto_migrate_on_host_shutdown"
+	HOSTMETA_HOST_ERRORS                   = "__host_errors"
 )
 
 const (

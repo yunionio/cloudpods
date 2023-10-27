@@ -78,7 +78,7 @@ func (b *SBucket) GetCreatedAt() time.Time {
 }
 
 func (b *SBucket) GetStorageClass() string {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		log.Errorf("b.region.getOBSClient error %s", err)
 		return ""
@@ -118,7 +118,7 @@ func obsAcl2CannedAcl(acls []obs.Grant) cloudprovider.TBucketACLType {
 
 func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
 	acl := cloudprovider.ACLPrivate
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		log.Errorf("b.region.getOBSClient error %s", err)
 		return acl
@@ -133,7 +133,7 @@ func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
 }
 
 func (b *SBucket) SetAcl(acl cloudprovider.TBucketACLType) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "b.region.getOBSClient")
 	}
@@ -163,7 +163,7 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 
 func (b *SBucket) GetStats() cloudprovider.SBucketStats {
 	stats := cloudprovider.SBucketStats{}
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		log.Errorf("b.region.getOBSClient error %s", err)
 		stats.SizeBytes = -1
@@ -184,7 +184,7 @@ func (b *SBucket) GetStats() cloudprovider.SBucketStats {
 
 func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
 	result := cloudprovider.SListObjectResult{}
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return result, errors.Wrap(err, "GetOBSClient")
 	}
@@ -238,7 +238,7 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 }
 
 func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -291,7 +291,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 }
 
 func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return "", errors.Wrap(err, "GetOBSClient")
 	}
@@ -336,7 +336,7 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 }
 
 func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64, offset, totalSize int64) (string, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return "", errors.Wrap(err, "GetOBSClient")
 	}
@@ -357,7 +357,7 @@ func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, p
 }
 
 func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -382,7 +382,7 @@ func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploa
 }
 
 func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -401,7 +401,7 @@ func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId
 }
 
 func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -416,7 +416,7 @@ func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
 }
 
 func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return "", errors.Wrap(err, "GetOBSClient")
 	}
@@ -447,7 +447,7 @@ func (b *SBucket) LimitSupport() cloudprovider.SBucketStats {
 
 func (b *SBucket) GetLimit() cloudprovider.SBucketStats {
 	stats := cloudprovider.SBucketStats{}
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		log.Errorf("getOBSClient error %s", err)
 		return stats
@@ -461,7 +461,7 @@ func (b *SBucket) GetLimit() cloudprovider.SBucketStats {
 }
 
 func (b *SBucket) SetLimit(limit cloudprovider.SBucketStats) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "getOBSClient")
 	}
@@ -476,7 +476,7 @@ func (b *SBucket) SetLimit(limit cloudprovider.SBucketStats) error {
 }
 
 func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -524,7 +524,7 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 }
 
 func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetOBSClient")
 	}
@@ -543,7 +543,7 @@ func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprov
 }
 
 func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return "", errors.Wrap(err, "GetOBSClient")
 	}
@@ -564,7 +564,7 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 }
 
 func (b *SBucket) SetWebsite(websitConf cloudprovider.SBucketWebsiteConf) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -584,7 +584,7 @@ func (b *SBucket) SetWebsite(websitConf cloudprovider.SBucketWebsiteConf) error 
 
 func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
 	result := cloudprovider.SBucketWebsiteConf{}
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return result, errors.Wrap(err, "GetOBSClient")
 	}
@@ -599,7 +599,7 @@ func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
 }
 
 func (b *SBucket) DeleteWebSiteConf() error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -611,7 +611,7 @@ func (b *SBucket) DeleteWebSiteConf() error {
 }
 
 func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -637,7 +637,7 @@ func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
 }
 
 func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetOBSClient")
 	}
@@ -665,7 +665,7 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 }
 
 func (b *SBucket) DeleteCORS() error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -678,7 +678,7 @@ func (b *SBucket) DeleteCORS() error {
 }
 
 func (b *SBucket) GetTags() (map[string]string, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetOBSClient")
 	}
@@ -697,7 +697,7 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 }
 
 func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
@@ -725,7 +725,7 @@ func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
 }
 
 func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
-	obscli, err := b.region.getOBSClient()
+	obscli, err := b.region.getOBSClient("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetOBSClient")
 	}
@@ -763,4 +763,231 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 	}
 
 	return result, nil
+}
+
+type SBucketPolicyStatement struct {
+	Version   string                          `json:"version"`
+	Statement []SBucketPolicyStatementDetails `json:"Statement"`
+}
+
+type SBucketPolicyStatementDetails struct {
+	Sid       string                            `json:"Sid"`
+	Effect    string                            `json:"Effect"`
+	Principal map[string][]string               `json:"Principal"`
+	Action    []string                          `json:"Action"`
+	Resource  []string                          `json:"Resource"`
+	Condition map[string]map[string]interface{} `json:"Condition"`
+}
+
+func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
+	policies, err := b.getPolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "getPolicy")
+	}
+	res := []cloudprovider.SBucketPolicyStatement{}
+	for _, policy := range policies {
+		temp := cloudprovider.SBucketPolicyStatement{}
+		temp.Action = policy.Action
+		temp.Principal = policy.Principal
+		temp.Effect = policy.Effect
+		temp.Resource = policy.Resource
+		temp.ResourcePath = b.getResourcePaths(policy.Resource)
+		temp.CannedAction = b.actionToCannedAction(policy.Action)
+		temp.Condition = policy.Condition
+		temp.Id = policy.Sid
+		res = append(res, temp)
+	}
+	return res, nil
+}
+
+func (b *SBucket) getPolicy() ([]SBucketPolicyStatementDetails, error) {
+	obscli, err := b.region.getOBSClient("OBS")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOBSClient")
+	}
+	resp, err := obscli.GetBucketPolicy(b.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPolicy")
+	}
+	policies := []SBucketPolicyStatementDetails{}
+	obj, err := jsonutils.Parse([]byte(resp.Policy))
+	if err != nil {
+		log.Errorln("this is parse err:", err)
+	}
+
+	return policies, obj.Unmarshal(&policies, "Statement")
+}
+
+func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) error {
+	old, err := b.getPolicy()
+	if err != nil && !strings.Contains(err.Error(), "Not Found") {
+		return errors.Wrap(err, "getPolicy")
+	}
+	if old == nil {
+		old = []SBucketPolicyStatementDetails{}
+	}
+	ids := []string{}
+	for i := range policy.PrincipalId {
+		id := strings.Split(policy.PrincipalId[i], ":")
+		if len(id) == 1 {
+			if id[0] != "*" {
+				ids = append(ids, fmt.Sprintf("%s/%s", id[0], id[0]))
+			} else {
+				ids = append(ids, id[0])
+			}
+		}
+		if len(id) == 2 {
+			// 没有主账号id,设为owner id
+			if len(id[0]) == 0 {
+				id[0] = b.region.client.cpcfg.AccountId
+			}
+			// 没有子账号，默认和主账号相同
+			if len(id[1]) == 0 {
+				id[1] = id[0]
+			}
+			ids = append(ids, fmt.Sprintf("%s/%s", id[0], id[1]))
+		}
+		if len(id) > 2 {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "Invalida PrincipalId Input")
+		}
+	}
+	old = append(old, SBucketPolicyStatementDetails{
+		Effect:   policy.Effect,
+		Action:   b.getAction(policy.CannedAction),
+		Resource: b.getResources(policy.ResourcePath),
+		Sid:      utils.GenRequestId(20),
+		Principal: map[string][]string{
+			"ID": ids,
+		},
+		Condition: policy.Condition,
+	})
+	return b.setPolicy(old)
+}
+
+func (b *SBucket) setPolicy(policies []SBucketPolicyStatementDetails) error {
+	obscli, err := b.region.getOBSClient(obs.SignatureObs)
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+	det := map[string]interface{}{"Statement": policies}
+	input := &obs.SetBucketPolicyInput{}
+	input.Bucket = b.Name
+	input.Policy = jsonutils.Marshal(det).String()
+
+	_, err = obscli.SetBucketPolicy(input)
+	if err != nil {
+		return errors.Wrap(err, "setbucketPolicy")
+	}
+	return nil
+}
+
+func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatement, error) {
+	obscli, err := b.region.getOBSClient(obs.SignatureObs)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOBSClient")
+	}
+
+	policies, err := b.getPolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPolicy")
+	}
+	needKeep := []SBucketPolicyStatementDetails{}
+	for i, policy := range policies {
+		if utils.IsInStringArray(fmt.Sprintf("%d", i), id) {
+			continue
+		}
+		needKeep = append(needKeep, policy)
+	}
+	_, err = obscli.DeleteBucketPolicy(b.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "DeleteBucketPolicy")
+	}
+	if len(needKeep) > 0 {
+		err = b.setPolicy(needKeep)
+		if err != nil {
+			return nil, errors.Wrap(err, "setPolicy")
+		}
+	}
+	return nil, nil
+}
+
+func (b *SBucket) getResources(paths []string) []string {
+	res := []string{}
+	for _, path := range paths {
+		res = append(res, b.Name+path)
+	}
+	return res
+}
+
+func (b *SBucket) getResourcePaths(paths []string) []string {
+	res := []string{}
+	for _, path := range paths {
+		res = append(res, strings.TrimPrefix(path, b.Name))
+	}
+	return res
+}
+
+func (b *SBucket) getResourcePath(path string) string {
+	i := 0
+	for i+len(b.Name) < len(path) {
+		if path[i:i+len(b.Name)] == b.Name {
+			return path[i+len(b.Name):]
+		}
+		i++
+	}
+	return ""
+}
+
+var readActions = []string{
+	"Get*",
+	"List*",
+}
+
+var readWriteActions = []string{
+	"Get*",
+	"List*",
+	"Put*",
+}
+
+var fullControlActions = []string{
+	"*",
+}
+
+func (b *SBucket) getAction(s string) []string {
+	switch s {
+	case "Read":
+		return readActions
+	case "ReadWrite":
+		return readWriteActions
+	case "FullControl":
+		return fullControlActions
+	default:
+		return nil
+	}
+}
+
+func (b *SBucket) actionToCannedAction(actions []string) string {
+	if len(actions) == len(readActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, readActions) {
+				return ""
+			}
+		}
+		return "Read"
+	} else if len(actions) == len(fullControlActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, fullControlActions) {
+				return ""
+			}
+		}
+		return "FullControl"
+	} else if len(actions) == len(readWriteActions) {
+		for _, action := range actions {
+			if !utils.IsInStringArray(action, readWriteActions) {
+				return ""
+			}
+		}
+		return "ReadWrite"
+	}
+	return ""
 }

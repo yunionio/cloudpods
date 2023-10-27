@@ -458,11 +458,6 @@ func (sp *SScalingPolicy) CheckCoolTime() bool {
 	return false
 }
 
-func (sp *SScalingPolicy) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return true
-}
-
 func (sp *SScalingPolicy) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(sp, ctx, userCred, true)
@@ -470,11 +465,6 @@ func (sp *SScalingPolicy) PerformEnable(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (sp *SScalingPolicy) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return true
 }
 
 func (sp *SScalingPolicy) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,

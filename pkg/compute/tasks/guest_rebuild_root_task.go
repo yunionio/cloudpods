@@ -160,14 +160,22 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 		self.markFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
+	var bios = "BIOS"
+	isUefi, _ := imginfo.Properties["uefi_support"]
+	if isUefi == "true" {
+		bios = "UEFI"
+	}
+	log.Infof("guest rebuild root new bios %s", bios)
+
 	err = guest.SetMetadata(ctx, "__os_profile__", osprof, self.UserCred)
 	if err != nil {
 		self.markFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	if guest.OsType != osprof.OSType {
+	if guest.OsType != osprof.OSType || guest.Bios != bios {
 		_, err := db.Update(guest, func() error {
 			guest.OsType = osprof.OSType
+			guest.Bios = bios
 			return nil
 		})
 		if err != nil {
@@ -228,9 +236,16 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Conte
 
 	self.SetStage("OnGuestDeployComplete", nil)
 	guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "")
+	deployParams, _ := self.Params.Get("deploy_params")
+	var params *jsonutils.JSONDict
+	if deployParams != nil {
+		params = deployParams.(*jsonutils.JSONDict)
+	} else {
+		params = jsonutils.NewDict()
+	}
 	// params := jsonutils.NewDict()
 	// params.Set("reset_password", jsonutils.JSONTrue)
-	guest.StartGuestDeployTask(ctx, self.UserCred, self.GetParams(), "rebuild", self.GetTaskId())
+	guest.StartGuestDeployTask(ctx, self.UserCred, params, "rebuild", self.GetTaskId())
 }
 
 func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -263,7 +278,14 @@ func (self *ManagedGuestRebuildRootTask) OnHostCacheImageComplete(ctx context.Co
 
 	self.SetStage("OnGuestDeployComplete", nil)
 	guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "rebuild deploy")
-	guest.StartGuestDeployTask(ctx, self.UserCred, self.Params, "rebuild", self.GetTaskId())
+	deployParams, _ := self.Params.Get("deploy_params")
+	var params *jsonutils.JSONDict
+	if deployParams != nil {
+		params = deployParams.(*jsonutils.JSONDict)
+	} else {
+		params = jsonutils.NewDict()
+	}
+	guest.StartGuestDeployTask(ctx, self.UserCred, params, "rebuild", self.GetTaskId())
 }
 
 func (self *ManagedGuestRebuildRootTask) OnHostCacheImageCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

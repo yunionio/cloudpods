@@ -53,7 +53,7 @@ func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.I
 
 	baremetal.SetStatus(self.UserCred, api.BAREMETAL_CONVERTING, "")
 
-	self.SetStage("on_guest_deploy_complete", nil)
+	self.SetStage("OnGuestDeployComplete", nil)
 
 	guest := self.getGuest()
 	params, _ := self.Params.Get("server_params")
@@ -64,7 +64,7 @@ func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.I
 		return
 	}
 	input.ParentTaskId = self.GetTaskId()
-	models.GuestManager.OnCreateComplete(ctx, []db.IModel{guest}, self.UserCred, self.UserCred, nil, jsonutils.Marshal(input))
+	models.GuestManager.OnCreateComplete(ctx, []db.IModel{guest}, self.UserCred, self.UserCred, nil, []jsonutils.JSONObject{jsonutils.Marshal(input)})
 }
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {

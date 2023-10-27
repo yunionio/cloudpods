@@ -76,28 +76,6 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	part, nextToken, err := self.region.GetSecurityGroups("", "", "")
-	if err != nil {
-		return nil, err
-	}
-	var groups []SSecurityGroup
-	groups = append(groups, part...)
-	for len(nextToken) > 0 {
-		part, nextToken, err = self.region.GetSecurityGroups("", "", nextToken)
-		if err != nil {
-			return nil, err
-		}
-		groups = append(groups, part...)
-	}
-	var ret []cloudprovider.ICloudSecurityGroup
-	for i := range groups {
-		groups[i].region = self.region
-		ret = append(ret, &groups[i])
-	}
-	return ret, nil
-}
-
 func (self *SVpc) GetIsDefault() bool {
 	return self.IsDefault == "true"
 }
@@ -113,6 +91,10 @@ func (self *SVpc) GetStatus() string {
 	default:
 		return self.State
 	}
+}
+
+func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (self *SRegion) GetVpcs(id string) ([]SVpc, error) {

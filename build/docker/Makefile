@@ -20,17 +20,17 @@ ANSIBLESERVER_BASE = v1.1.1
 ansibleserver-base:
 	$(DOCKER_BUILDX)/ansibleserver-base:$(ANSIBLESERVER_BASE) -f ./Dockerfile.ansibleserver-base .
 
-CLIMC_BASE_VERSION = 20210901
+CLIMC_BASE_VERSION = 20230731.5
 
 climc-base:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
 		-t registry.cn-beijing.aliyuncs.com/yunionio/climc-base:$(CLIMC_BASE_VERSION) -f ./Dockerfile.climc-base .
 
-WEBCONSOLE_BASE_VERSION = v0.2-1
+WEBCONSOLE_BASE_VERSION = 20230731.2
 webconsole-base:
 	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION) -f ./Dockerfile.webconsole-base .
 
-BAREMETAL_BASE_VERSION = v0.3.9-20230221.2
+BAREMETAL_BASE_VERSION = v0.3.9-20230812.0
 
 baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .

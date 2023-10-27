@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -61,6 +60,22 @@ func (self *SRegion) GetClient() *SHuaweiClient {
 	return self.client
 }
 
+func (self *SRegion) list(service, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return self.client.list(service, self.ID, resource, query)
+}
+
+func (self *SRegion) delete(service, resource string) (jsonutils.JSONObject, error) {
+	return self.client.delete(service, self.ID, resource)
+}
+
+func (self *SRegion) put(service, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.put(service, self.ID, resource, params)
+}
+
+func (self *SRegion) post(service, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.post(service, self.ID, resource, params)
+}
+
 func (self *SRegion) getECSClient() (*client.Client, error) {
 	var err error
 
@@ -89,9 +104,9 @@ func (self *SRegion) getOBSEndpoint() string {
 	return getOBSEndpoint(self.GetId())
 }
 
-func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
+func (self *SRegion) getOBSClient(signType obs.SignatureType) (*obs.ObsClient, error) {
 	if self.obsClient == nil {
-		obsClient, err := self.client.getOBSClient(self.GetId())
+		obsClient, err := self.client.getOBSClient(self.GetId(), signType)
 		if err != nil {
 			return nil, err
 		}
@@ -384,28 +399,26 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 	return eip, nil
 }
 
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0060595555.html
-func (self *SRegion) DeleteSecurityGroup(secgroupId string) error {
-	return DoDelete(self.ecsClient.SecurityGroups.Delete, secgroupId, nil, nil)
+func (self *SRegion) DeleteSecurityGroup(id string) error {
+	_, err := self.delete(SERVICE_VPC, "vpc/security-groups/"+id)
+	return err
 }
 
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return self.GetSecurityGroupDetails(secgroupId)
+	return self.GetSecurityGroup(secgroupId)
 }
 
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.GetSecurityGroups(opts.VpcId, opts.Name)
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	groups, err := self.GetSecurityGroups("", "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetSecurityGroups")
 	}
-	if len(secgroups) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := range groups {
+		groups[i].region = self
+		ret = append(ret, &groups[i])
 	}
-	if len(secgroups) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	secgroups[0].region = self
-	return &secgroups[0], nil
+	return ret, nil
 }
 
 func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
@@ -437,44 +450,13 @@ func (self *SRegion) CreateVpc(name, cidr, desc string) (*SVpc, error) {
 // 华东-上海二：5_sbgp
 // 华北-北京一：5_bgp、5_sbgp
 // 亚太-香港：5_bgp
-func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	var ctype TInternetChargeType
-	switch eip.ChargeType {
-	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
-		ctype = InternetChargeByTraffic
-	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
-		ctype = InternetChargeByBandwidth
-	}
-
-	// todo: 如何避免hardcode。集成到cloudmeta服务中？
-	if len(eip.BGPType) == 0 {
-		switch self.GetId() {
-		case "cn-north-1", "cn-east-2", "cn-south-1":
-			eip.BGPType = "5_sbgp"
-		case "cn-northeast-1":
-			eip.BGPType = "5_telcom"
-		case "cn-north-4", "ap-southeast-1", "ap-southeast-2", "eu-west-0":
-			eip.BGPType = "5_bgp"
-		case "cn-southwest-2":
-			eip.BGPType = "5_sbgp"
-		default:
-			eip.BGPType = "5_bgp"
-		}
-	}
-
-	// 华为云EIP名字最大长度64
-	if len(eip.Name) > 64 {
-		eip.Name = eip.Name[:64]
-	}
-
-	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType, eip.ProjectId)
-	ieip.region = self
+func (self *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	eip, err := self.AllocateEIP(opts)
 	if err != nil {
 		return nil, err
 	}
-
-	err = cloudprovider.WaitStatus(ieip, api.EIP_STATUS_READY, 5*time.Second, 60*time.Second)
-	return ieip, err
+	err = cloudprovider.WaitStatus(eip, api.EIP_STATUS_READY, 5*time.Second, time.Minute)
+	return eip, err
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
@@ -571,120 +553,18 @@ func (self *SRegion) GetCloudEnv() string {
 	return self.client.cloudEnv
 }
 
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
-// 目前desc字段并没有用到
 func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
-	params := jsonutils.NewDict()
-	secgroupObj := jsonutils.NewDict()
-	secgroupObj.Add(jsonutils.NewString(opts.Name), "name")
-	if len(opts.VpcId) > 0 && opts.VpcId != api.NORMAL_VPC_ID {
-		secgroupObj.Add(jsonutils.NewString(opts.VpcId), "vpc_id")
+	params := map[string]interface{}{
+		"name":                  opts.Name,
+		"description":           opts.Desc,
+		"enterprise_project_id": opts.ProjectId,
 	}
-	params.Add(secgroupObj, "security_group")
-
-	secgroup := SSecurityGroup{region: self}
-	err := DoCreate(self.ecsClient.SecurityGroups.Create, params, &secgroup)
+	resp, err := self.post(SERVICE_VPC, "vpc/security-groups", map[string]interface{}{"security_group": params})
 	if err != nil {
 		return nil, err
 	}
-	if opts.OnCreated != nil {
-		opts.OnCreated(secgroup.ID)
-	}
-	for _, rule := range secgroup.SecurityGroupRules {
-		if len(rule.RemoteGroupID) > 0 || rule.Ethertype != "IPv4" {
-			continue
-		}
-		err := self.delSecurityGroupRule(rule.ID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "delete rule %s", rule.ID)
-		}
-	}
-	rules := opts.InRules.AllowList()
-	rules = append(rules, opts.OutRules.AllowList()...)
-	for i := range rules {
-		err := self.addSecurityGroupRules(secgroup.ID, rules[i])
-		if err != nil {
-			return nil, errors.Wrapf(err, "addSecurityGroupRules")
-		}
-	}
-	return &secgroup, nil
-}
-
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087467071.html
-func (self *SRegion) delSecurityGroupRule(secGrpRuleId string) error {
-	_, err := self.ecsClient.SecurityGroupRules.DeleteInContextWithSpec(nil, secGrpRuleId, "", nil, nil, "")
-	return err
-}
-
-func (self *SRegion) DeleteSecurityGroupRule(ruleId string) error {
-	return self.delSecurityGroupRule(ruleId)
-}
-
-func (self *SRegion) CreateSecurityGroupRule(secgroupId string, rule secrules.SecurityRule) error {
-	return self.addSecurityGroupRules(secgroupId, rule)
-}
-
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087451723.html
-// icmp port对应关系：https://support.huaweicloud.com/api-vpc/zh-cn_topic_0024109590.html
-func (self *SRegion) addSecurityGroupRules(secGrpId string, rule secrules.SecurityRule) error {
-	direction := ""
-	if rule.Direction == secrules.SecurityRuleIngress {
-		direction = "ingress"
-	} else {
-		direction = "egress"
-	}
-
-	protocal := rule.Protocol
-	if rule.Protocol == secrules.PROTO_ANY {
-		protocal = ""
-	}
-
-	// imcp协议默认为any
-	if rule.Protocol == secrules.PROTO_ICMP {
-		return self.addSecurityGroupRule(secGrpId, direction, "-1", "-1", protocal, rule.IPNet.String())
-	}
-
-	if len(rule.Ports) > 0 {
-		for _, port := range rule.Ports {
-			portStr := fmt.Sprintf("%d", port)
-			err := self.addSecurityGroupRule(secGrpId, direction, portStr, portStr, protocal, rule.IPNet.String())
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		portStart := fmt.Sprintf("%d", rule.PortStart)
-		portEnd := fmt.Sprintf("%d", rule.PortEnd)
-		err := self.addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocal, rule.IPNet.String())
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocol, ipNet string) error {
-	params := jsonutils.NewDict()
-	secgroupObj := jsonutils.NewDict()
-	secgroupObj.Add(jsonutils.NewString(secGrpId), "security_group_id")
-	secgroupObj.Add(jsonutils.NewString(direction), "direction")
-	secgroupObj.Add(jsonutils.NewString(ipNet), "remote_ip_prefix")
-	secgroupObj.Add(jsonutils.NewString("IPV4"), "ethertype")
-	// 端口为空或者1-65535
-	if len(portStart) > 0 && portStart != "0" && portStart != "-1" {
-		secgroupObj.Add(jsonutils.NewString(portStart), "port_range_min")
-	}
-	if len(portEnd) > 0 && portEnd != "0" && portEnd != "-1" {
-		secgroupObj.Add(jsonutils.NewString(portEnd), "port_range_max")
-	}
-	if len(protocol) > 0 {
-		secgroupObj.Add(jsonutils.NewString(protocol), "protocol")
-	}
-	params.Add(secgroupObj, "security_group_rule")
-
-	rule := SecurityGroupRule{}
-	return DoCreate(self.ecsClient.SecurityGroupRules.Create, params, &rule)
+	ret := &SSecurityGroup{region: self}
+	return ret, resp.Unmarshal(ret, "security_group")
 }
 
 func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
@@ -733,7 +613,7 @@ func str2StorageClass(storageClassStr string) (obs.StorageClassType, error) {
 }
 
 func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
-	obsClient, err := region.getOBSClient()
+	obsClient, err := region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "region.getOBSClient")
 	}
@@ -776,7 +656,7 @@ func obsHttpCode(err error) int {
 }
 
 func (region *SRegion) DeleteIBucket(name string) error {
-	obsClient, err := region.getOBSClient()
+	obsClient, err := region.getOBSClient("")
 	if err != nil {
 		return errors.Wrap(err, "region.getOBSClient")
 	}
@@ -793,7 +673,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 }
 
 func (region *SRegion) HeadBucket(name string) (*obs.BaseModel, error) {
-	obsClient, err := region.getOBSClient()
+	obsClient, err := region.getOBSClient("")
 	if err != nil {
 		return nil, errors.Wrap(err, "region.getOBSClient")
 	}

@@ -790,7 +790,7 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb 
 	return strings.ToLower(newDiskId), nil
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 
@@ -1037,10 +1037,6 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		}
 	}
 	return nil, nil
-}
-
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.SetSecurityGroup(self.ID, secgroupId)
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {

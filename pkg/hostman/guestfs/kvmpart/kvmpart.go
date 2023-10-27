@@ -28,6 +28,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/util/btrfsutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -110,18 +111,24 @@ func (p *SKVMGuestDiskPartition) MountPartReadOnly() bool {
 }
 
 func (p *SKVMGuestDiskPartition) Mount() bool {
-	if len(p.fs) == 0 || utils.IsInStringArray(p.fs, []string{"swap", "btrfs"}) {
+	if len(p.fs) == 0 || utils.IsInStringArray(p.fs, []string{"swap"}) {
 		log.Errorf("Mount fs failed: unsupport fs %s on %s", p.fs, p.partDev)
 		return false
 	}
 	err := p.fsck()
 	if err != nil {
 		log.Errorf("SKVMGuestDiskPartition fsck error: %s", err)
-		return false
+		// return false
 	}
 	err = p.mount(false)
 	if err != nil {
 		log.Errorf("SKVMGuestDiskPartition mount error: %s", err)
+	} else if p.fs == "btrfs" {
+		// try mount btrfs subvoume
+		err := btrfsutils.MountSubvols(p.partDev, p.mountPath)
+		if err != nil {
+			log.Errorf("SKVMGuestDiskPartition mount btrfs error %s", err)
+		}
 	}
 
 	if p.IsReadonly() {
@@ -197,6 +204,9 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 func (p *SKVMGuestDiskPartition) fsck() error {
 	var checkCmd, fixCmd []string
 	switch p.fs {
+	case "btrfs":
+		checkCmd = []string{"fsck.btrfs", "--readonly", p.partDev}
+		fixCmd = []string{"fsck.btrfs", "--repair", p.partDev}
 	case "hfsplus":
 		checkCmd = []string{"fsck.hfsplus", "-q", p.partDev}
 		fixCmd = []string{"fsck.hfsplus", "-fpy", p.partDev}
@@ -257,11 +267,31 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 		}
 	}()
 
+	if p.fs == "btrfs" {
+		// first try unmount btrfs subvols
+		err := btrfsutils.UnmountSubvols(p.mountPath)
+		if err != nil {
+			log.Errorf("SKVMGuestDiskPartition unmount btrfs error %s", err)
+		}
+	}
+
+	// check lsof
+	{
+		out, err := procutils.NewCommand("lsof", p.mountPath).Output()
+		if err != nil {
+			log.Warningf("lsof %s fail %s", p.mountPath, err)
+		} else {
+			log.Infof("unmount path %s lsof %s", p.mountPath, string(out))
+		}
+	}
+
 	var tries = 0
 	var err error
+	var out []byte
 	for tries < 10 {
 		tries += 1
-		_, err = procutils.NewCommand("umount", p.mountPath).Output()
+		log.Infof("umount %s: %s", p.partDev, p.mountPath)
+		out, err = procutils.NewCommand("umount", p.mountPath).Output()
 		if err == nil {
 			if _, err := procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output(); err != nil {
 				log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
@@ -272,6 +302,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 			log.Infof("umount %s successfully", p.partDev)
 			return nil
 		} else {
+			log.Warningf("failed umount %s: %s %s", p.partDev, err, out)
 			time.Sleep(time.Second * 1)
 		}
 	}

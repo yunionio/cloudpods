@@ -73,6 +73,11 @@ const (
 	HYPERVISOR_PROXMOX        = "proxmox"
 	HYPERVISOR_REMOTEFILE     = "remotefile"
 	HYPERVISOR_H3C            = "h3c"
+	HYPERVISOR_KSYUN          = "ksyun"
+	HYPERVISOR_BAIDU          = "baidu"
+	HYPERVISOR_CUCLOUD        = "cucloud"
+	HYPERVISOR_QINGCLOUD      = "qingcloud"
+	HYPERVISOR_VOLCENGINE     = "volcengine"
 )
 
 const (

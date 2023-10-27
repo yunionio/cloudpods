@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
@@ -53,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -480,7 +480,6 @@ func (manager *SCloudaccountManager) validateCreateData(
 		input.Options = jsonutils.NewDict()
 	}
 	input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints))
-	input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SCtyunExtraOptions))
 
 	if len(input.DefaultRegion) > 0 {
 		input.Options.Add(jsonutils.NewString(input.DefaultRegion), "default_region")
@@ -635,6 +634,13 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "", data)
 	} else {
 		self.SubmitSyncAccountTask(ctx, userCred, nil)
+	}
+
+	if self.Brand == api.CLOUD_PROVIDER_VMWARE {
+		_, err := image.Images.PerformClassAction(auth.GetAdminSession(ctx, options.Options.Region), "vmware-account-added", nil)
+		if err != nil {
+			log.Errorf("failed inform glance vmware account added: %s", err)
+		}
 	}
 }
 
@@ -1073,6 +1079,27 @@ func (self *SCloudaccount) getDefaultExternalProject(id string) (*SExternalProje
 	return &projects[0], nil
 }
 
+func (self *SCloudaccount) removeSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, subAccounts []cloudprovider.SSubAccount) error {
+	accounts := []string{}
+	for i := range subAccounts {
+		accounts = append(accounts, subAccounts[i].Account)
+	}
+	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).NotIn("account", accounts)
+	providers := []SCloudprovider{}
+	err := db.FetchModelObjects(CloudproviderManager, q, &providers)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range providers {
+		log.Debugf("remove cloudprovider %s(%s)", providers[i].Name, providers[i].Id)
+		err = providers[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "RealDelete")
+		}
+	}
+	return nil
+}
+
 func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclient.TokenCredential, subAccount cloudprovider.SSubAccount) (*SCloudprovider, bool, error) {
 	isNew := false
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).Equals("account", subAccount.Account)
@@ -1091,6 +1118,29 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		if err != nil {
 			return nil, isNew, errors.Wrapf(err, "q.First")
 		}
+		err = func() error {
+			// 根据云订阅归属且云订阅之前没有手动指定过项目
+			if self.AutoCreateProjectForProvider && provider.ProjectSrc != string(apis.OWNER_SOURCE_LOCAL) {
+				lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				// 根据云订阅名称获取或创建项目
+				domainId, projectId, err := self.getOrCreateTenant(ctx, provider.Name, provider.DomainId, "", subAccount.Desc)
+				if err != nil {
+					return errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", provider.Name)
+				}
+				// 覆盖云订阅项目
+				db.Update(provider, func() error {
+					provider.ProjectId = projectId
+					provider.DomainId = domainId
+					return nil
+				})
+			}
+			return nil
+		}()
+		if err != nil {
+			return nil, isNew, errors.Wrapf(err, "sync autro create project for provider")
+		}
+		// 没有项目归属时以默认最初项目做归属
 		if len(provider.ProjectId) == 0 {
 			db.Update(provider, func() error {
 				if len(subAccount.DefaultProjectId) > 0 {
@@ -1124,6 +1174,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 	newCloudprovider, err := func() (*SCloudprovider, error) {
 		newCloudprovider := SCloudprovider{}
+		newCloudprovider.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
 		newCloudprovider.Account = subAccount.Account
 		newCloudprovider.Secret = self.Secret
 		newCloudprovider.CloudaccountId = self.Id
@@ -1155,19 +1206,26 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
 		err = func() error {
-			lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
-			defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
-			newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
-			if err != nil {
-				return err
-			}
 			if self.AutoCreateProjectForProvider {
+				lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
+				if err != nil {
+					return err
+				}
 				domainId, projectId, err := self.getOrCreateTenant(ctx, newCloudprovider.Name, newCloudprovider.DomainId, "", subAccount.Desc)
 				if err != nil {
 					return errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", newCloudprovider.Name)
 				}
 				newCloudprovider.ProjectId = projectId
 				newCloudprovider.DomainId = domainId
+			} else {
+				lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
+				newCloudprovider.Name, err = db.GenerateName(ctx, CloudproviderManager, nil, subAccount.Name)
+				if err != nil {
+					return err
+				}
 			}
 			return CloudproviderManager.TableSpec().Insert(ctx, &newCloudprovider)
 		}()
@@ -1518,17 +1576,17 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		account := objs[i].(*SCloudaccount)
-		detail := api.CloudaccountDetail{
+		rows[i] = api.CloudaccountDetail{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ProjectMappingResourceInfo:             pmRows[i],
 			LastSyncCost:                           account.GetLastSyncCost(),
 		}
 		if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
-			detail.ProxySetting.Id = proxySetting.Id
-			detail.ProxySetting.Name = proxySetting.Name
-			detail.ProxySetting.HTTPProxy = proxySetting.HTTPProxy
-			detail.ProxySetting.HTTPSProxy = proxySetting.HTTPSProxy
-			detail.ProxySetting.NoProxy = proxySetting.NoProxy
+			rows[i].ProxySetting.Id = proxySetting.Id
+			rows[i].ProxySetting.Name = proxySetting.Name
+			rows[i].ProxySetting.HTTPProxy = proxySetting.HTTPProxy
+			rows[i].ProxySetting.HTTPSProxy = proxySetting.HTTPSProxy
+			rows[i].ProxySetting.NoProxy = proxySetting.NoProxy
 		}
 		rows[i].CloudEnv = account.GetCloudEnv()
 		rows[i].ProjectizedResourceInfo = projRows[i]
@@ -2189,7 +2247,10 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.
 					delete(cloudaccountProbe, id)
 				}()
 				log.Debugf("syncAccountStatus %s %s", id, name)
-				err := account.syncAccountStatus(ctx, userCred)
+				idctx := context.WithValue(ctx, "id", id)
+				lockman.LockObject(idctx, account)
+				defer lockman.ReleaseObject(idctx, account)
+				err := account.syncAccountStatus(idctx, userCred)
 				if err != nil {
 					log.Errorf("unable to syncAccountStatus for cloudaccount %s: %s", account.Id, err.Error())
 				}
@@ -2246,7 +2307,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to update db %s", err)
+		log.Errorf("Failed to update db %s for account %s", err, account.Name)
 	} else {
 		db.OpsLog.LogSyncUpdate(account, diff, userCred)
 	}
@@ -2255,24 +2316,17 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 }
 
 func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred mcclient.TokenCredential, subAccounts []cloudprovider.SSubAccount) []SCloudprovider {
-	oldProviders := account.GetCloudproviders()
-	existProviders := make([]SCloudprovider, 0)
-	existProviderKeys := make(map[string]int)
 	for i := 0; i < len(subAccounts); i += 1 {
-		provider, _, err := account.importSubAccount(ctx, userCred, subAccounts[i])
+		_, _, err := account.importSubAccount(ctx, userCred, subAccounts[i])
 		if err != nil {
 			log.Errorf("importSubAccount fail %s", err)
-		} else {
-			existProviders = append(existProviders, *provider)
-			existProviderKeys[provider.Id] = 1
 		}
 	}
-	for i := range oldProviders {
-		if _, exist := existProviderKeys[oldProviders[i].Id]; !exist {
-			oldProviders[i].markProviderDisconnected(ctx, userCred, "invalid subaccount")
-		}
+	err := account.removeSubAccounts(ctx, userCred, subAccounts)
+	if err != nil {
+		log.Errorf("removeSubAccounts error: %v", err)
 	}
-	return existProviders
+	return account.GetCloudproviders()
 }
 
 func (self *SCloudaccount) setSubAccountStatus() error {
@@ -2424,16 +2478,6 @@ func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
-	caches, err := self.GetDnsZoneCaches()
-	if err != nil {
-		return errors.Wrapf(err, "GetDnsZoneCaches")
-	}
-	for i := range caches {
-		err = caches[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "dns zone cache %s delete", caches[i].Id)
-		}
-	}
 	return self.purge(ctx, userCred)
 }
 
@@ -3020,92 +3064,6 @@ func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCr
 	return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "", nil)
 }
 
-func (self *SCloudaccount) GetDnsZoneCaches() ([]SDnsZoneCache, error) {
-	caches := []SDnsZoneCache{}
-	q := DnsZoneCacheManager.Query().Equals("cloudaccount_id", self.Id)
-	err := db.FetchModelObjects(DnsZoneCacheManager, q, &caches)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	return caches, nil
-}
-
-func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.TokenCredential, dnsZones []cloudprovider.ICloudDnsZone, xor bool) ([]SDnsZone, []cloudprovider.ICloudDnsZone, compare.SyncResult) {
-	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
-	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
-
-	result := compare.SyncResult{}
-
-	localZones := []SDnsZone{}
-	remoteZones := []cloudprovider.ICloudDnsZone{}
-
-	dbZones, err := self.GetDnsZoneCaches()
-	if err != nil {
-		result.Error(errors.Wrapf(err, "GetDnsZoneCaches"))
-		return nil, nil, result
-	}
-
-	removed := make([]SDnsZoneCache, 0)
-	commondb := make([]SDnsZoneCache, 0)
-	commonext := make([]cloudprovider.ICloudDnsZone, 0)
-	added := make([]cloudprovider.ICloudDnsZone, 0)
-
-	err = compare.CompareSets(dbZones, dnsZones, &removed, &commondb, &commonext, &added)
-	if err != nil {
-		result.Error(err)
-		return nil, nil, result
-	}
-
-	for i := 0; i < len(removed); i += 1 {
-		if len(removed[i].ExternalId) > 0 {
-			err = removed[i].syncRemove(ctx, userCred)
-			if err != nil {
-				result.DeleteError(err)
-				continue
-			}
-			result.Delete()
-		}
-	}
-
-	for i := 0; i < len(commondb); i += 1 {
-		if !xor {
-			err = commondb[i].SyncWithCloudDnsZone(ctx, userCred, commonext[i])
-			if err != nil {
-				result.UpdateError(errors.Wrapf(err, "SyncWithCloudDnsZone"))
-				continue
-			}
-		}
-		zone, err := commondb[i].GetDnsZone()
-		if err != nil {
-			result.UpdateError(errors.Wrapf(err, "GetDnsZone"))
-			continue
-		}
-		localZones = append(localZones, *zone)
-		remoteZones = append(remoteZones, commonext[i])
-
-		result.Update()
-	}
-
-	for i := 0; i < len(added); i += 1 {
-		dnsZone, isNew, err := DnsZoneManager.newFromCloudDnsZone(ctx, userCred, added[i], self)
-		if err != nil {
-			result.AddError(err)
-			continue
-		}
-		if !isNew {
-			_, err = dnsZone.newCache(ctx, userCred, self.Id, added[i])
-			if err != nil {
-				result.AddError(errors.Wrapf(err, "newCache"))
-			}
-		}
-		result.Add()
-		localZones = append(localZones, *dnsZone)
-		remoteZones = append(remoteZones, added[i])
-	}
-
-	return localZones, remoteZones, result
-}
-
 type SVs2Wire struct {
 	WireId      string
 	VsId        string
@@ -3157,18 +3115,21 @@ func (account *SCloudaccount) PerformProjectMapping(ctx context.Context, userCre
 		}
 	}
 
-	if len(input.ProjectId) == 0 {
+	if len(input.ProjectId) == 0 && !input.AutoCreateProjectForProvider {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "empty project_id")
 	}
-	t, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, input.ProjectId, account.DomainId)
-	if err != nil {
-		return nil, errors.Wrap(err, "FetchTenantByIdOrNameInDomain")
+	if input.AutoCreateProject || input.AutoCreateProjectForProvider {
+		t, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, input.ProjectId, account.DomainId)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchTenantByIdOrNameInDomain")
+		}
+		input.ProjectId = t.Id
 	}
-	input.ProjectId = t.Id
 
-	_, err = db.Update(account, func() error {
+	_, err := db.Update(account, func() error {
 		account.ProjectId = input.ProjectId
 		account.AutoCreateProject = input.AutoCreateProject
+		account.AutoCreateProjectForProvider = input.AutoCreateProjectForProvider
 		account.ProjectMappingId = input.ProjectMappingId
 		if input.EnableProjectSync != nil {
 			account.EnableProjectSync = tristate.NewFromBool(*input.EnableProjectSync)

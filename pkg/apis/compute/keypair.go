@@ -40,6 +40,7 @@ type KeypairCreateInput struct {
 
 type KeypairDetails struct {
 	apis.UserResourceDetails
+	apis.SharableResourceBaseInfo
 	SKeypair
 
 	// 私钥长度

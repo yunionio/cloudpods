@@ -190,6 +190,10 @@ func (self *SInstance) GetName() string {
 	return self.InstanceId
 }
 
+func (self *SInstance) GetDescription() string {
+	return self.Description
+}
+
 func (self *SInstance) GetHostname() string {
 	return self.HostName
 }
@@ -453,8 +457,8 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 	return ret, nil
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name, self.OSType)
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.host.zone.region.UpdateVM(self.InstanceId, input, self.OSType)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -557,7 +561,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instances[0], nil
 }
 
-func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupId string,
+func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupIds []string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId, osType string,
 	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
@@ -566,7 +570,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
 	params["InstanceType"] = instanceType
-	params["SecurityGroupId"] = securityGroupId
+	for _, id := range securityGroupIds {
+		params["SecurityGroupId"] = id
+	}
 	params["ZoneId"] = zoneId
 	params["InstanceName"] = name
 	if len(hostname) > 0 {
@@ -574,10 +580,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 	}
 	params["Description"] = desc
 	params["InternetChargeType"] = "PayByTraffic"
-	params["InternetMaxBandwidthIn"] = "200"
-	params["InternetMaxBandwidthOut"] = "100"
 	if publicIp.PublicIpBw > 0 {
 		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", publicIp.PublicIpBw)
+		params["InternetMaxBandwidthIn"] = "200"
 	}
 	if publicIp.PublicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
 		params["InternetChargeType"] = "PayByBandwidth"
@@ -608,6 +613,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 				params["SystemDisk.Category"] = api.STORAGE_CLOUD_ESSD
 				params["SystemDisk.PerformanceLevel"] = "PL3"
 			}
+			if d.Category == api.STORAGE_CLOUD_AUTO {
+				params["SystemDisk.BurstingEnabled"] = "true"
+			}
 			params["SystemDisk.Size"] = fmt.Sprintf("%d", d.Size)
 			params["SystemDisk.DiskName"] = d.GetName()
 			params["SystemDisk.Description"] = d.Description
@@ -625,6 +633,9 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 			if d.Category == api.STORAGE_CLOUD_ESSD_PL3 {
 				params[fmt.Sprintf("DataDisk.%d.Category", i)] = api.STORAGE_CLOUD_ESSD
 				params[fmt.Sprintf("DataDisk.%d..PerformanceLevel", i)] = "PL3"
+			}
+			if d.Category == api.STORAGE_CLOUD_AUTO {
+				params[fmt.Sprintf("DataDisk.%d.BurstingEnabled", i)] = "true"
 			}
 			params[fmt.Sprintf("DataDisk.%d.DiskName", i)] = d.GetName()
 			params[fmt.Sprintf("DataDisk.%d.Description", i)] = d.Description
@@ -670,13 +681,32 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 
 	params["ClientToken"] = utils.GenRequestId(20)
 
-	body, err := self.ecsRequest("CreateInstance", params)
+	resp, err := self.ecsRequest("RunInstances", params)
 	if err != nil {
-		log.Errorf("CreateInstance fail %s", err)
-		return "", err
+		return "", errors.Wrapf(err, "RunInstances")
 	}
-	instanceId, _ := body.GetString("InstanceId")
-	return instanceId, nil
+	ids := []string{}
+	err = resp.Unmarshal(&ids, "InstanceIdSets", "InstanceIdSet")
+	if err != nil {
+		return "", errors.Wrapf(err, "Unmarshal")
+	}
+	for _, id := range ids {
+		err = cloudprovider.Wait(time.Second*3, time.Minute, func() (bool, error) {
+			_, err := self.GetInstance(id)
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					return false, nil
+				}
+				return false, err
+			}
+			return true, nil
+		})
+		if err != nil {
+			return "", errors.Wrapf(cloudprovider.ErrNotFound, "after vm %s created", id)
+		}
+		return id, nil
+	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
 func (self *SRegion) AllocatePublicIpAddress(instanceId string) (string, error) {
@@ -863,13 +893,14 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
+func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUpdateOptions, osType string) error {
 	/*
 			api: ModifyInstanceAttribute
 		    https://help.aliyun.com/document_detail/25503.html?spm=a2c4g.11186623.4.1.DrgpjW
 	*/
 	params := make(map[string]string)
-	params["InstanceName"] = name
+	params["InstanceName"] = input.NAME
+	params["Description"] = input.Description
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 
@@ -976,10 +1007,6 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		return &eip, nil
 	}
 	return nil, nil
-}
-
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.AssignSecurityGroup(secgroupId, self.InstanceId)
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {

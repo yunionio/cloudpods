@@ -236,6 +236,7 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 	if len(domainId) > 0 {
 		query.Set("domain_id", jsonutils.NewString(domainId))
 	}
+	query.Set("pending_delete", jsonutils.NewString("all"))
 
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	tenant, err := modules.Projects.GetById(s, idStr, query)
@@ -335,12 +336,24 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 		log.Errorf("FetchTenantbyId fail %s", err)
 		return nil, errors.Wrapf(err, "TenantCache FetchById %s", item.Id)
 	}
+	// clean cache metadata
+	if item.PendingDeleted && saveMeta {
+		for k := range item.Metadata {
+			if strings.HasPrefix(k, USER_TAG_PREFIX) {
+				item.Metadata[k] = "none"
+			}
+		}
+	}
 	now := time.Now().UTC()
 	if err == nil {
 		obj := objo.(*STenant)
 		if obj.Id == item.Id && obj.Name == item.Name && obj.Domain == item.ProjectDomain && obj.DomainId == item.DomainId {
 			Update(obj, func() error {
 				obj.LastCheck = now
+				obj.PendingDeleted = item.PendingDeleted
+				if obj.PendingDeleted {
+					obj.PendingDeletedAt = item.PendingDeletedAt
+				}
 				return nil
 			})
 			if saveMeta {
@@ -354,6 +367,10 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 			obj.Domain = item.ProjectDomain
 			obj.DomainId = item.DomainId
 			obj.LastCheck = now
+			obj.PendingDeleted = item.PendingDeleted
+			if obj.PendingDeleted {
+				obj.PendingDeletedAt = item.PendingDeletedAt
+			}
 			return nil
 		})
 		if err != nil {
@@ -372,6 +389,10 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 		obj.Domain = item.ProjectDomain
 		obj.DomainId = item.DomainId
 		obj.LastCheck = now
+		obj.PendingDeleted = item.PendingDeleted
+		if obj.PendingDeleted {
+			obj.PendingDeletedAt = item.PendingDeletedAt
+		}
 		err = manager.TableSpec().InsertOrUpdate(ctx, obj)
 		if err != nil {
 			return nil, errors.Wrap(err, "InsertOrUpdate")
@@ -431,6 +452,7 @@ func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(ctx context.C
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(domainId), "domain_id")
 	params.Add(jsonutils.JSONTrue, "details")
+	params.Add(jsonutils.NewString("all"), "pending_delete")
 	tenants, err := modules.Projects.List(s, params)
 	if err != nil {
 		return errors.Wrap(err, "Projects.List")
@@ -547,6 +569,32 @@ func (tenant *STenant) GetAllClassMetadata() (map[string]string, error) {
 			continue
 		}
 		ret[k[len(CLASS_TAG_PREFIX):]] = v
+	}
+	return ret, nil
+}
+
+func (manager *STenantCacheManager) ConvertIds(ids []string, isDomain bool) ([]string, error) {
+	var q *sqlchemy.SQuery
+	if isDomain {
+		q = manager.GetDomainQuery("id")
+	} else {
+		q = manager.GetTenantQuery("id")
+	}
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("id"), stringutils2.RemoveUtf8Strings(ids)),
+		sqlchemy.In(q.Field("name"), ids),
+	))
+	q = q.Distinct()
+	results := []struct {
+		Id string
+	}{}
+	err := q.All(&results)
+	if err != nil {
+		return nil, errors.Wrap(err, "query")
+	}
+	ret := make([]string, len(results))
+	for i := range results {
+		ret[i] = results[i].Id
 	}
 	return ret, nil
 }

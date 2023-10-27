@@ -115,6 +115,11 @@ func init() {
 			api.TEMPLATE_LANG_CN,
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_HOST,
+			"host",
+			"宿主机",
+		},
+		sI18nElme{
 			api.TOPIC_RESOURCE_SERVER,
 			"virtual machine",
 			"虚拟机",
@@ -350,7 +355,7 @@ func init() {
 			"加入回收站",
 		},
 		sI18nElme{
-			string(api.ActionSyncUpdate),
+			string(api.ActionSyncCreate),
 			"sync_create",
 			"同步新建",
 		},
@@ -360,7 +365,7 @@ func init() {
 			"同步更新",
 		},
 		sI18nElme{
-			string(api.ActionSyncUpdate),
+			string(api.ActionSyncDelete),
 			"sync_delete",
 			"同步删除",
 		},

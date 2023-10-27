@@ -254,9 +254,12 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 			logclient.AddSimpleActionLog(disk, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 		}
 		conf := cloudprovider.DiskCreateConfig{
-			Name:      disk.GetName(),
-			SizeGb:    input.DiskSizeMb >> 10,
-			ProjectId: projectId,
+			Name:       disk.GetName(),
+			SizeGb:     input.DiskSizeMb >> 10,
+			ProjectId:  projectId,
+			Iops:       disk.Iops,
+			Throughput: disk.Throughput,
+			Desc:       disk.Description,
 		}
 		iDisk, err := iCloudStorage.CreateIDisk(&conf)
 		if err != nil {
@@ -283,27 +286,16 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
-	data := jsonutils.NewDict()
-
-	iCloudStorage, err := storage.GetIStorage(ctx)
-	if err != nil {
-		return err
-	}
-
-	iDisk, err := iCloudStorage.GetIDiskById(disk.GetExternalId())
-	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			task.ScheduleRun(data)
-			return nil
-		}
-		return err
-	}
-
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		err := iDisk.Delete(ctx)
-		return nil, err
+		idisk, err := disk.GetIDisk(ctx)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+		return nil, idisk.Delete(ctx)
 	})
-
 	return nil
 }
 

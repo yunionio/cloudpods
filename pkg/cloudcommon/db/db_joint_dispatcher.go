@@ -190,7 +190,7 @@ func attachItems(
 	}
 	item.PostCreate(ctx, userCred, nil, query, data)
 	OpsLog.LogAttachEvent(ctx, master, slave, userCred, jsonutils.Marshal(item))
-	dispatcher.manager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, data)
+	dispatcher.manager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, []jsonutils.JSONObject{data})
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 

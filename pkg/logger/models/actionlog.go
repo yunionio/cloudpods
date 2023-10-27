@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -68,6 +69,8 @@ type SActionlog struct {
 	Success bool `list:"user" create:"required"`
 	// 服务类别
 	Service string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"`
+	// 系统账号
+	IsSystemAccount tristate.TriState `default:"false" list:"user" create:"optional"`
 
 	// 用户IP
 	Ip string `width:"17" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -220,6 +223,8 @@ func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		"service":  self.Service,
 		"action":   self.Action,
 		"obj_type": self.ObjType,
+		"severity": string(self.Severity),
+		"kind":     string(self.Kind),
 	} {
 		db.DistinctFieldManager.InsertOrUpdate(ctx, ActionLog, k, v)
 	}
@@ -273,6 +278,10 @@ func (manager *SActionlogManager) ListItemFilter(
 
 	if input.Success != nil {
 		q = q.Equals("success", *input.Success)
+	}
+
+	if input.IsSystemAccount != nil {
+		q = q.Equals("is_system_account", *input.IsSystemAccount)
 	}
 
 	if len(input.Ip) > 0 {
@@ -402,7 +411,7 @@ func (manager *SActionlogManager) InitializeData() error {
 	if len(fileds) > 0 {
 		return nil
 	}
-	for _, key := range []string{"service", "obj_type", "action"} {
+	for _, key := range []string{"service", "obj_type", "action", "severity", "kind"} {
 		values, err := db.FetchDistinctField(manager, key)
 		if err != nil {
 			return errors.Wrapf(err, "db.FetchDistinctField")

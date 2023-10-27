@@ -359,6 +359,10 @@ func (m *HmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
 	go callback(nil, errors.Errorf("unsupport get migrate stats"))
 }
 
+func (m *HmpMonitor) MigrateCancel(cb StringCallback) {
+	m.Query("migrate_cancel", cb)
+}
+
 func (m *HmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	cb := func(output string) {
 		log.Infof("MigrateStartPostcopy %s: %s", m.server, output)

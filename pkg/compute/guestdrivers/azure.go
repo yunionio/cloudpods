@@ -79,7 +79,7 @@ func (self *SAzureGuestDriver) GetStorageTypes() []string {
 }
 
 func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
-	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
+	return chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SAzureGuestDriver) GetMaxSecurityGroupCount() int {

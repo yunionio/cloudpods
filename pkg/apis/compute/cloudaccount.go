@@ -132,6 +132,11 @@ type CloudaccountResourceInfo struct {
 	// 云账号名称
 	// example: google-account
 	Account string `json:"account,omitempty"`
+
+	// 云账号状态
+	AccountStatus string `json:"account_status,omitempty"`
+	// 云账号监控状态
+	AccountHealthStatus string `json:"account_health_status,omitempty"`
 }
 
 type CloudaccountCreateInput struct {
@@ -543,7 +548,8 @@ type CloudaccountSyncSkusInput struct {
 }
 
 type CloudaccountProjectMappingInput struct {
-	AutoCreateProject bool `json:"auto_create_project"`
+	AutoCreateProject            bool `json:"auto_create_project"`
+	AutoCreateProjectForProvider bool `json:"auto_create_project_for_provider"`
 
 	ProjectId string `json:"project_id"`
 

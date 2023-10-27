@@ -15,9 +15,13 @@
 package compute
 
 import (
+	"time"
+
+	cloudmux "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 type HostSpec struct {
@@ -97,8 +101,10 @@ type HostListInput struct {
 	CpuCount []int `json:"cpu_count"`
 	// 内存大小,单位Mb
 	MemSize []int `json:"mem_size"`
-	// 存储类型
+	// 存储类型(磁盘类型，sdd, rotate, hybrid)
 	StorageType []string `json:"storage_type"`
+	// 宿主机绑定存储类型
+	HostStorageType []string `json:"host_storage_type"`
 	// IPMI地址
 	IpmiIp []string `json:"ipmi_ip"`
 	// 宿主机状态
@@ -162,7 +168,7 @@ type HostDetails struct {
 	// 网卡数量
 	NicCount int `json:"nic_count"`
 	// 网卡详情
-	NicInfo []jsonutils.JSONObject `json:"nic_info"`
+	NicInfo []*types.SNic `json:"nic_info"`
 	// CPU超分比
 	CpuCommit int `json:"cpu_commit"`
 	// 内存超分比
@@ -298,7 +304,10 @@ type HostFilterListInputBase struct {
 	HostResourceInput
 
 	// 以宿主机序列号过滤
-	HostSN string `json:"host_sn"`
+	HostSN []string `json:"host_sn"`
+
+	// 以宿主机对接二层网络过滤
+	HostWireId string `json:"host_wire_id"`
 
 	// 以宿主机名称排序
 	OrderByHost string `json:"order_by_host"`
@@ -526,4 +535,95 @@ type HostReserveCpusInput struct {
 type HostAutoMigrateInput struct {
 	AutoMigrateOnHostDown     string `json:"auto_migrate_on_host_down"`
 	AutoMigrateOnHostShutdown string `json:"auto_migrate_on_host_shutdown"`
+}
+
+type HostNetifInput struct {
+	Mac string `json:"mac"`
+
+	VlanId int `json:"vlan_id"`
+}
+
+type HostAddNetifInput struct {
+	HostNetifInput
+
+	// Deprecated
+	Wire string `json:"wire" yunion-deprecated-by:"wire_id"`
+
+	WireId string `json:"wire_id"`
+
+	IpAddr string `json:"ip_addr"`
+
+	Rate int `json:"rate"`
+
+	NicType cloudmux.TNicType `json:"nic_type"`
+
+	Index int8 `json:"index"`
+
+	LinkUp string `json:"link_up"`
+
+	Mtu int16 `json:"mtu"`
+
+	Reset *bool `json:"reset"`
+
+	Interface *string `json:"interface"`
+
+	Bridge *string `json:"bridge"`
+
+	Reserve *bool `json:"reserve"`
+
+	RequireDesignatedIp *bool `json:"require_designated_ip"`
+}
+
+type HostEnableNetifInput struct {
+	HostNetifInput
+
+	// Deprecated
+	Network   string `json:"network" yunion-deprecated-by:"network_id"`
+	NetworkId string `json:"network_id"`
+
+	IpAddr string `json:"ip_addr"`
+
+	AllocDir string `json:"alloc_dir"`
+
+	NetType string `json:"net_type"`
+
+	Reserve *bool `json:"reserve"`
+
+	RequireDesignatedIp *bool `json:"require_designated_ip"`
+}
+
+type HostDisableNetifInput struct {
+	HostNetifInput
+
+	Reserve *bool `json:"reserve"`
+}
+
+type HostRemoveNetifInput struct {
+	HostNetifInput
+
+	Reserve *bool `json:"reserve"`
+}
+
+type HostError struct {
+	Type    string
+	Id      string
+	Name    string
+	Content string
+	Time    time.Time
+}
+
+type HostSyncErrorsInput struct {
+	HostErrors []HostError
+}
+
+type HostLoginInfoInput struct {
+}
+
+type HostLoginInfoOutput struct {
+	Ip       string `json:"ip"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type HostPerformStartInput struct {
 }

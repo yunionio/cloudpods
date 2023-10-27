@@ -119,10 +119,11 @@ func GetModels(opts *GetModelsOptions) error {
 	}
 	if !opts.InCludeOtherCloudEnv {
 		listOptions.Filter = append(listOptions.Filter,
-			"manager_id.isnullorempty()",  // len(manager_id) > 0 is for pubcloud objects
-			"external_id.isnullorempty()", // len(external_id) > 0 is for pubcloud objects
+			"manager_id.isnullorempty()", // len(manager_id) > 0 is for pubcloud objects
+			// "external_id.isnullorempty()", // len(external_id) > 0 is for pubcloud objects
 		)
 		listOptions.CloudEnv = "onpremise"
+		// listOptions.Provider = []string{"OneCloud"}
 	}
 	if inter, ok := opts.ModelSet.(IModelSetFilter); ok {
 		filter := inter.ModelFilter()

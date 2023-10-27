@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -32,6 +33,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -470,6 +472,11 @@ func (manager *SDBInstanceSkuManager) GetInstanceTypes(provider, cloudregionId, 
 	return manager.GetDBStringArray(q)
 }
 
+func (manager *SDBInstanceSkuManager) GetSkuCountByRegion(regionId string) (int, error) {
+	q := manager.Query().Equals("cloudregion_id", regionId)
+	return q.CountWithError()
+}
+
 func (manager *SDBInstanceSkuManager) GetDBInstanceSkus(provider, cloudregionId, engine, version, category, storageType string) ([]SDBInstanceSku, error) {
 	skus := []SDBInstanceSku{}
 	q := manager.Query("name").Equals("provider", provider).Equals("cloudregion_id", cloudregionId).Equals("engine", engine).Equals("engine_version", version).Distinct()
@@ -523,7 +530,7 @@ func (manager *SDBInstanceSkuManager) SyncDBInstanceSkus(
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].Delete(ctx, userCred)
+		err = db.RealDeleteModel(ctx, userCred, &removed[i])
 		if err != nil {
 			result.DeleteError(err)
 		} else {
@@ -784,14 +791,26 @@ func (self *SCloudregion) SyncDBInstanceSkus(
 		}
 		result.Delete()
 	}
+	ch := make(chan struct{}, options.Options.SkuBatchSync)
+	defer close(ch)
+	var wg sync.WaitGroup
 	for i := 0; i < len(added); i += 1 {
-		err = self.newFromCloudSku(ctx, userCred, added[i])
-		if err != nil {
-			result.AddError(err)
-			continue
-		}
-		result.Add()
+		ch <- struct{}{}
+		wg.Add(1)
+		go func(sku cloudprovider.ICloudDBInstanceSku) {
+			defer func() {
+				wg.Done()
+				<-ch
+			}()
+			err = self.newFromCloudSku(ctx, userCred, sku)
+			if err != nil {
+				result.AddError(err)
+				return
+			}
+			result.Add()
+		}(added[i])
 	}
+	wg.Wait()
 	return result
 }
 

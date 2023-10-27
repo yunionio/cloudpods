@@ -152,10 +152,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return ret, nil
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return nil
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"GroupId": secgroupIds[0]})
 }
@@ -430,8 +426,8 @@ func (self *SInstance) UpdateInstanceType(instanceType string) error {
 	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"InstanceType": instanceType})
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"InstanceName": name})
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"InstanceName": input.NAME})
 }
 
 func (self *SInstance) CreateInstanceSnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudInstanceSnapshot, error) {

@@ -174,6 +174,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(userCred.GetProjectDomain()), "project_domain")
 	logentry.Add(jsonutils.NewString(strings.Join(userCred.GetRoles(), ",")), "roles")
 	logentry.Add(jsonutils.NewString(userCred.GetLoginIp()), "ip")
+	logentry.Add(jsonutils.NewBool(userCred.IsSystemAccount()), "is_system_account")
 
 	service := consts.GetServiceType()
 	if len(service) > 0 {

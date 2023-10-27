@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
@@ -90,6 +91,8 @@ func StartService() {
 
 	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
 
+	cache.Init(opts.TokenExpirationSeconds)
+
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 
@@ -99,6 +102,8 @@ func StartService() {
 
 		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 		cron.AddJobEveryFewDays("CheckAllUserPasswordIsExpired", 1, 8, 0, 0, models.CheckAllUserPasswordIsExpired, true)
+
+		cron.AddJobEveryFewHour("RemoveObsoleteInvalidTokens", 6, 0, 0, models.RemoveObsoleteInvalidTokens, true)
 
 		cron.Start()
 		defer cron.Stop()

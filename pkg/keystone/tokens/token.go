@@ -16,6 +16,7 @@ package tokens
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 
@@ -25,10 +26,12 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
@@ -48,7 +51,7 @@ func GetDefaultToken() string {
 			AuditIds:  []string{utils.GenRequestId(16)},
 		}
 		var err error
-		defaultAuthTokenStr, err = defaultAuthToken.EncodeFernetToken()
+		defaultAuthTokenStr, err = defaultAuthToken.encodeFernetToken()
 		if err != nil {
 			log.Fatalf("defaultAuthToken.EncodeFernetToken fail: %s", err)
 		}
@@ -174,10 +177,76 @@ func (t *SAuthToken) Encode() ([]byte, error) {
 	return t.getPayload().Encode()
 }
 
-func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
+func (t *SAuthToken) IsExpired() bool {
+	return t.ValidDuration() <= 0
+}
+
+func (t *SAuthToken) ValidDuration() time.Duration {
+	return time.Until(t.ExpiresAt)
+}
+
+func TokenStrDecode(ctx context.Context, tokenStr string) (*SAuthToken, error) {
+	var fernetToken string
+	if len(tokenStr) > api.AUTH_TOKEN_LENGTH {
+		// old style fernet token, convert to new token of sha256 hash of fernetToken
+		fernetToken = tokenStr
+		tokenStr = stringutils2.GenId(fernetToken)
+	}
+	token, err := models.TokenCacheManager.FetchToken(tokenStr)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			// not found
+			if len(fernetToken) > 0 {
+				// try to decode fernetToken
+				token := &SAuthToken{}
+				err := token.parseFernetToken(fernetToken)
+				if err != nil {
+					return nil, errors.Wrap(err, "parseFernetToken")
+				}
+				if token.IsExpired() {
+					return nil, ErrExpiredToken
+				}
+				// we should save the token for later use
+				{
+					err := models.TokenCacheManager.Save(ctx, tokenStr, token.ExpiresAt, token.Method, token.AuditIds,
+						token.UserId, token.ProjectId, token.DomainId, token.Context.Source, token.Context.Ip)
+					if err != nil {
+						log.Errorf("TokenStrDecode: save token fail %s", err)
+					}
+				}
+				return token, nil
+			} else {
+				// ??? not a fernetToken
+				return nil, errors.Wrapf(ErrTokenNotFound, "token %q not found", tokenStr)
+			}
+		} else {
+			return nil, errors.Wrap(err, "FetchToken")
+		}
+	} else {
+		if !token.Valid {
+			return nil, ErrInvalidToken
+		}
+		return &SAuthToken{
+			UserId:    token.UserId,
+			ProjectId: token.ProjectId,
+			DomainId:  token.DomainId,
+
+			Method:    token.Method,
+			ExpiresAt: token.ExpiredAt,
+			AuditIds:  strings.Split(token.AuditIds, ","),
+
+			Context: mcclient.SAuthContext{
+				Source: token.Source,
+				Ip:     token.Ip,
+			},
+		}, nil
+	}
+}
+
+func (t *SAuthToken) parseFernetToken(tokenStr string) error {
 	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr)) // , time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
 	if tk == nil {
-		return errors.Wrapf(ErrInvalidToken, tokenStr)
+		return errors.Wrapf(ErrInvalidFernetToken, tokenStr)
 	}
 	err := t.Decode(tk)
 	if err != nil {
@@ -189,7 +258,7 @@ func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
 	return nil
 }
 
-func (t *SAuthToken) EncodeFernetToken() (string, error) {
+func (t *SAuthToken) encodeFernetToken() (string, error) {
 	tk, err := t.Encode()
 	if err != nil {
 		return "", errors.Wrap(err, "encode error")
@@ -201,19 +270,30 @@ func (t *SAuthToken) EncodeFernetToken() (string, error) {
 	return string(ftk), nil
 }
 
+func (t *SAuthToken) encodeShortToken() (string, error) {
+	tk, err := t.encodeFernetToken()
+	if err != nil {
+		return "", errors.Wrap(err, "encodeFernetToken")
+	}
+	stk := stringutils2.GenId(tk)
+	// log.Debugf("encodeShortToken %s => %s", tk, stk)
+	return stk, nil
+}
+
 func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, error) {
 	userExt, err := models.UserManager.FetchUserExtended(t.UserId, "", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
 	ret := mcclient.SSimpleToken{
-		Token:    token,
-		UserId:   t.UserId,
-		User:     userExt.Name,
-		Domain:   userExt.DomainName,
-		DomainId: userExt.DomainId,
-		Expires:  t.ExpiresAt,
-		Context:  t.Context,
+		Token:         token,
+		UserId:        t.UserId,
+		User:          userExt.Name,
+		Domain:        userExt.DomainName,
+		DomainId:      userExt.DomainId,
+		Expires:       t.ExpiresAt,
+		Context:       t.Context,
+		SystemAccount: userExt.IsSystemAccount,
 	}
 	var roles []models.SRole
 	if len(t.ProjectId) > 0 {
@@ -283,9 +363,10 @@ func (t *SAuthToken) getTokenV3(
 	token.Token.User.Displayname = user.Displayname
 	token.Token.User.Email = user.Email
 	token.Token.User.Mobile = user.Mobile
+	token.Token.User.IsSystemAccount = user.IsSystemAccount
 	token.Token.Context = t.Context
 
-	tk, err := t.EncodeFernetToken()
+	tk, err := t.encodeShortToken()
 	if err != nil {
 		return nil, errors.Wrap(err, "EncodeFernetToken")
 	}
@@ -298,7 +379,12 @@ func (t *SAuthToken) getTokenV3(
 
 	if len(roles) == 0 {
 		if project != nil || domain != nil {
-			return nil, ErrUserNotInProject
+			if project != nil {
+				return nil, errors.Wrapf(ErrUserNotInProject, "project %q", project.Name)
+			}
+			if domain != nil {
+				return nil, errors.Wrapf(ErrUserNotInProject, "domain %q", domain.Name)
+			}
 		}
 		/*extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
 		if err != nil {
@@ -355,9 +441,9 @@ func (t *SAuthToken) getTokenV3(
 		}
 
 		policyNames, _, _ := models.RolePolicyManager.GetMatchPolicyGroup(&token, time.Time{}, true)
-		token.Token.Policies.Project, _ = policyNames[rbacscope.ScopeProject]
-		token.Token.Policies.Domain, _ = policyNames[rbacscope.ScopeDomain]
-		token.Token.Policies.System, _ = policyNames[rbacscope.ScopeSystem]
+		token.Token.Policies.Project = policyNames[rbacscope.ScopeProject]
+		token.Token.Policies.Domain = policyNames[rbacscope.ScopeDomain]
+		token.Token.Policies.System = policyNames[rbacscope.ScopeSystem]
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {
@@ -367,6 +453,15 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Catalog = endpoints.GetKeystoneCatalogV3()
 		}
 	}
+
+	{
+		err := models.TokenCacheManager.Save(ctx, token.Id, t.ExpiresAt, t.Method, t.AuditIds, t.UserId, t.ProjectId, t.DomainId, t.Context.Source, t.Context.Ip)
+		if err != nil {
+			return nil, errors.Wrap(err, "Save Token")
+		}
+		cache.Save(token.Id, &token)
+	}
+
 	return &token, nil
 }
 
@@ -379,9 +474,10 @@ func (t *SAuthToken) getTokenV2(
 	token.User.Name = user.Name
 	token.User.Id = user.Id
 	token.User.Username = user.Name
+	token.User.IsSystemAccount = user.IsSystemAccount
 	token.Context = t.Context
 
-	tk, err := t.EncodeFernetToken()
+	tk, err := t.encodeShortToken()
 	if err != nil {
 		return nil, errors.Wrap(err, "EncodeFernetToken")
 	}
@@ -395,7 +491,7 @@ func (t *SAuthToken) getTokenV2(
 
 	if len(roles) == 0 {
 		if project != nil {
-			return nil, ErrUserNotInProject
+			return nil, errors.Wrapf(ErrUserNotInProject, "project %q", project.Name)
 		}
 		extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
 		if err != nil {
@@ -431,6 +527,14 @@ func (t *SAuthToken) getTokenV2(
 		if endpoints != nil {
 			token.ServiceCatalog = endpoints.GetKeystoneCatalogV2()
 		}
+	}
+
+	{
+		err := models.TokenCacheManager.Save(ctx, token.Token.Id, t.ExpiresAt, t.Method, t.AuditIds, t.UserId, t.ProjectId, t.DomainId, t.Context.Source, t.Context.Ip)
+		if err != nil {
+			return nil, errors.Wrap(err, "Save Token")
+		}
+		cache.Save(token.Token.Id, &token)
 	}
 
 	return &token, nil

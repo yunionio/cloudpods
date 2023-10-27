@@ -202,6 +202,16 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.NVMEDevice = &compute.IsolatedDeviceConfig{
 				Model: str,
 			}
+		case "iops":
+			diskConfig.Iops, _ = strconv.Atoi(str)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse disk iops %s", str)
+			}
+		case "throughput":
+			diskConfig.Throughput, _ = strconv.Atoi(str)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse disk iops %s", str)
+			}
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}
@@ -239,6 +249,17 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.Mac = netutils.MacUnpackHex(p)
 		} else if strings.HasPrefix(p, "wire=") {
 			netConfig.Wire = p[len("wire="):]
+		} else if strings.HasPrefix(p, "macs=") {
+			macSegs := strings.Split(p[len("macs="):], ",")
+			macs := make([]string, len(macSegs))
+			for i := range macSegs {
+				macs[i] = netutils.MacUnpackHex(macSegs[i])
+			}
+			netConfig.Macs = macs
+		} else if strings.HasPrefix(p, "ips=") {
+			netConfig.Addresses = strings.Split(p[len("ips="):], ",")
+		} else if strings.HasPrefix(p, "ip6s=") {
+			netConfig.Addresses6 = strings.Split(p[len("ip6s="):], ",")
 		} else if p == "[require_designated_ip]" {
 			netConfig.RequireDesignatedIP = true
 		} else if p == "[random_exit]" {
@@ -276,6 +297,18 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 		} else if strings.HasPrefix(p, "sriov-nic-model=") {
 			netConfig.SriovDevice = &compute.IsolatedDeviceConfig{
 				Model: p[len("sriov-nic-model="):],
+			}
+		} else if strings.HasPrefix(p, "rx-traffic-limit=") {
+			var err error
+			netConfig.RxTrafficLimit, err = strconv.ParseInt(p[len("rx-traffic-limit="):], 10, 0)
+			if err != nil {
+				return nil, errors.Wrap(err, "parse rx-traffic-limit")
+			}
+		} else if strings.HasPrefix(p, "tx-traffic-limit=") {
+			var err error
+			netConfig.TxTrafficLimit, err = strconv.ParseInt(p[len("tx-traffic-limit="):], 10, 0)
+			if err != nil {
+				return nil, errors.Wrap(err, "parse tx-traffic-limit")
 			}
 		} else if utils.IsInStringArray(p, compute.ALL_NETWORK_TYPES) {
 			netConfig.NetType = p

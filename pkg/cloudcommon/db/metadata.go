@@ -435,6 +435,9 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 }
 
 func (manager *SMetadataManager) GetStringValue(ctx context.Context, model IModel, key string, userCred mcclient.TokenCredential) string {
+	if !isAllowGetMetadata(ctx, model, userCred) {
+		return ""
+	}
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacscope.ScopeSystem, userCred, model, "metadata")) {
 		return ""
 	}
@@ -448,6 +451,9 @@ func (manager *SMetadataManager) GetStringValue(ctx context.Context, model IMode
 }
 
 func (manager *SMetadataManager) GetJsonValue(ctx context.Context, model IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+	if !isAllowGetMetadata(ctx, model, userCred) {
+		return nil
+	}
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacscope.ScopeSystem, userCred, model, "metadata")) {
 		return nil
 	}
@@ -641,7 +647,26 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	return nil
 }
 
+func isAllowGetMetadata(ctx context.Context, obj IModel, userCred mcclient.TokenCredential) bool {
+	if userCred != nil {
+		for _, scope := range []rbacscope.TRbacScope{
+			rbacscope.ScopeSystem,
+			rbacscope.ScopeDomain,
+			rbacscope.ScopeProject,
+		} {
+			if IsAllowGetSpec(ctx, scope, userCred, obj, "metadata") {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
 func (manager *SMetadataManager) GetAll(ctx context.Context, obj IModel, keys []string, keyPrefix string, userCred mcclient.TokenCredential) (map[string]string, error) {
+	if !isAllowGetMetadata(ctx, obj, userCred) {
+		return map[string]string{}, nil
+	}
 	meta, err := manager.rawGetAll(obj.Keyword(), obj.GetId(), keys, keyPrefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "rawGetAll")
@@ -660,7 +685,7 @@ func (manager *SMetadataManager) rawGetAll(objType, objId string, keys []string,
 	idStr := getObjectIdstr(objType, objId)
 	records := make([]SMetadata, 0)
 	q := manager.Query().Equals("id", idStr)
-	if keys != nil && len(keys) > 0 {
+	if len(keys) > 0 {
 		q = q.In("key", keys)
 	}
 	if len(keyPrefix) > 0 {
@@ -679,15 +704,19 @@ func (manager *SMetadataManager) rawGetAll(objType, objId string, keys []string,
 	return ret, nil
 }
 
-func (manager *SMetadataManager) IsSystemAdminKey(key string) bool {
-	return IsMetadataKeySystemAdmin(key)
+/*func (manager *SMetadataManager) IsSystemAdminKey(key string) bool {
+	return isMetadataKeySystemAdmin(key)
+}*/
+
+func isMetadataLoginKey(key string) bool {
+	return strings.HasPrefix(key, "login_")
 }
 
-func IsMetadataKeySystemAdmin(key string) bool {
+func isMetadataKeySystemAdmin(key string) bool {
 	return strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX)
 }
 
-func IsMetadataKeyPrivateKey(key string) bool {
+func isMetadataKeyPrivateKey(key string) bool {
 	for _, k := range []string{"admin", "project"} {
 		for _, v := range []string{"ssh-private-key", "ssh-public-key"} {
 			if key == fmt.Sprintf("%s-%s", k, v) {
@@ -698,7 +727,7 @@ func IsMetadataKeyPrivateKey(key string) bool {
 	return strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX)
 }
 
-func IsMetadataKeySysTag(key string) bool {
+func isMetadataKeySysTag(key string) bool {
 	return strings.HasPrefix(key, SYS_TAG_PREFIX)
 }
 
@@ -706,11 +735,11 @@ func (manager *SMetadataManager) GetSysadminKey(key string) string {
 	return fmt.Sprintf("%s%s", SYSTEM_ADMIN_PREFIX, key)
 }
 
-func IsMetadataKeyVisiable(key string) bool {
-	return !(IsMetadataKeySysTag(key) || IsMetadataKeySystemAdmin(key) || IsMetadataKeyPrivateKey(key))
+func IsMetadataKeyVisible(key string) bool {
+	return !(isMetadataKeySysTag(key) || isMetadataKeySystemAdmin(key) || isMetadataKeyPrivateKey(key))
 }
 
-func GetVisiableMetadata(ctx context.Context, model IStandaloneModel, userCred mcclient.TokenCredential) (map[string]string, error) {
+func GetVisibleMetadata(ctx context.Context, model IStandaloneModel, userCred mcclient.TokenCredential) (map[string]string, error) {
 	metaData, err := model.GetAllMetadata(ctx, userCred)
 	if err != nil {
 		return nil, err
@@ -719,7 +748,7 @@ func GetVisiableMetadata(ctx context.Context, model IStandaloneModel, userCred m
 		delete(metaData, key)
 	}
 	for key := range metaData {
-		if !IsMetadataKeyVisiable(key) {
+		if !IsMetadataKeyVisible(key) {
 			delete(metaData, key)
 		}
 	}
@@ -731,7 +760,7 @@ func metaList2Map(manager IMetadataBaseModelManager, userCred mcclient.TokenCred
 
 	hiddenKeys := manager.GetMetadataHiddenKeys()
 	for _, meta := range metaList {
-		if IsMetadataKeyVisiable(meta.Key) && !utils.IsInStringArray(meta.Key, hiddenKeys) {
+		if IsMetadataKeyVisible(meta.Key) && !utils.IsInStringArray(meta.Key, hiddenKeys) {
 			metaMap[meta.Key] = meta.Value
 		}
 	}

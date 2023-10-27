@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -34,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -398,7 +400,7 @@ func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context
 		if cnt, _ := removed[i].GetElasticcacheCount(); cnt > 0 {
 			err = removed[i].MarkAsSoldout(ctx)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
+			err = db.RealDeleteModel(ctx, userCred, &removed[i])
 		}
 		if err != nil {
 			syncResult.DeleteError(err)
@@ -416,14 +418,26 @@ func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context
 			}
 		}
 	}
+	ch := make(chan struct{}, options.Options.SkuBatchSync)
+	defer close(ch)
+	var wg sync.WaitGroup
 	for i := 0; i < len(added); i += 1 {
-		err = region.newFromPublicCloudSku(ctx, userCred, added[i].GetExternalId())
-		if err != nil {
-			syncResult.AddError(err)
-		} else {
+		ch <- struct{}{}
+		wg.Add(1)
+		go func(sku SElasticcacheSku) {
+			defer func() {
+				wg.Done()
+				<-ch
+			}()
+			err = region.newFromPublicCloudSku(ctx, userCred, sku.GetExternalId())
+			if err != nil {
+				syncResult.AddError(err)
+				return
+			}
 			syncResult.Add()
-		}
+		}(added[i])
 	}
+	wg.Wait()
 	return syncResult
 }
 

@@ -869,6 +869,22 @@ func (region *SRegion) ModifyInstanceAutoRenewalAttribute(rdsId string, month in
 	return nil
 }
 
+func (rds *SDBInstance) Update(ctx context.Context, input cloudprovider.SDBInstanceUpdateOptions) error {
+	return rds.region.ModifyDBInstanceName(rds.DBInstanceId, input.NAME)
+}
+
+func (region *SRegion) ModifyDBInstanceName(id, name string) error {
+	params := map[string]string{
+		"DBInstanceId":          id,
+		"DBInstanceDescription": name,
+	}
+	_, err := region.rdsRequest("ModifyDBInstanceDescription", params)
+	if err != nil {
+		return errors.Wrap(err, "ModifyDBInstanceDescription")
+	}
+	return nil
+}
+
 func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCycle) error {
 	params := map[string]string{
 		"DBInstanceId": instanceId,

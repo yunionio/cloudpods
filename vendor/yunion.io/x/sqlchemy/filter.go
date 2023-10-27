@@ -49,6 +49,12 @@ func (tq *SQuery) Like(f string, v string) *SQuery {
 	return tq.Filter(cond)
 }
 
+// Regexp filters query with a regexp condition
+func (tq *SQuery) Regexp(f string, v string) *SQuery {
+	cond := Regexp(tq.Field(f), v)
+	return tq.Filter(cond)
+}
+
 // Contains filters query with a contains condition
 func (tq *SQuery) Contains(f string, v string) *SQuery {
 	cond := Contains(tq.Field(f), v)

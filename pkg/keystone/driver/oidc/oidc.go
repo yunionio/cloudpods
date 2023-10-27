@@ -188,6 +188,8 @@ func (self *SOIDCDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 
 	idp.TryUserJoinProject(self.oidcConfig.SIdpAttributeOptions, ctx, usr, domain.Id, attrs)
 
+	extUser.AuditIds = []string{ident.OIDCAuth.Code}
+
 	return extUser, nil
 }
 

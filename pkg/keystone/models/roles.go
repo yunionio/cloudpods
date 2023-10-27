@@ -72,7 +72,7 @@ func init() {
 
 type SRole struct {
 	SIdentityBaseResource    `"name->update":""`
-	db.SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
+	db.SSharableBaseResource `"is_public->create":"domain_optional" "public_scope->create":"domain_optional"`
 }
 
 func (manager *SRoleManager) GetContextManagers() [][]db.IModelManager {
@@ -435,20 +435,12 @@ func (role *SRole) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
 	return db.SharableModelIsSharable(role, reqUsrId)
 }
 
-func (role *SRole) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) bool {
-	return true
-}
-
 func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
 	err := db.SharablePerformPublic(role, ctx, userCred, apis.PerformPublicProjectInput{PerformPublicDomainInput: input})
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
 	return nil, nil
-}
-
-func (role *SRole) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) bool {
-	return true
 }
 
 func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
@@ -466,7 +458,7 @@ func (role *SRole) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 
 func (role *SRole) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.SharedResourceManager.CleanModelShares(ctx, userCred, role)
-	return role.SIdentityBaseResource.Delete(ctx, userCred)
+	return role.SIdentityBaseResource.RealDelete(ctx, userCred)
 }
 
 func (manager *SRoleManager) ValidateCreateData(

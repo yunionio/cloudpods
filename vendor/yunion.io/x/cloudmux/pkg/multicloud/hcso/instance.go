@@ -37,7 +37,6 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/cloudmux/pkg/multicloud/hcso/client/modules"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei"
 )
 
@@ -523,10 +522,6 @@ func (self *SInstance) GetMachine() string {
 	return "pc"
 }
 
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.SetSecurityGroups([]string{secgroupId})
-}
-
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	currentSecgroups, err := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
 	if err != nil {
@@ -534,12 +529,19 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	}
 
 	add, remove, _ := compareSet(currentSecgroups, secgroupIds)
-	err = self.host.zone.region.assignSecurityGroups(add, self.GetId())
-	if err != nil {
-		return err
+	for _, id := range add {
+		err = self.host.zone.region.assignSecurityGroup(self.GetId(), id)
+		if err != nil {
+			return err
+		}
 	}
-
-	return self.host.zone.region.unassignSecurityGroups(remove, self.GetId())
+	for _, id := range remove {
+		err := self.host.zone.region.unassignSecurityGroups(self.GetId(), id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (self *SInstance) GetHypervisor() string {
@@ -609,8 +611,8 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.GetId(), name)
+func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	return self.host.zone.region.UpdateVM(self.GetId(), input)
 }
 
 // https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0032380449.html
@@ -901,7 +903,7 @@ type ServerTag struct {
 退订资源的方法： https://support.huaweicloud.com/usermanual-billing/zh-cn_topic_0072297197.html
 */
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string,
-	securityGroupId string, vpcId string, zoneId string, desc string, disks []SDisk, ipAddr string,
+	securityGroupIds []string, vpcId string, zoneId string, desc string, disks []SDisk, ipAddr string,
 	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle, projectId string, tags map[string]string) (string, error) {
 	params := SServerCreate{}
 	params.AvailabilityZone = zoneId
@@ -911,7 +913,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params.Description = desc
 	params.Count = 1
 	params.Nics = []NIC{{SubnetID: SubnetId, IpAddress: ipAddr}}
-	params.SecurityGroups = []SecGroup{{ID: securityGroupId}}
+	groups := []SecGroup{}
+	for _, id := range securityGroupIds {
+		groups = append(groups, SecGroup{ID: id})
+	}
+	params.SecurityGroups = groups
 	params.Vpcid = vpcId
 
 	for i, disk := range disks {
@@ -999,45 +1005,22 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067161469.html
-// 添加多个安全组时，建议最多为弹性云服务器添加5个安全组。
-// todo: 确认是否需要先删除，再进行添加操作
-func (self *SRegion) assignSecurityGroups(secgroupIds []string, instanceId string) error {
-	_, err := self.GetInstanceByID(instanceId)
-	if err != nil {
-		return err
-	}
-
-	for i := range secgroupIds {
-		secId := secgroupIds[i]
-		params := jsonutils.NewDict()
-		secgroupObj := jsonutils.NewDict()
-		secgroupObj.Add(jsonutils.NewString(secId), "name")
-		params.Add(secgroupObj, "addSecurityGroup")
-
-		_, err := self.ecsClient.NovaServers.PerformAction("action", instanceId, params)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (self *SRegion) assignSecurityGroup(instanceId, secgroupId string) error {
+	_, err := self.post(SERVICE_ECS, fmt.Sprintf("servers/%s/action", instanceId), map[string]interface{}{
+		"addSecurityGroup": map[string]interface{}{
+			"name": secgroupId,
+		},
+	})
+	return err
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067161717.html
-func (self *SRegion) unassignSecurityGroups(secgroupIds []string, instanceId string) error {
-	for i := range secgroupIds {
-		secId := secgroupIds[i]
-		params := jsonutils.NewDict()
-		secgroupObj := jsonutils.NewDict()
-		secgroupObj.Add(jsonutils.NewString(secId), "name")
-		params.Add(secgroupObj, "removeSecurityGroup")
-
-		_, err := self.ecsClient.NovaServers.PerformAction("action", instanceId, params)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (self *SRegion) unassignSecurityGroups(instanceId, secgroupId string) error {
+	_, err := self.post(SERVICE_ECS, fmt.Sprintf("servers/%s/action", instanceId), map[string]interface{}{
+		"removeSecurityGroup": map[string]interface{}{
+			"name": secgroupId,
+		},
+	})
+	return err
 }
 
 func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
@@ -1149,10 +1132,11 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	return err
 }
 
-func (self *SRegion) UpdateVM(instanceId, name string) error {
+func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUpdateOptions) error {
 	params := jsonutils.NewDict()
 	serverObj := jsonutils.NewDict()
-	serverObj.Add(jsonutils.NewString(name), "name")
+	serverObj.Add(jsonutils.NewString(input.NAME), "name")
+	serverObj.Add(jsonutils.NewString(input.Description), "description")
 	params.Add(serverObj, "server")
 
 	_, err := self.ecsClient.Servers.Update(instanceId, params)
@@ -1329,25 +1313,23 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	return err
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html
 func (self *SRegion) GetInstanceSecrityGroupIds(instanceId string) ([]string, error) {
-	if len(instanceId) == 0 {
-		return nil, fmt.Errorf("GetInstanceSecrityGroups instanceId is empty")
-	}
-
-	securitygroups := make([]SSecurityGroup, 0)
-	ctx := &modules.SManagerContext{InstanceManager: self.ecsClient.NovaServers, InstanceId: instanceId}
-	err := DoListInContext(self.ecsClient.NovaSecurityGroups.ListInContext, ctx, nil, &securitygroups)
+	resp, err := self.list(SERVICE_ECS, fmt.Sprintf("servers/%s/os-security-groups", instanceId), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	securitygroupIds := []string{}
-	for _, secgroup := range securitygroups {
-		securitygroupIds = append(securitygroupIds, secgroup.GetId())
+	ret := []struct {
+		Id string
+	}{}
+	err = resp.Unmarshal(&ret, "security_groups")
+	if err != nil {
+		return nil, err
 	}
-
-	return securitygroupIds, nil
+	ids := []string{}
+	for _, sec := range ret {
+		ids = append(ids, sec.Id)
+	}
+	return ids, nil
 }
 
 func (self *SInstance) GetProjectId() string {

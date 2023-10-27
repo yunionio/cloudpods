@@ -73,3 +73,15 @@ func (opts *NetworkAddressIdOptions) GetId() string {
 func (opts *NetworkAddressIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
+
+type NetworkAddressIdsOptions struct {
+	ID []string
+}
+
+func (opts *NetworkAddressIdsOptions) GetIds() []string {
+	return opts.ID
+}
+
+func (opts *NetworkAddressIdsOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}

@@ -340,14 +340,6 @@ func (group *SGroup) UnlinkIdp(idpId string) error {
 	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityGroup, group.Id)
 }
 
-func (group *SGroup) AllowPerformJoin(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.SJoinProjectsInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, group, "join")
-}
-
 // 组加入项目
 func (group *SGroup) PerformJoin(
 	ctx context.Context,
@@ -360,14 +352,6 @@ func (group *SGroup) PerformJoin(
 		return nil, errors.Wrap(err, "joinProjects")
 	}
 	return nil, nil
-}
-
-func (group *SGroup) AllowPerformLeave(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.SLeaveProjectsInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, group, "leave")
 }
 
 // 组退出项目
@@ -450,14 +434,6 @@ func (group *SGroup) PostCreate(
 	}
 }
 
-func (group *SGroup) AllowPerformAddUsers(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.PerformGroupAddUsersInput,
-) bool {
-	return db.IsDomainAllowPerform(ctx, userCred, group, "add-users")
-}
-
 // 组添加用户
 func (group *SGroup) PerformAddUsers(
 	ctx context.Context,
@@ -484,14 +460,6 @@ func (group *SGroup) PerformAddUsers(
 		}
 	}
 	return nil, nil
-}
-
-func (group *SGroup) AllowPerformRemoveUsers(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.PerformGroupRemoveUsersInput,
-) bool {
-	return db.IsDomainAllowPerform(ctx, userCred, group, "remove-users")
 }
 
 // 组删除用户

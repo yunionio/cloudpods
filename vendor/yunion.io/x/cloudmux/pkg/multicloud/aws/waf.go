@@ -543,3 +543,7 @@ func (self *SWebAcl) GetCloudResources() ([]cloudprovider.SCloudResource, error)
 	}
 	return ret, nil
 }
+
+func (self *SWebAcl) GetDescription() string {
+	return self.AwsTags.GetDescription()
+}

@@ -297,10 +297,6 @@ func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(ctx, userCred, self, "config")
-}
-
 func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	sensitive := jsonutils.QueryBoolean(query, "sensitive", false)
 	if sensitive {
@@ -319,11 +315,6 @@ func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mc
 
 func (ident *SIdentityProvider) getDriverClass() driver.IIdentityBackendClass {
 	return driver.GetDriverClass(ident.Driver)
-}
-
-// 配置认证源
-func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
-	return db.IsAdminAllowUpdateSpec(ctx, userCred, ident, "config")
 }
 
 // 配置认证源
@@ -569,10 +560,6 @@ func (self *SIdentityProvider) NeedSync() bool {
 	}
 
 	return true
-}
-
-func (self *SIdentityProvider) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, self, "sync")
 }
 
 // 手动同步认证源
@@ -860,7 +847,7 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
 			continue
 		}
-		err = users[i].ValidatePurgeCondition(ctx)
+		err = users[i].ValidatePurgeCondition(ctx, nil)
 		if err != nil {
 			db.OpsLog.LogEvent(&users[i], db.ACT_DELETE_FAIL, err, userCred)
 			log.Errorf("users %s ValidatePurgeCondition fail %s", users[i].Name, err)
@@ -1333,10 +1320,6 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 	}
 }
 
-func (idp *SIdentityProvider) AllowGetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) bool {
-	return db.IsDomainAllowGetSpec(ctx, userCred, idp, "saml-metadata")
-}
-
 func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) (api.GetIdpSamlMetadataOutput, error) {
 	output := api.GetIdpSamlMetadataOutput{}
 	if !saml.IsSAMLEnabled() {
@@ -1360,10 +1343,6 @@ func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCr
 	}
 	output.Metadata = string(xmlBytes)
 	return output, nil
-}
-
-func (idp *SIdentityProvider) AllowGetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) bool {
-	return db.IsDomainAllowGetSpec(ctx, userCred, idp, "sso-redirect-uri")
 }
 
 func (idp *SIdentityProvider) GetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) (api.GetIdpSsoRedirectUriOutput, error) {

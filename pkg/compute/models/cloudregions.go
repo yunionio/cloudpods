@@ -1023,6 +1023,10 @@ func (self *SCloudregion) GetRegionInfo(ctx context.Context) api.CloudregionReso
 	}
 }
 
+func (self *SCloudregion) GetRegionExtId() string {
+	return fetchExternalId(self.ExternalId)
+}
+
 func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
 	if len(self.ExternalId) > 0 && len(self.ManagerId) == 0 {
 		return httperrors.NewConflictError("Cannot update external resource")
@@ -1036,20 +1040,12 @@ func (self *SCloudregion) SyncVpcs(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (self *SCloudregion) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	capa, err := GetCapabilities(ctx, userCred, query, self, nil)
 	if err != nil {
 		return nil, err
 	}
 	return jsonutils.Marshal(&capa), nil
-}
-
-func (self *SCloudregion) AllowGetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (self *SCloudregion) GetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1284,6 +1280,16 @@ func (self *SCloudregion) StartSyncImagesTask(ctx context.Context, userCred mccl
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SCloudregion) StartSyncSkusTask(ctx context.Context, userCred mcclient.TokenCredential, res string) error {
+	params := jsonutils.NewDict()
+	params.Set("resource", jsonutils.NewString(res))
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudRegionSyncSkusTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "CloudRegionSyncSkusTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 func (self *SCloudregion) GetCloudprovider() (*SCloudprovider, error) {

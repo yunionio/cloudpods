@@ -433,7 +433,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
-	err = db.InheritFromTo(ctx, guest, instanceSnapshot)
+	err = db.InheritFromTo(ctx, userCred, guest, instanceSnapshot)
 	if err != nil {
 		return nil, errors.Wrap(err, "Inherit ClassMetadata")
 	}

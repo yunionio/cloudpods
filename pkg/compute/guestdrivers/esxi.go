@@ -80,6 +80,22 @@ func (self *SESXiGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCap
 				Changeable:     false,
 			},
 		},
+		Storages: cloudprovider.Storage{
+			SysDisk: []cloudprovider.StorageInfo{
+				{StorageType: api.STORAGE_LOCAL, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_NAS, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_NFS, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_VSAN, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CIFS, MinSizeGb: options.Options.LocalSysDiskMinSizeGB, MaxSizeGb: options.Options.LocalSysDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+			},
+			DataDisk: []cloudprovider.StorageInfo{
+				{StorageType: api.STORAGE_LOCAL, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_NAS, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_NFS, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_VSAN, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_CIFS, MinSizeGb: options.Options.LocalDataDiskMinSizeGB, MaxSizeGb: options.Options.LocalDataDiskMaxSizeGB, StepSizeGb: 1, Resizable: true},
+			},
+		},
 	}
 }
 
@@ -191,7 +207,7 @@ func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
 }
 
 func (self *SESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
-	return []string{api.VM_READY}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {
@@ -765,6 +781,52 @@ func (self *SESXiGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred
 	return self.SBaseGuestDriver.StartDeleteGuestTask(ctx, userCred, guest, params, parentTaskId)
 }
 
-func (self *SESXiGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
+func (self *SESXiGuestDriver) SyncOsInfo(ctx context.Context, userCred mcclient.TokenCredential, g *models.SGuest, extVM cloudprovider.IOSInfo) error {
+	ometa, err := g.GetAllMetadata(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "GetAllMetadata")
+	}
+	// save os info
+	osinfo := map[string]interface{}{}
+	for k, v := range map[string]string{
+		"os_full_name":    extVM.GetFullOsName(),
+		"os_name":         string(extVM.GetOsType()),
+		"os_arch":         extVM.GetOsArch(),
+		"os_type":         string(extVM.GetOsType()),
+		"os_distribution": extVM.GetOsDist(),
+		"os_version":      extVM.GetOsVersion(),
+		"os_language":     extVM.GetOsLang(),
+	} {
+		if len(v) == 0 || len(ometa[k]) > 0 {
+			continue
+		}
+		osinfo[k] = v
+	}
+	if len(osinfo) > 0 {
+		err := g.SetAllMetadata(ctx, osinfo, userCred)
+		if err != nil {
+			return errors.Wrap(err, "SetAllMetadata")
+		}
+	}
+	return nil
+}
+
+func (drv *SESXiGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVm, err := guest.GetIVM(ctx)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, errors.Wrapf(err, "GetIVM")
+		}
+
+		err = iVm.DeleteVM(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DeleteVM")
+		}
+
+		return nil, cloudprovider.WaitDeleted(iVm, time.Second*10, time.Minute*3)
+	})
 	return nil
 }

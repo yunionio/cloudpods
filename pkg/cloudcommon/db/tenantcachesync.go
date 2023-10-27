@@ -62,6 +62,10 @@ func (w *tenantCacheSyncWorker) Run() {
 	if err != nil {
 		log.Errorf("fail to syncProjects %s", err)
 	}
+	err = syncUsers(w.ctx)
+	if err != nil {
+		log.Errorf("fail to syncUsers %s", err)
+	}
 }
 
 func (w *tenantCacheSyncWorker) Dump() string {
@@ -74,23 +78,25 @@ func syncDomains(ctx context.Context) error {
 	query.Add(jsonutils.NewInt(1024), "limit")
 	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
+	query.Add(jsonutils.NewString("all"), "pending_delete")
 	total := -1
 	offset := 0
 	for total < 0 || offset < total {
 		query.Set("offset", jsonutils.NewInt(int64(offset)))
 		results, err := modules.Domains.List(s, query)
 		if err != nil {
-			log.Errorf("syncDomain error %s", err)
 			return errors.Wrap(err, "Domains.List")
 		}
 		total = results.Total
 		for i := range results.Data {
 			// update domain cache
 			item := SCachedTenant{}
-			results.Data[i].Unmarshal(&item)
-			item.ProjectDomain = identityapi.KeystoneDomainRoot
-			item.DomainId = identityapi.KeystoneDomainRoot
-			TenantCacheManager.Save(ctx, item, true)
+			err := results.Data[i].Unmarshal(&item)
+			if err == nil {
+				item.ProjectDomain = identityapi.KeystoneDomainRoot
+				item.DomainId = identityapi.KeystoneDomainRoot
+				TenantCacheManager.Save(ctx, item, true)
+			}
 			offset++
 		}
 	}
@@ -103,21 +109,52 @@ func syncProjects(ctx context.Context) error {
 	query.Add(jsonutils.NewInt(1024), "limit")
 	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
+	query.Add(jsonutils.NewString("all"), "pending_delete")
 	total := -1
 	offset := 0
 	for total < 0 || offset < total {
 		query.Set("offset", jsonutils.NewInt(int64(offset)))
 		results, err := modules.Projects.List(s, query)
 		if err != nil {
-			log.Errorf("syncProjects error %s", err)
 			return errors.Wrap(err, "Projects.List")
 		}
 		total = results.Total
 		for i := range results.Data {
 			// update project cache
 			item := SCachedTenant{}
-			results.Data[i].Unmarshal(&item)
-			TenantCacheManager.Save(ctx, item, true)
+			err := results.Data[i].Unmarshal(&item)
+			if err == nil {
+				TenantCacheManager.Save(ctx, item, true)
+			}
+			offset++
+		}
+	}
+	return nil
+}
+
+func syncUsers(ctx context.Context) error {
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.NewInt(1024), "limit")
+	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
+	query.Add(jsonutils.JSONTrue, "details")
+	query.Add(jsonutils.NewString("all"), "pending_delete")
+	total := -1
+	offset := 0
+	for total < 0 || offset < total {
+		query.Set("offset", jsonutils.NewInt(int64(offset)))
+		results, err := modules.UsersV3.List(s, query)
+		if err != nil {
+			return errors.Wrap(err, "UsersV3.List")
+		}
+		total = results.Total
+		for i := range results.Data {
+			// update user cache
+			item := SCachedUser{}
+			err := results.Data[i].Unmarshal(&item)
+			if err == nil {
+				UserCacheManager.Save(ctx, item.Id, item.Name, item.DomainId, item.ProjectDomain, item.Lang)
+			}
 			offset++
 		}
 	}

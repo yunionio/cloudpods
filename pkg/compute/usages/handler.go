@@ -132,7 +132,7 @@ func rangeObjHandler(
 		if !refresh {
 			cached := usageCache.Get(key)
 			if cached != nil {
-				response(w, cached)
+				response(w, "usage", cached)
 				return
 			}
 		}
@@ -142,7 +142,7 @@ func rangeObjHandler(
 			return
 		}
 		usageCache.AtomicSet(key, usage)
-		response(w, usage)
+		response(w, "usage", usage)
 	}
 }
 
@@ -172,9 +172,9 @@ func AddUsageHandler(prefix string, app *appsrv.Application) {
 	}
 }
 
-func response(w http.ResponseWriter, obj interface{}) {
+func response(w http.ResponseWriter, key string, obj interface{}) {
 	body := map[string]interface{}{
-		"usage": obj,
+		key: obj,
 	}
 	appsrv.SendStruct(w, body)
 }
@@ -725,12 +725,13 @@ func StorageUsage(
 	)
 
 	count[fmt.Sprintf("%s", dPrefix)] = result.CapacityUsed
-	for s, capa := range result.StorageTypeCapacity {
+	for s, capa := range result.StorageTypeCapacityUsed {
 		count[fmt.Sprintf("%s.storage_type.%s", dPrefix, s)] = capa
 	}
-	for m, capa := range result.MediumeCapacity {
+	for m, capa := range result.MediumeCapacityUsed {
 		count[fmt.Sprintf("%s.medium_type.%s", dPrefix, m)] = capa
 	}
+
 	count[fmt.Sprintf("%s.count", dPrefix)] = result.CountUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
 	count[fmt.Sprintf("%s.unready.count", dPrefix)] = result.CountUnready

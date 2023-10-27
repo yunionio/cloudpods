@@ -18,8 +18,11 @@ import (
 	"context"
 	"strings"
 
+	"yunion.io/x/sqlchemy"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -36,21 +39,30 @@ func (self *SBingoCloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_BINGO_CLOUD
 }
 
-func (self *SBingoCloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
-}
-
-func (self *SBingoCloudRegionDriver) GenerateSecurityGroupName(name string) string {
-	if strings.ToLower(name) == "default" {
-		return "default"
-	}
-	return name
-}
-
-func (self *SBingoCloudRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return false
-}
-
 func (self *SBingoCloudRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return nil
+}
+
+func (self *SBingoCloudRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		rule := input.Rules[i]
+		if len(rule.Ports) > 0 && strings.Contains(rule.Ports, ",") {
+			return nil, httperrors.NewInputParameterError("invalid ports %s", rule.Ports)
+		}
+	}
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+}
+
+func (self *SBingoCloudRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
+func (self *SBingoCloudRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("cloudregion_id", vpc.CloudregionId)
+	}, nil
 }

@@ -435,7 +435,7 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	}
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	cli.WithHttpTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+	cli.WithHttpTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ioutil.ReadAll")
@@ -447,10 +447,11 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 		}
 		service := strings.Split(req.URL.Host, ".")[0]
 		action := params.Get("Action")
-		respCheck := func(resp *http.Response) {
+		respCheck := func(resp *http.Response) error {
 			if client.cpcfg.UpdatePermission != nil {
 				client.cpcfg.UpdatePermission(service, action)
 			}
+			return nil
 		}
 		if client.cpcfg.ReadOnly {
 			for _, prefix := range []string{"Get", "List", "Describe"} {
@@ -703,14 +704,15 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 					RequestBody:    client.debug,
 					ResponseHeader: client.debug,
 					ResponseBody:   client.debug,
-					Transport: cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+					Transport: cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 						method, path := req.Method, req.URL.Path
-						respCheck := func(resp *http.Response) {
+						respCheck := func(resp *http.Response) error {
 							if resp.StatusCode == 403 {
 								if client.cpcfg.UpdatePermission != nil {
 									client.cpcfg.UpdatePermission("cos", fmt.Sprintf("%s %s", method, path))
 								}
 							}
+							return nil
 						}
 						if client.cpcfg.ReadOnly {
 							if req.Method == "GET" || req.Method == "HEAD" {
@@ -804,8 +806,12 @@ func (client *SQcloudClient) fetchBuckets() error {
 				log.Errorf("fail to find region %s", regionStr)
 				continue
 			}
+			zoneId := bInfo.Region
 			zone, _ = region.(*SRegion).getZoneById(bInfo.Region)
-			log.Debugf("find zonal bucket %s", zone.GetId())
+			if zone != nil {
+				zoneId = zone.GetId()
+			}
+			log.Debugf("find zonal bucket %s", zoneId)
 		}
 		b := SBucket{
 			region:     region.(*SRegion),
@@ -980,6 +986,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,

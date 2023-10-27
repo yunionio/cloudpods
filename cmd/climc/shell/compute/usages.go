@@ -15,19 +15,25 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
+	"fmt"
+	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
+
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type GeneralUsageOptions struct {
 	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack|google|ctyun"`
-	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack|Google|Ctyun"`
-	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack|DStack|Google|Ctyun"`
+	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|Google|Ctyun"`
+	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|DStack|Google|Ctyun"`
 	Project  string   `help:"show usage of specified project"`
 
 	ProjectDomain string `help:"show usage of specified domain"`
@@ -58,7 +64,50 @@ func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
 	return params
 }
 
+type HistoryUsageListOptions struct {
+	options.ExtraListOptions
+	StartDate time.Time
+	EndDate   time.Time
+	Interval  string `choices:"hour|day|month|year" default:"day"`
+}
+
+func (opts *HistoryUsageListOptions) Params() (jsonutils.JSONObject, error) {
+	if opts.StartDate.IsZero() || opts.EndDate.IsZero() {
+		opts.EndDate = time.Now()
+		switch opts.Interval {
+		case "hour":
+			opts.StartDate = time.Now().Add(time.Hour * -24)
+		case "day":
+			opts.StartDate = time.Now().AddDate(0, 0, -30)
+		case "month":
+			opts.StartDate = time.Now().AddDate(0, -12, 0)
+		case "year":
+			opts.StartDate = time.Now().AddDate(-3, 0, 0)
+		}
+	}
+	return jsonutils.Marshal(opts), nil
+}
+
+func (o *HistoryUsageListOptions) GetExportKeys() string {
+	return ""
+}
+
+func (o *HistoryUsageListOptions) GetId() string {
+	return ""
+}
+
 func init() {
+
+	cmd := shell.NewResourceCmd(modules.HistoryUsages)
+	cmd.GetWithCustomShow("list", func(data jsonutils.JSONObject) {
+		ret := map[string][]jsonutils.JSONObject{}
+		data.Unmarshal(&ret)
+		for k, d := range ret {
+			fmt.Println(k)
+			printutils.PrintJSONList(&printutils.ListResult{Data: d}, nil)
+		}
+	}, &HistoryUsageListOptions{})
+
 	R(&GeneralUsageOptions{}, "usage", "Show general usage", func(s *mcclient.ClientSession, args *GeneralUsageOptions) error {
 		params := fetchHostTypeOptions(args)
 		if args.Project != "" {

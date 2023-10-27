@@ -655,7 +655,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 
 				Tags: tags,
 
-				ExternalSecgroupId: secgroup,
+				ExternalSecgroupIds: []string{secgroup},
 			}
 			for _, sizeGB := range dataDiskSizesGB {
 				desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
@@ -808,34 +808,38 @@ func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket
 	return region.GetIBucketById(name)
 }
 
-func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups([]string{secgroupId}, "", "", 0, 1)
+func (self *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroup, err := self.GetSecurityGroup(id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetSecurityGroups(%s)", secgroupId)
+		return nil, errors.Wrapf(err, "GetSecurityGroups(%s)", id)
 	}
-	if total < 1 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	secgroups[0].region = self
-	return &secgroups[0], nil
+	return secgroup, nil
 }
 
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups([]string{}, opts.VpcId, opts.Name, 0, 0)
-	if err != nil {
-		return nil, err
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for {
+		part, total, err := self.GetSecurityGroups(nil, "", len(ret), 100)
+		if err != nil {
+			return nil, err
+		}
+		for i := range part {
+			part[i].region = self
+			ret = append(ret, &part[i])
+		}
+		if len(part) == 0 || len(ret) >= total {
+			break
+		}
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return ret, nil
 }
 
 func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	return self.CreateSecurityGroup(opts)
+	group, err := self.CreateSecurityGroup(opts)
+	if err != nil {
+		return nil, err
+	}
+	return group, nil
 }
 
 func (region *SRegion) GetCapabilities() []string {

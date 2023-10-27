@@ -16,14 +16,16 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -40,16 +42,36 @@ type IIdentityModelManager interface {
 
 type IIdentityModel interface {
 	db.IStandaloneModel
+	db.IPendingDeletable
+
+	GetDomain() *SDomain
 
 	GetIIdentityModelManager() IIdentityModelManager
 
 	GetIIdentityModel() IIdentityModel
 }
 
+type IEnabledIdentityModelManager interface {
+	IIdentityModelManager
+
+	GetIEnabledIdentityModelManager() IEnabledIdentityModelManager
+}
+
+type IEnabledIdentityModel interface {
+	IIdentityModel
+
+	db.IEnabledBaseInterface
+
+	GetIEnabledIdentityModelManager() IEnabledIdentityModelManager
+
+	GetIEnabledIdentityModel() IEnabledIdentityModel
+}
+
 // +onecloud:swagger-gen-ignore
 type SIdentityBaseResourceManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SDomainizedResourceBaseManager
+	db.SPendingDeletedBaseManager
 }
 
 func NewIdentityBaseResourceManager(dt interface{}, tableName string, keyword string, keywordPlural string) SIdentityBaseResourceManager {
@@ -61,15 +83,16 @@ func NewIdentityBaseResourceManager(dt interface{}, tableName string, keyword st
 type SIdentityBaseResource struct {
 	db.SStandaloneResourceBase
 	db.SDomainizedResourceBase
+	db.SPendingDeletedBase
 
 	// 额外信息
 	Extra *jsonutils.JSONDict `nullable:"true"`
-	// DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user"`
 }
 
 // +onecloud:swagger-gen-ignore
 type SEnabledIdentityBaseResourceManager struct {
 	SIdentityBaseResourceManager
+	db.SEnabledResourceBaseManager
 }
 
 func NewEnabledIdentityBaseResourceManager(dt interface{}, tableName string, keyword string, keywordPlural string) SEnabledIdentityBaseResourceManager {
@@ -81,7 +104,7 @@ func NewEnabledIdentityBaseResourceManager(dt interface{}, tableName string, key
 type SEnabledIdentityBaseResource struct {
 	SIdentityBaseResource
 
-	Enabled tristate.TriState `default:"true" list:"user" update:"domain" create:"domain_optional"`
+	db.SEnabledResourceBase `"enabled->default":"true" "enabled->list":"user" "enabled->update":"domain" "enabled->create":"domain_optional"`
 }
 
 func (model *SIdentityBaseResource) GetIIdentityModelManager() IIdentityModelManager {
@@ -91,10 +114,6 @@ func (model *SIdentityBaseResource) GetIIdentityModelManager() IIdentityModelMan
 func (model *SIdentityBaseResource) GetIIdentityModel() IIdentityModel {
 	return model.GetVirtualObject().(IIdentityModel)
 }
-
-// func (model *SIdentityBaseResource) IsOwner(userCred mcclient.TokenCredential) bool {
-// 	return userCred.GetProjectDomainId() == model.DomainId
-// }
 
 func (model *SIdentityBaseResource) GetDomain() *SDomain {
 	if len(model.DomainId) > 0 && model.DomainId != api.KeystoneDomainRoot {
@@ -117,6 +136,12 @@ func (manager *SIdentityBaseResourceManager) FetchByName(userCred mcclient.IIden
 
 func (manager *SIdentityBaseResourceManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
 	return db.FetchByIdOrName(manager.GetIIdentityModelManager(), userCred, idStr)
+}
+
+func (manager *SIdentityBaseResourceManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+	q = manager.SPendingDeletedBaseManager.FilterBySystemAttributes(manager.GetIStandaloneModelManager(), q, userCred, query, scope)
+	return q
 }
 
 func (manager *SIdentityBaseResourceManager) ListItemFilter(
@@ -147,12 +172,9 @@ func (manager *SEnabledIdentityBaseResourceManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
 	}
-	if query.Enabled != nil {
-		if *query.Enabled {
-			q = q.IsTrue("enabled")
-		} else {
-			q = q.IsFalse("enabled")
-		}
+	q, err = manager.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
 }
@@ -217,28 +239,6 @@ func (manager *SEnabledIdentityBaseResourceManager) QueryDistinctExtraField(q *s
 	}
 	return q, httperrors.ErrNotFound
 }
-
-/*func fetchDomainInfo(data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
-	if len(domainId) > 0 {
-		data.(*jsonutils.JSONDict).Remove(key)
-		domain, err := DomainManager.FetchDomainByIdOrName(domainId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), domainId)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		owner := db.SOwnerId{DomainId: domain.Id, Domain: domain.Name}
-		data.(*jsonutils.JSONDict).Set("project_domain", jsonutils.NewString(domain.Id))
-		return &owner, nil
-	}
-	return nil, nil
-}
-
-func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	return fetchDomainInfo(data)
-}*/
 
 func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.IdentityBaseResourceCreateInput) (api.IdentityBaseResourceCreateInput, error) {
 	domain, _ := DomainManager.FetchDomainById(ownerId.GetProjectDomainId())
@@ -307,33 +307,13 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(
 	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
-	// domainIds := stringutils2.SSortedStrings{}
 	for i := range rows {
 		rows[i] = api.IdentityBaseResourceDetails{
 			StandaloneResourceDetails: stdRows[i],
 			DomainizedResourceInfo:    domainRows[i],
 		}
-		/*var base *SIdentityBaseResource
-		reflectutils.FindAnonymouStructPointer(objs[i], &base)
-		if base != nil && len(base.DomainId) > 0 && base.DomainId != api.KeystoneDomainRoot {
-			domainIds = stringutils2.Append(domainIds, base.DomainId)
-		}*/
 	}
 
-	/*if len(fields) == 0 || fields.Contains("project_domain") {
-		domains := fetchDomain(domainIds)
-		if domains != nil {
-			for i := range rows {
-				var base *SIdentityBaseResource
-				reflectutils.FindAnonymouStructPointer(objs[i], &base)
-				if base != nil && len(base.DomainId) > 0 && base.DomainId != api.KeystoneDomainRoot {
-					if domain, ok := domains[base.DomainId]; ok {
-						rows[i].ProjectDomain = domain.Name
-					}
-				}
-			}
-		}
-	}*/
 	return rows
 }
 
@@ -358,21 +338,6 @@ func (manager *SEnabledIdentityBaseResourceManager) FetchCustomizeColumns(
 	return rows
 }
 
-/*
-func fetchDomain(domainIds []string) map[string]SDomain {
-	q := DomainManager.Query().In("id", domainIds)
-	domains := make([]SDomain, 0)
-	err := db.FetchModelObjects(DomainManager, q, &domains)
-	if err != nil {
-		return nil
-	}
-	ret := make(map[string]SDomain)
-	for i := range domains {
-		ret[domains[i].Id] = domains[i]
-	}
-	return ret
-}*/
-
 func (model *SIdentityBaseResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	model.DomainId = ownerId.GetProjectDomainId()
 	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
@@ -388,11 +353,11 @@ func (self *SIdentityBaseResource) ValidateUpdateData(ctx context.Context, userC
 }
 */
 
-func (self *SEnabledIdentityBaseResource) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if self.Enabled.IsTrue() {
+func (ident *SEnabledIdentityBaseResource) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if ident.Enabled.IsTrue() {
 		return httperrors.NewResourceBusyError("resource is enabled")
 	}
-	return self.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
+	return ident.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
 func (model *SIdentityBaseResource) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -456,4 +421,73 @@ func (manager *SIdentityBaseResourceManager) GetPropertyDomainTagValueTree(
 		userCred,
 		query,
 	)
+}
+
+func (model *SIdentityBaseResource) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if !model.PendingDeleted {
+		newName := fmt.Sprintf("%s-deleted-%s", model.Name, timeutils.ShortDate(timeutils.UtcNow()))
+		err := model.SPendingDeletedBase.MarkPendingDelete(model.GetIStandaloneModel(), ctx, userCred, newName)
+		if err != nil {
+			return errors.Wrap(err, "MarkPendingDelete")
+		}
+	}
+	return nil // DeleteModel(ctx, userCred, model.GetIVirtualModel())
+}
+
+func (model *SIdentityBaseResource) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if !model.PendingDeleted {
+		err := model.SPendingDeletedBase.MarkPendingDelete(model.GetIStandaloneModel(), ctx, userCred, "")
+		if err != nil {
+			return errors.Wrap(err, "MarkPendingDelete")
+		}
+	}
+	return db.DeleteModel(ctx, userCred, model.GetIIdentityModel())
+}
+
+func (manager *SEnabledIdentityBaseResourceManager) GetIEnabledIdentityModelManager() IEnabledIdentityModelManager {
+	return manager.GetVirtualObject().(IEnabledIdentityModelManager)
+}
+
+func (model *SEnabledIdentityBaseResource) GetIEnabledIdentityModelManager() IEnabledIdentityModelManager {
+	return model.GetModelManager().(IEnabledIdentityModelManager)
+}
+
+func (model *SEnabledIdentityBaseResource) GetIEnabledIdentityModel() IEnabledIdentityModel {
+	return model.GetVirtualObject().(IEnabledIdentityModel)
+}
+
+// 启用资源
+func (model *SEnabledIdentityBaseResource) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(model.GetIEnabledIdentityModel(), ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
+// 禁用资源
+func (model *SEnabledIdentityBaseResource) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(model.GetIEnabledIdentityModel(), ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
+func (model *SIdentityBaseResource) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := model.SStandaloneAnonResourceBase.GetShortDesc(ctx)
+	if model.DomainId != api.KeystoneDomainRoot {
+		desc.Add(jsonutils.NewString(model.DomainId), "domain_id")
+		domain := model.GetIIdentityModel().GetDomain()
+		if domain != nil {
+			desc.Add(jsonutils.NewString(domain.Name), "domain")
+		}
+	}
+	return desc
+}
+
+func (model *SEnabledIdentityBaseResource) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := model.SIdentityBaseResource.GetShortDesc(ctx)
+	desc.Add(jsonutils.NewBool(model.Enabled.Bool()), "enabled")
+	return desc
 }

@@ -76,7 +76,7 @@ func init() {
 
 type SPolicy struct {
 	SEnabledIdentityBaseResource
-	db.SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
+	db.SSharableBaseResource `"is_public->create":"domain_optional" "public_scope->create":"domain_optional"`
 
 	// swagger:ignore
 	// Deprecated
@@ -430,10 +430,6 @@ func (policy *SPolicy) IsShared() bool {
 	return db.SharableModelIsShared(policy)
 }
 
-func (policy *SPolicy) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) bool {
-	return true
-}
-
 // 共享Policy
 func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
 	err := db.SharablePerformPublic(policy, ctx, userCred, apis.PerformPublicProjectInput{PerformPublicDomainInput: input})
@@ -442,10 +438,6 @@ func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.Toke
 	}
 	// policyman.PolicyManager.SyncOnce()
 	return nil, nil
-}
-
-func (policy *SPolicy) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) bool {
-	return true
 }
 
 // 设置policy为私有
@@ -465,7 +457,7 @@ func (policy *SPolicy) CustomizeCreate(ctx context.Context, userCred mcclient.To
 
 func (policy *SPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.SharedResourceManager.CleanModelShares(ctx, userCred, policy)
-	return policy.SEnabledIdentityBaseResource.Delete(ctx, userCred)
+	return policy.SEnabledIdentityBaseResource.RealDelete(ctx, userCred)
 }
 
 func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -626,10 +618,6 @@ func (policy *SPolicy) fetchMatchableRoles() ([]SRole, error) {
 		return nil, errors.Wrap(err, "FetchRoles")
 	}
 	return roles, nil
-}
-
-func (policy *SPolicy) AllowPerformBindRole(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) bool {
-	return true
 }
 
 // 绑定角色

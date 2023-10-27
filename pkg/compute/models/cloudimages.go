@@ -136,6 +136,10 @@ func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.Token
 	return self.Delete(ctx, userCred)
 }
 
+func (self *SCloudimage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.RealDeleteModel(ctx, userCred, self)
+}
+
 func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.TokenCredential, image SCachedimage, region *SCloudregion) error {
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {

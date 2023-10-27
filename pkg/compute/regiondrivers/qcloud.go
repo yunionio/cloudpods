@@ -23,8 +23,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
-	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -44,14 +44,6 @@ type SQcloudRegionDriver struct {
 func init() {
 	driver := SQcloudRegionDriver{}
 	models.RegisterRegionDriver(&driver)
-}
-
-func (self *SQcloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
-}
-
-func (self *SQcloudRegionDriver) GenerateSecurityGroupName(name string) string {
-	return name
 }
 
 func (self *SQcloudRegionDriver) GetProvider() string {
@@ -407,13 +399,6 @@ func (self *SQcloudRegionDriver) IsSupportedElasticcache() bool {
 	return true
 }
 
-func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope(service string) rbacscope.TRbacScope {
-	if service == "redis" {
-		return rbacscope.ScopeProject
-	}
-	return rbacscope.ScopeSystem
-}
-
 func (self *SQcloudRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	elasticCacheV := validators.NewModelIdOrNameValidator("elasticcache", "elasticcache", ownerId)
 	accountTypeV := validators.NewStringChoicesValidator("account_type", choices.NewChoices("normal")).Default("normal")
@@ -611,4 +596,33 @@ func (self *SQcloudRegionDriver) ValidateCreateCdnData(ctx context.Context, user
 		}
 	}
 	return input, nil
+}
+
+func (self *SQcloudRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		rule := input.Rules[i]
+		if rule.Priority == nil {
+			return nil, httperrors.NewMissingParameterError("priority")
+		}
+
+		if *rule.Priority < 1 || *rule.Priority > 100 {
+			return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *rule.Priority)
+		}
+
+	}
+	return input, nil
+}
+
+func (self *SQcloudRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Priority != nil && *input.Priority < 1 || *input.Priority > 100 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
+func (self *SQcloudRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("cloudregion_id", vpc.CloudregionId)
+	}, nil
 }

@@ -83,7 +83,7 @@ func (self *SH3CGuestDriver) GetStorageTypes() []string {
 }
 
 func (self *SH3CGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
-	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
+	return chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SH3CGuestDriver) GetDetachDiskStatus() ([]string, error) {

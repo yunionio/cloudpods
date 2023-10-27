@@ -40,49 +40,49 @@ func init() {
 	taskman.RegisterTask(GuestChangeConfigTask{})
 }
 
-func (self *GuestChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	StartScheduleObjects(ctx, self, nil)
+func (task *GuestChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	StartScheduleObjects(ctx, task, nil)
 }
 
-func (self *GuestChangeConfigTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+func (task *GuestChangeConfigTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
 	schedInput := new(schedapi.ScheduleInput)
-	err := self.Params.Unmarshal(schedInput, "sched_desc")
+	err := task.Params.Unmarshal(schedInput, "sched_desc")
 	if err != nil {
 		return nil, err
 	}
 	return schedInput, nil
 }
 
-func (self *GuestChangeConfigTask) OnStartSchedule(obj IScheduleModel) {
+func (task *GuestChangeConfigTask) OnStartSchedule(obj IScheduleModel) {
 	// do nothing
 }
 
-func (self *GuestChangeConfigTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject, index int) {
 	// do nothing
 }
 
-func (self *GuestChangeConfigTask) OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject) {
-	obj := self.GetObject()
+func (task *GuestChangeConfigTask) OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject) {
+	obj := task.GetObject()
 	guest := obj.(*models.SGuest)
-	self.markStageFailed(ctx, guest, reason)
+	task.markStageFailed(ctx, guest, reason)
 }
 
-func (self *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource) {
+func (task *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource, index int) {
 	// must get object from task, because of obj is nil
-	guest := self.GetObject().(*models.SGuest)
-	self.Params.Set("sched_session_id", jsonutils.NewString(target.SessionId))
-	if self.Params.Contains("create") {
+	guest := task.GetObject().(*models.SGuest)
+	task.Params.Set("sched_session_id", jsonutils.NewString(target.SessionId))
+	if task.Params.Contains("create") {
 		disks := make([]*api.DiskConfig, 0)
-		err := self.Params.Unmarshal(&disks, "create")
+		err := task.Params.Unmarshal(&disks, "create")
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			return
 		}
 		var resizeDisksCount = 0
-		if self.Params.Contains("resize") {
-			iResizeDisks, err := self.Params.Get("resize")
+		if task.Params.Contains("resize") {
+			iResizeDisks, err := task.Params.Get("resize")
 			if err != nil {
-				self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+				task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 				return
 			}
 			resizeDisksCount = iResizeDisks.(*jsonutils.JSONArray).Length()
@@ -90,120 +90,120 @@ func (self *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj I
 		for i := 0; i < len(disks); i++ {
 			disks[i].Storage = target.Disks[resizeDisksCount+i].StorageIds[0]
 		}
-		self.Params.Set("create", jsonutils.Marshal(disks))
+		task.Params.Set("create", jsonutils.Marshal(disks))
 	}
 
-	self.SetStage("StartResizeDisks", nil)
+	task.SetStage("StartResizeDisks", nil)
 
-	self.StartResizeDisks(ctx, guest, nil)
+	task.StartResizeDisks(ctx, guest, nil)
 }
 
-func (self *GuestChangeConfigTask) StartResizeDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	_, err := self.Params.Get("resize")
+func (task *GuestChangeConfigTask) StartResizeDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	_, err := task.Params.Get("resize")
 	if err == nil {
-		self.SetStage("OnDisksResizeComplete", nil)
-		self.OnDisksResizeComplete(ctx, guest, data)
+		task.SetStage("OnDisksResizeComplete", nil)
+		task.OnDisksResizeComplete(ctx, guest, data)
 	} else {
-		self.DoCreateDisksTask(ctx, guest)
+		task.DoCreateDisksTask(ctx, guest)
 	}
 }
 
-func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	iResizeDisks, err := self.Params.Get("resize")
+	iResizeDisks, err := task.Params.Get("resize")
 	if iResizeDisks == nil || err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	resizeDisks := iResizeDisks.(*jsonutils.JSONArray)
 	for i := 0; i < resizeDisks.Length(); i++ {
 		iResizeSet, err := resizeDisks.GetAt(i)
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeDisks.GetAt fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeDisks.GetAt fail %s", err)))
 			return
 		}
 		resizeSet := iResizeSet.(*jsonutils.JSONArray)
 		diskId, err := resizeSet.GetAt(0)
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(0) fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(0) fail %s", err)))
 			return
 		}
 		idStr, err := diskId.GetString()
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("diskId.GetString fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("diskId.GetString fail %s", err)))
 			return
 		}
 		jSize, err := resizeSet.GetAt(1)
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(1) fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(1) fail %s", err)))
 			return
 		}
 		size, err := jSize.Int()
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("jSize.Int fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("jSize.Int fail %s", err)))
 			return
 		}
 		iDisk, err := models.DiskManager.FetchById(idStr)
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.DiskManager.FetchById(idStr) fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.DiskManager.FetchById(idStr) fail %s", err)))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
 		if disk.DiskSize < int(size) {
 			var pendingUsage models.SQuota
-			err = self.GetPendingUsage(&pendingUsage, 0)
+			err = task.GetPendingUsage(&pendingUsage, 0)
 			if err != nil {
-				self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("self.GetPendingUsage(&pendingUsage) fail %s", err)))
+				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("task.GetPendingUsage(&pendingUsage) fail %s", err)))
 				return
 			}
-			err = guest.StartGuestDiskResizeTask(ctx, self.UserCred, disk.Id, size, self.GetTaskId(), &pendingUsage)
+			err = guest.StartGuestDiskResizeTask(ctx, task.UserCred, disk.Id, size, task.GetTaskId(), &pendingUsage)
 			if err != nil {
-				self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest.StartGuestDiskResizeTask fail %s", err)))
+				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest.StartGuestDiskResizeTask fail %s", err)))
 				return
 			}
 			return
 		}
 	}
 
-	self.DoCreateDisksTask(ctx, guest)
+	task.DoCreateDisksTask(ctx, guest)
 }
 
-func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest *models.SGuest) {
+func (task *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest *models.SGuest) {
 	disks := make([]*api.DiskConfig, 0)
-	err := self.Params.Unmarshal(&disks, "create")
+	err := task.Params.Unmarshal(&disks, "create")
 	if err != nil || len(disks) == 0 {
-		self.OnCreateDisksComplete(ctx, guest, nil)
+		task.OnCreateDisksComplete(ctx, guest, nil)
 		return
 	}
 	host, _ := guest.GetHost()
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, disks, nil, false, false, nil, nil, false)
+	err = guest.CreateDisksOnHost(ctx, task.UserCred, host, disks, nil, false, false, nil, nil, false)
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	self.SetStage("OnCreateDisksComplete", nil)
-	guest.StartGuestCreateDiskTask(ctx, self.UserCred, disks, self.GetTaskId())
+	task.SetStage("OnCreateDisksComplete", nil)
+	guest.StartGuestCreateDiskTask(ctx, task.UserCred, disks, task.GetTaskId())
 }
 
-func (self *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.markStageFailed(ctx, guest, err)
+	task.markStageFailed(ctx, guest, err)
 }
 
-func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	if self.Params.Contains("instance_type") || self.Params.Contains("vcpu_count") || self.Params.Contains("vmem_size") {
-		self.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
-		instanceType, _ := self.Params.GetString("instance_type")
-		vcpuCount, _ := self.Params.Int("vcpu_count")
-		vmemSize, _ := self.Params.Int("vmem_size")
+	if task.Params.Contains("instance_type") || task.Params.Contains("vcpu_count") || task.Params.Contains("vmem_size") {
+		task.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
+		instanceType, _ := task.Params.GetString("instance_type")
+		vcpuCount, _ := task.Params.Int("vcpu_count")
+		vmemSize, _ := task.Params.Int("vmem_size")
 		if len(instanceType) > 0 {
 			provider := guest.GetDriver().GetProvider()
 			sku, err := models.ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider, false)
 			if err != nil {
-				self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.ServerSkuManager.FetchSkuByNameAndProvider error %s", err)))
+				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.ServerSkuManager.FetchSkuByNameAndProvider error %s", err)))
 				return
 			}
 			vcpuCount = int64(sku.CpuCoreCount)
@@ -216,26 +216,26 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 				vmemSize = int64(guest.VmemSize)
 			}
 		}
-		self.startGuestChangeCpuMemSpec(ctx, guest, instanceType, vcpuCount, vmemSize)
+		task.startGuestChangeCpuMemSpec(ctx, guest, instanceType, vcpuCount, vmemSize)
 	} else {
-		self.OnGuestChangeCpuMemSpecComplete(ctx, obj, data)
+		task.OnGuestChangeCpuMemSpecComplete(ctx, obj, data)
 	}
 }
 
-func (self *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount int64, vmemSize int64) {
-	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, instanceType, vcpuCount, vmemSize)
+func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount int64, vmemSize int64) {
+	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, task, instanceType, vcpuCount, vmemSize)
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	instanceType, _ := self.Params.GetString("instance_type")
-	vcpuCount, _ := self.Params.Int("vcpu_count")
-	vmemSize, _ := self.Params.Int("vmem_size")
+	instanceType, _ := task.Params.GetString("instance_type")
+	vcpuCount, _ := task.Params.Int("vcpu_count")
+	vmemSize, _ := task.Params.Int("vmem_size")
 
 	if len(instanceType) == 0 {
 		skus, err := models.ServerSkuManager.GetSkus(api.CLOUD_PROVIDER_ONECLOUD, int(vcpuCount), int(vmemSize))
@@ -260,7 +260,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return nil
 	})
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update fail %s", err)))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update fail %s", err)))
 		return
 	}
 	changeConfigSpec := guest.GetShortDesc(ctx)
@@ -274,12 +274,12 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		changeConfigSpec.Set("instance_type", jsonutils.NewString(instanceType))
 	}
 
-	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR, changeConfigSpec.String(), self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR, changeConfigSpec.String(), task.UserCred)
 
 	var pendingUsage models.SQuota
-	err = self.GetPendingUsage(&pendingUsage, 0)
+	err = task.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetPendingUsage %s", err)))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetPendingUsage %s", err)))
 		return
 	}
 	var cancelUsage models.SQuota
@@ -297,7 +297,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 
 	keys, err := guest.GetQuotaKeys()
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest.GetQuotaKeys %s", err)))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest.GetQuotaKeys %s", err)))
 		return
 	}
 	cancelUsage.SetKeys(keys)
@@ -307,108 +307,108 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
 
 	if !cancelUsage.IsEmpty() {
-		err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage, true) // success
+		err = quotas.CancelPendingUsage(ctx, task.UserCred, &pendingUsage, &cancelUsage, true) // success
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("CancelPendingUsage fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("CancelPendingUsage fail %s", err)))
 			return
 		}
-		err = self.SetPendingUsage(&pendingUsage, 0)
+		err = task.SetPendingUsage(&pendingUsage, 0)
 		if err != nil {
-			self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("SetPendingUsage fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("SetPendingUsage fail %s", err)))
 			return
 		}
 	}
 
 	if !reduceUsage.IsEmpty() {
-		quotas.CancelUsages(ctx, self.UserCred, []db.IUsage{&reduceUsage})
+		quotas.CancelUsages(ctx, task.UserCred, []db.IUsage{&reduceUsage})
 	}
 
-	self.OnGuestChangeCpuMemSpecFinish(ctx, guest)
+	task.OnGuestChangeCpuMemSpecFinish(ctx, guest)
 }
 
-func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if err := guest.GetDriver().OnGuestChangeCpuMemFailed(ctx, guest, data.(*jsonutils.JSONDict), self); err != nil {
+func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if err := guest.GetDriver().OnGuestChangeCpuMemFailed(ctx, guest, data.(*jsonutils.JSONDict), task); err != nil {
 		log.Errorln(err)
 	}
-	self.markStageFailed(ctx, guest, data)
+	task.markStageFailed(ctx, guest, data)
 }
 
-func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
+func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
 	models.HostManager.ClearSchedDescCache(guest.HostId)
-	self.SetStage("OnSyncConfigComplete", nil)
-	err := guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
+	task.SetStage("OnSyncConfigComplete", nil)
+	err := guest.StartSyncTaskWithoutSyncstatus(ctx, task.UserCred, false, task.GetTaskId())
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
 		return
 	}
 }
 
-func (self *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	self.SetStage("on_sync_status_complete", nil)
-	err := guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	task.SetStage("OnSyncStatusComplete", nil)
+	err := guest.StartSyncstatus(ctx, task.UserCred, task.GetTaskId())
 	if err != nil {
-		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
+		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
 		return
 	}
 }
 
-func (self *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	if guest.Status == api.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
-		self.SetStage("OnGuestStartComplete", nil)
-		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+	if guest.Status == api.VM_READY && jsonutils.QueryBoolean(task.Params, "auto_start", false) {
+		task.SetStage("OnGuestStartComplete", nil)
+		guest.StartGueststartTask(ctx, task.UserCred, nil, task.GetTaskId())
 	} else {
 		dt := jsonutils.NewDict()
 		dt.Add(jsonutils.NewString(guest.Id), "id")
-		self.SetStageComplete(ctx, dt)
+		task.SetStageComplete(ctx, dt)
 	}
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
-	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionChangeConfig)
+	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_VM_CHANGE_FLAVOR, "", task.UserCred, true)
+	guest.EventNotify(ctx, task.UserCred, notifyclient.ActionChangeConfig)
 }
 
-func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (task *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	dt := jsonutils.NewDict()
 	dt.Add(jsonutils.NewString(guest.Id), "id")
-	self.SetStageComplete(ctx, dt)
+	task.SetStageComplete(ctx, dt)
 }
 
-func (self *GuestChangeConfigTask) OnGuestStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data)
+func (task *GuestChangeConfigTask) OnGuestStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	task.SetStageFailed(ctx, data)
 }
 
-func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason.String())
-	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
-	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+func (task *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	guest.SetStatus(task.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason.String())
+	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, task.UserCred)
+	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, task.UserCred, false)
+	notifyclient.EventNotify(ctx, task.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    guest,
 		Action: notifyclient.ActionChangeConfig,
 		IsFail: true,
 	})
-	self.SetStageFailed(ctx, reason)
+	task.SetStageFailed(ctx, reason)
 }
 
-func (self *GuestChangeConfigTask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
-	guest := self.GetObject().(*models.SGuest)
+func (task *GuestChangeConfigTask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
+	guest := task.GetObject().(*models.SGuest)
 	hostId := guest.HostId
-	sessionId, _ := self.Params.GetString("sched_session_id")
+	sessionId, _ := task.Params.GetString("sched_session_id")
 	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 	models.HostManager.ClearSchedDescSessionCache(hostId, sessionId)
 
-	self.SSchedTask.SetStageFailed(ctx, reason)
+	task.SSchedTask.SetStageFailed(ctx, reason)
 }
 
-func (self *GuestChangeConfigTask) SetStageComplete(ctx context.Context, data *jsonutils.JSONDict) {
-	guest := self.GetObject().(*models.SGuest)
+func (task *GuestChangeConfigTask) SetStageComplete(ctx context.Context, data *jsonutils.JSONDict) {
+	guest := task.GetObject().(*models.SGuest)
 	hostId := guest.HostId
-	sessionId, _ := self.Params.GetString("sched_session_id")
+	sessionId, _ := task.Params.GetString("sched_session_id")
 	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 	models.HostManager.ClearSchedDescSessionCache(hostId, sessionId)
 
-	self.SSchedTask.SetStageComplete(ctx, data)
+	task.SSchedTask.SetStageComplete(ctx, data)
 }

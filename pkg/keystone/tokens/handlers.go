@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/cache"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -40,6 +42,9 @@ func AddHandler(app *appsrv.Application) {
 	app.AddHandler2("GET", "/v3/auth/tokens", authenticateToken(verifyTokensV3), nil, "verify_tokens_v3", nil)
 	app.AddHandler2("GET", "/v3/auth/policies", authenticateToken(fetchTokenPolicies), nil, "fetch_token_policies", nil)
 	app.AddHandler2("POST", "/v3/auth/policies", authenticateToken(postTokenPolicies), nil, "post_token_policies", nil)
+
+	app.AddHandler2("DELETE", "/v3/auth/tokens", authenticateToken(invalidateTokenV3), nil, "delete_tokens_v3", nil)
+	app.AddHandler2("GET", "/v3/auth/tokens/invalid", authenticateToken(fetchInvalidTokensV3), nil, "fetch_revoked_tokens_v3", nil)
 }
 
 func FetchAuthContext(authCtx mcclient.SAuthContext, r *http.Request) mcclient.SAuthContext {
@@ -62,6 +67,11 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 	}
 	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV2(ctx, input)
+	if err != nil {
+		log.Errorf("AuthenticateV2 error %s", err)
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
 	if token == nil {
 		httperrors.UnauthorizedError(ctx, w, "unauthorized %s", err)
 		return
@@ -86,6 +96,7 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV3(ctx, input)
 	if err != nil {
+		log.Errorf("AuthenticateV3 error %s", err)
 		switch errors.Cause(err) {
 		case sqlchemy.ErrDuplicateEntry:
 			httperrors.ConflictError(ctx, w, "duplicate username")
@@ -131,6 +142,19 @@ type VerifyTokenV2Param struct {
 func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
 	tokenStr := params["<token>"]
+
+	cachedToken := cache.Get(tokenStr)
+	if cachedToken != nil {
+		if v2token, ok := cachedToken.(*mcclient.TokenCredentialV2); ok && v2token.IsValid() {
+			ret := jsonutils.NewDict()
+			ret.Add(jsonutils.Marshal(v2token), "access")
+			appsrv.SendJSON(w, ret)
+			return
+		} else {
+			cache.Remove(tokenStr)
+		}
+	}
+
 	token, err := verifyCommon(ctx, w, tokenStr)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
@@ -179,6 +203,19 @@ type VerifyTokenV3Param struct {
 //	  200: tokens_AuthenticateV3Output
 func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	tokenStr := r.Header.Get(api.AUTH_SUBJECT_TOKEN_HEADER)
+
+	cachedToken := cache.Get(tokenStr)
+	if cachedToken != nil {
+		if v3token, ok := cachedToken.(*mcclient.TokenCredentialV3); ok && v3token.IsValid() {
+			w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, v3token.Id)
+			v3token.Id = ""
+			appsrv.SendJSON(w, jsonutils.Marshal(v3token))
+			return
+		} else {
+			cache.Remove(tokenStr)
+		}
+	}
+
 	token, err := verifyCommon(ctx, w, tokenStr)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
@@ -229,12 +266,11 @@ func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (
 	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
 	}
-	token := SAuthToken{}
-	err := token.ParseFernetToken(tokenStr)
+	token, err := TokenStrDecode(ctx, tokenStr)
 	if err != nil {
 		return nil, httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
-	return &token, nil
+	return token, nil
 }
 
 func authenticateToken(f appsrv.FilterHandler) appsrv.FilterHandler {

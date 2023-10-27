@@ -79,9 +79,6 @@ type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
 	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
-	// 宿主机Id
-	// HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
-
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
 	// 设备类型
 	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
@@ -104,6 +101,25 @@ type SIsolatedDevice struct {
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
 	Addr string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+
+	// Is vgpu physical funcion, That means it cannot be attached to guest
+	// VGPUPhysicalFunction bool `nullable:"true" default:"false" list:"domain" create:"domain_optional"`
+	// nvidia vgpu config
+	// vgpu uuid generated on create
+	MdevId string `width:"36" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// The frame rate limiter (FRL) configuration in frames per second
+	FRL string `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// The frame buffer size in Mbytes
+	Framebuffer string `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// The maximum resolution per display head, eg: 5120x2880
+	MaxResolution string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// The maximum number of virtual display heads that the vGPU type supports
+	// In computer graphics and display technology, the term "head" is commonly used to
+	// describe the physical interface of a display device or display output.
+	// It refers to a connection point on the monitor, such as HDMI, DisplayPort, or VGA interface.
+	NumHeads string `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// The maximum number of vGPU instances per physical GPU
+	MaxInstance string `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 
@@ -154,7 +170,7 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 	}
 
 	if input.HostId != "" && input.Addr != "" {
-		if hasDevAddr, err := manager.hostHasDevAddr(input.HostId, input.Addr); err != nil {
+		if hasDevAddr, err := manager.hostHasDevAddr(input.HostId, input.Addr, input.MdevId); err != nil {
 			return input, errors.Wrap(err, "check hostHasDevAddr")
 		} else if hasDevAddr {
 			return input, httperrors.NewBadRequestError("dev addr %s registed", input.Addr)
@@ -743,6 +759,7 @@ func (self *SIsolatedDevice) getDesc() *api.IsolatedDeviceJsonDesc {
 		OvsOffloadInterface: self.OvsOffloadInterface,
 		DiskIndex:           self.DiskIndex,
 		NvmeSizeMB:          self.NvmeSizeMB,
+		MdevId:              self.MdevId,
 	}
 }
 
@@ -912,8 +929,8 @@ func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string
 	return devs, nil
 }
 
-func (manager *SIsolatedDeviceManager) hostHasDevAddr(hostId, addr string) (bool, error) {
-	cnt, err := manager.Query().Equals("addr", addr).
+func (manager *SIsolatedDeviceManager) hostHasDevAddr(hostId, addr, mdevId string) (bool, error) {
+	cnt, err := manager.Query().Equals("addr", addr).Equals("mdev_id", mdevId).
 		Equals("host_id", hostId).CountWithError()
 	if err != nil {
 		return false, err

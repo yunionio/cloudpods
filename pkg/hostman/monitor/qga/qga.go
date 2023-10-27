@@ -18,7 +18,10 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -79,6 +82,9 @@ func (qga *QemuGuestAgent) ResetTimeout() {
 }
 
 func (qga *QemuGuestAgent) connect() error {
+	qga.mutex.Lock()
+	defer qga.mutex.Unlock()
+
 	conn, err := net.Dial("unix", qga.qgaSocketPath)
 	if err != nil {
 		return errors.Wrap(err, "dial qga socket")
@@ -89,6 +95,12 @@ func (qga *QemuGuestAgent) connect() error {
 }
 
 func (qga *QemuGuestAgent) Close() error {
+	qga.mutex.Lock()
+	defer qga.mutex.Unlock()
+
+	if qga.rwc == nil {
+		return nil
+	}
 	err := qga.rwc.Close()
 	if err != nil {
 		return err
@@ -173,7 +185,7 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTi
 		return nil, nil
 	}
 
-	if readTimeout < 0 {
+	if readTimeout <= 0 {
 		readTimeout = qga.readTimeout
 	}
 	err = qga.rwc.SetReadDeadline(time.Now().Add(time.Duration(readTimeout) * time.Millisecond))
@@ -243,6 +255,217 @@ func (qga *QemuGuestAgent) GuestInfo() (*GuestInfo, error) {
 		return nil, errors.Wrap(err, "unmarshal raw response")
 	}
 	return res, nil
+}
+
+func (qga *QemuGuestAgent) GuestInfoTask() ([]byte, error) {
+	info, err := qga.GuestInfo()
+	if err != nil {
+		return nil, err
+	}
+	cmd := &monitor.Command{
+		Execute: "guest-info",
+	}
+	var i = 0
+	for ; i < len(info.SupportedCommands); i++ {
+		if info.SupportedCommands[i].Name == cmd.Execute {
+			break
+		}
+	}
+	if i > len(info.SupportedCommands) {
+		return nil, errors.Errorf("unsupported command %s", cmd.Execute)
+	}
+	if !info.SupportedCommands[i].Enabled {
+		return nil, errors.Errorf("command %s not enabled", cmd.Execute)
+	}
+	res, err := qga.execCmd(cmd, true, -1)
+	if err != nil {
+		return nil, err
+	}
+	return *res, nil
+}
+
+func (qga *QemuGuestAgent) QgaGetNetwork() ([]byte, error) {
+	cmd := &monitor.Command{
+		Execute: "guest-network-get-interfaces",
+	}
+	res, err := qga.execCmd(cmd, true, -1)
+	if err != nil {
+		return nil, err
+	}
+	return *res, nil
+}
+
+type GuestOsInfo struct {
+	Id            string `json:"id"`
+	KernelRelease string `json:"kernel-release"`
+	KernelVersion string `json:"kernel-version"`
+	Machine       string `json:"machine"`
+	Name          string `json:"name"`
+	PrettyName    string `json:"pretty-name"`
+	Version       string `json:"version"`
+	VersionId     string `json:"version-id"`
+}
+
+func (qga *QemuGuestAgent) QgaGuestGetOsInfo() (*GuestOsInfo, error) {
+	//run guest-get-osinfo
+	cmdOsInfo := &monitor.Command{
+		Execute: "guest-get-osinfo",
+	}
+	rawResOsInfo, err := qga.execCmd(cmdOsInfo, true, -1)
+	resOsInfo := new(GuestOsInfo)
+	err = json.Unmarshal(*rawResOsInfo, resOsInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal raw response")
+	}
+	return resOsInfo, nil
+}
+
+func (qga *QemuGuestAgent) QgaFileOpen(path string) (int, error) {
+	//file open
+	cmdFileOpen := &monitor.Command{
+		Execute: "guest-file-open",
+		Args: map[string]interface{}{
+			"path": path,
+			"mode": "w+",
+		},
+	}
+	rawResFileOpen, err := qga.execCmd(cmdFileOpen, true, -1)
+	if err != nil {
+		return 0, err
+	}
+	fileNum, err := strconv.ParseInt(string(*rawResFileOpen), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return int(fileNum), nil
+}
+
+func (qga *QemuGuestAgent) QgaFileWrite(fileNum int, content string) error {
+	contentEncode := base64.StdEncoding.EncodeToString([]byte(content))
+	//write shell to file
+	cmdFileWrite := &monitor.Command{
+		Execute: "guest-file-write",
+		Args: map[string]interface{}{
+			"handle":  fileNum,
+			"buf-b64": contentEncode,
+		},
+	}
+	_, err := qga.execCmd(cmdFileWrite, true, -1)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (qga *QemuGuestAgent) QgaFileClose(fileNum int) error {
+	//close file
+	cmdFileClose := &monitor.Command{
+		Execute: "guest-file-close",
+		Args: map[string]interface{}{
+			"handle": fileNum,
+		},
+	}
+	_, err := qga.execCmd(cmdFileClose, true, -1)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ParseIPAndSubnet(input string) (string, string, error) {
+	//Converting IP/MASK format to IP and MASK
+	parts := strings.Split(input, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("Invalid input format")
+	}
+
+	ip := parts[0]
+	subnetSizeStr := parts[1]
+
+	subnetSize := 0
+	for _, c := range subnetSizeStr {
+		if c < '0' || c > '9' {
+			return "", "", fmt.Errorf("Invalid subnet size")
+		}
+		subnetSize = subnetSize*10 + int(c-'0')
+	}
+
+	mask := net.CIDRMask(subnetSize, 32)
+	subnetMask := net.IP(mask).To4().String()
+	return ip, subnetMask, nil
+}
+
+func (qga *QemuGuestAgent) QgaAddFileExec(filePath string) error {
+	//Adding execution permissions to file
+	shellAddAuth := "chmod +x " + filePath
+	arg := []string{"-c", shellAddAuth}
+	cmdAddAuth := &monitor.Command{
+		Execute: "guest-exec",
+		Args: map[string]interface{}{
+			"path":           "/bin/bash",
+			"arg":            arg,
+			"env":            []string{},
+			"input-data":     "",
+			"capture-output": true,
+		},
+	}
+	_, err := qga.execCmd(cmdAddAuth, true, -1)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify) error {
+	ip, subnetMask, err := ParseIPAndSubnet(qgaNetMod.Ipmask)
+	if err != nil {
+		return err
+	}
+	networkCmd := fmt.Sprintf(
+		"netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s gateway=%s & "+
+			"netsh interface ip set address name=\"%s\" dhcp",
+		qgaNetMod.Device, ip, subnetMask, qgaNetMod.Gateway, qgaNetMod.Device,
+	)
+
+	log.Infof("networkCmd: %s", networkCmd)
+	arg := []string{"/C", networkCmd}
+	cmdExecNet := &monitor.Command{
+		Execute: "guest-exec",
+		Args: map[string]interface{}{
+			"path":           "C:\\Windows\\System32\\cmd.exe",
+			"arg":            arg,
+			"env":            []string{},
+			"input-data":     "",
+			"capture-output": true,
+		},
+	}
+	_, err = qga.execCmd(cmdExecNet, true, -1)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (qga *QemuGuestAgent) QgaSetLinuxNetwork(qgaNetMod *monitor.NetworkModify) error {
+	args := []string{"-c", fmt.Sprintf("/sbin/dhclient -r %s && /sbin/dhclient -1 %s", qgaNetMod.Device, qgaNetMod.Device)}
+	_, err := qga.GuestExecCommand("/bin/bash", args, []string{}, "", false)
+	return err
+}
+
+func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify) error {
+	//Getting information about the operating system
+	resOsInfo, err := qga.QgaGuestGetOsInfo()
+	if err != nil {
+		return errors.Wrap(err, "get os info")
+	}
+
+	//Judgement based on id, currently only windows and other systems are judged
+	switch resOsInfo.Id {
+	case "mswindows":
+		return qga.QgaSetWindowsNetwork(qgaNetMod)
+	default:
+		return qga.QgaSetLinuxNetwork(qgaNetMod)
+	}
 }
 
 /*

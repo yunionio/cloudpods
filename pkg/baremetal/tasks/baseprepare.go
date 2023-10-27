@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -476,7 +477,7 @@ func (task *sBaremetalPrepareTask) removeObsoleteNics(i *baremetalPrepareInfo) [
 	existNics := task.baremetal.GetNics()
 	log.Debugf("Existing nics: %s", jsonutils.Marshal(existNics))
 	for idx := range existNics {
-		if utils.IsInStringArray(existNics[idx].Type, api.NIC_TYPES) {
+		if existNics[idx].Type != api.NIC_TYPE_NORMAL {
 			continue
 		}
 		find := false
@@ -800,7 +801,7 @@ func (task *sBaremetalPrepareTask) removeNicInfo(mac string) error {
 }
 
 func (task *sBaremetalPrepareTask) sendNicInfo(
-	nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool,
+	nic *types.SNicDevInfo, idx int, nicType compute.TNicType, reset bool, ipAddr string, reserve bool,
 ) error {
 	return task.baremetal.SendNicInfo(nic, idx, nicType, reset, ipAddr, reserve)
 }

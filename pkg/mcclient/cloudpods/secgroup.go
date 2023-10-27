@@ -15,19 +15,15 @@
 package cloudpods
 
 import (
-	"fmt"
-	"strings"
-
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type SSecurityGroup struct {
-	multicloud.SResourceBase
+	multicloud.SSecurityGroup
 	CloudpodsTags
 	region *SRegion
 
@@ -58,19 +54,16 @@ func (self *SSecurityGroup) GetProjectId() string {
 	return self.TenantId
 }
 
-func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	ret := []cloudprovider.SecurityRule{}
-	ret = append(ret, cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")})
-	for _, r := range self.Rules {
-		rule := cloudprovider.SecurityRule{}
-		rule.Action = secrules.TSecurityRuleAction(r.Action)
-		rule.Priority = int(r.Priority)
-		rule.Protocol = r.Protocol
-		rule.Description = r.Description
-		rule.Direction = secrules.TSecurityRuleDirection(r.Direction)
-		rule.ParseCIDR(r.CIDR)
-		rule.ParsePorts(r.Ports)
-		ret = append(ret, rule)
+func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
+	ret := []cloudprovider.ISecurityGroupRule{}
+	rules := []SecurityGroupRule{}
+	err := self.region.list(&modules.SecGroupRules, map[string]interface{}{"scope": "system", "secgroup_id": self.Id}, &rules)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rules {
+		rules[i].region = self.region
+		ret = append(ret, &rules[i])
 	}
 	return ret, nil
 }
@@ -102,27 +95,17 @@ func (self *SRegion) DeleteSecRule(id string) error {
 	return self.cli.delete(&modules.SecGroupRules, id)
 }
 
-func (self *SRegion) CreateSecRule(secId string, rule cloudprovider.SecurityRule) error {
+func (self *SRegion) CreateSecRule(secId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) error {
 	input := api.SSecgroupRuleCreateInput{}
 	input.SecgroupId = secId
-	input.Priority = &rule.Priority
-	input.Action = string(rule.Action)
-	input.Protocol = rule.Protocol
-	input.Direction = string(rule.Direction)
-	input.Description = rule.Description
-	if rule.IPNet != nil {
-		input.CIDR = rule.IPNet.String()
-	}
+	input.Priority = &opts.Priority
+	input.Action = string(opts.Action)
+	input.Protocol = string(opts.Protocol)
+	input.Direction = string(opts.Direction)
+	input.Description = opts.Desc
+	input.CIDR = opts.CIDR
 
-	if len(rule.Ports) > 0 {
-		ports := []string{}
-		for _, port := range rule.Ports {
-			ports = append(ports, fmt.Sprintf("%d", port))
-		}
-		input.Ports = strings.Join(ports, ",")
-	} else if rule.PortStart > 0 && rule.PortEnd > 0 {
-		input.Ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
-	}
+	input.Ports = opts.Ports
 	ret := struct{}{}
 	return self.create(&modules.SecGroupRules, input, &ret)
 }
@@ -145,14 +128,9 @@ func (self *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
 }
 
 func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	outRules := opts.OutRules
-	if len(outRules) > 0 && outRules[0].String() == "out:allow any" {
-		outRules = outRules[1:]
-	}
 	params := map[string]interface{}{
 		"name":        opts.Name,
 		"description": opts.Desc,
-		"rules":       append(opts.InRules, outRules...),
 	}
 	if len(opts.ProjectId) > 0 {
 		params["project_id"] = opts.ProjectId
@@ -176,14 +154,6 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
 	secgroup, err := self.GetSecurityGroup(secgroupId)
-	if err != nil {
-		return nil, err
-	}
-	return secgroup, nil
-}
-
-func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroup, err := self.GetSecurityGroup(opts.Name)
 	if err != nil {
 		return nil, err
 	}

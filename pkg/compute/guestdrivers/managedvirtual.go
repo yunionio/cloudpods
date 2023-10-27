@@ -25,8 +25,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/billing"
-	"yunion.io/x/pkg/util/cloudinit"
 	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -60,7 +61,7 @@ func (d SManagedVirtualizedGuestDriver) DoScheduleStorageFilter() bool { return 
 
 func (d SManagedVirtualizedGuestDriver) DoScheduleCloudproviderTagFilter() bool { return true }
 
-func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	config := cloudprovider.SManagedVMCreateConfig{
 		IsNeedInjectPasswordByCloudInit: guest.GetDriver().IsNeedInjectPasswordByCloudInit(),
 		UserDataType:                    guest.GetDriver().GetUserDataType(),
@@ -117,6 +118,8 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 			config.SysDisk.StorageExternalId = storage.ExternalId
 			config.SysDisk.StorageType = storage.StorageType
 			config.SysDisk.SizeGB = int(math.Ceil(float64(disk.DiskSize) / 1024))
+			config.SysDisk.Iops = disk.Iops
+			config.SysDisk.Throughput = disk.Throughput
 			cache := storage.GetStoragecache()
 			imageId := disk.GetTemplateId()
 			//避免因同步过来的instance没有对应的imagecache信息，重置密码时引发空指针访问
@@ -133,6 +136,8 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 				SizeGB:            disk.DiskSize / 1024,
 				StorageType:       storage.StorageType,
 				StorageExternalId: storage.ExternalId,
+				Iops:              disk.Iops,
+				Throughput:        disk.Throughput,
 				Name:              disk.Name,
 			}
 			config.DataDisks = append(config.DataDisks, dataDisk)
@@ -173,7 +178,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	return jsonutils.Marshal(&config), nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVm, err := guest.GetIVM(ctx)
 		if err != nil {
@@ -282,7 +287,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	diskCat := guest.CategorizeDisks()
 	var imageId string
 	if diskCat.Root != nil {
@@ -309,13 +314,34 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), input)
 }
 
-func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+func (drv *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if input.Cdrom != "" {
 		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
 	}
-	driver := models.GetDriver(input.Hypervisor)
-	if len(input.UserData) > 0 && driver != nil && driver.IsNeedInjectPasswordByCloudInit() {
-		_, err := cloudinit.ParseUserData(input.UserData)
+	var vpc *models.SVpc = nil
+	for _, network := range input.Networks {
+		netObj, err := validators.ValidateModel(userCred, models.NetworkManager, &network.Network)
+		if err == nil {
+			net := netObj.(*models.SNetwork)
+			vpc, err = net.GetVpc()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetVpc")
+			}
+		}
+	}
+	for i := range input.Secgroups {
+		if input.Secgroups[i] == api.SECGROUP_DEFAULT_ID {
+			continue
+		}
+		if gotypes.IsNil(vpc) {
+			return nil, httperrors.NewMissingParameterError("nets")
+		}
+		secObj, err := validators.ValidateModel(userCred, models.SecurityGroupManager, &input.Secgroups[i])
+		if err != nil {
+			return nil, err
+		}
+		secgroup := secObj.(*models.SSecurityGroup)
+		err = vpc.CheckSecurityGroupConsistent(secgroup)
 		if err != nil {
 			return nil, err
 		}
@@ -323,11 +349,11 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Conte
 	return input, nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
+func (drv *SManagedVirtualizedGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
@@ -384,7 +410,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
@@ -432,7 +458,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
 	ivm, err := guest.GetIVM(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetIVM")
@@ -455,7 +481,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Conte
 	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
 		return errors.Wrapf(err, "GetDeployConfigOnHost")
@@ -463,6 +489,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	desc := cloudprovider.SManagedVMCreateConfig{}
+	desc.Description = guest.Description
 	// 账号必须在desc.GetConfig()之前设置，避免默认用户不能正常注入
 	osInfo := struct {
 		OsType         string
@@ -477,39 +504,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 	}
 
 	desc.Tags, _ = guest.GetAllUserMetadata()
-
-	//创建并同步安全组规则, 仅新建的安全组会同步规则
-	{
-		vpc, err := guest.GetVpc()
-		if err != nil {
-			return errors.Wrap(err, "guest.GetVpc")
-		}
-		region, err := vpc.GetRegion()
-		if err != nil {
-			return errors.Wrap(err, "vpc.GetRegion")
-		}
-
-		vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc)
-		if err != nil {
-			return errors.Wrap(err, "GetSecurityGroupVpcId")
-		}
-
-		secgroups, err := guest.GetSecgroups()
-		if err != nil {
-			return errors.Wrap(err, "GetSecgroups")
-		}
-		for i, secgroup := range secgroups {
-			externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, desc.ProjectId, "")
-			if err != nil {
-				return errors.Wrap(err, "RequestSyncSecurityGroup")
-			}
-
-			desc.ExternalSecgroupIds = append(desc.ExternalSecgroupIds, externalId)
-			if i == 0 {
-				desc.ExternalSecgroupId = externalId
-			}
-		}
-	}
 
 	desc.UserData, err = desc.GetUserData()
 	if err != nil {
@@ -560,26 +554,39 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterCreate() string {
+func (drv *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterCreate() string {
 	return api.VM_READY
 }
 
-func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() string {
+func (drv *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
-func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
+func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
 	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "RemoteDeployGuestForCreate.GetIHost")
 	}
 
-	iVM, err := func() (cloudprovider.ICloudVM, error) {
+	secgroups, err := guest.GetSecgroups()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSecgroups")
+	}
+	desc.ExternalSecgroupIds = []string{}
+	for _, secgroup := range secgroups {
+		if len(secgroup.ExternalId) > 0 {
+			desc.ExternalSecgroupIds = append(desc.ExternalSecgroupIds, secgroup.ExternalId)
+		}
+	}
+
+	var iVM cloudprovider.ICloudVM = nil
+	iVM, err = func() (cloudprovider.ICloudVM, error) {
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
-		iVM, err := func() (cloudprovider.ICloudVM, error) {
-			iVM, err := ihost.CreateVM(&desc)
+		tryCnt := 0
+		iVM, err = func() (cloudprovider.ICloudVM, error) {
+			iVM, err = ihost.CreateVM(&desc)
 			if err == nil || !options.Options.EnableAutoSwitchServerSku {
 				return iVM, err
 			}
@@ -589,7 +596,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 			}
 			oldSku := desc.InstanceType
 			for i := range skus {
-				if skus[i].Name != oldSku {
+				if skus[i].Name != oldSku && len(skus[i].Name) > 0 {
 					desc.InstanceType = skus[i].Name
 					log.Infof("try switch server sku from %s to %s for create %s", oldSku, desc.InstanceType, guest.Name)
 					iVM, err = ihost.CreateVM(&desc)
@@ -600,12 +607,14 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 						})
 						return iVM, nil
 					}
+					log.Errorf("use sku %s error: %v", desc.InstanceType, err)
+					tryCnt++
 				}
 			}
 			return iVM, err
 		}()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "After try %d skus", tryCnt)
 		}
 
 		db.SetExternalId(guest, userCred, iVM.GetGlobalId())
@@ -620,19 +629,20 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, errors.Wrap(err, "RemoteDeployGuestSyncHost")
 	}
 
+	vmId := iVM.GetGlobalId()
 	initialState := guest.GetDriver().GetGuestInitialStateAfterCreate()
-	log.Debugf("VMcreated %s, wait status %s ...", iVM.GetGlobalId(), initialState)
+	log.Debugf("VMcreated %s, wait status %s ...", vmId, initialState)
 	err = cloudprovider.WaitStatusWithInstanceErrorCheck(iVM, initialState, time.Second*5, time.Second*1800, func() error {
 		return iVM.GetError()
 	})
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("VMcreated %s, and status is running", iVM.GetGlobalId())
+	log.Debugf("VMcreated %s, and status is running", vmId)
 
-	iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
+	iVM, err = ihost.GetIVMById(vmId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetIVMById(%s)", iVM.GetGlobalId())
+		return nil, errors.Wrapf(err, "GetIVMById(%s)", vmId)
 	}
 
 	if guest.GetDriver().GetMaxSecurityGroupCount() > 0 {
@@ -694,7 +704,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 	return data, nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
+func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
 	if hostId := iVM.GetIHostId(); len(hostId) > 0 {
 		nh, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			return q.Equals("manager_id", host.ManagerId)
@@ -710,7 +720,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestSyncHost(ctx contex
 	return host.GetIHost(ctx)
 }
 
-func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
+func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
 	iVM, err := ihost.GetIVMById(guest.GetExternalId())
 	if err != nil || iVM == nil {
 		log.Errorf("cannot find vm %s", err)
@@ -762,7 +772,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 	return data, nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
+func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
 	iVM, err := ihost.GetIVMById(guest.GetExternalId())
 	if err != nil {
 		return nil, errors.Wrapf(err, "ihost.GetIVMById(%s)", guest.GetExternalId())
@@ -837,7 +847,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 	return data, nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost(ctx)
 		if err != nil {
@@ -864,6 +874,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 		if err != nil {
 			return nil, errors.Wrapf(err, "ivm.DeleteVM")
 		}
+
+		cloudprovider.WaitDeleted(ivm, time.Second*10, time.Minute*3)
 
 		disks, err := guest.GetDisks()
 		if err != nil {
@@ -894,7 +906,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
@@ -919,7 +931,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost(ctx)
 		if err != nil {
@@ -944,7 +956,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+func (drv *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return nil, err
@@ -959,7 +971,7 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context,
 	return iVM.GetVNCInfo(input)
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	subtask, err := taskman.TaskManager.NewTask(ctx, "ManagedGuestRebuildRootTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
 	if err != nil {
 		return err
@@ -968,7 +980,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestRebuildRootDisk(ctx context.C
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	subtask, err := taskman.TaskManager.NewTask(ctx, "ManagedGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
 	if err != nil {
 		return err
@@ -977,7 +989,7 @@ func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.C
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	host, _ := guest.GetHost()
 	ihost, err := host.GetIHost(ctx)
 	if err != nil {
@@ -1054,7 +1066,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
+func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
 	uuid, _ := data.GetString("uuid")
 	if len(uuid) > 0 {
@@ -1176,49 +1188,27 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	secgroups, err := guest.GetSecgroups()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecgroups")
+	}
+
 	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return err
 	}
 
-	vpc, err := guest.GetVpc()
-	if err != nil {
-		return errors.Wrap(err, "guest.GetVpc")
-	}
-
-	region, _ := host.GetRegion()
-
-	vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc)
-	if err != nil {
-		return errors.Wrap(err, "GetSecurityGroupVpcId")
-	}
-
-	remoteProjectId := ""
-	provider := host.GetCloudprovider()
-	if provider != nil {
-		remoteProjectId, err = provider.SyncProject(ctx, task.GetUserCred(), guest.ProjectId)
-		if err != nil {
-			logclient.AddSimpleActionLog(guest, logclient.ACT_SYNC_CLOUD_PROJECT, err, task.GetUserCred(), false)
-		}
-	}
-
-	secgroups, err := guest.GetSecgroups()
-	if err != nil {
-		return errors.Wrap(err, "GetSecgroups")
-	}
 	externalIds := []string{}
 	for _, secgroup := range secgroups {
-		externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, remoteProjectId, "")
-		if err != nil {
-			return errors.Wrap(err, "RequestSyncSecurityGroup")
+		if len(secgroup.ExternalId) > 0 {
+			externalIds = append(externalIds, secgroup.ExternalId)
 		}
-		externalIds = append(externalIds, externalId)
 	}
 	return iVM.SetSecurityGroups(externalIds)
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
 		if jsonutils.QueryBoolean(task.GetParams(), "fw_only", false) {
@@ -1233,7 +1223,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+func (drv *SManagedVirtualizedGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return time.Time{}, err
@@ -1258,11 +1248,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(ctx context.Con
 	return iVM.GetExpiredAt(), nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) IsSupportEip() bool {
+func (drv *SManagedVirtualizedGuestDriver) IsSupportEip() bool {
 	return true
 }
 
-func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
+func chooseHostStorage(
 	drv models.IGuestDriver,
 	host *models.SHost,
 	backend string,
@@ -1287,11 +1277,11 @@ func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+func (drv *SManagedVirtualizedGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return false, nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
+func (drv *SManagedVirtualizedGuestDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
 	return false, nil
 }
 
@@ -1319,7 +1309,7 @@ func GetCloudVMStatus(vm cloudprovider.ICloudVM) string {
 	return status
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
@@ -1370,7 +1360,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx cont
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input api.GuestAutoRenewInput, task taskman.ITask) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input api.GuestAutoRenewInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
@@ -1391,7 +1381,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx cont
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
+func (drv *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
 	// nil ops
 	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
@@ -1435,12 +1425,38 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 		return err
 	}
 
-	err = iVM.UpdateVM(ctx, guest.Name)
+	err = iVM.UpdateVM(ctx, cloudprovider.SInstanceUpdateOptions{NAME: guest.Name, Description: guest.Description})
 	if err != nil {
 		if errors.Cause(err) != cloudprovider.ErrNotSupported {
 			return errors.Wrap(err, "iVM.UpdateVM")
 		}
 	}
 
+	return nil
+}
+
+func (drv *SManagedVirtualizedGuestDriver) SyncOsInfo(ctx context.Context, userCred mcclient.TokenCredential, g *models.SGuest, extVM cloudprovider.IOSInfo) error {
+	// save os info
+	osinfo := map[string]interface{}{}
+	for k, v := range map[string]string{
+		"os_full_name":    extVM.GetFullOsName(),
+		"os_name":         string(extVM.GetOsType()),
+		"os_arch":         extVM.GetOsArch(),
+		"os_type":         string(extVM.GetOsType()),
+		"os_distribution": extVM.GetOsDist(),
+		"os_version":      extVM.GetOsVersion(),
+		"os_language":     extVM.GetOsLang(),
+	} {
+		if len(v) == 0 {
+			continue
+		}
+		osinfo[k] = v
+	}
+	if len(osinfo) > 0 {
+		err := g.SetAllMetadata(ctx, osinfo, userCred)
+		if err != nil {
+			return errors.Wrap(err, "SetAllMetadata")
+		}
+	}
 	return nil
 }

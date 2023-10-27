@@ -16,6 +16,41 @@ package notify
 
 import "yunion.io/x/onecloud/pkg/apis"
 
+const (
+	DefaultResourceCreateDelete    = "resource create or delete"
+	DefaultResourceChangeConfig    = "resource change config"
+	DefaultResourceUpdate          = "resource update"
+	DefaultResourceReleaseDue1Day  = "resource release due 1 day"
+	DefaultResourceReleaseDue3Day  = "resource release due 3 day"
+	DefaultResourceReleaseDue30Day = "resource release due 30 day"
+	DefaultResourceRelease         = "resource release"
+	DefaultScheduledTaskExecute    = "scheduled task execute"
+	DefaultScalingPolicyExecute    = "scaling policy execute"
+	DefaultSnapshotPolicyExecute   = "snapshot policy execute"
+	DefaultResourceOperationFailed = "resource operation failed"
+	DefaultResourceSync            = "resource sync"
+	DefaultSystemExceptionEvent    = "system exception event"
+	DefaultChecksumTestFailed      = "checksum test failed"
+	DefaultUserLock                = "user lock"
+	DefaultActionLogExceedCount    = "action log exceed count"
+	DefaultSyncAccountStatus       = "cloud account sync status"
+	DefaultPasswordExpireDue1Day   = "password expire due 1 day"
+	DefaultPasswordExpireDue7Day   = "password expire due 7 day"
+	DefaultPasswordExpire          = "password expire"
+	DefaultNetOutOfSync            = "net out of sync"
+	DefaultMysqlOutOfSync          = "mysql out of sync"
+	DefaultServiceAbnormal         = "service abnormal"
+	DefaultServerPanicked          = "server panicked"
+)
+
+type TopicUpdateInput struct {
+	TitleCn     string
+	TitleEn     string
+	ContentCn   string
+	ContentEn   string
+	AdvanceDays []int `json:"advance_days"`
+}
+
 type TopicListInput struct {
 	apis.StandaloneResourceListInput
 	apis.EnabledResourceBaseListInput
@@ -27,7 +62,8 @@ type TopicDetails struct {
 
 	// description: resources managed
 	// example: ["server", "eip", "disk"]
-	Resources []string `json:"resource_types"`
+	Resources   []string `json:"resource_types"`
+	AdvanceDays []int    `json:"advance_days"`
 }
 
 type PerformEnableInput struct {
@@ -35,3 +71,6 @@ type PerformEnableInput struct {
 
 type PerformDisableInput struct {
 }
+
+type STopicGroupKeys []string
+type TopicAdvanceDays []int

@@ -84,6 +84,8 @@ const (
 	IdentitySyncStatusIdle    = "idle"
 
 	MinimalSyncIntervalSeconds = 5 * 60 // 5 minutes
+
+	AUTH_TOKEN_LENGTH = 64
 )
 
 var (
@@ -95,13 +97,13 @@ var (
 	}
 
 	SensitiveDomainConfigMap = map[string][]string{
-		"ldap": []string{
+		"ldap": {
 			"password",
 		},
 	}
 
 	CommonWhitelistOptionMap = map[string][]string{
-		"default": []string{
+		"default": {
 			"enable_quota_check",
 			"default_quota_value",
 			"non_default_domain_projects",
@@ -114,12 +116,13 @@ var (
 			"ignore_nonrunning_guests",
 			"platform_name",
 			"enable_cloud_shell",
+			"enable_watermark",
 			"platform_names",
 		},
 	}
 
 	ServiceBlacklistOptionMap = map[string][]string{
-		"default": []string{
+		"default": {
 			// ############################
 			// common blacklist options
 			// ############################

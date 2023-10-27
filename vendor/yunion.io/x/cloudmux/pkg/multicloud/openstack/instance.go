@@ -445,11 +445,11 @@ func (instance *SInstance) Refresh() error {
 	return jsonutils.Update(instance, _instance)
 }
 
-func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
-	if instance.Name != name {
+func (instance *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	if instance.Name != input.NAME {
 		params := map[string]map[string]string{
 			"server": {
-				"name": name,
+				"name": input.NAME,
 			},
 		}
 		resource := "/servers/" + instance.Id
@@ -461,6 +461,59 @@ func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
 
 func (instance *SInstance) GetHypervisor() string {
 	return api.HYPERVISOR_OPENSTACK
+}
+
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
+	oldTags, err := self.GetTags()
+	if err != nil {
+		return errors.Wrapf(err, "GetTags")
+	}
+	added, removed := map[string]string{}, map[string]string{}
+	for k, v := range tags {
+		oldValue, ok := oldTags[k]
+		if !ok {
+			added[k] = v
+		} else if oldValue != v {
+			removed[k] = oldValue
+			added[k] = v
+		}
+	}
+	if replace {
+		for k, v := range oldTags {
+			newValue, ok := tags[k]
+			if !ok {
+				removed[k] = v
+			} else if v != newValue {
+				added[k] = newValue
+				removed[k] = v
+			}
+		}
+	}
+	for k := range removed {
+		err = self.host.zone.region.DeleteTags(self.Id, k)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteTags %s", k)
+		}
+	}
+	if len(added) > 0 {
+		return self.host.zone.region.CreateTags(self.Id, added)
+	}
+	return nil
+}
+
+func (self *SRegion) DeleteTags(instanceId string, key string) error {
+	resource := fmt.Sprintf("/servers/%s/metadata/%s", instanceId, key)
+	_, err := self.ecsDelete(resource)
+	return err
+}
+
+func (self *SRegion) CreateTags(instanceId string, tags map[string]string) error {
+	params := map[string]interface{}{
+		"metadata": tags,
+	}
+	resource := fmt.Sprintf("/servers/%s/metadata", instanceId)
+	_, err := self.ecsPost(resource, params)
+	return err
 }
 
 func (instance *SInstance) StartVM(ctx context.Context) error {
@@ -819,11 +872,11 @@ func (region *SRegion) GetMigrations(instanceId string, migrationType string) (j
 	return migrations, nil
 }
 
-func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
+func (self *SRegion) AssignSecurityGroup(instanceId, projectId, secgroupId string) error {
 	if secgroupId == SECGROUP_NOT_SUPPORT {
 		return fmt.Errorf("Security groups are not supported. Security group components are not installed")
 	}
-	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
+	secgroup, err := self.GetSecurityGroup(secgroupId)
 	if err != nil {
 		return errors.Wrapf(err, "GetSecurityGroup(%s)", secgroupId)
 	}
@@ -832,8 +885,8 @@ func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
 			"name": secgroup.Name,
 		},
 	}
-	resource := fmt.Sprintf("/servers/%s/action", instance.Id)
-	_, err = instance.host.zone.region.ecsDo(instance.GetProjectId(), resource, params)
+	resource := fmt.Sprintf("/servers/%s/action", instanceId)
+	_, err = self.ecsDo(projectId, resource, params)
 	return err
 }
 
@@ -878,7 +931,7 @@ func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	}
 	for _, add := range set.Difference(newG, local).List() {
 		secgroupId := add.(string)
-		err := instance.AssignSecurityGroup(secgroupId)
+		err := instance.host.zone.region.AssignSecurityGroup(instance.Id, instance.GetProjectId(), secgroupId)
 		if err != nil {
 			return errors.Wrapf(err, "AssignSecurityGroup(%s)", secgroupId)
 		}

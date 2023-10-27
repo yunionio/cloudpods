@@ -97,9 +97,6 @@ type SCloudaccountCredential struct {
 
 	// Huawei Cloud Stack Online
 	*SHCSOEndpoints
-
-	// ctyun crm account extra info
-	*SCtyunExtraOptions
 }
 
 type SCloudaccount struct {

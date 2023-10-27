@@ -16,12 +16,9 @@ package aws
 
 import (
 	"fmt"
-	"strings"
-
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -29,32 +26,28 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-type SnapshotStatusType string
-
-const (
-	SnapshotStatusAccomplished SnapshotStatusType = "completed"
-	SnapshotStatusProgress     SnapshotStatusType = "pending"
-	SnapshotStatusFailed       SnapshotStatusType = "error"
-)
-
 type SSnapshot struct {
 	multicloud.SResourceBase
 	AwsTags
 	region *SRegion
 
-	Progress       string
-	SnapshotId     string
-	SnapshotName   string
-	SourceDiskId   string
-	SourceDiskSize int32
-	SourceDiskType string
-	Status         SnapshotStatusType
-	Usage          string
-	//TagSpec        TagSpec
+	DataEncryptionKeyId string    `xml:"dataEncryptionKeyId"`
+	Description         string    `xml:"description"`
+	Encrypted           bool      `xml:"encrypted"`
+	KmsKeyId            string    `xml:"kmsKeyId"`
+	OutpostArn          string    `xml:"outpostArn"`
+	OwnerAlias          string    `xml:"ownerAlias"`
+	OwnerId             string    `xml:"ownerId"`
+	Progress            string    `xml:"progress"`
+	SnapshotId          string    `xml:"snapshotId"`
+	StartTime           time.Time `xml:"startTime"`
+	State               string    `xml:"status"`
+	StateMessage        string    `xml:"statusMessage"`
+	VolumeId            string    `xml:"volumeId"`
+	VolumeSize          int64     `xml:"volumeSize"`
 }
 
 func (self *SSnapshot) GetDiskType() string {
-	// todo: self.SourceDiskType
 	return ""
 }
 
@@ -63,173 +56,145 @@ func (self *SSnapshot) GetId() string {
 }
 
 func (self *SSnapshot) GetName() string {
-	if len(self.SnapshotName) == 0 {
-		return self.SnapshotId
+	name := self.AwsTags.GetName()
+	if len(name) > 0 {
+		return name
 	}
-
-	return self.SnapshotName
+	return self.SnapshotId
 }
 
 func (self *SSnapshot) GetGlobalId() string {
-	return fmt.Sprintf("%s", self.SnapshotId)
+	return self.SnapshotId
 }
 
 func (self *SSnapshot) GetStatus() string {
-	// todo: implement me
-	if self.Status == SnapshotStatusAccomplished {
-		return api.SNAPSHOT_READY
-	} else if self.Status == SnapshotStatusProgress {
+	// pending | completed | error | recoverable | recovering
+	switch self.State {
+	case "pending":
 		return api.SNAPSHOT_CREATING
-	} else { // if self.Status == SnapshotStatusFailed
-		return api.SNAPSHOT_FAILED
+	case "completed":
+		return api.SNAPSHOT_READY
+	case "error":
+		return api.SNAPSHOT_UNKNOWN
+	case "recoverable", "recovering":
+		return api.SNAPSHOT_ROLLBACKING
+	default:
+		return api.SNAPSHOT_UNKNOWN
 	}
 }
 
 func (self *SSnapshot) Refresh() error {
-	if snapshots, total, err := self.region.GetSnapshots("", "", "", []string{self.SnapshotId}, 0, 1); err != nil {
-		return err
-	} else if total != 1 {
-		return errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
-	} else if err := jsonutils.Update(self, snapshots[0]); err != nil {
+	snapshot, err := self.region.GetSnapshot(self.SnapshotId)
+	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (self *SSnapshot) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, snapshot)
 }
 
 func (self *SSnapshot) GetSizeMb() int32 {
-	return self.SourceDiskSize * 1024
+	return int32(self.VolumeSize) * 1024
 }
 
 func (self *SSnapshot) GetDiskId() string {
-	return self.SourceDiskId
+	return self.VolumeId
 }
 
 func (self *SSnapshot) Delete() error {
 	return self.region.DeleteSnapshot(self.SnapshotId)
 }
 
-func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {
-	params := &ec2.DescribeSnapshotsInput{}
-	filters := make([]*ec2.Filter, 0)
-	// todo: not support search by instancesId. use Tag?
-	// if len(instanceId) > o {
-	// 	filters = AppendSingleValueFilter(filters, )
-	// }
-	// owner by self
-	owner := "self"
-	params.SetOwnerIds([]*string{&owner})
+func (self *SRegion) GetSnapshot(id string) (*SSnapshot, error) {
+	snapshots, err := self.GetSnapshots("", "", []string{id})
+	if err != nil {
+		return nil, err
+	}
+	for i := range snapshots {
+		if snapshots[i].GetGlobalId() == id {
+			return &snapshots[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SRegion) GetSnapshots(diskId string, name string, ids []string) ([]SSnapshot, error) {
+	params := map[string]string{
+		"Owner.1": "self",
+	}
+	idx := 1
 	if len(diskId) > 0 {
-		filters = AppendSingleValueFilter(filters, "volume-id", diskId)
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "volume-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = diskId
+		idx++
 	}
 
-	if len(snapshotName) > 0 {
-		filters = AppendSingleValueFilter(filters, "tag:Name", snapshotName)
+	if len(name) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "tag:Name"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = name
+		idx++
+	}
+	for i, id := range ids {
+		params[fmt.Sprintf("SnapshotId.%d", i+1)] = id
 	}
 
-	if len(filters) > 0 {
-		params.SetFilters(filters)
-	}
-
-	if len(snapshotIds) > 0 {
-		params.SetSnapshotIds(ConvertedList(snapshotIds))
-	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeSnapshots(params)
-	err = parseNotFoundError(err)
-	if err != nil {
-		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
-			return nil, 0, errors.Wrap(cloudprovider.ErrNotFound, "parseNotFoundError")
+	ret := []SSnapshot{}
+	for {
+		part := struct {
+			SnapshotSet []SSnapshot `xml:"snapshotSet>item"`
+			NextToken   string      `xml:"nextToken"`
+		}{}
+		err := self.ec2Request("DescribeSnapshots", params, &part)
+		if err != nil {
+			return nil, err
 		}
-
-		return nil, 0, err
-	}
-
-	snapshots := []SSnapshot{}
-	for _, item := range ret.Snapshots {
-		if err := FillZero(item); err != nil {
-			return nil, 0, err
+		ret = append(ret, part.SnapshotSet...)
+		if len(part.NextToken) == 0 || len(part.SnapshotSet) == 0 {
+			break
 		}
-
-		tagspec := TagSpec{ResourceType: "snapshot"}
-		tagspec.LoadingEc2Tags(item.Tags)
-
-		snapshot := SSnapshot{}
-		snapshot.SnapshotId = *item.SnapshotId
-		snapshot.Status = SnapshotStatusType(*item.State)
-		snapshot.region = self
-		snapshot.Progress = *item.Progress
-		snapshot.SnapshotName = *item.SnapshotId
-		snapshot.SourceDiskId = *item.VolumeId
-		snapshot.SourceDiskSize = int32(*item.VolumeSize)
-		// snapshot.SourceDiskType
-		snapshot.SnapshotName = tagspec.GetNameTag()
-		jsonutils.Update(&snapshot.AwsTags.TagSet, item.Tags)
-		snapshots = append(snapshots, snapshot)
+		params["NextToken"] = part.NextToken
 	}
-
-	return snapshots, len(snapshots), nil
+	return ret, nil
 }
 
-func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshots, total, err := self.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
-		return nil, errors.Wrap(err, "GetSnapshots")
-	} else if total != 1 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
-	} else {
-		return &snapshots[0], nil
+func (self *SRegion) GetISnapshotById(id string) (cloudprovider.ICloudSnapshot, error) {
+	snapshot, err := self.GetSnapshot(id)
+	if err != nil {
+		return nil, err
 	}
+	snapshot.region = self
+	return snapshot, nil
 }
 
-func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
-	params := &ec2.CreateSnapshotInput{}
-	if len(diskId) <= 0 {
-		return "", fmt.Errorf("disk id should not be empty")
-	} else {
-		params.SetVolumeId(diskId)
+func (self *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, error) {
+	params := map[string]string{
+		"VolumeId": diskId,
+	}
+	tagIdx := 1
+	if len(name) > 0 {
+		params[fmt.Sprintf("TagSpecification.%d.ResourceType", tagIdx)] = "snapshot"
+		params[fmt.Sprintf("TagSpecification.%d.Tag.1.Key", tagIdx)] = "Name"
+		params[fmt.Sprintf("TagSpecification.%d.Tag.1.Value", tagIdx)] = name
+		tagIdx++
+	}
+	if len(desc) > 0 {
+		params["Description"] = desc
 	}
 
-	if len(name) <= 0 {
-		return "", fmt.Errorf("name length should great than 0")
-	} else {
-		tagspec := TagSpec{ResourceType: "snapshot"}
-		tagspec.SetNameTag(name)
-		ec2Tag, _ := tagspec.GetTagSpecifications()
-		params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tag})
-	}
-
-	params.SetDescription(desc)
-	log.Debugf("CreateSnapshots with params %s", params)
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-
-	ret, err := ec2Client.CreateSnapshot(params)
-	if err != nil {
-		return "", errors.Wrap(err, "CreateSnapshot")
-	}
-	return StrVal(ret.SnapshotId), nil
+	ret := &SSnapshot{region: self}
+	return ret, self.ec2Request("CreateSnapshot", params, ret)
 }
 
-func (self *SRegion) DeleteSnapshot(snapshotId string) error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) DeleteSnapshot(id string) error {
+	params := map[string]string{
+		"SnapshotId": id,
 	}
-	params := &ec2.DeleteSnapshotInput{}
-	params.SetSnapshotId(snapshotId)
-	_, err = ec2Client.DeleteSnapshot(params)
-	return errors.Wrap(err, "DeleteSnapshot")
+	ret := struct{}{}
+	return self.ec2Request("DeleteSnapshot", params, &ret)
 }
 
 func (self *SSnapshot) GetProjectId() string {
 	return ""
+}
+
+func (self *SSnapshot) GetDescription() string {
+	return self.AwsTags.GetDescription()
 }

@@ -738,15 +738,15 @@ func (disk *SDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
-func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
 	input := api.DiskCreateInput{}
-	err := data.Unmarshal(&input)
+	err := data[0].Unmarshal(&input)
 	if err != nil {
 		log.Errorf("!!!data.Unmarshal api.DiskCreateInput fail %s", err)
 	}
 
 	pendingUsage := getDiskResourceRequirements(ctx, userCred, ownerId, input, len(items))
-	parentTaskId, _ := data.GetString("parent_task_id")
+	parentTaskId, _ := data[0].GetString("parent_task_id")
 	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, SRegionQuota{}, "DiskBatchCreateTask", parentTaskId)
 }
 
@@ -1095,8 +1095,7 @@ func (self *SDisk) GetIDisk(ctx context.Context) (cloudprovider.ICloudDisk, erro
 	}
 	iStorage, err := self.GetIStorage(ctx)
 	if err != nil {
-		log.Errorf("fail to find iStorage: %v", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIStorage")
 	}
 	return iStorage.GetIDiskById(self.GetExternalId())
 }
@@ -1433,13 +1432,14 @@ func (manager *SDiskManager) getDisksByStorage(storage *SStorage) ([]SDisk, erro
 }
 
 func (manager *SDiskManager) findOrCreateDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, vdisk cloudprovider.ICloudDisk, index int, syncOwnerId mcclient.IIdentityProvider, managerId string) (*SDisk, error) {
-	diskObj, err := db.FetchByExternalIdAndManagerId(manager, vdisk.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	diskId := vdisk.GetGlobalId()
+	diskObj, err := db.FetchByExternalIdAndManagerId(manager, diskId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		sq := StorageManager.Query().SubQuery()
 		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("storage_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), managerId))
 	})
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
-			return nil, errors.Wrapf(err, "db.FetchByExternalIdAndManagerId")
+			return nil, errors.Wrapf(err, "db.FetchByExternalIdAndManagerId %s", diskId)
 		}
 		vstorage, err := vdisk.GetIStorage()
 		if err != nil {
@@ -1486,6 +1486,10 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	for i := 0; i < len(removed); i += 1 {
 		err = removed[i].syncRemoveCloudDisk(ctx, userCred)
 		if err != nil {
+			// vm not sync, so skip disk used by vm error
+			if errors.Cause(err) == httperrors.ErrNotEmpty {
+				continue
+			}
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
@@ -2216,7 +2220,7 @@ func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
 	}
 	for i := range pairs {
-		err := pairs[i].purgeAll()
+		err := pairs[i].purgeAll(ctx)
 		if err != nil {
 			return err
 		}

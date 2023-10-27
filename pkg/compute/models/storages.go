@@ -65,6 +65,7 @@ func init() {
 		),
 	}
 	StorageManager.SetVirtualObject(StorageManager)
+	StorageManager.TableSpec().AddIndex(false, "deleted", "status", "enabled", "zone_id", "storagecache_id")
 }
 
 type SStorage struct {
@@ -571,37 +572,45 @@ func (manager *SStorageManager) FetchCustomizeColumns(
 		tagMap[tags[i].StorageId] = append(tagMap[tags[i].StorageId], desc)
 	}
 
-	q = HoststorageManager.Query("storage_id", "host_id").In("storage_id", storageIds)
-	hoststorages, err := q.Rows()
+	sq := HoststorageManager.Query().In("storage_id", storageIds).SubQuery()
+	hosts := HostManager.Query().SubQuery()
+	q = sq.Query(
+		sq.Field("storage_id"),
+		sq.Field("host_id"),
+		hosts.Field("name"),
+		hosts.Field("status"),
+		hosts.Field("host_status"),
+	).LeftJoin(hosts, sqlchemy.Equals(sq.Field("host_id"), hosts.Field("id")))
+
+	hs := []struct {
+		StorageId  string
+		HostId     string
+		Name       string
+		Status     string
+		HostStatus string
+	}{}
+	err = q.All(&hs)
 	if err != nil {
+		log.Errorf("query host error: %v", err)
 		return rows
 	}
-	defer hoststorages.Close()
-	hostIds := []string{}
-	storageMap := make(map[string][]string, len(objs))
-	for hoststorages.Next() {
-		var storageId, hostId string
-		hoststorages.Scan(&storageId, &hostId)
-		if _, ok := storageMap[storageId]; !ok {
-			storageMap[storageId] = []string{}
+
+	hoststorages := map[string][]api.StorageHost{}
+	for _, h := range hs {
+		_, ok := hoststorages[h.StorageId]
+		if !ok {
+			hoststorages[h.StorageId] = []api.StorageHost{}
 		}
-		storageMap[storageId] = append(storageMap[storageId], hostId)
-		hostIds = append(hostIds, hostId)
+		hoststorages[h.StorageId] = append(hoststorages[h.StorageId], api.StorageHost{
+			Id:         h.HostId,
+			Name:       h.Name,
+			Status:     h.Status,
+			HostStatus: h.HostStatus,
+		})
 	}
-	hostMap, err := db.FetchIdNameMap2(HostManager, hostIds)
-	if err != nil {
-		return rows
-	}
+
 	for i := range rows {
-		hostIds, ok := storageMap[storageIds[i]]
-		if ok {
-			rows[i].Hosts = []api.StorageHost{}
-			for _, hostId := range hostIds {
-				if name, ok := hostMap[hostId]; ok {
-					rows[i].Hosts = append(rows[i].Hosts, api.StorageHost{Id: hostId, Name: name})
-				}
-			}
-		}
+		rows[i].Hosts, _ = hoststorages[storageIds[i]]
 		tags, ok := tagMap[storageIds[i]]
 		if ok {
 			rows[i].Schedtags = tags
@@ -709,7 +718,7 @@ func (self *SStorage) getZone() (*SZone, error) {
 func (self *SStorage) GetRegion() (*SCloudregion, error) {
 	zone, err := self.getZone()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "getZone")
 	}
 	return zone.GetRegion()
 }
@@ -1295,6 +1304,9 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		satCapa = map[string]int64{}
 		mdtCapa = map[string]int64{}
 		sdtCapa = map[string]int64{}
+
+		mCapaUsed = map[string]int64{}
+		sCapaUsed = map[string]int64{}
 	)
 	var add = func(m, s map[string]int64, mediumType, storageType string, capa int64) (map[string]int64, map[string]int64) {
 		_, ok := m[mediumType]
@@ -1316,6 +1328,7 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		}
 		mCapa, sCapa = add(mCapa, sCapa, stat.MediumType, stat.StorageType, int64(stat.Capacity-stat.Reserved))
 		tVCapa += float64(stat.Capacity-stat.Reserved) * float64(stat.Cmtbound)
+		mCapaUsed, sCapaUsed = add(mCapaUsed, sCapaUsed, stat.MediumType, stat.StorageType, int64(stat.UsedCapacity))
 		tUsed += int64(stat.UsedCapacity)
 		cUsed += stat.UsedCount
 		tFailed += int64(stat.FailedCapacity)
@@ -1334,6 +1347,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		StorageTypeCapacity:         sCapa,
 		CapacityVirtual:             tVCapa,
 		CapacityUsed:                tUsed,
+		MediumeCapacityUsed:         mCapaUsed,
+		StorageTypeCapacityUsed:     sCapaUsed,
 		CountUsed:                   cUsed,
 		CapacityUnready:             tFailed,
 		CountUnready:                cFailed,
@@ -1391,6 +1406,8 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 	disk.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 	disk.DomainId = ownerId.GetProjectDomainId()
 	disk.IsSystem = isSystem
+	disk.Iops = diskConfig.Iops
+	disk.Throughput = diskConfig.Throughput
 
 	if self.MediumType == api.DISK_TYPE_SSD {
 		disk.IsSsd = true
@@ -1521,6 +1538,15 @@ func (manager *SStorageManager) FetchStorageByIds(ids []string) ([]SStorage, err
 func (manager *SStorageManager) InitializeData() error {
 	storages := make([]SStorage, 0)
 	q := manager.Query()
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("zone_id")),
+			sqlchemy.AND(
+				sqlchemy.IsNullOrEmpty(q.Field("storagecache_id")),
+				sqlchemy.Equals(q.Field("storage_type"), api.STORAGE_RBD),
+			),
+		),
+	)
 	err := db.FetchModelObjects(manager, q, &storages)
 	if err != nil {
 		return err

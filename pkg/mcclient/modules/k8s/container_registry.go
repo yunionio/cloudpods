@@ -44,11 +44,13 @@ type ContainerRegistryManager struct {
 }
 
 func NewContainerRegistryManager() *ContainerRegistryManager {
-	return &ContainerRegistryManager{
+	man := &ContainerRegistryManager{
 		ResourceManager: NewResourceManager("container_registry", "container_registries",
 			NewResourceCols("Url", "Type"),
 			NewColumns()),
 	}
+	man.SetSpecificMethods("images")
+	return man
 }
 
 func (m *ContainerRegistryManager) UploadImage(s *mcclient.ClientSession, id string, params jsonutils.JSONObject, body io.Reader, size int64) (jsonutils.JSONObject, error) {
@@ -66,13 +68,29 @@ func (m *ContainerRegistryManager) UploadImage(s *mcclient.ClientSession, id str
 	return json, nil
 }
 
+type DownloadImageByManagerInput struct {
+	Insecure bool   `json:"insecure"`
+	Image    string `json:"image"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func (m *ContainerRegistryManager) DownloadImageByManager(s *mcclient.ClientSession, input *DownloadImageByManagerInput) (string, io.Reader, int64, error) {
+	path := fmt.Sprintf("/%s/download-image", m.URLPath())
+	return m.downloadImage(s, path, input)
+}
+
 func (m *ContainerRegistryManager) DownloadImage(s *mcclient.ClientSession, id string, imageName string, imageTag string) (string, io.Reader, int64, error) {
 	params := map[string]string{
 		"image_name": imageName,
 		"tag":        imageTag,
 	}
-	query := jsonutils.Marshal(params)
 	path := fmt.Sprintf("/%s/%s/download-image", m.URLPath(), url.PathEscape(id))
+	return m.downloadImage(s, path, params)
+}
+
+func (m *ContainerRegistryManager) downloadImage(s *mcclient.ClientSession, path string, params interface{}) (string, io.Reader, int64, error) {
+	query := jsonutils.Marshal(params)
 	queryString := query.QueryString()
 	if len(queryString) > 0 {
 		path = fmt.Sprintf("%s?%s", path, queryString)

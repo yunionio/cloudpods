@@ -32,10 +32,6 @@ type SHost struct {
 	zone *SZone
 }
 
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.zone.GetIWires()
-}
-
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.zone.GetIStorages()
 }
@@ -178,7 +174,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
 	vmId, err := self._createVM(desc.Name, desc.Hostname, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB,
 		desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password,
-		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle,
+		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupIds, desc.UserData, desc.BillingCycle,
 		desc.ProjectId, desc.OsType, desc.Tags, desc.SPublicIpInfo)
 	if err != nil {
 		return nil, err
@@ -193,7 +189,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 func (self *SHost) _createVM(name, hostname string, imgId string,
 	sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
 	vswitchId string, ipAddr string, desc string, passwd string,
-	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string,
+	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupIds []string,
 	userData string, bc *billing.SBillingCycle, projectId, osType string,
 	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
 ) (string, error) {
@@ -251,7 +247,7 @@ func (self *SHost) _createVM(name, hostname string, imgId string,
 
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, hostname, imgId, instanceType, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags, publicIp)
+		vmId, err := self.zone.region.CreateInstance(name, hostname, imgId, instanceType, secgroupIds, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags, publicIp)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
 			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
@@ -271,7 +267,7 @@ func (self *SHost) _createVM(name, hostname string, imgId string,
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceTypeId
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, hostname, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags, publicIp)
+		vmId, err = self.zone.region.CreateInstance(name, hostname, imgId, instanceTypeId, secgroupIds, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags, publicIp)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {
@@ -283,7 +279,11 @@ func (self *SHost) _createVM(name, hostname string, imgId string,
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotSupported
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SHost) GetIsMaintenance() bool {

@@ -33,15 +33,16 @@ type ComputeOptions struct {
 	DefaultMemoryOvercommitBound  float32 `default:"1.0" help:"Default memory overcommit bound for host, default to 1"`
 	DefaultStorageOvercommitBound float32 `default:"1.0" help:"Default storage overcommit bound for storage, default to 1"`
 
-	DefaultSecurityGroupId      string `help:"Default security rules" default:"default"`
-	DefaultAdminSecurityGroupId string `help:"Default admin security rules" default:""`
+	DefaultSecurityGroupId       string `help:"Default security rules" default:"default"`
+	DefaultAdminSecurityGroupId  string `help:"Default admin security rules" default:""`
+	CleanUselessKvmSecurityGroup bool   `help:"Clean useless kvm security groups when service start"`
 
 	DefaultDiskSizeMB int `default:"10240" help:"Default disk size in MB if not specified, default to 10GiB" json:"default_disk_size"`
 
 	pending_delete.SPendingDeleteOptions
 
 	PrepaidExpireCheck              bool `default:"false" help:"clean expired servers or disks"`
-	PrepaidDeleteExpireCheck        bool `default:"true" help:"check prepaid expired before delete"`
+	PrepaidDeleteExpireCheck        bool `default:"false" help:"check prepaid expired before delete"`
 	PrepaidExpireCheckSeconds       int  `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
 	ExpiredPrepaidMaxCleanBatchSize int  `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
 
@@ -109,6 +110,7 @@ type ComputeOptions struct {
 	RepeatWeekdaysLimit int `default:"7" help:"day point of every weekday, default 7 points"`
 
 	ServerSkuSyncIntervalMinutes int `default:"60" help:"Interval to sync public cloud server skus, defualt is 1 hour"`
+	SkuBatchSync                 int `default:"5" help:"How many skus can be sync in a batch"`
 
 	// sku sync
 	SyncSkusDay  int `default:"1" help:"Days auto sync skus data, default 1 day"`
@@ -131,7 +133,9 @@ type ComputeOptions struct {
 	SnapshotCreateDiskProtocol string `help:"Snapshot create disk protocol" choices:"url|fuse" default:"fuse"`
 
 	HostOfflineMaxSeconds        int `help:"Maximal seconds interval that a host considered offline during which it did not ping region, default is 3 minues" default:"180"`
-	HostOfflineDetectionInterval int `help:"Interval to check offline hosts, defualt is half a minute" default:"30"`
+	HostOfflineDetectionInterval int `help:"Interval to check offline hosts, default is half a minute" default:"30"`
+
+	ManagedHostSyncStatusIntervalSeconds int `help:"interval to automatically sync status of managed hosts, default is 5 minutes" default:"300"`
 
 	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
 
@@ -163,14 +167,13 @@ type ComputeOptions struct {
 
 	SyncExtDiskSnapshotIntervalMinutes int  `help:"sync snapshot for external disk" default:"20"`
 	AutoReconcileBackupServers         bool `help:"auto reconcile backup servers" default:"false"`
+	SetKVMServerAsDaemonOnCreate       bool `help:"set kvm guest as daemon server on create" default:"false"`
 
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions
 	common_options.DBOptions
 
-	EnableAutoMergeSecurityGroup bool `help:"Enable auto merge secgroup when sync security group from cloud, default False" default:"false"`
-	EnableAutoSplitSecurityGroup bool `help:"Enable auto split secgroup when sync security group with diffrent rules from cloud, default False" default:"true"`
 	DeleteSnapshotExpiredRelease bool `help:"Should the virtual machine be automatically deleted when the virtual machine expires?" default:"false"`
 	DeleteEipExpiredRelease      bool `help:"Should the EIP  be automatically deleted when the virtual machine expires?" default:"false"`
 	DeleteDisksExpiredRelease    bool `help:"Should the Disks be automatically deleted when the virtual machine expires?" default:"false"`
@@ -204,6 +207,9 @@ type ComputeOptions struct {
 
 	LocalDataDiskMinSizeGB int `help:"Data disk min size when using local storage" default:"10"`
 	LocalDataDiskMaxSizeGB int `help:"Data disk max size when using local storage" default:"40960"`
+
+	LocalSysDiskMinSizeGB int `help:"System disk min size when using local storage" default:"30"`
+	LocalSysDiskMaxSizeGB int `help:"System disk max size when using local storage" default:"2048"`
 
 	SkuMaxMemSize  int64 `help:"Sku max memory size GB" default:"1024"`
 	SkuMaxCpuCount int64 `help:"Sku max cpu count" default:"256"`

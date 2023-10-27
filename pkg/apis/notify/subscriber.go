@@ -57,6 +57,8 @@ type SubscriberCreateInput struct {
 	// description: scope
 	// enum: system,domain
 	Scope string
+	// minutes
+	GroupTimes *uint32
 }
 
 type SubscriberChangeInput struct {
@@ -72,6 +74,8 @@ type SubscriberChangeInput struct {
 
 	// description: Robot(Id or Name) which is required when the type is 'robot' will Subscribe TopicID
 	Robot string
+	// minutes
+	GroupTimes *uint32
 }
 
 type SubscriberListInput struct {

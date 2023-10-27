@@ -18,13 +18,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/sqlchemy"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -45,50 +46,8 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
-func (self *SGoogleRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return false
-}
-
-// 名称必须以小写字母开头，后面最多可跟 62 个小写字母、数字或连字符，但不能以连字符结尾
-func (self *SGoogleRegionDriver) GenerateSecurityGroupName(name string) string {
-	ret := ""
-	for _, s := range strings.ToLower(pinyinutils.Text2Pinyin(name)) {
-		if (s >= 'a' && s <= 'z') || (s >= '0' && s <= '9') || (s == '-') {
-			ret = fmt.Sprintf("%s%s", ret, string(s))
-		}
-	}
-	if len(ret) > 0 && (ret[0] < 'a' || ret[0] > 'z') {
-		ret = fmt.Sprintf("sg-%s", ret)
-	}
-	return ret
-}
-
-func (self *SGoogleRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SGoogleRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
-}
-
-func (self *SGoogleRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 0
-}
-
-func (self *SGoogleRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 65534
-}
-
 func (self *SGoogleRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_GOOGLE
-}
-
-func (self *SGoogleRegionDriver) IsSecurityGroupBelongGlobalVpc() bool {
-	return true
-}
-
-func (self *SGoogleRegionDriver) IsVpcBelongGlobalVpc() bool {
-	return true
 }
 
 func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
@@ -267,4 +226,135 @@ func (self *SGoogleRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 		return input, err
 	}
 	return input, nil
+}
+
+func (self *SGoogleRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	for i := range input.Rules {
+		rule := input.Rules[i]
+		if rule.Priority == nil {
+			return nil, httperrors.NewMissingParameterError("priority")
+		}
+		if *rule.Priority < 0 || *rule.Priority > 65535 {
+			return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-65535", *rule.Priority)
+		}
+
+		if len(rule.Ports) > 0 && strings.Contains(input.Rules[i].Ports, ",") {
+			return nil, httperrors.NewInputParameterError("invalid ports %s", input.Rules[i].Ports)
+		}
+	}
+	return input, nil
+}
+
+func (self *SGoogleRegionDriver) RequestCreateSecurityGroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	secgroup *models.SSecurityGroup,
+	rules api.SSecgroupRuleResourceSet,
+) error {
+	vpc, err := secgroup.GetGlobalVpc()
+	if err != nil {
+		return errors.Wrapf(err, "GetVpc")
+	}
+
+	iVpc, err := vpc.GetICloudGlobalVpc(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "GetICloudGlobalVpc")
+	}
+
+	opts := &cloudprovider.SecurityGroupCreateInput{
+		Name: secgroup.Name,
+	}
+
+	opts.Tags, _ = secgroup.GetAllUserMetadata()
+
+	iGroup, err := iVpc.CreateISecurityGroup(opts)
+	if err != nil {
+		return errors.Wrapf(err, "CreateISecurityGroup")
+	}
+
+	_, err = db.Update(secgroup, func() error {
+		secgroup.ExternalId = iGroup.GetGlobalId()
+		secgroup.VpcId = ""
+		secgroup.CloudregionId = "-"
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "SetExternalId")
+	}
+
+	for i := range rules {
+		opts := cloudprovider.SecurityGroupRuleCreateOptions{
+			Desc:      rules[i].Description,
+			Direction: secrules.TSecurityRuleDirection(rules[i].Direction),
+			Action:    secrules.TSecurityRuleAction(rules[i].Action),
+			Protocol:  rules[i].Protocol,
+			CIDR:      rules[i].CIDR,
+			Ports:     rules[i].Ports,
+		}
+		_, err := iGroup.CreateRule(&opts)
+		if err != nil {
+			return errors.Wrapf(err, "CreateRule")
+		}
+	}
+
+	iRules, err := iGroup.GetRules()
+	if err != nil {
+		return errors.Wrapf(err, "GetRules")
+	}
+
+	result := secgroup.SyncRules(ctx, userCred, iRules)
+	if result.IsError() {
+		return result.AllError()
+	}
+	secgroup.SetStatus(userCred, api.SECGROUP_STATUS_READY, "")
+	return nil
+}
+
+func (self *SGoogleRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
+	if input.Priority != nil && *input.Priority < 0 || *input.Priority > 65535 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-65535", *input.Priority)
+	}
+
+	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
+func (self *SGoogleRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("globalvpc_id", vpc.GlobalvpcId)
+	}, nil
+}
+
+func (self *SGoogleRegionDriver) CreateDefaultSecurityGroup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	vpc *models.SVpc,
+) (*models.SSecurityGroup, error) {
+	newGroup := &models.SSecurityGroup{}
+	newGroup.SetModelManager(models.SecurityGroupManager, newGroup)
+	newGroup.Name = fmt.Sprintf("default-auto-%d", time.Now().Unix())
+	newGroup.Description = "auto generage"
+	newGroup.ManagerId = vpc.ManagerId
+	newGroup.DomainId = ownerId.GetDomainId()
+	newGroup.GlobalvpcId = vpc.GlobalvpcId
+	newGroup.ProjectId = ownerId.GetProjectId()
+	err := models.SecurityGroupManager.TableSpec().Insert(ctx, newGroup)
+	if err != nil {
+		return nil, errors.Wrapf(err, "insert")
+	}
+
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	driver := region.GetDriver()
+	err = driver.RequestCreateSecurityGroup(ctx, userCred, newGroup, api.SSecgroupRuleResourceSet{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "RequestCreateSecurityGroup")
+	}
+	return newGroup, nil
 }

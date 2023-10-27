@@ -315,7 +315,7 @@ func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcc
 					Filter(sqlchemy.Equals(vpc.Field("manager_id"), managerId))
 			})
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "search network by externalId: %s", extNetworkId)
 			}
 			self.NetworkId = network.GetId()
 		}

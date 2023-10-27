@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -44,6 +43,7 @@ type SElb struct {
 	multicloud.SVirtualResourceBase
 	region *SRegion
 
+	AwsTags
 	Type                  string             `xml:"Type"`
 	Scheme                string             `xml:"Scheme"`
 	IPAddressType         string             `xml:"IpAddressType"`
@@ -59,7 +59,7 @@ type SElb struct {
 }
 
 type AvailabilityZone struct {
-	LoadBalancerAddresses []LoadBalancerAddress `xml:"LoadBalancerAddresses"`
+	LoadBalancerAddresses []LoadBalancerAddress `xml:"LoadBalancerAddresses>member"`
 	ZoneName              string                `xml:"ZoneName"`
 	SubnetId              string                `xml:"SubnetId"`
 }
@@ -121,7 +121,11 @@ func (self *SElb) GetSysTags() map[string]string {
 }
 
 func (self *SElb) GetTags() (map[string]string, error) {
-	return self.region.FetchElbTags(self.LoadBalancerArn)
+	tagBase, err := self.region.DescribeElbTags(self.LoadBalancerArn)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeElbTags")
+	}
+	return tagBase.GetTags()
 }
 
 func (self *SElb) GetAddress() string {
@@ -157,26 +161,28 @@ func (self *SElb) GetVpcId() string {
 }
 
 func (self *SElb) GetZoneId() string {
-	zones := []string{}
+	zoneNames := []string{}
 	for i := range self.AvailabilityZones {
-		zones = append(zones, self.AvailabilityZones[i].ZoneName)
+		zoneNames = append(zoneNames, self.AvailabilityZones[i].ZoneName)
 	}
-
-	sort.Strings(zones)
-	if len(zones) > 0 {
-		z, err := self.region.getZoneById(zones[0])
-		if err != nil {
-			log.Infof("getZoneById %s %s", zones[0], err)
-			return ""
-		}
-
-		return z.GetGlobalId()
+	sort.Strings(zoneNames)
+	for i := range zoneNames {
+		return zoneNames[i]
 	}
-
 	return ""
 }
 
 func (self *SElb) GetZone1Id() string {
+	zoneNames := []string{}
+	for i := range self.AvailabilityZones {
+		zoneNames = append(zoneNames, self.AvailabilityZones[i].ZoneName)
+	}
+	sort.Strings(zoneNames)
+	for i := range zoneNames {
+		if i != 0 {
+			return zoneNames[i]
+		}
+	}
 	return ""
 }
 
@@ -224,20 +230,14 @@ func (self *SElb) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalance
 }
 
 func (self *SElb) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	groups, err := self.region.GetElbBackendgroups(self.LoadBalancerArn, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetElbBackendgroups")
+	}
 	ret := []cloudprovider.ICloudLoadbalancerBackendGroup{}
-	marker := ""
-	for {
-		part, marker, err := self.region.GetElbBackendgroups(self.LoadBalancerArn, "", marker)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetElbBackendgroups")
-		}
-		for i := range part {
-			part[i].lb = self
-			ret = append(ret, &part[i])
-		}
-		if len(marker) == 0 || len(part) == 0 {
-			break
-		}
+	for i := range groups {
+		groups[i].lb = self
+		ret = append(ret, &groups[i])
 	}
 	return ret, nil
 }
@@ -289,27 +289,36 @@ func (self *SRegion) DeleteElb(id string) error {
 	return self.elbRequest("DeleteLoadBalancer", params, nil)
 }
 
-func (self *SRegion) GetElbBackendgroups(elbId, id, marker string) ([]SElbBackendGroup, string, error) {
+func (self *SRegion) GetElbBackendgroups(elbId, id string) ([]SElbBackendGroup, error) {
 	params := map[string]string{}
 	if len(elbId) > 0 {
 		params["LoadBalancerArn"] = elbId
 	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
-	}
 	if len(id) > 0 {
 		params["TargetGroupArns.member.1"] = id
 	}
-	ret := &SElbBackendGroups{}
-	err := self.elbRequest("DescribeTargetGroups", params, ret)
-	if err != nil {
-		return nil, "", errors.Wrapf(err, "DescribeTargetGroups")
+	ret := []SElbBackendGroup{}
+	for {
+		part := struct {
+			NextMarker   string             `xml:"NextMarker"`
+			TargetGroups []SElbBackendGroup `xml:"TargetGroups>member"`
+		}{}
+		err := self.elbRequest("DescribeTargetGroups", params, &part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeTargetGroups")
+		}
+		ret = append(ret, part.TargetGroups...)
+		if len(part.NextMarker) == 0 || len(part.TargetGroups) == 0 {
+			break
+		}
+		params["Marker"] = part.NextMarker
 	}
-	return ret.TargetGroups, ret.NextMarker, nil
+
+	return ret, nil
 }
 
 func (self *SRegion) GetElbBackendgroup(id string) (*SElbBackendGroup, error) {
-	groups, _, err := self.GetElbBackendgroups("", id, "")
+	groups, err := self.GetElbBackendgroups("", id)
 	if err != nil {
 		return nil, err
 	}
@@ -379,8 +388,10 @@ func (self *SRegion) CreateElbBackendgroup(opts *cloudprovider.SLoadbalancerBack
 		"TargetType": "instance",
 		"VpcId":      opts.VpcId,
 	}
-	ret := &SElbBackendGroups{}
-	err := self.elbRequest("CreateTargetGroup", params, ret)
+	ret := struct {
+		TargetGroups []SElbBackendGroup `xml:"TargetGroups>member"`
+	}{}
+	err := self.elbRequest("CreateTargetGroup", params, &ret)
 	if err != nil {
 		return nil, err
 	}
@@ -391,38 +402,94 @@ func (self *SRegion) CreateElbBackendgroup(opts *cloudprovider.SLoadbalancerBack
 }
 
 func (self *SElb) SetTags(tags map[string]string, replace bool) error {
-	oldTags, err := self.region.FetchElbTags(self.LoadBalancerArn)
+	return self.region.setElbTags(self.LoadBalancerArn, tags, replace)
+}
+
+func (self *SRegion) setElbTags(arn string, tags map[string]string, replace bool) error {
+	tagBase, err := self.DescribeElbTags(arn)
 	if err != nil {
-		return errors.Wrapf(err, "self.region.FetchElbTags(%s)", self.LoadBalancerArn)
+		return errors.Wrapf(err, "DescribeElbTags")
 	}
-	err = self.region.UpdateResourceTags(self.LoadBalancerArn, oldTags, tags, replace)
+	oldTags, err := tagBase.GetTags()
 	if err != nil {
-		return errors.Wrap(err, "self.region.UpdateResourceTags(self.LoadBalancerArn, oldTags, tags, replace)")
+		return errors.Wrap(err, "get tags")
+	}
+	added, removed := map[string]string{}, map[string]string{}
+	for k, v := range tags {
+		oldValue, ok := oldTags[k]
+		if !ok {
+			added[k] = v
+		} else if oldValue != v {
+			removed[k] = oldValue
+			added[k] = v
+		}
+	}
+	if replace {
+		for k, v := range oldTags {
+			newValue, ok := tags[k]
+			if !ok {
+				removed[k] = v
+			} else if v != newValue {
+				added[k] = newValue
+				removed[k] = v
+			}
+		}
+	}
+	if len(removed) > 0 {
+		err = self.RemoveElbTags(arn, removed)
+		if err != nil {
+			return errors.Wrapf(err, "RemoveElbTags %s", removed)
+		}
+	}
+	if len(added) > 0 {
+		return self.AddElbTags(arn, added)
 	}
 	return nil
 }
 
-func (self *SRegion) FetchElbTags(arn string) (map[string]string, error) {
+func (self *SRegion) AddElbTags(arn string, tags map[string]string) error {
+	params := map[string]string{
+		"ResourceArns.member.1": arn,
+	}
+	idx := 1
+	for k, v := range tags {
+		params[fmt.Sprintf("Tags.member.%d.Key", idx)] = k
+		params[fmt.Sprintf("Tags.member.%d.Value", idx)] = v
+		idx++
+	}
+	ret := struct {
+	}{}
+	return self.elbRequest("AddTags", params, &ret)
+}
+
+func (self *SRegion) RemoveElbTags(arn string, tags map[string]string) error {
+	params := map[string]string{
+		"ResourceArns.member.1": arn,
+	}
+	idx := 1
+	for k := range tags {
+		params[fmt.Sprintf("TagKeys.member.%d", idx)] = k
+		idx++
+	}
+	ret := struct {
+	}{}
+	return self.elbRequest("RemoveTags", params, &ret)
+}
+
+func (self *SRegion) DescribeElbTags(arn string) (*AwsTags, error) {
 	ret := struct {
 		TagDescriptions []struct {
 			ResourceArn string `xml:"ResourceArn"`
-			Tags        []struct {
-				Key   string
-				Value string
-			} `xml:"Tags>member"`
+			AwsTags
 		} `xml:"TagDescriptions>member"`
 	}{}
 	err := self.elbRequest("DescribeTags", map[string]string{"ResourceArns.member.1": arn}, &ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeTags")
 	}
-	result := map[string]string{}
 	for _, res := range ret.TagDescriptions {
 		if res.ResourceArn == arn {
-			for _, tag := range res.Tags {
-				result[tag.Key] = tag.Value
-			}
-			return result, nil
+			return &res.AwsTags, nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
@@ -457,12 +524,12 @@ func (self *SRegion) CreateLoadbalancer(opts *cloudprovider.SLoadbalancerCreateO
 	}
 
 	if opts.LoadbalancerSpec == api.LB_AWS_SPEC_APPLICATION && len(opts.NetworkIds) == 1 {
-		nets, err := self.GetNetwroks(nil, opts.VpcId)
+		nets, err := self.GetNetwroks(nil, opts.ZoneId, opts.VpcId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetNetworks(%s)", opts.VpcId)
 		}
 		for i := range nets {
-			if !utils.IsInStringArray(nets[i].SubnetId, opts.NetworkIds) && nets[i].AvailabilityZone != opts.ZoneId {
+			if !utils.IsInStringArray(nets[i].SubnetId, opts.NetworkIds) {
 				opts.NetworkIds = append(opts.NetworkIds, nets[i].SubnetId)
 				break
 			}
@@ -488,4 +555,12 @@ func (self *SRegion) CreateLoadbalancer(opts *cloudprovider.SLoadbalancerCreateO
 		return &ret.LoadBalancers[i], nil
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
+}
+
+func (self *SElb) GetDescription() string {
+	tags, _ := self.region.DescribeElbTags(self.LoadBalancerArn)
+	if tags == nil {
+		return ""
+	}
+	return tags.GetDescription()
 }

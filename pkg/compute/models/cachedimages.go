@@ -61,6 +61,7 @@ func init() {
 		),
 	}
 	CachedimageManager.SetVirtualObject(CachedimageManager)
+	CachedimageManager.TableSpec().AddIndex(false, "deleted", "domain_id", "tenant_id", "image_type")
 }
 
 type SCachedimage struct {
@@ -884,7 +885,8 @@ func (manager *SCachedimageManager) ListItemFilter(
 		}
 
 		if idFilter {
-			q = q.In("id", subq)
+			subQ := subq.Distinct().SubQuery()
+			q = q.Join(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("cachedimage_id")))
 		}
 	}
 
@@ -990,6 +992,16 @@ func (manager *SCachedimageManager) InitializeData() error {
 			return errors.Wrapf(err, "db.Update(%s)", images[i].Id)
 		}
 	}
+
+	q = manager.Query().IsNullOrEmpty("info")
+	err = db.FetchModelObjects(manager, q, &images)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range images {
+		db.RealDeleteModel(context.Background(), nil, &images[i])
+	}
+
 	return nil
 }
 

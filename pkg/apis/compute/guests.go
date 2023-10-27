@@ -144,13 +144,17 @@ type ServerRebuildRootInput struct {
 	// required: true
 	ImageId string `json:"image_id"`
 	// swagger: ignore
-	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
+	// Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
 	// 秘钥Id
-	KeypairId     string `json:"keypair_id"`
-	ResetPassword *bool  `json:"reset_password"`
-	Password      string `json:"password"`
-	AutoStart     *bool  `json:"auto_start"`
-	AllDisks      *bool  `json:"all_disks"`
+	// KeypairId     string `json:"keypair_id"`
+	// ResetPassword *bool  `json:"reset_password"`
+	// Password      string `json:"password"`
+
+	AutoStart *bool `json:"auto_start"`
+
+	AllDisks *bool `json:"all_disks"`
+
+	ServerDeployInputBase
 }
 
 type ServerResumeInput struct {
@@ -305,6 +309,9 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 	}
 	for k, v := range self.Metadata {
 		if strings.HasPrefix(k, db.USER_TAG_PREFIX) {
+			if strings.Contains(k, "login_key") || strings.Contains(v, "=") {
+				continue
+			}
 			ret[k] = v
 		}
 	}
@@ -435,13 +442,16 @@ type GuestAutoRenewInput struct {
 	Duration string `json:"duration"`
 }
 
-type ConvertEsxiToKvmInput struct {
+type ConvertToKvmInput struct {
 	apis.Meta
 
 	// target hypervisor
 	TargetHypervisor string `json:"target_hypervisor"`
 	// 指定转换的宿主机
 	PreferHost string `json:"prefer_host"`
+
+	// dest guest network configs
+	Networks []*NetworkConfig `json:"networks"`
 }
 
 type GuestSaveToTemplateInput struct {
@@ -684,6 +694,15 @@ type ServerMigrateNetworkInput struct {
 type ServerDeployInput struct {
 	apis.Meta
 
+	ServerDeployInputBase
+
+	// 部署完成后是否自动启动
+	// 若虚拟机重置密码后需要重启生效，并且当前虚拟机状态为running, 此参数默认为true
+	// 若虚拟机状态为ready, 指定此参数后，部署完成后，虚拟机会自动启动
+	AutoStart bool `json:"auto_start"`
+}
+
+type ServerDeployInputBase struct {
 	// swagger: ignore
 	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
 	// 秘钥Id
@@ -698,10 +717,7 @@ type ServerDeployInput struct {
 	ResetPassword bool `json:"reset_password"`
 	// 重置指定密码
 	Password string `json:"password"`
-	// 部署完成后是否自动启动
-	// 若虚拟机重置密码后需要重启生效，并且当前虚拟机状态为running, 此参数默认为true
-	// 若虚拟机状态为ready, 指定此参数后，部署完成后，虚拟机会自动启动
-	AutoStart bool `json:"auto_start"`
+
 	// swagger: ignore
 	Restart bool `json:"restart"`
 
@@ -858,6 +874,13 @@ type ServerSetBootIndexInput struct {
 	Cdroms map[string]int8 `json:"cdroms"`
 }
 
+type ServerSetDiskIoThrottleInput struct {
+	// key disk id, value bps
+	Bps map[string]int `json:"bps"`
+	// key disk id, value iops
+	IOPS map[string]int `json:"iops"`
+}
+
 type ServerChangeStorageInput struct {
 	TargetStorageId string `json:"target_storage_id"`
 	KeepOriginDisk  bool   `json:"keep_origin_disk"`
@@ -977,9 +1000,44 @@ type ServerQemuInfo struct {
 	Cmdline string `json:"cmdline"`
 }
 
+type IPAddress struct {
+	IPAddress     string `json:"ip-address"`
+	IPAddressType string `json:"ip-address-type"`
+	Prefix        int    `json:"prefix"`
+}
+
+type IfnameDetail struct {
+	HardwareAddress string      `json:"hardware-address"`
+	IPAddresses     []IPAddress `json:"ip-addresses"`
+	Name            string      `json:"name"`
+	Statistics      struct {
+		RxBytes   int `json:"rx-bytes"`
+		RxDropped int `json:"rx-dropped"`
+		RxErrs    int `json:"rx-errs"`
+		RxPackets int `json:"rx-packets"`
+		TxBytes   int `json:"tx-bytes"`
+		TxDropped int `json:"tx-dropped"`
+		TxErrs    int `json:"tx-errs"`
+		TxPackets int `json:"tx-packets"`
+	} `json:"statistics"`
+}
+
 type ServerQgaSetPasswordInput struct {
 	Username string
 	Password string
+}
+
+type ServerQgaGuestInfoTaskInput struct {
+}
+
+type ServerQgaSetNetworkInput struct {
+	ServerQgaTimeoutInput
+	Device  string
+	Ipmask  string
+	Gateway string
+}
+
+type ServerQgaGetNetworkInput struct {
 }
 
 type ServerQgaTimeoutInput struct {
@@ -1014,4 +1072,47 @@ type ServerEjectVfdInput struct {
 type ServerSetLiveMigrateParamsInput struct {
 	MaxBandwidthMB  *int64
 	DowntimeLimitMS *int64
+}
+
+type ServerNicTrafficLimit struct {
+	Mac            string `json:"mac"`
+	RxTrafficLimit *int64 `json:"rx_traffic_limit"`
+	TxTrafficLimit *int64 `json:"tx_traffic_limit"`
+}
+
+type GuestAddSubIpsInput struct {
+	Mac    string   `json:"mac"`
+	IpAddr string   `json:"ip_addr"`
+	Count  int      `json:"count"`
+	SubIps []string `json:"sub_ips"`
+
+	Reserved bool `json:"reserved"`
+
+	AllocDir IPAllocationDirection `json:"alloc_dir"`
+}
+
+type NetworkAddrConf struct {
+	Id      string `json:"id"`
+	Type    string `json:"type"`
+	IpAddr  string `json:"ip_addr"`
+	Masklen int    `json:"masklen"`
+	Gateway string `json:"gateway"`
+}
+
+type ServerLoginInfoInput struct {
+	PrivateKey string `json:"private_key"`
+}
+
+type ServerLoginInfoOutput struct {
+	Username string `json:"username"`
+	Updated  string `json:"updated"`
+	LoginKey string `json:"login_key"`
+	Keypair  string `json:"keypair"`
+	Password string `json:"password"`
+}
+
+type GuestPerformStartInput struct {
+	// 指定启动虚拟机的Qemu版本，可选值：2.12.1, 4.2.0
+	// 仅适用于KVM虚拟机
+	QemuVersion string `json:"qemu_version"`
 }

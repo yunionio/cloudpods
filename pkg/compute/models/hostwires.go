@@ -29,30 +29,30 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-type SHostwireManager struct {
+type SHostwireManagerDeprecated struct {
 	SHostJointsManager
 	SWireResourceBaseManager
 }
 
-var HostwireManager *SHostwireManager
+var HostwireManagerDeprecated *SHostwireManagerDeprecated
 
 func init() {
 	db.InitManager(func() {
-		HostwireManager = &SHostwireManager{
+		HostwireManagerDeprecated = &SHostwireManagerDeprecated{
 			SHostJointsManager: NewHostJointsManager(
 				"host_id",
-				SHostwire{},
+				SHostwireDeprecated{},
 				"hostwires_tbl",
 				"hostwire",
 				"hostwires",
 				WireManager,
 			),
 		}
-		HostwireManager.SetVirtualObject(HostwireManager)
+		HostwireManagerDeprecated.SetVirtualObject(HostwireManagerDeprecated)
 	})
 }
 
-type SHostwire struct {
+type SHostwireDeprecated struct {
 	SHostJointsBase
 
 	Bridge string `width:"64" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
@@ -69,15 +69,15 @@ type SHostwire struct {
 	WireId string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 }
 
-func (manager *SHostwireManager) GetMasterFieldName() string {
+func (manager *SHostwireManagerDeprecated) GetMasterFieldName() string {
 	return "host_id"
 }
 
-func (manager *SHostwireManager) GetSlaveFieldName() string {
+func (manager *SHostwireManagerDeprecated) GetSlaveFieldName() string {
 	return "wire_id"
 }
 
-func (manager *SHostwireManager) FetchCustomizeColumns(
+func (manager *SHostwireManagerDeprecated) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -94,7 +94,7 @@ func (manager *SHostwireManager) FetchCustomizeColumns(
 		rows[i] = api.HostwireDetails{
 			HostJointResourceDetails: hostRows[i],
 		}
-		wireIds[i] = objs[i].(*SHostwire).WireId
+		wireIds[i] = objs[i].(*SHostwireDeprecated).WireId
 	}
 
 	wires := make(map[string]SWire)
@@ -114,7 +114,7 @@ func (manager *SHostwireManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (hw *SHostwire) GetWire() *SWire {
+func (hw *SHostwireDeprecated) GetWire() *SWire {
 	wire, _ := WireManager.FetchById(hw.WireId)
 	if wire != nil {
 		return wire.(*SWire)
@@ -122,7 +122,7 @@ func (hw *SHostwire) GetWire() *SWire {
 	return nil
 }
 
-func (hw *SHostwire) GetHost() *SHost {
+func (hw *SHostwireDeprecated) GetHost() *SHost {
 	host, _ := HostManager.FetchById(hw.HostId)
 	if host != nil {
 		return host.(*SHost)
@@ -130,7 +130,7 @@ func (hw *SHostwire) GetHost() *SHost {
 	return nil
 }
 
-func (self *SHostwire) GetGuestnicsCount() (int, error) {
+func (self *SHostwireDeprecated) GetGuestnicsCount() (int, error) {
 	guestnics := GuestnetworkManager.Query().SubQuery()
 	guests := GuestManager.Query().SubQuery()
 	nets := NetworkManager.Query().SubQuery()
@@ -146,32 +146,32 @@ func (self *SHostwire) GetGuestnicsCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SHostwire) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (self *SHostwireDeprecated) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetGuestnicsCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetGuestnicsCount fail %s", err)
 	}
 	if cnt > 0 {
 		// check if this is the last one
-		host := self.GetHost()
-		if len(host.getHostwiresOfId(self.WireId)) == 1 {
-			return httperrors.NewNotEmptyError("guest on the host are using networks on this wire")
-		}
+		// host := self.GetHost()
+		// if len(host.getHostwiresOfId(self.WireId)) == 1 {
+		//	return httperrors.NewNotEmptyError("guest on the host are using networks on this wire")
+		// }
 	}
 	return self.SHostJointsBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SHostwire) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SHostwireDeprecated) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, self)
 }
 
-func (self *SHostwire) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+func (self *SHostwireDeprecated) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	host := self.GetHost()
 	if host == nil {
 		log.Errorf("no host found??")
 		return
 	}
-	netif := host.GetNetInterface(self.MacAddr)
+	netif := host.GetNetInterface(self.MacAddr, 1)
 	if netif == nil {
 		log.Errorf("no netinterface for %s", self.MacAddr)
 		return
@@ -188,11 +188,11 @@ func (self *SHostwire) PreDelete(ctx context.Context, userCred mcclient.TokenCre
 	}
 }
 
-func (self *SHostwire) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SHostwireDeprecated) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
 }
 
-func (manager *SHostwireManager) FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery {
+func (manager *SHostwireManagerDeprecated) FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery {
 	macStr := jsonutils.GetAnyString(params, []string{"mac", "mac_addr"})
 	if len(macStr) > 0 {
 		q = q.Filter(sqlchemy.Equals(q.Field("mac_addr"), macStr))
@@ -200,7 +200,7 @@ func (manager *SHostwireManager) FilterByParams(q *sqlchemy.SQuery, params jsonu
 	return q
 }
 
-func (manager *SHostwireManager) FetchByHostIdAndMac(hostId string, mac string) (*SHostwire, error) {
+func (manager *SHostwireManagerDeprecated) FetchByHostIdAndMac(hostId string, mac string) (*SHostwireDeprecated, error) {
 	hw, err := db.NewModelObject(manager)
 	if err != nil {
 		return nil, err
@@ -210,10 +210,10 @@ func (manager *SHostwireManager) FetchByHostIdAndMac(hostId string, mac string) 
 	if err != nil {
 		return nil, err
 	}
-	return hw.(*SHostwire), nil
+	return hw.(*SHostwireDeprecated), nil
 }
 
-func (manager *SHostwireManager) ListItemFilter(
+func (manager *SHostwireManagerDeprecated) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
@@ -250,7 +250,7 @@ func (manager *SHostwireManager) ListItemFilter(
 	return q, nil
 }
 
-func (manager *SHostwireManager) OrderByExtraFields(
+func (manager *SHostwireManagerDeprecated) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
@@ -270,7 +270,7 @@ func (manager *SHostwireManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (manager *SHostwireManager) ListItemExportKeys(ctx context.Context,
+func (manager *SHostwireManagerDeprecated) ListItemExportKeys(ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	keys stringutils2.SSortedStrings,
@@ -291,7 +291,7 @@ func (manager *SHostwireManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (hw *SHostwire) PostCreate(
+func (hw *SHostwireDeprecated) PostCreate(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
@@ -299,13 +299,13 @@ func (hw *SHostwire) PostCreate(
 	data jsonutils.JSONObject,
 ) {
 	hw.SHostJointsBase.PostCreate(ctx, userCred, ownerId, query, data)
-	hw.syncClassMetadata(ctx)
+	hw.syncClassMetadata(ctx, userCred)
 }
 
-func (hw *SHostwire) syncClassMetadata(ctx context.Context) error {
+func (hw *SHostwireDeprecated) syncClassMetadata(ctx context.Context, userCred mcclient.TokenCredential) error {
 	host := hw.GetHost()
 	wire := hw.GetWire()
-	err := db.InheritFromTo(ctx, wire, host)
+	err := db.InheritFromTo(ctx, userCred, wire, host)
 	if err != nil {
 		log.Errorf("Inherit class metadata from host to wire fail: %s", err)
 		return errors.Wrap(err, "InheritFromTo")
