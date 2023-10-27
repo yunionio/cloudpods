@@ -23,7 +23,6 @@ import (
 	"github.com/aokoli/goutils"
 	"golang.org/x/crypto/ssh"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -54,11 +53,11 @@ func (region *SRegion) GetKeypairs(finger string, name string, limit int, token 
 	}
 
 	keypairs := make([]SKeypair, 0)
-	err = body.Unmarshal(&keypairs, "Result", "KeyPairs")
+	err = body.Unmarshal(&keypairs, "KeyPairs")
 	if err != nil {
 		return nil, "", errors.Wrapf(err, "Unmarshal keypair fail")
 	}
-	nextToken, _ := body.GetString("Result", "NextToken")
+	nextToken, _ := body.GetString("NextToken")
 	return keypairs, nextToken, nil
 }
 
@@ -72,9 +71,8 @@ func (region *SRegion) ImportKeypair(name string, pubKey string) (*SKeypair, err
 		return nil, errors.Wrapf(err, "ImportKeypair fail")
 	}
 
-	log.Debugf("%s", body)
 	keypair := SKeypair{}
-	err = body.Unmarshal(&keypair, "Result")
+	err = body.Unmarshal(&keypair)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal keypair fail")
 	}

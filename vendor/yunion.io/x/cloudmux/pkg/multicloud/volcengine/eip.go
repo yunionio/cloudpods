@@ -252,7 +252,7 @@ func (region *SRegion) GetEips(eipIds []string, associatedId string, addresses [
 	}
 
 	eips := make([]SEipAddress, 0)
-	err = body.Unmarshal(&eips, "Result", "EipAddresses")
+	err = body.Unmarshal(&eips, "EipAddresses")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal EipAddress details fail")
 	}
@@ -308,7 +308,7 @@ func (region *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, erro
 		return nil, errors.Wrapf(err, "AllocateEipAddress fail")
 	}
 
-	eipId, err := body.GetString("Result", "AllocationId")
+	eipId, err := body.GetString("AllocationId")
 	if err != nil {
 		return nil, errors.Wrapf(err, "get AllocationId after created fail")
 	}

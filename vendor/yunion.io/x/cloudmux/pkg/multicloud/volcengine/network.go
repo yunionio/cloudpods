@@ -144,7 +144,7 @@ func (region *SRegion) CreateSubnet(zoneId string, vpcId string, name string, ci
 	if err != nil {
 		return "", err
 	}
-	return body.GetString("Result", "SubnetId")
+	return body.GetString("SubnetId")
 }
 
 func (region *SRegion) DeleteSubnet(SubnetId string) error {
@@ -228,11 +228,11 @@ func (region *SRegion) GetSubnets(ids []string, zoneId string, vpcId string, pag
 	}
 
 	subnets := make([]SNetwork, 0)
-	err = body.Unmarshal(&subnets, "Result", "Subnets")
+	err = body.Unmarshal(&subnets, "Subnets")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal subnets fail")
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return subnets, int(total), nil
 }
 
@@ -247,7 +247,7 @@ func (region *SRegion) GetSubnetAttributes(SubnetId string) (*SNetwork, error) {
 		log.Debugf("%s", body.PrettyString())
 	}
 	subnet := SNetwork{}
-	err = body.Unmarshal(&subnet, "Result")
+	err = body.Unmarshal(&subnet)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal subnet fail")
 	}

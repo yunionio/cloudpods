@@ -16,13 +16,11 @@ package volcengine
 
 import (
 	"fmt"
-	"time"
 
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 type SPrivateIp struct {
@@ -54,29 +52,6 @@ type SAssociatedElasticIp struct {
 
 type SPrivateIpSets struct {
 	PrivateIpSet []SPrivateIp
-}
-
-type SNetworkInterface struct {
-	multicloud.SNetworkInterfaceBase
-	VolcEngineTags
-	region *SRegion
-
-	InstanceId           string
-	NetworkInterfaceId   string
-	VpcId                string
-	SubnetId             string
-	PrimaryIpAddress     string
-	Type                 string
-	MacAddress           string
-	CreationTime         time.Time
-	NetworkInterfaceName string
-	PrivateIpSets        SPrivateIpSets
-	ResourceGroupId      string
-	SecurityGroupIds     SSecurityGroupIds
-	Status               string
-	ZoneId               string
-	PrivateIpAddresses   []string
-	AssociatedElasticIp  SAssociatedElasticIp
 }
 
 func (nic *SNetworkInterface) GetName() string {
@@ -165,10 +140,10 @@ func (region *SRegion) GetNetworkInterfaces(instanceId string, pageNumber int, p
 	}
 
 	interfaces := []SNetworkInterface{}
-	err = body.Unmarshal(&interfaces, "Result", "NetworkInterfaceSets")
+	err = body.Unmarshal(&interfaces, "NetworkInterfaceSets")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal")
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return interfaces, int(total), nil
 }

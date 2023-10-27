@@ -245,7 +245,8 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 	case session.ALIYUN, session.QCLOUD, session.OPENSTACK,
 		session.VMRC, session.ZSTACK, session.CTYUN,
 		session.HUAWEI, session.HCS, session.APSARA,
-		session.JDCLOUD, session.CLOUDPODS, session.PROXMOX:
+		session.JDCLOUD, session.CLOUDPODS, session.PROXMOX,
+		session.VOLCENGINE:
 		responsePublicCloudConsole(ctx, info, w)
 	case session.VNC, session.SPICE, session.WMKS:
 		handleDataSession(ctx, info, w, url.Values{"password": {info.GetPassword()}}, true)

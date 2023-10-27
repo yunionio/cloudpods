@@ -16,14 +16,14 @@ package volcengine
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/golang-plus/errors"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 )
 
 type SInstanceNic struct {
-	cloudprovider.DummyICloudNic
-
 	instance *SInstance
 
 	id      string
@@ -31,40 +31,60 @@ type SInstanceNic struct {
 	macAddr string
 }
 
-func (nic *SInstanceNic) GetId() string {
-	return nic.id
+type SNetworkInterface struct {
+	cloudprovider.DummyICloudNic
+	multicloud.SNetworkInterfaceBase
+	VolcEngineTags
+	region *SRegion
+
+	InstanceId           string
+	NetworkInterfaceId   string
+	VpcId                string
+	SubnetId             string
+	PrimaryIpAddress     string
+	Type                 string
+	MacAddress           string
+	CreationTime         time.Time
+	NetworkInterfaceName string
+	PrivateIpSets        SPrivateIpSets
+	ResourceGroupId      string
+	SecurityGroupIds     SSecurityGroupIds
+	Status               string
+	ZoneId               string
+	PrivateIpAddresses   []string
+	AssociatedElasticIp  SAssociatedElasticIp
 }
 
-func (nic *SInstanceNic) GetIP() string {
-	return nic.ipAddr
+func (nic *SNetworkInterface) GetIP() string {
+	return nic.PrimaryIpAddress
 }
 
-func (nic *SInstanceNic) GetMAC() string {
-	return nic.macAddr
+func (nic *SNetworkInterface) GetMAC() string {
+	return nic.MacAddress
 }
 
-func (nic *SInstanceNic) InClassicNetwork() bool {
+func (nic *SNetworkInterface) InClassicNetwork() bool {
 	return false
 }
 
-func (nic *SInstanceNic) GetDriver() string {
+func (nic *SNetworkInterface) GetDriver() string {
 	return "virtio"
 }
 
-func (nic *SInstanceNic) GetINetworkId() string {
-	return nic.instance.NetworkInterfaces[0].SubnetId
+func (nic *SNetworkInterface) GetINetworkId() string {
+	return nic.SubnetId
 }
 
-func (nic *SInstanceNic) GetSubAddress() ([]string, error) {
-	return nic.instance.host.zone.region.GetSubAddress(nic.id)
+func (nic *SNetworkInterface) GetSubAddress() ([]string, error) {
+	return nic.region.GetSubAddress(nic.NetworkInterfaceId)
 }
 
-func (nic *SInstanceNic) AssignAddress(ipAddrs []string) error {
-	return nic.instance.host.zone.region.AssignAddres(nic.id, ipAddrs)
+func (nic *SNetworkInterface) AssignAddress(ipAddrs []string) error {
+	return nic.region.AssignAddres(nic.NetworkInterfaceId, ipAddrs)
 }
 
-func (nic *SInstanceNic) UnassignAddress(ipAddrs []string) error {
-	return nic.instance.host.zone.region.UnassignAddress(nic.id, ipAddrs)
+func (nic *SNetworkInterface) UnassignAddress(ipAddrs []string) error {
+	return nic.region.UnassignAddress(nic.NetworkInterfaceId, ipAddrs)
 }
 
 func (region *SRegion) GetSubAddress(nicId string) ([]string, error) {
@@ -77,7 +97,7 @@ func (region *SRegion) GetSubAddress(nicId string) ([]string, error) {
 	}
 
 	interfaces := []SNetworkInterface{}
-	err = body.Unmarshal(&interfaces, "Result", "NetworkInterfaceSets")
+	err = body.Unmarshal(&interfaces, "NetworkInterfaceSets")
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal")
 	}
