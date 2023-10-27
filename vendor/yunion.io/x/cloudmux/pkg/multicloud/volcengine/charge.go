@@ -16,26 +16,7 @@ package volcengine
 
 import (
 	"time"
-
-	api "yunion.io/x/cloudmux/pkg/apis/billing"
 )
-
-const (
-	PrePaidInstanceChargeType  TChargeType = "PrePaid"
-	PostPaidInstanceChargeType TChargeType = "PostPaid"
-	DefaultInstanceChargeType              = PostPaidInstanceChargeType
-)
-
-func convertChargeType(ct TChargeType) string {
-	switch ct {
-	case PrePaidInstanceChargeType:
-		return api.BILLING_TYPE_PREPAID
-	case PostPaidInstanceChargeType:
-		return api.BILLING_TYPE_POSTPAID
-	default:
-		return ""
-	}
-}
 
 func convertExpiredAt(expired time.Time) time.Time {
 	if !expired.IsZero() {

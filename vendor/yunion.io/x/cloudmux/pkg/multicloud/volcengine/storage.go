@@ -98,11 +98,10 @@ func (storage *SStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (storage *SStorage) GetStatus() string {
+	if storage.storageType == api.STORAGE_VOLCENGINE_PTSSD {
+		return api.STORAGE_OFFLINE
+	}
 	return api.STORAGE_ONLINE
-}
-
-func (storage *SStorage) Refresh() error {
-	return nil
 }
 
 func (storage *SStorage) GetEnabled() bool {

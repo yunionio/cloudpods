@@ -120,7 +120,7 @@ func (region *SRegion) ImportImage(name string, osArch string, osType string, pl
 	if err != nil {
 		return "", errors.Wrapf(err, "ImportImage")
 	}
-	imageId, err := body.GetString("Result", "ImageId")
+	imageId, err := body.GetString("ImageId")
 	if err != nil {
 		return "", errors.Wrap(err, "Unmarsh imageId failed")
 	}
@@ -138,7 +138,7 @@ func (region *SRegion) ExportImage(imageId, bucketName string) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "ExportImage")
 	}
-	taskId, err := body.GetString("Result", "TaskId")
+	taskId, err := body.GetString("TaskId")
 	if err != nil {
 		return "", errors.Wrapf(err, "Unmarshal")
 	}
@@ -298,11 +298,11 @@ func (region *SRegion) getImages(params map[string]string) ([]SImage, string, er
 	}
 
 	images := make([]SImage, 0)
-	err = body.Unmarshal(&images, "Result", "Images")
+	err = body.Unmarshal(&images, "Images")
 	if err != nil {
 		return nil, "", errors.Wrapf(err, "Unmarshal images fail")
 	}
-	nextToken, _ := body.GetString("Result", "NextToken")
+	nextToken, _ := body.GetString("NextToken")
 	return images, nextToken, nil
 }
 

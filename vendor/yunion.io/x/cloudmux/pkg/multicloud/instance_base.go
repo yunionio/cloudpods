@@ -86,3 +86,7 @@ func (self *SInstanceBase) GetInternetMaxBandwidthOut() int {
 func (ins *SInstanceBase) GetPowerStates() string {
 	return ""
 }
+
+func (instance *SInstanceBase) GetError() error {
+	return nil
+}

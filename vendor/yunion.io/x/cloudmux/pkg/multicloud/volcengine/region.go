@@ -49,6 +49,11 @@ var RegionEndpoint = map[string]string{
 	"cn-guangzhou": "cn-beijing.volces.com",
 }
 
+type sStorageType struct {
+	Id    string
+	Zones []string
+}
+
 type SRegion struct {
 	multicloud.SRegion
 	multicloud.SNoLbRegion
@@ -59,6 +64,7 @@ type SRegion struct {
 
 	ivpcs []cloudprovider.ICloudVpc
 
+	storageTypes []sStorageType
 	storageCache *SStoragecache
 }
 
@@ -135,7 +141,7 @@ func (region *SRegion) GetZones(id string) ([]SZone, error) {
 		return nil, err
 	}
 	ret := []SZone{}
-	err = body.Unmarshal(&ret, "Result", "AvailableZones")
+	err = body.Unmarshal(&ret, "AvailableZones")
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +201,7 @@ func (region *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, e
 	if err != nil {
 		return nil, err
 	}
-	vpcId, err := body.GetString("Result", "VpcId")
+	vpcId, err := body.GetString("VpcId")
 	if err != nil {
 		return nil, err
 	}
@@ -250,11 +256,11 @@ func (region *SRegion) GetVpcs(vpcIds []string, pageNumber int, pageSize int) ([
 		return nil, 0, errors.Wrapf(err, "GetVpcs fail")
 	}
 	vpcs := make([]SVpc, 0)
-	err = body.Unmarshal(&vpcs, "Result", "Vpcs")
+	err = body.Unmarshal(&vpcs, "Vpcs")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal vpcs fail")
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return vpcs, int(total), nil
 }
 
@@ -572,7 +578,7 @@ func (region *SRegion) GetRouteTables(ids []string, pageNumber int, pageSize int
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal routetables fail")
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return routetables, int(total), nil
 }
 

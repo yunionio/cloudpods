@@ -182,11 +182,11 @@ func (table *SRouteTable) RemoteGetRoutes(pageNumber int, pageSize int) ([]*SRou
 	}
 
 	entries := SRouteEntrys{}
-	err = body.Unmarshal(&entries, "Result", "RouteEntries")
+	err = body.Unmarshal(&entries, "RouteEntries")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal routeEntrys fail")
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return entries, int(total), nil
 }
 
@@ -262,14 +262,14 @@ func (vpc *SVpc) RemoteGetRouteTableList(pageNumber int, pageSize int) ([]*SRout
 	}
 
 	routeTables := make([]*SRouteTable, 0)
-	err = body.Unmarshal(&routeTables, "Result", "RouterTableList")
+	err = body.Unmarshal(&routeTables, "RouterTableList")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unmarshal routeTables fail")
 	}
 	for _, routeTable := range routeTables {
 		routeTable.region = vpc.region
 	}
-	total, _ := body.Int("Result", "TotalCount")
+	total, _ := body.Int("TotalCount")
 	return routeTables, int(total), nil
 }
 
