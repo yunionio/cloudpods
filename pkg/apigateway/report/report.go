@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
@@ -56,6 +57,9 @@ type sReport struct {
 	ServerCnt              int64
 	ServerCpuCnt           int64
 	ServerMemSizeMb        int64
+	KvmServerCnt           int64
+	KvmServerCpuCnt        int64
+	KvmServerMemSizeMb     int64
 	DiskCnt                int64
 	DiskSizeMb             int64
 	BucketCnt              int64
@@ -101,6 +105,20 @@ func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool
 			return nil, errors.Wrapf(err, "Hosts.List")
 		}
 		ret.VmwareHostCnt = int64(resp.Total)
+
+		resp, err = compute.Servers.List(s, jsonutils.Marshal(map[string]interface{}{
+			"scope":      "system",
+			"hypervisor": api.HYPERVISOR_KVM,
+			"limit":      1,
+		}))
+		if err != nil {
+			return nil, errors.Wrapf(err, "Server.List")
+		}
+		ret.KvmServerCnt = int64(resp.Total)
+		if !gotypes.IsNil(resp.Totals) {
+			ret.KvmServerCpuCnt, _ = resp.Totals.Int("cpu_count")
+			ret.KvmServerMemSizeMb, _ = resp.Totals.Int("mem_mb")
+		}
 
 		osDists, osVersions, qemuVersions, archs := []string{}, []string{}, []string{}, []string{}
 		hosts := []api.HostDetails{}
