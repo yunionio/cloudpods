@@ -200,7 +200,7 @@ type Monitor interface {
 	GetBlockJobCounts(func(jobs int))
 	GetBlockJobs(func([]BlockJob))
 	QueryPci(callback QueryPciCallback)
-	GetScsiNumQueues(callback func(int64))
+	InfoQtree(cb StringCallback)
 
 	GetCpuCount(func(count int))
 	AddCpu(cpuIndex int, callback StringCallback)

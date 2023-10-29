@@ -716,12 +716,58 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 	return nil
 }
 
+func (s *SKVMGuestInstance) getNetdevOfThePciAddress(qtree string, addr *desc.PCIAddr) string {
+	var slotFunc = fmt.Sprintf("addr = %02x.%x", addr.Slot, addr.Function)
+	var addressFound = false
+	var lines = strings.Split(strings.TrimSuffix(qtree, "\r\n"), "\\r\\n")
+	var currentIndentLevel = -1
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if trimmedLine == "" {
+			continue
+		}
+
+		if currentIndentLevel > 0 {
+			newIndentLevel := len(line) - len(trimmedLine)
+			if newIndentLevel <= currentIndentLevel {
+				if addressFound {
+					break
+				}
+
+				currentIndentLevel = -1
+				continue
+			}
+
+			if strings.HasPrefix(trimmedLine, slotFunc) {
+				addressFound = true
+				continue
+			}
+
+			if strings.HasPrefix(trimmedLine, "netdev =") {
+				segs := strings.Split(trimmedLine, " ")
+				netdev := strings.Trim(segs[2], `\\"`)
+				log.Infof("found netdev %s: %s", netdev, trimmedLine)
+				return netdev
+			} else {
+				continue
+			}
+		}
+
+		if strings.HasPrefix(trimmedLine, "dev: virtio-net-pci") {
+			currentIndentLevel = len(line) - len(trimmedLine)
+		} else {
+			continue
+		}
+	}
+	return ""
+}
+
 // guests description no pci description before host-agent assign pci device address info
 // in this case wo need query pci address info by `query-pci` command. Also memory devices.
 func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 	cpuList []monitor.HotpluggableCPU, pciInfoList []monitor.PCIInfo,
 	memoryDevicesInfoList []monitor.MemoryDeviceInfo, memDevs []monitor.Memdev,
-	scsiNumQueues int64,
+	scsiNumQueues int64, qtree string,
 ) error {
 	if len(pciInfoList) > 1 {
 		return errors.Errorf("unsupported pci info list with multi bus")
@@ -738,7 +784,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 	}
 	s.initMachineDesc()
 
-	// TODO: pcie extend bus
+	// This code is designed to ensure compatibility with older guests.
+	// However, it is not recommended for new guests to generate a desc file from it
 	pciRoot, _ := s.initGuestPciControllers(false)
 	err = s.initGuestPciAddresses()
 	if err != nil {
@@ -976,6 +1023,24 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 					err = s.ensureDevicePciAddress(s.Desc.VgaDevice.PCIDevice, -1, nil)
 					if err != nil {
 						return errors.Wrap(err, "ensure vga pci address")
+					}
+				case class == 512 && vendor == 6900 && device == 4096: // { 0x0200, "Ethernet controller", "ethernet"}, 1af4:1000  network device (legacy)
+					// virtio nics has no ids
+					ifname := s.getNetdevOfThePciAddress(qtree, pciAddr)
+
+					index := 0
+					for ; index < len(s.Desc.Nics); index++ {
+						if s.Desc.Nics[index].Ifname == ifname {
+							s.Desc.Nics[index].Pci.PCIAddr = pciAddr
+							err = s.ensureDevicePciAddress(s.Desc.Nics[index].Pci, -1, nil)
+							if err != nil {
+								return errors.Wrapf(err, "ensure nic %s pci address", s.Desc.Nics[index].Ifname)
+							}
+							break
+						}
+					}
+					if index >= len(s.Desc.Nics) {
+						return errors.Errorf("failed find nics ifname")
 					}
 				default:
 					unknownDevices = append(unknownDevices, pciInfoList[0].Devices[i])
