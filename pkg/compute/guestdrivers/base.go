@@ -544,3 +544,11 @@ func (drv *SBaseGuestDriver) RequestSetNicTrafficLimit(ctx context.Context, task
 func (drv *SBaseGuestDriver) SyncOsInfo(ctx context.Context, userCred mcclient.TokenCredential, g *models.SGuest, extVM cloudprovider.IOSInfo) error {
 	return nil
 }
+
+func (self *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	return httperrors.ErrNotImplemented
+}
+
+func (self *SBaseGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	return httperrors.ErrNotImplemented
+}

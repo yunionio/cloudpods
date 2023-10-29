@@ -219,6 +219,29 @@ func generateScsiOptions(scsi *desc.SGuestVirtioScsi) string {
 	return opt
 }
 
+func generateInitrdOptions(drvOpt QemuOptions, initrdPath, kernel, sys_img string, rescueDiskDeviceBus, rescueDiskDeviceSlot uint, nics []*desc.SGuestNetwork) []string {
+	opts := make([]string, 0)
+	opts = append(opts, fmt.Sprintf("-initrd %s", initrdPath))
+	opts = append(opts, fmt.Sprintf("-kernel %s", kernel))
+
+	// create temp disk info
+	driveString := fmt.Sprintf("file=%s,if=none,id=initrd,cache=none,aio=native,file.locking=off", sys_img)
+	opts = append(opts, drvOpt.Drive(driveString))
+	deviceString := fmt.Sprintf("virtio-blk-pci,drive=initrd,iothread=iothread0,bus=pci.%d,addr=0x%02x,id=initrd,bootindex=1", rescueDiskDeviceBus, rescueDiskDeviceSlot)
+	opts = append(opts, drvOpt.Device(deviceString))
+
+	// add ip config
+	//var ips []string
+	//for _, nic := range nics {
+	//	ips = append(ips, fmt.Sprintf("ip=%s:%s:%s:%s:%s:%s:off,", nic.Ip, "", nic.Gateway, netutils.Masklen2Mask(nic.Masklen).String(), "", nic.Ifname))
+	//}
+	//appendIps := strings.Join(ips, ",")
+	//
+	//opts = append(opts, fmt.Sprintf("-append %s", appendIps))
+
+	return opts
+}
+
 func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt, isMaster bool) []string {
 	opts := make([]string, 0)
 	for _, disk := range disks {
@@ -635,6 +658,12 @@ type GenerateStartOptionsInput struct {
 	EnablePvpanic        bool
 
 	EncryptKeyPath string
+
+	RescueInitdPath      string // rescue initramfs path
+	RescueKernelPath     string // rescue kernel path
+	RescueDiskPath       string // rescue disk path
+	RescueDiskDeviceBus  uint
+	RescueDiskDeviceSlot uint
 }
 
 func (input *GenerateStartOptionsInput) HasBootIndex() bool {
@@ -757,6 +786,20 @@ func GenerateStartOptions(
 	} else if input.GuestDesc.PvScsi != nil {
 		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.PvScsi.PCIDevice))
 	}
+
+	// generate initrd and kernel options
+	if input.RescueInitdPath != "" {
+		opts = append(opts, generateInitrdOptions(
+			drvOpt,
+			input.RescueInitdPath,
+			input.RescueKernelPath,
+			input.RescueDiskPath,
+			input.RescueDiskDeviceBus,
+			input.RescueDiskDeviceSlot,
+			input.GuestDesc.Nics,
+		)...)
+	}
+
 	// generate disk options
 	opts = append(opts, generateDisksOptions(
 		drvOpt, input.GuestDesc.Disks, isEncrypt, input.GuestDesc.IsMaster)...)
