@@ -21,7 +21,6 @@ import (
 	"io"
 	"regexp"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1105,34 +1104,7 @@ func (m *QmpMonitor) Quit(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
-func getScsiNumQueuesQmp(output string) int64 {
-	var lines = strings.Split(strings.TrimSuffix(output, "\r\n"), "\\r\\n")
-	for i, line := range lines {
-		line := strings.TrimSpace(line)
-		if strings.HasPrefix(line, "dev: virtio-scsi-device") {
-			if len(lines) <= i+1 {
-				log.Errorf("failed parse num queues")
-				return -1
-			}
-			line = strings.TrimSpace(lines[i+1])
-			segs := strings.Split(line, " ")
-			numQueue, err := strconv.ParseInt(segs[2], 10, 0)
-			if err != nil {
-				log.Errorf("failed parse num queue %s", err)
-				return -1
-			} else {
-				return numQueue
-			}
-		}
-	}
-	return -1
-}
-
-func (m *QmpMonitor) GetScsiNumQueues(callback func(int64)) {
-	cb := func(output string) {
-		numQueues := getScsiNumQueuesQmp(output)
-		callback(numQueues)
-	}
+func (m *QmpMonitor) InfoQtree(cb StringCallback) {
 	m.HumanMonitorCommand("info qtree", cb)
 }
 
