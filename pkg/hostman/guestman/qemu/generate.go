@@ -324,10 +324,6 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk) string {
 	numQueues := disk.NumQueues
 	isSsd := disk.IsSSD
 
-	if numQueues == 0 {
-		numQueues = 4
-	}
-
 	var opt = ""
 	opt += GetDiskDeviceModel(diskDriver)
 	opt += fmt.Sprintf(",drive=drive_%d", diskIndex)
@@ -338,6 +334,9 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk) string {
 		}
 		// opt += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
 		opt += ",iothread=iothread0"
+		if numQueues > 0 {
+			opt += fmt.Sprintf(",num-queues=%d,vectors=%d", numQueues, numQueues+1)
+		}
 	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		opt += ",bus=scsi.0"
 	} else if diskDriver == DISK_DRIVER_IDE {
