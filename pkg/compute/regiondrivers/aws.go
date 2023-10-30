@@ -316,30 +316,6 @@ func (self *SAwsRegionDriver) ValidateCreateVpcData(ctx context.Context, userCre
 	return input, nil
 }
 
-func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ivpc, err := vpc.GetIVpc(ctx)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				// already deleted, do nothing
-				return nil, nil
-			}
-			return nil, errors.Wrap(err, "GetIVpc")
-		}
-
-		err = ivpc.Delete()
-		if err != nil {
-			return nil, errors.Wrap(err, "Delete")
-		}
-		err = cloudprovider.WaitDeleted(ivpc, 10*time.Second, 300*time.Second)
-		if err != nil {
-			return nil, errors.Wrap(err, "cloudprovider.WaitDeleted")
-		}
-		return nil, nil
-	})
-	return nil
-}
-
 func (self *SAwsRegionDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iEip, err := eip.GetIEip(ctx)

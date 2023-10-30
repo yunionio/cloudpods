@@ -38,7 +38,6 @@ type SecurityGroupPropertiesFormat struct {
 	DefaultSecurityRules []SecurityRules `json:"defaultSecurityRules,omitempty"`
 	NetworkInterfaces    *[]Interface    `json:"networkInterfaces,omitempty"`
 	Subnets              *[]SNetwork     `json:"subnets,omitempty"`
-	ProvisioningState    string          //Possible values are: 'Updating', 'Deleting', and 'Failed'
 }
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
@@ -131,7 +130,7 @@ func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []st
 		if err != nil {
 			return err
 		}
-		nic.Properties.NetworkSecurityGroup = SSecurityGroup{ID: secgroupId}
+		nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
 		if err := region.update(jsonutils.Marshal(nic), nil); err != nil {
 			return err
 		}
@@ -165,14 +164,30 @@ func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCrea
 }
 
 func (self *SSecurityGroup) Delete() error {
-	if self.Properties != nil && self.Properties.NetworkInterfaces != nil {
-		for _, nic := range *self.Properties.NetworkInterfaces {
-			nic, err := self.region.GetNetworkInterface(nic.ID)
-			if err != nil {
-				return err
+	if self.Properties != nil {
+		if self.Properties.NetworkInterfaces != nil {
+			for _, nic := range *self.Properties.NetworkInterfaces {
+				nic, err := self.region.GetNetworkInterface(nic.ID)
+				if err != nil {
+					return errors.Wrapf(err, "get nic %s", nic.ID)
+				}
+				nic.Properties.NetworkSecurityGroup = nil
+				err = self.region.update(jsonutils.Marshal(nic), nil)
+				if err != nil {
+					return errors.Wrapf(err, "update nic")
+				}
 			}
-			if err := self.region.update(jsonutils.Marshal(nic), nil); err != nil {
-				return err
+		}
+		if self.Properties.Subnets != nil {
+			for _, _net := range *self.Properties.Subnets {
+				net, err := self.region.GetNetwork(_net.ID)
+				if err != nil {
+					return errors.Wrapf(err, "get network %s", _net.ID)
+				}
+				err = self.region.update(jsonutils.Marshal(net), nil)
+				if err != nil {
+					return errors.Wrapf(err, "update network")
+				}
 			}
 		}
 	}

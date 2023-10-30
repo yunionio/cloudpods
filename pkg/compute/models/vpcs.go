@@ -1928,6 +1928,16 @@ func (self *SVpc) CheckSecurityGroupConsistent(secgroup *SSecurityGroup) error {
 	return nil
 }
 
+func (self *SVpc) GetSecurityGroups() ([]SSecurityGroup, error) {
+	q := SecurityGroupManager.Query().Equals("vpc_id", self.Id)
+	ret := []SSecurityGroup{}
+	err := db.FetchModelObjects(SecurityGroupManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (self *SVpc) GetDefaultSecurityGroup(ownerId mcclient.IIdentityProvider, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (*SSecurityGroup, error) {
 	q := SecurityGroupManager.Query().Equals("status", api.SECGROUP_STATUS_READY).Like("name", "default%")
 
