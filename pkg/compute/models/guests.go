@@ -5179,7 +5179,7 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	gpuSpecs := []GpuSpec{}
 	for _, guestgpu := range guestgpus {
 		if strings.HasPrefix(guestgpu.DevType, "GPU") {
-			gs := guestgpu.GetSpec(false)
+			gs := guestgpu.GetGpuSpec()
 			gpuSpecs = append(gpuSpecs, *gs)
 		}
 	}
