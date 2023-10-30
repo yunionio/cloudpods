@@ -139,14 +139,14 @@ func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreat
 	return secgroup, self.create(&modules.SecGroups, params, secgroup)
 }
 
-func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.region.GetSecurityGroups()
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, err := self.GetSecurityGroups()
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudSecurityGroup{}
 	for i := range secgroups {
-		secgroups[i].region = self.region
+		secgroups[i].region = self
 		ret = append(ret, &secgroups[i])
 	}
 	return ret, nil

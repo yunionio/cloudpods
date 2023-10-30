@@ -49,7 +49,7 @@ type InterfaceIPConfiguration struct {
 }
 
 type InterfacePropertiesFormat struct {
-	NetworkSecurityGroup SSecurityGroup             `json:"networkSecurityGroup,omitempty"`
+	NetworkSecurityGroup *SSecurityGroup            `json:"networkSecurityGroup,omitempty"`
 	IPConfigurations     []InterfaceIPConfiguration `json:"ipConfigurations,omitempty"`
 	MacAddress           string                     `json:"macAddress,omitempty"`
 	Primary              bool                       `json:"primary,omitempty"`
@@ -101,7 +101,7 @@ func (self *SInstanceNic) InClassicNetwork() bool {
 func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
 	region := self.instance.host.zone.region
 	if len(secgroupId) > 0 {
-		self.Properties.NetworkSecurityGroup = SSecurityGroup{ID: secgroupId}
+		self.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
 	}
 	return region.update(jsonutils.Marshal(self), nil)
 }
