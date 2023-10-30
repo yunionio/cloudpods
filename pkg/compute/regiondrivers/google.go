@@ -311,7 +311,7 @@ func (self *SGoogleRegionDriver) RequestCreateSecurityGroup(
 }
 
 func (self *SGoogleRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
-	if input.Priority != nil && *input.Priority < 0 || *input.Priority > 65535 {
+	if input.Priority != nil && (*input.Priority < 0 || *input.Priority > 65535) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-65535", *input.Priority)
 	}
 
