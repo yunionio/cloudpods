@@ -122,6 +122,10 @@ func (self *SRegion) CreateWire(opts *cloudprovider.SWireCreateOptions, vpcId, d
 	return wire, self.create(&modules.Wires, input, wire)
 }
 
+func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return []cloudprovider.ICloudSecurityGroup{}, nil
+}
+
 func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	input := api.VpcCreateInput{}
 	input.Name = opts.NAME

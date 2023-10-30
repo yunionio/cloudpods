@@ -996,6 +996,27 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Con
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		secgroups, err := vpc.GetSecurityGroups()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecurityGroups")
+		}
+		for i := range secgroups {
+			iGroup, err := secgroups[i].GetISecurityGroup(ctx)
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					continue
+				}
+				return nil, errors.Wrapf(err, "GetISecurityGroup")
+			}
+			err = iGroup.Delete()
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported {
+				return nil, errors.Wrapf(err, "delete secgroup %s", secgroups[i].Name)
+			}
+			err = secgroups[i].RealDelete(ctx, userCred)
+			if err != nil {
+				return nil, errors.Wrapf(err, "real delete secgroup %s", secgroups[i].Name)
+			}
+		}
 		ivpc, err := vpc.GetIVpc(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -1006,7 +1027,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteVpc(ctx context.Con
 		}
 		err = ivpc.Delete()
 		if err != nil {
-			return nil, errors.Wrap(err, "ivpc.Delete(")
+			return nil, errors.Wrap(err, "Delete")
 		}
 		err = cloudprovider.WaitDeleted(ivpc, 10*time.Second, 300*time.Second)
 		if err != nil {

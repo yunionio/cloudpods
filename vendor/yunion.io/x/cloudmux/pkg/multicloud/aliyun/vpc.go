@@ -226,16 +226,6 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 }
 
 func (self *SVpc) Delete() error {
-	secgroups, err := self.region.GetSecurityGroups(self.VpcId, "", nil)
-	if err != nil {
-		return errors.Wrapf(err, "GetSecurityGroups")
-	}
-	for i := 0; i < len(secgroups); i += 1 {
-		err := self.region.DeleteSecurityGroup(secgroups[i].SecurityGroupId)
-		if err != nil {
-			return errors.Wrapf(err, "DeleteSecurityGroup %s", secgroups[i].SecurityGroupId)
-		}
-	}
 	return self.region.DeleteVpc(self.VpcId)
 }
 
