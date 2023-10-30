@@ -1573,6 +1573,12 @@ func (self *SKVMRegionDriver) RequestDeleteSecurityGroup(ctx context.Context, us
 	return task.ScheduleRun(nil)
 }
 
+func (self *SKVMRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("cloudregion_id", api.DEFAULT_REGION_ID)
+	}, nil
+}
+
 func (self *SKVMRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Priority != nil {
 		if *input.Priority < 1 || *input.Priority > 100 {
