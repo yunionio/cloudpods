@@ -767,7 +767,15 @@ func (man *SIsolatedDeviceManager) GetSpecShouldCheckStatus(query *jsonutils.JSO
 	return true, nil
 }
 
-func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
+type GpuSpec struct {
+	DevType string `json:"dev_type,allowempty"`
+	Model   string `json:"model,allowempty"`
+	Amount  string `json:"amount,allowemtpy"`
+	Vendor  string `json:"vendor,allowempty"`
+	PciId   string `json:"pci_id,allowempty"`
+}
+
+func (self *SIsolatedDevice) GetSpec(statusCheck bool) *GpuSpec {
 	if statusCheck {
 		if len(self.GuestId) > 0 {
 			return nil
@@ -777,12 +785,13 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			return nil
 		}
 	}
-	spec := jsonutils.NewDict()
-	spec.Set("dev_type", jsonutils.NewString(self.DevType))
-	spec.Set("model", jsonutils.NewString(self.Model))
-	spec.Set("pci_id", jsonutils.NewString(self.VendorDeviceId))
-	spec.Set("vendor", jsonutils.NewString(self.getVendor()))
-	return spec
+	return &GpuSpec{
+		DevType: self.DevType,
+		Model:   self.Model,
+		PciId:   self.VendorDeviceId,
+		Vendor:  self.getVendor(),
+		Amount:  "1",
+	}
 }
 
 func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
