@@ -473,10 +473,6 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return region.GetSecurityGroup(secgroupId)
 }
 
-func (region *SRegion) DeleteISecurityGroupById(secgroupId string) error {
-	return region.DeleteSecurityGroupById(secgroupId)
-}
-
 func (region *SRegion) getSdkCredential(service string, token string) sdk.Credentials {
 	return region.client.getSdkCredential(region.RegionId, service, token)
 }
