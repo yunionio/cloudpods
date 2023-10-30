@@ -245,6 +245,9 @@ func (self *SRegion) GetSecurityGroups(vpcId string, name string, secgroupId str
 }
 
 func (self *SSecurityGroup) Delete() error {
+	if self.GroupName == "default" {
+		return cloudprovider.ErrNotSupported
+	}
 	return self.region.DeleteSecurityGroup(self.GroupId)
 }
 
