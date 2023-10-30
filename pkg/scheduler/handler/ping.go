@@ -42,7 +42,7 @@ func pingHandler(c *gin.Context) {
 	}
 	log.Infof("%v", c.Request.Body)
 
-	c.JSON(http.StatusOK, "pong")
+	c.String(http.StatusOK, "pong")
 }
 
 // switchHandler is a handler of switch service that just for
