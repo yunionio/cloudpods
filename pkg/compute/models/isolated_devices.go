@@ -775,7 +775,7 @@ type GpuSpec struct {
 	PciId   string `json:"pci_id,allowempty"`
 }
 
-func (self *SIsolatedDevice) GetSpec(statusCheck bool) *GpuSpec {
+func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
 		if len(self.GuestId) > 0 {
 			return nil
@@ -785,6 +785,15 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *GpuSpec {
 			return nil
 		}
 	}
+	ret := jsonutils.NewDict()
+	ret.Set("dev_type", jsonutils.NewString(self.DevType))
+	ret.Set("model", jsonutils.NewString(self.Model))
+	ret.Set("pci_id", jsonutils.NewString(self.VendorDeviceId))
+	ret.Set("vendor", jsonutils.NewString(self.getVendor()))
+	return ret
+}
+
+func (self *SIsolatedDevice) GetGpuSpec() *GpuSpec {
 	return &GpuSpec{
 		DevType: self.DevType,
 		Model:   self.Model,
