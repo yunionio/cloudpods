@@ -102,13 +102,6 @@ func (region *SRegion) GetSecurityGroupRules(secGroupId string) ([]SSecurityGrou
 	return ret, nil
 }
 
-func (region *SRegion) DeleteSecurityGroupById(secGroupId string) error {
-	params := make(map[string]string)
-	params["SecurityGroupId"] = secGroupId
-	_, err := region.vpcRequest("DeleteSecurityGroupId", params)
-	return err
-}
-
 func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
 	err := self.region.CreateSecurityGroupRule(self.SecurityGroupId, opts)
 	if err != nil {
@@ -338,17 +331,16 @@ func (secgroup *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupRe
 	return ret, errors.Wrapf(errors.ErrNotImplemented, "GetReferences not supported")
 }
 
-func (region *SRegion) DeleteSecurityGroup(secGrpId string) error {
+func (region *SRegion) DeleteSecurityGroup(id string) error {
 	params := make(map[string]string)
-	params["SecurityGroupId"] = secGrpId
-
+	params["SecurityGroupId"] = id
 	_, err := region.vpcRequest("DeleteSecurityGroup", params)
 	if err != nil {
-		return errors.Wrapf(err, "Delete security group fail")
+		return errors.Wrapf(err, "Delete %s", id)
 	}
 	return nil
 }
 
 func (secgroup *SSecurityGroup) Delete() error {
-	return secgroup.region.DeleteSecurityGroupById(secgroup.SecurityGroupId)
+	return secgroup.region.DeleteSecurityGroup(secgroup.SecurityGroupId)
 }
