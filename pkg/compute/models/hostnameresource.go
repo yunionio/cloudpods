@@ -73,6 +73,9 @@ func (manager *SHostnameResourceBaseManager) ValidateHostname(name string, osTyp
 			input.Hostname = input.Hostname[:15]
 		}
 	}
+	for strings.HasSuffix(input.Hostname, "-") {
+		input.Hostname = strings.TrimSuffix(input.Hostname, "-")
+	}
 	if len(input.Hostname) < 2 {
 		return input, httperrors.NewInputParameterError("the hostname length must be greater than or equal to 2")
 	}
