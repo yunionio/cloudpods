@@ -588,6 +588,8 @@ func (manager *SGuestManager) ListItemFilter(
 			case "gpu":
 				query.Gpu = &trueVal
 				query.Backup = &falseVal
+				sq := ServerSkuManager.Query("name").IsNotEmpty("gpu_spec").Distinct()
+				conditions = append(conditions, sqlchemy.In(q.Field("instance_type"), sq.SubQuery()))
 			case "backup":
 				query.Gpu = &falseVal
 				query.Backup = &trueVal
@@ -5174,16 +5176,18 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 
 	// get isolate device spec
 	guestgpus, _ := self.GetIsolatedDevices()
-	gpuSpecs := jsonutils.NewArray()
+	gpuSpecs := []GpuSpec{}
 	for _, guestgpu := range guestgpus {
 		if strings.HasPrefix(guestgpu.DevType, "GPU") {
 			gs := guestgpu.GetSpec(false)
-			if gs != nil {
-				gpuSpecs.Add(gs)
-			}
+			gpuSpecs = append(gpuSpecs, *gs)
 		}
 	}
-	spec.Set("gpu", gpuSpecs)
+	if gs := self.GetGpuSpec(); gs != nil {
+		gpuSpecs = append(gpuSpecs, *gs)
+	}
+
+	spec.Set("gpu", jsonutils.Marshal(gpuSpecs))
 	return spec
 }
 
@@ -5242,6 +5246,30 @@ func (manager *SGuestManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
 		}
 	}
 	return specKeys
+}
+
+func (self *SGuest) GetGpuSpec() *GpuSpec {
+	if len(self.InstanceType) == 0 {
+		return nil
+	}
+	host, err := self.GetHost()
+	if err != nil {
+		return nil
+	}
+	zone, err := host.GetZone()
+	if err != nil {
+		return nil
+	}
+	q := ServerSkuManager.Query().Equals("name", self.InstanceType).Equals("cloudregion_id", zone.CloudregionId).IsNotEmpty("gpu_spec")
+	sku := &SServerSku{}
+	err = q.First(sku)
+	if err != nil {
+		return nil
+	}
+	return &GpuSpec{
+		Model:  sku.GpuSpec,
+		Amount: sku.GpuCount,
+	}
 }
 
 func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
