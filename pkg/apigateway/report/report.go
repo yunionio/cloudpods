@@ -16,6 +16,8 @@ package report
 
 import (
 	"context"
+	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -65,6 +67,61 @@ type sReport struct {
 	UserCnt                int64
 	ProjectCnt             int64
 	DomainCnt              int64
+	RunningEnv             string
+}
+
+const (
+	RUNNING_ENV_KUBERNETES     = "kubernetes"
+	RUNNING_ENV_DOCKER_COMPOSE = "docker-compose"
+	RUNNING_ENV_UNKNOWN        = "unknown"
+)
+
+func isInsideDockerCompose() bool {
+	// hostname likes: c1577eee2aed
+	DOCKER_HOSTNAME_LEN := 12
+	hostname := os.Getenv("HOSTNAME")
+	if len(hostname) != DOCKER_HOSTNAME_LEN {
+		return false
+	}
+	// resolv mysql and keystone host
+	resolvTimeout := 500 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), resolvTimeout)
+	defer cancel()
+	var r net.Resolver
+	hosts := []string{"mysql", "keystone", "region"}
+
+	for _, host := range hosts {
+		_, err := r.LookupIPAddr(ctx, host)
+		if err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func isInsideKubernetes() bool {
+	k8sHost := os.Getenv("KUBERNETES_SERVICE_HOST")
+	if len(k8sHost) == 0 {
+		return false
+	}
+	// check /var/run/secrets/kubernetes.io/serviceaccount/ directory
+	k8sSecDir := "/var/run/secrets/kubernetes.io/serviceaccount/"
+	if _, err := os.Stat(k8sSecDir); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func getRunningEnv() string {
+	if isInsideKubernetes() {
+		return RUNNING_ENV_KUBERNETES
+	}
+
+	if isInsideDockerCompose() {
+		return RUNNING_ENV_DOCKER_COMPOSE
+	}
+	return RUNNING_ENV_UNKNOWN
 }
 
 func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -171,6 +228,7 @@ func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool
 		ret.UserCnt, _ = usage.Int("users")
 		ret.DomainCnt, _ = usage.Int("domains")
 		ret.ProjectCnt, _ = usage.Int("projects")
+		ret.RunningEnv = getRunningEnv()
 		return ret, nil
 	}
 	rp, err := func() (*sReport, error) {
