@@ -148,6 +148,8 @@ type SNotificationGroupSearchInput struct {
 	GroupKey    string
 	ReceiverId  string
 	ContactType string
+	DomainId    string
+	TopicId     string
 }
 
 type SendParams struct {
@@ -166,8 +168,9 @@ type SendParams struct {
 	RemoteTemplateParam SRemoteTemplateParam
 	GroupKey            string
 	// minutes
-	GroupTimes uint
-	ReceiverId string
+	GroupTimes  uint
+	ReceiverId  string
+	ContactType string
 }
 
 type SRemoteTemplateParam struct {

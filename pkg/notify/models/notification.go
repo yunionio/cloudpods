@@ -825,7 +825,10 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 		return TemplateManager.FillWithTemplate(ctx, lang, no)
 	}
 
-	out, event := api.SendParams{}, no.Event
+	out, event := api.SendParams{
+		Topic: topicId,
+	}, no.Event
+
 	topicModel, err := TopicManager.FetchById(topicId)
 	if err != nil {
 		return out, errors.Wrapf(err, "get topic by id")

@@ -290,7 +290,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			params.ReceiverId = receiver.Id
 			if len(params.GroupKey) > 0 && params.GroupTimes > 0 {
 				notificationGroupLock.Lock()
-				if _, ok := notificationSendMap.Load(params.GroupKey + receiver.Id + notification.ContactType); ok {
+				if _, ok := notificationSendMap.Load(params.Topic + params.GroupKey + receiver.Id + notification.ContactType); ok {
 					err = models.NotificationGroupManager.TaskCreate(ctx, notification.ContactType, params)
 				} else {
 					err = models.NotificationGroupManager.TaskCreate(ctx, notification.ContactType, params)
@@ -324,12 +324,14 @@ func createTimeTicker(ctx context.Context, driver models.ISenderDriver, params a
 	// 创建一个计时器，每秒触发一次
 	// params.GroupTimes = 5
 	timer := time.NewTicker(time.Duration(params.GroupTimes) * time.Minute)
-	notificationSendMap.Store(params.GroupKey+receiverId+contactType, apis.SNotificationGroupSearchInput{
+	notificationSendMap.Store(params.Topic+params.GroupKey+receiverId+contactType, apis.SNotificationGroupSearchInput{
 		GroupKey:    params.GroupKey,
 		ReceiverId:  receiverId,
 		ContactType: contactType,
 		StartTime:   time.Now(),
 		EndTime:     time.Now().Add(time.Duration(params.GroupTimes) * time.Minute),
+		DomainId:    params.DomainId,
+		TopicId:     params.Topic,
 	})
 
 	// 启动一个goroutine来处理计时器触发的事件
@@ -338,14 +340,14 @@ func createTimeTicker(ctx context.Context, driver models.ISenderDriver, params a
 			// 等待计时器触发的事件
 			<-timer.C
 			// 处理计时器触发的事件
-			arrValue, ok := notificationSendMap.Load(params.GroupKey + receiverId + contactType)
+			arrValue, ok := notificationSendMap.Load(params.Topic + params.GroupKey + receiverId + contactType)
 			if !ok {
 				return
 			}
 			input := arrValue.(apis.SNotificationGroupSearchInput)
 			// 组装聚合后的消息
 			sendParams, err := models.NotificationGroupManager.TaskSend(ctx, input)
-			if err != nil {
+			if sendParams == nil {
 				log.Errorln("TaskSend err:", err)
 				return
 			}
