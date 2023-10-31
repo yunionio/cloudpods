@@ -119,7 +119,7 @@ func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (clou
 		return nil, err
 	}
 	err = cloudprovider.Wait(5*time.Second, time.Minute, func() (bool, error) {
-		_, err := storage.zone.region.getDisk(diskId)
+		_, err := storage.zone.region.GetDisk(diskId)
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return false, nil
 		}
@@ -128,7 +128,7 @@ func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (clou
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot find disk after create")
 	}
-	disk, err := storage.zone.region.getDisk(diskId)
+	disk, err := storage.zone.region.GetDisk(diskId)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (clou
 }
 
 func (storage *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	disk, err := storage.zone.region.getDisk(idStr)
+	disk, err := storage.zone.region.GetDisk(idStr)
 	if err != nil {
 		return nil, err
 	}

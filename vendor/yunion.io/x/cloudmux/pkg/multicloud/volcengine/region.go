@@ -612,7 +612,7 @@ func (regioin *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (region *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return region.getDisk(id)
+	return region.GetDisk(id)
 }
 
 func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {

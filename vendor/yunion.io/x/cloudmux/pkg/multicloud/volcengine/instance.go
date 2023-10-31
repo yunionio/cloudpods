@@ -729,13 +729,19 @@ func (region *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImag
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateImage")
 	}
-	imageId, err := body.GetString("IamgeId")
+	imageId, err := body.GetString("ImageId")
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unmarshal")
+		return nil, errors.Wrapf(err, "get imageId")
 	}
-	image, err := region.GetImage(imageId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetImage %s", imageId)
-	}
-	return image, nil
+	cloudprovider.Wait(time.Second*3, time.Minute, func() (bool, error) {
+		_, err := region.GetImage(imageId)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+	return region.GetImage(imageId)
 }
