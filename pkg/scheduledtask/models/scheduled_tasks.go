@@ -141,7 +141,7 @@ func (st *SScheduledTask) getMoreDetails(ctx context.Context, userCred mcclient.
 	case api.ST_TYPE_CYCLE:
 		out.CycleTimer = st.STimer.CycleTimerDetails()
 	}
-	out.TimerDesc = st.Description(ctx, zone)
+	out.TimerDesc = st.Description(ctx, st.CreatedAt, zone)
 	// fill label
 	stLabels, err := st.STLabels()
 	if err != nil {
