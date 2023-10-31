@@ -46,7 +46,7 @@ func init() {
 	registry.RegisterService(&AlertEngine{})
 }
 
-// IsDisabled returns true if the alerting service is disable for this instance.
+// IsDisabled returns true if the alerting service is disabled for this instance.
 func (e *AlertEngine) IsDisabled() bool {
 	// TODO: read from config options
 	return false

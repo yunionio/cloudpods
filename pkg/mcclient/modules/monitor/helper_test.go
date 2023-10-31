@@ -20,7 +20,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
-	"yunion.io/x/onecloud/pkg/monitor/tsdb/driver/influxdb"
 )
 
 func TestHelperWhere(t *testing.T) {
@@ -83,22 +82,6 @@ func TestHelperSelects(t *testing.T) {
 				Params: []string{"io_util"},
 			},
 		})
-	})
-}
-
-func TestAlertQuery(t *testing.T) {
-	Convey("Alert query test", t, func() {
-		parser := new(influxdb.InfluxdbQueryParser)
-		q := NewAlertQuery("telegraf", "diskio").From("5m").To("now")
-		q.Selects().Select("await").MEAN()
-		q.Where().Equal("hostname", "host1").Equal("provider", "kvm")
-		q.GroupBy().TAG("*").FILL_NULL()
-		qCtx := q.ToTsdbQuery()
-		influxdbQ, err := parser.Parse(qCtx.Queries[0], nil)
-		So(err, ShouldBeNil)
-		rawQuery, err := influxdbQ.Build(qCtx)
-		So(err, ShouldBeNil)
-		So(rawQuery, ShouldEqual, `SELECT mean("await") FROM "diskio" WHERE ("hostname" = 'host1' AND "provider" = 'kvm') AND time > now() - 5m GROUP BY * fill(null)`)
 	})
 }
 

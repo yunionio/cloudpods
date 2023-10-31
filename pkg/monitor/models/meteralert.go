@@ -51,7 +51,7 @@ type IMeterAlertDriver interface {
 	GetType() string
 	GetName() string
 	GetFor() time.Duration
-	ToAlertCreateInput(input monitor.MeterAlertCreateInput, dsId string, allAccountIds []string, level string) monitor.AlertCreateInput
+	ToAlertCreateInput(input monitor.MeterAlertCreateInput, allAccountIds []string, level string) monitor.AlertCreateInput
 }
 
 type SMeterAlertManager struct {
@@ -172,12 +172,7 @@ func (man *SMeterAlertManager) ValidateCreateData(
 		return nil, merrors.NewArgIsEmptyErr("recipients")
 	}
 
-	ds, err := DataSourceManager.GetDefaultSource()
-	if err != nil {
-		return nil, err
-	}
-
-	alertInput := drv.ToAlertCreateInput(data, ds.GetId(), allAccountIds, data.Level)
+	alertInput := drv.ToAlertCreateInput(data, allAccountIds, data.Level)
 	alertInput, err = AlertManager.ValidateCreateData(ctx, userCred, ownerId, query, alertInput)
 	if err != nil {
 		return nil, err
@@ -203,7 +198,6 @@ func (_ *sMeterDailyFee) GetFor() time.Duration {
 
 func (f *sMeterDailyFee) ToAlertCreateInput(
 	input monitor.MeterAlertCreateInput,
-	dsId string,
 	allAccountIds []string,
 	level string,
 ) monitor.AlertCreateInput {
@@ -213,7 +207,6 @@ func (f *sMeterDailyFee) ToAlertCreateInput(
 		Level:     level,
 		Frequency: int64(freq / time.Second),
 		Settings: GetMeterAlertSetting(input,
-			dsId,
 			"account_daily_resfee",
 			"meter_db", allAccountIds, "sumDate"),
 	}
@@ -236,7 +229,6 @@ func (_ *sMeterMonthFee) GetFor() time.Duration {
 
 func (f *sMeterMonthFee) ToAlertCreateInput(
 	input monitor.MeterAlertCreateInput,
-	dsId string,
 	allAccountIds []string,
 	level string,
 ) monitor.AlertCreateInput {
@@ -246,7 +238,6 @@ func (f *sMeterMonthFee) ToAlertCreateInput(
 		Level:     level,
 		Frequency: int64(freq / time.Second),
 		Settings: GetMeterAlertSetting(input,
-			dsId,
 			"account_month_resfee",
 			"meter_db", allAccountIds, "sumMonth"),
 	}
@@ -255,7 +246,6 @@ func (f *sMeterMonthFee) ToAlertCreateInput(
 
 func GetMeterAlertSetting(
 	input monitor.MeterAlertCreateInput,
-	dsId string,
 	measurement string,
 	db string,
 	accountIds []string,
@@ -268,10 +258,9 @@ func GetMeterAlertSetting(
 				Type:     "query",
 				Operator: "and",
 				Query: monitor.AlertQuery{
-					Model:        q,
-					From:         input.Period,
-					To:           "now",
-					DataSourceId: dsId,
+					Model: q,
+					From:  input.Period,
+					To:    "now",
 				},
 				Reducer:   reducer,
 				Evaluator: eval,
@@ -605,11 +594,6 @@ func (alert *SMeterAlert) ValidateUpdateData(
 		details.Comparator = *input.Comparator
 	}
 
-	ds, err := DataSourceManager.GetDefaultSource()
-	if err != nil {
-		return input, errors.Wrap(err, "get default data source")
-	}
-
 	// hack: update notification here
 	if err := alert.UpdateNotification(AlertNotificationUsedByMeterAlert, input.Channel, input.Recipients); err != nil {
 		return input, errors.Wrap(err, "update notification")
@@ -621,7 +605,7 @@ func (alert *SMeterAlert) ValidateUpdateData(
 			return input, err
 		}
 	}
-	tmpS := alert.getUpdateSetting(details, ds.GetId(), allAccountIds)
+	tmpS := alert.getUpdateSetting(details, allAccountIds)
 	input.Settings = &tmpS
 
 	input.V1AlertUpdateInput, err = alert.SV1Alert.ValidateUpdateData(ctx, userCred, query, input.V1AlertUpdateInput)
@@ -632,7 +616,7 @@ func (alert *SMeterAlert) ValidateUpdateData(
 	return input, nil
 }
 
-func (alert *SMeterAlert) getUpdateSetting(details monitor.MeterAlertDetails, dsId string, accountIds []string) monitor.AlertSetting {
+func (alert *SMeterAlert) getUpdateSetting(details monitor.MeterAlertDetails, accountIds []string) monitor.AlertSetting {
 	drv := MeterAlertManager.GetDriver(alert.getType())
 	input := monitor.MeterAlertCreateInput{
 		ResourceAlertV1CreateInput: monitor.ResourceAlertV1CreateInput{
@@ -649,7 +633,7 @@ func (alert *SMeterAlert) getUpdateSetting(details monitor.MeterAlertDetails, ds
 		AccountId: details.AccountId,
 	}
 	input.Level = details.Level
-	out := drv.ToAlertCreateInput(input, dsId, accountIds, details.Level)
+	out := drv.ToAlertCreateInput(input, accountIds, details.Level)
 	return out.Settings
 }
 

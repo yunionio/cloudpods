@@ -34,6 +34,7 @@ import (
 	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -279,8 +280,7 @@ func (p *SLoadbalancerAgentParamsTelegraf) updateBy(pp *SLoadbalancerAgentParams
 func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict) {
 	if p.InfluxDbOutputUrl == "" {
 		baseOpts := &options.Options
-		u, _ := auth.GetServiceURL("influxdb", baseOpts.Region, "",
-			identity_apis.EndpointInterfacePublic)
+		u, _ := tsdb.GetDefaultServiceSourceURL(auth.GetAdminSession(context.Background(), baseOpts.Region), identity_apis.EndpointInterfacePublic)
 		p.InfluxDbOutputUrl = u
 		p.InfluxDbOutputUnsafeSsl = true
 	}

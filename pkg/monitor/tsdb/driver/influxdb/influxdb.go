@@ -29,6 +29,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+	mod "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
@@ -37,7 +39,7 @@ const (
 )
 
 func init() {
-	tsdb.RegisterTsdbQueryEndpoint("influxdb", NewInfluxdbExecutor)
+	tsdb.RegisterTsdbQueryEndpoint(monitor.DataSourceTypeInfluxdb, NewInfluxdbExecutor)
 }
 
 type InfluxdbExecutor struct {
@@ -52,8 +54,7 @@ func NewInfluxdbExecutor(datasource *tsdb.DataSource) (tsdb.TsdbQueryEndpoint, e
 	}, nil
 }
 
-func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, tsdbQuery *tsdb.TsdbQuery) (*tsdb.Response, error) {
-	result := &tsdb.Response{}
+func (e *InfluxdbExecutor) GetRawQuery(dsInfo *tsdb.DataSource, tsdbQuery *tsdb.TsdbQuery) (string, []*Query, error) {
 	querys := make([]*tsdb.Query, len(tsdbQuery.Queries)+1)
 	influxQ := make([]*Query, 0)
 	copy(querys, tsdbQuery.Queries)
@@ -61,14 +62,14 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 	var rawQuery string
 	for i := 0; i < len(querys); i++ {
 		query, err := e.getQuery(dsInfo, querys, tsdbQuery)
-		influxQ = append(influxQ, query)
 		if err != nil {
-			return nil, err
+			return "", nil, errors.Wrap(err, "getQuery")
 		}
+		influxQ = append(influxQ, query)
 
 		rawQuery, err := query.Build(tsdbQuery)
 		if err != nil {
-			return nil, err
+			return "", nil, errors.Wrap(err, "query.Build")
 		}
 		buffer.WriteString(rawQuery + ";")
 		if len(querys) > 0 {
@@ -87,6 +88,14 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 	//if err != nil {
 	//	return nil, err
 	//}
+	return rawQuery, influxQ, nil
+}
+
+func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, tsdbQuery *tsdb.TsdbQuery) (*tsdb.Response, error) {
+	rawQuery, influxQ, err := e.GetRawQuery(dsInfo, tsdbQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRawQuery")
+	}
 
 	log.Debugf("sql: %s", rawQuery)
 	db := dsInfo.Database
@@ -127,7 +136,9 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 		return nil, response.Err
 	}
 
-	result.Results = make(map[string]*tsdb.QueryResult)
+	result := &tsdb.Response{
+		Results: make(map[string]*tsdb.QueryResult),
+	}
 	for i, query := range tsdbQuery.Queries {
 		ret := e.ResponseParser.Parse(&response, influxQ[i])
 		ret.Meta = tsdb.QueryResultMeta{
@@ -192,4 +203,46 @@ func (e *InfluxdbExecutor) createRequest(dsInfo *tsdb.DataSource, query string) 
 	curlCmd, _ := http2curl.GetCurlCommand(req)
 	log.Debugf("Influxdb raw query: %q from db %s, curl: %s", query, dsInfo.Database, curlCmd)
 	return req, nil
+}
+
+func (e *InfluxdbExecutor) FilterMeasurement(
+	ctx context.Context,
+	ds *tsdb.DataSource,
+	from, to string,
+	ms *monitor.InfluxMeasurement,
+	tagFilter *monitor.MetricQueryTag,
+) (*monitor.InfluxMeasurement, error) {
+	retMs := new(monitor.InfluxMeasurement)
+	q := mod.NewAlertQuery(ms.Database, ms.Measurement).From(from).To(to)
+	q.Selects().Select("*").LAST()
+	if tagFilter != nil {
+		q.Where().AddTag(tagFilter)
+	}
+	tq := q.ToTsdbQuery()
+	resp, err := e.Query(ctx, ds, tq)
+	if err != nil {
+		return nil, errors.Wrap(err, "influxdb.Query")
+	}
+	ss := resp.Results[""].Series
+	//log.Infof("=====get ss: %s", jsonutils.Marshal(ss).PrettyString())
+
+	// parse fields
+	retFields := make([]string, 0)
+	for _, s := range ss {
+		cols := s.Columns
+		for _, col := range cols {
+			if !strings.Contains(col, "last") {
+				continue
+			}
+			retFields = append(retFields, strings.Replace(col, "last_", "", 1))
+		}
+	}
+	retMs.FieldKey = retFields
+	if len(retMs.FieldKey) != 0 {
+		retMs.Measurement = ms.Measurement
+		retMs.Database = ms.Database
+		retMs.ResType = ms.ResType
+	}
+
+	return retMs, nil
 }

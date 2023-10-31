@@ -44,6 +44,7 @@ import (
 	napi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
@@ -2203,9 +2204,13 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	if len(urls) > 0 {
 		conf["kafka"] = map[string]interface{}{"brokers": urls, "topic": "telegraf"}
 	}
-	urls, _ = s.GetServiceURLs("influxdb", defaultEndpointType)
-	if len(urls) > 0 {
-		conf["influxdb"] = map[string]interface{}{"url": urls, "database": "telegraf"}
+	tsdb, _ := tsdb.GetDefaultServiceSource(s, defaultEndpointType)
+	if tsdb != nil && len(tsdb.URLs) > 0 {
+		conf[apis.SERVICE_TYPE_INFLUXDB] = map[string]interface{}{
+			"url":       tsdb.URLs,
+			"database":  "telegraf",
+			"tsdb_type": tsdb.Type,
+		}
 	}
 	if !reflect.DeepEqual(telegraf.GetConf(), conf) || (!strings.Contains(svcs, "telegraf") && !telegraf.IsActive()) {
 		log.Debugf("telegraf config: %s", conf)
