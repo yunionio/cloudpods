@@ -457,7 +457,15 @@ func (s *SKVMGuestInstance) LoadDesc() error {
 
 	if s.IsRunning() {
 		if len(s.Desc.PCIControllers) > 0 {
-			return s.loadGuestPciAddresses()
+			if err := s.loadGuestPciAddresses(); err != nil {
+				log.Errorf("failed load guest %s pci addresses %s", s.GetName(), err)
+				if len(s.Desc.AnonymousPCIDevs) > 0 {
+					s.Desc = s.SourceDesc
+					s.pciUninitialized = true
+				} else {
+					return err
+				}
+			}
 		} else {
 			s.pciUninitialized = true
 		}
@@ -1115,15 +1123,47 @@ func (s *SKVMGuestInstance) collectGuestDescription() error {
 	if err != nil {
 		return errors.Wrap(err, "query mem devs")
 	}
-	scsiNumQueues := s.getScsiNumQueues()
-	err = s.initGuestDescFromExistingGuest(cpuList, pciInfoList, memoryDevicesInfoList, memDevs, scsiNumQueues)
+
+	qtree := s.infoQtree()
+	scsiNumQueues := s.getScsiNumQueues(qtree)
+	for i := range s.Desc.Disks {
+		// fix virtio disk driver num-queues
+		if s.Desc.Disks[i].Driver == "virtio" {
+			diskDriver := fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index)
+			numQueues := s.getDiskDriverNumQueues(qtree, diskDriver)
+			log.Infof("disk driver %s num queues %d", diskDriver, numQueues)
+			if numQueues > 0 {
+				s.Desc.Disks[i].NumQueues = uint8(numQueues)
+			}
+		}
+	}
+
+	err = s.initGuestDescFromExistingGuest(
+		cpuList, pciInfoList, memoryDevicesInfoList, memDevs, scsiNumQueues, qtree)
 	if err != nil {
 		return errors.Wrap(err, "failed init guest devices")
 	}
+
 	if err := s.SaveLiveDesc(s.Desc); err != nil {
 		return errors.Wrap(err, "failed save live desc")
 	}
 	return nil
+}
+
+func (s *SKVMGuestInstance) syncVirtioDiskNumQueues() error {
+	qtree := s.infoQtree()
+	for i := range s.Desc.Disks {
+		// fix virtio disk driver num-queues
+		if s.Desc.Disks[i].Driver == "virtio" {
+			diskDriver := fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index)
+			numQueues := s.getDiskDriverNumQueues(qtree, diskDriver)
+			log.Infof("disk driver %s num queues %d", diskDriver, numQueues)
+			if numQueues > 0 {
+				s.Desc.Disks[i].NumQueues = uint8(numQueues)
+			}
+		}
+	}
+	return s.SaveLiveDesc(s.Desc)
 }
 
 func (s *SKVMGuestInstance) getHotpluggableCPUList() ([]monitor.HotpluggableCPU, error) {
@@ -1142,13 +1182,79 @@ func (s *SKVMGuestInstance) getHotpluggableCPUList() ([]monitor.HotpluggableCPU,
 	return res, err
 }
 
-func (s *SKVMGuestInstance) getScsiNumQueues() int64 {
-	var numQueueChan = make(chan int64)
-	cb := func(numQueues int64) {
-		numQueueChan <- numQueues
+func (s *SKVMGuestInstance) infoQtree() string {
+	var qtreeChan = make(chan string)
+	cb := func(qtree string) {
+		qtreeChan <- qtree
 	}
-	s.Monitor.GetScsiNumQueues(cb)
-	return <-numQueueChan
+	s.Monitor.InfoQtree(cb)
+	return <-qtreeChan
+}
+
+func getScsiNumQueuesQmp(output string) int64 {
+	// if output is response from hmp, sep should use \r\n
+	var lines = strings.Split(strings.TrimSuffix(output, "\r\n"), "\\r\\n")
+	for i, line := range lines {
+		line := strings.TrimSpace(line)
+		if strings.HasPrefix(line, "dev: virtio-scsi-device") {
+			if len(lines) <= i+1 {
+				log.Errorf("failed parse num queues")
+				return -1
+			}
+			line = strings.TrimSpace(lines[i+1])
+			segs := strings.Split(line, " ")
+			numQueue, err := strconv.ParseInt(segs[2], 10, 0)
+			if err != nil {
+				log.Errorf("failed parse num queue %s: %s", line, err)
+				return -1
+			} else {
+				return numQueue
+			}
+		}
+	}
+	return -1
+}
+
+func (s *SKVMGuestInstance) getScsiNumQueues(qtree string) int64 {
+	return getScsiNumQueuesQmp(qtree)
+}
+
+func (s *SKVMGuestInstance) getDiskDriverNumQueues(qtree, driver string) int64 {
+	var lines = strings.Split(strings.TrimSuffix(qtree, "\r\n"), "\\r\\n")
+	var currentIndentLevel = -1
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if trimmedLine == "" {
+			continue
+		}
+
+		if currentIndentLevel > 0 {
+			// disk has been found
+			newIndentLevel := len(line) - len(trimmedLine)
+			if newIndentLevel <= currentIndentLevel { // run out disk driver block
+				break
+			}
+			if strings.HasPrefix(trimmedLine, "num-queues =") {
+				segs := strings.Split(trimmedLine, " ")
+				numQueue, err := strconv.ParseInt(segs[2], 10, 0)
+				if err != nil {
+					log.Errorf("failed parse num queue %s: %s", trimmedLine, err)
+					return -1
+				} else {
+					return numQueue
+				}
+			} else {
+				continue
+			}
+		}
+
+		if strings.HasPrefix(trimmedLine, "dev: virtio-blk-pci") && strings.Contains(line, driver) {
+			currentIndentLevel = len(line) - len(trimmedLine)
+		} else {
+			continue
+		}
+	}
+	return -1
 }
 
 func (s *SKVMGuestInstance) getPciDevices() ([]monitor.PCIInfo, error) {
