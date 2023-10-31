@@ -17,10 +17,14 @@ package nbd
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type SNBDManager struct {
@@ -44,26 +48,89 @@ func NewNBDManager() (*SNBDManager, error) {
 	var ret = new(SNBDManager)
 	ret.nbdDevs = make(map[string]bool, 0)
 	ret.nbdLock = new(sync.Mutex)
+
+	ret.cleanupNbdDevices()
+	if err := ret.reloadNbdDevices(); err != nil {
+		return ret, errors.Wrap(err, "reloadNbdDevices")
+	}
 	if err := ret.findNbdDevices(); err != nil {
-		return ret, err
+		return ret, errors.Wrap(err, "findNbdDevices")
 	}
 	return ret, nil
+}
+
+func tryDetachNbd(nbddev string) error {
+	const MaxTries = 3
+	tried := 0
+	var errs []error
+	for tried < MaxTries && fileutils2.IsBlockDeviceUsed(nbddev) {
+		tried++
+		err := QemuNbdDisconnect(nbddev)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		time.Sleep(time.Second)
+	}
+	if tried < MaxTries {
+		return nil
+	}
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	}
+	return nil
+}
+
+func (m *SNBDManager) cleanupNbdDevices() {
+	var i = 0
+	for {
+		nbddev := fmt.Sprintf("/dev/nbd%d", i)
+		if fileutils2.Exists(nbddev) {
+			if fileutils2.IsBlockDeviceUsed(nbddev) {
+				err := tryDetachNbd(nbddev)
+				if err != nil {
+					log.Errorf("tryDetachNbd fail %s", err)
+				}
+			}
+		} else {
+			break
+		}
+	}
+}
+
+func (m *SNBDManager) reloadNbdDevices() error {
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("rmmod", "nbd").Output()
+	if err != nil {
+		log.Errorf("rmmod error: %s", output)
+	}
+	output, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "nbd", "max_part=16").Output()
+	if err != nil {
+		return errors.Wrapf(err, "Failed to activate nbd device: %s", output)
+	}
+	return nil
 }
 
 func (m *SNBDManager) findNbdDevices() error {
 	var i = 0
 	for {
-		if fileutils2.Exists(fmt.Sprintf("/dev/nbd%d", i)) {
-			m.nbdDevs[fmt.Sprintf("/dev/nbd%d", i)] = false
+		nbddev := fmt.Sprintf("/dev/nbd%d", i)
+		if fileutils2.Exists(nbddev) {
+			if fileutils2.IsBlockDeviceUsed(nbddev) {
+				continue
+			}
+			m.nbdDevs[nbddev] = false
+			// https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-bdi
+			nbdBdi := fmt.Sprintf("/sys/block/nbd%d/bdi/", i)
+			sysutils.SetSysConfig(nbdBdi+"max_ratio", "0")
+			sysutils.SetSysConfig(nbdBdi+"min_ratio", "0")
 			i++
 		} else {
 			break
 		}
 	}
-	log.Infof("NBD_DEVS: %#v", m.nbdDevs)
 	if len(m.nbdDevs) == 0 {
-		return fmt.Errorf("No nbd devices found")
+		return errors.Wrap(errors.ErrNotFound, "No nbd devices found")
 	}
+	log.Infof("NBD_DEVS: %#v", m.nbdDevs)
 	return nil
 }
 
@@ -73,6 +140,7 @@ func (m *SNBDManager) AcquireNbddev() string {
 	for nbdDev := range m.nbdDevs {
 		if fileutils2.IsBlockDeviceUsed(nbdDev) {
 			m.nbdDevs[nbdDev] = true
+			continue
 		}
 		if !m.nbdDevs[nbdDev] {
 			m.nbdDevs[nbdDev] = true
@@ -86,6 +154,8 @@ func (m *SNBDManager) ReleaseNbddev(nbddev string) {
 	if _, ok := m.nbdDevs[nbddev]; ok {
 		defer m.nbdLock.Unlock()
 		m.nbdLock.Lock()
-		m.nbdDevs[nbddev] = false
+		if !fileutils2.IsBlockDeviceUsed(nbddev) {
+			m.nbdDevs[nbddev] = false
+		}
 	}
 }
