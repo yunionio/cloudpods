@@ -59,11 +59,7 @@ type ResponseConfig struct {
 }
 
 func (conf ResponseConfig) GetHostname() string {
-	hostname := conf.Hostname
-	if conf.Domain != "" {
-		hostname = fmt.Sprintf("%s.%s", hostname, conf.Domain)
-	}
-	return hostname
+	return conf.Hostname
 }
 
 func GetOptUint16(val uint16) []byte {
