@@ -206,7 +206,7 @@ type ComputeOptions struct {
 	ForceUseOriginVnc                 bool   `help:"force openstack use origin vnc console" default:"true"`
 
 	LocalDataDiskMinSizeGB int `help:"Data disk min size when using local storage" default:"10"`
-	LocalDataDiskMaxSizeGB int `help:"Data disk max size when using local storage" default:"40960"`
+	LocalDataDiskMaxSizeGB int `help:"Data disk max size when using local storage" default:"10240"`
 
 	LocalSysDiskMinSizeGB int `help:"System disk min size when using local storage" default:"30"`
 	LocalSysDiskMaxSizeGB int `help:"System disk max size when using local storage" default:"2048"`
