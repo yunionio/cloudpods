@@ -456,6 +456,10 @@ func (s *AlertQuerySelect) MAX() *AlertQuerySelect {
 	return s.addFunc("max")
 }
 
+func (s *AlertQuerySelect) LAST() *AlertQuerySelect {
+	return s.addFunc("last")
+}
+
 // AS is alias method
 func (s *AlertQuerySelect) AS(alias string) *AlertQuerySelect {
 	s.MetricQuerySelect = append(s.MetricQuerySelect, monitor.MetricQueryPart{
@@ -536,6 +540,16 @@ func (w *AlertQueryWhere) IN(key string, vals []string) *AlertQueryWhere {
 	}
 	valStr := strings.Join(vals, "|")
 	return w.REGEX(key, valStr)
+}
+
+func (w *AlertQueryWhere) AddTag(tag *monitor.MetricQueryTag) *AlertQueryWhere {
+	if tag == nil {
+		return w
+	}
+	if tag.Condition != "" {
+		w.cond = tag.Condition
+	}
+	return w.filter(tag.Operator, tag.Key, tag.Value)
 }
 
 func (w *AlertQueryWhere) newTag(op string, key string, value string) monitor.MetricQueryTag {

@@ -15,7 +15,12 @@
 package tsdb
 
 import (
+	"fmt"
+	"sort"
 	"strconv"
+	"strings"
+
+	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/monitor"
 )
@@ -54,11 +59,28 @@ type QueryResult struct {
 }
 
 type TimeSeries struct {
+	// RawName is used to frontend displaying the curve name
 	RawName string            `json:"raw_name"`
 	Columns []string          `json:"columns"`
 	Name    string            `json:"name"`
 	Points  TimeSeriesPoints  `json:"points"`
 	Tags    map[string]string `json:"tags,omitempty"`
+}
+
+func NewTimeSeries(
+	name string,
+	rawName string,
+	columns []string,
+	points TimeSeriesPoints,
+	tags map[string]string,
+) *TimeSeries {
+	return &TimeSeries{
+		RawName: rawName,
+		Columns: columns,
+		Name:    name,
+		Points:  points,
+		Tags:    tags,
+	}
 }
 
 type Table struct {
@@ -154,9 +176,50 @@ func NewTimeSeriesPointsFromArgs(values ...float64) TimeSeriesPoints {
 	return points
 }
 
-func NewTimeSeries(name string, points TimeSeriesPoints) *TimeSeries {
-	return &TimeSeries{
-		Name:   name,
-		Points: points,
+func FormatRawName(idx int, name string, groupByTags []string, tags map[string]string) string {
+	// when group by tag specified
+	if len(groupByTags) != 0 {
+		for key, val := range tags {
+			if strings.Contains(strings.Join(groupByTags, ","), key) {
+				return val
+			}
+		}
 	}
+
+	genHint := func(k, v string) string {
+		return fmt.Sprintf("%s=%s", k, v)
+	}
+
+	hintNames := sets.NewString()
+	hints := sets.NewString()
+	for _, tagKey := range api.MEASUREMENT_TAG_KEYWORD {
+		if tagV, ok := tags[tagKey]; ok {
+			gHint := genHint(tagKey, tagV)
+			if strings.Contains(tagKey, "name") {
+				hintNames.Insert(gHint)
+			} else {
+				hints.Insert(gHint)
+			}
+		}
+	}
+
+	if len(hints) == 0 {
+		// try id
+		for key, val := range tags {
+			if strings.Contains(key, "id") && len(val) != 0 {
+				hints.Insert(genHint(key, val))
+			}
+		}
+	}
+
+	if len(hints) == 0 {
+		// if hints is empty at last, return index hint
+		return fmt.Sprintf("unknown-%d-%s", idx, name)
+	}
+	sortNL := hintNames.List()
+	sort.Strings(sortNL)
+	sortL := hints.List()
+	sort.Strings(sortL)
+	sortNL = append(sortNL, sortL...)
+	return fmt.Sprintf("{%s}", strings.Join(sortNL, ","))
 }

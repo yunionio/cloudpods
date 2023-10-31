@@ -20,9 +20,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	apis "yunion.io/x/onecloud/pkg/apis/ansible"
 	apiidentity "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
@@ -59,27 +61,25 @@ func getServerAttrs(ID string, s *mcclient.ClientSession) (map[string]string, er
 	return params, err
 }
 
-func getInfluxdbURL() (string, error) {
+func getTSDBURL() (string, error) {
 	s := auth.GetAdminSessionWithPublic(nil, "")
-	url, err := s.GetServiceURL("influxdb", apiidentity.EndpointInterfacePublic)
-
+	url, err := tsdb.GetDefaultServiceSourceURL(s, apiidentity.EndpointInterfacePublic)
 	if err != nil {
-		log.Errorf("get influxdb Endpoint error %s", err)
-		return "", err
+		return "", errors.Wrap(err, "get influxdb Endpoint error")
 	}
 	return url, nil
 }
 
 func renderExtraVars(vars map[string]string) {
 
-	InfluxdbURL, err := getInfluxdbURL()
+	tsdbURL, err := getTSDBURL()
 	if err != nil {
 		log.Errorf("template binding: get influxdb url error: %s", err)
 		return
 	}
 	for key, value := range vars {
 		if key == "influxdb" && value == "INFLUXDB" {
-			vars[key] = InfluxdbURL
+			vars[key] = tsdbURL
 		}
 	}
 }

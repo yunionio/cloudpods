@@ -143,7 +143,7 @@ func (p *SHostPingTask) ping(div int, hostId string) error {
 
 			Instance().OnCatalogChanged(cl)
 		} else {
-			log.Errorln(err)
+			log.Errorf("get catalog from res %s: %v", res.String(), err)
 		}
 	}
 	return nil
