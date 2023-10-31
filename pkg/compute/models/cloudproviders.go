@@ -826,7 +826,7 @@ func (cprvd *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred m
 			return nil
 		}
 
-		if cprvd.getSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		if cprvd.GetSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 			return nil
 		}
 
@@ -1555,6 +1555,23 @@ func (provider *SCloudprovider) GetRegions() ([]SCloudregion, error) {
 	return ret, db.FetchModelObjects(CloudregionManager, q, &ret)
 }
 
+func (provider *SCloudprovider) GetUsableRegions() ([]SCloudregion, error) {
+	q := CloudregionManager.Query()
+	crcp := CloudproviderRegionManager.Query().SubQuery()
+	q = q.Join(crcp, sqlchemy.Equals(q.Field("id"), crcp.Field("cloudregion_id"))).Filter(
+		sqlchemy.AND(
+			sqlchemy.Equals(crcp.Field("cloudprovider_id"), provider.Id),
+			sqlchemy.IsTrue(crcp.Field("enabled")),
+		),
+	)
+	ret := []SCloudregion{}
+	err := db.FetchModelObjects(CloudregionManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (provider *SCloudprovider) resetAutoSync() {
 	cprs := provider.GetCloudproviderRegions()
 	for i := range cprs {
@@ -1760,7 +1777,7 @@ func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, man db.F
 	return q
 }
 
-func (cprvd *SCloudprovider) getSyncStatus2() string {
+func (cprvd *SCloudprovider) GetSyncStatus2() string {
 	q := CloudproviderRegionManager.Query()
 	q = q.Equals("cloudprovider_id", cprvd.Id)
 	q = q.NotEquals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE)

@@ -344,3 +344,15 @@ func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCre
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances("", "", "")
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}

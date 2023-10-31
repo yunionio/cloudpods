@@ -138,14 +138,10 @@ type SInstance struct {
 
 // {"AutoReleaseTime":"","ClusterId":"","Cpu":1,"CreationTime":"2018-05-23T07:58Z","DedicatedHostAttribute":{"DedicatedHostId":"","DedicatedHostName":""},"Description":"","DeviceAvailable":true,"EipAddress":{"AllocationId":"","InternetChargeType":"","IpAddress":""},"ExpiredTime":"2018-05-30T16:00Z","GPUAmount":0,"GPUSpec":"","HostName":"iZ2ze57isp1ali72tzkjowZ","ImageId":"centos_7_04_64_20G_alibase_201701015.vhd","InnerIpAddress":{"IpAddress":[]},"InstanceChargeType":"PrePaid","InstanceId":"i-2ze57isp1ali72tzkjow","InstanceName":"gaoxianqi-test-7days","InstanceNetworkType":"vpc","InstanceType":"ecs.t5-lc2m1.nano","InstanceTypeFamily":"ecs.t5","InternetChargeType":"PayByBandwidth","InternetMaxBandwidthIn":-1,"InternetMaxBandwidthOut":0,"IoOptimized":true,"Memory":512,"NetworkInterfaces":{"NetworkInterface":[{"MacAddress":"00:16:3e:10:f0:c9","NetworkInterfaceId":"eni-2zecqsagtpztl6x5hu2r","PrimaryIpAddress":"192.168.220.214"}]},"OSName":"CentOS  7.4 64位","OSType":"linux","OperationLocks":{"LockReason":[]},"PublicIpAddress":{"IpAddress":[]},"Recyclable":false,"RegionId":"cn-beijing","ResourceGroupId":"","SaleCycle":"Week","SecurityGroupIds":{"SecurityGroupId":["sg-2zecqsagtpztl6x9zynl"]},"SerialNumber":"df05d9b4-df3d-4400-88d1-5f843f0dd088","SpotPriceLimit":0.000000,"SpotStrategy":"NoSpot","StartTime":"2018-05-23T07:58Z","Status":"Running","StoppedMode":"Not-applicable","VlanId":"","VpcAttributes":{"NatIpAddress":"","PrivateIpAddress":{"IpAddress":["192.168.220.214"]},"VSwitchId":"vsw-2ze9cqwza4upoyujq1thd","VpcId":"vpc-2zer4jy8ix3i8f0coc5uw"},"ZoneId":"cn-beijing-f"}
 
-func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit int) ([]SInstance, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
+func (self *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	params["MaxResults"] = "100"
 
 	if len(zoneId) > 0 {
 		params["ZoneId"] = zoneId
@@ -155,20 +151,29 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		params["InstanceIds"] = jsonutils.Marshal(ids).String()
 	}
 
-	body, err := self.ecsRequest("DescribeInstances", params)
-	if err != nil {
-		log.Errorf("GetInstances fail %s", err)
-		return nil, 0, err
+	ret := make([]SInstance, 0)
+	for {
+		resp, err := self.ecsRequest("DescribeInstances", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeInstances")
+		}
+		part := struct {
+			Instances struct {
+				Instance []SInstance
+			}
+			NextToken string
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		ret = append(ret, part.Instances.Instance...)
+		if len(part.Instances.Instance) == 0 || len(part.NextToken) == 0 {
+			break
+		}
+		params["NextToken"] = part.NextToken
 	}
-
-	instances := make([]SInstance, 0)
-	err = body.Unmarshal(&instances, "Instances", "Instance")
-	if err != nil {
-		log.Errorf("Unmarshal security group details fail %s", err)
-		return nil, 0, err
-	}
-	total, _ := body.Int("TotalCount")
-	return instances, int(total), nil
+	return ret, nil
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
@@ -551,14 +556,16 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 }
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
-	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
+	instances, err := self.GetInstances("", []string{instanceId})
 	if err != nil {
 		return nil, err
 	}
-	if len(instances) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range instances {
+		if instances[i].InstanceId == instanceId {
+			return &instances[i], nil
+		}
 	}
-	return &instances[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
 }
 
 func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupIds []string,

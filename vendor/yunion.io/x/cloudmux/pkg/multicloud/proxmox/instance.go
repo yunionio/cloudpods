@@ -819,12 +819,11 @@ func (self *SRegion) GetInstances(hostId string) ([]SInstance, error) {
 	}
 
 	for _, res := range resources {
-		if res.NodeId == hostId {
+		if res.NodeId == hostId || len(hostId) == 0 {
 			instance, err := self.GetQemuConfig(res.Node, res.VmId)
 			if err == nil {
 				ret = append(ret, *instance)
 			}
-
 		}
 	}
 

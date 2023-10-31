@@ -172,6 +172,29 @@ func (self *SCloudregion) GetGuestCount() (int, error) {
 	return self.getGuestCountInternal(false)
 }
 
+func (self *SCloudregion) GetManagedGuestsQuery(managerId string) *sqlchemy.SQuery {
+	q := GuestManager.Query().IsNotEmpty("external_id")
+	hosts := HostManager.Query().Equals("manager_id", managerId).SubQuery()
+	zones := ZoneManager.Query().Equals("cloudregion_id", self.Id).SubQuery()
+	q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+	q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
+	return q
+}
+
+func (self *SCloudregion) GetManagedGuests(managerId string) ([]SGuest, error) {
+	q := self.GetManagedGuestsQuery(managerId)
+	ret := []SGuest{}
+	err := db.FetchModelObjects(GuestManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (self *SCloudregion) GetManagedGuestsCount(managerId string) (int, error) {
+	return self.GetManagedGuestsQuery(managerId).CountWithError()
+}
+
 func (self *SCloudregion) GetGuestIncrementCount() (int, error) {
 	return self.getGuestCountInternal(true)
 }

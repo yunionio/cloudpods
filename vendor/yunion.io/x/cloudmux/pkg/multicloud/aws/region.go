@@ -805,3 +805,16 @@ func (region *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGate
 	}
 	return igw, nil
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances("", "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetInstances")
+	}
+
+	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := 0; i < len(vms); i += 1 {
+		ivms[i] = &vms[i]
+	}
+	return ivms, nil
+}

@@ -312,3 +312,24 @@ func (r *SRegion) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_RDS + cloudprovider.READ_ONLY_SUFFIX,
 	}
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms := make([]SInstance, 0)
+	n := 1
+	for {
+		parts, total, err := region.GetInstances("", nil, n, 100)
+		if err != nil {
+			return nil, err
+		}
+		vms = append(vms, parts...)
+		if len(vms) >= total {
+			break
+		}
+		n++
+	}
+	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := range vms {
+		ivms[i] = &vms[i]
+	}
+	return ivms, nil
+}

@@ -353,3 +353,15 @@ func (r *SRegion) FindZone(zoneRegion string) (*SZone, error) {
 	}
 	return findZone(zoneRegion), nil
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances(region.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetVMs")
+	}
+	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := range vms {
+		ivms[i] = &vms[i]
+	}
+	return ivms, nil
+}

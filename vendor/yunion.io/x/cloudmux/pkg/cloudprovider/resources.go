@@ -80,6 +80,8 @@ type ICloudRegion interface {
 	GetIVpcById(id string) (ICloudVpc, error)
 	GetIZoneById(id string) (ICloudZone, error)
 	GetIEipById(id string) (ICloudEIP, error)
+	// ICoudVM 的 GetGlobalId 接口不能panic
+	GetIVMs() ([]ICloudVM, error)
 	// Esxi没有zone，需要通过region确认vm是否被删除
 	GetIVMById(id string) (ICloudVM, error)
 	GetIDiskById(id string) (ICloudDisk, error)
