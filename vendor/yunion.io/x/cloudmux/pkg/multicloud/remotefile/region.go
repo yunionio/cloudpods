@@ -364,3 +364,15 @@ func (self *SRegion) GetIMiscResources() ([]cloudprovider.ICloudMiscResource, er
 func (self *SRegion) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.client.GetInstances()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}

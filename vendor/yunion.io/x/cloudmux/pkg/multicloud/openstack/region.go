@@ -610,3 +610,15 @@ func (region *SRegion) fetchrouters() error {
 	region.routers = routers
 	return nil
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances("")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstances")
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}

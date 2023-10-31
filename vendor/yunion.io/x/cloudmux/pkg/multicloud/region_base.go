@@ -67,6 +67,10 @@ func (r *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIStorages")
 }
 
+func (r *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIVMs")
+}
+
 func (r *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIVMById")
 }

@@ -244,3 +244,24 @@ func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, 
 	}
 	return ret, nil
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	var vms []SInstance
+	nextToken := ""
+	for {
+		part, _nextToken, err := region.GetInstances("", "", MAX_RESULT, nextToken)
+		if err != nil {
+			return nil, err
+		}
+		vms = append(vms, part...)
+		if len(part) == 0 || len(_nextToken) == 0 {
+			break
+		}
+		nextToken = _nextToken
+	}
+	var ret []cloudprovider.ICloudVM
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}

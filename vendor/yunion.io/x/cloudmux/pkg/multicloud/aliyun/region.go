@@ -1220,3 +1220,15 @@ func (self *SRegion) trialRequest(apiName string, params map[string]string) (jso
 	domain := fmt.Sprintf("actiontrail.%s.aliyuncs.com", self.RegionId)
 	return jsonRequest(client, domain, ALIYUN_API_VERSION_TRIAL, apiName, params, self.client.debug)
 }
+
+func (self *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	instances, err := self.GetInstances("", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range instances {
+		ret = append(ret, &instances[i])
+	}
+	return ret, nil
+}
