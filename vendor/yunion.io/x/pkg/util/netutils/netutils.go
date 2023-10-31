@@ -434,9 +434,13 @@ func init() {
 
 func updatePrivateIPRanges(prefs []string) {
 	if len(prefs) == 0 {
+		// https://zh.wikipedia.org/wiki/%E4%BF%9D%E7%95%99IP%E5%9C%B0%E5%9D%80
 		prefs = []string{
 			"10.0.0.0/8",
+			"100.64.0.0/10",
 			"172.16.0.0/12",
+			"192.0.0.0/24",
+			"198.18.0.0/15",
 			"192.168.0.0/16",
 		}
 	}
