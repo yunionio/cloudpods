@@ -93,10 +93,9 @@ type AlertCondition struct {
 }
 
 type AlertQuery struct {
-	Model        MetricQuery `json:"model"`
-	DataSourceId string      `json:"data_source_id"`
-	From         string      `json:"from"`
-	To           string      `json:"to"`
+	Model MetricQuery `json:"model"`
+	From  string      `json:"from"`
+	To    string      `json:"to"`
 }
 
 type AlertCreateInput struct {

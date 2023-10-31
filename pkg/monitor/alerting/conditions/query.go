@@ -31,6 +31,7 @@ import (
 	mc_mds "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
+	"yunion.io/x/onecloud/pkg/monitor/datasource"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -59,10 +60,9 @@ type QueryCondition struct {
 // AlertQuery contains information about what datasource a query
 // should be send to and the query object.
 type AlertQuery struct {
-	Model        monitor.MetricQuery
-	DataSourceId string
-	From         string
-	To           string
+	Model monitor.MetricQuery
+	From  string
+	To    string
 }
 
 type FormatCond struct {
@@ -369,12 +369,7 @@ type queryResult struct {
 }
 
 func (c *QueryCondition) executeQuery(evalCtx *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
-	ds, err := models.DataSourceManager.GetSource(c.Query.DataSourceId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cound not find datasource %v", c.Query.DataSourceId)
-	}
-
-	req := c.getRequestForAlertRule(ds, timeRange, evalCtx.IsDebug)
+	req := c.getRequestForAlertRule(timeRange, evalCtx.IsDebug)
 	result := make(tsdb.TimeSeriesSlice, 0)
 	metas := make([]tsdb.QueryResultMeta, 0)
 
@@ -412,7 +407,12 @@ func (c *QueryCondition) executeQuery(evalCtx *alerting.EvalContext, timeRange *
 		})
 	}
 
-	resp, err := c.HandleRequest(evalCtx.Ctx, ds.ToTSDBDataSource(c.Query.Model.Database), req)
+	ds, err := datasource.GetDefaultSource(c.Query.Model.Database)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDefaultDataSource")
+	}
+
+	resp, err := c.HandleRequest(evalCtx.Ctx, ds, req)
 	if err != nil {
 		if err == context.DeadlineExceeded {
 			return nil, errors.Error("Alert execution exceeded the timeout")
@@ -452,14 +452,15 @@ func (c *QueryCondition) executeQuery(evalCtx *alerting.EvalContext, timeRange *
 	}, nil
 }
 
-func (c *QueryCondition) getRequestForAlertRule(ds *models.SDataSource, timeRange *tsdb.TimeRange, debug bool) *tsdb.TsdbQuery {
+func (c *QueryCondition) getRequestForAlertRule(timeRange *tsdb.TimeRange, debug bool) *tsdb.TsdbQuery {
+	ds, _ := datasource.GetDefaultSource(c.Query.Model.Database)
 	req := &tsdb.TsdbQuery{
 		TimeRange: timeRange,
 		Queries: []*tsdb.Query{
 			{
 				RefId:       "A",
 				MetricQuery: c.Query.Model,
-				DataSource:  *ds.ToTSDBDataSource(c.Query.Model.Database),
+				DataSource:  *ds,
 			},
 		},
 		Debug: debug,
@@ -485,7 +486,6 @@ func newQueryCondition(model *monitor.AlertCondition, index int) (*QueryConditio
 		return nil, errors.Wrapf(err, "to value %q", cond.Query.To)
 	}
 
-	cond.Query.DataSourceId = q.DataSourceId
 	//reducer := model.Reducer
 	//cond.Reducer = newSimpleReducer(reducer.Type)
 	reducer, err := NewAlertReducer(&model.Reducer)

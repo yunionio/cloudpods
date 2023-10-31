@@ -17,7 +17,6 @@ package models
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"fmt"
 	"math"
 	"regexp"
@@ -31,7 +30,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/wait"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -40,10 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/monitor/datasource"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
-	"yunion.io/x/onecloud/pkg/monitor/options"
-	"yunion.io/x/onecloud/pkg/monitor/registry"
-	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -72,78 +68,10 @@ func init() {
 		),
 	}
 	DataSourceManager.SetVirtualObject(DataSourceManager)
-	registry.RegisterService(DataSourceManager)
 }
 
 type SDataSourceManager struct {
 	db.SStandaloneResourceBaseManager
-}
-
-func (_ *SDataSourceManager) IsDisabled() bool {
-	return false
-}
-
-func (_ *SDataSourceManager) Init() error {
-	return nil
-}
-
-func (man *SDataSourceManager) Run(ctx context.Context) error {
-	errgrp, ctx := errgroup.WithContext(ctx)
-	errgrp.Go(func() error { return man.initDefaultDataSource(ctx) })
-	return errgrp.Wait()
-}
-
-func (man *SDataSourceManager) initDefaultDataSource(ctx context.Context) error {
-	region := options.Options.Region
-	epType := options.Options.SessionEndpointType
-	initF := func() {
-		ds, err := man.GetDefaultSource()
-		if err != nil && err != ErrDataSourceDefaultNotFound {
-			log.Errorf("Get default datasource: %v", err)
-			return
-		}
-		s := auth.GetAdminSession(ctx, region)
-		if s == nil {
-			log.Errorf("get empty public session for region %s", region)
-			return
-		}
-		url, err := s.GetServiceURL("influxdb", epType)
-		if err != nil {
-			log.Errorf("get influxdb public url: %v", err)
-			return
-		}
-		if ds != nil {
-			if _, err := db.Update(ds, func() error {
-				ds.Url = url
-				return nil
-			}); err != nil {
-				log.Errorf("update datasource url error: %v", err)
-			}
-			return
-		}
-		ds = &SDataSource{
-			Type: monitor.DataSourceTypeInfluxdb,
-			Url:  url,
-		}
-		ds.Name = DefaultDataSource
-		if err := man.TableSpec().Insert(ctx, ds); err != nil {
-			log.Errorf("insert default influxdb: %v", err)
-		}
-	}
-	wait.Forever(initF, 30*time.Second)
-	return nil
-}
-
-func (man *SDataSourceManager) GetDefaultSource() (*SDataSource, error) {
-	obj, err := man.FetchByName(nil, DefaultDataSource)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrDataSourceDefaultNotFound
-		} else {
-			return nil, err
-		}
-	}
-	return obj.(*SDataSource), nil
 }
 
 type SDataSource struct {
@@ -171,29 +99,9 @@ func (m *SDataSourceManager) GetSource(id string) (*SDataSource, error) {
 	return ret.(*SDataSource), nil
 }
 
-func (ds *SDataSource) ToTSDBDataSource(db string) *tsdb.DataSource {
-	if db == "" {
-		db = ds.Database
-	}
-	return &tsdb.DataSource{
-		Id:       ds.GetId(),
-		Name:     ds.GetName(),
-		Type:     ds.Type,
-		Url:      ds.Url,
-		User:     ds.User,
-		Password: ds.Password,
-		Database: db,
-		Updated:  ds.UpdatedAt,
-		/*BasicAuth: ds.BasicAuth,
-		BasicAuthUser: ds.BasicAuthUser,
-		BasicAuthPassword: ds.BasicAuthPassword,
-		TimeInterval: ds.TimeInterval,*/
-	}
-}
-
 func (self *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
-	dataSource, err := self.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
@@ -225,7 +133,7 @@ func (self *SDataSourceManager) getMeasurementQueryInfluxdb(query jsonutils.JSON
 	if database == "" {
 		return rtnMeasurements, merrors.NewArgIsEmptyErr("database")
 	}
-	dataSource, err := self.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return rtnMeasurements, errors.Wrap(err, "s.GetDefaultSource")
 	}
@@ -262,15 +170,14 @@ func (self *SDataSourceManager) getMeasurementQueryInfluxdb(query jsonutils.JSON
 	return
 }
 
-func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonutils.JSONObject, measurementFilter,
-	tagFilter string) (jsonutils.JSONObject, error) {
+func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonutils.JSONObject, measurementFilter string, tagFilter *monitor.MetricQueryTag) (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	rtnMeasurements := make([]monitor.InfluxMeasurement, 0)
 	measurements, err := MetricMeasurementManager.getInfluxdbMeasurements()
 	if err != nil {
-		return jsonutils.JSONNull, err
+		return jsonutils.JSONNull, errors.Wrap(err, "getInfluxdbMeasurements")
 	}
-	dataSource, err := self.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
@@ -318,7 +225,7 @@ func (self *SDataSourceManager) GetMeasurementsWithOutTimeFilter(query jsonutils
 	if database == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
 	}
-	dataSource, err := self.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
@@ -419,13 +326,12 @@ type influxdbQueryChan struct {
 }
 
 func (self *SDataSourceManager) filterMeasurementsByTime(db influxdb.SInfluxdb,
-	measurements []monitor.InfluxMeasurement, query jsonutils.JSONObject, tagFilter string) ([]monitor.InfluxMeasurement,
-	error) {
+	measurements []monitor.InfluxMeasurement, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) ([]monitor.InfluxMeasurement, error) {
 	timeF, err := self.getFromAndToFromParam(query)
 	if err != nil {
 		return nil, err
 	}
-	filterMeasurements, err := self.getFilterMeasurementsAsyn(timeF.From, timeF.To, measurements, db, tagFilter)
+	filterMeasurements, err := self.getFilterMeasurementsAsync(timeF.From, timeF.To, measurements, db, tagFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -460,8 +366,8 @@ func (self *SDataSourceManager) getFromAndToFromParam(query jsonutils.JSONObject
 	return timeF, nil
 }
 
-func (self *SDataSourceManager) getFilterMeasurementsAsyn(from, to string,
-	measurements []monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter string) ([]monitor.InfluxMeasurement, error) {
+func (self *SDataSourceManager) getFilterMeasurementsAsync(from, to string,
+	measurements []monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter *monitor.MetricQueryTag) ([]monitor.InfluxMeasurement, error) {
 	filterMeasurements := make([]monitor.InfluxMeasurement, 0)
 	queryChan := new(influxdbQueryChan)
 	queryChan.queryRtnChan = make(chan monitor.InfluxMeasurement, len(measurements))
@@ -493,59 +399,17 @@ func (self *SDataSourceManager) getFilterMeasurementsAsyn(from, to string,
 	return filterMeasurements, err
 }
 
-func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryChan, from, to string,
-	measurement monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter string) error {
-	rtnMeasurement := new(monitor.InfluxMeasurement)
-	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf(`SELECT last(*) FROM %s WHERE %s`, measurement.Measurement,
-		renderTimeFilter(from, to)))
-	if len(tagFilter) != 0 {
-		buffer.WriteString(" AND ")
-		buffer.WriteString(fmt.Sprintf(" %s", tagFilter))
-	}
-	log.Errorln(buffer.String())
-	(&db).SetDatabase(measurement.Database)
-	rtn, err := db.Query(buffer.String())
+func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryChan, from, to string, measurement monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter *monitor.MetricQueryTag) error {
+	dds, _ := datasource.GetDefaultSource("")
+	ep, err := datasource.GetDefaultQueryEndpoint()
 	if err != nil {
-		return errors.Wrap(err, "getFilterMeasurement error")
+		return errors.Wrap(err, "GetDefaultQueryEndpoint")
 	}
-
-	rtnFields := make([]string, 0)
-	if len(rtn) != 0 && len(rtn[0]) != 0 {
-		for rtnIndex, _ := range rtn {
-			for serieIndex, _ := range rtn[rtnIndex] {
-				meanFieldArr := rtn[rtnIndex][serieIndex].Columns
-				for i, _ := range meanFieldArr {
-					if !strings.Contains(meanFieldArr[i], "last") {
-						continue
-					}
-
-					containsVal := false
-					for _, value := range rtn[rtnIndex][serieIndex].Values {
-						if value[i] == nil {
-							continue
-						}
-						_, err := value[i].Float()
-						if err != nil {
-							continue
-						}
-						containsVal = true
-						break
-					}
-					if containsVal {
-						rtnFields = append(rtnFields, strings.Replace(meanFieldArr[i], "last_", "", 1))
-					}
-				}
-			}
-		}
+	retMs, err := ep.FilterMeasurement(context.Background(), dds, from, to, &measurement, tagFilter)
+	if err != nil {
+		return errors.Wrap(err, "Get endpoint filtered measurement")
 	}
-	rtnMeasurement.FieldKey = rtnFields
-	if len(rtnMeasurement.FieldKey) != 0 {
-		rtnMeasurement.Measurement = measurement.Measurement
-		rtnMeasurement.Database = measurement.Database
-		rtnMeasurement.ResType = measurement.ResType
-	}
-	queryChan.queryRtnChan <- *rtnMeasurement
+	queryChan.queryRtnChan <- *retMs
 	return nil
 }
 
@@ -565,7 +429,7 @@ func renderTimeFilter(from, to string) string {
 
 }
 
-func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredential, query jsonutils.JSONObject, tagFilter string) (jsonutils.JSONObject, error) {
+func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredential, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) (jsonutils.JSONObject, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
 		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("database")
@@ -582,7 +446,7 @@ func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCred
 	if len(from) == 0 {
 		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("from")
 	}
-	dataSource, err := self.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
@@ -639,7 +503,7 @@ func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCred
 	// if err != nil {
 	// 	return jsonutils.JSONNull, errors.Wrap(err, "getTagValue error")
 	//** }
-	if err := getTagValues(userCred, output, timeF, dataSource.GetId(), tagFilter, skipCheckSeries); err != nil {
+	if err := getTagValues(userCred, output, timeF, tagFilter, skipCheckSeries); err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
 	}
 
@@ -755,7 +619,7 @@ func (self *SDataSourceManager) AddSubscription(subscription InfluxdbSubscriptio
 		jsonutils.NewString(subscription.Rc).String(),
 		strings.ReplaceAll(jsonutils.NewString(subscription.Url).String(), "\"", "'"),
 	)
-	dataSource, err := self.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return errors.Wrap(err, "s.GetDefaultSource")
 	}
@@ -781,7 +645,7 @@ func (self *SDataSourceManager) DropSubscription(subscription InfluxdbSubscripti
 		jsonutils.NewString(subscription.DataBase).String(),
 		jsonutils.NewString(subscription.Rc).String(),
 	)
-	dataSource, err := self.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return errors.Wrap(err, "s.GetDefaultSource")
 	}
@@ -828,7 +692,7 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 	return nil
 }
 
-func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, dsId string, tagFilter string, skipCheckSeries bool) error {
+func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, tagFilter *monitor.MetricQueryTag, skipCheckSeries bool) error {
 	mq := monitor.MetricQuery{
 		Database:    output.Database,
 		Measurement: output.Measurement,
@@ -850,22 +714,20 @@ func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasu
 			},
 		},
 	}
-	if tagFilter != "" {
-		parts := strings.Split(tagFilter, " ")
+	if tagFilter != nil {
 		mq.Tags = []monitor.MetricQueryTag{
 			{
-				Key:      parts[0],
-				Operator: parts[1],
-				Value:    parts[2],
+				Key:      tagFilter.Key,
+				Operator: tagFilter.Operator,
+				Value:    tagFilter.Value,
 			},
 		}
 	}
 
 	aq := &monitor.AlertQuery{
-		Model:        mq,
-		From:         timeF.From,
-		To:           timeF.To,
-		DataSourceId: dsId,
+		Model: mq,
+		From:  timeF.From,
+		To:    timeF.To,
 	}
 
 	q := monitor.MetricInputQuery{

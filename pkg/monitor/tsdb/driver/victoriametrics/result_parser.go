@@ -1,0 +1,154 @@
+package victoriametrics
+
+import (
+	"fmt"
+	"reflect"
+	"sort"
+	"strings"
+
+	"github.com/influxdata/promql/v2/pkg/labels"
+	"github.com/zexi/influxql-to-promql/converter/translator"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
+
+	"yunion.io/x/onecloud/pkg/monitor/tsdb"
+)
+
+func newMapId(input map[string]string, ignoreKeys ...string) string {
+	keys := make([]string, 0)
+	ignoreKS := sets.NewString(ignoreKeys...)
+	for key := range input {
+		if ignoreKS.Has(key) {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	pairs := make([]string, len(keys))
+	for i, key := range keys {
+		pair := fmt.Sprintf("%s->%s", key, input[key])
+		pairs[i] = pair
+	}
+	return strings.Join(pairs, ",")
+}
+
+type points struct {
+	id      string
+	columns []string
+	values  []ResponseDataResultValue
+	tags    map[string]string
+}
+
+func (p *points) add(op *points) error {
+	if len(op.columns) != 1 {
+		return errors.Errorf("input points' columns are %#v, which length isn't equal 1", op.columns)
+	}
+	p.columns = append(p.columns, op.columns[0])
+	// merge values
+	for i, val := range p.values {
+		oVal := op.values[i]
+		valTime := val[0]
+		oValTime := oVal[0]
+		if valTime != oValTime {
+			return errors.Errorf("value time %v != other value time %v", valTime, oValTime)
+		}
+		if len(oVal) != 2 {
+			return errors.Errorf("input values' are %#v, which length isn't equal 2", oVal)
+		}
+		val = append(val, oVal[1])
+	}
+	return nil
+}
+
+func (p *points) isEqual(op *points) bool {
+	if p.id != op.id {
+		return false
+	}
+	return reflect.DeepEqual(p.columns, op.columns) && reflect.DeepEqual(p.tags, op.tags) && reflect.DeepEqual(p.values, op.values)
+}
+
+func newPointsByResult(result ResponseDataResult) (*points, error) {
+	tags := result.Metric
+	column, ok := tags[translator.UNION_RESULT_NAME]
+	if !ok {
+		return nil, errors.Errorf("result tags %#v don't contain key %s", tags, translator.UNION_RESULT_NAME)
+	}
+	for _, ignoreKey := range []string{
+		translator.UNION_RESULT_NAME,
+		labels.MetricName,
+	} {
+		delete(tags, ignoreKey)
+	}
+	values := result.Values
+	id := newMapId(tags)
+	return &points{
+		id:      id,
+		columns: []string{column},
+		values:  values,
+		tags:    tags,
+	}, nil
+}
+
+func newPointsByResults(results []ResponseDataResult) ([]*points, error) {
+	uniq := make(map[string]*points, 0)
+	ret := make([]*points, 0)
+
+	for _, result := range results {
+		p, err := newPointsByResult(result)
+		if err != nil {
+			return nil, errors.Wrapf(err, "new points by result: %#v", result)
+		}
+		if ep, ok := uniq[p.id]; ok {
+			if err := ep.add(p); err != nil {
+				return nil, errors.Wrapf(err, "add point %#v", p)
+			}
+		} else {
+			uniq[p.id] = p
+			ret = append(ret, p)
+		}
+	}
+	return ret, nil
+}
+
+func transPointsToSeries(points []*points, query *tsdb.Query) tsdb.TimeSeriesSlice {
+	var result tsdb.TimeSeriesSlice
+	for _, point := range points {
+		result = append(result, transPointToSeries(point, query)...)
+	}
+	return result
+}
+
+func transValuesToTSDBPoints(vals []ResponseDataResultValue) tsdb.TimeSeriesPoints {
+	var points tsdb.TimeSeriesPoints
+	for _, val := range vals {
+		point, err := parseTimepoint(val)
+		if err != nil {
+			log.Errorf("parseTimepoint: %#v", val)
+		} else {
+			points = append(points, point)
+		}
+	}
+	return points
+}
+
+func reviseTags(tags map[string]string) map[string]string {
+	ret := make(map[string]string)
+	for key, val := range tags {
+		val_ := strings.ReplaceAll(val, "+", " ")
+		ret[key] = val_
+	}
+	return ret
+}
+
+func transPointToSeries(p *points, query *tsdb.Query) tsdb.TimeSeriesSlice {
+	var result tsdb.TimeSeriesSlice
+
+	points := transValuesToTSDBPoints(p.values)
+	tags := reviseTags(p.tags)
+	metricName := strings.Join(p.columns, ",")
+	ts := tsdb.NewTimeSeries(metricName, formatRawName(0, metricName, query, tags), append(p.columns, "time"), points, tags)
+	result = append(result, ts)
+	return result
+}

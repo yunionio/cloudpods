@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	ansible_api "yunion.io/x/onecloud/pkg/apis/ansible"
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -55,16 +56,26 @@ func GetArgs(ctx context.Context, serverId, proxyEndpointId string, others inter
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get serverInfo of server %s", serverId)
 	}
-	influxdbUrl := info.serverDetails.MonitorUrl
-	log.Infof("influxdbUrl: %s", influxdbUrl)
-	influxdbUrl, err = FindValidServiceUrl(ctx, Service{"influxdb", influxdbUrl}, proxyEndpointId, info, host)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to convertInfluxdbUrl %s", influxdbUrl)
+	monitorUrl := info.serverDetails.MonitorUrl
+	log.Infof("TSDB monitor Url: %s", monitorUrl)
+	foundSvc := false
+	errs := []error{}
+	for _, svcName := range []string{apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS} {
+		if tsdbUrl, err := FindValidServiceUrl(ctx, Service{svcName, monitorUrl}, proxyEndpointId, info, host); err != nil {
+			errs = append(errs, errors.Wrapf(err, "unable to convertInfluxdbUrl %s", monitorUrl))
+		} else {
+			monitorUrl = tsdbUrl
+			foundSvc = true
+			break
+		}
 	}
-	if len(influxdbUrl) == 0 {
+	if !foundSvc {
+		return nil, errors.Wrapf(errors.NewAggregate(errs), "convert TSDB service URL")
+	}
+	if len(monitorUrl) == 0 {
 		return nil, errors.Wrap(ErrCannotReachInfluxbd, "please create usable Proxy Endpoint for server and try again")
 	}
-	return getArgs(&info, influxdbUrl), nil
+	return getArgs(&info, monitorUrl), nil
 }
 func getArgs(info *sServerInfo, influxdbUrl string) map[string]interface{} {
 	tags := map[string]string{

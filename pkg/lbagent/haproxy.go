@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
@@ -445,7 +446,7 @@ func (h *HaproxyHelper) remoteReloadTelegraf(ctx context.Context, agentParams *a
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
 	if len(agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl) > 0 {
-		conf["influxdb"] = map[string]interface{}{
+		conf[apis.SERVICE_TYPE_INFLUXDB] = map[string]interface{}{
 			"url": []string{
 				agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl,
 			},

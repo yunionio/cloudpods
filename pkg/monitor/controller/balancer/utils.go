@@ -23,7 +23,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
-	"yunion.io/x/onecloud/pkg/monitor/tsdb/driver/influxdb"
 )
 
 type HostMetric struct {
@@ -78,14 +77,12 @@ func InfluxdbQuery(
 	q.Where().IN(idKey, ids)
 	q.GroupBy().TAG(idKey).FILL_NULL()
 	qCtx := q.ToTsdbQuery()
-	endpoint, err := influxdb.NewInfluxdbExecutor(nil)
+
+	resp, err := tsdb.HandleRequest(context.Background(), ds, qCtx)
 	if err != nil {
-		return nil, errors.Wrap(err, "influxdb.NewInfluxdbExecutor")
+		return nil, errors.Wrap(err, "TSDB endpoint Query")
 	}
-	resp, err := endpoint.Query(context.TODO(), ds, qCtx)
-	if err != nil {
-		return nil, errors.Wrap(err, "influxdb endpoint Query")
-	}
+
 	ss := resp.Results[""].Series
 	ms := make([]*HostMetric, len(ss))
 	for i, s := range ss {

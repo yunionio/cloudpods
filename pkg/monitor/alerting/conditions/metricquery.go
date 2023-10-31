@@ -31,8 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
+	"yunion.io/x/onecloud/pkg/monitor/datasource"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
-	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
@@ -67,7 +67,6 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 			return nil, errors.Wrapf(err, "to value %q", qc.Query.To)
 		}
 		qc.setResType()
-		qc.Query.DataSourceId = q.DataSourceId
 		cond.QueryCons = append(cond.QueryCons, *qc)
 	}
 
@@ -92,7 +91,7 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 		startTime := time.Now()
 		queryResult, err := query.executeQuery(&evalContext, timeRange)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "query.executeQuery")
 		}
 		log.Debugf("query metrics from influxdb elapsed: %s", time.Since(startTime))
 		return queryResult, nil
@@ -126,6 +125,10 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	)
 	go func() {
 		startTime := time.Now()
+		defer func() {
+			qRegionCh <- true
+			log.Debugf("get resources from region elapsed: %s", time.Since(startTime))
+		}()
 
 		s := auth.GetSession(ctx, userCred, "")
 		ress, regionErr = firstCond.getOnecloudResources(s, false)
@@ -142,12 +145,14 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 			tmpRes := res
 			resMap[id] = tmpRes
 		}
-		log.Debugf("get resources from region elapsed: %s", time.Since(startTime))
-		qRegionCh <- true
 	}()
 
 	<-qInfluxdbCh
 	<-qRegionCh
+
+	if err != nil || regionErr != nil {
+		return nil, errors.Errorf("tsdb error: %v, region error: %v", err, regionErr)
+	}
 
 	startTime := time.Now()
 	//for _, serie := range queryResult.series {
@@ -213,9 +218,9 @@ func (query *MetricQueryCondition) noCheckSeries(skipCheckSeries bool) bool {
 }
 
 func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
-	ds, err := models.DataSourceManager.GetSource(c.QueryCons[0].Query.DataSourceId)
+	ds, err := datasource.GetDefaultSource("")
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cound not find datasource %v", c.QueryCons[0].Query.DataSourceId)
+		return nil, errors.Wrapf(err, "Can't find default datasource")
 	}
 
 	req := c.getRequestQuery(ds, timeRange, context.IsDebug)
@@ -226,13 +231,12 @@ func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeR
 		setContextLog(context, req)
 	}
 
-	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(""), req)
+	resp, err := c.HandleRequest(context.Ctx, ds, req)
 	if err != nil {
 		if err == gocontext.DeadlineExceeded {
 			return nil, errors.Error("Alert execution exceeded the timeout")
 		}
-		log.Errorf("metricQuery HandleRequest error:%v", err)
-		return nil, err
+		return nil, errors.Wrap(err, "metricQuery HandleRequest")
 	}
 	for _, v := range resp.Results {
 		if v.Error != nil {
@@ -300,13 +304,15 @@ func setContextLog(context *alerting.EvalContext, req *tsdb.TsdbQuery) {
 	})
 }
 
-func (query *MetricQueryCondition) getRequestQuery(ds *models.SDataSource, timeRange *tsdb.TimeRange, debug bool) *tsdb.TsdbQuery {
+func (query *MetricQueryCondition) getRequestQuery(ds *tsdb.DataSource, timeRange *tsdb.TimeRange, debug bool) *tsdb.TsdbQuery {
 	querys := make([]*tsdb.Query, 0)
 	for _, qc := range query.QueryCons {
+		nDs := *ds
+		nDs.Database = qc.Query.Model.Database
 		querys = append(querys, &tsdb.Query{
 			RefId:       strconv.FormatInt(int64(qc.Index), 10),
 			MetricQuery: qc.Query.Model,
-			DataSource:  *ds.ToTSDBDataSource(qc.Query.Model.Database),
+			DataSource:  nDs,
 		})
 	}
 	req := &tsdb.TsdbQuery{

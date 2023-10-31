@@ -828,11 +828,7 @@ func (alert *SNodeAlert) GetCommonAlertUpdateData(ctx context.Context, userCred 
 		input.Name = name
 	}
 
-	ds, err := DataSourceManager.GetDefaultSource()
-	if err != nil {
-		return nil, errors.Wrap(err, "get default data source")
-	}
-	tmpS := alert.getUpdateInput(name, details, ds.GetId())
+	tmpS := alert.getUpdateInput(name, details)
 	input.Settings = &tmpS.Settings
 
 	uData, err := alert.SCommonAlert.ValidateUpdateData(ctx, userCred, nil, tmpS.JSON(tmpS))
@@ -855,7 +851,6 @@ func (alert *SNodeAlert) ValidateUpdateData(
 func (alert *SNodeAlert) getUpdateInput(
 	name string,
 	details monitor.NodeAlertDetails,
-	dsId string,
 ) monitor.CommonAlertCreateInput {
 	data := monitor.NodeAlertCreateInput{
 		ResourceAlertV1CreateInput: monitor.ResourceAlertV1CreateInput{
@@ -872,7 +867,7 @@ func (alert *SNodeAlert) getUpdateInput(
 	}
 	data.Level = details.Level
 	out := data.ToCommonAlertCreateInput(name, details.Field, details.Measurement, details.DB)
-	out.Settings = *setAlertDefaultSetting(&out.Settings, dsId)
+	out.Settings = *setAlertDefaultSetting(&out.Settings)
 	return out
 }
 

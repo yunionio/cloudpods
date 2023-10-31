@@ -374,8 +374,7 @@ func (manager *SMetricMeasurementManager) getMeasurement(query *sqlchemy.SQuery)
 	return measurements, nil
 }
 
-func (manager *SMetricMeasurementManager) getInfluxdbMeasurements() (influxdbMeasurements []monitor.
-	InfluxMeasurement, err error) {
+func (manager *SMetricMeasurementManager) getInfluxdbMeasurements() (influxdbMeasurements []monitor.InfluxMeasurement, err error) {
 	metric, err := manager.getMeasurement(manager.Query())
 	if err != nil {
 		return
