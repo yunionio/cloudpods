@@ -102,6 +102,7 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound && req.DeployInfo.IsInit {
 			// if init deploy, ignore no partition error
+			log.Errorf("disk.MountRootfs not found partition, not init, quit")
 			return new(deployapi.DeployGuestFsResponse), nil
 		}
 		log.Errorf("Failed mounting rootfs for %s disk: %s", req.GuestDesc.Hypervisor, err)
@@ -110,9 +111,11 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	defer disk.UmountRootfs(root)
 	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {
+		log.Errorf("guestfs.DoDeployGuestFs fail %s", err)
 		return new(deployapi.DeployGuestFsResponse), err
 	}
 	if ret == nil {
+		log.Errorf("guestfs.DoDeployGuestFs return empty results")
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
 	return ret, nil

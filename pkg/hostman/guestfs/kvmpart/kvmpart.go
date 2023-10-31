@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,10 +27,13 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/fsutils"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/xfsutils"
 )
 
 type SKVMGuestDiskPartition struct {
@@ -166,12 +170,12 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	var err error
 	if fsType == "xfs" {
 		uuids, _ := fileutils2.GetDevUuid(p.partDev)
-		p.uuid, _ = uuids["UUID"]
+		p.uuid = uuids["UUID"]
 		if len(p.uuid) > 0 {
-			LockXfsPartition(p.uuid)
+			xfsutils.LockXfsPartition(p.uuid)
 			defer func() {
 				if err != nil {
-					UnlockXfsPartition(p.uuid)
+					xfsutils.UnlockXfsPartition(p.uuid)
 				}
 			}()
 		}
@@ -253,9 +257,21 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 
 	defer func() {
 		if p.fs == "xfs" && len(p.uuid) > 0 {
-			UnlockXfsPartition(p.uuid)
+			xfsutils.UnlockXfsPartition(p.uuid)
 		}
 	}()
+
+	// check lsof
+	for {
+		out, err := procutils.NewCommand("lsof", p.mountPath).Output()
+		if err != nil {
+			log.Warningf("lsof %s fail %s", p.mountPath, err)
+			break
+		} else {
+			log.Infof("unmount path %s lsof %s", p.mountPath, string(out))
+			time.Sleep(time.Second * 1)
+		}
+	}
 
 	var tries = 0
 	var err error
@@ -275,7 +291,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 			return nil
 		} else {
 			log.Warningf("failed umount %s: %s %s", p.partDev, err, out)
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 3)
 		}
 	}
 	return errors.Wrapf(err, "umount %s", p.mountPath)
@@ -290,6 +306,8 @@ func (p *SKVMGuestDiskPartition) Zerofree() {
 			p.zerofreeExt()
 		case "ntfs":
 			p.zerofreeNtfs()
+		case "xfs":
+			p.zerofreeFs("xfs")
 		}
 	}
 }
@@ -326,4 +344,83 @@ func (p *SKVMGuestDiskPartition) zerofreeNtfs() {
 		log.Errorf("zerofree ntfs error: %s", err)
 		return
 	}
+}
+
+func (p *SKVMGuestDiskPartition) zerofreeFs(fs string) {
+	err := p.zerofreeFsInternal(fs)
+	if err != nil {
+		log.Errorf("zerofreeFs %s %s: %s", p.partDev, fs, err)
+	}
+}
+
+func (p *SKVMGuestDiskPartition) zerofreeFsInternal(fs string) error {
+	uuids, _ := fileutils2.GetDevUuid(p.partDev)
+
+	backupDirPath, err := os.MkdirTemp(consts.DeployTempDir(), "backup")
+	if err != nil {
+		return errors.Wrap(err, "MkdirTemp")
+	}
+	defer func() {
+		cmd := []string{"rm", "-fr", backupDirPath}
+		output, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+		if err != nil {
+			log.Errorf("fail to remove %s %s: %s", backupDirPath, output, err)
+		}
+	}()
+	backupPath := filepath.Join(backupDirPath, "backup.tar.gz")
+
+	err = func() error {
+		// mount partition
+		if !p.Mount() {
+			return errors.Wrap(errors.ErrInvalidStatus, "fail to mount")
+		}
+		defer p.Umount()
+
+		// backup
+		cmd := []string{"tar", "-cpzf", backupPath, "--one-file-system", "-C", p.mountPath, "."}
+		output, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+		if err != nil {
+			return errors.Wrapf(err, "exec %s output %s", cmd, output)
+		}
+
+		return nil
+	}()
+	if err != nil {
+		return errors.Wrap(err, "backup")
+	}
+
+	// zero partition
+	output, err := procutils.NewCommand("shred", "-n", "0", "-z", p.partDev).Output()
+	if err != nil {
+		return errors.Wrapf(err, "shred output %s", output)
+	}
+	// make partition
+	uuid := uuids["UUID"]
+	err = fsutils.FormatPartition(p.partDev, fs, uuid)
+	if err != nil {
+		return errors.Wrapf(err, "FormatPartition %s %s %s", p.partDev, fs, uuid)
+	}
+
+	err = func() error {
+		// mount partition
+		if !p.Mount() {
+			return errors.Wrap(errors.ErrInvalidStatus, "fail to mount")
+		}
+		// umount
+		defer p.Umount()
+
+		// copy back data
+		cmd := []string{"tar", "-xpzf", backupPath, "--numeric-owner", "-C", p.mountPath}
+		output, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+		if err != nil {
+			return errors.Wrapf(err, "exec %s output %s", cmd, output)
+		}
+
+		return nil
+	}()
+	if err != nil {
+		return errors.Wrap(err, "restore")
+	}
+
+	return nil
 }
