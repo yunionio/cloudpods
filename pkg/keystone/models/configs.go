@@ -18,16 +18,19 @@ import (
 	"context"
 	"database/sql"
 	"sort"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -276,6 +279,19 @@ func getConfigOptions(conf api.TConfigs, model db.IModel, sensitiveList map[stri
 
 type TConfigOptions []SConfigOption
 
+func (opts TConfigOptions) Validate() error {
+	for _, opt := range opts {
+		if opt.Option == "time_zone" && opt.Group == "default" && !gotypes.IsNil(opt.Value) {
+			timeZone, _ := opt.Value.GetString()
+			_, err := time.LoadLocation(timeZone)
+			if err != nil {
+				return httperrors.NewInputParameterError("invalid time_zone %s", timeZone)
+			}
+		}
+	}
+	return nil
+}
+
 func (opts TConfigOptions) Len() int {
 	return len(opts)
 }
@@ -379,6 +395,10 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, sensitiveConfs)
 	whiteListedOpts = filterOptions(whiteListedOpts, whiteList, blackList)
 	if action == "update" {
+		err = whiteListedOpts.Validate()
+		if err != nil {
+			return false, err
+		}
 		changed, err = WhitelistedConfigManager.updateConfigs(model, whiteListedOpts)
 		if err != nil {
 			return false, errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
