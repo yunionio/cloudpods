@@ -126,18 +126,9 @@ func (host *SHost) GetVersion() string {
 }
 
 func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms := make([]SInstance, 0)
-	token := ""
-	for {
-		parts, nextToken, err := host.zone.region.GetInstances(host.zone.ZoneId, nil, 10, token)
-		if err != nil {
-			return nil, err
-		}
-		vms = append(vms, parts...)
-		if len(nextToken) == 0 {
-			break
-		}
-		token = nextToken
+	vms, err := host.zone.region.GetInstances(host.zone.ZoneId, nil)
+	if err != nil {
+		return nil, err
 	}
 	ivms := make([]cloudprovider.ICloudVM, len(vms))
 	for i := 0; i < len(vms); i += 1 {
@@ -147,20 +138,13 @@ func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	return ivms, nil
 }
 
-func (host *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
-	id := gid
-	parts, _, err := host.zone.region.GetInstances(host.zone.ZoneId, []string{id}, 1, "")
+func (host *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	vm, err := host.zone.region.GetInstance(id)
 	if err != nil {
 		return nil, err
 	}
-	if len(parts) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(parts) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	parts[0].host = host
-	return &parts[0], nil
+	vm.host = host
+	return vm, nil
 }
 
 func (host *SHost) GetInstanceById(instanceId string) (*SInstance, error) {

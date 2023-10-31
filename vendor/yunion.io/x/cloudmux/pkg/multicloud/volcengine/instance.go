@@ -128,7 +128,7 @@ func (instance *SInstance) GetUserData() (string, error) {
 }
 
 func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
-	instances, _, err := region.GetInstances("", []string{instanceId}, 1, "")
+	instances, err := region.GetInstances("", []string{instanceId})
 	if err != nil {
 		return nil, err
 	}
@@ -140,35 +140,37 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
 }
 
-func (region *SRegion) GetInstances(zoneId string, ids []string, limit int, token string) ([]SInstance, string, error) {
-	if limit > 10 || limit <= 0 {
-		limit = 10
-	}
+func (region *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, error) {
 	params := make(map[string]string)
-	params["MaxResults"] = fmt.Sprintf("%d", limit)
-	if len(token) > 0 {
-		params["NextToken"] = token
-	}
+	params["MaxResults"] = "100"
 	if len(zoneId) > 0 {
 		params["ZoneId"] = zoneId
 	}
-	if len(ids) > 0 {
-		for index, id := range ids {
-			key := fmt.Sprintf("InstanceIds.%d", index+1)
-			params[key] = id
+	for index, id := range ids {
+		key := fmt.Sprintf("InstanceIds.%d", index+1)
+		params[key] = id
+	}
+	ret := []SInstance{}
+	for {
+		resp, err := region.ecsRequest("DescribeInstances", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeInstances")
 		}
+		part := struct {
+			Instances []SInstance
+			NextToken string
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Instances...)
+		if len(part.NextToken) == 0 || len(part.Instances) == 0 {
+			break
+		}
+		params["NextToken"] = part.NextToken
 	}
-	body, err := region.ecsRequest("DescribeInstances", params)
-	if err != nil {
-		return nil, "", errors.Wrapf(err, "GetInstances fail")
-	}
-	instances := make([]SInstance, 0)
-	err = body.Unmarshal(&instances, "Instances")
-	if err != nil {
-		return nil, "", errors.Wrapf(err, "Unmarshal details fail")
-	}
-	nextToken, _ := body.GetString("NextToken")
-	return instances, nextToken, nil
+	return ret, nil
 }
 
 func (instance *SInstance) GetIHost() cloudprovider.ICloudHost {

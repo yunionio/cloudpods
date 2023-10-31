@@ -215,3 +215,15 @@ func (self *SRegion) put(res string, params url.Values, body jsonutils.JSONObjec
 func (self *SRegion) del(res string, params url.Values, retVal interface{}) error {
 	return self.client.del(res, params, retVal)
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances("")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstances")
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}

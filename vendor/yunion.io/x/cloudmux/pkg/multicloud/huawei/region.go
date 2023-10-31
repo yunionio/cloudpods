@@ -754,3 +754,15 @@ func (self *SRegion) GetZoneSupportedDiskTypes(zoneId string) ([]string, error) 
 
 	return ret, nil
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetInstances")
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}

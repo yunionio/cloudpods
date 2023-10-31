@@ -216,3 +216,15 @@ func (self *SRegion) getTask(id string) (*STask, error) {
 	task := &STask{}
 	return task, self.get("tasks", id, nil, task)
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstances")
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}
