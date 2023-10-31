@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/xfsutils"
 )
 
 type SKVMGuestDiskPartition struct {
@@ -166,12 +167,12 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	var err error
 	if fsType == "xfs" {
 		uuids, _ := fileutils2.GetDevUuid(p.partDev)
-		p.uuid, _ = uuids["UUID"]
+		p.uuid = uuids["UUID"]
 		if len(p.uuid) > 0 {
-			LockXfsPartition(p.uuid)
+			xfsutils.LockXfsPartition(p.uuid)
 			defer func() {
 				if err != nil {
-					UnlockXfsPartition(p.uuid)
+					xfsutils.UnlockXfsPartition(p.uuid)
 				}
 			}()
 		}
@@ -253,7 +254,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 
 	defer func() {
 		if p.fs == "xfs" && len(p.uuid) > 0 {
-			UnlockXfsPartition(p.uuid)
+			xfsutils.UnlockXfsPartition(p.uuid)
 		}
 	}()
 
@@ -275,7 +276,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 			return nil
 		} else {
 			log.Warningf("failed umount %s: %s %s", p.partDev, err, out)
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 3)
 		}
 	}
 	return errors.Wrapf(err, "umount %s", p.mountPath)
