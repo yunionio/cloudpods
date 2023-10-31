@@ -459,3 +459,15 @@ func (self *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, err
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances("", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}

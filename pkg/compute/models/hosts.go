@@ -2502,6 +2502,10 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 	return false, ""
 }
 
+func (self *SGuest) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.purge(ctx, userCred)
+}
+
 func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, xor bool) ([]SGuestSyncResult, compare.SyncResult) {
 	lockman.LockRawObject(ctx, GuestManager.Keyword(), hh.Id)
 	defer lockman.ReleaseRawObject(ctx, GuestManager.Keyword(), hh.Id)
@@ -2535,7 +2539,7 @@ func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredent
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err := removed[i].syncRemoveCloudVM(ctx, userCred)
+		err := removed[i].SyncRemoveCloudVM(ctx, userCred, true)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {

@@ -47,6 +47,22 @@ func (cli *SESXiClient) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	return ihosts, nil
 }
 
+func (cli *SESXiClient) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	hosts, err := cli.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for _, host := range hosts {
+		vm, err := host.GetIVMs()
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, vm...)
+	}
+	return ret, nil
+}
+
 func (cli *SESXiClient) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	hosts, err := cli.GetIHosts()
 	if err != nil {

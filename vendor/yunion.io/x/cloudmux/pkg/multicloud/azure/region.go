@@ -687,3 +687,15 @@ func (self *SRegion) list(resource string, params url.Values, retVal interface{}
 	}
 	return jsonutils.Update(retVal, ret)
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances()
+	if err != nil {
+		return nil, err
+	}
+	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := 0; i < len(vms); i++ {
+		ivms[i] = &vms[i]
+	}
+	return ivms, nil
+}

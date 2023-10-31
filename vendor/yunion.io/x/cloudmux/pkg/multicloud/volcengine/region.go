@@ -651,3 +651,15 @@ func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	return region.GetInstance(id)
 }
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := region.GetInstances("", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}
