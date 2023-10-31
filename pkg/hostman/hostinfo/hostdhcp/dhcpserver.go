@@ -182,10 +182,12 @@ func (s *SGuestDHCPServer) getGuestConfig(
 	conf.ServerIP = net.ParseIP(v4Ip.NetAddr(int8(masklen)).String())
 	conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(int(masklen)))
 	conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
-	conf.Hostname = guestDesc.Name
 	if len(guestDesc.Hostname) > 0 {
 		conf.Hostname = guestDesc.Hostname
+	} else {
+		conf.Hostname = guestDesc.Name
 	}
+	conf.Hostname = strings.ToLower(conf.Hostname)
 	conf.Domain = nicdesc.Domain
 
 	// get main ip
