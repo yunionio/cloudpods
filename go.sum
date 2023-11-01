@@ -919,6 +919,7 @@ golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200803210538-64077c9b5642/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20201112073958-5cba982894dd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201204225414-ed752295db88/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
@@ -1154,12 +1155,14 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
-k8s.io/api v0.19.3 h1:GN6ntFnv44Vptj/b+OnMW7FmzkpDoIDLZRvKX3XH9aU=
 k8s.io/api v0.19.3/go.mod h1:VF+5FT1B74Pw3KxMdKyinLo+zynBaMBiAfGMuldcNDs=
-k8s.io/apimachinery v0.19.3 h1:bpIQXlKjB4cB/oNpnNnV+BybGPR7iP5oYpsOTEJ4hgc=
+k8s.io/api v0.19.6 h1:F3lfwgpKcKms6F1mMqkQXFzXmme8QqHTJBtBkev3TOg=
+k8s.io/api v0.19.6/go.mod h1:Plxx44Nh4zVblkJrIgxVPgPre1mvng6tXf1Sj3bs0fU=
 k8s.io/apimachinery v0.19.3/go.mod h1:DnPGDnARWFvYa3pMHgSxtbZb7gpzzAZ1pTfaUNDVlmA=
-k8s.io/client-go v0.19.3 h1:ctqR1nQ52NUs6LpI0w+a5U+xjYwflFwA13OJKcicMxg=
-k8s.io/client-go v0.19.3/go.mod h1:+eEMktZM+MG0KO+PTkci8xnbCZHvj9TqR6Q1XDUIJOM=
+k8s.io/apimachinery v0.19.6 h1:kBLzSGuDdY1NdSV2uFzI+FwZ9wtkmG+X3ZVcWXSqNgA=
+k8s.io/apimachinery v0.19.6/go.mod h1:6sRbGRAVY5DOCuZwB5XkqguBqpqLU6q/kOaOdk29z6Q=
+k8s.io/client-go v0.19.6 h1:vtPb33nP8DBMW+/CyuJ8fiie36c3CM1Ts6L4Tsr+PtU=
+k8s.io/client-go v0.19.6/go.mod h1:gEiS+efRlXYUEQ9Oz4lmNXlxAl5JZ8y2zbTDGhvXXnk=
 k8s.io/cluster-bootstrap v0.19.3 h1:LIVoRLTjJt3Yq/u+cV8h3cxGPwz9w+SFXtHdiKxfD7A=
 k8s.io/cluster-bootstrap v0.19.3/go.mod h1:yZPVza5jZABN+xe4y6By4DnZI+UF9TxYj80etnDzZ5w=
 k8s.io/gengo v0.0.0-20200413195148-3a45101e95ac/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=

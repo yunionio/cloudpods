@@ -78,9 +78,9 @@ require (
 	gopkg.in/ldap.v3 v3.0.3
 	gopkg.in/mail.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.19.3
-	k8s.io/apimachinery v0.19.3
-	k8s.io/client-go v0.19.3
+	k8s.io/api v0.19.6
+	k8s.io/apimachinery v0.19.6
+	k8s.io/client-go v0.19.6
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231101105700-645ed1a2181f
