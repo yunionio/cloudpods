@@ -59,7 +59,8 @@ func (obj *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	if err != nil {
 		return errors.Wrap(err, "GetTosClient")
 	}
-	_, err = toscli.PutObjectACL(context.Background(), &tos.PutObjectACLInput{Key: obj.Key, ACL: enum.ACLType(aclStr)})
+	input := &tos.PutObjectACLInput{Bucket: obj.bucket.Name, Key: obj.Key, ACL: enum.ACLType(aclStr)}
+	_, err = toscli.PutObjectACL(context.Background(), input)
 	if err != nil {
 		return errors.Wrapf(err, "PutObjectACL")
 	}
