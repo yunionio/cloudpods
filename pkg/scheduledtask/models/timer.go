@@ -249,7 +249,7 @@ func (st *STimer) descChinese(createdAt time.Time, zone *time.Location) string {
 		}
 	}
 	if st.CycleNum > 0 {
-		return fmt.Sprintf("%s同步一次，开始时间： 有效时间为%s至%s", prefix, createdAt.In(zone).Format(format), st.EndTime.In(zone).Format(format))
+		return fmt.Sprintf("%s同步一次，开始时间：%s,有效时间为%s至%s", prefix, createdAt.In(zone).Format(format), st.StartTime.In(zone).Format(format), st.EndTime.In(zone).Format(format))
 	}
 	return fmt.Sprintf("%s %s触发 有效时间为%s至%s", prefix, st.hourMinutesDesc(zone), st.StartTime.In(zone).Format(format), st.EndTime.In(zone).Format(format))
 }

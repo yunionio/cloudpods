@@ -771,6 +771,7 @@ type SBucketPolicyStatement struct {
 }
 
 type SBucketPolicyStatementDetails struct {
+	Id        string                            `json:"id"`
 	Sid       string                            `json:"Sid"`
 	Effect    string                            `json:"Effect"`
 	Principal map[string][]string               `json:"Principal"`
@@ -785,16 +786,17 @@ func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
 		return nil, errors.Wrap(err, "getPolicy")
 	}
 	res := []cloudprovider.SBucketPolicyStatement{}
-	for _, policy := range policies {
+	for i, policy := range policies {
 		temp := cloudprovider.SBucketPolicyStatement{}
 		temp.Action = policy.Action
 		temp.Principal = policy.Principal
+		temp.PrincipalId = getLocalPrincipalId(policy.Principal["ID"])
 		temp.Effect = policy.Effect
 		temp.Resource = policy.Resource
 		temp.ResourcePath = b.getResourcePaths(policy.Resource)
 		temp.CannedAction = b.actionToCannedAction(policy.Action)
 		temp.Condition = policy.Condition
-		temp.Id = policy.Sid
+		temp.Id = fmt.Sprintf("%d", i)
 		res = append(res, temp)
 	}
 	return res, nil
@@ -805,14 +807,17 @@ func (b *SBucket) getPolicy() ([]SBucketPolicyStatementDetails, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetOBSClient")
 	}
+	policies := []SBucketPolicyStatementDetails{}
 	resp, err := obscli.GetBucketPolicy(b.Name)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchBucketPolicy") {
+			return policies, nil
+		}
 		return nil, errors.Wrap(err, "GetPolicy")
 	}
-	policies := []SBucketPolicyStatementDetails{}
 	obj, err := jsonutils.Parse([]byte(resp.Policy))
 	if err != nil {
-		log.Errorln("this is parse err:", err)
+		return nil, errors.Wrap(err, "parse resp")
 	}
 
 	return policies, obj.Unmarshal(&policies, "Statement")
@@ -827,11 +832,18 @@ func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) er
 		old = []SBucketPolicyStatementDetails{}
 	}
 	ids := []string{}
+	domains, err := b.region.client.getEnabledDomains()
+	if err != nil {
+		return errors.Wrap(err, "getEnabledDomains")
+	}
+	if len(domains) == 0 {
+		return errors.Wrap(errors.ErrNotFound, "getEnabledDomains")
+	}
 	for i := range policy.PrincipalId {
 		id := strings.Split(policy.PrincipalId[i], ":")
 		if len(id) == 1 {
 			if id[0] != "*" {
-				ids = append(ids, fmt.Sprintf("%s/%s", id[0], id[0]))
+				ids = append(ids, fmt.Sprintf("domain/%s:user/*", domains[0].ID))
 			} else {
 				ids = append(ids, id[0])
 			}
@@ -843,9 +855,9 @@ func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) er
 			}
 			// 没有子账号，默认和主账号相同
 			if len(id[1]) == 0 {
-				id[1] = id[0]
+				id[1] = "*"
 			}
-			ids = append(ids, fmt.Sprintf("%s/%s", id[0], id[1]))
+			ids = append(ids, fmt.Sprintf("domain/%s:user/%s", domains[0].ID, id[1]))
 		}
 		if len(id) > 2 {
 			return errors.Wrap(cloudprovider.ErrNotSupported, "Invalida PrincipalId Input")
@@ -990,4 +1002,21 @@ func (b *SBucket) actionToCannedAction(actions []string) string {
 		return "ReadWrite"
 	}
 	return ""
+}
+
+func getLocalPrincipalId(principals []string) []string {
+	res := []string{}
+	for _, principal := range principals {
+		if principal == "*" {
+			res = append(res, principal)
+			continue
+		}
+		temp := strings.Split(principal, "domain:")
+		temp1 := strings.Split(temp[1], ":user/")
+		if temp1[1] == "*" {
+			temp1[1] = temp1[0]
+		}
+		res = append(res, fmt.Sprintf("%s:%s", temp1[0], temp1[1]))
+	}
+	return res
 }

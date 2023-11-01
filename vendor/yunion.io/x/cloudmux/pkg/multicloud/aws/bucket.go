@@ -821,15 +821,17 @@ func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
 		return nil, errors.Wrap(err, "get policy")
 	}
 	res := []cloudprovider.SBucketPolicyStatement{}
-	for _, policy := range policies {
+	for i, policy := range policies {
 		temp := cloudprovider.SBucketPolicyStatement{}
 		temp.Action = policy.Action
 		temp.Principal = policy.Principal
+		temp.PrincipalId = getLocalPrincipalId(policy.Principal["AWS"])
+		temp.PrincipalNames = getLocalPrincipalNames(policy.Principal["AWS"])
 		temp.Effect = policy.Effect
 		temp.Resource = policy.Resource
 		temp.ResourcePath = policy.Resource
 		temp.CannedAction = b.actionToCannedAction(policy.Action)
-		temp.Id = policy.Sid
+		temp.Id = fmt.Sprintf("%d", i)
 		temp.Condition = policy.Condition
 		res = append(res, temp)
 	}
@@ -880,6 +882,12 @@ func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) er
 		old = []SBucketPolicyStatementDetails{}
 	}
 	ids := []string{}
+	ret := &SCallerIdentity{}
+	err = b.region.client.stsRequest("GetCallerIdentity", nil, ret)
+	if err != nil {
+		return errors.Wrap(err, "get account err")
+	}
+
 	for i := range policy.PrincipalId {
 		id := strings.Split(policy.PrincipalId[i], ":")
 		if len(id) == 1 {
@@ -888,15 +896,14 @@ func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) er
 		if len(id) == 2 {
 			// 没有主账号id,设为owner id
 			if len(id[0]) == 0 {
-				id[0] = b.region.client.accountId
+				id[0] = ret.Account
 			}
 			// 没有子账号，默认和主账号相同
 			if len(id[1]) == 0 {
-				// id[1] = id[0]
-				ids = append(ids, id[0])
-				continue
+				id[1] = "*"
 			}
-			ids = append(ids, fmt.Sprintf("arn:%s:iam::%s:user/%s", b.region.GetARNPartition(), id[0], id[1]))
+			// ids = append(ids, fmt.Sprintf("arn:%s:iam::%s:user/%s", b.region.GetARNPartition(), id[0], id[1]))
+			ids = append(ids, id[1])
 		}
 		if len(id) > 2 {
 			return errors.Wrap(cloudprovider.ErrNotSupported, "Invalida PrincipalId Input")
@@ -1062,4 +1069,36 @@ func (b *SBucket) actionToCannedAction(actions []string) string {
 		return "ReadWrite"
 	}
 	return ""
+}
+
+func getLocalPrincipalId(principals []string) []string {
+	res := []string{}
+	for _, principal := range principals {
+		temp := strings.Split(principal, "::")
+		temp1 := strings.Split(temp[1], ":user/")
+		if len(temp1) > 1 {
+			if temp1[1] == "*" {
+				temp1[1] = temp1[0]
+			}
+			res = append(res, fmt.Sprintf("%s:%s", temp1[0], temp1[1]))
+		} else {
+			res = append(res, temp[1])
+		}
+	}
+	return res
+}
+
+func getLocalPrincipalNames(principals []string) map[string]string {
+	res := map[string]string{}
+	for _, principal := range principals {
+		temp := strings.Split(principal, "::")
+		temp1 := strings.Split(temp[1], ":user/")
+		if len(temp1) > 1 {
+			if temp1[1] == "*" {
+				temp1[1] = temp1[0]
+			}
+			res[fmt.Sprintf("%s:%s", temp1[0], temp1[1])] = temp1[1]
+		}
+	}
+	return res
 }
