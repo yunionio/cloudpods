@@ -39,7 +39,6 @@ type SBucket struct {
 	Name         string
 	Location     string
 	CreationDate time.Time
-	StorageClass string
 }
 
 func (b *SBucket) GetProjectId() string {
@@ -67,7 +66,18 @@ func (b *SBucket) GetCreatedAt() time.Time {
 }
 
 func (b *SBucket) GetStorageClass() string {
-	return b.StorageClass
+	toscli, err := b.region.GetTosClient()
+	if err != nil {
+		return ""
+	}
+	input := &tos.HeadBucketInput{
+		Bucket: b.Name,
+	}
+	output, err := toscli.HeadBucket(context.Background(), input)
+	if err != nil {
+		return ""
+	}
+	return string(output.StorageClass)
 }
 
 func (b *SBucket) GetStats() cloudprovider.SBucketStats {
