@@ -91,7 +91,7 @@ func (disk *SDisk) GetStatus() string {
 }
 
 func (disk *SDisk) Refresh() error {
-	_disk, err := disk.storage.zone.region.getDisk(disk.VolumeId)
+	_disk, err := disk.storage.zone.region.GetDisk(disk.VolumeId)
 	if err != nil {
 		return err
 	}
@@ -158,10 +158,10 @@ func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 }
 
 func (disk *SDisk) GetBillingType() string {
-	if disk.BillingType == "post" {
-		return billing_api.BILLING_TYPE_POSTPAID
+	if disk.PayType != "post" {
+		return billing_api.BILLING_TYPE_PREPAID
 	}
-	return billing_api.BILLING_TYPE_PREPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (disk *SDisk) GetCreatedAt() time.Time {
@@ -253,7 +253,7 @@ func (region *SRegion) CreateDisk(zoneId string, category string, name string, s
 	return body.GetString("VolumeId")
 }
 
-func (region *SRegion) getDisk(diskId string) (*SDisk, error) {
+func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disks, _, err := region.GetDisks("", "", "", []string{diskId}, 1, 50)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("%s not found", diskId))
