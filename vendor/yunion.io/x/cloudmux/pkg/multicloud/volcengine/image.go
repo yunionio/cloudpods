@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/imagetools"
+	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -67,6 +68,7 @@ type SImage struct {
 	Size                 int
 	Status               ImageStatusType
 	Usage                string
+	BootMode             string
 }
 
 func (img *SImage) GetMinRamSizeMb() int {
@@ -159,11 +161,11 @@ func (img *SImage) GetImageStatus() string {
 }
 
 func (img *SImage) Refresh() error {
-	new, err := img.storageCache.region.GetImage(img.ImageId)
+	image, err := img.storageCache.region.GetImage(img.ImageId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(img, new)
+	return jsonutils.Update(img, image)
 }
 
 func (img *SImage) GetImageType() cloudprovider.TImageType {
@@ -211,11 +213,17 @@ func (img *SImage) GetOsLang() string {
 }
 
 func (img *SImage) GetOsArch() string {
-	return img.getNormalizedImageInfo().OsArch
+	if strings.Contains(img.Architecture, "arm") {
+		return osprofile.OS_ARCH_ARM
+	}
+	return osprofile.OS_ARCH_X86_64
 }
 
 func (img *SImage) GetBios() cloudprovider.TBiosType {
-	return cloudprovider.ToBiosType(img.getNormalizedImageInfo().OsBios)
+	if img.BootMode == "UEFI" {
+		return cloudprovider.UEFI
+	}
+	return cloudprovider.BIOS
 }
 
 func (img *SImage) GetMinOsDiskSizeGb() int {
@@ -231,25 +239,29 @@ func (img *SImage) GetCreatedAt() time.Time {
 }
 
 func (region *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, _, err := region.GetImages("", "", []string{imageId}, "", 1, "")
+	images, err := region.GetImages("", []string{imageId}, "")
 	if err != nil {
 		return nil, err
 	}
-	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range images {
+		if images[i].ImageId == imageId {
+			return &images[i], nil
+		}
 	}
-	return &images[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, imageId)
 }
 
 func (region *SRegion) GetImageByName(name string) (*SImage, error) {
-	images, _, err := region.GetImages("", "", nil, name, 1, "")
+	images, err := region.GetImages("", nil, name)
 	if err != nil {
 		return nil, err
 	}
-	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range images {
+		if images[i].ImageName == name {
+			return &images[i], nil
+		}
 	}
-	return &images[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
 }
 
 func (region *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
@@ -260,50 +272,41 @@ func (region *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 	return image.Status, nil
 }
 
-func (region *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, imageId []string, name string, limit int, token string) ([]SImage, string, error) {
-	if limit > 100 || limit <= 0 {
-		limit = 100
-	}
+func (region *SRegion) GetImages(visibility string, imageIds []string, name string) ([]SImage, error) {
 	params := make(map[string]string)
-	params["MaxResults"] = fmt.Sprintf("%d", limit)
-	if len(token) > 0 {
-		params["NextToken"] = token
+	params["MaxResults"] = "100"
+	for i, id := range imageIds {
+		params[fmt.Sprintf("ImageIds.%d", i+1)] = id
 	}
-	if len(status) > 0 {
-		params["Status"] = string(status)
-	} else {
-		allStatus := []string{"available", "creating", "error"}
-		for idx, status := range allStatus {
-			params[fmt.Sprintf("Status.%d", idx+1)] = status
-		}
-	}
-	if len(imageId) > 0 {
-		params["ImageId"] = strings.Join(imageId, ",")
-	}
-	if len(owner) > 0 {
-		params["ImageOwnerAlias"] = string(owner)
+	if len(visibility) > 0 {
+		params["Visibility"] = visibility
 	}
 
 	if len(name) > 0 {
 		params["ImageName"] = name
 	}
 
-	return region.getImages(params)
-}
-
-func (region *SRegion) getImages(params map[string]string) ([]SImage, string, error) {
-	body, err := region.ecsRequest("DescribeImages", params)
-	if err != nil {
-		return nil, "", errors.Wrapf(err, "DescribeImages fail")
+	ret := []SImage{}
+	for {
+		resp, err := region.ecsRequest("DescribeImages", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeImages")
+		}
+		part := struct {
+			Images    []SImage
+			NextToken string
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Images...)
+		if len(part.NextToken) == 0 || len(part.Images) == 0 {
+			break
+		}
+		params["NextToken"] = part.NextToken
 	}
-
-	images := make([]SImage, 0)
-	err = body.Unmarshal(&images, "Images")
-	if err != nil {
-		return nil, "", errors.Wrapf(err, "Unmarshal images fail")
-	}
-	nextToken, _ := body.GetString("NextToken")
-	return images, nextToken, nil
+	return ret, nil
 }
 
 func (region *SRegion) DeleteImage(imageId string) error {

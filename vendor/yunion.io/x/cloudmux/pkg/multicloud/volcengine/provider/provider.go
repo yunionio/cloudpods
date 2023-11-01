@@ -153,7 +153,25 @@ func (self *SVolcEngineProvider) GetBalance() (*cloudprovider.SBalanceInfo, erro
 }
 
 func (self *SVolcEngineProvider) GetBucketCannedAcls(regionId string) []string {
-	return nil
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
+func (self *SVolcEngineProvider) GetObjectCannedAcls(regionId string) []string {
+	return []string{
+		string(cloudprovider.ACLPrivate),
+		string(cloudprovider.ACLPublicRead),
+		string(cloudprovider.ACLPublicReadWrite),
+	}
+}
+
+func (self *SVolcEngineProvider) GetStorageClasses(regionId string) []string {
+	return []string{
+		"STANDARD", "IA", "ARCHIVE_FR", "INTELLIGENT_TIERING", "COLD_ARCHIVE",
+	}
 }
 
 func (self *SVolcEngineProvider) GetCapabilities() []string {
@@ -170,14 +188,6 @@ func (self *SVolcEngineProvider) GetIRegionById(extId string) (cloudprovider.ICl
 
 func (self *SVolcEngineProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
-}
-
-func (self *SVolcEngineProvider) GetObjectCannedAcls(regionId string) []string {
-	return nil
-}
-
-func (self *SVolcEngineProvider) GetStorageClasses(regionId string) []string {
-	return nil
 }
 
 func (self *SVolcEngineProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
