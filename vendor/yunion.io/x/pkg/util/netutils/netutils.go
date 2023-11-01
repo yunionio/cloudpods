@@ -417,12 +417,13 @@ const (
 )
 
 var privateIPRanges []IPV4AddrRange
+var customizedPrivateIPRanges []IPV4AddrRange
 var hostLocalIPRange IPV4AddrRange
 var linkLocalIPRange IPV4AddrRange
 var multicastIPRange IPV4AddrRange
 
 func init() {
-	updatePrivateIPRanges(nil)
+	initPrivateIPRanges()
 
 	prefix, _ := NewIPV4Prefix(hostlocalPrefix)
 	hostLocalIPRange = prefix.ToIPRange()
@@ -432,13 +433,15 @@ func init() {
 	multicastIPRange = prefix.ToIPRange()
 }
 
-func updatePrivateIPRanges(prefs []string) {
-	if len(prefs) == 0 {
-		prefs = []string{
-			"10.0.0.0/8",
-			"172.16.0.0/12",
-			"192.168.0.0/16",
-		}
+func initPrivateIPRanges() {
+	// https://zh.wikipedia.org/wiki/%E4%BF%9D%E7%95%99IP%E5%9C%B0%E5%9D%80
+	prefs := []string{
+		"10.0.0.0/8",
+		"100.64.0.0/10",
+		"172.16.0.0/12",
+		"192.0.0.0/24",
+		"198.18.0.0/15",
+		"192.168.0.0/16",
 	}
 	privateIPRanges = make([]IPV4AddrRange, len(prefs))
 	for i, prefix := range prefs {
@@ -451,15 +454,22 @@ func updatePrivateIPRanges(prefs []string) {
 }
 
 func SetPrivatePrefixes(pref []string) {
-	updatePrivateIPRanges(pref)
+	customizedPrivateIPRanges = make([]IPV4AddrRange, 0)
+	for _, prefix := range pref {
+		prefix, err := NewIPV4Prefix(prefix)
+		if err != nil {
+			continue
+		}
+		customizedPrivateIPRanges = append(customizedPrivateIPRanges, prefix.ToIPRange())
+	}
 }
 
 func GetPrivateIPRanges() []IPV4AddrRange {
-	return privateIPRanges
+	return append(privateIPRanges, customizedPrivateIPRanges...)
 }
 
 func IsPrivate(addr IPV4Addr) bool {
-	for _, ipRange := range privateIPRanges {
+	for _, ipRange := range GetPrivateIPRanges() {
 		if ipRange.Contains(addr) {
 			return true
 		}
