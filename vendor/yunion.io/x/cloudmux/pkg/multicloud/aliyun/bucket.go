@@ -804,15 +804,18 @@ func (b *SBucket) getPolicy() ([]SBucketPolicyStatementDetails, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetOssClient")
 	}
+	policies := []SBucketPolicyStatementDetails{}
 	resStr, err := osscli.GetBucketPolicy(b.Name)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchBucketPolicy") {
+			return policies, nil
+		}
 		return nil, errors.Wrap(err, "GetBucketPolicy")
 	}
 	obj, err := jsonutils.Parse([]byte(resStr))
 	if err != nil {
 		return nil, errors.Wrap(err, "Parse resStr")
 	}
-	policies := []SBucketPolicyStatementDetails{}
 	return policies, obj.Unmarshal(&policies, "Statement")
 }
 
@@ -885,10 +888,14 @@ func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatem
 		}
 		param.Statement = append(param.Statement, policy)
 	}
+	err = osscli.DeleteBucketPolicy(b.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "DeleteBucketPolicy")
+	}
 	if len(param.Statement) > 0 {
 		err = osscli.SetBucketPolicy(b.Name, jsonutils.Marshal(param).String())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "SetBucketPolicy")
 		}
 	}
 	return b.localPolicyToCloudprovider(param.Statement), nil
@@ -896,14 +903,17 @@ func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatem
 
 func (b *SBucket) localPolicyToCloudprovider(policies []SBucketPolicyStatementDetails) []cloudprovider.SBucketPolicyStatement {
 	res := []cloudprovider.SBucketPolicyStatement{}
-	for _, policy := range policies {
+	for i, policy := range policies {
 		res = append(res, cloudprovider.SBucketPolicyStatement{
 			Principal:    map[string][]string{"acs": policy.Principal},
+			PrincipalId:  policy.Principal,
 			Action:       policy.Action,
 			Effect:       policy.Effect,
 			Resource:     b.getResourcePaths(policy.Resource),
+			ResourcePath: b.getResourcePaths(policy.Resource),
 			Condition:    policy.Condition,
 			CannedAction: b.actionToCannedAction(policy.Action),
+			Id:           fmt.Sprintf("%d", i),
 		})
 	}
 	return res
