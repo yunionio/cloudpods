@@ -41,7 +41,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/winutils"
 )
 
@@ -102,6 +101,7 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound && req.DeployInfo.IsInit {
 			// if init deploy, ignore no partition error
+			log.Errorf("disk.MountRootfs not found partition, not init, quit")
 			return new(deployapi.DeployGuestFsResponse), nil
 		}
 		log.Errorf("Failed mounting rootfs for %s disk: %s", req.GuestDesc.Hypervisor, err)
@@ -110,9 +110,11 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	defer disk.UmountRootfs(root)
 	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {
+		log.Errorf("guestfs.DoDeployGuestFs fail %s", err)
 		return new(deployapi.DeployGuestFsResponse), err
 	}
 	if ret == nil {
+		log.Errorf("guestfs.DoDeployGuestFs return empty results")
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
 	return ret, nil
@@ -400,29 +402,13 @@ func (s *SDeployService) PrepareEnv() error {
 	if err := s.FixPathEnv(); err != nil {
 		return err
 	}
-	output, err := procutils.NewRemoteCommandAsFarAsPossible("rmmod", "nbd").Output()
-	if err != nil {
-		log.Errorf("rmmod error: %s", output)
-	}
-	output, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "nbd", "max_part=16").Output()
-	if err != nil {
-		return fmt.Errorf("Failed to activate nbd device: %s", output)
-	}
-	err = nbd.Init()
-	if err != nil {
-		return err
-	}
 
-	// https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-bdi
-	for i := 0; i < 16; i++ {
-		nbdBdi := fmt.Sprintf("/sys/block/nbd%d/bdi/", i)
-		sysutils.SetSysConfig(nbdBdi+"max_ratio", "0")
-		sysutils.SetSysConfig(nbdBdi+"min_ratio", "0")
+	if err := nbd.Init(); err != nil {
+		return errors.Wrap(err, "nbd.Init")
 	}
 
 	// create /dev/lvm_remote
-	err = s.checkLvmRemote()
-	if err != nil {
+	if err := s.checkLvmRemote(); err != nil {
 		return errors.Wrap(err, "unable to checkLvmRemote")
 	}
 
