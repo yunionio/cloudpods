@@ -906,7 +906,7 @@ func (b *SBucket) localPolicyToCloudprovider(policies []SBucketPolicyStatementDe
 	for i, policy := range policies {
 		res = append(res, cloudprovider.SBucketPolicyStatement{
 			Principal:    map[string][]string{"acs": policy.Principal},
-			PrincipalId:  policy.Principal,
+			PrincipalId:  getLocalPrincipalId(policy.Principal),
 			Action:       policy.Action,
 			Effect:       policy.Effect,
 			Resource:     b.getResourcePaths(policy.Resource),
@@ -995,6 +995,14 @@ func (b *SBucket) getResourcePaths(paths []string) []string {
 	res := []string{}
 	for _, path := range paths {
 		res = append(res, strings.TrimPrefix(path, b.Name))
+	}
+	return res
+}
+
+func getLocalPrincipalId(principals []string) []string {
+	res := []string{}
+	for _, principal := range principals {
+		res = append(res, ":"+principal)
 	}
 	return res
 }

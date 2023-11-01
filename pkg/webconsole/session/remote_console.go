@@ -30,22 +30,23 @@ import (
 )
 
 const (
-	VNC       = api.VNC
-	ALIYUN    = api.ALIYUN
-	QCLOUD    = api.QCLOUD
-	OPENSTACK = api.OPENSTACK
-	SPICE     = api.SPICE
-	WMKS      = api.WMKS
-	WS        = api.WS
-	VMRC      = api.VMRC
-	ZSTACK    = api.ZSTACK
-	CTYUN     = api.CTYUN
-	HUAWEI    = api.HUAWEI
-	HCS       = api.HCS
-	APSARA    = api.APSARA
-	JDCLOUD   = api.JDCLOUD
-	CLOUDPODS = api.CLOUDPODS
-	PROXMOX   = api.PROXMOX
+	VNC        = api.VNC
+	ALIYUN     = api.ALIYUN
+	QCLOUD     = api.QCLOUD
+	OPENSTACK  = api.OPENSTACK
+	SPICE      = api.SPICE
+	WMKS       = api.WMKS
+	WS         = api.WS
+	VMRC       = api.VMRC
+	ZSTACK     = api.ZSTACK
+	CTYUN      = api.CTYUN
+	HUAWEI     = api.HUAWEI
+	HCS        = api.HCS
+	APSARA     = api.APSARA
+	JDCLOUD    = api.JDCLOUD
+	CLOUDPODS  = api.CLOUDPODS
+	PROXMOX    = api.PROXMOX
+	VOLCENGINE = api.VOLCENGINE
 )
 
 type RemoteConsoleInfo struct {
@@ -126,6 +127,8 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getCloudpodsURL()
 	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX:
 		return info.Url, nil
+	case VOLCENGINE:
+		return info.getVolcEngineURL()
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
 	}
@@ -176,6 +179,16 @@ func (info *RemoteConsoleInfo) getCloudpodsURL() (string, error) {
 		"data":         {info.ConnectParams},
 		"instanceId":   {info.InstanceId},
 		"instanceName": {info.InstanceName},
+	}
+	return info.getConnParamsURL(base, params), nil
+}
+
+func (info *RemoteConsoleInfo) getVolcEngineURL() (string, error) {
+	base := "https://console.volcengine.com/ecs/connect/vnc/"
+	params := url.Values{
+		"host":   {info.Url},
+		"Region": {info.Region},
+		"name":   {info.InstanceName},
 	}
 	return info.getConnParamsURL(base, params), nil
 }
