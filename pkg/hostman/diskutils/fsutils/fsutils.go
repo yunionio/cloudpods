@@ -28,10 +28,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
+	"yunion.io/x/onecloud/pkg/util/xfsutils"
 )
 
 func IsPartedFsString(fsstr string) bool {
@@ -261,8 +261,8 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 		FsckXfsFs(fpath)
 		uuid := uuids["UUID"]
 		if len(uuid) > 0 {
-			kvmpart.LockXfsPartition(uuid)
-			defer kvmpart.UnlockXfsPartition(uuid)
+			xfsutils.LockXfsPartition(uuid)
+			defer xfsutils.UnlockXfsPartition(uuid)
 		}
 		cmds = [][]string{{"mkdir", "-p", tmpPoint},
 			{"mount", fpath, tmpPoint},
