@@ -61,22 +61,23 @@ type SLoadbalancer struct {
 	subnet *SNetwork
 	eip    *SEipAddress
 
-	Description        string     `json:"description"`
-	ProvisioningStatus string     `json:"provisioning_status"`
-	TenantId           string     `json:"tenant_id"`
-	ProjectId          string     `json:"project_id"`
-	AdminStateUp       bool       `json:"admin_state_up"`
-	Provider           string     `json:"provider"`
-	Pools              []Pool     `json:"pools"`
-	Listeners          []Listener `json:"listeners"`
-	VipPortId          string     `json:"vip_port_id"`
-	OperatingStatus    string     `json:"operating_status"`
-	VipAddress         string     `json:"vip_address"`
-	VipSubnetId        string     `json:"vip_subnet_id"`
-	Id                 string     `json:"id"`
-	Name               string     `json:"name"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	Description         string     `json:"description"`
+	ProvisioningStatus  string     `json:"provisioning_status"`
+	TenantId            string     `json:"tenant_id"`
+	ProjectId           string     `json:"project_id"`
+	EnterpriseProjectId string     `json:"enterprise_project_id"`
+	AdminStateUp        bool       `json:"admin_state_up"`
+	Provider            string     `json:"provider"`
+	Pools               []Pool     `json:"pools"`
+	Listeners           []Listener `json:"listeners"`
+	VipPortId           string     `json:"vip_port_id"`
+	OperatingStatus     string     `json:"operating_status"`
+	VipAddress          string     `json:"vip_address"`
+	VipSubnetId         string     `json:"vip_subnet_id"`
+	Id                  string     `json:"id"`
+	Name                string     `json:"name"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type Listener struct {
@@ -120,12 +121,8 @@ func (self *SLoadbalancer) Refresh() error {
 	return jsonutils.Update(self, lb)
 }
 
-func (self *SLoadbalancer) IsEmulated() bool {
-	return false
-}
-
 func (self *SLoadbalancer) GetProjectId() string {
-	return self.ProjectId
+	return self.EnterpriseProjectId
 }
 
 func (self *SLoadbalancer) GetAddress() string {
