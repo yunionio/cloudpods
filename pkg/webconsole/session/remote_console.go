@@ -125,8 +125,10 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getQcloudURL()
 	case CLOUDPODS:
 		return info.getCloudpodsURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX, VOLCENGINE:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX:
 		return info.Url, nil
+	case VOLCENGINE:
+		return info.getVolcEngineURL()
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
 	}
@@ -177,6 +179,16 @@ func (info *RemoteConsoleInfo) getCloudpodsURL() (string, error) {
 		"data":         {info.ConnectParams},
 		"instanceId":   {info.InstanceId},
 		"instanceName": {info.InstanceName},
+	}
+	return info.getConnParamsURL(base, params), nil
+}
+
+func (info *RemoteConsoleInfo) getVolcEngineURL() (string, error) {
+	base := "https://console.volcengine.com/ecs/connect/vnc/"
+	params := url.Values{
+		"host":   {info.Url},
+		"Region": {info.Region},
+		"name":   {info.InstanceName},
 	}
 	return info.getConnParamsURL(base, params), nil
 }

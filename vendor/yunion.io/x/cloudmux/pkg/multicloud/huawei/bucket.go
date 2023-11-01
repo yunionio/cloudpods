@@ -1004,11 +1004,15 @@ func (b *SBucket) actionToCannedAction(actions []string) string {
 	return ""
 }
 
+/*
+	example: in:domain/93887001882246db9273e5f59d544191:user/0932bb867900f4ca1f17c013ba9e3203
+	out:93887001882246db9273e5f59d544191:0932bb867900f4ca1f17c013ba9e3203
+*/
 func getLocalPrincipalId(principals []string) []string {
 	res := []string{}
 	for _, principal := range principals {
 		if principal == "*" {
-			res = append(res, principal)
+			res = append(res, principal+":"+principal)
 			continue
 		}
 		temp := strings.Split(principal, "domain:")

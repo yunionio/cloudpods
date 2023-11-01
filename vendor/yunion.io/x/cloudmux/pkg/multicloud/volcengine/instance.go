@@ -405,14 +405,13 @@ func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*clo
 		return nil, err
 	}
 	protocol := api.HYPERVISOR_VOLCENGINE
-	if strings.HasPrefix(url, "wss") {
-		protocol = "vnc"
-	}
 	ret := &cloudprovider.ServerVncOutput{
-		Url:        url,
-		Protocol:   protocol,
-		InstanceId: instance.InstanceId,
-		Hypervisor: api.HYPERVISOR_VOLCENGINE,
+		Url:          strings.TrimPrefix(url, "wss://"),
+		Protocol:     protocol,
+		InstanceId:   instance.InstanceId,
+		Region:       instance.host.zone.region.RegionId,
+		InstanceName: instance.InstanceName,
+		Hypervisor:   api.HYPERVISOR_VOLCENGINE,
 	}
 	return ret, nil
 }
