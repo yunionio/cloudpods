@@ -882,12 +882,6 @@ func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) er
 		old = []SBucketPolicyStatementDetails{}
 	}
 	ids := []string{}
-	ret := &SCallerIdentity{}
-	err = b.region.client.stsRequest("GetCallerIdentity", nil, ret)
-	if err != nil {
-		return errors.Wrap(err, "get account err")
-	}
-
 	for i := range policy.PrincipalId {
 		id := strings.Split(policy.PrincipalId[i], ":")
 		if len(id) == 1 {
@@ -896,13 +890,12 @@ func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) er
 		if len(id) == 2 {
 			// 没有主账号id,设为owner id
 			if len(id[0]) == 0 {
-				id[0] = ret.Account
+				id[0] = b.region.client.GetAccountId()
 			}
 			// 没有子账号，默认和主账号相同
 			if len(id[1]) == 0 {
 				id[1] = "*"
 			}
-			// ids = append(ids, fmt.Sprintf("arn:%s:iam::%s:user/%s", b.region.GetARNPartition(), id[0], id[1]))
 			ids = append(ids, id[1])
 		}
 		if len(id) > 2 {
@@ -1071,6 +1064,11 @@ func (b *SBucket) actionToCannedAction(actions []string) string {
 	return ""
 }
 
+/*
+	example: in:arn:aws-cn:iam::248697896586:user/yunion-test
+			out:[248697896586:yunion-test]
+*/
+
 func getLocalPrincipalId(principals []string) []string {
 	res := []string{}
 	for _, principal := range principals {
@@ -1087,6 +1085,11 @@ func getLocalPrincipalId(principals []string) []string {
 	}
 	return res
 }
+
+/*
+	example: in:arn:aws-cn:iam::248697896586:user/yunion-test
+			 out:["248697896586:yunion-test":"yunion-test"]
+*/
 
 func getLocalPrincipalNames(principals []string) map[string]string {
 	res := map[string]string{}
