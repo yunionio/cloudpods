@@ -63,7 +63,6 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			api.HYPERVISOR_OPENSTACK,
 			api.HYPERVISOR_PROXMOX,
 			api.HYPERVISOR_CTYUN,
-			api.HYPERVISOR_VOLCENGINE,
 		}) {
 			srv, err = NewWebsocketProxyServer(sessionObj)
 		} else {

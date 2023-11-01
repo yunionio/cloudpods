@@ -335,6 +335,9 @@ type ServerVncOutput struct {
 	Protocol string `json:"protocol"`
 	Port     int64  `json:"port"`
 
+	// volcengine
+	Region string `json:"region"`
+
 	Url          string `json:"url"`
 	InstanceId   string `json:"instance_id"`
 	InstanceName string `json:"instance_name"`
