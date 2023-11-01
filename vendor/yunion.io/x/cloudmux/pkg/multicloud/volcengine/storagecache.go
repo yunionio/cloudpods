@@ -62,18 +62,9 @@ func (scache *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, err
 }
 
 func (scache *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
-	images := make([]SImage, 0)
-	token := ""
-	for {
-		parts, nextToken, err := scache.region.GetImages(ImageStatusType(""), ImageOwnerPrivate, nil, "", 50, token)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetImages")
-		}
-		images = append(images, parts...)
-		if len(nextToken) == 0 {
-			break
-		}
-		token = nextToken
+	images, err := scache.region.GetImages("private", nil, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImages")
 	}
 	ret := []cloudprovider.ICloudImage{}
 	for i := range images {

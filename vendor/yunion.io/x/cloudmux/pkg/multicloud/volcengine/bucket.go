@@ -91,28 +91,25 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 }
 
 func grantToCannedAcl(acls []tos.GrantV2) cloudprovider.TBucketACLType {
-	switch {
-	case len(acls) == 1:
-		if acls[0].Permission == enum.PermissionFullControl {
-			return cloudprovider.ACLPrivate
+	isWrite, isRead := false, false
+	for _, acl := range acls {
+		if acl.GranteeV2.Type != enum.GranteeGroup || acl.GranteeV2.Canned != enum.CannedAllUsers {
+			continue
 		}
-	case len(acls) == 2:
-		for _, g := range acls {
-			if g.GranteeV2.Type == enum.GranteeGroup && g.GranteeV2.Canned == enum.CannedAuthenticatedUsers && g.Permission == enum.PermissionRead {
-				return cloudprovider.ACLAuthRead
-			}
-			if g.GranteeV2.Type == enum.GranteeGroup && g.GranteeV2.Canned == enum.CannedAllUsers && g.Permission == enum.PermissionRead {
-				return cloudprovider.ACLPublicRead
-			}
-		}
-	case len(acls) == 3:
-		for _, g := range acls {
-			if g.GranteeV2.Type == enum.GranteeGroup && g.GranteeV2.Canned == enum.CannedAllUsers && g.Permission == enum.PermissionRead {
-				return cloudprovider.ACLPublicReadWrite
-			}
+		switch acl.Permission {
+		case enum.PermissionWrite:
+			isWrite = true
+		case enum.PermissionRead:
+			isRead = true
 		}
 	}
-	return cloudprovider.ACLUnknown
+	if isWrite && isRead {
+		return cloudprovider.ACLPublicReadWrite
+	}
+	if isRead {
+		return cloudprovider.ACLPublicRead
+	}
+	return cloudprovider.ACLPrivate
 }
 
 func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
@@ -148,7 +145,26 @@ func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 }
 
 func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
-	return "", errors.ErrNotImplemented
+	toscli, err := b.region.GetTosClient()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetTosClient")
+	}
+	input := &tos.CreateMultipartUploadV2Input{
+		Bucket:       b.Name,
+		Key:          key,
+		ACL:          enum.ACLType(cannedAcl),
+		StorageClass: enum.StorageClassType(storageClassStr),
+		Meta:         map[string]string{},
+	}
+	for k := range meta {
+		input.Meta[k] = meta.Get(k)
+	}
+
+	output, err := toscli.CreateMultipartUploadV2(ctx, input)
+	if err != nil {
+		return "", err
+	}
+	return output.UploadID, nil
 }
 
 func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
@@ -215,7 +231,7 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 	} else {
 		metaDir = "COPY"
 	}
-	input := tos.CopyObjectInput{Bucket: b.Name, Key: destKey, SrcKey: fmt.Sprintf("%s/%s", srcBucket, url.PathEscape(srcKey)), StorageClass: enum.StorageClassType(storageClassStr), ACL: enum.ACLType(cannedAcl), MetadataDirective: enum.MetadataDirectiveType(metaDir)}
+	input := tos.CopyObjectInput{SrcBucket: srcBucket, Bucket: b.Name, Key: destKey, SrcKey: url.PathEscape(srcKey), StorageClass: enum.StorageClassType(storageClassStr), ACL: enum.ACLType(cannedAcl), MetadataDirective: enum.MetadataDirectiveType(metaDir)}
 	if len(cacheControl) > 0 {
 		input.CacheControl = cacheControl
 	}
@@ -280,7 +296,10 @@ func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
 	if err != nil {
 		return errors.Wrap(err, "GetTosClient")
 	}
-	input := tos.DeleteObjectV2Input{}
+	input := tos.DeleteObjectV2Input{
+		Bucket: b.Name,
+		Key:    key,
+	}
 	_, err = toscli.DeleteObjectV2(ctx, &input)
 	if err != nil {
 		return errors.Wrap(err, "DeleteObject")
@@ -293,7 +312,12 @@ func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprov
 	if err != nil {
 		return nil, errors.Wrap(err, "GetTosClient")
 	}
-	input := tos.GetObjectV2Input{}
+	input := tos.GetObjectV2Input{
+		Bucket:     b.Name,
+		Key:        key,
+		RangeStart: rangeOpt.Start,
+		RangeEnd:   rangeOpt.End,
+	}
 	output, err := toscli.GetObjectV2(ctx, &input)
 	if err != nil {
 		return nil, errors.Wrap(err, "DeleteObject")
@@ -353,7 +377,21 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 }
 
 func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
-	return "", errors.ErrNotImplemented
+	toscli, err := b.region.GetTosClient()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetTosClient")
+	}
+	input := &tos.PreSignedURLInput{
+		HTTPMethod: enum.HttpMethodGet,
+		Bucket:     b.Name,
+		Key:        key,
+		Expires:    int64(expire.Seconds()),
+	}
+	output, err := toscli.PreSignedURL(input)
+	if err != nil {
+		return "", err
+	}
+	return output.SignedUrl, nil
 }
 
 func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
