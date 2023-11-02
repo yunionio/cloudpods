@@ -1134,7 +1134,7 @@ func (self *SKVMGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.
 	return self.SVirtualizedGuestDriver.FetchMonitorUrl(ctx, guest)
 }
 
-func (self *SKVMGuestDriver) RequestResetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerNicTrafficLimit) error {
+func (self *SKVMGuestDriver) RequestResetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input []api.ServerNicTrafficLimit) error {
 	url := fmt.Sprintf("%s/servers/%s/reset-nic-traffic-limit", host.ManagerUri, guest.Id)
 	httpClient := httputils.GetDefaultClient()
 	header := task.GetTaskRequestHeader()
@@ -1146,7 +1146,7 @@ func (self *SKVMGuestDriver) RequestResetNicTrafficLimit(ctx context.Context, ta
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestSetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerNicTrafficLimit) error {
+func (self *SKVMGuestDriver) RequestSetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input []api.ServerNicTrafficLimit) error {
 	url := fmt.Sprintf("%s/servers/%s/set-nic-traffic-limit", host.ManagerUri, guest.Id)
 	httpClient := httputils.GetDefaultClient()
 	header := task.GetTaskRequestHeader()

@@ -833,8 +833,8 @@ func guestMemorySnapshotDelete(ctx context.Context, w http.ResponseWriter, r *ht
 }
 
 func guestResetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	input := new(computeapi.ServerNicTrafficLimit)
-	if err := body.Unmarshal(input); err != nil {
+	input := []computeapi.ServerNicTrafficLimit{}
+	if err := body.Unmarshal(&input); err != nil {
 		return nil, httperrors.NewInputParameterError("failed unmarshal input %s", err)
 	}
 
@@ -846,8 +846,8 @@ func guestResetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func guestSetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	input := new(computeapi.ServerNicTrafficLimit)
-	if err := body.Unmarshal(input); err != nil {
+	input := []computeapi.ServerNicTrafficLimit{}
+	if err := body.Unmarshal(&input); err != nil {
 		return nil, httperrors.NewInputParameterError("failed unmarshal input %s", err)
 	}
 
