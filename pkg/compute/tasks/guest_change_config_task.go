@@ -335,12 +335,83 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx con
 
 func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
 	models.HostManager.ClearSchedDescCache(guest.HostId)
+	if task.Params.Contains("reset_traffic_limits") {
+		host, _ := guest.GetHost()
+		resetTraffics := []api.ServerNicTrafficLimit{}
+		task.Params.Unmarshal(&resetTraffics, "reset_traffic_limits")
+		task.SetStage("OnGuestResetNicTraffics", nil)
+		err := guest.GetDriver().RequestResetNicTrafficLimit(ctx, task, host, guest, resetTraffics)
+		if err != nil {
+			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		}
+	} else {
+		task.OnGuestResetNicTraffics(ctx, guest, nil)
+	}
+}
+
+func (task *GuestChangeConfigTask) OnGuestResetNicTraffics(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if task.Params.Contains("reset_traffic_limits") {
+		resetTraffics := []api.ServerNicTrafficLimit{}
+		task.Params.Unmarshal(&resetTraffics, "reset_traffic_limits")
+		for i := range resetTraffics {
+			input := resetTraffics[i]
+			gn, _ := guest.GetGuestnetworkByMac(input.Mac)
+			err := gn.UpdateNicTrafficLimit(input.RxTrafficLimit, input.TxTrafficLimit)
+			if err != nil {
+				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update guest nic traffic limit %s", err)))
+				return
+			}
+			err = gn.UpdateNicTrafficUsed(0, 0)
+			if err != nil {
+				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update guest nic traffic used %s", err)))
+				return
+			}
+		}
+	}
+
+	if task.Params.Contains("set_traffic_limits") {
+		host, _ := guest.GetHost()
+		setTraffics := []api.ServerNicTrafficLimit{}
+		task.Params.Unmarshal(&setTraffics, "set_traffic_limits")
+		task.SetStage("OnGuestSetNicTraffics", nil)
+		err := guest.GetDriver().RequestSetNicTrafficLimit(ctx, task, host, guest, setTraffics)
+		if err != nil {
+			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		}
+	} else {
+		task.OnGuestSetNicTraffics(ctx, guest, nil)
+	}
+}
+
+func (task *GuestChangeConfigTask) OnGuestSetNicTraffics(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if task.Params.Contains("set_traffic_limits") {
+		setTraffics := []api.ServerNicTrafficLimit{}
+		task.Params.Unmarshal(&setTraffics, "set_traffic_limits")
+		for i := range setTraffics {
+			input := setTraffics[i]
+			gn, _ := guest.GetGuestnetworkByMac(input.Mac)
+			err := gn.UpdateNicTrafficLimit(input.RxTrafficLimit, input.TxTrafficLimit)
+			if err != nil {
+				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update guest nic traffic limit %s", err)))
+				return
+			}
+		}
+	}
+
 	task.SetStage("OnSyncConfigComplete", nil)
 	err := guest.StartSyncTaskWithoutSyncstatus(ctx, task.UserCred, false, task.GetTaskId())
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
 		return
 	}
+}
+
+func (task *GuestChangeConfigTask) OnGuestResetNicTrafficsFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	task.markStageFailed(ctx, guest, data)
+}
+
+func (task *GuestChangeConfigTask) OnGuestSetNicTrafficsFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	task.markStageFailed(ctx, guest, data)
 }
 
 func (task *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
