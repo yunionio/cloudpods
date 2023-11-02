@@ -269,6 +269,30 @@ func (self *SESXiHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *
 	if guest == nil {
 		return fmt.Errorf("unable to find guest has disk %s", disk.GetId())
 	}
+
+	iVm, err := guest.GetIVM(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "GetIVM")
+	}
+	if iVm.GetStatus() == api.VM_RUNNING {
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			disks, err := iVm.GetIDisks()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetIDisk")
+			}
+			for i := range disks {
+				if disks[i].GetGlobalId() == disk.ExternalId {
+					err = disks[i].Resize(ctx, sizeMb)
+					if err != nil {
+						return nil, errors.Wrapf(err, "Resize")
+					}
+					return jsonutils.Marshal(map[string]int64{"disk_size": sizeMb}), nil
+				}
+			}
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "disk %s", disk.Name)
+		})
+		return nil
+	}
 	spec := struct {
 		HostInfo vcenter.SVCenterAccessInfo
 		VMId     string
