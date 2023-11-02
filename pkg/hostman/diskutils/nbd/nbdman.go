@@ -65,11 +65,13 @@ func tryDetachNbd(nbddev string) error {
 	var errs []error
 	for tried < MaxTries && fileutils2.IsBlockDeviceUsed(nbddev) {
 		tried++
-		err := QemuNbdDisconnect(nbddev)
-		if err != nil {
+		if err := putdownNbdDevice(nbddev); err != nil {
 			errs = append(errs, err)
+			time.Sleep(time.Second)
+			continue
 		}
-		time.Sleep(time.Second)
+		break
+
 	}
 	if tried < MaxTries {
 		return nil
@@ -80,17 +82,47 @@ func tryDetachNbd(nbddev string) error {
 	return nil
 }
 
+func putdownNbdDevice(nbddev string) error {
+	nbdDriver := &NBDDriver{nbdDev: nbddev}
+
+	if err := nbdDriver.findPartitions(); err != nil {
+		return err
+	}
+
+	if _, err := nbdDriver.setupLVMS(); err != nil {
+		return err
+	}
+	for i := range nbdDriver.partitions {
+		if nbdDriver.partitions[i].IsMounted() {
+			if err := nbdDriver.partitions[i].Umount(); err != nil {
+				return errors.Wrapf(err, "umount %s", nbdDriver.partitions[i].GetPartDev())
+			}
+		}
+	}
+
+	if !nbdDriver.putdownLVMs() {
+		return errors.Errorf("failed putdown lvms")
+	}
+	if err := QemuNbdDisconnect(nbddev); err != nil {
+		return err
+	}
+	return nil
+
+}
+
 func (m *SNBDManager) cleanupNbdDevices() {
 	var i = 0
 	for {
 		nbddev := fmt.Sprintf("/dev/nbd%d", i)
 		if fileutils2.Exists(nbddev) {
 			if fileutils2.IsBlockDeviceUsed(nbddev) {
+				log.Infof("nbd device %s is used", nbddev)
 				err := tryDetachNbd(nbddev)
 				if err != nil {
 					log.Errorf("tryDetachNbd fail %s", err)
 				}
 			}
+			i++
 		} else {
 			break
 		}

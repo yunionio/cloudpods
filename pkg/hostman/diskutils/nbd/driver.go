@@ -193,6 +193,19 @@ func (d *NBDDriver) findLVMPartitions(partDev string) string {
 	return findVgname(partDev)
 }
 
+func (nbdDriver *NBDDriver) setupAndPutdownLVMS() error {
+	_, err := nbdDriver.setupLVMS()
+	if err != nil {
+		return err
+	}
+
+	if !nbdDriver.putdownLVMs() {
+		return errors.Errorf("failed putdown lvms")
+	}
+
+	return nil
+}
+
 func (d *NBDDriver) Disconnect() error {
 	if len(d.nbdDev) > 0 {
 		pathType, lock := lvmTool.Acquire(d.rootImagePath())
