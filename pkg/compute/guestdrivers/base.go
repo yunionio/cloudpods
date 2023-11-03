@@ -533,11 +533,11 @@ func (drv *SBaseGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.
 	return influxdbUrl
 }
 
-func (drv *SBaseGuestDriver) RequestResetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerNicTrafficLimit) error {
+func (drv *SBaseGuestDriver) RequestResetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input []api.ServerNicTrafficLimit) error {
 	return httperrors.ErrNotImplemented
 }
 
-func (drv *SBaseGuestDriver) RequestSetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerNicTrafficLimit) error {
+func (drv *SBaseGuestDriver) RequestSetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input []api.ServerNicTrafficLimit) error {
 	return httperrors.ErrNotImplemented
 }
 
@@ -545,10 +545,10 @@ func (drv *SBaseGuestDriver) SyncOsInfo(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+func (drv *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
 	return httperrors.ErrNotImplemented
 }
 
-func (self *SBaseGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+func (drv *SBaseGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
 	return httperrors.ErrNotImplemented
 }
