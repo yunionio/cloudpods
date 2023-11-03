@@ -50,10 +50,10 @@ func (self *GuestResetNicTrafficsTask) OnInit(ctx context.Context, obj db.IStand
 		self.taskFailed(ctx, guest, fmt.Sprintf("get host %s", err))
 		return
 	}
-	input := &compute.ServerNicTrafficLimit{}
-	self.GetParams().Unmarshal(input)
+	input := compute.ServerNicTrafficLimit{}
+	self.GetParams().Unmarshal(&input)
 	self.SetStage("OnResetNicTrafficLimit", nil)
-	err = guest.GetDriver().RequestResetNicTrafficLimit(ctx, self, host, guest, input)
+	err = guest.GetDriver().RequestResetNicTrafficLimit(ctx, self, host, guest, []compute.ServerNicTrafficLimit{input})
 	if err != nil {
 		self.taskFailed(ctx, guest, err.Error())
 	}
@@ -99,10 +99,10 @@ func (self *GuestSetNicTrafficsTask) OnInit(ctx context.Context, obj db.IStandal
 		self.taskFailed(ctx, guest, fmt.Sprintf("get host %s", err))
 		return
 	}
-	input := &compute.ServerNicTrafficLimit{}
-	self.GetParams().Unmarshal(input)
+	input := compute.ServerNicTrafficLimit{}
+	self.GetParams().Unmarshal(&input)
 	self.SetStage("OnSetNicTrafficLimit", nil)
-	err = guest.GetDriver().RequestSetNicTrafficLimit(ctx, self, host, guest, input)
+	err = guest.GetDriver().RequestSetNicTrafficLimit(ctx, self, host, guest, []compute.ServerNicTrafficLimit{input})
 	if err != nil {
 		self.taskFailed(ctx, guest, err.Error())
 	}

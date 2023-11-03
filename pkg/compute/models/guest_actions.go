@@ -2759,6 +2759,24 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in status %s", self.Status)
 	}
 
+	for i := range input.ResetTrafficLimits {
+		input.ResetTrafficLimits[i].Mac = strings.ToLower(input.ResetTrafficLimits[i].Mac)
+		_, err := self.GetGuestnetworkByMac(input.ResetTrafficLimits[i].Mac)
+		if err != nil {
+			return nil, errors.Wrap(err, "get guest network by mac")
+		}
+	}
+	confs.Set("reset_traffic_limits", jsonutils.Marshal(input.ResetTrafficLimits))
+
+	for i := range input.SetTrafficLimits {
+		input.SetTrafficLimits[i].Mac = strings.ToLower(input.SetTrafficLimits[i].Mac)
+		_, err := self.GetGuestnetworkByMac(input.SetTrafficLimits[i].Mac)
+		if err != nil {
+			return nil, errors.Wrap(err, "get guest network by mac")
+		}
+	}
+	confs.Set("set_traffic_limits", jsonutils.Marshal(input.SetTrafficLimits))
+
 	if addCpu < 0 {
 		addCpu = 0
 	}
