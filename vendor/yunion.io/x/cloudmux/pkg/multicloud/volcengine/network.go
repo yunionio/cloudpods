@@ -73,12 +73,11 @@ func (subnet *SNetwork) GetStatus() string {
 }
 
 func (subnet *SNetwork) Refresh() error {
-	log.Debugf("Subnet refresh %s", subnet.SubnetId)
-	new, err := subnet.wire.zone.region.GetSubnetAttributes(subnet.SubnetId)
+	net, err := subnet.wire.zone.region.GetSubnetAttributes(subnet.SubnetId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(subnet, new)
+	return jsonutils.Update(subnet, net)
 }
 
 func (subnet *SNetwork) GetIWire() cloudprovider.ICloudWire {
