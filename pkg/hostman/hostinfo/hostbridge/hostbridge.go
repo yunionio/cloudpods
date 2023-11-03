@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -32,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type IBridgeDriver interface {
@@ -163,6 +165,7 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 		d.bridge.FetchConfig()
 		if len(d.ip) > 0 {
 			if len(d.bridge.Addr) == 0 {
+				log.Infof("bridge %s has no ip assignment initially", d.bridge)
 				if len(d.inter.Addr) == 0 {
 					return false, fmt.Errorf("Neither %s nor %s owner address %s",
 						d.inter, d.bridge, d.ip)
@@ -173,6 +176,8 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 				}
 				log.Infof("Bridge address is not configured")
 				return false, nil
+			} else {
+				log.Infof("bridge %s already has ip %s", d.bridge, d.bridge.Addr)
 			}
 			if d.bridge.Addr != d.ip {
 				return false, fmt.Errorf("%s IP %s!=%s, mismatch", d.bridge, d.bridge.Addr, d.ip)
@@ -266,17 +271,24 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 
 func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec) error {
 	br := d.bridge.String()
-	r := iproute2.NewRoute(br)
-	for _, routespec := range routespecs {
-		rt := iproute2.RouteSpec{
-			Dst: routespec.Dst,
-			Src: routespec.Src,
-			Gw:  routespec.Gw,
+	for i := len(routespecs) - 1; i >= 0; i-- {
+		routespec := routespecs[i]
+		cmd := []string{
+			"route", "add", routespec.Dst.String(),
 		}
-		r.AddByRouteSpec(rt)
-	}
-	if err := r.Err(); err != nil {
-		return errors.Wrapf(err, "set routes on %s", br)
+		if routespec.Gw != nil {
+			cmd = append(cmd, "via", routespec.Gw.String())
+		}
+		cmd = append(cmd, "dev", br)
+
+		err := procutils.NewRemoteCommandAsFarAsPossible("ip", cmd...).Run()
+		if err != nil {
+			cmd = append(cmd, "onlink")
+			err := procutils.NewRemoteCommandAsFarAsPossible("ip", cmd...).Run()
+			if err != nil {
+				return errors.Wrap(err, "setup routes")
+			}
+		}
 	}
 	return nil
 }
@@ -287,41 +299,44 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 	if d.inter != nil && len(d.inter.Addr) > 0 {
 		routes = d.inter.GetRouteSpecs()
 		slaveAddrs = d.inter.GetSlaveAddresses()
+		log.Infof("to migrate routes: %s slaveAddress: %s", jsonutils.Marshal(routes), jsonutils.Marshal(slaveAddrs))
 	}
 	exist, err := o.Exists()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Exists")
 	}
 	if !exist {
 		if err := o.SetupBridgeDev(); err != nil {
-			return err
+			return errors.Wrap(err, "SetupBridgeDev")
 		}
 	}
 
 	infs, err := o.Interfaces()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Interfaces")
 	}
 	if d.inter != nil && !utils.IsInStringArray(d.inter.String(), infs) {
 		if err := o.SetupInterface(); err != nil {
-			return err
+			return errors.Wrap(err, "SetupInterface")
 		}
 	}
 	if len(d.bridge.Addr) == 0 {
 		if len(d.ip) > 0 {
 			if err := o.SetupAddresses(d.inter.Mask); err != nil {
-				return err
+				return errors.Wrap(err, "SetupAddresses")
 			}
 			time.Sleep(1 * time.Second)
 			if len(slaveAddrs) > 0 {
 				tried := 0
 				const MAX_TRIES = 4
+				errs := make([]error, 0)
 				for tried < MAX_TRIES {
 					if err := o.SetupSlaveAddresses(slaveAddrs); err != nil {
+						errs = append(errs, err)
 						log.Errorf("SetupSlaveAddresses fail: %s", err)
 						tried += 1
 						if tried >= MAX_TRIES {
-							return err
+							return errors.Wrap(errors.NewAggregate(errs), "SetupSlaveAddresses")
 						} else {
 							time.Sleep(time.Duration(tried) * time.Second)
 						}
@@ -333,12 +348,14 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 			if len(routes) > 0 {
 				tried := 0
 				const MAX_TRIES = 4
+				errs := make([]error, 0)
 				for {
 					if err := o.SetupRoutes(routes); err != nil {
+						errs = append(errs, err)
 						log.Errorf("SetupRoutes fail: %s", err)
 						tried += 1
 						if tried >= MAX_TRIES {
-							return err
+							return errors.Wrap(errors.NewAggregate(errs), "SetupRoutes")
 						} else {
 							time.Sleep(time.Duration(tried) * time.Second)
 						}
@@ -349,7 +366,7 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 			}
 		} else {
 			if err := o.SetupAddresses(nil); err != nil {
-				return err
+				return errors.Wrap(err, "SetupAddresses nil")
 			}
 		}
 	}
