@@ -884,7 +884,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx contex
 
 		for _, disk := range disks {
 			storage, _ := disk.GetStorage()
-			if disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) {
+			if !disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) && disk.DiskType != api.DISK_TYPE_SYS {
 				idisk, err := disk.GetIDisk(ctx)
 				if err != nil {
 					if errors.Cause(err) == cloudprovider.ErrNotFound {

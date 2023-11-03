@@ -40,20 +40,22 @@ const (
 	CLOUD_PROVIDER_VOLCENGINE_CN = "火山云"
 	CLOUD_PROVIDER_VOLCENGINE_EN = "VolcEngine"
 
-	VOLCENGINE_API_VERSION     = "2020-04-01"
-	VOLCENGINE_IAM_API_VERSION = "2021-08-01"
+	VOLCENGINE_API_VERSION         = "2020-04-01"
+	VOLCENGINE_IAM_API_VERSION     = "2021-08-01"
+	VOLCENGINE_OBSERVE_API_VERSION = "2018-01-01"
 
 	VOLCENGINE_API     = "open.volcengineapi.com"
 	VOLCENGINE_IAM_API = "iam.volcengineapi.com"
 	VOLCENGINE_TOS_API = "tos-cn-beijing.volces.com"
 
-	VOLCENGINE_SERVICE_ECS     = "ecs"
-	VOLCENGINE_SERVICE_VPC     = "vpc"
-	VOLCENGINE_SERVICE_NAT     = "natgateway"
-	VOLCENGINE_SERVICE_STORAGE = "storage_ebs"
-	VOLCENGINE_SERVICE_IAM     = "iam"
-	VOLCENGINE_SERVICE_TOS     = "tos"
-	VOLCENGINE_DEFAULT_REGION  = "cn-beijing"
+	VOLCENGINE_SERVICE_ECS       = "ecs"
+	VOLCENGINE_SERVICE_VPC       = "vpc"
+	VOLCENGINE_SERVICE_NAT       = "natgateway"
+	VOLCENGINE_SERVICE_STORAGE   = "storage_ebs"
+	VOLCENGINE_SERVICE_IAM       = "iam"
+	VOLCENGINE_SERVICE_TOS       = "tos"
+	VOLCENGINE_SERVICE_OBSERVICE = "Volc_Observe"
+	VOLCENGINE_DEFAULT_REGION    = "cn-beijing"
 )
 
 type VolcEngineClientConfig struct {
@@ -267,14 +269,25 @@ func (self *sCred) Do(req *http.Request) (*http.Response, error) {
 	return cli.Do(req)
 }
 
-func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string, apiVersion string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (client *SVolcEngineClient) monitorRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	cred := client.getSdkCredential(regionId, VOLCENGINE_SERVICE_OBSERVICE, "")
+	return client.jsonRequest(cred, VOLCENGINE_API, VOLCENGINE_OBSERVE_API_VERSION, apiName, params)
+}
+
+func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string, apiVersion string, apiName string, params interface{}) (jsonutils.JSONObject, error) {
 
 	query := url.Values{
 		"Action":  []string{apiName},
 		"Version": []string{apiVersion},
 	}
-	for k, v := range params {
-		query.Set(k, v)
+
+	var body interface{} = nil
+	if _params, ok := params.(map[string]string); ok {
+		for k, v := range _params {
+			query.Set(k, v)
+		}
+	} else {
+		body = params
 	}
 
 	u := url.URL{
@@ -301,8 +314,11 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 			method = httputils.DELETE
 		}
 	}
+	if cred.Service == VOLCENGINE_SERVICE_OBSERVICE {
+		method = httputils.POST
+	}
 
-	req := httputils.NewJsonRequest(method, u.String(), nil)
+	req := httputils.NewJsonRequest(method, u.String(), body)
 	vErr := &sVolcError{}
 	_cli := &sCred{
 		client: client,
