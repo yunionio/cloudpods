@@ -197,3 +197,7 @@ func (self *SVolcEngineProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, 
 func (self *SVolcEngineProvider) GetVersion() string {
 	return volcengine.VOLCENGINE_API_VERSION
 }
+
+func (self *SVolcEngineProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}
