@@ -1463,11 +1463,27 @@ func (m *SGuestManager) RequestVerifyDirtyServer(s *SKVMGuestInstance) {
 	}
 }
 
-func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input *compute.ServerNicTrafficLimit) error {
+func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input []compute.ServerNicTrafficLimit) error {
 	guest, ok := m.GetServer(guestId)
 	if !ok {
 		return httperrors.NewNotFoundError("guest %s not found", guestId)
 	}
+
+	m.TrafficLock.Lock()
+	defer m.TrafficLock.Unlock()
+	for i := range input {
+		if err := m.resetGuestNicTrafficLimit(guest, input[i]); err != nil {
+			return errors.Wrap(err, "reset guest nic traffic limit")
+		}
+	}
+
+	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+		return errors.Wrap(err, "guest save desc")
+	}
+	return nil
+}
+
+func (m *SGuestManager) resetGuestNicTrafficLimit(guest *SKVMGuestInstance, input compute.ServerNicTrafficLimit) error {
 	var nic *desc.SGuestNetwork
 	for i := range guest.Desc.Nics {
 		if guest.Desc.Nics[i].Mac == input.Mac {
@@ -1478,8 +1494,6 @@ func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input *compute
 	if nic == nil {
 		return httperrors.NewNotFoundError("guest nic %s not found", input.Mac)
 	}
-	m.TrafficLock.Lock()
-	defer m.TrafficLock.Unlock()
 
 	recordPath := guest.NicTrafficRecordPath()
 	if fileutils2.Exists(recordPath) {
@@ -1496,7 +1510,7 @@ func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input *compute
 			}
 		}
 		delete(record, strconv.Itoa(int(nic.Index)))
-		if err = m.SaveGuestTrafficRecord(guestId, record); err != nil {
+		if err = m.SaveGuestTrafficRecord(guest.Id, record); err != nil {
 			return errors.Wrap(err, "failed save guest traffic record")
 		}
 	}
@@ -1506,17 +1520,10 @@ func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input *compute
 	if input.TxTrafficLimit != nil {
 		nic.TxTrafficLimit = *input.TxTrafficLimit
 	}
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
-		return errors.Wrap(err, "guest save desc")
-	}
 	return nil
 }
 
-func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input *compute.ServerNicTrafficLimit) error {
-	guest, ok := m.GetServer(guestId)
-	if !ok {
-		return httperrors.NewNotFoundError("guest %s not found", guestId)
-	}
+func (m *SGuestManager) setNicTrafficLimit(guest *SKVMGuestInstance, input compute.ServerNicTrafficLimit) error {
 	var nic *desc.SGuestNetwork
 	for i := range guest.Desc.Nics {
 		if guest.Desc.Nics[i].Mac == input.Mac {
@@ -1527,16 +1534,12 @@ func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input *compute.S
 	if nic == nil {
 		return httperrors.NewNotFoundError("guest nic %s not found", input.Mac)
 	}
-	m.TrafficLock.Lock()
-	defer m.TrafficLock.Unlock()
+
 	if input.RxTrafficLimit != nil {
 		nic.RxTrafficLimit = *input.RxTrafficLimit
 	}
 	if input.TxTrafficLimit != nil {
 		nic.TxTrafficLimit = *input.TxTrafficLimit
-	}
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
-		return errors.Wrap(err, "guest save desc")
 	}
 	recordPath := guest.NicTrafficRecordPath()
 	if fileutils2.Exists(recordPath) {
@@ -1552,8 +1555,30 @@ func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input *compute.S
 				}
 			}
 		}
-		return m.SaveGuestTrafficRecord(guestId, record)
+		return m.SaveGuestTrafficRecord(guest.Id, record)
 	}
+	return nil
+}
+
+func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input []compute.ServerNicTrafficLimit) error {
+	guest, ok := m.GetServer(guestId)
+	if !ok {
+		return httperrors.NewNotFoundError("guest %s not found", guestId)
+	}
+
+	m.TrafficLock.Lock()
+	defer m.TrafficLock.Unlock()
+
+	for i := range input {
+		if err := m.setNicTrafficLimit(guest, input[i]); err != nil {
+			return errors.Wrap(err, "set nic traffic limit")
+		}
+	}
+
+	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+		return errors.Wrap(err, "guest save desc")
+	}
+
 	return nil
 }
 

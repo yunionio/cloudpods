@@ -1000,6 +1000,9 @@ type ServerChangeConfigOptions struct {
 	Disk      []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
 
 	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
+
+	ResetTrafficLimits []string `help:"reset traffic limits, mac,rx,tx"`
+	SetTrafficLimits   []string `help:"set traffic limits, mac,rx,tx"`
 }
 
 func (o *ServerChangeConfigOptions) Params() (jsonutils.JSONObject, error) {
@@ -1023,6 +1026,59 @@ func (o *ServerChangeConfigOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if len(o.ResetTrafficLimits) > 0 {
+		// mac,rx_limit,tx_limit
+		// ab:bc:cd:ef:ad:fa,12312312,1231233
+		resetLimits := []*jsonutils.JSONDict{}
+		for i := range o.ResetTrafficLimits {
+			resetLimit := jsonutils.NewDict()
+			segs := strings.Split(o.ResetTrafficLimits[i], ",")
+			if len(segs) != 3 {
+				return nil, fmt.Errorf("invalid reset traffic limit input %s", o.ResetTrafficLimits[i])
+			}
+			resetLimit.Set("mac", jsonutils.NewString(segs[0]))
+			rx, err := strconv.Atoi(segs[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid reset traffic limit input %s: %s", o.ResetTrafficLimits[i], err)
+			}
+			resetLimit.Set("rx_traffic_limit", jsonutils.NewInt(int64(rx)))
+			tx, err := strconv.Atoi(segs[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid reset traffic limit input %s: %s", o.ResetTrafficLimits[i], err)
+			}
+			resetLimit.Set("tx_traffic_limit", jsonutils.NewInt(int64(tx)))
+			resetLimits = append(resetLimits, resetLimit)
+		}
+		params.Set("reset_traffic_limits", jsonutils.Marshal(resetLimits))
+	}
+
+	if len(o.SetTrafficLimits) > 0 {
+		// mac,rx_limit,tx_limit
+		// ab:bc:cd:ef:ad:fa,12312312,1231233
+		setLimits := []*jsonutils.JSONDict{}
+		for i := range o.SetTrafficLimits {
+			setLimit := jsonutils.NewDict()
+			segs := strings.Split(o.SetTrafficLimits[i], ",")
+			if len(segs) != 3 {
+				return nil, fmt.Errorf("invalid reset traffic limit input %s", o.SetTrafficLimits[i])
+			}
+			setLimit.Set("mac", jsonutils.NewString(segs[0]))
+			rx, err := strconv.Atoi(segs[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid reset traffic limit input %s: %s", o.SetTrafficLimits[i], err)
+			}
+			setLimit.Set("rx_traffic_limit", jsonutils.NewInt(int64(rx)))
+			tx, err := strconv.Atoi(segs[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid reset traffic limit input %s: %s", o.SetTrafficLimits[i], err)
+			}
+			setLimit.Set("tx_traffic_limit", jsonutils.NewInt(int64(tx)))
+			setLimits = append(setLimits, setLimit)
+		}
+		params.Set("set_traffic_limits", jsonutils.Marshal(setLimits))
+	}
+
 	if params.Size() == 0 {
 		return nil, ErrEmtptyUpdate
 	}

@@ -762,6 +762,9 @@ type ServerChangeConfigInput struct {
 	AutoStart bool `json:"auto_start"`
 
 	Disks []DiskConfig `json:"disks"`
+
+	SetTrafficLimits   []ServerNicTrafficLimit
+	ResetTrafficLimits []ServerNicTrafficLimit
 }
 
 type ServerUpdateInput struct {
