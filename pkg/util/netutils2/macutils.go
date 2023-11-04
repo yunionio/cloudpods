@@ -15,7 +15,6 @@
 package netutils2
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,7 +25,7 @@ import (
 type SMacAddr [6]byte
 
 func ErrMacFormat(macStr string) error {
-	return errors.New(fmt.Sprintf("invalid mac format: %s", macStr))
+	return fmt.Errorf("invalid mac format: %s", macStr)
 }
 
 func ParseMac(macStr string) (SMacAddr, error) {
