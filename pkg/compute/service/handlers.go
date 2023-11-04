@@ -243,6 +243,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.ModelartsPoolSkuManager,
 
 		models.MiscResourceManager,
+
+		models.SSLCertificateManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
