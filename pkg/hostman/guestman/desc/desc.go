@@ -95,6 +95,8 @@ type SGuestHardwareDesc struct {
 	// vnc or spice
 	Vdi       string
 	VdiDevice *SGuestVdi `json:",omitempty"`
+	// vdi options
+	VdiOptions map[string]string
 
 	VirtioScsi      *SGuestVirtioScsi       `json:",omitempty"`
 	PvScsi          *SGuestPvScsi           `json:",omitempty"`
@@ -244,6 +246,11 @@ type SSpiceDesc struct {
 	VdagentSerial     *SGuestVirtioSerial
 	Vdagent           *CharDev
 	VdagentSerialPort *VirtSerialPort
+
+	// https://gitlab.freedesktop.org/spice/spice-streaming-agent
+	// Spice Streaming Agent
+	StreamingAgent     *CharDev
+	StreamingAgentPort *VirtSerialPort
 
 	// usb redirect
 	UsbRedirct *UsbRedirctDesc
