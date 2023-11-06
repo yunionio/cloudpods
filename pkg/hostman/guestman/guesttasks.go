@@ -1178,7 +1178,13 @@ func (s *SGuestLiveMigrateTask) mirrorDisks(res string) {
 
 	i := s.diskDriverMirrorIndex
 	s.diskDriverMirrorIndex += 1
-	if utils.IsInStringArray(s.Desc.Disks[i].StorageType, api.STORAGE_LOCAL_TYPES) {
+
+	storageType := s.Desc.Disks[i].StorageType
+	if storageType == "" {
+		storageType = storageman.GetManager().GetStorage(s.Desc.Disks[i].StorageId).StorageType()
+	}
+
+	if utils.IsInStringArray(storageType, api.STORAGE_LOCAL_TYPES) {
 		var drive = fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index)
 		var target = fmt.Sprintf("nbd:%s:%d:exportname=drive_%d", s.params.DestIp, s.params.NbdServerPort, s.Desc.Disks[i].Index)
 		var speed int64 = 0
