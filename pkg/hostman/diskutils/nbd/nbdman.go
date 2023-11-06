@@ -49,13 +49,13 @@ func NewNBDManager() (*SNBDManager, error) {
 	ret.nbdDevs = make(map[string]bool, 0)
 	ret.nbdLock = new(sync.Mutex)
 
-	ret.cleanupNbdDevices()
 	if err := ret.reloadNbdDevices(); err != nil {
 		return ret, errors.Wrap(err, "reloadNbdDevices")
 	}
 	if err := ret.findNbdDevices(); err != nil {
 		return ret, errors.Wrap(err, "findNbdDevices")
 	}
+	go ret.cleanupNbdDevices()
 	return ret, nil
 }
 
@@ -120,6 +120,8 @@ func (m *SNBDManager) cleanupNbdDevices() {
 				err := tryDetachNbd(nbddev)
 				if err != nil {
 					log.Errorf("tryDetachNbd fail %s", err)
+				} else {
+					m.ReleaseNbddev(nbddev)
 				}
 			}
 			i++
