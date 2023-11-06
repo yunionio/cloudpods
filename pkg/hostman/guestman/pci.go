@@ -104,12 +104,16 @@ func (s *SKVMGuestInstance) loadGuestPciAddresses() error {
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")
 	}
+
 	if err := s.initMachineDefaultAddresses(); err != nil {
 		return errors.Wrap(err, "init machine default devices")
 	}
 	err = s.ensurePciAddresses()
 	if err != nil {
 		return errors.Wrap(err, "load desc ensure pci address")
+	}
+	if err = s.SaveLiveDesc(s.Desc); err != nil {
+		return errors.Wrap(err, "loadGuestPciAddresses save desc")
 	}
 	return nil
 }
@@ -707,12 +711,24 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 		}
 	}
 
+	anonymousPCIDevs := s.Desc.AnonymousPCIDevs[:0]
 	for i := 0; i < len(s.Desc.AnonymousPCIDevs); i++ {
+		if s.isMachineDefaultAddress(s.Desc.AnonymousPCIDevs[i].PCIAddr) {
+			if _, inUse := s.pciAddrs.IsAddrInUse(s.Desc.AnonymousPCIDevs[i].PCIAddr); inUse {
+				log.Infof("guest %s anonymous dev addr %s in use", s.GetName(), s.Desc.AnonymousPCIDevs[i].String())
+				continue
+			}
+		}
 		err = s.ensureDevicePciAddress(s.Desc.AnonymousPCIDevs[i], -1, nil)
 		if err != nil {
 			return errors.Wrap(err, "ensure anonymous pci dev pci address")
 		}
+		anonymousPCIDevs = append(anonymousPCIDevs, s.Desc.AnonymousPCIDevs[i])
 	}
+	if len(anonymousPCIDevs) == 0 {
+		anonymousPCIDevs = nil
+	}
+	s.Desc.AnonymousPCIDevs = anonymousPCIDevs
 	return nil
 }
 
