@@ -153,6 +153,7 @@ func (ec *SEcloudClient) GetCapabilities() []string {
 
 func (ec *SEcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = ec.GetAccountId()
 	subAccount.Name = ec.cpcfg.Name
 	subAccount.Account = ec.signer.GetAccessKeyId()
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL

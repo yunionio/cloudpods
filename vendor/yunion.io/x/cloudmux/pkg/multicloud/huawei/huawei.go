@@ -382,6 +382,16 @@ func (self *SHuaweiClient) vpcUpdate(regionId, resource string, params map[strin
 	return self.request(httputils.PUT, uri, url.Values{}, params)
 }
 
+func (self *SHuaweiClient) sslcertList(regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://scm.%s.myhuaweicloud.com/v3/%s", regionId, resource)
+	return self.request(httputils.GET, uri, query, nil)
+}
+
+func (self *SHuaweiClient) sslcertExport(regionId, resource string, scID string) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://scm.%s.myhuaweicloud.com/v3/%s/%s/export", regionId, resource, scID)
+	return self.request(httputils.POST, uri, url.Values{}, nil)
+}
+
 type akClient struct {
 	client *http.Client
 	aksk   aksk.SignOptions
@@ -631,6 +641,7 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		// 	continue
 		// }
 		s := cloudprovider.SSubAccount{
+			Id:               project.ID,
 			Name:             fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			Account:          fmt.Sprintf("%s/%s", self.accessKey, project.ID),
 			HealthStatus:     project.GetHealthStatus(),
@@ -819,6 +830,7 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_MODELARTES,
 		cloudprovider.CLOUD_CAPABILITY_VPC_PEER,
+		cloudprovider.CLOUD_CAPABILITY_CERT,
 	}
 	// huawei objectstore is shared across projects(subscriptions)
 	// to avoid multiple project access the same bucket
