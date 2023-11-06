@@ -962,6 +962,10 @@ func (s *SKVMGuestInstance) fixGuestMachineType() {
 }
 
 func (s *SKVMGuestInstance) initMachineDesc() {
+	if s.Desc.Machine == "" {
+		s.Desc.Machine = s.getMachine()
+	}
+
 	s.Desc.MachineDesc = s.archMan.GenerateMachineDesc(s.Desc.CpuDesc.Accel)
 	if options.HostOptions.NoHpet {
 		noHpet := true
