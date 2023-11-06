@@ -1107,6 +1107,9 @@ func (s *SKVMGuestInstance) collectGuestDescription() error {
 		return errors.Wrap(err, "query mem devs")
 	}
 
+	if s.Desc.Machine == "" {
+		s.Desc.Machine = s.getMachine()
+	}
 	qtree := s.infoQtree()
 	scsiNumQueues := s.getScsiNumQueues(qtree)
 	for i := range s.Desc.Disks {
