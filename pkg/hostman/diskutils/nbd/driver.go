@@ -15,11 +15,13 @@
 package nbd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/log"
@@ -51,24 +53,31 @@ func NewNBDDriver(imageInfo qemuimg.SImageInfo) *NBDDriver {
 	}
 }
 
-var lvmTool *SLVMImageConnectUniqueToolSet
+var lock *sync.Mutex
 
 func init() {
-	lvmTool = NewLVMImageConnectUniqueToolSet()
+
+	lock = new(sync.Mutex)
 }
 
-func (d *NBDDriver) Connect() error {
+func (d *NBDDriver) Connect(ctx context.Context) error {
 	d.nbdDev = GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
 		return errors.Errorf("Cannot get nbd device")
 	}
 
 	rootPath := d.rootImagePath()
-	pathType, lock := lvmTool.Acquire(rootPath)
-	if pathType != NON_LVM_PATH {
-		lock.Lock()
-		defer lock.Unlock()
-	}
+	log.Infof("lock root image path %s", rootPath)
+	lock.Lock()
+	defer lock.Unlock()
+	defer log.Infof("unlock root image path %s", rootPath)
+
+	//pathType, lock := lvmTool.Acquire(rootPath)
+	//log.Infof("root image path %s and path type %d", rootPath, pathType)
+	//if pathType != NON_LVM_PATH {
+	//	lock.Lock()
+	//	defer lock.Unlock()
+	//}
 
 	if err := QemuNbdConnect(d.imageInfo, d.nbdDev); err != nil {
 		return err
@@ -84,23 +93,12 @@ func (d *NBDDriver) Connect() error {
 		tried += 1
 	}
 
-	log.Infof("path type %s: %v", d.nbdDev, pathType)
-	if pathType == LVM_PATH {
-		if _, err := d.setupLVMS(); err != nil {
-			return err
-		}
-	} else if pathType == PATH_TYPE_UNKNOWN {
-		hasLVM, err := d.setupLVMS()
-		log.Infof("%s hasLVM %v err %v", d.nbdDev, hasLVM, err)
-		if err != nil {
-			return err
-		}
-
-		// no lvm partition found and has partitions
-		if !hasLVM && len(d.partitions) > 0 {
-			lvmTool.CacheNonLvmImagePath(rootPath)
-		}
+	hasLVM, err := d.setupLVMS()
+	log.Infof("%s hasLVM %v err %v", d.nbdDev, hasLVM, err)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -206,13 +204,14 @@ func (nbdDriver *NBDDriver) setupAndPutdownLVMS() error {
 	return nil
 }
 
-func (d *NBDDriver) Disconnect() error {
+func (d *NBDDriver) Disconnect(ctx context.Context) error {
 	if len(d.nbdDev) > 0 {
-		pathType, lock := lvmTool.Acquire(d.rootImagePath())
-		if pathType != NON_LVM_PATH {
-			lock.Lock()
-			defer lock.Unlock()
-		}
+		rootPath := d.rootImagePath()
+		log.Infof("lock root image path %s", rootPath)
+		lock.Lock()
+		defer lock.Unlock()
+		defer log.Infof("unlock root image path %s", rootPath)
+
 		if !d.putdownLVMs() {
 			return fmt.Errorf("failed putdown lvm devices %s", d.nbdDev)
 		}

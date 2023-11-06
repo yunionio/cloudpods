@@ -16,6 +16,7 @@ package diskutils
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"crypto/tls"
 	"encoding/hex"
@@ -147,7 +148,7 @@ func (vd *VDDKDisk) Cleanup() {
 	}
 }
 
-func (vd *VDDKDisk) Connect() error {
+func (vd *VDDKDisk) Connect(ctx context.Context) error {
 	flatFile, err := vd.ConnectBlockDevice()
 	if err != nil {
 		return errors.Wrap(err, "ConnectBlockDevice")
@@ -156,12 +157,12 @@ func (vd *VDDKDisk) Connect() error {
 	if err != nil {
 		return errors.Wrap(err, "NewKVMGuestDisk")
 	}
-	return vd.kvmDisk.Connect()
+	return vd.kvmDisk.Connect(ctx)
 }
 
-func (vd *VDDKDisk) Disconnect() error {
+func (vd *VDDKDisk) Disconnect(ctx context.Context) error {
 	if vd.kvmDisk != nil {
-		if err := vd.kvmDisk.Disconnect(); err != nil {
+		if err := vd.kvmDisk.Disconnect(ctx); err != nil {
 			log.Errorf("kvm disk disconnect failed %s", err)
 		}
 		vd.kvmDisk.Cleanup()

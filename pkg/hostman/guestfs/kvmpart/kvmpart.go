@@ -261,7 +261,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 	var tries = 0
 	var err error
 	var out []byte
-	for tries < 10 {
+	for {
 		tries += 1
 		log.Infof("umount %s: %s", p.partDev, p.mountPath)
 		out, err = procutils.NewCommand("umount", p.mountPath).Output()

@@ -15,6 +15,7 @@
 package libguestfs
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -73,7 +74,7 @@ func NewLibguestfsDriver(imageInfo qemuimg.SImageInfo) *SLibguestfsDriver {
 	}
 }
 
-func (d *SLibguestfsDriver) Connect() error {
+func (d *SLibguestfsDriver) Connect(context.Context) error {
 	fish, err := guestfsManager.AcquireFish()
 	if err != nil {
 		return err
@@ -174,7 +175,7 @@ func (d *SLibguestfsDriver) findNbdPartitions() ([]fsdriver.IDiskPartition, erro
 	return parts, nil
 }
 
-func (d *SLibguestfsDriver) Disconnect() error {
+func (d *SLibguestfsDriver) Disconnect(context.Context) error {
 	if len(d.diskLabel) > 0 {
 		if err := guestfsManager.ReleaseFish(d.fish); err != nil {
 			log.Errorf("release fish failed %s", err)

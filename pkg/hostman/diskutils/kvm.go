@@ -15,6 +15,7 @@
 package diskutils
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -93,12 +94,12 @@ func (d *SKVMGuestDisk) IsLVMPartition() bool {
 	return d.deployer.IsLVMPartition()
 }
 
-func (d *SKVMGuestDisk) Connect() error {
-	return d.deployer.Connect()
+func (d *SKVMGuestDisk) Connect(ctx context.Context) error {
+	return d.deployer.Connect(ctx)
 }
 
-func (d *SKVMGuestDisk) Disconnect() error {
-	return d.deployer.Disconnect()
+func (d *SKVMGuestDisk) Disconnect(ctx context.Context) error {
+	return d.deployer.Disconnect(ctx)
 }
 
 func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool {

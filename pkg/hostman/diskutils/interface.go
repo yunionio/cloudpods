@@ -15,6 +15,8 @@
 package diskutils
 
 import (
+	"context"
+
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -22,8 +24,8 @@ import (
 )
 
 type IDisk interface {
-	Connect() error
-	Disconnect() error
+	Connect(ctx context.Context) error
+	Disconnect(ctx context.Context) error
 	MountRootfs() (fsdriver.IRootFsDriver, error)
 	UmountRootfs(driver fsdriver.IRootFsDriver) error
 	ResizePartition() error
@@ -50,8 +52,8 @@ func GetIDisk(params DiskParams, driver string, readOnly bool) (IDisk, error) {
 }
 
 type IDeployer interface {
-	Connect() error
-	Disconnect() error
+	Connect(ctx context.Context) error
+	Disconnect(ctx context.Context) error
 
 	GetPartitions() []fsdriver.IDiskPartition
 	IsLVMPartition() bool

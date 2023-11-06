@@ -92,11 +92,11 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	}
 	defer disk.Cleanup()
 
-	if err := disk.Connect(); err != nil {
+	if err := disk.Connect(ctx); err != nil {
 		log.Errorf("Failed to connect %s disk: %s", req.GuestDesc.Hypervisor, err)
 		return new(deployapi.DeployGuestFsResponse), errors.Wrap(err, "Connect")
 	}
-	defer disk.Disconnect()
+	defer disk.Disconnect(ctx)
 	root, err := disk.MountRootfs()
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound && req.DeployInfo.IsInit {
@@ -142,10 +142,10 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 		return new(deployapi.Empty), errors.Wrap(err, "GetIDisk fail")
 	}
 	defer disk.Cleanup()
-	if err := disk.Connect(); err != nil {
+	if err := disk.Connect(ctx); err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "disk connect failed")
 	}
-	defer disk.Disconnect()
+	defer disk.Disconnect(ctx)
 
 	unmount := func(root fsdriver.IRootFsDriver) error {
 		err := disk.UmountRootfs(root)
@@ -190,8 +190,8 @@ func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsPara
 	}
 	defer gd.Cleanup()
 
-	if err := gd.Connect(); err == nil {
-		defer gd.Disconnect()
+	if err := gd.Connect(ctx); err == nil {
+		defer gd.Disconnect(ctx)
 		if err := gd.MakePartition(req.FsFormat); err == nil {
 			err = gd.FormatPartition(req.FsFormat, req.Uuid)
 			if err != nil {
@@ -223,11 +223,11 @@ func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGl
 		ReleaseInfo: relInfo,
 	}
 
-	err = kvmDisk.Connect()
+	err = kvmDisk.Connect(ctx)
 	if err != nil {
 		return ret, errors.Wrapf(err, "kvmDisk.Connect %#v", apiDiskInfo(req.DiskInfo))
 	}
-	defer kvmDisk.Disconnect()
+	defer kvmDisk.Disconnect(ctx)
 
 	root, err := kvmDisk.MountKvmRootfs()
 	if err != nil {
@@ -287,11 +287,11 @@ func (s *DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.Prob
 	}
 	defer kvmDisk.Cleanup()
 
-	if err := kvmDisk.Connect(); err != nil {
+	if err := kvmDisk.Connect(ctx); err != nil {
 		log.Errorf("Failed to connect kvm disk %#v: %s", apiDiskInfo(req.DiskInfo), err)
 		return new(deployapi.ImageInfo), errors.Wrap(err, "Disk connector failed to connect image")
 	}
-	defer kvmDisk.Disconnect()
+	defer kvmDisk.Disconnect(ctx)
 
 	return s.getImageInfo(kvmDisk)
 }
