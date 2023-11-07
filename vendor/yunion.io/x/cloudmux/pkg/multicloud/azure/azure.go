@@ -896,6 +896,7 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 	subAccounts = make([]cloudprovider.SSubAccount, len(self.subscriptions))
 	for i, subscription := range self.subscriptions {
 		subAccounts[i].Account = fmt.Sprintf("%s/%s", self.tenantId, subscription.SubscriptionId)
+		subAccounts[i].Id = subscription.SubscriptionId
 		subAccounts[i].Name = subscription.DisplayName
 		subAccounts[i].HealthStatus = subscription.GetHealthStatus()
 	}

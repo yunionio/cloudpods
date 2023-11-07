@@ -332,6 +332,7 @@ func (self *SCtyunClient) GetIRegions() []cloudprovider.ICloudRegion {
 func (self *SCtyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccounts := make([]cloudprovider.SSubAccount, 0)
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = self.GetAccountId()
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL

@@ -203,6 +203,8 @@ type ICloudRegion interface {
 	GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error)
 
 	GetIMiscResources() ([]ICloudMiscResource, error)
+
+	GetISSLCertificates() ([]ICloudSSLCertificate, error)
 }
 
 type ICloudZone interface {
@@ -1680,4 +1682,23 @@ type ICloudMiscResource interface {
 	GetResourceType() string
 
 	GetConfig() jsonutils.JSONObject
+}
+
+type ICloudSSLCertificate interface {
+	IVirtualResource
+
+	GetSans() string
+	GetStartDate() time.Time
+	GetProvince() string
+	GetCommon() string
+	GetCountry() string
+	GetIssuer() string
+	GetExpired() bool
+	GetEndDate() time.Time
+	GetFingerprint() string
+	GetCity() string
+	GetOrgName() string
+	GetIsUpload() bool
+	GetCert() string
+	GetKey() string
 }
