@@ -28,6 +28,18 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
+var CERT_STATUS_MAP = map[int]string{
+	0: "pending",
+	1: "normal",
+	2: "deleted",
+	3: "expired",
+	4: "normal",
+	5: "pending",
+	6: "deleted",
+	7: "deleted",
+	8: "pending",
+}
+
 type projectInfo struct {
 	ProjectID  string `json:"projectId"`
 	OwnerUin   int64  `json:"ownerUin"`
@@ -71,6 +83,7 @@ type SCertificate struct {
 	SubjectAltName        []string `json:"subjectAltName"`
 	CertificatePrivateKey string   `json:"CertificatePrivateKey"`
 	CertificatePublicKey  string   `json:"CertificatePublicKey"`
+	CertFingerprint       string   `json:"CertFingerprint"`
 }
 
 func (self *SCertificate) GetDetails() (*SCertificate, error) {
@@ -83,6 +96,7 @@ func (self *SCertificate) GetDetails() (*SCertificate, error) {
 		self.SubjectAltName = cert.SubjectAltName
 		self.CertificatePrivateKey = cert.CertificatePrivateKey
 		self.CertificatePublicKey = cert.CertificatePublicKey
+		self.CertFingerprint = cert.CertFingerprint
 	}
 	return self, nil
 }
@@ -93,6 +107,16 @@ func (self *SCertificate) GetPublickKey() string {
 }
 
 func (self *SCertificate) GetPrivateKey() string {
+	self.GetDetails()
+	return self.CertificatePrivateKey
+}
+
+func (self *SCertificate) GetCert() string {
+	self.GetDetails()
+	return self.CertificatePublicKey
+}
+
+func (self *SCertificate) GetKey() string {
 	self.GetDetails()
 	return self.CertificatePrivateKey
 }
@@ -111,7 +135,11 @@ func (self *SCertificate) GetId() string {
 }
 
 func (self *SCertificate) GetName() string {
-	return self.Alias
+	if len(self.Alias) > 0 {
+		return self.Alias
+	} else {
+		return self.Domain
+	}
 }
 
 func (self *SCertificate) GetGlobalId() string {
@@ -120,7 +148,10 @@ func (self *SCertificate) GetGlobalId() string {
 
 // todo: 貌似目前onecloud没有记录状态
 func (self *SCertificate) GetStatus() string {
-	return strconv.Itoa(self.Status)
+	if _, ok := CERT_STATUS_MAP[self.Status]; !ok {
+		return "unknown"
+	}
+	return CERT_STATUS_MAP[self.Status]
 }
 
 func (self *SCertificate) Refresh() error {
@@ -142,7 +173,7 @@ func (self *SCertificate) GetCommonName() string {
 
 func (self *SCertificate) GetSubjectAlternativeNames() string {
 	self.GetDetails()
-	return strings.Join(self.SubjectAltName, ",")
+	return self.CertFingerprint
 }
 
 func (self *SCertificate) GetFingerprint() string {
@@ -158,6 +189,57 @@ func (self *SCertificate) GetExpireTime() time.Time {
 
 func (self *SCertificate) GetProjectId() string {
 	return self.ProjectID
+}
+
+func (self *SCertificate) GetSans() string {
+	return strings.Join(self.SubjectAltName, ",")
+}
+
+func (self *SCertificate) GetStartDate() time.Time {
+	return self.CERTBeginTime
+}
+
+func (self *SCertificate) GetProvince() string {
+	return ""
+}
+
+func (self *SCertificate) GetCommon() string {
+	return self.Domain
+}
+
+func (self *SCertificate) GetCountry() string {
+	return ""
+}
+
+func (self *SCertificate) GetIssuer() string {
+	return self.ProductZhName
+}
+
+func (self *SCertificate) GetExpired() bool {
+	if self.Status == 3 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (self *SCertificate) GetEndDate() time.Time {
+	return self.CERTEndTime
+}
+
+func (self *SCertificate) GetCity() string {
+	return ""
+}
+
+func (self *SCertificate) GetOrgName() string {
+	return ""
+}
+
+func (self *SCertificate) GetIsUpload() bool {
+	if self.From == "upload" {
+		return true
+	}
+	return false
 }
 
 // ssl.tencentcloudapi.com
@@ -317,4 +399,18 @@ func (self *SRegion) CreateILoadBalancerCertificate(input *cloudprovider.SLoadba
 		return nil, errors.Wrapf(err, "GetCertificate")
 	}
 	return cert, nil
+}
+
+// GetISSLCertificates 获取证书资源列表
+func (self *SRegion) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	rs, err := self.GetCertificates("", "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]cloudprovider.ICloudSSLCertificate, 0)
+	for i := range rs {
+		result = append(result, &rs[i])
+	}
+	return result, nil
 }
