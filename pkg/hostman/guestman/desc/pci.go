@@ -213,6 +213,14 @@ func (b *SGuestPCIAddresses) ReleasePCIAddress(addr *PCIAddr) error {
 	return bus.ReleaseSlotFunction(addr.Slot, addr.Function)
 }
 
+func (b *SGuestPCIAddresses) IsAddrInUse(addr *PCIAddr) (error, bool) {
+	if int(addr.Bus+1) > len(b.Buses) {
+		return errors.Errorf("release pci address bus %02x out of range", addr.Bus), false
+	}
+	bus := b.Buses[addr.Bus]
+	return bus.IsSlotFunctionInUse(addr.Slot, addr.Function)
+}
+
 func (b *SGuestPCIAddressBus) EnsureSlotFunction(slot, function uint) error {
 	if b.Slots == nil {
 		b.Slots = make([]*SGuestPCIAddressSlot, 0, b.MaxSlot+1)
@@ -242,6 +250,16 @@ func (b *SGuestPCIAddressBus) EnsureSlotFunction(slot, function uint) error {
 
 func (b *SGuestPCIAddressBus) setSlotFunction(slot, function uint) {
 	b.Slots[slot].Function |= 1 << function
+}
+
+func (b *SGuestPCIAddressBus) IsSlotFunctionInUse(slot, function uint) (error, bool) {
+	if slot < b.MinSlot || slot > b.MaxSlot {
+		return errors.Errorf("slot %02x out of range %02x~%02x", slot, b.MinSlot, b.MaxSlot), false
+	}
+	if function >= 8 {
+		return errors.Errorf("function %x out of range 0~7", function), false
+	}
+	return nil, (b.Slots[slot].Function & (1 << function)) > 0
 }
 
 func (b *SGuestPCIAddressBus) ReleaseSlotFunction(slot, function uint) error {
