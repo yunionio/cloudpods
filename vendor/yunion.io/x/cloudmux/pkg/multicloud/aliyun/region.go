@@ -246,6 +246,15 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
 }
 
+func (self *SRegion) scRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	domain := "cas.aliyuncs.com"
+	return jsonRequest(client, domain, ALIYUN_CAS_API_VERSION, apiName, params, self.client.debug)
+}
+
 type LBRegion struct {
 	RegionEndpoint string
 	RegionId       string

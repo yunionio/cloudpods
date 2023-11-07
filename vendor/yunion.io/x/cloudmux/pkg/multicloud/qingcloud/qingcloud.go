@@ -242,6 +242,7 @@ func (self *SQingCloudClient) request(service, action, regionId string, params m
 
 func (self *SQingCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = self.GetAccountId()
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKeyId
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL

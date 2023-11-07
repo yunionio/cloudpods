@@ -82,6 +82,7 @@ func (self *SJDCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 
 func (self *SJDCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = self.GetAccountId()
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL

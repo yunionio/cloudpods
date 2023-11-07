@@ -213,6 +213,7 @@ func (self *SBaiduClient) request(method httputils.THttpMethod, service, regionI
 
 func (self *SBaiduClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = self.GetAccountId()
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKeyId
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL

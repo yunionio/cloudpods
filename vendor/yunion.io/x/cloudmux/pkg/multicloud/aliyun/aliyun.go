@@ -79,6 +79,7 @@ const (
 	ALIYUN_K8S_API_VERSION      = "2015-12-15"
 	ALIYUN_OTS_API_VERSION      = "2016-06-20"
 	ALIYUN_RD_API_VERSION       = "2022-04-19"
+	ALIYUN_CAS_API_VERSION      = "2018-07-13"
 
 	ALIYUN_SERVICE_ECS      = "ecs"
 	ALIYUN_SERVICE_VPC      = "vpc"
@@ -762,6 +763,7 @@ func (self *SAliyunClient) GetRegions() []SRegion {
 
 func (self *SAliyunClient) getSubAccount() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = self.GetAccountId()
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
@@ -796,6 +798,7 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		account := cloudprovider.SSubAccount{}
 		account.Name = fmt.Sprintf("%s/%s", accounts[i].DisplayName, self.cpcfg.Name)
 		account.Account = self.accessKey
+		account.Id = accountId
 		account.HealthStatus = api.CLOUD_PROVIDER_HEALTH_SUSPENDED
 		if strings.HasSuffix(accounts[i].Status, "Success") {
 			account.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
@@ -803,6 +806,7 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		if accounts[i].AccountId != accountId {
 			account.Name = fmt.Sprintf("%s/%s", accounts[i].DisplayName, accounts[i].AccountId)
 			account.Account = fmt.Sprintf("%s/%s", self.accessKey, accounts[i].AccountId)
+			account.Id = accounts[i].AccountId
 		}
 		ret = append(ret, account)
 	}
@@ -815,6 +819,7 @@ func (self *SAliyunClient) GetAccountId() string {
 	}
 	caller, err := self.GetCallerIdentity()
 	if err != nil {
+		log.Errorf("GetCallerIdentity fail %s", err)
 		return ""
 	}
 	self.ownerId = caller.AccountId
@@ -982,6 +987,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CDN + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CONTAINER + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_TABLESTORE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CERT,
 	}
 	return caps
 }
