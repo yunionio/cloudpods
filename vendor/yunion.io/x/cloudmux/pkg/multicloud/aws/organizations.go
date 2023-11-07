@@ -213,8 +213,8 @@ func (r *SRegion) ListAccounts() ([]SAccount, error) {
 	return accounts, nil
 }
 
-func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	defRegion, err := self.getDefaultRegion()
+func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	defRegion, err := awscli.getDefaultRegion()
 	if err != nil {
 		return nil, errors.Wrapf(err, "getDefaultRegion")
 	}
@@ -224,8 +224,9 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 		if strings.Contains(err.Error(), "AWSOrganizationsNotInUseException") || strings.Contains(err.Error(), "AccessDeniedException") {
 			// permission denied, fall back to single account mode
 			subAccount := cloudprovider.SSubAccount{}
-			subAccount.Name = self.cpcfg.Name
-			subAccount.Account = self.accessKey
+			subAccount.Name = awscli.cpcfg.Name
+			subAccount.Account = awscli.accessKey
+			subAccount.Id = awscli.accountId
 			subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 			return []cloudprovider.SSubAccount{subAccount}, nil
 		} else {
@@ -233,7 +234,7 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 		}
 	} else {
 		// check if caller is a root caller
-		caller, _ := self.GetCallerIdentity()
+		caller, _ := awscli.GetCallerIdentity()
 		isRootAccount := false
 		// arn:aws:iam::285906155448:root
 		if caller != nil && strings.HasSuffix(caller.Arn, ":root") {
@@ -249,8 +250,9 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 				subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_SUSPENDED
 			}
 			if account.IsMaster {
-				subAccount.Name = fmt.Sprintf("%s/%s", account.Name, self.cpcfg.Name)
-				subAccount.Account = self.accessKey
+				subAccount.Name = fmt.Sprintf("%s/%s", account.Name, awscli.cpcfg.Name)
+				subAccount.Account = awscli.accessKey
+				subAccount.Id = account.ID
 			} else {
 				if isRootAccount {
 					log.Warningf("Cannot access non-master account with root account!!")
@@ -260,7 +262,8 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 				if len(account.Name) > 0 {
 					subAccount.Name = fmt.Sprintf("%s/%s", account.Name, account.ID)
 				}
-				subAccount.Account = fmt.Sprintf("%s/%s", self.accessKey, account.ID)
+				subAccount.Account = fmt.Sprintf("%s/%s", awscli.accessKey, account.ID)
+				subAccount.Id = account.ID
 			}
 			subAccounts = append(subAccounts, subAccount)
 		}

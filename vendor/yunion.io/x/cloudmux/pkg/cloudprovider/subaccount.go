@@ -22,6 +22,7 @@ import (
 )
 
 type SSubAccount struct {
+	Id string // 账号ID
 	// 若Account不为空，可不传
 	Name string
 	// 描述信息

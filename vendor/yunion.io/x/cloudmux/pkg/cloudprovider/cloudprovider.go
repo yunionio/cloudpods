@@ -385,6 +385,10 @@ func IsSupportElasticSearch(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_ES)
 }
 
+func IsSupportSSLCertificate(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_CERT)
+}
+
 func IsSupportKafka(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_KAFKA)
 }
