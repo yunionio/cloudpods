@@ -1032,30 +1032,14 @@ func (manager *SServerSkuManager) GetSkus(provider string, cpu, memMB int) ([]SS
 }
 
 // 删除表中zone not found的记录
-func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
-	sq := ZoneManager.Query("id").Distinct().SubQuery()
-	skus := make([]SServerSku, 0)
-	q := manager.Query()
-	q = q.NotIn("zone_id", sq).IsNotEmpty("zone_id")
-	err := db.FetchModelObjects(manager, q, &skus)
-	if err != nil {
-		log.Errorln(err)
-		return httperrors.NewInternalServerError("query sku list failed.")
-	}
-
-	for i := range skus {
-		sku := skus[i]
-		_, err = db.Update(&sku, func() error {
-			return sku.MarkDelete()
-		})
-
-		if err != nil {
-			log.Errorln(err)
-			return httperrors.NewInternalServerError("delete sku %s failed.", sku.Id)
-		}
-	}
-
-	return nil
+func (manager *SServerSkuManager) DeleteInvalidSkus() error {
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where length(zone_id) > 0 and zone_id not in (select id from zones_tbl where deleted=0)",
+			manager.TableSpec().Name(),
+		),
+	)
+	return err
 }
 
 func (manager *SServerSkuManager) SyncPrivateCloudSkus(
@@ -1202,9 +1186,10 @@ func (region *SCloudregion) newPublicCloudSku(ctx context.Context, userCred mccl
 	}
 
 	if len(sku.ZoneId) > 0 {
-		zoneId := yunionmeta.GetZoneIdBySuffix(zoneMaps, sku.ZoneId)
-		if len(zoneId) > 0 {
-			sku.ZoneId = zoneId
+		zoneId := sku.ZoneId
+		sku.ZoneId = yunionmeta.GetZoneIdBySuffix(zoneMaps, zoneId)
+		if len(sku.ZoneId) == 0 {
+			return errors.Wrapf(cloudprovider.ErrNotFound, zoneId)
 		}
 	}
 
@@ -1600,6 +1585,10 @@ func fetchSkuSyncCloudregions() []SCloudregion {
 
 // 全量同步sku列表.
 func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	// 清理无效的sku
+	log.Debugf("DeleteInvalidSkus in processing...")
+	err := ServerSkuManager.DeleteInvalidSkus()
+
 	if isStart {
 		cnt, err := ServerSkuManager.GetPublicCloudSkuCount()
 		if err != nil {
@@ -1645,9 +1634,6 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 		log.Debugf(notes)
 	}
 
-	// 清理无效的sku
-	log.Debugf("DeleteInvalidSkus in processing...")
-	ServerSkuManager.PendingDeleteInvalidSku()
 }
 
 // 同步指定region sku列表
