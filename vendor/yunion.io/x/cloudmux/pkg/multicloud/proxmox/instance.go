@@ -423,11 +423,10 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 		return nil, err
 	}
 	ret := &cloudprovider.ServerVncOutput{}
-	params := url.Values{}
-	params.Set("port", fmt.Sprintf("%d", vnc.Port))
-	params.Set("vncticket", vnc.Ticket)
-	ret.Url = fmt.Sprintf("wss://%s:%d/api2/json/nodes/%s/qemu/%d/vncwebsocket?%s", self.host.zone.region.client.host, self.host.zone.region.client.port, self.Node, self.VmID, params.Encode())
 	ret.Protocol = "vnc"
+	ret.Host = self.host.zone.region.client.host
+	ret.Port = int64(vnc.Port)
+	ret.Password = vnc.Ticket
 	ret.Hypervisor = api.HYPERVISOR_PROXMOX
 	return ret, nil
 }
@@ -844,7 +843,7 @@ func (self *SRegion) GetInstance(id string) (*SInstance, error) {
 	nodeName := ""
 	vmId, _ := strconv.Atoi(id)
 	if resource, ok := resources[vmId]; !ok {
-		return nil, errors.Errorf("failed get Instance id %s", id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 	} else {
 		nodeName = resource.Node
 	}
@@ -1015,7 +1014,10 @@ type InstanceVnc struct {
 
 func (self *SRegion) GetVNCInfo(node string, vmId int) (*InstanceVnc, error) {
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/vncproxy", node, vmId)
-	resp, err := self.post(res, map[string]interface{}{})
+	resp, err := self.post(res, map[string]interface{}{
+		"websocket":         "1",
+		"generate-password": "0",
+	})
 	if err != nil {
 		return nil, err
 	}

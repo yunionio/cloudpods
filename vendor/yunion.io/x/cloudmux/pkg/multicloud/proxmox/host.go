@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -233,6 +234,17 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	}
 
 	vmIdRet := strconv.Itoa(vmId)
+	cloudprovider.Wait(time.Second*5, time.Minute, func() (bool, error) {
+		_, err := self.zone.region.GetInstance(vmIdRet)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return false, nil
+			}
+			return false, errors.Wrapf(err, "after created")
+		}
+		return true, nil
+	})
+
 	vm, err := self.zone.region.GetInstance(vmIdRet)
 	if err != nil {
 		return nil, err

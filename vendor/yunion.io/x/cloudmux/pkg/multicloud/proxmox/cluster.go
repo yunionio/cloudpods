@@ -152,7 +152,7 @@ func (self *SRegion) GetClusterVmMaxId() int {
 	}
 
 	if len(idxs) < 1 {
-		return 0
+		return 99
 	}
 
 	sort.Ints(idxs)
