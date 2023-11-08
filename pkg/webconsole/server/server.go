@@ -61,7 +61,6 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		info := sessionObj.ISessionData.(*session.RemoteConsoleInfo)
 		if utils.IsInStringArray(info.Hypervisor, []string{
 			api.HYPERVISOR_OPENSTACK,
-			api.HYPERVISOR_PROXMOX,
 			api.HYPERVISOR_CTYUN,
 		}) {
 			srv, err = NewWebsocketProxyServer(sessionObj)
