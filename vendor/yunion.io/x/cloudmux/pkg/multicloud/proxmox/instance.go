@@ -839,7 +839,7 @@ func (self *SRegion) GetInstance(id string) (*SInstance, error) {
 	nodeName := ""
 	vmId, _ := strconv.Atoi(id)
 	if resource, ok := resources[vmId]; !ok {
-		return nil, errors.Errorf("failed get Instance id %s", id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 	} else {
 		nodeName = resource.Node
 	}
