@@ -916,7 +916,7 @@ func (self *SElasticcache) GetProjectId() string {
 func (self *SElasticcache) GetAuthMode() string {
 	attribute, err := self.GetAttribute()
 	if err != nil {
-		log.Errorf("elasticcache.GetAuthMode %s", err)
+		return "unknown"
 	}
 	switch attribute.VpcAuthMode {
 	case "Open":
