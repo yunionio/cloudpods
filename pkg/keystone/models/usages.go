@@ -15,9 +15,12 @@
 package models
 
 import (
+	"yunion.io/x/sqlchemy"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 func Usage(result rbacutils.SPolicyResult) map[string]int {
@@ -30,6 +33,24 @@ func Usage(result rbacutils.SPolicyResult) map[string]int {
 
 	pq := ProjectManager.Query()
 	pq = db.ObjectIdQueryWithPolicyResult(pq, ProjectManager, result)
+
+	// 根据项目标签过滤
+	tagFilters := tagutils.STagFilters{}
+	tagFilters.AddFilters(result.ProjectTags)
+	orConditions := []sqlchemy.ICondition{}
+	metadataResSQ := db.Metadata.Query().SubQuery()
+	for _, filter := range tagFilters.Filters {
+		for key, val := range filter {
+			orConditions = append(orConditions,
+				sqlchemy.AND(
+					sqlchemy.Equals(metadataResSQ.Field("key"), key),
+					sqlchemy.In(metadataResSQ.Field("value"), val),
+				),
+			)
+		}
+	}
+	metadataResSQ = metadataResSQ.Query().Filter(sqlchemy.OR(orConditions...)).SubQuery()
+	pq = pq.Join(metadataResSQ, sqlchemy.Equals(pq.Field("id"), metadataResSQ.Field("obj_id")))
 	projCnt, _ := pq.IsFalse("is_domain").CountWithError()
 	results["projects"] = projCnt
 
