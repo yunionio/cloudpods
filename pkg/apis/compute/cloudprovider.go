@@ -245,6 +245,8 @@ type CloudproviderListInput struct {
 	ManagedResourceListInput
 	apis.ProjectizedResourceListInput
 
+	apis.ExternalizedResourceBaseListInput
+
 	UsableResourceListInput
 
 	CloudregionResourceInput
