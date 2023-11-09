@@ -142,6 +142,23 @@ func (self *SCachedimage) isRefreshSessionExpire() bool {
 	}
 }
 
+func (self *SCachedimage) GetHosts() ([]SHost, error) {
+	q := HostManager.Query().Distinct()
+	hs := HoststorageManager.Query().SubQuery()
+	storages := StorageManager.Query().SubQuery()
+	scis := StoragecachedimageManager.Query().Equals("cachedimage_id", self.Id).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()
+
+	q = q.Join(hs, sqlchemy.Equals(hs.Field("host_id"), q.Field("id")))
+	q = q.Join(storages, sqlchemy.Equals(hs.Field("storage_id"), storages.Field("id")))
+	q = q.Join(scis, sqlchemy.Equals(storages.Field("storagecache_id"), scis.Field("storagecache_id")))
+	ret := []SHost{}
+	err := db.FetchModelObjects(HostManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, err
+}
+
 func (self *SCachedimage) GetName() string {
 	name, _ := self.Info.GetString("name")
 	return name
