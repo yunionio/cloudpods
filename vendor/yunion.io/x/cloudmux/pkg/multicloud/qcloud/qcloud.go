@@ -835,6 +835,7 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = client.GetAccountId()
 	subAccount.Name = client.cpcfg.Name
 	subAccount.Account = client.secretId
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
@@ -981,6 +982,20 @@ func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	return iprojects, nil
 }
 
+func (self *SQcloudClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	rs, err := self.GetCertificates("", "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]cloudprovider.ICloudSSLCertificate, 0)
+	for i := range rs {
+		rs[i].client = self
+		result = append(result, &rs[i])
+	}
+	return result, nil
+}
+
 func (self *SQcloudClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
@@ -1003,6 +1018,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_KAFKA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CDN + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CONTAINER + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CERT,
 	}
 	return caps
 }

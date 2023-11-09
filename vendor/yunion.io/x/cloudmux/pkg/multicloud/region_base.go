@@ -408,3 +408,7 @@ func (self *SRegion) GetIModelartsPoolSku() ([]cloudprovider.ICloudModelartsPool
 func (self *SRegion) GetIMiscResources() ([]cloudprovider.ICloudMiscResource, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIMiscResources")
 }
+
+func (self *SRegion) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISSLCertificate")
+}

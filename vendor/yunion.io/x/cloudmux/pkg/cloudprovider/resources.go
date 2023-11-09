@@ -1681,3 +1681,22 @@ type ICloudMiscResource interface {
 
 	GetConfig() jsonutils.JSONObject
 }
+
+type ICloudSSLCertificate interface {
+	IVirtualResource
+
+	GetSans() string
+	GetStartDate() time.Time
+	GetProvince() string
+	GetCommon() string
+	GetCountry() string
+	GetIssuer() string
+	GetExpired() bool
+	GetEndDate() time.Time
+	GetFingerprint() string
+	GetCity() string
+	GetOrgName() string
+	GetIsUpload() bool
+	GetCert() string
+	GetKey() string
+}

@@ -527,3 +527,11 @@ func (self *SAliyunProvider) GetICloudCDNDomainByName(name string) (cloudprovide
 func (self *SAliyunProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	return self.client.GetMetrics(opts)
 }
+
+func (self *SAliyunProvider) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	return self.client.GetISSLCertificates()
+}
+
+func (self *SAliyunProvider) GetISSLCertificate(certId string) (cloudprovider.ICloudSSLCertificate, error) {
+	return self.client.GetISSLCertificate(certId)
+}

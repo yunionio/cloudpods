@@ -444,6 +444,7 @@ func (self *SApsaraClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = self.GetAccountId()
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
 	if self.organizationId != "1" {

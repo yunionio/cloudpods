@@ -28,6 +28,18 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
+var CERT_STATUS_MAP = map[int]string{
+	0: "pending",
+	1: "normal",
+	2: "deleted",
+	3: "expired",
+	4: "normal",
+	5: "pending",
+	6: "deleted",
+	7: "deleted",
+	8: "pending",
+}
+
 type projectInfo struct {
 	ProjectID  string `json:"projectId"`
 	OwnerUin   int64  `json:"ownerUin"`
@@ -41,7 +53,7 @@ type projectInfo struct {
 type SCertificate struct {
 	multicloud.SResourceBase
 	QcloudTags
-	region *SRegion
+	client *SQcloudClient
 
 	CertificateID       string      `json:"CertificateId"`
 	CertificateType     string      `json:"CertificateType"`
@@ -71,11 +83,16 @@ type SCertificate struct {
 	SubjectAltName        []string `json:"subjectAltName"`
 	CertificatePrivateKey string   `json:"CertificatePrivateKey"`
 	CertificatePublicKey  string   `json:"CertificatePublicKey"`
+	CertFingerprint       string   `json:"CertFingerprint"`
 }
 
 func (self *SCertificate) GetDetails() (*SCertificate, error) {
 	if !self.detailsInitd {
-		cert, err := self.region.GetCertificate(self.GetId())
+		var (
+			cert *SCertificate
+			err  error
+		)
+		cert, err = self.client.GetCertificate(self.GetId())
 		if err != nil {
 			return nil, err
 		}
@@ -83,6 +100,7 @@ func (self *SCertificate) GetDetails() (*SCertificate, error) {
 		self.SubjectAltName = cert.SubjectAltName
 		self.CertificatePrivateKey = cert.CertificatePrivateKey
 		self.CertificatePublicKey = cert.CertificatePublicKey
+		self.CertFingerprint = cert.CertFingerprint
 	}
 	return self, nil
 }
@@ -97,13 +115,23 @@ func (self *SCertificate) GetPrivateKey() string {
 	return self.CertificatePrivateKey
 }
 
+func (self *SCertificate) GetCert() string {
+	self.GetDetails()
+	return self.CertificatePublicKey
+}
+
+func (self *SCertificate) GetKey() string {
+	self.GetDetails()
+	return self.CertificatePrivateKey
+}
+
 // 证书不能修改
 func (self *SCertificate) Sync(name, privateKey, publickKey string) error {
 	return cloudprovider.ErrNotSupported
 }
 
 func (self *SCertificate) Delete() error {
-	return self.region.DeleteCertificate(self.GetId())
+	return self.client.DeleteCertificate(self.GetId())
 }
 
 func (self *SCertificate) GetId() string {
@@ -111,7 +139,11 @@ func (self *SCertificate) GetId() string {
 }
 
 func (self *SCertificate) GetName() string {
-	return self.Alias
+	if len(self.Alias) > 0 {
+		return self.Alias
+	} else {
+		return self.Domain
+	}
 }
 
 func (self *SCertificate) GetGlobalId() string {
@@ -120,11 +152,14 @@ func (self *SCertificate) GetGlobalId() string {
 
 // todo: 貌似目前onecloud没有记录状态
 func (self *SCertificate) GetStatus() string {
-	return strconv.Itoa(self.Status)
+	if _, ok := CERT_STATUS_MAP[self.Status]; !ok {
+		return "unknown"
+	}
+	return CERT_STATUS_MAP[self.Status]
 }
 
 func (self *SCertificate) Refresh() error {
-	cert, err := self.region.GetCertificate(self.GetId())
+	cert, err := self.client.GetCertificate(self.GetId())
 	if err != nil {
 		return errors.Wrap(err, "GetCertificate")
 	}
@@ -142,7 +177,7 @@ func (self *SCertificate) GetCommonName() string {
 
 func (self *SCertificate) GetSubjectAlternativeNames() string {
 	self.GetDetails()
-	return strings.Join(self.SubjectAltName, ",")
+	return self.CertFingerprint
 }
 
 func (self *SCertificate) GetFingerprint() string {
@@ -160,11 +195,164 @@ func (self *SCertificate) GetProjectId() string {
 	return self.ProjectID
 }
 
-// ssl.tencentcloudapi.com
-/*
-状态值 0：审核中，1：已通过，2：审核失败，3：已过期，4：已添加 DNS 解析记录，5：OV/EV 证书，待提交资料，6：订单取消中，7：已取消，8：已提交资料， 待上传确认函。
-*/
-func (self *SRegion) GetCertificates(projectId, certificateStatus, searchKey string) ([]SCertificate, error) {
+func (self *SCertificate) GetSans() string {
+	return strings.Join(self.SubjectAltName, ",")
+}
+
+func (self *SCertificate) GetStartDate() time.Time {
+	return self.CERTBeginTime
+}
+
+func (self *SCertificate) GetProvince() string {
+	return ""
+}
+
+func (self *SCertificate) GetCommon() string {
+	return self.Domain
+}
+
+func (self *SCertificate) GetCountry() string {
+	return ""
+}
+
+func (self *SCertificate) GetIssuer() string {
+	return self.ProductZhName
+}
+
+func (self *SCertificate) GetExpired() bool {
+	if self.Status == 3 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (self *SCertificate) GetEndDate() time.Time {
+	return self.CERTEndTime
+}
+
+func (self *SCertificate) GetCity() string {
+	return ""
+}
+
+func (self *SCertificate) GetOrgName() string {
+	return ""
+}
+
+func (self *SCertificate) GetIsUpload() bool {
+	if self.From == "upload" {
+		return true
+	}
+	return false
+}
+
+// https://cloud.tencent.com/document/product/400/41674
+func (self *SQcloudClient) GetCertificate(certId string) (*SCertificate, error) {
+	params := map[string]string{
+		"CertificateId": certId,
+	}
+
+	resp, err := self.sslRequest("DescribeCertificateDetail", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeCertificateDetail")
+	}
+
+	cert := &SCertificate{client: self}
+	err = resp.Unmarshal(cert)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+
+	return cert, nil
+}
+
+// https://cloud.tencent.com/document/product/400/41665
+// 返回证书ID
+func (self *SQcloudClient) CreateCertificate(projectId, publicKey, privateKey, certType, desc string) (string, error) {
+	params := map[string]string{
+		"CertificatePublicKey": publicKey,
+		"CertificateType":      certType,
+		"Alias":                desc,
+	}
+
+	if len(privateKey) > 0 {
+		params["CertificatePrivateKey"] = privateKey
+	} else {
+		if certType == "SVR" {
+			return "", fmt.Errorf("certificate private key required while certificate type is SVR")
+		}
+	}
+
+	if len(projectId) > 0 {
+		params["ProjectId"] = projectId
+	}
+
+	resp, err := self.sslRequest("UploadCertificate", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("CertificateId")
+}
+
+// https://cloud.tencent.com/document/product/400/41675
+func (self *SQcloudClient) DeleteCertificate(id string) error {
+	if len(id) == 0 {
+		return fmt.Errorf("DelteCertificate certificate id should not be empty")
+	}
+
+	params := map[string]string{"CertificateId": id}
+	resp, err := self.sslRequest("DeleteCertificate", params)
+	if err != nil {
+		return errors.Wrap(err, "DeleteCertificate")
+	}
+
+	if deleted, _ := resp.Bool("DeleteResult"); deleted {
+		return nil
+	}
+	return fmt.Errorf("DeleteCertificate %s", resp)
+}
+
+func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certs, err := self.client.GetCertificates("", "", "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCertificates")
+	}
+
+	icerts := make([]cloudprovider.ICloudLoadbalancerCertificate, len(certs))
+	for i := range certs {
+		icerts[i] = &certs[i]
+	}
+
+	return icerts, nil
+}
+
+func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	cert, err := self.client.GetCertificate(certId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCertificate")
+	}
+
+	return cert, nil
+}
+
+// todo:目前onecloud端只能指定服务器端证书。需要兼容客户端证书？
+// todo:支持指定Project。
+// todo: 已过期的证书不能上传也不能关联资源
+func (self *SRegion) CreateILoadBalancerCertificate(input *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certId, err := self.client.CreateCertificate("", input.Certificate, input.PrivateKey, "SVR", input.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	cert, err := self.client.GetCertificate(certId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCertificate")
+	}
+	return cert, nil
+}
+
+func (self *SQcloudClient) GetCertificates(projectId, certificateStatus, searchKey string) ([]SCertificate, error) {
 	params := map[string]string{}
 	params["Limit"] = "100"
 	if len(projectId) > 0 {
@@ -200,121 +388,13 @@ func (self *SRegion) GetCertificates(projectId, certificateStatus, searchKey str
 			return nil, errors.Wrap(err, "Unmarshal.TotalCount")
 		}
 
-		certs = append(certs, _certs...)
+		for i := range _certs {
+			_certs[i].client = self
+			certs = append(certs, _certs[i])
+		}
+
 		offset += 100
 	}
 
-	for i := range certs {
-		certs[i].region = self
-	}
-
 	return certs, nil
-}
-
-// https://cloud.tencent.com/document/product/400/41674
-func (self *SRegion) GetCertificate(certId string) (*SCertificate, error) {
-	params := map[string]string{
-		"CertificateId": certId,
-	}
-
-	resp, err := self.sslRequest("DescribeCertificateDetail", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeCertificateDetail")
-	}
-
-	cert := &SCertificate{}
-	err = resp.Unmarshal(cert)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
-	}
-	cert.region = self
-
-	return cert, nil
-}
-
-// https://cloud.tencent.com/document/product/400/41665
-// 返回证书ID
-func (self *SRegion) CreateCertificate(projectId, publicKey, privateKey, certType, desc string) (string, error) {
-	params := map[string]string{
-		"CertificatePublicKey": publicKey,
-		"CertificateType":      certType,
-		"Alias":                desc,
-	}
-
-	if len(privateKey) > 0 {
-		params["CertificatePrivateKey"] = privateKey
-	} else {
-		if certType == "SVR" {
-			return "", fmt.Errorf("certificate private key required while certificate type is SVR")
-		}
-	}
-
-	if len(projectId) > 0 {
-		params["ProjectId"] = projectId
-	}
-
-	resp, err := self.sslRequest("UploadCertificate", params)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.GetString("CertificateId")
-}
-
-// https://cloud.tencent.com/document/product/400/41675
-func (self *SRegion) DeleteCertificate(id string) error {
-	if len(id) == 0 {
-		return fmt.Errorf("DelteCertificate certificate id should not be empty")
-	}
-
-	params := map[string]string{"CertificateId": id}
-	resp, err := self.sslRequest("DeleteCertificate", params)
-	if err != nil {
-		return errors.Wrap(err, "DeleteCertificate")
-	}
-
-	if deleted, _ := resp.Bool("DeleteResult"); deleted {
-		return nil
-	} else {
-		return fmt.Errorf("DeleteCertificate %s", resp)
-	}
-}
-
-func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	certs, err := self.GetCertificates("", "", "")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetCertificates")
-	}
-
-	icerts := make([]cloudprovider.ICloudLoadbalancerCertificate, len(certs))
-	for i := range certs {
-		icerts[i] = &certs[i]
-	}
-
-	return icerts, nil
-}
-
-func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	cert, err := self.GetCertificate(certId)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetCertificate")
-	}
-
-	return cert, nil
-}
-
-// todo:目前onecloud端只能指定服务器端证书。需要兼容客户端证书？
-// todo:支持指定Project。
-// todo: 已过期的证书不能上传也不能关联资源
-func (self *SRegion) CreateILoadBalancerCertificate(input *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	certId, err := self.CreateCertificate("", input.Certificate, input.PrivateKey, "SVR", input.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	cert, err := self.GetCertificate(certId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetCertificate")
-	}
-	return cert, nil
 }

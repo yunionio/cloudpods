@@ -466,3 +466,7 @@ func (self *SQcloudProvider) CreateICloudCDNDomain(opts *cloudprovider.CdnCreate
 func (self *SQcloudProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	return self.client.GetMetrics(opts)
 }
+
+func (self *SQcloudProvider) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	return self.client.GetISSLCertificates()
+}

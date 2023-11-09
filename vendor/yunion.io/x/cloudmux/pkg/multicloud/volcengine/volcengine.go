@@ -189,6 +189,7 @@ func (client *SVolcEngineClient) GetSubAccounts() ([]cloudprovider.SSubAccount, 
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = client.GetAccountId()
 	subAccount.Name = client.cpcfg.Name
 	subAccount.Account = client.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
