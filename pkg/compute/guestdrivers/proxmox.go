@@ -160,6 +160,21 @@ func (self *SProxmoxGuestDriver) ValidateCreateData(ctx context.Context, userCre
 			return nil, err
 		}
 	}
+	if len(input.Cdrom) > 0 {
+		image, err := models.CachedimageManager.GetCachedimageById(ctx, userCred, input.Cdrom, false)
+		if err != nil {
+			return nil, err
+		}
+		if len(image.ExternalId) > 0 {
+			hosts, err := image.GetHosts()
+			if err != nil {
+				return nil, err
+			}
+			if len(input.PreferHost) == 0 && len(hosts) == 1 {
+				input.PreferHost = hosts[0].Id
+			}
+		}
+	}
 	return input, nil
 }
 
