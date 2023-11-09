@@ -44,7 +44,7 @@ type IBridgeDriver interface {
 	Setup(IBridgeDriver) error
 	SetupAddresses(net.IPMask) error
 	SetupSlaveAddresses([][]string) error
-	SetupRoutes([]iproute2.RouteSpec) error
+	SetupRoutes(routes []iproute2.RouteSpec) error
 	BringupInterface() error
 
 	Exists() (bool, error)
@@ -270,9 +270,16 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 }
 
 func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec) error {
+	bridgeIP := d.inter.Addr
+	bridgeMask := d.inter.Mask
 	br := d.bridge.String()
 	for i := len(routespecs) - 1; i >= 0; i-- {
+		errs := []error{}
 		routespec := routespecs[i]
+		if routespec.Dst.Contains(net.ParseIP(bridgeIP)) && bridgeMask.String() == routespec.Dst.Mask.String() {
+			log.Infof("skip setup route: %s", routespec.String())
+			continue
+		}
 		cmd := []string{
 			"route", "add", routespec.Dst.String(),
 		}
@@ -281,12 +288,13 @@ func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec) error {
 		}
 		cmd = append(cmd, "dev", br)
 
-		err := procutils.NewRemoteCommandAsFarAsPossible("ip", cmd...).Run()
+		output, err := procutils.NewRemoteCommandAsFarAsPossible("ip", cmd...).Output()
 		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "run cmd: ip %s, output: %s", strings.Join(cmd, " "), output))
 			cmd = append(cmd, "onlink")
-			err := procutils.NewRemoteCommandAsFarAsPossible("ip", cmd...).Run()
-			if err != nil {
-				return errors.Wrap(err, "setup routes")
+			if output, err := procutils.NewRemoteCommandAsFarAsPossible("ip", cmd...).Output(); err != nil {
+				errs = append(errs, errors.Wrapf(err, "run cmd: ip %s, output: %s", strings.Join(cmd, " "), output))
+				return errors.Wrapf(errors.NewAggregate(errs), "setup route %s", routespec.String())
 			}
 		}
 	}

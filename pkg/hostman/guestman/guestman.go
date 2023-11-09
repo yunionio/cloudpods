@@ -1011,6 +1011,9 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		ret.Set("migrate_certs", jsonutils.Marshal(certs))
 	}
 	if migParams.LiveMigrate {
+		if guest.Desc.Machine == "" {
+			guest.Desc.Machine = guest.getMachine()
+		}
 		if err = guest.syncVirtioDiskNumQueues(); err != nil {
 			return nil, errors.Wrap(err, "syncVirtioDiskNumQueues")
 		}
