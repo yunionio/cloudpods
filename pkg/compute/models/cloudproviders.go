@@ -53,6 +53,7 @@ import (
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 	db.SProjectizedResourceBaseManager
+	db.SExternalizedResourceBaseManager
 
 	SProjectMappingResourceBaseManager
 	SSyncableBaseResourceManager
@@ -75,6 +76,7 @@ func init() {
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
 	db.SProjectizedResourceBase
+	db.SExternalizedResourceBase
 
 	SSyncableBaseResource
 
@@ -1340,6 +1342,10 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	q, err = manager.SSyncableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SyncableBaseResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	managerStrs := query.CloudproviderId
