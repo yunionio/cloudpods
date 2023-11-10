@@ -15,13 +15,17 @@
 package taskman
 
 import (
+	"context"
 	"fmt"
 	"runtime/debug"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
 
 var localTaskWorkerMan *appsrv.SWorkerManager
@@ -48,6 +52,7 @@ func (t *localTask) Run() {
 
 	defer func() {
 		if r := recover(); r != nil {
+			yunionconf.BugReport.SendBugReport(context.Background(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", r))
 			log.Errorf("LocalTaskRun error: %s", r)
 			debug.PrintStack()
 			t.task.ScheduleRun(Error2TaskData(fmt.Errorf("LocalTaskRun error: %s", r)))

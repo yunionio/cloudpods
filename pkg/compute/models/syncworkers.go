@@ -24,10 +24,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
 
 var (
@@ -85,6 +87,7 @@ func RunSyncCloudproviderRegionTask(ctx context.Context, key string, syncFunc fu
 		data.Add(jsonutils.NewString(string(debug.Stack())), "stack")
 		data.Add(jsonutils.NewString(err.Error()), "error")
 		notifyclient.SystemExceptionNotify(context.TODO(), api.ActionSystemPanic, api.TOPIC_RESOURCE_TASK, data)
+		yunionconf.BugReport.SendBugReport(ctx, version.GetShortString(), string(debug.Stack()), err)
 	})
 }
 
@@ -100,5 +103,6 @@ func RunSyncCloudAccountTask(ctx context.Context, probeFunc func()) {
 		data.Add(jsonutils.NewString(string(debug.Stack())), "stack")
 		data.Add(jsonutils.NewString(err.Error()), "error")
 		notifyclient.SystemExceptionNotify(context.TODO(), api.ActionSystemPanic, api.TOPIC_RESOURCE_TASK, data)
+		yunionconf.BugReport.SendBugReport(ctx, version.GetShortString(), string(debug.Stack()), err)
 	})
 }

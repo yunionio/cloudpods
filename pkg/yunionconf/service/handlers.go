@@ -15,9 +15,20 @@
 package service
 
 import (
+	"context"
+	"encoding/base64"
+	"fmt"
+	"net/http"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/httputils"
+
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	"yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/yunionconf/models"
 )
 
@@ -25,6 +36,7 @@ func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
 	db.AddScopeResourceCountHandler("", app)
+	addBugReportHandler("", app)
 
 	for _, manager := range []db.IModelManager{
 		db.UserCacheManager,
@@ -49,4 +61,49 @@ func InitHandlers(app *appsrv.Application) {
 			dispatcher.AddModelDispatcher("/services/<service_id>", app, handler)
 		}
 	}
+}
+
+func addBugReportHandler(prefix string, app *appsrv.Application) {
+	app.AddHandler("GET", fmt.Sprintf("%s/bug-report-status", prefix), bugReportStatusHandler)
+	app.AddHandler("POST", fmt.Sprintf("%s/enable-bug-report", prefix), enableBugReportHandler)
+	app.AddHandler("POST", fmt.Sprintf("%s/send-bug-report", prefix), sendBugReportHandler)
+}
+
+func bugReportStatusHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	enabled := models.ParameterManager.GetBugReportEnabled()
+	appsrv.SendJSON(w, jsonutils.Marshal(map[string]bool{"enabled": enabled}))
+}
+
+func enableBugReportHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	enabled := models.ParameterManager.EnableBugReport(ctx)
+	appsrv.SendJSON(w, jsonutils.Marshal(map[string]bool{"enabled": enabled}))
+}
+
+func sendBugReportHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	if !models.ParameterManager.GetBugReportEnabled() {
+		appsrv.SendJSON(w, jsonutils.Marshal(map[string]bool{"status": false}))
+		return
+	}
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	apiServer := options.Options.ApiServer
+	if len(apiServer) == 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		commonCfg, _ := identity.ServicesV3.GetSpecific(s, "common", "config", nil)
+		if commonCfg != nil {
+			_apiServer, _ := commonCfg.GetString("config", "default", "api_server")
+			if len(_apiServer) > 0 {
+				apiServer = _apiServer
+			}
+		}
+	}
+	params := jsonutils.NewDict()
+	params.Set("api_server", jsonutils.NewString(apiServer))
+	params.Update(body)
+	url, _ := base64.StdEncoding.DecodeString("aHR0cHM6Ly9jbG91ZC55dW5pb24uY24vYXBpL3YyL2J1Zy1yZXBvcnQ=")
+	_, _, err := httputils.JSONRequest(nil, ctx, httputils.POST, string(url), nil, params, false)
+	if err != nil {
+		appsrv.SendJSON(w, jsonutils.Marshal(map[string]bool{"status": false}))
+		return
+	}
+	appsrv.SendJSON(w, jsonutils.Marshal(map[string]bool{"status": true}))
 }
