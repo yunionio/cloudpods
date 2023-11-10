@@ -25,12 +25,14 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
 
 var (
@@ -444,6 +446,7 @@ func (job *SCronJob) runJobInWorker(isStart bool, startTime time.Time) {
 		if r := recover(); r != nil {
 			log.Errorf("CronJob task %s run error: %s", job.Name, r)
 			debug.PrintStack()
+			yunionconf.BugReport.SendBugReport(context.Background(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", r))
 		}
 	}()
 
