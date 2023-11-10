@@ -15,6 +15,7 @@
 package apis
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -133,6 +134,19 @@ type MetadataResourceInfo struct {
 	Metadata map[string]string `json:"metadata"`
 }
 
+func (self MetadataResourceInfo) GetMetricTags() map[string]string {
+	ret := map[string]string{}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, "user:") {
+			if strings.Contains(k, "login_key") || strings.Contains(v, "=") {
+				continue
+			}
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
 type StatusDomainLevelUserResourceDetails struct {
 	StatusDomainLevelResourceDetails
 
@@ -178,6 +192,19 @@ type ProjectizedResourceInfo struct {
 	Tenant string `json:"project" yunion-deprecated-by:"tenant"`
 
 	ProjectMetadata map[string]string `json:"project_metadata"`
+}
+
+func (self ProjectizedResourceInfo) GetMetricTags() map[string]string {
+	ret := map[string]string{}
+	for k, v := range self.ProjectMetadata {
+		if strings.HasPrefix(k, "user:") || strings.HasPrefix(k, "org:") {
+			if strings.Contains(v, "=") {
+				continue
+			}
+			ret["project:"+k] = v
+		}
+	}
+	return ret
 }
 
 type ScopedResourceBaseInfo struct {
