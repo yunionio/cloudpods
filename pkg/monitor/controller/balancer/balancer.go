@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
+	"yunion.io/x/onecloud/pkg/monitor/datasource"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
@@ -145,11 +146,10 @@ func NewRules(_ *alerting.EvalContext, m *monitor.EvalMatch, alert *models.SMigr
 		allHosts = append(allHosts, oh)
 	}
 
-	dsObj, err := models.DataSourceManager.GetDefaultSource()
+	ds, err := datasource.GetDefaultSource("telegraf")
 	if err != nil {
 		return nil, errors.Wrapf(err, "Get default DataSource")
 	}
-	ds := dsObj.ToTSDBDataSource("")
 	// find guests to filtered by source setting of source host alerted
 	cds, err := findGuestsOfHost(drv, srcHost, ds, msettings)
 	if err != nil {

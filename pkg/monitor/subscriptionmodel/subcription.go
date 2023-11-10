@@ -81,7 +81,7 @@ func (self *SSubscriptionManager) AddSubscription() {
 		return
 	}
 	log.Infof("drop success")
-	err = models.DataSourceManager.AddSubscription(sub)
+	/*err = models.DataSourceManager.AddSubscription(sub)
 	if err != nil {
 		log.Errorln("add subscription err:", err)
 		return
@@ -90,7 +90,7 @@ func (self *SSubscriptionManager) AddSubscription() {
 	if err := self.LoadSystemAlerts(); err != nil {
 		log.Errorf("load system alerts error: %v", err)
 		return
-	}
+	}*/
 }
 
 func (self *SSubscriptionManager) LoadSystemAlerts() error {

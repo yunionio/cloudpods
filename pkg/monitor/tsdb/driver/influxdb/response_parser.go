@@ -75,7 +75,7 @@ func (rp *ResponseParser) transformRows(rows []Row, queryResult *tsdb.QueryResul
 
 func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryResult, query *Query) tsdb.TimeSeriesSlice {
 	var result tsdb.TimeSeriesSlice
-	for _, row := range rows {
+	for idx, row := range rows {
 		col := ""
 		columns := make([]string, 0)
 		for _, column := range row.Columns {
@@ -104,15 +104,22 @@ func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryRes
 			val_ := strings.ReplaceAll(val, "+", " ")
 			tags[key] = val_
 		}
-		result = append(result, &tsdb.TimeSeries{
-			Name:    rp.formatSerieName(row, col, query),
-			Columns: columns,
-			Points:  points,
-			Tags:    tags,
-		})
+		name := rp.formatSerieName(row, col, query)
+		ts := tsdb.NewTimeSeries(name, formatRawName(idx, name, query, tags), columns, points, tags)
+		result = append(result, ts)
 	}
 
 	return result
+}
+
+func formatRawName(idx int, name string, query *Query, tags map[string]string) string {
+	groupByTags := []string{}
+	for _, group := range query.GroupBy {
+		if group.Type == "tag" {
+			groupByTags = append(groupByTags, group.Params[0])
+		}
+	}
+	return tsdb.FormatRawName(idx, name, groupByTags, tags)
 }
 
 func (rp *ResponseParser) transformRowToTable(row Row, table *tsdb.Table) *tsdb.Table {

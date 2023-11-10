@@ -201,16 +201,16 @@ type AlertRuleTag struct {
 	Value string
 }
 
-func setAlertDefaultSetting(setting *monitor.AlertSetting, dsId string) *monitor.AlertSetting {
+func setAlertDefaultSetting(setting *monitor.AlertSetting) *monitor.AlertSetting {
 	for idx, cond := range setting.Conditions {
-		cond = setAlertDefaultCondition(cond, dsId)
+		cond = setAlertDefaultCondition(cond)
 		setting.Conditions[idx] = cond
 	}
 	return setting
 }
 
-func setAlertDefaultCreateData(data monitor.AlertCreateInput, dsId string) monitor.AlertCreateInput {
-	setting := setAlertDefaultSetting(&data.Settings, dsId)
+func setAlertDefaultCreateData(data monitor.AlertCreateInput) monitor.AlertCreateInput {
+	setting := setAlertDefaultSetting(&data.Settings)
 	data.Settings = *setting
 	enable := true
 	if data.Enabled == nil {
@@ -219,7 +219,7 @@ func setAlertDefaultCreateData(data monitor.AlertCreateInput, dsId string) monit
 	return data
 }
 
-func setAlertDefaultCondition(cond monitor.AlertCondition, dsId string) monitor.AlertCondition {
+func setAlertDefaultCondition(cond monitor.AlertCondition) monitor.AlertCondition {
 	if cond.Type == "" {
 		cond.Type = "query"
 	}
@@ -229,18 +229,11 @@ func setAlertDefaultCondition(cond monitor.AlertCondition, dsId string) monitor.
 	if cond.Operator == "" {
 		cond.Operator = "and"
 	}
-	if cond.Query.DataSourceId == "" {
-		cond.Query.DataSourceId = dsId
-	}
 	return cond
 }
 
 func (man *SAlertManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, data monitor.AlertCreateInput) (monitor.AlertCreateInput, error) {
-	ds, err := DataSourceManager.GetDefaultSource()
-	if err != nil {
-		return data, errors.Wrap(err, "get default data source")
-	}
-	data = setAlertDefaultCreateData(data, ds.GetId())
+	data = setAlertDefaultCreateData(data)
 	if err := validators.ValidateAlertCreateInput(data); err != nil {
 		return data, err
 	}

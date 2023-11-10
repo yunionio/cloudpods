@@ -31,6 +31,7 @@ import (
 
 	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -312,7 +313,12 @@ func (s *Service) monitorReverseEndpoint() *proxy.SEndpointFactory {
 		if guestDesc == nil {
 			return "", httperrors.NewNotFoundError("vm not found")
 		}
-		return auth.GetServiceURL("influxdb", options.HostOptions.Region, guestDesc.Zone, identity_api.EndpointInterfaceInternal)
+		s := auth.GetAdminSession(ctx, options.HostOptions.Region)
+		srcURL, err := tsdb.GetDefaultServiceSourceURL(s, identity_api.EndpointInterfaceInternal)
+		if err != nil {
+			return "", errors.Wrap(err, "monitorReverseEndpoint get tsdb url")
+		}
+		return srcURL, nil
 	}
 	return proxy.NewEndpointFactory(f, "monitorService")
 }
