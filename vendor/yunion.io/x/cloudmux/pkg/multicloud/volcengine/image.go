@@ -245,6 +245,7 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 	}
 	for i := range images {
 		if images[i].ImageId == imageId {
+			images[i].storageCache = region.getStoragecache()
 			return &images[i], nil
 		}
 	}
