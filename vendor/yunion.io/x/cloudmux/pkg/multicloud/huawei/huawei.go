@@ -870,7 +870,6 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_MODELARTES,
 		cloudprovider.CLOUD_CAPABILITY_VPC_PEER,
-		cloudprovider.CLOUD_CAPABILITY_CERT,
 	}
 	// huawei objectstore is shared across projects(subscriptions)
 	// to avoid multiple project access the same bucket

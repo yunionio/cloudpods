@@ -2304,10 +2304,6 @@ func syncPublicCloudProviderInfo(
 		}
 	}
 
-	if cloudprovider.IsSupportSSLCertificate(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CERT) {
-		syncSSLCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
-	}
-
 	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 		for i := range storageCachePairs {
@@ -2726,6 +2722,10 @@ func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCred
 		}
 	}
 
+	if cloudprovider.IsSupportSSLCertificate(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CERT) {
+		syncSSLCertificates(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+	}
+
 	return nil
 }
 
@@ -2815,6 +2815,19 @@ func syncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, sync
 		log.Infof(notes)
 	}
 
+	return nil
+}
+
+func syncSSLCertificates(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, xor bool) error {
+	iEss, err := driver.GetISSLCertificates()
+	if err != nil {
+		return err
+	}
+
+	result := provider.SyncSSLCertificates(ctx, userCred, iEss)
+	notes := fmt.Sprintf("SyncSSLCertificates for provider %s result: %s", provider.Name, result.Result())
+	log.Infof(notes)
+	provider.SyncError(result, notes, userCred)
 	return nil
 }
 
@@ -2914,28 +2927,5 @@ func syncMiscResources(
 	notes := fmt.Sprintf("SyncMiscResources for provider %s result: %s", provider.GetName(), result.Result())
 	log.Infof(notes)
 	provider.SyncError(result, notes, userCred)
-	return nil
-}
-
-func syncSSLCertificates(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
-	driver, err := provider.GetProvider(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "GetProvider")
-	}
-
-	iEss, err := driver.GetISSLCertificates()
-	if err != nil {
-		msg := fmt.Sprintf("GetISSLCertificates for region %s failed %s", remoteRegion.GetName(), err)
-		log.Errorf(msg)
-		return err
-	}
-
-	result := provider.SyncSSLCertificates(ctx, userCred, iEss)
-	syncResults.Add(SSLCertificateManager, result)
-	msg := result.Result()
-	log.Infof("SyncSSLCertificates for region %s result: %s", localRegion.Name, msg)
-	if result.IsError() {
-		return result.AllError()
-	}
 	return nil
 }
