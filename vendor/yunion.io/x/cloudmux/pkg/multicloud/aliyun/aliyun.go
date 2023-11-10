@@ -961,6 +961,50 @@ func (self *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error)
 	return ret, nil
 }
 
+func (self *SAliyunClient) scRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient(ALIYUN_DEFAULT_REGION)
+	if err != nil {
+		return nil, err
+	}
+	domain := "cas.aliyuncs.com"
+	return jsonRequest(client, domain, ALIYUN_CAS_API_VERSION, apiName, params, self.debug)
+}
+
+func (self *SAliyunClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	ret := make([]SSSLCertificate, 0)
+
+	for {
+		part, total, err := self.GetSSLCertificates(100, len(ret)/100+1)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSSLCertificates")
+		}
+
+		ret = append(ret, part...)
+		if len(ret) >= total {
+			break
+		}
+	}
+
+	result := make([]cloudprovider.ICloudSSLCertificate, 0)
+	for i := range ret {
+		if !ret[i].BuyInAliyun {
+			continue
+		}
+		ret[i].client = self
+		result = append(result, &ret[i])
+	}
+	return result, nil
+}
+
+func (self *SAliyunClient) GetISSLCertificate(certId string) (cloudprovider.ICloudSSLCertificate, error) {
+	var res cloudprovider.ICloudSSLCertificate
+	res, err := self.GetSSLCertificate(certId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSSLCertificate")
+	}
+	return res, nil
+}
+
 func (region *SAliyunClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,

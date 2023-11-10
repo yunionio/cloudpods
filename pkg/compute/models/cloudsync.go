@@ -2722,6 +2722,10 @@ func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCred
 		}
 	}
 
+	if cloudprovider.IsSupportSSLCertificate(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CERT) {
+		syncSSLCertificates(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+	}
+
 	return nil
 }
 
@@ -2811,6 +2815,19 @@ func syncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, sync
 		log.Infof(notes)
 	}
 
+	return nil
+}
+
+func syncSSLCertificates(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, xor bool) error {
+	iEss, err := driver.GetISSLCertificates()
+	if err != nil {
+		return err
+	}
+
+	result := provider.SyncSSLCertificates(ctx, userCred, iEss)
+	notes := fmt.Sprintf("SyncSSLCertificates for provider %s result: %s", provider.Name, result.Result())
+	log.Infof(notes)
+	provider.SyncError(result, notes, userCred)
 	return nil
 }
 

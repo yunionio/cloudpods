@@ -311,3 +311,11 @@ func (self *SHuaweiProvider) GetMetrics(opts *cloudprovider.MetricListOptions) (
 	}
 	return metrics, nil
 }
+
+func (self *SHuaweiProvider) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	return self.client.GetISSLCertificates()
+}
+
+func (self *SHuaweiProvider) GetISSLCertificate(certId string) (cloudprovider.ICloudSSLCertificate, error) {
+	return self.client.GetISSLCertificate(certId)
+}

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
 )
@@ -13,7 +12,7 @@ import (
 type SSSLCertificate struct {
 	multicloud.SVirtualResourceBase
 	AliyunTags
-	region *SRegion
+	client *SAliyunClient
 
 	Sans        string    // 证书的SAN（Subject Alternative Name）扩展属性，表示证书关联的其他域名、IP地址等
 	Id          int       // 证书ID
@@ -116,45 +115,22 @@ func (s *SSSLCertificate) GetKey() string {
 
 func (s *SSSLCertificate) GetDetails() (*SSSLCertificate, error) {
 	if !s.detailsInitd {
-		cert, err := s.region.GetCertificate(s.GetId())
+		cert, err := s.client.GetISSLCertificate(s.GetId())
 		if err != nil {
 			return nil, err
 		}
 		s.detailsInitd = true
-		s.Cert = cert.Cert
-		s.Key = cert.Key
+		_cert, ok := cert.(*SSSLCertificate)
+		if !ok {
+			return nil, errors.Wrapf(err, "cert.(*SSSLCertificate)")
+		}
+		s.Cert = _cert.Cert
+		s.Key = _cert.Key
 	}
 	return s, nil
 }
 
-// GetISSLCertificates 获取证书资源列表
-func (r *SRegion) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
-	ret := make([]SSSLCertificate, 0)
-
-	for {
-		part, total, err := r.GetSSLCertificates(100, len(ret)/100+1)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetSSLCertificates")
-		}
-
-		ret = append(ret, part...)
-		if len(ret) >= total {
-			break
-		}
-	}
-
-	result := make([]cloudprovider.ICloudSSLCertificate, 0)
-	for i := range ret {
-		if !ret[i].BuyInAliyun {
-			continue
-		}
-		ret[i].region = r
-		result = append(result, &ret[i])
-	}
-	return result, nil
-}
-
-func (r *SRegion) GetSSLCertificates(size, page int) ([]SSSLCertificate, int, error) {
+func (self *SAliyunClient) GetSSLCertificates(size, page int) ([]SSSLCertificate, int, error) {
 	if size < 1 || size > 100 {
 		size = 100
 	}
@@ -166,7 +142,7 @@ func (r *SRegion) GetSSLCertificates(size, page int) ([]SSSLCertificate, int, er
 		"ShowSize":    fmt.Sprintf("%d", size),
 		"CurrentPage": fmt.Sprintf("%d", page),
 	}
-	resp, err := r.scRequest("DescribeUserCertificateList", params)
+	resp, err := self.scRequest("DescribeUserCertificateList", params)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "DescribeUserCertificateList")
 	}
@@ -181,11 +157,11 @@ func (r *SRegion) GetSSLCertificates(size, page int) ([]SSSLCertificate, int, er
 	return ret, int(totalCount), nil
 }
 
-func (r *SRegion) GetCertificate(certId string) (*SSSLCertificate, error) {
+func (self *SAliyunClient) GetSSLCertificate(certId string) (*SSSLCertificate, error) {
 	params := map[string]string{
 		"CertId": fmt.Sprintf("%s", certId),
 	}
-	resp, err := r.scRequest("DescribeUserCertificateDetail", params)
+	resp, err := self.scRequest("DescribeUserCertificateDetail", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeUserCertificateDetail")
 	}
@@ -195,7 +171,7 @@ func (r *SRegion) GetCertificate(certId string) (*SSSLCertificate, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
-	cert.region = r
 
+	cert.client = self
 	return cert, nil
 }

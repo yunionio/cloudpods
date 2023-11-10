@@ -512,10 +512,6 @@ func (self *SRegion) sqlserverRequest(apiName string, params map[string]string) 
 	return self.client.sqlserverRequest(apiName, params)
 }
 
-func (self *SRegion) sslRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return self.client.sslRequest(apiName, params)
-}
-
 func (self *SRegion) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.kafkaRequest(apiName, params)

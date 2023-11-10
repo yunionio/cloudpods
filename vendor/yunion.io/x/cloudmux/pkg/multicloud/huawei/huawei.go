@@ -57,8 +57,9 @@ const (
 	HUAWEI_INTERNATIONAL_CLOUDENV = "InternationalCloud"
 	HUAWEI_CHINA_CLOUDENV         = "ChinaCloud"
 
-	HUAWEI_DEFAULT_REGION = "cn-north-1"
-	HUAWEI_API_VERSION    = "2018-12-25"
+	HUAWEI_DEFAULT_REGION      = "cn-north-1"
+	HUAWEI_CERT_DEFAULT_REGION = "cn-north-4"
+	HUAWEI_API_VERSION         = "2018-12-25"
 
 	SERVICE_IAM       = "iam"
 	SERVICE_ELB       = "elb"
@@ -126,8 +127,9 @@ type SHuaweiClient struct {
 
 	signer auth.Signer
 
-	isMainProject bool // whether the project is the main project in the region
-	clientRegion  string
+	isMainProject     bool // whether the project is the main project in the region
+	isSyncCertProject bool
+	clientRegion      string
 
 	userId          string
 	ownerId         string
@@ -483,6 +485,9 @@ func (self *SHuaweiClient) fetchRegions() error {
 				self.isMainProject = true
 			}
 		}
+		if project.Name == HUAWEI_CERT_DEFAULT_REGION {
+			self.isSyncCertProject = true
+		}
 	} else {
 		filtedRegions = self.regions
 	}
@@ -796,6 +801,41 @@ func (self *SHuaweiClient) queryDomainBalances(domainId string) ([]SBalance, err
 	return balances, nil
 }
 
+func (self *SHuaweiClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	ret := make([]SSSLCertificate, 0)
+	offset := 0
+
+	for {
+		part, total, err := self.GetSSLCertificates(50, offset)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSSLCertificates")
+		}
+
+		ret = append(ret, part...)
+		if len(ret) >= total {
+			break
+		}
+
+		offset += 50
+	}
+
+	result := make([]cloudprovider.ICloudSSLCertificate, 0)
+	for i := range ret {
+		ret[i].client = self
+		result = append(result, &ret[i])
+	}
+	return result, nil
+}
+
+func (self *SHuaweiClient) GetISSLCertificate(certId string) (cloudprovider.ICloudSSLCertificate, error) {
+	var res cloudprovider.ICloudSSLCertificate
+	res, err := self.GetSSLCertificate(certId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSSLCertificate")
+	}
+	return res, nil
+}
+
 func (self *SHuaweiClient) GetVersion() string {
 	return HUAWEI_API_VERSION
 }
@@ -830,13 +870,15 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_MODELARTES,
 		cloudprovider.CLOUD_CAPABILITY_VPC_PEER,
-		cloudprovider.CLOUD_CAPABILITY_CERT,
 	}
 	// huawei objectstore is shared across projects(subscriptions)
 	// to avoid multiple project access the same bucket
 	// only main project is allow to access objectstore bucket
 	if self.isMainProject {
 		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	}
+	if self.isSyncCertProject {
+		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_CERT)
 	}
 	return caps
 }

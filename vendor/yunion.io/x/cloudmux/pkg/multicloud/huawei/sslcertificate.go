@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"time"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
 )
@@ -17,7 +16,7 @@ import (
 type SSSLCertificate struct {
 	multicloud.SVirtualResourceBase
 	HuaweiTags
-	region *SRegion
+	client *SHuaweiClient
 
 	Id                 string // 证书ID
 	Name               string // 证书名称
@@ -138,45 +137,22 @@ func (s *SSSLCertificate) GetKey() string {
 
 func (s *SSSLCertificate) GetDetails() (*SSSLCertificate, error) {
 	if !s.detailsInitd {
-		cert, err := s.region.GetCertificate(s.GetId())
+		cert, err := s.client.GetISSLCertificate(s.GetId())
 		if err != nil {
 			return nil, err
 		}
 		s.detailsInitd = true
-		s.Certificate = cert.Certificate
-		s.PrivateKey = cert.PrivateKey
+		_cert, ok := cert.(*SSSLCertificate)
+		if !ok {
+			return nil, errors.Wrapf(err, "cert.(*SSSLCertificate)")
+		}
+		s.Certificate = _cert.Certificate
+		s.PrivateKey = _cert.PrivateKey
 	}
 	return s, nil
 }
 
-// GetISSLCertificates 获取证书资源列表
-func (r *SRegion) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
-	ret := make([]SSSLCertificate, 0)
-	offset := 0
-
-	for {
-		part, total, err := r.GetSSLCertificates(50, offset)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetSSLCertificates")
-		}
-
-		ret = append(ret, part...)
-		if len(ret) >= total {
-			break
-		}
-
-		offset += 50
-	}
-
-	result := make([]cloudprovider.ICloudSSLCertificate, 0)
-	for i := range ret {
-		ret[i].region = r
-		result = append(result, &ret[i])
-	}
-	return result, nil
-}
-
-func (r *SRegion) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, error) {
+func (r *SHuaweiClient) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, error) {
 	if size < 1 || size > 50 {
 		size = 50
 	}
@@ -190,7 +166,7 @@ func (r *SRegion) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, 
 		"sort_key": []string{"certExpiredTime"},
 		"sort_dir": []string{"DESC"},
 	}
-	resp, err := r.client.sslcertList(r.ID, "scm/certificates", params)
+	resp, err := r.sslcertList(HUAWEI_CERT_DEFAULT_REGION, "scm/certificates", params)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "CertificateList")
 	}
@@ -205,8 +181,8 @@ func (r *SRegion) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, 
 	return ret, int(totalCount), nil
 }
 
-func (r *SRegion) GetCertificate(certId string) (*SSSLCertificate, error) {
-	resp, err := r.client.sslcertExport(r.ID, "scm/certificates", certId)
+func (r *SHuaweiClient) GetSSLCertificate(certId string) (*SSSLCertificate, error) {
+	resp, err := r.sslcertExport(HUAWEI_CERT_DEFAULT_REGION, "scm/certificates", certId)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeCertificateDetail")
 	}
@@ -216,7 +192,6 @@ func (r *SRegion) GetCertificate(certId string) (*SSSLCertificate, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
-	cert.region = r
-
+	cert.client = r
 	return cert, nil
 }

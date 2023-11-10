@@ -982,6 +982,20 @@ func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	return iprojects, nil
 }
 
+func (self *SQcloudClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	rs, err := self.GetCertificates("", "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]cloudprovider.ICloudSSLCertificate, 0)
+	for i := range rs {
+		rs[i].client = self
+		result = append(result, &rs[i])
+	}
+	return result, nil
+}
+
 func (self *SQcloudClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,

@@ -319,6 +319,8 @@ type ICloudProvider interface {
 	CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error)
 
 	GetMetrics(opts *MetricListOptions) ([]MetricValues, error)
+
+	GetISSLCertificates() ([]ICloudSSLCertificate, error)
 }
 
 func IsSupportCapability(prod ICloudProvider, capa string) bool {
@@ -642,6 +644,10 @@ func (self *SBaseProvider) CreateIModelartsPool(pool *ModelartsPoolCreateOption,
 
 func (self *SBaseProvider) GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPoolSku")
+}
+
+func (self *SBaseProvider) GetISSLCertificates() ([]ICloudSSLCertificate, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetISSLCertificates")
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {
