@@ -14,10 +14,6 @@
 
 package monitor
 
-const (
-	DataSourceTypeInfluxdb = "influxdb"
-)
-
 type DataSourceConfig struct {
 	Id     string
 	Name   string

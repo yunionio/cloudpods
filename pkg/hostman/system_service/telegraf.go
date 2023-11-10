@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -76,11 +77,17 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += fmt.Sprintf("  hostname = \"%s\"\n", hostname)
 	conf += "  omit_hostname = false\n"
 	conf += "\n"
-	if ifluxb, ok := kwargs["influxdb"]; ok {
-		influxdb, _ := ifluxb.(map[string]interface{})
+	if influx, ok := kwargs[apis.SERVICE_TYPE_INFLUXDB]; ok {
+		influxdb, _ := influx.(map[string]interface{})
 		inUrls, _ := influxdb["url"]
 		tUrls, _ := inUrls.([]string)
 		inDatabase, _ := influxdb["database"]
+		isVM := false
+		if tsdbType, ok := influxdb["tsdb_type"]; ok {
+			if tsdbType.(string) == apis.SERVICE_TYPE_VICTORIA_METRICS {
+				isVM = true
+			}
+		}
 		tdb, _ := inDatabase.(string)
 		urls := []string{}
 		for _, u := range tUrls {
@@ -90,6 +97,9 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += fmt.Sprintf("  urls = [%s]\n", strings.Join(urls, ", "))
 		conf += fmt.Sprintf("  database = \"%s\"\n", tdb)
 		conf += "  insecure_skip_verify = true\n"
+		if isVM {
+			conf += "  skip_database_creation = true\n"
+		}
 		conf += "  timeout = \"30s\"\n"
 		conf += "\n"
 	}

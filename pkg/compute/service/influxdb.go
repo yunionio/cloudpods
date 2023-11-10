@@ -15,12 +15,13 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -32,7 +33,8 @@ type sInfluxdbEndpointListener struct {
 }
 
 func (listener *sInfluxdbEndpointListener) OnServiceCatalogChange(catalog mcclient.IServiceCatalog) {
-	urls, err := auth.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.Region, "", "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+	urls, err := tsdb.GetDefaultServiceSourceURLs(s, options.Options.SessionEndpointType)
 	if err != nil {
 		log.Debugf("sInfluxdbEndpointListener: no influxdb endpoints found, retry later...")
 		return
