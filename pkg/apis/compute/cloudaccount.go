@@ -370,7 +370,7 @@ func (self CloudaccountDetail) GetMetricTags() map[string]string {
 		"project_domain":    self.ProjectDomain,
 		"currency":          self.Currency,
 	}
-	return ret
+	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }
 
 func (self CloudaccountDetail) GetMetricPairs() map[string]string {

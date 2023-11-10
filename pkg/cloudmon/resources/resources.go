@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudmon/providerdriver"
@@ -48,32 +47,6 @@ type sBaseInfo struct {
 	DeletedAt  time.Time
 	UpdatedAt  time.Time
 	Metadata   map[string]string
-}
-
-type sProjectTag struct {
-	lock sync.Mutex
-	tags map[string]map[string]string
-}
-
-func (self *sProjectTag) SetTags(projectId string, tags map[string]string) {
-	self.lock.Lock()
-	defer self.lock.Unlock()
-	self.tags[projectId] = tags
-}
-
-func (self *sProjectTag) GetTags(projectId string) map[string]string {
-	tags, _ := self.tags[projectId]
-	return tags
-}
-
-func (self *sProjectTag) RemoveTags(projectId string) {
-	self.lock.Lock()
-	defer self.lock.Unlock()
-	delete(self.tags, projectId)
-}
-
-var projectTags = &sProjectTag{
-	tags: map[string]map[string]string{},
 }
 
 type SBaseResources struct {
@@ -133,9 +106,6 @@ func (self *SBaseResources) init(ctx context.Context) error {
 				self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword() &&
 				self.manager.GetKeyword() != identity.Projects.GetKeyword()) {
 				continue
-			}
-			if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
-				projectTags.SetTags(baseInfo.Id, baseInfo.Metadata)
 			}
 			key := baseInfo.ExternalId
 			if len(key) == 0 {
@@ -208,9 +178,6 @@ func (self *SBaseResources) increment(ctx context.Context) error {
 			self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword()) {
 			continue
 		}
-		if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
-			projectTags.SetTags(baseInfo.Id, baseInfo.Metadata)
-		}
 		key := baseInfo.ExternalId
 		if len(key) == 0 {
 			key = baseInfo.Id
@@ -275,9 +242,6 @@ func (self *SBaseResources) decrement(ctx context.Context) error {
 			self.manager.GetKeyword() != identity.Projects.GetKeyword() {
 			continue
 		}
-		if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
-			projectTags.RemoveTags(baseInfo.Id)
-		}
 		key := baseInfo.ExternalId
 		if len(key) == 0 {
 			key = baseInfo.Id
@@ -332,9 +296,6 @@ func (self *SBaseResources) update(ctx context.Context) error {
 	for i := range ret {
 		baseInfo := sBaseInfo{}
 		ret[i].Unmarshal(&baseInfo)
-		if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
-			projectTags.SetTags(baseInfo.Id, baseInfo.Metadata)
-		}
 		key := baseInfo.ExternalId
 		if len(key) == 0 {
 			key = baseInfo.Id
@@ -736,19 +697,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			if err != nil {
 				log.Errorf("unmarsha server resources error: %v", err)
 			}
-			for t := range servers {
-				tags := projectTags.GetTags(servers[t].ProjectId)
-				if servers[t].Metadata == nil {
-					server := servers[t]
-					server.Metadata = map[string]string{}
-					servers[t] = server
-				}
-				for k, v := range tags {
-					if strings.HasPrefix(k, db.USER_TAG_PREFIX) {
-						servers[t].Metadata[k] = v
-					}
-				}
-			}
+
 			if len(servers) > 0 {
 				err = driver.CollectServerMetrics(ctx, manager, provider, servers, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
