@@ -88,7 +88,8 @@ func (self KubeClusterDetails) GetMetricTags() map[string]string {
 		"account_id":     self.AccountId,
 		"external_id":    self.ExternalId,
 	}
-	return ret
+
+	return AppendMetricTags(ret, self.MetadataResourceInfo)
 }
 
 func (self KubeClusterDetails) GetMetricPairs() map[string]string {

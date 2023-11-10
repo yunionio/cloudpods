@@ -177,7 +177,7 @@ func (self StorageDetails) GetMetricTags() map[string]string {
 		"project_domain": self.ProjectDomain,
 		"external_id":    self.ExternalId,
 	}
-	return ret
+	return AppendMetricTags(ret, self.MetadataResourceInfo)
 }
 
 func (self StorageDetails) GetMetricPairs() map[string]string {
