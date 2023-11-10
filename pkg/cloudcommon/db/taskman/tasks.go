@@ -47,6 +47,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -544,6 +545,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		if r := recover(); r != nil {
 			// call set stage failed, should not call task.SetStageFailed
 			// func SetStageFailed may be overloading
+			yunionconf.BugReport.SendBugReport(ctx, version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", r))
 			log.Errorf("Task %s PANIC on stage %s: %v \n%s", task.TaskName, stageName, r, debug.Stack())
 			SetStageFailedFuncValue := taskValue.MethodByName("SetStageFailed")
 			SetStageFailedFuncValue.Call(

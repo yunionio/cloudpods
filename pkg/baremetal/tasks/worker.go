@@ -22,10 +22,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal/options"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
 
 var baremetalTaskWorkerMan *appsrv.SWorkerManager
@@ -78,6 +81,7 @@ func executeTask(task ITask, args interface{}) {
 			log.Errorf("Execute task panic: %v", err)
 			debug.PrintStack()
 			SetTaskFail(task, fmt.Errorf("%v", err))
+			yunionconf.BugReport.SendBugReport(context.Background(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", err))
 		}
 	}()
 	err := curStage(context.Background(), args)

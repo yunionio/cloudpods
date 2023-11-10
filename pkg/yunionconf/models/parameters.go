@@ -37,8 +37,9 @@ import (
 )
 
 const (
-	NAMESPACE_USER    = "user"
-	NAMESPACE_SERVICE = "service"
+	NAMESPACE_USER       = "user"
+	NAMESPACE_SERVICE    = "service"
+	NAMESPACE_BUG_REPORT = "bug-report"
 )
 
 type SParameterManager struct {
@@ -363,4 +364,36 @@ func (model *SParameter) GetId() string {
 
 func (model *SParameter) GetName() string {
 	return model.Name
+}
+
+var bugReportEnable *bool = nil
+
+func (manager *SParameterManager) GetBugReportEnabled() bool {
+	if bugReportEnable != nil {
+		return *bugReportEnable
+	}
+	enabled := manager.Query().Equals("namespace", NAMESPACE_BUG_REPORT).Count() > 0
+	bugReportEnable = &enabled
+	return enabled
+}
+
+func (manager *SParameterManager) EnableBugReport(ctx context.Context) bool {
+	if manager.GetBugReportEnabled() {
+		return true
+	}
+	res := &SParameter{
+		Namespace:   NAMESPACE_BUG_REPORT,
+		NamespaceId: NAMESPACE_BUG_REPORT,
+		Name:        NAMESPACE_BUG_REPORT,
+		Value:       jsonutils.NewDict(),
+		CreatedBy:   api.SERVICE_TYPE,
+	}
+	res.SetModelManager(manager, res)
+	err := manager.TableSpec().Insert(ctx, res)
+	if err != nil {
+		return false
+	}
+	enabled := true
+	bugReportEnable = &enabled
+	return true
 }

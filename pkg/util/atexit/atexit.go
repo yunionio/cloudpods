@@ -15,10 +15,16 @@
 package atexit
 
 import (
+	"context"
 	"os"
 	"runtime/debug"
 	"sort"
 	"sync"
+
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/version"
+
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
 
 // ExitHandlerFunc is the type of handler func
@@ -95,6 +101,7 @@ func Handle() {
 						if val != nil {
 							print("panic ", val, "\n")
 							debug.PrintStack()
+							yunionconf.BugReport.SendBugReport(context.Background(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", val))
 						}
 					}()
 					eh.Func(eh)
