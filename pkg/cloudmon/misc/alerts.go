@@ -23,8 +23,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/cloutpost/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -101,7 +101,7 @@ func AlertHistoryReport(ctx context.Context, userCred mcclient.TokenCredential, 
 			}
 			metrics = append(metrics, metric)
 		}
-		urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType)
+		urls, err := tsdb.GetDefaultServiceSourceURLs(s, options.Options.SessionEndpointType)
 		if err != nil {
 			return errors.Wrap(err, "GetServiceURLs")
 		}

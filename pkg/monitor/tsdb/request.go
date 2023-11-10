@@ -21,7 +21,7 @@ import (
 type HandleRequestFunc func(ctx context.Context, dsInfo *DataSource, req *TsdbQuery) (*Response, error)
 
 func HandleRequest(ctx context.Context, dsInfo *DataSource, req *TsdbQuery) (*Response, error) {
-	endpoint, err := getTsdbQueryEndpointFor(dsInfo)
+	endpoint, err := GetTsdbQueryEndpointFor(dsInfo)
 	if err != nil {
 		return nil, err
 	}

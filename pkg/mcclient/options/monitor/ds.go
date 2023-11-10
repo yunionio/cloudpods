@@ -29,6 +29,10 @@ type DataSourceListOptions struct {
 	options.BaseListOptions
 }
 
+func (d DataSourceListOptions) Params() (jsonutils.JSONObject, error) {
+	return d.BaseListOptions.Params()
+}
+
 type DataSourceDeleteOptions struct {
 	ID string `json:"-"`
 }

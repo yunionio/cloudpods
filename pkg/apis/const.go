@@ -36,8 +36,10 @@ const (
 	SERVICE_TYPE_CLOUDMON          = "cloudmon"
 	SERVICE_TYPE_VPCAGENT          = "vpcagent"
 
-	SERVICE_TYPE_ETCD     = "etcd"
-	SERVICE_TYPE_INFLUXDB = "influxdb"
+	SERVICE_TYPE_ETCD             = "etcd"
+	SERVICE_TYPE_INFLUXDB         = "influxdb"
+	SERVICE_TYPE_NTP              = "ntp"
+	SERVICE_TYPE_VICTORIA_METRICS = "victoria-metrics"
 
 	SERVICE_TYPE_SCHEDULEDTASK = "scheduledtask"
 
@@ -98,9 +100,9 @@ var (
 		"apigateway",
 		"yunionapi",
 		"billing",
-		"etcd",
+		SERVICE_TYPE_ETCD,
 		"itsm",
-		"ntp",
+		SERVICE_TYPE_NTP,
 	}
 )
 

@@ -4187,7 +4187,7 @@ func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	result := jsonutils.NewDict()
 	result.Set("name", jsonutils.NewString(self.GetName()))
-	dependSvcs := []string{"ntpd", "kafka", "influxdb", "elasticsearch"}
+	dependSvcs := []string{"ntpd", "kafka", apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS, "elasticsearch"}
 	catalog := auth.GetCatalogData(dependSvcs, options.Options.Region)
 	if catalog == nil {
 		return nil, fmt.Errorf("Get catalog error")

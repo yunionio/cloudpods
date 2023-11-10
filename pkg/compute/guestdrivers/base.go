@@ -28,11 +28,11 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/osprofile"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -522,11 +522,12 @@ func (self *SBaseGuestDriver) RequestQgaCommand(ctx context.Context, userCred mc
 
 func (self *SBaseGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.SGuest) string {
 	s := auth.GetAdminSessionWithPublic(ctx, consts.GetRegion())
-	influxdbUrl, err := s.GetServiceURL(apis.SERVICE_TYPE_INFLUXDB, options.Options.MonitorEndpointType)
+	tsdbURL, err := tsdb.GetDefaultServiceSourceURL(s, options.Options.MonitorEndpointType)
 	if err != nil {
 		log.Errorf("FetchMonitorUrl fail %s", err)
+		return ""
 	}
-	return influxdbUrl
+	return tsdbURL
 }
 
 func (self *SBaseGuestDriver) RequestResetNicTrafficLimit(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input []api.ServerNicTrafficLimit) error {

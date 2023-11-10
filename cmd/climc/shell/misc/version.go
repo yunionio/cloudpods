@@ -96,6 +96,7 @@ func init() {
 				apis.SERVICE_TYPE_OFFLINE_CLOUDMETA,
 				apis.SERVICE_TYPE_CLOUDMETA,
 				apis.SERVICE_TYPE_INFLUXDB,
+				apis.SERVICE_TYPE_VICTORIA_METRICS,
 				apis.SERVICE_TYPE_ETCD,
 				"torrent-tracker",
 			}) {

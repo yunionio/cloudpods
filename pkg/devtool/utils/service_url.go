@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/sets"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	ansible_api "yunion.io/x/onecloud/pkg/apis/ansible"
 	proxy_api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -46,7 +47,7 @@ type Service struct {
 
 func serviceComplete(serviceName, address string, port int) (url, checkUrl string, expectedCode int) {
 	switch serviceName {
-	case "influxdb":
+	case apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS:
 		return fmt.Sprintf("https://%s:%d", address, port), fmt.Sprintf("https://%s:%d/ping", address, port), 204
 	case "repo":
 		return fmt.Sprintf("http://%s:%d", address, port), fmt.Sprintf("http://%s:%d", address, port), 200
@@ -57,7 +58,7 @@ func serviceComplete(serviceName, address string, port int) (url, checkUrl strin
 
 func serviceComplete2(service Service) (completeUrl string, expectedCode int) {
 	switch service.Name {
-	case "influxdb":
+	case apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS:
 		return fmt.Sprintf("%s/ping", service.Url), 204
 	case "repo":
 		return service.Url, 200

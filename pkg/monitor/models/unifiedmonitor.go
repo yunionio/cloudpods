@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/monitor/datasource"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/options"
@@ -79,25 +80,24 @@ func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context,
 
 	filter, err := getTagFilterByRequestQuery(ctx, userCred, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getTagFilterByRequestQuery")
 	}
 	return DataSourceManager.GetMeasurementsWithDescriptionInfos(query, "", filter)
 }
 
-func getTagFilterByRequestQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (filter string, err error) {
+func getTagFilterByRequestQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*monitor.MetricQueryTag, error) {
 
 	scope, _ := query.GetString("scope")
-	filter, err = filterByScope(ctx, userCred, scope, query)
-	return
+	return filterByScope(ctx, userCred, scope, query)
 }
 
-func filterByScope(ctx context.Context, userCred mcclient.TokenCredential, scope string, data jsonutils.JSONObject) (string, error) {
+func filterByScope(ctx context.Context, userCred mcclient.TokenCredential, scope string, data jsonutils.JSONObject) (*monitor.MetricQueryTag, error) {
 	domainId := jsonutils.GetAnyString(data, db.DomainFetchKeys)
 	projectId := jsonutils.GetAnyString(data, db.ProjectFetchKeys)
 	if projectId != "" {
 		project, err := db.DefaultProjectFetcher(ctx, projectId, domainId)
 		if err != nil {
-			return "", err
+			return nil, errors.Wrap(err, "db.DefaultProjectFetcher")
 		}
 		projectId = project.GetProjectId()
 		domainId = project.GetProjectDomainId()
@@ -105,14 +105,14 @@ func filterByScope(ctx context.Context, userCred mcclient.TokenCredential, scope
 	if domainId != "" {
 		domain, err := db.DefaultDomainFetcher(ctx, domainId)
 		if err != nil {
-			return "", err
+			return nil, errors.Wrap(err, "db.DefaultDomainFetcher")
 		}
 		domainId = domain.GetProjectDomainId()
 		domain.GetProjectId()
 	}
 	switch scope {
 	case "system":
-		return "", nil
+		return nil, nil
 	case "domain":
 		if domainId == "" {
 			domainId = userCred.GetProjectDomainId()
@@ -126,9 +126,9 @@ func filterByScope(ctx context.Context, userCred mcclient.TokenCredential, scope
 	}
 }
 
-func getTenantIdStr(role string, userCred mcclient.TokenCredential) (string, error) {
+func getTenantIdStr(role string, userCred mcclient.TokenCredential) (*monitor.MetricQueryTag, error) {
 	if role == "admin" {
-		return "", nil
+		return nil, nil
 	}
 	if role == "domainadmin" {
 		domainId := userCred.GetDomainId()
@@ -138,10 +138,10 @@ func getTenantIdStr(role string, userCred mcclient.TokenCredential) (string, err
 		tenantId := userCred.GetProjectId()
 		return getProjectIdFilterByProject(tenantId)
 	}
-	return "", errors.ErrNotFound
+	return nil, errors.Wrapf(errors.ErrNotFound, "not supported role %q", role)
 }
 
-func getProjectIdsFilterByDomain(domainId string) (string, error) {
+func getProjectIdsFilterByDomain(domainId string) (*monitor.MetricQueryTag, error) {
 	//s := auth.GetAdminSession(context.Background(), "", "")
 	//params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
 	//tenants, err := modules.Projects.List(s, params)
@@ -160,11 +160,21 @@ func getProjectIdsFilterByDomain(domainId string) (string, error) {
 	//}
 	//buffer.WriteString(" )")
 	//return buffer.String(), nil
-	return fmt.Sprintf(`%s =~ /%s/`, "domain_id", domainId), nil
+	return &monitor.MetricQueryTag{
+		Key:      "domain_id",
+		Operator: "=~",
+		Value:    fmt.Sprintf("/%s/", domainId),
+	}, nil
+	//return fmt.Sprintf(`%s =~ /%s/`, "domain_id", domainId), nil
 }
 
-func getProjectIdFilterByProject(projectId string) (string, error) {
-	return fmt.Sprintf(`%s =~ /%s/`, "tenant_id", projectId), nil
+func getProjectIdFilterByProject(projectId string) (*monitor.MetricQueryTag, error) {
+	//return fmt.Sprintf(`%s =~ /%s/`, "tenant_id", projectId), nil
+	return &monitor.MetricQueryTag{
+		Key:      "tenant_id",
+		Operator: "=~",
+		Value:    fmt.Sprintf("/%s/", projectId),
+	}, nil
 }
 
 func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -257,7 +267,6 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		}
 	}
 
-	setSerieRowName(&rtn.Series, groupByTag)
 	fillSerieTags(&rtn.Series)
 	return jsonutils.Marshal(rtn), nil
 }
@@ -317,11 +326,11 @@ func doQuery(userCred mcclient.TokenCredential, query monitor.MetricInputQuery) 
 	factory := mq.GetQueryFactories()["metricquery"]
 	metricQ, err := factory(conditions)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "factory")
 	}
 	metrics, err := metricQ.ExecuteQuery(userCred, query.SkipCheckSeries)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ExecuteQuery")
 	}
 	// drop metas contains raw_query
 	if !query.ShowMeta {
@@ -349,7 +358,6 @@ func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery
 
 func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery,
 	scope string, ownerId mcclient.IIdentityProvider) {
-	setDataSourceId(query)
 	query.From = inputQuery.From
 	query.To = inputQuery.To
 	query.Model.Interval = inputQuery.Interval
@@ -449,11 +457,6 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 	}
 }
 
-func setDataSourceId(query *monitor.AlertQuery) {
-	datasource, _ := DataSourceManager.GetDefaultSource()
-	query.DataSourceId = datasource.Id
-}
-
 func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery) {
 	if len(query.Model.GroupBy) != 0 {
 		return
@@ -474,50 +477,6 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInpu
 			Type:   "field",
 			Params: []string{tagId},
 		})
-}
-
-func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
-	// Add rowname，The front end displays the curve according to rowname
-	var index, unknownIndex = 1, 1
-	for i, serie := range *series {
-		// setRowName by groupTag
-		if len(groupTag) != 0 {
-			for key, val := range serie.Tags {
-				if strings.Contains(strings.Join(groupTag, ","), key) {
-					serie.RawName = fmt.Sprintf("%s", val)
-					(*series)[i] = serie
-					break
-				}
-			}
-			continue
-		}
-		measurement := strings.Split(serie.Name, ".")[0]
-		// sep measurement set RowName by spe param
-		measurements, _ := MetricMeasurementManager.getMeasurementByName(measurement)
-		if len(measurements) != 0 {
-			if key, ok := monitor.MEASUREMENT_TAG_KEYWORD[measurements[0].ResType]; ok {
-				serie.RawName = fmt.Sprintf("%d: %s", index, serie.Tags[key])
-				(*series)[i] = serie
-				index++
-				continue
-			}
-		}
-		// other condition set RowName
-		for key, val := range serie.Tags {
-			if strings.Contains(key, "id") {
-				serie.RawName = fmt.Sprintf("%d: %s", index, val)
-				(*series)[i] = serie
-				index++
-				break
-			}
-		}
-		if serie.RawName == "" {
-			serie.RawName = fmt.Sprintf("unknown-%d", unknownIndex)
-			(*series)[i] = serie
-			unknownIndex++
-		}
-	}
-
 }
 
 func fillSerieTags(series *tsdb.TimeSeriesSlice) {
@@ -577,7 +536,7 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 	conditions = append(conditions, fmt.Sprintf("time <= '%s'", et))
 	sqlstr += strings.Join(conditions, " and ")
 	sqlstr += " limit 2000"
-	dataSource, err := DataSourceManager.GetDefaultSource()
+	dataSource, err := datasource.GetDefaultSource(input.Database)
 	if err != nil {
 		return nil, errors.Wrap(err, "s.GetDefaultSource")
 	}

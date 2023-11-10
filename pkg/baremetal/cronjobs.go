@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/logger"
@@ -221,11 +222,11 @@ func (job *SSendMetricsJob) Name() string {
 
 func (job *SSendMetricsJob) Do(ctx context.Context, now time.Time) error {
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
-	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType)
+	src, err := tsdb.GetDefaultServiceSource(s, o.Options.SessionEndpointType)
 	if err != nil {
-		return errors.Wrap(err, "s.GetServiceURLs")
+		return errors.Wrap(err, "tsdb.GetDefaultServiceSource")
 	}
-	if len(urls) == 0 {
+	if len(src.URLs) == 0 {
 		return nil
 	}
 	if !job.baremetal.isRedfishCapable() {
@@ -253,9 +254,9 @@ func (job *SSendMetricsJob) Do(ctx context.Context, now time.Time) error {
 			Timestamp: now,
 		})
 	}
-	err = influxdb.SendMetrics(urls, "telegraf", metrics, false)
+	err = influxdb.SendMetrics(src.URLs, "telegraf", metrics, false)
 	if err != nil {
-		return errors.Wrap(err, "influxdb.SendMetrics")
+		return errors.Wrapf(err, "tsdb.SendMetrics %q", src.Type)
 	}
 	job.lastTime = now
 	return nil
