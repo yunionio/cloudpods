@@ -495,7 +495,9 @@ func (self *SRegion) GetVmAgentNetworkInterfaces(node string, VmId int) (map[str
 
 	for _, intermediate := range intermediates {
 		for _, addr := range intermediate.IPAddresses {
-			ipMap[intermediate.HardwareAddress] = addr.IPAddress
+			if strings.ToLower(addr.IPAddressType) == "ipv4" {
+				ipMap[intermediate.HardwareAddress] = addr.IPAddress
+			}
 		}
 	}
 
