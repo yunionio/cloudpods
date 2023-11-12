@@ -110,7 +110,7 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 	if count != 0 {
-		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("There are some guests in ScalingGroup, please delete them firstly")))
+		self.taskFailed(ctx, sg, jsonutils.NewString("There are some guests in ScalingGroup, please delete them firstly"))
 		return
 	}
 

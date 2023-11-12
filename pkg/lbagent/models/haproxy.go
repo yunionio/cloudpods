@@ -188,7 +188,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *
 				}
 			}
 			if listener.EnableHttp2 {
-				bind += fmt.Sprintf(" alpn h2,http/1.1")
+				bind += " alpn h2,http/1.1"
 			}
 		}
 		data["bind"] = bind

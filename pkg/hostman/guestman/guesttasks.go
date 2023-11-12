@@ -200,7 +200,7 @@ func (s *SGuestSuspendTask) onSaveMemStateWait(results string) {
 
 func (s *SGuestSuspendTask) onSaveMemStateCheck(status string) {
 	if status == "failed" {
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Save memory state failed"))
+		hostutils.TaskFailed(s.ctx, "Save memory state failed")
 		// TODO: send cont command
 		return
 	} else if status != "completed" {

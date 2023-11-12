@@ -440,7 +440,7 @@ func (m *HmpMonitor) BlockStream(drive string, callback StringCallback) {
 }
 
 func (m *HmpMonitor) BlockJobComplete(drive string, callback StringCallback) {
-	m.Query(fmt.Sprintf("block_job_complete"), callback)
+	m.Query("block_job_complete", callback)
 }
 
 func (m *HmpMonitor) BlockReopenImage(drive, newImagePath, format string, cb StringCallback) {

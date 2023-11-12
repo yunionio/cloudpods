@@ -705,7 +705,7 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 			encFormat = EncryptFormatLuks
 		}
 		options = append(options, fmt.Sprintf("encrypt.format=%s", encFormat))
-		options = append(options, fmt.Sprintf("encrypt.key-secret=sec0"))
+		options = append(options, "encrypt.key-secret=sec0")
 		if encFormat == EncryptFormatLuks {
 			options = append(options, fmt.Sprintf("encrypt.cipher-alg=%s", encAlg))
 		}
