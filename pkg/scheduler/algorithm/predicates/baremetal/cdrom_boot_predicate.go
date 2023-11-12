@@ -16,7 +16,6 @@ package baremetal
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -46,7 +45,7 @@ func (p *CdromBootPredicate) Execute(ctx context.Context, u *core.Unit, c core.C
 	h := predicates.NewPredicateHelper(p, u, c)
 	info := c.Getter().GetIpmiInfo()
 	if !info.CdromBoot {
-		h.Exclude(fmt.Sprintf("ipmi not support cdrom boot"))
+		h.Exclude("ipmi not support cdrom boot")
 	}
 	return h.GetResult()
 }

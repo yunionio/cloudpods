@@ -218,7 +218,7 @@ func (this *ClientSession) getServiceVersionURLs(service, region, zone, endpoint
 		if err != nil {
 			msg = fmt.Sprintf("fail to retrieve keystone urls: %s", err)
 		} else if len(urls) == 0 {
-			msg = fmt.Sprintf("empty keystone url")
+			msg = "empty keystone url"
 		} else {
 			msg = fmt.Sprintf("Schema of keystone authUrl and endpoint mismatch: %s!=%s", this.client.authUrl, urls)
 		}

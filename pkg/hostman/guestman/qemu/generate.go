@@ -488,7 +488,7 @@ func getNicDeviceOption(
 
 	if nic.Driver == "virtio" {
 		if nic.NumQueues > 1 {
-			cmd += fmt.Sprintf(",mq=on")
+			cmd += ",mq=on"
 		}
 		if nic.Vectors != nil {
 			cmd += fmt.Sprintf(",vectors=%d", *nic.Vectors)
@@ -591,7 +591,7 @@ func getMigrateOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) []s
 	opts := make([]string, 0)
 	if input.NeedMigrate {
 		if input.LiveMigrateUseTLS {
-			opts = append(opts, fmt.Sprintf("-incoming defer"))
+			opts = append(opts, "-incoming defer")
 		} else {
 			opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
 		}

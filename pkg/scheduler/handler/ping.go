@@ -57,10 +57,10 @@ func switchHandler(c *gin.Context) {
 	var result string
 	if counter%2 == 1 {
 		o.Options.DisableBaremetalPredicates = true
-		result = fmt.Sprintf("ignore_baremetal_filter_switch is true")
+		result = "ignore_baremetal_filter_switch is true"
 	} else {
 		o.Options.DisableBaremetalPredicates = false
-		result = fmt.Sprintf("ignore_baremetal_filter_switch is false")
+		result = "ignore_baremetal_filter_switch is false"
 	}
 
 	c.JSON(http.StatusOK, result)

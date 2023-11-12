@@ -59,7 +59,7 @@ func (o *FakeObject) pop(playerId int) {
 	}
 	o.playerIdCount -= 1
 	if o.playerIdCount < 0 {
-		panic(fmt.Sprintf("obj overly unlocked"))
+		panic("obj overly unlocked")
 	} else if o.playerIdCount == 0 {
 		o.playerId = -1
 	}

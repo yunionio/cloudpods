@@ -534,7 +534,7 @@ func (self *SKVMHostDriver) getDeployConfig(host *models.SHost) ([]*api.DeployCo
 	authInfo += fmt.Sprintf("YUNION_HOST_ADMIN=%s\n", options.Options.AdminUser)
 	authInfo += fmt.Sprintf("YUNION_HOST_PASSWORD=%s\n", options.Options.AdminPassword)
 	authInfo += fmt.Sprintf("YUNION_HOST_PROJECT=%s\n", options.Options.AdminProject)
-	authInfo += fmt.Sprintf("YUNION_START=yes\n")
+	authInfo += "YUNION_START=yes\n"
 	apiServer, err := tokens.GetControlPlaneEndpoint()
 	if err != nil {
 		log.Errorf("Failed to get kubernetes controlplane endpoint: %v", err)
