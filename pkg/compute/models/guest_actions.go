@@ -2571,14 +2571,11 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
 			return nil, httperrors.NewBadRequestError("%v", err)
 		}
-		net := gns[0].GetNetwork()
 		if input.Nets[i].SriovDevice != nil {
-			input.Nets[i].SriovDevice.NetworkIndex = &gns[0].Index
-			input.Nets[i].SriovDevice.WireId = net.WireId
-			err = self.createIsolatedDeviceOnHost(ctx, userCred, host, input.Nets[i].SriovDevice, pendingUsageHost)
+			err = self.allocSriovNicDevice(ctx, userCred, host, &gns[0], input.Nets[i], pendingUsageHost)
 			if err != nil {
 				quotas.CancelPendingUsage(ctx, userCred, pendingUsageHost, pendingUsageHost, false)
-				return nil, errors.Wrap(err, "self.createIsolatedDeviceOnHost")
+				return nil, errors.Wrap(err, "self.allocSriovNicDevice")
 			}
 		}
 	}
