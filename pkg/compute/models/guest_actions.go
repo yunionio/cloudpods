@@ -4027,51 +4027,18 @@ func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCre
 	return nil, nil
 }
 
-func (self *SGuest) GetStorages() []*SStorage {
-	disks, _ := self.GetDisks()
-	storageMap := make(map[string]*SStorage)
-	for i := range disks {
-		storage, _ := disks[i].GetStorage()
-		if _, ok := storageMap[storage.GetId()]; !ok {
-			storageMap[storage.GetId()] = storage
-		}
+func (self *SGuest) GetStorages() ([]SStorage, error) {
+	q := StorageManager.Query().Distinct()
+	disks := DiskManager.Query().SubQuery()
+	guestdisks := GuestdiskManager.Query().Equals("guest_id", self.Id).SubQuery()
+	q = q.Join(disks, sqlchemy.Equals(disks.Field("storage_id"), q.Field("id")))
+	q = q.Join(guestdisks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
+	ret := []SStorage{}
+	err := db.FetchModelObjects(StorageManager, q, &ret)
+	if err != nil {
+		return nil, err
 	}
-	ret := make([]*SStorage, 0, len(storageMap))
-	for _, s := range storageMap {
-		ret = append(ret, s)
-	}
-	return ret
-}
-
-func (self *SGuest) SyncCapacityUsedForStorage(ctx context.Context, storageIds []string) error {
-	if self.Hypervisor != api.HYPERVISOR_ESXI {
-		return nil
-	}
-	var storages []*SStorage
-	if len(storageIds) == 0 {
-		storages = self.GetStorages()
-	} else {
-		q := StorageManager.Query()
-		if len(storageIds) == 1 {
-			q = q.Equals("id", storageIds[0])
-		} else {
-			q = q.In("id", storageIds[0])
-		}
-		ss := make([]SStorage, 0, len(storageIds))
-		err := db.FetchModelObjects(StorageManager, q, &ss)
-		if err != nil {
-			return errors.Wrap(err, "FetchModelObjects")
-		}
-		storages = make([]*SStorage, len(ss))
-		for i := range ss {
-			storages[i] = &ss[i]
-		}
-	}
-	for _, s := range storages {
-		err := s.SyncCapacityUsed(ctx)
-		return errors.Wrapf(err, "unable to SyncCapacityUsed for storage %q", s.GetId())
-	}
-	return nil
+	return ret, nil
 }
 
 func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {

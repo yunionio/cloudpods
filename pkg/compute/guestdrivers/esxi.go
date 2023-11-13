@@ -166,12 +166,15 @@ func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *model
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to fetch Guest of InstanceSnapshot %q", ispId)
 		}
-		storages := ispGuest.GetStorages()
+		storages, err := ispGuest.GetStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetStorages")
+		}
 		if len(storages) == 0 {
 			return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
 		}
 		if utils.IsInStringArray(storages[0].GetId(), storageIds) {
-			return storages[0], nil
+			return &storages[0], nil
 		}
 		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
 	}
@@ -211,8 +214,31 @@ func (self *SESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]str
 }
 
 func (self *SESXiGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {
+	defaultStorageId := ""
+	if root, _ := guest.GetSystemDisk(); root != nil {
+		defaultStorageId = root.StorageId
+	}
+	storages, err := guest.GetStorages()
+	if err != nil {
+		return errors.Wrapf(err, "GetStorages")
+	}
+	storageMap := map[string]string{}
+	for _, storage := range storages {
+		storageMap[storage.StorageType] = storage.Id
+		if len(defaultStorageId) == 0 {
+			defaultStorageId = storage.Id
+		}
+	}
 	for i := range newDisks {
 		newDisks[i].Format = "vmdk"
+		if len(newDisks[i].Storage) == 0 {
+			// 若不指定存储类型，默认和系统盘一致
+			if len(newDisks[i].Backend) == 0 {
+				newDisks[i].Storage = defaultStorageId
+			} else if storageId, ok := storageMap[newDisks[i].Backend]; ok { // 否则和已有磁盘存储保持一致
+				newDisks[i].Storage = storageId
+			}
+		}
 	}
 	return nil
 }
