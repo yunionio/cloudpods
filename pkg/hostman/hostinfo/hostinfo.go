@@ -1309,7 +1309,7 @@ func (h *SHostInfo) ensureHostRecord(zoneId string) (*api.HostDetails, error) {
 
 		// 上次未能正常offline, 补充一次健康日志
 		if hosts[0].HostStatus == api.HOST_ONLINE {
-			reason := fmt.Sprintf("The host status is online when it staring. Maybe the control center was down earlier")
+			reason := "The host status is online when it staring. Maybe the control center was down earlier"
 			logclient.AddSimpleActionLog(h, logclient.ACT_HEALTH_CHECK, map[string]string{"reason": reason}, hostutils.GetComputeSession(context.Background()).GetToken(), false)
 			data := jsonutils.NewDict()
 			data.Add(jsonutils.NewString(h.GetName()), "name")

@@ -304,7 +304,7 @@ parseEc:
 			return nil, newInvalidValueError(v.Key, fmt.Sprintf("invalid ec private key: %s", err))
 		}
 	}
-	return nil, newInvalidValueError(v.Key, fmt.Sprintf("invalid private key"))
+	return nil, newInvalidValueError(v.Key, "invalid private key")
 }
 
 func (v *ValidatorPrivateKey) parseFromString(s string) (crypto.PrivateKey, error) {

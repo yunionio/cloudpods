@@ -200,12 +200,12 @@ func DmRemove(dmPath string) error {
 }
 
 func DmCreate(lv1, lv2, dmName string) error {
-	var dmCreateScript = fmt.Sprintf(`
+	var dmCreateScript = `
 size1=$(blockdev --getsz $1)
 size2=$(blockdev --getsz $2)
 echo "0 $size1 linear $1 0
 $size1 $size2 linear $2 0" | dmsetup create $3
-`)
+`
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", dmCreateScript, "--", lv1, lv2, dmName).Output()
 	if err != nil {
 		return errors.Wrapf(err, "create device mapper failed %s", out)
