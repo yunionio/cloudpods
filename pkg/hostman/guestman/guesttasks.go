@@ -712,16 +712,16 @@ func (n *SGuestNetworkSyncTask) delNicDevice(nic *desc.SGuestNetwork) {
 }
 
 func (n *SGuestNetworkSyncTask) addNic(nic *desc.SGuestNetwork) {
-	if nic.Driver == "vfio-pci" {
-		// vfio device will add on isolated devices sync task
-		n.onDeviceAdd(nic)
-		return
-	}
-
 	if err := n.guest.generateNicScripts(nic); err != nil {
 		log.Errorln(err)
 		n.errors = append(n.errors, err)
 		n.syncNetworkConf()
+		return
+	}
+
+	if nic.Driver == "vfio-pci" {
+		// vfio device will add on isolated devices sync task
+		n.onDeviceAdd(nic)
 		return
 	}
 	var (
