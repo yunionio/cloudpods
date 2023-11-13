@@ -421,6 +421,9 @@ func (o *baseOptions_x86_64) CPU(input CPUOption, osName string) (string, string
 
 		if len(input.IsolatedDeviceCPU) > 0 {
 			cpuType = input.IsolatedDeviceCPU
+			if len(vendor) > 0 {
+				cpuType += fmt.Sprintf(",vendor=%s", vendor)
+			}
 		}
 	} else {
 		accel = "tcg"
