@@ -256,6 +256,14 @@ type DiskConfig struct {
 
 	// NVNe device
 	NVMEDevice *IsolatedDeviceConfig `json:"nvme_device"`
+
+	// 预分配策略:
+	// off: 关闭预分配，默认关闭
+	// metadata: 精简置备
+	// falloc: 厚置备延迟置零
+	// full: 厚置备快速置零
+	// default: off
+	Preallocation string `json:"preallocation"`
 }
 
 type IsolatedDeviceConfig struct {

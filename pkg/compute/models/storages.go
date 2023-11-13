@@ -1360,6 +1360,7 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 	disk.IsSystem = isSystem
 	disk.Iops = diskConfig.Iops
 	disk.Throughput = diskConfig.Throughput
+	disk.Preallocation = diskConfig.Preallocation
 
 	if self.MediumType == api.DISK_TYPE_SSD {
 		disk.IsSsd = true

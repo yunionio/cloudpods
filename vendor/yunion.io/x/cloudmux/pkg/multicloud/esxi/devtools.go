@@ -20,6 +20,7 @@ import (
 
 	"github.com/vmware/govmomi/vim25/types"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -32,6 +33,7 @@ type SDiskConfig struct {
 	ImagePath     string
 	IsRoot        bool
 	Datastore     *SDatastore
+	Preallocation string
 }
 
 // In fact, it is the default lable of first one disk
@@ -42,6 +44,12 @@ func NewDiskDev(sizeMb int64, config SDiskConfig) *types.VirtualDisk {
 	diskFile := types.VirtualDiskFlatVer2BackingInfo{}
 	diskFile.DiskMode = "persistent"
 	thinProvisioned := true
+	if config.Preallocation == api.DISK_PREALLOCATION_FALLOC || config.Preallocation == api.DISK_PREALLOCATION_FULL {
+		thinProvisioned = false
+		if config.Preallocation == api.DISK_PREALLOCATION_FULL {
+			diskFile.EagerlyScrub = types.NewBool(true)
+		}
+	}
 	diskFile.ThinProvisioned = &thinProvisioned
 	diskFile.Uuid = config.Uuid
 	if len(config.ImagePath) > 0 {

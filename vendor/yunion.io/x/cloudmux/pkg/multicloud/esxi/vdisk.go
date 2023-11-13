@@ -65,6 +65,7 @@ type IDiskBackingInfo interface {
 	GetParent() IDiskBackingInfo
 	GetUuid() string
 	GetDiskMode() string
+	GetPreallocation() string
 	GetWriteThrough() bool
 	GetFileName() string
 	GetDatastore() *types.ManagedObjectReference
@@ -85,6 +86,19 @@ func (s *sVirtualDiskFlatVer2BackingInfo) GetParent() IDiskBackingInfo {
 
 func (s *sVirtualDiskFlatVer2BackingInfo) GetUuid() string {
 	return s.info.Uuid
+}
+
+func (s *sVirtualDiskFlatVer2BackingInfo) GetPreallocation() string {
+	if s.info.ThinProvisioned != nil {
+		if *s.info.ThinProvisioned {
+			return api.DISK_PREALLOCATION_METADATA
+		}
+		if s.info.EagerlyScrub == nil || !*s.info.EagerlyScrub {
+			return api.DISK_PREALLOCATION_FALLOC
+		}
+		return api.DISK_PREALLOCATION_FULL
+	}
+	return api.DISK_PREALLOCATION_METADATA
 }
 
 func (s *sVirtualDiskFlatVer2BackingInfo) GetDiskMode() string {
@@ -122,6 +136,10 @@ func (s *sVirtualDiskSparseVer2BackingInfo) GetParent() IDiskBackingInfo {
 
 func (s *sVirtualDiskSparseVer2BackingInfo) GetUuid() string {
 	return s.info.Uuid
+}
+
+func (s *sVirtualDiskSparseVer2BackingInfo) GetPreallocation() string {
+	return api.DISK_PREALLOCATION_METADATA
 }
 
 func (s *sVirtualDiskSparseVer2BackingInfo) GetDiskMode() string {
@@ -165,6 +183,10 @@ func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetDiskMode() string {
 	return s.info.DiskMode
 }
 
+func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetPreallocation() string {
+	return api.DISK_PREALLOCATION_METADATA
+}
+
 func (s *sVirtualDiskRawDiskMappingVer1BackingInfo) GetWriteThrough() bool {
 	return false
 }
@@ -192,6 +214,10 @@ func (s *sVirtualDiskSparseVer1BackingInfo) GetParent() IDiskBackingInfo {
 
 func (s *sVirtualDiskSparseVer1BackingInfo) GetUuid() string {
 	return s.info.Datastore.String() + s.info.FileName
+}
+
+func (s *sVirtualDiskSparseVer1BackingInfo) GetPreallocation() string {
+	return api.DISK_PREALLOCATION_METADATA
 }
 
 func (s *sVirtualDiskSparseVer1BackingInfo) GetDiskMode() string {
@@ -233,6 +259,10 @@ func (s *sVirtualDiskFlatVer1BackingInfo) GetUuid() string {
 
 func (s *sVirtualDiskFlatVer1BackingInfo) GetDiskMode() string {
 	return s.info.DiskMode
+}
+
+func (s *sVirtualDiskFlatVer1BackingInfo) GetPreallocation() string {
+	return api.DISK_PREALLOCATION_METADATA
 }
 
 func (s *sVirtualDiskFlatVer1BackingInfo) GetWriteThrough() bool {
@@ -401,7 +431,7 @@ func (disk *SVirtualDisk) getDiskMode() string {
 }
 
 func (disk *SVirtualDisk) GetIsNonPersistent() bool {
-	return disk.getDiskMode() == "persistent"
+	return disk.getDiskMode() == "independent_nonpersistent"
 }
 
 func (disk *SVirtualDisk) GetDriver() string {
@@ -425,6 +455,12 @@ func (disk *SVirtualDisk) GetCacheMode() string {
 
 func (disk *SVirtualDisk) GetMountpoint() string {
 	return ""
+}
+
+func (disk *SVirtualDisk) GetPreallocation() string {
+
+	backing := disk.getBackingInfo()
+	return backing.GetPreallocation()
 }
 
 func (disk *SVirtualDisk) Delete(ctx context.Context) error {

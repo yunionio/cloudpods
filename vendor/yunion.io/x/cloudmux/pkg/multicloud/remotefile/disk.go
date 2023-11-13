@@ -25,19 +25,20 @@ import (
 type SDisk struct {
 	SResourceBase
 
-	storage      *SStorage
-	ZoneId       string
-	StorageId    string
-	DiskFormat   string
-	DiskSizeMb   int
-	IsAutoDelete bool
-	DiskType     string
-	FsFormat     string
-	Iops         int
-	Driver       string
-	CacheMode    string
-	Mountpoint   string
-	AccessPath   string
+	storage       *SStorage
+	ZoneId        string
+	StorageId     string
+	DiskFormat    string
+	DiskSizeMb    int
+	IsAutoDelete  bool
+	DiskType      string
+	FsFormat      string
+	Iops          int
+	Driver        string
+	CacheMode     string
+	Mountpoint    string
+	Preallocation string
+	AccessPath    string
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -96,6 +97,10 @@ func (self *SDisk) GetCacheMode() string {
 
 func (self *SDisk) GetMountpoint() string {
 	return self.Mountpoint
+}
+
+func (self *SDisk) GetPreallocation() string {
+	return self.Preallocation
 }
 
 func (self *SDisk) GetAccessPath() string {

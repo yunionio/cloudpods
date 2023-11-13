@@ -212,6 +212,11 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "parse disk iops %s", str)
 			}
+		case "preallocation":
+			if !utils.IsInStringArray(str, compute.DISK_PREALLOCATIONS) {
+				return nil, errors.Errorf("invalid preallocation %s, allow choices: %s", str, compute.DISK_PREALLOCATIONS)
+			}
+			diskConfig.Preallocation = str
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}
