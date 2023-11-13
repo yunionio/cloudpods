@@ -170,11 +170,6 @@ func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models
 
 func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	// sync capacityUsed for storage
-	// err := guest.SyncCapacityUsedForStorage(ctx, nil)
-	// if err != nil {
-	// 	log.Errorf("unable to SyncCapacityUsedForStorage: %v", err)
-	// }
 
 	// bind eip
 	{

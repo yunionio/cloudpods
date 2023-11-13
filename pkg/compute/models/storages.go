@@ -966,54 +966,6 @@ func (sm *SStorageManager) SyncCapacityUsedForEsxiStorage(ctx context.Context, u
 	}
 }
 
-func (sm *SStorageManager) SyncCapacityUsedForStorage(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	cpSubQ := CloudproviderManager.Query("id").In("provider", CapacityUsedCloudStorageProvider).SubQuery()
-	sQ := sm.Query()
-	sQ = sQ.Join(cpSubQ, sqlchemy.Equals(sQ.Field("manager_id"), cpSubQ.Field("id")))
-	storages := make([]SStorage, 0, 5)
-	err := db.FetchModelObjects(sm, sQ, &storages)
-	if err != nil {
-		log.Errorf("unable to fetch storages with sql %q: %v", sQ.String(), err)
-	}
-	for i := range storages {
-		err := storages[i].SyncCapacityUsed(ctx)
-		if err != nil {
-			log.Errorf("unable to sync CapacityUsed for storage %q: %v", storages[i].Id, err)
-		}
-	}
-}
-
-func (s *SStorage) SyncCapacityUsed(ctx context.Context) error {
-	cp := s.GetCloudprovider()
-	if cp == nil {
-		return errors.Wrapf(errors.ErrNotFound, "no cloudprovider for storage %s", s.Id)
-	}
-	if !utils.IsInStringArray(cp.Provider, CapacityUsedCloudStorageProvider) {
-		return nil
-	}
-	icp, err := cp.GetProvider(ctx)
-	if err != nil {
-		return errors.Wrap(err, "GetProvider")
-	}
-	iregion, err := icp.GetOnPremiseIRegion()
-	if err != nil {
-		return errors.Wrap(err, "GetOnPremiseIRegion")
-	}
-	cloudStorage, err := iregion.GetIStorageById(s.ExternalId)
-	if err != nil {
-		return errors.Wrap(err, "GetIStorageById")
-	}
-	capacityUsed := cloudStorage.GetCapacityUsedMB()
-	if s.ActualCapacityUsed == capacityUsed {
-		return nil
-	}
-	_, err = db.UpdateWithLock(ctx, s, func() error {
-		s.ActualCapacityUsed = capacityUsed
-		return nil
-	})
-	return err
-}
-
 func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extStorage.GetName()
