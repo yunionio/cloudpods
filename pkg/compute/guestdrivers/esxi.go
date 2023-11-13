@@ -360,6 +360,7 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 			return nil, errors.Wrapf(err, "unable to fetch storage of disk %s", diskId)
 		}
 		desc.Disks[i].StorageId = storage.GetExternalId()
+		desc.Disks[i].Preallocation = disk.Preallocation
 	}
 	templateId := desc.Disks[0].TemplateId
 	if len(templateId) == 0 {

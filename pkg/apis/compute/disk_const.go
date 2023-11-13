@@ -64,7 +64,22 @@ const (
 
 	DISK_NOT_EXIST = "not_exist"
 	DISK_EXIST     = "exist"
+
+	DISK_PREALLOCATION_OFF = "off"
+	// 精简置备
+	DISK_PREALLOCATION_METADATA = "metadata"
+	// 厚置备延迟归零
+	DISK_PREALLOCATION_FALLOC = "falloc"
+	// 厚置备快速归零
+	DISK_PREALLOCATION_FULL = "full"
 )
+
+var DISK_PREALLOCATIONS = []string{
+	DISK_PREALLOCATION_OFF,
+	DISK_PREALLOCATION_METADATA,
+	DISK_PREALLOCATION_FALLOC,
+	DISK_PREALLOCATION_FULL,
+}
 
 const DISK_META_EXISTING_PATH = "disk_existing_path"
 

@@ -39,4 +39,12 @@ const (
 	DISK_TYPE_SYS  = "sys"
 	DISK_TYPE_SWAP = "swap"
 	DISK_TYPE_DATA = "data"
+
+	DISK_PREALLOCATION_OFF = "off"
+	// 精简置备
+	DISK_PREALLOCATION_METADATA = "metadata"
+	// 厚置备延迟归零
+	DISK_PREALLOCATION_FALLOC = "falloc"
+	// 厚置备快速归零
+	DISK_PREALLOCATION_FULL = "full"
 )

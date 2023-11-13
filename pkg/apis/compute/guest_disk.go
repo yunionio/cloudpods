@@ -98,6 +98,7 @@ type GuestdiskJsonDesc struct {
 		ImageExternalId    string `json:"image_external_id"`
 		StorageCacheHostIp string `json:"storage_cache_host_ip"`
 	} `json:"image_info"`
+	Preallocation string `json:"preallocation"`
 
 	TargetStorageId string `json:"target_storage_id"`
 

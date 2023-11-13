@@ -289,11 +289,12 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			return
 		}
 		opts := cloudprovider.GuestDiskCreateOptions{
-			SizeMb:    disk.DiskSize,
-			UUID:      disk.Id,
-			Driver:    d.Driver,
-			Idx:       d.Index,
-			StorageId: storage.GetExternalId(),
+			SizeMb:        disk.DiskSize,
+			UUID:          disk.Id,
+			Driver:        d.Driver,
+			Idx:           d.Index,
+			StorageId:     storage.GetExternalId(),
+			Preallocation: disk.Preallocation,
 		}
 		_, err = ivm.CreateDisk(ctx, &opts)
 		if err != nil {

@@ -552,6 +552,8 @@ type ICloudDisk interface {
 	Reset(ctx context.Context, snapshotId string) (string, error)
 
 	Rebuild(ctx context.Context) error
+
+	GetPreallocation() string
 }
 
 type ICloudSnapshot interface {

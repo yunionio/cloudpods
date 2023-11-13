@@ -126,6 +126,10 @@ func (self *SDisk) GetCacheMode() string {
 	return ""
 }
 
+func (self *SDisk) GetPreallocation() string {
+	return ""
+}
+
 func (self *SDisk) GetMountpoint() string {
 	self.fetchGuestDisk()
 	if self.guestDisk != nil {
