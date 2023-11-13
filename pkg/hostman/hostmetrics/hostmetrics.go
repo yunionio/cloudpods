@@ -255,20 +255,18 @@ func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMet
 				log.Warningf("failed found report data for nic %s", gm.Nics[i].Ifname)
 				continue
 			}
+			nicHasBeenSetDown := false
 			nicTraffic := compute.SNicTrafficRecord{}
 			for index, record := range guestTrafficRecord {
 				if index == strconv.Itoa(nicIo.Meta.Index) {
 					nicTraffic.RxTraffic += record.RxTraffic
 					nicTraffic.TxTraffic += record.TxTraffic
+					nicHasBeenSetDown = record.HasBeenSetDown
 				}
 			}
 
 			if gm.Nics[i].RxTrafficLimit > 0 || gm.Nics[i].TxTrafficLimit > 0 {
-				var nicDown, nicHasBeenSetDown = false, false
-				if nicTraffic.RxTraffic >= gm.Nics[i].RxTrafficLimit || nicTraffic.RxTraffic >= gm.Nics[i].TxTrafficLimit {
-					// record traffic excced, nic must has been set down
-					nicHasBeenSetDown = true
-				}
+				var nicDown = false
 				if gm.Nics[i].RxTrafficLimit > 0 {
 					nicTraffic.RxTraffic += int64(nicIo.TimeDiff * nicIo.BPSRecv / 8)
 					if nicTraffic.RxTraffic >= gm.Nics[i].RxTrafficLimit {
@@ -283,11 +281,12 @@ func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMet
 						nicDown = true
 					}
 				}
-				guestTraffics[strconv.Itoa(nicIo.Meta.Index)] = nicTraffic
 				if !nicHasBeenSetDown && nicDown {
 					log.Infof("guest %s nic %d traffic exceed, set nic down", gm.Id, nicIo.Meta.Index)
 					gm.SetNicDown(nicIo.Meta.Index)
+					nicTraffic.HasBeenSetDown = true
 				}
+				guestTraffics[strconv.Itoa(nicIo.Meta.Index)] = nicTraffic
 			}
 		}
 		if len(guestTraffics) == 0 {
@@ -621,14 +620,26 @@ func (m *SGuestMonitor) Netio() []*NetIOMetric {
 		data.Meta.NetId = nic.NetId
 		data.Meta.Uptime, _ = host.Uptime()
 
-		data.BytesSent = nicStat.BytesRecv
-		data.BytesRecv = nicStat.BytesSent
-		data.PacketsRecv = nicStat.PacketsSent
-		data.PacketsSent = nicStat.PacketsRecv
-		data.ErrIn = nicStat.Errout
-		data.ErrOut = nicStat.Errin
-		data.DropIn = nicStat.Dropout
-		data.DropOut = nicStat.Dropin
+		if nic.Driver == "vfio-pci" {
+			data.BytesSent = nicStat.BytesSent
+			data.BytesRecv = nicStat.BytesRecv
+			data.PacketsRecv = nicStat.PacketsRecv
+			data.PacketsSent = nicStat.PacketsSent
+			data.ErrIn = nicStat.Errin
+			data.ErrOut = nicStat.Errout
+			data.DropIn = nicStat.Dropin
+			data.DropOut = nicStat.Dropout
+		} else {
+			data.BytesSent = nicStat.BytesRecv
+			data.BytesRecv = nicStat.BytesSent
+			data.PacketsRecv = nicStat.PacketsSent
+			data.PacketsSent = nicStat.PacketsRecv
+			data.ErrIn = nicStat.Errout
+			data.ErrOut = nicStat.Errin
+			data.DropIn = nicStat.Dropout
+			data.DropOut = nicStat.Dropin
+		}
+
 		res = append(res, data)
 	}
 	return res

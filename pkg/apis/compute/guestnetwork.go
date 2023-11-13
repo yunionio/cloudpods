@@ -136,4 +136,6 @@ type GuestnetworkJsonDesc struct {
 type SNicTrafficRecord struct {
 	RxTraffic int64
 	TxTraffic int64
+
+	HasBeenSetDown bool
 }
