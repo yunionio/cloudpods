@@ -44,4 +44,13 @@ func init() {
 		return nil
 	})
 
+	R(&BugReportEnableOptions{}, "bug-report-disable", "Disable bug report", func(s *mcclient.ClientSession, args *BugReportEnableOptions) error {
+		ret, err := yunionconf.BugReport.DoBugReportDisable(s, nil)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 }
