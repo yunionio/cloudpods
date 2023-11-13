@@ -5184,9 +5184,6 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 			gpuSpecs = append(gpuSpecs, *gs)
 		}
 	}
-	if gs := self.GetGpuSpec(); gs != nil {
-		gpuSpecs = append(gpuSpecs, *gs)
-	}
 
 	spec.Set("gpu", jsonutils.Marshal(gpuSpecs))
 	return spec
@@ -5282,6 +5279,10 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc.Set("shutdown_mode", jsonutils.NewString(self.ShutdownMode))
 	if len(self.InstanceType) > 0 {
 		desc.Set("instance_type", jsonutils.NewString(self.InstanceType))
+	}
+	if gp := self.GetGpuSpec(); gp != nil {
+		desc.Set("gpu_model", jsonutils.NewString(gp.Model))
+		desc.Set("gpu_count", jsonutils.NewString(gp.Amount))
 	}
 
 	address := jsonutils.NewString(strings.Join(self.GetRealIPs(), ","))
