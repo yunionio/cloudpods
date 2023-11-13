@@ -39,6 +39,16 @@ import (
 const (
 	CLASS_CODE_VGA = "0300"
 	CLASS_CODE_3D  = "0302"
+
+	CLASS_CODE_DISP = "0380"
+)
+
+var (
+	GpuClassCodes = []string{
+		CLASS_CODE_VGA,
+		CLASS_CODE_3D,
+		CLASS_CODE_DISP,
+	}
 )
 
 const (
@@ -68,6 +78,9 @@ func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
 			continue
 		}
+		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
+			continue
+		}
 		if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 			warns = append(warns, errors.Wrapf(err, "get dev %s iommu group devices", dev.Addr))
 			continue
@@ -94,7 +107,7 @@ func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 }
 
 func getGPUPCIStr() ([]string, error) {
-	cmd := "lspci -nnmm | egrep '3D|VGA'"
+	cmd := "lspci -nnmm"
 	ret, err := bashOutput(cmd)
 	if err != nil {
 		return nil, err
@@ -234,32 +247,6 @@ func (gpu *sGPUHPCDevice) GetPassthroughCmd(index int) string {
 	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on", gpu.GetAddr())
 }
 
-func gpuPCIString() ([]string, error) {
-	lines, err := bashOutput("lspci -nnmm | egrep '3D|VGA'")
-	if err != nil {
-		return nil, fmt.Errorf("Get GPU PCI: %v", err)
-	}
-	ret := []string{}
-	for _, line := range lines {
-		if len(line) != 0 {
-			ret = append(ret, line)
-		}
-	}
-	return ret, nil
-}
-
-func gpuPCIAddr() ([]string, error) {
-	lines, err := gpuPCIString()
-	if err != nil {
-		return nil, err
-	}
-	addrs := []string{}
-	for _, line := range lines {
-		addrs = append(addrs, strings.Split(line, " ")[0])
-	}
-	return addrs, nil
-}
-
 // parseLspci parse one line output of `lspci -nnmm`
 func parseLspci(line string) *PCIDevice {
 	itemRegex := `(?P<bus_id>(` + BUSID_REGEX + `))` +
@@ -327,7 +314,7 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 }
 
 func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool) error {
-	if !utils.IsInStringArray(d.ClassCode, []string{CLASS_CODE_VGA, CLASS_CODE_3D}) {
+	if !utils.IsInArray(d.ClassCode, GpuClassCodes) {
 		return nil
 	}
 	isBootVGA, err := d.IsBootVGA()
