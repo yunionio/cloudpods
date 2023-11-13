@@ -274,27 +274,24 @@ func NewNIC(desc string) (*SNIC, error) {
 	nic.BridgeDev, err = hostbridge.NewDriver(options.HostOptions.BridgeDriver,
 		nic.Bridge, nic.Inter, nic.Ip)
 	if err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrapf(err, "hostbridge.NewDriver driver: %s, bridge: %s, interface: %s, ip: %s", options.HostOptions.BridgeDriver, nic.Bridge, nic.Inter, nic.Ip)
 	}
 
 	confirm, err := nic.BridgeDev.ConfirmToConfig()
 	if err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrapf(err, "nic.BridgeDev.ConfirmToConfig %#v", nic.BridgeDev)
 	}
 	if !confirm {
 		log.Infof("Not confirm to configuration")
 		if err = nic.BridgeDev.Setup(nic.BridgeDev); err != nil {
-			log.Errorln(err)
-			return nil, err
+			return nil, errors.Wrapf(err, "nic.BridgeDev.Setup %v", nic.BridgeDev)
 		}
 		time.Sleep(time.Second * 1)
 	} else {
 		log.Infof("Confirm to configuration!!")
 	}
 	if err := nic.BridgeDev.PersistentConfig(); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "nic.BridgeDev.PersistentConfig %v", nic.BridgeDev)
 	}
 	if isDHCP, err := nic.BridgeDev.DisableDHCPClient(); err != nil {
 		return nil, errors.Wrap(err, "disable dhcp client")
