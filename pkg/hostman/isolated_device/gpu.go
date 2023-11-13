@@ -38,6 +38,16 @@ import (
 const (
 	CLASS_CODE_VGA = "0300"
 	CLASS_CODE_3D  = "0302"
+
+	CLASS_CODE_DISP = "0380"
+)
+
+var (
+	GpuClassCodes = []string{
+		CLASS_CODE_VGA,
+		CLASS_CODE_3D,
+		CLASS_CODE_DISP,
+	}
 )
 
 const (
@@ -51,7 +61,7 @@ const (
 	// http://blog.wikichoon.com/2014/07/enabling-hyper-v-enlightenments-with-kvm.html
 	// 但实际测试不行，虚拟机不能运行nvidia驱动
 	// DEFAULT_CPU_CMD = "host,kvm=off,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time"
-	DEFAULT_CPU_CMD = "host,kvm=off"
+	DEFAULT_CPU_CMD = "host,kvm=off,hypervisor=off"
 )
 
 func getPassthroughGPUS() ([]*PCIDevice, error) {
@@ -83,13 +93,16 @@ func detectGPUS() ([]*PCIDevice, error) {
 		if err != nil {
 			return nil, err
 		}
+		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
+			continue
+		}
 		devs = append(devs, dev)
 	}
 	return devs, nil
 }
 
 func getGPUPCIStr() ([]string, error) {
-	ret, err := bashOutput("lspci -nnmm | egrep '3D|VGA'")
+	ret, err := bashOutput("lspci -nnmm")
 	if err != nil {
 		return nil, err
 	}
@@ -252,32 +265,6 @@ func NewGPUHPCDevice(dev *PCIDevice) *sGPUHPCDevice {
 func (gpu *sGPUHPCDevice) GetPassthroughCmd(index int) string {
 	// vAddr := getGuestAddr(index)
 	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on", gpu.GetAddr())
-}
-
-func gpuPCIString() ([]string, error) {
-	lines, err := bashOutput("lspci -nnmm | egrep '3D|VGA'")
-	if err != nil {
-		return nil, fmt.Errorf("Get GPU PCI: %v", err)
-	}
-	ret := []string{}
-	for _, line := range lines {
-		if len(line) != 0 {
-			ret = append(ret, line)
-		}
-	}
-	return ret, nil
-}
-
-func gpuPCIAddr() ([]string, error) {
-	lines, err := gpuPCIString()
-	if err != nil {
-		return nil, err
-	}
-	addrs := []string{}
-	for _, line := range lines {
-		addrs = append(addrs, strings.Split(line, " ")[0])
-	}
-	return addrs, nil
 }
 
 // parseLspci parse one line output of `lspci -nnmm`

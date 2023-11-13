@@ -734,9 +734,9 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 		bootVgaPath = append(bootVgaPath, strings.TrimSpace(lines[i]))
 	}
 
-	cmd := "lspci -nnmm | egrep '3D|VGA'"
+	cmd := "lspci -nnmm"
 	if updatedPciids {
-		cmd = "lspci -i /pci.ids -nnmm | egrep '3D|VGA'"
+		cmd = "lspci -i /pci.ids -nnmm"
 	}
 
 	lines, err = cli.Run(cmd)
@@ -747,7 +747,7 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 	for _, line := range lines {
 		if len(line) > 0 {
 			dev := isolated_device.NewPCIDevice2(line)
-			if len(dev.Addr) > 0 && !isBootVga(cli, dev, bootVgaPath) {
+			if len(dev.Addr) > 0 && utils.IsInArray(dev.ClassCode, isolated_device.GpuClassCodes) && !isBootVga(cli, dev, bootVgaPath) {
 				devs = append(devs, dev)
 			}
 		}
