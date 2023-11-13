@@ -674,12 +674,12 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "fi\n"
 
 	cmd += fmt.Sprintf("for d in $(ls -d /dev/hugepages/%s*)\n", uuid)
-	cmd += fmt.Sprintf("do\n")
-	cmd += fmt.Sprintf("  if [ -d $d ]; then\n")
-	cmd += fmt.Sprintf("    umount $d\n")
-	cmd += fmt.Sprintf("    rm -rf $d\n")
-	cmd += fmt.Sprintf("  fi\n")
-	cmd += fmt.Sprintf("done\n")
+	cmd += "do\n"
+	cmd += "  if [ -d $d ]; then\n"
+	cmd += "    umount $d\n"
+	cmd += "    rm -rf $d\n"
+	cmd += "  fi\n"
+	cmd += "done\n"
 
 	for _, nic := range nics {
 		if nic.Driver == api.NETWORK_DRIVER_VFIO {

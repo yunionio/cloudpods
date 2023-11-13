@@ -373,7 +373,7 @@ Loop:
 		if err != nil {
 			log.Errorf("unable to kill process '%d'", vd.Proc.Process.Pid)
 		}
-		return errors.Error(fmt.Sprintf("VDDKDisk read timeout, program blocked"))
+		return errors.Error("VDDKDisk read timeout, program blocked")
 	}
 	return nil
 }
