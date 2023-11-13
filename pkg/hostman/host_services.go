@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/jsonutils"
@@ -88,7 +89,12 @@ func (host *SHostService) RunService() {
 
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
-		log.Fatalf("Host instance init error: %v", err)
+		log.Errorf("Host instance init error: %v", err)
+		for {
+			// to catch error
+			time.Sleep(10 * time.Second)
+		}
+		// log.Fatalf("Host instance init error: %v", err)
 	}
 
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
