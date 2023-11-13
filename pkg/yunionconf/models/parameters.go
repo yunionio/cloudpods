@@ -397,3 +397,17 @@ func (manager *SParameterManager) EnableBugReport(ctx context.Context) bool {
 	bugReportEnable = &enabled
 	return true
 }
+
+func (manager *SParameterManager) DisableBugReport(ctx context.Context) error {
+	if !manager.GetBugReportEnabled() {
+		return nil
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where namespace = ?",
+			manager.TableSpec().Name(),
+		), NAMESPACE_BUG_REPORT,
+	)
+	bugReportEnable = nil
+	return err
+}
