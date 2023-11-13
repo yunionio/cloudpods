@@ -1075,7 +1075,7 @@ func (svm *SVirtualMachine) CreateDisk(ctx context.Context, opts *cloudprovider.
 		return "", err
 	}
 	if len(devs) == 0 {
-		return "", svm.createDriverAndDisk(ctx, ds, opts.SizeMb, opts.UUID, opts.Driver)
+		return "", svm.createDriverAndDisk(ctx, ds, opts.SizeMb, opts.UUID, opts.Driver, opts.Preallocation)
 	}
 	numDevBelowCtrl := make([]int, len(devs))
 	for i := range numDevBelowCtrl {
@@ -1107,11 +1107,12 @@ func (svm *SVirtualMachine) CreateDisk(ctx context.Context, opts *cloudprovider.
 		ControllerKey: ctrlKey,
 		Key:           diskKey,
 		Datastore:     ds,
+		Preallocation: opts.Preallocation,
 	}, true)
 }
 
 // createDriverAndDisk will create a driver and disk associated with the driver
-func (svm *SVirtualMachine) createDriverAndDisk(ctx context.Context, ds *SDatastore, sizeMb int, uuid string, driver string) error {
+func (svm *SVirtualMachine) createDriverAndDisk(ctx context.Context, ds *SDatastore, sizeMb int, uuid string, driver, preallocation string) error {
 	if driver != "scsi" && driver != "pvscsi" {
 		return fmt.Errorf("Driver %s is not supported", driver)
 	}
@@ -1140,6 +1141,7 @@ func (svm *SVirtualMachine) createDriverAndDisk(ctx context.Context, ds *SDatast
 			ImagePath:     "",
 			IsRoot:        false,
 			Datastore:     ds,
+			Preallocation: preallocation,
 		}, true)
 }
 

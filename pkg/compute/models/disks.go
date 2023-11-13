@@ -123,6 +123,12 @@ type SDisk struct {
 	// example: sys
 	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin" json:"disk_type"`
 
+	// 预分配策略
+	// off: 关闭预分配，默认关闭
+	// metadata: 精简制备
+	// falloc: 厚制制备延迟置零
+	// full: 厚制备快速置零
+	Preallocation string `width:"12" default:"off" charset:"ascii" nullable:"true" list:"user" update:"admin" json:"preallocation"`
 	// # is persistent
 	Nonpersistent bool `default:"false" list:"user" json:"nonpersistent"`
 
@@ -1669,6 +1675,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		self.DiskFormat = extDisk.GetDiskFormat()
 		self.DiskSize = extDisk.GetDiskSizeMB()
 		self.AccessPath = extDisk.GetAccessPath()
+		self.Preallocation = extDisk.GetPreallocation()
 		if iops := extDisk.GetIops(); iops > 0 {
 			self.Iops = iops
 		}
@@ -1758,6 +1765,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.DiskFormat = extDisk.GetDiskFormat()
 	disk.DiskSize = extDisk.GetDiskSizeMB()
 	disk.AutoDelete = extDisk.GetIsAutoDelete()
+	disk.Preallocation = extDisk.GetPreallocation()
 	disk.DiskType = extDisk.GetDiskType()
 	if index == 0 {
 		disk.DiskType = api.DISK_TYPE_SYS
