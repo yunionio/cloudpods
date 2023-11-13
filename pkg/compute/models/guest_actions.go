@@ -2766,7 +2766,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrap(err, "get guest network by mac")
 		}
 	}
-	confs.Set("reset_traffic_limits", jsonutils.Marshal(input.ResetTrafficLimits))
+	if len(input.ResetTrafficLimits) > 0 {
+		confs.Set("reset_traffic_limits", jsonutils.Marshal(input.ResetTrafficLimits))
+	}
 
 	for i := range input.SetTrafficLimits {
 		input.SetTrafficLimits[i].Mac = strings.ToLower(input.SetTrafficLimits[i].Mac)
@@ -2775,7 +2777,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrap(err, "get guest network by mac")
 		}
 	}
-	confs.Set("set_traffic_limits", jsonutils.Marshal(input.SetTrafficLimits))
+	if len(input.SetTrafficLimits) > 0 {
+		confs.Set("set_traffic_limits", jsonutils.Marshal(input.SetTrafficLimits))
+	}
 
 	if addCpu < 0 {
 		addCpu = 0
