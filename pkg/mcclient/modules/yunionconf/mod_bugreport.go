@@ -45,6 +45,10 @@ func (m BugReportManager) DoBugReportEnable(s *mcclient.ClientSession, _ jsonuti
 	return modulebase.Post(m.ResourceManager, s, "enable-bug-report", nil, "")
 }
 
+func (m BugReportManager) DoBugReportDisable(s *mcclient.ClientSession, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return modulebase.Post(m.ResourceManager, s, "disable-bug-report", nil, "")
+}
+
 func (m BugReportManager) GetBugReportEnabled(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return modulebase.Get(m.ResourceManager, s, "bug-report-status", "")
 }
