@@ -199,9 +199,7 @@ func (h *SHostInfo) Init() error {
 	}
 
 	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
-		err := errors.Errorf("Prepare host bridge %q error: %v", options.HostOptions.BridgeDriver, err)
-		log.Errorln(err)
-		return err
+		return errors.Wrapf(err, "Prepare host bridge %q", options.HostOptions.BridgeDriver)
 	}
 
 	log.Infof("Start parseConfig")
@@ -303,7 +301,7 @@ func (h *SHostInfo) parseConfig() error {
 	if len(options.HostOptions.Networks) == 0 {
 		netConf, err := h.generateLocalNetworkConfig()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "generateLocalNetworkConfig")
 		}
 		log.Infof("Generate network config %s", netConf)
 		options.HostOptions.Networks = []string{netConf}
@@ -320,13 +318,13 @@ func (h *SHostInfo) parseConfig() error {
 	for _, n := range options.HostOptions.Networks {
 		nic, err := NewNIC(n)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "NewNIC %s", n)
 		}
 		h.Nics = append(h.Nics, nic)
 	}
 	for i := 0; i < len(h.Nics); i++ {
 		if err := h.Nics[i].SetupDhcpRelay(); err != nil {
-			return err
+			return errors.Wrapf(err, "SetupDhcpRelay %s/%s/%s", h.Nics[i].Inter, h.Nics[i].Bridge, h.Nics[i].Ip)
 		}
 	}
 	if len(options.HostOptions.ListenInterface) > 0 {
