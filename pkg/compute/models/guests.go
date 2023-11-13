@@ -6689,3 +6689,14 @@ func (guest *SGuest) IsSriov() bool {
 	}
 	return false
 }
+
+func (guest *SGuest) PerformReBilling(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.SReBillingInput) (jsonutils.JSONObject, error) {
+	err := guest.SetMetadata(ctx, "user:created_at", input.ReBillingAt, userCred)
+	if err != nil {
+		logclient.AddSimpleActionLog(guest, "re-billing", guest, userCred, false)
+		return nil, errors.Wrap(err, "meta created_at2 ")
+	}
+	serverDetail, _ := guest.getDetails(ctx, userCred)
+	logclient.AddSimpleActionLog(guest, "re-billing", serverDetail, userCred, true)
+	return nil, nil
+}
