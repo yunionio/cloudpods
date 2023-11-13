@@ -108,11 +108,12 @@ type SDiskInfo struct {
 }
 
 type GuestDiskCreateOptions struct {
-	SizeMb    int
-	UUID      string
-	Driver    string
-	Idx       int
-	StorageId string
+	SizeMb        int
+	UUID          string
+	Driver        string
+	Idx           int
+	StorageId     string
+	Preallocation string `choices:"off|metadata|full|falloc"`
 }
 
 const (

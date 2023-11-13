@@ -794,12 +794,13 @@ type SCdromInfo struct {
 }
 
 type SDiskInfo struct {
-	ImagePath string
-	Size      int64
-	DiskId    string
-	Driver    string
-	ImageInfo SEsxiImageInfo
-	StorageId string
+	ImagePath     string
+	Size          int64
+	DiskId        string
+	Driver        string
+	ImageInfo     SEsxiImageInfo
+	StorageId     string
+	Preallocation string
 }
 
 type SEsxiImageInfo struct {
@@ -956,6 +957,7 @@ func (host *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 			ImagePath:     imagePath,
 			IsRoot:        i == 0,
 			Datastore:     tds,
+			Preallocation: disk.Preallocation,
 		}))
 		if len(imagePath) == 0 {
 			spec.FileOperation = "create"
@@ -1215,6 +1217,38 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		}
 	}
 
+	diskPreallocationChanged := false
+	diskChanged := []types.VirtualMachineRelocateSpecDiskLocator{}
+	idisks, _ := from.GetIDisks()
+	for i, disk := range idisks {
+		if i > len(params.Disks)-1 {
+			break
+		}
+		if len(params.Disks[i].Preallocation) > 0 && params.Disks[i].Preallocation != disk.GetPreallocation() {
+			diskPreallocationChanged = true
+		}
+
+		locator := types.VirtualMachineRelocateSpecDiskLocator{}
+		tds, _ := host.FindDataStoreById(params.Disks[i].StorageId)
+		if tds != nil {
+			locator.Datastore = tds.object.Reference()
+		}
+		backing := &types.VirtualDiskFlatVer2BackingInfo{}
+		switch params.Disks[i].Preallocation {
+		case api.DISK_PREALLOCATION_OFF, api.DISK_PREALLOCATION_METADATA, "":
+			backing.ThinProvisioned = types.NewBool(true)
+		case api.DISK_PREALLOCATION_FALLOC:
+			backing.ThinProvisioned = types.NewBool(false)
+			backing.EagerlyScrub = types.NewBool(false)
+		case api.DISK_PREALLOCATION_FULL:
+			backing.ThinProvisioned = types.NewBool(false)
+			backing.EagerlyScrub = types.NewBool(true)
+		}
+		locator.DiskId = int32(2000 + i)
+		locator.DiskBackingInfo = backing
+		diskChanged = append(diskChanged, locator)
+	}
+
 	dc, err := host.GetDatacenter()
 	if err != nil {
 		return nil, errors.Wrapf(err, "SHost.GetDatacenter for host '%s'", host.GetId())
@@ -1238,6 +1272,9 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		Pool:      &poolref,
 		Host:      &hostref,
 		Datastore: &dsref,
+	}
+	if diskPreallocationChanged {
+		relocateSpec.Disk = diskChanged
 	}
 	cloneSpec := &types.VirtualMachineCloneSpec{
 		PowerOn:  false,
@@ -1371,10 +1408,11 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		uuid := params.Disks[i].DiskId
 		driver := params.Disks[i].Driver
 		opts := &cloudprovider.GuestDiskCreateOptions{
-			SizeMb:    int(size),
-			UUID:      uuid,
-			Driver:    driver,
-			StorageId: params.Disks[i].StorageId,
+			SizeMb:        int(size),
+			UUID:          uuid,
+			Driver:        driver,
+			StorageId:     params.Disks[i].StorageId,
+			Preallocation: params.Disks[i].Preallocation,
 		}
 		_, err := vm.CreateDisk(ctx, opts)
 		if err != nil {
