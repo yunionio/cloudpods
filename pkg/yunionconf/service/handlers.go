@@ -66,6 +66,7 @@ func InitHandlers(app *appsrv.Application) {
 func addBugReportHandler(prefix string, app *appsrv.Application) {
 	app.AddHandler("GET", fmt.Sprintf("%s/bug-report-status", prefix), bugReportStatusHandler)
 	app.AddHandler("POST", fmt.Sprintf("%s/enable-bug-report", prefix), enableBugReportHandler)
+	app.AddHandler("POST", fmt.Sprintf("%s/disable-bug-report", prefix), disableBugReportHandler)
 	app.AddHandler("POST", fmt.Sprintf("%s/send-bug-report", prefix), sendBugReportHandler)
 }
 
@@ -77,6 +78,11 @@ func bugReportStatusHandler(ctx context.Context, w http.ResponseWriter, r *http.
 func enableBugReportHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	enabled := models.ParameterManager.EnableBugReport(ctx)
 	appsrv.SendJSON(w, jsonutils.Marshal(map[string]bool{"enabled": enabled}))
+}
+
+func disableBugReportHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	models.ParameterManager.DisableBugReport(ctx)
+	appsrv.SendJSON(w, jsonutils.Marshal(map[string]bool{"enabled": false}))
 }
 
 func sendBugReportHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
