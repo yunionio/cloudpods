@@ -413,3 +413,7 @@ type SplitTableExportInput struct {
 	Offset int    `json:"offset"`
 	Limit  int    `json:"limit"`
 }
+
+type SReBillingInput struct {
+	ReBillingAt string
+}
