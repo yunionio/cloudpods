@@ -18,12 +18,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -44,8 +46,8 @@ const (
 //USB_TYPE        = api.USB_TYPE
 //NIC_TYPE        = api.NIC_TYPE
 
-//NVIDIA_VENDOR_ID = api.NVIDIA_VENDOR_ID
-//AMD_VENDOR_ID    = api.AMD_VENDOR_ID
+// NVIDIA_VENDOR_ID = api.NVIDIA_VENDOR_ID
+// AMD_VENDOR_ID    = api.AMD_VENDOR_ID
 )
 
 var VALID_GPU_TYPES = api.VALID_GPU_TYPES
@@ -64,6 +66,10 @@ type SIsolatedDeviceManager struct {
 var IsolatedDeviceManager *SIsolatedDeviceManager
 
 func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&api.IsolatedDevicePCIEInfo{}), func() gotypes.ISerializable {
+		return &api.IsolatedDevicePCIEInfo{}
+	})
+
 	IsolatedDeviceManager = &SIsolatedDeviceManager{
 		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SIsolatedDevice{},
@@ -131,6 +137,9 @@ type SIsolatedDevice struct {
 
 	// reserved storage size for isolated device
 	ReservedStorage int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
+
+	// PciInfo stores extra PCIE information
+	PcieInfo *api.IsolatedDevicePCIEInfo `nullable:"true" create:"optional" list:"user" get:"user" update:"domain"`
 }
 
 func (manager *SIsolatedDeviceManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {

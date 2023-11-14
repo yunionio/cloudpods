@@ -200,6 +200,12 @@ func IsDiskTypeMatch(t1, t2 string) bool {
 	}
 }
 
+const (
+	STORAGE_METADATA_VENDOR    = "vendor"
+	STORAGE_METADATA_MODEL     = "model"
+	STORAGE_METADATA_BANDWIDTH = "bandwidth"
+)
+
 type StorageResourceInput struct {
 	// 存储（ID或Name）
 	StorageId string `json:"storage_id"`

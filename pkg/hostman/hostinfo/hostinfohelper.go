@@ -331,8 +331,9 @@ type SSysInfo struct {
 	HugepageSizeKb  int    `json:"hugepage_size_kb"`
 	HugepageNr      *int   `json:"hugepage_nr"`
 
-	Topology *hostapi.HostTopology `json:"topology"`
-	CPUInfo  *hostapi.HostCPUInfo  `json:"cpu_info"`
+	Topology        *hostapi.HostTopology `json:"topology"`
+	CPUInfo         *hostapi.HostCPUInfo  `json:"cpu_info"`
+	MotherboardInfo *types.SSystemInfo    `json:"motherboard_info"`
 }
 
 func StartDetachStorages(hs []jsonutils.JSONObject) {

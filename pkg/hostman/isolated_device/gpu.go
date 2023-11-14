@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -65,7 +66,7 @@ const (
 	DEFAULT_CPU_CMD = "host,kvm=off"
 )
 
-func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
+func getPassthroughGPUs(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 	lines, err := getGPUPCIStr()
 	if err != nil {
 		return nil, err, nil
@@ -75,7 +76,7 @@ func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 	devs := []*PCIDevice{}
 	log.Infof("filter address %v", filteredAddrs)
 	for _, line := range lines {
-		dev := parseLspci(line)
+		dev := NewPCIDevice2(line)
 		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
 			continue
 		}
@@ -137,11 +138,12 @@ type PCIDevice struct {
 	SubdeviceId   string `json:"subdevice_id"`
 	ModelName     string `json:"model_name"`
 
-	RestIOMMUGroupDevs []*PCIDevice `json:"-"`
+	RestIOMMUGroupDevs []*PCIDevice                `json:"-"`
+	PCIEInfo           *api.IsolatedDevicePCIEInfo `json:"pcie_info"`
 }
 
 func NewPCIDevice(line string) (*PCIDevice, error) {
-	dev := parseLspci(line)
+	dev := NewPCIDevice2(line)
 	if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 		return nil, err
 	}
@@ -152,7 +154,11 @@ func NewPCIDevice(line string) (*PCIDevice, error) {
 }
 
 func NewPCIDevice2(line string) *PCIDevice {
-	return parseLspci(line)
+	dev := parseLspci(line)
+	if err := dev.fillPCIEInfo(); err != nil {
+		log.Warningf("fillPCIEInfo for device: %s, error: %v", dev.String(), err)
+	}
+	return dev
 }
 
 type sGPUBaseDevice struct {
@@ -271,7 +277,7 @@ func (d *PCIDevice) GetVendorDeviceId() string {
 	return fmt.Sprintf("%s:%s", d.VendorId, d.DeviceId)
 }
 
-// checkSameIOMMUGroupDevice check related device like Audio in same iommu group
+// checkSameIOMMUGroupDevice checks related device like Audio in same iommu group
 // e.g.
 // 41:00.0 VGA compatible controller [0300]: NVIDIA Corporation GP107 [GeForce GTX 1050 Ti] [10de:1c82] (rev a1)
 // 41:00.1 Audio device [0403]: NVIDIA Corporation GP107GL High Definition Audio Controller [10de:0fb9] (rev a1)
@@ -375,6 +381,40 @@ func (d *PCIDevice) bindDriver() error {
 		fmt.Sprintf("%s\n", vendorDevId),
 		false,
 	)
+}
+
+func (d *PCIDevice) fillPCIEInfo() error {
+	cmd := fmt.Sprintf("lspci -vvv -s %s", d.Addr)
+	lines, err := bashOutput(cmd)
+	if err != nil {
+		return errors.Wrapf(err, "execute cmd: %s", cmd)
+	}
+	linkCapKey := "LnkCap:"
+	for _, line := range lines {
+		if strings.Contains(line, linkCapKey) {
+			info, err := parsePCIELinkCap(line)
+			if err != nil {
+				return errors.Wrapf(err, "parsePCIELinkCap")
+			}
+			d.PCIEInfo = info
+			return nil
+		}
+	}
+	return nil
+}
+
+func parsePCIELinkCap(line string) (*api.IsolatedDevicePCIEInfo, error) {
+	// e.g. parse following line
+	//                 LnkCap: Port #0, Speed 8GT/s, Width x16, ASPM L0s L1, Exit Latency L0s <1us, L1 <4us
+
+	lnkCapExp := `\s*LnkCap:.*Speed\s(?P<speed>((\d*[.])?\d+GT/s)),\sWidth\sx(?P<lane_width>(\d{1,})),.*`
+	ret := regutils2.SubGroupMatch(lnkCapExp, line)
+	if len(ret) == 0 {
+		return nil, errors.Errorf("can't parse line: %q", line)
+	}
+	laneWidthStr := ret["lane_width"]
+	laneWidth, _ := strconv.Atoi(laneWidthStr)
+	return api.NewIsolatedDevicePCIEInfo(ret["speed"], laneWidth)
 }
 
 func (d *PCIDevice) String() string {
