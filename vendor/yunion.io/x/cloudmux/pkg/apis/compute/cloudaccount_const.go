@@ -45,6 +45,7 @@ const (
 	CLOUD_PROVIDER_CUCLOUD        = "ChinaUnion"
 	CLOUD_PROVIDER_QINGCLOUD      = "QingCloud"
 	CLOUD_PROVIDER_VOLCENGINE     = "VolcEngine"
+	CLOUD_PROVIDER_ORACLE         = "OracleCloud"
 
 	CLOUD_PROVIDER_GENERICS3 = "S3"
 	CLOUD_PROVIDER_CEPH      = "Ceph"

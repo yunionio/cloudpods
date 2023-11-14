@@ -1419,3 +1419,21 @@ type SQingCloudCloudAccountUpdateCredentialOptions struct {
 func (opts *SQingCloudCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type SOracleCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	OraclePrivateKeyFile string `help:"Oracle private key" positional:"true"`
+	OracleTenancyOCID    string
+	OracleUserOCID       string
+}
+
+func (opts *SOracleCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	params.Add(jsonutils.NewString("OracleCloud"), "provider")
+	data, err := ioutil.ReadFile(opts.OraclePrivateKeyFile)
+	if err != nil {
+		return nil, err
+	}
+	params.Set("oracle_private_key", jsonutils.NewString(string(data)))
+	return params, nil
+}
