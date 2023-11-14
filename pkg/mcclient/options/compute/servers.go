@@ -59,6 +59,7 @@ type ServerListOptions struct {
 	IpAddrs            []string `help:"Fileter by ips"`
 
 	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
+	OrderByOsDist  string `help:"Order by os distribution" choices:"asc|desc"`
 	OrderByHost    string `help:"Order by host name" choices:"asc|desc"`
 	OrderByNetwork string `help:"Order by network name" choices:"asc|desc"`
 	OrderByIp      string `help:"Order by ip" choices:"asc|desc"`
