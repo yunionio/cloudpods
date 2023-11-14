@@ -131,17 +131,29 @@ func (s *SKVMGuestInstance) GetKernelVersion() string {
 	return s.manager.host.GetKernelVersion()
 }
 
-func (s *SKVMGuestInstance) HideKVM() bool {
-	if s.hasGPU() {
+func (s *SKVMGuestInstance) HideHypervisor() bool {
+	if s.IsRunning() && s.IsMonitorAlive() {
+		cmdline, _ := fileutils2.FileGetContents(path.Join("/proc", strconv.Itoa(s.GetPid()), "cmdline"))
+		if strings.Contains(cmdline, "hypervisor=off") {
+			return true
+		}
+	}
+	if s.hasGPU() && s.GetOsName() == OS_NAME_WINDOWS {
 		return true
 	}
+	return false
+}
+
+func (s *SKVMGuestInstance) HideKVM() bool {
 	if s.IsRunning() && s.IsMonitorAlive() {
 		cmdline, _ := fileutils2.FileGetContents(path.Join("/proc", strconv.Itoa(s.GetPid()), "cmdline"))
 		if strings.Contains(cmdline, "kvm=off") {
 			return true
 		}
 	}
-
+	if s.hasGPU() && s.GetOsName() != OS_NAME_WINDOWS {
+		return true
+	}
 	return false
 }
 
