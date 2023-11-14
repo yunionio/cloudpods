@@ -388,6 +388,9 @@ func (o *baseOptions_x86_64) CPU(input CPUOption, osName string) (string, string
 		} else if input.IsCPUAMD {
 			vendor = "AuthenticAMD"
 		}
+		if len(input.IsolatedDeviceCPU) > 0 {
+			input.HostCPUPassthrough = true
+		}
 		accel = "kvm"
 		cpuType = ""
 		if osName == OS_NAME_MACOS {
@@ -415,15 +418,14 @@ func (o *baseOptions_x86_64) CPU(input CPUOption, osName string) (string, string
 			}
 		}
 
-		if !input.EnableNested {
-			cpuType += ",kvm=off"
-		}
-
 		if len(input.IsolatedDeviceCPU) > 0 {
-			cpuType = input.IsolatedDeviceCPU
-			if len(vendor) > 0 {
-				cpuType += fmt.Sprintf(",vendor=%s", vendor)
+			if osName == OS_NAME_WINDOWS {
+				cpuType += ",hypervisor=off"
+			} else {
+				cpuType += ",kvm=off"
 			}
+		} else if !input.EnableNested {
+			cpuType += ",kvm=off"
 		}
 	} else {
 		accel = "tcg"
