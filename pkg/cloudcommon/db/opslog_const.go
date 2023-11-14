@@ -327,4 +327,6 @@ const (
 	ACT_STOP_RESCUE         = "stop_rescue"
 	ACT_START_RESCUE_FAILED = "start_rescue_failed"
 	ACT_STOP_RESCUE_FAILED  = "stop_rescue_failed"
+
+	ACT_RE_BILLING = "re_billing"
 )
