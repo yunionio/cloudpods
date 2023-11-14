@@ -47,6 +47,7 @@ const (
 	HOST_TYPE_CUCLOUD        = "cucloud"
 	HOST_TYPE_QINGCLOUD      = "qingcloud"
 	HOST_TYPE_VOLCENGINE     = "volcengine"
+	HOST_TYPE_ORACLE         = "oracle"
 
 	// # possible status
 	HOST_ONLINE  = "online"
