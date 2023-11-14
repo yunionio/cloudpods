@@ -34,6 +34,12 @@ func (self StorageUsage) IsZero() bool {
 	return self.HostCount+self.DiskCount+self.SnapshotCount == 0
 }
 
+type StorageHardwareInfo struct {
+	Model     *string `json:"model"`
+	Vendor    *string `json:"vendor"`
+	Bandwidth float64 `json:"bandwidth" help:"Bandwidth of the device, and the unit is GB/s"`
+}
+
 type StorageCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 
@@ -104,6 +110,9 @@ type StorageCreateInput struct {
 	// 网络文件系统共享目录, storage_type 为 nfs 时, 此参数必传
 	// example: /nfs_root/
 	NfsSharedDir string `json:"nfs_shared_dir"`
+
+	// swagger:ignore
+	HardwareInfo *StorageHardwareInfo `json:"hardware_info"`
 }
 
 type RbdTimeoutInput struct {
@@ -230,4 +239,7 @@ type StorageUpdateInput struct {
 	StorageConf *jsonutils.JSONDict
 
 	UpdateStorageConf bool
+
+	// swagger:ignore
+	HardwareInfo *StorageHardwareInfo `json:"hardware_info"`
 }

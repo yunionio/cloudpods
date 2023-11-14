@@ -26,4 +26,6 @@ func init() {
 	cmd.Create(new(options.IsolatedDeviceModelCreateOptions))
 	cmd.Update(new(options.IsolatedDeviceModelUpdateOptions))
 	cmd.Delete(new(options.IsolatedDeviceIdsOptions))
+	cmd.Perform("set-hardware-info", new(options.IsolatedDeviceModelSetHardwareInfoOptions))
+	cmd.Get("hardware-info", new(options.IsolatedDeviceIdsOptions))
 }

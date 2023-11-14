@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -119,4 +120,13 @@ type StorageForceDetachHost struct {
 
 func (opts *StorageForceDetachHost) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string]string{"host": opts.HOST}), nil
+}
+
+type StorageSetHardwareInfoOptions struct {
+	options.BaseIdOptions
+	compute.StorageHardwareInfo
+}
+
+func (o *StorageSetHardwareInfoOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
 }
