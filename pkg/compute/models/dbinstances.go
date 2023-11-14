@@ -2169,3 +2169,25 @@ func (db *SDBInstance) PostUpdate(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 }
+
+func (rds *SDBInstance) getDetails(ctx context.Context, userCred mcclient.TokenCredential) (*api.DBInstanceDetails, error) {
+	res := DBInstanceManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), []interface{}{rds}, nil, false)
+	jsonDict := jsonutils.Marshal(res[0]).(*jsonutils.JSONDict)
+	jsonDict.Update(jsonutils.Marshal(rds).(*jsonutils.JSONDict))
+	rdsDetails := new(api.DBInstanceDetails)
+	err := jsonDict.Unmarshal(rdsDetails)
+	if err != nil {
+		return nil, err
+	}
+	return rdsDetails, nil
+}
+
+func (rds *SDBInstance) PerformReBilling(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.SReBillingInput) (jsonutils.JSONObject, error) {
+	err := rds.SetMetadata(ctx, "user:created_at", input.ReBillingAt, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "set meta created_at2")
+	}
+	rdsDetails, _ := rds.getDetails(ctx, userCred)
+	db.OpsLog.LogEvent(rds, "re_billing", rdsDetails, userCred)
+	return nil, nil
+}

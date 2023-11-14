@@ -1720,3 +1720,25 @@ func (man *SLoadbalancerManager) InitializeData() error {
 	)
 	return err
 }
+
+func (lb *SLoadbalancer) getDetails(ctx context.Context, userCred mcclient.TokenCredential) (*api.LoadbalancerDetails, error) {
+	res := LoadbalancerManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), []interface{}{lb}, nil, false)
+	jsonDict := jsonutils.Marshal(res[0]).(*jsonutils.JSONDict)
+	jsonDict.Update(jsonutils.Marshal(lb).(*jsonutils.JSONDict))
+	lbDetails := new(api.LoadbalancerDetails)
+	err := jsonDict.Unmarshal(lbDetails)
+	if err != nil {
+		return nil, err
+	}
+	return lbDetails, nil
+}
+
+func (lb *SLoadbalancer) PerformReBilling(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.SReBillingInput) (jsonutils.JSONObject, error) {
+	err := lb.SetMetadata(ctx, "user:created_at", input.ReBillingAt, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "set meta created_at2")
+	}
+	lbDetails, _ := lb.getDetails(ctx, userCred)
+	db.OpsLog.LogEvent(lb, "re_billing", lbDetails, userCred)
+	return nil, nil
+}

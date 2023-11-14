@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -1779,4 +1780,26 @@ func (manager *SBucketManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	return q, nil
+}
+
+func (bucket *SBucket) getDetails(ctx context.Context, userCred mcclient.TokenCredential) (*api.BucketDetails, error) {
+	res := BucketManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), []interface{}{bucket}, nil, false)
+	jsonDict := jsonutils.Marshal(res[0]).(*jsonutils.JSONDict)
+	jsonDict.Update(jsonutils.Marshal(bucket).(*jsonutils.JSONDict))
+	bucketDetails := new(api.BucketDetails)
+	err := jsonDict.Unmarshal(bucketDetails)
+	if err != nil {
+		return nil, err
+	}
+	return bucketDetails, nil
+}
+
+func (bucket *SBucket) PerformReBilling(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.SReBillingInput) (jsonutils.JSONObject, error) {
+	err := bucket.SetMetadata(ctx, "user:created_at", input.ReBillingAt, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "set meta created_at")
+	}
+	bucketDetails, _ := bucket.getDetails(ctx, userCred)
+	db.OpsLog.LogEvent(bucket, "re_billing", bucketDetails, userCred)
+	return nil, nil
 }
