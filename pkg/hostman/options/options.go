@@ -39,6 +39,9 @@ type SHostBaseOptions struct {
 	FloppyCount int `help:"floppy count" default:"1"`
 
 	DisableLocalVpc bool `help:"disable local VPC support" default:"false"`
+
+	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
+	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
 }
 
 type SHostOptions struct {
@@ -98,9 +101,7 @@ type SHostOptions struct {
 	SharedStorages  []string `help:"Path of shared storages"`
 	LVMVolumeGroups []string `help:"LVM Volume Groups(vgs)"`
 
-	DhcpRelay       []string `help:"DHCP relay upstream"`
-	DhcpLeaseTime   int      `default:"100663296" help:"DHCP lease time in seconds"`
-	DhcpRenewalTime int      `default:"67108864" help:"DHCP renewal time in seconds"`
+	DhcpRelay []string `help:"DHCP relay upstream"`
 
 	TunnelPaddingBytes int64 `help:"Specify tunnel padding bytes" default:"0"`
 
