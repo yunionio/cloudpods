@@ -2093,7 +2093,7 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 		return net.Driver == "virtio" || net.Driver == "vfio-pci"
 	}
 	var isChangeNetworkValid = func(net *desc.SGuestNetwork) bool {
-		return net.Driver == "virtio"
+		return net.Driver == "virtio" || net.Driver == "vfio-pci"
 	}
 
 	var findNet = func(nets []*desc.SGuestNetwork, net *desc.SGuestNetwork) int {
@@ -2150,10 +2150,18 @@ func getNicBridge(nic *desc.SGuestNetwork) string {
 	}
 }
 
-func onNicChange(oldNic, newNic *desc.SGuestNetwork) error {
+func (s *SKVMGuestInstance) onNicChange(oldNic, newNic *desc.SGuestNetwork) error {
 	log.Infof("nic changed old: %s new: %s", jsonutils.Marshal(oldNic), jsonutils.Marshal(newNic))
 	// override network base desc
 	oldNic.GuestnetworkBaseDesc = newNic.GuestnetworkBaseDesc
+
+	if oldNic.Driver == "vfio-pci" {
+		err := s.reconfigureVfioNicsBandwidth(oldNic)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 
 	oldbr := getNicBridge(oldNic)
 	oldifname := oldNic.Ifname
@@ -2229,7 +2237,7 @@ func (s *SKVMGuestInstance) SyncConfig(
 	if len(changedNetworks) > 0 && s.IsRunning() {
 		// process changed networks
 		for i := range changedNetworks {
-			err := onNicChange(changedNetworks[i][0], changedNetworks[i][1])
+			err := s.onNicChange(changedNetworks[i][0], changedNetworks[i][1])
 			if err != nil {
 				return nil, errors.Wrap(err, "onNicChange")
 			}
@@ -2959,8 +2967,8 @@ func (s *SKVMGuestInstance) sriovNicAttachInitScript(networkIndex int8, dev isol
 	for i := range s.Desc.Nics {
 		if s.Desc.Nics[i].Driver == "vfio-pci" && s.Desc.Nics[i].Index == networkIndex {
 			if dev.GetOvsOffloadInterfaceName() != "" {
-				cmd := fmt.Sprintf("ip link set dev %s vf %d mac %s\n",
-					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac)
+				cmd := fmt.Sprintf("ip link set dev %s vf %d mac %s max_tx_rate %d\n",
+					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac, s.Desc.Nics[i].Bw)
 				cmd += s.getNicUpScriptPath(s.Desc.Nics[i]) + "\n"
 				return cmd, nil
 			} else {
@@ -2986,8 +2994,8 @@ func (s *SKVMGuestInstance) generateSRIOVInitScripts() (string, error) {
 				return "", err
 			}
 			if dev.GetOvsOffloadInterfaceName() != "" {
-				cmd += fmt.Sprintf("ip link set dev %s vf %d mac %s\n",
-					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac)
+				cmd += fmt.Sprintf("ip link set dev %s vf %d mac %s max_tx_rate %d\n",
+					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac, s.Desc.Nics[i].Bw)
 				cmd += s.getNicUpScriptPath(s.Desc.Nics[i]) + "\n"
 			} else {
 				cmd += fmt.Sprintf(
@@ -3003,6 +3011,21 @@ func (s *SKVMGuestInstance) generateSRIOVInitScripts() (string, error) {
 	}
 
 	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) reconfigureVfioNicsBandwidth(nicDesc *desc.SGuestNetwork) error {
+	if nicDesc.Driver == "vfio-pci" {
+		dev, err := s.GetSriovDeviceByNetworkIndex(nicDesc.Index)
+		if err != nil {
+			return errors.Wrap(err, "reconfigureVfioNicsBandwidth")
+		}
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("ip", "link", "set", "dev", dev.GetPfName(),
+			"vf", strconv.Itoa(dev.GetVirtfn()), "max_tx_rate", strconv.Itoa(nicDesc.Bw)).Output()
+		if err != nil {
+			return errors.Wrapf(err, "reconfigureVfioNicsBandwidth set max_tx_rate %s", out)
+		}
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) getQemuCmdline() (string, error) {
