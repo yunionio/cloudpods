@@ -273,7 +273,7 @@ func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec) error {
 	bridgeIP := d.inter.Addr
 	bridgeMask := d.inter.Mask
 	br := d.bridge.String()
-	for i := len(routespecs) - 1; i >= 0; i-- {
+	for i := 0; i < len(routespecs); i++ {
 		errs := []error{}
 		routespec := routespecs[i]
 		if routespec.Dst.Contains(net.ParseIP(bridgeIP)) && bridgeMask.String() == routespec.Dst.Mask.String() {
