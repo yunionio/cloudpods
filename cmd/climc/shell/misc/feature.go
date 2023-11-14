@@ -67,6 +67,7 @@ func init() {
 		"cucloud",
 		"qingcloud",
 		"volcengine",
+		"oracle",
 	}
 
 	const (

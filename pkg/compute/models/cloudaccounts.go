@@ -88,10 +88,10 @@ type SCloudaccount struct {
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"domain_optional"`
 
 	// 云环境连接地址
-	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	AccessUrl string `width:"128" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 云账号
-	Account string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	Account string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 
 	// 云账号密码
 	Secret string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
