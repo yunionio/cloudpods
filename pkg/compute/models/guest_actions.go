@@ -5961,3 +5961,31 @@ func (self *SGuest) PerformCalculateRecordChecksum(ctx context.Context, userCred
 func (self *SGuest) PerformEnableMemclean(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, self.SetMetadata(ctx, api.VM_METADATA_ENABLE_MEMCLEAN, "true", userCred)
 }
+
+func (self *SGuest) PerformSetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetOSInfoInput) (jsonutils.JSONObject, error) {
+	if err := self.GetDriver().ValidateSetOSInfo(ctx, userCred, self, &input); err != nil {
+		return nil, err
+	}
+
+	if input.Type != "" {
+		if _, err := db.Update(self, func() error {
+			self.OsType = input.Type
+			return nil
+		}); err != nil {
+			return nil, errors.Wrapf(err, "update os_type")
+		}
+	}
+	for k, v := range map[string]string{
+		api.VM_METADATA_OS_NAME:    input.Type,
+		api.VM_METADATA_OS_VERSION: input.Version,
+		api.VM_METADATA_OS_DISTRO:  input.Distribution,
+	} {
+		if len(v) == 0 {
+			continue
+		}
+		if err := self.SetMetadata(ctx, k, v, userCred); err != nil {
+			return nil, errors.Wrapf(err, "set metadata %s to %s", k, v)
+		}
+	}
+	return nil, nil
+}

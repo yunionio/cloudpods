@@ -1118,3 +1118,12 @@ type GuestPerformStartInput struct {
 	// 仅适用于KVM虚拟机
 	QemuVersion string `json:"qemu_version"`
 }
+
+type ServerSetOSInfoInput struct {
+	// OS type, e.g.: Linux, Windows
+	Type string `json:"type" help:"OS type, e.g.: Linux, Windows"`
+	// OS distribution, e.g.: CentOS, Ubuntu, Windows Server 2016 Datacenter
+	Distribution string `json:"distribution" help:"OS distribution, e.g.: CentOS, Ubuntu, Windows Server 2016 Datacenter"`
+	// OS version, e.g: 7.9, 22.04, 6.3
+	Version string `json:"version" help:"OS version, e.g.: 7.9, 22.04, 6.3"`
+}
