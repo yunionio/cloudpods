@@ -32,6 +32,9 @@ type SHostBaseOptions struct {
 	LiveMigrateCpuThrottleMax int64 `default:"99" help:"live migrate auto converge cpu throttle max"`
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
+
+	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
+	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
 }
 
 type SHostOptions struct {
@@ -90,9 +93,7 @@ type SHostOptions struct {
 	LocalImagePath  []string `help:"Local image storage paths"`
 	SharedStorages  []string `help:"Path of shared storages"`
 
-	DhcpRelay       []string `help:"DHCP relay upstream"`
-	DhcpLeaseTime   int      `default:"100663296" help:"DHCP lease time in seconds"`
-	DhcpRenewalTime int      `default:"67108864" help:"DHCP renewal time in seconds"`
+	DhcpRelay []string `help:"DHCP relay upstream"`
 
 	TunnelPaddingBytes int64 `help:"Specify tunnel padding bytes" default:"0"`
 
