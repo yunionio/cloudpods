@@ -90,6 +90,10 @@ type SCloudaccountCredential struct {
 	// Google服务账号秘钥 (gcp)
 	GCPPrivateKey string `json:"gcp_private_key"`
 
+	OracleTenancyOCID string `json:"oracle_tenancy_ocid"`
+	OracleUserOCID    string `json:"oracle_user_ocid"`
+	OraclePrivateKey  string `json:"oracle_private_key"`
+
 	// 默认区域Id, Apara及HCSO需要此参数
 	// example: cn-north-2
 	// required: true
