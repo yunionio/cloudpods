@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path"
+	"strconv"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -129,6 +130,10 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
+
+	if err := self.setHardwareInfoByData(ctx, userCred, data); err != nil {
+		log.Errorf("setHardwareInfo when post update eror: %v", err)
+	}
 
 	if data.Contains("cmtbound") || data.Contains("capacity") {
 		hosts, _ := self.GetAttachedHosts()
@@ -258,7 +263,44 @@ func (manager *SStorageManager) ValidateCreateData(
 func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.SetEnabled(true)
 	self.SetStatus(userCred, api.STORAGE_UNMOUNT, "CustomizeCreate")
+	if err := self.setHardwareInfoByData(ctx, userCred, data); err != nil {
+		return errors.Wrap(err, "setHardwareInfo")
+	}
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (self *SStorage) setHardwareInfoByData(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	var hdInfo *api.StorageHardwareInfo = nil
+	if data.Contains("hardware_info") {
+		hdInfo = new(api.StorageHardwareInfo)
+		data.Unmarshal(hdInfo, "hardware_info")
+	}
+	if err := self.setHardwareInfo(ctx, userCred, hdInfo); err != nil {
+		return errors.Wrap(err, "setHardwareInfo")
+	}
+	return nil
+}
+
+func (self *SStorage) setHardwareInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.StorageHardwareInfo) error {
+	if info == nil {
+		return nil
+	}
+	for k, v := range map[string]*string{
+		api.STORAGE_METADATA_MODEL:  info.Model,
+		api.STORAGE_METADATA_VENDOR: info.Vendor,
+	} {
+		if v != nil {
+			if err := self.SetMetadata(ctx, k, *v, userCred); err != nil {
+				return errors.Wrapf(err, "set metadata %s = %s", k, *v)
+			}
+		}
+	}
+	if info.Bandwidth != 0 {
+		if err := self.SetMetadata(ctx, api.STORAGE_METADATA_BANDWIDTH, info.Bandwidth, userCred); err != nil {
+			return errors.Wrapf(err, "set metadata %s = %f", api.STORAGE_METADATA_BANDWIDTH, info.Bandwidth)
+		}
+	}
+	return nil
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -1984,4 +2026,29 @@ func (storage *SStorage) PerformForceDetachHost(ctx context.Context, userCred mc
 		db.OpsLog.LogDetachEvent(ctx, db.JointMaster(hostStorage), db.JointSlave(hostStorage), userCred, jsonutils.NewString("force detach"))
 	}
 	return nil, err
+}
+
+func (storage *SStorage) GetDetailsHardwareInfo(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject) (*api.StorageHardwareInfo, error) {
+	info := new(api.StorageHardwareInfo)
+	model := storage.GetMetadata(ctx, api.STORAGE_METADATA_MODEL, userCred)
+	if model != "" {
+		info.Model = &model
+	}
+	vendor := storage.GetMetadata(ctx, api.STORAGE_METADATA_VENDOR, userCred)
+	if vendor != "" {
+		info.Vendor = &vendor
+	}
+	bw := storage.GetMetadata(ctx, api.STORAGE_METADATA_BANDWIDTH, userCred)
+	if bw != "" {
+		bwNum, err := strconv.ParseFloat(bw, 64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse bandwidth string: %s", bw)
+		}
+		info.Bandwidth = bwNum
+	}
+	return info, nil
+}
+
+func (storage *SStorage) PerformSetHardwareInfo(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, data *api.StorageHardwareInfo) (*api.StorageHardwareInfo, error) {
+	return data, storage.setHardwareInfo(ctx, userCred, data)
 }

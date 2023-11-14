@@ -468,17 +468,30 @@ func (h *SHostInfo) prepareEnv() error {
 	return nil
 }
 
-func (h *SHostInfo) detectHostInfo() error {
-	output, err := procutils.NewCommand("dmidecode", "-t", "1").Output()
+func runDmidecode(hType string) (*types.SSystemInfo, error) {
+	output, err := procutils.NewCommand("dmidecode", "-t", hType).Output()
 	if err != nil {
-		log.Errorf("dmidecode -t 1 error %s(%s)", err, string(output))
-		h.sysinfo.SSystemInfo = &types.SSystemInfo{}
-	} else {
-		h.sysinfo.SSystemInfo, err = sysutils.ParseDMISysinfo(strings.Split(string(output), "\n"))
-		if err != nil {
-			return err
-		}
+		return &types.SSystemInfo{}, errors.Wrapf(err, "cmd: dmidecode -t %s, output: %s", hType, output)
 	}
+	info, err := sysutils.ParseDMISysinfo(strings.Split(string(output), "\n"))
+	if err != nil {
+		return &types.SSystemInfo{}, errors.Wrapf(err, "ParseDMISysinfo with line: %s", output)
+	}
+	return info, nil
+}
+
+func (h *SHostInfo) detectHostInfo() error {
+	sysInfo, err := runDmidecode("1")
+	if err != nil {
+		log.Warningf("get system info error: %v", err)
+	}
+	h.sysinfo.SSystemInfo = sysInfo
+
+	motherboardInfo, err := runDmidecode("2")
+	if err != nil {
+		log.Warningf("get motherboard info error: %v", err)
+	}
+	h.sysinfo.MotherboardInfo = motherboardInfo
 
 	h.detectKvmModuleSupport()
 	h.detectKVMMaxCpus()

@@ -17,9 +17,11 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -235,6 +237,47 @@ func (s *SLocalStorage) GetMediumType() (string, error) {
 	}
 }
 
+func (s *SLocalStorage) getHardwareInfo() (*api.StorageHardwareInfo, error) {
+	cmd := fmt.Sprintf("df -P %s | awk 'NR==2 {print $1}'", s.GetPath())
+	partName, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "execute command: %s", cmd)
+	}
+	partPath := strings.TrimSuffix(string(partName), "\n")
+	sysPath := "/sys/class/block"
+
+	getPartPathCmd := fmt.Sprintf("readlink -f %s", filepath.Join(sysPath, filepath.Base(partPath)))
+	partRealPath, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", getPartPathCmd).Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "get partition sys path: %s", getPartPathCmd)
+	}
+	partRealPathStr := strings.TrimSuffix(string(partRealPath), "\n")
+	blockPath := filepath.Dir(partRealPathStr)
+	devicePath := filepath.Join(blockPath, "device")
+	modelPath := filepath.Join(devicePath, "model")
+
+	errs := []error{}
+	ret := &api.StorageHardwareInfo{}
+	model, err := ioutil.ReadFile(modelPath)
+	if err != nil {
+		errs = append(errs, errors.Wrapf(err, "read model file: %s", modelPath))
+	} else {
+		modelStr := string(model)
+		ret.Model = &modelStr
+	}
+
+	vendorPath := filepath.Join(devicePath, "vendor")
+	vendor, err := ioutil.ReadFile(vendorPath)
+	if err != nil {
+		errs = append(errs, errors.Wrapf(err, "read vendor file: %s", vendorPath))
+	} else {
+		vendorStr := string(vendor)
+		ret.Vendor = &vendorStr
+	}
+
+	return ret, errors.NewAggregate(errs)
+}
+
 func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	name := s.GetName(s.GetComposedName)
@@ -247,8 +290,16 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		content.Set("storagecache_id",
 			jsonutils.NewString(s.Manager.LocalStorageImagecacheManager.GetId()))
 	}
+
+	hardwareInfo, err := s.getHardwareInfo()
+	if err != nil {
+		log.Warningf("get hardware info: storage: %s, %v", name, err)
+	}
+	if hardwareInfo != nil {
+		content.Set("hardware_info", jsonutils.Marshal(hardwareInfo))
+	}
+
 	var (
-		err error
 		res jsonutils.JSONObject
 	)
 

@@ -5948,6 +5948,100 @@ func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient
 	return resp, nil
 }
 
+func (self *SGuest) GetDetailsHardwareInfo(ctx context.Context, userCred mcclient.TokenCredential, _ *api.ServerGetHardwareInfoInput) (*api.ServerGetHardwareInfoResp, error) {
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetHost")
+	}
+	hostSpecObj := host.GetSpec(false)
+	hostSpec := new(api.HostSpec)
+	if hostSpecObj != nil {
+		if err := hostSpecObj.Unmarshal(hostSpec); err != nil {
+			return nil, errors.Wrap(err, "unmarshal host spec")
+		}
+	}
+	motherboardInfo := &api.ServerHardwareInfoMotherboard{}
+	if host.SysInfo != nil && host.SysInfo.Contains("motherboard_info") {
+		if err := host.SysInfo.Unmarshal(motherboardInfo, "motherboard_info"); err != nil {
+			return nil, errors.Wrapf(err, "unmarshal motherboard_info from host system info")
+		}
+	}
+	cpuInfo := &api.ServerHardwareInfoCPU{
+		Model: host.CpuDesc,
+		Count: self.VcpuCount,
+	}
+	memInfo := &api.ServerHardwareInfoMemory{
+		SizeMB: self.VmemSize,
+	}
+
+	// fill disks info
+	diskInfos := make([]*api.ServerHardwareInfoDisk, 0)
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, errors.Wrap(err, "get disks")
+	}
+	for _, disk := range disks {
+		storage, err := disk.GetStorage()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get disk %s storage", disk.GetId())
+		}
+		hdInfo, err := storage.GetDetailsHardwareInfo(ctx, userCred, nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get storage %s hardware info", storage.GetId())
+		}
+		info := &api.ServerHardwareInfoDisk{
+			Id:        disk.GetId(),
+			StorageId: storage.GetId(),
+			SizeMB:    disk.DiskSize,
+			Bandwidth: hdInfo.Bandwidth,
+		}
+		if hdInfo.Vendor != nil {
+			info.Model = *hdInfo.Vendor
+		}
+		if hdInfo.Model != nil {
+			info.Model = fmt.Sprintf("%s %s", info.Model, *hdInfo.Model)
+		}
+		diskInfos = append(diskInfos, info)
+	}
+
+	// fill GPU info
+	devs, err := self.GetIsolatedDevices()
+	if err != nil {
+		return nil, errors.Wrap(err, "get isolated devices")
+	}
+	gpuInfos := make([]*api.ServerHardwareInfoGPU, 0)
+	for _, dev := range devs {
+		if !dev.IsGPU() {
+			continue
+		}
+		info := &api.ServerHardwareInfoGPU{
+			Id:    dev.GetId(),
+			Model: dev.Model,
+		}
+		if dev.PcieInfo != nil {
+			info.PCIEInfo = dev.PcieInfo
+		}
+		modelObj, _ := IsolatedDeviceModelManager.GetByDevModel(dev.Model)
+		if modelObj != nil {
+			hdInfo, err := modelObj.GetDetailsHardwareInfo(ctx, userCred, nil)
+			if err != nil {
+				return nil, errors.Wrapf(err, "get device model %s hardware info", modelObj.GetId())
+			}
+			info.IsolatedDeviceModelHardwareInfo = hdInfo
+		}
+		gpuInfos = append(gpuInfos, info)
+	}
+
+	result := &api.ServerGetHardwareInfoResp{
+		Motherboard: motherboardInfo,
+		CPU:         cpuInfo,
+		Memory:      memInfo,
+		Disks:       diskInfos,
+		GPUs:        gpuInfos,
+	}
+	return result, nil
+}
+
 func (self *SGuest) PerformCalculateRecordChecksum(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	checksum, err := db.CalculateModelChecksum(self)
 	if err != nil {

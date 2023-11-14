@@ -123,7 +123,7 @@ type SGuest struct {
 
 	// CPU大小
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
-	// 内存大小, 单位Mb
+	// 内存大小, 单位MB
 	VmemSize int `nullable:"false" list:"user" create:"required"`
 
 	// 启动顺序
@@ -2824,11 +2824,6 @@ func (self *SGuest) getAdminSecurityRules() string {
 		return ret
 	}
 	return ""
-}
-
-func (self *SGuest) isGpu() bool {
-	devs, _ := self.GetIsolatedDevices()
-	return len(devs) != 0
 }
 
 func (self *SGuest) IsFailureStatus() bool {

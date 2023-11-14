@@ -101,6 +101,9 @@ type IDevice interface {
 
 	GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error)
 	GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error)
+
+	// Get extra PCIE information
+	GetPCIEInfo() *api.IsolatedDevicePCIEInfo
 }
 
 type IsolatedDeviceManager interface {
@@ -145,7 +148,7 @@ func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgp
 		filteredAddrs = append(filteredAddrs, man.devices[i].GetAddr())
 	}
 
-	gpus, err, warns := getPassthroughGPUS(filteredAddrs)
+	gpus, err, warns := getPassthroughGPUs(filteredAddrs)
 	if err != nil {
 		// ignore getPassthroughGPUS error on old machines without VGA devices
 		log.Errorf("getPassthroughGPUS: %v", err)
@@ -570,6 +573,9 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 			data[k] = v
 		}
 	}
+	if info := dev.GetPCIEInfo(); info != nil {
+		data["pcie_info"] = info
+	}
 	return jsonutils.Marshal(data).(*jsonutils.JSONDict)
 }
 
@@ -687,6 +693,10 @@ func (dev *sBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevi
 			Id: isolatedDev.VfioDevs[0].Id,
 		},
 	}, nil
+}
+
+func (dev *sBaseDevice) GetPCIEInfo() *api.IsolatedDevicePCIEInfo {
+	return dev.dev.PCIEInfo
 }
 
 func ParseOutput(output []byte, doTrim bool) []string {

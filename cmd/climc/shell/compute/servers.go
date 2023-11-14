@@ -136,6 +136,7 @@ func init() {
 	cmd.Get("cpuset-cores", new(options.ServerIdOptions))
 	cmd.Get("sshport", new(options.ServerIdOptions))
 	cmd.Get("qemu-info", new(options.ServerIdOptions))
+	cmd.Get("hardware-info", new(options.ServerIdOptions))
 
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
 	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})
