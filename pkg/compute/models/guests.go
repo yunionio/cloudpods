@@ -739,6 +739,12 @@ func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchem
 		}
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByOsDist}) {
+		meta := db.Metadata.Query().Equals("key", "os_distribution").SubQuery()
+		q = q.LeftJoin(meta, sqlchemy.Equals(q.Field("id"), meta.Field("obj_id")))
+		db.OrderByFields(q, []string{query.OrderByOsDist}, []sqlchemy.IQueryField{meta.Field("value")})
+	}
+
 	if db.NeedOrderQuery([]string{query.OrderByDisk}) {
 		guestdisks := GuestdiskManager.Query().SubQuery()
 		disks := DiskManager.Query().SubQuery()
