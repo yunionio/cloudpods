@@ -39,7 +39,7 @@ func Usage(result rbacutils.SPolicyResult) map[string]int {
 		tagFilters := tagutils.STagFilters{}
 		tagFilters.AddFilters(result.ProjectTags)
 		orConditions := []sqlchemy.ICondition{}
-		metadataResSQ := db.Metadata.Query().SubQuery()
+		metadataResSQ := db.Metadata.Query().Equals("obj_type", "project").SubQuery()
 		for _, filter := range tagFilters.Filters {
 			for key, val := range filter {
 				orConditions = append(orConditions,
@@ -50,8 +50,10 @@ func Usage(result rbacutils.SPolicyResult) map[string]int {
 				)
 			}
 		}
-		metadataResSQ = metadataResSQ.Query().Filter(sqlchemy.OR(orConditions...)).SubQuery()
-		pq = pq.Join(metadataResSQ, sqlchemy.Equals(pq.Field("id"), metadataResSQ.Field("obj_id")))
+		metadataResQ := metadataResSQ.Query().AppendField(sqlchemy.COUNT("count", metadataResSQ.Field("obj_id")), metadataResSQ.Field("obj_id"), metadataResSQ.Field("key"), metadataResSQ.Field("value"))
+		metadataResSQ = metadataResQ.Filter(sqlchemy.OR(orConditions...)).GroupBy("obj_id").SubQuery()
+		metadataResSecSQ := metadataResSQ.Query().GE("count", len(orConditions)).SubQuery()
+		pq = pq.Join(metadataResSecSQ, sqlchemy.Equals(pq.Field("id"), metadataResSecSQ.Field("obj_id")))
 	}
 
 	projCnt, _ := pq.IsFalse("is_domain").CountWithError()
