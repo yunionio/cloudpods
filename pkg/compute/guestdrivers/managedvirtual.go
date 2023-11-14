@@ -1460,3 +1460,7 @@ func (drv *SManagedVirtualizedGuestDriver) SyncOsInfo(ctx context.Context, userC
 	}
 	return nil
 }
+
+func (self *SManagedVirtualizedGuestDriver) ValidateSetOSInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerSetOSInfoInput) error {
+	return httperrors.NewNotAcceptableError("%s server doesn't allow to set OS info", guest.Hypervisor)
+}
