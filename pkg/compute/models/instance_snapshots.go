@@ -499,6 +499,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		sourceInput.Secgroups = inputSecgs
 	}
 	sourceInput.OsType = self.OsType
+	sourceInput.OsArch = self.OsArch
 	sourceInput.InstanceType = self.InstanceType
 	if len(sourceInput.Networks) == 0 {
 		sourceInput.Networks = serverConfig.Networks
