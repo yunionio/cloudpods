@@ -124,6 +124,9 @@ type ServerListInput struct {
 
 	InstanceType []string `json:"instance_type"`
 
+	// 根据镜像发行版排序
+	OrderByOsDist string `json:"order_by_os_dist"`
+
 	// 是否调度到宿主机上
 	WithHost *bool `json:"with_host"`
 }
