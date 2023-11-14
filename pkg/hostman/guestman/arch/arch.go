@@ -41,6 +41,7 @@ type KVMGuestInstance interface {
 	IsNestedVirt() bool
 	IsKvmSupport() bool
 	HideKVM() bool
+	HideHypervisor() bool
 }
 
 func NewArch(arch string) Arch {
