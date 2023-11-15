@@ -70,7 +70,7 @@ type SOrganizationNode struct {
 
 	Level int `list:"user" create:"admin_required"`
 
-	Weight *int `list:"user" create:"admin_required" update:"admin" default:"1"`
+	Weight int `list:"user" create:"admin_required" update:"admin" default:"1"`
 }
 
 func (orgNode *SOrganizationNode) GetOrganization() (*SOrganization, error) {
@@ -117,7 +117,7 @@ func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId s
 	} else {
 		// exist
 		if weight == nil {
-			weight = obj.(*SOrganizationNode).Weight
+			weight = &obj.(*SOrganizationNode).Weight
 		}
 		if len(desc) == 0 {
 			desc = obj.(*SOrganizationNode).Description
@@ -127,7 +127,7 @@ func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId s
 		OrgId:     orgId,
 		FullLabel: fullLabel,
 		Level:     level,
-		Weight:    weight,
+		Weight:    *weight,
 	}
 	node.Description = desc
 	node.Name = label
