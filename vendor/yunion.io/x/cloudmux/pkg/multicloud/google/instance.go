@@ -439,6 +439,18 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, username s
 		instance.Metadata.Items = items
 		return instance.host.zone.region.SetMetadata(instance.SelfLink, instance.Metadata)
 	}
+	if deleteKeypair {
+		items := []SMetadataItem{}
+		items = append(items, SMetadataItem{Key: METADATA_STARTUP_SCRIPT, Value: cloudinit.CLOUD_SHELL_HEADER + "\nrm -rf /root/.ssh/authorized_keys"})
+		instance.Refresh()
+		for _, item := range instance.Metadata.Items {
+			if item.Key != METADATA_STARTUP_SCRIPT {
+				items = append(items, item)
+			}
+		}
+		instance.Metadata.Items = items
+		return instance.host.zone.region.SetMetadata(instance.SelfLink, instance.Metadata)
+	}
 	return nil
 }
 
