@@ -1392,7 +1392,6 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		notes := model.GetShortDesc(ctx)
 		OpsLog.LogEvent(model, ACT_CREATE, notes, userCred)
 		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, notes, userCred, true)
-		CallCreateNotifyHook(ctx, userCred, model)
 	}
 	manager.OnCreateComplete(ctx, []IModel{model}, userCred, ownerId, query, data)
 	return getItemDetails(manager, model, ctx, userCred, query)
@@ -1826,7 +1825,6 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 	if userCred != nil {
 		OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
 		logclient.AddSimpleActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
-		CallDeleteNotifyHook(ctx, userCred, item)
 	}
 	if _, ok := item.(IStandaloneModel); ok && len(item.GetId()) > 0 {
 		err := Metadata.RemoveAll(ctx, item, userCred)

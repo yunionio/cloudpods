@@ -3392,6 +3392,11 @@ func (self *SHost) PostCreate(
 	if err != nil {
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionCreate,
+	})
 }
 
 func (self *SHost) StartBaremetalCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
@@ -3807,6 +3812,14 @@ func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			log.Errorf("start sync host %q config after updated", self.GetName())
 		}
 	}
+}
+
+func (hh *SHost) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	hh.SEnabledStatusInfrasResourceBase.PostDelete(ctx, userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    hh,
+		Action: notifyclient.ActionDelete,
+	})
 }
 
 func (self *SHost) UpdateDnsRecords(isAdd bool) {
