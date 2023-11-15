@@ -55,28 +55,6 @@ func init() {
 			Action: ActionUpdate,
 		})
 	})
-
-	db.SetCreateNotifyHook(func(ctx context.Context, userCred mcclient.TokenCredential, obj db.IModel) {
-		_, ok := notifyDBHookResources.Load(obj.KeywordPlural())
-		if !ok {
-			return
-		}
-		EventNotify(ctx, userCred, SEventNotifyParam{
-			Obj:    obj,
-			Action: ActionCreate,
-		})
-	})
-
-	db.SetDeleteNotifyHook(func(ctx context.Context, userCred mcclient.TokenCredential, obj db.IModel) {
-		_, ok := notifyDBHookResources.Load(obj.KeywordPlural())
-		if !ok {
-			return
-		}
-		EventNotify(ctx, userCred, SEventNotifyParam{
-			Obj:    obj,
-			Action: ActionDelete,
-		})
-	})
 }
 
 func AddNotifyDBHookResources(keywordPlurals ...string) {
