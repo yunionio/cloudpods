@@ -52,12 +52,6 @@ const (
 	VM_START_RESCUE_FAILED = "start_rescue_failed"
 	VM_STOP_RESCUE_FAILED  = "stop_rescue_failed"
 
-	VM_START_RESCUE        = "start_rescue"
-	VM_RESCUING            = "rescuing"
-	VM_STOP_RESCUE         = "stop_rescue"
-	VM_START_RESCUE_FAILED = "start_rescue_failed"
-	VM_STOP_RESCUE_FAILED  = "stop_rescue_failed"
-
 	VM_BACKUP_STARTING         = "backup_starting"
 	VM_BACKUP_STOPING          = "backup_stopping"
 	VM_BACKUP_CREATING         = "backup_creating"

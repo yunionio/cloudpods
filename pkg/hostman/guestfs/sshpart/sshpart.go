@@ -40,17 +40,17 @@ type SSHPartition struct {
 	term      *ssh.Client
 	partDev   string
 	mountPath string
-	part      *disktool.Partition
+	isLVM     bool
 }
 
 var _ fsdriver.IDiskPartition = &SSHPartition{}
 
-func NewSSHPartition(term *ssh.Client, part *disktool.Partition) *SSHPartition {
+func NewSSHPartition(term *ssh.Client, partDev string, isLVM bool) *SSHPartition {
 	p := new(SSHPartition)
 	p.term = term
-	p.partDev = part.GetDev()
+	p.partDev = partDev
+	p.isLVM = isLVM
 	p.mountPath = fmt.Sprintf("/tmp/%s", strings.Replace(p.partDev, "/", "_", -1))
-	p.part = part
 	return p
 }
 
@@ -616,7 +616,7 @@ func MountSSHRootfs(tool *disktool.SSHPartitionTool, term *ssh.Client, layouts [
 		return nil, nil, fmt.Errorf("Not found root disk partitions")
 	}
 	for _, part := range parts {
-		dev := NewSSHPartition(term, part)
+		dev := NewSSHPartition(term, part.GetDev(), false)
 		if !dev.Mount() {
 			continue
 		}
