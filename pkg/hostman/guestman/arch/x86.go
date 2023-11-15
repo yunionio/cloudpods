@@ -129,6 +129,7 @@ func (*X86) enableHypervFeatures(features map[string]bool) {
 
 func (x86 *X86) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
 	var hideKVM = s.HideKVM()
+	var hideHypervisor = s.HideHypervisor()
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var isCPUIntel = sysutils.IsProcessorIntel()
 	var isCPUAMD = sysutils.IsProcessorAmd()
@@ -173,6 +174,9 @@ func (x86 *X86) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*de
 
 		if hideKVM {
 			features["kvm"] = false
+		}
+		if hideHypervisor {
+			features["hypervisor"] = false
 		}
 	} else {
 		accel = "tcg"
