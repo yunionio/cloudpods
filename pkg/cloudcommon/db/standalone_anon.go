@@ -685,24 +685,21 @@ type sPolicyTags struct {
 func (model *SStandaloneAnonResourceBase) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	meta := make(map[string]string)
-	err := data.Unmarshal(&meta, "__meta__")
-	if err == nil {
-		model.PerformMetadata(ctx, userCred, nil, meta)
-	}
-
-	model.applyPolicyTags(ctx, userCred, data)
+	model.TrySaveMetadataInput(ctx, userCred, data)
 }
 
 func (model *SStandaloneAnonResourceBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
+	model.TrySaveMetadataInput(ctx, userCred, data)
+}
+
+func (model *SStandaloneAnonResourceBase) TrySaveMetadataInput(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
 	meta := make(map[string]string)
 	err := data.Unmarshal(&meta, "__meta__")
 	if err == nil {
 		model.PerformMetadata(ctx, userCred, nil, meta)
 	}
-
 	model.applyPolicyTags(ctx, userCred, data)
 }
 
