@@ -787,7 +787,7 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 		}, // on monitor connected
 		s.onReceiveQMPEvent, // on reveive qmp event
 	)
-	return mon.ConnectWithSocket(socketFile)
+	return mon.ConnectWithSocket(socketFile, 0)
 }
 
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) error {
@@ -1651,13 +1651,13 @@ func (s *SKVMGuestInstance) SaveSourceDesc(guestDesc *desc.SGuestDesc) error {
 	}
 
 	// Save rescue desc if exist
-	if s.SourceDesc.RescueMode {
-		err := s.GetRescueDesc()
-		if err != nil {
-			log.Errorf("get rescue desc failed %s", err)
-			return errors.Wrap(err, "get rescue desc")
-		}
-	}
+	//if s.SourceDesc.LightMode {
+	//	err := s.GetRescueDesc()
+	//	if err != nil {
+	//		log.Errorf("get rescue desc failed %s", err)
+	//		return errors.Wrap(err, "get rescue desc")
+	//	}
+	//}
 
 	if err := fileutils2.FilePutContents(
 		s.GetSourceDescFilePath(), jsonutils.Marshal(s.SourceDesc).String(), false,
@@ -1679,29 +1679,29 @@ func (s *SKVMGuestInstance) GetVpcNIC() *desc.SGuestNetwork {
 	return nil
 }
 
-func (s *SKVMGuestInstance) GetRescueDesc() error {
-	if !s.SourceDesc.RescueMode {
-		return errors.Errorf("guest %s not in rescue mode", s.Id)
-	}
-
-	s.SourceDesc.RescueInitdPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS)
-	s.SourceDesc.RescueKernelPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL)
-	s.SourceDesc.RescueDiskPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_SYS_DISK_NAME)
-	if s.manager.GetHost().IsAarch64() {
-		s.SourceDesc.RescueInitdPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS_ARM64)
-		s.SourceDesc.RescueKernelPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL_ARM64)
-	}
-
-	// Address
-	bus, slot, found := s.findUnusedSlotForController(desc.CONTROLLER_TYPE_PCI_ROOT, 0)
-	if !found {
-		return errors.Errorf("no valid pci address found ?")
-	}
-	s.SourceDesc.RescueDiskDeviceBus = uint(bus)
-	s.SourceDesc.RescueDiskDeviceSlot = uint(slot)
-
-	return nil
-}
+//func (s *SKVMGuestInstance) GetRescueDesc() error {
+//	if !s.SourceDesc.LightMode {
+//		return errors.Errorf("guest %s not in rescue mode", s.Id)
+//	}
+//
+//	s.SourceDesc.RescueInitrdPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS)
+//	s.SourceDesc.RescueKernelPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL)
+//	s.SourceDesc.RescueDiskPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_SYS_DISK_NAME)
+//	if s.manager.GetHost().IsAarch64() {
+//		s.SourceDesc.RescueInitrdPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS_ARM64)
+//		s.SourceDesc.RescueKernelPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL_ARM64)
+//	}
+//
+//	// Address
+//	bus, slot, found := s.findUnusedSlotForController(desc.CONTROLLER_TYPE_PCI_ROOT, 0)
+//	if !found {
+//		return errors.Errorf("no valid pci address found ?")
+//	}
+//	s.SourceDesc.RescueDiskDeviceBus = uint(bus)
+//	s.SourceDesc.RescueDiskDeviceSlot = uint(slot)
+//
+//	return nil
+//}
 
 type guestStartTask struct {
 	s *SKVMGuestInstance

@@ -12,44 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package diskutils
+package deploy_iface
 
 import (
-	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
-type IDisk interface {
+type IDeployer interface {
 	Connect(desc *apis.GuestDesc) error
 	Disconnect() error
-	MountRootfs() (fsdriver.IRootFsDriver, error)
-	UmountRootfs(driver fsdriver.IRootFsDriver) error
-	Cleanup()
+
+	GetPartitions() []fsdriver.IDiskPartition
+	IsLVMPartition() bool
+	Zerofree()
+	ResizePartition() error
+	FormatPartition(fs, uuid string) error
+	MakePartition(fs string) error
+
+	MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error)
+	UmountRootfs(fd fsdriver.IRootFsDriver) error
+	DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool
 
 	DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error)
 	ResizeFs() (res *apis.Empty, err error)
 	FormatFs(req *apis.FormatFsParams) (*apis.Empty, error)
 	SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error)
 	ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.ImageInfo, error)
-}
-
-type DiskParams struct {
-	Hypervisor string
-	DiskInfo   qemuimg.SImageInfo
-	VddkInfo   *apis.VDDKConInfo
-}
-
-func GetIDisk(params DiskParams, driver string, readOnly bool) (IDisk, error) {
-	hypervisor := params.Hypervisor
-	switch hypervisor {
-	case comapi.HYPERVISOR_KVM:
-		return NewKVMGuestDisk(params.DiskInfo, driver, readOnly)
-	case comapi.HYPERVISOR_ESXI:
-		// ESXI does not support encrypted disk
-		return NewVDDKDisk(params.VddkInfo, params.DiskInfo.Path, driver, readOnly)
-	default:
-		return NewKVMGuestDisk(params.DiskInfo, driver, readOnly)
-	}
 }

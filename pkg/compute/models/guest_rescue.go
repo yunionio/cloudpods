@@ -39,21 +39,6 @@ func (self *SGuest) PerformStartRescue(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInvalidStatusError("vmem size must be greater than 2G")
 	}
 
-	// Reset index
-	disks, err := self.GetGuestDisks()
-	if err != nil || len(disks) < 1 {
-		return nil, httperrors.NewInvalidStatusError("guest.GetGuestDisks: %s", err.Error())
-	}
-	for i := 0; i < len(disks); i++ {
-		if disks[i].BootIndex >= 0 {
-			// Move to next index, and easy to rollback
-			err = disks[i].SetBootIndex(disks[i].BootIndex + 1)
-			if err != nil {
-				return nil, httperrors.NewInvalidStatusError("guest.SetBootIndex: %s", err.Error())
-			}
-		}
-	}
-
 	// Get baremetal agent
 	host, err := self.GetHost()
 	if err != nil {
@@ -84,23 +69,8 @@ func (self *SGuest) PerformStopRescue(ctx context.Context, userCred mcclient.Tok
 		return nil, httperrors.NewInvalidStatusError("guest is not in rescue mode")
 	}
 
-	// Recover index
-	disks, err := self.GetGuestDisks()
-	if err != nil || len(disks) < 1 {
-		return nil, httperrors.NewInvalidStatusError("guest.GetGuestDisks: %s", err.Error())
-	}
-	for i := 0; i < len(disks); i++ {
-		if disks[i].BootIndex >= 0 {
-			// Rollback index
-			err = disks[i].SetBootIndex(disks[i].BootIndex - 1)
-			if err != nil {
-				return nil, httperrors.NewInvalidStatusError("guest.SetBootIndex: %s", err.Error())
-			}
-		}
-	}
-
 	// Start rescue vm task
-	err = self.StopRescueTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
+	err := self.StopRescueTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError("guest.StopGuestRescueTask: %s", err.Error())
 	}
@@ -115,7 +85,7 @@ func (self *SGuest) UpdateRescueMode(mode bool) error {
 		return nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "Update RescueMode")
+		return errors.Wrap(err, "Update LightMode")
 	}
 	return nil
 }
