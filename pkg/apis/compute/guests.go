@@ -871,7 +871,7 @@ type GuestJsonDesc struct {
 
 	IsDaemon bool `json:"is_daemon"`
 
-	RescueMode bool `json:"rescue_mode"`
+	LightMode bool `json:"light_mode"`
 }
 
 type ServerSetBootIndexInput struct {

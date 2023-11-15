@@ -343,7 +343,7 @@ type SGuestControlDesc struct {
 
 	EncryptKeyId string
 
-	RescueMode bool // rescue mode
+	LightMode bool // light mode
 }
 
 type SGuestMetaDesc struct {
