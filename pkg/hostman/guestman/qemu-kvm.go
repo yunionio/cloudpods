@@ -2498,10 +2498,10 @@ func (s *SKVMGuestInstance) optimizeOom() error {
 }
 
 func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) error {
-	metaMap, _ := meta.GetMap()
-	for k, v := range metaMap {
-		s.Desc.Metadata[k] = v.String()
+	if s.Desc.Metadata == nil {
+		s.Desc.Metadata = make(map[string]string)
 	}
+	meta.Unmarshal(&s.Desc.Metadata)
 	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
 		s.Id, meta)
 	if err != nil {
