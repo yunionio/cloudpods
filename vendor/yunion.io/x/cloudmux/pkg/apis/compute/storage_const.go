@@ -110,6 +110,9 @@ const (
 	STORAGE_VOLCENGINE_FlexPL = "ESSD_FlexPL" // 极速型SSD(单盘最大IOPS 5万)
 	STORAGE_VOLCENGINE_PL0    = "ESSD_PL0"    // 极速型SSD(单盘最大IOPS 1万)
 	STORAGE_VOLCENGINE_PTSSD  = "PTSSD"       // 性能型SSD(上一代产品)
+
+	STORAGE_FULL        = "full"
+	STORAGE_SYSTEM_FULL = "system_full"
 )
 
 const (
