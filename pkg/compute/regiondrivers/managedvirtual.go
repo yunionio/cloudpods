@@ -2411,9 +2411,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 
 		err = iRds.Update(ctx, cloudprovider.SDBInstanceUpdateOptions{NAME: instance.Name, Description: instance.Description})
 		if err != nil {
-			if errors.Cause(err) != cloudprovider.ErrNotSupported {
-				return nil, errors.Wrap(err, "iRds.Update")
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
 			}
+			return nil, errors.Wrap(err, "iRds.Update")
 		}
 		return nil, nil
 	})
