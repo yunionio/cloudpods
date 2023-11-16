@@ -427,3 +427,21 @@ func (self *SAwsRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.C
 
 	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
 }
+
+func (self *SAwsRegionDriver) RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := elasticcache.GetIRegion(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "elasticcache.GetIRegion")
+		}
+
+		iElasticcache, err := iRegion.GetIElasticcacheById(elasticcache.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "elasticcache.GetIElasticcache")
+		}
+		models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache)
+		cloudprovider.WaitMultiStatus(iElasticcache, []string{api.ELASTIC_CACHE_STATUS_RUNNING}, 15*time.Second, 2*time.Minute)
+		return nil, elasticcache.SetStatus(userCred, iElasticcache.GetStatus(), "syncstatus")
+	})
+	return nil
+}
