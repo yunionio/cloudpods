@@ -44,7 +44,8 @@ const (
 	CLOUD_PROVIDER_ORACLE_CN = "甲骨文"
 	ORACLE_DEFAULT_REGION    = "ap-singapore-1"
 	DEFAULT_API_VERSION      = "20160918"
-	ISO8601                  = "2006-01-02T15:04:05Z"
+
+	NEXT_TOKEN = "opc-next-page"
 
 	SERVICE_IAAS     = "iaas"
 	SERVICE_IDENTITY = "identity"
@@ -156,7 +157,8 @@ func (self *SOracleClient) GetRegions() ([]SRegion, error) {
 	if len(self.regions) > 0 {
 		return self.regions, nil
 	}
-	resp, err := self.list(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, "regions", nil)
+	resource := fmt.Sprintf("tenancies/%s/regionSubscriptions", self.tenancyOCID)
+	resp, err := self.list(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, resource, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +176,8 @@ func (self *SOracleClient) GetRegion(id string) (*SRegion, error) {
 		return nil, err
 	}
 	for i := range regions {
-		if regions[i].Name == id {
-			regions[i].client = self
+		regions[i].client = self
+		if regions[i].RegionName == id || regions[i].GetGlobalId() == id {
 			return &regions[i], nil
 		}
 	}
@@ -264,7 +266,6 @@ func (self *SOracleClient) Do(req *http.Request) (*http.Response, error) {
 
 	req.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
 	signer := common.DefaultRequestSigner(self)
-
 	signer.Sign(req)
 
 	return client.Do(req)
@@ -274,20 +275,45 @@ func (self *SOracleClient) list(service, regionId, resource string, params map[s
 	if params == nil {
 		params = map[string]interface{}{}
 	}
-	if service == SERVICE_IAAS && len(self.compartment) > 0 {
+	if len(self.compartment) > 0 {
 		params["compartmentId"] = self.compartment
 	}
-	return self.request(httputils.GET, service, regionId, resource, params)
+	ret := jsonutils.NewArray()
+	for {
+		resp, token, err := self.request(httputils.GET, service, regionId, resource, params)
+		if err != nil {
+			return nil, err
+		}
+		items, _ := resp.GetArray()
+		ret.Add(items...)
+		if len(token) == 0 {
+			break
+		}
+		params["page"] = token
+	}
+	return ret, nil
+}
+
+func (self *SOracleClient) get(service, regionId, resource, id string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	if len(id) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty id")
+	}
+	if params == nil {
+		params = map[string]interface{}{}
+	}
+	resp, _, err := self.request(httputils.GET, service, regionId, resource+"/"+id, params)
+	return resp, err
 }
 
 func (self *SOracleClient) post(service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.request(httputils.POST, service, regionId, resource, params)
+	resp, _, err := self.request(httputils.POST, service, regionId, resource, params)
+	return resp, err
 }
 
-func (self *SOracleClient) request(method httputils.THttpMethod, service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+func (self *SOracleClient) request(method httputils.THttpMethod, service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, string, error) {
 	uri, err := self.getUrl(service, regionId, resource)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if params == nil {
 		params = map[string]interface{}{}
@@ -306,8 +332,11 @@ func (self *SOracleClient) request(method httputils.THttpMethod, service, region
 	req := httputils.NewJsonRequest(method, uri, params)
 	bErr := &sOracleError{}
 	client := httputils.NewJsonClient(self)
-	_, resp, err := client.Send(self.ctx, req, bErr, self.debug)
-	return resp, err
+	header, resp, err := client.Send(self.ctx, req, bErr, self.debug)
+	if err != nil {
+		return nil, "", err
+	}
+	return resp, header.Get("Opc-Next-Page"), nil
 }
 
 func (self *SOracleClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
@@ -356,26 +385,12 @@ func (self *SOracleClient) GetAccountId() string {
 	return self.tenancyOCID
 }
 
-type CashBalance struct {
-	CashBalance float64
-}
-
-func (self *SOracleClient) QueryBalance() (*CashBalance, error) {
-	resp, err := self.post("billing", "", "/v1/finance/cash/balance", nil)
-	if err != nil {
-		return nil, err
-	}
-	ret := &CashBalance{}
-	err = resp.Unmarshal(ret)
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	return ret, nil
-}
-
 func (self *SOracleClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_EIP + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }
