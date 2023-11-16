@@ -138,7 +138,7 @@ type SCloudaccount struct {
 	AutoCreateProjectForProvider bool `list:"domain" create:"domain_optional"`
 
 	// 云API版本
-	Version string `width:"32" charset:"ascii" nullable:"true" list:"domain"`
+	Version string `width:"64" charset:"ascii" nullable:"true" list:"domain"`
 
 	// 云系统信息
 	Sysinfo jsonutils.JSONObject `get:"domain"`
