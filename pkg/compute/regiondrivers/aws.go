@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -426,4 +427,48 @@ func (self *SAwsRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.C
 	}
 
 	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
+func (self *SAwsRegionDriver) RequestRemoteUpdateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, replaceTags bool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := elasticcache.GetIRegion(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "elasticcache.GetIRegion")
+		}
+
+		iElasticcache, err := iRegion.GetIElasticcacheById(elasticcache.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIElasticcacheById(%s)", elasticcache.ExternalId)
+		}
+
+		oldTags, err := iElasticcache.GetTags()
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "iElasticcache.GetTags()")
+		}
+		tags, err := elasticcache.GetAllUserMetadata()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetAllUserMetadata")
+		}
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+		mangerId := ""
+		if vpc, _ := elasticcache.GetVpc(); vpc != nil {
+			mangerId = vpc.ManagerId
+		}
+		err = cloudprovider.SetTags(ctx, iElasticcache, mangerId, tags, replaceTags)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
+
+			logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+			return nil, errors.Wrap(err, "iElasticcache.SetTags")
+		}
+		cloudprovider.WaitMultiStatus(iElasticcache, []string{api.ELASTIC_CACHE_STATUS_RUNNING}, 15*time.Second, 2*time.Minute)
+		logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+		return nil, nil
+	})
+	return nil
 }
