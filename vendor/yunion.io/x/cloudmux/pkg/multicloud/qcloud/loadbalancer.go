@@ -51,7 +51,6 @@ type SLoadbalancer struct {
 	region *SRegion
 
 	Status            int64     `json:"Status"` // 0：创建中，1：正常运行
-	Domain            string    `json:"Domain"`
 	VpcId             string    `json:"VpcId"`
 	Log               string    `json:"Log"`
 	ProjectId         int64     `json:"ProjectId"`
@@ -72,6 +71,7 @@ type SLoadbalancer struct {
 		InternetChargeType      string
 		InternetMaxBandwidthOut int
 	}
+	LoadBalancerDomain string `json:"LoadBalancerDomain"`
 }
 
 type ZoneSet struct {
@@ -216,7 +216,7 @@ func (self *SLoadbalancer) GetAddress() string {
 	for _, addr := range self.LoadBalancerVips {
 		return addr
 	}
-	return ""
+	return self.LoadBalancerDomain
 }
 
 func (self *SLoadbalancer) GetAddressType() string {
