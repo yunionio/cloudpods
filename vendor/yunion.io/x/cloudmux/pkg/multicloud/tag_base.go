@@ -15,6 +15,8 @@
 package multicloud
 
 import (
+	"strings"
+
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -41,4 +43,16 @@ type STag struct {
 
 	Key   string
 	Value string
+}
+
+func (self STag) IsSysTagPrefix(keys []string) bool {
+	for _, prefix := range keys {
+		if strings.HasPrefix(self.TagKey, prefix) {
+			return true
+		}
+		if strings.HasPrefix(self.Key, prefix) {
+			return true
+		}
+	}
+	return false
 }
