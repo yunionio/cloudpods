@@ -319,3 +319,11 @@ func (self *SHuaweiProvider) GetISSLCertificates() ([]cloudprovider.ICloudSSLCer
 func (self *SHuaweiProvider) GetISSLCertificate(certId string) (cloudprovider.ICloudSSLCertificate, error) {
 	return self.client.GetISSLCertificate(certId)
 }
+
+func (self *SHuaweiProvider) GetICloudCDNDomains() ([]cloudprovider.ICloudCDNDomain, error) {
+	return self.client.GetICloudCDNDomains()
+}
+
+func (self *SHuaweiProvider) GetICloudCDNDomainByName(name string) (cloudprovider.ICloudCDNDomain, error) {
+	return self.client.GetICloudCDNDomainByName(name)
+}

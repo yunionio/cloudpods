@@ -60,7 +60,7 @@ func Unmarshal(r *request.Request) {
 		} else {
 			decoder = xml.NewDecoder(r.HTTPResponse.Body)
 		}
-		if r.ClientInfo.ServiceID == EC2_SERVICE_ID {
+		if r.ClientInfo.ServiceID == EC2_SERVICE_ID || r.ClientInfo.ServiceID == CDN_SERVICE_ID {
 			err := decoder.Decode(r.Data)
 			if err != nil {
 				r.Error = awserr.NewRequestFailure(
@@ -135,6 +135,13 @@ func Build(r *request.Request) {
 		log.Debugf("params: %s", body.Encode())
 	}
 
+	if r.ClientInfo.ServiceID == CDN_SERVICE_ID {
+		switch r.HTTPRequest.Method {
+		case "GET":
+			r.HTTPRequest.URL.RawQuery = body.Encode()
+			return
+		}
+	}
 	if r.ClientInfo.ServiceID == ROUTE53_SERVICE_ID {
 		switch r.HTTPRequest.Method {
 		case "GET":
@@ -262,6 +269,26 @@ func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion str
 
 func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}) error {
 	method, path := "POST", "/"
+	if cli.ServiceID == CDN_SERVICE_ID {
+		for _, prefix := range []string{"List", "Get"} {
+			if strings.HasPrefix(apiName, prefix) {
+				method = "GET"
+			}
+		}
+		for k, v := range map[string]string{
+			"ListDistributions2020_05_31": "distribution",
+			"GetDistribution2020_05_31":   "distribution",
+		} {
+			if apiName == k {
+				path = fmt.Sprintf("/2020-05-31/%s", v)
+				if id, ok := params["Id"]; ok {
+					path = fmt.Sprintf("/2020-05-31/%s/%s", v, strings.TrimPrefix(id, "/"))
+					delete(params, "Id")
+				}
+			}
+		}
+	}
+
 	if cli.ServiceID == ROUTE53_SERVICE_ID {
 		for _, prefix := range []string{"List", "Get"} {
 			if strings.HasPrefix(apiName, prefix) {

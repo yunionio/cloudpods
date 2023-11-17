@@ -117,6 +117,8 @@ var (
 
 	DnsPolicyValueOversea  = TDnsPolicyValue("oversea")
 	DnsPolicyValueMainland = TDnsPolicyValue("mainland")
+	DnsPolicyValueNAmerica = TDnsPolicyValue("os_namerica")
+	DnsPolicyValueEuro     = TDnsPolicyValue("os_euro")
 
 	DnsPolicyValueBaidu   = TDnsPolicyValue("baidu")
 	DnsPolicyValueGoogle  = TDnsPolicyValue("google")

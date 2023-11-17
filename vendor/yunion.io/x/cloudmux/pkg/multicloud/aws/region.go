@@ -146,6 +146,9 @@ const (
 
 	PRICING_SERVICE_NAME = "api.pricing"
 	PRICING_SERVICE_ID   = "Pricing"
+
+	CDN_SERVICE_NAME = "cloudfront"
+	CDN_SERVICE_ID   = "CloudFront"
 )
 
 type SRegion struct {

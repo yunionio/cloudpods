@@ -174,6 +174,10 @@ func (self *SAwsClient) ec2Request(regionId string, apiName string, params map[s
 	return self.request(regionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval, assumeRole)
 }
 
+func (self *SAwsClient) cfRequest(apiName string, params map[string]string, retval interface{}, assumeRole bool) error {
+	return self.request("", CDN_SERVICE_NAME, CDN_SERVICE_ID, "2020-05-31", apiName, params, retval, assumeRole)
+}
+
 func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*session.Session, error) {
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
@@ -447,6 +451,35 @@ func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIStorageById")
 }
 
+func (self *SAwsClient) cdnList(marker string, pageSize int64) ([]SCdnDomain, string, error) {
+	input := map[string]string{
+		"Marker":   marker,
+		"MaxItems": fmt.Sprintf("%d", pageSize),
+	}
+	ret := &struct {
+		Items       []SCdnDomain `xml:"Items>DistributionSummary"`
+		NextMarker  string       `xml:"NextMarker,omitempty"`
+	}{}
+	err := self.cfRequest("ListDistributions2020_05_31", input, ret, true)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "cdnList")
+	}
+	return ret.Items, ret.NextMarker, err
+}
+
+func (self *SAwsClient) cdnGet(id string) (*SCdnDomain, error) {
+	input := map[string]string{
+		"Id": id,
+	}
+	var ret SCdnDomain
+	err := self.cfRequest("GetDistribution2020_05_31", input, &ret, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "cdnGet")
+	}
+
+	return &ret, err
+}
+
 type SAccountBalance struct {
 	AvailableAmount     float64
 	AvailableCashAmount float64
@@ -504,6 +537,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_WAF,
 		cloudprovider.CLOUD_CAPABILITY_VPC_PEER,
 		cloudprovider.CLOUD_CAPABILITY_CONTAINER,
+		cloudprovider.CLOUD_CAPABILITY_CDN + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

@@ -126,6 +126,10 @@ func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyValue) string {
 		return "drpeng"
 	case cloudprovider.DnsPolicyValueBtvn:
 		return "btvn"
+	case cloudprovider.DnsPolicyValueNAmerica:
+		return "os_namerica"
+	case cloudprovider.DnsPolicyValueEuro:
+		return "os_euro"
 
 	case cloudprovider.DnsPolicyValueBaidu:
 		return "baidu"
