@@ -15,8 +15,6 @@
 package aliyun
 
 import (
-	"strings"
-
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -32,12 +30,12 @@ type AliyunTags struct {
 	}
 }
 
+var sysTags = []string{"aliyun", "acs:", "ack.aliyun.com", "k8s.io"}
+
 func (self *AliyunTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.Tags.Tag {
-		if strings.HasPrefix(tag.TagKey, "aliyun") || strings.HasPrefix(tag.TagKey, "acs:") ||
-			strings.HasSuffix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") ||
-			strings.HasSuffix(tag.Key, "ack.aliyun.com") { // k8s
+		if tag.IsSysTagPrefix(sysTags) {
 			continue
 		}
 		if len(tag.TagKey) > 0 {
@@ -53,9 +51,7 @@ func (self *AliyunTags) GetTags() (map[string]string, error) {
 func (self *AliyunTags) GetSysTags() map[string]string {
 	ret := map[string]string{}
 	for _, tag := range self.Tags.Tag {
-		if strings.HasPrefix(tag.TagKey, "aliyun") || strings.HasPrefix(tag.TagKey, "acs:") ||
-			strings.HasPrefix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") ||
-			strings.HasPrefix(tag.Key, "ack.aliyun.com") { // k8s
+		if tag.IsSysTagPrefix(sysTags) {
 			if len(tag.TagKey) > 0 {
 				ret[tag.TagKey] = tag.TagValue
 			} else if len(tag.Key) > 0 {
