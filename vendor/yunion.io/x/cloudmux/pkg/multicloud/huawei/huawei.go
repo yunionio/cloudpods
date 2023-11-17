@@ -127,9 +127,9 @@ type SHuaweiClient struct {
 
 	signer auth.Signer
 
-	isMainProject     bool // whether the project is the main project in the region
-	isSyncCertProject bool
-	clientRegion      string
+	isMainProject    bool // whether the project is the main project in the region
+	isDefaultProject bool // whether the project is the default region project
+	clientRegion     string
 
 	userId          string
 	ownerId         string
@@ -394,6 +394,22 @@ func (self *SHuaweiClient) sslcertExport(regionId, resource string, scID string)
 	return self.request(httputils.POST, uri, url.Values{}, nil)
 }
 
+func (self *SHuaweiClient) cdnGet(resource, epID string) (jsonutils.JSONObject, error) {
+	params := url.Values{"enterprise_project_id": []string{epID}}
+	uri := fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
+	return self.request(httputils.GET, uri, params, nil)
+}
+
+func (self *SHuaweiClient) cdnList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
+	return self.request(httputils.GET, uri, query, nil)
+}
+
+func (self *SHuaweiClient) cdnDelete(resource string) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
+	return self.request(httputils.DELETE, uri, url.Values{}, nil)
+}
+
 type akClient struct {
 	client *http.Client
 	aksk   aksk.SignOptions
@@ -486,7 +502,7 @@ func (self *SHuaweiClient) fetchRegions() error {
 			}
 		}
 		if project.Name == HUAWEI_CERT_DEFAULT_REGION {
-			self.isSyncCertProject = true
+			self.isDefaultProject = true
 		}
 	} else {
 		filtedRegions = self.regions
@@ -877,8 +893,9 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 	if self.isMainProject {
 		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	}
-	if self.isSyncCertProject {
+	if self.isDefaultProject {
 		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_CERT)
+		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_CDN+cloudprovider.READ_ONLY_SUFFIX)
 	}
 	return caps
 }
