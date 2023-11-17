@@ -842,8 +842,10 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 		return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
 	}
 	msg := msgObj.(*jsonutils.JSONDict)
-	if info, _ := TemplateManager.GetCompanyInfo(ctx); len(info.Name) > 0 {
-		msg.Set("brand", jsonutils.NewString(info.Name))
+	if !msg.Contains("brand") {
+		if info, _ := TemplateManager.GetCompanyInfo(ctx); len(info.Name) > 0 {
+			msg.Set("brand", jsonutils.NewString(info.Name))
+		}
 	}
 	webhookMsg := jsonutils.NewDict()
 	webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
