@@ -59,7 +59,8 @@ type SElasticcacheManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SDeletePreventableResourceBaseManager
-	SVpcResourceBaseManager
+	SCloudregionResourceBaseManager
+	SManagedResourceBaseManager
 	SZoneResourceBaseManager
 	SNetworkResourceBaseManager
 }
@@ -81,10 +82,13 @@ func init() {
 type SElasticcache struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
+	SCloudregionResourceBase
+	SManagedResourceBase
 	SBillingResourceBase
 	SDeletePreventableResourceBase
-	SVpcResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	SZoneResourceBase
+
+	VpcId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"vpc_id"`
 
 	// 备可用区
 	SlaveZones string `width:"512" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"slave_zones"`
@@ -195,13 +199,6 @@ func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IId
 	return q
 }
 
-func (self *SElasticcache) getCloudProviderInfo() SCloudProviderInfo {
-	region, _ := self.GetRegion()
-	provider := self.GetCloudprovider()
-	zone, _ := self.GetZone()
-	return MakeCloudProviderInfo(region, zone, provider)
-}
-
 func (manager *SElasticcacheManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -213,6 +210,8 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 	rows := make([]api.ElasticcacheDetails, len(objs))
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
@@ -225,6 +224,8 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 			VpcResourceInfo:        vpcRows[i],
 			ZoneResourceInfoBase:   zoneRows[i].ZoneResourceInfoBase,
 		}
+		rows[i].ManagedResourceInfo = manRows[i]
+		rows[i].CloudregionResourceInfo = regRows[i]
 		netIds[i] = objs[i].(*SElasticcache).NetworkId
 		cacheIds[i] = objs[i].(*SElasticcache).Id
 
@@ -498,23 +499,22 @@ func (manager *SElasticcacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SElasticcacheManager) SyncElasticcaches(
+func (self *SCloudregion) SyncElasticcaches(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	syncOwnerId mcclient.IIdentityProvider,
 	provider *SCloudprovider,
-	region *SCloudregion,
 	cloudElasticcaches []cloudprovider.ICloudElasticcache,
 	xor bool,
 ) ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
-	lockman.LockRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	lockman.LockRawObject(ctx, ElasticcacheManager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+	defer lockman.ReleaseRawObject(ctx, ElasticcacheManager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 
 	localElasticcaches := []SElasticcache{}
 	remoteElasticcaches := []cloudprovider.ICloudElasticcache{}
 	syncResult := compare.SyncResult{}
 
-	dbInstances, err := region.GetElasticcaches(provider)
+	dbInstances, err := self.GetElasticcaches(provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -559,7 +559,7 @@ func (manager *SElasticcacheManager) SyncElasticcaches(
 	}
 
 	for i := 0; i < len(added); i++ {
-		instance, err := manager.newFromCloudElasticcache(ctx, userCred, syncOwnerId, provider, region, added[i])
+		instance, err := self.newFromCloudElasticcache(ctx, userCred, syncOwnerId, provider, added[i])
 		if err != nil {
 			syncResult.AddError(err)
 			continue
@@ -649,14 +649,14 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 	return nil
 }
 
-func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, extInstance cloudprovider.ICloudElasticcache) (*SElasticcache, error) {
+func (self *SCloudregion) newFromCloudElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider, extInstance cloudprovider.ICloudElasticcache) (*SElasticcache, error) {
 
 	instance := SElasticcache{}
-	instance.SetModelManager(manager, &instance)
+	instance.SetModelManager(ElasticcacheManager, &instance)
 
 	instance.ExternalId = extInstance.GetGlobalId()
-	// instance.CloudregionId = region.Id
-	// instance.ManagerId = provider.Id
+	instance.CloudregionId = self.Id
+	instance.ManagerId = provider.Id
 	instance.IsEmulated = extInstance.IsEmulated()
 	instance.Status = extInstance.GetStatus()
 
@@ -691,7 +691,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 
 	instance.NetworkType = extInstance.GetNetworkType()
 	if instance.NetworkType == api.LB_NETWORK_TYPE_CLASSIC {
-		vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region)
+		vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, self)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewVpcForClassicNetwork")
 		}
@@ -750,15 +750,15 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	}
 
 	err = func() error {
-		lockman.LockRawObject(ctx, manager.Keyword(), "name")
-		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+		lockman.LockRawObject(ctx, ElasticcacheManager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, ElasticcacheManager.Keyword(), "name")
 
-		instance.Name, err = db.GenerateName(ctx, manager, ownerId, extInstance.GetName())
+		instance.Name, err = db.GenerateName(ctx, ElasticcacheManager, ownerId, extInstance.GetName())
 		if err != nil {
 			return err
 		}
 
-		return manager.TableSpec().Insert(ctx, &instance)
+		return ElasticcacheManager.TableSpec().Insert(ctx, &instance)
 	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcache.Insert")
@@ -1592,6 +1592,18 @@ func (cache *SElasticcache) SetDisableDelete(userCred mcclient.TokenCredential, 
 	return err
 }
 
+func (self *SElasticcache) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, err
+	}
+	provider, err := self.GetDriver(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetDriver")
+	}
+	return provider.GetIRegionById(region.GetExternalId())
+}
+
 func (self *SElasticcache) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
 	provider := self.GetCloudprovider()
 	if provider != nil {
@@ -1710,6 +1722,17 @@ func (self *SElasticcache) OnMetadataUpdated(ctx context.Context, userCred mccli
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
+}
+
+func (self *SElasticcache) GetVpc() (*SVpc, error) {
+	if len(self.VpcId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty vpc id")
+	}
+	vpc, err := VpcManager.FetchById(self.VpcId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchById %s", self.VpcId)
+	}
+	return vpc.(*SVpc), nil
 }
 
 func (self *SElasticcache) getSecgroupsBySecgroupExternalIds(externalIds []string) ([]SSecurityGroup, error) {
@@ -2135,4 +2158,34 @@ func (cache *SElasticcache) GetShortDesc(ctx context.Context) *jsonutils.JSONDic
 	desc.Set("connections", jsonutils.NewInt(int64(cache.Connections)))
 	desc.Update(jsonutils.Marshal(&info))
 	return desc
+}
+
+func (manager *SElasticcacheManager) InitializeData() error {
+	q := manager.Query().IsNotEmpty("vpc_id")
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")),
+			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+		),
+	)
+	caches := []SElasticcache{}
+	err := db.FetchModelObjects(manager, q, &caches)
+	if err != nil {
+		return err
+	}
+	for i := range caches {
+		vpc, err := caches[i].GetVpc()
+		if err != nil {
+			return err
+		}
+		_, err = db.Update(&caches[i], func() error {
+			caches[i].CloudregionId = vpc.CloudregionId
+			caches[i].ManagerId = vpc.ManagerId
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

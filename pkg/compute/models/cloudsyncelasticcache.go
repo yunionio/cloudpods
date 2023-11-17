@@ -50,7 +50,7 @@ func syncElasticcaches(
 
 	localInstances, remoteInstances, result := func() ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
 		defer syncResults.AddSqlCost(ElasticcacheManager)()
-		return ElasticcacheManager.SyncElasticcaches(ctx, userCred, provider.GetOwnerId(), provider, localRegion, extCacheDBs, syncRange.Xor)
+		return localRegion.SyncElasticcaches(ctx, userCred, provider.GetOwnerId(), provider, extCacheDBs, syncRange.Xor)
 	}()
 
 	syncResults.Add(ElasticcacheManager, result)
