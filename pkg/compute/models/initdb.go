@@ -72,6 +72,8 @@ func InitDB() error {
 		AccessGroupRuleManager,
 
 		GroupnetworkManager,
+
+		ElasticcacheManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
