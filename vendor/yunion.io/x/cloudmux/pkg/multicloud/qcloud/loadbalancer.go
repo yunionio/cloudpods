@@ -213,7 +213,10 @@ func (self *SLoadbalancer) Refresh() error {
 
 // 腾讯云当前不支持一个LB绑定多个ip，每个LB只支持绑定一个ip
 func (self *SLoadbalancer) GetAddress() string {
-	return self.LoadBalancerVips[0]
+	for _, addr := range self.LoadBalancerVips {
+		return addr
+	}
+	return ""
 }
 
 func (self *SLoadbalancer) GetAddressType() string {
