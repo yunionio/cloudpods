@@ -12,8 +12,8 @@ jobs:
         uses: actions-cool/issues-helper@v2
         with:
           actions: 'close-issues'
-          labels: 'state/awaiting user feedback'
-          inactive-day: 37
+          labels: 'stale,state/awaiting user feedback'
+          inactive-day: 7
           body: |
             If you do not provide feedback for more than 37 days, we will close the issue and you can either reopen it or submit a new issue.
 
