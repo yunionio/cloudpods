@@ -582,6 +582,7 @@ func (self *SSnapshot) Clone(pool, name string) error {
 	if err != nil {
 		log.Warningf("protect %s error: %v", self.GetName(), err)
 	}
+	defer self.Unprotect()
 	opts := self.options()
 	opts = append(opts, []string{"clone", self.GetName(), fmt.Sprintf("%s/%s", pool, name)}...)
 	return self.image.client.run("rbd", opts, false)

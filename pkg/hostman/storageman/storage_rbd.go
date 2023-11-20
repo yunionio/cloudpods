@@ -313,7 +313,7 @@ func (s *SRbdStorage) createBackup(pool string, diskId string, snapshotId string
 	if err != nil {
 		return 0, errors.Wrapf(err, "unable to GetSnapshot %s of Image %s", snapshotId, diskId)
 	}
-	backupName := fmt.Sprintf("backup_%s", backupId)
+	backupName := fmt.Sprintf("backup_%s", diskId)
 	err = snap.Clone(pool, backupName)
 	if err != nil {
 		return 0, errors.Wrapf(err, "unable to Clone snap %s", fmt.Sprintf("%s@%s", diskId, snapshotId))
