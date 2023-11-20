@@ -989,8 +989,11 @@ func (drv *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.Co
 	return nil
 }
 
-func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
-	host, _ := guest.GetHost()
+func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
+	host, err := guest.GetHost()
+	if err != nil {
+		return errors.Wrapf(err, "GetHost")
+	}
 	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return err
@@ -1002,22 +1005,21 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 	}
 
 	if len(instanceType) == 0 {
-		region, _ := host.GetRegion()
+		region, err := host.GetRegion()
+		if err != nil {
+			return err
+		}
 		sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), vcpuCount, vmemSize)
 		if err != nil {
-			return errors.Wrap(err, "ManagedVirtualizedGuestDriver.RequestChangeVmConfig.GetMatchedSku")
+			return errors.Wrapf(err, "GetMatchedSku %s %dC%dM", region.GetId(), vcpuCount, vmemSize)
 		}
-
-		if sku == nil {
-			return errors.Wrap(errors.ErrNotFound, "ManagedVirtualizedGuestDriver.RequestChangeVmConfig.GetMatchedSku")
-		}
-
 		instanceType = sku.Name
 	}
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		config := &cloudprovider.SManagedVMChangeConfig{
 			Cpu:          int(vcpuCount),
+			CpuSocket:    int(cpuSockets),
 			MemoryMB:     int(vmemSize),
 			InstanceType: instanceType,
 		}

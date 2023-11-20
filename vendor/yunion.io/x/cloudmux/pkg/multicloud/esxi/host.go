@@ -771,6 +771,7 @@ type SCreateVMParam struct {
 	Name                 string
 	Uuid                 string
 	OsName               string
+	CpuSockets           int
 	Cpu                  int
 	Mem                  int
 	Bios                 string
@@ -1056,14 +1057,19 @@ func (host *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		version = "vmx-08"
 	}
 
+	if params.CpuSockets == 0 {
+		params.CpuSockets = 1
+	}
+
 	spec := types.VirtualMachineConfigSpec{
-		Name:     name,
-		Version:  version,
-		Uuid:     params.Uuid,
-		GuestId:  guestId,
-		NumCPUs:  int32(params.Cpu),
-		MemoryMB: int64(params.Mem),
-		Firmware: firmware,
+		Name:              name,
+		Version:           version,
+		Uuid:              params.Uuid,
+		GuestId:           guestId,
+		NumCPUs:           int32(params.Cpu),
+		NumCoresPerSocket: int32(params.CpuSockets),
+		MemoryMB:          int64(params.Mem),
+		Firmware:          firmware,
 
 		CpuHotAddEnabled:    &True,
 		CpuHotRemoveEnabled: &True,
@@ -1288,11 +1294,15 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 	if len(params.Uuid) != 0 {
 		name = params.Uuid
 	}
+	if params.CpuSockets == 0 {
+		params.CpuSockets = 1
+	}
 	spec := types.VirtualMachineConfigSpec{
-		Name:     name,
-		Uuid:     params.Uuid,
-		NumCPUs:  int32(params.Cpu),
-		MemoryMB: int64(params.Mem),
+		Name:              name,
+		Uuid:              params.Uuid,
+		NumCPUs:           int32(params.Cpu),
+		NumCoresPerSocket: int32(params.CpuSockets),
+		MemoryMB:          int64(params.Mem),
 
 		CpuHotAddEnabled:    &True,
 		CpuHotRemoveEnabled: &True,

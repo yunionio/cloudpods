@@ -31,6 +31,10 @@ func (instance *SInstanceBase) GetIHostId() string {
 	return ""
 }
 
+func (instance *SInstanceBase) GetCpuSockets() int {
+	return 1
+}
+
 func (instance *SInstanceBase) GetSerialOutput(port int) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }

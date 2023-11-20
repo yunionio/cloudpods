@@ -764,6 +764,8 @@ type ServerChangeConfigInput struct {
 	// swagger: ignore
 	Flavor string `json:"flavor" yunion-deprecated-by:"instance_type"`
 
+	// cpu卡槽数
+	CpuSockets *int `json:"cpu_sockets"`
 	// cpu大小
 	VcpuCount int `json:"vcpu_count"`
 	// 内存大小, 1024M, 1G
@@ -809,6 +811,7 @@ type GuestJsonDesc struct {
 	Description    string `json:"description"`
 	UUID           string `json:"uuid"`
 	Mem            int    `json:"mem"`
+	CpuSockets     int    `json:"cpu_sockets"`
 	Cpu            int    `json:"cpu"`
 	Vga            string `json:"vga"`
 	Vdi            string `json:"vdi"`

@@ -122,6 +122,8 @@ type SGuest struct {
 	db.SEncryptedResource
 
 	// CPU大小
+	CpuSockets int `nullable:"false" default:"1" list:"user" create:"optional"`
+	// CPU大小
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
 	// 内存大小, 单位Mb
 	VmemSize int `nullable:"false" list:"user" create:"required"`
@@ -3020,6 +3022,7 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 		}
 
 		g.VcpuCount = extVM.GetVcpuCount()
+		g.CpuSockets = extVM.GetCpuSockets()
 		g.BootOrder = extVM.GetBootOrder()
 		g.Vga = extVM.GetVga()
 		g.Vdi = extVM.GetVdi()
@@ -3113,6 +3116,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.InferPowerStates()
 	guest.ExternalId = extVM.GetGlobalId()
 	guest.VcpuCount = extVM.GetVcpuCount()
+	guest.CpuSockets = extVM.GetCpuSockets()
 	guest.BootOrder = extVM.GetBootOrder()
 	guest.Vga = extVM.GetVga()
 	guest.Vdi = extVM.GetVdi()
@@ -4916,6 +4920,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		UUID:        self.Id,
 		Mem:         self.VmemSize,
 		Cpu:         self.VcpuCount,
+		CpuSockets:  self.CpuSockets,
 		Vga:         self.getVga(),
 		Vdi:         self.GetVdi(),
 		Machine:     self.getMachine(),

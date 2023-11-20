@@ -165,7 +165,7 @@ type IGuestDriver interface {
 
 	AllowReconfigGuest() bool
 	DoGuestCreateDisksTask(ctx context.Context, guest *SGuest, task taskman.ITask) error
-	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error
+	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error
 
 	NeedRequestGuestHotAddIso(ctx context.Context, guest *SGuest) bool
 	RequestGuestHotAddIso(ctx context.Context, guest *SGuest, path string, boot bool, task taskman.ITask) error
