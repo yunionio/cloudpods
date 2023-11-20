@@ -56,6 +56,8 @@ const (
 	TAG_DELETE_RANGE_ALL = "all"
 
 	OBJECT_TYPE_ID_SEP = "::"
+
+	RE_BILLING_AT = "__re_billing_at"
 )
 
 type SMetadataManager struct {
@@ -524,6 +526,14 @@ func (manager *SMetadataManager) SetValuesWithLog(ctx context.Context, obj IMode
 	}
 	if len(changes) > 0 {
 		OpsLog.LogEvent(obj.GetIModel(), ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
+		for _, change := range changes {
+			if change.Key == RE_BILLING_AT {
+				desc := obj.GetIModel().GetShortDesc(ctx)
+				desc.Set("created_at", jsonutils.Marshal(change.NValue))
+				OpsLog.LogEvent(obj.GetIModel(), ACT_RE_BILLING, desc, userCred)
+				break
+			}
+		}
 	}
 	return nil
 }
