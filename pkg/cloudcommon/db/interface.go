@@ -282,6 +282,7 @@ type IStandaloneModel interface {
 	// GetExternalId() string
 
 	SetName(name string)
+	MarkPendingDeleted()
 
 	StandaloneModelManager() IStandaloneModelManager
 

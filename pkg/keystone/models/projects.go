@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -900,4 +901,54 @@ func (manager *SProjectManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterB
 		q = q.Equals("id", owner.GetProjectId())
 	}
 	return manager.SIdentityBaseResourceManager.FilterByOwner(q, man, userCred, owner, scope)
+}
+
+func (manager *SProjectManager) GetSystemProject() (*SProject, error) {
+	q := manager.Query().Equals("name", api.SystemAdminProject)
+	ret := &SProject{}
+	ret.SetModelManager(manager, ret)
+	err := q.First(ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (self *SProject) StartProjectCleanTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ProjectCleanTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return err
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (self *SProject) GetEmptyProjects() ([]SProject, error) {
+	q := ProjectManager.Query().IsFalse("pending_deleted").NotEquals("name", api.SystemAdminProject)
+	scopes := []SScopeResource{}
+	ScopeResourceManager.Query().GT("count", 0).All(&scopes)
+	ids := []string{}
+	for _, scope := range scopes {
+		ids = append(ids, scope.ProjectId)
+	}
+	projects := []SProject{}
+	if len(ids) == 0 {
+		return projects, nil
+	}
+	q = q.Filter(sqlchemy.NotIn(q.Field("id"), ids))
+	err := db.FetchModelObjects(ProjectManager, q, &projects)
+	if err != nil {
+		return nil, err
+	}
+	return projects, nil
+}
+
+func (manager *SProjectManager) PerformClean(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ProjectCleanInput) (jsonutils.JSONObject, error) {
+	if !userCred.HasSystemAdminPrivilege() {
+		return nil, httperrors.NewForbiddenError("not allow clean projects")
+	}
+	system, err := manager.GetSystemProject()
+	if err != nil {
+		return nil, err
+	}
+	return nil, system.StartProjectCleanTask(ctx, userCred)
 }

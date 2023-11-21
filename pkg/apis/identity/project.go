@@ -49,3 +49,6 @@ type ProjectDetails struct {
 
 	Organization *SProjectOrganization
 }
+
+type ProjectCleanInput struct {
+}

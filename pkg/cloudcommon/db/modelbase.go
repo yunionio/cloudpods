@@ -686,6 +686,10 @@ func (model *SModelBase) MarkDelete() error {
 	return nil
 }
 
+func (model *SModelBase) MarkPendingDeleted() {
+	return
+}
+
 func (model *SModelBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
