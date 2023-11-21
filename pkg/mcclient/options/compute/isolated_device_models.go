@@ -17,6 +17,7 @@ package compute
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -59,4 +60,14 @@ func (o *IsolatedDeviceModelUpdateOptions) Params() (jsonutils.JSONObject, error
 
 type IsolatedDeviceIdsOptions struct {
 	options.BaseIdOptions
+}
+
+type IsolatedDeviceModelSetHardwareInfoOptions struct {
+	options.BaseIdOptions
+
+	api.IsolatedDeviceModelHardwareInfo
+}
+
+func (o *IsolatedDeviceModelSetHardwareInfoOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
 }

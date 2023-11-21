@@ -211,6 +211,11 @@ func (dev *sNVIDIAVgpuDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolat
 	}, nil
 }
 
+// GetPCIEInfo implements IDevice.
+func (dev *sNVIDIAVgpuDevice) GetPCIEInfo() *compute.IsolatedDevicePCIEInfo {
+	return dev.pfDev.PCIEInfo
+}
+
 func NewNvidiaVgpuDevice(dev *PCIDevice, devType, mdevId, model string, profile map[string]string) *sNVIDIAVgpuDevice {
 	return &sNVIDIAVgpuDevice{
 		pfDev:   dev,
