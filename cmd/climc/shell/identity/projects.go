@@ -40,6 +40,7 @@ func init() {
 	cmd.GetProperty(&identity_options.ProjectGetPropertyTagValueTreeOptions{})
 	cmd.GetProperty(&identity_options.ProjectGetPropertyDomainTagValuePairOptions{})
 	cmd.GetProperty(&identity_options.ProjectGetPropertyDomainTagValueTreeOptions{})
+	cmd.PerformClass("clean", &identity_options.ProjectCleanOptions{})
 
 	type ProjectShowOptions struct {
 		ID     string `help:"ID or Name of project"`
