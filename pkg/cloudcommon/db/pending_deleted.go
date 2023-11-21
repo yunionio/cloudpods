@@ -48,6 +48,11 @@ func (base *SPendingDeletedBase) GetPendingDeleted() bool {
 	return base.PendingDeleted
 }
 
+func (base *SPendingDeletedBase) MarkPendingDeleted() {
+	base.PendingDeleted = true
+	base.PendingDeletedAt = timeutils.UtcNow()
+}
+
 // GetPendingDeletedAt implements IPendingDeltable
 func (base *SPendingDeletedBase) GetPendingDeletedAt() time.Time {
 	return base.PendingDeletedAt
@@ -85,8 +90,7 @@ func (base *SPendingDeletedBase) MarkPendingDelete(model IStandaloneModel, ctx c
 			if len(newName) > 0 {
 				model.SetName(newName)
 			}
-			base.PendingDeleted = true
-			base.PendingDeletedAt = timeutils.UtcNow()
+			model.MarkPendingDeleted()
 			return nil
 		})
 		if err != nil {

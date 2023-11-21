@@ -113,3 +113,10 @@ type ProjectSetAdminOptions struct {
 func (opts *ProjectSetAdminOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type ProjectCleanOptions struct {
+}
+
+func (opts *ProjectCleanOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
