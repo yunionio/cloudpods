@@ -57,7 +57,7 @@ const (
 
 	OBJECT_TYPE_ID_SEP = "::"
 
-	RE_BILLING_AT = "__re_billing_at"
+	RE_BILLING_AT = "re_billing_at"
 )
 
 type SMetadataManager struct {
