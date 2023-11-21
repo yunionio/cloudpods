@@ -42,6 +42,8 @@ type KafkaDetails struct {
 	VpcResourceInfoBase
 	NetworkResourceInfoBase
 	ZoneResourceInfoBase
+
+	SKafka
 }
 
 // 资源列表请求参数
@@ -50,7 +52,5 @@ type KafkaListInput struct {
 	apis.ExternalizedResourceBaseListInput
 	apis.DeletePreventableResourceBaseListInput
 
-	RegionalFilterListInput
-	ManagedResourceListInput
 	VpcFilterListInput
 }

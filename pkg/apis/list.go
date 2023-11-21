@@ -26,11 +26,6 @@ type ScopedResourceInput struct {
 }
 
 type DomainizedResourceListInput struct {
-	// swagger:ignore
-	// Is an admin call? equivalent to scope=system
-	// Deprecated
-	Admin *bool `json:"admin"`
-
 	ScopedResourceInput
 
 	DomainizedResourceInput
