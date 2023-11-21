@@ -34,6 +34,7 @@ type SInstance struct {
 	Hostname         string
 	SecurityGroupIds []string
 	VcpuCount        int
+	CpuSockets       int
 	VmemSizeMb       int
 	BootOrder        string
 	Vga              string
@@ -166,6 +167,10 @@ func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudpro
 
 func (self *SInstance) AllocatePublicIpAddress() (string, error) {
 	return "", cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) GetCpuSockets() int {
+	return self.CpuSockets
 }
 
 func (self *SInstance) GetVcpuCount() int {

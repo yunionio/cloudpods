@@ -2697,13 +2697,14 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	var addCpu, addMem int
-	var cpuChanged, memChanged bool
+	var cpuChanged, cpuSocketsChanged, memChanged bool
 
 	confs := jsonutils.NewDict()
 	confs.Add(jsonutils.Marshal(map[string]interface{}{
 		"instance_type": self.InstanceType,
 		"vcpu_count":    self.VcpuCount,
 		"vmem_size":     self.VmemSize,
+		"cpu_sockets":   self.CpuSockets,
 	}), "old")
 	if len(input.InstanceType) > 0 {
 		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, self.GetDriver().GetProvider(), true)
@@ -2735,24 +2736,33 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			addCpu = input.VcpuCount - self.VcpuCount
 			confs.Add(jsonutils.NewInt(int64(input.VcpuCount)), "vcpu_count")
 		}
-		if !regutils.MatchSize(input.VmemSize) {
-			return nil, httperrors.NewBadRequestError("Memory size %q must be number[+unit], like 256M, 1G or 256", input.VmemSize)
-		}
-		nVmem, err := fileutils.GetSizeMb(input.VmemSize, 'M', 1024)
-		if err != nil {
-			httperrors.NewBadRequestError("Params vmem_size parse error")
-		}
-		if nVmem != self.VmemSize {
-			memChanged = true
-			addMem = nVmem - self.VmemSize
-			err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
+		if len(input.VmemSize) > 0 {
+			if !regutils.MatchSize(input.VmemSize) {
+				return nil, httperrors.NewBadRequestError("Memory size %q must be number[+unit], like 256M, 1G or 256", input.VmemSize)
+			}
+			nVmem, err := fileutils.GetSizeMb(input.VmemSize, 'M', 1024)
 			if err != nil {
-				return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
+				httperrors.NewBadRequestError("Params vmem_size parse error")
+			}
+			if nVmem != self.VmemSize {
+				memChanged = true
+				addMem = nVmem - self.VmemSize
+				err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
+				if err != nil {
+					return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
+				}
 			}
 		}
 	}
+	if input.CpuSockets != nil && *input.CpuSockets != self.CpuSockets {
+		if *input.CpuSockets > self.VcpuCount+addCpu {
+			return nil, httperrors.NewInputParameterError("The number of cpu sockets cannot be greater than the number of cpus")
+		}
+		cpuSocketsChanged = true
+		confs.Set("cpu_sockets", jsonutils.NewInt(int64(*input.CpuSockets)))
+	}
 
-	if self.Status == api.VM_RUNNING && (cpuChanged || memChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, cpuChanged, memChanged) {
+	if self.Status == api.VM_RUNNING && (cpuChanged || memChanged || cpuSocketsChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, cpuChanged, memChanged) {
 		return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in status %s", self.Status)
 	}
 

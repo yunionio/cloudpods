@@ -409,6 +409,7 @@ type ServerCreateOptionalOptions struct {
 	ServerConfigs
 
 	MemSpec        string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
+	CpuSockets     int    `help:"Cpu sockets"`
 	EnableMemclean bool   `help:"clean guest memory after guest exit" json:"enable_memclean"`
 
 	Keypair          string   `help:"SSH Keypair"`
@@ -996,9 +997,10 @@ func (o *ServerRebuildRootOptions) Description() string {
 
 type ServerChangeConfigOptions struct {
 	ServerIdOptions
-	VcpuCount *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu"`
-	VmemSize  string   `help:"New memory size" json:"vmem_size" token:"vmem"`
-	Disk      []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
+	VcpuCount  *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu"`
+	CpuSockets *int     `help:"Cpu sockets"`
+	VmemSize   string   `help:"New memory size" json:"vmem_size" token:"vmem"`
+	Disk       []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
 
 	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
 

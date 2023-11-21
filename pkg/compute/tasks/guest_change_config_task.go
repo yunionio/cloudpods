@@ -194,11 +194,12 @@ func (task *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Conte
 func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	if task.Params.Contains("instance_type") || task.Params.Contains("vcpu_count") || task.Params.Contains("vmem_size") {
+	if task.Params.Contains("instance_type") || task.Params.Contains("vcpu_count") || task.Params.Contains("vmem_size") || task.Params.Contains("cpu_sockets") {
 		task.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
 		instanceType, _ := task.Params.GetString("instance_type")
 		vcpuCount, _ := task.Params.Int("vcpu_count")
 		vmemSize, _ := task.Params.Int("vmem_size")
+		cpuSockets, _ := task.Params.Int("cpu_sockets")
 		if len(instanceType) > 0 {
 			provider := guest.GetDriver().GetProvider()
 			sku, err := models.ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider, false)
@@ -216,14 +217,14 @@ func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 				vmemSize = int64(guest.VmemSize)
 			}
 		}
-		task.startGuestChangeCpuMemSpec(ctx, guest, instanceType, vcpuCount, vmemSize)
+		task.startGuestChangeCpuMemSpec(ctx, guest, instanceType, vcpuCount, cpuSockets, vmemSize)
 	} else {
 		task.OnGuestChangeCpuMemSpecComplete(ctx, obj, data)
 	}
 }
 
-func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount int64, vmemSize int64) {
-	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, task, instanceType, vcpuCount, vmemSize)
+func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount, cpuSockets int64, vmemSize int64) {
+	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, task, instanceType, vcpuCount, cpuSockets, vmemSize)
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
@@ -235,6 +236,7 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 
 	instanceType, _ := task.Params.GetString("instance_type")
 	vcpuCount, _ := task.Params.Int("vcpu_count")
+	cpuSockets, _ := task.Params.Int("cpu_sockets")
 	vmemSize, _ := task.Params.Int("vmem_size")
 
 	if len(instanceType) == 0 {
@@ -250,6 +252,9 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	_, err := db.Update(guest, func() error {
 		if vcpuCount > 0 {
 			guest.VcpuCount = int(vcpuCount)
+		}
+		if cpuSockets > 0 {
+			guest.CpuSockets = int(cpuSockets)
 		}
 		if vmemSize > 0 {
 			guest.VmemSize = int(vmemSize)

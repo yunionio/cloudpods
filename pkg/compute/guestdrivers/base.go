@@ -237,8 +237,8 @@ func (drv *SBaseGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *
 	return fmt.Errorf("Not Implement")
 }
 
-func (drv *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
-	return fmt.Errorf("Not Implement")
+func (drv *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestChangeVmConfig")
 }
 
 func (drv *SBaseGuestDriver) NeedRequestGuestHotAddIso(ctx context.Context, guest *models.SGuest) bool {
