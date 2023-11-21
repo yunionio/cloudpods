@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -425,7 +426,10 @@ func (manager *SIdentityBaseResourceManager) GetPropertyDomainTagValueTree(
 
 func (model *SIdentityBaseResource) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if !model.PendingDeleted {
-		newName := fmt.Sprintf("%s-deleted-%s", model.Name, timeutils.ShortDate(timeutils.UtcNow()))
+		newName := model.Name
+		if !strings.Contains(model.Name, "-deleted-") {
+			newName = fmt.Sprintf("%s-deleted-%s", model.Name, timeutils.ShortDate(timeutils.UtcNow()))
+		}
 		err := model.SPendingDeletedBase.MarkPendingDelete(model.GetIStandaloneModel(), ctx, userCred, newName)
 		if err != nil {
 			return errors.Wrap(err, "MarkPendingDelete")
