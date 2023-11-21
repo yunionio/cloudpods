@@ -175,6 +175,7 @@ type SManagedVMCreateConfig struct {
 
 type SManagedVMChangeConfig struct {
 	Cpu          int
+	CpuSocket    int
 	MemoryMB     int
 	InstanceType string
 }

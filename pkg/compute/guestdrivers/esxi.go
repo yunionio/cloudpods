@@ -274,6 +274,10 @@ func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred m
 		data.Disks[i].Format = "vmdk"
 	}
 
+	if data.CpuSockets > data.VcpuCount {
+		return nil, httperrors.NewInputParameterError("The number of cpu sockets cannot be greater than the number of cpus")
+	}
+
 	// check disk config
 	if len(data.Disks) == 0 {
 		return data, nil

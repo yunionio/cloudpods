@@ -429,6 +429,11 @@ type ServerCreateInput struct {
 	// default: 1
 	VcpuCount int `json:"vcpu_count"`
 
+	// cpu卡槽数
+	// 目前仅vmware支持此参数
+	// default: 1
+	CpuSockets int `json:"cpu_sockets"`
+
 	// 用户自定义启动脚本
 	// 支持 #cloud-config yaml 格式及shell脚本
 	// 支持特殊user data平台: Aliyun, Qcloud, Azure, Apsara, Ucloud

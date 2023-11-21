@@ -388,6 +388,14 @@ func (svm *SVirtualMachine) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	return nil, nil
 }
 
+func (svm *SVirtualMachine) GetCpuSockets() int {
+	vm := svm.getVirtualMachine()
+	if vm.Config != nil {
+		return int(vm.Config.Hardware.NumCoresPerSocket)
+	}
+	return 1
+}
+
 func (svm *SVirtualMachine) GetVcpuCount() int {
 	return int(svm.getVirtualMachine().Summary.Config.NumCpu)
 }
@@ -761,18 +769,22 @@ func (svm *SVirtualMachine) acquireVmrcUrl() (*cloudprovider.ServerVncOutput, er
 }
 
 func (svm *SVirtualMachine) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
-	return svm.doChangeConfig(ctx, int32(config.Cpu), int64(config.MemoryMB), "", "")
+	return svm.doChangeConfig(ctx, int32(config.Cpu), int32(config.CpuSocket), int64(config.MemoryMB), "", "")
 }
 
 func (svm *SVirtualMachine) GetVersion() string {
 	return svm.getVirtualMachine().Config.Version
 }
 
-func (svm *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu int32, vmemMB int64, guestId string, version string) error {
+func (svm *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu, cpuSockets int32, vmemMB int64, guestId string, version string) error {
 	changed := false
 	configSpec := types.VirtualMachineConfigSpec{}
 	if int(ncpu) != svm.GetVcpuCount() {
 		configSpec.NumCPUs = ncpu
+		changed = true
+	}
+	if cpuSockets > 0 && int(cpuSockets) != svm.GetCpuSockets() {
+		configSpec.NumCoresPerSocket = cpuSockets
 		changed = true
 	}
 	if int(vmemMB) != svm.GetVmemSizeMB() {

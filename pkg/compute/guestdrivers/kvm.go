@@ -431,7 +431,7 @@ func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *m
 	// apis.IsARM(guest.OsArch)
 }
 
-func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
+func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
 	if jsonutils.QueryBoolean(task.GetParams(), "guest_online", false) {
 		addCpu := vcpuCount - int64(guest.VcpuCount)
 		addMem := vmemSize - int64(guest.VmemSize)

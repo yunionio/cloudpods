@@ -348,6 +348,7 @@ type ICloudVM interface {
 
 	GetSerialOutput(port int) (string, error) // 目前仅谷歌云windows机器会使用到此接口
 
+	GetCpuSockets() int
 	GetVcpuCount() int
 	GetVmemSizeMB() int //MB
 	GetBootOrder() string
