@@ -59,6 +59,7 @@ type MongoDBDetails struct {
 	ManagedResourceInfo
 
 	VpcResourceInfoBase
+	SMongoDB
 
 	// IP子网名称
 	// example: test-network
