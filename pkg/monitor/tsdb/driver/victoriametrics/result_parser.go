@@ -58,6 +58,7 @@ func (p *points) add(op *points) error {
 			return errors.Errorf("input values' are %#v, which length isn't equal 2", oVal)
 		}
 		val = append(val, oVal[1])
+		p.values[i] = val
 	}
 	return nil
 }
@@ -69,7 +70,7 @@ func (p *points) isEqual(op *points) bool {
 	return reflect.DeepEqual(p.columns, op.columns) && reflect.DeepEqual(p.tags, op.tags) && reflect.DeepEqual(p.values, op.values)
 }
 
-func newPointsByResult(result ResponseDataResult) (*points, error) {
+func newPointsByResult(result ResponseDataResult, sameTimes sets.String) (*points, error) {
 	tags := result.Metric
 	column, ok := tags[translator.UNION_RESULT_NAME]
 	if !ok {
@@ -83,10 +84,18 @@ func newPointsByResult(result ResponseDataResult) (*points, error) {
 	}
 	values := result.Values
 	id := newMapId(tags)
+	filterValues := []ResponseDataResultValue{}
+	for _, val := range values {
+		valTime := fmt.Sprintf("%s", val[0])
+		if sameTimes.Has(valTime) {
+			tmpVal := val
+			filterValues = append(filterValues, tmpVal)
+		}
+	}
 	return &points{
 		id:      id,
 		columns: []string{column},
-		values:  values,
+		values:  filterValues,
 		tags:    tags,
 	}, nil
 }
@@ -95,8 +104,22 @@ func newPointsByResults(results []ResponseDataResult) ([]*points, error) {
 	uniq := make(map[string]*points, 0)
 	ret := make([]*points, 0)
 
+	var sameTimes sets.String = nil
 	for _, result := range results {
-		p, err := newPointsByResult(result)
+		resultTime := sets.NewString()
+		for _, v := range result.Values {
+			cTime := fmt.Sprintf("%v", v[0])
+			resultTime.Insert(cTime)
+		}
+		if sameTimes == nil {
+			sameTimes = resultTime
+		} else {
+			sameTimes = sameTimes.Intersection(resultTime)
+		}
+	}
+
+	for _, result := range results {
+		p, err := newPointsByResult(result, sameTimes)
 		if err != nil {
 			return nil, errors.Wrapf(err, "new points by result: %#v", result)
 		}

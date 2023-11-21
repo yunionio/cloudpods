@@ -192,8 +192,8 @@ func parseTimepoint(val ResponseDataResultValue) (tsdb.TimePoint, error) {
 		valStr := val[i]
 		pVal := parsePointValue(valStr)
 		timepoint = append(timepoint, pVal)
-		timepoint = append(timepoint, timestamp)
 	}
+	timepoint = append(timepoint, timestamp)
 	return timepoint, nil
 }
 
