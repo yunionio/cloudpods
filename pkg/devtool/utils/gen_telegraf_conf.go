@@ -101,6 +101,8 @@ const TELEGRAF_INPUT_LINUX = `
 [[inputs.internal]]
     name_prefix = "agent_"
     collect_memstats = false
+[[inputs.nvidia_smi]]
+    name_prefix = "agent_"
 `
 
 const TELEGRAF_INPUT_WINDOWS = `
@@ -133,6 +135,8 @@ const TELEGRAF_INPUT_WINDOWS = `
 [[inputs.internal]]
     name_prefix = "agent_"
     collect_memstats = false
+[[inputs.nvidia_smi]]
+    name_prefix = "agent_"
 `
 
 const TELEGRAF_INPUT_BAREMETAL = `
@@ -170,6 +174,8 @@ const TELEGRAF_INPUT_BAREMETAL = `
 [[inputs.internal]]
     name_prefix = "agent_"
     collect_memstats = false
+[[inputs.nvidia_smi]]
+    name_prefix = "agent_"
 `
 
 var temp *template.Template
@@ -206,7 +212,7 @@ func GenerateTelegrafConf(
 		telegrafArgs["telegraf_agent_logfile"] = "/var/log/telegraf.log"
 	}
 	strBuild := strings.Builder{}
-	log.Errorf("telegraf args %v", telegrafArgs)
+	log.Infof("telegraf args %v", telegrafArgs)
 	err := temp.Execute(&strBuild, telegrafArgs)
 	if err != nil {
 		return "", errors.Wrap(err, "build telegraf config")
