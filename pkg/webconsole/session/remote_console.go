@@ -31,6 +31,7 @@ import (
 
 const (
 	VNC        = api.VNC
+	RDP        = api.RDP
 	ALIYUN     = api.ALIYUN
 	QCLOUD     = api.QCLOUD
 	OPENSTACK  = api.OPENSTACK

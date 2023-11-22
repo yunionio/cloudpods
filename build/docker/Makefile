@@ -64,3 +64,13 @@ host-image:
 LBAGENT_BASE_VERSION = v0.0.3
 lbagent-base:
 	$(DOCKER_BUILDX)/lbagent-base:$(LBAGENT_BASE_VERSION) -f ./Dockerfile.lbagent-base .
+
+GUACD_VERSION=1.5.3
+guacd:
+	docker buildx build --platform linux/arm64 --push \
+		-t registry.cn-beijing.aliyuncs.com/yunionio/guacd:$(GUACD_VERSION)-arm64 -f ./Dockerfile.guacd .
+	docker buildx build --platform linux/amd64 --push \
+		-t registry.cn-beijing.aliyuncs.com/yunionio/guacd:$(GUACD_VERSION)-amd64 -f ./Dockerfile.guacd .
+	docker buildx imagetools create -t registry.cn-beijing.aliyuncs.com/yunionio/guacd:$(GUACD_VERSION) \
+		registry.cn-beijing.aliyuncs.com/yunionio/guacd:$(GUACD_VERSION)-amd64 \
+		registry.cn-beijing.aliyuncs.com/yunionio/guacd:$(GUACD_VERSION)-arm64
