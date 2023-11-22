@@ -31,6 +31,7 @@ import (
 
 const (
 	VNC        = api.VNC
+	RDP        = api.RDP
 	ALIYUN     = api.ALIYUN
 	QCLOUD     = api.QCLOUD
 	OPENSTACK  = api.OPENSTACK
@@ -46,7 +47,7 @@ const (
 	JDCLOUD    = api.JDCLOUD
 	CLOUDPODS  = api.CLOUDPODS
 	PROXMOX    = api.PROXMOX
-	VOLCENGINE = api.VOLCENGINE
+	VOLCENGINE = api.VOLC_ENGINE
 )
 
 type RemoteConsoleInfo struct {
