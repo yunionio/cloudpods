@@ -425,10 +425,8 @@ func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, cpuChanged, memChanged bool) bool {
-	return guest.GetMetadata(ctx, "hotplug_cpu_mem", nil) != "enable" || apis.IsARM(guest.OsArch)
-	// (memChanged && guest.GetMetadata(ctx, "__hugepage", nil) == "native") ||
-	// apis.IsARM(guest.OsArch)
+func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb int) bool {
+	return guest.GetMetadata(ctx, api.VM_METADATA_HOTPLUG_CPU_MEM, nil) != "enable" || apis.IsARM(guest.OsArch) && addMemMb > 0
 }
 
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
@@ -866,7 +864,7 @@ func (self *SKVMGuestDriver) RequestCancelLiveMigrate(ctx context.Context, guest
 }
 
 func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	if guest.Status == api.VM_RUNNING && guest.GetMetadata(ctx, "hot_remove_nic", nil) != "enable" {
+	if guest.Status == api.VM_RUNNING && guest.GetMetadata(ctx, api.VM_METADATA_HOT_REMOVE_NIC, nil) != "enable" {
 		return httperrors.NewBadRequestError("Guest %s can't hot remove nic", guest.GetName())
 	}
 	return nil
