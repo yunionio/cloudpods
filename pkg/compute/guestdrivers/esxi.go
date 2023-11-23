@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -860,4 +861,24 @@ func (drv *SESXiGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 		return nil, cloudprovider.WaitDeleted(iVm, time.Second*10, time.Minute*3)
 	})
 	return nil
+}
+
+func (drv *SESXiGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb int) bool {
+	// https://kb.vmware.com/s/article/2008405
+	startVmem := guest.VmemSize
+	vmemMbStr := guest.GetMetadata(ctx, api.VM_METADATA_START_VMEM_MB, nil)
+	if len(vmemMbStr) > 0 {
+		vmemMb, _ := strconv.Atoi(vmemMbStr)
+		if vmemMb > 0 {
+			startVmem = int(vmemMb)
+		}
+	}
+	maxAllowVmem := 16 * startVmem
+	if startVmem <= 3*1024 {
+		maxAllowVmem = 3 * 1024
+	}
+	if guest.VmemSize+addMemMb > maxAllowVmem {
+		return true
+	}
+	return false
 }

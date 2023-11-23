@@ -58,6 +58,10 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 
 func (task *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	// save start mem and cpu
+	guest.SetMetadata(ctx, api.VM_METADATA_START_VCPU_COUNT, guest.VcpuCount, task.UserCred)
+	guest.SetMetadata(ctx, api.VM_METADATA_START_VMEM_MB, guest.VmemSize, task.UserCred)
+	// sync Vpc Topology
 	isVpc, err := guest.IsOneCloudVpcNetwork()
 	if err != nil {
 		log.Errorf("IsOneCloudVpcNetwork fail: %s", err)
@@ -68,6 +72,7 @@ func (task *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 			log.Errorf("vpcagent.VpcAgent.DoSync fail %s", err)
 		}
 	}
+	// log
 	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), task.UserCred)
 	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_VM_START, guest.GetShortDesc(ctx), task.UserCred, true)
 	task.taskComplete(ctx, guest)
