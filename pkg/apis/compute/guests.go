@@ -251,7 +251,9 @@ type ServerDetails struct {
 	// 直通设备（GPU）列表
 	IsolatedDevices []SIsolatedDevice `json:"isolated_devices"`
 	// 是否支持GPU
-	IsGpu bool `json:"is_gpu"`
+	IsGpu    bool   `json:"is_gpu"`
+	GpuModel string `json:"gpu_model"`
+	GpuCount string `json:"gpu_count"`
 
 	// Cdrom信息
 	Cdrom []Cdrom `json:"cdrom"`
