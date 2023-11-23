@@ -185,7 +185,7 @@ type IGuestDriver interface {
 	IsSupportPublicIp() bool
 	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error
 
-	NeedStopForChangeSpec(ctx context.Context, guest *SGuest, cpuChanged, memChanged bool) bool
+	NeedStopForChangeSpec(ctx context.Context, guest *SGuest, addCpu int, addMemMb int) bool
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
 	IsSupportGuestClone() bool
