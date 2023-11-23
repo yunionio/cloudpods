@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -209,11 +208,14 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 				}
 			}
 		}
-		instanceTypes := fetchGuestGpuInstanceTypes(guestIds)
-		if len(instanceTypes) > 0 {
+		info, _ := fetchGuestGpuInstanceTypes(guestIds)
+		if len(info) > 0 {
 			for i := range rows {
-				if utils.IsInStringArray(guests[i].InstanceType, instanceTypes) {
+				gpu, ok := info[guests[i].InstanceType]
+				if ok {
 					rows[i].IsGpu = true
+					rows[i].GpuModel = gpu.Model
+					rows[i].GpuCount = gpu.Amount
 				}
 			}
 		}
@@ -673,17 +675,23 @@ func fetchGuestKeypairs(guestIds []string) map[string]sGuestKeypair {
 	return ret
 }
 
-func fetchGuestGpuInstanceTypes(guestIds []string) []string {
+func fetchGuestGpuInstanceTypes(guestIds []string) (map[string]*GpuSpec, error) {
+	ret := map[string]*GpuSpec{}
 	sq := GuestManager.Query("instance_type").In("id", guestIds).SubQuery()
-	q := ServerSkuManager.Query("name").In("name", sq).IsNotEmpty("gpu_spec").Distinct()
-	instanceTypes := []string{}
-	skus, _ := q.AllStringMap()
-	for i := range skus {
-		for _, v := range skus[i] {
-			instanceTypes = append(instanceTypes, v)
-		}
+	q := ServerSkuManager.Query("name", "gpu_spec", "gpu_count").In("name", sq).IsNotEmpty("gpu_spec").Distinct()
+	gpus := []struct {
+		Name     string
+		GpuSpec  string
+		GpuCount string
+	}{}
+	err := q.All(&gpus)
+	if err != nil {
+		return ret, err
 	}
-	return instanceTypes
+	for _, gpu := range gpus {
+		ret[gpu.Name] = &GpuSpec{Model: gpu.GpuSpec, Amount: gpu.GpuCount}
+	}
+	return ret, nil
 }
 
 func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevice {
