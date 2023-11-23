@@ -2762,7 +2762,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		confs.Set("cpu_sockets", jsonutils.NewInt(int64(*input.CpuSockets)))
 	}
 
-	if self.Status == api.VM_RUNNING && (cpuChanged || memChanged || cpuSocketsChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, cpuChanged, memChanged) {
+	if self.Status == api.VM_RUNNING && (cpuChanged || memChanged || cpuSocketsChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, addCpu, addMem) {
 		return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in status %s", self.Status)
 	}
 
