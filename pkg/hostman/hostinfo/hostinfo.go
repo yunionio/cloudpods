@@ -2057,6 +2057,8 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		}
 	}
 
+	enableDevWhitelist := options.HostOptions.EnableIsolatedDeviceWhitelist
+
 	offloadNics, err := h.getNicsOvsOffloadInterfaces(options.HostOptions.OvsOffloadNics)
 	if err != nil {
 		return nil, err
@@ -2065,7 +2067,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	h.IsolatedDeviceMan.ProbePCIDevices(
 		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB, options.HostOptions.DisableCustomDevice,
 		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs, options.HostOptions.AMDVgpuPFs, options.HostOptions.NVIDIAVgpuPFs,
-	)
+		enableDevWhitelist)
 
 	objs, err := h.getRemoteIsolatedDevices()
 	if err != nil {

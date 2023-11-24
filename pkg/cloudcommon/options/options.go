@@ -149,6 +149,7 @@ type HostCommonOptions struct {
 
 	EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
 
+	EnableIsolatedDeviceWhitelist bool   `help:"enable isolated device white list" default:"false"`
 	ExecutorConnectTimeoutSeconds int    `help:"executor client connection timeout in seconds, default is 30" default:"30"`
 	ImageDeployDriver             string `help:"Image deploy driver" default:"qemu-kvm" choices:"qemu-kvm|nbd|libguestfs"`
 }
