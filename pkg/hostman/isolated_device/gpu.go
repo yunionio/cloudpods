@@ -66,7 +66,16 @@ const (
 	DEFAULT_CPU_CMD = "host,kvm=off"
 )
 
-func getPassthroughGPUs(filteredAddrs []string) ([]*PCIDevice, error, []error) {
+func isInWhitelistModels(models []IsolatedDeviceModel, dev *PCIDevice) bool {
+	for _, model := range models {
+		if model.VendorId == dev.VendorId && model.DeviceId == dev.DeviceId {
+			return true
+		}
+	}
+	return false
+}
+
+func getPassthroughGPUs(filteredAddrs []string, enableWhitelist bool, whitelistModels []IsolatedDeviceModel) ([]*PCIDevice, error, []error) {
 	lines, err := getGPUPCIStr()
 	if err != nil {
 		return nil, err, nil
@@ -74,14 +83,23 @@ func getPassthroughGPUs(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 
 	warns := make([]error, 0)
 	devs := []*PCIDevice{}
-	log.Infof("filter address %v", filteredAddrs)
+	log.Infof("filter address %v, enableWhiteList: %v", filteredAddrs, enableWhitelist)
 	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
 		dev := NewPCIDevice2(line)
 		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
 			continue
 		}
 		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
 			continue
+		}
+		if enableWhitelist {
+			if !isInWhitelistModels(whitelistModels, dev) {
+				log.Infof("skip add device %s cause of not in isolated_device_models", dev.String())
+				continue
+			}
 		}
 		if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 			warns = append(warns, errors.Wrapf(err, "get dev %s iommu group devices", dev.Addr))
@@ -143,6 +161,9 @@ type PCIDevice struct {
 }
 
 func NewPCIDevice(line string) (*PCIDevice, error) {
+	if len(line) == 0 {
+		return nil, errors.Errorf("input line is empty")
+	}
 	dev := NewPCIDevice2(line)
 	if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 		return nil, err
@@ -156,7 +177,7 @@ func NewPCIDevice(line string) (*PCIDevice, error) {
 func NewPCIDevice2(line string) *PCIDevice {
 	dev := parseLspci(line)
 	if err := dev.fillPCIEInfo(); err != nil {
-		log.Warningf("fillPCIEInfo for device: %s, error: %v", dev.String(), err)
+		log.Warningf("fillPCIEInfo for line: %q, device: %s, error: %v", line, dev.String(), err)
 	}
 	return dev
 }
@@ -384,6 +405,9 @@ func (d *PCIDevice) bindDriver() error {
 }
 
 func (d *PCIDevice) fillPCIEInfo() error {
+	if d.Addr == "" {
+		return errors.Errorf("device address is empty: %s", d.String())
+	}
 	cmd := fmt.Sprintf("lspci -vvv -s %s", d.Addr)
 	lines, err := bashOutput(cmd)
 	if err != nil {
@@ -537,7 +561,11 @@ func detectPCIDevByAddrWithoutIOMMUGroup(addr string) (*PCIDevice, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewPCIDevice2(strings.Join(ret, "")), nil
+	line := strings.Join(ret, "")
+	if line == "" {
+		return nil, nil
+	}
+	return NewPCIDevice2(line), nil
 }
 
 func getDeviceCmd(dev IDevice, index int) string {
