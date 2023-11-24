@@ -655,6 +655,10 @@ func (manager *SGuestManager) ListItemFilter(
 	if len(query.OsType) > 0 {
 		q = q.In("os_type", query.OsType)
 	}
+	if len(query.OsDist) > 0 {
+		metaSQ := db.Metadata.Query().Equals("key", "os_distribution").In("value", query.OsDist).SubQuery()
+		q = q.Join(metaSQ, sqlchemy.Equals(q.Field("id"), metaSQ.Field("obj_id")))
+	}
 	if len(query.VcpuCount) > 0 {
 		q = q.In("vcpu_count", query.VcpuCount)
 	}
