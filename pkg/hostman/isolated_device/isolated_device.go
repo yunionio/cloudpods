@@ -110,7 +110,7 @@ type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string)
+	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool)
 	StartDetachTask()
 	BatchCustomProbe()
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -137,7 +137,7 @@ func (man *isolatedDeviceManager) GetDevices() []IDevice {
 	return man.devices
 }
 
-func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string) {
+func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool, whitelistModels []IsolatedDeviceModel) {
 	if skipGPUs {
 		return
 	}
@@ -148,10 +148,10 @@ func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgp
 		filteredAddrs = append(filteredAddrs, man.devices[i].GetAddr())
 	}
 
-	gpus, err, warns := getPassthroughGPUs(filteredAddrs)
+	gpus, err, warns := getPassthroughGPUs(filteredAddrs, enableWhitelist, whitelistModels)
 	if err != nil {
 		// ignore getPassthroughGPUS error on old machines without VGA devices
-		log.Errorf("getPassthroughGPUS: %v", err)
+		log.Errorf("getPassthroughGPUS error: %v", err)
 		man.host.AppendError(fmt.Sprintf("get passhtrough gpus %s", err.Error()), "isolated_devices", "", " ")
 	} else {
 		if len(warns) > 0 {
@@ -166,26 +166,20 @@ func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgp
 	}
 }
 
-func (man *isolatedDeviceManager) probeCustomPCIDevs(skipCustomDevs bool) {
+func (man *isolatedDeviceManager) probeCustomPCIDevs(skipCustomDevs bool, devModels []IsolatedDeviceModel, filterClassCodes []string) {
 	if skipCustomDevs {
 		return
 	}
-	devModels, err := man.getCustomIsolatedDeviceModels()
-	if err != nil {
-		log.Errorf("get custom isolated device models %s", err.Error())
-		man.host.AppendError(fmt.Sprintf("get custom isolated device models %s", err.Error()), "isolated_devices", "", "")
-	} else {
-		for _, devModel := range devModels {
-			devs, err := getPassthroughPCIDevs(devModel)
-			if err != nil {
-				log.Errorf("getPassthroughPCIDevs %v: %s", devModel, err)
-				man.host.AppendError(fmt.Sprintf("get custom passthrough pci devices %s", err.Error()), "isolated_devices", "", "")
-				continue
-			}
-			for i, dev := range devs {
-				man.devices = append(man.devices, dev)
-				log.Infof("Add general pci device: %d => %#v", i, dev)
-			}
+	for _, devModel := range devModels {
+		devs, err := getPassthroughPCIDevs(devModel, filterClassCodes)
+		if err != nil {
+			log.Errorf("getPassthroughPCIDevs %v: %s", devModel, err)
+			man.host.AppendError(fmt.Sprintf("get custom passthrough pci devices %s", err.Error()), "isolated_devices", "", "")
+			continue
+		}
+		for i, dev := range devs {
+			man.devices = append(man.devices, dev)
+			log.Infof("Add general pci device: %d => %#v", i, dev)
 		}
 	}
 }
@@ -306,19 +300,21 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 	}
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(
-	skipGPUs, skipUSBs, skipCustomDevs bool,
-	sriovNics, ovsOffloadNics []HostNic,
-	nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string,
-) {
+func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool) {
 	man.devices = make([]IDevice, 0)
+	devModels, err := man.getCustomIsolatedDeviceModels()
+	if err != nil {
+		log.Errorf("get isolated device devModels %s", err.Error())
+		man.host.AppendError(fmt.Sprintf("get custom isolated device devModels %s", err.Error()), "isolated_devices", "", "")
+		return
+	}
 	man.probeUSBs(skipUSBs)
-	man.probeCustomPCIDevs(skipCustomDevs)
+	man.probeCustomPCIDevs(skipCustomDevs, devModels, GpuClassCodes)
 	man.probeSRIOVNics(sriovNics)
 	man.probeOffloadNICS(ovsOffloadNics)
 	man.probeAMDVgpus(amdVgpuPFs)
 	man.probeNVIDIAVgpus(nvidiaVgpuPFs)
-	man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs)
+	man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs, enableWhitelist, devModels)
 }
 
 type IsolatedDeviceModel struct {
@@ -335,7 +331,7 @@ func (man *isolatedDeviceManager) getCustomIsolatedDeviceModels() ([]IsolatedDev
 	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.IsolatedDeviceModels.List(man.getSession(), jsonutils.NewDict())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "list isolated_device_models from compute service")
 	}
 	devModels := make([]IsolatedDeviceModel, len(res.Data))
 	for i, obj := range res.Data {

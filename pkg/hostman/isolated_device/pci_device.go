@@ -17,6 +17,10 @@ package isolated_device
 import (
 	"fmt"
 	"strings"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
 
 type sGeneralPCIDevice struct {
@@ -41,7 +45,7 @@ func newGeneralPCIDevice(dev *PCIDevice, devType string) *sGeneralPCIDevice {
 	}
 }
 
-func getPassthroughPCIDevs(devModel IsolatedDeviceModel) ([]*sGeneralPCIDevice, error) {
+func getPassthroughPCIDevs(devModel IsolatedDeviceModel, filteredCodes []string) ([]*sGeneralPCIDevice, error) {
 	ret, err := bashOutput(fmt.Sprintf("lspci -d %s:%s -nnmm", devModel.VendorId, devModel.DeviceId))
 	if err != nil {
 		return nil, err
@@ -54,12 +58,20 @@ func getPassthroughPCIDevs(devModel IsolatedDeviceModel) ([]*sGeneralPCIDevice, 
 	}
 
 	devs := []*sGeneralPCIDevice{}
+	errs := make([]error, 0)
 	for _, line := range lines {
 		dev := NewPCIDevice2(line)
 		if dev.ModelName == "" {
 			dev.ModelName = devModel.Model
 		}
+		if utils.IsInStringArray(dev.ClassCode, filteredCodes) {
+			continue
+		}
+		if err := dev.checkSameIOMMUGroupDevice(); err != nil {
+			errs = append(errs, errors.Wrapf(err, "get dev %s iommu group devices by model: %s", dev.Addr, jsonutils.Marshal(devModel)))
+			continue
+		}
 		devs = append(devs, newGeneralPCIDevice(dev, devModel.DevType))
 	}
-	return devs, nil
+	return devs, errors.NewAggregate(errs)
 }
