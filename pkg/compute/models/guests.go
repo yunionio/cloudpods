@@ -774,6 +774,13 @@ func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	if err == nil {
 		return q, nil
 	}
+	if field == "os_dist" {
+		metaQuery := db.Metadata.Query("obj_id", "value").Equals("key", "os_distribution").SubQuery()
+		q = q.AppendField(metaQuery.Field("value", field)).Distinct()
+		q = q.Join(metaQuery, sqlchemy.Equals(q.Field("id"), metaQuery.Field("obj_id")))
+		q.GroupBy(metaQuery.Field("value"))
+		return q, nil
+	}
 	guestnets := GuestnetworkManager.Query("guest_id", "network_id").SubQuery()
 	q = q.LeftJoin(guestnets, sqlchemy.Equals(q.Field("id"), guestnets.Field("guest_id")))
 	q, err = manager.SNetworkResourceBaseManager.QueryDistinctExtraField(q, field)
