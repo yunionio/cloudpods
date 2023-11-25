@@ -149,7 +149,8 @@ type HostCommonOptions struct {
 
 	EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
 
-	ExecutorConnectTimeoutSeconds int `help:"executor client connection timeout in seconds, default is 30" default:"30"`
+	ExecutorConnectTimeoutSeconds int  `help:"executor client connection timeout in seconds, default is 30" default:"30"`
+	EnableIsolatedDeviceWhitelist bool `help:"enable isolated device white list" default:"false"`
 }
 
 type DBOptions struct {
