@@ -27,12 +27,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -40,13 +38,14 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
+
+var _ IDisk = (*SLocalDisk)(nil)
 
 var _ALTER_SUFFIX_ = ".alter"
 
@@ -91,10 +90,6 @@ func (d *SLocalDisk) GetFormat() (string, error) {
 
 func (d *SLocalDisk) GetSnapshotDir() string {
 	return path.Join(d.Storage.GetSnapshotDir(), d.Id+options.HostOptions.SnapshotDirSuffix)
-}
-
-func (d *SLocalDisk) GetBackupDir() string {
-	return d.Storage.GetBackupDir()
 }
 
 func (d *SLocalDisk) GetSnapshotLocation() string {
@@ -408,52 +403,18 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 }
 
 func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	diskBackup := params.(*SDiskBakcup)
-
-	encKey := ""
-	if len(diskBackup.EncryptKeyId) > 0 {
-		session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion())
-		secKey, err := identity_modules.Credentials.GetEncryptKey(session, diskBackup.EncryptKeyId)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetEncryptKey")
-		}
-		encKey = secKey.Key
-	}
+	diskBackup := params.(*SDiskBackup)
 
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, diskBackup.SnapshotId)
-	backupDir := d.GetBackupDir()
-	if !fileutils2.Exists(backupDir) {
-		output, err := procutils.NewCommand("mkdir", "-p", backupDir).Output()
-		if err != nil {
-			log.Errorf("mkdir %s failed: %s", backupDir, output)
-			return nil, errors.Wrapf(err, "mkdir %s failed: %s", backupDir, output)
-		}
-	}
-	backupPath := path.Join(backupDir, diskBackup.BackupId)
-	img, err := qemuimg.NewQemuImage(snapshotPath)
+
+	size, err := doBackupDisk(ctx, snapshotPath, diskBackup)
 	if err != nil {
-		log.Errorln(err)
-		procutils.NewCommand("mv", "-f", backupPath, d.getPath()).Run()
-		return nil, err
+		return nil, errors.Wrap(err, "doBackupDisk")
 	}
-	if len(encKey) > 0 {
-		img.SetPassword(encKey)
-	}
-	newImage, err := img.Clone(backupPath, qemuimgfmt.QCOW2, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to backup snapshot")
-	}
-	_, err = d.Storage.StorageBackup(ctx, &SStorageBackup{
-		BackupId:                diskBackup.BackupId,
-		BackupStorageId:         diskBackup.BackupStorageId,
-		BackupStorageAccessInfo: diskBackup.BackupStorageAccessInfo,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to SStorageBackup")
-	}
+
 	data := jsonutils.NewDict()
-	data.Set("size_mb", jsonutils.NewInt(int64(newImage.GetActualSizeMB())))
+	data.Set("size_mb", jsonutils.NewInt(int64(size)))
 	return data, nil
 }
 
@@ -712,8 +673,12 @@ func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, e
 	return nil, "", false, nil
 }
 
+func (d *SLocalDisk) GetSnapshotPath(snapshotId string) string {
+	return path.Join(d.GetSnapshotDir(), snapshotId)
+}
+
 func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
-	snapshotPath := path.Join(d.GetSnapshotDir(), snapshotId)
+	snapshotPath := d.GetSnapshotPath(snapshotId)
 	return d.Storage.DeleteDiskfile(snapshotPath, false)
 }
 

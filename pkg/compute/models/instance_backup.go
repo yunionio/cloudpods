@@ -225,6 +225,7 @@ func (self *SInstanceBackup) getMoreDetails(userCred mcclient.TokenCredential, o
 			CreatedAt:    backups[i].CreatedAt,
 		})
 	}
+	out.Size = self.SizeMb * 1024 * 1024
 	return out
 }
 
@@ -366,6 +367,9 @@ func (self *SInstanceBackup) ToInstanceCreateInput(sourceInput *api.ServerCreate
 			createInput.Disks[i].BackupId = isjs[index].DiskBackupId
 			createInput.Disks[i].ImageId = ""
 			createInput.Disks[i].SnapshotId = ""
+			if i < len(sourceInput.Disks) {
+				createInput.Disks[i].Backend = sourceInput.Disks[i].Backend
+			}
 		}
 	}
 

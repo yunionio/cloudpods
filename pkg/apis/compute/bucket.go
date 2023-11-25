@@ -16,10 +16,12 @@ package compute
 
 import (
 	"net/http"
+	"reflect"
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
@@ -359,4 +361,10 @@ type BucketRefererConf struct {
 
 func (input *BucketRefererConf) Validate() error {
 	return nil
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SBackupStorageAccessInfo{}), func() gotypes.ISerializable {
+		return &SBackupStorageAccessInfo{}
+	})
 }

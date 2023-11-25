@@ -253,7 +253,7 @@ func storageSyncBackup(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		hostutils.Response(ctx, w, err)
 		return
 	}
-	exist, err := backupStorage.IsExists(backupId)
+	exist, err := backupStorage.IsBackupExists(backupId)
 	if err != nil {
 		hostutils.Response(ctx, w, err)
 		return
@@ -344,13 +344,9 @@ func storageUnpackInstanceBackup(ctx context.Context, w http.ResponseWriter, r *
 
 func packInstanceBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sbParams := params.(*storageman.SStoragePackInstanceBackup)
-	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+	packFileName, err := storageman.DoInstancePackBackup(ctx, *sbParams)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetBackupStorage")
-	}
-	packFileName, err := backupStorage.InstancePack(ctx, sbParams.PackageName, sbParams.BackupIds, &sbParams.Metadata)
-	if err != nil {
-		return nil, errors.Wrap(err, "InstancePack")
+		return nil, errors.Wrap(err, "DoInstancePackBackup")
 	}
 	ret := jsonutils.NewDict()
 	ret.Set("pack_file_name", jsonutils.NewString(packFileName))
@@ -359,15 +355,12 @@ func packInstanceBackup(ctx context.Context, params interface{}) (jsonutils.JSON
 
 func unpackInstanceBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sbParams := params.(*storageman.SStorageUnpackInstanceBackup)
-	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+
+	diskBackupIds, metadata, err := storageman.DoInstanceUnpackBackup(ctx, *sbParams)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetBackupStorage")
+		return nil, errors.Wrap(err, "DoInstanceUnpackBackup")
 	}
-	metadataOnly := (sbParams.MetadataOnly != nil && *sbParams.MetadataOnly)
-	diskBackupIds, metadata, err := backupStorage.InstanceUnpack(ctx, sbParams.PackageName, metadataOnly)
-	if err != nil {
-		return nil, errors.Wrap(err, "InstanceUnpack")
-	}
+
 	ret := jsonutils.NewDict()
 	if diskBackupIds != nil {
 		ret.Set("disk_backup_ids", jsonutils.Marshal(diskBackupIds))
@@ -418,7 +411,7 @@ func deleteBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject
 	if err != nil {
 		return nil, err
 	}
-	err = backupStorage.RemoveBackup(sbParams.BackupId)
+	err = backupStorage.RemoveBackup(ctx, sbParams.BackupId)
 	if err != nil {
 		return nil, err
 	}

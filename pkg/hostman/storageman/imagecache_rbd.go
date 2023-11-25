@@ -102,9 +102,22 @@ func (r *SRbdImageCache) Release() {
 
 func (r *SRbdImageCache) Remove(ctx context.Context) error {
 	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
-	storage := imageCacheManger.storage.(*SRbdStorage)
-	if err := storage.deleteImage(r.Manager.GetPath(), r.GetName(), false); err != nil {
-		return err
+
+	cli, err := imageCacheManger.getCephClient()
+	if err != nil {
+		return errors.Wrap(err, "getCephClient")
+	}
+
+	img, err := cli.GetImage(r.GetName())
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return nil
+		}
+		return errors.Wrapf(err, "GetImage")
+	}
+	err = img.Delete()
+	if err != nil {
+		return errors.Wrap(err, "Delete")
 	}
 
 	go func() {
@@ -119,13 +132,30 @@ func (r *SRbdImageCache) Remove(ctx context.Context) error {
 
 func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
-	storage := imageCacheManger.storage.(*SRbdStorage)
 
-	size, _ := storage.getImageSizeMb(imageCacheManger.Pool, r.GetName())
-	return &remotefile.SImageDesc{
-		Size: int64(size),
+	desc := &remotefile.SImageDesc{
+		Size: -1,
 		Name: r.imageName,
 	}
+
+	cli, err := imageCacheManger.getCephClient()
+	if err != nil {
+		log.Errorf("getCephClient fail %s", err)
+		return desc
+	}
+	img, err := cli.GetImage(r.GetName())
+	if err != nil {
+		log.Errorf("getName fail %s", err)
+		return desc
+	}
+	info, err := img.GetInfo()
+	if err != nil {
+		log.Errorf("GetInfo fail %s", err)
+		return desc
+	}
+	desc.Size = info.SizeByte / 1024 / 1024
+
+	return desc
 }
 
 func (r *SRbdImageCache) GetImageId() string {

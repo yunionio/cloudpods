@@ -38,6 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
+var _ IDisk = (*SLVMDisk)(nil)
+
 type SLVMDisk struct {
 	SBaseDisk
 }
@@ -330,6 +332,10 @@ func (d *SLVMDisk) createFromTemplate(
 	}
 
 	return d.GetDiskDesc(), nil
+}
+
+func (d *SLVMDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.ErrNotImplemented
 }
 
 func NewLVMDisk(storage IStorage, id string) *SLVMDisk {
