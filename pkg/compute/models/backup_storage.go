@@ -16,12 +16,12 @@ package models
 
 import (
 	"context"
-	"reflect"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -40,17 +40,14 @@ type SBackupStorageManager struct {
 type SBackupStorage struct {
 	db.SEnabledStatusInfrasResourceBase
 
-	AccessInfo  *SBackupStorageAccessInfo
-	StorageType string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`
-	CapacityMb  int    `nullable:"false" list:"user" update:"domain" create:"domain_required"`
+	AccessInfo  *api.SBackupStorageAccessInfo
+	StorageType api.TBackupStorageType `width:"32" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`
+	CapacityMb  int                    `nullable:"false" list:"user" update:"domain" create:"domain_required"`
 }
 
 var BackupStorageManager *SBackupStorageManager
 
 func init() {
-	gotypes.RegisterSerializable(reflect.TypeOf(&SBackupStorageAccessInfo{}), func() gotypes.ISerializable {
-		return &SBackupStorageAccessInfo{}
-	})
 	BackupStorageManager = &SBackupStorageManager{
 		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
 			SBackupStorage{},
@@ -62,35 +59,36 @@ func init() {
 	BackupStorageManager.SetVirtualObject(BackupStorageManager)
 }
 
-type SBackupStorageAccessInfo struct {
-	NfsHost      string `json:"nfs_host"`
-	NfsSharedDir string `json:"nfs_shared_dir"`
-}
-
-func (ba *SBackupStorageAccessInfo) String() string {
-	return jsonutils.Marshal(ba).String()
-}
-
-func (ba *SBackupStorageAccessInfo) IsZero() bool {
-	return ba == nil
-}
-
 func (bs *SBackupStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.BackupStorageCreateInput) (api.BackupStorageCreateInput, error) {
 	var err error
 	input.EnabledStatusInfrasResourceBaseCreateInput, err = bs.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
 		return input, err
 	}
-	if !utils.IsInStringArray(input.StorageType, []string{api.BACKUPSTORAGE_TYPE_NFS}) {
+	if !utils.IsInArray(input.StorageType, []string{string(api.BACKUPSTORAGE_TYPE_NFS), string(api.BACKUPSTORAGE_TYPE_OBJECT_STORAGE)}) {
 		return input, httperrors.NewInputParameterError("Invalid storage type %s", input.StorageType)
 	}
 	switch input.StorageType {
-	case api.BACKUPSTORAGE_TYPE_NFS:
+	case string(api.BACKUPSTORAGE_TYPE_NFS):
 		if input.NfsHost == "" {
 			return input, httperrors.NewInputParameterError("nfs_host is required when storage type is nfs")
 		}
 		if input.NfsSharedDir == "" {
 			return input, httperrors.NewInputParameterError("nfs_shared_dir is required when storage type is nfs")
+		}
+	case string(api.BACKUPSTORAGE_TYPE_OBJECT_STORAGE):
+		if input.ObjectBucketUrl == "" {
+			return input, httperrors.NewInputParameterError("object_bucket_url is required when storage type is object")
+		}
+		_, err := url.Parse(input.ObjectBucketUrl)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid object_bucket_url %s: %s", input.ObjectBucketUrl, err)
+		}
+		if input.ObjectAccessKey == "" {
+			return input, httperrors.NewInputParameterError("object_access_key is required when storage type is object")
+		}
+		if input.ObjectSecret == "" {
+			return input, httperrors.NewInputParameterError("object_secret is required when storage type is object")
 		}
 	}
 	return input, nil
@@ -98,12 +96,21 @@ func (bs *SBackupStorageManager) ValidateCreateData(ctx context.Context, userCre
 
 func (bs *SBackupStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	bs.SetEnabled(true)
-	nfsHost, _ := data.GetString("nfs_host")
-	nfsSharedDir, _ := data.GetString("nfs_shared_dir")
+	input := api.BackupStorageCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return errors.Wrap(err, "Unmarshal BackupStorageCreateInput")
+	}
+	// nfsHost, _ := data.GetString("nfs_host")
+	// nfsSharedDir, _ := data.GetString("nfs_shared_dir")
 	bs.Status = api.BACKUPSTORAGE_STATUS_ONLINE
-	bs.AccessInfo = &SBackupStorageAccessInfo{
-		NfsHost:      nfsHost,
-		NfsSharedDir: nfsSharedDir,
+	bs.AccessInfo = &api.SBackupStorageAccessInfo{
+		NfsHost:      input.NfsHost,
+		NfsSharedDir: input.NfsSharedDir,
+
+		ObjectBucketUrl: input.ObjectBucketUrl,
+		ObjectAccessKey: input.ObjectAccessKey,
+		ObjectSecret:    input.ObjectSecret,
 	}
 	return bs.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
@@ -118,7 +125,7 @@ func (bs *SBackupStorage) ValidateDeleteCondition(ctx context.Context, info json
 		return httperrors.NewInternalServerError("BackupCount fail %s", err)
 	}
 	if cnt > 0 {
-		return httperrors.NewNotEmptyError("storage has backup")
+		return httperrors.NewNotEmptyError("storage has been used")
 	}
 	return bs.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -135,6 +142,10 @@ func (bs *SBackupStorage) PostCreate(ctx context.Context, userCred mcclient.Toke
 func (bs *SBackupStorage) getMoreDetails(ctx context.Context, out api.BackupStorageDetails) api.BackupStorageDetails {
 	out.NfsHost = bs.AccessInfo.NfsHost
 	out.NfsSharedDir = bs.AccessInfo.NfsSharedDir
+	out.ObjectBucketUrl = bs.AccessInfo.ObjectBucketUrl
+	out.ObjectAccessKey = bs.AccessInfo.ObjectAccessKey
+	// should not return secret
+	out.ObjectSecret = "" // bs.AccessInfo.ObjectSecret
 	return out
 }
 

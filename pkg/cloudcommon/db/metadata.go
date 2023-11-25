@@ -544,7 +544,6 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 	keys := make([]string, 0, len(store))
 	changes := make([]sMetadataChange, 0)
 	for key, value := range store {
-		key = strings.TrimSpace(key)
 		keys = append(keys, key)
 
 		record := SMetadata{}
@@ -709,7 +708,7 @@ func (manager *SMetadataManager) rawGetAll(objType, objId string, keys []string,
 	ret := make(map[string]string)
 	for _, rec := range records {
 		if len(rec.Value) > 0 || strings.HasPrefix(rec.Key, USER_TAG_PREFIX) || strings.HasPrefix(rec.Key, CLOUD_TAG_PREFIX) {
-			ret[strings.TrimSpace(rec.Key)] = rec.Value
+			ret[rec.Key] = rec.Value
 		}
 	}
 	return ret, nil
@@ -772,7 +771,7 @@ func metaList2Map(manager IMetadataBaseModelManager, userCred mcclient.TokenCred
 	hiddenKeys := manager.GetMetadataHiddenKeys()
 	for _, meta := range metaList {
 		if IsMetadataKeyVisible(meta.Key) && !utils.IsInStringArray(meta.Key, hiddenKeys) {
-			metaMap[strings.TrimSpace(meta.Key)] = meta.Value
+			metaMap[meta.Key] = meta.Value
 		}
 	}
 

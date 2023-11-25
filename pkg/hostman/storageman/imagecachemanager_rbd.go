@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/cephutils"
 )
 
 type SRbdImageCacheManager struct {
@@ -69,12 +70,23 @@ func init() {
 	registerimageCacheManagerFactory(&SRbdImageCacheManagerFactory{})
 }
 
+func (c *SRbdImageCacheManager) getCephClient() (*cephutils.CephClient, error) {
+	storage := c.storage.(*SRbdStorage)
+	return storage.getCephClient(c.Pool)
+}
+
 func (c *SRbdImageCacheManager) loadCache(ctx context.Context) {
 	lockman.LockRawObject(ctx, "RBD", "image-cache")
 	defer lockman.ReleaseRawObject(ctx, "RBD", "image-cache")
-	storage := c.storage.(*SRbdStorage)
 
-	images, err := storage.listImages(c.Pool)
+	cli, err := c.getCephClient()
+	if err != nil {
+		log.Errorf("getCephClient %s fail %s", c.storage.GetStorageName(), err)
+		return
+	}
+	defer cli.Close()
+
+	images, err := cli.ListImages()
 	if err != nil {
 		log.Errorf("get storage %s images error; %v", c.storage.GetStorageName(), err)
 		return

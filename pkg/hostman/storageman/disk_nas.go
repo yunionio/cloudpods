@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
+var _ IDisk = (*SNasDisk)(nil)
+
 type SNasDisk struct {
 	SLocalDisk
 }

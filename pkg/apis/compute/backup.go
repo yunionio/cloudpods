@@ -20,8 +20,12 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+type TBackupStorageType string
+
 const (
-	BACKUPSTORAGE_TYPE_NFS       = "nfs"
+	BACKUPSTORAGE_TYPE_NFS            = TBackupStorageType("nfs")
+	BACKUPSTORAGE_TYPE_OBJECT_STORAGE = TBackupStorageType("object")
+
 	BACKUPSTORAGE_STATUS_ONLINE  = "online"
 	BACKUPSTORAGE_STATUS_OFFLINE = "offline"
 
@@ -63,19 +67,26 @@ type BackupStorageCreateInput struct {
 	// example: /nfs_root/
 	NfsSharedDir string `json:"nfs_shared_dir"`
 
+	// description: access url of object storage bucket
+	// example: https://qxxxxxo.tos-cn-beijing.volces.com
+	ObjectBucketUrl string `json:"object_bucket_url"`
+	// description: access key of object storage
+	ObjectAccessKey string `json:"object_access_key"`
+	// description: secret of object storage
+	ObjectSecret string `json:"object_secret"`
+
 	// description: Capacity size in MB
 	CapacityMb int `json:"capacity_mb"`
 }
 
-type BackupStorageAccessInfo struct {
+/*type BackupStorageAccessInfo struct {
 	AccessUrl string
-}
+}*/
 
 type BackupStorageDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 
-	NfsHost      string
-	NfsSharedDir string
+	SBackupStorageAccessInfo
 }
 
 type BackupStorageListInput struct {
@@ -161,4 +172,21 @@ type InstanceBackupPackMetadata struct {
 }
 
 type InstanceBackupManagerSyncstatusInput struct {
+}
+
+type SBackupStorageAccessInfo struct {
+	NfsHost      string `json:"nfs_host"`
+	NfsSharedDir string `json:"nfs_shared_dir"`
+
+	ObjectBucketUrl string `json:"object_bucket_url"`
+	ObjectAccessKey string `json:"object_access_key"`
+	ObjectSecret    string `json:"object_secret"`
+}
+
+func (ba *SBackupStorageAccessInfo) String() string {
+	return jsonutils.Marshal(ba).String()
+}
+
+func (ba *SBackupStorageAccessInfo) IsZero() bool {
+	return ba == nil
 }
