@@ -106,7 +106,11 @@ func (s *SLocalStorage) GetComposedName() string {
 }
 
 func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
-	info := input.DiskInfo
+	err := doRestoreDisk(ctx, input.DiskInfo, disk.GetPath(), input.DiskInfo.Format)
+	if err != nil {
+		return errors.Wrap(err, "doRestoreDisk")
+	}
+	/*info := input.DiskInfo
 	backupDir := s.GetBackupDir()
 	if !fileutils2.Exists(backupDir) {
 		output, err := procutils.NewCommand("mkdir", "-p", backupDir).Output()
@@ -124,7 +128,7 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 		if err != nil {
 			return errors.Wrap(err, "unable to storageBackupRecovery")
 		}
-	}
+	}*/
 	/*img, err := qemuimg.NewQemuImage(backupPath)
 	if err != nil {
 		log.Errorf("unable to new qemu image for %s: %s", backupPath, err.Error())
@@ -134,7 +138,7 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 		img.SetPassword(info.EncryptInfo.Key)
 	}
 	_, err = img.Clone(disk.GetLvPath(), qemuimg.QCOW2, false)*/
-	img, err := qemuimg.NewQemuImage(disk.GetPath())
+	/*img, err := qemuimg.NewQemuImage(disk.GetPath())
 	if err != nil {
 		log.Errorf("NewQemuImage fail %s %s", disk.GetPath(), err)
 		return errors.Wrapf(err, "unable to new qemu image for %s", disk.GetPath())
@@ -153,18 +157,18 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 	if err != nil {
 		log.Errorf("CreateQcow2 fail %s", err)
 		return errors.Wrapf(err, "CreateQcow2 %s fail", backupPath)
-	}
+	}*/
 	return nil
 }
 
-func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+/*func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sbParams := params.(*SStorageBackup)
 	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
 	if err != nil {
 		return nil, err
 	}
 	backupPath := path.Join(s.GetBackupDir(), sbParams.BackupId)
-	err = backupStorage.CopyBackupFrom(backupPath, sbParams.BackupId)
+	err = backupStorage.SaveBackupFrom(ctx, backupPath, sbParams.BackupId)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +179,7 @@ func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (
 		return nil, errors.Wrapf(err, "rm %s failed %s", backupPath, output)
 	}
 	return nil, nil
-}
+}*/
 
 func (s *SLocalStorage) storageBackupRecovery(ctx context.Context, sbParams *SStorageBackup) (jsonutils.JSONObject, error) {
 	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
@@ -183,7 +187,7 @@ func (s *SLocalStorage) storageBackupRecovery(ctx context.Context, sbParams *SSt
 		return nil, err
 	}
 	backupPath := path.Join(s.GetBackupDir(), sbParams.BackupId)
-	return nil, backupStorage.CopyBackupTo(backupPath, sbParams.BackupId)
+	return nil, backupStorage.RestoreBackupTo(ctx, backupPath, sbParams.BackupId)
 }
 
 func (s *SLocalStorage) StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -518,6 +522,7 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 	if err := s.saveToGlance(ctx, imageId, imagePath, compress, format, encKey, encFormat, encAlg); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
 		s.onSaveToGlanceFailed(ctx, imageId, err.Error())
+		return nil, errors.Wrap(err, "saveToGlance")
 	}
 
 	imagecacheManager := s.Manager.LocalStorageImagecacheManager

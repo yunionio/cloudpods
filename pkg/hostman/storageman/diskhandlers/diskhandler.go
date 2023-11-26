@@ -379,7 +379,7 @@ func diskStorageBackupRecovery(ctx context.Context, storage storageman.IStorage,
 }
 
 func diskBackup(ctx context.Context, userCred mcclient.TokenCredential, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
-	backupInfo := &storageman.SDiskBakcup{}
+	backupInfo := &storageman.SDiskBackup{}
 	err := body.Unmarshal(backupInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "JsonUnmarshal")

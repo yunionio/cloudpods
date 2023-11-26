@@ -66,6 +66,8 @@ type GuestImageListInput struct {
 
 	// 是否删除保护
 	Protected *bool `json:"protected"`
+
+	DiskFormat []string `json:"disk_format"`
 }
 
 type ImageDetails struct {

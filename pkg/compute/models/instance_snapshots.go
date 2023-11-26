@@ -79,7 +79,7 @@ type SInstanceSnapshot struct {
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 	// 主机快照磁盘容量和
-	SizeMb int `nullable:"false"`
+	SizeMb int `nullable:"false" list:"user"`
 	// 镜像ID
 	ImageId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 是否保存内存
@@ -280,7 +280,7 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 			}
 		}
 	} else if guest != nil {
-		out.Size = self.SizeMb
+		out.Size = self.SizeMb * 1024 * 1024
 		disk, err := guest.GetSystemDisk()
 		if err != nil {
 			log.Errorf("unable to GetSystemDisk of guest %q", guest.GetId())

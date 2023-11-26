@@ -18,10 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
+
+var _ IDisk = (*SNVMEDisk)(nil)
 
 type SNVMEDisk struct {
 	SBaseDisk
@@ -59,6 +62,10 @@ func (d *SNVMEDisk) IsFile() bool {
 
 func (d *SNVMEDisk) Probe() error {
 	return nil
+}
+
+func (d *SNVMEDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.ErrNotImplemented
 }
 
 func NewNVMEDisk(storage IStorage, id string) *SNVMEDisk {

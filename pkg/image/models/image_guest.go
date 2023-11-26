@@ -678,6 +678,9 @@ func (manager *SGuestImageManager) ListItemFilter(
 			q = q.IsFalse("protected")
 		}
 	}
+	if len(query.DiskFormat) > 0 {
+		q = q.In("disk_format", query.DiskFormat)
+	}
 	return q, nil
 }
 
