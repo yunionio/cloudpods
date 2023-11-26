@@ -808,10 +808,14 @@ func (self *SDisk) getDiskAllocateFromBackupInput(ctx context.Context, backupId 
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get backupstorage of backup %s", backupId)
 	}
+	accessInfo, err := bs.GetAccessInfo()
+	if err != nil {
+		return nil, errors.Wrap(err, "backupStorage.GetAccessInfo")
+	}
 	return &api.DiskAllocateFromBackupInput{
 		BackupId:                backupId,
 		BackupStorageId:         bs.GetId(),
-		BackupStorageAccessInfo: jsonutils.Marshal(bs.AccessInfo).(*jsonutils.JSONDict),
+		BackupStorageAccessInfo: jsonutils.Marshal(accessInfo).(*jsonutils.JSONDict),
 	}, nil
 }
 

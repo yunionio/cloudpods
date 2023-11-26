@@ -59,24 +59,16 @@ type BackupStorageCreateInput struct {
 	// enum: nfs
 	StorageType string `json:"storage_type"`
 
-	// description: host of nfs, storage_type 为 nfs 时, 此参数必传
-	// example: 192.168.222.2
-	NfsHost string `json:"nfs_host"`
-
-	// description: shared dir of nfs, storage_type 为 nfs 时, 此参数必传
-	// example: /nfs_root/
-	NfsSharedDir string `json:"nfs_shared_dir"`
-
-	// description: access url of object storage bucket
-	// example: https://qxxxxxo.tos-cn-beijing.volces.com
-	ObjectBucketUrl string `json:"object_bucket_url"`
-	// description: access key of object storage
-	ObjectAccessKey string `json:"object_access_key"`
-	// description: secret of object storage
-	ObjectSecret string `json:"object_secret"`
+	SBackupStorageAccessInfo
 
 	// description: Capacity size in MB
 	CapacityMb int `json:"capacity_mb"`
+}
+
+type BackupStorageUpdateInput struct {
+	apis.EnabledStatusInfrasResourceBaseUpdateInput
+
+	SBackupStorageAccessInfo
 }
 
 /*type BackupStorageAccessInfo struct {
@@ -175,12 +167,21 @@ type InstanceBackupManagerSyncstatusInput struct {
 }
 
 type SBackupStorageAccessInfo struct {
-	NfsHost      string `json:"nfs_host"`
+	// description: host of nfs, storage_type 为 nfs 时, 此参数必传
+	// example: 192.168.222.2
+	NfsHost string `json:"nfs_host"`
+
+	// description: shared dir of nfs, storage_type 为 nfs 时, 此参数必传
+	// example: /nfs_root/
 	NfsSharedDir string `json:"nfs_shared_dir"`
 
+	// description: access url of object storage bucket
+	// example: https://qxxxxxo.tos-cn-beijing.volces.com
 	ObjectBucketUrl string `json:"object_bucket_url"`
+	// description: access key of object storage
 	ObjectAccessKey string `json:"object_access_key"`
-	ObjectSecret    string `json:"object_secret"`
+	// description: secret of object storage
+	ObjectSecret string `json:"object_secret"`
 }
 
 func (ba *SBackupStorageAccessInfo) String() string {
