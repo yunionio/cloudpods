@@ -32,7 +32,6 @@ type DnsTrafficPolicyCreateInput struct {
 
 type DnsTrafficPolicyDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
-	SDnsTrafficPolicy
 }
 
 type DnsTrafficPolicyListInput struct {

@@ -30,7 +30,6 @@ type DnsZoneCacheCreateInput struct {
 
 type DnsZoneCacheDetails struct {
 	apis.StatusStandaloneResourceDetails
-	SDnsZoneCache
 
 	Account  string
 	Brand    string

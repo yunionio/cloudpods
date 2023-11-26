@@ -17,7 +17,7 @@ package compute
 type HostwireDetails struct {
 	HostJointResourceDetails
 
-	SHostwire
+	SHostwireDeprecated
 
 	// 二层网络名称
 	Wire string `json:"wire"`
