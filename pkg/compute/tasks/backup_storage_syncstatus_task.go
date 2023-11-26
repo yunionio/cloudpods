@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -35,6 +36,7 @@ func init() {
 
 func (self *BackupStorageSyncstatusTask) taskFailed(ctx context.Context, bs *models.SBackupStorage, err jsonutils.JSONObject) {
 	logclient.AddActionLogWithContext(ctx, bs, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
+	bs.SetStatus(self.UserCred, api.BACKUPSTORAGE_STATUS_OFFLINE, err.String())
 	self.SetStageFailed(ctx, err)
 }
 
