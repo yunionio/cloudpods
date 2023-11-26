@@ -20,8 +20,12 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+type TBackupStorageType string
+
 const (
-	BACKUPSTORAGE_TYPE_NFS       = "nfs"
+	BACKUPSTORAGE_TYPE_NFS            = TBackupStorageType("nfs")
+	BACKUPSTORAGE_TYPE_OBJECT_STORAGE = TBackupStorageType("object")
+
 	BACKUPSTORAGE_STATUS_ONLINE  = "online"
 	BACKUPSTORAGE_STATUS_OFFLINE = "offline"
 
@@ -55,27 +59,26 @@ type BackupStorageCreateInput struct {
 	// enum: nfs
 	StorageType string `json:"storage_type"`
 
-	// description: host of nfs, storage_type 为 nfs 时, 此参数必传
-	// example: 192.168.222.2
-	NfsHost string `json:"nfs_host"`
-
-	// description: shared dir of nfs, storage_type 为 nfs 时, 此参数必传
-	// example: /nfs_root/
-	NfsSharedDir string `json:"nfs_shared_dir"`
+	SBackupStorageAccessInfo
 
 	// description: Capacity size in MB
 	CapacityMb int `json:"capacity_mb"`
 }
 
-type BackupStorageAccessInfo struct {
-	AccessUrl string
+type BackupStorageUpdateInput struct {
+	apis.EnabledStatusInfrasResourceBaseUpdateInput
+
+	SBackupStorageAccessInfo
 }
+
+/*type BackupStorageAccessInfo struct {
+	AccessUrl string
+}*/
 
 type BackupStorageDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 
-	NfsHost      string
-	NfsSharedDir string
+	SBackupStorageAccessInfo
 }
 
 type BackupStorageListInput struct {
@@ -161,4 +164,30 @@ type InstanceBackupPackMetadata struct {
 }
 
 type InstanceBackupManagerSyncstatusInput struct {
+}
+
+type SBackupStorageAccessInfo struct {
+	// description: host of nfs, storage_type 为 nfs 时, 此参数必传
+	// example: 192.168.222.2
+	NfsHost string `json:"nfs_host"`
+
+	// description: shared dir of nfs, storage_type 为 nfs 时, 此参数必传
+	// example: /nfs_root/
+	NfsSharedDir string `json:"nfs_shared_dir"`
+
+	// description: access url of object storage bucket
+	// example: https://qxxxxxo.tos-cn-beijing.volces.com
+	ObjectBucketUrl string `json:"object_bucket_url"`
+	// description: access key of object storage
+	ObjectAccessKey string `json:"object_access_key"`
+	// description: secret of object storage
+	ObjectSecret string `json:"object_secret"`
+}
+
+func (ba *SBackupStorageAccessInfo) String() string {
+	return jsonutils.Marshal(ba).String()
+}
+
+func (ba *SBackupStorageAccessInfo) IsZero() bool {
+	return ba == nil
 }

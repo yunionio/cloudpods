@@ -16,46 +16,82 @@ package backupstorage
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/qemuimgfmt"
-
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/pkg/errors"
 )
 
+type IBackupStorageFactory interface {
+	NewBackupStore(storeId string, backupStorageAccessInfo *jsonutils.JSONDict) (IBackupStorage, error)
+}
+
 type IBackupStorage interface {
-	CopyBackupFrom(srcFilename string, bakcupId string) error
-	CopyBackupTo(targetFilename string, backupId string) error
-	RemoveBackup(backupId string) error
-	IsExists(backupId string) (bool, error)
-	ConvertTo(destPath string, format qemuimgfmt.TImageFormat, backupId string) error
-	ConvertFrom(srcPath string, format qemuimgfmt.TImageFormat, backupId string) (int, error)
-	InstancePack(ctx context.Context, packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) (string, error)
-	InstanceUnpack(ctx context.Context, packageName string, metadataOnly bool) ([]string, *api.InstanceBackupPackMetadata, error)
+	// 从指定路径拷贝磁盘文件到备份存储
+	SaveBackupFrom(ctx context.Context, srcFilename string, bakcupId string) error
+	// 将备份backupId对应的备份文件拷贝到指定的文件路径
+	RestoreBackupTo(ctx context.Context, targetFilename string, backupId string) error
+	// 删除备份
+	RemoveBackup(ctx context.Context, backupId string) error
+	// 备份是否存在
+	IsBackupExists(backupId string) (bool, error)
+
+	// 从指定路径拷贝主机备份文件到备份存储
+	SaveBackupInstanceFrom(ctx context.Context, srcFilename string, bakcupInstanceId string) error
+	// 将备份backupId对应的备份文件拷贝到指定的文件路径
+	RestoreBackupInstanceTo(ctx context.Context, targetFilename string, backupInstanceId string) error
+	// 删除备份
+	RemoveBackupInstance(ctx context.Context, backupInstanceId string) error
+	// 备份是否存在
+	IsBackupInstanceExists(backupInstanceId string) (bool, error)
+
+	// ConvertTo(destPath string, format qemuimgfmt.TImageFormat, backupId string) error
+	// ConvertFrom(srcPath string, format qemuimgfmt.TImageFormat, backupId string) (int, error)
+	// InstancePack(ctx context.Context, packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) (string, error)
+	// InstanceUnpack(ctx context.Context, packageName string, metadataOnly bool) ([]string, *api.InstanceBackupPackMetadata, error)
+
+	// 存储是否在线
 	IsOnline() (bool, string, error)
 }
 
-var backupStoragePool *sync.Map = &sync.Map{}
+var factories []IBackupStorageFactory
+var backupStoragePool map[string]IBackupStorage
+var backupStorageLock *sync.Mutex
 
-func NewBackupStorage(backupStroageId string, backupStorageAccessInfo *jsonutils.JSONDict) (IBackupStorage, error) {
-	nfsHost, err := backupStorageAccessInfo.GetString("nfs_host")
-	if err != nil {
-		return nil, fmt.Errorf("need nfs_host in backup_storage_access_info")
+func init() {
+	backupStorageLock = &sync.Mutex{}
+	backupStoragePool = make(map[string]IBackupStorage)
+}
+
+func RegisterFactory(factory IBackupStorageFactory) {
+	factories = append(factories, factory)
+}
+
+func newBackupStorage(backupStroageId string, backupStorageAccessInfo *jsonutils.JSONDict) (IBackupStorage, error) {
+	errs := make([]error, 0)
+	for _, factory := range factories {
+		store, err := factory.NewBackupStore(backupStroageId, backupStorageAccessInfo)
+		if err == nil {
+			return store, nil
+		} else {
+			errs = append(errs, err)
+		}
 	}
-	nfsSharedDir, err := backupStorageAccessInfo.GetString("nfs_shared_dir")
-	if err != nil {
-		return nil, fmt.Errorf("need nfs_shared_dir in backup_storage_access_info")
-	}
-	return NewNFSBackupStorage(backupStroageId, nfsHost, nfsSharedDir), nil
+	return nil, errors.NewAggregate(errs)
 }
 
 func GetBackupStorage(backupStroageId string, backupStorageAccessInfo *jsonutils.JSONDict) (IBackupStorage, error) {
-	bs, err := NewBackupStorage(backupStroageId, backupStorageAccessInfo)
-	if err != nil {
-		return nil, err
+	backupStorageLock.Lock()
+	defer backupStorageLock.Unlock()
+
+	if ibs, ok := backupStoragePool[backupStroageId]; !ok {
+		bs, err := newBackupStorage(backupStroageId, backupStorageAccessInfo)
+		if err != nil {
+			return nil, errors.Wrap(err, "newBackupStorage")
+		}
+		backupStoragePool[backupStroageId] = bs
+		return bs, nil
+	} else {
+		return ibs, nil
 	}
-	ibs, _ := backupStoragePool.LoadOrStore(backupStroageId, bs)
-	return ibs.(IBackupStorage), nil
 }

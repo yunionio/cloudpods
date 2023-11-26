@@ -112,13 +112,34 @@ func (opts *BackupStorageIdOptions) Params() (jsonutils.JSONObject, error) {
 
 type BackupStorageCreateOptions struct {
 	options.BaseCreateOptions
-	StorageType  string `help:"storage type" choices:"nfs"`
+	StorageType string `help:"storage type" choices:"nfs|object"`
+
 	NfsHost      string `help:"nfs host, required when storage_type is nfs"`
 	NfsSharedDir string `help:"nfs shared dir, required when storage_type is nfs" `
-	CapacityMb   int    `help:"capacity, unit mb"`
+
+	ObjectBucketUrl string `help:"object bucket url, required when storage_type is object"`
+	ObjectAccessKey string `help:"object storage access key, required when storage_type is object"`
+	ObjectSecret    string `help:"object storage secret, required when storage_type is object"`
+
+	CapacityMb int `help:"capacity, unit mb"`
 }
 
 func (opts *BackupStorageCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type BackupStorageUpdateOptions struct {
+	options.BaseUpdateOptions
+
+	NfsHost      string `help:"nfs host, required when storage_type is nfs"`
+	NfsSharedDir string `help:"nfs shared dir, required when storage_type is nfs" `
+
+	ObjectBucketUrl string `help:"object bucket url, required when storage_type is object"`
+	ObjectAccessKey string `help:"object storage access key, required when storage_type is object"`
+	ObjectSecret    string `help:"object storage secret, required when storage_type is object"`
+}
+
+func (opts *BackupStorageUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 

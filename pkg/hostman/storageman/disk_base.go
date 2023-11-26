@@ -38,12 +38,14 @@ type IDisk interface {
 	Probe() error
 	GetPath() string
 	GetFormat() (string, error)
-	GetSnapshotDir() string
 	GetDiskDesc() jsonutils.JSONObject
 	GetDiskSetupScripts(idx int) string
-	GetSnapshotLocation() string
 	OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error
+
+	GetSnapshotDir() string
 	DoDeleteSnapshot(snapshotId string) error
+	GetSnapshotLocation() string
+
 	GetStorage() IStorage
 
 	DeleteAllSnapshot(skipRecycle bool) error
@@ -69,7 +71,7 @@ type IDisk interface {
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
 
-	GetBackupDir() string
+	// GetBackupDir() string
 	DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	IsFile() bool
@@ -210,10 +212,6 @@ func (d *SBaseDisk) FormatFs(fsFormat, uuid string, diskInfo *deployapi.DiskInfo
 
 func (d *SBaseDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	return nil, fmt.Errorf("Not implement disk.DiskSnapshot")
-}
-
-func (d *SBaseDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implement disk.DiskDeleteSnapshot")
 }
 
 func (d *SBaseDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

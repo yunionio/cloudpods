@@ -46,7 +46,7 @@ type SDiskCleanupSnapshots struct {
 	DeleteSnapshots  []jsonutils.JSONObject
 }
 
-type SDiskBakcup struct {
+type SDiskBackup struct {
 	SnapshotId              string              `json:"snapshot_id"`
 	BackupId                string              `json:"backup_id"`
 	BackupStorageId         string              `json:"backup_storage_id"`

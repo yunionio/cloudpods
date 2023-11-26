@@ -12,33 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
-
-type HostwireDetails struct {
-	HostJointResourceDetails
-
-	SHostwireDeprecated
-
-	// 二层网络名称
-	Wire string `json:"wire"`
-
-	// 带宽大小
-	Bandwidth int `json:"bandwidth"`
-}
-
-type HostwireListInput struct {
-	HostJointsListInput
-	WireFilterListInput
-
-	// 网桥名称
-	Bridge []string `json:"bridge"`
-
-	// 接口名称
-	Interface []string `json:"interface"`
-
-	// 是否是主网口
-	IsMaster *bool `json:"is_master"`
-
-	// MAC地址
-	MacAddr []string `json:"mac_addr"`
-}
+package nfs // import "yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage/nfs"

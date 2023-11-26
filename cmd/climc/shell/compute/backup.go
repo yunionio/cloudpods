@@ -26,6 +26,7 @@ func init() {
 	bsCmd.List(&compute.BackupStorageListOptions{})
 	bsCmd.Show(&compute.BackupStorageIdOptions{})
 	bsCmd.Create(&compute.BackupStorageCreateOptions{})
+	bsCmd.Update(&compute.BackupStorageUpdateOptions{})
 	bsCmd.Delete(&compute.BackupStorageIdOptions{})
 	bsCmd.Perform("public", &options.BasePublicOptions{})
 	bsCmd.Perform("private", &options.BaseIdOptions{})
