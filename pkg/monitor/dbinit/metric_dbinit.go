@@ -389,6 +389,19 @@ func init() {
 			newMetricFieldCreateInput("temp_c", "Disk device temperature ", "", 1),
 		})
 
+	// agent nvidia_smi
+	RegistryMetricCreateInput("agent_nvidia_smi", "Collect Nvidia GPU metrics",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 8, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("clocks_current_graphics", "GPU current clocks, MHz", "", 1),
+			newMetricFieldCreateInput("clocks_current_memory", "GPU current memory clocks, MHz", "", 2),
+			newMetricFieldCreateInput("temperature_gpu", "GPU temperature", "", 3),
+			newMetricFieldCreateInput("memory_total", "GPU memory total size", "", 4),
+			newMetricFieldCreateInput("memory_free", "GPU memory free size", "", 5),
+			newMetricFieldCreateInput("memory_used", "GPU memory used size", "", 6),
+			newMetricFieldCreateInput("utilization_gpu", "GPU utilization", "", 7),
+			newMetricFieldCreateInput("utilization_memory", "GPU memory utilization", "", 8),
+		})
+
 	RegistryMetricCreateInput("storage", "Storage usage",
 		monitor.METRIC_RES_TYPE_STORAGE, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_active", "Storage utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
