@@ -1046,9 +1046,11 @@ type ServerHardwareInfoGPUPCIEInfo struct {
 type ServerHardwareInfoGPU struct {
 	*IsolatedDeviceModelHardwareInfo
 
+	// isolate device id
 	Id string `json:"id"`
 	// GPU model name
-	Model    string                  `json:"model"`
+	Model string `json:"model"`
+	// PCIE information
 	PCIEInfo *IsolatedDevicePCIEInfo `json:"pcie_info"`
 }
 

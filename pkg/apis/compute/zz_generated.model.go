@@ -788,9 +788,9 @@ type SElasticcache struct {
 	NetworkId string `json:"network_id"`
 	// 带宽
 	Bandwidth int `json:"bandwidth"`
-	//  内网DNS
+	// 内网DNS
 	PrivateDNS string `json:"private_dns"`
-	//  内网IP地址
+	// 内网IP地址
 	PrivateIpAddr string `json:"private_ip_addr"`
 	// 内网访问端口
 	PrivateConnectPort int `json:"private_connect_port"`
@@ -1878,9 +1878,9 @@ type SLoadbalancerHealthCheck struct {
 	// 健康检查路径 /
 	HealthCheckHttpCode string `json:"health_check_http_code"`
 	HealthCheckRise     int    `json:"health_check_rise"`
-	//  健康检查健康阈值 3秒
+	// 健康检查健康阈值 3秒
 	HealthCheckFall int `json:"health_check_fall"`
-	//  健康检查不健康阈值 15秒
+	// 健康检查不健康阈值 15秒
 	HealthCheckTimeout int `json:"health_check_timeout"`
 	// 健康检查超时时间 10秒
 	HealthCheckInterval int    `json:"health_check_interval"`
@@ -2511,7 +2511,7 @@ type SSchedtag struct {
 	apis.SStandaloneResourceBase
 	apis.SScopedResourceBase
 	DefaultStrategy string `json:"default_strategy"`
-	// Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
+	// Column(VARCHAR(16, charset='ascii'), nullable=True, default=”)
 	ResourceType string `json:"resource_type"`
 }
 
