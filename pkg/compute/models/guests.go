@@ -655,6 +655,10 @@ func (manager *SGuestManager) ListItemFilter(
 	if len(query.OsType) > 0 {
 		q = q.In("os_type", query.OsType)
 	}
+	if len(query.OsDist) > 0 {
+		metaSQ := db.Metadata.Query().Equals("key", "os_distribution").In("value", query.OsDist).SubQuery()
+		q = q.Join(metaSQ, sqlchemy.Equals(q.Field("id"), metaSQ.Field("obj_id")))
+	}
 	if len(query.VcpuCount) > 0 {
 		q = q.In("vcpu_count", query.VcpuCount)
 	}
@@ -778,6 +782,13 @@ func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	}
 	q, err = manager.SHostResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
+		return q, nil
+	}
+	if field == "os_dist" {
+		metaQuery := db.Metadata.Query("obj_id", "value").Equals("key", "os_distribution").SubQuery()
+		q = q.AppendField(metaQuery.Field("value", field)).Distinct()
+		q = q.Join(metaQuery, sqlchemy.Equals(q.Field("id"), metaQuery.Field("obj_id")))
+		q.GroupBy(metaQuery.Field("value"))
 		return q, nil
 	}
 	guestnets := GuestnetworkManager.Query("guest_id", "network_id").SubQuery()
