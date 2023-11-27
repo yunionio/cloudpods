@@ -3384,6 +3384,22 @@ func (self *SHost) PostCreate(
 			self.StartBaremetalCreateTask(ctx, userCred, kwargs, "")
 		}
 	}
+	if self.OvnVersion != "" && self.OvnMappedIpAddr == "" {
+		HostManager.lockAllocOvnMappedIpAddr(ctx)
+		defer HostManager.unlockAllocOvnMappedIpAddr(ctx)
+		addr, err := HostManager.allocOvnMappedIpAddr(ctx)
+		if err != nil {
+			log.Errorf("host %s(%s): alloc vpc mapped addr: %v",
+				self.Name, self.Id, err)
+		}
+		if _, err := db.Update(self, func() error {
+			self.OvnMappedIpAddr = addr
+			return nil
+		}); err != nil {
+			log.Errorf("host %s(%s): db update vpc mapped addr: %v",
+				self.Name, self.Id, err)
+		}
+	}
 
 	keys := GetHostQuotaKeysFromCreateInput(ownerId, input)
 	quota := SInfrasQuota{Host: 1}
