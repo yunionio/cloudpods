@@ -664,6 +664,8 @@ type SAliyunCloudAccountUpdateOptions struct {
 	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
 	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
 	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
+	OptionsBillingScope               string `help:"update billing scope" choices:"all|managed" json:"-"`
+	RemoveOptionsBillingScope         bool   `help:"remove billing scope" json:"-"`
 }
 
 func (opts *SAliyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -679,6 +681,9 @@ func (opts *SAliyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, er
 	if len(opts.OptionsBillingFilePrefix) > 0 {
 		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
 	}
+	if len(opts.OptionsBillingScope) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingScope), "billing_scope")
+	}
 	if options.Size() > 0 {
 		params.Add(options, "options")
 	}
@@ -691,6 +696,9 @@ func (opts *SAliyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, er
 	}
 	if opts.RemoveOptionsBillingFilePrefix {
 		removeOptions = append(removeOptions, "billing_file_prefix")
+	}
+	if opts.RemoveOptionsBillingScope {
+		removeOptions = append(removeOptions, "billing_scope")
 	}
 	if len(removeOptions) > 0 {
 		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
