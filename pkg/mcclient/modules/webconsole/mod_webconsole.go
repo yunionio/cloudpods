@@ -153,6 +153,10 @@ func (m WebConsoleManager) DoServerConnect(s *mcclient.ClientSession, id string,
 	return m.DoConnect(s, "server", id, "", params)
 }
 
+func (m WebConsoleManager) DoServerRDPConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return m.DoConnect(s, "server-rdp", id, "", params)
+}
+
 func (m WebConsoleManager) DoClimcSshConnect(s *mcclient.ClientSession, ip string, port int) (jsonutils.JSONObject, error) {
 	data := jsonutils.Marshal(map[string]interface{}{
 		"username":      "root",
