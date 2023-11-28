@@ -229,7 +229,7 @@ type IPropertyOpt interface {
 	Property() string
 }
 
-func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
+func (cmd ResourceCmd) GetPropertyWithShowFunc(args IPropertyOpt, showFunc func(jsonutils.JSONObject) error) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args IPropertyOpt) error {
 		params, err := args.Params()
@@ -240,6 +240,17 @@ func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
 		if err != nil {
 			return err
 		}
+		err = showFunc(ret)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	cmd.RunWithDesc(args.Property(), fmt.Sprintf("Get property of a %s", man.GetKeyword()), args, callback)
+}
+
+func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
+	cmd.GetPropertyWithShowFunc(args, func(ret jsonutils.JSONObject) error {
 		if _, ok := ret.(*jsonutils.JSONArray); ok {
 			data, _ := ret.GetArray()
 			PrintList(&printutils.ListResult{
@@ -249,8 +260,7 @@ func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
 			PrintObject(ret)
 		}
 		return nil
-	}
-	cmd.RunWithDesc(args.Property(), fmt.Sprintf("Get property of a %s", man.GetKeyword()), args, callback)
+	})
 }
 
 func (cmd ResourceCmd) Show(args IShowOpt) {
