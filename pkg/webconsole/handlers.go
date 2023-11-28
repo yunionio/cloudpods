@@ -56,6 +56,7 @@ func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
 	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
 	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
+	app.AddHandler("POST", ApiPathPrefix+"server-rdp/<id>", auth.Authenticate(handleServerRemoteRDPConsole))
 
 	for _, man := range []db.IModelManager{
 		models.GetCommandLogManager(),
@@ -253,6 +254,22 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 	default:
 		httperrors.NotAcceptableError(ctx, w, "Unspported remote console protocol: %s", info.Protocol)
 	}
+}
+
+func handleServerRemoteRDPConsole(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	env, err := fetchCloudEnv(ctx, w, r)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	query := env.Body
+	srvId := env.Params["<id>"]
+	info, err := session.NewRemoteRDPConsoleInfoByCloud(env.ClientSessin, srvId, query)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	handleDataSession(ctx, info, w, url.Values{"password": {info.GetPassword()}}, true)
 }
 
 func responsePublicCloudConsole(ctx context.Context, info *session.RemoteConsoleInfo, w http.ResponseWriter) {

@@ -71,6 +71,8 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		srv, err = NewWebsocketProxyServer(sessionObj)
 	case session.WS:
 		srv, err = NewSshServer(sessionObj)
+	case session.RDP:
+		srv, err = NewRDPServer(sessionObj)
 	default:
 		srv, err = NewTTYServer(sessionObj)
 	}

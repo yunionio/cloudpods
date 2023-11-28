@@ -92,3 +92,17 @@ type WebConsoleServerOptions struct {
 	WebConsoleOptions
 	ID string `help:"Server id or name"`
 }
+
+type WebConsoleServerRdpOptions struct {
+	WebConsoleOptions
+	ID string `help:"Server id or name"`
+
+	HOST     string
+	Port     *int
+	Username *string
+	Password *string
+
+	Width  *int
+	Height *int
+	Dpi    *int
+}

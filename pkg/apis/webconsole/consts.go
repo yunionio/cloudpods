@@ -21,6 +21,7 @@ const (
 
 const (
 	VNC         = "vnc"
+	RDP         = "rdp"
 	ALIYUN      = "aliyun"
 	QCLOUD      = "qcloud"
 	OPENSTACK   = "openstack"

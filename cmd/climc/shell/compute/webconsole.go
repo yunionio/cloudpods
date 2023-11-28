@@ -133,4 +133,14 @@ func init() {
 		handleResult(s, args.WebConsoleOptions, ret)
 		return nil
 	})
+
+	R(&o.WebConsoleServerRdpOptions{}, "webconsole-server-rdp", "Connect server remote graphic console by rdp", func(s *mcclient.ClientSession, args *o.WebConsoleServerRdpOptions) error {
+		ret, err := webconsole.WebConsole.DoServerRDPConnect(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		handleResult(s, args.WebConsoleOptions, ret)
+		return nil
+	})
+
 }
