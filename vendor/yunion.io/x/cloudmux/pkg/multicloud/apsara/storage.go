@@ -79,7 +79,7 @@ func (self *SStorage) getDisks() ([]SDisk, error) {
 			return nil, errors.Wrapf(err, "GetDisks")
 		}
 		self.zone.disks = append(self.zone.disks, part...)
-		if len(self.zone.disks) >= total {
+		if len(self.zone.disks) >= total || len(part) == 0 {
 			break
 		}
 	}
