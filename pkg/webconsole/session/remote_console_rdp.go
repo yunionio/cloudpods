@@ -53,6 +53,9 @@ func NewRemoteRDPConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, 
 		if err != nil {
 			return nil, err
 		}
+		if !ret.Contains("username") || !ret.Contains("password") {
+			return nil, httperrors.NewMissingParameterError("username")
+		}
 		info.Password, _ = ret.GetString("password")
 		info.Username, _ = ret.GetString("username")
 	}
