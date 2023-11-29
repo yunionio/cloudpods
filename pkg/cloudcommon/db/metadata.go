@@ -673,8 +673,15 @@ func isAllowGetMetadata(ctx context.Context, obj IModel, userCred mcclient.Token
 	return true
 }
 
-func (manager *SMetadataManager) GetAll(ctx context.Context, obj IModel, keys []string, keyPrefix string, userCred mcclient.TokenCredential) (map[string]string, error) {
-	if !isAllowGetMetadata(ctx, obj, userCred) {
+type IMetadataGetter interface {
+	GetId() string
+	Keyword() string
+}
+
+func (manager *SMetadataManager) GetAll(ctx context.Context, obj IMetadataGetter, keys []string, keyPrefix string, userCred mcclient.TokenCredential) (map[string]string, error) {
+	modelObj, isIModel := obj.(IModel)
+
+	if isIModel && !isAllowGetMetadata(ctx, modelObj, userCred) {
 		return map[string]string{}, nil
 	}
 	meta, err := manager.rawGetAll(obj.Keyword(), obj.GetId(), keys, keyPrefix)
@@ -683,7 +690,7 @@ func (manager *SMetadataManager) GetAll(ctx context.Context, obj IModel, keys []
 	}
 	ret := make(map[string]string)
 	for k, v := range meta {
-		if strings.HasPrefix(k, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacscope.ScopeSystem, userCred, obj, "metadata")) {
+		if strings.HasPrefix(k, SYSTEM_ADMIN_PREFIX) && (userCred == nil || (isIModel && !IsAllowGetSpec(ctx, rbacscope.ScopeSystem, userCred, modelObj, "metadata"))) {
 			continue
 		}
 		ret[k] = v
