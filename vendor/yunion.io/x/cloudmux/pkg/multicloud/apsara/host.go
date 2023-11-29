@@ -48,7 +48,7 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 			return nil, err
 		}
 		vms = append(vms, parts...)
-		if len(vms) >= total {
+		if len(vms) >= total || len(parts) == 0 {
 			break
 		}
 	}

@@ -111,11 +111,9 @@ func (region *SRegion) GetDiskWithStorage(diskId string) (*SDisk, error) {
 			}
 		}
 		return nil, cloudprovider.ErrNotFound
-	case StorageTypeCeph:
+	default:
 		disk.storage = storage
 		return disk, nil
-	default:
-		return nil, fmt.Errorf("Unsupport StorageType %s", storage.Type)
 	}
 }
 

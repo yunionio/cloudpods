@@ -408,7 +408,7 @@ func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, erro
 			return nil, err
 		}
 		instances = append(instances, part...)
-		if len(instances) >= total {
+		if len(instances) >= total || len(part) == 0 {
 			break
 		}
 	}

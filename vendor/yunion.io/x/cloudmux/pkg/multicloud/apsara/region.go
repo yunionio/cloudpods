@@ -322,7 +322,7 @@ func (self *SRegion) fetchIVpcs() error {
 			return err
 		}
 		vpcs = append(vpcs, part...)
-		if len(vpcs) >= total {
+		if len(vpcs) >= total || len(part) == 0 {
 			break
 		}
 	}
@@ -711,6 +711,9 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 			return nil, err
 		}
 		eips = append(eips, parts...)
+		if len(parts) == 0 {
+			break
+		}
 	}
 	ret := make([]cloudprovider.ICloudEIP, len(eips))
 	for i := 0; i < len(eips); i += 1 {
@@ -1089,7 +1092,7 @@ func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 			return nil, err
 		}
 		vms = append(vms, parts...)
-		if len(vms) >= total {
+		if len(vms) >= total || len(parts) == 0 {
 			break
 		}
 	}
