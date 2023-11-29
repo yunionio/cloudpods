@@ -32,13 +32,17 @@ func NewGuacamoleTunnel(host string, port int, user, password string, id string,
 	}
 	opts.AudioMimetypes = []string{"audio/L16", "rate=44100", "channels=2"}
 	opts.Parameters = map[string]string{
-		"scheme":      opts.Protocol,
-		"hostname":    host,
-		"port":        fmt.Sprintf("%d", port),
-		"ignore-cert": "true",
-		"security":    "",
-		"username":    user,
-		"password":    password,
+		"scheme":            opts.Protocol,
+		"hostname":          host,
+		"port":              fmt.Sprintf("%d", port),
+		"ignore-cert":       "true",
+		"security":          "",
+		"username":          user,
+		"password":          password,
+		"enable-drive":      "true",
+		"drive-name":        "Cloudpods",
+		"drive-path":        "/opt/cloudpods",
+		"create-drive-path": "true",
 	}
 	conn, err := net.Dial("tcp", "127.0.0.1:4822")
 	if err != nil {
