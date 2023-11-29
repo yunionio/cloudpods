@@ -642,6 +642,21 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 	return changes, nil
 }
 
+func (manager *SMetadataManager) SetAllWithoutDelelte(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, obj)
+	defer lockman.ReleaseObject(ctx, obj)
+
+	changes, err := manager.rawSetValues(ctx, obj.Keyword(), obj.GetId(), infMap2StrMap(store), false, "")
+	if err != nil {
+		return errors.Wrap(err, "setValues")
+	}
+
+	if len(changes) > 0 {
+		OpsLog.LogEvent(obj.GetIModel(), ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
+	}
+	return nil
+}
+
 func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential, delRange string) error {
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)

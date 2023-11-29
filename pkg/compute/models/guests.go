@@ -3098,7 +3098,9 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 
 	g.SyncOsInfo(ctx, userCred, extVM)
 
-	syncVirtualResourceMetadata(ctx, userCred, g, extVM)
+	if account := host.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, g, extVM, account.ReadOnly)
+	}
 	SyncCloudProject(ctx, userCred, g, syncOwnerId, extVM, host.ManagerId)
 
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
@@ -3205,7 +3207,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.SyncOsInfo(ctx, userCred, extVM)
 
-	syncVirtualResourceMetadata(ctx, userCred, &guest, extVM)
+	syncVirtualResourceMetadata(ctx, userCred, &guest, extVM, false)
 	SyncCloudProject(ctx, userCred, &guest, syncOwnerId, extVM, host.ManagerId)
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
@@ -6536,7 +6538,14 @@ func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.To
 	if len(guest.ExternalId) == 0 {
 		return
 	}
-	err := guest.StartRemoteUpdateTask(ctx, userCred, true, "")
+	host, err := guest.GetHost()
+	if err != nil {
+		return
+	}
+	if account := host.GetCloudaccount(); account != nil && account.ReadOnly {
+		return
+	}
+	err = guest.StartRemoteUpdateTask(ctx, userCred, true, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}

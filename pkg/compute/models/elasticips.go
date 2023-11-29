@@ -576,7 +576,9 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	//if err != nil {
 	//	return errors.Wrap(err, "fail to sync associated instance of EIP")
 	//}
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 
 	// eip有绑定资源，并且绑定资源是项目资源,eip项目信息跟随绑定资源
 	if res := self.GetAssociateResource(); res != nil && len(res.GetOwnerId().GetProjectId()) > 0 {
@@ -643,7 +645,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	//	return nil, errors.Wrap(err, "fail to sync associated instance of EIP")
 	//}
 
-	syncVirtualResourceMetadata(ctx, userCred, &eip, extEip)
+	syncVirtualResourceMetadata(ctx, userCred, &eip, extEip, false)
 
 	if res := eip.GetAssociateResource(); res != nil {
 		eip.SyncCloudProjectId(userCred, res.GetOwnerId())
@@ -1956,6 +1958,9 @@ func (self *SElasticip) StartRemoteUpdateTask(ctx context.Context, userCred mccl
 
 func (self *SElasticip) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(self.ExternalId) == 0 {
+		return
+	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")

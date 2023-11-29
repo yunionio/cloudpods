@@ -413,7 +413,7 @@ func (man *SRouteTableManager) SyncRouteTables(
 			syncResult.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, routeTableNew, added[i])
+		syncMetadata(ctx, userCred, routeTableNew, added[i], false)
 		localRouteTables = append(localRouteTables, *routeTableNew)
 		remoteRouteTables = append(remoteRouteTables, added[i])
 		syncResult.Add()
@@ -529,8 +529,11 @@ func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred m
 	if provider != nil {
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+		if account, _ := provider.GetCloudaccount(); account != nil {
+			syncMetadata(ctx, userCred, self, cloudRouteTable, account.ReadOnly)
+		}
 	}
-	syncMetadata(ctx, userCred, self, cloudRouteTable)
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }

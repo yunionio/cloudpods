@@ -962,7 +962,9 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 	if err != nil {
 		return err
 	}
-	syncMetadata(ctx, userCred, lblis, extListener)
+	if account, _ := provider.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, lblis, extListener, account.ReadOnly)
+	}
 
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -1005,7 +1007,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}
-	syncMetadata(ctx, userCred, lblis, extListener)
+	syncMetadata(ctx, userCred, lblis, extListener, false)
 
 	err = lblis.updateBackendGroupId(ctx, extListener, lb.ManagerId)
 	if err != nil {

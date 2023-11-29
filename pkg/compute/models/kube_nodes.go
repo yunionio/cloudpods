@@ -299,7 +299,12 @@ func (self *SKubeNode) SyncWithCloudKubeNode(ctx context.Context, userCred mccli
 		return errors.Wrapf(err, "UpdateWithLock")
 	}
 
-	syncMetadata(ctx, userCred, self, ext)
+	cluster, err := self.GetKubeCluster()
+	if err == nil {
+		if account := cluster.GetCloudaccount(); account != nil {
+			syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
+		}
+	}
 
 	return nil
 }
@@ -340,7 +345,7 @@ func (self *SKubeCluster) newFromCloudKubeNode(ctx context.Context, userCred mcc
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncMetadata(ctx, userCred, &node, ext)
+	syncMetadata(ctx, userCred, &node, ext, false)
 
 	return &node, nil
 }

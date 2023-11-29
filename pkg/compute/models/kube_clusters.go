@@ -360,7 +360,9 @@ func (self *SKubeCluster) SyncWithCloudKubeCluster(ctx context.Context, userCred
 		return err
 	}
 
-	syncMetadata(ctx, userCred, self, ext)
+	if account, _ := provider.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 
 	if provider != nil {
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
@@ -426,7 +428,7 @@ func (self *SCloudregion) newFromCloudKubeCluster(ctx context.Context, userCred 
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncMetadata(ctx, userCred, &cluster, ext)
+	syncMetadata(ctx, userCred, &cluster, ext, false)
 	SyncCloudDomain(userCred, &cluster, provider.GetOwnerId())
 
 	if provider != nil {

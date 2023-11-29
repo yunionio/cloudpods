@@ -382,7 +382,9 @@ func (self *SVpcPeeringConnection) SyncWithCloudPeerConnection(ctx context.Conte
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
-	syncMetadata(ctx, userCred, self, ext)
+	if account, _ := provider.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 	return nil
 }
 

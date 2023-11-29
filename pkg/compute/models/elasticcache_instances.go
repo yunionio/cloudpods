@@ -638,7 +638,9 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 		return errors.Wrapf(err, "syncWithCloudElasticcache.Update")
 	}
 	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), extInstance, provider.Id)
-	syncVirtualResourceMetadata(ctx, userCred, self, extInstance)
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, extInstance, account.ReadOnly)
+	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -765,7 +767,7 @@ func (self *SCloudregion) newFromCloudElasticcache(ctx context.Context, userCred
 	}
 
 	SyncCloudProject(ctx, userCred, &instance, provider.GetOwnerId(), extInstance, provider.Id)
-	syncVirtualResourceMetadata(ctx, userCred, &instance, extInstance)
+	syncVirtualResourceMetadata(ctx, userCred, &instance, extInstance, false)
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -1716,6 +1718,9 @@ func (self *SElasticcache) StartRemoteUpdateTask(ctx context.Context, userCred m
 
 func (self *SElasticcache) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(self.ExternalId) == 0 {
+		return
+	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")

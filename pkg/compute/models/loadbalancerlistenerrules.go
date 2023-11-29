@@ -724,7 +724,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i], false)
 			syncResult.Update()
 		}
 	}
@@ -733,7 +733,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, local, added[i])
+			syncMetadata(ctx, userCred, local, added[i], false)
 			syncResult.Add()
 		}
 	}

@@ -920,7 +920,6 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 				syncResult.UpdateError(err)
 				continue
 			}
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 		}
 
 		localStorages = append(localStorages, commondb[i])
@@ -928,15 +927,14 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		syncResult.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudStorage(ctx, userCred, added[i], provider, zone)
+		storage, err := manager.newFromCloudStorage(ctx, userCred, added[i], provider, zone)
 		if err != nil {
 			syncResult.AddError(err)
-		} else {
-			syncMetadata(ctx, userCred, new, added[i])
-			localStorages = append(localStorages, *new)
-			remoteStorages = append(remoteStorages, added[i])
-			syncResult.Add()
+			continue
 		}
+		localStorages = append(localStorages, *storage)
+		remoteStorages = append(remoteStorages, added[i])
+		syncResult.Add()
 	}
 
 	return localStorages, remoteStorages, syncResult
@@ -1008,25 +1006,25 @@ func (sm *SStorageManager) SyncCapacityUsedForEsxiStorage(ctx context.Context, u
 	}
 }
 
-func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) error {
+func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudStorage, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extStorage.GetName()
-		self.Status = extStorage.GetStatus()
-		self.StorageType = extStorage.GetStorageType()
-		self.MediumType = extStorage.GetMediumType()
-		if capacity := extStorage.GetCapacityMB(); capacity != 0 {
+		self.Status = ext.GetStatus()
+		self.StorageType = ext.GetStorageType()
+		self.MediumType = ext.GetMediumType()
+		if capacity := ext.GetCapacityMB(); capacity != 0 {
 			self.Capacity = capacity
 		}
-		if capacity := extStorage.GetCapacityUsedMB(); capacity != 0 {
+		if capacity := ext.GetCapacityUsedMB(); capacity != 0 {
 			self.ActualCapacityUsed = capacity
 		}
-		self.StorageConf = extStorage.GetStorageConf()
+		self.StorageConf = ext.GetStorageConf()
 
-		self.Enabled = tristate.NewFromBool(extStorage.GetEnabled())
+		self.Enabled = tristate.NewFromBool(ext.GetEnabled())
 
-		self.IsEmulated = extStorage.IsEmulated()
+		self.IsEmulated = ext.IsEmulated()
 
-		self.IsSysDiskStore = tristate.NewFromBool(extStorage.IsSysDiskStore())
+		self.IsSysDiskStore = tristate.NewFromBool(ext.IsSysDiskStore())
 
 		return nil
 	})
@@ -1038,6 +1036,9 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 	if provider != nil {
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+		if account, _ := provider.GetCloudaccount(); account != nil {
+			syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
+		}
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -1082,6 +1083,7 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	}
 
 	SyncCloudDomain(userCred, &storage, provider.GetOwnerId())
+	syncMetadata(ctx, userCred, &storage, extStorage, false)
 
 	if provider != nil {
 		storage.SyncShareState(ctx, userCred, provider.getAccountShareInfo())

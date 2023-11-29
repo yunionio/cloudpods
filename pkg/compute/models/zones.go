@@ -368,7 +368,7 @@ func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.Toke
 		log.Errorf("syncWithCloudZone error %s", err)
 		return err
 	}
-	syncMetadata(ctx, userCred, self, extZone)
+	syncMetadata(ctx, userCred, self, extZone, false)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -404,7 +404,7 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 	if err != nil {
 		return nil, errors.Wrap(err, "SyncI18ns")
 	}
-	syncMetadata(ctx, userCred, &zone, extZone)
+	syncMetadata(ctx, userCred, &zone, extZone, false)
 
 	db.OpsLog.LogEvent(&zone, db.ACT_CREATE, zone.GetShortDesc(ctx), userCred)
 	return &zone, nil

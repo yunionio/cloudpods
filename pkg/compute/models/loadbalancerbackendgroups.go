@@ -717,7 +717,9 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
-	syncMetadata(ctx, userCred, lbbg, ext)
+	if account := lb.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, lbbg, ext, account.ReadOnly)
+	}
 	db.OpsLog.LogSyncUpdate(lbbg, diff, userCred)
 
 	if ext.IsDefault() {

@@ -26,8 +26,8 @@ import (
 )
 
 type IMetadataSetter interface {
-	SetCloudMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential) error
-	SetSysCloudMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential) error
+	SetCloudMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential, readOnly bool) error
+	SetSysCloudMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential, readOnly bool) error
 	Keyword() string
 	GetName() string
 	GetCloudproviderId() string
@@ -38,13 +38,13 @@ type IVirtualResourceMetadataSetter interface {
 	SetSystemInfo(isSystem bool) error
 }
 
-func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
+func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource, readOnly bool) error {
 	sysTags := remote.GetSysTags()
 	sysStore := make(map[string]string, 0)
 	for key, value := range sysTags {
 		sysStore[db.SYS_CLOUD_TAG_PREFIX+key] = value
 	}
-	model.SetSysCloudMetadataAll(ctx, sysStore, userCred)
+	model.SetSysCloudMetadataAll(ctx, sysStore, userCred, readOnly)
 
 	tags, err := remote.GetTags()
 	if err == nil {
@@ -52,12 +52,12 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
 		}
-		model.SetCloudMetadataAll(ctx, store, userCred)
+		model.SetCloudMetadataAll(ctx, store, userCred, readOnly)
 	}
 	return nil
 }
 
-func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IVirtualResourceMetadataSetter, remote cloudprovider.IVirtualResource) error {
+func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IVirtualResourceMetadataSetter, remote cloudprovider.IVirtualResource, readOnly bool) error {
 	sysTags := remote.GetSysTags()
 	sysStore := make(map[string]string, 0)
 	for key, value := range sysTags {
@@ -76,7 +76,7 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 		}
 	}
 
-	model.SetSysCloudMetadataAll(ctx, sysStore, userCred)
+	model.SetSysCloudMetadataAll(ctx, sysStore, userCred, readOnly)
 
 	tags, err := remote.GetTags()
 	if err == nil {
@@ -84,15 +84,15 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
 		}
-		model.SetCloudMetadataAll(ctx, store, userCred)
+		model.SetCloudMetadataAll(ctx, store, userCred, readOnly)
 	}
 	return nil
 }
 
-func SyncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
-	return syncMetadata(ctx, userCred, model, remote)
+func SyncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource, readOnly bool) error {
+	return syncMetadata(ctx, userCred, model, remote, readOnly)
 }
 
-func SyncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IVirtualResourceMetadataSetter, remote cloudprovider.IVirtualResource) error {
-	return syncVirtualResourceMetadata(ctx, userCred, model, remote)
+func SyncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IVirtualResourceMetadataSetter, remote cloudprovider.IVirtualResource, readOnly bool) error {
+	return syncVirtualResourceMetadata(ctx, userCred, model, remote, readOnly)
 }

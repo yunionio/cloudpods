@@ -493,7 +493,7 @@ func (manager *SSnapshotPolicyManager) allNewFromCloudSnapshotPolicy(
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, local, added[i])
+			syncVirtualResourceMetadata(ctx, userCred, local, added[i], false)
 			syncResult.Add()
 		}
 	}
