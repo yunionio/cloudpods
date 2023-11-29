@@ -298,8 +298,10 @@ func (s *SSSLCertificate) SyncWithCloudSSLCertificate(ctx context.Context, userC
 		})
 	}
 
-	_ = syncVirtualResourceMetadata(ctx, userCred, s, ext)
-	//_ = syncMetadata(ctx, userCred, s, ext)
+	if account := s.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, s, ext, account.ReadOnly)
+	}
+
 	if provider := s.GetCloudprovider(); provider != nil {
 		SyncCloudProject(ctx, userCred, s, provider.GetOwnerId(), ext, provider.Id)
 	}
@@ -361,7 +363,7 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 		Action: notifyclient.ActionSyncCreate,
 	})
 	// 同步标签
-	_ = syncVirtualResourceMetadata(ctx, userCred, &s, ext)
+	_ = syncVirtualResourceMetadata(ctx, userCred, &s, ext, false)
 	// 同步项目归属
 	SyncCloudProject(ctx, userCred, &s, r.GetOwnerId(), ext, r.Id)
 

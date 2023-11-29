@@ -416,7 +416,7 @@ func (swire *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Tok
 	} else if swire.IsEmulated {
 		swire.SaveSharedInfo(apis.TOwnerSource(vpc.PublicSrc), ctx, userCred, vpc.GetSharedInfo())
 	}
-	syncMetadata(ctx, userCred, swire, extWire)
+	syncMetadata(ctx, userCred, swire, extWire, false)
 
 	db.OpsLog.LogSyncUpdate(swire, diff, userCred)
 	return err
@@ -490,7 +490,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 		wire.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
-	syncMetadata(ctx, userCred, &wire, extWire)
+	syncMetadata(ctx, userCred, &wire, extWire, false)
 	db.OpsLog.LogEvent(&wire, db.ACT_CREATE, wire.GetShortDesc(ctx), userCred)
 	return &wire, nil
 }

@@ -457,10 +457,10 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 		return errors.Wrapf(err, "db.Update")
 	}
 
-	err = syncVirtualResourceMetadata(ctx, userCred, self, ext)
-	if err != nil {
-		return errors.Wrapf(err, "syncVirtualResourceMetadata")
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	}
+
 	if provider := self.GetCloudprovider(); provider != nil {
 		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	}
@@ -514,7 +514,7 @@ func (self *SCloudregion) newFromCloudModelartsPool(ctx context.Context, userCre
 	}
 
 	// 同步标签
-	syncVirtualResourceMetadata(ctx, userCred, &pool, ext)
+	syncVirtualResourceMetadata(ctx, userCred, &pool, ext, false)
 	// 同步项目归属
 	SyncCloudProject(ctx, userCred, &pool, provider.GetOwnerId(), ext, provider.Id)
 

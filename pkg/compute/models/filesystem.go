@@ -370,7 +370,7 @@ func (fileSystem *SCloudregion) SyncFileSystems(
 			result.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, newFs, added[i])
+		syncMetadata(ctx, userCred, newFs, added[i], false)
 		localFSs = append(localFSs, *newFs)
 		remoteFSs = append(remoteFSs, added[i])
 		result.Add()
@@ -486,7 +486,9 @@ func (fileSystem *SFileSystem) SyncWithCloudFileSystem(ctx context.Context, user
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
-	syncMetadata(ctx, userCred, fileSystem, fs)
+	if account := fileSystem.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, fileSystem, fs, account.ReadOnly)
+	}
 	return nil
 }
 
@@ -643,6 +645,9 @@ func (fileSystem *SFileSystem) StartRemoteUpdateTask(ctx context.Context, userCr
 
 func (fileSystem *SFileSystem) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(fileSystem.ExternalId) == 0 {
+		return
+	}
+	if account := fileSystem.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	fileSystem.StartRemoteUpdateTask(ctx, userCred, true, "")

@@ -439,7 +439,9 @@ func (self *SWafInstance) SyncWithCloudWafInstance(ctx context.Context, userCred
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
-	syncMetadata(ctx, userCred, self, ext)
+	if account := self.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 	return err
 }
 
@@ -468,7 +470,7 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 	if err != nil {
 		return nil, err
 	}
-	syncMetadata(ctx, userCred, waf, ext)
+	syncMetadata(ctx, userCred, waf, ext, false)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    waf,
 		Action: notifyclient.ActionSyncCreate,
@@ -517,6 +519,9 @@ func (self *SWafInstance) StartRemoteUpdateTask(ctx context.Context, userCred mc
 
 func (self *SWafInstance) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(self.ExternalId) == 0 {
+		return
+	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")

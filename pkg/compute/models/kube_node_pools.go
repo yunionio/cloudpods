@@ -467,7 +467,9 @@ func (self *SKubeNodePool) SyncWithCloudKubeNodePool(ctx context.Context, userCr
 		return errors.Wrapf(err, "UpdateWithLock")
 	}
 
-	syncMetadata(ctx, userCred, self, ext)
+	if account := cluster.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 
 	return nil
 }
@@ -515,7 +517,7 @@ func (self *SKubeCluster) newFromCloudKubeNodePool(ctx context.Context, userCred
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncMetadata(ctx, userCred, &pool, ext)
+	syncMetadata(ctx, userCred, &pool, ext, false)
 
 	return &pool, nil
 }

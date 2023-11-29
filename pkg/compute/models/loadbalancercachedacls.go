@@ -216,7 +216,7 @@ func (self *SCachedLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Co
 	return self.RealDelete(ctx, userCred)
 }
 
-func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId mcclient.IIdentityProvider) error {
+func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, acl, func() error {
 		// todo: 华为云acl没有name字段应此不需要同步名称
 		if options.Options.EnableSyncName && !utils.IsInStringArray(acl.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
@@ -227,7 +227,9 @@ func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Cont
 	if err != nil {
 		return errors.Wrap(err, "cacheLoadbalancerAcl.sync.Update")
 	}
-	syncMetadata(ctx, userCred, acl, extAcl)
+	if account, _ := provider.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, acl, extAcl, account.ReadOnly)
+	}
 	db.OpsLog.LogSyncUpdate(acl, diff, userCred)
 	return nil
 }
@@ -431,7 +433,7 @@ func (man *SCachedLoadbalancerAclManager) SyncLoadbalancerAcls(
 	}
 	if !syncRange.Xor {
 		for i := 0; i < len(commondb); i++ {
-			err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider.GetOwnerId())
+			err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider)
 			if err != nil {
 				syncResult.UpdateError(err)
 			} else {
@@ -505,7 +507,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
-	syncMetadata(ctx, userCred, &acl, extAcl)
+	syncMetadata(ctx, userCred, &acl, extAcl, false)
 
 	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
 	return &acl, nil

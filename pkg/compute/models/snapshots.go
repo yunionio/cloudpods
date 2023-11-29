@@ -995,7 +995,9 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 
 	// bugfix for now:
 	disk, _ := self.GetDisk()
@@ -1049,7 +1051,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, &snapshot, extSnapshot)
+	syncVirtualResourceMetadata(ctx, userCred, &snapshot, extSnapshot, false)
 
 	// bugfix for now:
 	if localDisk != nil {
