@@ -503,8 +503,9 @@ func (self *SKafka) SyncWithCloudKafka(ctx context.Context, userCred mcclient.To
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
-
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 	if provider := self.GetCloudprovider(); provider != nil {
 		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	}
@@ -608,7 +609,7 @@ func (self *SCloudregion) newFromCloudKafka(ctx context.Context, userCred mcclie
 	})
 
 	// 同步标签
-	syncVirtualResourceMetadata(ctx, userCred, &kafka, ext)
+	syncVirtualResourceMetadata(ctx, userCred, &kafka, ext, false)
 	// 同步项目归属
 	SyncCloudProject(ctx, userCred, &kafka, provider.GetOwnerId(), ext, provider.Id)
 
@@ -689,6 +690,9 @@ func (self *SKafka) StartRemoteUpdateTask(ctx context.Context, userCred mcclient
 
 func (self *SKafka) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(self.ExternalId) == 0 {
+		return
+	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")

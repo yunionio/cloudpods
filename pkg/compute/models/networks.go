@@ -741,7 +741,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	}
 
 	vpc, _ := wire.GetVpc()
-	syncVirtualResourceMetadata(ctx, userCred, &net, extNet)
+	syncVirtualResourceMetadata(ctx, userCred, &net, extNet, false)
 	SyncCloudProject(ctx, userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {

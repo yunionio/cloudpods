@@ -568,7 +568,9 @@ func (self *SMongoDB) SyncWithCloudMongoDB(ctx context.Context, userCred mcclien
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
 	if provider := self.GetCloudprovider(); provider != nil {
 		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	}
@@ -664,7 +666,7 @@ func (self *SCloudregion) newFromCloudMongoDB(ctx context.Context, userCred mccl
 		Action: notifyclient.ActionSyncCreate,
 	})
 
-	syncVirtualResourceMetadata(ctx, userCred, &ins, ext)
+	syncVirtualResourceMetadata(ctx, userCred, &ins, ext, false)
 	SyncCloudProject(ctx, userCred, &ins, provider.GetOwnerId(), ext, provider.Id)
 	db.OpsLog.LogEvent(&ins, db.ACT_CREATE, ins.GetShortDesc(ctx), userCred)
 
@@ -833,6 +835,9 @@ func (self *SMongoDB) StartRemoteUpdateTask(ctx context.Context, userCred mcclie
 
 func (self *SMongoDB) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(self.ExternalId) == 0 {
+		return
+	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")

@@ -296,9 +296,9 @@ type IStandaloneModel interface {
 
 	SetUserMetadataValues(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error
 	SetUserMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error
-	SetCloudMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error
+	SetCloudMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential, readOnly bool) error
 	SetOrganizationMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error
-	SetSysCloudMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error
+	SetSysCloudMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential, readOnly bool) error
 
 	RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error
 	RemoveAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) error

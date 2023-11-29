@@ -2790,7 +2790,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcacheStatus(ct
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetIElasticcache")
 		}
-		models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache)
+		if account := elasticcache.GetCloudaccount(); account != nil {
+			models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache, account.ReadOnly)
+		}
 		return nil, elasticcache.SetStatus(userCred, iElasticcache.GetStatus(), "syncstatus")
 	})
 	return nil

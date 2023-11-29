@@ -507,7 +507,10 @@ func (self *SElasticSearch) SyncWithCloudElasticSearch(ctx context.Context, user
 		})
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
+
 	if provider := self.GetCloudprovider(); provider != nil {
 		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	}
@@ -610,7 +613,7 @@ func (self *SCloudregion) newFromCloudElasticSearch(ctx context.Context, userCre
 		Action: notifyclient.ActionSyncCreate,
 	})
 	// 同步标签
-	syncVirtualResourceMetadata(ctx, userCred, &es, ext)
+	syncVirtualResourceMetadata(ctx, userCred, &es, ext, false)
 	// 同步项目归属
 	SyncCloudProject(ctx, userCred, &es, provider.GetOwnerId(), ext, provider.Id)
 
@@ -694,6 +697,9 @@ func (self *SElasticSearch) StartRemoteUpdateTask(ctx context.Context, userCred 
 
 func (self *SElasticSearch) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(self.ExternalId) == 0 {
+		return
+	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")

@@ -712,7 +712,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncMetadata(ctx, userCred, &vpc, extVPC)
+	syncMetadata(ctx, userCred, &vpc, extVPC, false)
 	SyncCloudDomain(userCred, &vpc, provider.GetOwnerId())
 
 	if provider != nil {

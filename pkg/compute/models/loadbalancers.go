@@ -1131,7 +1131,7 @@ func (region *SCloudregion) newFromCloudLoadbalancer(ctx context.Context, userCr
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, &lb, ext)
+	syncVirtualResourceMetadata(ctx, userCred, &lb, ext, false)
 	SyncCloudProject(ctx, userCred, &lb, syncOwnerId, ext, provider.Id)
 
 	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
@@ -1343,7 +1343,9 @@ func (lb *SLoadbalancer) syncWithCloudLoadbalancer(ctx context.Context, userCred
 	}
 
 	networkIds := getExtLbNetworkIds(ext, lb.ManagerId)
-	syncVirtualResourceMetadata(ctx, userCred, lb, ext)
+	if account := lb.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, lb, ext, account.ReadOnly)
+	}
 	provider := lb.GetCloudprovider()
 	SyncCloudProject(ctx, userCred, lb, provider.GetOwnerId(), ext, lb.ManagerId)
 	lb.syncLoadbalancerNetwork(ctx, userCred, networkIds)
@@ -1497,6 +1499,9 @@ func (self *SLoadbalancer) StartRemoteUpdateTask(ctx context.Context, userCred m
 
 func (self *SLoadbalancer) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(self.ExternalId) == 0 {
+		return
+	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
 		return
 	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")

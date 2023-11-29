@@ -473,7 +473,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 	if len(tags) > 0 {
 		identity.Projects.PerformAction(s, self.ProjectId, "user-metadata", jsonutils.Marshal(tags))
 	}
-	syncMetadata(ctx, userCred, self, ext)
+	syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -616,7 +616,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 		identity.Projects.PerformAction(s, project.ProjectId, "user-metadata", jsonutils.Marshal(tags))
 	}
 
-	syncMetadata(ctx, userCred, &project, extProject)
+	syncMetadata(ctx, userCred, &project, extProject, account.ReadOnly)
 	db.OpsLog.LogEvent(&project, db.ACT_CREATE, project.GetShortDesc(ctx), userCred)
 	return &project, nil
 }
