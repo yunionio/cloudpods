@@ -270,7 +270,7 @@ func (manager *SNatSEntryManager) SyncNatSTable(
 
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
-			err := commondb[i].SyncWithCloudNatSTable(ctx, userCred, commonext[i], syncOwnerId, provider.Id)
+			err := commondb[i].SyncWithCloudNatSTable(ctx, userCred, commonext[i], syncOwnerId, provider)
 			if err != nil {
 				result.UpdateError(err)
 				continue
@@ -301,7 +301,7 @@ func (self *SNatSEntry) syncRemoveCloudNatSTable(ctx context.Context, userCred m
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatSEntry, syncOwnerId mcclient.IIdentityProvider, managerId string) error {
+func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatSEntry, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = extEntry.GetStatus()
 		self.IP = extEntry.GetIP()
@@ -312,7 +312,7 @@ func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcc
 				vpc := VpcManager.Query().SubQuery()
 				return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
 					Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
-					Filter(sqlchemy.Equals(vpc.Field("manager_id"), managerId))
+					Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
 			})
 			if err != nil {
 				return errors.Wrapf(err, "search network by externalId: %s", extNetworkId)
@@ -326,7 +326,9 @@ func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcc
 	}
 
 	SyncCloudDomain(userCred, self, syncOwnerId)
-	syncMetadata(ctx, userCred, self, extEntry)
+	if account, _ := provider.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, self, extEntry, account.ReadOnly)
+	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -374,7 +376,7 @@ func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, use
 	}
 
 	SyncCloudDomain(userCred, &table, ownerId)
-	syncMetadata(ctx, userCred, &table, extEntry)
+	syncMetadata(ctx, userCred, &table, extEntry, false)
 
 	db.OpsLog.LogEvent(&table, db.ACT_CREATE, table.GetShortDesc(ctx), userCred)
 

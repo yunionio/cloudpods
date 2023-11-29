@@ -175,7 +175,10 @@ func (self *STablestore) SyncWithCloudTablestore(ctx context.Context, userCred m
 		})
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if account, _ := provider.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
+
 	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	return nil
 }
@@ -208,7 +211,7 @@ func (self *SCloudregion) newFromCloudTablestore(ctx context.Context, userCred m
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, ret, ext)
+	syncVirtualResourceMetadata(ctx, userCred, ret, ext, false)
 	SyncCloudProject(ctx, userCred, ret, provider.GetOwnerId(), ext, provider.Id)
 
 	db.OpsLog.LogEvent(ret, db.ACT_CREATE, ret.GetShortDesc(ctx), userCred)

@@ -1417,7 +1417,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Conte
 		// sync back cloud metadata
 		iVM.Refresh()
 		guest.SyncOsInfo(ctx, userCred, iVM)
-		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
+		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM, false)
 		if err != nil {
 			return errors.Wrap(err, "syncVirtualResourceMetadata")
 		}

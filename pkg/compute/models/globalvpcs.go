@@ -532,7 +532,7 @@ func (self *SGlobalVpc) newFromCloudSecurityGroup(
 		return nil
 	})
 
-	syncVirtualResourceMetadata(ctx, userCred, ret, ext)
+	syncVirtualResourceMetadata(ctx, userCred, ret, ext, false)
 	SyncCloudProject(ctx, userCred, ret, syncOwnerId, ext, ret.ManagerId)
 
 	rules, err := ext.GetRules()

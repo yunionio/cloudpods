@@ -1060,6 +1060,9 @@ func (self *SSecurityGroup) OnMetadataUpdated(ctx context.Context, userCred mccl
 	if len(self.ExternalId) == 0 {
 		return
 	}
+	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
+		return
+	}
 	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
@@ -1269,7 +1272,10 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(
 		return errors.Wrapf(err, "db.Update")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if account := self.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
+	}
+
 	SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, self.ManagerId)
 
 	if !syncRule {
@@ -1335,7 +1341,7 @@ func (self *SCloudregion) newFromCloudSecurityGroup(
 		return errors.Wrapf(err, "Insert")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, ret, ext)
+	syncVirtualResourceMetadata(ctx, userCred, ret, ext, false)
 	SyncCloudProject(ctx, userCred, ret, syncOwnerId, ext, ret.ManagerId)
 
 	rules, err := ext.GetRules()

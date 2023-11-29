@@ -322,7 +322,7 @@ func (self *SCloudprovider) newFromCloudLoadbalancerCertificate(ctx context.Cont
 		return errors.Wrapf(err, "Insert cache lbert")
 	}
 
-	syncMetadata(ctx, userCred, lbcert, ext)
+	syncMetadata(ctx, userCred, lbcert, ext, false)
 	db.OpsLog.LogEvent(lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    lbcert,
@@ -341,7 +341,7 @@ func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertifica
 		return errors.Wrapf(err, "db.Update")
 	}
 
-	syncMetadata(ctx, userCred, lbcert, ext)
+	syncMetadata(ctx, userCred, lbcert, ext, false)
 	db.OpsLog.LogSyncUpdate(lbcert, diff, userCred)
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{

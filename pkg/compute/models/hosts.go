@@ -1943,7 +1943,9 @@ func (hh *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 		SyncCloudDomain(userCred, hh, provider.GetOwnerId())
 		hh.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
-	syncMetadata(ctx, userCred, hh, extHost)
+	if account := hh.GetCloudaccount(); account != nil {
+		syncMetadata(ctx, userCred, hh, extHost, account.ReadOnly)
+	}
 
 	if err := hh.syncSchedtags(ctx, userCred, extHost); err != nil {
 		log.Errorf("syncSchedtags fail:  %v", err)

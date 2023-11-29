@@ -1746,7 +1746,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		})
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, self, extDisk)
+	if account := storage.GetCloudaccount(); account != nil {
+		syncVirtualResourceMetadata(ctx, userCred, self, extDisk, account.ReadOnly)
+	}
 
 	if len(guests) == 0 {
 		SyncCloudProject(ctx, userCred, self, syncOwnerId, extDisk, storage.ManagerId)
@@ -1823,7 +1825,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		log.Warningln("SyncAttachDiskExt:", err)
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, &disk, extDisk)
+	syncVirtualResourceMetadata(ctx, userCred, &disk, extDisk, false)
 
 	SyncCloudProject(ctx, userCred, &disk, syncOwnerId, extDisk, storage.ManagerId)
 
@@ -3100,7 +3102,7 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i], account.ReadOnly)
 			syncResult.Update()
 		}
 		if !hasCreating && commonext[i].GetStatus() == api.SNAPSHOT_CREATING {
@@ -3112,7 +3114,7 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, local, added[i])
+			syncMetadata(ctx, userCred, local, added[i], false)
 			syncResult.Add()
 		}
 		if !hasCreating && added[i].GetStatus() == api.SNAPSHOT_CREATING {
