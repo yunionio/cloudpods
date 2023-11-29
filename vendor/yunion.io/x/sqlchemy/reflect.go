@@ -164,20 +164,11 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		if jsonV == jsonutils.JSONNull {
 			return nil
 		}
-		jsonM, err := jsonV.GetMap()
-		if err != nil {
-			return errors.Wrapf(err, "jsonV.GetMap val %s json %s", val, jsonV)
-		}
 		mapValue := reflect.MakeMap(value.Type())
 		value.Set(mapValue)
-		for k, jsonV := range jsonM {
-			elemValue := reflect.New(value.Type().Elem()).Elem()
-			jsonStr, _ := jsonV.GetString()
-			err := setValueBySQLString(elemValue, jsonStr)
-			if err != nil {
-				return errors.Wrapf(err, "TestSetValueBySQLString %s", jsonV.String())
-			}
-			value.SetMapIndex(reflect.ValueOf(k), elemValue)
+		err = jsonV.Unmarshal(mapValue.Interface())
+		if err != nil {
+			return errors.Wrapf(err, "jsonV.Unmarshal")
 		}
 		return nil
 	default:
@@ -208,7 +199,6 @@ func setValueBySQLString(value reflect.Value, val string) error {
 			}
 			value.Set(reflect.Indirect(newVal))
 			return nil
-			// return errors.Wrapf(ErrNotSupported, "not supported type: %s", valueType)
 		}
 	}
 }
