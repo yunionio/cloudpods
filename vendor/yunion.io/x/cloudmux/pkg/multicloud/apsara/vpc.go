@@ -203,7 +203,7 @@ func (self *SVpc) fetchSecurityGroups() error {
 			return err
 		}
 		secgroups = append(secgroups, parts...)
-		if len(secgroups) >= total {
+		if len(secgroups) >= total || len(parts) == 0 {
 			break
 		}
 	}
@@ -233,7 +233,7 @@ func (self *SVpc) fetchRouteTables() error {
 			return err
 		}
 		routeTables = append(routeTables, parts...)
-		if len(routeTables) >= total {
+		if len(routeTables) >= total || len(parts) == 0 {
 			break
 		}
 	}
@@ -290,7 +290,7 @@ func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 			return nil, err
 		}
 		nats = append(nats, parts...)
-		if len(nats) >= total {
+		if len(nats) >= total || len(parts) == 0 {
 			break
 		}
 	}

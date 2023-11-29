@@ -107,9 +107,8 @@ func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 				return nil, err
 			}
 			istorages = append(istorages, localStorages...)
-		case StorageTypeCeph:
+		default:
 			istorages = append(istorages, &storages[i])
-		case StorageTypeVCenter:
 		}
 	}
 	return istorages, nil
@@ -337,7 +336,11 @@ func (region *SRegion) createDataDisks(disks []cloudprovider.SDiskInfo, hostId s
 				return diskIds, err
 			}
 		default:
-			return diskIds, fmt.Errorf("not support storageType %s", disks[i].StorageType)
+			disk, err := region.CreateDisk(disks[i].Name, storage.UUID, "", "", disks[i].SizeGB, "")
+			if err != nil {
+				return diskIds, err
+			}
+			diskIds = append(diskIds, disk.UUID)
 		}
 	}
 	return diskIds, nil
