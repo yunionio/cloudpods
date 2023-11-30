@@ -1737,7 +1737,7 @@ func (bucket *SBucket) processObjectsActionInput(ctx context.Context, input api.
 }
 
 func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(bucket.ExternalId) == 0 {
+	if len(bucket.ExternalId) == 0 || options.Options.KeepTagLocalization {
 		return
 	}
 	if account := bucket.GetCloudaccount(); account != nil && account.ReadOnly {

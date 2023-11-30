@@ -1717,7 +1717,7 @@ func (self *SElasticcache) StartRemoteUpdateTask(ctx context.Context, userCred m
 }
 
 func (self *SElasticcache) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(self.ExternalId) == 0 {
+	if len(self.ExternalId) == 0 || options.Options.KeepTagLocalization {
 		return
 	}
 	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {

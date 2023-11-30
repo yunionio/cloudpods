@@ -2087,7 +2087,7 @@ func (self *SDBInstance) StartRemoteUpdateTask(ctx context.Context, userCred mcc
 }
 
 func (self *SDBInstance) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(self.ExternalId) == 0 {
+	if len(self.ExternalId) == 0 || options.Options.KeepTagLocalization {
 		return
 	}
 	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {
