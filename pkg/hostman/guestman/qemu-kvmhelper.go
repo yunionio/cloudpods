@@ -544,6 +544,7 @@ function nic_mtu() {
 			s.LiveMigrateUseTls = false
 		}
 	} else if s.Desc.IsSlave {
+		log.Infof("backup guest with dest port %v", s.LiveMigrateDestPort)
 		input.LiveMigratePort = uint(*s.LiveMigrateDestPort)
 	}
 
