@@ -144,7 +144,7 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	if output, err := procutils.NewCommand("mkdir", "-p", p.mountPath).Output(); err != nil {
 		return errors.Wrapf(err, "mkdir %s failed: %s", p.mountPath, output)
 	}
-	var cmds = []string{"mount"}
+	var cmds = []string{"mount", "-t"}
 	var opt, fsType string
 	if readonly {
 		opt = "ro"
@@ -158,9 +158,7 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	} else if fsType == "hfsplus" && !readonly {
 		opt = "force,rw"
 	}
-	if len(fsType) > 0 {
-		cmds = append(cmds, "-t", fsType)
-	}
+	cmds = append(cmds, fsType)
 	if len(opt) > 0 {
 		cmds = append(cmds, "-o", opt)
 	}
@@ -181,35 +179,13 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	}
 
 	retrier := func(utils.FibonacciRetrier) (bool, error) {
-		var errChan = make(chan error)
-		go func() {
-			output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
-			if err == nil {
-				errChan <- nil
-			} else {
-				log.Errorf("mount fail: %s %s", err, output)
-				time.Sleep(time.Millisecond * time.Duration(100+rand.Intn(400)))
-				errChan <- err
-			}
-		}()
-		select {
-		case err := <-errChan:
-			if err != nil {
-				return false, err
-			}
+		output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
+		if err == nil {
 			return true, nil
-		case <-time.After(time.Second * 3):
-			if fsType == "ntfs-3g" {
-				if err = procutils.NewCommand("mountpoint", p.mountPath).Run(); err != nil {
-					// mountpath is not a mountpoint
-					return false, err
-				} else {
-					// ntfs already mounted, but maybe in buildroot yunion os Failed to daemonize.
-					return true, nil
-				}
-			} else {
-				return false, errors.Errorf("mount timeout")
-			}
+		} else {
+			log.Errorf("mount fail: %s %s", err, output)
+			time.Sleep(time.Millisecond * time.Duration(100+rand.Intn(400)))
+			return false, errors.Wrap(err, "")
 		}
 	}
 	_, err = utils.NewFibonacciRetrierMaxTries(3, retrier).Start(context.Background())

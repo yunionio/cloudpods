@@ -319,11 +319,4 @@ const (
 
 	ACT_SYNC_TRAFFIC_LIMIT      = "sync_traffic_limit"
 	ACT_SYNC_TRAFFIC_LIMIT_FAIL = "sync_traffic_limit_fail"
-	ACT_BIND                    = "bind"
-	ACT_UNBIND                  = "unbind"
-
-	ACT_START_RESCUE        = "start_rescue"
-	ACT_STOP_RESCUE         = "stop_rescue"
-	ACT_START_RESCUE_FAILED = "start_rescue_failed"
-	ACT_STOP_RESCUE_FAILED  = "stop_rescue_failed"
 )

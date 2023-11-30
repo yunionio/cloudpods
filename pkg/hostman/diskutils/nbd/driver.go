@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/fsutils"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
-	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -59,7 +58,7 @@ func init() {
 	lock = new(sync.Mutex)
 }
 
-func (d *NBDDriver) Connect(*apis.GuestDesc) error {
+func (d *NBDDriver) Connect() error {
 	d.nbdDev = GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
 		return errors.Errorf("Cannot get nbd device")
@@ -261,41 +260,6 @@ func (d *NBDDriver) Zerofree() {
 
 func (d *NBDDriver) IsLVMPartition() bool {
 	return len(d.lvms) > 0
-}
-
-func (d *NBDDriver) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool {
-	return fsutils.DetectIsUEFISupport(rootfs, d.GetPartitions())
-}
-
-func (d *NBDDriver) MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
-	return fsutils.MountRootfs(readonly, d.GetPartitions())
-}
-
-func (d *NBDDriver) UmountRootfs(fd fsdriver.IRootFsDriver) error {
-	if part := fd.GetPartition(); part != nil {
-		return part.Umount()
-	}
-	return nil
-}
-
-func (d *NBDDriver) DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error) {
-	return fsutils.DeployGuestfs(d, req)
-}
-
-func (d *NBDDriver) ResizeFs() (*apis.Empty, error) {
-	return fsutils.ResizeFs(d)
-}
-
-func (d *NBDDriver) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error) {
-	return fsutils.SaveToGlance(d, req)
-}
-
-func (d *NBDDriver) FormatFs(req *apis.FormatFsParams) (*apis.Empty, error) {
-	return fsutils.FormatFs(d, req)
-}
-
-func (d *NBDDriver) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.ImageInfo, error) {
-	return fsutils.ProbeImageInfo(d)
 }
 
 func getQemuNbdVersion() (string, error) {

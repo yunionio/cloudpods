@@ -311,7 +311,6 @@ func (w *SWinRegTool) listRegistry(spath string, keySeg []string) ([]string, []s
 }
 
 func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode []int) bool {
-	log.Infof("cmdRegistry %s -e %v", GetChntpwPath(), spath)
 	proc := procutils.NewCommand(GetChntpwPath(), "-e", spath)
 	stdin, err := proc.StdinPipe()
 	if err != nil {
@@ -370,7 +369,7 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode []int) boo
 	case err := <-done:
 		if err != nil {
 			if exitStatus, ok := proc.GetExitStatus(err); ok {
-				log.Errorf("ops %v exit status: %d", ops, exitStatus)
+				log.Errorf("exit status: %d", exitStatus)
 				if in, _ := utils.InArray(exitStatus, retcode); in {
 					return true
 				}
