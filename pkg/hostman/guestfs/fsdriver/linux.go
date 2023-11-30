@@ -496,9 +496,6 @@ func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
 				if fileInfo.IsDir() {
 					continue
 				}
-				if fileInfo.Mode()&os.ModeSymlink != 0 {
-					continue
-				}
 				rp, err := filepath.EvalSymlinks(p)
 				if err != nil {
 					log.Errorf("readlink of %s: %s", p, err)

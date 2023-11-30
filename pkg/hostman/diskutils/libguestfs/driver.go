@@ -33,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/guestfishpart"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
-	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -74,7 +73,7 @@ func NewLibguestfsDriver(imageInfo qemuimg.SImageInfo) *SLibguestfsDriver {
 	}
 }
 
-func (d *SLibguestfsDriver) Connect(*apis.GuestDesc) error {
+func (d *SLibguestfsDriver) Connect() error {
 	fish, err := guestfsManager.AcquireFish()
 	if err != nil {
 		return err
@@ -250,39 +249,4 @@ func (d *SLibguestfsDriver) MakePartition2(fsFormat string) error {
 		return err
 	}
 	return nil
-}
-
-func (d *SLibguestfsDriver) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool {
-	return fsutils.DetectIsUEFISupport(rootfs, d.GetPartitions())
-}
-
-func (d *SLibguestfsDriver) MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
-	return fsutils.MountRootfs(readonly, d.GetPartitions())
-}
-
-func (d *SLibguestfsDriver) UmountRootfs(fd fsdriver.IRootFsDriver) error {
-	if part := fd.GetPartition(); part != nil {
-		return part.Umount()
-	}
-	return nil
-}
-
-func (d *SLibguestfsDriver) DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error) {
-	return fsutils.DeployGuestfs(d, req)
-}
-
-func (d *SLibguestfsDriver) ResizeFs() (*apis.Empty, error) {
-	return fsutils.ResizeFs(d)
-}
-
-func (d *SLibguestfsDriver) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error) {
-	return fsutils.SaveToGlance(d, req)
-}
-
-func (d *SLibguestfsDriver) FormatFs(req *apis.FormatFsParams) (*apis.Empty, error) {
-	return fsutils.FormatFs(d, req)
-}
-
-func (d *SLibguestfsDriver) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.ImageInfo, error) {
-	return fsutils.ProbeImageInfo(d)
 }

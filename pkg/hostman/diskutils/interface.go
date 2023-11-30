@@ -22,17 +22,12 @@ import (
 )
 
 type IDisk interface {
-	Connect(desc *apis.GuestDesc) error
+	Connect() error
 	Disconnect() error
 	MountRootfs() (fsdriver.IRootFsDriver, error)
 	UmountRootfs(driver fsdriver.IRootFsDriver) error
+	ResizePartition() error
 	Cleanup()
-
-	DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error)
-	ResizeFs() (res *apis.Empty, err error)
-	FormatFs(req *apis.FormatFsParams) (*apis.Empty, error)
-	SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error)
-	ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.ImageInfo, error)
 }
 
 type DiskParams struct {
@@ -52,4 +47,16 @@ func GetIDisk(params DiskParams, driver string, readOnly bool) (IDisk, error) {
 	default:
 		return NewKVMGuestDisk(params.DiskInfo, driver, readOnly)
 	}
+}
+
+type IDeployer interface {
+	Connect() error
+	Disconnect() error
+
+	GetPartitions() []fsdriver.IDiskPartition
+	IsLVMPartition() bool
+	Zerofree()
+	ResizePartition() error
+	FormatPartition(fs, uuid string) error
+	MakePartition(fs string) error
 }

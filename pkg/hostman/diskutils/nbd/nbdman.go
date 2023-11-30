@@ -148,15 +148,15 @@ func (m *SNBDManager) findNbdDevices() error {
 	for {
 		nbddev := fmt.Sprintf("/dev/nbd%d", i)
 		if fileutils2.Exists(nbddev) {
-			i++
 			if fileutils2.IsBlockDeviceUsed(nbddev) {
 				continue
 			}
 			m.nbdDevs[nbddev] = false
 			// https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-bdi
-			nbdBdi := fmt.Sprintf("/sys/block/nbd%d/bdi/", i-1)
+			nbdBdi := fmt.Sprintf("/sys/block/nbd%d/bdi/", i)
 			sysutils.SetSysConfig(nbdBdi+"max_ratio", "0")
 			sysutils.SetSysConfig(nbdBdi+"min_ratio", "0")
+			i++
 		} else {
 			break
 		}
