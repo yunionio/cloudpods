@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -302,25 +303,28 @@ func (manager *SDBInstanceManager) usedAddressQuery(args *usedAddressQueryArgs) 
 
 func (manager *SNetworkAddressManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
 	var (
-		baseq = NetworkAddressManager.Query().Equals("network_id", args.network.Id).SubQuery()
-		retq  *sqlchemy.SQuery
+		retq *sqlchemy.SQuery
 	)
 	if args.addrOnly {
+		baseq := NetworkAddressManager.Query().Equals("network_id", args.network.Id).SubQuery()
 		retq = baseq.Query(
 			baseq.Field("ip_addr"),
 		)
 	} else {
+		baseq := NetworkAddressManager.Query().Equals("parent_type", api.NetworkAddressParentTypeGuestnetwork).Equals("network_id", args.network.Id).SubQuery()
+		guestNetworks := GuestnetworkManager.Query().SubQuery()
+		guests := GuestManager.Query().SubQuery()
 		retq = baseq.Query(
 			baseq.Field("ip_addr"),
-			sqlchemy.NewStringField("").Label("mac_addr"),
+			guestNetworks.Field("mac_addr").Label("mac_addr"),
 			sqlchemy.NewStringField(NetworkAddressManager.KeywordPlural()).Label("owner_type"),
 			baseq.Field("id").Label("owner_id"),
 			sqlchemy.NewStringField("available").Label("owner_status"),
-			baseq.Field("id").Label("owner"),
+			guests.Field("name").Label("owner"),
 			baseq.Field("parent_id").Label("associate_id"),
 			baseq.Field("parent_type").Label("associate_type"),
 			baseq.Field("created_at"),
-		)
+		).Join(guestNetworks, sqlchemy.Equals(guestNetworks.Field("row_id"), baseq.Field("parent_id"))).Join(guests, sqlchemy.Equals(guests.Field("id"), guestNetworks.Field("guest_id")))
 		retq = NetworkAddressManager.FilterByOwner(retq, NetworkAddressManager, args.userCred, args.owner, args.scope)
 	}
 	return retq

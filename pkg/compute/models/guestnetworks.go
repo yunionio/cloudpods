@@ -142,27 +142,26 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 			GuestJointResourceDetails: guestRows[i],
 		}
 		netIds[i] = objs[i].(*SGuestnetwork).NetworkId
+		eipIds[i] = objs[i].(*SGuestnetwork).EipId
 		ipnets, err := NetworkAddressManager.fetchAddressesByGuestnetworkId(objs[i].(*SGuestnetwork).RowId)
 		if err != nil {
-			log.Errorln(err)
+			log.Errorf("NetworkAddressManager.fetchAddressesByGuestnetworkId %s", err)
 		} else if len(ipnets) > 0 {
 			rows[i].NetworkAddresses = ipnets
 		}
-		iNet, _ := NetworkManager.FetchById(netIds[i])
-		net := iNet.(*SNetwork)
-		rows[i].WireId = net.WireId
-		eipIds[i] = objs[i].(*SGuestnetwork).EipId
 	}
 
-	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	netMap := make(map[string]SNetwork)
+	err := db.FetchModelObjectsByIds(NetworkManager, "id", netIds, netMap)
 	if err != nil {
 		log.Errorf("FetchIdNameMap2 fail %s", err)
 		return rows
 	}
 
 	for i := range rows {
-		if name, ok := netIdMaps[netIds[i]]; ok {
-			rows[i].Network = name
+		if net, ok := netMap[netIds[i]]; ok {
+			rows[i].Network = net.Name
+			rows[i].WireId = net.WireId
 		}
 	}
 

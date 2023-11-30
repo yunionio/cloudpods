@@ -77,7 +77,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
-	if len(fields) == 0 || fields.Contains("ips") {
+	/*if len(fields) == 0 || fields.Contains("ips") {
 		gips := fetchGuestIPs(guestIds, tristate.False)
 		if gips != nil {
 			for i := range rows {
@@ -86,7 +86,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 				}
 			}
 		}
-	}
+	}*/
 	if len(fields) == 0 || fields.Contains("vip") {
 		gvips := fetchGuestVips(guestIds)
 		if gvips != nil {
@@ -107,26 +107,42 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
-	if len(fields) == 0 || fields.Contains("macs") {
-		gMacs := fetchGuestMacs(guestIds, tristate.False)
-		if gMacs != nil {
-			for i := range rows {
-				if gMac, ok := gMacs[guestIds[i]]; ok {
-					rows[i].Macs = strings.Join(gMac, ",")
-				}
-			}
-		}
-	}
-	if len(fields) == 0 || fields.Contains("nics") {
+
+	if len(fields) == 0 || fields.Contains("ips") || fields.Contains("macs") || fields.Contains("nics") || fields.Contains("subips") {
 		nicsMap := fetchGuestNICs(ctx, guestIds, tristate.False)
 		if nicsMap != nil {
 			for i := range rows {
 				if nics, ok := nicsMap[guestIds[i]]; ok {
-					rows[i].Nics = nics
+					if len(fields) == 0 || fields.Contains("nics") {
+						rows[i].Nics = nics
+					}
+					if len(fields) == 0 || fields.Contains("macs") {
+						macs := make([]string, 0, len(nics))
+						for _, nic := range nics {
+							macs = append(macs, nic.Mac)
+						}
+						rows[i].Macs = strings.Join(macs, ",")
+					}
+					if len(fields) == 0 || fields.Contains("ips") {
+						ips := make([]string, 0, len(nics))
+						for _, nic := range nics {
+							ips = append(ips, nic.IpAddr)
+						}
+						rows[i].IPs = strings.Join(ips, ",")
+					}
+					if len(fields) == 0 || fields.Contains("subips") {
+						subips := make([]string, 0)
+						for _, nic := range nics {
+							ips := strings.Split(nic.SubIps, ",")
+							subips = append(subips, ips...)
+						}
+						rows[i].SubIPs = subips
+					}
 				}
 			}
 		}
 	}
+
 	if len(fields) == 0 || fields.Contains("vpc") || fields.Contains("vpc_id") {
 		gvpcs := fetchGuestVpcs(guestIds)
 		if gvpcs != nil {
@@ -440,39 +456,15 @@ func fetchGuestVipEips(guestIds []string) map[string][]string {
 	return ret
 }
 
-func fetchGuestMacs(guestIds []string, virtual tristate.TriState) map[string][]string {
-	guestnetworks := GuestnetworkManager.Query().SubQuery()
-	q := guestnetworks.Query(guestnetworks.Field("guest_id"), guestnetworks.Field("mac_addr"))
-	q = q.In("guest_id", guestIds)
-	if virtual.IsTrue() {
-		q = q.IsTrue("virtual")
-	} else if virtual.IsFalse() {
-		q = q.IsFalse("virtual")
-	}
-	q = q.IsNotEmpty("mac_addr")
-	q = q.Asc("mac_addr")
-	type sGuestIdMacAddr struct {
-		GuestId string
-		MacAddr string
-	}
-	gims := make([]sGuestIdMacAddr, 0)
-	err := q.All(&gims)
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return nil
-	}
-	ret := make(map[string][]string)
-	for i := range gims {
-		if _, ok := ret[gims[i].GuestId]; !ok {
-			ret[gims[i].GuestId] = make([]string, 0)
-		}
-		ret[gims[i].GuestId] = append(ret[gims[i].GuestId], gims[i].MacAddr)
-	}
-	return ret
-}
-
 func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.TriState) map[string][]api.GuestnetworkShortDesc {
 	netq := NetworkManager.Query().SubQuery()
 	wirq := WireManager.Query().SubQuery()
+
+	subIPQ := NetworkAddressManager.Query("parent_id").Equals("parent_type", api.NetworkAddressParentTypeGuestnetwork)
+	subIPQ = subIPQ.AppendField(sqlchemy.GROUP_CONCAT("sub_ips", subIPQ.Field("ip_addr")))
+	subIPQ = subIPQ.GroupBy(subIPQ.Field("parent_id"))
+	subIP := subIPQ.SubQuery()
+
 	gnwq := GuestnetworkManager.Query()
 	q := gnwq.AppendField(
 		gnwq.Field("guest_id"),
@@ -483,17 +475,21 @@ func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.Tri
 		gnwq.Field("team_with"),
 		gnwq.Field("network_id"), // caution: do not alias netq.id as network_id
 		wirq.Field("vpc_id"),
+		subIP.Field("sub_ips"),
 	)
 	q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gnwq.Field("network_id")))
 	q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
+	q = q.LeftJoin(subIP, sqlchemy.Equals(q.Field("row_id"), subIP.Field("parent_id")))
 	q = q.In("guest_id", guestIds)
+
+	q.DebugQuery()
 
 	var descs []struct {
 		GuestId string `json:"guest_id"`
 		api.GuestnetworkShortDesc
 	}
 	if err := q.All(&descs); err != nil {
-		if err != sql.ErrNoRows {
+		if errors.Cause(err) != sql.ErrNoRows {
 			log.Errorf("query guest nics info: %v", err)
 		}
 		return nil
