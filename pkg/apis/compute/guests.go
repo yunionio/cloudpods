@@ -771,7 +771,7 @@ type ServerChangeConfigInput struct {
 	// cpu卡槽数
 	CpuSockets *int `json:"cpu_sockets"`
 	// cpu大小
-	VcpuCount int `json:"vcpu_count"`
+	VcpuCount *int `json:"vcpu_count"`
 	// 内存大小, 1024M, 1G
 	VmemSize string `json:"vmem_size"`
 
