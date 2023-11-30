@@ -651,6 +651,9 @@ func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("failed to fetch cloudregions: %v", err)
 		return
 	}
+	if len(cloudregions) == 0 {
+		return
+	}
 
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
