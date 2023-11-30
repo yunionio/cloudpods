@@ -308,6 +308,10 @@ func SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, isSta
 			return errors.Wrapf(err, "fetchCloudEnvs")
 		}
 
+		if len(cloudEnvs) == 0 {
+			return nil
+		}
+
 		meta, err := yunionmeta.FetchYunionmeta(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "FetchYunionmeta")

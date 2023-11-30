@@ -1600,6 +1600,10 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 			return
 		}
 	}
+	cloudregions := fetchSkuSyncCloudregions()
+	if len(cloudregions) == 0 {
+		return
+	}
 
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
@@ -1613,7 +1617,6 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 		return
 	}
 
-	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
 
