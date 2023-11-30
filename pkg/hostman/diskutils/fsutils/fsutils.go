@@ -23,11 +23,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/deploy_iface"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
@@ -44,7 +47,7 @@ func IsPartedFsString(fsstr string) bool {
 	})
 }
 
-func ParseDiskPartition(dev string, lines []byte) ([][]string, string) {
+func ParseDiskPartition(dev string, lines []string) ([][]string, string) {
 	var (
 		parts        = [][]string{}
 		label        string
@@ -52,7 +55,7 @@ func ParseDiskPartition(dev string, lines []byte) ([][]string, string) {
 		partten      = regexp.MustCompile(`(?P<idx>\d+)\s+(?P<start>\d+)s\s+(?P<end>\d+)s\s+(?P<count>\d+)s`)
 	)
 
-	for _, line := range strings.Split(string(lines), "\n") {
+	for _, line := range lines {
 		if len(label) == 0 {
 			m := regutils2.GetParams(labelPartten, line)
 			if len(m) > 0 {
@@ -135,7 +138,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		log.Errorf("resize disk fs fail, output: %s , error: %s", lines, err)
 		return err
 	}
-	parts, label := ParseDiskPartition(diskPath, lines)
+	parts, label := ParseDiskPartition(diskPath, strings.Split(string(lines), "\n"))
 	log.Infof("Parts: %v label: %s", parts, label)
 	maxSector := GetDevSector512Count(path.Base(diskPath))
 	if label == "gpt" {
@@ -199,7 +202,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		if label == "msdos" && end >= 4294967296 {
 			end = 4294967295
 		}
-		if isSupportResizeFs(part[6]) {
+		if IsSupportResizeFs(part[6]) {
 			cmds := []string{"parted", "-a", "none", "-s", diskPath, "--", "resizepart", part[0], fmt.Sprintf("%ds", end)}
 			log.Infof("resize disk partition: %s", cmds)
 			output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
@@ -215,7 +218,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 	return nil
 }
 
-func isSupportResizeFs(fs string) bool {
+func IsSupportResizeFs(fs string) bool {
 	if strings.HasPrefix(fs, "linux-swap") {
 		return true
 	} else if strings.HasPrefix(fs, "ext") {
@@ -405,4 +408,188 @@ func FormatPartition(path, fs, uuid string) error {
 		return nil
 	}
 	return fmt.Errorf("Unknown fs %s", fs)
+}
+
+func DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver, partitions []fsdriver.IDiskPartition) bool {
+	for i := 0; i < len(partitions); i++ {
+		if partitions[i].IsMounted() {
+			if rootfs.DetectIsUEFISupport(partitions[i]) {
+				return true
+			}
+		} else {
+			if partitions[i].Mount() {
+				support := rootfs.DetectIsUEFISupport(partitions[i])
+				if err := partitions[i].Umount(); err != nil {
+					log.Errorf("failed umount %s: %s", partitions[i].GetPartDev(), err)
+				}
+				if support {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func MountRootfs(readonly bool, partitions []fsdriver.IDiskPartition) (fsdriver.IRootFsDriver, error) {
+	errs := []error{}
+	for i := 0; i < len(partitions); i++ {
+		log.Infof("detect partition %s", partitions[i].GetPartDev())
+		mountFunc := partitions[i].Mount
+		if readonly {
+			mountFunc = partitions[i].MountPartReadOnly
+		}
+		if mountFunc() {
+			fs, err := guestfs.DetectRootFs(partitions[i])
+			if err == nil {
+				log.Infof("Use rootfs %s, partition %s", fs, partitions[i].GetPartDev())
+				return fs, nil
+			}
+			errs = append(errs, err)
+			if err := partitions[i].Umount(); err != nil {
+				log.Errorf("failed umount %s: %s", partitions[i].GetPartDev(), err)
+			}
+		}
+	}
+	if len(partitions) == 0 {
+		return nil, errors.Wrap(errors.ErrNotFound, "not found any partition")
+	}
+	var err error = errors.ErrNotFound
+	if len(errs) > 0 {
+		err = errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
+	}
+	return nil, err
+}
+
+func DeployGuestfs(d deploy_iface.IDeployer, req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error) {
+	root, err := d.MountRootfs(false)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound && req.DeployInfo.IsInit {
+			// if init deploy, ignore no partition error
+			log.Errorf("disk.MountRootfs not found partition, not init, quit")
+			return nil, nil
+		}
+		log.Errorf("Failed mounting rootfs for %s disk: %s", req.GuestDesc.Hypervisor, err)
+		return nil, err
+	}
+	defer d.UmountRootfs(root)
+	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
+	if err != nil {
+		log.Errorf("guestfs.DoDeployGuestFs fail %s", err)
+		return nil, err
+	}
+	if ret == nil {
+		log.Errorf("guestfs.DoDeployGuestFs return empty results")
+		return nil, nil
+	}
+	return ret, nil
+}
+
+func ResizeFs(d deploy_iface.IDeployer) (*apis.Empty, error) {
+	unmount := func(root fsdriver.IRootFsDriver) error {
+		err := d.UmountRootfs(root)
+		if err != nil {
+			return errors.Wrap(err, "unmount rootfs")
+		}
+		return nil
+	}
+
+	root, err := d.MountRootfs(false)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return new(apis.Empty), nil
+		}
+		return new(apis.Empty), errors.Wrapf(err, "disk.MountRootfs")
+	}
+	if !root.IsResizeFsPartitionSupport() {
+		err := unmount(root)
+		if err != nil {
+			return new(apis.Empty), err
+		}
+		return new(apis.Empty), errors.ErrNotSupported
+	}
+
+	// must umount rootfs before resize partition
+	err = unmount(root)
+	if err != nil {
+		return new(apis.Empty), err
+	}
+	err = d.ResizePartition()
+	if err != nil {
+		return new(apis.Empty), errors.Wrap(err, "resize disk partition")
+	}
+	return new(apis.Empty), nil
+}
+
+func FormatFs(d deploy_iface.IDeployer, req *apis.FormatFsParams) (*apis.Empty, error) {
+	err := d.MakePartition(req.FsFormat)
+	if err != nil {
+		return new(apis.Empty), errors.Wrap(err, "MakePartition")
+	}
+	err = d.FormatPartition(req.FsFormat, req.Uuid)
+	if err != nil {
+		return new(apis.Empty), errors.Wrap(err, "FormatPartition")
+	}
+	return new(apis.Empty), nil
+}
+
+func SaveToGlance(d deploy_iface.IDeployer, req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error) {
+	var (
+		osInfo  string
+		relInfo *apis.ReleaseInfo
+	)
+
+	ret := &apis.SaveToGlanceResponse{
+		OsInfo:      osInfo,
+		ReleaseInfo: relInfo,
+	}
+
+	root, err := d.MountRootfs(false)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return ret, nil
+		}
+		return ret, errors.Wrapf(err, "MountKvmRootfs")
+	}
+	defer d.UmountRootfs(root)
+
+	osInfo = root.GetOs()
+	relInfo = root.GetReleaseInfo(root.GetPartition())
+	if req.Compress {
+		err = root.PrepareFsForTemplate(root.GetPartition())
+		if err != nil {
+			log.Errorf("PrepareFsForTemplate %s", err)
+		}
+	}
+	if req.Compress {
+		d.Zerofree()
+	}
+	return ret, err
+}
+
+func ProbeImageInfo(d deploy_iface.IDeployer) (*apis.ImageInfo, error) {
+	// Fsck is executed during mount
+	rootfs, err := d.MountRootfs(false)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return new(apis.ImageInfo), nil
+		}
+		return new(apis.ImageInfo), errors.Wrapf(err, "d.MountKvmRootfs")
+	}
+	partition := rootfs.GetPartition()
+	imageInfo := &apis.ImageInfo{
+		OsInfo:               rootfs.GetReleaseInfo(partition),
+		OsType:               rootfs.GetOs(),
+		IsLvmPartition:       d.IsLVMPartition(),
+		IsReadonly:           partition.IsReadonly(),
+		IsInstalledCloudInit: rootfs.IsCloudinitInstall(),
+	}
+	d.UmountRootfs(rootfs)
+
+	// In case of deploy driver is guestfish, we can't mount
+	// multi partition concurrent, so we need umount rootfs first
+	imageInfo.IsUefiSupport = d.DetectIsUEFISupport(rootfs)
+	imageInfo.PhysicalPartitionType = partition.GetPhysicalPartitionType()
+	log.Infof("ProbeImageInfo response %s", imageInfo)
+	return imageInfo, nil
 }

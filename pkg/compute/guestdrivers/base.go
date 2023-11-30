@@ -546,14 +546,14 @@ func (drv *SBaseGuestDriver) SyncOsInfo(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (drv *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
-	return httperrors.ErrNotImplemented
-}
-
-func (drv *SBaseGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
-	return httperrors.ErrNotImplemented
-}
-
 func (self *SBaseGuestDriver) ValidateSetOSInfo(ctx context.Context, userCred mcclient.TokenCredential, _ *models.SGuest, _ *api.ServerSetOSInfoInput) error {
 	return nil
+}
+
+func (self *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	return httperrors.ErrNotImplemented
+}
+
+func (self *SBaseGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
+	return httperrors.ErrNotImplemented
 }

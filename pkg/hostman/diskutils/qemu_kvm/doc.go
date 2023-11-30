@@ -12,11 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package consts
-
-const (
-	DEPLOY_DRIVER_NBD        = "nbd"
-	DEPLOY_DRIVER_LIBGUESTFS = "libguestfs"
-	DEPLOY_DRIVER_QEMU_KVM   = "qemu-kvm"
-	DEPLOY_DRIVER_LOCAL_DISK = "local"
-)
+package qemu_kvm // import "yunion.io/x/onecloud/pkg/hostman/diskutils/qemu_kvm"

@@ -219,25 +219,10 @@ func generateScsiOptions(scsi *desc.SGuestVirtioScsi) string {
 	return opt
 }
 
-func generateInitrdOptions(drvOpt QemuOptions, initrdPath, kernel, sys_img string, rescueDiskDeviceBus, rescueDiskDeviceSlot uint, nics []*desc.SGuestNetwork) []string {
+func generateInitrdOptions(drvOpt QemuOptions, initrdPath, kernel string) []string {
 	opts := make([]string, 0)
-	opts = append(opts, fmt.Sprintf("-initrd %s", initrdPath))
-	opts = append(opts, fmt.Sprintf("-kernel %s", kernel))
-
-	// create temp disk info
-	driveString := fmt.Sprintf("file=%s,if=none,id=initrd,cache=none,aio=native,file.locking=off", sys_img)
-	opts = append(opts, drvOpt.Drive(driveString))
-	deviceString := fmt.Sprintf("virtio-blk-pci,drive=initrd,iothread=iothread0,bus=pci.%d,addr=0x%02x,id=initrd,bootindex=1", rescueDiskDeviceBus, rescueDiskDeviceSlot)
-	opts = append(opts, drvOpt.Device(deviceString))
-
-	// add ip config
-	//var ips []string
-	//for _, nic := range nics {
-	//	ips = append(ips, fmt.Sprintf("ip=%s:%s:%s:%s:%s:%s:off,", nic.Ip, "", nic.Gateway, netutils.Masklen2Mask(nic.Masklen).String(), "", nic.Ifname))
-	//}
-	//appendIps := strings.Join(ips, ",")
-	//
-	//opts = append(opts, fmt.Sprintf("-append %s", appendIps))
+	opts = append(opts, drvOpt.Initrd(initrdPath))
+	opts = append(opts, drvOpt.Kernel(kernel))
 
 	return opts
 }
@@ -659,11 +644,8 @@ type GenerateStartOptionsInput struct {
 
 	EncryptKeyPath string
 
-	RescueInitdPath      string // rescue initramfs path
-	RescueKernelPath     string // rescue kernel path
-	RescueDiskPath       string // rescue disk path
-	RescueDiskDeviceBus  uint
-	RescueDiskDeviceSlot uint
+	RescueInitrdPath string // rescue initramfs path
+	RescueKernelPath string // rescue kernel path
 }
 
 func (input *GenerateStartOptionsInput) HasBootIndex() bool {
@@ -788,15 +770,11 @@ func GenerateStartOptions(
 	}
 
 	// generate initrd and kernel options
-	if input.RescueInitdPath != "" {
+	if input.GuestDesc.LightMode {
 		opts = append(opts, generateInitrdOptions(
 			drvOpt,
-			input.RescueInitdPath,
+			input.RescueInitrdPath,
 			input.RescueKernelPath,
-			input.RescueDiskPath,
-			input.RescueDiskDeviceBus,
-			input.RescueDiskDeviceSlot,
-			input.GuestDesc.Nics,
 		)...)
 	}
 
@@ -835,7 +813,7 @@ func GenerateStartOptions(
 	}
 
 	// isolated devices
-	if len(input.GuestDesc.IsolatedDevices) > 0 {
+	if len(input.GuestDesc.IsolatedDevices) > 0 && !input.GuestDesc.LightMode {
 		opts = append(opts, generateIsolatedDeviceOptions(input.GuestDesc)...)
 	}
 
