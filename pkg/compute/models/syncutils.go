@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -43,6 +44,9 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 	sysStore := make(map[string]string, 0)
 	for key, value := range sysTags {
 		sysStore[db.SYS_CLOUD_TAG_PREFIX+key] = value
+	}
+	if options.Options.KeepTagLocalization {
+		readOnly = true
 	}
 	model.SetSysCloudMetadataAll(ctx, sysStore, userCred, readOnly)
 
@@ -74,6 +78,9 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 		} else {
 			sysStore[db.SYS_CLOUD_TAG_PREFIX+"project"] = extProject.Name
 		}
+	}
+	if options.Options.KeepTagLocalization {
+		readOnly = true
 	}
 
 	model.SetSysCloudMetadataAll(ctx, sysStore, userCred, readOnly)

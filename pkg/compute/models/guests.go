@@ -6535,7 +6535,7 @@ func (guest *SGuest) StartRemoteUpdateTask(ctx context.Context, userCred mcclien
 }
 
 func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(guest.ExternalId) == 0 {
+	if len(guest.ExternalId) == 0 || options.Options.KeepTagLocalization {
 		return
 	}
 	host, err := guest.GetHost()
