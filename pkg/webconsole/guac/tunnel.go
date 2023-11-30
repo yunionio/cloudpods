@@ -67,7 +67,6 @@ func (self *GuacamoleTunnel) start() error {
 			select {
 			case <-self.stopChan:
 				close(self.instructs)
-				close(self.err)
 				return
 			default:
 				n, err := self.conn.Read(buf)
@@ -91,6 +90,7 @@ func (self *GuacamoleTunnel) start() error {
 }
 
 func (self *GuacamoleTunnel) Stop() {
+	self.err <- fmt.Errorf("guacamole tunnel stoped")
 	self.stopChan <- true
 }
 
