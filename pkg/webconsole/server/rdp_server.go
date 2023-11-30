@@ -92,8 +92,7 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	done := make(chan bool, 3)
-	stop := make(chan bool)
+	done := make(chan bool, 4)
 	timer := time.NewTimer(time.Microsecond * 100)
 	setDone := func() {
 		done <- true
@@ -108,8 +107,8 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				log.Errorf("read one error: %v", err)
 				return
 			}
-			if options.Options.SshSessionTimeoutMinutes > 0 && timer != nil {
-				timer.Reset(time.Duration(options.Options.SshSessionTimeoutMinutes) * time.Minute)
+			if options.Options.RdpSessionTimeoutMinutes > 0 && timer != nil {
+				timer.Reset(time.Duration(options.Options.RdpSessionTimeoutMinutes) * time.Minute)
 			}
 			if !gotypes.IsNil(ins) {
 				err = ws.WriteMessage(websocket.TextMessage, []byte(ins.String()))
@@ -134,8 +133,8 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				continue
 			}
-			if options.Options.SshSessionTimeoutMinutes > 0 && timer != nil {
-				timer.Reset(time.Duration(options.Options.SshSessionTimeoutMinutes) * time.Minute)
+			if options.Options.RdpSessionTimeoutMinutes > 0 && timer != nil {
+				timer.Reset(time.Duration(options.Options.RdpSessionTimeoutMinutes) * time.Minute)
 			}
 			_, err = tunnel.Write(p)
 			if err != nil {
@@ -145,9 +144,10 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	stop := make(chan bool)
 	go func() {
-		if options.Options.SshSessionTimeoutMinutes > 0 {
-			timer.Reset(time.Duration(options.Options.SshSessionTimeoutMinutes) * time.Minute)
+		if options.Options.RdpSessionTimeoutMinutes > 0 {
+			timer.Reset(time.Duration(options.Options.RdpSessionTimeoutMinutes) * time.Minute)
 		}
 		defer timer.Stop()
 		defer setDone()
@@ -157,7 +157,7 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			case <-stop:
 				return
 			case <-timer.C:
-				if options.Options.SshSessionTimeoutMinutes > 0 {
+				if options.Options.RdpSessionTimeoutMinutes > 0 {
 					return
 				}
 				timer.Reset(time.Microsecond * 100)
@@ -165,10 +165,14 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	err = tunnel.Wait()
-	if err != nil {
-		log.Errorf("wait error: %v", err)
-	}
+	go func() {
+		defer setDone()
+
+		err = tunnel.Wait()
+		if err != nil {
+			log.Errorf("wait error: %v", err)
+		}
+	}()
 
 	<-done
 	stop <- true
