@@ -31,6 +31,7 @@ type WebConsoleOptions struct {
 	ApsaraConsoleAddr        string `help:"Apsara console addr" default:"https://xxxx.com.cn/module/ecs/vnc/index.html"`
 	AliyunConsoleAddr        string `help:"Aliyun vnc addr" default:"https://ecs.console.aliyun.com/vnc/index.htm"`
 	SshSessionTimeoutMinutes int    `help:"ssh timeout session" default:"-1"`
+	RdpSessionTimeoutMinutes int    `help:"rdp timeout session" default:"-1"`
 }
 
 func OnOptionsChange(oldO, newO interface{}) bool {
