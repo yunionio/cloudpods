@@ -2731,10 +2731,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			}
 		}
 	} else {
-		if input.VcpuCount != self.VcpuCount {
+		if input.VcpuCount != nil && *input.VcpuCount != self.VcpuCount {
 			cpuChanged = true
-			addCpu = input.VcpuCount - self.VcpuCount
-			confs.Add(jsonutils.NewInt(int64(input.VcpuCount)), "vcpu_count")
+			addCpu = *input.VcpuCount - self.VcpuCount
+			confs.Add(jsonutils.NewInt(int64(*input.VcpuCount)), "vcpu_count")
 		}
 		if len(input.VmemSize) > 0 {
 			if !regutils.MatchSize(input.VmemSize) {
