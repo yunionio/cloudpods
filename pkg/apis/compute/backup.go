@@ -191,3 +191,12 @@ func (ba *SBackupStorageAccessInfo) String() string {
 func (ba *SBackupStorageAccessInfo) IsZero() bool {
 	return ba == nil
 }
+
+type ServerCreateInstanceBackupInput struct {
+	// 主机备份名称
+	Name string `json:"name"`
+	// 主机备份的生成名称
+	GenerateName string `json:"generate_name"`
+	// 备份存储ID
+	BackupStorageId string `json:"backup_storage_id"`
+}
