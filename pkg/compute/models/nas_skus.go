@@ -347,6 +347,10 @@ func SyncRegionNasSkus(ctx context.Context, userCred mcclient.TokenCredential, r
 		return errors.Wrapf(err, "db.FetchModelObjects")
 	}
 
+	if len(regions) == 0 {
+		return nil
+	}
+
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "FetchYunionmeta")
