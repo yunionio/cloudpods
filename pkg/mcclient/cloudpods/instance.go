@@ -293,7 +293,7 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
 	input := api.ServerChangeConfigInput{}
 	input.VmemSize = fmt.Sprintf("%dM", opts.MemoryMB)
-	input.VcpuCount = opts.Cpu
+	input.VcpuCount = &opts.Cpu
 	input.InstanceType = opts.InstanceType
 	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "change-config", input)
 	return err
