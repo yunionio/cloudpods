@@ -72,6 +72,10 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 		return
 	}
 
+	if len(regions) == 0 {
+		return
+	}
+
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
 		log.Errorf("FetchYunionmeta %v", err)
