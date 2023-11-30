@@ -521,14 +521,6 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, errors.Wrap(err, "fuse mount")
 	}
 
-	// init live migrate listen port
-	if jsonutils.QueryBoolean(data, "need_migrate", false) || s.Desc.IsSlave {
-		migratePort := s.manager.GetLiveMigrateFreePort()
-		defer s.manager.unsetPort(migratePort)
-		migratePortInt64 := int64(migratePort)
-		s.LiveMigrateDestPort = &migratePortInt64
-	}
-
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		var sourceDesc = new(desc.SGuestDesc)
 		err = data.Unmarshal(sourceDesc, "src_desc")
@@ -539,6 +531,16 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	} else {
 		err = s.updateGuestDesc()
 	}
+
+	// init live migrate listen port
+	if jsonutils.QueryBoolean(data, "need_migrate", false) || s.Desc.IsSlave {
+		log.Infof("backup guest alloc dest port %v", s.LiveMigrateDestPort)
+		migratePort := s.manager.GetLiveMigrateFreePort()
+		defer s.manager.unsetPort(migratePort)
+		migratePortInt64 := int64(migratePort)
+		s.LiveMigrateDestPort = &migratePortInt64
+	}
+
 	if err != nil {
 		if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 			hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
@@ -1777,6 +1779,7 @@ func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
 		s.Monitor.Disconnect()
 		s.Monitor = nil
 	}
+	s.LiveMigrateDestPort = nil
 }
 
 func (s *SKVMGuestInstance) CleanupCpuset() {
