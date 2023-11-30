@@ -106,6 +106,8 @@ type QemuOptions interface {
 	Pidfile(file string) string
 	USB() string
 	VNC(port uint, usePasswd bool) string
+	Initrd(initrdPath string) string
+	Kernel(kernelPath string) string
 }
 
 var (
@@ -326,6 +328,14 @@ func (o baseOptions) Pidfile(file string) string {
 
 func (o baseOptions) USB() string {
 	return "-usb"
+}
+
+func (o baseOptions) Initrd(initrdPath string) string {
+	return "-initrd " + initrdPath
+}
+
+func (o baseOptions) Kernel(kernelPath string) string {
+	return "-kernel " + kernelPath
 }
 
 func (o baseOptions) VNC(port uint, usePasswd bool) string {

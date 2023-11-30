@@ -311,7 +311,7 @@ func (m *QmpMonitor) Query(cmd *Command, cb qmpMonitorCallBack) {
 	}
 }
 
-func (m *QmpMonitor) ConnectWithSocket(address string) error {
+func (m *QmpMonitor) ConnectWithSocket(address string, timeout time.Duration) error {
 	err := m.SBaseMonitor.connect("unix", address)
 	if err != nil {
 		return err
