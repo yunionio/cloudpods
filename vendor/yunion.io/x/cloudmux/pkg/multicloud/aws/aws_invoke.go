@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
 
 // eks only
@@ -53,6 +54,18 @@ func (self *SAwsClient) invoke(regionId, serviceName, serviceId, apiVersion stri
 		metadata.TargetPrefix = "AWSPriceListService"
 		metadata.JSONVersion = "1.1"
 	}
+	if serviceName == ECS_SERVICE_NAME {
+		metadata.TargetPrefix = "AmazonEC2ContainerServiceV20141113"
+		metadata.JSONVersion = "1.1"
+	}
+	if serviceName == KINESIS_SERVICE_NAME {
+		metadata.TargetPrefix = "Kinesis_20131202"
+		metadata.JSONVersion = "1.1"
+	}
+	if serviceName == DYNAMODB_SERVICE_NAME {
+		metadata.TargetPrefix = "DynamoDB_20120810"
+		metadata.JSONVersion = "1.0"
+	}
 
 	if self.debug {
 		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody))
@@ -71,7 +84,7 @@ func (self *SAwsClient) invoke(regionId, serviceName, serviceId, apiVersion stri
 
 func jsonInvoke(cli *client.Client, apiName, path string, params map[string]interface{}, retval interface{}, debug bool) error {
 	method := "POST"
-	for _, key := range []string{"List", "Describe"} {
+	for _, key := range []string{"List", "Describe", "Get"} {
 		if strings.HasPrefix(apiName, key) {
 			method = "GET"
 			break
@@ -88,6 +101,14 @@ func jsonInvoke(cli *client.Client, apiName, path string, params map[string]inte
 			}
 		}
 	}
+	if utils.IsInStringArray(cli.ServiceName, []string{
+		ECS_SERVICE_NAME,
+		KINESIS_SERVICE_NAME,
+		DYNAMODB_SERVICE_NAME,
+	}) {
+		method = "POST"
+	}
+
 	op := &request.Operation{
 		Name:       apiName,
 		HTTPMethod: method,

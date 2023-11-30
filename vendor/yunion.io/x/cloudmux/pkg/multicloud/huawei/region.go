@@ -76,6 +76,10 @@ func (self *SRegion) post(service, resource string, params map[string]interface{
 	return self.client.post(service, self.ID, resource, params)
 }
 
+func (self *SRegion) patch(service, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.patch(service, self.ID, resource, query, params)
+}
+
 func (self *SRegion) getECSClient() (*client.Client, error) {
 	var err error
 

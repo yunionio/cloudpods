@@ -49,8 +49,10 @@ func (nic *SVirtualNIC) GetId() string {
 
 func (nic *SVirtualNIC) GetIP() string {
 	guestIps := nic.vm.getGuestIps()
-	if ip, ok := guestIps[nic.GetMAC()]; ok {
-		return ip
+	if nicConf, ok := guestIps[nic.GetMAC()]; ok {
+		if len(nicConf.IPs) > 0 {
+			return nicConf.IPs[0]
+		}
 	}
 	log.Warningf("cannot find ip for mac %s", nic.GetMAC())
 	return ""
@@ -70,4 +72,14 @@ func (nic *SVirtualNIC) InClassicNetwork() bool {
 
 func (nic *SVirtualNIC) GetINetworkId() string {
 	return ""
+}
+
+func (nic *SVirtualNIC) GetSubAddress() ([]string, error) {
+	guestIps := nic.vm.getGuestIps()
+	if nicConf, ok := guestIps[nic.GetMAC()]; ok {
+		if len(nicConf.IPs) > 1 {
+			return nicConf.IPs[1:], nil
+		}
+	}
+	return nil, nil
 }

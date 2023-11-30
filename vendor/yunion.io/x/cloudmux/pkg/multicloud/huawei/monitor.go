@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -552,7 +553,8 @@ func (self *SHuaweiClient) getLoadbalancerMetrics(opts *cloudprovider.MetricList
 }
 
 func (self *SHuaweiClient) getModelartsPoolMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	resp, err := self.modelartsPoolMonitor(opts.ResourceId, nil)
+	resource := fmt.Sprintf("pools/%s/monitor", opts.ResourceId)
+	resp, err := self.list(SERVICE_MODELARTS, self.clientRegion, resource, nil)
 	if err != nil {
 		return nil, err
 	}

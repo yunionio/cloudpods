@@ -173,8 +173,8 @@ func (self *SCdnDomain) GetProjectId() string {
 }
 
 func (cd *SCdnDomain) Delete() error {
-	_, err := cd.client.cdnDelete("cdn/domains/" + cd.Id)
-	return errors.Wrapf(err, "DeleteCdnDomain")
+	_, err := cd.client.delete(SERVICE_CDN, "", "cdn/domains/"+cd.Id)
+	return err
 }
 
 func (hc *SHuaweiClient) GetICloudCDNDomains() ([]cloudprovider.ICloudCDNDomain, error) {
@@ -242,7 +242,7 @@ func (hc *SHuaweiClient) DescribeUserDomains(domain string, pageSize, pageNumber
 	if len(domain) > 0 {
 		params["domain_name"] = []string{domain}
 	}
-	resp, err := hc.cdnList("cdn/domains", params)
+	resp, err := hc.list(SERVICE_CDN, "", "cdn/domains", params)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "DescribeUserDomains")
 	}
@@ -258,7 +258,8 @@ func (hc *SHuaweiClient) DescribeUserDomains(domain string, pageSize, pageNumber
 }
 
 func (hc *SHuaweiClient) GetCdnDomain(domainID, epID string) (*SCdnDomain, error) {
-	resp, err := hc.cdnGet("cdn/domains/"+domainID+"/detail", epID)
+	params := url.Values{"enterprise_project_id": []string{epID}}
+	resp, err := hc.list(SERVICE_CDN, "", "cdn/domains/"+domainID+"/detail", params)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ShowDomainDetail")
 	}
