@@ -149,6 +149,18 @@ const (
 
 	CDN_SERVICE_NAME = "cloudfront"
 	CDN_SERVICE_ID   = "CloudFront"
+
+	ECS_SERVICE_NAME = "ecs"
+	ECS_SERVICE_ID   = "ECS"
+
+	LAMBDA_SERVICE_NAME = "lambda"
+	LAMBDA_SERVICE_ID   = "Lambda"
+
+	KINESIS_SERVICE_NAME = "kinesis"
+	KINESIS_SERVICE_ID   = "Kinesis"
+
+	DYNAMODB_SERVICE_NAME = "dynamodb"
+	DYNAMODB_SERVICE_ID   = "DynamoDB"
 )
 
 type SRegion struct {
@@ -240,6 +252,23 @@ func (self *SRegion) ec2Request(apiName string, params map[string]string, retval
 
 func (self *SAwsClient) monitorRequest(regionId, apiName string, params map[string]string, retval interface{}) error {
 	return self.request(regionId, CLOUDWATCH_SERVICE_NAME, CLOUDWATCH_SERVICE_ID, "2010-08-01", apiName, params, retval, true)
+}
+
+// Amazon Elastic Container Service
+func (self *SRegion) ecsRequest(apiName string, params map[string]interface{}, retval interface{}) error {
+	return self.client.ecsRequest(self.RegionId, apiName, params, retval, true)
+}
+
+func (self *SRegion) lambdaRequest(apiName, path string, params map[string]interface{}, retval interface{}) error {
+	return self.client.lambdaRequest(self.RegionId, apiName, path, params, retval, true)
+}
+
+func (self *SRegion) kinesisRequest(apiName, path string, params map[string]interface{}, retval interface{}) error {
+	return self.client.kinesisRequest(self.RegionId, apiName, path, params, retval, true)
+}
+
+func (self *SRegion) dynamodbRequest(apiName string, params map[string]interface{}, retval interface{}) error {
+	return self.client.invoke(self.RegionId, DYNAMODB_SERVICE_NAME, DYNAMODB_SERVICE_ID, "2012-08-10", apiName, "", params, retval, true)
 }
 
 func (self *SRegion) eksRequest(apiName, path string, params map[string]interface{}, retval interface{}) error {

@@ -76,7 +76,7 @@ type SVirtualMachine struct {
 	ihost     cloudprovider.ICloudHost
 	snapshots []SVirtualMachineSnapshot
 
-	guestIps map[string]string
+	guestIps map[string]sNicConfig
 
 	osInfo *imagetools.ImageInfo
 }
@@ -921,45 +921,43 @@ func (svm *SVirtualMachine) getVdev(key int32) SVirtualDevice {
 
 func (svm *SVirtualMachine) getNetTags() string {
 	info := make([]string, 0)
-	moVM := svm.getVirtualMachine()
-	for _, net := range moVM.Guest.Net {
-		mac := netutils.FormatMacAddr(net.MacAddress)
-		ips := make([]string, 0)
-		for _, ip := range net.IpAddress {
-			if regutils.MatchIP4Addr(ip) && !strings.HasPrefix(ip, "169.254.") {
-				ips = append(ips, ip)
-			}
-		}
-		if len(mac) > 0 && len(net.Network) > 0 && len(ips) > 0 {
-			info = append(info, mac, net.Network)
-			info = append(info, ips...)
-		}
+	for _, nicConf := range svm.getGuestIps() {
+		info = append(info, nicConf.Mac, nicConf.Network)
+		info = append(info, nicConf.IPs...)
 	}
 	return strings.Join(info, "/")
 }
 
-func (svm *SVirtualMachine) fetchGuestIps() map[string]string {
-	guestIps := make(map[string]string)
+type sNicConfig struct {
+	Mac     string
+	Network string
+	IPs     []string
+}
+
+func (svm *SVirtualMachine) fetchGuestIps() map[string]sNicConfig {
+	guestIps := make(map[string]sNicConfig)
 	moVM := svm.getVirtualMachine()
 	for _, net := range moVM.Guest.Net {
 		if len(net.Network) == 0 {
 			continue
 		}
-		mac := netutils.FormatMacAddr(net.MacAddress)
+		nicConf := sNicConfig{}
+		nicConf.Mac = netutils.FormatMacAddr(net.MacAddress)
+		nicConf.Network = net.Network
 		for _, ip := range net.IpAddress {
 			if regutils.MatchIP4Addr(ip) && !strings.HasPrefix(ip, "169.254.") {
 				if !vmIPV4Filter.Contains(ip) {
 					continue
 				}
-				guestIps[mac] = ip
-				break
+				nicConf.IPs = append(nicConf.IPs, ip)
 			}
 		}
+		guestIps[nicConf.Mac] = nicConf
 	}
 	return guestIps
 }
 
-func (svm *SVirtualMachine) getGuestIps() map[string]string {
+func (svm *SVirtualMachine) getGuestIps() map[string]sNicConfig {
 	if svm.guestIps == nil {
 		svm.guestIps = svm.fetchGuestIps()
 	}
@@ -967,15 +965,15 @@ func (svm *SVirtualMachine) getGuestIps() map[string]string {
 }
 
 func (svm *SVirtualMachine) GetIps() []string {
-	ips := make([]string, 0)
-	for _, ip := range svm.getGuestIps() {
-		ips = append(ips, ip)
+	iplists := make([]string, 0)
+	for _, nicConf := range svm.getGuestIps() {
+		iplists = append(iplists, nicConf.IPs...)
 	}
-	return ips
+	return iplists
 }
 
 func (svm *SVirtualMachine) GetVGADevice() string {
-	return fmt.Sprintf("%s", svm.vga.String())
+	return svm.vga.String()
 }
 
 var (
@@ -1020,7 +1018,7 @@ func minDiskKey(devs []SVirtualDisk) int32 {
 func (svm *SVirtualMachine) FindController(ctx context.Context, driver string) ([]SVirtualDevice, error) {
 	aliasDrivers, ok := driverTable[driver]
 	if !ok {
-		return nil, fmt.Errorf("Unsupported disk driver %s", driver)
+		return nil, errors.Wrapf(errors.ErrNotFound, "Unsupported disk driver %s", driver)
 	}
 	var devs []SVirtualDevice
 	for _, alias := range aliasDrivers {
@@ -1230,11 +1228,11 @@ func (svm *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context, devi
 
 	task, err := vmObj.Reconfigure(ctx, configSpec)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "vmObj.Reconfigure")
 	}
 	err = task.Wait(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "task.Wait")
 	}
 	if !check {
 		return nil

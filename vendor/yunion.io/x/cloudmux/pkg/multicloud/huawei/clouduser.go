@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -233,9 +234,11 @@ type SAccessKey struct {
 }
 
 func (self *SHuaweiClient) GetAKSK(id string) ([]cloudprovider.SAccessKey, error) {
-	obj, err := self.getAKSKList(id)
+	query := url.Values{}
+	query.Set("user_id", id)
+	obj, err := self.list(SERVICE_IAM, "", "OS-CREDENTIAL/credentials", query)
 	if err != nil {
-		return nil, errors.Wrap(err, "SHuaweiClient.getAKSKList")
+		return nil, errors.Wrap(err, "list credential")
 	}
 	aks := make([]SAccessKey, 0)
 	obj.Unmarshal(&aks, "credentials")
@@ -257,7 +260,7 @@ func (self *SHuaweiClient) CreateAKSK(id, name string) (*cloudprovider.SAccessKe
 			"description": name,
 		},
 	}
-	obj, err := self.createAKSK(params)
+	obj, err := self.post(SERVICE_IAM, "", "OS-CREDENTIAL/credentials", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.createAKSK")
 	}
@@ -272,7 +275,7 @@ func (self *SHuaweiClient) CreateAKSK(id, name string) (*cloudprovider.SAccessKe
 }
 
 func (self *SHuaweiClient) DeleteAKSK(accessKey string) error {
-	_, err := self.deleteAKSK(accessKey)
+	_, err := self.delete(SERVICE_IAM, "", "OS-CREDENTIAL/credentials/"+accessKey)
 	return err
 }
 

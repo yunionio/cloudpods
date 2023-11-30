@@ -803,12 +803,16 @@ func (region *SRegion) ModifyDBInstanceName(instanceId string, name string) erro
 	params := map[string]interface{}{
 		"name": name,
 	}
-	return region.client.dbinstanceSetName(instanceId, params)
+	resource := fmt.Sprintf("instances/%s/name", instanceId)
+	_, err := region.put(SERVICE_RDS, resource, params)
+	return err
 }
 
 func (region *SRegion) ModifyDBInstanceDesc(instanceId string, desc string) error {
 	params := map[string]interface{}{
 		"alias": desc,
 	}
-	return region.client.dbinstanceSetDesc(instanceId, params)
+	resource := fmt.Sprintf("instances/%s/alias", instanceId)
+	_, err := region.put(SERVICE_RDS, resource, params)
+	return err
 }

@@ -229,6 +229,8 @@ type ServerDetails struct {
 	Macs string `json:"macs"`
 	// 网卡信息
 	Nics []GuestnetworkShortDesc `json:"nics"`
+	// 附属IP
+	SubIPs []string `json:"sub_ips"`
 
 	// 归属VPC
 	Vpc string `json:"vpc"`

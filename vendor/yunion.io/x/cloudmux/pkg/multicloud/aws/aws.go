@@ -174,6 +174,19 @@ func (self *SAwsClient) ec2Request(regionId string, apiName string, params map[s
 	return self.request(regionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval, assumeRole)
 }
 
+// Amazon Elastic Container Service
+func (self *SAwsClient) ecsRequest(regionId string, apiName string, params map[string]interface{}, retval interface{}, assumeRole bool) error {
+	return self.invoke(regionId, ECS_SERVICE_NAME, ECS_SERVICE_ID, "2014-11-13", apiName, "", params, retval, assumeRole)
+}
+
+func (self *SAwsClient) lambdaRequest(regionId string, apiName, path string, params map[string]interface{}, retval interface{}, assumeRole bool) error {
+	return self.invoke(regionId, LAMBDA_SERVICE_NAME, LAMBDA_SERVICE_ID, "2015-03-31", apiName, path, params, retval, assumeRole)
+}
+
+func (self *SAwsClient) kinesisRequest(regionId string, apiName, path string, params map[string]interface{}, retval interface{}, assumeRole bool) error {
+	return self.invoke(regionId, KINESIS_SERVICE_NAME, KINESIS_SERVICE_ID, "2013-12-02", apiName, path, params, retval, assumeRole)
+}
+
 func (self *SAwsClient) cfRequest(apiName string, params map[string]string, retval interface{}, assumeRole bool) error {
 	return self.request("", CDN_SERVICE_NAME, CDN_SERVICE_ID, "2020-05-31", apiName, params, retval, assumeRole)
 }
@@ -457,8 +470,8 @@ func (self *SAwsClient) cdnList(marker string, pageSize int64) ([]SCdnDomain, st
 		"MaxItems": fmt.Sprintf("%d", pageSize),
 	}
 	ret := &struct {
-		Items       []SCdnDomain `xml:"Items>DistributionSummary"`
-		NextMarker  string       `xml:"NextMarker,omitempty"`
+		Items      []SCdnDomain `xml:"Items>DistributionSummary"`
+		NextMarker string       `xml:"NextMarker,omitempty"`
 	}{}
 	err := self.cfRequest("ListDistributions2020_05_31", input, ret, true)
 	if err != nil {

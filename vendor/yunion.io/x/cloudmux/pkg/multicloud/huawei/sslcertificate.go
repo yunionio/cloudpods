@@ -166,7 +166,7 @@ func (r *SHuaweiClient) GetSSLCertificates(size, offset int) ([]SSSLCertificate,
 		"sort_key": []string{"certExpiredTime"},
 		"sort_dir": []string{"DESC"},
 	}
-	resp, err := r.sslcertList(HUAWEI_CERT_DEFAULT_REGION, "scm/certificates", params)
+	resp, err := r.list(SERVICE_SCM, "", "scm/certificates", params)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "CertificateList")
 	}
@@ -182,7 +182,8 @@ func (r *SHuaweiClient) GetSSLCertificates(size, offset int) ([]SSSLCertificate,
 }
 
 func (r *SHuaweiClient) GetSSLCertificate(certId string) (*SSSLCertificate, error) {
-	resp, err := r.sslcertExport(HUAWEI_CERT_DEFAULT_REGION, "scm/certificates", certId)
+	resource := fmt.Sprintf("scm/certificates/%s/export", certId)
+	resp, err := r.post(SERVICE_SCM, "", resource, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeCertificateDetail")
 	}
