@@ -689,7 +689,7 @@ func (self *SKafka) StartRemoteUpdateTask(ctx context.Context, userCred mcclient
 }
 
 func (self *SKafka) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(self.ExternalId) == 0 {
+	if len(self.ExternalId) == 0 || options.Options.KeepTagLocalization {
 		return
 	}
 	if account := self.GetCloudaccount(); account != nil && account.ReadOnly {

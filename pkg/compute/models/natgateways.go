@@ -1112,7 +1112,7 @@ func (self *SNatGateway) StartRemoteUpdateTask(ctx context.Context, userCred mcc
 }
 
 func (self *SNatGateway) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(self.ExternalId) == 0 {
+	if len(self.ExternalId) == 0 || options.Options.KeepTagLocalization {
 		return
 	}
 	vpc, err := self.GetVpc()

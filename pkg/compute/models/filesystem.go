@@ -644,7 +644,7 @@ func (fileSystem *SFileSystem) StartRemoteUpdateTask(ctx context.Context, userCr
 }
 
 func (fileSystem *SFileSystem) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(fileSystem.ExternalId) == 0 {
+	if len(fileSystem.ExternalId) == 0 || options.Options.KeepTagLocalization {
 		return
 	}
 	if account := fileSystem.GetCloudaccount(); account != nil && account.ReadOnly {
