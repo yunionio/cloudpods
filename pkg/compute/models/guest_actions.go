@@ -4876,39 +4876,37 @@ func (self *SGuest) validateCreateInstanceBackup(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
-) error {
+	input api.ServerCreateInstanceBackupInput,
+) (api.ServerCreateInstanceBackupInput, error) {
 	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM}) {
-		return httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
+		return input, httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
 	}
 
 	if len(self.BackupHostId) > 0 {
-		return httperrors.NewBadRequestError("Can't do instance snapshot with backup guest")
+		return input, httperrors.NewBadRequestError("Can't do instance snapshot with backup guest")
 	}
 
 	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		return httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
+		return input, httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
 	}
 
-	var name string
 	ownerId := self.GetOwnerId()
-	dataDict := data.(*jsonutils.JSONDict)
-	nameHint, err := dataDict.GetString("generate_name")
-	if err == nil {
-		name, err = db.GenerateName(ctx, InstanceBackupManager, ownerId, nameHint)
+	if len(input.GenerateName) > 0 {
+		nameHint := input.GenerateName
+		name, err := db.GenerateName(ctx, InstanceBackupManager, ownerId, nameHint)
 		if err != nil {
-			return err
+			return input, errors.Wrap(err, "db.GenerateName")
 		}
-		dataDict.Set("name", jsonutils.NewString(name))
-	} else if name, err = dataDict.GetString("name"); err != nil {
-		return httperrors.NewMissingParameterError("name")
+		input.Name = name
+	} else if len(input.Name) == 0 {
+		return input, httperrors.NewMissingParameterError("name")
 	}
 
-	err = db.NewNameValidator(InstanceBackupManager, ownerId, name, nil)
+	err := db.NewNameValidator(InstanceBackupManager, ownerId, input.Name, nil)
 	if err != nil {
-		return err
+		return input, errors.Wrap(err, "db.NewNameValidator")
 	}
-	return nil
+	return input, nil
 }
 
 // 1. validate guest status, guest hypervisor
@@ -4956,19 +4954,20 @@ func (self *SGuest) PerformInstanceBackup(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.ServerCreateInstanceBackupInput,
 ) (jsonutils.JSONObject, error) {
 	if err := self.ValidateEncryption(ctx, userCred); err != nil {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
 	}
 	lockman.LockClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
-	err := self.validateCreateInstanceBackup(ctx, userCred, query, data)
+	var err error
+	input, err = self.validateCreateInstanceBackup(ctx, userCred, query, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "validateCreateInstanceBackup")
 	}
-	name, _ := data.GetString("name")
-	backupStorageId, _ := data.GetString("backup_storage_id")
+	name := input.Name
+	backupStorageId := input.BackupStorageId
 	if backupStorageId == "" {
 		return nil, httperrors.NewMissingParameterError("backup_storage_id")
 	}
