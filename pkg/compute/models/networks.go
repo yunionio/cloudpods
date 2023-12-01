@@ -1225,37 +1225,49 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 		duration = bc.Duration()
 	}
 
+	errs := make([]error, 0)
 	for _, ip := range input.Ips {
 		err := self.reserveIpWithDurationAndStatus(ctx, userCred, ip, input.Notes, duration, input.Status)
 		if err != nil {
-			return nil, err
+			errs = append(errs, errors.Wrap(err, "reserveIpWithDurationAndStatus"))
 		}
+	}
+	if len(errs) > 0 {
+		return nil, errors.NewAggregate(errs)
 	}
 	return nil, nil
 }
 
-func (self *SNetwork) reserveIpWithDuration(ctx context.Context, userCred mcclient.TokenCredential, ipstr string, notes string, duration time.Duration) error {
-	return self.reserveIpWithDurationAndStatus(ctx, userCred, ipstr, notes, duration, "")
+func (net *SNetwork) reserveIpWithDuration(ctx context.Context, userCred mcclient.TokenCredential, ipstr string, notes string, duration time.Duration) error {
+	return net.reserveIpWithDurationAndStatus(ctx, userCred, ipstr, notes, duration, "")
 }
 
-func (self *SNetwork) reserveIpWithDurationAndStatus(ctx context.Context, userCred mcclient.TokenCredential, ipstr string, notes string, duration time.Duration, status string) error {
+func (net *SNetwork) reserveIpWithDurationAndStatus(ctx context.Context, userCred mcclient.TokenCredential, ipstr string, notes string, duration time.Duration, status string) error {
 	ipAddr, err := netutils.NewIPV4Addr(ipstr)
 	if err != nil {
 		return httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
 	}
-	if !self.IsAddressInRange(ipAddr) {
+	if !net.IsAddressInRange(ipAddr) {
 		return httperrors.NewInputParameterError("Address %s not in network", ipstr)
 	}
-	used, err := self.isAddressUsed(ipstr)
+	used, err := net.isAddressUsed(ipstr)
 	if err != nil {
 		return httperrors.NewInternalServerError("isAddressUsed fail %s", err)
 	}
 	if used {
+		rip := ReservedipManager.getReservedIP(net, ipstr)
+		if rip != nil {
+			err := rip.extendWithDuration(notes, duration, status)
+			if err != nil {
+				return errors.Wrap(err, "extendWithDuration")
+			}
+			return nil
+		}
 		return httperrors.NewConflictError("Address %s has been used", ipstr)
 	}
-	err = ReservedipManager.ReserveIPWithDurationAndStatus(userCred, self, ipstr, notes, duration, status)
+	err = ReservedipManager.ReserveIPWithDurationAndStatus(userCred, net, ipstr, notes, duration, status)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "ReservedipManager.ReserveIPWithDurationAndStatus")
 	}
 	return nil
 }
