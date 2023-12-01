@@ -68,7 +68,9 @@ func (self *SBaremetalIpmiProbeTask) DoIpmiProbe(ctx context.Context, args inter
 	if ipmiInfo.Password == "" {
 		return errors.Error("empty IPMI password")
 	}
-	redfishCli := redfish.NewRedfishDriver(ctx, "https://"+ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password, false)
+	// FIXME: 通过 redfish 探测出来的管理口网卡地址可能和 PXE 启动的网卡地址不一致
+	// 所以暂时注释掉这个探测逻辑，使用 doRawIpmiProbe
+	/* redfishCli := redfish.NewRedfishDriver(ctx, "https://"+ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password, false)
 	if redfishCli != nil {
 		redfishSuccess, err := self.doRedfishIpmiProbe(ctx, redfishCli)
 		if err == nil {
@@ -79,8 +81,8 @@ func (self *SBaremetalIpmiProbeTask) DoIpmiProbe(ctx context.Context, args inter
 			return errors.Wrap(err, "doRedfishIpmiProbe")
 		}
 		// else, redfish call fails, try IPMI
-	}
-	log.Warningf("BMC not redfish-compatible")
+	} */
+	log.Warningf("BMC not redfish-compatible for IPMI: %s, use raw probe", ipmiInfo.IpAddr)
 	ipmiTool := ipmitool.NewLanPlusIPMI(ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password)
 	return self.doRawIpmiProbe(ctx, ipmiTool)
 }
