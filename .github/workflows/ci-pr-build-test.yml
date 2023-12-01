@@ -1,0 +1,38 @@
+name: Building and test for PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.18'
+
+    - name: Install check tools
+      shell: bash
+      run: |
+        set -o xtrace
+        git clone --branch yun --depth 4 https://github.com/yousong/tools && cd tools
+        go build ./cmd/goimports && sudo cp goimports /usr/bin/ && cd .. && rm -rf tools
+        git clone --depth 4 https://github.com/yousong/y18n && cd y18n
+        go build . && sudo cp y18n /usr/bin && cd .. && rm -rf y18n
+
+    
+    - name: Test and build
+      shell: bash
+      run: |
+        set -o xtrace
+        export GO111MODULE=on
+        make -j3 check
+        make test
+        targets="$(find cmd -mindepth 1 -maxdepth 1 -type d | grep -v cmd/host-image)"
+        echo $targets | tr ' ' '\n'
+        make $targets
+        ls -lh _output/bin
