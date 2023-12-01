@@ -93,10 +93,9 @@ func (region *SRegion) getIStorages(zondId string) ([]cloudprovider.ICloudStorag
 				return nil, err
 			}
 			istorage = append(istorage, ilocalStorages...)
-		case StorageTypeCeph:
+		default:
 			primaryStorage.region = region
 			istorage = append(istorage, &primaryStorage)
-		case StorageTypeVCenter:
 		}
 	}
 	return istorage, nil
@@ -157,10 +156,6 @@ func (storage *SStorage) GetGlobalId() string {
 	return storage.GetId()
 }
 
-func (storage *SStorage) IsEmulated() bool {
-	return false
-}
-
 func (storage *SStorage) GetIZone() cloudprovider.ICloudZone {
 	zone, err := storage.region.GetZone(storage.ZoneUUID)
 	if err != nil {
@@ -203,11 +198,6 @@ func (storage *SStorage) GetCapacityUsedMB() int64 {
 func (storage *SStorage) GetStorageConf() jsonutils.JSONObject {
 	conf := jsonutils.NewDict()
 	return conf
-}
-
-func (storage *SStorage) Refresh() error {
-	// do nothing
-	return nil
 }
 
 func (storage *SStorage) GetEnabled() bool {
