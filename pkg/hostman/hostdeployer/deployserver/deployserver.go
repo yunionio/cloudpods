@@ -385,12 +385,15 @@ func (s *SDeployService) PrepareEnv() error {
 		if err != nil {
 			return errors.Wrap(err, "get cpu architecture")
 		}
-		qemu_kvm.InitQemuDeployManager(
+		err = qemu_kvm.InitQemuDeployManager(
 			strings.TrimSpace(string(cpuArch)),
 			DeployOption.HugepagesOption == "native",
 			DeployOption.HugepageSizeMb*1024,
 			DeployOption.DeployConcurrent,
 		)
+		if err != nil {
+			return err
+		}
 	}
 
 	// create /dev/lvm_remote
