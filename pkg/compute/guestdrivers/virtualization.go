@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -73,11 +72,11 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 			Ifname: "",
 		})
 	}
-	reUse := false
-	if len(netConfig.Address) > 0 && !options.Options.EnablePreAllocateIpAddr && !utils.IsInStringArray(host.GetProviderName(), []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, api.CLOUD_PROVIDER_CLOUDPODS}) {
-		reUse = true
-	}
-	return net, nicConfs, api.IPAllocationStepdown, reUse, nil
+	// reUse := false
+	// if len(netConfig.Address) > 0 && !options.Options.EnablePreAllocateIpAddr && !utils.IsInStringArray(host.GetProviderName(), []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, api.CLOUD_PROVIDER_CLOUDPODS}) {
+	//	reUse = true
+	// }
+	return net, nicConfs, api.IPAllocationStepdown, false, nil
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
