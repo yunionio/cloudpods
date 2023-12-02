@@ -125,6 +125,7 @@ type ComputeOptions struct {
 	// cloud image sync
 	CloudImagesSyncIntervalHours int `default:"3" help:"Interval to sync public cloud image, defualt is 3 hour"`
 
+	// 由云管(Cloudpods)负责分配IP地址，默认为false。默认是由对应具备IPAM能力的云平台自主分配IP地址
 	EnablePreAllocateIpAddr bool `help:"Enable private and public cloud private ip pre allocate, default false" default:"false"`
 
 	// 创建虚拟机失败后, 自动使用其他相同配置套餐
