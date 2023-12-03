@@ -16,6 +16,7 @@ package misc
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -146,6 +147,7 @@ func pingProbeNetwork(s *mcclient.ClientSession, net sNetwork) ([]influxdb.SMetr
 		return nil, errors.Wrap(err, "getNetworkAddrMap")
 	}
 
+	reserveIps := make([]string, 0)
 	now := time.Now().UTC()
 	for addr := addrStart; addr <= addrEnd; addr = addr.StepUp() {
 		addrStr := addr.String()
@@ -154,15 +156,16 @@ func pingProbeNetwork(s *mcclient.ClientSession, net sNetwork) ([]influxdb.SMetr
 		if allocated {
 			if netAddr.OwnerType == api.RESERVEDIP_RESOURCE_TYPES {
 				loss := pingResult.Loss()
-				status := api.RESERVEDIP_STATUS_OFFLINE
 				if loss < 100 {
-					status = api.RESERVEDIP_STATUS_ONLINE
-				}
-				params := jsonutils.NewDict()
-				params.Add(jsonutils.NewString(status), "status")
-				_, err := compute.ReservedIPs.Update(s, netAddr.OwnerId, params)
-				if err != nil {
-					log.Errorf("update reserved ip %s status fail: %s", addrStr, err)
+					log.Debugf("Reserved address %s continues responding ping, extend reserving the address", addrStr)
+					reserveIps = append(reserveIps, addrStr)
+				} else {
+					params := jsonutils.NewDict()
+					params.Add(jsonutils.NewString(api.RESERVEDIP_STATUS_OFFLINE), "status")
+					_, err := compute.ReservedIPs.Update(s, netAddr.OwnerId, params)
+					if err != nil {
+						log.Errorf("update reserved ip %s status fail: %s", addrStr, err)
+					}
 				}
 			} else {
 				// send metrics
@@ -214,17 +217,23 @@ func pingProbeNetwork(s *mcclient.ClientSession, net sNetwork) ([]influxdb.SMetr
 			if loss < 100 {
 				// reserve ip
 				log.Debugf("Free address %s is responding ping, reserve the address", addrStr)
-				params := jsonutils.NewDict()
-				params.Add(jsonutils.NewStringArray([]string{addrStr}), "ips")
-				params.Add(jsonutils.NewString("ping detect online free IP"), "notes")
-				params.Add(jsonutils.NewString(api.RESERVEDIP_STATUS_ONLINE), "status")
-				_, err = compute.Networks.PerformAction(s, net.Id, "reserve-ip", params)
-				if err != nil {
-					log.Errorf("failed to reserve ip %s: %s", addrStr, err)
-				}
+				reserveIps = append(reserveIps, addrStr)
 			}
 		}
 		log.Debugf("%s %s allocated %v", addrStr, netAddr, allocated)
+	}
+	if len(reserveIps) > 0 {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewStringArray(reserveIps), "ips")
+		params.Add(jsonutils.NewString("ping detected online free IP"), "notes")
+		params.Add(jsonutils.NewString(api.RESERVEDIP_STATUS_ONLINE), "status")
+		if options.Options.PingReserveIPTimeoutHours > 0 {
+			params.Add(jsonutils.NewString(fmt.Sprintf("%dH", options.Options.PingReserveIPTimeoutHours)), "duration")
+		}
+		_, err = compute.Networks.PerformAction(s, net.Id, "reserve-ip", params)
+		if err != nil {
+			log.Errorf("failed to reserve ip %#v: %s", reserveIps, err)
+		}
 	}
 	return metrics, nil
 }

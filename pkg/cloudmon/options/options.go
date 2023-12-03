@@ -45,6 +45,8 @@ type PingProbeOptions struct {
 
 	DisablePingProbe      bool  `help:"enable ping probe"`
 	PingProbIntervalHours int64 `help:"PingProb Interval unit:hour" default:"6"`
+
+	PingReserveIPTimeoutHours int `help:"expire hours to reserve the probed IP, default 0, never expire" default:"0"`
 }
 
 var (

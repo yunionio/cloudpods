@@ -55,7 +55,7 @@ func StartService() {
 		cron.AddJobAtIntervals("UpdateResources", time.Duration(opts.ResourcesSyncInterval)*time.Minute, res.UpdateSync)
 		cron.AddJobAtIntervalsWithStarTime("CollectResources", time.Duration(opts.CollectMetricInterval)*time.Minute, res.CollectMetrics)
 
-		cron.AddJobAtIntervals("PingProb", time.Duration(opts.PingProbIntervalHours)*time.Hour, misc.PingProbe)
+		cron.AddJobAtIntervalsWithStartRun("PingProb", time.Duration(opts.PingProbIntervalHours)*time.Hour, misc.PingProbe, true)
 
 		cron.AddJobEveryFewDays("UsageMetricCollect", 1, 23, 10, 10, misc.UsegReport, false)
 		cron.AddJobEveryFewDays("AlertHistoryMetricCollect", 1, 23, 59, 59, misc.AlertHistoryReport, false)

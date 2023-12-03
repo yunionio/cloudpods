@@ -95,6 +95,7 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mccli
 	}
 	rip := manager.getReservedIP(network, ip)
 	if rip == nil {
+		// not found
 		rip := SReservedip{IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
 		rip.NetworkId = network.Id
 		err := manager.TableSpec().Insert(context.TODO(), &rip)
@@ -102,22 +103,37 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mccli
 			log.Errorf("ReserveIP fail: %s", err)
 			return errors.Wrap(err, "Insert")
 		}
-	} else if rip.IsExpired() {
-		_, err := db.Update(rip, func() error {
-			rip.Notes = notes
-			rip.ExpiredAt = expiredAt
-			if len(status) > 0 {
-				rip.Status = status
-			}
-			return nil
-		})
-		if err != nil {
-			return errors.Wrap(err, "Update")
-		}
 	} else {
-		return errors.Wrapf(httperrors.ErrConflict, "Address %s has been reserved", ip)
+		// extend the expiration
+		err := rip.extend(notes, expiredAt, status)
+		if err != nil {
+			return errors.Wrap(err, "extend")
+		}
 	}
 	db.OpsLog.LogEvent(network, db.ACT_RESERVE_IP, ip, userCred)
+	return nil
+}
+
+func (rip *SReservedip) extendWithDuration(notes string, duration time.Duration, status string) error {
+	expiredAt := time.Time{}
+	if duration > 0 {
+		expiredAt = time.Now().UTC().Add(duration)
+	}
+	return rip.extend(notes, expiredAt, status)
+}
+
+func (rip *SReservedip) extend(notes string, expiredAt time.Time, status string) error {
+	_, err := db.Update(rip, func() error {
+		rip.Notes = notes
+		rip.ExpiredAt = expiredAt
+		if len(status) > 0 {
+			rip.Status = status
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
 	return nil
 }
 
