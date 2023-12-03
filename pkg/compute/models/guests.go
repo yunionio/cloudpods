@@ -3663,8 +3663,8 @@ func (self *SGuest) SyncVMNics(
 			TryReserved:         true,
 			AllocDir:            api.IPAllocationDefault,
 			RequireDesignatedIP: true,
-			UseDesignatedIP:     false,
-			NicConfs:            []SNicConfig{nicConf},
+			// UseDesignatedIP:     true,
+			NicConfs: []SNicConfig{nicConf},
 		})
 		if err != nil {
 			result.AddError(err)
