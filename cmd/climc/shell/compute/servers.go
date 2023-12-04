@@ -123,6 +123,8 @@ func init() {
 	cmd.Perform("set-nic-traffic-limit", &options.ServerNicTrafficLimitOptions{})
 	cmd.Perform("add-sub-ips", &options.ServerAddSubIpsOptions{})
 	cmd.BatchPerform("set-os-info", &options.ServerSetOSInfoOptions{})
+	cmd.BatchPerform("start-rescue", &options.ServerStartOptions{})
+	cmd.BatchPerform("stop-rescue", &options.ServerStartOptions{})
 
 	cmd.Get("vnc", new(options.ServerVncOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))

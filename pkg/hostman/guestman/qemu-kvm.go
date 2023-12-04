@@ -17,7 +17,9 @@ package guestman
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -32,6 +34,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/util/version"
@@ -387,6 +391,22 @@ func (s *SKVMGuestInstance) GetDescFilePath() string {
 
 func (s *SKVMGuestInstance) GetSourceDescFilePath() string {
 	return path.Join(s.HomeDir(), "source-desc")
+}
+
+func (s *SKVMGuestInstance) GetRescueDirPath() string {
+	return path.Join(s.HomeDir(), api.GUEST_RESCUE_RELATIVE_PATH)
+}
+
+func (s *SKVMGuestInstance) CreateRescueDirPath() (string, error) {
+	rescueDir := path.Join(s.HomeDir(), api.GUEST_RESCUE_RELATIVE_PATH)
+
+	// Check if rescue dir exists
+	output, err := procutils.NewCommand("mkdir", "-p", rescueDir).Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "mkdir %s failed: %s", s.HomeDir(), output)
+	}
+
+	return rescueDir, nil
 }
 
 func (s *SKVMGuestInstance) LoadDesc() error {
@@ -770,7 +790,7 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 		}, // on monitor connected
 		s.onReceiveQMPEvent, // on reveive qmp event
 	)
-	return mon.ConnectWithSocket(socketFile)
+	return mon.ConnectWithSocket(socketFile, 0)
 }
 
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) error {
@@ -1633,6 +1653,15 @@ func (s *SKVMGuestInstance) SaveSourceDesc(guestDesc *desc.SGuestDesc) error {
 		}
 	}
 
+	// Save rescue desc if exist
+	//if s.SourceDesc.LightMode {
+	//	err := s.GetRescueDesc()
+	//	if err != nil {
+	//		log.Errorf("get rescue desc failed %s", err)
+	//		return errors.Wrap(err, "get rescue desc")
+	//	}
+	//}
+
 	if err := fileutils2.FilePutContents(
 		s.GetSourceDescFilePath(), jsonutils.Marshal(s.SourceDesc).String(), false,
 	); err != nil {
@@ -1652,6 +1681,30 @@ func (s *SKVMGuestInstance) GetVpcNIC() *desc.SGuestNetwork {
 	}
 	return nil
 }
+
+//func (s *SKVMGuestInstance) GetRescueDesc() error {
+//	if !s.SourceDesc.LightMode {
+//		return errors.Errorf("guest %s not in rescue mode", s.Id)
+//	}
+//
+//	s.SourceDesc.RescueInitrdPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS)
+//	s.SourceDesc.RescueKernelPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL)
+//	s.SourceDesc.RescueDiskPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_SYS_DISK_NAME)
+//	if s.manager.GetHost().IsAarch64() {
+//		s.SourceDesc.RescueInitrdPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS_ARM64)
+//		s.SourceDesc.RescueKernelPath = path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL_ARM64)
+//	}
+//
+//	// Address
+//	bus, slot, found := s.findUnusedSlotForController(desc.CONTROLLER_TYPE_PCI_ROOT, 0)
+//	if !found {
+//		return errors.Errorf("no valid pci address found ?")
+//	}
+//	s.SourceDesc.RescueDiskDeviceBus = uint(bus)
+//	s.SourceDesc.RescueDiskDeviceSlot = uint(slot)
+//
+//	return nil
+//}
 
 type guestStartTask struct {
 	s *SKVMGuestInstance
@@ -1939,6 +1992,19 @@ func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, params interface{}
 	}
 	NewGuestStopTask(s, ctx, timeout).Start()
 	return nil, nil
+}
+
+func (s *SKVMGuestInstance) ExecStartRescueTask(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	baremetalManagerUri, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	NewGuestStartRescueTask(s, ctx, baremetalManagerUri).Start()
+	return nil, nil
+}
+
+func (s *SKVMGuestInstance) ExecStopRescueTask(ctx context.Context, params interface{}) {
+	NewGuestStopRescueTask(s, ctx).Start()
 }
 
 func (s *SKVMGuestInstance) ExecSuspendTask(ctx context.Context) {
@@ -3086,4 +3152,156 @@ func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {
 		return errors.Errorf("Remove task error happened, please lookup host log")
 	}
 	return nil
+}
+
+func (s *SKVMGuestInstance) clearRescue(ctx context.Context) error {
+	rescueDir := s.GetRescueDirPath()
+	if err := fileutils2.Cleandir(rescueDir, false); err != nil {
+		return errors.Wrap(err, "clear rescue dir failed")
+	}
+
+	return nil
+}
+
+func (s *SKVMGuestInstance) prepareRescue(ctx context.Context, baremetalManagerUri string) error {
+	files := []string{
+		api.GUEST_RESCUE_INITRAMFS,
+		api.GUEST_RESCUE_KERNEL,
+	}
+
+	// Support arm64
+	if s.manager.host.IsAarch64() {
+		files = []string{
+			api.GUEST_RESCUE_INITRAMFS_ARM64,
+			api.GUEST_RESCUE_KERNEL_ARM64,
+		}
+	}
+
+	// Prepare files
+	for _, file := range files {
+		err := s.downloadFromBaremetal(file, baremetalManagerUri)
+		if err != nil {
+			return errors.Wrapf(err, "download %s from baremetal failed", file)
+		}
+	}
+
+	// Create disk
+	diskPath := path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_SYS_DISK_NAME)
+	err := s.createTempDisk(diskPath, api.GUEST_RESCUE_SYS_DISK_SIZE, qemuimgfmt.QCOW2.String(), nil, "")
+	if err != nil {
+		return errors.Wrapf(err, "create disk %s failed", diskPath)
+	}
+
+	return nil
+}
+
+func (s *SKVMGuestInstance) downloadFromBaremetal(filename, baremetalManagerUri string) error {
+	rescueDir, err := s.CreateRescueDirPath()
+	if err != nil {
+		return errors.Wrap(err, "SKVMGuestInstance.GetRescueDirPath")
+	}
+
+	// Check file is exist
+	filePath := path.Join(rescueDir, filename)
+	if fileutils2.Exists(filePath) {
+		// File already exist
+		log.Debugf("File %s already exist", filePath)
+
+		return nil
+	}
+
+	// Create file
+	file, err := os.Create(filePath)
+	if err != nil {
+		return errors.Wrapf(err, "create file %s failed", filePath)
+	}
+	defer file.Close()
+
+	// Get filepath
+	fileURL, err := s.getTftpFileUrl(filename, baremetalManagerUri)
+	if err != nil {
+		return errors.Wrapf(err, "getTftpFileUrl")
+	}
+
+	// Request for file
+	resp, err := httputils.Request(
+		httputils.GetDefaultClient(),
+		context.Background(),
+		"GET",
+		fileURL,
+		nil,
+		nil,
+		false)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return errors.Wrapf(err, "request %s failed", fileURL)
+	}
+
+	// Write file
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		return errors.Wrapf(err, "write file %s failed", filePath)
+	}
+
+	return nil
+}
+
+func (s *SKVMGuestInstance) createTempDisk(path string, sizeMB int, diskFormat string, encryptInfo *apis.SEncryptInfo, back string) error {
+	if fileutils2.Exists(path) {
+		os.Remove(path)
+	}
+
+	img, err := qemuimg.NewQemuImage(path)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+
+	switch diskFormat {
+	case "qcow2":
+		if encryptInfo != nil {
+			err = img.CreateQcow2(sizeMB, false, back, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+		} else {
+			err = img.CreateQcow2(sizeMB, false, back, "", "", "")
+		}
+	case "vmdk":
+		err = img.CreateVmdk(sizeMB, false)
+	default:
+		err = img.CreateRaw(sizeMB)
+	}
+	if err != nil {
+		return errors.Wrapf(err, "create_raw: Fail to create disk")
+	}
+
+	return nil
+}
+
+func (s *SKVMGuestInstance) getTftpFileUrl(filename, baremetalManagerUri string) (string, error) {
+	endpoint, err := s.getTftpEndpoint(baremetalManagerUri)
+	if err != nil {
+		log.Errorf("Get http file server endpoint: %v", err)
+		return filename, err
+	}
+	return fmt.Sprintf("http://%s/tftp/%s", endpoint, filename), nil
+}
+
+func (s *SKVMGuestInstance) getTftpEndpoint(baremetalManagerUri string) (string, error) {
+	// Split with :
+	addrs := strings.Split(baremetalManagerUri, "//")
+	if len(addrs) < 2 {
+		return "", errors.Errorf("baremetal manager uri is invalid")
+	}
+	endpoints := strings.Split(addrs[1], ":")
+	if len(endpoints) < 2 {
+		return "", errors.Errorf("baremetal manager uri is invalid")
+	}
+
+	// Plus baremetal agent port with 1000
+	port, err := strconv.Atoi(endpoints[1])
+	if err != nil {
+		return "", errors.Wrapf(err, "convert port failed")
+	}
+
+	// Concat new endpoint url
+	endpoint := fmt.Sprintf("%s:%d", endpoints[0], port+1000)
+
+	return endpoint, nil
 }

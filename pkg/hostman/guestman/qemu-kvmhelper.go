@@ -558,6 +558,12 @@ function nic_mtu() {
 		}
 	}
 
+	// set rescue flag to input
+	if s.Desc.LightMode {
+		input.RescueInitrdPath = s.getRescueInitrdPath()
+		input.RescueKernelPath = s.getRescueKernelPath()
+	}
+
 	qemuOpts, err := qemu.GenerateStartOptions(input)
 	if err != nil {
 		return "", errors.Wrap(err, "GenerateStartCommand")
@@ -568,6 +574,20 @@ function nic_mtu() {
 	cmd += "echo $CMD\n"
 
 	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) getRescueInitrdPath() string {
+	if s.manager.GetHost().IsAarch64() {
+		return path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS_ARM64)
+	}
+	return path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_INITRAMFS)
+}
+
+func (s *SKVMGuestInstance) getRescueKernelPath() string {
+	if s.manager.GetHost().IsAarch64() {
+		return path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL_ARM64)
+	}
+	return path.Join(s.GetRescueDirPath(), api.GUEST_RESCUE_KERNEL)
 }
 
 func (s *SKVMGuestInstance) slaveDiskPrepare(input *qemu.GenerateStartOptionsInput, diskUri string) error {

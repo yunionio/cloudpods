@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package consts
+package compute
 
+// Rescue constants are used for rescue mode
 const (
-	DEPLOY_DRIVER_NBD        = "nbd"
-	DEPLOY_DRIVER_LIBGUESTFS = "libguestfs"
-	DEPLOY_DRIVER_QEMU_KVM   = "qemu-kvm"
-	DEPLOY_DRIVER_LOCAL_DISK = "local"
+	GUEST_RESCUE_RELATIVE_PATH = "rescue" //  serverxxx/rescue
+
+	GUEST_RESCUE_INITRAMFS       = "initramfs"
+	GUEST_RESCUE_KERNEL          = "kernel"
+	GUEST_RESCUE_INITRAMFS_ARM64 = "initramfs_aarch64"
+	GUEST_RESCUE_KERNEL_ARM64    = "kernel_aarch64"
+
+	GUEST_RESCUE_SYS_DISK_NAME = "sys_img"
+	GUEST_RESCUE_SYS_DISK_SIZE = 500 // MB
 )
