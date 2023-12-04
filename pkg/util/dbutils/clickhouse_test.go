@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudcommon
+package dbutils
 
 import (
 	"testing"
@@ -36,7 +36,7 @@ func TestClickhouseSqlStrV1ToV2(t *testing.T) {
 			want: "clickhouse://admin:pass@192.168.222.4:9000/yunionmeter?dial_timeout=200ms&max_execution_time=60",
 		},
 	} {
-		got, err := clickhouseSqlStrV1ToV2(c.in)
+		got, err := ClickhouseSqlStrV1ToV2(c.in)
 		if err != nil {
 			t.Errorf("%s", err)
 		} else if got != c.want {
@@ -67,7 +67,7 @@ func TestClickhouseSqlStrV2ToV1(t *testing.T) {
 			want: "tcp://192.168.222.4:9000?database=yunionmeter&password=pass&username=admin&read_timeout=10&write_timeout=20",
 		},
 	} {
-		got, err := clickhouseSqlStrV2ToV1(c.in)
+		got, err := ClickhouseSqlStrV2ToV1(c.in)
 		if err != nil {
 			t.Errorf("%s", err)
 		} else if got != c.want {
@@ -102,7 +102,7 @@ func TestValidateClickhouseSqlstrV1(t *testing.T) {
 			valid: false,
 		},
 	} {
-		err := validateClickhouseV1Str(c.in)
+		err := ValidateClickhouseV1Str(c.in)
 		if err != nil && c.valid {
 			t.Errorf("%s", err)
 		}
@@ -131,7 +131,7 @@ func TestValidateClickhouseSqlstrV2(t *testing.T) {
 			valid: true,
 		},
 	} {
-		err := validateClickhouseV2Str(c.in)
+		err := ValidateClickhouseV2Str(c.in)
 		if err != nil && c.valid {
 			t.Errorf("%s", err)
 		}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudcommon
+package dbutils
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 // convert clickhouse sqlstr v1 to v2
 // v1: tcp://192.168.222.4:9000?database=yunionmeter&read_timeout=10&write_timeout=20
 // v2: clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
-func clickhouseSqlStrV1ToV2(sqlstr string) (string, error) {
+func ClickhouseSqlStrV1ToV2(sqlstr string) (string, error) {
 	if strings.HasPrefix(sqlstr, "clickhouse://") {
 		// already v2 format
 		return sqlstr, nil
@@ -57,7 +57,7 @@ func clickhouseSqlStrV1ToV2(sqlstr string) (string, error) {
 	return fmt.Sprintf("clickhouse://%s/%s?dial_timeout=200ms&max_execution_time=60", hostPart, dbname), nil
 }
 
-func clickhouseSqlStrV2ToV1(sqlstr string) (string, error) {
+func ClickhouseSqlStrV2ToV1(sqlstr string) (string, error) {
 	if strings.HasPrefix(sqlstr, "tcp://") {
 		// already v1 format
 		return sqlstr, nil
@@ -89,7 +89,7 @@ func clickhouseSqlStrV2ToV1(sqlstr string) (string, error) {
 	return fmt.Sprintf("tcp://%s?%s&read_timeout=10&write_timeout=20", hostPart, jsonutils.Marshal(qs).QueryString()), nil
 }
 
-func validateClickhouseV2Str(sqlstr string) error {
+func ValidateClickhouseV2Str(sqlstr string) error {
 	if !strings.HasPrefix(sqlstr, "clickhouse://") {
 		return errors.Wrapf(httperrors.ErrInputParameter, "must start with clickhouse://")
 	}
@@ -108,7 +108,7 @@ func validateClickhouseV2Str(sqlstr string) error {
 	return nil
 }
 
-func validateClickhouseV1Str(sqlstr string) error {
+func ValidateClickhouseV1Str(sqlstr string) error {
 	if !strings.HasPrefix(sqlstr, "tcp://") {
 		return errors.Wrapf(httperrors.ErrInputParameter, "must start with tcp://")
 	}

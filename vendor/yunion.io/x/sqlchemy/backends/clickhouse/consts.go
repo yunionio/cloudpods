@@ -23,4 +23,15 @@ const (
 
 	// TAG_TTL defines table TTL
 	TAG_TTL = "clickhouse_ttl"
+
+	EXTRA_OPTION_ENGINE_KEY             = "clickhouse_engine"
+	EXTRA_OPTION_ENGINE_VALUE_MERGETRUE = "MergeTree"
+	EXTRA_OPTION_ENGINE_VALUE_MYSQL     = "MySQL"
+
+	// 'host:port', 'database', 'table', 'user', 'password'
+	EXTRA_OPTION_CLICKHOUSE_MYSQL_HOSTPORT_KEY = "clickhouse_mysql_hostport"
+	EXTRA_OPTION_CLICKHOUSE_MYSQL_DATABASE_KEY = "clickhouse_mysql_database"
+	EXTRA_OPTION_CLICKHOUSE_MYSQL_TABLE_KEY    = "clickhouse_mysql_table"
+	EXTRA_OPTION_CLICKHOUSE_MYSQL_USERNAME_KEY = "clickhouse_mysql_username"
+	EXTRA_OPTION_CLICKHOUSE_MYSQL_PASSWORD_KEY = "clickhouse_mysql_password"
 )

@@ -12,27 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package consts
-
-var (
-	QueryOffsetOptimization = false
-
-	OpsLogWithClickhouse = false
-
-	defaultDBDialect string
-
-	defaultDBConnectionString string
-)
-
-func SetDefaultDB(dialect, connStr string) {
-	defaultDBDialect = dialect
-	defaultDBConnectionString = connStr
-}
-
-func DefaultDBDialect() string {
-	return defaultDBDialect
-}
-
-func DefaultDBConnStr() string {
-	return defaultDBConnectionString
-}
+package dbutils // import "yunion.io/x/onecloud/pkg/util/dbutils"
