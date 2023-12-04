@@ -89,6 +89,7 @@ type OSSchedulerHints struct {
 }
 
 type SecurityGroup struct {
+	Id   string `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -257,16 +258,16 @@ func (self *SInstance) Refresh() error {
 	return nil
 }
 
-func (self *SInstance) IsEmulated() bool {
-	return false
-}
-
 func (self *SInstance) GetInstanceType() string {
 	return self.Flavor.ID
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
-	return self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
+	ret := []string{}
+	for _, sec := range self.SecurityGroups {
+		ret = append(ret, sec.Id)
+	}
+	return ret, nil
 }
 
 // https://support.huaweicloud.com/api-ecs/ecs_02_1002.html
@@ -410,22 +411,28 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	nics := make([]cloudprovider.ICloudNic, 0)
-
-	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148849.html
-	// OS-EXT-IPS.type
-	// todo: 这里没有区分是IPv4 还是 IPv6。统一当IPv4处理了.可能会引发错误
+	ret := map[string]*SInstanceNic{}
 	for _, ipAddresses := range self.Addresses {
 		for _, ipAddress := range ipAddresses {
-			if ipAddress.OSEXTIPSType == "fixed" {
-				nic := SInstanceNic{
-					instance: self,
-					ipAddr:   ipAddress.Addr,
-					macAddr:  ipAddress.OSEXTIPSMACMACAddr,
+			if ipAddress.OSEXTIPSType == "fixed" && ipAddress.Version == "4" {
+				_, ok := ret[ipAddress.OSEXTIPSMACMACAddr]
+				if !ok {
+					ret[ipAddress.OSEXTIPSMACMACAddr] = &SInstanceNic{
+						instance: self,
+						ipAddr:   ipAddress.Addr,
+						macAddr:  ipAddress.OSEXTIPSMACMACAddr,
+						subAddrs: []string{},
+					}
+				} else {
+					addrs := append(ret[ipAddress.OSEXTIPSMACMACAddr].subAddrs, ipAddress.Addr)
+					ret[ipAddress.OSEXTIPSMACMACAddr].subAddrs = addrs
 				}
-				nics = append(nics, &nic)
 			}
 		}
+	}
+	nics := make([]cloudprovider.ICloudNic, 0)
+	for mac := range ret {
+		nics = append(nics, ret[mac])
 	}
 	return nics, nil
 }

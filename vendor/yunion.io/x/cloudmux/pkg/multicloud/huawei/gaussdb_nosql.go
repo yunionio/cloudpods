@@ -94,7 +94,7 @@ func (self *SRegion) ListGaussNoSQLInstances() ([]GaussDBNoSQL, error) {
 		if len(ret) >= part.TotalCount || len(part.Instances) == 0 {
 			break
 		}
-		query.Set("offset", fmt.Sprintf("%s", len(ret)))
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
 	}
 	return ret, nil
 }

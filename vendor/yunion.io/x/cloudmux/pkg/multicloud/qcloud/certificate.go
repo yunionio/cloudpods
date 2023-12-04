@@ -321,6 +321,7 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 
 	icerts := make([]cloudprovider.ICloudLoadbalancerCertificate, len(certs))
 	for i := range certs {
+		certs[i].client = self.client
 		icerts[i] = &certs[i]
 	}
 
