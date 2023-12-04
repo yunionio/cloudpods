@@ -408,7 +408,10 @@ func (self *SNetwork) GetDNS(zoneName string) string {
 	if len(options.Options.DNSServer) > 0 {
 		return options.Options.DNSServer
 	}
-	return api.DefaultDNSServers
+	if options.Options.EnableDefaultDNS {
+		return api.DefaultDNSServers
+	}
+	return ""
 }
 
 func (self *SNetwork) GetNTP() string {
