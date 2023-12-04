@@ -467,9 +467,10 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd := QEMU_KVM_PATH
 	if sysutils.IsKvmSupport() {
 		cmd += __("-enable-kvm")
+		cmd += __("-cpu host")
+	} else {
+		cmd += __("-cpu max")
 	}
-
-	cmd += __("-cpu host")
 	cmd += __("-M pc")
 
 	d.pidPath = fmt.Sprintf("/tmp/%s.pid", uuid)
@@ -560,9 +561,10 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd := QEMU_KVM_PATH
 	if sysutils.IsKvmSupport() {
 		cmd += __("-enable-kvm")
+		cmd += __("-cpu host")
+	} else {
+		cmd += __("-cpu max")
 	}
-
-	cmd += __("-cpu host")
 	cmd += __("-M virt")
 
 	d.pidPath = fmt.Sprintf("/tmp/%s.pid", uuid)
