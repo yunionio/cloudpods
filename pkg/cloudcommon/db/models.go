@@ -103,6 +103,7 @@ func mustCheckModelManager(modelMan IModelManager) {
 
 func tableSpecId(tableSpec ITableSpec) string {
 	keys := []string{
+		string(tableSpec.GetDBName()),
 		tableSpec.Name(),
 	}
 	for _, c := range tableSpec.Columns() {
@@ -151,6 +152,7 @@ func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) 
 		tableSpec := modelMan.TableSpec()
 		tableKey := tableSpecId(tableSpec)
 		if _, ok := processedTbl[tableKey]; ok {
+			log.Warningf("table %s has been synced!", tableKey)
 			continue
 		}
 		processedTbl[tableKey] = true

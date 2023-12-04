@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/informer"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/util/dbutils"
 )
 
 func InitDB(options *common_options.DBOptions) {
@@ -77,6 +78,8 @@ func InitDB(options *common_options.DBOptions) {
 		log.Fatalf("cannot use clickhouse as primary database")
 	}
 	log.Infof("database dialect: %s sqlStr: %s", dialect, sqlStr)
+	// save configuration to consts
+	consts.SetDefaultDB(dialect, sqlStr)
 	dbConn, err := sql.Open(dialect, sqlStr)
 	if err != nil {
 		panic(err)
@@ -87,11 +90,11 @@ func InitDB(options *common_options.DBOptions) {
 	if err == nil {
 		// connect to clickcloud
 		// force convert sqlstr from clickhouse v2 to v1
-		sqlStr, err = clickhouseSqlStrV2ToV1(sqlStr)
+		sqlStr, err = dbutils.ClickhouseSqlStrV2ToV1(sqlStr)
 		if err != nil {
 			log.Fatalf("fail to convert clickhouse sqlstr from v2 to v1: %s", err)
 		}
-		err = validateClickhouseV1Str(sqlStr)
+		err = dbutils.ValidateClickhouseV1Str(sqlStr)
 		if err != nil {
 			log.Fatalf("invalid clickhouse sqlstr: %s", err)
 		}
