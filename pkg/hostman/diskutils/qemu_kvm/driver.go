@@ -107,9 +107,23 @@ func (m *QemuDeployManager) GetSshFreePort() int {
 
 var manager *QemuDeployManager
 
-func InitQemuDeployManager(cpuArch string, hugepage bool, hugepageSizeKB int, deployConcurrent int) {
+func InitQemuDeployManager(cpuArch string, hugepage bool, hugepageSizeKB int, deployConcurrent int) error {
 	if deployConcurrent <= 0 {
 		deployConcurrent = 10
+	}
+
+	err := procutils.NewCommand("mkdir", "-p", "/etc/ceph").Run()
+	if err != nil {
+		log.Errorf("Failed to mkdir /etc/ceph: %s", err)
+		return errors.Wrap(err, "Failed to mkdir /etc/ceph: %s")
+	}
+	err = procutils.NewCommand("test", "-f", "/etc/ceph/ceph.conf").Run()
+	if err != nil {
+		err = procutils.NewCommand("touch", "/etc/ceph/ceph.conf").Run()
+		if err != nil {
+			log.Errorf("failed to create /etc/ceph/ceph.conf: %s", err)
+			return errors.Wrap(err, "failed to create /etc/ceph/ceph.conf")
+		}
 	}
 
 	if manager == nil {
@@ -121,6 +135,8 @@ func InitQemuDeployManager(cpuArch string, hugepage bool, hugepageSizeKB int, de
 			c:              make(chan struct{}, deployConcurrent),
 		}
 	}
+
+	return nil
 }
 
 type QemuKvmDriver struct {
@@ -160,13 +176,13 @@ func (d *QemuKvmDriver) connect(guestDesc *apis.GuestDesc) error {
 	var sshport = manager.GetSshFreePort()
 	defer manager.unsetPort(sshport)
 
-	if guestDesc != nil {
-		for i := range guestDesc.Disks {
-			disks = append(disks, guestDesc.Disks[i].Path)
-		}
-	} else {
-		disks = append(disks, d.imageInfo.Path)
-	}
+	//if guestDesc != nil {
+	//	for i := range guestDesc.Disks {
+	//		disks = append(disks, guestDesc.Disks[i].Path)
+	//	}
+	//} else {
+	disks = append(disks, d.imageInfo.Path)
+	//}
 
 	err := d.qemuArchDriver.StartGuest(sshport, ncpu, memSizeMB, manager.hugepage, manager.hugepageSizeKB, disks)
 	if err != nil {
@@ -248,27 +264,29 @@ func (d *QemuKvmDriver) DeployGuestfs(req *apis.DeployParams) (*apis.DeployGuest
 	}
 	log.Infof("DeployGuestfs log: %s", strings.Join(out, "\n"))
 
-	responseStrs, err := d.sshRun("test -f /response && cat /response")
+	errStrs, err := d.sshRun("test -f /error && cat /error || true")
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssh gather errors failed")
 	}
+	log.Infof("deploy error str %v", errStrs)
+	var retErr error = nil
+	if len(errStrs[0]) > 0 {
+		retErr = errors.Errorf(errStrs[0])
+	}
+
+	responseStrs, err := d.sshRun("test -f /response && cat /response || true")
+	if err != nil {
+		return nil, errors.Wrapf(err, "ssh gather errors failed")
+	}
+	log.Infof("deploy response str %v", responseStrs)
 	var res = new(apis.DeployGuestFsResponse)
 	if len(responseStrs[0]) > 0 {
 		err := json.Unmarshal([]byte(responseStrs[0]), res)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed unmarshal deploy response %s", responseStrs[0])
 		}
-		return res, nil
 	}
 
-	errStrs, err := d.sshRun("test -f /error && cat /error")
-	if err != nil {
-		return nil, errors.Wrapf(err, "ssh gather errors failed")
-	}
-	var retErr error = nil
-	if len(errStrs[0]) > 0 {
-		retErr = errors.Errorf(errStrs[0])
-	}
 	return res, retErr
 }
 
@@ -285,7 +303,7 @@ func (d *QemuKvmDriver) ResizeFs() (*apis.Empty, error) {
 	}
 	log.Infof("ResizeFs log: %s", strings.Join(out, "\n"))
 
-	errStrs, err := d.sshRun("test -f /error && cat /error")
+	errStrs, err := d.sshRun("test -f /error && cat /error || true")
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssh gather errors failed")
 	}
@@ -310,7 +328,7 @@ func (d *QemuKvmDriver) FormatFs(req *apis.FormatFsParams) (*apis.Empty, error) 
 	}
 	log.Infof("FormatFs log: %s", strings.Join(out, "\n"))
 
-	errStrs, err := d.sshRun("test -f /error && cat /error")
+	errStrs, err := d.sshRun("test -f /error && cat /error || true")
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssh gather errors failed")
 	}
@@ -335,7 +353,7 @@ func (d *QemuKvmDriver) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveTo
 	}
 	log.Infof("SaveToGlance log: %s", strings.Join(out, "\n"))
 
-	responseStrs, err := d.sshRun("test -f /response && cat /response")
+	responseStrs, err := d.sshRun("test -f /response && cat /response || true")
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssh gather errors failed")
 	}
@@ -345,10 +363,9 @@ func (d *QemuKvmDriver) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveTo
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed unmarshal deploy response %s", responseStrs[0])
 		}
-		return res, nil
 	}
 
-	errStrs, err := d.sshRun("test -f /error && cat /error")
+	errStrs, err := d.sshRun("test -f /error && cat /error || true")
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssh gather errors failed")
 	}
@@ -373,7 +390,7 @@ func (d *QemuKvmDriver) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.Im
 	}
 	log.Infof("ProbeImageInfo log: %s", strings.Join(out, "\n"))
 
-	responseStrs, err := d.sshRun("test -f /response && cat /response")
+	responseStrs, err := d.sshRun("test -f /response && cat /response || true")
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssh gather errors failed")
 	}
@@ -383,10 +400,9 @@ func (d *QemuKvmDriver) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.Im
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed unmarshal deploy response %s", responseStrs[0])
 		}
-		return res, nil
 	}
 
-	errStrs, err := d.sshRun("test -f /error && cat /error")
+	errStrs, err := d.sshRun("test -f /error && cat /error || true")
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssh gather errors failed")
 	}
@@ -497,7 +513,7 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-device virtio-net-pci,netdev=hostnet0")
 	cmd += __("-device virtio-scsi-pci,id=scsi")
 	for i, diskPath := range disks {
-		cmd += __("-drive file=%s,if=none,id=drive_%d,cache=none,aio=native,file.locking=off", diskPath, i)
+		cmd += __("-drive file=%s,if=none,id=drive_%d,cache=none", diskPath, i)
 		cmd += __("-device scsi-hd,drive=drive_%d,bus=scsi.0,id=drive_%d", i, i)
 	}
 	cmd += __("-drive id=ide0-cd0,if=none,media=cdrom,file=%s", DEPLOY_ISO)
@@ -567,7 +583,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __(" -device virtio-net-pci,netdev=hostnet0")
 	cmd += __("-device virtio-scsi-pci,id=scsi")
 	for i, diskPath := range disks {
-		cmd += __("-drive file=%s,if=none,id=drive_%d,cache=none,aio=native,file.locking=off", diskPath, i)
+		cmd += __("-drive file=%s,if=none,id=drive_%d,cache=none", diskPath, i)
 		cmd += __("-device scsi-hd,drive=drive_%d,bus=scsi.0,id=drive_%d", i, i)
 	}
 	cmd += __("-drive if=none,file=%s,id=cd0,media=cdrom", DEPLOY_ISO)
