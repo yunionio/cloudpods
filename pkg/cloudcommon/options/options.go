@@ -145,7 +145,9 @@ type HostCommonOptions struct {
 	ExecutorSocketPath     string `help:"Executor socket path" default:"/var/run/onecloud/exec.sock"`
 	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 
-	EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
+	EnableRemoteExecutor          bool   `help:"Enable remote executor" default:"false"`
+	ExecutorConnectTimeoutSeconds int    `help:"executor client connection timeout in seconds, default is 30" default:"30"`
+	ImageDeployDriver             string `help:"Image deploy driver" default:"qemu-kvm" choices:"qemu-kvm|nbd|libguestfs"`
 }
 
 type DBOptions struct {

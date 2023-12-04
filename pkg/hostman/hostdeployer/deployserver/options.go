@@ -26,9 +26,8 @@ type SDeployOptions struct {
 	PrivatePrefixes []string `help:"IPv4 private prefixes"`
 	ChntpwPath      string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
 
-	CloudrootDir      string `help:"User cloudroot home dir" default:"/opt"`
-	ImageDeployDriver string `help:"Image deploy driver" default:"qemu-kvm" choices:"qemu-kvm|nbd|libguestfs"`
-	CommonConfigFile  string `help:"common config file for container"`
+	CloudrootDir     string `help:"User cloudroot home dir" default:"/opt"`
+	CommonConfigFile string `help:"common config file for container"`
 
 	DeployTempDir string `help:"temp dir for deployer" default:"/opt/cloud/workspace/run/deploy"`
 
