@@ -2357,10 +2357,10 @@ func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
 }
 
 func (h *SHostInfo) getHostname() string {
-	if len(h.FullName) > 0 {
-		return h.FullName
+	if h.FullName == "" {
+		h.FullName = h.fetchHostname()
 	}
-	return h.fetchHostname()
+	return h.FullName
 }
 
 func (h *SHostInfo) GetCpuArchitecture() string {
