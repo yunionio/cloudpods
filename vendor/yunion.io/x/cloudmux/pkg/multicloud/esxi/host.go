@@ -1061,13 +1061,15 @@ func (host *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		params.CpuSockets = 1
 	}
 
+	perSocket := params.Cpu / params.CpuSockets
+
 	spec := types.VirtualMachineConfigSpec{
 		Name:              name,
 		Version:           version,
 		Uuid:              params.Uuid,
 		GuestId:           guestId,
 		NumCPUs:           int32(params.Cpu),
-		NumCoresPerSocket: int32(params.CpuSockets),
+		NumCoresPerSocket: int32(perSocket),
 		MemoryMB:          int64(params.Mem),
 		Firmware:          firmware,
 
@@ -1297,11 +1299,12 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 	if params.CpuSockets == 0 {
 		params.CpuSockets = 1
 	}
+	perSocket := params.Cpu / params.CpuSockets
 	spec := types.VirtualMachineConfigSpec{
 		Name:              name,
 		Uuid:              params.Uuid,
 		NumCPUs:           int32(params.Cpu),
-		NumCoresPerSocket: int32(params.CpuSockets),
+		NumCoresPerSocket: int32(perSocket),
 		MemoryMB:          int64(params.Mem),
 
 		CpuHotAddEnabled:    &True,

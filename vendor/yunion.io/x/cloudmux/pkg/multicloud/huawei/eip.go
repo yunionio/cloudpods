@@ -107,7 +107,6 @@ func (self *SEipAddress) GetGlobalId() string {
 }
 
 func (self *SEipAddress) GetStatus() string {
-	// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090598.html
 	switch self.Status {
 	case "ACTIVE", "DOWN", "ELB":
 		return api.EIP_STATUS_READY
@@ -167,6 +166,9 @@ func (self *SEipAddress) GetPort() *Port {
 }
 
 func (self *SEipAddress) GetAssociationType() string {
+	if self.Status == "ELB" {
+		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+	}
 	if len(self.PortId) == 0 {
 		return ""
 	}
