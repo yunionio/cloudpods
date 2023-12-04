@@ -94,11 +94,11 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	}
 	defer disk.Cleanup()
 
+	defer disk.Disconnect()
 	if err := disk.Connect(req.GuestDesc); err != nil {
 		log.Errorf("Failed to connect %s disk: %s", req.GuestDesc.Hypervisor, err)
 		return new(deployapi.DeployGuestFsResponse), errors.Wrap(err, "Connect")
 	}
-	defer disk.Disconnect()
 
 	ret, err := disk.DeployGuestfs(req)
 	if ret == nil {
@@ -132,10 +132,11 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 		return new(deployapi.Empty), errors.Wrap(err, "GetIDisk fail")
 	}
 	defer disk.Cleanup()
+
+	defer disk.Disconnect()
 	if err := disk.Connect(nil); err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "disk connect failed")
 	}
-	defer disk.Disconnect()
 
 	return disk.ResizeFs()
 }

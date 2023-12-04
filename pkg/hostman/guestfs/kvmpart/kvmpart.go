@@ -303,18 +303,6 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 		}
 	}
 
-	// check lsof
-	for {
-		out, err := procutils.NewCommand("lsof", p.mountPath).Output()
-		if err != nil {
-			log.Warningf("lsof %s fail %s", p.mountPath, err)
-			break
-		} else {
-			log.Infof("unmount path %s lsof %s", p.mountPath, string(out))
-			time.Sleep(time.Second * 1)
-		}
-	}
-
 	var tries = 0
 	var err error
 	var out []byte
@@ -332,6 +320,9 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 			log.Infof("umount %s successfully", p.partDev)
 			return nil
 		} else {
+			lsofout, err := procutils.NewCommand("lsof", p.mountPath).Output()
+			log.Infof("unmount path %s lsof %s", p.mountPath, string(lsofout))
+
 			log.Warningf("failed umount %s: %s %s", p.partDev, err, out)
 			time.Sleep(time.Second * 3)
 		}
