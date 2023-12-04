@@ -28,12 +28,15 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/sqlchemy/backends/clickhouse"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/dbutils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/splitable"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -77,6 +80,29 @@ func NewModelBaseManagerWithSplitableDBName(model interface{}, tableName string,
 	ts := newTableSpec(model, tableName, indexField, dateField, maxDuration, maxSegments, dbName)
 	modelMan := SModelBaseManager{
 		tableSpec:     ts,
+		keyword:       keyword,
+		keywordPlural: keywordPlural,
+	}
+	return modelMan
+}
+
+func NewModelBaseManagerWithClickhouseMapping(manager IModelManager, tblname, keyword, keywordPlural string) SModelBaseManager {
+	ots := manager.TableSpec()
+	var extraOpts sqlchemy.TableExtraOptions
+	switch consts.DefaultDBDialect() {
+	case "mysql":
+		cfg := dbutils.ParseMySQLConnStr(consts.DefaultDBConnStr())
+		err := cfg.Validate()
+		if err != nil {
+			panic(fmt.Sprintf("invalid mysql connection string %s", consts.DefaultDBConnStr()))
+		}
+		extraOpts = clickhouse.MySQLExtraOptions(cfg.Hostport, cfg.Database, ots.Name(), cfg.Username, cfg.Password)
+	default:
+		panic(fmt.Sprintf("unsupport dialect %s to be backend of clickhouse", consts.DefaultDBDialect()))
+	}
+	nts := newClickhouseTableSpecFromMySQL(ots, tblname, ClickhouseDB, extraOpts)
+	modelMan := SModelBaseManager{
+		tableSpec:     nts,
 		keyword:       keyword,
 		keywordPlural: keywordPlural,
 	}

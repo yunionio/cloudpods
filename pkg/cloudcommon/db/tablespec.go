@@ -82,6 +82,13 @@ func newTableSpec(model interface{}, tableName string, indexField string, dateFi
 	}
 }
 
+func newClickhouseTableSpecFromMySQL(spec ITableSpec, name string, dbName sqlchemy.DBName, extraOpts sqlchemy.TableExtraOptions) ITableSpec {
+	itbl := sqlchemy.NewTableSpecFromISpecWithDBName(spec.(*sTableSpec).ITableSpec, name, dbName, extraOpts)
+	return &sTableSpec{
+		ITableSpec: itbl,
+	}
+}
+
 func (ts *sTableSpec) GetSplitTable() *splitable.SSplitTableSpec {
 	sts, ok := ts.ITableSpec.(*splitable.SSplitTableSpec)
 	if ok {
