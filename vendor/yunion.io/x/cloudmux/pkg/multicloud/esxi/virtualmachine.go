@@ -391,7 +391,7 @@ func (svm *SVirtualMachine) GetIEIP() (cloudprovider.ICloudEIP, error) {
 func (svm *SVirtualMachine) GetCpuSockets() int {
 	vm := svm.getVirtualMachine()
 	if vm.Config != nil {
-		return int(vm.Config.Hardware.NumCoresPerSocket)
+		return int(svm.GetVcpuCount() / int(vm.Config.Hardware.NumCoresPerSocket))
 	}
 	return 1
 }
@@ -779,12 +779,14 @@ func (svm *SVirtualMachine) GetVersion() string {
 func (svm *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu, cpuSockets int32, vmemMB int64, guestId string, version string) error {
 	changed := false
 	configSpec := types.VirtualMachineConfigSpec{}
+	cpu := svm.GetVcpuCount()
 	if int(ncpu) != svm.GetVcpuCount() {
 		configSpec.NumCPUs = ncpu
+		cpu = int(ncpu)
 		changed = true
 	}
 	if cpuSockets > 0 && int(cpuSockets) != svm.GetCpuSockets() {
-		configSpec.NumCoresPerSocket = cpuSockets
+		configSpec.NumCoresPerSocket = int32(cpu / int(cpuSockets))
 		changed = true
 	}
 	if int(vmemMB) != svm.GetVmemSizeMB() {
