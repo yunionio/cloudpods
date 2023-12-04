@@ -38,6 +38,8 @@ type SSplitTableSpec struct {
 	lastTableSpec   *sqlchemy.STableSpec
 	lastTableLock   *sync.Mutex
 	lastTableExpire time.Time
+
+	extraOpts sqlchemy.TableExtraOptions
 }
 
 const (
@@ -138,6 +140,20 @@ func (t *SSplitTableSpec) Drop() error {
 		return errors.Wrap(err, "Drop Meta")
 	}
 	return nil
+}
+
+func (t *SSplitTableSpec) GetExtraOptions() sqlchemy.TableExtraOptions {
+	return t.extraOpts
+}
+
+func (t *SSplitTableSpec) SetExtraOptions(opts sqlchemy.TableExtraOptions) {
+	if t.extraOpts == nil {
+		t.extraOpts = opts
+		return
+	}
+	for k := range opts {
+		t.extraOpts[k] = opts[k]
+	}
 }
 
 func NewSplitTableSpec(s interface{}, name string, indexField string, dateField string, maxDuration time.Duration, maxSegments int, dbName sqlchemy.DBName) (*SSplitTableSpec, error) {
