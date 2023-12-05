@@ -85,6 +85,12 @@ type ITableSpec interface {
 
 	// Drop drops table
 	Drop() error
+
+	// getter of Extra Options
+	GetExtraOptions() TableExtraOptions
+
+	// setter of Extra Options
+	SetExtraOptions(opts TableExtraOptions)
 }
 
 // STableSpec defines the table specification, which implements ITableSpec
@@ -94,6 +100,8 @@ type STableSpec struct {
 	_columns    []IColumnSpec
 	_indexes    []STableIndex
 	_contraints []STableConstraint
+
+	extraOptions TableExtraOptions
 
 	sDBReferer
 }
@@ -129,7 +137,18 @@ func NewTableSpecFromStructWithDBName(s interface{}, name string, dbName DBName)
 			dbName: dbName,
 		},
 	}
-	// table.struct2TableSpec(val)
+	return table
+}
+
+func NewTableSpecFromISpecWithDBName(spec ITableSpec, name string, dbName DBName, extraOpts TableExtraOptions) *STableSpec {
+	table := &STableSpec{
+		name:       name,
+		structType: spec.DataType(),
+		sDBReferer: sDBReferer{
+			dbName: dbName,
+		},
+		extraOptions: extraOpts,
+	}
 	return table
 }
 
