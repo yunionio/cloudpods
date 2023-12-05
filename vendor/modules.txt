@@ -956,10 +956,10 @@ github.com/xuri/nfp
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
-# github.com/zexi/influxql-to-promql v0.0.5
+# github.com/zexi/influxql-to-metricsql v0.0.6
 ## explicit; go 1.18
-github.com/zexi/influxql-to-promql/converter
-github.com/zexi/influxql-to-promql/converter/translator
+github.com/zexi/influxql-to-metricsql/converter
+github.com/zexi/influxql-to-metricsql/converter/translator
 # go.etcd.io/etcd/api/v3 v3.5.0
 ## explicit; go 1.16
 go.etcd.io/etcd/api/v3/authpb

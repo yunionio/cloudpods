@@ -7,7 +7,7 @@ import (
 	"github.com/influxdata/influxql"
 	"github.com/pkg/errors"
 
-	"github.com/zexi/influxql-to-promql/converter/translator"
+	"github.com/zexi/influxql-to-metricsql/converter/translator"
 )
 
 type Converter interface {

@@ -3,6 +3,7 @@ package translator
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,10 @@ import (
 )
 
 const UNION_RESULT_NAME = "__union_result__"
+
+const (
+	CALL_TOP = "top"
+)
 
 type promQL struct {
 	groupByWildcard bool
@@ -40,11 +45,11 @@ func (m *promQL) GetTimeRange() *influxql.TimeRange {
 
 type fieldResult struct {
 	metricName string
-	aggrOps    []string
+	aggrOps    []*AggrOperator
 	expr       promql.Expr
 }
 
-func newFieldResult(metricName string, ops []string, expr promql.Expr) *fieldResult {
+func newFieldResult(metricName string, ops []*AggrOperator, expr promql.Expr) *fieldResult {
 	return &fieldResult{
 		metricName: metricName,
 		aggrOps:    ops,
@@ -128,7 +133,11 @@ func unionFieldsExpr(exprs []*fieldResult) promql.Expr {
 		expr := exprs[i]
 		setValue := expr.metricName
 		if len(expr.aggrOps) > 0 {
-			setValue = fmt.Sprintf("%s_%s", strings.Join(expr.aggrOps, "_"), expr.metricName)
+			opsNames := make([]string, len(expr.aggrOps))
+			for i := range expr.aggrOps {
+				opsNames[i] = expr.aggrOps[i].Name
+			}
+			setValue = fmt.Sprintf("%s_%s", strings.Join(opsNames, "_"), expr.metricName)
 		}
 		result[i] = &promql.Call{
 			Func: &promql.Function{
@@ -191,7 +200,7 @@ func (m promQL) generateExpr(
 	metricName string,
 	ls []*labels.Matcher,
 	lookbehindWindow string,
-	aggrOps []string,
+	aggrOps []*AggrOperator,
 	groups []string) (promql.Expr, error) {
 	//fmt.Printf("=====name: %s, labels: %#v, lookbehindWindow: %q, aggrOps: %#v, groups: %#v\n", metricName, ls, lookbehindWindow, aggrOps, groups)
 	for _, l := range ls {
@@ -256,25 +265,29 @@ func (m promQL) formatExpr(expr promql.Expr) string {
 }
 
 func newAggrExpr(name string, argType promql.ValueType, returnType promql.ValueType, restExpr promql.Expr) promql.Expr {
+	return newAggrExprWithArgs(name, []promql.ValueType{argType}, returnType, promql.Expressions{restExpr})
+}
+
+func newAggrExprWithArgs(name string, args []promql.ValueType, returnType promql.ValueType, restExprs promql.Expressions) promql.Expr {
 	return &promql.Call{
 		Func: &promql.Function{
 			Name:       name,
-			ArgTypes:   []promql.ValueType{argType},
+			ArgTypes:   args,
 			Variadic:   0,
 			ReturnType: returnType,
 		},
-		Args: promql.Expressions{restExpr},
+		Args: restExprs,
 	}
 }
 
-func getAggrExpr(ops []string, expr promql.Expr) promql.Expr {
+func getAggrExpr(ops []*AggrOperator, expr promql.Expr) promql.Expr {
 	if len(ops) == 0 {
 		return expr
 	}
 	aggrOp := ops[0]
 	restOps := ops[1:]
 	restExpr := getAggrExpr(restOps, expr)
-	switch aggrOp {
+	switch aggrOp.Name {
 	case "abs":
 		// https://prometheus.io/docs/prometheus/latest/querying/functions/#abs
 		expr = newAggrExpr("abs", promql.ValueTypeVector, promql.ValueTypeVector, restExpr)
@@ -309,15 +322,46 @@ func getAggrExpr(ops []string, expr promql.Expr) promql.Expr {
 		expr = newAggrExpr("integrate", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
 	case "distinct":
 		expr = newAggrExpr("distinct", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+	case CALL_TOP:
+		expr = newAggrExprWithArgs("topk_avg",
+			[]promql.ValueType{
+				promql.ValueTypeString,
+				promql.ValueTypeMatrix,
+			}, promql.ValueTypeVector,
+			promql.Expressions{
+				aggrOp.Args[0],
+				restExpr})
 	}
 	return expr
 }
 
-func getAggrOperator(op *influxql.Call) ([]string, error) {
-	if len(op.Args) != 1 {
-		return nil, errors.Errorf("not supported operator: %s with args: %#v", op.String(), op.Args)
+type AggrOperator struct {
+	Name string
+	Args promql.Expressions
+}
+
+func newAggrOperatorByName(name string) *AggrOperator {
+	return &AggrOperator{
+		Name: name,
 	}
-	ret := []string{op.Name}
+}
+
+func getAggrOperator(op *influxql.Call) ([]*AggrOperator, error) {
+	if len(op.Args) != 1 && op.Name != CALL_TOP {
+		return nil, errors.Errorf("not supported aggregator: %s with args: %#v", op.String(), op.Args)
+	}
+	aggOp := newAggrOperatorByName(op.Name)
+	if op.Name == CALL_TOP {
+		topNumStr := op.Args[len(op.Args)-1].String()
+		topNum, err := strconv.Atoi(topNumStr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse top aggregator: %s", op)
+		}
+		aggOp.Args = promql.Expressions{
+			&promql.NumberLiteral{Val: float64(topNum)},
+		}
+	}
+	ret := []*AggrOperator{aggOp}
 	args, ok := op.Args[0].(*influxql.Call)
 	if !ok {
 		return ret, nil
@@ -330,7 +374,7 @@ func getAggrOperator(op *influxql.Call) ([]string, error) {
 	return ret, nil
 }
 
-func getAggrOperators(field *influxql.Field) ([]string, error) {
+func getAggrOperators(field *influxql.Field) ([]*AggrOperator, error) {
 	aggrOp, ok := field.Expr.(*influxql.Call)
 	if !ok {
 		return nil, nil
@@ -374,8 +418,8 @@ var (
 )
 
 func getCallVariable(c *influxql.Call) (string, error) {
-	if len(c.Args) != 1 {
-		return "", errors.Errorf("length of args %#v != 1", c.Args)
+	if len(c.Args) != 1 && c.Name != CALL_TOP {
+		return "", errors.Errorf("length of call %q args %#v != 1", c.Name, c.Args)
 	}
 	switch args := c.Args[0].(type) {
 	case *influxql.VarRef:
