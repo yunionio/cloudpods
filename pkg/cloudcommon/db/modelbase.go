@@ -86,7 +86,7 @@ func NewModelBaseManagerWithSplitableDBName(model interface{}, tableName string,
 	return modelMan
 }
 
-func NewModelBaseManagerWithClickhouseMapping(manager IModelManager, tblname, keyword, keywordPlural string) SModelBaseManager {
+func NewModelBaseManagerWithClickhouseMapping(manager IModelManager, keyword, keywordPlural string) SModelBaseManager {
 	ots := manager.TableSpec()
 	var extraOpts sqlchemy.TableExtraOptions
 	switch consts.DefaultDBDialect() {
@@ -100,7 +100,7 @@ func NewModelBaseManagerWithClickhouseMapping(manager IModelManager, tblname, ke
 	default:
 		panic(fmt.Sprintf("unsupport dialect %s to be backend of clickhouse", consts.DefaultDBDialect()))
 	}
-	nts := newClickhouseTableSpecFromMySQL(ots, tblname, ClickhouseDB, extraOpts)
+	nts := newClickhouseTableSpecFromMySQL(ots, ots.Name(), ClickhouseDB, extraOpts)
 	modelMan := SModelBaseManager{
 		tableSpec:     nts,
 		keyword:       keyword,
