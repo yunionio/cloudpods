@@ -34,60 +34,60 @@ func init() {
 	taskman.RegisterTask(InstanceBackupDeleteTask{})
 }
 
-func (self *InstanceBackupDeleteTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, reason jsonutils.JSONObject) {
+func (tsk *InstanceBackupDeleteTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_DELETE_FAILED, reasonStr)
-	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_DELETE, reason, self.UserCred, false)
-	self.SetStageFailed(ctx, reason)
+	ib.SetStatus(tsk.UserCred, compute.INSTANCE_BACKUP_STATUS_DELETE_FAILED, reasonStr)
+	logclient.AddActionLogWithStartable(tsk, ib, logclient.ACT_DELETE, reason, tsk.UserCred, false)
+	tsk.SetStageFailed(ctx, reason)
 }
 
-func (self *InstanceBackupDeleteTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	ib.RealDelete(ctx, self.UserCred)
-	logclient.AddActionLogWithContext(ctx, ib, logclient.ACT_DELETE, nil, self.UserCred, true)
-	self.SetStageComplete(ctx, nil)
+func (tsk *InstanceBackupDeleteTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
+	ib.RealDelete(ctx, tsk.UserCred)
+	logclient.AddActionLogWithContext(ctx, ib, logclient.ACT_DELETE, ib.GetShortDesc(ctx), tsk.UserCred, true)
+	tsk.SetStageComplete(ctx, nil)
 }
 
-func (self *InstanceBackupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (tsk *InstanceBackupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	ib := obj.(*models.SInstanceBackup)
-	self.SetStage("OnInstanceBackupDelete", nil)
-	if err := ib.GetRegionDriver().RequestDeleteInstanceBackup(ctx, ib, self); err != nil {
-		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
+	tsk.SetStage("OnInstanceBackupDelete", nil)
+	if err := ib.GetRegionDriver().RequestDeleteInstanceBackup(ctx, ib, tsk); err != nil {
+		tsk.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (self *InstanceBackupDeleteTask) OnKvmDiskBackupDelete(
+func (tsk *InstanceBackupDeleteTask) OnKvmDiskBackupDelete(
 	ctx context.Context, isp *models.SInstanceBackup, data jsonutils.JSONObject) {
-	backupId, _ := self.Params.GetString("del_backup_id")
+	backupId, _ := tsk.Params.GetString("del_backup_id")
 	// detach backup and instance
 	isjp := new(models.SInstanceBackupJoint)
 	isjp.SetModelManager(models.InstanceBackupJointManager, isjp)
 	err := models.InstanceBackupJointManager.Query().
 		Equals("instance_backup_id", isp.Id).Equals("disk_backup_id", backupId).First(isjp)
 	if err != nil {
-		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
+		tsk.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
-	err = isjp.Delete(ctx, self.UserCred)
+	err = isjp.Delete(ctx, tsk.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
+		tsk.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
-	if err := isp.GetRegionDriver().RequestDeleteInstanceBackup(ctx, isp, self); err != nil {
-		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
+	if err := isp.GetRegionDriver().RequestDeleteInstanceBackup(ctx, isp, tsk); err != nil {
+		tsk.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (self *InstanceBackupDeleteTask) OnKvmDiskBackupDeleteFailed(
+func (tsk *InstanceBackupDeleteTask) OnKvmDiskBackupDeleteFailed(
 	ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, ib, data)
+	tsk.taskFailed(ctx, ib, data)
 }
 
-func (self *InstanceBackupDeleteTask) OnInstanceBackupDelete(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	self.taskSuccess(ctx, ib, data)
+func (tsk *InstanceBackupDeleteTask) OnInstanceBackupDelete(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
+	tsk.taskSuccess(ctx, ib, data)
 }
 
-func (self *InstanceBackupDeleteTask) OnInstanceBackupDeleteFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, ib, data)
+func (tsk *InstanceBackupDeleteTask) OnInstanceBackupDeleteFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
+	tsk.taskFailed(ctx, ib, data)
 }

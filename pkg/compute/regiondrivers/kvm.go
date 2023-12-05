@@ -658,7 +658,7 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context,
 func (self *SKVMRegionDriver) RequestDeleteInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask) error {
 	backups, err := ib.GetBackups()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetBackups")
 	}
 	if len(backups) == 0 {
 		task.SetStage("OnInstanceBackupDelete", nil)
@@ -671,9 +671,9 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceBackup(ctx context.Context, i
 	params.Set("del_backup_id", jsonutils.NewString(backups[0].Id))
 	task.SetStage("OnKvmDiskBackupDelete", params)
 	forceDelete := jsonutils.QueryBoolean(task.GetParams(), "force_delete", false)
-	err = backups[0].StartBackupDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), forceDelete)
+	err = backups[len(backups)-1].StartBackupDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), forceDelete)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "StartBackupDeleteTask")
 	}
 	return nil
 }
