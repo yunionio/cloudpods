@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/influxdata/promql/v2/pkg/labels"
-	"github.com/zexi/influxql-to-promql/converter/translator"
+	"github.com/zexi/influxql-to-metricsql/converter/translator"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"

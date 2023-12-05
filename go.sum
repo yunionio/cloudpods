@@ -748,8 +748,8 @@ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 github.com/yusufpapurcu/wmi v1.2.2 h1:KBNDSne4vP5mbSWnJbO+51IMOXJB67QiYCSBrubbPRg=
 github.com/yusufpapurcu/wmi v1.2.2/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-github.com/zexi/influxql-to-promql v0.0.5 h1:4gRTqrof31O2Ku443RoTh20AadJG4sXbREn8i892WQo=
-github.com/zexi/influxql-to-promql v0.0.5/go.mod h1:a+S9SfEZ/aVyBM5abA7UCQmp7vD8Q9o+GfkQhk5mM58=
+github.com/zexi/influxql-to-metricsql v0.0.6 h1:E16T4oqgjIJtSNVvhGGHnw+pmY3yGz2iRsmmmSVuOpY=
+github.com/zexi/influxql-to-metricsql v0.0.6/go.mod h1:PyRRM+3Zrzzig6J4okYLeSv+/d+5GaL5ccBaUKQABNs=
 go.etcd.io/etcd/api/v3 v3.5.0 h1:GsV3S+OfZEOCNXdtNkBSR7kgLobAa/SO6tCxRa0GAYw=
 go.etcd.io/etcd/api/v3 v3.5.0/go.mod h1:cbVKeC6lCfl7j/8jBhAK6aIYO9XOjdptoxU/nLQcPvs=
 go.etcd.io/etcd/client/pkg/v3 v3.5.0 h1:2aQv6F436YnN7I4VbI8PPYrBhu+SmrTaADcf8Mi/6PU=
