@@ -86,10 +86,12 @@ func (self *SBaseResources) init(ctx context.Context) error {
 		"order_by.1":     "imported_at",
 		"order":          "asc",
 		"pending_delete": "all",
-		"filter.0":       "external_id.isnotempty()",
 	}
 	if self.manager.GetKeyword() == compute.Hosts.GetKeyword() { // private and vmware
 		query["cloud_env"] = "private_or_onpremise"
+	}
+	if self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
+		query["filter.0"] = "external_id.isnotempty()"
 	}
 	offset := 0
 	for {
