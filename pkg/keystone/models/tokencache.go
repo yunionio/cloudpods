@@ -45,6 +45,7 @@ func init() {
 		),
 	}
 	TokenCacheManager.SetVirtualObject(TokenCacheManager)
+	TokenCacheManager.TableSpec().AddIndex(false, "deleted", "valid")
 }
 
 type STokenCache struct {
