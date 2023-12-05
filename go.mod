@@ -65,7 +65,7 @@ require (
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/xuri/excelize/v2 v2.7.1
-	github.com/zexi/influxql-to-promql v0.0.5
+	github.com/zexi/influxql-to-metricsql v0.0.6
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/crypto v0.8.0
