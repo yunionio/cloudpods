@@ -496,6 +496,10 @@ func (domain *SDomain) Delete(ctx context.Context, userCred mcclient.TokenCreden
 			return errors.Wrap(err, "MarkPendingDelete")
 		}
 	}
+	err = db.Metadata.RemoveAll(ctx, domain, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "Metadata.RemoveAll")
+	}
 	return nil
 }
 
