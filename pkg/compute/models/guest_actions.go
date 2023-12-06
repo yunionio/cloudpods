@@ -2758,12 +2758,15 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if *input.CpuSockets > self.VcpuCount+addCpu {
 			return nil, httperrors.NewInputParameterError("The number of cpu sockets cannot be greater than the number of cpus")
 		}
+		if self.PowerStates == api.VM_POWER_STATES_ON {
+			return nil, httperrors.NewInvalidStatusError("cannot change CPU socket in power status %s", self.PowerStates)
+		}
 		cpuSocketsChanged = true
 		confs.Set("cpu_sockets", jsonutils.NewInt(int64(*input.CpuSockets)))
 	}
 
-	if self.Status == api.VM_RUNNING && (cpuChanged || memChanged || cpuSocketsChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, addCpu, addMem) {
-		return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in status %s", self.Status)
+	if self.PowerStates == api.VM_POWER_STATES_ON && (cpuChanged || memChanged || cpuSocketsChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, addCpu, addMem) {
+		return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in power status %s", self.PowerStates)
 	}
 
 	for i := range input.ResetTrafficLimits {

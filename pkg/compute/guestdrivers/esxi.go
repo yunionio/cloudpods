@@ -864,7 +864,12 @@ func (drv *SESXiGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 }
 
 func (drv *SESXiGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb int) bool {
+	if guest.CpuSockets > 1 {
+		// cannot chagne esxi VM CPU cores if cpu_sockets > 1
+		return false
+	}
 	// https://kb.vmware.com/s/article/2008405
+	// cannot increse memory beyond 3G if the initial CPU memories is lower than 3G
 	startVmem := guest.VmemSize
 	vmemMbStr := guest.GetMetadata(ctx, api.VM_METADATA_START_VMEM_MB, nil)
 	if len(vmemMbStr) > 0 {
