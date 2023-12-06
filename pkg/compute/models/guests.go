@@ -121,9 +121,9 @@ type SGuest struct {
 
 	db.SEncryptedResource
 
-	// CPU大小
+	// CPU插槽(socket)的数量
 	CpuSockets int `nullable:"false" default:"1" list:"user" create:"optional"`
-	// CPU大小
+	// CPU核(core)的数量， VcpuCount = CpuSockets * (cores per socket)，例如 2颗CPU，每颗CPU8核，则 VcpuCount=2*8=16
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
 	// 内存大小, 单位MB
 	VmemSize int `nullable:"false" list:"user" create:"required"`
