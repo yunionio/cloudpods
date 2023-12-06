@@ -281,15 +281,16 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 		}
 	}()
 
+	if _, err := procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output(); err != nil {
+		log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
+	}
+
 	var tries = 0
 	var err error
 	for tries < 10 {
 		tries += 1
 		_, err = procutils.NewCommand("umount", p.mountPath).Output()
 		if err == nil {
-			if _, err := procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output(); err != nil {
-				log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
-			}
 			if err := os.Remove(p.mountPath); err != nil {
 				log.Warningf("remove mount path %s error: %v", p.mountPath, err)
 			}
