@@ -435,6 +435,10 @@ func (model *SIdentityBaseResource) Delete(ctx context.Context, userCred mcclien
 			return errors.Wrap(err, "MarkPendingDelete")
 		}
 	}
+	err := db.Metadata.RemoveAll(ctx, model, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "Metadata.RemoveAll")
+	}
 	return nil // DeleteModel(ctx, userCred, model.GetIVirtualModel())
 }
 
