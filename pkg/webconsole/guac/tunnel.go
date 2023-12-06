@@ -19,7 +19,14 @@ import (
 	"io"
 	"net"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
+)
+
+const (
+	TunnerClose        = errors.Error("TunnerClose")
+	InvalidInstruction = errors.Error("InvalidInstruction")
 )
 
 type GuacamoleTunnel struct {
@@ -42,6 +49,9 @@ func (self *GuacamoleTunnel) ReadOne() (*Instruction, error) {
 	for {
 		select {
 		case instruct := <-self.instructs:
+			if gotypes.IsNil(instruct) {
+				return nil, InvalidInstruction
+			}
 			return instruct, nil
 		default:
 		}
@@ -71,12 +81,12 @@ func (self *GuacamoleTunnel) start() error {
 			default:
 				n, err := self.conn.Read(buf)
 				if err != nil && err != io.EOF {
-					self.err <- err
+					self.err <- errors.Wrapf(err, "Read")
 					return
 				}
 				instructions, _left, err := parse(append(left, buf[:n]...))
 				if err != nil {
-					self.err <- err
+					self.err <- errors.Wrapf(err, "parse instruct")
 					return
 				}
 				left = _left
@@ -90,7 +100,8 @@ func (self *GuacamoleTunnel) start() error {
 }
 
 func (self *GuacamoleTunnel) Stop() {
-	self.err <- fmt.Errorf("guacamole tunnel stoped")
+	defer self.conn.Close()
+	self.err <- TunnerClose
 	self.stopChan <- true
 }
 
@@ -121,7 +132,7 @@ func (self *GuacamoleTunnel) Handshake() error {
 	}
 
 	if args.Opcode != "args" {
-		return errors.Errorf("Invalid instruct %s", args.String())
+		return errors.Wrapf(InvalidInstruction, args.String())
 	}
 
 	for i, arg := range args.Args {
@@ -160,7 +171,7 @@ func (self *GuacamoleTunnel) Handshake() error {
 	}
 
 	if ready.Opcode != "ready" {
-		return fmt.Errorf("invalid ready instruction %s", ready.String())
+		return errors.Wrapf(InvalidInstruction, ready.String())
 	}
 
 	if len(ready.Args) == 0 {
@@ -168,5 +179,6 @@ func (self *GuacamoleTunnel) Handshake() error {
 	}
 
 	self.opts.ConnectionId = ready.Args[0]
+	log.Debugf("connection id %s", self.opts.ConnectionId)
 	return nil
 }
