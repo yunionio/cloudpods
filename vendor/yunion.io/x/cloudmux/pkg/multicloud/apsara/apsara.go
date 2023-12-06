@@ -262,6 +262,9 @@ func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error
 					return nil, errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
 				}
 				action := params.Get("OpenApiAction")
+				if len(action) == 0 {
+					action = params.Get("Action")
+				}
 				service := strings.ToLower(params.Get("Product"))
 				respCheck := func(resp *http.Response) {
 					if self.cpcfg.UpdatePermission != nil {
@@ -287,7 +290,7 @@ func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error
 						}
 					}
 				}
-				if self.cpcfg.ReadOnly {
+				if self.cpcfg.ReadOnly && len(action) > 0 {
 					for _, prefix := range []string{"Get", "List", "Describe"} {
 						if strings.HasPrefix(action, prefix) {
 							return respCheck, nil
