@@ -47,6 +47,7 @@ require (
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/pierrec/lz4/v4 v4.1.15
 	github.com/pkg/errors v0.9.1
+	github.com/pkg/sftp v1.13.6
 	github.com/pquerna/otp v1.2.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sergi/go-diff v1.2.0
@@ -94,7 +95,7 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.0.1-0.20231101105448-abef64cdc142
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20231204175132-1eb294922a51
+	yunion.io/x/sqlchemy v1.1.3-0.20231204175132-1eb294922a51
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
@@ -187,6 +188,7 @@ require (
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lestrrat-go/iter v0.0.0-20200422075355-fc1769541911 // indirect
 	github.com/lestrrat-go/pdebug v0.0.0-20200204225717-4d6bd78da58d // indirect

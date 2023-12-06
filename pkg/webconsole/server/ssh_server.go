@@ -24,6 +24,7 @@ import (
 	"github.com/anacrolix/sync"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
 	"yunion.io/x/jsonutils"
@@ -45,6 +46,7 @@ type WebsocketServer struct {
 	StdinPipe io.WriteCloser
 	ws        *websocket.Conn
 	conn      *ssh.Client
+	sftp      *sftp.Client
 	timer     *time.Timer
 }
 
@@ -103,6 +105,12 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.Wrapf(err, "dial %s", addr)
 	}
+
+	s.sftp, err = sftp.NewClient(s.conn)
+	if err != nil {
+		return errors.Wrapf(err, "new sftp client")
+	}
+	addSftpClient(s.Session.Id, s.sftp)
 
 	s.session, err = s.conn.NewSession()
 	if err != nil {
@@ -225,6 +233,8 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.ws.Close()
 		s.StdinPipe.Close()
 		s.session.Close()
+		delSftpClient(s.Session.Id)
+		s.sftp.Close()
 		s.conn.Close()
 	}()
 
