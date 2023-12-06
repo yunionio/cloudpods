@@ -565,7 +565,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	} else {
 		cmd += __("-cpu max")
 	}
-	cmd += __("-M virt")
+	cmd += __("-M virt,gic-version=max")
 
 	d.pidPath = fmt.Sprintf("/tmp/%s.pid", uuid)
 	cmd += __("-nodefaults")
