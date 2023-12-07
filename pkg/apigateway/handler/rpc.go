@@ -83,7 +83,6 @@ func RpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	token := AppContextToken(ctx)
-	// pathParams := appctx.AppContextParams(ctx)
 	s := auth.GetSession(ctx, token, FetchRegion(req))
 	funcname := verb + utils.Kebab2Camel(callName, "-")
 	mod, e := modulebase.GetModule(s, resType)
@@ -114,13 +113,14 @@ func RpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	retobj := retValue[0]
 	reterr := retValue[1]
 	if reterr.IsNil() {
-		v, ok := retobj.Interface().(jsonutils.JSONObject)
+		addr := retobj.Interface()
+		v, ok := addr.(jsonutils.JSONObject)
 		if ok {
 			appsrv.SendJSON(w, v)
 			return
 		}
 
-		v2, ok := retobj.Interface().([]printutils.SubmitResult)
+		v2, ok := addr.([]printutils.SubmitResult)
 		if ok {
 			w.WriteHeader(207)
 			appsrv.SendJSON(w, modulebase.SubmitResults2JSON(v2))
@@ -128,13 +128,14 @@ func RpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 		}
 
 		httperrors.BadGatewayError(ctx, w, "recv invalid data")
-	} else {
-		ge, ok := reterr.Interface().(error)
-		if ok {
-			je := httperrors.NewGeneralError(ge)
-			httperrors.GeneralServerError(ctx, w, je)
-			return
-		}
-		httperrors.BadGatewayError(ctx, w, fmt.Sprintf("%s", reterr.Interface()))
+		return
 	}
+	errAddr := reterr.Interface()
+	ge, ok := errAddr.(error)
+	if ok {
+		je := httperrors.NewGeneralError(ge)
+		httperrors.GeneralServerError(ctx, w, je)
+		return
+	}
+	httperrors.BadGatewayError(ctx, w, fmt.Sprintf("%s", reterr.Interface()))
 }

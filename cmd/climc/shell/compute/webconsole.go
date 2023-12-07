@@ -135,7 +135,7 @@ func init() {
 	})
 
 	R(&o.WebConsoleServerRdpOptions{}, "webconsole-server-rdp", "Connect server remote graphic console by rdp", func(s *mcclient.ClientSession, args *o.WebConsoleServerRdpOptions) error {
-		ret, err := webconsole.WebConsole.DoServerRDPConnect(s, args.ID, nil)
+		ret, err := webconsole.WebConsole.DoServerRDPConnect(s, args.ID, jsonutils.Marshal(map[string]interface{}{"webconsole": args}))
 		if err != nil {
 			return err
 		}
