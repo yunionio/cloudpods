@@ -341,10 +341,9 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 				dnsSrvs = strings.Join(dns, ",")
 			}
 		}
-		if len(dnsSrvs) == 0 {
-			dnsSrvs = apis.DefaultDNSServers
+		if len(dnsSrvs) > 0 {
+			dhcpopts.Options["dns_server"] = "{" + dnsSrvs + "}"
 		}
-		dhcpopts.Options["dns_server"] = "{" + dnsSrvs + "}"
 	}
 	{
 		ntpSrvs := ""
@@ -360,7 +359,8 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			}
 		}
 		if len(ntpSrvs) > 0 {
-			dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
+			// bug on OVN, should not use ntp server
+			// dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
 		}
 	}
 
