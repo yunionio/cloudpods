@@ -554,7 +554,7 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 	queryData := data.ToQueryData()
 	dbRtn, err := self.performQuery(ctx, userCred, queryData)
 	if err != nil {
-		return nil, errors.Wrapf(err, "performQuery with data: %s", queryData)
+		return nil, errors.Wrapf(err, "performQuery with data: %s", jsonutils.Marshal(queryData))
 	}
 	ret := []monitor.SimpleQueryOutput{}
 
