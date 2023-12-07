@@ -154,9 +154,15 @@ func (vd *VDDKDisk) Connect(*apis.GuestDesc) error {
 	}
 	vd.kvmDisk, err = NewKVMGuestDisk(qemuimg.SImageInfo{Path: flatFile}, vd.deployDriver, vd.readOnly)
 	if err != nil {
+		vd.DisconnectBlockDevice()
 		return errors.Wrap(err, "NewKVMGuestDisk")
 	}
-	return vd.kvmDisk.Connect(nil)
+	err = vd.kvmDisk.Connect(nil)
+	if err != nil {
+		vd.DisconnectBlockDevice()
+		return errors.Wrap(err, "kvmDisk connect")
+	}
+	return nil
 }
 
 func (vd *VDDKDisk) Disconnect() error {
