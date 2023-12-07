@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -34,13 +33,11 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/monitor/datasource"
+	mod "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/options"
-	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
-	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
 const (
@@ -200,7 +197,7 @@ func (self *SUnifiedMonitorManager) SetHandlerProcessTimeout(info *appsrv.SHandl
 	return 5 * time.Minute
 }
 
-func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (*monitor.MetricsQueryResult, error) {
 	tmp := jsonutils.DeepCopy(data)
 	self.handleDataPreSignature(ctx, tmp)
 	if !options.Options.DisableQuerySignatureCheck {
@@ -208,10 +205,10 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 			return nil, errors.Wrap(err, "ValidateQuerySignature")
 		}
 	}
-	inputQuery := new(monitor.MetricInputQuery)
+	inputQuery := new(monitor.MetricQueryInput)
 	err := data.Unmarshal(inputQuery)
 	if err != nil {
-		return jsonutils.NewDict(), err
+		return nil, err
 	}
 	if len(inputQuery.MetricQuery) == 0 {
 		return nil, merrors.NewArgIsEmptyErr("metric_query")
@@ -223,8 +220,8 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 			ownId = userCred
 		}
 		setDefaultValue(q, inputQuery, scope, ownId)
-		if err := self.ValidateInputQuery(q); err != nil {
-			return jsonutils.NewDict(), errors.Wrapf(err, "ValidateInputQuery")
+		if err := self.ValidateInputQuery(q, inputQuery); err != nil {
+			return nil, errors.Wrapf(err, "ValidateInputQuery")
 		}
 	}
 
@@ -237,9 +234,13 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		}
 	}
 
+	return self.performQuery(ctx, userCred, inputQuery)
+}
+
+func (self *SUnifiedMonitorManager) performQuery(ctx context.Context, userCred mcclient.TokenCredential, inputQuery *monitor.MetricQueryInput) (*monitor.MetricsQueryResult, error) {
 	rtn, err := doQuery(userCred, *inputQuery)
 	if err != nil {
-		return jsonutils.NewDict(), errors.Wrapf(err, "doQuery with input %s", data)
+		return nil, errors.Wrapf(err, "doQuery with input %s", jsonutils.Marshal(inputQuery))
 	}
 
 	if len(inputQuery.Soffset) != 0 && len(inputQuery.Slimit) != 0 {
@@ -268,14 +269,14 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 	}
 
 	fillSerieTags(&rtn.Series)
-	return jsonutils.Marshal(rtn), nil
+	return rtn, nil
 }
 
 func (self *SUnifiedMonitorManager) fillSearchSeriesTotalQuery(userCred mcclient.TokenCredential, fork monitor.AlertQuery) int64 {
 	newGroupByPart := make([]monitor.MetricQueryPart, 0)
 	newGroupByPart = append(newGroupByPart, fork.Model.GroupBy[0])
 	fork.Model.GroupBy = newGroupByPart
-	forkInputQury := new(monitor.MetricInputQuery)
+	forkInputQury := new(monitor.MetricQueryInput)
 	forkInputQury.MetricQuery = []*monitor.AlertQuery{&fork}
 	rtn, err := doQuery(userCred, *forkInputQury)
 	if err != nil {
@@ -314,17 +315,26 @@ func (self *SUnifiedMonitorManager) handleDataPreSignature(ctx context.Context, 
 	}
 }
 
-func doQuery(userCred mcclient.TokenCredential, query monitor.MetricInputQuery) (*mq.Metrics, error) {
-	conditions := make([]*monitor.AlertCondition, 0)
+func doQuery(userCred mcclient.TokenCredential, query monitor.MetricQueryInput) (*monitor.MetricsQueryResult, error) {
+	conds := make([]*monitor.AlertCondition, 0)
 	for _, q := range query.MetricQuery {
+		if q.To == "" {
+			q.To = query.To
+		}
+		if q.From == "" {
+			q.From = query.From
+		}
+		if q.Model.Interval == "" {
+			q.Model.Interval = query.Interval
+		}
 		condition := monitor.AlertCondition{
-			Type:  "metricquery",
+			Type:  monitor.ConditionTypeMetricQuery,
 			Query: *q,
 		}
-		conditions = append(conditions, &condition)
+		conds = append(conds, &condition)
 	}
-	factory := mq.GetQueryFactories()["metricquery"]
-	metricQ, err := factory(conditions)
+	factory := mq.GetQueryFactories()[monitor.ConditionTypeMetricQuery]
+	metricQ, err := factory(conds)
 	if err != nil {
 		return nil, errors.Wrap(err, "factory")
 	}
@@ -340,15 +350,25 @@ func doQuery(userCred mcclient.TokenCredential, query monitor.MetricInputQuery) 
 	return metrics, nil
 }
 
-func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery) error {
+func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery, input *monitor.MetricQueryInput) error {
+	if input.From == "" {
+		input.From = "1h"
+	}
+	if input.To == "" {
+		input.To = "now"
+	}
+	if input.Interval == "" {
+		input.Interval = "5m"
+	}
+
 	if query.From == "" {
-		query.From = "1h"
+		query.From = input.From
 	}
 	if query.Model.Interval == "" {
-		query.Model.Interval = "5m"
+		query.Model.Interval = input.Interval
 	}
 	if query.To == "" {
-		query.To = "now"
+		query.To = input.To
 	}
 	if _, err := time.ParseDuration(query.Model.Interval); err != nil {
 		return httperrors.NewInputParameterError("Invalid interval format: %s", query.Model.Interval)
@@ -356,7 +376,7 @@ func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery
 	return validators.ValidateSelectOfMetricQuery(*query)
 }
 
-func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery,
+func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput,
 	scope string, ownerId mcclient.IIdentityProvider) {
 	query.From = inputQuery.From
 	query.To = inputQuery.To
@@ -457,7 +477,7 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 	}
 }
 
-func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery) {
+func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput) {
 	if len(query.Model.GroupBy) != 0 {
 		return
 	}
@@ -479,7 +499,7 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInpu
 		})
 }
 
-func fillSerieTags(series *tsdb.TimeSeriesSlice) {
+func fillSerieTags(series *monitor.TimeSeriesSlice) {
 	for i, serie := range *series {
 		for _, tag := range []string{"brand", "platform", "hypervisor"} {
 			if val, ok := serie.Tags[tag]; ok {
@@ -497,8 +517,7 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 	}
 }
 
-func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, userCred mcclient.TokenCredential,
-	input *monitor.SimpleQueryInput) (jsonutils.JSONObject, error) {
+func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, userCred mcclient.TokenCredential, input *monitor.SimpleQueryInput) (jsonutils.JSONObject, error) {
 	if len(input.Database) == 0 {
 		input.Database = "telegraf"
 	}
@@ -510,12 +529,13 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 		return nil, httperrors.NewInputParameterError("invalid metric_name %s", input.MetricName)
 	}
 	measurement, field := metric[0], metric[1]
-	sqlstr := "select id, " + field + " from " + measurement + " where "
-	if input.Tags == nil {
-		input.Tags = map[string]string{}
-	}
+
+	data := mod.NewMetricQueryInputWithDB(input.Database, measurement).SkipCheckSeries(true)
+	data.Selects().Select(field)
+
+	where := data.Where()
 	if len(input.Id) > 0 {
-		input.Tags["id"] = input.Id
+		where.Equal("id", input.Id)
 	}
 	if input.EndTime.IsZero() {
 		input.EndTime = time.Now()
@@ -526,57 +546,40 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 	if input.EndTime.Sub(input.StartTime).Hours() > 1 {
 		return nil, httperrors.NewInputParameterError("The query interval is greater than one hour")
 	}
-	st := input.StartTime.Format(time.RFC3339)
-	et := input.EndTime.Format(time.RFC3339)
-	conditions := []string{}
 	for k, v := range input.Tags {
-		conditions = append(conditions, fmt.Sprintf("%s = '%s'", k, v))
+		where.Equal(k, v)
 	}
-	conditions = append(conditions, fmt.Sprintf("time >= '%s'", st))
-	conditions = append(conditions, fmt.Sprintf("time <= '%s'", et))
-	sqlstr += strings.Join(conditions, " and ")
-	sqlstr += " limit 2000"
-	dataSource, err := datasource.GetDefaultSource(input.Database)
+	data.From(input.StartTime).To(input.EndTime).Interval("5m")
+
+	queryData := data.ToQueryData()
+	dbRtn, err := self.performQuery(ctx, userCred, queryData)
 	if err != nil {
-		return nil, errors.Wrap(err, "s.GetDefaultSource")
-	}
-	db := influxdb.NewInfluxdb(dataSource.Url)
-	err = db.SetDatabase(input.Database)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("not support database %s", input.Database)
-	}
-	dbRtn, err := db.Query(sqlstr)
-	if err != nil {
-		return nil, errors.Wrap(err, "sql selected error")
+		return nil, errors.Wrapf(err, "performQuery with data: %s", queryData)
 	}
 	ret := []monitor.SimpleQueryOutput{}
-	for _, dbResults := range dbRtn {
-		for _, dbResult := range dbResults {
-			for _, value := range dbResult.Values {
-				if len(value) != 3 ||
-					gotypes.IsNil(value[0]) ||
-					gotypes.IsNil(value[1]) ||
-					gotypes.IsNil(value[2]) {
-					continue
-				}
-				timestamp, err := value[0].Int()
-				if err != nil {
-					continue
-				}
-				id, err := value[1].GetString()
-				if err != nil {
-					continue
-				}
-				v, err := value[2].Float()
-				if err != nil {
-					continue
-				}
-				ret = append(ret, monitor.SimpleQueryOutput{
-					Id:    id,
-					Time:  time.UnixMilli(timestamp),
-					Value: v,
-				})
+
+	for _, s := range dbRtn.Series {
+		id, ok := s.Tags["id"]
+		if !ok {
+			log.Warningf("Not found id from series: %s", jsonutils.Marshal(s))
+			continue
+		}
+		for _, point := range s.Points {
+			if len(point) != 2 {
+				log.Warningf("invalid series: %s", jsonutils.Marshal(s))
+				break
 			}
+			timestamp := point[len(point)-1]
+			valPtr, ok := point[0].(*float64)
+			if !ok || valPtr == nil {
+				log.Warningf("invalid series point: %#v", point)
+				break
+			}
+			ret = append(ret, monitor.SimpleQueryOutput{
+				Id:    id,
+				Time:  time.UnixMilli(int64(timestamp.(float64))),
+				Value: *valPtr,
+			})
 		}
 	}
 	return jsonutils.Marshal(map[string]interface{}{"values": ret}), nil

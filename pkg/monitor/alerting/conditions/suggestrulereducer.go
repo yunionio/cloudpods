@@ -17,7 +17,7 @@ package conditions
 import (
 	"time"
 
-	"yunion.io/x/onecloud/pkg/monitor/tsdb"
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 )
 
 type suggestRuleReducer struct {
@@ -32,7 +32,7 @@ func NewSuggestRuleReducer(t string, duration time.Duration) Reducer {
 	}
 }
 
-func (s *suggestRuleReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
+func (s *suggestRuleReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 	/*if int(s.duration.Seconds()) > len(series.Points) {
 		return nil, nil
 	}*/

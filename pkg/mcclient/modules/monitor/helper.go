@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -407,10 +408,7 @@ func (s *AlertQuerySelects) Select(fieldName string) *AlertQuerySelect {
 		s.parts = make([]*AlertQuerySelect, 0)
 	}
 	sel := make([]monitor.MetricQueryPart, 0)
-	sel = append(sel, monitor.MetricQueryPart{
-		Type:   "field",
-		Params: []string{fieldName},
-	})
+	sel = append(sel, monitor.NewMetricQueryPartField(fieldName))
 	part := &AlertQuerySelect{sel}
 	s.parts = append(s.parts, part)
 	return part
@@ -424,58 +422,48 @@ func (s *AlertQuerySelects) ToSelects() []monitor.MetricQuerySelect {
 	return ret
 }
 
-func (s *AlertQuerySelect) addFunc(funcName string) *AlertQuerySelect {
-	s.MetricQuerySelect = append(s.MetricQuerySelect, monitor.MetricQueryPart{
-		Type: funcName,
-	})
+func (s *AlertQuerySelect) addPart(p monitor.MetricQueryPart) *AlertQuerySelect {
+	s.MetricQuerySelect = append(s.MetricQuerySelect, p)
 	return s
 }
 
 // Aggregations method
 func (s *AlertQuerySelect) MEAN() *AlertQuerySelect {
-	return s.addFunc("mean")
+	return s.addPart(monitor.NewMetricQueryPartMean())
 }
 
 func (s *AlertQuerySelect) COUNT() *AlertQuerySelect {
-	return s.addFunc("count")
+	return s.addPart(monitor.NewMetricQueryPartCount())
 }
 
 func (s *AlertQuerySelect) DISTINCT() *AlertQuerySelect {
-	return s.addFunc("distinct")
+	return s.addPart(monitor.NewMetricQueryPartDistinct())
 }
 
 func (s *AlertQuerySelect) SUM() *AlertQuerySelect {
-	return s.addFunc("sum")
+	return s.addPart(monitor.NewMetricQueryPartSum())
 }
 
 func (s *AlertQuerySelect) MIN() *AlertQuerySelect {
-	return s.addFunc("min")
+	return s.addPart(monitor.NewMetricQueryPartMin())
 }
 
 func (s *AlertQuerySelect) MAX() *AlertQuerySelect {
-	return s.addFunc("max")
+	return s.addPart(monitor.NewMetricQueryPartMax())
 }
 
 func (s *AlertQuerySelect) LAST() *AlertQuerySelect {
-	return s.addFunc("last")
+	return s.addPart(monitor.NewMetricQueryPartLast())
 }
 
 // AS is alias method
 func (s *AlertQuerySelect) AS(alias string) *AlertQuerySelect {
-	s.MetricQuerySelect = append(s.MetricQuerySelect, monitor.MetricQueryPart{
-		Type:   "alias",
-		Params: []string{alias},
-	})
-	return s
+	return s.addPart(monitor.NewMetricQueryPartAS(alias))
 }
 
 // MATH method
 func (s *AlertQuerySelect) MATH(op string, val string) *AlertQuerySelect {
-	s.MetricQuerySelect = append(s.MetricQuerySelect, monitor.MetricQueryPart{
-		Type:   "math",
-		Params: []string{fmt.Sprintf("%s %s", op, val)},
-	})
-	return s
+	return s.addPart(monitor.NewMetricQueryPartMath(op, val))
 }
 
 type AlertQueryWhere struct {
@@ -594,4 +582,91 @@ func (g *AlertQueryGroupBy) FILL(val string) *AlertQueryGroupBy {
 
 func (g *AlertQueryGroupBy) ToGroupBy() []monitor.MetricQueryPart {
 	return g.parts
+}
+
+type MetricQueryInput struct {
+	from            string `json:"from"`
+	to              string `json:"to"`
+	scope           string `json:"scope"`
+	slimit          string `json:"slimit"`
+	soffset         string `json:"soffset"`
+	unit            bool   `json:"unit"`
+	interval        string `json:"interval"`
+	domainId        string `json:"domain_id"`
+	projectId       string `json:"project_id"`
+	showMeta        bool   `json:"show_meta"`
+	skipCheckSeries bool   `json:"skip_check_series"`
+	query           *AlertQuery
+}
+
+func NewMetricQueryInput(measurement string) *MetricQueryInput {
+	return NewMetricQueryInputWithDB("", measurement)
+}
+
+func NewMetricQueryInputWithDB(db string, measurement string) *MetricQueryInput {
+	return &MetricQueryInput{
+		query: NewAlertQuery(db, measurement),
+	}
+}
+
+func (input *MetricQueryInput) Interval(interval string) *MetricQueryInput {
+	input.interval = interval
+	return input
+}
+
+func (input *MetricQueryInput) From(from time.Time) *MetricQueryInput {
+	input.from = fmt.Sprintf("%d", from.UnixMilli())
+	return input
+}
+
+func (input *MetricQueryInput) To(to time.Time) *MetricQueryInput {
+	input.to = fmt.Sprintf("%d", to.UnixMilli())
+	return input
+}
+
+func (input *MetricQueryInput) Scope(scope string) *MetricQueryInput {
+	input.scope = scope
+	return input
+}
+
+func (input *MetricQueryInput) SkipCheckSeries(skip bool) *MetricQueryInput {
+	input.skipCheckSeries = skip
+	return input
+}
+
+func (input *MetricQueryInput) Selects() *AlertQuerySelects {
+	return input.query.Selects()
+}
+
+func (input *MetricQueryInput) Where() *AlertQueryWhere {
+	return input.query.Where()
+}
+
+func (input *MetricQueryInput) GroupBy() *AlertQueryGroupBy {
+	return input.query.GroupBy()
+}
+
+func (input *MetricQueryInput) ToQueryData() *monitor.MetricQueryInput {
+	data := &monitor.MetricQueryInput{
+		From:            input.from,
+		To:              input.to,
+		Scope:           input.scope,
+		Slimit:          input.slimit,
+		Soffset:         input.soffset,
+		Unit:            input.unit,
+		Interval:        input.interval,
+		DomainId:        input.domainId,
+		ProjectId:       input.projectId,
+		ShowMeta:        input.showMeta,
+		SkipCheckSeries: input.skipCheckSeries,
+	}
+	data.MetricQuery = []*monitor.AlertQuery{
+		{Model: input.query.ToMetricQuery()},
+	}
+
+	jsonData := jsonutils.Marshal(data).(*jsonutils.JSONDict)
+	digest := monitor.DigestQuerySignature(jsonData)
+	data.Signature = digest
+
+	return data
 }
