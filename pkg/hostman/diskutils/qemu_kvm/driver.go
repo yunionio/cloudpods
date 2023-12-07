@@ -17,9 +17,9 @@ package qemu_kvm
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -190,11 +190,19 @@ func (d *QemuKvmDriver) connect(guestDesc *apis.GuestDesc) error {
 	}
 	log.Infof("guest started ....")
 
-	cli, err := ssh.NewClient("localhost", sshport, "root", YUNIONOS_PASSWD, "")
-	if err != nil {
+	for i := 0; i < 3; i++ {
+		cli, e := ssh.NewClient("localhost", sshport, "root", YUNIONOS_PASSWD, "")
+		if e == nil {
+			d.sshClient = cli
+			break
+		}
+		err = e
+		log.Errorf("new ssh client failed: %s", err)
+	}
+	if d.sshClient == nil {
 		return errors.Wrap(err, "new ssh client")
 	}
-	d.sshClient = cli
+
 	log.Infof("guest ssh connected")
 
 	out, err := d.sshRun("mount /dev/sr0 /opt")
@@ -419,20 +427,15 @@ func __(v string, vs ...interface{}) string {
 }
 
 type QemuBaseDriver struct {
-	proc *procutils.Command
-	outb io.ReadCloser
-	errb io.ReadCloser
-
 	hmp          *monitor.HmpMonitor
 	hugepagePath string
 	pidPath      string
+	cleaned      uint32
+	sync.Once
 }
 
 func (d *QemuBaseDriver) CleanGuest() {
-	defer manager.Release()
-
 	if d.hmp != nil {
-		d.hmp.IsConnected()
 		d.hmp.Quit(func(string) {})
 		d.hmp = nil
 	}
@@ -453,6 +456,11 @@ func (d *QemuBaseDriver) CleanGuest() {
 			procutils.NewCommand("rm", "-rf", d.hugepagePath).Run()
 		}
 		d.hugepagePath = ""
+	}
+
+	if atomic.LoadUint32(&d.cleaned) != 1 {
+		manager.Release()
+		atomic.StoreUint32(&d.cleaned, 1)
 	}
 }
 
@@ -578,7 +586,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-m %dM", memSizeMB)
 	cmd += __("-initrd %s", ARM_INITRD_PATH)
 	cmd += __("-kernel %s", ARM_KERNEL_PATH)
-	cmd += __("-drive if=pflash,format=raw,unit=0,file=/opt/cloud/contrib/OVMF.fd,readonly=on")
+	cmd += __("-drive if=pflash,format=raw,unit=0,file=/usr/share/AAVMF/AAVMF_CODE.fd,readonly=on")
 
 	cmd += __("-device virtio-serial-pci")
 	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp::%d-:22", sshPort)
