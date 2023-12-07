@@ -17,17 +17,10 @@ package metricquery
 import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
-type Metrics struct {
-	SeriesTotal int64
-	Series      tsdb.TimeSeriesSlice
-	Metas       []tsdb.QueryResultMeta
-}
-
 type MetricQuery interface {
-	ExecuteQuery(userCred mcclient.TokenCredential, forceCheckSeries bool) (*Metrics, error)
+	ExecuteQuery(userCred mcclient.TokenCredential, forceCheckSeries bool) (*monitor.MetricsQueryResult, error)
 }
 
 type QueryFactory func(model []*monitor.AlertCondition) (MetricQuery, error)

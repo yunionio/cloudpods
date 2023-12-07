@@ -14,50 +14,12 @@
 
 package monitor
 
-type DataSourceConfig struct {
-	Id     string
-	Name   string
-	Driver string
-	Config interface{}
-}
+import "fmt"
 
-type MetricResource struct {
-	// Type is the metric resource type. e.g: host, vm, lbinstance
-	Type string `json:"type"`
-	// ConfigId is the data source config id
-	ConfigId string `json:"config_id"`
-}
-
-type Metric struct {
-	Resource    MetricResource `json:"resource"`
-	Measurement string         `json:"measurement"`
-	Field       string         `json:"field"`
-	DisplayName string         `json:"displayname"`
-}
-
-type TimeSeries struct {
-	Results []TimeSeriesResult `json:"results"`
-}
-
-type TimeSeriesResult struct {
-	Series []TimeSeriesRow `json:"series"`
-}
-
-type TimeSeriesRow struct {
-	Metric  Metric            `json:"metric"`
-	Tags    map[string]string `json:"tags,omitempty"`
-	Columns []string          `json:"columns,omitempty"`
-	// Value item is a point with timestamp and value
-	Values [][]interface{} `json:"values,omitempty"`
-}
-
-type MetricRequest struct {
-	// The start time for the query
-	From string `json:"from"`
-	// An end time for the query
-	To      string         `json:"to"`
-	Queries []*MetricQuery `json:"queries"`
-	Debug   bool           `json:"debug"`
+type Condition struct {
+	Type      string    `json:"type"`
+	Params    []float64 `json:"params"`
+	Operators []string  `json:"operators"`
 }
 
 type MetricQueryTag struct {
@@ -70,6 +32,61 @@ type MetricQueryTag struct {
 type MetricQueryPart struct {
 	Type   string   `json:"type"`
 	Params []string `json:"params"`
+}
+
+func NewMetricQueryPartField(fieldName string) MetricQueryPart {
+	return MetricQueryPart{
+		Type:   "field",
+		Params: []string{fieldName},
+	}
+}
+
+func NewMetricQueryPartAS(alias string) MetricQueryPart {
+	return MetricQueryPart{
+		Type:   "alias",
+		Params: []string{alias},
+	}
+}
+
+func NewMetricQueryPartMath(op string, val string) MetricQueryPart {
+	return MetricQueryPart{
+		Type:   "math",
+		Params: []string{fmt.Sprintf("%s %s", op, val)},
+	}
+}
+
+func NewMetricQueryPartFunc(funcName string) MetricQueryPart {
+	return MetricQueryPart{
+		Type: funcName,
+	}
+}
+
+func NewMetricQueryPartMean() MetricQueryPart {
+	return NewMetricQueryPartFunc("mean")
+}
+
+func NewMetricQueryPartCount() MetricQueryPart {
+	return NewMetricQueryPartFunc("count")
+}
+
+func NewMetricQueryPartDistinct() MetricQueryPart {
+	return NewMetricQueryPartFunc("distinct")
+}
+
+func NewMetricQueryPartSum() MetricQueryPart {
+	return NewMetricQueryPartFunc("sum")
+}
+
+func NewMetricQueryPartMin() MetricQueryPart {
+	return NewMetricQueryPartFunc("min")
+}
+
+func NewMetricQueryPartMax() MetricQueryPart {
+	return NewMetricQueryPartFunc("max")
+}
+
+func NewMetricQueryPartLast() MetricQueryPart {
+	return NewMetricQueryPartFunc("last")
 }
 
 type MetricQuerySelect []MetricQueryPart
@@ -89,12 +106,4 @@ type MetricQuery struct {
 	Interval     string              `json:"interval"`
 	Policy       string              `json:"policy"`
 	ResultFormat string              `json:"result_format"`
-}
-
-type AlertConditionCombiner string
-
-type Condition struct {
-	Type      string    `json:"type"`
-	Params    []float64 `json:"params"`
-	Operators []string  `json:"operators"`
 }

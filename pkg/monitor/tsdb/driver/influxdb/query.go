@@ -101,12 +101,20 @@ func (query *Query) renderTimeFilter(queryCtx *tsdb.TsdbQuery) string {
 	if strings.Contains(queryCtx.TimeRange.From, "now-") {
 		from = "now() - " + strings.Replace(queryCtx.TimeRange.From, "now-", "", 1)
 	} else {
-		from = "now() - " + queryCtx.TimeRange.From
+		if _, ok := tsdb.TryParseUnixMsEpoch(queryCtx.TimeRange.From); ok {
+			from = fmt.Sprintf("%sms", queryCtx.TimeRange.From)
+		} else {
+			from = "now() - " + queryCtx.TimeRange.From
+		}
 	}
 	to := ""
 
 	if queryCtx.TimeRange.To != "now" && queryCtx.TimeRange.To != "" {
-		to = " and time < now() - " + strings.Replace(queryCtx.TimeRange.To, "now-", "", 1)
+		if _, ok := tsdb.TryParseUnixMsEpoch(queryCtx.TimeRange.To); ok {
+			to = fmt.Sprintf(" and time < %sms", queryCtx.TimeRange.To)
+		} else {
+			to = " and time < now() - " + strings.Replace(queryCtx.TimeRange.To, "now-", "", 1)
+		}
 	}
 
 	return fmt.Sprintf("time > %s%s", from, to)
