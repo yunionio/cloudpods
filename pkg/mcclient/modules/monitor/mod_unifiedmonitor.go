@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -47,5 +49,6 @@ func NewUnifiedMonitorManager() *SUnifiedMonitorManager {
 	}
 }
 
-func (m *SUnifiedMonitorManager) PerformQuery(s *mcclient.ClientSession, input *monitor.MetricQueryInput) {
+func (m *SUnifiedMonitorManager) PerformQuery(s *mcclient.ClientSession, input *monitor.MetricQueryInput) (jsonutils.JSONObject, error) {
+	return m.PerformClassAction(s, "query", jsonutils.Marshal(input))
 }
