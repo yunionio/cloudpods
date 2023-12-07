@@ -19,7 +19,7 @@ import (
 	"net"
 )
 
-func NewGuacamoleTunnel(host string, port int, user, password string, id string, w, h, dpi int) (*GuacamoleTunnel, error) {
+func NewGuacamoleTunnel(host string, port int, user, password string, id string, w, h, dpi int, uId string) (*GuacamoleTunnel, error) {
 	opts := NewGuacOptions()
 	opts.ConnectionId = id
 	opts.Protocol = "rdp"
@@ -41,7 +41,7 @@ func NewGuacamoleTunnel(host string, port int, user, password string, id string,
 		"password":          password,
 		"enable-drive":      "true",
 		"drive-name":        "Cloudpods",
-		"drive-path":        "/opt/cloudpods",
+		"drive-path":        "/opt/cloudpods/" + uId,
 		"create-drive-path": "true",
 	}
 	conn, err := net.Dial("tcp", "127.0.0.1:4822")

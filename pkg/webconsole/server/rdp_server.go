@@ -78,7 +78,17 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer ws.Close()
 
-	tunnel, err := guac.NewGuacamoleTunnel(s.Host, s.Port, s.Username, s.Password, s.ConnectionId, s.Width, s.Height, s.Dpi)
+	tunnel, err := guac.NewGuacamoleTunnel(
+		s.Host,
+		s.Port,
+		s.Username,
+		s.Password,
+		s.ConnectionId,
+		s.Width,
+		s.Height,
+		s.Dpi,
+		s.Session.GetClientSession().GetUserId(),
+	)
 	if err != nil {
 		log.Errorf("NewGuacamoleTunnel error: %v", err)
 		return
