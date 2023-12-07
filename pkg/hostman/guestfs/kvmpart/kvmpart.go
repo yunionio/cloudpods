@@ -301,7 +301,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 		if err != nil {
 			log.Errorf("SKVMGuestDiskPartition unmount btrfs error %s", err)
 		}
-    }
+	}
 
 	if _, err := procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output(); err != nil {
 		log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
