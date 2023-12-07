@@ -408,9 +408,7 @@ func (self *SNetwork) GetDNS(zoneName string) string {
 	if len(options.Options.DNSServer) > 0 {
 		return options.Options.DNSServer
 	}
-	if options.Options.EnableDefaultDNS {
-		return api.DefaultDNSServers
-	}
+
 	return ""
 }
 
