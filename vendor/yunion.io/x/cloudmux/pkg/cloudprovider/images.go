@@ -77,7 +77,7 @@ type SaveImageOptions struct {
 
 func CloudImage2Image(image ICloudImage) SImage {
 	uefiSupport := false
-	if image.GetBios() == BIOS {
+	if image.GetBios() == UEFI {
 		uefiSupport = true
 	}
 	return SImage{
