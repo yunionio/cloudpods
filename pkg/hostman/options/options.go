@@ -17,6 +17,9 @@ package options
 import (
 	"os"
 
+	"yunion.io/x/log"
+	"yunion.io/x/structarg"
+
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/ovnutils"
@@ -50,6 +53,7 @@ type SHostOptions struct {
 	SHostBaseOptions
 
 	CommonConfigFile string `help:"common config file for container"`
+	LocalConfigFile  string `help:"local config file" default:"/etc/yunion/host_local.conf"`
 
 	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
 	ListenInterface string   `help:"Master address of host server"`
@@ -215,6 +219,17 @@ func Parse() (hostOpts SHostOptions) {
 		hostOpts.SHostBaseOptions = *commonCfg
 		// keep base options
 		hostOpts.BaseOptions.BaseOptions = baseOpt
+	}
+	if len(hostOpts.LocalConfigFile) > 0 && fileutils2.Exists(hostOpts.LocalConfigFile) {
+		log.Infof("Use local configuration file: %s", hostOpts.Config)
+		parser, err := structarg.NewArgumentParser(&hostOpts, "", "", "")
+		if err != nil {
+			log.Fatalf("fail to create local parse %s", err)
+		}
+		err = parser.ParseFile(hostOpts.LocalConfigFile)
+		if err != nil {
+			log.Fatalf("Parse local configuration file: %v", err)
+		}
 	}
 	return hostOpts
 }
