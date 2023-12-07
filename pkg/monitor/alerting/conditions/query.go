@@ -66,7 +66,7 @@ type AlertQuery struct {
 }
 
 type FormatCond struct {
-	QueryMeta    *tsdb.QueryResultMeta
+	QueryMeta    *monitor.QueryResultMeta
 	QueryKeyInfo string
 	Reducer      string
 	Evaluator    AlertEvaluator
@@ -93,7 +93,7 @@ func GetFetchImpByDb(db string) iEvalMatchFetch {
 	return iFetchImp[db]
 }
 
-func (c *QueryCondition) GenerateFormatCond(meta *tsdb.QueryResultMeta, metric string) *FormatCond {
+func (c *QueryCondition) GenerateFormatCond(meta *monitor.QueryResultMeta, metric string) *FormatCond {
 	return &FormatCond{
 		QueryMeta:    meta,
 		QueryKeyInfo: metric,
@@ -186,7 +186,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		if evalMatch {
 			evalMatchCount++
 		}
-		var meta *tsdb.QueryResultMeta
+		var meta *monitor.QueryResultMeta
 		if len(metas) > 0 {
 			//the relation metas with series is 1 to more
 			meta = &metas[0]
@@ -239,7 +239,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	}, nil
 }
 
-func (c *QueryCondition) serieIsLatestResource(resources map[string]jsonutils.JSONObject, series *tsdb.TimeSeries) (bool, jsonutils.JSONObject) {
+func (c *QueryCondition) serieIsLatestResource(resources map[string]jsonutils.JSONObject, series *monitor.TimeSeries) (bool, jsonutils.JSONObject) {
 	tagId := monitor.MEASUREMENT_TAG_ID[c.ResType]
 	if len(tagId) == 0 {
 		tagId = "host_id"
@@ -263,7 +263,7 @@ func (c *QueryCondition) serieIsLatestResource(resources map[string]jsonutils.JS
 }
 
 func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
-	series *tsdb.TimeSeries) {
+	series *monitor.TimeSeries) {
 	//startTime := time.Now()
 	//defer func() {
 	//	log.Debugf("--FillSerieByResourceField: %s", time.Since(startTime))
@@ -278,8 +278,8 @@ func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
 	}
 }
 
-func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb.TimeSeries,
-	meta *tsdb.QueryResultMeta, value *float64, valStrArr []string) (*monitor.EvalMatch, error) {
+func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series monitor.TimeSeries,
+	meta *monitor.QueryResultMeta, value *float64, valStrArr []string) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
 	alertDetails, err := c.GetCommonAlertDetails(context)
 	if err != nil {
@@ -351,7 +351,7 @@ func (c *QueryCondition) GetCommonAlertDetails(context *alerting.EvalContext) (*
 	return alertDetails, nil
 }
 
-func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, valStrArr []string) string {
+func (c *QueryCondition) jointPointStr(series monitor.TimeSeries, value string, valStrArr []string) string {
 	str := ""
 	for i := 0; i < len(valStrArr); i++ {
 		if i == 0 {
@@ -364,14 +364,14 @@ func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, val
 }
 
 type queryResult struct {
-	series tsdb.TimeSeriesSlice
-	metas  []tsdb.QueryResultMeta
+	series monitor.TimeSeriesSlice
+	metas  []monitor.QueryResultMeta
 }
 
 func (c *QueryCondition) executeQuery(evalCtx *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
 	req := c.getRequestForAlertRule(timeRange, evalCtx.IsDebug)
-	result := make(tsdb.TimeSeriesSlice, 0)
-	metas := make([]tsdb.QueryResultMeta, 0)
+	result := make(monitor.TimeSeriesSlice, 0)
+	metas := make([]monitor.QueryResultMeta, 0)
 
 	if evalCtx.IsDebug {
 		data := jsonutils.NewDict()

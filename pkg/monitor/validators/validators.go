@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
+	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
 const (
@@ -112,11 +113,11 @@ func ValidateAlertQueryModel(input monitor.MetricQuery) error {
 
 func ValidateSelectOfMetricQuery(input monitor.AlertQuery) error {
 	if err := ValidateFromAndToValue(input); err != nil {
-		return err
+		return errors.Wrap(err, "ValidateFromAndToValue")
 	}
 
 	if err := ValidateAlertQueryModel(input.Model); err != nil {
-		return err
+		return errors.Wrap(err, "ValidateAlertQueryModel")
 	}
 
 	for _, sel := range input.Model.Selects {
@@ -128,28 +129,13 @@ func ValidateSelectOfMetricQuery(input monitor.AlertQuery) error {
 }
 
 func ValidateFromAndToValue(input monitor.AlertQuery) error {
-	fromRaw := strings.Replace(input.From, "now-", "", 1)
-
-	fromDur, err := time.ParseDuration("-" + fromRaw)
-	if err != nil {
-		return err
+	if err := ValidateFromValue(input.From); err != nil {
+		return errors.Wrap(err, "ValidateFromValue")
 	}
-
-	if input.To == "now" {
-		return nil
-	} else if strings.HasPrefix(input.To, "now-") {
-		withoutNow := strings.Replace(input.To, "now-", "", 1)
-
-		toDur, err := time.ParseDuration("-" + withoutNow)
-		if err == nil {
-			if toDur >= fromDur {
-				return nil
-			}
-			return httperrors.NewInputParameterError("query duration err: from: %s, to:%s", input.From, input.To)
-		}
-		return err
+	if err := ValidateToValue(input.To); err != nil {
+		return errors.Wrap(err, "ValidateToValue")
 	}
-	return httperrors.NewInputParameterError("query duration `to` err: %s", input.To)
+	return nil
 }
 
 func ValidateAlertConditionReducer(input monitor.Condition) error {
@@ -217,10 +203,18 @@ func HumanThresholdType(typ string) string {
 }
 
 func ValidateFromValue(from string) error {
-	fromRaw := strings.Replace(from, "now-", "", 1)
+	_, ok := tsdb.TryParseUnixMsEpoch(from)
+	if ok {
+		return nil
+	}
 
-	_, err := time.ParseDuration("-" + fromRaw)
-	return err
+	fromRaw := strings.Replace(from, "now-", "", 1)
+	fromRawStr := "-" + fromRaw
+	_, err := time.ParseDuration(fromRawStr)
+	if err != nil {
+		return errors.Wrapf(err, "parse duration: %s", fromRawStr)
+	}
+	return nil
 }
 
 func ValidateToValue(to string) error {
@@ -228,13 +222,16 @@ func ValidateToValue(to string) error {
 		return nil
 	} else if strings.HasPrefix(to, "now-") {
 		withoutNow := strings.Replace(to, "now-", "", 1)
-
 		_, err := time.ParseDuration("-" + withoutNow)
 		if err == nil {
 			return nil
 		}
 	}
 
+	_, ok := tsdb.TryParseUnixMsEpoch(to)
+	if ok {
+		return nil
+	}
 	_, err := time.ParseDuration(to)
-	return err
+	return errors.Wrapf(err, "parse to: %s", to)
 }
