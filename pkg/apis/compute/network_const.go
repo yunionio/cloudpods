@@ -21,10 +21,6 @@ import (
 )
 
 const (
-	DefaultDNSServers = "223.5.5.5,223.6.6.6"
-)
-
-const (
 	// # DEFAULT_BANDWIDTH = options.default_bandwidth
 	MAX_BANDWIDTH = 100000
 
