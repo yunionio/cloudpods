@@ -195,6 +195,27 @@ func (self *SCloudregion) GetManagedGuestsCount(managerId string) (int, error) {
 	return self.GetManagedGuestsQuery(managerId).CountWithError()
 }
 
+func (self *SCloudregion) GetManagedLoadbalancerQuery(managerId string) *sqlchemy.SQuery {
+	return LoadbalancerManager.Query().
+		IsNotEmpty("external_id").
+		Equals("cloudregion_id", self.Id).
+		Equals("manager_id", managerId)
+}
+
+func (self *SCloudregion) GetManagedLoadbalancers(managerId string) ([]SLoadbalancer, error) {
+	q := self.GetManagedLoadbalancerQuery(managerId)
+	ret := []SLoadbalancer{}
+	err := db.FetchModelObjects(LoadbalancerManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (self *SCloudregion) GetManagedLoadbalancerCount(managerId string) (int, error) {
+	return self.GetManagedLoadbalancerQuery(managerId).CountWithError()
+}
+
 func (self *SCloudregion) GetGuestIncrementCount() (int, error) {
 	return self.getGuestCountInternal(true)
 }
