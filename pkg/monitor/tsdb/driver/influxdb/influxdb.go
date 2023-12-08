@@ -141,7 +141,7 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 	}
 	for i, query := range tsdbQuery.Queries {
 		ret := e.ResponseParser.Parse(&response, influxQ[i])
-		ret.Meta = tsdb.QueryResultMeta{
+		ret.Meta = monitor.QueryResultMeta{
 			RawQuery: rawQuery,
 		}
 		result.Results[query.RefId] = ret

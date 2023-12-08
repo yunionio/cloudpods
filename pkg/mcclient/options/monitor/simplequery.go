@@ -24,8 +24,8 @@ type SimpleQueryOptions struct {
 	Id         string   `json:"id"`
 	Database   string   `json:"database"`
 	MetricName string   `json:"metric_name"`
-	StartTime  string   `json:"start_time"`
-	EndTime    string   `json:"end_time"`
+	StartTime  string   `json:"start_time" help:"e.g.: 2023-12-06T21:54:42.123Z"`
+	EndTime    string   `json:"end_time" help:"e.g.: 2023-12-18T21:54:42.123Z"`
 	Tags       []string `json:"tags"`
 }
 

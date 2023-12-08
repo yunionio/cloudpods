@@ -35,7 +35,7 @@ func NewTimeRange(from, to string) *TimeRange {
 	}
 }
 
-func tryParseUnixMsEpoch(val string) (time.Time, bool) {
+func TryParseUnixMsEpoch(val string) (time.Time, bool) {
 	if val, err := strconv.ParseInt(val, 10, 64); err == nil {
 		seconds := val / 1000
 		nano := (val - seconds*1000) * 1000000
@@ -45,7 +45,8 @@ func tryParseUnixMsEpoch(val string) (time.Time, bool) {
 }
 
 func (tr *TimeRange) ParseFrom() (time.Time, error) {
-	if res, ok := tryParseUnixMsEpoch(tr.From); ok {
+	res, ok := TryParseUnixMsEpoch(tr.From)
+	if ok {
 		return res, nil
 	}
 
@@ -71,7 +72,7 @@ func (tr *TimeRange) ParseTo() (time.Time, error) {
 		return tr.now.Add(diff), nil
 	}
 
-	if res, ok := tryParseUnixMsEpoch(tr.To); ok {
+	if res, ok := TryParseUnixMsEpoch(tr.To); ok {
 		return res, nil
 	}
 

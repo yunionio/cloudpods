@@ -38,7 +38,7 @@ import (
 )
 
 func init() {
-	mq.RegisterMetricQuery("metricquery", func(model []*monitor.AlertCondition) (mq.MetricQuery, error) {
+	mq.RegisterMetricQuery(monitor.ConditionTypeMetricQuery, func(model []*monitor.AlertCondition) (mq.MetricQuery, error) {
 		return NewMetricQueryCondition(model)
 	})
 }
@@ -60,11 +60,11 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 		qc.Query.From = q.From
 		qc.Query.To = q.To
 		if err := validators.ValidateFromValue(qc.Query.From); err != nil {
-			return nil, errors.Wrapf(err, "from value %q", qc.Query.From)
+			return nil, errors.Wrapf(err, "validate from value %q", qc.Query.From)
 		}
 
 		if err := validators.ValidateToValue(qc.Query.To); err != nil {
-			return nil, errors.Wrapf(err, "to value %q", qc.Query.To)
+			return nil, errors.Wrapf(err, "validate to value %q", qc.Query.To)
 		}
 		qc.setResType()
 		cond.QueryCons = append(cond.QueryCons, *qc)
@@ -73,7 +73,7 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 	return cond, nil
 }
 
-func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, skipCheckSeries bool) (*mq.Metrics, error) {
+func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, skipCheckSeries bool) (*monitor.MetricsQueryResult, error) {
 	firstCond := query.QueryCons[0]
 	timeRange := tsdb.NewTimeRange(firstCond.Query.From, firstCond.Query.To)
 	ctx := gocontext.Background()
@@ -87,23 +87,29 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	var qr *queryResult
 	var err error
 
-	queryInfluxdb := func() (*queryResult, error) {
+	ds, err := datasource.GetDefaultSource("")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Can't find default datasource")
+	}
+
+	queryTSDB := func() (*queryResult, error) {
 		startTime := time.Now()
-		queryResult, err := query.executeQuery(&evalContext, timeRange)
+
+		queryResult, err := query.executeQuery(ds, &evalContext, timeRange)
 		if err != nil {
-			return nil, errors.Wrap(err, "query.executeQuery")
+			return nil, errors.Wrapf(err, "query.executeQuery from %s", ds.Type)
 		}
-		log.Debugf("query metrics from influxdb elapsed: %s", time.Since(startTime))
+		log.Debugf("query metrics from TSDB %q elapsed: %s", ds.Type, time.Since(startTime))
 		return queryResult, nil
 	}
 
 	if query.noCheckSeries(skipCheckSeries) {
-		qr, err = queryInfluxdb()
+		qr, err = queryTSDB()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "queryTSDB")
 		}
-		metrics := mq.Metrics{
-			Series: make(tsdb.TimeSeriesSlice, 0),
+		metrics := monitor.MetricsQueryResult{
+			Series: make(monitor.TimeSeriesSlice, 0),
 			Metas:  qr.metas,
 		}
 		metrics.Series = qr.series
@@ -114,7 +120,7 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	qRegionCh := make(chan bool, 0)
 
 	go func() {
-		qr, err = queryInfluxdb()
+		qr, err = queryTSDB()
 		qInfluxdbCh <- true
 	}()
 
@@ -163,8 +169,8 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	//	firstCond.FillSerieByResourceField(resource, serie)
 	//	metrics.Series = append(metrics.Series, serie)
 	//}
-	metrics := mq.Metrics{
-		Series: make(tsdb.TimeSeriesSlice, 0),
+	metrics := monitor.MetricsQueryResult{
+		Series: make(monitor.TimeSeriesSlice, 0),
 		Metas:  qr.metas,
 	}
 	mtx := sync.Mutex{}
@@ -217,15 +223,10 @@ func (query *MetricQueryCondition) noCheckSeries(skipCheckSeries bool) bool {
 	return true
 }
 
-func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
-	ds, err := datasource.GetDefaultSource("")
-	if err != nil {
-		return nil, errors.Wrapf(err, "Can't find default datasource")
-	}
-
+func (c *MetricQueryCondition) executeQuery(ds *tsdb.DataSource, context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
 	req := c.getRequestQuery(ds, timeRange, context.IsDebug)
-	result := make(tsdb.TimeSeriesSlice, 0)
-	metas := make([]tsdb.QueryResultMeta, 0)
+	result := make(monitor.TimeSeriesSlice, 0)
+	metas := make([]monitor.QueryResultMeta, 0)
 
 	if context.IsDebug {
 		setContextLog(context, req)

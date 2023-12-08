@@ -100,7 +100,7 @@ func convertVMResponse(rawQuery string, tsdbQuery *tsdb.TsdbQuery, resp *Respons
 		if err != nil {
 			return nil, errors.Wrap(err, "translate response")
 		}
-		ret.Meta = tsdb.QueryResultMeta{
+		ret.Meta = monitor.QueryResultMeta{
 			RawQuery: rawQuery,
 		}
 		result.Results[query.RefId] = ret
@@ -136,8 +136,8 @@ func translateResponse(resp *Response, query *tsdb.Query) (*tsdb.QueryResult, er
 }
 
 // Check VictoriaMetrics response at: https://docs.victoriametrics.com/keyConcepts.html#range-query
-func transformSeries(vmResult ResponseDataResult, query *tsdb.Query) tsdb.TimeSeriesSlice {
-	var result tsdb.TimeSeriesSlice
+func transformSeries(vmResult ResponseDataResult, query *tsdb.Query) monitor.TimeSeriesSlice {
+	var result monitor.TimeSeriesSlice
 	metric := vmResult.Metric
 
 	points := transValuesToTSDBPoints(vmResult.Values)
@@ -176,13 +176,13 @@ func formatRawName(idx int, name string, query *tsdb.Query, tags map[string]stri
 	return tsdb.FormatRawName(idx, name, groupByTags, tags)
 }
 
-func parseTimepoint(val ResponseDataResultValue) (tsdb.TimePoint, error) {
-	timepoint := make(tsdb.TimePoint, 0)
+func parseTimepoint(val ResponseDataResultValue) (monitor.TimePoint, error) {
+	timepoint := make(monitor.TimePoint, 0)
 	// parse timestamp
 	timestampNumber, _ := val[0].(json.Number)
 	timestamp, err := timestampNumber.Float64()
 	if err != nil {
-		return tsdb.TimePoint{}, errors.Wrapf(err, "parse timestampNumber")
+		return monitor.TimePoint{}, errors.Wrapf(err, "parse timestampNumber")
 	}
 	// to influxdb timestamp format, millisecond ?
 	timestamp *= 1000
