@@ -17,6 +17,7 @@ package volcengine
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -43,10 +44,12 @@ const (
 	VOLCENGINE_API_VERSION         = "2020-04-01"
 	VOLCENGINE_IAM_API_VERSION     = "2021-08-01"
 	VOLCENGINE_OBSERVE_API_VERSION = "2018-01-01"
+	VOLCENGINE_BILLING_API_VERSION = "2022-01-01"
 
-	VOLCENGINE_API     = "open.volcengineapi.com"
-	VOLCENGINE_IAM_API = "iam.volcengineapi.com"
-	VOLCENGINE_TOS_API = "tos-cn-beijing.volces.com"
+	VOLCENGINE_API         = "open.volcengineapi.com"
+	VOLCENGINE_IAM_API     = "iam.volcengineapi.com"
+	VOLCENGINE_TOS_API     = "tos-cn-beijing.volces.com"
+	VOLCENGINE_BILLING_API = "billing.volcengineapi.com"
 
 	VOLCENGINE_SERVICE_ECS       = "ecs"
 	VOLCENGINE_SERVICE_VPC       = "vpc"
@@ -55,7 +58,9 @@ const (
 	VOLCENGINE_SERVICE_IAM       = "iam"
 	VOLCENGINE_SERVICE_TOS       = "tos"
 	VOLCENGINE_SERVICE_OBSERVICE = "Volc_Observe"
-	VOLCENGINE_DEFAULT_REGION    = "cn-beijing"
+	VOLCENGINE_SERVICE_BILLING   = "billing"
+
+	VOLCENGINE_DEFAULT_REGION = "cn-beijing"
 )
 
 type VolcEngineClientConfig struct {
@@ -291,11 +296,9 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 		body = params
 	}
 
-	u := url.URL{
-		Scheme:   "http",
-		Host:     domain,
-		Path:     "/",
-		RawQuery: query.Encode(),
+	u, err := url.Parse(fmt.Sprintf("http://%s?%s", domain, query.Encode()))
+	if err != nil {
+		return nil, errors.Wrapf(err, "url.Parse")
 	}
 	method := httputils.GET
 	for prefix, _method := range map[string]httputils.THttpMethod{
@@ -401,6 +404,15 @@ func (client *SVolcEngineClient) getTosClient(regionId string) (*tos.ClientV2, e
 	return tosClient, err
 }
 
+func (client *SVolcEngineClient) billRequest(region string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cred := client.getDefaultCredential(region, VOLCENGINE_SERVICE_BILLING)
+	domain := VOLCENGINE_API
+	if apiName == "QueryBalanceAcct" {
+		domain = VOLCENGINE_BILLING_API + "/open-apis/trade_balance"
+	}
+	return client.jsonRequest(cred, domain, VOLCENGINE_BILLING_API_VERSION, apiName, params)
+}
+
 // Buckets
 func (client *SVolcEngineClient) invalidateIBuckets() {
 	client.iBuckets = nil
@@ -472,4 +484,26 @@ func (region *SVolcEngineClient) GetCapabilities() []string {
 
 func (client *SVolcEngineClient) GetAccessEnv() string {
 	return api.CLOUD_ACCESS_ENV_VOLCENGINE_CHINA
+}
+
+type SBalance struct {
+	AccountId        string
+	ArrearsBalance   float64
+	AvailableBalance float64
+	CashBalance      float64
+	CreditLimit      float64
+	FreezeAmount     float64
+}
+
+func (client *SVolcEngineClient) QueryBalance() (*SBalance, error) {
+	resp, err := client.billRequest("", "QueryBalanceAcct", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SBalance{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
