@@ -144,12 +144,21 @@ func (self *SVolcEngineProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SVolcEngineProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
-	// GetBalance is not currently open
-	return &cloudprovider.SBalanceInfo{
-		Amount:   0.0,
-		Currency: "CNY",
-		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
-	}, nil
+	ret := &cloudprovider.SBalanceInfo{Currency: "CNY", Status: api.CLOUD_PROVIDER_HEALTH_UNKNOWN}
+	balance, err := self.client.QueryBalance()
+	if err != nil {
+		return ret, err
+	}
+
+	ret.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+	ret.Amount = balance.AvailableBalance
+
+	if ret.Amount < 0 {
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+	} else if ret.Amount < 100 {
+		ret.Status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
+	}
+	return ret, nil
 }
 
 func (self *SVolcEngineProvider) GetBucketCannedAcls(regionId string) []string {
