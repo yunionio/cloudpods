@@ -1201,8 +1201,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231207080924-27d6d043d718 h1:eTDw4t3L27J98ID7nSqd7yBK8GFtxnzkoHo+7INJSdE=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231207080924-27d6d043d718/go.mod h1:aj1gR9PPb6eqqKOwvANe26CoZFY8ydmXy0fuvgKYXH0=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231208091211-a5955c546fda h1:asWKF7lBoCCnpHjui/lD/Gd2pNHy5//Q2SF146z1Rcg=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231208091211-a5955c546fda/go.mod h1:aj1gR9PPb6eqqKOwvANe26CoZFY8ydmXy0fuvgKYXH0=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32 h1:v7POYkQwo1XzOxBoIoRVr/k0V9Y5JyjpshlIFa9raug=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=

@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/stringutils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -518,7 +519,8 @@ func (self *SGoogleClient) ecsInsert(resource string, body jsonutils.JSONObject,
 	if err != nil {
 		return errors.Wrap(err, "checkAndSetName")
 	}
-	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, body, self.debug)
+	params := map[string]string{"requestId": stringutils.UUID4()}
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, body, self.debug)
 	if err != nil {
 		return err
 	}
