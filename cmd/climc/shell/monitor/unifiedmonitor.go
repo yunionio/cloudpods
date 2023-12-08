@@ -15,7 +15,10 @@
 package monitor
 
 import (
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/monitor"
 )
@@ -24,5 +27,18 @@ func init() {
 	cmd := shell.NewResourceCmd(monitor.UnifiedMonitorManager).SetPrefix("monitor")
 	cmd.Show(&options.SimpleQueryOptions{})
 	cmd.GetProperty(&options.MeasurementsQueryOptions{})
-	cmd.GetProperty(&options.DatabasesQueryOptions{})
+	// cmd.GetProperty(&options.DatabasesQueryOptions{})
+
+	R(new(options.MetricQueryOptions), "monitor-unifiedmonitor-query", "Perform metrics query", func(s *mcclient.ClientSession, opts *options.MetricQueryOptions) error {
+		input, err := opts.GetQueryInput()
+		if err != nil {
+			return err
+		}
+		resp, err := monitor.UnifiedMonitorManager.PerformQuery(s, input)
+		if err != nil {
+			return errors.Wrap(err, "PerformQuery")
+		}
+		printObject(resp)
+		return nil
+	})
 }

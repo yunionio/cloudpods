@@ -292,13 +292,13 @@ func (man *SCommonAlertManager) genName(ctx context.Context, ownerId mcclient.II
 
 func (man *SCommonAlertManager) ValidateMetricQuery(metricRequest *monitor.CommonMetricInputQuery, scope string, ownerId mcclient.IIdentityProvider) error {
 	for _, q := range metricRequest.MetricQuery {
-		metriInputQuery := monitor.MetricInputQuery{
+		metriInputQuery := monitor.MetricQueryInput{
 			From:     metricRequest.From,
 			To:       metricRequest.To,
 			Interval: metricRequest.Interval,
 		}
 		setDefaultValue(q.AlertQuery, &metriInputQuery, scope, ownerId)
-		err := UnifiedMonitorManager.ValidateInputQuery(q.AlertQuery)
+		err := UnifiedMonitorManager.ValidateInputQuery(q.AlertQuery, &metriInputQuery)
 		if err != nil {
 			return err
 		}

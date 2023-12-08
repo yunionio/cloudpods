@@ -22,12 +22,11 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
-	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
 
 type Reducer interface {
-	Reduce(series *tsdb.TimeSeries) (*float64, []string)
+	Reduce(series *monitor.TimeSeries) (*float64, []string)
 	GetType() string
 	GetParams() []float64
 }
@@ -48,7 +47,7 @@ func (s *queryReducer) GetType() string {
 	return s.Type
 }
 
-func (s *queryReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
+func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 	if len(series.Points) == 0 {
 		return nil, nil
 	}
@@ -181,7 +180,7 @@ func newSimpleReducerByType(typ string) *queryReducer {
 	}
 }
 
-func calculateDiff(series *tsdb.TimeSeries, allNull bool, value float64, fn func(float64, float64) float64) (bool, float64) {
+func calculateDiff(series *monitor.TimeSeries, allNull bool, value float64, fn func(float64, float64) float64) (bool, float64) {
 	var (
 		points = series.Points
 		first  float64

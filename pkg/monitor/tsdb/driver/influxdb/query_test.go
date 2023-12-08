@@ -15,6 +15,7 @@
 package influxdb
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -158,6 +159,14 @@ func TestInfluxdbQueryBuilder(t *testing.T) {
 			Convey("render from: 10m", func() {
 				queryContext := &tsdb.TsdbQuery{TimeRange: tsdb.NewTimeRange("10m", "now")}
 				So(query.renderTimeFilter(queryContext), ShouldEqual, "time > now() - 10m")
+			})
+
+			Convey("render from: 1701957983540 to 1701961583540", func() {
+				query := Query{}
+				start := "1701957983540"
+				end := "1701961583540"
+				queryContext := &tsdb.TsdbQuery{TimeRange: tsdb.NewTimeRange(start, end)}
+				So(query.renderTimeFilter(queryContext), ShouldEqual, fmt.Sprintf("time > %sms and time < %sms", start, end))
 			})
 		})
 
