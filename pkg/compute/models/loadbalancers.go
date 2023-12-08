@@ -903,68 +903,6 @@ func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
-	lbs := []SLoadbalancer{}
-	q := man.Query()
-	q = q.Equals("manager_id", provider.Id)
-	q = q.Equals("cloudregion_id", region.Id)
-	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
-		log.Errorf("failed to get lbs for region: %v provider: %v error: %v", region, provider, err)
-		return nil, err
-	}
-	return lbs, nil
-}
-
-func (man *SLoadbalancerManager) getLoadbalancersByExternalIds(externalIds []string) ([]SLoadbalancer, error) {
-	lbs := []SLoadbalancer{}
-	q := man.Query()
-	q = q.In("external_id", externalIds)
-	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
-		log.Errorf("failed to get lbs for region: %#v error: %v", externalIds, err)
-		return nil, err
-	}
-	return lbs, nil
-}
-
-func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer) ([]SLoadbalancer, error) {
-	// current external ID
-	extIds := []string{}
-	for i := range lbs {
-		extIds = append(extIds, lbs[i].GetGlobalId())
-	}
-
-	part1, err := man.getLoadbalancersByRegion(region, provider)
-	if err != nil {
-		return nil, err
-	}
-
-	localLbs := map[string]SLoadbalancer{}
-	for i := range part1 {
-		localLbs[part1[i].Id] = part1[i]
-		if len(part1[i].GetExternalId()) > 0 {
-			extIds = append(extIds, part1[i].GetExternalId())
-		}
-	}
-
-	if len(extIds) > 0 {
-		part2, err := man.getLoadbalancersByExternalIds(extIds)
-		if err != nil {
-			return nil, err
-		}
-
-		for i := range part2 {
-			localLbs[part2[i].Id] = part2[i]
-		}
-	}
-
-	ret := make([]SLoadbalancer, 0)
-	for id, _ := range localLbs {
-		ret = append(ret, localLbs[id])
-	}
-
-	return ret, nil
-}
-
 func (man *SLoadbalancerManager) SyncLoadbalancers(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -980,7 +918,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(
 	remoteLbs := []cloudprovider.ICloudLoadbalancer{}
 	syncResult := compare.SyncResult{}
 
-	dbLbs, err := man.getLocalLoadbalancers(ctx, userCred, provider, region, lbs)
+	dbLbs, err := region.GetManagedLoadbalancers(provider.Id)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
