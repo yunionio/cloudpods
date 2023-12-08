@@ -1473,11 +1473,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-<<<<<<< HEAD
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231204130454-2f77e6e2ee90
-=======
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231207080924-27d6d043d718
->>>>>>> fix(region): cloudpods uefi and generate name
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231208091227-82f95b87ee43
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
