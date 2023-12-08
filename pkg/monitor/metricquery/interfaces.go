@@ -20,7 +20,7 @@ import (
 )
 
 type MetricQuery interface {
-	ExecuteQuery(userCred mcclient.TokenCredential, forceCheckSeries bool) (*monitor.MetricsQueryResult, error)
+	ExecuteQuery(userCred mcclient.TokenCredential, scope string, forceCheckSeries bool) (*monitor.MetricsQueryResult, error)
 }
 
 type QueryFactory func(model []*monitor.AlertCondition) (MetricQuery, error)

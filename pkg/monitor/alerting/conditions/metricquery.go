@@ -73,7 +73,7 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 	return cond, nil
 }
 
-func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, skipCheckSeries bool) (*monitor.MetricsQueryResult, error) {
+func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, scope string, skipCheckSeries bool) (*monitor.MetricsQueryResult, error) {
 	firstCond := query.QueryCons[0]
 	timeRange := tsdb.NewTimeRange(firstCond.Query.From, firstCond.Query.To)
 	ctx := gocontext.Background()
@@ -137,7 +137,7 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 		}()
 
 		s := auth.GetSession(ctx, userCred, "")
-		ress, regionErr = firstCond.getOnecloudResources(s, false)
+		ress, regionErr = firstCond.getOnecloudResources(s, scope, false)
 		if err != nil {
 			regionErr = errors.Wrap(regionErr, "get resources from region")
 			return
