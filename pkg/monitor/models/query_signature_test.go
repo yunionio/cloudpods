@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 )
 
 func Test_digestQuerySignature(t *testing.T) {
@@ -42,7 +44,7 @@ func Test_digestQuerySignature(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := digestQuerySignature(tt.data); got != tt.want {
+			if got := monitor.DigestQuerySignature(tt.data); got != tt.want {
 				t.Errorf("sumQuerySignature() = %v, want %v", got, tt.want)
 			}
 		})

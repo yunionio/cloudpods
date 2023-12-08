@@ -19,7 +19,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"yunion.io/x/onecloud/pkg/monitor/tsdb"
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 )
 
 func TestSimpleReducer(t *testing.T) {
@@ -67,16 +67,16 @@ func TestSimpleReducer(t *testing.T) {
 
 		Convey("median should ignore null values", func() {
 			reducer := newSimpleReducerByType("median")
-			series := &tsdb.TimeSeries{
+			series := &monitor.TimeSeries{
 				Name: "test time series",
 			}
 
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 3))
-			series.Points = append(series.Points, tsdb.NewTimePointByVal(1, 4))
-			series.Points = append(series.Points, tsdb.NewTimePointByVal(2, 5))
-			series.Points = append(series.Points, tsdb.NewTimePointByVal(3, 6))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 1))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 2))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 3))
+			series.Points = append(series.Points, monitor.NewTimePointByVal(1, 4))
+			series.Points = append(series.Points, monitor.NewTimePointByVal(2, 5))
+			series.Points = append(series.Points, monitor.NewTimePointByVal(3, 6))
 
 			result, _ := reducer.Reduce(series)
 			So(result, ShouldNotBeNil)
@@ -91,14 +91,14 @@ func TestSimpleReducer(t *testing.T) {
 		Convey("count_non_null", func() {
 			Convey("with null values and real values", func() {
 				reducer := newSimpleReducerByType("count_non_null")
-				series := &tsdb.TimeSeries{
+				series := &monitor.TimeSeries{
 					Name: "test time series",
 				}
 
-				series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
-				series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
-				series.Points = append(series.Points, tsdb.NewTimePointByVal(3, 3))
-				series.Points = append(series.Points, tsdb.NewTimePointByVal(4, 4))
+				series.Points = append(series.Points, monitor.NewTimePoint(nil, 1))
+				series.Points = append(series.Points, monitor.NewTimePoint(nil, 2))
+				series.Points = append(series.Points, monitor.NewTimePointByVal(3, 3))
+				series.Points = append(series.Points, monitor.NewTimePointByVal(4, 4))
 				reduce, _ := reducer.Reduce(series)
 				So(reduce, ShouldNotBeNil)
 				So(*reduce, ShouldEqual, 2)
@@ -106,12 +106,12 @@ func TestSimpleReducer(t *testing.T) {
 
 			Convey("with null values", func() {
 				reducer := newSimpleReducerByType("count_non_null")
-				series := &tsdb.TimeSeries{
+				series := &monitor.TimeSeries{
 					Name: "test time series",
 				}
 
-				series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
-				series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
+				series.Points = append(series.Points, monitor.NewTimePoint(nil, 1))
+				series.Points = append(series.Points, monitor.NewTimePoint(nil, 2))
 				reduce, _ := reducer.Reduce(series)
 				So(reduce, ShouldBeNil)
 			})
@@ -119,14 +119,14 @@ func TestSimpleReducer(t *testing.T) {
 
 		Convey("avg of number values and null values should ignore nulls", func() {
 			reduer := newSimpleReducerByType("avg")
-			series := &tsdb.TimeSeries{
+			series := &monitor.TimeSeries{
 				Name: "test time series",
 			}
 
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 3))
-			series.Points = append(series.Points, tsdb.NewTimePointByVal(3, 4))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 1))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 2))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 3))
+			series.Points = append(series.Points, monitor.NewTimePointByVal(3, 4))
 			reduce, _ := reduer.Reduce(series)
 			So(*reduce, ShouldEqual, 3)
 		})
@@ -148,12 +148,12 @@ func TestSimpleReducer(t *testing.T) {
 
 		Convey("diff with only nulls", func() {
 			reducer := newSimpleReducerByType("diff")
-			series := &tsdb.TimeSeries{
+			series := &monitor.TimeSeries{
 				Name: "test time serie",
 			}
 
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 1))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 2))
 			reduce, _ := reducer.Reduce(series)
 			So(reduce, ShouldBeNil)
 		})
@@ -175,12 +175,12 @@ func TestSimpleReducer(t *testing.T) {
 
 		Convey("percent_diff with only nulls", func() {
 			reducer := newSimpleReducerByType("percent_diff")
-			series := &tsdb.TimeSeries{
+			series := &monitor.TimeSeries{
 				Name: "test time serie",
 			}
 
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 1))
-			series.Points = append(series.Points, tsdb.NewTimePoint(nil, 2))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 1))
+			series.Points = append(series.Points, monitor.NewTimePoint(nil, 2))
 			reduce, _ := reducer.Reduce(series)
 			So(reduce, ShouldBeNil)
 		})
@@ -189,13 +189,13 @@ func TestSimpleReducer(t *testing.T) {
 
 func testReducer(reducerType string, datapoints ...float64) float64 {
 	reducer := newSimpleReducerByType(reducerType)
-	serires := &tsdb.TimeSeries{
+	serires := &monitor.TimeSeries{
 		Name: "test time series",
 	}
 
 	for idx := range datapoints {
 		val := datapoints[idx]
-		serires.Points = append(serires.Points, tsdb.NewTimePoint(&val, 1234134))
+		serires.Points = append(serires.Points, monitor.NewTimePoint(&val, 1234134))
 	}
 	reduce, _ := reducer.Reduce(serires)
 	return *reduce

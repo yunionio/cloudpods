@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
-	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
 type mathReducer struct {
@@ -40,7 +39,7 @@ func (s *mathReducer) GetType() string {
 	return s.Type
 }
 
-func (s *mathReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
+func (s *mathReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 	if len(series.Points) == 0 {
 		return nil, nil
 	}

@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
@@ -149,16 +150,16 @@ func newPointsByResults(results []ResponseDataResult) ([]*points, error) {
 	return ret, nil
 }
 
-func transPointsToSeries(points []*points, query *tsdb.Query) tsdb.TimeSeriesSlice {
-	var result tsdb.TimeSeriesSlice
+func transPointsToSeries(points []*points, query *tsdb.Query) monitor.TimeSeriesSlice {
+	var result monitor.TimeSeriesSlice
 	for _, point := range points {
 		result = append(result, transPointToSeries(point, query)...)
 	}
 	return result
 }
 
-func transValuesToTSDBPoints(vals []ResponseDataResultValue) tsdb.TimeSeriesPoints {
-	var points tsdb.TimeSeriesPoints
+func transValuesToTSDBPoints(vals []ResponseDataResultValue) monitor.TimeSeriesPoints {
+	var points monitor.TimeSeriesPoints
 	for _, val := range vals {
 		point, err := parseTimepoint(val)
 		if err != nil {
@@ -179,8 +180,8 @@ func reviseTags(tags map[string]string) map[string]string {
 	return ret
 }
 
-func transPointToSeries(p *points, query *tsdb.Query) tsdb.TimeSeriesSlice {
-	var result tsdb.TimeSeriesSlice
+func transPointToSeries(p *points, query *tsdb.Query) monitor.TimeSeriesSlice {
+	var result monitor.TimeSeriesSlice
 
 	points := transValuesToTSDBPoints(p.values)
 	tags := reviseTags(p.tags)

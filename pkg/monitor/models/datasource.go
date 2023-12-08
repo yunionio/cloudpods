@@ -177,12 +177,7 @@ func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonut
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getInfluxdbMeasurements")
 	}
-	dataSource, err := datasource.GetDefaultSource("")
-	if err != nil {
-		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
-	}
-	db := influxdb.NewInfluxdb(dataSource.Url)
-	filterMeasurements, err := self.filterMeasurementsByTime(*db, measurements, query, tagFilter)
+	filterMeasurements, err := self.filterMeasurementsByTime(measurements, query, tagFilter)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "filterMeasurementsByTime error")
 	}
@@ -325,13 +320,13 @@ type influxdbQueryChan struct {
 	count        int
 }
 
-func (self *SDataSourceManager) filterMeasurementsByTime(db influxdb.SInfluxdb,
+func (self *SDataSourceManager) filterMeasurementsByTime(
 	measurements []monitor.InfluxMeasurement, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) ([]monitor.InfluxMeasurement, error) {
 	timeF, err := self.getFromAndToFromParam(query)
 	if err != nil {
 		return nil, err
 	}
-	filterMeasurements, err := self.getFilterMeasurementsAsync(timeF.From, timeF.To, measurements, db, tagFilter)
+	filterMeasurements, err := self.getFilterMeasurementsAsync(timeF.From, timeF.To, measurements, tagFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +362,7 @@ func (self *SDataSourceManager) getFromAndToFromParam(query jsonutils.JSONObject
 }
 
 func (self *SDataSourceManager) getFilterMeasurementsAsync(from, to string,
-	measurements []monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter *monitor.MetricQueryTag) ([]monitor.InfluxMeasurement, error) {
+	measurements []monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) ([]monitor.InfluxMeasurement, error) {
 	filterMeasurements := make([]monitor.InfluxMeasurement, 0)
 	queryChan := new(influxdbQueryChan)
 	queryChan.queryRtnChan = make(chan monitor.InfluxMeasurement, len(measurements))
@@ -379,7 +374,7 @@ func (self *SDataSourceManager) getFilterMeasurementsAsync(from, to string,
 	for i, _ := range measurements {
 		tmp := measurements[i]
 		measurementQueryGroup.Go(func() error {
-			return self.getFilterMeasurement(queryChan, from, to, tmp, db, tagFilter)
+			return self.getFilterMeasurement(queryChan, from, to, tmp, tagFilter)
 		})
 	}
 	measurementQueryGroup.Go(func() error {
@@ -399,7 +394,7 @@ func (self *SDataSourceManager) getFilterMeasurementsAsync(from, to string,
 	return filterMeasurements, err
 }
 
-func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryChan, from, to string, measurement monitor.InfluxMeasurement, db influxdb.SInfluxdb, tagFilter *monitor.MetricQueryTag) error {
+func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryChan, from, to string, measurement monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) error {
 	dds, _ := datasource.GetDefaultSource("")
 	ep, err := datasource.GetDefaultQueryEndpoint()
 	if err != nil {
@@ -730,7 +725,7 @@ func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasu
 		To:    timeF.To,
 	}
 
-	q := monitor.MetricInputQuery{
+	q := monitor.MetricQueryInput{
 		From: timeF.From,
 		To:   timeF.To,
 		MetricQuery: []*monitor.AlertQuery{

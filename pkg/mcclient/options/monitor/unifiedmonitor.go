@@ -14,7 +14,16 @@
 
 package monitor
 
-import "yunion.io/x/jsonutils"
+import (
+	"strings"
+	"time"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
+)
 
 type MeasurementsQueryOptions struct {
 	Scope           string `json:"scope"`
@@ -38,4 +47,70 @@ func (o DatabasesQueryOptions) Params() (jsonutils.JSONObject, error) {
 
 func (o DatabasesQueryOptions) Property() string {
 	return "databases"
+}
+
+type MetricQueryOptions struct {
+	MeasurementsQueryOptions
+
+	MEASUREMENT string `help:"metric measurement. e.g.: cpu, vm_cpu, vm_mem, disk..."`
+	FIELD       string `help:"metric field. e.g.: usage_active, free..."`
+
+	Interval        string   `help:"metric interval. e.g.: 5m, 1h"`
+	From            string   `help:"start time(RFC3339 format). e.g.: 2023-12-06T21:54:42.123Z"`
+	To              string   `help:"end time(RFC3339 format). e.g.: 2023-12-18T21:54:42.123Z"`
+	Tags            []string `help:"filter tags. e.g.: vm_name=vm1"`
+	GroupBy         []string `help:"group by tag"`
+	UseMean         bool     `help:"calcuate mean result for field"`
+	SkipCheckSeries bool     `help:"skip checking series: not fetch extra tags from region service"`
+}
+
+func (o MetricQueryOptions) GetQueryInput() (*api.MetricQueryInput, error) {
+	input := monitor.NewMetricQueryInput(o.MEASUREMENT)
+	input.Interval(o.Interval)
+	if o.SkipCheckSeries {
+		input.SkipCheckSeries(true)
+	}
+	input.Scope(o.Scope)
+
+	// parse time
+	if o.From != "" {
+		fromTime, err := time.Parse(time.RFC3339, o.From)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid from time: %q", o.From)
+		}
+		input.From(fromTime)
+	}
+	if o.To != "" {
+		toTime, err := time.Parse(time.RFC3339, o.To)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid to time: %q", o.To)
+		}
+		input.To(toTime)
+	}
+
+	sel := input.Selects().Select(o.FIELD)
+	if o.UseMean {
+		sel.MEAN()
+	}
+
+	where := input.Where()
+	for _, tag := range o.Tags {
+		if strings.Contains(tag, "=") {
+			info := strings.Split(tag, "=")
+			if len(info) == 2 {
+				where.Equal(info[0], info[1])
+			} else {
+				return nil, errors.Errorf("invalid tag: %q, len: %d", tag, len(info))
+			}
+		} else {
+			return nil, errors.Errorf("invalid tag: %q", tag)
+		}
+	}
+
+	groupBy := input.GroupBy()
+	for _, tag := range o.GroupBy {
+		groupBy.TAG(tag)
+	}
+
+	return input.ToQueryData(), nil
 }
