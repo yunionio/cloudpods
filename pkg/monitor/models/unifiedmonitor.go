@@ -338,7 +338,7 @@ func doQuery(userCred mcclient.TokenCredential, query monitor.MetricQueryInput) 
 	if err != nil {
 		return nil, errors.Wrap(err, "factory")
 	}
-	metrics, err := metricQ.ExecuteQuery(userCred, query.SkipCheckSeries)
+	metrics, err := metricQ.ExecuteQuery(userCred, query.Scope, query.SkipCheckSeries)
 	if err != nil {
 		return nil, errors.Wrap(err, "ExecuteQuery")
 	}

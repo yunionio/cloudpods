@@ -552,8 +552,8 @@ func (c *QueryCondition) setResType() {
 	}
 }
 
-func (c *QueryCondition) GetQueryResources(s *mcclient.ClientSession, showDetails bool) ([]jsonutils.JSONObject, error) {
-	allRes, err := c.getOnecloudResources(s, showDetails)
+func (c *QueryCondition) GetQueryResources(s *mcclient.ClientSession, scope string, showDetails bool) ([]jsonutils.JSONObject, error) {
+	allRes, err := c.getOnecloudResources(s, scope, showDetails)
 	if err != nil {
 		return nil, errors.Wrap(err, "getOnecloudResources error")
 	}
@@ -561,10 +561,7 @@ func (c *QueryCondition) GetQueryResources(s *mcclient.ClientSession, showDetail
 	return allRes, nil
 }
 
-func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, showDetails bool) ([]jsonutils.JSONObject, error) {
-	var err error
-	allResources := make([]jsonutils.JSONObject, 0)
-
+func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, scope string, showDetails bool) ([]jsonutils.JSONObject, error) {
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
 	// query.Add(jsonutils.NewString("true"), "admin")
@@ -574,52 +571,60 @@ func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, showDet
 	//		return nil, errors.Wrap(err, "NoDataQueryCondition convertTagsQuery error")
 	//	}
 	//}
+	var (
+		err          error
+		manager      modulebase.Manager
+		allResources = make([]jsonutils.JSONObject, 0)
+	)
 	switch c.ResType {
 	case monitor.METRIC_RES_TYPE_HOST:
-		query := jsonutils.NewDict()
 		query.Set("host_type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
 		query.Set("enabled", jsonutils.NewInt(1))
-		allResources, err = ListAllResources(s, &mc_mds.Hosts, query, showDetails)
+		manager = &mc_mds.Hosts
 	case monitor.METRIC_RES_TYPE_GUEST:
-		allResources, err = ListAllResources(s, &mc_mds.Servers, query, showDetails)
+		manager = &mc_mds.Servers
 	case monitor.METRIC_RES_TYPE_AGENT:
-		allResources, err = ListAllResources(s, &mc_mds.Servers, query, showDetails)
+		manager = &mc_mds.Servers
 	case monitor.METRIC_RES_TYPE_RDS:
-		allResources, err = ListAllResources(s, &mc_mds.DBInstance, query, showDetails)
+		manager = &mc_mds.DBInstance
 	case monitor.METRIC_RES_TYPE_REDIS:
-		allResources, err = ListAllResources(s, &mc_mds.ElasticCache, query, showDetails)
+		manager = &mc_mds.ElasticCache
 	case monitor.METRIC_RES_TYPE_OSS:
-		allResources, err = ListAllResources(s, &mc_mds.Buckets, query, showDetails)
+		manager = &mc_mds.Buckets
 	case monitor.METRIC_RES_TYPE_CLOUDACCOUNT:
 		query.Remove("status")
 		query.Add(jsonutils.NewBool(true), "enabled")
-		allResources, err = ListAllResources(s, &mc_mds.Cloudaccounts, query, showDetails)
+		manager = &mc_mds.Cloudaccounts
 	case monitor.METRIC_RES_TYPE_TENANT:
-		allResources, err = ListAllResources(s, &identity.Projects, query, showDetails)
+		manager = &identity.Projects
 	case monitor.METRIC_RES_TYPE_DOMAIN:
-		allResources, err = ListAllResources(s, &identity.Domains, query, showDetails)
+		manager = &identity.Domains
 	case monitor.METRIC_RES_TYPE_STORAGE:
 		query.Remove("status")
-		allResources, err = ListAllResources(s, &mc_mds.Storages, query, showDetails)
+		manager = &mc_mds.Storages
 	default:
 		query := jsonutils.NewDict()
 		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
 		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
-		allResources, err = ListAllResources(s, &mc_mds.Hosts, query, showDetails)
+		manager = &mc_mds.Hosts
 	}
 
+	allResources, err = ListAllResources(s, manager, query, scope, showDetails)
 	if err != nil {
-		return nil, errors.Wrap(err, "NoDataQueryCondition Host list error")
+		return nil, errors.Wrapf(err, "ListAllResources for %s with query %s, scope: %s, showDetails: %v", manager.GetKeyword(), query, scope, showDetails)
 	}
 	return allResources, nil
 }
 
-func ListAllResources(s *mcclient.ClientSession, manager modulebase.Manager, params *jsonutils.JSONDict, showDetails bool) ([]jsonutils.JSONObject, error) {
+func ListAllResources(s *mcclient.ClientSession, manager modulebase.Manager, params *jsonutils.JSONDict, scope string, showDetails bool) ([]jsonutils.JSONObject, error) {
 	if params == nil {
 		params = jsonutils.NewDict()
 	}
 	if s.GetToken().HasSystemAdminPrivilege() {
 		params.Add(jsonutils.NewString("system"), "scope")
+	}
+	if scope != "" {
+		params.Add(jsonutils.NewString(scope), "scope")
 	}
 	params.Add(jsonutils.NewInt(int64(options.Options.APIListBatchSize)), "limit")
 	params.Add(jsonutils.NewBool(showDetails), "details")

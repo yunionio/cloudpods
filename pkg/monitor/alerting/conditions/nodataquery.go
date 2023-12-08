@@ -88,7 +88,7 @@ serLoop:
 			}
 		}
 	}
-	allResources, err := c.GetQueryResources(auth.GetAdminSession(context.Ctx, ""), true)
+	allResources, err := c.GetQueryResources(auth.GetAdminSession(context.Ctx, ""), "system", true)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetQueryResources err")
 	}
