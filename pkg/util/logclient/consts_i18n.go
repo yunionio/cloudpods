@@ -1450,4 +1450,9 @@ func init() {
 		EN("Sync Cloud Resource").
 		CN("同步云资源"),
 	)
+
+	o.Set(ACT_COLLECT_METRICS, i18n.NewTableEntry().
+		EN("Collect monitoring metrics").
+		CN("采集监控指标"),
+	)
 }
