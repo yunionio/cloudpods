@@ -74,7 +74,7 @@ func PingProbe(ctx context.Context, userCred mcclient.TokenCredential, isStart b
 			network := sNetwork{networks[i]}
 			m, err := pingProbeNetwork(s, network)
 			if err != nil {
-				log.Errorf("pingProbeNetwork")
+				log.Errorf("pingProbeNetwork network %s(%s-%s) fail %s", network.Name, network.GuestIpStart, network.GuestIpEnd, err)
 				continue
 			}
 			metrics = append(metrics, m...)

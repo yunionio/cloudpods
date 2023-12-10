@@ -276,4 +276,6 @@ const (
 	ACT_DELETE_SECURITY_GROUP_RULE = "delete_security_group_rule"
 
 	ACT_CLEAN_PROJECT = "clean_project"
+
+	ACT_COLLECT_METRICS = "collect_metrics"
 )
