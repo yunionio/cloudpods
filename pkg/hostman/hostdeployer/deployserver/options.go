@@ -33,8 +33,11 @@ type SDeployOptions struct {
 
 	AllowVmSELinux bool `help:"turn off vm selinux" default:"false" json:"allow_vm_selinux"`
 
-	HugepagesOption string `help:"Hugepages option: disable|native|transparent" default:"transparent"`
-	HugepageSizeMb  int    `help:"hugepage size mb default 1G" default:"1024"`
+	HugepagesOption    string   `help:"Hugepages option: disable|native|transparent" default:"transparent"`
+	HugepageSizeMb     int      `help:"hugepage size mb default 1G" default:"1024"`
+	DefaultQemuVersion string   `help:"Default qemu version" default:"4.2.0"`
+	ListenInterface    string   `help:"Master address of host server"`
+	Networks           []string `help:"Network interface information"`
 
 	DeployAction     string `help:"local deploy action"`
 	DeployParams     string `help:"params for deploy action"`
@@ -44,7 +47,7 @@ type SDeployOptions struct {
 var DeployOption SDeployOptions
 
 func Parse() (hostOpts SDeployOptions) {
-	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
+	common_options.ParseOptionsIgnoreNoConfigfile(&hostOpts, os.Args, "host.conf", "host")
 	if len(hostOpts.CommonConfigFile) > 0 {
 		commonCfg := &common_options.HostCommonOptions{}
 		commonCfg.Config = hostOpts.CommonConfigFile
