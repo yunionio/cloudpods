@@ -17,6 +17,8 @@ package qemu_kvm
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -32,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -47,7 +50,9 @@ var (
 	X86_INITRD_PATH = "/yunionos/x86_64/initramfs"
 	X86_KERNEL_PATH = "/yunionos/x86_64/kernel"
 
-	DEPLOY_ISO      = "/opt/cloud/host_deployer_v1.iso"
+	RUN_ON_HOST_ROOT_PATH = "/opt/cloud/host-deployer"
+
+	DEPLOY_ISO      = "/opt/cloud/host-deployer/host_deployer_v1.iso"
 	DEPLOYER_BIN    = "/opt/yunion/bin/host-deployer"
 	YUNIONOS_PASSWD = "mosbaremetal"
 )
@@ -58,8 +63,45 @@ type QemuDeployManager struct {
 	hugepageSizeKB  int
 	portsInUse      *sync.Map
 	lastUsedSshPort int
+	qemuCmd         string
 
 	c chan struct{}
+}
+
+func (m *QemuDeployManager) runOnHost() bool {
+	return m.qemuCmd != QEMU_KVM_PATH
+}
+
+func (m *QemuDeployManager) GetX86InitrdPath() string {
+	if m.runOnHost() {
+		return path.Join(RUN_ON_HOST_ROOT_PATH, X86_INITRD_PATH)
+	} else {
+		return X86_INITRD_PATH
+	}
+}
+
+func (m *QemuDeployManager) GetARMInitrdPath() string {
+	if m.runOnHost() {
+		return path.Join(RUN_ON_HOST_ROOT_PATH, ARM_INITRD_PATH)
+	} else {
+		return ARM_INITRD_PATH
+	}
+}
+
+func (m *QemuDeployManager) GetX86KernelPath() string {
+	if m.runOnHost() {
+		return path.Join(RUN_ON_HOST_ROOT_PATH, X86_KERNEL_PATH)
+	} else {
+		return X86_KERNEL_PATH
+	}
+}
+
+func (m *QemuDeployManager) GetARMKernelPath() string {
+	if m.runOnHost() {
+		return path.Join(RUN_ON_HOST_ROOT_PATH, ARM_KERNEL_PATH)
+	} else {
+		return ARM_KERNEL_PATH
+	}
 }
 
 func (m *QemuDeployManager) Acquire() {
@@ -107,9 +149,39 @@ func (m *QemuDeployManager) GetSshFreePort() int {
 
 var manager *QemuDeployManager
 
-func InitQemuDeployManager(cpuArch string, hugepage bool, hugepageSizeKB int, deployConcurrent int) error {
+func tryCleanGuest(hmpPath string) {
+	var c = make(chan error)
+	onMonitorConnected := func() {
+		log.Infof("%s monitor connected", hmpPath)
+		c <- nil
+	}
+	onMonitorDisConnect := func(e error) {
+		log.Errorf("%s monitor disconnect %s", hmpPath, e)
+	}
+	onMonitorConnectFailed := func(e error) {
+		log.Errorf("%s monitor connect failed %s", hmpPath, e)
+		c <- e
+	}
+	m := monitor.NewHmpMonitor("", "", onMonitorDisConnect, onMonitorConnectFailed, onMonitorConnected)
+	if err := m.ConnectWithSocket(hmpPath); err != nil {
+		log.Errorf("failed connect socket %s %s", hmpPath, err)
+	} else {
+		<-c
+		m.Quit(func(string) {})
+	}
+}
+
+func InitQemuDeployManager(cpuArch, qemuVersion string, hugepage bool, hugepageSizeKB int, deployConcurrent int) error {
 	if deployConcurrent <= 0 {
 		deployConcurrent = 10
+	}
+
+	if cpuArch == OS_ARCH_AARCH64 {
+		qemutils.UseAarch64()
+	}
+	qemuCmd := qemutils.GetQemu(qemuVersion)
+	if qemuCmd == "" {
+		qemuCmd = QEMU_KVM_PATH
 	}
 
 	err := procutils.NewCommand("mkdir", "-p", "/etc/ceph").Run()
@@ -133,6 +205,29 @@ func InitQemuDeployManager(cpuArch string, hugepage bool, hugepageSizeKB int, de
 			hugepageSizeKB: hugepageSizeKB,
 			portsInUse:     new(sync.Map),
 			c:              make(chan struct{}, deployConcurrent),
+			qemuCmd:        qemuCmd,
+		}
+	}
+
+	if manager.runOnHost() {
+		files, err := ioutil.ReadDir(RUN_ON_HOST_ROOT_PATH)
+		if err != nil {
+			return errors.Wrap(err, "readDir RUN_ON_HOST_ROOT_PATH")
+		}
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			if strings.HasPrefix(file.Name(), "hmp_") && strings.HasSuffix(file.Name(), ".socket") {
+				hmpPath := path.Join(RUN_ON_HOST_ROOT_PATH, file.Name())
+				tryCleanGuest(hmpPath)
+			}
+		}
+
+		err = procutils.NewCommand("cp", "-rf", "/yunionos", RUN_ON_HOST_ROOT_PATH).Run()
+		if err != nil {
+			log.Errorf("Failed to mkdir /opt/cloud/host-deployer: %s", err)
+			return errors.Wrap(err, "Failed to mkdir /opt/cloud/host-deployer: %s")
 		}
 	}
 
@@ -431,7 +526,6 @@ type QemuBaseDriver struct {
 	hugepagePath string
 	pidPath      string
 	cleaned      uint32
-	sync.Once
 }
 
 func (d *QemuBaseDriver) CleanGuest() {
@@ -470,9 +564,9 @@ type QemuX86Driver struct {
 
 func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, disks []string) error {
 	uuid := stringutils.UUID4()
-	socketPath := fmt.Sprintf("/tmp/hmp_%s.socket", uuid)
+	socketPath := fmt.Sprintf("/opt/cloud/host-deployer/hmp_%s.socket", uuid)
 
-	cmd := QEMU_KVM_PATH
+	cmd := manager.qemuCmd
 	if sysutils.IsKvmSupport() {
 		cmd += __("-enable-kvm")
 		cmd += __("-cpu host")
@@ -481,7 +575,7 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	}
 	cmd += __("-M pc")
 
-	d.pidPath = fmt.Sprintf("/tmp/%s.pid", uuid)
+	d.pidPath = fmt.Sprintf("/opt/cloud/host-deployer/%s.pid", uuid)
 	cmd += __("-nodefaults")
 	cmd += __("-daemonize")
 	cmd += __("-monitor unix:%s,server,nowait", socketPath)
@@ -514,8 +608,8 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-m %dM", memSizeMB)
 	//}
 
-	cmd += __("-initrd %s", X86_INITRD_PATH)
-	cmd += __("-kernel %s", X86_KERNEL_PATH)
+	cmd += __("-initrd %s", manager.GetX86InitrdPath())
+	cmd += __("-kernel %s", manager.GetX86KernelPath())
 	cmd += __("-device VGA")
 	cmd += __("-device virtio-serial-pci")
 	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp::%d-:22", sshPort)
@@ -529,7 +623,14 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-device ide-cd,drive=ide0-cd0,bus=ide.1")
 
 	log.Infof("start guest %s", cmd)
-	out, err := procutils.NewCommand("bash", "-c", cmd).Output()
+
+	var out []byte
+	var err error
+	if manager.runOnHost() {
+		out, err = procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	} else {
+		out, err = procutils.NewCommand("bash", "-c", cmd).Output()
+	}
 	if err != nil {
 		log.Errorf("failed start guest %s: %s", out, err)
 		return errors.Wrapf(err, "failed start guest %s", out)
@@ -564,9 +665,9 @@ type QemuARMDriver struct {
 
 func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, disks []string) error {
 	uuid := stringutils.UUID4()
-	socketPath := fmt.Sprintf("/tmp/hmp_%s.socket", uuid)
+	socketPath := fmt.Sprintf("/opt/cloud/host-deployer/hmp_%s.socket", uuid)
 
-	cmd := QEMU_KVM_PATH
+	cmd := manager.qemuCmd
 	if sysutils.IsKvmSupport() {
 		cmd += __("-enable-kvm")
 		cmd += __("-cpu host")
@@ -575,7 +676,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	}
 	cmd += __("-M virt,gic-version=max")
 
-	d.pidPath = fmt.Sprintf("/tmp/%s.pid", uuid)
+	d.pidPath = fmt.Sprintf("/opt/cloud/host-deployer/%s.pid", uuid)
 	cmd += __("-nodefaults")
 	cmd += __("-daemonize")
 	cmd += __("-monitor unix:%s,server,nowait", socketPath)
@@ -584,9 +685,13 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-smp %d", ncpu)
 
 	cmd += __("-m %dM", memSizeMB)
-	cmd += __("-initrd %s", ARM_INITRD_PATH)
-	cmd += __("-kernel %s", ARM_KERNEL_PATH)
-	cmd += __("-drive if=pflash,format=raw,unit=0,file=/usr/share/AAVMF/AAVMF_CODE.fd,readonly=on")
+	cmd += __("-initrd %s", manager.GetARMInitrdPath())
+	cmd += __("-kernel %s", manager.GetARMKernelPath())
+	if manager.runOnHost() {
+		cmd += __("-drive if=pflash,format=raw,unit=0,file=/opt/cloud/contrib/OVMF.fd,readonly=on")
+	} else {
+		cmd += __("-drive if=pflash,format=raw,unit=0,file=/usr/share/AAVMF/AAVMF_CODE.fd,readonly=on")
+	}
 
 	cmd += __("-device virtio-serial-pci")
 	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp::%d-:22", sshPort)
@@ -600,7 +705,14 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-device scsi-cd,drive=cd0,share-rw=true")
 
 	log.Infof("start guest %s", cmd)
-	out, err := procutils.NewCommand("bash", "-c", cmd).Output()
+
+	var out []byte
+	var err error
+	if manager.runOnHost() {
+		out, err = procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	} else {
+		out, err = procutils.NewCommand("bash", "-c", cmd).Output()
+	}
 	if err != nil {
 		log.Errorf("failed start guest %s: %s", out, err)
 		return errors.Wrapf(err, "failed start guest %s", out)
