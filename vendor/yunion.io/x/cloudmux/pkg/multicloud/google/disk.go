@@ -239,10 +239,9 @@ func (region *SRegion) CreateDisk(name string, sizeGb int, zone string, storageT
 		// projects/my-project-15390453537169/zones/us-west2-c/diskTypes/pd-standard
 		"type": storageType,
 	}
+	body["sizeGb"] = sizeGb
 	if len(image) > 0 {
 		body["sourceImage"] = image
-	} else {
-		body["sizeGb"] = sizeGb
 	}
 	disk := &SDisk{}
 	resource := fmt.Sprintf("zones/%s/disks", zone)

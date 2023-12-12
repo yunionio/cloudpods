@@ -512,7 +512,9 @@ func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.
 }
 
 func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	conf := cloudinit.SCloudConfig{}
+	conf := cloudinit.SCloudConfig{
+		SshPwauth: cloudinit.SSH_PASSWORD_AUTH_ON,
+	}
 	user := cloudinit.NewUser(username)
 	if len(password) > 0 {
 		user.Password(password)
@@ -909,6 +911,13 @@ func (region *SRegion) RebuildRoot(instanceId string, imageId string, sysDiskSiz
 		if sysDiskSizeGb == 0 {
 			sysDiskSizeGb = disk.SizeGB
 		}
+	}
+	image, err := region.GetImage(imageId)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetImage")
+	}
+	if image.DiskSizeGb > sysDiskSizeGb {
+		sysDiskSizeGb = image.DiskSizeGb
 	}
 
 	zone, err := region.GetZone(instance.Zone)
