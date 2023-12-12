@@ -376,6 +376,11 @@ func (s *SDeployService) PrepareEnv() error {
 			return errors.Wrapf(err, "cp files failed %s", out)
 		}
 
+		err = procutils.NewCommand("mkdir", "-p", qemu_kvm.RUN_ON_HOST_ROOT_PATH).Run()
+		if err != nil {
+			return errors.Wrap(err, "Failed to mkdir RUN_ON_HOST_ROOT_PATH: %s")
+		}
+
 		cmd := fmt.Sprintf("mkisofs -l -J -L -R -r -v -hide-rr-moved -o %s -graft-points vmware-vddk=/opt/vmware-vddk yunion=/opt/yunion", qemu_kvm.DEPLOY_ISO)
 		out, err = procutils.NewCommand("bash", "-c", cmd).Output()
 		if err != nil {
@@ -386,8 +391,10 @@ func (s *SDeployService) PrepareEnv() error {
 		if err != nil {
 			return errors.Wrap(err, "get cpu architecture")
 		}
+
 		err = qemu_kvm.InitQemuDeployManager(
 			strings.TrimSpace(string(cpuArch)),
+			DeployOption.DefaultQemuVersion,
 			DeployOption.HugepagesOption == "native",
 			DeployOption.HugepageSizeMb*1024,
 			DeployOption.DeployConcurrent,
@@ -446,17 +453,18 @@ func (s *SDeployService) InitService() {
 		}
 	})
 
+	if DeployOption.EnableRemoteExecutor {
+		log.Infof("exec socket path: %s", DeployOption.ExecutorSocketPath)
+		execlient.Init(DeployOption.ExecutorSocketPath)
+		execlient.SetTimeoutSeconds(DeployOption.ExecutorConnectTimeoutSeconds)
+		procutils.SetRemoteExecutor()
+	}
+
 	if DeployOption.DeployAction != "" {
 		if err := LocalInitEnv(); err != nil {
 			log.Fatalf("local init env %s", err)
 		}
 		return
-	}
-
-	log.Infof("exec socket path: %s", DeployOption.ExecutorSocketPath)
-	if DeployOption.EnableRemoteExecutor {
-		execlient.Init(DeployOption.ExecutorSocketPath)
-		procutils.SetRemoteExecutor()
 	}
 
 	if err := s.PrepareEnv(); err != nil {
