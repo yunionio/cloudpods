@@ -149,8 +149,8 @@ func (d *SBaseDisk) CleanupSnapshots(ctx context.Context, params interface{}) (j
 	return nil, errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) PrepareMigrate(liveMigrate bool) (string, error) {
-	return "", errors.Errorf("unsupported operation")
+func (d *SBaseDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, error) {
+	return nil, "", false, errors.Errorf("unsupported operation")
 }
 
 func (d *SBaseDisk) PostCreateFromImageFuse() {

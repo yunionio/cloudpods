@@ -1,31 +1,47 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package storageman
 
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
+	"os"
+	"path"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type SLVMStorage struct {
 	SBaseStorage
-
-	Index int
 }
 
-func NewLVMStorage(manager *SStorageManager, vgName string, index int) *SLVMStorage {
+func NewLVMStorage(manager *SStorageManager, vgName string) *SLVMStorage {
 	var ret = new(SLVMStorage)
 	ret.SBaseStorage = *NewBaseStorage(manager, vgName)
-	ret.Index = index
 	return ret
 }
 
@@ -34,7 +50,7 @@ func (s *SLVMStorage) StorageType() string {
 }
 
 func (s *SLVMStorage) GetComposedName() string {
-	return fmt.Sprintf("host_%s_%s_storage_%d", s.Manager.host.GetMasterIp(), s.StorageType(), s.Index)
+	return fmt.Sprintf("host_%s_%s_storage_%s", s.Manager.host.GetMasterIp(), s.StorageType(), s.Path)
 }
 
 func (s *SLVMStorage) GetMediumType() (string, error) {
@@ -62,7 +78,7 @@ func (s *SLVMStorage) getAvailSizeMb() (int64, error) {
 		return -1, err
 	}
 
-	log.Infof("LVM Storage %s sizeMb %d", s.GetPath(), vgProps.VgSize/1024/1024)
+	log.Debugf("LVM Storage %s sizeMb %d", s.GetPath(), vgProps.VgSize/1024/1024)
 	return vgProps.VgSize / 1024 / 1024, nil
 }
 
@@ -298,6 +314,13 @@ func (s *SLVMStorage) GetImgsaveBackupPath() string {
 }
 
 func (s *SLVMStorage) Accessible() error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("pvscan", "--cache").Output()
+	if err != nil {
+		return errors.Wrapf(err, "pvscan --cache failed %s", out)
+	}
+	if err := lvmutils.VgDisplay(s.Path); err != nil {
+		return err
+	}
 	return nil
 }
 

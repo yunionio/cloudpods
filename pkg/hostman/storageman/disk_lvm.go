@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package storageman
 
 import (
@@ -5,17 +19,19 @@ import (
 	"fmt"
 	"path"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -27,6 +43,10 @@ type SLVMDisk struct {
 
 func (d *SLVMDisk) GetSnapshotDir() string {
 	return ""
+}
+
+func (d *SLVMDisk) GetType() string {
+	return api.STORAGE_LVM
 }
 
 // /dev/<vg>/<lvm>
@@ -72,7 +92,7 @@ func (d *SLVMDisk) GetDiskDesc() jsonutils.JSONObject {
 	var desc = jsonutils.NewDict()
 	desc.Set("disk_id", jsonutils.NewString(d.Id))
 	desc.Set("disk_size", jsonutils.NewInt(qemuImg.SizeBytes/1024/1024))
-	desc.Set("format", jsonutils.NewString(string(qemuimgfmt.RAW)))
+	desc.Set("format", jsonutils.NewString(string(qemuimg.RAW)))
 	desc.Set("disk_path", jsonutils.NewString(d.Storage.GetPath()))
 	return desc
 }
@@ -93,7 +113,7 @@ func (d *SLVMDisk) CleanUpDisk() error {
 	// disk path /dev/<vg>/<disk_id>
 	if fileutils2.Exists(d.GetLvPath()) {
 		if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
-			return nil
+			return err
 		}
 	}
 	return nil
@@ -227,7 +247,7 @@ func (d *SLVMDisk) CreateFromTemplate(
 	}
 
 	var imageCacheManager = storageManager.GetStoragecacheById(d.Storage.GetStoragecacheId())
-	ret, err := d.createFromTemplate(ctx, imageId, format, size*1024*1024, imageCacheManager, encryptInfo)
+	ret, err := d.createFromTemplate(ctx, imageId, format, size, imageCacheManager, encryptInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -269,13 +289,13 @@ func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	backupPath := path.Join(destDir, fmt.Sprintf("%s.%s", d.Id, appctx.AppContextTaskId(ctx)))
 	srcInfo := qemuimg.SImageInfo{
 		Path:     d.GetPath(),
-		Format:   qemuimgfmt.RAW,
+		Format:   qemuimg.RAW,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
 	destInfo := qemuimg.SImageInfo{
 		Path:     backupPath,
-		Format:   qemuimgfmt.QCOW2,
+		Format:   qemuimg.QCOW2,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
@@ -290,7 +310,7 @@ func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 }
 
 func (d *SLVMDisk) createFromTemplate(
-	ctx context.Context, imageId, format string, size int64, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo,
+	ctx context.Context, imageId, format string, sizeMb int64, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo,
 ) (jsonutils.JSONObject, error) {
 	input := api.CacheImageInput{ImageId: imageId, Zone: d.GetZoneId()}
 	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)
@@ -305,7 +325,7 @@ func (d *SLVMDisk) createFromTemplate(
 		return nil, errors.Wrapf(err, "NewQemuImage(%s)", cacheImagePath)
 	}
 
-	if size > cacheImage.SizeBytes {
+	if sizeMb*1024*1024 > cacheImage.SizeBytes {
 		if err = lvmutils.LvCreateFromSnapshot(d.GetLvPath(), cacheImagePath, cacheImage.SizeBytes); err != nil {
 			return nil, errors.Wrap(err, "lv create from snapshot")
 		}

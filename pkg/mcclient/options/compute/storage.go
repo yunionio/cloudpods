@@ -67,7 +67,7 @@ type StorageCreateOptions struct {
 	ZONE                  string `help:"Zone id of storage"`
 	Capacity              int64  `help:"Capacity of the Storage"`
 	MediumType            string `help:"Medium type" choices:"ssd|rotate" default:"ssd"`
-	StorageType           string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal"`
+	StorageType           string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal|clvm"`
 	RbdMonHost            string `help:"Ceph mon_host config"`
 	RbdRadosMonOpTimeout  int64  `help:"ceph rados_mon_op_timeout"`
 	RbdRadosOsdOpTimeout  int64  `help:"ceph rados_osd_op_timeout"`
@@ -76,6 +76,7 @@ type StorageCreateOptions struct {
 	RbdPool               string `help:"Ceph Pool Name"`
 	NfsHost               string `help:"NFS host"`
 	NfsSharedDir          string `help:"NFS shared dir"`
+	ClvmVgName            string `help:"clvm vg name"`
 }
 
 func (opts *StorageCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -86,6 +87,10 @@ func (opts *StorageCreateOptions) Params() (jsonutils.JSONObject, error) {
 	} else if opts.StorageType == "nfs" {
 		if len(opts.NfsHost) == 0 || len(opts.NfsSharedDir) == 0 {
 			return nil, fmt.Errorf("Storage type nfs missing conf host or shared dir")
+		}
+	} else if opts.StorageType == "clvm" {
+		if len(opts.ClvmVgName) == 0 {
+			return nil, fmt.Errorf("Storage type clvm missing conf clvm_vg_name")
 		}
 	}
 	return options.StructToParams(opts)
