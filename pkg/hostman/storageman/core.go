@@ -81,6 +81,18 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 		}
 	}
 
+	for i, d := range options.HostOptions.LVMVolumeGroups {
+		s := NewLVMStorage(ret, d, i)
+		if err := s.Accessible(); err == nil {
+			ret.Storages = append(ret.Storages, s)
+			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
+				allFull = false
+			}
+		} else {
+			log.Errorf("lvm storage %s not accessible error: %v", s.Path, err)
+		}
+	}
+
 	for _, d := range options.HostOptions.SharedStorages {
 		s := ret.NewSharedStorageInstance(d, "")
 		if s != nil {
