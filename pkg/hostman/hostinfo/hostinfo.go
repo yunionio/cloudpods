@@ -1664,6 +1664,10 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 					h.onFail(errors.Wrapf(err, "Set storage info %s/%s/%s", storageId, storageName, storageConf))
 					return
 				}
+				if storagetype == api.STORAGE_LVM {
+					// lvm set storage image cache info
+					storageManager.InitLVMStorageImageCache(storagecacheId, mountPoint)
+				}
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage
 				if storagetype != api.STORAGE_BAREMETAL {

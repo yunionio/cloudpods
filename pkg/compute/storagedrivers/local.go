@@ -59,4 +59,22 @@ func (self *SLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 }
 
 func (self *SLVMStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
+	sc := &models.SStoragecache{}
+	sc.SetModelManager(models.StoragecacheManager, sc)
+	sc.Name = fmt.Sprintf("lvm-imagecache-%s", storage.Id)
+	if err := models.StoragecacheManager.TableSpec().Insert(ctx, sc); err != nil {
+		log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
+		return
+	}
+	_, err := db.Update(storage, func() error {
+		storage.StoragecacheId = sc.Id
+		return nil
+	})
+	if err != nil {
+		log.Errorf("update storagecache info for storage %s error: %v", storage.Name, err)
+	}
+}
+
+func (self *SLVMStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SnapshotCreateInput) error {
+	return errors.Errorf("lvm storage unsupported create snapshot")
 }
