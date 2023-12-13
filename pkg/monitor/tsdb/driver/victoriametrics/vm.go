@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/influxdata/influxql"
 	"github.com/influxdata/promql/v2/pkg/labels"
@@ -46,16 +47,22 @@ func (vm *vmAdapter) Query(ctx context.Context, ds *tsdb.DataSource, query *tsdb
 		return nil, errors.Wrapf(err, "get influxdb raw query: %#v", influxQs)
 	}
 
-	return queryByRaw(ctx, ds, rawQuery, query)
+	// TODO: use interval inside query
+	return queryByRaw(ctx, ds, rawQuery, query, influxQs[0].Interval)
 }
 
-func queryByRaw(ctx context.Context, ds *tsdb.DataSource, rawQuery string, query *tsdb.TsdbQuery) (*tsdb.Response, error) {
+func queryByRaw(ctx context.Context, ds *tsdb.DataSource, rawQuery string, query *tsdb.TsdbQuery, interval time.Duration) (*tsdb.Response, error) {
 	promQL, tr, err := convertInfluxQL(rawQuery)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert influxQL to promQL")
 	}
-	log.Infof("influxQL: %s, promQL: %s", rawQuery, promQL)
-	resp, err := queryRange(ctx, ds, tr, promQL)
+
+	start := time.Now()
+	defer func() {
+		log.Infof("influxQL: %s, promQL: %s, elapsed: %s", rawQuery, promQL, time.Now().Sub(start))
+	}()
+
+	resp, err := queryRange(ctx, ds, tr, promQL, interval)
 	if err != nil {
 		return nil, errors.Wrapf(err, "query VM range by: %s", promQL)
 	}
@@ -70,7 +77,7 @@ func queryByRaw(ctx context.Context, ds *tsdb.DataSource, rawQuery string, query
 	return tsdbRet, nil
 }
 
-func queryRange(ctx context.Context, ds *tsdb.DataSource, tr *influxql.TimeRange, promQL string) (*Response, error) {
+func queryRange(ctx context.Context, ds *tsdb.DataSource, tr *influxql.TimeRange, promQL string, interval time.Duration) (*Response, error) {
 	cli, err := NewClient(ds.Url)
 	if err != nil {
 		return nil, errors.Wrap(err, "New VM client")
@@ -80,7 +87,10 @@ func queryRange(ctx context.Context, ds *tsdb.DataSource, tr *influxql.TimeRange
 		return nil, errors.Wrap(err, "GetHttpClient of data source")
 	}
 	vmTr := NewTimeRangeByInfluxTimeRange(tr)
-	return cli.QueryRange(ctx, httpCli, promQL, 0, vmTr, false)
+	if interval <= 0 {
+		interval = time.Minute * 5
+	}
+	return cli.QueryRange(ctx, httpCli, promQL, interval, vmTr, false)
 }
 
 func convertInfluxQL(influxQL string) (string, *influxql.TimeRange, error) {
