@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -456,6 +457,19 @@ func (s *SBaseStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, inp
 	}
 	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)
 	return err
+}
+
+func (s *SBaseStorage) onSaveToGlanceFailed(ctx context.Context, imageId string, reason string) {
+	params := jsonutils.NewDict()
+	params.Set("status", jsonutils.NewString("killed"))
+	params.Set("reason", jsonutils.NewString(reason))
+	_, err := image.Images.PerformAction(
+		hostutils.GetImageSession(ctx),
+		imageId, "update-status", params,
+	)
+	if err != nil {
+		log.Errorln(err)
+	}
 }
 
 /*************************Background delete snapshot job****************************/

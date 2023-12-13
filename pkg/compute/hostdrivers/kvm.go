@@ -59,8 +59,53 @@ func (self *SKVMHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_KVM
 }
 
+func (self *SKVMHostDriver) validateGPFS(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
+	header := http.Header{}
+	header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
+	header.Set(mcclient.REGION_VERSION, "v2")
+	params := jsonutils.NewDict()
+	params.Set("mount_point", jsonutils.NewString(input.MountPoint))
+	urlStr := fmt.Sprintf("%s/storages/is-mount-point?%s", host.ManagerUri, params.QueryString())
+	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
+	if err != nil {
+		return input, err
+	}
+	if !jsonutils.QueryBoolean(res, "is_mount_point", false) {
+		return input, httperrors.NewBadRequestError("%s is not mount point %s", input.MountPoint, res)
+	}
+	urlStr = fmt.Sprintf("%s/storages/is-local-mount-point?%s", host.ManagerUri, params.QueryString())
+	_, res, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
+	if err != nil {
+		return input, err
+	}
+	if jsonutils.QueryBoolean(res, "is_local_mount_point", false) {
+		return input, httperrors.NewBadRequestError("%s is local storage mount point", input.MountPoint)
+	}
+	return input, nil
+}
+
+func (self *SKVMHostDriver) validateCLVM(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
+	vgName, _ := storage.StorageConf.GetString("clvm_vg_name")
+	if vgName == "" {
+		return input, httperrors.NewInternalServerError("storage has no clvm_vg_name")
+	}
+	input.MountPoint = vgName
+
+	header := http.Header{}
+	header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
+	header.Set(mcclient.REGION_VERSION, "v2")
+	params := jsonutils.NewDict()
+	params.Set("vg_name", jsonutils.NewString(input.MountPoint))
+	urlStr := fmt.Sprintf("%s/storages/is-vg-exist?%s", host.ManagerUri, params.QueryString())
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
 func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
-	if !utils.IsInStringArray(storage.StorageType, append([]string{api.STORAGE_LOCAL}, api.SHARED_STORAGE...)) {
+	if !utils.IsInStringArray(storage.StorageType, append([]string{api.STORAGE_LOCAL, api.STORAGE_LVM}, api.SHARED_STORAGE...)) {
 		return input, httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
 	}
 	if storage.StorageType == api.STORAGE_RBD {
@@ -84,28 +129,10 @@ func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred 
 			return input, httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
 		}
 		if storage.StorageType == api.STORAGE_GPFS {
-			header := http.Header{}
-			header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
-			header.Set(mcclient.REGION_VERSION, "v2")
-			params := jsonutils.NewDict()
-			params.Set("mount_point", jsonutils.NewString(input.MountPoint))
-			urlStr := fmt.Sprintf("%s/storages/is-mount-point?%s", host.ManagerUri, params.QueryString())
-			_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
-			if err != nil {
-				return input, err
-			}
-			if !jsonutils.QueryBoolean(res, "is_mount_point", false) {
-				return input, httperrors.NewBadRequestError("%s is not mount point %s", input.MountPoint, res)
-			}
-			urlStr = fmt.Sprintf("%s/storages/is-local-mount-point?%s", host.ManagerUri, params.QueryString())
-			_, res, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
-			if err != nil {
-				return input, err
-			}
-			if jsonutils.QueryBoolean(res, "is_local_mount_point", false) {
-				return input, httperrors.NewBadRequestError("%s is local storage mount point", input.MountPoint)
-			}
+			return self.validateGPFS(ctx, userCred, host, input)
 		}
+	} else if storage.StorageType == api.STORAGE_CLVM {
+		return self.validateCLVM(ctx, userCred, host, storage, input)
 	}
 	return input, nil
 }

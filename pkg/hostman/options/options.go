@@ -96,6 +96,7 @@ type SHostOptions struct {
 	PrivatePrefixes []string `help:"IPv4 private prefixes"`
 	LocalImagePath  []string `help:"Local image storage paths"`
 	SharedStorages  []string `help:"Path of shared storages"`
+	LVMVolumeGroups []string `help:"LVM Volume Groups(vgs)"`
 
 	DhcpRelay []string `help:"DHCP relay upstream"`
 

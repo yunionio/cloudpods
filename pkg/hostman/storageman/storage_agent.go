@@ -504,7 +504,7 @@ func (as *SAgentStorage) SaveToGlance(ctx context.Context, params interface{}) (
 
 	if err := as.saveToGlance(ctx, imageId, imagePath, compress, format); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
-		as.onSaveToGlanceFailed(ctx, imageId)
+		as.onSaveToGlanceFailed(ctx, imageId, err.Error())
 		return nil, err
 	}
 	// delete the backup image
@@ -599,14 +599,4 @@ func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath st
 		return errors.Wrap(err, "Images.Upload")
 	}
 	return nil
-}
-
-func (as *SAgentStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
-	params := jsonutils.NewDict()
-	params.Set("status", jsonutils.NewString("killed"))
-	_, err := modules.Images.Update(hostutils.GetImageSession(ctx),
-		imageId, params)
-	if err != nil {
-		log.Errorln(err)
-	}
 }

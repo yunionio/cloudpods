@@ -388,6 +388,8 @@ func (self *SStorage) IsLocal() bool {
 func (self *SStorage) GetStorageCachePath(mountPoint, imageCachePath string) string {
 	if utils.IsInStringArray(self.StorageType, api.SHARED_FILE_STORAGE) {
 		return path.Join(mountPoint, imageCachePath)
+	} else if self.StorageType == api.STORAGE_LVM {
+		return mountPoint
 	} else {
 		return imageCachePath
 	}

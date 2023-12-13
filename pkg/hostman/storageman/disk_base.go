@@ -16,7 +16,6 @@ package storageman
 
 import (
 	"context"
-	"fmt"
 	"path"
 
 	"yunion.io/x/jsonutils"
@@ -102,32 +101,59 @@ func (d *SBaseDisk) GetFormat() (string, error) {
 	return "", nil
 }
 
-func (d *SBaseDisk) Probe() error {
-	return fmt.Errorf("Not implemented")
-}
-
-func (d *SBaseDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implemented")
-}
-
 func (d *SBaseDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
-	return fmt.Errorf("Not implemented")
+	return errors.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
-	return fmt.Errorf("Not implemented")
+	return errors.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implemented")
+	return nil, errors.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error {
-	return fmt.Errorf("Not implemented")
+	return errors.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+	return errors.Errorf("unsupported operation")
 }
 
 func (d *SBaseDisk) Resize(context.Context, interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implemented")
+	return nil, errors.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error {
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) DeleteAllSnapshot(skipRecycle bool) error {
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, error) {
+	return nil, "", false, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) PostCreateFromImageFuse() {
 }
 
 func (d *SBaseDisk) GetZoneId() string {
@@ -183,23 +209,23 @@ func (d *SBaseDisk) FormatFs(fsFormat, uuid string, diskInfo *deployapi.DiskInfo
 }
 
 func (d *SBaseDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implement disk.DiskSnapshot")
+	return nil, errors.Errorf("Not implement disk.DiskSnapshot")
 }
 
 func (d *SBaseDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implement disk.DiskDeleteSnapshot")
+	return nil, errors.Errorf("Not implement disk.DiskDeleteSnapshot")
 }
 
 func (d *SBaseDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implement disk.DiskDeleteSnapshot")
+	return nil, errors.Errorf("Not implement disk.DiskDeleteSnapshot")
 }
 
 func (d *SBaseDisk) CreateFromRbdSnapshot(ctx context.Context, napshotUrl, srcDiskId, srcPool string) error {
-	return fmt.Errorf("Not implement disk.CreateFromRbdSnapshot")
+	return errors.Errorf("Not implement disk.CreateFromRbdSnapshot")
 }
 
 func (d *SBaseDisk) DoDeleteSnapshot(snapshotId string) error {
-	return fmt.Errorf("Not implement disk.DoDeleteSnapshot")
+	return errors.Errorf("Not implement disk.DoDeleteSnapshot")
 }
 
 func (d *SBaseDisk) GetBackupDir() string {

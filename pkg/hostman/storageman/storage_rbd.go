@@ -481,7 +481,7 @@ func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jso
 
 	if err := s.saveToGlance(ctx, imageId, imagePath, compress, format); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
-		s.onSaveToGlanceFailed(ctx, imageId)
+		s.onSaveToGlanceFailed(ctx, imageId, err.Error())
 	}
 
 	rbdImageCache.LoadImageCache(imageId)
@@ -490,16 +490,6 @@ func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jso
 		log.Errorf("Fail to remote cache image: %v", err)
 	}
 	return nil, nil
-}
-
-func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
-	params := jsonutils.NewDict()
-	params.Set("status", jsonutils.NewString("killed"))
-	_, err := image.Images.Update(hostutils.GetImageSession(ctx),
-		imageId, params)
-	if err != nil {
-		log.Errorln(err)
-	}
 }
 
 func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool, format string) error {

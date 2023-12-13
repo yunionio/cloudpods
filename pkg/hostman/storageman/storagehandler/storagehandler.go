@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -64,6 +65,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("GET",
 			fmt.Sprintf("%s/%s/is-local-mount-point", prefix, keyWords),
 			auth.Authenticate(storageIsLocalMountPoint))
+		app.AddHandler("GET",
+			fmt.Sprintf("%s/%s/is-vg-exist", prefix, keyWords),
+			auth.Authenticate(storageIsVgExist))
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/delete-backup", prefix, keyWords),
 			auth.Authenticate(storageDeleteBackup))
@@ -106,6 +110,21 @@ func storageIsLocalMountPoint(ctx context.Context, w http.ResponseWriter, r *htt
 	} else {
 		appsrv.SendStruct(w, map[string]interface{}{"is_local_mount_point": false})
 	}
+}
+
+func storageIsVgExist(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	vgName, err := query.GetString("vg_name")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("vg_name"))
+		return
+	}
+	if err := lvmutils.VgDisplay(vgName); err != nil {
+		log.Errorf("vg %s display failed %s", vgName, err)
+		hostutils.Response(ctx, w, httperrors.NewInternalServerError(err.Error()))
+		return
+	}
+	hostutils.ResponseOk(ctx, w)
 }
 
 func storageVerifyMountPoint(ctx context.Context, w http.ResponseWriter, r *http.Request) {

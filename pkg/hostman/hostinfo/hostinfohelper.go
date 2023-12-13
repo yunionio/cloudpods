@@ -347,6 +347,10 @@ func StartDetachStorages(hs []jsonutils.JSONObject) {
 }
 
 func IsRootPartition(path string) bool {
+	if !strings.HasPrefix(path, "/") {
+		return false
+	}
+
 	path = strings.TrimSuffix(path, "/")
 	pathSegs := strings.Split(path, "/")
 	for len(pathSegs) > 1 {

@@ -104,6 +104,9 @@ type StorageCreateInput struct {
 	// 网络文件系统共享目录, storage_type 为 nfs 时, 此参数必传
 	// example: /nfs_root/
 	NfsSharedDir string `json:"nfs_shared_dir"`
+
+	// CLVM VG Name
+	CLVMVgName string
 }
 
 type RbdTimeoutInput struct {
