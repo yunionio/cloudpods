@@ -87,7 +87,7 @@ func queryRange(ctx context.Context, ds *tsdb.DataSource, tr *influxql.TimeRange
 		return nil, errors.Wrap(err, "GetHttpClient of data source")
 	}
 	vmTr := NewTimeRangeByInfluxTimeRange(tr)
-	if interval <= 0 {
+	if interval <= 0 || interval < 1*time.Minute {
 		interval = time.Minute * 5
 	}
 	return cli.QueryRange(ctx, httpCli, promQL, interval, vmTr, false)
@@ -238,6 +238,7 @@ func parsePointValue(value interface{}) interface{} {
 func (vm *vmAdapter) FilterMeasurement(ctx context.Context, ds *tsdb.DataSource, from, to string, ms *monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) (*monitor.InfluxMeasurement, error) {
 	retMs := new(monitor.InfluxMeasurement)
 	q := mod.NewAlertQuery(ms.Database, ms.Measurement).From(from).To(to)
+	q.Interval("5m")
 	q.Selects().Select("*").LAST()
 	if tagFilter != nil {
 		q.Where().AddTag(tagFilter)

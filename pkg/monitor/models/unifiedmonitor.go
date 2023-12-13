@@ -22,6 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/influxdata/promql/v2/pkg/labels"
+	"github.com/zexi/influxql-to-metricsql/converter/translator"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -79,7 +82,7 @@ func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "getTagFilterByRequestQuery")
 	}
-	return DataSourceManager.GetMeasurementsWithDescriptionInfos(query, "", filter)
+	return DataSourceManager.GetMeasurementsWithDescriptionInfos(query, filter)
 }
 
 func getTagFilterByRequestQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*monitor.MetricQueryTag, error) {
@@ -507,10 +510,19 @@ func fillSerieTags(series *monitor.TimeSeriesSlice) {
 				break
 			}
 		}
-		for _, tag := range []string{"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE,
-			hostconsts.TELEGRAF_TAG_KEY_RES_TYPE, "cpu", "is_vm", "os_type", "domain_name", "region"} {
+		for _, tag := range []string{
+			"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE,
+			hostconsts.TELEGRAF_TAG_KEY_RES_TYPE, "cpu",
+			"is_vm", "os_type", "domain_name", "region",
+			labels.MetricName, translator.UNION_RESULT_NAME,
+		} {
 			if _, ok := serie.Tags[tag]; ok {
 				delete(serie.Tags, tag)
+			}
+		}
+		if val, ok := serie.Tags[VICTORIA_METRICS_DB_TAG_KEY]; ok {
+			if val == VICTORIA_METRICS_DB_TAG_VAL_TELEGRAF {
+				delete(serie.Tags, VICTORIA_METRICS_DB_TAG_KEY)
 			}
 		}
 		(*series)[i] = serie
