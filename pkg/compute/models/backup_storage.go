@@ -42,7 +42,8 @@ type SBackupStorage struct {
 
 	AccessInfo  *api.SBackupStorageAccessInfo
 	StorageType api.TBackupStorageType `width:"32" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`
-	CapacityMb  int                    `nullable:"false" list:"user" update:"domain" create:"domain_required"`
+
+	CapacityMb int `nullable:"false" list:"user" update:"domain" create:"domain_optional"`
 }
 
 var BackupStorageManager *SBackupStorageManager
