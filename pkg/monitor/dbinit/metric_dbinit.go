@@ -30,7 +30,7 @@ func RegistryMetricCreateInput(name, displayName, resType, database string, scor
 		metricInitInputMap = make(map[string]monitor.MetricCreateInput)
 	}
 	if _, ok := metricInitInputMap[name]; ok {
-		log.Errorf("inputMeasurementName:%s has exist", name)
+		log.Fatalf("inputMeasurementName: %q has already existed.", name)
 		return
 	}
 	metricInitInputMap[name] = monitor.MetricCreateInput{
@@ -205,9 +205,11 @@ func init() {
 		})
 
 	// rds_conn
-	RegistryMetricCreateInput("rds_conn", "Rds connect", monitor.METRIC_RES_TYPE_RDS,
+	RegistryMetricCreateInput("rds_conn", "Rds connection", monitor.METRIC_RES_TYPE_RDS,
 		monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("active_count", "active connection count", monitor.METRIC_UNIT_COUNT, 2),
+			newMetricFieldCreateInput("failed_count", "failed connection count", monitor.METRIC_UNIT_COUNT, 3),
 		})
 
 	// rds_cpu
@@ -233,13 +235,6 @@ func init() {
 	RegistryMetricCreateInput("rds_disk", "Rds disk usage", monitor.METRIC_RES_TYPE_RDS,
 		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 1),
-		})
-
-	// rds_conn
-	RegistryMetricCreateInput("rds_conn", "Rds connection", monitor.METRIC_RES_TYPE_RDS,
-		monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("active_count", "active connection count", monitor.METRIC_UNIT_COUNT, 1),
-			newMetricFieldCreateInput("failed_count", "failed connection count", monitor.METRIC_UNIT_COUNT, 2),
 		})
 
 	// dcs_cpu
