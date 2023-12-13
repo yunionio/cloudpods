@@ -108,7 +108,7 @@ func (m *cpuCondition) IsFitTarget(settings *monitor.MigrationAlertSettings, t I
 	// only when srcHostIds isn't empty
 	if len(srcHostIds) != 0 {
 		if !ltThreshold && !sets.NewString(srcHostIds...).Has(t.GetId()) && tScore < MAX_THRESHOLD {
-			// if target host is not in source specified hosts and calculate score less than MAX_THRESHOLD
+			// if target host is not in source specified hosts and calculated score is less than MAX_THRESHOLD
 			log.Infof("let host:%s:current(%f) + guest:%s:score(%f) < MAX_THRESHOLD(%f) to fit target, because it's not in source specified hosts", t.GetName(), t.GetCurrent(), c.GetName(), c.GetScore(), MAX_THRESHOLD)
 			return nil
 		}
