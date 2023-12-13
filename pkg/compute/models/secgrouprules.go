@@ -371,6 +371,7 @@ func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclien
 	if secgroup, _ := self.GetSecGroup(); secgroup != nil {
 		logclient.AddSimpleActionLog(secgroup, logclient.ACT_ALLOCATE, data, userCred, true)
 		if len(secgroup.ManagerId) == 0 {
+			self.SetStatus(userCred, apis.STATUS_AVAILABLE, "")
 			secgroup.DoSync(ctx, userCred)
 			return
 		}
