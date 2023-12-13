@@ -374,20 +374,20 @@ func (manager *SMetricMeasurementManager) getMeasurement(query *sqlchemy.SQuery)
 	return measurements, nil
 }
 
-func (manager *SMetricMeasurementManager) getInfluxdbMeasurements() (influxdbMeasurements []monitor.InfluxMeasurement, err error) {
-	metric, err := manager.getMeasurement(manager.Query())
+func (manager *SMetricMeasurementManager) getMeasurementsFromDB() ([]monitor.InfluxMeasurement, error) {
+	ms, err := manager.getMeasurement(manager.Query())
 	if err != nil {
-		return
+		return nil, errors.Wrap(err, "getMeasurement")
 	}
-	for i, _ := range metric {
-		influxdbMeasurements = append(influxdbMeasurements, monitor.InfluxMeasurement{
-			Database:    metric[i].Database,
-			Measurement: metric[i].Name,
-			ResType:     metric[i].ResType,
-		})
+	ret := make([]monitor.InfluxMeasurement, len(ms))
+	for i := range ms {
+		ret[i] = monitor.InfluxMeasurement{
+			Database:    ms[i].Database,
+			Measurement: ms[i].Name,
+			ResType:     ms[i].ResType,
+		}
 	}
-	return
-
+	return ret, nil
 }
 
 func (measurement *SMetricMeasurement) getFieldsQuery() *sqlchemy.SQuery {
@@ -416,7 +416,6 @@ func (manager *SMetricMeasurementManager) Init() error {
 }
 
 func (man *SMetricMeasurementManager) Run(ctx context.Context) error {
-
 	err := man.initJsonMetricInfo(ctx)
 	if err != nil {
 		return errors.Wrap(err, "init metric json error")
