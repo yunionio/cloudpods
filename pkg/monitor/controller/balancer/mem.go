@@ -16,7 +16,9 @@ package balancer
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -81,9 +83,28 @@ func (m *memCondition) GetSourceThresholdDelta(threshold float64, host IHost) fl
 }
 
 func (m *memCondition) IsFitTarget(settings *monitor.MigrationAlertSettings, t ITarget, c ICandidate) error {
-	if t.GetCurrent()-c.GetScore() > m.GetThreshold() {
+	tScore := t.GetCurrent() - c.GetScore()
+	gtThreshold := tScore > m.GetThreshold()
+	if gtThreshold {
 		return nil
 	}
+
+	// 1G = 1 * 1024 * 1024 * 1024 (bytes)
+	MAX_THRESHOLD := float64(1 * 1024 * 1024 * 1024)
+	src := settings.Source
+	srcHostIds := []string{}
+	if src != nil {
+		srcHostIds = src.HostIds
+	}
+	// only when srcHostIds isn't empty
+	if len(srcHostIds) != 0 {
+		if !gtThreshold && !sets.NewString(srcHostIds...).Has(t.GetId()) && tScore > MAX_THRESHOLD {
+			// if target host is not in source specified hosts and calculated score is greater than MAX_THRESHOLD
+			log.Infof("let host:%s:current(%f) + guest:%s:score(%f) > MAX_THRESHOLD(%f) to fit target, because it's not in source specified hosts", t.GetName(), t.GetCurrent(), c.GetName(), c.GetScore(), MAX_THRESHOLD)
+			return nil
+		}
+	}
+
 	return errors.Errorf("host:%s:current(%f) - guest:%s:score(%f) <= threshold(%f)", t.GetName(), t.GetCurrent(), c.GetName(), c.GetScore(), m.GetThreshold())
 }
 
