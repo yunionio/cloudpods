@@ -17,6 +17,7 @@ package google
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -121,7 +122,7 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, erro
 }
 
 func (self *SGoogleClient) CreateSecurityGroupRule(globalnetworkId, tag string, opts *cloudprovider.SecurityGroupRuleCreateOptions) (*SFirewall, error) {
-	name := fmt.Sprintf("%s-%d", opts.String(), opts.Priority)
+	name := fmt.Sprintf("%s-%d-auto-%d", opts.String(), opts.Priority, time.Now().Unix())
 	body := map[string]interface{}{
 		"name":        strings.ToLower(name),
 		"description": opts.Desc,
