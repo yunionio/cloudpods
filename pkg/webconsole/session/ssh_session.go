@@ -42,7 +42,7 @@ type SSshSession struct {
 	name string
 	Host string
 
-	Port       int64
+	Port       int
 	PrivateKey string
 	Username   string
 	// 保持原有 Username ，不实用 cloudroot 的同时使用 PrivateKey
@@ -50,19 +50,18 @@ type SSshSession struct {
 	Password     string
 }
 
-func NewSshSession(ctx context.Context, us *mcclient.ClientSession,
-	name, ip string, port int64, username, password string, KeepUsername bool) *SSshSession {
+func NewSshSession(ctx context.Context, us *mcclient.ClientSession, conn SSshConnectionInfo) *SSshSession {
 	ret := &SSshSession{
 		us:           us,
 		id:           stringutils.UUID4(),
-		Port:         port,
-		Host:         ip,
-		name:         name,
-		Username:     username,
-		KeepUsername: KeepUsername,
-		Password:     password,
+		Port:         conn.Port,
+		Host:         conn.IP,
+		name:         conn.Name,
+		Username:     conn.Username,
+		KeepUsername: conn.KeepUsername,
+		Password:     conn.Password,
 	}
-	if port <= 0 {
+	if conn.Port <= 0 {
 		ret.Port = 22
 	}
 	return ret
