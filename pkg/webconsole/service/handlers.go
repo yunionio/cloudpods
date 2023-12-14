@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package webconsole
+package service
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/regutils"
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -50,7 +51,7 @@ const (
 	WebsocketProxyPathPrefix = "/wsproxy/"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func initHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
 	app.AddHandler("POST", ApiPathPrefix+"climc/shell", auth.Authenticate(handleClimcShell))
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
@@ -173,13 +174,29 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	ip := env.Params["<ip>"]
-	port, _ := env.Body.Int("port")
-	username, _ := env.Body.GetString("username")
-	keepusername, _ := env.Body.Bool("keep_username")
-	password, _ := env.Body.GetString("password")
-	name, _ := env.Body.GetString("name")
-	s := session.NewSshSession(ctx, env.ClientSessin, name, ip, port, username, password, keepusername)
+
+	sshConnInfo := session.SSshConnectionInfo{}
+	if !gotypes.IsNil(env.Body) {
+		err = env.Body.Unmarshal(&sshConnInfo)
+		if err != nil {
+			httperrors.InputParameterError(ctx, w, "unmarshal error: %s", err.Error())
+			return
+		}
+	}
+	idStr := env.Params["<ip>"]
+	if !regutils.MatchIPAddr(idStr) {
+		ip, port, err := session.ResolveServerSSHIPPortById(ctx, env.ClientSessin, idStr, sshConnInfo.IP, sshConnInfo.Port)
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
+		sshConnInfo.IP = ip
+		sshConnInfo.Port = port
+	} else {
+		// directly ssh IP should be deprecated gradually
+		sshConnInfo.IP = idStr
+	}
+	s := session.NewSshSession(ctx, env.ClientSessin, sshConnInfo)
 	handleSshSession(ctx, s, w)
 }
 
@@ -267,7 +284,7 @@ func handleServerRemoteRDPConsole(ctx context.Context, w http.ResponseWriter, r 
 	}
 	query := env.Body
 	srvId := env.Params["<id>"]
-	info, err := session.NewRemoteRDPConsoleInfoByCloud(env.ClientSessin, srvId, query)
+	info, err := session.NewRemoteRDPConsoleInfoByCloud(ctx, env.ClientSessin, srvId, query)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return

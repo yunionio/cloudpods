@@ -37,7 +37,7 @@ import (
 type WebsocketServer struct {
 	Session    *session.SSession
 	Host       string
-	Port       int64
+	Port       int
 	Username   string
 	Password   string
 	PrivateKey string

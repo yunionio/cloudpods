@@ -117,7 +117,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		ret, err := webconsole.WebConsole.DoSshConnect(s, args.IP, params)
+		ret, err := webconsole.WebConsole.DoSshConnect(s, args.ID, params)
 		if err != nil {
 			return err
 		}
