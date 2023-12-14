@@ -494,6 +494,12 @@ var (
 		City:        CITY_PARIS,
 		CountryCode: COUNTRY_CODE_FR,
 	}
+	RegionTurin = cloudprovider.SGeographicInfo{
+		Latitude:    45.07,
+		Longitude:   7.63,
+		City:        CITY_TURIN,
+		CountryCode: COUNTRY_CODE_IT,
+	}
 	RegionAllier = cloudprovider.SGeographicInfo{
 		Latitude:    46.518,
 		Longitude:   3.359,
@@ -700,6 +706,18 @@ var (
 		Longitude:   34.762,
 		City:        CITY_TEL_AVIV,
 		CountryCode: COUNTRY_CODE_IL,
+	}
+	RegionDamman = cloudprovider.SGeographicInfo{
+		Latitude:    26.36,
+		Longitude:   49.91,
+		City:        CITY_DAMMAN,
+		CountryCode: COUNTRY_CODE_AE,
+	}
+	RegionDoha = cloudprovider.SGeographicInfo{
+		Latitude:    25.28,
+		Longitude:   51.43,
+		City:        CITY_DOHA,
+		CountryCode: COUNTRY_CODE_QA,
 	}
 	RegionNorthCalifornia = cloudprovider.SGeographicInfo{
 		Latitude:    38.838,
