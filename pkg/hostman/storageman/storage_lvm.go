@@ -37,14 +37,11 @@ import (
 
 type SLVMStorage struct {
 	SBaseStorage
-
-	Index int
 }
 
-func NewLVMStorage(manager *SStorageManager, vgName string, index int) *SLVMStorage {
+func NewLVMStorage(manager *SStorageManager, vgName string) *SLVMStorage {
 	var ret = new(SLVMStorage)
 	ret.SBaseStorage = *NewBaseStorage(manager, vgName)
-	ret.Index = index
 	return ret
 }
 
@@ -57,7 +54,7 @@ func (s *SLVMStorage) IsLocal() bool {
 }
 
 func (s *SLVMStorage) GetComposedName() string {
-	return fmt.Sprintf("host_%s_%s_storage_%d", s.Manager.host.GetMasterIp(), s.StorageType(), s.Index)
+	return fmt.Sprintf("host_%s_%s_storage_%s", s.Manager.host.GetMasterIp(), s.StorageType(), s.Path)
 }
 
 func (s *SLVMStorage) GetMediumType() (string, error) {
@@ -86,7 +83,7 @@ func (s *SLVMStorage) getAvailSizeMb() (int64, error) {
 		return -1, err
 	}
 
-	log.Infof("LVM Storage %s sizeMb %d", s.GetPath(), vgProps.VgSize/1024/1024)
+	log.Debugf("LVM Storage %s sizeMb %d", s.GetPath(), vgProps.VgSize/1024/1024)
 	return vgProps.VgSize / 1024 / 1024, nil
 }
 
@@ -323,6 +320,13 @@ func (s *SLVMStorage) GetImgsaveBackupPath() string {
 }
 
 func (s *SLVMStorage) Accessible() error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("pvscan", "--cache").Output()
+	if err != nil {
+		return errors.Wrapf(err, "pvscan --cache failed %s", out)
+	}
+	if err := lvmutils.VgDisplay(s.Path); err != nil {
+		return err
+	}
 	return nil
 }
 
