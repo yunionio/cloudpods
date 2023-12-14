@@ -48,6 +48,10 @@ func (d *SLVMDisk) GetSnapshotDir() string {
 	return ""
 }
 
+func (d *SLVMDisk) GetType() string {
+	return api.STORAGE_LVM
+}
+
 // /dev/<vg>/<lvm>
 func (d *SLVMDisk) GetLvPath() string {
 	return path.Join("/dev", d.Storage.GetPath(), d.Id)
@@ -112,7 +116,7 @@ func (d *SLVMDisk) CleanUpDisk() error {
 	// disk path /dev/<vg>/<disk_id>
 	if fileutils2.Exists(d.GetLvPath()) {
 		if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
-			return nil
+			return err
 		}
 	}
 	return nil
@@ -250,7 +254,7 @@ func (d *SLVMDisk) CreateFromTemplate(
 	}
 
 	var imageCacheManager = storageManager.GetStoragecacheById(d.Storage.GetStoragecacheId())
-	ret, err := d.createFromTemplate(ctx, imageId, format, size*1024*1024, imageCacheManager, encryptInfo)
+	ret, err := d.createFromTemplate(ctx, imageId, format, size, imageCacheManager, encryptInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +316,7 @@ func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 }
 
 func (d *SLVMDisk) createFromTemplate(
-	ctx context.Context, imageId, format string, size int64, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo,
+	ctx context.Context, imageId, format string, sizeMb int64, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo,
 ) (jsonutils.JSONObject, error) {
 	input := api.CacheImageInput{ImageId: imageId, Zone: d.GetZoneId()}
 	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)

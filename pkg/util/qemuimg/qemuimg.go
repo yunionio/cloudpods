@@ -609,7 +609,7 @@ func (img *SQemuImage) CloneRaw(name string) (*SQemuImage, error) {
 }
 
 func (img *SQemuImage) create(sizeMB int, format qemuimgfmt.TImageFormat, options []string, extraArgs []string) error {
-	if img.IsValid() {
+	if img.IsValid() && img.Format != qemuimgfmt.RAW {
 		return fmt.Errorf("create: the image is valid??? %s", img.Format)
 	}
 	args := []string{"-c", strconv.Itoa(int(img.IoLevel)),
