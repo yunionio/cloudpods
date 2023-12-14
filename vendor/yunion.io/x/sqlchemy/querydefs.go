@@ -129,12 +129,18 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 		buf.WriteString(string(join.jointype))
 		buf.WriteByte(' ')
 		buf.WriteString(fmt.Sprintf("%s AS `%s`", join.from.Expression(), join.from.Alias()))
-		buf.WriteString(" ON ")
-		buf.WriteString(join.condition.WhereClause())
+		whereCls := join.condition.WhereClause()
+		if len(whereCls) > 0 {
+			buf.WriteString(" ON ")
+			buf.WriteString(whereCls)
+		}
 	}
 	if tq.where != nil {
-		buf.WriteString(" WHERE ")
-		buf.WriteString(tq.where.WhereClause())
+		whereCls := tq.where.WhereClause()
+		if len(whereCls) > 0 {
+			buf.WriteString(" WHERE ")
+			buf.WriteString(whereCls)
+		}
 	}
 	if tq.groupBy != nil && len(tq.groupBy) > 0 {
 		buf.WriteString(" GROUP BY ")

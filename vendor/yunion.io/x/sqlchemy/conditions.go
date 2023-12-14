@@ -21,6 +21,26 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
+type sNoop struct{}
+
+var noop = &sNoop{}
+
+func (s sNoop) WhereClause() string {
+	return ""
+}
+
+func (s sNoop) Variables() []interface{} {
+	return nil
+}
+
+func (s sNoop) database() *SDatabase {
+	return nil
+}
+
+func Noop() ICondition {
+	return noop
+}
+
 // ICondition is the interface representing a condition for SQL query
 // e.g. WHERE a1 = b1 is a condition of equal
 // the condition support nested condition, with AND, OR and NOT boolean operators
@@ -104,6 +124,9 @@ func (c *SOrConditions) WhereClause() string {
 func AND(cond ...ICondition) ICondition {
 	conds := make([]ICondition, 0)
 	for _, c := range cond {
+		if c == nil || c == noop {
+			continue
+		}
 		andCond, ok := c.(*SAndConditions)
 		if ok {
 			conds = append(conds, andCond.conditions...)
@@ -119,6 +142,10 @@ func AND(cond ...ICondition) ICondition {
 func OR(cond ...ICondition) ICondition {
 	conds := make([]ICondition, 0)
 	for _, c := range cond {
+		if c == nil || c == noop {
+			conds = conds[0:0]
+			break
+		}
 		orCond, ok := c.(*SOrConditions)
 		if ok {
 			conds = append(conds, orCond.conditions...)
@@ -137,16 +164,25 @@ type SNotCondition struct {
 
 // WhereClause implementationq of SNotCondition for ICondition
 func (c *SNotCondition) WhereClause() string {
+	if c.condition == nil || c.condition == noop {
+		return "1!=1"
+	}
 	return fmt.Sprintf("%s (%s)", SQL_OP_NOT, c.condition.WhereClause())
 }
 
 // Variables implementation of SNotCondition for ICondition
 func (c *SNotCondition) Variables() []interface{} {
+	if c.condition == nil {
+		return nil
+	}
 	return c.condition.Variables()
 }
 
 // database implementation of SNotCondition for ICondition
 func (c *SNotCondition) database() *SDatabase {
+	if c.condition == nil {
+		return nil
+	}
 	return c.condition.database()
 }
 
