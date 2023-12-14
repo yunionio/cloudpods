@@ -18,8 +18,9 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -35,22 +36,29 @@ func init() {
 	taskman.RegisterTask(SnapshotPolicyDeleteTask{})
 }
 
-func (self *SnapshotPolicyDeleteTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, reason jsonutils.JSONObject) {
-	sp.SetStatus(self.GetUserCred(), api.SNAPSHOT_POLICY_DELETE_FAILED, reason.String())
-	db.OpsLog.LogEvent(sp, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, sp.Id, sp.Name, api.SNAPSHOT_POLICY_DELETE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *SnapshotPolicyDeleteTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, err error) {
+	sp.SetStatus(self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(sp, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_DELOCATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, sp.Id, sp.Name, apis.STATUS_DELETE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SnapshotPolicyDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	sp := obj.(*models.SSnapshotPolicy)
-	err := models.SnapshotPolicyCacheManager.DeleteCloudSnapshotPolices(ctx, self.UserCred, sp.GetId())
+
+	region, err := sp.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, sp, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, sp, errors.Wrapf(err, "GetRegion"))
 		return
 	}
-	self.OnSnapshotPolicyDeleteComplete(ctx, sp, data)
+
+	self.SetStage("OnSnapshotPolicyDeleteComplete", nil)
+	err = region.GetDriver().RequestDeleteSnapshotPolicy(ctx, self.UserCred, region, sp, self)
+	if err != nil {
+		self.taskFail(ctx, sp, errors.Wrapf(err, "RequestDeleteSnapshotPolicy"))
+		return
+	}
 }
 
 func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteComplete(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
@@ -65,5 +73,5 @@ func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteComplete(ctx context
 }
 
 func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteCompleteFailed(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	self.taskFail(ctx, sp, data)
+	self.taskFail(ctx, sp, errors.Errorf(data.String()))
 }

@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/pinyinutils"
-	"yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -1702,20 +1701,11 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return errors.Wrapf(err, "db.UpdateWithLock")
 	}
-
-	// sync disk's snapshotpolicy
-	snapshotpolicies, err := extDisk.GetExtSnapshotPolicyIds()
-	if err != nil {
-		return errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId())
-	}
 	storage, err := self.GetStorage()
 	if err != nil {
 		return errors.Wrapf(err, "GetStorage")
 	}
-	err = SnapshotPolicyDiskManager.SyncByDisk(ctx, userCred, snapshotpolicies, syncOwnerId, self, storage)
-	if err != nil {
-		return err
-	}
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
 	if len(diff) > 0 {
@@ -1792,16 +1782,6 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudDisk")
-	}
-
-	// create new joint model aboutsnapshotpolicy and disk
-	snapshotpolicies, err := extDisk.GetExtSnapshotPolicyIds()
-	if err != nil {
-		log.Warningln("GetExtSnapshotPolicyIds:", errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId()))
-	}
-	err = SnapshotPolicyDiskManager.SyncAttachDiskExt(ctx, userCred, snapshotpolicies, syncOwnerId, &disk, storage)
-	if err != nil {
-		log.Warningln("SyncAttachDiskExt:", err)
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, &disk, extDisk, false)
@@ -2373,8 +2353,8 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		Id             string
 		Name           string
 		Status         string
-		TimePoints     uint32
-		RepeatWeekdays uint8
+		TimePoints     []int
+		RepeatWeekdays []int
 		DiskId         string
 	}{}
 	err = q.All(&policyInfo)
@@ -2392,8 +2372,8 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		policies[policy.DiskId] = append(policies[policy.DiskId], api.SimpleSnapshotPolicy{
 			Id:             policy.Id,
 			Name:           policy.Name,
-			RepeatWeekdays: SnapshotPolicyManager.RepeatWeekdaysToIntArray(policy.RepeatWeekdays),
-			TimePoints:     SnapshotPolicyManager.TimePointsToIntArray(policy.TimePoints),
+			RepeatWeekdays: policy.RepeatWeekdays,
+			TimePoints:     policy.TimePoints,
 		})
 	}
 
@@ -2674,7 +2654,7 @@ func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCr
 	}
 }
 
-func (manager *SDiskManager) getAutoSnapshotDisksId(isExternal bool) ([]SSnapshotPolicyDisk, error) {
+func (manager *SDiskManager) GetNeedAutoSnapshotDisks() ([]SSnapshotPolicyDisk, error) {
 	tz, _ := time.LoadLocation(options.Options.TimeZone)
 	t := time.Now().In(tz)
 	week := t.Weekday()
@@ -2683,39 +2663,26 @@ func (manager *SDiskManager) getAutoSnapshotDisksId(isExternal bool) ([]SSnapsho
 	}
 	timePoint := t.Hour()
 
-	sps, err := SnapshotPolicyManager.GetSnapshotPoliciesAt(uint32(week), uint32(timePoint))
+	policy := SnapshotPolicyManager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID)
+	policy = policy.Filter(sqlchemy.Contains(policy.Field("repeat_weekdays"), fmt.Sprintf("%d", week)))
+	sq := policy.Filter(
+		sqlchemy.OR(
+			sqlchemy.Contains(policy.Field("time_points"), fmt.Sprintf(",%d,", timePoint)),
+			sqlchemy.Startswith(policy.Field("time_points"), fmt.Sprintf("[%d,", timePoint)),
+			sqlchemy.Endswith(policy.Field("time_points"), fmt.Sprintf(",%d]", timePoint)),
+			sqlchemy.Equals(policy.Field("time_points"), fmt.Sprintf("[%d]", timePoint)),
+		),
+	).SubQuery()
+	disks := DiskManager.Query().SubQuery()
+	q := SnapshotPolicyDiskManager.Query()
+	q = q.Join(sq, sqlchemy.Equals(q.Field("snapshotpolicy_id"), sq.Field("id")))
+	q = q.Join(disks, sqlchemy.Equals(q.Field("disk_id"), disks.Field("id")))
+	ret := []SSnapshotPolicyDisk{}
+	err := db.FetchModelObjects(SnapshotPolicyDiskManager, q, &ret)
 	if err != nil {
 		return nil, err
 	}
-	if len(sps) == 0 {
-		return nil, nil
-	}
-
-	spds := make([]SSnapshotPolicyDisk, 0)
-	spdq := SnapshotPolicyDiskManager.Query()
-	spdq.NotEquals("status", api.SNAPSHOT_POLICY_DISK_INIT)
-	spdq.Filter(sqlchemy.In(spdq.Field("snapshotpolicy_id"), sps))
-
-	diskQ := DiskManager.Query().SubQuery()
-	spdq.Join(diskQ, sqlchemy.Equals(spdq.Field("disk_id"), diskQ.Field("id")))
-	if !isExternal {
-		spdq.Filter(sqlchemy.IsNullOrEmpty(diskQ.Field("external_id")))
-	} else {
-		spdq.Filter(sqlchemy.IsNotEmpty(diskQ.Field("external_id")))
-	}
-	err = spdq.All(&spds)
-	if err != nil {
-		return nil, err
-	}
-	return spds, nil
-}
-
-func generateAutoSnapshotName() string {
-	name := "Auto-" + rand.String(8)
-	for SnapshotManager.Query().Equals("name", name).Count() > 0 {
-		name = "Auto-" + rand.String(8)
-	}
-	return name
+	return ret, nil
 }
 
 func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
@@ -2723,9 +2690,9 @@ func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
 	if len(guests) == 0 {
 		return fmt.Errorf("Disks %s not attach guest, can't create snapshot", disk.GetName())
 	}
-	storage, _ := disk.GetStorage()
-	if storage == nil {
-		return fmt.Errorf("no valid storage")
+	storage, err := disk.GetStorage()
+	if err != nil {
+		return errors.Wrapf(err, "GetStorage")
 	}
 	if len(guests) == 1 && utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
 		if !utils.IsInStringArray(guests[0].Status, []string{api.VM_RUNNING, api.VM_READY}) {
@@ -2736,86 +2703,124 @@ func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
 }
 
 func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	spds, err := manager.getAutoSnapshotDisksId(false)
+	disks, err := manager.GetNeedAutoSnapshotDisks()
 	if err != nil {
 		log.Errorf("Get auto snapshot disks id failed: %s", err)
 		return
 	}
-	if len(spds) == 0 {
-		log.Infof("CronJob AutoDiskSnapshot: No disk need create snapshot")
-		return
-	}
+	log.Debugf("auto snapshot %d disks", len(disks))
 	now := time.Now()
-	for i := 0; i < len(spds); i++ {
-		var (
-			disk                  = manager.FetchDiskById(spds[i].DiskId)
-			snapshotPolicy, _     = SnapshotPolicyManager.FetchSnapshotPolicyById(spds[i].SnapshotpolicyId)
-			snapshotName          = generateAutoSnapshotName()
-			autoSnapshotCount     = options.Options.DefaultMaxSnapshotCount - options.Options.DefaultMaxManualSnapshotCount
-			err                   error
-			snapCount             int
-			cleanOverdueSnapshots bool
-		)
-
-		if err = disk.validateDiskAutoCreateSnapshot(); err != nil {
-			goto onFail
-		}
-
-		if err = disk.CreateSnapshotAuto(ctx, userCred, snapshotName, snapshotPolicy); err != nil {
-			goto onFail
-		}
-
-		snapCount, err = SnapshotManager.Query().Equals("fake_deleted", false).
-			Equals("disk_id", disk.Id).Equals("created_by", api.SNAPSHOT_AUTO).
-			CountWithError()
+	for i := 0; i < len(disks); i++ {
+		disk, err := disks[i].GetDisk()
 		if err != nil {
-			err = errors.Wrap(err, "get snapshot count")
-			goto onFail
+			log.Errorf("get disk error: %v", err)
+			continue
 		}
-		// if auto snapshot count gt max auto snapshot count, do clean overdued snapshots
-		cleanOverdueSnapshots = snapCount > autoSnapshotCount
-		if cleanOverdueSnapshots {
-			disk.CleanOverdueSnapshots(ctx, userCred, snapshotPolicy, now)
+		autoSnapshotCount := options.Options.DefaultMaxSnapshotCount - options.Options.DefaultMaxManualSnapshotCount
+
+		err = func() error {
+			policy, err := disks[i].GetSnapshotPolicy()
+			if err != nil {
+				return errors.Wrapf(err, "GetSnapshotPolicy")
+			}
+
+			if len(disk.ExternalId) == 0 {
+				err = disk.validateDiskAutoCreateSnapshot()
+				if err != nil {
+					return errors.Wrapf(err, "validateDiskAutoCreateSnapshot")
+				}
+			}
+
+			snapshot, err := disk.CreateSnapshotAuto(ctx, userCred, policy)
+			if err != nil {
+				return errors.Wrapf(err, "CreateSnapshotAuto")
+			}
+
+			snapCount, err := SnapshotManager.Query().Equals("fake_deleted", false).
+				Equals("disk_id", disk.Id).Equals("created_by", api.SNAPSHOT_AUTO).
+				CountWithError()
+			if err != nil {
+				return errors.Wrap(err, "get snapshot count")
+			}
+			// if auto snapshot count gt max auto snapshot count, do clean overdued snapshots
+			cleanOverdueSnapshots := snapCount > autoSnapshotCount
+			if cleanOverdueSnapshots {
+				disk.CleanOverdueSnapshots(ctx, userCred, policy, now)
+			}
+			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT, snapshot.Name, userCred)
+			policy.ExecuteNotify(ctx, userCred, disk.GetName())
+			return nil
+		}()
+		if err != nil {
+			log.Errorf("auto snapshot %s error: %v", disk.Name, err)
+			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, err.Error(), userCred)
+			notifyclient.NotifySystemErrorWithCtx(ctx, disk.Id, disk.Name, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, errors.Wrapf(err, "Disk auto create snapshot").Error())
 		}
-		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT, "disk auto snapshot "+snapshotName, userCred)
-		snapshotPolicy.ExecuteNotify(ctx, userCred, disk.GetName())
-		continue
-	onFail:
-		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, err.Error(), userCred)
-		reason := fmt.Sprintf("Disk auto create snapshot failed: %s", err.Error())
-		notifyclient.NotifySystemErrorWithCtx(ctx, disk.Id, disk.Name, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, reason)
 	}
+
 }
 
 func (self *SDisk) CreateSnapshotAuto(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	snapshotName string, snapshotPolicy *SSnapshotPolicy,
-) error {
-	snap, err := SnapshotManager.CreateSnapshot(ctx, self.GetOwnerId(), api.SNAPSHOT_AUTO,
-		self.Id, "", "", snapshotName, snapshotPolicy.RetentionDays, false)
+	policy *SSnapshotPolicy,
+) (*SSnapshot, error) {
+	storage, err := self.GetStorage()
 	if err != nil {
-		return errors.Wrap(err, "disk create snapshot auto")
+		return nil, errors.Wrapf(err, "GetStorage")
+	}
+	snapshot := &SSnapshot{}
+	snapshot.SetModelManager(SnapshotManager, snapshot)
+	snapshot.ProjectId = self.ProjectId
+	snapshot.DomainId = self.DomainId
+	snapshot.DiskId = self.Id
+	if len(self.ExternalId) == 0 {
+		snapshot.StorageId = self.StorageId
 	}
 
-	db.OpsLog.LogEvent(snap, db.ACT_CREATE, "disk create snapshot auto", userCred)
-	err = snap.StartSnapshotCreateTask(ctx, userCred, nil, "")
+	// inherit encrypt_key_id
+	snapshot.EncryptKeyId = self.EncryptKeyId
+
+	driver, err := storage.GetRegionDriver()
 	if err != nil {
-		return errors.Wrap(err, "disk auto snapshot start snapshot task")
+		return nil, errors.Wrapf(err, "GetRegionDriver")
 	}
-	return nil
+	snapshot.OutOfChain = driver.SnapshotIsOutOfChain(self)
+	snapshot.Size = self.DiskSize
+	snapshot.DiskType = self.DiskType
+	snapshot.Location = ""
+	snapshot.CreatedBy = api.SNAPSHOT_AUTO
+	snapshot.ManagerId = storage.ManagerId
+	if cloudregion, _ := storage.GetRegion(); cloudregion != nil {
+		snapshot.CloudregionId = cloudregion.GetId()
+	}
+	snapshot.Name = fmt.Sprintf("%s-auto-snapshot-%d", self.Name, time.Now().Unix())
+	snapshot.Status = api.SNAPSHOT_CREATING
+	if policy.RetentionDays > 0 {
+		snapshot.ExpiredAt = time.Now().AddDate(0, 0, policy.RetentionDays)
+	}
+	snapshot.IsSystem = self.IsSystem
+	err = SnapshotManager.TableSpec().Insert(ctx, snapshot)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Insert")
+	}
+
+	db.OpsLog.LogEvent(snapshot, db.ACT_CREATE, "disk create snapshot auto", userCred)
+	err = snapshot.StartSnapshotCreateTask(ctx, userCred, nil, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "disk auto snapshot start snapshot task")
+	}
+	return snapshot, nil
 }
 
 func (self *SDisk) CleanOverdueSnapshots(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, now time.Time) error {
 	kwargs := jsonutils.NewDict()
-	kwargs.Set("snapshotpolicy_id", jsonutils.NewString(sp.Id))
+	kwargs.Set("retention_day", jsonutils.NewInt(int64(sp.RetentionDays)))
 	kwargs.Set("start_time", jsonutils.NewTimeString(now))
-	if task, err := taskman.TaskManager.NewTask(ctx, "DiskCleanOverduedSnapshots", self, userCred, kwargs, "", "", nil); err != nil {
-		log.Errorln(err)
-		return err
-	} else {
-		task.ScheduleRun(nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskCleanOverduedSnapshots", self, userCred, kwargs, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
 	}
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SDisk) StartCreateBackupTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -3003,85 +3008,48 @@ func (disk *SDisk) GetUsages() []db.IUsage {
 	}
 }
 
-func (disk *SDisk) PerformBindSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
-	spIden, err := data.GetString("snapshotpolicy")
+func (disk *SDisk) PerformBindSnapshotpolicy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.DiskSnapshotpolicyInput,
+) (jsonutils.JSONObject, error) {
+	spObj, err := validators.ValidateModel(userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("miss snapshotpolicy")
+		return nil, err
 	}
-	// check snapshotpolicy
-	imodel, err := db.FetchByIdOrName(SnapshotPolicyManager, userCred, spIden)
-	if errors.Cause(err) == sql.ErrNoRows {
-		return nil, httperrors.NewInputParameterError("no such snapshotpolicy %s", spIden)
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchByIdOrName")
-	}
-	snapshotpolicy := imodel.(*SSnapshotPolicy)
-
-	// try to bind
-	spd, err := SnapshotPolicyDiskManager.newSnapshotpolicyDisk(ctx, userCred, snapshotpolicy, disk)
-
-	if errors.Cause(err) == ErrExistSD {
-		if spd.Status != api.SNAPSHOT_POLICY_DISK_INIT {
-			return nil, nil
+	sp := spObj.(*SSnapshotPolicy)
+	if len(sp.ManagerId) > 0 {
+		storage, err := disk.GetStorage()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetStorage")
 		}
-	} else if err != nil {
-		return nil, errors.Wrap(err, "SnapshotPolicyDiskManager.newSnapshotpolicyDisk")
+		if storage.ManagerId != sp.ManagerId {
+			return nil, httperrors.NewConflictError("The snapshot policy %s and disk account are different", sp.Name)
+		}
+		zone, err := storage.GetZone()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetZone")
+		}
+		if sp.CloudregionId != zone.CloudregionId {
+			return nil, httperrors.NewConflictError("The snapshot policy %s and the disk are in different region", sp.Name)
+		}
 	}
-
-	// start up SnapshotPolicyApplyTask
-	taskData := jsonutils.NewDict()
-	taskData.Add(jsonutils.Marshal(spd), "snapshotPolicyDisk")
-	taskData.Add(jsonutils.Marshal(snapshotpolicy), "snapshotPolicy")
-	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyApplyTask", disk, userCred, nil, "", "",
-		nil); err != nil {
-		return nil, errors.Wrap(err, "fail to start up SnapshotPolicyApplyTask")
-	} else {
-		task.ScheduleRun(taskData)
-	}
-	return nil, nil
+	return nil, sp.StartBindDisksTask(ctx, userCred, []string{disk.Id})
 }
 
-func (disk *SDisk) PerformUnbindSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
-	spIden, err := data.GetString("snapshotpolicy")
+func (disk *SDisk) PerformUnbindSnapshotpolicy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.DiskSnapshotpolicyInput,
+) (jsonutils.JSONObject, error) {
+	spObj, err := validators.ValidateModel(userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("miss snapshotpolicy")
+		return nil, err
 	}
-	// check snapshotpolicy
-	imodel, err := db.FetchByIdOrName(SnapshotPolicyManager, userCred, spIden)
-	if errors.Cause(err) == sql.ErrNoRows {
-		return nil, httperrors.NewInputParameterError("no such snapshotpolicy %s", spIden)
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchByIdOrName")
-	}
-	snapshotpolicy := imodel.(*SSnapshotPolicy)
-
-	spd, err := SnapshotPolicyDiskManager.FetchBySnapshotPolicyDisk(snapshotpolicy.GetId(), disk.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SnapshotPolicyDiskManager.FetchBySnapshotPolicyDisk")
-	}
-	if spd == nil {
-		// has been detach
-		return nil, nil
-	}
-
-	// start up SnapshotPolicyCancelTask
-	taskdata := jsonutils.NewDict()
-	taskdata.Add(jsonutils.NewString(snapshotpolicy.Id), "snapshot_policy_id")
-	taskdata.Add(jsonutils.Marshal(spd), "snapshotPolicyDisk")
-	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyCancelTask", disk, userCred, nil, "", "",
-		nil); err != nil {
-		return nil, errors.Wrap(err, "fail to start up SnapshotPolicyCancelTask")
-	} else {
-		spd.SetStatus(userCred, api.SNAPSHOT_POLICY_DISK_DELETING, "")
-		task.ScheduleRun(taskdata)
-	}
-	return nil, nil
+	sp := spObj.(*SSnapshotPolicy)
+	return nil, sp.StartUnbindDisksTask(ctx, userCred, []string{disk.Id})
 }
 
 func (manager *SDiskManager) ListItemExportKeys(ctx context.Context,

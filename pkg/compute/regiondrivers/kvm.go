@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -40,7 +41,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -846,57 +846,6 @@ func (self *SKVMRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient
 	return models.GetStorageDriver(storage.StorageType).OnDiskReset(ctx, userCred, disk, snapshot, data)
 }
 
-func (self *SKVMRegionDriver) RequestUpdateSnapshotPolicy(ctx context.Context,
-	userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, input cloudprovider.SnapshotPolicyInput,
-	task taskman.ITask) error {
-
-	return nil
-}
-
-func (self *SKVMRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
-	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
-
-	err := self.SBaseRegionDriver.ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
-	if err != nil {
-		return err
-	}
-
-	if snapshotPolicy.RetentionDays < -1 || snapshotPolicy.RetentionDays == 0 || snapshotPolicy.RetentionDays > options.Options.RetentionDaysLimit {
-		return httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
-	}
-
-	repeatWeekdays := models.SnapshotPolicyManager.RepeatWeekdaysToIntArray(snapshotPolicy.RepeatWeekdays)
-	timePoints := models.SnapshotPolicyManager.TimePointsToIntArray(snapshotPolicy.TimePoints)
-
-	if len(repeatWeekdays) > options.Options.RepeatWeekdaysLimit {
-		return httperrors.NewInputParameterError("repeat_weekdays only contains %d days at most",
-			options.Options.RepeatWeekdaysLimit)
-	}
-
-	if len(timePoints) > options.Options.TimePointsLimit {
-		return httperrors.NewInputParameterError("time_points only contains %d points at most", options.Options.TimePointsLimit)
-	}
-	return nil
-}
-
-func (self *SKVMRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		data := jsonutils.NewDict()
-		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
-		return data, nil
-	})
-	return nil
-}
-
-func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		data := jsonutils.NewDict()
-		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
-		return data, nil
-	})
-	return nil
-}
-
 func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {
 	task.SetStage("OnKvmSnapshotDelete", nil)
 	task.ScheduleRun(data)
@@ -1195,16 +1144,6 @@ func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, use
 
 func (self *SKVMRegionDriver) RequestAssociateEipForNAT(ctx context.Context, userCred mcclient.TokenCredential, nat *models.SNatGateway, eip *models.SElasticip, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestAssociateEipForNAT")
-}
-
-func (self *SKVMRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
-	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
-
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-
-		return data, nil
-	})
-	return nil
 }
 
 func (self *SKVMRegionDriver) ValidateCacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *models.SSecurityGroup, vpc *models.SVpc, classic bool) error {
@@ -1641,4 +1580,39 @@ func (self *SKVMRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.C
 	}
 
 	return input, nil
+}
+
+func (self *SKVMRegionDriver) ValidateCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, input *api.SSnapshotPolicyCreateInput) (*api.SSnapshotPolicyCreateInput, error) {
+	return input, nil
+}
+
+func (self *SKVMRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+	sp.SetStatus(userCred, apis.STATUS_AVAILABLE, "")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SKVMRegionDriver) RequestDeleteSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+	return task.ScheduleRun(nil)
+}
+
+func (self *SKVMRegionDriver) RequestSnapshotPolicyBindDisks(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, diskIds []string, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		disks, err := sp.GetUnbindDisks(diskIds)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetUnbindDisks")
+		}
+		ids := []string{}
+		for _, disk := range disks {
+			ids = append(ids, disk.Id)
+		}
+		return nil, sp.BindDisks(ctx, disks)
+	})
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSnapshotPolicyUnbindDisks(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, diskIds []string, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		return nil, sp.UnbindDisks(diskIds)
+	})
+	return nil
 }

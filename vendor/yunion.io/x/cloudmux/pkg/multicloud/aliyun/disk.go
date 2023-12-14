@@ -75,14 +75,10 @@ func (self *SDisk) GetIops() int {
 	return self.IOPS
 }
 
-func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
+func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, snapshotpolicyId string) ([]SDisk, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	params["MaxResults"] = "500"
 
 	if len(instanceId) > 0 {
 		params["InstanceId"] = instanceId
@@ -93,24 +89,38 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, category string,
 	if len(category) > 0 {
 		params["Category"] = category
 	}
-	if diskIds != nil && len(diskIds) > 0 {
+	if len(diskIds) > 0 {
 		params["DiskIds"] = jsonutils.Marshal(diskIds).String()
 	}
-
-	body, err := self.ecsRequest("DescribeDisks", params)
-	if err != nil {
-		log.Errorf("GetDisks fail %s", err)
-		return nil, 0, err
+	if len(snapshotpolicyId) > 0 {
+		params["AutoSnapshotPolicyId"] = snapshotpolicyId
 	}
 
-	disks := make([]SDisk, 0)
-	err = body.Unmarshal(&disks, "Disks", "Disk")
-	if err != nil {
-		log.Errorf("Unmarshal disk details fail %s", err)
-		return nil, 0, err
+	ret := []SDisk{}
+	for {
+		resp, err := self.ecsRequest("DescribeDisks", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeDisks")
+		}
+
+		part := struct {
+			Disks struct {
+				Disk []SDisk
+			}
+			NextToken string
+		}{}
+
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		ret = append(ret, part.Disks.Disk...)
+		if len(part.NextToken) == 0 || len(part.Disks.Disk) == 0 {
+			break
+		}
+		params["NextToken"] = part.NextToken
 	}
-	total, _ := body.Int("TotalCount")
-	return disks, int(total), nil
+	return ret, nil
 }
 
 func (self *SDisk) GetId() string {
@@ -278,14 +288,16 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 }
 
 func (self *SRegion) getDisk(diskId string) (*SDisk, error) {
-	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
+	disks, err := self.GetDisks("", "", "", []string{diskId}, "")
 	if err != nil {
 		return nil, err
 	}
-	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range disks {
+		if disks[i].DiskId == diskId {
+			return &disks[i], nil
+		}
 	}
-	return &disks[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
@@ -389,13 +401,6 @@ func (self *SDisk) GetBillingType() string {
 
 func (self *SDisk) GetCreatedAt() time.Time {
 	return self.CreationTime
-}
-
-func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	if len(self.AutoSnapshotPolicyId) == 0 {
-		return []string{}, nil
-	}
-	return []string{self.AutoSnapshotPolicyId}, nil
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {

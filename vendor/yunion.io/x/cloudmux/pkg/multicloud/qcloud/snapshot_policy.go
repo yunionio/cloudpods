@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -48,6 +48,7 @@ type SSnapshotPolicy struct {
 	Policy                  []SSnapshotDatePolicy
 	Activated               bool `json:"IsActivated"`
 	IsPermanent             bool
+	DiskIdSet               []string
 }
 
 func (self *SSnapshotPolicy) GetId() string {
@@ -63,10 +64,12 @@ func (self *SSnapshotPolicy) GetGlobalId() string {
 }
 
 func (self *SSnapshotPolicy) GetStatus() string {
-	if self.AutoSnapshotPolicyState == NORMAL {
-		return api.SNAPSHOT_POLICY_READY
+	switch self.AutoSnapshotPolicyState {
+	case NORMAL:
+		return apis.STATUS_AVAILABLE
+	default:
+		return apis.STATUS_UNKNOWN
 	}
-	return api.SNAPSHOT_POLICY_UNKNOWN
 }
 
 func (self *SSnapshotPolicy) Refresh() error {
@@ -113,10 +116,6 @@ func (self *SSnapshotPolicy) GetTimePoints() ([]int, error) {
 		return nil, errors.Error("Policy Set Empty")
 	}
 	return self.Policy[0].Hour, nil
-}
-
-func (self *SSnapshotPolicy) IsActivated() bool {
-	return self.Activated
 }
 
 func (self *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPolicy, error) {
@@ -191,14 +190,7 @@ func (self *SRegion) GetISnapshotPolicyById(snapshotPolicyId string) (cloudprovi
 }
 
 func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput) (string, error) {
-	if input.RepeatWeekdays == nil {
-		return "", fmt.Errorf("Can't create snapshot policy with nil repeatWeekdays")
-	}
-	if input.TimePoints == nil {
-		return "", fmt.Errorf("Can't create snapshot policy with nil timePoints")
-	}
 	params := make(map[string]string)
-
 	// In Qcloud, that IsPermanent is true means that keep snapshot forever,
 	// In OneCloud, that RetentionDays is -1 means that keep snapshot forever.
 	if input.RetentionDays == -1 {
@@ -213,8 +205,8 @@ func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInp
 		}
 		params[dayOfWeekPrefix+strconv.Itoa(index)] = strconv.Itoa(day)
 	}
-	if len(input.PolicyName) > 0 {
-		params["AutoSnapshotPolicyName"] = input.PolicyName
+	if len(input.Name) > 0 {
+		params["AutoSnapshotPolicyName"] = input.Name
 	}
 	for index, hour := range input.TimePoints {
 		params[hourPrefix+strconv.Itoa(index)] = strconv.Itoa(hour)
@@ -227,31 +219,42 @@ func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInp
 	return id, nil
 }
 
-func (self *SRegion) UpdateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput, snapshotPolicyId string) error {
-	// not implement
-	return nil
-}
-
-func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
+func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskIds []string) error {
 	params := make(map[string]string)
 	params["AutoSnapshotPolicyId"] = snapshotPolicyId
-	params["DiskIds.0"] = diskId
+	for i, id := range diskIds {
+		params[fmt.Sprintf("DiskIds.%d", i)] = id
+	}
 	_, err := self.cbsRequest("BindAutoSnapshotPolicy", params)
 	if err != nil {
-		return errors.Wrapf(err, "Bind AutoSnapshotPolicy %s to Disk failed", snapshotPolicyId)
+		return errors.Wrapf(err, "BindAutoSnapshotPolicy")
 	}
 	return nil
 }
 
-func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
+func (self *SSnapshotPolicy) ApplyDisks(ids []string) error {
+	return self.region.ApplySnapshotPolicyToDisks(self.AutoSnapshotPolicyId, ids)
+}
+
+func (self *SSnapshotPolicy) GetApplyDiskIds() ([]string, error) {
+	return self.DiskIdSet, nil
+}
+
+func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskIds []string) error {
 	params := make(map[string]string)
 	params["AutoSnapshotPolicyId"] = snapshotPolicyId
-	params["DiskIds.0"] = diskId
+	for i, id := range diskIds {
+		params[fmt.Sprintf("DiskIds.%d", i)] = id
+	}
 	_, err := self.cbsRequest("UnbindAutoSnapshotPolicy", params)
 	if err != nil {
-		return errors.Wrapf(err, "Unbind AutoSnapshotPolicy %s of Disk failed", snapshotPolicyId)
+		return errors.Wrapf(err, "UnbindAutoSnapshotPolicy")
 	}
 	return nil
+}
+
+func (self *SSnapshotPolicy) CancelDisks(ids []string) error {
+	return self.region.CancelSnapshotPolicyToDisks(self.AutoSnapshotPolicyId, ids)
 }
 
 func (self *SRegion) GetSnapshotIdByDiskId(diskID string) ([]string, error) {

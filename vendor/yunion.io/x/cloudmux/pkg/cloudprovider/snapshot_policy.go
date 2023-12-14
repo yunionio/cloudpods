@@ -17,9 +17,12 @@ package cloudprovider
 import "strconv"
 
 type SnapshotPolicyInput struct {
-	RetentionDays              int
-	RepeatWeekdays, TimePoints []int
-	PolicyName                 string
+	RetentionDays  int
+	RepeatWeekdays []int
+	TimePoints     []int
+	Name           string
+	Desc           string
+	Tags           map[string]string
 }
 
 func (spi *SnapshotPolicyInput) GetStringArrayRepeatWeekdays() []string {

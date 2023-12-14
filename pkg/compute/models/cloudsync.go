@@ -2018,7 +2018,7 @@ func syncRegionSnapshotPolicies(
 
 	result := func() compare.SyncResult {
 		defer syncResults.AddSqlCost(SnapshotPolicyManager)()
-		return SnapshotPolicyManager.SyncSnapshotPolicies(ctx, userCred, provider, localRegion, snapshotPolicies, provider.GetOwnerId(), syncRange.Xor)
+		return localRegion.SyncSnapshotPolicies(ctx, userCred, provider, snapshotPolicies, provider.GetOwnerId(), syncRange.Xor)
 	}()
 	syncResults.Add(SnapshotPolicyManager, result)
 	msg := result.Result()
@@ -2172,10 +2172,6 @@ func syncPublicCloudProviderInfo(
 		}
 
 		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
-			if syncRange.IsNotSkipSyncResource(SnapshotPolicyManager) {
-				// sync snapshot policies before sync disks
-				syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-			}
 
 			for j := 0; j < len(localZones); j += 1 {
 
@@ -2192,6 +2188,11 @@ func syncPublicCloudProviderInfo(
 				if len(newPairs) > 0 {
 					storageCachePairs = append(storageCachePairs, newPairs...)
 				}
+			}
+
+			if syncRange.IsNotSkipSyncResource(SnapshotPolicyManager) {
+				// sync snapshot policies after sync disks
+				syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
 
 			// sync snapshots after sync disks

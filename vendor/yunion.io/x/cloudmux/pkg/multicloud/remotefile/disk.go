@@ -119,10 +119,6 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	return cloudprovider.ErrNotSupported
 }

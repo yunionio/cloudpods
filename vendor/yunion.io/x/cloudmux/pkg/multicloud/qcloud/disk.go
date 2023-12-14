@@ -342,10 +342,6 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return isnapshots, nil
 }
 
-func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return self.storage.zone.region.GetSnapshotIdByDiskId(self.GetId())
-}
-
 func (self *SDisk) GetTemplateId() string {
 	//return self.ImageId
 	return ""

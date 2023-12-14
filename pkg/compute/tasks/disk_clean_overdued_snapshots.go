@@ -40,12 +40,7 @@ func init() {
 
 func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
-	spId, _ := self.Params.GetString("snapshotpolicy_id")
-	sp, _ := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spId)
-	if sp == nil {
-		self.SetStageFailed(ctx, jsonutils.NewString("missing snapshot policy ???"))
-		return
-	}
+	retentionDays, _ := self.Params.Int("retention_days")
 
 	now, err := self.Params.GetTime("start_time")
 	if err != nil {
@@ -66,8 +61,8 @@ func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStan
 	}
 	cleanOverdueSnapshots = snapCount > (options.Options.DefaultMaxSnapshotCount - options.Options.DefaultMaxManualSnapshotCount)
 
-	if sp.RetentionDays > 0 && !cleanOverdueSnapshots {
-		t := now.AddDate(0, 0, -1*sp.RetentionDays)
+	if retentionDays > 0 && !cleanOverdueSnapshots {
+		t := now.AddDate(0, 0, -1*int(retentionDays))
 		snapCount, err = models.SnapshotManager.Query().Equals("fake_deleted", false).Equals("disk_id", disk.Id).
 			Equals("created_by", compute.SNAPSHOT_AUTO).LT("created_at", t).CountWithError()
 		if err != nil {

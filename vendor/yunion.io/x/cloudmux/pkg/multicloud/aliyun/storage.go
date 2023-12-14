@@ -69,39 +69,31 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := make([]SDisk, 0)
-	offset := 0
 	storageType := self.storageType
 	if self.storageType == api.STORAGE_CLOUD_ESSD_PL2 || self.storageType == api.STORAGE_CLOUD_ESSD_PL3 || self.storageType == api.STORAGE_CLOUD_ESSD_PL0 {
 		storageType = api.STORAGE_CLOUD_ESSD
 	}
-	for {
-		parts, total, err := self.zone.region.GetDisks("", self.zone.GetId(), storageType, nil, offset, 50)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetDisks")
-		}
-		performanceLevel := ""
-		switch self.storageType {
-		case api.STORAGE_CLOUD_ESSD_PL0:
-			performanceLevel = "PL0"
-		case api.STORAGE_CLOUD_ESSD:
-			performanceLevel = "PL1"
-		case api.STORAGE_CLOUD_ESSD_PL2:
-			performanceLevel = "PL2"
-		case api.STORAGE_CLOUD_ESSD_PL3:
-			performanceLevel = "PL3"
-		}
-		for _, disk := range parts {
-			if disk.PerformanceLevel == performanceLevel {
-				disks = append(disks, disk)
-			}
-		}
-
-		offset += len(parts)
-
-		if offset >= total {
-			break
+	parts, err := self.zone.region.GetDisks("", self.zone.GetId(), storageType, nil, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisks")
+	}
+	performanceLevel := ""
+	switch self.storageType {
+	case api.STORAGE_CLOUD_ESSD_PL0:
+		performanceLevel = "PL0"
+	case api.STORAGE_CLOUD_ESSD:
+		performanceLevel = "PL1"
+	case api.STORAGE_CLOUD_ESSD_PL2:
+		performanceLevel = "PL2"
+	case api.STORAGE_CLOUD_ESSD_PL3:
+		performanceLevel = "PL3"
+	}
+	for _, disk := range parts {
+		if disk.PerformanceLevel == performanceLevel {
+			disks = append(disks, disk)
 		}
 	}
+
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
 		disks[i].storage = self

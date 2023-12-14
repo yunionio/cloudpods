@@ -15,112 +15,18 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	type SnapshotPolicyListOptions struct {
-		options.BaseListOptions
-
-		OrderByBindDiskCount string
-	}
-	R(&SnapshotPolicyListOptions{}, "snapshot-policy-list", "List snapshot policy", func(s *mcclient.ClientSession, args *SnapshotPolicyListOptions) error {
-		params, err := options.ListStructToParams(args)
-		if err != nil {
-			return err
-		}
-		result, err := modules.SnapshotPoliciy.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.SnapshotPoliciy.GetColumns(s))
-		return nil
-	})
-
-	type SnapshotPolicyDeleteOptions struct {
-		ID string `help:"Delete snapshot id"`
-	}
-	R(&SnapshotPolicyDeleteOptions{}, "snapshot-policy-delete", "Delete snapshot policy", func(s *mcclient.ClientSession, args *SnapshotPolicyDeleteOptions) error {
-		result, err := modules.SnapshotPoliciy.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type SnapshotPolicyCreateOptions struct {
-		NAME string
-
-		RetentionDays  int   `help:"snapshot retention days"`
-		RepeatWeekdays []int `help:"snapshot create days on week"`
-		TimePoints     []int `help:"snapshot create time points on one day"`
-	}
-
-	R(&SnapshotPolicyCreateOptions{}, "snapshot-policy-create", "Create snapshot policy", func(s *mcclient.ClientSession, args *SnapshotPolicyCreateOptions) error {
-		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
-		snapshot, err := modules.SnapshotPoliciy.Create(s, params)
-		if err != nil {
-			return err
-		}
-		printObject(snapshot)
-		return nil
-	})
-
-	type SnapshotPolicyBindDisksOptions struct {
-		ID   string   `help:"ID"`
-		Disk []string `help:"ids of disk"`
-	}
-
-	R(&SnapshotPolicyBindDisksOptions{}, "snapshot-policy-bind-disk", "bind snapshotpolicy to disks",
-		func(s *mcclient.ClientSession, opts *SnapshotPolicyBindDisksOptions) error {
-			params, err := options.StructToParams(opts)
-			if err != nil {
-				return err
-			}
-			sp, err := modules.SnapshotPoliciy.PerformAction(s, opts.ID, "bind-disks", params)
-			if err != nil {
-				return err
-			}
-			printObject(sp)
-			return nil
-		})
-
-	R(&SnapshotPolicyBindDisksOptions{}, "snapshot-policy-unbind-disk", "bind snapshotpolicy to disks",
-		func(s *mcclient.ClientSession, opts *SnapshotPolicyBindDisksOptions) error {
-			params, err := options.StructToParams(opts)
-			if err != nil {
-				return err
-			}
-			sp, err := modules.SnapshotPoliciy.PerformAction(s, opts.ID, "unbind-disks", params)
-			if err != nil {
-				return err
-			}
-			printObject(sp)
-			return nil
-		})
-
-	type SnapshotPolicyCacheOptions struct {
-		ID       string `help:"SnasphotPolicy ID"`
-		REGIONID string `help:"Region ID"`
-		PROVIDER string `help:"Provider ID"`
-	}
-	R(&SnapshotPolicyCacheOptions{}, "snapshot-policy-cache", "upload local snapshotpolicy to cloud",
-		func(s *mcclient.ClientSession, opts *SnapshotPolicyCacheOptions) error {
-			params, err := options.StructToParams(opts)
-			if err != nil {
-				return err
-			}
-			sp, err := modules.SnapshotPoliciy.PerformAction(s, opts.ID, "cache", params)
-			if err != nil {
-				return err
-			}
-			printObject(sp)
-			return nil
-		},
-	)
+	cmd := shell.NewResourceCmd(&modules.SnapshotPoliciy).WithKeyword("snapshot-policy")
+	cmd.List(&compute.SnapshotPolicyListOptions{})
+	cmd.Delete(&options.BaseIdOptions{})
+	cmd.Create(&compute.SnapshotPolicyCreateOptions{})
+	cmd.Perform("bind-disks", &compute.SnapshotPolicyDisksOptions{})
+	cmd.Perform("unbind-disks", &compute.SnapshotPolicyDisksOptions{})
+	cmd.Perform("syncstatus", &options.BaseIdOptions{})
 }
