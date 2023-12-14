@@ -238,15 +238,9 @@ func (a byAttachedTime) Less(i, j int) bool {
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := []SDisk{}
-	for {
-		part, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, len(disks), 50)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetDisks for %s", self.InstanceId)
-		}
-		disks = append(disks, part...)
-		if len(disks) >= total {
-			break
-		}
+	disks, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisks for %s", self.InstanceId)
 	}
 
 	sort.Sort(byAttachedTime(disks))

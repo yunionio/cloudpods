@@ -197,10 +197,6 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
-func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return []string{}, nil
-}
-
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	return self.storage.zone.region.ResizeDisk(self.GetId(), newSizeMB/1024)
 }

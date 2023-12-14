@@ -20,6 +20,7 @@ const (
 	STATUS_CREATING      = "creating"
 	STATUS_CREATE_FAILED = "create_failed"
 	STATUS_AVAILABLE     = "available"
+	STATUS_UNKNOWN       = "unknown"
 
 	USER_TAG_PREFIX = "user:"
 

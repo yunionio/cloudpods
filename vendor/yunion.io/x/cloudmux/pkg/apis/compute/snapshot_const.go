@@ -23,10 +23,5 @@ const (
 	SNAPSHOT_DELETING      = "deleting"
 	SNAPSHOT_UNKNOWN       = "unknown"
 
-	SNAPSHOT_POLICY_CREATING = "creating"
-
-	SNAPSHOT_POLICY_READY   = "ready"
-	SNAPSHOT_POLICY_UNKNOWN = "unknown"
-
 	INSTANCE_SNAPSHOT_READY = "ready"
 )

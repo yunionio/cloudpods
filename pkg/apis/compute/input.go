@@ -158,12 +158,13 @@ type ServiceCatalogListInput struct {
 
 type SnapshotPolicyListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	ManagedResourceListInput
+	RegionalFilterListInput
 
 	// 按绑定的磁盘数量排序
 	// pattern:asc|desc
 	OrderByBindDiskCount string `json:"order_by_bind_disk_count"`
-	// 是否启用？
-	IsActivated *bool `json:"is_activated"`
 }
 
 type HostnameInput struct {

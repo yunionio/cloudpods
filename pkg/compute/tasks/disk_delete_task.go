@@ -177,12 +177,13 @@ func (self *DiskDeleteTask) startPendingDeleteDisk(ctx context.Context, disk *mo
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("pending delete disk failed"))
 		return
 	}
-	err = models.SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, self.UserCred, nil, disk)
+	err = models.SnapshotPolicyDiskManager.RemoveByDisk(disk.Id)
 	if err != nil {
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk,
 			jsonutils.NewString("detach all snapshotpolicies of disk failed"))
 		return
 	}
+
 	self.SetStageComplete(ctx, nil)
 }
 
