@@ -325,3 +325,7 @@ type DiskResetInput struct {
 	SnapshotId string `json:"snapshot_id"`
 	AutoStart  bool   `json:"auto_start"`
 }
+
+type DiskSnapshotpolicyInput struct {
+	SnapshotpolicyId string `json:"snapshotpolicy_id"`
+}

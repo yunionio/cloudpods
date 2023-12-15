@@ -98,6 +98,8 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.WafRuleStatementManager,
 		models.BillingResourceCheckManager,
+
+		models.SnapshotPolicyDiskManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -139,7 +141,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.InstanceSnapshotManager,
 		models.SnapshotManager,
 		models.SnapshotPolicyManager,
-		models.SnapshotPolicyCacheManager,
 		models.BaremetalagentManager,
 		models.LoadbalancerManager,
 		models.LoadbalancerListenerManager,
@@ -271,7 +272,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.CloudproviderRegionManager,
 		models.DBInstanceNetworkManager,
 		models.NetworkinterfacenetworkManager,
-		models.SnapshotPolicyDiskManager,
 		models.InstanceSnapshotJointManager,
 		models.DnsZoneVpcManager,
 		models.DBInstanceSecgroupManager,

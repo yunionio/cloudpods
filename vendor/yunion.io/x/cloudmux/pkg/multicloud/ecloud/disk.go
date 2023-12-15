@@ -238,10 +238,6 @@ func (s *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return isnapshots, nil
 }
 
-func (s *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return []string{}, nil
-}
-
 func (s *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	return cloudprovider.ErrNotImplemented
 }

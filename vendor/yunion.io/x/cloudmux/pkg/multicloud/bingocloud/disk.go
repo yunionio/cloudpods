@@ -171,10 +171,6 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 	return self.storage.cluster.region.GetISnapshotById(snapshotId)
 }
 
-func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return []string{}, nil
-}
-
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	return cloudprovider.ErrNotImplemented
 }

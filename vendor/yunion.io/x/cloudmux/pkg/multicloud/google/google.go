@@ -1011,6 +1011,7 @@ func (self *SGoogleClient) GetCapabilities() []string {
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_SNAPSHOT_POLICY + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

@@ -294,34 +294,6 @@ func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSn
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) CreateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) UpdateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput, string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) DeleteSnapshotPolicy(policyId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPolicy, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetISnapshotPolicyById(snapshotPolicyId string) (cloudprovider.ICloudSnapshotPolicy, error) {
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	iHosts := make([]cloudprovider.ICloudHost, 0)
 

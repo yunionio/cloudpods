@@ -168,10 +168,6 @@ func (disk *SDisk) GetCreatedAt() time.Time {
 	return disk.CreatedAt
 }
 
-func (disk *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return nil, errors.ErrNotImplemented
-}
-
 func (disk *SDisk) GetExpiredAt() time.Time {
 	return convertExpiredAt(disk.ExpiredTime)
 }

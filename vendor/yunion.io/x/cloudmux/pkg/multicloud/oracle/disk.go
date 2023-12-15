@@ -168,10 +168,6 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SDisk) GetTemplateId() string {
 	return ""
 }

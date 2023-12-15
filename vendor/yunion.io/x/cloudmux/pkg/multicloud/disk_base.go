@@ -23,10 +23,6 @@ type SDisk struct {
 	SBillingBase
 }
 
-func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return []string{""}, nil
-}
-
 func (self *SDisk) GetIStorageId() string {
 	return ""
 }
