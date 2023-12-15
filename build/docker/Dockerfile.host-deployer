@@ -1,3 +1,4 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v3.10.8-20231215.0-vm as yunionos
 FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base:1.4.3
 
 MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
@@ -5,5 +6,11 @@ MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
 ENV TZ UTC
 
 RUN mkdir -p /opt/yunion/bin
+RUN mkdir -p /yunionos/x86_64
+RUN mkdir -p /yunionos/aarch64
+COPY --from=yunionos /yunionos/x86_64/initramfs /yunionos/x86_64/initramfs
+COPY --from=yunionos /yunionos/x86_64/kernel /yunionos/x86_64/kernel
+COPY --from=yunionos /yunionos/aarch64/kernel /yunionos/aarch64/kernel
+COPY --from=yunionos /yunionos/aarch64/initramfs /yunionos/aarch64/initramfs
 
 ADD ./_output/centos-build/bin/host-deployer /opt/yunion/bin/host-deployer
