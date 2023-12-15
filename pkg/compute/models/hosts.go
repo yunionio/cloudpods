@@ -4664,6 +4664,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 		}
 		// else not found
 		netif = &SNetInterface{}
+		netif.SetModelManager(NetInterfaceManager, netif)
 		netif.Mac = mac
 		netif.VlanId = vlanId
 	}
@@ -5003,6 +5004,7 @@ func (hh *SHost) Attach2Network(
 	}
 	bn := &SHostnetwork{}
 	bn.BaremetalId = hh.Id
+	bn.SetModelManager(HostnetworkManager, bn)
 	bn.NetworkId = net.Id
 	bn.IpAddr = freeIp
 	bn.MacAddr = netif.Mac
