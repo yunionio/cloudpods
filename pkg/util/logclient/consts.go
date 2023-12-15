@@ -261,6 +261,7 @@ const (
 	ACT_DISSOCIATE = "dissociate"
 
 	ACT_BIND     = "bind"
+	ACT_UNBIND   = "unbind"
 	ACT_PROGRESS = "progress"
 
 	ACT_ADD_BASTION_SERVER = "add_bastion_server"

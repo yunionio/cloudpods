@@ -194,24 +194,6 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 	return input, nil
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
-	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
-	//err := self.SManagedVirtualizationRegionDriver.ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
-	//if err != nil {
-	//	return nil
-	//}
-	//// In Aliyun, One disk only apply one snapshot policy
-	//ret, err := models.SnapshotPolicyDiskManager.FetchAllByDiskID(ctx, userCred, disk.GetId())
-	//if err != nil {
-	//	return err
-	//}
-	//if len(ret) != 0 {
-	//	return httperrors.NewBadRequestError("One disk could't attach two snapshot policy in aliyun; please detach last one first.")
-	//}
-	//return nil
-	return nil
-}
-
 func (self *SAliyunRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	if strings.HasPrefix(input.Name, "auto") || strings.HasPrefix(input.Name, "http://") || strings.HasPrefix(input.Name, "https://") {
 		return httperrors.NewBadRequestError(

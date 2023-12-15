@@ -274,34 +274,6 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 	return nil
 }
 
-func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
-	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
-
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-
-		if sp == nil {
-			return data, nil
-		}
-		storage, _ := disk.GetStorage()
-		region, _ := storage.GetRegion()
-		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(),
-			region.GetId(), storage.ManagerId)
-		if err != nil {
-			return nil, err
-		}
-		iRegion, err := spcache.GetIRegion(ctx)
-		if err != nil {
-			return nil, err
-		}
-		err = iRegion.CancelSnapshotPolicyToDisks(spcache.GetExternalId(), disk.GetExternalId())
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	})
-	return nil
-}
-
 func (self *SQcloudRegionDriver) InitDBInstanceUser(ctx context.Context, instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
 	user := "root"
 	account := models.SDBInstanceAccount{}

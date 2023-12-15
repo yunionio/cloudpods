@@ -15,92 +15,77 @@
 package compute
 
 import (
-	"fmt"
-	"sort"
+	"reflect"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/bitmap"
+)
+
+const (
+	SNAPSHOT_POLICY_APPLY         = "applying"
+	SNAPSHOT_POLICY_APPLY_FAILED  = "apply_failed"
+	SNAPSHOT_POLICY_CANCEL        = "canceling"
+	SNAPSHOT_POLICY_CANCEL_FAILED = "cancel_failed"
 )
 
 type SnapshotPolicyDetails struct {
 	apis.VirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
 
 	SSnapshotPolicy
 
-	RetentionDays         int   `json:"retention_days"`
-	RepeatWeekdaysDisplay []int `json:"repeat_weekdays_display"`
-	TimePointsDisplay     []int `json:"time_points_display"`
-	IsActivated           *bool `json:"is_activated,omitempty"`
+	RetentionDays int `json:"retention_days"`
 
 	BindingDiskCount int `json:"binding_disk_count"`
 }
 
-type SnapshotPolicyResourceInfo struct {
-	// 快照策略名称
-	Snapshotpolicy string `json:"snapshotpolicy"`
-}
-
 type SSnapshotPolicyCreateInput struct {
 	apis.VirtualResourceCreateInput
+	CloudproviderResourceInput
+	CloudregionResourceInput
 
-	RetentionDays  int    `json:"retention_days"`
-	RepeatWeekdays string `json:"repeat_weekdays"`
-	TimePoints     string `json:"time_points"`
+	RetentionDays int `json:"retention_days"`
+
+	RepeatWeekdays []int `json:"repeat_weekdays"`
+
+	TimePoints []int `json:"time_points"`
 }
 
-func (self SSnapshotPolicyCreateInput) GetRepeatWeekdays(limit int) (uint32, error) {
-	days, err := jsonutils.ParseString(self.RepeatWeekdays)
-	if err != nil {
-		return 0, errors.Wrapf(err, "ParseString %s", self.RepeatWeekdays)
-	}
-	repeatWeekdays := []int{}
-	days.Unmarshal(&repeatWeekdays)
-	err = daysCheck(repeatWeekdays, 1, 7)
-	if err != nil {
-		return 0, err
-	}
-	if len(repeatWeekdays) > limit {
-		return 0, httperrors.NewInputParameterError("repeat_weekdays only contains %d days at most", limit)
-	}
-	return bitmap.IntArray2Uint(repeatWeekdays), nil
-}
-
-func (self SSnapshotPolicyCreateInput) GetTimePoints(limit int) (uint32, error) {
-	points, err := jsonutils.ParseString(self.TimePoints)
-	if err != nil {
-		return 0, errors.Wrapf(err, "ParseString %s", self.TimePoints)
-	}
-	timepoints := []int{}
-	points.Unmarshal(&timepoints)
-	err = daysCheck(timepoints, 0, 23)
-	if err != nil {
-		return 0, err
-	}
-	if len(timepoints) > limit {
-		return 0, httperrors.NewInputParameterError("time_points only contains %d points at most", limit)
-	}
-	return bitmap.IntArray2Uint(timepoints), nil
-}
-
-func daysCheck(days []int, min, max int) error {
-	if len(days) == 0 {
-		return nil
-	}
-	sort.Ints(days)
-
-	if days[0] < min || days[len(days)-1] > max {
-		return fmt.Errorf("Out of range")
+func (self *SSnapshotPolicyCreateInput) Validate() error {
+	if len(self.RepeatWeekdays) == 0 {
+		return httperrors.NewMissingParameterError("repeat_weekdays")
 	}
 
-	for i := 1; i < len(days); i++ {
-		if days[i] == days[i-1] {
-			return fmt.Errorf("Has repeat day %v", days)
+	repeatDays := []int{}
+	for _, day := range self.RepeatWeekdays {
+		if day < 1 || day > 7 {
+			return httperrors.NewOutOfRangeError("repeat_weekdays out of range 1-7")
+		}
+		if !utils.IsInArray(day, repeatDays) {
+			repeatDays = append(repeatDays, day)
 		}
 	}
+	self.RepeatWeekdays = repeatDays
+
+	if len(self.TimePoints) == 0 {
+		return httperrors.NewMissingParameterError("time_points")
+	}
+
+	points := []int{}
+	for _, point := range self.TimePoints {
+		if point < 0 || point > 23 {
+			return httperrors.NewOutOfRangeError("time_points out of range 0-23")
+		}
+		if !utils.IsInArray(point, points) {
+			points = append(points, point)
+		}
+	}
+	self.TimePoints = points
 	return nil
 }
 
@@ -109,46 +94,69 @@ type SSnapshotPolicyUpdateInput struct {
 
 	RetentionDays *int
 
-	RepeatWeekdays *string `json:"repeat_weekdays"`
-	TimePoints     *string `json:"time_points"`
+	RepeatWeekdays *[]int `json:"repeat_weekdays"`
+	TimePoints     *[]int `json:"time_points"`
 }
 
-func (self SSnapshotPolicyUpdateInput) GetRepeatWeekdays(limit int) (uint32, error) {
+func (self *SSnapshotPolicyUpdateInput) Validate() error {
 	if self.RepeatWeekdays != nil {
-		days, err := jsonutils.ParseString(*self.RepeatWeekdays)
-		if err != nil {
-			return 0, errors.Wrapf(err, "ParseString %s", *self.RepeatWeekdays)
+		repeatDays := []int{}
+		for _, day := range *self.RepeatWeekdays {
+			if day < 1 || day > 7 {
+				return httperrors.NewOutOfRangeError("repeat_weekdays out of range 1-7")
+			}
+			if !utils.IsInArray(day, repeatDays) {
+				repeatDays = append(repeatDays, day)
+			}
 		}
-		repeatWeekdays := []int{}
-		days.Unmarshal(&repeatWeekdays)
-		err = daysCheck(repeatWeekdays, 1, 7)
-		if err != nil {
-			return 0, err
-		}
-		if len(repeatWeekdays) > limit {
-			return 0, httperrors.NewInputParameterError("repeat_weekdays only contains %d days at most", limit)
-		}
-		return bitmap.IntArray2Uint(repeatWeekdays), nil
+		self.RepeatWeekdays = &repeatDays
 	}
-	return 0, nil
+
+	if self.TimePoints != nil {
+		points := []int{}
+		for _, point := range *self.TimePoints {
+			if point < 0 || point > 23 {
+				return httperrors.NewOutOfRangeError("time_points out of range 0-23")
+			}
+			if !utils.IsInArray(point, points) {
+				points = append(points, point)
+			}
+		}
+		self.TimePoints = &points
+	}
+	return nil
 }
 
-func (self SSnapshotPolicyUpdateInput) GetTimePoints(limit int) (uint32, error) {
-	if self.TimePoints != nil {
-		points, err := jsonutils.ParseString(*self.TimePoints)
-		if err != nil {
-			return 0, errors.Wrapf(err, "ParseString %s", *self.TimePoints)
-		}
-		timepoints := []int{}
-		points.Unmarshal(&timepoints)
-		err = daysCheck(timepoints, 0, 23)
-		if err != nil {
-			return 0, err
-		}
-		if len(timepoints) > limit {
-			return 0, httperrors.NewInputParameterError("time_points only contains %d points at most", limit)
-		}
-		return bitmap.IntArray2Uint(timepoints), nil
-	}
-	return 0, nil
+type SnapshotPolicyDisksInput struct {
+	Disks []string `json:"disk"`
+}
+
+type RepeatWeekdays []int
+
+func (days RepeatWeekdays) String() string {
+	return jsonutils.Marshal(days).String()
+}
+
+func (days RepeatWeekdays) IsZero() bool {
+	return len(days) == 0
+}
+
+type TimePoints []int
+
+func (points TimePoints) String() string {
+	return jsonutils.Marshal(points).String()
+}
+
+func (points TimePoints) IsZero() bool {
+	return len(points) == 0
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&RepeatWeekdays{}), func() gotypes.ISerializable {
+		return &RepeatWeekdays{}
+	})
+	gotypes.RegisterSerializable(reflect.TypeOf(&TimePoints{}), func() gotypes.ISerializable {
+		return &TimePoints{}
+	})
+
 }

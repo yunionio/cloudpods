@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/apis"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
 type SDailySchedule struct {
@@ -98,10 +98,9 @@ func (region *SRegion) GetResourcePolicy(id string) (*SResourcePolicy, error) {
 func (policy *SResourcePolicy) GetStatus() string {
 	switch policy.Status {
 	case "READY":
-		return api.SNAPSHOT_POLICY_READY
+		return apis.STATUS_AVAILABLE
 	default:
-		log.Errorf("unknown policy status %s", policy.Status)
-		return api.SNAPSHOT_POLICY_UNKNOWN
+		return apis.STATUS_UNKNOWN
 	}
 }
 
@@ -127,6 +126,22 @@ func (policy *SResourcePolicy) GetProjectId() string {
 
 func (policy *SResourcePolicy) GetRetentionDays() int {
 	return policy.SnapshotSchedulePolicy.RetentionPolicy.MaxRetentionDays
+}
+
+func (policy *SResourcePolicy) ApplyDisks(ids []string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (policy *SResourcePolicy) GetApplyDiskIds() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (policy *SResourcePolicy) CancelDisks(ids []string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (policy *SResourcePolicy) Delete() error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (policy *SResourcePolicy) GetRepeatWeekdays() ([]int, error) {
@@ -156,8 +171,4 @@ func (policy *SResourcePolicy) GetTimePoints() ([]int, error) {
 		}
 	}
 	return result, nil
-}
-
-func (policy *SResourcePolicy) IsActivated() bool {
-	return true
 }

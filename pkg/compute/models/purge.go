@@ -278,7 +278,7 @@ func (self *SCloudregion) purgeResources(ctx context.Context, managerId string) 
 	nicips := NetworkinterfacenetworkManager.Query("row_id").In("networkinterface_id", nics.SubQuery())
 	secgroups := SecurityGroupManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	rules := SecurityGroupRuleManager.Query("id").In("secgroup_id", secgroups.SubQuery())
-	policycaches := SnapshotPolicyCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	policies := SnapshotPolicyManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	snapshots := SnapshotManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	tables := TablestoreManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	wafs := WafInstanceManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
@@ -295,7 +295,7 @@ func (self *SCloudregion) purgeResources(ctx context.Context, managerId string) 
 		{manager: WafInstanceManager, key: "id", q: wafs},
 		{manager: TablestoreManager, key: "id", q: tables},
 		{manager: SnapshotManager, key: "id", q: snapshots},
-		{manager: SnapshotPolicyCacheManager, key: "id", q: policycaches},
+		{manager: SnapshotPolicyManager, key: "id", q: policies},
 		{manager: SecurityGroupRuleManager, key: "id", q: rules},
 		{manager: SecurityGroupManager, key: "id", q: secgroups},
 		{manager: NetworkinterfacenetworkManager, key: "row_id", q: nicips},

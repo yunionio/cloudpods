@@ -80,6 +80,9 @@ type SCapabilities struct {
 	SecurityGroupBrands         []string `json:",allowempty"`
 	DisabledSecurityGroupBrands []string `json:",allowempty"`
 
+	SnapshotPolicyBrands         []string `json:",allowempty"`
+	DisabledSnapshotPolicyBrands []string `json:",allowempty"`
+
 	ReadOnlyBrands                           []string `json:",allowempty"`
 	ReadOnlyDisabledBrands                   []string `json:",allowempty"`
 	ReadOnlyComputeEngineBrands              []string `json:",allowempty"`
@@ -118,6 +121,9 @@ type SCapabilities struct {
 
 	ReadOnlySecurityGroupBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledSecurityGroupBrands []string `json:",allowempty"`
+
+	ReadOnlySnapshotPolicyBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledSnapshotPolicyBrands []string `json:",allowempty"`
 
 	ResourceTypes      []string           `json:",allowempty"`
 	StorageTypes       []string           `json:",allowempty"` // going to remove on 2.14
@@ -374,6 +380,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
 		capa.SecurityGroupBrands = append(capa.SecurityGroupBrands, api.ONECLOUD_BRAND_ONECLOUD)
 		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
+		capa.SnapshotPolicyBrands = append(capa.SnapshotPolicyBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
 
 	if count, _ := LoadbalancerClusterManager.Query().Limit(1).CountWithError(); count > 0 {
@@ -463,6 +470,8 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 				appendBrand(&capa.VpcPeerBrands, &capa.DisabledVpcPeerBrands, &capa.ReadOnlyVpcPeerBrands, &capa.ReadOnlyDisabledVpcPeerBrands, brand, capability, enabled, readOnly)
 			case cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP:
 				appendBrand(&capa.SecurityGroupBrands, &capa.DisabledSecurityGroupBrands, &capa.ReadOnlySecurityGroupBrands, &capa.ReadOnlyDisabledSecurityGroupBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_SNAPSHOT_POLICY:
+				appendBrand(&capa.SnapshotPolicyBrands, &capa.DisabledSnapshotPolicyBrands, &capa.ReadOnlySnapshotPolicyBrands, &capa.ReadOnlyDisabledSnapshotPolicyBrands, brand, capability, enabled, readOnly)
 			default:
 			}
 		}

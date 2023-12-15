@@ -166,10 +166,6 @@ func (self *SBootDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SBootDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SBootDisk) GetTemplateId() string {
 	return self.ImageId
 }
