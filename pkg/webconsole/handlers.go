@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	"yunion.io/x/onecloud/pkg/webconsole/models"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
@@ -216,8 +217,12 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 	switch info.Protocol {
 	case session.ALIYUN, session.QCLOUD, session.OPENSTACK, session.VMRC, session.ZSTACK, session.CTYUN, session.HUAWEI, session.APSARA, session.JDCLOUD, session.CLOUDPODS:
 		responsePublicCloudConsole(ctx, info, w)
-	case session.VNC, session.SPICE, session.WMKS:
-		handleDataSession(ctx, info, w, url.Values{"password": {info.GetPassword()}}, true)
+	case session.VNC:
+		handleDataSession(ctx, info, w, "no-vnc", url.Values{"password": {info.GetPassword()}}, true)
+	case session.SPICE:
+		handleDataSession(ctx, info, w, "spice", url.Values{"password": {info.GetPassword()}}, true)
+	case session.WMKS:
+		handleDataSession(ctx, info, w, "wmks", url.Values{"password": {info.GetPassword()}}, true)
 	default:
 		httperrors.NotAcceptableError(ctx, w, "Unspported remote console protocol: %s", info.Protocol)
 	}
@@ -235,21 +240,36 @@ func responsePublicCloudConsole(ctx context.Context, info *session.RemoteConsole
 	sendJSON(w, resp.JSON(resp))
 }
 
-func handleDataSession(ctx context.Context, sData session.ISessionData, w http.ResponseWriter, connParams url.Values, b64Encode bool) {
+func handleDataSession(ctx context.Context, sData session.ISessionData, w http.ResponseWriter, base string, connParams url.Values, b64Encode bool) {
 	s, err := session.Manager.Save(sData)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	params, err := s.GetConnectParams(connParams)
+	dispInfo, err := sData.GetDisplayInfo(ctx)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	params, err := s.GetConnectParams(connParams, dispInfo)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+
+	var accessUrl string
+	{
+		dataVal := url.Values{}
+		dataVal.Add("data", base64.StdEncoding.EncodeToString([]byte(params)))
+		accessUrl = httputils.JoinPath(o.Options.ApiServer, fmt.Sprintf("web-console/%s?%s", base, dataVal.Encode()))
+	}
+
 	if b64Encode {
 		params = base64.StdEncoding.EncodeToString([]byte(params))
 	}
+
 	resp := webconsole_api.ServerRemoteConsoleResponse{
+		AccessUrl:     accessUrl,
 		ConnectParams: params,
 		Session:       s.Id,
 	}
@@ -257,7 +277,7 @@ func handleDataSession(ctx context.Context, sData session.ISessionData, w http.R
 }
 
 func handleCommandSession(ctx context.Context, cmd command.ICommand, w http.ResponseWriter) {
-	handleDataSession(ctx, session.WrapCommandSession(cmd), w, nil, false)
+	handleDataSession(ctx, session.WrapCommandSession(cmd), w, "tty", nil, false)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {
