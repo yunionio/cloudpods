@@ -116,7 +116,6 @@ var (
 			"ignore_nonrunning_guests",
 			"platform_name",
 			"enable_cloud_shell",
-			"enable_watermark",
 			"platform_names",
 		},
 	}
