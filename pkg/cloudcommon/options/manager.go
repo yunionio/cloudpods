@@ -60,12 +60,12 @@ func StartOptionManager(option interface{}, refreshSeconds int, serviceType, ser
 }
 
 func StartOptionManagerWithSessionDriver(options interface{}, refreshSeconds int, serviceType, serviceVersion string, onChange TOptionsChangeFunc, session IServiceConfigSession) {
-	log.Infof("OptionManager start to fetch service configs ...")
 	if refreshSeconds <= MIN_REFRESH_INTERVAL_SECONDS {
 		// a minimal 30 seconds refresh interval
 		refreshSeconds = MIN_REFRESH_INTERVAL_SECONDS
 	}
 	refreshInterval := time.Duration(refreshSeconds) * time.Second
+	log.Infof("OptionManager start to fetch service configs with interval %s ...", refreshInterval)
 	OptionManager = &SOptionManager{
 		serviceType:     serviceType,
 		serviceVersion:  serviceVersion,
@@ -77,7 +77,9 @@ func StartOptionManagerWithSessionDriver(options interface{}, refreshSeconds int
 
 	OptionManager.InitSync(OptionManager)
 
-	OptionManager.FirstSync()
+	if err := OptionManager.FirstSync(); err != nil {
+		log.Errorf("OptionManager.FirstSync error: %v", err)
+	}
 
 	if session.IsRemote() {
 		var opts *CommonOptions
