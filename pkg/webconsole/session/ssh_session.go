@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
+	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/webconsole/helper"
@@ -48,6 +49,8 @@ type SSshSession struct {
 	// 保持原有 Username ，不实用 cloudroot 的同时使用 PrivateKey
 	KeepUsername bool
 	Password     string
+
+	guestDetails *compute_api.ServerDetails
 }
 
 func NewSshSession(ctx context.Context, us *mcclient.ClientSession, conn SSshConnectionInfo) *SSshSession {
@@ -60,6 +63,8 @@ func NewSshSession(ctx context.Context, us *mcclient.ClientSession, conn SSshCon
 		Username:     conn.Username,
 		KeepUsername: conn.KeepUsername,
 		Password:     conn.Password,
+
+		guestDetails: conn.GuestDetails,
 	}
 	if conn.Port <= 0 {
 		ret.Port = 22
@@ -131,4 +136,23 @@ func (s *SSshSession) IsNeedLogin() (bool, error) {
 }
 
 func (s *SSshSession) Scan(d byte, send func(msg string)) {
+}
+
+func (s *SSshSession) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, error) {
+	userInfo, err := fetchUserInfo(ctx, s.GetClientSession())
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchUserInfo")
+	}
+	dispInfo := SDisplayInfo{}
+	dispInfo.WaterMark = fetchWaterMark(userInfo)
+	if s.guestDetails != nil {
+		dispInfo.fetchGuestInfo(s.guestDetails)
+	} else {
+		dispInfo.Ips = s.Host
+		if len(s.name) > 0 {
+			dispInfo.InstanceName = s.name
+		}
+	}
+
+	return &dispInfo, nil
 }

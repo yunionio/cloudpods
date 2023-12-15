@@ -15,6 +15,7 @@
 package session
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -102,6 +103,7 @@ type ISessionData interface {
 	command.ICommand
 	IsNeedLogin() (bool, error)
 	GetId() string
+	GetDisplayInfo(ctx context.Context) (*SDisplayInfo, error)
 }
 
 type RandomSessionData struct {
@@ -124,6 +126,17 @@ func (s *RandomSessionData) IsNeedLogin() (bool, error) {
 	return false, nil
 }
 
+func (s *RandomSessionData) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, error) {
+	userInfo, err := fetchUserInfo(ctx, s.GetClientSession())
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchUserInfo")
+	}
+	dispInfo := SDisplayInfo{}
+	dispInfo.WaterMark = fetchWaterMark(userInfo)
+	dispInfo.InstanceName = s.GetCommand().String()
+	return &dispInfo, nil
+}
+
 type SSession struct {
 	ISessionData
 	Id            string
@@ -133,10 +146,12 @@ type SSession struct {
 	recorder      recorder.Recoder
 }
 
-func (s *SSession) GetConnectParams(params url.Values) (string, error) {
+func (s *SSession) GetConnectParams(params url.Values, dispInfo *SDisplayInfo) (string, error) {
 	if params == nil {
-		params = url.Values(make(map[string][]string))
+		params = url.Values{}
 	}
+
+	params = dispInfo.populateParams(params)
 
 	apiUrl, err := url.Parse(o.Options.ApiServer)
 	if err != nil {
