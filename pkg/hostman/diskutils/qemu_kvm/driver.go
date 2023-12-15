@@ -264,7 +264,7 @@ func (d *QemuKvmDriver) Connect(guestDesc *apis.GuestDesc) error {
 func (d *QemuKvmDriver) connect(guestDesc *apis.GuestDesc) error {
 	var (
 		ncpu      = 2
-		memSizeMB = 1024 // yunionos acquire least 1g mem
+		memSizeMB = 256
 		disks     = make([]string, 0)
 	)
 
@@ -610,6 +610,7 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 
 	cmd += __("-initrd %s", manager.GetX86InitrdPath())
 	cmd += __("-kernel %s", manager.GetX86KernelPath())
+	cmd += __("-append rootfstype=ramfs")
 	cmd += __("-device VGA")
 	cmd += __("-device virtio-serial-pci")
 	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp::%d-:22", sshPort)
@@ -687,6 +688,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-m %dM", memSizeMB)
 	cmd += __("-initrd %s", manager.GetARMInitrdPath())
 	cmd += __("-kernel %s", manager.GetARMKernelPath())
+	cmd += __("-append rootfstype=ramfs")
 	if manager.runOnHost() {
 		cmd += __("-drive if=pflash,format=raw,unit=0,file=/opt/cloud/contrib/OVMF.fd,readonly=on")
 	} else {
