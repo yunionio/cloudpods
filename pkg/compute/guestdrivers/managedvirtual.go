@@ -870,6 +870,11 @@ func (drv *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx contex
 			}
 			return nil, errors.Wrapf(err, "ihost.GetIVMById(%s)", guest.ExternalId)
 		}
+
+		if ivm.GetStatus() == api.VM_RUNNING {
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidStatus, "vm %s status is running", guest.Name)
+		}
+
 		err = ivm.DeleteVM(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ivm.DeleteVM")

@@ -53,6 +53,11 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		self.OnGuestStopComplete(ctx, guest, data)
 		return
 	}
+	if guest.PendingDeleted {
+		// 回收站下的虚拟机跳过关机, 虚拟机在回收站且处于开机状态则删除失败，避免误删机器
+		self.OnGuestStopComplete(ctx, guest, data)
+		return
+	}
 	if len(guest.BackupHostId) > 0 {
 		self.SetStage("OnMasterHostStopGuestComplete", nil)
 		if err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {

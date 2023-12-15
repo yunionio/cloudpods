@@ -853,6 +853,10 @@ func (drv *SESXiGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 			return nil, errors.Wrapf(err, "GetIVM")
 		}
 
+		if iVm.GetStatus() == api.VM_RUNNING {
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidStatus, "vm %s status is running", guest.Name)
+		}
+
 		err = iVm.DeleteVM(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "DeleteVM")
