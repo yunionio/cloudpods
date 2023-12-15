@@ -137,7 +137,7 @@ type CommonOptions struct {
 
 	TenantCacheExpireSeconds int `help:"expire seconds of cached tenant/domain info. defailt 15 minutes" default:"900"`
 
-	SessionEndpointType string `help:"Client session end point type"`
+	SessionEndpointType string `help:"Client session end point type" default:"internal"`
 
 	BaseOptions
 }
