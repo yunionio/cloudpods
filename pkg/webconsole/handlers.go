@@ -25,6 +25,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/regutils"
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -168,18 +170,35 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	ip := env.Params["<ip>"]
-	port, _ := env.Body.Int("port")
-	username, _ := env.Body.GetString("username")
-	keepusername, _ := env.Body.Bool("keep_username")
-	password, _ := env.Body.GetString("password")
-	name, _ := env.Body.GetString("name")
-	s := session.NewSshSession(ctx, env.ClientSessin, name, ip, port, username, password, keepusername)
+
+	sshConnInfo := session.SSshConnectionInfo{}
+	if !gotypes.IsNil(env.Body) {
+		err = env.Body.Unmarshal(&sshConnInfo)
+		if err != nil {
+			httperrors.InputParameterError(ctx, w, "unmarshal error: %s", err.Error())
+			return
+		}
+	}
+	idStr := env.Params["<ip>"]
+	if !regutils.MatchIPAddr(idStr) {
+		ip, port, guestDetails, err := session.ResolveServerSSHIPPortById(ctx, env.ClientSessin, idStr, sshConnInfo.IP, sshConnInfo.Port)
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
+		sshConnInfo.IP = ip
+		sshConnInfo.Port = port
+		sshConnInfo.GuestDetails = guestDetails
+	} else {
+		// directly ssh IP should be deprecated gradually
+		sshConnInfo.IP = idStr
+	}
+	s := session.NewSshSession(ctx, env.ClientSessin, sshConnInfo)
 	handleSshSession(ctx, s, w)
 }
 
 func handleSshSession(ctx context.Context, session *session.SSshSession, w http.ResponseWriter) {
-	handleDataSession(ctx, session, w, nil, false)
+	handleDataSession(ctx, session, w, "ws", nil, false)
 }
 
 func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -247,8 +266,12 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 		session.HUAWEI, session.HCS, session.APSARA,
 		session.JDCLOUD, session.CLOUDPODS, session.PROXMOX:
 		responsePublicCloudConsole(ctx, info, w)
-	case session.VNC, session.SPICE, session.WMKS:
-		handleDataSession(ctx, info, w, url.Values{"password": {info.GetPassword()}}, true)
+	case session.VNC:
+		handleDataSession(ctx, info, w, "no-vnc", url.Values{"password": {info.GetPassword()}}, true)
+	case session.SPICE:
+		handleDataSession(ctx, info, w, "spice", url.Values{"password": {info.GetPassword()}}, true)
+	case session.WMKS:
+		handleDataSession(ctx, info, w, "wmks", url.Values{"password": {info.GetPassword()}}, true)
 	default:
 		httperrors.NotAcceptableError(ctx, w, "Unspported remote console protocol: %s", info.Protocol)
 	}
@@ -266,21 +289,36 @@ func responsePublicCloudConsole(ctx context.Context, info *session.RemoteConsole
 	sendJSON(w, resp.JSON(resp))
 }
 
-func handleDataSession(ctx context.Context, sData session.ISessionData, w http.ResponseWriter, connParams url.Values, b64Encode bool) {
+func handleDataSession(ctx context.Context, sData session.ISessionData, w http.ResponseWriter, base string, connParams url.Values, b64Encode bool) {
 	s, err := session.Manager.Save(sData)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	params, err := s.GetConnectParams(connParams)
+	dispInfo, err := sData.GetDisplayInfo(ctx)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	params, err := s.GetConnectParams(connParams, dispInfo)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+
+	var accessUrl string
+	{
+		dataVal := url.Values{}
+		dataVal.Add("data", base64.StdEncoding.EncodeToString([]byte(params)))
+		accessUrl = httputils.JoinPath(o.Options.ApiServer, fmt.Sprintf("web-console/%s?%s", base, dataVal.Encode()))
+	}
+
 	if b64Encode {
 		params = base64.StdEncoding.EncodeToString([]byte(params))
 	}
+
 	resp := webconsole_api.ServerRemoteConsoleResponse{
+		AccessUrl:     accessUrl,
 		ConnectParams: params,
 		Session:       s.Id,
 	}
@@ -288,7 +326,7 @@ func handleDataSession(ctx context.Context, sData session.ISessionData, w http.R
 }
 
 func handleCommandSession(ctx context.Context, cmd command.ICommand, w http.ResponseWriter) {
-	handleDataSession(ctx, session.WrapCommandSession(cmd), w, nil, false)
+	handleDataSession(ctx, session.WrapCommandSession(cmd), w, "tty", nil, false)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {
