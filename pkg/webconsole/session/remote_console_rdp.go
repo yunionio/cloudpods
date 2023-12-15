@@ -15,9 +15,11 @@
 package session
 
 import (
+	"context"
 	"os/exec"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
@@ -40,10 +42,21 @@ type RemoteRDPConsoleInfo struct {
 	s      *mcclient.ClientSession
 }
 
-func NewRemoteRDPConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, query jsonutils.JSONObject) (*RemoteRDPConsoleInfo, error) {
+func NewRemoteRDPConsoleInfoByCloud(ctx context.Context, s *mcclient.ClientSession, serverId string, query jsonutils.JSONObject) (*RemoteRDPConsoleInfo, error) {
 	info := &RemoteRDPConsoleInfo{s: s}
 	if !gotypes.IsNil(query) {
-		query.Unmarshal(&info)
+		err := query.Unmarshal(&info)
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal")
+		}
+	}
+	if info.Port <= 0 {
+		info.Port = 3389
+	}
+	var err error
+	info.Host, info.Port, err = resolveServerIPPortById(ctx, s, serverId, info.Host, info.Port)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolveServerIPPortById")
 	}
 	if len(info.Host) == 0 {
 		return nil, httperrors.NewMissingParameterError("host")
@@ -58,9 +71,6 @@ func NewRemoteRDPConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, 
 		}
 		info.Password, _ = ret.GetString("password")
 		info.Username, _ = ret.GetString("username")
-	}
-	if info.Port == 0 {
-		info.Port = 3389
 	}
 	return info, nil
 }

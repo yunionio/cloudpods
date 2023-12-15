@@ -406,7 +406,11 @@ func FetchCheckQueryOwnerScope(
 		ownerId = userCred
 		reqScopeStr, _ := data.GetString("scope")
 		if len(reqScopeStr) > 0 {
-			queryScope = rbacscope.String2Scope(reqScopeStr)
+			if reqScopeStr == "max" || reqScopeStr == "maxallowed" {
+				queryScope = allowScope
+			} else {
+				queryScope = rbacscope.String2Scope(reqScopeStr)
+			}
 		} else if data.Contains("admin") {
 			isAdmin := jsonutils.QueryBoolean(data, "admin", false)
 			if isAdmin && allowScope.HigherThan(rbacscope.ScopeProject) {

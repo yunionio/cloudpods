@@ -36,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/webconsole"
 	"yunion.io/x/onecloud/pkg/webconsole/models"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/server"
@@ -90,7 +89,7 @@ func start() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	webconsole.InitHandlers(app)
+	initHandlers(app)
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 
@@ -98,17 +97,17 @@ func start() {
 	root.UseEncodedPath()
 
 	// api handler
-	root.PathPrefix(webconsole.ApiPathPrefix).Handler(app)
+	root.PathPrefix(ApiPathPrefix).Handler(app)
 
 	srv := server.NewConnectionServer()
 	// websocket command text console handler
-	root.Handle(webconsole.ConnectPathPrefix, srv)
+	root.Handle(ConnectPathPrefix, srv)
 
 	// websockify graphic console handler
-	root.Handle(webconsole.WebsockifyPathPrefix, srv)
+	root.Handle(WebsockifyPathPrefix, srv)
 
 	// websocketproxy handler
-	root.Handle(webconsole.WebsocketProxyPathPrefix, srv)
+	root.Handle(WebsocketProxyPathPrefix, srv)
 
 	// misc handler
 	addMiscHandlers(app, root)
