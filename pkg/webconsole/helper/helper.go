@@ -30,7 +30,7 @@ import (
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
-func GetValidPrivateKey(host string, port int64, username string, projectId string) (string, error) {
+func GetValidPrivateKey(host string, port int, username string, projectId string) (string, error) {
 	errs := []error{}
 	ctx := context.Background()
 	admin := auth.GetAdminSession(ctx, o.Options.Region)
