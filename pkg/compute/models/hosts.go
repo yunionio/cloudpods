@@ -4663,8 +4663,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 			return httperrors.NewInternalServerError("fail to fetch netif by mac %s: %s", mac, err)
 		}
 		// else not found
-		netif = &SNetInterface{}
-		netif.SetModelManager(NetInterfaceManager, netif)
+		netif = db.NewModelObjectG[SNetInterface](NetInterfaceManager)
 		netif.Mac = mac
 		netif.VlanId = vlanId
 	}
@@ -5002,9 +5001,8 @@ func (hh *SHost) Attach2Network(
 	if len(ipAddr) > 0 && ipAddr != freeIp && requireDesignatedIp {
 		return nil, fmt.Errorf("IP address %s is occupied, get %s instead", ipAddr, freeIp)
 	}
-	bn := &SHostnetwork{}
+	bn := db.NewModelObjectG[SHostnetwork](HostnetworkManager)
 	bn.BaremetalId = hh.Id
-	bn.SetModelManager(HostnetworkManager, bn)
 	bn.NetworkId = net.Id
 	bn.IpAddr = freeIp
 	bn.MacAddr = netif.Mac
