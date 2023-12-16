@@ -28,6 +28,7 @@ import (
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/common"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 	"yunion.io/x/onecloud/pkg/util/k8s"
@@ -48,7 +49,7 @@ type SchedulerManager struct {
 	KubeClusterManager *k8s.SKubeClusterManager
 }
 
-func NewSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
+func newSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
 	sm := &SchedulerManager{}
 	sm.DataManager = data_manager.NewDataManager(stopCh)
 	sm.CandidateManager = data_manager.NewCandidateManager(sm.DataManager, stopCh)
@@ -57,6 +58,8 @@ func NewSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
 	sm.HistoryManager = NewHistoryManager(stopCh)
 	sm.TaskManager = NewTaskManager(stopCh)
 	sm.KubeClusterManager = k8s.NewKubeClusterManager(o.Options.Region, 30*time.Second)
+
+	common.RegisterCacheManager(sm.CandidateManager)
 
 	return sm
 }
@@ -74,7 +77,7 @@ func InitAndStart(stopCh <-chan struct{}) {
 		log.Warningf("Global scheduler already init.")
 		return
 	}
-	schedManager = NewSchedulerManager(stopCh)
+	schedManager = newSchedulerManager(stopCh)
 	go schedManager.start()
 	log.Infof("InitAndStart ok")
 }

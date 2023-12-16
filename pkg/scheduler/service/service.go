@@ -125,7 +125,7 @@ func StartService() error {
 			for _, f := range []func(ctx context.Context){
 				cloudregion.Manager.Start,
 				zone.Manager.Start,
-				cloudprovider.Manager.Start,
+				cloudprovider.GetManager().Start,
 				cloudaccount.Manager.Start,
 				wire.Manager.Start,
 				network.Manager.Start,
