@@ -305,13 +305,25 @@ for component in $COMPONENTS; do
             general_build $component $arch "true"
         done
         make_manifest_image $component
-        show_update_cmd $component $ARCH
+        #show_update_cmd $component $ARCH
         ;;
     *)
         if [ -e "$DOCKER_DIR/Dockerfile.$component" ]; then
             general_build $component $ARCH "false"
-            show_update_cmd $component $ARCH
+            #show_update_cmd $component $ARCH
         fi
         ;;
     esac
+done
+
+echo ""
+
+for component in $COMPONENTS; do
+    if [[ $component == *cli ]]; then
+        continue
+    fi
+    if [[ $component == host-image ]]; then
+        continue
+    fi
+    show_update_cmd $component
 done
