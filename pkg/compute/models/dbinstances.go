@@ -1154,6 +1154,15 @@ func (self *SDBInstance) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()
+
+	ipAddr := func() string {
+		rdsNetwrok := SDBInstanceNetwork{}
+		err := DBInstanceNetworkManager.Query("ip_addr").Equals("dbinstance_id", self.Id).IsNotNull("ip_addr").IsNotEmpty("ip_addr").First(&rdsNetwrok)
+		if err != nil {
+			return ""
+		}
+		return rdsNetwrok.IpAddr
+	}()
 	info := MakeCloudProviderInfo(region, nil, provider)
 	desc.Set("engine", jsonutils.NewString(self.Engine))
 	desc.Set("storage_type", jsonutils.NewString(self.StorageType))
@@ -1162,6 +1171,7 @@ func (self *SDBInstance) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc.Set("vmem_size_mb", jsonutils.NewInt(int64(self.VmemSizeMb)))
 	desc.Set("disk_size_gb", jsonutils.NewInt(int64(self.DiskSizeGB)))
 	desc.Set("iops", jsonutils.NewInt(int64(self.Iops)))
+	desc.Set("ip_addr", jsonutils.NewString(ipAddr))
 	desc.Update(jsonutils.Marshal(&info))
 	return desc
 }
