@@ -220,7 +220,7 @@ func (b *baseBuilder) setCloudproviderAccounts(hosts []computemodels.SHost, errC
 	}
 	providerObjs := make([]computemodels.SCloudprovider, 0)
 	for _, pId := range providerSets.List() {
-		pObj, ok := cloudprovider.Manager.GetResource(pId)
+		pObj, ok := cloudprovider.GetManager().GetResource(pId)
 		if !ok {
 			errCh <- errors.Errorf("Not found cloudprovider by id: %q", pId)
 			return

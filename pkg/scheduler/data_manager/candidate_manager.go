@@ -322,6 +322,11 @@ func (cm *CandidateManager) AddImpl(name string, impl *CandidateManagerImpl) {
 	cm.impls[name] = impl
 }
 
+const (
+	CANDIDATE_MANAGER_IMPL_HOST      = "host"
+	CANDIDATE_MANAGER_IMPL_BAREMETAL = "baremetal"
+)
+
 func NewCandidateManager(dataManager *DataManager, stopCh <-chan struct{}) *CandidateManager {
 
 	candidateManager := &CandidateManager{
@@ -331,10 +336,10 @@ func NewCandidateManager(dataManager *DataManager, stopCh <-chan struct{}) *Cand
 		//dirtyPool:   ttlpool.NewCountPool(),
 	}
 
-	candidateManager.AddImpl("host", NewCandidateManagerImpl(
+	candidateManager.AddImpl(CANDIDATE_MANAGER_IMPL_HOST, NewCandidateManagerImpl(
 		&HostCandidateManagerImplProvider{dataManager: dataManager}, stopCh))
 
-	candidateManager.AddImpl("baremetal", NewCandidateManagerImpl(
+	candidateManager.AddImpl(CANDIDATE_MANAGER_IMPL_BAREMETAL, NewCandidateManagerImpl(
 		&BaremetalCandidateManagerImplProvider{dataManager: dataManager}, stopCh))
 
 	return candidateManager
@@ -347,8 +352,11 @@ func (cm *CandidateManager) Run() {
 	}
 }
 
-func (cm *CandidateManager) Reload(resType string, candidateIds []string) (
-	[]interface{}, error) {
+func (cm *CandidateManager) ReloadHosts(ids []string) ([]interface{}, error) {
+	return cm.Reload(CANDIDATE_MANAGER_IMPL_HOST, ids)
+}
+
+func (cm *CandidateManager) Reload(resType string, candidateIds []string) ([]interface{}, error) {
 
 	if len(candidateIds) == 0 {
 		return []interface{}{}, nil
