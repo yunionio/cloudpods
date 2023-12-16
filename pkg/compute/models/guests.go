@@ -5549,6 +5549,13 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 			DeleteEip:             options.Options.DeleteEipExpiredRelease,
 			DeleteDisks:           options.Options.DeleteDisksExpiredRelease,
 		}
+		// 跳过单独在云上开机过的虚拟机，避免误清理
+		if len(guests[i].GetExternalId()) > 0 {
+			iVm, err := guests[i].GetIVM(ctx)
+			if err == nil && iVm.GetStatus() == api.VM_RUNNING {
+				continue
+			}
+		}
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", opts)
 	}
 }
