@@ -1120,6 +1120,19 @@ func NewModelObject(modelManager IModelManager) (IModel, error) {
 	return m, nil
 }
 
+// check pointer example at: https://go.googlesource.com/proposal/+/refs/heads/master/design/43651-type-parameters.md#pointer-method-example
+type ModelPTR[T any] interface {
+	*T
+	IModel
+}
+
+func NewModelObjectG[T any, PT ModelPTR[T]](modelManager IModelManager) PT {
+	var obj PT
+	obj = new(T)
+	obj.SetModelManager(modelManager, obj)
+	return obj
+}
+
 func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targets interface{}) error {
 	rows, err := query.Rows()
 	if err != nil {
