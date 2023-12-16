@@ -36,24 +36,21 @@ type SSshConnectionInfo struct {
 	KeepUsername bool   `json:"keep_username"`
 	Password     string `json:"password"`
 	Name         string `json:"name"`
+
+	GuestDetails *compute_api.ServerDetails
 }
 
-func ResolveServerSSHIPPortById(ctx context.Context, s *mcclient.ClientSession, id string, ip string, port int) (string, int, error) {
+func ResolveServerSSHIPPortById(ctx context.Context, s *mcclient.ClientSession, id string, ip string, port int) (string, int, *compute_api.ServerDetails, error) {
 	if port <= 0 {
 		port = 22
 	}
 	return resolveServerIPPortById(ctx, s, id, ip, port)
 }
 
-func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id string, ip string, port int) (string, int, error) {
-	guestInfo, err := compute.Servers.Get(s, id, nil)
+func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id string, ip string, port int) (string, int, *compute_api.ServerDetails, error) {
+	guestDetails, err := FetchServerInfo(ctx, s, id)
 	if err != nil {
-		return "", 0, errors.Wrapf(err, "GetById %s", id)
-	}
-	guestDetails := compute_api.SGuest{}
-	err = guestInfo.Unmarshal(&guestDetails)
-	if err != nil {
-		return "", 0, errors.Wrap(err, "Unmarshal guest info")
+		return "", 0, nil, errors.Wrap(err, "fetchServerInfo")
 	}
 	// list all nic of a server
 	input := compute_api.GuestnetworkListInput{}
@@ -63,11 +60,11 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 	input.ServerFilterListInput.Scope = "max"
 	result, err := compute.Servernetworks.List(s, jsonutils.Marshal(input))
 	if err != nil {
-		return "", 0, errors.Wrap(err, "Servernetworks.List")
+		return "", 0, nil, errors.Wrap(err, "Servernetworks.List")
 	}
 	if result.Total == 0 {
 		// not nic found!!!
-		return "", 0, errors.Wrap(httperrors.ErrNotFound, "no nic on server")
+		return "", 0, nil, errors.Wrap(httperrors.ErrNotFound, "no nic on server")
 	}
 
 	// find nics
@@ -75,20 +72,20 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 	if result.Total == 1 {
 		err := result.Data[0].Unmarshal(&guestNicDetails)
 		if err != nil {
-			return "", 0, errors.Wrap(err, "Unmarshal guest network info")
+			return "", 0, nil, errors.Wrap(err, "Unmarshal guest network info")
 		}
 		if len(ip) > 0 && ip != guestNicDetails.EipAddr && ip != guestNicDetails.IpAddr && ip != guestNicDetails.Ip6Addr {
-			return "", 0, errors.Wrapf(httperrors.ErrInputParameter, "ip %s not match with server", ip)
+			return "", 0, nil, errors.Wrapf(httperrors.ErrInputParameter, "ip %s not match with server", ip)
 		}
 	} else {
 		if len(ip) == 0 {
-			return "", 0, errors.Wrap(httperrors.ErrInputParameter, "must specify ip")
+			return "", 0, nil, errors.Wrap(httperrors.ErrInputParameter, "must specify ip")
 		}
 		find := false
 		for _, gnJson := range result.Data {
 			err := gnJson.Unmarshal(&guestNicDetails)
 			if err != nil {
-				return "", 0, errors.Wrap(err, "Unmarshal guest network info")
+				return "", 0, nil, errors.Wrap(err, "Unmarshal guest network info")
 			}
 			if ip == guestNicDetails.EipAddr || ip == guestNicDetails.IpAddr || ip == guestNicDetails.Ip6Addr {
 				find = true
@@ -96,7 +93,7 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 			}
 		}
 		if !find {
-			return "", 0, errors.Wrap(httperrors.ErrInputParameter, "ip specified not match with server")
+			return "", 0, nil, errors.Wrap(httperrors.ErrInputParameter, "ip specified not match with server")
 		}
 	}
 
@@ -107,20 +104,23 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 		} else if len(guestNicDetails.IpAddr) > 0 {
 			ip = guestNicDetails.IpAddr
 		} else {
-			return "", 0, errors.Wrap(httperrors.ErrNotSupported, "no valid ipv4 addr")
+			return "", 0, nil, errors.Wrap(httperrors.ErrNotSupported, "no valid ipv4 addr")
 		}
 	}
 
 	if ip == guestNicDetails.Ip6Addr {
-		return "", 0, errors.Wrap(httperrors.ErrNotSupported, "ipv6 not supported")
+		return "", 0, nil, errors.Wrap(httperrors.ErrNotSupported, "ipv6 not supported")
 	}
 
 	if ip == guestNicDetails.IpAddr && len(guestNicDetails.MappedIpAddr) > 0 {
 		// need to do open forward
-		return acquireForward(ctx, s, guestDetails.Id, ip, "tcp", port)
+		ip, port, err = acquireForward(ctx, s, guestDetails.Id, ip, "tcp", port)
+		if err != nil {
+			return "", 0, nil, errors.Wrap(err, "acquireForward")
+		}
 	}
 
-	return ip, port, nil
+	return ip, port, guestDetails, nil
 }
 
 type sForwardInfo struct {

@@ -22,6 +22,7 @@ import (
 )
 
 type ServerRemoteConsoleResponse struct {
+	AccessUrl     string `json:"access_url"`
 	ConnectParams string `json:"connect_params"`
 	Session       string `json:"session,omitempty"`
 
