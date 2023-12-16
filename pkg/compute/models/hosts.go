@@ -4580,6 +4580,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 		// else not found
 		netif = &SNetInterface{}
+		netif.SetModelManager(NetInterfaceManager, netif)
 		netif.Mac = mac
 		netif.BaremetalId = self.Id
 		if sw != nil {
@@ -4649,6 +4650,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 					return httperrors.NewInternalServerError("fail to fetch hostwire by mac %s: %s", mac, err)
 				}
 				hw = &SHostwire{}
+				hw.SetModelManager(HostwireManager, hw)
 				hw.Bridge = bridge
 				hw.Interface = strInterface
 				hw.HostId = self.Id
@@ -4934,6 +4936,7 @@ func (self *SHost) Attach2Network(
 		return nil, fmt.Errorf("IP address %s is occupied, get %s instead", ipAddr, freeIp)
 	}
 	bn := &SHostnetwork{}
+	bn.SetModelManager(HostnetworkManager, bn)
 	bn.BaremetalId = self.Id
 	bn.NetworkId = net.Id
 	bn.IpAddr = freeIp
