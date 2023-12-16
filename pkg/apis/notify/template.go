@@ -502,3 +502,16 @@ const (
 	WORK_BLOCK_CONTENT_EN = `{{- $d := .resource_details -}}
 	The service: {{ d.service_name}} worker has been block 30 minutes.Please verify the service in time.`
 )
+
+// TODO
+// 资源挂载\卸载通知
+const (
+// ACTION_ATTACH_TITLE_CN = `{{- $d := .resource_details -}}
+// 操作日志超出设置数量{{ $d.exceed_count }}条，当前{{ $d.current_count }}条`
+// ACTION_ATTACH_TITLE_EN = `{{- $d := .resource_details -}}
+// Action logs excced expected count {{ $d.exceed_count }}, current count is {{ $d.current_count }}`
+// ACTION_ATTACH_CONTENT_CN = `{{- $d := .resource_details.action -}}
+// 当前日志 ID: {{ $d.id }}`
+// ACTION_ATTACH_CONTENT_EN = `{{- $d := .resource_details.action -}}
+// Current log ID: {{ $d.id }}`
+)

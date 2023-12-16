@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -46,10 +47,14 @@ func (self *InstanceBackupCreateTask) taskFailed(ctx context.Context, ib *models
 	self.SetStageFailed(ctx, reason)
 }
 
-func (self *InstanceBackupCreateTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup) {
+func (self *InstanceBackupCreateTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup, guest *models.SGuest) {
 	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionCreateBackupServer,
+	})
 }
 
 func (self *InstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -129,7 +134,8 @@ func (self *InstanceBackupCreateTask) OnInstanceBackup(ctx context.Context, ib *
 		ib.SizeMb = sizeMb
 		return nil
 	})
-	self.taskSuccess(ctx, ib)
+	guest := models.GuestManager.FetchGuestById(ib.GuestId)
+	self.taskSuccess(ctx, ib, guest)
 }
 
 func (self *InstanceBackupCreateTask) OnInstanceBackupFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {

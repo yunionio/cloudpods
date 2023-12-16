@@ -17,14 +17,18 @@ package db
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
-	updateNotifyHook updateNotifyHookFunc
+	updateNotifyHook    updateNotifyHookFunc
+	customizeNotifyHook customizeNotifyHookFunc
 )
 
 type updateNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, obj IModel)
+type customizeNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, action string, obj IModel, moreDetails jsonutils.JSONObject)
 
 func SetUpdateNotifyHook(f updateNotifyHookFunc) {
 	if updateNotifyHook != nil {
@@ -38,4 +42,18 @@ func CallUpdateNotifyHook(ctx context.Context, userCred mcclient.TokenCredential
 		return
 	}
 	updateNotifyHook(ctx, userCred, obj)
+}
+
+func SetCustomizeNotifyHook(f customizeNotifyHookFunc) {
+	if customizeNotifyHook != nil {
+		panic("updateNotifyHook already set")
+	}
+	customizeNotifyHook = f
+}
+
+func CallCustomizeNotifyHook(ctx context.Context, userCred mcclient.TokenCredential, action string, obj IModel, customizeDetails jsonutils.JSONObject) {
+	if customizeNotifyHook == nil {
+		return
+	}
+	customizeNotifyHook(ctx, userCred, action, obj, customizeDetails)
 }

@@ -88,30 +88,33 @@ type STopic struct {
 }
 
 const (
-	DefaultResourceCreateDelete    = "resource create or delete"
-	DefaultResourceChangeConfig    = "resource change config"
-	DefaultResourceUpdate          = "resource update"
-	DefaultResourceReleaseDue1Day  = "resource release due 1 day"
-	DefaultResourceReleaseDue3Day  = "resource release due 3 day"
-	DefaultResourceReleaseDue30Day = "resource release due 30 day"
-	DefaultResourceRelease         = "resource release"
-	DefaultScheduledTaskExecute    = "scheduled task execute"
-	DefaultScalingPolicyExecute    = "scaling policy execute"
-	DefaultSnapshotPolicyExecute   = "snapshot policy execute"
-	DefaultResourceOperationFailed = "resource operation failed"
-	DefaultResourceSync            = "resource sync"
-	DefaultSystemExceptionEvent    = "system exception event"
-	DefaultChecksumTestFailed      = "checksum test failed"
-	DefaultUserLock                = "user lock"
-	DefaultActionLogExceedCount    = "action log exceed count"
-	DefaultSyncAccountStatus       = "cloud account sync status"
-	DefaultPasswordExpireDue1Day   = "password expire due 1 day"
-	DefaultPasswordExpireDue7Day   = "password expire due 7 day"
-	DefaultPasswordExpire          = "password expire"
-	DefaultNetOutOfSync            = "net out of sync"
-	DefaultMysqlOutOfSync          = "mysql out of sync"
-	DefaultServiceAbnormal         = "service abnormal"
-	DefaultServerPanicked          = "server panicked"
+	DefaultResourceCreateDelete       = "resource create or delete"
+	DefaultResourceChangeConfig       = "resource change config"
+	DefaultResourceUpdate             = "resource update"
+	DefaultResourceReleaseDue1Day     = "resource release due 1 day"
+	DefaultResourceReleaseDue3Day     = "resource release due 3 day"
+	DefaultResourceReleaseDue30Day    = "resource release due 30 day"
+	DefaultResourceRelease            = "resource release"
+	DefaultScheduledTaskExecute       = "scheduled task execute"
+	DefaultScalingPolicyExecute       = "scaling policy execute"
+	DefaultSnapshotPolicyExecute      = "snapshot policy execute"
+	DefaultResourceOperationFailed    = "resource operation failed"
+	DefaultResourceOperationSuccessed = "resource operation successed"
+	DefaultResourceSync               = "resource sync"
+	DefaultSystemExceptionEvent       = "system exception event"
+	DefaultChecksumTestFailed         = "checksum test failed"
+	DefaultUserLock                   = "user lock"
+	DefaultActionLogExceedCount       = "action log exceed count"
+	DefaultSyncAccountStatus          = "cloud account sync status"
+	DefaultPasswordExpireDue1Day      = "password expire due 1 day"
+	DefaultPasswordExpireDue7Day      = "password expire due 7 day"
+	DefaultPasswordExpire             = "password expire"
+	DefaultNetOutOfSync               = "net out of sync"
+	DefaultMysqlOutOfSync             = "mysql out of sync"
+	DefaultServiceAbnormal            = "service abnormal"
+	DefaultServerPanicked             = "server panicked"
+	DefaultAttachOrDetach             = "resource attach or detach"
+	DefaultIsolatedDeviceChanged      = "isolated device changed"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -279,6 +282,14 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.False
+		case DefaultResourceOperationSuccessed:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+			)
+			t.addAction(
+				notify.ActionCreateBackupServer,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
 		case DefaultResourceSync:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -483,6 +494,27 @@ func (sm *STopicManager) InitializeData() error {
 			t.ContentEn = api.EXPIRED_RELEASE_CONTENT_EN
 			t.TitleCn = api.EXPIRED_RELEASE_TITLE_CN
 			t.TitleEn = api.EXPIRED_RELEASE_TITLE_EN
+		case DefaultAttachOrDetach:
+			t.addResources(
+				notify.TOPIC_RESOURCE_HOST,
+			)
+			t.addAction(
+				notify.ActionAttach,
+				notify.ActionDetach,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
+		case DefaultIsolatedDeviceChanged:
+			t.addResources(
+				notify.TOPIC_RESOURCE_HOST,
+			)
+			t.addAction(
+				notify.ActionIsolatedDeviceCreate,
+				notify.ActionIsolatedDeviceUpdate,
+				notify.ActionIsolatedDeviceDelete,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
 		}
 
 		if topic == nil {

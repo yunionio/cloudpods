@@ -55,6 +55,20 @@ func init() {
 			Action: ActionUpdate,
 		})
 	})
+
+	db.SetCustomizeNotifyHook(func(ctx context.Context, userCred mcclient.TokenCredential, action string, obj db.IModel, moreDetails jsonutils.JSONObject) {
+		_, ok := notifyDBHookResources.Load(obj.KeywordPlural())
+		if !ok {
+			return
+		}
+		EventNotify(ctx, userCred, SEventNotifyParam{
+			Obj:    obj,
+			Action: api.SAction(action),
+			ObjDetailsDecorator: func(ctx context.Context, details *jsonutils.JSONDict) {
+				details.Set("customize_details", details)
+			},
+		})
+	})
 }
 
 func AddNotifyDBHookResources(keywordPlurals ...string) {
