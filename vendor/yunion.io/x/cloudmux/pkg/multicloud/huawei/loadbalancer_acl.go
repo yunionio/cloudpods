@@ -97,17 +97,17 @@ func (self *SElbACL) Sync(acl *cloudprovider.SLoadbalancerAccessControlList) err
 		"whitelist":        whiteList,
 		"enable_whitelist": acl.AccessControlEnable,
 	}
-	_, err := self.region.lbUpdate("elb/whitelists/"+self.GetId(), map[string]interface{}{"whitelist": params})
+	_, err := self.region.put(SERVICE_ELB, "elb/whitelists/"+self.GetId(), map[string]interface{}{"whitelist": params})
 	return err
 }
 
 func (self *SElbACL) Delete() error {
-	_, err := self.region.lbDelete("elb/whitelists/" + self.GetId())
+	_, err := self.region.delete(SERVICE_ELB, "elb/whitelists/"+self.GetId())
 	return err
 }
 
 func (self *SRegion) GetLoadBalancerAcl(aclId string) (*SElbACL, error) {
-	resp, err := self.lbGet("elb/whitelists/" + aclId)
+	resp, err := self.list(SERVICE_ELB, "elb/whitelists/"+aclId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (self *SRegion) GetLoadBalancerAcls(listenerId string) ([]SElbACL, error) {
 	if len(listenerId) > 0 {
 		query.Set("listener_id", listenerId)
 	}
-	resp, err := self.lbList("elb/whitelists", query)
+	resp, err := self.list(SERVICE_ELB, "elb/whitelists", query)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (self *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAcces
 	} else {
 		params["enable_whitelist"] = false
 	}
-	resp, err := self.lbCreate("elb/whitelists", map[string]interface{}{"whitelist": params})
+	resp, err := self.post(SERVICE_ELB, "elb/whitelists", map[string]interface{}{"whitelist": params})
 	if err != nil {
 		return nil, err
 	}

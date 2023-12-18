@@ -190,7 +190,7 @@ func (r *SRegion) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, 
 		"sort_key": []string{"certExpiredTime"},
 		"sort_dir": []string{"DESC"},
 	}
-	resp, err := r.client.sslcertList(r.ID, "scm/certificates", params)
+	resp, err := r.list(SERVICE_SCM, "scm/certificates", params)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "CertificateList")
 	}
@@ -206,17 +206,17 @@ func (r *SRegion) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, 
 }
 
 func (r *SRegion) GetCertificate(certId string) (*SSSLCertificate, error) {
-	resp, err := r.client.sslcertExport(r.ID, "scm/certificates", certId)
+	resource := fmt.Sprintf("scm/certificates/%s/export", certId)
+	resp, err := r.post(SERVICE_SCM, resource, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeCertificateDetail")
 	}
 
-	cert := &SSSLCertificate{}
+	cert := &SSSLCertificate{region: r}
 	err = resp.Unmarshal(cert)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
-	cert.region = r
 
 	return cert, nil
 }
