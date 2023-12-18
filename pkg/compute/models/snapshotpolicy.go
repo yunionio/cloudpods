@@ -346,6 +346,7 @@ func (self *SCloudregion) newFromCloudPolicy(
 	policy.SetModelManager(SnapshotPolicyManager, policy)
 	policy.CloudregionId = self.Id
 	policy.ManagerId = provider.Id
+	policy.ExternalId = ext.GetGlobalId()
 	policy.RetentionDays = ext.GetRetentionDays()
 	var err error
 	policy.RepeatWeekdays, err = ext.GetRepeatWeekdays()
