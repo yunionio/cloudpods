@@ -92,7 +92,7 @@ type ICondition interface {
 	GetThreshold() float64
 	// GetSourceThresholdDelta must > 0
 	GetSourceThresholdDelta(threshold float64, srcHost IHost) float64
-	IsFitTarget(t ITarget, c ICandidate) error
+	IsFitTarget(settings *monitor.MigrationAlertSettings, t ITarget, c ICandidate) error
 }
 
 type Rules struct {
@@ -439,15 +439,13 @@ func findResult(rules *Rules) (*result, error) {
 	// 	return nil, errors.Wrap(err, "find source candidates to migrate")
 	// }
 
-	// all guests of source host to migrate
-	guests := rules.Source.Candidates
-
 	// TODO
 	// 将找到的 guests 进行配对，调用 scheduler-forecast 接口判断能否迁移到宿主机
 	// 如果不能迁就提出这些 guests，重新 findCandidates
 
 	// 将找到的虚拟机分配到对应的宿主机，形成 1-1 配对
-	return pairMigratResult(guests, rules.Target, rules.Condtion, rules.ResultMustPair)
+	settings, _ := rules.GetAlert().GetMigrationSettings()
+	return pairMigratResult(settings, rules.Source, rules.Target, rules.Condtion, rules.ResultMustPair)
 }
 
 type IResource interface {
@@ -541,13 +539,13 @@ func findCandidates(src *SourceRule, cond ICondition) ([]ICandidate, error) {
 	return findFitCandidates(cds, delta)
 }
 
-func findFitTarget(c ICandidate, targets iTargets, cond ICondition) (ITarget, error) {
+func findFitTarget(settings *monitor.MigrationAlertSettings, c ICandidate, tr *TargetRule, targets iTargets, cond ICondition) (ITarget, error) {
 	// sort targets
 	sort.Sort(targets)
 	var errs []error
 	for i := range targets {
 		target := targets[i]
-		if err := cond.IsFitTarget(target, c); err == nil {
+		if err := cond.IsFitTarget(settings, target, c); err == nil {
 			return target, nil
 		} else {
 			errs = append(errs, err)
@@ -556,12 +554,17 @@ func findFitTarget(c ICandidate, targets iTargets, cond ICondition) (ITarget, er
 	return nil, errors.NewAggregate(errs)
 }
 
-func pairMigratResult(gsts []ICandidate, target *TargetRule, cond ICondition, mustPair bool) (*result, error) {
+func pairMigratResult(
+	settings *monitor.MigrationAlertSettings,
+	src *SourceRule, target *TargetRule, cond ICondition, mustPair bool) (*result, error) {
+	// all guests of source host to migrate
+	gsts := src.Candidates
+
 	pairs := make([]*resultPair, 0)
 	hosts := target.Items
 	errs := []error{}
 	for _, gst := range gsts {
-		host, err := findFitTarget(gst, hosts, cond)
+		host, err := findFitTarget(settings, gst, target, hosts, cond)
 		if err != nil {
 			err = errors.Wrapf(err, "not found target for guest %s on %s", gst.GetName(), gst.GetHostName())
 			if mustPair {
@@ -579,11 +582,11 @@ func pairMigratResult(gsts []ICandidate, target *TargetRule, cond ICondition, mu
 	}
 	if len(gsts) != len(pairs) {
 		if mustPair {
-			return nil, errors.Wrapf(errors.NewAggregate(errs), "Paired: %d candidates != %d hosts", len(gsts), len(pairs))
+			return nil, errors.Errorf("%v: Paired: %d candidates != %d hosts", errors.NewAggregate(errs), len(gsts), len(pairs))
 		}
 	}
 	if len(pairs) == 0 {
-		return nil, errors.Wrapf(errors.NewAggregate(errs), "Not found any pairs, mustPair is %v", mustPair)
+		return nil, errors.Errorf("%v: Not found any pairs, mustPair is %v", errors.NewAggregate(errs), mustPair)
 	}
 	if !mustPair && len(errs) != 0 {
 		log.Warningf("some guest not paired: %v", errors.NewAggregate(errs))
