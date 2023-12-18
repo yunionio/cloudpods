@@ -146,7 +146,7 @@ func (dev *sNVIDIAVgpuDevice) GetQemuId() string {
 	return "dev_" + dev.mdevId
 }
 
-func (dev *sNVIDIAVgpuDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
+func (dev *sNVIDIAVgpuDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice, guestDesc *desc.SGuestDesc) ([]*HotPlugOption, error) {
 	ret := make([]*HotPlugOption, 0)
 
 	var masterDevOpt *HotPlugOption
