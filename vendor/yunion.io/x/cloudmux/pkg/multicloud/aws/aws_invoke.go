@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
 
 // eks only
@@ -88,6 +89,12 @@ func jsonInvoke(cli *client.Client, apiName, path string, params map[string]inte
 			}
 		}
 	}
+	if utils.IsInStringArray(cli.ServiceName, []string{
+		PRICING_SERVICE_NAME,
+	}) {
+		method = "POST"
+	}
+
 	op := &request.Operation{
 		Name:       apiName,
 		HTTPMethod: method,

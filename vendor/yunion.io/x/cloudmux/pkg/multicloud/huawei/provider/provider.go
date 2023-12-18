@@ -196,9 +196,9 @@ func (self *SHuaweiProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
 	if err != nil {
 		return ret, err
 	}
-	ret.Amount = balance.AvailableAmount
+	ret.Amount = balance.Amount
 	ret.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
-	if balance.AvailableAmount < 0.0 && balance.CreditAmount < 0.0 {
+	if balance.Amount < 0.0 && balance.CreditAmount < 0.0 {
 		ret.Status = api.CLOUD_PROVIDER_HEALTH_ARREARS
 	}
 	return ret, nil

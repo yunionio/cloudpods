@@ -93,12 +93,12 @@ func (self *SElbCert) Sync(name, privateKey, publickKey string) error {
 		"private_key": privateKey,
 		"certificate": publickKey,
 	}
-	_, err := self.region.lbUpdate("elb/certificates/"+self.GetId(), params)
+	_, err := self.region.put(SERVICE_ELB, "elb/certificates/"+self.GetId(), params)
 	return err
 }
 
 func (self *SElbCert) Delete() error {
-	_, err := self.region.lbDelete("elb/certificates/" + self.GetId())
+	_, err := self.region.delete(SERVICE_ELB, "elb/certificates/"+self.GetId())
 	return err
 }
 
@@ -121,7 +121,7 @@ func (self *SElbCert) GetExpireTime() time.Time {
 }
 
 func (self *SRegion) GetLoadBalancerCertificate(id string) (*SElbCert, error) {
-	resp, err := self.lbGet("elb/certificates/" + id)
+	resp, err := self.list(SERVICE_ELB, "elb/certificates/"+id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (self *SRegion) CreateLoadBalancerCertificate(cert *cloudprovider.SLoadbala
 		"private_key": cert.PrivateKey,
 		"certificate": cert.Certificate,
 	}
-	resp, err := self.lbCreate("elb/certificates", params)
+	resp, err := self.post(SERVICE_ELB, "elb/certificates", params)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (self *SRegion) CreateLoadBalancerCertificate(cert *cloudprovider.SLoadbala
 }
 
 func (self *SRegion) GetLoadBalancerCertificates() ([]SElbCert, error) {
-	resp, err := self.lbList("elb/certificates", url.Values{})
+	resp, err := self.list(SERVICE_ELB, "elb/certificates", url.Values{})
 	if err != nil {
 		return nil, err
 	}

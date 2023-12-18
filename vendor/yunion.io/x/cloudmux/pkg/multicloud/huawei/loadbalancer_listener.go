@@ -386,7 +386,7 @@ func (self *SElbListener) ChangeCertificate(ctx context.Context, opts *cloudprov
 	params := map[string]interface{}{
 		"default_tls_container_ref": opts.CertificateId,
 	}
-	_, err := self.lb.region.lbUpdate("elb/listeners/"+self.ID, map[string]interface{}{"listener": params})
+	_, err := self.lb.region.put(SERVICE_ELB, "elb/listeners/"+self.ID, map[string]interface{}{"listener": params})
 	return err
 }
 
@@ -413,7 +413,7 @@ func (self *SElbListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SL
 
 func (self *SElbListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	ret := &SElbListenerPolicy{region: self.lb.region, lb: self.lb, listener: self}
-	resp, err := self.lb.region.lbGet("elb/l7policies/" + ruleId)
+	resp, err := self.lb.region.list(SERVICE_ELB, "elb/l7policies/"+ruleId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -586,7 +586,7 @@ func (self *SElbListener) ChangeScheduler(ctx context.Context, opts *cloudprovid
 	params := map[string]interface{}{
 		"pool": pool,
 	}
-	_, err = self.lb.region.lbUpdate(fmt.Sprintf("elb/pools/%s", lbbg.ID), params)
+	_, err = self.lb.region.put(SERVICE_ELB, fmt.Sprintf("elb/pools/%s", lbbg.ID), params)
 	return err
 }
 
@@ -624,13 +624,13 @@ func (self *SElbListener) SetHealthCheck(ctx context.Context, opts *cloudprovide
 		params := map[string]interface{}{
 			"healthmonitor": heathmonitor,
 		}
-		_, err = self.lb.region.lbCreate("elb/healthmonitors", params)
+		_, err = self.lb.region.post(SERVICE_ELB, "elb/healthmonitors", params)
 		return err
 	}
 	params := map[string]interface{}{
 		"healthmonitor": heathmonitor,
 	}
-	_, err = self.lb.region.lbUpdate(fmt.Sprintf("elb/healthmonitors/%s", lbbg.HealthMonitorID), params)
+	_, err = self.lb.region.put(SERVICE_ELB, fmt.Sprintf("elb/healthmonitors/%s", lbbg.HealthMonitorID), params)
 	return err
 }
 
@@ -639,7 +639,7 @@ func (self *SElbListener) Delete(ctx context.Context) error {
 }
 
 func (self *SRegion) DeleteElbListener(id string) error {
-	_, err := self.lbDelete("elb/listeners/" + id)
+	_, err := self.delete(SERVICE_ELB, "elb/listeners/"+id)
 	return err
 }
 
@@ -663,7 +663,7 @@ func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *clo
 			"X-Forwarded-ELB-IP": listener.XForwardedFor,
 		}
 	}
-	_, err := self.lbUpdate("elb/listeners/"+listenerId, map[string]interface{}{"listener": params})
+	_, err := self.put(SERVICE_ELB, "elb/listeners/"+listenerId, map[string]interface{}{"listener": params})
 	return err
 }
 
@@ -674,7 +674,7 @@ func (self *SRegion) GetLoadBalancerPolicies(listenerId string) ([]SElbListenerP
 		query.Set("listener_id", listenerId)
 	}
 
-	resp, err := self.lbList("elb/l7policies", query)
+	resp, err := self.list(SERVICE_ELB, "elb/l7policies", query)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +685,7 @@ func (self *SRegion) GetLoadBalancerPolicies(listenerId string) ([]SElbListenerP
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0116649234.html
 func (self *SRegion) GetLoadBalancerPolicyRules(policyId string) ([]SElbListenerPolicyRule, error) {
-	resp, err := self.lbList(fmt.Sprintf("elb/l7policies/%s/rules", policyId), url.Values{})
+	resp, err := self.list(SERVICE_ELB, fmt.Sprintf("elb/l7policies/%s/rules", policyId), url.Values{})
 	if err != nil {
 		return nil, err
 	}
@@ -703,7 +703,7 @@ func (self *SRegion) CreateLoadBalancerPolicy(listenerID string, rule *cloudprov
 		"action":           "REDIRECT_TO_POOL",
 		"redirect_pool_id": rule.BackendGroupId,
 	}
-	resp, err := self.lbCreate("elb/l7policies", map[string]interface{}{"l7policy": params})
+	resp, err := self.post(SERVICE_ELB, "elb/l7policies", map[string]interface{}{"l7policy": params})
 	if err != nil {
 		return nil, err
 	}
@@ -717,7 +717,7 @@ func (self *SRegion) CreateLoadBalancerPolicy(listenerID string, rule *cloudprov
 			"value":        rule.Domain,
 			"compare_type": "EQUAL_TO",
 		}
-		_, err := self.lbCreate(fmt.Sprintf("elb/l7policies/%s/rules", ret.GetId()), map[string]interface{}{"rule": params})
+		_, err := self.post(SERVICE_ELB, fmt.Sprintf("elb/l7policies/%s/rules", ret.GetId()), map[string]interface{}{"rule": params})
 		if err != nil {
 			return ret, err
 		}
@@ -729,7 +729,7 @@ func (self *SRegion) CreateLoadBalancerPolicy(listenerID string, rule *cloudprov
 			"value":        rule.Path,
 			"compare_type": "EQUAL_TO",
 		}
-		_, err := self.lbCreate(fmt.Sprintf("elb/l7policies/%s/rules", ret.GetId()), map[string]interface{}{"rule": params})
+		_, err := self.post(SERVICE_ELB, fmt.Sprintf("elb/l7policies/%s/rules", ret.GetId()), map[string]interface{}{"rule": params})
 		if err != nil {
 			return ret, err
 		}

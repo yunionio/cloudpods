@@ -85,7 +85,7 @@ func (self *SElbListenerPolicy) GetStatus() string {
 }
 
 func (self *SElbListenerPolicy) Refresh() error {
-	resp, err := self.lb.region.lbGet("")
+	resp, err := self.lb.region.list(SERVICE_ELB, "elb/l7policies/"+self.ID, nil)
 	if err != nil {
 		return err
 	}
@@ -161,6 +161,6 @@ func (self *SElbListenerPolicy) Delete(ctx context.Context) error {
 }
 
 func (self *SRegion) DeleteLoadBalancerPolicy(policyId string) error {
-	_, err := self.lbDelete("elb/l7policies/" + policyId)
+	_, err := self.delete(SERVICE_ELB, "elb/l7policies/"+policyId)
 	return err
 }

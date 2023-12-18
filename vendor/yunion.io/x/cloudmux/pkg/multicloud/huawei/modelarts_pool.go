@@ -15,6 +15,8 @@
 package huawei
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -113,7 +115,7 @@ type SModelartsNetworkStatus struct {
 
 func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
 	pools := make([]SModelartsPool, 0)
-	resObj, err := self.client.modelartsPoolList("pools", nil)
+	resObj, err := self.list(SERVICE_MODELARTS, "pools", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetPools")
 	}
@@ -134,7 +136,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 	if len(args.Cidr) == 0 {
 		args.Cidr = "192.168.20.0/24"
 	}
-	netObj, err := self.client.modelartsPoolNetworkList("network", nil)
+	netObj, err := self.list(SERVICE_MODELARTS, "network", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
 	}
@@ -154,7 +156,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 		}
 		netId, _ = createNetObj.GetString("metadata", "name")
 		for i := 0; i < 10; i++ {
-			netDetailObj, err := self.client.modelartsPoolNetworkDetail(netId)
+			netDetailObj, err := self.list(SERVICE_MODELARTS, "networks/"+netId, nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "SHuaweiClient.NetworkDetail")
 			}
@@ -192,7 +194,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 			},
 		},
 	}
-	obj, err := self.client.modelartsPoolCreate("pools", params)
+	obj, err := self.post(SERVICE_MODELARTS, "pools", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.CreatePools")
 	}
@@ -221,11 +223,12 @@ func (region *SRegion) waitCreate(pool *SModelartsPool) (cloudprovider.ICloudMod
 }
 
 func (self *SRegion) DeletePool(poolName string) (jsonutils.JSONObject, error) {
-	return self.client.modelartsPoolDelete("pools", poolName, nil)
+	resource := fmt.Sprintf("pools/%s", poolName)
+	return self.delete(SERVICE_MODELARTS, resource)
 }
 
 func (self *SRegion) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
-	obj, err := self.client.modelartsPoolById(poolId)
+	obj, err := self.list(SERVICE_MODELARTS, "pools/"+poolId, nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "")
@@ -243,7 +246,8 @@ func (self *SRegion) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudM
 }
 
 func (self *SRegion) MonitorPool(poolId string) (*SModelartsMetrics, error) {
-	resObj, err := self.client.modelartsPoolMonitor(poolId, nil)
+	resource := fmt.Sprintf("pools/%s/monitor", poolId)
+	resObj, err := self.list(SERVICE_MODELARTS, resource, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "send request error")
 	}
@@ -287,7 +291,7 @@ type ModelartsStatistics struct {
 }
 
 func (self *SHuaweiClient) GetPoolNetworks(poolName string) (jsonutils.JSONObject, error) {
-	return self.modelartsPoolNetworkList(poolName, nil)
+	return self.list(SERVICE_MODELARTS, self.clientRegion, "networks", nil)
 }
 
 func (self *SHuaweiClient) CreatePoolNetworks(cidr string) (jsonutils.JSONObject, error) {
@@ -304,7 +308,7 @@ func (self *SHuaweiClient) CreatePoolNetworks(cidr string) (jsonutils.JSONObject
 			"cidr": cidr,
 		},
 	}
-	return self.modelartsPoolNetworkCreate(params)
+	return self.post(SERVICE_MODELARTS, self.clientRegion, "networks", params)
 }
 
 func (self *SModelartsPool) GetCreatedAt() time.Time {
@@ -404,7 +408,7 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 
 func (self *SModelartsPool) RefreshForCreate() error {
 	self.Status.Resource = SNodeStatus{}
-	pool, err := self.region.client.modelartsPoolById(self.GetId())
+	pool, err := self.region.list(SERVICE_MODELARTS, "pools/"+self.GetId(), nil)
 	if err == nil {
 		return pool.Unmarshal(self)
 	}
@@ -413,9 +417,11 @@ func (self *SModelartsPool) RefreshForCreate() error {
 	}
 
 	pools := make([]SModelartsPool, 0)
-	resObj, err := self.region.client.modelartsPoolListWithStatus("pools", "failed", nil)
+	params := url.Values{}
+	params.Add("status", "failed")
+	resObj, err := self.region.list(SERVICE_MODELARTS, "pools", params)
 	if err != nil {
-		return errors.Wrap(err, "modelartsPoolListWithStatus")
+		return errors.Wrap(err, "list failed pools")
 	}
 
 	err = resObj.Unmarshal(&pools, "items")
@@ -434,7 +440,8 @@ func (self *SModelartsPool) RefreshForCreate() error {
 
 func (self *SModelartsPool) Refresh() error {
 	self.Status.Resource = SNodeStatus{}
-	pool, err := self.region.client.modelartsPoolById(self.GetId())
+	resource := fmt.Sprintf("pools/%s", self.GetId())
+	pool, err := self.region.list(SERVICE_MODELARTS, resource, nil)
 	if err != nil {
 		return err
 	}
@@ -486,6 +493,11 @@ func (self *SModelartsPool) ChangeConfig(opts *cloudprovider.ModelartsPoolChange
 			"resources": res,
 		},
 	}
-	_, err := self.region.client.modelartsPoolUpdate(self.Metadata.Name, params)
+	resource := fmt.Sprintf("pools/%s", self.Metadata.Name)
+	urlValue := url.Values{}
+	urlValue.Add("time_range", "")
+	urlValue.Add("statistics", "")
+	urlValue.Add("period", "")
+	_, err := self.region.patch(SERVICE_MODELARTS, resource, urlValue, params)
 	return err
 }

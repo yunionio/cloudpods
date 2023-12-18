@@ -119,7 +119,7 @@ func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 		"weight": weight,
 	}
 	res := fmt.Sprintf("elb/pools/%s/members/%s", self.backendGroup.GetId(), self.ID)
-	_, err := self.region.lbUpdate(res, map[string]interface{}{"member": params})
+	_, err := self.region.put(SERVICE_ELB, res, map[string]interface{}{"member": params})
 	return err
 }
 
@@ -152,7 +152,7 @@ func (self *SRegion) getInstanceByIP(privateIP string) (*SInstance, error) {
 
 func (self *SRegion) GetElbBackend(pool, id string) (*SElbBackend, error) {
 	res := fmt.Sprintf("elb/pools/%s/members/%s", pool, id)
-	resp, err := self.lbGet(res)
+	resp, err := self.list(SERVICE_ELB, res, nil)
 	if err != nil {
 		return nil, err
 	}
