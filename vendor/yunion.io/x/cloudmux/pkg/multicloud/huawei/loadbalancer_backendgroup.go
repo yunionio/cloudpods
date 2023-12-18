@@ -340,7 +340,7 @@ func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLo
 func (self *SRegion) GetLoadBalancerBackendGroup(backendGroupId string) (*SElbBackendGroup, error) {
 	ret := &SElbBackendGroup{region: self}
 	res := fmt.Sprintf("elb/pools/" + backendGroupId)
-	resp, err := self.lbGet(res)
+	resp, err := self.list(SERVICE_ELB, res, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +349,7 @@ func (self *SRegion) GetLoadBalancerBackendGroup(backendGroupId string) (*SElbBa
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561551.html
 func (self *SRegion) DeleteLoadBalancerBackendGroup(id string) error {
-	_, err := self.lbDelete("elb/pools/" + id)
+	_, err := self.delete(SERVICE_ELB, "elb/pools/"+id)
 	return err
 }
 
@@ -362,7 +362,7 @@ func (self *SRegion) AddLoadBalancerBackend(backendGroupId, subnetId, ipaddr str
 		"weight":        weight,
 	}
 	ret := &SElbBackend{}
-	resp, err := self.lbCreate(fmt.Sprintf("elb/pools/%s/members", backendGroupId), map[string]interface{}{"member": params})
+	resp, err := self.post(SERVICE_ELB, fmt.Sprintf("elb/pools/%s/members", backendGroupId), map[string]interface{}{"member": params})
 	if err != nil {
 		return nil, err
 	}
@@ -370,13 +370,13 @@ func (self *SRegion) AddLoadBalancerBackend(backendGroupId, subnetId, ipaddr str
 }
 
 func (self *SRegion) RemoveLoadBalancerBackend(lbbgId string, backendId string) error {
-	_, err := self.lbDelete(fmt.Sprintf("elb/pools/%s/members/%s", lbbgId, backendId))
+	_, err := self.delete(SERVICE_ELB, fmt.Sprintf("elb/pools/%s/members/%s", lbbgId, backendId))
 	return err
 }
 
 func (self *SRegion) getLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
 	res := fmt.Sprintf("elb/pools/%s/members", backendGroupId)
-	resp, err := self.lbList(res, url.Values{})
+	resp, err := self.list(SERVICE_ELB, res, url.Values{})
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +420,7 @@ func (self *SRegion) getLoadBalancerAdminStateDownBackends(backendGroupId string
 }
 
 func (self *SRegion) GetLoadBalancerHealthCheck(healthCheckId string) (*SElbHealthCheck, error) {
-	resp, err := self.lbGet("elb/healthmonitors/" + healthCheckId)
+	resp, err := self.list(SERVICE_ELB, "elb/healthmonitors/"+healthCheckId, nil)
 	if err != nil {
 		return nil, err
 	}

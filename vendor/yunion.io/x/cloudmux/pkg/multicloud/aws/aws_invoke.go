@@ -105,6 +105,7 @@ func jsonInvoke(cli *client.Client, apiName, path string, params map[string]inte
 		ECS_SERVICE_NAME,
 		KINESIS_SERVICE_NAME,
 		DYNAMODB_SERVICE_NAME,
+		PRICING_SERVICE_NAME,
 	}) {
 		method = "POST"
 	}

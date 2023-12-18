@@ -82,7 +82,7 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 		})
 	}
 	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+	resp, err := self.post(SERVICE_CES, self.clientRegion, "batch-query-metric-data", params)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (self *SHuaweiClient) getServerAgentMetrics(opts *cloudprovider.MetricListO
 		})
 	}
 	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+	resp, err := self.post(SERVICE_CES, self.clientRegion, "batch-query-metric-data", params)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (self *SHuaweiClient) getRedisMetrics(opts *cloudprovider.MetricListOptions
 		})
 	}
 	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+	resp, err := self.post(SERVICE_CES, self.clientRegion, "batch-query-metric-data", params)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +331,7 @@ func (self *SHuaweiClient) getRdsMetrics(opts *cloudprovider.MetricListOptions) 
 		})
 	}
 	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+	resp, err := self.post(SERVICE_CES, self.clientRegion, "batch-query-metric-data", params)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +420,7 @@ func (self *SHuaweiClient) getBucketMetrics(opts *cloudprovider.MetricListOption
 		})
 	}
 	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+	resp, err := self.post(SERVICE_CES, self.clientRegion, "batch-query-metric-data", params)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +501,7 @@ func (self *SHuaweiClient) getLoadbalancerMetrics(opts *cloudprovider.MetricList
 		})
 	}
 	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+	resp, err := self.post(SERVICE_CES, self.clientRegion, "batch-query-metric-data", params)
 	if err != nil {
 		return nil, err
 	}

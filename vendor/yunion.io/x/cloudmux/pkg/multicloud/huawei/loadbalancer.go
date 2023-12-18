@@ -59,7 +59,6 @@ type SLoadbalancer struct {
 	HuaweiTags
 	region *SRegion
 	subnet *SNetwork
-	eip    *SEipAddress
 
 	Description         string     `json:"description"`
 	ProvisioningStatus  string     `json:"provisioning_status"`
@@ -76,8 +75,14 @@ type SLoadbalancer struct {
 	VipSubnetId         string     `json:"vip_subnet_id"`
 	Id                  string     `json:"id"`
 	Name                string     `json:"name"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	VpcId               string
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	Publicips           []struct {
+		PublicipId      string
+		PublicipAddress string
+		IpVersion       string
+	}
 }
 
 type Listener struct {
@@ -88,12 +93,23 @@ type Pool struct {
 	Id string `json:"id"`
 }
 
-func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if self.GetEip() == nil {
-		return nil, nil
+func (self *SLoadbalancer) GetEip() (*SEipAddress, error) {
+	for _, ip := range self.Publicips {
+		eip, err := self.region.GetEip(ip.PublicipId)
+		if err != nil {
+			return nil, err
+		}
+		return eip, nil
 	}
+	return nil, cloudprovider.ErrNotFound
+}
 
-	return self.eip, nil
+func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	eip, err := self.GetEip()
+	if err != nil {
+		return nil, err
+	}
+	return eip, nil
 }
 
 func (self *SLoadbalancer) GetId() string {
@@ -165,23 +181,8 @@ func (self *SLoadbalancer) GetNetwork() *SNetwork {
 	return self.subnet
 }
 
-func (self *SLoadbalancer) GetEip() *SEipAddress {
-	if self.eip == nil {
-		eips, _ := self.region.GetEips(self.VipPortId, nil)
-		for i := range eips {
-			self.eip = &eips[i]
-		}
-	}
-	return self.eip
-}
-
 func (self *SLoadbalancer) GetVpcId() string {
-	net := self.GetNetwork()
-	if net != nil {
-		return net.VpcID
-	}
-
-	return ""
+	return self.VpcId
 }
 
 func (self *SLoadbalancer) GetZoneId() string {
@@ -208,16 +209,15 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (self *SLoadbalancer) GetChargeType() string {
-	eip := self.GetEip()
+	eip, _ := self.GetEip()
 	if eip != nil {
 		return eip.GetInternetChargeType()
 	}
-
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SLoadbalancer) GetEgressMbps() int {
-	eip := self.GetEip()
+	eip, _ := self.GetEip()
 	if eip != nil {
 		return eip.GetBandwidth()
 	}
@@ -303,7 +303,6 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	return iret, nil
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561549.html
 func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(opts *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	ret, err := self.region.CreateLoadBalancerBackendGroup(self.Id, opts)
 	if err != nil {
@@ -322,7 +321,7 @@ func (self *SLoadbalancer) CreateHealthCheck(backendGroupId string, healthcheck 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561548.html
 func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	ret := &SElbBackendGroup{lb: self, region: self.region}
-	resp, err := self.region.lbGet("elb/pools/" + groupId)
+	resp, err := self.region.list(SERVICE_ELB, "elb/pools/"+groupId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +339,7 @@ func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, opts
 
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
 	ret := &SElbListener{lb: self}
-	resp, err := self.region.lbGet("elb/listeners/" + listenerId)
+	resp, err := self.region.list(SERVICE_ELB, "elb/listeners/"+listenerId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +347,7 @@ func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (clou
 }
 
 func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
-	resp, err := self.lbGet("elb/loadbalancers/" + id)
+	resp, err := self.list(SERVICE_ELB, "elb/loadbalancers/"+id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +357,7 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 
 func (self *SRegion) DeleteLoadBalancer(elbId string) error {
 	resource := fmt.Sprintf("elb/loadbalancers/%s", elbId)
-	_, err := self.lbDelete(resource)
+	_, err := self.delete(SERVICE_ELB, resource)
 	return err
 }
 
@@ -402,7 +401,7 @@ func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbal
 	}
 
 	ret := &SElbListener{}
-	resp, err := self.lbCreate("elb/listeners", map[string]interface{}{"listener": params})
+	resp, err := self.post(SERVICE_ELB, "elb/listeners", map[string]interface{}{"listener": params})
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +443,7 @@ func (self *SRegion) CreateLoadBalancerBackendGroup(lbId string, opts *cloudprov
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "invalid protocol %s", opts.Protocol)
 	}
 
-	resp, err := self.lbCreate("elb/pools", map[string]interface{}{"pool": params})
+	resp, err := self.post(SERVICE_ELB, "elb/pools", map[string]interface{}{"pool": params})
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +478,7 @@ func (self *SRegion) CreateLoadBalancerHealthCheck(backendGroupId string, health
 	}
 
 	ret := SElbHealthCheck{region: self}
-	resp, err := self.lbCreate("elb/healthmonitors", map[string]interface{}{"healthmonitor": params})
+	resp, err := self.post(SERVICE_ELB, "elb/healthmonitors", map[string]interface{}{"healthmonitor": params})
 	if err != nil {
 		return ret, err
 	}
@@ -509,7 +508,7 @@ func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckId string, healthC
 	}
 
 	ret := SElbHealthCheck{region: self}
-	resp, err := self.lbUpdate("elb/healthmonitors/"+healthCheckId, map[string]interface{}{"healthmonitor": params})
+	resp, err := self.put(SERVICE_ELB, "elb/healthmonitors/"+healthCheckId, map[string]interface{}{"healthmonitor": params})
 	if err != nil {
 		return ret, err
 	}
@@ -518,7 +517,7 @@ func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckId string, healthC
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561565.html
 func (self *SRegion) DeleteLoadbalancerHealthCheck(healthCheckId string) error {
-	_, err := self.lbDelete("elb/healthmonitors/" + healthCheckId)
+	_, err := self.delete(SERVICE_ELB, "elb/healthmonitors/"+healthCheckId)
 	return err
 }
 
@@ -526,34 +525,10 @@ func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SRegion) lbList(resource string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.client.lbList(self.ID, resource, query)
-}
-
-func (self *SRegion) vpcList(resource string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.client.vpcList(self.ID, resource, query)
-}
-
-func (self *SRegion) vpcCreate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.vpcCreate(self.ID, resource, params)
-}
-
-func (self *SRegion) vpcGet(resource string) (jsonutils.JSONObject, error) {
-	return self.client.vpcGet(self.ID, resource)
-}
-
-func (self *SRegion) vpcDelete(resource string) (jsonutils.JSONObject, error) {
-	return self.client.vpcDelete(self.ID, resource)
-}
-
-func (self *SRegion) vpcUpdate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.vpcUpdate(self.ID, resource, params)
-}
-
 func (self *SRegion) lbListAll(resource string, query url.Values, respKey string, retVal interface{}) error {
 	ret := jsonutils.NewArray()
 	for {
-		resp, err := self.lbList(resource, query)
+		resp, err := self.list(SERVICE_ELB, resource, query)
 		if err != nil {
 			return err
 		}
@@ -571,38 +546,53 @@ func (self *SRegion) lbListAll(resource string, query url.Values, respKey string
 	return ret.Unmarshal(retVal)
 }
 
-func (self *SRegion) lbGet(resource string) (jsonutils.JSONObject, error) {
-	return self.client.lbGet(self.ID, resource)
-}
-
-func (self *SRegion) lbDelete(resource string) (jsonutils.JSONObject, error) {
-	return self.client.lbDelete(self.ID, resource)
-}
-
-func (self *SRegion) lbCreate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.lbCreate(self.ID, resource, params)
-}
-
-func (self *SRegion) lbUpdate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.lbUpdate(self.ID, resource, params)
-}
-
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
-func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (*SLoadbalancer, error) {
-	subnet, err := self.getNetwork(loadbalancer.NetworkIds[0])
+func (self *SRegion) CreateLoadBalancer(opts *cloudprovider.SLoadbalancerCreateOptions) (*SLoadbalancer, error) {
+	subnet, err := self.getNetwork(opts.NetworkIds[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
+		return nil, errors.Wrap(err, "getNetwork")
 	}
 
 	params := map[string]interface{}{
-		"name":          loadbalancer.Name,
-		"vip_subnet_id": subnet.NeutronSubnetID,
-		"tenant_id":     self.client.projectId,
+		"name":               opts.Name,
+		"description":        opts.Desc,
+		"vip_subnet_cidr_id": subnet.NeutronSubnetID,
+		"provider":           "vlb",
+		"admin_state_up":     true,
+		"guaranteed":         true,
+		"project_id":         self.client.projectId,
+		"charge_mode":        "lcu",
 	}
-	if len(loadbalancer.Address) > 0 {
-		params["vip_address"] = loadbalancer.Address
+	if len(opts.ProjectId) > 0 {
+		params["enterprise_project_id"] = opts.ProjectId
 	}
-	resp, err := self.lbCreate("elb/loadbalancers", map[string]interface{}{"loadbalancer": params})
+	if len(opts.Address) > 0 {
+		params["vip_address"] = opts.Address
+	}
+	tags := []map[string]string{}
+	for k, v := range opts.Tags {
+		tags = append(tags, map[string]string{
+			"key":   k,
+			"value": v,
+		})
+	}
+	if len(tags) > 0 {
+		params["tags"] = tags
+	}
+	if len(opts.EipId) > 0 {
+		params["publicip_ids"] = []string{opts.EipId}
+	}
+	err = self.fetchZones()
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetchZones")
+	}
+	zoneIds := []string{}
+	for i := range self.izones {
+		zone := self.izones[i].(*SZone)
+		zoneIds = append(zoneIds, zone.ZoneName)
+	}
+	params["availability_zone_list"] = zoneIds
+
+	resp, err := self.post(SERVICE_ELB, "elb/loadbalancers", map[string]interface{}{"loadbalancer": params})
 	if err != nil {
 		return nil, err
 	}
@@ -610,14 +600,6 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	err = resp.Unmarshal(ret, "loadbalancer")
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-
-	// 创建公网类型ELB
-	if len(loadbalancer.EipId) > 0 {
-		err := self.AssociateEipWithPortId(loadbalancer.EipId, ret.VipPortId)
-		if err != nil {
-			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
-		}
 	}
 	return ret, nil
 }
