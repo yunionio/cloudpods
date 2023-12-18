@@ -360,6 +360,18 @@ func (s *SDeployService) PrepareEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "cp files failed %s", out)
 		}
+		if DeployOption.Config != "" && fileutils2.Exists(DeployOption.Config) {
+			out, err = procutils.NewCommand("cp", "-Lrf", DeployOption.Config, "/opt/yunion/host.conf").Output()
+			if err != nil {
+				return errors.Wrapf(err, "cp files failed %s", out)
+			}
+		}
+		if DeployOption.CommonConfigFile != "" && fileutils2.Exists(DeployOption.CommonConfigFile) {
+			out, err = procutils.NewCommand("cp", "-Lrf", DeployOption.CommonConfigFile, "/opt/yunion/common.conf").Output()
+			if err != nil {
+				return errors.Wrapf(err, "cp files failed %s", out)
+			}
+		}
 
 		err = procutils.NewCommand("mkdir", "-p", qemu_kvm.RUN_ON_HOST_ROOT_PATH).Run()
 		if err != nil {
