@@ -99,7 +99,7 @@ type IDevice interface {
 	GetMdevId() string
 	GetNVIDIAVgpuProfile() map[string]string
 
-	GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error)
+	GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice, guestDesc *desc.SGuestDesc) ([]*HotPlugOption, error)
 	GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error)
 
 	// Get extra PCIE information
@@ -639,7 +639,7 @@ func (dev *sBaseDevice) CustomProbe(idx int) error {
 	return nil
 }
 
-func (dev *sBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
+func (dev *sBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice, guestDesc *desc.SGuestDesc) ([]*HotPlugOption, error) {
 	ret := make([]*HotPlugOption, 0)
 
 	var masterDevOpt *HotPlugOption
