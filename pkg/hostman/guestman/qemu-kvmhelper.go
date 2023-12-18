@@ -1003,7 +1003,9 @@ func (s *SKVMGuestInstance) initQgaDesc() {
 }
 
 func (s *SKVMGuestInstance) initPvpanicDesc() {
-	s.Desc.Pvpanic = s.archMan.GeneratePvpanicDesc()
+	if !s.disablePvpanicDev() {
+		s.Desc.Pvpanic = s.archMan.GeneratePvpanicDesc()
+	}
 }
 
 func (s *SKVMGuestInstance) initIsaSerialDesc() {
