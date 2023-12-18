@@ -520,7 +520,7 @@ func GetNicDeviceModel(name string) string {
 }
 
 func generateUsbDeviceOption(usbControllerId string, usb *desc.UsbDevice) string {
-	cmd := fmt.Sprintf("-device %s,bus=%s.0", usb.DevType, usbControllerId)
+	cmd := fmt.Sprintf("-device %s,bus=%s.0,id=%s", usb.DevType, usbControllerId, usb.Id)
 	cmd += desc.OptionsToString(usb.Options)
 	return cmd
 }

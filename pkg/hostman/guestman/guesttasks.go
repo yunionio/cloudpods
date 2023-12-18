@@ -995,7 +995,7 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice)
 		}
 	}
 
-	opts, err := devObj.GetHotPlugOptions(dev)
+	opts, err := devObj.GetHotPlugOptions(dev, t.guest.Desc)
 	if err != nil {
 		cb(errors.Wrap(err, "GetHotPlugOptions").Error())
 		return
