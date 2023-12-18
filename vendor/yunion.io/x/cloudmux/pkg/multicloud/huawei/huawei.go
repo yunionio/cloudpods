@@ -245,63 +245,6 @@ func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
 	return self.newRegionAPIClient("")
 }
 
-func (self *SHuaweiClient) lbList(regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.list(SERVICE_ELB, regionId, resource, query)
-}
-
-func (self *SHuaweiClient) monitorList(resource string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.list(SERVICE_CES, self.clientRegion, resource, query)
-}
-
-func (self *SHuaweiClient) monitorPost(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.post(SERVICE_CES, self.clientRegion, resource, params)
-}
-
-func (self *SHuaweiClient) lbGet(regionId, resource string) (jsonutils.JSONObject, error) {
-	return self.list(SERVICE_ELB, regionId, resource, nil)
-}
-
-func (self *SHuaweiClient) lbCreate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.post(SERVICE_ELB, regionId, resource, params)
-}
-
-func (self *SHuaweiClient) lbUpdate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.put(SERVICE_ELB, regionId, resource, params)
-}
-
-func (self *SHuaweiClient) lbDelete(regionId, resource string) (jsonutils.JSONObject, error) {
-	return self.delete(SERVICE_ELB, regionId, resource)
-}
-
-func (self *SHuaweiClient) vpcList(regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.list(SERVICE_VPC, regionId, resource, query)
-}
-
-func (self *SHuaweiClient) vpcCreate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.post(SERVICE_VPC, regionId, resource, params)
-}
-
-func (self *SHuaweiClient) vpcPost(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.post(SERVICE_VPC, regionId, resource, params)
-}
-
-func (self *SHuaweiClient) vpcGet(regionId, resource string) (jsonutils.JSONObject, error) {
-	return self.list(SERVICE_VPC, regionId, resource, nil)
-}
-
-func (self *SHuaweiClient) vpcDelete(regionId, resource string) (jsonutils.JSONObject, error) {
-	return self.delete(SERVICE_VPC, regionId, resource)
-}
-
-func (self *SHuaweiClient) vpcUpdate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.put(SERVICE_VPC, regionId, resource, params)
-}
-
-func (self *SHuaweiClient) cdnDelete(resource string) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
-	return self.request(httputils.DELETE, uri, url.Values{}, nil)
-}
-
 type akClient struct {
 	client *http.Client
 	aksk   aksk.SignOptions
@@ -657,19 +600,11 @@ func (self *SHuaweiClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	return nil, cloudprovider.ErrNotFound
 }
 
-// 总账户余额
-type SAccountBalance struct {
-	AvailableAmount  float64
-	CreditAmount     float64
-	DesignatedAmount float64
-}
-
-// 账户余额
-// https://support.huaweicloud.com/api-oce/zh-cn_topic_0109685133.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/BSS/debug?api=ShowCustomerAccountBalances
 type SBalance struct {
 	Amount           float64 `json:"amount"`
 	Currency         string  `json:"currency"`
-	AccountID        string  `json:"account_id"`
+	AccountId        string  `json:"account_id"`
 	AccountType      int64   `json:"account_type"`
 	DesignatedAmount float64 `json:"designated_amount,omitempty"`
 	CreditAmount     float64 `json:"credit_amount,omitempty"`
@@ -677,39 +612,22 @@ type SBalance struct {
 }
 
 // 这里的余额指的是所有租户的总余额
-func (self *SHuaweiClient) QueryAccountBalance() (*SAccountBalance, error) {
-	domains, err := self.getEnabledDomains()
+func (self *SHuaweiClient) QueryAccountBalance() (*SBalance, error) {
+	resp, err := self.list(SERVICE_BSS, "", "accounts/customer-accounts/balances", nil)
 	if err != nil {
 		return nil, err
 	}
-
-	result := &SAccountBalance{}
-	for _, domain := range domains {
-		balances, err := self.queryDomainBalances(domain.ID)
-		if err != nil {
-			return nil, err
-		}
-		for _, balance := range balances {
-			result.AvailableAmount += balance.Amount
-			result.CreditAmount += balance.CreditAmount
-			result.DesignatedAmount += balance.DesignatedAmount
-		}
-	}
-
-	return result, nil
-}
-
-// https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0075213309.html
-func (self *SHuaweiClient) queryDomainBalances(domainId string) ([]SBalance, error) {
-	huawei, _ := self.newGeneralAPIClient()
-	huawei.Balances.SetDomainId(domainId)
-	balances := make([]SBalance, 0)
-	err := doListAll(huawei.Balances.List, nil, &balances)
+	ret := []SBalance{}
+	err = resp.Unmarshal(&ret, "account_balances")
 	if err != nil {
 		return nil, err
 	}
-
-	return balances, nil
+	for i := range ret {
+		if ret[i].AccountType == 1 {
+			return &ret[i], nil
+		}
+	}
+	return &SBalance{Currency: "CYN"}, nil
 }
 
 func (self *SHuaweiClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
@@ -884,10 +802,10 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 			url = fmt.Sprintf("https://iam.myhuaweicloud.com/v3/%s", resource)
 		}
 	case SERVICE_ELB:
-		url = fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+		url = fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_VPC:
 		version := "v1"
-		if strings.HasPrefix(resource, "vpc/") {
+		if strings.HasPrefix(resource, "vpc/") || strings.HasPrefix(resource, "eip/") {
 			version = "v3"
 		}
 		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/%s/%s/%s", regionId, version, self.projectId, resource)

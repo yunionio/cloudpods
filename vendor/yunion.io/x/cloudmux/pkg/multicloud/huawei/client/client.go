@@ -27,7 +27,6 @@ type Client struct {
 	// 标记初始化状态
 	init bool
 
-	Balances             *modules.SBalanceManager
 	Credentials          *modules.SCredentialManager
 	Disks                *modules.SDiskManager
 	Domains              *modules.SDomainManager
@@ -130,7 +129,6 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Users.SetHttpClient(httpClient)
 	self.Interface.SetHttpClient(httpClient)
 	self.Jobs.SetHttpClient(httpClient)
-	self.Balances.SetHttpClient(httpClient)
 	self.Port.SetHttpClient(httpClient)
 	self.Flavors.SetHttpClient(httpClient)
 	self.VpcRoutes.SetHttpClient(httpClient)
@@ -201,7 +199,6 @@ func (self *Client) initManagers() {
 		self.Users = modules.NewUserManager(self.cfg)
 		self.Interface = modules.NewInterfaceManager(self.cfg)
 		self.Jobs = modules.NewJobManager(self.cfg)
-		self.Balances = modules.NewBalanceManager(self.cfg)
 		self.Credentials = modules.NewCredentialManager(self.cfg)
 		self.Port = modules.NewPortManager(self.cfg)
 		self.Flavors = modules.NewFlavorManager(self.cfg)
