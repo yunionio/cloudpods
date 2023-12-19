@@ -211,6 +211,7 @@ var (
 			"force_dhcp_probe_ipmi",
 			"tftp_block_size_in_bytes",
 			"tftp_max_timeout_retries",
+			"enable_grub_tftp_download",
 			"lengthy_worker_count",
 			"short_worker_count",
 			// "default_ipmi_password",
