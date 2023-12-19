@@ -9,12 +9,20 @@ RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /e
 # openssh-client, for ansible ssh connection
 # git, ca-certificates, for fetching ansible roles
 RUN set -x \
-	&& apk update \
-	&& apk add openssh-client \
-	&& apk add sshpass \
-	&& apk add ansible \
-    && apk add py3-pip \
-	&& apk add tzdata git ca-certificates \
-	&& rm -rf /var/cache/apk/*
+  && apk update \
+  && apk add openssh-client \
+  && apk add sshpass \
+  && apk add py3-pip \
+  && apk add tzdata git ca-certificates
 
-RUN pip3 install pywinrm
+RUN apk add --no-cache openssh openssl curl rsync pv mariadb-client
+RUN apk add --no-cache --virtual .build-dependencies \
+  libffi-dev openssl-dev python3-dev build-base py-setuptools rust cargo mariadb-dev
+
+# ansible should be installed
+# after setuptools and wheel
+RUN pip3 install -U pip setuptools wheel \
+  && pip3 install paramiko mysqlclient pywinrm \
+  && pip3 install 'ansible<=9.0.0' \
+  && apk del --no-network .build-dependencies \
+  && rm -rf /root/.cache /root/.cargo /var/cache/apk/*
