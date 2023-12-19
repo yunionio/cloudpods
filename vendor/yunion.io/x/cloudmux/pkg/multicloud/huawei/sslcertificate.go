@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"time"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
 )
@@ -17,7 +16,7 @@ import (
 type SSSLCertificate struct {
 	multicloud.SVirtualResourceBase
 	HuaweiTags
-	region *SRegion
+	client *SHuaweiClient
 
 	Id                 string // 证书ID
 	Name               string // 证书名称
@@ -138,7 +137,7 @@ func (s *SSSLCertificate) GetKey() string {
 
 func (s *SSSLCertificate) GetDetails() (*SSSLCertificate, error) {
 	if !s.detailsInitd {
-		cert, err := s.region.GetCertificate(s.GetId())
+		cert, err := s.client.GetCertificate(s.GetId())
 		if err != nil {
 			return nil, err
 		}
@@ -149,70 +148,41 @@ func (s *SSSLCertificate) GetDetails() (*SSSLCertificate, error) {
 	return s, nil
 }
 
-// GetISSLCertificates 获取证书资源列表
-func (r *SRegion) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+func (r *SHuaweiClient) GetSSLCertificates() ([]SSSLCertificate, error) {
+	params := url.Values{}
+	params.Set("sort_key", "certExpiredTime")
+	params.Set("sort_dir", "DESC")
 	ret := make([]SSSLCertificate, 0)
-	offset := 0
-
 	for {
-		part, total, err := r.GetSSLCertificates(50, offset)
+		resp, err := r.list(SERVICE_SCM, "", "scm/certificates", params)
 		if err != nil {
-			return nil, errors.Wrapf(err, "GetSSLCertificates")
+			return nil, errors.Wrapf(err, "list certificates")
 		}
-
-		ret = append(ret, part...)
-		if len(ret) >= total {
+		part := struct {
+			Certificates []SSSLCertificate
+			TotalCount   int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Certificates...)
+		if len(ret) >= part.TotalCount || len(part.Certificates) == 0 {
 			break
 		}
-
-		offset += 50
+		params.Set("offset", fmt.Sprintf("%d", len(ret)))
 	}
-
-	result := make([]cloudprovider.ICloudSSLCertificate, 0)
-	for i := range ret {
-		ret[i].region = r
-		result = append(result, &ret[i])
-	}
-	return result, nil
+	return ret, nil
 }
 
-func (r *SRegion) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, error) {
-	if size < 1 || size > 50 {
-		size = 50
-	}
-	if offset < 0 {
-		offset = 0
-	}
-
-	params := url.Values{
-		"limit":    []string{fmt.Sprintf("%d", size)},
-		"offset":   []string{fmt.Sprintf("%d", offset)},
-		"sort_key": []string{"certExpiredTime"},
-		"sort_dir": []string{"DESC"},
-	}
-	resp, err := r.list(SERVICE_SCM, "scm/certificates", params)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "CertificateList")
-	}
-
-	ret := make([]SSSLCertificate, 0)
-	err = resp.Unmarshal(&ret, "certificates")
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "resp.Unmarshal")
-	}
-
-	totalCount, _ := resp.Int("total_count")
-	return ret, int(totalCount), nil
-}
-
-func (r *SRegion) GetCertificate(certId string) (*SSSLCertificate, error) {
+func (cli *SHuaweiClient) GetCertificate(certId string) (*SSSLCertificate, error) {
 	resource := fmt.Sprintf("scm/certificates/%s/export", certId)
-	resp, err := r.post(SERVICE_SCM, resource, nil)
+	resp, err := cli.post(SERVICE_SCM, "", resource, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeCertificateDetail")
 	}
 
-	cert := &SSSLCertificate{region: r}
+	cert := &SSSLCertificate{client: cli}
 	err = resp.Unmarshal(cert)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
