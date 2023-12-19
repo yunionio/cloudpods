@@ -1673,8 +1673,21 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.Engine = ext.GetEngine()
 		self.EngineVersion = ext.GetEngineVersion()
 		self.InstanceType = ext.GetInstanceType()
-		self.VcpuCount = ext.GetVcpuCount()
-		self.VmemSizeMb = ext.GetVmemSizeMB()
+		cpu := ext.GetVcpuCount()
+		mem := ext.GetVmemSizeMB()
+		if (cpu == 0 || mem == 0) && len(self.InstanceType) > 0 {
+			skus, _ := self.GetAvailableDBInstanceSkus(true)
+			for _, sku := range skus {
+				cpu, mem = sku.VcpuCount, sku.VmemSizeMb
+				break
+			}
+		}
+		if cpu > 0 {
+			self.VcpuCount = cpu
+		}
+		if mem > 0 {
+			self.VmemSizeMb = mem
+		}
 		self.DiskSizeGB = ext.GetDiskSizeGB()
 		self.DiskSizeUsedMB = ext.GetDiskSizeUsedMB()
 		self.StorageType = ext.GetStorageType()
