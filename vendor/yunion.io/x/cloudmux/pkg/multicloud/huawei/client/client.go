@@ -37,7 +37,6 @@ type Client struct {
 	OpenStackImages      *modules.SImageManager
 	Interface            *modules.SInterfaceManager
 	Jobs                 *modules.SJobManager
-	Keypairs             *modules.SKeypairManager
 	Orders               *modules.SOrderManager
 	Port                 *modules.SPortManager
 	Projects             *modules.SProjectManager
@@ -62,7 +61,6 @@ type Client struct {
 	DBInstanceJob        *modules.SDBInstanceJobManager
 	Traces               *modules.STraceManager
 	CloudEye             *modules.SCloudEyeManager
-	Quotas               *modules.SQuotaManager
 	EnterpriseProjects   *modules.SEnterpriseProjectManager
 	Roles                *modules.SRoleManager
 	Groups               *modules.SGroupManager
@@ -123,7 +121,6 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.DcsAvailableZone.SetHttpClient(httpClient)
 	self.Disks.SetHttpClient(httpClient)
 	self.Domains.SetHttpClient(httpClient)
-	self.Keypairs.SetHttpClient(httpClient)
 	self.Orders.SetHttpClient(httpClient)
 	self.Subnets.SetHttpClient(httpClient)
 	self.Users.SetHttpClient(httpClient)
@@ -193,7 +190,6 @@ func (self *Client) initManagers() {
 		self.DcsAvailableZone = modules.NewDcsAvailableZoneManager(self.cfg)
 		self.Disks = modules.NewDiskManager(self.cfg)
 		self.Domains = modules.NewDomainManager(self.cfg)
-		self.Keypairs = modules.NewKeypairManager(self.cfg)
 		self.Orders = modules.NewOrderManager(self.cfg)
 		self.Subnets = modules.NewSubnetManager(self.cfg)
 		self.Users = modules.NewUserManager(self.cfg)
@@ -213,7 +209,6 @@ func (self *Client) initManagers() {
 		self.DBInstanceJob = modules.NewDBInstanceJobManager(self.cfg)
 		self.Traces = modules.NewTraceManager(self.cfg)
 		self.CloudEye = modules.NewCloudEyeManager(self.cfg)
-		self.Quotas = modules.NewQuotaManager(self.cfg)
 		self.EnterpriseProjects = modules.NewEnterpriseProjectManager(self.cfg)
 		self.Roles = modules.NewRoleManager(self.cfg)
 		self.Groups = modules.NewGroupManager(self.cfg)

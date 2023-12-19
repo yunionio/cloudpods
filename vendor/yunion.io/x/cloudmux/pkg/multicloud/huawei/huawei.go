@@ -627,6 +627,20 @@ func (self *SHuaweiClient) QueryAccountBalance() (*SBalance, error) {
 	return &SBalance{Currency: "CYN"}, nil
 }
 
+func (self *SHuaweiClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
+	ret, err := self.GetSSLCertificates()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSSLCertificates")
+	}
+
+	result := make([]cloudprovider.ICloudSSLCertificate, 0)
+	for i := range ret {
+		ret[i].client = self
+		result = append(result, &ret[i])
+	}
+	return result, nil
+}
+
 func (self *SHuaweiClient) GetVersion() string {
 	return HUAWEI_API_VERSION
 }
@@ -865,6 +879,14 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 		url = fmt.Sprintf("https://cts.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_NAT:
 		url = fmt.Sprintf("https://nat.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_SCM:
+		url = fmt.Sprintf("https://scm.cn-north-4.myhuaweicloud.com/v3/%s", resource)
+	case SERVICE_CDN:
+		url = fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
+	case SERVICE_GAUSSDB, SERVICE_GAUSSDB_NOSQL:
+		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v3/%s/%s", service, regionId, self.projectId, resource)
+	case SERVICE_FUNCTIONGRAPH:
+		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v2/%s/%s", service, regionId, self.projectId, resource)
 	default:
 		return "", fmt.Errorf("invalid service %s", service)
 	}
