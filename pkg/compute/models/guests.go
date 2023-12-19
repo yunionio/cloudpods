@@ -5553,6 +5553,9 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 		if len(guests[i].GetExternalId()) > 0 {
 			iVm, err := guests[i].GetIVM(ctx)
 			if err == nil && iVm.GetStatus() == api.VM_RUNNING {
+				if guests[i].Status != api.VM_DELETE_FAIL {
+					guests[i].SetStatus(userCred, api.VM_DELETE_FAIL, "vm status is running")
+				}
 				continue
 			}
 		}
