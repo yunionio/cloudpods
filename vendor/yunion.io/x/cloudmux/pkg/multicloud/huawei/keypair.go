@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -23,14 +24,15 @@ import (
 	"github.com/aokoli/goutils"
 	"golang.org/x/crypto/ssh"
 
-	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212676.html
 type SKeypair struct {
-	Fingerprint string `json:"fingerprint"`
-	Name        string `json:"name"`
-	PublicKey   string `json:"public_key"`
+	Keypair struct {
+		Fingerprint string `json:"fingerprint"`
+		Name        string `json:"name"`
+		PublicKey   string `json:"public_key"`
+	}
 }
 
 func (self *SRegion) getFingerprint(publicKey string) (string, error) {
@@ -43,15 +45,22 @@ func (self *SRegion) getFingerprint(publicKey string) (string, error) {
 	return fingerprint, nil
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212676.html
-func (self *SRegion) GetKeypairs() ([]SKeypair, int, error) {
-	keypairs := make([]SKeypair, 0)
-	err := doListAll(self.ecsClient.Keypairs.List, nil, &keypairs)
-	return keypairs, len(keypairs), err
+func (self *SRegion) GetKeypairs() ([]SKeypair, error) {
+	ret := []SKeypair{}
+	query := url.Values{}
+	resp, err := self.list(SERVICE_ECS, "os-keypairs", query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list os-keypairs")
+	}
+	err = resp.Unmarshal(&ret, "keypairs")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (self *SRegion) lookUpKeypair(publicKey string) (string, error) {
-	keypairs, _, err := self.GetKeypairs()
+	keypairs, err := self.GetKeypairs()
 	if err != nil {
 		return "", err
 	}
@@ -62,24 +71,30 @@ func (self *SRegion) lookUpKeypair(publicKey string) (string, error) {
 	}
 
 	for _, keypair := range keypairs {
-		if keypair.Fingerprint == fingerprint {
-			return keypair.Name, nil
+		if keypair.Keypair.Fingerprint == fingerprint {
+			return keypair.Keypair.Name, nil
 		}
 	}
 
 	return "", fmt.Errorf("keypair not found %s", err)
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212678.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=NovaCreateKeypair
 func (self *SRegion) ImportKeypair(name, publicKey string) (*SKeypair, error) {
-	keypairObj := jsonutils.NewDict()
-	keypairObj.Add(jsonutils.NewString(name), "name")
-	keypairObj.Add(jsonutils.NewString(publicKey), "public_key")
-	params := jsonutils.NewDict()
-	params.Set("keypair", keypairObj)
-	ret := SKeypair{}
-	err := DoCreate(self.ecsClient.Keypairs.Create, params, &ret)
-	return &ret, err
+	params := map[string]interface{}{
+		"name":       name,
+		"public_key": publicKey,
+	}
+	resp, err := self.post(SERVICE_ECS, "os-keypairs", map[string]interface{}{"keypair": params})
+	if err != nil {
+		return nil, errors.Wrapf(err, "create os-keypairs")
+	}
+	ret := &SKeypair{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
 
 func (self *SRegion) importKeypair(publicKey string) (string, error) {
@@ -92,7 +107,7 @@ func (self *SRegion) importKeypair(publicKey string) (string, error) {
 	if k, e := self.ImportKeypair(name, publicKey); e != nil {
 		return "", fmt.Errorf("keypair import error %s", e)
 	} else {
-		return k.Name, nil
+		return k.Keypair.Name, nil
 	}
 }
 

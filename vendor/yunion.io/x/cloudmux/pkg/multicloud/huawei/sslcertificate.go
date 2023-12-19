@@ -137,48 +137,42 @@ func (s *SSSLCertificate) GetKey() string {
 
 func (s *SSSLCertificate) GetDetails() (*SSSLCertificate, error) {
 	if !s.detailsInitd {
-		cert, err := s.client.GetISSLCertificate(s.GetId())
+		cert, err := s.client.GetSSLCertificate(s.GetId())
 		if err != nil {
 			return nil, err
 		}
 		s.detailsInitd = true
-		_cert, ok := cert.(*SSSLCertificate)
-		if !ok {
-			return nil, errors.Wrapf(err, "cert.(*SSSLCertificate)")
-		}
-		s.Certificate = _cert.Certificate
-		s.PrivateKey = _cert.PrivateKey
+		s.Certificate = cert.Certificate
+		s.PrivateKey = cert.PrivateKey
 	}
 	return s, nil
 }
 
-func (r *SHuaweiClient) GetSSLCertificates(size, offset int) ([]SSSLCertificate, int, error) {
-	if size < 1 || size > 50 {
-		size = 50
-	}
-	if offset < 0 {
-		offset = 0
-	}
-
-	params := url.Values{
-		"limit":    []string{fmt.Sprintf("%d", size)},
-		"offset":   []string{fmt.Sprintf("%d", offset)},
-		"sort_key": []string{"certExpiredTime"},
-		"sort_dir": []string{"DESC"},
-	}
-	resp, err := r.list(SERVICE_SCM, "", "scm/certificates", params)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "CertificateList")
-	}
-
+func (r *SHuaweiClient) GetSSLCertificates() ([]SSSLCertificate, error) {
+	params := url.Values{}
+	params.Set("sort_key", "certExpiredTime")
+	params.Set("sort_dir", "DESC")
 	ret := make([]SSSLCertificate, 0)
-	err = resp.Unmarshal(&ret, "certificates")
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "resp.Unmarshal")
+	for {
+		resp, err := r.list(SERVICE_SCM, "", "scm/certificates", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list certificates")
+		}
+		part := struct {
+			Certificates []SSSLCertificate
+			TotalCount   int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Certificates...)
+		if len(ret) >= part.TotalCount || len(part.Certificates) == 0 {
+			break
+		}
+		params.Set("offset", fmt.Sprintf("%d", len(ret)))
 	}
-
-	totalCount, _ := resp.Int("total_count")
-	return ret, int(totalCount), nil
+	return ret, nil
 }
 
 func (r *SHuaweiClient) GetSSLCertificate(certId string) (*SSSLCertificate, error) {

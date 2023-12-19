@@ -74,8 +74,8 @@ type SSSLCertificate struct {
 	Fingerprint string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	City        string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	OrgName     string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Certificate string    `charset:"utf8" nullable:"false" list:"user" create:"required"`
-	PrivateKey  string    `charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Certificate string    `charset:"utf8" nullable:"true" list:"user" create:"required"`
+	PrivateKey  string    `charset:"utf8" nullable:"true" list:"user" create:"required"`
 }
 
 func (s SSSLCertificate) GetExternalId() string {

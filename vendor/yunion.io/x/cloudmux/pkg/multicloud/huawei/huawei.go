@@ -631,21 +631,9 @@ func (self *SHuaweiClient) QueryAccountBalance() (*SBalance, error) {
 }
 
 func (self *SHuaweiClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
-	ret := make([]SSSLCertificate, 0)
-	offset := 0
-
-	for {
-		part, total, err := self.GetSSLCertificates(50, offset)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetSSLCertificates")
-		}
-
-		ret = append(ret, part...)
-		if len(ret) >= total {
-			break
-		}
-
-		offset += 50
+	ret, err := self.GetSSLCertificates()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSSLCertificates")
 	}
 
 	result := make([]cloudprovider.ICloudSSLCertificate, 0)
@@ -858,7 +846,7 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 	case SERVICE_NAT:
 		url = fmt.Sprintf("https://nat.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_SCM:
-		url = fmt.Sprintf("https://scm.%s.myhuaweicloud.com/v3/%s", HUAWEI_DEFAULT_REGION, resource)
+		url = fmt.Sprintf("https://scm.cn-north-4.myhuaweicloud.com/v3/%s", resource)
 	case SERVICE_CDN:
 		url = fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
 	case SERVICE_GAUSSDB, SERVICE_GAUSSDB_NOSQL:
