@@ -1061,7 +1061,7 @@ func (b *SBaremetalInstance) GetNotifyUrl() string {
 	return fmt.Sprintf("%s/baremetals/%s/notify", b.manager.Agent.GetListenUri(), b.GetId())
 }
 
-func (b *SBaremetalInstance) getTftpEndpoint() (string, error) {
+func (b *SBaremetalInstance) getHTTPEndpoint() (string, error) {
 	serverIP, err := b.manager.Agent.GetDHCPServerIP()
 	if err != nil {
 		return "", errors.Wrap(err, "GetDHCPServerIP")
@@ -1069,8 +1069,8 @@ func (b *SBaremetalInstance) getTftpEndpoint() (string, error) {
 	return fmt.Sprintf("%s:%d", serverIP, o.Options.Port+1000), nil
 }
 
-func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
-	endpoint, err := b.getTftpEndpoint()
+func (b *SBaremetalInstance) getHTTPFileUrl(filename string) string {
+	endpoint, err := b.getHTTPEndpoint()
 	if err != nil {
 		log.Errorf("Get http file server endpoint: %v", err)
 		return filename
@@ -1123,7 +1123,7 @@ func (b *SBaremetalInstance) getIsolinuxConf() string {
 
 func (b *SBaremetalInstance) getSyslinuxPath(filename string, isTftp bool) string {
 	if isTftp {
-		return b.getTftpFileUrl(filename)
+		return b.getHTTPFileUrl(filename)
 	} else {
 		return filename
 	}
@@ -1203,12 +1203,12 @@ func (b *SBaremetalInstance) getGrubPXEConf(isTftp bool) string {
 		kernelArgs = fmt.Sprintf("root=/dev/nfs nfsroot=%s rw", o.Options.NfsBootRootfs)
 	}
 	var resp string
-	endpoint, err := b.getTftpEndpoint()
+	endpoint, err := b.getHTTPEndpoint()
 	if err != nil {
-		log.Fatalf("getTftpEndpoint %s", err)
+		log.Fatalf("getHTTPEndpoint %s", err)
 	}
 	if b.NeedPXEBoot() {
-		resp = grub.GetYunionOSConfig(3, endpoint, kernel, kernelArgs, initrd)
+		resp = grub.GetYunionOSConfig(3, endpoint, kernel, kernelArgs, initrd, o.Options.EnableGrubTftpDownload)
 	} else {
 		resp = grub.GetAutoFindConfig()
 		b.ClearSSHConfig()
@@ -1229,8 +1229,8 @@ LABEL start
 		kernel := "vmlinuz"
 		initramfs := "initrd.img"
 		if isTftp {
-			kernel = b.getTftpFileUrl("kernel")
-			initramfs = b.getTftpFileUrl("initramfs")
+			kernel = b.getHTTPFileUrl("kernel")
+			initramfs = b.getHTTPFileUrl("initramfs")
 		}
 		resp += fmt.Sprintf("    kernel %s\n", kernel)
 		args := []string{
