@@ -365,3 +365,7 @@ func DIV(name string, fields ...IQueryField) IQueryField {
 func DATEDIFF(unit string, field1, field2 IQueryField) IQueryField {
 	return getFieldBackend(field1).DATEDIFF(unit, field1, field2)
 }
+
+func ABS(name string, field IQueryField) IQueryField {
+	return NewFunctionField(name, "ABS(%s)", field)
+}
