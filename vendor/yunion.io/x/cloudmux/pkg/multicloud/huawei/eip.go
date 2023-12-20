@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/httputils"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -219,6 +218,7 @@ func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
 	return ports[0].ID, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v2&api=CreatePublicip
 func (self *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error) {
 	if len(opts.BGPType) == 0 {
 		switch self.GetId() {
@@ -270,8 +270,9 @@ func (self *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error)
 	return eip, resp.Unmarshal(eip, "publicip")
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v3&api=ShowPublicip
 func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	resp, err := self.list(SERVICE_VPC, "eip/publicips/"+eipId, nil)
+	resp, err := self.list(SERVICE_VPC_V3, "eip/publicips/"+eipId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -279,11 +280,13 @@ func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	return eip, resp.Unmarshal(eip, "publicip")
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v2&api=DeletePublicip
 func (self *SRegion) DeallocateEIP(eipId string) error {
 	_, err := self.delete(SERVICE_VPC, "publicips/"+eipId)
 	return err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v3&api=AssociatePublicips
 func (self *SRegion) AssociateEip(eipId string, associateId, associateType string) error {
 	params := map[string]interface{}{
 		"publicip": map[string]interface{}{
@@ -292,16 +295,18 @@ func (self *SRegion) AssociateEip(eipId string, associateId, associateType strin
 		},
 	}
 	res := fmt.Sprintf("eip/publicips/%s/associate-instance", eipId)
-	_, err := self.post(SERVICE_VPC, res, params)
+	_, err := self.post(SERVICE_VPC_V3, res, params)
 	return err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v3&api=DisassociatePublicips
 func (self *SRegion) DissociateEip(eipId string) error {
 	res := fmt.Sprintf("eip/publicips/%s/disassociate-instance", eipId)
-	_, err := self.post(SERVICE_VPC, res, nil)
+	_, err := self.post(SERVICE_VPC_V3, res, nil)
 	return err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v2&api=UpdateBandwidth
 func (self *SRegion) UpdateEipBandwidth(bandwidthId string, bw int) error {
 	params := map[string]interface{}{
 		"bandwidth": map[string]interface{}{
@@ -316,6 +321,7 @@ func (self *SEipAddress) GetProjectId() string {
 	return self.EnterpriseProjectId
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v3&api=ListPublicips
 func (self *SRegion) GetEips(portId string, addrs []string) ([]SEipAddress, error) {
 	query := url.Values{}
 	for _, addr := range addrs {
@@ -326,7 +332,7 @@ func (self *SRegion) GetEips(portId string, addrs []string) ([]SEipAddress, erro
 	}
 	eips := []SEipAddress{}
 	for {
-		resp, err := self.list(SERVICE_VPC, "eip/publicips", query)
+		resp, err := self.list(SERVICE_VPC_V3, "eip/publicips", query)
 		if err != nil {
 			return nil, err
 		}
@@ -350,6 +356,28 @@ func (self *SRegion) GetEips(portId string, addrs []string) ([]SEipAddress, erro
 	return eips, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v2&api=DeletePublicipTag
+func (self *SRegion) DeletePublicipTag(eipId string, key string) error {
+	res := fmt.Sprintf("publicips/%s/tags/%s", eipId, key)
+	_, err := self.delete(SERVICE_VPC_V2_0, res)
+	return err
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EIP/doc?version=v2&api=CreatePublicipTag
+func (self *SRegion) CreatePublicipTag(eipId string, tags map[string]string) error {
+	params := map[string]interface{}{
+		"action": "create",
+	}
+	add := []map[string]string{}
+	for k, v := range tags {
+		add = append(add, map[string]string{"key": k, "value": v})
+	}
+	params["tags"] = add
+	res := fmt.Sprintf("publicips/%s/tags/action", eipId)
+	_, err := self.post(SERVICE_VPC_V2_0, res, params)
+	return err
+}
+
 func (self *SRegion) setEipTags(id string, existedTags, tags map[string]string, replace bool) error {
 	deleteTagsKey := []string{}
 	for k := range existedTags {
@@ -363,24 +391,14 @@ func (self *SRegion) setEipTags(id string, existedTags, tags map[string]string, 
 	}
 	if len(deleteTagsKey) > 0 {
 		for _, k := range deleteTagsKey {
-			url := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v2.0/%s/publicips/%s/tags/%s", self.ID, self.client.projectId, id, k)
-			_, err := self.client.request(httputils.DELETE, url, nil, nil)
+			err := self.DeletePublicipTag(self.ID, k)
 			if err != nil {
 				return errors.Wrapf(err, "remove tags")
 			}
 		}
 	}
 	if len(tags) > 0 {
-		params := map[string]interface{}{
-			"action": "create",
-		}
-		add := []map[string]string{}
-		for k, v := range tags {
-			add = append(add, map[string]string{"key": k, "value": v})
-		}
-		params["tags"] = add
-		url := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v2.0/%s/publicips/%s/tags/action", self.ID, self.client.projectId, id)
-		_, err := self.client.request(httputils.POST, url, nil, params)
+		err := self.CreatePublicipTag(self.ID, tags)
 		if err != nil {
 			return errors.Wrapf(err, "add tags")
 		}

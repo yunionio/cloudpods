@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 func (self *SRegion) waitTaskStatus(serviceType string, taskId string, targetStatus string, interval time.Duration, timeout time.Duration) error {
@@ -39,66 +39,79 @@ func (self *SRegion) waitTaskStatus(serviceType string, taskId string, targetSta
 	return nil
 }
 
+type SJob struct {
+	Status   string
+	Entities struct {
+		SubJobs []struct {
+			VolumeId string
+			ServerId string
+		}
+		VolumeId string
+		ImageId  string
+	}
+}
+
+func (self *SRegion) GetJob(serviceType string, jobId string) (*SJob, error) {
+	resp, err := self.list(serviceType, "jobs/"+jobId, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SJob{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
+}
+
 func (self *SRegion) GetTaskStatus(serviceType string, taskId string) (string, error) {
-	querys := map[string]string{"service_type": serviceType}
-	task, err := self.ecsClient.Jobs.Get(taskId, querys)
+	job, err := self.GetJob(serviceType, taskId)
 	if err != nil {
 		return "", err
 	}
-
-	status, err := task.GetString("status")
-	if status == TASK_FAIL {
-		log.Debugf("task %s failed: %s", taskId, task.String())
-	}
-
-	return status, err
+	return job.Status, nil
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022225398.html
 // 数据结构  entities -> []job
-func (self *SRegion) GetAllSubTaskEntityIDs(serviceType string, taskId string, entityKeyName string) ([]string, error) {
+func (self *SRegion) GetAllSubTaskEntityIDs(serviceType string, taskId string) ([]string, error) {
 	err := self.waitTaskStatus(serviceType, taskId, TASK_SUCCESS, 10*time.Second, 600*time.Second)
 	if err != nil {
 		return nil, err
 	}
-
-	querys := map[string]string{"service_type": serviceType}
-	ret, err := self.ecsClient.Jobs.Get(taskId, querys)
+	job, err := self.GetJob(serviceType, taskId)
 	if err != nil {
 		return nil, err
 	}
-
-	entities, err := ret.GetArray("entities", "sub_jobs")
-	if err != nil {
-		return nil, err
-	}
-
-	ids := make([]string, 0)
-	for i := range entities {
-		entity := entities[i]
-		rid, err := entity.GetString("entities", entityKeyName)
-		if err != nil {
-			return nil, err
+	ret := []string{}
+	for _, entity := range job.Entities.SubJobs {
+		if len(entity.VolumeId) > 0 {
+			ret = append(ret, entity.VolumeId)
 		}
-
-		ids = append(ids, rid)
+		if len(entity.ServerId) > 0 {
+			ret = append(ret, entity.ServerId)
+		}
 	}
-
-	return ids, nil
+	return ret, nil
 }
 
 // 数据结构  entities -> job
-func (self *SRegion) GetTaskEntityID(serviceType string, taskId string, entityKeyName string) (string, error) {
+func (self *SRegion) GetTaskEntityID(serviceType string, taskId string, key string) (string, error) {
 	err := self.waitTaskStatus(serviceType, taskId, TASK_SUCCESS, 10*time.Second, 600*time.Second)
 	if err != nil {
 		return "", err
 	}
 
-	querys := map[string]string{"service_type": serviceType}
-	ret, err := self.ecsClient.Jobs.Get(taskId, querys)
+	job, err := self.GetJob(serviceType, taskId)
 	if err != nil {
 		return "", err
 	}
-
-	return ret.GetString("entities", entityKeyName)
+	switch key {
+	case "volume_id":
+		return job.Entities.VolumeId, nil
+	case "image_id":
+		return job.Entities.ImageId, nil
+	default:
+		return "", fmt.Errorf("unknown %s", key)
+	}
 }

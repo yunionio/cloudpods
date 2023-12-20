@@ -25,16 +25,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules"
 )
-
-func (r *SRegion) GetMetrics() ([]modules.SMetricMeta, error) {
-	return r.ecsClient.CloudEye.ListMetrics()
-}
-
-func (r *SRegion) GetMetricsData(metrics []modules.SMetricMeta, since time.Time, until time.Time) ([]modules.SMetricData, error) {
-	return r.ecsClient.CloudEye.GetMetricsData(metrics, since, until)
-}
 
 type MetricData struct {
 	Namespace  string

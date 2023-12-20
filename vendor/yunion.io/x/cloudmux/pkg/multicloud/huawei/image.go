@@ -17,6 +17,7 @@ package huawei
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -31,17 +32,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-type TImageOwnerType string
-
-const (
-	ImageOwnerPublic TImageOwnerType = "gold"    // 公共镜像：gold
-	ImageOwnerSelf   TImageOwnerType = "private" // 私有镜像：private
-	ImageOwnerShared TImageOwnerType = "shared"  // 共享镜像：shared
-
-	EnvFusionCompute = "FusionCompute"
-	EnvIronic        = "Ironic"
-)
-
 const (
 	ImageStatusQueued  = "queued"  // queued：表示镜像元数据已经创建成功，等待上传镜像文件。
 	ImageStatusSaving  = "saving"  // saving：表示镜像正在上传文件到后端存储。
@@ -50,7 +40,6 @@ const (
 	ImageStatusActive  = "active"  // active：表示镜像可以正常使用
 )
 
-// https://support.huaweicloud.com/api-ims/zh-cn_topic_0020091565.html
 type SImage struct {
 	multicloud.SImageBase
 	HuaweiTags
@@ -141,11 +130,11 @@ func (self *SImage) GetImageStatus() string {
 }
 
 func (self *SImage) Refresh() error {
-	new, err := self.storageCache.region.GetImage(self.GetId())
+	image, err := self.storageCache.region.GetImage(self.GetId())
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	return jsonutils.Update(self, image)
 }
 
 func (self *SImage) GetImageType() cloudprovider.TImageType {
@@ -218,10 +207,6 @@ func (self *SImage) GetCreatedAt() time.Time {
 	return self.CreatedAt
 }
 
-func (self *SImage) IsEmulated() bool {
-	return false
-}
-
 func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.GetId())
 }
@@ -231,145 +216,101 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
-	image := &SImage{}
-	err := DoGet(self.ecsClient.Images.Get, imageId, nil, image)
-	if err != nil {
-		return nil, errors.Wrap(err, "DoGet")
-	}
-	return image, nil
-}
-
-func excludeImage(image SImage) bool {
-	if image.VirtualEnvType == "Ironic" {
-		return true
-	}
-
-	if len(image.SupportDiskIntensive) > 0 {
-		return true
-	}
-
-	if len(image.SupportKVMFPGAType) > 0 || len(image.SupportKVMAscend310) > 0 {
-		return true
-	}
-
-	if len(image.SupportKVMGPUType) > 0 {
-		return true
-	}
-
-	if len(image.SupportKVMNVMEHIGHIO) > 0 {
-		return true
-	}
-
-	if len(image.SupportGPUT4) > 0 {
-		return true
-	}
-
-	if len(image.SupportXENGPUType) > 0 {
-		return true
-	}
-
-	if len(image.SupportHighPerformance) > 0 {
-		return true
-	}
-
-	if len(image.SupportArm) > 0 {
-		return true
-	}
-
-	return false
-}
-
-// https://support.huaweicloud.com/api-ims/zh-cn_topic_0060804959.html
-func (self *SRegion) GetImages(status string, imagetype TImageOwnerType, name string, envType string) ([]SImage, error) {
-	queries := map[string]string{}
-	if len(status) > 0 {
-		queries["status"] = status
-	}
-
-	if len(imagetype) > 0 {
-		queries["__imagetype"] = string(imagetype)
-		if imagetype == ImageOwnerPublic {
-			queries["protected"] = "True"
-		}
-	}
-	if len(envType) > 0 {
-		queries["virtual_env_type"] = envType
-	}
-
-	if len(name) > 0 {
-		queries["name"] = name
-	}
-
-	images := make([]SImage, 0)
-	err := doListAllWithMarker(self.ecsClient.Images.List, queries, &images)
-
-	// 排除掉需要特定镜像才能创建的实例类型
-	// https://support.huaweicloud.com/eu-west-0-api-ims/zh-cn_topic_0031617666.html#ZH-CN_TOPIC_0031617666__table48545918250
-	// https://support.huaweicloud.com/productdesc-ecs/zh-cn_topic_0088142947.html
-	filtedImages := make([]SImage, 0)
-	for i := range images {
-		if !excludeImage(images[i]) {
-			filtedImages = append(filtedImages, images[i])
-		}
-	}
-
-	return filtedImages, err
-}
-
-func (self *SRegion) DeleteImage(imageId string) error {
-	return DoDelete(self.ecsClient.OpenStackImages.Delete, imageId, nil, nil)
-}
-
-func (self *SRegion) GetImageByName(name string) (*SImage, error) {
-	if len(name) == 0 {
-		return nil, fmt.Errorf("image name should not be empty")
-	}
-
-	images, err := self.GetImages("", TImageOwnerType(""), name, "")
+	images, err := self.GetImages(imageId, "", "", "")
 	if err != nil {
 		return nil, err
 	}
-	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range images {
+		if images[i].ID == imageId {
+			return &images[i], nil
+		}
 	}
-
-	log.Debugf("%d image found match name %s", len(images), name)
-	return &images[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, imageId)
 }
 
-/* https://support.huaweicloud.com/api-ims/zh-cn_topic_0020092109.html
-   os version 取值范围： https://support.huaweicloud.com/api-ims/zh-cn_topic_0031617666.html
-   用于创建私有镜像的源云服务器系统盘大小大于等于40GB且不超过1024GB。
-   目前支持vhd，zvhd、raw，qcow2
-   todo: 考虑使用镜像快速导入。 https://support.huaweicloud.com/api-ims/zh-cn_topic_0133188204.html
-   使用OBS文件创建镜像
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IMS/doc?api=ListImages
+func (self *SRegion) GetImages(id, status string, imagetype string, name string) ([]SImage, error) {
+	query := url.Values{}
+	query.Set("virtual_env_type", "FusionCompute")
+	if len(status) > 0 {
+		query.Set("status", status)
+	}
 
-   * openstack原生接口支持的格式：https://support.huaweicloud.com/api-ims/zh-cn_topic_0031615566.html
-*/
+	if len(id) > 0 {
+		query.Set("id", id)
+	}
+
+	if len(imagetype) > 0 {
+		query.Set("__imagetype", string(imagetype))
+		if imagetype == "gold" {
+			query.Set("protected", "True")
+		}
+	}
+
+	if len(name) > 0 {
+		query.Set("name", name)
+	}
+
+	ret := []SImage{}
+	for {
+		resp, err := self.list(SERVICE_IMS, "cloudimages", query)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Images []SImage
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		ret = append(ret, part.Images...)
+		if len(part.Images) == 0 {
+			break
+		}
+		query.Set("marker", part.Images[len(part.Images)-1].ID)
+	}
+
+	return ret, nil
+}
+
+func (self *SRegion) DeleteImage(imageId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetImageByName(name string) (*SImage, error) {
+	images, err := self.GetImages("", "", "", name)
+	if err != nil {
+		return nil, err
+	}
+	for i := range images {
+		if images[i].Name == name {
+			return &images[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+}
+
 func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string, osArch string, bucket string, key string, minDiskGB int64) (string, error) {
-	os_version, err := stdVersion(osDist, osVersion, osArch)
-	log.Debugf("%s %s %s: %s.min_disk %d GB", osDist, osVersion, osArch, os_version, minDiskGB)
+	osVersion, err := stdVersion(osDist, osVersion, osArch)
+	log.Debugf("%s %s %s: %s.min_disk %d GB", osDist, osVersion, osArch, osVersion, minDiskGB)
+
+	imageUrl := fmt.Sprintf("%s:%s", bucket, key)
+	params := map[string]interface{}{
+		"name":           name,
+		"image_url":      imageUrl,
+		"is_config_init": true,
+		"is_config":      true,
+		"min_disk":       minDiskGB,
+	}
+	if len(osVersion) > 0 {
+		params["os_version"] = osVersion
+	}
+	resp, err := self.post(SERVICE_IMS, "cloudimages/quickimport/action", params)
 	if err != nil {
-		log.Debugln(err)
+		return "", errors.Wrapf(err, "import image")
 	}
-
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(name), "name")
-	image_url := fmt.Sprintf("%s:%s", bucket, key)
-	params.Add(jsonutils.NewString(image_url), "image_url")
-	if len(os_version) > 0 {
-		params.Add(jsonutils.NewString(os_version), "os_version")
-	}
-	params.Add(jsonutils.NewBool(true), "is_config_init")
-	params.Add(jsonutils.NewBool(true), "is_config")
-	params.Add(jsonutils.NewInt(minDiskGB), "min_disk")
-
-	ret, err := self.ecsClient.Images.PerformAction2("action", "", params, "")
-	if err != nil {
-		return "", err
-	}
-
-	return ret.GetString("job_id")
+	return resp.GetString("job_id")
 }
 
 func formatVersion(osDist string, osVersion string) (string, error) {

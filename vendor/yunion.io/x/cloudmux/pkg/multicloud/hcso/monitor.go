@@ -25,7 +25,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules"
+	"yunion.io/x/cloudmux/pkg/multicloud/hcso/client/modules"
 )
 
 type MetricData struct {

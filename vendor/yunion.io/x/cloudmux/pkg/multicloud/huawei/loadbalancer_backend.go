@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -94,15 +93,13 @@ func (self *SElbBackend) GetBackendRole() string {
 }
 
 func (self *SElbBackend) GetBackendId() string {
-	i, err := self.lb.region.getInstanceByIP(self.Address)
+	vms, err := self.region.GetInstances(self.Address)
 	if err != nil {
-		log.Errorf("ElbBackend GetBackendId %s", err)
+		return ""
 	}
-
-	if i != nil {
-		return i.GetId()
+	for _, vm := range vms {
+		return vm.GetId()
 	}
-
 	return ""
 }
 
@@ -121,33 +118,6 @@ func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 	res := fmt.Sprintf("elb/pools/%s/members/%s", self.backendGroup.GetId(), self.ID)
 	_, err := self.region.put(SERVICE_ELB, res, map[string]interface{}{"member": params})
 	return err
-}
-
-func (self *SRegion) getInstanceByIP(privateIP string) (*SInstance, error) {
-	queries := make(map[string]string)
-
-	if len(self.client.projectId) > 0 {
-		queries["project_id"] = self.client.projectId
-	}
-
-	if len(privateIP) > 0 {
-		queries["ip"] = privateIP
-	}
-
-	instances := make([]SInstance, 0)
-	err := doListAllWithOffset(self.ecsClient.Servers.List, queries, &instances)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(instances) == 1 {
-		return &instances[0], nil
-	} else if len(instances) > 1 {
-		log.Warningf("SRegion.getInstanceByIP %s result: multiple server find", privateIP)
-		return &instances[0], nil
-	}
-
-	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetElbBackend(pool, id string) (*SElbBackend, error) {

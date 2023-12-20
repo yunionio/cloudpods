@@ -35,19 +35,8 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth/credentials"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei/obs"
 )
-
-/*
-待解决问题：
-1.同步的子账户中有一条空记录.需要查原因
-2.安全组同步需要进一步确认
-3.实例接口需要进一步确认
-4.BGP type 目前是hard code在代码中。需要考虑从cloudmeta服务中查询
-*/
 
 const (
 	CLOUD_PROVIDER_HUAWEI    = api.CLOUD_PROVIDER_HUAWEI
@@ -62,13 +51,21 @@ const (
 	HUAWEI_API_VERSION         = "2018-12-25"
 
 	SERVICE_IAM           = "iam"
+	SERVICE_IAM_V3        = "iam_v3"
+	SERVICE_IAM_V3_EXT    = "iam_v3_ext"
 	SERVICE_ELB           = "elb"
 	SERVICE_VPC           = "vpc"
+	SERVICE_VPC_V2_0      = "vpc_v2.0"
+	SERVICE_VPC_V3        = "vpc_v3"
 	SERVICE_CES           = "ces"
 	SERVICE_RDS           = "rds"
 	SERVICE_ECS           = "ecs"
+	SERVICE_ECS_V1_1      = "ecs_v1.1"
+	SERVICE_ECS_V2_1      = "ecs_v2.1"
 	SERVICE_EPS           = "eps"
 	SERVICE_EVS           = "evs"
+	SERVICE_EVS_V1        = "evs_v1"
+	SERVICE_EVS_V2_1      = "evs_v2.1"
 	SERVICE_BSS           = "bss"
 	SERVICE_SFS           = "sfs-turbo"
 	SERVICE_CTS           = "cts"
@@ -77,10 +74,12 @@ const (
 	SERVICE_CCI           = "cci"
 	SERVICE_CSBS          = "csbs"
 	SERVICE_IMS           = "ims"
+	SERVICE_IMS_V1        = "ims_v1"
 	SERVICE_AS            = "as"
 	SERVICE_CCE           = "cce"
 	SERVICE_DCS           = "dcs"
 	SERVICE_MODELARTS     = "modelarts"
+	SERVICE_MODELARTS_V1  = "modelarts_v1"
 	SERVICE_SCM           = "scm"
 	SERVICE_CDN           = "cdn"
 	SERVICE_GAUSSDB       = "gaussdb"
@@ -100,17 +99,15 @@ type HuaweiClientConfig struct {
 	cpcfg cloudprovider.ProviderConfig
 
 	projectId    string // 华为云项目ID.
-	cloudEnv     string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	accessSecret string
 
 	debug bool
 }
 
-func NewHuaweiClientConfig(cloudEnv, accessKey, accessSecret, projectId string) *HuaweiClientConfig {
+func NewHuaweiClientConfig(accessKey, accessSecret, projectId string) *HuaweiClientConfig {
 	cfg := &HuaweiClientConfig{
 		projectId:    projectId,
-		cloudEnv:     cloudEnv,
 		accessKey:    accessKey,
 		accessSecret: accessSecret,
 	}
@@ -130,8 +127,6 @@ func (cfg *HuaweiClientConfig) Debug(debug bool) *HuaweiClientConfig {
 type SHuaweiClient struct {
 	*HuaweiClientConfig
 
-	signer auth.Signer
-
 	isMainProject bool // whether the project is the main project in the region
 	clientRegion  string
 
@@ -147,6 +142,8 @@ type SHuaweiClient struct {
 	regions  []SRegion
 
 	httpClient *http.Client
+
+	orders map[string]SOrderResource
 }
 
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
@@ -169,26 +166,12 @@ func (self *SHuaweiClient) init() error {
 	if err != nil {
 		return err
 	}
-	err = self.initSigner()
-	if err != nil {
-		return errors.Wrap(err, "initSigner")
-	}
 	err = self.initOwner()
 	if err != nil {
 		return errors.Wrap(err, "fetchOwner")
 	}
 	if self.debug {
 		log.Debugf("OwnerId: %s name: %s", self.ownerId, self.ownerName)
-	}
-	return nil
-}
-
-func (self *SHuaweiClient) initSigner() error {
-	var err error
-	cred := credentials.NewAccessKeyCredential(self.accessKey, self.accessKey)
-	self.signer, err = auth.NewSignerWithCredential(cred)
-	if err != nil {
-		return err
 	}
 	return nil
 }
@@ -221,28 +204,8 @@ func (self *SHuaweiClient) getDefaultClient() *http.Client {
 	return self.httpClient
 }
 
-func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, error) {
-	projectId := self.projectId
-	if len(regionId) == 0 {
-		projectId = ""
-	}
-	cli, err := client.NewPublicCloudClientWithAccessKey(regionId, self.ownerId, projectId, self.accessKey, self.accessSecret, self.debug)
-	if err != nil {
-		return nil, err
-	}
-
-	httpClient := self.getDefaultClient()
-	cli.SetHttpClient(httpClient)
-
-	return cli, nil
-}
-
 type sPageInfo struct {
 	NextMarker string
-}
-
-func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
-	return self.newRegionAPIClient("")
 }
 
 type akClient struct {
@@ -287,6 +250,7 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 	}
 	if (strings.Contains(url, "/OS-CREDENTIAL/") ||
 		strings.Contains(url, "/users") ||
+		strings.Contains(url, "/groups") ||
 		strings.Contains(url, "eps.myhuaweicloud.com")) && len(self.ownerId) > 0 {
 		header.Set("X-Domain-Id", self.ownerId)
 	}
@@ -300,8 +264,8 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 	return resp, err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListRegions
 func (self *SHuaweiClient) fetchRegions() error {
-	huawei, _ := self.newGeneralAPIClient()
 	if self.regions == nil {
 		userId, err := self.GetUserId()
 		if err != nil {
@@ -309,12 +273,15 @@ func (self *SHuaweiClient) fetchRegions() error {
 		}
 
 		if regionsCache, ok := HUAWEI_REGION_CACHES.Load(userId); !ok || regionsCache.(*userRegionsCache).ExpireAt.Sub(time.Now()).Seconds() > 0 {
-			regions := make([]SRegion, 0)
-			err := doListAll(huawei.Regions.List, nil, &regions)
+			resp, err := self.list(SERVICE_IAM_V3, "", "regions", nil)
 			if err != nil {
-				return errors.Wrap(err, "Regions.List")
+				return errors.Wrapf(err, "list regions")
 			}
-
+			regions := make([]SRegion, 0)
+			err = resp.Unmarshal(&regions, "regions")
+			if err != nil {
+				return errors.Wrapf(err, "Unmarshal")
+			}
 			HUAWEI_REGION_CACHES.Store(userId, &userRegionsCache{ExpireAt: time.Now().Add(24 * time.Hour), UserId: userId, Regions: regions})
 		}
 
@@ -350,10 +317,6 @@ func (self *SHuaweiClient) fetchRegions() error {
 	self.iregions = make([]cloudprovider.ICloudRegion, len(filtedRegions))
 	for i := 0; i < len(filtedRegions); i += 1 {
 		filtedRegions[i].client = self
-		_, err := filtedRegions[i].getECSClient()
-		if err != nil {
-			return err
-		}
 		self.iregions[i] = &filtedRegions[i]
 	}
 	return nil
@@ -445,16 +408,6 @@ func (self *SHuaweiClient) GetCloudRegionExternalIdPrefix() string {
 		return self.iregions[0].GetGlobalId()
 	} else {
 		return CLOUD_PROVIDER_HUAWEI
-	}
-}
-
-func (self *SHuaweiClient) UpdateAccount(accessKey, secret string) error {
-	if self.accessKey != accessKey || self.accessSecret != secret {
-		self.accessKey = accessKey
-		self.accessSecret = secret
-		return self.fetchRegions()
-	} else {
-		return nil
 	}
 }
 
@@ -597,7 +550,6 @@ func (self *SHuaweiClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	return nil, cloudprovider.ErrNotFound
 }
 
-// https://console.huaweicloud.com/apiexplorer/#/openapi/BSS/debug?api=ShowCustomerAccountBalances
 type SBalance struct {
 	Amount           float64 `json:"amount"`
 	Currency         string  `json:"currency"`
@@ -608,7 +560,7 @@ type SBalance struct {
 	MeasureUnit      int64   `json:"measure_unit"`
 }
 
-// 这里的余额指的是所有租户的总余额
+// https://console.huaweicloud.com/apiexplorer/#/openapi/BSS/doc?api=ShowCustomerAccountBalances
 func (self *SHuaweiClient) QueryAccountBalance() (*SBalance, error) {
 	resp, err := self.list(SERVICE_BSS, "", "accounts/customer-accounts/balances", nil)
 	if err != nil {
@@ -645,17 +597,6 @@ func (self *SHuaweiClient) GetVersion() string {
 	return HUAWEI_API_VERSION
 }
 
-func (self *SHuaweiClient) GetAccessEnv() string {
-	switch self.cloudEnv {
-	case HUAWEI_INTERNATIONAL_CLOUDENV:
-		return api.CLOUD_ACCESS_ENV_HUAWEI_GLOBAL
-	case HUAWEI_CHINA_CLOUDENV:
-		return api.CLOUD_ACCESS_ENV_HUAWEI_CHINA
-	default:
-		return api.CLOUD_ACCESS_ENV_HUAWEI_GLOBAL
-	}
-}
-
 func (self *SHuaweiClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
@@ -686,13 +627,10 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 	return caps
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=ShowPermanentAccessKey
 func (self *SHuaweiClient) GetUserId() (string, error) {
 	if len(self.userId) > 0 {
 		return self.userId, nil
-	}
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return "", errors.Wrap(err, "SHuaweiClient.GetUserId.newGeneralAPIClient")
 	}
 
 	type cred struct {
@@ -700,27 +638,28 @@ func (self *SHuaweiClient) GetUserId() (string, error) {
 	}
 
 	ret := &cred{}
-	err = DoGet(client.Credentials.Get, self.accessKey, nil, ret)
+	resp, err := self.list(SERVICE_IAM, "", "OS-CREDENTIAL/credentials/"+self.accessKey, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "SHuaweiClient.GetUserId.DoGet")
+		return "", errors.Wrapf(err, "show credential")
+	}
+	err = resp.Unmarshal(ret, "credential")
+	if err != nil {
+		return "", errors.Wrapf(err, "Unmarshal")
 	}
 	self.userId = ret.UserId
 	return self.userId, nil
 }
 
 // owner id == domain_id == account id
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=ShowUser
 func (self *SHuaweiClient) GetOwnerId() (string, error) {
 	if len(self.ownerId) > 0 {
 		return self.ownerId, nil
 	}
+
 	userId, err := self.GetUserId()
 	if err != nil {
 		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.GetUserId")
-	}
-
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.newGeneralAPIClient")
 	}
 
 	type user struct {
@@ -728,12 +667,16 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 		Name       string `json:"name"`
 		CreateTime string
 	}
-
-	ret := &user{}
-	err = DoGet(client.Users.Get, userId, nil, ret)
+	resp, err := self.list(SERVICE_IAM, "", "OS-USER/users/"+userId, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.DoGet")
+		return "", errors.Wrapf(err, "show user")
 	}
+	ret := &user{}
+	err = resp.Unmarshal(ret, "user")
+	if err != nil {
+		return "", errors.Wrapf(err, "Unmarshal")
+	}
+
 	self.ownerName = ret.Name
 	// 2021-02-02 02:43:28.0
 	self.ownerCreateTime, _ = timeutils.ParseTimeStr(strings.TrimSuffix(ret.CreateTime, ".0"))
@@ -820,65 +763,57 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 	switch service {
 	case SERVICE_IAM:
 		url = fmt.Sprintf("https://iam.myhuaweicloud.com/v3.0/%s", resource)
-		if !strings.HasPrefix(resource, "OS-") {
-			url = fmt.Sprintf("https://iam.myhuaweicloud.com/v3/%s", resource)
-		}
+	case SERVICE_IAM_V3:
+		url = fmt.Sprintf("https://iam.myhuaweicloud.com/v3/%s", resource)
+	case SERVICE_IAM_V3_EXT:
+		url = fmt.Sprintf("https://iam.myhuaweicloud.com/v3-ext/%s", resource)
 	case SERVICE_ELB:
 		url = fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_VPC:
-		version := "v1"
-		if strings.HasPrefix(resource, "vpc/") || strings.HasPrefix(resource, "eip/") {
-			version = "v3"
+		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_VPC_V2_0:
+		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v2.0/%s/%s", regionId, self.projectId, resource)
+		if strings.Contains(resource, "/peerings") {
+			url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v2.0/%s", regionId, resource)
 		}
-		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/%s/%s/%s", regionId, version, self.projectId, resource)
+	case SERVICE_VPC_V3:
+		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_CES:
 		url = fmt.Sprintf("https://ces.%s.myhuaweicloud.com/v1.0/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_MODELARTS:
 		url = fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
-		if strings.HasPrefix(resource, "networks") || strings.HasPrefix(resource, "resourceflavors") {
-			url = fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
-		}
+	case SERVICE_MODELARTS_V1:
+		url = fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_RDS:
 		url = fmt.Sprintf("https://rds.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_ECS:
-		version := "v1"
-		for _, prefix := range []string{
-			"os-availability-zone",
-			"servers",
-			"os-keypairs",
-		} {
-			if strings.HasPrefix(resource, prefix) || strings.Contains(resource, "os-security-groups") {
-				version = "v2.1"
-				break
-			}
-		}
-		if strings.HasSuffix(resource, "action") && !gotypes.IsNil(params) {
-			for _, k := range []string{"addSecurityGroup", "removeSecurityGroup"} {
-				_, ok := params[k]
-				if ok {
-					version = "v2.1"
-					break
-				}
-			}
-		}
-		url = fmt.Sprintf("https://ecs.%s.myhuaweicloud.com/%s/%s/%s", regionId, version, self.projectId, resource)
+		url = fmt.Sprintf("https://ecs.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_ECS_V1_1:
+		url = fmt.Sprintf("https://ecs.%s.myhuaweicloud.com/v1.1/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_ECS_V2_1:
+		url = fmt.Sprintf("https://ecs.%s.myhuaweicloud.com/v2.1/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_EPS:
 		url = fmt.Sprintf("https://eps.myhuaweicloud.com/v1.0/%s", resource)
+	case SERVICE_EVS_V1:
+		url = fmt.Sprintf("https://evs.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_EVS:
-		version := "v2"
-		url = fmt.Sprintf("https://evs.%s.myhuaweicloud.com/%s/%s/%s", regionId, version, self.projectId, resource)
+		url = fmt.Sprintf("https://evs.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+	case SERVICE_EVS_V2_1:
+		url = fmt.Sprintf("https://evs.%s.myhuaweicloud.com/v2.1/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_BSS:
 		url = fmt.Sprintf("https://bss.myhuaweicloud.com/v2/%s", resource)
 	case SERVICE_SFS:
 		url = fmt.Sprintf("https://sfs-turbo.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_IMS:
 		url = fmt.Sprintf("https://ims.%s.myhuaweicloud.com/v2/%s", regionId, resource)
+	case SERVICE_IMS_V1:
+		url = fmt.Sprintf("https://ims.%s.myhuaweicloud.com/v1/%s", regionId, resource)
 	case SERVICE_DCS:
 		url = fmt.Sprintf("https://dcs.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_CTS:
 		url = fmt.Sprintf("https://cts.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_NAT:
-		url = fmt.Sprintf("https://nat.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
+		url = fmt.Sprintf("https://nat.%s.myhuaweicloud.com/v3/%s/%s", regionId, self.projectId, resource)
 	case SERVICE_SCM:
 		url = fmt.Sprintf("https://scm.cn-north-4.myhuaweicloud.com/v3/%s", resource)
 	case SERVICE_CDN:

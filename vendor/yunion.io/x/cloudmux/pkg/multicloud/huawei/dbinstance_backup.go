@@ -15,6 +15,8 @@
 package huawei
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -115,7 +117,7 @@ func (backup *SDBInstanceBackup) Delete() error {
 }
 
 func (region *SRegion) DeleteDBInstanceBackup(backupId string) error {
-	_, err := region.ecsClient.DBInstanceBackup.Delete(backupId, nil)
+	_, err := region.delete(SERVICE_RDS, "backups/"+backupId)
 	return err
 }
 
@@ -124,16 +126,30 @@ func (backup *SDBInstanceBackup) GetDBInstanceId() string {
 }
 
 func (region *SRegion) GetDBInstanceBackups(instanceId, backupId string) ([]SDBInstanceBackup, error) {
-	params := map[string]string{
-		"instance_id": instanceId,
-	}
+	params := url.Values{}
+	params.Set("instance_id", instanceId)
 	if len(backupId) > 0 {
-		params["backup_id"] = backupId
+		params.Set("backup_id", backupId)
 	}
 	backups := []SDBInstanceBackup{}
-	err := doListAllWithOffset(region.ecsClient.DBInstanceBackup.List, params, &backups)
-	if err != nil {
-		return nil, err
+	for {
+		resp, err := region.list(SERVICE_RDS, "backups", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Backups    []SDBInstanceBackup
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		backups = append(backups, part.Backups...)
+		if len(backups) >= part.TotalCount || len(part.Backups) == 0 {
+			break
+		}
+		params.Set("offset", fmt.Sprintf("%d", len(backups)))
 	}
 	return backups, nil
 }
@@ -194,19 +210,15 @@ func (backup *SDBInstanceBackup) Refresh() error {
 }
 
 func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreateConfig) (string, error) {
-	backupId, err := rds.region.CreateDBInstanceBackup(rds.Id, conf.Name, conf.Description, conf.Databases)
+	backup, err := rds.region.CreateDBInstanceBackup(rds.Id, conf.Name, conf.Description, conf.Databases)
 	if err != nil {
 		return "", err
 	}
-	backup, err := rds.region.GetIDBInstanceBackupById(backupId)
-	if err != nil {
-		return "", errors.Wrap(err, "region.GetIDBInstanceBackupById")
-	}
 	cloudprovider.WaitStatus(backup, api.DBINSTANCE_BACKUP_READY, time.Second*3, time.Minute*30)
-	return backupId, nil
+	return backup.GetGlobalId(), nil
 }
 
-func (region *SRegion) CreateDBInstanceBackup(instanceId string, name string, descrition string, databases []string) (string, error) {
+func (region *SRegion) CreateDBInstanceBackup(instanceId string, name string, descrition string, databases []string) (*SDBInstanceBackup, error) {
 	params := map[string]interface{}{
 		"instance_id": instanceId,
 		"name":        name,
@@ -219,15 +231,16 @@ func (region *SRegion) CreateDBInstanceBackup(instanceId string, name string, de
 		}
 		params["databases"] = dbs
 	}
-	resp, err := region.ecsClient.DBInstanceBackup.Create(jsonutils.Marshal(params))
+	resp, err := region.post(SERVICE_RDS, "backups", params)
 	if err != nil {
-		return "", errors.Wrap(err, "DBInstanceBackup.Create")
+		return nil, errors.Wrap(err, "DBInstanceBackup.Create")
 	}
-	backupId, err := resp.GetString("id")
+	ret := &SDBInstanceBackup{region: region}
+	err = resp.Unmarshal(ret, "backup")
 	if err != nil {
-		return "", errors.Wrap(err, "resp.GetBackupId")
+		return nil, err
 	}
-	return backupId, nil
+	return ret, nil
 }
 
 func (self *SDBInstanceBackup) CreateICloudDBInstance(opts *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {

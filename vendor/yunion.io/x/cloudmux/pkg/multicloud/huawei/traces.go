@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -112,20 +113,39 @@ func (self *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEve
 }
 
 func (self *SRegion) GetEvents(start time.Time, end time.Time) ([]SEvent, error) {
-	events := []SEvent{}
-	params := map[string]string{}
+	params := url.Values{}
 	if start.IsZero() {
 		start = time.Now().AddDate(0, 0, -7)
 	}
 	if end.IsZero() {
 		end = time.Now()
 	}
-	params["from"] = fmt.Sprintf("%d000", start.Unix())
-	params["to"] = fmt.Sprintf("%d000", end.Unix())
+	params.Set("trace_type", "system")
+	params.Set("from", fmt.Sprintf("%d000", start.Unix()))
+	params.Set("to", fmt.Sprintf("%d000", end.Unix()))
 
-	err := doListAllWithMarker(self.ecsClient.Traces.List, params, &events)
-	if err != nil {
-		return nil, errors.Wrap(err, "doListAllWithMarker")
+	events := []SEvent{}
+	for {
+		resp, err := self.list(SERVICE_CTS, "traces", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list events")
+		}
+		part := struct {
+			Traces   []SEvent
+			MetaData struct {
+				Marker string
+				Count  int
+			}
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		events = append(events, part.Traces...)
+		if len(part.MetaData.Marker) == 0 || len(part.Traces) == 0 || len(events) >= part.MetaData.Count {
+			break
+		}
+		params.Set("marker", part.MetaData.Marker)
 	}
 	return events, nil
 }

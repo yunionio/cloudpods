@@ -15,7 +15,7 @@
 package huawei
 
 import (
-	"strings"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -32,56 +32,11 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires []cloudprovider.ICloudWire
-
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
 	CIDR                string `json:"cidr"`
 	Status              string `json:"status"`
 	EnterpriseProjectID string `json:"enterprise_project_id"`
-}
-
-func (self *SVpc) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
-}
-
-func (self *SVpc) getWireByRegionId(regionId string) *SWire {
-	if len(regionId) == 0 {
-		return nil
-	}
-
-	for i := 0; i < len(self.iwires); i++ {
-		wire := self.iwires[i].(*SWire)
-
-		if wire.region.GetId() == regionId {
-			return wire
-		}
-	}
-
-	return nil
-}
-
-func (self *SVpc) fetchNetworks() error {
-	networks, err := self.region.GetNetwroks(self.ID)
-	if err != nil {
-		return err
-	}
-
-	// ???????
-	if len(networks) == 0 {
-		self.iwires = append(self.iwires, &SWire{region: self.region, vpc: self})
-		return nil
-	}
-
-	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByRegionId(self.region.GetId())
-		networks[i].wire = wire
-		wire.addNetwork(&networks[i])
-	}
-	return nil
 }
 
 func (self *SVpc) GetId() string {
@@ -104,15 +59,11 @@ func (self *SVpc) GetStatus() string {
 }
 
 func (self *SVpc) Refresh() error {
-	new, err := self.region.getVpc(self.GetId())
+	vpc, err := self.region.GetVpc(self.GetId())
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
-}
-
-func (self *SVpc) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, vpc)
 }
 
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
@@ -120,7 +71,6 @@ func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SVpc) GetIsDefault() bool {
-	// 华为云没有default vpc.
 	return false
 }
 
@@ -129,13 +79,7 @@ func (self *SVpc) GetCidrBlock() string {
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return self.iwires, nil
+	return []cloudprovider.ICloudWire{&SWire{vpc: self}}, nil
 }
 
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
@@ -165,23 +109,20 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 }
 
 func (self *SVpc) Delete() error {
-	// todo: 确定删除VPC的逻辑
 	return self.region.DeleteVpc(self.GetId())
 }
 
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
+	wires, err := self.GetIWires()
+	if err != nil {
+		return nil, err
+	}
+	for i := range wires {
+		if wires[i].GetGlobalId() == wireId {
+			return wires[i], nil
 		}
 	}
-	for i := 0; i < len(self.iwires); i += 1 {
-		if self.iwires[i].GetGlobalId() == wireId {
-			return self.iwires[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, wireId)
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
@@ -191,6 +132,7 @@ func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	}
 	ret := make([]cloudprovider.ICloudNatGateway, len(nats))
 	for i := 0; i < len(nats); i++ {
+		nats[i].region = self.region
 		ret[i] = &nats[i]
 	}
 	return ret, nil
@@ -297,44 +239,48 @@ func (self *SVpc) getVpcPeeringConnectionById(id string) (*SVpcPeering, error) {
 	return svpcPC, nil
 }
 
-func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
-	vpc := SVpc{}
-	err := DoGet(self.ecsClient.Vpcs.Get, vpcId, nil, &vpc)
-	if err != nil && strings.Contains(err.Error(), "RouterNotFound") {
-		return nil, cloudprovider.ErrNotFound
-	}
-	vpc.region = self
-	return &vpc, err
-}
-
-func (self *SRegion) DeleteVpc(vpcId string) error {
-	if vpcId != "default" {
-		secgroups, err := self.GetSecurityGroups(vpcId, "")
-		if err != nil {
-			return errors.Wrap(err, "GetSecurityGroups")
-		}
-		for _, secgroup := range secgroups {
-			err = self.DeleteSecurityGroup(secgroup.Id)
-			if err != nil {
-				return errors.Wrapf(err, "DeleteSecurityGroup(%s)", secgroup.Id)
-			}
-		}
-	}
-	return DoDelete(self.ecsClient.Vpcs.Delete, vpcId, nil, nil)
-}
-
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090625.html
-func (self *SRegion) GetVpcs() ([]SVpc, error) {
-	querys := make(map[string]string)
-
-	vpcs := make([]SVpc, 0)
-	err := doListAllWithMarker(self.ecsClient.Vpcs.List, querys, &vpcs)
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v3&api=ShowVpc
+func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
+	resp, err := self.list(SERVICE_VPC_V3, "vpc/vpcs/"+vpcId, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	for i := range vpcs {
-		vpcs[i].region = self
+	ret := &SVpc{region: self}
+	err = resp.Unmarshal(ret, "vpc")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
 	}
-	return vpcs, err
+	return ret, nil
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=DeleteVpc
+func (self *SRegion) DeleteVpc(vpcId string) error {
+	_, err := self.delete(SERVICE_VPC, "vpcs/"+vpcId)
+	return err
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v3&api=ListVpcs
+func (self *SRegion) GetVpcs() ([]SVpc, error) {
+	ret := make([]SVpc, 0)
+	query := url.Values{}
+	for {
+		resp, err := self.list(SERVICE_VPC_V3, "vpc/vpcs", query)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Vpcs     []SVpc
+			PageInfo sPageInfo
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Vpcs...)
+		if len(part.Vpcs) == 0 || len(part.PageInfo.NextMarker) == 0 {
+			break
+		}
+		query.Set("marker", part.PageInfo.NextMarker)
+	}
+	return ret, nil
 }

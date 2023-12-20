@@ -249,7 +249,7 @@ func (self *SElbBackendGroup) GetILoadbalancerBackendById(serverId string) (clou
 }
 
 func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	instance, err := self.lb.region.GetInstanceByID(serverId)
+	instance, err := self.lb.region.GetInstance(serverId)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 		return nil, fmt.Errorf("AddBackendServer %s no subnet found", serverId)
 	}
 
-	net, err := self.lb.region.getNetwork(subnets[0])
+	net, err := self.lb.region.GetNetwork(subnets[0])
 	if err != nil {
 		return nil, err
 	}

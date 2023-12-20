@@ -15,10 +15,11 @@
 package huawei
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -26,7 +27,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-// https://support.huaweicloud.com/api-em/zh-cn_topic_0121230880.html
 type SEnterpriseProject struct {
 	multicloud.SProjectBase
 	HuaweiTags
@@ -40,16 +40,28 @@ type SEnterpriseProject struct {
 }
 
 func (self *SHuaweiClient) GetEnterpriseProjects() ([]SEnterpriseProject, error) {
-	projects := []SEnterpriseProject{}
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
+	ret := []SEnterpriseProject{}
+	query := url.Values{}
+	for {
+		resp, err := self.list(SERVICE_EPS, "", "enterprise-projects", query)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list")
+		}
+		part := struct {
+			EnterpriseProjects []SEnterpriseProject
+			TotalCount         int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.EnterpriseProjects...)
+		if len(part.EnterpriseProjects) == 0 || len(ret) > part.TotalCount {
+			break
+		}
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
 	}
-	err = doListAllWithOffset(client.EnterpriseProjects.List, map[string]string{}, &projects)
-	if err != nil {
-		return nil, errors.Wrap(err, "doListAllWithOffset")
-	}
-	return projects, nil
+	return ret, nil
 }
 
 func (ep *SEnterpriseProject) GetId() string {
@@ -72,17 +84,13 @@ func (ep *SEnterpriseProject) GetName() string {
 }
 
 func (self *SHuaweiClient) CreateExterpriseProject(name, desc string) (*SEnterpriseProject, error) {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
-	}
-	params := map[string]string{
+	params := map[string]interface{}{
 		"name": name,
 	}
 	if len(desc) > 0 {
 		params["description"] = desc
 	}
-	resp, err := client.EnterpriseProjects.Create(jsonutils.Marshal(params))
+	resp, err := self.post(SERVICE_EPS, "", "enterprise-projects", params)
 	if err != nil {
 		if strings.Contains(err.Error(), "EPS.0004") {
 			return nil, cloudprovider.ErrNotSupported
@@ -92,12 +100,12 @@ func (self *SHuaweiClient) CreateExterpriseProject(name, desc string) (*SEnterpr
 		}
 		return nil, errors.Wrap(err, "EnterpriseProjects.Create")
 	}
-	project := &SEnterpriseProject{}
-	err = resp.Unmarshal(&project)
+	ret := &SEnterpriseProject{}
+	err = resp.Unmarshal(&ret, "enterprise_project")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
-	return project, nil
+	return ret, nil
 }
 
 func (self *SHuaweiClient) CreateIProject(name string) (cloudprovider.ICloudProject, error) {

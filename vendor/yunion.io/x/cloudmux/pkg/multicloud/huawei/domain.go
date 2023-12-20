@@ -26,11 +26,18 @@ type SDomain struct {
 	Tagflag        int    `json:"tagflag"`
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListAuthDomains
 func (self *SHuaweiClient) GetDomains() ([]SDomain, error) {
-	huawei, _ := self.newGeneralAPIClient()
-	domains := make([]SDomain, 0)
-	err := doListAll(huawei.Domains.List, nil, &domains)
-	return domains, err
+	resp, err := self.list(SERVICE_IAM_V3, "", "auth/domains", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := []SDomain{}
+	err = resp.Unmarshal(&ret, "domains")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (self *SHuaweiClient) getEnabledDomains() ([]SDomain, error) {

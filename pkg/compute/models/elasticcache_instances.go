@@ -102,7 +102,7 @@ type SElasticcache struct {
 	CapacityMB int `nullable:"false" list:"user" create:"optional" json:"capacity_mb"`
 
 	// 对应Sku
-	LocalCategory string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"local_category"`
+	LocalCategory string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"local_category"`
 
 	// 类型
 	// single（单副本） | double（双副本) | readone (单可读) | readthree （3可读） | readfive（5只读）
@@ -212,22 +212,23 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	netIds := make([]string, len(objs))
 	cacheIds := make([]string, len(objs))
+	vpcIds := make([]string, len(objs))
 	zoneIds := []string{}
 	for i := range rows {
 		rows[i] = api.ElasticcacheDetails{
 			VirtualResourceDetails: virtRows[i],
-			VpcResourceInfo:        vpcRows[i],
 			ZoneResourceInfoBase:   zoneRows[i].ZoneResourceInfoBase,
 		}
 		rows[i].ManagedResourceInfo = manRows[i]
 		rows[i].CloudregionResourceInfo = regRows[i]
-		netIds[i] = objs[i].(*SElasticcache).NetworkId
-		cacheIds[i] = objs[i].(*SElasticcache).Id
+		cache := objs[i].(*SElasticcache)
+		netIds[i] = cache.NetworkId
+		cacheIds[i] = cache.Id
+		vpcIds[i] = cache.VpcId
 
 		sz := strings.Split(objs[i].(*SElasticcache).SlaveZones, ",")
 		for j := range sz {
@@ -237,8 +238,15 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 		}
 	}
 
+	vpcs := make(map[string]SVpc)
+	err := db.FetchStandaloneObjectsByIds(VpcManager, vpcIds, vpcs)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return nil
+	}
+
 	networks := make(map[string]SNetwork)
-	err := db.FetchStandaloneObjectsByIds(NetworkManager, netIds, &networks)
+	err = db.FetchStandaloneObjectsByIds(NetworkManager, netIds, &networks)
 	if err != nil {
 		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
 		return rows
@@ -247,6 +255,11 @@ func (manager *SElasticcacheManager) FetchCustomizeColumns(
 	for i := range rows {
 		if net, ok := networks[netIds[i]]; ok {
 			rows[i].Network = net.Name
+		}
+		if vpc, ok := vpcs[vpcIds[i]]; ok {
+			rows[i].Vpc = vpc.Name
+			rows[i].VpcExtId = vpc.ExternalId
+			rows[i].IsDefaultVpc = vpc.IsDefault
 		}
 	}
 

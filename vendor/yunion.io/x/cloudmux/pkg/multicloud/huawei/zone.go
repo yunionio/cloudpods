@@ -42,7 +42,6 @@ type SZone struct {
 	region *SRegion
 	host   *SHost
 
-	iwires    []cloudprovider.ICloudWire
 	istorages []cloudprovider.ICloudStorage
 
 	ZoneState ZoneState `json:"zoneState"`
@@ -50,13 +49,6 @@ type SZone struct {
 
 	/* 支持的磁盘种类集合 */
 	storageTypes []string
-}
-
-func (self *SZone) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
 }
 
 func (self *SZone) getStorageType() {
@@ -161,7 +153,16 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.iwires, nil
+	vpcs, err := self.region.GetVpcs()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		vpcs[i].region = self.region
+		ret = append(ret, &SWire{vpc: &vpcs[i]})
+	}
+	return ret, nil
 }
 
 func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
@@ -190,15 +191,4 @@ func (self *SRegion) getZoneById(id string) (*SZone, error) {
 		}
 	}
 	return nil, fmt.Errorf("no such zone %s", id)
-}
-
-func (self *SZone) getNetworkById(networkId string) *SNetwork {
-	for i := 0; i < len(self.iwires); i += 1 {
-		wire := self.iwires[i].(*SWire)
-		net := wire.getNetworkById(networkId)
-		if net != nil {
-			return net
-		}
-	}
-	return nil
 }
