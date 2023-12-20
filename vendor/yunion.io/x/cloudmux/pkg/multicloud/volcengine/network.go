@@ -100,7 +100,6 @@ func (subnet *SNetwork) GetIpEnd() string {
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen)
 	endIp = endIp.StepDown()
 	endIp = endIp.StepDown()
-	endIp = endIp.StepDown()
 	return endIp.String()
 }
 
