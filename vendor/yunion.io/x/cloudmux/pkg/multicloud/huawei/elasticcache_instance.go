@@ -16,7 +16,7 @@ package huawei
 
 import (
 	"fmt"
-	"strconv"
+	"net/url"
 	"strings"
 	"time"
 
@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423020.html
 type SElasticcache struct {
 	multicloud.SElasticcacheBase
 	HuaweiTags
@@ -162,21 +161,18 @@ func (self *SElasticcache) GetCreatedAt() time.Time {
 }
 
 func (self *SElasticcache) GetExpiredAt() time.Time {
-	var expiredTime time.Time
-	if self.ChargingMode == 1 {
-		res, err := self.region.GetOrderResourceDetail(self.GetId())
-		if err != nil {
-			log.Debugln(err)
-		}
-
-		expiredTime = res.ExpireTime
+	orders, err := self.region.client.GetOrderResources()
+	if err != nil {
+		return time.Time{}
 	}
-
-	return expiredTime
+	order, ok := orders[self.InstanceID]
+	if ok {
+		return order.ExpireTime
+	}
+	return time.Time{}
 }
 
 func (self *SElasticcache) GetInstanceType() string {
-	// todo: ??
 	return self.ResourceSpecCode
 }
 
@@ -185,33 +181,27 @@ func (self *SElasticcache) GetCapacityMB() int {
 }
 
 func (self *SElasticcache) GetArchType() string {
-	/*
-	   资源规格标识。
-
-	   dcs.single_node：表示实例类型为单机
-	   dcs.master_standby：表示实例类型为主备
-	   dcs.cluster：表示实例类型为集群
-	*/
 	if strings.Contains(self.ResourceSpecCode, "single") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_SINGLE
-	} else if strings.Contains(self.ResourceSpecCode, "ha") {
+	}
+	if strings.Contains(self.ResourceSpecCode, "ha") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_MASTER
-	} else if strings.Contains(self.ResourceSpecCode, "cluster") {
-		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
-	} else if strings.Contains(self.ResourceSpecCode, "proxy") {
+	}
+	if strings.Contains(self.ResourceSpecCode, "cluster") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	}
-
-	return ""
+	if strings.Contains(self.ResourceSpecCode, "proxy") {
+		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
+	}
+	return self.ResourceSpecCode
 }
 
 func (self *SElasticcache) GetNodeType() string {
 	// single（单副本） | double（双副本)
 	if strings.Contains(self.ResourceSpecCode, "single") {
 		return "single"
-	} else {
-		return "double"
 	}
+	return "double"
 }
 
 func (self *SElasticcache) GetEngine() string {
@@ -324,69 +314,83 @@ func (self *SElasticcache) GetICloudElasticcacheParameters() ([]cloudprovider.IC
 	return iparameters, nil
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423035.html
 func (self *SRegion) GetElasticCacheBackups(instanceId, startTime, endTime string) ([]SElasticcacheBackup, error) {
-	params := make(map[string]string)
-	params["instance_id"] = instanceId
-	params["beginTime"] = startTime
-	params["endTime"] = endTime
+	params := url.Values{}
+	params.Set("begin_time", startTime)
+	params.Set("end_time", endTime)
 
-	backups := make([]SElasticcacheBackup, 0)
-	err := doListAll(self.ecsClient.Elasticcache.ListBackups, params, &backups)
-	if err != nil {
-		return nil, err
-	}
-
-	return backups, nil
-}
-
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423027.html
-func (self *SRegion) GetElasticCacheParameters(instanceId string) ([]SElasticcacheParameter, error) {
-	params := make(map[string]string)
-	params["instance_id"] = instanceId
-
-	parameters := make([]SElasticcacheParameter, 0)
-	err := doListAll(self.ecsClient.Elasticcache.ListParameters, params, &parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	return parameters, nil
-}
-
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423044.html
-func (self *SRegion) GetElasticCaches() ([]SElasticcache, error) {
-	params := make(map[string]string)
-	caches := make([]SElasticcache, 0)
-	err := doListAll(self.ecsClient.Elasticcache.List, params, &caches)
-	if err != nil {
-		return nil, errors.Wrap(err, "region.GetElasticCaches")
-	}
-
-	for i := range caches {
-		cache, err := self.GetElasticCache(caches[i].GetId())
+	ret := make([]SElasticcacheBackup, 0)
+	for {
+		resp, err := self.list(SERVICE_DCS, fmt.Sprintf("instances/%s/backups", instanceId), params)
 		if err != nil {
 			return nil, err
-		} else {
-			caches[i] = *cache
 		}
-
-		caches[i].region = self
+		part := struct {
+			BackupRecordResponse []SElasticcacheBackup
+			TotalNum             int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.BackupRecordResponse...)
+		if len(ret) >= part.TotalNum || len(part.BackupRecordResponse) == 0 {
+			break
+		}
+		params.Set("offset", fmt.Sprintf("%d", len(ret)))
 	}
-
-	return caches, nil
+	return ret, nil
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423020.html
-func (self *SRegion) GetElasticCache(instanceId string) (*SElasticcache, error) {
-	cache := SElasticcache{}
-	err := DoGet(self.ecsClient.Elasticcache.Get, instanceId, nil, &cache)
+func (self *SRegion) GetElasticCacheParameters(instanceId string) ([]SElasticcacheParameter, error) {
+	resp, err := self.list(SERVICE_DCS, fmt.Sprintf("instances/%s/configs", instanceId), nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "region.GetElasticCache %s", instanceId)
+		return nil, err
 	}
+	ret := make([]SElasticcacheParameter, 0)
+	err = resp.Unmarshal(&ret, "redis_config")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
 
-	cache.region = self
-	return &cache, nil
+func (self *SRegion) GetElasticCaches() ([]SElasticcache, error) {
+	ret := make([]SElasticcache, 0)
+	query := url.Values{}
+	for {
+		resp, err := self.list(SERVICE_DCS, "instances", query)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Instances   []SElasticcache
+			InstanceNum int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Instances...)
+		if len(ret) >= part.InstanceNum || len(part.Instances) == 0 {
+			break
+		}
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
+	}
+	return ret, nil
+}
+
+func (self *SRegion) GetElasticCache(instanceId string) (*SElasticcache, error) {
+	resp, err := self.list(SERVICE_DCS, "instances/"+instanceId, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SElasticcache{region: self}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
@@ -398,188 +402,124 @@ func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasti
 	return ec, nil
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423047.html
-func (self *SRegion) zoneNameToDcsZoneIds(zoneIds []string) ([]string, error) {
-	type Z struct {
-		ID                   string `json:"id"`
-		Code                 string `json:"code"`
-		Name                 string `json:"name"`
-		Port                 string `json:"port"`
-		ResourceAvailability string `json:"resource_availability"`
-	}
-
-	rs := []Z{}
-	err := doListAll(self.ecsClient.DcsAvailableZone.List, nil, &rs)
-	if err != nil {
-		return nil, errors.Wrap(err, "region.zoneNameToDcsZoneIds")
-	}
-
-	zoneMap := map[string]string{}
-	for i := range rs {
-		if rs[i].ResourceAvailability == "true" {
-			zoneMap[rs[i].Code] = rs[i].ID
-		}
-	}
-
-	ret := []string{}
-	for _, zone := range zoneIds {
-		if id, ok := zoneMap[zone]; ok {
-			ret = append(ret, id)
-		} else {
-			return nil, errors.Wrap(fmt.Errorf("zone %s not found or not available", zone), "region.zoneNameToDcsZoneIds")
-		}
-	}
-
-	return ret, nil
-}
-
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423019.html
-func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
-	params := jsonutils.NewDict()
-	params.Set("name", jsonutils.NewString(ec.InstanceName))
-	params.Set("engine", jsonutils.NewString(ec.Engine))
-	params.Set("engine_version", jsonutils.NewString(ec.EngineVersion))
-	params.Set("capacity", jsonutils.NewInt(ec.CapacityGB))
-	params.Set("vpc_id", jsonutils.NewString(ec.VpcId))
-	if len(ec.SecurityGroupIds) > 0 {
-		params.Set("security_group_id", jsonutils.NewString(ec.SecurityGroupIds[0]))
-	}
-	params.Set("subnet_id", jsonutils.NewString(ec.NetworkId))
-	params.Set("product_id", jsonutils.NewString(ec.InstanceType))
-	zones, err := self.zoneNameToDcsZoneIds(ec.ZoneIds)
+func (self *SRegion) CreateIElasticcaches(opts *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
+	ret, err := self.CreateElasticcache(opts)
 	if err != nil {
 		return nil, err
 	}
-	params.Set("available_zones", jsonutils.NewStringArray(zones))
-
-	if len(ec.ProjectId) > 0 {
-		params.Set("enterprise_project_id", jsonutils.NewString(ec.ProjectId))
-	}
-
-	if len(ec.Password) > 0 {
-		params.Set("no_password_access", jsonutils.NewString("false"))
-		params.Set("password", jsonutils.NewString(ec.Password))
-
-		// todo: 这里换成常量
-		if ec.Engine == "Memcache" {
-			params.Set("access_user", jsonutils.NewString(ec.UserName))
-		}
-	} else {
-		params.Set("no_password_access", jsonutils.NewString("true"))
-	}
-
-	if len(ec.EipId) > 0 {
-		params.Set("enable_publicip", jsonutils.NewString("true"))
-		params.Set("publicip_id", jsonutils.NewString(ec.EipId))
-		// enable_ssl
-	} else {
-		params.Set("enable_publicip", jsonutils.NewString("false"))
-	}
-
-	if len(ec.PrivateIpAddress) > 0 {
-		params.Set("private_ip", jsonutils.NewString(ec.PrivateIpAddress))
-	}
-
-	if len(ec.MaintainBegin) > 0 {
-		params.Set("maintain_begin", jsonutils.NewString(ec.MaintainBegin))
-		params.Set("maintain_end", jsonutils.NewString(ec.MaintainEnd))
-	}
-
-	if ec.BillingCycle != nil {
-		bssParam := jsonutils.NewDict()
-		bssParam.Set("charging_mode", jsonutils.NewString("prePaid"))
-		bssParam.Set("is_auto_pay", jsonutils.NewString("true"))
-		bssParam.Set("is_auto_renew", jsonutils.NewString(fmt.Sprintf("%v", ec.BillingCycle.AutoRenew)))
-		if ec.BillingCycle.GetMonths() >= 1 && ec.BillingCycle.GetMonths() >= 9 {
-			bssParam.Set("period_type", jsonutils.NewString("month"))
-			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BillingCycle.GetMonths())))
-		} else if ec.BillingCycle.GetYears() >= 1 && ec.BillingCycle.GetYears() <= 3 {
-			bssParam.Set("period_type", jsonutils.NewString("year"))
-			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BillingCycle.GetYears())))
-		} else {
-			return nil, fmt.Errorf("region.CreateIElasticcaches invalid billing cycle.reqired month (1~9) or  year(1~3)")
-		}
-
-		params.Set("bss_param", bssParam)
-	}
-
-	ret := &SElasticcache{}
-	err = DoCreate(self.ecsClient.Elasticcache.Create, params, ret)
-	if err != nil {
-		return nil, errors.Wrap(err, "region.CreateIElasticcaches")
-	}
-
-	ret.region = self
 	return ret, nil
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423030.html
-func (self *SElasticcache) Restart() error {
-	resp, err := self.region.ecsClient.Elasticcache.Restart(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.Restart")
+func (self *SRegion) CreateElasticcache(opts *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
+	params := map[string]interface{}{
+		"name":               opts.InstanceName,
+		"engine":             opts.Engine,
+		"engine_version":     opts.EngineVersion,
+		"capacity":           opts.CapacityGB,
+		"vpc_id":             opts.VpcId,
+		"subnet_id":          opts.NetworkId,
+		"product_id":         opts.InstanceType,
+		"zone_codes":         opts.ZoneIds,
+		"no_password_access": true,
+		"enable_publicip":    false,
+	}
+	if len(opts.SecurityGroupIds) > 0 {
+		params["security_group_id"] = opts.SecurityGroupIds[0]
 	}
 
-	rets, err := resp.GetArray("results")
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.results")
+	if len(opts.ProjectId) > 0 {
+		params["enterprise_project_id"] = opts.ProjectId
 	}
 
-	for _, r := range rets {
-		if ret, _ := r.GetString("result"); ret != "success" {
-			return fmt.Errorf("elasticcache.Restart failed")
+	if len(opts.Password) > 0 {
+		params["no_password_access"] = false
+		params["password"] = opts.Password
+
+		if opts.Engine == "Memcache" {
+			params["access_user"] = opts.UserName
 		}
 	}
 
-	return nil
+	if len(opts.EipId) > 0 {
+		params["enable_publicip"] = true
+		params["publicip_id"] = opts.EipId
+	}
+
+	if len(opts.PrivateIpAddress) > 0 {
+		params["private_ip"] = opts.PrivateIpAddress
+	}
+
+	if len(opts.MaintainBegin) > 0 {
+		params["maintain_begin"] = opts.MaintainBegin
+		params["maintain_end"] = opts.MaintainEnd
+	}
+
+	if opts.BillingCycle != nil {
+		bssParam := map[string]interface{}{
+			"charging_mode": "prePaid",
+			"is_auto_pay":   true,
+			"is_auto_renew": opts.BillingCycle.AutoRenew,
+		}
+		if opts.BillingCycle.GetMonths() >= 1 && opts.BillingCycle.GetMonths() >= 9 {
+			bssParam["period_type"] = "month"
+			bssParam["period_num"] = opts.BillingCycle.GetMonths()
+		} else if opts.BillingCycle.GetYears() >= 1 && opts.BillingCycle.GetYears() <= 3 {
+			bssParam["period_type"] = "year"
+			bssParam["period_num"] = opts.BillingCycle.GetYears()
+		} else {
+			return nil, fmt.Errorf("region.CreateIElasticcaches invalid billing cycle.reqired month (1~9) or  year(1~3)")
+		}
+		params["bss_param"] = bssParam
+	}
+	resp, err := self.post(SERVICE_DCS, "instances", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := struct {
+		OrderId   string
+		Instances []SElasticcache
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ret.Instances {
+		ret.Instances[i].region = self
+		return &ret.Instances[i], nil
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created %s", resp.String())
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423022.html
+func (self *SElasticcache) Restart() error {
+	params := map[string]interface{}{
+		"instances": []string{self.InstanceID},
+		"action":    "restart",
+	}
+	_, err := self.region.put(SERVICE_DCS, "instances/status", params)
+	return err
+}
+
 func (self *SElasticcache) Delete() error {
-	err := DoDelete(self.region.ecsClient.Elasticcache.Delete, self.GetId(), nil, nil)
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.Delete")
-	}
-
-	return nil
+	_, err := self.region.delete(SERVICE_DCS, "instances/"+self.GetId())
+	return err
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423024.html
 func (self *SElasticcache) ChangeInstanceSpec(spec string) error {
-	segs := strings.Split(spec, ":")
-	if len(segs) < 2 {
-		return fmt.Errorf("elasticcache.ChangeInstanceSpec invalid sku %s", spec)
+	params := map[string]interface{}{
+		"spec_code":    spec,
+		"new_capacity": self.CapacityGB,
 	}
-
-	if !strings.HasPrefix(segs[1], "m") || !strings.HasSuffix(segs[1], "g") {
-		return fmt.Errorf("elasticcache.ChangeInstanceSpec sku %s memeory size is invalid.", spec)
-	}
-
-	newCapacity := segs[1][1 : len(segs[1])-1]
-	capacity, err := strconv.Atoi(newCapacity)
-	if err != nil {
-		return errors.Wrap(fmt.Errorf("invalid sku capacity %s", spec), "Elasticcache.ChangeInstanceSpec")
-	}
-
-	_, err = self.region.ecsClient.Elasticcache.ChangeInstanceSpec(self.GetId(), segs[0], int64(capacity))
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.ChangeInstanceSpec")
-	}
-
-	return nil
+	_, err := self.region.post(SERVICE_DCS, fmt.Sprintf("instances/%s/resize", self.InstanceID), params)
+	return err
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423021.html
 func (self *SElasticcache) SetMaintainTime(maintainStartTime, maintainEndTime string) error {
-	params := jsonutils.NewDict()
-	params.Set("maintain_begin", jsonutils.NewString(maintainStartTime))
-	params.Set("maintain_end", jsonutils.NewString(maintainEndTime))
-	err := DoUpdate(self.region.ecsClient.Elasticcache.Update, self.GetId(), params, nil)
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.SetMaintainTime")
+	params := map[string]interface{}{
+		"maintain_begin": maintainStartTime,
+		"maintain_end":   maintainEndTime,
 	}
-
-	return nil
+	_, err := self.region.put(SERVICE_DCS, "instances/"+self.InstanceID, params)
+	return err
 }
 
 // https://support.huaweicloud.com/usermanual-dcs/dcs-zh-ug-180314001.html
@@ -598,22 +538,16 @@ func (self *SElasticcache) CreateAccount(account cloudprovider.SCloudElasticCach
 	return nil, cloudprovider.ErrNotSupported
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423031.html
-
 func (self *SElasticcache) CreateAcl(aclName, securityIps string) (cloudprovider.ICloudElasticcacheAcl, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423029.html
 func (self *SElasticcache) UpdateInstanceParameters(config jsonutils.JSONObject) error {
-	params := jsonutils.NewDict()
-	params.Set("redis_config", config)
-	err := DoUpdateWithSpec(self.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.GetId(), "configs", params)
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.UpdateInstanceParameters")
+	params := map[string]interface{}{
+		"redis_config": config,
 	}
-
-	return nil
+	_, err := self.region.put(SERVICE_DCS, fmt.Sprintf("instances/%s/async-configs", self.InstanceID), params)
+	return err
 }
 
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423033.html
@@ -646,48 +580,27 @@ func backupPeriodTrans(config cloudprovider.SCloudElasticCacheBackupPolicyUpdate
 	return ret
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423021.html
-func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElasticCacheBackupPolicyUpdateInput) error {
-	params := jsonutils.NewDict()
-	policy := jsonutils.NewDict()
-	policy.Set("save_days", jsonutils.NewInt(int64(config.BackupReservedDays)))
-	policy.Set("backup_type", jsonutils.NewString(config.BackupType))
-	plan := jsonutils.NewDict()
-	backTime := strings.ReplaceAll(config.PreferredBackupTime, "Z", "")
-	backupPeriod := backupPeriodTrans(config)
-	plan.Set("begin_at", jsonutils.NewString(backTime))
-	plan.Set("period_type", jsonutils.NewString("weekly"))
-	plan.Set("backup_at", backupPeriod)
-	policy.Set("periodical_backup_plan", plan)
-	params.Set("instance_backup_policy", policy)
-	err := DoUpdateWithSpec(self.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.GetId(), "configs", params)
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.UpdateInstanceParameters")
+func (self *SElasticcache) UpdateBackupPolicy(opts cloudprovider.SCloudElasticCacheBackupPolicyUpdateInput) error {
+	params := map[string]interface{}{
+		"save_days":   opts.BackupReservedDays,
+		"backup_type": opts.BackupType,
+		"periodical_backup_plan": map[string]interface{}{
+			"begin_at":    strings.ReplaceAll(opts.PreferredBackupTime, "Z", ""),
+			"period_type": "weekly",
+			"backup_at":   backupPeriodTrans(opts),
+		},
 	}
-
-	return nil
+	_, err := self.region.put(SERVICE_DCS, "instances/"+self.InstanceID, map[string]interface{}{"instance_backup_policy": params})
+	return err
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423030.html
-// 当前版本，只有DCS2.0实例支持清空数据功能，即flush操作。
 func (self *SElasticcache) FlushInstance(input cloudprovider.SCloudElasticCacheFlushInstanceInput) error {
-	resp, err := self.region.ecsClient.Elasticcache.Flush(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.FlushInstance")
+	params := map[string]interface{}{
+		"instances": []string{self.InstanceID},
+		"action":    "flush",
 	}
-
-	rets, err := resp.GetArray("results")
-	if err != nil {
-		return errors.Wrap(err, "elasticcache.FlushInstance")
-	}
-
-	for _, r := range rets {
-		if ret, _ := r.GetString("result"); ret != "success" {
-			return fmt.Errorf("elasticcache.FlushInstance failed")
-		}
-	}
-
-	return nil
+	_, err := self.region.put(SERVICE_DCS, "instances/status", params)
+	return err
 }
 
 // SElasticcacheAccount => ResetPassword

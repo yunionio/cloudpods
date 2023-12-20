@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/pkg/errors"
 )
 
 // https://support.huaweicloud.com/api-iam/zh-cn_topic_0057845625.html
@@ -51,18 +52,20 @@ func (self *SProject) GetHealthStatus() string {
 }
 
 func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
-	if self.projects != nil {
+	if len(self.projects) > 0 {
 		return self.projects, nil
 	}
-
-	huawei, _ := self.newGeneralAPIClient()
-	projects := make([]SProject, 0)
-	err := doListAll(huawei.Projects.List, nil, &projects)
-	if err == nil {
-		self.projects = projects
+	projects := []SProject{}
+	resp, err := self.list(SERVICE_IAM_V3, "", "auth/projects", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list projects")
 	}
-
-	return projects, err
+	err = resp.Unmarshal(&projects, "projects")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	self.projects = projects
+	return self.projects, nil
 }
 
 // obs 权限必须赋予到mos project之上

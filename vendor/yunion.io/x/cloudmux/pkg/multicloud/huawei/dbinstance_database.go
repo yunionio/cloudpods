@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"net/url"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -55,18 +56,36 @@ func (database *SDBInstanceDatabase) Delete() error {
 }
 
 func (region *SRegion) DeleteDBInstanceDatabase(instanceId, database string) error {
-	_, err := region.ecsClient.DBInstance.DeleteInContextWithSpec(nil, instanceId, fmt.Sprintf("database/%s", database), nil, nil, "")
+	_, err := region.delete(SERVICE_RDS, fmt.Sprintf("instances/%s/database/%s", instanceId, database))
 	return err
 }
 
 func (region *SRegion) GetDBInstanceDatabases(instanceId string) ([]SDBInstanceDatabase, error) {
-	params := map[string]string{
-		"instance_id": instanceId,
+	params := url.Values{}
+	params.Set("instance_id", instanceId)
+	params.Set("limit", "100")
+	page := 1
+	params.Set("page", fmt.Sprintf("%d", page))
+	ret := []SDBInstanceDatabase{}
+	for {
+		resp, err := region.list(SERVICE_RDS, fmt.Sprintf("instances/%s/database/detail", instanceId), params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Databases  []SDBInstanceDatabase
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Databases...)
+		if len(ret) >= part.TotalCount || len(part.Databases) == 0 {
+			break
+		}
+		page++
+		params.Set("page", fmt.Sprintf("%d", page))
 	}
-	databases := []SDBInstanceDatabase{}
-	err := doListAllWithPage(region.ecsClient.DBInstance.ListDatabases, params, &databases)
-	if err != nil {
-		return nil, err
-	}
-	return databases, nil
+	return ret, nil
 }

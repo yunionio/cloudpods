@@ -15,6 +15,9 @@
 package huawei
 
 import (
+	"fmt"
+	"net/url"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -43,64 +46,85 @@ type SVpcPeering struct {
 	Status         string         `json:"status"`
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ListVpcPeerings
 func (self *SRegion) GetVpcPeerings(vpcId string) ([]SVpcPeering, error) {
-	querys := make(map[string]string)
-	querys["vpc_id"] = vpcId
-	vpcPeerings := make([]SVpcPeering, 0)
-	err := doListAllWithMarker(self.ecsClient.VpcPeerings.List, querys, &vpcPeerings)
-	if err != nil {
-		return nil, errors.Wrapf(err, "oListAllWithMarker(self.ecsClient.VpcPeerings.List, %s, &vpcPeerings)", jsonutils.Marshal(querys).String())
+	query := url.Values{}
+	if len(vpcId) > 0 {
+		query.Set("vpc_id", vpcId)
 	}
-	return vpcPeerings, nil
+	ret := make([]SVpcPeering, 0)
+	for {
+		resp, err := self.list(SERVICE_VPC_V2_0, "vpc/peerings", query)
+		if err != nil {
+			return nil, err
+		}
+		part := []SVpcPeering{}
+		err = resp.Unmarshal(&part, "peerings")
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part...)
+		if len(part) == 0 {
+			break
+		}
+		query.Set("marker", part[len(part)-1].ID)
+	}
+	return ret, nil
 }
 
-func (self *SRegion) GetVpcPeering(vpcPeeringId string) (*SVpcPeering, error) {
-	if len(vpcPeeringId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	vpcPeering := SVpcPeering{}
-	err := DoGet(self.ecsClient.VpcPeerings.Get, vpcPeeringId, nil, &vpcPeering)
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ListVpcPeerings
+func (self *SRegion) GetVpcPeering(id string) (*SVpcPeering, error) {
+	ret := &SVpcPeering{}
+	resp, err := self.list(SERVICE_VPC_V2_0, "vpc/peerings/"+id, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "DoGet(self.ecsClient.VpcPeerings.Get, %s, nil, &vpcPeering)", vpcPeeringId)
+		return nil, err
 	}
-	return &vpcPeering, nil
+	err = resp.Unmarshal(ret, "peering")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=CreateVpcPeering
 func (self *SRegion) CreateVpcPeering(vpcId string, opts *cloudprovider.VpcPeeringConnectionCreateOptions) (*SVpcPeering, error) {
-	params := jsonutils.NewDict()
-	vpcPeeringObj := jsonutils.NewDict()
-	requestVpcObj := jsonutils.NewDict()
-	acceptVpcObj := jsonutils.NewDict()
-	vpcPeeringObj.Set("name", jsonutils.NewString(opts.Name))
-	requestVpcObj.Set("vpc_id", jsonutils.NewString(vpcId))
-	requestVpcObj.Set("tenant_id", jsonutils.NewString(self.client.projectId))
-	vpcPeeringObj.Set("request_vpc_info", requestVpcObj)
-	acceptVpcObj.Set("vpc_id", jsonutils.NewString(opts.PeerVpcId))
-	acceptVpcObj.Set("tenant_id", jsonutils.NewString(opts.PeerAccountId))
-	vpcPeeringObj.Set("accept_vpc_info", acceptVpcObj)
-	params.Set("peering", vpcPeeringObj)
-	ret := SVpcPeering{}
-	err := DoCreate(self.ecsClient.VpcPeerings.Create, params, &ret)
-	if err != nil {
-		return nil, errors.Wrapf(err, "DoCreate(self.ecsClient.VpcPeerings.Create, %s, &ret)", jsonutils.Marshal(params).String())
+	params := map[string]interface{}{
+		"peering": map[string]interface{}{
+			"name":        opts.Name,
+			"description": opts.Desc,
+			"request_vpc_info": map[string]interface{}{
+				"vpc_id":    vpcId,
+				"tenant_id": self.client.projectId,
+			},
+			"accept_vpc_info": map[string]interface{}{
+				"vpc_id":    opts.PeerVpcId,
+				"tenant_id": opts.PeerAccountId,
+			},
+		},
 	}
-	return &ret, nil
+	resp, err := self.post(SERVICE_VPC_V2_0, "vpc/peerings", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SVpcPeering{}
+	err = resp.Unmarshal(ret, "peering")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
-func (self *SRegion) AcceptVpcPeering(vpcPeeringId string) error {
-	err := DoUpdateWithSpec(self.ecsClient.VpcPeerings.UpdateInContextWithSpec, vpcPeeringId, "accept", nil)
-	if err != nil {
-		return errors.Wrapf(err, "DoUpdateWithSpec(self.ecsClient.VpcPeerings.UpdateInContextWithSpec, %s, accept, nil)", vpcPeeringId)
-	}
-	return nil
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=AcceptVpcPeering
+func (self *SRegion) AcceptVpcPeering(id string) error {
+	res := fmt.Sprintf("vpc/peerings/%s/accept", id)
+	_, err := self.put(SERVICE_VPC_V2_0, res, nil)
+	return err
 }
 
-func (self *SRegion) DeleteVpcPeering(vpcPeeringId string) error {
-	err := DoDelete(self.ecsClient.VpcPeerings.Delete, vpcPeeringId, nil, nil)
-	if err != nil {
-		return errors.Wrapf(err, "DoDelete(self.ecsClient.VpcPeerings.Delete,%s,nil)", vpcPeeringId)
-	}
-	return nil
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=DeleteVpcPeering
+func (self *SRegion) DeleteVpcPeering(id string) error {
+	_, err := self.delete(SERVICE_VPC_V2_0, "vpc/peerings/"+id)
+	return err
 }
 
 func (self *SVpcPeering) GetId() string {

@@ -21,13 +21,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/samlutils"
 	"yunion.io/x/pkg/util/stringutils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules"
 )
 
 type SAMLProviderLinks struct {
@@ -89,17 +89,18 @@ func (self *SAMLProvider) UpdateMetadata(metadata samlutils.EntityDescriptor) er
 	return self.client.UpdateSAMLProviderMetadata(self.Id, metadata.String())
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListIdentityProviders
 func (self *SHuaweiClient) ListSAMLProviders() ([]SAMLProvider, error) {
-	client, err := self.newGeneralAPIClient()
+	resp, err := self.list(SERVICE_IAM_V3, "", "OS-FEDERATION/identity_providers", nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "newGeneralAPIClient")
+		return nil, err
 	}
-	samls := []SAMLProvider{}
-	err = doListAllWithNextLink(client.SAMLProviders.List, nil, &samls)
+	ret := []SAMLProvider{}
+	err = resp.Unmarshal(&ret, "identity_providers")
 	if err != nil {
-		return nil, errors.Wrapf(err, "doListAll")
+		return nil, err
 	}
-	return samls, nil
+	return ret, nil
 }
 
 type SAMLProviderProtocol struct {
@@ -107,25 +108,24 @@ type SAMLProviderProtocol struct {
 	Id        string
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneShowProtocol
 func (self *SHuaweiClient) GetSAMLProviderProtocols(id string) ([]SAMLProviderProtocol, error) {
-	client, err := self.newGeneralAPIClient()
+	resp, err := self.list(SERVICE_IAM_V3, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols", id), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
+		return nil, err
 	}
-	resp, err := client.SAMLProviders.ListInContextWithSpec(nil, fmt.Sprintf("%s/protocols", id), nil, "protocols")
+	ret := []SAMLProviderProtocol{}
+	err = resp.Unmarshal(&ret, "protocols")
 	if err != nil {
-		return nil, errors.Wrapf(err, "ListInContextWithSpec")
+		return nil, err
 	}
-	protocols := []SAMLProviderProtocol{}
-	return protocols, jsonutils.Update(&protocols, resp.Data)
+	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneDeleteProtocol
 func (self *SHuaweiClient) DeleteSAMLProviderProtocol(spId, id string) error {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return errors.Wrap(err, "newGeneralAPIClient")
-	}
-	_, err = client.SAMLProviders.DeleteInContextWithSpec(nil, spId, fmt.Sprintf("protocols/%s", id), nil, nil, "")
+	res := fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/%s", spId, id)
+	_, err := self.delete(SERVICE_IAM_V3, "", res)
 	return err
 }
 
@@ -140,17 +140,12 @@ type SAMLProviderMetadata struct {
 	XaccountType string
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=ShowMetadata
 func (self *SHuaweiClient) GetSAMLProviderMetadata(id string) (*SAMLProviderMetadata, error) {
-	client, err := self.newGeneralAPIClient()
+	resp, err := self.list(SERVICE_IAM_V3_EXT, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/saml/metadata", id), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
+		return nil, errors.Wrapf(err, "show metadata")
 	}
-	client.SAMLProviders.SetVersion("v3-ext/OS-FEDERATION")
-	resp, err := client.SAMLProviders.GetInContextWithSpec(nil, id, fmt.Sprintf("protocols/saml/metadata"), nil, "")
-	if err != nil {
-		return nil, err
-	}
-
 	metadata := &SAMLProviderMetadata{}
 	err = resp.Unmarshal(metadata)
 	if err != nil {
@@ -159,22 +154,15 @@ func (self *SHuaweiClient) GetSAMLProviderMetadata(id string) (*SAMLProviderMeta
 	return metadata, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=CreateMetadata
 func (self *SHuaweiClient) UpdateSAMLProviderMetadata(id, metadata string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"domain_id":     self.ownerId,
 		"xaccount_type": "",
 		"metadata":      metadata,
 	}
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return errors.Wrap(err, "newGeneralAPIClient")
-	}
-	client.SAMLProviders.SetVersion("v3-ext/OS-FEDERATION")
-	_, err = client.SAMLProviders.PerformAction2("protocols/saml/metadata", id, jsonutils.Marshal(params), "")
-	if err != nil {
-		return errors.Wrapf(err, "SAMLProvider.PerformAction")
-	}
-	return nil
+	_, err := self.post(SERVICE_IAM_V3_EXT, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/saml/metadata", id), params)
+	return err
 }
 
 func (self *SHuaweiClient) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
@@ -190,26 +178,20 @@ func (self *SHuaweiClient) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLP
 	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneDeleteIdentityProvider
 func (self *SHuaweiClient) DeleteSAMLProvider(id string) error {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return errors.Wrap(err, "newGeneralAPIClient")
-	}
-	_, err = client.SAMLProviders.Delete(id, nil)
+	_, err := self.delete(SERVICE_IAM_V3, "", "OS-FEDERATION/identity_providers/"+id)
 	return err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneCreateIdentityProvider
 func (self *SHuaweiClient) CreateSAMLProvider(opts *cloudprovider.SAMLProviderCreateOptions) (*SAMLProvider, error) {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
-	}
-	params := jsonutils.Marshal(map[string]interface{}{
+	params := map[string]interface{}{
 		"identity_provider": map[string]interface{}{
 			"description": opts.Name,
 			"enabled":     true,
 		},
-	})
+	}
 	name := []byte{}
 	for _, c := range opts.Name {
 		if unicode.IsLetter(c) || unicode.IsNumber(c) || c == '-' || c == '_' {
@@ -219,14 +201,15 @@ func (self *SHuaweiClient) CreateSAMLProvider(opts *cloudprovider.SAMLProviderCr
 		}
 	}
 	samlName := string(name)
+	var err error
 	err = func() error {
 		idx := 1
 		for {
-			_, err = client.SAMLProviders.Update(samlName, params)
+			_, err = self.put(SERVICE_IAM_V3, "", "OS-FEDERATION/identity_providers/"+samlName, params)
 			if err == nil {
 				return nil
 			}
-			he, ok := err.(*modules.HuaweiClientError)
+			he, ok := errors.Cause(err).(*httputils.JSONClientError)
 			if !ok {
 				return errors.Wrapf(err, "SAMLProviders.Update")
 			}
@@ -284,17 +267,18 @@ var (
 	})
 )
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListMappings
 func (self *SHuaweiClient) ListSAMLProviderMappings() ([]SAMLProviderMapping, error) {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
-	}
-	mappings := []SAMLProviderMapping{}
-	err = doListAllWithNextLink(client.SAMLProviderMappings.List, nil, &mappings)
+	resp, err := self.list(SERVICE_IAM_V3, "", "OS-FEDERATION/mappings", nil)
 	if err != nil {
 		return nil, err
 	}
-	return mappings, nil
+	ret := []SAMLProviderMapping{}
+	err = resp.Unmarshal(&ret, "mappings")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
 
 func (self *SHuaweiClient) findMapping() (*SAMLProviderMapping, error) {
@@ -310,12 +294,8 @@ func (self *SHuaweiClient) findMapping() (*SAMLProviderMapping, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneCreateMapping
 func (self *SHuaweiClient) InitSAMLProviderMapping(spId string) error {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return errors.Wrap(err, "newGeneralAPIClient")
-	}
-
 	mapping, err := self.findMapping()
 	if err != nil {
 		if errors.Cause(err) != cloudprovider.ErrNotFound {
@@ -325,7 +305,7 @@ func (self *SHuaweiClient) InitSAMLProviderMapping(spId string) error {
 		params := map[string]interface{}{
 			"mapping": onecloudMappingRules,
 		}
-		_, err = client.SAMLProviderMappings.Update(mappingId, jsonutils.Marshal(params))
+		_, err := self.put(SERVICE_IAM_V3, "", "OS-FEDERATION/mappings/"+mappingId, params)
 		if err != nil {
 			return errors.Wrapf(err, "create mapping")
 		}
@@ -348,20 +328,17 @@ func (self *SHuaweiClient) InitSAMLProviderMapping(spId string) error {
 			if protocols[i].MappingId == mapping.Id {
 				return nil
 			}
-			_, err = client.SAMLProviders.PatchInContextWithSpec(nil, spId, "protocols/saml", jsonutils.Marshal(params), "")
+			// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneUpdateMapping
+			_, err := self.patch(SERVICE_IAM_V3, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/saml", spId), nil, params)
 			return err
 		}
 	}
-	_, err = client.SAMLProviders.UpdateInContextWithSpec(nil, spId, "protocols/saml", jsonutils.Marshal(params), "")
+	_, err = self.patch(SERVICE_IAM, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/saml", spId), nil, params)
 	return err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneDeleteMapping
 func (self *SHuaweiClient) DeleteSAMLProviderMapping(id string) error {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return errors.Wrap(err, "newGeneralAPIClient")
-	}
-
-	_, err = client.SAMLProviderMappings.Delete(id, nil)
+	_, err := self.delete(SERVICE_IAM_V3, "", "OS-FEDERATION/mappings/"+id)
 	return err
 }

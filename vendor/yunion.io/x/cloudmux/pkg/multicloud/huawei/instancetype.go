@@ -15,10 +15,12 @@
 package huawei
 
 import (
+	"net/url"
 	"strconv"
+
+	"yunion.io/x/pkg/errors"
 )
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212656.html
 type SInstanceType struct {
 	ID           string       `json:"id"`
 	Name         string       `json:"name"`
@@ -31,27 +33,33 @@ type OSExtraSpecs struct {
 	EcsPerformancetype string `json:"ecs:performancetype"`
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212656.html
-func (self *SRegion) fetchInstanceTypes(zoneId string) ([]SInstanceType, error) {
-	querys := map[string]string{}
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=ListFlavors
+func (self *SRegion) GetInstanceTypes(zoneId string) ([]SInstanceType, error) {
+	query := url.Values{}
 	if len(zoneId) > 0 {
-		querys["availability_zone"] = zoneId
+		query.Set("available_zone", zoneId)
 	}
-
-	instanceTypes := make([]SInstanceType, 0)
-	err := doListAll(self.ecsClient.Flavors.List, querys, &instanceTypes)
-	return instanceTypes, err
+	resp, err := self.list(SERVICE_ECS, "cloudservers/flavors", query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list flavors")
+	}
+	ret := []SInstanceType{}
+	err = resp.Unmarshal(&ret, "flavors")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, zoneId string) ([]SInstanceType, error) {
-	instanceTypes, err := self.fetchInstanceTypes(zoneId)
+	instanceTypes, err := self.GetInstanceTypes(zoneId)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := make([]SInstanceType, 0)
 	for _, t := range instanceTypes {
-		// cpu & mem & disk都匹配才行
+		// cpu & mem 都匹配才行
 		if t.Vcpus == strconv.Itoa(cpu) && t.RamMB == memMB {
 			ret = append(ret, t)
 		}

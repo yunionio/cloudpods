@@ -17,9 +17,6 @@ package huawei
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
-
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -60,35 +57,16 @@ func (self *SElasticcacheAccount) GetAccountPrivilege() string {
 	return api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_WRITE
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423031.html
-// 未找到关闭密码的开放api， 不支持开启/关闭密码访问
-// https://console.huaweicloud.com/dcs/rest/v2/41f6bfe48d7f4455b7754f7c1b11ae34/instances/26db46e2-c7d8-4b5e-bd36-b5278d2fe17c/password/reset
-// new_password: "26db46e2!"
-// no_password_access: false
 func (self *SElasticcacheAccount) ResetPassword(input cloudprovider.SCloudElasticCacheAccountResetPasswordInput) error {
 	if input.OldPassword == nil {
 		return fmt.Errorf("elasticcacheAccount.ResetPassword.input OldPassword should not be empty")
 	}
-
-	type ResetPasswordResult struct {
-		Result  string `json:"result"`
-		Message string `json:"message"`
+	params := map[string]interface{}{
+		"old_password": *input.OldPassword,
+		"new_password": input.NewPassword,
 	}
-
-	result := ResetPasswordResult{}
-	params := jsonutils.NewDict()
-	params.Set("old_password", jsonutils.NewString(*input.OldPassword))
-	params.Set("new_password", jsonutils.NewString(input.NewPassword))
-	err := DoUpdateWithSpec2(self.cacheDB.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.cacheDB.GetId(), "password", params, &result)
-	if err != nil {
-		return errors.Wrap(err, "elasticcacheAccount.ResetPassword")
-	}
-
-	if result.Result != "success" {
-		return errors.Wrap(fmt.Errorf(result.Message), "elasticcacheAccount.ResetPassword")
-	}
-
-	return nil
+	_, err := self.cacheDB.region.put(SERVICE_DCS, fmt.Sprintf("instances/%s/password", self.cacheDB.InstanceID), params)
+	return err
 }
 
 func (self *SElasticcacheAccount) UpdateAccount(input cloudprovider.SCloudElasticCacheAccountUpdateInput) error {

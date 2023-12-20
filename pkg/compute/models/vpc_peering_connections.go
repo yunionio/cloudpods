@@ -354,10 +354,14 @@ func (self *SVpcPeeringConnection) syncRemove(ctx context.Context, userCred mccl
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SVpcPeeringConnection) SyncWithCloudPeerConnection(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudVpcPeeringConnection, provider *SCloudprovider) error {
+func (self *SVpcPeeringConnection) SyncWithCloudPeerConnection(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudVpcPeeringConnection) error {
 	vpc, err := self.GetVpc()
 	if err != nil {
 		return errors.Wrapf(err, "GetVpc")
+	}
+	provider := vpc.GetCloudprovider()
+	if provider == nil {
+		return errors.Wrapf(cloudprovider.ErrNotFound, "cloudprovider for vpc %s", vpc.Name)
 	}
 	_, err = db.Update(self, func() error {
 		self.Status = ext.GetStatus()

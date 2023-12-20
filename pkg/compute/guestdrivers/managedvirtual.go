@@ -590,6 +590,9 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 			if err == nil || !options.Options.EnableAutoSwitchServerSku {
 				return iVM, err
 			}
+			if errors.Cause(err) != cloudprovider.ErrInvalidSku {
+				return iVM, err
+			}
 			skus, e := models.ServerSkuManager.GetSkus(host.GetProviderName(), guest.VcpuCount, guest.VmemSize)
 			if e != nil {
 				return iVM, errors.Wrapf(e, "GetSkus")

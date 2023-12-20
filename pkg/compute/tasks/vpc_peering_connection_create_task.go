@@ -90,7 +90,7 @@ func (self *VpcPeeringConnectionCreateTask) OnInit(ctx context.Context, obj db.I
 	}
 
 	iPeerConnection.Refresh()
-	err = peer.SyncWithCloudPeerConnection(ctx, self.GetUserCred(), iPeerConnection, nil)
+	err = peer.SyncWithCloudPeerConnection(ctx, self.GetUserCred(), iPeerConnection)
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "SyncWithCloudPeerConnection"))
 		return

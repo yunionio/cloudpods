@@ -16,6 +16,8 @@ package huawei
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -59,6 +61,7 @@ type DiskMeta struct {
 	ResourceType     string `json:"resourceType"`
 	AttachedMode     string `json:"attached_mode"`
 	Readonly         string `json:"readonly"`
+	OrderId          string `json:"orderID"`
 }
 
 type VolumeImageMetadata struct {
@@ -92,7 +95,6 @@ type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
 	HuaweiDiskTags
-	details *SResourceDetail
 
 	ID                  string              `json:"id"`
 	Name                string              `json:"name"`
@@ -136,7 +138,6 @@ func (self *SDisk) GetGlobalId() string {
 }
 
 func (self *SDisk) GetStatus() string {
-	// https://support.huaweicloud.com/api-evs/zh-cn_topic_0051803385.html
 	switch self.Status {
 	case "creating", "downloading":
 		return api.DISK_ALLOCATING
@@ -174,39 +175,18 @@ func (self *SDisk) GetStatus() string {
 }
 
 func (self *SDisk) Refresh() error {
-	new, err := self.storage.zone.region.GetDisk(self.GetId())
+	disk, err := self.storage.zone.region.GetDisk(self.GetId())
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
-}
-
-func (self *SDisk) IsEmulated() bool {
-	return false
-}
-
-func (self *SDisk) getResourceDetails() *SResourceDetail {
-	if self.details != nil {
-		return self.details
-	}
-
-	res, err := self.storage.zone.region.GetOrderResourceDetail(self.GetId())
-	if err != nil {
-		log.Debugln(err)
-		return nil
-	}
-
-	self.details = &res
-	return self.details
+	return jsonutils.Update(self, disk)
 }
 
 func (self *SDisk) GetBillingType() string {
-	details := self.getResourceDetails()
-	if details == nil {
-		return billing_api.BILLING_TYPE_POSTPAID
-	} else {
+	if len(self.Metadata.OrderId) > 0 {
 		return billing_api.BILLING_TYPE_PREPAID
 	}
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SDisk) GetCreatedAt() time.Time {
@@ -214,13 +194,15 @@ func (self *SDisk) GetCreatedAt() time.Time {
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	var expiredTime time.Time
-	details := self.getResourceDetails()
-	if details != nil {
-		expiredTime = details.ExpireTime
+	orders, err := self.storage.zone.region.client.GetOrderResources()
+	if err != nil {
+		return time.Time{}
 	}
-
-	return expiredTime
+	order, ok := orders[self.ID]
+	if ok {
+		return order.ExpireTime
+	}
+	return time.Time{}
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -228,7 +210,6 @@ func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SDisk) GetDiskFormat() string {
-	// self.volume_type ?
 	return "vhd"
 }
 
@@ -241,7 +222,7 @@ func (self *SDisk) checkAutoDelete(attachments []Attachment) bool {
 	for _, attach := range attachments {
 		if len(attach.ServerID) > 0 {
 			// todo : 忽略错误？？
-			vm, err := self.storage.zone.region.GetInstanceByID(attach.ServerID)
+			vm, err := self.storage.zone.region.GetInstance(attach.ServerID)
 			if err != nil {
 				volumes := vm.OSExtendedVolumesVolumesAttached
 				for _, vol := range volumes {
@@ -270,14 +251,11 @@ func (self *SDisk) GetTemplateId() string {
 	return self.VolumeImageMetadata.ImageID
 }
 
-// Bootable 表示硬盘是否为启动盘。
-// 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
 func (self *SDisk) GetDiskType() string {
 	if self.Bootable == "true" {
 		return api.DISK_TYPE_SYS
-	} else {
-		return api.DISK_TYPE_DATA
 	}
+	return api.DISK_TYPE_DATA
 }
 
 func (self *SDisk) GetFsFormat() string {
@@ -289,9 +267,6 @@ func (self *SDisk) GetIsNonPersistent() bool {
 }
 
 func (self *SDisk) GetDriver() string {
-	// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762431.html
-	// scsi or vbd?
-	// todo: implement me
 	return "scsi"
 }
 
@@ -340,28 +315,19 @@ func (self *SDisk) Delete(ctx context.Context) error {
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.GetId(), name, desc); err != nil {
-		log.Errorf("createSnapshot fail %s", err)
-		return nil, err
-	} else if snapshot, err := self.getSnapshot(snapshotId); err != nil {
-		return nil, err
-	} else {
-		snapshot.region = self.storage.zone.region
-		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
-			return nil, err
-		}
-		return snapshot, nil
+	snapshot, err := self.storage.zone.region.CreateSnapshot(self.GetId(), name, desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateSnapshot")
 	}
-}
-
-func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
-	snapshot, err := self.storage.zone.region.GetSnapshotById(snapshotId)
-	return &snapshot, err
+	return snapshot, nil
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	snapshot, err := self.getSnapshot(snapshotId)
-	return snapshot, err
+	snapshot, err := self.storage.zone.region.GetSnapshot(snapshotId)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot, nil
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
@@ -378,17 +344,11 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	err := cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 60*time.Second)
-	if err != nil {
-		return err
-	}
-
 	sizeGb := newSizeMB / 1024
-	err = self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
+	err := self.storage.zone.region.ResizeDisk(self.GetId(), sizeGb)
 	if err != nil {
 		return err
 	}
-
 	return cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 15*time.Second, 5*time.Second, 60*time.Second)
 }
 
@@ -417,140 +377,123 @@ func (self *SDisk) Detach() error {
 func (self *SDisk) Attach(device string) error {
 	err := self.storage.zone.region.AttachDisk(self.GetMountServerId(), self.GetId(), device)
 	if err != nil {
-		log.Debugf("attach server %s disk %s failed: %s", self.GetMountServerId(), self.GetId(), err)
-		return err
+		return errors.Wrapf(err, "AttachDisk")
 	}
 
 	return cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 10*time.Second, 5*time.Second, 60*time.Second)
 }
 
-// 在线卸载磁盘 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0036046828.html
-// 对于挂载在系统盘盘位（也就是“/dev/sda”或“/dev/vda”挂载点）上的磁盘，当前仅支持离线卸载
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	mountpoint := self.GetMountpoint()
-	if len(mountpoint) > 0 {
-		err := self.Detach()
-		if err != nil {
-			return "", err
-		}
-	}
-
-	diskId, err := self.storage.zone.region.resetDisk(self.GetId(), snapshotId)
-	if err != nil {
-		return diskId, err
-	}
-
-	err = cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 300*time.Second)
-	if err != nil {
-		return "", err
-	}
-
-	if len(mountpoint) > 0 {
-		err := self.Attach(mountpoint)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return diskId, nil
+	return "", cloudprovider.ErrNotSupported
 }
 
-// 华为云不支持重置
 func (self *SDisk) Rebuild(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EVS/doc?api=ShowVolume
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
-	if len(diskId) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	resp, err := self.list(SERVICE_EVS, "cloudvolumes/"+diskId, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "show volume")
 	}
-	var disk SDisk
-	err := DoGet(self.ecsClient.Disks.Get, diskId, nil, &disk)
-	return &disk, err
+	ret := &SDisk{}
+	err = resp.Unmarshal(ret, "volume")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
-// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762430.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EVS/doc?api=ListVolumes
 func (self *SRegion) GetDisks(zoneId string) ([]SDisk, error) {
-	queries := map[string]string{}
+	ret := []SDisk{}
+	query := url.Values{}
 	if len(zoneId) > 0 {
-		queries["availability_zone"] = zoneId
+		query.Set("availability_zone", zoneId)
 	}
-
-	disks := make([]SDisk, 0)
-	err := doListAllWithOffset(self.ecsClient.Disks.List, queries, &disks)
-	return disks, err
+	for {
+		resp, err := self.list(SERVICE_EVS, "cloudvolumes/detail", query)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list volumes")
+		}
+		part := struct {
+			Volumes []SDisk
+			Count   int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		ret = append(ret, part.Volumes...)
+		if len(ret) >= part.Count || len(part.Volumes) == 0 {
+			break
+		}
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
+	}
+	return ret, nil
 }
 
-// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762427.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EVS/doc?api=CreateVolume
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string, projectId string) (string, error) {
-	params := jsonutils.NewDict()
-	volumeObj := jsonutils.NewDict()
-	volumeObj.Add(jsonutils.NewString(name), "name")
-	volumeObj.Add(jsonutils.NewString(zoneId), "availability_zone")
-	volumeObj.Add(jsonutils.NewString(desc), "description")
-	volumeObj.Add(jsonutils.NewString(category), "volume_type")
-	volumeObj.Add(jsonutils.NewInt(int64(sizeGb)), "size")
+	params := map[string]interface{}{
+		"name":              name,
+		"availability_zone": zoneId,
+		"description":       desc,
+		"volume_type":       category,
+		"size":              sizeGb,
+	}
 	if len(snapshotId) > 0 {
-		volumeObj.Add(jsonutils.NewString(snapshotId), "snapshot_id")
+		params["snapshot_id"] = snapshotId
 	}
 	if len(projectId) > 0 {
-		volumeObj.Add(jsonutils.NewString(projectId), "enterprise_project_id")
+		params["enterprise_project_id"] = projectId
 	}
 
-	params.Add(volumeObj, "volume")
-	// 目前只支持创建按需资源，返回job id。 如果创建包年包月资源则返回order id
-	_id, err := self.ecsClient.Disks.AsyncCreate(params)
+	resp, err := self.post(SERVICE_EVS_V2_1, "cloudvolumes", map[string]interface{}{"volume": params})
 	if err != nil {
-		log.Debugf("AsyncCreate with params: %s", params)
-		return "", errors.Wrap(err, "AsyncCreate")
+		return "", errors.Wrapf(err, "create volume")
 	}
+
+	ret := struct {
+		JobId   string
+		OrderId string
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return "", errors.Wrapf(err, "Unmarshal")
+	}
+
+	id := ret.JobId + ret.OrderId
 
 	// 按需计费
-	volumeId, err := self.GetTaskEntityID(self.ecsClient.Disks.ServiceType(), _id, "volume_id")
+	volumeId, err := self.GetTaskEntityID(SERVICE_EVS_V1, id, "volume_id")
 	if err != nil {
 		return "", errors.Wrap(err, "GetAllSubTaskEntityIDs")
 	}
 
 	if len(volumeId) == 0 {
-		return "", errors.Errorf("CreateInstance job %s result is emtpy", _id)
-	} else {
-		return volumeId, nil
+		return "", errors.Errorf("CreateInstance job %s result is emtpy", id)
 	}
+	return volumeId, nil
 }
 
-// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762428.html
-// 默认删除云硬盘关联的所有快照
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EVS/doc?api=DeleteVolume
 func (self *SRegion) DeleteDisk(diskId string) error {
-	return DoDeleteWithSpec(self.ecsClient.Disks.DeleteInContextWithSpec, nil, diskId, "", nil, nil)
-}
-
-/*
-扩容状态为available的云硬盘时，没有约束限制。
-扩容状态为in-use的云硬盘时，有以下约束：
-不支持共享云硬盘，即multiattach参数值必须为false。
-云硬盘所挂载的云服务器状态必须为ACTIVE、PAUSED、SUSPENDED、SHUTOFF才支持扩容
-*/
-func (self *SRegion) resizeDisk(diskId string, sizeGB int64) error {
-	params := jsonutils.NewDict()
-	osExtendObj := jsonutils.NewDict()
-	osExtendObj.Add(jsonutils.NewInt(sizeGB), "new_size") // GB
-	params.Add(osExtendObj, "os-extend")
-	_, err := self.ecsClient.Disks.PerformAction2("action", diskId, params, "")
+	res := fmt.Sprintf("cloudvolumes/%s", diskId)
+	_, err := self.delete(SERVICE_EVS, res)
 	return err
 }
 
-/*
-https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408629.html
-只支持快照回滚到源云硬盘，不支持快照回滚到其它指定云硬盘。
-只有云硬盘状态处于“available”或“error_rollbacking”状态才允许快照回滚到源云硬盘。
-*/
-func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
-	params := jsonutils.NewDict()
-	rollbackObj := jsonutils.NewDict()
-	rollbackObj.Add(jsonutils.NewString(diskId), "volume_id")
-	params.Add(rollbackObj, "rollback")
-	_, err := self.ecsClient.OsSnapshots.PerformAction2("rollback", snapshotId, params, "")
-	return diskId, err
+// https://console.huaweicloud.com/apiexplorer/#/openapi/EVS/doc?api=ResizeVolume
+func (self *SRegion) ResizeDisk(diskId string, sizeGB int64) error {
+	params := map[string]interface{}{
+		"os-extend": map[string]interface{}{
+			"new_size": sizeGB,
+		},
+	}
+	_, err := self.post(SERVICE_EVS_V2_1, fmt.Sprintf("cloudvolumes/%s/action", diskId), params)
+	return err
 }
 
 func (self *SDisk) GetProjectId() string {

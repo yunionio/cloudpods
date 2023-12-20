@@ -16,10 +16,7 @@ package huawei
 
 import (
 	"fmt"
-	"time"
 
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
@@ -32,14 +29,12 @@ import (
 type SWire struct {
 	multicloud.SResourceBase
 	HuaweiTags
-	region *SRegion
-	vpc    *SVpc
 
-	inetworks []cloudprovider.ICloudNetwork
+	vpc *SVpc
 }
 
 func (self *SWire) GetId() string {
-	return fmt.Sprintf("%s-%s", self.vpc.GetId(), self.region.GetId())
+	return fmt.Sprintf("%s-%s", self.vpc.GetId(), self.vpc.region.GetId())
 }
 
 func (self *SWire) GetName() string {
@@ -47,7 +42,7 @@ func (self *SWire) GetName() string {
 }
 
 func (self *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.region.GetGlobalId())
+	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.vpc.region.GetGlobalId())
 }
 
 func (self *SWire) GetStatus() string {
@@ -71,93 +66,39 @@ func (self *SWire) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if self.inetworks == nil {
-		err := self.vpc.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
+	networks, err := self.vpc.region.GetNetworks(self.vpc.ID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetwroks")
 	}
-	return self.inetworks, nil
+	ret := []cloudprovider.ICloudNetwork{}
+	for i := range networks {
+		networks[i].wire = self
+		ret = append(ret, &networks[i])
+	}
+	return ret, nil
 }
 
 func (self *SWire) GetBandwidth() int {
 	return 10000
 }
 
-func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
-	networks, err := self.GetINetworks()
+func (self *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, error) {
+	network, err := self.vpc.region.GetNetwork(id)
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(networks); i += 1 {
-		if networks[i].GetGlobalId() == netid {
-			return networks[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
-/*
-华为云子网可用区，类似一个zone标签。即使指定了zone子网在整个region依然是可用。
-通过华为web控制台创建子网需要指定可用区。这里是不指定的。
-*/
-func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	networkId, err := self.region.createNetwork(self.vpc.GetId(), opts.Name, opts.Cidr, opts.Desc)
-	if err != nil {
-		log.Errorf("createNetwork error %s", err)
-		return nil, err
-	}
-
-	var network *SNetwork
-	err = cloudprovider.WaitCreated(5*time.Second, 60*time.Second, func() bool {
-		self.inetworks = nil
-		network = self.getNetworkById(networkId)
-		if network == nil {
-			return false
-		} else {
-			return true
-		}
-	})
-
-	if err != nil {
-		log.Errorf("cannot find network after create????")
-		return nil, err
-	}
-
 	network.wire = self
 	return network, nil
 }
 
-func (self *SWire) addNetwork(network *SNetwork) {
-	if self.inetworks == nil {
-		self.inetworks = make([]cloudprovider.ICloudNetwork, 0)
-	}
-	find := false
-	for i := 0; i < len(self.inetworks); i += 1 {
-		if self.inetworks[i].GetId() == network.ID {
-			find = true
-			break
-		}
-	}
-	if !find {
-		self.inetworks = append(self.inetworks, network)
-	}
-}
-
-func (self *SWire) getNetworkById(networkId string) *SNetwork {
-	networks, err := self.GetINetworks()
+func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
+	network, err := self.vpc.region.CreateNetwork(self.vpc.ID, opts)
 	if err != nil {
-		return nil
+		return nil, errors.Wrapf(err, "CreateNetwork")
 	}
-	log.Debugf("search for networks %d", len(networks))
-	for i := 0; i < len(networks); i += 1 {
-		log.Debugf("search %s", networks[i].GetName())
-		network := networks[i]
-		if network.GetId() == networkId {
-			return network.(*SNetwork)
-		}
-	}
-	return nil
+
+	network.wire = self
+	return network, nil
 }
 
 func getDefaultGateWay(cidr string) (string, error) {
@@ -170,23 +111,28 @@ func getDefaultGateWay(cidr string) (string, error) {
 	return startIp.String(), nil
 }
 
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090590.html
-// cidr 掩码长度不能大于28
-func (self *SRegion) createNetwork(vpcId string, name string, cidr string, desc string) (string, error) {
-	gateway, err := getDefaultGateWay(cidr)
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ListSubnets
+func (self *SRegion) CreateNetwork(vpcId string, opts *cloudprovider.SNetworkCreateOptions) (*SNetwork, error) {
+	gateway, err := getDefaultGateWay(opts.Cidr)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	params := jsonutils.NewDict()
-	subnetObj := jsonutils.NewDict()
-	subnetObj.Add(jsonutils.NewString(name), "name")
-	subnetObj.Add(jsonutils.NewString(vpcId), "vpc_id")
-	subnetObj.Add(jsonutils.NewString(cidr), "cidr")
-	subnetObj.Add(jsonutils.NewString(gateway), "gateway_ip")
-	params.Add(subnetObj, "subnet")
-
-	subnet := SNetwork{}
-	err = DoCreate(self.ecsClient.Subnets.Create, params, &subnet)
-	return subnet.ID, err
+	params := map[string]interface{}{
+		"name":        opts.Name,
+		"description": opts.Desc,
+		"vpc_id":      vpcId,
+		"cidr":        opts.Cidr,
+		"gateway_ip":  gateway,
+	}
+	resp, err := self.post(SERVICE_VPC, "subnets", map[string]interface{}{"subnet": params})
+	if err != nil {
+		return nil, errors.Wrapf(err, "create subnet")
+	}
+	subnet := &SNetwork{}
+	err = resp.Unmarshal(subnet, "subnet")
+	if err != nil {
+		return nil, err
+	}
+	return subnet, nil
 }
