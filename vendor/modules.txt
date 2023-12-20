@@ -1465,7 +1465,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231220031823-c4f8b9242fd3
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20231220111515-f4d6c15e4077
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1509,14 +1509,6 @@ yunion.io/x/cloudmux/pkg/multicloud/hcso/client/requests
 yunion.io/x/cloudmux/pkg/multicloud/hcso/client/responses
 yunion.io/x/cloudmux/pkg/multicloud/hcso/provider
 yunion.io/x/cloudmux/pkg/multicloud/huawei
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth/credentials
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth/signers
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client/manager
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client/requests
-yunion.io/x/cloudmux/pkg/multicloud/huawei/client/responses
 yunion.io/x/cloudmux/pkg/multicloud/huawei/obs
 yunion.io/x/cloudmux/pkg/multicloud/huawei/provider
 yunion.io/x/cloudmux/pkg/multicloud/jdcloud

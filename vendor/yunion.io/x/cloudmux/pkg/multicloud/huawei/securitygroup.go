@@ -90,27 +90,25 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, erro
 	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v3&api=ShowSecurityGroup
 func (self *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
 	ret := &SSecurityGroup{region: self}
-	resp, err := self.list(SERVICE_VPC, "vpc/security-groups/"+id, nil)
+	resp, err := self.list(SERVICE_VPC_V3, "vpc/security-groups/"+id, nil)
 	if err != nil {
 		return nil, err
 	}
 	return ret, resp.Unmarshal(ret, "security_group")
 }
 
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090617.html
-func (self *SRegion) GetSecurityGroups(vpcId string, name string) ([]SSecurityGroup, error) {
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v3&api=ListSecurityGroups
+func (self *SRegion) GetSecurityGroups(name string) ([]SSecurityGroup, error) {
 	ret := []SSecurityGroup{}
 	params := url.Values{}
 	if len(name) > 0 {
 		params.Set("name", name)
 	}
-	if len(vpcId) > 0 && vpcId != "default" {
-		params.Set("vc_id", vpcId)
-	}
 	for {
-		resp, err := self.list(SERVICE_VPC, "vpc/security-groups", params)
+		resp, err := self.list(SERVICE_VPC_V3, "vpc/security-groups", params)
 		if err != nil {
 			return nil, err
 		}

@@ -1742,7 +1742,7 @@ func (svpc *SVpc) SyncVpcPeeringConnections(
 
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
-			err = commondb[i].SyncWithCloudPeerConnection(ctx, userCred, commonext[i], provider)
+			err = commondb[i].SyncWithCloudPeerConnection(ctx, userCred, commonext[i])
 			if err != nil {
 				result.UpdateError(err)
 				continue

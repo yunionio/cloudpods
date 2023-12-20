@@ -156,7 +156,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 		}
 		netId, _ = createNetObj.GetString("metadata", "name")
 		for i := 0; i < 10; i++ {
-			netDetailObj, err := self.list(SERVICE_MODELARTS, "networks/"+netId, nil)
+			netDetailObj, err := self.list(SERVICE_MODELARTS_V1, "networks/"+netId, nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "SHuaweiClient.NetworkDetail")
 			}
@@ -291,7 +291,7 @@ type ModelartsStatistics struct {
 }
 
 func (self *SHuaweiClient) GetPoolNetworks(poolName string) (jsonutils.JSONObject, error) {
-	return self.list(SERVICE_MODELARTS, self.clientRegion, "networks", nil)
+	return self.list(SERVICE_MODELARTS_V1, self.clientRegion, "networks", nil)
 }
 
 func (self *SHuaweiClient) CreatePoolNetworks(cidr string) (jsonutils.JSONObject, error) {
@@ -308,7 +308,7 @@ func (self *SHuaweiClient) CreatePoolNetworks(cidr string) (jsonutils.JSONObject
 			"cidr": cidr,
 		},
 	}
-	return self.post(SERVICE_MODELARTS, self.clientRegion, "networks", params)
+	return self.post(SERVICE_MODELARTS_V1, self.clientRegion, "networks", params)
 }
 
 func (self *SModelartsPool) GetCreatedAt() time.Time {

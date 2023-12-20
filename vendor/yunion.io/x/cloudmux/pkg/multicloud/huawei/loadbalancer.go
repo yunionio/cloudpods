@@ -167,7 +167,7 @@ func (self *SLoadbalancer) GetNetwork() *SNetwork {
 	if self.subnet == nil {
 		port, err := self.region.GetPort(self.VipPortId)
 		if err == nil {
-			net, err := self.region.getNetwork(port.NetworkID)
+			net, err := self.region.GetNetwork(port.NetworkID)
 			if err == nil {
 				self.subnet = net
 			} else {
@@ -225,7 +225,7 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 	return 0
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0141008275.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=DeleteLoadBalancer
 func (self *SLoadbalancer) Delete(ctx context.Context) error {
 	for _, res := range self.Pools {
 		backends, err := self.region.getLoadBalancerBackends(res.Id)
@@ -312,13 +312,12 @@ func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(opts *cloudprovider.S
 	return ret, err
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561563.html
 func (self *SLoadbalancer) CreateHealthCheck(backendGroupId string, healthcheck *cloudprovider.SLoadbalancerHealthCheck) error {
 	_, err := self.region.CreateLoadBalancerHealthCheck(backendGroupId, healthcheck)
 	return err
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561548.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=ShowPool
 func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	ret := &SElbBackendGroup{lb: self, region: self.region}
 	resp, err := self.region.list(SERVICE_ELB, "elb/pools/"+groupId, nil)
@@ -337,6 +336,7 @@ func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, opts
 	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=ShowListener
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
 	ret := &SElbListener{lb: self}
 	resp, err := self.region.list(SERVICE_ELB, "elb/listeners/"+listenerId, nil)
@@ -346,6 +346,7 @@ func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (clou
 	return ret, resp.Unmarshal(ret, "listener")
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=ShowLoadBalancer
 func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 	resp, err := self.list(SERVICE_ELB, "elb/loadbalancers/"+id, nil)
 	if err != nil {
@@ -355,12 +356,14 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 	return ret, resp.Unmarshal(ret, "loadbalancer")
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=DeleteLoadBalancer
 func (self *SRegion) DeleteLoadBalancer(elbId string) error {
 	resource := fmt.Sprintf("elb/loadbalancers/%s", elbId)
 	_, err := self.delete(SERVICE_ELB, resource)
 	return err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=ListListeners
 func (self *SRegion) GetLoadBalancerListeners(lbId string) ([]SElbListener, error) {
 	ret := []SElbListener{}
 	params := url.Values{}
@@ -370,6 +373,7 @@ func (self *SRegion) GetLoadBalancerListeners(lbId string) ([]SElbListener, erro
 	return ret, self.lbListAll("elb/listeners", params, "listeners", &ret)
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=CreateLoadBalancer
 func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbalancerListenerCreateOptions, lbId string) (*SElbListener, error) {
 	params := map[string]interface{}{
 		"name":            listener.Name,
@@ -408,7 +412,7 @@ func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbal
 	return ret, resp.Unmarshal(&ret, "listener")
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561547.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=ListPools
 func (self *SRegion) GetLoadBalancerBackendGroups(elbId string) ([]SElbBackendGroup, error) {
 	query := url.Values{}
 	if len(elbId) > 0 {
@@ -419,6 +423,7 @@ func (self *SRegion) GetLoadBalancerBackendGroups(elbId string) ([]SElbBackendGr
 	return ret, self.lbListAll("elb/pools", query, "pools", &ret)
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=CreatePool
 func (self *SRegion) CreateLoadBalancerBackendGroup(lbId string, opts *cloudprovider.SLoadbalancerBackendGroup) (*SElbBackendGroup, error) {
 	params := map[string]interface{}{
 		"name":            opts.Name,
@@ -455,6 +460,7 @@ func (self *SRegion) CreateLoadBalancerBackendGroup(lbId string, opts *cloudprov
 	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=CreateHealthMonitor
 func (self *SRegion) CreateLoadBalancerHealthCheck(backendGroupId string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
 	params := map[string]interface{}{
 		"delay":       healthCheck.HealthCheckInterval,
@@ -486,7 +492,7 @@ func (self *SRegion) CreateLoadBalancerHealthCheck(backendGroupId string, health
 	return ret, resp.Unmarshal(&ret, "healthmonitor")
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561564.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=UpdateHealthMonitor
 func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckId string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
 	params := map[string]interface{}{
 		"delay":       healthCheck.HealthCheckInterval,
@@ -515,7 +521,7 @@ func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckId string, healthC
 	return ret, resp.Unmarshal(&ret, "healthmonitor")
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561565.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=DeleteHealthMonitor
 func (self *SRegion) DeleteLoadbalancerHealthCheck(healthCheckId string) error {
 	_, err := self.delete(SERVICE_ELB, "elb/healthmonitors/"+healthCheckId)
 	return err
@@ -546,8 +552,9 @@ func (self *SRegion) lbListAll(resource string, query url.Values, respKey string
 	return ret.Unmarshal(retVal)
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v3&api=CreateLoadBalancer
 func (self *SRegion) CreateLoadBalancer(opts *cloudprovider.SLoadbalancerCreateOptions) (*SLoadbalancer, error) {
-	subnet, err := self.getNetwork(opts.NetworkIds[0])
+	subnet, err := self.GetNetwork(opts.NetworkIds[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "getNetwork")
 	}
@@ -581,13 +588,13 @@ func (self *SRegion) CreateLoadBalancer(opts *cloudprovider.SLoadbalancerCreateO
 	if len(opts.EipId) > 0 {
 		params["publicip_ids"] = []string{opts.EipId}
 	}
-	err = self.fetchZones()
+	zones, err := self.GetZones()
 	if err != nil {
-		return nil, errors.Wrapf(err, "fetchZones")
+		return nil, errors.Wrapf(err, "GetZones")
 	}
 	zoneIds := []string{}
-	for i := range self.izones {
-		zone := self.izones[i].(*SZone)
+	for i := range zones {
+		zone := zones[i]
 		zoneIds = append(zoneIds, zone.ZoneName)
 	}
 	params["availability_zone_list"] = zoneIds

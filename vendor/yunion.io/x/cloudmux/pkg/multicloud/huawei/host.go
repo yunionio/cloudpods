@@ -16,13 +16,11 @@ package huawei
 
 import (
 	"fmt"
-	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/billing"
-	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -61,30 +59,28 @@ func (self *SHost) IsEmulated() bool {
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms, err := self.zone.region.GetInstances()
+	vms, err := self.zone.region.GetInstances("")
 	if err != nil {
 		return nil, err
 	}
 
-	filtedVms := make([]SInstance, 0)
+	ret := []cloudprovider.ICloudVM{}
 	for i := range vms {
 		if vms[i].OSEXTAZAvailabilityZone == self.zone.GetId() {
-			filtedVms = append(filtedVms, vms[i])
+			vms[i].host = self
+			ret = append(ret, &vms[i])
 		}
 	}
-
-	ivms := make([]cloudprovider.ICloudVM, len(filtedVms))
-	for i := 0; i < len(filtedVms); i += 1 {
-		filtedVms[i].host = self
-		ivms[i] = &filtedVms[i]
-	}
-	return ivms, nil
+	return ret, nil
 }
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	vm, err := self.zone.region.GetInstanceByID(id)
+	vm, err := self.zone.region.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
 	vm.host = self
-	return &vm, err
+	return vm, err
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -161,35 +157,29 @@ func (self *SHost) GetVersion() string {
 	return HUAWEI_API_VERSION
 }
 
-func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
-	instance, err := self.zone.region.GetInstanceByID(instanceId)
+func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	instance.host = self
-	return &instance, nil
-}
+	cloudprovider.Wait(time.Second*5, time.Minute, func() (bool, error) {
+		_, err := self.zone.region.GetInstance(vmId)
+		if err == nil {
+			return true, nil
+		}
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return false, nil
+		}
+		return false, err
+	})
 
-func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(
-		desc.Name, desc.ExternalImageId, desc.SysDisk,
-		desc.Cpu, desc.MemoryMB, desc.InstanceType,
-		desc.ExternalNetworkId, desc.IpAddr,
-		desc.Description, desc.Account,
-		desc.Password, desc.DataDisks,
-		desc.PublicKey, desc.ExternalSecgroupIds,
-		desc.UserData, desc.BillingCycle, desc.ProjectId, desc.Tags)
+	vm, err := self.zone.region.GetInstance(vmId)
 	if err != nil {
 		return nil, err
 	}
-
-	vm, err := self.GetInstanceById(vmId)
-	if err != nil {
-		return nil, err
-	}
-
-	return vm, err
+	vm.host = self
+	return vm, nil
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
@@ -200,102 +190,55 @@ func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
-	networkId string, ipAddr string, desc string, account string, passwd string,
-	diskSizes []cloudprovider.SDiskInfo, publicKey string, secgroupIds []string,
-	userData string, bc *billing.SBillingCycle, projectId string, tags map[string]string) (string, error) {
-	net := self.zone.getNetworkById(networkId)
-	if net == nil {
-		return "", fmt.Errorf("invalid network ID %s", networkId)
-	}
-
-	if net.wire == nil {
-		log.Errorf("network's wire is empty")
-		return "", fmt.Errorf("network's wire is empty")
-	}
-
-	if net.wire.vpc == nil {
-		log.Errorf("wire's vpc is empty")
-		return "", fmt.Errorf("wire's vpc is empty")
-	}
-
+func (self *SHost) _createVM(opts *cloudprovider.SManagedVMCreateConfig) (string, error) {
 	// 同步keypair
-	var err error
 	keypair := ""
-	if len(publicKey) > 0 {
-		keypair, err = self.zone.region.syncKeypair(publicKey)
+	var err error
+	if len(opts.PublicKey) > 0 {
+		keypair, err = self.zone.region.syncKeypair(opts.PublicKey)
 		if err != nil {
 			return "", err
 		}
 	}
 
 	//  镜像及硬盘配置
-	img, err := self.zone.region.GetImage(imgId)
+	img, err := self.zone.region.GetImage(opts.ExternalImageId)
 	if err != nil {
-		log.Errorf("getiamge %s fail %s", imgId, err)
-		return "", err
+		return "", errors.Wrapf(err, "GetImage")
 	}
-	if img.Status != ImageStatusActive {
-		log.Errorf("image %s status %s", imgId, img.Status)
-		return "", fmt.Errorf("image not ready")
-	}
-	// passwd, windows机型直接使用密码比较方便
-	if strings.ToLower(img.Platform) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) && len(passwd) > 0 {
-		keypair = ""
-	}
-
-	if strings.ToLower(img.Platform) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
-		if u, err := updateWindowsUserData(userData, img.OSVersion, account, passwd); err == nil {
-			userData = u
-		} else {
-			return "", errors.Wrap(err, "SHost.CreateVM.updateWindowsUserData")
-		}
-	}
-
-	disks := make([]SDisk, len(diskSizes)+1)
-	disks[0].SizeGB = img.SizeGB
-	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > img.SizeGB {
-		disks[0].SizeGB = sysDisk.SizeGB
-	}
-	disks[0].VolumeType = sysDisk.StorageType
-
-	for i, dataDisk := range diskSizes {
-		disks[i+1].SizeGB = dataDisk.SizeGB
-		disks[i+1].VolumeType = dataDisk.StorageType
+	if img.SizeGB > opts.SysDisk.SizeGB {
+		opts.SysDisk.SizeGB = img.SizeGB
 	}
 
 	// 创建实例
-	if len(instanceType) > 0 {
-		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupIds, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc, projectId, tags)
+	if len(opts.InstanceType) > 0 {
+		log.Debugf("Try instancetype : %s", opts.InstanceType)
+		vmId, err := self.zone.region.CreateInstance(keypair, self.zone.ZoneName, opts)
 		if err != nil {
-			log.Errorf("Failed for %s: %s", instanceType, err)
-			return "", fmt.Errorf("create %s failed:%s", instanceType, ErrMessage(err))
-		} else {
-			return vmId, nil
+			return "", errors.Wrapf(err, "CreateInstance")
 		}
+		return vmId, nil
 	}
 
 	// 匹配实例类型
-	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(cpu, memMB, self.zone.GetId())
+	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(opts.Cpu, opts.MemoryMB, self.zone.GetId())
 	if err != nil {
 		return "", err
 	}
 	if len(instanceTypes) == 0 {
-		return "", fmt.Errorf("instance type %dC%dMB not avaiable", cpu, memMB)
+		return "", fmt.Errorf("instance type %dC%dMB not avaiable", opts.Cpu, opts.MemoryMB)
 	}
 
 	var vmId string
 	for _, instType := range instanceTypes {
-		instanceTypeId := instType.Name
-		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupIds, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc, projectId, tags)
+		opts.InstanceType = instType.Name
+		log.Debugf("Try instancetype : %s", opts.InstanceType)
+		vmId, err = self.zone.region.CreateInstance(keypair, self.zone.ZoneName, opts)
 		if err != nil {
-			log.Errorf("Failed for %s: %s", instanceTypeId, err)
-		} else {
-			return vmId, nil
+			log.Errorf("Failed for %s: %s", opts.InstanceType, err)
 		}
+		return vmId, nil
 	}
 
-	return "", fmt.Errorf("create failed: %s", ErrMessage(err))
+	return "", errors.Wrapf(err, "CreateInstance")
 }

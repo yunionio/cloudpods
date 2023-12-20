@@ -14,6 +14,12 @@
 
 package huawei
 
+import (
+	"fmt"
+
+	"yunion.io/x/pkg/errors"
+)
+
 type SDBInstanceParameter struct {
 	instance *SDBInstance
 
@@ -27,15 +33,16 @@ type SDBInstanceParameter struct {
 }
 
 func (region *SRegion) GetDBInstanceParameters(dbinstanceId string) ([]SDBInstanceParameter, error) {
-	params := map[string]string{
-		"instance_id": dbinstanceId,
-	}
-	paramters := []SDBInstanceParameter{}
-	err := doListAll(region.ecsClient.DBInstance.ListParameters, params, &paramters)
+	resp, err := region.list(SERVICE_RDS, fmt.Sprintf("instances/%s/configurations", dbinstanceId), nil)
 	if err != nil {
 		return nil, err
 	}
-	return paramters, nil
+	ret := []SDBInstanceParameter{}
+	err = resp.Unmarshal(&ret, "configuration_parameters")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
 
 func (param *SDBInstanceParameter) GetGlobalId() string {

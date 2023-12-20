@@ -90,13 +90,8 @@ func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	if len(input.AccessKeySecret) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
-	if len(input.Environment) == 0 {
-		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "environment")
-	}
-
 	output.Account = input.AccessKeyId
 	output.Secret = input.AccessKeySecret
-	output.AccessUrl = input.Environment
 
 	return output, nil
 }
@@ -133,7 +128,7 @@ func (self *SHuaweiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 	accessKey, projectId := parseAccount(cfg.Account)
 	client, err := huawei.NewHuaweiClient(
 		huawei.NewHuaweiClientConfig(
-			cfg.URL, accessKey, cfg.Secret, projectId,
+			accessKey, cfg.Secret, projectId,
 		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
@@ -152,7 +147,6 @@ func (self *SHuaweiProviderFactory) GetClientRC(info cloudprovider.SProviderInfo
 		info.Region = strings.Join(data[len(data)-3:], "-")
 	}
 	return map[string]string{
-		"HUAWEI_CLOUD_ENV":  info.Url,
 		"HUAWEI_ACCESS_KEY": accessKey,
 		"HUAWEI_SECRET":     info.Secret,
 		"HUAWEI_REGION":     info.Region,

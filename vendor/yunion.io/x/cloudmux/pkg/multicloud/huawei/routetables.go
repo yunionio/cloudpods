@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -157,61 +158,70 @@ func (self *SRoute) GetNextHop() string {
 }
 
 func (self *SRegion) GetRouteTables(vpcId string) ([]SRouteTable, error) {
-	params := map[string]string{}
+	params := url.Values{}
 	if len(vpcId) > 0 {
-		params["vpc_id"] = vpcId
+		params.Set("vpc_id", vpcId)
 	}
 	rtbs := make([]SRouteTable, 0)
-	err := doListAllWithMarker(self.ecsClient.RouteTables.List, params, &rtbs)
-	return rtbs, err
+	for {
+		resp, err := self.list(SERVICE_VPC, "routetables", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list routetables")
+		}
+		part := struct {
+			Routetables []SRouteTable
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		rtbs = append(rtbs, part.Routetables...)
+		if len(part.Routetables) == 0 {
+			break
+		}
+		params.Set("marker", part.Routetables[len(part.Routetables)-1].Id)
+	}
+	return rtbs, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ShowRouteTable
 func (self *SRegion) GetRouteTable(id string) (*SRouteTable, error) {
-	resp, err := self.ecsClient.RouteTables.Get(id, nil)
+	resp, err := self.list(SERVICE_VPC, "routetables/"+id, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "show routetable")
+	}
+	ret := &SRouteTable{}
+	err = resp.Unmarshal(&ret, "routetable")
 	if err != nil {
 		return nil, err
 	}
-	tb := &SRouteTable{}
-	return tb, resp.Unmarshal(tb)
+	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=CreateRouteTable
 func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
 	routeType, ok := hoptypes[route.NextHopType]
 	if !ok {
 		return errors.Wrapf(cloudprovider.ErrNotSupported, route.NextHopType)
 	}
 	params := map[string]interface{}{
-		"routes": map[string]interface{}{
-			"add": []map[string]interface{}{
-				{
-					"type":        routeType,
-					"destination": route.Destination,
-					"nexthop":     route.NextHop,
-				},
-			},
+		"route": map[string]interface{}{
+			"type":        routeType,
+			"destination": route.Destination,
+			"nexthop":     route.NextHop,
+			"vpc_id":      self.vpc.ID,
 		},
 	}
-	_, err := self.vpc.region.ecsClient.VpcRoutes.Update(self.Id, jsonutils.Marshal(params))
+	_, err := self.vpc.region.post(SERVICE_VPC, "vpc/routes", params)
 	return err
 }
 
 func (self *SRouteTable) RemoveRoute(route cloudprovider.RouteSet) error {
-	routeType, ok := hoptypes[route.NextHopType]
+	_, ok := hoptypes[route.NextHopType]
 	if !ok {
 		return errors.Wrapf(cloudprovider.ErrNotSupported, route.NextHopType)
 	}
-	params := map[string]interface{}{
-		"routes": map[string]interface{}{
-			"mod": []map[string]interface{}{
-				{
-					"type":        routeType,
-					"destination": route.Destination,
-					"nexthop":     route.NextHop,
-				},
-			},
-		},
-	}
-	_, err := self.vpc.region.ecsClient.VpcRoutes.Update(self.Id, jsonutils.Marshal(params))
+	_, err := self.vpc.region.delete(SERVICE_VPC, "vpc/routes/"+route.RouteId)
 	return err
 }
 

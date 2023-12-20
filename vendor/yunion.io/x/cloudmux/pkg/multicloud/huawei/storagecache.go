@@ -21,12 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -70,7 +68,7 @@ func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error
 }
 
 func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
-	imagesSelf, err := self.region.GetImages("", ImageOwnerSelf, "", EnvFusionCompute)
+	imagesSelf, err := self.region.GetImages("", "", "private", "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetImages")
 	}
@@ -169,8 +167,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 	}
 
 	// timeout: 1hour = 3600 seconds
-	serviceType := self.region.ecsClient.Images.ServiceType()
-	err = self.region.waitTaskStatus(serviceType, jobId, TASK_SUCCESS, 15*time.Second, 3600*time.Second)
+	err = self.region.waitTaskStatus(SERVICE_IMS_V1, jobId, TASK_SUCCESS, 15*time.Second, 3600*time.Second)
 	if err != nil {
 		log.Errorf("waitTaskStatus %s", err)
 		return "", err
@@ -180,8 +177,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 		callback(100)
 	}
 
-	// https://support.huaweicloud.com/api-ims/zh-cn_topic_0022473688.html
-	return self.region.GetTaskEntityID(serviceType, jobId, "image_id")
+	return self.region.GetTaskEntityID(SERVICE_IMS, jobId, "image_id")
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
@@ -189,68 +185,6 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 		self.storageCache = &SStoragecache{region: self}
 	}
 	return self.storageCache
-}
-
-type SJob struct {
-	Status     string            `json:"status"`
-	Entities   map[string]string `json:"entities"`
-	JobID      string            `json:"job_id"`
-	JobType    string            `json:"job_type"`
-	BeginTime  string            `json:"begin_time"`
-	EndTime    string            `json:"end_time"`
-	ErrorCode  string            `json:"error_code"`
-	FailReason string            `json:"fail_reason"`
-}
-
-// https://support.huaweicloud.com/api-ims/zh-cn_topic_0020092109.html
-func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (string, error) {
-	snapshot, err := self.GetSnapshotById(snapshotId)
-	if err != nil {
-		return "", err
-	}
-
-	disk, err := self.GetDisk(snapshot.VolumeID)
-	if err != nil {
-		return "", err
-	}
-
-	if disk.GetDiskType() != api.DISK_TYPE_SYS {
-		return "", fmt.Errorf("disk type err, expected disk type %s", api.DISK_TYPE_SYS)
-	}
-
-	if len(disk.Attachments) == 0 {
-		return "", fmt.Errorf("disk is not attached.")
-	}
-
-	imageObj := jsonutils.NewDict()
-	imageObj.Add(jsonutils.NewString(disk.Attachments[0].ServerID), "instance_id")
-	imageObj.Add(jsonutils.NewString(imageName), "name")
-	imageObj.Add(jsonutils.NewString(imageDesc), "description")
-
-	ret, err := self.ecsClient.Images.PerformAction2("action", "", imageObj, "")
-	if err != nil {
-		return "", err
-	}
-
-	job := SJob{}
-	jobId, err := ret.GetString("job_id")
-	querys := map[string]string{"service_type": self.ecsClient.Images.ServiceType()}
-	err = DoGet(self.ecsClient.Jobs.Get, jobId, querys, &job)
-	if err != nil {
-		return "", err
-	}
-
-	if job.Status == "SUCCESS" {
-		imageId, exists := job.Entities["image_id"]
-		if exists {
-			return imageId, nil
-		} else {
-			return "", fmt.Errorf("image id not found in create image job %s", job.JobID)
-		}
-	} else {
-		return "", fmt.Errorf("create image failed, %s", job.FailReason)
-	}
-
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {

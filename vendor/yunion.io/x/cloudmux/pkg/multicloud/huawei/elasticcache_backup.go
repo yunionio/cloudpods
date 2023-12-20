@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -127,12 +128,10 @@ func (self *SElasticcacheBackup) Delete() error {
 	return cloudprovider.ErrNotSupported
 }
 
-// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423034.html
 func (self *SElasticcacheBackup) RestoreInstance(instanceId string) error {
-	_, err := self.cacheDB.region.ecsClient.Elasticcache.RestoreInstance(instanceId, self.GetId())
-	if err != nil {
-		return nil
+	params := map[string]interface{}{
+		"backup_id": self.BackupID,
 	}
-
-	return nil
+	_, err := self.cacheDB.region.post(SERVICE_DCS, fmt.Sprintf("instances/%s/restores", self.cacheDB.InstanceID), params)
+	return err
 }

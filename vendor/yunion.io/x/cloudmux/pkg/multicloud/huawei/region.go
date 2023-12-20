@@ -27,7 +27,6 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei/obs"
 )
 
@@ -41,7 +40,6 @@ type SRegion struct {
 	multicloud.SRegion
 
 	client    *SHuaweiClient
-	ecsClient *client.Client
 	obsClient *obs.ObsClient // 对象存储client.请勿直接引用。
 
 	Description    string  `json:"description"`
@@ -49,9 +47,6 @@ type SRegion struct {
 	Locales        Locales `json:"locales"`
 	ParentRegionID string  `json:"parent_region_id"`
 	Type           string  `json:"type"`
-
-	izones []cloudprovider.ICloudZone
-	ivpcs  []cloudprovider.ICloudVpc
 
 	storageCache *SStoragecache
 }
@@ -80,30 +75,6 @@ func (self *SRegion) patch(service, resource string, query url.Values, params ma
 	return self.client.patch(service, self.ID, resource, query, params)
 }
 
-func (self *SRegion) getECSClient() (*client.Client, error) {
-	var err error
-
-	if len(self.client.projectId) > 0 {
-		project, err := self.client.GetProjectById(self.client.projectId)
-		if err != nil {
-			return nil, err
-		}
-
-		if !strings.Contains(project.Name, self.ID) {
-			return nil, errors.Errorf("region %s and project %s mismatch", self.ID, project.Name)
-		}
-	}
-
-	if self.ecsClient == nil {
-		self.ecsClient, err = self.client.newRegionAPIClient(self.ID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return self.ecsClient, err
-}
-
 func (self *SRegion) getOBSEndpoint() string {
 	return getOBSEndpoint(self.GetId())
 }
@@ -121,52 +92,26 @@ func (self *SRegion) getOBSClient(signType obs.SignatureType) (*obs.ObsClient, e
 	return self.obsClient, nil
 }
 
-func (self *SRegion) fetchZones() error {
-	zones := make([]SZone, 0)
-	err := doListAll(self.ecsClient.Zones.List, nil, &zones)
-	if err != nil {
-		return err
-	}
-
-	self.izones = make([]cloudprovider.ICloudZone, 0)
-	for i := range zones {
-		zone := zones[i]
-		zone.region = self
-		self.izones = append(self.izones, &zone)
-	}
-	return nil
-}
-
-func (self *SRegion) fetchIVpcs() error {
-	// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090625.html
-	vpcs := make([]SVpc, 0)
-	querys := map[string]string{
-		"limit": "2048",
-	}
-	err := doListAllWithMarker(self.ecsClient.Vpcs.List, querys, &vpcs)
-	if err != nil {
-		return err
-	}
-
-	self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
-	for i := range vpcs {
-		vpc := vpcs[i]
-		vpc.region = self
-		self.ivpcs = append(self.ivpcs, &vpc)
-	}
-	return nil
-}
-
-func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	if len(id) == 0 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetIVMById")
-	}
-
-	instance, err := self.GetInstanceByID(id)
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=NovaListAvailabilityZones
+func (self *SRegion) GetZones() ([]SZone, error) {
+	resp, err := self.list(SERVICE_ECS_V2_1, "os-availability-zone", nil)
 	if err != nil {
 		return nil, err
 	}
-	return &instance, err
+	ret := []SZone{}
+	err = resp.Unmarshal(&ret, "availabilityZoneInfo")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return ret, nil
+}
+
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	instance, err := self.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	return instance, err
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
@@ -278,7 +223,7 @@ func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.ID)
+	return fmt.Sprintf("%s/%s", api.CLOUD_PROVIDER_HUAWEI, self.ID)
 }
 
 func (self *SRegion) GetStatus() string {
@@ -307,52 +252,30 @@ func (self *SRegion) GetLongitude() float32 {
 	return 0.0
 }
 
-func (self *SRegion) fetchInfrastructure() error {
-	_, err := self.getECSClient()
-	if err != nil {
-		return err
-	}
-
-	if err := self.fetchZones(); err != nil {
-		return err
-	}
-
-	if err := self.fetchIVpcs(); err != nil {
-		return err
-	}
-
-	for i := 0; i < len(self.ivpcs); i += 1 {
-		vpc := self.ivpcs[i].(*SVpc)
-		wire := SWire{region: self, vpc: vpc}
-		vpc.addWire(&wire)
-
-		for j := 0; j < len(self.izones); j += 1 {
-			zone := self.izones[j].(*SZone)
-			zone.addWire(&wire)
-		}
-	}
-	return nil
-}
-
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if self.izones == nil {
-		var err error
-		err = self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
+	zones, err := self.GetZones()
+	if err != nil {
+		return nil, err
 	}
-	return self.izones, nil
+	ret := []cloudprovider.ICloudZone{}
+	for i := range zones {
+		zones[i].region = self
+		ret = append(ret, &zones[i])
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self.ivpcs == nil {
-		err := self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
+	vpcs, err := self.GetVpcs()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpcs")
 	}
-	return self.ivpcs, nil
+	ret := []cloudprovider.ICloudVpc{}
+	for i := range vpcs {
+		vpcs[i].region = self
+		ret = append(ret, &vpcs[i])
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
@@ -404,7 +327,7 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 }
 
 func (self *SRegion) DeleteSecurityGroup(id string) error {
-	_, err := self.delete(SERVICE_VPC, "vpc/security-groups/"+id)
+	_, err := self.delete(SERVICE_VPC_V3, "vpc/security-groups/"+id)
 	return err
 }
 
@@ -413,7 +336,7 @@ func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICl
 }
 
 func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	groups, err := self.GetSecurityGroups("", "")
+	groups, err := self.GetSecurityGroups("")
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetSecurityGroups")
 	}
@@ -429,7 +352,6 @@ func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreat
 	return self.CreateSecurityGroup(opts)
 }
 
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090608.html
 func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	return self.CreateVpc(opts.NAME, opts.CIDR, opts.Desc)
 }
@@ -443,7 +365,15 @@ func (self *SRegion) CreateVpc(name, cidr, desc string) (*SVpc, error) {
 		},
 	}
 	vpc := &SVpc{region: self}
-	return vpc, DoCreate(self.ecsClient.Vpcs.Create, jsonutils.Marshal(params), vpc)
+	resp, err := self.post(SERVICE_VPC, "vpcs", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create vpc")
+	}
+	err = resp.Unmarshal(vpc, "vpc")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return vpc, nil
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
@@ -478,9 +408,12 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return ret, nil
 }
 
-func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	snapshot, err := self.GetSnapshotById(snapshotId)
-	return &snapshot, err
+func (self *SRegion) GetISnapshotById(id string) (cloudprovider.ICloudSnapshot, error) {
+	snapshot, err := self.GetSnapshot(id)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot, nil
 }
 
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
@@ -554,7 +487,7 @@ func (self *SRegion) GetProvider() string {
 }
 
 func (self *SRegion) GetCloudEnv() string {
-	return self.client.cloudEnv
+	return CLOUD_PROVIDER_HUAWEI
 }
 
 func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
@@ -563,7 +496,7 @@ func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreate
 		"description":           opts.Desc,
 		"enterprise_project_id": opts.ProjectId,
 	}
-	resp, err := self.post(SERVICE_VPC, "vpc/security-groups", map[string]interface{}{"security_group": params})
+	resp, err := self.post(SERVICE_VPC_V3, "vpc/security-groups", map[string]interface{}{"security_group": params})
 	if err != nil {
 		return nil, err
 	}
@@ -728,19 +661,16 @@ func (region *SRegion) GetCapabilities() []string {
 }
 
 func (self *SRegion) GetDiskTypes() ([]SDiskType, error) {
-	ret, err := self.ecsClient.Disks.GetDiskTypes()
+	resp, err := self.list(SERVICE_EVS, "types", nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDiskTypes")
+		return nil, err
 	}
-
-	dts := []SDiskType{}
-	_ret := jsonutils.NewArray(ret.Data...)
-	err = _ret.Unmarshal(&dts)
+	ret := []SDiskType{}
+	err = resp.Unmarshal(&ret, "volume_types")
 	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
+		return nil, errors.Wrapf(err, "Unmarshal")
 	}
-
-	return dts, nil
+	return ret, nil
 }
 
 func (self *SRegion) GetZoneSupportedDiskTypes(zoneId string) ([]string, error) {
@@ -760,7 +690,7 @@ func (self *SRegion) GetZoneSupportedDiskTypes(zoneId string) ([]string, error) 
 }
 
 func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms, err := region.GetInstances()
+	vms, err := region.GetInstances("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetInstances")
 	}

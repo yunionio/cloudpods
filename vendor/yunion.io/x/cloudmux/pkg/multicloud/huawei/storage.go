@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -120,13 +120,11 @@ func (self *SStorage) GetEnabled() bool {
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), self.storageType, conf.Name, conf.SizeGb, "", conf.Desc, conf.ProjectId)
 	if err != nil {
-		log.Errorf("createDisk fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "CreateDisk")
 	}
 	disk, err := self.zone.region.GetDisk(diskId)
 	if err != nil {
-		log.Errorf("getDisk fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetDisk")
 	}
 	disk.storage = self
 
@@ -139,17 +137,12 @@ func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudpr
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	if len(idStr) == 0 {
-		log.Debugf("GetIDiskById disk id should not be empty")
-		return nil, cloudprovider.ErrNotFound
-	}
-
-	if disk, err := self.zone.region.GetDisk(idStr); err != nil {
+	disk, err := self.zone.region.GetDisk(idStr)
+	if err != nil {
 		return nil, err
-	} else {
-		disk.storage = self
-		return disk, nil
 	}
+	disk.storage = self
+	return disk, nil
 }
 
 func (self *SStorage) GetMountPoint() string {
