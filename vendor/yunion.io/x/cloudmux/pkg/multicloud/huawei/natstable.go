@@ -15,8 +15,9 @@
 package huawei
 
 import (
+	"net/url"
+
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -68,7 +69,6 @@ func (nat *SNatSEntry) Delete() error {
 	return nat.gateway.region.DeleteNatSEntry(nat.GetId())
 }
 
-// getNatSTable return all snat rules of gateway
 func (gateway *SNatGateway) getNatSTable() ([]SNatSEntry, error) {
 	ret, err := gateway.region.GetNatSTable(gateway.GetId())
 	if err != nil {
@@ -80,42 +80,43 @@ func (gateway *SNatGateway) getNatSTable() ([]SNatSEntry, error) {
 	return ret, nil
 }
 
-func (region *SRegion) GetNatSTable(natGatewayID string) ([]SNatSEntry, error) {
-	queuies := map[string]string{
-		"nat_gateway_id": natGatewayID,
+func (region *SRegion) GetNatSTable(natId string) ([]SNatSEntry, error) {
+	query := url.Values{}
+	if len(natId) > 0 {
+		query.Set("gateway_id", natId)
 	}
-	sNatSTableEntris := make([]SNatSEntry, 0, 2)
-	err := doListAllWithMarker(region.ecsClient.SNatRules.List, queuies, &sNatSTableEntris)
-	if err != nil {
-		return nil, errors.Wrapf(err, `get snat rule of gateway %q`, natGatewayID)
-	}
-	for i := range sNatSTableEntris {
-		nat := &sNatSTableEntris[i]
-		if len(nat.SourceCIDR) != 0 {
-			continue
-		}
-		subnet := SNetwork{}
-		err := DoGet(region.ecsClient.Subnets.Get, nat.NetworkID, map[string]string{}, &subnet)
+	ret := []SNatSEntry{}
+	for {
+		resp, err := region.list(SERVICE_NAT, "private-nat/snat-rules", query)
 		if err != nil {
-			return nil, errors.Wrapf(err, `get cidr of subnet %q`, nat.NetworkID)
+			return nil, err
 		}
-		nat.SourceCIDR = subnet.CIDR
+		part := struct {
+			SnatRules []SNatSEntry
+			PageInfo  sPageInfo
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.SnatRules...)
+		if len(part.PageInfo.NextMarker) == 0 || len(part.SnatRules) == 0 {
+			break
+		}
+		query.Set("marker", part.PageInfo.NextMarker)
 	}
-	return sNatSTableEntris, nil
+	return ret, nil
 }
 
-func (region *SRegion) DeleteNatSEntry(entryID string) error {
-	_, err := region.ecsClient.SNatRules.Delete(entryID, nil)
-	if err != nil {
-		return errors.Wrapf(err, `delete snat rule %q failed`, entryID)
-	}
-	return nil
+func (region *SRegion) DeleteNatSEntry(id string) error {
+	_, err := region.delete(SERVICE_NAT, "private-nat/snat-rules/"+id)
+	return err
 }
 
 func (nat *SNatSEntry) Refresh() error {
-	new, err := nat.gateway.region.GetNatSEntryByID(nat.ID)
+	ret, err := nat.gateway.region.GetNatSEntryByID(nat.ID)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(nat, new)
+	return jsonutils.Update(nat, ret)
 }

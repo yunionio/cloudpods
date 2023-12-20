@@ -15,15 +15,17 @@
 package huawei
 
 import (
+	"fmt"
+	"net/url"
+
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules"
 )
 
 /*
@@ -81,16 +83,11 @@ func (self *SNetwork) GetStatus() string {
 }
 
 func (self *SNetwork) Refresh() error {
-	log.Debugf("network refresh %s", self.GetId())
-	new, err := self.wire.region.getNetwork(self.GetId())
+	net, err := self.wire.vpc.region.GetNetwork(self.GetId())
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
-}
-
-func (self *SNetwork) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, net)
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
@@ -139,34 +136,58 @@ func (self *SNetwork) GetPublicScope() rbacscope.TRbacScope {
 }
 
 func (self *SNetwork) Delete() error {
-	return self.wire.region.deleteNetwork(self.VpcID, self.GetId())
+	return self.wire.vpc.region.deleteNetwork(self.VpcID, self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
 }
 
-func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
-	network := SNetwork{}
-	err := DoGet(self.ecsClient.Subnets.Get, networkId, nil, &network)
-	return &network, err
-}
-
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090592.html
-func (self *SRegion) GetNetwroks(vpcId string) ([]SNetwork, error) {
-	querys := map[string]string{}
-	if len(vpcId) > 0 {
-		querys["vpc_id"] = vpcId
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ShowSubnet
+func (self *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
+	resp, err := self.list(SERVICE_VPC, "subnets/"+networkId, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "show subnet")
 	}
-
-	networks := make([]SNetwork, 0)
-	err := doListAllWithMarker(self.ecsClient.Subnets.List, querys, &networks)
-	return networks, err
+	network := &SNetwork{}
+	err = resp.Unmarshal(&network, "subnet")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return network, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ListSubnets
+func (self *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
+	ret := []SNetwork{}
+	query := url.Values{}
+	if len(vpcId) > 0 {
+		query.Set("vpc_id", vpcId)
+	}
+	for {
+		resp, err := self.list(SERVICE_VPC, "subnets", query)
+		if err != nil {
+			return nil, err
+		}
+		part := []SNetwork{}
+		err = resp.Unmarshal(&part, "subnets")
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part...)
+		if len(part) == 0 {
+			break
+		}
+		query.Set("marker", part[len(part)-1].ID)
+	}
+	return ret, nil
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=DeleteSubnet
 func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
-	ctx := &modules.SManagerContext{InstanceId: vpcId, InstanceManager: self.ecsClient.Vpcs}
-	return DoDeleteWithSpec(self.ecsClient.Subnets.DeleteInContextWithSpec, ctx, networkId, "", nil, nil)
+	res := fmt.Sprintf("vpcs/%s/subnets/%s", vpcId, networkId)
+	_, err := self.delete(SERVICE_VPC, res)
+	return err
 }
 
 func (self *SNetwork) GetProjectId() string {

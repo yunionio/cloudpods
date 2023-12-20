@@ -69,7 +69,7 @@ func (self *VpcPeeringConnectionSyncstatusTask) OnInit(ctx context.Context, obj 
 		return
 	}
 
-	err = peer.SyncWithCloudPeerConnection(ctx, self.UserCred, ipeer, nil)
+	err = peer.SyncWithCloudPeerConnection(ctx, self.UserCred, ipeer)
 	if err != nil {
 		self.taskFail(ctx, peer, errors.Wrapf(err, "SyncWithCloudPeerConnection(ctx, self.UserCred, %s, nil)", jsonutils.Marshal(ipeer).String()))
 		return

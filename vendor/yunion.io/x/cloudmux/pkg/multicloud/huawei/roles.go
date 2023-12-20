@@ -15,6 +15,9 @@
 package huawei
 
 import (
+	"fmt"
+	"net/url"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -76,24 +79,40 @@ func (self *SHuaweiClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpoli
 	return ret, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListPermissions
 func (self *SHuaweiClient) GetRoles(domainId, name string) ([]SRole, error) {
-	params := map[string]string{}
+	params := url.Values{}
 	if len(domainId) > 0 {
-		params["domain_id"] = self.ownerId
+		params.Set("domain_id", self.ownerId)
 	}
 	if len(name) > 0 {
-		params["name"] = name
+		params.Set("name", name)
 	}
 
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
+	query := url.Values{}
+	query.Set("per_page", "300")
+	page := 1
+	query.Set("page", fmt.Sprintf("%d", page))
+	ret := []SRole{}
+	for {
+		resp, err := self.list(SERVICE_IAM_V3, "", "roles", query)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Roles       []SRole
+			TotalNumber int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Roles...)
+		if len(ret) >= part.TotalNumber || len(part.Roles) == 0 {
+			break
+		}
+		page++
+		query.Set("page", fmt.Sprintf("%d", page))
 	}
-
-	roles := []SRole{}
-	err = doListAllWithNextLink(client.Roles.List, params, &roles)
-	if err != nil {
-		return nil, errors.Wrap(err, "doListAllWithOffset")
-	}
-	return roles, nil
+	return ret, nil
 }

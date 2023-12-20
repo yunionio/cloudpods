@@ -45,10 +45,11 @@ func (self *SRegion) getFingerprint(publicKey string) (string, error) {
 	return fingerprint, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=NovaListKeypairs
 func (self *SRegion) GetKeypairs() ([]SKeypair, error) {
 	ret := []SKeypair{}
 	query := url.Values{}
-	resp, err := self.list(SERVICE_ECS, "os-keypairs", query)
+	resp, err := self.list(SERVICE_ECS_V2_1, "os-keypairs", query)
 	if err != nil {
 		return nil, errors.Wrapf(err, "list os-keypairs")
 	}
@@ -85,7 +86,7 @@ func (self *SRegion) ImportKeypair(name, publicKey string) (*SKeypair, error) {
 		"name":       name,
 		"public_key": publicKey,
 	}
-	resp, err := self.post(SERVICE_ECS, "os-keypairs", map[string]interface{}{"keypair": params})
+	resp, err := self.post(SERVICE_ECS_V2_1, "os-keypairs", map[string]interface{}{"keypair": params})
 	if err != nil {
 		return nil, errors.Wrapf(err, "create os-keypairs")
 	}

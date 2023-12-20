@@ -17,6 +17,7 @@ package huawei
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -97,20 +98,46 @@ type SDBInstance struct {
 	EnterpriseProjectId string
 }
 
-func (region *SRegion) GetDBInstances() ([]SDBInstance, error) {
-	params := map[string]string{}
-	dbinstances := []SDBInstance{}
-	err := doListAllWithOffset(region.ecsClient.DBInstance.List, params, &dbinstances)
-	return dbinstances, err
+func (region *SRegion) GetDBInstances(id string) ([]SDBInstance, error) {
+	query := url.Values{}
+	if len(id) > 0 {
+		query.Set("id", id)
+	}
+	ret := []SDBInstance{}
+	for {
+		resp, err := region.list(SERVICE_RDS, "instances", query)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list instances")
+		}
+		part := struct {
+			Instances  []SDBInstance
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Instances...)
+		if len(ret) >= part.TotalCount || len(part.Instances) == 0 {
+			break
+		}
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
+	}
+	return ret, nil
 }
 
 func (region *SRegion) GetDBInstance(instanceId string) (*SDBInstance, error) {
-	if len(instanceId) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	ret, err := region.GetDBInstances(instanceId)
+	if err != nil {
+		return nil, err
 	}
-	instance := SDBInstance{region: region}
-	err := DoGet(region.ecsClient.DBInstance.Get, instanceId, nil, &instance)
-	return &instance, err
+	for i := range ret {
+		if ret[i].Id == instanceId {
+			ret[i].region = region
+			return &ret[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
 }
 
 func (rds *SDBInstance) GetName() string {
@@ -160,8 +187,12 @@ func (rds *SDBInstance) GetStatus() string {
 }
 
 func (rds *SDBInstance) GetBillingType() string {
-	_, err := rds.region.GetOrderResourceDetail(fmt.Sprintf("%s.vm", rds.Id))
+	orders, err := rds.region.client.GetOrderResources()
 	if err != nil {
+		return billing_api.BILLING_TYPE_PREPAID
+	}
+	_, ok := orders[rds.Id]
+	if ok {
 		return billing_api.BILLING_TYPE_POSTPAID
 	}
 	return billing_api.BILLING_TYPE_PREPAID
@@ -184,11 +215,15 @@ func (rds *SDBInstance) fetchFlavor() error {
 }
 
 func (rds *SDBInstance) GetExpiredAt() time.Time {
-	order, err := rds.region.GetOrderResourceDetail(fmt.Sprintf("%s.vm", rds.Id))
+	orders, err := rds.region.client.GetOrderResources()
 	if err != nil {
 		return time.Time{}
 	}
-	return order.ExpireTime
+	order, ok := orders[rds.Id]
+	if ok {
+		return order.ExpireTime
+	}
+	return time.Time{}
 }
 
 func (rds *SDBInstance) GetStorageType() string {
@@ -353,7 +388,7 @@ func (region *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.IClo
 }
 
 func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
-	instances, err := region.GetDBInstances()
+	instances, err := region.GetDBInstances("")
 	if err != nil {
 		return nil, errors.Wrapf(err, "region.GetDBInstances()")
 	}
@@ -420,7 +455,7 @@ func (rds *SDBInstance) Delete() error {
 }
 
 func (region *SRegion) DeleteDBInstance(instanceId string) error {
-	_, err := region.ecsClient.DBInstance.Delete(instanceId, nil)
+	_, err := region.delete(SERVICE_RDS, "instances/"+instanceId)
 	return err
 }
 
@@ -506,7 +541,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	}
 	params["flavor_ref"] = desc.InstanceType
 	params["availability_zone"] = desc.ZoneId
-	resp, err := region.ecsClient.DBInstance.Create(jsonutils.Marshal(params))
+	resp, err := region.post(SERVICE_RDS, "instances", params)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Create")
 	}
@@ -518,20 +553,15 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	}
 	if jobId, _ := resp.GetString("job_id"); len(jobId) > 0 {
 		err = cloudprovider.Wait(10*time.Second, 20*time.Minute, func() (bool, error) {
-			job, err := region.ecsClient.DBInstanceJob.Get(jobId, map[string]string{"id": jobId})
+			job, err := region.GetDBInstanceJob(jobId)
 			if err != nil {
 				return false, nil
 			}
-			status, _ := job.GetString("status")
-			process, _ := job.GetString("process")
-			log.Debugf("create dbinstance job %s status: %s process: %s", jobId, status, process)
-			if status == "Completed" {
-				region.UpdateVM(instance.Id, cloudprovider.SInstanceUpdateOptions{
-					Description: desc.Description,
-				})
+			log.Debugf("create dbinstance job %s status: %s process: %s", jobId, job.Status, job.Process)
+			if job.Status == "Completed" {
 				return true, nil
 			}
-			if status == "Failed" {
+			if job.Status == "Failed" {
 				return false, fmt.Errorf("create failed")
 			}
 			return false, nil
@@ -554,25 +584,43 @@ func (rds *SDBInstance) ClosePublicConnection() error {
 	//return rds.region.PublicConnectionAction(rds.Id, "closeRC")
 }
 
+type SDBInstanceJob struct {
+	Status  string
+	Process string
+}
+
+func (self *SRegion) GetDBInstanceJob(id string) (*SDBInstanceJob, error) {
+	query := url.Values{}
+	query.Set("id", id)
+	resp, err := self.list(SERVICE_RDS, "jobs", query)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SDBInstanceJob{}
+	err = resp.Unmarshal(ret, "job")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
+}
+
 func (region *SRegion) PublicConnectionAction(instanceId string, action string) error {
-	resp, err := region.ecsClient.DBInstance.PerformAction2(action, instanceId, nil, "")
+	resp, err := region.post(SERVICE_RDS, fmt.Sprintf("instances/%s/%s", instanceId, action), nil)
 	if err != nil {
 		return errors.Wrapf(err, "rds.%s", action)
 	}
 
 	if jobId, _ := resp.GetString("job_id"); len(jobId) > 0 {
 		err = cloudprovider.WaitCreated(10*time.Second, 20*time.Minute, func() bool {
-			job, err := region.ecsClient.DBInstanceJob.Get(jobId, map[string]string{"id": jobId})
+			job, err := region.GetDBInstanceJob(jobId)
 			if err != nil {
 				log.Errorf("failed to get job %s info error: %v", jobId, err)
 				return false
 			}
-			status, _ := job.GetString("status")
-			process, _ := job.GetString("process")
-			if status == "Completed" {
+			if job.Status == "Completed" {
 				return true
 			}
-			log.Debugf("%s dbinstance job %s status: %s process: %s", action, jobId, status, process)
+			log.Debugf("%s dbinstance job %s status: %s process: %s", action, jobId, job.Status, job.Process)
 			return false
 		})
 	}
@@ -582,26 +630,23 @@ func (region *SRegion) PublicConnectionAction(instanceId string, action string) 
 }
 
 func (region *SRegion) RebootDBInstance(instanceId string) error {
-	params := jsonutils.Marshal(map[string]interface{}{
+	params := map[string]interface{}{
 		"restart": map[string]string{},
-	})
-	resp, err := region.ecsClient.DBInstance.PerformAction2("action", instanceId, params, "")
+	}
+	resp, err := region.post(SERVICE_RDS, fmt.Sprintf("instances/%s/action", instanceId), params)
 	if err != nil {
 		return err
 	}
 	if jobId, _ := resp.GetString("job_id"); len(jobId) > 0 {
 		err = cloudprovider.WaitCreated(10*time.Second, 20*time.Minute, func() bool {
-			job, err := region.ecsClient.DBInstanceJob.Get(jobId, map[string]string{"id": jobId})
+			job, err := region.GetDBInstanceJob(jobId)
 			if err != nil {
-				log.Errorf("failed to get job %s info error: %v", jobId, err)
 				return false
 			}
-			status, _ := job.GetString("status")
-			process, _ := job.GetString("process")
-			if status == "Completed" {
+			if job.Status == "Completed" {
 				return true
 			}
-			log.Debugf("reboot dbinstance job %s status: %s process: %s", jobId, status, process)
+			log.Debugf("reboot dbinstance job %s status: %s process: %s", jobId, job.Status, job.Process)
 			return false
 		})
 	}
@@ -616,12 +661,20 @@ type SDBInstanceFlavor struct {
 }
 
 func (region *SRegion) GetDBInstanceFlavors(engine string, version string) ([]SDBInstanceFlavor, error) {
-	flavors := []SDBInstanceFlavor{}
-	resp, err := region.ecsClient.DBInstanceFlavor.ListInContextWithSpec(nil, engine, map[string]string{"version_name": version}, "flavors")
+	query := url.Values{}
+	if len(version) > 0 {
+		query.Set("version_name", version)
+	}
+	resp, err := region.list(SERVICE_RDS, "flavors/"+engine, query)
 	if err != nil {
 		return nil, err
 	}
-	return flavors, jsonutils.Update(&flavors, resp.Data)
+	flavors := []SDBInstanceFlavor{}
+	err = resp.Unmarshal(&flavors, "flavors")
+	if err != nil {
+		return nil, err
+	}
+	return flavors, nil
 }
 
 func (rds *SDBInstance) CreateAccount(conf *cloudprovider.SDBInstanceAccountCreateConfig) error {
@@ -629,11 +682,11 @@ func (rds *SDBInstance) CreateAccount(conf *cloudprovider.SDBInstanceAccountCrea
 }
 
 func (region *SRegion) CreateDBInstanceAccount(instanceId, account, password string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"name":     account,
 		"password": password,
 	}
-	_, err := region.ecsClient.DBInstance.CreateInContextWithSpec(nil, fmt.Sprintf("%s/db_user", instanceId), jsonutils.Marshal(params), "")
+	_, err := region.post(SERVICE_RDS, fmt.Sprintf("instances/%s/db_user", instanceId), params)
 	return err
 }
 
@@ -642,11 +695,11 @@ func (rds *SDBInstance) CreateDatabase(conf *cloudprovider.SDBInstanceDatabaseCr
 }
 
 func (region *SRegion) CreateDBInstanceDatabase(instanceId, database, characterSet string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"name":          database,
 		"character_set": characterSet,
 	}
-	_, err := region.ecsClient.DBInstance.CreateInContextWithSpec(nil, fmt.Sprintf("%s/database", instanceId), jsonutils.Marshal(params), "")
+	_, err := region.post(SERVICE_RDS, fmt.Sprintf("instances/%s/database", instanceId), params)
 	return err
 }
 
@@ -661,24 +714,24 @@ func (region *SRegion) ChangeDBInstanceConfig(instanceId string, instanceType st
 	}
 
 	if len(instanceType) > 0 {
-		params := map[string]map[string]string{
+		params := map[string]interface{}{
 			"resize_flavor": map[string]string{
 				"spec_code": instanceType,
 			},
 		}
-		_, err := region.ecsClient.DBInstance.PerformAction("action", instanceId, jsonutils.Marshal(params))
+		_, err := region.post(SERVICE_RDS, fmt.Sprintf("instances/%s/action", instanceId), params)
 		if err != nil {
 			return errors.Wrap(err, "resize_flavor")
 		}
 		cloudprovider.WaitStatus(instance, api.DBINSTANCE_RUNNING, time.Second*5, time.Minute*30)
 	}
 	if diskSizeGb > 0 {
-		params := map[string]map[string]int{
+		params := map[string]interface{}{
 			"enlarge_volume": map[string]int{
 				"size": diskSizeGb,
 			},
 		}
-		_, err := region.ecsClient.DBInstance.PerformAction("action", instanceId, jsonutils.Marshal(params))
+		_, err := region.post(SERVICE_RDS, fmt.Sprintf("instances/%s/action", instanceId), params)
 		if err != nil {
 			return errors.Wrap(err, "enlarge_volume")
 		}
@@ -726,8 +779,7 @@ func (self *SRegion) DeleteRdsTags(instanceId string, tagsKey []string) error {
 		tagsObj = append(tagsObj, map[string]string{"key": k})
 	}
 	params["tags"] = tagsObj
-
-	_, err := self.ecsClient.DBInstance.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
+	_, err := self.post(SERVICE_RDS, fmt.Sprintf("instances/%s/tags/action", instanceId), params)
 	return err
 }
 
@@ -741,8 +793,7 @@ func (self *SRegion) CreateRdsTags(instanceId string, tags map[string]string) er
 		tagsObj = append(tagsObj, map[string]string{"key": k, "value": v})
 	}
 	params["tags"] = tagsObj
-
-	_, err := self.ecsClient.DBInstance.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
+	_, err := self.post(SERVICE_RDS, fmt.Sprintf("instances/%s/tags/action", instanceId), params)
 	return err
 }
 
@@ -770,7 +821,7 @@ func (region *SRegion) RecoveryDBInstanceFromBackup(target, origin string, backu
 			"instance_id": target,
 		},
 	}
-	_, err := region.ecsClient.DBInstance.PerformAction("", "recovery", jsonutils.Marshal(params))
+	_, err := region.post(SERVICE_RDS, "instances/recovery", params)
 	if err != nil {
 		return errors.Wrap(err, "dbinstance.recovery")
 	}

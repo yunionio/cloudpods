@@ -15,8 +15,10 @@
 package huawei
 
 import (
+	"net/url"
 	"strings"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -142,20 +144,42 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	return ret, nil
 }
 
-func (self *SRegion) GetPort(portId string) (Port, error) {
-	port := Port{}
-	err := DoGet(self.ecsClient.Port.Get, portId, nil, &port)
-	return port, err
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ShowPort
+func (self *SRegion) GetPort(id string) (*Port, error) {
+	resp, err := self.list(SERVICE_VPC, "ports/"+id, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get port")
+	}
+	port := &Port{}
+	err = resp.Unmarshal(port, "port")
+	if err != nil {
+		return nil, err
+	}
+	return port, nil
 }
 
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0133195888.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ListPorts
 func (self *SRegion) GetPorts(instanceId string) ([]Port, error) {
-	ports := make([]Port, 0)
-	querys := map[string]string{}
+	ret := []Port{}
+	query := url.Values{}
 	if len(instanceId) > 0 {
-		querys["device_id"] = instanceId
+		query.Set("device_id", instanceId)
 	}
-
-	err := doListAllWithMarker(self.ecsClient.Port.List, querys, &ports)
-	return ports, err
+	for {
+		resp, err := self.list(SERVICE_VPC, "ports", query)
+		if err != nil {
+			return nil, err
+		}
+		part := []Port{}
+		err = resp.Unmarshal(&part, "ports")
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part...)
+		if len(part) == 0 {
+			break
+		}
+		query.Set("marker", part[len(part)-1].ID)
+	}
+	return ret, nil
 }

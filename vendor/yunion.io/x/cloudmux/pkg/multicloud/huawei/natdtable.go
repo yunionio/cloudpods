@@ -15,8 +15,9 @@
 package huawei
 
 import (
+	"net/url"
+
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -91,41 +92,43 @@ func (gateway *SNatGateway) getNatDTable() ([]SNatDEntry, error) {
 	return ret, nil
 }
 
-func (region *SRegion) GetNatDTable(natGatewayID string) ([]SNatDEntry, error) {
-	queuies := map[string]string{
-		"nat_gateway_id": natGatewayID,
+func (region *SRegion) GetNatDTable(natId string) ([]SNatDEntry, error) {
+	query := url.Values{}
+	if len(natId) > 0 {
+		query.Set("gateway_id", natId)
 	}
-	dNatSTableEntries := make([]SNatDEntry, 0, 2)
-	// can't make true that restapi support marker para in Huawei Cloud
-	err := doListAllWithMarker(region.ecsClient.DNatRules.List, queuies, &dNatSTableEntries)
-	if err != nil {
-		return nil, errors.Wrapf(err, `get dnat rule of gateway %q`, natGatewayID)
-	}
-	for i := range dNatSTableEntries {
-		nat := &dNatSTableEntries[i]
-		if len(nat.InternalIP) == 0 {
-			port, err := region.GetPort(nat.PortID)
-			if err != nil {
-				return nil, errors.Wrapf(err, `get port info for transfer to ip of port_id %q error`, nat.PortID)
-			}
-			nat.InternalIP = port.FixedIps[0].IpAddress
+	ret := []SNatDEntry{}
+	for {
+		resp, err := region.list(SERVICE_NAT, "private-nat/dnat-rules", query)
+		if err != nil {
+			return nil, err
 		}
+		part := struct {
+			DnatRules []SNatDEntry
+			PageInfo  sPageInfo
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.DnatRules...)
+		if len(part.PageInfo.NextMarker) == 0 || len(part.DnatRules) == 0 {
+			break
+		}
+		query.Set("marker", part.PageInfo.NextMarker)
 	}
-	return dNatSTableEntries, nil
+	return ret, nil
 }
 
-func (region *SRegion) DeleteNatDEntry(entryID string) error {
-	_, err := region.ecsClient.DNatRules.Delete(entryID, nil)
-	if err != nil {
-		return errors.Wrapf(err, `delete dnat rule %q failed`, entryID)
-	}
-	return nil
+func (region *SRegion) DeleteNatDEntry(id string) error {
+	_, err := region.delete(SERVICE_NAT, "private-nat/dnat-rules/"+id)
+	return err
 }
 
 func (nat *SNatDEntry) Refresh() error {
-	new, err := nat.gateway.region.GetNatDEntryByID(nat.ID)
+	ret, err := nat.gateway.region.GetNatDEntryByID(nat.ID)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(nat, new)
+	return jsonutils.Update(nat, ret)
 }

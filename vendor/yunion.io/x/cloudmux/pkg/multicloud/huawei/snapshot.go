@@ -16,8 +16,10 @@ package huawei
 
 import (
 	"fmt"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -46,7 +48,6 @@ type Metadata struct {
 	SystemEnableActive string `json:"__system__enableActive"` // 如果为true。则表明是系统盘快照
 }
 
-// https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408624.html
 type SSnapshot struct {
 	multicloud.SResourceBase
 	HuaweiTags
@@ -95,16 +96,11 @@ func (self *SSnapshot) GetStatus() string {
 }
 
 func (self *SSnapshot) Refresh() error {
-	snapshot, err := self.region.GetSnapshotById(self.GetId())
+	snapshot, err := self.region.GetSnapshot(self.GetId())
 	if err != nil {
 		return err
 	}
-
-	if err := jsonutils.Update(self, snapshot); err != nil {
-		return err
-	}
-
-	return nil
+	return jsonutils.Update(self, snapshot)
 }
 
 func (self *SSnapshot) IsEmulated() bool {
@@ -134,54 +130,73 @@ func (self *SSnapshot) Delete() error {
 	return self.region.DeleteSnapshot(self.GetId())
 }
 
-// https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408627.html
 func (self *SRegion) GetSnapshots(diskId string, snapshotName string) ([]SSnapshot, error) {
-	params := make(map[string]string)
-
+	params := url.Values{}
 	if len(diskId) > 0 {
-		params["volume_id"] = diskId
+		params.Set("volume_id", diskId)
 	}
 
 	if len(snapshotName) > 0 {
-		params["name"] = snapshotName
+		params.Set("name", snapshotName)
 	}
-
-	snapshots := make([]SSnapshot, 0)
-	err := doListAllWithOffset(self.ecsClient.Snapshots.List, params, &snapshots)
-	for i := range snapshots {
-		snapshots[i].region = self
+	ret := []SSnapshot{}
+	for {
+		resp, err := self.list(SERVICE_EVS, "cloudsnapshots/detail", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Snapshots []SSnapshot
+			Count     int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Snapshots...)
+		if len(ret) >= part.Count || len(part.Snapshots) == 0 {
+			break
+		}
+		params.Set("offset", fmt.Sprintf("%d", len(ret)))
 	}
-
-	return snapshots, err
+	return ret, nil
 }
 
-func (self *SRegion) GetSnapshotById(snapshotId string) (SSnapshot, error) {
-	var snapshot SSnapshot
-	err := DoGet(self.ecsClient.Snapshots.Get, snapshotId, nil, &snapshot)
-	snapshot.region = self
-	return snapshot, err
+func (self *SRegion) GetSnapshot(id string) (*SSnapshot, error) {
+	resp, err := self.list(SERVICE_EVS, "cloudsnapshots/"+id, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SSnapshot{region: self}
+	err = resp.Unmarshal(ret, "snapshot")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
 
-// 不能删除以autobk_snapshot_为前缀的快照。
-// 当快照状态为available、error状态时，才可以删除。
-func (self *SRegion) DeleteSnapshot(snapshotId string) error {
-	return DoDelete(self.ecsClient.Snapshots.Delete, snapshotId, nil, nil)
+func (self *SRegion) DeleteSnapshot(id string) error {
+	_, err := self.delete(SERVICE_EVS, "cloudsnapshots/"+id)
+	return err
 }
 
-// https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408624.html
-// 目前已设置force字段。云硬盘处于挂载状态时，能强制创建快照。
-func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
-	params := jsonutils.NewDict()
-	snapshotObj := jsonutils.NewDict()
-	snapshotObj.Add(jsonutils.NewString(name), "name")
-	snapshotObj.Add(jsonutils.NewString(desc), "description")
-	snapshotObj.Add(jsonutils.NewString(diskId), "volume_id")
-	snapshotObj.Add(jsonutils.JSONTrue, "force")
-	params.Add(snapshotObj, "snapshot")
-
-	snapshot := SSnapshot{}
-	err := DoCreate(self.ecsClient.Snapshots.Create, params, &snapshot)
-	return snapshot.ID, err
+func (self *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, error) {
+	params := map[string]interface{}{
+		"name":        name,
+		"description": desc,
+		"volume_id":   diskId,
+		"force":       true,
+	}
+	resp, err := self.post(SERVICE_EVS, "cloudsnapshots", map[string]interface{}{"snapshot": params})
+	if err != nil {
+		return nil, err
+	}
+	ret := &SSnapshot{region: self}
+	err = resp.Unmarshal(ret, "snapshot")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
 }
 
 func (self *SSnapshot) GetProjectId() string {

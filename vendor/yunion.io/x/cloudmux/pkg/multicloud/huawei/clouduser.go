@@ -15,14 +15,14 @@
 package huawei
 
 import (
+	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules"
 )
 
 type SLink struct {
@@ -111,45 +111,40 @@ func (user *SClouduser) ResetPassword(password string) error {
 	return user.client.ResetClouduserPassword(user.Id, password)
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneDeleteUser
 func (self *SHuaweiClient) DeleteClouduser(id string) error {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return errors.Wrap(err, "newGeneralAPIClient")
-	}
-	_, err = client.Users.Delete(id)
+	_, err := self.delete(SERVICE_IAM_V3, "", "users/"+id)
 	return err
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListGroupsForUser
 func (self *SHuaweiClient) ListUserGroups(userId string) ([]SCloudgroup, error) {
-	client, err := self.newGeneralAPIClient()
+	resp, err := self.list(SERVICE_IAM_V3, "", fmt.Sprintf("users/%s/groups", userId), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
-	}
-	result, err := client.Users.ListGroups(userId)
-	if err != nil {
-		return nil, errors.Wrap(err, "Users.ListGroups")
+		return nil, err
 	}
 	groups := []SCloudgroup{}
-	err = jsonutils.Update(&groups, result.Data)
+	err = resp.Unmarshal(&groups, "groups")
 	if err != nil {
-		return nil, errors.Wrap(err, "jsonutils.Update")
+		return nil, err
 	}
 	return groups, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListUsers
 func (self *SHuaweiClient) GetCloudusers(name string) ([]SClouduser, error) {
-	params := map[string]string{}
+	params := url.Values{}
 	if len(name) > 0 {
-		params["name"] = name
+		params.Set("name", name)
+	}
+	resp, err := self.list(SERVICE_IAM_V3, "", "users", params)
+	if err != nil {
+		return nil, err
 	}
 	users := []SClouduser{}
-	client, err := self.newGeneralAPIClient()
+	err = resp.Unmarshal(&users, "users")
 	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
-	}
-	err = doListAllWithOffset(client.Users.List, params, &users)
-	if err != nil {
-		return nil, errors.Wrap(err, "doListAllWithOffset")
+		return nil, err
 	}
 	return users, nil
 }
@@ -188,8 +183,9 @@ func (self *SHuaweiClient) CreateIClouduser(conf *cloudprovider.SClouduserCreate
 	return self.CreateClouduser(conf.Name, conf.Password, conf.Desc)
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=CreateUser
 func (self *SHuaweiClient) CreateClouduser(name, password, desc string) (*SClouduser, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"name":      name,
 		"domain_id": self.ownerId,
 	}
@@ -199,28 +195,29 @@ func (self *SHuaweiClient) CreateClouduser(name, password, desc string) (*SCloud
 	if len(desc) > 0 {
 		params["description"] = desc
 	}
-	client, err := self.newGeneralAPIClient()
+	resp, err := self.post(SERVICE_IAM, "", "OS-USER/users", map[string]interface{}{"user": params})
 	if err != nil {
-		return nil, errors.Wrap(err, "newGeneralAPIClient")
-	}
-	user := SClouduser{client: self}
-	err = DoCreate(client.Users.Create, jsonutils.Marshal(map[string]interface{}{"user": params}), &user)
-	if err != nil {
-		ce, ok := err.(*modules.HuaweiClientError)
-		if ok && len(ce.Errorcode) > 0 && ce.Errorcode[0] == "1101" {
+		if strings.Contains(err.Error(), "1101") {
 			return nil, errors.Wrap(err, `IAM user name. The length is between 5 and 32. The first digit is not a number. Special characters can only contain the '_' '-' or ' '`) //https://support.huaweicloud.com/api-iam/iam_08_0015.html
 		}
-		return nil, errors.Wrap(err, "DoCreate")
+		return nil, err
 	}
-	return &user, nil
+	user := &SClouduser{client: self}
+	err = resp.Unmarshal(user, "user")
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=UpdateUser
 func (self *SHuaweiClient) ResetClouduserPassword(id, password string) error {
-	client, err := self.newGeneralAPIClient()
-	if err != nil {
-		return errors.Wrap(err, "newGeneralAPIClient")
-	}
-	return client.Users.ResetPassword(id, password)
+	_, err := self.put(SERVICE_IAM, "", "OS-USER/users/"+id, map[string]interface{}{
+		"user": map[string]interface{}{
+			"password": password,
+		},
+	})
+	return err
 }
 
 type SAccessKey struct {
@@ -233,6 +230,7 @@ type SAccessKey struct {
 	CreatedAt   time.Time `json:"create_time"`
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=ListPermanentAccessKeys
 func (self *SHuaweiClient) GetAKSK(id string) ([]cloudprovider.SAccessKey, error) {
 	query := url.Values{}
 	query.Set("user_id", id)
@@ -253,6 +251,7 @@ func (self *SHuaweiClient) GetAKSK(id string) ([]cloudprovider.SAccessKey, error
 	return res, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=CreatePermanentAccessKey
 func (self *SHuaweiClient) CreateAKSK(id, name string) (*cloudprovider.SAccessKey, error) {
 	params := map[string]interface{}{
 		"credential": map[string]interface{}{
@@ -265,7 +264,10 @@ func (self *SHuaweiClient) CreateAKSK(id, name string) (*cloudprovider.SAccessKe
 		return nil, errors.Wrap(err, "SHuaweiClient.createAKSK")
 	}
 	ak := SAccessKey{}
-	obj.Unmarshal(&ak, "credential")
+	err = obj.Unmarshal(&ak, "credential")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
 	res := cloudprovider.SAccessKey{
 		Name:      ak.Description,
 		AccessKey: ak.AccessKey,
@@ -274,6 +276,7 @@ func (self *SHuaweiClient) CreateAKSK(id, name string) (*cloudprovider.SAccessKe
 	return &res, nil
 }
 
+// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=DeletePermanentAccessKey
 func (self *SHuaweiClient) DeleteAKSK(accessKey string) error {
 	_, err := self.delete(SERVICE_IAM, "", "OS-CREDENTIAL/credentials/"+accessKey)
 	return err
