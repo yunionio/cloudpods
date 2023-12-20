@@ -14,16 +14,22 @@
 
 package grub
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-func GetYunionOSConfig(sleepTime int, httpSite, kernel string, kernelArgs string, initrd string) string {
-	kernel = fmt.Sprintf("(http,${http_site})/tftp/%s", kernel)
-	// kernel = fmt.Sprintf("(tftp,10.127.100.2)/%s", kernel)
-	initrd = fmt.Sprintf("(http,${http_site})/tftp/%s", initrd)
-	// initrd = fmt.Sprintf("(tftp,10.127.100.2)/%s", initrd)
+func GetYunionOSConfig(sleepTime int, httpSite, kernel string, kernelArgs string, initrd string, useTftpDownload bool) string {
+	if useTftpDownload {
+		site := strings.Split(httpSite, ":")[0]
+		kernel = fmt.Sprintf("(tftp,%s)/%s", site, kernel)
+		initrd = fmt.Sprintf("(tftp,%s)/%s", site, initrd)
+	} else {
+		kernel = fmt.Sprintf("(http,%s)/tftp/%s", httpSite, kernel)
+		initrd = fmt.Sprintf("(http,%s)/tftp/%s", httpSite, initrd)
+	}
 	return fmt.Sprintf(`
 set timeout=%d
-set http_site=%s
 menuentry 'YunionOS for PXE' --class os {
 	echo "Loading linux %s ..."
 	linux %s %s
@@ -31,7 +37,7 @@ menuentry 'YunionOS for PXE' --class os {
 	echo "Loading initrd %s ..."
 	initrd %s
 }
-`, sleepTime, httpSite, kernel, kernel, kernelArgs, initrd, initrd)
+`, sleepTime, kernel, kernel, kernelArgs, initrd, initrd)
 }
 
 // REF: https://github.com/bluebanquise/infrastructure/blob/master/packages/ipxe-bluebanquise/grub2-efi-autofind.cfg
