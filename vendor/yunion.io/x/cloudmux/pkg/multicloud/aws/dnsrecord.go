@@ -92,10 +92,7 @@ func (self *SDnsRecord) GetEnabled() bool {
 }
 
 func (self *SDnsRecord) GetGlobalId() string {
-	if len(self.SetIdentifier) > 0 {
-		return self.SetIdentifier
-	}
-	return fmt.Sprintf("%s %s %s", self.Type, self.Name, self.GetDnsValue())
+	return fmt.Sprintf("%s %s %s %s", self.SetIdentifier, self.Type, self.Name, self.GetDnsValue())
 }
 
 func (self *SDnsRecord) GetDnsName() string {
