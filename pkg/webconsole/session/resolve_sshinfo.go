@@ -132,9 +132,9 @@ func acquireForward(ctx context.Context, session *mcclient.ClientSession, srvid 
 	lockman.LockRawObject(ctx, "server", srvid)
 	defer lockman.ReleaseRawObject(ctx, "server", srvid)
 
-	addr, port, err := listForward(session, srvid, ip, proto, port)
+	addr, nport, err := listForward(session, srvid, ip, proto, port)
 	if err == nil {
-		return addr, port, nil
+		return addr, nport, nil
 	}
 	if errors.Cause(err) == httperrors.ErrNotFound {
 		return openForward(session, srvid, ip, proto, port)
@@ -162,14 +162,15 @@ func listForward(session *mcclient.ClientSession, srvid string, ip string, proto
 		return "", 0, errors.Wrap(err, "list-forward")
 	}
 
-	infoList := make([]sForwardInfo, 0)
-	err = jsonItem.Unmarshal(&infoList, "forwards")
-	if err != nil {
-		return "", 0, errors.Wrap(err, "Unmarshal forwards")
-	}
-
-	if len(infoList) > 0 {
-		return infoList[0].ProxyAddr, infoList[0].ProxyPort, nil
+	if jsonItem.Contains("forwards") {
+		infoList := make([]sForwardInfo, 0)
+		err = jsonItem.Unmarshal(&infoList, "forwards")
+		if err != nil {
+			return "", 0, errors.Wrap(err, "Unmarshal forwards")
+		}
+		if len(infoList) > 0 {
+			return infoList[0].ProxyAddr, infoList[0].ProxyPort, nil
+		}
 	}
 
 	return "", 0, errors.Wrap(httperrors.ErrNotFound, "no forwards")
