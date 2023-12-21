@@ -1162,6 +1162,14 @@ func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredenti
 	return nil
 }
 
+func (region *SCloudregion) getMetaUrl(base string, externalId string) string {
+	if region.Provider == api.CLOUD_PROVIDER_HUAWEI && strings.Contains(region.ExternalId, "_") {
+		idx := strings.Index(region.ExternalId, "_")
+		return fmt.Sprintf("%s/%s/%s.json", base, region.ExternalId[:idx], externalId)
+	}
+	return fmt.Sprintf("%s/%s/%s.json", base, region.ExternalId, externalId)
+}
+
 func (region *SCloudregion) newPublicCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
@@ -1179,7 +1187,7 @@ func (region *SCloudregion) newPublicCloudSku(ctx context.Context, userCred mccl
 	sku := &SServerSku{}
 	sku.SetModelManager(ServerSkuManager, sku)
 
-	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ServerBase, region.ExternalId, extSku.ExternalId)
+	skuUrl := region.getMetaUrl(meta.ServerBase, extSku.ExternalId)
 	err = meta.Get(skuUrl, sku)
 	if err != nil {
 		return errors.Wrapf(err, "Get")
@@ -1227,7 +1235,7 @@ func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.
 	}
 
 	sku := &SServerSku{}
-	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ServerBase, region.ExternalId, extSku.ExternalId)
+	skuUrl := region.getMetaUrl(meta.ServerBase, extSku.ExternalId)
 	err = meta.Get(skuUrl, sku)
 	if err != nil {
 		return errors.Wrapf(err, "Get")

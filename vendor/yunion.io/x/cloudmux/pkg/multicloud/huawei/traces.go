@@ -98,7 +98,7 @@ func (event *SEvent) GetCreatedAt() time.Time {
 }
 
 func (self *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {
-	if !self.client.isMainProject {
+	if self.Id != HUAWEI_DEFAULT_REGION {
 		return nil, cloudprovider.ErrNotSupported
 	}
 	events, err := self.GetEvents(start, end)

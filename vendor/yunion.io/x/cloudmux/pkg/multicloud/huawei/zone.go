@@ -16,8 +16,8 @@ package huawei
 
 import (
 	"fmt"
+	"strings"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -25,57 +25,23 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-var StorageTypes = []string{
-	api.STORAGE_HUAWEI_SAS,
-	api.STORAGE_HUAWEI_SATA,
-	api.STORAGE_HUAWEI_SSD,
-}
-
 type ZoneState struct {
 	Available bool `json:"available"`
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817728.html
 type SZone struct {
 	multicloud.SResourceBase
 	HuaweiTags
 	region *SRegion
 	host   *SHost
 
-	istorages []cloudprovider.ICloudStorage
-
 	ZoneState ZoneState `json:"zoneState"`
 	ZoneName  string    `json:"zoneName"`
-
-	/* 支持的磁盘种类集合 */
-	storageTypes []string
-}
-
-func (self *SZone) getStorageType() {
-	if len(self.storageTypes) == 0 {
-		if sts, err := self.region.GetZoneSupportedDiskTypes(self.GetId()); err == nil {
-			self.storageTypes = sts
-		} else {
-			log.Errorf("GetZoneSupportedDiskTypes %s %s", self.GetId(), err)
-			self.storageTypes = StorageTypes
-		}
-	}
-}
-
-func (self *SZone) fetchStorages() error {
-	self.getStorageType()
-	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
-
-	for i, sc := range self.storageTypes {
-		storage := SStorage{zone: self, storageType: sc}
-		self.istorages[i] = &storage
-	}
-	return nil
 }
 
 func (self *SZone) getHost() *SHost {
 	if self.host == nil {
-		self.host = &SHost{zone: self, projectId: self.region.client.projectId}
+		self.host = &SHost{zone: self}
 	}
 	return self.host
 }
@@ -96,7 +62,7 @@ func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
 }
 
 func (self *SZone) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.ZoneName)
+	return fmt.Sprintf("%s/%s/%s", api.CLOUD_PROVIDER_HUAWEI, self.region.getId(), self.ZoneName)
 }
 
 func (self *SZone) GetStatus() string {
@@ -128,28 +94,34 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
+	storageTypes, err := self.region.GetDiskTypes()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudStorage{}
+	for _, storageType := range storageTypes {
+		if strings.Contains(storageType.ExtraSpecs.RESKEYAvailabilityZones, self.ZoneName) {
+			ret = append(ret, &SStorage{
+				zone:         self,
+				storageType:  storageType.Name,
+				volumeTypeId: storageType.Id,
+			})
 		}
 	}
-	return self.istorages, nil
+	return ret, nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := range storages {
+		if storages[i].GetGlobalId() == id {
+			return storages[i], nil
 		}
 	}
-	for i := 0; i < len(self.istorages); i += 1 {
-		if self.istorages[i].GetGlobalId() == id {
-			return self.istorages[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
@@ -180,14 +152,15 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 }
 
 func (self *SRegion) getZoneById(id string) (*SZone, error) {
-	izones, err := self.GetIZones()
+	zones, err := self.GetZones()
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(izones); i += 1 {
-		zone := izones[i].(*SZone)
+	for i := 0; i < len(zones); i += 1 {
+		zones[i].region = self
+		zone := zones[i]
 		if zone.GetId() == id {
-			return zone, nil
+			return &zone, nil
 		}
 	}
 	return nil, fmt.Errorf("no such zone %s", id)

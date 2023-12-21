@@ -30,8 +30,6 @@ import (
 type SHost struct {
 	multicloud.SHostBase
 	zone *SZone
-
-	projectId string
 }
 
 func (self *SHost) GetId() string {

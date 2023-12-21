@@ -340,7 +340,7 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err := self.KeystoneRemoveProjectPermissionFromGroup(project.ID, groupId, role.Id)
+			err := self.KeystoneRemoveProjectPermissionFromGroup(project.Id, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "remove project role ")
 			}
@@ -400,7 +400,7 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err := self.KeystoneAssociateGroupWithProjectPermission(project.ID, groupId, role.Id)
+			err := self.KeystoneAssociateGroupWithProjectPermission(project.Id, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "add project role ")
 			}
@@ -432,7 +432,7 @@ func (self *SHuaweiClient) AttachGroupCustomRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err := self.KeystoneAssociateGroupWithProjectPermission(project.ID, groupId, role.Id)
+			err := self.KeystoneAssociateGroupWithProjectPermission(project.Id, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "add project role ")
 			}
@@ -464,7 +464,7 @@ func (self *SHuaweiClient) DetachGroupCustomRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err := self.KeystoneRemoveProjectPermissionFromGroup(project.ID, groupId, role.Id)
+			err := self.KeystoneRemoveProjectPermissionFromGroup(project.Id, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "remove project role ")
 			}
