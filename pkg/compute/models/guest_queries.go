@@ -482,8 +482,6 @@ func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.Tri
 	q = q.LeftJoin(subIP, sqlchemy.Equals(q.Field("row_id"), subIP.Field("parent_id")))
 	q = q.In("guest_id", guestIds)
 
-	q.DebugQuery()
-
 	var descs []struct {
 		GuestId string `json:"guest_id"`
 		api.GuestnetworkShortDesc
