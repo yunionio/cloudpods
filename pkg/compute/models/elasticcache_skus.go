@@ -474,7 +474,7 @@ func (self *SCloudregion) newFromPublicCloudSku(ctx context.Context, userCred mc
 		zoneMaps[zone.ExternalId] = zone.Id
 	}
 
-	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ElasticCacheBase, self.ExternalId, externalId)
+	skuUrl := self.getMetaUrl(meta.ElasticCacheBase, externalId)
 	sku := &SElasticcacheSku{}
 	sku.SetModelManager(ElasticcacheSkuManager, sku)
 	err = meta.Get(skuUrl, sku)

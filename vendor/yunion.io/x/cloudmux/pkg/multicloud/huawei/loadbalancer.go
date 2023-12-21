@@ -559,6 +559,11 @@ func (self *SRegion) CreateLoadBalancer(opts *cloudprovider.SLoadbalancerCreateO
 		return nil, errors.Wrap(err, "getNetwork")
 	}
 
+	projectId := ""
+	project, ok := self.client.projects[self.Id]
+	if ok {
+		projectId = project.Id
+	}
 	params := map[string]interface{}{
 		"name":               opts.Name,
 		"description":        opts.Desc,
@@ -566,7 +571,7 @@ func (self *SRegion) CreateLoadBalancer(opts *cloudprovider.SLoadbalancerCreateO
 		"provider":           "vlb",
 		"admin_state_up":     true,
 		"guaranteed":         true,
-		"project_id":         self.client.projectId,
+		"project_id":         projectId,
 		"charge_mode":        "lcu",
 	}
 	if len(opts.ProjectId) > 0 {

@@ -300,7 +300,7 @@ func (opts *SOpenStackCloudAccountCreateOptions) Params() (jsonutils.JSONObject,
 
 type SHuaweiCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
-	SAccessKeyCredentialWithEnvironment
+	SAccessKeyCredential
 }
 
 func (opts *SHuaweiCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {

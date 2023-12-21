@@ -474,8 +474,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	}
 
 	params := map[string]interface{}{
-		"region": region.ID,
-		"name":   desc.Name,
+		"name": desc.Name,
 		"datastore": map[string]string{
 			"type":    desc.Engine,
 			"version": desc.EngineVersion,

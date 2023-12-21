@@ -197,7 +197,11 @@ func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
 }
 
 func (self *SVpc) GetAuthorityOwnerId() string {
-	return self.region.client.projectId
+	project, ok := self.region.client.projects[self.region.Id]
+	if ok {
+		return project.Id
+	}
+	return ""
 }
 
 func (self *SVpc) getVpcPeeringConnections() ([]SVpcPeering, error) {

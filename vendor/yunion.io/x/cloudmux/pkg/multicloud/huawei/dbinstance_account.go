@@ -131,11 +131,11 @@ func (region *SRegion) RevokeDBInstancePrivilege(instanceId string, account, dat
 		},
 	}
 	resource := fmt.Sprintf("instances/%s/db_privilege", instanceId)
-	url, err := region.client.getUrl(SERVICE_RDS, region.ID, resource, httputils.DELETE, nil)
+	url, err := region.client.getUrl(SERVICE_RDS, region.Id, resource, httputils.DELETE, nil)
 	if err != nil {
 		return err
 	}
-	_, err = region.client.request(httputils.DELETE, url, nil, params)
+	_, err = region.client.request(httputils.DELETE, region.Id, url, nil, params)
 	return err
 }
 
