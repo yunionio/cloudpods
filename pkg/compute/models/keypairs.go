@@ -115,8 +115,6 @@ func (manager *SKeypairManager) ListItemFilter(
 		q = q.In("fingerprint", query.Fingerprint)
 	}
 
-	q.DebugQuery()
-
 	return q, nil
 }
 
