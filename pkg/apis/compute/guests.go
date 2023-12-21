@@ -345,24 +345,25 @@ func (self ServerDetails) GetMetricPairs() map[string]string {
 
 // GuestDiskInfo describe the information of disk on the guest.
 type GuestDiskInfo struct {
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	FsFormat    string `json:"fs,omitempty"`
-	DiskType    string `json:"disk_type"`
-	Index       int8   `json:"index"`
-	BootIndex   int8   `json:"boot_index"`
-	SizeMb      int    `json:"size"`
-	DiskFormat  string `json:"disk_format"`
-	Driver      string `json:"driver"`
-	CacheMode   string `json:"cache_mode"`
-	AioMode     string `json:"aio_mode"`
-	MediumType  string `json:"medium_type"`
-	StorageType string `json:"storage_type"`
-	Iops        int    `json:"iops"`
-	Bps         int    `json:"bps"`
-	ImageId     string `json:"image_id,omitempty"`
-	Image       string `json:"image,omitemtpy"`
-	StorageId   string `json:"storage_id"`
+	Id            string `json:"id"`
+	Name          string `json:"name"`
+	FsFormat      string `json:"fs,omitempty"`
+	DiskType      string `json:"disk_type"`
+	Index         int8   `json:"index"`
+	BootIndex     int8   `json:"boot_index"`
+	SizeMb        int    `json:"size"`
+	DiskFormat    string `json:"disk_format"`
+	Driver        string `json:"driver"`
+	CacheMode     string `json:"cache_mode"`
+	AioMode       string `json:"aio_mode"`
+	MediumType    string `json:"medium_type"`
+	StorageType   string `json:"storage_type"`
+	Iops          int    `json:"iops"`
+	Bps           int    `json:"bps"`
+	ImageId       string `json:"image_id,omitempty"`
+	Image         string `json:"image,omitemtpy"`
+	StorageId     string `json:"storage_id"`
+	Preallocation string `json:"preallocation"`
 }
 
 func (self GuestDiskInfo) ShortDesc() string {
