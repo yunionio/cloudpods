@@ -72,6 +72,14 @@ func (m *QemuDeployManager) runOnHost() bool {
 	return m.qemuCmd != QEMU_KVM_PATH
 }
 
+func (m *QemuDeployManager) startQemu(cmd string) ([]byte, error) {
+	if m.runOnHost() {
+		return procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	} else {
+		return procutils.NewCommand("bash", "-c", cmd).Output()
+	}
+}
+
 func (m *QemuDeployManager) GetX86InitrdPath() string {
 	if m.runOnHost() {
 		return path.Join(RUN_ON_HOST_ROOT_PATH, X86_INITRD_PATH)
@@ -171,7 +179,11 @@ func tryCleanGuest(hmpPath string) {
 	}
 }
 
-func InitQemuDeployManager(cpuArch, qemuVersion string, hugepage bool, hugepageSizeKB int, deployConcurrent int) error {
+func InitQemuDeployManager(
+	cpuArch, qemuVersion string,
+	enableRemoteExecutor, hugepage bool,
+	hugepageSizeKB, deployConcurrent int,
+) error {
 	if deployConcurrent <= 0 {
 		deployConcurrent = 10
 	}
@@ -179,7 +191,11 @@ func InitQemuDeployManager(cpuArch, qemuVersion string, hugepage bool, hugepageS
 	if cpuArch == OS_ARCH_AARCH64 {
 		qemutils.UseAarch64()
 	}
-	qemuCmd := qemutils.GetQemu(qemuVersion)
+
+	var qemuCmd string
+	if enableRemoteExecutor {
+		qemuCmd = qemutils.GetQemu(qemuVersion)
+	}
 	if qemuCmd == "" {
 		qemuCmd = QEMU_KVM_PATH
 	}
@@ -624,14 +640,7 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-device ide-cd,drive=ide0-cd0,bus=ide.1")
 
 	log.Infof("start guest %s", cmd)
-
-	var out []byte
-	var err error
-	if manager.runOnHost() {
-		out, err = procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
-	} else {
-		out, err = procutils.NewCommand("bash", "-c", cmd).Output()
-	}
+	out, err := manager.startQemu(cmd)
 	if err != nil {
 		log.Errorf("failed start guest %s: %s", out, err)
 		return errors.Wrapf(err, "failed start guest %s", out)
@@ -707,14 +716,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	cmd += __("-device scsi-cd,drive=cd0,share-rw=true")
 
 	log.Infof("start guest %s", cmd)
-
-	var out []byte
-	var err error
-	if manager.runOnHost() {
-		out, err = procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
-	} else {
-		out, err = procutils.NewCommand("bash", "-c", cmd).Output()
-	}
+	out, err := manager.startQemu(cmd)
 	if err != nil {
 		log.Errorf("failed start guest %s: %s", out, err)
 		return errors.Wrapf(err, "failed start guest %s", out)
