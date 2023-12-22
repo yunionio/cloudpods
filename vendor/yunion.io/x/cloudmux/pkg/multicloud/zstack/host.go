@@ -235,7 +235,7 @@ func (host *SHost) GetMemSizeMB() int {
 	return host.TotalMemoryCapacity / 1024 / 1024
 }
 
-func (host *SHost) GetStorageSizeMB() int {
+func (host *SHost) GetStorageSizeMB() int64 {
 	storages, err := host.zone.region.GetStorages(host.zone.UUID, host.ClusterUUID, "")
 	if err != nil {
 		return 0
@@ -252,7 +252,7 @@ func (host *SHost) GetStorageSizeMB() int {
 			}
 		}
 	}
-	return totalStorage / 1024 / 1024
+	return int64(totalStorage) / 1024 / 1024
 }
 
 func (host *SHost) GetStorageType() string {

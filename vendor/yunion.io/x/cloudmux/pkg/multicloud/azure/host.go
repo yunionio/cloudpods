@@ -266,7 +266,7 @@ func (self *SHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error)
 	return instance, nil
 }
 
-func (self *SHost) GetStorageSizeMB() int {
+func (self *SHost) GetStorageSizeMB() int64 {
 	return 0
 }
 

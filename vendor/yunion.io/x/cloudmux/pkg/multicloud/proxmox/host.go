@@ -170,8 +170,8 @@ func (self *SHost) GetReservedMemoryMb() int {
 	return 0
 }
 
-func (self *SHost) GetStorageSizeMB() int {
-	return int(self.Rootfs.Total / 1024 / 1024)
+func (self *SHost) GetStorageSizeMB() int64 {
+	return self.Rootfs.Total / 1024 / 1024
 }
 
 func (self *SHost) GetStorageType() string {
