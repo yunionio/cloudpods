@@ -109,7 +109,7 @@ func (host *SHost) GetMemSizeMB() int {
 	return 0
 }
 
-func (host *SHost) GetStorageSizeMB() int {
+func (host *SHost) GetStorageSizeMB() int64 {
 	return 0
 }
 

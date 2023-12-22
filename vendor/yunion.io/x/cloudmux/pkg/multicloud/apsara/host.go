@@ -150,7 +150,7 @@ func (self *SHost) GetMemSizeMB() int {
 	return 0
 }
 
-func (self *SHost) GetStorageSizeMB() int {
+func (self *SHost) GetStorageSizeMB() int64 {
 	return 0
 }
 
