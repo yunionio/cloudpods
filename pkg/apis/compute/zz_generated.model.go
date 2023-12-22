@@ -1275,7 +1275,7 @@ type SHost struct {
 	// 页大小
 	PageSizeKB int `json:"page_size_kb"`
 	// 存储大小,单位Mb
-	StorageSize int `json:"storage_size"`
+	StorageSize int64 `json:"storage_size"`
 	// 存储类型
 	StorageType string `json:"storage_type"`
 	// 存储驱动类型

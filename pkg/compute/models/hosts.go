@@ -150,7 +150,7 @@ type SHost struct {
 	PageSizeKB int `nullable:"false" default:"4" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 存储大小,单位Mb
-	StorageSize int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	StorageSize int64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 存储类型
 	StorageType string `width:"20" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 存储驱动类型

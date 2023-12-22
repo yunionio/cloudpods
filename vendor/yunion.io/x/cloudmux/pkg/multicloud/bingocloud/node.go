@@ -41,8 +41,8 @@ type SNode struct {
 	CpuNode      int
 	CpuSockets   int
 	CpuUsed      int
-	DiskMax      int
-	DiskNode     int
+	DiskMax      int64
+	DiskNode     int64
 	DiskUsed     int
 	MemNode      int
 	MemoryMax    int
@@ -139,7 +139,7 @@ func (self *SNode) GetReservedMemoryMb() int {
 	return 0
 }
 
-func (self *SNode) GetStorageSizeMB() int {
+func (self *SNode) GetStorageSizeMB() int64 {
 	if self.DiskMax > 0 {
 		return self.DiskMax * 1024
 	}
