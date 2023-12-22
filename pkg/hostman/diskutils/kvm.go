@@ -58,7 +58,7 @@ func NewKVMGuestDisk(imageInfo qemuimg.SImageInfo, driver string, readOnly bool)
 		}
 		err = img.CreateQcow2(0, false, imageInfo.Path, imageInfo.Password, imageInfo.EncryptFormat, imageInfo.EncryptAlg)
 		if err != nil {
-			log.Errorf("fail to create overlay qcow2 for kvm disk readonly access")
+			log.Errorf("fail to create overlay qcow2 for kvm disk readonly access: %s", err)
 			return nil, errors.Wrap(err, "CreateQcow2")
 		}
 		originImage = imagePath
