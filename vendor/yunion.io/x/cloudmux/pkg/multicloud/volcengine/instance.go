@@ -182,18 +182,9 @@ func (instance *SInstance) GetIHostId() string {
 }
 
 func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	pageNumber := 1
-	disks := make([]SDisk, 0)
-	for {
-		parts, total, err := instance.host.zone.region.GetDisks(instance.InstanceId, "", "", nil, pageNumber, 50)
-		if err != nil {
-			return nil, err
-		}
-		disks = append(disks, parts...)
-		if len(disks) >= total {
-			break
-		}
-		pageNumber += 1
+	disks, err := instance.host.zone.region.GetDisks(instance.InstanceId, "", "", nil)
+	if err != nil {
+		return nil, err
 	}
 
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
