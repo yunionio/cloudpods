@@ -392,6 +392,7 @@ func (s *SDeployService) PrepareEnv() error {
 		err = qemu_kvm.InitQemuDeployManager(
 			strings.TrimSpace(string(cpuArch)),
 			DeployOption.DefaultQemuVersion,
+			DeployOption.EnableRemoteExecutor,
 			DeployOption.HugepagesOption == "native",
 			DeployOption.HugepageSizeMb*1024,
 			DeployOption.DeployConcurrent,
