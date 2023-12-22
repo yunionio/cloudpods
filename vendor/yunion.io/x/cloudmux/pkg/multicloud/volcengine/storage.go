@@ -54,26 +54,16 @@ func (storage *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (storage *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks := make([]SDisk, 0)
-	pageNumber := 1
-	storageType := storage.storageType
-	for {
-		parts, total, err := storage.zone.region.GetDisks("", storage.zone.GetId(), storageType, nil, pageNumber, 50)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetDisks")
-		}
-		disks = append(disks, parts...)
-		if len(parts) >= total {
-			break
-		}
-		pageNumber += 1
+	disks, err := storage.zone.region.GetDisks("", storage.zone.GetId(), storage.storageType, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisks")
 	}
-	idisks := make([]cloudprovider.ICloudDisk, len(disks))
+	ret := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i += 1 {
 		disks[i].storage = storage
-		idisks[i] = &disks[i]
+		ret = append(ret, &disks[i])
 	}
-	return idisks, nil
+	return ret, nil
 }
 
 func (storage *SStorage) GetStorageType() string {
