@@ -405,9 +405,9 @@ func (self *SHost) GetMemSizeMB() int {
 	return int(self.MemoryCapacityInBytes / 1024 / 1024)
 }
 
-func (self *SHost) GetStorageSizeMB() int {
+func (self *SHost) GetStorageSizeMB() int64 {
 	sizeBytes, _ := strconv.Atoi(self.UsageStats.StorageCapacityBytes)
-	return sizeBytes / 1024 / 1024
+	return int64(sizeBytes) / 1024 / 1024
 }
 
 func (self *SHost) GetStorageType() string {

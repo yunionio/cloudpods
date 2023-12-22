@@ -120,12 +120,12 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	guestdisks, _ := self.GetGuestDisks()
 
 	storageInfo := make([]baremetal.BaremetalStorage, 0)
-	totalSize := 0
+	totalSize := int64(0)
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 		storage, _ := disk.GetStorage()
 
-		totalSize += disk.DiskSize
+		totalSize += int64(disk.DiskSize)
 
 		if len(fakeHost.StorageType) == 0 {
 			fakeHost.StorageType = storage.StorageType

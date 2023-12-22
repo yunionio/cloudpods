@@ -40,7 +40,7 @@ type SHost struct {
 	CpuDesc       string
 	CpuMbz        int
 	MemSizeMb     int
-	StorageSizeMb int
+	StorageSizeMb int64
 	StorageType   string
 
 	AttachStorageTypes []string
@@ -110,7 +110,7 @@ func (self *SHost) GetReservedMemoryMb() int {
 	return 0
 }
 
-func (self *SHost) GetStorageSizeMB() int {
+func (self *SHost) GetStorageSizeMB() int64 {
 	return self.StorageSizeMb
 }
 

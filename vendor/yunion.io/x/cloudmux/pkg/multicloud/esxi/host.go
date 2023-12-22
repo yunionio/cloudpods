@@ -715,7 +715,7 @@ func (host *SHost) getStorages() []*SHostStorageAdapterInfo {
 	return adapterList
 }
 
-func (host *SHost) GetStorageSizeMB() int {
+func (host *SHost) GetStorageSizeMB() int64 {
 	storages, err := host.GetIStorages()
 	if err != nil {
 		log.Errorf("SHost.GetStorageSizeMB: SHost.GetIStorages: %s", err)
@@ -725,7 +725,7 @@ func (host *SHost) GetStorageSizeMB() int {
 	for _, stor := range storages {
 		size += stor.GetCapacityMB()
 	}
-	return int(size)
+	return size
 }
 
 func (host *SHost) GetStorageType() string {

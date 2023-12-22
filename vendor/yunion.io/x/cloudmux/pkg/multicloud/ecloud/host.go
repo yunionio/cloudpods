@@ -131,7 +131,7 @@ func (h *SHost) GetMemSizeMB() int {
 	return 0
 }
 
-func (h *SHost) GetStorageSizeMB() int {
+func (h *SHost) GetStorageSizeMB() int64 {
 	return 0
 }
 

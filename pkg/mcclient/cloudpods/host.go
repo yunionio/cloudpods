@@ -153,7 +153,7 @@ func (host *SHost) GetReservedMemoryMb() int {
 	return host.MemReserved
 }
 
-func (host *SHost) GetStorageSizeMB() int {
+func (host *SHost) GetStorageSizeMB() int64 {
 	return host.StorageSize
 }
 
