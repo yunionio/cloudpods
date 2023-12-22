@@ -1214,20 +1214,14 @@ func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (self *SDisk) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	provider := self.GetCloudprovider()
-	if provider != nil {
-		if !provider.IsAvailable() {
-			return httperrors.NewNotSufficientPrivilegeError("cloud provider %s is not available", provider.GetName())
-		}
-
-		account, _ := provider.GetCloudaccount()
-		if account != nil && !account.IsAvailable() {
-			return httperrors.NewNotSufficientPrivilegeError("cloud account %s is not available", account.GetName())
-		}
+func (self *SDisk) ValidateDeleteCondition(ctx context.Context, info api.DiskDetails) error {
+	if len(info.Guests) > 0 {
+		return httperrors.NewNotEmptyError("Virtual disk %s(%s) used by virtual servers", self.Name, self.Id)
 	}
-
-	return self.validateDeleteCondition(ctx, false)
+	if self.IsNotDeletablePrePaid() {
+		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
+	}
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SDisk) ValidatePurgeCondition(ctx context.Context) error {
