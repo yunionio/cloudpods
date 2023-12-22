@@ -320,6 +320,7 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 		guestdisks.Field("guest_id"),
 		guestdisks.Field("boot_index"),
 		disks.Field("storage_id"),
+		disks.Field("preallocation"),
 	)
 	q = q.Join(guestdisks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
 	q = q.Join(storages, sqlchemy.Equals(disks.Field("storage_id"), storages.Field("id")))
