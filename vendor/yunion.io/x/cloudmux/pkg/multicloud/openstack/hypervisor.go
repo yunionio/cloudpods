@@ -68,7 +68,7 @@ type SHypervisor struct {
 	HypervisorType     string
 	HypervisorVersion  string
 	Id                 string
-	LocalGB            int
+	LocalGB            int64
 	LocalGbUsed        int
 	MemoryMB           int
 	MemoryMbUsed       int
@@ -270,7 +270,7 @@ func (host *SHypervisor) GetMemSizeMB() int {
 	return host.MemoryMB
 }
 
-func (host *SHypervisor) GetStorageSizeMB() int {
+func (host *SHypervisor) GetStorageSizeMB() int64 {
 	return host.LocalGB * 1024
 }
 

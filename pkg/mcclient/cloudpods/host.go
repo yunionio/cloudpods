@@ -151,8 +151,8 @@ func (self *SHost) GetReservedMemoryMb() int {
 	return self.MemReserved
 }
 
-func (self *SHost) GetStorageSizeMB() int {
-	return self.StorageSize
+func (host *SHost) GetStorageSizeMB() int64 {
+	return host.StorageSize
 }
 
 func (self *SHost) GetStorageType() string {
