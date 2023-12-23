@@ -302,7 +302,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	}
 
 	routes := []string{
-		mdIp, "0.0.0.0",
+		// mdIp, "0.0.0.0",
 		"0.0.0.0/0", network.GuestGateway,
 	}
 	mtu := opts.OvnUnderlayMtu
@@ -359,7 +359,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			}
 		}
 		if len(ntpSrvs) > 0 {
-			// bug on OVN, should not use ntp server
+			// bug on OVN, should not use ntp server: QiuJian
 			// dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
 		}
 	}

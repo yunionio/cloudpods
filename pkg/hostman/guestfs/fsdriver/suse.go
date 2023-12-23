@@ -100,10 +100,7 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 	}
 
 	var dnsSrv []string
-	mainNic, err := getMainNic(allNics)
-	if err != nil {
-		return err
-	}
+	mainNic := getMainNic(allNics)
 	var mainIp string
 	if mainNic != nil {
 		mainIp = mainNic.Ip

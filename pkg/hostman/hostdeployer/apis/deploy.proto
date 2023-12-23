@@ -67,6 +67,7 @@ message Nic {
   bool link_up = 24;
   int64 mtu = 25;
   string name = 26;
+  bool is_default = 27;
 }
 
 message VDDKConInfo {

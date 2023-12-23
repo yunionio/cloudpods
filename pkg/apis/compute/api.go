@@ -96,6 +96,8 @@ type NetworkConfig struct {
 	RxTrafficLimit int64  `json:"rx_traffic_limit"`
 	TxTrafficLimit int64  `json:"tx_traffic_limit"`
 
+	IsDefault bool `json:"is_default"`
+
 	// sriov nic
 	SriovDevice *IsolatedDeviceConfig `json:"sriov_device"`
 
@@ -120,6 +122,8 @@ type AttachNetworkInput struct {
 	// 添加的网卡的配置
 	// required: true
 	Nets []*NetworkConfig `json:"nets"`
+
+	DisableSyncConfig *bool `json:"disable_sync_config"`
 }
 
 type DiskConfig struct {

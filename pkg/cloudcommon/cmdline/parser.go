@@ -279,6 +279,8 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.RequireTeaming = true
 		} else if p == "[try-teaming]" {
 			netConfig.TryTeaming = true
+		} else if p == "[isdefault]" {
+			netConfig.IsDefault = true
 		} else if strings.HasPrefix(p, "standby-port=") {
 			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
 		} else if strings.HasPrefix(p, "standby-addr=") {

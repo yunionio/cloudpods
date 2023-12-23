@@ -432,6 +432,14 @@ type GetNetworkAddressesOutput struct {
 	Addresses []SNetworkUsedAddress `json:"addresses"`
 }
 
+type GetNetworkAvailableAddressesInput struct {
+}
+
+type GetNetworkAvailableAddressesOutput struct {
+	// IP子网地址记录
+	Addresses []string `json:"addresses"`
+}
+
 type NetworkSetBgpTypeInput struct {
 	apis.Meta
 

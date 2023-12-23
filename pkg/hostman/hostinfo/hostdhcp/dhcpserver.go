@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -121,47 +120,19 @@ func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *desc.S
 	nicdesc.NicType = guestNic.NicType
 	nicdesc.LinkUp = guestNic.LinkUp
 	nicdesc.TeamWith = guestNic.TeamWith
+
+	nicdesc.IsDefault = guestNic.IsDefault
+
 	return nil
 }
 
-func GetMainNic(nics []*desc.SGuestNetwork) (*desc.SGuestNetwork, error) {
-	var mainIp netutils.IPV4Addr
-	var mainNic *desc.SGuestNetwork
+func GetMainNic(nics []*desc.SGuestNetwork) *desc.SGuestNetwork {
 	for _, n := range nics {
-		if n.Gateway != "" {
-			ipInt, err := netutils.NewIPV4Addr(n.Ip)
-			if err != nil {
-				return nil, err
-			}
-			if mainIp == 0 {
-				mainIp = ipInt
-				mainNic = n
-			} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
-				mainIp = ipInt
-				mainNic = n
-			}
+		if n.IsDefault {
+			return n
 		}
 	}
-	if mainNic != nil {
-		return mainNic, nil
-	}
-	for _, n := range nics {
-		ipInt, err := netutils.NewIPV4Addr(n.Ip)
-		if err != nil {
-			return nil, errors.Wrapf(err, "netutils.NewIPV4Addr %s", n.Ip)
-		}
-		if mainIp == 0 {
-			mainIp = ipInt
-			mainNic = n
-		} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
-			mainIp = ipInt
-			mainNic = n
-		}
-	}
-	if mainNic != nil {
-		return mainNic, nil
-	}
-	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
+	return nil
 }
 
 func (s *SGuestDHCPServer) getGuestConfig(
@@ -192,15 +163,14 @@ func (s *SGuestDHCPServer) getGuestConfig(
 
 	// get main ip
 	guestNics := guestDesc.Nics
-	manNic, err := GetMainNic(guestNics)
-	if err != nil {
-		log.Errorln(err)
-		return nil
+	manNic := GetMainNic(guestNics)
+	var mainIp string
+	if manNic != nil {
+		mainIp = manNic.Ip
 	}
-	mainIp := manNic.Ip
 
 	var route = [][]string{}
-	if len(nicdesc.Gateway) > 0 && mainIp == nicIp {
+	if nicdesc.IsDefault {
 		conf.Gateway = net.ParseIP(nicdesc.Gateway)
 
 		osName := guestDesc.OsName
@@ -210,7 +180,7 @@ func (s *SGuestDHCPServer) getGuestConfig(
 		if !strings.HasPrefix(strings.ToLower(osName), "win") {
 			route = append(route, []string{"0.0.0.0/0", nicdesc.Gateway})
 		}
-		route = append(route, []string{"169.254.169.254/32", nicdesc.Gateway})
+		route = append(route, []string{"169.254.169.254/32", "0.0.0.0"})
 	}
 	netutils2.AddNicRoutes(
 		&route, nicdesc, mainIp, len(guestNics), options.HostOptions.PrivatePrefixes)
