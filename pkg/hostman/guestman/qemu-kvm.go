@@ -1628,10 +1628,29 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 func (s *SKVMGuestInstance) SaveLiveDesc(guestDesc *desc.SGuestDesc) error {
 	s.Desc = guestDesc
 
+	defaultGwCnt := 0
+	defNics := netutils2.SNicInfoList{}
 	// fill in ovn vpc nic bridge field
 	for _, nic := range s.Desc.Nics {
 		if nic.Bridge == "" {
 			nic.Bridge = getNicBridge(nic)
+		}
+		if nic.IsDefault {
+			defaultGwCnt++
+		}
+		defNics = defNics.Add(nic.Ip, nic.Mac, nic.Gateway)
+	}
+
+	// there should 1 and only 1 default gateway
+	if defaultGwCnt != 1 {
+		// fix is_default
+		_, defIndex := defNics.FindDefaultNicMac()
+		for i := range s.Desc.Nics {
+			if i == defIndex {
+				s.Desc.Nics[i].IsDefault = true
+			} else {
+				s.Desc.Nics[i].IsDefault = false
+			}
 		}
 	}
 

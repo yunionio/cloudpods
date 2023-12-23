@@ -44,6 +44,7 @@ func init() {
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("switch-wire", &compute_options.NetworkSwitchWireOptions{})
 	cmd.Perform("sync-additional-wires", &compute_options.NetworkSyncAdditionalWiresOptions{})
+	cmd.Get("available-addresses", &compute_options.NetworkIdOptions{})
 
 	type NetworkShareOptions struct {
 		ID             string   `help:"ID or Name of the zone to show"`

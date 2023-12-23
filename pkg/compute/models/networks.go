@@ -2907,7 +2907,11 @@ func (a SNetworkUsedAddressList) Less(i, j int) bool {
 	return ipI < ipJ
 }
 
-func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mcclient.TokenCredential, input api.GetNetworkAddressesInput) (api.GetNetworkAddressesOutput, error) {
+func (network *SNetwork) GetDetailsAddresses(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input api.GetNetworkAddressesInput,
+) (api.GetNetworkAddressesOutput, error) {
 	output := api.GetNetworkAddressesOutput{}
 
 	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, network.KeywordPlural(), policy.PolicyActionGet, "addresses")
@@ -2927,6 +2931,28 @@ func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mccli
 
 	output.Addresses = netAddrs
 	return output, nil
+}
+
+func (network *SNetwork) GetDetailsAvailableAddresses(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input api.GetNetworkAvailableAddressesInput,
+) (api.GetNetworkAvailableAddressesOutput, error) {
+	var availables []string
+	addrTable := network.GetUsedAddresses()
+	recentUsedAddrTable := GuestnetworkManager.getRecentlyReleasedIPAddresses(network.Id, network.getAllocTimoutDuration())
+	addrRange := network.getIPRange()
+	for addr := addrRange.StartIp(); addr < addrRange.EndIp(); addr = addr.StepUp() {
+		addrStr := addr.String()
+		if _, ok := addrTable[addrStr]; !ok {
+			if _, ok := recentUsedAddrTable[addrStr]; !ok {
+				availables = append(availables, addrStr)
+			}
+		}
+	}
+	return api.GetNetworkAvailableAddressesOutput{
+		Addresses: availables,
+	}, nil
 }
 
 // 同步接入云IP子网状态

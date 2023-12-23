@@ -1801,6 +1801,8 @@ func (manager *SGuestManager) validateCreateData(
 		input.Networks = append(input.Networks, &api.NetworkConfig{Exit: false})
 	}
 	netArray := input.Networks
+	defaultGwCnt := 0
+	firstExit := -1
 	for idx := 0; idx < len(netArray); idx += 1 {
 		netConfig, err := parseNetworkInfo(ctx, userCred, netArray[idx])
 		if err != nil {
@@ -1831,7 +1833,25 @@ func (manager *SGuestManager) validateCreateData(
 
 		netConfig.Project = ownerId.GetProjectId()
 		netConfig.Domain = ownerId.GetProjectDomainId()
+		if netConfig.IsDefault {
+			defaultGwCnt++
+		}
+		if firstExit < 0 && netConfig.Exit {
+			firstExit = idx
+		}
 		input.Networks[idx] = netConfig
+	}
+	// check default gateway
+	if defaultGwCnt == 0 {
+		defIdx := 0
+		if firstExit >= 0 {
+			// there is a exit network, make it the default
+			defIdx = firstExit
+		}
+		// make the first nic as default
+		input.Networks[defIdx].IsDefault = true
+	} else if defaultGwCnt > 1 {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "more than 1 nic(%d) assigned as default gateway", defaultGwCnt)
 	}
 
 	isoDevArray := input.IsolatedDevices
@@ -3336,6 +3356,8 @@ type Attach2NetworkArgs struct {
 
 	Virtual bool
 
+	IsDefault bool
+
 	PendingUsage quotas.IQuota
 }
 
@@ -3361,6 +3383,8 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 
 		virtual: args.Virtual,
 
+		isDefault: args.IsDefault,
+
 		pendingUsage: args.PendingUsage,
 	}
 	if i > 0 {
@@ -3373,6 +3397,7 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		r.nicConf = args.NicConfs[i]
 		r.nicDriver = ""
 		r.numQueues = 1
+		r.isDefault = false
 	}
 	return r
 }
@@ -3395,6 +3420,8 @@ type attach2NetworkOnceArgs struct {
 	txTrafficLimit int64
 
 	virtual bool
+
+	isDefault bool
 
 	pendingUsage quotas.IQuota
 }
@@ -3469,6 +3496,8 @@ func (self *SGuest) attach2NetworkOnce(
 		txTrafficLimit: args.txTrafficLimit,
 
 		virtual: args.virtual,
+
+		isDefault: args.isDefault,
 	}
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
@@ -4224,6 +4253,8 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			RequireDesignatedIP: netConfig.RequireDesignatedIP,
 			UseDesignatedIP:     reuseAddr,
 			NicConfs:            nicConfs,
+
+			IsDefault: netConfig.IsDefault,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "Attach2Network fail")

@@ -110,6 +110,9 @@ type SGuestnetwork struct {
 
 	// 网卡关联的Eip实例
 	EipId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+
+	// 是否为缺省路由
+	IsDefault bool `default:"false" list:"user"`
 }
 
 func (gn SGuestnetwork) GetIP() string {
@@ -240,6 +243,9 @@ type newGuestNetworkArgs struct {
 	requireDesignatedIP bool
 	useDesignatedIP     bool
 
+	// 是否为缺省路由
+	isDefault bool
+
 	ifname         string
 	macAddr        string
 	bwLimit        int
@@ -276,6 +282,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		reUseAddr            = args.useDesignatedIP
 		ifname               = args.ifname
 		teamWithMac          = args.teamWithMac
+		isDefault            = args.isDefault
 	)
 
 	gn.GuestId = guest.Id
@@ -365,6 +372,11 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	}
 	gn.Ifname = ifname
 	gn.TeamWith = teamWithMac
+
+	if isDefault && len(gn.IpAddr) > 0 && len(network.GuestGateway) > 0 {
+		gn.IsDefault = isDefault
+	}
+
 	err = manager.TableSpec().Insert(ctx, &gn)
 	if err != nil {
 		return nil, err
@@ -573,6 +585,8 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 			NetId:   gn.NetworkId,
 			Mac:     gn.MacAddr,
 			Virtual: gn.Virtual,
+
+			IsDefault: gn.IsDefault,
 		},
 	}
 
@@ -695,12 +709,39 @@ func (gn *SGuestnetwork) ValidateUpdateData(
 			return input, httperrors.NewDuplicateResourceError("NIC Index %d has been occupied", index)
 		}
 	}
+	if input.IsDefault != nil && *input.IsDefault {
+		net := gn.GetNetwork()
+		if len(net.GuestGateway) == 0 {
+			return input, errors.Wrap(httperrors.ErrInvalidStatus, "network of default gateway has no gateway")
+		}
+		if len(gn.IpAddr) == 0 {
+			return input, errors.Wrap(httperrors.ErrInvalidStatus, "nic of default gateway has no ip")
+		}
+	}
 	var err error
 	input.GuestJointBaseUpdateInput, err = gn.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, input.GuestJointBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SGuestJointsBase.ValidateUpdateData")
 	}
 	return input, nil
+}
+
+func (gn *SGuestnetwork) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query, data jsonutils.JSONObject) {
+	gn.SGuestJointsBase.PostUpdate(ctx, userCred, query, data)
+	input := api.GuestnetworkUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		log.Errorf("GuestnetworkUpdateInput unmarshal fail %s", err)
+		return
+	}
+	if input.IsDefault != nil && *input.IsDefault {
+		// make this nic as default, unset others
+		guest := gn.GetGuest()
+		err := guest.setDefaultGateway(ctx, userCred, gn.MacAddr)
+		if err != nil {
+			log.Errorf("fail to setDefaultGateway: %s", err)
+		}
+	}
 }
 
 func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool) error {

@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -916,10 +915,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 		}
 	}
 
-	mainNic, err := getMainNic(allNics)
-	if err != nil {
-		return err
-	}
+	mainNic := getMainNic(allNics)
 	var mainIp string
 	if mainNic != nil {
 		mainIp = mainNic.Ip
@@ -1272,25 +1268,13 @@ func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition
 	return nil
 }
 
-func getMainNic(nics []*types.SServerNic) (*types.SServerNic, error) {
-	var mainIp netutils.IPV4Addr
-	var mainNic *types.SServerNic
+func getMainNic(nics []*types.SServerNic) *types.SServerNic {
 	for i := range nics {
-		if len(nics[i].Gateway) > 0 {
-			ipInt, err := netutils.NewIPV4Addr(nics[i].Ip)
-			if err != nil {
-				return nil, err
-			}
-			if mainIp == 0 {
-				mainIp = ipInt
-				mainNic = nics[i]
-			} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
-				mainIp = ipInt
-				mainNic = nics[i]
-			}
+		if nics[i].IsDefault {
+			return nics[i]
 		}
 	}
-	return mainNic, nil
+	return nil
 }
 
 func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics []*types.SServerNic) error {
@@ -1333,10 +1317,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			return err
 		}
 	}
-	mainNic, err := getMainNic(allNics)
-	if err != nil {
-		return err
-	}
+	mainNic := getMainNic(allNics)
 	var mainIp string
 	if mainNic != nil {
 		mainIp = mainNic.Ip
@@ -1359,6 +1340,11 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		cmds.WriteString("USERCTL=no\n")
 		if nicDesc.Mtu > 0 {
 			cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
+		}
+		if nicDesc.IsDefault {
+			cmds.WriteString("DEFROUTE=yes\n")
+		} else {
+			cmds.WriteString("DEFROUTE=no\n")
 		}
 		if len(nicDesc.Mac) > 0 {
 			cmds.WriteString("HWADDR=")
