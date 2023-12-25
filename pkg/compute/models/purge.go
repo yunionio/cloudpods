@@ -781,8 +781,8 @@ func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential
 	guestvfd := GuestFloppyManager.Query("row_id").Equals("id", self.Id)
 	guestgroups := GroupguestManager.Query("row_id").Equals("guest_id", self.Id)
 	guestsecgroups := GuestsecgroupManager.Query("row_id").Equals("guest_id", self.Id)
-	instancesnapshots := InstanceSnapshotManager.Query("id").Equals("guest_id", self.Id)
-	instancebackups := InstanceBackupManager.Query("id").Equals("guest_id", self.Id)
+	// instancesnapshots := InstanceSnapshotManager.Query("id").Equals("guest_id", self.Id)
+	// instancebackups := InstanceBackupManager.Query("id").Equals("guest_id", self.Id)
 	publicIps := ElasticipManager.Query("id").Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP).
 		Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).Equals("associate_id", self.Id)
 	tapService := NetTapServiceManager.Query("id").Equals("type", api.TapServiceGuest).Equals("target_id", self.Id)
@@ -802,8 +802,8 @@ func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential
 		{manager: GuestFloppyManager, key: "row_id", q: guestvfd},
 		{manager: GuestnetworkManager, key: "row_id", q: guestnetworks},
 		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
-		{manager: InstanceSnapshotManager, key: "id", q: instancesnapshots},
-		{manager: InstanceBackupManager, key: "id", q: instancebackups},
+		// {manager: InstanceSnapshotManager, key: "id", q: instancesnapshots},
+		// {manager: InstanceBackupManager, key: "id", q: instancebackups},
 	}
 	for i := range pairs {
 		err := pairs[i].purgeAll(ctx)
