@@ -741,6 +741,13 @@ func (gn *SGuestnetwork) PostUpdate(ctx context.Context, userCred mcclient.Token
 		if err != nil {
 			log.Errorf("fail to setDefaultGateway: %s", err)
 		}
+	} else {
+		// try fix default gateway
+		guest := gn.GetGuest()
+		err := guest.fixDefaultGateway(ctx, userCred)
+		if err != nil {
+			log.Errorf("fail to fixDefaultGateway %s", err)
+		}
 	}
 }
 

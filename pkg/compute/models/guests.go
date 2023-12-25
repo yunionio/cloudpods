@@ -3268,7 +3268,7 @@ func (manager *SGuestManager) TotalCount(
 	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since, policyResult)
 }
 
-func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
+func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool) error {
 	err := GuestnetworkManager.DeleteGuestNics(ctx, userCred, gns, reserve)
 	if err != nil {
 		return err
@@ -3276,9 +3276,6 @@ func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenC
 	host, _ := self.GetHost()
 	if host != nil {
 		host.ClearSchedDescCache() // ignore error
-	}
-	if deploy {
-		self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
 	}
 	return nil
 }
@@ -3621,7 +3618,7 @@ func (self *SGuest) SyncVMNics(
 	log.Debugf("SyncVMNics: removed: %d common: %d add: %d", len(removed), len(commondb), len(added))
 
 	for i := 0; i < len(removed); i += 1 {
-		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{removed[i]}, false, false)
+		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{removed[i]}, false)
 		if err != nil {
 			result.DeleteError(err)
 			continue

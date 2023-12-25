@@ -80,17 +80,19 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 	region, _ := s.config.GetString("region")
 	// epType, _ := s.config.GetString("session_endpoint_type")
 	s.session = auth.GetAdminSession(context.Background(), region)
-	s.serviceId, _ = getServiceIdByType(s.session, serviceType, serviceVersion)
-	if len(s.serviceId) > 0 {
-		serviceConf, err := getServiceConfig(s.session, s.serviceId)
-		if err != nil {
-			log.Errorf("getServiceConfig for %s failed: %s", serviceType, err)
-		} else if serviceConf != nil {
-			s.config.Update(serviceConf)
-			merged = true
-		} else {
-			// not initialized
-			// s.Upload()
+	if len(serviceType) > 0 {
+		s.serviceId, _ = getServiceIdByType(s.session, serviceType, serviceVersion)
+		if len(s.serviceId) > 0 {
+			serviceConf, err := getServiceConfig(s.session, s.serviceId)
+			if err != nil {
+				log.Errorf("getServiceConfig for %s failed: %s", serviceType, err)
+			} else if serviceConf != nil {
+				s.config.Update(serviceConf)
+				merged = true
+			} else {
+				// not initialized
+				// s.Upload()
+			}
 		}
 	}
 	s.commonServiceId, _ = getServiceIdByType(s.session, consts.COMMON_SERVICE, "")

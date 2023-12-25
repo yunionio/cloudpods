@@ -180,10 +180,9 @@ func (s *SGuestDHCPServer) getGuestConfig(
 		if !strings.HasPrefix(strings.ToLower(osName), "win") {
 			route = append(route, []string{"0.0.0.0/0", nicdesc.Gateway})
 		}
-		route = append(route, []string{"169.254.169.254/32", "0.0.0.0"})
+		route = append(route, []string{"169.254.169.254/32", nicdesc.Gateway})
 	}
-	netutils2.AddNicRoutes(
-		&route, nicdesc, mainIp, len(guestNics), options.HostOptions.PrivatePrefixes)
+	route = netutils2.AddNicRoutes(route, nicdesc, mainIp, len(guestNics))
 	conf.Routes = route
 
 	if len(nicdesc.Dns) > 0 {

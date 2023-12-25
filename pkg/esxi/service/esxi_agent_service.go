@@ -69,7 +69,9 @@ func (s *SExsiAgentService) StartService() {
 		log.Infof("auth complete")
 	})
 
-	fsdriver.Init(nil, "")
+	options_common.StartOptionManager(&options.Options.CommonOptions, options.Options.ConfigSyncPeriodSeconds, "", "", options_common.OnCommonOptionsChange)
+
+	fsdriver.Init("")
 	deployclient.Init(options.Options.DeployServerSocketPath)
 
 	hostutils.InitWorkerManagerWithCount(options.Options.HostDelayTaskWorkerCount)

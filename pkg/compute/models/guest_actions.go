@@ -66,6 +66,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -2356,7 +2357,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			conf.Mac = gn.MacAddr
 		}
 
-		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve, false)
+		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve)
 		if err != nil {
 			return nil, err
 		}
@@ -2446,14 +2447,23 @@ func (self *SGuest) GetIfNameByMac(ctx context.Context, userCred mcclient.TokenC
 	return ifnameDevice, nil
 }
 
-func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDetachnetworkInput) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+func (self *SGuest) PerformDetachnetwork(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ServerDetachnetworkInput,
+) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) && !input.IsForce() {
 		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
 	}
 
 	err := self.GetDriver().ValidateDetachNetwork(ctx, userCred, self)
 	if err != nil {
-		return nil, err
+		if !input.IsForce() {
+			return nil, errors.Wrap(err, "ValidateDetachNetwork")
+		} else {
+			log.Errorf("ValidateDetachNetwork fail %s, ignore by force", err)
+		}
 	}
 
 	var gns []SGuestnetwork
@@ -2488,14 +2498,58 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewMissingParameterError("net_id")
 	}
 
-	if self.Status == api.VM_READY {
-		return nil, self.detachNetworks(ctx, userCred, gns, input.Reserve, true)
-	}
-	err = self.detachNetworks(ctx, userCred, gns, input.Reserve, false)
+	err = self.detachNetworks(ctx, userCred, gns, input.Reserve)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "detachNetworks")
 	}
-	return nil, self.StartSyncTask(ctx, userCred, false, "")
+
+	{
+		// 修正缺省网关
+		err := self.fixDefaultGateway(ctx, userCred)
+		if err != nil {
+			log.Errorf("fixDefaultGateway fail %s", err)
+		}
+	}
+
+	if !input.IsForce() && input.DisableSyncConfig != nil && !*input.DisableSyncConfig {
+		if self.Status == api.VM_READY {
+			err := self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartGuestDeployTask")
+			}
+		} else {
+			err := self.StartSyncTask(ctx, userCred, false, "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartSyncTask")
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func (guest *SGuest) fixDefaultGateway(ctx context.Context, userCred mcclient.TokenCredential) error {
+	defaultGwCnt := 0
+	nicList := netutils2.SNicInfoList{}
+	nics, _ := guest.GetNetworks("")
+	for i := range nics {
+		net := nics[i].GetNetwork()
+		nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)
+		if nics[i].IsDefault {
+			defaultGwCnt++
+		}
+	}
+	if defaultGwCnt != 1 {
+		gwMac, _ := nicList.FindDefaultNicMac()
+		if gwMac != "" {
+			err := guest.setDefaultGateway(ctx, userCred, gwMac)
+			if err != nil {
+				log.Errorf("setDefaultGateway fail %s", err)
+				return errors.Wrap(err, "setDefaultGateway")
+			}
+		}
+	}
+	return nil
 }
 
 func (self *SGuest) PerformAttachnetwork(
@@ -2605,15 +2659,26 @@ func (self *SGuest) PerformAttachnetwork(
 	if defaultGwGn != nil {
 		err := self.setDefaultGateway(ctx, userCred, defaultGwGn.MacAddr)
 		if err != nil {
-			return nil, errors.Wrap(err, "setDefaultGateway")
+			log.Errorf("setDefaultGateway fail %s", err)
+		}
+	} else {
+		err := self.fixDefaultGateway(ctx, userCred)
+		if err != nil {
+			log.Errorf("fixDefaultGateway fail %s", err)
 		}
 	}
 
 	if input.DisableSyncConfig != nil && !*input.DisableSyncConfig {
 		if self.Status == api.VM_READY {
-			err = self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+			err := self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartGuestDeployTask")
+			}
 		} else {
-			err = self.StartSyncTask(ctx, userCred, false, "")
+			err := self.StartSyncTask(ctx, userCred, false, "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartSyncTask")
+			}
 		}
 	}
 

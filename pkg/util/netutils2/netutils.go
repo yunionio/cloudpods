@@ -130,42 +130,44 @@ func Netlen2Mask(netmasklen int) string {
 	return netutils.Netlen2Mask(netmasklen)
 }
 
-func addRoute(routes *[][]string, net, gw string) {
-	for _, rt := range *routes {
+func addRoute(routes [][]string, net, gw string) [][]string {
+	for _, rt := range routes {
 		if rt[0] == net {
-			return
+			return routes
 		}
 	}
-	*routes = append(*routes, []string{net, gw})
+	return append(routes, []string{net, gw})
 }
 
-func extendRoutes(routes *[][]string, nicRoutes []types.SRoute) error {
+func extendRoutes(routes [][]string, nicRoutes []types.SRoute) [][]string {
 	for i := 0; i < len(nicRoutes); i++ {
-		addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
+		routes = addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
 	}
-	return nil
+	return routes
 }
 
 func isExitAddress(ip string) bool {
 	ipv4, err := netutils.NewIPV4Addr(ip)
 	if err != nil {
+		log.Errorf("NewIPV4Addr %s fail %s", ip, err)
 		return false
 	}
-	return !netutils.IsPrivate(ipv4) || netutils.IsHostLocal(ipv4) || netutils.IsLinkLocal(ipv4)
+	return netutils.IsExitAddress(ipv4)
 }
 
-func AddNicRoutes(routes *[][]string, nicDesc *types.SServerNic, mainIp string, nicCnt int, privatePrefixes []string) {
+func AddNicRoutes(routes [][]string, nicDesc *types.SServerNic, mainIp string, nicCnt int) [][]string {
 	if mainIp == nicDesc.Ip {
-		return
+		return routes
 	}
 	if len(nicDesc.Routes) > 0 {
-		extendRoutes(routes, nicDesc.Routes)
+		routes = extendRoutes(routes, nicDesc.Routes)
 	} else if len(nicDesc.Gateway) > 0 && !isExitAddress(nicDesc.Ip) &&
 		nicCnt == 2 && nicDesc.Ip != mainIp && isExitAddress(mainIp) {
-		for _, pref := range GetPrivatePrefixes(privatePrefixes) {
-			addRoute(routes, pref, nicDesc.Gateway)
+		for _, pref := range netutils.GetPrivateIPRanges() {
+			routes = addRoute(routes, pref.String(), nicDesc.Gateway)
 		}
 	}
+	return routes
 }
 
 func GetNicDns(nicdesc *types.SServerNic) []string {

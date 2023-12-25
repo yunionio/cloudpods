@@ -948,7 +948,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString(fmt.Sprintf("    mtu %d\n", nicDesc.Mtu))
 			}
 			var routes = make([][]string, 0)
-			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), privatePrefixes)
+			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, len(nics))
 			for _, r := range routes {
 				cmds.WriteString(fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1]))
 				cmds.WriteString(fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1]))
@@ -1295,8 +1295,14 @@ func (r *sRedhatLikeRootFs) isNetworkManagerEnabled(rootFs IDiskPartition) bool 
 }
 
 func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo) error {
-	if err := r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
-		return err
+	// remove all ifcfg-*
+	const scriptPath = "/etc/sysconfig/network-scripts"
+	files := rootFs.ListDir(scriptPath, false)
+	for _, f := range files {
+		if strings.HasPrefix(f, "ifcfg-") && f != "ifcfg-lo" {
+			log.Infof("remove %s in %s", f, scriptPath)
+			rootFs.Remove(filepath.Join(scriptPath, f), false)
+		}
 	}
 
 	ver := strings.Split(relInfo.Version, ".")
@@ -1307,16 +1313,17 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		err = r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics)
 	}
 	if err != nil {
-		return err
+		return errors.Wrap(err, "DeployNetworkingScripts")
 	}
 	// ToServerNics(nics)
 	allNics, bondNics := convertNicConfigs(nics)
 	if len(bondNics) > 0 {
 		err = r.enableBondingModule(rootFs, bondNics)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "enableBondingModule")
 		}
 	}
+
 	mainNic := getMainNic(allNics)
 	var mainIp string
 	if mainNic != nil {
@@ -1340,11 +1347,6 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		cmds.WriteString("USERCTL=no\n")
 		if nicDesc.Mtu > 0 {
 			cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
-		}
-		if nicDesc.IsDefault {
-			cmds.WriteString("DEFROUTE=yes\n")
-		} else {
-			cmds.WriteString("DEFROUTE=no\n")
 		}
 		if len(nicDesc.Mac) > 0 {
 			cmds.WriteString("HWADDR=")
@@ -1384,7 +1386,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString("\n")
 			}
 			var routes = make([][]string, 0)
-			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), privatePrefixes)
+			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, len(nics))
 			var rtbl strings.Builder
 			for _, r := range routes {
 				rtbl.WriteString(r[0])
@@ -1396,7 +1398,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			}
 			rtblStr := rtbl.String()
 			if len(rtblStr) > 0 {
-				var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/route-%s", nicDesc.Name)
+				var fn = fmt.Sprintf("%s/route-%s", scriptPath, nicDesc.Name)
 				if err := rootFs.FilePutContents(fn, rtblStr, false, false); err != nil {
 					return err
 				}
@@ -1414,7 +1416,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		} else {
 			cmds.WriteString("BOOTPROTO=dhcp\n")
 		}
-		var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-%s", nicDesc.Name)
+		var fn = fmt.Sprintf("%s/ifcfg-%s", scriptPath, nicDesc.Name)
 		log.Debugf("%s: %s", fn, cmds.String())
 		if err := rootFs.FilePutContents(fn, cmds.String(), false, false); err != nil {
 			return err
@@ -1522,7 +1524,7 @@ func (c *SCentosRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
 	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
-		return err
+		return errors.Wrap(err, "sRedhatLikeRootFs.deployNetworkingScripts")
 	}
 	var udevPath = "/etc/udev/rules.d/"
 	var files = []string{"60-net.rules", "75-persistent-net-generator.rules"}
@@ -1530,7 +1532,7 @@ func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*t
 		sPath := path.Join(udevPath, f)
 		if !rootFs.Exists(sPath, false) {
 			if err := rootFs.FilePutContents(sPath, "", false, false); err != nil {
-				return err
+				return errors.Wrapf(err, "save %s", sPath)
 			}
 		}
 	}

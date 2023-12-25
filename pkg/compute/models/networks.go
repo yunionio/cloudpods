@@ -2942,7 +2942,7 @@ func (network *SNetwork) GetDetailsAvailableAddresses(
 	addrTable := network.GetUsedAddresses()
 	recentUsedAddrTable := GuestnetworkManager.getRecentlyReleasedIPAddresses(network.Id, network.getAllocTimoutDuration())
 	addrRange := network.getIPRange()
-	for addr := addrRange.StartIp(); addr < addrRange.EndIp(); addr = addr.StepUp() {
+	for addr := addrRange.StartIp(); addr <= addrRange.EndIp(); addr = addr.StepUp() {
 		addrStr := addr.String()
 		if _, ok := addrTable[addrStr]; !ok {
 			if _, ok := recentUsedAddrTable[addrStr]; !ok {

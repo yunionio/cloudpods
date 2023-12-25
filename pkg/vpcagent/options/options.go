@@ -43,6 +43,12 @@ type VpcAgentOptions struct {
 	OvnWorkerCheckInterval int    `default:"180"`
 	OvnNorthDatabase       string `help:"address for accessing ovn north database.  Default to local unix socket"`
 	OvnUnderlayMtu         int    `help:"mtu of ovn underlay network" default:"1500"`
+
+	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
+	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
+
+	DNSServer string `help:"Address of DNS server"`
+	DNSDomain string `help:"Domain suffix for virtual servers"`
 }
 
 type Options struct {
@@ -78,4 +84,20 @@ func (opts *Options) ValidateThenInit() error {
 		opts.OvnNorthDatabase = db
 	}
 	return nil
+}
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*Options)
+	newOpts := newO.(*Options)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+
+	if oldOpts.VpcProvider != newOpts.VpcProvider {
+		changed = true
+	}
+
+	return changed
 }

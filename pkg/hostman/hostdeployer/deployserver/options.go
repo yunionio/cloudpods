@@ -23,8 +23,8 @@ import (
 type SDeployOptions struct {
 	common_options.HostCommonOptions
 
-	PrivatePrefixes []string `help:"IPv4 private prefixes"`
-	ChntpwPath      string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+	// PrivatePrefixes []string `help:"IPv4 private prefixes"`
+	ChntpwPath string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
 
 	CloudrootDir     string `help:"User cloudroot home dir" default:"/opt"`
 	CommonConfigFile string `help:"common config file for container"`
@@ -46,8 +46,9 @@ type SDeployOptions struct {
 
 var DeployOption SDeployOptions
 
-func Parse() (hostOpts SDeployOptions) {
-	common_options.ParseOptionsIgnoreNoConfigfile(&hostOpts, os.Args, "host.conf", "host")
+func Parse() SDeployOptions {
+	var hostOpts SDeployOptions
+	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
 	if len(hostOpts.CommonConfigFile) > 0 {
 		commonCfg := &common_options.HostCommonOptions{}
 		commonCfg.Config = hostOpts.CommonConfigFile
@@ -60,6 +61,6 @@ func Parse() (hostOpts SDeployOptions) {
 	return hostOpts
 }
 
-func init() {
+func optionsInit() {
 	DeployOption = Parse()
 }
