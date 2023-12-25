@@ -15,14 +15,55 @@
 package identity
 
 import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+type SServiceManager struct {
+	modulebase.ResourceManager
+}
+
 var (
 	Services   modulebase.ResourceManager
-	ServicesV3 modulebase.ResourceManager
+	ServicesV3 SServiceManager
 )
+
+func (manager *SServiceManager) GetConfig(s *mcclient.ClientSession, typeStr string) (*jsonutils.JSONDict, error) {
+	opts := struct {
+		Type  string
+		Scope string
+	}{
+		Type:  s.GetServiceName(typeStr),
+		Scope: "system",
+	}
+	list, err := manager.List(s, jsonutils.Marshal(opts))
+	if err != nil {
+		return nil, errors.Wrap(err, "List")
+	}
+	if len(list.Data) == 0 {
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "type %s not found", typeStr)
+	}
+	srv := identity_api.SService{}
+	err = list.Data[0].Unmarshal(&srv)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal service")
+	}
+
+	configObj, err := manager.GetSpecific(s, srv.Id, "config", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSpecific config")
+	}
+	if configObj.Contains("config") {
+		configObj, _ = configObj.Get("config")
+	}
+	return configObj.(*jsonutils.JSONDict), nil
+}
 
 func init() {
 	Services = modules.NewIdentityManager("OS-KSADM:service",
@@ -32,10 +73,11 @@ func init() {
 
 	modules.Register(&Services)
 
-	ServicesV3 = modules.NewIdentityV3Manager("service",
-		"services",
-		[]string{},
-		[]string{"ID", "Name", "Type", "Description"})
-
+	ServicesV3 = SServiceManager{
+		ResourceManager: modules.NewIdentityV3Manager("service",
+			"services",
+			[]string{},
+			[]string{"ID", "Name", "Type", "Description"}),
+	}
 	modules.Register(&ServicesV3)
 }

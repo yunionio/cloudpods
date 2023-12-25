@@ -133,8 +133,10 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 					if len(fields) == 0 || fields.Contains("subips") {
 						subips := make([]string, 0)
 						for _, nic := range nics {
-							ips := strings.Split(nic.SubIps, ",")
-							subips = append(subips, ips...)
+							if len(nic.SubIps) > 0 {
+								ips := strings.Split(nic.SubIps, ",")
+								subips = append(subips, ips...)
+							}
 						}
 						rows[i].SubIPs = subips
 					}

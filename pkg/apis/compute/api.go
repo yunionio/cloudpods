@@ -123,6 +123,7 @@ type AttachNetworkInput struct {
 	// required: true
 	Nets []*NetworkConfig `json:"nets"`
 
+	// 添加后不立即同步配置
 	DisableSyncConfig *bool `json:"disable_sync_config"`
 }
 

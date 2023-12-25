@@ -121,7 +121,7 @@ func getApiVersionByServiceType(serviceType string) string {
 	return ""
 }
 
-func (this *ClientSession) getServiceName(service string) string {
+func (this *ClientSession) GetServiceName(service string) string {
 	apiVersion := getApiVersionByServiceType(service)
 	if len(apiVersion) > 0 && apiVersion != DEFAULT_API_VERSION {
 		service = fmt.Sprintf("%s_%s", service, apiVersion)
@@ -161,7 +161,7 @@ func (this *ClientSession) GetServiceVersionURLs(service, endpointType string) (
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = this.endpointType
 	}
-	service = this.getServiceName(service)
+	service = this.GetServiceName(service)
 	if endpointType == api.EndpointInterfaceApigateway {
 		return this.getApigatewayServiceURLs(service, this.region, this.zone, endpointType)
 	} else {

@@ -260,11 +260,10 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 
 func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network, opts *options.Options) error {
 	var (
-		vpc     = network.Vpc
-		rpMac   = mac.HashSubnetRouterPortMac(network.Id)
-		dhcpMac = mac.HashSubnetDhcpMac(network.Id)
-		mdMac   = mac.HashSubnetMetadataMac(network.Id)
-		mdIp    = "169.254.169.254"
+		vpc   = network.Vpc
+		rpMac = mac.HashSubnetRouterPortMac(network.Id)
+		mdMac = mac.HashSubnetMetadataMac(network.Id)
+		mdIp  = "169.254.169.254"
 	)
 	netLs := &ovn_nb.LogicalSwitch{
 		Name: netLsName(network.Id),
@@ -301,8 +300,8 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		OutputPort: ptr(vpcR2extpName(vpc.Id)),
 	}
 
-	routes := []string{
-		// mdIp, "0.0.0.0",
+	/*routes := []string{
+		mdIp, "0.0.0.0",
 		"0.0.0.0/0", network.GuestGateway,
 	}
 	mtu := opts.OvnUnderlayMtu
@@ -362,7 +361,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			// bug on OVN, should not use ntp server: QiuJian
 			// dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
 		}
-	}
+	}*/
 
 	var (
 		args      []string
@@ -373,7 +372,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		netRnp,
 		netNrp,
 		netMdp,
-		dhcpopts,
+		// dhcpopts,
 		vpcExtBackRoute,
 	)
 	if allFound {
@@ -383,7 +382,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	args = append(args, ovnCreateArgs(netRnp, netRnp.Name)...)
 	args = append(args, ovnCreateArgs(netNrp, netNrp.Name)...)
 	args = append(args, ovnCreateArgs(netMdp, netMdp.Name)...)
-	args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
+	// args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
 	args = append(args, ovnCreateArgs(vpcExtBackRoute, "vpcExtBackRoute")...)
 	args = append(args, "--", "add", "Logical_Switch", netLs.Name, "ports", "@"+netNrp.Name, "@"+netMdp.Name)
 	args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "ports", "@"+netRnp.Name)
@@ -448,7 +447,104 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 	return keeper.cli.Must(ctx, "ClaimVpcEipgw", args)
 }
 
-func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestnetwork *agentmodels.Guestnetwork) error {
+func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnetwork, opts *options.Options) *ovn_nb.DHCPOptions {
+	var (
+		network = guestnetwork.Network
+		dhcpMac = mac.HashSubnetDhcpMac(network.Id)
+		mdIp    = "169.254.169.254"
+
+		ocDhcpRef = fmt.Sprintf("dhcp/%s/%s", guestnetwork.GuestId, guestnetwork.Ifname)
+	)
+
+	mtu := opts.OvnUnderlayMtu
+	mtu -= apis.VPC_OVN_ENCAP_COST
+	var (
+		leaseTime  = opts.DhcpLeaseTime
+		renewTime  = opts.DhcpRenewalTime
+		rebindTime = opts.DhcpRenewalTime / 2
+	)
+	guestStartIp, _ := netutils.NewIPV4Addr(network.GuestIpStart)
+	cidr := fmt.Sprintf("%s/%d", guestStartIp.NetAddr(network.GuestIpMask).String(), network.GuestIpMask)
+	dhcpopts := &ovn_nb.DHCPOptions{
+		Cidr: cidr,
+		Options: map[string]string{
+			"server_id":  network.GuestGateway,
+			"server_mac": dhcpMac,
+			"router":     network.GuestGateway,
+			"mtu":        fmt.Sprintf("%d", mtu),
+			"lease_time": fmt.Sprintf("%d", leaseTime),
+			"T1":         fmt.Sprintf("%d", renewTime),
+			"T2":         fmt.Sprintf("%d", rebindTime),
+		},
+		ExternalIds: map[string]string{
+			externalKeyOcRef: ocDhcpRef,
+		},
+	}
+	{
+		routes := []string{}
+		if guestnetwork.IsDefault {
+			routes = append(routes,
+				mdIp, "0.0.0.0",
+				"0.0.0.0/0", network.GuestGateway,
+			)
+		} else {
+			routes = append(routes,
+				cidr, "0.0.0.0",
+			)
+		}
+		if len(routes) > 0 {
+			dhcpopts.Options["classless_static_route"] = fmt.Sprintf("{%s}", strings.Join(routes, ","))
+		}
+	}
+	{
+		dnsSrvs := network.GuestDns
+		if dnsSrvs == "" {
+			dns, err := auth.GetDNSServers(opts.Region, "")
+			if err != nil {
+				// ignore the error
+				// log.Errorf("auth.GetDNSServers fail %s", err)
+			} else {
+				dnsSrvs = strings.Join(dns, ",")
+			}
+		}
+		if dnsSrvs == "" {
+			dnsSrvs = opts.DNSServer
+		}
+		if len(dnsSrvs) > 0 {
+			dhcpopts.Options["dns_server"] = "{" + dnsSrvs + "}"
+		}
+	}
+	{
+		dnsDomain := network.GuestDomain
+		if dnsDomain == "" {
+			dnsDomain = opts.DNSDomain
+		}
+		if len(dnsDomain) > 0 {
+			dhcpopts.Options["domain_name"] = dnsDomain
+		}
+	}
+	{
+		ntpSrvs := ""
+		if network.GuestNtp != "" {
+			ntpSrvs = network.GuestNtp
+		} else {
+			ntp, err := auth.GetNTPServers(opts.Region, "")
+			if err != nil {
+				// ignore
+				// log.Errorf("auth.GetNTPServers fail %s", err)
+			} else {
+				ntpSrvs = strings.Join(ntp, ",")
+			}
+		}
+		if len(ntpSrvs) > 0 {
+			// bug on OVN, should not use ntp server: QiuJian
+			// dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
+		}
+	}
+	return dhcpopts
+}
+
+func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestnetwork *agentmodels.Guestnetwork, opts *options.Options) error {
 	var (
 		// Callers assure that guestnetwork.Guest is not nil
 		guest   = guestnetwork.Guest
@@ -463,10 +559,10 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		ocAclRef        = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosRef        = fmt.Sprintf("qos/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosEipRef     = fmt.Sprintf("qos-eip/%s/%s/%s/v2", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
-		dhcpOpt         string
+		// dhcpOpt         string
 	)
 
-	{
+	/*{
 		dhcpOptQuery := &ovn_nb.DHCPOptions{
 			ExternalIds: map[string]string{
 				externalKeyOcRef: guestnetwork.NetworkId,
@@ -485,7 +581,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		if dhcpOpt == "" {
 			return fmt.Errorf("cannot find dhcpopt for subnet %s", guestnetwork.NetworkId)
 		}
-	}
+	}*/
 
 	var (
 		subIPs  = []string{guestnetwork.IpAddr}
@@ -499,10 +595,10 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	sort.Strings(subIPs[1:])
 	sort.Strings(subIPms[1:])
 	gnp := &ovn_nb.LogicalSwitchPort{
-		Name:          lportName,
-		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, strings.Join(subIPs, " "))},
-		Dhcpv4Options: &dhcpOpt,
-		Options:       map[string]string{},
+		Name:      lportName,
+		Addresses: []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, strings.Join(subIPs, " "))},
+		// Dhcpv4Options: &dhcpOpt,
+		Options: map[string]string{},
 	}
 	if guest.SrcMacCheck.IsFalse() {
 		gnp.Addresses = append(gnp.Addresses, "unknown")
@@ -510,7 +606,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		gnp.PortSecurity = []string{}
 	} else if guest.SrcIpCheck.IsFalse() {
 		gnp.PortSecurity = []string{
-			fmt.Sprintf("%s", guestnetwork.MacAddr),
+			guestnetwork.MacAddr,
 		}
 	} else {
 		gnp.PortSecurity = []string{
@@ -521,6 +617,11 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		}
 	}
 
+	var (
+		dhcpOpt     = generateDhcpOptions(ctx, guestnetwork, opts)
+		dhcpOptName = fmt.Sprintf("dhcp-opt-%s-%s", guestnetwork.GuestId, guestnetwork.Ifname)
+	)
+
 	var qosVif []*ovn_nb.QoS
 	if bwMbps := guestnetwork.BwLimit; bwMbps > 0 {
 		var (
@@ -528,7 +629,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 			kbur = int64(kbps * 2)
 		)
 		qosVif = []*ovn_nb.QoS{
-			&ovn_nb.QoS{
+			{
 				Priority:  2000,
 				Direction: "from-lport",
 				Match:     fmt.Sprintf("inport == %q", lportName),
@@ -540,7 +641,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 					externalKeyOcRef: ocQosRef,
 				},
 			},
-			&ovn_nb.QoS{
+			{
 				Priority:  1000,
 				Direction: "to-lport",
 				Match:     fmt.Sprintf("outport == %q", lportName),
@@ -638,6 +739,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 
 	irows := []types.IRow{
 		gnp,
+		dhcpOpt,
 	}
 	if gnrDefault != nil {
 		irows = append(irows, gnrDefault)
@@ -657,6 +759,8 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	}
 
 	args = append(args, ovnCreateArgs(gnp, gnp.Name)...)
+	args = append(args, ovnCreateArgs(dhcpOpt, dhcpOptName)...)
+	args = append(args, "--", "add", "Logical_Switch_Port", gnp.Name, "dhcpv4_options", "@"+dhcpOptName)
 	args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "ports", "@"+gnp.Name)
 	if gnrDefault != nil {
 		args = append(args, ovnCreateArgs(gnrDefault, "gnrDefault")...)

@@ -143,7 +143,7 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 			cmds.WriteString("\n")
 
 			var routes = make([][]string, 0)
-			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), privatePrefixes)
+			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, len(nics))
 			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
 				routes = append(routes, []string{
 					"0.0.0.0/0",

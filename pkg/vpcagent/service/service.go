@@ -25,15 +25,30 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	_ "yunion.io/x/onecloud/pkg/vpcagent/ovn"
 	"yunion.io/x/onecloud/pkg/vpcagent/worker"
 )
+
+func updateDnsOptions(ctx context.Context, opts *options.Options) {
+	regionConfig, err := identity_modules.ServicesV3.GetConfig(auth.GetAdminSession(ctx, opts.Region), apis.SERVICE_TYPE_REGION)
+	if err != nil {
+		log.Fatalf("fail to retrieve compute config")
+	}
+	if opts.DNSDomain == "" {
+		opts.DNSDomain, _ = regionConfig.GetString("default", "dns_domain")
+	}
+	if opts.DNSServer == "" {
+		opts.DNSServer, _ = regionConfig.GetString("default", "dns_server")
+	}
+}
 
 func StartService() {
 	opts := &options.Options{}
@@ -43,6 +58,8 @@ func StartService() {
 		app_common.InitAuth(commonOpts, func() {
 			log.Infof("auth finished ok")
 		})
+		common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, apis.SERVICE_TYPE_VPCAGENT, "", options.OnOptionsChange)
+
 	}
 	if err := opts.ValidateThenInit(); err != nil {
 		log.Fatalf("opts validate: %s", err)
@@ -67,6 +84,11 @@ func StartService() {
 		wg := &sync.WaitGroup{}
 		ctx = context.WithValue(ctx, "wg", wg)
 		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "vpcagent")
+
+		if opts.DNSDomain == "" || opts.DNSServer == "" {
+			updateDnsOptions(ctx, opts)
+		}
+
 		wg.Add(1)
 		go w.Start(ctx, app, "vpcagent")
 
