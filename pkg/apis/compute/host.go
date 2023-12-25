@@ -176,6 +176,9 @@ type HostDetails struct {
 	// 云主机数量
 	// example: 10
 	Guests int `json:"guests,allowempty"`
+	// 主备云主机数量
+	// example: 10
+	BackupGuests int `json:"backup_guests,allowempty"`
 	// 非系统云主机数量
 	// example: 0
 	NonsystemGuests int `json:"nonsystem_guests,allowempty"`
