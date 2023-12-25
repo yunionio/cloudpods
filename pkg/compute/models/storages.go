@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/httputils"
@@ -303,21 +302,11 @@ func (self *SStorage) setHardwareInfo(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (self *SStorage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	usage := api.StorageUsage{}
-	if gotypes.IsNil(info) {
-		cnt, err := StorageManager.TotalResourceCount([]string{self.Id})
-		if err != nil {
-			return err
-		}
-		usage, _ = cnt[self.Id]
-	} else {
-		info.Unmarshal(&usage)
+func (self *SStorage) ValidateDeleteCondition(ctx context.Context, info api.StorageDetails) error {
+	if !info.IsZero() {
+		return httperrors.NewNotEmptyError("storage has resources with %s", jsonutils.Marshal(info.StorageUsage).String())
 	}
-	if !usage.IsZero() {
-		return httperrors.NewNotEmptyError("storage has resources with %s", jsonutils.Marshal(usage).String())
-	}
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, info)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
