@@ -425,7 +425,7 @@ func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb int) bool {
+func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb, addSocket int) bool {
 	return guest.GetMetadata(ctx, api.VM_METADATA_HOTPLUG_CPU_MEM, nil) != "enable" || apis.IsARM(guest.OsArch)
 }
 
