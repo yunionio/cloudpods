@@ -2696,7 +2696,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrapf(err, "GetHost")
 	}
 
-	var addCpu, addMem int
+	var addCpu, addMem, addSocket int
 	var cpuChanged, cpuSocketsChanged, memChanged bool
 
 	confs := jsonutils.NewDict()
@@ -2758,14 +2758,12 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if *input.CpuSockets > self.VcpuCount+addCpu {
 			return nil, httperrors.NewInputParameterError("The number of cpu sockets cannot be greater than the number of cpus")
 		}
-		if self.PowerStates == api.VM_POWER_STATES_ON {
-			return nil, httperrors.NewInvalidStatusError("cannot change CPU socket in power status %s", self.PowerStates)
-		}
 		cpuSocketsChanged = true
+		addSocket = *input.CpuSockets - self.CpuSockets
 		confs.Set("cpu_sockets", jsonutils.NewInt(int64(*input.CpuSockets)))
 	}
 
-	if self.PowerStates == api.VM_POWER_STATES_ON && (cpuChanged || memChanged || cpuSocketsChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, addCpu, addMem) {
+	if self.PowerStates == api.VM_POWER_STATES_ON && (cpuChanged || memChanged || cpuSocketsChanged) && self.GetDriver().NeedStopForChangeSpec(ctx, self, addCpu, addMem, addSocket) {
 		return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in power status %s", self.PowerStates)
 	}
 
