@@ -863,10 +863,10 @@ func (drv *SESXiGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
-func (drv *SESXiGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb int) bool {
-	if guest.CpuSockets > 1 {
-		// cannot chagne esxi VM CPU cores if cpu_sockets > 1
-		return false
+func (drv *SESXiGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb, addSocket int) bool {
+	// cannot chagne esxi VM CPU cores
+	if float32(guest.VcpuCount+addCpu)/float32(guest.CpuSockets+addSocket)-float32(guest.VcpuCount)/float32(guest.CpuSockets) > 0.0001 {
+		return true
 	}
 	// https://kb.vmware.com/s/article/2008405
 	// cannot increse memory beyond 3G if the initial CPU memories is lower than 3G

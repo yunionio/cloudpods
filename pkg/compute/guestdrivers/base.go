@@ -321,7 +321,7 @@ func (drv *SBaseGuestDriver) IsSupportPublicIp() bool {
 	return false
 }
 
-func (drv *SBaseGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb int) bool {
+func (drv *SBaseGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb, addSocket int) bool {
 	return false
 }
 

@@ -772,6 +772,8 @@ type ServerChangeConfigInput struct {
 	Flavor string `json:"flavor" yunion-deprecated-by:"instance_type"`
 
 	// cpu卡槽数
+	// vmware 若开机调整配置时,需要保证调整前及调整后 vcpu_count / cpu_sockets 保持不变
+	// vmware开机调整配置同样需要注意 https://kb.vmware.com/s/article/2008405
 	CpuSockets *int `json:"cpu_sockets"`
 	// cpu大小
 	VcpuCount *int `json:"vcpu_count"`
