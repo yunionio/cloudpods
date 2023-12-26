@@ -2178,11 +2178,11 @@ func (self *SDisk) Delete(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	diskbackups := DiskBackupManager.Query("id").Equals("disk_id", self.Id)
+	// diskbackups := DiskBackupManager.Query("id").Equals("disk_id", self.Id)
 	guestdisks := GuestdiskManager.Query("row_id").Equals("disk_id", self.Id)
 	diskpolicies := SnapshotPolicyDiskManager.Query("row_id").Equals("disk_id", self.Id)
 	pairs := []purgePair{
-		{manager: DiskBackupManager, key: "id", q: diskbackups},
+		// {manager: DiskBackupManager, key: "id", q: diskbackups},
 		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
 		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
 	}
