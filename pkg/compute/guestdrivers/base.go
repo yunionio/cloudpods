@@ -520,6 +520,10 @@ func (self *SBaseGuestDriver) QgaRequestGetNetwork(ctx context.Context, userCred
 	return nil, httperrors.ErrNotImplemented
 }
 
+func (drv *SBaseGuestDriver) QgaRequestGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
+	return nil, httperrors.ErrNotImplemented
+}
+
 func (drv *SBaseGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
 	return nil, httperrors.ErrNotImplemented
 }
@@ -548,6 +552,10 @@ func (drv *SBaseGuestDriver) SyncOsInfo(ctx context.Context, userCred mcclient.T
 
 func (self *SBaseGuestDriver) ValidateSetOSInfo(ctx context.Context, userCred mcclient.TokenCredential, _ *models.SGuest, _ *api.ServerSetOSInfoInput) error {
 	return nil
+}
+
+func (self *SBaseGuestDriver) ValidateSyncOSInfo(ctx context.Context, userCred mcclient.TokenCredential, _ *models.SGuest) error {
+	return httperrors.ErrNotImplemented
 }
 
 func (self *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
