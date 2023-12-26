@@ -101,16 +101,16 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	}
 
 	if deployInfo.IsInit {
-		if err = rootfs.CleanNetworkScripts(partition); err != nil {
+		if err := rootfs.CleanNetworkScripts(partition); err != nil {
 			return nil, errors.Wrap(err, "Clean network scripts")
 		}
 		if len(deployInfo.Deploys) > 0 {
-			if err = rootfs.DeployFiles(deployInfo.Deploys); err != nil {
+			if err := rootfs.DeployFiles(deployInfo.Deploys); err != nil {
 				return nil, errors.Wrap(err, "DeployFiles")
 			}
 		}
 		if len(deployInfo.UserData) > 0 {
-			if err = rootfs.DeployUserData(deployInfo.UserData); err != nil {
+			if err := rootfs.DeployUserData(deployInfo.UserData); err != nil {
 				return nil, errors.Wrap(err, "DeployUserData")
 			}
 		}
@@ -124,32 +124,32 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		}
 	}
 
-	if err = rootfs.DeployHostname(partition, hn, domain); err != nil {
+	if err := rootfs.DeployHostname(partition, hn, domain); err != nil {
 		return nil, errors.Wrap(err, "DeployHostname")
 	}
-	if err = rootfs.DeployHosts(partition, hn, domain, ips); err != nil {
+	if err := rootfs.DeployHosts(partition, hn, domain, ips); err != nil {
 		return nil, errors.Wrap(err, "DeployHosts")
 	}
 
 	if guestDesc.Hypervisor == comapi.HYPERVISOR_KVM {
-		if err = rootfs.DeployQgaBlackList(partition); err != nil {
+		if err := rootfs.DeployQgaBlackList(partition); err != nil {
 			return nil, fmt.Errorf("DeployQgaBlackList: %v", err)
 		}
 	}
 
-	if err = rootfs.DeployNetworkingScripts(partition, nics); err != nil {
+	if err := rootfs.DeployNetworkingScripts(partition, nics); err != nil {
 		return nil, errors.Wrap(err, "DeployNetworkingScripts")
 	}
 	if len(nicsStandby) > 0 {
-		if err = rootfs.DeployStandbyNetworkingScripts(partition, nics, nicsStandby); err != nil {
+		if err := rootfs.DeployStandbyNetworkingScripts(partition, nics, nicsStandby); err != nil {
 			return nil, errors.Wrap(err, "DeployStandbyNetworkingScripts")
 		}
 	}
-	if err = rootfs.DeployUdevSubsystemScripts(partition); err != nil {
+	if err := rootfs.DeployUdevSubsystemScripts(partition); err != nil {
 		return nil, errors.Wrap(err, "DeployUdevSubsystemScripts")
 	}
 	if deployInfo.IsInit {
-		if err = rootfs.DeployFstabScripts(partition, guestDesc.Disks); err != nil {
+		if err := rootfs.DeployFstabScripts(partition, guestDesc.Disks); err != nil {
 			return nil, errors.Wrap(err, "DeployFstabScripts")
 		}
 	}

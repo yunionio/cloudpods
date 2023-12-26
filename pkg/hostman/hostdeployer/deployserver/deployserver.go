@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"runtime/debug"
@@ -27,10 +28,13 @@ import (
 	"google.golang.org/grpc"
 
 	execlient "yunion.io/x/executor/client"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	commonconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/libguestfs"
@@ -325,7 +329,7 @@ func (s *SDeployService) PrepareEnv() error {
 		return err
 	}
 
-	if err := fsdriver.Init(DeployOption.PrivatePrefixes, DeployOption.CloudrootDir); err != nil {
+	if err := fsdriver.Init(DeployOption.CloudrootDir); err != nil {
 		log.Fatalln(err)
 	}
 	if DeployOption.ImageDeployDriver == consts.DEPLOY_DRIVER_LIBGUESTFS {
@@ -360,16 +364,16 @@ func (s *SDeployService) PrepareEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "cp files failed %s", out)
 		}
-		if DeployOption.Config != "" && fileutils2.Exists(DeployOption.Config) {
-			out, err = procutils.NewCommand("cp", "-Lrf", DeployOption.Config, "/opt/yunion/host.conf").Output()
+
+		{
+			newOptions := DeployOption
+			newOptions.CommonConfigFile = ""
+			// save runtime options to /opt/yunion/host.conf
+			conf := jsonutils.Marshal(newOptions).YAMLString()
+			log.Debugf("deploy options: %s", conf)
+			err := ioutil.WriteFile("/opt/yunion/host.conf", []byte(conf), 0600)
 			if err != nil {
-				return errors.Wrapf(err, "cp files failed %s", out)
-			}
-		}
-		if DeployOption.CommonConfigFile != "" && fileutils2.Exists(DeployOption.CommonConfigFile) {
-			out, err = procutils.NewCommand("cp", "-Lrf", DeployOption.CommonConfigFile, "/opt/yunion/common.conf").Output()
-			if err != nil {
-				return errors.Wrapf(err, "cp files failed %s", out)
+				return errors.Wrapf(err, "save host.conf failed %s", out)
 			}
 		}
 
@@ -450,6 +454,15 @@ func (s *SDeployService) InitService() {
 		}
 	})
 
+	optionsInit()
+
+	if len(DeployOption.DeployAction) > 0 {
+		if err := LocalInitEnv(); err != nil {
+			log.Fatalf("local init env %s", err)
+		}
+		return
+	}
+
 	if DeployOption.EnableRemoteExecutor {
 		log.Infof("exec socket path: %s", DeployOption.ExecutorSocketPath)
 		execlient.Init(DeployOption.ExecutorSocketPath)
@@ -457,12 +470,10 @@ func (s *SDeployService) InitService() {
 		procutils.SetRemoteExecutor()
 	}
 
-	if DeployOption.DeployAction != "" {
-		if err := LocalInitEnv(); err != nil {
-			log.Fatalf("local init env %s", err)
-		}
-		return
-	}
+	app_common.InitAuth(&DeployOption.CommonOptions, func() {
+		log.Infof("Auth complete!!")
+	})
+	common_options.StartOptionManager(&DeployOption.CommonOptions, DeployOption.ConfigSyncPeriodSeconds, "", "", common_options.OnCommonOptionsChange)
 
 	if err := s.PrepareEnv(); err != nil {
 		log.Fatalln(err)

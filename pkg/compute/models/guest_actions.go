@@ -66,6 +66,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -2356,7 +2357,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			conf.Mac = gn.MacAddr
 		}
 
-		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve, false)
+		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve)
 		if err != nil {
 			return nil, err
 		}
@@ -2446,14 +2447,23 @@ func (self *SGuest) GetIfNameByMac(ctx context.Context, userCred mcclient.TokenC
 	return ifnameDevice, nil
 }
 
-func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDetachnetworkInput) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+func (self *SGuest) PerformDetachnetwork(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ServerDetachnetworkInput,
+) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) && !input.IsForce() {
 		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
 	}
 
 	err := self.GetDriver().ValidateDetachNetwork(ctx, userCred, self)
 	if err != nil {
-		return nil, err
+		if !input.IsForce() {
+			return nil, errors.Wrap(err, "ValidateDetachNetwork")
+		} else {
+			log.Errorf("ValidateDetachNetwork fail %s, ignore by force", err)
+		}
 	}
 
 	var gns []SGuestnetwork
@@ -2488,17 +2498,66 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewMissingParameterError("net_id")
 	}
 
-	if self.Status == api.VM_READY {
-		return nil, self.detachNetworks(ctx, userCred, gns, input.Reserve, true)
-	}
-	err = self.detachNetworks(ctx, userCred, gns, input.Reserve, false)
+	err = self.detachNetworks(ctx, userCred, gns, input.Reserve)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "detachNetworks")
 	}
-	return nil, self.StartSyncTask(ctx, userCred, false, "")
+
+	{
+		// 修正缺省网关
+		err := self.fixDefaultGateway(ctx, userCred)
+		if err != nil {
+			log.Errorf("fixDefaultGateway fail %s", err)
+		}
+	}
+
+	if !input.IsForce() && input.DisableSyncConfig != nil && !*input.DisableSyncConfig {
+		if self.Status == api.VM_READY {
+			err := self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartGuestDeployTask")
+			}
+		} else {
+			err := self.StartSyncTask(ctx, userCred, false, "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartSyncTask")
+			}
+		}
+	}
+
+	return nil, nil
 }
 
-func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.AttachNetworkInput) (*api.SGuest, error) {
+func (guest *SGuest) fixDefaultGateway(ctx context.Context, userCred mcclient.TokenCredential) error {
+	defaultGwCnt := 0
+	nicList := netutils2.SNicInfoList{}
+	nics, _ := guest.GetNetworks("")
+	for i := range nics {
+		net := nics[i].GetNetwork()
+		nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)
+		if nics[i].IsDefault {
+			defaultGwCnt++
+		}
+	}
+	if defaultGwCnt != 1 {
+		gwMac, _ := nicList.FindDefaultNicMac()
+		if gwMac != "" {
+			err := guest.setDefaultGateway(ctx, userCred, gwMac)
+			if err != nil {
+				log.Errorf("setDefaultGateway fail %s", err)
+				return errors.Wrap(err, "setDefaultGateway")
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) PerformAttachnetwork(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.AttachNetworkInput,
+) (*api.SGuest, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewBadRequestError("Cannot attach network in status %s", self.Status)
 	}
@@ -2506,7 +2565,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	if count == 0 {
 		return nil, httperrors.NewMissingParameterError("nets")
 	}
-	var inicCnt, enicCnt, isolatedDevCount int
+	var inicCnt, enicCnt, isolatedDevCount, defaultGwCnt int
 	for i := 0; i < count; i++ {
 		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "")
 		if err != nil {
@@ -2535,6 +2594,12 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			input.Nets[i].Driver = api.NETWORK_DRIVER_VFIO
 			isolatedDevCount += 1
 		}
+		if input.Nets[i].IsDefault {
+			defaultGwCnt++
+		}
+	}
+	if defaultGwCnt > 1 {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "more than 1 nic(%d) assigned as default gateway", defaultGwCnt)
 	}
 
 	pendingUsage := &SRegionQuota{
@@ -2558,12 +2623,16 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%v", err)
 	}
+	defer quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsageHost)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%v", err)
 	}
+	defer quotas.CancelPendingUsage(ctx, userCred, pendingUsageHost, pendingUsageHost, false)
 	host, _ := self.GetHost()
 	defer host.ClearSchedDescCache()
+
+	var defaultGwGn *SGuestnetwork
 	for i := 0; i < count; i++ {
 		gns, err := self.attach2NetworkDesc(ctx, userCred, host, input.Nets[i], pendingUsage, nil)
 		logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_NETWORK, input.Nets[i], userCred, err == nil)
@@ -2571,6 +2640,12 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
 			return nil, httperrors.NewBadRequestError("%v", err)
 		}
+		for gnIdx := range gns {
+			if gns[gnIdx].IsDefault {
+				defaultGwGn = &gns[gnIdx]
+			}
+		}
+
 		if input.Nets[i].SriovDevice != nil {
 			err = self.allocSriovNicDevice(ctx, userCred, host, &gns[0], input.Nets[i], pendingUsageHost)
 			if err != nil {
@@ -2580,16 +2655,34 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		}
 	}
 
-	if self.Status == api.VM_READY {
-		err = self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+	// adjust default gateway
+	if defaultGwGn != nil {
+		err := self.setDefaultGateway(ctx, userCred, defaultGwGn.MacAddr)
+		if err != nil {
+			log.Errorf("setDefaultGateway fail %s", err)
+		}
 	} else {
-		err = self.StartSyncTask(ctx, userCred, false, "")
+		err := self.fixDefaultGateway(ctx, userCred)
+		if err != nil {
+			log.Errorf("fixDefaultGateway fail %s", err)
+		}
 	}
-	if err != nil {
-		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
-		quotas.CancelPendingUsage(ctx, userCred, pendingUsageHost, pendingUsageHost, false)
+
+	if input.DisableSyncConfig != nil && !*input.DisableSyncConfig {
+		if self.Status == api.VM_READY {
+			err := self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartGuestDeployTask")
+			}
+		} else {
+			err := self.StartSyncTask(ctx, userCred, false, "")
+			if err != nil {
+				return nil, errors.Wrap(err, "StartSyncTask")
+			}
+		}
 	}
-	return nil, err
+
+	return nil, nil
 }
 
 func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -82,6 +82,8 @@ type SServerNic struct {
 	Ifname    string   `json:"ifname"`
 	Routes    []SRoute `json:"routes,omitempty"`
 
+	IsDefault bool `json:"is_default"`
+
 	NicType compute.TNicType `json:"nic_type,omitempty"`
 
 	LinkUp   bool   `json:"link_up,omitempty"`

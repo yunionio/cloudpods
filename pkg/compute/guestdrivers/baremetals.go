@@ -262,6 +262,8 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 			RequireDesignatedIP: false,
 			UseDesignatedIP:     reuseAddr,
 			NicConfs:            nicConfs,
+
+			IsDefault: netConfig.IsDefault,
 		})
 	}
 	return nil, fmt.Errorf("No appropriate host virtual network...")

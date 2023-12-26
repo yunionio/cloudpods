@@ -679,6 +679,14 @@ type ServerDetachnetworkInput struct {
 	IpAddr string `json:"ip_addr"`
 	// 通过Mac解绑网卡, 优先级低于ip_addr
 	Mac string `json:"mac"`
+	// 解绑后不立即同步配置
+	DisableSyncConfig *bool `json:"disable_sync_config"`
+	// 强制卸载，无论虚拟机的状态，仅更新数据库
+	Force *bool `json:"force"`
+}
+
+func (input ServerDetachnetworkInput) IsForce() bool {
+	return input.Force != nil && *input.Force
 }
 
 type ServerMigrateForecastInput struct {
