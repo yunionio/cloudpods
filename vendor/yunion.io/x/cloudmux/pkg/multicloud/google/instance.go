@@ -164,7 +164,7 @@ func (self *SInstance) Refresh() error {
 	return nil
 }
 
-//PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, and TERMINATED.
+// PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, and TERMINATED.
 func (instance *SInstance) GetStatus() string {
 	switch instance.Status {
 	case "PROVISIONING":
@@ -413,12 +413,25 @@ func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.
 	if err != nil {
 		return "", errors.Wrap(err, "region.RebuildRoot")
 	}
-	return diskId, instance.DeployVM(ctx, "", desc.Account, desc.Password, desc.PublicKey, false, "")
+	var ctxWithUserData context.Context
+	if desc.UserData != "" {
+		ctxWithUserData = context.WithValue(ctx, "user_data", desc.UserData)
+	} else {
+		ctxWithUserData = ctx
+	}
+	return diskId, instance.DeployVM(ctxWithUserData, "", desc.Account, desc.Password, desc.PublicKey, false, "")
 }
 
 func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	conf := cloudinit.SCloudConfig{
 		SshPwauth: cloudinit.SSH_PASSWORD_AUTH_ON,
+	}
+	userData, ok := ctx.Value("user_data").(string)
+	if ok {
+		config, err := cloudinit.ParseUserData(userData)
+		if err == nil {
+			conf.MergeRuncmd(strings.Join(config.Runcmd, "\n"))
+		}
 	}
 	user := cloudinit.NewUser(username)
 	if len(password) > 0 {

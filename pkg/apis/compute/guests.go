@@ -157,6 +157,12 @@ type ServerRebuildRootInput struct {
 
 	AllDisks *bool `json:"all_disks"`
 
+	// 用户自定义启动脚本
+	// 支持 #cloud-config yaml 格式及shell脚本
+	// 支持特殊user data平台: Aliyun, Qcloud, Azure, Apsara, Ucloud
+	// required: false
+	UserData string `json:"user_data"`
+
 	ServerDeployInputBase
 }
 

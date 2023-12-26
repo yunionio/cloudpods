@@ -1698,7 +1698,12 @@ func (self *SGuest) PerformRebuildRoot(
 
 	input.ResetPassword = resetPasswd
 
-	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, allDisks, &input.ServerDeployInputBase)
+	UserData := ""
+	if input.UserData != "" {
+		UserData = input.UserData
+	}
+
+	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, allDisks, UserData, &input.ServerDeployInputBase)
 }
 
 func (self *SGuest) GetTemplateId() string {
@@ -1709,7 +1714,7 @@ func (self *SGuest) GetTemplateId() string {
 	return ""
 }
 
-func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, allDisk bool, deployInput *api.ServerDeployInputBase) error {
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, allDisk bool, userData string, deployInput *api.ServerDeployInputBase) error {
 	data := jsonutils.NewDict()
 	if len(imageId) == 0 {
 		imageId = self.GetTemplateId()
@@ -1739,6 +1744,10 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 		data.Set("all_disks", jsonutils.JSONFalse)
 	}
 	data.Set("deploy_params", jsonutils.Marshal(deployInput))
+
+	if userData != "" {
+		data.Set("user_data", jsonutils.NewString(userData))
+	}
 
 	self.SetStatus(userCred, api.VM_REBUILD_ROOT, "request start rebuild root")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestRebuildRootTask", self, userCred, data, "", "", nil)

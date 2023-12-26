@@ -285,6 +285,10 @@ func (self *ManagedGuestRebuildRootTask) OnHostCacheImageComplete(ctx context.Co
 	} else {
 		params = jsonutils.NewDict()
 	}
+	userData, _ := self.GetParams().GetString("user_data")
+	if userData != "" {
+		params.Set("user_data", jsonutils.NewString(userData))
+	}
 	guest.StartGuestDeployTask(ctx, self.UserCred, params, "rebuild", self.GetTaskId())
 }
 

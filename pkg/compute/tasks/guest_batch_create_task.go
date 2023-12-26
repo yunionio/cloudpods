@@ -271,7 +271,7 @@ func (task *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		deployInput.Password = input.Password
 		deployInput.ResetPassword = resetPassword
 
-		err = guest.StartRebuildRootTask(ctx, task.UserCred, "", false, autoStart, true, deployInput)
+		err = guest.StartRebuildRootTask(ctx, task.UserCred, "", false, autoStart, true, input.UserData, deployInput)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
 			guest.SetStatus(task.UserCred, api.VM_CREATE_FAILED, err.Error())

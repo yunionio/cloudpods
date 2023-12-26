@@ -187,6 +187,7 @@ type SManagedVMRebuildRootConfig struct {
 	PublicKey string
 	SysSizeGB int
 	OsType    string
+	UserData  string
 }
 
 func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) error {
