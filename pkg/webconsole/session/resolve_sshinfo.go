@@ -68,31 +68,33 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 	}
 
 	// find nics
-	var guestNicDetails compute_api.GuestnetworkDetails
+	var guestNicDetails *compute_api.GuestnetworkDetails
 	if result.Total == 1 {
-		err := result.Data[0].Unmarshal(&guestNicDetails)
+		gn := compute_api.GuestnetworkDetails{}
+		err := result.Data[0].Unmarshal(&gn)
 		if err != nil {
 			return "", 0, nil, errors.Wrap(err, "Unmarshal guest network info")
 		}
-		if len(ip) > 0 && ip != guestNicDetails.EipAddr && ip != guestNicDetails.IpAddr && ip != guestNicDetails.Ip6Addr {
+		if len(ip) > 0 && ip != gn.EipAddr && ip != gn.IpAddr && ip != gn.Ip6Addr {
 			return "", 0, nil, errors.Wrapf(httperrors.ErrInputParameter, "ip %s not match with server", ip)
 		}
+		guestNicDetails = &gn
 	} else {
 		if len(ip) == 0 {
 			return "", 0, nil, errors.Wrap(httperrors.ErrInputParameter, "must specify ip")
 		}
-		find := false
 		for _, gnJson := range result.Data {
-			err := gnJson.Unmarshal(&guestNicDetails)
+			gn := compute_api.GuestnetworkDetails{}
+			err := gnJson.Unmarshal(&gn)
 			if err != nil {
 				return "", 0, nil, errors.Wrap(err, "Unmarshal guest network info")
 			}
-			if ip == guestNicDetails.EipAddr || ip == guestNicDetails.IpAddr || ip == guestNicDetails.Ip6Addr {
-				find = true
+			if ip == gn.EipAddr || ip == gn.IpAddr || ip == gn.Ip6Addr {
+				guestNicDetails = &gn
 				break
 			}
 		}
-		if !find {
+		if guestNicDetails == nil {
 			return "", 0, nil, errors.Wrap(httperrors.ErrInputParameter, "ip specified not match with server")
 		}
 	}

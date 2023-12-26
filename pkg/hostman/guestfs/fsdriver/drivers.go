@@ -25,7 +25,7 @@ import (
 type newRootFsDriverFunc func(part IDiskPartition) IRootFsDriver
 
 var (
-	privatePrefixes    []string
+	// privatePrefixes    []string
 	rootfsDrivers      = make([]newRootFsDriverFunc, 0)
 	hostCpuArch        string
 	cloudrootDirectory string
@@ -35,12 +35,7 @@ func GetRootfsDrivers() []newRootFsDriverFunc {
 	return rootfsDrivers
 }
 
-func Init(initPrivatePrefixes []string, cloudrootDir string) error {
-	if len(initPrivatePrefixes) > 0 {
-		privatePrefixes = make([]string, len(initPrivatePrefixes))
-		copy(privatePrefixes, initPrivatePrefixes)
-	}
-
+func Init(cloudrootDir string) error {
 	linuxFsDrivers := []newRootFsDriverFunc{
 		NewFangdeRootFs, NewUnionOSRootFs,
 		NewAnolisRootFs, NewRockyRootFs,

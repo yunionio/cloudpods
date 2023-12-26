@@ -322,7 +322,7 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 			}
 			lines = append(lines, cfg)
 			routes := [][]string{}
-			netutils2.AddNicRoutes(&routes, snic, mainIp, len(nics), privatePrefixes)
+			routes = netutils2.AddNicRoutes(routes, snic, mainIp, len(nics))
 			for _, r := range routes {
 				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s "%%%%b" %s`, r[0], r[1]))
 			}

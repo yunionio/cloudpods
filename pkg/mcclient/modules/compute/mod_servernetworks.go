@@ -30,7 +30,7 @@ func init() {
 		[]string{"Guest_ID", "Guest",
 			"Network_ID", "Network", "Mac_addr", "Mapped_Ip_Addr",
 			"IP_addr", "Driver", "BW_limit", "Index",
-			"Virtual", "Ifname", "team_with"},
+			"Virtual", "Ifname", "team_with", "is_default"},
 		[]string{},
 		&Servers,
 		&Networks)

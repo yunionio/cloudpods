@@ -52,8 +52,9 @@ var (
 
 	RUN_ON_HOST_ROOT_PATH = "/opt/cloud/host-deployer"
 
-	DEPLOY_ISO      = "/opt/cloud/host-deployer/host_deployer_v1.iso"
-	DEPLOYER_BIN    = "/opt/yunion/bin/host-deployer --common-config-file /opt/yunion/common.conf --config /opt/yunion/host.conf"
+	DEPLOY_ISO = "/opt/cloud/host-deployer/host_deployer_v1.iso"
+	// DEPLOYER_BIN    = "/opt/yunion/bin/host-deployer --common-config-file /opt/yunion/common.conf --config /opt/yunion/host.conf"
+	DEPLOYER_BIN    = "/opt/yunion/bin/host-deployer --config /opt/yunion/host.conf"
 	YUNIONOS_PASSWD = "mosbaremetal"
 )
 

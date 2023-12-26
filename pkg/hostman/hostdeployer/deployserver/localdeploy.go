@@ -22,6 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 
 	commonconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
@@ -111,7 +112,8 @@ func LocalInitEnv() error {
 		return errors.Wrap(err, "set env path")
 	}
 
-	if err := fsdriver.Init(DeployOption.PrivatePrefixes, DeployOption.CloudrootDir); err != nil {
+	netutils.SetPrivatePrefixes(DeployOption.CustomizedPrivatePrefixes)
+	if err := fsdriver.Init(DeployOption.CloudrootDir); err != nil {
 		return errors.Wrap(err, "init fsdriver")
 	}
 	commonconsts.SetAllowVmSELinux(DeployOption.AllowVmSELinux)

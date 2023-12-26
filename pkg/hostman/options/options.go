@@ -100,7 +100,7 @@ type SHostOptions struct {
 	HugepagesOption  string `help:"Hugepages option: disable|native|transparent" default:"transparent"`
 	HugepageSizeMb   int    `help:"hugepage size mb default 1G" default:"1024"`
 
-	PrivatePrefixes []string `help:"IPv4 private prefixes"`
+	// PrivatePrefixes []string `help:"IPv4 private prefixes"`
 	LocalImagePath  []string `help:"Local image storage paths"`
 	SharedStorages  []string `help:"Path of shared storages"`
 	LVMVolumeGroups []string `help:"LVM Volume Groups(vgs)"`
@@ -209,7 +209,8 @@ var (
 	HostOptions SHostOptions
 )
 
-func Parse() (hostOpts SHostOptions) {
+func Parse() SHostOptions {
+	var hostOpts SHostOptions
 	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
 	if len(hostOpts.CommonConfigFile) > 0 && fileutils2.Exists(hostOpts.CommonConfigFile) {
 		commonCfg := &SHostBaseOptions{}
@@ -231,6 +232,7 @@ func Parse() (hostOpts SHostOptions) {
 			log.Fatalf("Parse local configuration file: %v", err)
 		}
 	}
+
 	return hostOpts
 }
 

@@ -203,6 +203,8 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		AllocDir:            api.IPAllocationDefault,
 		RequireDesignatedIP: netConfig.RequireDesignatedIP,
 		NicConfs:            nicConfs,
+
+		IsDefault: netConfig.IsDefault,
 	})
 	return gn, err
 }
