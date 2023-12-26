@@ -245,6 +245,8 @@ const (
 	ACT_WEBSSH            = "webssh"
 	ACT_SET_USER_PASSWORD = "set_user_password"
 
+	ACT_SYNC_OS_INFO = "sync_os_info"
+
 	ACT_PANIC = "panic"
 
 	ACT_IP_MAC_BIND = "ip_mac_bind"

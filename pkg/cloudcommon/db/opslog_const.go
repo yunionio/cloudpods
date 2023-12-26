@@ -163,6 +163,9 @@ const (
 	ACT_SET_USER_PASSWORD      = "set_user_password"
 	ACT_SET_USER_PASSWORD_FAIL = "set_user_password_fail"
 
+	ACT_SYNC_OS_INFO      = "sync_os_info"
+	ACT_SYNC_OS_INFO_FAIL = "sync_os_info_fail"
+
 	ACT_VM_IO_THROTTLE      = "io_throttle"
 	ACT_VM_IO_THROTTLE_FAIL = "io_throttle_fail"
 
