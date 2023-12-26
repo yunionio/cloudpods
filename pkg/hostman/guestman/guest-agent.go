@@ -160,3 +160,19 @@ func (m *SGuestManager) QgaGetNetwork(sid string) (string, error) {
 	}
 	return "", errors.Errorf("qga unfinished last cmd, is qga unavailable?")
 }
+
+func (m *SGuestManager) QgaGetOsInfo(sid string) (jsonutils.JSONObject, error) {
+	guest, err := m.checkAndInitGuestQga(sid)
+	if err != nil {
+		return nil, err
+	}
+	if guest.guestAgent.TryLock() {
+		defer guest.guestAgent.Unlock()
+		res, err := guest.guestAgent.QgaGuestGetOsInfo()
+		if err != nil {
+			return nil, errors.Wrap(err, "qga get os info fail")
+		}
+		return jsonutils.Marshal(res), nil
+	}
+	return nil, errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+}

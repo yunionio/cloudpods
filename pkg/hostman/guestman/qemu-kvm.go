@@ -1644,7 +1644,7 @@ func (s *SKVMGuestInstance) SaveLiveDesc(guestDesc *desc.SGuestDesc) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) SaveSourceDesc(guestDesc *desc.SGuestDesc) error {
+func (s *SKVMGuestInstance) SaveDesc(guestDesc *desc.SGuestDesc) error {
 	s.SourceDesc = guestDesc
 	// fill in ovn vpc nic bridge field
 	for _, nic := range s.SourceDesc.Nics {
@@ -1653,20 +1653,19 @@ func (s *SKVMGuestInstance) SaveSourceDesc(guestDesc *desc.SGuestDesc) error {
 		}
 	}
 
-	// Save rescue desc if exist
-	//if s.SourceDesc.LightMode {
-	//	err := s.GetRescueDesc()
-	//	if err != nil {
-	//		log.Errorf("get rescue desc failed %s", err)
-	//		return errors.Wrap(err, "get rescue desc")
-	//	}
-	//}
-
 	if err := fileutils2.FilePutContents(
 		s.GetSourceDescFilePath(), jsonutils.Marshal(s.SourceDesc).String(), false,
 	); err != nil {
 		log.Errorf("save source desc failed %s", err)
 		return errors.Wrap(err, "source save desc")
+	}
+
+	if !s.IsRunning() { // if guest not running, sync live desc
+		liveDesc := new(desc.SGuestDesc)
+		if err := jsonutils.Marshal(s.SourceDesc).Unmarshal(liveDesc); err != nil {
+			return errors.Wrap(err, "unmarshal live desc")
+		}
+		return s.SaveLiveDesc(liveDesc)
 	}
 	return nil
 }
@@ -2291,7 +2290,7 @@ func (s *SKVMGuestInstance) SyncConfig(
 	var cdroms []*desc.SGuestCdrom
 	var floppys []*desc.SGuestFloppy
 
-	if err := s.SaveSourceDesc(guestDesc); err != nil {
+	if err := s.SaveDesc(guestDesc); err != nil {
 		return nil, err
 	}
 
@@ -2497,10 +2496,7 @@ func (s *SKVMGuestInstance) CreateFromDesc(desc *desc.SGuestDesc) error {
 	if err := s.PrepareDir(); err != nil {
 		return fmt.Errorf("Failed to create server dir %s", desc.Uuid)
 	}
-	if err := s.SaveSourceDesc(desc); err != nil {
-		return fmt.Errorf("Failed save source desc %s", err)
-	}
-	return s.SaveLiveDesc(desc)
+	return s.SaveDesc(desc)
 }
 
 func (s *SKVMGuestInstance) GetNeedMergeBackingFileDiskIndexs() []int {

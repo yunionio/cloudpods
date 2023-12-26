@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -68,12 +67,7 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		disksPath.Set(disk.DiskId, jsonutils.NewString(iDisk.GetPath()))
 	}
 	guest, _ := m.GetServer(createConfig.Sid)
-	if err := guest.SaveSourceDesc(createConfig.GuestDesc); err != nil {
-		return nil, err
-	}
-	guest.Desc = new(desc.SGuestDesc)
-	jsonutils.Marshal(createConfig.GuestDesc).Unmarshal(guest.Desc)
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 

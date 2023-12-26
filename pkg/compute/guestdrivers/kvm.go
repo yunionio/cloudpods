@@ -1102,6 +1102,17 @@ func (self *SKVMGuestDriver) QgaRequestGetNetwork(ctx context.Context, userCred 
 	return res, nil
 }
 
+func (self *SKVMGuestDriver) QgaRequestGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/servers/%s/qga-get-os-info", host.ManagerUri, guest.Id)
+	httpClient := httputils.GetDefaultClient()
+	header := mcclient.GetTokenHeaders(userCred)
+	_, res, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, nil, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "host request")
+	}
+	return res, nil
+}
+
 func (self *SKVMGuestDriver) QgaRequestSetUserPassword(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerQgaSetPasswordInput) error {
 	url := fmt.Sprintf("%s/servers/%s/qga-set-password", host.ManagerUri, guest.Id)
 	httpClient := httputils.GetDefaultClient()
@@ -1177,5 +1188,12 @@ func (self *SKVMGuestDriver) RequestStopRescue(ctx context.Context, task taskman
 		return err
 	}
 
+	return nil
+}
+
+func (self *SKVMGuestDriver) ValidateSyncOSInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		return httperrors.NewBadRequestError("can't sync guest os info in status %s", guest.Status)
+	}
 	return nil
 }
