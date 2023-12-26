@@ -166,13 +166,14 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	cmds = append(cmds, p.partDev, p.mountPath)
 
 	var err error
+	var mountSuccess = false
 	if fsType == "xfs" {
 		uuids, _ := fileutils2.GetDevUuid(p.partDev)
 		p.uuid, _ = uuids["UUID"]
 		if len(p.uuid) > 0 {
 			LockXfsPartition(p.uuid)
 			defer func() {
-				if err != nil {
+				if !mountSuccess {
 					UnlockXfsPartition(p.uuid)
 				}
 			}()
@@ -192,7 +193,7 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 			}
 		}()
 		select {
-		case err := <-errChan:
+		case err = <-errChan:
 			if err != nil {
 				return false, err
 			}
@@ -215,6 +216,7 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	if err != nil {
 		return errors.Wrap(err, "mount failed")
 	}
+	mountSuccess = true
 	return nil // errors.Wrapf(err, "mount failed: %s", output)
 }
 
