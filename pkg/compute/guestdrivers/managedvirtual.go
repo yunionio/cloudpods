@@ -789,6 +789,8 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx c
 		cloudprovider.WaitMultiStatus(iVM, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
 	}
 
+	userData, _ := task.GetParams().GetString("user_data")
+
 	diskId, err := func() (string, error) {
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
@@ -800,6 +802,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx c
 			PublicKey: desc.PublicKey,
 			SysSizeGB: desc.SysDisk.SizeGB,
 			OsType:    desc.OsType,
+			UserData:  userData,
 		}
 		return iVM.RebuildRoot(ctx, &conf)
 	}()
