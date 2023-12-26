@@ -760,8 +760,17 @@ func (hh *SHost) GetVirtualCPUCount() float32 {
 	return float32(hh.GetCpuCount()) * hh.GetCPUOvercommitBound()
 }
 
-func (hh *SHost) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	return hh.validateDeleteCondition(ctx, false)
+func (hh *SHost) ValidateDeleteCondition(ctx context.Context, info api.HostDetails) error {
+	if hh.IsBaremetal && hh.HostType != api.HOST_TYPE_BAREMETAL {
+		return httperrors.NewInvalidStatusError("Host is a converted baremetal, should be unconverted before delete")
+	}
+	if hh.GetEnabled() {
+		return httperrors.NewInvalidStatusError("Host is not disabled")
+	}
+	if info.Guests > 0 || info.BackupGuests > 0 {
+		return httperrors.NewNotEmptyError("Not an empty host")
+	}
+	return hh.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (hh *SHost) ValidatePurgeCondition(ctx context.Context) error {
@@ -3184,6 +3193,7 @@ func (hh *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, showRe
 
 type sGuestCnt struct {
 	GuestCnt               int
+	BackupGuestCnt         int
 	RunningGuestCnt        int
 	ReadyGuestCnt          int
 	OtherGuestCnt          int
@@ -3222,6 +3232,15 @@ func (manager *SHostManager) FetchGuestCnt(hostIds []string) map[string]*sGuestC
 		if !guest.IsSystem {
 			ret[guest.HostId].NonsystemGuestCnt += 1
 		}
+	}
+
+	GuestManager.RawQuery().IsFalse("deleted").In("backup_host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
+	for _, guest := range guests {
+		_, ok := ret[guest.BackupHostId]
+		if !ok {
+			ret[guest.BackupHostId] = &sGuestCnt{}
+		}
+		ret[guest.BackupHostId].BackupGuestCnt += 1
 	}
 
 	return ret

@@ -1013,26 +1013,15 @@ func (sm *SSecurityGroupManager) TotalCnt(secIds []string) (map[string]api.SSecu
 	return result, nil
 }
 
-func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context, info api.SecgroupDetails) error {
 	if self.Id == options.Options.DefaultSecurityGroupId {
 		return httperrors.NewProtectedResourceError("not allow to delete default security group")
 	}
 	if self.Id == options.Options.DefaultAdminSecurityGroupId {
 		return httperrors.NewProtectedResourceError("not allow to delete default admin security group")
 	}
-	if !gotypes.IsNil(info) {
-		cnt, _ := info.Int("total_cnt")
-		if cnt > 0 {
-			return httperrors.NewNotEmptyError("the security group %s is in use cnt: %d", self.Id, cnt)
-		}
-	} else {
-		cnts, err := SecurityGroupManager.TotalCnt([]string{self.Id})
-		if err != nil {
-			return errors.Wrapf(err, "SecurityGroupManager.TotalCnt")
-		}
-		if cnt, ok := cnts[self.Id]; ok && cnt.TotalCnt > 0 {
-			return httperrors.NewNotEmptyError("the security group %s is in use cnt: %s", self.Id, jsonutils.Marshal(cnt).String())
-		}
+	if info.TotalCnt > 0 {
+		return httperrors.NewNotEmptyError("the security group %s is in use cnt: %d", self.Id, info.TotalCnt)
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
