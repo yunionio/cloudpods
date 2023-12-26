@@ -23,10 +23,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
-	hostutils "yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 )
 
@@ -38,12 +37,7 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(createConfig.Sid)
-	if err := guest.SaveSourceDesc(createConfig.GuestDesc); err != nil {
-		return nil, err
-	}
-	guest.Desc = new(desc.SGuestDesc)
-	jsonutils.Marshal(createConfig.GuestDesc).Unmarshal(guest.Desc)
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 
@@ -128,12 +122,7 @@ func (m *SGuestManager) GuestCreateFromCloudpods(
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(createConfig.Sid)
-	if err := guest.SaveSourceDesc(createConfig.GuestDesc); err != nil {
-		return nil, err
-	}
-	guest.Desc = new(desc.SGuestDesc)
-	jsonutils.Marshal(createConfig.GuestDesc).Unmarshal(guest.Desc)
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 	var err error

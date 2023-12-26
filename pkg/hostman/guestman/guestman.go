@@ -778,7 +778,9 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 			if err != nil {
 				return nil, httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
 			}
-			guest.SaveSourceDesc(guestDesc)
+			if err := guest.SaveDesc(guestDesc); err != nil {
+				return nil, errors.Wrap(err, "failed save desc")
+			}
 		}
 		return m.startDeploy(ctx, deployParams, guest)
 	} else {
@@ -867,7 +869,9 @@ func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenC
 	if guest, ok := m.GetServer(sid); ok {
 		guestDesc := new(desc.SGuestDesc)
 		if err := body.Unmarshal(guestDesc, "desc"); err == nil {
-			guest.SaveSourceDesc(guestDesc)
+			if err = guest.SaveDesc(guestDesc); err != nil {
+				return nil, errors.Wrap(err, "save desc")
+			}
 		}
 		if guest.IsStopped() {
 			data, err := body.Get("params")
@@ -1058,7 +1062,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 				return nil, fmt.Errorf("dest prepare migrate failed %s", err)
 			}
 		}
-		if err := guest.SaveSourceDesc(migParams.Desc); err != nil {
+		if err := guest.SaveDesc(migParams.Desc); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}
@@ -1349,7 +1353,7 @@ func (m *SGuestManager) StartBlockReplication(ctx context.Context, params interf
 	}
 	guest, _ := m.GetServer(mirrorParams.Sid)
 	// TODO: check desc
-	if err := guest.SaveSourceDesc(mirrorParams.Desc); err != nil {
+	if err := guest.SaveDesc(mirrorParams.Desc); err != nil {
 		return nil, err
 	}
 	onSucc := func() {

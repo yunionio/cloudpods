@@ -5979,6 +5979,7 @@ func (self *SGuest) PerformSetOsInfo(ctx context.Context, userCred mcclient.Toke
 		api.VM_METADATA_OS_NAME:    input.Type,
 		api.VM_METADATA_OS_VERSION: input.Version,
 		api.VM_METADATA_OS_DISTRO:  input.Distribution,
+		api.VM_METADATA_OS_ARCH:    input.Arch,
 	} {
 		if len(v) == 0 {
 			continue
@@ -5988,4 +5989,22 @@ func (self *SGuest) PerformSetOsInfo(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	return nil, nil
+}
+
+func (self *SGuest) PerformSyncOsInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if err := self.GetDriver().ValidateSyncOSInfo(ctx, userCred, self); err != nil {
+		return nil, err
+	}
+	if self.Status == api.VM_READY {
+		// start guest deploy task to sync os info
+		return nil, self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+	} else {
+		res, err := self.PerformQgaPing(ctx, userCred, nil, nil)
+		if err != nil || res.Contains("ping_error") {
+			return nil, httperrors.NewBadRequestError("qga ping failed is qga running?")
+		}
+
+		// try qga get os info
+		return nil, self.startQgaSyncOsInfoTask(ctx, userCred, "")
+	}
 }
