@@ -76,10 +76,34 @@ func (self *GuestQgaSyncOsInfoTask) updateOsInfo(ctx context.Context, guest *mod
 	if osInfo.Id == "mswindows" {
 		osType = "Windows"
 	}
+	osDistribution := osInfo.PrettyName
+	switch osInfo.Id {
+	case "centos":
+		osDistribution = "CentOS"
+	case "debian":
+		osDistribution = "Debian"
+	case "ubuntu":
+		osDistribution = "Ubuntu"
+	case "fedora":
+		osDistribution = "Fedora"
+	case "openEuler":
+		osDistribution = "OpenEuler"
+	case "gentoo":
+		osDistribution = "Gentoo"
+	case "cirros":
+		osDistribution = "Cirros"
+	case "archLinux":
+		osDistribution = "ArchLinux"
+	case "kylin":
+		osDistribution = "Kylin"
+	case "anolis":
+		osDistribution = "Anolis"
+	}
+
 	osInput := api.ServerSetOSInfoInput{
 		Type:         osType,
-		Distribution: osInfo.PrettyName,
-		Version:      osInfo.Version,
+		Distribution: osDistribution,
+		Version:      osInfo.VersionId,
 		Arch:         osInfo.Machine,
 	}
 	_, err = guest.PerformSetOsInfo(ctx, self.UserCred, nil, osInput)
