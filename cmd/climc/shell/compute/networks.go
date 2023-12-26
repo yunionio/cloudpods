@@ -43,6 +43,7 @@ func init() {
 	cmd.Get("change-owner-candidate-domains", &compute_options.NetworkIdOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("switch-wire", &compute_options.NetworkSwitchWireOptions{})
+	cmd.Get("available-addresses", &compute_options.NetworkIdOptions{})
 
 	type NetworkShareOptions struct {
 		ID             string   `help:"ID or Name of the zone to show"`
