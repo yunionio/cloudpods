@@ -1201,4 +1201,5 @@ type ServerSetOSInfoInput struct {
 	Distribution string `json:"distribution" help:"OS distribution, e.g.: CentOS, Ubuntu, Windows Server 2016 Datacenter"`
 	// OS version, e.g: 7.9, 22.04, 6.3
 	Version string `json:"version" help:"OS version, e.g.: 7.9, 22.04, 6.3"`
+	Arch    string `json:"arch" help:"OS arch, e.g.: x86_64, aarch64"`
 }

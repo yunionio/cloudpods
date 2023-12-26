@@ -173,6 +173,7 @@ const (
 	VM_QGA_SET_PASSWORD        = "qga_set_password"
 	VM_QGA_COMMAND_EXECUTING   = "qga_command_executing"
 	VM_QGA_EXEC_COMMAND_FAILED = "qga_exec_command_failed"
+	VM_QGA_SYNC_OS_INFO        = "qga_sync_os_info"
 
 	VM_QGA_SET_NETWORK        = "qga_set_network"
 	VM_QGA_SET_NETWORK_FAILED = "qga_set_network_failed"
