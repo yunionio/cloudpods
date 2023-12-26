@@ -168,7 +168,7 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 
 					ovndb.ClaimVpcHost(ctx, vpc, host)
 				}
-				ovndb.ClaimGuestnetwork(ctx, guestnetwork)
+				ovndb.ClaimGuestnetwork(ctx, guestnetwork, w.opts)
 			}
 			for _, groupnetwork := range network.Groupnetworks {
 				ovndb.ClaimGroupnetwork(ctx, groupnetwork)

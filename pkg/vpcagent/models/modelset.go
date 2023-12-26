@@ -81,6 +81,12 @@ func (set Vpcs) Copy() apihelper.IModelSet {
 	return setCopy
 }
 
+func (set Vpcs) ModelParamFilter() jsonutils.JSONObject {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("OneCloud"), "provider")
+	return params
+}
+
 func (ms Vpcs) joinWires(subEntries Wires) bool {
 	correct := true
 	for _, subEntry := range subEntries {
@@ -230,6 +236,12 @@ func (set Guests) Copy() apihelper.IModelSet {
 	return setCopy
 }
 
+func (set Guests) ModelParamFilter() jsonutils.JSONObject {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("OneCloud"), "provider")
+	return params
+}
+
 func (set Guests) initJoin() {
 	for _, el := range set {
 		el.SecurityGroups = SecurityGroups{}
@@ -337,6 +349,12 @@ func (set Hosts) Copy() apihelper.IModelSet {
 		setCopy[id] = el.Copy()
 	}
 	return setCopy
+}
+
+func (set Hosts) ModelParamFilter() jsonutils.JSONObject {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("OneCloud"), "provider")
+	return params
 }
 
 func (set Networks) ModelManager() mcclient_modulebase.IBaseManager {

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
@@ -83,6 +84,7 @@ func (host *SHostService) RunService() {
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
 	})
+	common_options.StartOptionManager(&options.HostOptions.CommonOptions, options.HostOptions.ConfigSyncPeriodSeconds, "", "", common_options.OnCommonOptionsChange)
 
 	deployclient.Init(options.HostOptions.DeployServerSocketPath)
 	if err := storageman.Init(hostInstance); err != nil {

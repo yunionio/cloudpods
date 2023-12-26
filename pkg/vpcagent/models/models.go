@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 type Vpc struct {
@@ -133,6 +134,42 @@ func (el *Guest) GetVips() []string {
 		}
 	}
 	return ret
+}
+
+type GuestnetworkList []*Guestnetwork
+
+func (a GuestnetworkList) Len() int           { return len(a) }
+func (a GuestnetworkList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a GuestnetworkList) Less(i, j int) bool { return a[i].Index < a[j].Index }
+
+func (el *Guest) FixIsDefaults() {
+	gns := make([]*Guestnetwork, 0, len(el.Guestnetworks))
+	for _, v := range el.Guestnetworks {
+		gns = append(gns, v)
+	}
+	sort.Sort(GuestnetworkList(gns))
+	defaultCnt := 0
+	nics := netutils2.SNicInfoList{}
+	for _, gn := range gns {
+		if gn.Network == nil {
+			log.Debugf("guest %s %s", gn.GuestId, gn.NetworkId)
+			continue
+		}
+		if gn.IsDefault {
+			defaultCnt++
+		}
+		nics = nics.Add(gn.IpAddr, gn.MacAddr, gn.Network.GuestGateway)
+	}
+	if defaultCnt != 1 {
+		gwMac, _ := nics.FindDefaultNicMac()
+		for _, gn := range gns {
+			if gn.MacAddr == gwMac {
+				gn.IsDefault = true
+			} else {
+				gn.IsDefault = false
+			}
+		}
+	}
 }
 
 type Host struct {

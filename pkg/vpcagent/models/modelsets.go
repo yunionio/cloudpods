@@ -301,6 +301,10 @@ func (mss *ModelSets) join() bool {
 	}
 	if !ret {
 		log.Errorln(strings.Join(failMsg, ","))
+	} else {
+		for _, g := range mss.Guests {
+			g.FixIsDefaults()
+		}
 	}
 	return ret
 }
