@@ -2002,12 +2002,21 @@ func (h *SHostInfo) getNicsInterfaces(nics []string) []isolated_device.HostNic {
 	if len(nics) == 0 {
 		return nil
 	}
+	log.Infof("sriov input nics %v", nics)
 	res := []isolated_device.HostNic{}
-	for i := 0; i < len(h.Nics); i++ {
-		if utils.IsInStringArray(h.Nics[i].Inter, nics) {
-			res = append(res, isolated_device.HostNic{h.Nics[i].Bridge, h.Nics[i].Inter, h.Nics[i].WireId})
+	for i := 0; i < len(nics); i++ {
+		found := false
+		for j := 0; j < len(h.Nics); j++ {
+			if nics[i] == h.Nics[j].Inter {
+				found = true
+				res = append(res, isolated_device.HostNic{h.Nics[j].Bridge, h.Nics[j].Inter, h.Nics[j].WireId})
+			}
+		}
+		if !found {
+			res = append(res, isolated_device.HostNic{h.Nics[0].Bridge, nics[i], h.Nics[0].WireId})
 		}
 	}
+	log.Infof("sriov output nics %v", res)
 	return res
 }
 

@@ -122,6 +122,7 @@ type IsolatedDeviceJsonDesc struct {
 	VendorDeviceId      string `json:"vendor_device_id"`
 	Vendor              string `json:"vendor"`
 	NetworkIndex        int8   `json:"network_index"`
+	IsInfinibandNic     bool   `json:"is_infiniband_nic"`
 	OvsOffloadInterface string `json:"ovs_offload_interface"`
 	DiskIndex           int8   `json:"disk_index"`
 	NvmeSizeMB          int    `json:"nvme_size_mb"`
