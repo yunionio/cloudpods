@@ -330,6 +330,7 @@ func (self *SRegion) GetEips(portId string, addrs []string) ([]SEipAddress, erro
 	if len(portId) > 0 {
 		query.Set("port_id", portId)
 	}
+	query.Set("ip_version", "4")
 	eips := []SEipAddress{}
 	for {
 		resp, err := self.list(SERVICE_VPC_V3, "eip/publicips", query)

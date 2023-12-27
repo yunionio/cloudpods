@@ -407,7 +407,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	ips := make([]string, 0)
 	for _, addresses := range self.Addresses {
 		for _, address := range addresses {
-			if address.OSEXTIPSType != "fixed" && !strings.HasPrefix(address.Addr, "100.") {
+			if address.OSEXTIPSType != "fixed" && !strings.HasPrefix(address.Addr, "100.") && address.Version == "4" {
 				ips = append(ips, address.Addr)
 			}
 		}

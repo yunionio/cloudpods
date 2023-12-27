@@ -164,7 +164,7 @@ func (self *SInstance) Refresh() error {
 	return nil
 }
 
-//PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, and TERMINATED.
+// PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, and TERMINATED.
 func (instance *SInstance) GetStatus() string {
 	switch instance.Status {
 	case "PROVISIONING":
@@ -416,6 +416,7 @@ func (instance *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.
 	deployOpts := &cloudprovider.SInstanceDeployOptions{
 		Username:  opts.Account,
 		Password:  opts.Password,
+		UserData:  opts.UserData,
 		PublicKey: opts.PublicKey,
 	}
 	return diskId, instance.DeployVM(ctx, deployOpts)
@@ -424,6 +425,12 @@ func (instance *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.
 func (instance *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	conf := cloudinit.SCloudConfig{
 		SshPwauth: cloudinit.SSH_PASSWORD_AUTH_ON,
+	}
+	if len(opts.UserData) > 0 {
+		config, err := cloudinit.ParseUserData(opts.UserData)
+		if err == nil {
+			conf.Merge(config)
+		}
 	}
 	user := cloudinit.NewUser(opts.Username)
 	if len(opts.Password) > 0 {

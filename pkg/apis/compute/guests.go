@@ -742,6 +742,11 @@ type ServerDeployInputBase struct {
 	ResetPassword bool `json:"reset_password"`
 	// 重置指定密码
 	Password string `json:"password"`
+	// 用户自定义启动脚本
+	// 支持 #cloud-config yaml 格式及shell脚本
+	// 支持特殊user data平台: Aliyun, Qcloud, Azure, Apsara, Ucloud
+	// required: false
+	UserData string `json:"user_data"`
 
 	// swagger: ignore
 	Restart bool `json:"restart"`
