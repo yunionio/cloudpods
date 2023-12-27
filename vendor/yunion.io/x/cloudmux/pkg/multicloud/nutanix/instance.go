@@ -200,7 +200,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return self.host.zone.region.DeleteVM(self.UUID)
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

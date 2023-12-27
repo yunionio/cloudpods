@@ -245,8 +245,8 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return self.host.zone.region.DeleteVM(self.VmID)
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return self.host.zone.region.ResetVmPassword(self.VmID, username, password)
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return self.host.zone.region.ResetVmPassword(self.VmID, opts.Username, opts.Password)
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {

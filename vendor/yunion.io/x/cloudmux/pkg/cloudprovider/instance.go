@@ -187,6 +187,7 @@ type SManagedVMRebuildRootConfig struct {
 	PublicKey string
 	SysSizeGB int
 	OsType    string
+	UserData  string
 }
 
 func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) error {
@@ -359,4 +360,13 @@ type ServerVncOutput struct {
 type SInstanceUpdateOptions struct {
 	NAME        string
 	Description string
+}
+
+type SInstanceDeployOptions struct {
+	Username      string
+	Password      string
+	PublicKey     string
+	KeypairName   string
+	DeleteKeypair bool
+	UserData      string
 }

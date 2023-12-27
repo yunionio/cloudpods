@@ -442,17 +442,8 @@ func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstan
 	return self.host.zone.region.UpdateVM(self.InstanceId, input)
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	var keypairName string
-	if len(publicKey) > 0 {
-		var err error
-		keypairName, err = self.host.zone.region.syncKeypair(publicKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return self.host.zone.region.DeployVM(self.InstanceId, opts)
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
@@ -717,50 +708,41 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	// }
 }
 
-func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
+func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
 
 	// 修改密钥时直接返回
-	if deleteKeypair {
+	if opts.DeleteKeypair {
 		err = self.DetachKeyPair(instanceId, instance.KeyPairName)
 		if err != nil {
 			return err
 		}
 	}
 
-	if len(keypairName) > 0 {
+	var keypairName string
+	if len(opts.PublicKey) > 0 {
+		var err error
+		keypairName, err = self.syncKeypair(opts.PublicKey)
+		if err != nil {
+			return err
+		}
 		err = self.AttachKeypair(instanceId, keypairName)
 		if err != nil {
 			return err
 		}
 	}
 
-	params := make(map[string]string)
-
-	// if resetPassword {
-	//	params["Password"] = seclib2.RandomPassword2(12)
-	// }
 	// 指定密码的情况下，使用指定的密码
-	if len(password) > 0 {
-		params["Password"] = password
-	}
-
-	if len(name) > 0 && instance.InstanceName != name {
-		params["InstanceName"] = name
-	}
-
-	if len(description) > 0 && instance.Description != description {
-		params["Description"] = description
-	}
-
-	if len(params) > 0 {
+	if len(opts.Password) > 0 {
+		params := make(map[string]string)
+		params["Password"] = opts.Password
 		return self.modifyInstanceAttribute(instanceId, params)
-	} else {
-		return nil
 	}
+
+	return nil
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {

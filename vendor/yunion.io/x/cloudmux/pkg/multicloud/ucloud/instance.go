@@ -505,12 +505,12 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	}
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	if len(publicKey) > 0 {
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	if len(opts.PublicKey) > 0 {
 		return fmt.Errorf("DeployVM not support assign ssh keypair")
 	}
 
-	if deleteKeypair {
+	if opts.DeleteKeypair {
 		return fmt.Errorf("DeployVM not support delete ssh keypair")
 	}
 
@@ -518,8 +518,8 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 		return fmt.Errorf("DeployVM instance status %s , expected %s.", self.GetStatus(), api.VM_READY)
 	}
 
-	if len(password) > 0 {
-		err := self.host.zone.region.ResetVMPasswd(self.GetId(), password)
+	if len(opts.Password) > 0 {
+		err := self.host.zone.region.ResetVMPasswd(self.GetId(), opts.Password)
 		if err != nil {
 			return err
 		}
