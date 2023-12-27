@@ -622,11 +622,8 @@ func (self *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SMan
 	return idisks[0].GetId(), nil
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	if self.GetName() == name {
-		name = ""
-	}
-	return self.host.zone.region.DeployVM(self.GetId(), name, password, publicKey, deleteKeypair, description)
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return self.host.zone.region.DeployVM(self.GetId(), opts)
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
@@ -943,19 +940,9 @@ func (self *SRegion) BatchResetServersPassword(instanceId string, password strin
 	return nil
 }
 
-func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
-	if len(name) > 0 {
-		err := self.UpdateVM(instanceId, cloudprovider.SInstanceUpdateOptions{
-			NAME:        name,
-			Description: description,
-		})
-		if err != nil {
-			return errors.Wrapf(err, "update vm name")
-		}
-	}
-
-	if len(password) > 0 {
-		err := self.BatchResetServersPassword(instanceId, password)
+func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
+	if len(opts.Password) > 0 {
+		err := self.BatchResetServersPassword(instanceId, opts.Password)
 		if err != nil {
 			return errors.Wrapf(err, "BatchResetServersPassword")
 		}

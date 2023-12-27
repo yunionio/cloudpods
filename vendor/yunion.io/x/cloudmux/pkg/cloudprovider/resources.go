@@ -374,7 +374,7 @@ type ICloudVM interface {
 
 	RebuildRoot(ctx context.Context, config *SManagedVMRebuildRootConfig) (string, error)
 
-	DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error
+	DeployVM(ctx context.Context, opts *SInstanceDeployOptions) error
 
 	ChangeConfig(ctx context.Context, config *SManagedVMChangeConfig) error
 

@@ -609,25 +609,8 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	return diskId, nil
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, desc string) error {
-	del := map[string]string{}
-	if name != self.GetName() {
-		del["Name"] = self.GetName()
-	}
-	if desc != self.GetDescription() {
-		del["Desription"] = self.GetDescription()
-	}
-	if len(del) > 0 {
-		self.host.zone.region.DeleteTags(self.InstanceId, del)
-	}
-	add := map[string]string{}
-	if len(name) > 0 {
-		add["Name"] = name
-	}
-	if len(desc) > 0 {
-		add["Description"] = desc
-	}
-	return self.host.zone.region.CreateTags(self.InstanceId, add)
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
