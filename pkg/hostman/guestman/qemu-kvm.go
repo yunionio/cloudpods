@@ -3047,22 +3047,19 @@ func getVfVlan(vlan int) int {
 	return vlan
 }
 
+func getIbNodeMac(mac string) string {
+	return "00:01:" + mac
+}
+
+func getIbPortMac(mac string) string {
+	return "00:10:" + mac
+}
+
 func (s *SKVMGuestInstance) sriovNicAttachInitScript(networkIndex int8, dev isolated_device.IDevice) (string, error) {
 	for i := range s.Desc.Nics {
 		if s.Desc.Nics[i].Driver == "vfio-pci" && s.Desc.Nics[i].Index == networkIndex {
-			if dev.GetOvsOffloadInterfaceName() != "" {
-				cmd := fmt.Sprintf("ip link set dev %s vf %d mac %s max_tx_rate %d\n",
-					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac, s.Desc.Nics[i].Bw)
-				cmd += s.getNicUpScriptPath(s.Desc.Nics[i]) + "\n"
-				return cmd, nil
-			} else {
-				cmd := fmt.Sprintf(
-					"sriov_vf_init %s %d %s %d %s %d\n",
-					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
-					getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
-				)
-				return sriovInitFunc + " && " + cmd, nil
-			}
+			cmd := s.generateSriovInitCmd(i, dev)
+			return sriovInitFunc + " && " + cmd, nil
 		}
 	}
 	return "", errors.Errorf("no nic found for index %d", networkIndex)
@@ -3077,24 +3074,34 @@ func (s *SKVMGuestInstance) generateSRIOVInitScripts() (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if dev.GetOvsOffloadInterfaceName() != "" {
-				cmd += fmt.Sprintf("ip link set dev %s vf %d mac %s max_tx_rate %d\n",
-					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac, s.Desc.Nics[i].Bw)
-				cmd += s.getNicUpScriptPath(s.Desc.Nics[i]) + "\n"
-			} else {
-				cmd += fmt.Sprintf(
-					"sriov_vf_init %s %d %s %d %s %d\n",
-					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
-					getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
-				)
-			}
+			cmd += s.generateSriovInitCmd(i, dev)
 		}
 	}
 	if len(cmd) > 0 {
 		cmd = sriovInitFunc + "\n" + cmd
 	}
-
 	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) generateSriovInitCmd(i int, dev isolated_device.IDevice) string {
+	var cmd = ""
+	if dev.GetOvsOffloadInterfaceName() != "" {
+		cmd += fmt.Sprintf("ip link set dev %s vf %d mac %s max_tx_rate %d\n",
+			dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac, s.Desc.Nics[i].Bw)
+		cmd += s.getNicUpScriptPath(s.Desc.Nics[i]) + "\n"
+	} else if dev.IsInfinibandNic() {
+		sriovPath := path.Join("/sys/class/net", dev.GetPfName(), "device/sriov", strconv.Itoa(dev.GetVirtfn()))
+		cmd = fmt.Sprintf("echo Follow > %s/policy\n", sriovPath)
+		cmd += fmt.Sprintf("echo %s > %s/node\n", getIbNodeMac(s.Desc.Nics[i].Mac), sriovPath)
+		cmd += fmt.Sprintf("echo %s > %s/port\n", getIbPortMac(s.Desc.Nics[i].Mac), sriovPath)
+	} else {
+		cmd += fmt.Sprintf(
+			"sriov_vf_init %s %d %s %d %s %d\n",
+			dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
+			getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
+		)
+	}
+	return cmd
 }
 
 func (s *SKVMGuestInstance) reconfigureVfioNicsBandwidth(nicDesc *desc.SGuestNetwork) error {

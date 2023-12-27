@@ -45,6 +45,10 @@ func (dev *sNVIDIAVgpuDevice) String() string {
 	return jsonutils.Marshal(dev).String()
 }
 
+func (dev *sNVIDIAVgpuDevice) IsInfinibandNic() bool {
+	return false
+}
+
 func (dev *sNVIDIAVgpuDevice) GetCloudId() string {
 	return dev.cloudId
 }
