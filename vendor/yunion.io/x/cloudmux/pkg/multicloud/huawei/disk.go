@@ -406,11 +406,14 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/EVS/doc?api=ListVolumes
-func (self *SRegion) GetDisks(zoneId string) ([]SDisk, error) {
+func (self *SRegion) GetDisks(zoneId, storageTypeId string) ([]SDisk, error) {
 	ret := []SDisk{}
 	query := url.Values{}
 	if len(zoneId) > 0 {
 		query.Set("availability_zone", zoneId)
+	}
+	if len(storageTypeId) > 0 {
+		query.Set("volume_type_id", storageTypeId)
 	}
 	for {
 		resp, err := self.list(SERVICE_EVS, "cloudvolumes/detail", query)

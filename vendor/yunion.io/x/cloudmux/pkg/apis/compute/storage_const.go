@@ -60,11 +60,12 @@ const (
 	STORAGE_CLOUD_HSSD    = "cloud_hssd"    //增强型SSD云硬盘
 
 	// huawei storage type
-	STORAGE_HUAWEI_SSD   = "SSD"   // 超高IO云硬盘
-	STORAGE_HUAWEI_SAS   = "SAS"   // 高IO云硬盘
-	STORAGE_HUAWEI_SATA  = "SATA"  // 普通IO云硬盘
-	STORAGE_HUAWEI_GPSSD = "GPSSD" // 通用型SSD
-	STORAGE_HUAWEI_ESSD  = "ESSD"  // 急速型SSD
+	STORAGE_HUAWEI_SSD    = "SSD"    // 超高IO云硬盘
+	STORAGE_HUAWEI_SAS    = "SAS"    // 高IO云硬盘
+	STORAGE_HUAWEI_SATA   = "SATA"   // 普通IO云硬盘
+	STORAGE_HUAWEI_GPSSD  = "GPSSD"  // 通用型SSD
+	STORAGE_HUAWEI_GPSSD2 = "GPSSD2" // 通用型SSD V2
+	STORAGE_HUAWEI_ESSD   = "ESSD"   // 急速型SSD
 
 	// openstack
 	STORAGE_OPENSTACK_ISCSI = "iscsi"

@@ -28,7 +28,8 @@ import (
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/version"
 
-	"yunion.io/x/onecloud/pkg/esxi/options"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -152,6 +153,10 @@ func (self *SSkuResourcesMeta) Index(resType string) (map[string]string, error) 
 }
 
 func (self *SSkuResourcesMeta) List(resType string, regionId string, retVal interface{}) error {
+	if strings.HasPrefix(regionId, api.CLOUD_PROVIDER_HUAWEI) && strings.Contains(regionId, "_") {
+		idx := strings.Index(regionId, "_")
+		regionId = regionId[:idx]
+	}
 	var url string
 	switch resType {
 	case "dbinstance_sku":

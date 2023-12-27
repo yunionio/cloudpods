@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -150,7 +149,7 @@ func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.To
 		return err
 	}
 
-	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, region.ExternalId, image.GetGlobalId())
+	skuUrl := region.getMetaUrl(meta.ImageBase, image.GetGlobalId())
 
 	obj, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {

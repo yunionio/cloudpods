@@ -587,7 +587,7 @@ func (self *SCloudregion) newDBInstanceSkuFromCloudSku(ctx context.Context, user
 	sku := &SDBInstanceSku{}
 	sku.SetModelManager(DBInstanceSkuManager, sku)
 
-	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.DBInstanceBase, self.ExternalId, externalId)
+	skuUrl := self.getMetaUrl(meta.DBInstanceBase, externalId)
 	err = meta.Get(skuUrl, sku)
 	if err != nil {
 		return errors.Wrapf(err, "Get")

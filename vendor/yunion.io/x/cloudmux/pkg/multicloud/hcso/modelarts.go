@@ -292,10 +292,6 @@ type ModelartsStatistics struct {
 	Value     float64
 }
 
-func (self *SHuaweiClient) GetPoolNetworks(poolName string) (jsonutils.JSONObject, error) {
-	return self.modelartsPoolNetworkList(nil)
-}
-
 func (self *SHuaweiClient) CreatePoolNetworks(cidr string) (jsonutils.JSONObject, error) {
 	params := map[string]interface{}{
 		"apiVersion": "v1",

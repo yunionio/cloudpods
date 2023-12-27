@@ -761,7 +761,7 @@ func (self *SRegion) CreateInstance(keypair, zoneId string, opts *cloudprovider.
 		})
 	}
 	extendparam := map[string]interface{}{
-		"regionID":     self.GetId(),
+		"regionID":     self.getId(),
 		"chargingMode": POST_PAID,
 	}
 	if len(opts.ProjectId) > 0 {

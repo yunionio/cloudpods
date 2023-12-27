@@ -293,7 +293,7 @@ func (self *SCloudregion) newFromCloudNatSku(ctx context.Context, userCred mccli
 	sku := &SNatSku{}
 	sku.SetModelManager(NatSkuManager, sku)
 
-	skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.NatBase, self.ExternalId, isku.GetGlobalId())
+	skuUrl := self.getMetaUrl(meta.NatBase, isku.GetGlobalId())
 	err = meta.Get(skuUrl, sku)
 	if err != nil {
 		return errors.Wrapf(err, "Get")
