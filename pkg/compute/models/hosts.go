@@ -5152,6 +5152,7 @@ func (hh *SHost) PerformEnable(
 			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformEnable")
 		}
 		hh.SyncAttachedStorageStatus()
+		hh.updateNotify(ctx, userCred)
 	}
 	return nil, nil
 }
@@ -5163,6 +5164,7 @@ func (hh *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCred
 			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformDisable")
 		}
 		hh.SyncAttachedStorageStatus()
+		hh.updateNotify(ctx, userCred)
 	}
 	return nil, nil
 }
@@ -6551,4 +6553,11 @@ func (h *SHost) GetDetailsAppOptions(ctx context.Context, userCred mcclient.Toke
 func (hh *SHost) IsAttach2Wire(wireId string) bool {
 	netifs := hh.getNetifsOnWire(wireId)
 	return len(netifs) > 0
+}
+
+func (h *SHost) updateNotify(ctx context.Context, userCred mcclient.TokenCredential) {
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Action: notifyclient.ActionUpdate,
+		Obj:    h,
+	})
 }

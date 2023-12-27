@@ -31,8 +31,10 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -248,8 +250,34 @@ func (self *SIsolatedDevice) ValidateUpdateData(
 	return input, nil
 }
 
-func (self *SIsolatedDevice) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	HostManager.ClearSchedDescCache(self.HostId)
+func (device *SIsolatedDevice) isolateDeviceNotifyForHost(ctx context.Context, userCred mcclient.TokenCredential, action notify.SAction) {
+	model, err := HostManager.FetchById(device.HostId)
+	if err != nil {
+		return
+	}
+	host := model.(*SHost)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Action: action,
+		Obj:    host,
+		ObjDetailsDecorator: func(ctx context.Context, details *jsonutils.JSONDict) {
+			details.Set("customize_details", jsonutils.Marshal(device))
+		},
+	})
+}
+
+func (device *SIsolatedDevice) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	device.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	device.isolateDeviceNotifyForHost(ctx, userCred, notify.ActionIsolatedDeviceCreate)
+}
+
+func (device *SIsolatedDevice) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	device.SStandaloneResourceBase.PostDelete(ctx, userCred)
+	device.isolateDeviceNotifyForHost(ctx, userCred, notify.ActionIsolatedDeviceDelete)
+}
+
+func (device *SIsolatedDevice) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	HostManager.ClearSchedDescCache(device.HostId)
+	device.isolateDeviceNotifyForHost(ctx, userCred, notify.ActionIsolatedDeviceUpdate)
 }
 
 // 直通设备（GPU等）列表

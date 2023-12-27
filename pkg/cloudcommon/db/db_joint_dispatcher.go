@@ -191,6 +191,7 @@ func attachItems(
 	item.PostCreate(ctx, userCred, nil, query, data)
 	OpsLog.LogAttachEvent(ctx, master, slave, userCred, jsonutils.Marshal(item))
 	dispatcher.manager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, []jsonutils.JSONObject{data})
+
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 
@@ -223,7 +224,11 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 
 	lockman.LockJointObject(ctx, master, slave)
 	defer lockman.ReleaseJointObject(ctx, master, slave)
-	return attachItems(dispatcher, master.(IStandaloneModel), slave.(IStandaloneModel), ctx, userCred, query, data)
+	resp, err := attachItems(dispatcher, master.(IStandaloneModel), slave.(IStandaloneModel), ctx, userCred, query, data)
+	if err == nil {
+		CallCustomizeNotifyHook(ctx, userCred, ACT_ATTACH, master, slave.GetShortDesc(ctx))
+	}
+	return resp, err
 }
 
 func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -281,6 +286,7 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 
 	obj, err := deleteItem(dispatcher.JointModelManager(), item, ctx, userCred, query, data)
 	if err == nil {
+		CallCustomizeNotifyHook(ctx, userCred, ACT_DETACH, master, slave.GetShortDesc(ctx))
 		OpsLog.LogDetachEvent(ctx, JointMaster(item), JointSlave(item), userCred, jsonutils.Marshal(item))
 	}
 	return obj, err
