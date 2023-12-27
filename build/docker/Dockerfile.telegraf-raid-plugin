@@ -1,3 +1,8 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/yunion-rootfs:v1.1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/yunion-rootfs:v3.10-20231227.0 as yunion-rootfs
 
+FROM ubuntu:22.04
+
+COPY --from=yunion-rootfs /opt /opt
+
+RUN apt update && apt install -y sg3-utils kmod libncurses5 && rm -rf /var/lib/{apt,dpkg,cache,log}/
 ADD ./_output/centos-build/bin/telegraf-raid-plugin /opt/yunion/bin/telegraf-raid-plugin
