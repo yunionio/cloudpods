@@ -544,6 +544,10 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 			return guest.GetDriver().RemoteDeployGuestForDeploy(ctx, guest, ihost, task, desc)
 		})
 	case "rebuild":
+		userData, err := task.GetParams().GetString("user_data")
+		if err == nil {
+			desc.UserData = userData
+		}
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			return guest.GetDriver().RemoteDeployGuestForRebuildRoot(ctx, guest, ihost, task, desc)
 		})
@@ -737,6 +741,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx contex
 		Username:  desc.Account,
 		PublicKey: desc.PublicKey,
 		Password:  desc.Password,
+		UserData:  desc.UserData,
 	}
 	opts.DeleteKeypair = jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
@@ -805,6 +810,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx c
 			PublicKey: desc.PublicKey,
 			SysSizeGB: desc.SysDisk.SizeGB,
 			OsType:    desc.OsType,
+			UserData:  desc.UserData,
 		}
 		return iVM.RebuildRoot(ctx, &conf)
 	}()
