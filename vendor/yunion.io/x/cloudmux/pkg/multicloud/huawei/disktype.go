@@ -14,13 +14,11 @@
 
 package huawei
 
-import "strings"
-
 type SDiskType struct {
 	ExtraSpecs ExtraSpecs `json:"extra_specs"`
 	Name       string     `json:"name"`
 	QosSpecsID string     `json:"qos_specs_id"`
-	ID         string     `json:"id"`
+	Id         string     `json:"id"`
 	IsPublic   bool       `json:"is_public"`
 }
 
@@ -29,12 +27,4 @@ type ExtraSpecs struct {
 	AvailabilityZone                         string `json:"availability-zone"`
 	RESKEYAvailabilityZones                  string `json:"RESKEY:availability_zones"`
 	OSVendorExtendedSoldOutAvailabilityZones string `json:"os-vendor-extended:sold_out_availability_zones"`
-}
-
-func (self *SDiskType) IsAvaliableInZone(zoneId string) bool {
-	if len(self.QosSpecsID) > 0 && strings.Contains(self.ExtraSpecs.RESKEYAvailabilityZones, zoneId) && !strings.Contains(self.ExtraSpecs.OSVendorExtendedSoldOutAvailabilityZones, zoneId) {
-		return true
-	}
-
-	return false
 }

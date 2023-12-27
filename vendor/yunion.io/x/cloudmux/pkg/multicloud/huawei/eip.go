@@ -391,14 +391,14 @@ func (self *SRegion) setEipTags(id string, existedTags, tags map[string]string, 
 	}
 	if len(deleteTagsKey) > 0 {
 		for _, k := range deleteTagsKey {
-			err := self.DeletePublicipTag(self.ID, k)
+			err := self.DeletePublicipTag(id, k)
 			if err != nil {
 				return errors.Wrapf(err, "remove tags")
 			}
 		}
 	}
 	if len(tags) > 0 {
-		err := self.CreatePublicipTag(self.ID, tags)
+		err := self.CreatePublicipTag(id, tags)
 		if err != nil {
 			return errors.Wrapf(err, "add tags")
 		}

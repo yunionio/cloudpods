@@ -16,7 +16,6 @@ package provider
 
 import (
 	"context"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -111,24 +110,10 @@ func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
-func parseAccount(account string) (accessKey string, projectId string) {
-	segs := strings.Split(account, "/")
-	if len(segs) == 2 {
-		accessKey = segs[0]
-		projectId = segs[1]
-	} else {
-		accessKey = account
-		projectId = ""
-	}
-
-	return
-}
-
 func (self *SHuaweiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
-	accessKey, projectId := parseAccount(cfg.Account)
 	client, err := huawei.NewHuaweiClient(
 		huawei.NewHuaweiClientConfig(
-			accessKey, cfg.Secret, projectId,
+			cfg.Account, cfg.Secret,
 		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
@@ -141,16 +126,10 @@ func (self *SHuaweiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 }
 
 func (self *SHuaweiProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
-	accessKey, projectId := parseAccount(info.Account)
-	data := strings.Split(info.Name, "-")
-	if len(info.Region) == 0 && len(data) >= 3 {
-		info.Region = strings.Join(data[len(data)-3:], "-")
-	}
 	return map[string]string{
-		"HUAWEI_ACCESS_KEY": accessKey,
+		"HUAWEI_ACCESS_KEY": info.Account,
 		"HUAWEI_SECRET":     info.Secret,
-		"HUAWEI_REGION":     info.Region,
-		"HUAWEI_PROJECT":    projectId,
+		"HUAWEI_REGION":     huawei.HUAWEI_DEFAULT_REGION,
 	}, nil
 }
 
@@ -211,7 +190,7 @@ func (self *SHuaweiProvider) GetIamLoginUrl() string {
 }
 
 func (self *SHuaweiProvider) GetCloudRegionExternalIdPrefix() string {
-	return self.client.GetCloudRegionExternalIdPrefix()
+	return api.CLOUD_PROVIDER_HUAWEI + "/"
 }
 
 func (self *SHuaweiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

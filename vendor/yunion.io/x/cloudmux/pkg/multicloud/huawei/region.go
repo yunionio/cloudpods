@@ -35,18 +35,17 @@ type Locales struct {
 	ZhCN string `json:"zh-cn"`
 }
 
-// https://support.huaweicloud.com/api-iam/zh-cn_topic_0067148043.html
 type SRegion struct {
 	multicloud.SRegion
 
 	client    *SHuaweiClient
 	obsClient *obs.ObsClient // 对象存储client.请勿直接引用。
 
-	Description    string  `json:"description"`
-	ID             string  `json:"id"`
-	Locales        Locales `json:"locales"`
-	ParentRegionID string  `json:"parent_region_id"`
-	Type           string  `json:"type"`
+	Description    string
+	Id             string
+	Locales        Locales
+	ParentRegionId string
+	Type           string
 
 	storageCache *SStoragecache
 }
@@ -56,32 +55,32 @@ func (self *SRegion) GetClient() *SHuaweiClient {
 }
 
 func (self *SRegion) list(service, resource string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.client.list(service, self.ID, resource, query)
+	return self.client.list(service, self.Id, resource, query)
 }
 
 func (self *SRegion) delete(service, resource string) (jsonutils.JSONObject, error) {
-	return self.client.delete(service, self.ID, resource)
+	return self.client.delete(service, self.Id, resource)
 }
 
 func (self *SRegion) put(service, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.put(service, self.ID, resource, params)
+	return self.client.put(service, self.Id, resource, params)
 }
 
 func (self *SRegion) post(service, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.post(service, self.ID, resource, params)
+	return self.client.post(service, self.Id, resource, params)
 }
 
 func (self *SRegion) patch(service, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.patch(service, self.ID, resource, query, params)
+	return self.client.patch(service, self.Id, resource, query, params)
 }
 
 func (self *SRegion) getOBSEndpoint() string {
-	return getOBSEndpoint(self.GetId())
+	return getOBSEndpoint(self.getId())
 }
 
 func (self *SRegion) getOBSClient(signType obs.SignatureType) (*obs.ObsClient, error) {
 	if self.obsClient == nil {
-		obsClient, err := self.client.getOBSClient(self.GetId(), signType)
+		obsClient, err := self.client.getOBSClient(self.getId(), signType)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +118,7 @@ func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
-	if info, ok := LatitudeAndLongitude[self.ID]; ok {
+	if info, ok := LatitudeAndLongitude[self.getId()]; ok {
 		return info
 	}
 	return cloudprovider.SGeographicInfo{}
@@ -206,24 +205,49 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 	return iret, nil
 }
 
-// https://support.huaweicloud.com/api-iam/zh-cn_topic_0057845622.html
 func (self *SRegion) GetId() string {
-	return self.ID
+	return self.Id
 }
 
 func (self *SRegion) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_HUAWEI_CN, self.Locales.ZhCN)
+	name := self.Locales.ZhCN
+	suffix := self.getSuffix()
+	if len(suffix) > 0 {
+		name = fmt.Sprintf("%s-%s", name, suffix)
+	}
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_HUAWEI_CN, name)
+}
+
+func (self *SRegion) getId() string {
+	idx := strings.Index(self.Id, "_")
+	if idx > 0 {
+		return self.Id[:idx]
+	}
+	return self.Id
+}
+
+func (self *SRegion) getSuffix() string {
+	idx := strings.Index(self.Id, "_")
+	if idx > 0 {
+		return self.Id[idx+1:]
+	}
+	return ""
 }
 
 func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
-	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_HUAWEI_EN, self.Locales.EnUs)
+	en := self.Locales.EnUs
+	suffix := self.getSuffix()
+	if len(suffix) > 0 {
+		en = fmt.Sprintf("%s-%s", en, suffix)
+	}
+	en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_HUAWEI_EN, en)
 	table := cloudprovider.SModelI18nTable{}
 	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
 	return table
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", api.CLOUD_PROVIDER_HUAWEI, self.ID)
+	return fmt.Sprintf("%s/%s", api.CLOUD_PROVIDER_HUAWEI, self.Id)
 }
 
 func (self *SRegion) GetStatus() string {
@@ -232,24 +256,6 @@ func (self *SRegion) GetStatus() string {
 
 func (self *SRegion) Refresh() error {
 	return nil
-}
-
-func (self *SRegion) IsEmulated() bool {
-	return false
-}
-
-func (self *SRegion) GetLatitude() float32 {
-	if locationInfo, ok := LatitudeAndLongitude[self.ID]; ok {
-		return locationInfo.Latitude
-	}
-	return 0.0
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	if locationInfo, ok := LatitudeAndLongitude[self.ID]; ok {
-		return locationInfo.Longitude
-	}
-	return 0.0
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
@@ -494,7 +500,10 @@ func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreate
 	params := map[string]interface{}{
 		"name":                  opts.Name,
 		"description":           opts.Desc,
-		"enterprise_project_id": opts.ProjectId,
+		"enterprise_project_id": "0",
+	}
+	if len(opts.ProjectId) > 0 {
+		params["enterprise_project_id"] = opts.ProjectId
 	}
 	resp, err := self.post(SERVICE_VPC_V3, "vpc/security-groups", map[string]interface{}{"security_group": params})
 	if err != nil {
@@ -556,7 +565,7 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 	}
 	input := &obs.CreateBucketInput{}
 	input.Bucket = name
-	input.Location = region.GetId()
+	input.Location = region.getId()
 	if len(aclStr) > 0 {
 		if strings.EqualFold(aclStr, string(obs.AclPrivate)) {
 			input.ACL = obs.AclPrivate
@@ -670,22 +679,6 @@ func (self *SRegion) GetDiskTypes() ([]SDiskType, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal")
 	}
-	return ret, nil
-}
-
-func (self *SRegion) GetZoneSupportedDiskTypes(zoneId string) ([]string, error) {
-	dts, err := self.GetDiskTypes()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetDiskTypes")
-	}
-
-	ret := []string{}
-	for i := range dts {
-		if dts[i].IsAvaliableInZone(zoneId) {
-			ret = append(ret, dts[i].Name)
-		}
-	}
-
 	return ret, nil
 }
 

@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 	"time"
 
@@ -1275,7 +1274,7 @@ func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.T
 			return err
 		}
 
-		skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, self.ExternalId, iImage.GetGlobalId())
+		skuUrl := self.getMetaUrl(meta.ImageBase, iImage.GetGlobalId())
 		err = meta.Get(skuUrl, image)
 		if err != nil {
 			return errors.Wrapf(err, "Get")

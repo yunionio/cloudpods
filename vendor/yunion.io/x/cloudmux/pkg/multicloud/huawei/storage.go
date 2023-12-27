@@ -30,19 +30,20 @@ type SStorage struct {
 	zone *SZone
 	multicloud.SStorageBase
 	HuaweiTags
-	storageType string // volume_type 目前支持“SSD”，“SAS”和“SATA”三种
+	storageType  string
+	volumeTypeId string
 }
 
 func (self *SStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.region.Id, self.zone.GetId(), self.storageType)
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.region.Id, self.zone.GetId(), self.storageType)
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetGlobalId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.region.Id, self.zone.GetGlobalId(), self.storageType)
 }
 
 func (self *SStorage) GetStatus() string {
@@ -66,26 +67,16 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := self.zone.region.GetDisks(self.zone.GetId())
+	disks, err := self.zone.region.GetDisks(self.zone.ZoneName, self.volumeTypeId)
 	if err != nil {
 		return nil, err
 	}
-
-	// 按storage type 过滤出disk
-	filtedDisks := make([]SDisk, 0)
-	for i := range disks {
-		disk := disks[i]
-		if disk.VolumeType == self.storageType {
-			filtedDisks = append(filtedDisks, disk)
-		}
+	ret := []cloudprovider.ICloudDisk{}
+	for i := 0; i < len(disks); i += 1 {
+		disks[i].storage = self
+		ret = append(ret, &disks[i])
 	}
-
-	idisks := make([]cloudprovider.ICloudDisk, len(filtedDisks))
-	for i := 0; i < len(filtedDisks); i += 1 {
-		filtedDisks[i].storage = self
-		idisks[i] = &filtedDisks[i]
-	}
-	return idisks, nil
+	return ret, nil
 }
 
 func (self *SStorage) GetStorageType() string {

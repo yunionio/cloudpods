@@ -88,13 +88,17 @@ func (self *SRegion) GetVpcPeering(id string) (*SVpcPeering, error) {
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=CreateVpcPeering
 func (self *SRegion) CreateVpcPeering(vpcId string, opts *cloudprovider.VpcPeeringConnectionCreateOptions) (*SVpcPeering, error) {
+	projectId := ""
+	if project, ok := self.client.projects[self.Id]; ok {
+		projectId = project.Id
+	}
 	params := map[string]interface{}{
 		"peering": map[string]interface{}{
 			"name":        opts.Name,
 			"description": opts.Desc,
 			"request_vpc_info": map[string]interface{}{
 				"vpc_id":    vpcId,
-				"tenant_id": self.client.projectId,
+				"tenant_id": projectId,
 			},
 			"accept_vpc_info": map[string]interface{}{
 				"vpc_id":    opts.PeerVpcId,
