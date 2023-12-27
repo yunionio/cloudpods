@@ -611,8 +611,8 @@ func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*clo
 	return instance.host.zone.region.GetInstanceVNC(instance.Id, origin)
 }
 
-func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return instance.host.zone.region.DeployVM(instance.Id, name, password, publicKey, deleteKeypair, description)
+func (instance *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return instance.host.zone.region.DeployVM(instance.Id, opts)
 }
 
 func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
@@ -699,11 +699,11 @@ func (region *SRegion) DeleteVM(instanceId string) error {
 	return region.doDeleteVM(instanceId)
 }
 
-func (region *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
-	if len(password) > 0 {
+func (region *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
+	if len(opts.Password) > 0 {
 		params := map[string]map[string]string{
 			"changePassword": {
-				"adminPass": password,
+				"adminPass": opts.Password,
 			},
 		}
 		resource := fmt.Sprintf("/servers/%s/action", instanceId)

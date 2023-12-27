@@ -408,26 +408,31 @@ func (instance *SInstance) UpdateUserData(userData string) error {
 	return instance.host.zone.region.SetMetadata(instance.SelfLink, instance.Metadata)
 }
 
-func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	diskId, err := instance.host.zone.region.RebuildRoot(instance.Id, desc.ImageId, desc.SysSizeGB)
+func (instance *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	diskId, err := instance.host.zone.region.RebuildRoot(instance.Id, opts.ImageId, opts.SysSizeGB)
 	if err != nil {
 		return "", errors.Wrap(err, "region.RebuildRoot")
 	}
-	return diskId, instance.DeployVM(ctx, "", desc.Account, desc.Password, desc.PublicKey, false, "")
+	deployOpts := &cloudprovider.SInstanceDeployOptions{
+		Username:  opts.Account,
+		Password:  opts.Password,
+		PublicKey: opts.PublicKey,
+	}
+	return diskId, instance.DeployVM(ctx, deployOpts)
 }
 
-func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (instance *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	conf := cloudinit.SCloudConfig{
 		SshPwauth: cloudinit.SSH_PASSWORD_AUTH_ON,
 	}
-	user := cloudinit.NewUser(username)
-	if len(password) > 0 {
-		user.Password(password)
+	user := cloudinit.NewUser(opts.Username)
+	if len(opts.Password) > 0 {
+		user.Password(opts.Password)
 	}
-	if len(publicKey) > 0 {
-		user.SshKey(publicKey)
+	if len(opts.PublicKey) > 0 {
+		user.SshKey(opts.PublicKey)
 	}
-	if len(password) > 0 || len(publicKey) > 0 {
+	if len(opts.Password) > 0 || len(opts.PublicKey) > 0 {
 		conf.MergeUser(user)
 		items := []SMetadataItem{}
 		instance.Refresh()
@@ -441,7 +446,7 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, username s
 		instance.Metadata.Items = items
 		return instance.host.zone.region.SetMetadata(instance.SelfLink, instance.Metadata)
 	}
-	if deleteKeypair {
+	if opts.DeleteKeypair {
 		items := []SMetadataItem{}
 		items = append(items, SMetadataItem{Key: METADATA_STARTUP_SCRIPT, Value: cloudinit.CLOUD_SHELL_HEADER + "\nrm -rf /root/.ssh/authorized_keys"})
 		instance.Refresh()

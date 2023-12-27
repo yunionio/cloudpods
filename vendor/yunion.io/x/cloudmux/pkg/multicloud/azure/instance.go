@@ -499,15 +499,15 @@ func (region *SRegion) ChangeVMConfig(ctx context.Context, instanceId string, nc
 	return instacen.ChangeConfig(ctx, &cloudprovider.SManagedVMChangeConfig{Cpu: ncpu, MemoryMB: vmem})
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	if len(publicKey) > 0 || len(password) > 0 {
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	if len(opts.PublicKey) > 0 || len(opts.Password) > 0 {
 		// 先判断系统是否安装了vmAgent,然后等待扩展准备完成后再重置密码
 		err := self.WaitEnableVMAccessReady()
 		if err != nil {
 			return err
 		}
 	}
-	return self.host.zone.region.DeployVM(ctx, self.ID, string(self.GetOsType()), name, password, publicKey, deleteKeypair, description)
+	return self.host.zone.region.DeployVM(ctx, self.ID, string(self.GetOsType()), opts)
 }
 
 type VirtualMachineExtensionProperties struct {
@@ -655,19 +655,19 @@ func (region *SRegion) resetPassword(osType, instanceId, username, password stri
 	return region.resetLoginInfo(osType, instanceId, setting)
 }
 
-func (region *SRegion) DeployVM(ctx context.Context, instanceId, osType, name, password, publicKey string, deleteKeypair bool, description string) error {
+func (region *SRegion) DeployVM(ctx context.Context, instanceId, osType string, opts *cloudprovider.SInstanceDeployOptions) error {
 	instance, err := region.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
-	if deleteKeypair {
+	if opts.DeleteKeypair {
 		return nil
 	}
-	if len(publicKey) > 0 {
-		return region.resetPublicKey(osType, instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
+	if len(opts.PublicKey) > 0 {
+		return region.resetPublicKey(osType, instanceId, instance.Properties.OsProfile.AdminUsername, opts.PublicKey)
 	}
-	if len(password) > 0 {
-		return region.resetPassword(osType, instanceId, instance.Properties.OsProfile.AdminUsername, password)
+	if len(opts.Password) > 0 {
+		return region.resetPassword(osType, instanceId, instance.Properties.OsProfile.AdminUsername, opts.Password)
 	}
 	return nil
 }

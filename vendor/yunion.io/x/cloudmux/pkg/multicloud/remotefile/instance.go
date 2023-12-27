@@ -109,7 +109,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SM
 	return "", cloudprovider.ErrNotSupported
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

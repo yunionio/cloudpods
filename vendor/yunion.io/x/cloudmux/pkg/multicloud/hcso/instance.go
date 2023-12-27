@@ -688,8 +688,8 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	return idisks[0].GetId(), nil
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return self.host.zone.region.DeployVM(self.GetId(), name, password, publicKey, deleteKeypair, description)
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return self.host.zone.region.DeployVM(self.GetId(), opts)
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
@@ -1215,30 +1215,11 @@ func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0110109377.html
 // 一键式重置密码 需要安装安装一键式重置密码插件 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0068095385.html
 // 目前不支持直接重置密钥
-func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
-	serverObj := jsonutils.NewDict()
-	if len(name) > 0 {
-		serverObj.Add(jsonutils.NewString(name), "name")
-	}
-
-	// if len(description) > 0 {
-	// 	serverObj.Add(jsonutils.NewString(description), "description")
-	// }
-
-	if serverObj.Size() > 0 {
-		params := jsonutils.NewDict()
-		params.Add(serverObj, "server")
-		// 这里华为返回的image字段是字符串。和SInstance的定义的image是字典结构不一致。
-		err := DoUpdate(self.ecsClient.NovaServers.Update, instanceId, params, nil)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(password) > 0 {
+func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
+	if len(opts.Password) > 0 {
 		params := jsonutils.NewDict()
 		passwdObj := jsonutils.NewDict()
-		passwdObj.Add(jsonutils.NewString(password), "new_password")
+		passwdObj.Add(jsonutils.NewString(opts.Password), "new_password")
 		params.Add(passwdObj, "reset-password")
 
 		err := DoUpdateWithSpec(self.ecsClient.NovaServers.UpdateInContextWithSpec, instanceId, "os-reset-password", params)

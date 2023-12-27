@@ -272,11 +272,11 @@ func (self *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SMan
 	return self.DisksInfo[0].Id, nil
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	input := api.ServerDeployInput{}
-	input.Password = password
-	if len(publicKey) > 0 {
-		keypairId, err := self.host.zone.region.syncKeypair(name, publicKey)
+	input.Password = opts.Password
+	if len(opts.PublicKey) > 0 {
+		keypairId, err := self.host.zone.region.syncKeypair(self.Name, opts.PublicKey)
 		if err != nil {
 			return errors.Wrapf(err, "syncKeypair")
 		}

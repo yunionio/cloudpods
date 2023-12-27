@@ -439,17 +439,8 @@ func (instance *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SIn
 	return instance.host.zone.region.UpdateVM(instance.InstanceId, input.NAME, input.Description)
 }
 
-func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	var keypairName string
-	if len(publicKey) > 0 {
-		var err error
-		keypairName, err = instance.host.zone.region.syncKeypair(publicKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	return instance.host.zone.region.DeployVM(instance.InstanceId, name, password, keypairName, deleteKeypair, description)
+func (instance *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return instance.host.zone.region.DeployVM(instance.InstanceId, opts)
 }
 
 func (instance *SInstance) AttachDisk(ctx context.Context, diskId string) error {
@@ -646,43 +637,36 @@ func (region *SRegion) UpdateVM(instanceId string, name, description string) err
 	return region.modifyInstanceAttribute(instanceId, params)
 }
 
-func (region *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
+func (region *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
 	instance, err := region.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
 
-	if deleteKeypair {
+	if opts.DeleteKeypair {
 		err = region.DetachKeyPair(instanceId, instance.KeyPairName)
 		if err != nil {
 			return err
 		}
 	}
 
-	if len(keypairName) > 0 {
+	if len(opts.PublicKey) > 0 {
+		keypairName, err := instance.host.zone.region.syncKeypair(opts.PublicKey)
+		if err != nil {
+			return err
+		}
 		err = region.AttachKeypair(instanceId, keypairName)
 		if err != nil {
 			return err
 		}
 	}
 
-	params := make(map[string]string)
-
-	if len(password) > 0 {
-		params["Password"] = password
-	}
-
-	if len(name) > 0 && instance.InstanceName != name {
-		params["InstanceName"] = name
-	}
-
-	if len(description) > 0 && instance.Description != description {
-		params["Description"] = description
-	}
-
-	if len(params) > 0 {
+	if len(opts.Password) > 0 {
+		params := make(map[string]string)
+		params["Password"] = opts.Password
 		return region.modifyInstanceAttribute(instanceId, params)
 	}
+
 	return nil
 }
 
