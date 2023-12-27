@@ -106,13 +106,19 @@ type SNetwork struct {
 	// allow mutiple ntp, seperated by ","
 	GuestNtp string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 
+	// search domain
 	GuestDomain string `width:"128" charset:"ascii" nullable:"true" get:"user" update:"user"`
 
+	// 起始IPv6地址
 	GuestIp6Start string `width:"64" charset:"ascii" nullable:"true"`
-	GuestIp6End   string `width:"64" charset:"ascii" nullable:"true"`
-	GuestIp6Mask  uint8  `nullable:"true"`
+	// 结束IPv6地址
+	GuestIp6End string `width:"64" charset:"ascii" nullable:"true"`
+	// IPv6子网掩码
+	GuestIp6Mask uint16 `nullable:"true"`
+	// IPv6网关
 	GuestGateway6 string `width:"64" charset:"ascii" nullable:"true"`
-	GuestDns6     string `width:"64" charset:"ascii" nullable:"true"`
+	// IPv6域名服务器
+	GuestDns6 string `width:"64" charset:"ascii" nullable:"true"`
 
 	GuestDomain6 string `width:"128" charset:"ascii" nullable:"true"`
 
@@ -1300,8 +1306,16 @@ func (snet *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclie
 	return ret, nil
 }
 
-func isValidMaskLen(maskLen int64) bool {
+func isValidIpv4MaskLen(maskLen int8) bool {
 	if maskLen < 12 || maskLen > 30 {
+		return false
+	} else {
+		return true
+	}
+}
+
+func isValidIpv6MaskLen(maskLen uint8) bool {
+	if maskLen < 48 || maskLen > 126 {
 		return false
 	} else {
 		return true
@@ -1514,14 +1528,14 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		ipRange = prefix.ToIPRange()
 		masklen = prefix.MaskLen
 		netAddr = prefix.Address.NetAddr(masklen)
-		input.GuestIpMask = int64(prefix.MaskLen)
-		if masklen >= 30 {
+		input.GuestIpMask = prefix.MaskLen
+		if !isValidIpv4MaskLen(masklen) {
 			return input, httperrors.NewInputParameterError("subnet masklen should be smaller than 30")
 		}
 		// 根据掩码得到合法的GuestIpPrefix
 		input.GuestIpPrefix = prefix.String()
-	} else {
-		if !isValidMaskLen(input.GuestIpMask) {
+	} else if len(input.GuestIpStart) > 0 {
+		if !isValidIpv4MaskLen(input.GuestIpMask) {
 			return input, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
 		}
 		ipStart, err := netutils.NewIPV4Addr(input.GuestIpStart)
@@ -1703,7 +1717,7 @@ func (snet *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 	if input.GuestIpMask > 0 {
 		maskLen64 := int64(input.GuestIpMask)
-		if !snet.isManaged() && !isValidMaskLen(maskLen64) {
+		if !snet.isManaged() && !isValidIpv4MaskLen(maskLen64) {
 			return input, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
 		}
 		masklen = int8(maskLen64)
@@ -1815,7 +1829,12 @@ func (snet *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 	return input, nil
 }
 
-func (snet *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
+func (snet *SNetwork) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.NetworkUpdateInput,
+) (api.NetworkUpdateInput, error) {
 	if !snet.isManaged() {
 		if !snet.isOneCloudVpcNetwork() {
 			// classic network
@@ -1826,6 +1845,11 @@ func (snet *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 			input.GuestIpMask = 0
 			input.GuestGateway = nil
 			input.GuestDhcp = nil
+
+			input.GuestIp6Start = nil
+			input.GuestIp6End = nil
+			input.GuestIp6Mask = nil
+			input.GuestGateway6 = nil
 		}
 	} else {
 		// managed network, not allow to update
@@ -1837,6 +1861,11 @@ func (snet *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 		input.GuestDomain = nil
 		input.GuestDhcp = nil
 		input.GuestNtp = nil
+
+		input.GuestIp6Start = nil
+		input.GuestIp6End = nil
+		input.GuestIp6Mask = nil
+		input.GuestGateway6 = nil
 	}
 	var err error
 	input, err = snet.validateUpdateData(ctx, userCred, query, input)

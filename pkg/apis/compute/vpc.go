@@ -100,6 +100,12 @@ type VpcUpdateInput struct {
 
 	// Vpc外网访问模式
 	ExternalAccessMode string `json:"external_access_mode"`
+
+	// CIDR BLOCK of IPv4
+	CidrBlock string `json:"cidr_block"`
+
+	// CIDR BLOCK of IPv6
+	CidrBlock6 string `json:"cidr_block6"`
 }
 
 type VpcResourceInput struct {

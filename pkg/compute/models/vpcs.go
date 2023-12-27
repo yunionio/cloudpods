@@ -86,7 +86,10 @@ type SVpc struct {
 
 	// CIDR地址段
 	// example: 192.168.222.0/24
-	CidrBlock string `charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
+	CidrBlock string `charset:"ascii" nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
+
+	// CIDR for IPv6
+	CidrBlock6 string `charset:"ascii" nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
 
 	// Vpc外网访问模式
 	ExternalAccessMode string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
@@ -204,11 +207,15 @@ func (svpc *SVpc) GetVpcPeeringConnectionCount() (int, error) {
 
 func (svpc *SVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcUpdateInput) (api.VpcUpdateInput, error) {
 	if input.ExternalAccessMode != "" {
-		if !utils.IsInStringArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
+		if !utils.IsInArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
 			return input, httperrors.NewInputParameterError("invalid external_access_mode %q, want %s",
 				input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES)
 		}
 	}
+	if len(input.CidrBlock) > 0 {
+		netutils2.ParseCIDR()
+	}
+
 	if _, err := svpc.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput); err != nil {
 		return input, err
 	}
