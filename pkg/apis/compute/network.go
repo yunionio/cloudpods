@@ -182,25 +182,44 @@ type NetworkCreateInput struct {
 	// example: 10.168.222.1/24
 	GuestIpPrefix string `json:"guest_ip_prefix"`
 
-	// description: ip range of guest ip start, if set guest_ip_prefix, this parameter will be useless
+	// description: ip range of guest ip start, if set guest_ip_prefix, this parameter will be ignored
 	// example: 10.168.222.1
 	GuestIpStart string `json:"guest_ip_start"`
 
-	// description: ip range of guest ip end, if set guest_ip_prefix, this parameter will be useless
+	// description: ip range of guest ip end, if set guest_ip_prefix, this parameter will be ignored
 	// example: 10.168.222.100
 	GuestIpEnd string `json:"guest_ip_end"`
 
-	// description: ip range of guest ip mask, if set guest_ip_prefix, this parameter will be useless
+	// description: ip range of guest ip mask, if set guest_ip_prefix, this parameter will be ignored
 	// example: 24
 	// maximum: 30
 	// minimum: 12
-	GuestIpMask int64 `json:"guest_ip_mask"`
+	GuestIpMask int8 `json:"guest_ip_mask"`
 
 	IfnameHint string `json:"ifname_hint"`
 
 	// description: guest gateway
 	// example: 192.168.222.1
 	GuestGateway string `json:"guest_gateway"`
+
+	// description: ipv6 range of guest, if not set, you shoud set guest_ip6_start,guest_ip6_end and guest_ip6_mask params
+	// example: 3ffe:3200:2001:2300::/64
+	GuestIp6Prefix string `json:"guest_ip6_prefix"`
+	// description: ipv6 range of guest ip start, if set guest_ip6_prefix, this parameter will be ignored
+	// example: 3ffe:3200:2001:2300::1
+	GuestIp6Start string `json:"guest_ip6_start"`
+	// description: ipv6 range of guest ip end, if set guest_ip6_prefix, this parameter will be ignored
+	// example: 3ffe:3200:2001:2300:ffff:ffff:ffff:ffff
+	GuestIp6End string `json:"guest_ip6_end"`
+	// description: ipv6 range of guest ip mask, if set guest_ip6_prefix, this parameter will be ignored
+	// example: 64
+	// maximum: 126
+	// minimum: 48
+	GuestIp6Mask uint8 `json:"guest_ip6_mask"`
+
+	// description: guest gateway of IPv6
+	// example: 3ffe:3200:2001:2300::1
+	GuestGateway6 string `json:"guest_gateway6"`
 
 	// description: guest dns
 	// example: 114.114.114.114,8.8.8.8
@@ -398,7 +417,7 @@ type NetworkUpdateInput struct {
 
 	// 起始IP地址
 	GuestIpStart string `json:"guest_ip_start"`
-	// 接收IP地址
+	// 结束IP地址
 	GuestIpEnd string `json:"guest_ip_end"`
 	// 掩码
 	GuestIpMask int8 `json:"guest_ip_mask"`
@@ -410,6 +429,15 @@ type NetworkUpdateInput struct {
 	GuestDhcp *string `json:"guest_dhcp"`
 	// NTP
 	GuestNtp *string `json:"guest_ntp"`
+
+	// 起始IP6地址
+	GuestIp6Start *string `json:"guest_ip6_start"`
+	// 结束IP6地址
+	GuestIp6End *string `json:"guest_ip6_end"`
+	// IP6子网掩码长度
+	GuestIp6Mask *uint16 `json:"guest_ip6_mask"`
+	// IP6网关地址
+	GuestGateway6 *string `json:"guest_gateway6"`
 
 	GuestDomain *string `json:"guest_domain"`
 
