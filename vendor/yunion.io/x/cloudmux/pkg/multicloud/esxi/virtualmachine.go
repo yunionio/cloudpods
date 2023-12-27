@@ -273,7 +273,7 @@ func (svm *SVirtualMachine) GetInstanceType() string {
 	return ""
 }
 
-func (svm *SVirtualMachine) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (svm *SVirtualMachine) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	return cloudprovider.ErrNotImplemented
 }
 

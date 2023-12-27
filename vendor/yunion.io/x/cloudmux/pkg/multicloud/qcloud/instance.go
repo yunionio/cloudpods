@@ -457,17 +457,8 @@ func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstan
 	return self.host.zone.region.UpdateVM(self.InstanceId, input.NAME)
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	var keypairName string
-	if len(publicKey) > 0 {
-		var err error
-		keypairName, err = self.host.zone.region.syncKeypair(publicKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+	return self.host.zone.region.DeployVM(self.InstanceId, opts)
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
@@ -761,14 +752,14 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	return self.doDeleteVM(instanceId)
 }
 
-func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
+func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
 
 	// 修改密钥时直接返回
-	if deleteKeypair {
+	if opts.DeleteKeypair {
 		for i := 0; i < len(instance.LoginSettings.KeyIds); i++ {
 			err = self.DetachKeyPair(instanceId, instance.LoginSettings.KeyIds[i])
 			if err != nil {
@@ -777,27 +768,19 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 		}
 	}
 
-	if len(keypairName) > 0 {
+	if len(opts.PublicKey) > 0 {
+		keypairName, err := self.syncKeypair(opts.PublicKey)
+		if err != nil {
+			return err
+		}
 		err = self.AttachKeypair(instanceId, keypairName)
 		if err != nil {
 			return err
 		}
 	}
 
-	params := make(map[string]string)
-
-	if len(name) > 0 && instance.InstanceName != name {
-		params["InstanceName"] = name
-	}
-
-	if len(params) > 0 {
-		err := self.modifyInstanceAttribute(instanceId, params)
-		if err != nil {
-			return err
-		}
-	}
-	if len(password) > 0 {
-		return self.instanceOperation(instanceId, "ResetInstancesPassword", map[string]string{"Password": password}, true)
+	if len(opts.Password) > 0 {
+		return self.instanceOperation(instanceId, "ResetInstancesPassword", map[string]string{"Password": opts.Password}, true)
 	}
 	return nil
 }

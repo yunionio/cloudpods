@@ -168,9 +168,9 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	attrs := make(map[string]string)
-	if password != "" {
+	if opts.Password != "" {
 		attrs["InstanceAction"] = "ResetPassword"
 	}
 	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, attrs)

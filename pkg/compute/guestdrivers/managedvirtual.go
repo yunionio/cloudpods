@@ -733,7 +733,12 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx contex
 	params := task.GetParams()
 	log.Debugf("Deploy VM params %s", params.String())
 
-	deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
+	opts := &cloudprovider.SInstanceDeployOptions{
+		Username:  desc.Account,
+		PublicKey: desc.PublicKey,
+		Password:  desc.Password,
+	}
+	opts.DeleteKeypair = jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
 	if len(desc.UserData) > 0 {
 		err := iVM.UpdateUserData(desc.UserData)
@@ -747,15 +752,15 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx contex
 		defer lockman.ReleaseObject(ctx, guest)
 
 		// 避免DeployVM函数里面执行顺序不一致导致与预期结果不符
-		if deleteKeypair {
-			desc.Password, desc.PublicKey = "", ""
+		if opts.DeleteKeypair {
+			opts.Password, opts.PublicKey = "", ""
 		}
 
 		if len(desc.PublicKey) > 0 {
-			desc.Password = ""
+			opts.Password = ""
 		}
 
-		e := iVM.DeployVM(ctx, desc.Name, desc.Account, desc.Password, desc.PublicKey, deleteKeypair, desc.Description)
+		e := iVM.DeployVM(ctx, opts)
 		if e != nil {
 			return e
 		}
