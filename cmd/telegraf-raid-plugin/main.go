@@ -44,6 +44,14 @@ const (
 // Failed, Offline, Degraded, Rebuilding, Out of Sync (OSY)
 
 func main() {
+	logLevel := "debug"
+	logVerboseLevel := 5
+	log.SetVerboseLevel(int32(logVerboseLevel))
+	err := log.SetLogLevelByString(log.Logger(), logLevel)
+	if err != nil {
+		log.Fatalf("Set log level %q: %v", logLevel, err)
+	}
+
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
