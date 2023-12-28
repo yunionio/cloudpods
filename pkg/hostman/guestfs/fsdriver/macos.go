@@ -75,7 +75,7 @@ func (m *SMacOSRootFs) RootSignatures() []string {
 
 func (m *SMacOSRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *deployapi.SSHKeys) error {
 	usrDir := fmt.Sprintf("/Users/%s", uname)
-	return DeployAuthorizedKeys(m.rootFs, usrDir, pubkeys, false)
+	return DeployAuthorizedKeys(m.rootFs, usrDir, pubkeys, false, false)
 }
 
 func (m *SMacOSRootFs) addScripts(lines []string) {
