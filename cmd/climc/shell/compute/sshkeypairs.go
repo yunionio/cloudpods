@@ -102,7 +102,7 @@ func init() {
 			oldKeys = string(output)
 		}
 		pubKeys := &deployapi.SSHKeys{AdminPublicKey: pubKey}
-		newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys)
+		newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys, true)
 		if output, err := procutils.NewCommand(
 			"sh", "-c", fmt.Sprintf("echo '%s' > %s", newKeys, authFile)).Output(); err != nil {
 			return errors.Wrapf(err, "write public keys: %s", output)
