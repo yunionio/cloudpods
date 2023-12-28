@@ -1585,6 +1585,14 @@ func (self *SGuest) PerformRebuildRoot(
 		return nil, err
 	}
 
+	if len(input.UserData) > 0 {
+		// validate UserData
+		if err := userdata.ValidateUserdata(input.UserData, self.OsType); err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
+		}
+		self.setUserData(ctx, userCred, input.UserData)
+	}
+
 	if len(input.ImageId) > 0 {
 		img, err := CachedimageManager.getImageInfo(ctx, userCred, input.ImageId, false)
 		if err != nil {
@@ -3551,6 +3559,10 @@ func (self *SGuest) GetUserData(ctx context.Context, userCred mcclient.TokenCred
 func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUserDataInput) (jsonutils.JSONObject, error) {
 	if len(input.UserData) == 0 {
 		return nil, httperrors.NewMissingParameterError("user_data")
+	}
+	// validate UserData
+	if err := userdata.ValidateUserdata(input.UserData, self.OsType); err != nil {
+		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
 	}
 	err := self.setUserData(ctx, userCred, input.UserData)
 	if err != nil {
