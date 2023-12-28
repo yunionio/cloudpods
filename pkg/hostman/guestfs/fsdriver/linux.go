@@ -216,7 +216,7 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 	} else {
 		usrDir = path.Join("/home", selUsr)
 	}
-	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false)
+	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false, false)
 }
 
 func (d *SCoreOsRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
@@ -270,7 +270,7 @@ func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployap
 		return errors.Wrap(err, "unable to CheckOrAddUser")
 	}
 	log.Infof("DeployYunionroot %s home %s", yunionroot, rootdir)
-	err = DeployAuthorizedKeys(rootFs, rootdir, pubkeys, true)
+	err = DeployAuthorizedKeys(rootFs, rootdir, pubkeys, true, true)
 	if err != nil {
 		log.Infof("DeployAuthorizedKeys error: %s", err.Error())
 		return fmt.Errorf("DeployAuthorizedKeys: %v", err)
@@ -1849,7 +1849,7 @@ func (d *SOpenWrtRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, p
 			gid      = 0
 			replace  = false
 		)
-		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace)
+		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace, false)
 	}
 	return d.sLinuxRootFs.DeployPublicKey(rootFs, selUsr, pubkeys)
 }
