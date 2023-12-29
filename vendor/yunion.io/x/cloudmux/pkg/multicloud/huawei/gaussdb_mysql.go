@@ -32,12 +32,16 @@ type GaussDBMySQL struct {
 		PatchAvailable bool   `json:"patch_available"`
 		WholeVersion   string `json:"whole_version"`
 	} `json:"datastore"`
-	Engine          string `json:"engine"`
-	Created         string `json:"created"`
-	Updated         string `json:"updated"`
-	DbUserName      string `json:"db_user_name"`
-	VpcId           string `json:"vpc_id"`
-	SubnetId        string `json:"subnet_id"`
+	Engine     string `json:"engine"`
+	Created    string `json:"created"`
+	Updated    string `json:"updated"`
+	DbUserName string `json:"db_user_name"`
+	VpcId      string `json:"vpc_id"`
+	SubnetId   string `json:"subnet_id"`
+	FlavorInfo struct {
+		Vcpus int
+		Ram   int
+	}
 	SecurityGroupId string `json:"security_group_id"`
 	BackupStrategy  struct {
 		StartTime string `json:"start_time"`
