@@ -44,41 +44,42 @@ const (
 	HUAWEI_DEFAULT_REGION = "cn-north-4"
 	HUAWEI_API_VERSION    = "2018-12-25"
 
-	SERVICE_IAM           = "iam"
-	SERVICE_IAM_V3        = "iam_v3"
-	SERVICE_IAM_V3_EXT    = "iam_v3_ext"
-	SERVICE_ELB           = "elb"
-	SERVICE_VPC           = "vpc"
-	SERVICE_VPC_V2_0      = "vpc_v2.0"
-	SERVICE_VPC_V3        = "vpc_v3"
-	SERVICE_CES           = "ces"
-	SERVICE_RDS           = "rds"
-	SERVICE_ECS           = "ecs"
-	SERVICE_ECS_V1_1      = "ecs_v1.1"
-	SERVICE_ECS_V2_1      = "ecs_v2.1"
-	SERVICE_EPS           = "eps"
-	SERVICE_EVS           = "evs"
-	SERVICE_EVS_V1        = "evs_v1"
-	SERVICE_EVS_V2_1      = "evs_v2.1"
-	SERVICE_BSS           = "bss"
-	SERVICE_SFS           = "sfs-turbo"
-	SERVICE_CTS           = "cts"
-	SERVICE_NAT           = "nat"
-	SERVICE_BMS           = "bms"
-	SERVICE_CCI           = "cci"
-	SERVICE_CSBS          = "csbs"
-	SERVICE_IMS           = "ims"
-	SERVICE_IMS_V1        = "ims_v1"
-	SERVICE_AS            = "as"
-	SERVICE_CCE           = "cce"
-	SERVICE_DCS           = "dcs"
-	SERVICE_MODELARTS     = "modelarts"
-	SERVICE_MODELARTS_V1  = "modelarts_v1"
-	SERVICE_SCM           = "scm"
-	SERVICE_CDN           = "cdn"
-	SERVICE_GAUSSDB       = "gaussdb"
-	SERVICE_GAUSSDB_NOSQL = "gaussdb-nosql"
-	SERVICE_FUNCTIONGRAPH = "functiongraph"
+	SERVICE_IAM                = "iam"
+	SERVICE_IAM_V3             = "iam_v3"
+	SERVICE_IAM_V3_EXT         = "iam_v3_ext"
+	SERVICE_ELB                = "elb"
+	SERVICE_VPC                = "vpc"
+	SERVICE_VPC_V2_0           = "vpc_v2.0"
+	SERVICE_VPC_V3             = "vpc_v3"
+	SERVICE_CES                = "ces"
+	SERVICE_RDS                = "rds"
+	SERVICE_ECS                = "ecs"
+	SERVICE_ECS_V1_1           = "ecs_v1.1"
+	SERVICE_ECS_V2_1           = "ecs_v2.1"
+	SERVICE_EPS                = "eps"
+	SERVICE_EVS                = "evs"
+	SERVICE_EVS_V1             = "evs_v1"
+	SERVICE_EVS_V2_1           = "evs_v2.1"
+	SERVICE_BSS                = "bss"
+	SERVICE_SFS                = "sfs-turbo"
+	SERVICE_CTS                = "cts"
+	SERVICE_NAT                = "nat"
+	SERVICE_BMS                = "bms"
+	SERVICE_CCI                = "cci"
+	SERVICE_CSBS               = "csbs"
+	SERVICE_IMS                = "ims"
+	SERVICE_IMS_V1             = "ims_v1"
+	SERVICE_AS                 = "as"
+	SERVICE_CCE                = "cce"
+	SERVICE_DCS                = "dcs"
+	SERVICE_MODELARTS          = "modelarts"
+	SERVICE_MODELARTS_V1       = "modelarts_v1"
+	SERVICE_SCM                = "scm"
+	SERVICE_CDN                = "cdn"
+	SERVICE_GAUSSDB            = "gaussdb"
+	SERVICE_GAUSSDB_NOSQL      = "gaussdb-nosql"
+	SERVICE_GAUSSDB_NOSQL_V3_1 = "gaussdb-nosql_v3.1"
+	SERVICE_FUNCTIONGRAPH      = "functiongraph"
 )
 
 type HuaweiClientConfig struct {
@@ -148,7 +149,8 @@ func (self *SHuaweiClient) init() error {
 	if err != nil {
 		return errors.Wrapf(err, "GetProjects")
 	}
-	return nil
+	_, err = self.GetOwnerId()
+	return err
 }
 
 func (self *SHuaweiClient) getDefaultClient() *http.Client {
@@ -651,6 +653,8 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 		url = fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
 	case SERVICE_GAUSSDB, SERVICE_GAUSSDB_NOSQL:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v3/%s/%s", service, regionId, projectId, resource)
+	case SERVICE_GAUSSDB_NOSQL_V3_1:
+		url = fmt.Sprintf("https://gaussdb-nosql.%s.myhuaweicloud.com/v3.1/%s/%s", regionId, projectId, resource)
 	case SERVICE_FUNCTIONGRAPH:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v2/%s/%s", service, regionId, projectId, resource)
 	default:
