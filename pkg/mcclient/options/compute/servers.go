@@ -974,6 +974,7 @@ type ServerRebuildRootOptions struct {
 	NoAccountInit *bool  `help:"Not reset account password"`
 	AutoStart     *bool  `help:"Auto start server after it is created"`
 	AllDisks      *bool  `help:"Rebuild all disks including data disks"`
+	UserData      string `hlep:"user data scripts"`
 }
 
 func (o *ServerRebuildRootOptions) GetId() string {

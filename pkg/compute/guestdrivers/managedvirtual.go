@@ -544,10 +544,6 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 			return guest.GetDriver().RemoteDeployGuestForDeploy(ctx, guest, ihost, task, desc)
 		})
 	case "rebuild":
-		userData, err := task.GetParams().GetString("user_data")
-		if err == nil {
-			desc.UserData = userData
-		}
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			return guest.GetDriver().RemoteDeployGuestForRebuildRoot(ctx, guest, ihost, task, desc)
 		})
