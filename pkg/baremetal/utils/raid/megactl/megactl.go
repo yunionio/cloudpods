@@ -207,29 +207,6 @@ func (dev *MegaRaidPhyDev) convertState(val string) string {
 	return state
 }
 
-func (dev *MegaRaidPhyDev) parseStripSize(lines []string) error {
-	size2Int := func(sizeStr string) int {
-		sz, _ := strconv.ParseFloat(strings.Fields(sizeStr)[0], 32)
-		szInt := int(sz)
-		if strings.Contains(sizeStr, "KB") {
-			return szInt
-		}
-		if strings.Contains(sizeStr, "MB") {
-			return szInt * 1024
-		}
-		return -1
-	}
-	for _, line := range lines {
-		if strings.Contains(line, "Min") {
-			dev.minStripSize = size2Int(strings.Split(line, ": ")[1])
-		}
-		if strings.Contains(line, "Max") {
-			dev.maxStripSize = size2Int(strings.Split(line, ": ")[1])
-		}
-	}
-	return nil
-}
-
 func (dev *MegaRaidPhyDev) isComplete() bool {
 	if !dev.RaidBasePhyDev.IsComplete() {
 		return false
@@ -270,6 +247,9 @@ type MegaRaidAdaptor struct {
 	// used by sg_map
 	hostNum int
 	//channelNum int
+
+	minStripSize int
+	maxStripSize int
 }
 
 func NewMegaRaidAdaptor(index int, raid *MegaRaid) (*MegaRaidAdaptor, error) {
@@ -305,8 +285,26 @@ func (adapter MegaRaidAdaptor) key() string {
 	return adapter.name + adapter.sn
 }
 
+/*
+Adapter: 0
+Product Name: MegaRAID 9560-8i 4GB
+Memory: 4096MB
+BBU: Absent
+Serial No: SKC4011564
+*/
 func (adapter *MegaRaidAdaptor) fillInfo() error {
-	cmd := GetCommand("-AdpAllInfo", fmt.Sprintf("-a%d", adapter.index))
+	size2Int := func(sizeStr string) int {
+		sz, _ := strconv.ParseFloat(strings.Fields(sizeStr)[0], 32)
+		szInt := int(sz)
+		if strings.Contains(sizeStr, "KB") {
+			return szInt
+		}
+		if strings.Contains(sizeStr, "MB") {
+			return szInt * 1024
+		}
+		return -1
+	}
+	cmd := GetCommand("-CfgDsply", fmt.Sprintf("-a%d", adapter.index))
 	ret, err := adapter.remoteRun(cmd)
 	if err != nil {
 		return errors.Wrap(err, "remote get SN")
@@ -321,6 +319,14 @@ func (adapter *MegaRaidAdaptor) fillInfo() error {
 			adapter.sn = val
 		case "Product Name":
 			adapter.name = val
+		case "Strip Size":
+			sz := size2Int(val)
+			adapter.minStripSize = sz
+			adapter.maxStripSize = sz
+		case "Min Strip Size":
+			adapter.minStripSize = size2Int(val)
+		case "Max Strip Size":
+			adapter.maxStripSize = size2Int(val)
 		}
 	}
 	if len(adapter.key()) == 0 {
@@ -1076,18 +1082,9 @@ func (raid *MegaRaid) parsePhyDevs(lines []string) error {
 }
 
 func (adapter *MegaRaidAdaptor) addPhyDevsStripSize() error {
-	grepCmd := []string{"grep", "-iE", "'^(Min|Max) Strip Size'"}
-	args := []string{"-adpallinfo", fmt.Sprintf("-a%d", adapter.index), "|"}
-	args = append(args, grepCmd...)
-	cmd := GetCommand(args...)
-	ret, err := adapter.remoteRun(cmd)
-	if err != nil {
-		return fmt.Errorf("addPhyDevStripSize error: %v", err)
-	}
 	for _, dev := range adapter.devs {
-		if err := dev.parseStripSize(ret); err != nil {
-			return err
-		}
+		dev.minStripSize = adapter.minStripSize
+		dev.maxStripSize = adapter.maxStripSize
 	}
 	return nil
 }
