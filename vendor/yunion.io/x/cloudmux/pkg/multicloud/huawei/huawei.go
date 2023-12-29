@@ -148,7 +148,8 @@ func (self *SHuaweiClient) init() error {
 	if err != nil {
 		return errors.Wrapf(err, "GetProjects")
 	}
-	return nil
+	_, err = self.GetOwnerId()
+	return err
 }
 
 func (self *SHuaweiClient) getDefaultClient() *http.Client {
