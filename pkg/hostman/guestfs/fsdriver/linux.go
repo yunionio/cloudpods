@@ -56,6 +56,8 @@ const (
 var (
 	NetDevPrefix   = "eth"
 	NetDevPrefixEN = "en"
+
+	IBNetDevPrefix = "ib"
 )
 
 func GetNetDevPrefix(nics []*types.SServerNic) string {
@@ -64,6 +66,10 @@ func GetNetDevPrefix(nics []*types.SServerNic) string {
 	} else {
 		return NetDevPrefix
 	}
+}
+
+func GetIBNetDevPrefix() string {
+	return IBNetDevPrefix
 }
 
 func NicsHasDifferentDriver(nics []*types.SServerNic) bool {
@@ -397,10 +403,13 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 		for _, nic := range nics {
 			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
-			mac := nic.Mac
-			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
-			idx := nic.Index
-			nicRules += fmt.Sprintf("NAME=\"%s%d\"\n", netDevPrefix, idx)
+			if nic.NicType == api.NIC_TYPE_INFINIBAND {
+				nicRules += fmt.Sprintf(`ATTR{address}=="?*%s", ATTR{type}=="32", `, strings.ToLower(nic.Mac))
+				nicRules += fmt.Sprintf("NAME=\"%s%d\"\n", GetIBNetDevPrefix(), nic.Index)
+			} else {
+				nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(nic.Mac))
+				nicRules += fmt.Sprintf("NAME=\"%s%d\"\n", netDevPrefix, nic.Index)
+			}
 		}
 		if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
 			return err
@@ -1348,7 +1357,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		if nicDesc.Mtu > 0 {
 			cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
 		}
-		if len(nicDesc.Mac) > 0 {
+		if len(nicDesc.Mac) > 0 && nicDesc.NicType != api.NIC_TYPE_INFINIBAND {
 			cmds.WriteString("HWADDR=")
 			cmds.WriteString(nicDesc.Mac)
 			cmds.WriteString("\n")

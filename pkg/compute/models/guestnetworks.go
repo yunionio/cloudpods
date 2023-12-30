@@ -626,9 +626,22 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.TeamWith = gn.TeamWith
 
 	guest := gn.getGuest()
-	if guest.GetHypervisor() != api.HYPERVISOR_KVM || gn.IsSriovWithoutOffload() {
+	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
 		manual := true
 		desc.Manual = &manual
+	} else {
+		if gn.Driver == api.NETWORK_DRIVER_VFIO {
+			dev, _ := gn.GetIsolatedDevice()
+			if dev != nil {
+				if dev.OvsOffloadInterface == "" {
+					manual := true
+					desc.Manual = &manual
+				}
+				if dev.IsInfinibandNic {
+					desc.NicType = api.NIC_TYPE_INFINIBAND
+				}
+			}
+		}
 	}
 
 	return desc

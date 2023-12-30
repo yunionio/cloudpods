@@ -104,6 +104,7 @@ type GuestnetworkBaseDesc struct {
 	Index          int8                 `json:"index"`
 	RxTrafficLimit int64                `json:"rx_traffic_limit"`
 	TxTrafficLimit int64                `json:"tx_traffic_limit"`
+	NicType        compute.TNicType     `json:"nic_type"`
 
 	// 是否为缺省路由网关
 	IsDefault bool `json:"is_default"`
@@ -140,8 +141,6 @@ type GuestnetworkJsonDesc struct {
 	// baremetal
 	Rate        int    `json:"rate"`
 	BaremetalId string `json:"baremetal_id"`
-
-	NicType compute.TNicType `json:"nic_type"`
 
 	LinkUp bool `json:"link_up"`
 }

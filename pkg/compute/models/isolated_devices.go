@@ -102,6 +102,8 @@ type SIsolatedDevice struct {
 	WireId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// Offload interface name
 	OvsOffloadInterface string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// Is infiniband nic
+	IsInfinibandNic bool `nullable:"false" default:"false" list:"user" create:"optional"`
 	// NVME disk size
 	NvmeSizeMB int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// guest disk index
