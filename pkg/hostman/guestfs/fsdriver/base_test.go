@@ -26,22 +26,33 @@ func TestMergeAuthorizedKeys(t *testing.T) {
 		pubkeys *deployapi.SSHKeys
 	}
 	tests := []struct {
-		name string
-		args args
-		want string
+		name  string
+		args  args
+		admin bool
+		want  string
 	}{
 		{
 			name: "MergeAuthorizedKeys",
 			args: args{
-				oldKeys: "Test KEY",
+				oldKeys: "ssh-rsa KEY",
 				pubkeys: &deployapi.SSHKeys{},
 			},
-			want: "Test KEY\n",
+			admin: true,
+			want:  "ssh-rsa KEY\n",
+		},
+		{
+			name: "MergeAuthorizedKeys",
+			args: args{
+				oldKeys: "ssh-rsa KEY " + sshKeySignature,
+				pubkeys: &deployapi.SSHKeys{},
+			},
+			admin: true,
+			want:  "\n",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MergeAuthorizedKeys(tt.args.oldKeys, tt.args.pubkeys); got != tt.want {
+			if got := MergeAuthorizedKeys(tt.args.oldKeys, tt.args.pubkeys, tt.admin); got != tt.want {
 				t.Errorf("MergeAuthorizedKeys() = %v, want %v", got, tt.want)
 			}
 		})
