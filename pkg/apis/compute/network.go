@@ -401,17 +401,17 @@ type NetworkUpdateInput struct {
 	// 接收IP地址
 	GuestIpEnd string `json:"guest_ip_end"`
 	// 掩码
-	GuestIpMask *int8 `json:"guest_ip_mask"`
+	GuestIpMask int8 `json:"guest_ip_mask"`
 	// 网关地址
-	GuestGateway string `json:"guest_gateway"`
+	GuestGateway *string `json:"guest_gateway"`
 	// DNS
-	GuestDns string `json:"guest_dns"`
+	GuestDns *string `json:"guest_dns"`
 	// allow multiple dhcp, seperated by ","
-	GuestDhcp string `json:"guest_dhcp"`
+	GuestDhcp *string `json:"guest_dhcp"`
 	// NTP
-	GuestNtp string `json:"guest_ntp"`
+	GuestNtp *string `json:"guest_ntp"`
 
-	GuestDomain string `json:"guest_domain"`
+	GuestDomain *string `json:"guest_domain"`
 
 	VlanId *int `json:"vlan_id"`
 

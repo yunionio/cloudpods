@@ -110,7 +110,7 @@ type SNetwork struct {
 
 	GuestIp6Start string `width:"64" charset:"ascii" nullable:"true"`
 	GuestIp6End   string `width:"64" charset:"ascii" nullable:"true"`
-	GuestIp6Mask  int8   `nullable:"true"`
+	GuestIp6Mask  uint8  `nullable:"true"`
 	GuestGateway6 string `width:"64" charset:"ascii" nullable:"true"`
 	GuestDns6     string `width:"64" charset:"ascii" nullable:"true"`
 
@@ -141,10 +141,10 @@ func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (self *SNetwork) getMtu() int16 {
+func (snet *SNetwork) getMtu() int16 {
 	baseMtu := options.Options.DefaultMtu
 
-	wire, _ := self.GetWire()
+	wire, _ := snet.GetWire()
 	if wire != nil {
 		if IsOneCloudVpcResource(wire) {
 			return int16(options.Options.OvnUnderlayMtu - api.VPC_OVN_ENCAP_COST)
@@ -158,11 +158,11 @@ func (self *SNetwork) getMtu() int16 {
 	return int16(baseMtu)
 }
 
-func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
+func (snet *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 	sq := NetworkinterfacenetworkManager.Query().SubQuery()
 	q := NetworkInterfaceManager.Query()
 	q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("networkinterface_id"))).
-		Filter(sqlchemy.Equals(sq.Field("network_id"), self.Id))
+		Filter(sqlchemy.Equals(sq.Field("network_id"), snet.Id))
 	networkinterfaces := []SNetworkInterface{}
 	err := db.FetchModelObjects(NetworkInterfaceManager, q, &networkinterfaces)
 	if err != nil {
@@ -171,14 +171,14 @@ func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 	return networkinterfaces, nil
 }
 
-func (self *SNetwork) ValidateDeleteCondition(ctx context.Context, data *api.NetworkDetails) error {
+func (snet *SNetwork) ValidateDeleteCondition(ctx context.Context, data *api.NetworkDetails) error {
 	if data == nil {
 		data = &api.NetworkDetails{}
-		nics, err := NetworkManager.TotalNicCount([]string{self.Id})
+		nics, err := NetworkManager.TotalNicCount([]string{snet.Id})
 		if err != nil {
 			return errors.Wrapf(err, "TotalNicCount")
 		}
-		if cnt, ok := nics[self.Id]; ok {
+		if cnt, ok := nics[snet.Id]; ok {
 			data.SNetworkNics = cnt
 		}
 	}
@@ -186,11 +186,11 @@ func (self *SNetwork) ValidateDeleteCondition(ctx context.Context, data *api.Net
 		return httperrors.NewNotEmptyError("not an empty network %s", jsonutils.Marshal(data.SNetworkNics).String())
 	}
 
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
+	return snet.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SNetwork) GetGuestnetworks() ([]SGuestnetwork, error) {
-	q := GuestnetworkManager.Query().Equals("network_id", self.Id)
+func (snet *SNetwork) GetGuestnetworks() ([]SGuestnetwork, error) {
+	q := GuestnetworkManager.Query().Equals("network_id", snet.Id)
 	gns := []SGuestnetwork{}
 	err := db.FetchModelObjects(GuestnetworkManager, q, &gns)
 	if err != nil {
@@ -199,8 +199,8 @@ func (self *SNetwork) GetGuestnetworks() ([]SGuestnetwork, error) {
 	return gns, nil
 }
 
-func (self *SNetwork) GetDBInstanceNetworks() ([]SDBInstanceNetwork, error) {
-	q := DBInstanceNetworkManager.Query().Equals("network_id", self.Id)
+func (snet *SNetwork) GetDBInstanceNetworks() ([]SDBInstanceNetwork, error) {
+	q := DBInstanceNetworkManager.Query().Equals("network_id", snet.Id)
 	networks := []SDBInstanceNetwork{}
 	err := db.FetchModelObjects(DBInstanceNetworkManager, q, &networks)
 	if err != nil {
@@ -252,10 +252,10 @@ func (manager *SNetworkManager) GetOrCreateClassicNetwork(ctx context.Context, w
 	return &network, nil
 }
 
-func (self *SNetwork) GetUsedAddresses() map[string]bool {
+func (snet *SNetwork) GetUsedAddresses() map[string]bool {
 	used := make(map[string]bool)
 
-	q := self.getUsedAddressQuery(nil, nil, rbacscope.ScopeSystem, true)
+	q := snet.getUsedAddressQuery(nil, nil, rbacscope.ScopeSystem, true)
 	results, err := q.AllStringMap()
 	if err != nil {
 		log.Errorf("GetUsedAddresses fail %s", err)
@@ -267,8 +267,8 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 	return used
 }
 
-func (self *SNetwork) GetIPRange() netutils.IPV4AddrRange {
-	return self.getIPRange()
+func (snet *SNetwork) GetIPRange() netutils.IPV4AddrRange {
+	return snet.getIPRange()
 }
 
 func (net *SNetwork) getIPRange() netutils.IPV4AddrRange {
@@ -297,8 +297,8 @@ func isIpUsed(ipstr string, addrTable map[string]bool, recentUsedAddrTable map[s
 	}
 }
 
-func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection) (string, error) {
-	iprange := self.getIPRange()
+func (snet *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection) (string, error) {
+	iprange := snet.getIPRange()
 	// Try candidate first
 	if len(candidate) > 0 {
 		candIP, err := netutils.NewIPV4Addr(candidate)
@@ -313,15 +313,15 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 		}
 	}
 	// If network's alloc_policy is not none, then use network's alloc_policy
-	if len(self.AllocPolicy) > 0 && api.IPAllocationDirection(self.AllocPolicy) != api.IPAllocationNone {
-		allocDir = api.IPAllocationDirection(self.AllocPolicy)
+	if len(snet.AllocPolicy) > 0 && api.IPAllocationDirection(snet.AllocPolicy) != api.IPAllocationNone {
+		allocDir = api.IPAllocationDirection(snet.AllocPolicy)
 	}
 	// if alloc_dir is not speicified, and network's alloc_policy is not either, use default
 	if len(allocDir) == 0 {
 		allocDir = api.IPAllocationDirection(options.Options.DefaultIPAllocationDirection)
 	}
 	if allocDir == api.IPAllocationStepdown {
-		ip, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
+		ip, _ := netutils.NewIPV4Addr(snet.GuestIpEnd)
 		for iprange.Contains(ip) {
 			if !isIpUsed(ip.String(), addrTable, recentUsedAddrTable) {
 				return ip.String(), nil
@@ -330,7 +330,7 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 		}
 	} else {
 		if allocDir == api.IPAllocationRadnom {
-			iprange := self.getIPRange()
+			iprange := snet.getIPRange()
 			const MAX_TRIES = 5
 			for i := 0; i < MAX_TRIES; i += 1 {
 				ip := iprange.Random()
@@ -340,7 +340,7 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 			}
 			// failed, fallback to IPAllocationStepup
 		}
-		ip, _ := netutils.NewIPV4Addr(self.GuestIpStart)
+		ip, _ := netutils.NewIPV4Addr(snet.GuestIpStart)
 		for iprange.Contains(ip) {
 			if !isIpUsed(ip.String(), addrTable, recentUsedAddrTable) {
 				return ip.String(), nil
@@ -351,19 +351,19 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 	return "", httperrors.NewInsufficientResourceError("Out of IP address")
 }
 
-func (self *SNetwork) GetFreeIPWithLock(ctx context.Context, userCred mcclient.TokenCredential, addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection, reserved bool) (string, error) {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+func (snet *SNetwork) GetFreeIPWithLock(ctx context.Context, userCred mcclient.TokenCredential, addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection, reserved bool) (string, error) {
+	lockman.LockObject(ctx, snet)
+	defer lockman.ReleaseObject(ctx, snet)
 
-	return self.GetFreeIP(ctx, userCred, addrTable, recentUsedAddrTable, candidate, allocDir, reserved)
+	return snet.GetFreeIP(ctx, userCred, addrTable, recentUsedAddrTable, candidate, allocDir, reserved)
 }
 
-func (self *SNetwork) GetFreeIP(ctx context.Context, userCred mcclient.TokenCredential, addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection, reserved bool) (string, error) {
+func (snet *SNetwork) GetFreeIP(ctx context.Context, userCred mcclient.TokenCredential, addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection, reserved bool) (string, error) {
 	// if reserved true, first try find IP in reserved IP pool
 	if reserved {
-		rip := ReservedipManager.GetReservedIP(self, candidate)
+		rip := ReservedipManager.GetReservedIP(snet, candidate)
 		if rip != nil {
-			rip.Release(ctx, userCred, self)
+			rip.Release(ctx, userCred, snet)
 			return candidate, nil
 		}
 		// return "", httperrors.NewInsufficientResourceError("Reserved address %s not found", candidate)
@@ -371,29 +371,29 @@ func (self *SNetwork) GetFreeIP(ctx context.Context, userCred mcclient.TokenCred
 		log.Warningf("Reserved address %s not found", candidate)
 	}
 	if addrTable == nil {
-		addrTable = self.GetUsedAddresses()
+		addrTable = snet.GetUsedAddresses()
 	}
 	if recentUsedAddrTable == nil {
-		recentUsedAddrTable = GuestnetworkManager.getRecentlyReleasedIPAddresses(self.Id, self.getAllocTimoutDuration())
+		recentUsedAddrTable = GuestnetworkManager.getRecentlyReleasedIPAddresses(snet.Id, snet.getAllocTimoutDuration())
 	}
-	cand, err := self.getFreeIP(addrTable, recentUsedAddrTable, candidate, allocDir)
+	cand, err := snet.getFreeIP(addrTable, recentUsedAddrTable, candidate, allocDir)
 	if err != nil {
 		return "", err
 	}
 	return cand, nil
 }
 
-func (self *SNetwork) GetNetAddr() netutils.IPV4Addr {
-	startIp, _ := netutils.NewIPV4Addr(self.GuestIpStart)
-	return startIp.NetAddr(self.GuestIpMask)
+func (snet *SNetwork) GetNetAddr() netutils.IPV4Addr {
+	startIp, _ := netutils.NewIPV4Addr(snet.GuestIpStart)
+	return startIp.NetAddr(snet.GuestIpMask)
 }
 
-func (self *SNetwork) GetDNS(zoneName string) string {
-	if len(self.GuestDns) > 0 {
-		return self.GuestDns
+func (snet *SNetwork) GetDNS(zoneName string) string {
+	if len(snet.GuestDns) > 0 {
+		return snet.GuestDns
 	}
 	if len(zoneName) == 0 {
-		wire, _ := self.GetWire()
+		wire, _ := snet.GetWire()
 		if wire != nil {
 			zone, _ := wire.GetZone()
 			if zone != nil {
@@ -412,12 +412,12 @@ func (self *SNetwork) GetDNS(zoneName string) string {
 	return ""
 }
 
-func (self *SNetwork) GetNTP() string {
-	if len(self.GuestNtp) > 0 {
-		return self.GuestNtp
+func (snet *SNetwork) GetNTP() string {
+	if len(snet.GuestNtp) > 0 {
+		return snet.GuestNtp
 	} else {
 		zoneName := ""
-		wire, _ := self.GetWire()
+		wire, _ := snet.GetWire()
 		if wire != nil {
 			zone, _ := wire.GetZone()
 			if zone != nil {
@@ -432,17 +432,17 @@ func (self *SNetwork) GetNTP() string {
 	}
 }
 
-func (self *SNetwork) GetDomain() string {
-	if len(self.GuestDomain) > 0 {
-		return self.GuestDomain
+func (snet *SNetwork) GetDomain() string {
+	if len(snet.GuestDomain) > 0 {
+		return snet.GuestDomain
 	} else {
 		return options.Options.DNSDomain
 	}
 }
 
-func (self *SNetwork) GetRoutes() []types.SRoute {
+func (snet *SNetwork) GetRoutes() []types.SRoute {
 	ret := make([]types.SRoute, 0)
-	routes := self.GetMetadataJson(context.Background(), "static_routes", nil)
+	routes := snet.GetMetadataJson(context.Background(), "static_routes", nil)
 	if routes != nil {
 		routesMap, err := routes.GetMap()
 		if err != nil {
@@ -456,34 +456,34 @@ func (self *SNetwork) GetRoutes() []types.SRoute {
 	return ret
 }
 
-func (self *SNetwork) updateDnsRecord(nic *SGuestnetwork, isAdd bool) {
+func (snet *SNetwork) updateDnsRecord(nic *SGuestnetwork, isAdd bool) {
 	guest := nic.GetGuest()
-	self._updateDnsRecord(guest.Name, nic.IpAddr, isAdd)
+	snet._updateDnsRecord(guest.Name, nic.IpAddr, isAdd)
 }
 
-func (self *SNetwork) _updateDnsRecord(name string, ipAddr string, isAdd bool) {
-	if len(self.GuestDns) > 0 && len(self.GuestDomain) > 0 && len(ipAddr) > 0 {
-		keyName := self.GetMetadata(context.Background(), "dns_update_key_name", nil)
-		keySecret := self.GetMetadata(context.Background(), "dns_update_key_secret", nil)
-		dnsSrv := self.GetMetadata(context.Background(), "dns_update_server", nil)
+func (snet *SNetwork) _updateDnsRecord(name string, ipAddr string, isAdd bool) {
+	if len(snet.GuestDns) > 0 && len(snet.GuestDomain) > 0 && len(ipAddr) > 0 {
+		keyName := snet.GetMetadata(context.Background(), "dns_update_key_name", nil)
+		keySecret := snet.GetMetadata(context.Background(), "dns_update_key_secret", nil)
+		dnsSrv := snet.GetMetadata(context.Background(), "dns_update_server", nil)
 		if len(dnsSrv) == 0 || !regutils.MatchIPAddr(dnsSrv) {
-			dnsSrv = self.GuestDns
+			dnsSrv = snet.GuestDns
 		}
 		log.Infof("dns update %s %s isAdd=%t", ipAddr, dnsSrv, isAdd)
 		if len(keyName) > 0 && len(keySecret) > 0 {
 			/* netman.get_manager().dns_update(name,
-			self.guest_domain, ip_addr, None,
-			dns_srv, self.guest_dns6, key_name, key_secret,
+			snet.guest_domain, ip_addr, None,
+			dns_srv, snet.guest_dns6, key_name, key_secret,
 			is_add) */
 		}
-		targets := self.getDnsUpdateTargets()
+		targets := snet.getDnsUpdateTargets()
 		if targets != nil {
 			for srv, keys := range targets {
 				for _, key := range keys {
 					log.Debugf("Register %s %s", srv, key)
 					/*
 											netman.get_manager().dns_update(name,
-						                            self.guest_domain, ip_addr, None,
+						                            snet.guest_domain, ip_addr, None,
 						                            srv, None,
 						                            key.get('key', None),
 						                            key.get('secret', None),
@@ -495,16 +495,16 @@ func (self *SNetwork) _updateDnsRecord(name string, ipAddr string, isAdd bool) {
 	}
 }
 
-func (self *SNetwork) updateGuestNetmap(nic *SGuestnetwork) {
+func (snet *SNetwork) updateGuestNetmap(nic *SGuestnetwork) {
 	// TODO
 
 }
 
-func (self *SNetwork) UpdateBaremetalNetmap(nic *SHostnetwork, name string) {
-	self.UpdateNetmap(nic.IpAddr, auth.AdminCredential().GetTenantId(), name)
+func (snet *SNetwork) UpdateBaremetalNetmap(nic *SHostnetwork, name string) {
+	snet.UpdateNetmap(nic.IpAddr, auth.AdminCredential().GetTenantId(), name)
 }
 
-func (self *SNetwork) UpdateNetmap(ip, project, name string) {
+func (snet *SNetwork) UpdateNetmap(ip, project, name string) {
 	// TODO ??
 }
 
@@ -513,9 +513,9 @@ type DNSUpdateKeySecret struct {
 	Secret string
 }
 
-func (self *SNetwork) getDnsUpdateTargets() map[string][]DNSUpdateKeySecret {
+func (snet *SNetwork) getDnsUpdateTargets() map[string][]DNSUpdateKeySecret {
 	targets := make(map[string][]DNSUpdateKeySecret)
-	targetsJson := self.GetMetadataJson(context.Background(), api.EXTRA_DNS_UPDATE_TARGETS, nil)
+	targetsJson := snet.GetMetadataJson(context.Background(), api.EXTRA_DNS_UPDATE_TARGETS, nil)
 	if targetsJson == nil {
 		return nil
 	} else {
@@ -527,13 +527,13 @@ func (self *SNetwork) getDnsUpdateTargets() map[string][]DNSUpdateKeySecret {
 	}
 }
 
-func (self *SNetwork) GetGuestIpv4StartAddress() netutils.IPV4Addr {
-	addr, _ := netutils.NewIPV4Addr(self.GuestIpStart)
+func (snet *SNetwork) GetGuestIpv4StartAddress() netutils.IPV4Addr {
+	addr, _ := netutils.NewIPV4Addr(snet.GuestIpStart)
 	return addr
 }
 
-func (self *SNetwork) IsExitNetwork() bool {
-	return netutils.IsExitAddress(self.GetGuestIpv4StartAddress())
+func (snet *SNetwork) IsExitNetwork() bool {
+	return netutils.IsExitAddress(snet.GetGuestIpv4StartAddress())
 }
 
 func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, error) {
@@ -623,22 +623,22 @@ func (manager *SNetworkManager) SyncNetworks(
 	return localNets, remoteNets, syncResult
 }
 
-func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+func (snet *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, snet)
+	defer lockman.ReleaseObject(ctx, snet)
 
-	if self.ExternalId == self.WireId {
+	if snet.ExternalId == snet.WireId {
 		return nil
 	}
 
-	err := self.ValidateDeleteCondition(ctx, nil)
+	err := snet.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		err = snet.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
 	} else {
-		err = self.RealDelete(ctx, userCred)
+		err = snet.RealDelete(ctx, userCred)
 		if err == nil {
 			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-				Obj:    self,
+				Obj:    snet,
 				Action: notifyclient.ActionSyncDelete,
 			})
 		}
@@ -646,27 +646,27 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 	return err
 }
 
-func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
-	vpc, _ := self.GetVpc()
-	diff, err := db.UpdateWithLock(ctx, self, func() error {
+func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
+	vpc, _ := snet.GetVpc()
+	diff, err := db.UpdateWithLock(ctx, snet, func() error {
 		if options.Options.EnableSyncName {
-			newName, _ := db.GenerateAlterName(self, extNet.GetName())
+			newName, _ := db.GenerateAlterName(snet, extNet.GetName())
 			if len(newName) > 0 {
-				self.Name = newName
+				snet.Name = newName
 			}
 		}
 
-		self.Status = extNet.GetStatus()
-		self.GuestIpStart = extNet.GetIpStart()
-		self.GuestIpEnd = extNet.GetIpEnd()
-		self.GuestIpMask = extNet.GetIpMask()
-		self.GuestGateway = extNet.GetGateway()
-		self.ServerType = extNet.GetServerType()
+		snet.Status = extNet.GetStatus()
+		snet.GuestIpStart = extNet.GetIpStart()
+		snet.GuestIpEnd = extNet.GetIpEnd()
+		snet.GuestIpMask = extNet.GetIpMask()
+		snet.GuestGateway = extNet.GetGateway()
+		snet.ServerType = extNet.GetServerType()
 
-		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
+		snet.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 		if createdAt := extNet.GetCreatedAt(); !createdAt.IsZero() {
-			self.CreatedAt = createdAt
+			snet.CreatedAt = createdAt
 		}
 
 		return nil
@@ -675,16 +675,16 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		log.Errorf("syncWithCloudNetwork error %s", err)
 		return err
 	}
-	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	db.OpsLog.LogSyncUpdate(snet, diff, userCred)
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-			Obj:    self,
+			Obj:    snet,
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
 
-	//syncVirtualResourceMetadata(ctx, userCred, self, extNet)
-	SyncCloudProject(ctx, userCred, self, syncOwnerId, extNet, vpc.ManagerId)
+	//syncVirtualResourceMetadata(ctx, userCred, snet, extNet)
+	SyncCloudProject(ctx, userCred, snet, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
 		shareInfo := provider.getAccountShareInfo()
@@ -694,7 +694,7 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 				PublicScope: rbacscope.ScopeNone,
 			}
 		}
-		self.SyncShareState(ctx, userCred, shareInfo)
+		snet.SyncShareState(ctx, userCred, shareInfo)
 	}
 
 	return nil
@@ -773,8 +773,8 @@ func (net *SNetwork) IsAddressInNet(address netutils.IPV4Addr) bool {
 	return net.getNetRange().Contains(address)
 }
 
-func (self *SNetwork) isAddressUsed(address string) (bool, error) {
-	q := self.getUsedAddressQuery(nil, nil, rbacscope.ScopeSystem, true)
+func (snet *SNetwork) isAddressUsed(address string) (bool, error) {
+	q := snet.getUsedAddressQuery(nil, nil, rbacscope.ScopeSystem, true)
 	q = q.Equals("ip_addr", address)
 	count, err := q.CountWithError()
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
@@ -945,24 +945,24 @@ func parseNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, in
 	return info, nil
 }
 
-func (self *SNetwork) GetFreeAddressCount() (int, error) {
-	return self.getFreeAddressCount()
+func (snet *SNetwork) GetFreeAddressCount() (int, error) {
+	return snet.getFreeAddressCount()
 }
 
-func (self *SNetwork) GetTotalAddressCount() int {
-	return self.getIPRange().AddressCount()
+func (snet *SNetwork) GetTotalAddressCount() int {
+	return snet.getIPRange().AddressCount()
 }
 
-func (self *SNetwork) getFreeAddressCount() (int, error) {
-	vnics, err := NetworkManager.TotalNicCount([]string{self.Id})
+func (snet *SNetwork) getFreeAddressCount() (int, error) {
+	vnics, err := NetworkManager.TotalNicCount([]string{snet.Id})
 	if err != nil {
 		return -1, errors.Wrapf(err, "TotalNicCount")
 	}
 	used := 0
-	if nics, ok := vnics[self.Id]; ok {
+	if nics, ok := vnics[snet.Id]; ok {
 		used = nics.Total
 	}
-	return self.getIPRange().AddressCount() - used, nil
+	return snet.getIPRange().AddressCount() - used, nil
 }
 
 func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, netConfig *api.NetworkConfig, reuseAddr string) error {
@@ -1043,8 +1043,8 @@ func IsExitNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Network
 	return false
 }
 
-func (self *SNetwork) GetPorts() int {
-	return self.getIPRange().AddressCount()
+func (snet *SNetwork) GetPorts() int {
+	return snet.getIPRange().AddressCount()
 }
 
 func (manager *SNetworkManager) FetchCustomizeColumns(
@@ -1212,7 +1212,7 @@ func (nm *SNetworkManager) TotalNicCount(netIds []string) (map[string]api.SNetwo
 
 // 预留IP
 // 预留的IP不会被调度使用
-func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkReserveIpInput) (jsonutils.JSONObject, error) {
+func (snet *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkReserveIpInput) (jsonutils.JSONObject, error) {
 	if len(input.Ips) == 0 {
 		return nil, httperrors.NewMissingParameterError("ips")
 	}
@@ -1228,7 +1228,7 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 
 	errs := make([]error, 0)
 	for _, ip := range input.Ips {
-		err := self.reserveIpWithDurationAndStatus(ctx, userCred, ip, input.Notes, duration, input.Status)
+		err := snet.reserveIpWithDurationAndStatus(ctx, userCred, ip, input.Notes, duration, input.Status)
 		if err != nil {
 			errs = append(errs, errors.Wrap(err, "reserveIpWithDurationAndStatus"))
 		}
@@ -1274,20 +1274,20 @@ func (net *SNetwork) reserveIpWithDurationAndStatus(ctx context.Context, userCre
 }
 
 // 释放预留IP
-func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkReleaseReservedIpInput) (jsonutils.JSONObject, error) {
+func (snet *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkReleaseReservedIpInput) (jsonutils.JSONObject, error) {
 	if len(input.Ip) == 0 {
 		return nil, httperrors.NewMissingParameterError("ip")
 	}
-	rip := ReservedipManager.getReservedIP(self, input.Ip)
+	rip := ReservedipManager.getReservedIP(snet, input.Ip)
 	if rip == nil {
 		return nil, httperrors.NewInvalidStatusError("Address %s not reserved", input.Ip)
 	}
-	rip.Release(ctx, userCred, self)
+	rip.Release(ctx, userCred, snet)
 	return nil, nil
 }
 
-func (self *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	rips := ReservedipManager.GetReservedIPs(self)
+func (snet *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	rips := ReservedipManager.GetReservedIPs(snet)
 	if rips == nil {
 		return nil, httperrors.NewInternalServerError("get reserved ip error")
 	}
@@ -1308,22 +1308,22 @@ func isValidMaskLen(maskLen int64) bool {
 	}
 }
 
-func (self *SNetwork) ensureIfnameHint() {
-	if self.IfnameHint != "" {
+func (snet *SNetwork) ensureIfnameHint() {
+	if snet.IfnameHint != "" {
 		return
 	}
-	hint, err := NetworkManager.newIfnameHint(self.Name)
+	hint, err := NetworkManager.newIfnameHint(snet.Name)
 	if err != nil {
 		panic(errors.Wrap(err, "ensureIfnameHint: allocate hint"))
 	}
-	_, err = db.Update(self, func() error {
-		self.IfnameHint = hint
+	_, err = db.Update(snet, func() error {
+		snet.IfnameHint = hint
 		return nil
 	})
 	if err != nil {
 		panic(errors.Wrap(err, "ensureIfnameHint: db update"))
 	}
-	log.Infof("network %s(%s): initialized ifname hint: %s", self.Name, self.Id, hint)
+	log.Infof("network %s(%s): initialized ifname hint: %s", snet.Name, snet.Id, hint)
 }
 
 func (manager *SNetworkManager) NewIfnameHint(hint string) (string, error) {
@@ -1692,7 +1692,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	return input, nil
 }
 
-func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
+func (snet *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
 	var (
 		startIp netutils.IPV4Addr
 		endIp   netutils.IPV4Addr
@@ -1701,14 +1701,14 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		err     error
 	)
 
-	if input.GuestIpMask != nil {
-		maskLen64 := int64(*input.GuestIpMask)
-		if !self.isManaged() && !isValidMaskLen(maskLen64) {
+	if input.GuestIpMask > 0 {
+		maskLen64 := int64(input.GuestIpMask)
+		if !snet.isManaged() && !isValidMaskLen(maskLen64) {
 			return input, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
 		}
 		masklen = int8(maskLen64)
 	} else {
-		masklen = int8(self.GuestIpMask)
+		masklen = int8(snet.GuestIpMask)
 	}
 
 	if input.GuestIpStart != "" || input.GuestIpEnd != "" {
@@ -1718,7 +1718,7 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 				return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", input.GuestIpStart, err)
 			}
 		} else {
-			startIp, _ = netutils.NewIPV4Addr(self.GuestIpStart)
+			startIp, _ = netutils.NewIPV4Addr(snet.GuestIpStart)
 		}
 		if input.GuestIpEnd != "" {
 			endIp, err = netutils.NewIPV4Addr(input.GuestIpEnd)
@@ -1726,7 +1726,7 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 				return input, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
 			}
 		} else {
-			endIp, _ = netutils.NewIPV4Addr(self.GuestIpEnd)
+			endIp, _ = netutils.NewIPV4Addr(snet.GuestIpEnd)
 		}
 
 		if startIp > endIp {
@@ -1735,7 +1735,7 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 			endIp = tmp
 		}
 
-		nets := NetworkManager.getAllNetworks(self.WireId, self.Id)
+		nets := NetworkManager.getAllNetworks(snet.WireId, snet.Id)
 		if nets == nil {
 			return input, httperrors.NewInternalServerError("query all networks fail")
 		}
@@ -1745,12 +1745,12 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		}
 
 		netRange := netutils.NewIPV4AddrRange(startIp, endIp)
-		vpc, _ := self.GetVpc()
+		vpc, _ := snet.GetVpc()
 		if !vpc.containsIPV4Range(netRange) {
 			return input, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 		}
 
-		usedMap := self.GetUsedAddresses()
+		usedMap := snet.GetUsedAddresses()
 		for usedIpStr := range usedMap {
 			if usedIp, err := netutils.NewIPV4Addr(usedIpStr); err == nil && !netRange.Contains(usedIp) {
 				return input, httperrors.NewInputParameterError("Address %s been assigned out of new range", usedIpStr)
@@ -1764,40 +1764,40 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 			return input, httperrors.NewInputParameterError("start, end ip must be in the same subnet")
 		}
 	} else {
-		startIp, _ = netutils.NewIPV4Addr(self.GuestIpStart)
-		endIp, _ = netutils.NewIPV4Addr(self.GuestIpEnd)
+		startIp, _ = netutils.NewIPV4Addr(snet.GuestIpStart)
+		endIp, _ = netutils.NewIPV4Addr(snet.GuestIpEnd)
 		netAddr = startIp.NetAddr(masklen)
 	}
 
-	for key, ipStr := range map[string]string{
+	for key, ipStr := range map[string]*string{
 		"guest_gateway": input.GuestGateway,
 		"guest_dns":     input.GuestDns,
 		"guest_dhcp":    input.GuestDhcp,
 		"guest_ntp":     input.GuestNtp,
 	} {
-		if ipStr == "" {
+		if ipStr == nil || len(*ipStr) == 0 {
 			continue
 		}
 		if key == "guest_dhcp" || key == "guest_dns" {
-			ipList := strings.Split(ipStr, ",")
+			ipList := strings.Split(*ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchIPAddr(ipstr) {
 					return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
 				}
 			}
 		} else if key == "guest_ntp" {
-			ipList := strings.Split(ipStr, ",")
+			ipList := strings.Split(*ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchDomainName(ipstr) && !regutils.MatchIPAddr(ipstr) {
 					return input, httperrors.NewInputParameterError("%s: Invalid domain name or IP address  %s", key, ipstr)
 				}
 			}
-		} else if !regutils.MatchIPAddr(ipStr) {
-			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+		} else if !regutils.MatchIPAddr(*ipStr) {
+			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, *ipStr)
 		}
 	}
-	if input.GuestGateway != "" {
-		addr, err := netutils.NewIPV4Addr(input.GuestGateway)
+	if input.GuestGateway != nil && len(*input.GuestGateway) > 0 {
+		addr, err := netutils.NewIPV4Addr(*input.GuestGateway)
 		if err != nil {
 			return input, httperrors.NewInputParameterError("bad gateway ip: %v", err)
 		}
@@ -1807,44 +1807,44 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 	}
 
 	if input.IsAutoAlloc != nil && *input.IsAutoAlloc {
-		if self.ServerType != api.NETWORK_TYPE_GUEST {
-			return input, httperrors.NewInputParameterError("network server_type %s not support auto alloc", self.ServerType)
+		if snet.ServerType != api.NETWORK_TYPE_GUEST {
+			return input, httperrors.NewInputParameterError("network server_type %s not support auto alloc", snet.ServerType)
 		}
 	}
 
 	return input, nil
 }
 
-func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
-	if !self.isManaged() {
-		if !self.isOneCloudVpcNetwork() {
+func (snet *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
+	if !snet.isManaged() {
+		if !snet.isOneCloudVpcNetwork() {
 			// classic network
 		} else {
-			// vpc network
-			input.GuestIpStart = self.GuestIpStart
-			input.GuestIpEnd = self.GuestIpEnd
-			input.GuestIpMask = &self.GuestIpMask
-			input.GuestGateway = self.GuestGateway
-			input.GuestDhcp = self.GuestDhcp
+			// vpc network, not allow to update ip_start, ip_end, ip_mask, gateway, dhcp
+			input.GuestIpStart = ""
+			input.GuestIpEnd = ""
+			input.GuestIpMask = 0
+			input.GuestGateway = nil
+			input.GuestDhcp = nil
 		}
 	} else {
-		// managed network
-		input.GuestIpStart = self.GuestIpStart
-		input.GuestIpEnd = self.GuestIpEnd
-		input.GuestIpMask = &self.GuestIpMask
-		input.GuestGateway = self.GuestGateway
-		input.GuestDns = self.GuestDns
-		input.GuestDomain = self.GuestDomain
-		input.GuestDhcp = self.GuestDhcp
-		input.GuestNtp = self.GuestNtp
+		// managed network, not allow to update
+		input.GuestIpStart = ""
+		input.GuestIpEnd = ""
+		input.GuestIpMask = 0
+		input.GuestGateway = nil
+		input.GuestDns = nil
+		input.GuestDomain = nil
+		input.GuestDhcp = nil
+		input.GuestNtp = nil
 	}
 	var err error
-	input, err = self.validateUpdateData(ctx, userCred, query, input)
+	input, err = snet.validateUpdateData(ctx, userCred, query, input)
 	if err != nil {
 		return input, errors.Wrap(err, "validateUpdateData")
 	}
 
-	input.SharableVirtualResourceBaseUpdateInput, err = self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	input.SharableVirtualResourceBaseUpdateInput, err = snet.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
 	}
@@ -1876,32 +1876,32 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 	return false
 }
 
-func (self *SNetwork) IsManaged() bool {
-	wire, _ := self.GetWire()
+func (snet *SNetwork) IsManaged() bool {
+	wire, _ := snet.GetWire()
 	if wire == nil {
 		return false
 	}
 	return wire.IsManaged()
 }
 
-func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (snet *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
-		if self.ServerType == api.NETWORK_TYPE_GUEST && !self.IsManaged() {
-			wire, _ := self.GetWire()
-			if db.IsAdminAllowPerform(ctx, userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && wire != nil && wire.IsPublic && wire.PublicScope == string(rbacscope.ScopeSystem) {
-				self.SetShare(rbacscope.ScopeSystem)
-			} else if db.IsDomainAllowPerform(ctx, userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
+		if snet.ServerType == api.NETWORK_TYPE_GUEST && !snet.IsManaged() {
+			wire, _ := snet.GetWire()
+			if db.IsAdminAllowPerform(ctx, userCred, snet, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && wire != nil && wire.IsPublic && wire.PublicScope == string(rbacscope.ScopeSystem) {
+				snet.SetShare(rbacscope.ScopeSystem)
+			} else if db.IsDomainAllowPerform(ctx, userCred, snet, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
 				// only if non_default_domain_projects turned on, share to domain
-				self.SetShare(rbacscope.ScopeDomain)
+				snet.SetShare(rbacscope.ScopeDomain)
 			} else {
-				self.SetShare(rbacscope.ScopeNone)
+				snet.SetShare(rbacscope.ScopeNone)
 			}
 		} else {
-			self.SetShare(rbacscope.ScopeNone)
+			snet.SetShare(rbacscope.ScopeNone)
 		}
-		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(self.PublicScope))
+		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(snet.PublicScope))
 	}
-	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return snet.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (net *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -1926,36 +1926,57 @@ func (net *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 			log.Errorf("network post create clear schedcache error: %v", err)
 		}
 	}
-}
-
-func (self *SNetwork) GetPrefix() (netutils.IPV4Prefix, error) {
-	addr, err := netutils.NewIPV4Addr(self.GuestIpStart)
-	if err != nil {
-		return netutils.IPV4Prefix{}, err
+	// reserve gateway IP
+	{
+		err := net.reserveGuestGateway(ctx, userCred)
+		if err != nil {
+			log.Errorf("reserveGuestGateway fail %s", err)
+		}
 	}
-	addr = addr.NetAddr(self.GuestIpMask)
-	return netutils.IPV4Prefix{Address: addr, MaskLen: self.GuestIpMask}, nil
 }
 
-func (self *SNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	log.Infof("SNetwork delete do nothing")
-	self.SetStatus(userCred, api.NETWORK_STATUS_START_DELETE, "")
+func (snet *SNetwork) reserveGuestGateway(ctx context.Context, userCred mcclient.TokenCredential) error {
+	ipRange := snet.GetIPRange()
+	if snet.GuestGateway != "" {
+		gatewayIp, _ := netutils.NewIPV4Addr(snet.GuestGateway)
+		if ipRange.Contains(gatewayIp) {
+			err := snet.reserveIpWithDurationAndStatus(ctx, userCred, snet.GuestGateway, "Reserve GuestGateway IP", 0, api.RESERVEDIP_STATUS_ONLINE)
+			if err != nil {
+				return errors.Wrap(err, "reserveIpWithDurationAndStatus")
+			}
+		}
+	}
 	return nil
 }
 
-func (self *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if len(self.ExternalId) > 0 {
-		return self.StartDeleteNetworkTask(ctx, userCred)
+func (snet *SNetwork) GetPrefix() (netutils.IPV4Prefix, error) {
+	addr, err := netutils.NewIPV4Addr(snet.GuestIpStart)
+	if err != nil {
+		return netutils.IPV4Prefix{}, err
+	}
+	addr = addr.NetAddr(snet.GuestIpMask)
+	return netutils.IPV4Prefix{Address: addr, MaskLen: snet.GuestIpMask}, nil
+}
+
+func (snet *SNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("SNetwork delete do nothing")
+	snet.SetStatus(userCred, api.NETWORK_STATUS_START_DELETE, "")
+	return nil
+}
+
+func (snet *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if len(snet.ExternalId) > 0 {
+		return snet.StartDeleteNetworkTask(ctx, userCred)
 	} else {
-		return self.RealDelete(ctx, userCred)
+		return snet.RealDelete(ctx, userCred)
 	}
 }
 
-func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	DeleteResourceJointSchedtags(self, ctx, userCred)
-	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
-	self.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
-	networkinterfaces, err := self.GetNetworkInterfaces()
+func (snet *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	DeleteResourceJointSchedtags(snet, ctx, userCred)
+	db.OpsLog.LogEvent(snet, db.ACT_DELOCATE, snet.GetShortDesc(ctx), userCred)
+	snet.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
+	networkinterfaces, err := snet.GetNetworkInterfaces()
 	if err != nil {
 		return errors.Wrap(err, "GetNetworkInterfaces")
 	}
@@ -1965,14 +1986,14 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 			return errors.Wrapf(err, "networkinterface.purge %s(%s)", networkinterfaces[i].Name, networkinterfaces[i].Id)
 		}
 	}
-	reservedIps := ReservedipManager.GetReservedIPs(self)
+	reservedIps := ReservedipManager.GetReservedIPs(snet)
 	for i := range reservedIps {
-		err = reservedIps[i].Release(ctx, userCred, self)
+		err = reservedIps[i].Release(ctx, userCred, snet)
 		if err != nil {
 			return errors.Wrapf(err, "reservedIps.Release %s(%d)", reservedIps[i].IpAddr, reservedIps[i].Id)
 		}
 	}
-	gns, err := self.GetGuestnetworks() // delete virtual nics
+	gns, err := snet.GetGuestnetworks() // delete virtual nics
 	if err != nil {
 		return errors.Wrapf(err, "GetGuestnetworks")
 	}
@@ -1982,18 +2003,18 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 			return errors.Wrapf(err, "delete virtual nic %s(%d)", gns[i].Ifname, gns[i].RowId)
 		}
 	}
-	if err := self.SSharableVirtualResourceBase.Delete(ctx, userCred); err != nil {
+	if err := snet.SSharableVirtualResourceBase.Delete(ctx, userCred); err != nil {
 		return err
 	}
-	if err := NetworkAdditionalWireManager.DeleteNetwork(ctx, self.Id); err != nil {
+	if err := NetworkAdditionalWireManager.DeleteNetwork(ctx, snet.Id); err != nil {
 		return errors.Wrap(err, "NetworkAdditionalWireManager.DeleteNetwork")
 	}
-	self.ClearSchedDescCache()
+	snet.ClearSchedDescCache()
 	return nil
 }
 
-func (self *SNetwork) StartDeleteNetworkTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "NetworkDeleteTask", self, userCred, nil, "", "", nil)
+func (snet *SNetwork) StartDeleteNetworkTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "NetworkDeleteTask", snet, userCred, nil, "", "", nil)
 	if err != nil {
 		log.Errorf("Start NetworkDeleteTask fail %s", err)
 		return err
@@ -2002,8 +2023,8 @@ func (self *SNetwork) StartDeleteNetworkTask(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (self *SNetwork) GetINetwork(ctx context.Context) (cloudprovider.ICloudNetwork, error) {
-	wire, err := self.GetWire()
+func (snet *SNetwork) GetINetwork(ctx context.Context) (cloudprovider.ICloudNetwork, error) {
+	wire, err := snet.GetWire()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetWire")
 	}
@@ -2011,19 +2032,19 @@ func (self *SNetwork) GetINetwork(ctx context.Context) (cloudprovider.ICloudNetw
 	if err != nil {
 		return nil, err
 	}
-	return iwire.GetINetworkById(self.GetExternalId())
+	return iwire.GetINetworkById(snet.GetExternalId())
 }
 
-func (self *SNetwork) isManaged() bool {
-	if len(self.ExternalId) > 0 {
+func (snet *SNetwork) isManaged() bool {
+	if len(snet.ExternalId) > 0 {
 		return true
 	} else {
 		return false
 	}
 }
 
-func (self *SNetwork) isOneCloudVpcNetwork() bool {
-	return IsOneCloudVpcResource(self)
+func (snet *SNetwork) isOneCloudVpcNetwork() bool {
+	return IsOneCloudVpcResource(snet)
 }
 
 func parseIpToIntArray(ip string) ([]int, error) {
@@ -2410,15 +2431,30 @@ func (manager *SNetworkManager) InitializeData() error {
 	return nil
 }
 
-func (self *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
-	/*if len(self.ExternalId) > 0 {
+func (snet *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
+	/*if len(snet.ExternalId) > 0 {
 		return httperrors.NewConflictError("Cannot update external resource")
 	}*/
-	return self.SSharableVirtualResourceBase.ValidateUpdateCondition(ctx)
+	return snet.SSharableVirtualResourceBase.ValidateUpdateCondition(ctx)
 }
 
 func (net *SNetwork) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query, data jsonutils.JSONObject) {
 	net.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+
+	// reserve guest gateway IP
+	{
+		input := api.NetworkUpdateInput{}
+		err := data.Unmarshal(&input)
+		if err != nil {
+			log.Errorf("Unmarshal NetworkUpdateInput fail %s", err)
+		} else if input.GuestGateway != nil && len(*input.GuestGateway) > 0 {
+			err := net.reserveGuestGateway(ctx, userCred)
+			if err != nil {
+				log.Errorf("reserveGuestGateway fail %s", err)
+			}
+		}
+	}
+
 	net.ClearSchedDescCache()
 	if net.IsClassic() {
 		err := net.syncAdditionalWires(ctx, nil)
@@ -2430,19 +2466,19 @@ func (net *SNetwork) PostUpdate(ctx context.Context, userCred mcclient.TokenCred
 
 // 清除IP子网数据
 // 要求IP子网内没有被分配IP,若清除接入云,要求接入云账号处于禁用状态
-func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkPurgeInput) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx, nil)
+func (snet *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkPurgeInput) (jsonutils.JSONObject, error) {
+	err := snet.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	wire, _ := self.GetWire()
+	wire, _ := snet.GetWire()
 	if wire != nil && len(wire.ExternalId) > 0 {
 		provider := wire.GetCloudprovider()
 		if provider != nil && provider.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Cannot purge network on enabled cloud provider")
 		}
 	}
-	err = self.RealDelete(ctx, userCred)
+	err = snet.RealDelete(ctx, userCred)
 	return nil, err
 }
 
@@ -2471,37 +2507,37 @@ func (manager *SNetworkManager) handleNetworkIdChange(ctx context.Context, args 
 
 // 合并IP子网
 // 将两个相连的IP子网合并成一个IP子网
-func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkMergeInput) (jsonutils.JSONObject, error) {
+func (snet *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkMergeInput) (jsonutils.JSONObject, error) {
 	if len(input.Target) == 0 {
 		return nil, httperrors.NewMissingParameterError("target")
 	}
 	iNet, err := NetworkManager.FetchByIdOrName(userCred, input.Target)
 	if err == sql.ErrNoRows {
 		err = httperrors.NewNotFoundError("Network %s not found", input.Target)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	} else if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 
 	net := iNet.(*SNetwork)
 	if net == nil {
 		err = fmt.Errorf("Network is nil")
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 
-	startIp, endIp, err := self.CheckInvalidToMerge(ctx, net, nil)
+	startIp, endIp, err := snet.CheckInvalidToMerge(ctx, net, nil)
 	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 
-	return nil, self.MergeToNetworkAfterCheck(ctx, userCred, net, startIp, endIp)
+	return nil, snet.MergeToNetworkAfterCheck(ctx, userCred, net, startIp, endIp)
 }
 
-func (self *SNetwork) MergeToNetworkAfterCheck(ctx context.Context, userCred mcclient.TokenCredential, net *SNetwork, startIp string, endIp string) error {
+func (snet *SNetwork) MergeToNetworkAfterCheck(ctx context.Context, userCred mcclient.TokenCredential, net *SNetwork, startIp string, endIp string) error {
 	lockman.LockClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
 	defer lockman.ReleaseClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
 
@@ -2511,13 +2547,13 @@ func (self *SNetwork) MergeToNetworkAfterCheck(ctx context.Context, userCred mcc
 		return nil
 	})
 	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return err
 	}
 
 	if err := NetworkManager.handleNetworkIdChange(ctx, &networkIdChangeArgs{
 		action:   logclient.ACT_MERGE,
-		oldNet:   self,
+		oldNet:   snet,
 		newNet:   net,
 		userCred: userCred,
 	}); err != nil {
@@ -2525,32 +2561,32 @@ func (self *SNetwork) MergeToNetworkAfterCheck(ctx context.Context, userCred mcc
 	}
 
 	note := map[string]string{"start_ip": startIp, "end_ip": endIp}
-	db.OpsLog.LogEvent(self, db.ACT_MERGE, note, userCred)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, note, userCred, true)
+	db.OpsLog.LogEvent(snet, db.ACT_MERGE, note, userCred)
+	logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_MERGE, note, userCred, true)
 
-	if err = self.RealDelete(ctx, userCred); err != nil {
+	if err = snet.RealDelete(ctx, userCred); err != nil {
 		return err
 	}
-	note = map[string]string{"network": self.Id}
-	db.OpsLog.LogEvent(self, db.ACT_DELETE, note, userCred)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_DELOCATE, note, userCred, true)
+	note = map[string]string{"network": snet.Id}
+	db.OpsLog.LogEvent(snet, db.ACT_DELETE, note, userCred)
+	logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_DELOCATE, note, userCred, true)
 	return nil
 }
 
-func (self *SNetwork) CheckInvalidToMerge(ctx context.Context, net *SNetwork, allNets []*SNetwork) (string, string, error) {
+func (snet *SNetwork) CheckInvalidToMerge(ctx context.Context, net *SNetwork, allNets []*SNetwork) (string, string, error) {
 	failReason := make([]string, 0)
 
-	if self.WireId != net.WireId {
+	if snet.WireId != net.WireId {
 		failReason = append(failReason, "wire_id")
 	}
-	if self.GuestGateway != net.GuestGateway {
+	if snet.GuestGateway != net.GuestGateway {
 		failReason = append(failReason, "guest_gateway")
 	}
-	if self.VlanId != net.VlanId {
+	if snet.VlanId != net.VlanId {
 		failReason = append(failReason, "vlan_id")
 	}
 	// Qiujian: allow merge networks of different server_type
-	/*if self.ServerType != net.ServerType {
+	/*if snet.ServerType != net.ServerType {
 		failReason = append(failReason, "server_type")
 	}*/
 
@@ -2562,15 +2598,15 @@ func (self *SNetwork) CheckInvalidToMerge(ctx context.Context, net *SNetwork, al
 	var startIp, endIp string
 	ipNE, _ := netutils.NewIPV4Addr(net.GuestIpEnd)
 	ipNS, _ := netutils.NewIPV4Addr(net.GuestIpStart)
-	ipSS, _ := netutils.NewIPV4Addr(self.GuestIpStart)
-	ipSE, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
+	ipSS, _ := netutils.NewIPV4Addr(snet.GuestIpStart)
+	ipSE, _ := netutils.NewIPV4Addr(snet.GuestIpEnd)
 
 	var wireNets []SNetwork
 	if allNets == nil {
-		wireSubq := WireManager.Query("vpc_id").Equals("id", self.WireId).SubQuery()
+		wireSubq := WireManager.Query("vpc_id").Equals("id", snet.WireId).SubQuery()
 		wiresQ := WireManager.Query("id")
 		wiresSubQ := wiresQ.Join(wireSubq, sqlchemy.Equals(wiresQ.Field("vpc_id"), wireSubq.Field("vpc_id"))).SubQuery()
-		q := NetworkManager.Query().In("wire_id", wiresSubQ).NotEquals("id", self.Id).NotEquals("id", net.Id)
+		q := NetworkManager.Query().In("wire_id", wiresSubQ).NotEquals("id", snet.Id).NotEquals("id", net.Id)
 		err := db.FetchModelObjects(NetworkManager, q, &wireNets)
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			return "", "", errors.Wrap(err, "Query nets of same wire")
@@ -2583,20 +2619,20 @@ func (self *SNetwork) CheckInvalidToMerge(ctx context.Context, net *SNetwork, al
 	}
 
 	if ipNE.StepUp() == ipSS || (ipNE.StepUp() < ipSS && !isOverlapNetworks(wireNets, ipNE.StepUp(), ipSS.StepDown())) {
-		startIp, endIp = net.GuestIpStart, self.GuestIpEnd
+		startIp, endIp = net.GuestIpStart, snet.GuestIpEnd
 	} else if ipSE.StepUp() == ipNS || (ipSE.StepUp() < ipNS && !isOverlapNetworks(wireNets, ipSE.StepUp(), ipNS.StepDown())) {
-		startIp, endIp = self.GuestIpStart, net.GuestIpEnd
+		startIp, endIp = snet.GuestIpStart, net.GuestIpEnd
 	} else {
 		note := "Incontinuity Network for %s and %s"
-		return "", "", httperrors.NewBadRequestError(note, self.Name, net.Name)
+		return "", "", httperrors.NewBadRequestError(note, snet.Name, net.Name)
 	}
 	return startIp, endIp, nil
 }
 
 // 分割IP子网
 // 将一个IP子网分割成两个子网,仅本地IDC支持此操作
-func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSplitInput) (jsonutils.JSONObject, error) {
-	if len(self.ExternalId) > 0 {
+func (snet *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSplitInput) (jsonutils.JSONObject, error) {
+	if len(snet.ExternalId) > 0 {
 		return nil, httperrors.NewNotSupportedError("only on premise support this operation")
 	}
 
@@ -2607,7 +2643,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	if !regutils.MatchIPAddr(input.SplitIp) {
 		return nil, httperrors.NewInputParameterError("Invalid IP %s", input.SplitIp)
 	}
-	if input.SplitIp == self.GuestIpStart {
+	if input.SplitIp == snet.GuestIpStart {
 		return nil, httperrors.NewInputParameterError("Split IP %s is the start ip", input.SplitIp)
 	}
 
@@ -2615,30 +2651,30 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return nil, err
 	}
-	if !self.IsAddressInRange(iSplitIp) {
+	if !snet.IsAddressInRange(iSplitIp) {
 		return nil, httperrors.NewInputParameterError("Split IP %s out of range", input.SplitIp)
 	}
 
 	network := &SNetwork{}
 	network.GuestIpStart = input.SplitIp
-	network.GuestIpEnd = self.GuestIpEnd
-	network.GuestIpMask = self.GuestIpMask
-	network.GuestGateway = self.GuestGateway
-	network.GuestDns = self.GuestDns
-	network.GuestDhcp = self.GuestDhcp
-	network.GuestNtp = self.GuestNtp
-	network.GuestDomain = self.GuestDomain
-	network.VlanId = self.VlanId
-	network.WireId = self.WireId
-	network.ServerType = self.ServerType
-	network.IsPublic = self.IsPublic
-	network.Status = self.Status
-	network.ProjectId = self.ProjectId
-	network.DomainId = self.DomainId
-	// network.UserId = self.UserId
-	network.IsSystem = self.IsSystem
-	network.Description = self.Description
-	network.IsAutoAlloc = self.IsAutoAlloc
+	network.GuestIpEnd = snet.GuestIpEnd
+	network.GuestIpMask = snet.GuestIpMask
+	network.GuestGateway = snet.GuestGateway
+	network.GuestDns = snet.GuestDns
+	network.GuestDhcp = snet.GuestDhcp
+	network.GuestNtp = snet.GuestNtp
+	network.GuestDomain = snet.GuestDomain
+	network.VlanId = snet.VlanId
+	network.WireId = snet.WireId
+	network.ServerType = snet.ServerType
+	network.IsPublic = snet.IsPublic
+	network.Status = snet.Status
+	network.ProjectId = snet.ProjectId
+	network.DomainId = snet.DomainId
+	// network.UserId = snet.UserId
+	network.IsSystem = snet.IsSystem
+	network.Description = snet.Description
+	network.IsAutoAlloc = snet.IsAutoAlloc
 
 	err = func() error {
 		lockman.LockRawObject(ctx, NetworkManager.Keyword(), "name")
@@ -2649,7 +2685,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 				return httperrors.NewInputParameterError("Duplicate name %s", input.Name)
 			}
 		} else {
-			input.Name, err = db.GenerateName(ctx, NetworkManager, userCred, fmt.Sprintf("%s#", self.Name))
+			input.Name, err = db.GenerateName(ctx, NetworkManager, userCred, fmt.Sprintf("%s#", snet.Name))
 			if err != nil {
 				return httperrors.NewInternalServerError("GenerateName fail %s", err)
 			}
@@ -2668,14 +2704,14 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	}
 	network.SetModelManager(NetworkManager, network)
 
-	db.Update(self, func() error {
-		self.GuestIpEnd = iSplitIp.StepDown().String()
+	db.Update(snet, func() error {
+		snet.GuestIpEnd = iSplitIp.StepDown().String()
 		return nil
 	})
 
 	if err := NetworkManager.handleNetworkIdChange(ctx, &networkIdChangeArgs{
 		action:   logclient.ACT_SPLIT,
-		oldNet:   self,
+		oldNet:   snet,
 		newNet:   network,
 		userCred: userCred,
 	}); err != nil {
@@ -2683,9 +2719,9 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	note := map[string]string{"split_ip": input.SplitIp, "end_ip": network.GuestIpEnd}
-	db.OpsLog.LogEvent(self, db.ACT_SPLIT, note, userCred)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, note, userCred, true)
-	db.OpsLog.LogEvent(network, db.ACT_CREATE, map[string]string{"network": self.Id}, userCred)
+	db.OpsLog.LogEvent(snet, db.ACT_SPLIT, note, userCred)
+	logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_SPLIT, note, userCred, true)
+	db.OpsLog.LogEvent(network, db.ACT_CREATE, map[string]string{"network": snet.Id}, userCred)
 	return nil, nil
 }
 
@@ -2890,9 +2926,9 @@ func (network *SNetwork) getUsedAddressQuery(userCred mcclient.TokenCredential, 
 	return sqlchemy.Union(queries...).Query()
 }
 
-func (self *SNetwork) Contains(ip string) bool {
-	start, _ := netutils.NewIPV4Addr(self.GuestIpStart)
-	end, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
+func (snet *SNetwork) Contains(ip string) bool {
+	start, _ := netutils.NewIPV4Addr(snet.GuestIpStart)
+	end, _ := netutils.NewIPV4Addr(snet.GuestIpEnd)
 	addr, _ := netutils.NewIPV4Addr(ip)
 	return netutils.NewIPV4AddrRange(start, end).Contains(addr)
 }
@@ -3023,17 +3059,17 @@ func (manager *SNetworkManager) AllowScope(userCred mcclient.TokenCredential) rb
 	return scope
 }
 
-func (self *SNetwork) PerformSetBgpType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSetBgpTypeInput) (jsonutils.JSONObject, error) {
-	if self.BgpType == input.BgpType {
+func (snet *SNetwork) PerformSetBgpType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSetBgpTypeInput) (jsonutils.JSONObject, error) {
+	if snet.BgpType == input.BgpType {
 		return nil, nil
 	}
-	if self.ServerType != api.NETWORK_TYPE_EIP {
+	if snet.ServerType != api.NETWORK_TYPE_EIP {
 		return nil, httperrors.NewInputParameterError("BgpType attribute is only useful for eip network")
 	}
 	{
 		var eips []SElasticip
 		q := ElasticipManager.Query().
-			Equals("network_id", self.Id).
+			Equals("network_id", snet.Id).
 			NotEquals("bgp_type", input.BgpType)
 		if err := db.FetchModelObjects(ElasticipManager, q, &eips); err != nil {
 			return nil, err
@@ -3052,14 +3088,14 @@ func (self *SNetwork) PerformSetBgpType(ctx context.Context, userCred mcclient.T
 			}
 		}
 	}
-	if diff, err := db.Update(self, func() error {
-		self.BgpType = input.BgpType
+	if diff, err := db.Update(snet, func() error {
+		snet.BgpType = input.BgpType
 		return nil
 	}); err != nil {
 		return nil, err
 	} else {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE, diff, userCred, true)
-		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, snet, logclient.ACT_UPDATE, diff, userCred, true)
+		db.OpsLog.LogEvent(snet, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil, nil
 }
