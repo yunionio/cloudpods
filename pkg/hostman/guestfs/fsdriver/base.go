@@ -153,13 +153,13 @@ const (
 	modeAuthorizedKeysRW  = syscall.S_IRUSR | syscall.S_IWUSR
 )
 
-func deployAuthorizedKeys(rootFs IDiskPartition, authFile string, uid, gid int, pubkeys *deployapi.SSHKeys, replace bool) error {
+func deployAuthorizedKeys(rootFs IDiskPartition, authFile string, uid, gid int, pubkeys *deployapi.SSHKeys, replace bool, admin bool) error {
 	var oldKeys = ""
 	if !replace {
 		bOldKeys, _ := rootFs.FileGetContents(authFile, false)
 		oldKeys = string(bOldKeys)
 	}
-	newKeys := MergeAuthorizedKeys(oldKeys, pubkeys)
+	newKeys := MergeAuthorizedKeys(oldKeys, pubkeys, admin)
 	if err := rootFs.FilePutContents(authFile, newKeys, false, false); err != nil {
 		return fmt.Errorf("Put keys to %s: %v", authFile, err)
 	}
@@ -172,7 +172,7 @@ func deployAuthorizedKeys(rootFs IDiskPartition, authFile string, uid, gid int, 
 	return nil
 }
 
-func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *deployapi.SSHKeys, replace bool) error {
+func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *deployapi.SSHKeys, replace bool, admin bool) error {
 	usrStat := rootFs.Stat(usrDir, false)
 	if usrStat != nil {
 		sshDir := path.Join(usrDir, ".ssh")
@@ -192,18 +192,24 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *deploya
 				return err
 			}
 		}
-		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace)
+		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace, admin)
 	}
 	return nil
 }
 
-func MergeAuthorizedKeys(oldKeys string, pubkeys *deployapi.SSHKeys) string {
+const sshKeySignature = "@yunioncloudpods"
+
+func MergeAuthorizedKeys(oldKeys string, pubkeys *deployapi.SSHKeys, isAdmin bool) string {
 	var allkeys = make(map[string]string)
 	if len(oldKeys) > 0 {
 		for _, line := range strings.Split(oldKeys, "\n") {
 			line = strings.TrimSpace(line)
 			dat := strings.Split(line, " ")
 			if len(dat) > 1 {
+				if len(dat) > 2 && dat[2] == sshKeySignature {
+					// skip ssh keys with signature
+					continue
+				}
 				if _, ok := allkeys[dat[1]]; !ok {
 					allkeys[dat[1]] = line
 				}
@@ -218,13 +224,19 @@ func MergeAuthorizedKeys(oldKeys string, pubkeys *deployapi.SSHKeys) string {
 			}
 		}
 	}
-	for _, k := range []string{pubkeys.PublicKey, pubkeys.AdminPublicKey, pubkeys.ProjectPublicKey} {
+	var candiateKeys []string
+	if isAdmin {
+		candiateKeys = []string{pubkeys.AdminPublicKey, pubkeys.ProjectPublicKey}
+	} else {
+		candiateKeys = []string{pubkeys.PublicKey}
+	}
+	for _, k := range candiateKeys {
 		if len(k) > 0 {
 			k = strings.TrimSpace(k)
 			dat := strings.Split(k, " ")
 			if len(dat) > 1 {
 				if _, ok := allkeys[dat[1]]; !ok {
-					allkeys[dat[1]] = k
+					allkeys[dat[1]] = strings.Join([]string{dat[0], dat[1], sshKeySignature}, " ")
 				}
 			}
 		}
@@ -265,7 +277,7 @@ func DeployAdminAuthorizedKeys(s *mcclient.ClientSession) error {
 		}
 		oldKeys = string(output)
 	}
-	newKeys := MergeAuthorizedKeys(oldKeys, pubKeys)
+	newKeys := MergeAuthorizedKeys(oldKeys, pubKeys, true)
 	if output, err := procutils.NewRemoteCommandAsFarAsPossible(
 		"sh", "-c", fmt.Sprintf("echo '%s' > %s", newKeys, authFile)).Output(); err != nil {
 		return errors.Wrapf(err, "write public keys: %s", output)
