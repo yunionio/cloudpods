@@ -611,7 +611,7 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	if routes != nil && len(routes) > 0 {
 		desc.Routes = jsonutils.Marshal(routes)
 	}
-	desc.Ifname = gn.Ifname
+
 	desc.Masklen = net.GuestIpMask
 	desc.Driver = gn.Driver
 	desc.NumQueues = gn.NumQueues
@@ -626,6 +626,11 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.TeamWith = gn.TeamWith
 
 	guest := gn.getGuest()
+	if ifname, ok := gn.OvsOffloadIfname(); ok {
+		desc.Ifname = ifname
+	} else {
+		desc.Ifname = gn.Ifname
+	}
 	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
 		manual := true
 		desc.Manual = &manual
@@ -655,6 +660,16 @@ func (gn *SGuestnetwork) IsSriovWithoutOffload() bool {
 		return false
 	}
 	return true
+}
+
+func (gn *SGuestnetwork) OvsOffloadIfname() (string, bool) {
+	if gn.Driver != api.NETWORK_DRIVER_VFIO {
+		return "", false
+	}
+	if dev, _ := gn.GetIsolatedDevice(); dev != nil && dev.OvsOffloadInterface != "" {
+		return dev.OvsOffloadInterface, true
+	}
+	return "", false
 }
 
 func (gn *SGuestnetwork) UpdateNicTrafficUsed(rx, tx int64) error {
