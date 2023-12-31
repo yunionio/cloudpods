@@ -1686,8 +1686,8 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		err     error
 	)
 
-	if input.GuestIpMask != nil {
-		maskLen64 := int64(*input.GuestIpMask)
+	if input.GuestIpMask > 0 {
+		maskLen64 := int64(input.GuestIpMask)
 		if !self.isManaged() && !isValidMaskLen(maskLen64) {
 			return input, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
 		}
@@ -1754,35 +1754,35 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		netAddr = startIp.NetAddr(masklen)
 	}
 
-	for key, ipStr := range map[string]string{
+	for key, ipStr := range map[string]*string{
 		"guest_gateway": input.GuestGateway,
 		"guest_dns":     input.GuestDns,
 		"guest_dhcp":    input.GuestDhcp,
 		"guest_ntp":     input.GuestNtp,
 	} {
-		if ipStr == "" {
+		if ipStr == nil || *ipStr == "" {
 			continue
 		}
 		if key == "guest_dhcp" || key == "guest_dns" {
-			ipList := strings.Split(ipStr, ",")
+			ipList := strings.Split(*ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchIPAddr(ipstr) {
 					return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
 				}
 			}
 		} else if key == "guest_ntp" {
-			ipList := strings.Split(ipStr, ",")
+			ipList := strings.Split(*ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchDomainName(ipstr) && !regutils.MatchIPAddr(ipstr) {
 					return input, httperrors.NewInputParameterError("%s: Invalid domain name or IP address  %s", key, ipstr)
 				}
 			}
-		} else if !regutils.MatchIPAddr(ipStr) {
-			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+		} else if !regutils.MatchIPAddr(*ipStr) {
+			return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, *ipStr)
 		}
 	}
-	if input.GuestGateway != "" {
-		addr, err := netutils.NewIPV4Addr(input.GuestGateway)
+	if input.GuestGateway != nil && len(*input.GuestGateway) > 0 {
+		addr, err := netutils.NewIPV4Addr(*input.GuestGateway)
 		if err != nil {
 			return input, httperrors.NewInputParameterError("bad gateway ip: %v", err)
 		}
@@ -1806,22 +1806,22 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 			// classic network
 		} else {
 			// vpc network
-			input.GuestIpStart = self.GuestIpStart
-			input.GuestIpEnd = self.GuestIpEnd
-			input.GuestIpMask = &self.GuestIpMask
-			input.GuestGateway = self.GuestGateway
-			input.GuestDhcp = self.GuestDhcp
+			input.GuestIpStart = ""
+			input.GuestIpEnd = ""
+			input.GuestIpMask = 0
+			input.GuestGateway = nil
+			input.GuestDhcp = nil
 		}
 	} else {
 		// managed network
-		input.GuestIpStart = self.GuestIpStart
-		input.GuestIpEnd = self.GuestIpEnd
-		input.GuestIpMask = &self.GuestIpMask
-		input.GuestGateway = self.GuestGateway
-		input.GuestDns = self.GuestDns
-		input.GuestDomain = self.GuestDomain
-		input.GuestDhcp = self.GuestDhcp
-		input.GuestNtp = self.GuestNtp
+		input.GuestIpStart = ""
+		input.GuestIpEnd = ""
+		input.GuestIpMask = 0
+		input.GuestGateway = nil
+		input.GuestDns = nil
+		input.GuestDomain = nil
+		input.GuestDhcp = nil
+		input.GuestNtp = nil
 	}
 	var err error
 	input, err = self.validateUpdateData(ctx, userCred, query, input)
