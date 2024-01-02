@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -544,21 +545,13 @@ func (grp *SGroup) PerformDetachnetwork(ctx context.Context, userCred mcclient.T
 		return nil, nil
 	}
 	for _, gn := range gns {
-		if len(input.IpAddr) == 0 || gn.IpAddr == input.IpAddr {
+		if len(input.IpAddr) == 0 || gn.IpAddr == input.IpAddr || gn.Ip6Addr == input.IpAddr {
 			if len(gn.EipId) > 0 {
 				logclient.AddSimpleActionLog(grp, logclient.ACT_DETACH_NETWORK, "eip associated", userCred, false)
 				return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot detach network with eip")
 			}
 			// delete
-			notes := struct {
-				Network   string
-				NetworkId string
-				IpAddr    string
-			}{
-				Network:   net.Name,
-				NetworkId: net.Id,
-				IpAddr:    gn.IpAddr,
-			}
+			notes := gn.GetShortDesc(ctx)
 			err := gn.Detach(ctx, userCred)
 			if err != nil {
 				logclient.AddSimpleActionLog(grp, logclient.ACT_DETACH_NETWORK, notes, userCred, false)
@@ -605,6 +598,20 @@ func (grp *SGroup) PerformAttachnetwork(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrapf(httperrors.ErrInputParameter, "ip_addr %s not in range", input.IpAddr)
 		}
 	}
+	if (len(input.Ip6Addr) > 0 || input.RequireIPv6) && !net.IsSupportIPv6() {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "network is not ipv6 enabled")
+	}
+
+	if len(input.Ip6Addr) > 0 {
+		addr6, err := netutils.NewIPV6Addr(input.Ip6Addr)
+		if err != nil {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid ip6_addr %s", input.Ip6Addr)
+		}
+		if !net.getIPRange6().Contains(addr6) {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "ip6_addr %s not in range", input.Ip6Addr)
+		}
+		input.Ip6Addr = addr6.String()
+	}
 
 	// check quota
 	var inicCnt, enicCnt int
@@ -629,18 +636,33 @@ func (grp *SGroup) PerformAttachnetwork(ctx context.Context, userCred mcclient.T
 	}
 	defer quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, saveQuota)
 
-	ipAddr, err := net.GetFreeIP(ctx, userCred, nil, nil, input.IpAddr, input.AllocDir, input.Reserved != nil && *input.Reserved)
+	lockman.LockObject(ctx, net)
+	defer lockman.ReleaseObject(ctx, net)
+
+	ipAddr, err := net.GetFreeIP(ctx, userCred, nil, nil, input.IpAddr, input.AllocDir, input.Reserved != nil && *input.Reserved, api.AddressTypeIPv4)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetFreeIPv4")
 	}
 	if len(input.IpAddr) > 0 && ipAddr != input.IpAddr && input.RequireDesignatedIp != nil && *input.RequireDesignatedIp {
 		return nil, errors.Wrapf(httperrors.ErrConflict, "candidate ip %s is occupied!", input.IpAddr)
+	}
+
+	var ipAddr6 string
+	if len(input.Ip6Addr) > 0 || input.RequireIPv6 {
+		ipAddr6, err = net.GetFreeIP(ctx, userCred, nil, nil, input.Ip6Addr, input.AllocDir, input.Reserved != nil && *input.Reserved, api.AddressTypeIPv6)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetFreeIPv6")
+		}
+		if len(input.Ip6Addr) > 0 && ipAddr6 != input.Ip6Addr && input.RequireDesignatedIp != nil && *input.RequireDesignatedIp {
+			return nil, errors.Wrapf(httperrors.ErrConflict, "candidate v6 ip %s is occupied!", input.Ip6Addr)
+		}
 	}
 
 	gn := SGroupnetwork{}
 	gn.NetworkId = net.Id
 	gn.GroupId = grp.Id
 	gn.IpAddr = ipAddr
+	gn.Ip6Addr = ipAddr6
 
 	gn.SetModelManager(GroupnetworkManager, &gn)
 
@@ -649,16 +671,8 @@ func (grp *SGroup) PerformAttachnetwork(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "Insert")
 	}
 
-	notes := struct {
-		Network   string
-		NetworkId string
-		IpAddr    string
-	}{
-		Network:   net.Name,
-		NetworkId: net.Id,
-		IpAddr:    gn.IpAddr,
-	}
-	db.OpsLog.LogAttachEvent(ctx, grp, net, userCred, jsonutils.Marshal(notes))
+	notes := gn.GetShortDesc(ctx)
+	db.OpsLog.LogAttachEvent(ctx, grp, net, userCred, notes)
 	logclient.AddActionLogWithContext(ctx, grp, logclient.ACT_ATTACH_NETWORK, notes, userCred, true)
 
 	saveQuota = true

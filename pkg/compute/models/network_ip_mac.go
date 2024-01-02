@@ -173,7 +173,7 @@ func (self *SNetworkIpMac) ValidateUpdateData(
 		input.MacAddr = self.MacAddr
 	}
 
-	if gn, err := GuestnetworkManager.getGuestNicByIP(self.NetworkId, input.IpAddr); err != nil {
+	if gn, err := GuestnetworkManager.getGuestNicByIP(self.NetworkId, input.IpAddr, api.AddressTypeIPv4); err != nil {
 		return input, errors.Wrap(err, "failed get guest nic")
 	} else if gn != nil && gn.MacAddr != input.MacAddr {
 		return input, errors.Errorf("input ip mac conflict with guest %s nic %d", gn.GuestId, gn.Index)
@@ -242,7 +242,7 @@ func (manager *SNetworkIpMacManager) validateIpMac(ip, mac string, network *SNet
 		return httperrors.NewBadRequestError("mac addr %s is in use", mac)
 	}
 
-	if gn, err := GuestnetworkManager.getGuestNicByIP(network.Id, ip); err != nil {
+	if gn, err := GuestnetworkManager.getGuestNicByIP(network.Id, ip, api.AddressTypeIPv4); err != nil {
 		return errors.Wrap(err, "failed get guest nic")
 	} else if gn != nil && gn.MacAddr != mac {
 		return httperrors.NewBadRequestError("input ip mac conflict with guest %s nic %d", gn.GuestId, gn.Index)

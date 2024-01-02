@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/util/ovsutils"
 )
 
 const (
@@ -78,11 +77,6 @@ func (opts *Options) ValidateThenInit() error {
 		opts.OvnUnderlayMtu = 576
 	}
 
-	if db, err := ovsutils.NormalizeDbHost(opts.OvnNorthDatabase); err != nil {
-		return err
-	} else {
-		opts.OvnNorthDatabase = db
-	}
 	return nil
 }
 
@@ -96,6 +90,10 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 	}
 
 	if oldOpts.VpcProvider != newOpts.VpcProvider {
+		changed = true
+	}
+
+	if oldOpts.OvnNorthDatabase != newOpts.OvnNorthDatabase {
 		changed = true
 	}
 

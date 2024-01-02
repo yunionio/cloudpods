@@ -47,6 +47,7 @@ type VpcCreateOptions struct {
 	Id                 string `help:"ID of the new VPC"`
 	NAME               string `help:"Name of the VPC" json:"name"`
 	CIDR               string `help:"CIDR block"`
+	CIDR6              string `help:"IPv6 CIDR block"`
 	Default            bool   `help:"default VPC for the region" default:"false"`
 	Desc               string `help:"Description of the VPC"`
 	Manager            string `help:"ID or Name of Cloud provider" json:"manager_id"`
@@ -59,6 +60,9 @@ func (opts *VpcCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params.Add(jsonutils.NewString(opts.REGION), "cloudregion_id")
 	params.Add(jsonutils.NewString(opts.NAME), "name")
 	params.Add(jsonutils.NewString(opts.CIDR), "cidr_block")
+	if len(opts.CIDR6) > 0 {
+		params.Add(jsonutils.NewString(opts.CIDR6), "cidr_block6")
+	}
 	if len(opts.Id) > 0 {
 		params.Add(jsonutils.NewString(opts.Id), "id")
 	}
@@ -96,11 +100,13 @@ type VpcUpdateOptions struct {
 	BaseUpdateOptions
 	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
 	Direct             bool   `help:"Can it be connected directly"`
+
+	CidrBlock  string `help:"IPv4 CIDR block"`
+	CidrBlock6 string `help:"IPv6 CIDR block"`
 }
 
 func (opts *VpcUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
-	params.Remove("id")
 	return params, nil
 }
 

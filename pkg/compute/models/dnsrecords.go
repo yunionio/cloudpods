@@ -16,8 +16,10 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -26,6 +28,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -531,7 +534,34 @@ func (self *SDnsZone) newFromCloudDnsRecord(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (man *SDnsRecordManager) QueryDns(projectId, name, kind string) (*SDnsRecord, error) {
+type sDnsResolveResults []api.SDnsResolveResult
+
+func (a sDnsResolveResults) Len() int      { return len(a) }
+func (a sDnsResolveResults) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a sDnsResolveResults) Less(i, j int) bool {
+	partsI := strings.Split(a[i].DnsName, ".")
+	partsJ := strings.Split(a[j].DnsName, ".")
+	if len(partsI) > len(partsJ) {
+		return true
+	} else if len(partsI) < len(partsJ) {
+		return false
+	}
+	if len(partsI) > 0 && partsI[0] != partsJ[0] {
+		if partsI[0] == "*" {
+			return false
+		} else if partsJ[0] == "*" {
+			return true
+		}
+	}
+	if a[i].DnsName < a[j].DnsName {
+		return true
+	} else if a[i].DnsName > a[j].DnsName {
+		return false
+	}
+	return false
+}
+
+func (man *SDnsRecordManager) QueryPtr(projectId, ip string) ([]api.SDnsResolveResult, error) {
 	zonesQ := DnsZoneManager.Query().IsNullOrEmpty("manager_id").IsTrue("enabled")
 	if len(projectId) == 0 {
 		zonesQ = zonesQ.IsTrue("is_public")
@@ -542,7 +572,47 @@ func (man *SDnsRecordManager) QueryDns(projectId, name, kind string) (*SDnsRecor
 		))
 	}
 	zones := zonesQ.SubQuery()
-	recQ := DnsRecordManager.Query()
+	recQ := DnsRecordManager.Query().IsTrue("enabled")
+	if regutils.MatchIP6Addr(ip) {
+		recQ = recQ.Equals("dns_type", "AAAA")
+	} else {
+		recQ = recQ.Equals("dns_type", "A")
+	}
+	recSQ := recQ.SubQuery()
+
+	rec := recSQ.Query(
+		recSQ.Field("dns_value"),
+		recSQ.Field("ttl"),
+		sqlchemy.CONCAT("dns_name", recSQ.Field("name"), sqlchemy.NewStringField("."), zones.Field("name")),
+	).Join(zones, sqlchemy.Equals(recSQ.Field("dns_zone_id"), zones.Field("id")))
+
+	sq := rec.SubQuery()
+
+	q := sq.Query().Equals("dns_value", ip)
+
+	results := make([]api.SDnsResolveResult, 0)
+	err := q.All(&results)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+
+	return results, nil
+}
+
+func (man *SDnsRecordManager) QueryDns(projectId, name, kind string) ([]api.SDnsResolveResult, error) {
+	name = strings.TrimSuffix(name, ".")
+
+	zonesQ := DnsZoneManager.Query().IsNullOrEmpty("manager_id").IsTrue("enabled")
+	if len(projectId) == 0 {
+		zonesQ = zonesQ.IsTrue("is_public")
+	} else {
+		zonesQ = zonesQ.Filter(sqlchemy.OR(
+			sqlchemy.IsTrue(zonesQ.Field("is_public")),
+			sqlchemy.Equals(zonesQ.Field("tenant_id"), projectId),
+		))
+	}
+	zones := zonesQ.SubQuery()
+	recQ := DnsRecordManager.Query().IsTrue("enabled")
 	if len(kind) > 0 {
 		recQ = recQ.Equals("dns_type", kind)
 	}
@@ -551,12 +621,13 @@ func (man *SDnsRecordManager) QueryDns(projectId, name, kind string) (*SDnsRecor
 	rec := recSQ.Query(
 		recSQ.Field("dns_value"),
 		recSQ.Field("ttl"),
-		sqlchemy.CONCAT("dns", recSQ.Field("name"), sqlchemy.NewStringField("."), zones.Field("name")).Label("dns_name"),
+		sqlchemy.CONCAT("dns_name", recSQ.Field("name"), sqlchemy.NewStringField("."), zones.Field("name")),
 	).Join(zones, sqlchemy.Equals(recSQ.Field("dns_zone_id"), zones.Field("id")))
 
 	sq := rec.SubQuery()
 
 	filters := sqlchemy.OR(
+		// example match
 		sqlchemy.Equals(sq.Field("dns_name"), name),
 		// support *.example.com resolve
 		sqlchemy.Equals(sq.Field("dns_name"), "*."+name),
@@ -564,19 +635,41 @@ func (man *SDnsRecordManager) QueryDns(projectId, name, kind string) (*SDnsRecor
 
 	strs := strings.Split(name, ".")
 	if len(strs) > 2 {
-		strs[0] = "*"
 		filters = sqlchemy.OR(
+			// example match
 			sqlchemy.Equals(sq.Field("dns_name"), name),
-			// support *.example.com resolve
+			// root match, support resolve example.com to *.example.com
 			sqlchemy.Equals(sq.Field("dns_name"), "*."+name),
-			sqlchemy.Equals(sq.Field("dns_name"), strings.Join(strs, ".")),
+			// support resolve office.example.com to *.example.com
+			sqlchemy.Equals(sq.Field("dns_name"), "*."+strings.Join(strs[1:], ".")),
+			// support resolve saml.office.example.com to office.example.com
+			sqlchemy.Equals(sq.Field("dns_name"), strings.Join(strs[1:], ".")),
 		)
 	}
 
-	q := sq.Query().Filter(filters).Desc(sq.Field("dns_name"))
+	q := sq.Query().Filter(filters)
 
-	ret := &SDnsRecord{}
-	return ret, q.First(ret)
+	results := make([]api.SDnsResolveResult, 0)
+	err := q.All(&results)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+
+	if len(results) == 0 {
+		return results, nil
+	}
+
+	sort.Sort(sDnsResolveResults(results))
+	ret := make([]api.SDnsResolveResult, 0, len(results))
+	for i := range results {
+		if i == 0 || results[i].DnsName == ret[0].DnsName {
+			ret = append(ret, results[i])
+		} else {
+			break
+		}
+	}
+
+	return ret, nil
 }
 
 func (self *SDnsRecord) IsCNAME() bool {

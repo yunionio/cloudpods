@@ -30,6 +30,7 @@ type usedAddressQueryArgs struct {
 	owner    mcclient.IIdentityProvider
 	scope    rbacscope.TRbacScope
 	addrOnly bool
+	addrType api.TAddressType
 }
 
 type usedAddressQueryProvider interface {
@@ -48,19 +49,28 @@ var usedAddressQueryProviders = []usedAddressQueryProvider{
 	NetworkAddressManager,
 }
 
+var usedAddress6QueryProviders = []usedAddressQueryProvider{
+	GuestnetworkManager,
+	ReservedipManager,
+}
+
 func (manager *SGuestnetworkManager) usedAddressQuery(args *usedAddressQueryArgs) *sqlchemy.SQuery {
 	var (
 		baseq = GuestnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
 		retq  *sqlchemy.SQuery
 	)
+	field := "ip_addr"
+	if args.addrType == api.AddressTypeIPv6 {
+		field = "ip6_addr"
+	}
 	if args.addrOnly {
-		retq = baseq.Query(
-			baseq.Field("ip_addr"),
-		)
+		retq = baseq.Query(baseq.Field(field))
 	} else {
+		var fields []sqlchemy.IQueryField = []sqlchemy.IQueryField{
+			baseq.Field(field),
+		}
 		ownerq := GuestManager.FilterByOwner(GuestManager.Query(), GuestManager, args.userCred, args.owner, args.scope).SubQuery()
-		retq = baseq.Query(
-			baseq.Field("ip_addr"),
+		fields = append(fields,
 			baseq.Field("mac_addr"),
 			sqlchemy.NewStringField(GuestManager.KeywordPlural()).Label("owner_type"),
 			ownerq.Field("id").Label("owner_id"),
@@ -69,7 +79,8 @@ func (manager *SGuestnetworkManager) usedAddressQuery(args *usedAddressQueryArgs
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
 			baseq.Field("created_at"),
-		).LeftJoin(
+		)
+		retq = baseq.Query(fields...).LeftJoin(
 			ownerq,
 			sqlchemy.Equals(
 				ownerq.Field("id"),
@@ -77,6 +88,7 @@ func (manager *SGuestnetworkManager) usedAddressQuery(args *usedAddressQueryArgs
 			),
 		)
 	}
+	retq = retq.IsNotEmpty(field)
 	return retq
 }
 
@@ -117,13 +129,17 @@ func (manager *SReservedipManager) usedAddressQuery(args *usedAddressQueryArgs) 
 		baseq = ReservedipManager.Query().Equals("network_id", args.network.Id).SubQuery()
 		retq  *sqlchemy.SQuery
 	)
+	field := "ip_addr"
+	if args.addrType == api.AddressTypeIPv6 {
+		field = "ip6_addr"
+	}
 	if args.addrOnly {
-		retq = baseq.Query(
-			baseq.Field("ip_addr"),
-		)
+		retq = baseq.Query(baseq.Field(field))
 	} else {
-		retq = baseq.Query(
-			baseq.Field("ip_addr"),
+		var fields []sqlchemy.IQueryField = []sqlchemy.IQueryField{
+			baseq.Field(field),
+		}
+		fields = append(fields,
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(ReservedipManager.KeywordPlural()).Label("owner_type"),
 			baseq.Field("id").Label("owner_id"),
@@ -133,11 +149,13 @@ func (manager *SReservedipManager) usedAddressQuery(args *usedAddressQueryArgs) 
 			sqlchemy.NewStringField("").Label("associate_type"),
 			baseq.Field("created_at"),
 		)
+		retq = baseq.Query(fields...)
 	}
 	retq = retq.Filter(sqlchemy.OR(
 		sqlchemy.IsNullOrEmpty(baseq.Field("expired_at")),
 		sqlchemy.GT(baseq.Field("expired_at"), time.Now()),
 	))
+	retq = retq.IsNotEmpty(field)
 	return retq
 }
 
@@ -147,13 +165,22 @@ func (manager *SGroupnetworkManager) usedAddressQuery(args *usedAddressQueryArgs
 		retq  *sqlchemy.SQuery
 	)
 	if args.addrOnly {
-		retq = baseq.Query(
-			baseq.Field("ip_addr"),
-		)
+		var fields []sqlchemy.IQueryField
+		if args.addrType == api.AddressTypeIPv6 {
+			fields = append(fields, baseq.Field("ip6_addr"))
+		} else {
+			fields = append(fields, baseq.Field("ip_addr"))
+		}
+		retq = baseq.Query(fields...)
 	} else {
+		var fields []sqlchemy.IQueryField
+		if args.addrType == api.AddressTypeIPv6 {
+			fields = append(fields, baseq.Field("ip6_addr"))
+		} else {
+			fields = append(fields, baseq.Field("ip_addr"))
+		}
 		ownerq := GroupManager.FilterByOwner(GroupManager.Query(), GroupManager, args.userCred, args.owner, args.scope).SubQuery()
-		retq = baseq.Query(
-			baseq.Field("ip_addr"),
+		fields = append(fields,
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(GroupManager.KeywordPlural()).Label("owner_type"),
 			ownerq.Field("id").Label("owner_id"),
@@ -162,7 +189,8 @@ func (manager *SGroupnetworkManager) usedAddressQuery(args *usedAddressQueryArgs
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
 			baseq.Field("created_at"),
-		).LeftJoin(
+		)
+		retq = baseq.Query(fields...).LeftJoin(
 			ownerq,
 			sqlchemy.Equals(
 				ownerq.Field("id"),

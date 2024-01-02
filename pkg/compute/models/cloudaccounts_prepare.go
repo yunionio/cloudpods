@@ -495,7 +495,7 @@ func (scm *SCloudaccountManager) parseAndSuggestSingleWire(params sParseAndSugge
 		for i, nets := range networks {
 			score := 0
 			tmpSNs := make(map[netutils.IPV4Addr]*SNetwork)
-			ipRanges := make([]netutils.IPV4AddrRange, len(nets))
+			ipRanges := make([]*netutils.IPV4AddrRange, len(nets))
 			for i2 := range ipRanges {
 				ipRanges[i2] = nets[i2].GetIPRange()
 			}

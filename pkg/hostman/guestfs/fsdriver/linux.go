@@ -975,12 +975,32 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
 			}
 			cmds.WriteString("\n")
+			if len(nicDesc.Ip6) > 0 {
+				cmds.WriteString(fmt.Sprintf("iface %s inet6 static\n", nicDesc.Name))
+				cmds.WriteString(fmt.Sprintf("    address %s\n", nicDesc.Ip6))
+				cmds.WriteString(fmt.Sprintf("    netmask %d\n", nicDesc.Masklen6))
+				if len(nicDesc.Gateway6) > 0 && nicDesc.Ip == mainIp {
+					cmds.WriteString(fmt.Sprintf("    gateway %s\n", nicDesc.Gateway6))
+				}
+				cmds.WriteString("\n")
+			}
 		} else {
 			cmds.WriteString(fmt.Sprintf("iface %s inet dhcp\n", nicDesc.Name))
 			if len(nicDesc.TeamingSlaves) > 0 {
 				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
 			}
 			cmds.WriteString("\n")
+			if len(nicDesc.Ip6) > 0 {
+				// ipv6 support static temporarily
+				// TODO
+				cmds.WriteString(fmt.Sprintf("iface %s inet6 static\n", nicDesc.Name))
+				cmds.WriteString(fmt.Sprintf("    address %s\n", nicDesc.Ip6))
+				cmds.WriteString(fmt.Sprintf("    netmask %d\n", nicDesc.Masklen6))
+				if len(nicDesc.Gateway6) > 0 && nicDesc.Ip == mainIp {
+					cmds.WriteString(fmt.Sprintf("    gateway %s\n", nicDesc.Gateway6))
+				}
+				cmds.WriteString("\n")
+			}
 		}
 	}
 
@@ -1422,8 +1442,28 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 					cmds.WriteString(fmt.Sprintf("DOMAIN=%s\n", nicDesc.Domain))
 				}
 			}
+			if len(nicDesc.Ip6) > 0 {
+				cmds.WriteString("IPV6INIT=yes\n")
+				cmds.WriteString("DHCPV6C=no\n")
+				cmds.WriteString("IPV6_AUTOCONF=no\n")
+				cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+				if len(nicDesc.Gateway6) > 0 {
+					cmds.WriteString(fmt.Sprintf("IPV6_DEFAULTGW=%s\n", nicDesc.Gateway6))
+				}
+			}
 		} else {
 			cmds.WriteString("BOOTPROTO=dhcp\n")
+			if len(nicDesc.Ip6) > 0 {
+				// IPv6 support static temporarily
+				// TODO
+				cmds.WriteString("IPV6INIT=yes\n")
+				cmds.WriteString("DHCPV6C=no\n")
+				cmds.WriteString("IPV6_AUTOCONF=no\n")
+				cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+				if len(nicDesc.Gateway6) > 0 {
+					cmds.WriteString(fmt.Sprintf("IPV6_DEFAULTGW=%s\n", nicDesc.Gateway6))
+				}
+			}
 		}
 		var fn = fmt.Sprintf("%s/ifcfg-%s", scriptPath, nicDesc.Name)
 		log.Debugf("%s: %s", fn, cmds.String())

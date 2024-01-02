@@ -106,6 +106,10 @@ type GuestnetworkBaseDesc struct {
 	TxTrafficLimit int64                `json:"tx_traffic_limit"`
 	NicType        compute.TNicType     `json:"nic_type"`
 
+	Ip6      string `json:"ip6"`
+	Gateway6 string `json:"gateway6"`
+	Masklen6 uint8  `json:"masklen6"`
+
 	// 是否为缺省路由网关
 	IsDefault bool `json:"is_default"`
 

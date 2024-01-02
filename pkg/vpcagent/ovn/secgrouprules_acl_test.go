@@ -45,6 +45,7 @@ func TestRuleToACL(t *testing.T) {
 	lport := "local-port120"
 	cases := []struct {
 		rule *agentmodels.SecurityGroupRule
+		ipv6 bool
 		acl  *ovn_nb.ACL
 	}{
 		{
@@ -80,6 +81,25 @@ func TestRuleToACL(t *testing.T) {
 				Direction: aclDirFromLport,
 				Action:    "allow-related",
 				Match:     fmt.Sprintf("inport == %q && ip4", lport),
+				Priority:  10,
+			},
+		},
+		{
+			// egress allow any
+			rule: &agentmodels.SecurityGroupRule{
+				SSecurityGroupRule: models.SSecurityGroupRule{
+					Direction: string(secrules.SecurityRuleEgress),
+					CIDR:      "",
+					Action:    string(secrules.SecurityRuleAllow),
+					Protocol:  secrules.PROTO_ANY,
+					Priority:  10,
+				},
+			},
+			ipv6: true,
+			acl: &ovn_nb.ACL{
+				Direction: aclDirFromLport,
+				Action:    "allow-related",
+				Match:     fmt.Sprintf("inport == %q && (ip4 || ip6)", lport),
 				Priority:  10,
 			},
 		},
@@ -120,10 +140,30 @@ func TestRuleToACL(t *testing.T) {
 				Priority:  100,
 			},
 		},
+		{
+			// ingress allow ssh
+			rule: &agentmodels.SecurityGroupRule{
+				SSecurityGroupRule: models.SSecurityGroupRule{
+					Direction: string(secrules.SecurityRuleIngress),
+					CIDR:      "",
+					Action:    string(secrules.SecurityRuleAllow),
+					Protocol:  secrules.PROTO_TCP,
+					Ports:     "22",
+					Priority:  100,
+				},
+			},
+			ipv6: true,
+			acl: &ovn_nb.ACL{
+				Direction: aclDirToLport,
+				Action:    "allow-related",
+				Match:     fmt.Sprintf("outport == %q && (ip4 || ip6) && tcp && tcp.dst == 22", lport),
+				Priority:  100,
+			},
+		},
 	}
 
 	for _, c := range cases {
-		got, err := ruleToAcl(lport, c.rule)
+		got, err := ruleToAcl(lport, c.rule, c.ipv6)
 		if err != nil {
 			t.Errorf("ruleToACL fail %s", err)
 		} else {

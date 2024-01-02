@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/ovsutils"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovnutil"
@@ -115,7 +116,14 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 		}
 	}()
 
-	ovnnbctl := ovnutil.NewOvnNbCtl(w.opts.OvnNorthDatabase)
+	dbUrl := w.opts.OvnNorthDatabase
+	if db, err := ovsutils.NormalizeDbHost(dbUrl); err != nil {
+		return err
+	} else {
+		dbUrl = db
+	}
+
+	ovnnbctl := ovnutil.NewOvnNbCtl(dbUrl)
 	ovndb, err := DumpOVNNorthbound(ctx, ovnnbctl)
 	if err != nil {
 		return err

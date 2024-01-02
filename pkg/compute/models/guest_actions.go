@@ -1507,7 +1507,7 @@ func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.Tok
 		network := networks[i].GetNetwork()
 		if network != nil {
 			db.Update(&networks[i], func() error {
-				networks[i].IpAddr, _ = network.GetFreeIP(ctx, userCred, nil, nil, "", api.IPAllocationRadnom, false)
+				networks[i].IpAddr, _ = network.GetFreeIP(ctx, userCred, nil, nil, "", api.IPAllocationRandom, false, api.AddressTypeIPv4)
 				return nil
 			})
 		}
@@ -1516,7 +1516,7 @@ func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.Tok
 		db.Update(eip, func() error {
 			if len(eip.NetworkId) > 0 {
 				if network, _ := eip.GetNetwork(); network != nil {
-					eip.IpAddr, _ = network.GetFreeIP(ctx, userCred, nil, nil, "", api.IPAllocationRadnom, false)
+					eip.IpAddr, _ = network.GetFreeIP(ctx, userCred, nil, nil, "", api.IPAllocationRandom, false, api.AddressTypeIPv4)
 					return nil
 				}
 			}
@@ -2250,21 +2250,30 @@ func (self *SGuest) startIsolatedDevicesSyncTask(ctx context.Context, userCred m
 	}
 }
 
-func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index int64) (*SGuestnetwork, error) {
-	if len(ipStr) > 0 {
-		gn, err := self.GetGuestnetworkByIp(ipStr)
+func (self *SGuest) findGuestnetworkByInfo(info api.ServerNetworkInfo) (*SGuestnetwork, error) {
+	if len(info.IpAddr) > 0 {
+		gn, err := self.GetGuestnetworkByIp(info.IpAddr)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("ip %s not found", ipStr)
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("ip %s not found", info.IpAddr)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
 		return gn, nil
-	} else if len(macStr) > 0 {
-		gn, err := self.GetGuestnetworkByMac(macStr)
+	} else if len(info.Ip6Addr) > 0 {
+		gn, err := self.GetGuestnetworkByIp6(info.Ip6Addr)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("mac %s not found", macStr)
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("ipv6 %s not found", info.Ip6Addr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		return gn, nil
+	} else if len(info.Mac) > 0 {
+		gn, err := self.GetGuestnetworkByMac(info.Mac)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("mac %s not found", info.Mac)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -2274,10 +2283,10 @@ func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index in
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-		if index >= 0 && index < int64(len(gns)) {
-			return &gns[index], nil
+		if info.Index >= 0 && info.Index < len(gns) {
+			return &gns[info.Index], nil
 		}
-		return nil, httperrors.NewInputParameterError("no either ip_addr or mac specified")
+		return nil, httperrors.NewInputParameterError("no either ip_addr, ip6_addr, mac or index specified")
 	}
 }
 
@@ -2298,30 +2307,36 @@ func (self *SGuest) getReuseAddr(gn *SGuestnetwork) string {
 // Change IPaddress of a guestnetwork
 // first detach the network, then attach a network with identity mac address but different IP configurations
 // TODO change IP address of a teaming NIC may fail!!
-func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformChangeIpaddr(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ServerChangeIpaddrInput,
+) (jsonutils.JSONObject, error) {
 	if self.Status != api.VM_READY && self.Status != api.VM_RUNNING && self.Status != api.VM_BLOCK_STREAM {
 		return nil, httperrors.NewInvalidStatusError("Cannot change network ip_addr in status %s", self.Status)
 	}
 
-	reserve := jsonutils.QueryBoolean(data, "reserve", false)
+	reserve := (input.Reserve != nil && *input.Reserve)
 
-	ipStr, _ := data.GetString("ip_addr")
-	macStr, _ := data.GetString("mac")
-	index, _ := data.Int("index")
-
-	gn, err := self.findGuestnetworkByInfo(ipStr, macStr, index)
+	gn, err := self.findGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	netDesc, err := data.Get("net_desc")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("net_desc")
+	var conf *api.NetworkConfig
+	if input.NetConf != nil {
+		conf = input.NetConf
+	} else if len(input.NetDesc) > 0 {
+		netConf, err := cmdline.ParseNetworkConfigByJSON(jsonutils.NewString(input.NetDesc), -1)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("fail to parse net_desc %s: %s", input.NetDesc, err)
+		}
+		conf = netConf
+	} else {
+		return nil, httperrors.NewMissingParameterError("net_desc/net_conf")
 	}
-	conf, err := cmdline.ParseNetworkConfigByJSON(netDesc, -1)
-	if err != nil {
-		return nil, err
-	}
+
 	if conf.BwLimit == 0 {
 		conf.BwLimit = gn.BwLimit
 	}
@@ -2330,12 +2345,13 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	}
 	conf, err = parseNetworkInfo(ctx, userCred, conf)
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewInputParameterError("parseNetworkInfo fail: %s", err)
 	}
 	err = isValidNetworkInfo(ctx, userCred, conf, self.getReuseAddr(gn))
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewInputParameterError("isValidNetworkInfo fail: %s", err)
 	}
+
 	host, _ := self.GetHost()
 
 	ngn, err := func() ([]SGuestnetwork, error) {
@@ -2356,19 +2372,31 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 				if cnt > 0 {
 					return nil, httperrors.NewConflictError("mac addr %s has been occupied", conf.Mac)
 				}
-			} else {
-				if conf.Address == gn.IpAddr { // ip addr is the same, noop
-					return nil, nil
-				}
 			}
 		} else {
 			conf.Mac = gn.MacAddr
 		}
+		if len(conf.Address) == 0 {
+			conf.Address = gn.IpAddr
+		}
+		if len(conf.Address6) == 0 {
+			conf.Address6 = gn.Ip6Addr
+		}
+
+		if conf.Mac == gn.MacAddr && conf.Address == gn.IpAddr {
+			if len(gn.Ip6Addr) == 0 && len(conf.Address6) == 0 && !conf.RequireIPv6 {
+				return nil, nil
+			} else if len(gn.Ip6Addr) > 0 && conf.Address6 == gn.Ip6Addr {
+				return nil, nil
+			}
+			reserve = true
+		}
 
 		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "detachNetworks")
 		}
+
 		conf.Ifname = gn.Ifname
 		ngn, err := self.attach2NetworkDesc(ctx, userCred, host, conf, nil, nil)
 		if err != nil {
@@ -2406,7 +2434,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	newGateway := networkJsonDesc.Gateway
 	ipMask := fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
 
-	notes := jsonutils.NewDict()
+	notes := gn.GetShortDesc(ctx)
 	if gn != nil {
 		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
 	}
@@ -2415,7 +2443,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
-	restartNetwork, _ := data.Bool("restart_network")
+	restartNetwork := (input.RestartNetwork != nil && *input.RestartNetwork)
 
 	taskData := jsonutils.NewDict()
 	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && (self.Status == api.VM_RUNNING || self.Status == api.VM_BLOCK_STREAM) {
@@ -2569,22 +2597,36 @@ func (self *SGuest) PerformAttachnetwork(
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewBadRequestError("Cannot attach network in status %s", self.Status)
 	}
-	count := len(input.Nets)
-	if count == 0 {
-		return nil, httperrors.NewMissingParameterError("nets")
+	// count := len(input.Nets)
+	if len(input.Nets) == 0 {
+		if len(input.NetDesc) > 0 {
+			for _, netDesc := range input.NetDesc {
+				netConf, err := cmdline.ParseNetworkConfigByJSON(jsonutils.NewString(netDesc), -1)
+				if err != nil {
+					return nil, httperrors.NewInputParameterError("fail to parse net_desc %s: %s", netDesc, err)
+				}
+				input.Nets = append(input.Nets, netConf)
+			}
+		}
+		if len(input.Nets) == 0 {
+			return nil, httperrors.NewMissingParameterError("nets/net_desc")
+		}
 	}
 	var inicCnt, enicCnt, isolatedDevCount, defaultGwCnt int
-	for i := 0; i < count; i++ {
+	for i := range input.Nets {
 		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "")
 		if err != nil {
 			return nil, err
 		}
 		if IsExitNetworkInfo(userCred, input.Nets[i]) {
-			enicCnt = count
+			enicCnt += 1
 			// ebw = input.BwLimit
 		} else {
-			inicCnt = count
+			inicCnt += 1
 			// ibw = input.BwLimit
+		}
+		if input.Nets[i].BwLimit == 0 {
+			input.Nets[i].BwLimit = options.Options.DefaultBandwidth
 		}
 		if input.Nets[i].SriovDevice != nil {
 			if self.BackupHostId != "" {
@@ -2641,7 +2683,7 @@ func (self *SGuest) PerformAttachnetwork(
 	defer host.ClearSchedDescCache()
 
 	var defaultGwGn *SGuestnetwork
-	for i := 0; i < count; i++ {
+	for i := range input.Nets {
 		gns, err := self.attach2NetworkDesc(ctx, userCred, host, input.Nets[i], pendingUsage, nil)
 		logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_NETWORK, input.Nets[i], userCred, err == nil)
 		if err != nil {
@@ -2693,22 +2735,24 @@ func (self *SGuest) PerformAttachnetwork(
 	return nil, nil
 }
 
-func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformChangeBandwidth(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ServerChangeBandwidthInput,
+) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", self.Status)
 	}
 
-	bandwidth, err := data.Int("bandwidth")
-	if err != nil || bandwidth < 0 {
+	bandwidth := input.Bandwidth
+	if bandwidth < 0 {
 		return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
 	}
 
-	ipStr, _ := data.GetString("ip_addr")
-	macStr, _ := data.GetString("mac")
-	index, _ := data.Int("index")
-	guestnic, err := self.findGuestnetworkByInfo(ipStr, macStr, index)
+	guestnic, err := self.findGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "findGuestnetworkByInfo")
 	}
 
 	if guestnic.BwLimit != int(bandwidth) {
@@ -4578,16 +4622,19 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 		return nil, httperrors.NewInputParameterError("empty ip list")
 	}
 	for _, ip := range iplist {
+		if !regutils.MatchIP4Addr(ip) {
+			return nil, httperrors.NewInputParameterError("invalid IPv4 address %s", ip)
+		}
 		// ip is reachable on host
 		net, err := host.getNetworkOfIPOnHost(ip)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Unreachable IP %s: %s", ip, err)
 		}
 		// check ip is reserved or free
-		rip := ReservedipManager.GetReservedIP(net, ip)
+		rip := ReservedipManager.GetReservedIP(net, ip, api.AddressTypeIPv4)
 		if rip == nil {
 			// check ip is free
-			nip, err := net.GetFreeIPWithLock(ctx, userCred, nil, nil, ip, "", false)
+			nip, err := net.GetFreeIPWithLock(ctx, userCred, nil, nil, ip, "", false, api.AddressTypeIPv4)
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("Unavailable IP %s: occupied", ip)
 			}

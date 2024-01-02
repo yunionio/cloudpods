@@ -186,7 +186,7 @@ func (netIf *SNetInterface) networkToNic(ipAddr string, network *SNetwork, nic *
 			nic.Routes = routes
 		}
 
-		nic.MaskLen = network.GuestIpMask
+		nic.Masklen = network.GuestIpMask
 		nic.Net = network.Name
 		nic.NetId = network.Id
 	}
