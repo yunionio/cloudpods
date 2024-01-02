@@ -78,12 +78,15 @@ type NetworkConfig struct {
 
 	// 子网内的IPv6地址
 	// required: false
-	// swagger:ignore
 	Address6 string `json:"address6"`
 
 	// 如果是批量创建，指定每台主机子网内的IPv4地址
 	// required: false
 	Addresses6 []string `json:"addresses6"`
+
+	// 是否要求分配IPv6地址
+	// required: false
+	RequireIPv6 bool `json:"require_ipv6"`
 
 	// 驱动方式
 	// 若指定镜像的网络驱动方式，此参数会被覆盖
@@ -120,8 +123,12 @@ type NetworkConfig struct {
 
 type AttachNetworkInput struct {
 	// 添加的网卡的配置
-	// required: true
+	// required: false
 	Nets []*NetworkConfig `json:"nets"`
+
+	// 添加的网卡的配置
+	// required: false
+	NetDesc []string `json:"net_desc"`
 
 	// 添加后不立即同步配置
 	DisableSyncConfig *bool `json:"disable_sync_config"`

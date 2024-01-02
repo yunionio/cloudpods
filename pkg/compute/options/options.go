@@ -25,9 +25,9 @@ import (
 type ComputeOptions struct {
 	PortV2 int `help:"Listening port for region V2"`
 
-	DNSServer    string   `help:"Address of DNS server"`
-	DNSDomain    string   `help:"Domain suffix for virtual servers"`
-	DNSResolvers []string `help:"Upstream DNS resolvers"`
+	DNSServer    string   `help:"Address of DNS server" json:"dns_server"`
+	DNSDomain    string   `help:"Domain suffix for virtual servers" json:"dns_domain"`
+	DNSResolvers []string `help:"Upstream DNS resolvers" json:"dns_resolvers"`
 	// EnableDefaultDNS bool     `help:"Enable default DNS if dns server not specific" default:"true"`
 
 	DefaultCPUOvercommitBound     float32 `default:"8.0" help:"Default cpu overcommit bound for host, default to 8"`

@@ -1166,8 +1166,8 @@ type ServerNicTrafficLimit struct {
 }
 
 type GuestAddSubIpsInput struct {
-	Mac    string   `json:"mac"`
-	IpAddr string   `json:"ip_addr"`
+	ServerNetworkInfo
+
 	Count  int      `json:"count"`
 	SubIps []string `json:"sub_ips"`
 
@@ -1210,4 +1210,28 @@ type ServerSetOSInfoInput struct {
 	// OS version, e.g: 7.9, 22.04, 6.3
 	Version string `json:"version" help:"OS version, e.g.: 7.9, 22.04, 6.3"`
 	Arch    string `json:"arch" help:"OS arch, e.g.: x86_64, aarch64"`
+}
+
+type ServerNetworkInfo struct {
+	Index   int    `json:"index"`
+	Mac     string `json:"mac"`
+	IpAddr  string `json:"ip_addr"`
+	Ip6Addr string `json:"ip6_addr"`
+}
+
+type ServerChangeIpaddrInput struct {
+	ServerNetworkInfo
+
+	NetDesc string         `json:"net_desc"`
+	NetConf *NetworkConfig `json:"net_conf"`
+
+	Reserve *bool `json:"reserve"`
+
+	RestartNetwork *bool `json:"restart_network"`
+}
+
+type ServerChangeBandwidthInput struct {
+	ServerNetworkInfo
+
+	Bandwidth int `json:"bandwidth"`
 }

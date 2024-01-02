@@ -147,7 +147,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 						groupnic.EipId = ""
 						return nil
 					}); err != nil {
-						errs = append(errs, errors.Wrapf(err, "nic %s", groupnic.IpAddr))
+						errs = append(errs, errors.Wrapf(err, "nic %s/%s", groupnic.IpAddr, groupnic.Ip6Addr))
 					}
 				}
 			case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:

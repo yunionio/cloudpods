@@ -110,6 +110,7 @@ func init() {
 }
 
 func (manager *SMetadataManager) InitializeData() error {
+	/*no need to do this initilization any more
 	q := manager.RawQuery()
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.IsNullOrEmpty(q.Field("obj_type")),
@@ -134,7 +135,7 @@ func (manager *SMetadataManager) InitializeData() error {
 		if err != nil {
 			return errors.Wrap(err, "update")
 		}
-	}
+	}*/
 	return nil
 }
 

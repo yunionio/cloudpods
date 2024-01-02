@@ -56,8 +56,11 @@ type SGroupnetwork struct {
 
 	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
+	// IPv4地址
 	IpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	// # ip6_addr = Column(VARCHAR(64, charset='ascii'), nullable=True)
+
+	// IPv6地址
+	Ip6Addr string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(64, charset='ascii'), nullable=True)
 
 	Index int8 `nullable:"false" default:"0" list:"user" list:"user" update:"user" create:"optional"` // Column(TINYINT, nullable=False, default=0)
 
@@ -152,6 +155,10 @@ func (manager *SGroupnetworkManager) ListItemFilter(
 		q = q.In("ip_addr", query.IpAddr)
 	}
 
+	if len(query.Ip6Addr) > 0 {
+		q = q.In("ip6_addr", query.Ip6Addr)
+	}
+
 	return q, nil
 }
 
@@ -211,9 +218,14 @@ func (manager *SGroupnetworkManager) getVips(groupId string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "manager.FetchByGroupId")
 	}
-	ret := make([]string, len(gns))
+	ret := make([]string, 0, 2*len(gns))
 	for i := range gns {
-		ret[i] = gns[i].IpAddr
+		if len(gns[i].IpAddr) > 0 {
+			ret = append(ret, gns[i].IpAddr)
+		}
+		if len(gns[i].Ip6Addr) > 0 {
+			ret = append(ret, gns[i].Ip6Addr)
+		}
 	}
 	return ret, nil
 }
@@ -233,4 +245,18 @@ func (manager *SGroupnetworkManager) InitializeData() error {
 		}
 	}
 	return nil
+}
+
+func (gn *SGroupnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := gn.SGroupJointsBase.GetShortDesc(ctx)
+	desc.Set("network_id", jsonutils.NewString(gn.NetworkId))
+	net := gn.GetNetwork()
+	desc.Set("network", jsonutils.NewString(net.Name))
+	if len(gn.IpAddr) > 0 {
+		desc.Set("ip_addr", jsonutils.NewString(gn.IpAddr))
+	}
+	if len(gn.Ip6Addr) > 0 {
+		desc.Set("ip6_addr", jsonutils.NewString(gn.Ip6Addr))
+	}
+	return desc
 }

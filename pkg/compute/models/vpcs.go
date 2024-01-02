@@ -206,19 +206,32 @@ func (svpc *SVpc) GetVpcPeeringConnectionCount() (int, error) {
 }
 
 func (svpc *SVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcUpdateInput) (api.VpcUpdateInput, error) {
+	var err error
+
 	if input.ExternalAccessMode != "" {
 		if !utils.IsInArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
 			return input, httperrors.NewInputParameterError("invalid external_access_mode %q, want %s",
 				input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES)
 		}
 	}
+
 	if len(input.CidrBlock) > 0 {
-		netutils2.ParseCIDR()
+		input.CidrBlock, err = validateCidrBlock(input.CidrBlock)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid cidr_block %s", err)
+		}
+	}
+	if len(input.CidrBlock6) > 0 {
+		input.CidrBlock6, err = validateCidrBlock6(input.CidrBlock6)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid ipv6 cidr_block %s", err)
+		}
 	}
 
-	if _, err := svpc.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput); err != nil {
-		return input, err
+	if _, err = svpc.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput); err != nil {
+		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.ValidateUpdateData")
 	}
+
 	return input, nil
 }
 
@@ -862,6 +875,44 @@ func (manager *SVpcManager) InitializeData() error {
 	return nil
 }
 
+func validateCidrBlock(blocks string) (string, error) {
+	var errs []error
+	cidrStrs := strings.Split(blocks, ",")
+	cidrList4 := make([]string, 0)
+	for _, cidrStr := range cidrStrs {
+		cidr4, err := netutils.NewIPV4Prefix(cidrStr)
+		if err != nil {
+			errs = append(errs, errors.Wrap(err, cidrStr))
+		} else {
+			cidrList4 = append(cidrList4, cidr4.String())
+		}
+	}
+	if len(errs) > 0 {
+		return "", errors.NewAggregate(errs)
+	}
+	sort.Strings(cidrList4)
+	return strings.Join(cidrList4, ","), nil
+}
+
+func validateCidrBlock6(block6 string) (string, error) {
+	var errs []error
+	cidrStrs := strings.Split(block6, ",")
+	cidrList6 := make([]string, 0)
+	for _, cidrStr := range cidrStrs {
+		cidr6, err := netutils.NewIPV6Prefix(cidrStr)
+		if err != nil {
+			errs = append(errs, errors.Wrap(err, cidrStr))
+		} else {
+			cidrList6 = append(cidrList6, cidr6.String())
+		}
+	}
+	if len(errs) > 0 {
+		return "", errors.NewAggregate(errs)
+	}
+	sort.Strings(cidrList6)
+	return strings.Join(cidrList6, ","), nil
+}
+
 func (manager *SVpcManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -898,14 +949,16 @@ func (manager *SVpcManager) ValidateCreateData(
 			input.Status, api.VPC_EXTERNAL_ACCESS_MODES)
 	}
 
-	cidrBlock := input.CidrBlock
-	if len(cidrBlock) > 0 {
-		blocks := strings.Split(cidrBlock, ",")
-		for _, block := range blocks {
-			_, err = netutils.NewIPV4Prefix(block)
-			if err != nil {
-				return input, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
-			}
+	if len(input.CidrBlock) > 0 {
+		input.CidrBlock, err = validateCidrBlock(input.CidrBlock)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid cidr_block %s", err)
+		}
+	}
+	if len(input.CidrBlock6) > 0 {
+		input.CidrBlock6, err = validateCidrBlock6(input.CidrBlock6)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid ipv6 cidr_block %s", err)
 		}
 	}
 
@@ -1041,18 +1094,49 @@ func (svpc *SVpc) getPrefix() []netutils.IPV4Prefix {
 	return []netutils.IPV4Prefix{{}}
 }
 
+func (svpc *SVpc) getPrefix6() []netutils.IPV6Prefix {
+	if len(svpc.CidrBlock6) > 0 {
+		ret := []netutils.IPV6Prefix{}
+		blocks := strings.Split(svpc.CidrBlock6, ",")
+		for _, block := range blocks {
+			prefix, _ := netutils.NewIPV6Prefix(block)
+			ret = append(ret, prefix)
+		}
+		return ret
+	}
+	return []netutils.IPV6Prefix{{}}
+}
+
 func (svpc *SVpc) getIPRanges() []netutils.IPV4AddrRange {
 	ret := []netutils.IPV4AddrRange{}
 	prefs := svpc.getPrefix()
 	for _, pref := range prefs {
 		ret = append(ret, pref.ToIPRange())
 	}
+	return ret
+}
 
+func (svpc *SVpc) getIP6Ranges() []netutils.IPV6AddrRange {
+	ret := []netutils.IPV6AddrRange{}
+	prefs := svpc.getPrefix6()
+	for _, pref := range prefs {
+		ret = append(ret, pref.ToIPRange())
+	}
 	return ret
 }
 
 func (svpc *SVpc) containsIPV4Range(a netutils.IPV4AddrRange) bool {
 	ranges := svpc.getIPRanges()
+	for i := range ranges {
+		if ranges[i].ContainsRange(a) {
+			return true
+		}
+	}
+	return false
+}
+
+func (svpc *SVpc) containsIPV6Range(a netutils.IPV6AddrRange) bool {
+	ranges := svpc.getIP6Ranges()
 	for i := range ranges {
 		if ranges[i].ContainsRange(a) {
 			return true
@@ -1892,19 +1976,14 @@ func (svpc *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 				GuestIpMask:  networks[j].GuestIpMask,
 				ServerType:   networks[j].ServerType,
 				VlanId:       networks[j].VlanId,
-				Address:      []api.SNetworkUsedAddress{},
+				// Address:      []api.SNetworkUsedAddress{},
 			}
 
-			netAddrs := make([]api.SNetworkUsedAddress, 0)
-
-			q := networks[j].getUsedAddressQuery(userCred, userCred, rbacscope.ScopeSystem, false)
-			err = q.All(&netAddrs)
+			network.GetNetworkAddressesOutput, err = networks[j].fetchAddressDetails(userCred, userCred, rbacscope.ScopeSystem)
 			if err != nil {
-				return nil, errors.Wrapf(err, "q.All")
+				return nil, errors.Wrapf(err, "fetchAddressDetails")
 			}
 
-			sort.Sort(SNetworkUsedAddressList(netAddrs))
-			network.Address = netAddrs
 			wire.Networks = append(wire.Networks, network)
 		}
 		ret.Wires = append(ret.Wires, wire)

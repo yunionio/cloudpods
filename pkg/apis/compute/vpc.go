@@ -87,6 +87,9 @@ type VpcCreateInput struct {
 	// CIDR_BLOCK
 	CidrBlock string `json:"cidr_block"`
 
+	// CIDR_BLOCK
+	CidrBlock6 string `json:"cidr_block6"`
+
 	// 仅对谷歌云有用，若谷歌云订阅只有一个全局VPC，此参数可不传
 	// 若有多个全局VPC，谷歌云需要指定其中一个全局VPC
 	GlobalvpcId string `json:"globalvpc_id"`
@@ -150,14 +153,16 @@ type VpcTopologyInput struct {
 }
 
 type NetworkTopologyOutput struct {
-	Name         string                `json:"name"`
-	Status       string                `json:"status"`
-	GuestIpStart string                `json:"guest_ip_start"`
-	GuestIpEnd   string                `json:"guest_ip_end"`
-	GuestIpMask  int8                  `json:"guest_ip_mask"`
-	ServerType   string                `json:"server_type"`
-	VlanId       int                   `json:"vlan_id"`
-	Address      []SNetworkUsedAddress `json:"address"`
+	Name         string `json:"name"`
+	Status       string `json:"status"`
+	GuestIpStart string `json:"guest_ip_start"`
+	GuestIpEnd   string `json:"guest_ip_end"`
+	GuestIpMask  int8   `json:"guest_ip_mask"`
+	ServerType   string `json:"server_type"`
+	VlanId       int    `json:"vlan_id"`
+
+	GetNetworkAddressesOutput
+	// Address      []SNetworkUsedAddress `json:"address"`
 }
 
 type HostnetworkTopologyOutput struct {

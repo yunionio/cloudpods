@@ -21,6 +21,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
+type TAddressType string
+
+const (
+	AddressTypeIPv4 = TAddressType("ipv4")
+	AddressTypeIPv6 = TAddressType("ipv6")
+)
+
 const (
 	NETWORK_TYPE_VPC     = compute.NETWORK_TYPE_VPC
 	NETWORK_TYPE_CLASSIC = compute.NETWORK_TYPE_CLASSIC
@@ -269,15 +276,23 @@ type NetworkCreateInput struct {
 type SNetworkNics struct {
 	// 虚拟机网卡数量
 	Vnics int `json:"vnics"`
+	// IPv4地址数量
+	Vnics4 int `json:"vnics4"`
+	// IPv6地址数量
+	Vnics6 int `json:"vnics6"`
 	// 裸金属网卡数量
 	BmVnics int `json:"bm_vnics"`
 	// 负载均衡网卡数量
 	LbVnics int `json:"lb_vnics"`
 	// 浮动Ip网卡数量
-	EipVnics   int `json:"eip_vnics"`
+	EipVnics int `json:"eip_vnics"`
+	// VIP数量
 	GroupVnics int `json:"group_vnics"`
-	// 预留IP数量
-	ReserveVnics int `json:"reserve_vnics"`
+
+	// 预留IPv4数量
+	ReserveVnics4 int `json:"reserve_vnics4"`
+	// 预留IPv6数量
+	ReserveVnics6 int `json:"reserve_vnics6"`
 
 	// RDS网卡数量
 	RdsVnics int `json:"rds_vnics"`
@@ -292,21 +307,29 @@ type SNetworkNics struct {
 	PortsUsed int `json:"ports_used"`
 
 	Total int `json:"total"`
+
+	// 已使用IPv4端口数量
+	Ports6Used int `json:"ports6_used"`
+
+	Total6 int `json:"total6"`
 }
 
 func (self *SNetworkNics) SumTotal() {
-	self.Total = self.Vnics +
+	self.Total = self.Vnics4 +
 		self.BmVnics +
 		self.LbVnics +
 		self.LbVnics +
 		self.EipVnics +
 		self.GroupVnics +
-		self.ReserveVnics +
+		self.ReserveVnics4 +
 		self.RdsVnics +
 		self.NetworkinterfaceVnics +
 		self.NatVnics -
 		self.BmReusedVnics
+	self.Total6 = self.Vnics6 +
+		self.ReserveVnics6
 	self.PortsUsed = self.Total
+	self.Ports6Used = self.Total6
 }
 
 type NetworkDetails struct {
@@ -435,7 +458,7 @@ type NetworkUpdateInput struct {
 	// 结束IP6地址
 	GuestIp6End *string `json:"guest_ip6_end"`
 	// IP6子网掩码长度
-	GuestIp6Mask *uint16 `json:"guest_ip6_mask"`
+	GuestIp6Mask *uint8 `json:"guest_ip6_mask"`
 	// IP6网关地址
 	GuestGateway6 *string `json:"guest_gateway6"`
 
@@ -458,6 +481,9 @@ type GetNetworkAddressesInput struct {
 type GetNetworkAddressesOutput struct {
 	// IP子网地址记录
 	Addresses []SNetworkUsedAddress `json:"addresses"`
+
+	// IPv6子网地址记录
+	Addresses6 []SNetworkUsedAddress `json:"addresses6"`
 }
 
 type GetNetworkAvailableAddressesInput struct {
@@ -466,6 +492,9 @@ type GetNetworkAvailableAddressesInput struct {
 type GetNetworkAvailableAddressesOutput struct {
 	// IP子网地址记录
 	Addresses []string `json:"addresses"`
+
+	// IPv6子网地址记录
+	Addresses6 []string `json:"addresses6"`
 }
 
 type NetworkSetBgpTypeInput struct {

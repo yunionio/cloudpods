@@ -19,8 +19,10 @@ import (
 	"strconv"
 	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/ovsdb/schema/ovn_nb"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
@@ -35,7 +37,7 @@ const (
 	aclDirFromLport = "from-lport"
 )
 
-func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, error) {
+func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule, enableIPv6 bool) (*ovn_nb.ACL, error) {
 	var (
 		dir    string
 		action string
@@ -72,9 +74,19 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 	}
 
 	addL3Match := func() {
-		matches = append(matches, "ip4")
-		if cidr := strings.TrimSpace(rule.CIDR); cidr != "" && cidr != "0.0.0.0/0" {
-			matches = append(matches, fmt.Sprintf("ip4.%s == %s", l3subfn, cidr))
+		if enableIPv6 {
+			matches = append(matches, "(ip4 || ip6)")
+		} else {
+			matches = append(matches, "ip4")
+		}
+		if cidr := strings.TrimSpace(rule.CIDR); cidr != "" && cidr != "0.0.0.0/0" && cidr != "::/0" && cidr != "::" {
+			if regutils.MatchCIDR(cidr) {
+				matches = append(matches, fmt.Sprintf("ip4.%s == %s", l3subfn, cidr))
+			} else if regutils.MatchCIDR6(cidr) {
+				matches = append(matches, fmt.Sprintf("ip6.%s == %s", l3subfn, cidr))
+			} else {
+				log.Debugf("invalid cidr %s, ignore", cidr)
+			}
 		}
 	}
 	addL4Match := func(l4proto string) {
@@ -157,7 +169,11 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 		addL4Match("udp")
 	case secrules.PROTO_ICMP:
 		addL3Match()
-		matches = append(matches, "icmp4")
+		if enableIPv6 {
+			matches = append(matches, "(icmp4 || icmp6)")
+		} else {
+			matches = append(matches, "icmp4")
+		}
 	default:
 		return nil, errors.Wrapf(errBadSecgroupRule, "unknown protocol %q", rule.Protocol)
 	}
