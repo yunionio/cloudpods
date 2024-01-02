@@ -1204,7 +1204,8 @@ func (m *SGuestManager) GetFreeVncPort() int {
 	for {
 		if _, ok := vncPorts[port]; ok ||
 			netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) ||
-			netutils2.IsTcpPortUsed("127.0.0.1", MONITOR_PORT_BASE+port) {
+			netutils2.IsTcpPortUsed("127.0.0.1", MONITOR_PORT_BASE+port) ||
+			netutils2.IsTcpPortUsed("127.0.0.1", QMP_MONITOR_PORT_BASE+port) {
 			port += 1
 		} else {
 			if !m.checkAndSetPort(port) {
