@@ -1395,6 +1395,8 @@ func (h *SHostInfo) getSysInfo() *SSysInfo {
 func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) {
 	if len(hostId) == 0 {
 		h.isInit = true
+	} else {
+		h.isInit = false
 	}
 	masterIp := h.GetMasterIp()
 	if len(masterIp) == 0 {
