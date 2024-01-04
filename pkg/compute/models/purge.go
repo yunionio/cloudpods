@@ -466,12 +466,14 @@ func (self *SCloudregion) purgeApps(ctx context.Context, managerId string) error
 
 func (self *SCloudregion) purgeAccessGroups(ctx context.Context, managerId string) error {
 	fs := FileSystemManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
-	ags := AccessGroupCacheManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	ags := AccessGroupManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	mts := MountTargetManager.Query("id").In("file_system_id", fs.SubQuery())
+	rules := AccessGroupManager.Query("id").In("access_group_id", ags.SubQuery())
 
 	pairs := []purgePair{
+		{manager: AccessGroupRuleManager, key: "id", q: rules},
 		{manager: MountTargetManager, key: "id", q: mts},
-		{manager: AccessGroupCacheManager, key: "id", q: ags},
+		{manager: AccessGroupManager, key: "id", q: ags},
 		{manager: FileSystemManager, key: "id", q: fs},
 	}
 	for i := range pairs {

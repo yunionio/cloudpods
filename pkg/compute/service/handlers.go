@@ -202,7 +202,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.FileSystemManager,
 		models.AccessGroupManager,
 		models.AccessGroupRuleManager,
-		models.AccessGroupCacheManager,
 		models.MountTargetManager,
 
 		models.ProjectMappingManager,

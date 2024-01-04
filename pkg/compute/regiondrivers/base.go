@@ -386,10 +386,6 @@ func (self *SBaseRegionDriver) RequestAssociateEip(ctx context.Context, userCred
 	return httperrors.NewNotImplementedError("RequestAssociateEip")
 }
 
-func (self *SBaseRegionDriver) RequestSyncAccessGroup(ctx context.Context, userCred mcclient.TokenCredential, fs *models.SFileSystem, mt *models.SMountTarget, ag *models.SAccessGroup, task taskman.ITask) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncAccessGroup")
-}
-
 func (self *SBaseRegionDriver) ValidateCreateWafInstanceData(ctx context.Context, userCred mcclient.TokenCredential, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error) {
 	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateWafInstanceData")
 }
