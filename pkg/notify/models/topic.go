@@ -138,6 +138,8 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultServerPanicked,
 		DefaultPasswordExpire,
 		DefaultResourceRelease,
+		DefaultAttachOrDetach,
+		DefaultIsolatedDeviceChanged,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
