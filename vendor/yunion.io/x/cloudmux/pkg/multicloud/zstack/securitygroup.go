@@ -113,7 +113,15 @@ func (self *SSecurityGroup) GetProjectId() string {
 	return ""
 }
 
-func (region *SRegion) CreateSecurityGroupRule(secgroupId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) error {
+func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
+	rule, err := self.region.CreateSecurityGroupRule(self.UUID, opts)
+	if err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
+func (region *SRegion) CreateSecurityGroupRule(secgroupId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) (*SSecurityGroupRule, error) {
 	ruleParam := map[string]interface{}{
 		"allowedCidr": opts.CIDR,
 		"type":        "Ingress",
@@ -145,15 +153,17 @@ func (region *SRegion) CreateSecurityGroupRule(secgroupId string, opts *cloudpro
 			}
 		}
 	}
-	if len(ruleParam) > 0 {
-		params := map[string]interface{}{
-			"params": map[string]interface{}{
-				"rules": []map[string]interface{}{ruleParam},
-			},
-		}
-		return region.client.create(fmt.Sprintf("security-groups/%s/rules", secgroupId), jsonutils.Marshal(params), nil)
+	params := map[string]interface{}{
+		"params": map[string]interface{}{
+			"rules": []map[string]interface{}{ruleParam},
+		},
 	}
-	return nil
+	rule := &SSecurityGroupRule{region: region}
+	err := region.client.create(fmt.Sprintf("security-groups/%s/rules", secgroupId), jsonutils.Marshal(params), rule)
+	if err != nil {
+		return nil, err
+	}
+	return rule, nil
 }
 
 func (region *SRegion) DeleteSecurityGroupRules(ruleIds []string) error {
