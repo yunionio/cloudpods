@@ -52,11 +52,6 @@ func (self *MountTargetCreateTask) OnInit(ctx context.Context, obj db.IStandalon
 		self.taskFailed(ctx, mt, errors.Wrapf(err, "GetFileSystem"))
 		return
 	}
-	region, err := fs.GetRegion()
-	if err != nil {
-		self.taskFailed(ctx, mt, errors.Wrapf(err, "fs.GetRegion"))
-		return
-	}
 
 	ag, err := mt.GetAccessGroup()
 	if err != nil {
@@ -64,30 +59,9 @@ func (self *MountTargetCreateTask) OnInit(ctx context.Context, obj db.IStandalon
 		return
 	}
 
-	self.SetStage("OnSyncAccessGroupComplete", nil)
-	err = region.GetDriver().RequestSyncAccessGroup(ctx, self.GetUserCred(), fs, mt, ag, self)
-	if err != nil {
-		self.taskFailed(ctx, mt, errors.Wrapf(err, "RequestSyncAccessGroup"))
-		return
-	}
-}
-
-func (self *MountTargetCreateTask) OnSyncAccessGroupCompleteFailed(ctx context.Context, mt *models.SMountTarget, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, mt, errors.Error(data.String()))
-}
-
-func (self *MountTargetCreateTask) OnSyncAccessGroupComplete(ctx context.Context, mt *models.SMountTarget, data jsonutils.JSONObject) {
-	opts := cloudprovider.SMountTargetCreateOptions{NetworkType: mt.NetworkType}
-	data.Unmarshal(&opts)
-	if len(opts.AccessGroupId) == 0 {
-		self.taskFailed(ctx, mt, errors.Error("empty access_group_id after sync"))
-		return
-	}
-
-	fs, err := mt.GetFileSystem()
-	if err != nil {
-		self.taskFailed(ctx, mt, errors.Wrapf(err, "GetFileSystem"))
-		return
+	opts := cloudprovider.SMountTargetCreateOptions{
+		NetworkType:   mt.NetworkType,
+		AccessGroupId: ag.ExternalId,
 	}
 
 	iFs, err := fs.GetICloudFileSystem(ctx)

@@ -331,9 +331,9 @@ func syncRegionAccessGroups(ctx context.Context, userCred mcclient.TokenCredenti
 		defer syncResults.AddSqlCost(AccessGroupManager)()
 		return localRegion.SyncAccessGroups(ctx, userCred, provider, accessGroups, syncRange.Xor)
 	}()
-	syncResults.Add(AccessGroupCacheManager, result)
+	syncResults.Add(AccessGroupManager, result)
 	msg := result.Result()
-	notes := fmt.Sprintf("Sync Access Group Caches for region %s result: %s", localRegion.Name, msg)
+	notes := fmt.Sprintf("Sync Access Group for region %s result: %s", localRegion.Name, msg)
 	log.Infof(notes)
 	provider.SyncError(result, notes, userCred)
 }

@@ -1419,16 +1419,23 @@ type ICloudAccessGroup interface {
 	GetGlobalId() string
 	GetName() string
 	GetDesc() string
-	IsDefault() bool
-	GetMaxPriority() int
-	GetMinPriority() int
 	GetSupporedUserAccessTypes() []TUserAccessType
 	GetNetworkType() string
 	GetFileSystemType() string
 	GetMountTargetCount() int
 
-	GetRules() ([]AccessGroupRule, error)
-	SyncRules(common, added, removed AccessGroupRuleSet) error
+	GetRules() ([]IAccessGroupRule, error)
+	CreateRule(opts *AccessGroupRule) (IAccessGroupRule, error)
+
+	Delete() error
+}
+
+type IAccessGroupRule interface {
+	GetGlobalId() string
+	GetPriority() int
+	GetRWAccessType() TRWAccessType
+	GetUserAccessType() TUserAccessType
+	GetSource() string
 
 	Delete() error
 }

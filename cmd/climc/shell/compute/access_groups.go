@@ -25,6 +25,6 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.AccessGroups).WithKeyword("access-group")
 	cmd.List(&compute.AccessGroupListOptions{})
 	cmd.Delete(&options.BaseIdOptions{})
-	cmd.Create(&options.BaseCreateOptions{})
+	cmd.Create(&compute.AccessGroupCreateOptions{})
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})
 }
