@@ -520,7 +520,7 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 			dnsDomain = opts.DNSDomain
 		}
 		if len(dnsDomain) > 0 {
-			dhcpopts.Options["domain_name"] = dnsDomain
+			dhcpopts.Options["domain_name"] = "\"" + dnsDomain + "\""
 		}
 	}
 	{
