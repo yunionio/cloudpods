@@ -3209,15 +3209,11 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		if options.Options.EnableSyncName {
-			guest.Name = extVM.GetName()
-		} else {
-			newName, err := db.GenerateName(ctx, manager, syncOwnerId, extVM.GetName())
-			if err != nil {
-				return errors.Wrapf(err, "db.GenerateName")
-			}
-			guest.Name = newName
+		newName, err := db.GenerateName(ctx, manager, syncOwnerId, extVM.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
 		}
+		guest.Name = newName
 
 		return manager.TableSpec().Insert(ctx, &guest)
 	}()
