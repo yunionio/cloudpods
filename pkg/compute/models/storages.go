@@ -95,6 +95,9 @@ type SStorage struct {
 	// 存储缓存Id
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"domain" get:"domain" update:"domain" create:"domain_optional"`
 
+	// master host id
+	MasterHost string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" json:"master_host"`
+
 	// indicating whether system disk can be allocated in this storage
 	// 是否可以用作系统盘存储
 	// example: true
@@ -116,7 +119,20 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	}
 	input.StorageConf = jsonutils.NewDict()
 	if self.StorageConf != nil {
-		input.StorageConf.Update(jsonutils.Marshal(self.StorageConf))
+		confs, _ := self.StorageConf.GetMap()
+		for k, v := range confs {
+			if input.StorageConf.Contains(k) {
+				continue
+			}
+			input.StorageConf.Set(k, v)
+		}
+	}
+	if input.MasterHost != "" {
+		host, err := HostManager.FetchByIdOrName(userCred, input.MasterHost)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("get host %s failed", input.MasterHost)
+		}
+		input.MasterHost = host.GetId()
 	}
 
 	driver := GetStorageDriver(self.StorageType)
@@ -134,6 +150,18 @@ func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCre
 		for _, host := range hosts {
 			if err := host.ClearSchedDescCache(); err != nil {
 				log.Errorf("clear host %s sched cache failed %v", host.GetName(), err)
+			}
+		}
+	}
+	if masterHost, _ := data.GetString("master_host"); masterHost != "" {
+		storageCache := self.GetStoragecache()
+		if storageCache.MasterHost != masterHost {
+			_, err := db.Update(storageCache, func() error {
+				storageCache.MasterHost = masterHost
+				return nil
+			})
+			if err != nil {
+				log.Errorf("failed update storage master host")
 			}
 		}
 	}
@@ -661,6 +689,9 @@ func (self *SStorage) GetMasterHost() (*SHost, error) {
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), self.Id))
 	q = q.IsTrue("enabled")
 	q = q.Equals("host_status", api.HOST_ONLINE).Asc("id")
+	if self.MasterHost != "" {
+		q.Equals("id", self.MasterHost)
+	}
 	host := SHost{}
 	host.SetModelManager(HostManager, &host)
 	err := q.First(&host)

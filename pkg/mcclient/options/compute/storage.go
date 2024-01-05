@@ -56,6 +56,7 @@ type StorageUpdateOptions struct {
 	RbdKey                string  `help:"ceph rbd key"`
 	Reserved              string  `help:"Reserved storage space"`
 	Capacity              int     `help:"Capacity for storage"`
+	MasterHost            string  `help:"slvm storage master host"`
 }
 
 func (opts *StorageUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -67,7 +68,7 @@ type StorageCreateOptions struct {
 	ZONE                  string `help:"Zone id of storage"`
 	Capacity              int64  `help:"Capacity of the Storage"`
 	MediumType            string `help:"Medium type" choices:"ssd|rotate" default:"ssd"`
-	StorageType           string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal|clvm"`
+	StorageType           string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal|clvm|slvm"`
 	RbdMonHost            string `help:"Ceph mon_host config"`
 	RbdRadosMonOpTimeout  int64  `help:"ceph rados_mon_op_timeout"`
 	RbdRadosOsdOpTimeout  int64  `help:"ceph rados_osd_op_timeout"`
@@ -77,6 +78,8 @@ type StorageCreateOptions struct {
 	NfsHost               string `help:"NFS host"`
 	NfsSharedDir          string `help:"NFS shared dir"`
 	ClvmVgName            string `help:"clvm vg name"`
+	SlvmVgName            string `help:"slvm vg name"`
+	MasterHost            string `help:"slvm storage master host"`
 }
 
 func (opts *StorageCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -91,6 +94,10 @@ func (opts *StorageCreateOptions) Params() (jsonutils.JSONObject, error) {
 	} else if opts.StorageType == "clvm" {
 		if len(opts.ClvmVgName) == 0 {
 			return nil, fmt.Errorf("Storage type clvm missing conf clvm_vg_name")
+		}
+	} else if opts.StorageType == "slvm" {
+		if len(opts.SlvmVgName) == 0 {
+			return nil, fmt.Errorf("Storage type slvm missing conf slvm_vg_name")
 		}
 	}
 	return options.StructToParams(opts)

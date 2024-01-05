@@ -1040,6 +1040,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	if storage == nil {
 		return httperrors.NewInternalServerError("disk has no valid storage")
 	}
+
 	if host, _ := storage.GetMasterHost(); host != nil {
 		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError("%v", err)
@@ -1366,7 +1367,11 @@ func (self *SDisk) GetPathAtHost(host *SHost) string {
 	return ""
 }
 
-func (self *SDisk) GetMasterHost() (*SHost, error) {
+func (self *SDisk) GetMasterHost(storage *SStorage) (*SHost, error) {
+	if storage.MasterHost != "" {
+		return storage.GetMasterHost()
+	}
+
 	hosts := HostManager.Query().SubQuery()
 	hoststorages := HoststorageManager.Query().SubQuery()
 

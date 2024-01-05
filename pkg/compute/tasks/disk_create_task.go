@@ -75,7 +75,7 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 		self.OnStartAllocateFailed(ctx, disk, jsonutils.NewString(errors.Wrapf(err, "disk.GetStorage").Error()))
 		return
 	}
-	host, err := disk.GetMasterHost()
+	host, err := disk.GetMasterHost(storage)
 	if err != nil {
 		self.OnStartAllocateFailed(ctx, disk, jsonutils.NewString(errors.Wrapf(err, "GetMasterHost").Error()))
 		return

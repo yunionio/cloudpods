@@ -115,7 +115,7 @@ func (self *SStoragecachedimage) getStorageHostId() (string, error) {
 
 func (self *SStoragecachedimage) GetHost() (*SHost, error) {
 	sc := self.GetStoragecache()
-	return sc.GetHost()
+	return sc.GetMasterHost()
 }
 
 func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
@@ -154,7 +154,7 @@ func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.St
 	if storagecache != nil {
 		// out.Storagecache = storagecache.Name
 		out.Storages = storagecache.getStorageNames()
-		host, _ := storagecache.GetHost()
+		host, _ := storagecache.GetMasterHost()
 		if host != nil {
 			out.Host = host.GetShortDesc(ctx)
 		} else {

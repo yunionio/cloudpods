@@ -51,10 +51,11 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	var host *models.SHost
 	storage, _ := disk.GetStorage()
 	guest := disk.GetGuest()
-	if guest != nil {
-		host, _ = guest.GetHost()
-	} else {
+
+	if guest == nil || storage.MasterHost != "" {
 		host, _ = storage.GetMasterHost()
+	} else {
+		host, _ = guest.GetHost()
 	}
 
 	reason := "Cannot find host for disk"

@@ -82,7 +82,8 @@ func (c *SLVMImageCache) Acquire(
 	if err != nil {
 		return errors.Wrapf(err, "LocalStorage.AcquireImage")
 	}
-	if c.Load() != nil {
+	if err := c.Load(); err != nil {
+		log.Errorf("failed load image cache %s %s, try create", c.imageId, err)
 		localImg, err := qemuimg.NewQemuImage(localImageCache.GetPath())
 		if err != nil {
 			return errors.Wrapf(err, "NewQemuImage for local image path %s", localImageCache.GetPath())
@@ -93,10 +94,10 @@ func (c *SLVMImageCache) Acquire(
 		}
 
 		log.Infof("convert local image %s to lvm %s", c.imageId, c.GetPath())
-		err = procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
-			"convert", "-W", "-m", "16", "-O", "raw", localImageCache.GetPath(), c.GetPath()).Run()
+		out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
+			"convert", "-W", "-m", "16", "-O", "raw", localImageCache.GetPath(), c.GetPath()).Output()
 		if err != nil {
-			return errors.Wrapf(err, "convert local image %s to lvm %s", c.imageId, c.GetPath())
+			return errors.Wrapf(err, "convert local image %s to lvm %s: %s", c.imageId, c.GetPath(), out)
 		}
 		if len(input.ServerId) > 0 {
 			modules.Servers.Update(hostutils.GetComputeSession(context.Background()), input.ServerId, jsonutils.Marshal(map[string]float32{"progress": 100.0}))
