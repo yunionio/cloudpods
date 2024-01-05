@@ -663,55 +663,6 @@ func (self *SAliyunRegionDriver) IsSupportedNas() bool {
 	return true
 }
 
-func (self *SAliyunRegionDriver) RequestSyncAccessGroup(ctx context.Context, userCred mcclient.TokenCredential, fs *models.SFileSystem, mt *models.SMountTarget, ag *models.SAccessGroup, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if mt.AccessGroupId == api.DEFAULT_ACCESS_GROUP {
-			return jsonutils.Marshal(
-				map[string]string{
-					"access_group_id": fmt.Sprintf("DEFAULT_%s_GROUP_NAME", strings.ToUpper(mt.NetworkType)),
-				}), nil
-		}
-		caches, err := ag.GetAccessGroupCaches()
-		if err != nil {
-			return nil, errors.Wrapf(err, "ag.GetAccessGroupCaches")
-		}
-		for i := range caches {
-			if caches[i].CloudregionId == fs.CloudregionId &&
-				caches[i].ManagerId == fs.ManagerId &&
-				caches[i].FileSystemType == fs.FileSystemType &&
-				caches[i].NetworkType == mt.NetworkType {
-				if len(caches[i].ExternalId) > 0 {
-					err := caches[i].SyncRules(ctx)
-					if err != nil {
-						return nil, errors.Wrapf(err, "cache.SyncRules")
-					}
-					return jsonutils.Marshal(map[string]string{"access_group_id": caches[i].ExternalId}), nil
-				}
-				err := caches[i].CreateIAccessGroup(ctx)
-				if err != nil {
-					return nil, errors.Wrapf(err, "CreateIAccessGroup")
-				}
-				return jsonutils.Marshal(map[string]string{"access_group_id": caches[i].ExternalId}), nil
-			}
-		}
-		opts := models.SAccessGroupCacheRegisterInput{
-			Name:           ag.Name,
-			Desc:           ag.Description,
-			ManagerId:      fs.ManagerId,
-			CloudregionId:  fs.CloudregionId,
-			NetworkType:    mt.NetworkType,
-			FileSystemType: fs.FileSystemType,
-			AccessGroupId:  ag.Id,
-		}
-		cache, err := models.AccessGroupCacheManager.Register(ctx, &opts)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Register")
-		}
-		return jsonutils.Marshal(map[string]string{"access_group_id": cache.ExternalId}), nil
-	})
-	return nil
-}
-
 func (self *SAliyunRegionDriver) ValidateCreateWafInstanceData(ctx context.Context, userCred mcclient.TokenCredential, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error) {
 	if !regutils.DOMAINNAME_REG.MatchString(input.Name) {
 		return input, httperrors.NewInputParameterError("invalid domain name %s", input.Name)

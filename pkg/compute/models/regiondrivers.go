@@ -204,7 +204,6 @@ type IWafDriver interface {
 }
 
 type INasDriver interface {
-	RequestSyncAccessGroup(ctx context.Context, userCred mcclient.TokenCredential, fs *SFileSystem, mt *SMountTarget, ag *SAccessGroup, task taskman.ITask) error
 	IsSupportedNas() bool
 }
 

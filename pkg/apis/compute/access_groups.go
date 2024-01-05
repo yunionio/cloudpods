@@ -17,8 +17,6 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
-	DEFAULT_ACCESS_GROUP = "default"
-
 	ACCESS_GROUP_STATUS_AVAILABLE         = "available"
 	ACCESS_GROUP_STATUS_DELETING          = "deleting"
 	ACCESS_GROUP_STATUS_DELETE_FAILED     = "delete_failed"
@@ -30,10 +28,15 @@ const (
 
 type AccessGroupListInput struct {
 	apis.StatusInfrasResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
+	ManagedResourceListInput
+	RegionalFilterListInput
 }
 
 type AccessGroupDetails struct {
 	apis.StatusInfrasResourceBaseDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
 }
 
 type AccessGroupResourceInfo struct {
@@ -51,4 +54,7 @@ type AccessGroupFilterListInput struct {
 
 type AccessGroupCreateInput struct {
 	apis.StatusInfrasResourceBaseCreateInput
+
+	CloudproviderResourceInput
+	CloudregionResourceInput
 }
