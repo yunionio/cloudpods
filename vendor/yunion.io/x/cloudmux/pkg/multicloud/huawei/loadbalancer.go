@@ -95,6 +95,9 @@ type Pool struct {
 
 func (self *SLoadbalancer) GetEip() (*SEipAddress, error) {
 	for _, ip := range self.Publicips {
+		if ip.IpVersion != "4" {
+			continue
+		}
 		eip, err := self.region.GetEip(ip.PublicipId)
 		if err != nil {
 			return nil, err
