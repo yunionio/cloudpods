@@ -138,6 +138,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultServerPanicked,
 		DefaultPasswordExpire,
 		DefaultResourceRelease,
+		DefaultResourceOperationSuccessed,
 		DefaultAttachOrDetach,
 		DefaultIsolatedDeviceChanged,
 	)
