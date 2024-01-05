@@ -367,6 +367,9 @@ type STupleCondition struct {
 }
 
 func tupleConditionWhereClause(t *STupleCondition, op string) string {
+	if isFieldRequireAscii(t.left) && !isVariableAscii(t.right) {
+		return "0"
+	}
 	var buf bytes.Buffer
 	buf.WriteString(t.left.Reference())
 	buf.WriteByte(' ')
@@ -439,6 +442,9 @@ func (t *STupleCondition) GetRight() interface{} {
 
 // Variables implementation of STupleCondition for ICondition
 func (t *STupleCondition) Variables() []interface{} {
+	if isFieldRequireAscii(t.left) && !isVariableAscii(t.right) {
+		return []interface{}{}
+	}
 	return varConditionVariables(t.right)
 }
 
@@ -750,3 +756,8 @@ func (t *SFalseCondition) Variables() []interface{} {
 func (t *SFalseCondition) database() *SDatabase {
 	return nil
 }
+
+var (
+	AlwaysTrue  = &STrueCondition{}
+	AlwaysFalse = &SFalseCondition{}
+)
