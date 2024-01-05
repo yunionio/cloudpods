@@ -115,6 +115,9 @@ type StorageCreateInput struct {
 	HardwareInfo *StorageHardwareInfo `json:"hardware_info"`
 	// CLVM VG Name
 	CLVMVgName string
+	// SLVM VG Name
+	SLVMVgName string
+	MasterHost string
 }
 
 type RbdTimeoutInput struct {
@@ -244,4 +247,5 @@ type StorageUpdateInput struct {
 
 	// swagger:ignore
 	HardwareInfo *StorageHardwareInfo `json:"hardware_info"`
+	MasterHost   string
 }
