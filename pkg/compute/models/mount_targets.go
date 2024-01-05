@@ -131,9 +131,16 @@ func (manager *SMountTargetManager) ValidateCreateData(ctx context.Context, user
 	if len(input.AccessGroupId) == 0 {
 		return input, httperrors.NewMissingParameterError("access_group_id")
 	}
-	_, err = validators.ValidateModel(userCred, AccessGroupManager, &input.AccessGroupId)
+	groupObj, err := validators.ValidateModel(userCred, AccessGroupManager, &input.AccessGroupId)
 	if err != nil {
 		return input, err
+	}
+	group := groupObj.(*SAccessGroup)
+	if group.ManagerId != fs.ManagerId {
+		return input, httperrors.NewConflictError("access group and filesystem do not belong to the same account")
+	}
+	if group.CloudregionId != fs.CloudregionId {
+		return input, httperrors.NewConflictError("access group and filesystem are not in the same region")
 	}
 	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
@@ -450,12 +457,12 @@ func (self *SMountTarget) SyncWithMountTarget(ctx context.Context, userCred mccl
 		self.DomainName = m.GetDomainName()
 		self.ExternalId = m.GetGlobalId()
 		if groupId := m.GetAccessGroupId(); len(groupId) > 0 {
-			_cache, _ := db.FetchByExternalIdAndManagerId(AccessGroupCacheManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			_group, _ := db.FetchByExternalIdAndManagerId(AccessGroupManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", managerId)
 			})
-			if _cache != nil {
-				cache := _cache.(*SAccessGroupCache)
-				self.AccessGroupId = cache.AccessGroupId
+			if _group != nil {
+				group := _group.(*SAccessGroup)
+				self.AccessGroupId = group.Id
 			}
 		}
 		return nil

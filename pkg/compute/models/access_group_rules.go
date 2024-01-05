@@ -19,25 +19,24 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SAccessGroupRuleManager struct {
-	db.SResourceBaseManager
+	db.SStandaloneAnonResourceBaseManager
 	SAccessGroupResourceBaseManager
 }
 
@@ -45,7 +44,7 @@ var AccessGroupRuleManager *SAccessGroupRuleManager
 
 func init() {
 	AccessGroupRuleManager = &SAccessGroupRuleManager{
-		SResourceBaseManager: db.NewResourceBaseManager(
+		SStandaloneAnonResourceBaseManager: db.NewStandaloneAnonResourceBaseManager(
 			SAccessGroupRule{},
 			"access_group_rules_tbl",
 			"access_group_rule",
@@ -56,29 +55,16 @@ func init() {
 }
 
 type SAccessGroupRule struct {
-	db.SResourceBase
+	db.SStandaloneAnonResourceBase
+	db.SStatusResourceBase `default:"available"`
 	SAccessGroupResourceBase
+	// 云上Id, 对应云上资源自身Id
+	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"domain_optional" update:"admin" json:"external_id"`
 
-	Id             string `width:"128" charset:"ascii" primary:"true" list:"user"`
 	Priority       int    `default:"1" list:"user" update:"user" list:"user"`
 	Source         string `width:"16" charset:"ascii" list:"user" update:"user" create:"required"`
 	RWAccessType   string `width:"16" charset:"ascii" list:"user" update:"user" create:"required"`
 	UserAccessType string `width:"16" charset:"ascii" list:"user" update:"user" create:"required"`
-	Description    string `width:"256" charset:"utf8" list:"user" update:"user" create:"optional"`
-}
-
-func (self *SAccessGroupRule) BeforeInsert() {
-	if len(self.Id) == 0 {
-		self.Id = stringutils.UUID4()
-	}
-}
-
-func (self *SAccessGroupRule) GetId() string {
-	return self.Id
-}
-
-func (manager *SAccessGroupRuleManager) CreateByInsertOrUpdate() bool {
-	return false
 }
 
 func (manager *SAccessGroupRuleManager) ResourceScope() rbacscope.TRbacScope {
@@ -198,16 +184,30 @@ func (manager *SAccessGroupRuleManager) QueryDistinctExtraField(q *sqlchemy.SQue
 }
 
 func (self *SAccessGroupRule) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (self *SAccessGroupRule) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, self)
+}
+
+func (self *SAccessGroupRule) SyncWithAccessGroupRule(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.IAccessGroupRule) error {
+	_, err := db.Update(self, func() error {
+		self.ExternalId = ext.GetGlobalId()
+		self.Source = ext.GetSource()
+		self.RWAccessType = string(ext.GetRWAccessType())
+		self.UserAccessType = string(ext.GetUserAccessType())
+		self.Priority = ext.GetPriority()
+		self.Status = apis.STATUS_AVAILABLE
+		return nil
+	})
+	return err
 }
 
 // 创建权限组规则
 func (manager *SAccessGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.AccessGroupRuleCreateInput) (api.AccessGroupRuleCreateInput, error) {
 	if len(input.AccessGroupId) == 0 {
 		return input, httperrors.NewMissingParameterError("access_group_id")
-	}
-	if input.AccessGroupId == api.DEFAULT_ACCESS_GROUP {
-		return input, httperrors.NewNotSupportedError("can not add rule for default access group")
 	}
 	_ag, err := validators.ValidateModel(userCred, AccessGroupManager, &input.AccessGroupId)
 	if err != nil {
@@ -258,15 +258,46 @@ func (manager *SAccessGroupRuleManager) ValidateCreateData(ctx context.Context, 
 }
 
 func (self *SAccessGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.StartCreateTask(ctx, userCred)
+}
 
-	log.Debugf("POST Create %s", data)
+func (self *SAccessGroupRule) SetName(name string) {
+}
 
-	group, err := self.GetAccessGroup()
-	if err == nil {
-		logclient.AddSimpleActionLog(group, logclient.ACT_ALLOCATE, data, userCred, true)
-		group.DoSync(ctx, userCred)
+func (self *SAccessGroupRule) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "AccessGroupRuleCreateTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
 	}
+	return task.ScheduleRun(nil)
+}
+
+func (self *SAccessGroupRule) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartDeleteTask(ctx, userCred, "")
+}
+
+func (self *SAccessGroupRule) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+	_, err := db.Update(self, func() error {
+		self.Status = status
+		return nil
+	})
+	return err
+}
+
+func (self *SAccessGroupRule) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	var err = func() error {
+		task, err := taskman.TaskManager.NewTask(ctx, "AccessGroupRuleDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+		if err != nil {
+			return errors.Wrapf(err, "NewTask")
+		}
+		return task.ScheduleRun(nil)
+	}()
+	if err != nil {
+		self.SetStatus(userCred, apis.STATUS_DELETE_FAILED, err.Error())
+		return nil
+	}
+	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	return nil
 }
 
 func (self *SAccessGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.AccessGroupRuleUpdateInput) (api.AccessGroupRuleUpdateInput, error) {
@@ -318,39 +349,6 @@ func (manager *SAccessGroupRuleManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SAccessGroupRule) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	self.SResourceBase.PreDelete(ctx, userCred)
-
-	group, err := self.GetAccessGroup()
-	if err == nil {
-		logclient.AddSimpleActionLog(group, logclient.ACT_DELETE, jsonutils.Marshal(self), userCred, true)
-		group.DoSync(ctx, userCred)
-	}
-}
-
 func (self *SAccessGroupRule) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if self.AccessGroupId == api.DEFAULT_ACCESS_GROUP {
-		return httperrors.NewProtectedResourceError("not allow to delete default access group rule")
-	}
 	return self.SResourceBase.ValidateDeleteCondition(ctx, nil)
-}
-
-func (manager *SAccessGroupRuleManager) InitializeData() error {
-	q := manager.Query().Equals("access_group_id", api.DEFAULT_ACCESS_GROUP)
-	rules := []SAccessGroupRule{}
-	err := db.FetchModelObjects(manager, q, &rules)
-	if err != nil {
-		return errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	if len(rules) == 0 {
-		rule := &SAccessGroupRule{}
-		rule.SetModelManager(manager, rule)
-		rule.AccessGroupId = api.DEFAULT_ACCESS_GROUP
-		rule.Source = "0.0.0.0/0"
-		rule.RWAccessType = string(cloudprovider.RWAccessTypeRW)
-		rule.UserAccessType = string(cloudprovider.UserAccessTypeNoRootSquash)
-		err = manager.TableSpec().Insert(context.TODO(), rule)
-		return errors.Wrapf(err, "Insert")
-	}
-	return nil
 }

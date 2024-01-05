@@ -39,3 +39,13 @@ func (opts *AccessGroupIdOption) GetId() string {
 func (opts *AccessGroupIdOption) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
+
+type AccessGroupCreateOptions struct {
+	options.BaseCreateOptions
+	CloudregionId string
+	ManagerId     string
+}
+
+func (opts *AccessGroupCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	alierr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
-
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -48,10 +46,6 @@ func (self *SAccessGroup) GetFileSystemType() string {
 	return self.FileSystemType
 }
 
-func (self *SAccessGroup) IsDefault() bool {
-	return self.AccessGroupName == "DEFAULT_CLASSIC_GROUP_NAME" || self.AccessGroupName == "DEFAULT_VPC_GROUP_NAME"
-}
-
 func (self *SAccessGroup) GetDesc() string {
 	return self.Description
 }
@@ -62,14 +56,6 @@ func (self *SAccessGroup) GetMountTargetCount() int {
 
 func (self *SAccessGroup) GetNetworkType() string {
 	return strings.ToLower(self.AccessGroupType)
-}
-
-func (self *SAccessGroup) GetMaxPriority() int {
-	return 1
-}
-
-func (self *SAccessGroup) GetMinPriority() int {
-	return 100
 }
 
 func (self *SAccessGroup) Delete() error {
@@ -84,134 +70,93 @@ func (self *SAccessGroup) GetSupporedUserAccessTypes() []cloudprovider.TUserAcce
 	}
 }
 
-func (self *SAccessGroup) GetRules() ([]cloudprovider.AccessGroupRule, error) {
-	rules := []SAccessGroupRule{}
-	num := 1
-	for {
-		part, total, err := self.region.GetAccessGroupRules(self.AccessGroupName, 50, num)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetAccessGroupRules")
-		}
-		rules = append(rules, part...)
-		if len(rules) >= total {
-			break
-		}
+func (self *SAccessGroup) GetRules() ([]cloudprovider.IAccessGroupRule, error) {
+	rules, err := self.region.GetAccessGroupRules(self.AccessGroupName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetAccessGroupRules")
 	}
-	ret := []cloudprovider.AccessGroupRule{}
+	ret := []cloudprovider.IAccessGroupRule{}
 	for i := range rules {
-		rule := cloudprovider.AccessGroupRule{
-			ExternalId: rules[i].AccessRuleId,
-			Priority:   rules[i].Priority,
-			Source:     rules[i].SourceCidrIp,
-		}
-		switch rules[i].RWAccess {
-		case "RDWR":
-			rule.RWAccessType = cloudprovider.RWAccessTypeRW
-		case "RDONLY":
-			rule.RWAccessType = cloudprovider.RWAccessTypeR
-		}
-		switch rules[i].UserAccess {
-		case "no_squash":
-			rule.UserAccessType = cloudprovider.UserAccessTypeNoRootSquash
-		case "root_squash":
-			rule.UserAccessType = cloudprovider.UserAccessTypeRootSquash
-		case "all_squash":
-			rule.UserAccessType = cloudprovider.UserAccessTypeAllSquash
-		}
-		ret = append(ret, rule)
+		ret = append(ret, &rules[i])
 	}
 	return ret, nil
 }
 
-func (self *SRegion) getAccessGroups(fsType string, pageSize, pageNum int) ([]SAccessGroup, int, error) {
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 50
-	}
-	if pageNum < 1 {
-		pageNum = 1
-	}
+func (self *SRegion) GetAccessGroups(fsType string) ([]SAccessGroup, error) {
+	pageNum := 1
 	params := map[string]string{
 		"RegionId":       self.RegionId,
-		"PageSize":       fmt.Sprintf("%d", pageSize),
+		"PageSize":       "100",
 		"PageNumber":     fmt.Sprintf("%d", pageNum),
 		"FileSystemType": fsType,
 	}
-	resp, err := self.nasRequest("DescribeAccessGroups", params)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "DescribeAccessGroups")
-	}
-
-	ret := struct {
-		TotalCount   int
-		AccessGroups struct {
-			AccessGroup []SAccessGroup
+	ret := []SAccessGroup{}
+	for {
+		resp, err := self.nasRequest("DescribeAccessGroups", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeAccessGroups")
 		}
-	}{}
-	err = resp.Unmarshal(&ret)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "resp.Unmarshal")
+
+		part := struct {
+			TotalCount   int
+			AccessGroups struct {
+				AccessGroup []SAccessGroup
+			}
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		for i := range part.AccessGroups.AccessGroup {
+			part.AccessGroups.AccessGroup[i].FileSystemType = fsType
+			part.AccessGroups.AccessGroup[i].region = self
+		}
+		ret = append(ret, part.AccessGroups.AccessGroup...)
+		if len(ret) >= part.TotalCount || len(part.AccessGroups.AccessGroup) == 0 {
+			break
+		}
+		pageNum++
+		params["PageNumber"] = fmt.Sprintf("%d", pageNum)
 	}
-	return ret.AccessGroups.AccessGroup, ret.TotalCount, nil
+	return ret, nil
 }
 
-type SAccessGroupRule struct {
-	RWAccess     string
-	UserAccess   string
-	Priority     int
-	SourceCidrIp string
-	AccessRuleId string
-}
-
-func (self *SRegion) GetAccessGroupRules(groupName string, pageSize, pageNum int) ([]SAccessGroupRule, int, error) {
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 50
-	}
-	if pageNum < 1 {
-		pageNum = 1
-	}
+func (self *SRegion) GetAccessGroupRules(groupName string) ([]SAccessGroupRule, error) {
+	pageNum := 1
 	params := map[string]string{
 		"RegionId":        self.RegionId,
 		"AccessGroupName": groupName,
-		"PageSize":        fmt.Sprintf("%d", pageSize),
-		"PageNumber":      fmt.Sprintf("%d", pageNum),
+		"PageSize":        "100",
+		"PageNumber":      "1",
 	}
-	resp, err := self.nasRequest("DescribeAccessRules", params)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "DescribeAccessRules")
-	}
-	ret := struct {
-		TotalCount  int
-		AccessRules struct {
-			AccessRule []SAccessGroupRule
-		}
-	}{}
-	err = resp.Unmarshal(&ret)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	return ret.AccessRules.AccessRule, ret.TotalCount, nil
-}
-
-func (self *SRegion) GetAccessGroups(fsType string) ([]SAccessGroup, error) {
-	accessGroups := []SAccessGroup{}
-	num := 1
+	ret := []SAccessGroupRule{}
 	for {
-		part, total, err := self.getAccessGroups(fsType, 50, num)
+		resp, err := self.nasRequest("DescribeAccessRules", params)
 		if err != nil {
-			if e, ok := errors.Cause(err).(*alierr.ServerError); ok && e.ErrorCode() == "Region.NotSupported" {
-				return accessGroups, nil
+			return nil, errors.Wrapf(err, "DescribeAccessRules")
+		}
+		part := struct {
+			TotalCount  int
+			AccessRules struct {
+				AccessRule []SAccessGroupRule
 			}
-			return nil, errors.Wrapf(err, "GetAccessGroups")
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
-		for i := range part {
-			part[i].FileSystemType = fsType
-			accessGroups = append(accessGroups, part[i])
+		for i := range part.AccessRules.AccessRule {
+			part.AccessRules.AccessRule[i].AccessGroupName = groupName
+			part.AccessRules.AccessRule[i].region = self
 		}
-		if len(accessGroups) >= total {
+		ret = append(ret, part.AccessRules.AccessRule...)
+		if len(ret) >= part.TotalCount || len(part.AccessRules.AccessRule) == 0 {
 			break
 		}
+		pageNum++
+		params["PageNumber"] = fmt.Sprintf("%d", pageNum)
 	}
-	return accessGroups, nil
+	return ret, nil
 }
 
 func (self *SRegion) GetICloudAccessGroups() ([]cloudprovider.ICloudAccessGroup, error) {
@@ -247,6 +192,9 @@ func (self *SRegion) GetICloudAccessGroupById(id string) (cloudprovider.ICloudAc
 }
 
 func (self *SRegion) CreateICloudAccessGroup(opts *cloudprovider.SAccessGroup) (cloudprovider.ICloudAccessGroup, error) {
+	if len(opts.FileSystemType) == 0 {
+		opts.FileSystemType = "standard"
+	}
 	err := self.CreateAccessGroup(opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateAccessGroup")
@@ -259,7 +207,9 @@ func (self *SRegion) CreateAccessGroup(opts *cloudprovider.SAccessGroup) error {
 		"RegionId":        self.RegionId,
 		"AccessGroupName": opts.Name,
 		"AccessGroupType": opts.NetworkType,
-		"FileSystemType":  opts.FileSystemType,
+	}
+	if len(opts.FileSystemType) > 0 {
+		params["FileSystemType"] = opts.FileSystemType
 	}
 	_, err := self.nasRequest("CreateAccessGroup", params)
 	return errors.Wrapf(err, "CreateAccessGroup")
@@ -275,18 +225,17 @@ func (self *SRegion) DeleteAccessGroup(fsType, name string) error {
 	return errors.Wrapf(err, "DeleteAccessGroup")
 }
 
-func (self *SRegion) DeleteAccessGroupRule(fsType, groupName, ruleId string) error {
+func (self *SRegion) DeleteAccessGroupRule(groupName, ruleId string) error {
 	params := map[string]string{
 		"RegionId":        self.RegionId,
 		"AccessRuleId":    ruleId,
 		"AccessGroupName": groupName,
-		"FileSystemType":  fsType,
 	}
 	_, err := self.nasRequest("DeleteAccessRule", params)
 	return errors.Wrapf(err, "DeleteAccessRule")
 }
 
-func (self *SRegion) CreateAccessGroupRule(source, fsType, groupName string, rwType cloudprovider.TRWAccessType, userType cloudprovider.TUserAccessType, priority int) error {
+func (self *SRegion) CreateAccessGroupRule(source, fsType, groupName string, rwType cloudprovider.TRWAccessType, userType cloudprovider.TUserAccessType, priority int) (string, error) {
 	params := map[string]string{
 		"RegionId":        self.RegionId,
 		"SourceCidrIp":    source,
@@ -308,22 +257,26 @@ func (self *SRegion) CreateAccessGroupRule(source, fsType, groupName string, rwT
 	case cloudprovider.UserAccessTypeNoRootSquash:
 		params["UserAccessType"] = "no_squash"
 	}
-	_, err := self.nasRequest("CreateAccessRule", params)
-	return errors.Wrapf(err, "CreateAccessRule")
+	resp, err := self.nasRequest("CreateAccessRule", params)
+	if err != nil {
+		return "", errors.Wrapf(err, "CreateAccessRule")
+	}
+	return resp.GetString("AccessRuleId")
 }
 
-func (self *SAccessGroup) SyncRules(common, added, removed cloudprovider.AccessGroupRuleSet) error {
-	for _, rule := range removed {
-		err := self.region.DeleteAccessGroupRule(self.FileSystemType, self.AccessGroupName, rule.ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "DeleteAccessGroupRule")
+func (self *SAccessGroup) CreateRule(opts *cloudprovider.AccessGroupRule) (cloudprovider.IAccessGroupRule, error) {
+	ruleId, err := self.region.CreateAccessGroupRule(opts.Source, self.FileSystemType, self.AccessGroupName, opts.RWAccessType, opts.UserAccessType, opts.Priority)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateAccessGroupRule")
+	}
+	rules, err := self.region.GetAccessGroupRules(self.AccessGroupName)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rules {
+		if rules[i].AccessRuleId == ruleId {
+			return &rules[i], nil
 		}
 	}
-	for _, rule := range added {
-		err := self.region.CreateAccessGroupRule(rule.Source, self.FileSystemType, self.AccessGroupName, rule.RWAccessType, rule.UserAccessType, rule.Priority)
-		if err != nil {
-			return errors.Wrapf(err, "CreateAccessGroupRule")
-		}
-	}
-	return nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, ruleId)
 }

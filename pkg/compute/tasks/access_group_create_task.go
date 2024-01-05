@@ -21,49 +21,52 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type AccessGroupDeleteTask struct {
+type AccessGroupCreateTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(AccessGroupDeleteTask{})
+	taskman.RegisterTask(AccessGroupCreateTask{})
 }
 
-func (self *AccessGroupDeleteTask) taskFailed(ctx context.Context, ag *models.SAccessGroup, err error) {
-	ag.SetStatus(self.UserCred, api.ACCESS_GROUP_STATUS_DELETE_FAILED, err.Error())
-	logclient.AddActionLogWithStartable(self, ag, logclient.ACT_DELOCATE, err, self.UserCred, false)
+func (self *AccessGroupCreateTask) taskFailed(ctx context.Context, ag *models.SAccessGroup, err error) {
+	ag.SetStatus(self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
+	logclient.AddActionLogWithStartable(self, ag, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *AccessGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+func (self *AccessGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	ag := obj.(*models.SAccessGroup)
 
-	iGroup, err := ag.GetICloudAccessGroup(ctx)
+	iRegion, err := ag.GetIRegion(ctx)
 	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			self.taskComplete(ctx, ag)
-			return
-		}
-		self.taskFailed(ctx, ag, errors.Wrapf(err, "GetICloudAccessGroup"))
+		self.taskFailed(ctx, ag, errors.Wrapf(err, "GetIRegion"))
 		return
 	}
-	err = iGroup.Delete()
+	opts := &cloudprovider.SAccessGroup{
+		Name:           ag.Name,
+		Desc:           ag.Description,
+		FileSystemType: ag.FileSystemType,
+		NetworkType:    ag.NetworkType,
+	}
+	iGroup, err := iRegion.CreateICloudAccessGroup(opts)
 	if err != nil {
-		self.taskFailed(ctx, ag, errors.Wrapf(err, "Delete"))
+		self.taskFailed(ctx, ag, errors.Wrapf(err, "CreateICloudAccessGroup"))
 		return
 	}
 
-	self.taskComplete(ctx, ag)
-}
+	err = ag.SyncWithAccessGroup(ctx, self.UserCred, iGroup)
+	if err != nil {
+		self.taskFailed(ctx, ag, errors.Wrapf(err, "SyncAccessGroups"))
+		return
+	}
 
-func (self *AccessGroupDeleteTask) taskComplete(ctx context.Context, ag *models.SAccessGroup) {
-	ag.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }

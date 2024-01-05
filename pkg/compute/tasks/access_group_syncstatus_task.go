@@ -20,7 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *AccessGroupSyncstatusTask) taskFail(ctx context.Context, ag *models.SAccessGroup, err error) {
-	ag.SetStatus(self.GetUserCred(), api.ACCESS_GROUP_STATUS_AVAILABLE, err.Error())
+	ag.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	logclient.AddActionLogWithStartable(self, ag, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -44,16 +44,17 @@ func (self *AccessGroupSyncstatusTask) taskFail(ctx context.Context, ag *models.
 func (self *AccessGroupSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	ag := obj.(*models.SAccessGroup)
 
-	caches, err := ag.GetAccessGroupCaches()
+	iGroup, err := ag.GetICloudAccessGroup(ctx)
 	if err != nil {
-		self.taskFail(ctx, ag, errors.Wrapf(err, "ag.GetAccessGroupCaches"))
+		self.taskFail(ctx, ag, errors.Wrapf(err, "GetICloudAccessGroup"))
 		return
 	}
 
-	for i := range caches {
-		caches[i].SyncStatus(ctx, self.GetUserCred())
+	err = ag.SyncWithAccessGroup(ctx, self.UserCred, iGroup)
+	if err != nil {
+		self.taskFail(ctx, ag, errors.Wrapf(err, "SyncWithAccessGroup"))
+		return
 	}
 
-	ag.SetStatus(self.GetUserCred(), api.ACCESS_GROUP_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }
