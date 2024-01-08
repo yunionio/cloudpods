@@ -468,7 +468,7 @@ func (self *SCloudregion) purgeAccessGroups(ctx context.Context, managerId strin
 	fs := FileSystemManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	ags := AccessGroupManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	mts := MountTargetManager.Query("id").In("file_system_id", fs.SubQuery())
-	rules := AccessGroupManager.Query("id").In("access_group_id", ags.SubQuery())
+	rules := AccessGroupRuleManager.Query("id").In("access_group_id", ags.SubQuery())
 
 	pairs := []purgePair{
 		{manager: AccessGroupRuleManager, key: "id", q: rules},
