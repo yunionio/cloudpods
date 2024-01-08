@@ -394,5 +394,20 @@ func init() {
 			"successfully",
 			"成功",
 		},
+		sI18nElme{
+			string(api.ActionAttach),
+			"attach",
+			"挂载",
+		},
+		sI18nElme{
+			string(api.ActionDetach),
+			"detach",
+			"卸载",
+		},
+		sI18nElme{
+			string(api.ActionCreateBackupServer),
+			"add_backup_server",
+			"添加主机备份",
+		},
 	)
 }
