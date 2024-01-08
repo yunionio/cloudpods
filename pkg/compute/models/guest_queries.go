@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -50,6 +51,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	guestIds := make([]string, len(objs))
 	guests := make([]SGuest, len(objs))
+	instanceTypes := []string{}
 	for i := range objs {
 		rows[i] = api.ServerDetails{
 			VirtualResourceDetails: virtRows[i],
@@ -60,6 +62,9 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		guest := objs[i].(*SGuest)
 		guestIds[i] = guest.GetId()
 		guests[i] = *guest
+		if len(guests[i].InstanceType) > 0 && !utils.IsInStringArray(guests[i].InstanceType, instanceTypes) {
+			instanceTypes = append(instanceTypes, guests[i].InstanceType)
+		}
 	}
 
 	if len(fields) == 0 || fields.Contains("disk") {
@@ -226,7 +231,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 				}
 			}
 		}
-		info, _ := fetchGuestGpuInstanceTypes(guestIds)
+		info, _ := fetchGuestGpuInstanceTypes(instanceTypes)
 		if len(info) > 0 {
 			for i := range rows {
 				gpu, ok := info[guests[i].InstanceType]
@@ -672,10 +677,9 @@ func fetchGuestKeypairs(guestIds []string) map[string]sGuestKeypair {
 	return ret
 }
 
-func fetchGuestGpuInstanceTypes(guestIds []string) (map[string]*GpuSpec, error) {
+func fetchGuestGpuInstanceTypes(instanceTypes []string) (map[string]*GpuSpec, error) {
 	ret := map[string]*GpuSpec{}
-	sq := GuestManager.Query("instance_type").In("id", guestIds).SubQuery()
-	q := ServerSkuManager.Query("name", "gpu_spec", "gpu_count").In("name", sq).IsNotEmpty("gpu_spec").Distinct()
+	q := ServerSkuManager.Query("name", "gpu_spec", "gpu_count").In("name", instanceTypes).IsNotEmpty("gpu_spec").Distinct()
 	gpus := []struct {
 		Name     string
 		GpuSpec  string
