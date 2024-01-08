@@ -986,42 +986,6 @@ func (manager *SCachedimageManager) AutoCleanImageCaches(ctx context.Context, us
 	}
 }
 
-func (manager *SCachedimageManager) InitializeData() error {
-	images := []SCachedimage{}
-	q := manager.Query().IsNullOrEmpty("tenant_id")
-	err := db.FetchModelObjects(manager, q, &images)
-	if err != nil {
-		return errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	for i := range images {
-		_, err := db.Update(&images[i], func() error {
-			images[i].IsPublic = true
-			images[i].PublicScope = string(rbacscope.ScopeSystem)
-			images[i].ProjectId = "system"
-			if len(images[i].ExternalId) > 0 {
-				images[i].Status = api.CACHED_IMAGE_STATUS_ACTIVE
-			} else {
-				images[i].Status = images[i].GetStatus()
-			}
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "db.Update(%s)", images[i].Id)
-		}
-	}
-
-	q = manager.Query().IsNullOrEmpty("info")
-	err = db.FetchModelObjects(manager, q, &images)
-	if err != nil {
-		return errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	for i := range images {
-		db.RealDeleteModel(context.Background(), nil, &images[i])
-	}
-
-	return nil
-}
-
 func (image *SCachedimage) GetAllClassMetadata() (map[string]string, error) {
 	meta, err := image.SSharableVirtualResourceBase.GetAllClassMetadata()
 	if err != nil {
