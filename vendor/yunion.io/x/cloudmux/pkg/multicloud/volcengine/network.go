@@ -92,13 +92,13 @@ func (subnet *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(subnet.CidrBlock)
 	startIp := pref.Address.NetAddr(pref.MaskLen)
 	startIp = startIp.StepUp()
+	startIp = startIp.StepUp()
 	return startIp.String()
 }
 
 func (subnet *SNetwork) GetIpEnd() string {
 	pref, _ := netutils.NewIPV4Prefix(subnet.CidrBlock)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen)
-	endIp = endIp.StepDown()
 	endIp = endIp.StepDown()
 	return endIp.String()
 }
