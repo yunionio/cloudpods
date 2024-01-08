@@ -1373,72 +1373,6 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 	return result
 }
 
-func (manager *SServerSkuManager) initializeSkuStatus() error {
-	skus := []SServerSku{}
-	q := manager.Query().NotEquals("status", api.SkuStatusReady)
-	err := db.FetchModelObjects(manager, q, &skus)
-	if err != nil {
-		return errors.Wrapf(err, "initializeSkuStatus.FetchModelObjects")
-	}
-	for _, sku := range skus {
-		_, err = db.Update(&sku, func() error {
-			sku.Status = api.SkuStatusReady
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "sku.Update")
-		}
-	}
-	return nil
-}
-
-func (manager *SServerSkuManager) fixAliyunSkus() error {
-	q := manager.Query().Equals("provider", api.CLOUD_PROVIDER_ALIYUN)
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.AND(
-			sqlchemy.Contains(q.Field("sys_disk_type"), api.STORAGE_CLOUD_ESSD),
-			sqlchemy.NOT(sqlchemy.Contains(q.Field("sys_disk_type"), api.STORAGE_CLOUD_ESSD_PL0)),
-		),
-		sqlchemy.AND(
-			sqlchemy.Contains(q.Field("data_disk_types"), api.STORAGE_CLOUD_ESSD),
-			sqlchemy.NOT(sqlchemy.Contains(q.Field("data_disk_types"), api.STORAGE_CLOUD_ESSD_PL0)),
-		),
-	))
-	skus := []SServerSku{}
-	err := db.FetchModelObjects(manager, q, &skus)
-	if err != nil {
-		return errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	storages := []string{api.STORAGE_CLOUD_ESSD_PL0, api.STORAGE_CLOUD_ESSD_PL2, api.STORAGE_CLOUD_ESSD_PL3}
-	for i := range skus {
-		_, err := db.Update(&skus[i], func() error {
-			sys := strings.Split(skus[i].SysDiskType, ",")
-			if utils.IsInStringArray(api.STORAGE_CLOUD_ESSD, sys) {
-				for _, storage := range storages {
-					if !utils.IsInStringArray(storage, sys) {
-						sys = append(sys, storage)
-					}
-				}
-				skus[i].SysDiskType = strings.Join(sys, ",")
-			}
-			data := strings.Split(skus[i].DataDiskTypes, ",")
-			if utils.IsInStringArray(api.STORAGE_CLOUD_ESSD, data) {
-				for _, storage := range storages {
-					if !utils.IsInStringArray(storage, data) {
-						data = append(data, storage)
-					}
-				}
-				skus[i].DataDiskTypes = strings.Join(data, ",")
-			}
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "db.Update")
-		}
-	}
-	return nil
-}
-
 func (manager *SServerSkuManager) InitializeData() error {
 	count, err := manager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID).IsNullOrEmpty("zone_id").CountWithError()
 	if err != nil {
@@ -1479,33 +1413,7 @@ func (manager *SServerSkuManager) InitializeData() error {
 		}
 	}
 
-	privateSkus := make([]SServerSku, 0)
-	q := manager.Query().IsNullOrEmpty("local_category").IsNotNull("instance_type_category").IsNullOrEmpty("zone_id")
-	if err != nil {
-		return err
-	}
-
-	err = db.FetchModelObjects(manager, q, &privateSkus)
-	if err != nil {
-		return err
-	}
-
-	for i := range privateSkus {
-		_, err = db.Update(&privateSkus[i], func() error {
-			privateSkus[i].LocalCategory = privateSkus[i].InstanceTypeCategory
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	err = manager.fixAliyunSkus()
-	if err != nil {
-		return errors.Wrapf(err, "fixAliyunSkus")
-	}
-
-	return manager.initializeSkuStatus()
+	return nil
 }
 
 func (manager *SServerSkuManager) ListItemExportKeys(ctx context.Context,
