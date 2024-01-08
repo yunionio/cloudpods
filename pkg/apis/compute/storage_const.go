@@ -44,6 +44,7 @@ const (
 	STORAGE_CLOUD_ESSD_PL2   = compute.STORAGE_CLOUD_ESSD_PL2 // 单盘最高随机读写IOPS 10万
 	STORAGE_CLOUD_ESSD_PL3   = compute.STORAGE_CLOUD_ESSD_PL3 // 单盘最高随机读写IOPS 100万
 	STORAGE_CLOUD_AUTO       = compute.STORAGE_CLOUD_AUTO     // ESSD AutoPL
+	STORAGE_CLOUD_ESSD_ENTRY = "cloud_essd_entry"             // ESSD Entry云盘
 	STORAGE_EPHEMERAL_SSD    = compute.STORAGE_EPHEMERAL_SSD  // 单块本地SSD盘, 容量最大不能超过800 GiB
 	STORAGE_LOCAL_HDD_PRO    = compute.STORAGE_LOCAL_HDD_PRO  // 实例规格族d1ne和d1搭载的SATA HDD本地盘
 	STORAGE_LOCAL_SSD_PRO    = compute.STORAGE_LOCAL_SSD_PRO  // 实例规格族i2、i2g、i1、ga1和gn5等搭载的NVMe
