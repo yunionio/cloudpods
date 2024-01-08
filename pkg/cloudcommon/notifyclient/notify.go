@@ -65,7 +65,9 @@ func init() {
 			Obj:    obj,
 			Action: api.SAction(action),
 			ObjDetailsDecorator: func(ctx context.Context, details *jsonutils.JSONDict) {
-				details.Set("customize_details", details)
+				if moreDetails != nil {
+					details.Set("customize_details", moreDetails)
+				}
 			},
 		})
 	})

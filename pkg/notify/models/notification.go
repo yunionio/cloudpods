@@ -273,10 +273,13 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 
 	receiverIdList := []string{}
-	for k, _ := range receiverIds {
+	for k := range receiverIds {
 		receiverIdList = append(receiverIdList, k)
 	}
 	receivers, err := ReceiverManager.FetchByIdOrNames(ctx, receiverIdList...)
+	if err != nil {
+		return output, errors.Wrap(err, "fetch receiver")
+	}
 	webconsoleContacts := sets.NewString()
 	idSet := sets.NewString()
 	for i := range receivers {
@@ -626,7 +629,7 @@ func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, e
 
 func (n *SNotification) receiveDetails(userCred mcclient.TokenCredential, scope string) ([]api.ReceiveDetail, error) {
 	RQ := ReceiverManager.Query("id", "name")
-	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "receiver_type", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
+	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "receiver_type", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id).IsNotEmpty("receiver_id").IsNullOrEmpty("contact")
 	s := rbacscope.TRbacScope(scope)
 
 	switch s {
