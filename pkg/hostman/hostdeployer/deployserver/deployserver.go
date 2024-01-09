@@ -399,6 +399,7 @@ func (s *SDeployService) PrepareEnv() error {
 			DeployOption.EnableRemoteExecutor,
 			DeployOption.HugepagesOption == "native",
 			DeployOption.HugepageSizeMb*1024,
+			DeployOption.DeployGuestMemSizeMb,
 			DeployOption.DeployConcurrent,
 		)
 		if err != nil {
