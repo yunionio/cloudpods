@@ -45,13 +45,12 @@ func (self *SecurityGroupDeleteTask) taskFailed(ctx context.Context, secgroup *m
 func (self *SecurityGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	secgroup := obj.(*models.SSecurityGroup)
 
-	region, err := secgroup.GetRegion()
+	driver, err := secgroup.GetRegionDriver()
 	if err != nil {
-		self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetRegion"))
+		self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetRegionDriver"))
 		return
 	}
 
-	driver := region.GetDriver()
 	self.SetStage("OnSecurityGroupDeleteComplete", nil)
 	err = driver.RequestDeleteSecurityGroup(ctx, self.GetUserCred(), secgroup, self)
 	if err != nil {
