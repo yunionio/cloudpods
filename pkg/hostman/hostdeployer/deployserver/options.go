@@ -31,16 +31,16 @@ type SDeployOptions struct {
 
 	DeployTempDir string `help:"temp dir for deployer" default:"/opt/cloud/workspace/run/deploy"`
 
-	AllowVmSELinux bool `help:"turn off vm selinux" default:"false" json:"allow_vm_selinux"`
-
-	HugepagesOption    string   `help:"Hugepages option: disable|native|transparent" default:"transparent"`
-	HugepageSizeMb     int      `help:"hugepage size mb default 1G" default:"1024"`
-	DefaultQemuVersion string   `help:"Default qemu version" default:"4.2.0"`
-	ListenInterface    string   `help:"Master address of host server"`
-	Networks           []string `help:"Network interface information"`
+	HugepagesOption      string   `help:"Hugepages option: disable|native|transparent" default:"transparent"`
+	HugepageSizeMb       int      `help:"hugepage size mb default 1G" default:"1024"`
+	DefaultQemuVersion   string   `help:"Default qemu version" default:"4.2.0"`
+	DeployGuestMemSizeMb int      `help:"Deploy guest mem size mb" default:"320"`
+	ListenInterface      string   `help:"Master address of host server"`
+	Networks             []string `help:"Network interface information"`
 
 	DeployAction     string `help:"local deploy action"`
 	DeployParams     string `help:"params for deploy action"`
+	DeployParamsFile string `help:"file store params for deploy action"`
 	DeployConcurrent int    `help:"qemu-kvm deploy driver concurrent" default:"5"`
 }
 
