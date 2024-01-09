@@ -169,7 +169,7 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 	}
 	if len(guestdisks) == 0 {
 		// on guest disks detached
-		self.doClearSecurityGroupComplete(ctx, guest)
+		self.doClearGPUDevicesComplete(ctx, guest)
 		return
 	}
 	// detach last detachable disk
@@ -181,7 +181,7 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 	log.Debugf("lastDisk IsDetachable?? %v", lastDisk.IsDetachable())
 	if !lastDisk.IsDetachable() {
 		// no more disk need detach
-		self.doClearSecurityGroupComplete(ctx, guest)
+		self.doClearGPUDevicesComplete(ctx, guest)
 		return
 	}
 	purge := jsonutils.QueryBoolean(self.Params, "purge", false)
@@ -193,12 +193,10 @@ func (self *GuestDeleteTask) OnDiskDetachCompleteFailed(ctx context.Context, obj
 	self.OnFailed(ctx, guest, err)
 }
 
-// revoke all secgroups
-func (self *GuestDeleteTask) doClearSecurityGroupComplete(ctx context.Context, guest *models.SGuest) {
-	log.Debugf("doClearSecurityGroupComplete")
+// clean gpu devices
+func (self *GuestDeleteTask) doClearGPUDevicesComplete(ctx context.Context, guest *models.SGuest) {
+	log.Debugf("doClearGPUDevicesComplete")
 	models.IsolatedDeviceManager.ReleaseGPUDevicesOfGuest(ctx, guest, self.UserCred)
-	guest.RevokeAllSecgroups(ctx, self.UserCred)
-	// sync revoked secgroups to remote cloud
 	if jsonutils.QueryBoolean(self.Params, "purge", false) {
 		self.OnSyncConfigComplete(ctx, guest, nil)
 	} else {
