@@ -79,11 +79,11 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 
 ## 联系我们
 
-请访问[联系我们](https://www.cloudpods.org/docs/contact/)。
+请查看[联系我们](https://www.cloudpods.org/docs/contact/)。
 
 ## 版本历史
 
-请访问[Cloudpods Changelog](https://www.cloudpods.org/zh/docs/changelog/)。
+请查看[发布日志](https://www.cloudpods.org/docs/release-notes/)和[Changelog](https://www.cloudpods.org/docs/development/changelog/)。
 
 ## 贡献
 
