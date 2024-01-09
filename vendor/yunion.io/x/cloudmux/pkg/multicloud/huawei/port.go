@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -129,19 +128,9 @@ func (port *Port) GetICloudInterfaceAddresses() ([]cloudprovider.ICloudInterface
 	return address, nil
 }
 
+// 华为云端口API device_owner 变化会导致子网ip重复同步，故忽略弹性网卡同步
 func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
-	ports, err := region.GetPorts("")
-	if err != nil {
-		return nil, err
-	}
-	ret := []cloudprovider.ICloudNetworkInterface{}
-	for i := 0; i < len(ports); i++ {
-		if len(ports[i].DeviceID) == 0 || !utils.IsInStringArray(ports[i].DeviceOwner, []string{"compute:CCI", "compute:nova", "neutron:LOADBALANCERV2"}) {
-			ports[i].region = region
-			ret = append(ret, &ports[i])
-		}
-	}
-	return ret, nil
+	return []cloudprovider.ICloudNetworkInterface{}, nil
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=ShowPort
