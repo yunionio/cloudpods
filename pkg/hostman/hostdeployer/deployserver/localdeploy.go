@@ -15,12 +15,12 @@
 package deployserver
 
 import (
-	"encoding/json"
 	"os"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	commonconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/winutils"
 )
@@ -119,12 +120,27 @@ func LocalInitEnv() error {
 	return nil
 }
 
+func unmarshalDeployParams(val interface{}) error {
+	if DeployOption.DeployParamsFile != "" {
+		deployParams, err := fileutils2.FileGetContents(DeployOption.DeployParamsFile)
+		if err != nil {
+			return errors.Wrapf(err, "failed get params from %s", DeployOption.DeployParamsFile)
+		}
+		DeployOption.DeployParams = deployParams
+	}
+	jDeployParams, err := jsonutils.Parse([]byte(DeployOption.DeployParams))
+	if err != nil {
+		return errors.Wrap(err, "failed parse deploy json")
+	}
+	return jDeployParams.Unmarshal(val)
+}
+
 func StartLocalDeploy(deployAction string) (interface{}, error) {
 	localDeployer := LocalDeploy{}
 	switch deployAction {
 	case "deploy_guest_fs":
 		params := new(deployapi.DeployParams)
-		if err := json.Unmarshal([]byte(DeployOption.DeployParams), params); err != nil {
+		if err := unmarshalDeployParams(params); err != nil {
 			return nil, errors.Wrap(err, "unmarshal params")
 		}
 		return localDeployer.DeployGuestFs(params)
@@ -132,19 +148,19 @@ func StartLocalDeploy(deployAction string) (interface{}, error) {
 		return localDeployer.ResizeFs(nil)
 	case "format_fs":
 		params := new(deployapi.FormatFsParams)
-		if err := json.Unmarshal([]byte(DeployOption.DeployParams), params); err != nil {
+		if err := unmarshalDeployParams(params); err != nil {
 			return nil, errors.Wrap(err, "unmarshal params")
 		}
 		return localDeployer.FormatFs(params)
 	case "save_to_glance":
 		params := new(deployapi.SaveToGlanceParams)
-		if err := json.Unmarshal([]byte(DeployOption.DeployParams), params); err != nil {
+		if err := unmarshalDeployParams(params); err != nil {
 			return nil, errors.Wrap(err, "unmarshal params")
 		}
 		return localDeployer.SaveToGlance(params)
 	case "probe_image_info":
 		params := new(deployapi.ProbeImageInfoPramas)
-		if err := json.Unmarshal([]byte(DeployOption.DeployParams), params); err != nil {
+		if err := unmarshalDeployParams(params); err != nil {
 			return nil, errors.Wrap(err, "unmarshal params")
 		}
 		return localDeployer.ProbeImageInfo(params)
