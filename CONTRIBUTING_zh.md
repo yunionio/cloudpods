@@ -18,7 +18,7 @@ Cloudpods是一款开源的基础设施管理工具软件，运行场景复杂�
 
 ## 贡献代码
 
-我们非常欢迎和感谢开发者向项目提交代码PR，流程细节请查看 [CONTRIBUTING](https://www.cloudpods.org/zh/docs/development/contrib/).
+我们非常欢迎和感谢开发者向项目提交代码PR，流程细节请查看 [CONTRIBUTING](https://www.cloudpods.org/docs/development/contrib/).
 
 ### 修复BUG
 
@@ -27,8 +27,8 @@ Cloudpods是一款开源的基础设施管理工具软件，运行场景复杂�
 ### 开发新的功能特性
 
 不仅仅是修复BUG，您也可以通过提交代码以改进Cloudpods，包括但不限于：
-* 开发新的功能特性，您可以在[Cloudpods Roadmap](https://www.cloudpods.org/zh/docs/roadmap/)找到Cloudpods的功能规划
-* 重构代码，使得代码更加简洁易读，更加低健壮，或者执行起来更加高效
+* 开发新的功能特性，您可以在[feature issues](https://github.com/yunionio/cloudpods/issues?q=is%3Aopen+is%3Aissue+label%3Afeature)查找需要的功能。
+* 重构代码，使得代码更加简洁易读，更加低健壮，或者执行起来更加高效。
 
 ## 文档
 
