@@ -86,7 +86,7 @@ See [Contact Us](https://www.cloudpods.org/en/docs/contact/) for details.
 
 ## Changelog
 
-See [Cloudpods Changelog](https://www.cloudpods.org/en/docs/changelog/) for details.
+See [Relase Notes](https://www.cloudpods.org/en/docs/release-notes/) and [Changelog](https://www.cloudpods.org/en/docs/development/changelog/) for details.
 
 ## Contribution
 
