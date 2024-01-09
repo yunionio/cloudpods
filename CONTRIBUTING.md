@@ -18,7 +18,7 @@ You may answer issues at Github and help those who encounter issues when using C
 
 ## Contribute codes
 
-You are welcome to contribute codes to Cloudpods. Please refers to [CONTRIBUTING](https://www.cloudpods.org/en/docs/contribute/contrib/) for more details on how to contribute codes to Cloudpods.
+You are welcome to contribute codes to Cloudpods. Please refers to [CONTRIBUTING](https://www.cloudpods.org/en/docs/development/contrib/) for more details on how to contribute codes to Cloudpods.
 
 ### Fix Issues
 
@@ -29,8 +29,8 @@ You may help solve bugs by submiting patches.
 
 You may help improve the codes of Cloudpods, including:
 
-* Develop new features for Cloudpods
-* Recode some part of Cloudpods so as to make the code easier to be understood, or less error-prone, or more efficient
+* Develop new [features for Cloudpods](https://github.com/yunionio/cloudpods/issues?q=is%3Aopen+is%3Aissue+label%3Afeature).
+* Recode some part of Cloudpods so as to make the code easier to be understood, or less error-prone, or more efficient.
 
 ## Documentation
 
