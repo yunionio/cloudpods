@@ -638,6 +638,7 @@ func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	}
 	cmd += __("-drive id=ide0-cd0,if=none,media=cdrom,file=%s", DEPLOY_ISO)
 	cmd += __("-device ide-cd,drive=ide0-cd0,bus=ide.1")
+	cmd += __("-append vsyscall=emulate")
 
 	log.Infof("start guest %s", cmd)
 	out, err := manager.startQemu(cmd)
@@ -714,6 +715,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	}
 	cmd += __("-drive if=none,file=%s,id=cd0,media=cdrom", DEPLOY_ISO)
 	cmd += __("-device scsi-cd,drive=cd0,share-rw=true")
+	cmd += __("-append vsyscall=emulate")
 
 	log.Infof("start guest %s", cmd)
 	out, err := manager.startQemu(cmd)
