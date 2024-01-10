@@ -1638,7 +1638,17 @@ func (h *SHostInfo) ensureNicsHostwires(hostInfo *api.HostDetails) error {
 }
 
 func (h *SHostInfo) isVirtualFunction(nic string) bool {
-	return fileutils2.Exists(path.Join("/sys/class/net", nic, "device", "physfn"))
+	physPortName, err := fileutils2.FileGetContents(path.Join("/sys/class/net", nic, "phys_port_name"))
+	if err != nil {
+		log.Warningf("failed get nic %s phys_port_name: %s", nic, err)
+		return false
+	}
+	if strings.Contains(physPortName, "vf") {
+		log.Infof("nic %s is virtual function", nic)
+		return true
+	}
+	log.Infof("nic %s is not virtual function", nic)
+	return false
 }
 
 func (h *SHostInfo) uploadNetworkInfo() error {

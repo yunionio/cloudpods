@@ -21,6 +21,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -50,9 +51,14 @@ func Nics() ([]*types.SNicDevInfo, error) {
 			} /*else if (fi.Mode() & os.ModeSymlink) == 0 {
 				continue
 			}*/
-			if fileutils2.Exists(path.Join(netPath, "device", "infiniband")) {
-				// skip infiniband nic
-				continue
+			nicType, err := fileutils2.FileGetContents(path.Join(netPath, "type"))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed get nic type")
+			}
+			if strings.TrimSpace(nicType) == "32" {
+				// include/uapi/linux/if_arp.h
+				// #define ARPHRD_INFINIBAND 32		/* InfiniBand			*/
+				continue // skip infiniband nic
 			}
 
 			speedStr := GetSysConfigQuiet(filepath.Join(netPath, "speed"))
