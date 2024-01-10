@@ -80,6 +80,50 @@ func GetLvOrigin(lvPath string) (string, error) {
 	return "", errors.Errorf("unexpect res %v", res)
 }
 
+type LvActive struct {
+	Report []struct {
+		LV []struct {
+			LvActive string `json:"lv_active"`
+		} `json:"lv"`
+	} `json:"report"`
+}
+
+func LvIsActivated(lvPath string) (bool, error) {
+	cmd := fmt.Sprintf("lvm lvs --reportformat json -o lv_active %s 2>/dev/null", lvPath)
+	lvs, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	if err != nil {
+		return false, errors.Wrap(err, "lvm lvs")
+	}
+	var res LvActive
+	err = json.Unmarshal(lvs, &res)
+	if err != nil {
+		return false, errors.Wrap(err, "unmarshal lvs")
+	}
+	if len(res.Report) == 1 && len(res.Report[0].LV) == 1 {
+		return res.Report[0].LV[0].LvActive == "active", nil
+
+	}
+	return false, errors.Errorf("unexpect res %v", res)
+}
+
+func LVActive(lvPath string) error {
+	cmd := fmt.Sprintf("lvm lvchange -ay %s", lvPath)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	if err != nil {
+		return errors.Wrapf(err, "lvchange -ay %s failed %s", lvPath, out)
+	}
+	return nil
+}
+
+func LvScan() error {
+	cmd := "lvm lvscan"
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	if err != nil {
+		return errors.Wrapf(err, "lvscan failed %s", out)
+	}
+	return nil
+}
+
 type VgProps struct {
 	VgSize       int64
 	VgFree       int64

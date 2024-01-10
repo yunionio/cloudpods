@@ -56,7 +56,7 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 		return
 	}
 
-	host, err := storageCache.GetHost()
+	host, err := storageCache.GetMasterHost()
 	if err != nil {
 		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(fmt.Sprintf("fail to get host %s", err)))
 		return
