@@ -393,7 +393,7 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	}
 
 	if storageCacheHost == nil {
-		storageCacheHost, err = storageCaches[0].GetHost()
+		storageCacheHost, err = storageCaches[0].GetMasterHost()
 		if err != nil {
 			return jsonutils.Marshal(desc), errors.Wrapf(err, "unable to GetHost of storageCache %s", storageCaches[0].Id)
 		}

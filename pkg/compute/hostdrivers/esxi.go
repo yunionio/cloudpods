@@ -129,7 +129,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred
 				return errors.Wrap(err, "srcHostCacheImage.GetHost")
 			}
 		} else {
-			host, err = storageCache.GetHost()
+			host, err = storageCache.GetMasterHost()
 			if err != nil {
 				return errors.Wrap(err, "StorageCache.GetHost")
 			}

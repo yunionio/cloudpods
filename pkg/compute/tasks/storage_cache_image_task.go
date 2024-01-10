@@ -64,7 +64,7 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 
 	self.SetStage("OnImageCacheComplete", nil)
 
-	host, err := storageCache.GetHost()
+	host, err := storageCache.GetMasterHost()
 	if err != nil {
 		errData := taskman.Error2TaskData(err)
 		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
