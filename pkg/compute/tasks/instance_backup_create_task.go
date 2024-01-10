@@ -50,11 +50,11 @@ func (self *InstanceBackupCreateTask) taskFailed(ctx context.Context, ib *models
 func (self *InstanceBackupCreateTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup, guest *models.SGuest) {
 	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_CREATE, nil, self.UserCred, true)
-	self.SetStageComplete(ctx, nil)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    guest,
 		Action: notifyclient.ActionCreateBackupServer,
 	})
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *InstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
