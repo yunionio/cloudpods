@@ -84,13 +84,7 @@ func (self *SKVMHostDriver) validateGPFS(ctx context.Context, userCred mcclient.
 	return input, nil
 }
 
-func (self *SKVMHostDriver) validateCLVM(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
-	vgName, _ := storage.StorageConf.GetString("clvm_vg_name")
-	if vgName == "" {
-		return input, httperrors.NewInternalServerError("storage has no clvm_vg_name")
-	}
-	input.MountPoint = vgName
-
+func (self *SKVMHostDriver) validateSharedLVM(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
 	header := http.Header{}
 	header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
 	header.Set(mcclient.REGION_VERSION, "v2")
@@ -132,7 +126,19 @@ func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred 
 			return self.validateGPFS(ctx, userCred, host, input)
 		}
 	} else if storage.StorageType == api.STORAGE_CLVM {
-		return self.validateCLVM(ctx, userCred, host, storage, input)
+		vgName, _ := storage.StorageConf.GetString("clvm_vg_name")
+		if vgName == "" {
+			return input, httperrors.NewInternalServerError("storage has no clvm_vg_name")
+		}
+		input.MountPoint = vgName
+		return self.validateSharedLVM(ctx, userCred, host, storage, input)
+	} else if storage.StorageType == api.STORAGE_SLVM {
+		vgName, _ := storage.StorageConf.GetString("slvm_vg_name")
+		if vgName == "" {
+			return input, httperrors.NewInternalServerError("storage has no slvm_vg_name")
+		}
+		input.MountPoint = vgName
+		return self.validateSharedLVM(ctx, userCred, host, storage, input)
 	}
 	return input, nil
 }

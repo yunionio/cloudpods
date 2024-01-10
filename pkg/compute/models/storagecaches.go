@@ -67,6 +67,8 @@ type SStoragecache struct {
 
 	// 镜像存储地址
 	Path string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"` // = Column(VARCHAR(256, charset='utf8'), nullable=True)
+	// master host id
+	MasterHost string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" json:"master_host"`
 }
 
 func (self *SStoragecache) getStorages() []SStorage {
@@ -127,7 +129,15 @@ func (self *SStoragecache) GetEsxiAgentHostDesc() (*jsonutils.JSONDict, error) {
 	return ret, nil
 }
 
-func (self *SStoragecache) GetHost() (*SHost, error) {
+func (self *SStoragecache) GetMasterHost() (*SHost, error) {
+	if self.MasterHost != "" {
+		host, err := HostManager.FetchById(self.MasterHost)
+		if err != nil {
+			return nil, errors.Wrap(err, "HostManager.FetchById")
+		}
+		return host.(*SHost), nil
+	}
+
 	hostId, err := self.getHostId()
 	if err != nil {
 		return nil, errors.Wrap(err, "self.getHostId")
@@ -144,7 +154,7 @@ func (self *SStoragecache) GetHost() (*SHost, error) {
 }
 
 func (self *SStoragecache) GetRegion() (*SCloudregion, error) {
-	host, err := self.GetHost()
+	host, err := self.GetMasterHost()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHost")
 	}
@@ -305,7 +315,7 @@ func (self *SStoragecache) getMoreDetails(ctx context.Context, out api.Storageca
 	out.Size = self.getCachedImageSize()
 	out.Count = self.getCachedImageCount()
 
-	host, _ := self.GetHost()
+	host, _ := self.GetMasterHost()
 	if host != nil {
 		out.Host = host.GetShortDesc(ctx)
 	}
@@ -743,7 +753,7 @@ func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 			return false
 		}
 	}
-	host, _ := self.GetHost()
+	host, _ := self.GetMasterHost()
 	return host.GetHostDriver().IsReachStoragecacheCapacityLimit(host, cachedImages)
 }
 

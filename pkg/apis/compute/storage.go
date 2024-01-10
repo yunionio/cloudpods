@@ -107,6 +107,9 @@ type StorageCreateInput struct {
 
 	// CLVM VG Name
 	CLVMVgName string
+	// SLVM VG Name
+	SLVMVgName string
+	MasterHost string
 }
 
 type RbdTimeoutInput struct {
@@ -233,4 +236,5 @@ type StorageUpdateInput struct {
 	StorageConf *jsonutils.JSONDict
 
 	UpdateStorageConf bool
+	MasterHost        string
 }
