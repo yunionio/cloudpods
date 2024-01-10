@@ -23,6 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
@@ -52,9 +53,10 @@ var (
 
 	RUN_ON_HOST_ROOT_PATH = "/opt/cloud/host-deployer"
 
-	DEPLOY_ISO      = "/opt/cloud/host-deployer/host_deployer_v1.iso"
-	DEPLOYER_BIN    = "/opt/yunion/bin/host-deployer --common-config-file /opt/yunion/common.conf --config /opt/yunion/host.conf"
-	YUNIONOS_PASSWD = "mosbaremetal"
+	DEPLOY_ISO         = "/opt/cloud/host-deployer/host_deployer_v1.iso"
+	DEPLOYER_BIN       = "/opt/yunion/bin/host-deployer --common-config-file /opt/yunion/common.conf --config /opt/yunion/host.conf"
+	DEPLOY_PARAMS_FILE = "/deploy_params"
+	YUNIONOS_PASSWD    = "mosbaremetal"
 )
 
 type QemuDeployManager struct {
@@ -64,6 +66,7 @@ type QemuDeployManager struct {
 	portsInUse      *sync.Map
 	lastUsedSshPort int
 	qemuCmd         string
+	memSizeMb       int
 
 	c chan struct{}
 }
@@ -155,6 +158,10 @@ func (m *QemuDeployManager) GetSshFreePort() int {
 	return port
 }
 
+func (m *QemuDeployManager) getMemSizeMb() int {
+	return m.memSizeMb
+}
+
 var manager *QemuDeployManager
 
 func tryCleanGuest(hmpPath string) {
@@ -182,7 +189,7 @@ func tryCleanGuest(hmpPath string) {
 func InitQemuDeployManager(
 	cpuArch, qemuVersion string,
 	enableRemoteExecutor, hugepage bool,
-	hugepageSizeKB, deployConcurrent int,
+	hugepageSizeKB, memSizeMb, deployConcurrent int,
 ) error {
 	if deployConcurrent <= 0 {
 		deployConcurrent = 10
@@ -219,6 +226,7 @@ func InitQemuDeployManager(
 			cpuArch:        cpuArch,
 			hugepage:       hugepage,
 			hugepageSizeKB: hugepageSizeKB,
+			memSizeMb:      memSizeMb,
 			portsInUse:     new(sync.Map),
 			c:              make(chan struct{}, deployConcurrent),
 			qemuCmd:        qemuCmd,
@@ -280,7 +288,7 @@ func (d *QemuKvmDriver) Connect(guestDesc *apis.GuestDesc) error {
 func (d *QemuKvmDriver) connect(guestDesc *apis.GuestDesc) error {
 	var (
 		ncpu      = 2
-		memSizeMB = 256
+		memSizeMB = manager.getMemSizeMb()
 		disks     = make([]string, 0)
 	)
 
@@ -369,14 +377,30 @@ func (d *QemuKvmDriver) sshRun(cmd string) ([]string, error) {
 	return d.sshClient.Run(cmd)
 }
 
+func (d *QemuKvmDriver) sshFilePutContent(params interface{}, filePath string) error {
+	jcontent := jsonutils.Marshal(params)
+	cmd := fmt.Sprintf(`cat << EOF > %s
+%s
+EOF`, filePath, jcontent.String())
+	out, err := d.sshRun(cmd)
+	if err != nil {
+		return errors.Wrapf(err, "sshFilePutContent %s", out)
+	}
+	return nil
+}
+
 func (d *QemuKvmDriver) DeployGuestfs(req *apis.DeployParams) (*apis.DeployGuestFsResponse, error) {
 	defer func() {
 		logStr, _ := d.sshRun("test -f /log && cat /log")
 		log.Infof("DeployGuestfs log: %v", strings.Join(logStr, "\n"))
 	}()
 
-	params, _ := json.Marshal(req)
-	cmd := fmt.Sprintf("%s --deploy-action deploy_guest_fs --deploy-params '%s'", DEPLOYER_BIN, params)
+	err := d.sshFilePutContent(req, DEPLOY_PARAMS_FILE)
+	if err != nil {
+		return nil, errors.Wrap(err, "DeployGuestfs ssh copy deploy params")
+	}
+
+	cmd := fmt.Sprintf("%s --deploy-action deploy_guest_fs --deploy-params-file %s", DEPLOYER_BIN, DEPLOY_PARAMS_FILE)
 	out, err := d.sshRun(cmd)
 	if err != nil {
 		return nil, errors.Wrapf(err, "run deploy_guest_fs failed %s", out)
