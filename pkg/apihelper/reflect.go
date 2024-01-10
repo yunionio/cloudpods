@@ -151,6 +151,7 @@ func GetModels(opts *GetModelsOptions) error {
 	entriesJson := []jsonutils.JSONObject{}
 	for {
 		var err error
+		log.Debugf("fetch %s with params %s", manKeyPlural, jsonutils.Marshal(params))
 		listResult, err := opts.ModelManager.List(opts.ClientSession, params)
 		if err != nil {
 			log.Errorf("%s: list failed with updated_at.gt('%s'): %s", manKeyPlural, minUpdatedAt, err)
