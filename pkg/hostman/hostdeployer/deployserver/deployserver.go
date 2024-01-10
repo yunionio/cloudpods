@@ -489,20 +489,6 @@ func (s *SDeployService) InitService() {
 	if len(DeployOption.DeployServerSocketPath) == 0 {
 		log.Fatalf("missing deploy server socket path")
 	}
-	s.SignalTrap(func() {
-		for {
-			if len(connectedEsxiDisks) > 0 {
-				log.Warningf("Waiting for esxi disks %d disconnect !!!", len(connectedEsxiDisks))
-				time.Sleep(time.Second * 1)
-			} else {
-				if s.grpcServer != nil {
-					s.grpcServer.Stop()
-				} else {
-					os.Exit(0)
-				}
-			}
-		}
-	})
 }
 
 func (s *SDeployService) OnExitService() {}
