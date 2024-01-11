@@ -979,19 +979,19 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	funcName := fmt.Sprintf("GetProperty%s", utils.Kebab2Camel(property, "-"))
 	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 	modelValue := reflect.ValueOf(manager)
-	params := []interface{}{ctx, userCred, query}
+	// params := []interface{}{ctx, userCred, query}
 
 	funcValue := modelValue.MethodByName(funcName)
 	if !funcValue.IsValid() || funcValue.IsNil() {
 		return nil, nil
 	}
 
-	_, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, policy.PolicyActionList, true)
-	if err != nil {
-		return nil, err
-	}
+	// _, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, policy.PolicyActionList, true)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	outs, err := callFunc(funcValue, funcName, params...)
+	outs, err := callFunc(funcValue, funcName, ctx, userCred, query)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", funcName, err)
 	}
