@@ -486,6 +486,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		},
 		"vpc_id":            desc.VpcId,
 		"subnet_id":         desc.NetworkId,
+		"region":            region.Id,
 		"security_group_id": desc.SecgroupIds[0],
 	}
 

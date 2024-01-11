@@ -299,6 +299,7 @@ func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, er
 	var subAccounts []cloudprovider.SSubAccount
 	for i := range tags {
 		subAccount := cloudprovider.SSubAccount{
+			Id:               tags[i].ResourceId,
 			Account:          self.accessKey,
 			Name:             tags[i].ResourceId,
 			DefaultProjectId: tags[i].Value,

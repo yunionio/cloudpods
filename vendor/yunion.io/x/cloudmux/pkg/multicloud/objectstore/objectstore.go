@@ -147,6 +147,7 @@ func NewObjectStoreClientAndFetch(cfg *ObjectStoreClientConfig, doFetch bool) (*
 
 func (cli *SObjectStoreClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
+		Id:           cli.GetAccountId(),
 		Account:      cli.accessKey,
 		Name:         cli.cpcfg.Name,
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
