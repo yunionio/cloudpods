@@ -371,6 +371,7 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		}
 
 		s := cloudprovider.SSubAccount{
+			Id:           project.ID,
 			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, project.ID),
 			HealthStatus: project.GetHealthStatus(),

@@ -110,6 +110,7 @@ func (cli *SXskyClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	if len(cli.initAccount) > 0 {
 		return []cloudprovider.SSubAccount{
 			{
+				Id:           fmt.Sprintf("%d", cli.adminUser.Id),
 				Account:      cli.initAccount,
 				Name:         cli.adminUser.Name,
 				HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
@@ -125,6 +126,7 @@ func (cli *SXskyClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 		ak := usrs[i].getMinKey()
 		if len(ak) > 0 {
 			subAccount := cloudprovider.SSubAccount{
+				Id:           fmt.Sprintf("%d", usrs[i].Id),
 				Account:      fmt.Sprintf("%s/%s", cli.adminApi.username, ak),
 				Name:         usrs[i].Name,
 				HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,

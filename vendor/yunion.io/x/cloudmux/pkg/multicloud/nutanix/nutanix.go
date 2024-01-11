@@ -330,6 +330,7 @@ func (self *SNutanixClient) get(res string, id string, params url.Values, retVal
 
 func (self *SNutanixClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
+		Id:           self.GetAccountId(),
 		Account:      self.username,
 		Name:         self.cpcfg.Name,
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
