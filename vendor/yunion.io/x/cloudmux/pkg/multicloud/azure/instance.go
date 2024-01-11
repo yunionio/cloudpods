@@ -220,7 +220,7 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	if nics, err := self.getNics(); err == nil {
 		for _, nic := range nics {
-			if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
+			if nic.Properties.NetworkSecurityGroup != nil && len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
 				secgroupIds = append(secgroupIds, strings.ToLower(nic.Properties.NetworkSecurityGroup.ID))
 			}
 		}

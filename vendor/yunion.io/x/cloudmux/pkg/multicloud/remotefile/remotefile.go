@@ -105,6 +105,7 @@ func (cli *SRemoteFileClient) GetSubAccounts() ([]cloudprovider.SSubAccount, err
 	subAccount := cloudprovider.SSubAccount{
 		Account: cli.cpcfg.Id,
 		Name:    cli.cpcfg.Name,
+		Id:      cli.cpcfg.Id,
 
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}

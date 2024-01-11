@@ -370,6 +370,7 @@ func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.
 
 func (self *SProxmoxClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Id = self.host
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.username
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL

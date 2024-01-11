@@ -136,6 +136,7 @@ func (cli *SZStackClient) GetCloudRegionExternalIdPrefix() string {
 
 func (cli *SZStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
+		Id:           cli.cpcfg.Id,
 		Account:      cli.username,
 		Name:         cli.cpcfg.Name,
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
