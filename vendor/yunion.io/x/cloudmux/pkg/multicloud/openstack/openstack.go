@@ -145,6 +145,7 @@ func (cli *SOpenStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	subAccount := cloudprovider.SSubAccount{
 		Account: fmt.Sprintf("%s/%s", cli.project, cli.username),
 		Name:    cli.cpcfg.Name,
+		Id:      cli.tokenCredential.GetProjectDomainId(),
 
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
