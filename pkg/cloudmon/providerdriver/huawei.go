@@ -86,6 +86,7 @@ func (self *HuaweiCollect) CollectModelartsPoolMetrics(ctx context.Context, mana
 				EndTime:      end,
 			}
 			opts.ResourceId = pool.ExternalId
+			opts.RegionExtId = pool.RegionExtId
 
 			tags := []influxdb.SKeyValue{}
 			for k, v := range pool.GetMetricTags() {
