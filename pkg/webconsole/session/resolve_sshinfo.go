@@ -75,7 +75,7 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 		if err != nil {
 			return "", 0, nil, errors.Wrap(err, "Unmarshal guest network info")
 		}
-		if len(ip) > 0 && ip != gn.EipAddr && ip != gn.IpAddr && ip != gn.Ip6Addr {
+		if len(ip) > 0 && ip != gn.EipAddr && ip != gn.IpAddr && ip != gn.Ip6Addr && ip != guestDetails.Eip {
 			return "", 0, nil, errors.Wrapf(httperrors.ErrInputParameter, "ip %s not match with server", ip)
 		}
 		guestNicDetails = &gn

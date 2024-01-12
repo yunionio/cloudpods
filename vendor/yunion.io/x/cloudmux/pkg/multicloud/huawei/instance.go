@@ -241,6 +241,8 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
+	self.OSExtendedVolumesVolumesAttached = nil
+	self.SecurityGroups = nil
 	return jsonutils.Update(self, vm)
 }
 
