@@ -201,35 +201,35 @@ func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 	ret := []cloudprovider.MetricValues{}
 	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
 		cloudprovider.REDIS_METRIC_TYPE_CPU_USAGE: {
-			"CpuUsMin": "",
+			"CpuUtil": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_MEM_USAGE: {
-			"StorageUsMin": "",
+			"MemUtil": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_NET_BPS_RX: {
-			"InFlowMin": "",
+			"InFlow": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_NET_BPS_TX: {
-			"OutFlowMin": "",
+			"OutFlow": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_USED_CONN: {
-			"ConnectionsMin": "",
+			"Connections": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_OPT_SES: {
-			"QpsMin": "",
+			"Commands": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_CACHE_KEYS: {
-			"KeysMin": "",
+			"Keys": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_CACHE_EXP_KEYS: {
-			"ExpiredKeysMin": "",
+			"Expired": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_DATA_MEM_USAGE: {
-			"StorageMin": "",
+			"MemUsed": "",
 		},
 	} {
 		for metricName, tag := range metricNames {
-			metrics, err := self.GetMonitorData("QCE/REDIS", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "instanceid", opts.ResourceIds)
+			metrics, err := self.GetMonitorData("QCE/REDIS_MEM", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "instanceid", opts.ResourceIds)
 			if err != nil {
 				log.Errorf("GetMonitorData error: %v", err)
 				continue
