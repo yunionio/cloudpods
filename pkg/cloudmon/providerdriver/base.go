@@ -146,6 +146,7 @@ func (self *SCollectByResourceIdDriver) CollectDBInstanceMetrics(ctx context.Con
 				EndTime:      end,
 			}
 			opts.ResourceId = rds.ExternalId
+			opts.RegionExtId = rds.RegionExtId
 			opts.Engine = rds.Engine
 
 			tags := []influxdb.SKeyValue{}
@@ -601,6 +602,7 @@ func (self *SCollectByResourceIdDriver) CollectLoadbalancerMetrics(ctx context.C
 				EndTime:      end,
 			}
 			opts.ResourceId = lb.ExternalId
+			opts.RegionExtId = lb.RegionExtId
 
 			tags := []influxdb.SKeyValue{}
 			for k, v := range lb.GetMetricTags() {
