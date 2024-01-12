@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -439,9 +438,8 @@ func (account *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domai
 		domainId = account.DomainId
 	}
 	ctx = context.WithValue(ctx, time.Now().String(), utils.GenRequestId(20))
-	uuid := stringutils.UUID4()
-	lockman.LockRawObject(ctx, domainId, fmt.Sprintf("%s-%s", uuid, name))
-	defer lockman.ReleaseRawObject(ctx, domainId, fmt.Sprintf("%s-%s", uuid, name))
+	lockman.LockRawObject(ctx, domainId, name)
+	defer lockman.ReleaseRawObject(ctx, domainId, name)
 
 	tenant, err := getTenant(ctx, projectId, name, domainId)
 	if err != nil {
