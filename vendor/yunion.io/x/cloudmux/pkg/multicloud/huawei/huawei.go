@@ -602,7 +602,7 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 	case SERVICE_VPC_V3:
 		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v3/%s/%s", regionId, projectId, resource)
 	case SERVICE_CES:
-		url = fmt.Sprintf("https://ces.%s.myhuaweicloud.com/v1.0/%s/%s", regionId, projectId, resource)
+		url = fmt.Sprintf("https://ces.%s.myhuaweicloud.com/V1.0/%s/%s", regionId, projectId, resource)
 	case SERVICE_MODELARTS:
 		url = fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/%s", regionId, projectId, resource)
 	case SERVICE_MODELARTS_V1:
