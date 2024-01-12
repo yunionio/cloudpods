@@ -419,7 +419,8 @@ func (self *SRegion) CreateElasticcache(opts *cloudprovider.SCloudElasticCacheIn
 		"vpc_id":             opts.VpcId,
 		"subnet_id":          opts.NetworkId,
 		"product_id":         opts.InstanceType,
-		"zone_codes":         opts.ZoneIds,
+		"spec_code":          opts.InstanceType,
+		"az_codes":           opts.ZoneIds,
 		"no_password_access": true,
 		"enable_publicip":    false,
 	}
