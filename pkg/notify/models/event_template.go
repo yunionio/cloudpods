@@ -295,6 +295,11 @@ func init() {
 			"操作日志",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_PROJECT,
+			"project",
+			"项目",
+		},
+		sI18nElme{
 			api.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
 			"cloudpods component",
 			"cloudpods服务组件",

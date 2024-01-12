@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -59,6 +60,7 @@ func init() {
 		),
 	}
 	ProjectManager.SetVirtualObject(ProjectManager)
+	notifyclient.AddNotifyDBHookResources(ProjectManager.KeywordPlural(), ProjectManager.AliasPlural())
 }
 
 /*
@@ -384,7 +386,15 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context, info *api.Pro
 }
 
 func (proj *SProject) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return proj.SIdentityBaseResource.Delete(ctx, userCred)
+	err := proj.SIdentityBaseResource.Delete(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "project delete")
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    proj,
+		Action: notifyclient.ActionDelete,
+	})
+	return nil
 }
 
 func (proj *SProject) IsAdminProject() bool {
@@ -556,6 +566,10 @@ func (project *SProject) PostCreate(
 	if err != nil {
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    project,
+		Action: notifyclient.ActionCreate,
+	})
 }
 
 func threeMemberSystemValidatePolicies(userCred mcclient.TokenCredential, projectId string, assignPolicies rbacutils.TPolicyGroup) error {
