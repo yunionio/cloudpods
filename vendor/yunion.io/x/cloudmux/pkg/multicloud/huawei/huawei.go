@@ -191,7 +191,10 @@ type akClient struct {
 
 func (self *akClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Del("Accept")
-	if req.Method == string(httputils.GET) || req.Method == string(httputils.DELETE) || req.Method == string(httputils.PATCH) && !strings.HasPrefix(req.Host, "modelarts") {
+	if req.Method == string(httputils.GET) ||
+		req.Method == string(httputils.DELETE) ||
+		req.Method == string(httputils.PATCH) && !strings.HasPrefix(req.Host, "modelarts") ||
+		strings.HasSuffix(req.URL.Path, "disassociate-instance") {
 		req.Header.Del("Content-Length")
 	}
 	if strings.HasPrefix(req.Host, "modelarts") && req.Method == string(httputils.PATCH) {
