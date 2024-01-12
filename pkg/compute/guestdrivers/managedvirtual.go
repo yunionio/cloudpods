@@ -681,6 +681,10 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 		if ret >= expect { // 有可能自定义镜像里面也有磁盘，会导致返回的磁盘多于创建时的磁盘
 			return true, nil
 		}
+		err = iVM.Refresh()
+		if err != nil {
+			log.Warningf("refresh vm %s error: %v", guest.Name, err)
+		}
 		return false, nil
 	}, 10)
 	if err != nil {
