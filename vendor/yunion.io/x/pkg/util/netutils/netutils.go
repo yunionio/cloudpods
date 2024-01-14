@@ -55,7 +55,7 @@ func IP2Number(ipstr string) (uint32, error) {
 	if len(parts) == 4 {
 		var num uint32
 		for i := 0; i < 4; i += 1 {
-			n, e := strconv.Atoi(parts[i])
+			n, e := strconv.Atoi(strings.TrimSpace(parts[i]))
 			if e != nil {
 				return 0, ErrInvalidNumber // fmt.Errorf("invalid number %s", parts[i])
 			}
@@ -162,10 +162,18 @@ type IPV4AddrRange struct {
 }
 
 func NewIPV4AddrRange(ip1 IPV4Addr, ip2 IPV4Addr) IPV4AddrRange {
+	ar := IPV4AddrRange{}
+	ar.Set(ip1, ip2)
+	return ar
+}
+
+func (ar *IPV4AddrRange) Set(ip1 IPV4Addr, ip2 IPV4Addr) {
 	if ip1 < ip2 {
-		return IPV4AddrRange{start: ip1, end: ip2}
+		ar.start = ip1
+		ar.end = ip2
 	} else {
-		return IPV4AddrRange{start: ip2, end: ip1}
+		ar.start = ip2
+		ar.end = ip1
 	}
 }
 
