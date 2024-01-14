@@ -207,7 +207,12 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 			log.Infof("resize disk partition: %s", cmds)
 			output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
 			if err != nil {
-				return errors.Wrapf(err, "parted failed %s", output)
+				log.Errorf("failed parted partition %s", output)
+				// try growpart
+				output, err = procutils.NewCommand("growpart", diskPath, part[0]).Output()
+				if err != nil {
+					return errors.Wrapf(err, "growpart failed %s", output)
+				}
 			}
 			err, _ = ResizePartitionFs(part[7], part[6], false)
 			if err != nil {
