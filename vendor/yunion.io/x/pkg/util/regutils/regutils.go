@@ -134,6 +134,14 @@ func MatchCIDR(str string) bool {
 	return ip != nil && !strings.Contains(str, ":")
 }
 
+func MatchCIDR6(str string) bool {
+	ip, _, err := net.ParseCIDR(str)
+	if err != nil {
+		return false
+	}
+	return ip != nil && !strings.Contains(str, ".")
+}
+
 func MatchIP6Addr(str string) bool {
 	ip := net.ParseIP(str)
 	return ip != nil && strings.Contains(str, ":")
