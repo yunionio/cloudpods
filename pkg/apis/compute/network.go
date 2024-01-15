@@ -21,6 +21,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
+type TAddressType string
+
+const (
+	AddressTypeIPv4 = TAddressType("ipv4")
+	AddressTypeIPv6 = TAddressType("ipv6")
+)
+
 const (
 	NETWORK_TYPE_VPC     = compute.NETWORK_TYPE_VPC
 	NETWORK_TYPE_CLASSIC = compute.NETWORK_TYPE_CLASSIC
@@ -182,25 +189,44 @@ type NetworkCreateInput struct {
 	// example: 10.168.222.1/24
 	GuestIpPrefix string `json:"guest_ip_prefix"`
 
-	// description: ip range of guest ip start, if set guest_ip_prefix, this parameter will be useless
+	// description: ip range of guest ip start, if set guest_ip_prefix, this parameter will be ignored
 	// example: 10.168.222.1
 	GuestIpStart string `json:"guest_ip_start"`
 
-	// description: ip range of guest ip end, if set guest_ip_prefix, this parameter will be useless
+	// description: ip range of guest ip end, if set guest_ip_prefix, this parameter will be ignored
 	// example: 10.168.222.100
 	GuestIpEnd string `json:"guest_ip_end"`
 
-	// description: ip range of guest ip mask, if set guest_ip_prefix, this parameter will be useless
+	// description: ip range of guest ip mask, if set guest_ip_prefix, this parameter will be ignored
 	// example: 24
 	// maximum: 30
 	// minimum: 12
-	GuestIpMask int64 `json:"guest_ip_mask"`
+	GuestIpMask int8 `json:"guest_ip_mask"`
 
 	IfnameHint string `json:"ifname_hint"`
 
 	// description: guest gateway
 	// example: 192.168.222.1
 	GuestGateway string `json:"guest_gateway"`
+
+	// description: ipv6 range of guest, if not set, you shoud set guest_ip6_start,guest_ip6_end and guest_ip6_mask params
+	// example: 3ffe:3200:2001:2300::/64
+	GuestIp6Prefix string `json:"guest_ip6_prefix"`
+	// description: ipv6 range of guest ip start, if set guest_ip6_prefix, this parameter will be ignored
+	// example: 3ffe:3200:2001:2300::1
+	GuestIp6Start string `json:"guest_ip6_start"`
+	// description: ipv6 range of guest ip end, if set guest_ip6_prefix, this parameter will be ignored
+	// example: 3ffe:3200:2001:2300:ffff:ffff:ffff:ffff
+	GuestIp6End string `json:"guest_ip6_end"`
+	// description: ipv6 range of guest ip mask, if set guest_ip6_prefix, this parameter will be ignored
+	// example: 64
+	// maximum: 126
+	// minimum: 48
+	GuestIp6Mask uint8 `json:"guest_ip6_mask"`
+
+	// description: guest gateway of IPv6
+	// example: 3ffe:3200:2001:2300::1
+	GuestGateway6 string `json:"guest_gateway6"`
 
 	// description: guest dns
 	// example: 114.114.114.114,8.8.8.8
@@ -250,15 +276,23 @@ type NetworkCreateInput struct {
 type SNetworkNics struct {
 	// 虚拟机网卡数量
 	Vnics int `json:"vnics"`
+	// IPv4地址数量
+	Vnics4 int `json:"vnics4"`
+	// IPv6地址数量
+	Vnics6 int `json:"vnics6"`
 	// 裸金属网卡数量
 	BmVnics int `json:"bm_vnics"`
 	// 负载均衡网卡数量
 	LbVnics int `json:"lb_vnics"`
 	// 浮动Ip网卡数量
-	EipVnics   int `json:"eip_vnics"`
+	EipVnics int `json:"eip_vnics"`
+	// VIP数量
 	GroupVnics int `json:"group_vnics"`
-	// 预留IP数量
-	ReserveVnics int `json:"reserve_vnics"`
+
+	// 预留IPv4数量
+	ReserveVnics4 int `json:"reserve_vnics4"`
+	// 预留IPv6数量
+	ReserveVnics6 int `json:"reserve_vnics6"`
 
 	// RDS网卡数量
 	RdsVnics int `json:"rds_vnics"`
@@ -273,21 +307,29 @@ type SNetworkNics struct {
 	PortsUsed int `json:"ports_used"`
 
 	Total int `json:"total"`
+
+	// 已使用IPv4端口数量
+	Ports6Used int `json:"ports6_used"`
+
+	Total6 int `json:"total6"`
 }
 
 func (self *SNetworkNics) SumTotal() {
-	self.Total = self.Vnics +
+	self.Total = self.Vnics4 +
 		self.BmVnics +
 		self.LbVnics +
 		self.LbVnics +
 		self.EipVnics +
 		self.GroupVnics +
-		self.ReserveVnics +
+		self.ReserveVnics4 +
 		self.RdsVnics +
 		self.NetworkinterfaceVnics +
 		self.NatVnics -
 		self.BmReusedVnics
+	self.Total6 = self.Vnics6 +
+		self.ReserveVnics6
 	self.PortsUsed = self.Total
+	self.Ports6Used = self.Total6
 }
 
 type NetworkDetails struct {
@@ -398,7 +440,7 @@ type NetworkUpdateInput struct {
 
 	// 起始IP地址
 	GuestIpStart string `json:"guest_ip_start"`
-	// 接收IP地址
+	// 结束IP地址
 	GuestIpEnd string `json:"guest_ip_end"`
 	// 掩码
 	GuestIpMask int8 `json:"guest_ip_mask"`
@@ -410,6 +452,15 @@ type NetworkUpdateInput struct {
 	GuestDhcp *string `json:"guest_dhcp"`
 	// NTP
 	GuestNtp *string `json:"guest_ntp"`
+
+	// 起始IP6地址
+	GuestIp6Start *string `json:"guest_ip6_start"`
+	// 结束IP6地址
+	GuestIp6End *string `json:"guest_ip6_end"`
+	// IP6子网掩码长度
+	GuestIp6Mask *uint8 `json:"guest_ip6_mask"`
+	// IP6网关地址
+	GuestGateway6 *string `json:"guest_gateway6"`
 
 	GuestDomain *string `json:"guest_domain"`
 
@@ -430,6 +481,9 @@ type GetNetworkAddressesInput struct {
 type GetNetworkAddressesOutput struct {
 	// IP子网地址记录
 	Addresses []SNetworkUsedAddress `json:"addresses"`
+
+	// IPv6子网地址记录
+	Addresses6 []SNetworkUsedAddress `json:"addresses6"`
 }
 
 type GetNetworkAvailableAddressesInput struct {
@@ -438,6 +492,9 @@ type GetNetworkAvailableAddressesInput struct {
 type GetNetworkAvailableAddressesOutput struct {
 	// IP子网地址记录
 	Addresses []string `json:"addresses"`
+
+	// IPv6子网地址记录
+	Addresses6 []string `json:"addresses6"`
 }
 
 type NetworkSetBgpTypeInput struct {

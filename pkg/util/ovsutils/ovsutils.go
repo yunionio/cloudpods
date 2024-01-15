@@ -108,6 +108,9 @@ func CleanAllHiddenPorts() {
 	}
 }
 
+// WHY normalize ovs-db host?
+// if ovn-db url is given by domain name, ovn-nbctl will always try to resolve in IPv6 first
+// if host is IPv4 only, ovn-nbctl will report error "connect: Address family not supported by protocol"
 func NormalizeDbHost(db string) (string, error) {
 	if strings.HasPrefix(db, "tcp:") {
 		host, port, err := net.SplitHostPort(db[4:])

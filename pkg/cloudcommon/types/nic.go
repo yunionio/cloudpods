@@ -34,11 +34,15 @@ type SNic struct {
 	Mac     string   `json:"mac"`
 	Dns     string   `json:"dns"`
 	Ntp     string   `json:"ntp"`
-	MaskLen int8     `json:"masklen"`
+	Masklen int8     `json:"masklen"`
 	Net     string   `json:"net"`
 	Gateway string   `json:"gateway"`
 	LinkUp  bool     `json:"link_up"`
 	Routes  []SRoute `json:"routes,omitempty"`
+
+	Ip6Addr  string `json:"ip6_addr"`
+	Masklen6 uint8  `json:"masklen6"`
+	Gateway6 string `json:"gateway6"`
 
 	Interface string `json:"interface"`
 	Bridge    string `json:"bridge"`
@@ -51,7 +55,7 @@ type SNic struct {
 type SRoute []string
 
 func (n SNic) GetNetMask() string {
-	return netutils.Masklen2Mask(n.MaskLen).String()
+	return netutils.Masklen2Mask(n.Masklen).String()
 }
 
 func (n SNic) GetMac() net.HardwareAddr {
@@ -82,6 +86,10 @@ type SServerNic struct {
 	Ifname    string   `json:"ifname"`
 	Routes    []SRoute `json:"routes,omitempty"`
 
+	Ip6      string `json:"ip6"`
+	Masklen6 int    `json:"masklen6"`
+	Gateway6 string `json:"gateway6"`
+
 	IsDefault bool `json:"is_default"`
 
 	NicType compute.TNicType `json:"nic_type,omitempty"`
@@ -111,11 +119,15 @@ func (n SServerNic) ToNic() SNic {
 		Mac:     n.Mac,
 		Dns:     n.Dns,
 		Ntp:     n.Ntp,
-		MaskLen: int8(n.Masklen),
+		Masklen: int8(n.Masklen),
 		Net:     n.Net,
 		Gateway: n.Gateway,
 		Routes:  n.Routes,
 		LinkUp:  n.LinkUp,
 		Mtu:     n.Mtu,
+
+		Ip6Addr:  n.Ip6,
+		Masklen6: uint8(n.Masklen6),
+		Gateway6: n.Gateway6,
 	}
 }

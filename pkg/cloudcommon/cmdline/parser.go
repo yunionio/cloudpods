@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 var (
@@ -249,7 +250,11 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 		if regutils.MatchIP4Addr(p) {
 			netConfig.Address = p
 		} else if regutils.MatchIP6Addr(p) {
-			netConfig.Address6 = p
+			addr6, err := netutils.NewIPV6Addr(p)
+			if err != nil {
+				return nil, errors.Wrap(httperrors.ErrInvalidFormat, p)
+			}
+			netConfig.Address6 = addr6.String()
 		} else if regutils.MatchCompactMacAddr(p) {
 			netConfig.Mac = netutils.MacUnpackHex(p)
 		} else if strings.HasPrefix(p, "wire=") {
@@ -263,8 +268,21 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.Macs = macs
 		} else if strings.HasPrefix(p, "ips=") {
 			netConfig.Addresses = strings.Split(p[len("ips="):], ",")
+			for _, addr := range netConfig.Addresses {
+				_, err := netutils.NewIPV4Addr(addr)
+				if err != nil {
+					return nil, errors.Wrap(err, p)
+				}
+			}
 		} else if strings.HasPrefix(p, "ip6s=") {
 			netConfig.Addresses6 = strings.Split(p[len("ip6s="):], ",")
+			for i, addrStr := range netConfig.Addresses6 {
+				addr6, err := netutils.NewIPV6Addr(addrStr)
+				if err != nil {
+					return nil, errors.Wrap(err, p)
+				}
+				netConfig.Addresses6[i] = addr6.String()
+			}
 		} else if p == "[require_designated_ip]" {
 			netConfig.RequireDesignatedIP = true
 		} else if p == "[random_exit]" {
@@ -281,6 +299,8 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.TryTeaming = true
 		} else if p == "[defaultgw]" {
 			netConfig.IsDefault = true
+		} else if p == "[ipv6]" {
+			netConfig.RequireIPv6 = true
 		} else if strings.HasPrefix(p, "standby-port=") {
 			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
 		} else if strings.HasPrefix(p, "standby-addr=") {

@@ -68,6 +68,9 @@ message Nic {
   int64 mtu = 25;
   string name = 26;
   bool is_default = 27;
+  string ip6 = 28;
+  int32 masklen6 = 29;
+  string gateway6 = 30;
 }
 
 message VDDKConInfo {

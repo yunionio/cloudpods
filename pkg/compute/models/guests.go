@@ -1109,12 +1109,19 @@ func (guest *SGuest) ConvertEsxiNetworks(targetGuest *SGuest) error {
 	return err
 }
 
-func (guest *SGuest) getGuestnetworkByIpOrMac(ipAddr string, macAddr string) (*SGuestnetwork, error) {
+func (guest *SGuest) getGuestnetworkByIpOrMac(ipAddr string, ip6Addr string, macAddr string) (*SGuestnetwork, error) {
 	q := guest.GetNetworksQuery("")
 	if len(ipAddr) > 0 {
 		q = q.Equals("ip_addr", ipAddr)
 	}
+	if len(ip6Addr) > 0 {
+		addr, err := netutils.NewIPV6Addr(ip6Addr)
+		if err == nil {
+			q = q.Equals("ip6_addr", addr.String())
+		}
+	}
 	if len(macAddr) > 0 {
+		macAddr = netutils2.FormatMac(macAddr)
 		q = q.Equals("mac_addr", macAddr)
 	}
 
@@ -1128,11 +1135,15 @@ func (guest *SGuest) getGuestnetworkByIpOrMac(ipAddr string, macAddr string) (*S
 }
 
 func (guest *SGuest) GetGuestnetworkByIp(ipAddr string) (*SGuestnetwork, error) {
-	return guest.getGuestnetworkByIpOrMac(ipAddr, "")
+	return guest.getGuestnetworkByIpOrMac(ipAddr, "", "")
+}
+
+func (guest *SGuest) GetGuestnetworkByIp6(ip6Addr string) (*SGuestnetwork, error) {
+	return guest.getGuestnetworkByIpOrMac("", ip6Addr, "")
 }
 
 func (guest *SGuest) GetGuestnetworkByMac(macAddr string) (*SGuestnetwork, error) {
-	return guest.getGuestnetworkByIpOrMac("", macAddr)
+	return guest.getGuestnetworkByIpOrMac("", "", macAddr)
 }
 
 func (guest *SGuest) IsNetworkAllocated() bool {
@@ -1481,7 +1492,7 @@ func (manager *SGuestManager) validateCreateData(
 	// check that all image of disk is the part of guest imgae, if use guest image to create guest
 	err = manager.checkGuestImage(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "checkGuestImage")
 	}
 
 	var hypervisor string
@@ -3335,10 +3346,12 @@ type Attach2NetworkArgs struct {
 	Network *SNetwork
 
 	IpAddr              string
+	Ip6Addr             string
 	AllocDir            api.IPAllocationDirection
 	TryReserved         bool
 	RequireDesignatedIP bool
 	UseDesignatedIP     bool
+	RequireIPv6         bool
 
 	BwLimit        int
 	NicDriver      string
@@ -3362,10 +3375,12 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		network: args.Network,
 
 		ipAddr:              args.IpAddr,
+		ip6Addr:             args.Ip6Addr,
 		allocDir:            args.AllocDir,
 		tryReserved:         args.TryReserved,
 		requireDesignatedIP: args.RequireDesignatedIP,
 		useDesignatedIP:     args.UseDesignatedIP,
+		requireIPv6:         args.RequireIPv6,
 
 		bwLimit:        args.BwLimit,
 		nicDriver:      args.NicDriver,
@@ -3382,6 +3397,7 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 	}
 	if i > 0 {
 		r.ipAddr = ""
+		r.ip6Addr = ""
 		r.bwLimit = 0
 		r.virtual = true
 		r.tryReserved = false
@@ -3391,6 +3407,7 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		r.nicDriver = ""
 		r.numQueues = 1
 		r.isDefault = false
+		r.requireIPv6 = false
 	}
 	return r
 }
@@ -3399,10 +3416,12 @@ type attach2NetworkOnceArgs struct {
 	network *SNetwork
 
 	ipAddr              string
+	ip6Addr             string
 	allocDir            api.IPAllocationDirection
 	tryReserved         bool
 	requireDesignatedIP bool
 	useDesignatedIP     bool
+	requireIPv6         bool
 
 	bwLimit        int
 	nicDriver      string
@@ -3433,7 +3452,7 @@ func (self *SGuest) Attach2Network(
 	}
 	retNics := []SGuestnetwork{*firstNic}
 	if len(args.NicConfs) > 1 {
-		firstMac, _ := netutils2.ParseMac(firstNic.MacAddr)
+		firstMac, _ := netutils.ParseMac(firstNic.MacAddr)
 		for i := 1; i < len(args.NicConfs); i += 1 {
 			onceArgs := args.onceArgs(i)
 			onceArgs.nicDriver = firstNic.Driver
@@ -3474,10 +3493,12 @@ func (self *SGuest) attach2NetworkOnce(
 		index: index,
 
 		ipAddr:              args.ipAddr,
+		ip6Addr:             args.ip6Addr,
 		allocDir:            args.allocDir,
 		tryReserved:         args.tryReserved,
 		requireDesignatedIP: args.requireDesignatedIP,
 		useDesignatedIP:     args.useDesignatedIP,
+		requireIPv6:         args.requireIPv6,
 
 		ifname:         args.nicConf.Ifname,
 		macAddr:        args.nicConf.Mac,
@@ -4235,6 +4256,8 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			Network:             net,
 			PendingUsage:        pendingUsage,
 			IpAddr:              netConfig.Address,
+			Ip6Addr:             netConfig.Address6,
+			RequireIPv6:         netConfig.RequireIPv6,
 			NicDriver:           netConfig.Driver,
 			NumQueues:           netConfig.NumQueues,
 			BwLimit:             netConfig.BwLimit,
@@ -5493,20 +5516,28 @@ func (self *SGuest) GetKeypairPublicKey() string {
 	return ""
 }
 
-func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isExitOnly bool) []string {
-	guestnics := GuestnetworkManager.Query().SubQuery()
-	guests := manager.Query().SubQuery()
-	networks := NetworkManager.Query().SubQuery()
-	q := guestnics.Query(guestnics.Field("ip_addr")).Join(guests,
-		sqlchemy.AND(
-			sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")),
-			sqlchemy.OR(sqlchemy.IsNull(guests.Field("pending_deleted")),
-				sqlchemy.IsFalse(guests.Field("pending_deleted"))))).
-		Join(networks, sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id"))).
-		Filter(sqlchemy.Equals(guests.Field("name"), name)).
-		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
-		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
-		Filter(sqlchemy.IsNotNull(networks.Field("guest_gateway")))
+func (manager *SGuestManager) GetIpsInProjectWithName(projectId, name string, isExitOnly bool, addrType api.TAddressType) []string {
+	name = strings.TrimSuffix(name, ".")
+
+	ipField := "ip_addr"
+	gwField := "guest_gateway"
+	if addrType == api.AddressTypeIPv6 {
+		ipField = "ip6_addr"
+		gwField = "guest_gateway6"
+	}
+
+	guestnics := GuestnetworkManager.Query().IsNotEmpty(ipField).SubQuery()
+	guestsQ := manager.Query().IsFalse("pending_deleted").Equals("hostname", name)
+	if len(projectId) > 0 {
+		guestsQ = guestsQ.Equals("tenant_id", projectId)
+	}
+	guests := guestsQ.SubQuery()
+	networks := NetworkManager.Query().IsNotNull(gwField).SubQuery()
+
+	q := guestnics.Query(guestnics.Field(ipField))
+	q = q.Join(guests, sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")))
+	q = q.Join(networks, sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")))
+
 	ips := make([]string, 0)
 	rows, err := q.Rows()
 	if err != nil {
@@ -5522,6 +5553,9 @@ func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isE
 			return ips
 		}
 		ips = append(ips, ip)
+	}
+	if addrType == api.AddressTypeIPv6 {
+		return ips
 	}
 	return manager.getIpsByExit(ips, isExitOnly)
 }

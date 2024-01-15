@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sort"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -598,91 +597,136 @@ func (manager *SWireManager) totalCountQ(
 	}
 	dbs := dbsQ.SubQuery()
 
-	gNics := GuestnetworkManager.Query().SubQuery()
-	gNicQ := gNics.Query(
-		gNics.Field("network_id"),
-		sqlchemy.COUNT("gnic_count"),
-		sqlchemy.SUM("pending_deleted_gnic_count", guests.Field("pending_deleted")),
+	var (
+		gNicSQ     *sqlchemy.SSubQuery
+		gNicSQ4    *sqlchemy.SSubQuery
+		gNicSQ6    *sqlchemy.SSubQuery
+		hNicSQ     *sqlchemy.SSubQuery
+		grpNicSQ   *sqlchemy.SSubQuery
+		lbNicSQ    *sqlchemy.SSubQuery
+		eipNicSQ   *sqlchemy.SSubQuery
+		netifNicSQ *sqlchemy.SSubQuery
+		dbNicSQ    *sqlchemy.SSubQuery
 	)
-	gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
-	gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
-	gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	{
+		gNics := GuestnetworkManager.Query().SubQuery()
+		gNicQ := gNics.Query(
+			gNics.Field("network_id"),
+			sqlchemy.COUNT("gnic_count"),
+			sqlchemy.SUM("pending_deleted_gnic_count", guests.Field("pending_deleted")),
+		)
+		gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
+		gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
+		gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
-	hNics := HostnetworkManager.Query().SubQuery()
-	hNicQ := hNics.Query(
-		hNics.Field("network_id"),
-		sqlchemy.COUNT("hnic_count"),
-	)
-	hNicQ = hNicQ.Join(hosts2, sqlchemy.Equals(hNics.Field("baremetal_id"), hosts2.Field("id")))
-	hNicQ = hNicQ.Filter(sqlchemy.IsTrue(hosts2.Field("enabled")))
-
-	groupNics := GroupnetworkManager.Query().SubQuery()
-	grpNicQ := groupNics.Query(
-		groupNics.Field("network_id"),
-		sqlchemy.COUNT("grpnic_count"),
-	)
-	grpNicQ = grpNicQ.Join(groups, sqlchemy.Equals(groups.Field("id"), groupNics.Field("group_id")))
-
-	lbNics := LoadbalancernetworkManager.Query().SubQuery()
-	lbNicQ := lbNics.Query(
-		lbNics.Field("network_id"),
-		sqlchemy.COUNT("lbnic_count"),
-	)
-	lbNicQ = lbNicQ.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbNics.Field("loadbalancer_id")))
-	lbNicQ = lbNicQ.Filter(sqlchemy.IsFalse(lbs.Field("pending_deleted")))
-
-	eipNicsQ := ElasticipManager.Query().IsNotEmpty("network_id")
-	eipNicsQ = db.ObjectIdQueryWithPolicyResult(eipNicsQ, ElasticipManager, policyResult)
-	eipNics := filterByScopeOwnerId(eipNicsQ, scope, ownerId, false).SubQuery()
-	eipNicQ := eipNics.Query(
-		eipNics.Field("network_id"),
-		sqlchemy.COUNT("eipnic_count"),
-	)
-	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
-		eipNicQ = CloudProviderFilter(eipNicQ, eipNicQ.Field("manager_id"), providers, brands, cloudEnv)
+		gNicSQ = gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	}
-	if len(rangeObjs) > 0 {
-		eipNicQ = RangeObjectsFilter(eipNicQ, rangeObjs, eipNicQ.Field("cloudregion_id"), nil, eipNicQ.Field("manager_id"), nil, nil)
-	}
+	{
+		gNics := GuestnetworkManager.Query().IsNotEmpty("ip_addr").SubQuery()
+		gNicQ := gNics.Query(
+			gNics.Field("network_id"),
+			sqlchemy.COUNT("gnic_count4"),
+		)
+		gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
+		gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
+		gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
-	netifsQ := NetworkInterfaceManager.Query()
-	netifsQ = db.ObjectIdQueryWithPolicyResult(netifsQ, NetworkInterfaceManager, policyResult)
-	netifsQ = filterByScopeOwnerId(netifsQ, scope, ownerId, true)
-	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
-		netifsQ = CloudProviderFilter(netifsQ, netifsQ.Field("manager_id"), providers, brands, cloudEnv)
+		gNicSQ4 = gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	}
-	if len(rangeObjs) > 0 {
-		netifsQ = RangeObjectsFilter(netifsQ, rangeObjs, netifsQ.Field("cloudregion_id"), nil, netifsQ.Field("manager_id"), nil, nil)
+	{
+		gNics := GuestnetworkManager.Query().IsNotEmpty("ip6_addr").SubQuery()
+		gNicQ := gNics.Query(
+			gNics.Field("network_id"),
+			sqlchemy.COUNT("gnic_count6"),
+		)
+		gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
+		gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
+		gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+
+		gNicSQ6 = gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	}
-	netifs := netifsQ.SubQuery()
-	netifNics := NetworkinterfacenetworkManager.Query().SubQuery()
-	netifNicQ := netifNics.Query(
-		netifNics.Field("network_id"),
-		sqlchemy.COUNT("netifnic_count"),
-	)
-	netifNicQ = netifNicQ.Join(netifs, sqlchemy.Equals(netifNics.Field("networkinterface_id"), netifs.Field("id")))
-
-	dbNics := DBInstanceNetworkManager.Query().SubQuery()
-	dbNicQ := dbNics.Query(
-		dbNics.Field("network_id"),
-		sqlchemy.COUNT("dbnic_count"),
-	)
-	dbNicQ = dbNicQ.Join(dbs, sqlchemy.Equals(dbs.Field("id"), dbNics.Field("dbinstance_id")))
-	dbNicQ = dbNicQ.Filter(sqlchemy.IsFalse(dbs.Field("pending_deleted")))
-
-	gNicSQ := gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
-	hNicSQ := hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()
-	grpNicSQ := grpNicQ.GroupBy(groupNics.Field("network_id")).SubQuery()
-	lbNicSQ := lbNicQ.GroupBy(lbNics.Field("network_id")).SubQuery()
-	eipNicSQ := eipNicQ.GroupBy(eipNics.Field("network_id")).SubQuery()
-	netifNicSQ := netifNicQ.GroupBy(netifNics.Field("network_id")).SubQuery()
-	dbNicSQ := dbNicQ.GroupBy(dbNics.Field("network_id")).SubQuery()
+	{
+		hNics := HostnetworkManager.Query().SubQuery()
+		hNicQ := hNics.Query(
+			hNics.Field("network_id"),
+			sqlchemy.COUNT("hnic_count"),
+		)
+		hNicQ = hNicQ.Join(hosts2, sqlchemy.Equals(hNics.Field("baremetal_id"), hosts2.Field("id")))
+		hNicQ = hNicQ.Filter(sqlchemy.IsTrue(hosts2.Field("enabled")))
+		hNicSQ = hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()
+	}
+	{
+		groupNics := GroupnetworkManager.Query().SubQuery()
+		grpNicQ := groupNics.Query(
+			groupNics.Field("network_id"),
+			sqlchemy.COUNT("grpnic_count"),
+		)
+		grpNicQ = grpNicQ.Join(groups, sqlchemy.Equals(groups.Field("id"), groupNics.Field("group_id")))
+		grpNicSQ = grpNicQ.GroupBy(groupNics.Field("network_id")).SubQuery()
+	}
+	{
+		lbNics := LoadbalancernetworkManager.Query().SubQuery()
+		lbNicQ := lbNics.Query(
+			lbNics.Field("network_id"),
+			sqlchemy.COUNT("lbnic_count"),
+		)
+		lbNicQ = lbNicQ.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbNics.Field("loadbalancer_id")))
+		lbNicQ = lbNicQ.Filter(sqlchemy.IsFalse(lbs.Field("pending_deleted")))
+		lbNicSQ = lbNicQ.GroupBy(lbNics.Field("network_id")).SubQuery()
+	}
+	{
+		eipNicsQ := ElasticipManager.Query().IsNotEmpty("network_id")
+		eipNicsQ = db.ObjectIdQueryWithPolicyResult(eipNicsQ, ElasticipManager, policyResult)
+		eipNics := filterByScopeOwnerId(eipNicsQ, scope, ownerId, false).SubQuery()
+		eipNicQ := eipNics.Query(
+			eipNics.Field("network_id"),
+			sqlchemy.COUNT("eipnic_count"),
+		)
+		if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+			eipNicQ = CloudProviderFilter(eipNicQ, eipNicQ.Field("manager_id"), providers, brands, cloudEnv)
+		}
+		if len(rangeObjs) > 0 {
+			eipNicQ = RangeObjectsFilter(eipNicQ, rangeObjs, eipNicQ.Field("cloudregion_id"), nil, eipNicQ.Field("manager_id"), nil, nil)
+		}
+		eipNicSQ = eipNicQ.GroupBy(eipNics.Field("network_id")).SubQuery()
+	}
+	{
+		netifsQ := NetworkInterfaceManager.Query()
+		netifsQ = db.ObjectIdQueryWithPolicyResult(netifsQ, NetworkInterfaceManager, policyResult)
+		netifsQ = filterByScopeOwnerId(netifsQ, scope, ownerId, true)
+		if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+			netifsQ = CloudProviderFilter(netifsQ, netifsQ.Field("manager_id"), providers, brands, cloudEnv)
+		}
+		if len(rangeObjs) > 0 {
+			netifsQ = RangeObjectsFilter(netifsQ, rangeObjs, netifsQ.Field("cloudregion_id"), nil, netifsQ.Field("manager_id"), nil, nil)
+		}
+		netifs := netifsQ.SubQuery()
+		netifNics := NetworkinterfacenetworkManager.Query().SubQuery()
+		netifNicQ := netifNics.Query(
+			netifNics.Field("network_id"),
+			sqlchemy.COUNT("netifnic_count"),
+		)
+		netifNicQ = netifNicQ.Join(netifs, sqlchemy.Equals(netifNics.Field("networkinterface_id"), netifs.Field("id")))
+		netifNicSQ = netifNicQ.GroupBy(netifNics.Field("network_id")).SubQuery()
+	}
+	{
+		dbNics := DBInstanceNetworkManager.Query().SubQuery()
+		dbNicQ := dbNics.Query(
+			dbNics.Field("network_id"),
+			sqlchemy.COUNT("dbnic_count"),
+		)
+		dbNicQ = dbNicQ.Join(dbs, sqlchemy.Equals(dbs.Field("id"), dbNics.Field("dbinstance_id")))
+		dbNicQ = dbNicQ.Filter(sqlchemy.IsFalse(dbs.Field("pending_deleted")))
+		dbNicSQ = dbNicQ.GroupBy(dbNics.Field("network_id")).SubQuery()
+	}
 
 	networks := NetworkManager.Query().SubQuery()
 	netQ := networks.Query(
 		sqlchemy.SUM("guest_nic_count", gNicSQ.Field("gnic_count")),
 		sqlchemy.SUM("pending_deleted_guest_nic_count", gNicSQ.Field("pending_deleted_gnic_count")),
 		sqlchemy.SUM("host_nic_count", hNicSQ.Field("hnic_count")),
+		sqlchemy.SUM("guest_nic_count4", gNicSQ4.Field("gnic_count4")),
+		sqlchemy.SUM("guest_nic_count6", gNicSQ6.Field("gnic_count6")),
 		sqlchemy.SUM("group_nic_count", grpNicSQ.Field("grpnic_count")),
 		sqlchemy.SUM("lb_nic_count", lbNicSQ.Field("lbnic_count")),
 		sqlchemy.SUM("eip_nic_count", eipNicSQ.Field("eipnic_count")),
@@ -690,6 +734,8 @@ func (manager *SWireManager) totalCountQ(
 		sqlchemy.SUM("db_nic_count", dbNicSQ.Field("dbnic_count")),
 	)
 	netQ = netQ.LeftJoin(gNicSQ, sqlchemy.Equals(gNicSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(gNicSQ4, sqlchemy.Equals(gNicSQ4.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(gNicSQ6, sqlchemy.Equals(gNicSQ6.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(hNicSQ, sqlchemy.Equals(hNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(grpNicSQ, sqlchemy.Equals(grpNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(lbNicSQ, sqlchemy.Equals(lbNicSQ.Field("network_id"), networks.Field("id")))
@@ -708,13 +754,24 @@ func (manager *SWireManager) totalCountQ2(
 	ownerId mcclient.IIdentityProvider,
 	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
-	revIps := filterExpiredReservedIps(ReservedipManager.Query()).SubQuery()
-	revQ := revIps.Query(
-		revIps.Field("network_id"),
-		sqlchemy.COUNT("rnic_count"),
-	)
-
-	revSQ := revQ.GroupBy(revIps.Field("network_id")).SubQuery()
+	var revSQ *sqlchemy.SSubQuery
+	var revSQ6 *sqlchemy.SSubQuery
+	{
+		revIps := filterExpiredReservedIp4s(ReservedipManager.Query()).SubQuery()
+		revQ := revIps.Query(
+			revIps.Field("network_id"),
+			sqlchemy.COUNT("rnic_count"),
+		)
+		revSQ = revQ.GroupBy(revIps.Field("network_id")).SubQuery()
+	}
+	{
+		revIps := filterExpiredReservedIp6s(ReservedipManager.Query()).SubQuery()
+		revQ := revIps.Query(
+			revIps.Field("network_id"),
+			sqlchemy.COUNT("rnic_count6"),
+		)
+		revSQ6 = revQ.GroupBy(revIps.Field("network_id")).SubQuery()
+	}
 
 	ownerNetQ1 := NetworkManager.Query()
 	ownerNetQ1 = db.ObjectIdQueryWithPolicyResult(ownerNetQ1, NetworkManager, policyResult)
@@ -723,8 +780,10 @@ func (manager *SWireManager) totalCountQ2(
 		ownerNetworks.Field("wire_id"),
 		sqlchemy.COUNT("id").Label("net_count"),
 		sqlchemy.SUM("rev_count", revSQ.Field("rnic_count")),
+		sqlchemy.SUM("rev_count6", revSQ6.Field("rnic_count6")),
 	)
 	ownerNetQ = ownerNetQ.LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), ownerNetworks.Field("id")))
+	ownerNetQ = ownerNetQ.LeftJoin(revSQ6, sqlchemy.Equals(revSQ6.Field("network_id"), ownerNetworks.Field("id")))
 	ownerNetQ = ownerNetQ.GroupBy(ownerNetworks.Field("wire_id"))
 	ownerNetSQ := ownerNetQ.SubQuery()
 
@@ -732,6 +791,7 @@ func (manager *SWireManager) totalCountQ2(
 	q := wires.Query(
 		sqlchemy.SUM("net_count", ownerNetSQ.Field("net_count")),
 		sqlchemy.SUM("reserved_count", ownerNetSQ.Field("rev_count")),
+		sqlchemy.SUM("reserved_count6", ownerNetSQ.Field("rev_count6")),
 	)
 	q = q.LeftJoin(ownerNetSQ, sqlchemy.Equals(wires.Field("id"), ownerNetSQ.Field("wire_id")))
 	return filterWiresCountQuery(q, hostTypes, providers, brands, cloudEnv, rangeObjs)
@@ -783,8 +843,11 @@ type WiresCountStat struct {
 	EmulatedWiresCount int
 	NetCount           int
 	GuestNicCount      int
+	GuestNicCount4     int
+	GuestNicCount6     int
 	HostNicCount       int
 	ReservedCount      int
+	ReservedCount6     int
 	GroupNicCount      int
 	LbNicCount         int
 	EipNicCount        int
@@ -1811,19 +1874,14 @@ func (swire *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.To
 			GuestIpMask:  networks[j].GuestIpMask,
 			ServerType:   networks[j].ServerType,
 			VlanId:       networks[j].VlanId,
-			Address:      []api.SNetworkUsedAddress{},
+			// Address:      []api.SNetworkUsedAddress{},
 		}
 
-		netAddrs := make([]api.SNetworkUsedAddress, 0)
-
-		q := networks[j].getUsedAddressQuery(userCred, userCred, rbacscope.ScopeSystem, false)
-		err = q.All(&netAddrs)
+		network.GetNetworkAddressesOutput, err = networks[j].fetchAddressDetails(userCred, userCred, rbacscope.ScopeSystem)
 		if err != nil {
-			return nil, errors.Wrapf(err, "q.All")
+			return nil, errors.Wrapf(err, "fetchAddressDetails")
 		}
 
-		sort.Sort(SNetworkUsedAddressList(netAddrs))
-		network.Address = netAddrs
 		ret.Networks = append(ret.Networks, network)
 	}
 	return ret, nil

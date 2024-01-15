@@ -17,7 +17,6 @@ package dns
 import (
 	"strings"
 
-	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 
@@ -27,19 +26,19 @@ import (
 )
 
 type recordRequest struct {
-	state        request.Request
-	domainSegs   []string
+	state request.Request
+	// domainSegs   []string
 	srcProjectId string
 	srcInCloud   bool
-	network      *models.SNetwork
+	// network      *models.SNetwork
 }
 
-func parseRequest(state request.Request) (r *recordRequest, err error) {
-	base, _ := dnsutil.TrimZone(state.Name(), state.Zone)
-	segs := dns.SplitDomainName(base)
-	r = &recordRequest{
-		state:      state,
-		domainSegs: segs,
+func parseRequest(state request.Request) *recordRequest {
+	// base, _ := dnsutil.TrimZone(state.Name(), state.Zone)
+	// segs := dns.SplitDomainName(base)
+	r := &recordRequest{
+		state: state,
+		// domainSegs: segs,
 	}
 	srcIP := r.SrcIP4()
 	// NOTE the check on networks_tbl is a hack, we should be more specific
@@ -48,14 +47,15 @@ func parseRequest(state request.Request) (r *recordRequest, err error) {
 	//
 	// Order matters here, we want to find the srcIP project as accurately
 	// as possible
-	if guest := models.GuestnetworkManager.GetGuestByAddress(srcIP); guest != nil {
+
+	if guest := models.GuestnetworkManager.GetGuestByAddress(srcIP, ""); guest != nil {
 		r.srcProjectId = guest.ProjectId
 		r.srcInCloud = true
-	} else if network, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(srcIP, "", tristate.None); network != nil {
-		r.srcProjectId = network.ProjectId
+	} else if _, err := models.NetworkManager.GetOnPremiseNetworkOfIP(srcIP, "", tristate.None); err == nil {
+		// r.srcProjectId = "" // no specific project
 		r.srcInCloud = true
 	}
-	return
+	return r
 }
 
 func (r recordRequest) Name() string {
@@ -103,7 +103,7 @@ func (r recordRequest) SrcInCloud() bool {
 	return r.srcInCloud
 }
 
-type K8sQueryInfo struct {
+/*type K8sQueryInfo struct {
 	ServiceName string
 	Namespace   string
 }
@@ -123,4 +123,4 @@ func (r recordRequest) GetK8sQueryInfo() K8sQueryInfo {
 		ServiceName: svcName,
 		Namespace:   namespace,
 	}
-}
+}*/

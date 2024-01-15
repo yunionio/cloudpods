@@ -94,10 +94,15 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool) *netplan.Ether
 		return nil
 	} else if nic.Virtual {
 		addr := fmt.Sprintf("%s/32", netutils2.PSEUDO_VIP)
-		nicConf = netplan.NewStaticEthernetConfig(addr, "", nil, nil, nil)
+		nicConf = netplan.NewStaticEthernetConfig(addr, "", "", "", nil, nil, nil)
 	} else if nic.Manual {
 		addr := fmt.Sprintf("%s/%d", nic.Ip, nic.Masklen)
+		addr6 := ""
+		if len(nic.Ip6) > 0 {
+			addr6 = fmt.Sprintf("%s/%d", nic.Ip6, nic.Masklen6)
+		}
 		gateway := nic.Gateway
+		gateway6 := nic.Gateway6
 		var routes []*netplan.Route
 
 		for _, route := range nic.Routes {
@@ -108,7 +113,7 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool) *netplan.Ether
 		}
 
 		nicConf = netplan.NewStaticEthernetConfig(
-			addr, gateway,
+			addr, addr6, gateway, gateway6,
 			[]string{nic.Domain},
 			netutils2.GetNicDns(nic),
 			routes,
@@ -119,6 +124,9 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool) *netplan.Ether
 	} else {
 		// dhcp
 		nicConf = netplan.NewDHCP4EthernetConfig()
+		if len(nic.Ip6) > 0 {
+			nicConf.EnableDHCP6()
+		}
 	}
 
 	return nicConf

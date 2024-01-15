@@ -66,6 +66,9 @@ type SReservedip struct {
 	// IP地址
 	IpAddr string `width:"16" charset:"ascii" list:"user"`
 
+	// IPv6地址
+	Ip6Addr string `width:"64" charset:"ascii" list:"user"`
+
 	// 预留原因或描述
 	Notes string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"user"`
 
@@ -80,25 +83,34 @@ func (manager *SReservedipManager) CreateByInsertOrUpdate() bool {
 	return false
 }
 
-func (manager *SReservedipManager) ReserveIP(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string) error {
-	return manager.ReserveIPWithDuration(userCred, network, ip, notes, 0)
+func (manager *SReservedipManager) ReserveIP(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, addrType api.TAddressType) error {
+	return manager.ReserveIPWithDuration(ctx, userCred, network, ip, notes, 0, addrType)
 }
 
-func (manager *SReservedipManager) ReserveIPWithDuration(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, duration time.Duration) error {
-	return manager.ReserveIPWithDurationAndStatus(userCred, network, ip, notes, duration, "")
+func (manager *SReservedipManager) ReserveIPWithDuration(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, duration time.Duration, addrType api.TAddressType) error {
+	return manager.ReserveIPWithDurationAndStatus(ctx, userCred, network, ip, notes, duration, "", addrType)
 }
 
-func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, duration time.Duration, status string) error {
+func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, duration time.Duration, status string, addrType api.TAddressType) error {
 	expiredAt := time.Time{}
 	if duration > 0 {
 		expiredAt = time.Now().UTC().Add(duration)
 	}
-	rip := manager.getReservedIP(network, ip)
+	rip := manager.getReservedIP(network, ip, addrType)
 	if rip == nil {
 		// not found
-		rip := SReservedip{IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
+		rip = &SReservedip{
+			Notes:     notes,
+			ExpiredAt: expiredAt,
+			Status:    status,
+		}
+		if addrType == api.AddressTypeIPv6 {
+			rip.Ip6Addr = ip
+		} else {
+			rip.IpAddr = ip
+		}
 		rip.NetworkId = network.Id
-		err := manager.TableSpec().Insert(context.TODO(), &rip)
+		err := manager.TableSpec().Insert(ctx, rip)
 		if err != nil {
 			log.Errorf("ReserveIP fail: %s", err)
 			return errors.Wrap(err, "Insert")
@@ -110,7 +122,7 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mccli
 			return errors.Wrap(err, "extend")
 		}
 	}
-	db.OpsLog.LogEvent(network, db.ACT_RESERVE_IP, ip, userCred)
+	db.OpsLog.LogEvent(network, db.ACT_RESERVE_IP, rip.GetShortDesc(ctx), userCred)
 	return nil
 }
 
@@ -137,11 +149,16 @@ func (rip *SReservedip) extend(notes string, expiredAt time.Time, status string)
 	return nil
 }
 
-func (manager *SReservedipManager) getReservedIP(network *SNetwork, ip string) *SReservedip {
+func (manager *SReservedipManager) getReservedIP(network *SNetwork, ip string, addrType api.TAddressType) *SReservedip {
 	rip := SReservedip{}
 	rip.SetModelManager(manager, &rip)
 
-	q := manager.Query().Equals("network_id", network.Id).Equals("ip_addr", ip)
+	q := manager.Query().Equals("network_id", network.Id)
+	if addrType == api.AddressTypeIPv6 {
+		q = q.Equals("ip6_addr", ip)
+	} else {
+		q = q.Equals("ip_addr", ip)
+	}
 	err := q.First(&rip)
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
@@ -152,8 +169,8 @@ func (manager *SReservedipManager) getReservedIP(network *SNetwork, ip string) *
 	return &rip
 }
 
-func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *SReservedip {
-	rip := manager.getReservedIP(network, ip)
+func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string, addrType api.TAddressType) *SReservedip {
+	rip := manager.getReservedIP(network, ip, addrType)
 	if rip == nil {
 		log.Errorf("GetReserved IP %s: not found", ip)
 		return nil
@@ -185,6 +202,17 @@ func (self *SReservedip) GetNetwork() *SNetwork {
 	return nil
 }
 
+func (rip *SReservedip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := rip.SResourceBase.GetShortDesc(ctx)
+	if len(rip.IpAddr) > 0 {
+		desc.Set("ip_addr", jsonutils.NewString(rip.IpAddr))
+	}
+	if len(rip.Ip6Addr) > 0 {
+		desc.Set("ip6_addr", jsonutils.NewString(rip.Ip6Addr))
+	}
+	return desc
+}
+
 func (self *SReservedip) Release(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork) error {
 	// db.DeleteModel(self.ResourceModelManager(), self)
 	if network == nil {
@@ -192,7 +220,7 @@ func (self *SReservedip) Release(ctx context.Context, userCred mcclient.TokenCre
 	}
 	err := db.DeleteModel(ctx, userCred, self)
 	if err == nil && network != nil {
-		db.OpsLog.LogEvent(network, db.ACT_RELEASE_IP, self.IpAddr, userCred)
+		db.OpsLog.LogEvent(network, db.ACT_RELEASE_IP, self.GetShortDesc(ctx), userCred)
 	}
 	return err
 }
@@ -258,6 +286,20 @@ func filterExpiredReservedIps(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
 		sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
 	))
+}
+
+func filterExpiredReservedIp4s(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
+		sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
+	)).IsNotEmpty("ip_addr")
+}
+
+func filterExpiredReservedIp6s(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
+		sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
+	)).IsNotEmpty("ip6_addr")
 }
 
 func (manager *SReservedipManager) OrderByExtraFields(

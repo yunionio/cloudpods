@@ -158,11 +158,12 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netsAvaiable) == 0 {
 		return nil, fmt.Errorf("No appropriate host virtual network...")
 	}
-	if len(netConfig.Address) > 0 {
+	if len(netConfig.Address) > 0 || len(netConfig.Address6) > 0 {
 		addr, _ := netutils.NewIPV4Addr(netConfig.Address)
+		addr6, _ := netutils.NewIPV6Addr(netConfig.Address6)
 		netsAvaiableForAddr := make([]models.SNetwork, 0)
 		for i := range netsAvaiable {
-			if netsAvaiable[i].IsAddressInRange(addr) {
+			if (len(netConfig.Address) == 0 || netsAvaiable[i].IsAddressInRange(addr)) && (len(netConfig.Address6) == 0 || netsAvaiable[i].IsAddress6InRange(addr6)) {
 				netsAvaiableForAddr = append(netsAvaiableForAddr, netsAvaiable[i])
 			}
 		}
@@ -196,12 +197,14 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		Network:             selNet,
 		PendingUsage:        pendingUsage,
 		IpAddr:              netConfig.Address,
+		Ip6Addr:             netConfig.Address6,
 		NicDriver:           netConfig.Driver,
 		BwLimit:             netConfig.BwLimit,
 		Virtual:             netConfig.Vip,
 		TryReserved:         netConfig.Reserved,
 		AllocDir:            api.IPAllocationDefault,
 		RequireDesignatedIP: netConfig.RequireDesignatedIP,
+		RequireIPv6:         netConfig.RequireIPv6,
 		NicConfs:            nicConfs,
 
 		IsDefault: netConfig.IsDefault,

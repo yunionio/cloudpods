@@ -219,7 +219,7 @@ func (man *SNetworkAddressManager) addGuestnetworkSubIPs(ctx context.Context, us
 	)
 	errs := make([]error, 0)
 	for _, ipAddr := range ipAddrs {
-		ipAddr, err := net.GetFreeIP(ctx, userCred, usedAddrMap, nil, ipAddr, "", useReserved)
+		ipAddr, err := net.GetFreeIP(ctx, userCred, usedAddrMap, nil, ipAddr, "", useReserved, api.AddressTypeIPv4)
 		if err != nil {
 			errs = append(errs, errors.Wrap(err, "GetFreeIP"))
 			continue
@@ -642,7 +642,7 @@ func (man *SNetworkAddressManager) submitGuestSyncTask(ctx context.Context, user
 }
 
 func (g *SGuest) PerformAddSubIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestAddSubIpsInput) (jsonutils.JSONObject, error) {
-	gn, err := g.getGuestnetworkByIpOrMac(input.IpAddr, input.Mac)
+	gn, err := g.findGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getGuestnetworkByIpOrMac ip=%s mac=%s", input.IpAddr, input.Mac)
 	}
@@ -662,7 +662,6 @@ func (g *SGuest) PerformAddSubIps(ctx context.Context, userCred mcclient.TokenCr
 	subIps := make([]string, 0)
 
 	err = func() error {
-
 		lockman.LockObject(ctx, net)
 		defer lockman.ReleaseObject(ctx, net)
 
@@ -674,7 +673,7 @@ func (g *SGuest) PerformAddSubIps(ctx context.Context, userCred mcclient.TokenCr
 			if i < len(input.SubIps) {
 				candidate = input.SubIps[i]
 			}
-			ipAddr, err := net.GetFreeIP(ctx, userCred, addrTable, recentUsedAddrTable, candidate, input.AllocDir, input.Reserved)
+			ipAddr, err := net.GetFreeIP(ctx, userCred, addrTable, recentUsedAddrTable, candidate, input.AllocDir, input.Reserved, api.AddressTypeIPv4)
 			if err != nil {
 				return httperrors.NewInputParameterError("allocate ip addr: %v", err)
 			}

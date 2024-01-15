@@ -22,8 +22,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 
-	"yunion.io/x/pkg/gotypes"
-
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -39,28 +37,30 @@ func (r *SRegionDNS) Reverse(state request.Request, exact bool, opt plugin.Optio
 }
 
 func (r *SRegionDNS) getNameForIp(ip string, state request.Request) ([]msg.Service, error) {
-	req, e := parseRequest(state)
-	if e != nil {
-		return nil, e
-	}
+	req := parseRequest(state)
 
 	// 1. try local dns records table
-	rec, _ := models.DnsRecordManager.QueryDns(req.ProjectId(), req.Name(), req.Type())
-	if !gotypes.IsNil(rec) {
-		return []msg.Service{{Host: rec.DnsValue, TTL: uint32(rec.TTL)}}, nil
+	recs, _ := models.DnsRecordManager.QueryPtr(req.ProjectId(), ip)
+	if len(recs) > 0 {
+		services := make([]msg.Service, 0, len(recs))
+		for _, rec := range recs {
+			services = append(services, msg.Service{Host: rec.DnsName, TTL: uint32(rec.TTL)})
+		}
+		return services, nil
 	}
 
-	// 2. try hosts table
+	// 2. try guests table
+	guest := models.GuestnetworkManager.GetGuestByAddress(ip, req.ProjectId())
+	if guest != nil {
+		return []msg.Service{{Host: r.joinDomain(guest.Name), TTL: defaultTTL}}, nil
+	}
+
+	// 3. try hosts table
 	host := models.HostnetworkManager.GetHostByAddress(ip)
 	if host != nil {
 		return []msg.Service{{Host: r.joinDomain(host.Name), TTL: defaultTTL}}, nil
 	}
 
-	// 3. try guests table
-	guest := models.GuestnetworkManager.GetGuestByAddress(ip)
-	if guest != nil {
-		return []msg.Service{{Host: r.joinDomain(guest.Name), TTL: defaultTTL}}, nil
-	}
 	return nil, errNotFound
 }
 

@@ -33,14 +33,20 @@ type GroupnetworkListInput struct {
 
 	// IP地址
 	IpAddr []string `json:"ip_addr"`
+
+	// IPv6地址
+	Ip6Addr []string `json:"ip6_addr"`
 }
 
 type GroupAttachNetworkInput struct {
 	// network id or name
 	NetworkId string `json:"network_id" help:"The network to attach, optional"`
 
-	// candidate IPaddr
-	IpAddr string `json:"ip_addr" help:"The ip address to use, optional"`
+	// candidate IPv4 addr
+	IpAddr string `json:"ip_addr" help:"The ipv4 address to use, optional"`
+
+	// candidate IPv6 addr
+	Ip6Addr string `json:"ip6_addr" help:"The ipv6 address to use, optional"`
 
 	// Allocation direction
 	AllocDir IPAllocationDirection `json:"alloc_dir" help:"ip allocation direction, optional"`
@@ -50,9 +56,12 @@ type GroupAttachNetworkInput struct {
 
 	// Required Designed IP
 	RequireDesignatedIp *bool `json:"require_designated_ip" help:"fail if the designed ip is not available"`
+
+	// allocate ipv6 address
+	RequireIPv6 bool `json:"require_ipv6" help:"fail if no ipv6 address allocated"`
 }
 
 type GroupDetachNetworkInput struct {
-	// candidate IPaddr
+	// candidate IPaddr, can be either IPv4 or IPv6 address
 	IpAddr string `json:"ip_addr" help:"Ip address to detach, empty if detach all networks"`
 }

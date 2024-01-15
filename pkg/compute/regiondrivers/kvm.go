@@ -1465,8 +1465,8 @@ func (self *SKVMRegionDriver) requestAssociateEipWithInstanceGroup(ctx context.C
 		groupnic.EipId = eip.Id
 		return nil
 	}); err != nil {
-		return errors.Wrapf(err, "set associated eip for groupnic %s (guest:%s, network:%s)",
-			groupnic.IpAddr, groupnic.GroupId, groupnic.NetworkId)
+		return errors.Wrapf(err, "set associated eip for groupnic %s/%s (guest:%s, network:%s)",
+			groupnic.IpAddr, groupnic.Ip6Addr, groupnic.GroupId, groupnic.NetworkId)
 	}
 	return nil
 }

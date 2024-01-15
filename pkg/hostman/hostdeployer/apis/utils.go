@@ -149,6 +149,10 @@ func GuestnetworksDescToDeployDesc(guestnetworks []*desc.SGuestNetwork) []*Nic {
 		nics[i].Mtu = int64(nic.Mtu)
 		//nics[i].Name = nic.Name
 		nics[i].IsDefault = nic.IsDefault
+
+		nics[i].Ip6 = nic.Ip6
+		nics[i].Masklen6 = int32(nic.Masklen6)
+		nics[i].Gateway6 = nic.Gateway6
 	}
 
 	return nics

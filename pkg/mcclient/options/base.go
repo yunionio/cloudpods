@@ -447,8 +447,8 @@ func (o *MultiArchListOptions) Params() (*jsonutils.JSONDict, error) {
 }
 
 type BaseUpdateOptions struct {
-	ID   string `help:"ID or Name of resource to update"`
-	Name string `help:"Name of resource to update"`
+	ID   string `help:"ID or Name of resource to update" json:"-"`
+	Name string `help:"Name of resource to update" json:"name"`
 	Desc string `metavar:"<DESCRIPTION>" help:"Description" json:"description"`
 }
 

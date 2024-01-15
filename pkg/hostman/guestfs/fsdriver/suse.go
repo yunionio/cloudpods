@@ -133,21 +133,28 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 			cmds.WriteString(netutils2.PSEUDO_VIP)
 			cmds.WriteString("\n")
 		} else if nicDesc.Manual {
-			netmask := netutils2.Netlen2Mask(int(nicDesc.Masklen))
-			cmds.WriteString("BOOTPROTO=statuc\n")
-			cmds.WriteString("NETMASK=")
-			cmds.WriteString(netmask)
-			cmds.WriteString("\n")
-			cmds.WriteString("IPADDR=")
-			cmds.WriteString(nicDesc.Ip)
-			cmds.WriteString("\n")
+			cmds.WriteString("STARTMODE=auto\n")
+			cmds.WriteString("BOOTPROTO=static\n")
+			cmds.WriteString(fmt.Sprintf("IPADDR=%s/%d\n", nicDesc.Ip, nicDesc.Masklen))
+
+			if len(nicDesc.Ip6) > 0 {
+				cmds.WriteString("IPV6INIT=yes\n")
+				cmds.WriteString("IPV6_AUTOCONF=no\n")
+				cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+			}
 
 			var routes = make([][]string, 0)
 			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, len(nics))
 			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
 				routes = append(routes, []string{
-					"0.0.0.0/0",
+					"default",
 					nicDesc.Gateway,
+				})
+			}
+			if len(nicDesc.Gateway6) > 0 && nicDesc.Ip == mainIp {
+				routes = append(routes, []string{
+					"default",
+					nicDesc.Gateway6,
 				})
 			}
 			var rtbl strings.Builder
@@ -174,7 +181,16 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 				}
 			}
 		} else {
-			cmds.WriteString("BOOTPROTO=dhcp\n")
+			cmds.WriteString("STARTMODE=auto\n")
+			cmds.WriteString("BOOTPROTO=dhcp4\n")
+			if len(nicDesc.Ip6) > 0 {
+				// IPv6 support static temporarily
+				// TODO
+				cmds.WriteString("IPV6INIT=yes\n")
+				cmds.WriteString("IPV6_AUTOCONF=no\n")
+				cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+			}
+
 		}
 		var fn = fmt.Sprintf("/etc/sysconfig/network/ifcfg-%s", nicDesc.Name)
 		log.Debugf("%s: %s", fn, cmds.String())
