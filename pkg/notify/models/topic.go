@@ -195,6 +195,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_DNSRECORDSET,
 				notify.TOPIC_RESOURCE_LOADBALANCERLISTENER,
 				notify.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP,
+				notify.TOPIC_RESOURCE_PROJECT,
 			)
 			t.addAction(
 				notify.ActionCreate,
@@ -228,6 +229,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 				notify.TOPIC_RESOURCE_USER,
 				notify.TOPIC_RESOURCE_HOST,
+				notify.TOPIC_RESOURCE_PROJECT,
 			)
 			t.addAction(notify.ActionUpdate)
 			t.addAction(notify.ActionRebuildRoot)
@@ -820,6 +822,7 @@ func init() {
 			notify.TOPIC_RESOURCE_NET:                      39,
 			notify.TOPIC_RESOURCE_SERVICE:                  40,
 			notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK:       41,
+			notify.TOPIC_RESOURCE_PROJECT:                  42,
 		},
 	)
 	converter.registerAction(
