@@ -2376,12 +2376,6 @@ func (self *SGuest) PerformChangeIpaddr(
 		} else {
 			conf.Mac = gn.MacAddr
 		}
-		if len(conf.Address) == 0 {
-			conf.Address = gn.IpAddr
-		}
-		if len(conf.Address6) == 0 {
-			conf.Address6 = gn.Ip6Addr
-		}
 
 		if conf.Mac == gn.MacAddr && conf.Address == gn.IpAddr {
 			if len(gn.Ip6Addr) == 0 && len(conf.Address6) == 0 && !conf.RequireIPv6 {
@@ -2424,6 +2418,10 @@ func (self *SGuest) PerformChangeIpaddr(
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, err, userCred, false)
 		return nil, err
+	}
+
+	if len(ngn) == 0 {
+		return nil, nil
 	}
 
 	//Get the detailed description of the NIC
