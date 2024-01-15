@@ -344,25 +344,21 @@ func (s *SDeployService) PrepareEnv() error {
 		}
 	} else {
 		// prepare for yunionos don't have but necessary files
-		out, err := procutils.NewCommand("cp", "-rf", "/usr/bin/chntpw.static", "/opt/yunion/bin/chntpw.static").Output()
+		out, err := procutils.NewCommand("mkdir", "-p", "/opt/yunion/bin/bundles").Output()
 		if err != nil {
 			return errors.Wrapf(err, "cp files failed %s", out)
 		}
-		out, err = procutils.NewCommand("cp", "-rf", "/usr/bin/.chntpw.static.bin", "/opt/yunion/bin/.chntpw.static.bin").Output()
-		if err != nil {
-			return errors.Wrapf(err, "cp files failed %s", out)
-		}
-		out, err = procutils.NewCommand("mkdir", "-p", "/opt/yunion/bin/bundles").Output()
-		if err != nil {
-			return errors.Wrapf(err, "cp files failed %s", out)
-		}
-		out, err = procutils.NewCommand("cp", "-rf", "/usr/bin/bundles/chntpw.static", "/opt/yunion/bin/bundles/chntpw.static").Output()
-		if err != nil {
-			return errors.Wrapf(err, "cp files failed %s", out)
-		}
-		out, err = procutils.NewCommand("cp", "-rf", "/usr/sbin/zerofree", "/opt/yunion/bin/zerofree").Output()
-		if err != nil {
-			return errors.Wrapf(err, "cp files failed %s", out)
+		for k, v := range map[string]string{
+			"/usr/bin/chntpw.static":         "/opt/yunion/bin/chntpw.static",
+			"/usr/bin/.chntpw.static.bin":    "/opt/yunion/bin/.chntpw.static.bin",
+			"/usr/bin/bundles/chntpw.static": "/opt/yunion/bin/bundles/chntpw.static",
+			"/usr/bin/growpart":              "/opt/yunion/bin/growpart",
+			"/usr/sbin/zerofree":             "/opt/yunion/bin/zerofree",
+		} {
+			out, err = procutils.NewCommand("cp", "-rf", k, v).Output()
+			if err != nil {
+				return errors.Wrapf(err, "cp files failed %s", out)
+			}
 		}
 
 		{

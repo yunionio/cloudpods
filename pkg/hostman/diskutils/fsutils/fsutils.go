@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -140,7 +139,6 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 	}
 	parts, label := ParseDiskPartition(diskPath, strings.Split(string(lines), "\n"))
 	log.Infof("Parts: %v label: %s", parts, label)
-	maxSector := GetDevSector512Count(path.Base(diskPath))
 	if label == "gpt" {
 		proc := procutils.NewCommand("gdisk", diskPath)
 		stdin, err := proc.StdinPipe()
@@ -188,26 +186,12 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 	}
 	if len(parts) > 0 && (label == "gpt" ||
 		(label == "msdos" && parts[len(parts)-1][5] == "primary")) {
-		var (
-			part = parts[len(parts)-1]
-			end  int
-		)
-		if sizeMb > 0 {
-			end = sizeMb * 1024 * 2
-		} else if label == "gpt" {
-			end = maxSector - 35
-		} else {
-			end = maxSector - 1
-		}
-		if label == "msdos" && end >= 4294967296 {
-			end = 4294967295
-		}
+		var part = parts[len(parts)-1]
 		if IsSupportResizeFs(part[6]) {
-			cmds := []string{"parted", "-a", "none", "-s", diskPath, "--", "resizepart", part[0], fmt.Sprintf("%ds", end)}
-			log.Infof("resize disk partition: %s", cmds)
-			output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
+			// growpart script replace parted resizepart
+			output, err := procutils.NewCommand("growpart", diskPath, part[0]).Output()
 			if err != nil {
-				return errors.Wrapf(err, "parted failed %s", output)
+				return errors.Wrapf(err, "growpart failed %s", output)
 			}
 			err, _ = ResizePartitionFs(part[7], part[6], false)
 			if err != nil {
