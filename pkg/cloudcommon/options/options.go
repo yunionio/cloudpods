@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/atexit"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -145,7 +146,9 @@ type HostCommonOptions struct {
 	ExecutorSocketPath     string `help:"Executor socket path" default:"/var/run/onecloud/exec.sock"`
 	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 
-	EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
+	EnableRemoteExecutor          bool   `help:"Enable remote executor" default:"false"`
+	ExecutorConnectTimeoutSeconds int    `help:"executor client connection timeout in seconds, default is 30" default:"30"`
+	ImageDeployDriver             string `help:"Image deploy driver" default:"qemu-kvm" choices:"qemu-kvm|nbd|libguestfs"`
 }
 
 type DBOptions struct {
@@ -261,7 +264,15 @@ func (opt *DBOptions) GetClickhouseConnStr() (string, string, error) {
 	return "clickhouse", opt.Clickhouse, nil
 }
 
+func ParseOptionsIgnoreNoConfigfile(optStruct interface{}, args []string, configFileName string, serviceType string) {
+	parseOptions(optStruct, args, configFileName, serviceType, true)
+}
+
 func ParseOptions(optStruct interface{}, args []string, configFileName string, serviceType string) {
+	parseOptions(optStruct, args, configFileName, serviceType, false)
+}
+
+func parseOptions(optStruct interface{}, args []string, configFileName string, serviceType string, ignoreNoConfigfile bool) {
 	if len(serviceType) == 0 {
 		log.Fatalf("ServiceType must provided!")
 	}
@@ -311,10 +322,14 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	}
 
 	if len(optionsRef.Config) > 0 {
-		log.Infof("Use configuration file: %s", optionsRef.Config)
-		err = parser.ParseFile(optionsRef.Config)
-		if err != nil {
-			log.Fatalf("Parse configuration file: %v", err)
+		if !fileutils2.Exists(optionsRef.Config) && !ignoreNoConfigfile {
+			log.Fatalf("Configuration file %s not exist", optionsRef.Config)
+		} else if fileutils2.Exists(optionsRef.Config) {
+			log.Infof("Use configuration file: %s", optionsRef.Config)
+			err = parser.ParseFile(optionsRef.Config)
+			if err != nil {
+				log.Fatalf("Parse configuration file: %v", err)
+			}
 		}
 	}
 

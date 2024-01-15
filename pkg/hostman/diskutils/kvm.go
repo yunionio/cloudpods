@@ -23,10 +23,12 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	cloudconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/deploy_iface"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/libguestfs"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/qemu_kvm"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -35,7 +37,7 @@ type SKVMGuestDisk struct {
 	readOnly     bool
 	kvmImagePath string
 	topImagePath string
-	deployer     IDeployer
+	deployer     deploy_iface.IDeployer
 }
 
 func NewKVMGuestDisk(imageInfo qemuimg.SImageInfo, driver string, readOnly bool) (*SKVMGuestDisk, error) {
@@ -56,7 +58,7 @@ func NewKVMGuestDisk(imageInfo qemuimg.SImageInfo, driver string, readOnly bool)
 		}
 		err = img.CreateQcow2(0, false, imageInfo.Path, imageInfo.Password, imageInfo.EncryptFormat, imageInfo.EncryptAlg)
 		if err != nil {
-			log.Errorf("fail to create overlay qcow2 for kvm disk readonly access")
+			log.Errorf("fail to create overlay qcow2 for kvm disk readonly access: %s", err)
 			return nil, errors.Wrap(err, "CreateQcow2")
 		}
 		originImage = imagePath
@@ -78,12 +80,19 @@ func (d *SKVMGuestDisk) Cleanup() {
 	}
 }
 
-func newDeployer(imageInfo qemuimg.SImageInfo, driver string) IDeployer {
+var _ deploy_iface.IDeployer = (*qemu_kvm.QemuKvmDriver)(nil)
+var _ deploy_iface.IDeployer = (*qemu_kvm.LocalDiskDriver)(nil)
+
+func newDeployer(imageInfo qemuimg.SImageInfo, driver string) deploy_iface.IDeployer {
 	switch driver {
 	case consts.DEPLOY_DRIVER_NBD:
 		return nbd.NewNBDDriver(imageInfo)
 	case consts.DEPLOY_DRIVER_LIBGUESTFS:
 		return libguestfs.NewLibguestfsDriver(imageInfo)
+	case consts.DEPLOY_DRIVER_QEMU_KVM:
+		return qemu_kvm.NewQemuKvmDriver(imageInfo)
+	case consts.DEPLOY_DRIVER_LOCAL_DISK:
+		return qemu_kvm.NewLocalDiskDriver()
 	default:
 		return nbd.NewNBDDriver(imageInfo)
 	}
@@ -93,32 +102,12 @@ func (d *SKVMGuestDisk) IsLVMPartition() bool {
 	return d.deployer.IsLVMPartition()
 }
 
-func (d *SKVMGuestDisk) Connect() error {
-	return d.deployer.Connect()
+func (d *SKVMGuestDisk) Connect(guestDesc *apis.GuestDesc) error {
+	return d.deployer.Connect(guestDesc)
 }
 
 func (d *SKVMGuestDisk) Disconnect() error {
 	return d.deployer.Disconnect()
-}
-
-func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool {
-	partitions := d.deployer.GetPartitions()
-	for i := 0; i < len(partitions); i++ {
-		if partitions[i].IsMounted() {
-			if rootfs.DetectIsUEFISupport(partitions[i]) {
-				return true
-			}
-		} else {
-			if partitions[i].Mount() {
-				support := rootfs.DetectIsUEFISupport(partitions[i])
-				partitions[i].Umount()
-				if support {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 func (d *SKVMGuestDisk) MountRootfs() (fsdriver.IRootFsDriver, error) {
@@ -130,32 +119,7 @@ func (d *SKVMGuestDisk) MountKvmRootfs() (fsdriver.IRootFsDriver, error) {
 }
 
 func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
-	partitions := d.deployer.GetPartitions()
-	errs := []error{}
-	for i := 0; i < len(partitions); i++ {
-		log.Infof("detect partition %s", partitions[i].GetPartDev())
-		mountFunc := partitions[i].Mount
-		if readonly {
-			mountFunc = partitions[i].MountPartReadOnly
-		}
-		if mountFunc() {
-			fs, err := guestfs.DetectRootFs(partitions[i])
-			if err == nil {
-				log.Infof("Use rootfs %s, partition %s", fs, partitions[i].GetPartDev())
-				return fs, nil
-			}
-			errs = append(errs, err)
-			partitions[i].Umount()
-		}
-	}
-	if len(partitions) == 0 {
-		return nil, errors.Wrap(errors.ErrNotFound, "not found any partition")
-	}
-	var err error = errors.ErrNotFound
-	if len(errs) > 0 {
-		err = errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
-	}
-	return nil, err
+	return d.deployer.MountRootfs(readonly)
 }
 
 func (d *SKVMGuestDisk) MountKvmRootfsReadOnly() (fsdriver.IRootFsDriver, error) {
@@ -176,18 +140,22 @@ func (d *SKVMGuestDisk) UmountRootfs(fd fsdriver.IRootFsDriver) error {
 	return d.UmountKvmRootfs(fd)
 }
 
-func (d *SKVMGuestDisk) MakePartition(fs string) error {
-	return d.deployer.MakePartition(fs)
+func (d *SKVMGuestDisk) DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error) {
+	return d.deployer.DeployGuestfs(req)
 }
 
-func (d *SKVMGuestDisk) FormatPartition(fs, uuid string) error {
-	return d.deployer.FormatPartition(fs, uuid)
+func (d *SKVMGuestDisk) ResizeFs() (*apis.Empty, error) {
+	return d.deployer.ResizeFs()
 }
 
-func (d *SKVMGuestDisk) ResizePartition() error {
-	return d.deployer.ResizePartition()
+func (d *SKVMGuestDisk) FormatFs(req *apis.FormatFsParams) (*apis.Empty, error) {
+	return d.deployer.FormatFs(req)
 }
 
-func (d *SKVMGuestDisk) Zerofree() {
-	d.deployer.Zerofree()
+func (d *SKVMGuestDisk) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error) {
+	return d.deployer.SaveToGlance(req)
+}
+
+func (d *SKVMGuestDisk) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.ImageInfo, error) {
+	return d.deployer.ProbeImageInfo(req)
 }

@@ -676,6 +676,10 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 		} else {
 			extraArgs = append(extraArgs, "-b", backPath)
 		}
+		if len(string(backQemu.Format)) > 0 {
+			extraArgs = append(extraArgs, "-F", string(backQemu.Format))
+		}
+
 		if !compact {
 			options = append(options, "cluster_size=2M")
 		}

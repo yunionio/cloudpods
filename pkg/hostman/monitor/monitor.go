@@ -397,6 +397,12 @@ func (m *SBaseMonitor) onConnectSuccess(conn net.Conn) {
 	m.rwc = conn
 }
 
+func (m *SBaseMonitor) SetReadDeadlineTimeout(duration time.Duration) {
+	if m.rwc != nil {
+		m.rwc.SetReadDeadline(time.Now().Add(duration))
+	}
+}
+
 func (m *SBaseMonitor) Connect(host string, port int) error {
 	return m.connect("tcp", fmt.Sprintf("%s:%d", host, port))
 }

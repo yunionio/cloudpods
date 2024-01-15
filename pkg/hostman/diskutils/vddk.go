@@ -147,16 +147,22 @@ func (vd *VDDKDisk) Cleanup() {
 	}
 }
 
-func (vd *VDDKDisk) Connect() error {
+func (vd *VDDKDisk) Connect(*apis.GuestDesc) error {
 	flatFile, err := vd.ConnectBlockDevice()
 	if err != nil {
 		return errors.Wrap(err, "ConnectBlockDevice")
 	}
 	vd.kvmDisk, err = NewKVMGuestDisk(qemuimg.SImageInfo{Path: flatFile}, vd.deployDriver, vd.readOnly)
 	if err != nil {
+		vd.DisconnectBlockDevice()
 		return errors.Wrap(err, "NewKVMGuestDisk")
 	}
-	return vd.kvmDisk.Connect()
+	err = vd.kvmDisk.Connect(nil)
+	if err != nil {
+		vd.DisconnectBlockDevice()
+		return errors.Wrap(err, "kvmDisk connect")
+	}
+	return nil
 }
 
 func (vd *VDDKDisk) Disconnect() error {
@@ -441,8 +447,24 @@ func (vd *VDDKDisk) DisconnectBlockDevice() error {
 	return fmt.Errorf("vddk disk has not connected")
 }
 
-func (vd *VDDKDisk) ResizePartition() error {
-	return vd.kvmDisk.ResizePartition()
+func (vd *VDDKDisk) DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error) {
+	return vd.kvmDisk.DeployGuestfs(req)
+}
+
+func (d *VDDKDisk) ResizeFs() (*apis.Empty, error) {
+	return d.kvmDisk.ResizeFs()
+}
+
+func (d *VDDKDisk) FormatFs(req *apis.FormatFsParams) (*apis.Empty, error) {
+	return d.kvmDisk.FormatFs(req)
+}
+
+func (d *VDDKDisk) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error) {
+	return d.kvmDisk.SaveToGlance(req)
+}
+
+func (d *VDDKDisk) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.ImageInfo, error) {
+	return d.kvmDisk.ProbeImageInfo(req)
 }
 
 type VDDKPartition struct {

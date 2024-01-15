@@ -581,3 +581,7 @@ func (m *HmpMonitor) GetScsiNumQueues(callback func(int64)) {
 func (m *HmpMonitor) QueryPci(callback QueryPciCallback) {
 	go callback(nil, "unsupported query pci for hmp")
 }
+
+func (m *HmpMonitor) Quit(callback StringCallback) {
+	m.Query("quit", callback)
+}
