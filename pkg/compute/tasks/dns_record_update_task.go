@@ -75,6 +75,7 @@ func (self *DnsRecordUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		DnsName:     record.Name,
 		DnsValue:    record.DnsValue,
 		DnsType:     cloudprovider.TDnsType(record.DnsType),
+		Enabled:     record.Enabled.Bool(),
 		Ttl:         record.TTL,
 		MxPriority:  record.MxPriority,
 		PolicyType:  cloudprovider.TDnsPolicyType(record.PolicyType),
