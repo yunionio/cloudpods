@@ -105,7 +105,7 @@ func LocalInitEnv() error {
 		"/sbin",
 		"/usr/bin",
 		"/usr/sbin",
-		"/opt/yunion/bin", // for zerofree command
+		"/opt/yunion/bin", // for zerofree and growpart command
 	}
 	err := os.Setenv("PATH", strings.Join(paths, ":"))
 	if err != nil {
