@@ -57,11 +57,13 @@ func NewEthernetConfigMatchMac(macAddr string) *EthernetConfigMatch {
 }
 
 type EthernetConfig struct {
-	DHCP4       bool                 `json:"dhcp4"`
+	DHCP4       bool                 `json:"dhcp4,omitfalse"`
+	DHCP6       bool                 `json:"dhcp6,omitfalse"`
 	Addresses   []string             `json:"addresses"`
 	Match       *EthernetConfigMatch `json:"match"`
 	MacAddress  string               `json:"macaddress"`
 	Gateway4    string               `json:"gateway4"`
+	Gateway6    string               `json:"gateway6"`
 	Routes      []*Route             `json:"routes"`
 	Nameservers *Nameservers         `json:"nameservers"`
 	Mtu         int16                `json:"mtu,omitzero"`
@@ -189,17 +191,30 @@ func NewDHCP4EthernetConfig() *EthernetConfig {
 	}
 }
 
+func (c *EthernetConfig) EnableDHCP6() {
+	c.DHCP6 = true
+}
+
 func NewStaticEthernetConfig(
 	addr string,
+	addr6 string,
 	gateway string,
+	gateway6 string,
 	search []string,
 	nameservers []string,
 	routes []*Route,
 ) *EthernetConfig {
+	addrs := []string{
+		addr,
+	}
+	if len(addr6) > 0 {
+		addrs = append(addrs, addr6)
+	}
 	return &EthernetConfig{
 		DHCP4:     false,
-		Addresses: []string{addr},
+		Addresses: addrs,
 		Gateway4:  gateway,
+		Gateway6:  gateway6,
 		Routes:    routes,
 		Nameservers: &Nameservers{
 			Search:    search,

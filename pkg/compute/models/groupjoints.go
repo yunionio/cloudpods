@@ -159,3 +159,11 @@ func (manager *SGroupJointsManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
+
+func (gjb *SGroupJointsBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := gjb.SVirtualJointResourceBase.GetShortDesc(ctx)
+	desc.Set("group_id", jsonutils.NewString(gjb.GroupId))
+	group := gjb.GetGroup()
+	desc.Set("group", jsonutils.NewString(group.Name))
+	return desc
+}

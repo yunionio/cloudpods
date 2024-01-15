@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package netutils2
+package netutils
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"yunion.io/x/pkg/util/netutils"
 )
 
 type SMacAddr [6]byte
@@ -30,7 +28,7 @@ func ErrMacFormat(macStr string) error {
 
 func ParseMac(macStr string) (SMacAddr, error) {
 	mac := SMacAddr{}
-	macStr = netutils.FormatMacAddr(macStr)
+	macStr = FormatMacAddr(macStr)
 	parts := strings.Split(macStr, ":")
 	if len(parts) != 6 {
 		return mac, ErrMacFormat(macStr)

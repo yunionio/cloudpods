@@ -64,13 +64,90 @@ func (opts *NetworkListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
 
+type NetworkCreateOptions struct {
+	WIRE    string `help:"ID or Name of wire in which the network is created"`
+	NETWORK string `help:"Name of new network"`
+	STARTIP string `help:"Start of IPv4 address range"`
+	ENDIP   string `help:"End of IPv4 address rnage"`
+	NETMASK int64  `help:"Length of network mask"`
+	Gateway string `help:"Default gateway"`
+
+	StartIp6 string `help:"IPv6 start ip"`
+	EndIp6   string `help:"IPv6 end ip"`
+	NetMask6 int64  `help:"IPv6 netmask"`
+	Gateway6 string `help:"IPv6 gateway"`
+
+	VlanId      int64  `help:"Vlan ID" default:"1"`
+	IfnameHint  string `help:"Hint for ifname generation"`
+	AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
+	ServerType  string `help:"Server type" choices:"baremetal|container|eip|guest|ipmi|pxe"`
+	IsAutoAlloc *bool  `help:"Auto allocation IP pool"`
+	BgpType     string `help:"Internet service provider name" positional:"false"`
+	Desc        string `help:"Description" metavar:"DESCRIPTION"`
+}
+
+func (opts *NetworkCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+
+	params.Add(jsonutils.NewString(opts.NETWORK), "name")
+	params.Add(jsonutils.NewString(opts.STARTIP), "guest_ip_start")
+	params.Add(jsonutils.NewString(opts.ENDIP), "guest_ip_end")
+	params.Add(jsonutils.NewInt(opts.NETMASK), "guest_ip_mask")
+	if len(opts.Gateway) > 0 {
+		params.Add(jsonutils.NewString(opts.Gateway), "guest_gateway")
+	}
+
+	if len(opts.StartIp6) > 0 {
+		params.Add(jsonutils.NewString(opts.StartIp6), "guest_ip6_start")
+	}
+	if len(opts.EndIp6) > 0 {
+		params.Add(jsonutils.NewString(opts.EndIp6), "guest_ip6_end")
+	}
+	if opts.NetMask6 > 0 {
+		params.Add(jsonutils.NewInt(opts.NetMask6), "guest_ip6_mask")
+	}
+	if len(opts.Gateway6) > 0 {
+		params.Add(jsonutils.NewString(opts.Gateway6), "guest_gateway6")
+	}
+
+	if opts.VlanId > 0 {
+		params.Add(jsonutils.NewInt(opts.VlanId), "vlan_id")
+	}
+	if len(opts.ServerType) > 0 {
+		params.Add(jsonutils.NewString(opts.ServerType), "server_type")
+	}
+	if len(opts.IfnameHint) > 0 {
+		params.Add(jsonutils.NewString(opts.IfnameHint), "ifname_hint")
+	}
+	if len(opts.AllocPolicy) > 0 {
+		params.Add(jsonutils.NewString(opts.AllocPolicy), "alloc_policy")
+	}
+	if len(opts.Desc) > 0 {
+		params.Add(jsonutils.NewString(opts.Desc), "description")
+	}
+	if len(opts.BgpType) > 0 {
+		params.Add(jsonutils.NewString(opts.BgpType), "bgp_type")
+	}
+	if opts.IsAutoAlloc != nil {
+		params.Add(jsonutils.NewBool(*opts.IsAutoAlloc), "is_auto_alloc")
+	}
+
+	return params, nil
+}
+
 type NetworkUpdateOptions struct {
 	options.BaseUpdateOptions
 
-	StartIp     string `help:"Start ip"`
-	EndIp       string `help:"end ip"`
-	NetMask     int64  `help:"Netmask"`
-	Gateway     string `help:"IP of gateway"`
+	StartIp string `help:"Start ip"`
+	EndIp   string `help:"end ip"`
+	NetMask int64  `help:"Netmask"`
+	Gateway string `help:"IP of gateway"`
+
+	StartIp6 string `help:"IPv6 start ip"`
+	EndIp6   string `help:"IPv6 end ip"`
+	NetMask6 int64  `help:"IPv6 netmask"`
+	Gateway6 string `help:"IPv6 gateway"`
+
 	Dns         string `help:"IP of DNS server"`
 	Domain      string `help:"Domain"`
 	Dhcp        string `help:"DHCP server IP"`
@@ -89,6 +166,7 @@ func (opts *NetworkUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if len(opts.Desc) > 0 {
 		params.Add(jsonutils.NewString(opts.Desc), "description")
 	}
+
 	if len(opts.StartIp) > 0 {
 		params.Add(jsonutils.NewString(opts.StartIp), "guest_ip_start")
 	}
@@ -101,6 +179,20 @@ func (opts *NetworkUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if len(opts.Gateway) > 0 {
 		params.Add(jsonutils.NewString(opts.Gateway), "guest_gateway")
 	}
+
+	if len(opts.StartIp6) > 0 {
+		params.Add(jsonutils.NewString(opts.StartIp6), "guest_ip6_start")
+	}
+	if len(opts.EndIp6) > 0 {
+		params.Add(jsonutils.NewString(opts.EndIp6), "guest_ip6_end")
+	}
+	if opts.NetMask6 > 0 {
+		params.Add(jsonutils.NewInt(opts.NetMask6), "guest_ip6_mask")
+	}
+	if len(opts.Gateway6) > 0 {
+		params.Add(jsonutils.NewString(opts.Gateway6), "guest_gateway6")
+	}
+
 	if len(opts.Dns) > 0 {
 		if opts.Dns == "none" {
 			params.Add(jsonutils.NewString(""), "guest_dns")

@@ -95,3 +95,9 @@ func (record *SDnsRecord) ValidateDnsrecordValue() error {
 	}
 	return nil
 }
+
+type SDnsResolveResult struct {
+	DnsValue string `json:"dns_value"`
+	TTL      int64  `json:"ttl"`
+	DnsName  string `json:"dns_name"`
+}

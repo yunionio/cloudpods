@@ -123,6 +123,10 @@ func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *desc.S
 
 	nicdesc.IsDefault = guestNic.IsDefault
 
+	nicdesc.Ip6 = guestNic.Ip6
+	nicdesc.Masklen6 = int(guestNic.Masklen6)
+	nicdesc.Gateway6 = guestNic.Gateway6
+
 	return nil
 }
 

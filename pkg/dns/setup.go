@@ -15,7 +15,7 @@
 package dns
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -23,7 +23,12 @@ import (
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 func init() {
@@ -39,14 +44,27 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(PluginName, err)
 	}
 
-	if len(rDNS.PrimaryZone) == 0 {
-		return fmt.Errorf("dns_domain missing")
+	rDNS.initAuth()
+
+	conf, err := identity.ServicesV3.GetConfig(rDNS.getAdminSession(context.Background()), apis.SERVICE_TYPE_REGION)
+	if err != nil {
+		return errors.Wrap(err, "GetConfig")
 	}
-	if !regutils.MatchDomainName(rDNS.PrimaryZone) {
-		return fmt.Errorf("dns_domain %q invalid", rDNS.PrimaryZone)
+
+	if conf.Contains("dns_domain") {
+		rDNS.PrimaryZone, _ = conf.GetString("dns_domain")
 	}
-	if r := rDNS.PrimaryZone[len(rDNS.PrimaryZone)-1]; r != '.' {
-		rDNS.PrimaryZone += "."
+	log.Infof("use dns_domain %q", rDNS.PrimaryZone)
+
+	if len(rDNS.PrimaryZone) > 0 && !regutils.MatchDomainName(rDNS.PrimaryZone) {
+		return errors.Wrapf(errors.ErrInvalidFormat, "dns_domain %q invalid", rDNS.PrimaryZone)
+	}
+	if len(rDNS.PrimaryZone) > 0 {
+		if r := rDNS.PrimaryZone[len(rDNS.PrimaryZone)-1]; r != '.' {
+			rDNS.PrimaryZone += "."
+		}
+	} else {
+		rDNS.PrimaryZone = "."
 	}
 	rDNS.primaryZoneLabelCount = dns.CountLabel(rDNS.PrimaryZone)
 
@@ -55,9 +73,9 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(PluginName, err)
 	}
 
-	if !rDNS.K8sSkip {
+	/*if !rDNS.K8sSkip {
 		go rDNS.initK8s()
-	}
+	}*/
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		rDNS.Next = next
@@ -108,11 +126,21 @@ func parseConfig(c *caddy.Controller) (*SRegionDNS, error) {
 						return nil, c.ArgErr()
 					}
 					rDNS.AdminProject = c.Val()
+				case "admin_project_domain":
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					rDNS.AdminProjectDomain = c.Val()
 				case "admin_user":
 					if !c.NextArg() {
 						return nil, c.ArgErr()
 					}
 					rDNS.AdminUser = c.Val()
+				case "admin_domain":
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					rDNS.AdminDomain = c.Val()
 				case "admin_password":
 					if !c.NextArg() {
 						return nil, c.ArgErr()
@@ -130,8 +158,10 @@ func parseConfig(c *caddy.Controller) (*SRegionDNS, error) {
 						return nil, err
 					}
 					rDNS.Upstream = u
-				case "k8s_skip":
-					rDNS.K8sSkip = true
+				case "in_cloud_only":
+					rDNS.InCloudOnly = true
+				// case "k8s_skip":
+				//	rDNS.K8sSkip = true
 				default:
 					if c.Val() != "}" {
 						return nil, c.Errf("unknown property %q", c.Val())

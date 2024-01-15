@@ -1777,7 +1777,7 @@ func (hh *SHost) DeleteBaremetalnetwork(ctx context.Context, userCred mcclient.T
 	bn.Delete(ctx, userCred)
 	db.OpsLog.LogDetachEvent(ctx, hh, net, userCred, nil)
 	if reserve && net != nil && len(bn.IpAddr) > 0 && regutils.MatchIP4Addr(bn.IpAddr) {
-		ReservedipManager.ReserveIP(userCred, net, bn.IpAddr, "Delete baremetalnetwork to reserve")
+		ReservedipManager.ReserveIP(ctx, userCred, net, bn.IpAddr, "Delete baremetalnetwork to reserve", api.AddressTypeIPv4)
 	}
 }
 
@@ -3634,7 +3634,7 @@ func (manager *SHostManager) ValidateCreateData(
 			return input, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 		}
 		// check ip has been reserved
-		rip := ReservedipManager.GetReservedIP(net, ipmiIpAddr)
+		rip := ReservedipManager.GetReservedIP(net, ipmiIpAddr, api.AddressTypeIPv4)
 		if rip == nil {
 			// if not, reserve this IP temporarily
 			err := net.reserveIpWithDuration(ctx, userCred, ipmiIpAddr, "reserve for baremetal ipmi IP", 30*time.Minute)
@@ -3700,7 +3700,7 @@ func (manager *SHostManager) ValidateCreateData(
 			lockman.LockObject(ctx, accessNet)
 			defer lockman.ReleaseObject(ctx, accessNet)
 
-			accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, true)
+			accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, true, api.AddressTypeIPv4)
 			if err != nil {
 				return input, httperrors.NewGeneralError(err)
 			}
@@ -3719,7 +3719,7 @@ func (manager *SHostManager) ValidateCreateData(
 			}
 
 			// check ip has been reserved
-			rip := ReservedipManager.GetReservedIP(accessNet, accessIp)
+			rip := ReservedipManager.GetReservedIP(accessNet, accessIp, api.AddressTypeIPv4)
 			if rip == nil {
 				// if not reserved, reserve this IP temporarily
 				err = accessNet.reserveIpWithDuration(ctx, userCred, accessIp, "reserve for baremetal access IP", 30*time.Minute)
@@ -5014,7 +5014,7 @@ func (hh *SHost) Attach2Network(
 		}
 	}
 
-	freeIp, err := net.GetFreeIP(ctx, userCred, usedAddrs, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved)
+	freeIp, err := net.GetFreeIP(ctx, userCred, usedAddrs, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved, api.AddressTypeIPv4)
 	if err != nil {
 		return nil, errors.Wrap(err, "net.GetFreeIP")
 	}

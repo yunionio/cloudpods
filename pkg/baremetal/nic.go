@@ -47,7 +47,7 @@ func GetNicDHCPConfig(
 		return nil, fmt.Errorf("Parse IP address error: %q", n.IpAddr)
 	}
 
-	subnetMask := net.ParseIP(netutils.Masklen2Mask(n.MaskLen).String())
+	subnetMask := net.ParseIP(netutils.Masklen2Mask(n.Masklen).String())
 
 	routes := make([][]string, 0)
 	for _, route := range n.Routes {
@@ -80,7 +80,7 @@ func GetNicDHCPConfig(
 		ClientIP:      net.ParseIP(ipAddr.String()),
 		Gateway:       net.ParseIP(n.Gateway),
 		SubnetMask:    subnetMask,
-		BroadcastAddr: net.ParseIP(ipAddr.BroadcastAddr(n.MaskLen).String()),
+		BroadcastAddr: net.ParseIP(ipAddr.BroadcastAddr(n.Masklen).String()),
 		DNSServers:    parseIPs(n.Dns),
 		NTPServers:    parseDomains(n.Ntp),
 		Domain:        n.Domain,

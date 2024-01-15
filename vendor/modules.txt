@@ -1560,7 +1560,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.0.1-0.20231101105448-abef64cdc142
+# yunion.io/x/pkg v1.0.1-0.20240114161232-64f11f704be8
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
