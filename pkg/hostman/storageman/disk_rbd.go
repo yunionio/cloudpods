@@ -133,7 +133,8 @@ func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 		Path: d.GetPath(),
 	}
 	if err := d.ResizeFs(resizeFsInfo); err != nil {
-		return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
+		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
+		// return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
 
 	return d.GetDiskDesc(), nil
