@@ -354,7 +354,7 @@ func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCrea
 		}
 		for i := range rules {
 			rule := rules[i]
-			if utils.IsInStringArray(rule.SecurityGroupRuleId, ruleIds) {
+			if !utils.IsInStringArray(rule.SecurityGroupRuleId, ruleIds) {
 				rule.region = self.region
 				return &rule, nil
 			}

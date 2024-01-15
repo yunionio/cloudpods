@@ -822,9 +822,11 @@ func (self *SRegion) GetInstances(hostId string) ([]SInstance, error) {
 	for _, res := range resources {
 		if res.NodeId == hostId || len(hostId) == 0 {
 			instance, err := self.GetQemuConfig(res.Node, res.VmId)
-			if err == nil {
-				ret = append(ret, *instance)
+			if err != nil {
+				log.Warningf("get pve vm %s %d error: %v", res.Node, res.VmId, err)
+				continue
 			}
+			ret = append(ret, *instance)
 		}
 	}
 
