@@ -1224,10 +1224,14 @@ func (self *SCloudregion) GetStoragecaches() ([]SStoragecache, error) {
 }
 
 func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.TokenCredential, iImage SCachedimage) error {
-	_, err := db.FetchByExternalId(CachedimageManager, iImage.GetGlobalId())
+	externalId := iImage.GetGlobalId()
+	lockman.LockRawObject(ctx, CachedimageManager.Keyword(), externalId)
+	defer lockman.ReleaseRawObject(ctx, CachedimageManager.Keyword(), externalId)
+
+	_, err := db.FetchByExternalId(CachedimageManager, externalId)
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
-			return errors.Wrapf(err, "db.FetchModelObjects(%s)", iImage.GetGlobalId())
+			return errors.Wrapf(err, "db.FetchModelObjects(%s)", externalId)
 		}
 		image := &iImage
 		image.SetModelManager(CachedimageManager, image)
@@ -1236,7 +1240,7 @@ func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.T
 			return err
 		}
 
-		skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, self.ExternalId, iImage.GetGlobalId())
+		skuUrl := fmt.Sprintf("%s/%s/%s.json", meta.ImageBase, self.ExternalId, externalId)
 		err = meta.Get(skuUrl, image)
 		if err != nil {
 			return errors.Wrapf(err, "Get")
@@ -1253,7 +1257,7 @@ func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.T
 	cloudimage.SetModelManager(CloudimageManager, cloudimage)
 	cloudimage.Name = iImage.Name
 	cloudimage.CloudregionId = self.Id
-	cloudimage.ExternalId = iImage.GetGlobalId()
+	cloudimage.ExternalId = externalId
 	err = CloudimageManager.TableSpec().Insert(ctx, cloudimage)
 	if err != nil {
 		return errors.Wrapf(err, "Insert cloudimage")
