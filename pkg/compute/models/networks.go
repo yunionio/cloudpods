@@ -3465,14 +3465,14 @@ func (network *SNetwork) GetDetailsAvailableAddresses(
 		}
 	}
 	if network.IsSupportIPv6() {
-		addrTable := network.GetUsedAddresses6()
-		recentUsedAddrTable := GuestnetworkManager.getRecentlyReleasedIPAddresses6(network.Id, network.getAllocTimoutDuration())
-		addrRange := network.getIPRange6()
-		for addr := addrRange.StartIp(); addr.Le(addrRange.EndIp()) && len(availables) < maxCount; addr = addr.StepUp() {
-			addrStr := addr.String()
-			if _, ok := addrTable[addrStr]; !ok {
-				if _, ok := recentUsedAddrTable[addrStr]; !ok {
-					availables = append(availables, addrStr)
+		addrTable6 := network.GetUsedAddresses6()
+		recentUsedAddrTable6 := GuestnetworkManager.getRecentlyReleasedIPAddresses6(network.Id, network.getAllocTimoutDuration())
+		addrRange6 := network.getIPRange6()
+		for addr6 := addrRange6.StartIp(); addr6.Le(addrRange6.EndIp()) && len(availables) < maxCount; addr6 = addr6.StepUp() {
+			addrStr6 := addr6.String()
+			if _, ok := addrTable6[addrStr6]; !ok {
+				if _, ok := recentUsedAddrTable6[addrStr6]; !ok {
+					availables6 = append(availables6, addrStr6)
 				}
 			}
 		}
