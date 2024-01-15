@@ -6033,6 +6033,10 @@ func (host *SHost) SetStatus(userCred mcclient.TokenCredential, status string, r
 		return err
 	}
 	host.ClearSchedDescCache()
+	notifyclient.EventNotify(context.Background(), userCred, notifyclient.SEventNotifyParam{
+		Obj:    host,
+		Action: notifyclient.ActionUpdate,
+	})
 	return nil
 }
 
