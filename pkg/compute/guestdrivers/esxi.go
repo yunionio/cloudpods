@@ -467,6 +467,8 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 		extId = guest.ExternalId
 	}
 	config.Add(jsonutils.NewString(extId), "guest_ext_id")
+	tags, _ := guest.GetAllUserMetadata()
+	config.Set("tags", jsonutils.Marshal(tags))
 
 	account := host.GetCloudaccount()
 	accessInfo, err := account.GetVCenterAccessInfo(storage.ExternalId)
