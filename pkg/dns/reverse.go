@@ -52,7 +52,7 @@ func (r *SRegionDNS) getNameForIp(ip string, state request.Request) ([]msg.Servi
 	// 2. try guests table
 	guest := models.GuestnetworkManager.GetGuestByAddress(ip, req.ProjectId())
 	if guest != nil {
-		return []msg.Service{{Host: r.joinDomain(guest.Name), TTL: defaultTTL}}, nil
+		return []msg.Service{{Host: r.joinDomain(guest.Hostname), TTL: defaultTTL}}, nil
 	}
 
 	// 3. try hosts table
