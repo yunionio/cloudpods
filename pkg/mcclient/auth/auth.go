@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -172,10 +173,15 @@ func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclien
 
 func (a *authManager) verify(ctx context.Context, token string) (mcclient.TokenCredential, error) {
 	if a.adminCredential == nil {
+		a.reAuth()
 		return nil, fmt.Errorf("No valid admin token credential")
 	}
 	cred, err := a.tokenCacheVerify.Verify(ctx, a.client, a.adminCredential.GetTokenString(), token)
 	if err != nil {
+		if httputils.ErrorCode(err) == 403 {
+			// adminCredential need to be refresh
+			a.reAuth()
+		}
 		return nil, err
 	}
 	return cred, nil
