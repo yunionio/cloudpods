@@ -170,6 +170,14 @@ func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.J
 	if err != nil {
 		return false, errors.Wrap(err, "SHost.CreateVM2")
 	}
+	tags := map[string]string{}
+	data.Unmarshal(&tags, "tags")
+	if len(tags) > 0 {
+		err = vm.SetTags(tags, true)
+		if err != nil {
+			log.Warningf("set tags for vm %s error: %v", createParam.Name, err)
+		}
+	}
 	name, _ := descDict.GetString("name")
 	err = as.tryRenameVm(ctx, vm, name)
 	if err != nil {
