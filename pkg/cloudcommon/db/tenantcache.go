@@ -191,6 +191,14 @@ func (t *STenant) IsExpired() bool {
 }
 
 func (manager *STenantCacheManager) FetchTenantByIdOrNameInDomain(ctx context.Context, idStr string, domainId string) (*STenant, error) {
+	if !stringutils2.IsUtf8(idStr) {
+		t, err := manager.FetchTenantById(ctx, idStr)
+		if t != nil {
+			return t, nil
+		} else if err != nil && errors.Cause(err) != sql.ErrNoRows {
+			return nil, errors.Wrap(err, "FetchTenantById")
+		}
+	}
 	return manager.fetchTenant(ctx, idStr, domainId, false, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		if stringutils2.IsUtf8(idStr) {
 			return q.Equals("name", idStr)
