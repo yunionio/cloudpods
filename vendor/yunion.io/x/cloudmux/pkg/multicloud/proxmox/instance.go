@@ -16,7 +16,6 @@ package proxmox
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -545,11 +544,8 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 	if err != nil {
 		return nil, err
 	}
-	byteArr, err := json.Marshal(&vmConfig)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(byteArr, &vmBase)
+
+	err = jsonutils.Update(vmBase, vmConfig)
 	if err != nil {
 		return nil, err
 	}
