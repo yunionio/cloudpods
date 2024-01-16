@@ -282,7 +282,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	if len(network.GuestGateway6) > 0 && network.GuestIp6Mask > 0 {
 		netRnp.Ipv6RaConfigs = map[string]string{
 			"address_mode": "dhcpv6_stateful",
-			// "send_periodic": "true",
+			// "send_periodic": "false",
 		}
 	}
 	netNrp := &ovn_nb.LogicalSwitchPort{
@@ -323,7 +323,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			vpcExtBackRouteIdRef = "vpcExtBackRoute"
 		}
 	}
-	if len(network.GuestGateway6) > 0 && network.GuestIp6Mask > 0 {
+	/*if len(network.GuestGateway6) > 0 && network.GuestIp6Mask > 0 {
 		if ip6Addr, err := netutils.NewIPV6Addr(network.GuestGateway6); err != nil {
 			return errors.Wrap(err, "NewIPV6Addr GuestGateway6")
 		} else {
@@ -341,7 +341,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			}
 			vpcExtBackRoute6IdRef = "vpcExtBackRoute6"
 		}
-	}
+	}*/
 
 	var (
 		args      []string
@@ -366,7 +366,6 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	args = append(args, ovnCreateArgs(netRnp, netRnp.Name)...)
 	args = append(args, ovnCreateArgs(netNrp, netNrp.Name)...)
 	args = append(args, ovnCreateArgs(netMdp, netMdp.Name)...)
-	// args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
 	args = append(args, ovnCreateArgs(vpcExtBackRoute, vpcExtBackRouteIdRef)...)
 	if vpcExtBackRoute6 != nil {
 		args = append(args, ovnCreateArgs(vpcExtBackRoute6, vpcExtBackRoute6IdRef)...)
@@ -536,8 +535,8 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 
 func generateDhcp6Options(ctx context.Context, guestnetwork *agentmodels.Guestnetwork, opts *options.Options) *ovn_nb.DHCPOptions {
 	var (
-		network = guestnetwork.Network
-
+		network   = guestnetwork.Network
+		dhcpMac   = mac.HashSubnetDhcpMac(network.Id)
 		ocDhcpRef = fmt.Sprintf("dhcp6/%s/%s", guestnetwork.GuestId, guestnetwork.Ifname)
 	)
 
@@ -546,8 +545,8 @@ func generateDhcp6Options(ctx context.Context, guestnetwork *agentmodels.Guestne
 	dhcpopts := &ovn_nb.DHCPOptions{
 		Cidr: cidr6,
 		Options: map[string]string{
-			"server_id":        network.GuestGateway6,
-			"dhcpv6_stateless": "false",
+			"server_id": dhcpMac,
+			// "dhcpv6_stateless": "false",
 		},
 		ExternalIds: map[string]string{
 			externalKeyOcRef: ocDhcpRef,
@@ -571,7 +570,6 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		ocAclRef        = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosRef        = fmt.Sprintf("qos/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosEipRef     = fmt.Sprintf("qos-eip/%s/%s/%s/v2", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
-		// dhcpOpt         string
 	)
 
 	var (
@@ -589,14 +587,13 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	if len(guestnetwork.Ip6Addr) > 0 {
 		// ipv6
 		subIPs = append(subIPs, guestnetwork.Ip6Addr)
-		subIPms = append(subIPms, fmt.Sprintf("%s/%d", guestnetwork.Ip6Addr, guestnetwork.Network.GuestIp6Mask))
+		subIPms = append(subIPms, fmt.Sprintf("%s/%d", guestnetwork.Ip6Addr, guestnetwork.Network.GuestIp6Mask), "fe80::/64")
 	}
 
 	gnp := &ovn_nb.LogicalSwitchPort{
 		Name:      lportName,
 		Addresses: []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, strings.Join(subIPs, " "))},
-		// Dhcpv4Options: &dhcpOpt,
-		Options: map[string]string{},
+		Options:   map[string]string{},
 	}
 	if guest.SrcMacCheck.IsFalse() {
 		gnp.Addresses = append(gnp.Addresses, "unknown")
