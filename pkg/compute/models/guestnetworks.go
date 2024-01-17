@@ -745,7 +745,7 @@ func (manager *SGuestnetworkManager) GetGuestByAddress(address string, projectId
 	gnQ = gnQ.Equals(ipField, address)
 	gnSubQ := gnQ.SubQuery()
 
-	q := GuestManager.Query("name", "tenant_id")
+	q := GuestManager.Query("hostname", "tenant_id")
 	if len(projectId) > 0 {
 		q = q.Equals("tenant_id", projectId)
 	}

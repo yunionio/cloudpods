@@ -256,6 +256,10 @@ func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Opti
 		return services, nil
 	}
 
+	if _, ok := DNSTypeMap[state.QType()]; !ok {
+		return nil, errRefused
+	}
+
 	services, err = r.Records(state, false)
 	if err != nil {
 		// log.Errorf("Records %s fail: %s", state.Name(), err)
@@ -286,6 +290,9 @@ func (r *SRegionDNS) Records(state request.Request, exact bool) ([]msg.Service, 
 }
 
 func (r *SRegionDNS) getHostIpWithName(req *recordRequest) string {
+	if req.Type() != "A" {
+		return ""
+	}
 	name := req.QueryName()
 	name = strings.TrimSuffix(name, ".")
 	host, _ := models.HostManager.FetchByName(nil, name)
@@ -301,13 +308,17 @@ func (r *SRegionDNS) getGuestIpsWithName(req *recordRequest) []string {
 	name := req.QueryName()
 	projectId := req.ProjectId()
 	wantOnlyExit := false
-	ip4s := models.GuestManager.GetIpsInProjectWithName(projectId, name, wantOnlyExit, api.AddressTypeIPv4)
-	if len(ip4s) > 0 {
-		ips = append(ips, ip4s...)
+	if req.Type() == "A" {
+		ip4s := models.GuestManager.GetIpsInProjectWithName(projectId, name, wantOnlyExit, api.AddressTypeIPv4)
+		if len(ip4s) > 0 {
+			ips = append(ips, ip4s...)
+		}
 	}
-	ip6s := models.GuestManager.GetIpsInProjectWithName(projectId, name, wantOnlyExit, api.AddressTypeIPv6)
-	if len(ip6s) > 0 {
-		ips = append(ips, ip6s...)
+	if req.Type() == "AAAA" {
+		ip6s := models.GuestManager.GetIpsInProjectWithName(projectId, name, wantOnlyExit, api.AddressTypeIPv6)
+		if len(ip6s) > 0 {
+			ips = append(ips, ip6s...)
+		}
 	}
 	return ips
 }
@@ -366,7 +377,7 @@ func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) []msg.Service {
 		}
 	)
 	recs := make([]msg.Service, 0)
-	records, err := models.DnsRecordManager.QueryDns(projId, req.Name(), "")
+	records, err := models.DnsRecordManager.QueryDns(projId, req.Name(), req.Type())
 	if err != nil {
 		log.Errorf("QueryDns %s %s error: %v", req.Type(), req.Name(), err)
 		return nil
