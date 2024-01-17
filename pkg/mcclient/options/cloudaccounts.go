@@ -16,7 +16,7 @@ package options
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -206,11 +206,20 @@ func (opts *SAzureCloudAccountCreateOptions) Params() (jsonutils.JSONObject, err
 type SQcloudCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SQcloudCredential
+
+	OptionsBillingReportBucket string `help:"bucket that stores billing report" json:"-"`
 }
 
 func (opts *SQcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
-	params := jsonutils.Marshal(opts)
-	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Qcloud"), "provider")
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	params.Add(jsonutils.NewString("Qcloud"), "provider")
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Set("billing_report_bucket", jsonutils.NewString(opts.OptionsBillingReportBucket))
+	}
+	if options.Length() > 0 {
+		params.Set("options", options)
+	}
 	return params, nil
 }
 
@@ -220,7 +229,7 @@ type SGoogleCloudAccountCreateOptions struct {
 }
 
 func parseGcpCredential(filename string) (jsonutils.JSONObject, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -349,11 +358,20 @@ func (opts *SUcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, er
 type SVolcengineCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
+
+	OptionsBillingReportBucket string `help:"update Aliyun S3 bucket that stores account billing report" json:"-"`
 }
 
 func (opts *SVolcengineCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
-	params := jsonutils.Marshal(opts)
-	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("VolcEngine"), "provider")
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	params.Add(jsonutils.NewString("VolcEngine"), "provider")
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Set("billing_report_bucket", jsonutils.NewString(opts.OptionsBillingReportBucket))
+	}
+	if options.Length() > 0 {
+		params.Set("options", options)
+	}
 	return params, nil
 }
 
@@ -756,8 +774,8 @@ func (opts *SAzureCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, err
 type SQcloudCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 
-	OptionsBillingReportBucket       string `help:"update Aliyun S3 bucket that stores account billing report" json:"-"`
-	RemoveOptionsBillingReportBucket bool   `help:"remove Aliyun S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingReportBucket       string `help:"update TencentCloud S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket bool   `help:"remove TencentCloud S3 bucket that stores account billing report" json:"-"`
 }
 
 func (opts *SQcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -989,10 +1007,28 @@ func (opts *SUcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, er
 
 type SVolcengineCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket       string `help:"update VolcEngine S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket bool   `help:"remove VolcEngine S3 bucket that stores account billing report" json:"-"`
 }
 
 func (opts *SVolcengineCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(opts), nil
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	removeOptions := make([]string, 0)
+	if opts.RemoveOptionsBillingReportBucket {
+		removeOptions = append(removeOptions, "billing_report_bucket")
+	}
+	if len(removeOptions) > 0 {
+		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+	}
+	return params, nil
 }
 
 type SZStackCloudAccountUpdateOptions struct {
@@ -1457,7 +1493,7 @@ type SOracleCloudAccountCreateOptions struct {
 func (opts *SOracleCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	params.Add(jsonutils.NewString("OracleCloud"), "provider")
-	data, err := ioutil.ReadFile(opts.OraclePrivateKeyFile)
+	data, err := os.ReadFile(opts.OraclePrivateKeyFile)
 	if err != nil {
 		return nil, err
 	}
