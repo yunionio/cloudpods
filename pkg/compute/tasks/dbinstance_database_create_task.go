@@ -146,6 +146,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 			DBInstanceaccountId:  account.DBInstanceaccountId,
 			DBInstancedatabaseId: database.Id,
 		}
+		privilege.ExternalId = fmt.Sprintf("%s/%s/%s", account.Account, database.Name, privilege.Privilege)
 		models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &privilege)
 		logclient.AddActionLogWithStartable(self, database, logclient.ACT_GRANT_PRIVILEGE, account, self.UserCred, true)
 	}

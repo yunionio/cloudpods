@@ -93,6 +93,7 @@ func (self *DBInstanceAccountGrantPrivilegeTask) OnInit(ctx context.Context, obj
 		DBInstanceaccountId:  account.Id,
 		DBInstancedatabaseId: database.Id,
 	}
+	privilege.ExternalId = fmt.Sprintf("%s/%s/%s", account.Name, database.Name, privilege.Privilege)
 
 	models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &privilege)
 
