@@ -1995,7 +1995,7 @@ func (self *SVpc) CheckSecurityGroupConsistent(secgroup *SSecurityGroup) error {
 	if secgroup.Status != api.SECGROUP_STATUS_READY {
 		return httperrors.NewInvalidStatusError("security group %s status is not ready", secgroup.Name)
 	}
-	if len(secgroup.ExternalId) == 0 {
+	if len(self.ExternalId) > 0 && len(secgroup.ExternalId) == 0 {
 		return httperrors.NewInvalidStatusError("The security group %s does not have an external id", secgroup.Name)
 	}
 	if len(secgroup.VpcId) > 0 {
