@@ -816,11 +816,14 @@ type SBucketPolicyStatementDetails struct {
 }
 
 func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
+	res := []cloudprovider.SBucketPolicyStatement{}
 	policies, err := b.getPolicy()
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return res, nil
+		}
 		return nil, errors.Wrap(err, "get policy")
 	}
-	res := []cloudprovider.SBucketPolicyStatement{}
 	for i, policy := range policies {
 		temp := cloudprovider.SBucketPolicyStatement{}
 		temp.Action = policy.Action
