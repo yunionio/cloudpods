@@ -666,6 +666,25 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 }
 
 func (region *SRegion) GetCapabilities() []string {
+	if strings.Contains(region.Id, "_") {
+		return []string{
+			cloudprovider.CLOUD_CAPABILITY_PROJECT,
+			cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+			cloudprovider.CLOUD_CAPABILITY_NETWORK,
+			cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
+			cloudprovider.CLOUD_CAPABILITY_EIP,
+			cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+			cloudprovider.CLOUD_CAPABILITY_RDS,
+			cloudprovider.CLOUD_CAPABILITY_CACHE,
+			cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+			cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
+			cloudprovider.CLOUD_CAPABILITY_NAT,
+			cloudprovider.CLOUD_CAPABILITY_NAS,
+			cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
+			cloudprovider.CLOUD_CAPABILITY_MODELARTES,
+			cloudprovider.CLOUD_CAPABILITY_VPC_PEER,
+		}
+	}
 	return region.client.GetCapabilities()
 }
 
