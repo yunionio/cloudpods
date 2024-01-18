@@ -50,7 +50,7 @@ type SElasticcache struct {
 	MaxMemoryMB           int      `json:"max_memory"`
 	UsedMemoryMB          int      `json:"used_memory"`
 	InstanceID            string   `json:"instance_id"`
-	ResourceSpecCode      string   `json:"resource_spec_code"`
+	SpecCode              string   `json:"spec_code"`
 	EngineVersion         string   `json:"engine_version"`
 	InternalVersion       string   `json:"internal_version"`
 	ChargingMode          int      `json:"charging_mode"`
@@ -173,7 +173,7 @@ func (self *SElasticcache) GetExpiredAt() time.Time {
 }
 
 func (self *SElasticcache) GetInstanceType() string {
-	return self.ResourceSpecCode
+	return self.SpecCode
 }
 
 func (self *SElasticcache) GetCapacityMB() int {
@@ -181,24 +181,24 @@ func (self *SElasticcache) GetCapacityMB() int {
 }
 
 func (self *SElasticcache) GetArchType() string {
-	if strings.Contains(self.ResourceSpecCode, "single") {
+	if strings.Contains(self.SpecCode, "single") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_SINGLE
 	}
-	if strings.Contains(self.ResourceSpecCode, "ha") {
+	if strings.Contains(self.SpecCode, "ha") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_MASTER
 	}
-	if strings.Contains(self.ResourceSpecCode, "cluster") {
+	if strings.Contains(self.SpecCode, "cluster") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	}
-	if strings.Contains(self.ResourceSpecCode, "proxy") {
+	if strings.Contains(self.SpecCode, "proxy") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	}
-	return self.ResourceSpecCode
+	return self.SpecCode
 }
 
 func (self *SElasticcache) GetNodeType() string {
 	// single（单副本） | double（双副本)
-	if strings.Contains(self.ResourceSpecCode, "single") {
+	if strings.Contains(self.SpecCode, "single") {
 		return "single"
 	}
 	return "double"

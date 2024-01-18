@@ -794,6 +794,9 @@ type SBucketPolicyStatementDetails struct {
 func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
 	policies, err := b.getPolicy()
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return []cloudprovider.SBucketPolicyStatement{}, nil
+		}
 		return nil, errors.Wrap(err, "getPolicy")
 	}
 	return b.localPolicyToCloudprovider(policies), nil

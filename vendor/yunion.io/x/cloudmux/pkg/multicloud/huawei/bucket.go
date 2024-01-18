@@ -783,6 +783,9 @@ type SBucketPolicyStatementDetails struct {
 func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
 	policies, err := b.getPolicy()
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return []cloudprovider.SBucketPolicyStatement{}, nil
+		}
 		return nil, errors.Wrap(err, "getPolicy")
 	}
 	res := []cloudprovider.SBucketPolicyStatement{}
@@ -1005,8 +1008,8 @@ func (b *SBucket) actionToCannedAction(actions []string) string {
 }
 
 /*
-	example: in:domain/93887001882246db9273e5f59d544191:user/0932bb867900f4ca1f17c013ba9e3203
-	out:93887001882246db9273e5f59d544191:0932bb867900f4ca1f17c013ba9e3203
+example: in:domain/93887001882246db9273e5f59d544191:user/0932bb867900f4ca1f17c013ba9e3203
+out:93887001882246db9273e5f59d544191:0932bb867900f4ca1f17c013ba9e3203
 */
 func getLocalPrincipalId(principals []string) []string {
 	res := []string{}
