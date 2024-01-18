@@ -206,3 +206,14 @@ type ReceiverGetSubscriptionOptions struct {
 	Id           string
 	ShowDisabled bool
 }
+
+type SRoleContactInput struct {
+	RoleIds         []string
+	Scope           string
+	ProjectDomainId string
+	ProjectId       string `json:"project_id"`
+}
+
+type SRoleContactOutput struct {
+	ContactType []string
+}

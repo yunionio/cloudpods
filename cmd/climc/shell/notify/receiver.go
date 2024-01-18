@@ -35,4 +35,5 @@ func init() {
 	cmd.PerformClass("intellij-get", new(options.ReceiverIntellijGetOptions))
 	cmd.PerformClass("get-types", new(options.ReceiverGetTypeOptions))
 	cmd.Perform("get-subscription", new(options.ReceiverGetSubscriptionOptions))
+	cmd.GetProperty(new(options.SReceiverRoleContactType))
 }
