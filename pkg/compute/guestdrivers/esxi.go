@@ -214,36 +214,6 @@ func (self *SESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]str
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SESXiGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {
-	defaultStorageId := ""
-	if root, _ := guest.GetSystemDisk(); root != nil {
-		defaultStorageId = root.StorageId
-	}
-	storages, err := guest.GetStorages()
-	if err != nil {
-		return errors.Wrapf(err, "GetStorages")
-	}
-	storageMap := map[string]string{}
-	for _, storage := range storages {
-		storageMap[storage.StorageType] = storage.Id
-		if len(defaultStorageId) == 0 {
-			defaultStorageId = storage.Id
-		}
-	}
-	for i := range newDisks {
-		newDisks[i].Format = "vmdk"
-		if len(newDisks[i].Storage) == 0 {
-			// 若不指定存储类型，默认和系统盘一致
-			if len(newDisks[i].Backend) == 0 {
-				newDisks[i].Storage = defaultStorageId
-			} else if storageId, ok := storageMap[newDisks[i].Backend]; ok { // 否则和已有磁盘存储保持一致
-				newDisks[i].Storage = storageId
-			}
-		}
-	}
-	return nil
-}
-
 func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
 	return false
 }
@@ -865,13 +835,16 @@ func (drv *SESXiGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
-func (drv *SESXiGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb, addSocket int) bool {
-	// cannot chagne esxi VM CPU cores
-	if float32(guest.VcpuCount+addCpu)/float32(guest.CpuSockets+addSocket)-float32(guest.VcpuCount)/float32(guest.CpuSockets) > 0.0001 {
-		return true
+func (drv *SESXiGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Context, guest *models.SGuest, confs *api.ServerChangeConfigSettings) (*api.ServerChangeConfigSettings, error) {
+	// cannot chagne esxi VM CPU cores per sockets
+	corePerSocket := guest.VcpuCount / guest.CpuSockets
+	if confs.VcpuCount%corePerSocket != 0 {
+		return confs, errors.Wrapf(httperrors.ErrInputParameter, "cpu count %d should be times of %d", confs.VcpuCount, corePerSocket)
 	}
+	confs.CpuSockets = confs.VcpuCount / corePerSocket
+
 	// https://kb.vmware.com/s/article/2008405
-	// cannot increse memory beyond 3G if the initial CPU memories is lower than 3G
+	// cannot increase memory beyond 3G if the initial CPU memory is lower than 3G
 	startVmem := guest.VmemSize
 	vmemMbStr := guest.GetMetadata(ctx, api.VM_METADATA_START_VMEM_MB, nil)
 	if len(vmemMbStr) > 0 {
@@ -884,8 +857,43 @@ func (drv *SESXiGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *m
 	if startVmem <= 3*1024 {
 		maxAllowVmem = 3 * 1024
 	}
-	if guest.VmemSize+addMemMb > maxAllowVmem {
-		return true
+	if confs.VmemSize > maxAllowVmem {
+		return confs, errors.Wrapf(httperrors.ErrInputParameter, "memory cannot be resized beyond %dMB", maxAllowVmem)
 	}
-	return false
+	return confs, nil
+}
+
+func (esxi *SESXiGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context, guest *models.SGuest, input api.ServerChangeConfigInput) (*api.ServerChangeConfigSettings, error) {
+	confs, err := esxi.SBaseGuestDriver.ValidateGuestChangeConfigInput(ctx, guest, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SBaseGuestDriver.ValidateGuestChangeConfigInput")
+	}
+
+	defaultStorageId := ""
+	if root, _ := guest.GetSystemDisk(); root != nil {
+		defaultStorageId = root.StorageId
+	}
+	storages, err := guest.GetStorages()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorages")
+	}
+	storageMap := map[string]string{}
+	for _, storage := range storages {
+		storageMap[storage.StorageType] = storage.Id
+		if len(defaultStorageId) == 0 {
+			defaultStorageId = storage.Id
+		}
+	}
+	for i := range confs.Create {
+		confs.Create[i].Format = "vmdk"
+		if len(confs.Create[i].Storage) == 0 {
+			// 若不指定存储类型，默认和系统盘一致
+			if len(confs.Create[i].Backend) == 0 {
+				confs.Create[i].Storage = defaultStorageId
+			} else if storageId, ok := storageMap[confs.Create[i].Backend]; ok { // 否则和已有磁盘存储保持一致
+				confs.Create[i].Storage = storageId
+			}
+		}
+	}
+	return confs, nil
 }
