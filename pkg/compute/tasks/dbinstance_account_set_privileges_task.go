@@ -120,6 +120,7 @@ func (self *DBInstanceAccountSetPrivilegesTask) OnInit(ctx context.Context, obj 
 			DBInstanceaccountId:  account.Id,
 			DBInstancedatabaseId: database.Id,
 		}
+		pri.ExternalId = fmt.Sprintf("%s/%s/%s", account.Name, database.Name, pri.Privilege)
 		models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &pri)
 		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, nil, self.UserCred, true)
 	}
