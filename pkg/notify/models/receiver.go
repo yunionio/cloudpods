@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	notify_modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -1297,4 +1298,58 @@ func (r *SReceiver) IsReceiver() bool {
 
 func (r *SReceiver) GetName() string {
 	return r.Name
+}
+
+func (manager *SReceiverManager) GetPropertyRoleContactType(ctx context.Context, userCred mcclient.TokenCredential, input api.SRoleContactInput) (jsonutils.JSONObject, error) {
+	out := api.SRoleContactOutput{
+		ContactType: []string{},
+	}
+	if len(input.RoleIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("role_ids")
+	}
+	receiverIds := []string{}
+	params := jsonutils.NewDict()
+	params.Set("roles", jsonutils.NewStringArray(input.RoleIds))
+	params.Set("effective", jsonutils.JSONTrue)
+	switch input.Scope {
+	case api.SUBSCRIBER_SCOPE_SYSTEM:
+	case api.SUBSCRIBER_SCOPE_DOMAIN:
+		if len(input.ProjectDomainId) == 0 {
+			return nil, httperrors.NewMissingParameterError("project_domain_id")
+		}
+		params.Set("project_domain_id", jsonutils.NewString(input.ProjectDomainId))
+	case api.SUBSCRIBER_SCOPE_PROJECT:
+		if len(input.ProjectId) == 0 {
+			return nil, httperrors.NewMissingParameterError("project_id")
+		}
+		params.Add(jsonutils.NewString(input.ProjectId), "scope", "project", "id")
+	}
+	s := auth.GetAdminSession(ctx, "")
+	listRet, err := modules.RoleAssignments.List(s, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to list RoleAssignments")
+	}
+
+	roleAssignmentOut := []identity_api.SRoleAssignment{}
+	jsonutils.Update(&roleAssignmentOut, listRet.Data)
+	for i := range roleAssignmentOut {
+		receiverIds = append(receiverIds, roleAssignmentOut[i].User.Id)
+	}
+
+	subContacts, err := manager.FetchSubContacts(receiverIds)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch subcontacts")
+	}
+	contactMap := map[string]struct{}{}
+	for i := range receiverIds {
+		for _, contact := range subContacts[receiverIds[i]] {
+			if contact.Enabled.Bool() {
+				contactMap[contact.Type] = struct{}{}
+			}
+		}
+	}
+	for contactType := range contactMap {
+		out.ContactType = append(out.ContactType, contactType)
+	}
+	return jsonutils.Marshal(out), nil
 }
