@@ -104,6 +104,7 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(ctx context.Co
 			ExpiredAt: expiredAt,
 			Status:    status,
 		}
+		rip.SetModelManager(manager, rip)
 		if addrType == api.AddressTypeIPv6 {
 			rip.Ip6Addr = ip
 		} else {
