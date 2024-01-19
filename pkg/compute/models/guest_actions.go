@@ -3192,7 +3192,12 @@ func (self *SGuest) SetStatus(userCred mcclient.TokenCredential, status, reason 
 		}
 	}
 
-	return self.SVirtualResourceBase.SetStatus(userCred, status, reason)
+	err := self.SVirtualResourceBase.SetStatus(userCred, status, reason)
+	if err != nil {
+		return errors.Wrap(err, "setStatus")
+	}
+	db.CallUpdateNotifyHook(context.Background(), userCred, self)
+	return nil
 }
 
 func (self *SGuest) SetPowerStates(powerStates string) error {
