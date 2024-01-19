@@ -647,7 +647,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 
 	syncVirtualResourceMetadata(ctx, userCred, &eip, extEip, false)
 
-	if res := eip.GetAssociateResource(); res != nil {
+	if res := eip.GetAssociateResource(); res != nil && len(res.GetOwnerId().GetProjectId()) > 0 {
 		eip.SyncCloudProjectId(userCred, res.GetOwnerId())
 	} else {
 		SyncCloudProject(ctx, userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
