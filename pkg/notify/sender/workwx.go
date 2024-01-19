@@ -133,6 +133,9 @@ func (workwxSender *SWorkwxSender) RegisterConfig(config models.SConfig) {
 
 func (workwxSender *SWorkwxSender) GetAccessToken(ctx context.Context, domainId string) error {
 	key := fmt.Sprintf("%s-%s", api.WORKWX, domainId)
+	if _, ok := models.ConfigMap[key]; !ok {
+		return errors.Wrapf(errors.ErrNotSupported, "contact-type:%s,domain_id:%s is missing config", api.WORKWX, domainId)
+	}
 	corpId, secret := models.ConfigMap[key].Content.CorpId, models.ConfigMap[key].Content.Secret
 	token, err := workwxSender.getAccessToken(ctx, corpId, secret)
 	if err != nil {
@@ -156,6 +159,9 @@ func (workwxSender *SWorkwxSender) getAccessToken(ctx context.Context, corpId, s
 func (workwxSender *SWorkwxSender) sendMessageWithToken(ctx context.Context, uri, key string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if params == nil {
 		params = url.Values{}
+	}
+	if _, ok := models.ConfigMap[key]; !ok {
+		return nil, errors.Wrapf(errors.ErrNotSupported, "contact-type:%s,domain_id:%s is missing config", strings.Split(key, "-")[0], strings.Split(key, "-")[1])
 	}
 	params.Set("access_token", models.ConfigMap[key].Content.AccessToken)
 	return sendRequest(ctx, uri, httputils.POST, nil, params, jsonutils.Marshal(body))

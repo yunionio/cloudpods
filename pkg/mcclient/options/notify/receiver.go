@@ -156,3 +156,18 @@ type ReceiverGetTypeOptions struct {
 func (rg *ReceiverGetTypeOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(rg), nil
 }
+
+type SReceiverRoleContactType struct {
+	ROLE_IDS        []string
+	Scope           string
+	ProjectDomainId string
+	ProjectId       string
+}
+
+func (rg *SReceiverRoleContactType) Property() string {
+	return "role-contact-type"
+}
+
+func (rg *SReceiverRoleContactType) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(rg), nil
+}

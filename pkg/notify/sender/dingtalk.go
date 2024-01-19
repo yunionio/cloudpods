@@ -144,6 +144,9 @@ func (dingSender *SDingTalkSender) RegisterConfig(config models.SConfig) {
 
 func (dingSender *SDingTalkSender) GetAccessToken(ctx context.Context, domainId string) error {
 	key := fmt.Sprintf("%s-%s", api.DINGTALK, domainId)
+	if _, ok := models.ConfigMap[key]; !ok {
+		return errors.Wrapf(errors.ErrNotSupported, "contact-type:%s,domain_id:%s is missing config", api.DINGTALK, domainId)
+	}
 	appKey, appSecret := models.ConfigMap[key].Content.AppKey, models.ConfigMap[key].Content.AppSecret
 	token, err := dingSender.getAccessToken(ctx, appKey, appSecret)
 	if err != nil {
