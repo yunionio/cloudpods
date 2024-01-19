@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -158,6 +158,9 @@ func (feishuSender *SFeishuSender) RegisterConfig(config models.SConfig) {
 // 获取token
 func (feishuSender *SFeishuSender) GetAccessToken(ctx context.Context, domainId string) error {
 	key := fmt.Sprintf("%s-%s", api.FEISHU, domainId)
+	if _, ok := models.ConfigMap[key]; !ok {
+		return errors.Wrapf(errors.ErrNotSupported, "contact-type:%s,domain_id:%s is missing config", api.FEISHU, domainId)
+	}
 	appId, appSecret := models.ConfigMap[key].Content.AppId, models.ConfigMap[key].Content.AppSecret
 	resp, err := feishuSender.getAccessToken(appId, appSecret)
 	if err != nil {
