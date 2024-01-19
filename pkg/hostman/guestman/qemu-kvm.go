@@ -159,6 +159,187 @@ func (s *SKVMGuestInstance) updateGuestDesc() error {
 	return s.SaveLiveDesc(s.Desc)
 }
 
+func (s *SKVMGuestInstance) releaseCpuNumaPin(cpuNumaPin []*desc.SCpuNumaPin) {
+	for _, numaCpus := range cpuNumaPin {
+		pcpuSet, err := cpuset.Parse(*numaCpus.Pcpus)
+		if err != nil {
+			log.Errorf("failed parse %s pcpus: %s", s.GetName(), *numaCpus.Pcpus)
+			continue
+		}
+		vcpuCount := int(s.Desc.Cpu)
+		if numaCpus.Vcpus != nil {
+			vcpuSet, err := cpuset.Parse(*numaCpus.Vcpus)
+			if err != nil {
+				log.Errorf("failed parse %s vcpus: %s", s.GetName(), *numaCpus.Vcpus)
+				continue
+			}
+			vcpuCount = vcpuSet.Size()
+		}
+		hostNodes := -1
+		if numaCpus.HostNodes != nil {
+			hostNodes = int(*numaCpus.HostNodes)
+		}
+		s.manager.cpuSet.ReleaseNumaCpus(numaCpus.SizeMB, hostNodes, pcpuSet.ToSlice(), vcpuCount)
+	}
+}
+
+// release allocated numa mems and realloc numa mems
+func (s *SKVMGuestInstance) reallocateNumaNodes(isMigrate bool) error {
+	s.manager.cpuSet.Lock.Lock()
+	defer s.manager.cpuSet.Lock.Unlock()
+
+	s.releaseCpuNumaPin(s.Desc.CpuNumaPin)
+	s.Desc.CpuNumaPin = nil
+
+	if isMigrate {
+		if err := s.reallocateMigrateNumaNodes(); err != nil {
+			return errors.Wrap(err, "reallocateMigrateNumaNodes")
+		}
+	} else {
+		if err := s.allocGuestNumaCpuset(); err != nil {
+			return errors.Wrap(err, "allocGuestNumaCpuset")
+		}
+		if err := s.initMemDesc(s.Desc.Mem); err != nil {
+			return errors.Wrap(err, "fixNumaAllocate")
+		}
+	}
+
+	return s.SaveLiveDesc(s.Desc)
+}
+
+func (s *SKVMGuestInstance) reallocateMigrateNumaNodes() error {
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(s.Desc.Cpu), s.Desc.Mem*1024, len(s.Desc.MemDesc.Mem.Mems)+1)
+	if err != nil {
+		return errors.Wrap(err, "AllocCpusetWithNodeCount")
+	}
+	var cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
+	if len(nodeNumaCpus) > 0 {
+		for nodeId, numaCpus := range nodeNumaCpus {
+			unodeId := uint16(nodeId)
+			pcpus := cpuset.NewCPUSet(numaCpus.Cpuset...).String()
+			memPin := &desc.SCpuNumaPin{
+				SizeMB:    numaCpus.MemSizeKB / 1024, // MB
+				HostNodes: &unodeId,
+				Pcpus:     &pcpus,
+				Regular:   numaCpus.Regular,
+			}
+			cpuNumaPin = append(cpuNumaPin, memPin)
+		}
+	}
+
+	if len(cpuNumaPin) > 0 {
+		s.Desc.CpuNumaPin = cpuNumaPin
+		s.Desc.MemDesc.Mem.SMemDesc.SetHostNodes(int(*cpuNumaPin[0].HostNodes))
+		for i := range s.Desc.MemDesc.Mem.Mems {
+			s.Desc.MemDesc.Mem.Mems[i].SetHostNodes(int(*cpuNumaPin[i+1].HostNodes))
+		}
+	} else {
+		s.Desc.MemDesc.Mem.SMemDesc.SetHostNodes(-1)
+		for i := range s.Desc.MemDesc.Mem.Mems {
+			s.Desc.MemDesc.Mem.Mems[i].SetHostNodes(-1)
+		}
+	}
+
+	return nil
+}
+
+func (s *SKVMGuestInstance) validateNumaAllocated(keywords string, isMigrate, isHotPlug bool, vcpuOrder []string) error {
+	if len(s.Desc.CpuNumaPin) > 0 {
+		if isMigrate {
+			for i := range s.Desc.CpuNumaPin {
+				s.Desc.CpuNumaPin[i].Vcpus = &vcpuOrder[i]
+			}
+			return s.SaveLiveDesc(s.Desc)
+		}
+		if !isHotPlug {
+			return s.SaveLiveDesc(s.Desc)
+		}
+	}
+
+	guestPid := s.GetPid()
+	if guestPid <= 0 {
+		return errors.Errorf("guest not running? pid %d", guestPid)
+	}
+	numaMapPath := fmt.Sprintf("/proc/%d/numa_maps", guestPid)
+	for {
+		if !fileutils2.Exists(numaMapPath) {
+			return errors.Errorf("guest not running? pid %d", guestPid)
+		}
+		// wait hugepage mem allocate
+		if s.Monitor != nil && s.Monitor.IsConnected() {
+			break
+		}
+		time.Sleep(time.Millisecond * 300)
+	}
+
+	content, err := fileutils2.FileGetContents(numaMapPath)
+	if err != nil {
+		return errors.Wrap(err, "read numa_maps")
+	}
+
+	readNodeAllocateMap := map[int]int{}
+	numaNodeRegex := regexp.MustCompile(`^N[0-9]+=[0-9]+$`)
+	for _, line := range strings.Split(content, "\n") {
+		if idx := strings.Index(line, "hugepages"); idx < 0 {
+			continue
+		}
+		if idx := strings.Index(line, keywords); idx < 0 {
+			continue
+		}
+
+		// ... huge dirty=15 N0=3 N1=5 N2=5 N3=2 kernelpagesize_kB=1048576
+		segs := strings.Split(line, " ")
+		for _, seg := range segs {
+			if !numaNodeRegex.MatchString(seg) {
+				continue
+			}
+			log.Infof("hugepages segs %v", seg)
+			nodeAllocate := strings.Split(seg[1:], "=")
+			if len(nodeAllocate) != 2 {
+				continue
+			}
+			node, _ := strconv.Atoi(nodeAllocate[0])
+			size, _ := strconv.Atoi(nodeAllocate[1])
+			if _, ok := readNodeAllocateMap[node]; !ok {
+				readNodeAllocateMap[node] = 0
+			}
+			readNodeAllocateMap[node] += size * 1024
+		}
+	}
+	log.Infof("read node allocate map %v", readNodeAllocateMap)
+
+	s.manager.cpuSet.Lock.Lock()
+	defer s.manager.cpuSet.Lock.Unlock()
+	nodeNumaCpus := s.manager.cpuSet.setNumaNodes(readNodeAllocateMap, s.Desc.Cpu)
+
+	var cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
+	for nodeId, numaCpus := range nodeNumaCpus {
+		unodeId := uint16(nodeId)
+		pcpus := cpuset.NewCPUSet(numaCpus.Cpuset...).String()
+		memPin := &desc.SCpuNumaPin{
+			SizeMB:    numaCpus.MemSizeKB / 1024, // MB
+			HostNodes: &unodeId,
+			Pcpus:     &pcpus,
+			Regular:   numaCpus.Regular,
+		}
+		cpuNumaPin = append(cpuNumaPin, memPin)
+	}
+
+	if len(s.Desc.CpuNumaPin) > 0 { // hotplug mems
+		s.Desc.CpuNumaPin = append(s.Desc.CpuNumaPin, cpuNumaPin...)
+		return s.SaveLiveDesc(s.Desc)
+	}
+
+	if len(vcpuOrder) > 0 {
+		for i := range cpuNumaPin {
+			cpuNumaPin[i].Vcpus = &vcpuOrder[i]
+		}
+	}
+
+	s.Desc.CpuNumaPin = cpuNumaPin
+	return s.SaveLiveDesc(s.Desc)
+}
+
 func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc) error {
 	srcDesc.SGuestProjectDesc = s.SourceDesc.SGuestProjectDesc
 	srcDesc.SGuestRegionDesc = s.SourceDesc.SGuestRegionDesc
@@ -204,8 +385,58 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		srcDesc.Nics[i].DownscriptPath = s.getNicDownScriptPath(srcDesc.Nics[i])
 	}
 
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(srcDesc.Cpu), srcDesc.Mem*1024, len(srcDesc.MemDesc.Mem.Mems)+1)
+	if err != nil {
+		return errors.Wrap(err, "AllocCpusetWithNodeCount")
+	}
+
+	var cpus = make([]int, 0)
+	var cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
+	for nodeId, numaCpus := range nodeNumaCpus {
+		if s.manager.numaAllocate {
+			unodeId := uint16(nodeId)
+			pcpus := cpuset.NewCPUSet(numaCpus.Cpuset...).String()
+			memPin := &desc.SCpuNumaPin{
+				SizeMB:    numaCpus.MemSizeKB / 1024, // MB
+				HostNodes: &unodeId,
+				Pcpus:     &pcpus,
+				Regular:   numaCpus.Regular,
+			}
+			cpuNumaPin = append(cpuNumaPin, memPin)
+		}
+		cpus = append(cpus, numaCpus.Cpuset...)
+	}
+
+	if s.manager.numaAllocate {
+		srcDesc.VcpuPin = nil
+		srcDesc.CpuNumaPin = nil
+	} else {
+		srcDesc.VcpuPin = []desc.SCpuPin{
+			{
+				Vcpus: fmt.Sprintf("0-%d", srcDesc.Cpu-1),
+				Pcpus: cpuset.NewCPUSet(cpus...).String(),
+			},
+		}
+		for i := range srcDesc.CpuNumaPin {
+			srcDesc.CpuNumaPin[i].Regular = false
+		}
+	}
+
+	if len(cpuNumaPin) > 0 {
+		srcDesc.MemDesc.Mem.SMemDesc.SetHostNodes(int(*cpuNumaPin[0].HostNodes))
+		for i := range srcDesc.MemDesc.Mem.Mems {
+			srcDesc.MemDesc.Mem.Mems[i].SetHostNodes(int(*cpuNumaPin[i+1].HostNodes))
+		}
+		srcDesc.CpuNumaPin = cpuNumaPin
+	} else {
+		srcDesc.MemDesc.Mem.SMemDesc.SetHostNodes(-1)
+		for i := range srcDesc.MemDesc.Mem.Mems {
+			srcDesc.MemDesc.Mem.Mems[i].SetHostNodes(-1)
+		}
+	}
+
 	s.Desc = srcDesc
-	err := s.loadGuestPciAddresses()
+	err = s.loadGuestPciAddresses()
 	if err != nil {
 		return errors.Wrap(err, "initLiveDescFromSourceGuest")
 	}
@@ -530,11 +761,19 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, errors.Wrap(err, "fuse mount")
 	}
 
-	if jsonutils.QueryBoolean(data, "need_migrate", false) {
+	var vcpuOrder = make([]string, 0)
+	isMigrate := jsonutils.QueryBoolean(data, "need_migrate", false)
+	if isMigrate {
 		var sourceDesc = new(desc.SGuestDesc)
 		err = data.Unmarshal(sourceDesc, "src_desc")
 		if err != nil {
 			return nil, errors.Wrap(err, "unmarshal src desc")
+		}
+		for i := range sourceDesc.CpuNumaPin {
+			if sourceDesc.CpuNumaPin[i].Vcpus != nil {
+				vcpus := *sourceDesc.CpuNumaPin[i].Vcpus
+				vcpuOrder = append(vcpuOrder, vcpus)
+			}
 		}
 		err = s.initLiveDescFromSourceGuest(sourceDesc)
 	} else {
@@ -542,12 +781,12 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	}
 
 	// init live migrate listen port
-	if jsonutils.QueryBoolean(data, "need_migrate", false) || s.Desc.IsSlave {
-		log.Infof("backup guest alloc dest port %v", s.LiveMigrateDestPort)
+	if isMigrate || s.Desc.IsSlave {
 		migratePort := s.manager.GetLiveMigrateFreePort()
 		defer s.manager.unsetPort(migratePort)
 		migratePortInt64 := int64(migratePort)
 		s.LiveMigrateDestPort = &migratePortInt64
+		log.Infof("backup guest alloc dest port %v", s.LiveMigrateDestPort)
 	}
 
 	if err != nil {
@@ -573,6 +812,13 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 			data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
 		}
 
+		if tried > 1 && s.manager.numaAllocate {
+			if err = s.reallocateNumaNodes(isMigrate); err != nil {
+				log.Errorf("failed fix numa allocated mems %s", err)
+				goto finally
+			}
+		}
+
 		err = s.saveScripts(data)
 		if err != nil {
 			goto finally
@@ -591,6 +837,14 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 			log.Errorf("Start VM failed %s: %s", s.GetName(), err)
 			time.Sleep(time.Duration(1<<uint(tried-1)) * time.Second)
 		} else {
+			if s.manager.numaAllocate {
+				if err = s.validateNumaAllocated(s.Desc.Uuid, isMigrate, false, vcpuOrder); err != nil {
+					log.Errorf("VM %s validateNumaAllocated: %s", s.GetName(), err)
+					isStarted = false
+					s.scriptStop()
+					continue
+				}
+			}
 			log.Infof("VM started %s ...", s.GetName())
 		}
 	}
@@ -601,6 +855,8 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		s.syncMeta = s.CleanImportMetadata()
 		return nil, nil
 	}
+	// release guest acquired cpu mems on guest start failed
+	s.releaseGuestCpuset()
 	log.Errorf("Async start server %s failed: %s!!!", s.GetName(), err)
 	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
@@ -1060,7 +1316,7 @@ func (s *SKVMGuestInstance) migrateStartNbdServer(nbdServerPort int) error {
 	var err = make(chan error)
 	onNbdServerStarted := func(res string) {
 		if len(res) > 0 {
-			err <- errors.Errorf("failed enable multifd %s", res)
+			err <- errors.Errorf("failed start nbd server %s", res)
 		} else {
 			err <- nil
 		}
@@ -1322,6 +1578,12 @@ func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 			return
 		}
 
+		err = s.setupGuest()
+		if err != nil {
+			hostutils.TaskFailed(ctx, err.Error())
+			return
+		}
+
 		if s.hasVirtioBlkDriver() {
 			// virtio driver bind iothread, need migrate use driver mirror
 			nbdServerPort := s.manager.GetNBDServerFreePort()
@@ -1435,6 +1697,10 @@ func (s *SKVMGuestInstance) SlaveDisksBlockStream() error {
 }
 
 func (s *SKVMGuestInstance) releaseGuestCpuset() {
+	s.manager.cpuSet.Lock.Lock()
+	defer s.manager.cpuSet.Lock.Unlock()
+	s.releaseCpuNumaPin(s.Desc.CpuNumaPin)
+
 	for _, vcpuPin := range s.Desc.VcpuPin {
 		pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
 		if err != nil {
@@ -1449,6 +1715,7 @@ func (s *SKVMGuestInstance) releaseGuestCpuset() {
 		s.manager.cpuSet.ReleaseCpus(pcpuSet.ToSlice(), vcpuSet.Size())
 	}
 	s.Desc.VcpuPin = nil
+	s.Desc.CpuNumaPin = nil
 	s.SaveLiveDesc(s.Desc)
 }
 
@@ -1460,6 +1727,7 @@ func (s *SKVMGuestInstance) clearCgroup(pid int) {
 	cgrupName := s.GetCgroupName()
 	log.Infof("cgroup destroy %d %s", pid, cgrupName)
 	if pid > 0 && !options.HostOptions.DisableSetCgroup {
+		s.CleanupCpuset()
 		cgrouputils.CgroupDestroy(strconv.Itoa(pid), cgrupName)
 	}
 }
@@ -1843,6 +2111,23 @@ func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
 }
 
 func (s *SKVMGuestInstance) CleanupCpuset() {
+	cgPath := path.Join(cgrouputils.RootTaskPath("cpuset"), s.GetCgroupName())
+	cgName := s.GetCgroupName()
+	cgFiles, err := ioutil.ReadDir(cgPath)
+	if err != nil {
+		log.Warningf("failed read dir %s: %s", cgPath, err)
+	}
+	for _, fi := range cgFiles {
+		if !fi.IsDir() {
+			continue
+		}
+		subCgName := path.Join(cgName, fi.Name())
+		task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), subCgName, 0, "")
+		if !task.RemoveTask() {
+			log.Warningf("remove cpuset cgroup error: %s, pid: %d", s.Id, s.GetPid())
+		}
+	}
+
 	task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), s.GetCgroupName(), 0, "")
 	if !task.RemoveTask() {
 		log.Warningf("remove cpuset cgroup error: %s, pid: %d", s.Id, s.GetPid())
@@ -1969,6 +2254,8 @@ func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
 		}
 		if err = s.StartMonitor(ctx, nil); err == nil {
 			return nil
+		} else {
+			log.Warningf("Guest %s failed start monitor %s", s.GetName(), err)
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
@@ -2401,18 +2688,16 @@ func (s *SKVMGuestInstance) GetCgroupName() string {
 		return ""
 	}
 
-	if val, _ := s.Desc.Metadata["__enable_cgroup_cpuset"]; val == "true" {
-		return fmt.Sprintf("%s/server_%s_%d", hostconsts.HOST_CGROUP, s.Id, s.cgroupPid)
-	}
-
-	return ""
+	return fmt.Sprintf("%s/server_%s_%d", hostconsts.HOST_CGROUP, s.Id, s.cgroupPid)
 }
 
 func (s *SKVMGuestInstance) GuestPrelaunchSetCgroup() {
 	s.cgroupPid = s.GetPid()
 	s.setCgroupIo()
 	s.setCgroupCpu()
-	s.setCgroupCPUSet()
+	if err := s.setCgroupCPUSet(); err != nil {
+		log.Errorf("Guest %s failed set cgroup cpuset: %s", s.GetName(), err)
+	}
 }
 
 func (s *SKVMGuestInstance) setCgroupPid() {
@@ -2447,44 +2732,120 @@ func (s *SKVMGuestInstance) setCgroupCpu() {
 	cgrouputils.CgroupSet(strconv.Itoa(s.cgroupPid), s.GetCgroupName(), int(cpu)*cpuWeight)
 }
 
-func (s *SKVMGuestInstance) setCgroupCPUSet() {
-	var cpus []int
-	if cpuset, ok := s.Desc.Metadata[api.VM_METADATA_CGROUP_CPUSET]; ok {
-		cpusetJson, err := jsonutils.ParseString(cpuset)
-		if err != nil {
-			log.Errorf("failed parse server %s cpuset %s: %s", s.Id, cpuset, err)
-			return
+func (s *SKVMGuestInstance) setCgroupCPUSet() error {
+	if !s.IsRunning() {
+		return nil
+	}
+	cgName := s.GetCgroupName()
+	if cgName == "" {
+		return errors.Errorf("failed get cgroup name")
+	}
+
+	var cpusetStr string
+	if len(s.Desc.CpuNumaPin) == 0 {
+		cpus := []string{}
+		for _, vcpuPin := range s.Desc.VcpuPin {
+			cpus = append(cpus, vcpuPin.Pcpus)
 		}
-		input := new(api.ServerCPUSetInput)
-		err = cpusetJson.Unmarshal(input)
-		if err != nil {
-			log.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
-			return
-		}
-		cpus = input.CPUS
+		cpusetStr = strings.Join(cpus, ",")
 	} else {
-		cpus = s.allocGuestCpuset()
+		for i := range s.Desc.CpuNumaPin {
+			cpusetStr += fmt.Sprintf(",%s", *s.Desc.CpuNumaPin[i].Pcpus)
+		}
 	}
-	if _, err := s.CPUSet(context.Background(), cpus); err != nil {
-		log.Errorf("Do CPUSet error: %v", err)
-		return
+
+	guestPid := strconv.Itoa(s.GetPid())
+	// guest root cpuset group
+	task := cgrouputils.NewCGroupCPUSetTask(guestPid, cgName, 0, cpusetStr)
+	if !task.SetTask() {
+		return errors.Errorf("Cgroup cpuset task failed")
 	}
-	s.Desc.VcpuPin = []desc.CpuPin{
-		{
-			Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
-			Pcpus: cpuset.NewCPUSet(cpus...).String(),
-		},
+
+	vcpuThreads, err := s.getVcpuThreadIdMap(s.GetPid())
+	if err != nil {
+		return err
 	}
-	s.SaveLiveDesc(s.Desc)
+
+	for i := range s.Desc.CpuNumaPin {
+		if !s.Desc.CpuNumaPin[i].Regular || s.Desc.CpuNumaPin[i].Vcpus == nil {
+			continue
+		}
+
+		vcpuSet, _ := cpuset.Parse(*s.Desc.CpuNumaPin[i].Vcpus)
+		pcpuSet := *s.Desc.CpuNumaPin[i].Pcpus
+		for _, vcpuId := range vcpuSet.ToSlice() {
+			vcpuThreadId, ok := vcpuThreads[vcpuId]
+			if !ok {
+				return errors.Errorf("failed get vcpu %d thread id from %v", vcpuId, vcpuThreads)
+			}
+
+			vcpuCgname := path.Join(cgName, vcpuThreadId)
+			taskVcpu := cgrouputils.NewCGroupSubCPUSetTask(guestPid, vcpuCgname, 0, pcpuSet, []string{vcpuThreadId})
+			if !taskVcpu.SetTask() {
+				return errors.Errorf("Vcpu set cgroup cpuset task failed")
+			}
+		}
+	}
+	return nil
 }
 
-func (s *SKVMGuestInstance) allocGuestCpuset() []int {
-	var cpuset = []int{}
-	numaCpus := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu))
-	for _, cpus := range numaCpus {
-		cpuset = append(cpuset, cpus...)
+func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
+	var cpus = make([]int, 0)
+	var cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
+	var perferNumaNode int8 = -1
+	for i := range s.Desc.IsolatedDevices {
+		if s.Desc.IsolatedDevices[i].NumaNode >= 0 {
+			perferNumaNode = s.Desc.IsolatedDevices[i].NumaNode
+			break
+		}
 	}
-	return cpuset
+
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, perferNumaNode)
+	if err != nil {
+		return err
+	}
+	log.Infof("alloc numa cpus %v", nodeNumaCpus)
+	for nodeId, numaCpus := range nodeNumaCpus {
+		if s.manager.numaAllocate {
+			unodeId := uint16(nodeId)
+			pcpus := cpuset.NewCPUSet(numaCpus.Cpuset...).String()
+			memPin := &desc.SCpuNumaPin{
+				SizeMB:    numaCpus.MemSizeKB / 1024, // MB
+				HostNodes: &unodeId,
+				Pcpus:     &pcpus,
+				Regular:   numaCpus.Regular,
+			}
+			cpuNumaPin = append(cpuNumaPin, memPin)
+		}
+
+		cpus = append(cpus, numaCpus.Cpuset...)
+	}
+	if len(cpuNumaPin) > 0 {
+		s.Desc.CpuNumaPin = cpuNumaPin
+	} else if !s.manager.numaAllocate {
+		if scpuset, ok := s.Desc.Metadata[api.VM_METADATA_CGROUP_CPUSET]; ok {
+			cpusetJson, err := jsonutils.ParseString(scpuset)
+			if err != nil {
+				log.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+				return errors.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+			}
+			input := new(api.ServerCPUSetInput)
+			err = cpusetJson.Unmarshal(input)
+			if err != nil {
+				log.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+				return errors.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+			}
+			cpus = input.CPUS
+		}
+
+		s.Desc.VcpuPin = []desc.SCpuPin{
+			{
+				Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
+				Pcpus: cpuset.NewCPUSet(cpus...).String(),
+			},
+		}
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) CreateFromDesc(desc *desc.SGuestDesc) error {
@@ -2639,8 +3000,50 @@ func (s *SKVMGuestInstance) doBlockIoThrottle() {
 	}
 }
 
+func (s *SKVMGuestInstance) startHotPlugVcpus(vcpuSet []int) error {
+	var c = make(chan error)
+
+	for i := range vcpuSet {
+		if vcpuSet[i] == 0 {
+			// skip vcpu 0, added on qemu cmdline -smp 1
+			continue
+		}
+
+		s.Monitor.AddCpu(vcpuSet[i], func(res string) {
+			var e error = nil
+			if len(res) > 0 {
+				e = errors.Errorf("failed add cpu %d: %s", vcpuSet[i], res)
+			}
+			c <- e
+		})
+		if err, _ := <-c; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) hotPlugCpus() error {
+	var vcpuSet = make([]int, 0)
+	if len(s.Desc.MemDesc.Mem.Mems) > 0 {
+		for i := range s.Desc.CpuNumaPin {
+			vcpus, err := cpuset.Parse(*s.Desc.CpuNumaPin[i].Vcpus)
+			if err != nil {
+				return errors.Wrap(err, "parse vcpus")
+			}
+			vcpuSet = append(vcpuSet, vcpus.ToSlice()...)
+		}
+	}
+	return s.startHotPlugVcpus(vcpuSet)
+}
+
 func (s *SKVMGuestInstance) onGuestPrelaunch() error {
-	s.LiveMigrateDestPort = nil
+	if s.LiveMigrateDestPort == nil && !s.Desc.IsSlave {
+		if err := s.setupGuest(); err != nil {
+			return err
+		}
+	}
+
 	if !s.Desc.IsSlave {
 		if options.HostOptions.SetVncPassword {
 			s.SetVncPassword()
@@ -2651,10 +3054,18 @@ func (s *SKVMGuestInstance) onGuestPrelaunch() error {
 			}
 		}
 		s.OnResumeSyncMetadataInfo()
-		s.GuestPrelaunchSetCgroup()
-		s.optimizeOom()
 		s.doBlockIoThrottle()
 	}
+	s.LiveMigrateDestPort = nil
+	return nil
+}
+
+func (s *SKVMGuestInstance) setupGuest() error {
+	if err := s.hotPlugCpus(); err != nil {
+		return err
+	}
+	s.GuestPrelaunchSetCgroup()
+	s.optimizeOom()
 	return nil
 }
 
@@ -3133,6 +3544,42 @@ func (s *SKVMGuestInstance) CPUSet(ctx context.Context, input []int) (*api.Serve
 		return nil, errors.Errorf("Cgroup cpuset task failed")
 	}
 	return new(api.ServerCPUSetResp), nil
+}
+
+func (s *SKVMGuestInstance) getVcpuThreadIdMap(guestPid int) (map[int]string, error) {
+	tasksDir := fmt.Sprintf("/proc/%d/task", guestPid)
+	taskFiles, err := ioutil.ReadDir(tasksDir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "read dir %s", tasksDir)
+	}
+
+	var vcpuThreads = map[int]string{}
+	for i := range taskFiles {
+		if !taskFiles[i].IsDir() {
+			log.Warningf("task %s/%s is not dir?", tasksDir, taskFiles[i].Name())
+			continue
+		}
+		_, err := strconv.Atoi(taskFiles[i].Name())
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed parse thread id %s", taskFiles[i].Name())
+		}
+
+		// vcpu thread comm eg: CPU 0/KVM
+		taskComm := path.Join(tasksDir, taskFiles[i].Name(), "comm")
+		if cmd, err := fileutils2.FileGetContents(taskComm); err != nil {
+			return nil, errors.Wrapf(err, "failed get task %s command", taskComm)
+		} else {
+			cmd = strings.TrimSpace(cmd)
+			if strings.HasPrefix(cmd, "CPU ") && strings.HasSuffix(cmd, "/KVM") {
+				vcpuId, err := strconv.Atoi(cmd[4 : len(cmd)-4])
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed parse %s to int", cmd)
+				}
+				vcpuThreads[vcpuId] = taskFiles[i].Name()
+			}
+		}
+	}
+	return vcpuThreads, nil
 }
 
 func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {

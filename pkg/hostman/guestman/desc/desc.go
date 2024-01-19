@@ -37,14 +37,9 @@ type SGuestCpu struct {
 	// CpuCacheMode string
 }
 
-type CpuPin struct {
+type SCpuPin struct {
 	Vcpus string
 	Pcpus string
-}
-
-type SMemObject struct {
-	*Object
-	SizeMB int64
 }
 
 type SMemDevice struct {
@@ -55,8 +50,30 @@ type SMemDevice struct {
 type SMemSlot struct {
 	SizeMB int64
 
-	MemObj *Object
+	MemObj *SMemDesc
 	MemDev *SMemDevice
+}
+
+type SCpuNumaPin struct {
+	SizeMB    int64
+	Regular   bool
+	HostNodes *uint16 `json:",omitempty"`
+	Vcpus     *string `json:",omitempty"`
+	Pcpus     *string `json:",omitempty"`
+}
+
+type SMemDesc struct {
+	*Object
+
+	NodeId *uint16 `json:",omitempty"`
+	// vcpus
+	Cpus *string `json:",omitempty"`
+}
+
+type SMemsDesc struct {
+	SMemDesc
+
+	Mems []SMemDesc `json:",omitempty"`
 }
 
 type SGuestMem struct {
@@ -64,19 +81,22 @@ type SGuestMem struct {
 	MaxMem uint
 
 	SizeMB int64
-	Mem    *Object `json:",omitempty"`
 
+	Mem *SMemsDesc `json:",omitempty"`
+
+	// hotplug mem devices
 	MemSlots []*SMemSlot `json:",omitempty"`
 }
 
 type SGuestHardwareDesc struct {
 	Cpu     int64
 	CpuDesc *SGuestCpu `json:",omitempty"`
-	VcpuPin []CpuPin   `json:",omitempty"`
+	VcpuPin []SCpuPin  `json:",omitempty"`
 	// Clock   *SGuestClock `json:",omitempty"`
 
-	Mem     int64
-	MemDesc *SGuestMem `json:",omitempty"`
+	Mem        int64
+	MemDesc    *SGuestMem     `json:",omitempty"`
+	CpuNumaPin []*SCpuNumaPin `json:",omitempty"`
 
 	Bios      string
 	BootOrder string

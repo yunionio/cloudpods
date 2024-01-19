@@ -45,6 +45,7 @@ import (
 	fwdpb "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -101,11 +102,12 @@ type SGuestManager struct {
 	qemuMachineCpuMax map[string]uint
 	qemuMaxMem        int
 
-	cpuSet     *CpuSetCounter
-	pythonPath string
+	numaAllocate bool
+	cpuSet       *CpuSetCounter
+	pythonPath   string
 }
 
-func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
+func NewGuestManager(host hostutils.IHost, serversPath string) (*SGuestManager, error) {
 	manager := &SGuestManager{}
 	manager.host = host
 	manager.ServersPath = serversPath
@@ -116,15 +118,16 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.ServersLock = &sync.Mutex{}
 	manager.TrafficLock = &sync.Mutex{}
 	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
-	manager.cpuSet = NewGuestCpuSetCounter(host.GetHostTopology(), host.GetReservedCpusInfo())
+
 	// manager.StartCpusetBalancer()
-	manager.LoadExistingGuests()
-	manager.host.StartDHCPServer()
 	manager.dirtyServersChan = make(chan struct{})
 	manager.dirtyServers = make([]*SKVMGuestInstance, 0)
 	manager.qemuMachineCpuMax = make(map[string]uint, 0)
-	procutils.NewCommand("mkdir", "-p", manager.QemuLogDir()).Run()
-	return manager
+	err := procutils.NewCommand("mkdir", "-p", manager.QemuLogDir()).Run()
+	if err != nil {
+		return nil, errors.Wrap(err, "mkdir qemu log dir")
+	}
+	return manager, nil
 }
 
 func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMaxCpus uint) {
@@ -232,7 +235,18 @@ func (m *SGuestManager) CleanServer(sid string) {
 	m.Servers.Delete(sid)
 }
 
-func (m *SGuestManager) Bootstrap() chan struct{} {
+func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
+	hostTypo := m.host.GetHostTopology()
+	m.numaAllocate = m.host.IsNumaAllocateEnabled() && m.host.IsHugepagesEnabled() && (len(hostTypo.Nodes) > 1)
+	cpuSet, err := NewGuestCpuSetCounter(
+		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.HugepageSizeKb())
+	if err != nil {
+		return nil, err
+	}
+	m.cpuSet = cpuSet
+	m.LoadExistingGuests()
+	m.host.StartDHCPServer()
+
 	if m.isLoaded || len(m.ServersPath) == 0 {
 		log.Errorln("Guestman bootstrap has been called!!!!!")
 	} else {
@@ -244,7 +258,7 @@ func (m *SGuestManager) Bootstrap() chan struct{} {
 			m.OnLoadExistingGuestsComplete()
 		}
 	}
-	return m.dirtyServersChan
+	return m.dirtyServersChan, nil
 }
 
 func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
@@ -424,6 +438,8 @@ func (m *SGuestManager) LoadServer(sid string) {
 
 func (m *SGuestManager) loadGuestCpuset(guest *SKVMGuestInstance) {
 	if guest.GetPid() > 0 {
+		m.cpuSet.Lock.Lock()
+		defer m.cpuSet.Lock.Unlock()
 		for _, vcpuPin := range guest.Desc.VcpuPin {
 			pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
 			if err != nil {
@@ -436,6 +452,28 @@ func (m *SGuestManager) loadGuestCpuset(guest *SKVMGuestInstance) {
 				continue
 			}
 			m.cpuSet.LoadCpus(pcpuSet.ToSlice(), vcpuSet.Size())
+		}
+		for _, numaCpuset := range guest.Desc.CpuNumaPin {
+			pcpuSet, err := cpuset.Parse(*numaCpuset.Pcpus)
+			if err != nil {
+				log.Errorf("failed parse %s pcpus: %s", guest.GetName(), *numaCpuset.Pcpus)
+				continue
+			}
+			vcpuCount := int(guest.Desc.Cpu)
+			if numaCpuset.Vcpus != nil {
+				vcpuSet, err := cpuset.Parse(*numaCpuset.Vcpus)
+				if err != nil {
+					log.Errorf("failed parse %s vcpus: %s", guest.GetName(), *numaCpuset.Vcpus)
+					continue
+				}
+				vcpuCount = vcpuSet.Size()
+			}
+			hostNodes := -1
+			if numaCpuset.HostNodes != nil {
+				hostNodes = int(*numaCpuset.HostNodes)
+			}
+
+			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, hostNodes, pcpuSet.ToSlice(), vcpuCount)
 		}
 	}
 }
@@ -1421,7 +1459,7 @@ func (m *SGuestManager) ExitGuestCleanup() {
 		return true
 	})
 	if !options.HostOptions.DisableSetCgroup {
-		cgrouputils.CgroupCleanAll()
+		cgrouputils.CgroupCleanAll(hostconsts.HOST_CGROUP)
 	}
 }
 
@@ -1646,12 +1684,17 @@ func Stop() {
 	guestManager.ExitGuestCleanup()
 }
 
-func Init(host hostutils.IHost, serversPath string) {
+func Init(host hostutils.IHost, serversPath string) error {
 	if guestManager == nil {
-		guestManager = NewGuestManager(host, serversPath)
+		manager, err := NewGuestManager(host, serversPath)
+		if err != nil {
+			return err
+		}
+		guestManager = manager
 		types.HealthCheckReactor = guestManager
 		types.GuestDescGetter = guestManager
 	}
+	return nil
 }
 
 func GetGuestManager() *SGuestManager {
