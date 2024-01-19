@@ -744,6 +744,10 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 华为云删除的实例依然可以查到
+	if ret.Status == "DELETED" {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "aleady deleted")
+	}
 	return ret, nil
 }
 

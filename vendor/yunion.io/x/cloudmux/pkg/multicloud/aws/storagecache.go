@@ -167,14 +167,13 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 	}
 
 	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, string(qemuimgfmt.VMDK), bucketName, image.ImageId)
-
 	if err != nil {
-		log.Errorf("ImportImage error %s %s %s", image.ImageId, bucketName, err)
-		return "", err
+		return "", errors.Wrapf(err, "ImportImage")
 	}
 
 	err = cloudprovider.Wait(2*time.Minute, 4*time.Hour, func() (bool, error) {
 		status := task.GetStatus()
+		log.Debugf("task %s status: %s", task.TaskId, status)
 		if status == ImageImportStatusDeleted {
 			return false, errors.Wrap(errors.ErrInvalidStatus, "SStoragecache.ImageImportStatusDeleted")
 		}
@@ -189,8 +188,6 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 		return "", errors.Wrap(err, "SStoragecache.Wait")
 	}
 
-	// add name tag
-	//self.region.addTags(task.ImageId, "Name", image.ImageId)
 	if callback != nil {
 		callback(100)
 	}
