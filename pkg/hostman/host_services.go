@@ -92,7 +92,10 @@ func (host *SHostService) RunService() {
 	}
 
 	var guestChan chan struct{}
-	guestman.Init(hostInstance, options.HostOptions.ServersPath)
+
+	if err := guestman.Init(hostInstance, options.HostOptions.ServersPath); err != nil {
+		log.Fatalf("guest manager init error: %s", err)
+	}
 	guestman.GetGuestManager().InitQemuMaxCpus(
 		hostInstance.GetQemuMachineInfoList(), hostInstance.GetKVMMaxCpus(),
 	)
@@ -103,7 +106,11 @@ func (host *SHostService) RunService() {
 
 	hostInstance.StartRegister(2)
 	// <-hostinfo.Instance().IsRegistered // wait host and guest init
-	guestChan = guestman.GetGuestManager().Bootstrap()
+	var err error
+	guestChan, err = guestman.GetGuestManager().Bootstrap()
+	if err != nil {
+		log.Fatalf("Guest manager Bootstrap %s", err)
+	}
 	// hostmetrics after guestmanager bootstrap
 	hostmetrics.Init()
 	hostmetrics.Start()

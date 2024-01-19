@@ -182,8 +182,9 @@ func init() {
 		CpuReserved       int64   `help:"CPU reserved"`
 		HostType          string  `help:"Change host type, CAUTION!!!!" choices:"hypervisor|kubelet|esxi|baremetal"`
 		// AccessIp          string  `help:"Change access ip, CAUTION!!!!"`
-		AccessMac string `help:"Change baremetal access MAC, CAUTION!!!!"`
-		Uuid      string `help:"Change baremetal UUID,  CAUTION!!!!"`
+		AccessMac          string `help:"Change baremetal access MAC, CAUTION!!!!"`
+		Uuid               string `help:"Change baremetal UUID,  CAUTION!!!!"`
+		EnableNumaAllocate string `help:"Host enable numa allocate" choices:"True|False"`
 
 		IpmiUsername string `help:"IPMI user"`
 		IpmiPassword string `help:"IPMI password"`
@@ -233,6 +234,13 @@ func init() {
 		}
 		if len(args.Sn) > 0 {
 			params.Add(jsonutils.NewString(args.Sn), "sn")
+		}
+		if len(args.EnableNumaAllocate) > 0 {
+			enableNumaAllocate := false
+			if args.EnableNumaAllocate == "True" {
+				enableNumaAllocate = true
+			}
+			params.Add(jsonutils.NewBool(enableNumaAllocate), "enable_numa_allocate")
 		}
 		if params.Size() == 0 {
 			return fmt.Errorf("Not data to update")

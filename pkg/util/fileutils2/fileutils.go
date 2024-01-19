@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/log"
@@ -218,6 +219,18 @@ func FileGetContents(file string) (string, error) {
 		return "", err
 	}
 	return string(content), nil
+}
+
+func FileGetIntContent(file string) (int, error) {
+	content, err := FileGetContents(file)
+	if err != nil {
+		return -1, errors.Wrap(err, "FileGetContents")
+	}
+	val, err := strconv.Atoi(strings.TrimSpace(content))
+	if err != nil {
+		return -1, errors.Wrapf(err, "convert %s to int", content)
+	}
+	return val, nil
 }
 
 func GetFsFormat(diskPath string) string {
