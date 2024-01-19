@@ -301,6 +301,12 @@ func (acnt *SCloudaccount) ValidateUpdateData(
 			optionsJson = jsonutils.NewDict()
 		}
 		if input.Options != nil {
+			if input.Options.Contains("password") {
+				key, _ := acnt.getPassword()
+				passwd, _ := input.Options.GetString("password")
+				passwd, _ = utils.EncryptAESBase64(key, passwd)
+				input.Options.Set("password", jsonutils.NewString(passwd))
+			}
 			optionsJson.Update(input.Options)
 		}
 		input.Options = optionsJson
@@ -489,6 +495,15 @@ func (manager *SCloudaccountManager) validateCreateData(
 	if err != nil {
 		return input, err
 	}
+
+	if input.Options.Contains("password") {
+		passwd, _ := input.Options.GetString("password")
+		passwd, _ = utils.EncryptAESBase64(input.Secret, passwd)
+		if len(passwd) > 0 {
+			input.Options.Set("password", jsonutils.NewString(passwd))
+		}
+	}
+
 	if input.SAMLAuth != nil && *input.SAMLAuth && !providerDriver.IsSupportSAMLAuth() {
 		return input, httperrors.NewNotSupportedError("%s not support saml auth", input.Provider)
 	}
