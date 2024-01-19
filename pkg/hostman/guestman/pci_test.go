@@ -151,7 +151,8 @@ func TestSKVMGuestInstance_initGuestDesc(t *testing.T) {
 	// s.initMemDesc()
 	s.Desc.MemDesc = new(desc.SGuestMem)
 	s.Desc.MemDesc.SizeMB = s.Desc.Mem
-	s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-memfd", "mem")
+	memDesc := desc.NewMemDesc("memory-backend-memfd", "mem", nil, nil)
+	s.Desc.MemDesc.Mem = desc.NewMemsDesc(*memDesc, nil)
 	s.Desc.MemDesc.Mem.Options = map[string]string{
 		"size":  fmt.Sprintf("%dM", s.Desc.Mem),
 		"share": "on", "prealloc": "on",

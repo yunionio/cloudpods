@@ -144,6 +144,8 @@ type SIsolatedDevice struct {
 
 	// PciInfo stores extra PCIE information
 	PcieInfo *api.IsolatedDevicePCIEInfo `nullable:"true" create:"optional" list:"user" get:"user" update:"domain"`
+	// device numa node
+	NumaNode int8 `nullable:"true" default:"-1" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SIsolatedDeviceManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {
@@ -805,6 +807,7 @@ func (self *SIsolatedDevice) getDesc() *api.IsolatedDeviceJsonDesc {
 		DiskIndex:           self.DiskIndex,
 		NvmeSizeMB:          self.NvmeSizeMB,
 		MdevId:              self.MdevId,
+		NumaNode:            self.NumaNode,
 	}
 }
 
