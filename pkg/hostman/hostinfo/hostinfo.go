@@ -92,9 +92,10 @@ type SHostInfo struct {
 
 	kubeletConfig kubelet.KubeletConfig
 
-	isInit           bool
-	onHostDown       string
-	reservedCpusInfo *api.HostReserveCpusInput
+	isInit             bool
+	onHostDown         string
+	reservedCpusInfo   *api.HostReserveCpusInput
+	enableNumaAllocate bool
 
 	IsolatedDeviceMan isolated_device.IsolatedDeviceManager
 
@@ -1157,6 +1158,12 @@ func (h *SHostInfo) initHostRecord() error {
 	err = h.parseReservedCpusInfo(hostbody)
 	if err != nil {
 		return errors.Wrap(err, "parse reserved cpus info")
+	}
+
+	// enable numa allocate
+	if jsonutils.QueryBoolean(hostbody, "enable_numa_allocate", false) {
+		h.enableNumaAllocate = true
+		log.Infof("host enabled numa allocate")
 	}
 
 	// set host reserved memory
@@ -2309,6 +2316,10 @@ func (h *SHostInfo) GetReservedCpusInfo() *cpuset.CPUSet {
 	}
 	cpus, _ := cpuset.Parse(h.reservedCpusInfo.Cpus)
 	return &cpus
+}
+
+func (h *SHostInfo) IsNumaAllocateEnabled() bool {
+	return h.enableNumaAllocate
 }
 
 func (h *SHostInfo) AppendHostError(content string) {
