@@ -36,45 +36,49 @@ func init() {
 	taskman.RegisterTask(DiskBackupDeleteTask{})
 }
 
-func (self *DiskBackupDeleteTask) taskFailed(ctx context.Context, backup *models.SDiskBackup, reason jsonutils.JSONObject) {
+func (tsk *DiskBackupDeleteTask) taskFailed(ctx context.Context, backup *models.SDiskBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_DELETE_FAILED, reasonStr)
-	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_DELETE, reason, self.UserCred, false)
-	self.SetStageFailed(ctx, reason)
+	backup.SetStatus(tsk.UserCred, api.BACKUP_STATUS_DELETE_FAILED, reasonStr)
+	logclient.AddActionLogWithStartable(tsk, backup, logclient.ACT_DELETE, reason, tsk.UserCred, false)
+	tsk.SetStageFailed(ctx, reason)
 }
 
-func (self *DiskBackupDeleteTask) taskSuccess(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
-	backup.RealDelete(ctx, self.UserCred)
-	self.SetStageComplete(ctx, nil)
+func (tsk *DiskBackupDeleteTask) taskSuccess(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
+	backup.RealDelete(ctx, tsk.UserCred)
+	logclient.AddActionLogWithStartable(tsk, backup, logclient.ACT_DELETE, backup.GetShortDesc(ctx), tsk.UserCred, true)
+	tsk.SetStageComplete(ctx, nil)
 }
 
-func (self *DiskBackupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (tsk *DiskBackupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	backup := obj.(*models.SDiskBackup)
-	self.SetStage("OnDelete", nil)
 	rd, err := backup.GetRegionDriver()
 	if err != nil {
-		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
+		tsk.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
 		return
 	}
-	if err := rd.RequestDeleteBackup(ctx, backup, self); err != nil {
-		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
+	tsk.SetStage("OnDeleteComplete", nil)
+	if err := rd.RequestDeleteBackup(ctx, backup, tsk); err != nil {
+		tsk.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
+		return
 	}
 }
 
-func (self *DiskBackupDeleteTask) OnDelete(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
-	self.taskSuccess(ctx, backup, nil)
+func (tsk *DiskBackupDeleteTask) OnDeleteComplete(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
+	tsk.taskSuccess(ctx, backup, nil)
 }
 
-func (self *DiskBackupDeleteTask) OnDeleteFailed(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
-	log.Infof("params: %s", self.Params)
+func (tsk *DiskBackupDeleteTask) OnDeleteCompleteFailed(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
+	log.Infof("params: %s", tsk.Params)
 	log.Infof("OnDeleteFailed data: %s", data)
-	if forceDelete := jsonutils.QueryBoolean(self.Params, "force_delete", false); !forceDelete {
-		self.taskFailed(ctx, backup, data)
+	if forceDelete := jsonutils.QueryBoolean(tsk.Params, "force_delete", false); !forceDelete {
+		tsk.taskFailed(ctx, backup, data)
+		return
 	}
 	reason, _ := data.GetString("__reason__")
 	if !strings.Contains(reason, api.BackupStorageOffline) {
-		self.taskFailed(ctx, backup, data)
+		tsk.taskFailed(ctx, backup, data)
+		return
 	}
 	log.Infof("delete backup %s failed, force delete", backup.GetId())
-	self.taskSuccess(ctx, backup, nil)
+	tsk.taskSuccess(ctx, backup, nil)
 }
