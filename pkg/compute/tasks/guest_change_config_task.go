@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -40,15 +41,28 @@ func init() {
 	taskman.RegisterTask(GuestChangeConfigTask{})
 }
 
+func (task *GuestChangeConfigTask) getChangeConfigSetting() (*api.ServerChangeConfigSettings, error) {
+	confs := &api.ServerChangeConfigSettings{}
+	err := task.Params.Unmarshal(confs)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal ServerChangeConfigSettings")
+	}
+	return confs, nil
+}
+
 func (task *GuestChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	StartScheduleObjects(ctx, task, nil)
 }
 
 func (task *GuestChangeConfigTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
-	schedInput := new(schedapi.ScheduleInput)
-	err := task.Params.Unmarshal(schedInput, "sched_desc")
+	confs, err := task.getChangeConfigSetting()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getChangeConfigSetting")
+	}
+	schedInput := new(schedapi.ScheduleInput)
+	err = confs.SchedDesc.Unmarshal(schedInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal sched_desc")
 	}
 	return schedInput, nil
 }
@@ -71,7 +85,12 @@ func (task *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj I
 	// must get object from task, because of obj is nil
 	guest := task.GetObject().(*models.SGuest)
 	task.Params.Set("sched_session_id", jsonutils.NewString(target.SessionId))
-	if task.Params.Contains("create") {
+	/*confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	if len(confs.Create) > 0 {
 		disks := make([]*api.DiskConfig, 0)
 		err := task.Params.Unmarshal(&disks, "create")
 		if err != nil {
@@ -91,7 +110,7 @@ func (task *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj I
 			disks[i].Storage = target.Disks[resizeDisksCount+i].StorageIds[0]
 		}
 		task.Params.Set("create", jsonutils.Marshal(disks))
-	}
+	}*/
 
 	task.SetStage("StartResizeDisks", nil)
 
@@ -99,8 +118,12 @@ func (task *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj I
 }
 
 func (task *GuestChangeConfigTask) StartResizeDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	_, err := task.Params.Get("resize")
-	if err == nil {
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	if len(confs.Resize) > 0 {
 		task.SetStage("OnDisksResizeComplete", nil)
 		task.OnDisksResizeComplete(ctx, guest, data)
 	} else {
@@ -111,53 +134,31 @@ func (task *GuestChangeConfigTask) StartResizeDisks(ctx context.Context, guest *
 func (task *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	iResizeDisks, err := task.Params.Get("resize")
-	if iResizeDisks == nil || err != nil {
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	resizeDisks := iResizeDisks.(*jsonutils.JSONArray)
-	for i := 0; i < resizeDisks.Length(); i++ {
-		iResizeSet, err := resizeDisks.GetAt(i)
+
+	for i := 0; i < len(confs.Resize); i++ {
+		diskId := confs.Resize[i].DiskId
+		diskSizeMb := confs.Resize[i].SizeMb
+
+		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
-			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeDisks.GetAt fail %s", err)))
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.DiskManager.FetchById(%s) fail %s", diskId, err)))
 			return
 		}
-		resizeSet := iResizeSet.(*jsonutils.JSONArray)
-		diskId, err := resizeSet.GetAt(0)
-		if err != nil {
-			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(0) fail %s", err)))
-			return
-		}
-		idStr, err := diskId.GetString()
-		if err != nil {
-			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("diskId.GetString fail %s", err)))
-			return
-		}
-		jSize, err := resizeSet.GetAt(1)
-		if err != nil {
-			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("resizeSet.GetAt(1) fail %s", err)))
-			return
-		}
-		size, err := jSize.Int()
-		if err != nil {
-			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("jSize.Int fail %s", err)))
-			return
-		}
-		iDisk, err := models.DiskManager.FetchById(idStr)
-		if err != nil {
-			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.DiskManager.FetchById(idStr) fail %s", err)))
-			return
-		}
+
 		disk := iDisk.(*models.SDisk)
-		if disk.DiskSize < int(size) {
+		if disk.DiskSize < diskSizeMb {
 			var pendingUsage models.SQuota
 			err = task.GetPendingUsage(&pendingUsage, 0)
 			if err != nil {
 				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("task.GetPendingUsage(&pendingUsage) fail %s", err)))
 				return
 			}
-			err = guest.StartGuestDiskResizeTask(ctx, task.UserCred, disk.Id, size, task.GetTaskId(), &pendingUsage)
+			err = guest.StartGuestDiskResizeTask(ctx, task.UserCred, disk.Id, int64(diskSizeMb), task.GetTaskId(), &pendingUsage)
 			if err != nil {
 				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest.StartGuestDiskResizeTask fail %s", err)))
 				return
@@ -170,12 +171,13 @@ func (task *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 }
 
 func (task *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest *models.SGuest) {
-	disks := make([]*api.DiskConfig, 0)
-	err := task.Params.Unmarshal(&disks, "create")
-	if err != nil || len(disks) == 0 {
-		task.OnCreateDisksComplete(ctx, guest, nil)
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
+
+	disks := confs.Create
 	host, _ := guest.GetHost()
 	err = guest.CreateDisksOnHost(ctx, task.UserCred, host, disks, nil, false, false, nil, nil, false)
 	if err != nil {
@@ -194,37 +196,22 @@ func (task *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Conte
 func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	if task.Params.Contains("instance_type") || task.Params.Contains("vcpu_count") || task.Params.Contains("vmem_size") || task.Params.Contains("cpu_sockets") {
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	if confs.CpuChanged() || confs.MemChanged() {
 		task.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
-		instanceType, _ := task.Params.GetString("instance_type")
-		vcpuCount, _ := task.Params.Int("vcpu_count")
-		vmemSize, _ := task.Params.Int("vmem_size")
-		cpuSockets, _ := task.Params.Int("cpu_sockets")
-		if len(instanceType) > 0 {
-			provider := guest.GetDriver().GetProvider()
-			sku, err := models.ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider, false)
-			if err != nil {
-				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("models.ServerSkuManager.FetchSkuByNameAndProvider error %s", err)))
-				return
-			}
-			vcpuCount = int64(sku.CpuCoreCount)
-			vmemSize = int64(sku.MemorySizeMB)
-		} else {
-			if vcpuCount == 0 {
-				vcpuCount = int64(guest.VcpuCount)
-			}
-			if vmemSize == 0 {
-				vmemSize = int64(guest.VmemSize)
-			}
-		}
-		task.startGuestChangeCpuMemSpec(ctx, guest, instanceType, vcpuCount, cpuSockets, vmemSize)
+		task.startGuestChangeCpuMemSpec(ctx, guest, confs.InstanceType, confs.VcpuCount, confs.CpuSockets, confs.VmemSize)
 	} else {
 		task.OnGuestChangeCpuMemSpecComplete(ctx, obj, data)
 	}
 }
 
-func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount, cpuSockets int64, vmemSize int64) {
-	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, task, instanceType, vcpuCount, cpuSockets, vmemSize)
+func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount, cpuSockets int, vmemSize int) {
+	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, task, instanceType, int64(vcpuCount), int64(cpuSockets), int64(vmemSize))
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
@@ -234,33 +221,31 @@ func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Contex
 func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	instanceType, _ := task.Params.GetString("instance_type")
-	vcpuCount, _ := task.Params.Int("vcpu_count")
-	cpuSockets, _ := task.Params.Int("cpu_sockets")
-	vmemSize, _ := task.Params.Int("vmem_size")
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
 
-	if len(instanceType) == 0 {
-		skus, err := models.ServerSkuManager.GetSkus(api.CLOUD_PROVIDER_ONECLOUD, int(vcpuCount), int(vmemSize))
+	if len(confs.InstanceType) == 0 {
+		skus, err := models.ServerSkuManager.GetSkus(api.CLOUD_PROVIDER_ONECLOUD, confs.VcpuCount, confs.VmemSize)
 		if err == nil && len(skus) > 0 {
-			instanceType = skus[0].GetName()
+			confs.InstanceType = skus[0].GetName()
 		}
 	}
 
-	addCpu := int(vcpuCount - int64(guest.VcpuCount))
-	addMem := int(vmemSize - int64(guest.VmemSize))
-
-	_, err := db.Update(guest, func() error {
-		if vcpuCount > 0 {
-			guest.VcpuCount = int(vcpuCount)
+	_, err = db.Update(guest, func() error {
+		if confs.VcpuCount > 0 {
+			guest.VcpuCount = confs.VcpuCount
 		}
-		if cpuSockets > 0 {
-			guest.CpuSockets = int(cpuSockets)
+		if confs.CpuSockets > 0 {
+			guest.CpuSockets = confs.CpuSockets
 		}
-		if vmemSize > 0 {
-			guest.VmemSize = int(vmemSize)
+		if confs.VmemSize > 0 {
+			guest.VmemSize = confs.VmemSize
 		}
-		if len(instanceType) > 0 {
-			guest.InstanceType = instanceType
+		if len(confs.InstanceType) > 0 {
+			guest.InstanceType = confs.InstanceType
 		}
 		return nil
 	})
@@ -269,14 +254,14 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return
 	}
 	changeConfigSpec := guest.GetShortDesc(ctx)
-	if vcpuCount > 0 && addCpu != 0 {
-		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(addCpu)))
+	if confs.VcpuCount > 0 && confs.AddedCpu() > 0 {
+		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(confs.AddedCpu())))
 	}
-	if vmemSize > 0 && addMem != 0 {
-		changeConfigSpec.Set("add_mem", jsonutils.NewInt(int64(addMem)))
+	if confs.VmemSize > 0 && confs.AddedMem() > 0 {
+		changeConfigSpec.Set("add_mem", jsonutils.NewInt(int64(confs.AddedMem())))
 	}
-	if len(instanceType) > 0 {
-		changeConfigSpec.Set("instance_type", jsonutils.NewString(instanceType))
+	if len(confs.InstanceType) > 0 {
+		changeConfigSpec.Set("instance_type", jsonutils.NewString(confs.InstanceType))
 	}
 
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR, changeConfigSpec.String(), task.UserCred)
@@ -289,15 +274,11 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	}
 	var cancelUsage models.SQuota
 	var reduceUsage models.SQuota
-	if addCpu > 0 {
+	if addCpu := confs.AddedCpu(); addCpu > 0 {
 		cancelUsage.Cpu = addCpu
-	} else if addCpu < 0 {
-		reduceUsage.Cpu = -addCpu
 	}
-	if addMem > 0 {
+	if addMem := confs.AddedMem(); addMem > 0 {
 		cancelUsage.Memory = addMem
-	} else if addMem < 0 {
-		reduceUsage.Memory = -addMem
 	}
 
 	keys, err := guest.GetQuotaKeys()
@@ -340,14 +321,22 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx con
 
 func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
 	models.HostManager.ClearSchedDescCache(guest.HostId)
-	if task.Params.Contains("reset_traffic_limits") {
+
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	if len(confs.ResetTrafficLimits) > 0 {
 		host, _ := guest.GetHost()
-		resetTraffics := []api.ServerNicTrafficLimit{}
-		task.Params.Unmarshal(&resetTraffics, "reset_traffic_limits")
+		// resetTraffics := []api.ServerNicTrafficLimit{}
+		// task.Params.Unmarshal(&resetTraffics, "reset_traffic_limits")
 		task.SetStage("OnGuestResetNicTraffics", nil)
-		err := guest.GetDriver().RequestResetNicTrafficLimit(ctx, task, host, guest, resetTraffics)
+		err := guest.GetDriver().RequestResetNicTrafficLimit(ctx, task, host, guest, confs.ResetTrafficLimits)
 		if err != nil {
 			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
 		}
 	} else {
 		task.OnGuestResetNicTraffics(ctx, guest, nil)
@@ -355,9 +344,14 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Con
 }
 
 func (task *GuestChangeConfigTask) OnGuestResetNicTraffics(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if task.Params.Contains("reset_traffic_limits") {
-		resetTraffics := []api.ServerNicTrafficLimit{}
-		task.Params.Unmarshal(&resetTraffics, "reset_traffic_limits")
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	if len(confs.ResetTrafficLimits) > 0 {
+		resetTraffics := confs.ResetTrafficLimits
 		for i := range resetTraffics {
 			input := resetTraffics[i]
 			gn, _ := guest.GetGuestnetworkByMac(input.Mac)
@@ -374,14 +368,14 @@ func (task *GuestChangeConfigTask) OnGuestResetNicTraffics(ctx context.Context, 
 		}
 	}
 
-	if task.Params.Contains("set_traffic_limits") {
+	if len(confs.SetTrafficLimits) > 0 {
 		host, _ := guest.GetHost()
-		setTraffics := []api.ServerNicTrafficLimit{}
-		task.Params.Unmarshal(&setTraffics, "set_traffic_limits")
+		setTraffics := confs.SetTrafficLimits
 		task.SetStage("OnGuestSetNicTraffics", nil)
 		err := guest.GetDriver().RequestSetNicTrafficLimit(ctx, task, host, guest, setTraffics)
 		if err != nil {
 			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
 		}
 	} else {
 		task.OnGuestSetNicTraffics(ctx, guest, nil)
@@ -389,9 +383,14 @@ func (task *GuestChangeConfigTask) OnGuestResetNicTraffics(ctx context.Context, 
 }
 
 func (task *GuestChangeConfigTask) OnGuestSetNicTraffics(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if task.Params.Contains("set_traffic_limits") {
-		setTraffics := []api.ServerNicTrafficLimit{}
-		task.Params.Unmarshal(&setTraffics, "set_traffic_limits")
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	if len(confs.SetTrafficLimits) > 0 {
+		setTraffics := confs.SetTrafficLimits
 		for i := range setTraffics {
 			input := setTraffics[i]
 			gn, _ := guest.GetGuestnetworkByMac(input.Mac)
@@ -404,7 +403,7 @@ func (task *GuestChangeConfigTask) OnGuestSetNicTraffics(ctx context.Context, gu
 	}
 
 	task.SetStage("OnSyncConfigComplete", nil)
-	err := guest.StartSyncTaskWithoutSyncstatus(ctx, task.UserCred, false, task.GetTaskId())
+	err = guest.StartSyncTaskWithoutSyncstatus(ctx, task.UserCred, false, task.GetTaskId())
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
 		return

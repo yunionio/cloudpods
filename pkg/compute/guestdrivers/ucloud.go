@@ -15,15 +15,19 @@
 package guestdrivers
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -114,4 +118,19 @@ func (self *SUCloudGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 func init() {
 	driver := SUCloudGuestDriver{}
 	models.RegisterGuestDriver(&driver)
+}
+
+func (ucloud *SUCloudGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context, guest *models.SGuest, input api.ServerChangeConfigInput) (*api.ServerChangeConfigSettings, error) {
+	confs, err := ucloud.SBaseGuestDriver.ValidateGuestChangeConfigInput(ctx, guest, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SBaseGuestDriver.ValidateGuestChangeConfigInput")
+	}
+
+	if len(input.InstanceType) > 0 {
+		if !strings.HasPrefix(guest.InstanceType, confs.InstanceTypeFamily) {
+			return nil, httperrors.NewInputParameterError("Cannot change config with different instance family")
+		}
+	}
+
+	return confs, nil
 }

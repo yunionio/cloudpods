@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -167,46 +168,51 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	return input, nil
 }
 
-func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {
-	if cpuChanged || memChanged {
+func (qcloud *SQcloudGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context, guest *models.SGuest, input api.ServerChangeConfigInput) (*api.ServerChangeConfigSettings, error) {
+	confs, err := qcloud.SBaseGuestDriver.ValidateGuestChangeConfigInput(ctx, guest, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SBaseGuestDriver.ValidateGuestChangeConfigInput")
+	}
+
+	if confs.CpuChanged() || confs.MemChanged() {
 		disk, err := guest.GetSystemDisk()
 		if err != nil {
-			return httperrors.NewResourceNotFoundError("failed to found system disk error: %v", err)
+			return nil, httperrors.NewResourceNotFoundError("failed to found system disk error: %v", err)
 		}
 		storage, _ := disk.GetStorage()
 		if storage == nil {
-			return httperrors.NewResourceNotFoundError("failed to found storage for disk %s(%s)", disk.Name, disk.Id)
+			return nil, httperrors.NewResourceNotFoundError("failed to found storage for disk %s(%s)", disk.Name, disk.Id)
 		}
 		// 腾讯云系统盘为本地存储，不支持调整配置
 		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO}) {
-			return httperrors.NewUnsupportOperationError("The system disk is locally stored and does not support changing configuration")
+			return nil, httperrors.NewUnsupportOperationError("The system disk is locally stored and does not support changing configuration")
 		}
 	}
 
-	for _, newDisk := range newDisks {
+	for _, newDisk := range confs.Create {
 		switch newDisk.Backend {
 		case api.STORAGE_CLOUD_BASIC:
 			if newDisk.SizeMb < 10*1024 || newDisk.SizeMb > 16000*1024 {
-				return httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 16000GB", newDisk.Backend)
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 16000GB", newDisk.Backend)
 			}
 		case api.STORAGE_CLOUD_PREMIUM:
 			if newDisk.SizeMb < 10*1024 || newDisk.SizeMb > 32000*1024 {
-				return httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 32000GB", newDisk.Backend)
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 32000GB", newDisk.Backend)
 			}
 		case api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_HSSD:
 			if newDisk.SizeMb < 20*1024 || newDisk.SizeMb > 32000*1024 {
-				return httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", newDisk.Backend)
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", newDisk.Backend)
 			}
 		case api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO:
-			return httperrors.NewUnsupportOperationError("Not support create local storage disks")
+			return nil, httperrors.NewUnsupportOperationError("Not support create local storage disks")
 		case "": //这里Backend为空有可能会导致创建出来还是local storage,依然会出错,需要用户显式指定
-			return httperrors.NewInputParameterError("Please input new disk backend type")
+			return nil, httperrors.NewInputParameterError("Please input new disk backend type")
 		}
 		if newDisk.SizeMb/1024%10 > 0 {
-			return httperrors.NewInputParameterError("Data disk size must be an integer multiple of 10G")
+			return nil, httperrors.NewInputParameterError("Data disk size must be an integer multiple of 10G")
 		}
 	}
-	return nil
+	return confs, nil
 }
 
 func (self *SQcloudGuestDriver) ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, disk *models.SDisk) error {

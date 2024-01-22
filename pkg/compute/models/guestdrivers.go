@@ -186,12 +186,14 @@ type IGuestDriver interface {
 	IsSupportPublicIp() bool
 	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error
 
-	NeedStopForChangeSpec(ctx context.Context, guest *SGuest, addCpu int, addMemMb, addSocket int) bool
+	// NeedStopForChangeSpec(ctx context.Context, guest *SGuest, addCpu int, addMemMb int) (bool, int)
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
 	IsSupportGuestClone() bool
 
-	ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error
+	ValidateGuestChangeConfigInput(ctx context.Context, guest *SGuest, input api.ServerChangeConfigInput) (*api.ServerChangeConfigSettings, error)
+	ValidateGuestHotChangeConfigInput(ctx context.Context, guest *SGuest, confs *api.ServerChangeConfigSettings) (*api.ServerChangeConfigSettings, error)
+	// ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error
 	ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, disk *SDisk) error
 
 	IsNeedInjectPasswordByCloudInit() bool
