@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -423,10 +424,6 @@ func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 		return errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
 	}
 	return nil
-}
-
-func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, addCpu int, addMemMb, addSocket int) bool {
-	return guest.GetMetadata(ctx, api.VM_METADATA_HOTPLUG_CPU_MEM, nil) != "enable" || apis.IsARM(guest.OsArch)
 }
 
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
@@ -1215,4 +1212,45 @@ func (self *SKVMGuestDriver) ValidateSyncOSInfo(ctx context.Context, userCred mc
 		return httperrors.NewBadRequestError("can't sync guest os info in status %s", guest.Status)
 	}
 	return nil
+}
+
+func (kvm *SKVMGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context, guest *models.SGuest, input api.ServerChangeConfigInput) (*api.ServerChangeConfigSettings, error) {
+	confs, err := kvm.SBaseGuestDriver.ValidateGuestChangeConfigInput(ctx, guest, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SBaseGuestDriver.ValidateGuestChangeConfigInput")
+	}
+
+	for i := range input.ResetTrafficLimits {
+		input.ResetTrafficLimits[i].Mac = netutils.FormatMacAddr(input.ResetTrafficLimits[i].Mac)
+		_, err := guest.GetGuestnetworkByMac(input.ResetTrafficLimits[i].Mac)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get guest network by ResetTrafficLimits mac %s", input.ResetTrafficLimits[i].Mac)
+		}
+	}
+	if len(input.ResetTrafficLimits) > 0 {
+		confs.ResetTrafficLimits = input.ResetTrafficLimits
+	}
+
+	for i := range input.SetTrafficLimits {
+		input.SetTrafficLimits[i].Mac = netutils.FormatMacAddr(input.SetTrafficLimits[i].Mac)
+		_, err := guest.GetGuestnetworkByMac(input.SetTrafficLimits[i].Mac)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get guest network by SetTrafficLimits mac %s", input.SetTrafficLimits[i].Mac)
+		}
+	}
+	if len(input.SetTrafficLimits) > 0 {
+		confs.SetTrafficLimits = input.SetTrafficLimits
+	}
+
+	return confs, nil
+}
+
+func (kvm *SKVMGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Context, guest *models.SGuest, confs *api.ServerChangeConfigSettings) (*api.ServerChangeConfigSettings, error) {
+	if guest.GetMetadata(ctx, api.VM_METADATA_HOTPLUG_CPU_MEM, nil) != "enable" {
+		return confs, errors.Wrap(errors.ErrInvalidStatus, "host plug cpu memory is disabled")
+	}
+	if apis.IsARM(guest.OsArch) {
+		return confs, errors.Wrap(errors.ErrInvalidStatus, "cpu architecture is arm")
+	}
+	return confs, nil
 }
