@@ -349,7 +349,7 @@ image:
 .PHONY: image
 
 image-telegraf-raid-plugin:
-	VERSION=release-1.6.4 ARCH=all make image telegraf-raid-plugin
+	VERSION=release-1.6.5 ARCH=all make image telegraf-raid-plugin
 
 %:
 	@:
