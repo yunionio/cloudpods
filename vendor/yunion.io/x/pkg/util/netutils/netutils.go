@@ -15,15 +15,18 @@
 package netutils
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/bits"
 	"math/rand"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sortutils"
 )
 
 const macChars = "0123456789abcdef"
@@ -53,7 +56,7 @@ func FormatMacAddr(macAddr string) string {
 func IP2Number(ipstr string) (uint32, error) {
 	parts := strings.Split(ipstr, ".")
 	if len(parts) == 4 {
-		var num uint32
+		bytes := make([]byte, 4)
 		for i := 0; i < 4; i += 1 {
 			n, e := strconv.Atoi(strings.TrimSpace(parts[i]))
 			if e != nil {
@@ -62,37 +65,17 @@ func IP2Number(ipstr string) (uint32, error) {
 			if n < 0 || n > 255 {
 				return 0, ErrOutOfRange
 			}
-			num = num | (uint32(n) << uint32(24-i*8))
+			bytes[i] = byte(n)
 		}
-		return num, nil
+		return binary.BigEndian.Uint32(bytes), nil
 	}
 	return 0, ErrInvalidIPAddr // fmt.Errorf("invalid ip address %s", ipstr)
 }
 
-/*func IP2Bytes(ipstr string) ([]byte, error) {
-	parts := strings.Split(ipstr, ".")
-	if len(parts) == 4 {
-		bytes := make([]byte, 4)
-		for i := 0; i < 4; i += 1 {
-			n, e := strconv.Atoi(parts[i])
-			if e != nil {
-				return nil, fmt.Errorf("invalid number %s", parts[i])
-			}
-			bytes[i] = byte(n)
-		}
-		return bytes, nil
-	}
-	return nil, fmt.Errorf("invalid ip address %s", ipstr)
-}*/
-
 func Number2Bytes(num uint32) []byte {
-	a := num >> 24
-	num -= a << 24
-	b := num >> 16
-	num -= b << 16
-	c := num >> 8
-	num -= c << 8
-	return []byte{byte(a), byte(b), byte(c), byte(num)}
+	ret := make([]byte, 4)
+	binary.BigEndian.PutUint32(ret, num)
+	return ret
 }
 
 func Number2IP(num uint32) string {
@@ -144,11 +127,11 @@ func (addr IPV4Addr) String() string {
 }
 
 func (addr IPV4Addr) ToBytes() []byte {
-	a := byte((addr & 0xff000000) >> 24)
-	b := byte((addr & 0x00ff0000) >> 16)
-	c := byte((addr & 0x0000ff00) >> 8)
-	d := byte(addr & 0x000000ff)
-	return []byte{a, b, c, d}
+	return Number2Bytes(uint32(addr))
+}
+
+func (addr IPV4Addr) ToIP() net.IP {
+	return net.IP(addr.ToBytes())
 }
 
 func (addr IPV4Addr) ToMac(prefix string) string {
@@ -214,7 +197,7 @@ func (ar IPV4AddrRange) EndIp() IPV4Addr {
 	return ar.end
 }
 
-func (ar IPV4AddrRange) Merge(ar2 IPV4AddrRange) (*IPV4AddrRange, bool) {
+func (ar IPV4AddrRange) Merge(ar2 IPV4AddrRange) (IPV4AddrRange, bool) {
 	if ar.IsOverlap(ar2) || ar.end+1 == ar2.start || ar2.end+1 == ar.start {
 		if ar2.start < ar.start {
 			ar.start = ar2.start
@@ -222,9 +205,9 @@ func (ar IPV4AddrRange) Merge(ar2 IPV4AddrRange) (*IPV4AddrRange, bool) {
 		if ar2.end > ar.end {
 			ar.end = ar2.end
 		}
-		return &ar, true
+		return ar, true
 	}
-	return nil, false
+	return ar, false
 }
 
 func (ar IPV4AddrRange) IsOverlap(ar2 IPV4AddrRange) bool {
@@ -235,7 +218,23 @@ func (ar IPV4AddrRange) IsOverlap(ar2 IPV4AddrRange) bool {
 	}
 }
 
+func (pref IPV4Prefix) ToIPNet() *net.IPNet {
+	return &net.IPNet{
+		IP:   pref.Address.ToIP(),
+		Mask: net.CIDRMask(int(pref.MaskLen), 32),
+	}
+}
+
 func (ar IPV4AddrRange) ToIPNets() []*net.IPNet {
+	r := []*net.IPNet{}
+	mms := ar.ToPrefixes()
+	for _, mm := range mms {
+		r = append(r, mm.ToIPNet())
+	}
+	return r
+}
+
+/*func (ar IPV4AddrRange) ToIPNets() []*net.IPNet {
 	r := []*net.IPNet{}
 	mms := ar.ToMaskMatches()
 	for _, mm := range mms {
@@ -271,57 +270,86 @@ func (ar IPV4AddrRange) ToMaskMatches() [][2]uint32 {
 		sp = sp + b
 	}
 	return r
+}*/
+
+func (ar IPV4AddrRange) ToPrefixes() []IPV4Prefix {
+	prefixes := make([]IPV4Prefix, 0)
+	sp := ar.StartIp()
+	ep := ar.EndIp()
+	for sp <= ep {
+		masklen := int8(32)
+		for masklen > 0 && sp.NetAddr(masklen-1) == sp && sp.BroadcastAddr(masklen-1) <= ep {
+			masklen--
+		}
+		if masklen == 0 {
+			prefixes = append(prefixes, NewIPV4PrefixFromAddr(sp, 0))
+			break
+		}
+		prefixes = append(prefixes, NewIPV4PrefixFromAddr(sp, masklen))
+		sp = sp.BroadcastAddr(masklen).StepUp()
+	}
+	return prefixes
 }
 
-func (ar IPV4AddrRange) Substract(ar2 IPV4AddrRange) (lefts []IPV4AddrRange, sub *IPV4AddrRange) {
-	lefts = []IPV4AddrRange{}
+func (ar IPV4AddrRange) Substract(ar2 IPV4AddrRange) ([]IPV4AddrRange, *IPV4AddrRange) {
+	lefts, overlap, sub := ar.Substract2(ar2)
+	var subp *IPV4AddrRange
+	if overlap {
+		subp = &sub
+	}
+	return lefts, subp
+}
+
+func (ar IPV4AddrRange) Substract2(ar2 IPV4AddrRange) ([]IPV4AddrRange, bool, IPV4AddrRange) {
+	lefts := []IPV4AddrRange{}
 	// no intersection, no substract
 	if ar.end < ar2.start || ar.start > ar2.end {
 		lefts = append(lefts, ar)
-		return
+		return lefts, false, IPV4AddrRange{}
 	}
 
 	// ar contains ar2
 	if ar.ContainsRange(ar2) {
-		nns := [][2]int64{
-			[2]int64{int64(ar.start), int64(ar2.start) - 1},
-			[2]int64{int64(ar2.end) + 1, int64(ar.end)},
+		if ar.start == ar2.start && ar.end == ar2.end {
+			// lefts empty
+		} else if ar.start < ar2.start && ar.end == ar2.end {
+			lefts = append(lefts,
+				NewIPV4AddrRange(ar.start, ar2.start.StepDown()),
+			)
+		} else if ar.start == ar2.start && ar.end > ar2.end {
+			lefts = append(lefts,
+				NewIPV4AddrRange(ar2.end.StepUp(), ar.end),
+			)
+		} else {
+			lefts = append(lefts,
+				NewIPV4AddrRange(ar.start, ar2.start.StepDown()),
+				NewIPV4AddrRange(ar2.end.StepUp(), ar.end),
+			)
 		}
-		for _, nn := range nns {
-			if nn[0] <= nn[1] {
-				lefts = append(lefts, NewIPV4AddrRange(IPV4Addr(nn[0]), IPV4Addr(nn[1])))
-			}
-		}
-		ar2_ := ar2
-		sub = &ar2_
-		return
+		return lefts, true, ar2
 	}
 
 	// ar contained by ar2
 	if ar2.ContainsRange(ar) {
-		ar_ := ar
-		sub = &ar_
-		return
+		return lefts, true, ar
 	}
 
 	// intersect, ar on the left
 	if ar.start < ar2.start && ar.end >= ar2.start {
-		lefts = append(lefts, NewIPV4AddrRange(ar.start, ar2.start-1))
+		lefts = append(lefts, NewIPV4AddrRange(ar.start, ar2.start.StepDown()))
 		sub_ := NewIPV4AddrRange(ar2.start, ar.end)
-		sub = &sub_
-		return
+		return lefts, true, sub_
 	}
 
 	// intersect, ar on the right
 	if ar.start <= ar2.end && ar.end > ar2.end {
-		lefts = append(lefts, NewIPV4AddrRange(ar2.end+1, ar.end))
+		lefts = append(lefts, NewIPV4AddrRange(ar2.end.StepUp(), ar.end))
 		sub_ := NewIPV4AddrRange(ar.start, ar2.end)
-		sub = &sub_
-		return
+		return lefts, true, sub_
 	}
 
 	// no intersection
-	return
+	return lefts, false, IPV4AddrRange{}
 }
 
 func (ar IPV4AddrRange) equals(ar2 IPV4AddrRange) bool {
@@ -404,6 +432,15 @@ func NewIPV4Prefix(prefix string) (IPV4Prefix, error) {
 	}
 	pref.ipRange = pref.ToIPRange()
 	return pref, nil
+}
+
+func NewIPV4PrefixFromAddr(addr IPV4Addr, masklen int8) IPV4Prefix {
+	pref := IPV4Prefix{
+		Address: addr.NetAddr(masklen),
+		MaskLen: masklen,
+	}
+	pref.ipRange = pref.ToIPRange()
+	return pref
 }
 
 func (prefix IPV4Prefix) ToIPRange() IPV4AddrRange {
@@ -552,4 +589,81 @@ func Netlen2Mask(netmasklen int) string {
 		mask += "0"
 	}
 	return mask
+}
+
+type IPV4AddrRangeList []IPV4AddrRange
+
+func (rl IPV4AddrRangeList) Len() int {
+	return len(rl)
+}
+
+func (rl IPV4AddrRangeList) Swap(i, j int) {
+	rl[i], rl[j] = rl[j], rl[i]
+}
+
+func (rl IPV4AddrRangeList) Less(i, j int) bool {
+	return rl[i].Compare(rl[j]) == sortutils.Less
+}
+
+func (v4range IPV4AddrRange) Compare(r2 IPV4AddrRange) sortutils.CompareResult {
+	if v4range.start < r2.start {
+		return sortutils.Less
+	} else if v4range.start > r2.start {
+		return sortutils.More
+	} else {
+		// start equals, compare ends
+		if v4range.end > r2.end {
+			return sortutils.Less
+		} else if v4range.end < r2.end {
+			return sortutils.More
+		} else {
+			return sortutils.Equal
+		}
+	}
+}
+
+func (rl IPV4AddrRangeList) Merge() []IPV4AddrRange {
+	sort.Sort(rl)
+	ret := make([]IPV4AddrRange, 0, len(rl))
+	for i := range rl {
+		if i == 0 {
+			ret = append(ret, rl[i])
+		} else {
+			result, isMerged := ret[len(ret)-1].Merge(rl[i])
+			if isMerged {
+				ret[len(ret)-1] = result
+			} else {
+				ret = append(ret, rl[i])
+			}
+		}
+	}
+	return ret
+}
+
+func (rl IPV4AddrRangeList) String() string {
+	strs := make([]string, len(rl))
+	for i := range rl {
+		strs[i] = rl[i].String()
+	}
+	return strings.Join(strs, ",")
+}
+
+var IPV4Zero = IPV4Addr(0)
+var IPV4Ones = IPV4Addr(0xffffffff)
+var AllIPV4AddrRange = IPV4AddrRange{
+	start: IPV4Zero,
+	end:   IPV4Ones,
+}
+
+func (r IPV4AddrRange) IsAll() bool {
+	return r.start == IPV4Zero && r.end == IPV4Ones
+}
+
+func (rl IPV4AddrRangeList) Substract(addrRange IPV4AddrRange) []IPV4AddrRange {
+	ret := make([]IPV4AddrRange, 0)
+	for i := range rl {
+		lefts, _ := rl[i].Substract(addrRange)
+		ret = append(ret, lefts...)
+	}
+	return ret
 }

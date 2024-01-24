@@ -713,7 +713,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	return input, nil
 }
 
-func (self *SSecurityGroup) GetAllowList() (secrules.SecurityRuleSet, secrules.SecurityRuleSet, error) {
+/*func (self *SSecurityGroup) GetAllowList() (secrules.SecurityRuleSet, secrules.SecurityRuleSet, error) {
 	in := secrules.SecurityRuleSet{}
 	out := secrules.SecurityRuleSet{}
 	rules, err := self.GetSecurityRules()
@@ -731,7 +731,7 @@ func (self *SSecurityGroup) GetAllowList() (secrules.SecurityRuleSet, secrules.S
 	in = append(in, *secrules.MustParseSecurityRule("in:deny any"))
 	out = append(out, *secrules.MustParseSecurityRule("out:allow any"))
 	return in.AllowList(), out.AllowList(), nil
-}
+}*/
 
 func (self *SSecurityGroup) clearRules() error {
 	_, err := sqlchemy.GetDB().Exec(

@@ -53,9 +53,15 @@ const (
 )
 
 type SecurityRule struct {
-	Priority    int // [1, 100]
-	Action      TSecurityRuleAction
-	IPNet       *net.IPNet
+	Priority int // [1, 100]
+	Action   TSecurityRuleAction
+
+	// distinguish between
+	// * "" (empty) allow all ipv4 and ipv6
+	// * 0.0.0.0/0 allow all ipv4
+	// * ::/0 allow all IPv6
+	IPNet *net.IPNet
+
 	Protocol    string
 	Direction   TSecurityRuleDirection
 	PortStart   int
@@ -176,26 +182,29 @@ func ParseSecurityRule(pattern string) (*SecurityRule, error) {
 }
 
 func (rule *SecurityRule) ParseCIDR(cidr string) bool {
-	if regutils.MatchCIDR(cidr) {
+	if regutils.MatchCIDR(cidr) || regutils.MatchCIDR6(cidr) {
 		_, rule.IPNet, _ = net.ParseCIDR(cidr)
 		return true
 	}
-	if regutils.MatchIPAddr(cidr) {
+	if regutils.MatchIP4Addr(cidr) {
 		rule.IPNet = &net.IPNet{
 			IP:   net.ParseIP(cidr),
 			Mask: net.CIDRMask(32, 32),
 		}
 		return true
+	} else if regutils.MatchIP6Addr(cidr) {
+		rule.IPNet = &net.IPNet{
+			IP:   net.ParseIP(cidr),
+			Mask: net.CIDRMask(128, 128),
+		}
+		return true
 	}
-	rule.IPNet = &net.IPNet{
-		IP:   net.IPv4zero,
-		Mask: net.CIDRMask(0, 32),
-	}
+	rule.IPNet = nil
 	return false
 }
 
 func (rule *SecurityRule) IsWildMatch() bool {
-	return rule.IPNet.String() == "0.0.0.0/0" &&
+	return rule.IPNet == nil &&
 		rule.Protocol == PROTO_ANY &&
 		len(rule.Ports) == 0 &&
 		((rule.PortStart <= 0 && rule.PortEnd <= 0) || (rule.PortStart == 1 && rule.PortEnd == 65535))
@@ -275,8 +284,8 @@ func (rule SecurityRule) merge(r SecurityRule) SecurityRule {
 }
 
 func (rule SecurityRule) getIPKey() string {
-	if rule.IPNet == nil || rule.IPNet.String() == "0.0.0.0/0" {
-		return "0.0.0.0/0"
+	if rule.IPNet == nil {
+		return ""
 	}
 	return rule.IPNet.String()
 }
@@ -396,12 +405,21 @@ func (rule *SecurityRule) GetPortsString() string {
 func (rule *SecurityRule) String() (result string) {
 	s := []string{}
 	s = append(s, string(rule.Direction)+":"+string(rule.Action))
-	cidr := rule.IPNet.String()
-	if cidr != "0.0.0.0/0" {
-		if ones, _ := rule.IPNet.Mask.Size(); ones < 32 {
-			s = append(s, cidr)
-		} else {
-			s = append(s, rule.IPNet.IP.String())
+
+	if rule.IPNet != nil {
+		cidr := rule.IPNet.String()
+		if regutils.MatchCIDR(cidr) {
+			if ones, _ := rule.IPNet.Mask.Size(); ones < 32 {
+				s = append(s, cidr)
+			} else {
+				s = append(s, rule.IPNet.IP.String())
+			}
+		} else if regutils.MatchCIDR6(cidr) {
+			if ones, _ := rule.IPNet.Mask.Size(); ones < 128 {
+				s = append(s, cidr)
+			} else {
+				s = append(s, rule.IPNet.IP.String())
+			}
 		}
 	}
 
@@ -428,11 +446,13 @@ func (rule *SecurityRule) netEquals(r *SecurityRule) bool {
 	return net0 == net1
 }
 
-func (rule *SecurityRule) cutOut(r *SecurityRule) SecurityRuleSet {
-	srcs := securityRuleCuts{securityRuleCut{r: *rule}}
+func (rule *SecurityRule) cutOut(r SecurityRule) SecurityRuleSet {
+	srcs := newSecurityRuleSetCuts(*rule) // securityRuleCuts{securityRuleCut{r: *rule}}
 	//a := srcs
 	srcs = srcs.cutOutProtocol(r.Protocol)
+	log.Debugf("cutOutProtocol: rule %s cut %s output %s", rule.String(), r.Protocol, srcs.String())
 	srcs = srcs.cutOutIPNet(r.Protocol, r.IPNet)
+	log.Debugf("cutOutIPNet: rule %s cut %s output %s", rule.String(), r.IPNet, srcs.String())
 	if len(r.Ports) > 0 {
 		srcs = srcs.cutOutPorts(r.Protocol, []uint16(newPortsFromInts(r.Ports...)))
 	} else if r.PortStart > 0 && r.PortEnd > 0 {
@@ -443,5 +463,6 @@ func (rule *SecurityRule) cutOut(r *SecurityRule) SecurityRuleSet {
 	//fmt.Printf("a %s\n", a)
 	//fmt.Printf("b %s\n", srcs)
 	srs := srcs.securityRuleSet()
+	log.Debugf("rule %s cut %s output %s", rule.String(), r.String(), srs.String())
 	return srs
 }
