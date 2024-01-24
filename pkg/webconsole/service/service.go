@@ -54,6 +54,12 @@ func StartService() {
 	commonOpts := &o.Options.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "webconsole.conf", api.SERVICE_TYPE)
 
+	app_common.InitAuth(commonOpts, func() {
+		log.Infof("Auth complete")
+	})
+
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
+
 	if opts.ApiServer == "" {
 		log.Fatalf("--api-server must specified")
 	}
@@ -65,12 +71,6 @@ func StartService() {
 	for _, binPath := range []string{opts.IpmitoolPath} {
 		ensureBinExists(binPath)
 	}
-
-	app_common.InitAuth(commonOpts, func() {
-		log.Infof("Auth complete")
-	})
-
-	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
 
 	registerSigTraps()
 	start()
