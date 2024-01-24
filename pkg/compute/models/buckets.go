@@ -238,7 +238,7 @@ func (manager *SBucketManager) newFromCloudBucket(
 		return nil, err
 	}
 
-	SyncCloudProject(ctx, userCred, &bucket, provider.GetOwnerId(), extBucket, provider.Id)
+	SyncCloudProject(ctx, userCred, &bucket, provider.GetOwnerId(), extBucket, provider)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    &bucket,
 		Action: notifyclient.ActionSyncCreate,
@@ -335,7 +335,7 @@ func (bucket *SBucket) syncWithCloudBucket(
 	}
 
 	if provider != nil {
-		SyncCloudProject(ctx, userCred, bucket, provider.GetOwnerId(), extBucket, provider.Id)
+		SyncCloudProject(ctx, userCred, bucket, provider.GetOwnerId(), extBucket, provider)
 		bucket.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 

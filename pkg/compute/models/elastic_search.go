@@ -512,7 +512,7 @@ func (self *SElasticSearch) SyncWithCloudElasticSearch(ctx context.Context, user
 	}
 
 	if provider := self.GetCloudprovider(); provider != nil {
-		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -615,7 +615,7 @@ func (self *SCloudregion) newFromCloudElasticSearch(ctx context.Context, userCre
 	// 同步标签
 	syncVirtualResourceMetadata(ctx, userCred, &es, ext, false)
 	// 同步项目归属
-	SyncCloudProject(ctx, userCred, &es, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &es, provider.GetOwnerId(), ext, provider)
 
 	db.OpsLog.LogEvent(&es, db.ACT_CREATE, es.GetShortDesc(ctx), userCred)
 

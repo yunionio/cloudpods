@@ -192,7 +192,7 @@ func (self *SMiscResource) SyncWithCloudMiscResource(ctx context.Context, userCr
 	if account := self.GetCloudaccount(); account != nil {
 		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	}
-	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -230,7 +230,7 @@ func (self *SCloudregion) newFromCloudMiscResource(ctx context.Context, userCred
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, &misc, ext, false)
-	SyncCloudProject(ctx, userCred, &misc, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &misc, provider.GetOwnerId(), ext, provider)
 
 	db.OpsLog.LogEvent(&misc, db.ACT_CREATE, misc.GetShortDesc(ctx), userCred)
 

@@ -181,7 +181,7 @@ func (self *SIPv6Gateway) SyncWithCloudIPv6Gateway(ctx context.Context, userCred
 		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	}
 
-	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 	return nil
 }
 
@@ -214,7 +214,7 @@ func (self *SVpc) newFromCloudIPv6Gateway(ctx context.Context, userCred mcclient
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, ret, ext, false)
-	SyncCloudProject(ctx, userCred, ret, provider.GetOwnerId(), ext, self.ManagerId)
+	SyncCloudProject(ctx, userCred, ret, provider.GetOwnerId(), ext, provider)
 
 	db.OpsLog.LogEvent(ret, db.ACT_CREATE, ret.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{

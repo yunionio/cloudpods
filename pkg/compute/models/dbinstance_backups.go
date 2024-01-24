@@ -484,7 +484,7 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(
 	}
 
 	if len(self.ProjectId) == 0 {
-		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), extBackup, provider.Id)
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), extBackup, provider)
 	}
 
 	return nil
@@ -543,7 +543,7 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(
 	}
 
 	if len(backup.ProjectId) == 0 {
-		SyncCloudProject(ctx, userCred, &backup, provider.GetOwnerId(), extBackup, provider.Id)
+		SyncCloudProject(ctx, userCred, &backup, provider.GetOwnerId(), extBackup, provider)
 	}
 
 	return nil

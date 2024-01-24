@@ -324,7 +324,7 @@ func (self *SSnapshotPolicy) SyncWithCloudPolicy(
 
 	syncOwnerId := provider.GetOwnerId()
 
-	SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, provider.Id)
+	SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, provider)
 	if account, _ := provider.GetCloudaccount(); account != nil {
 		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	}
@@ -376,7 +376,7 @@ func (self *SCloudregion) newFromCloudPolicy(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}
-	SyncCloudProject(ctx, userCred, policy, syncOwnerId, ext, provider.Id)
+	SyncCloudProject(ctx, userCred, policy, syncOwnerId, ext, provider)
 	syncVirtualResourceMetadata(ctx, userCred, policy, ext, false)
 
 	err = policy.SyncDisks(ctx, userCred, ext)
