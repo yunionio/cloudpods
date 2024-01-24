@@ -198,6 +198,9 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 		if err != nil {
 			// ignore error
 			log.Errorf("ipmitool.GetLanConfig for channel %d fail: %s", lanChannel, err)
+		} else if conf.IPAddr == "0.0.0.0" {
+			log.Warningf("Get 0.0.0.0 ip address at channel %d of config %s", lanChannel, jsonutils.Marshal(conf))
+			continue
 		} else {
 			channel = lanChannel
 			break
