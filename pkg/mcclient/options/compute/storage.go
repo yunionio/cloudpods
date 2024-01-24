@@ -104,27 +104,6 @@ func (opts *StorageCreateOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(opts)
 }
 
-type StorageCacheImageActionOptions struct {
-	options.BaseIdOptions
-	IMAGE  string `help:"ID or name of image"`
-	Force  bool   `help:"Force refresh cache, even if the image exists in cache"`
-	Format string `help:"Image force" choices:"iso|vmdk|qcow2|vhd"`
-}
-
-func (opts *StorageCacheImageActionOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(opts)
-}
-
-type StorageUncacheImageActionOptions struct {
-	options.BaseIdOptions
-	IMAGE string `help:"ID or name of image"`
-	Force bool   `help:"Force uncache, even if the image exists in cache"`
-}
-
-func (opts *StorageUncacheImageActionOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(opts)
-}
-
 type StorageForceDetachHost struct {
 	options.BaseIdOptions
 	HOST string `help:"ID or name of host"`
