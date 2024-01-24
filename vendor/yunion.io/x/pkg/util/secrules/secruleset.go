@@ -19,8 +19,73 @@ import (
 	"net"
 	"sort"
 
+	"yunion.io/x/log"
+
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sortutils"
 )
+
+func isWildNet(ipnet *net.IPNet) bool {
+	return gotypes.IsNil(ipnet)
+}
+
+func compareIPNet(ipnet1, ipnet2 *net.IPNet) sortutils.CompareResult {
+	srsIPi := ipnet1.String()
+	srsIPj := ipnet2.String()
+	if !isWildNet(ipnet1) && !isWildNet(ipnet2) {
+		if srsIPi != srsIPj {
+			isIPv6i := regutils.MatchCIDR6(srsIPi)
+			isIPv6j := regutils.MatchCIDR6(srsIPj)
+			if isIPv6i && isIPv6j {
+				// compare two ipv6
+				v6Rangei := netutils.NewIPV6AddrRangeFromIPNet(ipnet1)
+				v6Rangej := netutils.NewIPV6AddrRangeFromIPNet(ipnet2)
+				return v6Rangei.Compare(v6Rangej)
+			} else if !isIPv6i && !isIPv6j {
+				// compare two ipv4
+				v4Rangei := netutils.NewIPV4AddrRangeFromIPNet(ipnet1)
+				v4Rangej := netutils.NewIPV4AddrRangeFromIPNet(ipnet2)
+				return v4Rangei.Compare(v4Rangej)
+			} else if isIPv6i && !isIPv6j {
+				// v4 first
+				return sortutils.More
+			} else {
+				// if !isIPv6i && isIPv6j {
+				// v4 first
+				return sortutils.Less
+			}
+		} else {
+			return sortutils.Equal
+		}
+	} else if isWildNet(ipnet1) && !isWildNet(ipnet2) {
+		return sortutils.Less
+	} else if isWildNet(ipnet1) && !isWildNet(ipnet2) {
+		return sortutils.More
+	} else {
+		// both wild net, go to next
+		return sortutils.Equal
+	}
+}
+
+func isWildProtocol(protocol string) bool {
+	return len(protocol) == 0 || protocol == PROTO_ANY
+}
+
+func compareProtocol(protocol1, protocol2 string) sortutils.CompareResult {
+	isWild1 := isWildProtocol(protocol1)
+	isWild2 := isWildProtocol(protocol1)
+	if isWild1 && isWild2 {
+		return sortutils.Equal
+	} else if isWild1 && !isWild2 {
+		return sortutils.Less
+	} else if !isWild1 && isWild2 {
+		return sortutils.More
+	} else {
+		return sortutils.CompareString(protocol1, protocol2)
+	}
+}
 
 type SecurityRuleSet []SecurityRule
 
@@ -35,10 +100,30 @@ func (srs SecurityRuleSet) Swap(i, j int) {
 func (srs SecurityRuleSet) Less(i, j int) bool {
 	if srs[i].Priority > srs[j].Priority {
 		return true
-	} else if srs[i].Priority == srs[j].Priority {
-		return srs[i].String() < srs[j].String()
+	} else if srs[i].Priority < srs[j].Priority {
+		return false
 	}
-	return false
+	// priority equals, compare ipnet
+	{
+		result := compareIPNet(srs[i].IPNet, srs[j].IPNet)
+		switch result {
+		case sortutils.Less:
+			return true
+		case sortutils.More:
+			return false
+		}
+	}
+	// compare protocol
+	{
+		result := compareProtocol(srs[i].Protocol, srs[j].Protocol)
+		switch result {
+		case sortutils.Less:
+			return true
+		case sortutils.More:
+			return false
+		}
+	}
+	return srs[i].String() < srs[j].String()
 }
 
 func (srs SecurityRuleSet) stringList() []string {
@@ -83,23 +168,41 @@ func (srs SecurityRuleSet) equals(srs1 SecurityRuleSet) bool {
 //  - ordered by priority
 //  - same direction
 //
-func (srs SecurityRuleSet) AllowList() SecurityRuleSet {
-	srs = srs.uniq()
-	r := SecurityRuleSet{}
-	wq := make(SecurityRuleSet, len(srs))
-	copy(wq, srs)
+/*func (srs SecurityRuleSet) AllowList() SecurityRuleSet {
+	allowList := SecurityRuleSet{}
+	denyList := SecurityRuleSet{}
 
-	for len(wq) > 0 {
-		sr := wq[0]
-		if sr.Action == SecurityRuleAllow {
-			r = append(r, sr)
-			wq = wq[1:]
-			continue
+	for i := range srs {
+		if srs[i].Action == SecurityRuleAllow {
+			allowList = append(allowList, srs[i])
+		} else {
+			denyList = append(denyList, srs[i])
 		}
-		wq = wq.cutOutFirst()
 	}
-	r = r.collapse()
-	return r
+
+	sort.Sort(allowList)
+	allowList.uniq()
+
+	if len(denyList) > 0 {
+		sort.Sort(denyList)
+		denyList.uniq()
+
+		for i := range denyList {
+			allowList = allowList.cutOut(denyList[i])
+		}
+	}
+
+	allowList = allowList.collapse()
+	return allowList
+}
+
+func (srs SecurityRuleSet) cutOut(r SecurityRule) SecurityRuleSet {
+	cutRes := SecurityRuleSet{}
+	for i := range srs {
+		cutout := srs[i].cutOut(r)
+		cutRes = append(cutRes, cutout...)
+	}
+	return cutRes
 }
 
 func (srs SecurityRuleSet) cutOutFirst() SecurityRuleSet {
@@ -107,7 +210,7 @@ func (srs SecurityRuleSet) cutOutFirst() SecurityRuleSet {
 	if len(srs) == 0 {
 		return r
 	}
-	sr := &srs[0]
+	sr := srs[0]
 	srs_ := srs[1:]
 
 	for _, sr_ := range srs_ {
@@ -119,7 +222,7 @@ func (srs SecurityRuleSet) cutOutFirst() SecurityRuleSet {
 		r = append(r, cut...)
 	}
 	return r
-}
+}*/
 
 // remove duplicate rules
 func (srs SecurityRuleSet) uniq() SecurityRuleSet {
@@ -155,14 +258,26 @@ func (srs SecurityRuleSet) collapse() SecurityRuleSet {
 	sort.Slice(srs1, func(i, j int) bool {
 		sr0 := &srs1[i]
 		sr1 := &srs1[j]
-		if sr0.Protocol != sr1.Protocol {
-			return sr0.Protocol < sr1.Protocol
+		{
+			result := compareProtocol(sr0.Protocol, sr1.Protocol)
+			switch result {
+			case sortutils.Less:
+				return true
+			case sortutils.More:
+				return false
+			}
 		}
-		net0 := sr0.IPNet.String()
-		net1 := sr1.IPNet.String()
-		if net0 != net1 {
-			return net0 < net1
+
+		{
+			result := compareIPNet(sr0.IPNet, sr1.IPNet)
+			switch result {
+			case sortutils.Less:
+				return true
+			case sortutils.More:
+				return false
+			}
 		}
+
 		if sr0.PortStart > 0 && sr0.PortEnd > 0 {
 			if sr1.PortStart > 0 && sr1.PortEnd > 0 {
 				return sr0.PortStart < sr1.PortStart
@@ -234,21 +349,30 @@ func (srs SecurityRuleSet) collapse() SecurityRuleSet {
 	sort.Slice(srs1, func(i, j int) bool {
 		sr0 := &srs1[i]
 		sr1 := &srs1[j]
-		if sr0.Protocol != sr1.Protocol {
-			return sr0.Protocol < sr1.Protocol
+		{
+			result := compareProtocol(sr0.Protocol, sr1.Protocol)
+			switch result {
+			case sortutils.Less:
+				return true
+			case sortutils.More:
+				return false
+			}
 		}
 
 		if sr0.GetPortsString() != sr1.GetPortsString() {
 			return sr0.GetPortsString() < sr1.GetPortsString()
 		}
-		range0 := netutils.NewIPV4AddrRangeFromIPNet(sr0.IPNet)
-		range1 := netutils.NewIPV4AddrRangeFromIPNet(sr1.IPNet)
-		if range0.StartIp() != range1.StartIp() {
-			return range0.StartIp() < range1.StartIp()
+
+		{
+			result := compareIPNet(sr0.IPNet, sr1.IPNet)
+			switch result {
+			case sortutils.Less:
+				return true
+			case sortutils.More:
+				return false
+			}
 		}
-		if range0.EndIp() != range1.EndIp() {
-			return range0.EndIp() < range1.EndIp()
-		}
+
 		return sr0.Priority < sr1.Priority
 	})
 
@@ -282,28 +406,77 @@ func (srs SecurityRuleSet) collapse() SecurityRuleSet {
 }
 
 func (srs SecurityRuleSet) mergeNet() SecurityRuleSet {
-	result := SecurityRuleSet{}
-	ranges := []netutils.IPV4AddrRange{}
+	ranges4 := []netutils.IPV4AddrRange{}
+	ranges6 := []netutils.IPV6AddrRange{}
+
 	for i := 0; i < len(srs); i++ {
-		if i == 0 {
-			ranges = append(ranges, netutils.NewIPV4AddrRangeFromIPNet(srs[i].IPNet))
-			continue
+		if isWildNet(srs[i].IPNet) {
+			// wild mark
+			ranges4 = append(ranges4, netutils.AllIPV4AddrRange)
+			ranges6 = append(ranges6, netutils.AllIPV6AddrRange)
+		} else {
+			cidr := srs[i].IPNet.String()
+			if regutils.MatchCIDR6(cidr) {
+				// ipv6
+				ranges6 = append(ranges6, netutils.NewIPV6AddrRangeFromIPNet(srs[i].IPNet))
+			} else {
+				ranges4 = append(ranges4, netutils.NewIPV4AddrRangeFromIPNet(srs[i].IPNet))
+			}
 		}
-		preNet := ranges[len(ranges)-1]
-		nextNet := netutils.NewIPV4AddrRangeFromIPNet(srs[i].IPNet)
-		if net, ok := preNet.Merge(nextNet); ok {
-			ranges[len(ranges)-1] = *net
-			continue
-		}
-		ranges = append(ranges, nextNet)
 	}
+
+	ranges4 = netutils.IPV4AddrRangeList(ranges4).Merge()
+	ranges6 = netutils.IPV6AddrRangeList(ranges6).Merge()
+
 	nets := []*net.IPNet{}
-	for _, addr := range ranges {
-		nets = append(nets, addr.ToIPNets()...)
+	hasWildNet4 := false
+	hasWildNet6 := false
+	for i := range ranges4 {
+		addr := ranges4[i]
+		for _, n := range addr.ToIPNets() {
+			if n.String() == "0.0.0.0/0" {
+				hasWildNet4 = true
+			} else {
+				nets = append(nets, n)
+				log.Debugf("merge v4 %s", n.String())
+			}
+		}
+	}
+	for i := range ranges6 {
+		addr := ranges6[i]
+		for _, n := range addr.ToIPNets() {
+			if n.String() == "::/0" {
+				hasWildNet6 = true
+			} else {
+				nets = append(nets, n)
+			}
+		}
+	}
+
+	result := SecurityRuleSet{}
+	if hasWildNet4 && hasWildNet6 {
+		val := srs[0]
+		val.IPNet = nil
+		result = append(result, val)
+	} else if hasWildNet4 {
+		val := srs[0]
+		val.IPNet = &net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 32),
+		}
+		result = append(result, val)
+	} else if hasWildNet6 {
+		val := srs[0]
+		val.IPNet = &net.IPNet{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(0, 128),
+		}
+		result = append(result, val)
 	}
 	for _, net := range nets {
-		srs[0].IPNet = net
-		result = append(result, srs[0])
+		val := srs[0]
+		val.IPNet = net
+		result = append(result, val)
 	}
 	return result
 }

@@ -305,7 +305,7 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 	}
 
 	if input.CIDR == nil {
-		input.CIDR = &self.CIDR
+		// input.CIDR = &self.CIDR
 	}
 
 	driver, err := secgrp.GetRegionDriver()
@@ -342,18 +342,25 @@ func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
 		Protocol:    self.Protocol,
 		Description: self.Description,
 	}
-	if regutils.MatchCIDR(self.CIDR) {
+	if regutils.MatchCIDR(self.CIDR) || regutils.MatchCIDR6(self.CIDR) {
 		_, rule.IPNet, _ = net.ParseCIDR(self.CIDR)
-	} else if regutils.MatchIPAddr(self.CIDR) {
+	} else if regutils.MatchIP4Addr(self.CIDR) {
 		rule.IPNet = &net.IPNet{
 			IP:   net.ParseIP(self.CIDR),
 			Mask: net.CIDRMask(32, 32),
 		}
-	} else {
+	} else if regutils.MatchIP6Addr(self.CIDR) {
 		rule.IPNet = &net.IPNet{
+			IP:   net.ParseIP(self.CIDR),
+			Mask: net.CIDRMask(128, 128),
+		}
+	} else {
+		// any
+		rule.IPNet = nil
+		/* &net.IPNet{
 			IP:   net.IPv4zero,
 			Mask: net.CIDRMask(0, 32),
-		}
+		} */
 	}
 
 	err := rule.ParsePorts(self.Ports)

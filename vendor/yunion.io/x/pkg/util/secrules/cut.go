@@ -21,18 +21,26 @@ import (
 	"sort"
 
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
 )
 
 type securityRuleCut struct {
-	r           SecurityRule
+	r SecurityRule
+
 	protocolCut bool
 	netCut      bool
 	portCut     bool
+
+	v4ranges []netutils.IPV4AddrRange
+	v6ranges []netutils.IPV6AddrRange
 }
 
 func (src *securityRuleCut) String() string {
-	s := fmt.Sprintf("[%s;protocolCut=%v;netCut=%v;portCut=%v]",
-		src.r.String(), src.protocolCut, src.netCut, src.portCut)
+	s := fmt.Sprintf("[%s;v4=%s;v6=%s;protocolCut=%v;netCut=%v;portCut=%v]",
+		src.r.String(),
+		netutils.IPV4AddrRangeList(src.v4ranges).String(),
+		netutils.IPV6AddrRangeList(src.v6ranges).String(),
+		src.protocolCut, src.netCut, src.portCut)
 	return s
 }
 
@@ -40,15 +48,61 @@ func (src *securityRuleCut) isCut() bool {
 	return src.protocolCut && src.netCut && src.portCut
 }
 
-type securityRuleCuts []securityRuleCut
+func (src securityRuleCut) genRules() []SecurityRule {
+	src.v4ranges = netutils.IPV4AddrRangeList(src.v4ranges).Merge()
+	src.v6ranges = netutils.IPV6AddrRangeList(src.v6ranges).Merge()
 
-func newSecurityRuleSetCuts(srs SecurityRuleSet) securityRuleCuts {
-	srcs := make(securityRuleCuts, len(srs))
-	for i := range srcs {
-		srcs[i].r = srs[i]
+	rs := make([]SecurityRule, 0)
+
+	if len(src.v4ranges) == 1 && src.v4ranges[0].IsAll() && len(src.v6ranges) == 1 && src.v6ranges[0].IsAll() {
+		rule := src.r
+		rule.IPNet = nil
+		rs = append(rs, rule)
+		return rs
 	}
-	return srcs
+	for i := range src.v4ranges {
+		nets := src.v4ranges[i].ToIPNets()
+		for _, net := range nets {
+			rule := src.r
+			rule.IPNet = net
+			rs = append(rs, rule)
+		}
+	}
+	for i := range src.v6ranges {
+		nets := src.v6ranges[i].ToIPNets()
+		for _, net := range nets {
+			rule := src.r
+			rule.IPNet = net
+			rs = append(rs, rule)
+		}
+	}
+	return rs
 }
+
+func newSecurityRuleSetCuts(r SecurityRule) securityRuleCuts {
+	var v4ranges []netutils.IPV4AddrRange
+	var v6ranges []netutils.IPV6AddrRange
+	if r.IPNet == nil {
+		// expand
+		v4ranges = append(v4ranges, netutils.AllIPV4AddrRange)
+		v6ranges = append(v6ranges, netutils.AllIPV6AddrRange)
+	} else {
+		if regutils.MatchCIDR(r.IPNet.String()) {
+			v4ranges = append(v4ranges, netutils.NewIPV4AddrRangeFromIPNet(r.IPNet))
+		} else {
+			v6ranges = append(v6ranges, netutils.NewIPV6AddrRangeFromIPNet(r.IPNet))
+		}
+	}
+	return []securityRuleCut{
+		{
+			r:        r,
+			v4ranges: v4ranges,
+			v6ranges: v6ranges,
+		},
+	}
+}
+
+type securityRuleCuts []securityRuleCut
 
 func (srcs securityRuleCuts) String() string {
 	buf := bytes.Buffer{}
@@ -67,7 +121,7 @@ func (srcs securityRuleCuts) securityRuleSet() SecurityRuleSet {
 		if src.isCut() {
 			continue
 		}
-		srs = append(srs, src.r)
+		srs = append(srs, src.genRules()...)
 	}
 	return srs
 }
@@ -101,37 +155,45 @@ func (srcs securityRuleCuts) cutOutProtocol(protocol string) securityRuleCuts {
 	return r
 }
 
+func isV6(n *net.IPNet) bool {
+	return regutils.MatchCIDR6(n.String())
+}
+
 func (srcs securityRuleCuts) cutOutIPNet(protocol string, n *net.IPNet) securityRuleCuts {
 	r := securityRuleCuts{}
-	ar2 := netutils.NewIPV4AddrRangeFromIPNet(n)
-	for _, src := range srcs {
-		if src.r.Protocol != protocol && protocol != PROTO_ANY {
-			src_ := src
-			r = append(r, src_)
+	isWildMatch := isWildNet(n)
+	isV6 := false
+	var v4n netutils.IPV4AddrRange
+	var v6n netutils.IPV6AddrRange
+	if !isWildMatch {
+		if regutils.MatchCIDR6(n.String()) {
+			isV6 = true
+			v6n = netutils.NewIPV6AddrRangeFromIPNet(n)
+		} else {
+			v4n = netutils.NewIPV4AddrRangeFromIPNet(n)
+		}
+	}
+	for i := range srcs {
+		src := srcs[i]
+		if src.netCut {
+			r = append(r, src)
 			continue
 		}
-		sr := src.r
-		ar := netutils.NewIPV4AddrRangeFromIPNet(sr.IPNet)
-		left, subs := ar.Substract(ar2)
-		for _, l := range left {
-			// retain
-			nets := l.ToIPNets()
-			for _, net_ := range nets {
-				src_ := src
-				src_.r.IPNet = net_
-				r = append(r, src_)
-			}
+		if src.r.Protocol != protocol && protocol != PROTO_ANY {
+			r = append(r, src)
+			continue
 		}
-		if subs != nil {
-			// cut
-			nets := subs.ToIPNets()
-			for _, net_ := range nets {
-				src_ := src
-				src_.r.IPNet = net_
-				src_.netCut = true
-				r = append(r, src_)
-			}
+		if isWildMatch {
+			src.netCut = true
+			r = append(r, src)
+			continue
 		}
+		if isV6 {
+			src.v6ranges = netutils.IPV6AddrRangeList(src.v6ranges).Substract(v6n)
+		} else {
+			src.v4ranges = netutils.IPV4AddrRangeList(src.v4ranges).Substract(v4n)
+		}
+		r = append(r, src)
 	}
 	return r
 }

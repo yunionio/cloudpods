@@ -159,11 +159,12 @@ func (input *SSecgroupRuleResource) Check() error {
 	}
 
 	if len(input.CIDR) > 0 {
-		if !regutils.MatchCIDR(input.CIDR) && !regutils.MatchIPAddr(input.CIDR) {
+		if !regutils.MatchCIDR(input.CIDR) && !regutils.MatchIP4Addr(input.CIDR) && !regutils.MatchCIDR6(input.CIDR) && !regutils.MatchIP6Addr(input.CIDR) {
 			return fmt.Errorf("invalid ip address: %s", input.CIDR)
 		}
 	} else {
-		input.CIDR = "0.0.0.0/0"
+		// empty CIDR means both IPv4 and IPv6
+		// input.CIDR = "0.0.0.0/0"
 	}
 
 	return rule.ValidateRule()
