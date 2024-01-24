@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/util/stringutils"
 )
 
 type SFirewallAction struct {
@@ -41,8 +43,8 @@ type SFirewall struct {
 	DestinationRanges     []string
 	TargetServiceAccounts []string
 	TargetTags            []string
-	Allowed               []SFirewallAction
-	Denied                []SFirewallAction
+	Allowed               []SFirewallAction `json:",allowempty"`
+	Denied                []SFirewallAction `json:",allowempty"`
 	Direction             string
 	Disabled              bool
 	SelfLink              string
@@ -116,5 +118,38 @@ func (self *SFirewall) Delete() error {
 }
 
 func (self *SFirewall) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{
+		"requestId": stringutils.UUID4(),
+	}
+	if len(self.SourceRanges) > 0 {
+		self.SourceRanges = []string{opts.CIDR}
+	}
+	if len(self.DestinationRanges) > 0 {
+		self.DestinationRanges = []string{opts.CIDR}
+	}
+	self.Priority = opts.Priority
+	if len(opts.Desc) > 0 {
+		self.Description = opts.Desc
+	}
+	action := SFirewallAction{}
+	action.IPProtocol = opts.Protocol
+	switch opts.Protocol {
+	case secrules.PROTO_TCP, secrules.PROTO_UDP:
+		if len(opts.Ports) > 0 {
+			action.Ports = []string{opts.Ports}
+		}
+	case secrules.PROTO_ANY:
+		action.IPProtocol = "all"
+	}
+	switch opts.Action {
+	case secrules.SecurityRuleAllow:
+		self.Denied = []SFirewallAction{}
+		self.Allowed = []SFirewallAction{action}
+	case secrules.SecurityRuleDeny:
+		self.Allowed = []SFirewallAction{}
+		self.Denied = []SFirewallAction{action}
+	}
+	resource := fmt.Sprintf("projects/%s/global/firewalls/%s", self.secgroup.gvpc.client.projectId, self.Name)
+	_, err := self.secgroup.gvpc.client.ecsPatch(resource, "", params, jsonutils.Marshal(self))
+	return err
 }
