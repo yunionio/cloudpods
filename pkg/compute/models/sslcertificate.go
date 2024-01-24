@@ -303,7 +303,7 @@ func (s *SSSLCertificate) SyncWithCloudSSLCertificate(ctx context.Context, userC
 	}
 
 	if provider := s.GetCloudprovider(); provider != nil {
-		SyncCloudProject(ctx, userCred, s, provider.GetOwnerId(), ext, provider.Id)
+		SyncCloudProject(ctx, userCred, s, provider.GetOwnerId(), ext, provider)
 	}
 	db.OpsLog.LogSyncUpdate(s, diff, userCred)
 	return nil
@@ -365,7 +365,7 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 	// 同步标签
 	_ = syncVirtualResourceMetadata(ctx, userCred, &s, ext, false)
 	// 同步项目归属
-	SyncCloudProject(ctx, userCred, &s, r.GetOwnerId(), ext, r.Id)
+	SyncCloudProject(ctx, userCred, &s, r.GetOwnerId(), ext, r)
 
 	db.OpsLog.LogEvent(&s, db.ACT_CREATE, s.GetShortDesc(ctx), userCred)
 

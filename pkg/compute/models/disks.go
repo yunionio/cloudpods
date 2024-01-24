@@ -1719,7 +1719,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	}
 
 	if len(guests) == 0 {
-		SyncCloudProject(ctx, userCred, self, syncOwnerId, extDisk, storage.ManagerId)
+		if provider := storage.GetCloudprovider(); provider != nil {
+			SyncCloudProject(ctx, userCred, self, syncOwnerId, extDisk, provider)
+		}
 	} else {
 		self.SyncCloudProjectId(userCred, guests[0].GetOwnerId())
 	}
@@ -1785,7 +1787,9 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 
 	syncVirtualResourceMetadata(ctx, userCred, &disk, extDisk, false)
 
-	SyncCloudProject(ctx, userCred, &disk, syncOwnerId, extDisk, storage.ManagerId)
+	if provider := storage.GetCloudprovider(); provider != nil {
+		SyncCloudProject(ctx, userCred, &disk, syncOwnerId, extDisk, provider)
+	}
 
 	db.OpsLog.LogEvent(&disk, db.ACT_CREATE, disk.GetShortDesc(ctx), userCred)
 

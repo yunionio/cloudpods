@@ -462,7 +462,7 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 	}
 
 	if provider := self.GetCloudprovider(); provider != nil {
-		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -516,7 +516,7 @@ func (self *SCloudregion) newFromCloudModelartsPool(ctx context.Context, userCre
 	// 同步标签
 	syncVirtualResourceMetadata(ctx, userCred, &pool, ext, false)
 	// 同步项目归属
-	SyncCloudProject(ctx, userCred, &pool, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &pool, provider.GetOwnerId(), ext, provider)
 
 	db.OpsLog.LogEvent(&pool, db.ACT_CREATE, pool.GetShortDesc(ctx), userCred)
 

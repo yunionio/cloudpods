@@ -2570,23 +2570,18 @@ func (manager *SCloudproviderregionManager) initAllRecords() {
 	}
 }
 
-func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, model db.IVirtualModel, syncOwnerId mcclient.IIdentityProvider, extModel cloudprovider.IVirtualResource, managerId string) {
+func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, model db.IVirtualModel, syncOwnerId mcclient.IIdentityProvider, extModel cloudprovider.IVirtualResource, manager *SCloudprovider) {
+	account, err := manager.GetCloudaccount()
+	if err != nil {
+		return
+	}
 	newOwnerId, err := func() (mcclient.IIdentityProvider, error) {
-		_manager, err := CloudproviderManager.FetchById(managerId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "CloudproviderManager.FetchById(%s)", managerId)
-		}
-		manager := _manager.(*SCloudprovider)
 		rm, err := manager.GetProjectMapping()
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			return nil, errors.Wrapf(err, "GetProjectMapping")
-		}
-		account, err := manager.GetCloudaccount()
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetCloudaccount")
 		}
 		if rm != nil && rm.Enabled.Bool() && rm.IsNeedResourceSync() {
 			model.SetProjectSrc(apis.OWNER_SOURCE_CLOUD)
@@ -2616,8 +2611,8 @@ func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, mo
 	if err != nil {
 		log.Errorf("try sync project for %s %s by tags error: %v", model.Keyword(), model.GetName(), err)
 	}
-	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 && newOwnerId == nil {
-		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
+	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 && account.AutoCreateProject && newOwnerId == nil {
+		extProject, err := ExternalProjectManager.GetProject(extProjectId, manager.Id)
 		if err != nil {
 			log.Errorf("sync project for %s %s error: %v", model.Keyword(), model.GetName(), err)
 		} else if len(extProject.ProjectId) > 0 {
@@ -2628,7 +2623,7 @@ func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, mo
 		newOwnerId = syncOwnerId
 	}
 	if newOwnerId == nil {
-		newOwnerId = userCred
+		newOwnerId = manager.GetOwnerId()
 	}
 	model.SyncCloudProjectId(userCred, newOwnerId)
 }

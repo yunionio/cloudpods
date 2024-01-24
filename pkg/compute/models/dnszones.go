@@ -512,7 +512,7 @@ func (self *SDnsZone) syncWithDnsZone(ctx context.Context, userCred mcclient.Tok
 		if account, _ := provider.GetCloudaccount(); account != nil {
 			syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 		}
-		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, self.ManagerId)
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 	}
 
 	return nil
@@ -534,7 +534,7 @@ func (self *SCloudprovider) newFromCloudDnsZone(ctx context.Context, userCred mc
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, zone, ext, false)
-	SyncCloudProject(ctx, userCred, zone, self.GetOwnerId(), ext, self.Id)
+	SyncCloudProject(ctx, userCred, zone, self.GetOwnerId(), ext, self)
 
 	return zone, nil
 }
