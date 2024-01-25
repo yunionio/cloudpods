@@ -546,8 +546,15 @@ func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 		return dialect, pySQLSrc, nil
 	}
 
-	r := regexp.MustCompile(`[/@:]+`)
-	strs := r.Split(pySQLSrc, -1)
+	lastAtIndex := strings.LastIndex(pySQLSrc, "@")
+	firstPart := pySQLSrc[:lastAtIndex]
+	secondPart := pySQLSrc[lastAtIndex+1:]
+
+	r := regexp.MustCompile(`[/:]+`)
+	firstPartArr := r.Split(firstPart, -1)
+	secondPartArr := r.Split(secondPart, -1)
+
+	strs := append(firstPartArr, secondPartArr...)
 	if len(strs) != 6 {
 		err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
 		return
