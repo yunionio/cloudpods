@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -3304,11 +3304,8 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateSecurityGroupInput
 			}
 		}
 
-		if len(rule.CIDR) > 0 {
-			_, _, err := net.ParseCIDR(rule.CIDR)
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid cidr %s", rule.CIDR)
-			}
+		if len(rule.CIDR) > 0 && !regutils.MatchCIDR(rule.CIDR) && !regutils.MatchCIDR6(rule.CIDR) && !regutils.MatchIP4Addr(rule.CIDR) && !regutils.MatchIP6Addr(rule.CIDR) {
+			return nil, httperrors.NewInputParameterError("invalid cidr %s", rule.CIDR)
 		}
 	}
 	return input, nil
@@ -3339,11 +3336,8 @@ func (self *SManagedVirtualizationRegionDriver) ValidateUpdateSecurityGroupRuleI
 		}
 	}
 
-	if input.CIDR != nil {
-		_, _, err := net.ParseCIDR(*input.CIDR)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid cidr %s", *input.CIDR)
-		}
+	if input.CIDR != nil && len(*input.CIDR) > 0 && !regutils.MatchCIDR(*input.CIDR) && !regutils.MatchIP4Addr(*input.CIDR) && !regutils.MatchCIDR6(*input.CIDR) && !regutils.MatchIP6Addr(*input.CIDR) {
+		return nil, httperrors.NewInputParameterError("invalid cidr %s", *input.CIDR)
 	}
 
 	return input, nil

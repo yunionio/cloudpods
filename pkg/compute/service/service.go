@@ -141,7 +141,7 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 		}
 	}
 
-	if !opts.IsSlaveNode {
+	cronFunc := func() {
 		db.StartTenantCacheSync(app.GetContext(), opts.TenantCacheExpireSeconds)
 
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
@@ -200,10 +200,13 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 		if jobs != nil {
 			jobs(cron)
 		}
-		go cron.Start2(ctx, electObj)
-
 		// init auto scaling controller
 		autoscaling.ASController.Init(options.Options.SASControllerOptions, cron)
+
+		go cron.Start2(ctx, electObj)
+	}
+	if !opts.IsSlaveNode {
+		go cronFunc()
 	}
 
 	common_app.ServeForever(app, baseOpts)
