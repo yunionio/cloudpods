@@ -86,7 +86,8 @@ func QemuProfile() IPMIProfile {
 
 func H3CProfile() IPMIProfile {
 	return IPMIProfile{
-		LanChannel: []int{8, 1},
+		// LanChannel: []int{8, 1},
+		LanChannel: []int{1},
 		RootName:   "root",
 		RootId:     2,
 		StrongPass: true,
