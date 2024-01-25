@@ -79,7 +79,7 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule, enableIPv6 boo
 		} else {
 			matches = append(matches, "ip4")
 		}
-		if cidr := strings.TrimSpace(rule.CIDR); cidr != "" && cidr != "0.0.0.0/0" && cidr != "::/0" && cidr != "::" {
+		if cidr := strings.TrimSpace(rule.CIDR); cidr != "" {
 			if regutils.MatchCIDR(cidr) {
 				matches = append(matches, fmt.Sprintf("ip4.%s == %s", l3subfn, cidr))
 			} else if regutils.MatchCIDR6(cidr) {
