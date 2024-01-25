@@ -756,8 +756,15 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		guestsOnHost = append(guestsOnHost, backupGuestsOnHost...)
 	}
 
+	desc.Tenants = make(map[string]int64)
 	for _, gst := range guestsOnHost {
 		guest := gst.(computemodels.SGuest)
+		projectId := guest.ProjectId
+		if count, ok := desc.Tenants[projectId]; ok {
+			desc.Tenants[projectId] = count + 1
+		} else {
+			desc.Tenants[projectId] = 1
+		}
 		if IsGuestRunning(guest) {
 			runningCount++
 			memSize += int64(guest.VmemSize)
