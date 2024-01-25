@@ -392,10 +392,6 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost, netGetter *netwo
 		return nil, fmt.Errorf("Fill region error: %v", err)
 	}
 
-	if err := desc.fillResidentTenants(host); err != nil {
-		return nil, fmt.Errorf("Fill resident tenants error: %v", err)
-	}
-
 	if err := desc.fillStorages(host); err != nil {
 		return nil, fmt.Errorf("Fill storage error: %v", err)
 	}
@@ -604,16 +600,16 @@ func (b *BaseHostDesc) fillZone(host *computemodels.SHost) error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillResidentTenants(host *computemodels.SHost) error {
-	rets, err := HostResidentTenantCount(host.Id)
-	if err != nil {
-		return err
-	}
-
-	b.Tenants = rets
-
-	return nil
-}
+// func (b *BaseHostDesc) fillResidentTenants(host *computemodels.SHost) error {
+// 	rets, err := HostResidentTenantCount(host.Id)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	b.Tenants = rets
+//
+// 	return nil
+// }
 
 func (b *BaseHostDesc) fillSharedDomains() error {
 	b.SharedDomains = b.SHost.GetSharedDomains()
