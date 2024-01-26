@@ -413,7 +413,7 @@ func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCre
 	}
 	if len(cachedImage.ExternalId) > 0 {
 		self.SetStatus(userCred, image.GetStatus(), "")
-		return cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, managerId)
+		return cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, nil)
 	} else {
 		return nil
 	}
@@ -421,6 +421,7 @@ func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCre
 
 func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, cache *SStoragecache) error {
 	var cachedImage *SCachedimage
+	provider := cache.GetCloudprovider()
 	imgObj, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -442,7 +443,7 @@ func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context
 		}
 		if cachedImage == nil {
 			// no such image
-			cachedImage, err = CachedimageManager.newFromCloudImage(ctx, userCred, ownerId, image, cache.ManagerId)
+			cachedImage, err = CachedimageManager.newFromCloudImage(ctx, userCred, ownerId, image, provider)
 			if err != nil {
 				log.Errorf("CachedimageManager.newFromCloudImage fail %s", err)
 				return err
@@ -452,7 +453,7 @@ func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context
 		cachedImage = imgObj.(*SCachedimage)
 	}
 	if len(cachedImage.ExternalId) > 0 {
-		cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, cache.ManagerId)
+		cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, provider)
 	}
 	scimg := manager.Register(ctx, userCred, cache.GetId(), cachedImage.GetId(), image.GetStatus())
 	if scimg == nil {

@@ -3132,7 +3132,9 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 	if account := host.GetCloudaccount(); account != nil {
 		syncVirtualResourceMetadata(ctx, userCred, g, extVM, account.ReadOnly)
 	}
-	SyncCloudProject(ctx, userCred, g, syncOwnerId, extVM, host.ManagerId)
+	if cloudprovider := host.GetCloudprovider(); cloudprovider != nil {
+		SyncCloudProject(ctx, userCred, g, syncOwnerId, extVM, cloudprovider)
+	}
 
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost, _ := g.GetHost()
@@ -3235,7 +3237,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.SyncOsInfo(ctx, userCred, extVM)
 
 	syncVirtualResourceMetadata(ctx, userCred, &guest, extVM, false)
-	SyncCloudProject(ctx, userCred, &guest, syncOwnerId, extVM, host.ManagerId)
+
+	if cloudprovider := host.GetCloudprovider(); cloudprovider != nil {
+		SyncCloudProject(ctx, userCred, &guest, syncOwnerId, extVM, cloudprovider)
+	}
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 

@@ -1265,7 +1265,9 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(
 		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	}
 
-	SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, self.ManagerId)
+	if provider, _ := self.GetCloudprovider(); provider != nil {
+		SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, provider)
+	}
 
 	if !syncRule {
 		return nil
@@ -1331,7 +1333,7 @@ func (self *SCloudregion) newFromCloudSecurityGroup(
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, ret, ext, false)
-	SyncCloudProject(ctx, userCred, ret, syncOwnerId, ext, ret.ManagerId)
+	SyncCloudProject(ctx, userCred, ret, syncOwnerId, ext, provider)
 
 	rules, err := ext.GetRules()
 	if err != nil {

@@ -626,7 +626,7 @@ func (self *SCachedimage) canDeleteLastCache() bool {
 	return false
 }
 
-func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) error {
+func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		if options.Options.EnableSyncName {
 			newName, err := db.GenerateAlterName(self, image.GetName())
@@ -651,11 +651,13 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 	})
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(ctx, userCred, self, ownerId, image, managerId)
+	if provider != nil {
+		SyncCloudProject(ctx, userCred, self, ownerId, image, provider)
+	}
 	return err
 }
 
-func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) (*SCachedimage, error) {
+func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, provider *SCloudprovider) (*SCachedimage, error) {
 	cachedImage := SCachedimage{}
 	cachedImage.SetModelManager(manager, &cachedImage)
 
@@ -667,6 +669,8 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	cachedImage.ImageType = string(image.GetImageType())
 	cachedImage.ExternalId = image.GetGlobalId()
 	cachedImage.Status = image.GetStatus()
+	cachedImage.ProjectId = ownerId.GetProjectId()
+	cachedImage.DomainId = ownerId.GetProjectDomainId()
 	cachedImage.PublicScope = string(image.GetPublicScope())
 	switch image.GetPublicScope() {
 	case rbacscope.ScopeNone:
@@ -689,7 +693,9 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 		return nil, err
 	}
 
-	SyncCloudProject(ctx, userCred, &cachedImage, ownerId, image, managerId)
+	if provider != nil {
+		SyncCloudProject(ctx, userCred, &cachedImage, ownerId, image, provider)
+	}
 
 	return &cachedImage, nil
 }
@@ -723,7 +729,7 @@ func (image *SCachedimage) requestRefreshExternalImage(ctx context.Context, user
 		log.Errorf("iCache.GetIImageById fail %s", err)
 		return nil, err
 	}
-	err = image.syncWithCloudImage(ctx, userCred, nil, iImage, "")
+	err = image.syncWithCloudImage(ctx, userCred, nil, iImage, nil)
 	if err != nil {
 		log.Errorf("image.syncWithCloudImage fail %s", err)
 		return nil, err

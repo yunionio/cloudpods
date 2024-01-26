@@ -507,7 +507,7 @@ func (self *SKafka) SyncWithCloudKafka(ctx context.Context, userCred mcclient.To
 		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	}
 	if provider := self.GetCloudprovider(); provider != nil {
-		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -611,7 +611,7 @@ func (self *SCloudregion) newFromCloudKafka(ctx context.Context, userCred mcclie
 	// 同步标签
 	syncVirtualResourceMetadata(ctx, userCred, &kafka, ext, false)
 	// 同步项目归属
-	SyncCloudProject(ctx, userCred, &kafka, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &kafka, provider.GetOwnerId(), ext, provider)
 
 	db.OpsLog.LogEvent(&kafka, db.ACT_CREATE, kafka.GetShortDesc(ctx), userCred)
 

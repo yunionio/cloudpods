@@ -312,7 +312,7 @@ func (self *SCloudprovider) newFromCloudLoadbalancerCertificate(ctx context.Cont
 			return errors.Wrapf(err, "Insert lbcert")
 		}
 
-		SyncCloudProject(ctx, userCred, c, self.GetOwnerId(), ext, self.GetId())
+		SyncCloudProject(ctx, userCred, c, self.GetOwnerId(), ext, self)
 	}
 	lbcert.CertificateId = c.Id
 	lbcert.Name = ext.GetName()

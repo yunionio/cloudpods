@@ -650,7 +650,7 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "syncWithCloudElasticcache.Update")
 	}
-	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), extInstance, provider.Id)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), extInstance, provider)
 	if account := self.GetCloudaccount(); account != nil {
 		syncVirtualResourceMetadata(ctx, userCred, self, extInstance, account.ReadOnly)
 	}
@@ -779,7 +779,7 @@ func (self *SCloudregion) newFromCloudElasticcache(ctx context.Context, userCred
 		return nil, errors.Wrapf(err, "newFromCloudElasticcache.Insert")
 	}
 
-	SyncCloudProject(ctx, userCred, &instance, provider.GetOwnerId(), extInstance, provider.Id)
+	SyncCloudProject(ctx, userCred, &instance, provider.GetOwnerId(), extInstance, provider)
 	syncVirtualResourceMetadata(ctx, userCred, &instance, extInstance, false)
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
