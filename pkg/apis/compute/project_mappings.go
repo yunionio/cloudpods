@@ -57,6 +57,15 @@ type ProjectMappingRuleInfo struct {
 
 type MappingRules []ProjectMappingRuleInfo
 
+func (rule ProjectMappingRuleInfo) IsWide() bool {
+	for _, tag := range rule.Tags {
+		if len(tag.Value) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (rule *ProjectMappingRuleInfo) Validate() error {
 	if len(rule.Tags) == 0 {
 		return httperrors.NewInputParameterError("missing tags")

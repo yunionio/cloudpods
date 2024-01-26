@@ -69,6 +69,20 @@ type SProjectMapping struct {
 	Rules *api.MappingRules `list:"domain" update:"domain" create:"required"`
 }
 
+func (self *SProjectMapping) GetRules() []api.ProjectMappingRuleInfo {
+	ret := []api.ProjectMappingRuleInfo{}
+	if self.Rules != nil {
+		for _, rule := range *self.Rules {
+			if rule.IsWide() {
+				ret = append(ret, rule)
+			} else {
+				ret = append([]api.ProjectMappingRuleInfo{rule}, ret...)
+			}
+		}
+	}
+	return ret
+}
+
 // 列出项目映射表
 func (manager *SProjectMappingManager) ListItemFilter(
 	ctx context.Context,
