@@ -89,6 +89,7 @@ type NetworkCreateOptions struct {
 func (opts *NetworkCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 
+	params.Add(jsonutils.NewString(opts.WIRE), "wire")
 	params.Add(jsonutils.NewString(opts.NETWORK), "name")
 	params.Add(jsonutils.NewString(opts.STARTIP), "guest_ip_start")
 	params.Add(jsonutils.NewString(opts.ENDIP), "guest_ip_end")
