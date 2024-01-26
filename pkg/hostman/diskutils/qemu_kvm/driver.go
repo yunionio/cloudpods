@@ -379,10 +379,11 @@ func (d *QemuKvmDriver) sshRun(cmd string) ([]string, error) {
 }
 
 func (d *QemuKvmDriver) sshFilePutContent(params interface{}, filePath string) error {
-	jcontent := jsonutils.Marshal(params)
+	jcontent := jsonutils.Marshal(params).String()
+	jcontent = strings.ReplaceAll(jcontent, "`", "\\`")
 	cmd := fmt.Sprintf(`cat << EOF > %s
 %s
-EOF`, filePath, jcontent.String())
+EOF`, filePath, jcontent)
 	out, err := d.sshRun(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "sshFilePutContent %s", out)
