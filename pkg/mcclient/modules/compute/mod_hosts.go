@@ -96,7 +96,7 @@ func parseHosts(titles []string, data string) []*jsonutils.JSONDict {
 	for i, host := range hosts {
 		host = strings.TrimSpace(host)
 		if len(host) == 0 {
-			log.Debugf(fmt.Sprintf("DoBatchRegister 第%d行： 空白行（已忽略）\n", i))
+			log.Warningf(fmt.Sprintf("DoBatchRegister 第%d行： 空白行（已忽略）\n", i))
 			continue
 		}
 
