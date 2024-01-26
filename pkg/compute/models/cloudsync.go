@@ -2594,19 +2594,17 @@ func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, mo
 			if err != nil {
 				return nil, errors.Wrapf(err, "extModel.GetTags")
 			}
-			if rm.Rules != nil {
-				for _, rule := range *rm.Rules {
-					domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
-					if isMatch {
-						if len(newProj) > 0 {
-							domainId, projectId, err = account.getOrCreateTenant(ctx, newProj, "", "", "auto create from tag")
-							if err != nil {
-								return nil, errors.Wrapf(err, "getOrCreateTenant(%s)", newProj)
-							}
+			for _, rule := range rm.GetRules() {
+				domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
+				if isMatch {
+					if len(newProj) > 0 {
+						domainId, projectId, err = account.getOrCreateTenant(ctx, newProj, "", "", "auto create from tag")
+						if err != nil {
+							return nil, errors.Wrapf(err, "getOrCreateTenant(%s)", newProj)
 						}
-						if len(domainId) > 0 && len(projectId) > 0 {
-							return &db.SOwnerId{DomainId: domainId, ProjectId: projectId}, nil
-						}
+					}
+					if len(domainId) > 0 && len(projectId) > 0 {
+						return &db.SOwnerId{DomainId: domainId, ProjectId: projectId}, nil
 					}
 				}
 			}
