@@ -333,7 +333,10 @@ func (d *QemuKvmDriver) connect(guestDesc *apis.GuestDesc) error {
 }
 
 func (d *QemuKvmDriver) Disconnect() error {
-	d.sshClient.Close()
+	if d.sshClient != nil {
+		d.sshClient.Close()
+	}
+
 	d.qemuArchDriver.CleanGuest()
 	d.qemuArchDriver = nil
 	return nil
