@@ -291,7 +291,7 @@ func (self *SCDNDomain) SyncWithCloudCDNDomain(ctx context.Context, userCred mcc
 	}
 
 	if provider := self.GetCloudprovider(); provider != nil {
-		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, self.ManagerId)
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 	}
 
 	return nil
@@ -323,7 +323,7 @@ func (self *SCloudprovider) newFromCloudCDNDomain(ctx context.Context, userCred 
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, &domain, ext, false)
-	SyncCloudProject(ctx, userCred, &domain, self.GetOwnerId(), ext, self.Id)
+	SyncCloudProject(ctx, userCred, &domain, self.GetOwnerId(), ext, self)
 
 	db.OpsLog.LogEvent(&domain, db.ACT_CREATE, domain.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{

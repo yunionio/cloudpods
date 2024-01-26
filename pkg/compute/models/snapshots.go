@@ -1003,7 +1003,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 	if disk != nil {
 		self.SyncCloudProjectId(userCred, disk.GetOwnerId())
 	} else {
-		SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, self.GetCloudprovider().Id)
+		SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, self.GetCloudprovider())
 	}
 
 	return nil
@@ -1056,7 +1056,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	if localDisk != nil {
 		snapshot.SyncCloudProjectId(userCred, localDisk.GetOwnerId())
 	} else {
-		SyncCloudProject(ctx, userCred, &snapshot, syncOwnerId, extSnapshot, snapshot.ManagerId)
+		SyncCloudProject(ctx, userCred, &snapshot, syncOwnerId, extSnapshot, provider)
 	}
 
 	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)

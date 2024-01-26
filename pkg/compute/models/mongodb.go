@@ -572,7 +572,7 @@ func (self *SMongoDB) SyncWithCloudMongoDB(ctx context.Context, userCred mcclien
 		syncVirtualResourceMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	}
 	if provider := self.GetCloudprovider(); provider != nil {
-		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider)
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -667,7 +667,7 @@ func (self *SCloudregion) newFromCloudMongoDB(ctx context.Context, userCred mccl
 	})
 
 	syncVirtualResourceMetadata(ctx, userCred, &ins, ext, false)
-	SyncCloudProject(ctx, userCred, &ins, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &ins, provider.GetOwnerId(), ext, provider)
 	db.OpsLog.LogEvent(&ins, db.ACT_CREATE, ins.GetShortDesc(ctx), userCred)
 
 	return &ins, nil

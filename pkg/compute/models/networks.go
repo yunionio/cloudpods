@@ -723,7 +723,6 @@ func (snet *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 }
 
 func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
-	vpc, _ := snet.GetVpc()
 	diff, err := db.UpdateWithLock(ctx, snet, func() error {
 		if options.Options.EnableSyncName {
 			newName, _ := db.GenerateAlterName(snet, extNet.GetName())
@@ -760,9 +759,10 @@ func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 	}
 
 	//syncVirtualResourceMetadata(ctx, userCred, snet, extNet)
-	SyncCloudProject(ctx, userCred, snet, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
+		SyncCloudProject(ctx, userCred, snet, syncOwnerId, extNet, provider)
+
 		shareInfo := provider.getAccountShareInfo()
 		if utils.IsInStringArray(provider.Provider, api.PRIVATE_CLOUD_PROVIDERS) && extNet.GetPublicScope() == rbacscope.ScopeNone {
 			shareInfo = apis.SAccountShareInfo{
@@ -817,11 +817,10 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	vpc, _ := wire.GetVpc()
 	syncVirtualResourceMetadata(ctx, userCred, &net, extNet, false)
-	SyncCloudProject(ctx, userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
+		SyncCloudProject(ctx, userCred, &net, syncOwnerId, extNet, provider)
 		shareInfo := provider.getAccountShareInfo()
 		if utils.IsInStringArray(provider.Provider, api.PRIVATE_CLOUD_PROVIDERS) && extNet.GetPublicScope() == rbacscope.ScopeNone {
 			shareInfo = apis.SAccountShareInfo{
