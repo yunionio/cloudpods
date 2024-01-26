@@ -447,9 +447,11 @@ func (r *SRegionDNS) isMyDomain(req *recordRequest) bool {
 
 func (r *SRegionDNS) findRecords(req *recordRequest) ([]msg.Service, error) {
 	// 1. try local dns records table
-	rrs := r.queryLocalDnsRecords(req)
-	if len(rrs) > 0 {
-		return rrs, nil
+	if !r.isMyDomain(req) {
+		rrs := r.queryLocalDnsRecords(req)
+		if len(rrs) > 0 {
+			return rrs, nil
+		}
 	}
 
 	isPlainName := req.IsPlainName()
