@@ -68,7 +68,7 @@ func doCheckPolicies(ctx context.Context, input mcclient.SCheckPoliciesInput) (*
 	if adminToken == nil {
 		return nil, httperrors.NewForbiddenError("missing auth token")
 	}
-	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "check_policies").Result.IsDeny() {
+	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminToken, api.SERVICE_TYPE, "tokens", "perform", "check_policies").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to check policies", adminToken.GetUserName())
 	}
 	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByInput(input.UserId, input.ProjectId, time.Now(), false)

@@ -152,7 +152,7 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 
 func getNamespace(userCred mcclient.TokenCredential, resource string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
 	var namespace, namespace_id string
-	if userCred.IsAllow(rbacscope.ScopeSystem, consts.GetServiceType(), resource, policy.PolicyActionList).Result.IsAllow() {
+	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), resource, policy.PolicyActionList).Result.IsAllow() {
 		if name, nameId, e := getNamespaceInContext(userCred, query, data); e != nil {
 			return "", "", e
 		} else {

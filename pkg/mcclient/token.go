@@ -20,8 +20,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
-
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type ExternalService struct {
@@ -94,7 +92,7 @@ type TokenCredential interface {
 	// IsAdmin() bool
 	HasSystemAdminPrivilege() bool
 
-	IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult
+	// IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult
 
 	GetRegions() []string
 
