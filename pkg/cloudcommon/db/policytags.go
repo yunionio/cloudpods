@@ -27,6 +27,9 @@ import (
 )
 
 func objectConfirmPolicyTags(ctx context.Context, model IModel, result rbacutils.SPolicyResult) error {
+	if result.Result.IsDeny() {
+		return errors.Wrap(httperrors.ErrForbidden, "no permission")
+	}
 	model.GetModelManager().ResourceScope()
 	if _, ok := model.(IStandaloneModel); !ok {
 		// a plain resource
