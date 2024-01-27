@@ -22,12 +22,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const REGION_ZONE_SEP = '-'
@@ -236,7 +234,7 @@ func (this *TokenCredentialV3) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
-func (this *TokenCredentialV3) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+/*func (this *TokenCredentialV3) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
 	if this.isAllow(scope, service, resource, action, extra...) {
 		return rbacutils.PolicyAllow
 	} else {
@@ -250,7 +248,7 @@ func (this *TokenCredentialV3) isAllow(scope rbacscope.TRbacScope, service strin
 	} else {
 		return true
 	}
-}
+}*/
 
 func (this *TokenCredentialV3) GetRegions() []string {
 	return this.Token.Catalog.getRegions()

@@ -22,10 +22,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
-	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SSimpleToken struct {
@@ -131,7 +129,7 @@ func (self *SSimpleToken) HasSystemAdminPrivilege() bool {
 	return self.IsAdmin() && self.Project == "system"
 }
 
-func (this *SSimpleToken) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+/*func (this *SSimpleToken) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
 	if this.isAllow(scope, service, resource, action, extra...) {
 		return rbacutils.PolicyAllow
 	} else {
@@ -145,7 +143,7 @@ func (this *SSimpleToken) isAllow(scope rbacscope.TRbacScope, service string, re
 	} else {
 		return true
 	}
-}
+}*/
 
 func (self *SSimpleToken) GetRegions() []string {
 	return nil

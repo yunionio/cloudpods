@@ -651,6 +651,7 @@ func SharableModelCustomizeCreate(model ISharableBaseModel, ctx context.Context,
 			if managedModel, ok := model.(IManagedResourceBase); ok {
 				isManaged = managedModel.IsManaged()
 			}
+			// log.Debugf("isManaged: %v IsAdminAllowPerform %v ownerId.GetProjectDomainId %s userCred.GetProjectDomainId %s", isManaged, IsAdminAllowPerform(ctx, userCred, model, "public"), ownerId.GetProjectDomainId(), userCred.GetProjectDomainId())
 			if !isManaged && IsAdminAllowPerform(ctx, userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 				model.SetShare(rbacscope.ScopeSystem)
 				data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(string(rbacscope.ScopeSystem)))
