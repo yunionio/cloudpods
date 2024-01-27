@@ -250,7 +250,12 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 
 	ips := []string{}
 	hosts := bytes.Buffer{}
-	for _, row := range rows[1:] {
+	for idx, row := range rows[1:] {
+		rowStr := strings.Join(row, "")
+		if len(rowStr) == 0 {
+			log.Warningf("empty row: %d, skipping it", idx+1)
+			continue
+		}
 		var e *httputils.JSONClientError
 		if i1 >= 0 && len(row[i1]) > 0 {
 			i1Ip := fmt.Sprintf("%d-%s", i1, row[i1])
