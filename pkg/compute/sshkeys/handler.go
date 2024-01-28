@@ -41,7 +41,7 @@ func AddSshKeysHandler(prefix string, app *appsrv.Application) {
 func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	publicOnly := false
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-	if !userCred.IsAllow(rbacscope.ScopeDomain, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
+	if !policy.PolicyManager.Allow(rbacscope.ScopeDomain, userCred, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
 		publicOnly = true
 	}
 	params, query, _ := appsrv.FetchEnv(ctx, w, r)
@@ -83,7 +83,7 @@ func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.To
 	var privKey, pubKey string
 
 	if isAdmin {
-		if userCred.IsAllow(rbacscope.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
+		if policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
 			privKey, pubKey, _ = GetSshAdminKeypair(ctx)
 		} else {
 			httperrors.ForbiddenError(ctx, w, "not allow to access admin key")
