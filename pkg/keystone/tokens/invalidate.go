@@ -55,7 +55,7 @@ func invalidateToken(ctx context.Context, tokenStr string) error {
 	if err != nil {
 		return httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
-	if adminToken.GetUserId() != token.UserId && adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "delete").Result.IsDeny() {
+	if adminToken.GetUserId() != token.UserId && policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminToken, api.SERVICE_TYPE, "tokens", "delete").Result.IsDeny() {
 		return httperrors.NewForbiddenError("%s not allow to delete token", adminToken.GetUserName())
 	}
 	err = models.TokenCacheManager.Invalidate(ctx, adminToken, tokenStr)
@@ -91,7 +91,7 @@ func fetchInvalidTokens(ctx context.Context) ([]string, error) {
 	if adminToken == nil {
 		return nil, httperrors.NewForbiddenError("missing auth token")
 	}
-	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "list", "invalid").Result.IsDeny() {
+	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminToken, api.SERVICE_TYPE, "tokens", "list", "invalid").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to list invalid tokens", adminToken.GetUserName())
 	}
 	tokens, err := models.TokenCacheManager.FetchInvalidTokens()

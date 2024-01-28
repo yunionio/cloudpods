@@ -21,10 +21,8 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type KeystoneEndpointV2 struct {
@@ -213,7 +211,7 @@ func (this *TokenCredentialV2) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
-func (this *TokenCredentialV2) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+/*func (this *TokenCredentialV2) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
 	if this.isAllow(scope, service, resource, action, extra...) {
 		return rbacutils.PolicyAllow
 	} else {
@@ -227,7 +225,7 @@ func (this *TokenCredentialV2) isAllow(scope rbacscope.TRbacScope, service strin
 	} else {
 		return true
 	}
-}
+}*/
 
 func (this *TokenCredentialV2) Len() int {
 	return this.ServiceCatalog.Len()

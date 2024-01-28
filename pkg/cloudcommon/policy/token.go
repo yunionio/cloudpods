@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SPolicyTokenCredential struct {
@@ -34,13 +33,13 @@ func (self *SPolicyTokenCredential) HasSystemAdminPrivilege() bool {
 	return PolicyManager.IsScopeCapable(self.TokenCredential, rbacscope.ScopeSystem)
 }
 
-func (self *SPolicyTokenCredential) IsAllow(targetScope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+/*func (self *SPolicyTokenCredential) IsAllow(targetScope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
 	allowScope, result := PolicyManager.AllowScope(self.TokenCredential, service, resource, action, extra...)
 	if result.Result == rbacutils.Allow && !targetScope.HigherThan(allowScope) {
 		return result
 	}
 	return rbacutils.PolicyDeny
-}
+}*/
 
 func init() {
 	gotypes.RegisterSerializableTransformer(mcclient.TokenCredentialType, func(input gotypes.ISerializable) gotypes.ISerializable {
