@@ -601,11 +601,15 @@ func validateAssignPolicies(userCred mcclient.TokenCredential, projectId string,
 }
 
 func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
-	_, assignPolicies, err := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", time.Time{}, false)
+	return ValidateJoinProjectRoles(userCred, project.Id, roleIds)
+}
+
+func ValidateJoinProjectRoles(userCred mcclient.TokenCredential, projectId string, roleIds []string) error {
+	_, assignPolicies, err := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, projectId, "", time.Time{}, false)
 	if err != nil {
 		return errors.Wrap(err, "RolePolicyManager.GetMatchPolicyGroup2")
 	}
-	return validateAssignPolicies(userCred, project.Id, assignPolicies)
+	return validateAssignPolicies(userCred, projectId, assignPolicies)
 }
 
 // 将用户或组加入项目

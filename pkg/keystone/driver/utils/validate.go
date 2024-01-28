@@ -48,5 +48,12 @@ func ValidateConfig(conf api.SIdpAttributeOptions, userCred mcclient.TokenCreden
 		}
 		conf.DefaultRoleId = obj.GetId()
 	}
+	if len(conf.DefaultProjectId) > 0 && len(conf.DefaultRoleId) > 0 {
+		// validate policy
+		err := models.ValidateJoinProjectRoles(userCred, conf.DefaultProjectId, []string{conf.DefaultRoleId})
+		if err != nil {
+			return conf, errors.Wrap(err, "ValidateJoinProjectRoles")
+		}
+	}
 	return conf, nil
 }

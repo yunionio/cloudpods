@@ -263,7 +263,8 @@ func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (
 	if adminToken == nil || len(tokenStr) == 0 {
 		return nil, httperrors.NewForbiddenError("missing auth token")
 	}
-	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
+	result := policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminToken, api.SERVICE_TYPE, "tokens", "perform", "auth")
+	if result.Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
 	}
 	token, err := TokenStrDecode(ctx, tokenStr)
