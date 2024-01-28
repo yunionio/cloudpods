@@ -1008,6 +1008,7 @@ func (this *ArgumentParser) reset() {
 	for _, arg := range this.optArgs {
 		arg.Reset()
 	}
+	this.help = false
 }
 
 func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error {
@@ -1026,7 +1027,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 		if argStr == "--help" {
 			// shortcut to show help
 			fmt.Println(this.HelpString())
-			os.Exit(1)
+			this.help = true
 			continue
 		}
 		if strings.HasPrefix(argStr, "-") {

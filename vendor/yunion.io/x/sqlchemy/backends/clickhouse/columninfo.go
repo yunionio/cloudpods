@@ -168,7 +168,7 @@ func findSegment(sqlStr string, prefix string) string {
 func trimPartition(partStr string) string {
 	for {
 		partStr = strings.TrimSpace(partStr)
-		if partStr[0] == '(' {
+		if len(partStr) > 0 && partStr[0] == '(' {
 			partStr = partStr[1 : len(partStr)-1]
 		} else {
 			break
