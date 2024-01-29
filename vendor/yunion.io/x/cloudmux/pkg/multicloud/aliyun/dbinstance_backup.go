@@ -33,6 +33,8 @@ type SDBInstanceBackup struct {
 	AliyunTags
 	region *SRegion
 
+	Engine                    string
+	EngineVersion             string
 	BackupDBNames             string
 	BackupIntranetDownloadURL string
 	BackupDownloadURL         string
@@ -101,19 +103,11 @@ func (backup *SDBInstanceBackup) GetDBNames() string {
 }
 
 func (backup *SDBInstanceBackup) GetEngine() string {
-	instance, _ := backup.region.GetDBInstanceDetail(backup.DBInstanceId)
-	if instance != nil {
-		return instance.Engine
-	}
-	return ""
+	return backup.Engine
 }
 
 func (backup *SDBInstanceBackup) GetEngineVersion() string {
-	instance, _ := backup.region.GetDBInstanceDetail(backup.DBInstanceId)
-	if instance != nil {
-		return instance.EngineVersion
-	}
-	return ""
+	return backup.EngineVersion
 }
 
 func (backup *SDBInstanceBackup) GetDBInstanceId() string {
@@ -146,23 +140,6 @@ func (region *SRegion) GetDBInstanceBackups(instanceId, backupId string, offset 
 	return backups, int(total), nil
 }
 
-func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
-	dbinstnaces, err := region.GetIDBInstances()
-	if err != nil {
-		return nil, err
-	}
-	ibackups := []cloudprovider.ICloudDBInstanceBackup{}
-	for i := 0; i < len(dbinstnaces); i++ {
-		_dbinstance := dbinstnaces[i].(*SDBInstance)
-		_ibackup, err := _dbinstance.GetIDBInstanceBackups()
-		if err != nil {
-			return nil, errors.Wrapf(err, "_dbinstance(%v).GetIDBInstanceBackups", _dbinstance)
-		}
-		ibackups = append(ibackups, _ibackup...)
-	}
-	return ibackups, nil
-}
-
 func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
 	backups := []SDBInstanceBackup{}
 	for {
@@ -179,6 +156,8 @@ func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanc
 	ibackups := []cloudprovider.ICloudDBInstanceBackup{}
 	for i := 0; i < len(backups); i++ {
 		backups[i].region = rds.region
+		backups[i].Engine = rds.Engine
+		backups[i].EngineVersion = rds.EngineVersion
 		ibackups = append(ibackups, &backups[i])
 	}
 	return ibackups, nil
