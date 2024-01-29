@@ -18,12 +18,12 @@ import (
 	"os"
 	"sync"
 
+	api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	agent_options "yunion.io/x/onecloud/pkg/cloudproxy/agent/options"
 )
 
 type Options struct {
-	EnableAPIServer  bool
 	EnableProxyAgent bool
 
 	common_options.CommonOptions
@@ -43,8 +43,24 @@ func Get() *Options {
 			&opts,
 			os.Args,
 			"cloudproxy.conf",
-			"cloudproxy",
+			api.SERVICE_TYPE,
 		)
 	})
 	return &opts
+}
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*Options)
+	newOpts := newO.(*Options)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+
+	if common_options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
+		changed = true
+	}
+
+	return changed
 }

@@ -61,6 +61,12 @@ func StartService() {
 	// 	log.Fatalf("glance service must running with root permissions")
 	// }
 
+	app_common.InitAuth(commonOpts, func() {
+		log.Infof("Auth complete!!")
+	})
+
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
+
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
 		opts.Port = opts.PortV2
@@ -96,10 +102,6 @@ func StartService() {
 
 	log.Infof("Target image formats %#v", opts.TargetImageFormats)
 
-	app_common.InitAuth(commonOpts, func() {
-		log.Infof("Auth complete!!")
-	})
-
 	if ok, err := hasVmwareAccount(); err != nil {
 		log.Errorf("failed	get vmware cloudaccounts")
 	} else if ok {
@@ -121,8 +123,6 @@ func StartService() {
 	InitHandlers(app)
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
-
-	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	models.Init(options.Options.StorageDriver)
 
