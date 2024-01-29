@@ -19,6 +19,11 @@ import (
 )
 
 const (
+	SERVICE_TYPE    = "cloudproxy"
+	SERVICE_VERSION = ""
+)
+
+const (
 	PM_SCOPE_VPC     = "vpc"
 	PM_SCOPE_NETWORK = "network"
 )

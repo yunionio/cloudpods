@@ -41,17 +41,17 @@ import (
 	"yunion.io/x/onecloud/pkg/webconsole/server"
 )
 
-func ensureBinExists(binPath string) {
-	if _, err := os.Stat(binPath); os.IsNotExist(err) {
-		log.Fatalf("Binary %s not exists", binPath)
-	}
-}
-
 func StartService() {
 
 	opts := &o.Options
 	commonOpts := &o.Options.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "webconsole.conf", api.SERVICE_TYPE)
+
+	app_common.InitAuth(commonOpts, func() {
+		log.Infof("Auth complete")
+	})
+
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
 
 	if opts.ApiServer == "" {
 		log.Fatalf("--api-server must specified")
@@ -60,16 +60,6 @@ func StartService() {
 	if err != nil {
 		log.Fatalf("invalid --api-server %s", opts.ApiServer)
 	}
-
-	for _, binPath := range []string{opts.IpmitoolPath} {
-		ensureBinExists(binPath)
-	}
-
-	app_common.InitAuth(commonOpts, func() {
-		log.Infof("Auth complete")
-	})
-
-	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
 
 	registerSigTraps()
 	start()
