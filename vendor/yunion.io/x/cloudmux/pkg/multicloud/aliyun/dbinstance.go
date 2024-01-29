@@ -577,19 +577,6 @@ func (self *SRegion) GetRdsSecgroupIds(rdsId string) ([]string, error) {
 	return ids, nil
 }
 
-func (region *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.ICloudDBInstanceBackup, error) {
-	backups, err := region.GetIDBInstanceBackups()
-	if err != nil {
-		return nil, errors.Wrap(err, "region.GetIDBInstanceBackups")
-	}
-	for _, backup := range backups {
-		if backup.GetGlobalId() == backupId {
-			return backup, nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (rds *SDBInstance) Reboot() error {
 	return rds.region.RebootDBInstance(rds.DBInstanceId)
 }
