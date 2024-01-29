@@ -1389,7 +1389,7 @@ func syncDBInstanceResource(
 	if err != nil {
 		log.Errorf("syncDBInstanceParameters error: %v", err)
 	}
-	if syncRange.IsNotSkipSyncResource(DBInstanceBackupManager) {
+	if syncRange.IsNotSkipSyncResource(DBInstanceDatabaseManager) {
 		err = syncDBInstanceDatabases(ctx, userCred, syncResults, localInstance, remoteInstance)
 		if err != nil {
 			log.Errorf("syncDBInstanceParameters error: %v", err)
@@ -1399,9 +1399,11 @@ func syncDBInstanceResource(
 	if err != nil {
 		log.Errorf("syncDBInstanceAccounts: %v", err)
 	}
-	err = syncDBInstanceBackups(ctx, userCred, syncResults, localInstance, remoteInstance)
-	if err != nil {
-		log.Errorf("syncDBInstanceBackups: %v", err)
+	if syncRange.IsNotSkipSyncResource(DBInstanceBackupManager) {
+		err = syncDBInstanceBackups(ctx, userCred, syncResults, localInstance, remoteInstance)
+		if err != nil {
+			log.Errorf("syncDBInstanceBackups: %v", err)
+		}
 	}
 }
 

@@ -777,3 +777,17 @@ func (rl IPV6AddrRangeList) Substract(addrRange IPV6AddrRange) []IPV6AddrRange {
 	}
 	return ret
 }
+
+func Mac2LinkLocal(mac string) (IPV6Addr, error) {
+	macBytes, err := ParseMac(mac)
+	if err != nil {
+		return IPV6Addr{}, errors.Wrap(err, "ParseMac")
+	}
+	return IPV6Addr{
+		0xfe80, 0, 0, 0,
+		binary.BigEndian.Uint16([]byte{macBytes[0] ^ 0x02, macBytes[1]}),
+		binary.BigEndian.Uint16([]byte{macBytes[2], 0xff}),
+		binary.BigEndian.Uint16([]byte{0xfe, macBytes[3]}),
+		binary.BigEndian.Uint16([]byte{macBytes[4], macBytes[5]}),
+	}, nil
+}
