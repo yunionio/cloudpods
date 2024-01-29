@@ -869,6 +869,10 @@ func (esxi *SESXiGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 		return nil, errors.Wrap(err, "SBaseGuestDriver.ValidateGuestChangeConfigInput")
 	}
 
+	if input.CpuSockets != nil && *input.CpuSockets > 0 {
+		confs.CpuSockets = *input.CpuSockets
+	}
+
 	defaultStorageId := ""
 	if root, _ := guest.GetSystemDisk(); root != nil {
 		defaultStorageId = root.StorageId
