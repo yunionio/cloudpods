@@ -283,6 +283,7 @@ type IStandaloneModel interface {
 
 	SetName(name string)
 	MarkPendingDeleted()
+	CancelPendingDeleted()
 
 	StandaloneModelManager() IStandaloneModelManager
 

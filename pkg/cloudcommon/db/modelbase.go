@@ -716,6 +716,10 @@ func (model *SModelBase) MarkPendingDeleted() {
 	return
 }
 
+func (model *SModelBase) CancelPendingDeleted() {
+	return
+}
+
 func (model *SModelBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
