@@ -2975,16 +2975,20 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 		eip.DoCancelPendingDelete(ctx, userCred)
 	}
 
-	disks, _ := self.GetDisks()
+	disks, err := self.GetDisks()
+	if err != nil {
+		return err
+	}
 	for _, disk := range disks {
 		disk.DoCancelPendingDelete(ctx, userCred)
 	}
+
 	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
 		if err := self.CancelExpireTime(ctx, userCred); err != nil {
 			return err
 		}
 	}
-	err := self.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
+	err = self.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
 	if err != nil {
 		return err
 	}
