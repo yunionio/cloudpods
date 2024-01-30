@@ -2135,6 +2135,10 @@ func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicTyp
 			params.Add(jsonutils.JSONTrue, "reserve")
 		}
 	}
+	localNic := b.GetNicByMac(nic.Mac)
+	if localNic != nil {
+		params.Add(jsonutils.NewString(localNic.WireId), "wire_id")
+	}
 	resp, err := modules.Hosts.PerformAction(
 		b.GetClientSession(),
 		b.GetId(),
