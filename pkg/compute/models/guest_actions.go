@@ -2276,6 +2276,8 @@ func (self *SGuest) findGuestnetworkByInfo(info api.ServerNetworkInfo) (*SGuestn
 		}
 		if info.Index >= 0 && info.Index < len(gns) {
 			return &gns[info.Index], nil
+		} else if info.Index >= 0 {
+			return nil, httperrors.NewNotFoundError("nic at index %d not found", info.Index)
 		}
 		return nil, httperrors.NewInputParameterError("no either ip_addr, ip6_addr, mac or index specified")
 	}
@@ -2312,7 +2314,7 @@ func (self *SGuest) PerformChangeIpaddr(
 
 	gn, err := self.findGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "findGuestnetworkByInfo")
 	}
 
 	var conf *api.NetworkConfig
@@ -2338,16 +2340,33 @@ func (self *SGuest) PerformChangeIpaddr(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("parseNetworkInfo fail: %s", err)
 	}
-	err = isValidNetworkInfo(ctx, userCred, conf, self.getReuseAddr(gn))
+	reuseV4 := ""
+	if conf.Address == gn.IpAddr {
+		// 允许IPv4地址不变，只改IPv6地址
+		reuseV4 = conf.Address
+	}
+	err = isValidNetworkInfo(ctx, userCred, conf, reuseV4)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("isValidNetworkInfo fail: %s", err)
 	}
 
-	host, _ := self.GetHost()
+	if len(conf.Network) == 0 {
+		return nil, httperrors.NewInputParameterError("no specific network")
+	}
+	netObj, err := NetworkManager.FetchById(conf.Network)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2("network", conf.Network)
+		} else {
+			return nil, errors.Wrapf(err, "NetworkManager.FetchById %s", conf.Network)
+		}
+	}
+	targetNetwork := netObj.(*SNetwork)
+	// host, _ := self.GetHost()
 
-	ngn, err := func() ([]SGuestnetwork, error) {
-		lockman.LockRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
-		defer lockman.ReleaseRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
+	ngn, err := func() (*SGuestnetwork, error) {
+		lockman.LockObject(ctx, targetNetwork)
+		defer lockman.ReleaseObject(ctx, targetNetwork)
 
 		if len(conf.Mac) > 0 {
 			if conf.Mac != gn.MacAddr {
@@ -2374,36 +2393,46 @@ func (self *SGuest) PerformChangeIpaddr(
 			} else if len(gn.Ip6Addr) > 0 && conf.Address6 == gn.Ip6Addr {
 				return nil, nil
 			}
-			reserve = true
+			// reserve = true
 		}
 
-		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve)
-		if err != nil {
-			return nil, errors.Wrap(err, "detachNetworks")
+		if len(conf.Address) == 0 || conf.Address != gn.IpAddr {
+			// need to allocate new address
+			addr4, err := targetNetwork.GetFreeIP(ctx, userCred, nil, nil, conf.Address, api.IPAllocationDirection(targetNetwork.AllocPolicy), reserve, api.AddressTypeIPv4)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetFreeIPv4")
+			}
+			if len(conf.Address) > 0 && conf.RequireDesignatedIP && conf.Address != addr4 {
+				return nil, httperrors.NewConflictError("addr %s has been occupied", conf.Address)
+			}
+			conf.Address = addr4
 		}
 
-		conf.Ifname = gn.Ifname
-		ngn, err := self.attach2NetworkDesc(ctx, userCred, host, conf, nil, nil)
-		if err != nil {
-			// recover detached guestnetwork
-			conf2 := gn.ToNetworkConfig()
-			if reserve {
-				conf2.Reserved = true
+		if (conf.Address6 == "" && conf.RequireIPv6) || (len(conf.Address6) > 0 && conf.Address6 != gn.Ip6Addr) {
+			// need to allocate new IPv6 address
+			addr6, err := targetNetwork.GetFreeIP(ctx, userCred, nil, nil, conf.Address6, api.IPAllocationNone, reserve, api.AddressTypeIPv6)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetFreeIPv6")
 			}
-			_, err2 := self.attach2NetworkDesc(ctx, userCred, host, conf2, nil, nil)
-			if err2 != nil {
-				log.Errorf("recover detached network fail %s", err2)
+			if len(conf.Address6) > 0 && conf.RequireDesignatedIP && conf.Address6 != addr6 {
+				return nil, httperrors.NewConflictError("addr %s has been occupied", conf.Address6)
 			}
-			return nil, httperrors.NewBadRequestError("%v", err)
+			conf.Address6 = addr6
 		}
-		if _, err := db.Update(&ngn[0], func() error {
-			ngn[0].EipId = gn.EipId
+
+		ngn := *gn
+		_, err := db.Update(&ngn, func() error {
+			ngn.NetworkId = conf.Network
+			ngn.MacAddr = conf.Mac
+			ngn.IpAddr = conf.Address
+			ngn.Ip6Addr = conf.Address6
 			return nil
-		}); err != nil {
-			return nil, err
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "Update")
 		}
 
-		return ngn, nil
+		return &ngn, nil
 	}()
 
 	if err != nil {
@@ -2411,12 +2440,12 @@ func (self *SGuest) PerformChangeIpaddr(
 		return nil, err
 	}
 
-	if len(ngn) == 0 {
+	if ngn == nil {
 		return nil, nil
 	}
 
 	//Get the detailed description of the NIC
-	networkJsonDesc := ngn[0].getJsonDesc()
+	networkJsonDesc := ngn.getJsonDesc()
 	newIpAddr := networkJsonDesc.Ip
 	newMacAddr := networkJsonDesc.Mac
 	newMaskLen := networkJsonDesc.Masklen
@@ -2428,7 +2457,7 @@ func (self *SGuest) PerformChangeIpaddr(
 		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
 	}
 	if ngn != nil {
-		notes.Add(jsonutils.NewString(ngn[0].IpAddr), "ip")
+		notes.Add(jsonutils.NewString(ngn.IpAddr), "ip")
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
@@ -2439,7 +2468,7 @@ func (self *SGuest) PerformChangeIpaddr(
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
 		taskData.Set("prev_mac", jsonutils.NewString(newMacAddr))
-		net := ngn[0].GetNetwork()
+		net := ngn.GetNetwork()
 		taskData.Set("is_vpc_network", jsonutils.NewBool(net.isOneCloudVpcNetwork()))
 		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
 		taskData.Set("gateway", jsonutils.NewString(newGateway))
