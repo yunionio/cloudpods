@@ -67,6 +67,13 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
+	self.DisksInfo = nil
+	self.Nics = nil
+	self.Secgroups = nil
+	self.SubIPs = nil
+	self.IsolatedDevices = nil
+	self.Cdrom = nil
+	self.Floppy = nil
 	return jsonutils.Update(self, ins)
 }
 
@@ -583,4 +590,43 @@ func (cli *SCloudpodsClient) GetMetrics(opts *cloudprovider.MetricListOptions) (
 		})
 	}
 	return res, nil
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
+	diskIds := []string{}
+	for _, disk := range self.DisksInfo {
+		diskIds = append(diskIds, disk.Id)
+	}
+	input := jsonutils.Marshal(map[string]interface{}{
+		"disks": []map[string]interface{}{
+			{
+				"size":          opts.SizeMb,
+				"storage_id":    opts.StorageId,
+				"preallocation": opts.Preallocation,
+			},
+		},
+	})
+	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "createdisk", input)
+	if err != nil {
+		return "", err
+	}
+	ret := ""
+	cloudprovider.Wait(time.Second*3, time.Minute*3, func() (bool, error) {
+		err = self.Refresh()
+		if err != nil {
+			return false, errors.Wrapf(err, "Refresh")
+		}
+
+		for _, disk := range self.DisksInfo {
+			if !utils.IsInStringArray(disk.Id, diskIds) {
+				ret = disk.Id
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	if len(ret) > 0 {
+		return ret, nil
+	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "after disk created")
 }

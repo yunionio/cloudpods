@@ -439,6 +439,10 @@ func (self *NutanixGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStan
 	self.SetStageComplete(ctx, nil)
 }
 
+type CloudpodsGuestCreateDiskTask struct {
+	NutanixGuestCreateDiskTask
+}
+
 func init() {
 	taskman.RegisterTask(GuestCreateBackupDisksTask{})
 	taskman.RegisterTask(GuestCreateDiskTask{})
@@ -447,4 +451,5 @@ func init() {
 	taskman.RegisterTask(ESXiGuestCreateDiskTask{})
 	taskman.RegisterTask(ProxmoxGuestCreateDiskTask{})
 	taskman.RegisterTask(NutanixGuestCreateDiskTask{})
+	taskman.RegisterTask(CloudpodsGuestCreateDiskTask{})
 }
