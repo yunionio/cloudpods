@@ -98,6 +98,10 @@ func (vpc *sFakeVpc) GetCidrBlock() string {
 	return ""
 }
 
+func (vpc *sFakeVpc) GetCidrBlock6() string {
+	return ""
+}
+
 func (vpc *sFakeVpc) CreateIWire(opts *cloudprovider.SWireCreateOptions) (cloudprovider.ICloudWire, error) {
 	return nil, errors.ErrNotSupported
 }

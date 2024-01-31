@@ -40,6 +40,10 @@ func (self *SInstanceNic) GetIP() string {
 	return self.IpAddr
 }
 
+func (self *SInstanceNic) GetIP6() string {
+	return self.Ip6Addr
+}
+
 func (self *SInstanceNic) GetDriver() string {
 	return self.Driver
 }

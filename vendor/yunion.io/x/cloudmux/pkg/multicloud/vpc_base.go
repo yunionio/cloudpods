@@ -89,6 +89,10 @@ func (self *SVpc) GetGlobalVpcId() string {
 	return ""
 }
 
+func (self *SVpc) GetCidrBlock6() string {
+	return ""
+}
+
 func (self *SVpc) GetICloudIPv6Gateways() ([]cloudprovider.ICloudIPv6Gateway, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudIPv6Gateways")
 }

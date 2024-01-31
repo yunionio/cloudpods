@@ -403,6 +403,7 @@ type ICloudVM interface {
 type ICloudNic interface {
 	GetId() string
 	GetIP() string
+	GetIP6() string
 	GetMAC() string
 	InClassicNetwork() bool
 	GetDriver() string
@@ -429,6 +430,7 @@ var _ ICloudNic = DummyICloudNic{}
 
 func (d DummyICloudNic) GetId() string          { panic(errors.ErrNotImplemented) }
 func (d DummyICloudNic) GetIP() string          { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetIP6() string         { panic(errors.ErrNotImplemented) }
 func (d DummyICloudNic) GetMAC() string         { panic(errors.ErrNotImplemented) }
 func (d DummyICloudNic) InClassicNetwork() bool { panic(errors.ErrNotImplemented) }
 func (d DummyICloudNic) GetDriver() string      { panic(errors.ErrNotImplemented) }
@@ -605,6 +607,7 @@ type ICloudVpc interface {
 	GetRegion() ICloudRegion
 	GetIsDefault() bool
 	GetCidrBlock() string
+	GetCidrBlock6() string
 	GetIWires() ([]ICloudWire, error)
 	CreateIWire(opts *SWireCreateOptions) (ICloudWire, error)
 	GetISecurityGroups() ([]ICloudSecurityGroup, error)
@@ -650,11 +653,18 @@ type ICloudNetwork interface {
 	IVirtualResource
 
 	GetIWire() ICloudWire
-	// GetStatus() string
+
 	GetIpStart() string
 	GetIpEnd() string
 	GetIpMask() int8
 	GetGateway() string
+
+	// IPv6
+	GetIp6Start() string
+	GetIp6End() string
+	GetIp6Mask() uint8
+	GetGateway6() string
+
 	GetServerType() string
 	//GetIsPublic() bool
 	// 仅私有云有用，公有云无效

@@ -42,7 +42,7 @@ type SCloudResources struct {
 }
 
 type SVSwitch struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	AliyunTags
 	wire *SWire
 

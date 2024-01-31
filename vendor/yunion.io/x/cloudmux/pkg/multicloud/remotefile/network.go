@@ -30,6 +30,11 @@ type SNetwork struct {
 	IpEnd   string
 	IpMask  int8
 	Gatway  string
+
+	Ip6Start string
+	Ip6End   string
+	Ip6Mask  uint8
+	Gatway6  string
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
@@ -49,6 +54,22 @@ func (self *SNetwork) GetIpMask() int8 {
 }
 
 func (self *SNetwork) GetGateway() string {
+	return self.Gatway
+}
+
+func (self *SNetwork) GetIp6Start() string {
+	return self.Ip6Start
+}
+
+func (self *SNetwork) GetIp6End() string {
+	return self.Ip6End
+}
+
+func (self *SNetwork) GetIp6Mask() uint8 {
+	return self.Ip6Mask
+}
+
+func (self *SNetwork) GetGateway6() string {
 	return self.Gatway
 }
 

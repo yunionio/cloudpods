@@ -25,7 +25,7 @@ import (
 )
 
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	CloudpodsTags
 	wire *SWire
 
@@ -54,6 +54,22 @@ func (self *SNetwork) Delete() error {
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
+}
+
+func (net *SNetwork) GetIp6Start() string {
+	return net.GuestIp6Start
+}
+
+func (net *SNetwork) GetIp6End() string {
+	return net.GuestIp6End
+}
+
+func (net *SNetwork) GetIp6Mask() uint8 {
+	return net.GuestIpMask
+}
+
+func (self *SNetwork) GetGateway6() string {
+	return self.GuestGateway6
 }
 
 func (self *SNetwork) GetIpStart() string {
