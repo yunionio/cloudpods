@@ -51,6 +51,7 @@ type SSshSession struct {
 	Password     string
 
 	guestDetails *compute_api.ServerDetails
+	hostDetails  *compute_api.HostDetails
 }
 
 func NewSshSession(ctx context.Context, us *mcclient.ClientSession, conn SSshConnectionInfo) *SSshSession {
@@ -65,6 +66,7 @@ func NewSshSession(ctx context.Context, us *mcclient.ClientSession, conn SSshCon
 		Password:     conn.Password,
 
 		guestDetails: conn.GuestDetails,
+		hostDetails:  conn.HostDetails,
 	}
 	if conn.Port <= 0 {
 		ret.Port = 22
@@ -147,6 +149,8 @@ func (s *SSshSession) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, error)
 	dispInfo.WaterMark = fetchWaterMark(userInfo)
 	if s.guestDetails != nil {
 		dispInfo.fetchGuestInfo(s.guestDetails)
+	} else if s.hostDetails != nil {
+		dispInfo.fetchHostInfo(s.hostDetails)
 	} else {
 		dispInfo.Ips = s.Host
 		if len(s.name) > 0 {
