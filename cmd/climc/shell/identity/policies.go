@@ -40,7 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
-func createPolicy(s *mcclient.ClientSession, name string, genName string, policy string, domain string, enabled bool, disabled bool, desc string, scope string, isSystem *bool, objectags, projecttags, domaintags tagutils.TTagSet) error {
+func createPolicy(s *mcclient.ClientSession, name string, genName string, policy string, domain string, enabled bool, disabled bool, desc string, scope string, isSystem *bool, objectags, projecttags, domaintags tagutils.TTagSet, orgNodeId []string) error {
 	params := jsonutils.NewDict()
 	if len(genName) > 0 {
 		params.Add(jsonutils.NewString(genName), "generate_name")
@@ -83,6 +83,10 @@ func createPolicy(s *mcclient.ClientSession, name string, genName string, policy
 		params.Add(jsonutils.Marshal(domaintags), "domain_tags")
 	}
 
+	if len(orgNodeId) > 0 {
+		params.Add(jsonutils.NewStringArray(orgNodeId), "org_node_id")
+	}
+
 	result, err := modules.Policies.Create(s, params)
 	if err != nil {
 		return err
@@ -115,7 +119,12 @@ func createPolicyFromJson(s *mcclient.ClientSession, old jsonutils.JSONObject, a
 		domainTags = make(tagutils.TTagSet, 0)
 		old.Unmarshal(&domainTags, "domain_tags")
 	}
-	return createPolicy(s, argsName, genName, policy, argsDomain, enabled, !enabled, desc, scope, &isSystem, objectTags, projectTags, domainTags)
+	var nodeIds []string
+	if old.Contains("org_node_id") {
+		nodeIds = make([]string, 0)
+		old.Unmarshal(&nodeIds, "org_node_id")
+	}
+	return createPolicy(s, argsName, genName, policy, argsDomain, enabled, !enabled, desc, scope, &isSystem, objectTags, projectTags, domainTags, nodeIds)
 }
 
 func init() {
@@ -141,6 +150,8 @@ func init() {
 		ProjectTags string `help:"project tags"`
 		DomainTags  string `help:"domain tags"`
 		ObjectTags  string `help:"object tags"`
+
+		OrgNodeId []string `help:"node ids of organiazation tree node"`
 	}
 	R(&PolicyCreateOptions{}, "policy-create", "Create a new policy", func(s *mcclient.ClientSession, args *PolicyCreateOptions) error {
 		policyBytes, err := ioutil.ReadFile(args.FILE)
@@ -151,7 +162,7 @@ func init() {
 		objectTags := baseoptions.SplitTag(args.ObjectTags)
 		projectTags := baseoptions.SplitTag(args.ProjectTags)
 		domainTags := baseoptions.SplitTag(args.DomainTags)
-		return createPolicy(s, args.NAME, "", string(policyBytes), args.Domain, args.Enabled, args.Disabled, args.Desc, args.Scope, args.IsSystem, objectTags, projectTags, domainTags)
+		return createPolicy(s, args.NAME, "", string(policyBytes), args.Domain, args.Enabled, args.Disabled, args.Desc, args.Scope, args.IsSystem, objectTags, projectTags, domainTags, args.OrgNodeId)
 	})
 
 	type PolicyExportOptions struct {
@@ -213,6 +224,8 @@ func init() {
 		ProjectTags string `help:"project tags"`
 		DomainTags  string `help:"domain tags"`
 		ObjectTags  string `help:"object tags"`
+
+		OrgNodeId []string `help:"node ids of organiazation tree node"`
 	}
 	updateFunc := func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
 		policyId, err := modules.Policies.GetId(s, args.ID, nil)
@@ -260,6 +273,10 @@ func init() {
 
 		if len(args.TagsAction) > 0 {
 			params.Add(jsonutils.NewString(args.TagsAction), "tag_update_policy")
+		}
+
+		if len(args.OrgNodeId) > 0 {
+			params.Add(jsonutils.NewStringArray(args.OrgNodeId), "org_node_id")
 		}
 
 		result, err := modules.Policies.Update(s, policyId, params)
