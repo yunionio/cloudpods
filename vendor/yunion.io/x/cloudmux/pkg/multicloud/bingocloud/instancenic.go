@@ -58,6 +58,10 @@ func (self *SInstanceNic) GetIP() string {
 	return self.PrivateIPAddress
 }
 
+func (self *SInstanceNic) GetIP6() string {
+	return ""
+}
+
 func (self *SInstanceNic) GetMAC() string {
 	return self.MACAddress
 }

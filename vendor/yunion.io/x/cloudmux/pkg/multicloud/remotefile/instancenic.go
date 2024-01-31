@@ -34,6 +34,10 @@ func (self *SInstanceNic) GetIP() string {
 	return self.Ip
 }
 
+func (self *SInstanceNic) GetIP6() string {
+	return ""
+}
+
 func (self *SInstanceNic) GetMAC() string {
 	if len(self.Mac) == 0 {
 		ip, _ := netutils.NewIPV4Addr(self.GetIP())

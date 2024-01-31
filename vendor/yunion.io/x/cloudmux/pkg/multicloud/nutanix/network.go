@@ -29,7 +29,7 @@ import (
 )
 
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	multicloud.STagBase
 	wire *SWire
 

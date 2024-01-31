@@ -30,7 +30,7 @@ import (
 )
 
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	QcloudTags
 	wire *SWire
 

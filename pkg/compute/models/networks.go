@@ -738,6 +738,11 @@ func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		snet.GuestGateway = extNet.GetGateway()
 		snet.ServerType = extNet.GetServerType()
 
+		snet.GuestIp6Start = extNet.GetIp6Start()
+		snet.GuestIp6End = extNet.GetIp6End()
+		snet.GuestIp6Mask = extNet.GetIp6Mask()
+		snet.GuestGateway6 = extNet.GetGateway6()
+
 		snet.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 		if createdAt := extNet.GetCreatedAt(); !createdAt.IsZero() {
