@@ -1034,9 +1034,11 @@ func (self *SGuest) PerformStart(
 			}
 
 			if float32(guestStats.GuestVcpuCount+self.VcpuCount) > host.GetVirtualCPUCount() {
+				log.Debugf("GuestPerformStart: guestStats: %s host: %f request: %d", jsonutils.Marshal(guestStats), host.GetVirtualCPUCount(), self.VcpuCount)
 				return nil, httperrors.NewInsufficientResourceError("host virtual cpu not enough")
 			}
 			if float32(guestStats.GuestVmemSize+self.VmemSize) > host.GetVirtualMemorySize() {
+				log.Debugf("GuestPerformStart: guestStats: %s host: %f request: %d", jsonutils.Marshal(guestStats), host.GetVirtualMemorySize(), self.VmemSize)
 				return nil, httperrors.NewInsufficientResourceError("host virtual memory not enough")
 			}
 		}
