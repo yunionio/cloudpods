@@ -186,14 +186,54 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	}
 	idStr := env.Params["<ip>"]
 	if !regutils.MatchIPAddr(idStr) {
-		ip, port, guestDetails, err := session.ResolveServerSSHIPPortById(ctx, env.ClientSessin, idStr, sshConnInfo.IP, sshConnInfo.Port)
-		if err != nil {
-			httperrors.GeneralServerError(ctx, w, err)
+		var tryServer = func() error {
+			ip, port, guestDetails, err := session.ResolveServerSSHIPPortById(ctx, env.ClientSessin, idStr, sshConnInfo.IP, sshConnInfo.Port)
+			if err != nil {
+				return err
+			}
+			sshConnInfo.IP = ip
+			sshConnInfo.Port = port
+			sshConnInfo.GuestDetails = guestDetails
+			return nil
+		}
+		var tryHost = func() error {
+			ip, port, hostDetails, err := session.ResolveHostSSHIPPortById(ctx, env.ClientSessin, idStr, sshConnInfo.IP, sshConnInfo.Port)
+			if err != nil {
+				return err
+			}
+			sshConnInfo.IP = ip
+			sshConnInfo.Port = port
+			sshConnInfo.HostDetails = hostDetails
+			return nil
+		}
+		switch sshConnInfo.ResourceType {
+		case "server":
+			err = tryServer()
+			if err != nil {
+				httperrors.GeneralServerError(ctx, w, err)
+				return
+			}
+		case "host":
+			err = tryHost()
+			if err != nil {
+				httperrors.GeneralServerError(ctx, w, err)
+				return
+			}
+		default:
+			for _, try := range []func() error{
+				tryServer,
+				tryHost,
+			} {
+				err = try()
+				if err == nil {
+					s := session.NewSshSession(ctx, env.ClientSessin, sshConnInfo)
+					handleSshSession(ctx, s, w)
+					return
+				}
+			}
+			httperrors.NewResourceNotFoundError("%s not found", idStr)
 			return
 		}
-		sshConnInfo.IP = ip
-		sshConnInfo.Port = port
-		sshConnInfo.GuestDetails = guestDetails
 	} else {
 		// directly ssh IP should be deprecated gradually
 		sshConnInfo.IP = idStr
