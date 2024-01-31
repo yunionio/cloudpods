@@ -3657,6 +3657,7 @@ func (self *SGuest) SyncVMNics(
 		_, err = db.Update(&commondb[i], func() error {
 			network := commondb[i].GetNetwork()
 			ip := commonext[i].GetIP()
+			ip6 := commonext[i].GetIP6()
 			if len(ip) > 0 {
 				if !network.Contains(ip) {
 					localNet, err := getCloudNicNetwork(ctx, commonext[i], host, ipList, i)
@@ -3667,6 +3668,7 @@ func (self *SGuest) SyncVMNics(
 					commondb[i].IpAddr = ip
 				} else {
 					commondb[i].IpAddr = ip
+					commondb[1].Ip6Addr = ip6
 				}
 			}
 			commondb[i].Driver = commonext[i].GetDriver()
@@ -3707,6 +3709,7 @@ func (self *SGuest) SyncVMNics(
 		guestnetworks, err := self.Attach2Network(ctx, userCred, Attach2NetworkArgs{
 			Network:             localNet,
 			IpAddr:              ip,
+			Ip6Addr:             added[i].GetIP6(),
 			NicDriver:           added[i].GetDriver(),
 			TryReserved:         true,
 			AllocDir:            api.IPAllocationDefault,

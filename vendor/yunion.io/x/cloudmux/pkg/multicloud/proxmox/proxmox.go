@@ -133,6 +133,7 @@ func (self *SProxmoxClient) GetRegions() ([]SRegion, error) {
 }
 
 type ProxmoxError struct {
+	Url     string
 	Message string
 	Code    int
 	Params  []string
@@ -148,7 +149,7 @@ func (ce *ProxmoxError) ParseErrorFromJsonResponse(statusCode int, status string
 	ce.Status = status
 	if body != nil {
 		body.Unmarshal(ce)
-		log.Errorf("error: %v", body.PrettyString())
+		log.Errorf("%s status: %s(%d) error: %v", ce.Url, status, statusCode, body.PrettyString())
 	}
 	if ce.Code == 0 && statusCode > 0 {
 		ce.Code = statusCode
@@ -289,7 +290,7 @@ func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res strin
 	}
 
 	req.SetHeader(header)
-	oe := &ProxmoxError{}
+	oe := &ProxmoxError{Url: url}
 	_, resp, err := client.Send(context.Background(), req, oe, cli.debug)
 	if err != nil {
 		return nil, err

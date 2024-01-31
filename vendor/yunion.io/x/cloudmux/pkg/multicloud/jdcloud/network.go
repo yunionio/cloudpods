@@ -31,7 +31,7 @@ import (
 )
 
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	JdcloudTags
 
 	wire *SWire
