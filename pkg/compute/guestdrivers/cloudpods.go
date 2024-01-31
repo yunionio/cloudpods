@@ -15,12 +15,16 @@
 package guestdrivers
 
 import (
+	"context"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -54,6 +58,14 @@ func (self *SCloudpodsGuestDriver) GetProvider() string {
 
 func (self *SCloudpodsGuestDriver) GetGuestInitialStateAfterCreate() string {
 	return api.VM_READY
+}
+
+func (self *SCloudpodsGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "CloudpodsGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	return subtask.ScheduleRun(nil)
 }
 
 func (self *SCloudpodsGuestDriver) GetDetachDiskStatus() ([]string, error) {
