@@ -39,6 +39,9 @@ import (
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
+var _ db.IModelManager = (*SOrganizationManager)(nil)
+var _ db.IModel = (*SOrganization)(nil)
+
 type SOrganizationManager struct {
 	SEnabledIdentityBaseResourceManager
 	db.SSharableBaseResourceManager
