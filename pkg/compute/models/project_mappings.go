@@ -113,6 +113,7 @@ func (manager *SProjectMappingManager) ValidateCreateData(
 			input.Rules[i].Project = tenant.Name
 		}
 	}
+	input.Rules = input.Rules.Rules()
 	input.SetEnabled()
 	input.Status = api.PROJECT_MAPPING_STATUS_AVAILABLE
 	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
@@ -249,6 +250,7 @@ func (self *SProjectMapping) ValidateUpdateData(ctx context.Context, userCred mc
 			input.Rules[i].Project = tenant.Name
 		}
 	}
+	input.Rules = input.Rules.Rules()
 	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
 	return input, err
 }

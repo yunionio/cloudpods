@@ -55,7 +55,29 @@ type ProjectMappingRuleInfo struct {
 	Domain string `json:"domain"`
 }
 
+func (rule ProjectMappingRuleInfo) IsWide() bool {
+	for _, tag := range rule.Tags {
+		if len(tag.Value) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 type MappingRules []ProjectMappingRuleInfo
+
+func (rules MappingRules) Rules() MappingRules {
+	normal := []ProjectMappingRuleInfo{}
+	wide := []ProjectMappingRuleInfo{}
+	for _, rule := range rules {
+		if rule.IsWide() {
+			wide = append(wide, rule)
+		} else {
+			normal = append(normal, rule)
+		}
+	}
+	return append(normal, wide...)
+}
 
 func (rule *ProjectMappingRuleInfo) Validate() error {
 	if len(rule.Tags) == 0 {
@@ -159,6 +181,7 @@ type ProjectMappingDetails struct {
 type ProjectMappingCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 
+	// 根据标签key匹配的规则会默认排到列表最后
 	Rules MappingRules
 }
 
@@ -173,6 +196,7 @@ type ProjectMappingResourceInfo struct {
 type ProjectMappingUpdateInput struct {
 	apis.EnabledStatusInfrasResourceBaseUpdateInput
 
+	// 根据标签key匹配的规则会默认排到列表最后
 	Rules MappingRules
 }
 
