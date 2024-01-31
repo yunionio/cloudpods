@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -475,6 +476,11 @@ func (app *Application) initServer(addr string) *http.Server {
 	}
 	*/
 
+	cipherSuites := []uint16{}
+	for _, suite := range tls.CipherSuites() {
+		cipherSuites = append(cipherSuites, suite.ID)
+	}
+
 	s := &http.Server{
 		Addr:              addr,
 		Handler:           app,
@@ -486,6 +492,10 @@ func (app *Application) initServer(addr string) *http.Server {
 		// fix aliyun elb healt check tls error
 		// issue like: https://github.com/megaease/easegress/issues/481
 		ErrorLog: olog.New(io.Discard, "", olog.LstdFlags),
+
+		TLSConfig: &tls.Config{
+			CipherSuites: cipherSuites,
+		},
 	}
 	return s
 }
