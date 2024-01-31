@@ -26,7 +26,7 @@ import (
 )
 
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	EcloudTags
 	SZoneRegionBase
 

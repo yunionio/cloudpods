@@ -28,7 +28,7 @@ import (
 )
 
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	SOracleTag
 	wire *SWire
 

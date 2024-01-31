@@ -647,6 +647,7 @@ func (svpc *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		}
 		svpc.Status = extVPC.GetStatus()
 		svpc.CidrBlock = extVPC.GetCidrBlock()
+		svpc.CidrBlock6 = extVPC.GetCidrBlock6()
 		svpc.IsDefault = extVPC.GetIsDefault()
 		svpc.ExternalId = extVPC.GetGlobalId()
 

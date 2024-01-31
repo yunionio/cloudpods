@@ -27,7 +27,7 @@ import (
 )
 
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	AzureTags
 	wire *SWire
 

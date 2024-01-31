@@ -29,7 +29,7 @@ import (
 
 // https://docs.ucloud.cn/api/vpc2.0-api/describe_subnet
 type SNetwork struct {
-	multicloud.SResourceBase
+	multicloud.SNetworkBase
 	UcloudTags
 	wire *SWire
 
