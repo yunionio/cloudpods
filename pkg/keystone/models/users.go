@@ -690,13 +690,6 @@ func (manager *SUserManager) FetchCustomizeColumns(
 			EnabledIdentityBaseResourceDetails: identRows[i],
 		}
 		userIds[i] = objs[i].(*SUser).Id
-		rows[i] = userExtra(ctx, userCred, objs[i].(*SUser), rows[i])
-	}
-
-	idpsMaps, err := fetchIdmappings(userIds, api.IdMappingEntityUser)
-	if err != nil {
-		log.Errorf("fetchIdmappings fail %s", err)
-		return rows
 	}
 
 	scopeResources, err := manager.FetchScopeResources(userIds)
@@ -705,57 +698,208 @@ func (manager *SUserManager) FetchCustomizeColumns(
 		return rows
 	}
 
+	usage, err := manager.TotalResourceCount(userIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+
+	projects := ProjectManager.Query().SubQuery()
+	domains := DomainManager.Query().SubQuery()
+	subq := manager.fetchProjectUnion(userIds)
+	q := projects.Query(
+		projects.Field("id"),
+		projects.Field("name"),
+		projects.Field("domain_id"),
+		domains.Field("name").Label("domain_name"),
+		subq.Field("actor_id").Label("user_id"),
+	)
+	q = q.Join(domains, sqlchemy.Equals(projects.Field("domain_id"), domains.Field("id")))
+	q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("target_id")))
+
+	userProjects := []struct {
+		api.SFetchDomainObjectWithMetadata
+		UserId string
+	}{}
+
+	err = q.All(&userProjects)
+	if err != nil {
+		log.Errorf("query projects error: %v", err)
+		return rows
+	}
+
+	metaMap := map[string]map[string]string{}
+	if db.IsAllowList(rbacscope.ScopeProject, userCred, db.Metadata).Result.IsAllow() {
+		projectIds := []string{}
+		for _, p := range userProjects {
+			projectIds = append(projectIds, p.Id)
+		}
+		metadata := []db.SMetadata{}
+		q = db.Metadata.Query().Equals("obj_type", ProjectManager.Keyword()).In("obj_id", projectIds)
+		err = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), db.SYSTEM_ADMIN_PREFIX))).All(&metadata)
+		if err != nil {
+			log.Errorf("query metdata error: %v", err)
+			return rows
+		}
+		for _, meta := range metadata {
+			_, ok := metaMap[meta.ObjId]
+			if !ok {
+				metaMap[meta.ObjId] = map[string]string{}
+			}
+			metaMap[meta.ObjId][meta.Key] = meta.Value
+		}
+	}
+
+	projectMap := map[string][]api.SFetchDomainObjectWithMetadata{}
+	for _, p := range userProjects {
+		_, ok := projectMap[p.UserId]
+		if !ok {
+			projectMap[p.UserId] = []api.SFetchDomainObjectWithMetadata{}
+		}
+		p.SFetchDomainObjectWithMetadata.Metadata, _ = metaMap[p.Id]
+		projectMap[p.UserId] = append(projectMap[p.UserId], p.SFetchDomainObjectWithMetadata)
+	}
+
 	for i := range rows {
 		rows[i].ExternalResourceInfo, _ = scopeResources[userIds[i]]
-		if idps, ok := idpsMaps[userIds[i]]; ok {
-			if len(idps) > 0 {
-				// rows[i].IdpResourceInfo = idps[0].IdpResourceInfo
-				rows[i].Idps = make([]api.IdpResourceInfo, len(idps))
-				for j := range idps {
-					rows[i].Idps[j] = idps[j].IdpResourceInfo
-				}
-			}
-		}
+		rows[i].UserUsage, _ = usage[userIds[i]]
+		rows[i].Projects, _ = projectMap[userIds[i]]
 	}
 
 	return rows
 }
 
-func userExtra(ctx context.Context, userCred mcclient.TokenCredential, user *SUser, out api.UserDetails) api.UserDetails {
-	out.GroupCount, _ = user.GetGroupCount()
-	out.ProjectCount, _ = user.GetProjectCount()
-	out.CredentialCount, _ = user.GetCredentialCount()
+type SUserUsageCount struct {
+	Id string
+	api.UserUsage
+}
 
-	localUser, _ := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
-	if localUser != nil {
-		if localUser.FailedAuthCount > 0 {
-			out.FailedAuthCount = localUser.FailedAuthCount
-			out.FailedAuthAt = localUser.FailedAuthAt
-		}
-		if localUser.NeedResetPassword.IsTrue() {
-			out.NeedResetPassword = true
-			out.PasswordResetHint = localUser.ResetHint
-		}
-		localPass, _ := PasswordManager.FetchLastPassword(localUser.Id)
-		if localPass != nil && !localPass.ExpiresAt.IsZero() {
-			out.PasswordExpiresAt = localPass.ExpiresAt
-		}
-		out.IsLocal = true
-	} else {
-		out.IsLocal = false
+func (m *SUserManager) query(manager db.IModelManager, field string, userIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
 	}
 
-	projects, _ := ProjectManager.FetchUserProjects(user.Id)
-	out.Projects = make([]api.SFetchDomainObjectWithMetadata, len(projects))
-	for i, proj := range projects {
-		out.Projects[i].Id = proj.Id
-		out.Projects[i].Name = proj.Name
-		out.Projects[i].Domain = proj.DomainName
-		out.Projects[i].DomainId = proj.DomainId
-		out.Projects[i].Metadata, _ = proj.GetAllMetadata(ctx, userCred)
+	key := "user_id"
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field(key),
+		sqlchemy.COUNT(field),
+	).In(key, userIds).GroupBy(sq.Field(key)).SubQuery()
+}
+
+func (manager *SUserManager) fetchProjectUnion(userIds []string) *sqlchemy.SUnion {
+	p1 := AssignmentManager.Query("actor_id", "target_id", "type").Equals("type", api.AssignmentUserProject).IsFalse("inherited").In("actor_id", userIds)
+	p2Q := UsergroupManager.Query().In("user_id", userIds).SubQuery()
+	asq := AssignmentManager.Query().IsFalse("inherited").Equals("type", api.AssignmentGroupProject).SubQuery()
+	p2 := p2Q.Query(
+		p2Q.Field("user_id").Label("actor_id"),
+		asq.Field("target_id").Label("target_id"),
+		asq.Field("type").Label("type"),
+	).Join(asq, sqlchemy.Equals(p2Q.Field("group_id"), asq.Field("actor_id")))
+	return sqlchemy.Union(p1, p2)
+}
+
+func (manager *SUserManager) TotalResourceCount(userIds []string) (map[string]api.UserUsage, error) {
+	// group
+	groupSQ := manager.query(UsergroupManager, "group_cnt", userIds, nil)
+	// credential
+	credSQ := manager.query(CredentialManager, "cred_cnt", userIds, nil)
+	// project
+	sq := manager.fetchProjectUnion(userIds)
+	projectSQ := sq.Query(
+		sq.Field("actor_id"),
+		sqlchemy.COUNT("project_cnt"),
+	).GroupBy(sq.Field("actor_id")).SubQuery()
+
+	users := manager.Query().SubQuery()
+	userQ := users.Query(
+		sqlchemy.SUM("group_count", groupSQ.Field("group_cnt")),
+		sqlchemy.SUM("credential_count", credSQ.Field("cred_cnt")),
+		sqlchemy.SUM("project_count", projectSQ.Field("project_cnt")),
+	)
+
+	userQ.AppendField(userQ.Field("id"))
+
+	userQ = userQ.LeftJoin(groupSQ, sqlchemy.Equals(userQ.Field("id"), groupSQ.Field("user_id")))
+	userQ = userQ.LeftJoin(credSQ, sqlchemy.Equals(userQ.Field("id"), credSQ.Field("user_id")))
+	userQ = userQ.LeftJoin(projectSQ, sqlchemy.Equals(userQ.Field("id"), projectSQ.Field("actor_id")))
+
+	userQ = userQ.Filter(sqlchemy.In(userQ.Field("id"), userIds)).GroupBy(userQ.Field("id"))
+
+	userCount := []SUserUsageCount{}
+	err := userQ.All(&userCount)
+	if err != nil {
+		return nil, errors.Wrapf(err, "userQ.All")
 	}
 
-	return out
+	localUsers := []SLocalUser{}
+	err = LocalUserManager.Query().In("user_id", userIds).All(&localUsers)
+	if err != nil {
+		return nil, err
+	}
+	localUserIds := []int{}
+	userMap := map[string]*SLocalUser{}
+	for i := range localUsers {
+		user := localUsers[i]
+		userMap[user.UserId] = &user
+		localUserIds = append(localUserIds, user.Id)
+	}
+
+	passes := make([]SPassword, 0)
+	err = PasswordManager.Query().In("local_user_id", localUserIds).All(&passes)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Password.Query")
+	}
+
+	passwdMap := map[int]time.Time{}
+	for _, pass := range passes {
+		if pass.ExpiresAt.IsZero() {
+			continue
+		}
+		if _, ok := passwdMap[pass.LocalUserId]; !ok {
+			passwdMap[pass.LocalUserId] = pass.ExpiresAt
+		}
+	}
+
+	idpsMaps, err := fetchIdmappings(userIds, api.IdMappingEntityUser)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetchIdmappings")
+	}
+
+	idpMap := map[string][]api.IdpResourceInfo{}
+	for _, uid := range userIds {
+		if idps, ok := idpsMaps[uid]; ok {
+			data := []api.IdpResourceInfo{}
+			for _, idp := range idps {
+				data = append(data, idp.IdpResourceInfo)
+			}
+			idpMap[uid] = data
+		}
+	}
+
+	result := map[string]api.UserUsage{}
+	for i := range userCount {
+		if user, ok := userMap[userCount[i].Id]; ok {
+			userCount[i].IsLocal = true
+			userCount[i].FailedAuthCount = user.FailedAuthCount
+			userCount[i].FailedAuthAt = user.FailedAuthAt
+			if user.NeedResetPassword.IsTrue() {
+				userCount[i].NeedResetPassword = true
+				userCount[i].PasswordResetHint = user.ResetHint
+			}
+			if expire, ok := passwdMap[userMap[userCount[i].Id].Id]; ok {
+				userCount[i].PasswordExpiresAt = expire
+			}
+		}
+		userCount[i].Idps, _ = idpMap[userCount[i].Id]
+		result[userCount[i].Id] = userCount[i].UserUsage
+	}
+
+	return result, nil
 }
 
 func (user *SUser) initLocalData(passwd string, skipPassCheck bool) error {
@@ -867,48 +1011,27 @@ func (user *SUser) clearFailedAuth() error {
 }
 
 func (user *SUser) ValidateDeleteCondition(ctx context.Context, info *api.UserDetails) error {
-	idMappings, err := user.getIdmappings()
-	if err != nil {
-		return errors.Wrap(err, "getIdmappings")
+	if user.IsAdminUser() {
+		return httperrors.NewForbiddenError("cannot delete system user")
 	}
-	if !user.IsLocal() && len(idMappings) > 0 {
-		for _, idmaping := range idMappings {
-			idp, err := IdentityProviderManager.FetchIdentityProviderById(idmaping.IdpId)
-			if err != nil && errors.Cause(err) == sql.ErrNoRows {
-				return errors.Wrap(err, "IdentityProviderManager.FetchIdentityProviderById")
-			}
-			if idp != nil && idp.IsSso.IsFalse() {
+
+	if info == nil {
+		usage, err := UserManager.TotalResourceCount([]string{user.Id})
+		if err != nil {
+			return err
+		}
+		info = &api.UserDetails{}
+		info.UserUsage, _ = usage[user.Id]
+	}
+
+	if !info.IsLocal && len(info.Idps) > 0 {
+		for _, idp := range info.Idps {
+			if !idp.IsSso {
 				return httperrors.NewForbiddenError("cannot delete non-local non-sso user")
 			}
 		}
 	}
-	err = user.ValidatePurgeCondition(ctx, info)
-	if err != nil {
-		return err
-	}
 	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
-}
-
-func (user *SUser) ValidatePurgeCondition(ctx context.Context, info *api.UserDetails) error {
-	if user.IsAdminUser() {
-		return httperrors.NewForbiddenError("cannot delete system user")
-	}
-	/*if gotypes.IsNil(info) {
-		info = &api.UserDetails{}
-		scopResource, err := UserManager.FetchScopeResources([]string{user.Id})
-		if err != nil {
-			return errors.Wrapf(err, "FetchScopeResources")
-		}
-		info.ExternalResourceInfo, _ = scopResource[user.Id]
-	}
-	if len(info.ExtResource) > 0 {
-		for k, cnt := range info.ExtResource {
-			if cnt > 0 {
-				return httperrors.NewNotEmptyError("user contains %d external resources %s", cnt, k)
-			}
-		}
-	}*/
-	return nil
 }
 
 func (user *SUser) getExternalResources() (map[string]int, time.Time, error) {

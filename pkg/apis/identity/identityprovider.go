@@ -60,6 +60,9 @@ type IdpResourceInfo struct {
 	// 认证源类型, 例如sql, cas, ldap等
 	IdpDriver string `json:"idp_driver"`
 
+	// 是否是SSO登录方式
+	IsSso bool `json:"is_sso"`
+
 	// 认证源模板
 	Template string `json:"template"`
 }
