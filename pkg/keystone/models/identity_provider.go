@@ -847,10 +847,7 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
 			continue
 		}
-		err = users[i].ValidatePurgeCondition(ctx, nil)
-		if err != nil {
-			db.OpsLog.LogEvent(&users[i], db.ACT_DELETE_FAIL, err, userCred)
-			log.Errorf("users %s ValidatePurgeCondition fail %s", users[i].Name, err)
+		if users[i].IsAdminUser() {
 			continue
 		}
 		err = users[i].Delete(ctx, userCred)
