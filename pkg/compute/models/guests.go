@@ -3668,7 +3668,7 @@ func (self *SGuest) SyncVMNics(
 					commondb[i].IpAddr = ip
 				} else {
 					commondb[i].IpAddr = ip
-					commondb[1].Ip6Addr = ip6
+					commondb[i].Ip6Addr = ip6
 				}
 			}
 			commondb[i].Driver = commonext[i].GetDriver()
