@@ -75,8 +75,9 @@ type WebConsoleSshOptions struct {
 	Ip           string `help:"IP to connect if multiple IPs on server"`
 	Port         int    `help:"Remote server port"`
 	Username     string `help:"Remote server username"`
-	KeepUsername bool   `help:"Keep remove username`
+	KeepUsername bool   `help:"Keep remove username"`
 	Password     string `help:"Remote server password"`
+	ResourceType string `help:"Resource Type" choices:"host|server"`
 }
 
 func (opt *WebConsoleSshOptions) Params() (*jsonutils.JSONDict, error) {
