@@ -56,8 +56,8 @@ func (self *InstanceSnapshotCreateTask) taskFail(
 	if guest == nil {
 		guest = models.GuestManager.FetchGuestById(isp.GuestId)
 	}
-	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_FAILED, reason.String())
-	guest.SetStatus(self.UserCred, compute.VM_INSTANCE_SNAPSHOT_FAILED, reason.String())
+	isp.SetStatus(ctx, self.UserCred, compute.INSTANCE_SNAPSHOT_FAILED, reason.String())
+	guest.SetStatus(ctx, self.UserCred, compute.VM_INSTANCE_SNAPSHOT_FAILED, reason.String())
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, reason, self.UserCred, false)
@@ -72,7 +72,7 @@ func (self *InstanceSnapshotCreateTask) taskComplete(
 	if guest == nil {
 		guest = models.GuestManager.FetchGuestById(isp.GuestId)
 	}
-	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_READY, "")
+	isp.SetStatus(ctx, self.UserCred, compute.INSTANCE_SNAPSHOT_READY, "")
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE, "instance snapshot create success", self.UserCred)

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *DBInstanceSyncTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
-	rds.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, err.Error())
+	rds.SetStatus(ctx, self.UserCred, api.DBINSTANCE_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(rds, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{

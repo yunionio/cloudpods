@@ -53,7 +53,7 @@ func init() {
 }
 
 func (self *GlobalVpcDeleteTask) taskFailed(ctx context.Context, gvpc *models.SGlobalVpc, err error) {
-	gvpc.SetStatus(self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
+	gvpc.SetStatus(ctx, self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, gvpc, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

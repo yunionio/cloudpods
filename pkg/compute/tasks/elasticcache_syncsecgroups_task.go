@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheSyncsecgroupsTask) taskFailed(ctx context.Context, cache *models.SElasticcache, err error) {
-	cache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_SYNC_FAILED, err.Error())
+	cache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_SYNC_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	db.OpsLog.LogEvent(cache, db.ACT_SYNC_CONF, cache.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, cache, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
@@ -88,7 +88,7 @@ func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsComplete(c
 		return
 	}
 
-	cache.SetStatus(self.UserCred, iec.GetStatus(), "UpdateSecurityGroups")
+	cache.SetStatus(ctx, self.UserCred, iec.GetStatus(), "UpdateSecurityGroups")
 	self.SetStageComplete(ctx, nil)
 }
 

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *InterVpcNetworkSyncstatusTask) taskFail(ctx context.Context, peer *models.SInterVpcNetwork, err error) {
-	peer.SetStatus(self.UserCred, api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN, err.Error())
+	peer.SetStatus(ctx, self.UserCred, api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(peer, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, peer, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

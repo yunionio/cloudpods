@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *CDNDomainSyncstatusTask) taskFailed(ctx context.Context, domain *models.SCDNDomain, err error) {
-	domain.SetStatus(self.GetUserCred(), api.CDN_DOMAIN_STATUS_UNKNOWN, err.Error())
+	domain.SetStatus(ctx, self.GetUserCred(), api.CDN_DOMAIN_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(domain, db.ACT_SYNC_STATUS, domain.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, domain, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

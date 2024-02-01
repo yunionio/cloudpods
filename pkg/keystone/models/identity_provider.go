@@ -277,7 +277,7 @@ func (ident *SIdentityProvider) MarkConnected(ctx context.Context, userCred mccl
 	}
 	if ident.Status != api.IdentityDriverStatusConnected {
 		logclient.AddSimpleActionLog(ident, logclient.ACT_ENABLE, nil, userCred, true)
-		return ident.SetStatus(userCred, api.IdentityDriverStatusConnected, "")
+		return ident.SetStatus(ctx, userCred, api.IdentityDriverStatusConnected, "")
 	}
 	return nil
 }
@@ -292,7 +292,7 @@ func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred m
 	}
 	logclient.AddSimpleActionLog(ident, logclient.ACT_DISABLE, reason.Error(), userCred, false)
 	if ident.Status != api.IdentityDriverStatusDisconnected {
-		return ident.SetStatus(userCred, api.IdentityDriverStatusDisconnected, reason.Error())
+		return ident.SetStatus(ctx, userCred, api.IdentityDriverStatusDisconnected, reason.Error())
 	}
 	return nil
 }
@@ -934,7 +934,7 @@ func (self *SIdentityProvider) CustomizeDelete(ctx context.Context, userCred mcc
 }
 
 func (self *SIdentityProvider) startDeleteIdentityProviderTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	self.SetStatus(userCred, api.IdentityDriverStatusDeleting, "")
+	self.SetStatus(ctx, userCred, api.IdentityDriverStatusDeleting, "")
 
 	task, err := taskman.TaskManager.NewTask(ctx, "IdentityProviderDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {

@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *WafCreateTask) taskFailed(ctx context.Context, waf *models.SWafInstance, err error) {
-	waf.SetStatus(self.UserCred, api.WAF_STATUS_CREATE_FAILED, err.Error())
+	waf.SetStatus(ctx, self.UserCred, api.WAF_STATUS_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(waf, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, waf, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

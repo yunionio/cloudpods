@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *ElasticSearchDeleteTask) taskFail(ctx context.Context, es *models.SElasticSearch, err error) {
-	es.SetStatus(self.GetUserCred(), api.ELASTIC_SEARCH_STATUS_DELETE_FAILED, err.Error())
+	es.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_SEARCH_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(es, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	// 记录删除失败日志
 	logclient.AddActionLogWithStartable(self, es, logclient.ACT_DELETE, err, self.UserCred, false)

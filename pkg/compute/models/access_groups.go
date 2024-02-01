@@ -250,10 +250,10 @@ func (self *SAccessGroup) StartDeleteTask(ctx context.Context, userCred mcclient
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.ACCESS_GROUP_STATUS_DELETE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.ACCESS_GROUP_STATUS_DELETE_FAILED, err.Error())
 		return nil
 	}
-	self.SetStatus(userCred, api.ACCESS_GROUP_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.ACCESS_GROUP_STATUS_DELETING, "")
 	return nil
 }
 

@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *GuestSaveTemplateTask) taskFailed(ctx context.Context, g *models.SGuest, reason jsonutils.JSONObject) {
-	g.SetStatus(self.UserCred, api.VM_TEMPLATE_SAVE_FAILED, reason.String())
+	g.SetStatus(ctx, self.UserCred, api.VM_TEMPLATE_SAVE_FAILED, reason.String())
 	logclient.AddActionLogWithStartable(self, g, logclient.ACT_SAVE_TO_TEMPLATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

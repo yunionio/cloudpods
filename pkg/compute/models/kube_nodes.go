@@ -352,7 +352,7 @@ func (self *SKubeCluster) newFromCloudKubeNode(ctx context.Context, userCred mcc
 
 func (self *SKubeNode) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("kube node delete do nothing")
-	return self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	return self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 }
 
 func (self *SKubeNode) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -48,7 +48,7 @@ func (self *GuestStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnStartComplete", nil)
 	host, _ := guest.GetHost()
-	guest.SetStatus(self.UserCred, api.VM_STARTING, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_STARTING, "")
 	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -80,7 +80,7 @@ func (task *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 
 func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_START_FAILED, err.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_START_FAILED, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, err, self.UserCred, false)
 	self.SetStageFailed(ctx, err)
@@ -138,7 +138,7 @@ func (self *GuestSchedStartTask) ScheduleSucc(ctx context.Context, guest *models
 
 func (self *GuestSchedStartTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, reason)
-	guest.SetStatus(self.UserCred, api.VM_START_FAILED, reason.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_START_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(
 		self, guest, logclient.ACT_VM_START, reason, self.UserCred, false)

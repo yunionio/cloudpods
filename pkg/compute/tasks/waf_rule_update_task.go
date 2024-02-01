@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *WafRuleUpdateTask) taskFailed(ctx context.Context, rule *models.SWafRule, err error) {
-	rule.SetStatus(self.UserCred, api.WAF_RULE_STATUS_UPDATE_FAILED, err.Error())
+	rule.SetStatus(ctx, self.UserCred, api.WAF_RULE_STATUS_UPDATE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, rule, logclient.ACT_UPDATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -79,6 +79,6 @@ func (self *WafRuleUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 }
 
 func (self *WafRuleUpdateTask) taskComplete(ctx context.Context, rule *models.SWafRule) {
-	rule.SetStatus(self.UserCred, api.WAF_RULE_STATUS_AVAILABLE, "")
+	rule.SetStatus(ctx, self.UserCred, api.WAF_RULE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

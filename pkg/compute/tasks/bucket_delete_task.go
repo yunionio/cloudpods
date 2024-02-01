@@ -36,7 +36,7 @@ func init() {
 }
 
 func (task *BucketDeleteTask) taskFailed(ctx context.Context, bucket *models.SBucket, err error) {
-	bucket.SetStatus(task.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
+	bucket.SetStatus(ctx, task.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(bucket, db.ACT_DELOCATE_FAIL, err.Error(), task.UserCred)
 	logclient.AddActionLogWithStartable(task, bucket, logclient.ACT_DELETE, err.Error(), task.UserCred, false)
 	task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -45,7 +45,7 @@ func (task *BucketDeleteTask) taskFailed(ctx context.Context, bucket *models.SBu
 func (task *BucketDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	bucket := obj.(*models.SBucket)
 
-	bucket.SetStatus(task.UserCred, api.BUCKET_STATUS_DELETING, "StartBucketDeleteTask")
+	bucket.SetStatus(ctx, task.UserCred, api.BUCKET_STATUS_DELETING, "StartBucketDeleteTask")
 
 	err := bucket.RemoteDelete(ctx, task.UserCred)
 	if err != nil {

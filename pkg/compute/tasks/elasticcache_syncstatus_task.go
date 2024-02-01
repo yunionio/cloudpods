@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheSyncstatusTask) taskFailed(ctx context.Context, cache *models.SElasticcache, err jsonutils.JSONObject) {
-	cache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_UNKNOWN, err.String())
+	cache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_UNKNOWN, err.String())
 	self.SetStageFailed(ctx, err)
 	db.OpsLog.LogEvent(cache, db.ACT_SYNC_STATUS, cache.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, cache, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)

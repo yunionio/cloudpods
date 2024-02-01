@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *SNatSEntryCreateTask) taskFailed(ctx context.Context, snat *models.SNatSEntry, err error) {
-	snat.SetStatus(self.UserCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
+	snat.SetStatus(ctx, self.UserCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(snat, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	nat, _ := snat.GetNatgateway()
 	if nat != nil {
@@ -132,7 +132,7 @@ func (self *SNatSEntryCreateTask) OnAssociateEipComplete(ctx context.Context, sn
 		return
 	}
 
-	snat.SetStatus(self.UserCred, api.NAT_STAUTS_AVAILABLE, "")
+	snat.SetStatus(ctx, self.UserCred, api.NAT_STAUTS_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_CREATE_SNAT, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

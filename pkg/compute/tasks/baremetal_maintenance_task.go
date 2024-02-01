@@ -44,7 +44,7 @@ func (self *BaremetalMaintenanceTask) OnInit(ctx context.Context, obj db.IStanda
 	if err != nil {
 		self.OnEnterMaintenantModeSuccFailed(ctx, baremetal, jsonutils.NewString(err.Error()))
 	}
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_MAINTAINING, "")
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_MAINTAINING, "")
 }
 
 func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSucc(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {

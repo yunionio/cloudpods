@@ -359,7 +359,7 @@ func (self *SDBInstanceAccount) PostCreate(ctx context.Context, userCred mcclien
 }
 
 func (self *SDBInstanceAccount) StartDBInstanceAccountCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_USER_CREATING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_USER_CREATING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceAccountCreateTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -460,7 +460,7 @@ func (self *SDBInstanceAccount) PerformSetPrivileges(ctx context.Context, userCr
 }
 
 func (self *SDBInstanceAccount) StartSetPrivilegesTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
-	self.SetStatus(userCred, api.DBINSTANCE_USER_SET_PRIVILEGE, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_USER_SET_PRIVILEGE, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceAccountSetPrivilegesTask", self, userCred, data.(*jsonutils.JSONDict), "", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
@@ -471,7 +471,7 @@ func (self *SDBInstanceAccount) StartSetPrivilegesTask(ctx context.Context, user
 }
 
 func (self *SDBInstanceAccount) StartGrantPrivilegeTask(ctx context.Context, userCred mcclient.TokenCredential, database string, privilege string, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_USER_GRANT_PRIVILEGE, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_USER_GRANT_PRIVILEGE, "")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(database), "database")
 	params.Add(jsonutils.NewString(privilege), "privilege")
@@ -518,7 +518,7 @@ func (self *SDBInstanceAccount) PerformRevokePrivilege(ctx context.Context, user
 }
 
 func (self *SDBInstanceAccount) StartRevokePrivilegeTask(ctx context.Context, userCred mcclient.TokenCredential, database string, privilege string, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_USER_REVOKE_PRIVILEGE, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_USER_REVOKE_PRIVILEGE, "")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(database), "database")
 	params.Add(jsonutils.NewString(privilege), "privilege")
@@ -560,7 +560,7 @@ func (self *SDBInstanceAccount) StartDBInstanceAccountResetPasswordTask(ctx cont
 	} else {
 		params.Add(jsonutils.NewString(seclib2.RandomPassword2(20)), "password")
 	}
-	self.SetStatus(userCred, api.DBINSTANCE_USER_RESET_PASSWD, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_USER_RESET_PASSWD, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceAccountResetPasswordTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
@@ -728,7 +728,7 @@ func (self *SDBInstanceAccount) CustomizeDelete(ctx context.Context, userCred mc
 }
 
 func (self *SDBInstanceAccount) StartDBInstanceAccountDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_USER_DELETING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_USER_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceAccountDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return err

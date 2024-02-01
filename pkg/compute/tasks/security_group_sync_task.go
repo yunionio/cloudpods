@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *SecurityGroupSyncTask) taskFailed(ctx context.Context, secgroup *models.SSecurityGroup, err error) {
-	secgroup.SetStatus(self.UserCred, apis.STATUS_UNKNOWN, "")
+	secgroup.SetStatus(ctx, self.UserCred, apis.STATUS_UNKNOWN, "")
 	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -75,6 +75,6 @@ func (self *SecurityGroupSyncTask) OnInit(ctx context.Context, obj db.IStandalon
 		return
 	}
 
-	secgroup.SetStatus(self.GetUserCred(), api.SECGROUP_STATUS_READY, "")
+	secgroup.SetStatus(ctx, self.GetUserCred(), api.SECGROUP_STATUS_READY, "")
 	self.SetStageComplete(ctx, nil)
 }

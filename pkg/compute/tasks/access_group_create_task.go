@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *AccessGroupCreateTask) taskFailed(ctx context.Context, ag *models.SAccessGroup, err error) {
-	ag.SetStatus(self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
+	ag.SetStatus(ctx, self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, ag, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

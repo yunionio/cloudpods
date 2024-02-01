@@ -37,7 +37,7 @@ func init() {
 
 func (self *BaremetalServerStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_START_START, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_START_START, "")
 	db.OpsLog.LogEvent(guest, db.ACT_STARTING, "", self.UserCred)
 	baremetal, _ := guest.GetHost()
 	if baremetal == nil {
@@ -58,16 +58,16 @@ func (self *BaremetalServerStartTask) OnInit(ctx context.Context, obj db.IStanda
 }
 
 func (self *BaremetalServerStartTask) OnStartComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_RUNNING, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_RUNNING, "")
 	baremetal, _ := guest.GetHost()
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_RUNNING, "")
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_RUNNING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)
 }
 
 func (self *BaremetalServerStartTask) OnStartCompleteFailed(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_START_FAILED, body.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_START_FAILED, body.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, body, self.UserCred)
 	baremetal, _ := guest.GetHost()
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_START_FAIL, body.String())
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_START_FAIL, body.String())
 	self.SetStageFailed(ctx, body)
 }

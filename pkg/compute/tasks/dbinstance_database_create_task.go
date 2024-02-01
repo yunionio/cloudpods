@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DBInstanceDatabaseCreateTask) taskFailed(ctx context.Context, database *models.SDBInstanceDatabase, err error) {
-	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_CREATE_FAILE, err.Error())
+	database.SetStatus(ctx, self.UserCred, api.DBINSTANCE_DATABASE_CREATE_FAILE, err.Error())
 	db.OpsLog.LogEvent(database, db.ACT_CREATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -79,7 +79,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 		msg := fmt.Sprintf("failed to found databases from cloud dbinstance error: %v", err)
 		db.OpsLog.LogEvent(database, db.ACT_CREATE, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, msg, self.UserCred, false)
-		database.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, "")
+		database.SetStatus(ctx, self.UserCred, api.DBINSTANCE_UNKNOWN, "")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -96,7 +96,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 		msg := fmt.Sprintf("failed to found database %s from cloud dbinstance", database.Name)
 		db.OpsLog.LogEvent(database, db.ACT_CREATE, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, database, logclient.ACT_CREATE, msg, self.UserCred, false)
-		database.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, "")
+		database.SetStatus(ctx, self.UserCred, api.DBINSTANCE_UNKNOWN, "")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -106,7 +106,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 	input := api.DBInstanceDatabaseCreateInput{}
 	self.GetParams().Unmarshal(&input)
 	if len(input.Accounts) == 0 {
-		database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
+		database.SetStatus(ctx, self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -116,12 +116,12 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 		msg := fmt.Sprintf("failed to found accounts from cloud dbinstance error: %v", err)
 		db.OpsLog.LogEvent(database, db.ACT_GRANT_PRIVILEGE, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, database, logclient.ACT_GRANT_PRIVILEGE, msg, self.UserCred, false)
-		database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
+		database.SetStatus(ctx, self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
 
-	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_GRANT_PRIVILEGE, "")
+	database.SetStatus(ctx, self.UserCred, api.DBINSTANCE_DATABASE_GRANT_PRIVILEGE, "")
 	iAccounts := map[string]cloudprovider.ICloudDBInstanceAccount{}
 	for _, iAccount := range _iAccounts {
 		iAccounts[iAccount.GetName()] = iAccount
@@ -150,6 +150,6 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 		models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &privilege)
 		logclient.AddActionLogWithStartable(self, database, logclient.ACT_GRANT_PRIVILEGE, account, self.UserCred, true)
 	}
-	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
+	database.SetStatus(ctx, self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
 	self.SetStageComplete(ctx, nil)
 }

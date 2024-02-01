@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *LoadbalancerBackendSyncTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
+	lbb.SetStatus(ctx, self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbb.Id, lbb.Name, api.LB_SYNC_CONF_FAILED, reason.String())
@@ -61,7 +61,7 @@ func (self *LoadbalancerBackendSyncTask) OnInit(ctx context.Context, obj db.ISta
 }
 
 func (self *LoadbalancerBackendSyncTask) OnLoadbalancerBackendCreateComplete(ctx context.Context, lbb *models.SLoadbalancerBackend, data jsonutils.JSONObject) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lbb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbb, db.ACT_SYNC_CONF, lbb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_SYNC_CONF, nil, self.UserCred, true)
 	lbbg, _ := lbb.GetLoadbalancerBackendGroup()

@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *CloudgroupcacheSyncstatusTask) taskFailed(ctx context.Context, cache *models.SCloudgroupcache, err error) {
-	cache.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, err.Error())
+	cache.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, err.Error())
 	logclient.AddActionLogWithStartable(self, cache, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -48,6 +48,6 @@ func (self *CloudgroupcacheSyncstatusTask) OnInit(ctx context.Context, obj db.IS
 		self.taskFailed(ctx, cache, errors.Wrap(err, "GetICloudgroup"))
 		return
 	}
-	cache.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE, "")
+	cache.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

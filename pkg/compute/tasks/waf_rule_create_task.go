@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *WafRuleCreateTask) taskFailed(ctx context.Context, rule *models.SWafRule, err error) {
-	rule.SetStatus(self.UserCred, api.WAF_RULE_STATUS_CREATE_FAILED, err.Error())
+	rule.SetStatus(ctx, self.UserCred, api.WAF_RULE_STATUS_CREATE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, rule, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

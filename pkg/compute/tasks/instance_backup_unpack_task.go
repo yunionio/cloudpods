@@ -36,14 +36,14 @@ func init() {
 
 func (self *InstanceBackupUnpackTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_CREATE_FROM_PACKAGE_FAILED, reasonStr)
+	ib.SetStatus(ctx, self.UserCred, compute.INSTANCE_BACKUP_STATUS_CREATE_FROM_PACKAGE_FAILED, reasonStr)
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_UNPACK, reason, self.UserCred, false)
 	db.OpsLog.LogEvent(ib, db.ACT_UNPACK_FAIL, ib.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *InstanceBackupUnpackTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup) {
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
+	ib.SetStatus(ctx, self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_UNPACK, nil, self.UserCred, true)
 	db.OpsLog.LogEvent(ib, db.ACT_UNPACK, ib.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
@@ -51,7 +51,7 @@ func (self *InstanceBackupUnpackTask) taskSuccess(ctx context.Context, ib *model
 
 func (self *InstanceBackupUnpackTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	ib := obj.(*models.SInstanceBackup)
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE, "")
+	ib.SetStatus(ctx, self.UserCred, compute.INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE, "")
 	packageName, _ := self.GetParams().GetString("package_name")
 	// fetch metadata first
 	self.SetStage("OnUnpackMetadata", nil)

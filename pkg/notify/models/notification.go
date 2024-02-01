@@ -188,10 +188,10 @@ func (n *SNotification) CustomizeCreate(ctx context.Context, userCred mcclient.T
 
 func (n *SNotification) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	n.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	n.SetStatus(userCred, api.NOTIFICATION_STATUS_RECEIVED, "")
+	n.SetStatus(ctx, userCred, api.NOTIFICATION_STATUS_RECEIVED, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", n, userCred, nil, "", "")
 	if err != nil {
-		n.SetStatus(userCred, api.NOTIFICATION_STATUS_FAILED, "NewTask")
+		n.SetStatus(ctx, userCred, api.NOTIFICATION_STATUS_FAILED, "NewTask")
 		return
 	}
 	task.ScheduleRun(nil)

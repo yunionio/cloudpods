@@ -402,9 +402,9 @@ func (self *SKVMRegionDriver) RequestStopLoadbalancer(ctx context.Context, userC
 func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	originStatus, _ := task.GetParams().GetString("origin_status")
 	if utils.IsInStringArray(originStatus, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
-		lb.SetStatus(userCred, originStatus, "")
+		lb.SetStatus(ctx, userCred, originStatus, "")
 	} else {
-		lb.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
+		lb.SetStatus(ctx, userCred, api.LB_STATUS_ENABLED, "")
 	}
 	return task.ScheduleRun(nil)
 }
@@ -484,9 +484,9 @@ func (self *SKVMRegionDriver) RequestStopLoadbalancerListener(ctx context.Contex
 func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	originStatus, _ := task.GetParams().GetString("origin_status")
 	if utils.IsInStringArray(originStatus, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
-		lblis.SetStatus(userCred, originStatus, "")
+		lblis.SetStatus(ctx, userCred, originStatus, "")
 	} else {
-		lblis.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
+		lblis.SetStatus(ctx, userCred, api.LB_STATUS_ENABLED, "")
 	}
 	task.ScheduleRun(nil)
 	return nil
@@ -880,7 +880,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCre
 		} else {
 			diskStatus = api.DISK_UNKNOWN
 		}
-		return nil, disk.SetStatus(userCred, diskStatus, "sync status")
+		return nil, disk.SetStatus(ctx, userCred, diskStatus, "sync status")
 	})
 	return nil
 }
@@ -1021,7 +1021,7 @@ func (self *SKVMRegionDriver) RequestSyncBackupStorageStatus(ctx context.Context
 		}
 		status, _ := res.GetString("status")
 		reason, _ := res.GetString("reason")
-		return nil, bs.SetStatus(userCred, status, reason)
+		return nil, bs.SetStatus(ctx, userCred, status, reason)
 	})
 	return nil
 }
@@ -1037,7 +1037,7 @@ func (self *SKVMRegionDriver) RequestSyncInstanceBackupStatus(ctx context.Contex
 		api.INSTANCE_BACKUP_STATUS_SAVING,
 		api.INSTANCE_BACKUP_STATUS_SNAPSHOT,
 	}) {
-		err := ib.SetStatus(userCred, originStatus, "sync status")
+		err := ib.SetStatus(ctx, userCred, originStatus, "sync status")
 		if err != nil {
 			return err
 		}
@@ -1068,7 +1068,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		originStatus, _ := task.GetParams().GetString("origin_status")
 		if utils.IsInStringArray(originStatus, []string{api.BACKUP_STATUS_CREATING, api.BACKUP_STATUS_SNAPSHOT, api.BACKUP_STATUS_SAVING, api.BACKUP_STATUS_CLEANUP_SNAPSHOT, api.BACKUP_STATUS_DELETING}) {
-			return nil, backup.SetStatus(userCred, originStatus, "sync status")
+			return nil, backup.SetStatus(ctx, userCred, originStatus, "sync status")
 		}
 		backupStorage, err := backup.GetBackupStorage()
 		if err != nil {
@@ -1107,7 +1107,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 		} else {
 			backupStatus = api.BACKUP_STATUS_UNKNOWN
 		}
-		return nil, backup.SetStatus(userCred, backupStatus, "sync status")
+		return nil, backup.SetStatus(ctx, userCred, backupStatus, "sync status")
 	})
 	return nil
 }
@@ -1137,7 +1137,7 @@ func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, use
 		} else {
 			snapshotStatus = api.SNAPSHOT_UNKNOWN
 		}
-		return nil, snapshot.SetStatus(userCred, snapshotStatus, "sync status")
+		return nil, snapshot.SetStatus(ctx, userCred, snapshotStatus, "sync status")
 	})
 	return nil
 }
@@ -1273,7 +1273,7 @@ func (self *SKVMRegionDriver) RequestSyncBucketStatus(ctx context.Context, userC
 			return nil, errors.Wrap(err, "bucket.GetIBucket")
 		}
 
-		return nil, bucket.SetStatus(userCred, iBucket.GetStatus(), "syncstatus")
+		return nil, bucket.SetStatus(ctx, userCred, iBucket.GetStatus(), "syncstatus")
 	})
 	return nil
 }
@@ -1382,7 +1382,7 @@ func (self *SKVMRegionDriver) RequestAssociateEip(ctx context.Context, userCred 
 		default:
 			return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "instance type %s", input.InstanceType)
 		}
-		if err := eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
+		if err := eip.SetStatus(ctx, userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
 			return nil, errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_READY)
 		}
 		return nil, nil
@@ -1492,7 +1492,7 @@ func (self *SKVMRegionDriver) requestAssociateEipWithLoadbalancer(
 	if err := eip.AssociateLoadbalancer(ctx, userCred, lb); err != nil {
 		return errors.Wrapf(err, "associate eip %s(%s) to loadbalancer %s(%s)", eip.Name, eip.Id, lb.Name, lb.Id)
 	}
-	if err := eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
+	if err := eip.SetStatus(ctx, userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
 		return errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
 	}
 	return nil
@@ -1524,7 +1524,7 @@ func (self *SKVMRegionDriver) RequestCreateSecurityGroup(
 		rule.SecgroupId = secgroup.Id
 		models.SecurityGroupRuleManager.TableSpec().Insert(ctx, rule)
 	}
-	secgroup.SetStatus(userCred, api.SECGROUP_STATUS_READY, "")
+	secgroup.SetStatus(ctx, userCred, api.SECGROUP_STATUS_READY, "")
 	return nil
 }
 
@@ -1584,7 +1584,7 @@ func (self *SKVMRegionDriver) ValidateCreateSnapshotPolicy(ctx context.Context, 
 }
 
 func (self *SKVMRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, sp *models.SSnapshotPolicy, task taskman.ITask) error {
-	sp.SetStatus(userCred, apis.STATUS_AVAILABLE, "")
+	sp.SetStatus(ctx, userCred, apis.STATUS_AVAILABLE, "")
 	return task.ScheduleRun(nil)
 }
 

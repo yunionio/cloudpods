@@ -80,7 +80,7 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 			return nil
 		})
 		bs := baremetal.GetBaremetalstorage().GetStorage()
-		bs.SetStatus(self.UserCred, api.STORAGE_OFFLINE, "")
+		bs.SetStatus(ctx, self.UserCred, api.STORAGE_OFFLINE, "")
 		if first && baremetal.Name != guest.Name {
 
 			func() {

@@ -1478,7 +1478,7 @@ func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, us
 		return err
 	}
 	if provider.Status != api.CLOUD_PROVIDER_DISCONNECTED {
-		provider.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
+		provider.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
 		return provider.ClearSchedDescCache()
 	}
 	return nil
@@ -1513,7 +1513,7 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 		db.OpsLog.LogEvent(provider, db.ACT_UPDATE, diff, userCred)
 	}
 	if provider.Status != api.CLOUD_PROVIDER_CONNECTED {
-		provider.SetStatus(userCred, api.CLOUD_PROVIDER_CONNECTED, "")
+		provider.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_CONNECTED, "")
 		return provider.ClearSchedDescCache()
 	}
 	return nil
@@ -1658,7 +1658,7 @@ func (cprvd *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, u
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	cprvd.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
+	cprvd.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
 	return task.ScheduleRun(nil)
 }
 

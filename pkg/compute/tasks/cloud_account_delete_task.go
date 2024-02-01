@@ -37,15 +37,15 @@ func init() {
 func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	account := obj.(*models.SCloudaccount)
 
-	account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETING, "deleting")
+	account.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETING, "deleting")
 
 	providers := account.GetCloudproviders()
 
 	for i := range providers {
 		err := providers[i].RealDelete(ctx, self.UserCred)
 		if err != nil {
-			providers[i].SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
-			account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+			providers[i].SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+			account.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
@@ -53,7 +53,7 @@ func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	err := account.RealDelete(ctx, self.UserCred)
 	if err != nil {
-		account.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+		account.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}

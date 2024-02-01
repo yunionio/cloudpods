@@ -37,14 +37,14 @@ func init() {
 }
 
 func (self *RouteTableSyncStatusTask) taskFailed(ctx context.Context, routeTable *models.SRouteTable, err error) {
-	routeTable.SetStatus(self.GetUserCred(), api.ROUTE_TABLE_UNKNOWN, err.Error())
+	routeTable.SetStatus(ctx, self.GetUserCred(), api.ROUTE_TABLE_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(routeTable, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, routeTable, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *RouteTableSyncStatusTask) taskComplete(ctx context.Context, routeTable *models.SRouteTable) {
-	routeTable.SetStatus(self.GetUserCred(), api.ROUTE_TABLE_AVAILABLE, "")
+	routeTable.SetStatus(ctx, self.GetUserCred(), api.ROUTE_TABLE_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }
 

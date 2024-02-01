@@ -57,7 +57,7 @@ func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest 
 }
 
 func (self *GuestSaveImageTask) OnStopServerCompleteFailed(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK_FAILED, body.String())
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_SAVE_DISK_FAILED, body.String())
 	self.SetStageFailed(ctx, nil)
 }
 
@@ -75,7 +75,7 @@ func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, gue
 
 func (self *GuestSaveImageTask) OnSaveRootImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SAVE_IMAGE, data, self.UserCred, false)
-	guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK_FAILED, data.String())
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_SAVE_DISK_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
 

@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *KubeClusterDeleteTask) taskFailed(ctx context.Context, cluster *models.SKubeCluster, err error) {
-	cluster.SetStatus(self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
+	cluster.SetStatus(ctx, self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(cluster, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, cluster, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

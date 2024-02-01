@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *WafDeleteTask) taskFailed(ctx context.Context, waf *models.SWafInstance, err error) {
-	waf.SetStatus(self.UserCred, api.WAF_STATUS_DELETE_FAILED, err.Error())
+	waf.SetStatus(ctx, self.UserCred, api.WAF_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, waf, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

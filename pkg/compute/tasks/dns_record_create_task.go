@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DnsRecordCreateTask) taskFailed(ctx context.Context, record *models.SDnsRecord, err error) {
-	record.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_CREATE_FAILE, err.Error())
+	record.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_CREATE_FAILE, err.Error())
 	db.OpsLog.LogEvent(record, db.ACT_CREATE, record.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, record, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -93,7 +93,7 @@ func (self *DnsRecordCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 }
 
 func (self *DnsRecordCreateTask) taskComplete(ctx context.Context, zone *models.SDnsZone, record *models.SDnsRecord) {
-	record.SetStatus(self.UserCred, api.DNS_RECORDSET_STATUS_AVAILABLE, "")
+	record.SetStatus(ctx, self.UserCred, api.DNS_RECORDSET_STATUS_AVAILABLE, "")
 	logclient.AddSimpleActionLog(zone, logclient.ACT_ALLOCATE, record, self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    record,

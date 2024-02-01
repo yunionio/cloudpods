@@ -424,7 +424,7 @@ func (lbb *SLoadbalancerBackend) PostUpdate(ctx context.Context, userCred mcclie
 
 func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
-	lbb.SetStatus(userCred, api.LB_SYNC_CONF, "")
+	lbb.SetStatus(ctx, userCred, api.LB_SYNC_CONF, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerBackendSyncTask", lbb, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -435,7 +435,7 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendSyncTask(ctx context.Co
 
 func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbb.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	lbb.SetStatus(userCred, api.LB_CREATING, "")
+	lbb.SetStatus(ctx, userCred, api.LB_CREATING, "")
 	err := lbb.StartLoadBalancerBackendCreateTask(ctx, userCred, "")
 	if err != nil {
 		log.Errorf("Failed to create loadbalancer backend error: %v", err)
@@ -514,7 +514,7 @@ func (lbb *SLoadbalancerBackend) PerformPurge(ctx context.Context, userCred mccl
 }
 
 func (lbb *SLoadbalancerBackend) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbb.SetStatus(userCred, api.LB_STATUS_DELETING, "")
+	lbb.SetStatus(ctx, userCred, api.LB_STATUS_DELETING, "")
 	return lbb.StartLoadBalancerBackendDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -620,7 +620,7 @@ func (lbb *SLoadbalancerBackend) syncRemove(ctx context.Context, userCred mcclie
 
 	err := lbb.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		lbb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		lbb.SetStatus(ctx, userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
 	return lbb.RealDelete(ctx, userCred)

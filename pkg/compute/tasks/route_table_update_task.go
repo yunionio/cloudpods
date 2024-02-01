@@ -33,7 +33,7 @@ type RouteTableUpdateTask struct {
 }
 
 func (self *RouteTableUpdateTask) taskFailed(ctx context.Context, routeTable *models.SRouteTable, err error) {
-	routeTable.SetStatus(self.GetUserCred(), api.ROUTE_TABLE_UPDATEFAILED, err.Error())
+	routeTable.SetStatus(ctx, self.GetUserCred(), api.ROUTE_TABLE_UPDATEFAILED, err.Error())
 	db.OpsLog.LogEvent(routeTable, db.ACT_UPDATE, err, self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, routeTable, logclient.ACT_UPDATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *NatGatewayDeleteTask) taskFailed(ctx context.Context, nat *models.SNatGateway, err error) {
-	nat.SetStatus(self.UserCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
+	nat.SetStatus(ctx, self.UserCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

@@ -40,7 +40,7 @@ func init() {
 func (self *InstanceSnapshotAndCloneTask) taskFailed(
 	ctx context.Context, isp *models.SInstanceSnapshot, reason jsonutils.JSONObject) {
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
-	guest.SetStatus(self.UserCred, compute.VM_SNAPSHOT_AND_CLONE_FAILED, reason.String())
+	guest.SetStatus(ctx, self.UserCred, compute.VM_SNAPSHOT_AND_CLONE_FAILED, reason.String())
 	logclient.AddActionLogWithContext(
 		ctx, guest, logclient.ACT_VM_SNAPSHOT_AND_CLONE, reason, self.UserCred, false,
 	)

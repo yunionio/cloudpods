@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ServerSkuCreateTask) taskFail(ctx context.Context, sku *models.SServerSku, err error) {
-	sku.SetStatus(self.UserCred, api.SkuStatusCreatFailed, err.Error())
+	sku.SetStatus(ctx, self.UserCred, api.SkuStatusCreatFailed, err.Error())
 	db.OpsLog.LogEvent(sku, db.ACT_ALLOCATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, sku, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *SAMLProviderSyncTask) taskFailed(ctx context.Context, saml *models.SSAMLProvider, err error) {
-	saml.SetStatus(self.GetUserCred(), api.SAML_PROVIDER_STATUS_UNKNOWN, err.Error())
+	saml.SetStatus(ctx, self.GetUserCred(), api.SAML_PROVIDER_STATUS_UNKNOWN, err.Error())
 	logclient.AddActionLogWithStartable(self, saml, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

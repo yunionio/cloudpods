@@ -88,7 +88,7 @@ func (t *GuestChangeDiskStorageTask) ChangeDiskStorage(ctx context.Context, gues
 	}
 
 	// set target disk's status to clone
-	targetDisk.SetStatus(t.GetUserCred(), api.DISK_CLONE, "")
+	targetDisk.SetStatus(ctx, t.GetUserCred(), api.DISK_CLONE, "")
 	log.Infof("ChangeDiskStorage guest running is %v", input.GuestRunning)
 	if input.GuestRunning {
 		t.SetStage("OnDiskLiveChangeStorageReady", nil)
@@ -166,7 +166,7 @@ func (t *GuestChangeDiskStorageTask) OnDiskLiveChangeStorageReadyFailed(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
 	targetDisk, _ := t.GetTargetDisk()
-	targetDisk.SetStatus(t.GetUserCred(), api.DISK_CLONE_FAIL, data.String())
+	targetDisk.SetStatus(ctx, t.GetUserCred(), api.DISK_CLONE_FAIL, data.String())
 	t.TaskFailed(ctx, guest, data)
 }
 
@@ -227,7 +227,7 @@ func (t *GuestChangeDiskStorageTask) OnDiskChangeStorageComplete(ctx context.Con
 func (t *GuestChangeDiskStorageTask) OnDiskChangeStorageCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	// set target disk's status to clone
 	targetDisk, _ := t.GetTargetDisk()
-	targetDisk.SetStatus(t.GetUserCred(), api.DISK_CLONE_FAIL, err.String())
+	targetDisk.SetStatus(ctx, t.GetUserCred(), api.DISK_CLONE_FAIL, err.String())
 	t.TaskFailed(ctx, guest, err)
 }
 
@@ -304,7 +304,7 @@ func (t *GuestChangeDiskStorageTask) TaskComplete(ctx context.Context, guest *mo
 }
 
 func (t *GuestChangeDiskStorageTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(t.GetUserCred(), api.VM_DISK_CHANGE_STORAGE_FAIL, reason.String())
+	guest.SetStatus(ctx, t.GetUserCred(), api.VM_DISK_CHANGE_STORAGE_FAIL, reason.String())
 	logclient.AddActionLogWithStartable(t, guest, logclient.ACT_DISK_CHANGE_STORAGE, reason, t.GetUserCred(), false)
 	t.SetStageFailed(ctx, reason)
 }
@@ -322,7 +322,7 @@ func (t *GuestChangeDisksStorageTask) GetInputParams() (*api.ServerChangeStorage
 }
 
 func (t *GuestChangeDisksStorageTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(t.GetUserCred(), api.VM_DISK_CHANGE_STORAGE_FAIL, reason.String())
+	guest.SetStatus(ctx, t.GetUserCred(), api.VM_DISK_CHANGE_STORAGE_FAIL, reason.String())
 	logclient.AddActionLogWithStartable(t, guest, logclient.ACT_DISK_CHANGE_STORAGE, reason, t.GetUserCred(), false)
 	t.SetStageFailed(ctx, reason)
 }

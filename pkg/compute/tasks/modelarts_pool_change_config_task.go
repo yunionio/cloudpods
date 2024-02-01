@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *ModelartsPoolChangeConfigTask) taskFailed(ctx context.Context, mp *models.SModelartsPool, err error) {
-	mp.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED, err.Error())
+	mp.SetStatus(ctx, self.UserCred, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED, err.Error())
 	db.OpsLog.LogEvent(mp, db.ACT_CHANGE_CONFIG, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, mp, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -65,7 +65,7 @@ func (self *ModelartsPoolChangeConfigTask) OnInit(ctx context.Context, obj db.IS
 	time.Sleep(30 * time.Second)
 	err = cloudprovider.WaitMultiStatus(iMp, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED}, 15*time.Second, 2*time.Hour)
 	if err != nil {
-		pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_TIMEOUT, err.Error())
+		pool.SetStatus(ctx, self.UserCred, api.MODELARTS_POOL_STATUS_TIMEOUT, err.Error())
 		db.OpsLog.LogEvent(pool, db.ACT_CHANGE_CONFIG, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, pool, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

@@ -132,7 +132,7 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		} else {
 			log.Errorln(note)
 			if guest != nil {
-				guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, note)
+				guest.SetStatus(ctx, self.UserCred, compute.VM_IMPORT_FAILED, note)
 			}
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS_FAIL, note, self.UserCred)
 		}
@@ -259,7 +259,7 @@ func (self *CreateImportedLibvirtGuestTask) OnInitFailed(
 func (self *CreateImportedLibvirtGuestTask) TaskFailed(
 	ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject,
 ) {
-	guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, reason.String())
+	guest.SetStatus(ctx, self.UserCred, compute.VM_IMPORT_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_GUEST_CREATE_FROM_IMPORT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest,
 		logclient.ACT_GUEST_CREATE_FROM_IMPORT, reason, self.UserCred, false)

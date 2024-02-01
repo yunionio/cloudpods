@@ -48,7 +48,7 @@ func (self *ElasticcacheRenewTask) OnInit(ctx context.Context, obj db.IStandalon
 	if err != nil {
 		db.OpsLog.LogEvent(instance, db.ACT_REW_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, err, self.UserCred, false)
-		instance.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_RENEW_FAILED, err.Error())
+		instance.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_RENEW_FAILED, err.Error())
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}

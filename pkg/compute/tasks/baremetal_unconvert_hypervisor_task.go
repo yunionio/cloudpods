@@ -38,7 +38,7 @@ func init() {
 
 func (self *BaremetalUnconvertHypervisorTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_CONVERTING, "")
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_CONVERTING, "")
 	guests, err := baremetal.GetGuests()
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "baremetal.GetGuests").Error()))

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *SnapshotPolicyCreateTask) taskFailed(ctx context.Context, sp *models.SSnapshotPolicy, err error) {
-	sp.SetStatus(self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
+	sp.SetStatus(ctx, self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(sp, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

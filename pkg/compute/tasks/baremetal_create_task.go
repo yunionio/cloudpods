@@ -70,7 +70,7 @@ func (self *BaremetalCreateTask) OnIpmiProbeComplete(ctx context.Context, obj db
 		msg := "Fail to find access_mac or uuid, host-prepare aborted. Please supply either access_mac or uuid and try host-prepare"
 		log.Errorf(msg)
 		self.taskFailed(ctx, baremetal, msg)
-		baremetal.SetStatus(self.UserCred, api.BAREMETAL_PREPARE_FAIL, msg)
+		baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_PREPARE_FAIL, msg)
 		return
 	}
 	self.SetStage("OnPrepareComplete", nil)

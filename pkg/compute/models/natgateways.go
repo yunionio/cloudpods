@@ -233,10 +233,10 @@ func (self *SNatGateway) PostCreate(
 
 	err := self.StartNatGatewayCreateTask(ctx, userCred, data.(*jsonutils.JSONDict))
 	if err != nil {
-		self.SetStatus(userCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
 		return
 	}
-	self.SetStatus(userCred, api.NAT_STATUS_ALLOCATE, "start allocate")
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_ALLOCATE, "start allocate")
 }
 
 func (self *SNatGateway) StartNatGatewayCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
@@ -466,7 +466,7 @@ func (self *SNatGateway) syncRemoveCloudNatGateway(ctx context.Context, userCred
 
 	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		return self.SetStatus(userCred, api.NAT_STATUS_UNKNOWN, "sync to delete")
+		return self.SetStatus(ctx, userCred, api.NAT_STATUS_UNKNOWN, "sync to delete")
 	}
 	err = self.purge(ctx, userCred)
 	if err != nil {
@@ -640,7 +640,7 @@ func (self *SNatGateway) CustomizeDelete(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.NAT_STATUS_DELETING, jsonutils.Marshal(input).String())
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_DELETING, jsonutils.Marshal(input).String())
 	return nil
 }
 
@@ -973,7 +973,7 @@ func (self *SNatGateway) StartRenewTask(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.NAT_STATUS_RENEWING, "")
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_RENEWING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -1027,7 +1027,7 @@ func (self *SNatGateway) StartSetAutoRenewTask(ctx context.Context, userCred mcc
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.NAT_STATUS_SET_AUTO_RENEW, "")
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_SET_AUTO_RENEW, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -1042,7 +1042,7 @@ func (self *SNatEntry) GetINatGateway(ctx context.Context) (cloudprovider.ICloud
 
 func (self *SNatEntry) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("NAT Entry delete do nothing")
-	self.SetStatus(userCred, api.NAT_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_DELETING, "")
 	return nil
 }
 
@@ -1051,7 +1051,7 @@ func (self *SNatEntry) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_DELETED, "real delete")
 	return nil
 }
 
@@ -1107,7 +1107,7 @@ func (self *SNatGateway) StartRemoteUpdateTask(ctx context.Context, userCred mcc
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	self.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

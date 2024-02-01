@@ -41,7 +41,7 @@ func (self *SecurityGroupRuleCreateTask) taskFailed(ctx context.Context, secgrou
 	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_CREATE_SECURITY_GROUP_RULE, err, self.UserCred, false)
 	rule, _ := self.getRule()
 	if rule != nil {
-		rule.SetStatus(self.UserCred, apis.STATUS_CREATE_FAILED, "")
+		rule.SetStatus(ctx, self.UserCred, apis.STATUS_CREATE_FAILED, "")
 		logclient.AddActionLogWithContext(ctx, rule, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	}
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

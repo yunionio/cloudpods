@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *EipRemoteUpdateTask) taskFail(ctx context.Context, eip *models.SElasticip, err error) {
-	eip.SetStatus(self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
+	eip.SetStatus(ctx, self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

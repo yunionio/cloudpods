@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DnsRecordDeleteTask) taskFailed(ctx context.Context, record *models.SDnsRecord, err error) {
-	record.SetStatus(self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
+	record.SetStatus(ctx, self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(record, db.ACT_DELETE, record.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, record, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

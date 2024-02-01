@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *LoadbalancerStartTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
 	db.OpsLog.LogEvent(lb, db.ACT_ENABLE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_ENABLE, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_STATUS_DISABLED, reason.String())
@@ -57,7 +57,7 @@ func (self *LoadbalancerStartTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *LoadbalancerStartTask) OnLoadbalancerStartComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lb, db.ACT_ENABLE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_ENABLE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

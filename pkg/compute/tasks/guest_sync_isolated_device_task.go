@@ -40,7 +40,7 @@ func (self *GuestIsolatedDeviceSyncTask) needStart() bool {
 
 func (self *GuestIsolatedDeviceSyncTask) onTaskFail(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, err)
-	guest.SetStatus(self.GetUserCred(), api.VM_SYNC_ISOLATED_DEVICE_FAILED, err.String())
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_SYNC_ISOLATED_DEVICE_FAILED, err.String())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_ISOLATED_DEVICE, err, self.GetUserCred(), false)
 }
 

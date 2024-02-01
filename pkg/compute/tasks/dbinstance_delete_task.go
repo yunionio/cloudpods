@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *DBInstanceDeleteTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
-	rds.SetStatus(self.UserCred, api.DBINSTANCE_DELETE_FAILED, err.Error())
+	rds.SetStatus(ctx, self.UserCred, api.DBINSTANCE_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(rds, db.ACT_DELETE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_DELETE, err, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{

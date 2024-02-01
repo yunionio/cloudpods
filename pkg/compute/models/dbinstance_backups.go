@@ -266,8 +266,8 @@ func (self *SDBInstanceBackup) StartDBInstanceBackupCreateTask(ctx context.Conte
 	if err != nil {
 		return errors.Wrap(err, "GetDBInstance")
 	}
-	instance.SetStatus(userCred, api.DBINSTANCE_BACKING_UP, "")
-	self.SetStatus(userCred, api.DBINSTANCE_BACKUP_CREATING, "")
+	instance.SetStatus(ctx, userCred, api.DBINSTANCE_BACKING_UP, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_BACKUP_CREATING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -563,7 +563,7 @@ func (self *SDBInstanceBackup) CustomizeDelete(ctx context.Context, userCred mcc
 }
 
 func (self *SDBInstanceBackup) StartDBInstanceBackupDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_BACKUP_DELETING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_BACKUP_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceBackupDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return err

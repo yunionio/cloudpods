@@ -46,7 +46,7 @@ func (self *DBInstancePublicConnectionTask) getAction() string {
 }
 
 func (self *DBInstancePublicConnectionTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_FAILE, err.Error())
+	dbinstance.SetStatus(ctx, self.UserCred, api.DBINSTANCE_FAILE, err.Error())
 	logclient.AddActionLogWithStartable(self, dbinstance, self.getAction(), err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -108,7 +108,7 @@ func (self *DBInstancePublicConnectionTask) DBInstancePublicConnectionOperation(
 }
 
 func (self *DBInstancePublicConnectionTask) taskComplete(ctx context.Context, dbinstance *models.SDBInstance) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_RUNNING, "")
+	dbinstance.SetStatus(ctx, self.UserCred, api.DBINSTANCE_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, dbinstance, self.getAction(), nil, self.UserCred, true)
 
 	self.SetStageComplete(ctx, nil)

@@ -415,7 +415,7 @@ func (self *SDiskBackup) CustomizeDelete(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDiskBackup) StartBackupDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, forceDelete bool) error {
-	self.SetStatus(userCred, api.BACKUP_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.BACKUP_STATUS_DELETING, "")
 	log.Infof("start to delete diskbackup %s and set deleting", self.GetId())
 	params := jsonutils.NewDict()
 	if forceDelete {
@@ -438,7 +438,7 @@ func (self *SDiskBackup) PerformRecovery(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDiskBackup) StartRecoveryTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, diskName string) error {
-	self.SetStatus(userCred, api.BACKUP_STATUS_RECOVERY, "")
+	self.SetStatus(ctx, userCred, api.BACKUP_STATUS_RECOVERY, "")
 	var params *jsonutils.JSONDict
 	if diskName != "" {
 		params = jsonutils.NewDict()

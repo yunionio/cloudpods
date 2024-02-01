@@ -64,7 +64,7 @@ func init() {
 
 func (self *SubcontactPullTask) taskFailed(ctx context.Context, receiver *models.SReceiver, reason string) {
 	log.Errorf("fail to pull subcontact of receiver %q: %s", receiver.Id, reason)
-	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_PULL_FAILED, reason)
+	receiver.SetStatus(ctx, self.UserCred, apis.RECEIVER_STATUS_PULL_FAILED, reason)
 	logclient.AddActionLogWithContext(ctx, receiver, logclient.ACT_PULL_SUBCONTACT, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
 }
@@ -218,7 +218,7 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		return
 	}
 	// success
-	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_READY, "")
+	receiver.SetStatus(ctx, self.UserCred, apis.RECEIVER_STATUS_READY, "")
 	logclient.AddActionLogWithContext(ctx, receiver, logclient.ACT_PULL_SUBCONTACT, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

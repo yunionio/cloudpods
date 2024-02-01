@@ -77,7 +77,7 @@ func (self *GuestDetachScalingGroupTask) OnInit(ctx context.Context, obj db.ISta
 		return
 	} else {
 		lbBackend.SetModelManager(models.LoadbalancerBackendManager, &lbBackend)
-		lbBackend.SetStatus(self.UserCred, api.LB_STATUS_DELETING, "")
+		lbBackend.SetStatus(ctx, self.UserCred, api.LB_STATUS_DELETING, "")
 		if err = lbBackend.StartLoadBalancerBackendDeleteTask(ctx, self.UserCred, jsonutils.NewDict(), self.Id); err != nil {
 			self.taskFailed(ctx, sg, nil, jsonutils.NewString(fmt.Sprintf("Detach guest with loadbalancer group failed: %s", err)))
 		}

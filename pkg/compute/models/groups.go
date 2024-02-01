@@ -764,7 +764,7 @@ func (grp *SGroup) PerformAssociateEip(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	grp.SetStatus(userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
+	grp.SetStatus(ctx, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(grp.Id), "instance_id")
@@ -862,7 +862,7 @@ func (grp *SGroup) PerformDissociateEip(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "eip is not accessible")
 	}
 
-	grp.SetStatus(userCred, api.INSTANCE_DISSOCIATE_EIP, "associate eip")
+	grp.SetStatus(ctx, userCred, api.INSTANCE_DISSOCIATE_EIP, "associate eip")
 
 	autoDelete := (input.AudoDelete != nil && *input.AudoDelete)
 

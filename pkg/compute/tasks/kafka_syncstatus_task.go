@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *KafkaSyncstatusTask) taskFailed(ctx context.Context, kafka *models.SKafka, err error) {
-	kafka.SetStatus(self.UserCred, api.KAFKA_STATUS_UNKNOWN, err.Error())
+	kafka.SetStatus(ctx, self.UserCred, api.KAFKA_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(kafka, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, kafka, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

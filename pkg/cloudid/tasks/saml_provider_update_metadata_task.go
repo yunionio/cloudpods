@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *SAMLProviderUpdateMetadataTask) taskFailed(ctx context.Context, saml *models.SSAMLProvider, err error) {
-	saml.SetStatus(self.GetUserCred(), api.SAML_PROVIDER_STATUS_UPDATE_METADATA_FAILED, err.Error())
+	saml.SetStatus(ctx, self.GetUserCred(), api.SAML_PROVIDER_STATUS_UPDATE_METADATA_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, saml, logclient.ACT_UPDATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

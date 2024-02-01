@@ -233,7 +233,7 @@ func (self *SElasticcacheAcl) GetOwnerId() mcclient.IIdentityProvider {
 
 func (self *SElasticcacheAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	self.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACL_STATUS_CREATING, "")
 	if err := self.StartElasticcacheAclCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
 		log.Errorf("Failed to create elastic cache acl error: %v", err)
 	}
@@ -285,7 +285,7 @@ func (self *SElasticcacheAcl) ValidateUpdateData(ctx context.Context, userCred m
 }
 
 func (self *SElasticcacheAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_UPDATING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACL_STATUS_UPDATING, "")
 	if err := self.StartUpdateElasticcacheAclTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
 		log.Errorf("ElasticcacheAcl %s", err.Error())
 	}
@@ -311,7 +311,7 @@ func (self *SElasticcacheAcl) ValidatePurgeCondition(ctx context.Context) error 
 }
 
 func (self *SElasticcacheAcl) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACL_STATUS_DELETING, "")
 	return self.StartDeleteElasticcacheAclTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 

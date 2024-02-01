@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *DBInstanceSyncSecgroupsTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
-	rds.SetStatus(self.UserCred, api.DBINSTANCE_SYNC_SECGROUP_FAILED, err.Error())
+	rds.SetStatus(ctx, self.UserCred, api.DBINSTANCE_SYNC_SECGROUP_FAILED, err.Error())
 	db.OpsLog.LogEvent(rds, db.ACT_SYNC_CONF, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

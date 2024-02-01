@@ -32,7 +32,7 @@ type InterVpcNetworkUpdateRoutesetTask struct {
 }
 
 func (self *InterVpcNetworkUpdateRoutesetTask) taskFailed(ctx context.Context, network *models.SInterVpcNetwork, err error) {
-	network.SetStatus(self.GetUserCred(), api.INTER_VPC_NETWORK_STATUS_UPDATEROUTE_FAILED, err.Error())
+	network.SetStatus(ctx, self.GetUserCred(), api.INTER_VPC_NETWORK_STATUS_UPDATEROUTE_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_NETWORK_MODIFY_ROUTE, err, self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, network, logclient.ACT_NETWORK_MODIFY_ROUTE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

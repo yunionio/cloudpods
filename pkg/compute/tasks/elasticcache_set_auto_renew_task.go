@@ -43,7 +43,7 @@ func (self *ElasticcacheSetAutoRenewTask) OnInit(ctx context.Context, obj db.ISt
 	if err != nil {
 		db.OpsLog.LogEvent(ec, db.ACT_SET_AUTO_RENEW_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_SET_AUTO_RENEW, err, self.UserCred, false)
-		ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_SET_AUTO_RENEW_FAILED, err.Error())
+		ec.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_SET_AUTO_RENEW_FAILED, err.Error())
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
