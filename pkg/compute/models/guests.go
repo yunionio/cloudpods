@@ -425,6 +425,7 @@ func (manager *SGuestManager) ListItemFilter(
 		conditions := []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddrs {
 			conditions = append(conditions, sqlchemy.Regexp(grpnets.Field("ip_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(grpnets.Field("ip6_addr"), ipAddr))
 		}
 		vipq = vipq.Join(grpnets, sqlchemy.Equals(grpnets.Field("group_id"), vipq.Field("group_id"))).Filter(
 			sqlchemy.OR(conditions...),
@@ -444,6 +445,7 @@ func (manager *SGuestManager) ListItemFilter(
 		conditions = []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddrs {
 			conditions = append(conditions, sqlchemy.Regexp(gnQ.Field("ip_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(gnQ.Field("ip6_addr"), ipAddr))
 		}
 		gn := gnQ.Filter(sqlchemy.OR(conditions...))
 
