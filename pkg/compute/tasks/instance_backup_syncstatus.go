@@ -86,9 +86,9 @@ func (self *InstanceBackupSyncstatusTask) OnKvmBackupSyncstatus(ctx context.Cont
 	}
 	if status == "" {
 		originStatus, _ := self.Params.GetString("origin_status")
-		ib.SetStatus(self.GetUserCred(), originStatus, "")
+		ib.SetStatus(ctx, self.GetUserCred(), originStatus, "")
 	} else {
-		ib.SetStatus(self.GetUserCred(), status, "")
+		ib.SetStatus(ctx, self.GetUserCred(), status, "")
 	}
 	self.OnInstnaceBackupSyncstatus(ctx, ib, data)
 	return

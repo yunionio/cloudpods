@@ -39,7 +39,7 @@ func init() {
 }
 
 func (modelartsCreateTask *ModelartsPoolCreateTask) taskFailed(ctx context.Context, pool *models.SModelartsPool, status string, err error) {
-	pool.SetStatus(modelartsCreateTask.UserCred, status, err.Error())
+	pool.SetStatus(ctx, modelartsCreateTask.UserCred, status, err.Error())
 	db.OpsLog.LogEvent(pool, db.ACT_ALLOCATE, err, modelartsCreateTask.UserCred)
 	logclient.AddActionLogWithStartable(modelartsCreateTask, pool, logclient.ACT_ALLOCATE, err, modelartsCreateTask.UserCred, false)
 	modelartsCreateTask.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -62,7 +62,7 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) OnInit(ctx context.Context, 
 }
 
 func (modelartsCreateTask *ModelartsPoolCreateTask) taskComplete(ctx context.Context, pool *models.SModelartsPool) {
-	pool.SetStatus(modelartsCreateTask.GetUserCred(), api.MODELARTS_POOL_STATUS_RUNNING, "")
+	pool.SetStatus(ctx, modelartsCreateTask.GetUserCred(), api.MODELARTS_POOL_STATUS_RUNNING, "")
 	notifyclient.EventNotify(ctx, modelartsCreateTask.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    modelartsCreateTask,
 		Action: notifyclient.ActionCreate,

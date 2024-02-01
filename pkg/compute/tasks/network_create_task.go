@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *NetworkCreateTask) taskFailed(ctx context.Context, network *models.SNetwork, err error) {
-	network.SetStatus(self.UserCred, api.NETWORK_STATUS_FAILED, err.Error())
+	network.SetStatus(ctx, self.UserCred, api.NETWORK_STATUS_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, network, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -46,7 +46,7 @@ func (self *NetworkCreateTask) taskFailed(ctx context.Context, network *models.S
 func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	net := obj.(*models.SNetwork)
 
-	net.SetStatus(self.UserCred, api.NETWORK_STATUS_PENDING, "")
+	net.SetStatus(ctx, self.UserCred, api.NETWORK_STATUS_PENDING, "")
 
 	region, err := net.GetRegion()
 	if err != nil {

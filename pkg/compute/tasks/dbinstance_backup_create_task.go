@@ -37,12 +37,12 @@ func init() {
 }
 
 func (self *DBInstanceBackupCreateTask) taskFailed(ctx context.Context, backup *models.SDBInstanceBackup, err error) {
-	backup.SetStatus(self.UserCred, api.DBINSTANCE_BACKUP_CREATE_FAILED, err.Error())
+	backup.SetStatus(ctx, self.UserCred, api.DBINSTANCE_BACKUP_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(backup, db.ACT_CREATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, err, self.UserCred, false)
 	rds, _ := backup.GetDBInstance()
 	if rds != nil {
-		rds.SetStatus(self.UserCred, api.DBINSTANCE_BACKING_UP_FAILED, err.Error())
+		rds.SetStatus(ctx, self.UserCred, api.DBINSTANCE_BACKING_UP_FAILED, err.Error())
 	}
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -77,7 +77,7 @@ func (self *DBInstanceBackupCreateTask) OnCreateDBInstanceBackupComplete(ctx con
 	backup := obj.(*models.SDBInstanceBackup)
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, nil, self.UserCred, true)
 
-	backup.SetStatus(self.UserCred, api.DBINSTANCE_BACKUP_READY, "")
+	backup.SetStatus(ctx, self.UserCred, api.DBINSTANCE_BACKUP_READY, "")
 	self.SetStageComplete(ctx, nil)
 }
 

@@ -546,7 +546,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbr.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	lbr.SetStatus(userCred, api.LB_CREATING, "")
+	lbr.SetStatus(ctx, userCred, api.LB_CREATING, "")
 	if err := lbr.StartLoadBalancerListenerRuleCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer listener rule error: %v", err)
 	}
@@ -568,7 +568,7 @@ func (lbr *SLoadbalancerListenerRule) PerformPurge(ctx context.Context, userCred
 }
 
 func (lbr *SLoadbalancerListenerRule) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbr.SetStatus(userCred, api.LB_STATUS_DELETING, "")
+	lbr.SetStatus(ctx, userCred, api.LB_STATUS_DELETING, "")
 	return lbr.StartLoadBalancerListenerRuleDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -929,7 +929,7 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 
 	err := lbr.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		lbr.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		lbr.SetStatus(ctx, userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
 	return lbr.RealDelete(ctx, userCred)

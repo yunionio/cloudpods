@@ -38,7 +38,7 @@ func init() {
 func (task *GuestResizeDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	guest.SetStatus(task.GetUserCred(), api.VM_RESIZE_DISK, "")
+	guest.SetStatus(ctx, task.GetUserCred(), api.VM_RESIZE_DISK, "")
 	db.OpsLog.LogEvent(guest, db.ACT_RESIZING, task.Params, task.UserCred)
 
 	diskId, _ := task.Params.GetString("disk_id")
@@ -64,7 +64,7 @@ func (task *GuestResizeDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 func (task *GuestResizeDiskTask) OnTaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	log.Errorf("GuestResizeDiskTask fail: %s", reason)
-	guest.SetStatus(task.UserCred, api.VM_RESIZE_DISK_FAILED, reason.String())
+	guest.SetStatus(ctx, task.UserCred, api.VM_RESIZE_DISK_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_RESIZE_FAIL, reason, task.UserCred)
 	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_RESIZE, reason, task.UserCred, false)
 	task.SetStageFailed(ctx, reason)

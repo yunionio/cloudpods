@@ -50,7 +50,7 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 		return
 	}
 	if !self.IsSubtask() {
-		guest.SetStatus(self.GetUserCred(), api.VM_STOPPING, "")
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_STOPPING, "")
 	}
 	self.SetStage("OnGuestStopTaskComplete", nil)
 	err = guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, !self.IsSubtask())
@@ -63,7 +63,7 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	if guest.Status != api.VM_READY && !self.IsSubtask() { // for kvm
-		guest.SetStatus(self.GetUserCred(), api.VM_READY, "")
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_READY, "")
 	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "success", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
@@ -75,7 +75,7 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 
 func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	if !self.IsSubtask() {
-		guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, reason.String())
+		guest.SetStatus(ctx, self.UserCred, api.VM_STOP_FAILED, reason.String())
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, reason.String(), self.UserCred)
 	self.SetStageFailed(ctx, reason)

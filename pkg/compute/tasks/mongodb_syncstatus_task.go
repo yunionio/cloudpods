@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *MongoDBSyncstatusTask) taskFail(ctx context.Context, mongodb *models.SMongoDB, err error) {
-	mongodb.SetStatus(self.UserCred, api.MONGO_DB_STATUS_UNKNOWN, err.Error())
+	mongodb.SetStatus(ctx, self.UserCred, api.MONGO_DB_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(mongodb, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, mongodb, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

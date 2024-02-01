@@ -455,7 +455,7 @@ func (task *GuestChangeConfigTask) OnGuestStartCompleteFailed(ctx context.Contex
 }
 
 func (task *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason.String())
+	guest.SetStatus(ctx, task.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, task.UserCred)
 	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, task.UserCred, false)
 	notifyclient.EventNotify(ctx, task.GetUserCred(), notifyclient.SEventNotifyParam{

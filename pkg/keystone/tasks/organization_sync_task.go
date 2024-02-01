@@ -46,11 +46,11 @@ func (task *OrganizationSyncTask) OnInit(ctx context.Context, obj db.IStandalone
 	if err != nil {
 		log.Errorf("SyncTags fail %s", err)
 		task.SetStageFailed(ctx, jsonutils.Marshal(err))
-		org.SetStatus(task.UserCred, api.OrganizationStatusSyncFailed, err.Error())
+		org.SetStatus(ctx, task.UserCred, api.OrganizationStatusSyncFailed, err.Error())
 		return
 	}
 
-	org.SetStatus(task.UserCred, api.OrganizationStatusReady, "sync success")
+	org.SetStatus(ctx, task.UserCred, api.OrganizationStatusReady, "sync success")
 
 	notes := jsonutils.NewDict()
 	notes.Set("organization", org.GetShortDesc(ctx))

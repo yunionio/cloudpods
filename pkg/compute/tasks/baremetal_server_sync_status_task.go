@@ -40,7 +40,7 @@ func (self *BaremetalServerSyncStatusTask) OnInit(ctx context.Context, obj db.IS
 	guest := obj.(*models.SGuest)
 	baremetal, _ := guest.GetHost()
 	if baremetal == nil {
-		guest.SetStatus(self.UserCred, api.VM_INIT, "BaremetalServerSyncStatusTask")
+		guest.SetStatus(ctx, self.UserCred, api.VM_INIT, "BaremetalServerSyncStatusTask")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -81,8 +81,8 @@ func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context
 		status = api.VM_UNKNOWN
 		hostStatus = api.HOST_STATUS_UNKNOWN
 	}
-	guest.SetStatus(self.UserCred, status, "BaremetalServerSyncStatusTask")
-	host.SetStatus(self.UserCred, hostStatus, "BaremetalServerSyncStatusTask")
+	guest.SetStatus(ctx, self.UserCred, status, "BaremetalServerSyncStatusTask")
+	host.SetStatus(ctx, self.UserCred, hostStatus, "BaremetalServerSyncStatusTask")
 
 	self.SetStageComplete(ctx, nil)
 }

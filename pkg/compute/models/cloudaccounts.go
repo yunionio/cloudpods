@@ -887,7 +887,7 @@ func (acnt *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		db.OpsLog.LogEvent(acnt, db.ACT_UPDATE, account, userCred)
 		logclient.AddActionLogWithContext(ctx, acnt, logclient.ACT_UPDATE_CREDENTIAL, account, userCred, true)
 
-		acnt.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
+		acnt.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
 		acnt.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "", nil)
 	}
 
@@ -2167,7 +2167,7 @@ func (account *SCloudaccount) markAccountDisconected(ctx context.Context, userCr
 	if account.Status == api.CLOUD_PROVIDER_CONNECTED {
 		account.EventNotify(ctx, userCred, notify.ActionSyncAccountStatus)
 	}
-	return account.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
+	return account.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
 }
 
 func (account *SCloudaccount) markAllProvidersDisconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -2191,7 +2191,7 @@ func (account *SCloudaccount) markAccountConnected(ctx context.Context, userCred
 			return err
 		}
 	}
-	return account.SetStatus(userCred, api.CLOUD_PROVIDER_CONNECTED, "")
+	return account.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_CONNECTED, "")
 }
 
 func (account *SCloudaccount) shouldProbeStatus() bool {
@@ -2506,7 +2506,7 @@ func (acnt *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (acnt *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	acnt.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
+	acnt.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
 	return acnt.purge(ctx, userCred)
 }
 
@@ -2521,7 +2521,7 @@ func (acnt *SCloudaccount) StartCloudaccountDeleteTask(ctx context.Context, user
 		log.Errorf("%s", err)
 		return err
 	}
-	acnt.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudaccountDeleteTask")
+	acnt.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudaccountDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
 }

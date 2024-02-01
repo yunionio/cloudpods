@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *WafInstanceRemoteUpdateTask) taskFail(ctx context.Context, waf *models.SWafInstance, err error) {
-	waf.SetStatus(self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
+	waf.SetStatus(ctx, self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

@@ -102,7 +102,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 		return
 	}
 	disk := objDisk.(*models.SDisk)
-	disk.SetStatus(self.UserCred, api.DISK_READY, "on detach disk complete")
+	disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "on detach disk complete")
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host, _ := guest.GetHost()
 	purge := false
@@ -154,9 +154,9 @@ func (self *GuestDetachDiskTask) OnDetachDiskCompleteFailed(ctx context.Context,
 
 func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err jsonutils.JSONObject) {
 	if disk != nil {
-		disk.SetStatus(self.UserCred, api.DISK_READY, "")
+		disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "")
 	}
-	guest.SetStatus(self.UserCred, api.VM_DETACH_DISK_FAILED, err.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_DETACH_DISK_FAILED, err.String())
 	self.SetStageFailed(ctx, err)
 	log.Errorf("Guest %s GuestDetachDiskTask failed %s", guest.Id, err.String())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DETACH_DISK, err, self.UserCred, false)

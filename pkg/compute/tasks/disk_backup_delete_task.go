@@ -38,7 +38,7 @@ func init() {
 
 func (self *DiskBackupDeleteTask) taskFailed(ctx context.Context, backup *models.SDiskBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_DELETE_FAILED, reasonStr)
+	backup.SetStatus(ctx, self.UserCred, api.BACKUP_STATUS_DELETE_FAILED, reasonStr)
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_DELETE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

@@ -266,7 +266,7 @@ func (self *SRouteTable) StartRouteTableUpdateTask(ctx context.Context, userCred
 	if err != nil {
 		return errors.Wrap(err, "Start RouteTableUpdateTask fail")
 	}
-	self.SetStatus(userCred, api.ROUTE_TABLE_UPDATING, "update route")
+	self.SetStatus(ctx, userCred, api.ROUTE_TABLE_UPDATING, "update route")
 	task.ScheduleRun(nil)
 	return nil
 }

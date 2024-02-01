@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *DBInstanceBackupDeleteTask) taskFailed(ctx context.Context, backup *models.SDBInstanceBackup, err error) {
-	backup.SetStatus(self.UserCred, api.DBINSTANCE_BACKUP_DELETE_FAILED, err.Error())
+	backup.SetStatus(ctx, self.UserCred, api.DBINSTANCE_BACKUP_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(backup, db.ACT_DELETE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

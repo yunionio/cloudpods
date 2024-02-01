@@ -257,7 +257,7 @@ func (self *SDBInstanceDatabase) PostCreate(ctx context.Context, userCred mcclie
 }
 
 func (self *SDBInstanceDatabase) StartDBInstanceDatabaseCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_DATABASE_CREATING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_DATABASE_CREATING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceDatabaseCreateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
@@ -451,7 +451,7 @@ func (self *SDBInstanceDatabase) CustomizeDelete(ctx context.Context, userCred m
 }
 
 func (self *SDBInstanceDatabase) StartDBInstanceDatabaseDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_DATABASE_DELETING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_DATABASE_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceDatabaseDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return err

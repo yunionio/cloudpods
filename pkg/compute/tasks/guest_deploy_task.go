@@ -70,12 +70,12 @@ func (self *GuestDeployTask) DeployOnHost(ctx context.Context, guest *models.SGu
 		log.Errorf("request_deploy_guest_on_host %s", err)
 		self.OnDeployGuestFail(ctx, guest, err)
 	} else {
-		guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "")
+		guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING, "")
 	}
 }
 
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
-	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, err.Error())
+	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOY_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_VM_DEPLOY_FAIL, err.Error(), self.UserCred)
@@ -138,7 +138,7 @@ func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, ob
 			log.Errorf("unset guest %s keypair failed %v", guest.Name, err)
 		}
 	}
-	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, data.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOY_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, data, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_VM_DEPLOY_FAIL, data, self.UserCred)

@@ -249,7 +249,7 @@ func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.ISt
 
 func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_DELETING, "delete server after stop")
+	guest.SetStatus(ctx, self.UserCred, api.VM_DELETING, "delete server after stop")
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, guest.GetShortDesc(ctx), self.UserCred)
 	self.StartDeleteGuest(ctx, guest)
 }
@@ -320,7 +320,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 }
 
 func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_DELETE_FAIL, err.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{

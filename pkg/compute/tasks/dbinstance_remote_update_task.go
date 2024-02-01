@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, rds *models.SDBInstance, err error) {
-	rds.SetStatus(self.UserCred, api.DBINSTANCE_UPDATE_TAGS_FAILED, err.Error())
+	rds.SetStatus(ctx, self.UserCred, api.DBINSTANCE_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

@@ -229,7 +229,7 @@ func (self *SElasticcacheParameter) PostUpdate(ctx context.Context, userCred mcc
 	paramsObj.Add(v, self.Name)
 	params.Add(paramsObj, "parameters")
 
-	self.SetStatus(userCred, api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATING, "")
 	if err := self.StartUpdateElasticcacheParameterTask(ctx, userCred, params, ""); err != nil {
 		log.Errorf("ElasticcacheParameter %s", err.Error())
 	}

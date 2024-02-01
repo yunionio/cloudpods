@@ -54,13 +54,13 @@ func (self *DiskBackupCreateTask) taskFailed(ctx context.Context, backup *models
 		}
 	}
 	reasonStr, _ := reason.GetString()
-	backup.SetStatus(self.UserCred, status, reasonStr)
+	backup.SetStatus(ctx, self.UserCred, status, reasonStr)
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *DiskBackupCreateTask) taksSuccess(ctx context.Context, backup *models.SDiskBackup, data *jsonutils.JSONDict) {
-	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_READY, "")
+	backup.SetStatus(ctx, self.UserCred, api.BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_CREATE, backup.GetShortDesc(ctx), self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    backup,
@@ -75,7 +75,7 @@ func (self *DiskBackupCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.OnSnapshot(ctx, backup, nil)
 		return
 	}
-	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_SNAPSHOT, "")
+	backup.SetStatus(ctx, self.UserCred, api.BACKUP_STATUS_SNAPSHOT, "")
 	snapshot, err := self.CreateSnapshot(ctx, backup)
 	if err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()), api.BACKUP_STATUS_SNAPSHOT_FAILED)
@@ -100,7 +100,7 @@ func (self *DiskBackupCreateTask) OnSnapshot(ctx context.Context, backup *models
 		self.taksSuccess(ctx, backup, p)
 		return
 	}
-	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_SAVING, "")
+	backup.SetStatus(ctx, self.UserCred, api.BACKUP_STATUS_SAVING, "")
 	self.SetStage("OnSave", nil)
 	rd, err := backup.GetRegionDriver()
 	if err != nil {

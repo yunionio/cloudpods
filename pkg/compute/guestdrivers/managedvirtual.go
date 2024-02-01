@@ -478,7 +478,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Contex
 		guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
 		return task.ScheduleRun(result)
 	}
-	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
+	return guest.SetStatus(ctx, userCred, api.VM_RUNNING, "StartOnHost")
 }
 
 func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

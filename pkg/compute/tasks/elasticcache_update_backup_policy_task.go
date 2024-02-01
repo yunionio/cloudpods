@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheUpdateBackupPolicyTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+	elasticcache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_UPDATE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_UPDATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
@@ -63,7 +63,7 @@ func (self *ElasticcacheUpdateBackupPolicyTask) OnInit(ctx context.Context, obj 
 }
 
 func (self *ElasticcacheUpdateBackupPolicyTask) OnElasticcacheUpdateBackupPolicyComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	elasticcache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_UPDATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

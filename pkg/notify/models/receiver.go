@@ -744,7 +744,7 @@ func (r *SReceiver) StartSubcontactPullTask(ctx context.Context, userCred mcclie
 	if len(r.Mobile) == 0 {
 		return nil
 	}
-	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
+	r.SetStatus(ctx, userCred, api.RECEIVER_STATUS_PULLING, "")
 	params := jsonutils.NewDict()
 	if len(contactTypes) > 0 {
 		params.Set("contact_types", jsonutils.NewStringArray(contactTypes))

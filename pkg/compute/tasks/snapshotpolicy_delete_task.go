@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *SnapshotPolicyDeleteTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, err error) {
-	sp.SetStatus(self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
+	sp.SetStatus(ctx, self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(sp, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, sp.Id, sp.Name, apis.STATUS_DELETE_FAILED, err.Error())

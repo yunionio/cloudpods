@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheBackupRestoreInstanceTask) taskFail(ctx context.Context, eb *models.SElasticcacheBackup, reason jsonutils.JSONObject) {
-	eb.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
+	eb.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(eb, db.ACT_CONVERT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, eb, logclient.ACT_RESTORE, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, eb.Id, eb.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
@@ -63,7 +63,7 @@ func (self *ElasticcacheBackupRestoreInstanceTask) OnInit(ctx context.Context, o
 }
 
 func (self *ElasticcacheBackupRestoreInstanceTask) OnElasticcacheBackupRestoreInstanceComplete(ctx context.Context, eb *models.SElasticcacheBackup, data jsonutils.JSONObject) {
-	eb.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	eb.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, eb, logclient.ACT_RESTORE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

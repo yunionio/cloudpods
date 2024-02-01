@@ -241,11 +241,11 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 
 	if !suc {
-		gi.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")
+		gi.SetStatus(ctx, userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")
 	} else if creating {
-		gi.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "")
+		gi.SetStatus(ctx, userCred, api.IMAGE_STATUS_SAVING, "")
 	} else {
-		gi.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "")
+		gi.SetStatus(ctx, userCred, api.IMAGE_STATUS_ACTIVE, "")
 	}
 }
 
@@ -309,7 +309,7 @@ func (gi *SGuestImage) startDeleteTask(ctx context.Context, userCred mcclient.To
 		params.Add(jsonutils.JSONTrue, "override_pending_delete")
 	}
 	params.Add(jsonutils.NewString(gi.Status), "image_status")
-	gi.SetStatus(userCred, api.IMAGE_STATUS_DEACTIVATED, "")
+	gi.SetStatus(ctx, userCred, api.IMAGE_STATUS_DEACTIVATED, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestImageDeleteTask", gi, userCred, params, parentTaskId, "",
 		nil); err != nil {
 
@@ -572,7 +572,7 @@ func (self *SGuestImage) checkStatus(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	if self.Status != status {
-		self.SetStatus(userCred, status, "")
+		self.SetStatus(ctx, userCred, status, "")
 		self.Status = status
 	}
 	return nil

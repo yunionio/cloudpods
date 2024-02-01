@@ -119,7 +119,7 @@ func (self *GuestDeleteOnHostTask) OnFail(ctx context.Context, guest *models.SGu
 	}
 	failedStatus, _ := self.Params.GetString("failed_status")
 	if len(failedStatus) > 0 {
-		guest.SetStatus(self.UserCred, failedStatus, reason.String())
+		guest.SetStatus(ctx, self.UserCred, failedStatus, reason.String())
 	}
 	self.SetStageFailed(ctx, reason)
 }

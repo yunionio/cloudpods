@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *ServerSkuDeleteTask) taskFail(ctx context.Context, sku *models.SServerSku, err error) {
-	sku.SetStatus(self.UserCred, api.SkuStatusDeleteFailed, err.Error())
+	sku.SetStatus(ctx, self.UserCred, api.SkuStatusDeleteFailed, err.Error())
 	db.OpsLog.LogEvent(sku, db.ACT_DELOCATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, sku, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

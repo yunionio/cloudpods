@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerListenerCreateTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, err error) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	lblis.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lblis, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_CREATE, err, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
@@ -72,7 +72,7 @@ func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateComplete
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lblis.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    lblis,
 		Action: notifyclient.ActionCreate,
@@ -81,6 +81,6 @@ func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartComplete(
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
+	lblis.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }

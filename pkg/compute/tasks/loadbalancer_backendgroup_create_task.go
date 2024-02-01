@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerBackendGroup, err error) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_CREATE_FAILED, err.Error())
@@ -59,7 +59,7 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.C
 }
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBackendGroupCreateComplete(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, data jsonutils.JSONObject) {
-	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lbbg.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbbg, db.ACT_ALLOCATE, lbbg.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_CREATE, nil, self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{

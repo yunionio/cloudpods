@@ -375,7 +375,7 @@ func (self *SCDNDomain) StartCdnCreateTask(ctx context.Context, userCred mcclien
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_CREATING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -392,14 +392,14 @@ func (self *SCDNDomain) StartDeleteTask(ctx context.Context, userCred mcclient.T
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.CDN_DOMAIN_STATUS_DELETE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.CDN_DOMAIN_STATUS_DELETE_FAILED, err.Error())
 		return nil
 	}
 	return nil
 }
 
 func (self *SCDNDomain) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	self.SetStatus(userCred, api.CDN_DOMAIN_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.CDN_DOMAIN_STATUS_DELETING, "")
 	return nil
 }
 
@@ -546,7 +546,7 @@ func (self *SCDNDomain) StartRemoteUpdateTask(ctx context.Context, userCred mccl
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	self.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

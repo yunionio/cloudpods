@@ -36,7 +36,7 @@ func init() {
 }
 
 func (task *BucketCreateTask) taskFailed(ctx context.Context, bucket *models.SBucket, err error) {
-	bucket.SetStatus(task.UserCred, api.BUCKET_STATUS_CREATE_FAIL, err.Error())
+	bucket.SetStatus(ctx, task.UserCred, api.BUCKET_STATUS_CREATE_FAIL, err.Error())
 	db.OpsLog.LogEvent(bucket, db.ACT_ALLOCATE_FAIL, err, task.UserCred)
 	logclient.AddActionLogWithStartable(task, bucket, logclient.ACT_ALLOCATE, err, task.UserCred, false)
 	task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -45,7 +45,7 @@ func (task *BucketCreateTask) taskFailed(ctx context.Context, bucket *models.SBu
 func (task *BucketCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	bucket := obj.(*models.SBucket)
 
-	bucket.SetStatus(task.UserCred, api.BUCKET_STATUS_CREATING, "StartBucketCreateTask")
+	bucket.SetStatus(ctx, task.UserCred, api.BUCKET_STATUS_CREATING, "StartBucketCreateTask")
 
 	err := bucket.RemoteCreate(ctx, task.UserCred)
 	if err != nil {
@@ -53,7 +53,7 @@ func (task *BucketCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
-	bucket.SetStatus(task.UserCred, api.BUCKET_STATUS_READY, "BucketCreateTask")
+	bucket.SetStatus(ctx, task.UserCred, api.BUCKET_STATUS_READY, "BucketCreateTask")
 	notifyclient.EventNotify(ctx, task.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    bucket,
 		Action: notifyclient.ActionCreate,

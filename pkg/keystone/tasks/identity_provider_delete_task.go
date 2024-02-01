@@ -40,7 +40,7 @@ func (self *IdentityProviderDeleteTask) OnInit(ctx context.Context, obj db.IStan
 
 	err := idp.Purge(ctx, self.UserCred)
 	if err != nil {
-		idp.SetStatus(self.UserCred, api.IdentityDriverStatusDeleteFailed, err.Error())
+		idp.SetStatus(ctx, self.UserCred, api.IdentityDriverStatusDeleteFailed, err.Error())
 		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("purge failed %s", err)))
 		logclient.AddActionLogWithStartable(self, idp, logclient.ACT_DELETE, err, self.UserCred, false)
 		return

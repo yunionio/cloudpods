@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *SAMLProviderCreateTask) taskFailed(ctx context.Context, saml *models.SSAMLProvider, err error) {
-	saml.SetStatus(self.GetUserCred(), api.SAML_PROVIDER_STATUS_CREATE_FAILED, err.Error())
+	saml.SetStatus(ctx, self.GetUserCred(), api.SAML_PROVIDER_STATUS_CREATE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, saml, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

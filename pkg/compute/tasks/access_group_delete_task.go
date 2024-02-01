@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *AccessGroupDeleteTask) taskFailed(ctx context.Context, ag *models.SAccessGroup, err error) {
-	ag.SetStatus(self.UserCred, api.ACCESS_GROUP_STATUS_DELETE_FAILED, err.Error())
+	ag.SetStatus(ctx, self.UserCred, api.ACCESS_GROUP_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, ag, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

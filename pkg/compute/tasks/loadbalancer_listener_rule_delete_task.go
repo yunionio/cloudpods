@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerListenerRuleDeleteTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, err error) {
-	lbr.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	lbr.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbr, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbr.Id, lbr.Name, api.LB_STATUS_DELETE_FAILED, err.Error())

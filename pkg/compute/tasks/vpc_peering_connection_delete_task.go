@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *VpcPeeringConnectionDeleteTask) taskFailed(ctx context.Context, peer *models.SVpcPeeringConnection, err error) {
-	peer.SetStatus(self.UserCred, api.VPC_PEERING_CONNECTION_STATUS_DELETE_FAILED, err.Error())
+	peer.SetStatus(ctx, self.UserCred, api.VPC_PEERING_CONNECTION_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(peer, db.ACT_DELETE, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, peer, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

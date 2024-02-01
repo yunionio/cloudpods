@@ -209,7 +209,7 @@ func (self *SWafRuleGroupCache) StartDeleteTask(ctx context.Context, userCred mc
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_RULE_GROUP_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.WAF_RULE_GROUP_STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 

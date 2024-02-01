@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DBInstanceAccountCreateTask) taskFailed(ctx context.Context, account *models.SDBInstanceAccount, err error) {
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_CREATE_FAILED, err.Error())
+	account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_CREATE, err.Error(), self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -79,7 +79,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		msg := fmt.Sprintf("failed to found accounts from cloud dbinstance error: %v", err)
 		db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, msg, self.UserCred, false)
-		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+		account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -96,7 +96,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		msg := fmt.Sprintf("failed to found account %s from cloud dbinstance", account.Name)
 		db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, msg, self.UserCred, false)
-		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+		account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -106,12 +106,12 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 	input := api.DBInstanceAccountCreateInput{}
 	self.GetParams().Unmarshal(&input)
 	if len(input.Privileges) == 0 {
-		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+		account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
 
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_GRANT_PRIVILEGE, "")
+	account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_GRANT_PRIVILEGE, "")
 	for _, privilege := range input.Privileges {
 		err = iAccount.GrantPrivilege(privilege.Database, privilege.Privilege)
 		if err != nil {
@@ -129,6 +129,6 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, privilege, self.UserCred, true)
 	}
 
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+	account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

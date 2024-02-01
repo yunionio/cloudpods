@@ -256,7 +256,7 @@ func (self *SElasticcacheAccount) PostCreate(ctx context.Context, userCred mccli
 		self.SavePassword(self.Password)
 	}
 
-	self.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATING, "")
 	if err := self.StartElasticcacheAccountCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
 		log.Errorf("Failed to create elastic account cache error: %v", err)
 	}
@@ -441,7 +441,7 @@ func (self *SElasticcacheAccount) GetDecodedPassword() (string, error) {
 }
 
 func (self *SElasticcacheAccount) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETING, "")
 	return self.StartDeleteElasticcacheAccountTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -482,7 +482,7 @@ func (self *SElasticcacheAccount) ValidatorResetPasswordData(ctx context.Context
 }
 
 func (self *SElasticcacheAccount) PerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	data, err := self.ValidatorResetPasswordData(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err

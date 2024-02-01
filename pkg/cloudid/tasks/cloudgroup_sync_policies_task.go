@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *CloudgroupSyncPoliciesTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_SYNC_POLICIES_FAILED, err.Error())
+	group.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_STATUS_SYNC_POLICIES_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, group, logclient.ACT_SYNC_POLICIES, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -91,6 +91,6 @@ func (self *CloudgroupSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStan
 		}
 	}
 
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, "")
+	group.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

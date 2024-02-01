@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *DBInstanceRecoveryTask) taskFailed(ctx context.Context, instance *models.SDBInstance, err error) {
-	instance.SetStatus(self.UserCred, api.DBINSTANCE_RESTORE_FAILED, err.Error())
+	instance.SetStatus(ctx, self.UserCred, api.DBINSTANCE_RESTORE_FAILED, err.Error())
 	db.OpsLog.LogEvent(instance, db.ACT_RESTORE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RESTORE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -99,6 +99,6 @@ func (self *DBInstanceRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	db.OpsLog.LogEvent(instance, db.ACT_RESTORE, nil, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RESTORE, backup, self.UserCred, true)
-	instance.SetStatus(self.UserCred, api.DBINSTANCE_RUNNING, "")
+	instance.SetStatus(ctx, self.UserCred, api.DBINSTANCE_RUNNING, "")
 	self.SetStageComplete(ctx, nil)
 }

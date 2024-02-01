@@ -36,7 +36,7 @@ func init() {
 
 func (self *BackupStorageSyncstatusTask) taskFailed(ctx context.Context, bs *models.SBackupStorage, err jsonutils.JSONObject) {
 	logclient.AddActionLogWithContext(ctx, bs, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
-	bs.SetStatus(self.UserCred, api.BACKUPSTORAGE_STATUS_OFFLINE, err.String())
+	bs.SetStatus(ctx, self.UserCred, api.BACKUPSTORAGE_STATUS_OFFLINE, err.String())
 	self.SetStageFailed(ctx, err)
 }
 

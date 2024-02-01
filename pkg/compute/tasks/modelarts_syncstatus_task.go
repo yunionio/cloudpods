@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *ModelartsPoolSyncstatusTask) taskFailed(ctx context.Context, modelarts *models.SModelartsPool, err error) {
-	modelarts.SetStatus(self.GetUserCred(), api.MODELARTS_POOL_STATUS_UNKNOWN, err.Error())
+	modelarts.SetStatus(ctx, self.GetUserCred(), api.MODELARTS_POOL_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(modelarts, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, modelarts, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

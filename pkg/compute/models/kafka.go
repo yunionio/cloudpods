@@ -374,7 +374,7 @@ func (self *SKafka) StartDeleteTask(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.KAFKA_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.KAFKA_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -682,7 +682,7 @@ func (self *SKafka) StartRemoteUpdateTask(ctx context.Context, userCred mcclient
 	if task, err := taskman.TaskManager.NewTask(ctx, "KafkaRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		return errors.Wrap(err, "Start ElasticSearchRemoteUpdateTask")
 	} else {
-		self.SetStatus(userCred, api.ELASTIC_SEARCH_UPDATE_TAGS, "StartRemoteUpdateTask")
+		self.SetStatus(ctx, userCred, api.ELASTIC_SEARCH_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil

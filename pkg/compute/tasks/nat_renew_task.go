@@ -42,7 +42,7 @@ func init() {
 func (self *NatGatewayRenewTask) taskFailed(ctx context.Context, nat *models.SNatGateway, err error) {
 	db.OpsLog.LogEvent(nat, db.ACT_REW_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_RENEW, err, self.UserCred, false)
-	nat.SetStatus(self.GetUserCred(), api.NAT_STATUS_RENEW_FAILED, err.Error())
+	nat.SetStatus(ctx, self.GetUserCred(), api.NAT_STATUS_RENEW_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

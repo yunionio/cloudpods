@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DBInstanceRebootTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_REBOOT_FAILED, err.Error())
+	dbinstance.SetStatus(ctx, self.UserCred, api.DBINSTANCE_REBOOT_FAILED, err.Error())
 	db.OpsLog.LogEvent(dbinstance, db.ACT_REBOOT, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_REBOOT, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -69,7 +69,7 @@ func (self *DBInstanceRebootTask) RebootDBInstance(ctx context.Context, dbinstan
 }
 
 func (self *DBInstanceRebootTask) taskComplete(ctx context.Context, dbinstance *models.SDBInstance) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_RUNNING, "")
+	dbinstance.SetStatus(ctx, self.UserCred, api.DBINSTANCE_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_REBOOT, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

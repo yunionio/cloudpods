@@ -53,7 +53,7 @@ func init() {
 }
 
 func (self *FileSystemDeleteTask) taskFailed(ctx context.Context, fs *models.SFileSystem, err error) {
-	fs.SetStatus(self.UserCred, api.NAS_STATUS_DELETE_FAILED, err.Error())
+	fs.SetStatus(ctx, self.UserCred, api.NAS_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, fs, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

@@ -153,7 +153,7 @@ func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclien
 }
 
 func (sp *SSnapshotPolicy) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	sp.SetStatus(userCred, apis.STATUS_DELETING, "")
+	sp.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyDeleteTask", sp, userCred, nil, "", "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
@@ -400,7 +400,7 @@ func (sp *SSnapshotPolicy) RealDelete(ctx context.Context, userCred mcclient.Tok
 }
 
 func (sp *SSnapshotPolicy) StartBindDisksTask(ctx context.Context, userCred mcclient.TokenCredential, diskIds []string) error {
-	sp.SetStatus(userCred, api.SNAPSHOT_POLICY_APPLY, jsonutils.Marshal(diskIds).String())
+	sp.SetStatus(ctx, userCred, api.SNAPSHOT_POLICY_APPLY, jsonutils.Marshal(diskIds).String())
 	params := jsonutils.Marshal(map[string]interface{}{"disk_ids": diskIds}).(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotpolicyBindDisksTask", sp, userCred, params, "", "", nil)
 	if err != nil {
@@ -449,7 +449,7 @@ func (sp *SSnapshotPolicy) PerformBindDisks(
 }
 
 func (sp *SSnapshotPolicy) StartUnbindDisksTask(ctx context.Context, userCred mcclient.TokenCredential, diskIds []string) error {
-	sp.SetStatus(userCred, api.SNAPSHOT_POLICY_CANCEL, jsonutils.Marshal(diskIds).String())
+	sp.SetStatus(ctx, userCred, api.SNAPSHOT_POLICY_CANCEL, jsonutils.Marshal(diskIds).String())
 	params := jsonutils.Marshal(map[string]interface{}{"disk_ids": diskIds}).(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotpolicyUnbindDisksTask", sp, userCred, params, "", "", nil)
 	if err != nil {
@@ -488,7 +488,7 @@ func (self *SSnapshotPolicy) PerformSyncstatus(
 	input jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
 	if self.CloudregionId == api.DEFAULT_REGION_ID {
-		return nil, self.SetStatus(userCred, apis.STATUS_AVAILABLE, "")
+		return nil, self.SetStatus(ctx, userCred, apis.STATUS_AVAILABLE, "")
 	}
 	return nil, self.StartSyncstatusTask(ctx, userCred, "")
 }

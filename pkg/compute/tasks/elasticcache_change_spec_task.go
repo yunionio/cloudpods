@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheChangeSpecTask) taskFail(ctx context.Context, ec *models.SElasticcache, reason jsonutils.JSONObject) {
-	ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+	ec.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ec, db.ACT_CHANGE_FLAVOR, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ec, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
@@ -67,7 +67,7 @@ func (self *ElasticcacheChangeSpecTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *ElasticcacheChangeSpecTask) OnElasticcacheChangeSpecComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	elasticcache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    elasticcache,

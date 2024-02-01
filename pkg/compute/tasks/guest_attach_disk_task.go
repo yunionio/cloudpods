@@ -65,7 +65,7 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return
 	}
-	disk.SetStatus(self.UserCred, api.DISK_ATTACHING, "Disk attach")
+	disk.SetStatus(ctx, self.UserCred, api.DISK_ATTACHING, "Disk attach")
 	self.SetStage("OnSyncConfigComplete", nil)
 	guest.GetDriver().RequestAttachDisk(ctx, guest, disk, self)
 }
@@ -97,16 +97,16 @@ func (self *GuestAttachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	}
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_ATTACH, reason.String(), self.UserCred)
-	disk.SetStatus(self.UserCred, api.DISK_READY, "")
+	disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "")
 	guest.DetachDisk(ctx, disk, self.UserCred)
 	self.OnTaskFail(ctx, guest, disk, reason)
 }
 
 func (self *GuestAttachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err jsonutils.JSONObject) {
 	if disk != nil {
-		disk.SetStatus(self.UserCred, api.DISK_READY, "")
+		disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "")
 	}
-	guest.SetStatus(self.UserCred, api.VM_ATTACH_DISK_FAILED, err.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_ATTACH_DISK_FAILED, err.String())
 	self.SetStageFailed(ctx, err)
 	log.Errorf("Guest %s GuestAttachDiskTask failed %s", guest.Name, err.String())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_ATTACH_DISK, err, self.UserCred, false)

@@ -2397,7 +2397,7 @@ func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.I
 	if err != nil {
 		for i := range items {
 			guest := items[i].(*SGuest)
-			guest.SetStatus(userCred, api.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(ctx, userCred, api.VM_CREATE_FAILED, err.Error())
 		}
 	}
 }
@@ -2986,7 +2986,7 @@ func (self *SGuest) SyncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	}
 
 	if self.Status != api.VM_UNKNOWN {
-		self.SetStatus(userCred, api.VM_UNKNOWN, "Sync lost")
+		self.SetStatus(ctx, userCred, api.VM_UNKNOWN, "Sync lost")
 	}
 
 	if options.Options.EnableSyncPurge {
@@ -5622,7 +5622,7 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 			iVm, err := guests[i].GetIVM(ctx)
 			if err == nil && iVm.GetStatus() == api.VM_RUNNING {
 				if guests[i].Status != api.VM_DELETE_FAIL {
-					guests[i].SetStatus(userCred, api.VM_DELETE_FAIL, "vm status is running")
+					guests[i].SetStatus(ctx, userCred, api.VM_DELETE_FAIL, "vm status is running")
 				}
 				continue
 			}
@@ -6606,7 +6606,7 @@ func (guest *SGuest) StartRemoteUpdateTask(ctx context.Context, userCred mcclien
 		log.Errorln(err)
 		return errors.Wrap(err, "Start GuestRemoteUpdateTask")
 	} else {
-		guest.SetStatus(userCred, api.VM_UPDATE_TAGS, "StartRemoteUpdateTask")
+		guest.SetStatus(ctx, userCred, api.VM_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil

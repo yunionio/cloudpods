@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, err error) {
-	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	lbbg.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbbg, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbbg.Id, lbbg.Name, api.LB_STATUS_DELETE_FAILED, err.Error())

@@ -395,7 +395,7 @@ func (alert *SAlert) CustomizeCreate(ctx context.Context, userCred mcclient.Toke
 }
 
 func (alert *SAlert) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	alert.SetStatus(userCred, monitor.ALERT_STATUS_READY, "")
+	alert.SetStatus(ctx, userCred, monitor.ALERT_STATUS_READY, "")
 }
 
 func (alert *SAlert) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {

@@ -45,9 +45,9 @@ func init() {
 func (self *NotificationSendTask) taskFailed(ctx context.Context, notification *models.SNotification, reason string, all bool) {
 	log.Errorf("fail to send notification %q", notification.GetId())
 	if all {
-		notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_FAILED, reason)
+		notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_FAILED, reason)
 	} else {
-		notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_PART_OK, reason)
+		notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_PART_OK, reason)
 	}
 	notification.AddOne()
 	logclient.AddActionLogWithContext(ctx, notification, logclient.ACT_SEND_NOTIFICATION, reason, self.UserCred, false)
@@ -89,7 +89,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			return
 		}
 	}
-	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_SENDING, "")
+	notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_SENDING, "")
 
 	// build contactMap
 	receivers := make([]ReceiverSpec, 0)
@@ -243,7 +243,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), false)
 		return
 	}
-	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_OK, "")
+	notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_OK, "")
 	logclient.AddActionLogWithContext(ctx, notification, logclient.ACT_SEND_NOTIFICATION, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

@@ -36,7 +36,7 @@ func init() {
 
 func (self *InstanceBackupDeleteTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_DELETE_FAILED, reasonStr)
+	ib.SetStatus(ctx, self.UserCred, compute.INSTANCE_BACKUP_STATUS_DELETE_FAILED, reasonStr)
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_DELETE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

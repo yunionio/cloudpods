@@ -1090,11 +1090,11 @@ func (hh *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled tri
 	return ret
 }
 
-func (hh *SHost) SyncAttachedStorageStatus() {
+func (hh *SHost) SyncAttachedStorageStatus(ctx context.Context) {
 	storages := hh.GetAttachedEnabledHostStorages(nil)
 	if storages != nil {
 		for _, storage := range storages {
-			storage.SyncStatusWithHosts()
+			storage.SyncStatusWithHosts(ctx)
 		}
 		hh.ClearSchedDescCache()
 	}
@@ -2271,7 +2271,7 @@ func (hh *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCr
 		log.Infof("host %s not connected with %s any more, to detach...", hh.Id, removed[i].Id)
 		err := hh.syncRemoveCloudHostStorage(ctx, userCred, &removed[i])
 		if errors.Cause(err) == ErrStorageInUse && removed[i].StorageType == api.STORAGE_LOCAL {
-			removed[i].SetStatus(userCred, api.STORAGE_OFFLINE, "the only host used this local storage has detached")
+			removed[i].SetStatus(ctx, userCred, api.STORAGE_OFFLINE, "the only host used this local storage has detached")
 			// prevent generating a delete error for syncResult
 			continue
 		}
@@ -3999,7 +3999,7 @@ func (hh *SHost) PerformStart(
 		//	if !utils.IsInStringArray(guest.Status, []string{VM_ADMIN}) {
 		//		return nil, httperrors.NewBadRequestError("Cannot start baremetal with active guest")
 		//	}
-		hh.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
+		hh.SetStatus(ctx, userCred, api.BAREMETAL_START_MAINTAIN, "")
 		return guest.PerformStart(ctx, userCred, query, api.GuestPerformStartInput{})
 	}
 	params := jsonutils.NewDict()
@@ -4034,7 +4034,7 @@ func (hh *SHost) PerformStop(ctx context.Context, userCred mcclient.TokenCredent
 			if utils.ToBool(guest.GetMetadata(ctx, "is_fake_baremetal_server", userCred)) {
 				return nil, hh.InitializedGuestStop(ctx, userCred, guest)
 			}
-			hh.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
+			hh.SetStatus(ctx, userCred, api.BAREMETAL_START_MAINTAIN, "")
 			input := api.ServerStopInput{}
 			data.Unmarshal(&input)
 			return guest.PerformStop(ctx, userCred, query, input)
@@ -4074,7 +4074,7 @@ func (hh *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.Token
 		if guest.Status == api.VM_RUNNING {
 			params.Set("guest_running", jsonutils.NewBool(true))
 		}
-		guest.SetStatus(userCred, api.VM_ADMIN, "")
+		guest.SetStatus(ctx, userCred, api.VM_ADMIN, "")
 	}
 	if hh.Status == api.BAREMETAL_RUNNING && jsonutils.QueryBoolean(data, "force_reboot", false) {
 		params.Set("force_reboot", jsonutils.NewBool(true))
@@ -4084,7 +4084,7 @@ func (hh *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.Token
 		action, _ = data.GetString("action")
 	}
 	params.Set("action", jsonutils.NewString(action))
-	hh.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_START_MAINTAIN, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalMaintenanceTask", hh, userCred, params, "", "", nil)
 	if err != nil {
 		return nil, err
@@ -4114,7 +4114,7 @@ func (hh *SHost) PerformUnmaintenance(ctx context.Context, userCred mcclient.Tok
 }
 
 func (hh *SHost) StartBaremetalUnmaintenanceTask(ctx context.Context, userCred mcclient.TokenCredential, startGuest bool, action string) error {
-	hh.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_START_MAINTAIN, "")
 	params := jsonutils.NewDict()
 	params.Set("guest_running", jsonutils.NewBool(startGuest))
 	if len(action) == 0 {
@@ -4164,7 +4164,7 @@ func (hh *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCred
 			ndata.Add(jsonutils.NewString(input.Reason), "reason")
 		}
 		notifyclient.SystemExceptionNotify(ctx, napi.ActionOffline, HostManager.Keyword(), ndata)
-		hh.SyncAttachedStorageStatus()
+		hh.SyncAttachedStorageStatus(ctx)
 	}
 	return nil, nil
 }
@@ -4188,7 +4188,7 @@ func (hh *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCrede
 		}
 		db.OpsLog.LogEvent(hh, db.ACT_ONLINE, "", userCred)
 		logclient.AddActionLogWithContext(ctx, hh, logclient.ACT_ONLINE, data, userCred, true)
-		hh.SyncAttachedStorageStatus()
+		hh.SyncAttachedStorageStatus(ctx)
 		hh.StartSyncAllGuestsStatusTask(ctx, userCred)
 	}
 	return nil, nil
@@ -4475,7 +4475,7 @@ func (hh *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.TokenCr
 	if len(onfinish) > 0 {
 		data.Set("on_finish", jsonutils.NewString(onfinish))
 	}
-	hh.SetStatus(userCred, api.BAREMETAL_PREPARE, "start prepare task")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_PREPARE, "start prepare task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalPrepareTask", hh, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -4494,7 +4494,7 @@ func (hh *SHost) PerformIpmiProbe(ctx context.Context, userCred mcclient.TokenCr
 
 func (hh *SHost) StartIpmiProbeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	data := jsonutils.NewDict()
-	hh.SetStatus(userCred, api.BAREMETAL_START_PROBE, "start ipmi-probe task")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_START_PROBE, "start ipmi-probe task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalIpmiProbeTask", hh, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -5113,7 +5113,7 @@ func (hh *SHost) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenC
 	if hh.HostType != api.HOST_TYPE_BAREMETAL {
 		return nil, httperrors.NewBadRequestError("Cannot sync status a non-baremetal host")
 	}
-	hh.SetStatus(userCred, api.BAREMETAL_SYNCING_STATUS, "")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_SYNCING_STATUS, "")
 	return nil, hh.StartSyncstatus(ctx, userCred, "")
 }
 
@@ -5161,7 +5161,7 @@ func (hh *SHost) PerformEnable(
 		if err != nil {
 			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformEnable")
 		}
-		hh.SyncAttachedStorageStatus()
+		hh.SyncAttachedStorageStatus(ctx)
 		hh.updateNotify(ctx, userCred)
 	}
 	return nil, nil
@@ -5173,7 +5173,7 @@ func (hh *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCred
 		if err != nil {
 			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformDisable")
 		}
-		hh.SyncAttachedStorageStatus()
+		hh.SyncAttachedStorageStatus(ctx)
 		hh.updateNotify(ctx, userCred)
 	}
 	return nil, nil
@@ -5304,7 +5304,7 @@ func (hh *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclient
 	}
 	task.ScheduleRun(nil)
 
-	hh.SetStatus(userCred, api.BAREMETAL_START_CONVERT, "")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_START_CONVERT, "")
 	return nil, nil
 }
 
@@ -5765,10 +5765,10 @@ func (hh *SHost) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
-func (hh *SHost) MarkGuestUnknown(userCred mcclient.TokenCredential) {
+func (hh *SHost) MarkGuestUnknown(ctx context.Context, userCred mcclient.TokenCredential) {
 	guests, _ := hh.GetGuests()
 	for _, guest := range guests {
-		guest.SetStatus(userCred, api.VM_UNKNOWN, "host offline")
+		guest.SetStatus(ctx, userCred, api.VM_UNKNOWN, "host offline")
 	}
 	guests2 := hh.GetGuestsBackupOnThisHost()
 	for _, guest := range guests2 {
@@ -5796,7 +5796,7 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 			lockman.LockObject(ctx, &hosts[i])
 			defer lockman.ReleaseObject(ctx, &hosts[i])
 			hosts[i].PerformOffline(ctx, userCred, nil, &api.HostOfflineInput{UpdateHealthStatus: &updateHealthStatus, Reason: fmt.Sprintf("last ping detection at %s", deadline)})
-			hosts[i].MarkGuestUnknown(userCred)
+			hosts[i].MarkGuestUnknown(ctx, userCred)
 		}()
 	}
 }
@@ -5830,7 +5830,7 @@ func (host *SHost) PerformHostExitMaintenance(ctx context.Context, userCred mccl
 	if !utils.IsInStringArray(host.Status, []string{api.BAREMETAL_MAINTAIN_FAIL, api.BAREMETAL_MAINTAINING}) {
 		return nil, httperrors.NewInvalidStatusError("host status %s can't exit maintenance", host.Status)
 	}
-	err := host.SetStatus(userCred, api.HOST_STATUS_RUNNING, "exit maintenance")
+	err := host.SetStatus(ctx, userCred, api.HOST_STATUS_RUNNING, "exit maintenance")
 	if err != nil {
 		return nil, err
 	}
@@ -5883,7 +5883,7 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 			RescueMode:  guests[i].Status == api.VM_UNKNOWN,
 			OldStatus:   guests[i].Status,
 		}
-		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "host maintainence")
+		guests[i].SetStatus(ctx, userCred, api.VM_START_MIGRATE, "host maintainence")
 		hostGuests = append(hostGuests, bmp)
 	}
 
@@ -6027,7 +6027,7 @@ func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcc
 				RescueMode:  true,
 				OldStatus:   guests[i].Status,
 			}
-			guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "host down")
+			guests[i].SetStatus(ctx, userCred, api.VM_START_MIGRATE, "host down")
 			hostGuests = append(hostGuests, bmp)
 			migGuests = append(migGuests, &guests[i])
 		}
@@ -6037,21 +6037,17 @@ func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcc
 	return GuestManager.StartHostGuestsMigrateTask(ctx, userCred, migGuests, kwargs, "")
 }
 
-func (host *SHost) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	err := host.SEnabledStatusInfrasResourceBase.SetStatus(userCred, status, reason)
+func (host *SHost) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	err := host.SEnabledStatusInfrasResourceBase.SetStatus(ctx, userCred, status, reason)
 	if err != nil {
 		return err
 	}
 	host.ClearSchedDescCache()
-	notifyclient.EventNotify(context.Background(), userCred, notifyclient.SEventNotifyParam{
-		Obj:    host,
-		Action: notifyclient.ActionUpdate,
-	})
 	return nil
 }
 
 func (host *SHost) StartMaintainTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	host.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "start maintenance")
+	host.SetStatus(ctx, userCred, api.BAREMETAL_START_MAINTAIN, "start maintenance")
 	if task, err := taskman.TaskManager.NewTask(ctx, "HostMaintainTask", host, userCred, data, "", "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -6219,7 +6215,7 @@ func (hh *SHost) StartInsertIsoTask(ctx context.Context, userCred mcclient.Token
 		data.Add(jsonutils.JSONTrue, "boot")
 	}
 	data.Add(jsonutils.NewString(api.BAREMETAL_CDROM_ACTION_INSERT), "action")
-	hh.SetStatus(userCred, api.BAREMETAL_START_INSERT_ISO, "start insert iso task")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_START_INSERT_ISO, "start insert iso task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalCdromTask", hh, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -6239,7 +6235,7 @@ func (hh *SHost) PerformEjectIso(ctx context.Context, userCred mcclient.TokenCre
 func (hh *SHost) StartEjectIsoTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(api.BAREMETAL_CDROM_ACTION_EJECT), "action")
-	hh.SetStatus(userCred, api.BAREMETAL_START_EJECT_ISO, "start eject iso task")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_START_EJECT_ISO, "start eject iso task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalCdromTask", hh, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -6253,7 +6249,7 @@ func (hh *SHost) PerformSyncConfig(ctx context.Context, userCred mcclient.TokenC
 	if hh.HostType != api.HOST_TYPE_BAREMETAL {
 		return nil, httperrors.NewBadRequestError("Cannot sync config a non-baremetal host")
 	}
-	hh.SetStatus(userCred, api.BAREMETAL_SYNCING_STATUS, "")
+	hh.SetStatus(ctx, userCred, api.BAREMETAL_SYNCING_STATUS, "")
 	return nil, hh.StartSyncConfig(ctx, userCred, "")
 }
 

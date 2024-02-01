@@ -71,7 +71,7 @@ func (self *ImageDeleteTask) startDeleteImage(ctx context.Context, image *models
 		return
 	}
 
-	image.SetStatus(self.UserCred, api.IMAGE_STATUS_DELETED, "delete")
+	image.SetStatus(ctx, self.UserCred, api.IMAGE_STATUS_DELETED, "delete")
 
 	image.RealDelete(ctx, self.UserCred)
 

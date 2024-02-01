@@ -250,7 +250,7 @@ func (self *SNatDEntry) syncRemoveCloudNatDTable(ctx context.Context, userCred m
 
 	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		return self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
+		return self.SetStatus(ctx, userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 	}
 	return self.RealDelete(ctx, userCred)
 }
@@ -343,10 +343,10 @@ func (self *SNatDEntry) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
 		return
 	}
-	self.SetStatus(userCred, api.NAT_STATUS_ALLOCATE, "")
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_ALLOCATE, "")
 }
 
 func (self *SNatDEntry) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -362,10 +362,10 @@ func (self *SNatDEntry) StartDeleteDNatTask(ctx context.Context, userCred mcclie
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
 		return err
 	}
-	self.SetStatus(userCred, api.NAT_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.NAT_STATUS_DELETING, "")
 	return nil
 }
 

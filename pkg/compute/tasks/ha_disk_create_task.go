@@ -69,7 +69,7 @@ func (self *HADiskCreateTask) OnDiskReady(
 		return
 	}
 	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
-	disk.SetStatus(self.UserCred, api.DISK_BACKUP_STARTALLOC,
+	disk.SetStatus(ctx, self.UserCred, api.DISK_BACKUP_STARTALLOC,
 		fmt.Sprintf("Backup disk start alloc use host %s(%s)", host.Name, host.Id),
 	)
 	self.SetStage("OnSlaveDiskReady", nil)
@@ -82,7 +82,7 @@ func (self *HADiskCreateTask) OnDiskReady(
 }
 
 func (self *HADiskCreateTask) OnBackupAllocateFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetStatus(self.UserCred, api.DISK_BACKUP_ALLOC_FAILED, data.String())
+	disk.SetStatus(ctx, self.UserCred, api.DISK_BACKUP_ALLOC_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
 
@@ -123,7 +123,7 @@ func (self *DiskCreateBackupTask) OnBackupStorageCacheImageComplete(
 func (self *DiskCreateBackupTask) OnSlaveDiskReady(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	bkStorage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	bkStorage.ClearSchedDescCache()
-	disk.SetStatus(self.UserCred, api.DISK_READY, "")
+	disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "")
 	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }

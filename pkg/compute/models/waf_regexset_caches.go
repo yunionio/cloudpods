@@ -210,7 +210,7 @@ func (self *SWafRegexSetCache) StartDeleteTask(ctx context.Context, userCred mcc
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_REGEX_SET_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.WAF_REGEX_SET_STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 

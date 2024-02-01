@@ -360,7 +360,7 @@ func (swire *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.T
 
 	err := swire.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		err = swire.markNetworkUnknown(userCred)
+		err = swire.markNetworkUnknown(ctx, userCred)
 	} else {
 		err = swire.Delete(ctx, userCred)
 	}
@@ -421,13 +421,13 @@ func (swire *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Tok
 	return err
 }
 
-func (swire *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
+func (swire *SWire) markNetworkUnknown(ctx context.Context, userCred mcclient.TokenCredential) error {
 	nets, err := swire.getNetworks(nil, nil, rbacscope.ScopeNone)
 	if err != nil {
 		return err
 	}
 	for i := 0; i < len(nets); i += 1 {
-		nets[i].SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "wire sync to remove")
+		nets[i].SetStatus(ctx, userCred, api.NETWORK_STATUS_UNKNOWN, "wire sync to remove")
 	}
 	return nil
 }

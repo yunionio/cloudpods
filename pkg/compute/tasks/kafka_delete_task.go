@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *KafkaDeleteTask) taskFail(ctx context.Context, kafka *models.SKafka, err error) {
-	kafka.SetStatus(self.GetUserCred(), api.KAFKA_STATUS_DELETE_FAILED, err.Error())
+	kafka.SetStatus(ctx, self.GetUserCred(), api.KAFKA_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(kafka, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, kafka, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

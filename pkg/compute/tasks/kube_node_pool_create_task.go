@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *KubeNodePoolCreateTask) taskFail(ctx context.Context, pool *models.SKubeNodePool, err error) {
-	pool.SetStatus(self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
+	pool.SetStatus(ctx, self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(pool, db.ACT_ALLOCATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, pool, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

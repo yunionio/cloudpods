@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *ElasticcacheRemoteUpdateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	elasticcache.SetStatus(self.UserCred, api.ELASTIC_CACHE_UPDATE_TAGS_FAILED, reason.String())
+	elasticcache.SetStatus(ctx, self.UserCred, api.ELASTIC_CACHE_UPDATE_TAGS_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

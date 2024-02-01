@@ -38,7 +38,7 @@ func init() {
 
 func (self *BaremetalDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_DELETE, "")
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_DELETE, "")
 	if !baremetal.IsBaremetalAgentReady() {
 		self.OnDeleteBaremetalComplete(ctx, baremetal, nil)
 		return
@@ -72,6 +72,6 @@ func (self *BaremetalDeleteTask) OnDeleteBaremetalCompleteFailed(ctx context.Con
 }
 
 func (self *BaremetalDeleteTask) OnFailure(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_DELETE_FAIL, body.String())
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_DELETE_FAIL, body.String())
 	self.SetStageFailed(ctx, body)
 }

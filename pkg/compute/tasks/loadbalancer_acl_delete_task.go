@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbacl, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_STATUS_DELETE_FAILED, err.Error())

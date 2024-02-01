@@ -518,7 +518,7 @@ func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.To
 func (self *SSecurityGroup) StartSecurityGroupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, rules []api.SSecgroupRuleCreateInput, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Set("rules", jsonutils.Marshal(rules))
-	self.SetStatus(userCred, apis.STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_CREATING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupCreateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
@@ -577,7 +577,7 @@ func (self *SSecurityGroup) PerformSyncstatus(ctx context.Context, userCred mccl
 
 func (self *SSecurityGroup) StartSecurityGroupSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
-	self.SetStatus(userCred, apis.STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupSyncTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
@@ -1032,7 +1032,7 @@ func (self *SSecurityGroup) CustomizeDelete(ctx context.Context, userCred mcclie
 
 func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
-	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
@@ -1065,7 +1065,7 @@ func (self *SSecurityGroup) StartRemoteUpdateTask(ctx context.Context, userCred 
 	if err != nil {
 		return errors.Wrap(err, "RemoteUpdateTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	self.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

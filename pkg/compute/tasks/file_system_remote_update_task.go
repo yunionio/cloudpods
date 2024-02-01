@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *FileSystemRemoteUpdateTask) taskFail(ctx context.Context, fs *models.SFileSystem, err error) {
-	fs.SetStatus(self.UserCred, api.NAS_UPDATE_TAGS_FAILED, err.Error())
+	fs.SetStatus(ctx, self.UserCred, api.NAS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

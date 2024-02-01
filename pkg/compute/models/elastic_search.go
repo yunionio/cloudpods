@@ -378,7 +378,7 @@ func (self *SElasticSearch) StartDeleteTask(ctx context.Context, userCred mcclie
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.ELASTIC_SEARCH_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_SEARCH_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -689,7 +689,7 @@ func (self *SElasticSearch) StartRemoteUpdateTask(ctx context.Context, userCred 
 	if task, err := taskman.TaskManager.NewTask(ctx, "ElasticSearchRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		return errors.Wrap(err, "Start ElasticSearchRemoteUpdateTask")
 	} else {
-		self.SetStatus(userCred, api.ELASTIC_SEARCH_UPDATE_TAGS, "StartRemoteUpdateTask")
+		self.SetStatus(ctx, userCred, api.ELASTIC_SEARCH_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil

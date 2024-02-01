@@ -67,7 +67,7 @@ func (self *ImageSyncClassMetadataTask) OnInit(ctx context.Context, obj db.IStan
 
 func (self *ImageSyncClassMetadataTask) taskFailed(ctx context.Context, image *models.SImage, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	image.SetStatus(self.UserCred, api.IMAGE_STATUS_SYNC_CLASS_METADATA_FAILEd, reasonStr)
+	image.SetStatus(ctx, self.UserCred, api.IMAGE_STATUS_SYNC_CLASS_METADATA_FAILEd, reasonStr)
 	logclient.AddActionLogWithStartable(self, image, logclient.ACT_SYNC_CLASS_METADATA, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

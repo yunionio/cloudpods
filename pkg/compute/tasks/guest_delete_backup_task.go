@@ -40,7 +40,7 @@ type GuestDeleteBackupTask struct {
 func (self *GuestDeleteBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, reason, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP_FAILED, reason, self.UserCred)
-	guest.SetStatus(self.UserCred, compute.VM_BACKUP_DELETE_FAILED, reason.String())
+	guest.SetStatus(ctx, self.UserCred, compute.VM_BACKUP_DELETE_FAILED, reason.String())
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    guest,
 		Action: notifyclient.ActionDelBackupServer,

@@ -328,10 +328,10 @@ func (self *SModelartsPool) StartCreateTask(ctx context.Context, userCred mcclie
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_ERROR, err.Error())
+		self.SetStatus(ctx, userCred, api.MODELARTS_POOL_STATUS_ERROR, err.Error())
 		return err
 	}
-	self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.MODELARTS_POOL_STATUS_CREATING, "")
 	return nil
 }
 
@@ -379,7 +379,7 @@ func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclie
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.MODELARTS_POOL_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -397,7 +397,7 @@ func (self *SModelartsPool) StartChangeConfigTask(ctx context.Context, userCred 
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG, "")
+	self.SetStatus(ctx, userCred, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG, "")
 	return task.ScheduleRun(nil)
 }
 

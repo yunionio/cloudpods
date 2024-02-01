@@ -55,7 +55,7 @@ func (self *GuestHardResetTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *GuestHardResetTask) StopServer(ctx context.Context, guest *models.SGuest) {
-	guest.SetStatus(self.UserCred, api.VM_STOPPING, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_STOPPING, "")
 	self.SetStage("OnServerStopComplete", nil)
 	guest.StartGuestStopTask(ctx, self.UserCred, false, false, self.GetTaskId())
 	// logclient.AddActionLogWith(guest, logclient.ACT_VM_RESTART, `{"is_force": true}`, self.UserCred, true)

@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *ClouduserSyncTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_FAILED, err.Error())
+	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -64,7 +64,7 @@ func (self *ClouduserSyncTask) OnSyncCloudpoliciesComplete(ctx context.Context, 
 		return
 	}
 
-	user.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
+	user.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -73,7 +73,7 @@ func (self *ClouduserSyncTask) OnSyncCloudpoliciesCompleteFailed(ctx context.Con
 }
 
 func (self *ClouduserSyncTask) OnSyncCloudgroupsComplete(ctx context.Context, user *models.SClouduser, body jsonutils.JSONObject) {
-	user.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
+	user.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }
 

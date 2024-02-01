@@ -46,7 +46,7 @@ func (self *NetworksUnderWireMergeTask) taskFailed(ctx context.Context, wire *mo
 	if err != nil {
 		d.Set("error", jsonutils.NewString(err.Error()))
 	}
-	wire.SetStatus(self.UserCred, api.WIRE_STATUS_MERGE_NETWORK_FAILED, d.PrettyString())
+	wire.SetStatus(ctx, self.UserCred, api.WIRE_STATUS_MERGE_NETWORK_FAILED, d.PrettyString())
 	db.OpsLog.LogEvent(wire, db.ACT_MERGE_NETWORK_FAILED, d, self.UserCred)
 	logclient.AddActionLogWithStartable(self, wire, logclient.ACT_MERGE_NETWORK, d, self.UserCred, false)
 	self.SetStageFailed(ctx, nil)
@@ -54,7 +54,7 @@ func (self *NetworksUnderWireMergeTask) taskFailed(ctx context.Context, wire *mo
 
 func (self *NetworksUnderWireMergeTask) taskSuccess(ctx context.Context, wire *models.SWire, desc string) {
 	d := jsonutils.NewString(desc)
-	wire.SetStatus(self.UserCred, api.WIRE_STATUS_AVAILABLE, "")
+	wire.SetStatus(ctx, self.UserCred, api.WIRE_STATUS_AVAILABLE, "")
 	db.OpsLog.LogEvent(wire, db.ACT_MERGE_NETWORK, d, self.UserCred)
 	logclient.AddActionLogWithStartable(self, wire, logclient.ACT_MERGE_NETWORK, d, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
@@ -67,7 +67,7 @@ type Net struct {
 
 func (self *NetworksUnderWireMergeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	w := obj.(*models.SWire)
-	w.SetStatus(self.UserCred, api.WIRE_STATUS_MERGE_NETWORK, "")
+	w.SetStatus(ctx, self.UserCred, api.WIRE_STATUS_MERGE_NETWORK, "")
 
 	lockman.LockClass(ctx, models.NetworkManager, db.GetLockClassKey(models.NetworkManager, self.UserCred))
 	defer lockman.ReleaseClass(ctx, models.NetworkManager, db.GetLockClassKey(models.NetworkManager, self.UserCred))

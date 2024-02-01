@@ -37,14 +37,14 @@ func init() {
 }
 
 func (self *InterVpcNetworkRemoveVpcTask) taskFailed(ctx context.Context, network *models.SInterVpcNetwork, err error) {
-	network.SetStatus(self.UserCred, api.INTER_VPC_NETWORK_STATUS_REMOVEVPC_FAILED, err.Error())
+	network.SetStatus(ctx, self.UserCred, api.INTER_VPC_NETWORK_STATUS_REMOVEVPC_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_NETWORK_REMOVE_VPC, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, network, logclient.ACT_NETWORK_REMOVE_VPC, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *InterVpcNetworkRemoveVpcTask) taskComplete(ctx context.Context, network *models.SInterVpcNetwork) {
-	network.SetStatus(self.GetUserCred(), api.INTER_VPC_NETWORK_STATUS_AVAILABLE, "")
+	network.SetStatus(ctx, self.GetUserCred(), api.INTER_VPC_NETWORK_STATUS_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, network, logclient.ACT_NETWORK_REMOVE_VPC, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

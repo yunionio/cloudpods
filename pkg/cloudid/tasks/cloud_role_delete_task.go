@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *CloudroleDeleteTask) taskFailed(ctx context.Context, role *models.SCloudrole, err error) {
-	role.SetStatus(self.GetUserCred(), api.CLOUD_ROLE_STATUS_DELETE_FAILED, err.Error())
+	role.SetStatus(ctx, self.GetUserCred(), api.CLOUD_ROLE_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, role, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

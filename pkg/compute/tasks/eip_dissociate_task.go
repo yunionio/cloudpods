@@ -39,22 +39,22 @@ func init() {
 }
 
 func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg jsonutils.JSONObject, model db.IModel) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg.String())
+	eip.SetStatus(ctx, self.UserCred, api.EIP_STATUS_READY, msg.String())
 	self.SetStageFailed(ctx, msg)
 	var logOp string
 	if model != nil {
 		switch srv := model.(type) {
 		case *models.SGuest:
-			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
+			srv.SetStatus(ctx, self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_VM_DISSOCIATE
 		case *models.SNatGateway:
-			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
+			srv.SetStatus(ctx, self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_NATGATEWAY_DISSOCIATE
 		case *models.SLoadbalancer:
-			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
+			srv.SetStatus(ctx, self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_LOADBALANCER_DISSOCIATE
 		case *models.SGroup:
-			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
+			srv.SetStatus(ctx, self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_INSTANCE_GROUP_DISSOCIATE
 		}
 		db.OpsLog.LogEvent(model, db.ACT_EIP_DETACH, msg, self.GetUserCred())
@@ -74,7 +74,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 		if server := eip.GetAssociateVM(); server != nil {
 			if server.Status != api.VM_DISSOCIATE_EIP {
-				server.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP, "dissociate eip")
+				server.SetStatus(ctx, self.UserCred, api.VM_DISSOCIATE_EIP, "dissociate eip")
 			}
 			model = server
 			logOp = logclient.ACT_VM_DISSOCIATE
@@ -183,7 +183,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			return
 		}
 
-		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "dissociate")
+		eip.SetStatus(ctx, self.UserCred, api.EIP_STATUS_READY, "dissociate")
 
 		logclient.AddActionLogWithStartable(self, model, logclient.ACT_EIP_DISSOCIATE, nil, self.UserCred, true)
 		logclient.AddActionLogWithStartable(self, eip, logOp, nil, self.UserCred, true)
@@ -193,7 +193,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			case *models.SGuest:
 				srv.StartSyncstatus(ctx, self.UserCred, "")
 			case *models.SGroup:
-				srv.SetStatus(self.UserCred, "init", "success")
+				srv.SetStatus(ctx, self.UserCred, "init", "success")
 			}
 		}
 	}

@@ -439,7 +439,7 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 		return
 	}
 
-	alert.SetStatus(userCred, monitor.ALERT_STATUS_READY, "")
+	alert.SetStatus(ctx, userCred, monitor.ALERT_STATUS_READY, "")
 
 	if input.AlertType != "" {
 		if err := alert.setAlertType(ctx, userCred, input.AlertType); err != nil {
@@ -1129,10 +1129,10 @@ func (alert *SCommonAlert) getUpdateAlertInput(updateInput monitor.CommonAlertUp
 func (alert *SCommonAlert) CustomizeDelete(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	alert.SetStatus(userCred, monitor.ALERT_STATUS_DELETING, "")
+	alert.SetStatus(ctx, userCred, monitor.ALERT_STATUS_DELETING, "")
 	err := alert.customizeDeleteNotis(ctx, userCred, query, data)
 	if err != nil {
-		alert.SetStatus(userCred, monitor.ALERT_STATUS_DELETE_FAIL, "")
+		alert.SetStatus(ctx, userCred, monitor.ALERT_STATUS_DELETE_FAIL, "")
 		return errors.Wrap(err, "customizeDeleteNotis")
 	}
 	alert.StartDeleteTask(ctx, userCred)

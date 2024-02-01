@@ -213,7 +213,7 @@ func (drv *SBaseGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx conte
 func (drv *SBaseGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
 	data := jsonutils.NewDict()
 	data.Set("is_force", jsonutils.NewBool(isForce))
-	if err := guest.SetStatus(userCred, api.VM_STOPPING, ""); err != nil {
+	if err := guest.SetStatus(ctx, userCred, api.VM_STOPPING, ""); err != nil {
 		return err
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartTask", guest, userCred, nil, parentTaskId, "", nil)

@@ -51,7 +51,7 @@ func (self *BaremetalConvertHypervisorTask) getHypervisor() string {
 func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
 
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_CONVERTING, "")
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_CONVERTING, "")
 
 	self.SetStage("OnGuestDeployComplete", nil)
 
@@ -76,7 +76,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Co
 	if driver == nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Get Host Driver error %s", hypervisor)))
 	}
-	err := driver.FinishConvert(self.UserCred, baremetal, guest, driver.GetHostType())
+	err := driver.FinishConvert(ctx, self.UserCred, baremetal, guest, driver.GetHostType())
 	if err != nil {
 		log.Errorln(err)
 		logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert deploy falied %s", err.Error()), self.UserCred, false)

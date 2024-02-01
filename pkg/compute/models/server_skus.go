@@ -641,7 +641,7 @@ func (self *SServerSku) StartServerSkuDeleteTask(ctx context.Context, userCred m
 		log.Errorf("newTask ServerSkuDeleteTask fail %s", err)
 		return err
 	}
-	self.SetStatus(userCred, api.SkuStatusDeleting, "start to delete")
+	self.SetStatus(ctx, userCred, api.SkuStatusDeleting, "start to delete")
 	task.ScheduleRun(nil)
 	return nil
 }

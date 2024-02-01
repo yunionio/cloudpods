@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *CDNDomainRemoteUpdateTask) taskFail(ctx context.Context, cdn *models.SCDNDomain, err error) {
-	cdn.SetStatus(self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
+	cdn.SetStatus(ctx, self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

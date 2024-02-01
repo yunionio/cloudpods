@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerSyncstatusTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, err error) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_UNKNOWN, err.Error())
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(lb, db.ACT_SYNC_STATUS, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_SYNC_CONF_FAILED, err.Error())

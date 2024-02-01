@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *EipSyncstatusTask) taskFail(ctx context.Context, eip *models.SElasticip, err error) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_UNKNOWN, err.Error())
+	eip.SetStatus(ctx, self.UserCred, api.EIP_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(eip, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

@@ -104,7 +104,7 @@ func (task *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 }
 
 func (task *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_SWITCH_TO_BACKUP_FAILED, reason.String())
+	guest.SetStatus(ctx, task.UserCred, api.VM_SWITCH_TO_BACKUP_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_SWITCH_FAILED, reason, task.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SWITCH_TO_BACKUP, reason, task.UserCred, false)
 	task.SetStageFailed(ctx, reason)
@@ -130,7 +130,7 @@ type GuestStartAndSyncToBackupTask struct {
 
 func (task *GuestStartAndSyncToBackupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(task.UserCred, api.VM_BACKUP_STARTING, "GuestStartAndSyncToBackupTask")
+	guest.SetStatus(ctx, task.UserCred, api.VM_BACKUP_STARTING, "GuestStartAndSyncToBackupTask")
 	task.SetStage("OnCheckTemplete", nil)
 	task.checkTemplete(ctx, guest)
 }
@@ -218,13 +218,13 @@ func (task *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Con
 
 func (task *GuestStartAndSyncToBackupTask) onComplete(ctx context.Context, guest *models.SGuest) {
 	guestStatus, _ := task.Params.GetString("guest_status")
-	guest.SetStatus(task.UserCred, guestStatus, "on GuestStartAndSyncToBackupTask completed")
+	guest.SetStatus(ctx, task.UserCred, guestStatus, "on GuestStartAndSyncToBackupTask completed")
 	task.SetStageComplete(ctx, nil)
 }
 
 func (task *GuestStartAndSyncToBackupTask) OnRequestSyncToBackupFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetGuestBackupMirrorJobFailed(ctx, task.UserCred)
-	guest.SetStatus(task.UserCred, api.VM_BLOCK_STREAM_FAIL, "OnSyncToBackup")
+	guest.SetStatus(ctx, task.UserCred, api.VM_BLOCK_STREAM_FAIL, "OnSyncToBackup")
 	task.SetStageFailed(ctx, data)
 }
 
@@ -389,7 +389,7 @@ func (task *GuestCreateBackupTask) TaskCompleted(ctx context.Context, guest *mod
 }
 
 func (task *GuestCreateBackupTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_BACKUP_CREATE_FAILED, reason.String())
+	guest.SetStatus(ctx, task.UserCred, api.VM_BACKUP_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP_FAILED, reason, task.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_CREATE_BACKUP, reason, task.UserCred, false)
 	task.SetStageFailed(ctx, reason)

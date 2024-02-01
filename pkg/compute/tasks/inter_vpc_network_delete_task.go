@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *InterVpcNetworkDeleteTask) taskFailed(ctx context.Context, network *models.SInterVpcNetwork, err error) {
-	network.SetStatus(self.UserCred, api.INTER_VPC_NETWORK_STATUS_DELETE_FAILED, err.Error())
+	network.SetStatus(ctx, self.UserCred, api.INTER_VPC_NETWORK_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_DELETE, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

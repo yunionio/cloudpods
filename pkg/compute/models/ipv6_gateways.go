@@ -147,7 +147,7 @@ func (self *SIPv6Gateway) syncRemoveCloudIPv6Gateway(ctx context.Context, userCr
 
 	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		self.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		self.SetStatus(ctx, userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
 		return err
 	}
 	return self.RealDelete(ctx, userCred)
@@ -256,7 +256,7 @@ func (self *SIPv6Gateway) ValidateUpdateData(ctx context.Context, userCred mccli
 }
 
 func (self *SIPv6Gateway) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 	return nil
 }
 

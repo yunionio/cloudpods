@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *KubeNodePoolDeleteTask) taskFailed(ctx context.Context, pool *models.SKubeNodePool, err error) {
-	pool.SetStatus(self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
+	pool.SetStatus(ctx, self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(pool, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, pool, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
