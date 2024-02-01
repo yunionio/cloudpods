@@ -21,9 +21,9 @@ import (
 const (
 	HOST_TYPE_BAREMETAL  = "baremetal"
 	HOST_TYPE_HYPERVISOR = "hypervisor" // KVM
+	HOST_TYPE_CONTAINER  = "container"
 	HOST_TYPE_KVM        = "kvm"
 	HOST_TYPE_ESXI       = compute.HOST_TYPE_ESXI // # VMWare vSphere ESXi
-	HOST_TYPE_KUBELET    = "kubelet"              // # Kubernetes Kubelet
 	HOST_TYPE_HYPERV     = "hyperv"               // # Microsoft Hyper-V
 	HOST_TYPE_XEN        = "xen"                  // # XenServer
 
@@ -123,7 +123,7 @@ var HOST_TYPES = []string{
 	HOST_TYPE_BAREMETAL,
 	HOST_TYPE_HYPERVISOR,
 	HOST_TYPE_ESXI,
-	HOST_TYPE_KUBELET,
+	HOST_TYPE_CONTAINER,
 	HOST_TYPE_XEN,
 	HOST_TYPE_ALIYUN,
 	HOST_TYPE_APSARA,

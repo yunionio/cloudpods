@@ -970,6 +970,9 @@ github.com/xuri/nfp
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
+# github.com/zexi/golosetup v0.0.1
+## explicit; go 1.18
+github.com/zexi/golosetup
 # github.com/zexi/influxql-to-metricsql v0.0.6
 ## explicit; go 1.18
 github.com/zexi/influxql-to-metricsql/converter
@@ -1211,6 +1214,7 @@ google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/codes
 google.golang.org/grpc/connectivity
 google.golang.org/grpc/credentials
+google.golang.org/grpc/credentials/insecure
 google.golang.org/grpc/encoding
 google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/grpclog
@@ -1458,6 +1462,9 @@ k8s.io/client-go/util/workqueue
 ## explicit; go 1.15
 k8s.io/cluster-bootstrap/token/api
 k8s.io/cluster-bootstrap/token/util
+# k8s.io/cri-api v0.22.17
+## explicit; go 1.16
+k8s.io/cri-api/pkg/apis/runtime/v1
 # k8s.io/klog/v2 v2.2.0
 ## explicit; go 1.13
 k8s.io/klog/v2

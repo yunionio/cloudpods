@@ -127,8 +127,11 @@ func getPassthroughGPUs(filteredAddrs []string, enableWhitelist bool, whitelistM
 	return ret, nil, warns
 }
 
-func getGPUPCIStr() ([]string, error) {
+func GetPCIStrByAddr(addr string) ([]string, error) {
 	cmd := "lspci -nnmm"
+	if addr != "" {
+		cmd = fmt.Sprintf("%s -s %s", cmd, addr)
+	}
 	ret, err := bashOutput(cmd)
 	if err != nil {
 		return nil, err
@@ -140,6 +143,10 @@ func getGPUPCIStr() ([]string, error) {
 		}
 	}
 	return lines, err
+}
+
+func getGPUPCIStr() ([]string, error) {
+	return GetPCIStrByAddr("")
 }
 
 type PCIDevice struct {
@@ -183,12 +190,12 @@ func NewPCIDevice2(line string) *PCIDevice {
 }
 
 type sGPUBaseDevice struct {
-	*sBaseDevice
+	*SBaseDevice
 }
 
 func newGPUBaseDevice(dev *PCIDevice, devType string) *sGPUBaseDevice {
 	return &sGPUBaseDevice{
-		sBaseDevice: newBaseDevice(dev, devType),
+		SBaseDevice: NewBaseDevice(dev, devType),
 	}
 }
 

@@ -97,6 +97,10 @@ func (dev *sNVIDIAVgpuDevice) CustomProbe(idx int) error {
 	return nil
 }
 
+func (dev *sNVIDIAVgpuDevice) GetDevicePath() string {
+	return ""
+}
+
 func (dev *sNVIDIAVgpuDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	if len(info.Id) != 0 {
 		dev.cloudId = info.Id

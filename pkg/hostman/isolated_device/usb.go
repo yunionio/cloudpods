@@ -30,14 +30,14 @@ import (
 )
 
 type sUSBDevice struct {
-	*sBaseDevice
+	*SBaseDevice
 	lsusbLine *sLsusbLine
 }
 
 // TODO: rename PCIDevice
 func newUSBDevice(dev *PCIDevice, lsusbLine *sLsusbLine) *sUSBDevice {
 	return &sUSBDevice{
-		sBaseDevice: newBaseDevice(dev, api.USB_TYPE),
+		SBaseDevice: NewBaseDevice(dev, api.USB_TYPE),
 		lsusbLine:   lsusbLine,
 	}
 }

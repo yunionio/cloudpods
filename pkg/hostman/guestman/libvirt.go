@@ -66,8 +66,8 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		}
 		disksPath.Set(disk.DiskId, jsonutils.NewString(iDisk.GetPath()))
 	}
-	guest, _ := m.GetServer(createConfig.Sid)
-	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
+	guest, _ := m.GetKVMServer(createConfig.Sid)
+	if err := SaveDesc(guest, createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 

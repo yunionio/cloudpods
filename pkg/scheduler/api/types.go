@@ -25,14 +25,9 @@ import (
 const (
 	HostTypeHost         = "host"
 	HostTypeBaremetal    = "baremetal"
-	SchedTypeGuest       = "guest"
 	SchedTypeBaremetal   = "baremetal"
-	SchedTypeContainer   = "container"
-	SchedTypeEsxi        = "esxi"
-	SchedTypeHyperV      = "hyperv"
 	SchedTypeKvm         = "kvm"
 	HostHypervisorForKvm = "hypervisor"
-	HostTypeKubelet      = "kubelet"
 
 	AggregateStrategyRequire = "require"
 	AggregateStrategyExclude = "exclude"

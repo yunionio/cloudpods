@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -75,6 +76,8 @@ type IDisk interface {
 	DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	IsFile() bool
+
+	GetContainerStorageDriver() (container_storage.IContainerStorage, error)
 }
 
 type SBaseDisk struct {
@@ -228,4 +231,8 @@ func (d *SBaseDisk) DoDeleteSnapshot(snapshotId string) error {
 
 func (d *SBaseDisk) GetBackupDir() string {
 	return ""
+}
+
+func (d *SBaseDisk) GetContainerStorageDriver() (container_storage.IContainerStorage, error) {
+	return nil, errors.Wrap(errors.ErrNotImplemented, "GetContainerStorageDriver")
 }

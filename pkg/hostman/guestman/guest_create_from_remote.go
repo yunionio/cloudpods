@@ -36,8 +36,8 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(createConfig.Sid)
-	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
+	guest, _ := m.GetKVMServer(createConfig.Sid)
+	if err := SaveDesc(guest, createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 
@@ -121,8 +121,8 @@ func (m *SGuestManager) GuestCreateFromCloudpods(
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(createConfig.Sid)
-	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
+	guest, _ := m.GetKVMServer(createConfig.Sid)
+	if err := SaveDesc(guest, createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 	var err error

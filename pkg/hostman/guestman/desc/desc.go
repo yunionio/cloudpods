@@ -363,7 +363,8 @@ type SGuestControlDesc struct {
 
 	EncryptKeyId string
 
-	LightMode bool // light mode
+	LightMode  bool // light mode
+	Hypervisor string
 }
 
 type SGuestMetaDesc struct {
@@ -379,10 +380,15 @@ type SGuestMetaDesc struct {
 	ExtraOptions map[string]jsonutils.JSONObject
 }
 
+type SGuestContainerDesc struct {
+	Containers []*api.ContainerDesc
+}
+
 type SGuestDesc struct {
 	SGuestProjectDesc
 	SGuestRegionDesc
 	SGuestControlDesc
 	SGuestHardwareDesc
 	SGuestMetaDesc
+	SGuestContainerDesc
 }

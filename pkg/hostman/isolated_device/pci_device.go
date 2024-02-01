@@ -24,7 +24,7 @@ import (
 )
 
 type sGeneralPCIDevice struct {
-	*sBaseDevice
+	*SBaseDevice
 }
 
 func (dev *sGeneralPCIDevice) GetVGACmd() string {
@@ -41,7 +41,7 @@ func (dev *sGeneralPCIDevice) GetQemuId() string {
 
 func newGeneralPCIDevice(dev *PCIDevice, devType string) *sGeneralPCIDevice {
 	return &sGeneralPCIDevice{
-		sBaseDevice: newBaseDevice(dev, devType),
+		SBaseDevice: NewBaseDevice(dev, devType),
 	}
 }
 

@@ -56,9 +56,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
-	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
@@ -84,7 +84,7 @@ type SGuestManager struct {
 	host             hostutils.IHost
 	ServersPath      string
 	Servers          *sync.Map
-	CandidateServers map[string]*SKVMGuestInstance
+	CandidateServers map[string]GuestRuntimeInstance
 	UnknownServers   *sync.Map
 	ServersLock      *sync.Mutex
 	portsInUse       *sync.Map
@@ -97,7 +97,7 @@ type SGuestManager struct {
 	isLoaded bool
 
 	// dirty servers chan
-	dirtyServers     []*SKVMGuestInstance
+	dirtyServers     []GuestRuntimeInstance
 	dirtyServersChan chan struct{}
 
 	qemuMachineCpuMax map[string]uint
@@ -114,7 +114,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) (*SGuestManager, 
 	manager.ServersPath = serversPath
 	manager.Servers = new(sync.Map)
 	manager.portsInUse = new(sync.Map)
-	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
+	manager.CandidateServers = make(map[string]GuestRuntimeInstance, 0)
 	manager.UnknownServers = new(sync.Map)
 	manager.ServersLock = &sync.Mutex{}
 	manager.TrafficLock = &sync.Mutex{}
@@ -122,7 +122,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) (*SGuestManager, 
 
 	// manager.StartCpusetBalancer()
 	manager.dirtyServersChan = make(chan struct{})
-	manager.dirtyServers = make([]*SKVMGuestInstance, 0)
+	manager.dirtyServers = make([]GuestRuntimeInstance, 0)
 	manager.qemuMachineCpuMax = make(map[string]uint, 0)
 	err := procutils.NewCommand("mkdir", "-p", manager.QemuLogDir()).Run()
 	if err != nil {
@@ -202,6 +202,10 @@ func (m *SGuestManager) InitPythonPath() error {
 	return errors.Errorf("No python/python2/python3 found in PATH")
 }
 
+func (m *SGuestManager) GetCRI() pod.CRI {
+	return m.host.GetCRI()
+}
+
 func (m *SGuestManager) getPythonPath() string {
 	return m.pythonPath
 }
@@ -210,25 +214,34 @@ func (m *SGuestManager) QemuLogDir() string {
 	return path.Join(m.ServersPath, "logs")
 }
 
-func (m *SGuestManager) GetServer(sid string) (*SKVMGuestInstance, bool) {
+func (m *SGuestManager) GetServer(sid string) (GuestRuntimeInstance, bool) {
 	s, ok := m.Servers.Load(sid)
 	if ok {
-		return s.(*SKVMGuestInstance), ok
+		return s.(GuestRuntimeInstance), ok
 	} else {
 		return nil, ok
 	}
 }
 
-func (m *SGuestManager) GetUnknownServer(sid string) (*SKVMGuestInstance, bool) {
+// 临时解决方案，后面应该统一 SKVMInstance 和 SPodInstance 使用 GuestRuntimeInstance 接口
+func (m *SGuestManager) GetKVMServer(sid string) (*SKVMGuestInstance, bool) {
+	s, ok := m.GetServer(sid)
+	if !ok {
+		return nil, false
+	}
+	return s.(*SKVMGuestInstance), true
+}
+
+func (m *SGuestManager) GetUnknownServer(sid string) (GuestRuntimeInstance, bool) {
 	s, ok := m.UnknownServers.Load(sid)
 	if ok {
-		return s.(*SKVMGuestInstance), ok
+		return s.(GuestRuntimeInstance), ok
 	} else {
 		return nil, ok
 	}
 }
 
-func (m *SGuestManager) SaveServer(sid string, s *SKVMGuestInstance) {
+func (m *SGuestManager) SaveServer(sid string, s GuestRuntimeInstance) {
 	m.Servers.Store(sid, s)
 }
 
@@ -313,9 +326,9 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 	}
 }
 
-func (m *SGuestManager) RemoveCandidateServer(server *SKVMGuestInstance) {
-	if _, ok := m.CandidateServers[server.Id]; ok {
-		delete(m.CandidateServers, server.Id)
+func (m *SGuestManager) RemoveCandidateServer(server GuestRuntimeInstance) {
+	if _, ok := m.CandidateServers[server.GetInitialId()]; ok {
+		delete(m.CandidateServers, server.GetInitialId())
 		if len(m.CandidateServers) == 0 {
 			m.OnLoadExistingGuestsComplete()
 		}
@@ -382,7 +395,7 @@ func (m *SGuestManager) cpusetBalance() {
 }
 
 func (m *SGuestManager) CPUSet(ctx context.Context, sid string, req *compute.ServerCPUSetInput) (*compute.ServerCPUSetResp, error) {
-	guest, ok := m.GetServer(sid)
+	guest, ok := m.GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Not found")
 	}
@@ -390,7 +403,7 @@ func (m *SGuestManager) CPUSet(ctx context.Context, sid string, req *compute.Ser
 }
 
 func (m *SGuestManager) CPUSetRemove(ctx context.Context, sid string) error {
-	guest, ok := m.GetServer(sid)
+	guest, ok := m.GetKVMServer(sid)
 	if !ok {
 		return httperrors.NewNotFoundError("Not found")
 	}
@@ -422,60 +435,43 @@ func (m *SGuestManager) LoadExistingGuests() {
 	}
 }
 
-func (m *SGuestManager) LoadServer(sid string) {
-	guest := NewKVMGuestInstance(sid, m)
-	err := guest.LoadDesc()
+func (m *SGuestManager) GetServerDescFilePath(sid string) string {
+	return path.Join(m.ServersPath, sid, "desc")
+}
+
+func (m *SGuestManager) GetServerDesc(sid string) (*desc.SGuestDesc, error) {
+	descPath := m.GetServerDescFilePath(sid)
+	descStr, err := ioutil.ReadFile(descPath)
 	if err != nil {
+		return nil, errors.Wrapf(err, "read file %s", descPath)
+	}
+	desc := new(desc.SGuestDesc)
+	jsonSrcDesc, err := jsonutils.Parse(descStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "json parse: %s", descStr)
+	}
+	if err := jsonSrcDesc.Unmarshal(desc); err != nil {
+		return nil, errors.Wrap(err, "unmarshal desc")
+	}
+	return desc, nil
+}
+
+func (m *SGuestManager) LoadServer(sid string) {
+	desc, err := m.GetServerDesc(sid)
+	if err != nil {
+		log.Errorf("Get server %s desc: %v", sid, err)
+		return
+	}
+	guest := NewGuestRuntimeManager().NewRuntimeInstance(sid, m, desc.Hypervisor)
+	if err := guest.LoadDesc(); err != nil {
 		log.Errorf("On load server error: %s", err)
 		return
 	}
 
-	if guest.needSyncStreamDisks {
-		go guest.sendStreamDisksComplete(context.Background())
-	}
 	m.CandidateServers[sid] = guest
-	m.loadGuestCpuset(guest)
-}
-
-func (m *SGuestManager) loadGuestCpuset(guest *SKVMGuestInstance) {
-	if guest.GetPid() > 0 {
-		m.cpuSet.Lock.Lock()
-		defer m.cpuSet.Lock.Unlock()
-		for _, vcpuPin := range guest.Desc.VcpuPin {
-			pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
-			if err != nil {
-				log.Errorf("failed parse %s pcpus: %s", guest.GetName(), vcpuPin.Pcpus)
-				continue
-			}
-			vcpuSet, err := cpuset.Parse(vcpuPin.Vcpus)
-			if err != nil {
-				log.Errorf("failed parse %s vcpus: %s", guest.GetName(), vcpuPin.Vcpus)
-				continue
-			}
-			m.cpuSet.LoadCpus(pcpuSet.ToSlice(), vcpuSet.Size())
-		}
-		for _, numaCpuset := range guest.Desc.CpuNumaPin {
-			pcpuSet, err := cpuset.Parse(*numaCpuset.Pcpus)
-			if err != nil {
-				log.Errorf("failed parse %s pcpus: %s", guest.GetName(), *numaCpuset.Pcpus)
-				continue
-			}
-			vcpuCount := int(guest.Desc.Cpu)
-			if numaCpuset.Vcpus != nil {
-				vcpuSet, err := cpuset.Parse(*numaCpuset.Vcpus)
-				if err != nil {
-					log.Errorf("failed parse %s vcpus: %s", guest.GetName(), *numaCpuset.Vcpus)
-					continue
-				}
-				vcpuCount = vcpuSet.Size()
-			}
-			hostNodes := -1
-			if numaCpuset.HostNodes != nil {
-				hostNodes = int(*numaCpuset.HostNodes)
-			}
-
-			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, hostNodes, pcpuSet.ToSlice(), vcpuCount)
-		}
+	if err := guest.PostLoad(m); err != nil {
+		log.Errorf("Post load server %s: %v", sid, err)
+		return
 	}
 }
 
@@ -501,11 +497,11 @@ func (m *SGuestManager) GetGuestNicDesc(
 	var nic *desc.SGuestNetwork
 	var guestDesc *desc.SGuestDesc
 	m.Servers.Range(func(k interface{}, v interface{}) bool {
-		guest := v.(*SKVMGuestInstance)
+		guest := v.(GuestRuntimeInstance)
 		if guest.IsLoaded() {
 			nic = guest.GetNicDescMatch(mac, ip, port, bridge)
 			if nic != nil {
-				guestDesc = guest.Desc
+				guestDesc = guest.GetDesc()
 				return false
 			}
 		}
@@ -521,7 +517,7 @@ func (m *SGuestManager) getGuestNicDescInCandidate(
 		if guest.IsLoaded() {
 			nic := guest.GetNicDescMatch(mac, ip, port, bridge)
 			if nic != nil {
-				return guest.Desc, nic
+				return guest.GetDesc(), nic
 			}
 		}
 	}
@@ -536,7 +532,7 @@ func (m *SGuestManager) PrepareCreate(sid string) error {
 	}
 	guest := NewKVMGuestInstance(sid, m)
 	m.SaveServer(sid, guest)
-	return guest.PrepareDir()
+	return PrepareDir(guest)
 }
 
 func (m *SGuestManager) PrepareDeploy(sid string) error {
@@ -551,7 +547,7 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 }
 
 func (m *SGuestManager) Monitor(sid, cmd string, qmp bool, callback func(string)) error {
-	if guest, ok := m.GetServer(sid); ok {
+	if guest, ok := m.GetKVMServer(sid); ok {
 		if guest.IsRunning() {
 			if guest.Monitor == nil {
 				return httperrors.NewBadRequestError("Monitor disconnected??")
@@ -568,7 +564,7 @@ func (m *SGuestManager) Monitor(sid, cmd string, qmp bool, callback func(string)
 			return httperrors.NewBadRequestError("Server stopped??")
 		}
 	} else {
-		return httperrors.NewNotFoundError("Not found")
+		return httperrors.NewNotFoundError("Not found KVM server: %s", sid)
 	}
 }
 
@@ -582,7 +578,7 @@ func (m *SGuestManager) sdnClient() (fwdpb.ForwarderClient, error) {
 }
 
 func (m *SGuestManager) OpenForward(ctx context.Context, sid string, req *hostapi.GuestOpenForwardRequest) (*hostapi.GuestOpenForwardResponse, error) {
-	guest, ok := m.GetServer(sid)
+	guest, ok := m.GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Not found")
 	}
@@ -636,7 +632,7 @@ func (m *SGuestManager) OpenForward(ctx context.Context, sid string, req *hostap
 }
 
 func (m *SGuestManager) CloseForward(ctx context.Context, sid string, req *hostapi.GuestCloseForwardRequest) (*hostapi.GuestCloseForwardResponse, error) {
-	guest, ok := m.GetServer(sid)
+	guest, ok := m.GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Not found")
 	}
@@ -674,7 +670,7 @@ func (m *SGuestManager) CloseForward(ctx context.Context, sid string, req *hosta
 }
 
 func (m *SGuestManager) ListForward(ctx context.Context, sid string, req *hostapi.GuestListForwardRequest) (*hostapi.GuestListForwardResponse, error) {
-	guest, ok := m.GetServer(sid)
+	guest, ok := m.GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Not found")
 	}
@@ -729,23 +725,31 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 		return nil, hostutils.ParamsError
 	}
 
-	var guest *SKVMGuestInstance
+	var guest GuestRuntimeInstance
 	e := func() error {
 		m.ServersLock.Lock()
 		defer m.ServersLock.Unlock()
 		if _, ok := m.GetServer(deployParams.Sid); ok {
 			return httperrors.NewBadRequestError("Guest %s exists", deployParams.Sid)
 		}
-		guest = NewKVMGuestInstance(deployParams.Sid, m)
-
+		var (
+			descInfo   *desc.SGuestDesc = nil
+			hypervisor                  = ""
+		)
 		if deployParams.Body.Contains("desc") {
-			var desc = new(desc.SGuestDesc)
-			err := deployParams.Body.Unmarshal(desc, "desc")
+			descInfo = new(desc.SGuestDesc)
+			err := deployParams.Body.Unmarshal(descInfo, "desc")
 			if err != nil {
 				return httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
 			}
-			err = guest.CreateFromDesc(desc)
-			if err != nil {
+			hypervisor = descInfo.Hypervisor
+		}
+		//guest = NewKVMGuestInstance(deployParams.Sid, m)
+		factory := NewGuestRuntimeManager()
+		guest = factory.NewRuntimeInstance(deployParams.Sid, m, hypervisor)
+
+		if descInfo != nil {
+			if err := factory.CreateFromDesc(guest, descInfo); err != nil {
 				return errors.Wrap(err, "create from desc")
 			}
 		}
@@ -760,11 +764,7 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 }
 
 func (m *SGuestManager) startDeploy(
-	ctx context.Context, deployParams *SGuestDeploy, guest *SKVMGuestInstance) (jsonutils.JSONObject, error) {
-
-	if jsonutils.QueryBoolean(deployParams.Body, "k8s_pod", false) {
-		return nil, nil
-	}
+	ctx context.Context, deployParams *SGuestDeploy, guest GuestRuntimeInstance) (jsonutils.JSONObject, error) {
 	publicKey := deployapi.GetKeys(deployParams.Body)
 	deployArray := make([]*deployapi.DeployContent, 0)
 	if deployParams.Body.Contains("deploys") {
@@ -792,7 +792,7 @@ func (m *SGuestManager) startDeploy(
 			password, deployParams.IsInit, false,
 			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser,
 			enableCloudInit, loginAccount, deployTelegraf, telegrafConfig,
-			guest.Desc.UserData,
+			guest.GetDesc().UserData,
 		),
 	)
 	if err != nil {
@@ -817,7 +817,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 			if err != nil {
 				return nil, httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
 			}
-			if err := guest.SaveDesc(guestDesc); err != nil {
+			if err := SaveDesc(guest, guestDesc); err != nil {
 				return nil, errors.Wrap(err, "failed save desc")
 			}
 		}
@@ -838,42 +838,16 @@ func (m *SGuestManager) Status(sid string) string {
 	return status
 }
 
-func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+func (m *SGuestManager) GetGuestStatus(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sid := params.(string)
 	status := m.getStatus(sid)
 	guest, _ := m.GetServer(sid)
 	body := jsonutils.NewDict()
 	if guest != nil {
-		body.Set("power_status", jsonutils.NewString(guest.GetPowerStates()))
+		body.Set("power_status", jsonutils.NewString(GetPowerStates(guest)))
 	}
 
-	if status == GUEST_RUNNING && guest.pciUninitialized {
-		status = compute.VM_UNSYNC
-	} else if status == GUEST_RUNNING {
-		var runCb = func() {
-			body := jsonutils.NewDict()
-			blockJobsCount := guest.BlockJobsCount()
-			if blockJobsCount > 0 {
-				status = GUEST_BLOCK_STREAM
-			}
-			body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
-			body.Set("status", jsonutils.NewString(status))
-			hostutils.TaskComplete(ctx, body)
-		}
-		if guest.Monitor == nil && !guest.IsStopping() {
-			if err := guest.StartMonitor(context.Background(), runCb, false); err != nil {
-				log.Errorf("guest %s failed start monitor %s", guest.GetName(), err)
-				body.Set("status", jsonutils.NewString(status))
-				hostutils.TaskComplete(ctx, body)
-			}
-		} else {
-			runCb()
-		}
-		return nil, nil
-	}
-	body.Set("status", jsonutils.NewString(status))
-	hostutils.TaskComplete(ctx, body)
-	return nil, nil
+	return guest.HandleGuestStatus(ctx, status, body)
 }
 
 func (m *SGuestManager) getStatus(sid string) string {
@@ -890,7 +864,7 @@ func (m *SGuestManager) getStatus(sid string) string {
 	}
 }
 
-func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
+func (m *SGuestManager) Delete(sid string) (GuestRuntimeInstance, error) {
 	if guest, ok := m.GetServer(sid); ok {
 		m.CleanServer(sid)
 		// 这里应该不需要append到deleted servers
@@ -908,49 +882,29 @@ func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenC
 	if guest, ok := m.GetServer(sid); ok {
 		guestDesc := new(desc.SGuestDesc)
 		if err := body.Unmarshal(guestDesc, "desc"); err == nil {
-			if err = guest.SaveDesc(guestDesc); err != nil {
+			if err = SaveDesc(guest, guestDesc); err != nil {
 				return nil, errors.Wrap(err, "save desc")
 			}
 		}
-		if guest.IsStopped() {
-			data, err := body.Get("params")
-			if err != nil {
-				data = jsonutils.NewDict()
-			}
-			err = guest.StartGuest(ctx, userCred, data.(*jsonutils.JSONDict))
-			if err != nil {
-				return nil, err
-			}
-			res := jsonutils.NewDict()
-			res.Set("vnc_port", jsonutils.NewInt(0))
-			return res, nil
-		} else {
-			vncPort := guest.GetVncPort()
-			if vncPort > 0 {
-				res := jsonutils.NewDict()
-				res.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
-				res.Set("is_running", jsonutils.JSONTrue)
-				return res, nil
-			} else {
-				return nil, httperrors.NewBadRequestError("Seems started, but no VNC info")
-			}
-		}
+		return guest.HandleGuestStart(ctx, userCred, body)
 	} else {
-		return nil, httperrors.NewNotFoundError("Not found")
+		return nil, httperrors.NewNotFoundError("Not found server %s", sid)
 	}
 }
 
 func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64) error {
-	if guest, ok := m.GetServer(sid); ok {
-		hostutils.DelayTaskWithoutReqctx(ctx, guest.ExecStopTask, timeout)
-		return nil
+	if server, ok := m.GetServer(sid); ok {
+		if err := server.HandleStop(ctx, timeout); err != nil {
+			return errors.Wrap(err, "Do stop")
+		}
 	} else {
 		return httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
+	return nil
 }
 
 func (m *SGuestManager) GuestStartRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if guest, ok := m.GetServer(sid); ok {
+	if guest, ok := m.GetKVMServer(sid); ok {
 		// initrd and kernel should be prepared by host-deployer
 		if !fileutils2.Exists(guest.getRescueInitrdPath()) {
 			return nil, httperrors.NewInternalServerError("guest initrd not ready")
@@ -969,7 +923,7 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(syncParams.Sid)
+	guest, _ := m.GetKVMServer(syncParams.Sid)
 	if syncParams.Body.Contains("desc") {
 		guestDesc := new(desc.SGuestDesc)
 		if err := syncParams.Body.Unmarshal(guestDesc, "desc"); err != nil {
@@ -987,7 +941,10 @@ func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (j
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, ok := m.GetServer(sid)
+	guest, ok := m.GetKVMServer(sid)
+	if !ok {
+		return nil, errors.Errorf("Not found KVM server: %s", sid)
+	}
 	guest.ExecSuspendTask(ctx)
 	return nil, nil
 }
@@ -997,17 +954,17 @@ func (m *SGuestManager) GuestIoThrottle(ctx context.Context, params interface{})
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(guestIoThrottle.Sid)
-	for i := range guest.Desc.Disks {
-		diskId := guest.Desc.Disks[i].DiskId
+	guest, _ := m.GetKVMServer(guestIoThrottle.Sid)
+	for i := range guest.GetDesc().Disks {
+		diskId := guest.GetDesc().Disks[i].DiskId
 		if bps, ok := guestIoThrottle.Input.Bps[diskId]; ok {
-			guest.Desc.Disks[i].Bps = bps
+			guest.GetDesc().Disks[i].Bps = bps
 		}
 		if iops, ok := guestIoThrottle.Input.IOPS[diskId]; ok {
-			guest.Desc.Disks[i].Iops = iops
+			guest.GetDesc().Disks[i].Iops = iops
 		}
 	}
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+	if err := SaveLiveDesc(guest, guest.GetDesc()); err != nil {
 		return nil, errors.Wrap(err, "guest save desc")
 	}
 
@@ -1023,7 +980,7 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(migParams.Sid)
+	guest, _ := m.GetKVMServer(migParams.Sid)
 	disksBack, diskSnapsChain, sysDiskHasTemplate, err := guest.PrepareDisksMigrate(migParams.LiveMigrate)
 	if err != nil {
 		return nil, errors.Wrap(err, "PrepareDisksMigrate")
@@ -1047,13 +1004,13 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		ret.Set("migrate_certs", jsonutils.Marshal(certs))
 	}
 	if migParams.LiveMigrate {
-		if guest.Desc.Machine == "" {
-			guest.Desc.Machine = guest.getMachine()
+		if guest.GetDesc().Machine == "" {
+			guest.GetDesc().Machine = guest.getMachine()
 		}
 		if err = guest.syncVirtioDiskNumQueues(); err != nil {
 			return nil, errors.Wrap(err, "syncVirtioDiskNumQueues")
 		}
-		ret.Set("src_desc", jsonutils.Marshal(guest.Desc))
+		ret.Set("src_desc", jsonutils.Marshal(guest.GetDesc()))
 	}
 	return ret, nil
 }
@@ -1064,8 +1021,8 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		return nil, hostutils.ParamsError
 	}
 
-	guest, _ := m.GetServer(migParams.Sid)
-	if err := guest.CreateFromDesc(migParams.Desc); err != nil {
+	guest, _ := m.GetKVMServer(migParams.Sid)
+	if err := NewGuestRuntimeManager().CreateFromDesc(guest, migParams.Desc); err != nil {
 		return nil, err
 	}
 
@@ -1094,7 +1051,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 				return nil, fmt.Errorf("dest prepare migrate failed %s", err)
 			}
 		}
-		if err := guest.SaveDesc(migParams.Desc); err != nil {
+		if err := SaveDesc(guest, migParams.Desc); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}
@@ -1172,7 +1129,7 @@ func (m *SGuestManager) LiveMigrate(ctx context.Context, params interface{}) (js
 		return nil, hostutils.ParamsError
 	}
 
-	guest, _ := m.GetServer(migParams.Sid)
+	guest, _ := m.GetKVMServer(migParams.Sid)
 	task := NewGuestLiveMigrateTask(ctx, guest, migParams)
 	task.Start()
 	return nil, nil
@@ -1272,7 +1229,7 @@ func (m *SGuestManager) ReloadDiskSnapshot(
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(reloadParams.Sid)
+	guest, _ := m.GetKVMServer(reloadParams.Sid)
 	return guest.ExecReloadDiskTask(ctx, reloadParams.Disk)
 }
 
@@ -1281,7 +1238,7 @@ func (m *SGuestManager) DoSnapshot(ctx context.Context, params interface{}) (jso
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(snapshotParams.Sid)
+	guest, _ := m.GetKVMServer(snapshotParams.Sid)
 	return guest.ExecDiskSnapshotTask(ctx, snapshotParams.UserCred, snapshotParams.Disk, snapshotParams.SnapshotId)
 }
 
@@ -1292,7 +1249,7 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 	}
 
 	if len(delParams.ConvertSnapshot) > 0 {
-		guest, _ := m.GetServer(delParams.Sid)
+		guest, _ := m.GetKVMServer(delParams.Sid)
 		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
 			delParams.ConvertSnapshot, delParams.PendingDelete)
 	} else {
@@ -1308,7 +1265,7 @@ func (m *SGuestManager) DoMemorySnapshot(ctx context.Context, params interface{}
 		return nil, hostutils.ParamsError
 	}
 
-	guest, _ := m.GetServer(input.Sid)
+	guest, _ := m.GetKVMServer(input.Sid)
 	return guest.ExecMemorySnapshotTask(ctx, input.GuestMemorySnapshotRequest)
 }
 
@@ -1318,7 +1275,7 @@ func (m *SGuestManager) DoResetMemorySnapshot(ctx context.Context, params interf
 		return nil, hostutils.ParamsError
 	}
 
-	guest, _ := m.GetServer(input.Sid)
+	guest, _ := m.GetKVMServer(input.Sid)
 	return guest.ExecMemorySnapshotResetTask(ctx, input.GuestMemorySnapshotResetRequest)
 }
 
@@ -1338,7 +1295,7 @@ func (m *SGuestManager) DoDeleteMemorySnapshot(ctx context.Context, params inter
 }
 
 func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool, cleanTLS bool) (jsonutils.JSONObject, error) {
-	guest, _ := m.GetServer(sid)
+	guest, _ := m.GetKVMServer(sid)
 	if guest.IsStopping() || guest.IsStopped() {
 		return nil, httperrors.NewInvalidStatusError("resume stopped server???")
 	}
@@ -1364,7 +1321,7 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 }
 
 func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, diskId string, sizeMb int64) (jsonutils.JSONObject, error) {
-	guest, ok := m.GetServer(sid)
+	guest, ok := m.GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
@@ -1396,9 +1353,9 @@ func (m *SGuestManager) StartBlockReplication(ctx context.Context, params interf
 	if len(nbdOpts) != 3 {
 		return nil, fmt.Errorf("Nbd url is not vaild %s", mirrorParams.NbdServerUri)
 	}
-	guest, _ := m.GetServer(mirrorParams.Sid)
+	guest, _ := m.GetKVMServer(mirrorParams.Sid)
 	// TODO: check desc
-	if err := guest.SaveDesc(mirrorParams.Desc); err != nil {
+	if err := SaveDesc(guest, mirrorParams.Desc); err != nil {
 		return nil, err
 	}
 	onSucc := func() {
@@ -1429,7 +1386,7 @@ func (m *SGuestManager) CancelBlockJobs(ctx context.Context, params interface{})
 			hostutils.TaskFailed(ctx, fmt.Sprintf("recover: %v", r))
 		}
 	}()
-	guest, _ := m.GetServer(sid)
+	guest, _ := m.GetKVMServer(sid)
 	NewCancelBlockJobsTask(ctx, guest).Start()
 	return nil, nil
 }
@@ -1450,7 +1407,7 @@ func (m *SGuestManager) CancelBlockReplication(ctx context.Context, params inter
 			hostutils.TaskFailed(ctx, fmt.Sprintf("recover: %v", r))
 		}
 	}()
-	guest, _ := m.GetServer(sid)
+	guest, _ := m.GetKVMServer(sid)
 	NewCancelBlockReplicationTask(ctx, guest).Start()
 	return nil, nil
 }
@@ -1460,7 +1417,7 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetServer(hotplugParams.Sid)
+	guest, _ := m.GetKVMServer(hotplugParams.Sid)
 	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize)).Start()
 	return nil, nil
 }
@@ -1492,7 +1449,7 @@ type SStorageCloneDisk struct {
 
 func (m *SGuestManager) StorageCloneDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	input := params.(*SStorageCloneDisk)
-	guest, _ := m.GetServer(input.ServerId)
+	guest, _ := m.GetKVMServer(input.ServerId)
 	if guest == nil {
 		return nil, httperrors.NewNotFoundError("Not found guest by id %s", input.ServerId)
 	}
@@ -1503,7 +1460,7 @@ func (m *SGuestManager) StorageCloneDisk(ctx context.Context, params interface{}
 
 func (m *SGuestManager) LiveChangeDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	input := params.(*SStorageCloneDisk)
-	guest, _ := m.GetServer(input.ServerId)
+	guest, _ := m.GetKVMServer(input.ServerId)
 	if guest == nil {
 		return nil, httperrors.NewNotFoundError("Not found guest by id %s", input.ServerId)
 	}
@@ -1522,23 +1479,23 @@ func (m *SGuestManager) GetHost() hostutils.IHost {
 	return m.host
 }
 
-func (m *SGuestManager) RequestVerifyDirtyServer(s *SKVMGuestInstance) {
-	hostId := s.Desc.HostId
+func (m *SGuestManager) RequestVerifyDirtyServer(s GuestRuntimeInstance) {
+	hostId := s.GetDesc().HostId
 	var body = jsonutils.NewDict()
-	body.Set("guest_id", jsonutils.NewString(s.Id))
+	body.Set("guest_id", jsonutils.NewString(s.GetInitialId()))
 	body.Set("host_id", jsonutils.NewString(hostId))
 	ret, err := modules.Servers.PerformClassAction(
 		hostutils.GetComputeSession(context.Background()), "dirty-server-verify", body)
 	if err != nil {
 		log.Errorf("Dirty server request start error: %s", err)
 	} else if jsonutils.QueryBoolean(ret, "guest_unknown_need_clean", false) {
-		m.Delete(s.Id)
+		m.Delete(s.GetInitialId())
 		s.CleanGuest(context.Background(), true)
 	}
 }
 
 func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input []compute.ServerNicTrafficLimit) error {
-	guest, ok := m.GetServer(guestId)
+	guest, ok := m.GetKVMServer(guestId)
 	if !ok {
 		return httperrors.NewNotFoundError("guest %s not found", guestId)
 	}
@@ -1551,7 +1508,7 @@ func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input []comput
 		}
 	}
 
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+	if err := SaveLiveDesc(guest, guest.Desc); err != nil {
 		return errors.Wrap(err, "guest save desc")
 	}
 	return nil
@@ -1635,7 +1592,7 @@ func (m *SGuestManager) setNicTrafficLimit(guest *SKVMGuestInstance, input compu
 }
 
 func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input []compute.ServerNicTrafficLimit) error {
-	guest, ok := m.GetServer(guestId)
+	guest, ok := m.GetKVMServer(guestId)
 	if !ok {
 		return httperrors.NewNotFoundError("guest %s not found", guestId)
 	}
@@ -1649,7 +1606,7 @@ func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input []compute.
 		}
 	}
 
-	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+	if err := SaveLiveDesc(guest, guest.Desc); err != nil {
 		return errors.Wrap(err, "guest save desc")
 	}
 
