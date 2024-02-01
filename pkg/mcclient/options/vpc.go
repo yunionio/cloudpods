@@ -32,6 +32,8 @@ type VpcListOptions struct {
 	ZoneId                     string `help:"Filter by zone which has networks"`
 	UsableForInterVpcNetworkId string `help:"Filter usable vpcs for inter vpc network"`
 	OrderByWireCount           string
+	CidrBlock                  string `help:"IPv4 cidr block"`
+	CidrBlock6                 string `help:"IPv6 cidr block"`
 }
 
 func (opts *VpcListOptions) GetContextId() string {
