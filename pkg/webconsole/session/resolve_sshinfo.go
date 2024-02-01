@@ -36,8 +36,10 @@ type SSshConnectionInfo struct {
 	KeepUsername bool   `json:"keep_username"`
 	Password     string `json:"password"`
 	Name         string `json:"name"`
+	ResourceType string `json:"resource_type" choices:"host|server"`
 
 	GuestDetails *compute_api.ServerDetails
+	HostDetails  *compute_api.HostDetails
 }
 
 func ResolveServerSSHIPPortById(ctx context.Context, s *mcclient.ClientSession, id string, ip string, port int) (string, int, *compute_api.ServerDetails, error) {
@@ -123,6 +125,18 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 	}
 
 	return ip, port, guestDetails, nil
+}
+
+func ResolveHostSSHIPPortById(ctx context.Context, s *mcclient.ClientSession, id string, ip string, port int) (string, int, *compute_api.HostDetails, error) {
+	if port <= 0 {
+		port = 22
+	}
+
+	hostDetails, err := FetchHostInfo(ctx, s, id)
+	if err != nil {
+		return "", 0, nil, errors.Wrap(err, "fetchServerInfo")
+	}
+	return hostDetails.AccessIp, port, hostDetails, nil
 }
 
 type sForwardInfo struct {

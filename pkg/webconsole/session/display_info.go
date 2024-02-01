@@ -51,6 +51,13 @@ func (dispInfo *SDisplayInfo) fetchGuestInfo(guestDetails *compute_api.ServerDet
 	dispInfo.Ips = guestDetails.IPs
 }
 
+func (dispInfo *SDisplayInfo) fetchHostInfo(hostDetails *compute_api.HostDetails) {
+	dispInfo.Hypervisor = hostDetails.HostType
+	dispInfo.OsArch = hostDetails.CpuArchitecture
+	dispInfo.InstanceName = hostDetails.Name
+	dispInfo.Ips = hostDetails.AccessIp
+}
+
 func (dispInfo *SDisplayInfo) populateParams(params url.Values) url.Values {
 	if options.Options.EnableWatermark && len(dispInfo.WaterMark) > 0 {
 		params["water_mark"] = []string{dispInfo.WaterMark}
@@ -122,4 +129,17 @@ func FetchServerInfo(ctx context.Context, s *mcclient.ClientSession, sid string)
 		return nil, errors.Wrap(err, "Unmarshal guest info")
 	}
 	return &guestDetails, nil
+}
+
+func FetchHostInfo(ctx context.Context, s *mcclient.ClientSession, id string) (*compute_api.HostDetails, error) {
+	hostInfo, err := compute.Hosts.Get(s, id, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetById %s", id)
+	}
+	hostDetails := compute_api.HostDetails{}
+	err = hostInfo.Unmarshal(&hostDetails)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal guest info")
+	}
+	return &hostDetails, nil
 }
