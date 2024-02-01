@@ -41,7 +41,7 @@ func (self *SecurityGroupRuleUpdateTask) taskFailed(ctx context.Context, secgrou
 	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_UPDATE, err, self.UserCred, false)
 	rule, _ := self.getRule()
 	if rule != nil {
-		rule.SetStatus(self.UserCred, apis.STATUS_UNKNOWN, "")
+		rule.SetStatus(ctx, self.UserCred, apis.STATUS_UNKNOWN, "")
 		logclient.AddActionLogWithContext(ctx, rule, logclient.ACT_UPDATE, err, self.UserCred, false)
 	}
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -113,7 +113,7 @@ func (self *SecurityGroupRuleUpdateTask) OnInit(ctx context.Context, obj db.ISta
 func (self *SecurityGroupRuleUpdateTask) taskComplete(ctx context.Context, secgroup *models.SSecurityGroup, iGroup cloudprovider.ICloudSecurityGroup) {
 	rule, _ := self.getRule()
 	if rule != nil {
-		rule.SetStatus(self.UserCred, apis.STATUS_AVAILABLE, "")
+		rule.SetStatus(ctx, self.UserCred, apis.STATUS_AVAILABLE, "")
 	}
 	self.SetStageComplete(ctx, nil)
 }

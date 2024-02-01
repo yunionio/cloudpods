@@ -601,7 +601,7 @@ func (self *SInstanceSnapshot) StartInstanceSnapshotDeleteTask(
 		log.Errorf("%s", err)
 		return err
 	}
-	self.SetStatus(userCred, api.INSTANCE_SNAPSHOT_START_DELETE, "InstanceSnapshotDeleteTask")
+	self.SetStatus(ctx, userCred, api.INSTANCE_SNAPSHOT_START_DELETE, "InstanceSnapshotDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -643,7 +643,7 @@ func (is *SInstanceSnapshot) syncRemoveCloudInstanceSnapshot(ctx context.Context
 
 	err := is.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
-		err = is.SetStatus(userCred, api.INSTANCE_SNAPSHOT_UNKNOWN, "sync to delete")
+		err = is.SetStatus(ctx, userCred, api.INSTANCE_SNAPSHOT_UNKNOWN, "sync to delete")
 	} else {
 		err = is.RealDelete(ctx, userCred)
 	}

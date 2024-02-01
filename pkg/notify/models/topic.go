@@ -75,7 +75,7 @@ type STopic struct {
 
 	Type        string               `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
 	Resources   uint64               `nullable:"false"`
-	Actions     uint32               `nullable:"false"`
+	Actions     uint64               `nullable:"false"`
 	Results     tristate.TriState    `default:"true"`
 	TitleCn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	TitleEn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
@@ -115,6 +115,7 @@ const (
 	DefaultServerPanicked             = "server panicked"
 	DefaultAttachOrDetach             = "resource attach or detach"
 	DefaultIsolatedDeviceChanged      = "isolated device changed"
+	DefaultStatusChanged              = "resource status changed"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -141,6 +142,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultResourceOperationSuccessed,
 		DefaultAttachOrDetach,
 		DefaultIsolatedDeviceChanged,
+		DefaultStatusChanged,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -521,6 +523,20 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
+		case DefaultStatusChanged:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+				notify.TOPIC_RESOURCE_HOST,
+			)
+			t.addAction(
+				notify.ActionStatusChanged,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
+			t.ContentCn = api.STATUS_CHANGED_CONTENT_CN
+			t.ContentEn = api.STATUS_CHANGED_CONTENT_EN
+			t.TitleCn = api.STATUS_CHANGED_TITLE_CN
+			t.TitleEn = api.STATUS_CHANGED_TITLE_EN
 		}
 
 		if topic == nil {
@@ -678,7 +694,7 @@ func (s *STopic) getResources() []string {
 }
 
 func (s *STopic) getActions() []notify.SAction {
-	vs := bitmap.Uint2IntArray(s.Actions)
+	vs := bitmap.Uint64ToIntArray(s.Actions)
 	actions := make([]notify.SAction, 0, len(vs))
 	for _, v := range vs {
 		actions = append(actions, converter.action(v))
@@ -862,6 +878,7 @@ func init() {
 			notify.ActionIsolatedDeviceCreate: 32,
 			notify.ActionIsolatedDeviceUpdate: 33,
 			notify.ActionIsolatedDeviceDelete: 34,
+			notify.ActionStatusChanged:        35,
 		},
 	)
 }

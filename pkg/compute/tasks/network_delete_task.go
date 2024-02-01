@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.SNetwork, err error) {
-	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETE_FAILED, err.Error())
+	network.SetStatus(ctx, self.UserCred, api.NETWORK_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -48,7 +48,7 @@ func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.S
 func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	network := obj.(*models.SNetwork)
 
-	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETING, "")
+	network.SetStatus(ctx, self.UserCred, api.NETWORK_STATUS_DELETING, "")
 	db.OpsLog.LogEvent(network, db.ACT_DELOCATING, network.GetShortDesc(ctx), self.UserCred)
 
 	inet, err := network.GetINetwork(ctx)

@@ -70,7 +70,7 @@ func (self *HostStorageDetachTask) OnDetachStorageComplete(ctx context.Context, 
 	logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_DETACH_HOST,
 		fmt.Sprintf("Detach host %s success", host.Name), self.GetUserCred(), true)
 	self.SetStageComplete(ctx, nil)
-	storage.SyncStatusWithHosts()
+	storage.SyncStatusWithHosts(ctx)
 	host.ClearSchedDescCache()
 }
 

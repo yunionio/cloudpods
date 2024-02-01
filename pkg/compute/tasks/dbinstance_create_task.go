@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DBInstanceCreateTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
-	rds.SetStatus(self.UserCred, api.DBINSTANCE_CREATE_FAILED, err.Error())
+	rds.SetStatus(ctx, self.UserCred, api.DBINSTANCE_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(rds, db.ACT_CREATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CREATE, err, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{

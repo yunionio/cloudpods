@@ -44,7 +44,7 @@ func init() {
 }
 
 func (self *GuestRestartNetworkTask) taskFailed(ctx context.Context, guest *models.SGuest, clean func() error, err error) {
-	guest.SetStatus(self.GetUserCred(), api.VM_RESTART_NETWORK_FAILED, err.Error())
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_RESTART_NETWORK_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, jsonutils.NewString(err.Error()), self.UserCred, false)
 	if clean != nil {
 		err := clean()
@@ -138,9 +138,9 @@ Loop:
 	}
 
 	if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
-		guest.SetStatus(self.GetUserCred(), api.VM_BLOCK_STREAM, "")
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_BLOCK_STREAM, "")
 	} else {
-		guest.SetStatus(self.GetUserCred(), api.VM_RUNNING, "")
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_RUNNING, "")
 	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, "", self.UserCred, true)
 	if clean != nil {
@@ -183,14 +183,14 @@ func (self *GuestRestartNetworkTask) OnResumeIpMacSrcCheckCompleteFailed(ctx con
 
 func (self *GuestRestartNetworkTask) OnCloseIpMacSrcCheckCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.GetUserCred(), api.VM_RESTART_NETWORK_FAILED, data.String())
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_RESTART_NETWORK_FAILED, data.String())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, data, self.UserCred, false)
 	self.SetStageFailed(ctx, nil)
 }
 
 func (self *GuestRestartNetworkTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.GetUserCred(), api.VM_RESTART_NETWORK, "restart network")
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_RESTART_NETWORK, "restart network")
 	if guest.SrcIpCheck.IsTrue() || guest.SrcMacCheck.IsTrue() {
 		data := jsonutils.NewDict()
 		data.Set("src_ip_check", jsonutils.NewBool(guest.SrcIpCheck.Bool()))

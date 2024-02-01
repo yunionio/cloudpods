@@ -941,7 +941,7 @@ func (self *SElasticcache) PostCreate(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ElasticcacheCreateInput, parentTaskId string) {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_DEPLOYING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_DEPLOYING, "")
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	err := func() error {
 		task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheCreateTask", self, userCred, params, parentTaskId, "", nil)
@@ -951,7 +951,7 @@ func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, user
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, err.Error())
 	}
 }
 
@@ -970,7 +970,7 @@ func (self *SElasticcache) GetSlaveZones() ([]SZone, error) {
 
 func (self *SElasticcache) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.ELASTIC_CACHE_STATUS_RUNNING, api.ELASTIC_CACHE_STATUS_INACTIVE}) {
-		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RESTARTING, "")
+		self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_RESTARTING, "")
 		return nil, self.StartRestartTask(ctx, userCred, "", data)
 	} else {
 		return nil, httperrors.NewInvalidStatusError("Cannot do restart elasticcache instance in status %s", self.Status)
@@ -978,7 +978,7 @@ func (self *SElasticcache) PerformRestart(ctx context.Context, userCred mcclient
 }
 
 func (self *SElasticcache) StartRestartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, data jsonutils.JSONObject) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RESTARTING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_RESTARTING, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheRestartTask", self, userCred, data.(*jsonutils.JSONDict), parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -1010,7 +1010,7 @@ func (self *SElasticcache) CustomizeDelete(ctx context.Context, userCred mcclien
 }
 
 func (self *SElasticcache) StartDeleteElasticcacheTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RELEASING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_RELEASING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -1057,7 +1057,7 @@ func (self *SElasticcache) PerformChangeSpec(ctx context.Context, userCred mccli
 	params := jsonutils.NewDict()
 	sku, _ := data.GetString("sku_ext_id")
 	params.Set("sku_ext_id", jsonutils.NewString(sku))
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartChangeSpecTask(ctx, userCred, params, "")
 }
 
@@ -1108,7 +1108,7 @@ func (self *SElasticcache) PerformUpdateAuthMode(ctx context.Context, userCred m
 	params := jsonutils.NewDict()
 	authMode, _ := data.GetString("auth_mode")
 	params.Set("auth_mode", jsonutils.NewString(authMode))
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartUpdateAuthModeTask(ctx, userCred, params, "")
 }
 
@@ -1148,7 +1148,7 @@ func (self *SElasticcache) PerformResetPassword(ctx context.Context, userCred mc
 		return nil, err
 	}
 
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartResetPasswordTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 
@@ -1215,7 +1215,7 @@ func (self *SElasticcache) PerformSetMaintainTime(ctx context.Context, userCred 
 	endTime, _ := data.GetString("maintain_end_time")
 	params.Set("maintain_start_time", jsonutils.NewString(startTime))
 	params.Set("maintain_end_time", jsonutils.NewString(endTime))
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartSetMaintainTimeTask(ctx, userCred, params, "")
 }
 
@@ -1252,7 +1252,7 @@ func (self *SElasticcache) PerformAllocatePublicConnection(ctx context.Context, 
 	params := jsonutils.NewDict()
 	port, _ := data.Int("port")
 	params.Set("port", jsonutils.NewInt(port))
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_NETWORKMODIFYING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_NETWORKMODIFYING, "")
 	return nil, self.StartAllocatePublicConnectionTask(ctx, userCred, params, "")
 }
 
@@ -1280,7 +1280,7 @@ func (self *SElasticcache) PerformReleasePublicConnection(ctx context.Context, u
 		return nil, err
 	}
 
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_NETWORKMODIFYING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_NETWORKMODIFYING, "")
 	return nil, self.StartReleasePublicConnectionTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -1295,7 +1295,7 @@ func (self *SElasticcache) StartReleasePublicConnectionTask(ctx context.Context,
 }
 
 func (self *SElasticcache) PerformFlushInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_FLUSHING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_FLUSHING, "")
 	return nil, self.StartFlushInstanceTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 
@@ -1332,7 +1332,7 @@ func (self *SElasticcache) PerformUpdateInstanceParameters(ctx context.Context, 
 	params := jsonutils.NewDict()
 	parameters, _ := data.Get("parameters")
 	params.Set("parameters", parameters)
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartUpdateInstanceParametersTask(ctx, userCred, params, "")
 }
 
@@ -1375,7 +1375,7 @@ func (self *SElasticcache) PerformUpdateBackupPolicy(ctx context.Context, userCr
 		return nil, err
 	}
 
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartUpdateBackupPolicyTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 
@@ -1408,7 +1408,7 @@ func (self *SElasticcache) PerformSync(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SElasticcache) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_SYNCING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_SYNCING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheSyncTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -1723,7 +1723,7 @@ func (self *SElasticcache) StartRemoteUpdateTask(ctx context.Context, userCred m
 		log.Errorln(err)
 		return errors.Wrap(err, "Start ElasticcacheRemoteUpdateTask")
 	} else {
-		self.SetStatus(userCred, api.ELASTIC_CACHE_UPDATE_TAGS, "StartRemoteUpdateTask")
+		self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil
@@ -2041,7 +2041,7 @@ func (self *SElasticcache) SyncElasticcacheSecgroups(ctx context.Context, userCr
 }
 
 func (self *SElasticcache) StartSyncSecgroupsTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_SYNCING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_SYNCING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheSyncsecgroupsTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -2096,7 +2096,7 @@ func (self *SElasticcache) PerformSetAutoRenew(ctx context.Context, userCred mcc
 }
 
 func (self *SElasticcache) StartSetAutoRenewTask(ctx context.Context, userCred mcclient.TokenCredential, autoRenew bool, parentTaskId string) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_SET_AUTO_RENEW, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_SET_AUTO_RENEW, "")
 
 	data := jsonutils.NewDict()
 	data.Set("auto_renew", jsonutils.NewBool(autoRenew))
@@ -2141,7 +2141,7 @@ func (self *SElasticcache) PerformRenew(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SElasticcache) startRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_RENEWING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_RENEWING, "")
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(duration), "duration")
 	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheRenewTask", self, userCred, data, parentTaskId, "", nil)

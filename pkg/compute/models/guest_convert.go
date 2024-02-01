@@ -147,7 +147,7 @@ func (self *SGuest) StartConvertToKvmTask(
 	if err != nil {
 		return err
 	} else {
-		self.SetStatus(userCred, api.VM_CONVERTING, "esxi guest convert to kvm")
+		self.SetStatus(ctx, userCred, api.VM_CONVERTING, "esxi guest convert to kvm")
 		task.ScheduleRun(nil)
 		return nil
 	}

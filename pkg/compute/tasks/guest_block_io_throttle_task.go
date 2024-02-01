@@ -63,7 +63,7 @@ func (self *GuestBlockIoThrottleTask) OnIoThrottle(ctx context.Context, guest *m
 func (self *GuestBlockIoThrottleTask) OnGuestSync(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	oldStatus, _ := self.Params.GetString("old_status")
 	if len(oldStatus) > 0 {
-		guest.SetStatus(self.UserCred, oldStatus, "on io throttle")
+		guest.SetStatus(ctx, self.UserCred, oldStatus, "on io throttle")
 	}
 	self.SetStageComplete(ctx, nil)
 }
@@ -75,6 +75,6 @@ func (self *GuestBlockIoThrottleTask) OnGuestSyncFailed(ctx context.Context, gue
 func (self *GuestBlockIoThrottleTask) OnIoThrottleFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_VM_IO_THROTTLE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_IO_THROTTLE, data, self.UserCred, false)
-	guest.SetStatus(self.UserCred, api.VM_IO_THROTTLE_FAIL, data.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_IO_THROTTLE_FAIL, data.String())
 	self.SetStageFailed(ctx, data)
 }

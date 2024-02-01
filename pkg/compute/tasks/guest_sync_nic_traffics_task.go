@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *GuestResetNicTrafficsTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, compute.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
+	guest.SetStatus(ctx, self.UserCred, compute.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_TRAFFIC_LIMIT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SYNC_TRAFFIC_LIMIT, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
@@ -75,7 +75,7 @@ func (self *GuestResetNicTrafficsTask) OnResetNicTrafficLimit(ctx context.Contex
 	}
 
 	oldStatus, _ := self.Params.GetString("old_status")
-	guest.SetStatus(self.UserCred, oldStatus, "OnResetNicTrafficLimit")
+	guest.SetStatus(ctx, self.UserCred, oldStatus, "OnResetNicTrafficLimit")
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_TRAFFIC_LIMIT, "OnResetNicTrafficLimit", self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SYNC_TRAFFIC_LIMIT, "OnResetNicTrafficLimit", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
@@ -86,7 +86,7 @@ type GuestSetNicTrafficsTask struct {
 }
 
 func (self *GuestSetNicTrafficsTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, compute.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
+	guest.SetStatus(ctx, self.UserCred, compute.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_TRAFFIC_LIMIT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SYNC_TRAFFIC_LIMIT, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
@@ -119,7 +119,7 @@ func (self *GuestSetNicTrafficsTask) OnSetNicTrafficLimit(ctx context.Context, g
 	}
 
 	oldStatus, _ := self.Params.GetString("old_status")
-	guest.SetStatus(self.UserCred, oldStatus, "OnSetNicTrafficLimit")
+	guest.SetStatus(ctx, self.UserCred, oldStatus, "OnSetNicTrafficLimit")
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_TRAFFIC_LIMIT, "OnSetNicTrafficLimit", self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SYNC_TRAFFIC_LIMIT, "OnSetNicTrafficLimit", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

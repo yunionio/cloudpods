@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *DBInstanceAccountResetPasswordTask) taskFailed(ctx context.Context, account *models.SDBInstanceAccount, err error) {
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_RESET_PASSWD_FAILED, err.Error())
+	account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_RESET_PASSWD_FAILED, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_RESET_PASSWORD, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_RESET_PASSWORD, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -75,7 +75,7 @@ func (self *DBInstanceAccountResetPasswordTask) OnInit(ctx context.Context, obj 
 	}
 
 	self.resetPasswdNotify(ctx, instance, account, password)
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+	account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_RESET_PASSWORD, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

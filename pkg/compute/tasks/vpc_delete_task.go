@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err error) {
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
+	vpc.SetStatus(ctx, self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -45,7 +45,7 @@ func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err
 
 func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETING, "")
+	vpc.SetStatus(ctx, self.UserCred, api.VPC_STATUS_DELETING, "")
 	region, err := vpc.GetRegion()
 	if err != nil {
 		self.taskFailed(ctx, vpc, errors.Wrap(err, "vpc.GetRegion"))

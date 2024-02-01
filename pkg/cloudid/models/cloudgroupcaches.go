@@ -207,7 +207,7 @@ func (self *SCloudgroupcache) StartCloudgroupcacheSyncstatusTask(ctx context.Con
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_GROUP_CACHE_STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_CACHE_STATUS_SYNC_STATUS, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -217,7 +217,7 @@ func (self *SCloudgroupcache) StartCloudgroupcacheDeleteTask(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_GROUP_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }

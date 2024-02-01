@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *KubeClusterCreateTask) taskFail(ctx context.Context, cluster *models.SKubeCluster, err error) {
-	cluster.SetStatus(self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
+	cluster.SetStatus(ctx, self.UserCred, apis.STATUS_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(cluster, db.ACT_ALLOCATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, cluster, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

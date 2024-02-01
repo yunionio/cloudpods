@@ -120,7 +120,7 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 	}()
 	if err != nil {
 		log.Errorf("guest %s failed start qga restart network task: %s", guest.GetName(), err)
-		guest.SetStatus(self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, jsonutils.NewString(err.Error()), self.UserCred, false)
 	}
 }
@@ -139,7 +139,7 @@ func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_CONF, data, self.UserCred, false)
 	if !jsonutils.QueryBoolean(self.Params, "without_sync_status", false) {
-		guest.SetStatus(self.GetUserCred(), api.VM_SYNC_FAIL, data.String())
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_SYNC_FAIL, data.String())
 	}
 	self.SetStageFailed(ctx, data)
 }
@@ -147,7 +147,7 @@ func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj
 func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	if !jsonutils.QueryBoolean(self.Params, "without_sync_status", false) {
-		guest.SetStatus(self.GetUserCred(), api.VM_SYNC_FAIL, data.String())
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_SYNC_FAIL, data.String())
 	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_CONF, data, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data, self.UserCred)

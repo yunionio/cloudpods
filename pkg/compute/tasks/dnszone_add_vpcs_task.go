@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *DnsZoneAddVpcsTask) taskFailed(ctx context.Context, zone *models.SDnsZone, err error) {
-	zone.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	zone.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	logclient.AddActionLogWithContext(ctx, zone, logclient.ACT_ADD_VPCS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -98,6 +98,6 @@ func (self *DnsZoneAddVpcsTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *DnsZoneAddVpcsTask) taskComplete(ctx context.Context, zone *models.SDnsZone) {
-	zone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
+	zone.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

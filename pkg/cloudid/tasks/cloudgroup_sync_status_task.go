@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *CloudgroupSyncstatusTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, err.Error())
+	group.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -52,15 +52,15 @@ func (self *CloudgroupSyncstatusTask) OnInit(ctx context.Context, obj db.IStanda
 		if len(caches[i].ExternalId) > 0 {
 			_, err := caches[i].GetICloudgroup()
 			if err != nil {
-				caches[i].SetStatus(self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, errors.Wrap(err, "GetICloudgroup").Error())
+				caches[i].SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, errors.Wrap(err, "GetICloudgroup").Error())
 				continue
 			}
 			if caches[i].Status != api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE {
-				caches[i].SetStatus(self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE, "")
+				caches[i].SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE, "")
 			}
 		}
 	}
 
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, "")
+	group.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

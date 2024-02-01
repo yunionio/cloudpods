@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *CloudgroupDeleteTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
-	group.SetStatus(self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.Error())
+	group.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, group, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

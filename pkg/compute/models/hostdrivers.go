@@ -55,7 +55,7 @@ type IHostDriver interface {
 	PrepareConvert(host *SHost, image, raid string, data jsonutils.JSONObject) (*api.ServerCreateInput, error)
 	PrepareUnconvert(host *SHost) error
 	FinishUnconvert(ctx context.Context, userCred mcclient.TokenCredential, host *SHost) error
-	FinishConvert(userCred mcclient.TokenCredential, host *SHost, guest *SGuest, hostType string) error
+	FinishConvert(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, guest *SGuest, hostType string) error
 	ConvertFailed(host *SHost) error
 	GetRaidScheme(host *SHost, raid string) (string, error)
 

@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *CDNDomainDeleteTask) taskFailed(ctx context.Context, domain *models.SCDNDomain, err error) {
-	domain.SetStatus(self.UserCred, api.CDN_DOMAIN_STATUS_DELETE_FAILED, err.Error())
+	domain.SetStatus(ctx, self.UserCred, api.CDN_DOMAIN_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(domain, db.ACT_DELOCATE_FAIL, err.Error(), self.UserCred)
 	logclient.AddActionLogWithStartable(self, domain, logclient.ACT_DELETE, err.Error(), self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

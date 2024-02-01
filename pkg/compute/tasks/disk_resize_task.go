@@ -41,7 +41,7 @@ func init() {
 func (self *DiskResizeTask) SetDiskReady(ctx context.Context, disk *models.SDisk, userCred mcclient.TokenCredential, reason string) {
 	// 此函数主要避免虚机更改配置时，虚机可能出现中间状态
 	// 若是子任务，磁盘关联的虚拟机状态由父任务恢复，仅恢复磁盘自身状态即可
-	disk.SetStatus(userCred, api.DISK_READY, reason)
+	disk.SetStatus(ctx, userCred, api.DISK_READY, reason)
 	// 若不是子任务，由于扩容时设置了关联的虚机状态，虚机的状态也由自己恢复
 }
 
@@ -67,7 +67,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 
-	disk.SetStatus(self.GetUserCred(), api.DISK_START_RESIZE, "")
+	disk.SetStatus(ctx, self.GetUserCred(), api.DISK_START_RESIZE, "")
 	self.StartResizeDisk(ctx, host, storage, disk)
 }
 
@@ -84,7 +84,7 @@ func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SH
 }
 
 func (self *DiskResizeTask) OnStartResizeDiskSucc(ctx context.Context, disk *models.SDisk) {
-	disk.SetStatus(self.GetUserCred(), api.DISK_RESIZING, "")
+	disk.SetStatus(ctx, self.GetUserCred(), api.DISK_RESIZING, "")
 }
 
 func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, reason error) {

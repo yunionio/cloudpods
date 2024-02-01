@@ -139,7 +139,7 @@ func (self *SWafIPSet) StartDeleteTask(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_IPSET_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.WAF_IPSET_STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 

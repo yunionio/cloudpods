@@ -118,7 +118,7 @@ func (self *SCachedLoadbalancerCertificate) RealDelete(ctx context.Context, user
 }
 
 func (self *SCachedLoadbalancerCertificate) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	self.SetStatus(userCred, api.LB_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.LB_STATUS_DELETING, "")
 	return self.StartLoadBalancerCertificateDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -131,7 +131,7 @@ func (lbcert *SCachedLoadbalancerCertificate) StartLoadBalancerCertificateDelete
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		lbcert.SetStatus(userCred, api.LB_STATUS_DELETE_FAILED, err.Error())
+		lbcert.SetStatus(ctx, userCred, api.LB_STATUS_DELETE_FAILED, err.Error())
 	}
 	return err
 }

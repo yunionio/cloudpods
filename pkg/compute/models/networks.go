@@ -709,7 +709,7 @@ func (snet *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 
 	err := snet.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		err = snet.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		err = snet.SetStatus(ctx, userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
 	} else {
 		err = snet.RealDelete(ctx, userCred)
 		if err == nil {
@@ -2336,7 +2336,7 @@ func (net *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 				log.Errorf("syncAdditionalWires error: %s", err)
 			}
 		}
-		net.SetStatus(userCred, api.NETWORK_STATUS_AVAILABLE, "")
+		net.SetStatus(ctx, userCred, api.NETWORK_STATUS_AVAILABLE, "")
 		if err := net.ClearSchedDescCache(); err != nil {
 			log.Errorf("network post create clear schedcache error: %v", err)
 		}
@@ -2375,7 +2375,7 @@ func (snet *SNetwork) GetPrefix() (netutils.IPV4Prefix, error) {
 
 func (snet *SNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SNetwork delete do nothing")
-	snet.SetStatus(userCred, api.NETWORK_STATUS_START_DELETE, "")
+	snet.SetStatus(ctx, userCred, api.NETWORK_STATUS_START_DELETE, "")
 	return nil
 }
 
@@ -2390,7 +2390,7 @@ func (snet *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 func (snet *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	DeleteResourceJointSchedtags(snet, ctx, userCred)
 	db.OpsLog.LogEvent(snet, db.ACT_DELOCATE, snet.GetShortDesc(ctx), userCred)
-	snet.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
+	snet.SetStatus(ctx, userCred, api.NETWORK_STATUS_DELETED, "real delete")
 	networkinterfaces, err := snet.GetNetworkInterfaces()
 	if err != nil {
 		return errors.Wrap(err, "GetNetworkInterfaces")

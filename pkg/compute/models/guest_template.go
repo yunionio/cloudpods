@@ -133,7 +133,7 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 
 func (gt *SGuestTemplate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	gt.SetStatus(userCred, computeapis.GT_READY, "")
+	gt.SetStatus(ctx, userCred, computeapis.GT_READY, "")
 	gt.updateCheckTime()
 	logclient.AddActionLogWithContext(ctx, gt, logclient.ACT_CREATE, nil, userCred, true)
 }
@@ -776,7 +776,7 @@ func (manager *SGuestTemplateManager) ListItemExportKeys(ctx context.Context,
 
 func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input computeapis.GuestSaveToTemplateInput) (jsonutils.JSONObject, error) {
-	g.SetStatus(userCred, computeapis.VM_TEMPLATE_SAVING, "save to template")
+	g.SetStatus(ctx, userCred, computeapis.VM_TEMPLATE_SAVING, "save to template")
 
 	if len(input.Name) == 0 && len(input.GenerateName) == 0 {
 		input.GenerateName = fmt.Sprintf("%s-template", g.Name)
@@ -798,14 +798,14 @@ func (gt *SGuestTemplate) inspect(ctx context.Context, userCred mcclient.TokenCr
 	_, err := GuestTemplateManager.validateContent(ctx, userCred, gt.GetOwnerId(), jsonutils.NewDict(), gt.Content.(*jsonutils.JSONDict))
 	if err == nil {
 		gt.updateCheckTime()
-		gt.SetStatus(userCred, computeapis.GT_READY, "inspect successfully")
+		gt.SetStatus(ctx, userCred, computeapis.GT_READY, "inspect successfully")
 		logclient.AddSimpleActionLog(gt, logclient.ACT_HEALTH_CHECK, "", userCred, true)
 		return nil
 	}
 	// invalid
 	gt.updateCheckTime()
 	reason := fmt.Sprintf("During the inspection, the guest template is not available: %s", err.Error())
-	gt.SetStatus(userCred, computeapis.GT_INVALID, reason)
+	gt.SetStatus(ctx, userCred, computeapis.GT_INVALID, reason)
 	logclient.AddSimpleActionLog(gt, logclient.ACT_HEALTH_CHECK, reason, userCred, false)
 	return nil
 }

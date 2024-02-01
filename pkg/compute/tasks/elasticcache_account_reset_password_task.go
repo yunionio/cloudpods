@@ -37,10 +37,10 @@ func init() {
 }
 
 func (self *ElasticcacheAccountResetPasswordTask) taskFail(ctx context.Context, ea *models.SElasticcacheAccount, reason jsonutils.JSONObject) {
-	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+	ea.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
 	if err == nil {
-		ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+		ec.(*models.SElasticcache).SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_RESET_PASSWORD, reason, self.UserCred, false)
 	}
 	db.OpsLog.LogEvent(ea, db.ACT_RESET_PASSWORD, reason, self.UserCred)
@@ -65,7 +65,7 @@ func (self *ElasticcacheAccountResetPasswordTask) OnInit(ctx context.Context, ob
 		logclient.AddActionLogWithStartable(self, ea, logclient.ACT_RESET_PASSWORD, nil, self.UserCred, true)
 		ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
 		if err == nil {
-			ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+			ec.(*models.SElasticcache).SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 			logclient.AddActionLogWithStartable(self, ec, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 		}
 		password, _ := self.GetParams().GetString("password")

@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *GlobalVpcSyncstatusTask) taskFail(ctx context.Context, gvpc *models.SGlobalVpc, err error) {
-	gvpc.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	gvpc.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(gvpc, db.ACT_SYNC_STATUS, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, gvpc, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

@@ -41,7 +41,7 @@ func (self *GuestSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	host, _ := guest.GetHost()
 	if host == nil || host.HostStatus == api.HOST_OFFLINE {
 		log.Errorf("host is not reachable")
-		guest.SetStatus(self.UserCred, api.VM_UNKNOWN, "Host not responding")
+		guest.SetStatus(ctx, self.UserCred, api.VM_UNKNOWN, "Host not responding")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -101,7 +101,7 @@ func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db
 
 func (self *GuestSyncstatusTask) OnGetStatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_UNKNOWN, err.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_UNKNOWN, err.String())
 	self.SetStageComplete(ctx, nil)
 	// logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, err, self.UserCred, false)
 }

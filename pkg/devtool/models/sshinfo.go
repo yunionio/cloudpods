@@ -59,7 +59,7 @@ func init() {
 }
 
 func (si *SSshInfo) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	si.SetStatus(userCred, api.SSHINFO_STATUS_CREATING, "")
+	si.SetStatus(ctx, userCred, api.SSHINFO_STATUS_CREATING, "")
 
 	task, err := taskman.TaskManager.NewTask(ctx, "SshInfoCreateTask", si, userCred, nil, "", "")
 	if err != nil {
@@ -77,7 +77,7 @@ func (si *SSshInfo) RealDelete(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (si *SSshInfo) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	si.SetStatus(userCred, api.SSHINFO_STATUS_DELETING, "")
+	si.SetStatus(ctx, userCred, api.SSHINFO_STATUS_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SshInfoDeleteTask", si, userCred, nil, "", "")
 	if err != nil {
 		log.Errorf("start SshInfoDeleteTask failed: %v", err)

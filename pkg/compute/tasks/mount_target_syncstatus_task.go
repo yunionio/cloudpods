@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *MountTargetSyncstatusTask) taskFail(ctx context.Context, mt *models.SMountTarget, err error) {
-	mt.SetStatus(self.GetUserCred(), api.MOUNT_TARGET_STATUS_UNKNOWN, err.Error())
+	mt.SetStatus(ctx, self.GetUserCred(), api.MOUNT_TARGET_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(mt, db.ACT_SYNC_STATUS, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, mt, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

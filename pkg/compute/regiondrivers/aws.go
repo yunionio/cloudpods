@@ -341,7 +341,7 @@ func (self *SAwsRegionDriver) RequestAssociateEip(ctx context.Context, userCred 
 		}
 
 		if obj.GetStatus() != api.INSTANCE_ASSOCIATE_EIP {
-			db.StatusBaseSetStatus(obj, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
+			db.StatusBaseSetStatus(ctx, obj, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 		}
 
 		err = eip.AssociateInstance(ctx, userCred, input.InstanceType, obj)
@@ -367,7 +367,7 @@ func (self *SAwsRegionDriver) RequestAssociateEip(ctx context.Context, userCred 
 			}
 		}
 
-		eip.SetStatus(userCred, api.EIP_STATUS_READY, "associate")
+		eip.SetStatus(ctx, userCred, api.EIP_STATUS_READY, "associate")
 		return nil, nil
 	})
 	return nil

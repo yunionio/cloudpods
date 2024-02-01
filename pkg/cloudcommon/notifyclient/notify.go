@@ -71,6 +71,21 @@ func init() {
 			},
 		})
 	})
+
+	db.SetStatusChangedNotifyHook(func(ctx context.Context, userCred mcclient.TokenCredential, oldStatus, newStatus string, obj db.IModel) {
+		_, ok := notifyDBHookResources.Load(obj.KeywordPlural())
+		if !ok {
+			return
+		}
+		EventNotify(ctx, userCred, SEventNotifyParam{
+			Obj:    obj,
+			Action: api.ActionStatusChanged,
+			ObjDetailsDecorator: func(ctx context.Context, details *jsonutils.JSONDict) {
+				details.Set("old_status", jsonutils.NewString(oldStatus))
+				details.Set("new_status", jsonutils.NewString(newStatus))
+			},
+		})
+	})
 }
 
 func AddNotifyDBHookResources(keywordPlurals ...string) {

@@ -131,7 +131,7 @@ func (sa *SScriptApply) StopApply(userCred mcclient.TokenCredential, record *SSc
 			record.Fail(failCode, reason)
 		}
 	}
-	sa.SetStatus(userCred, status, "")
+	sa.SetStatus(context.Background(), userCred, status, "")
 	ScriptApplyManager.Session.Remove(sa.Id)
 	return nil
 }

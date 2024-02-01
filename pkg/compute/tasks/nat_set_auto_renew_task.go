@@ -39,7 +39,7 @@ func init() {
 func (self *NatGatewaySetAutoRenewTask) taskFailed(ctx context.Context, nat *models.SNatGateway, err error) {
 	db.OpsLog.LogEvent(nat, db.ACT_SET_AUTO_RENEW_FAIL, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_SET_AUTO_RENEW, err, self.GetUserCred(), false)
-	nat.SetStatus(self.GetUserCred(), api.NAT_STATUS_SET_AUTO_RENEW_FAILED, err.Error())
+	nat.SetStatus(ctx, self.GetUserCred(), api.NAT_STATUS_SET_AUTO_RENEW_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

@@ -766,7 +766,7 @@ func (self *SClouduser) StartClouduserDeleteTask(ctx context.Context, userCred m
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_USER_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_USER_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1309,7 +1309,7 @@ func (self *SClouduser) StartClouduserSyncstatusTask(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_USER_STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_USER_STATUS_SYNC_STATUS, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1328,7 +1328,7 @@ func (self *SClouduser) StartClouduserSyncTask(ctx context.Context, userCred mcc
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_USER_STATUS_SYNC, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_USER_STATUS_SYNC, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1338,7 +1338,7 @@ func (self *SClouduser) StartClouduserSyncPoliciesTask(ctx context.Context, user
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_USER_STATUS_SYNC_POLICIES, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_USER_STATUS_SYNC_POLICIES, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1348,7 +1348,7 @@ func (self *SClouduser) StartClouduserSyncGroupsTask(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_USER_STATUS_SYNC_GROUPS, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_USER_STATUS_SYNC_GROUPS, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1385,7 +1385,7 @@ func (self *SClouduser) StartClouduserResetPasswordTask(ctx context.Context, use
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_USER_STATUS_RESET_PASSWORD, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_USER_STATUS_RESET_PASSWORD, "")
 	task.ScheduleRun(nil)
 	return nil
 }

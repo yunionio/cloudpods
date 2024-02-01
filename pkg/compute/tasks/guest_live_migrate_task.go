@@ -88,7 +88,7 @@ func (task *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
 	guest := obj.(*models.SGuest)
 	guestStatus, _ := task.Params.GetString("guest_status")
 	if guestStatus != api.VM_RUNNING && guestStatus != api.VM_SUSPEND {
-		guest.SetStatus(task.UserCred, api.VM_MIGRATING, "")
+		guest.SetStatus(context.Background(), task.UserCred, api.VM_MIGRATING, "")
 	}
 
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, "", task.UserCred)
@@ -311,7 +311,7 @@ func (task *GuestMigrateTask) OnNormalMigrateComplete(ctx context.Context, guest
 	oldHostId := guest.HostId
 	task.setGuest(ctx, guest)
 	guestStatus, _ := task.Params.GetString("guest_status")
-	guest.SetStatus(task.UserCred, guestStatus, "")
+	guest.SetStatus(ctx, task.UserCred, guestStatus, "")
 	if task.isRescueMode() {
 		guest.StartGueststartTask(ctx, task.UserCred, nil, "")
 		task.TaskComplete(ctx, guest)
@@ -502,7 +502,7 @@ func (task *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/live-migrate", host.ManagerUri, guest.Id)
 	task.SetStage("OnLiveMigrateComplete", nil)
-	guest.SetStatus(task.UserCred, api.VM_LIVE_MIGRATING, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_LIVE_MIGRATING, "")
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
@@ -701,7 +701,7 @@ func (task *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGue
 }
 
 func (task *GuestMigrateTask) markFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_MIGRATE_FAILED, reason.String())
+	guest.SetStatus(ctx, task.UserCred, api.VM_MIGRATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, reason, task.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, task.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason.String())
@@ -721,7 +721,7 @@ func (task *ManagedGuestMigrateTask) OnInit(ctx context.Context, obj db.IStandal
 
 func (task *ManagedGuestMigrateTask) MigrateStart(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	task.SetStage("OnMigrateComplete", nil)
-	guest.SetStatus(task.UserCred, api.VM_MIGRATING, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_MIGRATING, "")
 	input := api.GuestMigrateInput{}
 	task.GetParams().Unmarshal(&input)
 	if err := guest.GetDriver().RequestMigrate(ctx, guest, task.UserCred, input, task); err != nil {
@@ -759,7 +759,7 @@ func (task *ManagedGuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context,
 }
 
 func (task *ManagedGuestMigrateTask) OnMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_MIGRATE_FAILED, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_MIGRATE_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, task.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, task.UserCred, false)
 	task.SetStageFailed(ctx, data)
@@ -775,7 +775,7 @@ func (task *ManagedGuestLiveMigrateTask) OnInit(ctx context.Context, obj db.ISta
 
 func (task *ManagedGuestLiveMigrateTask) MigrateStart(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	task.SetStage("OnMigrateComplete", nil)
-	guest.SetStatus(task.UserCred, api.VM_MIGRATING, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_MIGRATING, "")
 	input := api.GuestLiveMigrateInput{}
 	task.GetParams().Unmarshal(&input)
 	if err := guest.GetDriver().RequestLiveMigrate(ctx, guest, task.UserCred, input, task); err != nil {
@@ -799,7 +799,7 @@ func (task *ManagedGuestLiveMigrateTask) OnGuestSyncStatusFailed(ctx context.Con
 }
 
 func (task *ManagedGuestLiveMigrateTask) OnMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_MIGRATE_FAILED, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_MIGRATE_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, data, task.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, data, task.UserCred, false)
 	task.SetStageFailed(ctx, data)

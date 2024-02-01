@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, err error) {
-	lbcert.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	lbcert.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_STATUS_DELETE_FAILED, err.Error())

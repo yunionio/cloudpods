@@ -38,13 +38,13 @@ func init() {
 
 func (self *DiskBackupRecoveryTask) taskFaild(ctx context.Context, backup *models.SDiskBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_RECOVERY_FAILED, reasonStr)
+	backup.SetStatus(ctx, self.UserCred, api.BACKUP_STATUS_RECOVERY_FAILED, reasonStr)
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_RECOVERY, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *DiskBackupRecoveryTask) taskSuccess(ctx context.Context, backup *models.SDiskBackup, data *jsonutils.JSONDict) {
-	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_READY, "")
+	backup.SetStatus(ctx, self.UserCred, api.BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, backup, logclient.ACT_RECOVERY, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, data)
 }

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *WafIPSetDeleteTask) taskFailed(ctx context.Context, ipset *models.SWafIPSet, err error) {
-	ipset.SetStatus(self.UserCred, api.WAF_IPSET_STATUS_DELETE_FAILED, err.Error())
+	ipset.SetStatus(ctx, self.UserCred, api.WAF_IPSET_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, ipset, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

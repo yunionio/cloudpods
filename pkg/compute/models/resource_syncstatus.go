@@ -26,7 +26,7 @@ import (
 )
 
 type IStatusBase interface {
-	SetStatus(userCred mcclient.TokenCredential, status string, reason string) error
+	SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error
 	GetStatus() string
 }
 
@@ -42,7 +42,7 @@ func StartResourceSyncStatusTask(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return err
 	}
-	obj.SetStatus(userCred, apis.STATUS_SYNC_STATUS, "perform_syncstatus")
+	obj.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "perform_syncstatus")
 	task.ScheduleRun(nil)
 	return nil
 }

@@ -242,10 +242,10 @@ func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *m
 				log.Errorf("failed to update google userdata")
 			}
 		}
-		guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
+		guest.SetStatus(ctx, userCred, api.VM_RUNNING, "StartOnHost")
 		return task.ScheduleRun(result)
 	}
-	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
+	return guest.SetStatus(ctx, userCred, api.VM_RUNNING, "StartOnHost")
 }
 
 func (self *SGoogleGuestDriver) RemoteActionAfterGuestCreated(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM, desc *cloudprovider.SManagedVMCreateConfig) {

@@ -182,7 +182,7 @@ func (self *SWafRule) StartCreateTask(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_RULE_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.WAF_RULE_STATUS_CREATING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -318,7 +318,7 @@ func (self *SWafRule) StartDeleteTask(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_RULE_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.WAF_RULE_STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -390,7 +390,7 @@ func (self *SWafRule) StartUpdateTask(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_RULE_STATUS_UPDATING, "")
+	self.SetStatus(ctx, userCred, api.WAF_RULE_STATUS_UPDATING, "")
 	return task.ScheduleRun(nil)
 }
 

@@ -170,10 +170,10 @@ func (self *SMountTarget) StartCreateTask(ctx context.Context, userCred mcclient
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.MOUNT_TARGET_STATUS_CREATE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.MOUNT_TARGET_STATUS_CREATE_FAILED, err.Error())
 		return nil
 	}
-	self.SetStatus(userCred, api.MOUNT_TARGET_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.MOUNT_TARGET_STATUS_CREATING, "")
 	return nil
 }
 
@@ -377,10 +377,10 @@ func (self *SMountTarget) StartDeleteTask(ctx context.Context, userCred mcclient
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.MOUNT_TARGET_STATUS_DELETE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.MOUNT_TARGET_STATUS_DELETE_FAILED, err.Error())
 		return err
 	}
-	return self.SetStatus(userCred, api.MOUNT_TARGET_STATUS_DELETING, "")
+	return self.SetStatus(ctx, userCred, api.MOUNT_TARGET_STATUS_DELETING, "")
 }
 
 func (self *SFileSystem) GetMountTargets() ([]SMountTarget, error) {

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, err error) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	lbb.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbb.Id, lbb.Name, api.LB_CREATE_FAILED, err.Error())
@@ -63,7 +63,7 @@ func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IS
 }
 
 func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateComplete(ctx context.Context, lbb *models.SLoadbalancerBackend, data jsonutils.JSONObject) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lbb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE, lbb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, nil, self.UserCred, true)
 	lbbg, _ := lbb.GetLoadbalancerBackendGroup()

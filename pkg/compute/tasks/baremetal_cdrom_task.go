@@ -38,9 +38,9 @@ func (self *BaremetalCdromTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	baremetal := obj.(*models.SHost)
 	action, _ := self.Params.GetString("action")
 	if action == api.BAREMETAL_CDROM_ACTION_INSERT {
-		baremetal.SetStatus(self.UserCred, api.BAREMETAL_INSERTING_ISO, "")
+		baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_INSERTING_ISO, "")
 	} else {
-		baremetal.SetStatus(self.UserCred, api.BAREMETAL_EJECTING_ISO, "")
+		baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_EJECTING_ISO, "")
 	}
 	url := fmt.Sprintf("/baremetals/%s/cdrom", baremetal.Id)
 	headers := self.GetTaskRequestHeader()
@@ -54,9 +54,9 @@ func (self *BaremetalCdromTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 func (self *BaremetalCdromTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason jsonutils.JSONObject) {
 	action, _ := self.Params.GetString("action")
 	if action == api.BAREMETAL_CDROM_ACTION_INSERT {
-		baremetal.SetStatus(self.UserCred, api.BAREMETAL_INSERT_FAIL, reason.String())
+		baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_INSERT_FAIL, reason.String())
 	} else {
-		baremetal.SetStatus(self.UserCred, api.BAREMETAL_EJECT_FAIL, reason.String())
+		baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_EJECT_FAIL, reason.String())
 	}
 	self.SetStageFailed(ctx, reason)
 }

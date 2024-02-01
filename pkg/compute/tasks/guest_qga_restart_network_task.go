@@ -36,7 +36,7 @@ func init() {
 
 func (self *GuestQgaRestartNetworkTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_QGA_SET_NETWORK, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_QGA_SET_NETWORK, "")
 	self.OnRestartNetwork(ctx, guest)
 }
 
@@ -82,7 +82,7 @@ func (self *GuestQgaRestartNetworkTask) requestSetNetwork(ctx context.Context, g
 }
 
 func (self *GuestQgaRestartNetworkTask) taskFailed(ctx context.Context, guest *models.SGuest, prevIp string, inBlockStream bool, err error) {
-	guest.SetStatus(self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
 	guest.UpdateQgaStatus(api.QGA_STATUS_EXECUTE_FAILED)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, jsonutils.NewString(err.Error()), self.UserCred, false)
 	self.SetStageFailed(ctx, nil)

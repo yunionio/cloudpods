@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_CREATE_FAILED, err.Error())
@@ -59,7 +59,7 @@ func (self *LoadbalancerAclCreateTask) OnInit(ctx context.Context, obj db.IStand
 }
 
 func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

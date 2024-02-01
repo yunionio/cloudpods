@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheAclDeleteTask) taskFail(ctx context.Context, ea *models.SElasticcacheAcl, reason jsonutils.JSONObject) {
-	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACL_STATUS_DELETE_FAILED, reason.String())
+	ea.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_ACL_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ea, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_DELETE, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, ea.Id, ea.Name, api.ELASTIC_CACHE_ACL_STATUS_DELETE_FAILED, reason.String())

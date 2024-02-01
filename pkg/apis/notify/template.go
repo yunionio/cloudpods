@@ -515,3 +515,19 @@ const (
 // ACTION_ATTACH_CONTENT_EN = `{{- $d := .resource_details.action -}}
 // Current log ID: {{ $d.id }}`
 )
+
+const (
+	STATUS_CHANGED_TITLE_CN = `{{- $d := .resource_details -}}
+		{{ $d.project }}项目的
+		{{ .resource_type_display }}{{ $d.name }}状态发生变更`
+	STATUS_CHANGED_TITLE_EN = `{{- $d := .resource_details -}}
+		{{ .resource_type }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} status changed`
+	STATUS_CHANGED_CONTENT_CN = `{{- $d := .resource_details -}}
+		您在{{ $d.project }}项目的
+		{{- if $d.brand -}}
+		{{ $d.brand }}平台
+		{{- end -}}
+		{{ .resource_type_display }}{{ $d.name }}状态发生变更,原状态为:{{ $d.old_status }},变更后状态为{{$d.new_status }}`
+	STATUS_CHANGED_CONTENT_EN = `{{- $d := .resource_details -}}
+		Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type }} {{ $d.name }} status has changed,old status: {{ $d.old_status }},new_status: {{$d.new_status }}{{ if $d.project -}} in project {{ $d.project }} {{ end -}} `
+)

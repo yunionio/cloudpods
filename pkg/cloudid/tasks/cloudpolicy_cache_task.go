@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *CloudpolicyCacheTask) taskFailed(ctx context.Context, policy *models.SCloudpolicycache, err error) {
-	policy.SetStatus(self.GetUserCred(), apis.STATUS_CREATE_FAILED, err.Error())
+	policy.SetStatus(ctx, self.GetUserCred(), apis.STATUS_CREATE_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

@@ -120,13 +120,13 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 	}
 
 	if jsonutils.QueryBoolean(task.GetParams(), "reload_disk", false) && snapshot.OutOfChain {
-		guest.SetStatus(task.GetUserCred(), api.VM_SNAPSHOT, "Start Reload Snapshot")
+		guest.SetStatus(ctx, task.GetUserCred(), api.VM_SNAPSHOT, "Start Reload Snapshot")
 		params := jsonutils.NewDict()
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
 		return guest.GetDriver().RequestReloadDiskSnapshot(ctx, guest, task, params)
 	} else {
 		if !snapshot.FakeDeleted {
-			snapshot.SetStatus(task.GetUserCred(), compute.SNAPSHOT_READY, "snapshot fake_delete")
+			snapshot.SetStatus(ctx, task.GetUserCred(), compute.SNAPSHOT_READY, "snapshot fake_delete")
 			task.SetStageComplete(ctx, nil)
 			return snapshot.FakeDelete(task.GetUserCred())
 		}
@@ -135,7 +135,7 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		if convertSnapshot == nil {
 			return fmt.Errorf("snapshot dose not have convert snapshot")
 		}
-		snapshot.SetStatus(task.GetUserCred(), api.SNAPSHOT_DELETING, "On SnapshotDeleteTask StartDeleteSnapshot")
+		snapshot.SetStatus(ctx, task.GetUserCred(), api.SNAPSHOT_DELETING, "On SnapshotDeleteTask StartDeleteSnapshot")
 		params := jsonutils.NewDict()
 		params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
@@ -149,7 +149,7 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		} else {
 			params.Set("auto_deleted", jsonutils.JSONTrue)
 		}
-		guest.SetStatus(task.GetUserCred(), api.VM_SNAPSHOT_DELETE, "Start Delete Snapshot")
+		guest.SetStatus(ctx, task.GetUserCred(), api.VM_SNAPSHOT_DELETE, "Start Delete Snapshot")
 		return guest.GetDriver().RequestDeleteSnapshot(ctx, guest, task, params)
 	}
 }

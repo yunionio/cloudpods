@@ -39,7 +39,7 @@ func init() {
 func (self *DBInstanceSetAutoRenewTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
 	db.OpsLog.LogEvent(rds, db.ACT_SET_AUTO_RENEW_FAIL, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_SET_AUTO_RENEW, err, self.GetUserCred(), false)
-	rds.SetStatus(self.GetUserCred(), api.DBINSTANCE_SET_AUTO_RENEW_FAILED, err.Error())
+	rds.SetStatus(ctx, self.GetUserCred(), api.DBINSTANCE_SET_AUTO_RENEW_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

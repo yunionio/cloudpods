@@ -224,7 +224,7 @@ func (self *SVpcPeeringConnection) PostCreate(ctx context.Context, userCred mccl
 	if err != nil {
 		return
 	}
-	self.SetStatus(userCred, api.VPC_PEERING_CONNECTION_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.VPC_PEERING_CONNECTION_STATUS_CREATING, "")
 	task.ScheduleRun(nil)
 }
 
@@ -285,7 +285,7 @@ func (self *SVpcPeeringConnection) CustomizeDelete(ctx context.Context, userCred
 }
 
 func (self *SVpcPeeringConnection) StartDeleteVpcPeeringConnectionTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	self.SetStatus(userCred, api.VPC_PEERING_CONNECTION_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.VPC_PEERING_CONNECTION_STATUS_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "VpcPeeringConnectionDeleteTask", self, userCred, nil, "", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "Start VpcPeeringConnectionDeleteTask fail")

@@ -39,7 +39,7 @@ import (
 type IScheduleModel interface {
 	db.IStandaloneModel
 
-	SetStatus(userCred mcclient.TokenCredential, status string, reason string) error
+	SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error
 }
 
 type IScheduleTask interface {
@@ -64,11 +64,11 @@ type SSchedTask struct {
 
 func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATING, nil, self.GetUserCred())
-	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE, "")
+	obj.SetStatus(context.Background(), self.GetUserCred(), api.VM_SCHEDULE, "")
 }
 
 func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject, index int) {
-	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE_FAILED, reason.String())
+	obj.SetStatus(ctx, self.GetUserCred(), api.VM_SCHEDULE_FAILED, reason.String())
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, reason, self.GetUserCred(), false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, obj.GetId(), obj.GetName(), api.VM_SCHEDULE_FAILED, reason.String())

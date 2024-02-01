@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *DnsZoneSyncstatusTask) taskFailed(ctx context.Context, zone *models.SDnsZone, err error) {
-	zone.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	zone.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -60,11 +60,11 @@ func (self *DnsZoneSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalon
 		logclient.AddActionLogWithContext(ctx, zone, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "SyncRecords"), self.UserCred, false)
 	}
 
-	zone.SetStatus(self.UserCred, iZone.GetStatus(), "")
+	zone.SetStatus(ctx, self.UserCred, iZone.GetStatus(), "")
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *DnsZoneSyncstatusTask) taskComplete(ctx context.Context, dnsZone *models.SDnsZone) {
-	dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
+	dnsZone.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

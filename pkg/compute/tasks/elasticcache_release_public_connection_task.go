@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *ElasticcacheReleasePublicConnectionTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, err error) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGING, err.Error())
+	elasticcache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGING, err.Error())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, err.Error())

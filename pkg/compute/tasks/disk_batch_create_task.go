@@ -132,7 +132,7 @@ func (task *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 
 	onError := func(err error) {
 		task.clearPendingUsage(ctx, disk)
-		disk.SetStatus(task.UserCred, api.DISK_ALLOC_FAILED, "")
+		disk.SetStatus(ctx, task.UserCred, api.DISK_ALLOC_FAILED, "")
 		logclient.AddActionLogWithStartable(task, disk, logclient.ACT_ALLOCATE, err, task.UserCred, false)
 		task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, task.UserCred)

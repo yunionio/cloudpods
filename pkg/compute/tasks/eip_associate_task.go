@@ -37,10 +37,10 @@ func init() {
 }
 
 func (self *EipAssociateTask) taskFail(ctx context.Context, eip *models.SElasticip, obj db.IStatusStandaloneModel, err error) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_ASSOCIATE_FAIL, err.Error())
+	eip.SetStatus(ctx, self.UserCred, api.EIP_STATUS_ASSOCIATE_FAIL, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	if obj != nil {
-		db.StatusBaseSetStatus(obj, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP_FAILED, err.Error())
+		db.StatusBaseSetStatus(ctx, obj, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP_FAILED, err.Error())
 		db.OpsLog.LogEvent(obj, db.ACT_EIP_ATTACH, err, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_EIP_ASSOCIATE, err, self.UserCred, false)
 	}
@@ -114,7 +114,7 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
-	db.StatusBaseSetStatus(ins, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP, "associate eip")
+	db.StatusBaseSetStatus(ctx, ins, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 
 	self.SetStage("OnAssociateEipComplete", nil)
 	err = region.GetDriver().RequestAssociateEip(ctx, self.UserCred, eip, input, ins, self)
@@ -140,7 +140,7 @@ func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db
 			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, ins, self.UserCred, true)
 		case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
 			grp := ins.(*models.SGroup)
-			grp.SetStatus(self.UserCred, "init", "success")
+			grp.SetStatus(ctx, self.UserCred, "init", "success")
 			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, ins, self.UserCred, true)
 		case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
 			lb := ins.(*models.SLoadbalancer)

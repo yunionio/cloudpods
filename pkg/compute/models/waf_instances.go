@@ -139,7 +139,7 @@ func (self *SWafInstance) StartCreateTask(ctx context.Context, userCred mcclient
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.WAF_STATUS_CREATING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -369,7 +369,7 @@ func (self *SWafInstance) StartDeleteTask(ctx context.Context, userCred mcclient
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.WAF_STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -514,7 +514,7 @@ func (self *SWafInstance) StartRemoteUpdateTask(ctx context.Context, userCred mc
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	self.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

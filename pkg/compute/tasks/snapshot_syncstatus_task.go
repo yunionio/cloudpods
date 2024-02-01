@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *SnapshotSyncstatusTask) taskFailed(ctx context.Context, snapshot *models.SSnapshot, err jsonutils.JSONObject) {
-	snapshot.SetStatus(self.GetUserCred(), api.DISK_UNKNOWN, err.String())
+	snapshot.SetStatus(ctx, self.GetUserCred(), api.DISK_UNKNOWN, err.String())
 	self.SetStageFailed(ctx, err)
 	db.OpsLog.LogEvent(snapshot, db.ACT_SYNC_STATUS, snapshot.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, snapshot, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)

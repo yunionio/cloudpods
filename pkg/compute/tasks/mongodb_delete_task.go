@@ -53,7 +53,7 @@ func init() {
 }
 
 func (self *MongoDBDeleteTask) taskFailed(ctx context.Context, mongodb *models.SMongoDB, err error) {
-	mongodb.SetStatus(self.UserCred, api.MONGO_DB_STATUS_DELETE_FAILED, err.Error())
+	mongodb.SetStatus(ctx, self.UserCred, api.MONGO_DB_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, mongodb, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

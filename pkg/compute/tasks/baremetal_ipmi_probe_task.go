@@ -37,7 +37,7 @@ func init() {
 
 func (self *BaremetalIpmiProbeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PROBING, "")
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_PROBING, "")
 	url := fmt.Sprintf("/baremetals/%s/ipmi-probe", baremetal.Id)
 	headers := self.GetTaskRequestHeader()
 	self.SetStage("OnSyncConfigComplete", nil)
@@ -49,7 +49,7 @@ func (self *BaremetalIpmiProbeTask) OnInit(ctx context.Context, obj db.IStandalo
 
 func (self *BaremetalIpmiProbeTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_PROBE, reason, self.UserCred, false)
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PROBE_FAIL, reason.String())
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_PROBE_FAIL, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *DnsRecordSetEnabledTask) taskFailed(ctx context.Context, record *models.SDnsRecord, err error) {
-	record.SetStatus(self.UserCred, apis.STATUS_UNKNOWN, err.Error())
+	record.SetStatus(ctx, self.UserCred, apis.STATUS_UNKNOWN, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -85,6 +85,6 @@ func (self *DnsRecordSetEnabledTask) OnInit(ctx context.Context, obj db.IStandal
 }
 
 func (self *DnsRecordSetEnabledTask) taskComplete(ctx context.Context, record *models.SDnsRecord) {
-	record.SetStatus(self.UserCred, apis.SKU_STATUS_AVAILABLE, "")
+	record.SetStatus(ctx, self.UserCred, apis.SKU_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

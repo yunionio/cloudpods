@@ -92,7 +92,7 @@ func (task *GuestImageDeleteTask) startDelete(ctx context.Context, guestImage *m
 			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to remove %s: %s", images[i].GetPath(""), err)))
 			return
 		}
-		err = images[i].SetStatus(task.UserCred, api.IMAGE_STATUS_DELETED, "delete")
+		err = images[i].SetStatus(ctx, task.UserCred, api.IMAGE_STATUS_DELETED, "delete")
 		if err != nil {
 			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to set image %s status ", images[i].GetId())))
 			return
@@ -103,7 +103,7 @@ func (task *GuestImageDeleteTask) startDelete(ctx context.Context, guestImage *m
 			return
 		}
 	}
-	err = guestImage.SetStatus(task.UserCred, api.IMAGE_STATUS_DELETED, "delete")
+	err = guestImage.SetStatus(ctx, task.UserCred, api.IMAGE_STATUS_DELETED, "delete")
 	if err != nil {
 		task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to set guest image status %s", guestImage.GetId())))
 		return

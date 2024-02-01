@@ -360,7 +360,7 @@ func (self *SKubeNodePool) StartKubeNodePoolCreateTask(ctx context.Context, user
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_CREATING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -524,7 +524,7 @@ func (self *SKubeCluster) newFromCloudKubeNodePool(ctx context.Context, userCred
 
 func (self *SKubeNodePool) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("kube node pool delete do nothing")
-	return self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	return self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 }
 
 func (self *SKubeNodePool) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {

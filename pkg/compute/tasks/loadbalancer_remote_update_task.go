@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *LoadbalancerRemoteUpdateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, err error) {
-	lb.SetStatus(self.UserCred, api.LB_UPDATE_TAGS_FAILED, err.Error())
+	lb.SetStatus(ctx, self.UserCred, api.LB_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

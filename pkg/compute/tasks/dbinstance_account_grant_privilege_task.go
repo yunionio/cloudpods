@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DBInstanceAccountGrantPrivilegeTask) taskFailed(ctx context.Context, account *models.SDBInstanceAccount, err error) {
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, err.Error())
+	account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_AVAILABLE, err.Error())
 	db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, err.Error(), self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -97,7 +97,7 @@ func (self *DBInstanceAccountGrantPrivilegeTask) OnInit(ctx context.Context, obj
 
 	models.DBInstancePrivilegeManager.TableSpec().Insert(ctx, &privilege)
 
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+	account.SetStatus(ctx, self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

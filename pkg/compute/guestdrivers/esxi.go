@@ -699,10 +699,10 @@ func (self *SESXiGuestDriver) RequestStartOnHost(ctx context.Context, guest *mod
 		if err != nil {
 			return errors.Wrapf(err, "Wait vm running")
 		}
-		guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
+		guest.SetStatus(ctx, userCred, api.VM_RUNNING, "StartOnHost")
 		return task.ScheduleRun(result)
 	}
-	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
+	return guest.SetStatus(ctx, userCred, api.VM_RUNNING, "StartOnHost")
 }
 
 func (self *SESXiGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {

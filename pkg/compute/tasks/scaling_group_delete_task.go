@@ -41,7 +41,7 @@ func init() {
 
 func (self *ScalingGroupDeleteTask) taskFailed(ctx context.Context, sg *models.SScalingGroup, reason jsonutils.JSONObject) {
 	log.Errorf("scaling group delete task fail: %s", reason)
-	sg.SetStatus(self.UserCred, api.SG_STATUS_DELETE_FAILED, reason.String())
+	sg.SetStatus(ctx, self.UserCred, api.SG_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(sg, db.ACT_DELETE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sg, logclient.ACT_DELETE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
@@ -50,7 +50,7 @@ func (self *ScalingGroupDeleteTask) taskFailed(ctx context.Context, sg *models.S
 func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	sg := obj.(*models.SScalingGroup)
 
-	sg.SetStatus(self.UserCred, api.SG_STATUS_DELETING, "")
+	sg.SetStatus(ctx, self.UserCred, api.SG_STATUS_DELETING, "")
 	// Set all scaling policy's status as deleting
 	sps, err := sg.ScalingPolicies()
 	if err != nil {
@@ -63,7 +63,7 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		err := func() error {
 			lockman.LockObject(ctx, &sps[i])
 			defer lockman.ReleaseObject(ctx, &sps[i])
-			return sps[i].SetStatus(self.UserCred, api.SP_STATUS_DELETING, "delete scaling group")
+			return sps[i].SetStatus(ctx, self.UserCred, api.SP_STATUS_DELETING, "delete scaling group")
 		}()
 		if err != nil {
 			self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("set scaling policy %s as deleting status failed: %s",
@@ -74,7 +74,7 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	log.Debugf("finish to mark all scaling policies deleted")
 	// wait for activites finished
-	sg.SetStatus(self.UserCred, api.SG_STATUS_WAIT_ACTIVITY_OVER, "wait all activities over")
+	sg.SetStatus(ctx, self.UserCred, api.SG_STATUS_WAIT_ACTIVITY_OVER, "wait all activities over")
 	waitSeconds, interval, seconds := 180, 5, 0
 	checkids := spids
 	allReady := false

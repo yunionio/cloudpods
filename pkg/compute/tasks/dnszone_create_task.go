@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DnsZoneCreateTask) taskFailed(ctx context.Context, zone *models.SDnsZone, err error) {
-	zone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_CREATE_FAILE, err.Error())
+	zone.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_CREATE_FAILE, err.Error())
 	db.OpsLog.LogEvent(zone, db.ACT_CREATE, zone.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, zone, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -104,6 +104,6 @@ func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 }
 
 func (self *DnsZoneCreateTask) taskComplete(ctx context.Context, zone *models.SDnsZone) {
-	zone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
+	zone.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

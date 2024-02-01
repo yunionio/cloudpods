@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *SAMLProviderDeleteTask) taskFailed(ctx context.Context, saml *models.SSAMLProvider, err error) {
-	saml.SetStatus(self.GetUserCred(), api.SAML_PROVIDER_STATUS_DELETE_FAILED, err.Error())
+	saml.SetStatus(ctx, self.GetUserCred(), api.SAML_PROVIDER_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, saml, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

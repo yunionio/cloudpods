@@ -46,7 +46,7 @@ func (self *BaremetalPrepareTask) OnInit(ctx context.Context, obj db.IStandalone
 }
 
 func (self *BaremetalPrepareTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason jsonutils.JSONObject) {
-	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PREPARE_FAIL, reason.String())
+	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_PREPARE_FAIL, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

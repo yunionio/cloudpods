@@ -38,7 +38,7 @@ func init() {
 func (self *InstanceSnapshotDeleteTask) taskFail(
 	ctx context.Context, isp *models.SInstanceSnapshot, reason jsonutils.JSONObject) {
 
-	isp.SetStatus(self.UserCred, compute.INSTANCE_SNAPSHOT_DELETE_FAILED, "on delete failed")
+	isp.SetStatus(ctx, self.UserCred, compute.INSTANCE_SNAPSHOT_DELETE_FAILED, "on delete failed")
 	db.OpsLog.LogEvent(isp, db.ACT_DELETE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, isp, logclient.ACT_DELETE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)

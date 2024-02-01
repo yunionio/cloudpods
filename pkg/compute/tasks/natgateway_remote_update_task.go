@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *NatGatewayRemoteUpdateTask) taskFail(ctx context.Context, nat *models.SNatGateway, err error) {
-	nat.SetStatus(self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
+	nat.SetStatus(ctx, self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

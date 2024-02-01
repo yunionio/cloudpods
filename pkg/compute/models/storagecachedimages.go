@@ -337,7 +337,7 @@ func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCre
 	return cachedimage
 }
 
-func (self *SStoragecachedimage) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+func (self *SStoragecachedimage) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
 	if self.Status == status {
 		return nil
 	}
@@ -412,7 +412,7 @@ func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCre
 		self.SetExternalId(cachedImage.GetExternalId())
 	}
 	if len(cachedImage.ExternalId) > 0 {
-		self.SetStatus(userCred, image.GetStatus(), "")
+		self.SetStatus(ctx, userCred, image.GetStatus(), "")
 		return cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, nil)
 	} else {
 		return nil

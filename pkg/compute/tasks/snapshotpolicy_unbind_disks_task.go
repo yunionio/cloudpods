@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *SnapshotpolicyUnbindDisksTask) taskFailed(ctx context.Context, sp *models.SSnapshotPolicy, err error) {
-	sp.SetStatus(self.UserCred, api.SNAPSHOT_POLICY_CANCEL_FAILED, err.Error())
+	sp.SetStatus(ctx, self.UserCred, api.SNAPSHOT_POLICY_CANCEL_FAILED, err.Error())
 	db.OpsLog.LogEvent(sp, db.ACT_UNBIND, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_UNBIND, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -63,7 +63,7 @@ func (self *SnapshotpolicyUnbindDisksTask) OnInit(ctx context.Context, obj db.IS
 }
 
 func (self *SnapshotpolicyUnbindDisksTask) OnSnapshotPolicyUnbindDisksComplete(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	sp.SetStatus(self.UserCred, apis.STATUS_AVAILABLE, "")
+	sp.SetStatus(ctx, self.UserCred, apis.STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }
 

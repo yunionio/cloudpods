@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *LoadbalancerDeleteTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lb, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{

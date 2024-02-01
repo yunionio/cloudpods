@@ -217,7 +217,7 @@ func (self *SCloudpolicy) StartCloudpolicyUpdateTask(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_POLICY_STATUS_SYNCING, "update")
+	self.SetStatus(ctx, userCred, api.CLOUD_POLICY_STATUS_SYNCING, "update")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -240,7 +240,7 @@ func (self *SCloudpolicy) StartCloudpolicyDeleteTask(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_POLICY_STATUS_DELETING, "delete")
+	self.SetStatus(ctx, userCred, api.CLOUD_POLICY_STATUS_DELETING, "delete")
 	return task.ScheduleRun(nil)
 }
 
@@ -373,7 +373,7 @@ func (self *SCloudpolicy) PerformCache(ctx context.Context, userCred mcclient.To
 
 // 恢复权限组状态
 func (self *SCloudpolicy) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSyncstatusInput) (jsonutils.JSONObject, error) {
-	self.SetStatus(userCred, api.CLOUD_POLICY_STATUS_AVAILABLE, "syncstatus")
+	self.SetStatus(ctx, userCred, api.CLOUD_POLICY_STATUS_AVAILABLE, "syncstatus")
 	return nil, nil
 }
 

@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *MountTargetDeleteTask) taskFailed(ctx context.Context, mt *models.SMountTarget, err error) {
-	mt.SetStatus(self.UserCred, api.MOUNT_TARGET_STATUS_DELETE_FAILED, err.Error())
+	mt.SetStatus(ctx, self.UserCred, api.MOUNT_TARGET_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, mt, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

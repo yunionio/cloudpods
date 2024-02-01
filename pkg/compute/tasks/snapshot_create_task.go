@@ -41,14 +41,14 @@ func (self *SnapshotCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *SnapshotCreateTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason jsonutils.JSONObject) {
-	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_FAILED, reason.String())
+	snapshot.SetStatus(ctx, self.UserCred, api.SNAPSHOT_FAILED, reason.String())
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "")
+	snapshot.SetStatus(ctx, self.UserCred, api.SNAPSHOT_READY, "")
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, snapshot.GetShortDesc(ctx), self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
