@@ -101,7 +101,7 @@ func (rule *ProjectMappingRuleInfo) Validate() error {
 	if emptyValueTags != 1 && rule.AutoCreateProject {
 		return httperrors.NewInputParameterError("not support auto_create_project")
 	}
-	if !rule.AutoCreateProject && len(rule.ProjectId) == 0 {
+	if !rule.AutoCreateProject && len(rule.ProjectId) == 0 && len(rule.Project) == 0 {
 		return httperrors.NewInputParameterError("missing project_id")
 	}
 	return nil
@@ -125,6 +125,9 @@ func (self *ProjectMappingRuleInfo) IsMatchTags(_extTags map[string]string) (str
 				newProj = extTag
 			}
 		}
+		if !self.AutoCreateProject && len(self.ProjectId) == 0 && len(self.Project) > 0 {
+			newProj = self.Project
+		}
 		return self.DomainId, self.ProjectId, newProj, true
 	case MAPPING_CONDITION_OR:
 		for _, tag := range self.Tags {
@@ -132,6 +135,8 @@ func (self *ProjectMappingRuleInfo) IsMatchTags(_extTags map[string]string) (str
 			if ok && (len(tag.Value) == 0 || tag.Value == extTag) {
 				if self.AutoCreateProject && len(tag.Value) == 0 && len(extTag) > 0 {
 					return "", "", extTag, true
+				} else if !self.AutoCreateProject && len(self.ProjectId) == 0 && len(self.Project) > 0 {
+					return self.DomainId, self.ProjectId, self.Project, true
 				} else {
 					return self.DomainId, self.ProjectId, "", true
 				}
