@@ -25,9 +25,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -39,6 +39,9 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
+
+var _ db.IModelManager = (*SOrganizationNodeManager)(nil)
+var _ db.IModel = (*SOrganizationNode)(nil)
 
 type SOrganizationNodeManager struct {
 	db.SStandaloneResourceBaseManager
@@ -179,10 +182,11 @@ func (orgNode *SOrganizationNode) startOrganizationBindTask(
 }
 
 func (orgNode *SOrganizationNode) BindTargetIds(ctx context.Context, userCred mcclient.TokenCredential, input api.OrganizationNodePerformBindInput, bind bool) error {
-	tags, err := orgNode.GetTags()
+	org, err := orgNode.GetOrganization()
 	if err != nil {
-		return errors.Wrap(err, "GetTags")
+		return errors.Wrap(err, "GetOrganization")
 	}
+	tags := orgNode.GetTags(org)
 	if !bind {
 		for k := range tags {
 			tags[k] = "None"
@@ -212,22 +216,6 @@ func (orgNode *SOrganizationNode) bindTargetId(ctx context.Context, userCred mcc
 		return orgNode.bindObject(ctx, userCred, resType, idstr, tags)
 	}
 	return errors.Wrapf(errors.ErrNotSupported, "cannot bind to %s %s", resType, idstr)
-}
-
-func (orgNode *SOrganizationNode) GetTags() (map[string]string, error) {
-	org, err := OrganizationManager.fetchOrganizationById(orgNode.OrgId)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchOrganizationById")
-	}
-	tags := make(map[string]string)
-	keys := api.SplitLabel(org.Keys)
-	values := api.SplitLabel(orgNode.FullLabel)
-	for i := 0; i < orgNode.Level; i++ {
-		k := keys[i]
-		v := values[i]
-		tags[k] = v
-	}
-	return tags, nil
 }
 
 func (orgNode *SOrganizationNode) bindProject(ctx context.Context, userCred mcclient.TokenCredential, idstr string, tags map[string]string) error {
@@ -351,16 +339,30 @@ func (manager *SOrganizationNodeManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
-type SOrganizationNodeDetails struct {
-	apis.StandaloneResourceDetails
+func (orgNode *SOrganizationNode) GetTags(org *SOrganization) map[string]string {
+	tags := make(map[string]string)
+	keys := api.SplitLabel(org.Keys)
+	values := api.SplitLabel(orgNode.FullLabel)
+	for i := 0; i < orgNode.Level; i++ {
+		k := db.ORGANIZATION_TAG_PREFIX + keys[i]
+		v := values[i]
+		tags[k] = v
+	}
+	return tags
+}
 
-	SOrganizationNode
-
-	Tags tagutils.TTagSet `json:"tags"`
-
-	Organization string `json:"organization"`
-
-	Type api.TOrgType `json:"type"`
+func (orgNode *SOrganizationNode) GetTagSet(org *SOrganization) tagutils.TTagSet {
+	tags := make(tagutils.TTagSet, 0)
+	keys := api.SplitLabel(org.Keys)
+	values := api.SplitLabel(orgNode.FullLabel)
+	for i := 0; i < orgNode.Level; i++ {
+		tag := tagutils.STag{
+			Key:   db.ORGANIZATION_TAG_PREFIX + keys[i],
+			Value: values[i],
+		}
+		tags = append(tags, tag)
+	}
+	return tags
 }
 
 func (manager *SOrganizationNodeManager) FetchCustomizeColumns(
@@ -370,37 +372,44 @@ func (manager *SOrganizationNodeManager) FetchCustomizeColumns(
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []SOrganizationNodeDetails {
-	rows := make([]SOrganizationNodeDetails, len(objs))
-	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+) []api.SOrganizationNodeDetails {
+	rows := make([]api.SOrganizationNodeDetails, len(objs))
+	orgIds := make([]string, 0)
 	for i := range rows {
 		orgNode := objs[i].(*SOrganizationNode)
-		tags := make(tagutils.TTagSet, 0)
-		orgName := ""
-		orgType := api.TOrgType("")
-		org, err := OrganizationManager.fetchOrganizationById(orgNode.OrgId)
-		if err != nil {
-			log.Errorf("SOrganizationNodeManager.FetchCustomizeColumns fetchOrganizationById %s fail %s", orgNode.OrgId, err)
-		} else {
-			orgName = org.Name
-			orgType = org.Type
-			labels := api.SplitLabel(orgNode.FullLabel)
-			keys := api.SplitLabel(org.Keys)
-			for i := 0; i < len(keys) && i < len(labels); i++ {
-				tag := tagutils.STag{
-					Key:   db.ORGANIZATION_TAG_PREFIX + keys[i],
-					Value: labels[i],
-				}
-				tags = append(tags, tag)
-			}
-		}
-		rows[i] = SOrganizationNodeDetails{
-			StandaloneResourceDetails: stdRows[i],
-			Organization:              orgName,
-			Tags:                      tags,
-			Type:                      orgType,
+		if !utils.IsInArray(orgNode.OrgId, orgIds) {
+			orgIds = append(orgIds, orgNode.OrgId)
 		}
 	}
+
+	orgMaps := make(map[string]SOrganization)
+	err := db.FetchModelObjectsByIds(OrganizationManager, "id", orgIds, &orgMaps)
+	if err != nil {
+		log.Errorf("FetchModelObjectsByIds fail %s", err)
+		return rows
+	}
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		orgNode := objs[i].(*SOrganizationNode)
+		if org, ok := orgMaps[orgNode.OrgId]; ok {
+			rows[i] = api.SOrganizationNodeDetails{
+				SOrganizationNode: api.SOrganizationNode{
+					OrgId:     orgNode.OrgId,
+					FullLabel: orgNode.FullLabel,
+					Level:     orgNode.Level,
+					Weight:    orgNode.Weight,
+				},
+				StandaloneResourceDetails: stdRows[i],
+				Organization:              org.Name,
+				Tags:                      orgNode.GetTagSet(&org),
+				Type:                      org.Type,
+			}
+			rows[i].Id = orgNode.Id
+		}
+	}
+
 	return rows
 }
 
@@ -430,4 +439,31 @@ func (orgNode *SOrganizationNode) Delete(ctx context.Context, userCred mcclient.
 		}
 	}
 	return nil
+}
+
+func (manager *SOrganizationNodeManager) fetchOrgNodesInfo(ctx context.Context, userCred mcclient.TokenCredential, nodeIds []string, isList bool) ([]api.SOrganizationNodeInfo, error) {
+	q := manager.Query().In("id", nodeIds)
+	nodes := make([]SOrganizationNode, 0)
+	err := db.FetchModelObjects(manager, q, &nodes)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	infs := make([]interface{}, 0)
+	for i := range nodes {
+		infs = append(infs, &nodes[i])
+	}
+	nodeDetails := manager.FetchCustomizeColumns(ctx, userCred, nil, infs, nil, isList)
+	ret := make([]api.SOrganizationNodeInfo, 0)
+	for i := range nodeDetails {
+		node := nodeDetails[i]
+		ret = append(ret, api.SOrganizationNodeInfo{
+			Id:           node.Id,
+			FullLabel:    node.FullLabel,
+			OrgId:        node.OrgId,
+			Organization: node.Organization,
+			Tags:         node.Tags,
+			Type:         node.Type,
+		})
+	}
+	return ret, nil
 }

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 const (
@@ -191,4 +192,16 @@ type SProjectOrganization struct {
 type SProjectOrganizationNode struct {
 	Id     string
 	Labels []string
+}
+
+type SOrganizationNodeDetails struct {
+	apis.StandaloneResourceDetails
+
+	SOrganizationNode
+
+	Tags tagutils.TTagSet `json:"tags"`
+
+	Organization string `json:"organization"`
+
+	Type TOrgType `json:"type"`
 }

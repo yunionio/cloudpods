@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -99,6 +100,9 @@ type SPolicy struct {
 
 	// 匹配的资源标签
 	ObjectTags tagutils.TTagSet `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
+
+	// 匹配的组织架构节点
+	OrgNodeId []string `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SPolicyManager) InitializeData() error {
@@ -292,7 +296,21 @@ func (manager *SPolicyManager) ValidateCreateData(
 		input.Name = input.Type
 	}
 
-	policy, err := rbacutils.DecodePolicyData(input.DomainTags, input.ProjectTags, input.ResourceTags, input.Blob)
+	if len(input.OrgNodeId) > 0 {
+		for i := range input.OrgNodeId {
+			orgNode, err := OrganizationNodeManager.FetchById(input.OrgNodeId[i])
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return input, httperrors.NewResourceNotFoundError2(OrganizationNodeManager.Keyword(), input.OrgNodeId[i])
+				} else {
+					return input, errors.Wrap(err, "OrganizationNodeManager.FetchById")
+				}
+			}
+			input.OrgNodeId[i] = orgNode.GetId()
+		}
+	}
+
+	policy, err := rbacutils.DecodePolicyData(input.DomainTags, input.ProjectTags, input.ObjectTags, input.Blob)
 	if err != nil {
 		return input, httperrors.NewInputParameterError("fail to decode policy data")
 	}
@@ -367,6 +385,38 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 		input.DomainTags = policy.DomainTags.Append(input.DomainTags...)
 		input.ProjectTags = policy.ProjectTags.Append(input.ProjectTags...)
 		input.ObjectTags = policy.ObjectTags.Append(input.ObjectTags...)
+	}
+
+	if len(input.OrgNodeId) > 0 {
+		for i := range input.OrgNodeId {
+			orgNode, err := OrganizationNodeManager.FetchById(input.OrgNodeId[i])
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return input, httperrors.NewResourceNotFoundError2(OrganizationNodeManager.Keyword(), input.OrgNodeId[i])
+				} else {
+					return input, errors.Wrap(err, "OrganizationNodeManager.FetchById")
+				}
+			}
+			input.OrgNodeId[i] = orgNode.GetId()
+		}
+	}
+	switch input.TagUpdatePolicy {
+	case api.TAG_UPDATE_POLICY_REMOVE:
+		nodeIds := make([]string, 0)
+		for i := range policy.OrgNodeId {
+			if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
+				nodeIds = append(nodeIds, policy.OrgNodeId[i])
+			}
+		}
+		input.OrgNodeId = nodeIds
+	case api.TAG_UPDATE_POLICY_REPLACE:
+		// do nothing
+	default:
+		for i := range policy.OrgNodeId {
+			if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
+				input.OrgNodeId = append(input.OrgNodeId, policy.OrgNodeId[i])
+			}
+		}
 	}
 
 	if input.Blob != nil {
@@ -558,9 +608,17 @@ func (manager *SPolicyManager) FetchCustomizeColumns(
 	identRows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	shareRows := manager.SSharableBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
+		policy := objs[i].(*SPolicy)
 		rows[i] = api.PolicyDetails{
 			EnabledIdentityBaseResourceDetails: identRows[i],
 			SharableResourceBaseInfo:           shareRows[i],
+		}
+		{
+			var err error
+			rows[i].OrgNodes, err = OrganizationNodeManager.fetchOrgNodesInfo(ctx, userCred, policy.OrgNodeId, isList)
+			if err != nil {
+				log.Errorf("SPolicyManager.FetchCustomizeColumns fetchOrgNodesInfo fail %s", err)
+			}
 		}
 	}
 	return rows
