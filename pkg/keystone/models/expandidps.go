@@ -70,6 +70,7 @@ func fetchIdmappings(idList []string, resType string) (map[string][]sIdpInfo, er
 		idps.Field("name", "idp"),
 		idps.Field("driver", "idp_driver"),
 		idps.Field("template", "template"),
+		idps.Field("is_sso", "is_sso"),
 		idmappings.Field("public_id"),
 	)
 	q = q.Join(idps, sqlchemy.Equals(idps.Field("id"), idmappings.Field("domain_id")))
