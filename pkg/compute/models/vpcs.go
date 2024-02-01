@@ -1315,6 +1315,10 @@ func (manager *SVpcManager) ListItemFilter(
 		q = q.In("cidr_block", query.CidrBlock)
 	}
 
+	if len(query.CidrBlock6) > 0 {
+		q = q.In("cidr_block6", query.CidrBlock6)
+	}
+
 	return q, nil
 }
 

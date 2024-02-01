@@ -80,6 +80,9 @@ type VpcListInput struct {
 	// example: 192.168.222.0/24
 	CidrBlock []string `json:"cidr_block"`
 
+	// IPv6地址段
+	CidrBlock6 []string `json:"cidr_block6"`
+
 	// enmu: eip, none
 	ExternalAccessMode string `json:"external_access_mode"`
 
