@@ -210,13 +210,13 @@ func (data *SchedInfo) reviseData() {
 }
 
 func (d *SchedInfo) SkipDirtyMarkHost() bool {
-	return d.IsContainer || d.Hypervisor == SchedTypeContainer
+	return d.IsContainer || d.Hypervisor == computeapi.HYPERVISOR_POD
 }
 
 func (d *SchedInfo) GetCandidateHostTypes() []string {
 	switch d.Hypervisor {
-	case SchedTypeContainer:
-		return []string{HostTypeKubelet, HostHypervisorForKvm}
+	case computeapi.HYPERVISOR_POD:
+		return []string{computeapi.HOST_TYPE_CONTAINER, HostHypervisorForKvm}
 	default:
 		return []string{d.Hypervisor}
 	}

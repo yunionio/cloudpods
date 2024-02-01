@@ -142,7 +142,7 @@ func guestActions(f actionFunc) appsrv.FilterHandler {
 func getStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
 	sid := params["<sid>"]
-	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StatusWithBlockJobsCount, sid)
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().GetGuestStatus, sid)
 	hostutils.ResponseOk(ctx, w)
 }
 
@@ -487,7 +487,7 @@ func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, si
 }
 
 func guestCancelLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -546,7 +546,7 @@ func guestBlockReplication(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func slaveGuestBlockStreamDisks(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -596,7 +596,7 @@ func guestReloadDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredent
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
@@ -629,7 +629,7 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
@@ -668,7 +668,7 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}

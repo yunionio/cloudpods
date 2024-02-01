@@ -112,7 +112,7 @@ func (s *SKVMGuestInstance) loadGuestPciAddresses() error {
 	if err != nil {
 		return errors.Wrap(err, "load desc ensure pci address")
 	}
-	if err = s.SaveLiveDesc(s.Desc); err != nil {
+	if err = SaveLiveDesc(s, s.Desc); err != nil {
 		return errors.Wrap(err, "loadGuestPciAddresses save desc")
 	}
 	return nil

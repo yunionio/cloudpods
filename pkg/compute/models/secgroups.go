@@ -292,7 +292,7 @@ func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 			sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
 			sqlchemy.In(guests.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", self.Id).SubQuery()),
 		),
-	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{api.HYPERVISOR_CONTAINER, api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_ESXI}))
+	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{api.HYPERVISOR_POD, api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_ESXI}))
 }
 
 func (self *SSecurityGroup) GetGuestsCount() (int, error) {

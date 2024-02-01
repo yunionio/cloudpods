@@ -53,9 +53,11 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/hardware"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	_ "yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	_ "yunion.io/x/onecloud/pkg/hostman/storageman/container_storage"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -68,6 +70,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/ovnutils"
+	"yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -113,6 +116,12 @@ type SHostInfo struct {
 	SysError map[string][]api.HostError
 
 	IoScheduler string
+
+	cri pod.CRI
+}
+
+func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
+	return options.HostOptions.ContainerDeviceConfigFile
 }
 
 func (h *SHostInfo) GetIsolatedDeviceManager() isolated_device.IsolatedDeviceManager {
@@ -211,7 +220,31 @@ func (h *SHostInfo) Init() error {
 		}
 	}
 
+	if h.IsContainerHost() {
+		if err := h.initCRI(); err != nil {
+			return errors.Wrap(err, "init container runtime interface")
+		}
+	}
+
 	return nil
+}
+
+func (h *SHostInfo) initCRI() error {
+	cri, err := pod.NewCRI(h.GetContainerRuntimeEndpoint(), 3*time.Second)
+	if err != nil {
+		return errors.Wrapf(err, "New CRI by endpoint %q", h.GetContainerRuntimeEndpoint())
+	}
+	ver, err := cri.Version(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "get runtime version")
+	}
+	log.Infof("Init container runtime: %s", ver)
+	h.cri = cri
+	return nil
+}
+
+func (h *SHostInfo) GetCRI() pod.CRI {
+	return h.cri
 }
 
 func (h *SHostInfo) setupOvnChassis() error {
@@ -450,7 +483,7 @@ func (h *SHostInfo) prepareEnv() error {
 		h.EnableNativeHugepages()
 		hp, err := h.Mem.GetHugepages()
 		if err != nil {
-			return errors.Wrap(err, "Mem.GetHugepages")
+			return errors.Wrap(err, "MEM.GetHugepages")
 		}
 		for i := 0; i < len(hp); i++ {
 			if hp[i].SizeKb == options.HostOptions.HugepageSizeMb*1024 {
@@ -812,10 +845,10 @@ func (h *SHostInfo) detectKernelVersion() {
 func (h *SHostInfo) detectSyssoftwareInfo() error {
 	h.detectOsDist()
 	h.detectKernelVersion()
-	if err := h.detectQemuVersion(); err != nil {
+	/*if err := h.detectQemuVersion(); err != nil {
 		log.Errorf("detect qemu version: %s", err.Error())
 		h.AppendHostError(fmt.Sprintf("detect qemu version: %s", err.Error()))
-	}
+	}*/
 	h.detectOvsVersion()
 	if err := h.detectOvsKOVersion(); err != nil {
 		log.Errorf("detect ovs kernel version: %s", err.Error())
@@ -2414,6 +2447,19 @@ func (h *SHostInfo) GetReservedCpusInfo() *cpuset.CPUSet {
 	}
 	cpus, _ := cpuset.Parse(h.reservedCpusInfo.Cpus)
 	return &cpus
+}
+
+func (h *SHostInfo) IsContainerdRuning() bool {
+	return false
+}
+
+func (h *SHostInfo) IsContainerHost() bool {
+	//return options.HostOptions.EnableContainerRuntime || options.HostOptions.HostType == api.HOST_TYPE_CONTAINER
+	return options.HostOptions.HostType == api.HOST_TYPE_CONTAINER
+}
+
+func (h *SHostInfo) GetContainerRuntimeEndpoint() string {
+	return options.HostOptions.ContainerRuntimeEndpoint
 }
 
 func NewHostInfo() (*SHostInfo, error) {

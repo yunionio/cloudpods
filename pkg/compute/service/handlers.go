@@ -123,6 +123,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.HostManager,
 		models.SchedtagManager,
 		models.GuestManager,
+		models.GetContainerManager(),
 		models.GroupManager,
 		models.DiskManager,
 		models.NetworkManager,

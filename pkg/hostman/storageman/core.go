@@ -257,6 +257,19 @@ func (s *SStorageManager) GetStorageByPath(sPath string) (IStorage, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, sPath)
 }
 
+func (s *SStorageManager) GetDiskById(diskId string) (IDisk, error) {
+	for _, storage := range s.Storages {
+		disk, err := storage.GetDiskById(diskId)
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+		if err == nil {
+			return disk, nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
+}
+
 func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
 	pos := strings.LastIndex(diskPath, "/")
 	sPath := diskPath[:pos]

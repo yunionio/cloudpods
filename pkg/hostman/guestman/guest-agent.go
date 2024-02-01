@@ -25,7 +25,7 @@ import (
 )
 
 func (m *SGuestManager) checkAndInitGuestQga(sid string) (*SKVMGuestInstance, error) {
-	guest, _ := m.GetServer(sid)
+	guest, _ := m.GetKVMServer(sid)
 	if guest == nil {
 		return nil, httperrors.NewNotFoundError("Not found guest by id %s", sid)
 	}

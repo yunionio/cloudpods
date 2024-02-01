@@ -89,7 +89,7 @@ type SIsolatedDevice struct {
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
 	// 设备类型
-	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
+	DevType string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
 	Model string `width:"512" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
@@ -110,7 +110,8 @@ type SIsolatedDevice struct {
 	DiskIndex int8 `nullable:"true" default:"-1" list:"user" update:"user"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
-	Addr string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	Addr       string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	DevicePath string `width:"36" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"optional"`
 
 	// Is vgpu physical funcion, That means it cannot be attached to guest
 	// VGPUPhysicalFunction bool `nullable:"true" default:"false" list:"domain" create:"domain_optional"`
@@ -322,7 +323,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 	}
 
 	if !query.ShowBaremetalIsolatedDevices {
-		sq := HostManager.Query("id").Equals("host_type", api.HOST_TYPE_HYPERVISOR).SubQuery()
+		sq := HostManager.Query("id").In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}).SubQuery()
 		q = q.In("host_id", sq)
 	}
 

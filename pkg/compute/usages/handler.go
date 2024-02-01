@@ -991,7 +991,7 @@ func guestHypervisorsUsage(
 	count[fmt.Sprintf("%s.cpu", prefix)] = guest.TotalCpuCount
 	count[fmt.Sprintf("%s.memory", prefix)] = guest.TotalMemSize
 
-	if len(hypervisors) == 1 && hypervisors[0] == api.HYPERVISOR_CONTAINER {
+	if len(hypervisors) == 1 && hypervisors[0] == api.HYPERVISOR_POD {
 		return count
 	}
 
@@ -1012,7 +1012,7 @@ func guestUsage(userToken mcclient.TokenCredential, prefix string, scope rbacsco
 	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	hypervisors := sets.NewString(api.HYPERVISORS...)
-	hypervisors.Delete(api.HYPERVISOR_CONTAINER, api.HYPERVISOR_BAREMETAL)
+	hypervisors.Delete(api.HYPERVISOR_POD, api.HYPERVISOR_BAREMETAL)
 	return guestHypervisorsUsage(userToken, prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since, policyResult)
 }
 

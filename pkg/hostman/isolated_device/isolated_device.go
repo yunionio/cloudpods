@@ -53,6 +53,8 @@ type IHost interface {
 
 	AppendHostError(content string)
 	AppendError(content, objType, id, name string)
+
+	GetContainerDeviceConfigurationFilePath() string
 }
 
 type HotPlugOption struct {
@@ -105,6 +107,7 @@ type IDevice interface {
 
 	// Get extra PCIE information
 	GetPCIEInfo() *api.IsolatedDevicePCIEInfo
+	GetDevicePath() string
 }
 
 type IsolatedDeviceManager interface {
@@ -130,12 +133,56 @@ func NewManager(host IHost) IsolatedDeviceManager {
 		devices:         make([]IDevice, 0),
 		DetachedDevices: make([]*CloudDeviceInfo, 0),
 	}
-	// Do probe laster - Qiu Jian
+	// Do probe later - Qiu Jian
 	return man
 }
 
 func (man *isolatedDeviceManager) GetDevices() []IDevice {
 	return man.devices
+}
+
+func (man *isolatedDeviceManager) getContainerDeviceConfiguration() (*ContainerDeviceConfiguration, error) {
+	fp := man.host.GetContainerDeviceConfigurationFilePath()
+	if fp == "" {
+		return nil, nil
+	}
+	content, err := procutils.NewRemoteCommandAsFarAsPossible("cat", fp).Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Read container device configuration file %s", fp)
+	}
+	obj, err := jsonutils.ParseYAML(string(content))
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse YAML content: %s", content)
+	}
+	cfg := new(ContainerDeviceConfiguration)
+	if err := obj.Unmarshal(cfg); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal object to ContainerDeviceConfiguration")
+	}
+	return cfg, nil
+}
+
+func (man *isolatedDeviceManager) probeContainerDevices() {
+	cfg, err := man.getContainerDeviceConfiguration()
+	panicFatal := func(err error) {
+		panic(err.Error())
+	}
+	if err != nil {
+		panicFatal(errors.Wrap(err, "get container device configuration"))
+	}
+	if cfg == nil {
+		return
+	}
+	for _, dev := range cfg.Devices {
+		devMan, err := GetContainerDeviceManager(dev.Type)
+		if err != nil {
+			panicFatal(errors.Wrapf(err, "GetContainerDeviceManager by type %q", dev.Type))
+		}
+		iDevs, err := devMan.NewDevices(dev)
+		if err != nil {
+			panicFatal(errors.Wrapf(err, "NewDevices %#v", dev))
+		}
+		man.devices = append(man.devices, iDevs...)
+	}
 }
 
 func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool, whitelistModels []IsolatedDeviceModel) {
@@ -303,7 +350,7 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 
 func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool) {
 	man.devices = make([]IDevice, 0)
-	devModels, err := man.getCustomIsolatedDeviceModels()
+	/*devModels, err := man.getCustomIsolatedDeviceModels()
 	if err != nil {
 		log.Errorf("get isolated device devModels %s", err.Error())
 		man.host.AppendError(fmt.Sprintf("get custom isolated device devModels %s", err.Error()), "isolated_devices", "", "")
@@ -315,7 +362,8 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustom
 	man.probeOffloadNICS(ovsOffloadNics)
 	man.probeAMDVgpus(amdVgpuPFs)
 	man.probeNVIDIAVgpus(nvidiaVgpuPFs)
-	man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs, enableWhitelist, devModels)
+	man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs, enableWhitelist, devModels)*/
+	man.probeContainerDevices()
 }
 
 type IsolatedDeviceModel struct {
@@ -419,7 +467,7 @@ func (man *isolatedDeviceManager) GetQemuParams(devAddrs []string) *QemuParams {
 	return getQemuParams(man, devAddrs)
 }
 
-type sBaseDevice struct {
+type SBaseDevice struct {
 	dev            *PCIDevice
 	cloudId        string
 	hostId         string
@@ -428,30 +476,34 @@ type sBaseDevice struct {
 	detectedOnHost bool
 }
 
-func newBaseDevice(dev *PCIDevice, devType string) *sBaseDevice {
-	return &sBaseDevice{
+func NewBaseDevice(dev *PCIDevice, devType string) *SBaseDevice {
+	return &SBaseDevice{
 		dev:     dev,
 		devType: devType,
 	}
 }
 
-func (dev *sBaseDevice) GetHostId() string {
-	return dev.hostId
-}
-
-func (dev *sBaseDevice) SetHostId(hId string) {
-	dev.hostId = hId
-}
-
-func (dev *sBaseDevice) String() string {
-	return dev.dev.String()
-}
-
-func (dev *sBaseDevice) GetWireId() string {
+func (dev *SBaseDevice) GetDevicePath() string {
 	return ""
 }
 
-func (dev *sBaseDevice) SetDeviceInfo(info CloudDeviceInfo) {
+func (dev *SBaseDevice) GetHostId() string {
+	return dev.hostId
+}
+
+func (dev *SBaseDevice) SetHostId(hId string) {
+	dev.hostId = hId
+}
+
+func (dev *SBaseDevice) String() string {
+	return dev.dev.String()
+}
+
+func (dev *SBaseDevice) GetWireId() string {
+	return ""
+}
+
+func (dev *SBaseDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	if len(info.Id) != 0 {
 		dev.cloudId = info.Id
 	}
@@ -479,51 +531,51 @@ func SyncDeviceInfo(session *mcclient.ClientSession, hostId string, dev IDevice)
 	return modules.IsolatedDevices.Create(session, data)
 }
 
-func (dev *sBaseDevice) GetCloudId() string {
+func (dev *SBaseDevice) GetCloudId() string {
 	return dev.cloudId
 }
 
-func (dev *sBaseDevice) GetVendorDeviceId() string {
+func (dev *SBaseDevice) GetVendorDeviceId() string {
 	return dev.dev.GetVendorDeviceId()
 }
 
-func (dev *sBaseDevice) GetAddr() string {
+func (dev *SBaseDevice) GetAddr() string {
 	return dev.dev.Addr
 }
 
-func (dev *sBaseDevice) GetDeviceType() string {
+func (dev *SBaseDevice) GetDeviceType() string {
 	return dev.devType
 }
 
-func (dev *sBaseDevice) GetPfName() string {
+func (dev *SBaseDevice) GetPfName() string {
 	return ""
 }
 
-func (dev *sBaseDevice) GetVirtfn() int {
+func (dev *SBaseDevice) GetVirtfn() int {
 	return -1
 }
 
-func (dev *sBaseDevice) GetOvsOffloadInterfaceName() string {
+func (dev *SBaseDevice) GetOvsOffloadInterfaceName() string {
 	return ""
 }
 
-func (dev *sBaseDevice) IsInfinibandNic() bool {
+func (dev *SBaseDevice) IsInfinibandNic() bool {
 	return false
 }
 
-func (dev *sBaseDevice) GetNVMESizeMB() int {
+func (dev *SBaseDevice) GetNVMESizeMB() int {
 	return -1
 }
 
-func (dev *sBaseDevice) GetNVIDIAVgpuProfile() map[string]string {
+func (dev *SBaseDevice) GetNVIDIAVgpuProfile() map[string]string {
 	return nil
 }
 
-func (dev *sBaseDevice) GetMdevId() string {
+func (dev *SBaseDevice) GetMdevId() string {
 	return ""
 }
 
-func (dev *sBaseDevice) GetModelName() string {
+func (dev *SBaseDevice) GetModelName() string {
 	if dev.dev.ModelName != "" {
 		return dev.dev.ModelName
 	} else {
@@ -531,7 +583,7 @@ func (dev *sBaseDevice) GetModelName() string {
 	}
 }
 
-func (dev *sBaseDevice) GetGuestId() string {
+func (dev *SBaseDevice) GetGuestId() string {
 	return dev.guestId
 }
 
@@ -580,26 +632,30 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	if info := dev.GetPCIEInfo(); info != nil {
 		data["pcie_info"] = info
 	}
+	devPath := dev.GetDevicePath()
+	if devPath != "" {
+		data["device_path"] = devPath
+	}
 	return jsonutils.Marshal(data).(*jsonutils.JSONDict)
 }
 
-func (dev *sBaseDevice) GetKernelDriver() (string, error) {
+func (dev *SBaseDevice) GetKernelDriver() (string, error) {
 	return dev.dev.getKernelDriver()
 }
 
-func (dev *sBaseDevice) getVFIODeviceCmd(addr string) string {
+func (dev *SBaseDevice) getVFIODeviceCmd(addr string) string {
 	return fmt.Sprintf(" -device vfio-pci,host=%s", addr)
 }
 
-func (dev *sBaseDevice) GetPassthroughOptions() map[string]string {
+func (dev *SBaseDevice) GetPassthroughOptions() map[string]string {
 	return nil
 }
 
-func (dev *sBaseDevice) GetPassthroughCmd(_ int) string {
+func (dev *SBaseDevice) GetPassthroughCmd(_ int) string {
 	return dev.getVFIODeviceCmd(dev.GetAddr())
 }
 
-func (dev *sBaseDevice) GetIOMMUGroupRestAddrs() []string {
+func (dev *SBaseDevice) GetIOMMUGroupRestAddrs() []string {
 	addrs := []string{}
 	for _, d := range dev.dev.RestIOMMUGroupDevs {
 		addrs = append(addrs, d.Addr)
@@ -607,7 +663,7 @@ func (dev *sBaseDevice) GetIOMMUGroupRestAddrs() []string {
 	return addrs
 }
 
-func (dev *sBaseDevice) GetIOMMUGroupDeviceCmd() string {
+func (dev *SBaseDevice) GetIOMMUGroupDeviceCmd() string {
 	restAddrs := dev.GetIOMMUGroupRestAddrs()
 	cmds := []string{}
 	for _, addr := range restAddrs {
@@ -616,11 +672,11 @@ func (dev *sBaseDevice) GetIOMMUGroupDeviceCmd() string {
 	return strings.Join(cmds, "")
 }
 
-func (dev *sBaseDevice) DetectByAddr() error {
+func (dev *SBaseDevice) DetectByAddr() error {
 	return nil
 }
 
-func (dev *sBaseDevice) CustomProbe(idx int) error {
+func (dev *SBaseDevice) CustomProbe(idx int) error {
 	// check environments on first probe
 	if idx == 0 {
 		for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
@@ -647,7 +703,7 @@ func (dev *sBaseDevice) CustomProbe(idx int) error {
 	return nil
 }
 
-func (dev *sBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice, guestDesc *desc.SGuestDesc) ([]*HotPlugOption, error) {
+func (dev *SBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice, guestDesc *desc.SGuestDesc) ([]*HotPlugOption, error) {
 	ret := make([]*HotPlugOption, 0)
 
 	var masterDevOpt *HotPlugOption
@@ -687,7 +743,7 @@ func (dev *sBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice
 	return ret, nil
 }
 
-func (dev *sBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
+func (dev *SBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
 	if len(isolatedDev.VfioDevs) == 0 {
 		return nil, errors.Errorf("device %s no pci ids", isolatedDev.Id)
 	}
@@ -699,7 +755,7 @@ func (dev *sBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevi
 	}, nil
 }
 
-func (dev *sBaseDevice) GetPCIEInfo() *api.IsolatedDevicePCIEInfo {
+func (dev *SBaseDevice) GetPCIEInfo() *api.IsolatedDevicePCIEInfo {
 	return dev.dev.PCIEInfo
 }
 

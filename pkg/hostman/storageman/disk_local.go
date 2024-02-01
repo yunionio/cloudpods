@@ -31,6 +31,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -696,4 +697,21 @@ func (d *SLocalDisk) fallocate() error {
 		return errors.Wrap(err, "Fallocate")
 	}
 	return nil
+}
+
+func (d *SLocalDisk) GetContainerStorageDriver() (container_storage.IContainerStorage, error) {
+	format, err := d.GetFormat()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetFormat")
+	}
+	// TODO: support other format
+	var drvType container_storage.StorageType
+	switch format {
+	case "raw":
+		drvType = container_storage.STORAGE_TYPE_LOCAL_RAW
+	default:
+		return nil, errors.Wrapf(errors.ErrNotImplemented, "format: %s", format)
+	}
+	drv := container_storage.GetDriver(drvType)
+	return drv, nil
 }

@@ -1619,7 +1619,7 @@ func (s *SGuestResumeTask) resumeGuest() {
 			return
 		}
 		s.Desc.IsVolatileHost = false
-		s.SaveLiveDesc(s.Desc)
+		SaveLiveDesc(s, s.Desc)
 	}
 
 	s.startTime = time.Now()
@@ -1638,7 +1638,7 @@ func (s *SGuestResumeTask) SetGetTaskData(f func() (jsonutils.JSONObject, error)
 func (s *SGuestResumeTask) onStartRunning() {
 	if s.Desc.IsVolatileHost {
 		s.Desc.IsVolatileHost = false
-		s.SaveLiveDesc(s.Desc)
+		SaveLiveDesc(s, s.Desc)
 	}
 
 	s.setCgroupPid()
@@ -2607,7 +2607,7 @@ func (task *SGuestHotplugCpuMemTask) updateGuestDesc() {
 	}
 
 	if task.addedCpuCount > 0 || task.addedMemSize > 0 {
-		task.SaveLiveDesc(task.Desc)
+		SaveLiveDesc(task, task.Desc)
 	}
 	if task.addedMemSize > 0 {
 		vncPort := task.GetVncPort()
@@ -2967,7 +2967,7 @@ func (t *SGuestLiveChangeDisk) onReopenImageSuccess(res string) {
 			if t.Desc.Disks[i].Index == int8(t.diskIndex) {
 				log.Debugf("update guest disk %s desc", t.Desc.Disks[i].DiskId)
 				t.Desc.Disks[i].GuestdiskJsonDesc = *t.params.TargetDiskDesc
-				t.SaveLiveDesc(t.Desc)
+				SaveLiveDesc(t, t.Desc)
 				break
 			}
 		}

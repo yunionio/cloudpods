@@ -1654,7 +1654,7 @@ func (hh *SHost) GetGuestCount() (int, error) {
 
 func (hh *SHost) GetContainerCount(status []string) (int, error) {
 	q := hh.GetGuestsQuery()
-	q = q.Filter(sqlchemy.Equals(q.Field("hypervisor"), api.HYPERVISOR_CONTAINER))
+	q = q.Filter(sqlchemy.Equals(q.Field("hypervisor"), api.HYPERVISOR_POD))
 	if len(status) > 0 {
 		q = q.In("status", status)
 	}
@@ -3207,7 +3207,7 @@ func (manager *SHostManager) FetchGuestCnt(hostIds []string) map[string]*sGuestC
 		return ret
 	}
 	guests := []SGuest{}
-	err := GuestManager.RawQuery().IsFalse("deleted").In("host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
+	err := GuestManager.RawQuery().IsFalse("deleted").In("host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_POD).All(&guests)
 	if err != nil {
 		log.Errorf("query host %s guests error: %v", hostIds, err)
 	}
@@ -3234,7 +3234,7 @@ func (manager *SHostManager) FetchGuestCnt(hostIds []string) map[string]*sGuestC
 		}
 	}
 
-	GuestManager.RawQuery().IsFalse("deleted").In("backup_host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
+	GuestManager.RawQuery().IsFalse("deleted").In("backup_host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_POD).All(&guests)
 	for _, guest := range guests {
 		_, ok := ret[guest.BackupHostId]
 		if !ok {

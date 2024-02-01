@@ -62,7 +62,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	// base validate_create_data
-	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_CONTAINER {
+	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_POD {
 
 		bmName := input.PreferHost
 		bmObj, err := HostManager.FetchByIdOrName(nil, bmName)

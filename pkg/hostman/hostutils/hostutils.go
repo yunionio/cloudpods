@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/pod"
 )
 
 type IHost interface {
@@ -69,6 +70,11 @@ type IHost interface {
 	// SyncRootPartitionUsedCapacity() error
 
 	GetKubeletConfig() kubelet.KubeletConfig
+
+	// containerd related methods
+	IsContainerHost() bool
+	GetContainerRuntimeEndpoint() string
+	GetCRI() pod.CRI
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
