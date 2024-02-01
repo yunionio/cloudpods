@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, err.Error())
+	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_SYNC_CONF_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_SYNC_CONF_FAILED, err.Error())
@@ -59,7 +59,7 @@ func (self *LoadbalancerAclSyncTask) OnInit(ctx context.Context, obj db.IStandal
 }
 
 func (self *LoadbalancerAclSyncTask) OnLoadbalancerAclSyncComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

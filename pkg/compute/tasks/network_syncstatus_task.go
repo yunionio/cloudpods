@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *NetworkSyncstatusTask) taskFail(ctx context.Context, net *models.SNetwork, err error) {
-	net.SetStatus(self.UserCred, api.NETWORK_STATUS_UNKNOWN, err.Error())
+	net.SetStatus(ctx, self.UserCred, api.NETWORK_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(net, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, net, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

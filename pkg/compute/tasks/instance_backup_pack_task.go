@@ -38,14 +38,14 @@ func init() {
 
 func (self *InstanceBackupPackTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_PACK_FAILED, reasonStr)
+	ib.SetStatus(ctx, self.UserCred, compute.INSTANCE_BACKUP_STATUS_PACK_FAILED, reasonStr)
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_PACK, reason, self.UserCred, false)
 	db.OpsLog.LogEvent(ib, db.ACT_PACK_FAIL, ib.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *InstanceBackupPackTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup) {
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
+	ib.SetStatus(ctx, self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_PACK, nil, self.UserCred, true)
 	db.OpsLog.LogEvent(ib, db.ACT_PACK, ib.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageComplete(ctx, nil)

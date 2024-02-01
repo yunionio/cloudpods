@@ -133,9 +133,9 @@ func (task *GuestConvertCloudpodsToKvmTask) OnScheduleFailed(ctx context.Context
 }
 
 func (task *GuestConvertCloudpodsToKvmTask) taskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_CONVERT_FAILED, reason.String())
+	guest.SetStatus(ctx, task.UserCred, api.VM_CONVERT_FAILED, reason.String())
 	targetGuest := task.getTargetGuest()
-	targetGuest.SetStatus(task.UserCred, api.VM_CONVERT_FAILED, reason.String())
+	targetGuest.SetStatus(ctx, task.UserCred, api.VM_CONVERT_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT_FAIL, reason, task.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, reason, task.UserCred, false)
 	logclient.AddSimpleActionLog(targetGuest, logclient.ACT_VM_CONVERT, reason, task.UserCred, false)
@@ -154,7 +154,7 @@ func (task *GuestConvertCloudpodsToKvmTask) getTargetGuest() *models.SGuest {
 
 func (task *GuestConvertCloudpodsToKvmTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource, index int) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(task.UserCred, api.VM_CONVERTING, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_CONVERTING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERTING, "", task.UserCred)
 
 	targetGuest := task.getTargetGuest()
@@ -279,7 +279,7 @@ func (task *GuestConvertCloudpodsToKvmTask) TaskComplete(ctx context.Context, gu
 	instance.VMSetStatus(api.VM_CONVERTED)
 
 	guest.SetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, targetGuest.Id, task.UserCred)
-	guest.SetStatus(task.UserCred, api.VM_CONVERTED, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_CONVERTED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT, "", task.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, "", task.UserCred, true)
 	task.SetStageComplete(ctx, nil)

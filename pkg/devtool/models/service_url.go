@@ -85,7 +85,7 @@ func (su *SServiceUrl) MarkCreateFailed(reason string) {
 }
 
 func (su *SServiceUrl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	su.SetStatus(userCred, api.SERVICEURL_STATUS_CREATING, "")
+	su.SetStatus(ctx, userCred, api.SERVICEURL_STATUS_CREATING, "")
 
 	task, err := taskman.TaskManager.NewTask(ctx, "ServiceUrlCreateTask", su, userCred, nil, "", "")
 	if err != nil {

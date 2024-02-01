@@ -230,10 +230,10 @@ func (self *SHoststorage) StartHostStorageDetachTask(ctx context.Context, userCr
 
 func (self *SHoststorage) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	self.StartHostStorageDetachTask(ctx, userCred)
-	self.SyncStorageStatus(userCred)
+	self.SyncStorageStatus(ctx, userCred)
 }
 
-func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
+func (self *SHoststorage) SyncStorageStatus(ctx context.Context, userCred mcclient.TokenCredential) {
 	storage := self.GetStorage()
 	status := api.STORAGE_OFFLINE
 	hosts, _ := storage.GetAttachedHosts()
@@ -243,7 +243,7 @@ func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 		}
 	}
 	if status != storage.Status {
-		storage.SetStatus(userCred, status, "SyncStorageStatus")
+		storage.SetStatus(ctx, userCred, status, "SyncStorageStatus")
 	}
 }
 

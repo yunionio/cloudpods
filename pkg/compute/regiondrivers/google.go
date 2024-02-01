@@ -192,7 +192,7 @@ func (self *SGoogleRegionDriver) RequestCreateDBInstanceBackup(ctx context.Conte
 
 		result := models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, backup.GetCloudprovider(), instance, region, backups, false)
 		log.Infof("SyncDBInstanceBackups for dbinstance %s(%s) result: %s", instance.Name, instance.Id, result.Result())
-		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")
+		instance.SetStatus(ctx, userCred, api.DBINSTANCE_RUNNING, "")
 		return nil, nil
 	})
 	return nil
@@ -306,7 +306,7 @@ func (self *SGoogleRegionDriver) RequestCreateSecurityGroup(
 	if result.IsError() {
 		return result.AllError()
 	}
-	secgroup.SetStatus(userCred, api.SECGROUP_STATUS_READY, "")
+	secgroup.SetStatus(ctx, userCred, api.SECGROUP_STATUS_READY, "")
 	return nil
 }
 

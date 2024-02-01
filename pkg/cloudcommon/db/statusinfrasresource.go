@@ -87,15 +87,15 @@ func (manager *SStatusInfrasResourceBaseManager) GetPropertyStatistics(ctx conte
 
 // 更新资源状态
 func (self *SStatusInfrasResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	err := StatusBasePerformStatus(self.GetIStatusInfrasModel(), userCred, input)
+	err := StatusBasePerformStatus(ctx, self.GetIStatusInfrasModel(), userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "StatusBasePerformStatus")
 	}
 	return nil, nil
 }
 
-func (model *SStatusInfrasResourceBase) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(model.GetIStatusInfrasModel(), userCred, status, reason)
+func (model *SStatusInfrasResourceBase) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	return statusBaseSetStatus(ctx, model.GetIStatusInfrasModel(), userCred, status, reason)
 }
 
 func (manager *SStatusInfrasResourceBaseManager) ValidateCreateData(

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerCreateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, err error) {
-	lb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_CREATE_FAILED, err.Error())
@@ -66,7 +66,7 @@ func (self *LoadbalancerCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerCreateComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStage("OnLoadbalancerStartComplete", nil)
@@ -78,7 +78,7 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerCreateCompleteFailed(ctx conte
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    lb,
 		Action: notifyclient.ActionCreate,
@@ -87,6 +87,6 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerStartComplete(ctx context.Cont
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
+	lb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }

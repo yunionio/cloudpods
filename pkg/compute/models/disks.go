@@ -954,9 +954,9 @@ func (self *SDisk) StartResetDisk(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	snapshotId string, autoStart bool, guest *SGuest, parentTaskId string,
 ) error {
-	self.SetStatus(userCred, api.DISK_RESET, "")
+	self.SetStatus(ctx, userCred, api.DISK_RESET, "")
 	if guest != nil {
-		guest.SetStatus(userCred, api.VM_DISK_RESET, "disk reset")
+		guest.SetStatus(ctx, userCred, api.VM_DISK_RESET, "disk reset")
 	}
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
@@ -1210,7 +1210,7 @@ func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.DISK_START_SAVE, "")
+	self.SetStatus(ctx, userCred, api.DISK_START_SAVE, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1623,7 +1623,7 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 
 	err = self.ValidatePurgeCondition(ctx)
 	if err != nil {
-		self.SetStatus(userCred, api.DISK_UNKNOWN, "missing original disk after sync")
+		self.SetStatus(ctx, userCred, api.DISK_UNKNOWN, "missing original disk after sync")
 		return err
 	}
 	err = self.RealDelete(ctx, userCred)
@@ -2464,7 +2464,7 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 }
 
 func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
-	self.SetStatus(userCred, api.DISK_START_RESIZE, "StartDiskResizeTask")
+	self.SetStatus(ctx, userCred, api.DISK_START_RESIZE, "StartDiskResizeTask")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(sizeMb), "size")
 	task, err := taskman.TaskManager.NewTask(ctx, "DiskResizeTask", self, userCred, params, parentTaskId, "", pendingUsage)
@@ -2516,7 +2516,7 @@ func (self *SDisk) GetAttachedGuests() []SGuest {
 }
 
 func (self *SDisk) SetDiskReady(ctx context.Context, userCred mcclient.TokenCredential, reason string) {
-	self.SetStatus(userCred, api.DISK_READY, reason)
+	self.SetStatus(ctx, userCred, api.DISK_READY, reason)
 	guests := self.GetAttachedGuests()
 	if guests != nil {
 		for _, guest := range guests {

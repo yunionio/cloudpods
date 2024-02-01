@@ -87,15 +87,15 @@ func (manager *SStatusStandaloneResourceBaseManager) GetPropertyStatistics(ctx c
 
 // 更新资源状态
 func (self *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	err := StatusBasePerformStatus(self.GetIStatusStandaloneModel(), userCred, input)
+	err := StatusBasePerformStatus(ctx, self.GetIStatusStandaloneModel(), userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "StatusBasePerformStatus")
 	}
 	return nil, nil
 }
 
-func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(model.GetIStatusStandaloneModel(), userCred, status, reason)
+func (model *SStatusStandaloneResourceBase) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	return statusBaseSetStatus(ctx, model.GetIStatusStandaloneModel(), userCred, status, reason)
 }
 
 func (model *SStatusStandaloneResourceBase) SetProgress(progress float32) error {

@@ -377,7 +377,7 @@ func (self *SVirtualizedGuestDriver) StartResumeTask(ctx context.Context, userCr
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	guest.SetStatus(userCred, api.VM_START_SAVE_DISK, "")
+	guest.SetStatus(ctx, userCred, api.VM_START_SAVE_DISK, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveImageTask", guest, userCred, params, parentTaskId, "", nil); err != nil {
 		return err
 	} else {
@@ -388,7 +388,7 @@ func (self *SVirtualizedGuestDriver) StartGuestSaveImage(ctx context.Context, us
 
 func (self *SVirtualizedGuestDriver) StartGuestSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,
 	guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	guest.SetStatus(userCred, api.VM_START_SAVE_DISK, "")
+	guest.SetStatus(ctx, userCred, api.VM_START_SAVE_DISK, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveGuestImageTask", guest, userCred, params, parentTaskId,
 		"", nil); err != nil {
 		return err

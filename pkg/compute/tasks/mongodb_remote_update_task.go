@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *MongoDBRemoteUpdateTask) taskFail(ctx context.Context, mongodb *models.SMongoDB, err error) {
-	mongodb.SetStatus(self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
+	mongodb.SetStatus(ctx, self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

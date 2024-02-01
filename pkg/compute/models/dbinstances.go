@@ -525,7 +525,7 @@ func (self *SDBInstance) StartDBInstanceCreateTask(ctx context.Context, userCred
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.DBINSTANCE_DEPLOYING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_DEPLOYING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -924,7 +924,7 @@ func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDBInstance) StartDBInstanceRecoveryTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_RESTORING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_RESTORING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceRecoveryTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -1046,7 +1046,7 @@ func (self *SDBInstance) StartSetAutoRenewTask(ctx context.Context, userCred mcc
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.DBINSTANCE_SET_AUTO_RENEW, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_SET_AUTO_RENEW, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1073,7 +1073,7 @@ func (self *SDBInstance) PerformPublicConnection(ctx context.Context, userCred m
 }
 
 func (self *SDBInstance) StartDBInstancePublicConnectionTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, open bool) error {
-	self.SetStatus(userCred, api.DBINSTANCE_DEPLOYING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_DEPLOYING, "")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewBool(open), "open")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstancePublicConnectionTask", self, userCred, params, parentTaskId, "", nil)
@@ -1101,7 +1101,7 @@ func (self *SDBInstance) PerformChangeConfig(ctx context.Context, userCred mccli
 }
 
 func (self *SDBInstance) StartDBInstanceChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_CHANGE_CONFIG, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_CHANGE_CONFIG, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceChangeConfigTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -1111,7 +1111,7 @@ func (self *SDBInstance) StartDBInstanceChangeConfig(ctx context.Context, userCr
 }
 
 func (self *SDBInstance) StartDBInstanceRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_RENEWING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_RENEWING, "")
 	params := jsonutils.NewDict()
 	params.Set("duration", jsonutils.NewString(duration))
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceRenewTask", self, userCred, params, parentTaskId, "", nil)
@@ -1176,7 +1176,7 @@ func (self *SDBInstance) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 }
 
 func (self *SDBInstance) StartDBInstanceDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_DELETING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceDeleteTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -1186,7 +1186,7 @@ func (self *SDBInstance) StartDBInstanceDeleteTask(ctx context.Context, userCred
 }
 
 func (self *SDBInstance) StartDBInstanceRebootTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_REBOOTING, "")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_REBOOTING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceRebootTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -2103,7 +2103,7 @@ func (self *SDBInstance) StartRemoteUpdateTask(ctx context.Context, userCred mcc
 		log.Errorln(err)
 		return errors.Wrap(err, "Start ElasticcacheRemoteUpdateTask")
 	} else {
-		self.SetStatus(userCred, api.DBINSTANCE_UPDATE_TAGS, "StartRemoteUpdateTask")
+		self.SetStatus(ctx, userCred, api.DBINSTANCE_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil
@@ -2175,7 +2175,7 @@ func (self *SDBInstance) StartSyncSecgroupsTask(ctx context.Context, userCred mc
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.DBINSTANCE_DEPLOYING, "sync secgroups")
+	self.SetStatus(ctx, userCred, api.DBINSTANCE_DEPLOYING, "sync secgroups")
 	task.ScheduleRun(nil)
 	return nil
 }

@@ -209,7 +209,7 @@ func (st *SScheduledTask) PostCreate(ctx context.Context, userCred mcclient.Toke
 	st.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	// add label
 	createFailed := func(reason string) {
-		st.SetStatus(userCred, api.ST_STATUS_CREATE_FAILED, reason)
+		st.SetStatus(ctx, userCred, api.ST_STATUS_CREATE_FAILED, reason)
 		logclient.AddActionLogWithContext(ctx, st, logclient.ACT_CREATE, reason, userCred, false)
 	}
 	labels, _ := data.GetArray("labels")

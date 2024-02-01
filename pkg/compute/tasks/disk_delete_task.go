@@ -128,7 +128,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	if (host == nil || !host.GetEnabled()) && purgeParams {
 		isPurge = true
 	}
-	disk.SetStatus(self.UserCred, api.DISK_DEALLOC, "")
+	disk.SetStatus(ctx, self.UserCred, api.DISK_DEALLOC, "")
 	if isPurge {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 		return
@@ -208,7 +208,7 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 }
 
 func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
-	disk.SetStatus(self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
+	disk.SetStatus(ctx, self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_DELOCATE, reason, self.UserCred, false)

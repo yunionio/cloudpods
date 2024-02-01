@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *LoadbalancerBackendDeleteTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
+	lbb.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 	lbbg, _ := lbb.GetLoadbalancerBackendGroup()

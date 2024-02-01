@@ -139,7 +139,7 @@ func (self *SWafRegexSet) StartDeleteTask(ctx context.Context, userCred mcclient
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.WAF_REGEX_SET_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.WAF_REGEX_SET_STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 

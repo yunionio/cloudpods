@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *ElasticSearchSyncstatusTask) taskFailed(ctx context.Context, es *models.SElasticSearch, err error) {
-	es.SetStatus(self.UserCred, api.ELASTIC_SEARCH_STATUS_UNKNOWN, err.Error())
+	es.SetStatus(ctx, self.UserCred, api.ELASTIC_SEARCH_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(es, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, es, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

@@ -133,7 +133,7 @@ func (bs *SBackupStorage) ValidateDeleteCondition(ctx context.Context, info json
 
 func (bs *SBackupStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	bs.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	bs.SetStatus(userCred, api.BACKUPSTORAGE_STATUS_OFFLINE, "")
+	bs.SetStatus(ctx, userCred, api.BACKUPSTORAGE_STATUS_OFFLINE, "")
 	if bs.StorageType == api.BACKUPSTORAGE_TYPE_OBJECT_STORAGE {
 		err := bs.saveObjectSecret(bs.AccessInfo.ObjectSecret)
 		if err != nil {

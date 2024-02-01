@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *SNatSEntryDeleteTask) taskFailed(ctx context.Context, snat *models.SNatSEntry, err error) {
-	snat.SetStatus(self.UserCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
+	snat.SetStatus(ctx, self.UserCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(snat, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	nat, _ := snat.GetNatgateway()
 	if nat != nil {

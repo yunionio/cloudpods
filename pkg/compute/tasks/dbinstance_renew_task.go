@@ -42,7 +42,7 @@ func init() {
 func (self *DBInstanceRenewTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
 	db.OpsLog.LogEvent(rds, db.ACT_REW_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_RENEW, err, self.UserCred, false)
-	rds.SetStatus(self.GetUserCred(), api.DBINSTANCE_RENEW_FAILED, err.Error())
+	rds.SetStatus(ctx, self.GetUserCred(), api.DBINSTANCE_RENEW_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

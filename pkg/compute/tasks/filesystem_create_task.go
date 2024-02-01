@@ -55,7 +55,7 @@ func init() {
 }
 
 func (self *FileSystemCreateTask) taskFailed(ctx context.Context, fs *models.SFileSystem, err error) {
-	fs.SetStatus(self.UserCred, api.NAS_STATUS_CREATE_FAILED, err.Error())
+	fs.SetStatus(ctx, self.UserCred, api.NAS_STATUS_CREATE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, fs, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

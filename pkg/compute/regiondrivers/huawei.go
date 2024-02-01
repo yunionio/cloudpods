@@ -504,7 +504,7 @@ func (self *SHuaWeiRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 		}
 	}
 
-	return ea.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, "")
+	return ea.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, "")
 }
 
 func (self *SHuaWeiRegionDriver) RequestUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {

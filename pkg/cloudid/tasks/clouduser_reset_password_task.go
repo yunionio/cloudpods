@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *ClouduserResetPasswordTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_RESET_PASSWORD_FAILED, err.Error())
+	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_RESET_PASSWORD_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_RESET_PASSWORD, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -75,7 +75,7 @@ func (self *ClouduserResetPasswordTask) OnInit(ctx context.Context, obj db.IStan
 	}
 
 	clouduser.SavePassword(password)
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
+	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

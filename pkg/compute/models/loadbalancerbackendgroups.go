@@ -507,7 +507,7 @@ func (lbbg *SLoadbalancerBackendGroup) PostCreate(ctx context.Context, userCred 
 }
 
 func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) {
-	lbbg.SetStatus(userCred, api.LB_CREATING, "")
+	lbbg.SetStatus(ctx, userCred, api.LB_CREATING, "")
 	err := func() error {
 		task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerLoadbalancerBackendGroupCreateTask", lbbg, userCred, nil, parentTaskId, "", nil)
 		if err != nil {
@@ -516,7 +516,7 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		lbbg.SetStatus(userCred, api.LB_CREATE_FAILED, err.Error())
+		lbbg.SetStatus(ctx, userCred, api.LB_CREATE_FAILED, err.Error())
 	}
 }
 
@@ -541,7 +541,7 @@ func (lbbg *SLoadbalancerBackendGroup) PerformPurge(ctx context.Context, userCre
 }
 
 func (lbbg *SLoadbalancerBackendGroup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbbg.SetStatus(userCred, api.LB_STATUS_DELETING, "")
+	lbbg.SetStatus(ctx, userCred, api.LB_STATUS_DELETING, "")
 	return lbbg.StartLoadBalancerBackendGroupDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -687,7 +687,7 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemove(ctx context.Context, userCred 
 
 	err := lbbg.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		lbbg.SetStatus(ctx, userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *AppRemoteUpdateTask) taskFail(ctx context.Context, app *models.SApp, err error) {
-	app.SetStatus(self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
+	app.SetStatus(ctx, self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

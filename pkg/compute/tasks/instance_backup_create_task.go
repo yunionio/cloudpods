@@ -39,16 +39,16 @@ func init() {
 
 func (self *InstanceBackupCreateTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, guest *models.SGuest, reason jsonutils.JSONObject, status string) {
 	if guest != nil {
-		guest.SetStatus(self.UserCred, compute.VM_INSTANCE_BACKUP_FAILED, reason.String())
+		guest.SetStatus(ctx, self.UserCred, compute.VM_INSTANCE_BACKUP_FAILED, reason.String())
 	}
 	reasonStr, _ := reason.GetString()
-	ib.SetStatus(self.UserCred, status, reasonStr)
+	ib.SetStatus(ctx, self.UserCred, status, reasonStr)
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_CREATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *InstanceBackupCreateTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup, guest *models.SGuest) {
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
+	ib.SetStatus(ctx, self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_CREATE, nil, self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    guest,
@@ -62,7 +62,7 @@ func (self *InstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStanda
 	self.SetStage("OnInstanceBackup", nil)
 	guest := models.GuestManager.FetchGuestById(ib.GuestId)
 	params := jsonutils.NewDict()
-	ib.SetStatus(self.GetUserCred(), compute.INSTANCE_BACKUP_STATUS_SNAPSHOT, "")
+	ib.SetStatus(ctx, self.GetUserCred(), compute.INSTANCE_BACKUP_STATUS_SNAPSHOT, "")
 	if err := ib.GetRegionDriver().RequestCreateInstanceBackup(ctx, guest, ib, self, params); err != nil {
 		self.taskFailed(ctx, ib, guest, jsonutils.NewString(err.Error()), compute.INSTANCE_BACKUP_STATUS_SNAPSHOT_FAILED)
 	}
@@ -98,7 +98,7 @@ func (self *InstanceBackupCreateTask) OnKvmDisksSnapshot(ctx context.Context, ib
 			return
 		}
 	}
-	ib.SetStatus(self.GetUserCred(), compute.INSTANCE_BACKUP_STATUS_SAVING, "")
+	ib.SetStatus(ctx, self.GetUserCred(), compute.INSTANCE_BACKUP_STATUS_SAVING, "")
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 }
 

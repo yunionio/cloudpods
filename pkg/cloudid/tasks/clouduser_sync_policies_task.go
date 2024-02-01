@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *ClouduserSyncPoliciesTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_POLICIES_FAILED, err.Error())
+	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_POLICIES_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -69,7 +69,7 @@ func (self *ClouduserSyncPoliciesTask) OnInit(ctx context.Context, obj db.IStand
 	}
 
 	if !self.IsSubtask() {
-		user.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
+		user.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	}
 	self.SetStageComplete(ctx, nil)
 }

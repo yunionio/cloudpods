@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *CloudpolicyDeleteTask) taskFailed(ctx context.Context, policy *models.SCloudpolicy, err error) {
-	policy.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_DELETE_FAILED, err.Error())
+	policy.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_DELETE_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

@@ -146,7 +146,7 @@ func (self *STablestore) syncRemoveCloudTablestore(ctx context.Context, userCred
 
 	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		self.SetStatus(userCred, api.TABLESTORE_STATUS_UNKNOWN, "Sync to remove")
+		self.SetStatus(ctx, userCred, api.TABLESTORE_STATUS_UNKNOWN, "Sync to remove")
 		return err
 	}
 	return self.RealDelete(ctx, userCred)
@@ -254,7 +254,7 @@ func (self *STablestore) ValidateUpdateData(ctx context.Context, userCred mcclie
 }
 
 func (self *STablestore) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 	return nil
 }
 

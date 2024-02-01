@@ -55,7 +55,7 @@ func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.S
 		log.Errorf("request_deploy_guest_on_host %s", err)
 		self.OnDeployGuestFail(ctx, guest, err)
 	} else {
-		guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP, "")
+		guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING_BACKUP, "")
 	}
 }
 
@@ -101,6 +101,6 @@ func (self *GuestDeployBackupTask) OnDeployGuestComplete(ctx context.Context, gu
 
 func (self *GuestDeployBackupTask) OnDeployGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetGuestBackupMirrorJobNotReady(ctx, self.UserCred)
-	guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP_FAILED, data.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING_BACKUP_FAILED, data.String())
 	self.SetStageComplete(ctx, nil)
 }

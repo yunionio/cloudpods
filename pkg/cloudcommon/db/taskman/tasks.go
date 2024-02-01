@@ -560,7 +560,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 			}
 			statusObj, ok := obj.(db.IStatusStandaloneModel)
 			if ok {
-				db.StatusBaseSetStatus(statusObj, task.GetUserCred(), apis.STATUS_UNKNOWN, fmt.Sprintf("%v", r))
+				db.StatusBaseSetStatus(ctx, statusObj, task.GetUserCred(), apis.STATUS_UNKNOWN, fmt.Sprintf("%v", r))
 			}
 			notes := map[string]interface{}{
 				"Stack":   string(debug.Stack()),

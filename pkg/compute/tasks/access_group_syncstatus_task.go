@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *AccessGroupSyncstatusTask) taskFail(ctx context.Context, ag *models.SAccessGroup, err error) {
-	ag.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	ag.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	logclient.AddActionLogWithStartable(self, ag, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

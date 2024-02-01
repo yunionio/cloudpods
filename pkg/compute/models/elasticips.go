@@ -1063,7 +1063,7 @@ func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mccli
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.EIP_STATUS_ALLOCATE, "start allocate")
+	self.SetStatus(ctx, userCred, api.EIP_STATUS_ALLOCATE, "start allocate")
 	return task.ScheduleRun(nil)
 }
 
@@ -1097,7 +1097,7 @@ func (self *SElasticip) StartEipDeallocateTask(ctx context.Context, userCred mcc
 		log.Errorf("newTask EipDeallocateTask fail %s", err)
 		return err
 	}
-	self.SetStatus(userCred, api.EIP_STATUS_DEALLOCATE, "start to delete")
+	self.SetStatus(ctx, userCred, api.EIP_STATUS_DEALLOCATE, "start to delete")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1288,7 +1288,7 @@ func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mccl
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.EIP_STATUS_ASSOCIATE, "start to associate")
+	self.SetStatus(ctx, userCred, api.EIP_STATUS_ASSOCIATE, "start to associate")
 	return task.ScheduleRun(nil)
 }
 
@@ -1330,7 +1330,7 @@ func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcc
 		log.Errorf("create EipDissociateTask fail %s", err)
 		return nil
 	}
-	self.SetStatus(userCred, api.EIP_STATUS_DISSOCIATE, "start to dissociate")
+	self.SetStatus(ctx, userCred, api.EIP_STATUS_DISSOCIATE, "start to dissociate")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -1368,7 +1368,7 @@ func (self *SElasticip) PerformSyncstatus(ctx context.Context, userCred mcclient
 	if self.IsManaged() {
 		return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
 	} else {
-		return nil, self.SetStatus(userCred, api.EIP_STATUS_READY, "eip sync status")
+		return nil, self.SetStatus(ctx, userCred, api.EIP_STATUS_READY, "eip sync status")
 	}
 }
 
@@ -1752,7 +1752,7 @@ func (eip *SElasticip) AllocateAndAssociateInstance(ctx context.Context, userCre
 
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 
-	db.StatusBaseSetStatus(ins, userCred, api.INSTANCE_ASSOCIATE_EIP, "allocate and associate EIP")
+	db.StatusBaseSetStatus(ctx, ins, userCred, api.INSTANCE_ASSOCIATE_EIP, "allocate and associate EIP")
 	return eip.startEipAllocateTask(ctx, userCred, params, parentTaskId)
 }
 
@@ -1786,7 +1786,7 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 
 func (self *SElasticip) StartEipChangeBandwidthTask(ctx context.Context, userCred mcclient.TokenCredential, bandwidth int64) error {
 
-	self.SetStatus(userCred, api.EIP_STATUS_CHANGE_BANDWIDTH, "change bandwidth")
+	self.SetStatus(ctx, userCred, api.EIP_STATUS_CHANGE_BANDWIDTH, "change bandwidth")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(bandwidth), "bandwidth")
@@ -1800,7 +1800,7 @@ func (self *SElasticip) StartEipChangeBandwidthTask(ctx context.Context, userCre
 	return nil
 }
 
-func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, bandwidth int) error {
+func (self *SElasticip) DoChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, bandwidth int) error {
 	changes := jsonutils.NewDict()
 	changes.Add(jsonutils.NewInt(int64(self.Bandwidth)), "obw")
 
@@ -1809,7 +1809,7 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 		return nil
 	})
 
-	self.SetStatus(userCred, api.EIP_STATUS_READY, "finish change bandwidth")
+	self.SetStatus(ctx, userCred, api.EIP_STATUS_READY, "finish change bandwidth")
 
 	if err != nil {
 		log.Errorf("DoChangeBandwidth update fail %s", err)
@@ -1952,7 +1952,7 @@ func (self *SElasticip) StartRemoteUpdateTask(ctx context.Context, userCred mccl
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	self.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

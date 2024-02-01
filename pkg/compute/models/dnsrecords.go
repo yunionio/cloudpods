@@ -162,7 +162,7 @@ func (self *SDnsRecord) StartCreateTask(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.DNS_RECORDSET_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.DNS_RECORDSET_STATUS_CREATING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -332,7 +332,7 @@ func (self *SDnsRecord) StartDeleteTask(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -408,7 +408,7 @@ func (self *SDnsRecord) StartUpdateTask(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -698,7 +698,7 @@ func (self *SDnsRecord) StartSetEnabledTask(ctx context.Context, userCred mcclie
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
 	return task.ScheduleRun(nil)
 }
 

@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *KafkaRemoteUpdateTask) taskFail(ctx context.Context, kafka *models.SKafka, reason jsonutils.JSONObject) {
-	kafka.SetStatus(self.UserCred, api.KAFKA_UPDATE_TAGS_FAILED, reason.String())
+	kafka.SetStatus(ctx, self.UserCred, api.KAFKA_UPDATE_TAGS_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

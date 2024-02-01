@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *FileSystemSyncstatusTask) taskFail(ctx context.Context, nas *models.SFileSystem, err error) {
-	nas.SetStatus(self.GetUserCred(), api.NAS_STATUS_UNKNOWN, err.Error())
+	nas.SetStatus(ctx, self.GetUserCred(), api.NAS_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(nas, db.ACT_SYNC_STATUS, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, nas, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

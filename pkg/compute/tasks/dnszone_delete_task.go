@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *DnsZoneDeleteTask) taskFailed(ctx context.Context, dnsZone *models.SDnsZone, err error) {
-	dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_DELETE_FAILED, err.Error())
+	dnsZone.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(dnsZone, db.ACT_DELETE, dnsZone.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, dnsZone, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

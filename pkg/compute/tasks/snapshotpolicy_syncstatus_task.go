@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *SnapshotpolicySyncstatusTask) taskFailed(ctx context.Context, sp *models.SSnapshotPolicy, err error) {
-	sp.SetStatus(self.UserCred, apis.STATUS_UNKNOWN, err.Error())
+	sp.SetStatus(ctx, self.UserCred, apis.STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(sp, db.ACT_SYNC_STATUS, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

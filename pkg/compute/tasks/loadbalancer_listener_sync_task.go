@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerListenerSyncTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, err error) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, err.Error())
+	lblis.SetStatus(ctx, self.GetUserCred(), api.LB_SYNC_CONF_FAILED, err.Error())
 	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_CONF, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, err.Error())
@@ -78,6 +78,6 @@ func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncStatusComple
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncStatusCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_UNKNOWN, reason.String())
+	lblis.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_UNKNOWN, reason.String())
 	self.SetStageFailed(ctx, reason)
 }

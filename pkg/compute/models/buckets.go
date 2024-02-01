@@ -399,7 +399,7 @@ func (bucket *SBucket) StartBucketDeleteTask(ctx context.Context, userCred mccli
 		log.Errorf("%s", err)
 		return err
 	}
-	bucket.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartBucketDeleteTask")
+	bucket.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_START_DELETE, "StartBucketDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -516,10 +516,10 @@ func (bucket *SBucket) PostCreate(
 		}
 	}
 
-	bucket.SetStatus(userCred, api.BUCKET_STATUS_START_CREATE, "PostCreate")
+	bucket.SetStatus(ctx, userCred, api.BUCKET_STATUS_START_CREATE, "PostCreate")
 	task, err := taskman.TaskManager.NewTask(ctx, "BucketCreateTask", bucket, userCred, nil, "", "", nil)
 	if err != nil {
-		bucket.SetStatus(userCred, api.BUCKET_STATUS_CREATE_FAIL, errors.Wrapf(err, "NewTask").Error())
+		bucket.SetStatus(ctx, userCred, api.BUCKET_STATUS_CREATE_FAIL, errors.Wrapf(err, "NewTask").Error())
 		return
 	}
 	task.ScheduleRun(nil)

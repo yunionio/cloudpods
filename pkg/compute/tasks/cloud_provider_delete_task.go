@@ -37,17 +37,17 @@ func init() {
 func (self *CloudProviderDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
 
-	provider.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETING, "StartDiskCloudproviderTask")
+	provider.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETING, "StartDiskCloudproviderTask")
 
 	err := provider.RealDelete(ctx, self.UserCred)
 	if err != nil {
-		provider.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, "StartDiskCloudproviderTask")
+		provider.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, "StartDiskCloudproviderTask")
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		logclient.AddActionLogWithStartable(self, provider, logclient.ACT_DELETE, err, self.UserCred, false)
 		return
 	}
 
-	provider.SetStatus(self.UserCred, api.CLOUD_PROVIDER_DELETED, "StartDiskCloudproviderTask")
+	provider.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETED, "StartDiskCloudproviderTask")
 
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, provider, logclient.ACT_DELETE, nil, self.UserCred, true)

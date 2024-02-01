@@ -38,7 +38,7 @@ func init() {
 }
 
 func (self *AccessGroupRuleDeleteTask) taskFailed(ctx context.Context, rule *models.SAccessGroupRule, err error) {
-	rule.SetStatus(self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
+	rule.SetStatus(ctx, self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, rule, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

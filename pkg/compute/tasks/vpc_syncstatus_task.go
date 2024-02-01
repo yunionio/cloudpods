@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *VpcSyncstatusTask) taskFail(ctx context.Context, vpc *models.SVpc, msg jsonutils.JSONObject) {
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_UNKNOWN, msg.String())
+	vpc.SetStatus(ctx, self.UserCred, api.VPC_STATUS_UNKNOWN, msg.String())
 	db.OpsLog.LogEvent(vpc, db.ACT_SYNC_STATUS, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_SYNC_STATUS, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, msg)

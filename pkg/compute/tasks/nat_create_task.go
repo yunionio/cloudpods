@@ -41,7 +41,7 @@ func init() {
 }
 
 func (self *NatGatewayCreateTask) taskFailed(ctx context.Context, nat *models.SNatGateway, err error) {
-	nat.SetStatus(self.UserCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
+	nat.SetStatus(ctx, self.UserCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -173,7 +173,7 @@ func (self *NatGatewayCreateTask) OnCreateNatGatewayCreateCompleteFailed(ctx con
 }
 
 func (self *NatGatewayCreateTask) OnDeployEipCompleteFailed(ctx context.Context, nat *models.SNatGateway, data jsonutils.JSONObject) {
-	nat.SetStatus(self.UserCred, api.INSTANCE_ASSOCIATE_EIP_FAILED, data.String())
+	nat.SetStatus(ctx, self.UserCred, api.INSTANCE_ASSOCIATE_EIP_FAILED, data.String())
 	db.OpsLog.LogEvent(nat, db.ACT_EIP_ATTACH, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_EIP_ASSOCIATE, data, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, nat.Id, nat.Name, api.INSTANCE_ASSOCIATE_EIP_FAILED, data.String())

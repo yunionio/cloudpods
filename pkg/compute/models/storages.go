@@ -289,7 +289,7 @@ func (manager *SStorageManager) ValidateCreateData(
 
 func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.SetEnabled(true)
-	self.SetStatus(userCred, api.STORAGE_UNMOUNT, "CustomizeCreate")
+	self.SetStatus(ctx, userCred, api.STORAGE_UNMOUNT, "CustomizeCreate")
 	if err := self.setHardwareInfoByData(ctx, userCred, data); err != nil {
 		return errors.Wrap(err, "setHardwareInfo")
 	}
@@ -346,7 +346,7 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 	}
 }
 
-func (self *SStorage) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+func (self *SStorage) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
 	if self.Status == status {
 		return nil
 	}
@@ -407,7 +407,7 @@ func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.Toke
 
 func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != api.STORAGE_ONLINE {
-		err := self.SetStatus(userCred, api.STORAGE_ONLINE, "")
+		err := self.SetStatus(ctx, userCred, api.STORAGE_ONLINE, "")
 		if err != nil {
 			return nil, err
 		}
@@ -419,7 +419,7 @@ func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.Token
 
 func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != api.STORAGE_OFFLINE {
-		err := self.SetStatus(userCred, api.STORAGE_OFFLINE, data.String())
+		err := self.SetStatus(ctx, userCred, api.STORAGE_OFFLINE, data.String())
 		if err != nil {
 			return nil, err
 		}
@@ -813,7 +813,7 @@ func (self *SStorage) GetAttachedHosts() ([]SHost, error) {
 	return hostList, nil
 }
 
-func (self *SStorage) SyncStatusWithHosts() {
+func (self *SStorage) SyncStatusWithHosts(ctx context.Context) {
 	hosts, err := self.GetAttachedHosts()
 	if err != nil {
 		return
@@ -848,7 +848,7 @@ func (self *SStorage) SyncStatusWithHosts() {
 		status = api.STORAGE_UNMOUNT
 	}
 	if status != self.Status {
-		self.SetStatus(nil, status, "SyncStatusWithHosts")
+		self.SetStatus(ctx, nil, status, "SyncStatusWithHosts")
 	}
 }
 

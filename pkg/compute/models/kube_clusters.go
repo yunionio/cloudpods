@@ -225,7 +225,7 @@ func (self *SKubeCluster) syncRemoveCloudKubeCluster(ctx context.Context, userCr
 
 	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		self.SetStatus(userCred, apis.STATUS_UNKNOWN, "sync to delete")
+		self.SetStatus(ctx, userCred, apis.STATUS_UNKNOWN, "sync to delete")
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
 	return self.RealDelete(ctx, userCred)
@@ -505,7 +505,7 @@ func (self *SKubeCluster) StartKubeClusterCreateTask(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.KUBE_CLUSTER_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.KUBE_CLUSTER_STATUS_CREATING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -533,7 +533,7 @@ func (self *SKubeCluster) GetIKubeCluster(ctx context.Context) (cloudprovider.IC
 }
 
 func (self *SKubeCluster) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 	return nil
 }
 

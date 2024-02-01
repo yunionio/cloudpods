@@ -54,7 +54,7 @@ func (self *GuestRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, g
 }
 
 func (self *GuestRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_UPDATE_TAGS_FAILED, data.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_UPDATE_TAGS_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
 

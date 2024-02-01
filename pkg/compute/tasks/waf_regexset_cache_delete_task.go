@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *WafRegexSetCacheDeleteTask) taskFailed(ctx context.Context, cache *models.SWafRegexSetCache, err error) {
-	cache.SetStatus(self.UserCred, api.WAF_REGEX_SET_STATUS_DELETE_FAILED, err.Error())
+	cache.SetStatus(ctx, self.UserCred, api.WAF_REGEX_SET_STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, cache, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

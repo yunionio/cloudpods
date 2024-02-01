@@ -62,7 +62,7 @@ func (task *GuestConvertEsxiToKvmTask) GetSchedParams() (*schedapi.ScheduleInput
 
 func (task *GuestConvertEsxiToKvmTask) OnStartSchedule(obj IScheduleModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(task.UserCred, api.VM_CONVERTING, "")
+	guest.SetStatus(context.Background(), task.UserCred, api.VM_CONVERTING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERTING, "", task.UserCred)
 }
 
@@ -72,9 +72,9 @@ func (task *GuestConvertEsxiToKvmTask) OnScheduleFailed(ctx context.Context, rea
 }
 
 func (task *GuestConvertEsxiToKvmTask) taskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(task.UserCred, api.VM_CONVERT_FAILED, reason.String())
+	guest.SetStatus(ctx, task.UserCred, api.VM_CONVERT_FAILED, reason.String())
 	targetGuest := task.getTargetGuest()
-	targetGuest.SetStatus(task.UserCred, api.VM_CONVERT_FAILED, reason.String())
+	targetGuest.SetStatus(ctx, task.UserCred, api.VM_CONVERT_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT_FAIL, reason, task.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, reason, task.UserCred, false)
 	logclient.AddSimpleActionLog(targetGuest, logclient.ACT_VM_CONVERT, reason, task.UserCred, false)
@@ -200,7 +200,7 @@ func (task *GuestConvertEsxiToKvmTask) OnHostCreateGuestFailed(
 
 func (task *GuestConvertEsxiToKvmTask) TaskComplete(ctx context.Context, guest, targetGuest *models.SGuest) {
 	guest.SetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, targetGuest.Id, task.UserCred)
-	guest.SetStatus(task.UserCred, api.VM_CONVERTED, "")
+	guest.SetStatus(ctx, task.UserCred, api.VM_CONVERTED, "")
 	if osProfile := guest.GetMetadata(ctx, "__os_profile__", task.UserCred); len(osProfile) > 0 {
 		targetGuest.SetMetadata(ctx, "__os_profile__", osProfile, task.UserCred)
 	}

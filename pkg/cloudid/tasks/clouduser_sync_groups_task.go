@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *ClouduserSyncGroupsTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_GROUPS_FAILED, err.Error())
+	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_SYNC_GROUPS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -108,7 +108,7 @@ func (self *ClouduserSyncGroupsTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 
 	if !self.IsSubtask() {
-		user.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
+		user.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	}
 	self.SetStageComplete(ctx, nil)
 }

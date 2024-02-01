@@ -189,7 +189,7 @@ func (lbacl *SCachedLoadbalancerAcl) PerformPurge(ctx context.Context, userCred 
 }
 
 func (lbacl *SCachedLoadbalancerAcl) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbacl.SetStatus(userCred, api.LB_STATUS_DELETING, "")
+	lbacl.SetStatus(ctx, userCred, api.LB_STATUS_DELETING, "")
 	return lbacl.StartLoadBalancerAclDeleteTask(ctx, userCred, query.(*jsonutils.JSONDict), "")
 }
 

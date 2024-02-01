@@ -102,7 +102,7 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	if bss != nil {
 		bs := bss.GetStorage()
 		if bs != nil {
-			bs.SetStatus(userCred, api.STORAGE_ONLINE, "")
+			bs.SetStatus(ctx, userCred, api.STORAGE_ONLINE, "")
 		} else {
 			log.Errorf("ERROR: baremetal storage is None???")
 		}
@@ -136,7 +136,7 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 func (self *SBaseHostDriver) CleanSchedCache(host *models.SHost) error {
 	return host.ClearSchedDescCache()
 }
-func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, host *models.SHost, guest *models.SGuest, hostType string) error {
+func (self *SBaseHostDriver) FinishConvert(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, guest *models.SGuest, hostType string) error {
 	_, err := db.Update(guest, func() error {
 		guest.VmemSize = 0
 		guest.VcpuCount = 0
@@ -157,7 +157,7 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 		})
 	}
 	bs := host.GetBaremetalstorage().GetStorage()
-	bs.SetStatus(userCred, api.STORAGE_OFFLINE, "")
+	bs.SetStatus(ctx, userCred, api.STORAGE_OFFLINE, "")
 	db.Update(host, func() error {
 		host.Name = guest.GetName()
 		host.CpuReserved = 0

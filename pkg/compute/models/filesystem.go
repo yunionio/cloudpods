@@ -203,10 +203,10 @@ func (fileSystem *SFileSystem) StartCreateTask(ctx context.Context, userCred mcc
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		fileSystem.SetStatus(userCred, api.NAS_STATUS_CREATE_FAILED, err.Error())
+		fileSystem.SetStatus(ctx, userCred, api.NAS_STATUS_CREATE_FAILED, err.Error())
 		return err
 	}
-	fileSystem.SetStatus(userCred, api.NAS_STATUS_CREATING, "")
+	fileSystem.SetStatus(ctx, userCred, api.NAS_STATUS_CREATING, "")
 	return nil
 }
 
@@ -387,7 +387,7 @@ func (fileSystem *SFileSystem) syncRemove(ctx context.Context, userCred mcclient
 
 	err := fileSystem.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		return fileSystem.SetStatus(userCred, api.NAS_STATUS_UNKNOWN, "sync to delete")
+		return fileSystem.SetStatus(ctx, userCred, api.NAS_STATUS_UNKNOWN, "sync to delete")
 	}
 
 	err = fileSystem.RealDelete(ctx, userCred)
@@ -415,10 +415,10 @@ func (fileSystem *SFileSystem) StartDeleteTask(ctx context.Context, userCred mcc
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		fileSystem.SetStatus(userCred, api.NAS_STATUS_DELETE_FAILED, err.Error())
+		fileSystem.SetStatus(ctx, userCred, api.NAS_STATUS_DELETE_FAILED, err.Error())
 		return nil
 	}
-	fileSystem.SetStatus(userCred, api.NAS_STATUS_DELETING, "")
+	fileSystem.SetStatus(ctx, userCred, api.NAS_STATUS_DELETING, "")
 	return nil
 }
 
@@ -639,7 +639,7 @@ func (fileSystem *SFileSystem) StartRemoteUpdateTask(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	fileSystem.SetStatus(userCred, api.NAS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	fileSystem.SetStatus(ctx, userCred, api.NAS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

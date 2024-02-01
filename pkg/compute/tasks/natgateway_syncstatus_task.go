@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *NatGatewaySyncstatusTask) taskFailed(ctx context.Context, natgateway *models.SNatGateway, err error) {
-	natgateway.SetStatus(self.GetUserCred(), api.NAT_STATUS_UNKNOWN, err.Error())
+	natgateway.SetStatus(ctx, self.GetUserCred(), api.NAT_STATUS_UNKNOWN, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	db.OpsLog.LogEvent(natgateway, db.ACT_SYNC_STATUS, natgateway.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, natgateway, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)

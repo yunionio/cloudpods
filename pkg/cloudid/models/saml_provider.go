@@ -148,7 +148,7 @@ func (self *SSAMLProvider) StartSAMLProviderDeleteTask(ctx context.Context, user
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.SAML_PROVIDER_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -174,7 +174,7 @@ func (self *SSAMLProvider) StartSAMLProviderUpdateMetadataTask(ctx context.Conte
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.SAML_PROVIDER_STATUS_UPDATE_METADATA, "")
+	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_UPDATE_METADATA, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -184,7 +184,7 @@ func (self *SSAMLProvider) StartSAMLProviderCreateTask(ctx context.Context, user
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.SAML_PROVIDER_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_CREATING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -194,7 +194,7 @@ func (self *SSAMLProvider) StartSAMLProviderSyncTask(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.SAML_PROVIDER_STATUS_SYNC, "")
+	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_SYNC, "")
 	task.ScheduleRun(nil)
 	return nil
 }

@@ -265,7 +265,7 @@ func (self *SElasticcacheBackup) GetOwnerId() mcclient.IIdentityProvider {
 
 func (self *SElasticcacheBackup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	self.SetStatus(userCred, api.ELASTIC_CACHE_BACKUP_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_BACKUP_STATUS_CREATING, "")
 	if err := self.StartElasticcacheBackupCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
 		log.Errorf("Failed to create elastic cache backup error: %v", err)
 	}
@@ -299,7 +299,7 @@ func (self *SElasticcacheBackup) PerformRestoreInstance(ctx context.Context, use
 		return nil, err
 	}
 
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_BACKUPRECOVERING, "")
+	self.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_BACKUPRECOVERING, "")
 	return nil, self.StartRestoreInstanceTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 

@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *CloudpolicyUpdateTask) taskFailed(ctx context.Context, policy *models.SCloudpolicy, err error) {
-	policy.SetStatus(self.GetUserCred(), api.CLOUD_POLICY_STATUS_SYNC_FAILE, err.Error())
+	policy.SetStatus(ctx, self.GetUserCred(), api.CLOUD_POLICY_STATUS_SYNC_FAILE, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -71,6 +71,6 @@ func (self *CloudpolicyUpdateTask) OnInit(ctx context.Context, obj db.IStandalon
 		}
 	}
 
-	policy.SetStatus(self.GetUserCred(), api.CLOUD_POLICY_STATUS_AVAILABLE, "")
+	policy.SetStatus(ctx, self.GetUserCred(), api.CLOUD_POLICY_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

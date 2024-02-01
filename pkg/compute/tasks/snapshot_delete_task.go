@@ -60,7 +60,7 @@ func (self *SnapshotDeleteTask) OnManagedSnapshotDelete(ctx context.Context, sna
 }
 
 func (self *SnapshotDeleteTask) OnKvmSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "")
+	snapshot.SetStatus(ctx, self.UserCred, api.SNAPSHOT_READY, "")
 	if jsonutils.QueryBoolean(self.Params, "reload_disk", false) && snapshot.OutOfChain {
 		self.SetStage("OnReloadDiskSnapshot", nil)
 		self.OnReloadDiskSnapshot(ctx, snapshot, data)
@@ -90,7 +90,7 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 		log.Infof("OnDeleteSnapshot with no deleted")
 		return
 	}
-	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "OnDeleteSnapshot")
+	snapshot.SetStatus(ctx, self.UserCred, api.SNAPSHOT_READY, "OnDeleteSnapshot")
 	if snapshot.OutOfChain {
 		snapshot.RealDelete(ctx, self.UserCred)
 		self.TaskComplete(ctx, snapshot, nil)
@@ -158,7 +158,7 @@ func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *mode
 }
 
 func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason jsonutils.JSONObject) {
-	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_DELETE_FAILED, reason.String())
+	snapshot.SetStatus(ctx, self.UserCred, api.SNAPSHOT_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)

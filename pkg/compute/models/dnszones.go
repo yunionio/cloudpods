@@ -204,7 +204,7 @@ func (self *SDnsZone) StartDnsZoneCreateTask(ctx context.Context, userCred mccli
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.DNS_ZONE_STATUS_CREATING, "")
+	self.SetStatus(ctx, userCred, api.DNS_ZONE_STATUS_CREATING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -352,7 +352,7 @@ func (self *SDnsZone) StartDnsZoneDeleteTask(ctx context.Context, userCred mccli
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.DNS_ZONE_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.DNS_ZONE_STATUS_DELETING, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -594,7 +594,7 @@ func (self *SDnsZone) StartDnsZoneAddVpcsTask(ctx context.Context, userCred mccl
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
 	return task.ScheduleRun(nil)
 }
 
@@ -605,7 +605,7 @@ func (self *SDnsZone) StartDnsZoneRemoveVpcsTask(ctx context.Context, userCred m
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
 	return task.ScheduleRun(nil)
 }
 

@@ -138,7 +138,7 @@ func (extProj *SExternalProject) RemoteCreateProject(ctx context.Context, userCr
 	if err == nil {
 		return nil
 	}
-	extProj.SetStatus(userCred, api.EXTERNAL_PROJECT_STATUS_UNAVAILABLE, err.Error())
+	extProj.SetStatus(ctx, userCred, api.EXTERNAL_PROJECT_STATUS_UNAVAILABLE, err.Error())
 
 	return errors.Wrap(err, "remoteCreateProjectInternal")
 }
@@ -205,7 +205,7 @@ func (extProj *SExternalProject) PostCreate(
 }
 
 func (extProj *SExternalProject) startExternalProjectCreateTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	extProj.SetStatus(userCred, api.EXTERNAL_PROJECT_STATUS_CREATING, "")
+	extProj.SetStatus(ctx, userCred, api.EXTERNAL_PROJECT_STATUS_CREATING, "")
 	params := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "ExternalProjectCreateTask", extProj, userCred, params, "", "", nil)
 	if err != nil {
@@ -297,7 +297,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 
 	for i := 0; i < len(removed); i++ {
 		if removed[i].Source == apis.EXTERNAL_RESOURCE_SOURCE_LOCAL {
-			removed[i].SetStatus(userCred, api.EXTERNAL_PROJECT_STATUS_UNKNOWN, "sync delete")
+			removed[i].SetStatus(ctx, userCred, api.EXTERNAL_PROJECT_STATUS_UNKNOWN, "sync delete")
 		} else {
 			err = removed[i].syncRemoveCloudProject(ctx, userCred)
 			if err != nil {

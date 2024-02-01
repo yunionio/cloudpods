@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *KubeNodePoolSyncstatusTask) taskFailed(ctx context.Context, pool *models.SKubeNodePool, err error) {
-	pool.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	pool.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(pool, db.ACT_SYNC_STATUS, pool.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, pool, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -51,7 +51,7 @@ func (self *KubeNodePoolSyncstatusTask) OnInit(ctx context.Context, obj db.IStan
 		return
 	}
 
-	err = pool.SetStatus(self.UserCred, iNodePool.GetStatus(), "")
+	err = pool.SetStatus(ctx, self.UserCred, iNodePool.GetStatus(), "")
 	if err != nil {
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "SetStatus"))
 		return

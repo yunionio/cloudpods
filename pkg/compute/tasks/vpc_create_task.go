@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *VpcCreateTask) taskFailed(ctx context.Context, vpc *models.SVpc, err error) {
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_FAILED, err.Error())
+	vpc.SetStatus(ctx, self.UserCred, api.VPC_STATUS_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -45,7 +45,7 @@ func (self *VpcCreateTask) taskFailed(ctx context.Context, vpc *models.SVpc, err
 
 func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_PENDING, "")
+	vpc.SetStatus(ctx, self.UserCred, api.VPC_STATUS_PENDING, "")
 
 	region, err := vpc.GetRegion()
 	if err != nil {

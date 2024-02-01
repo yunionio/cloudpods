@@ -699,7 +699,7 @@ func (alert *SV1Alert) UpdateIsEnabledStatus(ctx context.Context, userCred mccli
 				return err
 			}
 			db.Update(&alert.SAlert, func() error {
-				alert.SetStatus(userCred, V1AlertDisabledStatus, "")
+				alert.SetStatus(ctx, userCred, V1AlertDisabledStatus, "")
 				return nil
 			})
 		} else {
@@ -707,7 +707,7 @@ func (alert *SV1Alert) UpdateIsEnabledStatus(ctx context.Context, userCred mccli
 				return err
 			}
 			db.Update(&alert.SAlert, func() error {
-				alert.SetStatus(userCred, V1AlertEnabledStatus, "")
+				alert.SetStatus(ctx, userCred, V1AlertEnabledStatus, "")
 				return nil
 			})
 		}

@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheDeleteTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason.String())
+	elasticcache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_DELETE, reason, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
@@ -61,7 +61,7 @@ func (self *ElasticcacheDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		self.taskFail(ctx, ec, jsonutils.NewString(err.Error()))
 		return
 	} else {
-		ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASED, "")
+		ec.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASED, "")
 		ec.RealDelete(ctx, self.UserCred)
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_DELETE, "", self.UserCred, true)
 		notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{

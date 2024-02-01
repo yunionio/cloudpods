@@ -39,7 +39,7 @@ func init() {
 }
 
 func (modelartsDeleteTask *ModelartsPoolDeleteTask) taskFailed(ctx context.Context, status string, mp *models.SModelartsPool, err error) {
-	mp.SetStatus(modelartsDeleteTask.UserCred, status, err.Error())
+	mp.SetStatus(ctx, modelartsDeleteTask.UserCred, status, err.Error())
 	db.OpsLog.LogEvent(mp, db.ACT_DELETE_FAIL, err, modelartsDeleteTask.UserCred)
 	logclient.AddActionLogWithStartable(modelartsDeleteTask, mp, logclient.ACT_DELOCATE, err, modelartsDeleteTask.UserCred, false)
 	modelartsDeleteTask.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

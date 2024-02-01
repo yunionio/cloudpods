@@ -386,10 +386,10 @@ func (self *SMongoDB) StartDeleteTask(ctx context.Context, userCred mcclient.Tok
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.MONGO_DB_STATUS_DELETE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, api.MONGO_DB_STATUS_DELETE_FAILED, err.Error())
 		return err
 	}
-	return self.SetStatus(userCred, api.MONGO_DB_STATUS_DELETING, "")
+	return self.SetStatus(ctx, userCred, api.MONGO_DB_STATUS_DELETING, "")
 }
 
 func (self *SCloudregion) GetMongoDBs(managerId string) ([]SMongoDB, error) {
@@ -829,7 +829,7 @@ func (self *SMongoDB) StartRemoteUpdateTask(ctx context.Context, userCred mcclie
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	self.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

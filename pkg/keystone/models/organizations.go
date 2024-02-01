@@ -478,8 +478,8 @@ func (org *SOrganization) removeAll(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (org *SOrganization) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	return db.StatusBaseSetStatus(org, userCred, status, reason)
+func (org *SOrganization) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	return db.StatusBaseSetStatus(ctx, org, userCred, status, reason)
 }
 
 func (org *SOrganization) startOrganizationSyncTask(
@@ -487,7 +487,7 @@ func (org *SOrganization) startOrganizationSyncTask(
 	userCred mcclient.TokenCredential,
 	resourceType string,
 ) error {
-	org.SetStatus(userCred, api.OrganizationStatusSync, "start sync task")
+	org.SetStatus(ctx, userCred, api.OrganizationStatusSync, "start sync task")
 	params := jsonutils.NewDict()
 	if len(resourceType) > 0 {
 		params.Add(jsonutils.NewString(resourceType), "resource_type")

@@ -328,7 +328,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			return
 		}
 
-		disk.SetStatus(self.UserCred, api.DISK_READY, "create disk success")
+		disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "create disk success")
 		storage.ClearSchedDescCache()
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 		db.OpsLog.LogAttachEvent(ctx, guest, disk, self.UserCred, disk.GetShortDesc(ctx))

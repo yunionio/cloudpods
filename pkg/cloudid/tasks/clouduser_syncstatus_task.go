@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *ClouduserSyncstatusTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_UNKNOWN, err.Error())
+	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_UNKNOWN, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -48,6 +48,6 @@ func (self *ClouduserSyncstatusTask) OnInit(ctx context.Context, obj db.IStandal
 		return
 	}
 
-	clouduser.SetStatus(self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
+	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

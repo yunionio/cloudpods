@@ -745,13 +745,13 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	return &vpc, nil
 }
 
-func (svpc *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) error {
+func (svpc *SVpc) markAllNetworksUnknown(ctx context.Context, userCred mcclient.TokenCredential) error {
 	wires, _ := svpc.GetWires()
 	if wires == nil || len(wires) == 0 {
 		return nil
 	}
 	for i := 0; i < len(wires); i += 1 {
-		wires[i].markNetworkUnknown(userCred)
+		wires[i].markNetworkUnknown(ctx, userCred)
 	}
 	return nil
 }
@@ -1005,7 +1005,7 @@ func (svpc *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "VpcCreateTask", svpc, userCred, nil, "", "", nil)
 	if err != nil {
-		svpc.SetStatus(userCred, api.VPC_STATUS_FAILED, errors.Wrapf(err, "NewTask").Error())
+		svpc.SetStatus(ctx, userCred, api.VPC_STATUS_FAILED, errors.Wrapf(err, "NewTask").Error())
 		return
 	}
 	task.ScheduleRun(nil)
@@ -1053,7 +1053,7 @@ func (svpc *SVpc) GetIVpc(ctx context.Context) (cloudprovider.ICloudVpc, error) 
 
 func (svpc *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SVpc delete do nothing")
-	svpc.SetStatus(userCred, api.VPC_STATUS_START_DELETE, "")
+	svpc.SetStatus(ctx, userCred, api.VPC_STATUS_START_DELETE, "")
 	return nil
 }
 
@@ -1067,7 +1067,7 @@ func (svpc *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCr
 
 func (svpc *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(svpc, db.ACT_DELOCATE, svpc.GetShortDesc(ctx), userCred)
-	svpc.SetStatus(userCred, api.VPC_STATUS_DELETED, "real delete")
+	svpc.SetStatus(ctx, userCred, api.VPC_STATUS_DELETED, "real delete")
 
 	return svpc.purge(ctx, userCred)
 }

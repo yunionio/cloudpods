@@ -38,12 +38,12 @@ func init() {
 }
 
 func (self *SecurityGroupRemoteUpdateTask) taskFailed(ctx context.Context, group *models.SSecurityGroup, err error) {
-	group.SetStatus(self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
+	group.SetStatus(ctx, self.UserCred, apis.STATUS_UPDATE_TAGS_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SecurityGroupRemoteUpdateTask) taskComplete(ctx context.Context, group *models.SSecurityGroup) {
-	group.SetStatus(self.UserCred, api.SECGROUP_STATUS_READY, "")
+	group.SetStatus(ctx, self.UserCred, api.SECGROUP_STATUS_READY, "")
 	self.SetStageComplete(ctx, nil)
 }
 

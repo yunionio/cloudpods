@@ -296,7 +296,7 @@ func (self *SInterVpcNetwork) StartInterVpcNetworkUpdateRoutesetTask(ctx context
 	if err != nil {
 		return errors.Wrap(err, "Start InterVpcNetworkUpdateRoutesetTask fail")
 	}
-	self.SetStatus(userCred, api.INTER_VPC_NETWORK_STATUS_UPDATEROUTE, "update route")
+	self.SetStatus(ctx, userCred, api.INTER_VPC_NETWORK_STATUS_UPDATEROUTE, "update route")
 	task.ScheduleRun(nil)
 	return nil
 }

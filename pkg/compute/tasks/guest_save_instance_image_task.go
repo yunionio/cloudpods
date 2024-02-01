@@ -74,7 +74,7 @@ func (self *GuestSaveGuestImageTask) OnSaveRootImageComplete(ctx context.Context
 		self.SetStage("OnStartServerComplete", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
 	} else {
-		guest.SetStatus(self.UserCred, api.VM_READY, "")
+		guest.SetStatus(ctx, self.UserCred, api.VM_READY, "")
 		self.taskSuc(ctx, guest)
 	}
 }
@@ -99,7 +99,7 @@ func (self *GuestSaveGuestImageTask) taskSuc(ctx context.Context, guest *models.
 
 func (self *GuestSaveGuestImageTask) taskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 
-	guest.SetStatus(self.UserCred, api.VM_SAVE_DISK_FAILED, reason.String())
+	guest.SetStatus(ctx, self.UserCred, api.VM_SAVE_DISK_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_GUEST_SAVE_GUEST_IMAGE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_IMAGE_SAVE, reason, self.UserCred, false)
 

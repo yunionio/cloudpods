@@ -123,7 +123,7 @@ func (self *SCloudrole) StartCloudroleDeleteTask(ctx context.Context, userCred m
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_ROLE_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_ROLE_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }

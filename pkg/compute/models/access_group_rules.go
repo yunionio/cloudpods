@@ -276,7 +276,7 @@ func (self *SAccessGroupRule) CustomizeDelete(ctx context.Context, userCred mccl
 	return self.StartDeleteTask(ctx, userCred, "")
 }
 
-func (self *SAccessGroupRule) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+func (self *SAccessGroupRule) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
 	_, err := db.Update(self, func() error {
 		self.Status = status
 		return nil
@@ -293,10 +293,10 @@ func (self *SAccessGroupRule) StartDeleteTask(ctx context.Context, userCred mccl
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, apis.STATUS_DELETE_FAILED, err.Error())
+		self.SetStatus(ctx, userCred, apis.STATUS_DELETE_FAILED, err.Error())
 		return nil
 	}
-	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
 	return nil
 }
 

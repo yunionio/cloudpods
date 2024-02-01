@@ -838,7 +838,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancerLis
 		}
 		status := iListener.GetStatus()
 		if utils.IsInStringArray(status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
-			return nil, lblis.SetStatus(userCred, status, "")
+			return nil, lblis.SetStatus(ctx, userCred, status, "")
 		}
 		return nil, fmt.Errorf("Unknown loadbalancer listener status %s", status)
 	})
@@ -1639,7 +1639,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx c
 		return err
 	}
 
-	return ec.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	return ec.SetStatus(ctx, userCred, api.ELASTIC_CACHE_STATUS_RUNNING, "")
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
@@ -2264,7 +2264,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 			return nil, errors.Wrapf(err, "cloudprovider.Wait backup sync")
 		}
 
-		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")
+		instance.SetStatus(ctx, userCred, api.DBINSTANCE_RUNNING, "")
 		return nil, nil
 	})
 	return nil
@@ -2503,7 +2503,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAccountResetP
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.SavePassword")
 	}
 
-	return ea.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, "")
+	return ea.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, "")
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAclUpdate(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAcl, task taskman.ITask) error {
@@ -2535,7 +2535,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAclUpdate(ctx
 			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.UpdateAcl")
 		}
 
-		err = ea.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_AVAILABLE, "")
+		err = ea.SetStatus(ctx, userCred, api.ELASTIC_CACHE_ACL_STATUS_AVAILABLE, "")
 		if err != nil {
 			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.UpdateAclStatus")
 		}
@@ -2609,7 +2609,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncDiskStatus(ctx contex
 			return nil, errors.Wrap(err, "disk.GetIDisk")
 		}
 
-		return nil, disk.SetStatus(userCred, iDisk.GetStatus(), "syncstatus")
+		return nil, disk.SetStatus(ctx, userCred, iDisk.GetStatus(), "syncstatus")
 	})
 	return nil
 }
@@ -2630,7 +2630,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSnapshotStatus(ctx co
 			return nil, errors.Wrapf(err, "iRegion.GetISnapshotById(%s)", snapshot.ExternalId)
 		}
 
-		return nil, snapshot.SetStatus(userCred, iSnapshot.GetStatus(), "syncstatus")
+		return nil, snapshot.SetStatus(ctx, userCred, iSnapshot.GetStatus(), "syncstatus")
 	})
 	return nil
 }
@@ -2655,7 +2655,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncBucketStatus(ctx cont
 			return nil, errors.Wrap(err, "bucket.GetIBucket")
 		}
 
-		return nil, bucket.SetStatus(userCred, iBucket.GetStatus(), "syncstatus")
+		return nil, bucket.SetStatus(ctx, userCred, iBucket.GetStatus(), "syncstatus")
 	})
 	return nil
 }
@@ -2667,7 +2667,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncDBInstanceBackupStatu
 			return nil, errors.Wrap(err, "backup.GetIDBInstanceBackup")
 		}
 
-		return nil, backup.SetStatus(userCred, iDBInstanceBackup.GetStatus(), "syncstatus")
+		return nil, backup.SetStatus(ctx, userCred, iDBInstanceBackup.GetStatus(), "syncstatus")
 	})
 	return nil
 }
@@ -2686,7 +2686,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcacheStatus(ct
 		if account := elasticcache.GetCloudaccount(); account != nil {
 			models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache, account.ReadOnly)
 		}
-		return nil, elasticcache.SetStatus(userCred, iElasticcache.GetStatus(), "syncstatus")
+		return nil, elasticcache.SetStatus(ctx, userCred, iElasticcache.GetStatus(), "syncstatus")
 	})
 	return nil
 }
@@ -2949,7 +2949,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestAssociateEip(ctx context.
 		}
 
 		if obj.GetStatus() != api.INSTANCE_ASSOCIATE_EIP {
-			db.StatusBaseSetStatus(obj, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
+			db.StatusBaseSetStatus(ctx, obj, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 		}
 
 		err = eip.AssociateInstance(ctx, userCred, input.InstanceType, obj)
@@ -2957,7 +2957,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestAssociateEip(ctx context.
 			return nil, errors.Wrapf(err, "eip.AssociateVM")
 		}
 
-		eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE)
+		eip.SetStatus(ctx, userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE)
 		return nil, nil
 	})
 	return nil
@@ -3119,7 +3119,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeCluster(ctx con
 			return nil, errors.Wrapf(err, "db.SetExternalId")
 		}
 		err = cloudprovider.WaitStatusWithSync(icluster, api.KUBE_CLUSTER_STATUS_RUNNING, func(status string) {
-			cluster.SetStatus(userCred, status, "")
+			cluster.SetStatus(ctx, userCred, status, "")
 		}, time.Second*30, time.Hour*1)
 		if err != nil {
 			return nil, errors.Wrapf(err, "wait cluster status timeout, current status: %s", icluster.GetStatus())
@@ -3180,7 +3180,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeNodePool(ctx co
 		if err != nil {
 			return nil, errors.Wrapf(err, "wait node pool status timeout, current status: %s", icluster.GetStatus())
 		}
-		return nil, pool.SetStatus(userCred, api.KUBE_CLUSTER_STATUS_RUNNING, "")
+		return nil, pool.SetStatus(ctx, userCred, api.KUBE_CLUSTER_STATUS_RUNNING, "")
 	})
 	return nil
 }
@@ -3277,7 +3277,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateSecurityGroup(
 	if result.IsError() {
 		return result.AllError()
 	}
-	secgroup.SetStatus(userCred, api.SECGROUP_STATUS_READY, "")
+	secgroup.SetStatus(ctx, userCred, api.SECGROUP_STATUS_READY, "")
 	return nil
 }
 

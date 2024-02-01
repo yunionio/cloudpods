@@ -42,7 +42,7 @@ func init() {
 
 func (self *GuestCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_CREATE_NETWORK, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_CREATE_NETWORK, "")
 	self.SetStage("OnWaitGuestNetworksReady", nil)
 	self.OnWaitGuestNetworksReady(ctx, obj, nil)
 }
@@ -59,7 +59,7 @@ func (self *GuestCreateTask) OnWaitGuestNetworksReady(ctx context.Context, obj d
 }
 
 func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
-	guest.SetStatus(self.UserCred, api.VM_CREATE_DISK, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_CREATE_DISK, "")
 	self.SetStage("OnDiskPrepared", nil)
 	err := guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
 	if err != nil {
@@ -69,7 +69,7 @@ func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *mod
 }
 
 func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, "allocation failed")
+	guest.SetStatus(ctx, self.UserCred, api.VM_DISK_FAILED, "allocation failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
@@ -113,7 +113,7 @@ func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, guest *models.S
 }
 
 func (self *GuestCreateTask) OnSecurityGroupPreparedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_SECURITY_GROUP_FAILED, "prepare security group failed")
+	guest.SetStatus(ctx, self.UserCred, api.VM_SECURITY_GROUP_FAILED, "prepare security group failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
@@ -146,13 +146,13 @@ func (self *GuestCreateTask) OnCdromPrepared(ctx context.Context, guest *models.
 	log.Infof("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 	log.Infof("DEPLOY GUEST %s", guest.Name)
 	log.Infof("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-	guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING, "")
 	self.StartDeployGuest(ctx, guest)
 }
 
 func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_DISK_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
@@ -220,7 +220,7 @@ func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *mod
 
 func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, "deploy_failed")
+	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOY_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    guest,
@@ -264,7 +264,7 @@ func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.ISt
 
 func (self *GuestCreateTask) OnDeployEipCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.INSTANCE_ASSOCIATE_EIP_FAILED, "deploy_failed")
+	guest.SetStatus(ctx, self.UserCred, api.INSTANCE_ASSOCIATE_EIP_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_EIP_ATTACH, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_ASSOCIATE, data, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.INSTANCE_ASSOCIATE_EIP_FAILED, data.String())

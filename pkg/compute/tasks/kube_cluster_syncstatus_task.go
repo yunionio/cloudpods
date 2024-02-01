@@ -36,7 +36,7 @@ func init() {
 }
 
 func (self *KubeClusterSyncstatusTask) taskFailed(ctx context.Context, cluster *models.SKubeCluster, err error) {
-	cluster.SetStatus(self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	cluster.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(cluster, db.ACT_SYNC_STATUS, cluster.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, cluster, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

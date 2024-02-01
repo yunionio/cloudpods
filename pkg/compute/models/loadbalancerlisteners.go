@@ -474,7 +474,7 @@ func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcc
 
 func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, parentTaskId string) error {
 	params := data.(*jsonutils.JSONDict)
-	lblis.SetStatus(userCred, api.LB_SYNC_CONF, "")
+	lblis.SetStatus(ctx, userCred, api.LB_SYNC_CONF, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerSyncTask", lblis, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -545,7 +545,7 @@ func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcc
 
 func (lblis *SLoadbalancerListener) StartLoadBalancerListenerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) {
 	err := func() error {
-		lblis.SetStatus(userCred, api.LB_CREATING, "")
+		lblis.SetStatus(ctx, userCred, api.LB_CREATING, "")
 		task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerCreateTask", lblis, userCred, data, parentTaskId, "", nil)
 		if err != nil {
 			return errors.Wrapf(err, "NewTask")
@@ -553,7 +553,7 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerCreateTask(ctx cont
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		lblis.SetStatus(userCred, api.LB_CREATE_FAILED, err.Error())
+		lblis.SetStatus(ctx, userCred, api.LB_CREATE_FAILED, err.Error())
 	}
 }
 
@@ -574,13 +574,13 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerDeleteTask(ctx cont
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		lblis.SetStatus(userCred, api.LB_STATUS_DELETE_FAILED, err.Error())
+		lblis.SetStatus(ctx, userCred, api.LB_STATUS_DELETE_FAILED, err.Error())
 	}
 	return err
 }
 
 func (lblis *SLoadbalancerListener) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lblis.SetStatus(userCred, api.LB_STATUS_DELETING, "")
+	lblis.SetStatus(ctx, userCred, api.LB_STATUS_DELETING, "")
 	return lblis.StartLoadBalancerListenerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -945,7 +945,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 
 	err := lblis.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		return lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		return lblis.SetStatus(ctx, userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	}
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    lblis,

@@ -599,10 +599,10 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 
 	input := &api.LoadbalancerCreateInput{}
 	data.Unmarshal(input)
-	lb.SetStatus(userCred, api.LB_CREATING, "")
+	lb.SetStatus(ctx, userCred, api.LB_CREATING, "")
 	err = lb.StartLoadBalancerCreateTask(ctx, userCred, input)
 	if err != nil {
-		lb.SetStatus(userCred, api.LB_CREATE_FAILED, err.Error())
+		lb.SetStatus(ctx, userCred, api.LB_CREATE_FAILED, err.Error())
 	}
 }
 
@@ -839,7 +839,7 @@ func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context, info jsonu
 }
 
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lb.SetStatus(userCred, api.LB_STATUS_DELETING, "")
+	lb.SetStatus(ctx, userCred, api.LB_STATUS_DELETING, "")
 	params := jsonutils.NewDict()
 	deleteEip := jsonutils.QueryBoolean(data, "delete_eip", false)
 	if deleteEip {
@@ -1093,7 +1093,7 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 	}
 	err = lb.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		return lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		return lb.SetStatus(ctx, userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	}
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    lb,
@@ -1429,7 +1429,7 @@ func (self *SLoadbalancer) StartRemoteUpdateTask(ctx context.Context, userCred m
 		log.Errorln(err)
 		return errors.Wrap(err, "Start LoadbalancerRemoteUpdateTask")
 	} else {
-		self.SetStatus(userCred, api.LB_UPDATE_TAGS, "StartRemoteUpdateTask")
+		self.SetStatus(ctx, userCred, api.LB_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil

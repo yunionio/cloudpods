@@ -227,7 +227,7 @@ func (self *SCloudgroup) StartCloudgroupDeleteTask(ctx context.Context, userCred
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_GROUP_STATUS_DELETING, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -490,7 +490,7 @@ func (self *SCloudgroup) StartCloudgroupSyncUsersTask(ctx context.Context, userC
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_GROUP_STATUS_SYNC_USERS, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_SYNC_USERS, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -500,7 +500,7 @@ func (self *SCloudgroup) StartCloudgroupSyncstatusTask(ctx context.Context, user
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_GROUP_STATUS_SYNC_STATUS, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_SYNC_STATUS, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -694,7 +694,7 @@ func (self *SCloudgroup) StartCloudgroupSyncPoliciesTask(ctx context.Context, us
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.CLOUD_GROUP_STATUS_SYNC_POLICIES, "")
+	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_SYNC_POLICIES, "")
 	task.ScheduleRun(nil)
 	return nil
 }

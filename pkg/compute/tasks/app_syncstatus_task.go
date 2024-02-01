@@ -36,7 +36,7 @@ func init() {
 }
 
 func (at *AppSyncstatusTask) taskFailed(ctx context.Context, app *models.SApp, err error) {
-	app.SetStatus(at.UserCred, api.APP_STATUS_UNKNOWN, err.Error())
+	app.SetStatus(ctx, at.UserCred, api.APP_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(app, db.ACT_SYNC_STATUS, err, at.GetUserCred())
 	logclient.AddActionLogWithStartable(at, app, logclient.ACT_SYNC_STATUS, err, at.UserCred, false)
 	at.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

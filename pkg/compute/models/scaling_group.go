@@ -260,7 +260,7 @@ func (sg *SScalingGroup) RealDelete(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return errors.Wrap(err, "db.DeleteModel")
 	}
-	sg.SetStatus(userCred, api.SG_STATUS_DELETED, "")
+	sg.SetStatus(ctx, userCred, api.SG_STATUS_DELETED, "")
 	return nil
 }
 
@@ -616,7 +616,7 @@ func (sg *SScalingGroup) PostCreate(ctx context.Context, userCred mcclient.Token
 		err := ScalingGroupNetworkManager.Attach(ctx, sg.Id, netId)
 		if err != nil {
 			reason := fmt.Sprintf("Attach ScalingGroup '%s' with Network '%s' failed: %s", sg.Id, netId, err.Error())
-			sg.SetStatus(userCred, api.SG_STATUS_CREATE_FAILED, reason)
+			sg.SetStatus(ctx, userCred, api.SG_STATUS_CREATE_FAILED, reason)
 			logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_CREATE, reason, userCred, false)
 			return
 		}

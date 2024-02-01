@@ -443,7 +443,7 @@ func (self *SApp) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	self.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
 

@@ -530,7 +530,7 @@ func (self *SGuest) StartMigrateTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	isRescueMode, autoStart bool, guestStatus, preferHostId, parentTaskId string,
 ) error {
-	self.SetStatus(userCred, api.VM_START_MIGRATE, "")
+	self.SetStatus(ctx, userCred, api.VM_START_MIGRATE, "")
 	data := jsonutils.NewDict()
 	if isRescueMode {
 		data.Set("is_rescue_mode", jsonutils.JSONTrue)
@@ -574,7 +574,7 @@ func (self *SGuest) StartGuestLiveMigrateTask(
 	skipCpuCheck, skipKernelCheck, enableTLS, quicklyFinish *bool,
 	maxBandwidthMb *int64, keepDestGuestOnFailed *bool, parentTaskId string,
 ) error {
-	self.SetStatus(userCred, api.VM_START_MIGRATE, "")
+	self.SetStatus(ctx, userCred, api.VM_START_MIGRATE, "")
 	data := jsonutils.NewDict()
 	if len(preferHostId) > 0 {
 		data.Set("prefer_host_id", jsonutils.NewString(preferHostId))
@@ -921,7 +921,7 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 		taskData.Add(jsonutils.NewInt(int64(*input.BootIndex)), "boot_index")
 	}
 
-	self.SetStatus(userCred, api.VM_ATTACH_DISK, "")
+	self.SetStatus(ctx, userCred, api.VM_ATTACH_DISK, "")
 	return nil, self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
 }
 
@@ -957,7 +957,7 @@ func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcc
 func (self *SGuest) startSyncTask(ctx context.Context, userCred mcclient.TokenCredential, firewallOnly bool, parentTaskId string, data *jsonutils.JSONDict) error {
 	if firewallOnly {
 		data.Add(jsonutils.JSONTrue, "fw_only")
-	} else if err := self.SetStatus(userCred, api.VM_SYNC_CONFIG, ""); err != nil {
+	} else if err := self.SetStatus(ctx, userCred, api.VM_SYNC_CONFIG, ""); err != nil {
 		log.Errorln(err)
 		return err
 	}
@@ -993,7 +993,7 @@ func (self *SGuest) PerformSuspend(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SGuest) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	err := self.SetStatus(userCred, api.VM_START_SUSPEND, "do suspend")
+	err := self.SetStatus(ctx, userCred, api.VM_START_SUSPEND, "do suspend")
 	if err != nil {
 		return err
 	}
@@ -1009,7 +1009,7 @@ func (self *SGuest) PerformResume(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	err := self.SetStatus(userCred, api.VM_RESUMING, "do resume")
+	err := self.SetStatus(ctx, userCred, api.VM_RESUMING, "do resume")
 	if err != nil {
 		return err
 	}
@@ -1058,7 +1058,7 @@ func (self *SGuest) StartGuestDeployTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	kwargs *jsonutils.JSONDict, action string, parentTaskId string,
 ) error {
-	self.SetStatus(userCred, api.VM_START_DEPLOY, "")
+	self.SetStatus(ctx, userCred, api.VM_START_DEPLOY, "")
 	if kwargs == nil {
 		kwargs = jsonutils.NewDict()
 	}
@@ -1186,7 +1186,7 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 
 func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce, stopCharging bool, parentTaskId string) error {
 	if len(parentTaskId) == 0 {
-		self.SetStatus(userCred, api.VM_START_STOP, "")
+		self.SetStatus(ctx, userCred, api.VM_START_STOP, "")
 	}
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewBool(isForce), "is_force")
@@ -1447,7 +1447,7 @@ func (self *SGuest) GuestSchedStartTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
-	self.SetStatus(userCred, api.VM_SCHEDULE, "")
+	self.SetStatus(ctx, userCred, api.VM_SCHEDULE, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestSchedStartTask", self, userCred, data,
 		parentTaskId, "", nil)
 	if err != nil {
@@ -1461,7 +1461,7 @@ func (self *SGuest) GuestNonSchedStartTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
-	self.SetStatus(userCred, api.VM_START_START, "")
+	self.SetStatus(ctx, userCred, api.VM_START_START, "")
 	taskName := "GuestStartTask"
 	if self.BackupHostId != "" {
 		taskName = "HAGuestStartTask"
@@ -1543,7 +1543,7 @@ func (self *SGuest) StartDeleteGuestTask(
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.Status), "guest_status")
 	params.Update(jsonutils.Marshal(opts))
-	self.SetStatus(userCred, api.VM_START_DELETE, "")
+	self.SetStatus(ctx, userCred, api.VM_START_DELETE, "")
 	return self.GetDriver().StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
 }
 
@@ -1742,7 +1742,7 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	}
 	data.Set("deploy_params", jsonutils.Marshal(deployInput))
 
-	self.SetStatus(userCred, api.VM_REBUILD_ROOT, "request start rebuild root")
+	self.SetStatus(ctx, userCred, api.VM_REBUILD_ROOT, "request start rebuild root")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestRebuildRootTask", self, userCred, data, "", "", nil)
 	if err != nil {
 		return err
@@ -1872,7 +1872,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	}
 
 	if utils.IsInStringArray(self.Status, detachDiskStatus) {
-		self.SetStatus(userCred, api.VM_DETACH_DISK, "")
+		self.SetStatus(ctx, userCred, api.VM_DETACH_DISK, "")
 		err = self.StartGuestDetachdiskTask(ctx, userCred, disk, input.KeepDisk, "", false, false)
 		return nil, err
 	}
@@ -1898,7 +1898,7 @@ func (self *SGuest) StartGuestDetachdiskTask(
 			return nil
 		})
 	}
-	disk.SetStatus(userCred, api.DISK_DETACHING, "")
+	disk.SetStatus(ctx, userCred, api.DISK_DETACHING, "")
 	return self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, parentTaskId)
 }
 
@@ -2476,7 +2476,7 @@ func (self *SGuest) PerformChangeIpaddr(
 		if self.Status == api.VM_BLOCK_STREAM {
 			taskData.Set("in_block_stream", jsonutils.JSONTrue)
 		}
-		self.SetStatus(userCred, api.VM_RESTART_NETWORK, "restart network")
+		self.SetStatus(ctx, userCred, api.VM_RESTART_NETWORK, "restart network")
 	}
 	return nil, self.startSyncTask(ctx, userCred, false, "", taskData)
 }
@@ -2924,7 +2924,7 @@ func (self *SGuest) ChangeConfToSchedDesc(addCpu, addMem int, schedInputDisks []
 
 func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient.TokenCredential,
 	confs *api.ServerChangeConfigSettings, parentTaskId string, pendingUsage quotas.IQuota) error {
-	self.SetStatus(userCred, api.VM_CHANGE_FLAVOR, "")
+	self.SetStatus(ctx, userCred, api.VM_CHANGE_FLAVOR, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestChangeConfigTask", self, userCred, jsonutils.Marshal(confs).(*jsonutils.JSONDict), parentTaskId, "", pendingUsage)
 	if err != nil {
 		return err
@@ -3036,7 +3036,7 @@ func (self *SGuest) isNotRunningStatus(status string) bool {
 	return false
 }
 
-func (self *SGuest) SetStatus(userCred mcclient.TokenCredential, status, reason string) error {
+func (self *SGuest) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status, reason string) error {
 	if status == api.VM_RUNNING {
 		if err := self.SetPowerStates(api.VM_POWER_STATES_ON); err != nil {
 			return err
@@ -3047,11 +3047,10 @@ func (self *SGuest) SetStatus(userCred mcclient.TokenCredential, status, reason 
 		}
 	}
 
-	err := self.SVirtualResourceBase.SetStatus(userCred, status, reason)
+	err := self.SVirtualResourceBase.SetStatus(ctx, userCred, status, reason)
 	if err != nil {
 		return errors.Wrap(err, "setStatus")
 	}
-	db.CallUpdateNotifyHook(context.Background(), userCred, self)
 	return nil
 }
 
@@ -3163,7 +3162,7 @@ func (self *SGuest) PerformFreeze(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SGuest) StartGuestStopAndFreezeTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	self.SetStatus(userCred, api.VM_START_STOP, "")
+	self.SetStatus(ctx, userCred, api.VM_START_STOP, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestStopAndFreezeTask", self, userCred, nil, "", "", nil)
 	if err != nil {
 		return err
@@ -3320,7 +3319,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
 	}
 
-	self.SetStatus(userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
+	self.SetStatus(ctx, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
@@ -3350,7 +3349,7 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 		return nil, errors.Wrap(err, "eip is not accessible")
 	}
 
-	self.SetStatus(userCred, api.INSTANCE_DISSOCIATE_EIP, "associate eip")
+	self.SetStatus(ctx, userCred, api.INSTANCE_DISSOCIATE_EIP, "associate eip")
 
 	autoDelete := (input.AudoDelete != nil && *input.AudoDelete)
 
@@ -3545,7 +3544,7 @@ func (self *SGuest) PerformSwitchToBackup(
 		log.Errorln(err)
 		return nil, err
 	} else {
-		self.SetStatus(userCred, api.VM_SWITCH_TO_BACKUP, "Switch to backup")
+		self.SetStatus(ctx, userCred, api.VM_SWITCH_TO_BACKUP, "Switch to backup")
 		task.ScheduleRun(nil)
 	}
 	return nil, nil
@@ -3643,7 +3642,7 @@ func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mccli
 	if self.Status == api.VM_BLOCK_STREAM || self.Status == api.VM_RUNNING {
 		reason, _ := data.GetString("reason")
 		logclient.AddSimpleActionLog(self, logclient.ACT_VM_BLOCK_STREAM, reason, userCred, false)
-		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
+		return nil, self.SetStatus(ctx, userCred, api.VM_BLOCK_STREAM_FAIL, reason)
 	}
 	return nil, nil
 }
@@ -3845,7 +3844,7 @@ func (self *SGuest) StartGuestCreateBackupTask(
 
 	params := data.(*jsonutils.JSONDict)
 	params.Set("guest_status", jsonutils.NewString(self.Status))
-	self.SetStatus(userCred, api.VM_BACKUP_CREATING, "")
+	self.SetStatus(ctx, userCred, api.VM_BACKUP_CREATING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, parentTaskId, "", &req)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &req, &req, false)
@@ -3872,7 +3871,7 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 	taskData := jsonutils.NewDict()
 	taskData.Set("purge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
 	taskData.Set("create", jsonutils.NewBool(jsonutils.QueryBoolean(data, "create", false)))
-	self.SetStatus(userCred, api.VM_DELETING_BACKUP, "delete backup server")
+	self.SetStatus(ctx, userCred, api.VM_DELETING_BACKUP, "delete backup server")
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "GuestDeleteBackupTask", self, userCred, taskData, "", "", nil); err != nil {
 		log.Errorln(err)
@@ -4053,7 +4052,7 @@ func (self *SGuest) GetStorages() ([]SStorage, error) {
 }
 
 func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
-	self.SetStatus(userCred, api.VM_RENEWING, "")
+	self.SetStatus(ctx, userCred, api.VM_RENEWING, "")
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(duration), "duration")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestRenewTask", self, userCred, data, parentTaskId, "", nil)
@@ -4292,7 +4291,7 @@ func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCred
 		if err != nil {
 			return err
 		}
-		disk.SetStatus(userCred, api.DISK_READY, "")
+		disk.SetStatus(ctx, userCred, api.DISK_READY, "")
 	}
 	return nil
 }
@@ -4593,7 +4592,7 @@ func (guest *SGuest) PerformResizeDisk(ctx context.Context, userCred mcclient.To
 }
 
 func (guest *SGuest) StartGuestDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, diskId string, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
-	guest.SetStatus(userCred, api.VM_START_RESIZE_DISK, "StartGuestDiskResizeTask")
+	guest.SetStatus(ctx, userCred, api.VM_START_RESIZE_DISK, "StartGuestDiskResizeTask")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(sizeMb), "size")
 	params.Add(jsonutils.NewString(diskId), "disk_id")
@@ -4664,7 +4663,7 @@ func (self *SGuest) UpdateIoThrottle(input *api.ServerSetDiskIoThrottleInput) er
 func (self *SGuest) StartBlockIoThrottleTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerSetDiskIoThrottleInput) error {
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	params.Set("old_status", jsonutils.NewString(self.Status))
-	self.SetStatus(userCred, api.VM_IO_THROTTLE, "start block io throttle task")
+	self.SetStatus(ctx, userCred, api.VM_IO_THROTTLE, "start block io throttle task")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestBlockIoThrottleTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		log.Errorf("%s", err)
@@ -5013,12 +5012,12 @@ func (self *SGuest) InstaceCreateSnapshot(
 	instanceSnapshot *SInstanceSnapshot,
 	pendingUsage *SRegionQuota,
 ) error {
-	self.SetStatus(userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
+	self.SetStatus(ctx, userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
 	return instanceSnapshot.StartCreateInstanceSnapshotTask(ctx, userCred, pendingUsage, "")
 }
 
 func (self *SGuest) InstanceCreateBackup(ctx context.Context, userCred mcclient.TokenCredential, instanceBackup *SInstanceBackup) error {
-	self.SetStatus(userCred, api.VM_START_INSTANCE_BACKUP, "instance backup")
+	self.SetStatus(ctx, userCred, api.VM_START_INSTANCE_BACKUP, "instance backup")
 	return instanceBackup.StartCreateInstanceBackupTask(ctx, userCred, "")
 }
 
@@ -5064,8 +5063,8 @@ func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclien
 		data.Set("auto_start", jsonutils.JSONTrue)
 	}
 	data.Add(jsonutils.NewBool(withMemory), "with_memory")
-	self.SetStatus(userCred, api.VM_START_SNAPSHOT_RESET, "start snapshot reset task")
-	instanceSnapshot.SetStatus(userCred, api.INSTANCE_SNAPSHOT_RESET, "start snapshot reset task")
+	self.SetStatus(ctx, userCred, api.VM_START_SNAPSHOT_RESET, "start snapshot reset task")
+	instanceSnapshot.SetStatus(ctx, userCred, api.INSTANCE_SNAPSHOT_RESET, "start snapshot reset task")
 	log.Errorf("====data: %s", data)
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "InstanceSnapshotResetTask", instanceSnapshot, userCred, data, "", "", nil,
@@ -5177,7 +5176,7 @@ func (self *SGuest) StartInstanceSnapshotAndCloneTask(
 		ctx, "InstanceSnapshotAndCloneTask", instanceSnapshot, userCred, params, "", "", pendingUsage, pendingRegionUsage); err != nil {
 		return err
 	} else {
-		self.SetStatus(userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
+		self.SetStatus(ctx, userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
 		task.ScheduleRun(nil)
 		return nil
 	}
@@ -5257,7 +5256,7 @@ func (self *SGuest) PerformResetNicTrafficLimit(ctx context.Context, userCred mc
 
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	params.Set("old_status", jsonutils.NewString(self.Status))
-	self.SetStatus(userCred, api.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
+	self.SetStatus(ctx, userCred, api.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestResetNicTrafficsTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		return nil, err
@@ -5282,7 +5281,7 @@ func (self *SGuest) PerformSetNicTrafficLimit(ctx context.Context, userCred mccl
 	}
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	params.Set("old_status", jsonutils.NewString(self.Status))
-	self.SetStatus(userCred, api.VM_SYNC_TRAFFIC_LIMIT, "GuestSetNicTrafficsTask")
+	self.SetStatus(ctx, userCred, api.VM_SYNC_TRAFFIC_LIMIT, "GuestSetNicTrafficsTask")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestSetNicTrafficsTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		return nil, err
@@ -5418,7 +5417,7 @@ func (self *SGuest) StartPublicipToEipTask(ctx context.Context, userCred mcclien
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.VM_START_EIP_CONVERT, "")
+	self.SetStatus(ctx, userCred, api.VM_START_EIP_CONVERT, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -5477,7 +5476,7 @@ func (self *SGuest) StartSetAutoRenewTask(ctx context.Context, userCred mcclient
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(userCred, api.VM_SET_AUTO_RENEW, "")
+	self.SetStatus(ctx, userCred, api.VM_SET_AUTO_RENEW, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -5603,7 +5602,7 @@ func (self *SGuest) StartGuestChangeStorageTask(ctx context.Context, userCred mc
 		GuestRunning:             self.Status == api.VM_RUNNING,
 	}
 	reason := fmt.Sprintf("Change guest disks storage to %s", input.TargetStorageId)
-	self.SetStatus(userCred, api.VM_DISK_CHANGE_STORAGE, reason)
+	self.SetStatus(ctx, userCred, api.VM_DISK_CHANGE_STORAGE, reason)
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "GuestChangeDisksStorageTask", self, userCred, jsonutils.Marshal(params).(*jsonutils.JSONDict),
 		"", "", nil); err != nil {
@@ -5680,7 +5679,7 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 
 func (self *SGuest) StartChangeDiskStorageTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error {
 	reason := fmt.Sprintf("Change disk %s to storage %s", input.DiskId, input.TargetStorageId)
-	self.SetStatus(userCred, api.VM_DISK_CHANGE_STORAGE, reason)
+	self.SetStatus(ctx, userCred, api.VM_DISK_CHANGE_STORAGE, reason)
 	return self.GetDriver().StartChangeDiskStorageTask(self, ctx, userCred, input, parentTaskId)
 }
 

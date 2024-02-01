@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, err error) {
-	lbcert.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	lbcert.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, err, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_CREATE_FAILED, err.Error())
@@ -59,7 +59,7 @@ func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj d
 }
 
 func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateComplete(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, data jsonutils.JSONObject) {
-	lbcert.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	lbcert.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE, lbcert.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

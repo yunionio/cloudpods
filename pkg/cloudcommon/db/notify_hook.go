@@ -23,11 +23,13 @@ import (
 )
 
 var (
-	updateNotifyHook    updateNotifyHookFunc
-	customizeNotifyHook customizeNotifyHookFunc
+	updateNotifyHook        updateNotifyHookFunc
+	statusChangedNotifyHook statusChangedNotifyHookFunc
+	customizeNotifyHook     customizeNotifyHookFunc
 )
 
 type updateNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, obj IModel)
+type statusChangedNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, oldStatus, status string, obj IModel)
 type customizeNotifyHookFunc func(ctx context.Context, userCred mcclient.TokenCredential, action string, obj IModel, moreDetails jsonutils.JSONObject)
 
 func SetUpdateNotifyHook(f updateNotifyHookFunc) {
@@ -56,4 +58,18 @@ func CallCustomizeNotifyHook(ctx context.Context, userCred mcclient.TokenCredent
 		return
 	}
 	customizeNotifyHook(ctx, userCred, action, obj, customizeDetails)
+}
+
+func SetStatusChangedNotifyHook(f statusChangedNotifyHookFunc) {
+	if statusChangedNotifyHook != nil {
+		panic("updateNotifyHook already set")
+	}
+	statusChangedNotifyHook = f
+}
+
+func CallStatusChanegdNotifyHook(ctx context.Context, userCred mcclient.TokenCredential, oldStatis, newStatus string, obj IModel) {
+	if statusChangedNotifyHook == nil {
+		return
+	}
+	statusChangedNotifyHook(ctx, userCred, oldStatis, newStatus, obj)
 }
