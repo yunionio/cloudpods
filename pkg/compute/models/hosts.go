@@ -1673,6 +1673,13 @@ func (hh *SHost) GetRunningGuestCount() (int, error) {
 	return q.CountWithError()
 }
 
+func (host *SHost) hasUnknownGuests() bool {
+	q := host.GetGuestsQuery()
+	q = q.Equals("status", api.VM_UNKNOWN)
+	cnt, _ := q.CountWithError()
+	return cnt > 0
+}
+
 func (hh *SHost) GetNotReadyGuestsStat() (*SHostGuestResourceUsage, error) {
 	guests := GuestManager.Query().SubQuery()
 	q := guests.Query(sqlchemy.COUNT("guest_count"),
@@ -4273,6 +4280,9 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 			hh.LastPingAt = time.Now()
 			return nil
 		})
+		if hh.hasUnknownGuests() {
+			hh.StartSyncAllGuestsStatusTask(ctx, userCred)
+		}
 	}
 	result := jsonutils.NewDict()
 	result.Set("name", jsonutils.NewString(hh.GetName()))
