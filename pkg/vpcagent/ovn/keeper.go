@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/ovsdb/types"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
@@ -360,7 +361,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		}
 		if len(ntpSrvs) > 0 {
 			// bug on OVN, should not use ntp server
-			// dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
+			dhcpopts.Options["ntp_server"] = "{" + formatNtpServers(ntpSrvs) + "}"
 		}
 	}
 
@@ -446,6 +447,21 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 	args = append(args, ovnCreateArgs(vpcEipLsp, vpcEipLsp.Name)...)
 	args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "ports", "@"+vpcEipLsp.Name)
 	return keeper.cli.Must(ctx, "ClaimVpcEipgw", args)
+}
+
+func formatNtpServers(srvs string) string {
+	srv := make([]string, 0)
+	for _, part := range strings.Split(srvs, ",") {
+		part = strings.TrimSpace(part)
+		if len(part) > 0 {
+			if regutils.MatchIPAddr(part) {
+				srv = append(srv, part)
+			} else {
+				srv = append(srv, "\""+part+"\"")
+			}
+		}
+	}
+	return strings.Join(srv, ",")
 }
 
 func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestnetwork *agentmodels.Guestnetwork) error {
@@ -846,7 +862,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, 
 		for _, guestnetwork := range network.Guestnetworks {
 			if guest := guestnetwork.Guest; guest != nil {
 				var (
-					name = guest.Name
+					name = guest.Hostname
 					ip   = guestnetwork.IpAddr
 				)
 				grs[name] = append(grs[name], ip)
