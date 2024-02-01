@@ -89,7 +89,7 @@ func init() {
 	Policies = SPolicyManager{modules.NewIdentityV3Manager(
 		"policy",
 		"policies",
-		[]string{"id", "name", "policy", "scope", "enabled",
+		[]string{"id", "name", "scope", "enabled",
 			"domain_id", "domain", "project_domain", "public_scope",
 			"is_public", "description", "is_system",
 		},

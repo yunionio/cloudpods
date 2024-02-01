@@ -18,13 +18,25 @@ import (
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
+
+type SOrganizationNodeInfo struct {
+	Id           string
+	FullLabel    string
+	OrgId        string
+	Organization string
+	Tags         []tagutils.STag
+	Type         TOrgType
+}
 
 type PolicyDetails struct {
 	EnabledIdentityBaseResourceDetails
 	apis.SharableResourceBaseInfo
 
 	SPolicy
+
+	OrgNodes []SOrganizationNodeInfo
 }
 
 type PolicyBindRoleInput struct {
