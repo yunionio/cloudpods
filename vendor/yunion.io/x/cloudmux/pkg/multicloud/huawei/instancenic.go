@@ -25,6 +25,7 @@ import (
 type SInstanceNic struct {
 	instance *SInstance
 	ipAddr   string
+	ip6Addr  string
 	macAddr  string
 
 	subAddrs []string
@@ -37,6 +38,10 @@ func (self *SInstanceNic) GetId() string {
 
 func (self *SInstanceNic) GetIP() string {
 	return self.ipAddr
+}
+
+func (self *SInstanceNic) GetIP6() string {
+	return self.ip6Addr
 }
 
 func (self *SInstanceNic) GetSubAddress() ([]string, error) {

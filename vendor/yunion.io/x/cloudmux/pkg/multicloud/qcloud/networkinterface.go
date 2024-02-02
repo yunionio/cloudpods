@@ -76,6 +76,10 @@ type SNetworkInterface struct {
 	Attachment                  SNetworkInterfaceAttachment
 	Zone                        string
 	PrivateIpAddressSet         []SPrivateIpAddress
+	Ipv6AddressSet              []struct {
+		Address string
+		State   string
+	}
 }
 
 func (nic *SNetworkInterface) GetName() string {

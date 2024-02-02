@@ -131,6 +131,7 @@ type SInstance struct {
 	SecurityGroupIds    []string            //	实例所属安全组。该参数可以通过调用 DescribeSecurityGroups 的返回值中的sgId字段来获取。
 	LoginSettings       LoginSettings       //实例登录设置。目前只返回实例所关联的密钥。
 	InstanceState       string              //	实例状态。取值范围：PENDING：表示创建中 LAUNCH_FAILED：表示创建失败 RUNNING：表示运行中 STOPPED：表示关机 STARTING：表示开机中 STOPPING：表示关机中 REBOOTING：表示重启中 SHUTDOWN：表示停止待销毁 TERMINATING：表示销毁中。
+	IPv6Addresses       []string
 	Tags                []Tag
 }
 
@@ -300,6 +301,12 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 		for _, addr := range networkInterface.PrivateIpAddressSet {
 			if addr.Primary {
 				nic.ipAddr = addr.PrivateIpAddress
+			}
+		}
+		for _, addr := range networkInterface.Ipv6AddressSet {
+			if len(addr.Address) > 0 {
+				nic.ip6Addr = addr.Address
+				break
 			}
 		}
 		ret = append(ret, nic)

@@ -34,6 +34,7 @@ type SVpc struct {
 	iwires []cloudprovider.ICloudWire
 
 	CidrBlock       string
+	Ipv6CidrBlock   string
 	CreatedTime     time.Time
 	DhcpOptionsId   string
 	DnsServerSet    []string
@@ -59,16 +60,16 @@ func (self *SVpc) GetGlobalId() string {
 	return self.VpcId
 }
 
-func (self *SVpc) IsEmulated() bool {
-	return false
-}
-
 func (self *SVpc) GetIsDefault() bool {
 	return self.IsDefault
 }
 
 func (self *SVpc) GetCidrBlock() string {
 	return self.CidrBlock
+}
+
+func (self *SVpc) GetCidrBlock6() string {
+	return self.Ipv6CidrBlock
 }
 
 func (self *SVpc) GetStatus() string {
