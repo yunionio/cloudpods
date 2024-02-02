@@ -24,9 +24,9 @@ import (
 
 type SPolicyMatch struct {
 	Rule        SRbacRule
-	DomainTags  tagutils.TTagSet
-	ProjectTags tagutils.TTagSet
-	ObjectTags  tagutils.TTagSet
+	DomainTags  tagutils.TTagSetList
+	ProjectTags tagutils.TTagSetList
+	ObjectTags  tagutils.TTagSetList
 }
 
 type SPolicyResult struct {
@@ -55,9 +55,9 @@ func (matches TPolicyMatches) GetResult() SPolicyResult {
 	for _, match := range matches {
 		if match.Rule.Result == Allow {
 			result.Result = Allow
-			result.DomainTags = append(result.DomainTags, match.DomainTags)
-			result.ProjectTags = append(result.ProjectTags, match.ProjectTags)
-			result.ObjectTags = append(result.ObjectTags, match.ObjectTags)
+			result.DomainTags = result.DomainTags.AppendAll(match.DomainTags)
+			result.ProjectTags = result.ProjectTags.AppendAll(match.ProjectTags)
+			result.ObjectTags = result.ObjectTags.AppendAll(match.ObjectTags)
 			if len(match.DomainTags) == 0 {
 				isWideDomainTag = true
 			}
