@@ -142,6 +142,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, err
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["MaxResults"] = "100"
+	params["AdditionalAttributes.1"] = "NETWORK_PRIMARY_ENI_IP"
 
 	if len(zoneId) > 0 {
 		params["ZoneId"] = zoneId
@@ -275,6 +276,11 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 			id:       networkInterface.NetworkInterfaceId,
 			ipAddr:   networkInterface.PrimaryIpAddress,
 			macAddr:  networkInterface.MacAddress,
+		}
+		for _, ipv6 := range networkInterface.Ipv6Sets.Ipv6Set {
+			if len(ipv6.Ipv6Address) > 0 {
+				nic.ip6Addr = ipv6.Ipv6Address
+			}
 		}
 		nics = append(nics, &nic)
 	}

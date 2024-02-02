@@ -72,6 +72,11 @@ type SNetworkInterface struct {
 	NetworkInterfaceId   string
 	PrimaryIpAddress     string
 	PrivateIpAddress     string
+	Ipv6Sets             struct {
+		Ipv6Set []struct {
+			Ipv6Address string
+		}
+	}
 
 	Attachment struct {
 		InstanceId              string
