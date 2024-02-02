@@ -31,6 +31,7 @@ type SInstanceNic struct {
 	instance *SInstance
 	id       string
 	ipAddr   string
+	ip6Addr  string
 	macAddr  string
 
 	classic bool
@@ -51,6 +52,10 @@ func (self *SInstanceNic) mustGetId() string {
 
 func (self *SInstanceNic) GetIP() string {
 	return self.ipAddr
+}
+
+func (self *SInstanceNic) GetIP6() string {
+	return self.ip6Addr
 }
 
 func (self *SInstanceNic) GetMAC() string {

@@ -40,9 +40,11 @@ type SNetwork struct {
 
 	AvailabilityZone string   `json:"availability_zone"`
 	CIDR             string   `json:"cidr"`
+	CIDRV6           string   `json:"cidr_v6"`
 	DHCPEnable       bool     `json:"dhcp_enable"`
 	DNSList          []string `json:"dnsList"`
 	GatewayIP        string   `json:"gateway_ip"`
+	GatewayIPv6      string   `json:"gateway_ip_v6"`
 	ID               string   `json:"id"`
 	Ipv6Enable       bool     `json:"ipv6_enable"`
 	Name             string   `json:"name"`
@@ -92,6 +94,44 @@ func (self *SNetwork) Refresh() error {
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
+}
+
+func (net *SNetwork) GetIp6Start() string {
+	if len(net.CIDRV6) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.CIDRV6)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).StepUp().StepUp().String()
+	}
+	return ""
+}
+
+func (net *SNetwork) GetIp6End() string {
+	if len(net.CIDRV6) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.CIDRV6)
+		if err != nil {
+			return ""
+		}
+		end := prefix.Address.NetAddr(prefix.MaskLen).BroadcastAddr(prefix.MaskLen)
+		return end.StepDown().StepDown().StepDown().StepDown().StepDown().String()
+	}
+	return ""
+}
+
+func (net *SNetwork) GetIp6Mask() uint8 {
+	if len(net.CIDRV6) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.CIDRV6)
+		if err != nil {
+			return 0
+		}
+		return prefix.MaskLen
+	}
+	return 0
+}
+
+func (net *SNetwork) GetGateway6() string {
+	return net.GatewayIPv6
 }
 
 func (self *SNetwork) GetIpStart() string {

@@ -319,6 +319,12 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 			ipAddr:   networkInterface.PrivateIpAddress,
 			macAddr:  networkInterface.MacAddress,
 		}
+		for _, ip6 := range networkInterface.IPv6AddressesSet {
+			if len(ip6.IPv6Address) > 0 {
+				nic.ip6Addr = ip6.IPv6Address
+				break
+			}
+		}
 		nics = append(nics, &nic)
 	}
 	return nics, nil

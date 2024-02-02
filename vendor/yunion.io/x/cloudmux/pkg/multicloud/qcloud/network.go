@@ -35,6 +35,7 @@ type SNetwork struct {
 	wire *SWire
 
 	CidrBlock               string
+	Ipv6CidrBlock           string
 	Zone                    string
 	SubnetId                string
 	VpcId                   string
@@ -59,10 +60,6 @@ func (self *SNetwork) GetName() string {
 
 func (self *SNetwork) GetGlobalId() string {
 	return self.SubnetId
-}
-
-func (self *SNetwork) IsEmulated() bool {
-	return false
 }
 
 func (self *SNetwork) GetStatus() string {
@@ -113,6 +110,50 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 
 func (self *SNetwork) SetTags(tags map[string]string, replace bool) error {
 	return self.wire.vpc.region.SetResourceTags("vpc", "subnet", []string{self.SubnetId}, tags, replace)
+}
+
+func (net *SNetwork) GetIp6Start() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).StepUp().String()
+	}
+	return ""
+}
+
+func (net *SNetwork) GetIp6End() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).BroadcastAddr(prefix.MaskLen).String()
+	}
+	return ""
+}
+
+func (net *SNetwork) GetIp6Mask() uint8 {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return 0
+		}
+		return prefix.MaskLen
+	}
+	return 0
+}
+
+func (net *SNetwork) GetGateway6() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).StepUp().String()
+	}
+	return ""
 }
 
 func (self *SNetwork) GetGateway() string {

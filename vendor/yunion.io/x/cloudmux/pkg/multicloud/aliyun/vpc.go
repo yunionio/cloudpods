@@ -50,17 +50,18 @@ type SVpc struct {
 
 	routeTables []cloudprovider.ICloudRouteTable
 
-	CidrBlock    string
-	CreationTime time.Time
-	Description  string
-	IsDefault    bool
-	RegionId     string
-	Status       string
-	UserCidrs    SUserCIDRs
-	VRouterId    string
-	VSwitchIds   SVSwitchIds
-	VpcId        string
-	VpcName      string
+	CidrBlock     string
+	Ipv6CidrBlock string
+	CreationTime  time.Time
+	Description   string
+	IsDefault     bool
+	RegionId      string
+	Status        string
+	UserCidrs     SUserCIDRs
+	VRouterId     string
+	VSwitchIds    SVSwitchIds
+	VpcId         string
+	VpcName       string
 }
 
 func (self *SVpc) GetId() string {
@@ -88,6 +89,10 @@ func (self *SVpc) GetIsDefault() bool {
 
 func (self *SVpc) GetCidrBlock() string {
 	return self.CidrBlock
+}
+
+func (self *SVpc) GetCidrBlock6() string {
+	return self.Ipv6CidrBlock
 }
 
 func (self *SVpc) GetStatus() string {

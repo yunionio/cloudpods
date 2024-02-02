@@ -47,6 +47,9 @@ type SVpc struct {
 			State string `xml:"state"`
 		} `xml:"cidrBlockState"`
 	} `xml:"cidrBlockAssociationSet>item"`
+	IPv6CidrBlockAssociationSet []struct {
+		IPv6CidrBlock string `xml:"ipv6CidrBlock"`
+	} `xml:"ipv6CidrBlockAssociationSet>item"`
 	IsDefault       bool   `xml:"isDefault"`
 	Status          string `xml:"state"`
 	InstanceTenancy string `xml:"instanceTenancy"`
@@ -101,6 +104,16 @@ func (self *SVpc) GetCidrBlock() string {
 		}
 	}
 	return strings.Join(cidr, ",")
+}
+
+func (self *SVpc) GetCidrBlock6() string {
+	ret := []string{}
+	for _, cidr := range self.IPv6CidrBlockAssociationSet {
+		if len(cidr.IPv6CidrBlock) > 0 {
+			ret = append(ret, cidr.IPv6CidrBlock)
+		}
+	}
+	return strings.Join(ret, ",")
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
