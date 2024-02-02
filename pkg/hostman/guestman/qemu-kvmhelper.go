@@ -950,9 +950,13 @@ func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(
 			return errors.Errorf("unsupported memory device type %s", memoryDevicesInfoList[i].Type)
 		}
 		memSize -= (memoryDevicesInfoList[i].Data.Size / 1024 / 1024)
+		memObj := desc.NewObject(s.memObjectType(), path.Base(memoryDevicesInfoList[i].Data.Memdev))
+		memObj.Options = map[string]string{
+			"size": fmt.Sprintf("%dM", memoryDevicesInfoList[i].Data.Size/1024/1024),
+		}
 		memSlots = append(memSlots, &desc.SMemSlot{
 			SizeMB: memoryDevicesInfoList[i].Data.Size / 1024 / 1024,
-			MemObj: desc.NewObject(s.memObjectType(), path.Base(memoryDevicesInfoList[i].Data.Memdev)),
+			MemObj: memObj,
 			MemDev: &desc.SMemDevice{
 				Type: "pc-dimm", Id: *memoryDevicesInfoList[i].Data.ID,
 			},
