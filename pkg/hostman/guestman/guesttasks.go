@@ -2540,7 +2540,7 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 			"size": fmt.Sprintf("%dM", task.addMemSize),
 		}
 	}
-	options["id"] = id
+	// options["id"] = id
 	cb := func(reason string) {
 		if reason == "" {
 			memObj := desc.NewObject(objType, id)
