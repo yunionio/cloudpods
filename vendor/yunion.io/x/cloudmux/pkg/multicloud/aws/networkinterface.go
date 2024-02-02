@@ -65,7 +65,11 @@ type SNetworkInterface struct {
 	GroupSet              []SGroupSet         `xml:"groupSet>item"`
 	Attachment            SAttachment         `xml:"attachment"`
 	PrivateIpAddressesSet []SPrivateIpAddress `xml:"privateIpAddressesSet>item"`
-	InterfaceType         string              `xml:"interfaceType"`
+	IPv6AddressesSet      []struct {
+		IPv6Address   string `xml:"ipv6Address"`
+		IsPrimaryIpv6 bool   `xml:"isPrimaryIpv6"`
+	} `xml:"ipv6AddressesSet>item"`
+	InterfaceType string `xml:"interfaceType"`
 }
 
 func (self *SRegion) GetNetworkInterface(id string) (*SNetworkInterface, error) {

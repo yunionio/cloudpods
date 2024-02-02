@@ -398,8 +398,20 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 			}
 		}
 	}
+
+	for _, ipAddresses := range self.Addresses {
+		for _, ipAddress := range ipAddresses {
+			if ipAddress.OSEXTIPSType == "fixed" && ipAddress.Version == "6" {
+				if _, ok := ret[ipAddress.OSEXTIPSMACMACAddr]; ok {
+					ret[ipAddress.OSEXTIPSMACMACAddr].ip6Addr = ipAddress.Addr
+				}
+			}
+		}
+	}
+
 	nics := make([]cloudprovider.ICloudNic, 0)
 	for mac := range ret {
+		log.Errorf("mac: %s ip: %s ipv6: %s", ret[mac].macAddr, ret[mac].ipAddr, ret[mac].ip6Addr)
 		nics = append(nics, ret[mac])
 	}
 	return nics, nil

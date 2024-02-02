@@ -50,6 +50,7 @@ type SVSwitch struct {
 
 	CidrBlock     string
 	Ipv6CidrBlock string
+	EnabledIpv6   bool
 	CreationTime  time.Time
 	Description   string
 	IsDefault     bool
@@ -79,25 +80,68 @@ func (self *SVSwitch) GetGlobalId() string {
 	return self.VSwitchId
 }
 
-func (self *SVSwitch) IsEmulated() bool {
-	return false
-}
-
 func (self *SVSwitch) GetStatus() string {
 	return strings.ToLower(self.Status)
 }
 
 func (self *SVSwitch) Refresh() error {
-	log.Debugf("vsiwtch refresh %s", self.VSwitchId)
-	new, err := self.wire.zone.region.GetVSwitchAttributes(self.VSwitchId)
+	net, err := self.wire.zone.region.GetVSwitchAttributes(self.VSwitchId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	return jsonutils.Update(self, net)
 }
 
 func (self *SVSwitch) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
+}
+
+func (net *SVSwitch) GetIp6Start() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).StepUp().String()
+	}
+	return ""
+}
+
+func (net *SVSwitch) GetIp6End() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		end := prefix.Address.NetAddr(prefix.MaskLen).BroadcastAddr(prefix.MaskLen)
+		for i := 0; i < 15; i++ {
+			end = end.StepDown()
+		}
+		return end.String()
+	}
+	return ""
+}
+
+func (net *SVSwitch) GetIp6Mask() uint8 {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return 0
+		}
+		return prefix.MaskLen
+	}
+	return 0
+}
+
+func (net *SVSwitch) GetGateway6() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).StepUp().String()
+	}
+	return ""
 }
 
 func (self *SVSwitch) GetIpStart() string {

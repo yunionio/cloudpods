@@ -26,10 +26,10 @@ func (net *SNetworkBase) GetIp6End() string {
 	return ""
 }
 
-func (self *SNetworkBase) GetIp6Mask() uint8 {
+func (net *SNetworkBase) GetIp6Mask() uint8 {
 	return 0
 }
 
-func (self *SNetworkBase) GetGateway6() string {
+func (net *SNetworkBase) GetGateway6() string {
 	return ""
 }
