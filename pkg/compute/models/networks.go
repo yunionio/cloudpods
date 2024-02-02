@@ -341,7 +341,7 @@ func (snet *SNetwork) getFreeIP6(addrTable map[string]bool, recentUsedAddrTable 
 			return "", errors.Wrap(err, "NewIPV6Addr")
 		}
 		if !iprange.Contains(candIP) {
-			return "", httperrors.NewInputParameterError("candidate %s out of range", candidate)
+			return "", httperrors.NewInputParameterError("candidate %s out of range %s", candidate, iprange.String())
 		}
 		if _, ok := addrTable[candidate]; !ok {
 			return candidate, nil
