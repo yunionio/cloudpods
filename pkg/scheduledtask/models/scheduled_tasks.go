@@ -441,6 +441,11 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return err
 	}
+	if len(res) == 0 {
+		reason := fmt.Sprintf("All %ss %s failed:\n%s", st.ResourceType, st.Operation, errors.ErrNotFound)
+		sa.Fail(reason)
+		return nil
+	}
 	for id := range res {
 		ids = append(ids, id)
 	}
