@@ -392,7 +392,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 					}
 				}
 
-				ip6Addr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address, allocDir, reserved, api.AddressTypeIPv6)
+				ip6Addr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address6, allocDir, reserved, api.AddressTypeIPv6)
 				if err != nil {
 					return nil, errors.Wrap(err, "GetFreeIPv6")
 				}
