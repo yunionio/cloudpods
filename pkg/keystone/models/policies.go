@@ -296,9 +296,11 @@ func (manager *SPolicyManager) ValidateCreateData(
 		input.Name = input.Type
 	}
 
+	var domainTags, projectTags, objectTags tagutils.TTagSetList
+
 	if len(input.OrgNodeId) > 0 {
 		for i := range input.OrgNodeId {
-			orgNode, err := OrganizationNodeManager.FetchById(input.OrgNodeId[i])
+			orgNodeObj, err := OrganizationNodeManager.FetchById(input.OrgNodeId[i])
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
 					return input, httperrors.NewResourceNotFoundError2(OrganizationNodeManager.Keyword(), input.OrgNodeId[i])
@@ -306,11 +308,34 @@ func (manager *SPolicyManager) ValidateCreateData(
 					return input, errors.Wrap(err, "OrganizationNodeManager.FetchById")
 				}
 			}
-			input.OrgNodeId[i] = orgNode.GetId()
+			orgNode := orgNodeObj.(*SOrganizationNode)
+			input.OrgNodeId[i] = orgNode.Id
+			org, err := orgNode.GetOrganization()
+			if err != nil {
+				return input, errors.Wrap(err, "orgNode.GetOrganization")
+			}
+			switch org.Type {
+			case api.OrgTypeDomain:
+				domainTags = domainTags.Append(orgNode.GetTagSet(org))
+			case api.OrgTypeProject:
+				projectTags = projectTags.Append(orgNode.GetTagSet(org))
+			case api.OrgTypeObject:
+				objectTags = objectTags.Append(orgNode.GetTagSet(org))
+			}
 		}
 	}
 
-	policy, err := rbacutils.DecodePolicyData(input.DomainTags, input.ProjectTags, input.ObjectTags, input.Blob)
+	if len(input.DomainTags) > 0 {
+		domainTags = domainTags.Append(input.DomainTags)
+	}
+	if len(input.ProjectTags) > 0 {
+		projectTags = projectTags.Append(input.ProjectTags)
+	}
+	if len(input.ObjectTags) > 0 {
+		objectTags = objectTags.Append(input.ObjectTags)
+	}
+
+	policy, err := rbacutils.DecodePolicyData(domainTags, projectTags, objectTags, input.Blob)
 	if err != nil {
 		return input, httperrors.NewInputParameterError("fail to decode policy data")
 	}
@@ -374,14 +399,24 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 		}
 	}
 
+	var tagChanged bool
+
 	switch input.TagUpdatePolicy {
 	case api.TAG_UPDATE_POLICY_REMOVE:
-		input.DomainTags = policy.DomainTags.Remove(input.DomainTags...)
-		input.ProjectTags = policy.ProjectTags.Remove(input.ProjectTags...)
-		input.ObjectTags = policy.ObjectTags.Remove(input.ObjectTags...)
+		var domainChanged, projectChanged, objectChanged bool
+		input.DomainTags, domainChanged = policy.DomainTags.Remove(input.DomainTags...)
+		input.ProjectTags, projectChanged = policy.ProjectTags.Remove(input.ProjectTags...)
+		input.ObjectTags, objectChanged = policy.ObjectTags.Remove(input.ObjectTags...)
+		if domainChanged || projectChanged || objectChanged {
+			tagChanged = true
+		}
 	case api.TAG_UPDATE_POLICY_REPLACE:
 		// do nothing
+		tagChanged = true
 	default:
+		if len(input.DomainTags) > 0 || len(input.ProjectTags) > 0 || len(input.ObjectTags) > 0 {
+			tagChanged = true
+		}
 		input.DomainTags = policy.DomainTags.Append(input.DomainTags...)
 		input.ProjectTags = policy.ProjectTags.Append(input.ProjectTags...)
 		input.ObjectTags = policy.ObjectTags.Append(input.ObjectTags...)
@@ -406,6 +441,8 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 		for i := range policy.OrgNodeId {
 			if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
 				nodeIds = append(nodeIds, policy.OrgNodeId[i])
+			} else {
+				tagChanged = true
 			}
 		}
 		input.OrgNodeId = nodeIds
@@ -419,8 +456,38 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 		}
 	}
 
-	if input.Blob != nil {
-		p, err := rbacutils.DecodePolicyData(input.DomainTags, input.ProjectTags, input.ObjectTags, input.Blob)
+	if input.Blob != nil || tagChanged {
+		var domainTags, projectTags, objectTags tagutils.TTagSetList
+		if len(input.DomainTags) > 0 {
+			domainTags = domainTags.Append(input.DomainTags)
+		}
+		if len(input.ProjectTags) > 0 {
+			projectTags = projectTags.Append(input.ProjectTags)
+		}
+		if len(input.ObjectTags) > 0 {
+			objectTags = objectTags.Append(input.DomainTags)
+		}
+		for i := range input.OrgNodeId {
+			orgNodeObj, err := OrganizationNodeManager.FetchById(input.OrgNodeId[i])
+			if err != nil {
+				return input, errors.Wrapf(err, "OrganizationNodeManager.FetchById %s", input.OrgNodeId[i])
+			}
+			orgNode := orgNodeObj.(*SOrganizationNode)
+			org, err := orgNode.GetOrganization()
+			if err != nil {
+				return input, errors.Wrap(err, "GetOrganization")
+			}
+			switch org.Type {
+			case api.OrgTypeDomain:
+				domainTags = domainTags.Append(orgNode.GetTagSet(org))
+			case api.OrgTypeProject:
+				projectTags = projectTags.Append(orgNode.GetTagSet(org))
+			case api.OrgTypeObject:
+				objectTags = objectTags.Append(orgNode.GetTagSet(org))
+			}
+		}
+
+		p, err := rbacutils.DecodePolicyData(domainTags, projectTags, objectTags, input.Blob)
 		if err != nil {
 			return input, httperrors.NewInputParameterError("fail to decode policy data")
 		}
@@ -653,7 +720,39 @@ func (policy *SPolicy) GetSharedDomains() []string {
 }
 
 func (policy *SPolicy) getPolicy() (*rbacutils.SPolicy, error) {
-	pc, err := rbacutils.DecodePolicyData(policy.DomainTags, policy.ProjectTags, policy.ObjectTags, policy.Blob)
+	var domainTags, projectTags, objectTags tagutils.TTagSetList
+	if len(policy.DomainTags) > 0 {
+		domainTags = domainTags.Append(policy.DomainTags)
+	}
+	if len(policy.ProjectTags) > 0 {
+		projectTags = projectTags.Append(policy.ProjectTags)
+	}
+	if len(policy.ObjectTags) > 0 {
+		objectTags = objectTags.Append(policy.ObjectTags)
+	}
+	var errs []error
+	for i := range policy.OrgNodeId {
+		orgNodeObj, err := OrganizationNodeManager.FetchById(policy.OrgNodeId[i])
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			orgNode := orgNodeObj.(*SOrganizationNode)
+			org, err := orgNode.GetOrganization()
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				switch org.Type {
+				case api.OrgTypeDomain:
+					domainTags = domainTags.Append(orgNode.GetTagSet(org))
+				case api.OrgTypeProject:
+					projectTags = projectTags.Append(orgNode.GetTagSet(org))
+				case api.OrgTypeObject:
+					objectTags = objectTags.Append(orgNode.GetTagSet(org))
+				}
+			}
+		}
+	}
+	pc, err := rbacutils.DecodePolicyData(domainTags, projectTags, objectTags, policy.Blob)
 	if err != nil {
 		return nil, errors.Wrap(err, "Decode")
 	}

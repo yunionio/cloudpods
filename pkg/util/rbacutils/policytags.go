@@ -26,11 +26,11 @@ type SPolicy struct {
 	// policy rules
 	Rules TPolicy
 	// tags for domains
-	DomainTags tagutils.TTagSet
+	DomainTags tagutils.TTagSetList
 	// tags for projects
-	ProjectTags tagutils.TTagSet
+	ProjectTags tagutils.TTagSetList
 	// tags for resources
-	ObjectTags tagutils.TTagSet
+	ObjectTags tagutils.TTagSetList
 }
 
 func (policy SPolicy) GetMatchRule(service string, resource string, action string, extra ...string) *SPolicyMatch {
@@ -47,10 +47,10 @@ func (policy SPolicy) GetMatchRule(service string, resource string, action strin
 }
 
 func DecodePolicy(policyJson jsonutils.JSONObject) (*SPolicy, error) {
-	tags := []tagutils.TTagSet{
-		make(tagutils.TTagSet, 0), // domain
-		make(tagutils.TTagSet, 0), // project
-		make(tagutils.TTagSet, 0), // resource
+	tags := []tagutils.TTagSetList{
+		tagutils.TTagSetList{}, // domain
+		tagutils.TTagSetList{}, // project
+		tagutils.TTagSetList{}, // resource
 	}
 	for i, key := range []string{
 		DomainTagsKey,
@@ -60,7 +60,13 @@ func DecodePolicy(policyJson jsonutils.JSONObject) (*SPolicy, error) {
 		if policyJson.Contains(key) {
 			err := policyJson.Unmarshal(&tags[i], key)
 			if err != nil {
-				return nil, errors.Wrapf(err, "Unmarshal %s", key)
+				tmpTagSet := make(tagutils.TTagSet, 0)
+				err2 := policyJson.Unmarshal(&tmpTagSet, key)
+				if err2 == nil {
+					tags[i] = tags[i].Append(tmpTagSet)
+				} else {
+					return nil, errors.Wrapf(errors.NewAggregate([]error{err, err2}), "Unmarshal %s", key)
+				}
 			}
 		}
 	}
@@ -76,7 +82,7 @@ func DecodePolicy(policyJson jsonutils.JSONObject) (*SPolicy, error) {
 	}, nil
 }
 
-func DecodePolicyData(domainTags, projectTags, objectTags tagutils.TTagSet, input jsonutils.JSONObject) (*SPolicy, error) {
+func DecodePolicyData(domainTags, projectTags, objectTags tagutils.TTagSetList, input jsonutils.JSONObject) (*SPolicy, error) {
 	rules, err := DecodeRawPolicyData(input)
 	if err != nil {
 		return nil, errors.Wrap(err, "decodePolicyData")
@@ -114,13 +120,13 @@ func (policy1 SPolicy) Contains(policy2 SPolicy) bool {
 	if !policy1.Rules.Contains(policy2.Rules) {
 		return false
 	}
-	if !policy1.DomainTags.Contains(policy2.DomainTags) {
+	if !policy1.DomainTags.ContainsAll(policy2.DomainTags) {
 		return false
 	}
-	if !policy1.ProjectTags.Contains(policy2.ProjectTags) {
+	if !policy1.ProjectTags.ContainsAll(policy2.ProjectTags) {
 		return false
 	}
-	if !policy1.ObjectTags.Contains(policy2.ObjectTags) {
+	if !policy1.ObjectTags.ContainsAll(policy2.ObjectTags) {
 		return false
 	}
 	return true
