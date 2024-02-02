@@ -587,7 +587,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		// query senders are responsible for clear up other constraint
 		// like setting "pendinge_delete" to "all"
 		queryDelete, _ := query.GetString("delete")
-		if queryDelete == "all" && userCred.HasSystemAdminPrivilege() {
+		if queryDelete == "all" && policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList).Result.IsAllow() {
 			useRawQuery = true
 		}
 	}

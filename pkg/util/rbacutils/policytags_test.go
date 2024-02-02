@@ -47,10 +47,12 @@ func TestSPolicy_Contains(t *testing.T) {
 					},
 				},
 				DomainTags: nil,
-				ProjectTags: tagutils.TTagSet{
-					tagutils.STag{
-						Key:   "project",
-						Value: "a",
+				ProjectTags: tagutils.TTagSetList{
+					tagutils.TTagSet{
+						tagutils.STag{
+							Key:   "project",
+							Value: "a",
+						},
 					},
 				},
 				ObjectTags: nil,
@@ -80,14 +82,16 @@ func TestSPolicy_Contains(t *testing.T) {
 					},
 				},
 				DomainTags: nil,
-				ProjectTags: tagutils.TTagSet{
-					tagutils.STag{
-						Key:   "project",
-						Value: "a",
-					},
-					tagutils.STag{
-						Key:   "env",
-						Value: "test",
+				ProjectTags: tagutils.TTagSetList{
+					tagutils.TTagSet{
+						tagutils.STag{
+							Key:   "project",
+							Value: "a",
+						},
+						tagutils.STag{
+							Key:   "env",
+							Value: "test",
+						},
 					},
 				},
 				ObjectTags: nil,
@@ -108,10 +112,12 @@ func TestSPolicy_Contains(t *testing.T) {
 					},
 				},
 				DomainTags: nil,
-				ProjectTags: tagutils.TTagSet{
-					tagutils.STag{
-						Key:   "project",
-						Value: "a",
+				ProjectTags: tagutils.TTagSetList{
+					tagutils.TTagSet{
+						tagutils.STag{
+							Key:   "project",
+							Value: "a",
+						},
 					},
 				},
 				ObjectTags: nil,

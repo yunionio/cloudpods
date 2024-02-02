@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -92,11 +93,34 @@ type sPolicyData struct {
 	Policy        jsonutils.JSONObject `json:"policy"`
 	DomainTags    tagutils.TTagSet     `json:"domain_tags"`
 	ProjectTags   tagutils.TTagSet     `json:"project_tags"`
-	ResourceTags  tagutils.TTagSet     `json:"resource_tags"`
+	ObjectTags    tagutils.TTagSet     `json:"resource_tags"`
+
+	OrgNodes []identity_api.SOrganizationNodeInfo `json:"org_nodes"`
 }
 
 func (data sPolicyData) getPolicy() (*rbacutils.SPolicy, error) {
-	return rbacutils.DecodePolicyData(data.DomainTags, data.ProjectTags, data.ResourceTags, data.Policy)
+	var domainTags, projectTags, objectTags tagutils.TTagSetList
+	if len(data.DomainTags) > 0 {
+		domainTags = domainTags.Append(data.DomainTags)
+	}
+	if len(data.ProjectTags) > 0 {
+		projectTags = projectTags.Append(data.ProjectTags)
+	}
+	if len(data.ObjectTags) > 0 {
+		objectTags = objectTags.Append(data.ObjectTags)
+	}
+	for i := range data.OrgNodes {
+		orgNode := data.OrgNodes[i]
+		switch orgNode.Type {
+		case identity_api.OrgTypeDomain:
+			domainTags = domainTags.Append(orgNode.Tags)
+		case identity_api.OrgTypeProject:
+			projectTags = projectTags.Append(orgNode.Tags)
+		case identity_api.OrgTypeObject:
+			objectTags = objectTags.Append(orgNode.Tags)
+		}
+	}
+	return rbacutils.DecodePolicyData(domainTags, projectTags, objectTags, data.Policy)
 }
 
 func (manager *SPolicyManager) init(refreshInterval time.Duration, workerCount int) {
@@ -464,9 +488,9 @@ func explainPolicyInternal(userCred mcclient.TokenCredential, policyReq jsonutil
 			result = rbacutils.PolicyDeny
 			if match != nil {
 				result.Result = match.Rule.Result
-				result.DomainTags = tagutils.TTagSetList{match.DomainTags}
-				result.ProjectTags = tagutils.TTagSetList{match.ProjectTags}
-				result.ObjectTags = tagutils.TTagSetList{match.ObjectTags}
+				result.DomainTags = match.DomainTags
+				result.ProjectTags = match.ProjectTags
+				result.ObjectTags = match.ObjectTags
 			}
 		}
 	}
