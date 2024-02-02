@@ -26,7 +26,7 @@ type SOrganizationNodeInfo struct {
 	FullLabel    string
 	OrgId        string
 	Organization string
-	Tags         []tagutils.STag
+	Tags         tagutils.TTagSet
 	Type         TOrgType
 }
 
