@@ -1206,8 +1206,8 @@ yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240202081635-8602b7fb2751/go.mod h1:d
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32 h1:v7POYkQwo1XzOxBoIoRVr/k0V9Y5JyjpshlIFa9raug=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
-yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19 h1:mZh6vuo7oOiOtE5HF4667+XBNnn7uYpmGN5eIgCVMLk=
-yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19/go.mod h1:VK4Z93dgiKgAijcSqbMKmGaBMJuHulR16Hz4K015ZPo=
+yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401 h1:4l6ELFSQ0MBVInscZ8/yOtSWF0cwH5BT1ATN6dCtAqc=
+yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401/go.mod h1:VK4Z93dgiKgAijcSqbMKmGaBMJuHulR16Hz4K015ZPo=
 yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b/go.mod h1:+gauLs73omeJAPlsXcevLsJLKixV+sR/E7WSYTSx1fE=
 yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
 yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361 h1:c5LyNdhbvBe/92pXs9jgXOU/S+RgYh/DHe538LpT/Mo=

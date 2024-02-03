@@ -252,7 +252,7 @@ func TestTTagSetList_Append(t *testing.T) {
 func TestTTagSetList_Flattern(t *testing.T) {
 	cases := []struct {
 		tsl  TTagSetList
-		want TTagSet
+		want map[string]TTagSet
 	}{
 		{
 			tsl: TTagSetList{
@@ -273,14 +273,16 @@ func TestTTagSetList_Flattern(t *testing.T) {
 					},
 				},
 			},
-			want: TTagSet{
-				STag{
-					Key:   "project",
-					Value: "a",
-				},
-				STag{
-					Key:   "env",
-					Value: "product",
+			want: map[string]TTagSet{
+				"": {
+					STag{
+						Key:   "project",
+						Value: "a",
+					},
+					STag{
+						Key:   "env",
+						Value: "product",
+					},
 				},
 			},
 		},
@@ -424,6 +426,152 @@ func TestIntersects(t *testing.T) {
 		got := c.tsl.IntersectList(c.ts2)
 		if jsonutils.Marshal(got).String() != jsonutils.Marshal(c.want).String() {
 			t.Errorf("got %s want %s", jsonutils.Marshal(got).String(), jsonutils.Marshal(c.want).String())
+		}
+	}
+}
+
+func TestFlattern(t *testing.T) {
+	cases := []struct {
+		tsl  TTagSetList
+		want map[string]TTagSet
+	}{
+		{
+			tsl: TTagSetList{
+				TTagSet{
+					STag{
+						Key:   "user:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "user:环境",
+						Value: "UAT",
+					},
+				},
+				TTagSet{
+					STag{
+						Key:   "org:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "org:环境",
+						Value: "UAT",
+					},
+				},
+			},
+			want: map[string]TTagSet{
+				"user": {
+					STag{
+						Key:   "user:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "user:环境",
+						Value: "UAT",
+					},
+				},
+				"org": {
+					STag{
+						Key:   "org:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "org:环境",
+						Value: "UAT",
+					},
+				},
+			},
+		},
+		{
+			tsl: TTagSetList{
+				TTagSet{
+					STag{
+						Key:   "user:国家",
+						Value: "中国",
+					},
+					STag{
+						Key:   "user:城市",
+						Value: "天津",
+					},
+					STag{
+						Key:   "user:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "user:环境",
+						Value: "Product",
+					},
+				},
+				TTagSet{
+					STag{
+						Key:   "user:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "user:环境",
+						Value: "UAT",
+					},
+				},
+				TTagSet{
+					STag{
+						Key:   "user:城市",
+						Value: "北京",
+					},
+					STag{
+						Key:   "user:部门",
+						Value: "研发",
+					},
+					STag{
+						Key:   "user:环境",
+						Value: "UAT",
+					},
+				},
+				TTagSet{
+					STag{
+						Key:   "org:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "org:环境",
+						Value: "UAT",
+					},
+				},
+			},
+			want: map[string]TTagSet{
+				"user": {
+					STag{
+						Key:   "user:国家",
+						Value: "中国",
+					},
+					STag{
+						Key:   "user:城市",
+						Value: "天津",
+					},
+					STag{
+						Key:   "user:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "user:环境",
+						Value: "Product",
+					},
+				},
+				"org": {
+					STag{
+						Key:   "org:部门",
+						Value: "技术",
+					},
+					STag{
+						Key:   "org:环境",
+						Value: "UAT",
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		got := c.tsl.Flattern()
+		if jsonutils.Marshal(got).String() != jsonutils.Marshal(c.want).String() {
+			t.Errorf("tsl %s flattern got %s want %s", jsonutils.Marshal(c.tsl), jsonutils.Marshal(got), jsonutils.Marshal(c.want))
 		}
 	}
 }

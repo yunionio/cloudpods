@@ -448,10 +448,12 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 		input.OrgNodeId = nodeIds
 	case api.TAG_UPDATE_POLICY_REPLACE:
 		// do nothing
+		tagChanged = true
 	default:
 		for i := range policy.OrgNodeId {
 			if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
 				input.OrgNodeId = append(input.OrgNodeId, policy.OrgNodeId[i])
+				tagChanged = true
 			}
 		}
 	}

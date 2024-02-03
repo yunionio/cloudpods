@@ -137,10 +137,25 @@ func (a TTagSetList) Less(i, j int) bool {
 	return false
 }
 
-func (tsl TTagSetList) Flattern() TTagSet {
+func (tsl TTagSetList) Flattern() map[string]TTagSet {
 	if len(tsl) == 0 {
-		return TTagSet{}
+		return nil
 	}
-	sort.Sort(tsl)
-	return tsl[len(tsl)-1]
+
+	splitMap := make(map[string]TTagSetList)
+	for i := range tsl {
+		prefix := tsl[i].KeyPrefix()
+		if ts, ok := splitMap[prefix]; ok {
+			splitMap[prefix] = ts.Append(tsl[i])
+		} else {
+			splitMap[prefix] = TTagSetList{tsl[i]}
+		}
+	}
+	ret := make(map[string]TTagSet)
+	for k := range splitMap {
+		tsl := splitMap[k]
+		sort.Sort(tsl)
+		ret[k] = tsl[len(tsl)-1]
+	}
+	return ret
 }

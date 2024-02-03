@@ -89,3 +89,38 @@ func TestSTagCompare(t *testing.T) {
 		}
 	}
 }
+
+func TestKeyPrefix(t *testing.T) {
+	cases := []struct {
+		tag  STag
+		want string
+	}{
+		{
+			tag: STag{
+				Key:   "user:abc",
+				Value: "1",
+			},
+			want: "user",
+		},
+		{
+			tag: STag{
+				Key:   "org:abc",
+				Value: "1",
+			},
+			want: "org",
+		},
+		{
+			tag: STag{
+				Key:   "cls:abc",
+				Value: "1",
+			},
+			want: "cls",
+		},
+	}
+	for _, c := range cases {
+		got := c.tag.KeyPrefix()
+		if got != c.want {
+			t.Errorf("tag %s keyprefix %s got %s", c.tag.String(), c.want, got)
+		}
+	}
+}
