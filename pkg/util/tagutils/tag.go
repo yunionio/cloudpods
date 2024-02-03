@@ -14,6 +14,11 @@
 
 package tagutils
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	NoValue  = "___no_value__"
 	AnyValue = ""
@@ -24,6 +29,18 @@ type STag struct {
 	Key string `json:"key"`
 	// 标签Value
 	Value string `json:"value"`
+}
+
+func (t STag) String() string {
+	return fmt.Sprintf("%s=%s", t.Key, t.Value)
+}
+
+func (t STag) KeyPrefix() string {
+	commaPos := strings.Index(t.Key, ":")
+	if commaPos > 0 {
+		return t.Key[:commaPos]
+	}
+	return ""
 }
 
 func Compare(t1, t2 STag) int {

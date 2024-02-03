@@ -85,11 +85,21 @@ func (result SPolicyResult) String() string {
 	return fmt.Sprintf("[%s] domain:%s project:%s object:%s", result.Result, result.DomainTags.String(), result.ProjectTags.String(), result.ObjectTags.String())
 }
 
+func (result SPolicyResult) IsEmpty() bool {
+	return len(result.ObjectTags) == 0 && len(result.ProjectTags) == 0 && len(result.DomainTags) == 0
+}
+
 func (result SPolicyResult) Json() jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.Marshal(result.ObjectTags), "policy_object_tags")
-	ret.Add(jsonutils.Marshal(result.ProjectTags), "policy_project_tags")
-	ret.Add(jsonutils.Marshal(result.DomainTags), "policy_domain_tags")
+	if len(result.ObjectTags) > 0 {
+		ret.Add(jsonutils.Marshal(result.ObjectTags), "policy_object_tags")
+	}
+	if len(result.ProjectTags) > 0 {
+		ret.Add(jsonutils.Marshal(result.ProjectTags), "policy_project_tags")
+	}
+	if len(result.DomainTags) > 0 {
+		ret.Add(jsonutils.Marshal(result.DomainTags), "policy_domain_tags")
+	}
 	return ret
 }
 
