@@ -472,6 +472,9 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred api.IRbacI
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "GetMatchPolicyGroup")
 	}
+	if !options.Options.EnableDefaultDashboardPolicy {
+		return names, policies, nil
+	}
 	userId := userCred.GetUserId()
 	if len(userId) == 0 {
 		// anonymous access

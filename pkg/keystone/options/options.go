@@ -60,9 +60,10 @@ type SKeystoneOptions struct {
 	DomainAdminRoleToNotify string `help:"domain admin role to notify" default:"domainadmin"`
 	AdminRoleToNotify       string `help:"admin role to notify" default:"admin"`
 
-	SystemDashboardPolicy  string `help:"dashboard policy name for system view" default:"sys-dashboard"`
-	DomainDashboardPolicy  string `help:"dashboard policy name for domain view" default:"domain-dashboard"`
-	ProjectDashboardPolicy string `help:"dashboard policy name for project view" default:"project-dashboard"`
+	EnableDefaultDashboardPolicy bool   `default:"true" help:"enable default dashboard policy"`
+	SystemDashboardPolicy        string `help:"dashboard policy name for system view" default:"sys-dashboard"`
+	DomainDashboardPolicy        string `help:"dashboard policy name for domain view" default:"domain-dashboard"`
+	ProjectDashboardPolicy       string `help:"dashboard policy name for project view" default:"project-dashboard"`
 
 	NoPolicyViolationCheck bool `help:"do not check policy violation when modify or assign policy" default:"false"`
 

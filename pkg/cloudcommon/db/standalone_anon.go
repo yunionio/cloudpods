@@ -722,12 +722,12 @@ func (model *SStandaloneAnonResourceBase) applyPolicyTags(ctx context.Context, u
 	data.Unmarshal(&tags)
 	log.Debugf("applyPolicyTags: %s", jsonutils.Marshal(tags))
 	if len(tags.PolicyObjectTags) > 0 {
-		model.PerformMetadata(ctx, userCred, nil, tagutils.Tagset2MapString(tags.PolicyObjectTags.Flattern()))
+		model.PerformMetadata(ctx, userCred, nil, tagutils.TagsetMap2MapString(tags.PolicyObjectTags.Flattern()))
 	}
 	if model.Keyword() == "project" && len(tags.PolicyProjectTags) > 0 {
-		model.PerformMetadata(ctx, userCred, nil, tagutils.Tagset2MapString(tags.PolicyProjectTags.Flattern()))
+		model.PerformMetadata(ctx, userCred, nil, tagutils.TagsetMap2MapString(tags.PolicyProjectTags.Flattern()))
 	} else if model.Keyword() == "domain" && len(tags.PolicyDomainTags) > 0 {
-		model.PerformMetadata(ctx, userCred, nil, tagutils.Tagset2MapString(tags.PolicyDomainTags.Flattern()))
+		model.PerformMetadata(ctx, userCred, nil, tagutils.TagsetMap2MapString(tags.PolicyDomainTags.Flattern()))
 	}
 }
 

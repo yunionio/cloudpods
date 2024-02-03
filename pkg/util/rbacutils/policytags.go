@@ -48,9 +48,9 @@ func (policy SPolicy) GetMatchRule(service string, resource string, action strin
 
 func DecodePolicy(policyJson jsonutils.JSONObject) (*SPolicy, error) {
 	tags := []tagutils.TTagSetList{
-		tagutils.TTagSetList{}, // domain
-		tagutils.TTagSetList{}, // project
-		tagutils.TTagSetList{}, // resource
+		{}, // domain
+		{}, // project
+		{}, // resource
 	}
 	for i, key := range []string{
 		DomainTagsKey,
@@ -63,9 +63,9 @@ func DecodePolicy(policyJson jsonutils.JSONObject) (*SPolicy, error) {
 				tmpTagSet := make(tagutils.TTagSet, 0)
 				err2 := policyJson.Unmarshal(&tmpTagSet, key)
 				if err2 == nil {
-					tags[i] = tags[i].Append(tmpTagSet)
+					tags[i] = append(tags[i], tmpTagSet)
 				} else {
-					return nil, errors.Wrapf(errors.NewAggregate([]error{err, err2}), "Unmarshal %s", key)
+					return nil, errors.Wrapf(errors.NewAggregate([]error{err, err2}), "Unmarshal TTagSetList %s", key)
 				}
 			}
 		}
@@ -98,14 +98,21 @@ func DecodePolicyData(domainTags, projectTags, objectTags tagutils.TTagSetList, 
 func (policy SPolicy) Encode() jsonutils.JSONObject {
 	ret := rules2Json(policy.Rules)
 	if dict, ok := ret.(*jsonutils.JSONDict); ok {
-		if len(policy.DomainTags) > 0 {
+		// In order to make compatible with old policy client that supports TTagset
+		if len(policy.DomainTags) > 1 {
 			dict.Add(jsonutils.Marshal(policy.DomainTags), DomainTagsKey)
+		} else if len(policy.DomainTags) == 1 {
+			dict.Add(jsonutils.Marshal(policy.DomainTags[0]), DomainTagsKey)
 		}
-		if len(policy.ProjectTags) > 0 {
+		if len(policy.ProjectTags) > 1 {
 			dict.Add(jsonutils.Marshal(policy.ProjectTags), ProjectTagsKey)
+		} else if len(policy.ProjectTags) == 1 {
+			dict.Add(jsonutils.Marshal(policy.ProjectTags[0]), ProjectTagsKey)
 		}
-		if len(policy.ObjectTags) > 0 {
+		if len(policy.ObjectTags) > 1 {
 			dict.Add(jsonutils.Marshal(policy.ObjectTags), ObjectTagsKey)
+		} else if len(policy.ObjectTags) == 1 {
+			dict.Add(jsonutils.Marshal(policy.ObjectTags[0]), ObjectTagsKey)
 		}
 	} else {
 		log.Fatalf("rule2Json output a NonJSON???")
