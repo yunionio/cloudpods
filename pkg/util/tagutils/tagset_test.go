@@ -575,3 +575,61 @@ func TestTagSetAppend(t *testing.T) {
 		}
 	}
 }
+
+func TestTagSetKeyPrefix(t *testing.T) {
+	cases := []struct {
+		tags TTagSet
+		want string
+	}{
+		{
+			tags: TTagSet{
+				STag{
+					Key:   "user:abc",
+					Value: "1",
+				},
+				STag{
+					Key:   "user:efd",
+					Value: "1",
+				},
+			},
+			want: "user",
+		},
+		{
+			tags: TTagSet{
+				STag{
+					Key:   "org:abc",
+					Value: "1",
+				},
+			},
+			want: "org",
+		},
+		{
+			tags: TTagSet{
+				STag{
+					Key:   "cls:abc",
+					Value: "1",
+				},
+			},
+			want: "cls",
+		},
+		{
+			tags: TTagSet{
+				STag{
+					Key:   "cls:abc",
+					Value: "1",
+				},
+				STag{
+					Key:   "user:abc",
+					Value: "1",
+				},
+			},
+			want: "",
+		},
+	}
+	for _, c := range cases {
+		got := c.tags.KeyPrefix()
+		if got != c.want {
+			t.Errorf("tag %s keyprefix %s got %s", c.tags.String(), c.want, got)
+		}
+	}
+}

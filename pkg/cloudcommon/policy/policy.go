@@ -363,6 +363,9 @@ func (manager *SPolicyManager) allowWithoutCache(policies rbacutils.TPolicySet, 
 		log.Warningf("no policies fetched for scope %s", scope)
 	} else {
 		matchRules = policies.GetMatchRules(service, resource, action, extra...)
+		if consts.IsRbacDebug() {
+			log.Debugf("service %s resource %s action %s extra %s matchRules: %s", service, resource, action, jsonutils.Marshal(extra), jsonutils.Marshal(matchRules))
+		}
 	}
 
 	scopedDeny := false
@@ -393,26 +396,31 @@ func (manager *SPolicyManager) allowWithoutCache(policies rbacutils.TPolicySet, 
 		matchRules = append(matchRules, rule)
 	}
 
-	// try default policies
-	defaultPolicies, ok := manager.defaultPolicies[scope]
-	if ok {
-		for i := range defaultPolicies {
-			isMatched, _ := defaultPolicies[i].Match(userCred)
-			if !isMatched {
-				continue
-			}
-			rule := defaultPolicies[i].Rules.GetMatchRule(service, resource, action, extra...)
-			if rule != nil {
-				matchRules = append(matchRules,
-					rbacutils.SPolicyMatch{
-						Rule: *rule,
-					},
-				)
+	result := matchRules.GetResult()
+	if result.Result.IsDeny() {
+		// denied, try default policies
+		defaultPolicies, ok := manager.defaultPolicies[scope]
+		if ok {
+			for i := range defaultPolicies {
+				isMatched, _ := defaultPolicies[i].Match(userCred)
+				if !isMatched {
+					continue
+				}
+				rule := defaultPolicies[i].Rules.GetMatchRule(service, resource, action, extra...)
+				if rule != nil {
+					if consts.IsRbacDebug() {
+						log.Debugf("service: %s resource: %s action: %s extra: %s match default policy: %s match rule: %s", service, resource, action, jsonutils.Marshal(extra), jsonutils.Marshal(defaultPolicies[i]), jsonutils.Marshal(rule))
+					}
+					matchRules = append(matchRules,
+						rbacutils.SPolicyMatch{
+							Rule: *rule,
+						},
+					)
+				}
 			}
 		}
+		result = matchRules.GetResult()
 	}
-
-	result := matchRules.GetResult()
 	if consts.IsRbacDebug() {
 		log.Debugf("[RBAC: %s] %s %s %s %s permission %s userCred: %s MatchRules: %d(%s)", scope, service, resource, action, jsonutils.Marshal(extra), result, userCred, len(matchRules), jsonutils.Marshal(matchRules))
 	}

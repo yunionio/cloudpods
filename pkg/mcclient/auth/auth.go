@@ -190,7 +190,7 @@ func (a *authManager) refreshRevokeTokens(ctx context.Context) error {
 	if a.adminCredential == nil {
 		return fmt.Errorf("refreshRevokeTokens: No valid admin token credential")
 	}
-	tokens, err := a.client.FetchInvalidTokens(ctx, a.adminCredential.GetTokenString())
+	tokens, err := a.client.FetchInvalidTokens(getContext(ctx), a.adminCredential.GetTokenString())
 	if err != nil {
 		return errors.Wrap(err, "client.FetchInvalidTokens")
 	}
@@ -344,6 +344,17 @@ func (a *authManager) getAdminSession(ctx context.Context, region, zone, endpoin
 	return a.getSession(ctx, manager.adminCredential, region, zone, endpointType)
 }
 
+func getContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	srvType := consts.GetServiceType()
+	if len(srvType) > 0 && len(appctx.AppContextServiceName(ctx)) == 0 {
+		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, srvType)
+	}
+	return ctx
+}
+
 func (a *authManager) getSession(ctx context.Context, token mcclient.TokenCredential, region, zone, endpointType string) *mcclient.ClientSession {
 	cli := Client()
 	if cli == nil {
@@ -352,11 +363,7 @@ func (a *authManager) getSession(ctx context.Context, token mcclient.TokenCreden
 	if endpointType == "" && globalEndpointType != "" {
 		endpointType = globalEndpointType
 	}
-	srvType := consts.GetServiceType()
-	if len(srvType) > 0 && len(appctx.AppContextServiceName(ctx)) == 0 {
-		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, srvType)
-	}
-	return cli.NewSession(ctx, region, zone, endpointType, token)
+	return cli.NewSession(getContext(ctx), region, zone, endpointType, token)
 }
 
 func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {

@@ -90,7 +90,7 @@ require (
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240202081635-8602b7fb2751
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
-	yunion.io/x/jsonutils v1.0.1-0.20230613121553-0f3b41e2ef19
+	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.10.1-0.20240127153242-cdf9dc071f4f
