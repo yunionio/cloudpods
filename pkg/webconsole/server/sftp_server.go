@@ -21,7 +21,9 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/pkg/sftp"
 
@@ -65,9 +67,36 @@ func getSftpClient(sId string) (*sftp.Client, error) {
 }
 
 type sFileList struct {
-	Name string
-	Path string
-	Mode fs.FileMode
+	Name    string
+	Path    string
+	Size    int64
+	ModTime time.Time
+	IsDir   bool
+	Mode    fs.FileMode
+}
+
+type Files []sFileList
+
+func (files Files) Len() int {
+	return len(files)
+}
+
+func (files Files) Swap(i, j int) {
+	files[i], files[j] = files[j], files[i]
+}
+
+func (files Files) Less(i, j int) bool {
+	if files[i].IsDir != files[i].IsDir {
+		// 文件夹在上
+		var v = func(b bool) int {
+			if b {
+				return 0
+			}
+			return 1
+		}
+		return v(files[i].IsDir) < v(files[j].IsDir)
+	}
+	return files[i].Name < files[j].Name
 }
 
 func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -77,7 +106,7 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		dir, _ = query.GetString("path")
 	}
 	sId := params[SESSION_ID]
-	files, err := func() ([]sFileList, error) {
+	files, err := func() (Files, error) {
 		sftp, err := getSftpClient(sId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getSftpClient")
@@ -86,12 +115,15 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadDir %s", dir)
 		}
-		ret := []sFileList{}
+		ret := Files{}
 		for _, f := range files {
 			ret = append(ret, sFileList{
-				Name: f.Name(),
-				Mode: f.Mode(),
-				Path: path.Join(dir, f.Name()),
+				Name:    f.Name(),
+				Mode:    f.Mode(),
+				Size:    f.Size(),
+				ModTime: f.ModTime(),
+				IsDir:   f.IsDir(),
+				Path:    path.Join(dir, f.Name()),
 			})
 		}
 		return ret, nil
@@ -100,6 +132,7 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	sort.Sort(files)
 	appsrv.SendJSON(w, jsonutils.Marshal(files))
 }
 
