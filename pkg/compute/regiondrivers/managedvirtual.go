@@ -3007,7 +3007,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context
 		return errors.Wrapf(err, "wait network available after 5 minutes, current status: %s", inet.GetStatus())
 	}
 
-	return net.SyncWithCloudNetwork(ctx, userCred, inet, nil, nil)
+	return net.SyncWithCloudNetwork(ctx, userCred, inet)
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticSearch(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SElasticSearch, replaceTags bool, task taskman.ITask) error {
@@ -3547,6 +3547,42 @@ func (self *SManagedVirtualizationRegionDriver) RequestSnapshotPolicyUnbindDisks
 			}
 			return nil, sp.UnbindDisks(diskIds)
 		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateNetwork(ctx context.Context, userCred mcclient.TokenCredential, net *models.SNetwork, replaceTags bool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iNet, err := net.GetINetwork(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetINetwork")
+		}
+		vpc, err := net.GetVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetVpc")
+		}
+		oldTags, err := iNet.GetTags()
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "GetTags()")
+		}
+		tags, err := net.GetAllUserMetadata()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetAllUserMetadata")
+		}
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+		err = cloudprovider.SetTags(ctx, iNet, vpc.ManagerId, tags, replaceTags)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
+			logclient.AddActionLogWithStartable(task, net, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+			return nil, errors.Wrap(err, "SetTags")
+		}
+		logclient.AddActionLogWithStartable(task, net, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		return nil, nil
 	})
 	return nil

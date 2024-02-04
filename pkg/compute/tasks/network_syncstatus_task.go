@@ -57,7 +57,7 @@ func (self *NetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalon
 		return
 	}
 
-	err = net.SyncWithCloudNetwork(ctx, self.UserCred, extNet, nil, nil)
+	err = net.SyncWithCloudNetwork(ctx, self.UserCred, extNet)
 	if err != nil {
 		self.taskFail(ctx, net, errors.Wrapf(err, "SyncWithCloudNetwork"))
 		return

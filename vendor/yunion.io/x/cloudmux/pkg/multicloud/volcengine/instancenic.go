@@ -53,10 +53,18 @@ type SNetworkInterface struct {
 	ZoneId               string
 	PrivateIpAddresses   []string
 	AssociatedElasticIp  SAssociatedElasticIp
+	IPv6Sets             []string
 }
 
 func (nic *SNetworkInterface) GetIP() string {
 	return nic.PrimaryIpAddress
+}
+
+func (nic *SNetworkInterface) GetIP6() string {
+	for _, ip := range nic.IPv6Sets {
+		return ip
+	}
+	return ""
 }
 
 func (nic *SNetworkInterface) GetMAC() string {
@@ -88,21 +96,12 @@ func (nic *SNetworkInterface) UnassignAddress(ipAddrs []string) error {
 }
 
 func (region *SRegion) GetSubAddress(nicId string) ([]string, error) {
-	params := map[string]string{
-		"NetworkInterfaceId.1": nicId,
-	}
-	body, err := region.vpcRequest("DescribeNetworkInterfaces", params)
+	nics, err := region.GetNetworkInterfaces(nicId, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "DescribeNetworkInterfaces")
-	}
-
-	interfaces := []SNetworkInterface{}
-	err = body.Unmarshal(&interfaces, "NetworkInterfaceSets")
-	if err != nil {
-		return nil, errors.Wrapf(err, "Unmarshal")
+		return nil, errors.Wrapf(err, "GetNetworkInterfaces")
 	}
 	ipAddrs := []string{}
-	for _, net := range interfaces {
+	for _, net := range nics {
 		if net.NetworkInterfaceId != nicId {
 			continue
 		}
@@ -113,6 +112,39 @@ func (region *SRegion) GetSubAddress(nicId string) ([]string, error) {
 		}
 	}
 	return ipAddrs, nil
+}
+
+func (region *SRegion) GetNetworkInterfaces(nicId, instanceId string) ([]SNetworkInterface, error) {
+	params := map[string]string{
+		"PageSize": "100",
+	}
+	if len(nicId) > 0 {
+		params["NetworkInterfaceId.1"] = nicId
+	}
+	if len(instanceId) > 0 {
+		params["InstanceId"] = instanceId
+	}
+	ret := []SNetworkInterface{}
+	for {
+		resp, err := region.vpcRequest("DescribeNetworkInterfaces", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeNetworkInterfaces")
+		}
+		part := struct {
+			NetworkInterfaceSets []SNetworkInterface
+			NextToken            string
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.NetworkInterfaceSets...)
+		if len(part.NextToken) == 0 {
+			break
+		}
+		params["NextToken"] = part.NextToken
+	}
+	return ret, nil
 }
 
 func (region *SRegion) AssignAddres(nicId string, ipAddrs []string) error {
