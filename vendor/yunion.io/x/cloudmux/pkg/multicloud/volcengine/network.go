@@ -88,6 +88,51 @@ func (subnet *SNetwork) GetProjectId() string {
 	return subnet.ProjectName
 }
 
+func (net *SNetwork) GetIp6Start() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).StepUp().StepUp().String()
+	}
+	return ""
+}
+
+func (net *SNetwork) GetIp6End() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		end := prefix.Address.NetAddr(prefix.MaskLen).BroadcastAddr(prefix.MaskLen)
+		return end.StepDown().String()
+	}
+	return ""
+}
+
+func (net *SNetwork) GetIp6Mask() uint8 {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return 0
+		}
+		return prefix.MaskLen
+	}
+	return 0
+}
+
+func (net *SNetwork) GetGateway6() string {
+	if len(net.Ipv6CidrBlock) > 0 {
+		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
+		if err != nil {
+			return ""
+		}
+		return prefix.Address.NetAddr(prefix.MaskLen).StepUp().String()
+	}
+	return ""
+}
+
 func (subnet *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(subnet.CidrBlock)
 	startIp := pref.Address.NetAddr(pref.MaskLen)

@@ -96,6 +96,86 @@ func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
 }
 
+func (self *SNetwork) GetTags() (map[string]string, error) {
+	res := fmt.Sprintf("subnets/%s/tags", self.ID)
+	resp, err := self.wire.vpc.region.list(SERVICE_VPC_V2_0, res, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list tags")
+	}
+	ret := []struct {
+		Key   string
+		Value string
+	}{}
+	err = resp.Unmarshal(&ret, "tags")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	result := map[string]string{}
+	for _, tag := range ret {
+		result[tag.Key] = tag.Value
+	}
+	return result, nil
+
+}
+
+func (self *SNetwork) SetTags(tags map[string]string, replace bool) error {
+	existedTags, err := self.GetTags()
+	if err != nil {
+		return errors.Wrapf(err, "GetTags")
+	}
+	return self.wire.vpc.region.SetNetworkTags(self.ID, existedTags, tags, replace)
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=DeleteSubnetTag
+func (self *SRegion) DeleteNetworkTag(subnetId string, key string) error {
+	res := fmt.Sprintf("subnets/%s/tags/%s", subnetId, key)
+	_, err := self.delete(SERVICE_VPC_V2_0, res)
+	return err
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/VPC/doc?version=v2&api=CreateSubnetTag
+func (self *SRegion) CreateNetworkTag(subnetId string, tags map[string]string) error {
+	params := map[string]interface{}{
+		"action": "create",
+	}
+	add := []map[string]string{}
+	for k, v := range tags {
+		add = append(add, map[string]string{"key": k, "value": v})
+	}
+	params["tags"] = add
+	res := fmt.Sprintf("subnets/%s/tags/action", subnetId)
+	_, err := self.post(SERVICE_VPC_V2_0, res, params)
+	return err
+}
+
+func (self *SRegion) SetNetworkTags(netId string, existedTags map[string]string, tags map[string]string, replace bool) error {
+	deleteTagsKey := []string{}
+	for k := range existedTags {
+		if replace {
+			deleteTagsKey = append(deleteTagsKey, k)
+		} else {
+			if _, ok := tags[k]; ok {
+				deleteTagsKey = append(deleteTagsKey, k)
+			}
+		}
+	}
+	if len(deleteTagsKey) > 0 {
+		for _, k := range deleteTagsKey {
+			err := self.DeleteNetworkTag(netId, k)
+			if err != nil {
+				return errors.Wrapf(err, "remove tags")
+			}
+		}
+	}
+	if len(tags) > 0 {
+		err := self.CreateNetworkTag(netId, tags)
+		if err != nil {
+			return errors.Wrapf(err, "add tags")
+		}
+	}
+	return nil
+}
+
 func (net *SNetwork) GetIp6Start() string {
 	if len(net.CIDRV6) > 0 {
 		prefix, err := netutils.NewIPV6Prefix(net.CIDRV6)

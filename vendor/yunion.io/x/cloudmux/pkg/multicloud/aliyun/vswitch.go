@@ -96,6 +96,10 @@ func (self *SVSwitch) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
 }
 
+func (self *SVSwitch) SetTags(tags map[string]string, replace bool) error {
+	return self.wire.zone.region.SetResourceTags(ALIYUN_SERVICE_VPC, "VSWITCH", self.VSwitchId, tags, replace)
+}
+
 func (net *SVSwitch) GetIp6Start() string {
 	if len(net.Ipv6CidrBlock) > 0 {
 		prefix, err := netutils.NewIPV6Prefix(net.Ipv6CidrBlock)
