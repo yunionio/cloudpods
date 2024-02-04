@@ -37,6 +37,7 @@ type SVpc struct {
 	VpcId                   string
 	VpcName                 string
 	CidrBlock               string
+	Ipv6CidrBlock           string
 	CidrBlockAssociationSet []string
 	IsDefault               bool
 	Status                  string
@@ -58,16 +59,16 @@ func (vpc *SVpc) GetGlobalId() string {
 	return vpc.VpcId
 }
 
-func (vpc *SVpc) IsEmulated() bool {
-	return false
-}
-
 func (vpc *SVpc) GetIsDefault() bool {
 	return vpc.IsDefault
 }
 
 func (vpc *SVpc) GetCidrBlock() string {
 	return vpc.CidrBlock
+}
+
+func (vpc *SVpc) GetCidrBlock6() string {
+	return vpc.Ipv6CidrBlock
 }
 
 func (vpc *SVpc) GetStatus() string {
