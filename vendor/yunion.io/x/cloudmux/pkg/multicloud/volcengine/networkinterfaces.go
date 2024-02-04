@@ -15,10 +15,6 @@
 package volcengine
 
 import (
-	"fmt"
-
-	"yunion.io/x/pkg/errors"
-
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
@@ -87,18 +83,9 @@ func (nic *SNetworkInterface) GetStatus() string {
 }
 
 func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
-	interfaces := []SNetworkInterface{}
-	pageNumber := 1
-	for {
-		parts, total, err := region.GetNetworkInterfaces("", pageNumber, 50)
-		if err != nil {
-			return nil, err
-		}
-		interfaces = append(interfaces, parts...)
-		if len(interfaces) >= total {
-			break
-		}
-		pageNumber += 1
+	interfaces, err := region.GetNetworkInterfaces("", "")
+	if err != nil {
+		return nil, err
 	}
 	ret := []cloudprovider.ICloudNetworkInterface{}
 	for i := 0; i < len(interfaces); i++ {
@@ -117,33 +104,4 @@ func (nic *SNetworkInterface) GetICloudInterfaceAddresses() ([]cloudprovider.ICl
 		address = append(address, &nic.PrivateIpSets.PrivateIpSet[i])
 	}
 	return address, nil
-}
-
-func (region *SRegion) GetNetworkInterfaces(instanceId string, pageNumber int, pageSize int) ([]SNetworkInterface, int, error) {
-	if pageSize > 100 || pageSize <= 0 {
-		pageSize = 100
-	}
-
-	params := map[string]string{
-		"RegionId":   region.RegionId,
-		"PageSize":   fmt.Sprintf("%d", pageSize),
-		"PageNumber": fmt.Sprintf("%d", pageNumber),
-	}
-
-	if len(instanceId) > 0 {
-		params["InstanceId"] = instanceId
-	}
-
-	body, err := region.vpcRequest("DescribeNetworkInterfaces", params)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "DescribeNetworkInterfaces")
-	}
-
-	interfaces := []SNetworkInterface{}
-	err = body.Unmarshal(&interfaces, "NetworkInterfaceSets")
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "Unmarshal")
-	}
-	total, _ := body.Int("TotalCount")
-	return interfaces, int(total), nil
 }

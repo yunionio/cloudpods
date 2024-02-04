@@ -97,6 +97,10 @@ func (self *SNetwork) GetSysTags() map[string]string {
 	return data
 }
 
+func (self *SNetwork) SetTags(tags map[string]string, replace bool) error {
+	return self.wire.zone.region.setTags("subnet", self.SubnetId, tags, replace)
+}
+
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
 }

@@ -675,7 +675,7 @@ func (manager *SNetworkManager) SyncNetworks(
 	}
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
-			err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], syncOwnerId, provider)
+			err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i])
 			if err != nil {
 				syncResult.UpdateError(err)
 				continue
@@ -722,7 +722,7 @@ func (snet *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 	return err
 }
 
-func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
+func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork) error {
 	diff, err := db.UpdateWithLock(ctx, snet, func() error {
 		if options.Options.EnableSyncName {
 			newName, _ := db.GenerateAlterName(snet, extNet.GetName())
@@ -763,10 +763,19 @@ func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		})
 	}
 
-	//syncVirtualResourceMetadata(ctx, userCred, snet, extNet)
+	vpc, err := snet.GetVpc()
+	if err != nil {
+		return errors.Wrapf(err, "GetVpc")
+	}
+
+	provider := vpc.GetCloudprovider()
 
 	if provider != nil {
-		SyncCloudProject(ctx, userCred, snet, syncOwnerId, extNet, provider)
+		if account, _ := provider.GetCloudaccount(); account != nil {
+			syncVirtualResourceMetadata(ctx, userCred, snet, extNet, account.ReadOnly)
+		}
+
+		SyncCloudProject(ctx, userCred, snet, provider.GetOwnerId(), extNet, provider)
 
 		shareInfo := provider.getAccountShareInfo()
 		if utils.IsInStringArray(provider.Provider, api.PRIVATE_CLOUD_PROVIDERS) && extNet.GetPublicScope() == rbacscope.ScopeNone {
@@ -3498,9 +3507,13 @@ func (net *SNetwork) PerformSyncstatus(ctx context.Context, userCred mcclient.To
 func (net *SNetwork) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSyncInput) (jsonutils.JSONObject, error) {
 	vpc, _ := net.GetVpc()
 	if vpc != nil && vpc.IsManaged() {
-		return nil, StartResourceSyncStatusTask(ctx, userCred, net, "NetworkSyncstatusTask", "")
+		return nil, net.StartSyncstatusTask(ctx, userCred, "")
 	}
 	return nil, httperrors.NewUnsupportOperationError("on-premise network cannot sync status")
+}
+
+func (net *SNetwork) StartSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	return StartResourceSyncStatusTask(ctx, userCred, net, "NetworkSyncstatusTask", parentTaskId)
 }
 
 // 更改IP子网状态
@@ -3762,4 +3775,34 @@ func (net *SNetwork) PerformSyncAdditionalWires(
 
 func (net *SNetwork) IsSupportIPv6() bool {
 	return len(net.GuestIp6Start) > 0 && len(net.GuestIp6End) > 0
+}
+
+func (net *SNetwork) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(net.ExternalId) == 0 || options.Options.KeepTagLocalization {
+		return
+	}
+	vpc, err := net.GetVpc()
+	if err != nil {
+		return
+	}
+	if account := vpc.GetCloudaccount(); account != nil && account.ReadOnly {
+		return
+	}
+	err = net.StartRemoteUpdateTask(ctx, userCred, true, "")
+	if err != nil {
+		log.Errorf("StartRemoteUpdateTask fail: %s", err)
+	}
+}
+
+func (net *SNetwork) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if replaceTags {
+		data.Add(jsonutils.JSONTrue, "replace_tags")
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "NetworkRemoteUpdateTask", net, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "Start NetworkRemoteUpdateTask")
+	}
+	net.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	return task.ScheduleRun(nil)
 }

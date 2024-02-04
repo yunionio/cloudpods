@@ -215,9 +215,13 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 
 func (instance *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	ret := []cloudprovider.ICloudNic{}
-	for i := range instance.NetworkInterfaces {
-		instance.NetworkInterfaces[i].region = instance.host.zone.region
-		ret = append(ret, &instance.NetworkInterfaces[i])
+	nics, err := instance.host.zone.region.GetNetworkInterfaces("", instance.InstanceId)
+	if err != nil {
+		return nil, err
+	}
+	for i := range nics {
+		nics[i].region = instance.host.zone.region
+		ret = append(ret, &nics[i])
 	}
 	return ret, nil
 }
@@ -246,7 +250,7 @@ func (instance *SInstance) GetInstanceType() string {
 }
 
 func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
-	nics, _, err := instance.host.zone.region.GetNetworkInterfaces(instance.InstanceId, 1, 10)
+	nics, err := instance.host.zone.region.GetNetworkInterfaces("", instance.InstanceId)
 	if err != nil {
 		return nil, err
 	}
