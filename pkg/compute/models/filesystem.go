@@ -303,9 +303,12 @@ func (manager *SFileSystemManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (fileSystem *SCloudregion) GetFileSystems() ([]SFileSystem, error) {
+func (region *SCloudregion) GetFileSystems(managerId string) ([]SFileSystem, error) {
 	ret := []SFileSystem{}
-	q := FileSystemManager.Query().Equals("cloudregion_id", fileSystem.Id)
+	q := FileSystemManager.Query().Equals("cloudregion_id", region.Id)
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	}
 	err := db.FetchModelObjects(FileSystemManager, q, &ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
@@ -313,24 +316,24 @@ func (fileSystem *SCloudregion) GetFileSystems() ([]SFileSystem, error) {
 	return ret, nil
 }
 
-func (fileSystem *SCloudregion) SyncFileSystems(
+func (region *SCloudregion) SyncFileSystems(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	provider *SCloudprovider,
 	filesystems []cloudprovider.ICloudFileSystem,
 	xor bool,
 ) ([]SFileSystem, []cloudprovider.ICloudFileSystem, compare.SyncResult) {
-	lockman.LockRawObject(ctx, fileSystem.Id, FileSystemManager.Keyword())
-	defer lockman.ReleaseRawObject(ctx, fileSystem.Id, FileSystemManager.Keyword())
+	lockman.LockRawObject(ctx, region.Id, FileSystemManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, region.Id, FileSystemManager.Keyword())
 
 	result := compare.SyncResult{}
 
 	localFSs := []SFileSystem{}
 	remoteFSs := []cloudprovider.ICloudFileSystem{}
 
-	dbFSs, err := fileSystem.GetFileSystems()
+	dbFSs, err := region.GetFileSystems(provider.Id)
 	if err != nil {
-		result.Error(errors.Wrapf(err, "fileSystem.GetFileSystems"))
+		result.Error(errors.Wrapf(err, "GetFileSystems"))
 		return localFSs, remoteFSs, result
 	}
 
@@ -365,7 +368,7 @@ func (fileSystem *SCloudregion) SyncFileSystems(
 		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
-		newFs, err := fileSystem.newFromCloudFileSystem(ctx, userCred, provider, added[i])
+		newFs, err := region.newFromCloudFileSystem(ctx, userCred, provider, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
