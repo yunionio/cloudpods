@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
@@ -120,7 +121,13 @@ func (ts *sTableSpec) newInformerModel(dt interface{}) (*informer.ModelObject, e
 	jointObj, isJoint := obj.(IJointModel)
 	if isJoint {
 		mObj := JointMaster(jointObj)
+		if gotypes.IsNil(mObj) {
+			return nil, errors.Errorf("object %#v master is nil", obj)
+		}
 		sObj := JointSlave(jointObj)
+		if gotypes.IsNil(sObj) {
+			return nil, errors.Errorf("object %#v slave is nil", obj)
+		}
 		return informer.NewJointModel(jointObj, jointObj.KeywordPlural(), mObj.GetId(), sObj.GetId()), nil
 	}
 	return informer.NewModel(obj, obj.KeywordPlural(), obj.GetId()), nil
