@@ -3155,8 +3155,16 @@ func (account *SCloudaccount) PerformProjectMapping(ctx context.Context, userCre
 		input.ProjectId = t.Id
 	}
 
+	if len(input.ProjectId) > 0 {
+		changeOwnerInput := apis.PerformChangeProjectOwnerInput{}
+		changeOwnerInput.ProjectId = input.ProjectId
+		_, err := account.PerformChangeProject(ctx, userCred, query, changeOwnerInput)
+		if err != nil {
+			return nil, errors.Wrapf(err, "PerformChangeProject")
+		}
+	}
+
 	_, err := db.Update(account, func() error {
-		account.ProjectId = input.ProjectId
 		account.AutoCreateProject = input.AutoCreateProject
 		account.AutoCreateProjectForProvider = input.AutoCreateProjectForProvider
 		account.ProjectMappingId = input.ProjectMappingId
