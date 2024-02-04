@@ -303,9 +303,12 @@ func (manager *SFileSystemManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (self *SCloudregion) GetFileSystems() ([]SFileSystem, error) {
+func (self *SCloudregion) GetFileSystems(managerId string) ([]SFileSystem, error) {
 	ret := []SFileSystem{}
 	q := FileSystemManager.Query().Equals("cloudregion_id", self.Id)
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	}
 	err := db.FetchModelObjects(FileSystemManager, q, &ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
@@ -328,7 +331,7 @@ func (self *SCloudregion) SyncFileSystems(
 	localFSs := []SFileSystem{}
 	remoteFSs := []cloudprovider.ICloudFileSystem{}
 
-	dbFSs, err := self.GetFileSystems()
+	dbFSs, err := self.GetFileSystems(provider.Id)
 	if err != nil {
 		result.Error(errors.Wrapf(err, "self.GetFileSystems"))
 		return localFSs, remoteFSs, result
