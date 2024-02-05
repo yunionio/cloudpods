@@ -165,22 +165,9 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 		cmds = append(cmds, "-o", opt)
 	}
 	cmds = append(cmds, p.partDev, p.mountPath)
+	p.acquireXFS(fsType)
 
 	var err error
-	var mountSuccess = false
-	if fsType == "xfs" {
-		uuids, _ := fileutils2.GetDevUuid(p.partDev)
-		p.uuid = uuids["UUID"]
-		if len(p.uuid) > 0 {
-			xfsutils.LockXfsPartition(p.uuid)
-			defer func() {
-				if !mountSuccess {
-					xfsutils.UnlockXfsPartition(p.uuid)
-				}
-			}()
-		}
-	}
-
 	retrier := func(utils.FibonacciRetrier) (bool, error) {
 		var errChan = make(chan error)
 		go func() {
@@ -215,10 +202,26 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	}
 	_, err = utils.NewFibonacciRetrierMaxTries(3, retrier).Start(context.Background())
 	if err != nil {
+		p.releaseXFS(fsType)
 		return errors.Wrap(err, "mount failed")
 	}
-	mountSuccess = true
-	return nil // errors.Wrapf(err, "mount failed: %s", output)
+	return nil
+}
+
+func (p *SKVMGuestDiskPartition) acquireXFS(fsType string) {
+	if fsType == "xfs" {
+		uuids, _ := fileutils2.GetDevUuid(p.partDev)
+		p.uuid = uuids["UUID"]
+		if len(p.uuid) > 0 {
+			xfsutils.LockXfsPartition(p.uuid)
+		}
+	}
+}
+
+func (p *SKVMGuestDiskPartition) releaseXFS(fsType string) {
+	if fsType == "xfs" && len(p.uuid) > 0 {
+		xfsutils.UnlockXfsPartition(p.uuid)
+	}
 }
 
 func (p *SKVMGuestDiskPartition) fsck() error {
@@ -278,12 +281,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 		return nil
 	}
 
-	defer func() {
-		if p.fs == "xfs" && len(p.uuid) > 0 {
-			xfsutils.UnlockXfsPartition(p.uuid)
-		}
-	}()
-
+	defer p.releaseXFS(p.fs)
 	if _, err := procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output(); err != nil {
 		log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
 	}
