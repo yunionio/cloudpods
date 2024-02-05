@@ -749,6 +749,9 @@ type SAzureCloudAccountUpdateOptions struct {
 
 	OptionsBalanceKey       string `help:"update cloud balance account key, such as Azure EA key" json:"-"`
 	RemoveOptionsBalanceKey bool   `help:"remove cloud blance account key" json:"-"`
+
+	OptionsBillingReportBucket       string `help:"update Azure bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket bool   `help:"remove Azure bucket that stores account billing report" json:"-"`
 }
 
 func (opts *SAzureCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -758,12 +761,18 @@ func (opts *SAzureCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, err
 	if len(opts.OptionsBalanceKey) > 0 {
 		options.Add(jsonutils.NewString(opts.OptionsBalanceKey), "balance_key")
 	}
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
 	if options.Size() > 0 {
 		params.Add(options, "options")
 	}
 	removeOptions := make([]string, 0)
 	if opts.RemoveOptionsBalanceKey {
 		removeOptions = append(removeOptions, "balance_key")
+	}
+	if opts.RemoveOptionsBillingReportBucket {
+		removeOptions = append(removeOptions, "billing_report_bucket")
 	}
 	if len(removeOptions) > 0 {
 		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
