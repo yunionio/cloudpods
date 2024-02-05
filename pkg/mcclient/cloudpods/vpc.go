@@ -60,6 +60,10 @@ func (self *SVpc) GetCidrBlock() string {
 	return self.CidrBlock
 }
 
+func (self *SVpc) GetCidrBlock6() string {
+	return self.CidrBlock6
+}
+
 func (self *SVpc) GetIRouteTableById(id string) (cloudprovider.ICloudRouteTable, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
