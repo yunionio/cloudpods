@@ -42,10 +42,14 @@ func LockXfsPartition(uuid string) {
 func UnlockXfsPartition(uuid string) {
 	log.Infof("xfs unlock %s", uuid)
 	mapLock.Lock()
-	xfsLock := xfsMountUniqueTool[uuid]
-	mapLock.Unlock()
+	defer mapLock.Unlock()
+	xfsLock, ok := xfsMountUniqueTool[uuid]
+	if !ok {
+		return
+	}
 
 	xfsLock.Unlock()
+	delete(xfsMountUniqueTool, uuid)
 }
 
 var (
