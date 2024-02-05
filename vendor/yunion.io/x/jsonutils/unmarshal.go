@@ -455,7 +455,7 @@ func (this *JSONArray) _unmarshalValue(s *sJsonUnmarshalSession, val reflect.Val
 			}
 		} else if val.Kind() == reflect.Slice {
 			dataLen := len(this.data)
-			if val.Cap() < dataLen {
+			if val.IsNil() || val.Cap() < dataLen {
 				newVal := reflect.MakeSlice(val.Type(), dataLen, dataLen)
 				val.Set(newVal)
 			} else if val.Len() != dataLen {
