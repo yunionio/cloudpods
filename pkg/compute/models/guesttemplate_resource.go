@@ -89,7 +89,7 @@ func (manager *SGuestTemplateResourceBaseManager) ListItemFilter(
 	query api.GuestTemplateFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.GuestTemplateId) > 0 {
-		guestTemplateObj, err := GuestTemplateManager.FetchByIdOrName(userCred, query.GuestTemplateId)
+		guestTemplateObj, err := GuestTemplateManager.FetchByIdOrName(ctx, userCred, query.GuestTemplateId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(GuestTemplateManager.Keyword(), query.GuestTemplateId)

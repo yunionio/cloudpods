@@ -78,7 +78,6 @@ type IModelManager interface {
 	FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery
 
 	FilterByOwnerProvider
-	//FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery
 
 	FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery
 	FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery
@@ -88,8 +87,8 @@ type IModelManager interface {
 
 	// RawFetchById(idStr string) (IModel, error)
 	FetchById(idStr string) (IModel, error)
-	FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
-	FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
+	FetchByName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
+	FetchByIdOrName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
 
 	// create hooks
 	// AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
@@ -142,6 +141,8 @@ type IModelManager interface {
 	CreateByInsertOrUpdate() bool
 
 	CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error)
+
+	PrepareQueryContext(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) context.Context
 }
 
 type IModel interface {

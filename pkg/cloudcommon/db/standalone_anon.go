@@ -100,13 +100,13 @@ func (manager *SStandaloneAnonResourceBaseManager) FilterByNotId(q *sqlchemy.SQu
 	return q.NotEquals("id", idStr)
 }
 
-func (manager *SStandaloneAnonResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SStandaloneAnonResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
 		if !result.ObjectTags.IsEmpty() {
 			policyTagFilters := tagutils.STagFilters{}
 			policyTagFilters.AddFilters(result.ObjectTags)
-			q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+			q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
 		}
 	}
 	return q
@@ -153,7 +153,7 @@ func (manager *SStandaloneAnonResourceBaseManager) ListItemFilter(
 		q = q.In("id", input.Ids)
 	}
 
-	q = manager.SMetadataResourceBaseModelManager.ListItemFilter(manager.GetIModelManager(), q, input.MetadataResourceListInput)
+	q = manager.SMetadataResourceBaseModelManager.ListItemFilter(ctx, manager.GetIModelManager(), q, input.MetadataResourceListInput)
 
 	return q, nil
 }

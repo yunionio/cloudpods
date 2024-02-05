@@ -641,7 +641,7 @@ func (manager *SElasticcacheSkuManager) PerformActionSync(ctx context.Context, u
 	}
 
 	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}

@@ -105,7 +105,7 @@ func (manager *SInstanceBackupManager) ListItemFilter(ctx context.Context, q *sq
 
 	guestStr := query.ServerId
 	if len(guestStr) > 0 {
-		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestStr)
+		guestObj, err := GuestManager.FetchByIdOrName(ctx, userCred, guestStr)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("guests", guestStr)

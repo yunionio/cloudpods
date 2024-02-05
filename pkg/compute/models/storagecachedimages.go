@@ -484,7 +484,7 @@ func (manager *SStoragecachedimageManager) ListItemFilter(
 	}
 
 	if len(query.CachedimageId) > 0 {
-		cachedImageObj, err := CachedimageManager.FetchByIdOrName(userCred, query.CachedimageId)
+		cachedImageObj, err := CachedimageManager.FetchByIdOrName(ctx, userCred, query.CachedimageId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), query.CachedimageId)

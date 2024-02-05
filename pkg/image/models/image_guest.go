@@ -96,7 +96,7 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 	errs := make([]error, 0)
 	for i := range input.Images {
 		if len(input.Images[i].Id) > 0 {
-			imgObj, err := ImageManager.FetchByIdOrName(userCred, input.Images[i].Id)
+			imgObj, err := ImageManager.FetchByIdOrName(ctx, userCred, input.Images[i].Id)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
 					errs = append(errs, httperrors.NewResourceNotFoundError2(ImageManager.Keyword(), input.Images[i].Id))
@@ -709,9 +709,9 @@ func (manager *SGuestImageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SGuestImageManager) Usage(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
+func (manager *SGuestImageManager) Usage(ctx context.Context, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
 	usages := make(map[string]int64)
-	count := ImageManager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.True, policyResult)
+	count := ImageManager.count(ctx, scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.True, policyResult)
 	expandUsageCount(usages, prefix, "guest_image", "", count)
 	sq := manager.Query()
 	switch scope {

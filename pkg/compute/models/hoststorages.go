@@ -144,12 +144,12 @@ func (self *SHoststorage) GetStorage() *SStorage {
 }
 
 func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
-	storageObj, err := validators.ValidateModel(userCred, StorageManager, &input.StorageId)
+	storageObj, err := validators.ValidateModel(ctx, userCred, StorageManager, &input.StorageId)
 	if err != nil {
 		return input, err
 	}
 	storage := storageObj.(*SStorage)
-	hostObj, err := validators.ValidateModel(userCred, HostManager, &input.HostId)
+	hostObj, err := validators.ValidateModel(ctx, userCred, HostManager, &input.HostId)
 	if err != nil {
 		return input, err
 	}

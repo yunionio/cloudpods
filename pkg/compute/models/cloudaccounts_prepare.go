@@ -133,7 +133,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		return output, errors.Wrap(err, "unable to FetchEsxiZoneIds")
 	}
 	if len(zoneids) == 0 {
-		id, err := scm.defaultZoneId(userCred)
+		id, err := scm.defaultZoneId(ctx, userCred)
 		if err != nil {
 			return output, errors.Wrap(err, "unable to fetch defaultZoneId")
 		}
@@ -156,7 +156,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
 		}
 		var proxySetting *proxy.SProxySetting
-		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(ctx, userCred, input.ProxySettingResourceInput)
 		if err != nil {
 			return output, errors.Wrap(err, "ValidateProxySettingResourceInput")
 		}
@@ -211,14 +211,14 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 
 	if !input.Dvs {
 		// fetch all wire candidate
-		wires, err := cam.fetchWires(userCred, input.ProjectDomainId, zoneids)
+		wires, err := cam.fetchWires(ctx, userCred, input.ProjectDomainId, zoneids)
 		if err != nil {
 			return output, errors.Wrap(err, "unable to fetch wires")
 		}
 		// fetch networks
 		networks := make([][]SNetwork, len(wires))
 		for i := range networks {
-			nets, err := wires[i].getNetworks(userCred, userCred, rbacscope.ScopeSystem)
+			nets, err := wires[i].getNetworks(ctx, userCred, userCred, rbacscope.ScopeSystem)
 			if err != nil {
 				return output, errors.Wrap(err, "wire.getNetwork")
 			}
@@ -580,22 +580,22 @@ func (scm *SCloudaccountManager) parseAndSuggestSingleWire(params sParseAndSugge
 	return output
 }
 
-func (manager *SCloudaccountManager) fetchWires(userCred mcclient.TokenCredential, domainId string, zoneIds []string) ([]SWire, error) {
+func (manager *SCloudaccountManager) fetchWires(ctx context.Context, userCred mcclient.TokenCredential, domainId string, zoneIds []string) ([]SWire, error) {
 	q := WireManager.Query().In("zone_id", zoneIds)
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{}
 		ownerId.DomainId = domainId
-		q = WireManager.FilterByOwner(q, WireManager, userCred, ownerId, rbacscope.ScopeDomain)
+		q = WireManager.FilterByOwner(ctx, q, WireManager, userCred, ownerId, rbacscope.ScopeDomain)
 	} else {
-		q = WireManager.FilterByOwner(q, WireManager, userCred, userCred, rbacscope.ScopeDomain)
+		q = WireManager.FilterByOwner(ctx, q, WireManager, userCred, userCred, rbacscope.ScopeDomain)
 	}
 	wires := make([]SWire, 0, 1)
 	err := db.FetchModelObjects(WireManager, q, &wires)
 	return wires, err
 }
 
-func (manager *SCloudaccountManager) defaultZoneId(userCred mcclient.TokenCredential) (string, error) {
-	zone, err := ZoneManager.FetchByName(userCred, "zone0")
+func (manager *SCloudaccountManager) defaultZoneId(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+	zone, err := ZoneManager.FetchByName(ctx, userCred, "zone0")
 	if err != nil {
 		return "", err
 	}

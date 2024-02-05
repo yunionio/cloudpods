@@ -236,8 +236,8 @@ func RegisterReferrer(man db.IModelManager) {
 	referrersMen = append(referrersMen, man)
 }
 
-func ValidateProxySettingResourceInput(userCred mcclient.TokenCredential, input proxyapi.ProxySettingResourceInput) (*SProxySetting, proxyapi.ProxySettingResourceInput, error) {
-	m, err := ProxySettingManager.FetchByIdOrName(userCred, input.ProxySettingId)
+func ValidateProxySettingResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input proxyapi.ProxySettingResourceInput) (*SProxySetting, proxyapi.ProxySettingResourceInput, error) {
+	m, err := ProxySettingManager.FetchByIdOrName(ctx, userCred, input.ProxySettingId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ProxySettingManager.Keyword(), input.ProxySettingId)

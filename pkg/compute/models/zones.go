@@ -81,7 +81,7 @@ func (zone *SZone) ValidateDeleteCondition(ctx context.Context, info *api.ZoneDe
 	if info != nil {
 		usage = info.ZoneGeneralUsage
 	} else {
-		usage = zone.GeneralUsage()
+		usage = zone.GeneralUsage(ctx)
 	}
 	if !usage.IsEmpty() {
 		return httperrors.NewNotEmptyError("not empty zone: %s", zone.Id)
@@ -93,14 +93,14 @@ func (manager *SZoneManager) Count() (int, error) {
 	return manager.Query().CountWithError()
 }
 
-func (zone *SZone) GeneralUsage() api.ZoneGeneralUsage {
+func (zone *SZone) GeneralUsage(ctx context.Context) api.ZoneGeneralUsage {
 	usage := api.ZoneGeneralUsage{}
 	usage.Hosts, _ = zone.HostCount("", "", tristate.None, "", tristate.None)
 	usage.HostsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.None)
 	usage.Baremetals, _ = zone.HostCount("", "", tristate.None, "", tristate.True)
 	usage.BaremetalsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.True)
 	usage.Wires, _ = zone.getWireCount()
-	usage.Networks, _ = zone.getNetworkCount()
+	usage.Networks, _ = zone.getNetworkCount(ctx)
 	usage.Storages, _ = zone.getStorageCount()
 	return usage
 }
@@ -139,8 +139,8 @@ func (zone *SZone) getStorageCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (zone *SZone) getNetworkCount() (int, error) {
-	return getNetworkCount(nil, nil, rbacscope.ScopeSystem, nil, zone)
+func (zone *SZone) getNetworkCount(ctx context.Context) (int, error) {
+	return getNetworkCount(ctx, nil, nil, rbacscope.ScopeSystem, nil, zone)
 }
 
 func (manager *SZoneManager) FetchCustomizeColumns(
@@ -778,7 +778,7 @@ func (manager *SZoneManager) ListItemFilter(
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	q, err = managedResourceFilterByRegion(ctx, q, query.RegionalFilterListInput, "", nil)
 
 	if len(query.Location) > 0 {
 		q = q.In("location", query.Location)
@@ -940,7 +940,7 @@ func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mc
 			break
 		}
 	}
-	_region, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion)
+	_region, err := CloudregionManager.FetchByIdOrName(ctx, nil, input.Cloudregion)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("failed to found cloudregion %s", input.Cloudregion)

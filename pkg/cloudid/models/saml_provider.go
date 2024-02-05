@@ -92,7 +92,7 @@ func (manager *SSAMLProviderManager) ValidateCreateData(ctx context.Context, use
 	if len(input.CloudaccountId) == 0 {
 		return input, httperrors.NewMissingParameterError("cloudaccount_id")
 	}
-	_, err := validators.ValidateModel(userCred, CloudaccountManager, &input.CloudaccountId)
+	_, err := validators.ValidateModel(ctx, userCred, CloudaccountManager, &input.CloudaccountId)
 	if err != nil {
 		return input, err
 	}

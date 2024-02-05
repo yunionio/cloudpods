@@ -213,12 +213,12 @@ func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy
 	return q
 }
 
-func (manager *SVirtualResourceBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByName(manager, userCred, idStr)
+func (manager *SVirtualResourceBaseManager) FetchByName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByName(ctx, manager, userCred, idStr)
 }
 
-func (manager *SVirtualResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByIdOrName(manager, userCred, idStr)
+func (manager *SVirtualResourceBaseManager) FetchByIdOrName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByIdOrName(ctx, manager, userCred, idStr)
 }
 
 func (manager *SVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.VirtualResourceCreateInput) (apis.VirtualResourceCreateInput, error) {
@@ -380,7 +380,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 
 	q := manager.Query().Equals("name", model.GetName())
-	q = manager.FilterByOwner(q, manager, userCred, ownerId, manager.NamespaceScope())
+	q = manager.FilterByOwner(ctx, q, manager, userCred, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = q.NotEquals("id", model.GetId())
 	cnt, err := q.CountWithError()

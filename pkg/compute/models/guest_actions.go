@@ -388,7 +388,7 @@ func (self *SGuest) validateMigrate(
 		}
 		if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
 			if len(liveMigrateInput.PreferHostId) > 0 {
-				iHost, _ := HostManager.FetchByIdOrName(userCred, liveMigrateInput.PreferHostId)
+				iHost, _ := HostManager.FetchByIdOrName(ctx, userCred, liveMigrateInput.PreferHostId)
 				if iHost == nil {
 					return httperrors.NewBadRequestError("Host %s not found", liveMigrateInput.PreferHostId)
 				}
@@ -410,7 +410,7 @@ func (self *SGuest) validateMigrate(
 			return err
 		}
 		if len(migrateInput.PreferHostId) > 0 {
-			iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHostId)
+			iHost, _ := HostManager.FetchByIdOrName(ctx, userCred, migrateInput.PreferHostId)
 			if iHost == nil {
 				return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHostId)
 			}
@@ -427,7 +427,7 @@ func (self *SGuest) validateConvertToKvm(
 	migrateInput *api.GuestMigrateInput,
 ) error {
 	if len(migrateInput.PreferHostId) > 0 {
-		iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHostId)
+		iHost, _ := HostManager.FetchByIdOrName(ctx, userCred, migrateInput.PreferHostId)
 		if iHost == nil {
 			return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHostId)
 		}
@@ -674,7 +674,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	if len(cloneInput.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-	err = db.NewNameValidator(GuestManager, userCred, cloneInput.Name, nil)
+	err = db.NewNameValidator(ctx, GuestManager, userCred, cloneInput.Name, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -686,7 +686,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	createInput.EipBw = cloneInput.EipBw
 	createInput.Eip = cloneInput.Eip
 	createInput.EipChargeType = cloneInput.EipChargeType
-	if err := GuestManager.validateEip(userCred, createInput, createInput.PreferRegion, createInput.PreferManager); err != nil {
+	if err := GuestManager.validateEip(ctx, userCred, createInput, createInput.PreferRegion, createInput.PreferManager); err != nil {
 		return nil, err
 	}
 
@@ -785,7 +785,7 @@ func (self *SGuest) PerformDeploy(
 
 	if input.DeleteKeypair || len(input.KeypairId) > 0 {
 		if len(input.KeypairId) > 0 {
-			_, err := validators.ValidateModel(userCred, KeypairManager, &input.KeypairId)
+			_, err := validators.ValidateModel(ctx, userCred, KeypairManager, &input.KeypairId)
 			if err != nil {
 				return nil, err
 			}
@@ -906,7 +906,7 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 
-	diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
+	diskObj, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.DiskId)
 	if err != nil {
 		return nil, err
 	}
@@ -1675,7 +1675,7 @@ func (self *SGuest) PerformRebuildRoot(
 	}
 
 	if len(input.KeypairId) > 0 {
-		_, err := validators.ValidateModel(userCred, KeypairManager, &input.KeypairId)
+		_, err := validators.ValidateModel(ctx, userCred, KeypairManager, &input.KeypairId)
 		if err != nil {
 			return nil, err
 		}
@@ -1846,7 +1846,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	if len(input.DiskId) == 0 {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
+	diskObj, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.DiskId)
 	if err != nil {
 		return nil, err
 	}
@@ -1956,7 +1956,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 }
 
 func (self *SGuest) startDetachIsolateDeviceWithoutNic(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
-	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(ctx, userCred, device)
 	if err != nil {
 		msgFmt := "Isolated device %s not found"
 		msg := fmt.Sprintf(msgFmt, device)
@@ -2101,7 +2101,7 @@ func (self *SGuest) StartAttachIsolatedDeviceGpuOrUsb(ctx context.Context, userC
 }
 
 func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
-	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(ctx, userCred, device)
 	if err != nil {
 		msgFmt := "Isolated device %s not found"
 		msg := fmt.Sprintf(msgFmt, device)
@@ -2523,7 +2523,7 @@ func (self *SGuest) PerformDetachnetwork(
 
 	var gns []SGuestnetwork
 	if len(input.NetId) > 0 {
-		netObj, err := validators.ValidateModel(userCred, NetworkManager, &input.NetId)
+		netObj, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetId)
 		if err != nil {
 			return nil, err
 		}
@@ -2637,7 +2637,7 @@ func (self *SGuest) PerformAttachnetwork(
 		if err != nil {
 			return nil, err
 		}
-		if IsExitNetworkInfo(userCred, input.Nets[i]) {
+		if IsExitNetworkInfo(ctx, userCred, input.Nets[i]) {
 			enicCnt += 1
 			// ebw = input.BwLimit
 		} else {
@@ -3262,7 +3262,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	if len(eipStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("eip_id")
 	}
-	eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
+	eipObj, err := ElasticipManager.FetchByIdOrName(ctx, userCred, eipStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("eip %s not found", eipStr)
@@ -3550,7 +3550,7 @@ func (self *SGuest) PerformSwitchToBackup(
 	return nil, nil
 }
 
-func (manager *SGuestManager) getGuests(userCred mcclient.TokenCredential, data jsonutils.JSONObject) ([]SGuest, error) {
+func (manager *SGuestManager) getGuests(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) ([]SGuest, error) {
 	_guests := []string{}
 	data.Unmarshal(&_guests, "guests")
 	if len(_guests) == 0 {
@@ -3559,7 +3559,7 @@ func (manager *SGuestManager) getGuests(userCred mcclient.TokenCredential, data 
 	guests := []SGuest{}
 	q1 := manager.Query().In("id", _guests)
 	q2 := manager.Query().In("name", _guests)
-	q2 = manager.FilterByOwner(q2, manager, userCred, userCred, manager.NamespaceScope())
+	q2 = manager.FilterByOwner(ctx, q2, manager, userCred, userCred, manager.NamespaceScope())
 	q2 = manager.FilterBySystemAttributes(q2, userCred, data, manager.ResourceScope())
 	q := sqlchemy.Union(q1, q2).Query().Distinct()
 	err := db.FetchModelObjects(manager, q, &guests)
@@ -3596,7 +3596,7 @@ func (manager *SGuestManager) getUserMetadata(data jsonutils.JSONObject) (map[st
 }
 
 func (manager *SGuestManager) PerformBatchUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	guests, err := manager.getGuests(userCred, data)
+	guests, err := manager.getGuests(ctx, userCred, data)
 	if err != nil {
 		return nil, err
 	}
@@ -3615,7 +3615,7 @@ func (manager *SGuestManager) PerformBatchUserMetadata(ctx context.Context, user
 }
 
 func (manager *SGuestManager) PerformBatchSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	guests, err := manager.getGuests(userCred, data)
+	guests, err := manager.getGuests(ctx, userCred, data)
 	if err != nil {
 		return nil, err
 	}
@@ -4159,13 +4159,13 @@ func (man *SGuestManager) PerformImport(ctx context.Context, userCred mcclient.T
 	if len(desc.Name) == 0 {
 		return nil, httperrors.NewInputParameterError("Server Name is empty")
 	}
-	if obj, _ := man.FetchByIdOrName(userCred, desc.Id); obj != nil {
+	if obj, _ := man.FetchByIdOrName(ctx, userCred, desc.Id); obj != nil {
 		return nil, httperrors.NewInputParameterError("Server %s already exists", desc.Id)
 	}
-	if err := db.NewNameValidator(man, userCred, desc.Name, nil); err != nil {
+	if err := db.NewNameValidator(ctx, man, userCred, desc.Name, nil); err != nil {
 		return nil, err
 	}
-	if hostObj, _ := HostManager.FetchByIdOrName(userCred, desc.HostId); hostObj == nil {
+	if hostObj, _ := HostManager.FetchByIdOrName(ctx, userCred, desc.HostId); hostObj == nil {
 		return nil, httperrors.NewNotFoundError("Host %s not found", desc.HostId)
 	} else {
 		desc.HostId = hostObj.GetId()
@@ -4479,7 +4479,7 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 			return nil, httperrors.NewInputParameterError("invalid IPv4 address %s", ip)
 		}
 		// ip is reachable on host
-		net, err := host.getNetworkOfIPOnHost(ip)
+		net, err := host.getNetworkOfIPOnHost(ctx, ip)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Unreachable IP %s: %s", ip, err)
 		}
@@ -4502,7 +4502,7 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 		if len(ip) == 0 {
 			continue
 		}
-		_, err := host.getNetworkOfIPOnHost(ip)
+		_, err := host.getNetworkOfIPOnHost(ctx, ip)
 		if err != nil {
 			errs = append(errs, errors.Wrap(err, ip))
 		}
@@ -4571,7 +4571,7 @@ func (guest *SGuest) PerformResizeDisk(ctx context.Context, userCred mcclient.To
 	if len(input.DiskId) == 0 {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
+	diskObj, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.DiskId)
 	if err != nil {
 		return nil, err
 	}
@@ -4731,7 +4731,7 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 
 	var preferHostId string
 	if len(params.PreferHostId) > 0 {
-		iHost, _ := HostManager.FetchByIdOrName(userCred, params.PreferHostId)
+		iHost, _ := HostManager.FetchByIdOrName(ctx, userCred, params.PreferHostId)
 		if iHost == nil {
 			return nil, httperrors.NewBadRequestError("Host %s not found", params.PreferHostId)
 		}
@@ -4839,7 +4839,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, input, httperrors.NewMissingParameterError("name")
 	}
 
-	err := db.NewNameValidator(InstanceSnapshotManager, ownerId, input.Name, nil)
+	err := db.NewNameValidator(ctx, InstanceSnapshotManager, ownerId, input.Name, nil)
 	if err != nil {
 		return nil, input, errors.Wrap(err, "NewNameValidator")
 	}
@@ -4908,7 +4908,7 @@ func (self *SGuest) validateCreateInstanceBackup(
 		return input, httperrors.NewMissingParameterError("name")
 	}
 
-	err := db.NewNameValidator(InstanceBackupManager, ownerId, input.Name, nil)
+	err := db.NewNameValidator(ctx, InstanceBackupManager, ownerId, input.Name, nil)
 	if err != nil {
 		return input, errors.Wrap(err, "db.NewNameValidator")
 	}
@@ -4977,7 +4977,7 @@ func (self *SGuest) PerformInstanceBackup(
 	if backupStorageId == "" {
 		return nil, httperrors.NewMissingParameterError("backup_storage_id")
 	}
-	ibs, err := BackupStorageManager.FetchByIdOrName(userCred, backupStorageId)
+	ibs, err := BackupStorageManager.FetchByIdOrName(ctx, userCred, backupStorageId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError2(BackupStorageManager.Keyword(), backupStorageId)
@@ -5030,7 +5030,7 @@ func (self *SGuest) PerformInstanceSnapshotReset(ctx context.Context, userCred m
 		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
 	}
 
-	obj, err := InstanceSnapshotManager.FetchByIdOrName(userCred, input.InstanceSnapshot)
+	obj, err := InstanceSnapshotManager.FetchByIdOrName(ctx, userCred, input.InstanceSnapshot)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to fetch instance snapshot %q", input.InstanceSnapshot)
 	}
@@ -5370,7 +5370,7 @@ func (self *SGuest) checkGroups(ctx context.Context, userCred mcclient.TokenCred
 	groupIdSet := sets.NewString()
 	for i := range groupIdArr {
 		groupIdStr, _ := groupIdArr[i].GetString()
-		model, err := GroupManager.FetchByIdOrName(userCred, groupIdStr)
+		model, err := GroupManager.FetchByIdOrName(ctx, userCred, groupIdStr)
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewInputParameterError("no such group %s", groupIdStr)
 		}
@@ -5490,7 +5490,7 @@ func (self *SGuest) PerformRemoteUpdate(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) PerformOpenForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	req, err := guestdriver_types.NewOpenForwardRequestFromJSON(data)
+	req, err := guestdriver_types.NewOpenForwardRequestFromJSON(ctx, data)
 	if err != nil {
 		return nil, err
 	}
@@ -5516,7 +5516,7 @@ func (self *SGuest) PerformOpenForward(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SGuest) PerformCloseForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	req, err := guestdriver_types.NewCloseForwardRequestFromJSON(data)
+	req, err := guestdriver_types.NewCloseForwardRequestFromJSON(ctx, data)
 	if err != nil {
 		return nil, err
 	}
@@ -5537,7 +5537,7 @@ func (self *SGuest) PerformCloseForward(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) PerformListForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	req, err := guestdriver_types.NewListForwardRequestFromJSON(data)
+	req, err := guestdriver_types.NewListForwardRequestFromJSON(ctx, data)
 	if err != nil {
 		return nil, err
 	}
@@ -5567,7 +5567,7 @@ func (self *SGuest) PerformChangeStorage(ctx context.Context, userCred mcclient.
 	}
 
 	// validate storage
-	storageObj, err := StorageManager.FetchByIdOrName(userCred, input.TargetStorageId)
+	storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, input.TargetStorageId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Found storage by %s", input.TargetStorageId)
 	}
@@ -5640,7 +5640,7 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 	}
 
 	// validate storage
-	storageObj, err := StorageManager.FetchByIdOrName(userCred, input.TargetStorageId)
+	storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, input.TargetStorageId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Found storage by %s", input.TargetStorageId)
 	}

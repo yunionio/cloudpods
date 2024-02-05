@@ -116,7 +116,7 @@ func (manager *SRouteTableRouteSetManager) ValidateCreateData(
 	if len(input.RouteTableId) == 0 {
 		return input, httperrors.NewMissingParameterError("route_table_id")
 	}
-	_routeTable, err := RouteTableManager.FetchByIdOrName(userCred, input.RouteTableId)
+	_routeTable, err := RouteTableManager.FetchByIdOrName(ctx, userCred, input.RouteTableId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return input, httperrors.NewResourceNotFoundError2("route_table", input.RouteTableId)
@@ -132,7 +132,7 @@ func (manager *SRouteTableRouteSetManager) ValidateCreateData(
 		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
 	}
 	if input.NextHopType == api.NEXT_HOP_TYPE_VPCPEERING {
-		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(userCred, input.NextHopId)
+		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(ctx, userCred, input.NextHopId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return input, httperrors.NewResourceNotFoundError2("netx_hop_id", input.NextHopId)
@@ -222,7 +222,7 @@ func (self *SRouteTableRouteSet) ValidateUpdateData(
 		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
 	}
 	if input.NextHopType == api.NEXT_HOP_TYPE_VPCPEERING {
-		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(userCred, input.NextHopId)
+		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(ctx, userCred, input.NextHopId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return input, httperrors.NewResourceNotFoundError2("netx_hop_id", input.NextHopId)

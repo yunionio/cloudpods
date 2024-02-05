@@ -48,7 +48,7 @@ func (self *SCloudgroupResourceBase) GetCloudgroup() (*SCloudgroup, error) {
 
 func (manager *SCloudgroupResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, groupCred mcclient.TokenCredential, query api.CloudgroupResourceListInput) (*sqlchemy.SQuery, error) {
 	if len(query.CloudgroupId) > 0 {
-		group, err := CloudgroupManager.FetchByIdOrName(nil, query.CloudgroupId)
+		group, err := CloudgroupManager.FetchByIdOrName(ctx, nil, query.CloudgroupId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("cloudgroup", query.CloudgroupId)

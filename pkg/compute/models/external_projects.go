@@ -87,7 +87,7 @@ func (manager *SExternalProjectManager) ValidateCreateData(
 	if len(input.CloudaccountId) == 0 {
 		return input, httperrors.NewMissingParameterError("cloudaccount_id")
 	}
-	_account, err := validators.ValidateModel(userCred, CloudaccountManager, &input.CloudaccountId)
+	_account, err := validators.ValidateModel(ctx, userCred, CloudaccountManager, &input.CloudaccountId)
 	if err != nil {
 		return input, err
 	}
@@ -97,7 +97,7 @@ func (manager *SExternalProjectManager) ValidateCreateData(
 		if len(input.ManagerId) == 0 {
 			return input, httperrors.NewMissingParameterError("manager_id")
 		}
-		_, err := validators.ValidateModel(userCred, CloudproviderManager, &input.ManagerId)
+		_, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.ManagerId)
 		if err != nil {
 			return input, err
 		}
@@ -718,7 +718,7 @@ func (manager *SExternalProjectManager) ListItemFilter(
 		if len(managerStr) == 0 {
 			continue
 		}
-		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
+		providerObj, err := manager.FetchByIdOrName(ctx, userCred, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
@@ -736,7 +736,7 @@ func (manager *SExternalProjectManager) ListItemFilter(
 	if len(query.CloudaccountId) > 0 {
 		accountIds := []string{}
 		for _, _account := range query.CloudaccountId {
-			account, err := CloudaccountManager.FetchByIdOrName(userCred, _account)
+			account, err := CloudaccountManager.FetchByIdOrName(ctx, userCred, _account)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError2("cloudaccount", _account)

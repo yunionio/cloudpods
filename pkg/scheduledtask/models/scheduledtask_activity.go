@@ -106,7 +106,7 @@ func (sam *SScheduledTaskActivityManager) ListItemFilter(ctx context.Context, q 
 	if len(input.ScheduledTask) == 0 {
 		return nil, httperrors.NewInputParameterError("need scheduled task")
 	}
-	task, err := ScheduledTaskManager.FetchByIdOrName(userCred, input.ScheduledTask)
+	task, err := ScheduledTaskManager.FetchByIdOrName(ctx, userCred, input.ScheduledTask)
 	if err != nil {
 		return nil, err
 	}

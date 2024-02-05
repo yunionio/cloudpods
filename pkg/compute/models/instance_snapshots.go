@@ -134,7 +134,7 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(
 
 	guestStr := query.ServerId
 	if len(guestStr) > 0 {
-		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestStr)
+		guestObj, err := GuestManager.FetchByIdOrName(ctx, userCred, guestStr)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("guests", guestStr)
@@ -553,7 +553,7 @@ func (self *SInstanceSnapshot) GetUsages() []db.IUsage {
 	}
 }
 
-func TotalInstanceSnapshotCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (int, error) {
+func TotalInstanceSnapshotCount(ctx context.Context, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (int, error) {
 	q := InstanceSnapshotManager.Query()
 
 	switch scope {
@@ -564,7 +564,7 @@ func TotalInstanceSnapshotCount(scope rbacscope.TRbacScope, ownerId mcclient.IId
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 
-	q = db.ObjectIdQueryWithPolicyResult(q, InstanceSnapshotManager, policyResult)
+	q = db.ObjectIdQueryWithPolicyResult(ctx, q, InstanceSnapshotManager, policyResult)
 
 	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)

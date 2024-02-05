@@ -378,7 +378,7 @@ func (manager *SUserManager) ListItemFilter(
 
 	groupStr := query.GroupId
 	if len(groupStr) > 0 {
-		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupStr)
+		groupObj, err := GroupManager.FetchByIdOrName(ctx, userCred, groupStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), groupStr)
@@ -392,7 +392,7 @@ func (manager *SUserManager) ListItemFilter(
 
 	projectStr := query.ProjectId
 	if len(projectStr) > 0 {
-		project, err := ProjectManager.FetchByIdOrName(userCred, projectStr)
+		project, err := ProjectManager.FetchByIdOrName(ctx, userCred, projectStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), projectStr)
@@ -406,7 +406,7 @@ func (manager *SUserManager) ListItemFilter(
 
 	roleStr := query.RoleId
 	if len(roleStr) > 0 {
-		role, err := RoleManager.FetchByIdOrName(userCred, roleStr)
+		role, err := RoleManager.FetchByIdOrName(ctx, userCred, roleStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), roleStr)
@@ -417,7 +417,7 @@ func (manager *SUserManager) ListItemFilter(
 
 		subq := AssignmentManager.Query("actor_id").Equals("role_id", role.GetId()).Equals("type", api.AssignmentUserProject).Distinct()
 		if len(query.RoleAssignmentDomainId) > 0 {
-			domain, err := DomainManager.FetchByIdOrName(userCred, query.RoleAssignmentDomainId)
+			domain, err := DomainManager.FetchByIdOrName(ctx, userCred, query.RoleAssignmentDomainId)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.RoleAssignmentDomainId)
@@ -429,7 +429,7 @@ func (manager *SUserManager) ListItemFilter(
 			subq = subq.In("target_id", projects.Query())
 		}
 		if len(query.RoleAssignmentProjectId) > 0 {
-			project, err := ProjectManager.FetchByIdOrName(userCred, query.RoleAssignmentProjectId)
+			project, err := ProjectManager.FetchByIdOrName(ctx, userCred, query.RoleAssignmentProjectId)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), query.RoleAssignmentProjectId)
@@ -443,7 +443,7 @@ func (manager *SUserManager) ListItemFilter(
 	}
 
 	if len(query.IdpId) > 0 {
-		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(ctx, userCred, query.IdpId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), query.IdpId)
@@ -1241,7 +1241,7 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 	roleIds := make([]string, 0)
 
 	for i := range input.Roles {
-		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
+		obj, err := RoleManager.FetchByIdOrName(ctx, userCred, input.Roles[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.Roles[i])
@@ -1255,7 +1255,7 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 	}
 
 	for i := range input.Projects {
-		obj, err := ProjectManager.FetchByIdOrName(userCred, input.Projects[i])
+		obj, err := ProjectManager.FetchByIdOrName(ctx, userCred, input.Projects[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), input.Projects[i])
@@ -1303,7 +1303,7 @@ func (user *SUser) PerformLeave(
 
 func leaveProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, input api.SLeaveProjectsInput) error {
 	for i := range input.ProjectRoles {
-		projObj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectRoles[i].Project)
+		projObj, err := ProjectManager.FetchByIdOrName(ctx, userCred, input.ProjectRoles[i].Project)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), input.ProjectRoles[i].Project)
@@ -1311,7 +1311,7 @@ func leaveProjects(ident db.IModel, isUser bool, ctx context.Context, userCred m
 				return httperrors.NewGeneralError(err)
 			}
 		}
-		roleObj, err := RoleManager.FetchByIdOrName(userCred, input.ProjectRoles[i].Role)
+		roleObj, err := RoleManager.FetchByIdOrName(ctx, userCred, input.ProjectRoles[i].Role)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.ProjectRoles[i].Role)
@@ -1349,7 +1349,7 @@ func (manager *SUserManager) LockUser(uid string, reason string) error {
 	return nil
 }
 
-func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SUserManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	log.Debugf("owner: %s scope %s", jsonutils.Marshal(owner), scope)
 	if owner != nil && scope == rbacscope.ScopeProject {
 		// if user has project level privilege, returns all users in user's project
@@ -1357,7 +1357,7 @@ func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOw
 		q = q.In("id", subq.SubQuery())
 		return q
 	}
-	return manager.SEnabledIdentityBaseResourceManager.FilterByOwner(q, man, userCred, owner, scope)
+	return manager.SEnabledIdentityBaseResourceManager.FilterByOwner(ctx, q, man, userCred, owner, scope)
 }
 
 func (user *SUser) GetUsages() []db.IUsage {

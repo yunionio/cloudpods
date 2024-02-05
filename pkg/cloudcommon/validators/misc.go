@@ -15,6 +15,8 @@
 package validators
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
@@ -27,7 +29,7 @@ type ModelFilterOptions struct {
 	OwnerId      mcclient.IIdentityProvider
 }
 
-func ApplyModelFilters(q *sqlchemy.SQuery, data *jsonutils.JSONDict, opts []*ModelFilterOptions) (*sqlchemy.SQuery, error) {
+func ApplyModelFilters(ctx context.Context, q *sqlchemy.SQuery, data *jsonutils.JSONDict, opts []*ModelFilterOptions) (*sqlchemy.SQuery, error) {
 	var err error
 	for _, opt := range opts {
 		v := NewModelIdOrNameValidator(
@@ -36,7 +38,7 @@ func ApplyModelFilters(q *sqlchemy.SQuery, data *jsonutils.JSONDict, opts []*Mod
 			opt.OwnerId,
 		)
 		v.Optional(true)
-		q, err = v.QueryFilter(q, data)
+		q, err = v.QueryFilter(ctx, q, data)
 		if err != nil {
 			return nil, err
 		}

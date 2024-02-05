@@ -56,20 +56,20 @@ type SServiceCertificate struct {
 
 func (man *SServiceCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	v := validators.NewCertKeyValidator("certificate", "private_key")
-	if err := v.Validate(data); err != nil {
+	if err := v.Validate(ctx, data); err != nil {
 		return nil, err
 	}
 	data = v.UpdateCertKeyInfo(ctx, data)
 
 	if caCert, _ := data.GetString("ca_certificate"); len(caCert) > 0 {
 		vc := validators.NewCertificateValidator("ca_certificate")
-		if err := vc.Validate(data); err != nil {
+		if err := vc.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
 	if caPkey, _ := data.GetString("ca_private_key"); len(caPkey) > 0 {
 		vp := validators.NewPrivateKeyValidator("ca_private_key")
-		if err := vp.Validate(data); err != nil {
+		if err := vp.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -92,20 +92,20 @@ func (cert *SServiceCertificate) ValidateUpdateData(
 	query jsonutils.JSONObject, data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
 	v := validators.NewCertKeyValidator("certificate", "private_key")
-	if err := v.Validate(data); err != nil {
+	if err := v.Validate(ctx, data); err != nil {
 		return nil, err
 	}
 	data = v.UpdateCertKeyInfo(ctx, data)
 
 	if caCert, _ := data.GetString("ca_certificate"); len(caCert) > 0 {
 		vc := validators.NewCertificateValidator("ca_certificate")
-		if err := vc.Validate(data); err != nil {
+		if err := vc.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
 	if caPkey, _ := data.GetString("ca_private_key"); len(caPkey) > 0 {
 		vp := validators.NewPrivateKeyValidator("ca_private_key")
-		if err := vp.Validate(data); err != nil {
+		if err := vp.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}

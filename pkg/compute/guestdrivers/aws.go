@@ -191,7 +191,7 @@ func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 	if len(input.Eip) > 0 || input.EipBw > 0 {
 		// 未明确指定network时，由调度器进行调度，跳过support_eip检查
 		if len(input.Networks) > 0 && len(input.Networks[0].Network) > 0 {
-			inetwork, err := db.FetchByIdOrName(models.NetworkManager, userCred, input.Networks[0].Network)
+			inetwork, err := db.FetchByIdOrName(ctx, models.NetworkManager, userCred, input.Networks[0].Network)
 			if err != nil {
 				return nil, errors.Wrap(err, "SAwsGuestDriver.ValidateCreateData.Networks.FetchByIdOrName")
 			}

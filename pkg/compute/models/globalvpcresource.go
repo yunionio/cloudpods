@@ -37,8 +37,8 @@ type SGlobalVpcResourceBase struct {
 
 type SGlobalVpcResourceBaseManager struct{}
 
-func ValidateGlobalvpcResourceInput(userCred mcclient.TokenCredential, input api.GlobalVpcResourceInput) (*SGlobalVpc, api.GlobalVpcResourceInput, error) {
-	gvpcObj, err := GlobalVpcManager.FetchByIdOrName(userCred, input.GlobalvpcId)
+func ValidateGlobalvpcResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.GlobalVpcResourceInput) (*SGlobalVpc, api.GlobalVpcResourceInput, error) {
+	gvpcObj, err := GlobalVpcManager.FetchByIdOrName(ctx, userCred, input.GlobalvpcId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", GlobalVpcManager.Keyword(), input.GlobalvpcId)
@@ -100,7 +100,7 @@ func (manager *SGlobalVpcResourceBaseManager) ListItemFilter(
 	query api.GlobalVpcResourceListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.GlobalvpcId) > 0 {
-		globalVpcObj, _, err := ValidateGlobalvpcResourceInput(userCred, query.GlobalVpcResourceInput)
+		globalVpcObj, _, err := ValidateGlobalvpcResourceInput(ctx, userCred, query.GlobalVpcResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateGlobalvpcResourceInput")
 		}

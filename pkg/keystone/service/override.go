@@ -49,7 +49,7 @@ func keystoneProjectFetcher(ctx context.Context, idstr string, domainId string) 
 }
 
 func keystoneDomainFetcher(ctx context.Context, idstr string) (*db.STenant, error) {
-	domainObj, err := models.DomainManager.FetchByIdOrName(nil, idstr)
+	domainObj, err := models.DomainManager.FetchByIdOrName(ctx, nil, idstr)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "domain %s", idstr)
@@ -116,7 +116,7 @@ func keystoneDomainQuery(fields ...string) *sqlchemy.SQuery {
 }
 
 func keystoneUserFetcher(ctx context.Context, idstr string) (*db.SUser, error) {
-	userObj, err := models.UserManager.FetchByIdOrName(nil, idstr)
+	userObj, err := models.UserManager.FetchByIdOrName(ctx, nil, idstr)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", idstr)

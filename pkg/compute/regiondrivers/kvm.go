@@ -54,12 +54,12 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
-func RunValidators(validators map[string]validators.IValidator, data *jsonutils.JSONDict, optional bool) error {
+func RunValidators(ctx context.Context, validators map[string]validators.IValidator, data *jsonutils.JSONDict, optional bool) error {
 	for _, v := range validators {
 		if optional {
 			v.Optional(true)
 		}
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return err
 		}
 	}
@@ -85,13 +85,13 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 	// find available networks
 	var network *models.SNetwork = nil
 	if len(input.NetworkId) > 0 {
-		netObj, err := validators.ValidateModel(userCred, models.NetworkManager, &input.NetworkId)
+		netObj, err := validators.ValidateModel(ctx, userCred, models.NetworkManager, &input.NetworkId)
 		if err != nil {
 			return nil, err
 		}
 		network = netObj.(*models.SNetwork)
 	} else if len(input.VpcId) > 0 {
-		vpcObj, err := validators.ValidateModel(userCred, models.VpcManager, &input.VpcId)
+		vpcObj, err := validators.ValidateModel(ctx, userCred, models.VpcManager, &input.VpcId)
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +133,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 	}
 
 	if len(input.ClusterId) > 0 {
-		clusterObj, err := validators.ValidateModel(userCred, models.LoadbalancerClusterManager, &input.ClusterId)
+		clusterObj, err := validators.ValidateModel(ctx, userCred, models.LoadbalancerClusterManager, &input.ClusterId)
 		if err != nil {
 			return nil, err
 		}
@@ -537,7 +537,7 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 	}
 	var network *models.SNetwork
 	if input.NetworkId != "" {
-		_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.NetworkId)
+		_network, err := models.NetworkManager.FetchByIdOrName(ctx, userCred, input.NetworkId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError2("network", input.NetworkId)
@@ -580,7 +580,7 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 		if !network.Contains(input.IpAddr) {
 			return httperrors.NewInputParameterError("candidate %s out of range", input.IpAddr)
 		}
-		addrTable := network.GetUsedAddresses()
+		addrTable := network.GetUsedAddresses(ctx)
 		if _, ok := addrTable[input.IpAddr]; ok {
 			return httperrors.NewInputParameterError("requested ip %s is occupied!", input.IpAddr)
 		}

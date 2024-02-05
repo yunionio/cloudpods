@@ -173,7 +173,7 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 	}
 
 	if len(query.PolicyId) > 0 {
-		policyObj, err := ScopedPolicyManager.FetchByIdOrName(userCred, query.PolicyId)
+		policyObj, err := ScopedPolicyManager.FetchByIdOrName(ctx, userCred, query.PolicyId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ScopedPolicyManager.Keyword(), query.PolicyId)

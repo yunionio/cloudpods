@@ -43,7 +43,7 @@ func (guest *SGuest) PerformMigrateNetwork(ctx context.Context, userCred mcclien
 
 	// first validate it against the source network, ensure the following:
 	// 1. the network is attach to this guest
-	srcModel, err := NetworkManager.FetchByIdOrName(userCred, input.Src)
+	srcModel, err := NetworkManager.FetchByIdOrName(ctx, userCred, input.Src)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "source network %s not found", input.Src)
@@ -72,7 +72,7 @@ func (guest *SGuest) PerformMigrateNetwork(ctx context.Context, userCred mcclien
 	// next validate against the destination network, ensure the following:
 	// 1. the network is reachable to this server
 	// 1. the IP address is availalble in the new network
-	destModel, err := NetworkManager.FetchByIdOrName(userCred, input.Dest)
+	destModel, err := NetworkManager.FetchByIdOrName(ctx, userCred, input.Dest)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "destination network %s not found", input.Src)
@@ -114,7 +114,7 @@ func (guest *SGuest) PerformMigrateNetwork(ctx context.Context, userCred mcclien
 	if !destNet.IsAddressInRange(ipAddr) {
 		return nil, errors.Wrapf(httperrors.ErrBadRequest, "ip %s not in range of destination network", ipAddr.String())
 	}
-	used, err := destNet.isAddressUsed(ipAddr.String())
+	used, err := destNet.isAddressUsed(ctx, ipAddr.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "isAddressUsed")
 	}

@@ -215,7 +215,7 @@ func (man *SForwardManager) PerformCreateFromServer(ctx context.Context, userCre
 
 			validators.NewNonNegativeValidator("last_seen_timeout").Optional(true),
 		} {
-			if err := v.Validate(data); err != nil {
+			if err := v.Validate(ctx, data); err != nil {
 				return nil, err
 			}
 		}
@@ -285,7 +285,7 @@ func (man *SForwardManager) ValidateCreateData(ctx context.Context, userCred mcc
 
 		validators.NewNonNegativeValidator("last_seen_timeout").Optional(true),
 	} {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -322,7 +322,7 @@ func (fwd *SForward) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 		validators.NewNonNegativeValidator("last_seen_timeout"),
 	} {
 		v.Optional(true)
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}

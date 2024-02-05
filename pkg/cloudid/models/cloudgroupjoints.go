@@ -120,7 +120,7 @@ func (manager *SCloudgroupJointsManager) ListItemFilter(
 	}
 
 	if len(query.Cloudgroup) > 0 {
-		group, err := CloudgroupManager.FetchByIdOrName(nil, query.Cloudgroup)
+		group, err := CloudgroupManager.FetchByIdOrName(ctx, nil, query.Cloudgroup)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("cloudgroup", query.Cloudgroup)

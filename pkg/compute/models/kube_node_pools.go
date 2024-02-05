@@ -162,7 +162,7 @@ func (manager *SKubeNodePoolManager) FetchOwnerId(ctx context.Context, data json
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SKubeNodePoolManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SKubeNodePoolManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		sq := KubeClusterManager.Query("id")
 		switch scope {
@@ -301,13 +301,13 @@ func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	clusterObj, err := validators.ValidateModel(userCred, KubeClusterManager, &input.CloudKubeClusterId)
+	clusterObj, err := validators.ValidateModel(ctx, userCred, KubeClusterManager, &input.CloudKubeClusterId)
 	if err != nil {
 		return nil, err
 	}
 	cluster := clusterObj.(*SKubeCluster)
 	for i := range input.NetworkIds {
-		_, err = validators.ValidateModel(userCred, NetworkManager, &input.NetworkIds[i])
+		_, err = validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkIds[i])
 		if err != nil {
 			return nil, err
 		}
@@ -320,7 +320,7 @@ func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, use
 	}
 
 	if len(input.KeypairId) > 0 {
-		keypairObj, err := validators.ValidateModel(userCred, KeypairManager, &input.KeypairId)
+		keypairObj, err := validators.ValidateModel(ctx, userCred, KeypairManager, &input.KeypairId)
 		if err != nil {
 			return nil, err
 		}

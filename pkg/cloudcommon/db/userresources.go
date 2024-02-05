@@ -125,7 +125,7 @@ func (manager *SUserResourceBaseManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SUserResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SUserResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		if scope == rbacscope.ScopeUser {
 			if len(owner.GetUserId()) > 0 {
@@ -149,12 +149,12 @@ func (manager *SUserResourceBaseManager) GetIUserModelManager() IUserModelManage
 	return manager.GetVirtualObject().(IUserModelManager)
 }
 
-func (manager *SUserResourceBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByName(manager, userCred, idStr)
+func (manager *SUserResourceBaseManager) FetchByName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByName(ctx, manager, userCred, idStr)
 }
 
-func (manager *SUserResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByIdOrName(manager, userCred, idStr)
+func (manager *SUserResourceBaseManager) FetchByIdOrName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByIdOrName(ctx, manager, userCred, idStr)
 }
 
 func (manager *SUserResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.UserResourceCreateInput) (apis.UserResourceCreateInput, error) {

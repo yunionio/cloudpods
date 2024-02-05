@@ -108,7 +108,7 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 			net.Domain = domainId
 		}
 		if net.Network != "" {
-			netObj, err := models.NetworkManager.FetchByIdOrName(data.UserCred, net.Network)
+			netObj, err := models.NetworkManager.FetchByIdOrName(req.Context(), data.UserCred, net.Network)
 			if err != nil {
 				return nil, errors.Wrapf(err, "fetch network %s", net.Network)
 			}

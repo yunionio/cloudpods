@@ -41,7 +41,7 @@ func (manager *SRouteTableResourceBaseManager) ListItemFilter(
 	query api.RouteTableFilterList,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.RouteTableId) > 0 {
-		routeTable, err := RouteTableManager.FetchByIdOrName(userCred, query.RouteTableId)
+		routeTable, err := RouteTableManager.FetchByIdOrName(ctx, userCred, query.RouteTableId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("route_table", query.RouteTableId)

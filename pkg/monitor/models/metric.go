@@ -663,7 +663,7 @@ func (self *SMetricMeasurement) CustomizeDelete(
 		return err
 	}
 	for _, joint := range metricJoint {
-		field, err := joint.GetMetricField()
+		field, err := joint.GetMetricField(ctx)
 		if err != nil {
 			return err
 		}

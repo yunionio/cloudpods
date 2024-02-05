@@ -177,7 +177,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("source_cidr and network_id conflict")
 	}
 
-	_nat, err := validators.ValidateModel(userCred, NatGatewayManager, &input.NatgatewayId)
+	_nat, err := validators.ValidateModel(ctx, userCred, NatGatewayManager, &input.NatgatewayId)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, httperrors.NewInputParameterError("cidr %s is not in range vpc %s", input.SourceCidr, vpc.CidrBlock)
 		}
 	} else {
-		_network, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+		_network, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkId)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +215,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
-	_eip, err := validators.ValidateModel(userCred, ElasticipManager, &input.Eip)
+	_eip, err := validators.ValidateModel(ctx, userCred, ElasticipManager, &input.Eip)
 	if err != nil {
 		return nil, err
 	}

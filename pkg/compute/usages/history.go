@@ -135,7 +135,7 @@ func addHistoryHandler(prefix, rangeObjKey string, hf appsrv.FilterHandler, app 
 	app.AddHandler2("GET", prefix, ahf, nil, name, nil)
 }
 
-type objHistoryUsageFunc func(mcclient.TokenCredential, rbacscope.TRbacScope, mcclient.IIdentityProvider, *TimeRange, bool, rbacutils.SPolicyResult) (Usage, error)
+type objHistoryUsageFunc func(context.Context, mcclient.TokenCredential, rbacscope.TRbacScope, mcclient.IIdentityProvider, *TimeRange, bool, rbacutils.SPolicyResult) (Usage, error)
 
 func historyRangeObjHandler(
 	manager db.IStandaloneModelManager,
@@ -170,7 +170,7 @@ func historyRangeObjHandler(
 				return
 			}
 		}
-		usage, err := reporter(userCred, scope, ownerId, timeRange, includeSystem, result)
+		usage, err := reporter(ctx, userCred, scope, ownerId, timeRange, includeSystem, result)
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
@@ -181,6 +181,7 @@ func historyRangeObjHandler(
 }
 
 func ReportGeneralHistoryUsage(
+	ctx context.Context,
 	userToken mcclient.TokenCredential,
 	scope rbacscope.TRbacScope,
 	userCred mcclient.IIdentityProvider,
@@ -191,20 +192,20 @@ func ReportGeneralHistoryUsage(
 	count = make(map[string]interface{})
 
 	if scope == rbacscope.ScopeSystem {
-		count = HistoryUsage(userToken, timeRange, rbacscope.ScopeSystem, userCred, includeSystem, policyResult)
+		count = HistoryUsage(ctx, userToken, timeRange, rbacscope.ScopeSystem, userCred, includeSystem, policyResult)
 	}
 
 	if scope == rbacscope.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
-		count = HistoryUsage(userToken, timeRange, rbacscope.ScopeDomain, userCred, includeSystem, policyResult)
+		count = HistoryUsage(ctx, userToken, timeRange, rbacscope.ScopeDomain, userCred, includeSystem, policyResult)
 	}
 
 	if scope == rbacscope.ScopeProject && len(userCred.GetProjectId()) > 0 {
-		count = HistoryUsage(userToken, timeRange, rbacscope.ScopeProject, userCred, includeSystem, policyResult)
+		count = HistoryUsage(ctx, userToken, timeRange, rbacscope.ScopeProject, userCred, includeSystem, policyResult)
 	}
 	return
 }
 
-func HistoryUsage(userCred mcclient.TokenCredential, timeRange *TimeRange, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, includeSystem bool, policyResult rbacutils.SPolicyResult) Usage {
+func HistoryUsage(ctx context.Context, userCred mcclient.TokenCredential, timeRange *TimeRange, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, includeSystem bool, policyResult rbacutils.SPolicyResult) Usage {
 	count := make(map[string]interface{})
 	results := db.UsagePolicyCheck(userCred, models.GuestManager, scope)
 	results = results.Merge(policyResult)
@@ -242,11 +243,11 @@ func HistoryUsage(userCred mcclient.TokenCredential, timeRange *TimeRange, scope
 		models.BucketManager,
 		models.MongoDBManager,
 	} {
-		usage, _ := historyUsage(manager, scope, ownerId, timeRange, format, includeSystem, false, results)
+		usage, _ := historyUsage(ctx, manager, scope, ownerId, timeRange, format, includeSystem, false, results)
 		count[manager.Keyword()] = usage
 	}
 
-	usage, _ := historyUsage(models.HostManager, scope, ownerId, timeRange, format, includeSystem, true, results)
+	usage, _ := historyUsage(ctx, models.HostManager, scope, ownerId, timeRange, format, includeSystem, true, results)
 	count["baremetal"] = usage
 
 	return count
@@ -258,6 +259,7 @@ type SHistoryUsage struct {
 }
 
 func historyUsage(
+	ctx context.Context,
 	manager db.IModelManager,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
@@ -321,7 +323,7 @@ func historyUsage(
 		gq = gq.Filter(sqlchemy.Equals(gq.Field("tenant_id"), ownerId.GetProjectId()))
 	}
 
-	gq = db.ObjectIdQueryWithPolicyResult(gq, manager, policyResult)
+	gq = db.ObjectIdQueryWithPolicyResult(ctx, gq, manager, policyResult)
 
 	if _, ok := manager.(db.IVirtualModelManager); ok && !includeSystem {
 		gq = gq.Filter(sqlchemy.OR(

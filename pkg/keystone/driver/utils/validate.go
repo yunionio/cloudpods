@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"context"
 	"database/sql"
 
 	"yunion.io/x/pkg/errors"
@@ -25,9 +26,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func ValidateConfig(conf api.SIdpAttributeOptions, userCred mcclient.TokenCredential) (api.SIdpAttributeOptions, error) {
+func ValidateConfig(ctx context.Context, conf api.SIdpAttributeOptions, userCred mcclient.TokenCredential) (api.SIdpAttributeOptions, error) {
 	if len(conf.DefaultProjectId) > 0 {
-		obj, err := models.ProjectManager.FetchByIdOrName(userCred, conf.DefaultProjectId)
+		obj, err := models.ProjectManager.FetchByIdOrName(ctx, userCred, conf.DefaultProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return conf, errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultProjectId)
@@ -38,7 +39,7 @@ func ValidateConfig(conf api.SIdpAttributeOptions, userCred mcclient.TokenCreden
 		conf.DefaultProjectId = obj.GetId()
 	}
 	if len(conf.DefaultRoleId) > 0 {
-		obj, err := models.RoleManager.FetchByIdOrName(userCred, conf.DefaultRoleId)
+		obj, err := models.RoleManager.FetchByIdOrName(ctx, userCred, conf.DefaultRoleId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return conf, errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultRoleId)

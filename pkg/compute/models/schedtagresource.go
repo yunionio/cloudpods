@@ -38,8 +38,8 @@ type SSchedtagResourceBase struct {
 
 type SSchedtagResourceBaseManager struct{}
 
-func ValidateSchedtagResourceInput(userCred mcclient.TokenCredential, query api.SchedtagResourceInput) (*SSchedtag, api.SchedtagResourceInput, error) {
-	tagObj, err := SchedtagManager.FetchByIdOrName(userCred, query.SchedtagId)
+func ValidateSchedtagResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.SchedtagResourceInput) (*SSchedtag, api.SchedtagResourceInput, error) {
+	tagObj, err := SchedtagManager.FetchByIdOrName(ctx, userCred, query.SchedtagId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SchedtagManager.Keyword(), query.SchedtagId)
@@ -102,7 +102,7 @@ func (manager *SSchedtagResourceBaseManager) ListItemFilter(
 	query api.SchedtagFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.SchedtagId) > 0 {
-		tagObj, _, err := ValidateSchedtagResourceInput(userCred, query.SchedtagResourceInput)
+		tagObj, _, err := ValidateSchedtagResourceInput(ctx, userCred, query.SchedtagResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateSchedtagResourceInput")
 		}

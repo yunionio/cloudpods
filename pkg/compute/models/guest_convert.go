@@ -61,7 +61,7 @@ func (self *SGuest) PerformConvertToKvm(
 func (self *SGuest) ConvertCloudpodsToKvm(ctx context.Context, userCred mcclient.TokenCredential, data *api.ConvertToKvmInput) (jsonutils.JSONObject, error) {
 	preferHost := data.PreferHost
 	if len(preferHost) > 0 {
-		iHost, err := HostManager.FetchByIdOrName(userCred, preferHost)
+		iHost, err := HostManager.FetchByIdOrName(ctx, userCred, preferHost)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +99,7 @@ func (self *SGuest) ConvertCloudpodsToKvm(ctx context.Context, userCred mcclient
 func (self *SGuest) ConvertEsxiToKvm(ctx context.Context, userCred mcclient.TokenCredential, data *api.ConvertToKvmInput) (jsonutils.JSONObject, error) {
 	preferHost := data.PreferHost
 	if len(preferHost) > 0 {
-		iHost, err := HostManager.FetchByIdOrName(userCred, preferHost)
+		iHost, err := HostManager.FetchByIdOrName(ctx, userCred, preferHost)
 		if err != nil {
 			return nil, err
 		}

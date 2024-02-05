@@ -929,9 +929,9 @@ type SImageUsage struct {
 	Size  int64
 }
 
-func (manager *SImageManager) count(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, status string, isISO tristate.TriState, pendingDelete bool, guestImage tristate.TriState, policyResult rbacutils.SPolicyResult) map[string]SImageUsage {
+func (manager *SImageManager) count(ctx context.Context, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, status string, isISO tristate.TriState, pendingDelete bool, guestImage tristate.TriState, policyResult rbacutils.SPolicyResult) map[string]SImageUsage {
 	sq := manager.Query("id")
-	sq = db.ObjectIdQueryWithPolicyResult(sq, manager, policyResult)
+	sq = db.ObjectIdQueryWithPolicyResult(ctx, sq, manager, policyResult)
 	switch scope {
 	case rbacscope.ScopeSystem:
 		// do nothing
@@ -1007,19 +1007,19 @@ func expandUsageCount(usages map[string]int64, prefix, imgType, state string, co
 	}
 }
 
-func (manager *SImageManager) Usage(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
+func (manager *SImageManager) Usage(ctx context.Context, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
 	usages := make(map[string]int64)
-	count := manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.False, policyResult)
+	count := manager.count(ctx, scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "img", "", count)
-	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.True, false, tristate.False, policyResult)
+	count = manager.count(ctx, scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.True, false, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, string(qemuimgfmt.ISO), "", count)
-	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.None, false, tristate.False, policyResult)
+	count = manager.count(ctx, scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.None, false, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "imgiso", "", count)
-	count = manager.count(scope, ownerId, "", tristate.False, true, tristate.False, policyResult)
+	count = manager.count(ctx, scope, ownerId, "", tristate.False, true, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "img", "pending_delete", count)
-	count = manager.count(scope, ownerId, "", tristate.True, true, tristate.False, policyResult)
+	count = manager.count(ctx, scope, ownerId, "", tristate.True, true, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, string(qemuimgfmt.ISO), "pending_delete", count)
-	count = manager.count(scope, ownerId, "", tristate.None, true, tristate.False, policyResult)
+	count = manager.count(ctx, scope, ownerId, "", tristate.None, true, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "imgiso", "pending_delete", count)
 	return usages
 }

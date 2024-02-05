@@ -180,7 +180,7 @@ func (man *SLoadbalancerManager) ListItemFilter(
 
 	ownerId := userCred
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+	q, err = validators.ApplyModelFilters(ctx, q, data, []*validators.ModelFilterOptions{
 		// {Key: "network", ModelKeyword: "network", OwnerId: ownerId},
 		{Key: "cluster", ModelKeyword: "loadbalancercluster", OwnerId: ownerId},
 	})
@@ -201,7 +201,7 @@ func (man *SLoadbalancerManager) ListItemFilter(
 	// eip filters
 	usableLbForEipFilter := query.UsableLoadbalancerForEip
 	if len(usableLbForEipFilter) > 0 {
-		eipObj, err := ElasticipManager.FetchByIdOrName(userCred, usableLbForEipFilter)
+		eipObj, err := ElasticipManager.FetchByIdOrName(ctx, userCred, usableLbForEipFilter)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("eip %s not found", usableLbForEipFilter)
@@ -371,7 +371,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 			input.Networks = networks[1:]
 		}
 		input.NetworkId = networks[0]
-		networkObj, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+		networkObj, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkId)
 		if err != nil {
 			return nil, err
 		}
@@ -392,7 +392,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 		input.CloudproviderId = vpc.ManagerId
 		input.CloudregionId = vpc.CloudregionId
 		for i := range input.Networks {
-			netObj, err := validators.ValidateModel(userCred, NetworkManager, &input.Networks[i])
+			netObj, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.Networks[i])
 			if err != nil {
 				return nil, err
 			}
@@ -415,7 +415,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 			}
 		}
 	} else if len(input.ZoneId) > 0 {
-		zoneObj, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
+		zoneObj, err := validators.ValidateModel(ctx, userCred, ZoneManager, &input.ZoneId)
 		if err != nil {
 			return nil, err
 		}
@@ -429,7 +429,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 
 	var cloudprovider *SCloudprovider = nil
 	if len(input.CloudproviderId) > 0 {
-		managerObj, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+		managerObj, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
 			return nil, err
 		}
@@ -438,7 +438,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 	}
 
 	if len(input.VpcId) > 0 {
-		_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+		_vpc, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcId)
 		if err != nil {
 			return nil, err
 		}
@@ -452,7 +452,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 	}
 
 	if len(input.Zone1) > 0 {
-		_, err := validators.ValidateModel(userCred, ZoneManager, &input.Zone1)
+		_, err := validators.ValidateModel(ctx, userCred, ZoneManager, &input.Zone1)
 		if err != nil {
 			return nil, err
 		}
@@ -466,7 +466,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 	}
 
 	if len(input.EipId) > 0 {
-		eipObj, err := validators.ValidateModel(userCred, ElasticipManager, &input.EipId)
+		eipObj, err := validators.ValidateModel(ctx, userCred, ElasticipManager, &input.EipId)
 		if err != nil {
 			return nil, err
 		}
@@ -521,7 +521,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 		input.Duration = billingCycle.String()
 	}
 
-	regionObj, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	regionObj, err := validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
 	if err != nil {
 		return nil, err
 	}
@@ -703,7 +703,7 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 	)
 	for _, v := range keyV {
 		v.Optional(true)
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -1327,6 +1327,7 @@ func (manager *SLoadbalancerManager) GetLbDefaultBackendGroupIds() ([]string, er
 }
 
 func (man *SLoadbalancerManager) TotalCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -1334,7 +1335,7 @@ func (man *SLoadbalancerManager) TotalCount(
 	policyResult rbacutils.SPolicyResult,
 ) (int, error) {
 	q := man.Query()
-	q = db.ObjectIdQueryWithPolicyResult(q, man, policyResult)
+	q = db.ObjectIdQueryWithPolicyResult(ctx, q, man, policyResult)
 	q = scopeOwnerIdFilter(q, scope, ownerId)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 	q = RangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), q.Field("manager_id"), nil, nil)
@@ -1482,7 +1483,7 @@ func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mccli
 	if len(eipStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("eip_id")
 	}
-	eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
+	eipObj, err := ElasticipManager.FetchByIdOrName(ctx, userCred, eipStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("eip %s not found", eipStr)

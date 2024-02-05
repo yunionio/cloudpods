@@ -58,13 +58,13 @@ func getAction(params *jsonutils.JSONDict) string {
 	return action
 }
 
-func (self *CloudProviderSyncInfoTask) GetSyncRange() models.SSyncRange {
+func (self *CloudProviderSyncInfoTask) GetSyncRange(ctx context.Context) models.SSyncRange {
 	syncRange := models.SSyncRange{}
 	syncRangeJson, _ := self.Params.Get("sync_range")
 	if syncRangeJson != nil {
 		syncRangeJson.Unmarshal(&syncRange)
 	}
-	syncRange.Normalize()
+	syncRange.Normalize(ctx)
 	return syncRange
 }
 
@@ -73,7 +73,7 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 
 	self.SetStage("OnSyncCloudProviderPreInfoComplete", nil)
 
-	syncRange := self.GetSyncRange()
+	syncRange := self.GetSyncRange(ctx)
 
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
 		return nil, models.SyncCloudproviderResources(ctx, self.GetUserCred(), provider, &syncRange)
@@ -82,7 +82,7 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 
 func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
-	syncRange := self.GetSyncRange()
+	syncRange := self.GetSyncRange(ctx)
 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNCING_HOST, "", self.UserCred)
 	self.SetStage("OnSyncCloudProviderInfoComplete", nil)

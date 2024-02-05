@@ -41,7 +41,7 @@ type SCloudaccountResourceBase struct {
 
 func (manager *SCloudaccountResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudaccountResourceListInput) (*sqlchemy.SQuery, error) {
 	if len(query.Cloudaccount) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, query.Cloudaccount)
+		account, err := CloudaccountManager.FetchByIdOrName(ctx, nil, query.Cloudaccount)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("cloudaccount", query.Cloudaccount)

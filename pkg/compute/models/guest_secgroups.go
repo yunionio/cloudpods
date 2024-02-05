@@ -73,7 +73,7 @@ func (self *SGuest) PerformAddSecgroup(
 
 	secgroupNames := []string{}
 	for i := range input.SecgroupIds {
-		secObj, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		secObj, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupIds[i])
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +145,7 @@ func (self *SGuest) PerformRevokeSecgroup(
 
 	secgroupNames := []string{}
 	for i := range input.SecgroupIds {
-		secObj, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		secObj, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupIds[i])
 		if err != nil {
 			return nil, err
 		}
@@ -252,7 +252,7 @@ func (self *SGuest) performAssignSecgroup(
 		return nil, errors.Wrapf(err, "GetVpc")
 	}
 
-	secObj, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupId)
+	secObj, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +304,7 @@ func (self *SGuest) PerformSetSecgroup(
 	secgroupIds := []string{}
 	secgroupNames := []string{}
 	for i := range input.SecgroupIds {
-		secObj, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		secObj, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupIds[i])
 		if err != nil {
 			return nil, err
 		}
