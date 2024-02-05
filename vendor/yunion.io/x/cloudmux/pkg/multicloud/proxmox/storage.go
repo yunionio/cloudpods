@@ -174,7 +174,10 @@ func (self *SRegion) GetStorages() ([]SStorage, error) {
 		return nil, err
 	}
 
-	jsonutils.Update(&storages, resources)
+	err = jsonutils.Update(&storages, resources)
+	if err != nil {
+		return nil, errors.Wrapf(err, "jsonutils.Update")
+	}
 
 	storageMap := map[string]bool{}
 	ret := []SStorage{}
