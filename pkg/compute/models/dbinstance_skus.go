@@ -119,7 +119,7 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 	}
 
 	if domainStr := query.ProjectDomainId; len(domainStr) > 0 {
-		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, domainStr)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
@@ -131,7 +131,7 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 
 	q = listItemDomainFilter(q, query.Providers, query.ProjectDomainId)
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	q, err = managedResourceFilterByRegion(ctx, q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
@@ -162,7 +162,7 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 	for k, zoneIds := range map[string][]string{"zone1": query.Zone1, "zone2": query.Zone2, "zone3": query.Zone3} {
 		ids := []string{}
 		for _, zoneId := range zoneIds {
-			zone, err := ZoneManager.FetchByIdOrName(userCred, zoneId)
+			zone, err := ZoneManager.FetchByIdOrName(ctx, userCred, zoneId)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError2("zone", zoneId)

@@ -103,7 +103,7 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 			return nil, errors.Wrapf(err, "db.GenerateName")
 		}
 	}
-	if err := db.NewNameValidator(man, userCred, name, nil); err != nil {
+	if err := db.NewNameValidator(ctx, man, userCred, name, nil); err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 
@@ -187,7 +187,7 @@ func (man *SProxyEndpointManager) ValidateCreateData(
 		validators.NewIPv4AddrValidator("intranet_ip_addr"),
 	}
 	for _, v := range vs {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -229,7 +229,7 @@ func (proxyendpoint *SProxyEndpoint) ValidateUpdateData(ctx context.Context, use
 	}
 	for _, v := range vs {
 		v.Optional(true)
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return input, err
 		}
 	}

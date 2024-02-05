@@ -54,8 +54,8 @@ func (manager *SInfrasResourceBaseManager) GetIInfrasModelManager() IInfrasModel
 	return manager.GetVirtualObject().(IInfrasModelManager)
 }
 
-func (manager *SInfrasResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return SharableManagerFilterByOwner(manager.GetIInfrasModelManager(), q, userCred, owner, scope)
+func (manager *SInfrasResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return SharableManagerFilterByOwner(ctx, manager.GetIInfrasModelManager(), q, userCred, owner, scope)
 }
 
 func (model *SInfrasResourceBase) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {

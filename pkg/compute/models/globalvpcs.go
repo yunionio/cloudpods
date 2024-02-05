@@ -134,7 +134,7 @@ func (manager *SGlobalVpcManager) ValidateCreateData(
 	if len(input.CloudproviderId) == 0 {
 		return input, httperrors.NewMissingParameterError("cloudprovider_id")
 	}
-	_, err = validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+	_, err = validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 	if err != nil {
 		return input, err
 	}

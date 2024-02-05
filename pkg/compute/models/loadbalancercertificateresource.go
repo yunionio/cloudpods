@@ -87,7 +87,7 @@ func (manager *SLoadbalancerCertificateResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerCertificateFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.CertificateId) > 0 {
-		_, err := validators.ValidateModel(userCred, LoadbalancerCertificateManager, &query.CertificateId)
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerCertificateManager, &query.CertificateId)
 		if err != nil {
 			return q, err
 		}

@@ -81,7 +81,7 @@ func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclie
 	if !unique {
 		return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "cas_server_url %s has been registered", conf.CASServerURL)
 	}
-	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
+	conf.SIdpAttributeOptions, err = utils.ValidateConfig(ctx, conf.SIdpAttributeOptions, userCred)
 	if err != nil {
 		return tconf, errors.Wrap(err, "ValidateConfig")
 	}

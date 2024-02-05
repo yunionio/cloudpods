@@ -136,7 +136,7 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 		isISO = tristate.None
 	}
 
-	count := ImageManager.count(scope, ownerId, "", isISO, false, tristate.None, rbacutils.SPolicyResult{})
+	count := ImageManager.count(ctx, scope, ownerId, "", isISO, false, tristate.None, rbacutils.SPolicyResult{})
 	self.Image = int(count["total"].Count)
 	return nil
 }

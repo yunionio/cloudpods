@@ -106,7 +106,7 @@ func (self *SManagedVirtualizationRegionDriver) IsSupportLoadbalancerListenerRul
 
 func validateUniqueById(ctx context.Context, userCred mcclient.TokenCredential, man db.IResourceModelManager, id string) error {
 	q := man.Query().Equals("id", id)
-	q = man.FilterByOwner(q, man, userCred, userCred, man.NamespaceScope())
+	q = man.FilterByOwner(ctx, q, man, userCred, userCred, man.NamespaceScope())
 	count, err := q.CountWithError()
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -192,7 +192,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstanc
 		networks = append(networks, input.Networks...)
 		for i := range networks {
 			if len(networks[i]) > 0 {
-				netObj, err := validators.ValidateModel(userCred, models.NetworkManager, &networks[i])
+				netObj, err := validators.ValidateModel(ctx, userCred, models.NetworkManager, &networks[i])
 				if err != nil {
 					return nil, err
 				}
@@ -2088,18 +2088,18 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheAclDat
 		params := jsonutils.NewDict()
 		params.Set("ip", jsonutils.NewString(ip))
 		if strings.Contains(ip, "/") {
-			if err := cidrV.Validate(params); err != nil {
+			if err := cidrV.Validate(ctx, params); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := ipV.Validate(params); err != nil {
+			if err := ipV.Validate(ctx, params); err != nil {
 				return nil, err
 			}
 		}
 	}
 
 	elasticcacheV := validators.NewModelIdOrNameValidator("elasticcache", "elasticcache", ownerId)
-	if err := elasticcacheV.Validate(data); err != nil {
+	if err := elasticcacheV.Validate(ctx, data); err != nil {
 		return nil, err
 	}
 
@@ -2112,7 +2112,7 @@ func (self *SManagedVirtualizationRegionDriver) AllowCreateElasticcacheBackup(ct
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	elasticcacheV := validators.NewModelIdOrNameValidator("elasticcache", "elasticcache", ownerId)
-	if err := elasticcacheV.Validate(data); err != nil {
+	if err := elasticcacheV.Validate(ctx, data); err != nil {
 		return nil, err
 	}
 
@@ -3435,7 +3435,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotPolicy(ctx
 	if len(input.CloudproviderId) == 0 {
 		return nil, httperrors.NewMissingParameterError("cloudprovider_id")
 	}
-	managerObj, err := validators.ValidateModel(userCred, models.CloudproviderManager, &input.CloudproviderId)
+	managerObj, err := validators.ValidateModel(ctx, userCred, models.CloudproviderManager, &input.CloudproviderId)
 	if err != nil {
 		return nil, err
 	}

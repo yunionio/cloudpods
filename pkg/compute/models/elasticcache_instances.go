@@ -166,7 +166,7 @@ func elasticcacheSubResourceFetchOwnerId(ctx context.Context, data jsonutils.JSO
 	parentId := jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
 	if len(parentId) > 0 {
 		userCred := policy.FetchUserCredential(ctx)
-		ec, err := db.FetchByIdOrName(ElasticcacheManager, userCred, parentId)
+		ec, err := db.FetchByIdOrName(ctx, ElasticcacheManager, userCred, parentId)
 		if err != nil {
 			log.Errorf("elasticcache sub resource FetchOwnerId %s", err)
 			return nil, nil
@@ -179,7 +179,7 @@ func elasticcacheSubResourceFetchOwnerId(ctx context.Context, data jsonutils.JSO
 }
 
 // elastic cache 子资源获取owner query
-func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func elasticcacheSubResourceFetchOwner(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		var subq *sqlchemy.SSubQuery
 
@@ -817,7 +817,7 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 	if len(input.NetworkId) == 0 {
 		return nil, httperrors.NewMissingParameterError("network_id")
 	}
-	networkObj, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+	networkObj, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkId)
 	if err != nil {
 		return nil, fmt.Errorf("getting network failed")
 	}
@@ -829,7 +829,7 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 	if len(wire.ZoneId) > 0 {
 		input.ZoneId = wire.ZoneId
 	}
-	_, err = validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
+	_, err = validators.ValidateModel(ctx, userCred, ZoneManager, &input.ZoneId)
 	if err != nil {
 		return nil, err
 	}
@@ -845,7 +845,7 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 	input.CloudregionId = region.Id
 	provider := vpc.GetCloudprovider()
 	input.ManagerId = provider.Id
-	skuObj, err := validators.ValidateModel(userCred, ElasticcacheSkuManager, &input.InstanceType)
+	skuObj, err := validators.ValidateModel(ctx, userCred, ElasticcacheSkuManager, &input.InstanceType)
 	if err != nil {
 		return nil, err
 	}
@@ -868,7 +868,7 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 	}
 
 	for i := range input.SecgroupIds {
-		_, err = validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		_, err = validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupIds[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1021,7 +1021,7 @@ func (self *SElasticcache) StartDeleteElasticcacheTask(ctx context.Context, user
 
 func (self *SElasticcache) ValidatorChangeSpecData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	skuV := validators.NewModelIdOrNameValidator("sku", "elasticcachesku", self.GetOwnerId())
-	if err := skuV.Optional(false).Validate(data.(*jsonutils.JSONDict)); err != nil {
+	if err := skuV.Optional(false).Validate(ctx, data.(*jsonutils.JSONDict)); err != nil {
 		return nil, err
 	}
 
@@ -1088,7 +1088,7 @@ func (self *SElasticcache) ValidatorUpdateAuthModeData(ctx context.Context, user
 	}
 
 	authModeV := validators.NewStringChoicesValidator("auth_mode", choices.NewChoices("on", "off"))
-	if err := authModeV.Optional(false).Validate(data.(*jsonutils.JSONDict)); err != nil {
+	if err := authModeV.Optional(false).Validate(ctx, data.(*jsonutils.JSONDict)); err != nil {
 		return nil, err
 	}
 
@@ -1192,7 +1192,7 @@ func (self *SElasticcache) ValidatorSetMaintainTimeData(ctx context.Context, use
 	}
 
 	for _, v := range keyV {
-		if err := v.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		if err := v.Validate(ctx, data.(*jsonutils.JSONDict)); err != nil {
 			return nil, err
 		}
 	}
@@ -1236,7 +1236,7 @@ func (self *SElasticcache) ValidatorAllocatePublicConnectionData(ctx context.Con
 
 	portV := validators.NewRangeValidator("port", 1024, 65535)
 	portV.Default(6379).Optional(true)
-	if err := portV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+	if err := portV.Validate(ctx, data.(*jsonutils.JSONDict)); err != nil {
 		return nil, err
 	}
 
@@ -1361,7 +1361,7 @@ func (self *SElasticcache) ValidatorUpdateBackupPolicyData(ctx context.Context, 
 	}
 
 	for _, v := range keyV {
-		if err := v.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		if err := v.Validate(ctx, data.(*jsonutils.JSONDict)); err != nil {
 			return nil, err
 		}
 	}
@@ -1479,6 +1479,7 @@ func (self *SElasticcache) DeleteSubResources(ctx context.Context, userCred mccl
 }
 
 func (man *SElasticcacheManager) TotalCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -1486,7 +1487,7 @@ func (man *SElasticcacheManager) TotalCount(
 	policyResult rbacutils.SPolicyResult,
 ) (int, error) {
 	q := man.Query()
-	q = db.ObjectIdQueryWithPolicyResult(q, man, policyResult)
+	q = db.ObjectIdQueryWithPolicyResult(ctx, q, man, policyResult)
 	vpcs := VpcManager.Query().SubQuery()
 	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
 	q = scopeOwnerIdFilter(q, scope, ownerId)
@@ -1827,7 +1828,7 @@ func (self *SElasticcache) validateSecgroupInput(secgroups []string) error {
 
 func (self *SElasticcache) checkingSecgroupIds(ctx context.Context, userCred mcclient.TokenCredential, secgroupIds []string) ([]string, error) {
 	for i := range secgroupIds {
-		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &secgroupIds[i])
+		_, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &secgroupIds[i])
 		if err != nil {
 			return nil, err
 		}

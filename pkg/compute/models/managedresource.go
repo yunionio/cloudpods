@@ -50,8 +50,8 @@ func (self *SManagedResourceBase) GetCloudproviderId() string {
 	return self.ManagerId
 }
 
-func ValidateCloudproviderResourceInput(userCred mcclient.TokenCredential, query api.CloudproviderResourceInput) (*SCloudprovider, api.CloudproviderResourceInput, error) {
-	managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, query.CloudproviderId)
+func ValidateCloudproviderResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.CloudproviderResourceInput) (*SCloudprovider, api.CloudproviderResourceInput, error) {
+	managerObj, err := CloudproviderManager.FetchByIdOrName(ctx, userCred, query.CloudproviderId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudproviderManager.Keyword(), query.CloudproviderId)
@@ -271,7 +271,7 @@ func (manager *SManagedResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.ManagedResourceListInput,
 ) (*sqlchemy.SQuery, error) {
-	return _managedResourceFilterByAccount(manager.getManagerIdFileName(), q, query, "", nil)
+	return _managedResourceFilterByAccount(ctx, manager.getManagerIdFileName(), q, query, "", nil)
 }
 
 func (manager *SManagedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
@@ -487,18 +487,18 @@ func _filterByProviderStrs(managerIdFieldName string, q *sqlchemy.SQuery, filter
 	return q
 }
 
-func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	return _managedResourceFilterByAccount("manager_id", q, input, filterField, subqFunc)
+func managedResourceFilterByAccount(ctx context.Context, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	return _managedResourceFilterByAccount(ctx, "manager_id", q, input, filterField, subqFunc)
 }
 
-func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+func _managedResourceFilterByAccount(ctx context.Context, managerIdFieldName string, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	cloudproviderStrs := input.CloudproviderId
 	managerIds := []string{}
 	for _, cloudproviderStr := range cloudproviderStrs {
 		if len(cloudproviderStr) == 0 {
 			continue
 		}
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, cloudproviderStr)
+		provider, err := CloudproviderManager.FetchByIdOrName(ctx, nil, cloudproviderStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), cloudproviderStr)
@@ -561,7 +561,7 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 	return q, nil
 }
 
-func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+func managedResourceFilterByZone(ctx context.Context, q *sqlchemy.SQuery, query api.ZonalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	zoneList := query.ZoneList()
 	if len(query.ZoneIds) >= 1 {
 		zoneQ := ZoneManager.Query("id")
@@ -577,7 +577,7 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	} else if len(query.ZoneId) > 0 {
-		zoneObj, _, err := ValidateZoneResourceInput(nil, query.ZoneResourceInput)
+		zoneObj, _, err := ValidateZoneResourceInput(ctx, nil, query.ZoneResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
@@ -593,13 +593,13 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 	return q, nil
 }
 
-func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+func managedResourceFilterByRegion(ctx context.Context, q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	regionIds := []string{}
 	for _, region := range query.CloudregionId {
 		if len(region) == 0 {
 			continue
 		}
-		regionObj, err := ValidateCloudregionId(nil, region)
+		regionObj, err := ValidateCloudregionId(ctx, nil, region)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}

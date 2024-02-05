@@ -118,7 +118,7 @@ func (sm *SGroupManager) ListItemFilter(
 
 	guestFilter := input.ServerId
 	if len(guestFilter) != 0 {
-		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestFilter)
+		guestObj, err := GuestManager.FetchByIdOrName(ctx, userCred, guestFilter)
 		if err != nil {
 			return nil, err
 		}
@@ -385,7 +385,7 @@ func (group *SGroup) checkGuests(ctx context.Context, userCred mcclient.TokenCre
 	hostIdSet := sets.NewString()
 	for i := range guestIdArr {
 		guestIdStr, _ := guestIdArr[i].GetString()
-		model, err := GuestManager.FetchByIdOrName(userCred, guestIdStr)
+		model, err := GuestManager.FetchByIdOrName(ctx, userCred, guestIdStr)
 		if err == sql.ErrNoRows {
 			return nil, nil, httperrors.NewInputParameterError("no such model %s", guestIdStr)
 		}
@@ -570,7 +570,7 @@ func (grp *SGroup) PerformAttachnetwork(ctx context.Context, userCred mcclient.T
 	}
 
 	if len(input.NetworkId) > 0 {
-		netObj, err := NetworkManager.FetchByIdOrName(userCred, input.NetworkId)
+		netObj, err := NetworkManager.FetchByIdOrName(ctx, userCred, input.NetworkId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), input.NetworkId)
@@ -733,7 +733,7 @@ func (grp *SGroup) PerformAssociateEip(ctx context.Context, userCred mcclient.To
 	if len(eipStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("eip_id")
 	}
-	eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
+	eipObj, err := ElasticipManager.FetchByIdOrName(ctx, userCred, eipStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("eip %s not found", eipStr)

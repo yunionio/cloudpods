@@ -335,12 +335,12 @@ func (self *SCloudregion) GetDriver() IRegionDriver {
 	return GetRegionDriver(provider)
 }
 
-func (self *SCloudregion) getUsage() api.SCloudregionUsage {
+func (self *SCloudregion) getUsage(ctx context.Context) api.SCloudregionUsage {
 	out := api.SCloudregionUsage{}
 	out.VpcCount, _ = self.GetVpcCount()
 	out.ZoneCount, _ = self.GetZoneCount()
 	out.GuestCount, _ = self.GetGuestCount()
-	out.NetworkCount, _ = self.GetNetworkCount()
+	out.NetworkCount, _ = self.GetNetworkCount(ctx)
 	out.GuestIncrementCount, _ = self.GetGuestIncrementCount()
 	return out
 }
@@ -1094,8 +1094,8 @@ func (self *SCloudregion) GetDetailsDiskCapability(ctx context.Context, userCred
 	return jsonutils.Marshal(&capa), nil
 }
 
-func (self *SCloudregion) GetNetworkCount() (int, error) {
-	return getNetworkCount(nil, nil, rbacscope.ScopeSystem, self, nil)
+func (self *SCloudregion) GetNetworkCount(ctx context.Context) (int, error) {
+	return getNetworkCount(ctx, nil, nil, rbacscope.ScopeSystem, self, nil)
 }
 
 func (self *SCloudregion) getMinNicCount() int {

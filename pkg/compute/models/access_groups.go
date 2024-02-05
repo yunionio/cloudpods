@@ -206,12 +206,12 @@ func (manager *SAccessGroupManager) ValidateCreateData(ctx context.Context, user
 		return nil, httperrors.NewMissingParameterError("cloudregion_id")
 	}
 
-	_, err = validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	_, err = validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+	_, err = validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 	if err != nil {
 		return nil, err
 	}

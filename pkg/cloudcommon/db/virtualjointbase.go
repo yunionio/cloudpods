@@ -59,12 +59,12 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 	return false
 }
 
-func (manager *SVirtualJointResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SVirtualJointResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		masterQ := manager.GetMasterManager().Query("id")
-		masterQ = manager.GetMasterManager().FilterByOwner(masterQ, manager.GetMasterManager(), userCred, owner, scope)
+		masterQ = manager.GetMasterManager().FilterByOwner(ctx, masterQ, manager.GetMasterManager(), userCred, owner, scope)
 		slaveQ := manager.GetSlaveManager().Query("id")
-		slaveQ = manager.GetSlaveManager().FilterByOwner(slaveQ, manager.GetSlaveManager(), userCred, owner, scope)
+		slaveQ = manager.GetSlaveManager().FilterByOwner(ctx, slaveQ, manager.GetSlaveManager(), userCred, owner, scope)
 		iManager := manager.GetIJointModelManager()
 		q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
 		q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())

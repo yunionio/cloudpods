@@ -39,8 +39,8 @@ type SNatgatewayResourceBaseManager struct {
 	SVpcResourceBaseManager
 }
 
-func ValidateNatGatewayResourceInput(userCred mcclient.TokenCredential, input api.NatGatewayResourceInput) (*SNatGateway, api.NatGatewayResourceInput, error) {
-	natObj, err := NatGatewayManager.FetchByIdOrName(userCred, input.NatgatewayId)
+func ValidateNatGatewayResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.NatGatewayResourceInput) (*SNatGateway, api.NatGatewayResourceInput, error) {
+	natObj, err := NatGatewayManager.FetchByIdOrName(ctx, userCred, input.NatgatewayId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NatGatewayManager.Keyword(), input.NatgatewayId)
@@ -117,7 +117,7 @@ func (manager *SNatgatewayResourceBaseManager) ListItemFilter(
 	query api.NatGatewayFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.NatgatewayId) > 0 {
-		natObj, _, err := ValidateNatGatewayResourceInput(userCred, query.NatGatewayResourceInput)
+		natObj, _, err := ValidateNatGatewayResourceInput(ctx, userCred, query.NatGatewayResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateNatGatewayResourceInput")
 		}

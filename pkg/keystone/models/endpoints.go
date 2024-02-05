@@ -483,7 +483,7 @@ func (manager *SEndpointManager) ValidateCreateData(
 	}
 	serviceStr := jsonutils.GetAnyString(data, []string{"service_id", "service"})
 	if len(serviceStr) > 0 {
-		servObj, err := ServiceManager.FetchByIdOrName(userCred, serviceStr)
+		servObj, err := ServiceManager.FetchByIdOrName(ctx, userCred, serviceStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(ServiceManager.Keyword(), serviceStr)
@@ -500,7 +500,7 @@ func (manager *SEndpointManager) ValidateCreateData(
 		return nil, httperrors.NewInputParameterError("missing input field service/service_id")
 	}
 	if certId, _ := data.GetString("service_certificate"); len(certId) > 0 {
-		cert, err := ServiceCertificateManager.FetchByIdOrName(userCred, certId)
+		cert, err := ServiceCertificateManager.FetchByIdOrName(ctx, userCred, certId)
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewNotFoundError("not found cert %s", certId)
 		}
@@ -629,7 +629,7 @@ func (endpoint *SEndpoint) ValidateUpdateData(
 	query jsonutils.JSONObject, data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
 	if certId, _ := data.GetString("service_certificate"); len(certId) > 0 {
-		cert, err := ServiceCertificateManager.FetchByIdOrName(userCred, certId)
+		cert, err := ServiceCertificateManager.FetchByIdOrName(ctx, userCred, certId)
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewNotFoundError("not found cert %s", certId)
 		}

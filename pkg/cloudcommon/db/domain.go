@@ -54,7 +54,7 @@ func (manager *SDomainizedResourceBaseManager) ResourceScope() rbacscope.TRbacSc
 	return rbacscope.ScopeDomain
 }
 
-func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SDomainizedResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
@@ -64,9 +64,8 @@ func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery,
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
-
 			}
 		case rbacscope.ScopeSystem:
 			if userCred != nil {
@@ -74,14 +73,13 @@ func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery,
 				if !result.DomainTags.IsEmpty() {
 					policyFilters := tagutils.STagFilters{}
 					policyFilters.AddFilters(result.DomainTags)
-					q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", policyFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "domain_id", "domain", policyFilters)
 				}
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
-
 			}
 		}
 	}
@@ -149,7 +147,7 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 	if !query.NoDomainTags.IsEmpty() {
 		tagFilters.AddNoFilters(query.NoDomainTags)
 	}
-	q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", tagFilters)
+	q = ObjectIdQueryWithTagFilters(ctx, q, "domain_id", "domain", tagFilters)
 	return q, nil
 }
 

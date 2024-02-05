@@ -214,7 +214,7 @@ func SharableManagerValidateCreateData(
 	return input, nil
 }
 
-func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func SharableManagerFilterByOwner(ctx context.Context, manager IStandaloneModelManager, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		resScope := manager.ResourceScope()
 		if resScope == rbacscope.ScopeUser {
@@ -254,7 +254,7 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "id", manager.Keyword(), policyTagFilters)
 				}
 			}
 		} else if resScope == rbacscope.ScopeProject && scope == rbacscope.ScopeProject {
@@ -289,7 +289,7 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 					if !result.ObjectTags.IsEmpty() {
 						policyTagFilters := tagutils.STagFilters{}
 						policyTagFilters.AddFilters(result.ObjectTags)
-						q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+						q = ObjectIdQueryWithTagFilters(ctx, q, "id", manager.Keyword(), policyTagFilters)
 					}
 				}
 			}
@@ -317,12 +317,12 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 					if !result.ProjectTags.IsEmpty() && resScope == rbacscope.ScopeProject {
 						policyTagFilters := tagutils.STagFilters{}
 						policyTagFilters.AddFilters(result.ProjectTags)
-						q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+						q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", policyTagFilters)
 					}
 					if !result.ObjectTags.IsEmpty() {
 						policyTagFilters := tagutils.STagFilters{}
 						policyTagFilters.AddFilters(result.ObjectTags)
-						q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+						q = ObjectIdQueryWithTagFilters(ctx, q, "id", manager.Keyword(), policyTagFilters)
 					}
 				}
 			}
@@ -336,7 +336,7 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 					subq := manager.Query("id")
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.DomainTags)
-					subq = ObjectIdQueryWithTagFilters(subq, "domain_id", "domain", policyTagFilters)
+					subq = ObjectIdQueryWithTagFilters(ctx, subq, "domain_id", "domain", policyTagFilters)
 					q = q.Filter(sqlchemy.OR(
 						sqlchemy.In(q.Field("id"), subq.SubQuery()),
 						sqlchemy.AND(
@@ -348,12 +348,12 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 				if !result.ProjectTags.IsEmpty() && resScope == rbacscope.ScopeProject {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ProjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", policyTagFilters)
 				}
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "id", manager.Keyword(), policyTagFilters)
 				}
 			}
 		}

@@ -63,7 +63,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	var adminUsage map[string]int
 	// var projectUsage map[string]int64
 	if isAdmin {
-		adminUsage = models.Usage(result)
+		adminUsage = models.Usage(ctx, result)
 	}
 
 	/*isProject := false

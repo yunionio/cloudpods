@@ -164,13 +164,13 @@ func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCr
 	if err != nil {
 		return input, httperrors.NewInputParameterError("invalid cidr: %s", input.Cidr)
 	}
-	_, err = validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+	_, err = validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 	if err != nil {
 		return input, err
 	}
 	input.ManagerId = input.CloudproviderId
 
-	_, err = validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	_, err = validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
 	if err != nil {
 		return input, err
 	}

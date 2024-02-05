@@ -15,6 +15,8 @@
 package validators
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 )
 
@@ -61,7 +63,7 @@ func (v *ValidatorStringLen) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorStringLen) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorStringLen) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}

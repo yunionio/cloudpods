@@ -154,7 +154,7 @@ func (man *SNatGatewayManager) ValidateCreateData(
 	if len(input.NetworkId) == 0 {
 		return input, httperrors.NewMissingParameterError("network_id")
 	}
-	_network, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+	_network, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkId)
 	if err != nil {
 		return input, err
 	}
@@ -189,7 +189,7 @@ func (man *SNatGatewayManager) ValidateCreateData(
 	}
 	if len(input.Eip) > 0 || input.EipBw > 0 {
 		if len(input.Eip) > 0 {
-			_eip, err := validators.ValidateModel(userCred, ElasticipManager, &input.Eip)
+			_eip, err := validators.ValidateModel(ctx, userCred, ElasticipManager, &input.Eip)
 			if err != nil {
 				return input, err
 			}
@@ -819,10 +819,11 @@ func (man *SNatEntryManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SNatgatewayResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "natgateway_id", func() *sqlchemy.SQuery {
-		natgateways := NatGatewayManager.Query().SubQuery()
-		return natgateways.Query(natgateways.Field("id"))
-	})
+	q, err = managedResourceFilterByAccount(ctx,
+		q, query.ManagedResourceListInput, "natgateway_id", func() *sqlchemy.SQuery {
+			natgateways := NatGatewayManager.Query().SubQuery()
+			return natgateways.Query(natgateways.Field("id"))
+		})
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}

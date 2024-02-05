@@ -99,7 +99,7 @@ func (manager *SDBInstanceAccountManager) FetchOwnerId(ctx context.Context, data
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SDBInstanceAccountManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SDBInstanceAccountManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		sq := DBInstanceManager.Query("id")
 		switch scope {
@@ -293,7 +293,7 @@ func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context
 	if len(input.DBInstance) == 0 {
 		return nil, httperrors.NewMissingParameterError("dbinstance")
 	}
-	_instance, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	_instance, err := DBInstanceManager.FetchByIdOrName(ctx, userCred, input.DBInstance)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("failed to found dbinstance %s", input.DBInstance)

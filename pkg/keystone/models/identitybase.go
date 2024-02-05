@@ -131,12 +131,12 @@ func (manager *SIdentityBaseResourceManager) GetIIdentityModelManager() IIdentit
 	return manager.GetVirtualObject().(IIdentityModelManager)
 }
 
-func (manager *SIdentityBaseResourceManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
-	return db.FetchByName(manager.GetIIdentityModelManager(), userCred, idStr)
+func (manager *SIdentityBaseResourceManager) FetchByName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
+	return db.FetchByName(ctx, manager.GetIIdentityModelManager(), userCred, idStr)
 }
 
-func (manager *SIdentityBaseResourceManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
-	return db.FetchByIdOrName(manager.GetIIdentityModelManager(), userCred, idStr)
+func (manager *SIdentityBaseResourceManager) FetchByIdOrName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
+	return db.FetchByIdOrName(ctx, manager.GetIIdentityModelManager(), userCred, idStr)
 }
 
 func (manager *SIdentityBaseResourceManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {

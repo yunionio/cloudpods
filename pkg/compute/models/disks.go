@@ -206,7 +206,7 @@ func (manager *SDiskManager) ListItemFilter(
 
 	guestId := query.ServerId
 	if len(guestId) > 0 {
-		server, err := validators.ValidateModel(userCred, GuestManager, &guestId)
+		server, err := validators.ValidateModel(ctx, userCred, GuestManager, &guestId)
 		if err != nil {
 			return nil, err
 		}
@@ -223,7 +223,7 @@ func (manager *SDiskManager) ListItemFilter(
 	}
 
 	if len(query.SnapshotpolicyId) > 0 {
-		_, err := validators.ValidateModel(userCred, SnapshotPolicyManager, &query.SnapshotpolicyId)
+		_, err := validators.ValidateModel(ctx, userCred, SnapshotPolicyManager, &query.SnapshotpolicyId)
 		if err != nil {
 			return nil, err
 		}
@@ -252,7 +252,7 @@ func (manager *SDiskManager) ListItemFilter(
 	}
 
 	if len(query.SnapshotId) > 0 {
-		_, err := validators.ValidateModel(userCred, SnapshotManager, &query.SnapshotId)
+		_, err := validators.ValidateModel(ctx, userCred, SnapshotManager, &query.SnapshotId)
 		if err != nil {
 			return nil, err
 		}
@@ -504,7 +504,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	storageID := input.Storage
 
 	if storageID != "" {
-		storageObj, err := StorageManager.FetchByIdOrName(nil, storageID)
+		storageObj, err := StorageManager.FetchByIdOrName(ctx, nil, storageID)
 		if err != nil {
 			return input, httperrors.NewResourceNotFoundError("Storage %s not found", storageID)
 		}
@@ -543,7 +543,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 			diskConfig.Backend = api.STORAGE_LOCAL
 		}
 		if len(input.PreferManager) > 0 {
-			_manager, err := CloudproviderManager.FetchByIdOrName(userCred, input.PreferManager)
+			_manager, err := CloudproviderManager.FetchByIdOrName(ctx, userCred, input.PreferManager)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
 					return input, httperrors.NewResourceNotFoundError2("cloudprovider", input.PreferManager)
@@ -924,7 +924,7 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetMasterHost"))
 	}
 
-	snapshotObj, err := validators.ValidateModel(userCred, SnapshotManager, &input.SnapshotId)
+	snapshotObj, err := validators.ValidateModel(ctx, userCred, SnapshotManager, &input.SnapshotId)
 	if err != nil {
 		return nil, err
 	}
@@ -1877,17 +1877,17 @@ func totalDiskSize(
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.DiskConfig) (*api.DiskConfig, error) {
 	if info.Storage != "" {
-		if err := fillDiskConfigByStorage(userCred, info, info.Storage); err != nil {
+		if err := fillDiskConfigByStorage(ctx, userCred, info, info.Storage); err != nil {
 			return nil, errors.Wrap(err, "fillDiskConfigByStorage")
 		}
 	}
 	if info.DiskId != "" {
-		if err := fillDiskConfigByDisk(userCred, info, info.DiskId); err != nil {
+		if err := fillDiskConfigByDisk(ctx, userCred, info, info.DiskId); err != nil {
 			return nil, errors.Wrap(err, "fillDiskConfigByDisk")
 		}
 	}
 	if info.SnapshotId != "" {
-		if err := fillDiskConfigBySnapshot(userCred, info, info.SnapshotId); err != nil {
+		if err := fillDiskConfigBySnapshot(ctx, userCred, info, info.SnapshotId); err != nil {
 			return nil, errors.Wrap(err, "fillDiskConfigBySnapshot")
 		}
 	}
@@ -1923,8 +1923,8 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 	return info, nil
 }
 
-func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api.DiskConfig, snapshotId string) error {
-	iSnapshot, err := SnapshotManager.FetchByIdOrName(userCred, snapshotId)
+func fillDiskConfigBySnapshot(ctx context.Context, userCred mcclient.TokenCredential, diskConfig *api.DiskConfig, snapshotId string) error {
+	iSnapshot, err := SnapshotManager.FetchByIdOrName(ctx, userCred, snapshotId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
@@ -1954,7 +1954,7 @@ func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api
 }
 
 func fillDiskConfigByBackup(ctx context.Context, userCred mcclient.TokenCredential, diskConfig *api.DiskConfig, backupId string) error {
-	iBakcup, err := DiskBackupManager.FetchByIdOrName(userCred, backupId)
+	iBakcup, err := DiskBackupManager.FetchByIdOrName(ctx, userCred, backupId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return httperrors.NewNotFoundError("Backup %s not found", backupId)
@@ -2003,9 +2003,9 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 	return nil
 }
 
-func fillDiskConfigByDisk(userCred mcclient.TokenCredential,
+func fillDiskConfigByDisk(ctx context.Context, userCred mcclient.TokenCredential,
 	diskConfig *api.DiskConfig, diskId string) error {
-	diskObj, err := DiskManager.FetchByIdOrName(userCred, diskId)
+	diskObj, err := DiskManager.FetchByIdOrName(ctx, userCred, diskId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return httperrors.NewResourceNotFoundError2("disk", diskId)
@@ -2047,9 +2047,9 @@ func fillDiskConfigByDisk(userCred mcclient.TokenCredential,
 	return nil
 }
 
-func fillDiskConfigByStorage(userCred mcclient.TokenCredential,
+func fillDiskConfigByStorage(ctx context.Context, userCred mcclient.TokenCredential,
 	diskConfig *api.DiskConfig, storageId string) error {
-	storageObj, err := StorageManager.FetchByIdOrName(userCred, storageId)
+	storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, storageId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return httperrors.NewResourceNotFoundError2("storage", storageId)
@@ -3017,7 +3017,7 @@ func (disk *SDisk) PerformBindSnapshotpolicy(
 	query jsonutils.JSONObject,
 	input *api.DiskSnapshotpolicyInput,
 ) (jsonutils.JSONObject, error) {
-	spObj, err := validators.ValidateModel(userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
+	spObj, err := validators.ValidateModel(ctx, userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
 	if err != nil {
 		return nil, err
 	}
@@ -3047,7 +3047,7 @@ func (disk *SDisk) PerformUnbindSnapshotpolicy(
 	query jsonutils.JSONObject,
 	input *api.DiskSnapshotpolicyInput,
 ) (jsonutils.JSONObject, error) {
-	spObj, err := validators.ValidateModel(userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
+	spObj, err := validators.ValidateModel(ctx, userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
 	if err != nil {
 		return nil, err
 	}

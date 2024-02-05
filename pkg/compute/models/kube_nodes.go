@@ -110,7 +110,7 @@ func (manager *SKubeNodeManager) FetchOwnerId(ctx context.Context, data jsonutil
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SKubeNodeManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SKubeNodeManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		sq := KubeClusterManager.Query("id")
 		switch scope {

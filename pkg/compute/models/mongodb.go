@@ -680,6 +680,7 @@ type SMongoDBCountStat struct {
 }
 
 func (man *SMongoDBManager) TotalCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -691,7 +692,7 @@ func (man *SMongoDBManager) TotalCount(
 	mgq = scopeOwnerIdFilter(mgq, scope, ownerId)
 	mgq = CloudProviderFilter(mgq, mgq.Field("manager_id"), providers, brands, cloudEnv)
 	mgq = RangeObjectsFilter(mgq, rangeObjs, mgq.Field("cloudregion_id"), nil, mgq.Field("manager_id"), nil, nil)
-	mgq = db.ObjectIdQueryWithPolicyResult(mgq, man, policyResult)
+	mgq = db.ObjectIdQueryWithPolicyResult(ctx, mgq, man, policyResult)
 
 	sq := mgq.SubQuery()
 	q := sq.Query(sqlchemy.COUNT("total_mongodb_count"),

@@ -176,9 +176,9 @@ func (manager *SRolePolicyManager) NamespaceScope() rbacscope.TRbacScope {
 	return PolicyManager.NamespaceScope()
 }
 
-func (manager *SRolePolicyManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SRolePolicyManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	policyQ := PolicyManager.Query()
-	policyQ = PolicyManager.FilterByOwner(policyQ, PolicyManager, userCred, owner, scope)
+	policyQ = PolicyManager.FilterByOwner(ctx, policyQ, PolicyManager, userCred, owner, scope)
 	subq := policyQ.SubQuery()
 	q = q.Join(subq, sqlchemy.Equals(q.Field("policy_id"), subq.Field("id")))
 	return q
@@ -197,7 +197,7 @@ func (manager *SRolePolicyManager) ListItemFilter(
 	}
 	if len(query.RoleIds) > 0 {
 		for i := range query.RoleIds {
-			role, err := RoleManager.FetchByIdOrName(userCred, query.RoleIds[i])
+			role, err := RoleManager.FetchByIdOrName(ctx, userCred, query.RoleIds[i])
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
 					return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", RoleManager.Keyword(), query.RoleIds[i])
@@ -213,7 +213,7 @@ func (manager *SRolePolicyManager) ListItemFilter(
 		))
 	}
 	if len(query.ProjectId) > 0 {
-		project, err := ProjectManager.FetchByIdOrName(userCred, query.ProjectId)
+		project, err := ProjectManager.FetchByIdOrName(ctx, userCred, query.ProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ProjectManager.Keyword(), query.ProjectId)
@@ -227,7 +227,7 @@ func (manager *SRolePolicyManager) ListItemFilter(
 		))
 	}
 	if len(query.PolicyId) > 0 {
-		policy, err := PolicyManager.FetchByIdOrName(userCred, query.PolicyId)
+		policy, err := PolicyManager.FetchByIdOrName(ctx, userCred, query.PolicyId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", PolicyManager.Keyword(), query.PolicyId)
@@ -396,11 +396,11 @@ func (manager *SRolePolicyManager) getMatchPolicyIds2(isGuest bool, roleIds []st
 	return policyIds, nil
 }
 
-func appendPolicy(names map[rbacscope.TRbacScope][]string, policies rbacutils.TPolicyGroup, scope rbacscope.TRbacScope, policyName string, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+func appendPolicy(ctx context.Context, names map[rbacscope.TRbacScope][]string, policies rbacutils.TPolicyGroup, scope rbacscope.TRbacScope, policyName string, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	if utils.IsInStringArray(policyName, names[scope]) {
 		return names, policies, nil
 	}
-	policyObj, err := PolicyManager.FetchByName(nil, policyName)
+	policyObj, err := PolicyManager.FetchByName(ctx, nil, policyName)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, nil, errors.Wrapf(err, "FetchPolicy %s", policyName)
 	}
@@ -457,8 +457,9 @@ func (p sUserProjectPair) GetTokenString() string {
 	return p.userId
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroupByInput(userId, projectId string, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+func (manager *SRolePolicyManager) GetMatchPolicyGroupByInput(ctx context.Context, userId, projectId string, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	return manager.GetMatchPolicyGroupByCred(
+		ctx,
 		sUserProjectPair{
 			userId:    userId,
 			projectId: projectId,
@@ -467,7 +468,7 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByInput(userId, projectId 
 	)
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred api.IRbacIdentityWithUserId, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(ctx context.Context, userCred api.IRbacIdentityWithUserId, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	names, policies, err := manager.GetMatchPolicyGroup(userCred, tm, nameOnly)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "GetMatchPolicyGroup")
@@ -500,7 +501,7 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred api.IRbacI
 			if len(consolePolicyName) == 0 {
 				continue
 			}
-			names, policies, err = appendPolicy(names, policies, scope, consolePolicyName, nameOnly)
+			names, policies, err = appendPolicy(ctx, names, policies, scope, consolePolicyName, nameOnly)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "appendConsolePolicy %s %s", scope, consolePolicyName)
 			}

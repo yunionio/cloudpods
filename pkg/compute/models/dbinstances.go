@@ -186,7 +186,7 @@ func (man *SDBInstanceManager) ListItemFilter(
 	}
 
 	if len(query.ZoneId) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.ZoneId)
+		zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, query.ZoneId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.ZoneId)
@@ -202,7 +202,7 @@ func (man *SDBInstanceManager) ListItemFilter(
 	}
 
 	if len(query.MasterInstance) > 0 {
-		instObj, err := DBInstanceManager.FetchByIdOrName(userCred, query.MasterInstance)
+		instObj, err := DBInstanceManager.FetchByIdOrName(ctx, userCred, query.MasterInstance)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(DBInstanceManager.Keyword(), query.MasterInstance)
@@ -309,7 +309,7 @@ func (manager *SDBInstanceManager) BatchCreateValidateCreateData(ctx context.Con
 
 func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceCreateInput) (api.DBInstanceCreateInput, error) {
 	if len(input.DBInstancebackupId) > 0 {
-		_backup, err := validators.ValidateModel(userCred, DBInstanceBackupManager, &input.DBInstancebackupId)
+		_backup, err := validators.ValidateModel(ctx, userCred, DBInstanceBackupManager, &input.DBInstancebackupId)
 		if err != nil {
 			return input, err
 		}
@@ -321,7 +321,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	}
 	for _, v := range map[string]*string{"zone1": &input.Zone1, "zone2": &input.Zone2, "zone3": &input.Zone3} {
 		if len(*v) > 0 {
-			_, err := validators.ValidateModel(userCred, ZoneManager, v)
+			_, err := validators.ValidateModel(ctx, userCred, ZoneManager, v)
 			if err != nil {
 				return input, err
 			}
@@ -337,7 +337,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	var vpc *SVpc
 	var network *SNetwork
 	if len(input.NetworkId) > 0 {
-		_network, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+		_network, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkId)
 		if err != nil {
 			return input, err
 		}
@@ -354,7 +354,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 		vpc, _ = network.GetVpc()
 	} else if len(input.VpcId) > 0 {
-		_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+		_vpc, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcId)
 		if err != nil {
 			return input, err
 		}
@@ -468,7 +468,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		return input, httperrors.NewNotSupportedError("%s rds Support up to %d security groups", driver.GetProvider(), secCount)
 	}
 	for i := range input.SecgroupIds {
-		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		_, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupIds[i])
 		if err != nil {
 			return input, err
 		}
@@ -583,7 +583,7 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 		log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
 		return rows
 	}
-	secgroups := SecurityGroupManager.FilterByOwner(q, SecurityGroupManager, userCred, ownerId, queryScope).SubQuery()
+	secgroups := SecurityGroupManager.FilterByOwner(ctx, q, SecurityGroupManager, userCred, ownerId, queryScope).SubQuery()
 	rdssecgroups := DBInstanceSecgroupManager.Query().SubQuery()
 
 	secQ := rdssecgroups.Query(rdssecgroups.Field("dbinstance_id"), rdssecgroups.Field("secgroup_id"), secgroups.Field("name").Label("secgroup_name")).Join(secgroups, sqlchemy.Equals(rdssecgroups.Field("secgroup_id"), secgroups.Field("id"))).Filter(sqlchemy.In(rdssecgroups.Field("dbinstance_id"), rdsIds))
@@ -864,7 +864,7 @@ func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("Cannot do recovery dbinstance in status %s required status %s", self.Status, api.DBINSTANCE_RUNNING)
 	}
 
-	_backup, err := DBInstanceBackupManager.FetchByIdOrName(userCred, input.DBInstancebackupId)
+	_backup, err := DBInstanceBackupManager.FetchByIdOrName(ctx, userCred, input.DBInstancebackupId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError2("dbinstancebackup", input.DBInstancebackupId)
@@ -1880,6 +1880,7 @@ type SRdsCountStat struct {
 }
 
 func (man *SDBInstanceManager) TotalCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -1890,7 +1891,7 @@ func (man *SDBInstanceManager) TotalCount(
 	dbq = scopeOwnerIdFilter(dbq, scope, ownerId)
 	dbq = CloudProviderFilter(dbq, dbq.Field("manager_id"), providers, brands, cloudEnv)
 	dbq = RangeObjectsFilter(dbq, rangeObjs, dbq.Field("cloudregion_id"), nil, dbq.Field("manager_id"), nil, nil)
-	dbq = db.ObjectIdQueryWithPolicyResult(dbq, man, policyResult)
+	dbq = db.ObjectIdQueryWithPolicyResult(ctx, dbq, man, policyResult)
 
 	sq := dbq.SubQuery()
 
@@ -2130,7 +2131,7 @@ func (self *SDBInstance) PerformSetSecgroup(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewMissingParameterError("secgroup_ids")
 	}
 	for i := range input.SecgroupIds {
-		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		_, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupIds[i])
 		if err != nil {
 			return nil, err
 		}

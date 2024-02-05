@@ -383,7 +383,7 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 }
 
 func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*cloudprovider.SImage, error) {
-	imgObj, _ := manager.FetchByName(userCred, imageId)
+	imgObj, _ := manager.FetchByName(ctx, userCred, imageId)
 	if imgObj != nil {
 		cachedImage := imgObj.(*SCachedimage)
 		if !refresh && cachedImage.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && len(cachedImage.GetOSType()) > 0 && !cachedImage.isRefreshSessionExpire() {
@@ -871,7 +871,7 @@ func (manager *SCachedimageManager) ListItemFilter(
 
 		if len(query.HostSchedtagId) > 0 {
 			idFilter = true
-			schedTagObj, err := SchedtagManager.FetchByIdOrName(userCred, query.HostSchedtagId)
+			schedTagObj, err := SchedtagManager.FetchByIdOrName(ctx, userCred, query.HostSchedtagId)
 			if err != nil {
 				if errors.Cause(err) == sql.ErrNoRows {
 					return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SchedtagManager.Keyword(), query.HostSchedtagId)
@@ -888,17 +888,17 @@ func (manager *SCachedimageManager) ListItemFilter(
 
 		subq = subq.Snapshot()
 
-		subq, err = managedResourceFilterByAccount(subq, query.ManagedResourceListInput, "", nil)
+		subq, err = managedResourceFilterByAccount(ctx, subq, query.ManagedResourceListInput, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 		}
 
-		subq, err = managedResourceFilterByRegion(subq, query.RegionalFilterListInput, "", nil)
+		subq, err = managedResourceFilterByRegion(ctx, subq, query.RegionalFilterListInput, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "_managedResourceFilterByRegion")
 		}
 
-		subq, err = managedResourceFilterByZone(subq, query.ZonalFilterListInput, "", nil)
+		subq, err = managedResourceFilterByZone(ctx, subq, query.ZonalFilterListInput, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "_managedResourceFilterByZone")
 		}

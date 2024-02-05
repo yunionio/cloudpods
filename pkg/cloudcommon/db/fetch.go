@@ -96,7 +96,7 @@ func FetchById(manager IModelManager, idStr string) (IModel, error) {
 	}
 }
 
-func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+func FetchByName(ctx context.Context, manager IModelManager, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	q := manager.Query()
 	q = manager.FilterByName(q, idStr)
 	count, err := q.CountWithError()
@@ -104,7 +104,7 @@ func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idS
 		return nil, err
 	}
 	if count > 0 && userCred != nil {
-		q = manager.FilterByOwner(q, manager, nil, userCred, manager.NamespaceScope())
+		q = manager.FilterByOwner(ctx, q, manager, nil, userCred, manager.NamespaceScope())
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 		count, err = q.CountWithError()
 		if err != nil {
@@ -129,13 +129,13 @@ func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idS
 	}
 }
 
-func FetchByIdOrName(manager IModelManager, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+func FetchByIdOrName(ctx context.Context, manager IModelManager, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	if stringutils2.IsUtf8(idStr) {
-		return FetchByName(manager, userCred, idStr)
+		return FetchByName(ctx, manager, userCred, idStr)
 	}
 	obj, err := FetchById(manager, idStr)
 	if err == sql.ErrNoRows {
-		return FetchByName(manager, userCred, idStr)
+		return FetchByName(ctx, manager, userCred, idStr)
 	} else {
 		return obj, err
 	}
@@ -197,7 +197,7 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-		q = manager.FilterByOwner(q, manager, userCred, ownerId, manager.NamespaceScope())
+		q = manager.FilterByOwner(ctx, q, manager, userCred, ownerId, manager.NamespaceScope())
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 		count, err = q.CountWithError()
 		if err != nil {

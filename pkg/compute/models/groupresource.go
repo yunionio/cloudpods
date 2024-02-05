@@ -39,8 +39,8 @@ type SGroupResourceBase struct {
 type SGroupResourceBaseManager struct {
 }
 
-func ValidateGroupResourceInput(userCred mcclient.TokenCredential, input api.GroupResourceInput) (*SGroup, api.GroupResourceInput, error) {
-	groupObj, err := GroupManager.FetchByIdOrName(userCred, input.GroupId)
+func ValidateGroupResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.GroupResourceInput) (*SGroup, api.GroupResourceInput, error) {
+	groupObj, err := GroupManager.FetchByIdOrName(ctx, userCred, input.GroupId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", GroupManager.Keyword(), input.GroupId)
@@ -100,7 +100,7 @@ func (manager *SGroupResourceBaseManager) ListItemFilter(
 	query api.GroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.GroupId) > 0 {
-		groupObj, _, err := ValidateGroupResourceInput(userCred, query.GroupResourceInput)
+		groupObj, _, err := ValidateGroupResourceInput(ctx, userCred, query.GroupResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateGroupResourceInput")
 		}

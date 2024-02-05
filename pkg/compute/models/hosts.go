@@ -297,7 +297,7 @@ func (manager *SHostManager) ListItemFilter(
 
 	schedTagStr := query.SchedtagId
 	if len(schedTagStr) > 0 {
-		schedTag, _ := SchedtagManager.FetchByIdOrName(nil, schedTagStr)
+		schedTag, _ := SchedtagManager.FetchByIdOrName(ctx, nil, schedTagStr)
 		if schedTag == nil {
 			return nil, httperrors.NewResourceNotFoundError("Schedtag %s not found", schedTagStr)
 		}
@@ -308,7 +308,7 @@ func (manager *SHostManager) ListItemFilter(
 
 	wireStr := query.WireId
 	if len(wireStr) > 0 {
-		wire, _ := WireManager.FetchByIdOrName(nil, wireStr)
+		wire, _ := WireManager.FetchByIdOrName(ctx, nil, wireStr)
 		if wire == nil {
 			return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wireStr)
 		}
@@ -319,7 +319,7 @@ func (manager *SHostManager) ListItemFilter(
 
 	storageStr := query.StorageId
 	if len(storageStr) > 0 {
-		storage, _ := StorageManager.FetchByIdOrName(nil, storageStr)
+		storage, _ := StorageManager.FetchByIdOrName(ctx, nil, storageStr)
 		if storage == nil {
 			return nil, httperrors.NewResourceNotFoundError("Storage %s not found", storageStr)
 		}
@@ -2666,10 +2666,10 @@ func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredent
 	return syncVMPairs, syncResult
 }
 
-func (hh *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
+func (hh *SHost) getNetworkOfIPOnHost(ctx context.Context, ipAddr string) (*SNetwork, error) {
 	netInterfaces := hh.GetHostNetInterfaces()
 	for _, netInterface := range netInterfaces {
-		network, err := netInterface.GetCandidateNetworkForIp(nil, nil, rbacscope.ScopeNone, ipAddr)
+		network, err := netInterface.GetCandidateNetworkForIp(ctx, nil, nil, rbacscope.ScopeNone, ipAddr)
 		if err == nil && network != nil {
 			return network, nil
 		}
@@ -2805,6 +2805,7 @@ func (manager *SHostManager) FetchHostByHostname(hostname string) *SHost {
 }
 
 func (manager *SHostManager) totalCountQ(
+	ctx context.Context,
 	userCred mcclient.IIdentityProvider,
 	scope rbacscope.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
@@ -2855,7 +2856,7 @@ func (manager *SHostManager) totalCountQ(
 		}
 	}
 
-	q = db.ObjectIdQueryWithPolicyResult(q, HostManager, policyResult)
+	q = db.ObjectIdQueryWithPolicyResult(ctx, q, HostManager, policyResult)
 
 	isolatedDevices := IsolatedDeviceManager.Query().SubQuery()
 	iq := isolatedDevices.Query(
@@ -2977,6 +2978,7 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 }
 
 func (manager *SHostManager) TotalCount(
+	ctx context.Context,
 	userCred mcclient.IIdentityProvider,
 	scope rbacscope.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
@@ -2989,6 +2991,7 @@ func (manager *SHostManager) TotalCount(
 ) HostsCountStat {
 	return manager.calculateCount(
 		manager.totalCountQ(
+			ctx,
 			userCred,
 			scope,
 			rangeObjs,
@@ -3591,7 +3594,7 @@ func (manager *SHostManager) ValidateCreateData(
 	var err error
 
 	if len(input.ZoneId) > 0 {
-		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(ctx, userCred, input.ZoneResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
@@ -3672,7 +3675,7 @@ func (manager *SHostManager) ValidateCreateData(
 		} else {
 			accessNetStr := input.AccessNet // data.GetString("access_net")
 			if len(accessNetStr) > 0 {
-				netObj, err := NetworkManager.FetchByIdOrName(userCred, accessNetStr)
+				netObj, err := NetworkManager.FetchByIdOrName(ctx, userCred, accessNetStr)
 				if err != nil {
 					if errors.Cause(err) == sql.ErrNoRows {
 						return input, httperrors.NewResourceNotFoundError2("network", accessNetStr)
@@ -3684,7 +3687,7 @@ func (manager *SHostManager) ValidateCreateData(
 			} else {
 				accessWireStr := input.AccessWire // data.GetString("access_wire")
 				if len(accessWireStr) > 0 {
-					wireObj, err := WireManager.FetchByIdOrName(userCred, accessWireStr)
+					wireObj, err := WireManager.FetchByIdOrName(ctx, userCred, accessWireStr)
 					if err != nil {
 						if errors.Cause(err) == sql.ErrNoRows {
 							return input, httperrors.NewResourceNotFoundError2("wire", accessWireStr)
@@ -3695,7 +3698,7 @@ func (manager *SHostManager) ValidateCreateData(
 					wire := wireObj.(*SWire)
 					lockman.LockObject(ctx, wire)
 					defer lockman.ReleaseObject(ctx, wire)
-					net, err := wire.GetCandidatePrivateNetwork(userCred, userCred, NetworkManager.AllowScope(userCred), false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
+					net, err := wire.GetCandidatePrivateNetwork(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
 					if err != nil {
 						return input, httperrors.NewGeneralError(err)
 					}
@@ -4518,7 +4521,7 @@ func (hh *SHost) PerformInitialize(
 	if err != nil || hh.GetBaremetalServer() != nil {
 		return nil, nil
 	}
-	err = db.NewNameValidator(GuestManager, userCred, name, nil)
+	err = db.NewNameValidator(ctx, GuestManager, userCred, name, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -4552,7 +4555,7 @@ func (hh *SHost) PerformInitialize(
 	if err != nil {
 		log.Errorf("Host perform initialize failed on create disk %s", err)
 	}
-	net, err := hh.getNetworkOfIPOnHost(hh.AccessIp)
+	net, err := hh.getNetworkOfIPOnHost(ctx, hh.AccessIp)
 	if err != nil {
 		log.Errorf("host perfrom initialize failed fetch net of access ip %s", err)
 	} else {
@@ -4603,7 +4606,7 @@ func (h *SHost) PerformAddNetif(
 
 	wire := input.WireId
 	if len(input.WireId) > 0 {
-		wireObj, err := WireManager.FetchByIdOrName(userCred, input.WireId)
+		wireObj, err := WireManager.FetchByIdOrName(ctx, userCred, input.WireId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), input.WireId)
@@ -4650,7 +4653,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 ) error {
 	var sw *SWire
 	if len(wire) > 0 {
-		iWire, err := WireManager.FetchByIdOrName(userCred, wire)
+		iWire, err := WireManager.FetchByIdOrName(ctx, userCred, wire)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError2(WireManager.Keyword(), wire)
@@ -4665,7 +4668,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 				return httperrors.NewInputParameterError("invalid ipaddr %s", ipAddr)
 			}
 			findAddr := false
-			swNets, err := sw.getNetworks(userCred, userCred, NetworkManager.AllowScope(userCred))
+			swNets, err := sw.getNetworks(ctx, userCred, userCred, NetworkManager.AllowScope(userCred))
 			if err != nil {
 				return httperrors.NewInputParameterError("no networks on wire %s", wire)
 			}
@@ -4818,7 +4821,7 @@ func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredenti
 	var net *SNetwork
 	var err error
 	if len(ipAddr) > 0 {
-		net, err = netif.GetCandidateNetworkForIp(userCred, userCred, NetworkManager.AllowScope(userCred), ipAddr)
+		net, err = netif.GetCandidateNetworkForIp(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), ipAddr)
 		if net != nil {
 			log.Infof("find network %s for ip %s", net.GetName(), ipAddr)
 		} else if requireDesignatedIp {
@@ -4843,7 +4846,7 @@ func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 	if net == nil {
 		if len(network) > 0 {
-			iNet, err := NetworkManager.FetchByIdOrName(userCred, network)
+			iNet, err := NetworkManager.FetchByIdOrName(ctx, userCred, network)
 			if err != nil {
 				return fmt.Errorf("Network %s not found: %s", network, err)
 			}
@@ -4858,12 +4861,12 @@ func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			} else {
 				netTypes = []string{api.NETWORK_TYPE_BAREMETAL}
 			}
-			net, err = wire.GetCandidatePrivateNetwork(userCred, userCred, NetworkManager.AllowScope(userCred), false, netTypes)
+			net, err = wire.GetCandidatePrivateNetwork(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), false, netTypes)
 			if err != nil {
 				return fmt.Errorf("fail to find private network %s", err)
 			}
 			if net == nil {
-				net, err = wire.GetCandidateAutoAllocNetwork(userCred, userCred, NetworkManager.AllowScope(userCred), false, netTypes)
+				net, err = wire.GetCandidateAutoAllocNetwork(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), false, netTypes)
 				if err != nil {
 					return fmt.Errorf("fail to find public network %s", err)
 				}
@@ -5013,7 +5016,7 @@ func (hh *SHost) Attach2Network(
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
 
-	usedAddrs := net.GetUsedAddresses()
+	usedAddrs := net.GetUsedAddresses(ctx)
 	if ipAddr != "" {
 		// converted baremetal can resuse related guest network ip
 		if err := hh.IsIpAddrWithinConvertedGuest(ctx, userCred, ipAddr, netif); err == nil {
@@ -5848,7 +5851,7 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 	var preferHostId string
 	preferHost, _ := data.GetString("prefer_host")
 	if len(preferHost) > 0 {
-		iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
+		iHost, _ := HostManager.FetchByIdOrName(ctx, userCred, preferHost)
 		if iHost == nil {
 			return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
 		}

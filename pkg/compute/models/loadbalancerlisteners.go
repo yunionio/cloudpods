@@ -183,7 +183,7 @@ func (manager *SLoadbalancerListenerManager) FetchOwnerId(ctx context.Context, d
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (man *SLoadbalancerListenerManager) FilterByOwner(q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (man *SLoadbalancerListenerManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		sq := LoadbalancerManager.Query("id")
 		switch scope {
@@ -219,7 +219,7 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(
 	}
 
 	if len(query.BackendGroup) > 0 {
-		_, err := validators.ValidateModel(userCred, LoadbalancerBackendGroupManager, &query.BackendGroup)
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &query.BackendGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -319,12 +319,12 @@ func (manager *SLoadbalancerListenerManager) FilterByUniqValues(q *sqlchemy.SQue
 }
 
 func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LoadbalancerListenerCreateInput) (*api.LoadbalancerListenerCreateInput, error) {
-	lbObj, err := validators.ValidateModel(userCred, LoadbalancerManager, &input.LoadbalancerId)
+	lbObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerManager, &input.LoadbalancerId)
 	if err != nil {
 		return nil, err
 	}
 	lb := lbObj.(*SLoadbalancer)
-	lbbgObj, err := validators.ValidateModel(userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
+	lbbgObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		if len(input.AclId) == 0 {
 			return nil, httperrors.NewMissingParameterError("acl_id")
 		}
-		_, err := validators.ValidateModel(userCred, LoadbalancerAclManager, &input.AclId)
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerAclManager, &input.AclId)
 		if err != nil {
 			return nil, err
 		}
@@ -359,7 +359,7 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		if len(input.CertificateId) == 0 {
 			return nil, httperrors.NewMissingParameterError("certificate_id")
 		}
-		_, err := validators.ValidateModel(userCred, LoadbalancerCertificateManager, &input.CertificateId)
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerCertificateManager, &input.CertificateId)
 		if err != nil {
 			return nil, err
 		}
@@ -442,13 +442,13 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		if input.AclId == nil {
 			return nil, httperrors.NewMissingParameterError("acl_id")
 		}
-		_, err = validators.ValidateModel(userCred, LoadbalancerAclManager, input.AclId)
+		_, err = validators.ValidateModel(ctx, userCred, LoadbalancerAclManager, input.AclId)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS && input.CertificateId != nil && len(*input.CertificateId) > 0 {
-		_, err = validators.ValidateModel(userCred, LoadbalancerCertificateManager, input.CertificateId)
+		_, err = validators.ValidateModel(ctx, userCred, LoadbalancerCertificateManager, input.CertificateId)
 		if err != nil {
 			return nil, err
 		}

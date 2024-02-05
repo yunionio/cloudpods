@@ -39,8 +39,8 @@ type SCloudregionResourceBase struct {
 
 type SCloudregionResourceBaseManager struct{}
 
-func ValidateCloudregionResourceInput(userCred mcclient.TokenCredential, input api.CloudregionResourceInput) (*SCloudregion, api.CloudregionResourceInput, error) {
-	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, input.CloudregionId)
+func ValidateCloudregionResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.CloudregionResourceInput) (*SCloudregion, api.CloudregionResourceInput, error) {
+	regionObj, err := CloudregionManager.FetchByIdOrName(ctx, userCred, input.CloudregionId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudregionManager.Keyword(), input.CloudregionId)
@@ -52,8 +52,8 @@ func ValidateCloudregionResourceInput(userCred mcclient.TokenCredential, input a
 	return regionObj.(*SCloudregion), input, nil
 }
 
-func ValidateCloudregionId(userCred mcclient.TokenCredential, regionId string) (*SCloudregion, error) {
-	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionId)
+func ValidateCloudregionId(ctx context.Context, userCred mcclient.TokenCredential, regionId string) (*SCloudregion, error) {
+	regionObj, err := CloudregionManager.FetchByIdOrName(ctx, userCred, regionId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudregionManager.Keyword(), regionId)
@@ -136,7 +136,7 @@ func (manager *SCloudregionResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.RegionalFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	return managedResourceFilterByRegion(q, query, "", nil)
+	return managedResourceFilterByRegion(ctx, q, query, "", nil)
 }
 
 func (manager *SCloudregionResourceBaseManager) OrderByExtraFields(

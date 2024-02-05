@@ -92,7 +92,7 @@ func (manager *SLoadbalancerBackendGroupManager) FetchOwnerId(ctx context.Contex
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SLoadbalancerBackendGroupManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SLoadbalancerBackendGroupManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		sq := LoadbalancerManager.Query("id")
 		switch scope {
@@ -207,7 +207,7 @@ func (manager *SLoadbalancerBackendGroupManager) FilterByUniqValues(q *sqlchemy.
 }
 
 func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LoadbalancerBackendGroupCreateInput) (*api.LoadbalancerBackendGroupCreateInput, error) {
-	lbObj, err := validators.ValidateModel(userCred, LoadbalancerManager, &input.LoadbalancerId)
+	lbObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerManager, &input.LoadbalancerId)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 
 		switch input.Backends[i].BackendType {
 		case api.LB_BACKEND_GUEST:
-			guestObj, err := validators.ValidateModel(userCred, GuestManager, &input.Backends[i].Id)
+			guestObj, err := validators.ValidateModel(ctx, userCred, GuestManager, &input.Backends[i].Id)
 			if err != nil {
 				return nil, err
 			}
@@ -265,7 +265,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 			if db.IsAdminAllowCreate(userCred, man).Result.IsDeny() {
 				return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
 			}
-			hostObj, err := validators.ValidateModel(userCred, HostManager, &input.Backends[i].Id)
+			hostObj, err := validators.ValidateModel(ctx, userCred, HostManager, &input.Backends[i].Id)
 			if err != nil {
 				return nil, err
 			}
@@ -477,7 +477,7 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 			return rows
 		}
 
-		q = LoadbalancerListenerManager.FilterByOwner(q, LoadbalancerListenerManager, userCred, ownerId, queryScope)
+		q = LoadbalancerListenerManager.FilterByOwner(ctx, q, LoadbalancerListenerManager, userCred, ownerId, queryScope)
 		rows[i].LbListenerCount, _ = q.CountWithError()
 	}
 

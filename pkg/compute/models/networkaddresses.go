@@ -215,7 +215,7 @@ func (man *SNetworkAddressManager) addGuestnetworkSubIPs(ctx context.Context, us
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
 	var (
-		usedAddrMap = net.GetUsedAddresses()
+		usedAddrMap = net.GetUsedAddresses(ctx)
 	)
 	errs := make([]error, 0)
 	for _, ipAddr := range ipAddrs {
@@ -514,15 +514,17 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 		q = q.In("id", idq.SubQuery())
 	}
 
-	q, err = managedResourceFilterByAccount(q, input.ManagedResourceListInput, "network_id", func() *sqlchemy.SQuery {
-		networks := NetworkManager.Query().SubQuery()
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		subq := networks.Query(networks.Field("id"))
-		subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		return subq
-	})
+	q, err = managedResourceFilterByAccount(
+		ctx,
+		q, input.ManagedResourceListInput, "network_id", func() *sqlchemy.SQuery {
+			networks := NetworkManager.Query().SubQuery()
+			wires := WireManager.Query().SubQuery()
+			vpcs := VpcManager.Query().SubQuery()
+			subq := networks.Query(networks.Field("id"))
+			subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+			subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+			return subq
+		})
 	if err != nil {
 		return nil, errors.Wrap(err, "ManagedResourceFilterByAccount")
 	}
@@ -592,8 +594,8 @@ func (man *SNetworkAddressManager) FetchCustomizeColumns(
 	return ret
 }
 
-func (man *SNetworkAddressManager) FilterByOwner(q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	q = db.ApplyFilterByOwner(q, userCred, owner, scope,
+func (man *SNetworkAddressManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	q = db.ApplyFilterByOwner(ctx, q, userCred, owner, scope,
 		&man.SStandaloneAnonResourceBaseManager,
 	)
 	if owner != nil {
@@ -665,7 +667,7 @@ func (g *SGuest) PerformAddSubIps(ctx context.Context, userCred mcclient.TokenCr
 		lockman.LockObject(ctx, net)
 		defer lockman.ReleaseObject(ctx, net)
 
-		addrTable := net.GetUsedAddresses()
+		addrTable := net.GetUsedAddresses(ctx)
 		recentUsedAddrTable := GuestnetworkManager.getRecentlyReleasedIPAddresses(net.Id, net.getAllocTimoutDuration())
 
 		for i := 0; i < input.Count; i++ {

@@ -390,7 +390,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 
 	// keypair
 	if len(input.KeypairId) > 0 {
-		model, err := KeypairManager.FetchByIdOrName(userCred, input.KeypairId)
+		model, err := KeypairManager.FetchByIdOrName(ctx, userCred, input.KeypairId)
 		if err == nil {
 			keypair := model.(*SKeypair)
 			configInfo.Keypair = keypair.GetName()
@@ -520,7 +520,7 @@ func (gt *SGuestTemplate) PerformPublic(
 
 	// check if secgroup is public
 	if len(input.SecgroupId) > 0 {
-		model, err := SecurityGroupManager.FetchByIdOrName(userCred, input.SecgroupId)
+		model, err := SecurityGroupManager.FetchByIdOrName(ctx, userCred, input.SecgroupId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("there is no such secgroup %s descripted by guest template",
 				input.SecgroupId)
@@ -536,7 +536,7 @@ func (gt *SGuestTemplate) PerformPublic(
 	if len(input.Networks) > 0 {
 		for i := range input.Networks {
 			str := input.Networks[i].Network
-			model, err := NetworkManager.FetchByIdOrName(userCred, str)
+			model, err := NetworkManager.FetchByIdOrName(ctx, userCred, str)
 			if err != nil {
 				return nil, httperrors.NewResourceNotFoundError(
 					"there is no such secgroup %s descripted by guest template", str)

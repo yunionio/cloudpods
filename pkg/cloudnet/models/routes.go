@@ -82,7 +82,7 @@ func (man *SRouteManager) ValidateCreateData(ctx context.Context, userCred mccli
 		ifaceV,
 	}
 	for _, v := range vs {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -103,7 +103,7 @@ func (man *SRouteManager) ValidateCreateData(ctx context.Context, userCred mccli
 	data.Set("router_id", jsonutils.NewString(routerId))
 	data.Set("ifname", jsonutils.NewString(iface.Ifname))
 	routerV := validators.NewModelIdOrNameValidator("router", "router", ownerId)
-	if err := routerV.Validate(data); err != nil {
+	if err := routerV.Validate(ctx, data); err != nil {
 		return nil, err
 	}
 	if !data.Contains("name") {
@@ -127,7 +127,7 @@ func (man *SRouteManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery
 		return nil, err
 	}
 	data := query.(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+	q, err = validators.ApplyModelFilters(ctx, q, data, []*validators.ModelFilterOptions{
 		{Key: "router", ModelKeyword: "router", OwnerId: userCred},
 		{Key: "iface", ModelKeyword: "iface", OwnerId: userCred},
 	})
@@ -150,7 +150,7 @@ func (route *SRoute) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 	}
 	for _, v := range vs {
 		v.Optional(true)
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return input, err
 		}
 	}

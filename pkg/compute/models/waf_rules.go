@@ -116,11 +116,11 @@ func (manager *SWafRuleManager) FetchOwnerId(ctx context.Context, data jsonutils
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (manager *SWafRuleManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SWafRuleManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	sq1 := WafInstanceManager.Query("id")
-	sq1 = db.SharableManagerFilterByOwner(WafInstanceManager, sq1, userCred, ownerId, scope)
+	sq1 = db.SharableManagerFilterByOwner(ctx, WafInstanceManager, sq1, userCred, ownerId, scope)
 	sq2 := WafRuleGroupManager.Query("id")
-	sq2 = db.SharableManagerFilterByOwner(WafRuleGroupManager, sq2, userCred, ownerId, scope)
+	sq2 = db.SharableManagerFilterByOwner(ctx, WafRuleGroupManager, sq2, userCred, ownerId, scope)
 	return q.Filter(sqlchemy.OR(
 		sqlchemy.In(q.Field("waf_instance_id"), sq1.SubQuery()),
 		sqlchemy.In(q.Field("waf_rule_group_id"), sq2.SubQuery()),
@@ -129,7 +129,7 @@ func (manager *SWafRuleManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterB
 
 func (manager *SWafRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
 	if len(input.WafInstanceId) > 0 {
-		ins, err := validators.ValidateModel(userCred, WafInstanceManager, &input.WafInstanceId)
+		ins, err := validators.ValidateModel(ctx, userCred, WafInstanceManager, &input.WafInstanceId)
 		if err != nil {
 			return input, err
 		}
@@ -206,14 +206,14 @@ func (manager *SWafRuleManager) ListItemFilter(
 	}
 
 	if len(query.WafInstanceId) > 0 {
-		_, err := validators.ValidateModel(userCred, WafInstanceManager, &query.WafInstanceId)
+		_, err := validators.ValidateModel(ctx, userCred, WafInstanceManager, &query.WafInstanceId)
 		if err != nil {
 			return nil, err
 		}
 		q = q.Equals("waf_instance_id", query.WafInstanceId)
 	}
 	if len(query.WafRuleGroupId) > 0 {
-		_, err := validators.ValidateModel(userCred, WafRuleGroupManager, &query.WafRuleGroupId)
+		_, err := validators.ValidateModel(ctx, userCred, WafRuleGroupManager, &query.WafRuleGroupId)
 		if err != nil {
 			return nil, err
 		}

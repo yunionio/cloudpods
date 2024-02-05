@@ -261,7 +261,7 @@ func (manager *SProjectManager) ListItemFilter(
 	if !query.PolicyProjectTags.IsEmpty() {
 		policyFilters := tagutils.STagFilters{}
 		policyFilters.AddFilters(query.PolicyProjectTags)
-		q = db.ObjectIdQueryWithTagFilters(q, "id", "project", policyFilters)
+		q = db.ObjectIdQueryWithTagFilters(ctx, q, "id", "project", policyFilters)
 	}
 
 	userStr := query.UserId
@@ -313,7 +313,7 @@ func (manager *SProjectManager) ListItemFilter(
 	}
 
 	if len(query.IdpId) > 0 {
-		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(ctx, userCred, query.IdpId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(IdentityProviderManager.Keyword(), query.IdpId)
@@ -654,7 +654,7 @@ func (project *SProject) PerformJoin(
 	roleIds := make([]string, 0)
 	roles := make([]*SRole, 0)
 	for i := range input.Roles {
-		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
+		obj, err := RoleManager.FetchByIdOrName(ctx, userCred, input.Roles[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.Roles[i])
@@ -674,7 +674,7 @@ func (project *SProject) PerformJoin(
 
 	users := make([]*SUser, 0)
 	for i := range input.Users {
-		obj, err := UserManager.FetchByIdOrName(userCred, input.Users[i])
+		obj, err := UserManager.FetchByIdOrName(ctx, userCred, input.Users[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), input.Users[i])
@@ -686,7 +686,7 @@ func (project *SProject) PerformJoin(
 	}
 	groups := make([]*SGroup, 0)
 	for i := range input.Groups {
-		obj, err := GroupManager.FetchByIdOrName(userCred, input.Groups[i])
+		obj, err := GroupManager.FetchByIdOrName(ctx, userCred, input.Groups[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), input.Groups[i])
@@ -730,7 +730,7 @@ func (project *SProject) PerformLeave(
 	}
 
 	for i := range input.UserRoles {
-		userObj, err := UserManager.FetchByIdOrName(userCred, input.UserRoles[i].User)
+		userObj, err := UserManager.FetchByIdOrName(ctx, userCred, input.UserRoles[i].User)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), input.UserRoles[i].User)
@@ -738,7 +738,7 @@ func (project *SProject) PerformLeave(
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		roleObj, err := RoleManager.FetchByIdOrName(userCred, input.UserRoles[i].Role)
+		roleObj, err := RoleManager.FetchByIdOrName(ctx, userCred, input.UserRoles[i].Role)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.UserRoles[i].Role)
@@ -752,7 +752,7 @@ func (project *SProject) PerformLeave(
 		}
 	}
 	for i := range input.GroupRoles {
-		groupObj, err := GroupManager.FetchByIdOrName(userCred, input.GroupRoles[i].Group)
+		groupObj, err := GroupManager.FetchByIdOrName(ctx, userCred, input.GroupRoles[i].Group)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), input.GroupRoles[i].Group)
@@ -760,7 +760,7 @@ func (project *SProject) PerformLeave(
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		roleObj, err := RoleManager.FetchByIdOrName(userCred, input.GroupRoles[i].Role)
+		roleObj, err := RoleManager.FetchByIdOrName(ctx, userCred, input.GroupRoles[i].Role)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.GroupRoles[i].Role)
@@ -828,7 +828,7 @@ func (project *SProject) PerformSetAdmin(
 	var role *SRole
 
 	{
-		obj, err := UserManager.FetchByIdOrName(userCred, input.UserId)
+		obj, err := UserManager.FetchByIdOrName(ctx, userCred, input.UserId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), input.UserId)
@@ -840,7 +840,7 @@ func (project *SProject) PerformSetAdmin(
 	}
 
 	{
-		obj, err := RoleManager.FetchByIdOrName(userCred, options.Options.ProjectAdminRole)
+		obj, err := RoleManager.FetchByIdOrName(ctx, userCred, options.Options.ProjectAdminRole)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), options.Options.ProjectAdminRole)
@@ -916,11 +916,11 @@ func (project *SProject) matchOrganizationNodes() (*api.SProjectOrganization, er
 	return projOrg, nil
 }
 
-func (manager *SProjectManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SProjectManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil && scope != rbacscope.ScopeSystem && scope != rbacscope.ScopeDomain {
 		q = q.Equals("id", owner.GetProjectId())
 	}
-	return manager.SIdentityBaseResourceManager.FilterByOwner(q, man, userCred, owner, scope)
+	return manager.SIdentityBaseResourceManager.FilterByOwner(ctx, q, man, userCred, owner, scope)
 }
 
 func (manager *SProjectManager) GetSystemProject() (*SProject, error) {

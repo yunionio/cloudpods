@@ -106,7 +106,7 @@ func (self *SIsolatedDeviceModel) PostCreate(ctx context.Context, userCred mccli
 		defer self.RemoveMetadata(ctx, api.MEAT_PROBED_HOST_COUNT, userCred)
 
 		for i := range input.Hosts {
-			iHost, err := HostManager.FetchByIdOrName(userCred, input.Hosts[i])
+			iHost, err := HostManager.FetchByIdOrName(ctx, userCred, input.Hosts[i])
 			if err != nil {
 				log.Errorf("failed fetch host %s: %s", input.Hosts[i], err)
 				continue
@@ -140,7 +140,7 @@ func (self *SIsolatedDeviceModel) PostDelete(ctx context.Context, userCred mccli
 	}
 	go func() {
 		for i := range hosts {
-			iHost, err := HostManager.FetchByIdOrName(userCred, hosts[i])
+			iHost, err := HostManager.FetchByIdOrName(ctx, userCred, hosts[i])
 			if err != nil {
 				log.Errorf("failed fetch host %s: %s", hosts[i], err)
 				continue

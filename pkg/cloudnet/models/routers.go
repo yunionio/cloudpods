@@ -86,7 +86,7 @@ func (man *SRouterManager) ValidateCreateData(ctx context.Context, userCred mccl
 		validators.NewBoolValidator("realize_rules").Default(true),
 	}
 	for _, v := range vs {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -133,7 +133,7 @@ func (router *SRouter) ValidateUpdateData(ctx context.Context, userCred mcclient
 	}
 	for _, v := range vs {
 		v.Optional(true)
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return input, err
 		}
 	}
@@ -183,7 +183,7 @@ func (router *SRouter) PerformJoinMeshNetwork(ctx context.Context, userCred mccl
 			return nil, httperrors.NewBadRequestError("expecting json dict")
 		}
 		for _, v := range vs {
-			if err := v.Validate(jd); err != nil {
+			if err := v.Validate(ctx, jd); err != nil {
 				return nil, err
 			}
 		}
@@ -206,7 +206,7 @@ func (router *SRouter) PerformLeaveMeshNetwork(ctx context.Context, userCred mcc
 		return nil, httperrors.NewBadRequestError("expecting json dict")
 	}
 	mnV := validators.NewModelIdOrNameValidator("mesh_network", "meshnetwork", userCred)
-	if err := mnV.Validate(jd); err != nil {
+	if err := mnV.Validate(ctx, jd); err != nil {
 		return nil, err
 	}
 	mn := mnV.Model.(*SMeshNetwork)
@@ -222,7 +222,7 @@ func (router *SRouter) PerformRegisterIfname(ctx context.Context, userCred mccli
 		return nil, httperrors.NewBadRequestError("expecting json dict")
 	}
 	ifnameV := validators.NewRegexpValidator("ifname", regexpIfname)
-	if err := ifnameV.Validate(jd); err != nil {
+	if err := ifnameV.Validate(ctx, jd); err != nil {
 		return nil, err
 	}
 	_, err := IfaceManager.addIface(ctx, userCred, router, ifnameV.Value)

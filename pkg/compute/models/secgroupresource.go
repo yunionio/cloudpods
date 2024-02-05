@@ -38,8 +38,8 @@ type SSecurityGroupResourceBase struct {
 
 type SSecurityGroupResourceBaseManager struct{}
 
-func ValidateSecurityGroupResourceInput(userCred mcclient.TokenCredential, query api.SecgroupResourceInput) (*SSecurityGroup, api.SecgroupResourceInput, error) {
-	secgrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, query.SecgroupId)
+func ValidateSecurityGroupResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.SecgroupResourceInput) (*SSecurityGroup, api.SecgroupResourceInput, error) {
+	secgrpObj, err := SecurityGroupManager.FetchByIdOrName(ctx, userCred, query.SecgroupId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SecurityGroupManager.Keyword(), query.SecgroupId)
@@ -98,7 +98,7 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 	query api.SecgroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.SecgroupId) > 0 {
-		secgrpObj, _, err := ValidateSecurityGroupResourceInput(userCred, query.SecgroupResourceInput)
+		secgrpObj, _, err := ValidateSecurityGroupResourceInput(ctx, userCred, query.SecgroupResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateSecurityGroupResourceInput")
 		}

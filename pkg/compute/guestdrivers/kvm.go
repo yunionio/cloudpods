@@ -764,7 +764,7 @@ func (self *SKVMGuestDriver) IsSupportLiveMigrate() bool {
 }
 
 func checkAssignHost(ctx context.Context, userCred mcclient.TokenCredential, preferHost string) error {
-	iHost, _ := models.HostManager.FetchByIdOrName(userCred, preferHost)
+	iHost, _ := models.HostManager.FetchByIdOrName(ctx, userCred, preferHost)
 	if iHost == nil {
 		return httperrors.NewBadRequestError("Host %s not found", preferHost)
 	}
@@ -993,7 +993,7 @@ func (self *SKVMGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 		if input.Secgroups[i] == api.SECGROUP_DEFAULT_ID {
 			continue
 		}
-		secObj, err := validators.ValidateModel(userCred, models.SecurityGroupManager, &input.Secgroups[i])
+		secObj, err := validators.ValidateModel(ctx, userCred, models.SecurityGroupManager, &input.Secgroups[i])
 		if err != nil {
 			return nil, err
 		}

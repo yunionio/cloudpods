@@ -289,7 +289,7 @@ func (self *SInterVpcNetwork) PerformAddvpc(ctx context.Context, userCred mcclie
 	if len(input.VpcId) == 0 {
 		return nil, httperrors.NewMissingParameterError("vpc_id")
 	}
-	_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+	_vpc, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcId)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func (self *SInterVpcNetwork) PerformRemovevpc(ctx context.Context, userCred mcc
 		return nil, httperrors.NewMissingParameterError("vpc_id")
 	}
 	// get vpc
-	_vpc, err := VpcManager.FetchByIdOrName(userCred, input.VpcId)
+	_vpc, err := VpcManager.FetchByIdOrName(ctx, userCred, input.VpcId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError2("vpc", input.VpcId)

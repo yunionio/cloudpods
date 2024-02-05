@@ -125,7 +125,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 	if len(input.VpcId) > 0 {
-		vpcObj, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+		vpcObj, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcId)
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +143,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 
 	serverStr := input.ServerId
 	if len(serverStr) > 0 {
-		guest, _, err := ValidateGuestResourceInput(userCred, input.ServerResourceInput)
+		guest, _, err := ValidateGuestResourceInput(ctx, userCred, input.ServerResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateGuestResourceInput")
 		}
@@ -166,7 +166,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 	}
 
 	if len(input.DBInstanceId) > 0 {
-		_, err = validators.ValidateModel(userCred, DBInstanceManager, &input.DBInstanceId)
+		_, err = validators.ValidateModel(ctx, userCred, DBInstanceManager, &input.DBInstanceId)
 		if err != nil {
 			return nil, err
 		}
@@ -175,7 +175,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 	}
 
 	if len(input.ElasticcacheId) > 0 {
-		_, err = validators.ValidateModel(userCred, ElasticcacheManager, &input.ElasticcacheId)
+		_, err = validators.ValidateModel(ctx, userCred, ElasticcacheManager, &input.ElasticcacheId)
 		if err != nil {
 			return nil, err
 		}
@@ -380,7 +380,7 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		return rows
 	}
 
-	q = GuestManager.FilterByOwner(q, GuestManager, userCred, ownerId, queryScope)
+	q = GuestManager.FilterByOwner(ctx, q, GuestManager, userCred, ownerId, queryScope)
 	err = db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
 		log.Errorf("db.FetchModelObjects error: %v", err)
@@ -411,7 +411,7 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	}
 
 	sq := GuestManager.Query("id").IsFalse("pending_deleted")
-	sq = GuestManager.FilterByOwner(sq, GuestManager, userCred, ownerId, queryScope)
+	sq = GuestManager.FilterByOwner(ctx, sq, GuestManager, userCred, ownerId, queryScope)
 
 	guestSecgroups := []SGuestsecgroup{}
 	q = GuestsecgroupManager.Query().In("secgroup_id", secgroupIds).In("guest_id", sq.SubQuery())
@@ -462,7 +462,7 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 		input.VpcId = api.DEFAULT_VPC_ID
 	}
 
-	vpcObj, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+	vpcObj, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcId)
 	if err != nil {
 		return nil, err
 	}

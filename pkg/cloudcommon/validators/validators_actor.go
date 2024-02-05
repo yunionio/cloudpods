@@ -15,6 +15,7 @@
 package validators
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -152,7 +153,7 @@ func (v *ValidatorByActor) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorByActor) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorByActor) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}

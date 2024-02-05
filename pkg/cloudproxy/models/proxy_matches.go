@@ -61,7 +61,7 @@ func (man *SProxyMatchManager) ValidateCreateData(ctx context.Context, userCred 
 		matchScopeV,
 		endpointV,
 	} {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -76,7 +76,7 @@ func (pm *SProxyMatch) ValidateUpdateData(ctx context.Context, userCred mcclient
 		endpointV,
 	} {
 		v.Optional(true)
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -126,7 +126,7 @@ func (man *SProxyMatchManager) ListItemFilter(
 	}
 
 	if len(input.ProxyEndpointId) > 0 {
-		_, err := validators.ValidateModel(userCred, ProxyEndpointManager, &input.ProxyEndpointId)
+		_, err := validators.ValidateModel(ctx, userCred, ProxyEndpointManager, &input.ProxyEndpointId)
 		if err != nil {
 			return nil, err
 		}

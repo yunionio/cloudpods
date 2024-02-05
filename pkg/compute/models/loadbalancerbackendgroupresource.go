@@ -147,7 +147,7 @@ func (manager *SLoadbalancerBackendgroupResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerBackendGroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.BackendGroupId) > 0 {
-		_, err := validators.ValidateModel(userCred, LoadbalancerBackendGroupManager, &query.BackendGroupId)
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &query.BackendGroupId)
 		if err != nil {
 			return nil, err
 		}

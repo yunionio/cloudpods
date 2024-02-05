@@ -146,7 +146,7 @@ type SSchedtag struct {
 	ResourceType    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"required"`                                 // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 }
 
-func (m *SSchedtagManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (m *SSchedtagManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId == nil {
 		return q
 	}
@@ -256,10 +256,10 @@ func (manager *SSchedtagManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SSchedtagManager) ValidateSchedtags(userCred mcclient.TokenCredential, schedtags []*api.SchedtagConfig) ([]*api.SchedtagConfig, error) {
+func (manager *SSchedtagManager) ValidateSchedtags(ctx context.Context, userCred mcclient.TokenCredential, schedtags []*api.SchedtagConfig) ([]*api.SchedtagConfig, error) {
 	ret := make([]*api.SchedtagConfig, len(schedtags))
 	for idx, tag := range schedtags {
-		schedtagObj, err := manager.FetchByIdOrName(userCred, tag.Id)
+		schedtagObj, err := manager.FetchByIdOrName(ctx, userCred, tag.Id)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("Invalid schedtag %s", tag.Id)
@@ -564,7 +564,7 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 	setTagsId := []string{}
 	for idx := 0; idx < len(schedtags); idx++ {
 		schedtagIdent, _ := schedtags[idx].GetString()
-		tag, err := SchedtagManager.FetchByIdOrName(userCred, schedtagIdent)
+		tag, err := SchedtagManager.FetchByIdOrName(ctx, userCred, schedtagIdent)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("Schedtag %s not found", schedtagIdent)
@@ -668,7 +668,7 @@ func (s *SSchedtag) PerformSetResource(ctx context.Context, userCred mcclient.To
 	// get need set resource ids
 	for i := 0; i < len(input.ResourceIds); i++ {
 		resId := input.ResourceIds[i]
-		res, err := resMan.FetchByIdOrName(userCred, resId)
+		res, err := resMan.FetchByIdOrName(ctx, userCred, resId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("Resource %s %s not found", s.ResourceType, resId)

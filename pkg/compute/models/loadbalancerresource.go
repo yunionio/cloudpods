@@ -41,8 +41,8 @@ type SLoadbalancerResourceBaseManager struct {
 	SZoneResourceBaseManager
 }
 
-func ValidateLoadbalancerResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerResourceInput) (*SLoadbalancer, api.LoadbalancerResourceInput, error) {
-	lbObj, err := LoadbalancerManager.FetchByIdOrName(userCred, input.LoadbalancerId)
+func ValidateLoadbalancerResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.LoadbalancerResourceInput) (*SLoadbalancer, api.LoadbalancerResourceInput, error) {
+	lbObj, err := LoadbalancerManager.FetchByIdOrName(ctx, userCred, input.LoadbalancerId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerManager.Keyword(), input.LoadbalancerId)
@@ -195,7 +195,7 @@ func (manager *SLoadbalancerResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.LoadbalancerId) > 0 {
-		lbObj, _, err := ValidateLoadbalancerResourceInput(userCred, query.LoadbalancerResourceInput)
+		lbObj, _, err := ValidateLoadbalancerResourceInput(ctx, userCred, query.LoadbalancerResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateLoadbalancerResourceInput")
 		}

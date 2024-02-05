@@ -137,12 +137,12 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 			input.Name = userCred.GetUserName()
 		}
 	}
-	_group, err := validators.ValidateModel(userCred, CloudgroupManager, &input.CloudgroupId)
+	_group, err := validators.ValidateModel(ctx, userCred, CloudgroupManager, &input.CloudgroupId)
 	if err != nil {
 		return input, err
 	}
 	group := _group.(*SCloudgroup)
-	_account, err := validators.ValidateModel(userCred, CloudaccountManager, &input.CloudaccountId)
+	_account, err := validators.ValidateModel(ctx, userCred, CloudaccountManager, &input.CloudaccountId)
 	if err != nil {
 		return input, err
 	}

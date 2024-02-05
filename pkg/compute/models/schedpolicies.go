@@ -64,8 +64,8 @@ type SSchedpolicy struct {
 	Enabled tristate.TriState `default:"true" create:"optional" list:"user" update:"user"`
 }
 
-func validateSchedpolicyInputData(data *jsonutils.JSONDict, create bool) error {
-	err := validateDynamicSchedtagInputData(data, create)
+func validateSchedpolicyInputData(ctx context.Context, data *jsonutils.JSONDict, create bool) error {
+	err := validateDynamicSchedtagInputData(ctx, data, create)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func validateSchedpolicyInputData(data *jsonutils.JSONDict, create bool) error {
 }
 
 func (manager *SSchedpolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	err := validateSchedpolicyInputData(data, true)
+	err := validateSchedpolicyInputData(ctx, data, true)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (manager *SSchedpolicyManager) ValidateCreateData(ctx context.Context, user
 }
 
 func (self *SSchedpolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	err := validateSchedpolicyInputData(data, false)
+	err := validateSchedpolicyInputData(ctx, data, false)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient
 	if resMan == nil {
 		return nil, httperrors.NewNotAcceptableError("ResourceType %q not support", resType)
 	}
-	obj, err := FetchDynamicResourceObject(resMan, userCred, objectId)
+	obj, err := FetchDynamicResourceObject(ctx, resMan, userCred, objectId)
 	if err != nil {
 		return nil, err
 	}

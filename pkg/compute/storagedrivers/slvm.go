@@ -51,7 +51,7 @@ func (s *SSLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred mc
 	if len(input.MasterHost) == 0 {
 		return httperrors.NewMissingParameterError("master_host")
 	}
-	host, err := models.HostManager.FetchByIdOrName(userCred, input.MasterHost)
+	host, err := models.HostManager.FetchByIdOrName(ctx, userCred, input.MasterHost)
 	if err != nil {
 		return httperrors.NewInputParameterError("get host %s failed", input.MasterHost)
 	}

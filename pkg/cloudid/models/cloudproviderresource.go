@@ -40,7 +40,7 @@ type SCloudproviderResourceBase struct {
 
 func (manager *SCloudproviderResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudproviderResourceListInput) (*sqlchemy.SQuery, error) {
 	if len(query.Cloudprovider) > 0 {
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, query.Cloudprovider)
+		provider, err := CloudproviderManager.FetchByIdOrName(ctx, nil, query.Cloudprovider)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("cloudprovider", query.Cloudprovider)
