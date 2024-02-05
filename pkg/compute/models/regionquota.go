@@ -185,7 +185,7 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 
 	lbnic, _ := totalLBNicCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 
-	eipUsage := ElasticipManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	eipUsage := ElasticipManager.TotalCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
 
 	self.Eip = eipUsage.Total()
 	self.Port = net.InternalNicCount + net.InternalVirtualNicCount + lbnic
@@ -193,24 +193,24 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 	// self.Bw = net.InternalBandwidth
 	// self.Ebw = net.ExternalBandwidth
 
-	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	snapshotCount, _ := TotalSnapshotCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
 	self.Snapshot = snapshotCount
 
-	instanceSnapshotCount, _ := TotalInstanceSnapshotCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	instanceSnapshotCount, _ := TotalInstanceSnapshotCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
 	self.InstanceSnapshot = instanceSnapshotCount
 
-	bucketUsage := BucketManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	bucketUsage := BucketManager.TotalCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
 	self.Bucket = bucketUsage.Buckets
 	self.ObjectGB = int(bucketUsage.Bytes / 1000 / 1000 / 1000)
 	self.ObjectCnt = bucketUsage.Objects
 
-	rdsUsage, _ := DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	rdsUsage, _ := DBInstanceManager.TotalCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
 	self.Rds = rdsUsage.TotalRdsCount
-	self.Cache, _ = ElasticcacheManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
-	mongodbUsage, _ := MongoDBManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	self.Cache, _ = ElasticcacheManager.TotalCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	mongodbUsage, _ := MongoDBManager.TotalCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
 	self.Mongodb = mongodbUsage.TotalMongodbCount
 
-	self.Loadbalancer, _ = LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
+	self.Loadbalancer, _ = LoadbalancerManager.TotalCount(ctx, scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv, rbacutils.SPolicyResult{})
 
 	return nil
 }

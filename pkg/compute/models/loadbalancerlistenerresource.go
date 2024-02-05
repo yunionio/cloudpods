@@ -123,7 +123,7 @@ func (manager *SLoadbalancerListenerResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerListenerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.ListenerId) > 0 {
-		_, err := validators.ValidateModel(userCred, LoadbalancerListenerManager, &query.ListenerId)
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerListenerManager, &query.ListenerId)
 		if err != nil {
 			return nil, err
 		}

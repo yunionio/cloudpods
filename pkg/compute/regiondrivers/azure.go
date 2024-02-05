@@ -43,7 +43,7 @@ func (self *SAzureRegionDriver) GetProvider() string {
 
 func (self *SAzureRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
 	cidrV := validators.NewIPv4PrefixValidator("cidr_block")
-	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+	if err := cidrV.Validate(ctx, jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
 		return input, err
 	}
 	if cidrV.Value.MaskLen < 8 || cidrV.Value.MaskLen > 29 {

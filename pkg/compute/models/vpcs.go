@@ -921,7 +921,7 @@ func (manager *SVpcManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.VpcCreateInput,
 ) (api.VpcCreateInput, error) {
-	regionObj, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	regionObj, err := validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
 	if err != nil {
 		return input, err
 	}
@@ -930,7 +930,7 @@ func (manager *SVpcManager) ValidateCreateData(
 		if len(region.ManagerId) > 0 {
 			input.CloudproviderId = region.ManagerId
 		}
-		_, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+		_, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
 			return input, err
 		}
@@ -1200,7 +1200,7 @@ func (manager *SVpcManager) ListItemFilter(
 	}
 
 	if len(query.DnsZoneId) > 0 {
-		dnsZone, err := DnsZoneManager.FetchByIdOrName(userCred, query.DnsZoneId)
+		dnsZone, err := DnsZoneManager.FetchByIdOrName(ctx, userCred, query.DnsZoneId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("dns_zone", query.DnsZoneId)
@@ -1212,7 +1212,7 @@ func (manager *SVpcManager) ListItemFilter(
 	}
 
 	if len(query.UsableForInterVpcNetworkId) > 0 {
-		_interVpc, err := validators.ValidateModel(userCred, InterVpcNetworkManager, &query.UsableForInterVpcNetworkId)
+		_interVpc, err := validators.ValidateModel(ctx, userCred, InterVpcNetworkManager, &query.UsableForInterVpcNetworkId)
 		if err != nil {
 			return nil, err
 		}
@@ -1240,7 +1240,7 @@ func (manager *SVpcManager) ListItemFilter(
 	}
 
 	if len(query.InterVpcNetworkId) > 0 {
-		vpcNetwork, err := InterVpcNetworkManager.FetchByIdOrName(userCred, query.InterVpcNetworkId)
+		vpcNetwork, err := InterVpcNetworkManager.FetchByIdOrName(ctx, userCred, query.InterVpcNetworkId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("inter_vpc_network", query.InterVpcNetworkId)
@@ -1283,7 +1283,7 @@ func (manager *SVpcManager) ListItemFilter(
 	}
 
 	if len(query.ZoneId) > 0 {
-		zoneObj, err := validators.ValidateModel(userCred, ZoneManager, &query.ZoneId)
+		zoneObj, err := validators.ValidateModel(ctx, userCred, ZoneManager, &query.ZoneId)
 		if err != nil {
 			return nil, err
 		}
@@ -1524,6 +1524,7 @@ func (vpc *SVpc) GetUsages() []db.IUsage {
 }
 
 func (manager *SVpcManager) totalCount(
+	ctx context.Context,
 	ownerId mcclient.IIdentityProvider,
 	scope rbacscope.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
@@ -1676,7 +1677,7 @@ func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCred
 	wires, _ := vpc.GetWires()
 	for i := range wires {
 		if wires[i].DomainId == vpc.DomainId {
-			nets, _ := wires[i].getNetworks(nil, nil, rbacscope.ScopeNone)
+			nets, _ := wires[i].getNetworks(ctx, nil, nil, rbacscope.ScopeNone)
 			for j := range nets {
 				if nets[j].DomainId != vpc.DomainId {
 					emptyNets = false
@@ -1693,7 +1694,7 @@ func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCred
 	}
 	if emptyNets {
 		for i := range wires {
-			nets, _ := wires[i].getNetworks(nil, nil, rbacscope.ScopeNone)
+			nets, _ := wires[i].getNetworks(ctx, nil, nil, rbacscope.ScopeNone)
 			netfail := false
 			for j := range nets {
 				if nets[j].IsPublic && nets[j].GetPublicScope().HigherEqual(rbacscope.ScopeDomain) {
@@ -1968,7 +1969,7 @@ func (svpc *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 			}
 			wire.Hosts = append(wire.Hosts, host)
 		}
-		networks, err := wires[i].GetNetworks(nil, nil, rbacscope.ScopeSystem)
+		networks, err := wires[i].GetNetworks(ctx, nil, nil, rbacscope.ScopeSystem)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetNetworks")
 		}
@@ -1984,7 +1985,7 @@ func (svpc *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 				// Address:      []api.SNetworkUsedAddress{},
 			}
 
-			network.GetNetworkAddressesOutput, err = networks[j].fetchAddressDetails(userCred, userCred, rbacscope.ScopeSystem)
+			network.GetNetworkAddressesOutput, err = networks[j].fetchAddressDetails(ctx, userCred, userCred, rbacscope.ScopeSystem)
 			if err != nil {
 				return nil, errors.Wrapf(err, "fetchAddressDetails")
 			}

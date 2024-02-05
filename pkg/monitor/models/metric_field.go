@@ -183,8 +183,8 @@ func (manager *SMetricFieldManager) SaveMetricField(ctx context.Context, userCre
 	return field, nil
 }
 
-func (man *SMetricFieldManager) GetFieldByIdOrName(id string, userCred mcclient.TokenCredential) (*SMetricField, error) {
-	obj, err := man.FetchByIdOrName(userCred, id)
+func (man *SMetricFieldManager) GetFieldByIdOrName(ctx context.Context, id string, userCred mcclient.TokenCredential) (*SMetricField, error) {
+	obj, err := man.FetchByIdOrName(ctx, userCred, id)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, nil

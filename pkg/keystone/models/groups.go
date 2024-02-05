@@ -123,7 +123,7 @@ func (manager *SGroupManager) ListItemFilter(
 	}
 
 	if len(query.IdpId) > 0 {
-		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(ctx, userCred, query.IdpId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), query.IdpId)
@@ -368,14 +368,14 @@ func (group *SGroup) PerformLeave(
 	return nil, nil
 }
 
-func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SGroupManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil && scope == rbacscope.ScopeProject {
 		// if user has project level privilege, returns all groups in user's project
 		subq := AssignmentManager.fetchProjectGroupIdsQuery(owner.GetProjectId())
 		q = q.In("id", subq.SubQuery())
 		return q
 	}
-	return manager.SIdentityBaseResourceManager.FilterByOwner(q, man, userCred, owner, scope)
+	return manager.SIdentityBaseResourceManager.FilterByOwner(ctx, q, man, userCred, owner, scope)
 }
 
 func (group *SGroup) GetUsages() []db.IUsage {
@@ -443,7 +443,7 @@ func (group *SGroup) PerformAddUsers(
 ) (jsonutils.JSONObject, error) {
 	users := make([]*SUser, 0)
 	for _, uid := range input.UserIds {
-		usr, err := UserManager.FetchByIdOrName(userCred, uid)
+		usr, err := UserManager.FetchByIdOrName(ctx, userCred, uid)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", uid)
@@ -471,7 +471,7 @@ func (group *SGroup) PerformRemoveUsers(
 ) (jsonutils.JSONObject, error) {
 	users := make([]*SUser, 0)
 	for _, uid := range input.UserIds {
-		usr, err := UserManager.FetchByIdOrName(userCred, uid)
+		usr, err := UserManager.FetchByIdOrName(ctx, userCred, uid)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", uid)

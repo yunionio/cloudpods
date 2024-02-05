@@ -144,7 +144,7 @@ func (man *SRuleManager) validateData(ctx context.Context, userCred mcclient.Tok
 		if isUpdate {
 			v.Optional(true)
 		}
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return err
 		}
 	}
@@ -177,7 +177,7 @@ func (man *SRuleManager) validateData(ctx context.Context, userCred mcclient.Tok
 		if !isUpdate {
 			prioV.Default(prioDefault)
 		}
-		if err := prioV.Validate(data); err != nil {
+		if err := prioV.Validate(ctx, data); err != nil {
 			return err
 		}
 	}
@@ -225,7 +225,7 @@ func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	data := query.(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+	q, err = validators.ApplyModelFilters(ctx, q, data, []*validators.ModelFilterOptions{
 		{Key: "router", ModelKeyword: "router", OwnerId: userCred},
 	})
 	if err != nil {

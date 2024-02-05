@@ -82,7 +82,7 @@ func (manager *SAccessGroupResourceBaseManager) ListItemFilter(
 	query api.AccessGroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.AccessGroupId) > 0 {
-		_, err := validators.ValidateModel(userCred, AccessGroupManager, &query.AccessGroupId)
+		_, err := validators.ValidateModel(ctx, userCred, AccessGroupManager, &query.AccessGroupId)
 		if err != nil {
 			return nil, err
 		}

@@ -54,7 +54,7 @@ func (manager *SGroupResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		groupObj, err := GroupManager.FetchByIdOrName(ownerId, query.GroupId)
+		groupObj, err := GroupManager.FetchByIdOrName(ctx, ownerId, query.GroupId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), query.GroupId)

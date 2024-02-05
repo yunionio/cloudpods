@@ -72,12 +72,12 @@ func (manager *SStandaloneResourceBaseManager) ValidateName(name string) error {
 	return nil
 }
 
-func (manager *SStandaloneResourceBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByName(manager.GetIStandaloneModelManager(), userCred, idStr)
+func (manager *SStandaloneResourceBaseManager) FetchByName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByName(ctx, manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByIdOrName(manager.GetIStandaloneModelManager(), userCred, idStr)
+func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByIdOrName(ctx, manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
 func (manager *SStandaloneResourceBaseManager) ListItemFilter(
@@ -203,7 +203,7 @@ func (model *SStandaloneResourceBase) ValidateUpdateData(ctx context.Context, us
 		if strings.ContainsAny(input.Name, "\n\r\t") {
 			return input, errors.Wrap(httperrors.ErrInputParameter, "name should not contains any \\n\\r\\t")
 		}
-		err = alterNameValidator(model.GetIStandaloneModel(), input.Name)
+		err = alterNameValidator(ctx, model.GetIStandaloneModel(), input.Name)
 		if err != nil {
 			return input, errors.Wrap(err, "alterNameValidator")
 		}

@@ -28,11 +28,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) (bool, error) {
-	return isRawNameUnique(manager, ownerId, name, uniqValues, false)
+func isNameUnique(ctx context.Context, manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) (bool, error) {
+	return isRawNameUnique(ctx, manager, ownerId, name, uniqValues, false)
 }
 
-func isRawNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject, isRaw bool) (bool, error) {
+func isRawNameUnique(ctx context.Context, manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject, isRaw bool) (bool, error) {
 	var q *sqlchemy.SQuery
 	if isRaw {
 		q = manager.TableSpec().Instance().Query()
@@ -40,7 +40,7 @@ func isRawNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, 
 		q = manager.Query()
 	}
 	q = manager.FilterByName(q, name)
-	q = manager.FilterByOwner(q, manager, nil, ownerId, manager.NamespaceScope())
+	q = manager.FilterByOwner(ctx, q, manager, nil, ownerId, manager.NamespaceScope())
 	if !isRaw {
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 		if uniqValues != nil {
@@ -54,12 +54,12 @@ func isRawNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, 
 	return cnt == 0, nil
 }
 
-func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) error {
+func NewNameValidator(ctx context.Context, manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) error {
 	err := manager.ValidateName(name)
 	if err != nil {
 		return err
 	}
-	uniq, err := isNameUnique(manager, ownerId, name, uniqValues)
+	uniq, err := isNameUnique(ctx, manager, ownerId, name, uniqValues)
 	if err != nil {
 		return err
 	}
@@ -69,11 +69,11 @@ func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider,
 	return nil
 }
 
-func isAlterNameUnique(model IModel, name string) (bool, error) {
-	return isRawAlterNameUnique(model, name, false)
+func isAlterNameUnique(ctx context.Context, model IModel, name string) (bool, error) {
+	return isRawAlterNameUnique(ctx, model, name, false)
 }
 
-func isRawAlterNameUnique(model IModel, name string, isRaw bool) (bool, error) {
+func isRawAlterNameUnique(ctx context.Context, model IModel, name string, isRaw bool) (bool, error) {
 	manager := model.GetModelManager()
 	var q *sqlchemy.SQuery
 	if isRaw {
@@ -82,7 +82,7 @@ func isRawAlterNameUnique(model IModel, name string, isRaw bool) (bool, error) {
 		q = manager.Query()
 	}
 	q = manager.FilterByName(q, name)
-	q = manager.FilterByOwner(q, manager, nil, model.GetOwnerId(), manager.NamespaceScope())
+	q = manager.FilterByOwner(ctx, q, manager, nil, model.GetOwnerId(), manager.NamespaceScope())
 	q = manager.FilterByNotId(q, model.GetId())
 	if !isRaw {
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
@@ -97,12 +97,12 @@ func isRawAlterNameUnique(model IModel, name string, isRaw bool) (bool, error) {
 	return cnt == 0, nil
 }
 
-func alterNameValidator(model IModel, name string) error {
+func alterNameValidator(ctx context.Context, model IModel, name string) error {
 	err := model.GetModelManager().ValidateName(name)
 	if err != nil {
 		return err
 	}
-	uniq, err := isAlterNameUnique(model, name)
+	uniq, err := isAlterNameUnique(ctx, model, name)
 	if err != nil {
 		return err
 	}
@@ -139,9 +139,9 @@ func GenerateName2(ctx context.Context, manager IModelManager, ownerId mcclient.
 		var uniq bool
 		var err error
 		if model == nil {
-			uniq, err = isRawNameUnique(manager, ownerId, name, nil, consts.IsHistoricalUniqueName())
+			uniq, err = isRawNameUnique(ctx, manager, ownerId, name, nil, consts.IsHistoricalUniqueName())
 		} else {
-			uniq, err = isRawAlterNameUnique(model, name, consts.IsHistoricalUniqueName())
+			uniq, err = isRawAlterNameUnique(ctx, model, name, consts.IsHistoricalUniqueName())
 		}
 		if err != nil {
 			return "", err

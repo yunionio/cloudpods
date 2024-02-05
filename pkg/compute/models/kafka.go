@@ -327,6 +327,7 @@ type SKafkaCountStat struct {
 }
 
 func (man *SKafkaManager) TotalCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -337,7 +338,7 @@ func (man *SKafkaManager) TotalCount(
 	kq = scopeOwnerIdFilter(kq, scope, ownerId)
 	kq = CloudProviderFilter(kq, kq.Field("manager_id"), providers, brands, cloudEnv)
 	kq = RangeObjectsFilter(kq, rangeObjs, kq.Field("cloudregion_id"), nil, kq.Field("manager_id"), nil, nil)
-	kq = db.ObjectIdQueryWithPolicyResult(kq, man, policyResult)
+	kq = db.ObjectIdQueryWithPolicyResult(ctx, kq, man, policyResult)
 
 	sq := kq.SubQuery()
 	q := sq.Query(sqlchemy.COUNT("total_kafka_count"),

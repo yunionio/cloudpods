@@ -39,8 +39,8 @@ type SDBInstanceResourceBaseManager struct {
 	SVpcResourceBaseManager
 }
 
-func ValidateDBInstanceResourceInput(userCred mcclient.TokenCredential, input api.DBInstanceResourceInput) (*SDBInstance, api.DBInstanceResourceInput, error) {
-	rdsObj, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstanceId)
+func ValidateDBInstanceResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.DBInstanceResourceInput) (*SDBInstance, api.DBInstanceResourceInput, error) {
+	rdsObj, err := DBInstanceManager.FetchByIdOrName(ctx, userCred, input.DBInstanceId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", DBInstanceManager.Keyword(), input.DBInstanceId)
@@ -127,7 +127,7 @@ func (manager *SDBInstanceResourceBaseManager) ListItemFilter(
 	var err error
 	if len(query.DBInstanceId) > 0 {
 		var dbObj *SDBInstance
-		dbObj, _, err = ValidateDBInstanceResourceInput(userCred, query.DBInstanceResourceInput)
+		dbObj, _, err = ValidateDBInstanceResourceInput(ctx, userCred, query.DBInstanceResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
 		}

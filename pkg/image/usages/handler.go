@@ -52,23 +52,23 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	usages := jsonutils.NewDict()
 	if scope == rbacscope.ScopeSystem {
-		adminUsage := models.ImageManager.Usage(rbacscope.ScopeSystem, ownerId, "all", result)
+		adminUsage := models.ImageManager.Usage(ctx, rbacscope.ScopeSystem, ownerId, "all", result)
 		usages.Update(jsonutils.Marshal(adminUsage))
-		adminUsage = models.GuestImageManager.Usage(rbacscope.ScopeSystem, ownerId, "all", result)
+		adminUsage = models.GuestImageManager.Usage(ctx, rbacscope.ScopeSystem, ownerId, "all", result)
 		usages.Update(jsonutils.Marshal(adminUsage))
 	}
 
 	if scope.HigherEqual(rbacscope.ScopeDomain) {
-		domainUsage := models.ImageManager.Usage(rbacscope.ScopeDomain, ownerId, "domain", result)
+		domainUsage := models.ImageManager.Usage(ctx, rbacscope.ScopeDomain, ownerId, "domain", result)
 		usages.Update(jsonutils.Marshal(domainUsage))
-		domainUsage = models.GuestImageManager.Usage(rbacscope.ScopeDomain, ownerId, "domain", result)
+		domainUsage = models.GuestImageManager.Usage(ctx, rbacscope.ScopeDomain, ownerId, "domain", result)
 		usages.Update(jsonutils.Marshal(domainUsage))
 	}
 
 	if scope.HigherEqual(rbacscope.ScopeProject) {
-		projectUsage := models.ImageManager.Usage(rbacscope.ScopeProject, ownerId, "", result)
+		projectUsage := models.ImageManager.Usage(ctx, rbacscope.ScopeProject, ownerId, "", result)
 		usages.Update(jsonutils.Marshal(projectUsage))
-		projectUsage = models.GuestImageManager.Usage(rbacscope.ScopeProject, ownerId, "", result)
+		projectUsage = models.GuestImageManager.Usage(ctx, rbacscope.ScopeProject, ownerId, "", result)
 		usages.Update(jsonutils.Marshal(projectUsage))
 	}
 

@@ -35,7 +35,7 @@ func (manager *SServiceResourceBaseManager) ListItemFilter(
 	query api.ServiceFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.ServiceId) > 0 {
-		serviceObj, err := ServiceManager.FetchByIdOrName(userCred, query.ServiceId)
+		serviceObj, err := ServiceManager.FetchByIdOrName(ctx, userCred, query.ServiceId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(ServiceManager.Keyword(), query.ServiceId)

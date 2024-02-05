@@ -42,8 +42,8 @@ type SElasticcacheResourceBaseManager struct {
 	SZoneResourceBaseManager
 }
 
-func ValidateElasticcacheResourceInput(userCred mcclient.TokenCredential, input api.ELasticcacheResourceInput) (*SElasticcache, api.ELasticcacheResourceInput, error) {
-	cacheObj, err := ElasticcacheManager.FetchByIdOrName(userCred, input.ElasticcacheId)
+func ValidateElasticcacheResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.ELasticcacheResourceInput) (*SElasticcache, api.ELasticcacheResourceInput, error) {
+	cacheObj, err := ElasticcacheManager.FetchByIdOrName(ctx, userCred, input.ElasticcacheId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ElasticcacheManager.Keyword(), input.ElasticcacheId)
@@ -137,7 +137,7 @@ func (manager *SElasticcacheResourceBaseManager) ListItemFilter(
 	query api.ElasticcacheFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.ElasticcacheId) > 0 {
-		dbObj, _, err := ValidateElasticcacheResourceInput(userCred, query.ELasticcacheResourceInput)
+		dbObj, _, err := ValidateElasticcacheResourceInput(ctx, userCred, query.ELasticcacheResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateElasticcacheResourceInput")
 		}

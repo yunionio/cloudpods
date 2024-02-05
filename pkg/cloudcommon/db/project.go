@@ -52,7 +52,7 @@ func (model *SProjectizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
 	return &owner
 }
 
-func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SProjectizedResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject:
@@ -62,7 +62,7 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
 			}
 		case rbacscope.ScopeDomain:
@@ -72,12 +72,12 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery
 				if !result.ProjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ProjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", policyTagFilters)
 				}
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
 			}
 		case rbacscope.ScopeSystem:
@@ -86,17 +86,17 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery
 				if !result.DomainTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.DomainTags)
-					q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "domain_id", "domain", policyTagFilters)
 				}
 				if !result.ProjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ProjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", policyTagFilters)
 				}
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
 			}
 		}
@@ -162,7 +162,7 @@ func (manager *SProjectizedResourceBaseManager) ListItemFilter(
 	if !query.NoProjectTags.IsEmpty() {
 		tagFilters.AddNoFilters(query.NoProjectTags)
 	}
-	q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", tagFilters)
+	q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", tagFilters)
 	return q, nil
 }
 

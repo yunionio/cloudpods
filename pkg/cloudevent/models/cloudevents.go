@@ -196,8 +196,8 @@ func (self *SCloudevent) GetOwnerId() mcclient.IIdentityProvider {
 	return &owner
 }
 
-func (manager *SCloudeventManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return manager.SDomainizedResourceBaseManager.FilterByOwner(q, man, userCred, owner, scope)
+func (manager *SCloudeventManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return manager.SDomainizedResourceBaseManager.FilterByOwner(ctx, q, man, userCred, owner, scope)
 }
 
 func (manager *SCloudeventManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {

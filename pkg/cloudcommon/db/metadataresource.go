@@ -15,6 +15,7 @@
 package db
 
 import (
+	"context"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -32,40 +33,40 @@ import (
 
 type SMetadataResourceBaseModelManager struct{}
 
-func ObjectIdQueryWithPolicyResult(q *sqlchemy.SQuery, manager IModelManager, result rbacutils.SPolicyResult) *sqlchemy.SQuery {
+func ObjectIdQueryWithPolicyResult(ctx context.Context, q *sqlchemy.SQuery, manager IModelManager, result rbacutils.SPolicyResult) *sqlchemy.SQuery {
 	scope := manager.ResourceScope()
 	if scope == rbacscope.ScopeDomain || scope == rbacscope.ScopeProject {
 		if !result.DomainTags.IsEmpty() {
 			tagFilters := tagutils.STagFilters{}
 			tagFilters.AddFilters(result.DomainTags)
-			q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", tagFilters)
+			q = ObjectIdQueryWithTagFilters(ctx, q, "domain_id", "domain", tagFilters)
 		}
 	}
 	if scope == rbacscope.ScopeProject {
 		if !result.ProjectTags.IsEmpty() {
 			tagFilters := tagutils.STagFilters{}
 			tagFilters.AddFilters(result.ProjectTags)
-			q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", tagFilters)
+			q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", tagFilters)
 		}
 	}
 	if !result.ObjectTags.IsEmpty() {
 		tagFilters := tagutils.STagFilters{}
 		tagFilters.AddFilters(result.ObjectTags)
-		q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), tagFilters)
+		q = ObjectIdQueryWithTagFilters(ctx, q, "id", manager.Keyword(), tagFilters)
 	}
 	return q
 }
 
-func ObjectIdQueryWithTagFilters(q *sqlchemy.SQuery, idField string, modelName string, filters tagutils.STagFilters) *sqlchemy.SQuery {
+func ObjectIdQueryWithTagFilters(ctx context.Context, q *sqlchemy.SQuery, idField string, modelName string, filters tagutils.STagFilters) *sqlchemy.SQuery {
 	if len(filters.Filters) > 0 {
-		sq := objIdQueryWithTags(modelName, filters.Filters)
+		sq := objIdQueryWithTags(ctx, modelName, filters.Filters)
 		if sq != nil {
 			sqq := sq.SubQuery()
 			q = q.Join(sqq, sqlchemy.Equals(q.Field(idField), sqq.Field("obj_id")))
 		}
 	}
 	if len(filters.NoFilters) > 0 {
-		sq := objIdQueryWithTags(modelName, filters.NoFilters)
+		sq := objIdQueryWithTags(ctx, modelName, filters.NoFilters)
 		if sq != nil {
 			q = q.Filter(sqlchemy.NotIn(q.Field(idField), sq.SubQuery()))
 		}
@@ -73,8 +74,9 @@ func ObjectIdQueryWithTagFilters(q *sqlchemy.SQuery, idField string, modelName s
 	return q
 }
 
-func objIdQueryWithTags(modelName string, tagsList []map[string][]string) *sqlchemy.SQuery {
-	metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
+func objIdQueryWithTags(ctx context.Context, modelName string, tagsList []map[string][]string) *sqlchemy.SQuery {
+	manager := GetMetadaManagerInContext(ctx)
+	metadataResQ := manager.Query().Equals("obj_type", modelName).SubQuery()
 
 	queries := make([]sqlchemy.IQuery, 0)
 	for _, tags := range tagsList {
@@ -106,10 +108,12 @@ func objIdQueryWithTags(modelName string, tagsList []map[string][]string) *sqlch
 }
 
 func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
+	ctx context.Context,
 	manager IModelManager,
 	q *sqlchemy.SQuery,
 	input apis.MetadataResourceListInput,
 ) *sqlchemy.SQuery {
+	metadataMan := GetMetadaManagerInContext(ctx)
 
 	inputTagFilters := tagutils.STagFilters{}
 	if len(input.Tags) > 0 {
@@ -124,7 +128,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	if !input.NoObjTags.IsEmpty() {
 		inputTagFilters.AddNoFilters(input.NoObjTags)
 	}
-	q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), inputTagFilters)
+	q = ObjectIdQueryWithTagFilters(ctx, q, "id", manager.Keyword(), inputTagFilters)
 
 	//if !input.PolicyObjectTags.IsEmpty() {
 	//	projTagFilters := tagutils.STagFilters{}
@@ -133,7 +137,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	//}
 
 	if input.WithoutUserMeta != nil || input.WithUserMeta != nil {
-		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		metadatas := metadataMan.Query().Equals("obj_type", manager.Keyword()).SubQuery()
 		sq := metadatas.Query(metadatas.Field("obj_id")).Startswith("key", USER_TAG_PREFIX).Distinct().SubQuery()
 		if (input.WithoutUserMeta != nil && *input.WithoutUserMeta) || (input.WithUserMeta != nil && !*input.WithUserMeta) {
 			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
@@ -143,7 +147,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	}
 
 	if input.WithCloudMeta != nil {
-		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		metadatas := metadataMan.Query().Equals("obj_type", manager.Keyword()).SubQuery()
 		sq := metadatas.Query(metadatas.Field("obj_id")).Startswith("key", CLOUD_TAG_PREFIX).Distinct().SubQuery()
 		if *input.WithCloudMeta {
 			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
@@ -153,7 +157,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	}
 
 	if input.WithAnyMeta != nil {
-		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		metadatas := metadataMan.Query().Equals("obj_type", manager.Keyword()).SubQuery()
 		sq := metadatas.Query(metadatas.Field("obj_id")).Distinct().SubQuery()
 		if *input.WithAnyMeta {
 			q = q.Filter(sqlchemy.In(q.Field("id"), sq))

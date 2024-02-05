@@ -21,6 +21,7 @@ package validators
 // uri
 
 import (
+	"context"
 	"database/sql"
 	"math"
 	"net"
@@ -42,10 +43,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
-type ValidatorFunc func(*jsonutils.JSONDict) error
+type ValidatorFunc func(context.Context, *jsonutils.JSONDict) error
 
 type IValidatorBase interface {
-	Validate(data *jsonutils.JSONDict) error
+	Validate(ctx context.Context, data *jsonutils.JSONDict) error
 }
 
 type IValidator interface {
@@ -144,7 +145,7 @@ func NewIPv4PrefixValidator(key string) *ValidatorIPv4Prefix {
 	return v
 }
 
-func (v *ValidatorIPv4Prefix) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorIPv4Prefix) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -197,7 +198,7 @@ func (v *ValidatorIntChoices) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorIntChoices) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorIntChoices) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -241,7 +242,7 @@ func (v *ValidatorStringChoices) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorStringChoices) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorStringChoices) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -325,7 +326,7 @@ func (v *ValidatorStringMultiChoices) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorStringMultiChoices) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorStringMultiChoices) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -355,7 +356,7 @@ func (v *ValidatorBool) getValue() interface{} {
 func (v *ValidatorBool) Default(i bool) IValidator {
 	return v.Validator.Default(i)
 }
-func (v *ValidatorBool) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorBool) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -393,7 +394,7 @@ func (v *ValidatorRange) Default(i int64) IValidator {
 	}
 	panic("invalid default for " + v.Key)
 }
-func (v *ValidatorRange) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorRange) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -519,7 +520,7 @@ func (v *ValidatorModelIdOrName) AllowEmpty(b bool) *ValidatorModelIdOrName {
 	return v
 }
 
-func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorModelIdOrName) validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if !data.Contains(v.Key) && data.Contains(v.modelIdKey) {
 		// a hack when validator is used solely for fetching model
 		// object.  This can happen when input json data was validated
@@ -550,7 +551,7 @@ func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 		return newModelManagerError(v.ModelKeyword)
 	}
 	v.ModelManager = modelManager
-	model, err := modelManager.FetchByIdOrName(v, modelIdOrName)
+	model, err := modelManager.FetchByIdOrName(ctx, v, modelIdOrName)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return newModelNotFoundError(v.ModelKeyword, modelIdOrName, err)
@@ -567,8 +568,8 @@ func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 	return nil
 }
 
-func (v *ValidatorModelIdOrName) Validate(data *jsonutils.JSONDict) error {
-	err := v.validate(data)
+func (v *ValidatorModelIdOrName) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
+	err := v.validate(ctx, data)
 	if err != nil {
 		return err
 	}
@@ -587,8 +588,8 @@ func (v *ValidatorModelIdOrName) Validate(data *jsonutils.JSONDict) error {
 	return nil
 }
 
-func (v *ValidatorModelIdOrName) QueryFilter(q *sqlchemy.SQuery, data *jsonutils.JSONDict) (*sqlchemy.SQuery, error) {
-	err := v.validate(data)
+func (v *ValidatorModelIdOrName) QueryFilter(ctx context.Context, q *sqlchemy.SQuery, data *jsonutils.JSONDict) (*sqlchemy.SQuery, error) {
+	err := v.validate(ctx, data)
 	if err != nil {
 		if IsModelNotFoundError(err) {
 			// hack
@@ -620,7 +621,7 @@ func (v *ValidatorRegexp) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorRegexp) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorRegexp) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -697,8 +698,8 @@ func (v *ValidatorHostPort) OptionalPort(optionalPort bool) *ValidatorHostPort {
 	return v
 }
 
-func (v *ValidatorHostPort) Validate(data *jsonutils.JSONDict) error {
-	err := v.ValidatorRegexp.Validate(data)
+func (v *ValidatorHostPort) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
+	err := v.ValidatorRegexp.Validate(ctx, data)
 	if err != nil {
 		return err
 	}
@@ -753,7 +754,7 @@ func (v *ValidatorStruct) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorStruct) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorStruct) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -762,7 +763,7 @@ func (v *ValidatorStruct) Validate(data *jsonutils.JSONDict) error {
 		return newGeneralError(v.Key, err)
 	}
 	if valueValidator, ok := v.Value.(IValidatorBase); ok {
-		err = valueValidator.Validate(data)
+		err = valueValidator.Validate(ctx, data)
 		if err != nil {
 			return newInvalidStructError(v.Key, err)
 		}
@@ -803,7 +804,7 @@ func (v *ValidatorIPv4Addr) setDefault(data *jsonutils.JSONDict) bool {
 	return true
 }
 
-func (v *ValidatorIPv4Addr) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorIPv4Addr) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -827,12 +828,12 @@ func NewIPv4AddrValidator(key string) *ValidatorIPv4Addr {
 	return v
 }
 
-var ValidateModel = func(userCred mcclient.TokenCredential, manager db.IStandaloneModelManager, id *string) (db.IModel, error) {
+var ValidateModel = func(ctx context.Context, userCred mcclient.TokenCredential, manager db.IStandaloneModelManager, id *string) (db.IModel, error) {
 	if len(*id) == 0 {
 		return nil, httperrors.NewMissingParameterError(manager.Keyword() + "_id")
 	}
 
-	model, err := manager.FetchByIdOrName(userCred, *id)
+	model, err := manager.FetchByIdOrName(ctx, userCred, *id)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), *id)

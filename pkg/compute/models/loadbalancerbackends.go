@@ -101,7 +101,7 @@ func (manager *SLoadbalancerBackendManager) FetchOwnerId(ctx context.Context, da
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (man *SLoadbalancerBackendManager) FilterByOwner(q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (man *SLoadbalancerBackendManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		sq := LoadbalancerBackendGroupManager.Query("id")
 		lb := LoadbalancerManager.Query().SubQuery()
@@ -139,7 +139,7 @@ func (man *SLoadbalancerBackendManager) ListItemFilter(
 	}
 
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+	q, err = validators.ApplyModelFilters(ctx, q, data, []*validators.ModelFilterOptions{
 		{Key: "backend", ModelKeyword: "server", OwnerId: userCred}, // NOTE extend this when new backend_type was added
 	})
 	if err != nil {
@@ -250,7 +250,7 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject,
 	input *api.LoadbalancerBackendCreateInput) (*api.LoadbalancerBackendCreateInput, error) {
-	lbbgObj, err := validators.ValidateModel(userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
+	lbbgObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	baseName := ""
 	switch input.BackendType {
 	case api.LB_BACKEND_GUEST:
-		guestObj, err := validators.ValidateModel(userCred, GuestManager, &input.BackendId)
+		guestObj, err := validators.ValidateModel(ctx, userCred, GuestManager, &input.BackendId)
 		if err != nil {
 			return nil, err
 		}
@@ -316,7 +316,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 				host.Name, host.ManagerId, lb.Name, lb.ManagerId)
 		}
 	case api.LB_BACKEND_HOST:
-		hostObj, err := validators.ValidateModel(userCred, HostManager, &input.BackendId)
+		hostObj, err := validators.ValidateModel(ctx, userCred, HostManager, &input.BackendId)
 		if err != nil {
 			return nil, err
 		}

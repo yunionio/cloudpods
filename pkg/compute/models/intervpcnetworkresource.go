@@ -39,7 +39,7 @@ func (manager *SInterVpcNetworkResourceBaseManager) ListItemFilter(
 	query api.InterVpcNetworkFilterListBase,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.InterVpcNetworkId) > 0 {
-		network, err := InterVpcNetworkManager.FetchByIdOrName(userCred, query.InterVpcNetworkId)
+		network, err := InterVpcNetworkManager.FetchByIdOrName(ctx, userCred, query.InterVpcNetworkId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("inter_vpc_network", query.InterVpcNetworkId)

@@ -40,7 +40,7 @@ func (manager *SDnsZoneResourceBaseManager) ListItemFilter(
 	query api.DnsZoneFilterListBase,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.DnsZoneId) > 0 {
-		_, err := validators.ValidateModel(userCred, DnsZoneManager, &query.DnsZoneId)
+		_, err := validators.ValidateModel(ctx, userCred, DnsZoneManager, &query.DnsZoneId)
 		if err != nil {
 			return nil, err
 		}

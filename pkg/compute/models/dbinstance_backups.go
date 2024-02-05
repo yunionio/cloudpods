@@ -208,7 +208,7 @@ func (manager *SDBInstanceBackupManager) ValidateCreateData(ctx context.Context,
 	if len(input.DBInstance) == 0 {
 		return nil, httperrors.NewMissingParameterError("dbinstance")
 	}
-	_instance, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	_instance, err := DBInstanceManager.FetchByIdOrName(ctx, userCred, input.DBInstance)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("failed to found dbinstance %s", input.DBInstance)

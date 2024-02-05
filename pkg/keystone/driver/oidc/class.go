@@ -106,7 +106,7 @@ func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 	if !unique {
 		return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "client_id %s has been registered", conf.ClientId)
 	}
-	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
+	conf.SIdpAttributeOptions, err = utils.ValidateConfig(ctx, conf.SIdpAttributeOptions, userCred)
 	if err != nil {
 		return tconf, errors.Wrap(err, "ValidateConfig")
 	}

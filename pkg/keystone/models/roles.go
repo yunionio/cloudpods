@@ -524,8 +524,8 @@ func (role *SRole) PostCreate(
 	}
 }
 
-func (manager *SRoleManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return db.SharableManagerFilterByOwner(manager, q, userCred, owner, scope)
+func (manager *SRoleManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return db.SharableManagerFilterByOwner(ctx, manager, q, userCred, owner, scope)
 }
 
 func (role *SRole) GetSharableTargetDomainIds() []string {
@@ -556,7 +556,7 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 	normalInputIds := stringutils2.NewSortedStrings(nil)
 	normalInputs := make(map[string]sRolePerformAddPolicyInput, len(input.Policies))
 	for i := range input.Policies {
-		normalInput, err := role.normalizeRoleAddPolicyInput(userCred, input.Policies[i])
+		normalInput, err := role.normalizeRoleAddPolicyInput(ctx, userCred, input.Policies[i])
 		if err != nil {
 			return nil, errors.Wrapf(err, "normalizeRoleAddPolicyInput at %d", i)
 		}
@@ -648,7 +648,7 @@ func (s sRolePerformAddPolicyInput) getId() string {
 	return fmt.Sprintf("%s:%s:%s", s.roleId, s.projectId, s.policyId)
 }
 
-func (role *SRole) normalizeRoleAddPolicyInput(userCred mcclient.TokenCredential, input api.RolePerformAddPolicyInput) (sRolePerformAddPolicyInput, error) {
+func (role *SRole) normalizeRoleAddPolicyInput(ctx context.Context, userCred mcclient.TokenCredential, input api.RolePerformAddPolicyInput) (sRolePerformAddPolicyInput, error) {
 	output := sRolePerformAddPolicyInput{}
 	prefList := make([]netutils.IPV4Prefix, 0)
 	for _, ipStr := range input.Ips {
@@ -659,7 +659,7 @@ func (role *SRole) normalizeRoleAddPolicyInput(userCred mcclient.TokenCredential
 		prefList = append(prefList, pref)
 	}
 	if len(input.ProjectId) > 0 {
-		proj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectId)
+		proj, err := ProjectManager.FetchByIdOrName(ctx, userCred, input.ProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return output, errors.Wrapf(httperrors.ErrNotFound, "%s %s", ProjectManager.Keyword(), input.ProjectId)
@@ -672,7 +672,7 @@ func (role *SRole) normalizeRoleAddPolicyInput(userCred mcclient.TokenCredential
 	if len(input.PolicyId) == 0 {
 		return output, errors.Wrap(httperrors.ErrInputParameter, "missing policy_id")
 	}
-	policy, err := PolicyManager.FetchByIdOrName(userCred, input.PolicyId)
+	policy, err := PolicyManager.FetchByIdOrName(ctx, userCred, input.PolicyId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return output, errors.Wrapf(httperrors.ErrNotFound, "%s %s", PolicyManager.Keyword(), input.PolicyId)
@@ -689,7 +689,7 @@ func (role *SRole) normalizeRoleAddPolicyInput(userCred mcclient.TokenCredential
 }
 
 func (role *SRole) PerformAddPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformAddPolicyInput) (jsonutils.JSONObject, error) {
-	normalInput, err := role.normalizeRoleAddPolicyInput(userCred, input)
+	normalInput, err := role.normalizeRoleAddPolicyInput(ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "normalizeRoleAddPolicyInput")
 	}
@@ -721,7 +721,7 @@ func (role *SRole) PerformAddPolicy(ctx context.Context, userCred mcclient.Token
 
 func (role *SRole) PerformRemovePolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformRemovePolicyInput) (jsonutils.JSONObject, error) {
 	if len(input.ProjectId) > 0 {
-		proj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectId)
+		proj, err := ProjectManager.FetchByIdOrName(ctx, userCred, input.ProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", ProjectManager.Keyword(), input.ProjectId)
@@ -734,7 +734,7 @@ func (role *SRole) PerformRemovePolicy(ctx context.Context, userCred mcclient.To
 	if len(input.PolicyId) == 0 {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing policy_id")
 	}
-	policy, err := PolicyManager.FetchByIdOrName(userCred, input.PolicyId)
+	policy, err := PolicyManager.FetchByIdOrName(ctx, userCred, input.PolicyId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", PolicyManager.Keyword(), input.PolicyId)

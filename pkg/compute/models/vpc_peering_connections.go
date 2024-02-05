@@ -95,7 +95,7 @@ func (manager *SVpcPeeringConnectionManager) ListItemFilter(
 	}
 
 	if len(query.PeerVpcId) > 0 {
-		peerVpc, err := VpcManager.FetchByIdOrName(userCred, query.PeerVpcId)
+		peerVpc, err := VpcManager.FetchByIdOrName(ctx, userCred, query.PeerVpcId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("peer_vpc_id", query.PeerVpcId)
@@ -125,7 +125,7 @@ func (manager *SVpcPeeringConnectionManager) ValidateCreateData(
 	}
 
 	// get vpc ,peerVpc
-	_vpc, err := VpcManager.FetchByIdOrName(userCred, input.VpcId)
+	_vpc, err := VpcManager.FetchByIdOrName(ctx, userCred, input.VpcId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return input, httperrors.NewResourceNotFoundError2("vpc", input.VpcId)
@@ -134,7 +134,7 @@ func (manager *SVpcPeeringConnectionManager) ValidateCreateData(
 	}
 	vpc := _vpc.(*SVpc)
 
-	_peerVpc, err := VpcManager.FetchByIdOrName(userCred, input.PeerVpcId)
+	_peerVpc, err := VpcManager.FetchByIdOrName(ctx, userCred, input.PeerVpcId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return input, httperrors.NewResourceNotFoundError2("Peervpc", input.PeerVpcId)

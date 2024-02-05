@@ -549,7 +549,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 
 	var imageId string
 
-	imgObj, err := CachedimageManager.FetchByIdOrName(nil, imageStr)
+	imgObj, err := CachedimageManager.FetchByIdOrName(ctx, nil, imageStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), imageStr)

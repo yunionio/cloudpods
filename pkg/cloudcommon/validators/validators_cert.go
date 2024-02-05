@@ -85,7 +85,7 @@ func (v *ValidatorPEM) setDefault(data *jsonutils.JSONDict) bool {
 	return false
 }
 
-func (v *ValidatorPEM) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorPEM) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -170,7 +170,7 @@ func (v *ValidatorCertificate) setCertificates(certs []*x509.Certificate, data *
 	v.Certificates = certs
 }
 
-func (v *ValidatorCertificate) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorCertificate) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -341,7 +341,7 @@ func (v *ValidatorPrivateKey) setPrivateKey(pkey crypto.PrivateKey, data *jsonut
 	v.PrivateKey = pkey
 }
 
-func (v *ValidatorPrivateKey) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorPrivateKey) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
@@ -392,13 +392,13 @@ func NewCertKeyValidator(cert, key string) *ValidatorCertKey {
 	}
 }
 
-func (v *ValidatorCertKey) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorCertKey) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	keyV := map[string]IValidator{
 		"certificate": v.ValidatorCertificate,
 		"private_key": v.ValidatorPrivateKey,
 	}
 	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return err
 		}
 	}

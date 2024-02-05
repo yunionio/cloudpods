@@ -71,7 +71,7 @@ func (manager *SCloudpolicycacheManager) ListItemFilter(ctx context.Context, q *
 		return nil, err
 	}
 	if len(query.CloudpolicyId) > 0 {
-		policy, err := CloudpolicyManager.FetchByIdOrName(nil, query.CloudpolicyId)
+		policy, err := CloudpolicyManager.FetchByIdOrName(ctx, nil, query.CloudpolicyId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("cloudpolicy", query.CloudpolicyId)
@@ -81,7 +81,7 @@ func (manager *SCloudpolicycacheManager) ListItemFilter(ctx context.Context, q *
 		q = q.Equals("cloudpolicy_id", policy.GetId())
 	}
 	if len(query.CloudaccountId) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, query.CloudaccountId)
+		account, err := CloudaccountManager.FetchByIdOrName(ctx, nil, query.CloudaccountId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("cloudaccount", query.CloudaccountId)

@@ -39,8 +39,8 @@ type SZoneResourceBaseManager struct {
 	SCloudregionResourceBaseManager
 }
 
-func ValidateZoneResourceInput(userCred mcclient.TokenCredential, query api.ZoneResourceInput) (*SZone, api.ZoneResourceInput, error) {
-	zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.ZoneId)
+func ValidateZoneResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.ZoneResourceInput) (*SZone, api.ZoneResourceInput, error) {
+	zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, query.ZoneId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.ZoneId)
@@ -117,7 +117,7 @@ func (manager *SZoneResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.ZonalFilterListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := managedResourceFilterByZone(q, query, "", nil)
+	q, err := managedResourceFilterByZone(ctx, q, query, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}

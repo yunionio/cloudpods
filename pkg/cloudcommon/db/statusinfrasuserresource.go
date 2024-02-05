@@ -60,7 +60,7 @@ func (manager *SStatusDomainLevelUserResourceBaseManager) ValidateCreateData(ctx
 	return input, nil
 }
 
-func (manager *SStatusDomainLevelUserResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SStatusDomainLevelUserResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject, rbacscope.ScopeUser:

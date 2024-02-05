@@ -235,7 +235,7 @@ func (dm *SDiskBackupManager) ValidateCreateData(
 		return input, httperrors.NewMissingParameterError("backup_storage_id")
 	}
 	// check disk
-	_disk, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
+	_disk, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.DiskId)
 	if err != nil {
 		return input, err
 	}
@@ -251,7 +251,7 @@ func (dm *SDiskBackupManager) ValidateCreateData(
 		}
 	}
 
-	ibs, err := BackupStorageManager.FetchByIdOrName(userCred, input.BackupStorageId)
+	ibs, err := BackupStorageManager.FetchByIdOrName(ctx, userCred, input.BackupStorageId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return input, httperrors.NewResourceNotFoundError2(BackupStorageManager.Keyword(), input.BackupStorageId)

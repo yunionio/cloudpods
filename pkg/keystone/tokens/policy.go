@@ -32,7 +32,7 @@ import (
 
 func fetchTokenPolicies(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	token := policy.FetchUserCredential(ctx)
-	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByCred(token, time.Now(), false)
+	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByCred(ctx, token, time.Now(), false)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -71,7 +71,7 @@ func doCheckPolicies(ctx context.Context, input mcclient.SCheckPoliciesInput) (*
 	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminToken, api.SERVICE_TYPE, "tokens", "perform", "check_policies").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to check policies", adminToken.GetUserName())
 	}
-	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByInput(input.UserId, input.ProjectId, time.Now(), false)
+	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByInput(ctx, input.UserId, input.ProjectId, time.Now(), false)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMatchPolicyGroupByInput")
 	}

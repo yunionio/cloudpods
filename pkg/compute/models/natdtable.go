@@ -152,7 +152,7 @@ func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("invalid internal ip address: %s", input.InternalIp)
 	}
 
-	_eip, err := validators.ValidateModel(userCred, ElasticipManager, &input.Eip)
+	_eip, err := validators.ValidateModel(ctx, userCred, ElasticipManager, &input.Eip)
 	if err != nil {
 		return nil, err
 	}

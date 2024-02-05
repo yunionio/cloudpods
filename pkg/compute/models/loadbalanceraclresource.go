@@ -87,7 +87,7 @@ func (manager *SLoadbalancerAclResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerAclFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.AclId) > 0 {
-		_, err := validators.ValidateModel(userCred, LoadbalancerAclManager, &query.AclId)
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerAclManager, &query.AclId)
 		if err != nil {
 			return nil, err
 		}

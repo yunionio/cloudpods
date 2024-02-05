@@ -33,7 +33,7 @@ type SMonitorScopedResource struct {
 	db.SScopedResourceBase
 }
 
-func (m *SMonitorScopedResourceManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (m *SMonitorScopedResourceManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId == nil {
 		return q
 	}

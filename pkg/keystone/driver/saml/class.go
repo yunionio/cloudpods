@@ -117,7 +117,7 @@ func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 			return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "entity_id %s has been registered", conf.EntityId)
 		}
 	}
-	conf.SIdpAttributeOptions, err = utils.ValidateConfig(conf.SIdpAttributeOptions, userCred)
+	conf.SIdpAttributeOptions, err = utils.ValidateConfig(ctx, conf.SIdpAttributeOptions, userCred)
 	if err != nil {
 		return tconf, errors.Wrap(err, "ValidateConfig")
 	}

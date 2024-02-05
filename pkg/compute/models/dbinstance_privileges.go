@@ -129,7 +129,7 @@ func (manager *SDBInstancePrivilegeManager) ListItemFilter(
 	}
 
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+	return validators.ApplyModelFilters(ctx, q, data, []*validators.ModelFilterOptions{
 		{Key: "dbinstanceaccount", ModelKeyword: "dbinstanceaccount", OwnerId: userCred},
 		{Key: "dbinstancedatabase", ModelKeyword: "dbinstancedatabase", OwnerId: userCred},
 	})

@@ -96,7 +96,7 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 	// check robot
 	robots := []string{}
 	for i := range input.Robots {
-		_robot, err := validators.ValidateModel(userCred, RobotManager, &input.Robots[i])
+		_robot, err := validators.ValidateModel(ctx, userCred, RobotManager, &input.Robots[i])
 		if err != nil && !input.IgnoreNonexistentReceiver {
 			return input, err
 		}
@@ -713,7 +713,7 @@ func (nm *SNotificationManager) FetchOwnerId(ctx context.Context, data jsonutils
 	return db.FetchUserInfo(ctx, data)
 }
 
-func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (nm *SNotificationManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner == nil {
 		return q
 	}

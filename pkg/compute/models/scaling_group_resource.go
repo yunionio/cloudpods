@@ -88,7 +88,7 @@ func (manager *SScalingGroupResourceBaseManager) ListItemFilter(
 	query api.ScalingGroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.ScalingGroup) > 0 {
-		scalingGroupObj, err := ScalingGroupManager.FetchByIdOrName(userCred, query.ScalingGroup)
+		scalingGroupObj, err := ScalingGroupManager.FetchByIdOrName(ctx, userCred, query.ScalingGroup)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(ScalingGroupManager.Keyword(), query.ScalingGroup)

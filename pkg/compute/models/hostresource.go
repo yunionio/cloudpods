@@ -41,8 +41,8 @@ type SHostResourceBaseManager struct {
 	hostIdFieldName string
 }
 
-func ValidateHostResourceInput(userCred mcclient.TokenCredential, input api.HostResourceInput) (*SHost, api.HostResourceInput, error) {
-	hostObj, err := HostManager.FetchByIdOrName(userCred, input.HostId)
+func ValidateHostResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.HostResourceInput) (*SHost, api.HostResourceInput, error) {
+	hostObj, err := HostManager.FetchByIdOrName(ctx, userCred, input.HostId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", HostManager.Keyword(), input.HostId)
@@ -135,7 +135,7 @@ func (manager *SHostResourceBaseManager) ListItemFilter(
 	query api.HostFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.HostId) > 0 {
-		hostObj, _, err := ValidateHostResourceInput(userCred, query.HostResourceInput)
+		hostObj, _, err := ValidateHostResourceInput(ctx, userCred, query.HostResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateHostResourceInput")
 		}
@@ -146,7 +146,7 @@ func (manager *SHostResourceBaseManager) ListItemFilter(
 		q = q.In(manager.getHostIdFieldName(), sq)
 	}
 	if len(query.HostWireId) > 0 {
-		wireObj, err := WireManager.FetchByIdOrName(userCred, query.HostWireId)
+		wireObj, err := WireManager.FetchByIdOrName(ctx, userCred, query.HostWireId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), query.HostWireId)

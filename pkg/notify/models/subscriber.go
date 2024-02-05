@@ -207,7 +207,7 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 		input.Role = roleCache.GetId()
 		checkQuery = sm.Query().Equals("topic_id", input.TopicID).Equals("type", api.SUBSCRIBER_TYPE_ROLE).Equals("resource_scope", input.ResourceScope).Equals("identification", input.Role).Equals("role_scope", input.RoleScope)
 	case api.SUBSCRIBER_TYPE_ROBOT:
-		robot, err := RobotManager.FetchByIdOrName(userCred, input.Robot)
+		robot, err := RobotManager.FetchByIdOrName(ctx, userCred, input.Robot)
 		if errors.Cause(err) == sql.ErrNoRows {
 			return input, httperrors.NewInputParameterError("robot %q not found", input.Robot)
 		}

@@ -205,8 +205,8 @@ func (manager *SElasticcacheAccountManager) FetchOwnerId(ctx context.Context, da
 	return elasticcacheSubResourceFetchOwnerId(ctx, data)
 }
 
-func (manager *SElasticcacheAccountManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return elasticcacheSubResourceFetchOwner(q, ownerId, scope)
+func (manager *SElasticcacheAccountManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return elasticcacheSubResourceFetchOwner(ctx, q, ownerId, scope)
 }
 
 func (manager *SElasticcacheAccountManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
@@ -220,7 +220,7 @@ func (manager *SElasticcacheAccountManager) FilterByUniqValues(q *sqlchemy.SQuer
 func (manager *SElasticcacheAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
 	if id, _ := data.GetString("elasticcache"); len(id) > 0 {
-		ec, err := db.FetchByIdOrName(ElasticcacheManager, userCred, id)
+		ec, err := db.FetchByIdOrName(ctx, ElasticcacheManager, userCred, id)
 		if err != nil {
 			return nil, fmt.Errorf("getting elastic cache instance failed")
 		}
@@ -475,7 +475,7 @@ func (self *SElasticcacheAccount) ValidatorResetPasswordData(ctx context.Context
 	}
 
 	privilegeV := validators.NewStringChoicesValidator("account_privilege", choices.NewChoices(api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_READ, api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_WRITE, api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_REPL)).Optional(true)
-	if err := privilegeV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+	if err := privilegeV.Validate(ctx, data.(*jsonutils.JSONDict)); err != nil {
 		return nil, err
 	}
 	return data, nil

@@ -320,7 +320,7 @@ func (drv *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Contex
 	}
 	var vpc *models.SVpc = nil
 	for _, network := range input.Networks {
-		netObj, err := validators.ValidateModel(userCred, models.NetworkManager, &network.Network)
+		netObj, err := validators.ValidateModel(ctx, userCred, models.NetworkManager, &network.Network)
 		if err == nil {
 			net := netObj.(*models.SNetwork)
 			vpc, err = net.GetVpc()
@@ -336,7 +336,7 @@ func (drv *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Contex
 		if gotypes.IsNil(vpc) {
 			return nil, httperrors.NewMissingParameterError("nets")
 		}
-		secObj, err := validators.ValidateModel(userCred, models.SecurityGroupManager, &input.Secgroups[i])
+		secObj, err := validators.ValidateModel(ctx, userCred, models.SecurityGroupManager, &input.Secgroups[i])
 		if err != nil {
 			return nil, err
 		}

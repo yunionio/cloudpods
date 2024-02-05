@@ -58,7 +58,7 @@ func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, u
 	if len(input.NetworkId) == 0 {
 		return httperrors.NewMissingParameterError("network_id")
 	}
-	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.NetworkId)
+	_network, err := models.NetworkManager.FetchByIdOrName(ctx, userCred, input.NetworkId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return httperrors.NewResourceNotFoundError2("network", input.NetworkId)

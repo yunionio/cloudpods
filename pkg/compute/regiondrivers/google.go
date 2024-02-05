@@ -200,14 +200,14 @@ func (self *SGoogleRegionDriver) RequestCreateDBInstanceBackup(ctx context.Conte
 
 func (self *SGoogleRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
 	var cidrV = validators.NewIPv4PrefixValidator("cidr_block")
-	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+	if err := cidrV.Validate(ctx, jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
 		return input, err
 	}
 	if cidrV.Value.MaskLen < 8 || cidrV.Value.MaskLen > 29 {
 		return input, httperrors.NewInputParameterError("%s request the mask range should be between 8 and 29", self.GetProvider())
 	}
 	if len(input.GlobalvpcId) == 0 {
-		_manager, err := validators.ValidateModel(userCred, models.CloudproviderManager, &input.CloudproviderId)
+		_manager, err := validators.ValidateModel(ctx, userCred, models.CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
 			return input, err
 		}
@@ -221,7 +221,7 @@ func (self *SGoogleRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 		}
 		input.GlobalvpcId = globalVpcs[0].Id
 	}
-	_, err := validators.ValidateModel(userCred, models.GlobalVpcManager, &input.GlobalvpcId)
+	_, err := validators.ValidateModel(ctx, userCred, models.GlobalVpcManager, &input.GlobalvpcId)
 	if err != nil {
 		return input, err
 	}
