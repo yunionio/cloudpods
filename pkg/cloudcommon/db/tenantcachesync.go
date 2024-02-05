@@ -35,7 +35,6 @@ var (
 )
 
 func StartTenantCacheSync(ctx context.Context, intvalSeconds int) {
-
 	go runTenantCacheSync(ctx, intvalSeconds)
 }
 
@@ -79,6 +78,7 @@ func syncDomains(ctx context.Context) error {
 	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
 	query.Add(jsonutils.NewString("all"), "pending_delete")
+	query.Add(jsonutils.NewString("all"), "delete")
 	total := -1
 	offset := 0
 	for total < 0 || offset < total {
@@ -91,11 +91,17 @@ func syncDomains(ctx context.Context) error {
 		for i := range results.Data {
 			// update domain cache
 			item := SCachedTenant{}
+			deleted := jsonutils.QueryBoolean(results.Data[i], "deleted", false)
 			err := results.Data[i].Unmarshal(&item)
-			if err == nil {
+			if err == nil && !deleted {
 				item.ProjectDomain = identityapi.KeystoneDomainRoot
 				item.DomainId = identityapi.KeystoneDomainRoot
 				TenantCacheManager.Save(ctx, item, true)
+			} else if deleted {
+				tenantObj, _ := TenantCacheManager.FetchById(item.Id)
+				if tenantObj != nil {
+					tenantObj.Delete(ctx, nil)
+				}
 			}
 			offset++
 		}
@@ -110,6 +116,7 @@ func syncProjects(ctx context.Context) error {
 	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
 	query.Add(jsonutils.NewString("all"), "pending_delete")
+	query.Add(jsonutils.NewString("all"), "delete")
 	total := -1
 	offset := 0
 	for total < 0 || offset < total {
@@ -122,9 +129,15 @@ func syncProjects(ctx context.Context) error {
 		for i := range results.Data {
 			// update project cache
 			item := SCachedTenant{}
+			deleted := jsonutils.QueryBoolean(results.Data[i], "deleted", false)
 			err := results.Data[i].Unmarshal(&item)
-			if err == nil {
+			if err == nil && !deleted {
 				TenantCacheManager.Save(ctx, item, true)
+			} else if deleted {
+				tenantObj, _ := TenantCacheManager.FetchById(item.Id)
+				if tenantObj != nil {
+					tenantObj.Delete(ctx, nil)
+				}
 			}
 			offset++
 		}
@@ -139,6 +152,7 @@ func syncUsers(ctx context.Context) error {
 	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
 	query.Add(jsonutils.NewString("all"), "pending_delete")
+	query.Add(jsonutils.NewString("all"), "delete")
 	total := -1
 	offset := 0
 	for total < 0 || offset < total {
@@ -151,9 +165,15 @@ func syncUsers(ctx context.Context) error {
 		for i := range results.Data {
 			// update user cache
 			item := SCachedUser{}
+			deleted := jsonutils.QueryBoolean(results.Data[i], "deleted", false)
 			err := results.Data[i].Unmarshal(&item)
-			if err == nil {
+			if err == nil && !deleted {
 				UserCacheManager.Save(ctx, item.Id, item.Name, item.DomainId, item.ProjectDomain, item.Lang)
+			} else if deleted {
+				usrObj, _ := UserCacheManager.FetchById(item.Id)
+				if usrObj != nil {
+					usrObj.Delete(ctx, nil)
+				}
 			}
 			offset++
 		}
