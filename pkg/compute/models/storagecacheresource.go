@@ -40,8 +40,8 @@ type SStoragecacheResourceBaseManager struct {
 	SManagedResourceBaseManager
 }
 
-func ValidateStoragecacheResourceInput(userCred mcclient.TokenCredential, query api.StoragecacheResourceInput) (*SStoragecache, api.StoragecacheResourceInput, error) {
-	scObj, err := StoragecacheManager.FetchByIdOrName(userCred, query.StoragecacheId)
+func ValidateStoragecacheResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.StoragecacheResourceInput) (*SStoragecache, api.StoragecacheResourceInput, error) {
+	scObj, err := StoragecacheManager.FetchByIdOrName(ctx, userCred, query.StoragecacheId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", StorageManager.Keyword(), query.StoragecacheId)
@@ -114,7 +114,7 @@ func (manager *SStoragecacheResourceBaseManager) ListItemFilter(
 	query api.StoragecacheFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.StoragecacheId) > 0 {
-		scObj, _, err := ValidateStoragecacheResourceInput(userCred, query.StoragecacheResourceInput)
+		scObj, _, err := ValidateStoragecacheResourceInput(ctx, userCred, query.StoragecacheResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateStoragecacheResourceInput")
 		}

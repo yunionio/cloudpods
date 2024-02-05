@@ -195,7 +195,7 @@ func (manager *SSnapshotManager) ListItemFilter(
 		q = q.In("os_type", query.OsType)
 	}
 	if len(query.ServerId) > 0 {
-		iG, err := GuestManager.FetchByIdOrName(userCred, query.ServerId)
+		iG, err := GuestManager.FetchByIdOrName(ctx, userCred, query.ServerId)
 		if err != nil && err == sql.ErrNoRows {
 			return nil, httperrors.NewNotFoundError("guest %s not found", query.ServerId)
 		} else if err != nil {
@@ -430,7 +430,7 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	if len(input.DiskId) == 0 {
 		return input, httperrors.NewMissingParameterError("disk_id")
 	}
-	_disk, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
+	_disk, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.DiskId)
 	if err != nil {
 		return input, err
 	}
@@ -939,7 +939,7 @@ func (self *SSnapshotManager) DeleteDiskSnapshots(ctx context.Context, userCred 
 	return nil
 }
 
-func TotalSnapshotCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (int, error) {
+func TotalSnapshotCount(ctx context.Context, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (int, error) {
 	q := SnapshotManager.Query()
 
 	switch scope {
@@ -950,7 +950,7 @@ func TotalSnapshotCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityPr
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 
-	q = db.ObjectIdQueryWithPolicyResult(q, SnapshotManager, policyResult)
+	q = db.ObjectIdQueryWithPolicyResult(ctx, q, SnapshotManager, policyResult)
 
 	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)

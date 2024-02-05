@@ -112,9 +112,9 @@ func (manager *SSecurityGroupRuleManager) FetchOwnerId(ctx context.Context, data
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SSecurityGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SSecurityGroupRuleManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	sq := SecurityGroupManager.Query("id")
-	sq = db.SharableManagerFilterByOwner(SecurityGroupManager, sq, userCred, ownerId, scope)
+	sq = db.SharableManagerFilterByOwner(ctx, SecurityGroupManager, sq, userCred, ownerId, scope)
 	return q.In("secgroup_id", sq.SubQuery())
 }
 
@@ -266,7 +266,7 @@ func (self *SSecurityGroupRule) BeforeInsert() {
 }
 
 func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
-	_secgroup, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupId)
+	_secgroup, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &input.SecgroupId)
 	if err != nil {
 		return input, err
 	}

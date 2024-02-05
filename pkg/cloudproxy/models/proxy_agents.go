@@ -58,7 +58,7 @@ func (man *SProxyAgentManager) ValidateCreateData(ctx context.Context, userCred 
 		validators.NewIPv4AddrValidator("advertise_addr").Optional(true),
 	}
 	for _, v := range vs {
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}
@@ -72,7 +72,7 @@ func (proxyagent *SProxyAgent) ValidateUpdateData(ctx context.Context, userCred 
 	}
 	for _, v := range vs {
 		v.Optional(true)
-		if err := v.Validate(data); err != nil {
+		if err := v.Validate(ctx, data); err != nil {
 			return nil, err
 		}
 	}

@@ -391,7 +391,7 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 	return nil
 }
 
-func validatorSlaveZones(ownerId mcclient.IIdentityProvider, regionId string, data *jsonutils.JSONDict, optional bool) error {
+func validatorSlaveZones(ctx context.Context, ownerId mcclient.IIdentityProvider, regionId string, data *jsonutils.JSONDict, optional bool) error {
 	s, err := data.GetString("slave_zones")
 	if err != nil {
 		if optional {
@@ -407,7 +407,7 @@ func validatorSlaveZones(ownerId mcclient.IIdentityProvider, regionId string, da
 	for i := range zones {
 		_data := jsonutils.NewDict()
 		_data.Set("zone", jsonutils.NewString(zones[i]))
-		if err := zoneV.Validate(_data); err != nil {
+		if err := zoneV.Validate(ctx, _data); err != nil {
 			return errors.Wrap(err, "validatorSlaveZones")
 		} else {
 			if zoneV.Model.(*models.SZone).GetCloudRegionId() != regionId {
@@ -553,7 +553,7 @@ func (self *SHuaWeiRegionDriver) IsSupportedElasticcacheAutoRenew() bool {
 
 func (self *SHuaWeiRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
 	var cidrV = validators.NewIPv4PrefixValidator("cidr_block")
-	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+	if err := cidrV.Validate(ctx, jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
 		return input, err
 	}
 

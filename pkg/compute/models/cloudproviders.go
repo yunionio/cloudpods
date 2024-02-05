@@ -557,9 +557,9 @@ func (sr *SSyncRange) NeedSyncInfo() bool {
 	return false
 }
 
-func (sr *SSyncRange) normalizeRegionIds() error {
+func (sr *SSyncRange) normalizeRegionIds(ctx context.Context) error {
 	for i := 0; i < len(sr.Region); i += 1 {
-		obj, err := CloudregionManager.FetchByIdOrName(nil, sr.Region[i])
+		obj, err := CloudregionManager.FetchByIdOrName(ctx, nil, sr.Region[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError("Region %s not found", sr.Region[i])
@@ -572,9 +572,9 @@ func (sr *SSyncRange) normalizeRegionIds() error {
 	return nil
 }
 
-func (sr *SSyncRange) normalizeZoneIds() error {
+func (sr *SSyncRange) normalizeZoneIds(ctx context.Context) error {
 	for i := 0; i < len(sr.Zone); i += 1 {
-		obj, err := ZoneManager.FetchByIdOrName(nil, sr.Zone[i])
+		obj, err := ZoneManager.FetchByIdOrName(ctx, nil, sr.Zone[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError("Zone %s not found", sr.Zone[i])
@@ -595,9 +595,9 @@ func (sr *SSyncRange) normalizeZoneIds() error {
 	return nil
 }
 
-func (sr *SSyncRange) normalizeHostIds() error {
+func (sr *SSyncRange) normalizeHostIds(ctx context.Context) error {
 	for i := 0; i < len(sr.Host); i += 1 {
-		obj, err := HostManager.FetchByIdOrName(nil, sr.Host[i])
+		obj, err := HostManager.FetchByIdOrName(ctx, nil, sr.Host[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError("Host %s not found", sr.Host[i])
@@ -625,9 +625,9 @@ func (sr *SSyncRange) normalizeHostIds() error {
 	return nil
 }
 
-func (sr *SSyncRange) Normalize() error {
+func (sr *SSyncRange) Normalize(ctx context.Context) error {
 	if sr.Region != nil && len(sr.Region) > 0 {
-		err := sr.normalizeRegionIds()
+		err := sr.normalizeRegionIds(ctx)
 		if err != nil {
 			return err
 		}
@@ -635,7 +635,7 @@ func (sr *SSyncRange) Normalize() error {
 		sr.Region = make([]string, 0)
 	}
 	if sr.Zone != nil && len(sr.Zone) > 0 {
-		err := sr.normalizeZoneIds()
+		err := sr.normalizeZoneIds(ctx)
 		if err != nil {
 			return err
 		}
@@ -643,7 +643,7 @@ func (sr *SSyncRange) Normalize() error {
 		sr.Zone = make([]string, 0)
 	}
 	if sr.Host != nil && len(sr.Host) > 0 {
-		err := sr.normalizeHostIds()
+		err := sr.normalizeHostIds(ctx)
 		if err != nil {
 			return err
 		}
@@ -971,8 +971,8 @@ func (manager *SCloudproviderManager) IsProviderAccountEnabled(providerId string
 	return account.GetEnabled()
 }
 
-func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId string) *SCloudprovider {
-	providerObj, err := manager.FetchByIdOrName(nil, providerId)
+func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(ctx context.Context, providerId string) *SCloudprovider {
+	providerObj, err := manager.FetchByIdOrName(ctx, nil, providerId)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Errorf("%s", err)
@@ -1275,7 +1275,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	var region *SCloudregion
 
 	if len(query.ZoneId) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.ZoneId)
+		zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, query.ZoneId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.ZoneId)
@@ -1288,7 +1288,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		sq := pr.Query(pr.Field("cloudprovider_id")).Equals("cloudregion_id", zone.CloudregionId).Distinct()
 		q = q.In("id", sq)
 	} else if len(query.CloudregionId) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, query.CloudregionId)
+		regionObj, err := CloudregionManager.FetchByIdOrName(ctx, userCred, query.CloudregionId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("cloudregion", query.CloudregionId)
@@ -1352,7 +1352,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		if len(managerStr) == 0 {
 			continue
 		}
-		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
+		providerObj, err := manager.FetchByIdOrName(ctx, userCred, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
@@ -1407,7 +1407,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	}
 
 	if len(query.HostSchedtagId) > 0 {
-		schedTagObj, err := SchedtagManager.FetchByIdOrName(userCred, query.HostSchedtagId)
+		schedTagObj, err := SchedtagManager.FetchByIdOrName(ctx, userCred, query.HostSchedtagId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SchedtagManager.Keyword(), query.HostSchedtagId)
@@ -1769,7 +1769,7 @@ func (manager *SCloudproviderManager) filterByDomainId(q *sqlchemy.SQuery, domai
 	return q
 }
 
-func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCloudproviderManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
@@ -1863,7 +1863,7 @@ func (provider *SCloudprovider) GetDetailsStorageClasses(
 		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
 	}
 	if len(input.CloudregionId) > 0 {
-		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
+		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(ctx, userCred, input.CloudregionResourceInput)
 		if err != nil {
 			return output, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
@@ -1888,7 +1888,7 @@ func (provider *SCloudprovider) GetDetailsCannedAcls(
 		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
 	}
 	if len(input.CloudregionId) > 0 {
-		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
+		_, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(ctx, userCred, input.CloudregionResourceInput)
 		if err != nil {
 			return output, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
@@ -2147,7 +2147,7 @@ func (manager *SCloudproviderManager) ListItemExportKeys(ctx context.Context, q 
 // 绑定同步策略
 func (cprvd *SCloudprovider) PerformProjectMapping(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountProjectMappingInput) (jsonutils.JSONObject, error) {
 	if len(input.ProjectMappingId) > 0 {
-		_, err := validators.ValidateModel(userCred, ProjectMappingManager, &input.ProjectMappingId)
+		_, err := validators.ValidateModel(ctx, userCred, ProjectMappingManager, &input.ProjectMappingId)
 		if err != nil {
 			return nil, err
 		}
@@ -2174,7 +2174,7 @@ func (cprvd *SCloudprovider) PerformProjectMapping(ctx context.Context, userCred
 func (cprvd *SCloudprovider) PerformSetSyncing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudproviderSync) (jsonutils.JSONObject, error) {
 	regionIds := []string{}
 	for i := range input.CloudregionIds {
-		_, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionIds[i])
+		_, err := validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionIds[i])
 		if err != nil {
 			return nil, err
 		}

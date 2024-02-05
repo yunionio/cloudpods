@@ -70,19 +70,22 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 		}
 	}
 
-	model, err := fetchItem(dispatcher.JointModelManager().GetMasterManager(), ctx, userCred, idStr, query)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query).(IJointModelManager)
+	ctx = manager.PrepareQueryContext(ctx, userCred, query)
+
+	model, err := fetchItem(manager.GetMasterManager(), ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.GetMasterManager().Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
-	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Keyword()))
-	queryDict.Add(jsonutils.NewString(model.GetId()), dispatcher.JointModelManager().GetMasterFieldName())
-	if len(dispatcher.JointModelManager().GetMasterManager().Alias()) > 0 {
-		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetMasterManager().Alias()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", manager.GetMasterManager().Keyword()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), manager.GetMasterFieldName())
+	if len(manager.GetMasterManager().Alias()) > 0 {
+		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", manager.GetMasterManager().Alias()))
 	}
 
-	return dispatcher._listJoint(ctx, userCred, model.(IStandaloneModel), queryDict)
+	return _listJoint(manager, ctx, userCred, model.(IStandaloneModel), queryDict)
 }
 
 func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*printutils.ListResult, error) {
@@ -97,23 +100,26 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 		}
 	}
 
-	model, err := fetchItem(dispatcher.JointModelManager().GetSlaveManager(), ctx, userCred, idStr, query)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query).(IJointModelManager)
+	ctx = manager.PrepareQueryContext(ctx, userCred, query)
+
+	model, err := fetchItem(manager.GetSlaveManager(), ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetSlaveManager().Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.GetSlaveManager().Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
-	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Keyword()))
-	queryDict.Add(jsonutils.NewString(model.GetId()), dispatcher.JointModelManager().GetSlaveFieldName())
-	if len(dispatcher.JointModelManager().GetSlaveManager().Alias()) > 0 {
-		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", dispatcher.JointModelManager().GetSlaveManager().Alias()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", manager.GetSlaveManager().Keyword()))
+	queryDict.Add(jsonutils.NewString(model.GetId()), manager.GetSlaveFieldName())
+	if len(manager.GetSlaveManager().Alias()) > 0 {
+		queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", manager.GetSlaveManager().Alias()))
 	}
 
-	return dispatcher._listJoint(ctx, userCred, model.(IStandaloneModel), queryDict)
+	return _listJoint(manager, ctx, userCred, model.(IStandaloneModel), queryDict)
 }
 
-func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCred mcclient.TokenCredential, ctxModel IStandaloneModel, queryDict jsonutils.JSONObject) (*printutils.ListResult, error) {
-	items, err := ListItems(dispatcher.JointModelManager(), ctx, userCred, queryDict, nil)
+func _listJoint(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ctxModel IStandaloneModel, queryDict jsonutils.JSONObject) (*printutils.ListResult, error) {
+	items, err := ListItems(manager, ctx, userCred, queryDict, nil)
 	if err != nil {
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -121,16 +127,16 @@ func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCr
 	return items, nil
 }
 
-func fetchJointItem(dispatcher *DBJointModelDispatcher, ctx context.Context, userCred mcclient.TokenCredential, id1 string, id2 string, query jsonutils.JSONObject) (IStandaloneModel, IStandaloneModel, IJointModel, error) {
-	master, err := fetchItem(dispatcher.JointModelManager().GetMasterManager(), ctx, userCred, id1, query)
+func fetchJointItem(manager IJointModelManager, ctx context.Context, userCred mcclient.TokenCredential, id1 string, id2 string, query jsonutils.JSONObject) (IStandaloneModel, IStandaloneModel, IJointModel, error) {
+	master, err := fetchItem(manager.GetMasterManager(), ctx, userCred, id1, query)
 	if err != nil {
 		return nil, nil, nil, httperrors.NewGeneralError(err)
 	}
-	slave, err := fetchItem(dispatcher.JointModelManager().GetSlaveManager(), ctx, userCred, id2, query)
+	slave, err := fetchItem(manager.GetSlaveManager(), ctx, userCred, id2, query)
 	if err != nil {
 		return nil, nil, nil, httperrors.NewGeneralError(err)
 	}
-	item, err := FetchJointByIds(dispatcher.JointModelManager(), master.GetId(), slave.GetId(), query)
+	item, err := FetchJointByIds(manager, master.GetId(), slave.GetId(), query)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -139,9 +145,11 @@ func fetchJointItem(dispatcher *DBJointModelDispatcher, ctx context.Context, use
 
 func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 
-	_, _, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query).(IJointModelManager)
+	ctx = manager.PrepareQueryContext(ctx, userCred, query)
+
+	_, _, item, err := fetchJointItem(manager, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
@@ -151,7 +159,7 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	if err != nil {
 		return nil, err
 	}
-	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
+	return getItemDetails(manager, item, ctx, userCred, query)
 }
 
 func attachItems(
@@ -214,7 +222,7 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 		}
 	}
 
-	_, _, joinItem, err := fetchJointItem(dispatcher, ctx, userCred, master.GetId(), slave.GetId(), query)
+	_, _, joinItem, err := fetchJointItem(dispatcher.JointModelManager(), ctx, userCred, master.GetId(), slave.GetId(), query)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
@@ -237,7 +245,7 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	// 获取对象与关联表（such as guestdisks_tbl)
-	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
+	master, slave, item, err := fetchJointItem(dispatcher.JointModelManager(), ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
 		if jsonutils.QueryBoolean(query, "auto_create", false) {
 			queryDict := query.(*jsonutils.JSONDict)
@@ -265,7 +273,7 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
-	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
+	master, slave, item, err := fetchJointItem(dispatcher.JointModelManager(), ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), id1+"-"+id2)
 	} else if err != nil {

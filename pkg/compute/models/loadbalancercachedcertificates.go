@@ -94,7 +94,7 @@ func (manager *SCachedLoadbalancerCertificateManager) FetchOwnerId(ctx context.C
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SCachedLoadbalancerCertificateManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCachedLoadbalancerCertificateManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		sq := LoadbalancerCertificateManager.Query("id")
 		switch scope {

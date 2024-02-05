@@ -133,7 +133,7 @@ func (manager *SFileSystemManager) ListItemFilter(
 func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.FileSystemCreateInput) (api.FileSystemCreateInput, error) {
 	var err error
 	if len(input.NetworkId) > 0 {
-		net, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+		net, err := validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkId)
 		if err != nil {
 			return input, err
 		}
@@ -148,7 +148,7 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 	if len(input.ZoneId) == 0 {
 		return input, httperrors.NewMissingParameterError("zone_id")
 	}
-	_zone, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
+	_zone, err := validators.ValidateModel(ctx, userCred, ZoneManager, &input.ZoneId)
 	if err != nil {
 		return input, err
 	}

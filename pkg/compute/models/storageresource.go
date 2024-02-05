@@ -40,8 +40,8 @@ type SStorageResourceBaseManager struct {
 	SManagedResourceBaseManager
 }
 
-func ValidateStorageResourceInput(userCred mcclient.TokenCredential, query api.StorageResourceInput) (*SStorage, api.StorageResourceInput, error) {
-	storageObj, err := StorageManager.FetchByIdOrName(userCred, query.StorageId)
+func ValidateStorageResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.StorageResourceInput) (*SStorage, api.StorageResourceInput, error) {
+	storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, query.StorageId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", StorageManager.Keyword(), query.StorageId)
@@ -122,7 +122,7 @@ func (manager *SStorageResourceBaseManager) ListItemFilter(
 	query api.StorageFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.StorageId) > 0 {
-		storageObj, _, err := ValidateStorageResourceInput(userCred, query.StorageResourceInput)
+		storageObj, _, err := ValidateStorageResourceInput(ctx, userCred, query.StorageResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateStorageResourceInput")
 		}

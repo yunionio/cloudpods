@@ -212,8 +212,8 @@ func (manager *SElasticcacheBackupManager) FetchOwnerId(ctx context.Context, dat
 	return elasticcacheSubResourceFetchOwnerId(ctx, data)
 }
 
-func (manager *SElasticcacheBackupManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return elasticcacheSubResourceFetchOwner(q, ownerId, scope)
+func (manager *SElasticcacheBackupManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return elasticcacheSubResourceFetchOwner(ctx, q, ownerId, scope)
 }
 
 func (manager *SElasticcacheBackupManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
@@ -228,7 +228,7 @@ func (manager *SElasticcacheBackupManager) ValidateCreateData(ctx context.Contex
 	var region *SCloudregion
 	var ec *SElasticcache
 	if id, _ := data.GetString("elasticcache"); len(id) > 0 {
-		_ec, err := db.FetchByIdOrName(ElasticcacheManager, userCred, id)
+		_ec, err := db.FetchByIdOrName(ctx, ElasticcacheManager, userCred, id)
 		if err != nil {
 			return nil, fmt.Errorf("getting elastic cache instance failed")
 		}
@@ -281,7 +281,7 @@ func (self *SElasticcacheBackup) StartElasticcacheBackupCreateTask(ctx context.C
 }
 
 func (self *SElasticcacheBackup) ValidatorRestoreInstanceData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ec, err := db.FetchByIdOrName(ElasticcacheManager, userCred, self.ElasticcacheId)
+	ec, err := db.FetchByIdOrName(ctx, ElasticcacheManager, userCred, self.ElasticcacheId)
 	if err != nil {
 		return nil, fmt.Errorf("getting elastic cache instance failed")
 	}

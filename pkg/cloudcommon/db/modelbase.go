@@ -137,6 +137,10 @@ func (manager *SModelBaseManager) GetMutableInstance(ctx context.Context, userCr
 	return manager.GetIModelManager()
 }
 
+func (manager *SModelBaseManager) PrepareQueryContext(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) context.Context {
+	return ctx
+}
+
 func (manager *SModelBaseManager) SetAlias(alias string, aliasPlural string) {
 	manager.alias = alias
 	manager.aliasPlural = aliasPlural
@@ -260,7 +264,7 @@ func (manager *SModelBaseManager) FilterByName(q *sqlchemy.SQuery, name string) 
 	return q
 }
 
-func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SModelBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
 
@@ -280,11 +284,11 @@ func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SModelBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+func (manager *SModelBaseManager) FetchByName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SModelBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+func (manager *SModelBaseManager) FetchByIdOrName(ctx context.Context, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 

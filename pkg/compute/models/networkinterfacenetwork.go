@@ -169,7 +169,7 @@ func (manager *SNetworkinterfacenetworkManager) newFromCloudInterfaceAddress(ctx
 		return fmt.Errorf("ip %s not in network %s(%s) range", address.IpAddr, network.Name, network.Id)
 	}
 	// skip sync used ip address
-	if used, err := network.isAddressUsed(address.IpAddr); err != nil || used {
+	if used, err := network.isAddressUsed(ctx, address.IpAddr); err != nil || used {
 		return nil
 	}
 

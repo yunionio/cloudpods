@@ -15,6 +15,8 @@
 package types
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 
 	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -37,7 +39,7 @@ type OpenForwardResponse struct {
 	Port      int    `json:"port"`
 }
 
-func NewOpenForwardRequestFromJSON(data jsonutils.JSONObject) (*OpenForwardRequest, error) {
+func NewOpenForwardRequestFromJSON(ctx context.Context, data jsonutils.JSONObject) (*OpenForwardRequest, error) {
 	dict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, httperrors.ErrInputParameter
@@ -52,7 +54,7 @@ func NewOpenForwardRequestFromJSON(data jsonutils.JSONObject) (*OpenForwardReque
 		portV,
 		addrV.Optional(true),
 	} {
-		if err := v.Validate(dict); err != nil {
+		if err := v.Validate(ctx, dict); err != nil {
 			return nil, err
 		}
 	}
@@ -84,7 +86,7 @@ type CloseForwardResponse struct {
 	ProxyPort int    `json:"port"`
 }
 
-func NewCloseForwardRequestFromJSON(data jsonutils.JSONObject) (*CloseForwardRequest, error) {
+func NewCloseForwardRequestFromJSON(ctx context.Context, data jsonutils.JSONObject) (*CloseForwardRequest, error) {
 	dict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, httperrors.ErrInputParameter
@@ -99,7 +101,7 @@ func NewCloseForwardRequestFromJSON(data jsonutils.JSONObject) (*CloseForwardReq
 		proxyAddrV,
 		proxyPortV,
 	} {
-		if err := v.Validate(dict); err != nil {
+		if err := v.Validate(ctx, dict); err != nil {
 			return nil, err
 		}
 	}
@@ -126,7 +128,7 @@ type ListForwardResponse struct {
 	Forwards []OpenForwardResponse `json:"forwards"`
 }
 
-func NewListForwardRequestFromJSON(data jsonutils.JSONObject) (*ListForwardRequest, error) {
+func NewListForwardRequestFromJSON(ctx context.Context, data jsonutils.JSONObject) (*ListForwardRequest, error) {
 	dict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, httperrors.ErrInputParameter
@@ -141,7 +143,7 @@ func NewListForwardRequestFromJSON(data jsonutils.JSONObject) (*ListForwardReque
 		portV.Optional(true),
 		addrV.Optional(true),
 	} {
-		if err := v.Validate(dict); err != nil {
+		if err := v.Validate(ctx, dict); err != nil {
 			return nil, err
 		}
 	}

@@ -25,7 +25,7 @@ import (
 )
 
 func localPolicyFetcher(ctx context.Context, token mcclient.TokenCredential) (*mcclient.SFetchMatchPoliciesOutput, error) {
-	names, groups, err := models.RolePolicyManager.GetMatchPolicyGroupByCred(token, time.Now(), false)
+	names, groups, err := models.RolePolicyManager.GetMatchPolicyGroupByCred(ctx, token, time.Now(), false)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMatchPolicyGroup")
 	}

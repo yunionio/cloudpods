@@ -131,13 +131,13 @@ func (man *SRouteTableManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SRouteTableManager) validateRoutes(data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
+func (man *SRouteTableManager) validateRoutes(ctx context.Context, data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
 	routes := api.SRoutes{}
 	routesV := validators.NewStructValidator("routes", &routes)
 	if update {
 		routesV.Optional(true)
 	}
-	err := routesV.Validate(data)
+	err := routesV.Validate(ctx, data)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +151,11 @@ func (man *SRouteTableManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.RouteTableCreateInput,
 ) (api.RouteTableCreateInput, error) {
-	_, err := man.validateRoutes(jsonutils.Marshal(input).(*jsonutils.JSONDict), false)
+	_, err := man.validateRoutes(ctx, jsonutils.Marshal(input).(*jsonutils.JSONDict), false)
 	if err != nil {
 		return input, errors.Wrap(err, "validateRoutes")
 	}
-	_, err = validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+	_, err = validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcId)
 	if err != nil {
 		return input, err
 	}
@@ -213,7 +213,7 @@ func (rt *SRouteTable) ValidateUpdateData(
 	query jsonutils.JSONObject,
 	input api.RouteTableUpdateInput,
 ) (api.RouteTableUpdateInput, error) {
-	_, err := RouteTableManager.validateRoutes(jsonutils.Marshal(input).(*jsonutils.JSONDict), true)
+	_, err := RouteTableManager.validateRoutes(ctx, jsonutils.Marshal(input).(*jsonutils.JSONDict), true)
 	if err != nil {
 		return input, errors.Wrap(err, "RouteTableManager.validateRoutes")
 	}
@@ -236,7 +236,7 @@ func (rt *SRouteTable) PerformAddRoutes(ctx context.Context, userCred mcclient.T
 		adds := api.SRoutes{}
 		addsV := validators.NewStructValidator("routes", &adds)
 		addsV.Optional(true)
-		err := addsV.Validate(data)
+		err := addsV.Validate(ctx, data)
 		if err != nil {
 			return nil, err
 		}

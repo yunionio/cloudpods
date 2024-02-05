@@ -222,7 +222,7 @@ func (manager *SDomainManager) ListItemFilter(
 	if !query.PolicyDomainTags.IsEmpty() {
 		policyFilters := tagutils.STagFilters{}
 		policyFilters.AddFilters(query.PolicyDomainTags)
-		q = db.ObjectIdQueryWithTagFilters(q, "id", "domain", policyFilters)
+		q = db.ObjectIdQueryWithTagFilters(ctx, q, "id", "domain", policyFilters)
 	}
 
 	if query.Enabled != nil {
@@ -234,7 +234,7 @@ func (manager *SDomainManager) ListItemFilter(
 	}
 
 	if len(query.IdpId) > 0 {
-		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(ctx, userCred, query.IdpId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", IdentityProviderManager.Keyword(), query.IdpId)
@@ -603,9 +603,9 @@ func (manager *SDomainManager) FilterBySystemAttributes(q *sqlchemy.SQuery, user
 	return q
 }
 
-func (manager *SDomainManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SDomainManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil && scope != rbacscope.ScopeSystem {
 		q = q.Equals("id", owner.GetProjectDomainId())
 	}
-	return manager.SStandaloneResourceBaseManager.FilterByOwner(q, man, userCred, owner, scope)
+	return manager.SStandaloneResourceBaseManager.FilterByOwner(ctx, q, man, userCred, owner, scope)
 }

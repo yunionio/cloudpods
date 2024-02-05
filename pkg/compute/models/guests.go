@@ -307,7 +307,7 @@ func (manager *SGuestManager) ListItemFilter(
 
 	hostFilter := query.GetAllGuestsOnHost
 	if len(hostFilter) > 0 {
-		host, _ := HostManager.FetchByIdOrName(nil, hostFilter)
+		host, _ := HostManager.FetchByIdOrName(ctx, nil, hostFilter)
 		if host == nil {
 			return nil, httperrors.NewResourceNotFoundError("host %s not found", hostFilter)
 		}
@@ -368,7 +368,7 @@ func (manager *SGuestManager) ListItemFilter(
 	var eipMode string
 	usableServerForEipFilter := query.UsableServerForEip
 	if len(usableServerForEipFilter) > 0 {
-		eipObj, err := ElasticipManager.FetchByIdOrName(userCred, usableServerForEipFilter)
+		eipObj, err := ElasticipManager.FetchByIdOrName(ctx, userCred, usableServerForEipFilter)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("eip %s not found", usableServerForEipFilter)
@@ -478,7 +478,7 @@ func (manager *SGuestManager) ListItemFilter(
 
 	diskFilter := query.AttachableServersForDisk
 	if len(diskFilter) > 0 {
-		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
+		diskI, _ := DiskManager.FetchByIdOrName(ctx, userCred, diskFilter)
 		if diskI == nil {
 			return nil, httperrors.NewResourceNotFoundError("disk %s not found", diskFilter)
 		}
@@ -624,7 +624,7 @@ func (manager *SGuestManager) ListItemFilter(
 
 	groupFilter := query.GroupId
 	if len(groupFilter) != 0 {
-		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupFilter)
+		groupObj, err := GroupManager.FetchByIdOrName(ctx, userCred, groupFilter)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("group %s not found", groupFilter)
 		}
@@ -1337,8 +1337,8 @@ func (manager *SGuestManager) BatchPreValidate(
 	return nil
 }
 
-func parseInstanceSnapshot(input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
-	ispi, err := InstanceSnapshotManager.FetchByIdOrName(nil, input.InstanceSnapshotId)
+func parseInstanceSnapshot(ctx context.Context, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	ispi, err := InstanceSnapshotManager.FetchByIdOrName(ctx, nil, input.InstanceSnapshotId)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewBadRequestError("can't find instance snapshot %s", input.InstanceSnapshotId)
 	}
@@ -1356,8 +1356,8 @@ func parseInstanceSnapshot(input *api.ServerCreateInput) (*api.ServerCreateInput
 	return input, nil
 }
 
-func parseInstanceBackup(input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
-	ispi, err := InstanceBackupManager.FetchByIdOrName(nil, input.InstanceBackupId)
+func parseInstanceBackup(ctx context.Context, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	ispi, err := InstanceBackupManager.FetchByIdOrName(ctx, nil, input.InstanceBackupId)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewBadRequestError("can't find instance backup %s", input.InstanceBackupId)
 	}
@@ -1419,7 +1419,7 @@ func (manager *SGuestManager) validateCreateData(
 		inputMem := input.VmemSize
 		inputCpu := input.VcpuCount
 		inputInstaceType := input.InstanceType
-		input, err = parseInstanceSnapshot(input)
+		input, err = parseInstanceSnapshot(ctx, input)
 		if err != nil {
 			return nil, err
 		}
@@ -1437,7 +1437,7 @@ func (manager *SGuestManager) validateCreateData(
 		inputMem := input.VmemSize
 		inputCpu := input.VcpuCount
 		inputInstaceType := input.InstanceType
-		input, err = parseInstanceBackup(input)
+		input, err = parseInstanceBackup(ctx, input)
 		if err != nil {
 			return nil, err
 		}
@@ -1481,7 +1481,7 @@ func (manager *SGuestManager) validateCreateData(
 	if input.InstanceGroupIds != nil && len(input.InstanceGroupIds) != 0 {
 		newGroupIds := make([]string, len(input.InstanceGroupIds))
 		for index, id := range input.InstanceGroupIds {
-			model, err := GroupManager.FetchByIdOrName(userCred, id)
+			model, err := GroupManager.FetchByIdOrName(ctx, userCred, id)
 			if err != nil {
 				return nil, httperrors.NewResourceNotFoundError("no such group %s", id)
 			}
@@ -1902,7 +1902,7 @@ func (manager *SGuestManager) validateCreateData(
 
 	keypairId := input.KeypairId
 	if len(keypairId) > 0 {
-		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairId)
+		keypairObj, err := KeypairManager.FetchByIdOrName(ctx, userCred, keypairId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Keypair %s not found", keypairId)
 		}
@@ -1911,7 +1911,7 @@ func (manager *SGuestManager) validateCreateData(
 
 	secGrpIds := []string{}
 	for _, secgroup := range input.Secgroups {
-		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroup)
+		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(ctx, userCred, secgroup)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secgroup)
 		}
@@ -1924,7 +1924,7 @@ func (manager *SGuestManager) validateCreateData(
 		input.Secgroups = secGrpIds[1:]
 	} else if input.SecgroupId != "" {
 		secGrpId := input.SecgroupId
-		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, secGrpId)
+		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(ctx, userCred, secGrpId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secGrpId)
 		}
@@ -1942,7 +1942,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	preferRegionId, _ := data.GetString("prefer_region_id")
-	if err := manager.validateEip(userCred, input, preferRegionId, input.PreferManager); err != nil {
+	if err := manager.validateEip(ctx, userCred, input, preferRegionId, input.PreferManager); err != nil {
 		return nil, err
 	}
 
@@ -2078,7 +2078,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	return input.JSON(input), nil
 }
 
-func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, input *api.ServerCreateInput,
+func (manager *SGuestManager) validateEip(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput,
 	preferRegionId string, preferManagerId string) error {
 	if input.PublicIpBw > 0 {
 		if !GetDriver(input.Hypervisor).IsSupportPublicIp() {
@@ -2102,7 +2102,7 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 			return httperrors.NewNotImplementedError("eip not supported for %s", input.Hypervisor)
 		}
 		if len(eipStr) > 0 {
-			eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
+			eipObj, err := ElasticipManager.FetchByIdOrName(ctx, userCred, eipStr)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return httperrors.NewResourceNotFoundError2(ElasticipManager.Keyword(), eipStr)
@@ -2239,7 +2239,7 @@ func getGuestResourceRequirements(
 	eBw := 0
 	iBw := 0
 	for _, netConfig := range input.Networks {
-		if IsExitNetworkInfo(userCred, netConfig) {
+		if IsExitNetworkInfo(ctx, userCred, netConfig) {
 			eNicCnt += 1
 			eBw += netConfig.BwLimit
 		} else {
@@ -3270,6 +3270,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 }
 
 func (manager *SGuestManager) TotalCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -3279,7 +3280,7 @@ func (manager *SGuestManager) TotalCount(
 	since *time.Time,
 	policyResult rbacutils.SPolicyResult,
 ) SGuestCountStat {
-	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since, policyResult)
+	return usageTotalGuestResouceCount(ctx, scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since, policyResult)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool) error {
@@ -3593,7 +3594,7 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 			}
 		}
 		// find network by IP
-		return host.getNetworkOfIPOnHost(ip)
+		return host.getNetworkOfIPOnHost(ctx, ip)
 	}
 	localNetObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, vnetId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		// vpc := VpcManager.Query().SubQuery()
@@ -3962,6 +3963,7 @@ type SGuestCountStat struct {
 }
 
 func usageTotalGuestResouceCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -3975,7 +3977,9 @@ func usageTotalGuestResouceCount(
 	since *time.Time,
 	policyResult rbacutils.SPolicyResult,
 ) SGuestCountStat {
-	q, guests := _guestResourceCountQuery(scope, ownerId, rangeObjs, status, hypervisors,
+	q, guests := _guestResourceCountQuery(
+		ctx,
+		scope, ownerId, rangeObjs, status, hypervisors,
 		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since,
 		policyResult,
 	)
@@ -3997,6 +4001,7 @@ func usageTotalGuestResouceCount(
 }
 
 func _guestResourceCountQuery(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -4069,7 +4074,7 @@ func _guestResourceCountQuery(
 		gq = gq.Filter(sqlchemy.GT(gq.Field("created_at"), *since))
 	}
 
-	gq = db.ObjectIdQueryWithPolicyResult(gq, GuestManager, policyResult)
+	gq = db.ObjectIdQueryWithPolicyResult(ctx, gq, GuestManager, policyResult)
 
 	guests := gq.SubQuery()
 
@@ -4436,7 +4441,7 @@ func (self *SGuest) createDiskOnHost(
 		err     error
 	)
 	if len(diskConfig.Storage) > 0 {
-		_storage, err := StorageManager.FetchByIdOrName(userCred, diskConfig.Storage)
+		_storage, err := StorageManager.FetchByIdOrName(ctx, userCred, diskConfig.Storage)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("storage", diskConfig.Storage)

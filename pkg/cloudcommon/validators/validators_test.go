@@ -21,6 +21,7 @@ package validators
 //  - invalid default for string choice, range
 
 import (
+	"context"
 	"net"
 	"reflect"
 	"testing"
@@ -79,7 +80,7 @@ func testS(t *testing.T, v IValidator, c *C) {
 
 	j, _ := jsonutils.ParseString(c.In)
 	jd := j.(*jsonutils.JSONDict)
-	err := v.Validate(jd)
+	err := v.Validate(context.Background(), jd)
 	if err != nil {
 		verr, ok := err.(*ValidateError)
 		if ok {
@@ -777,7 +778,7 @@ type TestStruct struct {
 
 type TestVStruct TestStruct
 
-func (v *TestVStruct) Validate(data *jsonutils.JSONDict) error {
+func (v *TestVStruct) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	switch v.Name {
 	case "bad":
 		return newInvalidValueError("Name", v.Name)

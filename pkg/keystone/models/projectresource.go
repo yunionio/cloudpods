@@ -55,7 +55,7 @@ func (manager *SProjectResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		projObj, err := ProjectManager.FetchByIdOrName(ownerId, query.ProjectId)
+		projObj, err := ProjectManager.FetchByIdOrName(ctx, ownerId, query.ProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), query.ProjectId)

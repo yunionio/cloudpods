@@ -288,7 +288,7 @@ func (manager *SOrganizationNodeManager) ListItemFilter(
 	}
 
 	if len(query.OrgId) > 0 {
-		orgObj, err := OrganizationManager.FetchByIdOrName(userCred, query.OrgId)
+		orgObj, err := OrganizationManager.FetchByIdOrName(ctx, userCred, query.OrgId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(OrganizationManager.Keyword(), query.OrgId)

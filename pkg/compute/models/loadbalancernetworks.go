@@ -122,7 +122,7 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 		ln.MacAddr = macAddr
 	}
 
-	usedMap := network.GetUsedAddresses()
+	usedMap := network.GetUsedAddresses(ctx)
 	var recentReclaimed map[string]bool
 	ipAddr, err := network.GetFreeIP(ctx, userCred,
 		usedMap, recentReclaimed, req.Address, req.strategy, req.reserved, api.AddressTypeIPv4)

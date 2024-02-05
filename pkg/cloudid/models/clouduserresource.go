@@ -48,7 +48,7 @@ func (self *SClouduserJointsBase) GetClouduser() (*SClouduser, error) {
 
 func (manager *SClouduserResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ClouduserResourceListInput) (*sqlchemy.SQuery, error) {
 	if len(query.Clouduser) > 0 {
-		user, err := ClouduserManager.FetchByIdOrName(nil, query.Clouduser)
+		user, err := ClouduserManager.FetchByIdOrName(ctx, nil, query.Clouduser)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("clouduser", query.Clouduser)

@@ -39,7 +39,7 @@ type SPolicyDefinitionResourceBaseManager struct {
 
 func (manager *SPolicyDefinitionResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.PolicyDefinitionResourceListInput) (*sqlchemy.SQuery, error) {
 	if len(query.Policydefinition) > 0 {
-		definition, err := PolicyDefinitionManager.FetchByIdOrName(userCred, query.Policydefinition)
+		definition, err := PolicyDefinitionManager.FetchByIdOrName(ctx, userCred, query.Policydefinition)
 		if err != nil {
 			if errors.Cause(err) != sql.ErrNoRows {
 				return nil, httperrors.NewGeneralError(err)

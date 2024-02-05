@@ -15,6 +15,7 @@
 package validators
 
 import (
+	"context"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -113,7 +114,7 @@ Oycn3Dy2jpdE7SpoBCt3HsIhra8a6h7BcCQ87UwObqTsdLe+7/oD
 				ValidatorPrivateKey:  tt.fields.ValidatorPrivateKey,
 				certPubKeyAlgo:       tt.fields.certPubKeyAlgo,
 			}
-			if err := v.Validate(tt.args.data); (err != nil) != tt.wantErr {
+			if err := v.Validate(context.Background(), tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ValidateCertKey.Validator() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

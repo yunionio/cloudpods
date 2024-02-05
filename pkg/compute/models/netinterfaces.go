@@ -278,13 +278,13 @@ func (netif *SNetInterface) Delete(ctx context.Context, userCred mcclient.TokenC
 	return netif.SResourceBase.Delete(ctx, userCred)
 }
 
-func (netIf *SNetInterface) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, ipAddr string) (*SNetwork, error) {
+func (netIf *SNetInterface) GetCandidateNetworkForIp(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, ipAddr string) (*SNetwork, error) {
 	wire := netIf.GetWire()
 	if wire == nil {
 		return nil, nil
 	}
 	log.Infof("ipAddr: %s, netiName: %s, wire: %s", ipAddr, netIf.GetName(), wire.GetName())
-	return wire.GetCandidateNetworkForIp(userCred, ownerId, scope, ipAddr)
+	return wire.GetCandidateNetworkForIp(ctx, userCred, ownerId, scope, ipAddr)
 }
 
 func (netif *SNetInterface) IsUsableServernic() bool {

@@ -54,7 +54,7 @@ func (manager *SUserResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		userObj, err := UserManager.FetchByIdOrName(ownerId, query.UserId)
+		userObj, err := UserManager.FetchByIdOrName(ctx, ownerId, query.UserId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), query.UserId)

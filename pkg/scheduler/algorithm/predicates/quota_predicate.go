@@ -46,7 +46,7 @@ func (p *SQuotaPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []cor
 	return true, nil
 }
 
-func fetchGuestUsageFromSchedInfo(s *api.SchedInfo) (computemodels.SQuota, computemodels.SRegionQuota) {
+func fetchGuestUsageFromSchedInfo(ctx context.Context, s *api.SchedInfo) (computemodels.SQuota, computemodels.SRegionQuota) {
 	vcpuCount := s.Ncpu
 	if vcpuCount == 0 {
 		vcpuCount = 1
@@ -66,7 +66,7 @@ func fetchGuestUsageFromSchedInfo(s *api.SchedInfo) (computemodels.SQuota, compu
 	iNicCnt := 0
 
 	for _, netConfig := range s.Networks {
-		if computemodels.IsExitNetworkInfo(s.UserCred, netConfig) {
+		if computemodels.IsExitNetworkInfo(ctx, s.UserCred, netConfig) {
 			eNicCnt += 1
 		} else {
 			iNicCnt += 1
@@ -107,7 +107,7 @@ func (p *SQuotaPredicate) Execute(ctx context.Context, u *core.Unit, c core.Cand
 
 	computeKeys := c.Getter().GetQuotaKeys(d)
 
-	computeQuota, regionQuota := fetchGuestUsageFromSchedInfo(d)
+	computeQuota, regionQuota := fetchGuestUsageFromSchedInfo(ctx, d)
 
 	computeQuota.SetKeys(computeKeys)
 	regionQuota.SetKeys(computeKeys.SRegionalCloudResourceKeys)

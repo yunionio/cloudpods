@@ -97,7 +97,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(
 	if len(input.CloudregionId) == 0 {
 		input.CloudregionId = api.DEFAULT_REGION_ID
 	}
-	regionObj, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	regionObj, err := validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +420,7 @@ func (sp *SSnapshotPolicy) PerformBindDisks(
 	}
 	diskIds := []string{}
 	for i := range input.Disks {
-		diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.Disks[i])
+		diskObj, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.Disks[i])
 		if err != nil {
 			return nil, err
 		}
@@ -469,7 +469,7 @@ func (sp *SSnapshotPolicy) PerformUnbindDisks(
 	}
 	diskIds := []string{}
 	for i := range input.Disks {
-		diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.Disks[i])
+		diskObj, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.Disks[i])
 		if err != nil {
 			return nil, err
 		}

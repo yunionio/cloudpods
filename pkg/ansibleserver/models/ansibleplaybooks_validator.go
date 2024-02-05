@@ -46,7 +46,7 @@ func NewAnsiblePlaybookValidator(key string, userCred mcclient.TokenCredential) 
 	return v
 }
 
-func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorAnsiblePlaybook) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	pb := ansible.NewPlaybook()
 	err := data.Unmarshal(pb, "playbook")
 	if err != nil {

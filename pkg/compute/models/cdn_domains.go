@@ -344,7 +344,7 @@ func (manager *SCDNDomainManager) ValidateCreateData(
 	if len(input.CloudproviderId) == 0 {
 		return input, httperrors.NewMissingParameterError("cloudprovider_id")
 	}
-	_provider, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+	_provider, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 	if err != nil {
 		return input, err
 	}

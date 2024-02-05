@@ -253,7 +253,8 @@ func ListItemQueryFilters(manager IModelManager,
 	return listItemQueryFilters(manager, ctx, q, userCred, query, action, false)
 }
 
-func listItemQueryFiltersRaw(manager IModelManager,
+func listItemQueryFiltersRaw(
+	manager IModelManager,
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -274,7 +275,7 @@ func listItemQueryFiltersRaw(manager IModelManager,
 	if !useRawQuery {
 		// Specifically for joint resource, these filters will exclude
 		// deleted resources by joining with master/slave tables
-		q = manager.FilterByOwner(q, manager, userCred, ownerId, queryScope)
+		q = manager.FilterByOwner(ctx, q, manager, userCred, ownerId, queryScope)
 		q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 		q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
 	}
@@ -915,6 +916,7 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 
+	ctx = manager.PrepareQueryContext(ctx, userCred, query)
 	// list详情
 	items, err := ListItems(manager, ctx, userCred, query, ctxIds)
 	if err != nil {
@@ -977,10 +979,10 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 	return nil, httperrors.NewInternalServerError("FetchCustomizeColumns returns incorrect results(expect 1 actual %d)", len(extraRows))
 }
 
-func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func tryGetModelProperty(manager IModelManager, ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 	funcName := fmt.Sprintf("GetProperty%s", utils.Kebab2Camel(property, "-"))
-	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
+
 	modelValue := reflect.ValueOf(manager)
 	// params := []interface{}{ctx, userCred, query}
 
@@ -1019,8 +1021,9 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	// log.Debugf("Get %s", idStr)
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
+	ctx = manager.PrepareQueryContext(ctx, userCred, query)
 
-	data, err := dispatcher.tryGetModelProperty(ctx, idStr, query)
+	data, err := tryGetModelProperty(manager, ctx, idStr, query)
 	if err != nil {
 		return nil, err
 	} else if data != nil {
@@ -1057,6 +1060,8 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr string, spec string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
+	ctx = manager.PrepareQueryContext(ctx, userCred, query)
+
 	model, err := fetchItem(manager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
@@ -1287,7 +1292,7 @@ func _doCreateItem(
 		uniqValues := manager.FetchUniqValues(ctx, dataDict)
 		name, _ := dataDict.GetString("name")
 		if len(name) > 0 {
-			err = NewNameValidator(manager, ownerId, name, uniqValues)
+			err = NewNameValidator(ctx, manager, ownerId, name, uniqValues)
 			if err != nil {
 				return nil, err
 			}

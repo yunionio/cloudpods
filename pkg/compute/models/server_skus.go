@@ -298,7 +298,7 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ServerSkuCreateInput) (api.ServerSkuCreateInput, error) {
 	var region *SCloudregion
 	if len(input.CloudregionId) > 0 {
-		_region, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+		_region, err := validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
 		if err != nil {
 			return input, err
 		}
@@ -306,7 +306,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 	}
 
 	if len(input.ZoneId) > 0 {
-		_zone, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
+		_zone, err := validators.ValidateModel(ctx, userCred, ZoneManager, &input.ZoneId)
 		if err != nil {
 			return input, err
 		}
@@ -812,7 +812,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 
 	zoneStr := query.ZoneId
 	if len(zoneStr) > 0 {
-		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
+		_zone, err := ZoneManager.FetchByIdOrName(ctx, userCred, zoneStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("zone", zoneStr)
@@ -832,7 +832,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 		}
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	q, err = managedResourceFilterByRegion(ctx, q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}

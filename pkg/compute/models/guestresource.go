@@ -39,8 +39,8 @@ type SGuestResourceBaseManager struct {
 	SHostResourceBaseManager
 }
 
-func ValidateGuestResourceInput(userCred mcclient.TokenCredential, input api.ServerResourceInput) (*SGuest, api.ServerResourceInput, error) {
-	srvObj, err := GuestManager.FetchByIdOrName(userCred, input.ServerId)
+func ValidateGuestResourceInput(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerResourceInput) (*SGuest, api.ServerResourceInput, error) {
+	srvObj, err := GuestManager.FetchByIdOrName(ctx, userCred, input.ServerId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", GuestManager.Keyword(), input.ServerId)
@@ -134,7 +134,7 @@ func (manager *SGuestResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.ServerId) > 0 {
-		guestObj, _, err := ValidateGuestResourceInput(userCred, query.ServerResourceInput)
+		guestObj, _, err := ValidateGuestResourceInput(ctx, userCred, query.ServerResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateGuestResourceInput")
 		}

@@ -346,7 +346,7 @@ func (acnt *SCloudaccount) ValidateUpdateData(
 	defaultRegion, _ := jsonutils.Marshal(acnt.Options).GetString("default_region")
 	if len(input.ProxySettingId) > 0 {
 		var proxySetting *proxy.SProxySetting
-		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(ctx, userCred, input.ProxySettingResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "ValidateProxySettingResourceInput")
 		}
@@ -475,7 +475,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 	}
 
 	if len(input.Zone) > 0 {
-		obj, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
+		obj, err := ZoneManager.FetchByIdOrName(ctx, userCred, input.Zone)
 		if err != nil {
 			return input, errors.Wrapf(err, "unable to fetch Zone %s", input.Zone)
 		}
@@ -543,7 +543,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
 		}
 		var proxySetting *proxy.SProxySetting
-		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(ctx, userCred, input.ProxySettingResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "ValidateProxySettingResourceInput")
 		}
@@ -1295,8 +1295,8 @@ func (manager *SCloudaccountManager) FetchCloudaccountById(accountId string) *SC
 	return providerObj.(*SCloudaccount)
 }
 
-func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId string) *SCloudaccount {
-	providerObj, err := manager.FetchByIdOrName(nil, accountId)
+func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(ctx context.Context, accountId string) *SCloudaccount {
+	providerObj, err := manager.FetchByIdOrName(ctx, nil, accountId)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Errorf("%s", err)
@@ -2022,7 +2022,7 @@ func (manager *SCloudaccountManager) ListItemFilter(
 	}
 
 	if len(query.ProxySetting) > 0 {
-		proxy, err := proxy.ProxySettingManager.FetchByIdOrName(nil, query.ProxySetting)
+		proxy, err := proxy.ProxySettingManager.FetchByIdOrName(ctx, nil, query.ProxySetting)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("proxy_setting", query.ProxySetting)
@@ -2038,7 +2038,7 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		if len(managerStr) == 0 {
 			continue
 		}
-		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		providerObj, err := CloudproviderManager.FetchByIdOrName(ctx, userCred, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
@@ -2723,7 +2723,7 @@ func (manager *SCloudaccountManager) filterByDomainId(q *sqlchemy.SQuery, domain
 	return q
 }
 
-func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCloudaccountManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
@@ -2817,14 +2817,14 @@ func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mccl
 	params.Add(jsonutils.NewString(input.Resource), "resource")
 
 	if len(input.CloudregionId) > 0 {
-		_, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+		_, err := validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
 		if err != nil {
 			return nil, err
 		}
 		params.Add(jsonutils.NewString(input.CloudregionId), "cloudregion_id")
 	}
 	if len(input.CloudproviderId) > 0 {
-		_, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+		_, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
 			return nil, err
 		}
@@ -3132,7 +3132,7 @@ func (cd *SCloudaccount) GetHost2Wire(ctx context.Context, userCred mcclient.Tok
 // 绑定同步策略
 func (account *SCloudaccount) PerformProjectMapping(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountProjectMappingInput) (jsonutils.JSONObject, error) {
 	if len(input.ProjectMappingId) > 0 {
-		_, err := validators.ValidateModel(userCred, ProjectMappingManager, &input.ProjectMappingId)
+		_, err := validators.ValidateModel(ctx, userCred, ProjectMappingManager, &input.ProjectMappingId)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateModel")
 		}

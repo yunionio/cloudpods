@@ -54,7 +54,7 @@ func (manager *SRoleResourceBaseManager) ListItemFilter(
 		} else {
 			ownerId = userCred
 		}
-		roleObj, err := RoleManager.FetchByIdOrName(ownerId, query.RoleId)
+		roleObj, err := RoleManager.FetchByIdOrName(ctx, ownerId, query.RoleId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), query.RoleId)

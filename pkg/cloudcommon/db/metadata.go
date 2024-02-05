@@ -147,9 +147,9 @@ func (m *SMetadata) GetName() string {
 	return fmt.Sprintf("%s-%s", m.Id, m.Key)
 }
 
-func (m *SMetadata) GetModelManager() IModelManager {
-	return Metadata
-}
+// func (m *SMetadata) GetModelManager() IModelManager {
+//	return Metadata
+// }
 
 func GetModelIdstr(model IModel) string {
 	return getObjectIdstr(model.GetModelManager().Keyword(), model.GetId())
@@ -412,7 +412,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 				log.Warningf("FetchCheckQueryOwnerScope.%s error: %v", man.Keyword(), err)
 				continue
 			}
-			sq = man.FilterByOwner(sq, man, userCred, ownerId, queryScope)
+			sq = man.FilterByOwner(ctx, sq, man, userCred, ownerId, queryScope)
 			sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
 			sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
 			conditions = append(conditions, sqlchemy.In(q.Field("obj_id"), sq))
@@ -446,7 +446,7 @@ func (manager *SMetadataManager) GetStringValue(ctx context.Context, model IMode
 	}
 	idStr := GetModelIdstr(model)
 	m := SMetadata{}
-	err := manager.Query().Equals("id", idStr).Equals("key", key).First(&m)
+	err := manager.Query("value").Equals("id", idStr).Equals("key", key).First(&m)
 	if err == nil {
 		return m.Value
 	}
@@ -462,7 +462,7 @@ func (manager *SMetadataManager) GetJsonValue(ctx context.Context, model IModel,
 	}
 	idStr := GetModelIdstr(model)
 	m := SMetadata{}
-	err := manager.Query().Equals("id", idStr).Equals("key", key).First(&m)
+	err := manager.Query("value").Equals("id", idStr).Equals("key", key).First(&m)
 	if err == nil {
 		json, _ := jsonutils.ParseString(m.Value)
 		return json

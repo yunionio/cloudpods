@@ -608,7 +608,7 @@ func (manager *SPolicyManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SSharableBaseResourceManager.ListItemFilter")
 	}
 	if len(query.RoleId) > 0 {
-		_, err := validators.ValidateModel(userCred, RoleManager, &query.RoleId)
+		_, err := validators.ValidateModel(ctx, userCred, RoleManager, &query.RoleId)
 		if err != nil {
 			return nil, err
 		}
@@ -704,8 +704,8 @@ func (policy *SPolicy) GetUsages() []db.IUsage {
 	}
 }
 
-func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	q = db.SharableManagerFilterByOwner(manager, q, userCred, owner, scope)
+func (manager *SPolicyManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	q = db.SharableManagerFilterByOwner(ctx, manager, q, userCred, owner, scope)
 	return q
 }
 
@@ -791,7 +791,7 @@ func (policy *SPolicy) PerformBindRole(ctx context.Context, userCred mcclient.To
 		prefList = append(prefList, pref)
 	}
 	if len(input.ProjectId) > 0 {
-		proj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectId)
+		proj, err := ProjectManager.FetchByIdOrName(ctx, userCred, input.ProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", ProjectManager.Keyword(), input.ProjectId)
@@ -804,7 +804,7 @@ func (policy *SPolicy) PerformBindRole(ctx context.Context, userCred mcclient.To
 	if len(input.RoleId) == 0 {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing role_id")
 	}
-	role, err := RoleManager.FetchByIdOrName(userCred, input.RoleId)
+	role, err := RoleManager.FetchByIdOrName(ctx, userCred, input.RoleId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", RoleManager.Keyword(), input.RoleId)

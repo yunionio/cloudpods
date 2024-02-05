@@ -83,7 +83,7 @@ func (man *SNetTapFlowManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 	if len(query.TapId) > 0 {
-		tapObj, err := NetTapServiceManager.FetchByIdOrName(userCred, query.TapId)
+		tapObj, err := NetTapServiceManager.FetchByIdOrName(ctx, userCred, query.TapId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s not found", NetTapServiceManager.Keyword(), query.TapId)
@@ -94,7 +94,7 @@ func (man *SNetTapFlowManager) ListItemFilter(
 		q = q.Equals("tap_id", tapObj.GetId())
 	}
 	if len(query.HostId) > 0 {
-		hostObj, err := HostManager.FetchByIdOrName(userCred, query.HostId)
+		hostObj, err := HostManager.FetchByIdOrName(ctx, userCred, query.HostId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), query.HostId)
@@ -245,7 +245,7 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(")
 	}
-	tapObj, err := NetTapServiceManager.FetchByIdOrName(userCred, input.TapId)
+	tapObj, err := NetTapServiceManager.FetchByIdOrName(ctx, userCred, input.TapId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return input, httperrors.NewResourceNotFoundError2(NetTapServiceManager.Keyword(), input.TapId)
@@ -257,7 +257,7 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 	input.TapId = tap.Id
 	switch input.Type {
 	case api.TapFlowVSwitch:
-		hostObj, err := HostManager.FetchByIdOrName(userCred, input.HostId)
+		hostObj, err := HostManager.FetchByIdOrName(ctx, userCred, input.HostId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return input, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), input.HostId)
@@ -265,7 +265,7 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 				return input, errors.Wrap(err, "HostManager.FetchByIdOrName")
 			}
 		}
-		wireObj, err := WireManager.FetchByIdOrName(userCred, input.WireId)
+		wireObj, err := WireManager.FetchByIdOrName(ctx, userCred, input.WireId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return input, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), input.WireId)
@@ -300,7 +300,7 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid vlan id %d", *input.VlanId)
 		}
 	case api.TapFlowGuestNic:
-		guestObj, err := GuestManager.FetchByIdOrName(userCred, input.GuestId)
+		guestObj, err := GuestManager.FetchByIdOrName(ctx, userCred, input.GuestId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return input, httperrors.NewResourceNotFoundError2(GuestManager.Keyword(), input.GuestId)

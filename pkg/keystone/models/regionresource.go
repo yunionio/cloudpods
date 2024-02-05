@@ -35,7 +35,7 @@ func (manager *SRegionResourceBaseManager) ListItemFilter(
 	query api.RegionFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.RegionId) > 0 {
-		regionObj, err := RegionManager.FetchByIdOrName(userCred, query.RegionId)
+		regionObj, err := RegionManager.FetchByIdOrName(ctx, userCred, query.RegionId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(RegionManager.Keyword(), query.RegionId)

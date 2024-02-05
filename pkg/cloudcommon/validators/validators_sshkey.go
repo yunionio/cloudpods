@@ -15,6 +15,8 @@
 package validators
 
 import (
+	"context"
+
 	"golang.org/x/crypto/ssh"
 
 	"yunion.io/x/jsonutils"
@@ -55,7 +57,7 @@ func (v *ValidatorSSHKey) getValue() interface{} {
 	return v.Value
 }
 
-func (v *ValidatorSSHKey) Validate(data *jsonutils.JSONDict) error {
+func (v *ValidatorSSHKey) Validate(ctx context.Context, data *jsonutils.JSONDict) error {
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}

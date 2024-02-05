@@ -295,7 +295,8 @@ func (r *SRegionDNS) getHostIpWithName(req *recordRequest) string {
 	}
 	name := req.QueryName()
 	name = strings.TrimSuffix(name, ".")
-	host, _ := models.HostManager.FetchByName(nil, name)
+	ctx := context.Background()
+	host, _ := models.HostManager.FetchByName(ctx, nil, name)
 	if host == nil {
 		return ""
 	}

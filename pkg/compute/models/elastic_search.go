@@ -330,6 +330,7 @@ type SEsCountStat struct {
 }
 
 func (man *SElasticSearchManager) TotalCount(
+	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
@@ -340,7 +341,7 @@ func (man *SElasticSearchManager) TotalCount(
 	esq = scopeOwnerIdFilter(esq, scope, ownerId)
 	esq = CloudProviderFilter(esq, esq.Field("manager_id"), providers, brands, cloudEnv)
 	esq = RangeObjectsFilter(esq, rangeObjs, esq.Field("cloudregion_id"), nil, esq.Field("manager_id"), nil, nil)
-	esq = db.ObjectIdQueryWithPolicyResult(esq, man, policyResult)
+	esq = db.ObjectIdQueryWithPolicyResult(ctx, esq, man, policyResult)
 
 	sq := esq.SubQuery()
 	q := sq.Query(sqlchemy.COUNT("total_es_count"),

@@ -210,7 +210,7 @@ func (spm *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCr
 	if len(input.ScalingGroupId) != 0 {
 		idOrName = input.ScalingGroupId
 	}
-	model, err := ScalingGroupManager.FetchByIdOrName(userCred, idOrName)
+	model, err := ScalingGroupManager.FetchByIdOrName(ctx, userCred, idOrName)
 	if errors.Cause(err) == sql.ErrNoRows {
 		return input, httperrors.NewInputParameterError("no such scaling group %s", idOrName)
 	}

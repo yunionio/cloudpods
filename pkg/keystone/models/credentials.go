@@ -235,7 +235,7 @@ func (manager *SCredentialManager) ResourceScope() rbacscope.TRbacScope {
 	return rbacscope.ScopeUser
 }
 
-func (manager *SCredentialManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCredentialManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		if scope == rbacscope.ScopeUser {
 			if len(owner.GetUserId()) > 0 {
@@ -262,7 +262,7 @@ func (manager *SCredentialManager) FetchOwnerId(ctx context.Context, data jsonut
 			domainOwner = &db.SOwnerId{DomainId: api.DEFAULT_DOMAIN_ID}
 		}
 		data.(*jsonutils.JSONDict).Remove(key)
-		usrObj, err := UserManager.FetchByIdOrName(domainOwner, userStr)
+		usrObj, err := UserManager.FetchByIdOrName(ctx, domainOwner, userStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("user", userStr)

@@ -459,7 +459,7 @@ func (manager *SKubeClusterManager) ValidateCreateData(
 	if len(input.VpcId) == 0 {
 		return nil, httperrors.NewMissingParameterError("vpc_id")
 	}
-	vpcObj, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+	vpcObj, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcId)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func (manager *SKubeClusterManager) ValidateCreateData(
 		return nil, httperrors.NewMissingParameterError("network_ids")
 	}
 	for i := range input.NetworkIds {
-		_, err = validators.ValidateModel(userCred, NetworkManager, &input.NetworkIds[i])
+		_, err = validators.ValidateModel(ctx, userCred, NetworkManager, &input.NetworkIds[i])
 		if err != nil {
 			return nil, err
 		}

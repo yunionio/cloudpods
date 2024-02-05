@@ -39,8 +39,8 @@ type SNetworkResourceBaseManager struct {
 	SWireResourceBaseManager
 }
 
-func ValidateNetworkResourceInput(userCred mcclient.TokenCredential, query api.NetworkResourceInput) (*SNetwork, api.NetworkResourceInput, error) {
-	netObj, err := NetworkManager.FetchByIdOrName(userCred, query.NetworkId)
+func ValidateNetworkResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.NetworkResourceInput) (*SNetwork, api.NetworkResourceInput, error) {
+	netObj, err := NetworkManager.FetchByIdOrName(ctx, userCred, query.NetworkId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NetworkManager.Keyword(), query.NetworkId)
@@ -143,7 +143,7 @@ func (manager *SNetworkResourceBaseManager) ListItemFilter(
 	query api.NetworkFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.NetworkId) > 0 {
-		netObj, _, err := ValidateNetworkResourceInput(userCred, query.NetworkResourceInput)
+		netObj, _, err := ValidateNetworkResourceInput(ctx, userCred, query.NetworkResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateNetworkResourceInput")
 		}

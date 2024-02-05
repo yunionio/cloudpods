@@ -336,7 +336,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 			// * IP地址为空并且 !options.Options.EnablePreAllocateIpAddr 时，不需要分配IP，等创建后自动同步过来
 			// * 否则，还是需要先分配了
 			if provider == api.CLOUD_PROVIDER_ONECLOUD || options.Options.EnablePreAllocateIpAddr || (!options.Options.EnablePreAllocateIpAddr && len(address) > 0) {
-				addrTable := network.GetUsedAddresses()
+				addrTable := network.GetUsedAddresses(ctx)
 				recentAddrTable := manager.getRecentlyReleasedIPAddresses(network.Id, network.getAllocTimoutDuration())
 				ipAddr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address, allocDir, reserved, api.AddressTypeIPv4)
 				if err != nil {
@@ -379,7 +379,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	if !virtual {
 		if len(address6) > 0 || requireIPv6 {
 			if provider == api.CLOUD_PROVIDER_ONECLOUD || options.Options.EnablePreAllocateIpAddr || (!options.Options.EnablePreAllocateIpAddr && len(address6) > 0) {
-				addrTable := network.GetUsedAddresses6()
+				addrTable := network.GetUsedAddresses6(ctx)
 				recentAddrTable := manager.getRecentlyReleasedIPAddresses6(network.Id, network.getAllocTimoutDuration())
 
 				derived := false

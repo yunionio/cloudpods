@@ -168,7 +168,7 @@ func doCandidateDetail(c *gin.Context, id string) {
 		return
 	}
 
-	hs, err := computemodels.HostManager.FetchByIdOrName(userCred, id)
+	hs, err := computemodels.HostManager.FetchByIdOrName(c.Request.Context(), userCred, id)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return

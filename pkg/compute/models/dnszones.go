@@ -95,7 +95,7 @@ func (manager *SDnsZoneManager) ValidateCreateData(
 	}
 	var provider *SCloudprovider = nil
 	if len(input.CloudproviderId) > 0 {
-		providerObj, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+		providerObj, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +108,7 @@ func (manager *SDnsZoneManager) ValidateCreateData(
 	case cloudprovider.PrivateZone:
 		vpcIds := []string{}
 		for i := range input.VpcIds {
-			vpcObj, err := validators.ValidateModel(userCred, VpcManager, &input.VpcIds[i])
+			vpcObj, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcIds[i])
 			if err != nil {
 				return input, err
 			}
@@ -231,7 +231,7 @@ func (manager *SDnsZoneManager) ListItemFilter(
 	}
 
 	if len(query.VpcId) > 0 {
-		vpc, err := VpcManager.FetchByIdOrName(userCred, query.VpcId)
+		vpc, err := VpcManager.FetchByIdOrName(ctx, userCred, query.VpcId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("vpc", query.VpcId)
@@ -572,7 +572,7 @@ func (self *SDnsZone) PerformAddVpcs(ctx context.Context, userCred mcclient.Toke
 	}
 
 	for i := range input.VpcIds {
-		vpcObj, err := validators.ValidateModel(userCred, VpcManager, &input.VpcIds[i])
+		vpcObj, err := validators.ValidateModel(ctx, userCred, VpcManager, &input.VpcIds[i])
 		if err != nil {
 			return nil, err
 		}

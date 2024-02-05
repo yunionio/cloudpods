@@ -65,7 +65,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_CONTAINER {
 
 		bmName := input.PreferHost
-		bmObj, err := HostManager.FetchByIdOrName(nil, bmName)
+		bmObj, err := HostManager.FetchByIdOrName(ctx, nil, bmName)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("Host %s not found", bmName)
@@ -117,7 +117,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 		input.PreferRegion = region.Id
 	} else {
 		if len(input.Schedtags) > 0 {
-			input.Schedtags, err = SchedtagManager.ValidateSchedtags(userCred, input.Schedtags)
+			input.Schedtags, err = SchedtagManager.ValidateSchedtags(ctx, userCred, input.Schedtags)
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("invalid aggregate_strategy: %s", err)
 			}
@@ -125,7 +125,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 
 		if input.PreferWire != "" {
 			wireStr := input.PreferWire
-			wireObj, err := WireManager.FetchByIdOrName(userCred, wireStr)
+			wireObj, err := WireManager.FetchByIdOrName(ctx, userCred, wireStr)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wireStr)
@@ -141,7 +141,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			input.PreferRegion = region.Id
 		} else if input.PreferZone != "" {
 			zoneStr := input.PreferZone
-			zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
+			zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, zoneStr)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
@@ -155,7 +155,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			input.PreferRegion = region.Id
 		} else if input.PreferRegion != "" {
 			regionStr := input.PreferRegion
-			regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
+			regionObj, err := CloudregionManager.FetchByIdOrName(ctx, userCred, regionStr)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)

@@ -441,12 +441,12 @@ func (manager *SBucketManager) ValidateCreateData(
 ) (api.BucketCreateInput, error) {
 	var err error
 	var cloudRegionV *SCloudregion
-	cloudRegionV, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
+	cloudRegionV, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(ctx, userCred, input.CloudregionResourceInput)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateCloudregionResourceInput")
 	}
 	var managerV *SCloudprovider
-	managerV, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(userCred, input.CloudproviderResourceInput)
+	managerV, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(ctx, userCred, input.CloudproviderResourceInput)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateCloudproviderResourceInput")
 	}
@@ -1545,10 +1545,10 @@ type SBucketUsages struct {
 	DiskUsedRate float64
 }
 
-func (manager *SBucketManager) TotalCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) SBucketUsages {
+func (manager *SBucketManager) TotalCount(ctx context.Context, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) SBucketUsages {
 	usage := SBucketUsages{}
 	bq := manager.Query()
-	bq = db.ObjectIdQueryWithPolicyResult(bq, manager, policyResult)
+	bq = db.ObjectIdQueryWithPolicyResult(ctx, bq, manager, policyResult)
 	bq = scopeOwnerIdFilter(bq, scope, ownerId)
 	buckets := bq.SubQuery()
 	bucketsQ := buckets.Query(

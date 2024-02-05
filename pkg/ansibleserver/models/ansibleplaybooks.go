@@ -75,7 +75,7 @@ func init() {
 
 func (man *SAnsiblePlaybookManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	pbV := NewAnsiblePlaybookValidator("playbook", userCred)
-	if err := pbV.Validate(data); err != nil {
+	if err := pbV.Validate(ctx, data); err != nil {
 		return nil, err
 	}
 	data.Set("status", jsonutils.NewString(api.AnsiblePlaybookStatusInit))
@@ -137,7 +137,7 @@ func (apb *SAnsiblePlaybook) ValidateUpdateCondition(ctx context.Context) error 
 
 func (apb *SAnsiblePlaybook) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	pbV := NewAnsiblePlaybookValidator("playbook", userCred)
-	if err := pbV.Validate(data); err != nil {
+	if err := pbV.Validate(ctx, data); err != nil {
 		return nil, err
 	}
 	apb.Playbook = pbV.Playbook // Update as a whole

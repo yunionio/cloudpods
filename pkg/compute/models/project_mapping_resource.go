@@ -48,7 +48,7 @@ func (manager *SProjectMappingResourceBaseManager) ValidateCreateData(
 	input api.SProjectMappingResourceInput,
 ) (api.SProjectMappingResourceInput, error) {
 	if len(input.ProjectMappingId) > 0 {
-		_, err := validators.ValidateModel(userCred, ProjectMappingManager, &input.ProjectMappingId)
+		_, err := validators.ValidateModel(ctx, userCred, ProjectMappingManager, &input.ProjectMappingId)
 		if err != nil {
 			return input, err
 		}
@@ -103,7 +103,7 @@ func (manager *SProjectMappingResourceBaseManager) ListItemFilter(
 	query api.ProjectMappingFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.ProjectMappingId) > 0 {
-		_, err := validators.ValidateModel(userCred, ProjectMappingManager, &query.ProjectMappingId)
+		_, err := validators.ValidateModel(ctx, userCred, ProjectMappingManager, &query.ProjectMappingId)
 		if err != nil {
 			return nil, err
 		}
