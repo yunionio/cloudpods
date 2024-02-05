@@ -366,6 +366,7 @@ type ICloudVM interface {
 
 	StartVM(ctx context.Context) error
 	StopVM(ctx context.Context, opts *ServerStopOptions) error
+	// 需要删除挂载的磁盘
 	DeleteVM(ctx context.Context) error
 
 	UpdateVM(ctx context.Context, input SInstanceUpdateOptions) error
@@ -379,6 +380,7 @@ type ICloudVM interface {
 	ChangeConfig(ctx context.Context, config *SManagedVMChangeConfig) error
 
 	GetVNCInfo(input *ServerVncInput) (*ServerVncOutput, error)
+	// 若有跟随主机删除的选项，需要设置为True
 	AttachDisk(ctx context.Context, diskId string) error
 	DetachDisk(ctx context.Context, diskId string) error
 
