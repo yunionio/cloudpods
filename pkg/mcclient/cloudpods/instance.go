@@ -281,6 +281,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SMan
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	input := api.ServerDeployInput{}
 	input.Password = password
+	input.DeleteKeypair = deleteKeypair
 	if len(publicKey) > 0 {
 		keypairId, err := self.host.zone.region.syncKeypair(name, publicKey)
 		if err != nil {
@@ -288,7 +289,7 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 		}
 		input.KeypairId = keypairId
 	}
-
+	cloudprovider.WaitMultiStatus(self, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
 	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "deploy", input)
 	if err != nil {
 		return errors.Wrapf(err, "deploy")
