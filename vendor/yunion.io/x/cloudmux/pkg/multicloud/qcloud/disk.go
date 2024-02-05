@@ -149,17 +149,19 @@ func (self *SDisk) GetId() string {
 	return self.DiskId
 }
 
-func (self *SRegion) DeleteDisk(diskId string) error {
+func (self *SRegion) DeleteDisk(diskIds []string) error {
 	params := make(map[string]string)
 	params["Region"] = self.Region
-	params["DiskIds.0"] = diskId
+	for idx, id := range diskIds {
+		params[fmt.Sprintf("DiskIds.%d", idx)] = id
+	}
 
 	_, err := self.cbsRequest("TerminateDisks", params)
 	return err
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	return self.storage.zone.region.DeleteDisk(self.DiskId)
+	return self.storage.zone.region.DeleteDisk([]string{self.DiskId})
 }
 
 func (self *SRegion) ResizeDisk(ctx context.Context, diskId string, sizeGb int64) error {

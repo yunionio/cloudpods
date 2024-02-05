@@ -746,25 +746,6 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 	return self.instanceOperation(instanceId, "DeleteInstance", params)
 }
 
-/*func (self *SRegion) waitInstanceStatus(instanceId string, target string, interval time.Duration, timeout time.Duration) error {
-	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
-		status, err := self.GetInstanceStatus(instanceId)
-		if err != nil {
-			return err
-		}
-		if status == target {
-			return nil
-		}
-		time.Sleep(interval)
-	}
-	return cloudprovider.ErrTimeout
-}
-
-func (self *SInstance) waitStatus(target string, interval time.Duration, timeout time.Duration) error {
-	return self.host.zone.region.waitInstanceStatus(self.InstanceId, target, interval, timeout)
-}*/
-
 func (self *SRegion) StartVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
@@ -776,10 +757,6 @@ func (self *SRegion) StartVM(instanceId string) error {
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStartVM(instanceId)
-	// if err != nil {
-	//	return err
-	// }
-	// return self.waitInstanceStatus(instanceId, InstanceStatusRunning, time.Second*5, time.Second*180) // 3 minutes to timeout
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce, stopCharging bool) error {
@@ -796,10 +773,6 @@ func (self *SRegion) StopVM(instanceId string, isForce, stopCharging bool) error
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStopVM(instanceId, isForce, stopCharging)
-	// if err != nil {
-	//  return err
-	// }
-	// return self.waitInstanceStatus(instanceId, InstanceStatusStopped, time.Second*10, time.Second*300) // 5 minutes to timeout
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
@@ -813,17 +786,6 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 		log.Warningf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
 	}
 	return self.doDeleteVM(instanceId)
-	// if err != nil {
-	// 	return err
-	// }
-	// err = self.waitInstanceStatus(instanceId, InstanceStatusRunning, time.Second*10, time.Second*300) // 5 minutes to timeout
-	// if err == cloudprovider.ErrNotFound {
-	// 	return nil
-	// } else if err == nil {
-	// 	return cloudprovider.ErrTimeout
-	// } else {
-	// 	return err
-	// }
 }
 
 func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
@@ -967,12 +929,11 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
 	params["DiskId"] = diskId
+	params["DeleteWithInstance"] = "true"
 	_, err := self.ecsRequest("AttachDisk", params)
 	if err != nil {
-		log.Errorf("AttachDisk %s to %s fail %s", diskId, instanceId, err)
-		return err
+		return errors.Wrapf(err, "AttachDisk %s => %s", diskId, instanceId)
 	}
-
 	return nil
 }
 
