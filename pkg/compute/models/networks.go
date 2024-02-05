@@ -333,6 +333,9 @@ func isIpUsed(ipstr string, addrTable map[string]bool, recentUsedAddrTable map[s
 }
 
 func (snet *SNetwork) getFreeIP6(addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string) (string, error) {
+	if !snet.IsSupportIPv6() {
+		return "", errors.Wrapf(cloudprovider.ErrNotSupported, "ipv6")
+	}
 	iprange := snet.getIPRange6()
 	// Try candidate first
 	if len(candidate) > 0 {
