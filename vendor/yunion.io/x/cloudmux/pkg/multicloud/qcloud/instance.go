@@ -745,17 +745,6 @@ func (self *SRegion) StopVM(instanceId string, opts *cloudprovider.ServerStopOpt
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
-	status, err := self.GetInstanceStatus(instanceId)
-	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			return nil
-		}
-		return errors.Wrapf(err, "self.GetInstanceStatus")
-	}
-	log.Debugf("Instance status on delete is %s", status)
-	if status != InstanceStatusStopped {
-		log.Warningf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
-	}
 	return self.doDeleteVM(instanceId)
 }
 
@@ -793,6 +782,12 @@ func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDe
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
+	diskIds := []string{}
+	for _, disk := range self.DataDisks {
+		if !disk.DeleteWithInstance {
+			diskIds = append(diskIds, disk.DiskId)
+		}
+	}
 	err := self.host.zone.region.DeleteVM(self.InstanceId)
 	if err != nil {
 		return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
@@ -817,7 +812,17 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 			return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
 		}
 	}
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 5*time.Minute) // 5minutes
+	err = cloudprovider.WaitDeleted(self, 10*time.Second, 5*time.Minute) // 5minutes
+	if err != nil {
+		return errors.Wrapf(err, "WaitDeleted")
+	}
+	if len(diskIds) > 0 {
+		err = self.host.zone.region.DeleteDisk(diskIds)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteDisk")
+		}
+	}
+	return nil
 }
 
 func (self *SRegion) UpdateVM(instanceId string, name string) error {
@@ -881,11 +886,11 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
+	params["DeleteWithInstance"] = "True"
 	params["DiskIds.0"] = diskId
 	_, err := self.cbsRequest("AttachDisks", params)
 	if err != nil {
-		log.Errorf("AttachDisks %s to %s fail %s", diskId, instanceId, err)
-		return err
+		return errors.Wrapf(err, "AttachDisks %s => %s", diskId, instanceId)
 	}
 	return nil
 }

@@ -53,7 +53,6 @@ type Attributes struct {
 	NetworkPerformance          string `json:"networkPerformance"`
 	Servicename                 string `json:"servicename"`
 	InstanceType                string `json:"instanceType"`
-	InstanceSku                 string `json:"instancesku"`
 	Tenancy                     string `json:"tenancy"`
 	Usagetype                   string `json:"usagetype"`
 	NormalizationSizeFactor     string `json:"normalizationSizeFactor"`
