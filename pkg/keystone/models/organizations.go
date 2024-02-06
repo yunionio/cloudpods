@@ -529,7 +529,7 @@ func (org *SOrganization) syncIModelManagerTags(ctx context.Context, userCred mc
 		orgKeys[i] = fmt.Sprintf("%s%s", db.ORGANIZATION_TAG_PREFIX, keys[i])
 	}
 	{
-		tagValMaps, err := db.GetTagValueCountMap(manager, manager.Keyword(), "id", userKeys, ctx, userCred, query)
+		tagValMaps, err := db.GetTagValueCountMap(manager, manager.Keyword(), "id", "", userKeys, ctx, userCred, query)
 		if err != nil {
 			return errors.Wrap(err, "GetTagValueCountMap")
 		}
@@ -545,7 +545,7 @@ func (org *SOrganization) syncIModelManagerTags(ctx context.Context, userCred mc
 		}
 	}
 	{
-		tagValMaps, err := db.GetTagValueCountMap(manager, manager.Keyword(), "id", orgKeys, ctx, userCred, query)
+		tagValMaps, err := db.GetTagValueCountMap(manager, manager.Keyword(), "id", "", orgKeys, ctx, userCred, query)
 		if err != nil {
 			return errors.Wrap(err, "GetTagValueCountMap")
 		}
