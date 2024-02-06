@@ -655,6 +655,7 @@ func (manager *SVirtualResourceBaseManager) GetPropertyProjectTagValueTree(
 		manager.GetIVirtualModelManager(),
 		"project",
 		"tenant_id",
+		"",
 		ctx,
 		userCred,
 		query,

@@ -418,6 +418,7 @@ func (manager *SIdentityBaseResourceManager) GetPropertyDomainTagValueTree(
 		manager.GetIIdentityModelManager(),
 		"domain",
 		"domain_id",
+		"",
 		ctx,
 		userCred,
 		query,
