@@ -979,8 +979,7 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 	return nil, httperrors.NewInternalServerError("FetchCustomizeColumns returns incorrect results(expect 1 actual %d)", len(extraRows))
 }
 
-func tryGetModelProperty(manager IModelManager, ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	userCred := fetchUserCredential(ctx)
+func tryGetModelProperty(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	funcName := fmt.Sprintf("GetProperty%s", utils.Kebab2Camel(property, "-"))
 
 	modelValue := reflect.ValueOf(manager)
@@ -1023,7 +1022,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 	ctx = manager.PrepareQueryContext(ctx, userCred, query)
 
-	data, err := tryGetModelProperty(manager, ctx, idStr, query)
+	data, err := tryGetModelProperty(manager, ctx, userCred, idStr, query)
 	if err != nil {
 		return nil, err
 	} else if data != nil {

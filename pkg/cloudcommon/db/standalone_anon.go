@@ -944,6 +944,7 @@ func (manager *SStandaloneAnonResourceBaseManager) GetPropertyTagValueTree(
 		manager.GetIStandaloneModelManager(),
 		manager.Keyword(),
 		"id",
+		"",
 		ctx,
 		userCred,
 		query,
@@ -954,6 +955,7 @@ func GetPropertyTagValueTree(
 	manager IModelManager,
 	tagObjType string,
 	tagIdField string,
+	sumField string,
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -964,7 +966,7 @@ func GetPropertyTagValueTree(
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
 
-	valueMap, err := GetTagValueCountMap(manager, tagObjType, tagIdField, input.Keys, ctx, userCred, query)
+	valueMap, err := GetTagValueCountMap(manager, tagObjType, tagIdField, sumField, input.Keys, ctx, userCred, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "AllStringAmp")
 	}
@@ -981,6 +983,7 @@ func GetTagValueCountMap(
 	manager IModelManager,
 	tagObjType string,
 	tagIdField string,
+	sumField string,
 	keys []string,
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -988,14 +991,22 @@ func GetTagValueCountMap(
 ) ([]map[string]string, error) {
 	var err error
 	objSubQ := manager.Query().SubQuery()
-	objQ := objSubQ.Query(objSubQ.Field(tagIdField), sqlchemy.COUNT("_sub_count_"))
+	var sumFieldQ sqlchemy.IQueryField
+	if len(sumField) > 0 {
+		sumFieldQ = sqlchemy.SUM("_sub_count_", objSubQ.Field(sumField))
+	} else {
+		sumFieldQ = sqlchemy.COUNT("_sub_count_")
+	}
+	objQ := objSubQ.Query(objSubQ.Field(tagIdField), sumFieldQ)
 	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListItemQueryFilters")
 	}
 	objQ = objQ.GroupBy(objSubQ.Field(tagIdField))
 	q := objQ.SubQuery().Query(sqlchemy.SUM(tagValueCountKey, objQ.Field("_sub_count_")))
-	metadataSQ := Metadata.Query().Equals("obj_type", tagObjType).In("key", keys).SubQuery()
+
+	metadataMan := GetMetadaManagerInContext(ctx)
+	metadataSQ := metadataMan.Query().Equals("obj_type", tagObjType).In("key", keys).SubQuery()
 	groupBy := make([]interface{}, 0)
 	for i, key := range keys {
 		valueFieldName := TagValueKey(i)
