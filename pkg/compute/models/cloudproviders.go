@@ -1422,6 +1422,11 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if query.ReadOnly != nil {
+		sq := CloudaccountManager.Query("id").Equals("read_only", *query.ReadOnly).SubQuery()
+		q = q.In("cloudaccount_id", sq)
+	}
+
 	return q, nil
 }
 
