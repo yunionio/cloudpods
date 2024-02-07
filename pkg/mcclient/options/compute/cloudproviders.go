@@ -25,42 +25,17 @@ type CloudproviderListOptions struct {
 
 	Usable bool `help:"Vpc & Network usable"`
 
-	HasObjectStorage bool     `help:"filter cloudproviders that has object storage"`
-	NoObjectStorage  bool     `help:"filter cloudproviders that has no object storage"`
+	HasObjectStorage bool     `help:"filter cloudproviders that has object storage" negative:"no-object-storage"`
 	Capability       []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 	Cloudregion      string   `help:"filter cloudproviders by cloudregion"`
+
+	ReadOnly *bool `help:"filter read only account" negative:"no-read-only"`
 
 	HostSchedtagId string `help:"filter by host schedtag"`
 }
 
 func (opts *CloudproviderListOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := opts.BaseListOptions.Params()
-	if err != nil {
-		return nil, err
-	}
-
-	if opts.Usable {
-		params.Add(jsonutils.NewBool(true), "usable")
-	}
-
-	if opts.HasObjectStorage {
-		params.Add(jsonutils.JSONTrue, "has_object_storage")
-	} else if opts.NoObjectStorage {
-		params.Add(jsonutils.JSONFalse, "has_object_storage")
-	}
-
-	if len(opts.Capability) > 0 {
-		params.Add(jsonutils.NewStringArray(opts.Capability), "capability")
-	}
-
-	if len(opts.Cloudregion) > 0 {
-		params.Add(jsonutils.NewString(opts.Cloudregion), "cloudregion")
-	}
-
-	if len(opts.HostSchedtagId) > 0 {
-		params.Add(jsonutils.NewString(opts.HostSchedtagId), "host_schedtag_id")
-	}
-	return params, nil
+	return options.ListStructToParams(opts)
 }
 
 type CloudproviderUpdateOptions struct {
