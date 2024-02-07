@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/log"
@@ -43,6 +44,8 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 	sysTags := remote.GetSysTags()
 	sysStore := make(map[string]string, 0)
 	for key, value := range sysTags {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
 		sysStore[db.SYS_CLOUD_TAG_PREFIX+key] = value
 	}
 	if options.Options.KeepTagLocalization {
@@ -54,6 +57,8 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 	if err == nil {
 		store := make(map[string]string, 0)
 		for key, value := range tags {
+			key = strings.TrimSpace(key)
+			value = strings.TrimSpace(value)
 			store[db.CLOUD_TAG_PREFIX+key] = value
 		}
 		model.SetCloudMetadataAll(ctx, store, userCred, readOnly)
@@ -65,6 +70,8 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 	sysTags := remote.GetSysTags()
 	sysStore := make(map[string]string, 0)
 	for key, value := range sysTags {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
 		if key == apis.IS_SYSTEM && value == "true" {
 			model.SetSystemInfo(true)
 		}
@@ -89,6 +96,8 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 	if err == nil {
 		store := make(map[string]string, 0)
 		for key, value := range tags {
+			key = strings.TrimSpace(key)
+			value = strings.TrimSpace(value)
 			store[db.CLOUD_TAG_PREFIX+key] = value
 		}
 		model.SetCloudMetadataAll(ctx, store, userCred, readOnly)
