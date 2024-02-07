@@ -83,11 +83,12 @@ func objIdQueryWithTags(ctx context.Context, modelName string, tagsList []map[st
 		if len(tags) == 0 {
 			continue
 		}
-		metadataView := metadataResQ.Query(metadataResQ.Field("obj_id"))
+		metadataView := metadataResQ.Query(metadataResQ.Field("obj_id").Label("obj_id"))
 		for key, val := range tags {
-			q := metadataResQ.Query().Equals("key", key)
+			q := metadataResQ.Query(metadataResQ.Field("id"))
+			q = q.Equals("key", key)
 			if len(val) > 0 {
-				q = q.Equals("key", key).In("value", val)
+				q = q.In("value", val)
 			}
 			sq := q.SubQuery()
 			metadataView = metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))

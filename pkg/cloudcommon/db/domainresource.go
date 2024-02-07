@@ -326,6 +326,7 @@ func (manager *SDomainLevelResourceBaseManager) GetPropertyDomainTagValueTree(
 		manager.GetIDomainLevelModelManager(),
 		"domain",
 		"domain_id",
+		"",
 		ctx,
 		userCred,
 		query,
