@@ -2089,6 +2089,10 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		q = q.In("brand", query.Brands)
 	}
 
+	if query.ReadOnly != nil {
+		q = q.Equals("read_only", *query.ReadOnly)
+	}
+
 	return q, nil
 }
 

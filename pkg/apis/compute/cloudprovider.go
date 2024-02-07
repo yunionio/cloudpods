@@ -257,6 +257,8 @@ type CloudproviderListInput struct {
 
 	SyncableBaseResourceListInput
 
+	ReadOnly *bool `json:"read_only"`
+
 	// 账号健康状态
 	HealthStatus []string `json:"health_status"`
 
