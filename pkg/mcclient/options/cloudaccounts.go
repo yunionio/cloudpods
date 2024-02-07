@@ -28,6 +28,7 @@ type CloudaccountListOptions struct {
 	BaseListOptions
 	Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event|tablestore"`
 
+	ReadOnly *bool `help:"filter read only account" negative:"no-read-only"`
 	//DistinctField string `help:"distinct field"`
 	ProxySetting string `help:"Proxy setting id or name"`
 	// 按宿主机数量排序
