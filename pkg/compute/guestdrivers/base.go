@@ -557,10 +557,6 @@ func (self *SBaseGuestDriver) RequestStartRescue(ctx context.Context, task taskm
 	return httperrors.ErrNotImplemented
 }
 
-func (self *SBaseGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
-	return httperrors.ErrNotImplemented
-}
-
 func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context, guest *models.SGuest, input api.ServerChangeConfigInput) (*api.ServerChangeConfigSettings, error) {
 	confs := api.ServerChangeConfigSettings{}
 

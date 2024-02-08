@@ -106,7 +106,6 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"qga-set-network":          qgaSetNetwork,
 			"qga-get-os-info":          qgaGetOsInfo,
 			"start-rescue":             guestStartRescue,
-			"stop-rescue":              guestStopRescue,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -950,14 +949,7 @@ func qgaGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, sid st
 	return gm.QgaGetOsInfo(sid)
 }
 
-// guestStartRescue prepare rescue files
+// prepare rescue files
 func guestStartRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	// Start rescue guest
 	return guestman.GetGuestManager().GuestStartRescue(ctx, userCred, sid, body)
-}
-
-// guestStopRescue clear rescue files
-func guestStopRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	// Stop rescue guest
-	return guestman.GetGuestManager().GuestStopRescue(ctx, userCred, sid, body)
 }
