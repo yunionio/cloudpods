@@ -510,6 +510,7 @@ func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
 					log.Errorf("failed read file elf %s: %s", rp, err)
 					continue
 				}
+				defer elfHeader.Close()
 				// https://en.wikipedia.org/wiki/Executable_and_Linkable_Format#File_header
 				switch elfHeader.Machine {
 				case elf.EM_X86_64:
