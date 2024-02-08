@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -124,6 +125,9 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 	ownerId, err := manager.FetchOwnerId(ctx, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
+	}
+	if gotypes.IsNil(ownerId) {
+		return nil, httperrors.NewMissingParameterError("domain_id")
 	}
 	if len(ownerId.GetProjectDomainId()) == 0 {
 		return nil, httperrors.NewInputParameterError("missing new domain")
