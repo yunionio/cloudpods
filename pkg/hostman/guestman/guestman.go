@@ -911,21 +911,14 @@ func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64
 }
 
 func (m *SGuestManager) GuestStartRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	baremetalManagerUri, err := body.GetString("manager_uri")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("manager_uri required")
-	}
 	if guest, ok := m.GetServer(sid); ok {
-		guest.ExecStartRescueTask(ctx, baremetalManagerUri)
-		return nil, nil
-	} else {
-		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
-	}
-}
-
-func (m *SGuestManager) GuestStopRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if guest, ok := m.GetServer(sid); ok {
-		guest.ExecStopRescueTask(ctx, body)
+		// initrd and kernel should be prepared by host-deployer
+		if !fileutils2.Exists(guest.getRescueInitrdPath()) {
+			return nil, httperrors.NewInternalServerError("guest initrd not ready")
+		}
+		if !fileutils2.Exists(guest.getRescueKernelPath()) {
+			return nil, httperrors.NewInternalServerError("guest kernel not ready")
+		}
 		return nil, nil
 	} else {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
