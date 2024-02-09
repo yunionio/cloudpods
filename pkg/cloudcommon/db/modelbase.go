@@ -234,6 +234,14 @@ func (manager *SModelBaseManager) ExtraSearchConditions(ctx context.Context, q *
 	return nil
 }
 
+func (manager *SModelBaseManager) NewQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, useRawQuery bool) *sqlchemy.SQuery {
+	if useRawQuery {
+		return manager.Query()
+	} else {
+		return manager.GetIModelManager().Query()
+	}
+}
+
 // fetch hook
 func (manager *SModelBaseManager) getTable() *sqlchemy.STable {
 	return manager.TableSpec().Instance()

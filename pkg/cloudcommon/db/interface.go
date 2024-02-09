@@ -69,9 +69,10 @@ type IModelManager interface {
 	// OrderByExtraFields dynmically called by dispatcher
 	// OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
 
+	NewQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, useRawQuery bool) *sqlchemy.SQuery
 	// fetch hook
 	Query(val ...string) *sqlchemy.SQuery
-	RawQuery(val ...string) *sqlchemy.SQuery
+	// RawQuery(val ...string) *sqlchemy.SQuery
 
 	FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery

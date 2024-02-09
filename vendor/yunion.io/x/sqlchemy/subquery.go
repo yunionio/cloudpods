@@ -17,6 +17,8 @@ package sqlchemy
 import (
 	"fmt"
 	"sort"
+
+	"yunion.io/x/log"
 )
 
 // SSubQueryField represents a field of subquery, which implements IQueryField
@@ -28,10 +30,11 @@ type SSubQueryField struct {
 
 // Expression implementation of SSubQueryField for IQueryField
 func (sqf *SSubQueryField) Expression() string {
+	alias := sqf.field.Name()
 	if len(sqf.alias) > 0 {
-		return fmt.Sprintf("`%s`.`%s` AS `%s`", sqf.query.alias, sqf.field.Name(), sqf.alias)
+		alias = sqf.alias
 	}
-	return fmt.Sprintf("`%s`.`%s`", sqf.query.alias, sqf.field.Name())
+	return fmt.Sprintf("`%s`.`%s` AS `%s`", sqf.query.alias, sqf.field.Name(), alias)
 }
 
 // Name implementation of SSubQueryField for IQueryField
@@ -99,24 +102,31 @@ func (sq *SSubQuery) Variables() []interface{} {
 }
 
 func (sq *SSubQuery) findField(id string) IQueryField {
-	if sq.referedFields == nil {
-		sq.referedFields = make(map[string]IQueryField)
-	}
 	if _, ok := sq.referedFields[id]; ok {
 		return sq.referedFields[id]
 	}
-	queryFields := sq.query.QueryFields()
-	for i := range queryFields {
-		if queryFields[i].Name() == id {
-			sq.referedFields[id] = sq.query.Field(queryFields[i].Name())
-			return sq.referedFields[id]
+	f := sq.query.Field(id)
+	if f != nil {
+		sq.referedFields[id] = f
+		switch tq := sq.query.(type) {
+		case *SQuery:
+			tq.addRefField(f)
 		}
+		return f
 	}
 	return nil
 }
 
 // Field implementation of SSubQuery for IQuerySource
 func (sq *SSubQuery) Field(id string, alias ...string) IQueryField {
+	f := sq.field(id, alias...)
+	if f == nil {
+		log.Errorf("subquery %s AS %s cannot find field %s", sq.query.String(), sq.alias, id)
+	}
+	return f
+}
+
+func (sq *SSubQuery) field(id string, alias ...string) IQueryField {
 	f := sq.findField(id)
 	if f == nil {
 		return nil
