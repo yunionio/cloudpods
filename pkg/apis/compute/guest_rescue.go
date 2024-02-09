@@ -16,13 +16,6 @@ package compute
 
 // Rescue constants are used for rescue mode
 const (
-	GUEST_RESCUE_RELATIVE_PATH = "rescue" //  serverxxx/rescue
-
-	GUEST_RESCUE_INITRAMFS       = "initramfs"
-	GUEST_RESCUE_KERNEL          = "kernel"
-	GUEST_RESCUE_INITRAMFS_ARM64 = "initramfs_aarch64"
-	GUEST_RESCUE_KERNEL_ARM64    = "kernel_aarch64"
-
-	GUEST_RESCUE_SYS_DISK_NAME = "sys_img"
-	GUEST_RESCUE_SYS_DISK_SIZE = 500 // MB
+	GUEST_RESCUE_INITRAMFS = "initramfs"
+	GUEST_RESCUE_KERNEL    = "kernel"
 )
