@@ -27,9 +27,12 @@ var (
 	DEBUG_SQLCHEMY = false
 )
 
-func sqlDebug(sqlstr string, variables []interface{}) {
+func sqlDebug(key, sqlstr string, variables []interface{}) {
 	sqlstr = _sqlDebug(sqlstr, variables)
-	log.Debugln("SQuery ", sqlstr)
+	if key == "" {
+		key = "SQUery"
+	}
+	log.Debugln(key, sqlstr)
 }
 
 func _sqlDebug(sqlstr string, variables []interface{}) string {
@@ -48,16 +51,30 @@ func _sqlDebug(sqlstr string, variables []interface{}) string {
 
 // DebugQuery show the full query string for debug
 func (tq *SQuery) DebugQuery() {
+	tq.DebugQuery2("")
+}
+
+// DebugQuery show the full query string for debug
+func (tq *SQuery) DebugQuery2(key string) {
 	sqlstr := tq.String()
 	vars := tq.Variables()
-	sqlDebug(sqlstr, vars)
+	sqlDebug(key, sqlstr, vars)
+}
+
+func (tq *SQuery) DebugString() string {
+	return _sqlDebug(tq.String(), tq.Variables())
+}
+
+// DebugQuery show the full query string for a subquery for debug
+func (sqf *SSubQuery) DebugQuery2(key string) {
+	sqlstr := sqf.Expression()
+	vars := sqf.query.Variables()
+	sqlDebug(key, sqlstr, vars)
 }
 
 // DebugQuery show the full query string for a subquery for debug
 func (sqf *SSubQuery) DebugQuery() {
-	sqlstr := sqf.Expression()
-	vars := sqf.query.Variables()
-	sqlDebug(sqlstr, vars)
+	sqf.DebugQuery2("")
 }
 
 // DebugInsert does insert with debug mode on

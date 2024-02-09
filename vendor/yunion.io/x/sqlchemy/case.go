@@ -59,7 +59,7 @@ func (cf *SCaseFunction) expression() string {
 		buf.WriteString(cf.branches[i].thenField.Reference())
 	}
 	buf.WriteString(" ELSE ")
-	buf.WriteString(cf.elseField.Expression())
+	buf.WriteString(cf.elseField.Reference())
 	buf.WriteString(" END")
 	return buf.String()
 }

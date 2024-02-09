@@ -89,6 +89,42 @@ func DiffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]ICo
 			j++
 		}
 	}
+	for i := 0; i < len(add); {
+		intCol := add[i].(iColumnInternal)
+		if len(intCol.Oldname()) > 0 {
+			// find delete column
+			rmIdx := -1
+			for j := range remove {
+				if remove[j].Name() == intCol.Oldname() {
+					// remove from
+					rmIdx = j
+					break
+				}
+			}
+			if rmIdx >= 0 {
+				oldCol := remove[rmIdx]
+				{
+					// remove from remove
+					copy(remove[rmIdx:], remove[rmIdx+1:])
+					remove = remove[:len(remove)-1]
+				}
+				{
+					// remove from add
+					copy(add[i:], add[i+1:])
+					add = add[:len(add)-1]
+				}
+				{
+					update = append(update, SUpdateColumnSpec{
+						OldCol: oldCol,
+						NewCol: intCol,
+					})
+				}
+				// do not increase i
+				continue
+			}
+		}
+		i++
+	}
 	return remove, update, add
 }
 
