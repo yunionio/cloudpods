@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/ovsdb/types"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
@@ -436,6 +437,21 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 	return keeper.cli.Must(ctx, "ClaimVpcEipgw", args)
 }
 
+func formatNtpServers(srvs string) string {
+	srv := make([]string, 0)
+	for _, part := range strings.Split(srvs, ",") {
+		part = strings.TrimSpace(part)
+		if len(part) > 0 {
+			if regutils.MatchIPAddr(part) {
+				srv = append(srv, part)
+			} else {
+				srv = append(srv, "\""+part+"\"")
+			}
+		}
+	}
+	return strings.Join(srv, ",")
+}
+
 func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnetwork, opts *options.Options) *ovn_nb.DHCPOptions {
 	var (
 		network = guestnetwork.Network
@@ -527,7 +543,7 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 		}
 		if len(ntpSrvs) > 0 {
 			// bug on OVN, should not use ntp server: QiuJian
-			// dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
+			dhcpopts.Options["ntp_server"] = "{" + formatNtpServers(ntpSrvs) + "}"
 		}
 	}
 	return dhcpopts
@@ -964,7 +980,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, 
 		for _, guestnetwork := range network.Guestnetworks {
 			if guest := guestnetwork.Guest; guest != nil {
 				var (
-					name = guest.Name
+					name = guest.Hostname
 					ip   = guestnetwork.IpAddr
 				)
 				grs[name] = append(grs[name], ip)
