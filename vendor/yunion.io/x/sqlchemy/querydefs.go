@@ -17,6 +17,7 @@ package sqlchemy
 import (
 	"bytes"
 	"fmt"
+	"sort"
 )
 
 // IQuery is an interface that reprsents a SQL query, e.g.
@@ -106,16 +107,34 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 	if tq.distinct {
 		buf.WriteString("DISTINCT ")
 	}
-	fields := tq.fields
+
+	fields := tmpFields
 	if len(fields) == 0 {
-		fields = tmpFields
-	}
-	if len(fields) == 0 {
-		fields = tq.QueryFields()
-		for i := range fields {
-			tq.from.Field(fields[i].Name())
+		fields = tq.fields
+		if len(fields) == 0 {
+			fields = tq.from.Fields()
+			for i := range fields {
+				tq.from.Field(fields[i].Name())
+			}
 		}
 	}
+	{
+		// add reference query fields
+		queryFields := make(map[string]IQueryField)
+		for i, f := range fields {
+			queryFields[f.Name()] = fields[i]
+		}
+		refFields := make([]IQueryField, 0)
+		for _, f := range tq.refFieldMap {
+			if _, ok := queryFields[f.Name()]; !ok {
+				queryFields[f.Name()] = f
+				refFields = append(refFields, f)
+			}
+		}
+		sort.Sort(queryFieldList(refFields))
+		fields = append(fields, refFields...)
+	}
+
 	for i := range fields {
 		if i > 0 {
 			buf.WriteString(", ")

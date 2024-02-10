@@ -81,4 +81,7 @@ const (
 	TAG_CREATE_TIMESTAMP = "created_at"
 	// TAG_ALLOW_ZERO is a field tag that indicates whether the column allow zero value
 	TAG_ALLOW_ZERO = "allow_zero"
+	// TAG_OLD_NAME is a field indicate the colume was renamed from an old name,
+	// sync table will do renaming of coolumn instead of creating a new column
+	TAG_OLD_NAME = "old_name"
 )
