@@ -30,31 +30,16 @@ import (
 
 func (self *SGuest) PerformStartRescue(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != api.HYPERVISOR_KVM {
+		return nil, httperrors.NewBadRequestError("Cannot rescue guest hypervisor %s", self.Hypervisor)
+	}
+
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("guest status must be ready or running")
 	}
 
-	// Check vmem size, need to be greater than 2G
-	if self.VmemSize < 2048 {
-		return nil, httperrors.NewInvalidStatusError("vmem size must be greater than 2G")
-	}
-
-	// Get baremetal agent
-	host, err := self.GetHost()
-	if err != nil {
-		return nil, httperrors.NewInvalidStatusError("guest.GetHost: %s", err.Error())
-	}
-	bmAgent := BaremetalagentManager.GetAgent(api.AgentTypeBaremetal, host.ZoneId)
-	if bmAgent == nil {
-		return nil, httperrors.NewInvalidStatusError("BaremetalagentManager.GetAgent: %s", "Baremetal agent not found")
-	}
-
-	// Set available baremetal agent managerURi to data
-	dataDict := data.(*jsonutils.JSONDict)
-	dataDict.Add(jsonutils.NewString(bmAgent.ManagerUri), "manager_uri")
-
 	// Start rescue vm task
-	err = self.StartRescueTask(ctx, userCred, dataDict, "")
+	err := self.StartRescueTask(ctx, userCred, jsonutils.NewDict(), "")
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError("guest.StartGuestRescueTask: %s", err.Error())
 	}

@@ -1195,18 +1195,6 @@ func (self *SKVMGuestDriver) RequestStartRescue(ctx context.Context, task taskma
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestStopRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) error {
-	header := self.getTaskRequestHeader(task)
-	client := httputils.GetDefaultClient()
-	url := fmt.Sprintf("%s/servers/%s/stop-rescue", host.ManagerUri, guest.Id)
-	_, _, err := httputils.JSONRequest(client, ctx, "POST", url, header, body, false)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (self *SKVMGuestDriver) ValidateSyncOSInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return httperrors.NewBadRequestError("can't sync guest os info in status %s", guest.Status)

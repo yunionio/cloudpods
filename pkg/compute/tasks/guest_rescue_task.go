@@ -69,14 +69,14 @@ func (self *StartRescueTask) OnServerStopCompleteFailed(ctx context.Context, gue
 func (self *StartRescueTask) PrepareRescue(ctx context.Context, guest *models.SGuest) {
 	db.OpsLog.LogEvent(guest, db.ACT_START_RESCUE, nil, self.UserCred)
 	guest.SetStatus(ctx, self.UserCred, api.VM_START_RESCUE, "PrepareRescue")
-	self.SetStage("OnRescuePrepareComplete", nil)
 
 	host, _ := guest.GetHost()
-	err := guest.GetDriver().RequestStartRescue(ctx, self, self.GetParams(), host, guest)
+	err := guest.GetDriver().RequestStartRescue(ctx, self, jsonutils.NewDict(), host, guest)
 	if err != nil {
 		self.OnRescuePrepareCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
+	self.OnRescuePrepareComplete(ctx, guest, nil)
 }
 
 func (self *StartRescueTask) OnRescuePrepareComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -166,20 +166,16 @@ func (self *StopRescueTask) OnServerStopCompleteFailed(ctx context.Context, gues
 func (self *StopRescueTask) ClearRescue(ctx context.Context, guest *models.SGuest) {
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_RESCUE, nil, self.UserCred)
 	guest.SetStatus(ctx, self.UserCred, api.VM_STOP_RESCUE, "ClearRescue")
-	self.SetStage("OnRescueClearComplete", nil)
-
-	host, _ := guest.GetHost()
-	err := guest.GetDriver().RequestStopRescue(ctx, self, nil, host, guest)
-	if err != nil {
-		self.OnRescueClearCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
-		return
-	}
+	self.OnRescueClearComplete(ctx, guest, nil)
 }
 
 func (self *StopRescueTask) OnRescueClearComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_RESCUE, guest.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP_RESCUE, guest.GetShortDesc(ctx), self.UserCred, true)
-	guest.UpdateRescueMode(false)
+	if err := guest.UpdateRescueMode(false); err != nil {
+		self.OnRescueClearCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
 	self.RescueStartServer(ctx, guest)
 }
 

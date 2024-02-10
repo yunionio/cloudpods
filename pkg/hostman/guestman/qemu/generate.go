@@ -223,6 +223,7 @@ func generateInitrdOptions(drvOpt QemuOptions, initrdPath, kernel string) []stri
 	opts := make([]string, 0)
 	opts = append(opts, drvOpt.Initrd(initrdPath))
 	opts = append(opts, drvOpt.Kernel(kernel))
+	opts = append(opts, "-append yn_rescue_mode=true")
 
 	return opts
 }
@@ -795,20 +796,22 @@ func GenerateStartOptions(
 	}
 	opts = append(opts, nicOpts...)
 
-	if input.QemuArch == Arch_aarch64 {
-		if input.GuestDesc.Usb != nil {
-			opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+	if !input.GuestDesc.LightMode {
+		if input.QemuArch == Arch_aarch64 {
+			if input.GuestDesc.Usb != nil {
+				opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+				for _, device := range input.Devices {
+					opts = append(opts, drvOpt.Device(device))
+				}
+			}
+		} else {
+			opts = append(opts, drvOpt.USB())
 			for _, device := range input.Devices {
 				opts = append(opts, drvOpt.Device(device))
 			}
-		}
-	} else {
-		opts = append(opts, drvOpt.USB())
-		for _, device := range input.Devices {
-			opts = append(opts, drvOpt.Device(device))
-		}
-		if input.GuestDesc.Usb != nil {
-			opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+			if input.GuestDesc.Usb != nil {
+				opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+			}
 		}
 	}
 
