@@ -127,10 +127,17 @@ type IColumnSpec interface {
 	SetColIndex(idx int)
 }
 
+type iColumnInternal interface {
+	IColumnSpec
+
+	Oldname() string
+}
+
 // SBaseColumn is the base structure represents a column
 type SBaseColumn struct {
 	name          string
 	dbName        string
+	oldName       string
 	sqlType       string
 	defaultString string
 	isPointer     bool
@@ -154,6 +161,11 @@ func (c *SBaseColumn) Name() string {
 		return c.dbName
 	}
 	return c.name
+}
+
+// Name implementation of SBaseColumn for IColumnSpec
+func (c *SBaseColumn) Oldname() string {
+	return c.oldName
 }
 
 // ColType implementation of SBaseColumn for IColumnSpec
@@ -301,6 +313,11 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 	if ok {
 		dbName = val
 	}
+	oldName := ""
+	tagmap, val, ok = utils.TagPop(tagmap, TAG_OLD_NAME)
+	if ok {
+		oldName = val
+	}
 	defStr := ""
 	tagmap, val, ok = utils.TagPop(tagmap, TAG_DEFAULT)
 	if ok {
@@ -337,6 +354,7 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 	return SBaseColumn{
 		name:          name,
 		dbName:        dbName,
+		oldName:       oldName,
 		sqlType:       sqltype,
 		defaultString: defStr,
 		isNullable:    isNullable,

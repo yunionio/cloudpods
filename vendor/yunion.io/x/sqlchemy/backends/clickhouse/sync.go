@@ -71,8 +71,6 @@ func arrayContainsWord(strs []string, word string) bool {
 }
 
 func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes sqlchemy.STableChanges) []string {
-	ret := make([]string, 0)
-
 	needCopyTable := false
 
 	alters := make([]string, 0)
@@ -132,7 +130,10 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 
 	oldPartitions := findPartitions(changes.OldColumns)
 	for _, cols := range changes.UpdatedColumns {
-		if cols.OldCol.IsNullable() && !cols.NewCol.IsNullable() && arrayContainsWord(oldPartitions, cols.NewCol.Name()) {
+		if cols.OldCol.Name() != cols.NewCol.Name() {
+			sql := fmt.Sprintf("RENAME COLUMN %s TO %s", cols.OldCol.Name(), cols.NewCol.Name())
+			alters = append(alters, sql)
+		} else if cols.OldCol.IsNullable() && !cols.NewCol.IsNullable() && arrayContainsWord(oldPartitions, cols.NewCol.Name()) {
 			needCopyTable = true
 		} else {
 			sql := fmt.Sprintf("MODIFY COLUMN %s", cols.NewCol.DefinitionString())
@@ -172,17 +173,14 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 		}
 	}
 
-	if len(alters) > 0 {
-		sql := fmt.Sprintf("ALTER TABLE `%s` %s;", ts.Name(), strings.Join(alters, ", "))
-		ret = append(ret, sql)
-	}
-
 	// check partitions
 	newPartitions := findPartitions(ts.Columns())
 	if !sortedstring.Equals(oldPartitions, newPartitions) {
 		log.Infof("partition inconsistemt: old=%s new=%s", oldPartitions, newPartitions)
 		needCopyTable = true
 	}
+
+	ret := make([]string, 0)
 
 	// needCopyTable
 	if needCopyTable {
@@ -204,6 +202,17 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 		ret = append(ret, sql)
 		sql = fmt.Sprintf("RENAME TABLE `%s` TO `%s`", alterTableName, ts.Name())
 		ret = append(ret, sql)
+	} else if len(alters) > 0 {
+		tableSpec := ts.(*sqlchemy.STableSpec)
+		if tableSpec.IsLinked {
+			// if the table is a linked table, simply re-create the table
+			ret = append(ret, fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableSpec.Name()))
+			createSqls := tableSpec.CreateSQLs()
+			ret = append(ret, createSqls...)
+		} else {
+			sql := fmt.Sprintf("ALTER TABLE `%s` %s;", ts.Name(), strings.Join(alters, ", "))
+			ret = append(ret, sql)
+		}
 	}
 
 	return ret

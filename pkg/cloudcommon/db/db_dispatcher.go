@@ -682,11 +682,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		}
 		q = union.Query()
 	} else {
-		if useRawQuery {
-			q = manager.RawQuery()
-		} else {
-			q = manager.Query()
-		}
+		q = manager.NewQuery(ctx, userCred, queryDict, useRawQuery)
 	}
 
 	q, err = listItemQueryFiltersRaw(manager, ctx, q, userCred, queryDict, policy.PolicyActionList, true, useRawQuery)

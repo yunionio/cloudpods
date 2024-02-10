@@ -990,20 +990,24 @@ func GetTagValueCountMap(
 	query jsonutils.JSONObject,
 ) ([]map[string]string, error) {
 	var err error
-	objSubQ := manager.Query().SubQuery()
+	objQ := manager.Query()
+	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListItemQueryFilters")
+	}
+	objSubQ := objQ.SubQuery().Query()
+	objSubQ = objSubQ.AppendField(objSubQ.Field(tagIdField))
+	objSubQ = objSubQ.GroupBy(objSubQ.Field(tagIdField))
 	var sumFieldQ sqlchemy.IQueryField
 	if len(sumField) > 0 {
 		sumFieldQ = sqlchemy.SUM("_sub_count_", objSubQ.Field(sumField))
 	} else {
 		sumFieldQ = sqlchemy.COUNT("_sub_count_")
 	}
-	objQ := objSubQ.Query(objSubQ.Field(tagIdField), sumFieldQ)
-	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
-	if err != nil {
-		return nil, errors.Wrap(err, "ListItemQueryFilters")
-	}
-	objQ = objQ.GroupBy(objSubQ.Field(tagIdField))
-	q := objQ.SubQuery().Query(sqlchemy.SUM(tagValueCountKey, objQ.Field("_sub_count_")))
+	objSubQ = objSubQ.AppendField(sumFieldQ)
+
+	q := objSubQ.SubQuery().Query()
+	q = q.AppendField(sqlchemy.SUM(tagValueCountKey, objSubQ.Field("_sub_count_")))
 
 	metadataMan := GetMetadaManagerInContext(ctx)
 	metadataSQ := metadataMan.Query().Equals("obj_type", tagObjType).In("key", keys).SubQuery()
@@ -1021,6 +1025,7 @@ func GetTagValueCountMap(
 		groupBy = append(groupBy, q.Field(valueFieldName))
 	}
 	q = q.GroupBy(groupBy...)
+
 	valueMap, err := q.AllStringMap()
 	if err != nil {
 		return nil, errors.Wrap(err, "AllStringAmp")

@@ -816,6 +816,7 @@ func (self *SStorage) GetAttachedHosts() ([]SHost, error) {
 func (self *SStorage) SyncStatusWithHosts(ctx context.Context) {
 	hosts, err := self.GetAttachedHosts()
 	if err != nil {
+		log.Errorf("storage.SyncStatusWithHosts: GetAttachedHosts fail %s", err)
 		return
 	}
 	total := 0
@@ -848,6 +849,7 @@ func (self *SStorage) SyncStatusWithHosts(ctx context.Context) {
 		status = api.STORAGE_UNMOUNT
 	}
 	if status != self.Status {
+		log.Infof("Storage %s(%s) status %s expect %s online %d", self.Name, self.Id, self.Status, status, online)
 		self.SetStatus(ctx, nil, status, "SyncStatusWithHosts")
 	}
 }

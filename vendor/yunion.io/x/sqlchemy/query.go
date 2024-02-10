@@ -63,43 +63,43 @@ type SQuery struct {
 	limit  int
 	offset int
 
-	fieldCache map[string]IQueryField
+	refFieldMap map[string]IQueryField
 
 	snapshot string
 
 	db *SDatabase
 }
 
-func (self *SQuery) Copy() *SQuery {
+func (tq *SQuery) Copy() *SQuery {
 	q := &SQuery{
-		rawSql:     self.rawSql,
-		fields:     []IQueryField{},
-		distinct:   self.distinct,
-		from:       self.from,
-		joins:      []sQueryJoin{},
-		where:      self.where,
-		groupBy:    []IQueryField{},
-		orderBy:    []sQueryOrder{},
-		limit:      self.limit,
-		offset:     self.offset,
-		fieldCache: map[string]IQueryField{},
-		snapshot:   self.snapshot,
-		db:         self.db,
+		rawSql:      tq.rawSql,
+		fields:      []IQueryField{},
+		refFieldMap: map[string]IQueryField{},
+		distinct:    tq.distinct,
+		from:        tq.from,
+		joins:       []sQueryJoin{},
+		where:       tq.where,
+		groupBy:     []IQueryField{},
+		orderBy:     []sQueryOrder{},
+		limit:       tq.limit,
+		offset:      tq.offset,
+		snapshot:    tq.snapshot,
+		db:          tq.db,
 	}
-	for i := range self.fields {
-		q.fields = append(q.fields, self.fields[i])
+	for i := range tq.fields {
+		q.fields = append(q.fields, tq.fields[i])
 	}
-	for i := range self.joins {
-		q.joins = append(q.joins, self.joins[i])
+	for k := range tq.refFieldMap {
+		q.refFieldMap[k] = tq.refFieldMap[k]
 	}
-	for i := range self.groupBy {
-		q.groupBy = append(q.groupBy, self.groupBy[i])
+	for i := range tq.joins {
+		q.joins = append(q.joins, tq.joins[i])
 	}
-	for i := range self.orderBy {
-		q.orderBy = append(q.orderBy, self.orderBy[i])
+	for i := range tq.groupBy {
+		q.groupBy = append(q.groupBy, tq.groupBy[i])
 	}
-	for k, field := range self.fieldCache {
-		q.fieldCache[k] = field
+	for i := range tq.orderBy {
+		q.orderBy = append(q.orderBy, tq.orderBy[i])
 	}
 	return q
 }
@@ -109,14 +109,12 @@ func (tq *SQuery) IsGroupBy() bool {
 	return len(tq.groupBy) > 0
 }
 
-func (tq *SQuery) HasField(f IQueryField) bool {
+func (tq *SQuery) hasField(f IQueryField) bool {
 	if len(tq.fields) == 0 {
 		return false
 	}
 	for i := range tq.fields {
-		fi := tq.fields[i]
-		// log.Debugf("field at %d: %s", i, fi.Name())
-		if fi.Name() == f.Name() {
+		if tq.fields[i].Name() == f.Name() {
 			return true
 		}
 	}
@@ -127,15 +125,33 @@ func (tq *SQuery) HasField(f IQueryField) bool {
 func (tq *SQuery) AppendField(f ...IQueryField) *SQuery {
 	// log.Debugf("AppendField tq has fields %d", len(tq.fields))
 	for i := range f {
-		if !tq.HasField(f[i]) {
-			tq.fields = append(tq.fields, f[i])
+		if !tq.hasField(f[i]) {
+			if refField, ok := tq.refFieldMap[f[i].Name()]; ok {
+				tq.fields = append(tq.fields, refField)
+				delete(tq.refFieldMap, f[i].Name())
+			} else {
+				tq.fields = append(tq.fields, f[i])
+			}
+		}
+	}
+	return tq
+}
+
+func (tq *SQuery) addRefField(f IQueryField) *SQuery {
+	if tq.refFieldMap == nil {
+		tq.refFieldMap = make(map[string]IQueryField)
+	}
+	if !tq.hasField(f) {
+		if _, ok := tq.refFieldMap[f.Name()]; !ok {
+			tq.refFieldMap[f.Name()] = f
 		}
 	}
 	return tq
 }
 
 func (tq *SQuery) ResetFields() *SQuery {
-	tq.fields = nil
+	tq.fields = make([]IQueryField, 0)
+	tq.refFieldMap = make(map[string]IQueryField)
 	return tq
 }
 
@@ -236,6 +252,10 @@ func (tq *SQuery) Offset(offset int) *SQuery {
 	return tq
 }
 
+func (tq *SQuery) FieldCount() int {
+	return len(tq.fields)
+}
+
 // QueryFields of SQuery returns fields in SELECT clause of a query
 func (tq *SQuery) QueryFields() []IQueryField {
 	if len(tq.fields) > 0 {
@@ -320,7 +340,11 @@ func (tq *SQuery) Distinct() *SQuery {
 
 // SubQuery of SQuery generates a SSubQuery from a Query
 func (tq *SQuery) SubQuery() *SSubQuery {
-	sq := SSubQuery{query: tq, alias: getTableAliasName()}
+	sq := SSubQuery{
+		query:         tq,
+		alias:         getTableAliasName(),
+		referedFields: make(map[string]IQueryField),
+	}
 	return &sq
 }
 
@@ -333,7 +357,7 @@ func (tq *SQuery) Row() *sql.Row {
 	sqlstr := tq.String()
 	vars := tq.Variables()
 	if DEBUG_SQLCHEMY {
-		sqlDebug(sqlstr, vars)
+		sqlDebug("SQuery.Row", sqlstr, vars)
 	}
 	if tq.db == nil {
 		panic("tq.db")
@@ -349,7 +373,7 @@ func (tq *SQuery) Rows() (*sql.Rows, error) {
 	sqlstr := tq.String()
 	vars := tq.Variables()
 	if DEBUG_SQLCHEMY {
-		sqlDebug(sqlstr, vars)
+		sqlDebug("SQuery.Rows", sqlstr, vars)
 	}
 	return tq.db.db.Query(sqlstr, vars...)
 }
@@ -391,27 +415,13 @@ func (tq *SQuery) CountWithError() (int, error) {
 // Field implementation of SQuery for IQuery
 func (tq *SQuery) Field(name string) IQueryField {
 	f := tq.findField(name)
-	if DEBUG_SQLCHEMY && f == nil {
-		log.Debugf("cannot find field %s for query", name)
+	if f == nil {
+		log.Errorf("SQuery %s cannot find Field %s", tq.String(), name)
 	}
 	return f
 }
 
 func (tq *SQuery) findField(name string) IQueryField {
-	if tq.fieldCache == nil {
-		tq.fieldCache = make(map[string]IQueryField)
-	}
-	if _, ok := tq.fieldCache[name]; ok {
-		return tq.fieldCache[name]
-	}
-	f := tq.internalFindField(name)
-	if f != nil {
-		tq.fieldCache[name] = f
-	}
-	return f
-}
-
-func (tq *SQuery) internalFindField(name string) IQueryField {
 	for _, f := range tq.fields {
 		if f.Name() == name {
 			// switch f.(type) {
@@ -421,25 +431,25 @@ func (tq *SQuery) internalFindField(name string) IQueryField {
 			return f
 		}
 	}
-	f := tq.from.Field(name)
-	if f != nil {
+	if f, ok := tq.refFieldMap[name]; ok {
 		return f
 	}
-	/* for _, f := range tq.from.Fields() {
-		if f.Name() == name {
-			return f
-		}
-	}*/
+	f := tq.from.Field(name)
+	if f != nil {
+		return newQueryField(tq.from, name)
+	}
+	finds := make([]IQueryField, 0)
 	for _, join := range tq.joins {
 		f = join.from.Field(name)
 		if f != nil {
-			return f
+			finds = append(finds, newQueryField(join.from, name))
 		}
-		/* for _, f := range join.from.Fields() {
-			if f.Name() == name {
-				return f
-			}
-		}*/
+	}
+	if len(finds) == 1 {
+		return finds[0]
+	} else if len(finds) > 1 {
+		log.Errorf("Field %s found duplicated %d, please specifify the field", name, len(finds))
+		return finds[0]
 	}
 	return nil
 }
