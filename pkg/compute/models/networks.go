@@ -3479,7 +3479,7 @@ func (network *SNetwork) GetDetailsAvailableAddresses(
 		addrTable6 := network.GetUsedAddresses6(ctx)
 		recentUsedAddrTable6 := GuestnetworkManager.getRecentlyReleasedIPAddresses6(network.Id, network.getAllocTimoutDuration())
 		addrRange6 := network.getIPRange6()
-		for addr6 := addrRange6.StartIp(); addr6.Le(addrRange6.EndIp()) && len(availables) < maxCount; addr6 = addr6.StepUp() {
+		for addr6 := addrRange6.StartIp(); addr6.Le(addrRange6.EndIp()) && len(availables6) < maxCount; addr6 = addr6.StepUp() {
 			addrStr6 := addr6.String()
 			if _, ok := addrTable6[addrStr6]; !ok {
 				if _, ok := recentUsedAddrTable6[addrStr6]; !ok {
