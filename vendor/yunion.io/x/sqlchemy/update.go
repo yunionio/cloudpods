@@ -224,7 +224,6 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 	if DEBUG_SQLCHEMY {
 		log.Infof("Update: %s", _sqlDebug(updateSql, vars))
 	}
-	log.Infof("Update: %s", _sqlDebug(updateSql, vars))
 
 	return &SUpdateSQLResult{
 		Sql:       updateSql,
