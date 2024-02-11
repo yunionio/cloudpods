@@ -990,7 +990,7 @@ func GetTagValueCountMap(
 	query jsonutils.JSONObject,
 ) ([]map[string]string, error) {
 	var err error
-	objQ := manager.Query()
+	objQ := manager.NewQuery(ctx, userCred, query, false)
 	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListItemQueryFilters")
@@ -1006,8 +1006,10 @@ func GetTagValueCountMap(
 	}
 	objSubQ = objSubQ.AppendField(sumFieldQ)
 
+	objSubQ.DebugQuery2("GetTagValueCountMap objSubQ")
+
 	q := objSubQ.SubQuery().Query()
-	q = q.AppendField(sqlchemy.SUM(tagValueCountKey, objSubQ.Field("_sub_count_")))
+	q = q.AppendField(sqlchemy.SUM(tagValueCountKey, q.Field("_sub_count_")))
 
 	metadataMan := GetMetadaManagerInContext(ctx)
 	metadataSQ := metadataMan.Query().Equals("obj_type", tagObjType).In("key", keys).SubQuery()
@@ -1025,6 +1027,8 @@ func GetTagValueCountMap(
 		groupBy = append(groupBy, q.Field(valueFieldName))
 	}
 	q = q.GroupBy(groupBy...)
+
+	q.DebugQuery2("GetTagValueCountMap")
 
 	valueMap, err := q.AllStringMap()
 	if err != nil {
