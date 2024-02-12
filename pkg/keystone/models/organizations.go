@@ -661,3 +661,16 @@ func (org *SOrganization) getProjectOrganization(tags map[string]string) (*api.S
 	}
 	return &ret, nil
 }
+
+func (org *SOrganization) PerformClean(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.OrganizationPerformCleanInput,
+) (jsonutils.JSONObject, error) {
+	err := org.removeAll(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "removeAll")
+	}
+	return nil, nil
+}
