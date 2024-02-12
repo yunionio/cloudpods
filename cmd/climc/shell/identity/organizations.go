@@ -31,4 +31,5 @@ func init() {
 	orgCmd.Delete(&identity_options.OrganizationIdOptions{})
 	orgCmd.Perform("add-level", &identity_options.OrganizationAddLevelOptions{})
 	orgCmd.Perform("add-node", &identity_options.OrganizationAddNodeOptions{})
+	orgCmd.Perform("clean", &identity_options.OrganizationIdOptions{})
 }

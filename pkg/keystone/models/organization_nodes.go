@@ -117,6 +117,10 @@ func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId s
 			return nil, errors.Wrap(err, "FetchById")
 		}
 		// not exist
+		if weight == nil {
+			one := 1
+			weight = &one
+		}
 	} else {
 		// exist
 		if weight == nil {
