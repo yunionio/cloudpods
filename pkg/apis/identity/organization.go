@@ -205,3 +205,6 @@ type SOrganizationNodeDetails struct {
 
 	Type TOrgType `json:"type"`
 }
+
+type OrganizationPerformCleanInput struct {
+}
