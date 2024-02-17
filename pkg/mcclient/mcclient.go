@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -153,11 +155,24 @@ func joinUrl(baseUrl, path string) string {
 	return fmt.Sprintf("%s%s", baseUrl, path)
 }
 
+func FixContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	srvType := consts.GetServiceType()
+	if len(srvType) > 0 && len(appctx.AppContextServiceName(ctx)) == 0 {
+		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, srvType)
+	}
+	return ctx
+}
+
 func (client *Client) rawRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body io.Reader) (*http.Response, error) {
+	ctx = FixContext(ctx)
 	return httputils.Request(client.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, client.debug)
 }
 
 func (client *Client) jsonRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	ctx = FixContext(ctx)
 	return httputils.JSONRequest(client.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, client.debug)
 }
 
