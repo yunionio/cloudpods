@@ -24,13 +24,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/cache"
 	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -176,14 +174,11 @@ func newAuthManager(cli *mcclient.Client, info *AuthInfo) *authManager {
 }
 
 func (a *authManager) startRefreshRevokeTokens() {
-	ticker := time.NewTicker(5 * time.Minute)
-	for range ticker.C {
-		err := a.refreshRevokeTokens(context.Background())
-		if err != nil {
-			log.Errorf("%s", err)
-		}
+	err := a.refreshRevokeTokens(context.Background())
+	if err != nil {
+		log.Errorf("%s", err)
 	}
-	ticker.Stop()
+	time.AfterFunc(5*time.Minute, a.startRefreshRevokeTokens)
 }
 
 func (a *authManager) refreshRevokeTokens(ctx context.Context) error {
@@ -345,14 +340,7 @@ func (a *authManager) getAdminSession(ctx context.Context, region, zone, endpoin
 }
 
 func getContext(ctx context.Context) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	srvType := consts.GetServiceType()
-	if len(srvType) > 0 && len(appctx.AppContextServiceName(ctx)) == 0 {
-		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, srvType)
-	}
-	return ctx
+	return mcclient.FixContext(ctx)
 }
 
 func (a *authManager) getSession(ctx context.Context, token mcclient.TokenCredential, region, zone, endpointType string) *mcclient.ClientSession {
