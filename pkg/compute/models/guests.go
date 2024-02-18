@@ -6344,6 +6344,9 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 		netConf.Wire = network.WireId
 		netConf.Network = network.Id
 		netConf.Exit = guestNetwork.IsExit()
+		if len(guestNetwork.Ip6Addr) > 0 {
+			netConf.RequireIPv6 = true
+		}
 		// netConf.Private
 		// netConf.Reserved
 		netConf.Driver = guestNetwork.Driver
