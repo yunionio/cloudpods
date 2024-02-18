@@ -892,13 +892,20 @@ func (s *SKVMGuestInstance) initCpuDesc(cpuMax uint) error {
 		return err
 	}
 	s.Desc.CpuDesc = cpuDesc
+
+	err = s.allocGuestNumaCpuset()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *SKVMGuestInstance) initMemDesc(memSizeMB int64) {
+func (s *SKVMGuestInstance) initMemDesc(memSizeMB int64) error {
 	s.Desc.MemDesc = s.archMan.GenerateMemDesc()
 	s.Desc.MemDesc.SizeMB = memSizeMB
-	s.initDefaultMemObject(memSizeMB)
+
+	return s.initGuestMemObjects(memSizeMB)
 }
 
 func (s *SKVMGuestInstance) memObjectType() string {
@@ -911,24 +918,88 @@ func (s *SKVMGuestInstance) memObjectType() string {
 	}
 }
 
-func (s *SKVMGuestInstance) initDefaultMemObject(memSizeMB int64) {
-	s.Desc.MemDesc.Mem = desc.NewObject(s.memObjectType(), "mem")
+func (s *SKVMGuestInstance) initGuestMemObjects(memSizeMB int64) error {
+	if len(s.Desc.CpuNumaPin) == 0 {
+		s.initDefaultMemObject(memSizeMB)
+		return nil
+	}
+
+	var numaMems int64
+	var numaCpus = int(s.Desc.CpuDesc.MaxCpus) / len(s.Desc.CpuNumaPin)
+	var leastCpus = int(s.Desc.CpuDesc.MaxCpus) % len(s.Desc.CpuNumaPin)
+	var numaVcpuCount = int(s.Desc.Cpu) / len(s.Desc.CpuNumaPin)
+	var mems = make([]desc.SMemDesc, 0)
+	for i := 0; i < len(s.Desc.CpuNumaPin); i++ {
+		numaMems += s.Desc.CpuNumaPin[i].SizeMB
+		memId := "mem"
+		nodeId := uint16(i)
+		if i > 0 {
+			memId += strconv.Itoa(i - 1)
+		}
+
+		vcpuCount := numaVcpuCount
+		if i == 0 {
+			vcpuCount += int(s.Desc.Cpu) % len(s.Desc.CpuNumaPin)
+		}
+
+		cpuStart := i * numaCpus
+		cpuEnd := (i+1)*numaCpus - 1
+		if i+1 == len(s.Desc.CpuNumaPin) {
+			cpuEnd += leastCpus
+		}
+		vcpus := fmt.Sprintf("%d-%d", cpuStart, cpuEnd)
+		vcpuAlloc := fmt.Sprintf("%d-%d", cpuStart, cpuStart+vcpuCount-1)
+		s.Desc.CpuNumaPin[i].Vcpus = &vcpuAlloc
+
+		if !s.Desc.CpuNumaPin[i].Regular {
+			continue
+		}
+		memDesc := desc.NewMemDesc(s.memObjectType(), memId, &nodeId, &vcpus)
+		memDesc.Options = s.getMemObjectOptions(s.Desc.CpuNumaPin[i].SizeMB, s.Desc.Uuid, s.Desc.CpuNumaPin[i].HostNodes)
+		mems = append(mems, *memDesc)
+	}
+	if len(mems) == 0 {
+		// numa mems not regular
+		s.initDefaultMemObject(memSizeMB)
+		return nil
+	}
+
+	if numaMems != memSizeMB {
+		return errors.Errorf("numa memory size not equal request mem size")
+	}
+	s.Desc.MemDesc.Mem = desc.NewMemsDesc(mems[0], mems[1:])
+	return nil
+}
+
+func (s *SKVMGuestInstance) getMemObjectOptions(memSizeMB int64, memPathSuffix string, hostNodes *uint16) map[string]string {
+	var opts map[string]string
 	if s.manager.host.IsHugepagesEnabled() {
-		s.Desc.MemDesc.Mem.Options = map[string]string{
-			"mem-path": fmt.Sprintf("/dev/hugepages/%s", s.Desc.Uuid),
+		opts = map[string]string{
+			"mem-path": fmt.Sprintf("/dev/hugepages/%s", memPathSuffix),
 			"size":     fmt.Sprintf("%dM", memSizeMB),
 			"share":    "on", "prealloc": "on",
 		}
+		if hostNodes != nil {
+			opts["host-nodes"] = fmt.Sprintf("%d", *hostNodes)
+			opts["policy"] = "bind"
+		}
 	} else if s.isMemcleanEnabled() {
-		s.Desc.MemDesc.Mem.Options = map[string]string{
+		opts = map[string]string{
 			"size":  fmt.Sprintf("%dM", memSizeMB),
 			"share": "on", "prealloc": "on",
 		}
 	} else {
-		s.Desc.MemDesc.Mem.Options = map[string]string{
+		opts = map[string]string{
 			"size": fmt.Sprintf("%dM", memSizeMB),
 		}
 	}
+	return opts
+}
+
+func (s *SKVMGuestInstance) initDefaultMemObject(memSizeMB int64) {
+	defaultDesc := desc.NewMemDesc(s.memObjectType(), "mem", nil, nil)
+	defaultDesc.Options = s.getMemObjectOptions(memSizeMB, s.Desc.Uuid, nil)
+	s.Desc.MemDesc.Mem = desc.NewMemsDesc(*defaultDesc, nil)
 }
 
 func (s *SKVMGuestInstance) defaultMemNodeHasObject(memDevs []monitor.Memdev) bool {
@@ -950,7 +1021,7 @@ func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(
 			return errors.Errorf("unsupported memory device type %s", memoryDevicesInfoList[i].Type)
 		}
 		memSize -= (memoryDevicesInfoList[i].Data.Size / 1024 / 1024)
-		memObj := desc.NewObject(s.memObjectType(), path.Base(memoryDevicesInfoList[i].Data.Memdev))
+		memObj := desc.NewMemDesc(s.memObjectType(), path.Base(memoryDevicesInfoList[i].Data.Memdev), nil, nil)
 		memObj.Options = map[string]string{
 			"size": fmt.Sprintf("%dM", memoryDevicesInfoList[i].Data.Size/1024/1024),
 		}

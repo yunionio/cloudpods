@@ -147,7 +147,8 @@ type SHost struct {
 	// 内存超分比
 	MemCmtbound float32 `nullable:"true" default:"1" list:"domain" update:"domain" create:"domain_optional"`
 	// 页大小
-	PageSizeKB int `nullable:"false" default:"4" list:"domain" update:"domain" create:"domain_optional"`
+	PageSizeKB         int  `nullable:"false" default:"4" list:"domain" update:"domain" create:"domain_optional"`
+	EnableNumaAllocate bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 存储大小,单位Mb
 	StorageSize int64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
@@ -3787,6 +3788,13 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	}
 	if len(input.Name) > 0 {
 		self.UpdateDnsRecords(false)
+	}
+	if input.EnableNumaAllocate != nil {
+		if cnt, err := self.GetRunningGuestCount(); err != nil {
+			return input, errors.Wrap(err, "GetRunningGuestCount")
+		} else if cnt > 0 {
+			return input, errors.Errorf("Host has running guest, can't enable/disable numa allocate")
+		}
 	}
 	return input, nil
 }

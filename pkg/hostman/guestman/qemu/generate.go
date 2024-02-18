@@ -136,8 +136,25 @@ func generatePciControllerOptions(controllers []*desc.PCIController) []string {
 	return opts
 }
 
-func generateNumaOption(memId string) string {
-	return fmt.Sprintf("-numa node,memdev=%s", memId)
+func generateNumaOption(memId string, nodeId *uint16, cpus *string) string {
+	cmd := fmt.Sprintf("-numa node,memdev=%s", memId)
+	if nodeId != nil {
+		cmd += fmt.Sprintf(",nodeid=%d", *nodeId)
+	}
+	if cpus != nil {
+		cpuSegs := strings.Split(*cpus, ",")
+		for _, cpuSeg := range cpuSegs {
+			cmd += fmt.Sprintf(",cpus=%s", cpuSeg)
+		}
+	}
+	return cmd
+}
+
+func generateMemObjectWithNumaOptions(mem *desc.SMemDesc) string {
+	cmds := []string{}
+	cmds = append(cmds, generateObjectOption(mem.Object))
+	cmds = append(cmds, generateNumaOption(mem.Id, mem.NodeId, mem.Cpus))
+	return strings.Join(cmds, " ")
 }
 
 func generateMemoryOption(memDesc *desc.SGuestMem) string {
@@ -147,13 +164,15 @@ func generateMemoryOption(memDesc *desc.SGuestMem) string {
 		memDesc.SizeMB, memDesc.Slots, memDesc.MaxMem,
 	))
 	if memDesc.Mem != nil {
-		cmds = append(cmds, generateObjectOption(memDesc.Mem))
-		cmds = append(cmds, generateNumaOption(memDesc.Mem.Id))
+		cmds = append(cmds, generateMemObjectWithNumaOptions(&memDesc.Mem.SMemDesc))
+		for i := range memDesc.Mem.Mems {
+			cmds = append(cmds, generateMemObjectWithNumaOptions(&memDesc.Mem.Mems[i]))
+		}
 	}
 	for i := 0; i < len(memDesc.MemSlots); i++ {
 		memDev := memDesc.MemSlots[i].MemDev
 		memObj := memDesc.MemSlots[i].MemObj
-		cmds = append(cmds, generateObjectOption(memObj))
+		cmds = append(cmds, generateObjectOption(memObj.Object))
 		cmds = append(cmds, fmt.Sprintf("-device %s,id=%s,memdev=%s", memDev.Type, memDev.Id, memObj.Id))
 	}
 	return strings.Join(cmds, " ")
@@ -168,15 +187,20 @@ func generateMachineOption(machine string, machineDesc *desc.SGuestMachine) stri
 	return cmd
 }
 
-func generateSMPOption(cpu *desc.SGuestCpu) string {
+func generateSMPOption(guestDesc *desc.SGuestDesc) string {
+	cpu := guestDesc.CpuDesc
+	startCpus := cpu.Cpus
+	if len(guestDesc.MemDesc.Mem.Mems) > 0 {
+		startCpus = 1
+	}
 	if cpu.MaxCpus%2 > 0 {
 		return fmt.Sprintf(
-			"-smp cpus=%d,maxcpus=%d", cpu.Cpus, cpu.MaxCpus,
+			"-smp cpus=%d,maxcpus=%d", startCpus, cpu.MaxCpus,
 		)
 	} else {
 		return fmt.Sprintf(
 			"-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d",
-			cpu.Cpus, cpu.Sockets, cpu.Cores, cpu.MaxCpus,
+			startCpus, cpu.Sockets, cpu.Cores, cpu.MaxCpus,
 		)
 	}
 }
@@ -699,7 +723,7 @@ func GenerateStartOptions(
 		drvOpt.Global(),
 		generateMachineOption(input.GuestDesc.Machine, input.GuestDesc.MachineDesc),
 		drvOpt.KeyboardLayoutLanguage("en-us"),
-		generateSMPOption(input.GuestDesc.CpuDesc),
+		generateSMPOption(input.GuestDesc),
 		drvOpt.Name(input.GuestDesc.Name),
 		drvOpt.UUID(input.EnableUUID, input.GuestDesc.Uuid),
 		generateMemoryOption(input.GuestDesc.MemDesc),
