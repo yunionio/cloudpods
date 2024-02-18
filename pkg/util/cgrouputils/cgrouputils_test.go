@@ -29,5 +29,5 @@ func TestCgroupSet(t *testing.T) {
 	pid = strings.TrimSpace(pid)
 	t.Logf("Start %s cgroup set", pid)
 	CgroupSet(pid, "", 1)
-	CgroupCleanAll()
+	CgroupCleanAll("")
 }

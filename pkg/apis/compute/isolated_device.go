@@ -127,6 +127,7 @@ type IsolatedDeviceJsonDesc struct {
 	DiskIndex           int8   `json:"disk_index"`
 	NvmeSizeMB          int    `json:"nvme_size_mb"`
 	MdevId              string `json:"mdev_id"`
+	NumaNode            int8   `json:"numa_node"`
 }
 
 type IsolatedDeviceModelCreateInput struct {
