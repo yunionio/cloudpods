@@ -61,18 +61,20 @@ type ICGroupTask interface {
 }
 
 type CGroupTask struct {
-	pid    string
-	name   string
-	weight float64
+	pid       string
+	threadIds []string
+	name      string
+	weight    float64
 
 	hand ICGroupTask
 }
 
-func NewCGroupTask(pid, name string, coreNum int) *CGroupTask {
+func NewCGroupTask(pid, name string, coreNum int, threadIds []string) *CGroupTask {
 	return &CGroupTask{
-		pid:    pid,
-		name:   name,
-		weight: float64(coreNum) / normalizeBase,
+		pid:       pid,
+		name:      name,
+		weight:    float64(coreNum) / normalizeBase,
+		threadIds: threadIds,
 	}
 }
 
@@ -124,6 +126,7 @@ func GetRootParam(module, name, pid string) string {
 	return strings.TrimSpace(param)
 }
 
+// cpuset, task, tid, cgname
 func SetRootParam(module, name, value, pid string) bool {
 	param := GetRootParam(module, name, pid)
 	if param != value {
@@ -140,8 +143,16 @@ func SetRootParam(module, name, value, pid string) bool {
 }
 
 // cleanup
-func CleanupNonexistPids(module string) {
+func CleanupNonexistPids(module string, subName string) {
 	var root = RootTaskPath(module)
+	cleanNonexitPidsWithRoot(root)
+	if subName != "" {
+		root = path.Join(RootTaskPath(module), subName)
+		cleanNonexitPidsWithRoot(root)
+	}
+}
+
+func cleanNonexitPidsWithRoot(root string) {
 	files, err := ioutil.ReadDir(root)
 	if err != nil {
 		log.Errorf("GetTaskIds failed: %s", err)
@@ -151,11 +162,35 @@ func CleanupNonexistPids(module string) {
 	for _, file := range files {
 		ids = append(ids, file.Name())
 	}
-	re := regexp.MustCompile(`^\d+$`)
+
+	re1 := regexp.MustCompile(`^\d+$`)
+	re2 := regexp.MustCompile(`^server_[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}_\d+$`)
 	for _, pid := range ids {
-		if re.MatchString(pid) && fileutils2.IsDir(path.Join(root, pid)) {
-			if !fileutils2.Exists(path.Join("/proc", pid)) {
+		spid := ""
+		if re1.MatchString(pid) {
+			spid = pid
+		} else if re2.MatchString(pid) {
+			segs := strings.Split(pid, "_")
+			spid = segs[len(segs)-1]
+		}
+
+		if fileutils2.IsDir(path.Join(root, pid)) {
+			if !fileutils2.Exists(path.Join("/proc", spid)) {
 				log.Infof("Cgroup clenup %s", pid)
+
+				subFiles, err := ioutil.ReadDir(path.Join(root, pid))
+				if err != nil {
+					log.Errorf("sub dir %s GetTaskIds failed: %s", path.Join(root, pid), err)
+				} else {
+					for _, fi := range subFiles {
+						if !fi.IsDir() {
+							continue
+						}
+						if err := os.Remove(path.Join(root, pid, fi.Name())); err != nil {
+							log.Errorf("CleanupNonexistPids pid=%s tid=%s error: %s", pid, fi.Name(), err)
+						}
+					}
+				}
 				if err := os.Remove(path.Join(root, pid)); err != nil {
 					log.Errorf("CleanupNonexistPids pid=%s error: %s", pid, err)
 				}
@@ -211,6 +246,10 @@ func (c *CGroupTask) GetTaskIds() []string {
 		return nil
 	}
 
+	if len(c.threadIds) > 0 {
+		return c.threadIds
+	}
+
 	files, err := ioutil.ReadDir(fmt.Sprintf("/proc/%s/task", c.pid))
 	if err != nil {
 		log.Errorf("GetTaskIds failed: %s", err)
@@ -258,7 +297,7 @@ func (c *CGroupTask) MoveTasksToRoot() {
 func (c *CGroupTask) RemoveTask() bool {
 	if c.taskIsExist() {
 		c.MoveTasksToRoot()
-		log.Infof("Remove task path %s", c.TaskPath())
+		log.Infof("Remove task path %s %s", c.TaskPath(), c.name)
 		if err := os.Remove(c.TaskPath()); err != nil {
 			log.Errorf("Remove task path failed %s", err)
 			return false
@@ -330,12 +369,12 @@ func (c *CGroupTask) SetTask() bool {
 	return false
 }
 
-func (c *CGroupTask) PushPid(pid string, isRoot bool) {
+func (c *CGroupTask) PushPid(tid string, isRoot bool) {
 	if c.pid == "" {
 		return
 	}
 
-	subdir := fmt.Sprintf("/proc/%s/task/%s", c.pid, pid)
+	subdir := fmt.Sprintf("/proc/%s/task/%s", c.pid, tid)
 	if fi, err := os.Stat(subdir); err != nil {
 		log.Errorf("Fail to put pid in task %s", err)
 		return
@@ -349,9 +388,9 @@ func (c *CGroupTask) PushPid(pid string, isRoot bool) {
 		data := re.Split(stat, -1)
 		if data[2] != "Z" {
 			if isRoot {
-				SetRootParam(c.hand.Module(), CGROUP_TASKS, pid, "")
+				SetRootParam(c.hand.Module(), CGROUP_TASKS, tid, "")
 			} else {
-				c.SetParam(CGROUP_TASKS, pid)
+				c.SetParam(CGROUP_TASKS, tid)
 			}
 		}
 	}
@@ -441,7 +480,7 @@ func (c *CGroupCPUTask) init() bool {
 }
 
 func NewCGroupCPUTask(pid, name string, coreNum int) CGroupCPUTask {
-	cgroup := CGroupCPUTask{NewCGroupTask(pid, name, coreNum)}
+	cgroup := CGroupCPUTask{NewCGroupTask(pid, name, coreNum, nil)}
 	cgroup.hand = &cgroup
 	return cgroup
 }
@@ -504,7 +543,7 @@ func (c *CGroupIOTask) init() bool {
 }
 
 func NewCGroupIOTask(pid, name string, coreNum int) *CGroupIOTask {
-	task := &CGroupIOTask{NewCGroupTask(pid, name, coreNum)}
+	task := &CGroupIOTask{NewCGroupTask(pid, name, coreNum, nil)}
 	task.SetHand(task)
 	return task
 }
@@ -566,7 +605,7 @@ func (c *CGroupMemoryTask) GetConfig() map[string]string {
 
 func NewCGroupMemoryTask(pid, name string, coreNum int) *CGroupMemoryTask {
 	task := &CGroupMemoryTask{
-		CGroupTask: NewCGroupTask(pid, name, coreNum),
+		CGroupTask: NewCGroupTask(pid, name, coreNum, nil),
 	}
 	task.SetHand(task)
 	return task
@@ -610,7 +649,16 @@ func (c *CGroupCPUSetTask) CustomConfig(key, value string) bool {
 
 func NewCGroupCPUSetTask(pid, name string, coreNum int, cpuset string) CGroupCPUSetTask {
 	task := CGroupCPUSetTask{
-		CGroupTask: NewCGroupTask(pid, name, coreNum),
+		CGroupTask: NewCGroupTask(pid, name, coreNum, nil),
+		cpuset:     cpuset,
+	}
+	task.SetHand(&task)
+	return task
+}
+
+func NewCGroupSubCPUSetTask(pid, name string, coreNum int, cpuset string, threadIds []string) CGroupCPUSetTask {
+	task := CGroupCPUSetTask{
+		CGroupTask: NewCGroupTask(pid, name, coreNum, threadIds),
 		cpuset:     cpuset,
 	}
 	task.SetHand(&task)
@@ -655,7 +703,7 @@ func CgroupDestroy(pid, name string) bool {
 		&CGroupCPUTask{&CGroupTask{}},
 		&CGroupIOTask{&CGroupTask{}},
 		&CGroupMemoryTask{&CGroupTask{}},
-		&CGroupCPUSetTask{&CGroupTask{}, ""},
+		//&CGroupCPUSetTask{&CGroupTask{}, ""},
 		&CGroupIOHardlimitTask{CGroupIOTask: &CGroupIOTask{&CGroupTask{}}},
 	}
 	for _, hand := range tasks {
@@ -667,7 +715,7 @@ func CgroupDestroy(pid, name string) bool {
 	return true
 }
 
-func CgroupCleanAll() {
+func CgroupCleanAll(subName string) {
 	tasks := []ICGroupTask{
 		&CGroupCPUTask{&CGroupTask{}},
 		&CGroupIOTask{&CGroupTask{}},
@@ -677,6 +725,6 @@ func CgroupCleanAll() {
 	}
 	for _, hand := range tasks {
 		hand.SetHand(hand)
-		CleanupNonexistPids(hand.Module())
+		CleanupNonexistPids(hand.Module(), subName)
 	}
 }

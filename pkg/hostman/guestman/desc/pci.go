@@ -396,3 +396,30 @@ func NewUsbController(masterbus string, port int) *UsbController {
 	}
 	return uc
 }
+
+func NewMemDesc(objType, id string, nodeId *uint16, cpus *string) *SMemDesc {
+	md := &SMemDesc{
+		Object: NewObject(objType, id),
+		NodeId: nodeId,
+		Cpus:   cpus,
+	}
+
+	return md
+}
+
+func (m *SMemDesc) SetHostNodes(hostNode int) {
+	if hostNode >= 0 {
+		m.Options["host-nodes"] = fmt.Sprintf("%d", hostNode)
+		m.Options["policy"] = "bind"
+	} else {
+		delete(m.Options, "host-nodes")
+		delete(m.Options, "policy")
+	}
+}
+
+func NewMemsDesc(defaultDesc SMemDesc, appendDesc []SMemDesc) *SMemsDesc {
+	return &SMemsDesc{
+		SMemDesc: defaultDesc,
+		Mems:     appendDesc,
+	}
+}

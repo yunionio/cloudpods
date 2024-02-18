@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -2386,6 +2387,7 @@ type SGuestHotplugCpuMemTask struct {
 
 	originalCpuCount int
 	addedCpuCount    int
+	addedVcpuIds     []int
 
 	addedMemSize    int
 	memSlotNewIndex *int
@@ -2415,7 +2417,69 @@ func (task *SGuestHotplugCpuMemTask) Start() {
 }
 
 func (task *SGuestHotplugCpuMemTask) startAddCpu() {
-	task.Monitor.GetCpuCount(task.onGetCpuCount)
+	if task.Desc.MemDesc.Mem.Cpus != nil && len(task.Desc.CpuNumaPin) > 0 {
+		task.buildVcpusMap()
+	} else {
+		task.Monitor.GetCpuCount(task.onGetCpuCount)
+	}
+}
+
+func (task *SGuestHotplugCpuMemTask) buildVcpusMap() {
+	vcpuSet, _ := cpuset.Parse(*task.Desc.MemDesc.Mem.Cpus)
+
+	for i := range task.Desc.MemDesc.Mem.Mems {
+		if task.Desc.MemDesc.Mem.Mems[i].Cpus != nil {
+			memVcpuSet, _ := cpuset.Parse(*task.Desc.MemDesc.Mem.Mems[i].Cpus)
+			vcpuSet = vcpuSet.Union(memVcpuSet)
+		}
+	}
+
+	for i := range task.Desc.CpuNumaPin {
+		if task.Desc.CpuNumaPin[i].Vcpus != nil {
+			allocedVcpus, _ := cpuset.Parse(*task.Desc.CpuNumaPin[i].Vcpus)
+			vcpuSet = vcpuSet.Difference(allocedVcpus)
+		}
+	}
+
+	task.startAddCpusWithFreeVcpuSet(vcpuSet.ToSlice())
+}
+
+func (task *SGuestHotplugCpuMemTask) startAddCpusWithFreeVcpuSet(vcpuSet []int) {
+	if task.addedCpuCount >= task.addCpuCount {
+		task.startAddMem()
+		return
+	}
+
+	vcpuId := vcpuSet[0]
+	cb := func(reason string) {
+		if len(reason) > 0 {
+			log.Errorln(reason)
+			task.onFail(reason)
+			return
+		}
+
+		cpus, _ := task.manager.cpuSet.AllocCpuset(1, 0, -1)
+		for _, cpus := range cpus {
+			pcpus := cpuset.NewCPUSet(cpus.Cpuset...).String()
+			vcpus := fmt.Sprintf("%d-%d", vcpuId, vcpuId)
+			cpuPin := &desc.SCpuNumaPin{
+				SizeMB:  0,
+				Pcpus:   &pcpus,
+				Vcpus:   &vcpus,
+				Regular: true,
+			}
+			task.Desc.CpuNumaPin = append(task.Desc.CpuNumaPin, cpuPin)
+		}
+		if task.addedVcpuIds == nil {
+			task.addedVcpuIds = []int{vcpuId}
+		} else {
+			task.addedVcpuIds = append(task.addedVcpuIds, vcpuId)
+		}
+
+		task.addedCpuCount += 1
+		task.startAddCpusWithFreeVcpuSet(vcpuSet[1:])
+	}
+	task.Monitor.AddCpu(vcpuId, cb)
 }
 
 func (task *SGuestHotplugCpuMemTask) onGetCpuCount(count int) {
@@ -2450,12 +2514,12 @@ func (task *SGuestHotplugCpuMemTask) startAddMem() {
 }
 
 func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
-	var newIndex = index
+	var newIndex = index + len(task.Desc.MemDesc.Mem.Mems)
 	task.memSlotNewIndex = &newIndex
 
 	var objType string
 	var id = fmt.Sprintf("mem%d", *task.memSlotNewIndex)
-	var options map[string]string
+	var opts map[string]string
 
 	if task.manager.host.IsHugepagesEnabled() {
 		memPath := fmt.Sprintf("/dev/hugepages/%s-%d", task.GetId(), index)
@@ -2480,7 +2544,7 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 		}
 
 		objType = "memory-backend-file"
-		options = map[string]string{
+		opts = map[string]string{
 			"size":     fmt.Sprintf("%dM", task.addMemSize),
 			"mem-path": memPath,
 			"share":    "on",
@@ -2488,22 +2552,22 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 		}
 	} else {
 		objType = "memory-backend-ram"
-		options = map[string]string{
+		opts = map[string]string{
 			"size": fmt.Sprintf("%dM", task.addMemSize),
 		}
 	}
-	// options["id"] = id
+	opts["id"] = id
 	cb := func(reason string) {
 		if reason == "" {
-			memObj := desc.NewObject(objType, id)
-			memObj.Options = options
+			memObj := desc.NewMemDesc(objType, id, nil, nil)
+			memObj.Options = opts
 			task.memSlot = new(desc.SMemSlot)
 			task.memSlot.MemObj = memObj
 			task.memSlot.SizeMB = int64(task.addMemSize)
 		}
 		task.onAddMemObject(reason)
 	}
-	task.Monitor.ObjectAdd(objType, options, cb)
+	task.Monitor.ObjectAdd(objType, opts, cb)
 }
 
 func (task *SGuestHotplugCpuMemTask) onAddMemFailed(reason string) {
@@ -2553,6 +2617,15 @@ func (task *SGuestHotplugCpuMemTask) updateGuestDesc() {
 			task.Desc.MemDesc.MemSlots = make([]*desc.SMemSlot, 0)
 		}
 		task.Desc.MemDesc.MemSlots = append(task.Desc.MemDesc.MemSlots, task.memSlot)
+
+		if task.manager.numaAllocate {
+			hugepageId := fmt.Sprintf("%s-%d", task.getOriginId(), *task.memSlotNewIndex)
+			task.validateNumaAllocated(hugepageId, false, true, nil)
+		}
+	}
+
+	if len(task.addedVcpuIds) > 0 {
+		task.setCgroupCPUSet()
 	}
 	if task.addedCpuCount > 0 && len(task.Desc.VcpuPin) == 1 {
 		task.Desc.VcpuPin[0].Vcpus = fmt.Sprintf("0-%d", task.Desc.Cpu-1)

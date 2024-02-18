@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -88,6 +89,7 @@ type IDevice interface {
 	GetVGACmd() string
 	GetCPUCmd() string
 	GetQemuId() string
+	GetNumaNode() (int, error)
 
 	// sriov nic
 	GetPfName() string
@@ -503,6 +505,15 @@ func (dev *sBaseDevice) GetVirtfn() int {
 	return -1
 }
 
+func (dev *sBaseDevice) GetNumaNode() (int, error) {
+	numaNodePath := fmt.Sprintf("/sys/bus/pci/devices/0000:%s/numa_node", dev.GetAddr())
+	numaNode, err := fileutils2.FileGetIntContent(numaNodePath)
+	if err != nil {
+		return -1, errors.Wrap(err, "get device numa node")
+	}
+	return numaNode, nil
+}
+
 func (dev *sBaseDevice) GetOvsOffloadInterfaceName() string {
 	return ""
 }
@@ -567,6 +578,11 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	}
 	if dev.GetNVMESizeMB() > 0 {
 		data["nvme_size_mb"] = dev.GetNVMESizeMB()
+	}
+	if numaNode, err := dev.GetNumaNode(); err == nil {
+		data["numa_node"] = numaNode
+	} else {
+		log.Errorf("failed get dev %s numa node %s", dev.GetAddr(), err)
 	}
 
 	if dev.GetMdevId() != "" {
