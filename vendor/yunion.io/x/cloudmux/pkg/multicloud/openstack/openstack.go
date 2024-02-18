@@ -436,7 +436,7 @@ func (cli *SOpenStackClient) getDefaultSession(regionName string) *oscli.ClientS
 }
 
 func (cli *SOpenStackClient) getDefaultClient() *oscli.Client {
-	client := oscli.NewClient(cli.authURL, 5, cli.debug, false)
+	client := oscli.NewClient(cli.authURL, 5, cli.debug, true)
 	client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
 	_client := client.GetClient()
 	ts, _ := _client.Transport.(*http.Transport)

@@ -30,7 +30,16 @@ type AliyunTags struct {
 	}
 }
 
-var sysTags = []string{"aliyun", "acs:", "ack.aliyun.com", "k8s.io"}
+var sysTags = []string{
+	"aliyun", "creator",
+	"acs:", "serverless/", "alloc_id", "virtual-kubelet",
+	"diskId", "diskNum", "serverId", "restoreId", "cnfs-id", "from", "shadowId",
+	"ack.aliyun.com", "cluster-id.ack.aliyun.com", "ack.alibabacloud.com",
+	"k8s.io", "kubernetes.do.not.delete", "kubernetes.reused.by.user",
+	"HBR InstanceId", "HBR Retention Days", "HBR Retention Type", "HBR JobId",
+	"createdBy", "recoveryPointTime", "recoveryPointId",
+	"eas_resource_group_name", "eas_tenant_name", "managedby",
+}
 
 func (self *AliyunTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
