@@ -1601,7 +1601,18 @@ func (self *SVirtualMachine) relocate(hostId string) error {
 		}
 	}
 	if !isShared {
-		config.Datastore = &targetHs.Datastore[0]
+		err := host.fetchDatastores()
+		if err != nil {
+			return errors.Wrapf(err, "fetchDatastores")
+		}
+		max := int64(0)
+		for i := range host.datastores {
+			ds := host.datastores[i].(*SDatastore)
+			if ds.GetCapacityFreeMB() > max {
+				max = ds.GetCapacityFreeMB()
+				config.Datastore = &targetHs.Datastore[i]
+			}
+		}
 	}
 	task, err := self.getVmObj().Relocate(ctx, config, types.VirtualMachineMovePriorityDefaultPriority)
 	if err != nil {
