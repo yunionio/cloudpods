@@ -421,11 +421,23 @@ func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify
 	if err != nil {
 		return err
 	}
+
+	var gatewayStr string
+	if len(qgaNetMod.Gateway) > 0 {
+		gatewayStr = fmt.Sprintf("gateway=%s", qgaNetMod.Gateway)
+	}
 	networkCmd := fmt.Sprintf(
-		"netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s gateway=%s & "+
+		"netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s %s & "+
 			"netsh interface ip set address name=\"%s\" dhcp",
-		qgaNetMod.Device, ip, subnetMask, qgaNetMod.Gateway, qgaNetMod.Device,
+		qgaNetMod.Device, ip, subnetMask, gatewayStr, qgaNetMod.Device,
 	)
+
+	if len(qgaNetMod.Ipmask6) > 0 {
+		networkCmd += fmt.Sprintf(" & netsh interface ipv6 set address \"%s\" %s", qgaNetMod.Device, qgaNetMod.Ipmask6)
+		if len(qgaNetMod.Gateway6) > 0 {
+			networkCmd += fmt.Sprintf(" & netsh interface ipv6 set route ::/0 \"%s\" %s", qgaNetMod.Device, qgaNetMod.Gateway6)
+		}
+	}
 
 	log.Infof("networkCmd: %s", networkCmd)
 	arg := []string{"/C", networkCmd}
@@ -447,7 +459,17 @@ func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify
 }
 
 func (qga *QemuGuestAgent) QgaSetLinuxNetwork(qgaNetMod *monitor.NetworkModify) error {
-	args := []string{"-c", fmt.Sprintf("/sbin/dhclient -r %s && /sbin/dhclient -1 %s", qgaNetMod.Device, qgaNetMod.Device)}
+	cmd := fmt.Sprintf("/usr/sbin/ip addr flush dev %s && /usr/sbin/ip addr add %s dev %s", qgaNetMod.Device, qgaNetMod.Ipmask, qgaNetMod.Device)
+	if len(qgaNetMod.Gateway) > 0 {
+		cmd += fmt.Sprintf(" && /usr/sbin/ip route add default via %s dev %s", qgaNetMod.Gateway, qgaNetMod.Device)
+	}
+	if len(qgaNetMod.Ipmask6) > 0 {
+		cmd += fmt.Sprintf(" && /usr/sbin/ip -6 addr add %s dev %s", qgaNetMod.Ipmask6, qgaNetMod.Device)
+		if len(qgaNetMod.Gateway6) > 0 {
+			cmd += fmt.Sprintf(" && /usr/sbin/ip -6 route add default via %s dev %s", qgaNetMod.Gateway6, qgaNetMod.Device)
+		}
+	}
+	args := []string{"-c", "'" + cmd + "'"}
 	_, err := qga.GuestExecCommand("/bin/bash", args, []string{}, "", false)
 	return err
 }

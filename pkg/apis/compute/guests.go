@@ -1127,6 +1127,9 @@ type ServerQgaSetNetworkInput struct {
 	Device  string
 	Ipmask  string
 	Gateway string
+
+	Ipmask6  string
+	Gateway6 string
 }
 
 type ServerQgaGetNetworkInput struct {

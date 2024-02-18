@@ -932,14 +932,13 @@ func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	if input.Ipmask == "" {
 		return nil, httperrors.NewMissingParameterError("ipmask")
 	}
-	if input.Gateway == "" {
-		return nil, httperrors.NewMissingParameterError("gateway")
-	}
 
 	qgaNetMod := &monitor.NetworkModify{
-		Device:  input.Device,
-		Ipmask:  input.Ipmask,
-		Gateway: input.Gateway,
+		Device:   input.Device,
+		Ipmask:   input.Ipmask,
+		Gateway:  input.Gateway,
+		Ipmask6:  input.Ipmask6,
+		Gateway6: input.Gateway6,
 	}
 	return gm.QgaSetNetwork(qgaNetMod, sid, input.Timeout)
 }

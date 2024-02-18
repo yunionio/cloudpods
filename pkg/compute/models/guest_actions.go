@@ -925,7 +925,7 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	return nil, self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
 }
 
-func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, ip string, inBlockStream bool) error {
+/*func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, ip string, inBlockStream bool) error {
 	data := jsonutils.NewDict()
 	data.Set("ip", jsonutils.NewString(ip))
 	data.Set("in_block_stream", jsonutils.NewBool(inBlockStream))
@@ -936,13 +936,21 @@ func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclie
 		task.ScheduleRun(nil)
 	}
 	return nil
-}
+}*/
 
-func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, device string, ipMask string, gateway string, prevIp string, inBlockStream bool) error {
+func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, device string, ipMask, gateway, ipMask6, gateway6 string, prevIp string, inBlockStream bool) error {
 	data := jsonutils.NewDict()
 	data.Set("device", jsonutils.NewString(device))
 	data.Set("ip_mask", jsonutils.NewString(ipMask))
-	data.Set("gateway", jsonutils.NewString(gateway))
+	if len(gateway) > 0 {
+		data.Set("gateway", jsonutils.NewString(gateway))
+	}
+	if len(ipMask6) > 0 {
+		data.Set("ip_mask6", jsonutils.NewString(ipMask6))
+		if len(gateway6) > 0 {
+			data.Set("gateway6", jsonutils.NewString(gateway6))
+		}
+	}
 	data.Set("prev_ip", jsonutils.NewString(prevIp))
 	data.Set("in_block_stream", jsonutils.NewBool(inBlockStream))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestQgaRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
@@ -2453,15 +2461,7 @@ func (self *SGuest) PerformChangeIpaddr(
 		return nil, nil
 	}
 
-	//Get the detailed description of the NIC
-	networkJsonDesc := ngn.getJsonDesc()
-	newIpAddr := networkJsonDesc.Ip
-	newMacAddr := networkJsonDesc.Mac
-	newMaskLen := networkJsonDesc.Masklen
-	newGateway := networkJsonDesc.Gateway
-	ipMask := fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
-
-	notes := gn.GetShortDesc(ctx)
+	notes := ngn.GetShortDesc(ctx)
 	if gn != nil {
 		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
 	}
@@ -2476,11 +2476,23 @@ func (self *SGuest) PerformChangeIpaddr(
 	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && (self.Status == api.VM_RUNNING || self.Status == api.VM_BLOCK_STREAM) {
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
-		taskData.Set("prev_mac", jsonutils.NewString(newMacAddr))
+		taskData.Set("prev_mac", jsonutils.NewString(gn.MacAddr))
 		net := ngn.GetNetwork()
 		taskData.Set("is_vpc_network", jsonutils.NewBool(net.isOneCloudVpcNetwork()))
-		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
-		taskData.Set("gateway", jsonutils.NewString(newGateway))
+
+		networkJsonDesc := ngn.getJsonDesc()
+
+		taskData.Set("ip_mask", jsonutils.NewString(fmt.Sprintf("%s/%d", networkJsonDesc.Ip, networkJsonDesc.Masklen)))
+		if ngn.IsDefault && len(networkJsonDesc.Gateway) > 0 {
+			taskData.Set("gateway", jsonutils.NewString(networkJsonDesc.Gateway))
+		}
+		if len(ngn.Ip6Addr) > 0 {
+			taskData.Set("ip_mask6", jsonutils.NewString(fmt.Sprintf("%s/%d", networkJsonDesc.Ip6, networkJsonDesc.Masklen6)))
+			if ngn.IsDefault && len(networkJsonDesc.Gateway6) > 0 {
+				taskData.Set("gateway6", jsonutils.NewString(networkJsonDesc.Gateway6))
+			}
+		}
+
 		if self.Status == api.VM_BLOCK_STREAM {
 			taskData.Set("in_block_stream", jsonutils.JSONTrue)
 		}

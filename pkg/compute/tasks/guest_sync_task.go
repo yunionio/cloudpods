@@ -85,11 +85,10 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 		log.Errorf("unable to get ip_mask when restart_network is true when sync guest")
 		return
 	}
-	gateway, err := self.Params.GetString("gateway")
-	if err != nil {
-		log.Errorf("unable to get gateway when restart_network is true when sync guest")
-		return
-	}
+	gateway, _ := self.Params.GetString("gateway")
+	ipMask6, _ := self.Params.GetString("ip_mask6")
+	gateway6, _ := self.Params.GetString("gateway6")
+
 	isVpcNetwork := jsonutils.QueryBoolean(self.Params, "is_vpc_network", false)
 
 	// try use qga restart network
@@ -116,7 +115,7 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 			time.Sleep(10 * time.Second)
 		}
 		return guest.StartQgaRestartNetworkTask(
-			ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, prevIp, inBlockStream)
+			ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, ipMask6, gateway6, prevIp, inBlockStream)
 	}()
 	if err != nil {
 		log.Errorf("guest %s failed start qga restart network task: %s", guest.GetName(), err)

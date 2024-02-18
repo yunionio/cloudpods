@@ -16,8 +16,10 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -44,36 +46,51 @@ func (self *GuestQgaRestartNetworkTask) OnRestartNetwork(ctx context.Context, gu
 	device, _ := self.Params.GetString("device")
 	ipMask, _ := self.Params.GetString("ip_mask")
 	gateway, _ := self.Params.GetString("gateway")
+	ipMask6, _ := self.Params.GetString("ip_mask6")
+	gateway6, _ := self.Params.GetString("gateway6")
 	prevIp, _ := self.Params.GetString("prev_ip")
 	inBlockStream, _ := self.Params.Bool("in_block_stream")
 
-	_, err := self.requestSetNetwork(ctx, guest, device, ipMask, gateway)
+	_, err := self.requestSetNetwork(ctx, guest, device, ipMask, gateway, ipMask6, gateway6)
+	var errs []error
+	const MAX_TRIES = 3
 	//the first set maybe fail,if failed, try again
-	if err != nil {
+	for err != nil && len(errs) < MAX_TRIES {
+		errs = append(errs, err)
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, err, self.UserCred, false)
-		_, err = self.requestSetNetwork(ctx, guest, device, ipMask, gateway)
+		_, err = self.requestSetNetwork(ctx, guest, device, ipMask, gateway, ipMask6, gateway6)
 		if err != nil {
-			logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, err, self.UserCred, false)
-			self.taskFailed(ctx, guest, prevIp, inBlockStream, err)
-			return
+			time.Sleep(time.Second)
+			continue
+		} else {
+			errs = nil
+			break
 		}
 	}
+
+	if len(errs) > 0 {
+		self.taskFailed(ctx, guest, prevIp, inBlockStream, errors.NewAggregate(errs))
+		return
+	}
+
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_SUCCESS, "qga restart network success", self.UserCred, true)
 	guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestQgaRestartNetworkTask) requestSetNetwork(ctx context.Context, guest *models.SGuest, device string, ipMask string, gateway string) (jsonutils.JSONObject, error) {
+func (self *GuestQgaRestartNetworkTask) requestSetNetwork(ctx context.Context, guest *models.SGuest, device string, ipMask, gateway, ipMask6, gateway6 string) (jsonutils.JSONObject, error) {
 	host, err := guest.GetHost()
 	if err != nil {
 		self.taskFailed(ctx, guest, "", false, err)
 		return nil, err
 	}
 	inputQgaNet := &api.ServerQgaSetNetworkInput{
-		Device:  device,
-		Ipmask:  ipMask,
-		Gateway: gateway,
+		Device:   device,
+		Ipmask:   ipMask,
+		Gateway:  gateway,
+		Ipmask6:  ipMask6,
+		Gateway6: gateway6,
 	}
 
 	// if success, log network related information
