@@ -18,16 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudproxy/models"
 	"yunion.io/x/onecloud/pkg/cloudproxy/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -35,17 +32,10 @@ import (
 
 func StartService() {
 	var (
-		opts       = options.Get()
-		dbOpts     = &opts.DBOptions
-		baseOpts   = &opts.BaseOptions
-		commonOpts = &opts.CommonOptions
+		opts     = options.Get()
+		dbOpts   = &opts.DBOptions
+		baseOpts = &opts.BaseOptions
 	)
-
-	common_app.InitAuth(commonOpts, func() {
-		log.Infof("Auth complete")
-	})
-
-	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	app := common_app.InitApp(baseOpts, true).
 		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
