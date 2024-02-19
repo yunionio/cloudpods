@@ -247,3 +247,36 @@ func TagsetMap2MapString(oTags map[string]TTagSet) map[string]string {
 	}
 	return ret
 }
+
+func TagSet2Paths(tagSet TTagSet, keys []string) [][]string {
+	ret := make([][]string, 0)
+	tagMap := tagset2Map(tagSet)
+	for _, k := range keys {
+		if vs, ok := tagMap[k]; ok {
+			nret := make([][]string, 0)
+			for _, v := range vs {
+				if len(ret) > 0 {
+					for i := range ret {
+						cret := make([]string, len(ret[i]), len(ret[i])+1)
+						copy(cret, ret[i])
+						cret = append(cret, v)
+						nret = append(nret, cret)
+					}
+				} else {
+					nret = append(nret, []string{v})
+				}
+			}
+			ret = nret
+		}
+	}
+	return ret
+}
+
+func TagSetList2Paths(tagsList TTagSetList, keys []string) [][]string {
+	ret := make([][]string, 0)
+	for i := range tagsList {
+		paths := TagSet2Paths(tagsList[i], keys)
+		ret = append(ret, paths...)
+	}
+	return ret
+}
