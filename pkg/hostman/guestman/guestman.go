@@ -860,7 +860,7 @@ func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params int
 			hostutils.TaskComplete(ctx, body)
 		}
 		if guest.Monitor == nil && !guest.IsStopping() {
-			if err := guest.StartMonitor(context.Background(), runCb); err != nil {
+			if err := guest.StartMonitor(context.Background(), runCb, false); err != nil {
 				log.Errorf("guest %s failed start monitor %s", guest.GetName(), err)
 				body.Set("status", jsonutils.NewString(status))
 				hostutils.TaskComplete(ctx, body)
@@ -1342,7 +1342,7 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 		}
 	}
 	if guest.Monitor == nil {
-		guest.StartMonitor(ctx, nil)
+		guest.StartMonitor(ctx, nil, false)
 		return nil, nil
 	} else {
 		onMonitorConnected()
