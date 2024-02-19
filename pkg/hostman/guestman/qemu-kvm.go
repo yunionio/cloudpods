@@ -873,11 +873,11 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
 	}
-	needMigrate := jsonutils.QueryBoolean(data, "need_migrate", false)
-	// do not syncstatus if need_migrate
-	if !needMigrate {
-		s.SyncStatus("")
-	}
+	//needMigrate := jsonutils.QueryBoolean(data, "need_migrate", false)
+	//// do not syncstatus if need_migrate
+	//if !needMigrate {
+	//	s.SyncStatus("")
+	//}
 	return nil, err
 }
 
@@ -942,7 +942,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	if s.IsRunning() {
 		log.Infof("%s is running, pending_delete=%t", s.GetName(), pendingDelete)
 		if !pendingDelete {
-			s.StartMonitor(context.Background(), nil)
+			s.StartMonitor(context.Background(), nil, false)
 		}
 	} else if s.IsDaemon() {
 		s.StartGuest(context.Background(), nil, jsonutils.NewDict())
@@ -1050,10 +1050,19 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 	return mon.ConnectWithSocket(socketFile, 0)
 }
 
-func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) error {
+func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func(), isScriptStart bool) error {
 	if s.GetQmpMonitorPort(-1) > 0 {
 		var mon monitor.Monitor
-		var onMonitorTimeout = func(err error) { s.onMonitorTimeout(ctx, err) }
+		var onMonitorTimeout = func(err error) {
+			if isScriptStart {
+				if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
+					hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
+				}
+				s.forceScriptStop()
+			} else {
+				s.onMonitorTimeout(ctx, err)
+			}
+		}
 		var onMonitorConnected = func() {
 			s.Monitor = mon
 			s.onMonitorConnected(ctx)
@@ -1078,7 +1087,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) error {
 	} else if monitorPath := s.GetMonitorPath(); len(monitorPath) > 0 {
 		return s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath, cb)
 	} else {
-		log.Errorf("Guest %s start monitor failed, can't get qmp monitor port or monitor path", s.Id)
+		log.Warningf("Guest %s start monitor failed, can't get qmp monitor port or monitor path", s.Id)
 		return errors.Errorf("Guest %s start monitor failed, can't get qmp monitor port or monitor path", s.Id)
 	}
 }
@@ -2245,12 +2254,12 @@ func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
 			log.Errorf("Guest %s check qemu(%d) process failed: %s", s.Id, pid, err)
 			return errors.Errorf(s.readQemuLogFileEnd(64))
 		}
-		if err = s.StartMonitor(ctx, nil); err == nil {
+		if err = s.StartMonitor(ctx, nil, true); err == nil {
 			return nil
 		} else {
-			log.Warningf("Guest %s failed start monitor %s", s.GetName(), err)
+			log.Warningf("Guest %s waiting monitor connect", s.GetName())
 		}
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 
