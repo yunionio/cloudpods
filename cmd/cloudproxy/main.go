@@ -23,6 +23,9 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
+	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudproxy/agent/worker"
 	"yunion.io/x/onecloud/pkg/cloudproxy/options"
 	"yunion.io/x/onecloud/pkg/cloudproxy/service"
@@ -40,6 +43,12 @@ func main() {
 	var (
 		opts = options.Get()
 	)
+
+	common_app.InitAuth(&opts.CommonOptions, func() {
+		log.Infof("Auth complete")
+	})
+
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	wg.Add(1)
 	go func() {
