@@ -35,6 +35,9 @@ func init() {
 			[]string{
 				"id",
 				"name",
+				"status",
+				"cloudregion",
+				"manager",
 				"project",
 				"is_public",
 				"acl_entries",

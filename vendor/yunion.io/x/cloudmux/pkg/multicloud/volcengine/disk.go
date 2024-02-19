@@ -145,12 +145,17 @@ func (disk *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (disk *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISnapshot")
-}
-
 func (disk *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISnapshots")
+	snapshots, err := disk.storage.zone.region.GetSnapshots(disk.VolumeId, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudSnapshot{}
+	for i := range snapshots {
+		snapshots[i].region = disk.storage.zone.region
+		ret = append(ret, &snapshots[i])
+	}
+	return ret, nil
 }
 
 func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
@@ -185,10 +190,12 @@ func (disk *SDisk) GetProjectId() string {
 	return disk.ProjectName
 }
 
-// Snapshot API is not supported, refer to
-// https://www.volcengine.com/docs/6460/195549
 func (disk *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotSupported
+	snapshot, err := disk.storage.zone.region.CreateSnapshot(disk.VolumeId, name, desc)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot, nil
 }
 
 // region

@@ -36,7 +36,7 @@ func init() {
 	taskman.RegisterTask(LoadbalancerCertificateDeleteTask{})
 }
 
-func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, err error) {
+func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SLoadbalancerCertificate, err error) {
 	lbcert.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, err, self.UserCred, false)
@@ -45,7 +45,7 @@ func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbc
 }
 
 func (self *LoadbalancerCertificateDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbcert := obj.(*models.SCachedLoadbalancerCertificate)
+	lbcert := obj.(*models.SLoadbalancerCertificate)
 	region, err := lbcert.GetRegion()
 	if err != nil {
 		self.taskFail(ctx, lbcert, errors.Wrapf(err, "GetRegion"))
@@ -58,13 +58,13 @@ func (self *LoadbalancerCertificateDeleteTask) OnInit(ctx context.Context, obj d
 	}
 }
 
-func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteComplete(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, data jsonutils.JSONObject) {
+func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteComplete(ctx context.Context, lbcert *models.SLoadbalancerCertificate, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELETE, lbcert.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	lbcert.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteCompleteFailed(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
+func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteCompleteFailed(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbcert, errors.Errorf(reason.String()))
 }

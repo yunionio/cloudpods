@@ -248,15 +248,12 @@ func (subnet *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120
 }
 
-func (region *SRegion) GetSubnets(ids []string, zoneId string, vpcId string, pageNumber int, pageSize int) ([]SNetwork, int, error) {
-	if pageSize > 100 || pageSize <= 0 {
-		pageSize = 100
-	}
+func (region *SRegion) GetSubnets(ids []string, zoneId string, vpcId string) ([]SNetwork, error) {
 	params := make(map[string]string)
-	params["PageSize"] = fmt.Sprintf("%d", pageSize)
-	params["PageNumber"] = fmt.Sprintf("%d", pageNumber)
+	params["PageSize"] = "100"
+	pageNum := 1
 	for idx, id := range ids {
-		params[fmt.Sprintf("SubnetIds.%d", idx)] = id
+		params[fmt.Sprintf("SubnetIds.%d", idx+1)] = id
 	}
 	if len(zoneId) > 0 {
 		params["ZoneId"] = zoneId
@@ -265,18 +262,28 @@ func (region *SRegion) GetSubnets(ids []string, zoneId string, vpcId string, pag
 		params["VpcId"] = vpcId
 	}
 
-	body, err := region.vpcRequest("DescribeSubnets", params)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "GetSubnets fail")
+	ret := []SNetwork{}
+	for {
+		params["PageNumber"] = fmt.Sprintf("%d", pageNum)
+		resp, err := region.vpcRequest("DescribeSubnets", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSubnets fail")
+		}
+		part := struct {
+			Subnets    []SNetwork
+			TotalCount int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		ret = append(ret, part.Subnets...)
+		if len(ret) >= part.TotalCount || len(part.Subnets) == 0 {
+			break
+		}
+		pageNum++
 	}
-
-	subnets := make([]SNetwork, 0)
-	err = body.Unmarshal(&subnets, "Subnets")
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "Unmarshal subnets fail")
-	}
-	total, _ := body.Int("TotalCount")
-	return subnets, int(total), nil
+	return ret, nil
 }
 
 func (region *SRegion) GetSubnetAttributes(SubnetId string) (*SNetwork, error) {

@@ -36,7 +36,7 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclDeleteTask{})
 }
 
-func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
+func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerAcl, err error) {
 	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbacl, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, err, self.UserCred, false)
@@ -45,7 +45,7 @@ func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *mode
 }
 
 func (self *LoadbalancerAclDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbacl := obj.(*models.SCachedLoadbalancerAcl)
+	lbacl := obj.(*models.SLoadbalancerAcl)
 	region, err := lbacl.GetRegion()
 	if err != nil {
 		self.taskFail(ctx, lbacl, errors.Wrapf(err, "GetRegion"))
@@ -58,13 +58,13 @@ func (self *LoadbalancerAclDeleteTask) OnInit(ctx context.Context, obj db.IStand
 	}
 }
 
-func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
+func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteComplete(ctx context.Context, lbacl *models.SLoadbalancerAcl, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbacl, db.ACT_DELETE, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	lbacl.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
+func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteCompleteFailed(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbacl, errors.Errorf(reason.String()))
 }

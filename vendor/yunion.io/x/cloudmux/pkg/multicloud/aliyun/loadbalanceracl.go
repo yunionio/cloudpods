@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -42,10 +43,6 @@ type SLoadbalancerAcl struct {
 	AclEntrys AclEntrys
 }
 
-func (acl *SLoadbalancerAcl) GetAclListenerID() string {
-	return ""
-}
-
 func (acl *SLoadbalancerAcl) GetName() string {
 	return acl.AclName
 }
@@ -59,7 +56,7 @@ func (acl *SLoadbalancerAcl) GetGlobalId() string {
 }
 
 func (acl *SLoadbalancerAcl) GetStatus() string {
-	return ""
+	return apis.STATUS_AVAILABLE
 }
 
 func (acl *SLoadbalancerAcl) Refresh() error {

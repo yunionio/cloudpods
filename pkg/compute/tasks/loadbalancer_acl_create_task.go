@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -36,7 +37,7 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclCreateTask{})
 }
 
-func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
+func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerAcl, err error) {
 	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, err, self.UserCred, false)
@@ -45,7 +46,7 @@ func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *mode
 }
 
 func (self *LoadbalancerAclCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbacl := obj.(*models.SCachedLoadbalancerAcl)
+	lbacl := obj.(*models.SLoadbalancerAcl)
 	region, err := lbacl.GetRegion()
 	if err != nil {
 		self.taskFail(ctx, lbacl, errors.Wrapf(err, "GetRegion"))
@@ -58,13 +59,13 @@ func (self *LoadbalancerAclCreateTask) OnInit(ctx context.Context, obj db.IStand
 	}
 }
 
-func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
-	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateComplete(ctx context.Context, lbacl *models.SLoadbalancerAcl, data jsonutils.JSONObject) {
+	lbacl.SetStatus(ctx, self.GetUserCred(), apis.STATUS_AVAILABLE, "")
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
+func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateCompleteFailed(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbacl, errors.Errorf(reason.String()))
 }

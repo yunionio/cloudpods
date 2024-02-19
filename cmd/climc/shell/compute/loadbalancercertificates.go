@@ -15,81 +15,19 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	R(&options.LoadbalancerCertificateCreateOptions{}, "lbcert-create", "Create lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateCreateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		lbcert, err := modules.LoadbalancerCertificates.Create(s, params)
-		if err != nil {
-			return err
-		}
-		printObject(lbcert)
-		return nil
-	})
-	R(&options.LoadbalancerCertificateGetOptions{}, "lbcert-show", "Show lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateGetOptions) error {
-		lbcert, err := modules.LoadbalancerCertificates.Get(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(lbcert)
-		return nil
-	})
-	R(&options.LoadbalancerCertificateListOptions{}, "lbcert-list", "List lbcerts", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateListOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		result, err := modules.LoadbalancerCertificates.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.LoadbalancerCertificates.GetColumns(s))
-		return nil
-	})
-	R(&options.LoadbalancerCertificateUpdateOptions{}, "lbcert-update", "Update lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateUpdateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		lbcert, err := modules.LoadbalancerCertificates.Update(s, opts.ID, params)
-		if err != nil {
-			return err
-		}
-		printObject(lbcert)
-		return nil
-	})
-	R(&options.LoadbalancerCertificateDeleteOptions{}, "lbcert-delete", "Delete lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateDeleteOptions) error {
-		lbcert, err := modules.LoadbalancerCertificates.Delete(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(lbcert)
-		return nil
-	})
-	R(&options.LoadbalancerCertificatePublicOptions{}, "lbcert-public", "Public lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificatePublicOptions) error {
-		params := jsonutils.Marshal(opts)
-		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "public", params)
-		if err != nil {
-			return err
-		}
-		printObject(lbcert)
-		return nil
-	})
-	R(&options.LoadbalancerCertificatePrivateOptions{}, "lbcert-private", "Private lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificatePrivateOptions) error {
-		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "private", nil)
-		if err != nil {
-			return err
-		}
-		printObject(lbcert)
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.LoadbalancerCertificates).WithKeyword("lbcert")
+	cmd.Create(&options.LoadbalancerCertificateCreateOptions{})
+	cmd.Show(&options.LoadbalancerCertificateIdOptions{})
+	cmd.Delete(&options.LoadbalancerCertificateIdOptions{})
+	cmd.List(&options.LoadbalancerCertificateListOptions{})
+	cmd.Update(&options.LoadbalancerCertificateUpdateOptions{})
+	cmd.Perform("public", &options.LoadbalancerCertificatePublicOptions{})
+	cmd.Perform("private", &options.LoadbalancerCertificateIdOptions{})
+	cmd.Perform("syncstatus", &options.LoadbalancerCertificateIdOptions{})
 }

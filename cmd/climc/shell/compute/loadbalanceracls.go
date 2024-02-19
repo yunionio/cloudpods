@@ -15,144 +15,21 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/printutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	lbAclConvert := func(jd *jsonutils.JSONDict) error {
-		jaeso, err := jd.Get("acl_entries")
-		if err != nil {
-			return err
-		}
-		aclEntries := options.AclEntries{}
-		err = jaeso.Unmarshal(&aclEntries)
-		if err != nil {
-			return err
-		}
-		aclTextLines := aclEntries.String()
-		jd.Set("acl_entries", jsonutils.NewString(aclTextLines))
-		return nil
-	}
-
-	printLbAcl := func(jsonObj jsonutils.JSONObject) {
-		jd, ok := jsonObj.(*jsonutils.JSONDict)
-		if !ok {
-			printObject(jsonObj)
-			return
-		}
-		err := lbAclConvert(jd)
-		if err != nil {
-			printObject(jsonObj)
-			return
-		}
-		printObject(jd)
-	}
-	printLbAclList := func(list *printutils.ListResult, columns []string) {
-		data := list.Data
-		for _, jsonObj := range data {
-			jd := jsonObj.(*jsonutils.JSONDict)
-			err := lbAclConvert(jd)
-			if err != nil {
-				printList(list, columns)
-				return
-			}
-		}
-		printList(list, columns)
-	}
-
-	R(&options.LoadbalancerAclCreateOptions{}, "lbacl-create", "Create lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclCreateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		lbacl, err := modules.LoadbalancerAcls.Create(s, params)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
-	R(&options.LoadbalancerAclGetOptions{}, "lbacl-show", "Show lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclGetOptions) error {
-		lbacl, err := modules.LoadbalancerAcls.Get(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
-	R(&options.LoadbalancerAclListOptions{}, "lbacl-list", "List lbacls", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclListOptions) error {
-		params, err := baseoptions.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.LoadbalancerAcls.List(s, params)
-		if err != nil {
-			return err
-		}
-		printLbAclList(result, modules.LoadbalancerAcls.GetColumns(s))
-		return nil
-	})
-	R(&options.LoadbalancerAclUpdateOptions{}, "lbacl-update", "Update lbacls", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclUpdateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		lbacl, err := modules.LoadbalancerAcls.Update(s, opts.ID, params)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
-	R(&options.LoadbalancerAclDeleteOptions{}, "lbacl-purge", "Purge lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclDeleteOptions) error {
-		lbacl, err := modules.LoadbalancerAcls.PerformAction(s, opts.ID, "purge", nil)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
-	R(&options.LoadbalancerAclDeleteOptions{}, "lbacl-delete", "Show lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclDeleteOptions) error {
-		lbacl, err := modules.LoadbalancerAcls.Delete(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
-	R(&options.LoadbalancerAclActionPatchOptions{}, "lbacl-patch", "Patch lbacls", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclActionPatchOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		lbacl, err := modules.LoadbalancerAcls.PerformAction(s, opts.ID, "patch", params)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
-	R(&options.LoadbalancerAclPublicOptions{}, "lbacl-public", "Public lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclPublicOptions) error {
-		params := jsonutils.Marshal(opts)
-		lbacl, err := modules.LoadbalancerAcls.PerformAction(s, opts.ID, "public", params)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
-	R(&options.LoadbalancerAclPrivateOptions{}, "lbacl-private", "Private lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclPrivateOptions) error {
-		lbacl, err := modules.LoadbalancerAcls.PerformAction(s, opts.ID, "private", nil)
-		if err != nil {
-			return err
-		}
-		printLbAcl(lbacl)
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.LoadbalancerAcls).WithKeyword("lbacl")
+	cmd.List(&options.LoadbalancerAclListOptions{})
+	cmd.Show(&options.LoadbalancerAclIdOptions{})
+	cmd.Create(&options.LoadbalancerAclCreateOptions{})
+	cmd.Delete(&options.LoadbalancerAclIdOptions{})
+	cmd.Update(&options.LoadbalancerAclUpdateOptions{})
+	cmd.Perform("purge", &options.LoadbalancerAclIdOptions{})
+	cmd.Perform("syncstatus", &options.LoadbalancerAclIdOptions{})
+	cmd.Perform("private", &options.LoadbalancerAclIdOptions{})
+	cmd.Perform("public", &options.LoadbalancerAclPublicOptions{})
+	cmd.Perform("patch", &options.LoadbalancerAclActionPatchOptions{})
 }

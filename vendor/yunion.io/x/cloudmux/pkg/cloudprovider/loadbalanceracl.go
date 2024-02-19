@@ -22,8 +22,4 @@ type SLoadbalancerAccessControlListEntry struct {
 type SLoadbalancerAccessControlList struct {
 	Name   string
 	Entrys []SLoadbalancerAccessControlListEntry
-
-	// used by huawei
-	ListenerId          string
-	AccessControlEnable bool
 }

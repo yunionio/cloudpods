@@ -78,11 +78,6 @@ type LoadbalancerAclCreateOptions struct {
 	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 	Manager  string   `json:"manager_id"`
 	Region   string   `json:"cloudregion"`
-	Listener string   `help:"Huawei listener id"`
-}
-
-type LoadbalancerAclGetOptions struct {
-	ID string `json:"-"`
 }
 
 type LoadbalancerAclListOptions struct {
@@ -90,19 +85,19 @@ type LoadbalancerAclListOptions struct {
 	Cloudregion string
 }
 
+func (opts *LoadbalancerAclListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
 type LoadbalancerAclUpdateOptions struct {
-	ID   string `json:"-"`
+	LoadbalancerAclIdOptions
 	Name string
 
 	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 }
 
-type LoadbalancerAclDeleteOptions struct {
-	ID string `json:"-"`
-}
-
 type LoadbalancerAclActionPatchOptions struct {
-	ID  string   `json:"-"`
+	LoadbalancerAclIdOptions
 	Add []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 	Del []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 }
@@ -110,14 +105,26 @@ type LoadbalancerAclActionPatchOptions struct {
 type LoadbalancerAclPublicOptions struct {
 	options.SharableResourcePublicBaseOptions
 
+	LoadbalancerAclIdOptions
+}
+
+func (opts *LoadbalancerAclPublicOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SharableResourcePublicBaseOptions), nil
+}
+
+type LoadbalancerAclIdOptions struct {
 	ID string `json:"-"`
 }
 
-type LoadbalancerAclPrivateOptions struct {
-	ID string `json:"-"`
+func (opts *LoadbalancerAclIdOptions) GetId() string {
+	return opts.ID
 }
 
-func (opts *LoadbalancerAclCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *LoadbalancerAclIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (opts *LoadbalancerAclCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
@@ -135,7 +142,7 @@ func (opts *LoadbalancerAclCreateOptions) Params() (*jsonutils.JSONDict, error) 
 	return params, nil
 }
 
-func (opts *LoadbalancerAclUpdateOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *LoadbalancerAclUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
@@ -151,7 +158,7 @@ func (opts *LoadbalancerAclUpdateOptions) Params() (*jsonutils.JSONDict, error) 
 	return params, nil
 }
 
-func (opts *LoadbalancerAclActionPatchOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *LoadbalancerAclActionPatchOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err

@@ -23,7 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -68,7 +68,7 @@ func (self *SElbCert) GetGlobalId() string {
 }
 
 func (self *SElbCert) GetStatus() string {
-	return api.LB_STATUS_ENABLED
+	return apis.STATUS_AVAILABLE
 }
 
 func (self *SElbCert) Refresh() error {
@@ -79,22 +79,8 @@ func (self *SElbCert) Refresh() error {
 	return jsonutils.Update(self, cert)
 }
 
-func (self *SElbCert) IsEmulated() bool {
-	return false
-}
-
 func (self *SElbCert) GetProjectId() string {
 	return ""
-}
-
-func (self *SElbCert) Sync(name, privateKey, publickKey string) error {
-	params := map[string]interface{}{
-		"name":        name,
-		"private_key": privateKey,
-		"certificate": publickKey,
-	}
-	_, err := self.region.put(SERVICE_ELB, "elb/certificates/"+self.GetId(), params)
-	return err
 }
 
 func (self *SElbCert) Delete() error {
@@ -126,7 +112,7 @@ func (self *SRegion) GetLoadBalancerCertificate(id string) (*SElbCert, error) {
 		return nil, err
 	}
 	ret := &SElbCert{region: self}
-	return ret, resp.Unmarshal(ret)
+	return ret, resp.Unmarshal(ret, "certificate")
 }
 
 // https://support.huaweicloud.com/api-elb/elb_qy_zs_0001.html
