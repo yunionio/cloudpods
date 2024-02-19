@@ -437,23 +437,28 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 	}
 	switch input.TagUpdatePolicy {
 	case api.TAG_UPDATE_POLICY_REMOVE:
-		nodeIds := make([]string, 0)
-		for i := range policy.OrgNodeId {
-			if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
-				nodeIds = append(nodeIds, policy.OrgNodeId[i])
-			} else {
-				tagChanged = true
+		if len(input.OrgNodeId) > 0 {
+			nodeIds := make([]string, 0)
+			for i := range policy.OrgNodeId {
+				if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
+					nodeIds = append(nodeIds, policy.OrgNodeId[i])
+				} else {
+					tagChanged = true
+				}
 			}
+			input.OrgNodeId = nodeIds
 		}
-		input.OrgNodeId = nodeIds
 	case api.TAG_UPDATE_POLICY_REPLACE:
 		// do nothing
 		tagChanged = true
 	default:
-		for i := range policy.OrgNodeId {
-			if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
-				input.OrgNodeId = append(input.OrgNodeId, policy.OrgNodeId[i])
-				tagChanged = true
+		// add
+		if len(input.OrgNodeId) > 0 {
+			for i := range policy.OrgNodeId {
+				if !utils.IsInArray(policy.OrgNodeId[i], input.OrgNodeId) {
+					input.OrgNodeId = append(input.OrgNodeId, policy.OrgNodeId[i])
+					tagChanged = true
+				}
 			}
 		}
 	}
@@ -487,6 +492,10 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 			case api.OrgTypeObject:
 				objectTags = objectTags.Append(orgNode.GetTagSet(org))
 			}
+		}
+
+		if input.Blob == nil {
+			input.Blob = policy.Blob
 		}
 
 		p, err := rbacutils.DecodePolicyData(domainTags, projectTags, objectTags, input.Blob)
