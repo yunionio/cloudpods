@@ -249,8 +249,6 @@ func (manager *SProjectManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.ProjectListInput,
 ) (*sqlchemy.SQuery, error) {
-	log.Debugf("ProjectManager ListItemFilter query %s", jsonutils.Marshal(query).String())
-
 	var err error
 
 	q, err = manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)

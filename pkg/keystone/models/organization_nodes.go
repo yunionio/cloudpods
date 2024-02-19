@@ -20,6 +20,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -277,6 +278,27 @@ func (orgNode *SOrganizationNode) ValidateUpdateData(
 	return input, nil
 }
 
+func tagSetList2Conditions(tagsetList tagutils.TTagSetList, keys []string, q *sqlchemy.SQuery) sqlchemy.ICondition {
+	for i := range keys {
+		if !strings.HasPrefix(keys[i], "org:") {
+			keys[i] = "org:" + keys[i]
+		}
+	}
+	conds := make([]sqlchemy.ICondition, 0)
+	paths := tagutils.TagSetList2Paths(tagsetList, keys)
+	for i := range paths {
+		label := api.JoinLabels(paths[i]...)
+		labelSlash := label + api.OrganizationLabelSeparator
+		conds = append(conds, sqlchemy.Contains(q.Field("full_label"), labelSlash))
+		conds = append(conds, sqlchemy.Startswith(q.Field("full_label"), labelSlash))
+		conds = append(conds, sqlchemy.Equals(q.Field("full_label"), label))
+	}
+	if len(conds) > 0 {
+		return sqlchemy.OR(conds...)
+	}
+	return nil
+}
+
 // 项目列表
 func (manager *SOrganizationNodeManager) ListItemFilter(
 	ctx context.Context,
@@ -300,7 +322,27 @@ func (manager *SOrganizationNodeManager) ListItemFilter(
 				return nil, errors.Wrapf(err, "FetchByIdOrName %s", query.OrgId)
 			}
 		}
-		q = q.Equals("org_id", orgObj.GetId())
+		org := orgObj.(*SOrganization)
+		q = q.Equals("org_id", org.GetId())
+
+		var cond sqlchemy.ICondition
+		switch org.Type {
+		case api.OrgTypeDomain:
+			if !query.PolicyDomainTags.IsEmpty() {
+				cond = tagSetList2Conditions(query.PolicyDomainTags, org.GetKeys(), q)
+			}
+		case api.OrgTypeProject:
+			if !query.PolicyProjectTags.IsEmpty() {
+				cond = tagSetList2Conditions(query.PolicyProjectTags, org.GetKeys(), q)
+			}
+		case api.OrgTypeObject:
+			if !query.PolicyObjectTags.IsEmpty() {
+				cond = tagSetList2Conditions(query.PolicyObjectTags, org.GetKeys(), q)
+			}
+		}
+		if cond != nil {
+			q = q.Filter(cond)
+		}
 	}
 
 	if len(query.OrgType) > 0 {
