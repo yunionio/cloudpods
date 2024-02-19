@@ -15,11 +15,8 @@
 package compute
 
 import (
-	"crypto/md5"
-	"fmt"
 	"net"
 	"reflect"
-	"sort"
 	"strings"
 	"unicode"
 
@@ -36,9 +33,6 @@ type LoadbalancerAclListInput struct {
 
 	ManagedResourceListInput
 	RegionalFilterListInput
-
-	//
-	Fingerprint string `json:"fingerprint"`
 }
 
 type LoadbalancerAclDetails struct {
@@ -48,7 +42,11 @@ type LoadbalancerAclDetails struct {
 
 	SLoadbalancerAcl
 
-	LbListenerCount int `json:"lb_listener_count"`
+	LoadbalancerAclUsage
+}
+
+type LoadbalancerAclUsage struct {
+	ListenerCount int `json:"lb_listener_count"`
 }
 
 type LoadbalancerAclResourceInfo struct {
@@ -78,15 +76,6 @@ type SAclEntry struct {
 }
 
 type SAclEntries []SAclEntry
-
-func (self SAclEntries) GetFingerprint() string {
-	cidrs := []string{}
-	for _, acl := range self {
-		cidrs = append(cidrs, acl.Cidr)
-	}
-	sort.Strings(cidrs)
-	return fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(cidrs, ""))))
-}
 
 func (self SAclEntries) String() string {
 	return jsonutils.Marshal(self).String()
@@ -125,9 +114,10 @@ func (aclEntry *SAclEntry) Validate() error {
 type LoadbalancerAclCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
+	CloudregionResourceInput
+	CloudproviderResourceInput
+
 	AclEntries SAclEntries `json:"acl_entries"`
-	// swagger: ignore
-	Fingerprint string
 }
 
 func (self *LoadbalancerAclCreateInput) Validate() error {
@@ -146,7 +136,6 @@ func (self *LoadbalancerAclCreateInput) Validate() error {
 		}
 		found[acl.Cidr] = true
 	}
-	self.Fingerprint = self.AclEntries.GetFingerprint()
 	return nil
 }
 
@@ -154,8 +143,6 @@ type LoadbalancerAclUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
 	AclEntries SAclEntries `json:"acl_entries"`
-	// swagger: ignore
-	Fingerprint string
 }
 
 func (self *LoadbalancerAclUpdateInput) Validate() error {
@@ -172,7 +159,6 @@ func (self *LoadbalancerAclUpdateInput) Validate() error {
 			}
 			found[acl.Cidr] = true
 		}
-		self.Fingerprint = self.AclEntries.GetFingerprint()
 	}
 	return nil
 }

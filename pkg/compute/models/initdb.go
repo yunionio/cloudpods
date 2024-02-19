@@ -56,7 +56,6 @@ func InitDB() error {
 		LoadbalancerListenerRuleManager,
 		LoadbalancerBackendGroupManager,
 		LoadbalancerBackendManager,
-		CachedLoadbalancerCertificateManager,
 		LoadbalancerClusterManager,
 		SchedtagManager,
 		DynamicschedtagManager,

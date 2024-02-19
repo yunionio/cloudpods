@@ -832,12 +832,12 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	}
 
 	lblis.AclType = extListener.GetAclType()
-	if aclID := extListener.GetAclId(); len(aclID) > 0 {
-		if _acl, err := db.FetchByExternalIdAndManagerId(CachedLoadbalancerAclManager, aclID, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	if aclId := extListener.GetAclId(); len(aclId) > 0 {
+		if _acl, err := db.FetchByExternalIdAndManagerId(LoadbalancerAclManager, aclId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			return q.Equals("manager_id", lb.ManagerId)
 		}); err == nil {
-			acl := _acl.(*SCachedLoadbalancerAcl)
-			lblis.AclId = acl.AclId
+			acl := _acl.(*SLoadbalancerAcl)
+			lblis.AclId = acl.Id
 		}
 	} else {
 		lblis.AclId = ""
@@ -884,11 +884,11 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
 		lblis.EnableHttp2 = extListener.HTTP2Enabled()
 		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
-			if _cert, err := db.FetchByExternalIdAndManagerId(CachedLoadbalancerCertificateManager, certificateId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if _cert, err := db.FetchByExternalIdAndManagerId(LoadbalancerCertificateManager, certificateId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", lb.ManagerId)
 			}); err == nil {
-				cert := _cert.(*SCachedLoadbalancerCertificate)
-				lblis.CertificateId = cert.CertificateId
+				cert := _cert.(*SLoadbalancerCertificate)
+				lblis.CertificateId = cert.Id
 			}
 		}
 		fallthrough

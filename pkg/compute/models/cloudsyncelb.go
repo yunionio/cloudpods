@@ -48,13 +48,13 @@ func syncRegionLoadbalancerCertificates(
 	}
 	result := func() compare.SyncResult {
 		defer syncResults.AddSqlCost(LoadbalancerCertificateManager)()
-		return provider.SyncLoadbalancerCertificates(ctx, userCred, localRegion, certificates, syncRange.Xor)
+		return localRegion.SyncLoadbalancerCertificates(ctx, userCred, provider, certificates, syncRange.Xor)
 	}()
 
-	syncResults.Add(CachedLoadbalancerCertificateManager, result)
+	syncResults.Add(LoadbalancerCertificateManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerCachedCertificates for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancerCertificates for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -80,13 +80,13 @@ func syncRegionLoadbalancerAcls(
 	}
 	result := func() compare.SyncResult {
 		defer syncResults.AddSqlCost(LoadbalancerAclManager)()
-		return CachedLoadbalancerAclManager.SyncLoadbalancerAcls(ctx, userCred, provider, localRegion, acls, syncRange)
+		return localRegion.SyncLoadbalancerAcls(ctx, userCred, provider, acls, syncRange.Xor)
 	}()
 
-	syncResults.Add(CachedLoadbalancerAclManager, result)
+	syncResults.Add(LoadbalancerAclManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerCachedAcls for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancerAcls for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		return
 	}

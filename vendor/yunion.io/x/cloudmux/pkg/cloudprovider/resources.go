@@ -839,7 +839,6 @@ type ICloudLoadbalancerBackend interface {
 type ICloudLoadbalancerCertificate interface {
 	IVirtualResource
 
-	Sync(name, privateKey, publickKey string) error
 	Delete() error
 
 	GetCommonName() string
@@ -853,7 +852,6 @@ type ICloudLoadbalancerCertificate interface {
 type ICloudLoadbalancerAcl interface {
 	IVirtualResource
 
-	GetAclListenerID() string // huawei only
 	GetAclEntries() []SLoadbalancerAccessControlListEntry
 	Sync(acl *SLoadbalancerAccessControlList) error
 	Delete() error

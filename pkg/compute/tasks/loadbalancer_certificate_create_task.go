@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -36,7 +37,7 @@ func init() {
 	taskman.RegisterTask(LoadbalancerCertificateCreateTask{})
 }
 
-func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, err error) {
+func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SLoadbalancerCertificate, err error) {
 	lbcert.SetStatus(ctx, self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, err, self.UserCred, false)
@@ -45,7 +46,7 @@ func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbc
 }
 
 func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbcert := obj.(*models.SCachedLoadbalancerCertificate)
+	lbcert := obj.(*models.SLoadbalancerCertificate)
 	region, err := lbcert.GetRegion()
 	if err != nil {
 		self.taskFail(ctx, lbcert, errors.Wrapf(err, "GetRegion"))
@@ -58,13 +59,13 @@ func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj d
 	}
 }
 
-func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateComplete(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, data jsonutils.JSONObject) {
-	lbcert.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateComplete(ctx context.Context, lbcert *models.SLoadbalancerCertificate, data jsonutils.JSONObject) {
+	lbcert.SetStatus(ctx, self.GetUserCred(), apis.STATUS_AVAILABLE, "")
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE, lbcert.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCompleteFailed(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
+func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCompleteFailed(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbcert, errors.Errorf(reason.String()))
 }

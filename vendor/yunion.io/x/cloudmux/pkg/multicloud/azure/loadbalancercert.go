@@ -27,7 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -54,7 +54,7 @@ func (self *SLoadbalancerCert) GetGlobalId() string {
 }
 
 func (self *SLoadbalancerCert) GetStatus() string {
-	return api.LB_STATUS_ENABLED
+	return apis.STATUS_AVAILABLE
 }
 
 func (self *SLoadbalancerCert) Refresh() error {
@@ -71,10 +71,6 @@ func (self *SLoadbalancerCert) Refresh() error {
 	return nil
 }
 
-func (self *SLoadbalancerCert) IsEmulated() bool {
-	return false
-}
-
 func (self *SLoadbalancerCert) GetSysTags() map[string]string {
 	return nil
 }
@@ -89,10 +85,6 @@ func (self *SLoadbalancerCert) SetTags(tags map[string]string, replace bool) err
 
 func (self *SLoadbalancerCert) GetProjectId() string {
 	return getResourceGroup(self.GetId())
-}
-
-func (self *SLoadbalancerCert) Sync(name, privateKey, publickKey string) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "Sync")
 }
 
 func (self *SLoadbalancerCert) Delete() error {

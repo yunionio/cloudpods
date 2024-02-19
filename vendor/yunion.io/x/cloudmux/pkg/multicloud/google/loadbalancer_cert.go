@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
@@ -49,15 +50,11 @@ type SelfManaged struct {
 }
 
 func (self *SLoadbalancerCertificate) GetStatus() string {
-	return api.LB_STATUS_ENABLED
+	return apis.STATUS_AVAILABLE
 }
 
 func (self *SLoadbalancerCertificate) Refresh() error {
 	return nil
-}
-
-func (self *SLoadbalancerCertificate) IsEmulated() bool {
-	return false
 }
 
 func (self *SLoadbalancerCertificate) GetCreatedAt() time.Time {
@@ -78,10 +75,6 @@ func (self *SLoadbalancerCertificate) SetTags(tags map[string]string, replace bo
 
 func (self *SLoadbalancerCertificate) GetProjectId() string {
 	return self.region.GetProjectId()
-}
-
-func (self *SLoadbalancerCertificate) Sync(name, privateKey, publickKey string) error {
-	return cloudprovider.ErrNotSupported
 }
 
 func (self *SLoadbalancerCertificate) Delete() error {

@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -41,10 +41,6 @@ type SLoadbalancerAcl struct {
 	listener *SLoadbalancerListener
 }
 
-func (acl *SLoadbalancerAcl) GetAclListenerID() string {
-	return acl.listener.ID
-}
-
 func (acl *SLoadbalancerAcl) GetName() string {
 	return acl.listener.Name + "AllowedCidrs"
 }
@@ -58,11 +54,7 @@ func (acl *SLoadbalancerAcl) GetGlobalId() string {
 }
 
 func (acl *SLoadbalancerAcl) GetStatus() string {
-	return ""
-}
-
-func (acl *SLoadbalancerAcl) IsEmulated() bool {
-	return false
+	return apis.STATUS_AVAILABLE
 }
 
 func (acl *SLoadbalancerAcl) Refresh() error {
@@ -138,26 +130,7 @@ func (region *SRegion) GetLoadBalancerAcls() ([]SLoadbalancerAcl, error) {
 }
 
 func (region *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (*SLoadbalancerAcl, error) {
-	if !acl.AccessControlEnable {
-		return nil, errors.Wrap(fmt.Errorf("only support allowed cidrs"), "CreateLoadBalancerAcl")
-	}
-	if len(acl.ListenerId) < 1 {
-		return nil, errors.Wrap(fmt.Errorf("loadbalanceracl must band to a loadbalancerlistener"), "CreateLoadBalancerAcl")
-	}
-	cidrs := []string{}
-	for i := 0; i < len(acl.Entrys); i++ {
-		cidrs = append(cidrs, acl.Entrys[i].CIDR)
-	}
-	sacl, err := region.GetLoadbalancerAclDetail(acl.ListenerId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "region.GetLoadbalancerAclDetail(%s)", acl.ListenerId)
-	}
-	// ensure listener status
-	err = waitLbResStatus(sacl.listener, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return nil, errors.Wrap(err, `waitLbResStatus(sacl.listener, 10*time.Second, 8*time.Minute)`)
-	}
-	return sacl, region.UpdateLoadbalancerListenerAllowedCidrs(acl.ListenerId, cidrs)
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (acl *SLoadbalancerAcl) Sync(_acl *cloudprovider.SLoadbalancerAccessControlList) error {

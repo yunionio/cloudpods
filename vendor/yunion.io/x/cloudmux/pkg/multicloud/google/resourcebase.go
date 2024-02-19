@@ -46,3 +46,7 @@ func (r *SResourceBase) GetName() string {
 func (r *SResourceBase) GetDescription() string {
 	return ""
 }
+
+func (r *SResourceBase) IsEmulated() bool {
+	return false
+}

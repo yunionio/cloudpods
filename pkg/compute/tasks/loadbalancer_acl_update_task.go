@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -28,15 +29,15 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type LoadbalancerAclSyncTask struct {
+type LoadbalancerAclUpdateTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(LoadbalancerAclSyncTask{})
+	taskman.RegisterTask(LoadbalancerAclUpdateTask{})
 }
 
-func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
+func (self *LoadbalancerAclUpdateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerAcl, err error) {
 	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_SYNC_CONF_FAILED, err.Error())
 	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
@@ -44,27 +45,27 @@ func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *LoadbalancerAclSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbacl := obj.(*models.SCachedLoadbalancerAcl)
+func (self *LoadbalancerAclUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	lbacl := obj.(*models.SLoadbalancerAcl)
 	region, err := lbacl.GetRegion()
 	if err != nil {
 		self.taskFail(ctx, lbacl, errors.Wrapf(err, "GetRegion"))
 		return
 	}
-	self.SetStage("OnLoadbalancerAclSyncComplete", nil)
-	err = region.GetDriver().RequestSyncLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self)
+	self.SetStage("OnLoadbalancerAclUpdateComplete", nil)
+	err = region.GetDriver().RequestUpdateLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self)
 	if err != nil {
-		self.taskFail(ctx, lbacl, errors.Wrapf(err, "RequestSyncLoadbalancerAcl"))
+		self.taskFail(ctx, lbacl, errors.Wrapf(err, "RequestUpdateLoadbalancerAcl"))
 	}
 }
 
-func (self *LoadbalancerAclSyncTask) OnLoadbalancerAclSyncComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
-	lbacl.SetStatus(ctx, self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+func (self *LoadbalancerAclUpdateTask) OnLoadbalancerAclUpdateComplete(ctx context.Context, lbacl *models.SLoadbalancerAcl, data jsonutils.JSONObject) {
+	lbacl.SetStatus(ctx, self.GetUserCred(), apis.STATUS_AVAILABLE, "")
 	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerAclSyncTask) OnLoadbalancerAclSyncCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
+func (self *LoadbalancerAclUpdateTask) OnLoadbalancerAclUpdateCompleteFailed(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbacl, errors.Errorf(reason.String()))
 }

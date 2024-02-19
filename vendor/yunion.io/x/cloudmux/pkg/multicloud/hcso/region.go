@@ -771,25 +771,20 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 }
 
 func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	ret, err := self.CreateLoadBalancerAcl(acl)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ret, nil
+	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (SElbACL, error) {
+func (self *SRegion) CreateLoadBalancerAcl(listenerId string, acl *cloudprovider.SLoadbalancerAccessControlList) (SElbACL, error) {
 	params := jsonutils.NewDict()
 	aclObj := jsonutils.NewDict()
-	aclObj.Set("listener_id", jsonutils.NewString(acl.ListenerId))
+	aclObj.Set("listener_id", jsonutils.NewString(listenerId))
 	if len(acl.Entrys) > 0 {
 		whitelist := []string{}
 		for i := range acl.Entrys {
 			whitelist = append(whitelist, acl.Entrys[i].CIDR)
 		}
 
-		aclObj.Set("enable_whitelist", jsonutils.NewBool(acl.AccessControlEnable))
+		aclObj.Set("enable_whitelist", jsonutils.NewBool(true))
 		aclObj.Set("whitelist", jsonutils.NewString(strings.Join(whitelist, ",")))
 	} else {
 		aclObj.Set("enable_whitelist", jsonutils.NewBool(false))

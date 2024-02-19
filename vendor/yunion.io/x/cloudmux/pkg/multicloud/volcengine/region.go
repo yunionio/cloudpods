@@ -340,23 +340,6 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ret, nil
 }
 
-func (region *SRegion) FetchSubnets(ids []string, zoneId string, vpcId string) ([]SNetwork, error) {
-	pageNumber := 1
-	nets := make([]SNetwork, 0)
-	for {
-		parts, total, err := region.GetSubnets(ids, zoneId, vpcId, pageNumber, 50)
-		if err != nil {
-			return nil, err
-		}
-		nets = append(nets, parts...)
-		if len(nets) >= total {
-			break
-		}
-		pageNumber += 1
-	}
-	return nets, nil
-}
-
 // IBucket
 func (region *SRegion) IBucketExist(name string) (bool, error) {
 	toscli, err := region.GetTosClient()
