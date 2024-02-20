@@ -31,7 +31,7 @@ type SNatGateway struct {
 	NatId            string  `json:"natId"`
 	NatName          string  `json:"natName"`
 	ProductionStatus float32 `json:"productionStatus"`
-	State            float32 `json:"state"`
+	State            string  `json:"state"`
 	UnVpcId          string  `json:"unVpcId"`
 	VpcId            float32 `json:"vpcId"`
 	VpcName          string  `json:"vpcName"`
@@ -63,12 +63,15 @@ func (self *SNatGateway) GetINetworkId() string {
 }
 
 func (nat *SNatGateway) GetStatus() string {
-	// NAT网关状态，0:运行中, 1:不可用, 2:欠费停服
-	switch int(nat.State) {
-	case 0:
+	switch nat.State {
+	case "PENDING":
+		return api.NAT_STATUS_ALLOCATE
+	case "AVAILABLE":
 		return api.NAT_STAUTS_AVAILABLE
-	case 1, 2:
-		return api.NAT_STATUS_UNKNOWN
+	case "UPDATING":
+		return api.NAT_STATUS_DEPLOYING
+	case "DELETING":
+		return api.NAT_STATUS_DELETING
 	default:
 		return api.NAT_STATUS_UNKNOWN
 	}
