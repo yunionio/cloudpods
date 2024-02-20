@@ -59,7 +59,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"us-south1":               api.RegionDallas,
 	"southamerica-west1":      api.RegionSantiago,
 
-	"me-west1":    api.RegionColumbus,
+	"me-west1":    api.RegionTelAviv,
 	"me-central1": api.RegionDoha,
 	"me-central2": api.RegionDamman,
 }
