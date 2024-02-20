@@ -64,6 +64,12 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"brazilsoutheast":    api.RegionRioDeJaneiro,    // 里约热内卢
 	"jioindiawest":       api.RegionJioIndiaWest,    // 贾姆讷格尔
 	"jioindiacentral":    api.RegionJioIndiaCentral, // 那格浦尔
+	"swedencentral":      api.RegionSandviken,
+	"qatarcentral":       api.RegionDoha,
+	"polandcentral":      api.RegionWarsaw,
+	"italynorth":         api.RegionMilan,
+	"israelcentral":      api.RegionTelAviv,
+	"brazilus":           api.RegionIndianapolis,
 
 	"chinaeast":   api.RegionShanghai,
 	"chinaeast2":  api.RegionShanghai,

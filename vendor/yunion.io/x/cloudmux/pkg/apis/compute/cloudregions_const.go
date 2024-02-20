@@ -136,6 +136,7 @@ const (
 	CITY_PHOENIX        = "Phoenix"        //菲尼克斯
 	CITY_DALLAS         = "Dallas"         //达拉斯
 	CITY_COLUMBUS       = "Columbus"       //哥伦布
+	CITY_INDIANAPOLIS   = "Indianapolis"   //印第安纳波利斯
 
 	// 英国
 	CITY_LONDON      = "London"      //伦敦
@@ -171,7 +172,8 @@ const (
 	CITY_TARN   = "Tarn"   //塔恩
 
 	// 瑞典
-	CITY_STOCKHOLM = "Stockholm" //斯德哥尔摩
+	CITY_STOCKHOLM = "Stockholm" // 斯德哥尔摩
+	CITY_SANDVIKEN = "Sandviken" // 桑德维肯
 
 	// 波兰
 	CITY_WARSAW = "Warsaw" // 华沙

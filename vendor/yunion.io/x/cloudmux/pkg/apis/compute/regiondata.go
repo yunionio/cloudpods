@@ -518,6 +518,12 @@ var (
 		City:        CITY_STOCKHOLM,
 		CountryCode: COUNTRY_CODE_SE,
 	}
+	RegionSandviken = cloudprovider.SGeographicInfo{
+		Latitude:    59,
+		Longitude:   27.66,
+		City:        CITY_SANDVIKEN,
+		CountryCode: COUNTRY_CODE_SE,
+	}
 	RegionDelmenhorst = cloudprovider.SGeographicInfo{
 		Latitude:    53.051,
 		Longitude:   8.632,
@@ -702,6 +708,18 @@ var (
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionColumbus = cloudprovider.SGeographicInfo{
+		Latitude:    39.983,
+		Longitude:   -83.156,
+		City:        CITY_COLUMBUS,
+		CountryCode: COUNTRY_CODE_US,
+	}
+	RegionIndianapolis = cloudprovider.SGeographicInfo{
+		Latitude:    39.78,
+		Longitude:   -82.62,
+		City:        CITY_INDIANAPOLIS,
+		CountryCode: COUNTRY_CODE_US,
+	}
+	RegionTelAviv = cloudprovider.SGeographicInfo{
 		Latitude:    32.088,
 		Longitude:   34.762,
 		City:        CITY_TEL_AVIV,
