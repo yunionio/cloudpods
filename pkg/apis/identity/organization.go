@@ -180,6 +180,13 @@ type OrganizationNodeListInput struct {
 	OrgType TOrgType `json:"org_type"`
 
 	Level int `json:"level"`
+
+	// domain tags filter imposed by policy
+	PolicyDomainTags tagutils.TTagSetList `json:"policy_domain_tags"`
+	// project tags filter imposed by policy
+	PolicyProjectTags tagutils.TTagSetList `json:"policy_project_tags"`
+	// object tags filter imposed by policy
+	PolicyObjectTags tagutils.TTagSetList `json:"policy_object_tags"`
 }
 
 type SProjectOrganization struct {

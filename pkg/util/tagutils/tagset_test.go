@@ -633,3 +633,177 @@ func TestTagSetKeyPrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestTagSet2Paths(t *testing.T) {
+	cases := []struct {
+		tagset TTagSet
+		keys   []string
+		paths  [][]string
+	}{
+		{
+			tagset: TTagSet{
+				{
+					Key:   "部门",
+					Value: "技术",
+				},
+				{
+					Key:   "环境",
+					Value: "测试",
+				},
+			},
+			keys: []string{
+				"部门", "环境",
+			},
+			paths: [][]string{
+				{
+					"技术", "测试",
+				},
+			},
+		},
+		{
+			tagset: TTagSet{
+				{
+					Key:   "部门",
+					Value: "技术",
+				},
+				{
+					Key:   "环境",
+					Value: "测试",
+				},
+				{
+					Key:   "环境",
+					Value: "研发",
+				},
+			},
+			keys: []string{
+				"部门", "环境",
+			},
+			paths: [][]string{
+				{
+					"技术", "测试",
+				},
+				{
+					"技术", "研发",
+				},
+			},
+		},
+		{
+			tagset: TTagSet{
+				{
+					Key:   "部门",
+					Value: "技术",
+				},
+				{
+					Key:   "环境",
+					Value: "测试",
+				},
+				{
+					Key:   "业务",
+					Value: "TDCC",
+				},
+			},
+			keys: []string{
+				"业务", "部门", "环境",
+			},
+			paths: [][]string{
+				{
+					"TDCC", "技术", "测试",
+				},
+			},
+		},
+		{
+			tagset: TTagSet{
+				{
+					Key:   "部门",
+					Value: "技术",
+				},
+				{
+					Key:   "环境",
+					Value: "测试",
+				},
+				{
+					Key:   "业务",
+					Value: "TDCC",
+				},
+				{
+					Key:   "业务",
+					Value: "TKE",
+				},
+			},
+			keys: []string{
+				"业务", "部门", "环境",
+			},
+			paths: [][]string{
+				{
+					"TDCC", "技术", "测试",
+				},
+				{
+					"TKE", "技术", "测试",
+				},
+			},
+		},
+		{
+			tagset: TTagSet{
+				{
+					Key:   "部门",
+					Value: "技术",
+				},
+				{
+					Key:   "环境",
+					Value: "测试",
+				},
+				{
+					Key:   "环境",
+					Value: "生产",
+				},
+				{
+					Key:   "业务",
+					Value: "TDCC",
+				},
+				{
+					Key:   "业务",
+					Value: "TKE",
+				},
+			},
+			keys: []string{
+				"业务", "部门", "环境",
+			},
+			paths: [][]string{
+				{
+					"TDCC", "技术", "测试",
+				},
+				{
+					"TKE", "技术", "测试",
+				},
+				{
+					"TDCC", "技术", "生产",
+				},
+				{
+					"TKE", "技术", "生产",
+				},
+			},
+		},
+		{
+			tagset: TTagSet{
+				{
+					Key:   "org:系统",
+					Value: "G-BOOK",
+				},
+			},
+			keys: []string{
+				"org:系统", "org:业务模块", "org:環境",
+			},
+			paths: [][]string{
+				{
+					"G-BOOK",
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		paths := TagSet2Paths(c.tagset, c.keys)
+		if jsonutils.Marshal(paths).String() != jsonutils.Marshal(c.paths).String() {
+			t.Errorf("tagset: %s keys: %s want %s got %s", jsonutils.Marshal(c.tagset), jsonutils.Marshal(c.keys), jsonutils.Marshal(c.paths), jsonutils.Marshal(paths))
+		}
+	}
+}
