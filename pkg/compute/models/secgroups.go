@@ -1171,8 +1171,8 @@ func (manager *SSecurityGroupManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SCloudregion) GetSecgroups(vpcId string) ([]SSecurityGroup, error) {
-	q := SecurityGroupManager.Query().Equals("cloudregion_id", self.Id)
+func (self *SCloudregion) GetSecgroups(managerId, vpcId string) ([]SSecurityGroup, error) {
+	q := SecurityGroupManager.Query().Equals("cloudregion_id", self.Id).Equals("manager_id", managerId)
 	if len(vpcId) > 0 {
 		q = q.Equals("vpc_id", vpcId)
 	}
@@ -1192,7 +1192,7 @@ func (self *SCloudregion) SyncSecgroups(ctx context.Context, userCred mcclient.T
 
 	result := compare.SyncResult{}
 
-	dbSecs, err := self.GetSecgroups(vpcId)
+	dbSecs, err := self.GetSecgroups(provider.Id, vpcId)
 	if err != nil {
 		result.Error(err)
 		return result
