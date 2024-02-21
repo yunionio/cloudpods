@@ -321,74 +321,133 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, lbacl.CreateIAcl(ctx)
-	})
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, lbacl.SyncIAcl(ctx)
-	})
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) deleteLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) (jsonutils.JSONObject, error) {
-	if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
-		return nil, nil
-	}
-	iRegion, err := lbacl.GetIRegion(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(lbacl.ExternalId) == 0 {
-		return nil, nil
-	}
-
-	iLoadbalancerAcl, err := iRegion.GetILoadBalancerAclById(lbacl.ExternalId)
-	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			return nil, nil
+		iRegion, err := lbacl.GetIRegion(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIRegion")
 		}
-		return nil, err
-	}
-	return nil, iLoadbalancerAcl.Delete()
-}
-
-func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return self.deleteLoadbalancerAcl(ctx, userCred, lbacl, task)
-	})
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, lbcert.CreateICertificate(ctx)
-	})
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
-			return nil, nil
+		opts := &cloudprovider.SLoadbalancerAccessControlList{
+			Name:   lbacl.Name,
+			Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
 		}
+		if lbacl.AclEntries != nil {
+			for _, entry := range *lbacl.AclEntries {
+				opts.Entrys = append(opts.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{
+					Comment: entry.Comment,
+					CIDR:    entry.Cidr,
+				})
+			}
+		}
+		iAcl, err := iRegion.CreateILoadBalancerAcl(opts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateILoadBalancerAcl")
+		}
+		_, err = db.Update(lbacl, func() error {
+			lbacl.ExternalId = iAcl.GetGlobalId()
+			return nil
+		})
+		return nil, err
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestUpdateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iAcl, err := lbacl.GetILoadbalancerAcl(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetILoadbalancerAcl")
+		}
+		opts := &cloudprovider.SLoadbalancerAccessControlList{
+			Name:   lbacl.Name,
+			Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
+		}
+		if lbacl.AclEntries != nil {
+			for _, entry := range *lbacl.AclEntries {
+				opts.Entrys = append(opts.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{
+					Comment: entry.Comment,
+					CIDR:    entry.Cidr,
+				})
+			}
+		}
+		return nil, iAcl.Sync(opts)
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestLoadbalancerAclSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iAcl, err := lbacl.GetILoadbalancerAcl(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetILoadbalancerAcl")
+		}
+		return nil, lbacl.SyncWithCloudAcl(ctx, userCred, iAcl, lbacl.GetCloudprovider())
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iAcl, err := lbacl.GetILoadbalancerAcl(ctx)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, errors.Wrapf(err, "GetILoadbalancerAcl")
+		}
+		return nil, iAcl.Delete()
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := lbcert.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
-		iLoadbalancerCert, err := iRegion.GetILoadBalancerCertificateById(lbcert.ExternalId)
+
+		opts := &cloudprovider.SLoadbalancerCertificate{
+			Name:        lbcert.Name,
+			PrivateKey:  lbcert.PrivateKey,
+			Certificate: lbcert.Certificate,
+		}
+
+		iCert, err := iRegion.CreateILoadBalancerCertificate(opts)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = db.Update(lbcert, func() error {
+			lbcert.ExternalId = iCert.GetGlobalId()
+			return nil
+		})
+		return nil, err
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iCert, err := lbcert.GetILoadbalancerCertificate(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			return nil, err
 		}
-		return nil, iLoadbalancerCert.Delete()
+		return nil, iCert.Delete()
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestLoadbalancerCertificateSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iCert, err := lbcert.GetILoadbalancerCertificate(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, lbcert.SyncWithCloudCert(ctx, userCred, iCert, lbcert.GetCloudprovider())
 	})
 	return nil
 }
@@ -604,12 +663,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 				if err != nil {
 					return nil, errors.Wrapf(err, "GetCertificate")
 				}
-
-				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert)
-				if err != nil {
-					return nil, errors.Wrap(err, "CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate")
-				}
-				params.CertificateId = lbcert.ExternalId
+				params.CertificateId = cert.ExternalId
 			}
 		}
 
@@ -619,12 +673,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 				if err != nil {
 					return nil, errors.Wrap(err, "GetAcl")
 				}
-
-				lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl)
-				if err != nil {
-					return nil, errors.Wrap(err, "CachedLoadbalancerAclManager.GetOrCreateCachedAcl")
-				}
-				params.AccessControlListId = lbacl.ExternalId
+				params.AccessControlListId = acl.ExternalId
 				params.AccessControlListType = lblis.AclType
 				params.AccessControlListStatus = lblis.AclStatus
 			}
@@ -721,12 +770,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 				if err != nil {
 					return nil, errors.Wrapf(err, "GetCertificate")
 				}
-				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert)
-				if err != nil {
-					return nil, errors.Wrap(err, "GetOrCreateCachedCertificate")
-				}
 				err = iLis.ChangeCertificate(ctx, &cloudprovider.ListenerCertificateOptions{
-					CertificateId: lbcert.ExternalId,
+					CertificateId: cert.ExternalId,
 				})
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 					return nil, errors.Wrapf(err, "ChangeCertificate")
@@ -742,12 +787,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 					if err != nil {
 						return nil, errors.Wrapf(err, "GetAcl")
 					}
-
-					lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl)
-					if err != nil {
-						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetAcl")
-					}
-					opts.AclId = lbacl.ExternalId
+					opts.AclId = acl.ExternalId
 				}
 				err := iLis.SetAcl(ctx, opts)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported {

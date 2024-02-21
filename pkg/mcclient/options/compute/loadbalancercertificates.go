@@ -54,11 +54,14 @@ type LoadbalancerCertificateCreateOptions struct {
 
 	NAME string
 
+	Manager string `json:"manager_id"`
+	Region  string `json:"cloudregion"`
+
 	Cert string `required:"true" json:"-" help:"path to certificate file"`
 	Pkey string `required:"true" json:"-" help:"path to private key file"`
 }
 
-func (opts *LoadbalancerCertificateCreateOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *LoadbalancerCertificateCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
@@ -79,8 +82,16 @@ func (opts *LoadbalancerCertificateCreateOptions) Params() (*jsonutils.JSONDict,
 	return params, nil
 }
 
-type LoadbalancerCertificateGetOptions struct {
+type LoadbalancerCertificateIdOptions struct {
 	ID string `json:"-"`
+}
+
+func (opts *LoadbalancerCertificateIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *LoadbalancerCertificateIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 type LoadbalancerCertificateDeleteOptions struct {
@@ -102,14 +113,14 @@ func (opts *LoadbalancerCertificateListOptions) Params() (jsonutils.JSONObject, 
 }
 
 type LoadbalancerCertificateUpdateOptions struct {
-	ID   string `json:"-"`
+	LoadbalancerCertificateIdOptions
 	Name string
 
 	Cert string `json:"-" help:"path to certificate file"`
 	Pkey string `json:"-" help:"path to private key file"`
 }
 
-func (opts *LoadbalancerCertificateUpdateOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *LoadbalancerCertificateUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	paramsCertKey, err := loadbalancerCertificateLoadFiles(opts.Cert, opts.Pkey, true)
 	if err != nil {
 		return nil, err
@@ -119,9 +130,12 @@ func (opts *LoadbalancerCertificateUpdateOptions) Params() (*jsonutils.JSONDict,
 }
 
 type LoadbalancerCertificatePublicOptions struct {
+	LoadbalancerCertificateIdOptions
 	options.SharableResourcePublicBaseOptions
+}
 
-	ID string `json:"-"`
+func (opts *LoadbalancerCertificatePublicOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SharableResourcePublicBaseOptions), nil
 }
 
 type LoadbalancerCertificatePrivateOptions struct {

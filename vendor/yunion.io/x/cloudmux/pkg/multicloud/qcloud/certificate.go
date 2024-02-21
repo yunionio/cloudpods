@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -121,11 +122,6 @@ func (self *SCertificate) GetKey() string {
 	return self.CertificatePrivateKey
 }
 
-// 证书不能修改
-func (self *SCertificate) Sync(name, privateKey, publickKey string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SCertificate) Delete() error {
 	return self.region.DeleteCertificate(self.GetId())
 }
@@ -146,12 +142,21 @@ func (self *SCertificate) GetGlobalId() string {
 	return self.CertificateID
 }
 
-// todo: 貌似目前onecloud没有记录状态
 func (self *SCertificate) GetStatus() string {
-	if _, ok := CERT_STATUS_MAP[self.Status]; !ok {
-		return "unknown"
+	status, ok := CERT_STATUS_MAP[self.Status]
+	if !ok {
+		return apis.STATUS_UNKNOWN
 	}
-	return CERT_STATUS_MAP[self.Status]
+	switch status {
+	case "normal":
+		return apis.STATUS_AVAILABLE
+	case "deleted":
+		return apis.STATUS_DELETING
+	case "pending":
+		return apis.STATUS_CREATING
+	default:
+		return status
+	}
 }
 
 func (self *SCertificate) Refresh() error {
@@ -161,10 +166,6 @@ func (self *SCertificate) Refresh() error {
 	}
 
 	return jsonutils.Update(self, cert)
-}
-
-func (self *SCertificate) IsEmulated() bool {
-	return false
 }
 
 func (self *SCertificate) GetCommonName() string {
@@ -363,6 +364,9 @@ func (self *SRegion) DeleteCertificate(id string) error {
 }
 
 func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	if self.Region != QCLOUD_DEFAULT_REGION {
+		return []cloudprovider.ICloudLoadbalancerCertificate{}, nil
+	}
 	certs, err := self.GetCertificates("", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCertificates")

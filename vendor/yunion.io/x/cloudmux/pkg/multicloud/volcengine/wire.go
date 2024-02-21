@@ -71,7 +71,7 @@ func (wire *SWire) GetBandwidth() int {
 }
 
 func (wire *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	networks, err := wire.vpc.region.FetchSubnets(nil, wire.zone.ZoneId, wire.vpc.VpcId)
+	networks, err := wire.vpc.region.GetSubnets(nil, wire.zone.ZoneId, wire.vpc.VpcId)
 	if err != nil {
 		return nil, err
 	}

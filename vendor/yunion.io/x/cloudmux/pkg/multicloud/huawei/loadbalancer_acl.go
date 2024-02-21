@@ -20,7 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -37,10 +37,6 @@ type SElbACL struct {
 	Whitelist       string `json:"whitelist"`
 }
 
-func (self *SElbACL) GetAclListenerID() string {
-	return self.ListenerID
-}
-
 func (self *SElbACL) GetId() string {
 	return self.ID
 }
@@ -54,11 +50,7 @@ func (self *SElbACL) GetGlobalId() string {
 }
 
 func (self *SElbACL) GetStatus() string {
-	if self.EnableWhitelist {
-		return api.LB_BOOL_ON
-	}
-
-	return api.LB_BOOL_OFF
+	return apis.STATUS_AVAILABLE
 }
 
 func (self *SElbACL) Refresh() error {
@@ -67,10 +59,6 @@ func (self *SElbACL) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, acl)
-}
-
-func (self *SElbACL) IsEmulated() bool {
-	return false
 }
 
 func (self *SElbACL) GetProjectId() string {
@@ -95,7 +83,7 @@ func (self *SElbACL) Sync(acl *cloudprovider.SLoadbalancerAccessControlList) err
 	whiteList = strings.Join(cidrs, ",")
 	params := map[string]interface{}{
 		"whitelist":        whiteList,
-		"enable_whitelist": acl.AccessControlEnable,
+		"enable_whitelist": true,
 	}
 	_, err := self.region.put(SERVICE_ELB, "elb/whitelists/"+self.GetId(), map[string]interface{}{"whitelist": params})
 	return err
@@ -115,7 +103,7 @@ func (self *SRegion) GetLoadBalancerAcl(aclId string) (*SElbACL, error) {
 	return ret, resp.Unmarshal(ret, "whitelist")
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561582.html
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ELB/doc?version=v2&api=ListWhitelists
 func (self *SRegion) GetLoadBalancerAcls(listenerId string) ([]SElbACL, error) {
 	query := url.Values{}
 	if len(listenerId) > 0 {
@@ -129,16 +117,16 @@ func (self *SRegion) GetLoadBalancerAcls(listenerId string) ([]SElbACL, error) {
 	return ret, resp.Unmarshal(&ret, "whitelists")
 }
 
-func (self *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (*SElbACL, error) {
+func (self *SRegion) CreateLoadBalancerAcl(listenerId string, opts *cloudprovider.SLoadbalancerAccessControlList) (*SElbACL, error) {
 	params := map[string]interface{}{
-		"listener_id": acl.ListenerId,
+		"listener_id": listenerId,
 	}
-	if len(acl.Entrys) > 0 {
+	if len(opts.Entrys) > 0 {
 		whitelist := []string{}
-		for i := range acl.Entrys {
-			whitelist = append(whitelist, acl.Entrys[i].CIDR)
+		for i := range opts.Entrys {
+			whitelist = append(whitelist, opts.Entrys[i].CIDR)
 		}
-		params["enable_whitelist"] = acl.AccessControlEnable
+		params["enable_whitelist"] = "true"
 		params["whitelist"] = strings.Join(whitelist, ",")
 	} else {
 		params["enable_whitelist"] = false

@@ -23,10 +23,14 @@ import (
 type LoadbalancerCertificateDetails struct {
 	apis.SharableVirtualResourceDetails
 	SLoadbalancerCertificate
+	ManagedResourceInfo
+	CloudregionResourceInfo
 
-	LbListenerCount int `json:"lb_listener_count"`
-	// 证书内容是否完整
-	IsComplete bool `json:"is_complete"`
+	LoadbalancerCertificateUsage
+}
+
+type LoadbalancerCertificateUsage struct {
+	ListenerCount int `json:"lb_listener_count"`
 }
 
 type LoadbalancerCertificateResourceInfo struct {
@@ -68,6 +72,9 @@ type LoadbalancerCertificateListInput struct {
 
 type LoadbalancerCertificateCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
+
+	CloudregionResourceInput
+	CloudproviderResourceInput
 
 	Certificate string `json:"certificate"`
 	PrivateKey  string `json:"private_key"`
