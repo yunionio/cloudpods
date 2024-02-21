@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -68,11 +69,7 @@ func (certificate *SLoadbalancerServerCertificate) GetGlobalId() string {
 }
 
 func (certificate *SLoadbalancerServerCertificate) GetStatus() string {
-	return ""
-}
-
-func (certificate *SLoadbalancerServerCertificate) IsEmulated() bool {
-	return false
+	return apis.STATUS_AVAILABLE
 }
 
 func (certificate *SLoadbalancerServerCertificate) GetCommonName() string {
@@ -102,13 +99,6 @@ func (region *SRegion) UpdateServerCertificateName(certId, name string) error {
 	params["ServerCertificateName"] = name
 	_, err := region.lbRequest("SetServerCertificateName", params)
 	return err
-}
-
-func (certificate *SLoadbalancerServerCertificate) Sync(name string, privateKey string, publicKey string) error {
-	if certificate.ServerCertificateName != name {
-		return certificate.region.UpdateServerCertificateName(certificate.ServerCertificateId, name)
-	}
-	return nil
 }
 
 func (certificate *SLoadbalancerServerCertificate) Delete() error {

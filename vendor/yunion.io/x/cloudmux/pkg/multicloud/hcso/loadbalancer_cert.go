@@ -22,7 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei"
 )
@@ -67,7 +67,7 @@ func (self *SElbCert) GetGlobalId() string {
 }
 
 func (self *SElbCert) GetStatus() string {
-	return api.LB_STATUS_ENABLED
+	return apis.STATUS_AVAILABLE
 }
 
 func (self *SElbCert) Refresh() error {
@@ -85,20 +85,8 @@ func (self *SElbCert) Refresh() error {
 	return nil
 }
 
-func (self *SElbCert) IsEmulated() bool {
-	return false
-}
-
 func (self *SElbCert) GetProjectId() string {
 	return ""
-}
-
-func (self *SElbCert) Sync(name, privateKey, publickKey string) error {
-	params := jsonutils.NewDict()
-	params.Set("name", jsonutils.NewString(name))
-	params.Set("private_key", jsonutils.NewString(privateKey))
-	params.Set("certificate", jsonutils.NewString(publickKey))
-	return DoUpdate(self.region.ecsClient.ElbCertificates.Update, self.GetId(), params, nil)
 }
 
 func (self *SElbCert) Delete() error {

@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei"
@@ -37,10 +37,6 @@ type SElbACL struct {
 	Whitelist       string `json:"whitelist"`
 }
 
-func (self *SElbACL) GetAclListenerID() string {
-	return self.ListenerID
-}
-
 func (self *SElbACL) GetId() string {
 	return self.ID
 }
@@ -54,11 +50,7 @@ func (self *SElbACL) GetGlobalId() string {
 }
 
 func (self *SElbACL) GetStatus() string {
-	if self.EnableWhitelist {
-		return api.LB_BOOL_ON
-	}
-
-	return api.LB_BOOL_OFF
+	return apis.STATUS_AVAILABLE
 }
 
 func (self *SElbACL) Refresh() error {
@@ -73,10 +65,6 @@ func (self *SElbACL) Refresh() error {
 	}
 
 	return nil
-}
-
-func (self *SElbACL) IsEmulated() bool {
-	return false
 }
 
 func (self *SElbACL) GetProjectId() string {
@@ -104,7 +92,7 @@ func (self *SElbACL) Sync(acl *cloudprovider.SLoadbalancerAccessControlList) err
 	params := jsonutils.NewDict()
 	whiteListObj := jsonutils.NewDict()
 	whiteListObj.Set("whitelist", jsonutils.NewString(whiteList))
-	whiteListObj.Set("enable_whitelist", jsonutils.NewBool(acl.AccessControlEnable))
+	whiteListObj.Set("enable_whitelist", jsonutils.NewBool(true))
 	params.Set("whitelist", whiteListObj)
 	return DoUpdate(self.region.ecsClient.ElbWhitelist.Update, self.GetId(), params, nil)
 }

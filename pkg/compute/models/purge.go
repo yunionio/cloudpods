@@ -419,8 +419,6 @@ func (self *SCloudregion) purgeKubeClusters(ctx context.Context, managerId strin
 }
 
 func (self *SCloudregion) purgeLoadbalancers(ctx context.Context, managerId string) error {
-	cacheAcls := CachedLoadbalancerAclManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
-	cacheCerts := CachedLoadbalancerCertificateManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	lbs := LoadbalancerManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	lbnetworks := LoadbalancernetworkManager.Query("row_id").In("loadbalancer_id", lbs.SubQuery())
 	lblis := LoadbalancerListenerManager.Query("id").In("loadbalancer_id", lbs.SubQuery())
@@ -434,8 +432,6 @@ func (self *SCloudregion) purgeLoadbalancers(ctx context.Context, managerId stri
 		{manager: LoadbalancerBackendGroupManager, key: "id", q: lbbgs},
 		{manager: LoadbalancerListenerManager, key: "id", q: lblis},
 		{manager: LoadbalancernetworkManager, key: "row_id", q: lbnetworks},
-		{manager: CachedLoadbalancerCertificateManager, key: "id", q: cacheCerts},
-		{manager: CachedLoadbalancerAclManager, key: "id", q: cacheAcls},
 		{manager: LoadbalancerManager, key: "id", q: lbs},
 	}
 	for i := range pairs {

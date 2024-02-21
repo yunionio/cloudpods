@@ -523,12 +523,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 }
 
 func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	ret, err := self.CreateLoadBalancerAcl(acl)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
