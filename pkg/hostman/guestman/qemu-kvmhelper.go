@@ -429,6 +429,10 @@ function nic_mtu() {
 		input.LogPath = s.getQemuLogPath()
 	}
 
+	if options.HostOptions.NoHpet == true {
+		input.NoHpet = true
+	}
+
 	// inject monitor
 	input.HMPMonitor = &qemu.Monitor{
 		Id:   "hmqmon",

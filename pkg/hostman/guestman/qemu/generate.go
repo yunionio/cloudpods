@@ -80,6 +80,7 @@ type GenerateStartOptionsInput struct {
 	IsMaster              bool
 	EnablePvpanic         bool
 	UsbControllerType     string
+	NoHpet                bool
 
 	EncryptKeyPath string
 }
@@ -130,6 +131,10 @@ func GenerateStartOptions(
 		drvOpt.UUID(input.EnableUUID, input.UUID),
 		drvOpt.Memory(input.Mem),
 	)
+
+	if input.NoHpet {
+		opts = append(opts, drvOpt.NoHpet())
+	}
 
 	var memDev string
 	if input.HugepagesEnabled {
