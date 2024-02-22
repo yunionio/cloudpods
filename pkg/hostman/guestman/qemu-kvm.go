@@ -1510,6 +1510,17 @@ func (s *SKVMGuestInstance) getDiskDriverNumQueues(qtree, driver string) int64 {
 	return -1
 }
 
+func (s *SKVMGuestInstance) hasHpet(qtree string) bool {
+	var lines = strings.Split(strings.TrimSuffix(qtree, "\r\n"), "\\r\\n")
+	for _, line := range lines {
+		line := strings.TrimSpace(line)
+		if strings.HasPrefix(line, "dev: hpet") {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *SKVMGuestInstance) getPciDevices() ([]monitor.PCIInfo, error) {
 	var res []monitor.PCIInfo
 	var errChan = make(chan error)
