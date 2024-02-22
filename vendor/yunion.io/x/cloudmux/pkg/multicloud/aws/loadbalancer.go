@@ -40,7 +40,7 @@ type SElbs struct {
 }
 
 type SElb struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SLoadbalancerBase
 	region *SRegion
 
 	AwsTags
@@ -130,6 +130,10 @@ func (self *SElb) GetTags() (map[string]string, error) {
 
 func (self *SElb) GetAddress() string {
 	return self.DNSName
+}
+
+func (lb *SElb) GetSecurityGroupIds() ([]string, error) {
+	return lb.SecurityGroups, nil
 }
 
 func (self *SElb) GetAddressType() string {

@@ -72,6 +72,8 @@ type SLoadbalancer struct {
 		InternetMaxBandwidthOut int
 	}
 	LoadBalancerDomain string `json:"LoadBalancerDomain"`
+
+	SecureGroups []string
 }
 
 type ZoneSet struct {
@@ -93,6 +95,10 @@ func (self *SLoadbalancer) GetChargeType() string {
 
 func (self *SLoadbalancer) GetEgressMbps() int {
 	return self.NetworkAttributes.InternetMaxBandwidthOut
+}
+
+func (lb *SLoadbalancer) GetSecurityGroupIds() ([]string, error) {
+	return lb.SecureGroups, nil
 }
 
 // https://cloud.tencent.com/document/product/214/30689

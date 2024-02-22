@@ -148,6 +148,25 @@ func syncLbPeripherals(ctx context.Context, userCred mcclient.TokenCredential, p
 	if err != nil {
 		log.Errorf("syncLoadbalancerListeners error: %v", err)
 	}
+
+	err = syncLoadbalancerSecurityGroups(ctx, userCred, local, remote)
+	if err != nil {
+		log.Errorf("syncLoadbalancerSecurityGroups error: %v", err)
+	}
+}
+
+func syncLoadbalancerSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) error {
+	secIds, err := remoteLb.GetSecurityGroupIds()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecurityGroupIds")
+	}
+	result := localLb.SyncSecurityGroups(ctx, userCred, secIds)
+	msg := result.Result()
+	log.Infof("SyncSecurityGroups for Loadbalancer %s result: %s", localLb.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
 }
 
 func syncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) error {
