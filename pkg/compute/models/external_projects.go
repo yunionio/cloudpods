@@ -415,11 +415,14 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 				}
 			}
 		}
-		if !find && account.AutoCreateProject {
-			desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
-			domainId, projectId, err = account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
-			if err != nil {
-				return errors.Wrapf(err, "getOrCreateTenant")
+		if !find {
+			domainId, projectId = account.DomainId, account.ProjectId
+			if account.AutoCreateProject {
+				desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+				domainId, projectId, err = account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
+				if err != nil {
+					return errors.Wrapf(err, "getOrCreateTenant")
+				}
 			}
 		}
 	}
@@ -684,6 +687,7 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 	_, err = db.Update(self, func() error {
 		self.ProjectId = tenant.Id
 		self.DomainId = tenant.DomainId
+		self.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 		return nil
 	})
 	if err != nil {

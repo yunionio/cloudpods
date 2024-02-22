@@ -1983,6 +1983,16 @@ func (account *SCloudaccount) PerformChangeProject(ctx context.Context, userCred
 		return nil, errors.Wrap(err, "db.Update ProjectId")
 	}
 
+	if len(diff) > 0 {
+		syncRange := &SSyncRange{
+			SyncRangeInput: api.SyncRangeInput{
+				Force:     true,
+				Resources: []string{"project"},
+			},
+		}
+		account.StartSyncCloudAccountInfoTask(ctx, userCred, syncRange, "", nil)
+	}
+
 	db.OpsLog.LogEvent(account, db.ACT_UPDATE, diff, userCred)
 
 	if len(providers) > 0 {
