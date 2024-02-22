@@ -802,6 +802,10 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 		return errors.Wrap(err, "init guest memory devices")
 	}
 	s.initMachineDesc()
+	if s.manager.host.IsX8664() && !s.hasHpet(qtree) {
+		noHpet := true
+		s.Desc.NoHpet = &noHpet
+	}
 
 	// This code is designed to ensure compatibility with older guests.
 	// However, it is not recommended for new guests to generate a desc file from it
@@ -856,7 +860,7 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 					return errors.Wrap(err, "ensure pvscsi pci address")
 				}
 			}
-		case "video0":
+		case "video0", "video1":
 			if s.Desc.VgaDevice == nil {
 				s.initGuestVga(pciRoot)
 			}
