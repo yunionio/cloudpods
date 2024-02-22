@@ -720,6 +720,8 @@ type ICloudLoadbalancer interface {
 
 	CreateILoadBalancerListener(ctx context.Context, listener *SLoadbalancerListenerCreateOptions) (ICloudLoadbalancerListener, error)
 	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
+
+	GetSecurityGroupIds() ([]string, error)
 }
 
 type ICloudLoadbalancerRedirect interface {

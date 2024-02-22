@@ -57,6 +57,9 @@ type LoadbalancerListInput struct {
 	// 套餐名称
 	LoadbalancerSpec []string `json:"loadbalancer_spec"`
 
+	// filter by security group
+	SecgroupId string `json:"secgroup_id"`
+
 	// filter for EIP
 	WithEip                  *bool  `json:"with_eip"`
 	WithoutEip               *bool  `json:"without_eip"`
@@ -90,6 +93,14 @@ type LoadbalancerDetails struct {
 
 	// 后端服务器组名称
 	BackendGroup string `json:"backend_group"`
+
+	// 关联安全组列表
+	Secgroups []SimpleSecurityGroup `json:"secgroups"`
+}
+
+type SimpleSecurityGroup struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type LoadbalancerResourceInfo struct {

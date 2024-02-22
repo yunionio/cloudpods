@@ -31,7 +31,7 @@ import (
 )
 
 type SLoadbalancer struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBase
 	AzureTags
 	region    *SRegion
 	eips      []cloudprovider.ICloudEIP

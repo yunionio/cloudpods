@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -281,6 +282,15 @@ func (man *SLoadbalancerManager) ListItemFilter(
 	}
 	if len(query.LoadbalancerSpec) > 0 {
 		q = q.In("loadbalancer_spec", query.LoadbalancerSpec)
+	}
+
+	if len(query.SecgroupId) > 0 {
+		_, err := validators.ValidateModel(ctx, userCred, SecurityGroupManager, &query.SecgroupId)
+		if err != nil {
+			return nil, err
+		}
+		sq := LoadbalancerSecurityGroupManager.Query("loadbalancer_id").Equals("secgroup_id", query.SecgroupId)
+		q = q.In("id", sq.SubQuery())
 	}
 
 	return q, nil
@@ -761,6 +771,8 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 	zone1Rows := man.FetchZone1ResourceInfos(ctx, userCred, query, objs)
 	netRows := man.SNetworkResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
+	lbIds := make([]string, len(objs))
+	backendGroupIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerDetails{
 			LoadbalancerClusterResourceInfo: clusterRows[i],
@@ -773,7 +785,74 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 			Zone1ResourceInfoBase:   zone1Rows[i],
 			NetworkResourceInfoBase: netRows[i].NetworkResourceInfoBase,
 		}
-		rows[i], _ = objs[i].(*SLoadbalancer).getMoreDetails(rows[i])
+		lb := objs[i].(*SLoadbalancer)
+		lbIds[i] = lb.Id
+		backendGroupIds[i] = lb.BackendGroupId
+	}
+
+	q := ElasticipManager.Query().Equals("associate_type", api.EIP_ASSOCIATE_TYPE_LOADBALANCER).In("associate_id", lbIds)
+	eips := []SElasticip{}
+	err := db.FetchModelObjects(ElasticipManager, q, &eips)
+	if err != nil {
+		log.Errorf("Fetch eips error: %v", err)
+		return rows
+	}
+	eipMap := map[string]*SElasticip{}
+	for i := range eips {
+		eipMap[eips[i].AssociateId] = &eips[i]
+	}
+
+	bgMap, err := db.FetchIdNameMap2(LoadbalancerBackendGroupManager, backendGroupIds)
+	if err != nil {
+		log.Errorf("Fetch LoadbalancerBackendGroup error: %v", err)
+		return rows
+	}
+
+	secSQ := SecurityGroupManager.Query().SubQuery()
+	lsecs := LoadbalancerSecurityGroupManager.Query().SubQuery()
+	q = secSQ.Query(
+		secSQ.Field("id"),
+		secSQ.Field("name"),
+		lsecs.Field("loadbalancer_id"),
+	).
+		Join(lsecs, sqlchemy.Equals(lsecs.Field("secgroup_id"), secSQ.Field("id"))).
+		Filter(sqlchemy.In(lsecs.Field("loadbalancer_id"), lbIds))
+
+	secInfo := []struct {
+		Id             string
+		Name           string
+		LoadbalancerId string
+	}{}
+	err = q.All(&secInfo)
+	if err != nil {
+		log.Errorf("query secgroup info error: %v", err)
+		return rows
+	}
+
+	groups := map[string][]api.SimpleSecurityGroup{}
+	for _, sec := range secInfo {
+		_, ok := groups[sec.LoadbalancerId]
+		if !ok {
+			groups[sec.LoadbalancerId] = []api.SimpleSecurityGroup{}
+		}
+		groups[sec.LoadbalancerId] = append(groups[sec.LoadbalancerId], api.SimpleSecurityGroup{
+			Id:   sec.Id,
+			Name: sec.Name,
+		})
+	}
+
+	for i := range rows {
+		eip, ok := eipMap[lbIds[i]]
+		if ok {
+			rows[i].Eip = eip.IpAddr
+			rows[i].EipMode = eip.Mode
+			rows[i].EipId = eip.Id
+		}
+		bg, ok := bgMap[backendGroupIds[i]]
+		if ok {
+			rows[i].BackendGroup = bg
+		}
+		rows[i].Secgroups, _ = groups[lbIds[i]]
 	}
 
 	return rows
@@ -807,27 +886,6 @@ func (lb *SLoadbalancerManager) FetchZone1ResourceInfos(ctx context.Context,
 	}
 
 	return rows
-}
-
-func (lb *SLoadbalancer) getMoreDetails(out api.LoadbalancerDetails) (api.LoadbalancerDetails, error) {
-	eip, _ := lb.GetEip()
-	if eip != nil {
-		out.Eip = eip.IpAddr
-		out.EipMode = eip.Mode
-		out.EipId = eip.Id
-	}
-
-	if lb.BackendGroupId != "" {
-		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
-		if err != nil {
-			log.Errorf("loadbalancer %s(%s): fetch backend group (%s) error: %s",
-				lb.Name, lb.Id, lb.BackendGroupId, err)
-			return out, err
-		}
-		out.BackendGroup = lbbg.GetName()
-	}
-
-	return out, nil
 }
 
 func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -1227,6 +1285,89 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 			}
 		}
 	}
+
+	return result
+}
+
+func (lb *SLoadbalancer) GetSecurityGroups() ([]SSecurityGroup, error) {
+	q := SecurityGroupManager.Query()
+	sq := LoadbalancerSecurityGroupManager.Query("secgroup_id").Equals("loadbalancer_id", lb.Id)
+	q = q.In("id", sq.SubQuery())
+	ret := []SSecurityGroup{}
+	err := db.FetchModelObjects(SecurityGroupManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (lb *SLoadbalancer) removeSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, groupIds []string) {
+	params := []interface{}{time.Now(), lb.Id}
+	placeholder := []string{}
+	for _, id := range groupIds {
+		params = append(params, id)
+		placeholder = append(placeholder, "?")
+	}
+	sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set deleted = 1, deleted_at = ? where loadbalancer_id = ? and secgroup_id in (%s)",
+			LoadbalancerSecurityGroupManager.TableSpec().Name(), strings.Join(placeholder, ","),
+		), params...,
+	)
+}
+
+func (lb *SLoadbalancer) addSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, groupIds []string) {
+	for _, groupId := range groupIds {
+		lbsec := &SLoadbalancerSecurityGroup{}
+		lbsec.LoadbalancerId = lb.Id
+		lbsec.SecgroupId = groupId
+		lbsec.SetModelManager(LoadbalancerSecurityGroupManager, lbsec)
+		LoadbalancerSecurityGroupManager.TableSpec().Insert(ctx, lbsec)
+	}
+}
+
+func (lb *SLoadbalancer) SyncSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, groupIds []string) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	dbSecs, err := lb.GetSecurityGroups()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetSecurityGroups"))
+		return result
+	}
+
+	remote := []SSecurityGroup{}
+	{
+		q := SecurityGroupManager.Query().In("external_id", groupIds).Equals("manager_id", lb.ManagerId)
+		err := db.FetchModelObjects(SecurityGroupManager, q, &remote)
+		if err != nil {
+			result.Error(errors.Wrapf(err, "FetchModelObjects"))
+			return result
+		}
+	}
+
+	removed := []string{}
+	common := []string{}
+	for _, sec := range dbSecs {
+		if !utils.IsInStringArray(sec.ExternalId, groupIds) {
+			removed = append(removed, sec.Id)
+			continue
+		}
+		common = append(common, sec.Id)
+	}
+
+	added := []string{}
+	for _, sec := range remote {
+		if !utils.IsInStringArray(sec.Id, common) && !utils.IsInStringArray(sec.Id, added) {
+			added = append(added, sec.Id)
+		}
+	}
+
+	lb.removeSecurityGroups(ctx, userCred, removed)
+	lb.addSecurityGroups(ctx, userCred, added)
+
+	result.AddCnt = len(added)
+	result.UpdateCnt = len(common)
+	result.DelCnt = len(removed)
 
 	return result
 }

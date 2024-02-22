@@ -27,6 +27,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 // 全球负载均衡 https://cloud.google.com/compute/docs/reference/rest/v1/globalAddresses/list
@@ -38,6 +39,7 @@ import (
 // https://cloud.google.com/compute/docs/reference/rest/v1/targetTcpProxies/get
 
 type SLoadbalancer struct {
+	multicloud.SLoadbalancerBase
 	SResourceBase
 	region          *SRegion
 	urlMap          *SUrlMap           // http & https LB

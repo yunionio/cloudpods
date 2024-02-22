@@ -54,7 +54,7 @@ var LB_HEALTHCHECK_TYPE_MAP = map[string]string{
 }
 
 type SLoadbalancer struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBase
 	huawei.HuaweiTags
 	region *SRegion
 	subnet *SNetwork
