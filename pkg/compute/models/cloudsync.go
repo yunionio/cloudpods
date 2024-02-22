@@ -2577,6 +2577,7 @@ func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, mo
 	if err != nil {
 		return
 	}
+	projectSync := false
 	newOwnerId, err := func() (mcclient.IIdentityProvider, error) {
 		rm, err := manager.GetProjectMapping()
 		if err != nil {
@@ -2585,24 +2586,27 @@ func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, mo
 			}
 			return nil, errors.Wrapf(err, "GetProjectMapping")
 		}
-		if rm != nil && rm.Enabled.Bool() && rm.IsNeedResourceSync() {
-			model.SetProjectSrc(apis.OWNER_SOURCE_CLOUD)
-			extTags, err := extModel.GetTags()
-			if err != nil {
-				return nil, errors.Wrapf(err, "extModel.GetTags")
-			}
-			if rm.Rules != nil {
-				for _, rule := range *rm.Rules {
-					domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
-					if isMatch {
-						if len(newProj) > 0 {
-							domainId, projectId, err = account.getOrCreateTenant(ctx, newProj, "", "", "auto create from tag")
-							if err != nil {
-								return nil, errors.Wrapf(err, "getOrCreateTenant(%s)", newProj)
+		if rm != nil && rm.Enabled.Bool() {
+			projectSync = rm.IsNeedProjectSync()
+			if rm.IsNeedResourceSync() {
+				model.SetProjectSrc(apis.OWNER_SOURCE_CLOUD)
+				extTags, err := extModel.GetTags()
+				if err != nil {
+					return nil, errors.Wrapf(err, "extModel.GetTags")
+				}
+				if rm.Rules != nil {
+					for _, rule := range *rm.Rules {
+						domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
+						if isMatch {
+							if len(newProj) > 0 {
+								domainId, projectId, err = account.getOrCreateTenant(ctx, newProj, "", "", "auto create from tag")
+								if err != nil {
+									return nil, errors.Wrapf(err, "getOrCreateTenant(%s)", newProj)
+								}
 							}
-						}
-						if len(domainId) > 0 && len(projectId) > 0 {
-							return &db.SOwnerId{DomainId: domainId, ProjectId: projectId}, nil
+							if len(domainId) > 0 && len(projectId) > 0 {
+								return &db.SOwnerId{DomainId: domainId, ProjectId: projectId}, nil
+							}
 						}
 					}
 				}
@@ -2613,7 +2617,8 @@ func SyncCloudProject(ctx context.Context, userCred mcclient.TokenCredential, mo
 	if err != nil {
 		log.Errorf("try sync project for %s %s by tags error: %v", model.Keyword(), model.GetName(), err)
 	}
-	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 && account.AutoCreateProject && newOwnerId == nil {
+	// 根据云上项目映射或开启同步策略并影响范围为项目标签, 则根据云上项目映射做资源归属
+	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 && (account.AutoCreateProject || projectSync) && newOwnerId == nil {
 		extProject, err := ExternalProjectManager.GetProject(extProjectId, manager.Id)
 		if err != nil {
 			log.Errorf("sync project for %s %s error: %v", model.Keyword(), model.GetName(), err)
