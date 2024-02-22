@@ -112,6 +112,8 @@ func exportRow(xlsx *excelize.File, data jsonutils.JSONObject, keys []string, ro
 				s, _ := val.GetString()
 				xlsx.SetCellValue(sheet, cell, s)
 			}
+		} else {
+			xlsx.SetCellValue(sheet, cell, "")
 		}
 	}
 }
