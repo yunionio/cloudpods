@@ -18,9 +18,11 @@ import (
 	"context"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 type SLoadbalancer struct {
+	multicloud.SLoadbalancerBase
 	SResourceBase
 
 	region       *SRegion

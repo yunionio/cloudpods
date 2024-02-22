@@ -216,6 +216,8 @@ type SecgroupListInput struct {
 	Direction string `json:"direction"`
 
 	VpcId string `json:"vpc_id"`
+
+	LoadbalancerId string `json:"loadbalancer_id"`
 	RegionalFilterListInput
 	ManagedResourceListInput
 }
@@ -274,6 +276,14 @@ type SecgroupDetails struct {
 	// admin_secgrp_id为此安全组的云主机数量, , 不包含回收站云主机
 	AdminGuestCnt int `json:"admin_guest_cnt,allowempty"`
 
+	// 关联LB数量
+	LoadbalancerCnt int `json:"loadbalancer_cnt,allowempty"`
+
+	// 关联RDS数量
+	RdsCnt int `json:"rds_cnt,allowempty"`
+	// 关联Redis数量
+	RedisCnt int `json:"redis_cnt,allowempty"`
+
 	// 所有关联的资源数量
 	TotalCnt int `json:"total_cnt,allowempty"`
 }
@@ -331,15 +341,16 @@ type SecgroupJsonDesc struct {
 }
 
 type SSecurityGroupRef struct {
-	GuestCnt      int `json:"guest_cnt"`
-	AdminGuestCnt int `json:"admin_guest_cnt"`
-	RdsCnt        int `json:"rds_cnt"`
-	RedisCnt      int `json:"redis_cnt"`
-	TotalCnt      int `json:"total_cnt"`
+	GuestCnt        int `json:"guest_cnt"`
+	AdminGuestCnt   int `json:"admin_guest_cnt"`
+	RdsCnt          int `json:"rds_cnt"`
+	RedisCnt        int `json:"redis_cnt"`
+	LoadbalancerCnt int `json:"loadbalancer_cnt"`
+	TotalCnt        int `json:"total_cnt"`
 }
 
 func (self *SSecurityGroupRef) Sum() {
-	self.TotalCnt = self.GuestCnt + self.AdminGuestCnt + self.RdsCnt + self.RedisCnt
+	self.TotalCnt = self.GuestCnt + self.AdminGuestCnt + self.RdsCnt + self.RedisCnt + self.LoadbalancerCnt
 }
 
 type SecurityGroupSyncstatusInput struct {

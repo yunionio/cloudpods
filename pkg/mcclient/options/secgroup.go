@@ -29,16 +29,16 @@ import (
 type SecgroupListOptions struct {
 	BaseListOptions
 
-	Equals       string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
-	Server       string `help:"Filter secgroups bound to specified server"`
-	Ip           string `help:"Filter secgroup by ip"`
-	Ports        string `help:"Filter secgroup by ports"`
-	Direction    string `help:"Filter secgroup by ports" choices:"all|in|out"`
-	DBInstance   string `help:"Filter secgroups bound to specified rds" json:"dbinstance"`
-	Cloudregion  string `help:"Filter secgroups by region"`
-	VpcId        string
-	Cloudaccount string `help:"Filter secgroups by account"`
-	WithCache    bool   `help:"Whether to bring cache information"`
+	Equals         string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
+	Server         string `help:"Filter secgroups bound to specified server"`
+	Ip             string `help:"Filter secgroup by ip"`
+	Ports          string `help:"Filter secgroup by ports"`
+	Direction      string `help:"Filter secgroup by ports" choices:"all|in|out"`
+	DBInstance     string `help:"Filter secgroups bound to specified rds" json:"dbinstance"`
+	Cloudregion    string `help:"Filter secgroups by region"`
+	VpcId          string
+	Cloudaccount   string `help:"Filter secgroups by account"`
+	LoadbalancerId string
 }
 
 func (opts *SecgroupListOptions) Params() (jsonutils.JSONObject, error) {

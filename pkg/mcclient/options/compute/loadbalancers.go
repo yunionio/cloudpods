@@ -121,6 +121,7 @@ type LoadbalancerListOptions struct {
 	Cloudregion  string
 	Zone         string
 	Cluster      string `json:"cluster_id"`
+	SecgroupId   string
 }
 
 func (opts *LoadbalancerListOptions) Params() (jsonutils.JSONObject, error) {
