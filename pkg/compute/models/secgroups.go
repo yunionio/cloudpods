@@ -174,6 +174,15 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		q = q.In("id", sq.SubQuery())
 	}
 
+	if len(input.LoadbalancerId) > 0 {
+		_, err = validators.ValidateModel(ctx, userCred, LoadbalancerManager, &input.LoadbalancerId)
+		if err != nil {
+			return nil, err
+		}
+		sq := LoadbalancerSecurityGroupManager.Query("secgroup_id").Equals("loadbalancer_id", input.LoadbalancerId)
+		q = q.In("id", sq.SubQuery())
+	}
+
 	if len(input.ElasticcacheId) > 0 {
 		_, err = validators.ValidateModel(ctx, userCred, ElasticcacheManager, &input.ElasticcacheId)
 		if err != nil {
@@ -446,6 +455,9 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		rows[i].SystemGuestCnt, _ = systemGuestMaps[secgroupIds[i]]
 		if cnt, ok := totalCnt[secgroupIds[i]]; ok {
 			rows[i].TotalCnt = cnt.TotalCnt
+			rows[i].LoadbalancerCnt = cnt.LoadbalancerCnt
+			rows[i].RedisCnt = cnt.RedisCnt
+			rows[i].RdsCnt = cnt.RdsCnt
 		}
 	}
 	return rows
@@ -979,6 +991,7 @@ func (sm *SSecurityGroupManager) TotalCnt(secIds []string) (map[string]api.SSecu
 
 	rdsSQ := sm.query(DBInstanceSecgroupManager, "secgroup_id", "rds", secIds)
 	redisSQ := sm.query(ElasticcachesecgroupManager, "secgroup_id", "redis", secIds)
+	lbSQ := sm.query(LoadbalancerSecurityGroupManager, "secgroup_id", "loadbalancer", secIds)
 
 	secs := sm.Query().SubQuery()
 	secQ := secs.Query(
@@ -987,6 +1000,7 @@ func (sm *SSecurityGroupManager) TotalCnt(secIds []string) (map[string]api.SSecu
 		sqlchemy.SUM("admin_guest_cnt", g3SQ.Field("guest3")),
 		sqlchemy.SUM("rds_cnt", rdsSQ.Field("rds")),
 		sqlchemy.SUM("redis_cnt", redisSQ.Field("redis")),
+		sqlchemy.SUM("loadbalancer_cnt", lbSQ.Field("loadbalancer")),
 	)
 
 	secQ.AppendField(secQ.Field("id"))
@@ -996,6 +1010,7 @@ func (sm *SSecurityGroupManager) TotalCnt(secIds []string) (map[string]api.SSecu
 	secQ = secQ.LeftJoin(g3SQ, sqlchemy.Equals(secQ.Field("id"), g3SQ.Field("admin_secgrp_id")))
 	secQ = secQ.LeftJoin(rdsSQ, sqlchemy.Equals(secQ.Field("id"), rdsSQ.Field("secgroup_id")))
 	secQ = secQ.LeftJoin(redisSQ, sqlchemy.Equals(secQ.Field("id"), redisSQ.Field("secgroup_id")))
+	secQ = secQ.LeftJoin(lbSQ, sqlchemy.Equals(secQ.Field("id"), lbSQ.Field("secgroup_id")))
 
 	secQ = secQ.Filter(sqlchemy.In(secQ.Field("id"), secIds)).GroupBy(secQ.Field("id"))
 
