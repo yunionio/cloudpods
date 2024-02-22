@@ -43,7 +43,8 @@ func Init(initPrivatePrefixes []string, cloudrootDir string) error {
 
 	linuxFsDrivers := []newRootFsDriverFunc{
 		NewFangdeRootFs, NewUnionOSRootFs,
-		NewAnolisRootFs, NewRockyRootFs,
+		NewAnolisRootFs, NewRockyRootFs, NewOpenCloudOsRootFs, NewAlmaLinuxRootFs,
+		NewOpenKylinRootfs, NewUOSDesktopRootfs,
 		NewGalaxyKylinRootFs, NewNeoKylinRootFs,
 		NewFangdeDeskRootfs, NewUKylinRootfs,
 		NewCentosRootFs, NewFedoraRootFs,
