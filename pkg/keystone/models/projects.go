@@ -35,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -288,11 +287,14 @@ func (manager *SProjectManager) ListItemFilter(
 	}
 
 	if len(query.AdminId) > 0 {
-		_, err := validators.ValidateModel(ctx, nil, UserManager, &query.AdminId)
-		if err != nil {
-			return nil, err
-		}
-		q = q.Equals("admin_id", query.AdminId)
+		sq := UserManager.Query("id")
+		sq = sq.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(sq.Field("id"), query.AdminId),
+				sqlchemy.In(sq.Field("name"), query.AdminId),
+			),
+		)
+		q = q.In("admin_id", sq.SubQuery())
 	}
 
 	groupStr := query.GroupId
