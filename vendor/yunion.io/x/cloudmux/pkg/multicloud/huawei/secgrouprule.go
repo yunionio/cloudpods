@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/secrules"
 )
 
@@ -148,6 +149,9 @@ func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider
 	}
 	if len(opts.CIDR) > 0 {
 		rule["remote_ip_prefix"] = opts.CIDR
+		if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
+			rule["ethertype"] = "IPv6"
+		}
 	}
 	if opts.Action == secrules.SecurityRuleDeny {
 		rule["action"] = "deny"

@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -345,6 +346,10 @@ func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider
 		prefix + "Action":            action,
 		prefix + "Port":              opts.Ports,
 		prefix + "CidrBlock":         opts.CIDR,
+	}
+	if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
+		params[prefix+"Ipv6CidrBlock"] = opts.CIDR
+		delete(params, prefix+"CidrBlock")
 	}
 
 	_, err := self.vpcRequest("CreateSecurityGroupPolicies", params)
