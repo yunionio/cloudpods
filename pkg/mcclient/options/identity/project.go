@@ -28,6 +28,7 @@ type ProjectListOptions struct {
 	UserId  string `help:"filter by user id"`
 	GroupId string `help:"filter by group id"`
 	IdpId   string `help:"filter by idp id"`
+	AdminId string
 
 	OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
 }
