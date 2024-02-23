@@ -112,7 +112,7 @@ func (self *StartRescueTask) OnRescueStartServerComplete(ctx context.Context, gu
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START_RESCUE, guest.GetShortDesc(ctx), self.UserCred, true)
 
 	// Set guest status to rescue running
-	guest.SetStatus(ctx, self.UserCred, api.VM_RESCUING, "OnRescueStartServerComplete")
+	guest.SetStatus(ctx, self.UserCred, api.VM_RESCUE, "OnRescueStartServerComplete")
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -135,7 +135,7 @@ func (self *StopRescueTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	// Flow: stop -> modify startvm script for rescue -> start
 	guest := obj.(*models.SGuest)
 	// Check if guest is running
-	if guest.Status == api.VM_RUNNING || guest.Status == api.VM_RESCUING {
+	if guest.Status == api.VM_RUNNING || guest.Status == api.VM_RESCUE {
 		self.StopServer(ctx, guest)
 	} else {
 		self.ClearRescue(ctx, guest)
