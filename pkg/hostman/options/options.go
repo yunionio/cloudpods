@@ -35,6 +35,7 @@ type SHostBaseOptions struct {
 	LiveMigrateCpuThrottleMax int64 `default:"99" help:"live migrate auto converge cpu throttle max"`
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
+	NoHpet             bool   `help:"Disable guest hpet clock" default:"false"`
 
 	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
 	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
