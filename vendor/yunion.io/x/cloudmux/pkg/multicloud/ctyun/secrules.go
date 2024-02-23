@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 )
@@ -113,6 +114,9 @@ func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider
 		"destCidrIp":  opts.CIDR,
 		"description": opts.Desc,
 		"range":       "1-65535",
+	}
+	if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
+		rule["ethertype"] = "IPv6"
 	}
 	api := "/v4/vpc/create-security-group-egress"
 	if opts.Direction == secrules.DIR_IN {
