@@ -164,6 +164,9 @@ type ProjectListInput struct {
 
 	// project tags filter imposed by policy
 	PolicyProjectTags tagutils.TTagSetList `json:"policy_project_tags"`
+
+	// 通过项目管理员id过滤
+	AdminId string `json:"admin_id"`
 }
 
 type DomainListInput struct {

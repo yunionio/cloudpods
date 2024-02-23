@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -286,6 +287,14 @@ func (manager *SProjectManager) ListItemFilter(
 		}
 	}
 
+	if len(query.AdminId) > 0 {
+		_, err := validators.ValidateModel(ctx, nil, UserManager, &query.AdminId)
+		if err != nil {
+			return nil, err
+		}
+		q = q.Equals("admin_id", query.AdminId)
+	}
+
 	groupStr := query.GroupId
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
@@ -347,6 +356,14 @@ func (manager *SProjectManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 
 	q, err = manager.SIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
 	if err == nil {
+		return q, nil
+	}
+
+	if field == "admin" {
+		userQuery := UserManager.Query("name", "id").Distinct().SubQuery()
+		q.AppendField(userQuery.Field("name", field))
+		q = q.Join(userQuery, sqlchemy.Equals(q.Field("admin_id"), userQuery.Field("id")))
+		q.GroupBy(userQuery.Field("name"))
 		return q, nil
 	}
 
@@ -822,6 +839,11 @@ func (project *SProject) PerformSetAdmin(
 	query jsonutils.JSONObject,
 	input api.SProjectSetAdminInput,
 ) (jsonutils.JSONObject, error) {
+	// unset admin
+	if len(input.UserId) == 0 {
+		return nil, project.setAdminId(ctx, userCred, input.UserId)
+	}
+
 	var user *SUser
 	var role *SRole
 
