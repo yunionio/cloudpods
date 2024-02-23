@@ -1064,7 +1064,6 @@ func (s *SKVMGuestInstance) initMachineDesc() {
 		noHpet := true
 		s.Desc.NoHpet = &noHpet
 	}
-
 }
 
 func (s *SKVMGuestInstance) initQgaDesc() {
