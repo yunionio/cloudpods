@@ -30,6 +30,7 @@ type SPermission struct {
 	CreateTime              time.Time
 	Description             string
 	DestCidrIp              string
+	Ipv6DestCidrIp          string
 	DestGroupId             string
 	DestGroupName           string
 	DestGroupOwnerAccount   string
@@ -40,6 +41,7 @@ type SPermission struct {
 	PortRange               string
 	Priority                int
 	SourceCidrIp            string
+	Ipv6SourceCidrIp        string
 	SourceGroupId           string
 	SourceGroupName         string
 	SourceGroupOwnerAccount string
@@ -82,6 +84,12 @@ func (self *SPermission) GetCIDRs() []string {
 	}
 	if len(self.DestCidrIp) > 0 {
 		ret = append(ret, self.DestCidrIp)
+	}
+	if len(self.Ipv6DestCidrIp) > 0 {
+		ret = append(ret, self.Ipv6DestCidrIp)
+	}
+	if len(self.Ipv6SourceCidrIp) > 0 {
+		ret = append(ret, self.Ipv6SourceCidrIp)
 	}
 	return ret
 }
