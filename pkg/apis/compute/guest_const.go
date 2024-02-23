@@ -47,7 +47,7 @@ const (
 	VM_UNSYNC                = "unsync"
 
 	VM_START_RESCUE        = "start_rescue"
-	VM_RESCUING            = "rescuing"
+	VM_RESCUE              = "rescue"
 	VM_STOP_RESCUE         = "stop_rescue"
 	VM_START_RESCUE_FAILED = "start_rescue_failed"
 	VM_STOP_RESCUE_FAILED  = "stop_rescue_failed"
