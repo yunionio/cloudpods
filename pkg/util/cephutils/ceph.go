@@ -42,15 +42,11 @@ type CephClient struct {
 	timeout int
 }
 
-func (self *CephClient) Close() error {
-	if len(self.keyConf) > 0 {
-		os.Remove(self.keyConf)
+func (cli *CephClient) Close() error {
+	if len(cli.keyConf) > 0 {
+		os.Remove(cli.keyConf)
 	}
-	return os.Remove(self.cephConf)
-}
-
-func (self *CephClient) SetPool(pool string) {
-	self.pool = pool
+	return os.Remove(cli.cephConf)
 }
 
 type cephStats struct {
@@ -91,15 +87,15 @@ type SCapacity struct {
 	UsedCapacitySizeKb int64
 }
 
-func (self *CephClient) Output(name string, opts []string) (jsonutils.JSONObject, error) {
-	return self.output(name, opts, false)
+func (cli *CephClient) Output(name string, opts []string) (jsonutils.JSONObject, error) {
+	return cli.output(name, opts, false)
 }
 
-func (self *CephClient) output(name string, opts []string, timeout bool) (jsonutils.JSONObject, error) {
+func (cli *CephClient) output(name string, opts []string, timeout bool) (jsonutils.JSONObject, error) {
 	cmds := []string{name, "--format", "json"}
 	cmds = append(cmds, opts...)
 	if timeout {
-		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", self.timeout)}, cmds...)
+		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", cli.timeout)}, cmds...)
 	}
 	proc := procutils.NewRemoteCommandAsFarAsPossible(cmds[0], cmds[1:]...)
 	outb, err := proc.StdoutPipe()
@@ -133,10 +129,10 @@ func (self *CephClient) output(name string, opts []string, timeout bool) (jsonut
 	return jsonutils.Parse(stdoutPut)
 }
 
-func (self *CephClient) run(name string, opts []string, timeout bool) error {
+func (cli *CephClient) run(name string, opts []string, timeout bool) error {
 	cmds := append([]string{name}, opts...)
 	if timeout {
-		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", self.timeout)}, cmds...)
+		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", cli.timeout)}, cmds...)
 	}
 	output, err := procutils.NewRemoteCommandAsFarAsPossible(cmds[0], cmds[1:]...).Output()
 	if err != nil {
@@ -145,26 +141,26 @@ func (self *CephClient) run(name string, opts []string, timeout bool) error {
 	return nil
 }
 
-func (self *CephClient) options() []string {
-	opts := []string{"--conf", self.cephConf}
-	if len(self.keyConf) > 0 {
-		opts = append(opts, []string{"--keyring", self.keyConf}...)
+func (cli *CephClient) options() []string {
+	opts := []string{"--conf", cli.cephConf}
+	if len(cli.keyConf) > 0 {
+		opts = append(opts, []string{"--keyring", cli.keyConf}...)
 	}
 	return opts
 }
 
-func (self *CephClient) CreateImage(name string, sizeMb int64) (*SImage, error) {
-	opts := self.options()
-	image := &SImage{name: name, client: self}
+func (cli *CephClient) CreateImage(name string, sizeMb int64) (*SImage, error) {
+	opts := cli.options()
+	image := &SImage{name: name, client: cli}
 	opts = append(opts, []string{"create", image.GetName(), "--size", fmt.Sprintf("%dM", sizeMb)}...)
-	return image, self.run("rbd", opts, false)
+	return image, cli.run("rbd", opts, false)
 }
 
-func (self *CephClient) GetCapacity() (*SCapacity, error) {
+func (cli *CephClient) GetCapacity() (*SCapacity, error) {
 	result := &SCapacity{}
-	opts := self.options()
+	opts := cli.options()
 	opts = append(opts, "df")
-	resp, err := self.output("ceph", opts, true)
+	resp, err := cli.output("ceph", opts, true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "output")
 	}
@@ -176,7 +172,7 @@ func (self *CephClient) GetCapacity() (*SCapacity, error) {
 	result.CapacitySizeKb = stats.Stats.TotalBytes / 1024
 	result.UsedCapacitySizeKb = stats.Stats.TotalUsedBytes / 1024
 	for _, pool := range stats.Pools {
-		if pool.Name == self.pool {
+		if pool.Name == cli.pool {
 			result.UsedCapacitySizeKb = int64(pool.Stats.Stored / 1024)
 			if pool.Stats.MaxAvail > 0 {
 				result.CapacitySizeKb = int64(pool.Stats.MaxAvail/1024 + int64(pool.Stats.Stored/1024))
@@ -270,20 +266,26 @@ keyring = %s
 	return client, nil
 }
 
+func (cli *CephClient) Child(pool string) *CephClient {
+	newCli := *cli
+	newCli.pool = pool
+	return &newCli
+}
+
 type SImage struct {
 	name   string
 	client *CephClient
 }
 
-func (self *SImage) GetName() string {
-	return fmt.Sprintf("%s/%s", self.client.pool, self.name)
+func (img *SImage) GetName() string {
+	return fmt.Sprintf("%s/%s", img.client.pool, img.name)
 }
 
-func (self *CephClient) ListImages() ([]string, error) {
+func (cli *CephClient) ListImages() ([]string, error) {
 	result := []string{}
-	opts := self.options()
-	opts = append(opts, []string{"ls", self.pool}...)
-	resp, err := self.output("rbd", opts, true)
+	opts := cli.options()
+	opts = append(opts, []string{"ls", cli.pool}...)
+	resp, err := cli.output("rbd", opts, true)
 	if err != nil {
 		return nil, err
 	}
@@ -294,15 +296,15 @@ func (self *CephClient) ListImages() ([]string, error) {
 	return result, nil
 }
 
-func (self *CephClient) GetImage(name string) (*SImage, error) {
-	images, err := self.ListImages()
+func (cli *CephClient) GetImage(name string) (*SImage, error) {
+	images, err := cli.ListImages()
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListImages")
 	}
 	if !utils.IsInStringArray(name, images) {
 		return nil, cloudprovider.ErrNotFound
 	}
-	return &SImage{name: name, client: self}, nil
+	return &SImage{name: name, client: cli}, nil
 }
 
 type SImageInfo struct {
@@ -323,14 +325,14 @@ type SImageInfo struct {
 	ModifyTimestamp string        `json:"modify_timestamp"`
 }
 
-func (self *SImage) options() []string {
-	return self.client.options()
+func (img *SImage) options() []string {
+	return img.client.options()
 }
 
-func (self *SImage) GetInfo() (*SImageInfo, error) {
-	opts := self.options()
-	opts = append(opts, []string{"info", self.GetName()}...)
-	resp, err := self.client.output("rbd", opts, true)
+func (img *SImage) GetInfo() (*SImageInfo, error) {
+	opts := img.options()
+	opts = append(opts, []string{"info", img.GetName()}...)
+	resp, err := img.client.output("rbd", opts, true)
 	if err != nil {
 		return nil, err
 	}
@@ -338,10 +340,10 @@ func (self *SImage) GetInfo() (*SImageInfo, error) {
 	return info, resp.Unmarshal(info)
 }
 
-func (self *SImage) ListSnapshots() ([]SSnapshot, error) {
-	opts := self.options()
-	opts = append(opts, []string{"snap", "ls", self.GetName()}...)
-	resp, err := self.client.output("rbd", opts, true)
+func (img *SImage) ListSnapshots() ([]SSnapshot, error) {
+	opts := img.options()
+	opts = append(opts, []string{"snap", "ls", img.GetName()}...)
+	resp, err := img.client.output("rbd", opts, true)
 	if err != nil {
 		return nil, err
 	}
@@ -351,13 +353,13 @@ func (self *SImage) ListSnapshots() ([]SSnapshot, error) {
 		return nil, errors.Wrapf(err, "ret.Unmarshal")
 	}
 	for i := range result {
-		result[i].image = self
+		result[i].image = img
 	}
 	return result, nil
 }
 
-func (self *SImage) GetSnapshot(name string) (*SSnapshot, error) {
-	snaps, err := self.ListSnapshots()
+func (img *SImage) GetSnapshot(name string) (*SSnapshot, error) {
+	snaps, err := img.ListSnapshots()
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListSnapshots")
 	}
@@ -369,8 +371,8 @@ func (self *SImage) GetSnapshot(name string) (*SSnapshot, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SImage) IsSnapshotExist(name string) (bool, error) {
-	_, err := self.GetSnapshot(name)
+func (img *SImage) IsSnapshotExist(name string) (bool, error) {
+	_, err := img.GetSnapshot(name)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return false, nil
@@ -381,74 +383,78 @@ func (self *SImage) IsSnapshotExist(name string) (bool, error) {
 }
 
 type SSnapshot struct {
-	Name      string
-	Id        string
-	Size      int64
-	Protected bool
+	Name string
+	Id   string
+	Size int64
+	// Protected bool
 	Timestamp string
 
 	image *SImage
 }
 
-func (self *SSnapshot) Rollback() error {
-	opts := self.options()
-	opts = append(opts, []string{"snap", "rollback", self.GetName()}...)
-	return self.image.client.run("rbd", opts, false)
+func (snap *SSnapshot) Rollback() error {
+	opts := snap.options()
+	opts = append(opts, []string{"snap", "rollback", snap.GetName()}...)
+	return snap.image.client.run("rbd", opts, false)
 }
 
-func (self *SSnapshot) options() []string {
-	return self.image.options()
+func (snap *SSnapshot) options() []string {
+	return snap.image.options()
 }
 
-func (self *SSnapshot) GetName() string {
-	return fmt.Sprintf("%s@%s", self.image.GetName(), self.Name)
+func (snap *SSnapshot) GetName() string {
+	return fmt.Sprintf("%s@%s", snap.image.GetName(), snap.Name)
 }
 
-func (self *SSnapshot) Unprotect() error {
-	opts := self.options()
-	opts = append(opts, []string{"snap", "unprotect", self.GetName()}...)
-	err := self.image.client.run("rbd", opts, true)
+func (snap *SSnapshot) Unprotect() error {
+	opts := snap.options()
+	opts = append(opts, []string{"snap", "unprotect", snap.GetName()}...)
+	err := snap.image.client.run("rbd", opts, true)
 	if err != nil {
 		if strings.Contains(err.Error(), "snap is already unprotected") {
+			// snap.Protected = false
 			return nil
 		}
-		return errors.Wrapf(err, "Unprotect")
+		return errors.Wrapf(err, "unprotect")
 	}
-	self.Protected = false
+	// snap.Protected = false
 	return nil
 }
 
-func (self *SSnapshot) Protect() error {
-	if self.Protected {
-		return nil
+func (snap *SSnapshot) protect() error {
+	// if snap.Protected {
+	//	return nil
+	// }
+	opts := snap.options()
+	opts = append(opts, []string{"snap", "protect", snap.GetName()}...)
+	err := snap.image.client.run("rbd", opts, true)
+	if err != nil {
+		if strings.Contains(err.Error(), "snap is already protected") {
+			return nil
+		}
+		return errors.Wrap(err, "protect")
 	}
-	opts := self.options()
-	opts = append(opts, []string{"snap", "protect", self.GetName()}...)
-	err := self.image.client.run("rbd", opts, true)
-	if err == nil {
-		self.Protected = true
-	}
+	// if err == nil {
+	//	snap.Protected = true
+	// }
 	return err
 }
 
-func (self *SSnapshot) Remove() error {
-	opts := self.options()
-	opts = append(opts, []string{"snap", "rm", self.GetName()}...)
-	return self.image.client.run("rbd", opts, false)
+func (snap *SSnapshot) Remove() error {
+	opts := snap.options()
+	opts = append(opts, []string{"snap", "rm", snap.GetName()}...)
+	return snap.image.client.run("rbd", opts, false)
 }
 
-func (self *SSnapshot) Delete() error {
-	pool := self.image.client.pool
-	defer self.image.client.SetPool(pool)
-
-	children, err := self.ListChildren()
+func (snap *SSnapshot) Delete() error {
+	children, err := snap.ListChildren()
 	if err != nil {
 		return errors.Wrapf(err, "ListChildren")
 	}
 
 	for i := range children {
-		self.image.client.SetPool(children[i].Pool)
-		image, err := self.image.client.GetImage(children[i].Image)
+		tmpCli := snap.image.client.Child(children[i].Pool)
+		image, err := tmpCli.GetImage(children[i].Image)
 		if err != nil {
 			return errors.Wrapf(err, "GetImage(%s/%s)", children[i].Pool, children[i].Image)
 		}
@@ -458,12 +464,13 @@ func (self *SSnapshot) Delete() error {
 		}
 	}
 
-	err = self.Unprotect()
+	// always try to unprotect
+	err = snap.Unprotect()
 	if err != nil {
-		log.Errorf("Unprotect %s failed: %s", self.GetName(), err)
+		log.Errorf("Unprotect %s failed: %s", snap.GetName(), err)
 	}
 
-	return self.Remove()
+	return snap.Remove()
 }
 
 type SChildren struct {
@@ -472,10 +479,10 @@ type SChildren struct {
 	Image         string
 }
 
-func (self *SSnapshot) ListChildren() ([]SChildren, error) {
-	opts := self.options()
-	opts = append(opts, []string{"children", self.GetName()}...)
-	resp, err := self.image.client.output("rbd", opts, true)
+func (snap *SSnapshot) ListChildren() ([]SChildren, error) {
+	opts := snap.options()
+	opts = append(opts, []string{"children", snap.GetName()}...)
+	resp, err := snap.image.client.output("rbd", opts, true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListChildren")
 	}
@@ -483,26 +490,26 @@ func (self *SSnapshot) ListChildren() ([]SChildren, error) {
 	return chidren, resp.Unmarshal(&chidren)
 }
 
-func (self *SImage) Resize(sizeMb int64) error {
-	opts := self.options()
-	opts = append(opts, []string{"resize", self.GetName(), "--size", fmt.Sprintf("%dM", sizeMb)}...)
-	return self.client.run("rbd", opts, false)
+func (img *SImage) Resize(sizeMb int64) error {
+	opts := img.options()
+	opts = append(opts, []string{"resize", img.GetName(), "--size", fmt.Sprintf("%dM", sizeMb)}...)
+	return img.client.run("rbd", opts, false)
 }
 
-func (self *SImage) Remove() error {
-	opts := self.options()
-	opts = append(opts, []string{"rm", self.GetName()}...)
-	return self.client.run("rbd", opts, false)
+func (img *SImage) Remove() error {
+	opts := img.options()
+	opts = append(opts, []string{"rm", img.GetName()}...)
+	return img.client.run("rbd", opts, false)
 }
 
-func (self *SImage) Flatten() error {
-	opts := self.options()
-	opts = append(opts, []string{"flatten", self.GetName()}...)
-	return self.client.run("rbd", opts, false)
+func (img *SImage) Flatten() error {
+	opts := img.options()
+	opts = append(opts, []string{"flatten", img.GetName()}...)
+	return img.client.run("rbd", opts, false)
 }
 
-func (self *SImage) Delete() error {
-	snapshots, err := self.ListSnapshots()
+func (img *SImage) Delete() error {
+	snapshots, err := img.ListSnapshots()
 	if err != nil {
 		return errors.Wrapf(err, "ListSnapshots")
 	}
@@ -512,77 +519,69 @@ func (self *SImage) Delete() error {
 			return errors.Wrapf(err, "delete snapshot %s", snapshots[i].GetName())
 		}
 	}
-	return self.Remove()
+	return img.Remove()
 }
 
-func (self *SImage) Rename(name string) error {
-	opts := self.options()
-	opts = append(opts, []string{"rename", self.GetName(), fmt.Sprintf("%s/%s", self.client.pool, name)}...)
-	return self.client.run("rbd", opts, false)
+func (img *SImage) Rename(name string) error {
+	opts := img.options()
+	opts = append(opts, []string{"rename", img.GetName(), fmt.Sprintf("%s/%s", img.client.pool, name)}...)
+	return img.client.run("rbd", opts, false)
 }
 
-func (self *SImage) CreateSnapshot(name string) (*SSnapshot, error) {
-	snap := &SSnapshot{Name: name, image: self}
-	opts := self.options()
+func (img *SImage) CreateSnapshot(name string) (*SSnapshot, error) {
+	snap := &SSnapshot{Name: name, image: img}
+	opts := img.options()
 	opts = append(opts, []string{"snap", "create", snap.GetName()}...)
-	if err := self.client.run("rbd", opts, false); err != nil {
+	if err := img.client.run("rbd", opts, false); err != nil {
 		return nil, errors.Wrap(err, "snap create")
-	}
-	if err := snap.Protect(); err != nil {
-		log.Errorf("failed protect snap %s: %s", snap.GetName(), err)
 	}
 	return snap, nil
 }
 
-func (self *SImage) Clone(ctx context.Context, pool, name string) error {
-	lockman.LockRawObject(ctx, "rbd_image_cache", self.GetName())
-	defer lockman.ReleaseRawObject(ctx, "rbd_image_cache", self.GetName())
+func (img *SImage) Clone(ctx context.Context, pool, name string) (*SImage, error) {
+	lockman.LockRawObject(ctx, "rbd_image_cache", img.GetName())
+	defer lockman.ReleaseRawObject(ctx, "rbd_image_cache", img.GetName())
 
-	var findOrCreateSnap = func() (*SSnapshot, error) {
-		snaps, err := self.ListSnapshots()
-		if err != nil {
-			return nil, errors.Wrapf(err, "ListSnapshots")
-		}
-		for i := range snaps {
-			if snaps[i].Name == name {
-				return &snaps[i], nil
-			}
-		}
-		snap, err := self.CreateSnapshot(name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "CreateSnapshot")
-		}
-		return snap, nil
-	}
-	snap, err := findOrCreateSnap()
+	tmpSnapName := "snap-" + utils.GenRequestId(12)
+	tmpSnap, err := img.CreateSnapshot(tmpSnapName)
 	if err != nil {
-		return errors.Wrapf(err, "findOrCreateSnap")
+		return nil, errors.Wrapf(err, "CreateSnapshot")
 	}
-	err = snap.Clone(pool, name)
+	defer tmpSnap.Delete()
+
+	newimg, err := tmpSnap.Clone(pool, name, true)
 	if err != nil {
-		return errors.Wrapf(err, "clone %s/%s", pool, name)
+		return nil, errors.Wrapf(err, "clone %s/%s", pool, name)
 	}
 
-	_pool := self.client.pool
-
-	// use current pool
-	self.client.SetPool(pool)
-	// recover previous pool
-	defer self.client.SetPool(_pool)
-
-	img, err := self.client.GetImage(name)
-	if err != nil {
-		return errors.Wrapf(err, "GetImage(%s) after clone", name)
-	}
-	return img.Flatten()
+	return newimg, nil
 }
 
-func (self *SSnapshot) Clone(pool, name string) error {
-	err := self.Protect()
+func (snap *SSnapshot) Clone(pool, name string, flattern bool) (*SImage, error) {
+	err := snap.protect()
 	if err != nil {
-		log.Warningf("protect %s error: %v", self.GetName(), err)
+		log.Warningf("protect %s error: %v", snap.GetName(), err)
+		return nil, errors.Wrap(err, "Protect")
 	}
-	opts := self.options()
-	opts = append(opts, []string{"clone", self.GetName(), fmt.Sprintf("%s/%s", pool, name)}...)
-	return self.image.client.run("rbd", opts, false)
+	if flattern {
+		defer snap.Unprotect()
+	}
+
+	opts := snap.options()
+	opts = append(opts, []string{"clone", snap.GetName(), fmt.Sprintf("%s/%s", pool, name)}...)
+	err = snap.image.client.run("rbd", opts, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "clone")
+	}
+	newimg, err := snap.image.client.Child(pool).GetImage(name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage(%s) after clone", name)
+	}
+	if flattern {
+		err = newimg.Flatten()
+		if err != nil {
+			return nil, errors.Wrap(err, "flattern")
+		}
+	}
+	return newimg, nil
 }
