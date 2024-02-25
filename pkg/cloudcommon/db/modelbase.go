@@ -580,7 +580,7 @@ func (manager *SModelBaseManager) CustomizedTotalCount(ctx context.Context, user
 	ret := apis.TotalCountBase{}
 	err := totalQ.First(&ret)
 	if err != nil {
-		return -1, nil, errors.Wrap(err, "SModelBaseManager Query total")
+		return -1, nil, errors.Wrapf(err, "SModelBaseManager Query total %s", totalQ.DebugString())
 	}
 	return ret.Count, nil, nil
 }

@@ -17,6 +17,7 @@ package db
 import (
 	"context"
 	"reflect"
+	"runtime/debug"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -277,6 +278,7 @@ func (ts *sTableSpec) inform(ctx context.Context, dt interface{}, f func(ctx con
 		obj, err := ts.newInformerModel(dt)
 		if err != nil {
 			log.Warningf("newInformerModel error: %v", err)
+			debug.PrintStack()
 			return
 		}
 		if err := f(ctx, obj); err != nil {
@@ -298,6 +300,7 @@ func (ts *sTableSpec) informUpdate(ctx context.Context, dt interface{}, oldObj *
 		obj, err := ts.newInformerModel(dt)
 		if err != nil {
 			log.Warningf("newInformerModel error: %v", err)
+			debug.PrintStack()
 			return
 		}
 		if err := informer.Update(ctx, obj, oldObj); err != nil {
