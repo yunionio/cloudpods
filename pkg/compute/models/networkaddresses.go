@@ -517,12 +517,15 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 	q, err = managedResourceFilterByAccount(
 		ctx,
 		q, input.ManagedResourceListInput, "network_id", func() *sqlchemy.SQuery {
-			networks := NetworkManager.Query().SubQuery()
-			wires := WireManager.Query().SubQuery()
-			vpcs := VpcManager.Query().SubQuery()
-			subq := networks.Query(networks.Field("id"))
-			subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-			subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+			networks := NetworkManager.Query()
+			wires := WireManager.Query("id", "vpc_id", "manager_id").SubQuery()
+			vpcs := VpcManager.Query("id", "manager_id").SubQuery()
+			networks = networks.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+			networks = networks.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+			networks = networks.AppendField(networks.Field("id"))
+			networks = networks.AppendField(sqlchemy.NewFunction(sqlchemy.NewCase().When(sqlchemy.IsNullOrEmpty(wires.Field("manager_id")), vpcs.Field("manager_id")).Else(wires.Field("manager_id")), "manager_id"))
+			subq := networks.SubQuery().Query()
+			subq = subq.AppendField(subq.Field("id"))
 			return subq
 		})
 	if err != nil {
@@ -537,13 +540,17 @@ func (man *SNetworkAddressManager) OrderByExtraFields(
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query api.NetworkAddressListInput,
-) (retq *sqlchemy.SQuery, err error) {
-	retq, err = man.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = man.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
 	if err != nil {
 		return nil, err
 	}
-	retq, err = man.SStandaloneAnonResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneAnonResourceListInput)
-	return retq, nil
+	q, err = man.SStandaloneAnonResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneAnonResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
 }
 
 func (man *SNetworkAddressManager) FetchCustomizeColumns(

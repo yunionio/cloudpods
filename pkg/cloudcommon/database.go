@@ -17,6 +17,7 @@ package cloudcommon
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
@@ -25,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -42,6 +44,8 @@ func InitDB(options *common_options.DBOptions) {
 		log.Warningf("debug Sqlchemy is turned on")
 		sqlchemy.DEBUG_SQLCHEMY = true
 	}
+
+	log.Infof("Registered SQL drivers: %s", strings.Join(sql.Drivers(), ", "))
 
 	consts.QueryOffsetOptimization = options.QueryOffsetOptimization
 
@@ -64,6 +68,10 @@ func InitDB(options *common_options.DBOptions) {
 	}
 	backend := sqlchemy.MySQLBackend
 	switch dialect {
+	case "dm":
+		backend = sqlchemy.DamengBackend
+		dialect = "dm"
+		sqlStr = "dm://" + sqlStr
 	case "sqlite3":
 		backend = sqlchemy.SQLiteBackend
 		dialect = "sqlite3_with_extensions"
