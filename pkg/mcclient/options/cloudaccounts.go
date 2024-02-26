@@ -1510,3 +1510,21 @@ func (opts *SOracleCloudAccountCreateOptions) Params() (jsonutils.JSONObject, er
 	params.Set("oracle_private_key", jsonutils.NewString(string(data)))
 	return params, nil
 }
+
+type SCephFSCredentialWithEnvironment struct {
+	SUserPasswordCredential
+
+	Host string `help:"CephFS host" positional:"true"`
+	Port string `help:"CephFS host port" default:"8443"`
+}
+
+type SCephFSCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SCephFSCredentialWithEnvironment
+}
+
+func (opts *SCephFSCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("CephFS"), "provider")
+	return params, nil
+}

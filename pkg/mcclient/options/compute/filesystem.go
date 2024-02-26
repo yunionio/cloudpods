@@ -42,7 +42,7 @@ func (opts *FileSystemIdOption) Params() (jsonutils.JSONObject, error) {
 
 type FileSystemCreateOptions struct {
 	NAME           string
-	Protocol       string `choices:"NFS|SMB|CPFS"`
+	Protocol       string `choices:"NFS|SMB|CPFS|CephFS"`
 	FileSystemType string
 	Capacity       int64  `json:"capacity"`
 	NetworkId      string `json:"network_id"`
