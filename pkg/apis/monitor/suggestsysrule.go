@@ -58,6 +58,8 @@ type InfluxMeasurement struct {
 type SuggestSysRuleListInput struct {
 	apis.StandaloneResourceListInput
 	apis.EnabledResourceBaseListInput
+	Description string
+	TargetType  string
 }
 
 type SuggestSysRuleCreateInput struct {
