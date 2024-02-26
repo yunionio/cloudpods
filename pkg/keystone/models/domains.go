@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
@@ -314,47 +315,40 @@ func (domain *SDomain) GetIdpCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
+func (domain *SDomain) ValidateDeleteCondition(ctx context.Context, info *api.DomainDetails) error {
+	if gotypes.IsNil(info) {
+		info := &api.DomainDetails{}
+		if usage, _ := DomainManager.TotalResourceCount([]string{domain.Id}); usage != nil {
+			info.DomainUsage, _ = usage[domain.Id]
+		}
+		idpInfo := expandIdpAttributes(api.IdMappingEntityDomain, []string{domain.Id}, stringutils2.SSortedStrings{})
+		if len(idpInfo) > 0 {
+			info.IdpResourceInfo = idpInfo[0]
+		}
+	}
+	if len(info.IdpId) > 0 {
+		return httperrors.NewForbiddenError("readonly")
+	}
 	if domain.Id == api.DEFAULT_DOMAIN_ID {
 		return httperrors.NewForbiddenError("cannot delete default domain")
 	}
 	if domain.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("domain is enabled")
 	}
-	usrCnt, _ := domain.GetUserCount()
-	if usrCnt > 0 {
+	if info.UserCount > 0 {
 		return httperrors.NewInvalidStatusError("domain is in use by user")
 	}
-	groupCnt, _ := domain.GetGroupCount()
-	if groupCnt > 0 {
+	if info.GroupCount > 0 {
 		return httperrors.NewInvalidStatusError("domain is in use by group")
 	}
-	projCnt, _ := domain.GetProjectCount()
-	if projCnt > 0 {
+	if info.ProjectCount > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by project")
 	}
-	roleCnt, _ := domain.GetRoleCount()
-	if roleCnt > 0 {
+	if info.RoleCount > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by role")
 	}
-	policyCnt, _ := domain.GetPolicyCount()
-	if policyCnt > 0 {
+	if info.PolicyCount > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by policy")
-	}
-	/*external, _, _ := domain.getExternalResources()
-	if len(external) > 0 {
-		return httperrors.NewNotEmptyError("domain contains external resources")
-	}*/
-	return nil
-}
-
-func (domain *SDomain) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if domain.IsReadOnly() {
-		return httperrors.NewForbiddenError("readonly")
-	}
-	err := domain.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
 	}
 	return domain.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -385,6 +379,80 @@ func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient
 	return input, nil
 }
 
+type SDomainUsageCount struct {
+	Id string
+	api.DomainUsage
+}
+
+func (m *SDomainManager) query(manager db.IModelManager, field string, domainIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	key := "domain_id"
+	if manager.Keyword() == IdentityProviderManager.Keyword() {
+		key = "target_domain_id"
+	}
+
+	return sq.Query(
+		sq.Field(key),
+		sqlchemy.COUNT(field),
+	).In(key, domainIds).GroupBy(sq.Field(key)).SubQuery()
+}
+
+func (manager *SDomainManager) TotalResourceCount(domainIds []string) (map[string]api.DomainUsage, error) {
+	// group
+	groupSQ := manager.query(GroupManager, "group_cnt", domainIds, nil)
+	// user
+	userSQ := manager.query(UserManager, "user_cnt", domainIds, nil)
+	// project
+	projectSQ := manager.query(ProjectManager, "project_cnt", domainIds, nil)
+	// role
+	roleSQ := manager.query(RoleManager, "role_cnt", domainIds, nil)
+	// policy
+	policySQ := manager.query(PolicyManager, "policy_cnt", domainIds, nil)
+	// idp
+	idpSQ := manager.query(IdentityProviderManager, "idp_cnt", domainIds, nil)
+
+	domains := manager.Query().SubQuery()
+	domainQ := domains.Query(
+		sqlchemy.SUM("group_count", groupSQ.Field("group_cnt")),
+		sqlchemy.SUM("user_count", userSQ.Field("user_cnt")),
+		sqlchemy.SUM("project_count", projectSQ.Field("project_cnt")),
+		sqlchemy.SUM("role_count", roleSQ.Field("role_cnt")),
+		sqlchemy.SUM("policy_count", policySQ.Field("policy_cnt")),
+		sqlchemy.SUM("idp_count", idpSQ.Field("idp_cnt")),
+	)
+
+	domainQ.AppendField(domainQ.Field("id"))
+
+	domainQ = domainQ.LeftJoin(groupSQ, sqlchemy.Equals(domainQ.Field("id"), groupSQ.Field("domain_id")))
+	domainQ = domainQ.LeftJoin(userSQ, sqlchemy.Equals(domainQ.Field("id"), userSQ.Field("domain_id")))
+	domainQ = domainQ.LeftJoin(projectSQ, sqlchemy.Equals(domainQ.Field("id"), projectSQ.Field("domain_id")))
+	domainQ = domainQ.LeftJoin(roleSQ, sqlchemy.Equals(domainQ.Field("id"), roleSQ.Field("domain_id")))
+	domainQ = domainQ.LeftJoin(policySQ, sqlchemy.Equals(domainQ.Field("id"), policySQ.Field("domain_id")))
+	domainQ = domainQ.LeftJoin(idpSQ, sqlchemy.Equals(domainQ.Field("id"), idpSQ.Field("target_domain_id")))
+
+	domainQ = domainQ.Filter(sqlchemy.In(domainQ.Field("id"), domainIds)).GroupBy(domainQ.Field("id"))
+
+	usage := []SDomainUsageCount{}
+	err := domainQ.All(&usage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "domainQ.All")
+	}
+
+	result := map[string]api.DomainUsage{}
+	for i := range usage {
+		result[usage[i].Id] = usage[i].DomainUsage
+	}
+
+	return result, nil
+}
+
 func (manager *SDomainManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -403,12 +471,6 @@ func (manager *SDomainManager) FetchCustomizeColumns(
 		}
 		domain := objs[i].(*SDomain)
 		idList[i] = domain.Id
-		rows[i].UserCount, _ = domain.GetUserCount()
-		rows[i].GroupCount, _ = domain.GetGroupCount()
-		rows[i].ProjectCount, _ = domain.GetProjectCount()
-		rows[i].RoleCount, _ = domain.GetRoleCount()
-		rows[i].PolicyCount, _ = domain.GetPolicyCount()
-		rows[i].IdpCount, _ = domain.GetIdpCount()
 
 		external, update, _ := domain.getExternalResources()
 		if len(external) > 0 {
@@ -424,8 +486,15 @@ func (manager *SDomainManager) FetchCustomizeColumns(
 
 	idpRows := expandIdpAttributes(api.IdMappingEntityDomain, idList, fields)
 
+	usage, err := manager.TotalResourceCount(idList)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+
 	for i := range rows {
 		rows[i].IdpResourceInfo = idpRows[i]
+		rows[i].DomainUsage, _ = usage[idList[i]]
 	}
 
 	return rows
