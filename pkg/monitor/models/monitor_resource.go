@@ -210,7 +210,7 @@ func (man *SMonitorResourceManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	input monitor.SuggestSysAlertListInput,
+	input monitor.MonitorResourceListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.VirtualResourceListInput)
