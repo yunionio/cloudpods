@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/billing"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -93,6 +94,18 @@ func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandal
 	}
 
 	if len(cdrom) > 0 {
+		image, err := models.CachedimageManager.GetImageInfo(ctx, self.UserCred, cdrom, false)
+		if err != nil {
+			log.Errorf("failed get image %s info: %s", cdrom, err)
+		} else {
+			imagePros := map[string]interface{}{}
+			for _, k := range []string{imageapi.IMAGE_OS_ARCH, imageapi.IMAGE_OS_DISTRO, imageapi.IMAGE_OS_VERSION, imageapi.IMAGE_OS_TYPE} {
+				if v, ok := image.Properties[k]; ok {
+					imagePros[k] = v
+				}
+			}
+			guest.SetAllMetadata(ctx, imagePros, self.UserCred)
+		}
 		self.SetStage("OnCdromPrepared", nil)
 		guest.GetDriver().RequestGuestCreateInsertIso(ctx, cdrom, bootIndex, self, guest)
 	} else {
