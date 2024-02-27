@@ -261,3 +261,15 @@ func VgDisplay(vgName string) error {
 	}
 	return nil
 }
+
+func VgActive(vgName string, active bool) error {
+	opts := "-ay"
+	if !active {
+		opts = "-an"
+	}
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("lvm", "vgchange", opts, vgName).Output()
+	if err != nil {
+		return errors.Wrapf(err, "vgchange %s %s failed %s", opts, vgName, out)
+	}
+	return nil
+}
