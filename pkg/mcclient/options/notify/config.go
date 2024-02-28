@@ -80,3 +80,14 @@ func (cu *ConfigUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	d.Set("content", configs)
 	return d, nil
 }
+
+type ConfigCapabilityOptions struct {
+}
+
+func (c *ConfigCapabilityOptions) Property() string {
+	return "capability"
+}
+
+func (c *ConfigCapabilityOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
