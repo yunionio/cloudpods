@@ -333,11 +333,7 @@ func (self *SElasticcacheBackup) ValidateDeleteCondition(ctx context.Context, in
 		return httperrors.NewUnsupportOperationError("unsupport delete %s backups", api.CLOUD_PROVIDER_ALIYUN)
 	}
 
-	return self.ValidatePurgeCondition(ctx)
-}
-
-func (self *SElasticcacheBackup) ValidatePurgeCondition(ctx context.Context) error {
-	return nil
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, info)
 }
 
 // 弹性缓存备份列表

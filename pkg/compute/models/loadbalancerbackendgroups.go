@@ -22,8 +22,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -405,31 +407,21 @@ func (lbbg *SLoadbalancerBackendGroup) isDefault(ctx context.Context) (bool, err
 	return count > 0, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	ok, err := lbbg.isDefault(ctx)
-	if err != nil {
-		return httperrors.NewInternalServerError("get isDefault fail %s", err.Error())
+func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context, info *api.LoadbalancerBackendGroupDetails) error {
+	if gotypes.IsNil(info) {
+		info = &api.LoadbalancerBackendGroupDetails{}
+		info.IsDefault, _ = lbbg.isDefault(ctx)
+		info.LbListenerCount, _ = lbbg.GetListenerCount()
 	}
-	if ok {
+	if info.IsDefault {
 		return httperrors.NewResourceBusyError("backend group %s is default backend group", lbbg.Id)
 	}
-	return lbbg.ValidatePurgeCondition(ctx)
-}
-
-func (lbbg *SLoadbalancerBackendGroup) ValidatePurgeCondition(ctx context.Context) error {
-	mans := lbbg.getRefManagers()
-	for _, m := range mans {
-		n, err := lbbg.refCount(m)
-		if err != nil {
-			return httperrors.NewInternalServerError("get refCount fail %s", err.Error())
-		}
-		if n > 0 {
-			return httperrors.NewResourceBusyError("backend group %s is still referred by %d %s",
-				lbbg.Id, n, m.KeywordPlural())
-		}
+	if info.LbListenerCount > 0 {
+		return httperrors.NewResourceBusyError("backend group %s is still referred by %d %s",
+			lbbg.Id, info.LbListenerCount, LoadbalancerListenerManager.KeywordPlural())
 	}
 
-	return nil
+	return lbbg.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
@@ -446,6 +438,7 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 	lbRows := man.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	lbIds := make([]string, len(objs))
+	lbbgIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerBackendGroupDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
@@ -453,6 +446,7 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 		}
 		lbbg := objs[i].(*SLoadbalancerBackendGroup)
 		lbIds[i] = lbbg.LoadbalancerId
+		lbbgIds[i] = lbbg.Id
 	}
 
 	lbs := map[string]SLoadbalancer{}
@@ -461,16 +455,23 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 		return rows
 	}
 
+	defaultLbgIds := []string{}
 	virObjs := make([]interface{}, len(objs))
 	for i := range rows {
 		if lb, ok := lbs[lbIds[i]]; ok {
 			virObjs[i] = &lb
 			rows[i].ProjectId = lb.ProjectId
+			if !utils.IsInStringArray(lb.BackendGroupId, defaultLbgIds) {
+				defaultLbgIds = append(defaultLbgIds, lb.BackendGroupId)
+			}
 		}
+	}
+	for i := range rows {
+		rows[i].IsDefault = utils.IsInStringArray(lbbgIds[i], defaultLbgIds)
 	}
 
 	for i := range objs {
-		q := LoadbalancerListenerManager.Query().Equals("backend_group_id", objs[i].(*SLoadbalancerBackendGroup).GetId())
+		q := LoadbalancerListenerManager.Query().Equals("backend_group_id", lbbgIds[i])
 		ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
 		if err != nil {
 			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
@@ -564,6 +565,10 @@ func (lbbg *SLoadbalancerBackendGroup) GetListener() *SLoadbalancerListener {
 		return nil
 	}
 	return ret
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetListenerCount() (int, error) {
+	return LoadbalancerListenerManager.Query().Equals("backend_group_id", lbbg.Id).CountWithError()
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetBackendsParams() ([]cloudprovider.SLoadbalancerBackend, error) {
