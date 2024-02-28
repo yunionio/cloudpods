@@ -159,9 +159,7 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 		cron.AddJobAtIntervals("CleanExpiredPostpaidNatGateways", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.NatGatewayManager.DeleteExpiredPostpaids)
 		cron.AddJobAtIntervals("CleanExpiredPostpaidNas", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.FileSystemManager.DeleteExpiredPostpaids)
 
-		if !opts.EnableHostHealthCheck {
-			cron.AddJobAtIntervals("StartHostPingDetectionTask", time.Duration(opts.HostOfflineDetectionInterval)*time.Second, models.HostManager.PingDetectionTask)
-		}
+		cron.AddJobAtIntervals("StartHostPingDetectionTask", time.Duration(opts.HostOfflineDetectionInterval)*time.Second, models.HostManager.PingDetectionTask)
 
 		cron.AddJobAtIntervals("RefreshCloudproviderHostStatus", time.Duration(opts.ManagedHostSyncStatusIntervalSeconds)*time.Second, models.RefreshCloudproviderHostStatus)
 
