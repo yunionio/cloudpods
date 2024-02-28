@@ -998,10 +998,6 @@ func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context, info jso
 		return httperrors.NewInvalidStatusError("Elastic cache is not expired, cannot delete")
 	}
 
-	return self.ValidatePurgeCondition(ctx)
-}
-
-func (self *SElasticcache) ValidatePurgeCondition(ctx context.Context) error {
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 

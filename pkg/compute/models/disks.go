@@ -1225,10 +1225,6 @@ func (self *SDisk) ValidateDeleteCondition(ctx context.Context, info api.DiskDet
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SDisk) ValidatePurgeCondition(ctx context.Context) error {
-	return self.validateDeleteCondition(ctx, true)
-}
-
 func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) error {
 	if !isPurge {
 		storage, _ := self.GetStorage()
@@ -1621,7 +1617,7 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 		return err
 	}
 
-	err = self.ValidatePurgeCondition(ctx)
+	err = self.validateDeleteCondition(ctx, true)
 	if err != nil {
 		self.SetStatus(ctx, userCred, api.DISK_UNKNOWN, "missing original disk after sync")
 		return err
@@ -2219,7 +2215,7 @@ func (self *SDisk) PerformSyncstatus(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidatePurgeCondition(ctx)
+	err := self.validateDeleteCondition(ctx, true)
 	if err != nil {
 		return nil, err
 	}

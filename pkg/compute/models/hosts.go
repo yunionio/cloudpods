@@ -774,10 +774,6 @@ func (hh *SHost) ValidateDeleteCondition(ctx context.Context, info api.HostDetai
 	return hh.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (hh *SHost) ValidatePurgeCondition(ctx context.Context) error {
-	return hh.validateDeleteCondition(ctx, true)
-}
-
 func (hh *SHost) validateDeleteCondition(ctx context.Context, purge bool) error {
 	if !purge && hh.IsBaremetal && hh.HostType != api.HOST_TYPE_BAREMETAL {
 		return httperrors.NewInvalidStatusError("Host is a converted baremetal, should be unconverted before delete")
@@ -1890,7 +1886,7 @@ func (hh *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.Toke
 	lockman.LockObject(ctx, hh)
 	defer lockman.ReleaseObject(ctx, hh)
 
-	err := hh.ValidatePurgeCondition(ctx)
+	err := hh.validateDeleteCondition(ctx, true)
 	if err != nil {
 		err = hh.purge(ctx, userCred)
 		if err != nil {
