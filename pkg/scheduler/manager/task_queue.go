@@ -231,14 +231,13 @@ func (teqm *TaskExecutorQueueManager) GetQueue(schedType string) *TaskExecutorQu
 	defer teqm.lock.Unlock()
 
 	var (
-		key               string
 		taskExecutorQueue *TaskExecutorQueue
 		ok                bool
 	)
 
-	if taskExecutorQueue, ok = teqm.taskExecutorMap[key]; !ok {
+	if taskExecutorQueue, ok = teqm.taskExecutorMap[schedType]; !ok {
 		taskExecutorQueue = NewTaskExecutorQueue(schedType, teqm.stopCh)
-		teqm.taskExecutorMap[key] = taskExecutorQueue
+		teqm.taskExecutorMap[schedType] = taskExecutorQueue
 	}
 
 	return taskExecutorQueue
