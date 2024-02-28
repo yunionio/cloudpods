@@ -73,8 +73,9 @@ type SNatGateway struct {
 
 	SDeletePreventableResourceBase
 
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	IpAddr    string `width:"16" charset:"ascii" nullable:"false" list:"user"`
+	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	IpAddr      string `width:"16" charset:"ascii" nullable:"false" list:"user"`
 
 	BandwidthMb int    `nullable:"false" list:"user"`
 	NatSpec     string `list:"user" create:"optional"` // NAT规格
@@ -497,6 +498,7 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 
 		self.Status = extNat.GetStatus()
 		self.NatSpec = extNat.GetNatSpec()
+		self.NetworkType = extNat.GetNetworkType()
 		self.BandwidthMb = extNat.GetBandwidthMb()
 
 		vpc, err := self.GetVpc()
@@ -554,6 +556,7 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	nat.VpcId = vpc.Id
 	nat.Status = extNat.GetStatus()
 	nat.NatSpec = extNat.GetNatSpec()
+	nat.NetworkType = extNat.GetNetworkType()
 	nat.BandwidthMb = extNat.GetBandwidthMb()
 	if createdAt := extNat.GetCreatedAt(); !createdAt.IsZero() {
 		nat.CreatedAt = extNat.GetCreatedAt()

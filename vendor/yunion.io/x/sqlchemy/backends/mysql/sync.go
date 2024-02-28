@@ -139,5 +139,5 @@ func (mysql *SMySQLBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes
 }
 
 func createIndexSQL(ts sqlchemy.ITableSpec, idx sqlchemy.STableIndex) string {
-	return fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.Name(), ts.Name(), strings.Join(idx.QuotedColumns(), ","))
+	return fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.Name(), ts.Name(), strings.Join(idx.QuotedColumns("`"), ","))
 }

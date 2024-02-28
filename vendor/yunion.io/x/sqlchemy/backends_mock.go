@@ -124,6 +124,10 @@ func (mock *sMockBackend) InsertOrUpdateSQLTemplate() string {
 	return "INSERT INTO `{{ .Table }}` ({{ .Columns }}) VALUES ({{ .Values }}) ON DUPLICATE KEY UPDATE {{ .SetValues }}"
 }
 
+func (mock *sMockBackend) PrepareInsertOrUpdateSQL(ts ITableSpec, insertColNames []string, insertFields []string, onPrimaryCols []string, updateSetCols []string, insertValues []interface{}, updateValues []interface{}) (string, []interface{}) {
+	return "", nil
+}
+
 func (mock *sMockBackend) GetTableSQL() string {
 	return ""
 }
@@ -159,4 +163,8 @@ func (mock *sMockBackend) CurrentTimeStampString() string {
 
 func (mock *sMockBackend) CommitTableChangeSQL(ts ITableSpec, changes STableChanges) []string {
 	return []string{}
+}
+
+func (mock *sMockBackend) QuoteChar() string {
+	return "`"
 }

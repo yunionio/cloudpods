@@ -75,6 +75,8 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 	primaryKeys := make([]string, 0)
 	primaries := make(map[string]interface{})
 
+	qChar := t.Database().backend.QuoteChar()
+
 	for _, c := range t.Columns() {
 		isAutoInc := false
 		if c.IsAutoIncrement() {
@@ -90,13 +92,13 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 		}
 
 		if c.IsPrimary() {
-			primaryKeys = append(primaryKeys, fmt.Sprintf("`%s`", k))
+			primaryKeys = append(primaryKeys, fmt.Sprintf("%s%s%s", qChar, k, qChar))
 		}
 
 		// created_at or updated_at but must not be a primary key
 		if c.IsCreatedAt() || c.IsUpdatedAt() {
 			createdAtFields = append(createdAtFields, k)
-			names = append(names, fmt.Sprintf("`%s`", k))
+			names = append(names, fmt.Sprintf("%s%s%s", qChar, k, qChar))
 			if c.IsZero(ov) {
 				if t.Database().backend.SupportMixedInsertVariables() {
 					format = append(format, t.Database().backend.CurrentUTCTimeStampString())
@@ -111,10 +113,10 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 
 			if update && c.IsUpdatedAt() && !c.IsPrimary() {
 				if c.IsZero(ov) {
-					updates = append(updates, fmt.Sprintf("`%s` = %s", k, t.Database().backend.CurrentUTCTimeStampString()))
+					updates = append(updates, fmt.Sprintf("%s%s%s = %s", qChar, k, qChar, t.Database().backend.CurrentUTCTimeStampString()))
 					// updateValues = append(updateValues, now)
 				} else {
-					updates = append(updates, fmt.Sprintf("`%s` = ?", k))
+					updates = append(updates, fmt.Sprintf("%s%s%s = ?", qChar, k, qChar))
 					updateValues = append(updateValues, ov)
 				}
 			}
@@ -132,7 +134,7 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 
 		// auto_version and must not be a primary key
 		if update && c.IsAutoVersion() {
-			updates = append(updates, fmt.Sprintf("`%s` = `%s` + 1", k, k))
+			updates = append(updates, fmt.Sprintf("%s%s%s = %s%s%s + 1", qChar, k, qChar, qChar, k, qChar))
 			continue
 		}
 
@@ -140,11 +142,11 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 		if c.IsSupportDefault() && (len(c.Default()) > 0 || c.IsString()) && !gotypes.IsNil(ov) && c.IsZero(ov) && !c.AllowZero() { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)
-			names = append(names, fmt.Sprintf("`%s`", k))
+			names = append(names, fmt.Sprintf("%s%s%s", qChar, k, qChar))
 			format = append(format, "?")
 
 			if update && !c.IsPrimary() {
-				updates = append(updates, fmt.Sprintf("`%s` = ?", k))
+				updates = append(updates, fmt.Sprintf("%s%s%s = ?", qChar, k, qChar))
 				updateValues = append(updateValues, val)
 			}
 
@@ -158,11 +160,11 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 		if !gotypes.IsNil(ov) && (!c.IsZero(ov) || (!c.IsPointer() && !c.IsText())) && !isAutoInc {
 			v := c.ConvertFromValue(ov)
 			values = append(values, v)
-			names = append(names, fmt.Sprintf("`%s`", k))
+			names = append(names, fmt.Sprintf("%s%s%s", qChar, k, qChar))
 			format = append(format, "?")
 
 			if update && !c.IsPrimary() {
-				updates = append(updates, fmt.Sprintf("`%s` = ?", k))
+				updates = append(updates, fmt.Sprintf("%s%s%s = ?", qChar, k, qChar))
 				updateValues = append(updateValues, v)
 			}
 
@@ -181,7 +183,7 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 				autoIncField = k
 			} else if c.IsText() {
 				values = append(values, "")
-				names = append(names, fmt.Sprintf("`%s`", k))
+				names = append(names, fmt.Sprintf("%s%s%s", qChar, k, qChar))
 				format = append(format, "?")
 				primaries[k] = ""
 			} else {
@@ -192,14 +194,14 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 
 		// empty without default
 		if update {
-			updates = append(updates, fmt.Sprintf("`%s` = NULL", k))
+			updates = append(updates, fmt.Sprintf("%s%s%s = NULL", qChar, k, qChar))
 			continue
 		}
 	}
 
 	var insertSql string
 	if !update {
-		insertSql = templateEval(t.Database().backend.InsertSQLTemplate(), struct {
+		insertSql = TemplateEval(t.Database().backend.InsertSQLTemplate(), struct {
 			Table   string
 			Columns string
 			Values  string
@@ -209,20 +211,27 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 			Values:  strings.Join(format, ", "),
 		})
 	} else {
-		insertSql = templateEval(t.Database().backend.InsertOrUpdateSQLTemplate(), struct {
-			Table       string
-			Columns     string
-			Values      string
-			PrimaryKeys string
-			SetValues   string
-		}{
-			Table:       t.name,
-			Columns:     strings.Join(names, ", "),
-			Values:      strings.Join(format, ", "),
-			PrimaryKeys: strings.Join(primaryKeys, ", "),
-			SetValues:   strings.Join(updates, ", "),
-		})
-		values = append(values, updateValues...)
+		sqlTemp := t.Database().backend.InsertOrUpdateSQLTemplate()
+		if len(sqlTemp) > 0 {
+			// insert into ... on duplicate update ... pattern
+			insertSql = TemplateEval(sqlTemp, struct {
+				Table       string
+				Columns     string
+				Values      string
+				PrimaryKeys string
+				SetValues   string
+			}{
+				Table:       t.name,
+				Columns:     strings.Join(names, ", "),
+				Values:      strings.Join(format, ", "),
+				PrimaryKeys: strings.Join(primaryKeys, ", "),
+				SetValues:   strings.Join(updates, ", "),
+			})
+			values = append(values, updateValues...)
+		} else {
+			// customize pattern
+			insertSql, values = t.Database().backend.PrepareInsertOrUpdateSQL(t, names, format, primaryKeys, updates, values, updateValues)
+		}
 	}
 
 	return &InsertSqlResult{

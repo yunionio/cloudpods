@@ -160,6 +160,9 @@ func (ts *STableSpec) DropForeignKeySQL() []string {
 	if db.backend == nil {
 		panic("DropForeignKeySQL empty backend")
 	}
+
+	qChar := db.backend.QuoteChar()
+
 	if db.backend.IsSupportIndexAndContraints() {
 		_, constraints, err := ts.fetchIndexesAndConstraints()
 		if err != nil {
@@ -170,7 +173,7 @@ func (ts *STableSpec) DropForeignKeySQL() []string {
 		}
 
 		for _, constraint := range constraints {
-			sql := fmt.Sprintf("ALTER TABLE `%s` DROP FOREIGN KEY `%s`", ts.name, constraint.name)
+			sql := fmt.Sprintf("ALTER TABLE %s%s%s DROP FOREIGN KEY %s%s%s", qChar, ts.name, qChar, qChar, constraint.name, qChar)
 			ret = append(ret, sql)
 			log.Infof("%s;", sql)
 		}

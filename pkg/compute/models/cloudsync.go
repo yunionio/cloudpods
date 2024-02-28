@@ -306,7 +306,9 @@ func syncRegionVPCs(
 			if syncRange.IsNotSkipSyncResource(SecurityGroupManager) {
 				syncVpcSecGroup(ctx, userCred, syncResults, provider, localRegion, &localVpcs[j], remoteVpcs[j], syncRange)
 			}
-			syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
+			if syncRange.IsNotSkipSyncResource(NatGatewayManager) {
+				syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
+			}
 			syncVpcPeerConnections(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncVpcRouteTables(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncIPv6Gateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
@@ -2158,7 +2160,9 @@ func syncPublicCloudProviderInfo(
 	}
 
 	if cloudprovider.IsSupportCompute(driver) {
-		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) || syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_EIP) {
+		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) ||
+			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAT) ||
+			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_EIP) {
 			// 需要先同步vpc，避免私有云eip找不到network
 			if !(driver.GetFactory().IsPublicCloud() && !syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK)) && syncRange.IsNotSkipSyncResource(VpcManager) {
 				syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)

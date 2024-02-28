@@ -102,6 +102,8 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 		return tq.rawSql
 	}
 
+	qChar := tq.database().backend.QuoteChar()
+
 	var buf bytes.Buffer
 	buf.WriteString("SELECT ")
 	if tq.distinct {
@@ -110,9 +112,10 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 
 	fields := tmpFields
 	if len(fields) == 0 {
-		fields = tq.fields
-		if len(fields) == 0 {
-			fields = tq.from.Fields()
+		if len(tq.fields) > 0 {
+			fields = append(fields, tq.fields...)
+		} else {
+			fields = append(fields, tq.from.Fields()...)
 			for i := range fields {
 				tq.from.Field(fields[i].Name())
 			}
@@ -135,19 +138,45 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 		fields = append(fields, refFields...)
 	}
 
+	groupFields := make(map[string]IQueryField)
+	if len(tq.groupBy) > 0 {
+		for i := range tq.groupBy {
+			f := tq.groupBy[i]
+			groupFields[f.Name()] = f
+		}
+	}
+
 	for i := range fields {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(fields[i].Expression())
+		f := fields[i]
+		if len(tq.groupBy) > 0 {
+			if gf, ok := groupFields[f.Name()]; ok && f.Reference() == gf.Reference() {
+				// in group by, normal
+				buf.WriteString(f.Expression())
+			} else {
+				// not in group by, check if the field is a group aggregate function
+				if gf, ok := f.(IFunctionQueryField); ok && gf.IsAggregate() {
+					// is a aggregate function field
+					buf.WriteString(f.Expression())
+				} else {
+					f = MAX(f.Name(), f)
+					buf.WriteString(f.Expression())
+				}
+			}
+		} else {
+			// normal
+			buf.WriteString(f.Expression())
+		}
 	}
 	buf.WriteString(" FROM ")
-	buf.WriteString(fmt.Sprintf("%s AS `%s`", tq.from.Expression(), tq.from.Alias()))
+	buf.WriteString(fmt.Sprintf("%s AS %s%s%s", tq.from.Expression(), qChar, tq.from.Alias(), qChar))
 	for _, join := range tq.joins {
 		buf.WriteByte(' ')
 		buf.WriteString(string(join.jointype))
 		buf.WriteByte(' ')
-		buf.WriteString(fmt.Sprintf("%s AS `%s`", join.from.Expression(), join.from.Alias()))
+		buf.WriteString(fmt.Sprintf("%s AS %s%s%s", join.from.Expression(), qChar, join.from.Alias(), qChar))
 		whereCls := join.condition.WhereClause()
 		if len(whereCls) > 0 {
 			buf.WriteString(" ON ")

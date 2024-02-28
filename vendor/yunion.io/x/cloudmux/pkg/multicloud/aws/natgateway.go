@@ -93,6 +93,13 @@ func (self *SNatGateway) GetStatus() string {
 	}
 }
 
+func (self *SNatGateway) GetNetworkType() string {
+	if self.ConnectivityType == "public" {
+		return api.NAT_NETWORK_TYPE_INTERNET
+	}
+	return api.NAT_NETWORK_TYPE_INTRANET
+}
+
 func (self *SNatGateway) GetNatSpec() string {
 	return ""
 }
@@ -126,11 +133,11 @@ func (self *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error
 	return []cloudprovider.ICloudNatSEntry{}, nil
 }
 
-func (self *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+func (self *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+func (self *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
