@@ -80,19 +80,7 @@ func (nat *SNatDEntry) Delete() error {
 	return nat.gateway.region.DeleteNatDEntry(nat.GetId())
 }
 
-// getNatSTable return all snat rules of gateway
-func (gateway *SNatGateway) getNatDTable() ([]SNatDEntry, error) {
-	ret, err := gateway.region.GetNatDTable(gateway.GetId())
-	if err != nil {
-		return nil, err
-	}
-	for i := range ret {
-		ret[i].gateway = gateway
-	}
-	return ret, nil
-}
-
-func (region *SRegion) GetNatDTable(natId string) ([]SNatDEntry, error) {
+func (region *SRegion) GetNatDEntries(natId string) ([]SNatDEntry, error) {
 	query := url.Values{}
 	if len(natId) > 0 {
 		query.Set("gateway_id", natId)

@@ -64,6 +64,7 @@ const (
 	SERVICE_SFS                = "sfs-turbo"
 	SERVICE_CTS                = "cts"
 	SERVICE_NAT                = "nat"
+	SERVICE_NAT_V2             = "nat_v2"
 	SERVICE_BMS                = "bms"
 	SERVICE_CCI                = "cci"
 	SERVICE_CSBS               = "csbs"
@@ -650,6 +651,8 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 		url = fmt.Sprintf("https://cts.%s.myhuaweicloud.com/v3/%s/%s", regionId, projectId, resource)
 	case SERVICE_NAT:
 		url = fmt.Sprintf("https://nat.%s.myhuaweicloud.com/v3/%s/%s", regionId, projectId, resource)
+	case SERVICE_NAT_V2:
+		url = fmt.Sprintf("https://nat.%s.myhuaweicloud.com/v2/%s/%s", regionId, projectId, resource)
 	case SERVICE_SCM:
 		url = fmt.Sprintf("https://scm.cn-north-4.myhuaweicloud.com/v3/%s", resource)
 	case SERVICE_CDN:

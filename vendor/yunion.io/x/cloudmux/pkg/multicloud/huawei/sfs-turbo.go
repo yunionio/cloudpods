@@ -152,6 +152,10 @@ func (self *SfsTurbo) Delete() error {
 	return self.region.DeleteSfsTurbo(self.Id)
 }
 
+func (self *SfsTurbo) GetProjectId() string {
+	return self.EnterpriseProjectId
+}
+
 func (self *SRegion) GetICloudFileSystems() ([]cloudprovider.ICloudFileSystem, error) {
 	sfs, err := self.GetSfsTurbos()
 	if err != nil {

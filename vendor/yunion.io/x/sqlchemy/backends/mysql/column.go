@@ -368,7 +368,10 @@ type SDecimalColumn struct {
 // ColType implementation of SDecimalColumn for IColumnSpec
 func (c *SDecimalColumn) ColType() string {
 	str := c.SBaseWidthColumn.ColType()
-	return fmt.Sprintf("%s, %d)", str[:len(str)-1], c.Precision)
+	if str[len(str)-1] == ')' {
+		str = str[:len(str)-1]
+	}
+	return fmt.Sprintf("%s, %d)", str, c.Precision)
 }
 
 // IsNumeric implementation of SDecimalColumn for IColumnSpec

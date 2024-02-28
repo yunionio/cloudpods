@@ -62,6 +62,10 @@ func (self *SNatGateway) GetINetworkId() string {
 	return ""
 }
 
+func (self *SNatGateway) GetNetworkType() string {
+	return api.NAT_NETWORK_TYPE_INTERNET
+}
+
 func (nat *SNatGateway) GetStatus() string {
 	switch nat.State {
 	case "PENDING":
@@ -133,11 +137,11 @@ func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error)
 	return itables, nil
 }
 
-func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+func (nat *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (nat *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+func (nat *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

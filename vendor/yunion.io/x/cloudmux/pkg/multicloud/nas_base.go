@@ -15,6 +15,6 @@
 package multicloud
 
 type SNasBase struct {
-	SResourceBase
+	SVirtualResourceBase
 	SBillingBase
 }

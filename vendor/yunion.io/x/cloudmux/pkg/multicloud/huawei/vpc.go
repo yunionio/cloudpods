@@ -130,10 +130,18 @@ func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]cloudprovider.ICloudNatGateway, len(nats))
+	nats2, err := self.region.GetNatgateways(self.GetId(), "")
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudNatGateway{}
 	for i := 0; i < len(nats); i++ {
 		nats[i].region = self.region
-		ret[i] = &nats[i]
+		ret = append(ret, &nats[i])
+	}
+	for i := range nats2 {
+		nats2[i].region = self.region
+		ret = append(ret, &nats2[i])
 	}
 	return ret, nil
 }

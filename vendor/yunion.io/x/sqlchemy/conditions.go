@@ -251,7 +251,8 @@ type SIsEmptyCondition struct {
 
 // WhereClause implementation of SIsEmptyCondition for ICondition
 func (c *SIsEmptyCondition) WhereClause() string {
-	return fmt.Sprintf("%s = 0", c.field.Reference())
+	// DAMENG LENGTH('') = NULL
+	return fmt.Sprintf("%s = 0 OR %s IS NULL", c.field.Reference(), c.field.Reference())
 }
 
 // IsEmpty method that justifies where a text field is empty, e.g. length is zero
@@ -268,7 +269,8 @@ type SIsNullOrEmptyCondition struct {
 // WhereClause implementation of SIsNullOrEmptyCondition for ICondition
 func (c *SIsNullOrEmptyCondition) WhereClause() string {
 	originField := c.field.(*SFunctionFieldBase).queryFields()[0]
-	return fmt.Sprintf("%s IS NULL OR %s = 0", originField.Reference(), c.field.Reference())
+	// DAMENG: LENGTH('') = NULL
+	return fmt.Sprintf("%s IS NULL OR %s = 0 OR %s IS NULL", originField.Reference(), c.field.Reference(), c.field.Reference())
 }
 
 // IsNullOrEmpty is the ethod justifies a field is null or empty, e.g. a is null or length(a) == 0

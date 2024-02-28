@@ -41,7 +41,6 @@ func (nat *SNatSEntry) GetId() string {
 }
 
 func (nat *SNatSEntry) GetName() string {
-	// Snat rule has no name in Huawei Cloud, so return ID
 	return nat.GetId()
 }
 
@@ -69,18 +68,7 @@ func (nat *SNatSEntry) Delete() error {
 	return nat.gateway.region.DeleteNatSEntry(nat.GetId())
 }
 
-func (gateway *SNatGateway) getNatSTable() ([]SNatSEntry, error) {
-	ret, err := gateway.region.GetNatSTable(gateway.GetId())
-	if err != nil {
-		return nil, err
-	}
-	for i := range ret {
-		ret[i].gateway = gateway
-	}
-	return ret, nil
-}
-
-func (region *SRegion) GetNatSTable(natId string) ([]SNatSEntry, error) {
+func (region *SRegion) GetNatSEntries(natId string) ([]SNatSEntry, error) {
 	query := url.Values{}
 	if len(natId) > 0 {
 		query.Set("gateway_id", natId)
