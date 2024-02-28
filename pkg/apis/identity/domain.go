@@ -22,6 +22,13 @@ type DomainDetails struct {
 
 	SDomain
 
+	DomainUsage
+
+	// 归属该域的外部资源统计信息
+	ExternalResourceInfo
+}
+
+type DomainUsage struct {
 	// 归属域的用户数量
 	UserCount int `json:"user_count"`
 	// 归属域的用户组数量
@@ -34,9 +41,6 @@ type DomainDetails struct {
 	PolicyCount int `json:"policy_count"`
 	// 归属域的认证源数量
 	IdpCount int `json:"idp_count"`
-
-	// 归属该域的外部资源统计信息
-	ExternalResourceInfo
 }
 
 type DomainUpdateInput struct {
