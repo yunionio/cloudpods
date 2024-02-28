@@ -1548,7 +1548,7 @@ func (self *SGuest) StartDeleteGuestTask(
 }
 
 func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidatePurgeCondition(ctx)
+	err := self.validateDeleteCondition(ctx, true)
 	if err != nil {
 		return nil, err
 	}

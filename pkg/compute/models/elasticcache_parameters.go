@@ -246,10 +246,6 @@ func (self *SElasticcacheParameter) StartUpdateElasticcacheParameterTask(ctx con
 	return nil
 }
 
-func (self *SElasticcacheParameter) ValidatePurgeCondition(ctx context.Context) error {
-	return nil
-}
-
 // 列出弹性缓存参数
 func (manager *SElasticcacheParameterManager) ListItemFilter(
 	ctx context.Context,

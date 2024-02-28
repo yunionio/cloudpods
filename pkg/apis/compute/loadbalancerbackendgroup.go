@@ -24,6 +24,7 @@ type LoadbalancerBackendGroupDetails struct {
 
 	LbListenerCount int `json:"lb_listener_count"`
 
+	IsDefault bool   `json:"is_default"`
 	ProjectId string `json:"tenant_id"`
 }
 

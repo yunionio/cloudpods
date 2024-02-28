@@ -924,10 +924,6 @@ func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) 
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
-	return guest.validateDeleteCondition(ctx, true)
-}
-
 func (guest *SGuest) ValidateDeleteCondition(ctx context.Context, info *api.ServerDetails) error {
 	if gotypes.IsNil(info) {
 		info = &api.ServerDetails{}

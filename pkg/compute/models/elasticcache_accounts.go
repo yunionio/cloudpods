@@ -508,10 +508,6 @@ func (self *SElasticcacheAccount) GetDetailsLoginInfo(ctx context.Context, userC
 	return ret, nil
 }
 
-func (self *SElasticcacheAccount) ValidatePurgeCondition(ctx context.Context) error {
-	return nil
-}
-
 // 弹性缓存账号列表
 func (manager *SElasticcacheAccountManager) ListItemFilter(
 	ctx context.Context,
