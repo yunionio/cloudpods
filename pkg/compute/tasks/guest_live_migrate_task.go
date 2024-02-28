@@ -146,26 +146,55 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 		body.Set("is_local_storage", jsonutils.JSONFalse)
 	}
 
-	self.SetStage("OnCachedImageComplete", body)
 	// prepare disk for migration
 	if len(disk.TemplateId) > 0 && isLocalStorage {
-		targetStorageCache := targetHost.GetLocalStoragecache()
-		if targetStorageCache != nil {
-			input := api.CacheImageInput{
-				ImageId:      disk.TemplateId,
-				Format:       disk.DiskFormat,
-				IsForce:      false,
-				SourceHostId: guest.HostId,
-				ParentTaskId: self.GetTaskId(),
+		templates := []string{}
+		guestdisks, _ := guest.GetDisks()
+		for i := range guestdisks {
+			if guestdisks[i].TemplateId != "" {
+				templates = append(templates, guestdisks[i].TemplateId)
 			}
-			err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, input)
-			if err != nil {
-				self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
-			}
-			return
+		}
+		if len(templates) > 0 {
+			body.Set("cache_templates", jsonutils.NewStringArray(templates))
 		}
 	}
-	self.OnCachedImageComplete(ctx, guest, nil)
+	self.SetStage("OnStartCacheImages", body)
+	self.OnStartCacheImages(ctx, guest, nil)
+}
+
+func (self *GuestMigrateTask) OnStartCacheImages(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	templates, _ := self.Params.GetArray("cache_templates")
+	if len(templates) == 0 {
+		self.OnCachedImageComplete(ctx, guest, nil)
+		return
+	}
+
+	templateId, _ := templates[0].GetString()
+	self.Params.Set("cache_templates", jsonutils.NewArray(templates[1:]...))
+	self.SetStage("OnStartCacheImages", nil)
+
+	targetHostId, _ := self.Params.GetString("target_host_id")
+	targetHost := models.HostManager.FetchHostById(targetHostId)
+	targetStorageCache := targetHost.GetLocalStoragecache()
+	if targetStorageCache != nil {
+		input := api.CacheImageInput{
+			ImageId:      templateId,
+			IsForce:      false,
+			SourceHostId: guest.HostId,
+			ParentTaskId: self.GetTaskId(),
+		}
+		err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, input)
+		if err != nil {
+			self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		}
+		return
+	}
+	self.OnStartCacheImages(ctx, guest, nil)
+}
+
+func (self *GuestMigrateTask) OnStartCacheImagesFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, data)
 }
 
 // For local storage get disk info
