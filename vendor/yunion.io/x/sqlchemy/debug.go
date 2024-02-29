@@ -36,14 +36,18 @@ func sqlDebug(key, sqlstr string, variables []interface{}) {
 }
 
 func _sqlDebug(sqlstr string, variables []interface{}) string {
+	return SQLPrintf(sqlstr, variables)
+}
+
+func SQLPrintf(sqlstr string, variables []interface{}) string {
 	for _, v := range variables {
 		switch v.(type) {
 		case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`%v`, v), 1)
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("%v", v), 1)
 		case string, time.Time:
-			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`'%s'`, v), 1)
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%s'", v), 1)
 		default:
-			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`'%v'`, v), 1)
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%v'", v), 1)
 		}
 	}
 	return sqlstr

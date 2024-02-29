@@ -24,11 +24,13 @@ type sQueryField struct {
 
 // the string after select
 func (sqf *sQueryField) Expression() string {
+	qChar := sqf.from.database().backend.QuoteChar()
+
 	alias := sqf.name
 	if len(sqf.alias) > 0 {
 		alias = sqf.alias
 	}
-	return fmt.Sprintf("`%s`.`%s` AS `%s`", sqf.from.Alias(), sqf.name, alias)
+	return fmt.Sprintf("%s%s%s.%s%s%s AS %s%s%s", qChar, sqf.from.Alias(), qChar, qChar, sqf.name, qChar, qChar, alias, qChar)
 }
 
 // the name of thie field
@@ -41,7 +43,8 @@ func (sqf *sQueryField) Name() string {
 
 // the reference string in where clause
 func (sqf *sQueryField) Reference() string {
-	return fmt.Sprintf("`%s`.`%s`", sqf.from.Alias(), sqf.Name())
+	qChar := sqf.from.database().backend.QuoteChar()
+	return fmt.Sprintf("%s%s%s.%s%s%s", qChar, sqf.from.Alias(), qChar, qChar, sqf.Name(), qChar)
 }
 
 // give this field an alias name

@@ -26,20 +26,24 @@ func (ts *STableSpec) UpdateBatch(data map[string]interface{}, filter map[string
 		return nil
 	}
 
+	qChar := ts.Database().backend.QuoteChar()
+
 	params := make([]interface{}, 0, len(data))
 	setter := make([]string, 0, len(data))
 	for k, v := range data {
-		setter = append(setter, fmt.Sprintf("`%s` = ?", k))
+		setter = append(setter, fmt.Sprintf("%s%s%s = ?", qChar, k, qChar))
 		params = append(params, v)
 	}
-	conds, condparams := getSQLFilters(filter)
+	conds, condparams := getSQLFilters(filter, qChar)
 	params = append(params, condparams...)
 
 	buf := strings.Builder{}
 
-	buf.WriteString("UPDATE `")
+	buf.WriteString("UPDATE ")
+	buf.WriteString(qChar)
 	buf.WriteString(ts.Name())
-	buf.WriteString("` SET ")
+	buf.WriteString(qChar)
+	buf.WriteString(" SET ")
 	buf.WriteString(strings.Join(setter, ", "))
 
 	if len(conds) > 0 {

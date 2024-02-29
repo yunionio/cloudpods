@@ -11,7 +11,7 @@ Features
 
 * Automatic creation and synchronization of table schema based on golang struct
 * Query syntax inpired by sqlalchemy
-* Support: MySQL/MariaDB with InnoDB engine / Sqlite (Exprimental) / ClickHouse (Exprimental) 
+* Support: MySQL/MariaDB with InnoDB engine / Sqlite (Exprimental) / ClickHouse / Dameng (Exprimental)
 * Support select, insert, update and insertOrupdate (no delete)
 
 Quick Examples
@@ -50,6 +50,14 @@ sqlchemy.SetDBWithNameBackend(dbconn, sqlchemy.DBName("sqlitedb"), sqlchemy.SQLi
 dbconn := sql.Open("clickhouse", "tcp://host1:9000?username=user&password=qwerty&database=clicks")
 
 sqlchemy.SetDBWithNameBackend(dbconn, sqlchemy.DBName("clickhousedb"), sqlchemy.ClickhouseBackend)
+```
+
+### Setup database of Dameng
+
+```go
+dbconn := sql.Open("dm", "dm://username:password@host1:5246/schema")
+
+sqlchemy.SetDBWithNameBackend(dbconn, sqlchemy.DBName("damengdb"), sqlchemy.DamengBackend)
 ```
 
 ## Table Schema

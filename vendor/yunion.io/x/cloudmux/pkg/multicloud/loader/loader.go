@@ -23,6 +23,7 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/azure/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/baidu/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/bingocloud/provider" // private clouds
+	_ "yunion.io/x/cloudmux/pkg/multicloud/cephfs/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/ctyun/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/cucloud/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/ecloud/provider" // public clouds

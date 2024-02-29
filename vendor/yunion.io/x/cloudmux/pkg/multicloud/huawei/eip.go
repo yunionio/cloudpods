@@ -328,7 +328,7 @@ func (self *SRegion) GetEips(portId string, addrs []string) ([]SEipAddress, erro
 		query.Add("public_ip_address", addr)
 	}
 	if len(portId) > 0 {
-		query.Set("port_id", portId)
+		query.Set("vnic.port_id", portId)
 	}
 	query.Set("ip_version", "4")
 	eips := []SEipAddress{}

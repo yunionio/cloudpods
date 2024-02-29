@@ -14,7 +14,10 @@
 
 package aws
 
-import "fmt"
+import (
+	"fmt"
+	"net/url"
+)
 
 type LambdaFunction struct {
 	Description   string `json:"Description"`
@@ -68,20 +71,20 @@ type LambdaFunction struct {
 }
 
 func (self *SRegion) ListFunctions() ([]LambdaFunction, error) {
-	params := map[string]interface{}{
-		"MaxItems": "10000",
-	}
+	params := url.Values{}
+	params.Set("MaxItems", "10000")
+	params.Set("FunctionVersion", "ALL")
 	ret, marker := []LambdaFunction{}, ""
 	for {
 		part := struct {
 			Functions  []LambdaFunction
 			NextMarker string
 		}{}
-		path := "/2015-03-31/functions/?FunctionVersion=ALL&MaxItems={MaxItems}"
 		if len(marker) > 0 {
-			path += "&Marker=" + marker
+			params.Set("Marker", marker)
 		}
-		err := self.lambdaRequest("ListFunctions", path, params, &part)
+		path := fmt.Sprintf("/2015-03-31/functions/?%s", params.Encode())
+		err := self.lambdaRequest("ListFunctions", path, map[string]interface{}{}, &part)
 		if err != nil {
 			return nil, err
 		}

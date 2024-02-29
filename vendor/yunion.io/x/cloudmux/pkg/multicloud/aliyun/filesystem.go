@@ -71,6 +71,7 @@ type SFileSystem struct {
 	FileSystemType       string
 	FileSystemId         string
 	RegionId             string
+	ResourceGroupId      string
 }
 
 func (self *SFileSystem) GetId() string {
@@ -359,4 +360,8 @@ func (self *SRegion) CreateFileSystem(opts *cloudprovider.FileSystemCraeteOption
 
 func (self *SFileSystem) SetTags(tags map[string]string, replace bool) error {
 	return self.region.SetResourceTags(ALIYUN_SERVICE_NAS, "filesystem", self.FileSystemId, tags, replace)
+}
+
+func (self *SFileSystem) GetProjectId() string {
+	return self.ResourceGroupId
 }

@@ -61,6 +61,7 @@ type SNatGateway struct {
 	ExpiredTime           time.Time
 	Description           string
 	ForwardTableIds       SForwardTableIds
+	NetworkType           string
 	SnatTableIds          SSnatTableIds
 	InstanceChargeType    TChargeType
 	Name                  string
@@ -102,6 +103,10 @@ func (nat *SNatGateway) GetStatus() string {
 
 func (self *SNatGateway) GetINetworkId() string {
 	return self.NatGatewayPrivateInfo.VswitchId
+}
+
+func (self *SNatGateway) GetNetworkType() string {
+	return self.NetworkType
 }
 
 func (self *SNatGateway) GetIpAddr() string {
@@ -197,7 +202,7 @@ func (nat *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error)
 	return itables, nil
 }
 
-func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+func (nat *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
 	dNATEntry, err := nat.vpc.region.GetForwardTableEntry(nat.ForwardTableIds.ForwardTableId[0], id)
 	if err != nil {
 		return nil, cloudprovider.ErrNotFound
@@ -206,7 +211,7 @@ func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEn
 	return &dNATEntry, nil
 }
 
-func (nat *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+func (nat *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
 	sNATEntry, err := nat.vpc.region.GetSNATEntry(nat.SnatTableIds.SnatTableId[0], id)
 	if err != nil {
 		return nil, cloudprovider.ErrNotFound
@@ -220,7 +225,7 @@ func (nat *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudpro
 	if err != nil {
 		return nil, errors.Wrapf(err, `create dnat rule for nat gateway %q`, nat.GetId())
 	}
-	return nat.GetINatDEntryByID(entryID)
+	return nat.GetINatDEntryById(entryID)
 }
 
 func (nat *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
@@ -228,7 +233,7 @@ func (nat *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudpro
 	if err != nil {
 		return nil, errors.Wrapf(err, `create snat rule for nat gateway %q`, nat.GetId())
 	}
-	return nat.GetINatSEntryByID(entryID)
+	return nat.GetINatSEntryById(entryID)
 }
 
 func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit int) ([]SNatGateway, int, error) {

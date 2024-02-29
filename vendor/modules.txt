@@ -15,6 +15,13 @@ cloud.google.com/go/internal/version
 # cloud.google.com/go/storage v1.10.0
 ## explicit; go 1.11
 cloud.google.com/go/storage
+# gitee.com/chunanyong/dm v1.8.14
+## explicit; go 1.13
+gitee.com/chunanyong/dm
+gitee.com/chunanyong/dm/i18n
+gitee.com/chunanyong/dm/parser
+gitee.com/chunanyong/dm/security
+gitee.com/chunanyong/dm/util
 # github.com/360EntSecGroup-Skylar/excelize v1.4.0
 ## explicit
 github.com/360EntSecGroup-Skylar/excelize
@@ -461,7 +468,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
+# github.com/golang/snappy v0.0.1
 ## explicit
 github.com/golang/snappy
 # github.com/google/btree v1.0.1
@@ -1102,6 +1109,7 @@ golang.org/x/term
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
+golang.org/x/text/encoding/ianaindex
 golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/encoding/japanese
@@ -1465,7 +1473,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240223082938-77dea2c9d55b
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240228112145-f7432518ad4b
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1487,6 +1495,8 @@ yunion.io/x/cloudmux/pkg/multicloud/baidu
 yunion.io/x/cloudmux/pkg/multicloud/baidu/provider
 yunion.io/x/cloudmux/pkg/multicloud/bingocloud
 yunion.io/x/cloudmux/pkg/multicloud/bingocloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/cephfs
+yunion.io/x/cloudmux/pkg/multicloud/cephfs/provider
 yunion.io/x/cloudmux/pkg/multicloud/ctyun
 yunion.io/x/cloudmux/pkg/multicloud/ctyun/provider
 yunion.io/x/cloudmux/pkg/multicloud/cucloud
@@ -1616,11 +1626,12 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20240210161427-e48bb9a658b7
+# yunion.io/x/sqlchemy v1.1.3-0.20240228104732-b8924f0c2e81
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse
+yunion.io/x/sqlchemy/backends/dameng
 yunion.io/x/sqlchemy/backends/mysql
 yunion.io/x/sqlchemy/backends/sqlite
 # yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c

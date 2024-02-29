@@ -36,6 +36,8 @@ cloud.google.com/go/storage v1.8.0/go.mod h1:Wv1Oy7z6Yz3DshWRJFhqM/UCfaWIRTdp0RX
 cloud.google.com/go/storage v1.10.0 h1:STgFzyU5/8miMl0//zKh2aQeTyeaUH3WN9bSUiJ09bA=
 cloud.google.com/go/storage v1.10.0/go.mod h1:FLPqc6j+Ki4BU591ie1oL6qBQGu2Bl/tZ9ullr3+Kg0=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
+gitee.com/chunanyong/dm v1.8.14 h1:1S9+aD0fY/HXkcm8dKh2HjYsDlcdXNG+4IOX9JtrSjA=
+gitee.com/chunanyong/dm v1.8.14/go.mod h1:EPRJnuPFgbyOFgJ0TRYCTGzhq+ZT4wdyaj/GW/LLcNg=
 github.com/360EntSecGroup-Skylar/excelize v1.4.0 h1:43rak9uafmwSJpXfFO1heKQph8tP3nlfWJWFQQtW1R0=
 github.com/360EntSecGroup-Skylar/excelize v1.4.0/go.mod h1:R8KYLmGns0vDPe6/HyphW0mzW+MFexlGDafU0ykVEnU=
 github.com/Azure/azure-sdk-for-go v5.0.0-beta.0.20161118192335-3b1282355199+incompatible/go.mod h1:9XXNKU+eRnpl9moKnB4QOLf1HestfXbmab5FXxiDBjc=
@@ -340,8 +342,9 @@ github.com/golang/protobuf v1.4.3/go.mod h1:oDoupMAO8OvCJWAcko0GGGIgR6R6ocIYbsSw
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
 github.com/golang/protobuf v1.5.2 h1:ROPKBNFfQgOUMifHyP+KYbvpjbdoFNs+aK7DXlji0Tw=
 github.com/golang/protobuf v1.5.2/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
-github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db h1:woRePGFeVFfLKN/pOkfl+p/TAqKOfFu+7KPlMVpok/w=
 github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
+github.com/golang/snappy v0.0.1 h1:Qgr9rKW7uDUkrbSmQeiDsGa8SjGyCOGtuasMWwvp2P4=
+github.com/golang/snappy v0.0.1/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
 github.com/google/btree v0.0.0-20180124185431-e89373fe6b4a/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
@@ -1201,8 +1204,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240223082938-77dea2c9d55b h1:DQXZfJ5C/XqQXQ6esedRXz1xWQ97zU1au6qQcW6UFCQ=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240223082938-77dea2c9d55b/go.mod h1:dsUESXIbXJ+/ywbNClhldOrbPOiBi2udrgOnB/ffoWk=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240228112145-f7432518ad4b h1:3dto4ZKeWQ6nKLldqVeduWr9oTXavd6d6TkPtDHGg4Q=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240228112145-f7432518ad4b/go.mod h1:dsUESXIbXJ+/ywbNClhldOrbPOiBi2udrgOnB/ffoWk=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32 h1:v7POYkQwo1XzOxBoIoRVr/k0V9Y5JyjpshlIFa9raug=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
@@ -1220,7 +1223,7 @@ yunion.io/x/pkg v1.10.1-0.20240127153242-cdf9dc071f4f h1:nLMBj8S3/ev2pB1wzGSi6hO
 yunion.io/x/pkg v1.10.1-0.20240127153242-cdf9dc071f4f/go.mod h1:ksCJVQ+DwKrJ5QBEoU8pzrDFfDaZVAFH/iJ6yQCYxJk=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8J50Cise/HCylsOJngmo=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
-yunion.io/x/sqlchemy v1.1.3-0.20240210161427-e48bb9a658b7 h1:T/lJOFh353MbMon3k+gzGbrmTOV1a6I8/dIlrEdwV9I=
-yunion.io/x/sqlchemy v1.1.3-0.20240210161427-e48bb9a658b7/go.mod h1:uuPVZEyEq3sWd5vf9VjGSy6lZzof22X87OEHw9sddJQ=
+yunion.io/x/sqlchemy v1.1.3-0.20240228104732-b8924f0c2e81 h1:0QocM63F8k9EDkf1Zx/sWX27hGYplbq+CBXBF2k1ev4=
+yunion.io/x/sqlchemy v1.1.3-0.20240228104732-b8924f0c2e81/go.mod h1:5W8ghvJ4TNt/r2yDjjD3i4QsZgIiJX45dhRQBGWPHsQ=
 yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c h1:QuLab2kSRECZRxo4Lo2KcYn6XjQFDGaZ1+x0pYDVVwQ=
 yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c/go.mod h1:EP6NSv2C0zzqBDTKumv8hPWLb3XvgMZDHQRfyuOrQng=

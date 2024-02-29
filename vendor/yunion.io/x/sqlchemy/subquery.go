@@ -30,11 +30,13 @@ type SSubQueryField struct {
 
 // Expression implementation of SSubQueryField for IQueryField
 func (sqf *SSubQueryField) Expression() string {
+	qChar := sqf.query.database().backend.QuoteChar()
+
 	alias := sqf.field.Name()
 	if len(sqf.alias) > 0 {
 		alias = sqf.alias
 	}
-	return fmt.Sprintf("`%s`.`%s` AS `%s`", sqf.query.alias, sqf.field.Name(), alias)
+	return fmt.Sprintf("%s%s%s.%s%s%s AS %s%s%s", qChar, sqf.query.alias, qChar, qChar, sqf.field.Name(), qChar, qChar, alias, qChar)
 }
 
 // Name implementation of SSubQueryField for IQueryField
@@ -47,7 +49,9 @@ func (sqf *SSubQueryField) Name() string {
 
 // Reference implementation of SSubQueryField for IQueryField
 func (sqf *SSubQueryField) Reference() string {
-	return fmt.Sprintf("`%s`.`%s`", sqf.query.alias, sqf.Name())
+	qChar := sqf.query.database().backend.QuoteChar()
+
+	return fmt.Sprintf("%s%s%s.%s%s%s", qChar, sqf.query.alias, qChar, qChar, sqf.Name(), qChar)
 }
 
 // Label implementation of SSubQueryField for IQueryField

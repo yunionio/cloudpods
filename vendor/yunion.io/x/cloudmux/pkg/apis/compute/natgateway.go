@@ -30,4 +30,9 @@ const (
 	QCLOUD_NAT_SPEC_SMALL  = "small"
 	QCLOUD_NAT_SPEC_MIDDLE = "middle"
 	QCLOUD_NAT_SPEC_LARGE  = "large"
+
+	// 公网
+	NAT_NETWORK_TYPE_INTERNET = "internet"
+	// VPC
+	NAT_NETWORK_TYPE_INTRANET = "intranet"
 )
