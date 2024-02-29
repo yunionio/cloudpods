@@ -61,6 +61,7 @@ func init() {
 	cmd.CreateWithKeyword("create-cucloud", &options.SCucloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-qingcloud", &options.SQingCloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-oracle", &options.SOracleCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-cephfs", &options.SCephFSCloudAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})

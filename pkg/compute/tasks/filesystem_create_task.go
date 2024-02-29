@@ -98,7 +98,7 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	iFs, err := iRegion.CreateICloudFileSystem(opts)
 	if err != nil {
-		self.taskFailed(ctx, fs, errors.Wrapf(err, "iRegion.CreaetICloudFileSystem"))
+		self.taskFailed(ctx, fs, errors.Wrapf(err, "iRegion.CreateICloudFileSystem"))
 		return
 	}
 	db.SetExternalId(fs, self.GetUserCred(), iFs.GetGlobalId())
