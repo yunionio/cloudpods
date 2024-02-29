@@ -141,6 +141,10 @@ func (manager *SDomainManager) InitializeData() error {
 	return nil
 }*/
 
+func (manager *SDomainManager) NewQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, useRawQuery bool) *sqlchemy.SQuery {
+	return manager.Query()
+}
+
 func (manager *SDomainManager) Query(fields ...string) *sqlchemy.SQuery {
 	return manager.SStandaloneResourceBaseManager.Query(fields...).IsTrue("is_domain")
 }
