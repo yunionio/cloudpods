@@ -133,8 +133,13 @@ func (spec *SSplitTableSpec) SyncSQL() []string {
 			Start: indexCol.AutoIncrementOffset(),
 		}
 		// insert the first meta
-		sql := fmt.Sprintf("INSERT INTO `%s`(`table`, `deleted`, `created_at`) VALUES('%s', 0, '%s')", spec.metaSpec.Name(), meta.Table, timeutils.MysqlTime(now))
-		sqls = append(sqls, sql)
+		insertResult, err := spec.metaSpec.InsertSqlPrep(&meta, false)
+		if err != nil {
+			log.Errorf("spec.metaSpec.InsertSqlPrep fail %s", err)
+			return nil
+		}
+		// sql := fmt.Sprintf("INSERT INTO `%s`(`table`, `deleted`, `created_at`) VALUES('%s', 0, '%s')", spec.metaSpec.Name(), meta.Table, timeutils.MysqlTime(now))
+		sqls = append(sqls, sqlchemy.SQLPrintf(insertResult.Sql, insertResult.Values))
 		// create the first table
 		newtable := spec.GetTableSpec(meta)
 		nsql := newtable.SyncSQL()
