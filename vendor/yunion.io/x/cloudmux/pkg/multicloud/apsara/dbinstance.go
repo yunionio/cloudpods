@@ -166,10 +166,6 @@ func (rds *SDBInstance) GetBillingType() string {
 	return convertChargeType(rds.PayType)
 }
 
-func (rds *SDBInstance) GetExpiredAt() time.Time {
-	return rds.ExpireTime
-}
-
 func (rds *SDBInstance) GetCreatedAt() time.Time {
 	return rds.CreateTime
 }

@@ -201,10 +201,6 @@ func (self *SElasticcache) GetCreatedAt() time.Time {
 	return self.CreateTime
 }
 
-func (self *SElasticcache) GetExpiredAt() time.Time {
-	return convertExpiredAt(self.EndTime)
-}
-
 func (self *SElasticcache) GetInstanceType() string {
 	return self.InstanceClass
 }

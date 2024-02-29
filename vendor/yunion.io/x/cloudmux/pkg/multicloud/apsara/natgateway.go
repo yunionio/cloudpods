@@ -110,10 +110,6 @@ func (nat *SNatGetway) GetCreatedAt() time.Time {
 	return nat.CreationTime
 }
 
-func (nat *SNatGetway) GetExpiredAt() time.Time {
-	return nat.ExpiredTime
-}
-
 func (nat *SNatGetway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips := []SEipAddress{}
 	for {
