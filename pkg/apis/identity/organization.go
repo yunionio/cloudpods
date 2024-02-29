@@ -15,6 +15,7 @@
 package identity
 
 import (
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -138,7 +139,9 @@ func IsValidLabel(val string) bool {
 }
 
 func trimLabel(label string) string {
-	return strings.Trim(label, OrganizationLabelSeparator+" ")
+	label = strings.Trim(label, OrganizationLabelSeparator+" ")
+	label = strings.ReplaceAll(label, "/", "\\/")
+	return label
 }
 
 func JoinLabels(seg ...string) string {
@@ -160,7 +163,12 @@ func SplitLabel(label string) []string {
 	for _, p := range parts {
 		p = trimLabel(p)
 		if len(p) > 0 {
-			ret = append(ret, p)
+			if len(ret) > 0 && strings.HasSuffix(ret[len(ret)-1], "\\") {
+				pref := ret[len(ret)-1]
+				ret[len(ret)-1] = fmt.Sprintf("%s/%s", pref[:len(pref)-1], p)
+			} else {
+				ret = append(ret, p)
+			}
 		}
 	}
 	return ret
