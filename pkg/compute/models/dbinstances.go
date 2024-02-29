@@ -185,6 +185,15 @@ func (man *SDBInstanceManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 
+	if len(query.SecgroupId) > 0 {
+		_, err = validators.ValidateModel(ctx, userCred, SecurityGroupManager, &query.SecgroupId)
+		if err != nil {
+			return nil, err
+		}
+		sq := DBInstanceSecgroupManager.Query("dbinstance_id").Equals("secgroup_id", query.SecgroupId)
+		q = q.In("id", sq.SubQuery())
+	}
+
 	if len(query.ZoneId) > 0 {
 		zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, query.ZoneId)
 		if err != nil {

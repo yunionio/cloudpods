@@ -415,6 +415,15 @@ func (manager *SElasticcacheManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
+	if len(query.SecgroupId) > 0 {
+		_, err = validators.ValidateModel(ctx, userCred, SecurityGroupManager, &query.SecgroupId)
+		if err != nil {
+			return nil, err
+		}
+		sq := ElasticcachesecgroupManager.Query("elasticcache_id").Equals("secgroup_id", query.SecgroupId)
+		q = q.In("id", sq.SubQuery())
+	}
+
 	if len(query.InstanceType) > 0 {
 		q = q.In("instance_type", query.InstanceType)
 	}

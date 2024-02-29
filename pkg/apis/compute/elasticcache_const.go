@@ -191,6 +191,9 @@ type ElasticcacheListInput struct {
 
 	// 访问密码？ on （开启密码）|off （免密码访问）
 	AuthMode []string `json:"auth_mode"`
+
+	// 通过安全组Id过滤缓存实例
+	SecgroupId string `json:"secgroup_id"`
 }
 
 type ElasticcacheAccountListInput struct {
