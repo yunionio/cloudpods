@@ -76,6 +76,7 @@ type DBInstanceListOptions struct {
 	options.BaseListOptions
 	BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 	IpAddr      []string
+	SecgroupId  string
 }
 
 func (opts *DBInstanceListOptions) Params() (jsonutils.JSONObject, error) {
