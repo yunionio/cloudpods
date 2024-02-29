@@ -406,10 +406,6 @@ func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 	return []string{self.AutoSnapshotPolicyId}, nil
 }
 
-func (self *SDisk) GetExpiredAt() time.Time {
-	return convertExpiredAt(self.ExpiredTime)
-}
-
 func (self *SDisk) GetAccessPath() string {
 	return ""
 }

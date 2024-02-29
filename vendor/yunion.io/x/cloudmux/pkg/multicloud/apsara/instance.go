@@ -926,10 +926,6 @@ func (self *SInstance) GetCreatedAt() time.Time {
 	return self.CreationTime
 }
 
-func (self *SInstance) GetExpiredAt() time.Time {
-	return convertExpiredAt(self.ExpiredTime)
-}
-
 func (self *SInstance) UpdateUserData(userData string) error {
 	return self.host.zone.region.updateInstance(self.InstanceId, "", "", "", "", userData)
 }
