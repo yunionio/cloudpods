@@ -213,7 +213,7 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 	pageNo := 1
 	params := map[string]interface{}{
 		"pageNo":   pageNo,
-		"pageSize": 100,
+		"pageSize": 50,
 	}
 	ret := []SDisk{}
 	for {
