@@ -98,19 +98,19 @@ type SServerSku struct {
 	SysDiskMinSizeGB int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
 	SysDiskMaxSizeGB int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"` // not required
 
-	AttachedDiskType   string `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	AttachedDiskType   string `width:"32" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	AttachedDiskSizeGB int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	AttachedDiskCount  int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	DataDiskTypes    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	DataDiskMaxCount int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
-	NicType     string `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	NicType     string `width:"32" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	NicMaxCount int    `default:"1" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	GpuAttachable tristate.TriState `default:"true" list:"user" create:"admin_optional" update:"admin"`
 	GpuSpec       string            `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
-	GpuCount      string            `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	GpuCount      string            `width:"16" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	GpuMaxCount   int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	Provider string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
@@ -556,7 +556,7 @@ func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, 
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	err = db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
-		log.Infof("FetchModelObjects %s", err)
+		log.Errorf("FetchModelObjects %s: %s", q.DebugString(), err)
 		return nil, httperrors.NewBadRequestError("instance specs list query error")
 	}
 
