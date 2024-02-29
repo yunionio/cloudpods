@@ -135,6 +135,10 @@ func (manager *SDomainManager) InitializeData() error {
 	return nil
 }*/
 
+func (manager *SDomainManager) RawQuery(fields ...string) *sqlchemy.SQuery {
+	return manager.Query(fields...)
+}
+
 func (manager *SDomainManager) Query(fields ...string) *sqlchemy.SQuery {
 	return manager.SStandaloneResourceBaseManager.Query(fields...).IsTrue("is_domain")
 }
