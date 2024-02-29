@@ -408,10 +408,6 @@ func (self *SDisk) GetCreatedAt() time.Time {
 	return self.CreationTime
 }
 
-func (self *SDisk) GetExpiredAt() time.Time {
-	return convertExpiredAt(self.ExpiredTime)
-}
-
 func (self *SDisk) GetAccessPath() string {
 	return ""
 }
