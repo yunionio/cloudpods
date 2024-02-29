@@ -175,10 +175,6 @@ func (self *SEipAddress) GetCreatedAt() time.Time {
 	return self.AllocationTime
 }
 
-func (self *SEipAddress) GetExpiredAt() time.Time {
-	return convertExpiredAt(self.ExpiredTime)
-}
-
 func (self *SEipAddress) Delete() error {
 	return self.region.DeallocateEIP(self.AllocationId)
 }
