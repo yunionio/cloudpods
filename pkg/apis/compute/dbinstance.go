@@ -221,6 +221,9 @@ type DBInstanceListInput struct {
 
 	// 通过IP搜索RDS实例
 	IpAddr []string `json:"ip_addr"`
+
+	// 通过安全组Id过滤RDS实例
+	SecgroupId string `json:"secgroup_id"`
 }
 
 type DBInstanceBackupListInput struct {
