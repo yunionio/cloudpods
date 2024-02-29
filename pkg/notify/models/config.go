@@ -103,6 +103,36 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	return input, nil
 }
 
+func (manager *SConfigManager) GetPropertyCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := manager.Query()
+	configs := []SConfig{}
+	err := db.FetchModelObjects(manager, q, &configs)
+	if err != nil {
+		return nil, err
+	}
+	ret := struct {
+		System []string            `json:"system,allowempty"`
+		Domain map[string][]string `json:"domain,allowempty"`
+	}{
+		System: []string{},
+		Domain: map[string][]string{},
+	}
+
+	for _, config := range configs {
+		switch config.Attribution {
+		case api.CONFIG_ATTRIBUTION_SYSTEM:
+			ret.System = append(ret.System, config.Type)
+		case api.CONFIG_ATTRIBUTION_DOMAIN:
+			_, ok := ret.Domain[config.DomainId]
+			if !ok {
+				ret.Domain[config.DomainId] = []string{}
+			}
+			ret.Domain[config.DomainId] = append(ret.Domain[config.DomainId], config.Type)
+		}
+	}
+	return jsonutils.Marshal(ret), nil
+}
+
 func (c *SConfig) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	c.SDomainLevelResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	err := c.StartRepullSubcontactTask(ctx, userCred, false)

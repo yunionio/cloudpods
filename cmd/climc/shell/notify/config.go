@@ -27,4 +27,5 @@ func init() {
 	cmd.Update(new(options.ConfigUpdateOptions))
 	cmd.Show(new(options.ConfigOptions))
 	cmd.Delete(new(options.ConfigOptions))
+	cmd.GetProperty(new(options.ConfigCapabilityOptions))
 }
