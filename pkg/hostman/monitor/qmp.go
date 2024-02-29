@@ -85,6 +85,9 @@ type NetworkModify struct {
 	Device  string `json:"device"`
 	Ipmask  string `json:"ipmask"`
 	Gateway string `json:"gateway"`
+
+	Ipmask6  string `json:"ipmask6"`
+	Gateway6 string `json:"gateway6"`
 }
 
 type Version struct {
