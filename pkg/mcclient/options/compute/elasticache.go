@@ -25,6 +25,8 @@ import (
 
 type ElasticCacheListOptions struct {
 	options.BaseListOptions
+
+	SecgroupId string
 }
 
 func (opts *ElasticCacheListOptions) Params() (jsonutils.JSONObject, error) {
