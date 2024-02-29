@@ -204,7 +204,7 @@ func (self *SRegion) GetImages(imageType string) ([]SImage, error) {
 	pageNo := 1
 	params := map[string]interface{}{
 		"pageNo":   pageNo,
-		"pageSize": 10000,
+		"pageSize": 50,
 	}
 	switch imageType {
 	case "private":
