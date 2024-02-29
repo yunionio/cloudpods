@@ -36,6 +36,10 @@ func TestJoinLabel(t *testing.T) {
 			segs: []string{"L1/ ", "/L2", "/L3/"},
 			want: "L1/L2/L3",
 		},
+		{
+			segs: []string{"L1/ ", "/L2", "/L3/", "H4/H5"},
+			want: "L1/L2/L3/H4\\/H5",
+		},
 	}
 	for _, c := range cases {
 		got := JoinLabels(c.segs...)
@@ -61,6 +65,10 @@ func TestSplitLabel(t *testing.T) {
 		{
 			in:   "/L1/L2/L3/",
 			want: []string{"L1", "L2", "L3"},
+		},
+		{
+			in:   "L1/L2/L3/H4\\/H5",
+			want: []string{"L1", "L2", "L3", "H4/H5"},
 		},
 	}
 	for _, c := range cases {
