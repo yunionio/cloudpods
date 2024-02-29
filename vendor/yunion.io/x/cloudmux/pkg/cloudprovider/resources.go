@@ -917,14 +917,16 @@ type ICloudNatGateway interface {
 	GetINatSTable() ([]ICloudNatSEntry, error)
 
 	// ID is the ID of snat entry/rule or dnat entry/rule.
-	GetINatDEntryByID(id string) (ICloudNatDEntry, error)
-	GetINatSEntryByID(id string) (ICloudNatSEntry, error)
+	GetINatDEntryById(id string) (ICloudNatDEntry, error)
+	GetINatSEntryById(id string) (ICloudNatSEntry, error)
 
 	// Read the description of these two structures before using.
 	CreateINatDEntry(rule SNatDRule) (ICloudNatDEntry, error)
 	CreateINatSEntry(rule SNatSRule) (ICloudNatSEntry, error)
 
 	GetINetworkId() string
+	// internet(公网) or intranet(VPC)
+	GetNetworkType() string
 	GetBandwidthMb() int
 	GetIpAddr() string
 

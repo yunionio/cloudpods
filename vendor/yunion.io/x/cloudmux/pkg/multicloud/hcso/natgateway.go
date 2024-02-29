@@ -74,6 +74,10 @@ func (self *SNatGateway) GetINetworkId() string {
 	return self.InternalNetworkId
 }
 
+func (self *SNatGateway) GetNetworkType() string {
+	return api.NAT_NETWORK_TYPE_INTERNET
+}
+
 func (gateway *SNatGateway) GetNatSpec() string {
 	switch gateway.Spec {
 	case "1":
@@ -182,7 +186,7 @@ func (gateway *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (clou
 	return &snat, nil
 }
 
-func (gateway *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+func (gateway *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
 	dnat, err := gateway.region.GetNatDEntryByID(id)
 	if err != nil {
 		return nil, err
@@ -191,7 +195,7 @@ func (gateway *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNa
 	return &dnat, nil
 }
 
-func (gateway *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+func (gateway *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
 	snat, err := gateway.region.GetNatSEntryByID(id)
 	if err != nil {
 		return nil, err

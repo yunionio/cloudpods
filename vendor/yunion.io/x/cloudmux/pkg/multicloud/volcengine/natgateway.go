@@ -88,6 +88,10 @@ func (nat *SNatGateway) GetINetworkId() string {
 	return nat.SubnetId
 }
 
+func (nat *SNatGateway) GetNetworkType() string {
+	return api.NAT_NETWORK_TYPE_INTERNET
+}
+
 func (nat *SNatGateway) GetIpAddr() string {
 	if len(nat.PrivateIP) > 0 {
 		return nat.PrivateIP
@@ -168,7 +172,7 @@ func (nat *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error)
 	return itables, nil
 }
 
-func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+func (nat *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
 	dNATEntry, err := nat.vpc.region.GetDnatEntry(nat.NatGatewayId, id)
 	if err != nil {
 		return nil, cloudprovider.ErrNotFound
@@ -177,7 +181,7 @@ func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEn
 	return &dNATEntry, nil
 }
 
-func (nat *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+func (nat *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
 	sNATEntry, err := nat.vpc.region.GetSnatEntry(nat.NatGatewayId, id)
 	if err != nil {
 		return nil, cloudprovider.ErrNotFound
@@ -191,7 +195,7 @@ func (nat *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudpro
 	if err != nil {
 		return nil, errors.Wrapf(err, `create dnat rule for nat gateway %q`, nat.GetId())
 	}
-	return nat.GetINatDEntryByID(entryID)
+	return nat.GetINatDEntryById(entryID)
 }
 
 func (nat *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
@@ -199,7 +203,7 @@ func (nat *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudpro
 	if err != nil {
 		return nil, errors.Wrapf(err, `create snat rule for nat gateway %q`, nat.GetId())
 	}
-	return nat.GetINatSEntryByID(entryID)
+	return nat.GetINatSEntryById(entryID)
 }
 
 func (region *SRegion) GetNatGateways(vpcId string, natGatewayId string, pageNumber int, pageSize int) ([]SNatGateway, int, error) {

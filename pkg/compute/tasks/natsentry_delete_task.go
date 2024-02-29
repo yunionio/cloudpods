@@ -77,7 +77,7 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
-	iSnat, err := iNat.GetINatSEntryByID(snat.ExternalId)
+	iSnat, err := iNat.GetINatSEntryById(snat.ExternalId)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, snat)

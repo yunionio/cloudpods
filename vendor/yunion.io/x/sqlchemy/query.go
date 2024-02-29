@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"strings"
 
 	"yunion.io/x/log"
@@ -417,6 +418,7 @@ func (tq *SQuery) Field(name string) IQueryField {
 	f := tq.findField(name)
 	if f == nil {
 		log.Errorf("SQuery %s cannot find Field %s", tq.String(), name)
+		debug.PrintStack()
 	}
 	return f
 }

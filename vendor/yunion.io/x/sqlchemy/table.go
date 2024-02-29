@@ -162,7 +162,8 @@ func (ts *STableSpec) Name() string {
 
 // Expression implementation of STableSpec for ITableSpec
 func (ts *STableSpec) Expression() string {
-	return fmt.Sprintf("`%s`", ts.name)
+	qChar := ts.Database().backend.QuoteChar()
+	return fmt.Sprintf("%s%s%s", qChar, ts.name, qChar)
 }
 
 func (ts *STableSpec) SyncColumnIndexes() error {
@@ -358,7 +359,8 @@ func (c *STableField) Expression() string {
 	if len(c.alias) > 0 {
 		alias = c.alias
 	}
-	return fmt.Sprintf("`%s`.`%s` AS `%s`", c.table.Alias(), c.spec.Name(), alias)
+	qChar := c.database().backend.QuoteChar()
+	return fmt.Sprintf("%s%s%s.%s%s%s AS %s%s%s", qChar, c.table.Alias(), qChar, qChar, c.spec.Name(), qChar, qChar, alias, qChar)
 }
 
 // Name implementation of STableField for IQueryField
@@ -371,7 +373,8 @@ func (c *STableField) Name() string {
 
 // Reference implementation of STableField for IQueryField
 func (c *STableField) Reference() string {
-	return fmt.Sprintf("`%s`.`%s`", c.table.Alias(), c.Name())
+	qChar := c.database().backend.QuoteChar()
+	return fmt.Sprintf("%s%s%s.%s%s%s", qChar, c.table.Alias(), qChar, qChar, c.Name(), qChar)
 }
 
 // Label implementation of STableField for IQueryField

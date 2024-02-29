@@ -22,5 +22,5 @@ import (
 
 // GROUP_CONCAT1 represents the SQL function GROUP_CONCAT
 func (click *SClickhouseBackend) GROUP_CONCAT2(name string, sep string, field sqlchemy.IQueryField) sqlchemy.IQueryField {
-	return sqlchemy.NewFunctionField(name, fmt.Sprintf("arrayStringConcat(groupUniqArray(%%s), '%s')", sep), field)
+	return sqlchemy.NewFunctionField(name, true, fmt.Sprintf("arrayStringConcat(groupUniqArray(%%s), '%s')", sep), field)
 }

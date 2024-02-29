@@ -74,6 +74,10 @@ func (self *SNatGateway) GetINetworkId() string {
 	return self.InternalNetworkId
 }
 
+func (self *SNatGateway) GetNetworkType() string {
+	return api.NAT_NETWORK_TYPE_INTRANET
+}
+
 func (gateway *SNatGateway) GetNatSpec() string {
 	switch gateway.Spec {
 	case "1":
@@ -127,24 +131,26 @@ func (gateway *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (gateway *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
-	dNatTable, err := gateway.getNatDTable()
+	dNatTable, err := gateway.region.GetNatDEntries(gateway.ID)
 	if err != nil {
 		return nil, errors.Wrapf(err, `get dnat table of nat gateway %q`, gateway.GetId())
 	}
 	ret := make([]cloudprovider.ICloudNatDEntry, len(dNatTable))
 	for i := range dNatTable {
+		dNatTable[i].gateway = gateway
 		ret[i] = &dNatTable[i]
 	}
 	return ret, nil
 }
 
 func (gateway *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
-	sNatTable, err := gateway.getNatSTable()
+	sNatTable, err := gateway.region.GetNatSEntries(gateway.ID)
 	if err != nil {
 		return nil, errors.Wrapf(err, `get dnat table of nat gateway %q`, gateway.GetId())
 	}
 	ret := make([]cloudprovider.ICloudNatSEntry, len(sNatTable))
 	for i := range sNatTable {
+		sNatTable[i].gateway = gateway
 		ret[i] = &sNatTable[i]
 	}
 	return ret, nil
@@ -168,7 +174,7 @@ func (gateway *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (clou
 	return snat, nil
 }
 
-func (gateway *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+func (gateway *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
 	dnat, err := gateway.region.GetNatDEntryByID(id)
 	if err != nil {
 		return nil, err
@@ -177,7 +183,7 @@ func (gateway *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNa
 	return dnat, nil
 }
 
-func (gateway *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+func (gateway *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
 	snat, err := gateway.region.GetNatSEntryByID(id)
 	if err != nil {
 		return nil, err
@@ -219,7 +225,7 @@ func (region *SRegion) GetNatGateways(vpcId, id string) ([]SNatGateway, error) {
 
 func (region *SRegion) CreateNatDEntry(rule cloudprovider.SNatDRule, gatewayID string) (*SNatDEntry, error) {
 	params := make(map[string]interface{})
-	params["nat_gateway_id"] = gatewayID
+	params["gateway_id"] = gatewayID
 	params["private_ip"] = rule.InternalIP
 	params["internal_service_port"] = rule.InternalPort
 	params["floating_ip_id"] = rule.ExternalIPID
@@ -240,7 +246,7 @@ func (region *SRegion) CreateNatDEntry(rule cloudprovider.SNatDRule, gatewayID s
 
 func (region *SRegion) CreateNatSEntry(rule cloudprovider.SNatSRule, gatewayId string) (*SNatSEntry, error) {
 	params := make(map[string]interface{})
-	params["nat_gateway_id"] = gatewayId
+	params["gateway_id"] = gatewayId
 	if len(rule.NetworkID) != 0 {
 		params["network_id"] = rule.NetworkID
 	}

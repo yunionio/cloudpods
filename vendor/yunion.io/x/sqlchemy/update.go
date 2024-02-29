@@ -189,29 +189,31 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 		return nil, ErrEmptyPrimaryKey
 	}
 
+	qChar := us.tableSpec.Database().backend.QuoteChar()
+
 	vars := make([]interface{}, 0)
 	colsets := make([]string, 0)
 	conditions := make([]string, 0)
 	for _, udif := range setters {
 		if gotypes.IsNil(udif.new) {
-			colsets = append(colsets, fmt.Sprintf("`%s` = NULL", udif.col.Name()))
+			colsets = append(colsets, fmt.Sprintf("%s%s%s = NULL", qChar, udif.col.Name(), qChar))
 		} else {
-			colsets = append(colsets, fmt.Sprintf("`%s` = ?", udif.col.Name()))
+			colsets = append(colsets, fmt.Sprintf("%s%s%s = ?", qChar, udif.col.Name(), qChar))
 			vars = append(vars, udif.col.ConvertFromValue(udif.new))
 		}
 	}
 	for _, versionField := range versionFields {
-		colsets = append(colsets, fmt.Sprintf("`%s` = `%s` + 1", versionField, versionField))
+		colsets = append(colsets, fmt.Sprintf("%s%s%s = %s%s%s + 1", qChar, versionField, qChar, qChar, versionField, qChar))
 	}
 	for _, updatedField := range updatedFields {
-		colsets = append(colsets, fmt.Sprintf("`%s` = %s", updatedField, us.tableSpec.Database().backend.CurrentUTCTimeStampString()))
+		colsets = append(colsets, fmt.Sprintf("%s%s%s = %s", qChar, updatedField, qChar, us.tableSpec.Database().backend.CurrentUTCTimeStampString()))
 	}
 	for _, pkv := range primaries {
-		conditions = append(conditions, fmt.Sprintf("`%s` = ?", pkv.key))
+		conditions = append(conditions, fmt.Sprintf("%s%s%s = ?", qChar, pkv.key, qChar))
 		vars = append(vars, pkv.value)
 	}
 
-	updateSql := templateEval(us.tableSpec.Database().backend.UpdateSQLTemplate(), struct {
+	updateSql := TemplateEval(us.tableSpec.Database().backend.UpdateSQLTemplate(), struct {
 		Table      string
 		Columns    string
 		Conditions string

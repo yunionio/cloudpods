@@ -23,7 +23,7 @@ var (
 	templateTbl = make(map[string]*template.Template)
 )
 
-func templateEval(temp string, variables interface{}) string {
+func TemplateEval(temp string, variables interface{}) string {
 	if eval, ok := templateTbl[temp]; !ok {
 		eval = template.Must(template.New(temp).Parse(temp))
 		templateTbl[temp] = eval
