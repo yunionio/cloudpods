@@ -229,8 +229,8 @@ func (self *SElbBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloud
 	iret := []cloudprovider.ICloudLoadbalancerBackend{}
 	for i := range ret {
 		backend := ret[i]
-		backend.lb = self.lb
-		backend.backendGroup = self
+		backend.region = self.lb.region
+		backend.backendGroupId = self.ID
 
 		iret = append(iret, &backend)
 	}
@@ -243,8 +243,8 @@ func (self *SElbBackendGroup) GetILoadbalancerBackendById(serverId string) (clou
 	if err != nil {
 		return nil, err
 	}
-	backend.lb = self.lb
-	backend.backendGroup = self
+	backend.region = self.lb.region
+	backend.backendGroupId = self.ID
 	return backend, nil
 }
 
@@ -278,8 +278,8 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 		return nil, err
 	}
 
-	backend.lb = self.lb
-	backend.backendGroup = self
+	backend.region = self.lb.region
+	backend.backendGroupId = self.ID
 	return backend, nil
 }
 
