@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -104,6 +105,10 @@ func (sgg *SScalingGroupGuest) SetGuestStatus(status string) error {
 		return nil
 	})
 	return err
+}
+
+func (sggm *SScalingGroupGuestManager) NewQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, useRawQuery bool) *sqlchemy.SQuery {
+	return sggm.Query()
 }
 
 func (sggm *SScalingGroupGuestManager) Query(fields ...string) *sqlchemy.SQuery {
