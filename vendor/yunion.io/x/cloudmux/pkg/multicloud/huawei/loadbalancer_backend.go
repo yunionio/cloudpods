@@ -28,9 +28,8 @@ import (
 type SElbBackend struct {
 	multicloud.SResourceBase
 	HuaweiTags
-	region       *SRegion
-	lb           *SLoadbalancer
-	backendGroup *SElbBackendGroup
+	region         *SRegion
+	backendGroupId string
 
 	Name            string `json:"name"`
 	Weight          int    `json:"weight"`
@@ -61,15 +60,11 @@ func (self *SElbBackend) GetStatus() string {
 }
 
 func (self *SElbBackend) Refresh() error {
-	backend, err := self.region.GetElbBackend(self.backendGroup.GetId(), self.ID)
+	backend, err := self.region.GetElbBackend(self.backendGroupId, self.ID)
 	if err != nil {
 		return err
 	}
 	return jsonutils.Update(self, backend)
-}
-
-func (self *SElbBackend) IsEmulated() bool {
-	return false
 }
 
 func (self *SElbBackend) GetProjectId() string {
@@ -115,7 +110,7 @@ func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 	params := map[string]interface{}{
 		"weight": weight,
 	}
-	res := fmt.Sprintf("elb/pools/%s/members/%s", self.backendGroup.GetId(), self.ID)
+	res := fmt.Sprintf("elb/pools/%s/members/%s", self.backendGroupId, self.ID)
 	_, err := self.region.put(SERVICE_ELB, res, map[string]interface{}{"member": params})
 	return err
 }
