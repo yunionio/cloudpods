@@ -73,7 +73,8 @@ func (self ModelartsPoolDetails) GetMetricTags() map[string]string {
 		"account":             self.Account,
 		"external_id":         self.ExternalId,
 	}
-	return ret
+
+	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }
 
 type ModelartsPoolListInput struct {

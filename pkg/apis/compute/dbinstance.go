@@ -345,7 +345,8 @@ func (self DBInstanceDetails) GetMetricTags() map[string]string {
 	if len(self.IpAddrs) > 0 {
 		ret["rds_ip"] = strings.ReplaceAll(self.IpAddrs, ",", "|")
 	}
-	return ret
+
+	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }
 
 func (self DBInstanceDetails) GetMetricPairs() map[string]string {

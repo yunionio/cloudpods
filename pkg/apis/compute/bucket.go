@@ -80,7 +80,7 @@ func (self BucketDetails) GetMetricTags() map[string]string {
 		"tenant_id":      self.ProjectId,
 		"external_id":    self.ExternalId,
 	}
-	return ret
+	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }
 
 func (self BucketDetails) GetMetricPairs() map[string]string {

@@ -246,5 +246,5 @@ func (self LoadbalancerDetails) GetMetricTags() map[string]string {
 		"tenant_id":      self.ProjectId,
 		"external_id":    self.ExternalId,
 	}
-	return ret
+	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }

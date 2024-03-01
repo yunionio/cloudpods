@@ -57,7 +57,7 @@ func (self ElasticcacheDetails) GetMetricTags() map[string]string {
 		"project_domain": self.ProjectDomain,
 		"external_id":    self.ExternalId,
 	}
-	return ret
+	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }
 
 func (self ElasticcacheDetails) GetMetricPairs() map[string]string {

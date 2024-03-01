@@ -113,7 +113,7 @@ func (self ElasticipDetails) GetMetricTags() map[string]string {
 		"ip_addr":        self.IpAddr,
 		"external_id":    self.ExternalId,
 	}
-	return ret
+	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }
 
 type ElasticipSyncstatusInput struct {
