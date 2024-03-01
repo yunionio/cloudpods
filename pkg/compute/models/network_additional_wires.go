@@ -18,6 +18,7 @@ import (
 	"context"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -25,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
@@ -64,6 +66,10 @@ func (manager *SNetworkAdditionalWireManager) newRecord(ctx context.Context, net
 	}
 	err := manager.TableSpec().InsertOrUpdate(ctx, rec)
 	return errors.Wrap(err, "InsertOrUpdate")
+}
+
+func (manager *SNetworkAdditionalWireManager) NewQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, useRawQuery bool) *sqlchemy.SQuery {
+	return manager.Query()
 }
 
 func (manager *SNetworkAdditionalWireManager) Query(fields ...string) *sqlchemy.SQuery {
