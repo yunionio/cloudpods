@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
@@ -537,7 +538,9 @@ func (snet *SNetwork) GetRoutes() []types.SRoute {
 
 func (snet *SNetwork) updateDnsRecord(nic *SGuestnetwork, isAdd bool) {
 	guest := nic.GetGuest()
-	snet._updateDnsRecord(guest.Name, nic.IpAddr, isAdd)
+	if !gotypes.IsNil(guest) {
+		snet._updateDnsRecord(guest.Name, nic.IpAddr, isAdd)
+	}
 }
 
 func (snet *SNetwork) _updateDnsRecord(name string, ipAddr string, isAdd bool) {
