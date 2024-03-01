@@ -406,6 +406,9 @@ func (self *SAzureClient) list(resource string, params url.Values, retVal interf
 		if err != nil {
 			return errors.Wrapf(err, "_list(%s)", resource)
 		}
+		if gotypes.IsNil(resp) {
+			return fmt.Errorf("empty response for %s", resource)
+		}
 		keys := []string{}
 		if resp.Contains("value") {
 			keys = []string{"value"}
