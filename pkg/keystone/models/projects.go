@@ -155,6 +155,10 @@ func (project *SProject) resetAdminUser(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
+func (manager *SProjectManager) NewQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, useRawQuery bool) *sqlchemy.SQuery {
+	return manager.Query()
+}
+
 func (manager *SProjectManager) Query(fields ...string) *sqlchemy.SQuery {
 	return manager.SIdentityBaseResourceManager.Query(fields...).IsFalse("is_domain")
 }
