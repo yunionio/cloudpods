@@ -1624,7 +1624,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20240228104732-b8924f0c2e81
+# yunion.io/x/sqlchemy v1.1.3-0.20240303023826-a40d7fe1f0a9
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
