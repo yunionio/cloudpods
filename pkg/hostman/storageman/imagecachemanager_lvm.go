@@ -35,19 +35,25 @@ const IMAGECACHE_PREFIX = "imagecache_"
 type SLVMImageCacheManager struct {
 	SBaseImageCacheManager
 
-	lock lockman.ILockManager
+	lvmlockd bool
+	lock     lockman.ILockManager
 }
 
-func NewLVMImageCacheManager(manager IStorageManager, cachePath string, storagecacheId string) *SLVMImageCacheManager {
+func NewLVMImageCacheManager(manager IStorageManager, cachePath, storagecacheId string, lvmlockd bool) *SLVMImageCacheManager {
 	imageCacheManager := new(SLVMImageCacheManager)
 	imageCacheManager.lock = lockman.NewInMemoryLockManager()
 	imageCacheManager.storageManager = manager
 	imageCacheManager.storagecacaheId = storagecacheId
 	imageCacheManager.cachePath = cachePath
 	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
+	imageCacheManager.lvmlockd = lvmlockd
 
 	imageCacheManager.loadCache(context.Background())
 	return imageCacheManager
+}
+
+func (c *SLVMImageCacheManager) Lvmlockd() bool {
+	return c.lvmlockd
 }
 
 func (c *SLVMImageCacheManager) loadLvNames() []string {
@@ -76,8 +82,13 @@ func (c *SLVMImageCacheManager) loadCache(ctx context.Context) {
 
 func (c *SLVMImageCacheManager) LoadImageCache(imageId string) {
 	imageCache := NewLocalImageCache(imageId, c)
-	if imageCache.Load() == nil {
+	if err := imageCache.Load(); err == nil {
+		if c.lvmlockd {
+			lvmutils.LVActive(imageCache.GetPath(), true, false)
+		}
 		c.cachedImages[imageId] = imageCache
+	} else {
+		log.Errorf("failed load cache %s %s", c.GetPath(), err)
 	}
 }
 

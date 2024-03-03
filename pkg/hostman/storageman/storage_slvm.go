@@ -16,6 +16,7 @@ package storageman
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -38,6 +39,8 @@ func (factory *SSLVMStorageFactory) StorageType() string {
 }
 
 type SSLVMStorage struct {
+	lvmlockd bool
+
 	*SLVMStorage
 }
 
@@ -57,6 +60,10 @@ func (s *SSLVMStorage) StorageType() string {
 
 func (s *SSLVMStorage) IsLocal() bool {
 	return false
+}
+
+func (s *SSLVMStorage) Lvmlockd() bool {
+	return s.lvmlockd
 }
 
 func (s *SSLVMStorage) CreateDisk(diskId string) IDisk {
@@ -90,7 +97,7 @@ func (s *SSLVMStorage) GetDiskById(diskId string) (IDisk, error) {
 
 func (s *SSLVMStorage) Accessible() error {
 	if err := lvmutils.VgActive(s.Path, true); err != nil {
-		return err
+		log.Warningf("vgactive got %s", err)
 	}
 
 	if err := lvmutils.VgDisplay(s.Path); err != nil {
@@ -103,6 +110,10 @@ func (s *SSLVMStorage) SetStorageInfo(storageId, storageName string, conf jsonut
 	s.StorageId = storageId
 	s.StorageName = storageName
 	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
+		if jsonutils.QueryBoolean(dconf, "enabled_lvmlockd", false) {
+			log.Infof("storage %s(%s) enabled lvmlockd", s.StorageId, s.StorageName)
+			s.lvmlockd = true
+		}
 		s.StorageConf = dconf
 	}
 
