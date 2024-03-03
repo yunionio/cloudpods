@@ -290,11 +290,14 @@ func tagSetList2Conditions(tagsetList tagutils.TTagSetList, keys []string, q *sq
 	conds := make([]sqlchemy.ICondition, 0)
 	paths := tagutils.TagSetList2Paths(tagsetList, keys)
 	for i := range paths {
-		label := api.JoinLabels(paths[i]...)
-		labelSlash := label + api.OrganizationLabelSeparator
-		conds = append(conds, sqlchemy.Contains(q.Field("full_label"), labelSlash))
-		conds = append(conds, sqlchemy.Startswith(q.Field("full_label"), labelSlash))
-		conds = append(conds, sqlchemy.Equals(q.Field("full_label"), label))
+		for j := range paths[i] {
+			label := api.JoinLabels(paths[i][:j+1]...)
+			conds = append(conds, sqlchemy.Equals(q.Field("full_label"), label))
+			if j == len(paths[i])-1 {
+				labelSlash := label + api.OrganizationLabelSeparator
+				conds = append(conds, sqlchemy.Startswith(q.Field("full_label"), labelSlash))
+			}
+		}
 	}
 	if len(conds) > 0 {
 		return sqlchemy.OR(conds...)
