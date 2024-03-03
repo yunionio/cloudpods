@@ -110,7 +110,10 @@ func generateId(orgId string, fullLabel string, level int) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId string, label string, fullLabel string, level int, weight *int, desc string) (*SOrganizationNode, error) {
+func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId string, fullLabel string, weight *int, desc string) (*SOrganizationNode, error) {
+	labels := api.SplitLabel(fullLabel)
+	level := len(labels)
+	label := labels[level-1]
 	id := generateId(orgId, fullLabel, level)
 	obj, err := manager.FetchById(id)
 	if err != nil {
