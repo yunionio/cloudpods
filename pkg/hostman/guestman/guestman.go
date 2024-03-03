@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -935,11 +936,25 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			log.Errorln(err)
 			return nil, err
 		}
+	}
 
+	for i := range disks {
+		diskPath, _ := disks[i].GetString("path")
+		if diskPath != "" {
+			storageType, _ := disks[i].GetString("storage_type")
+			if storageType == compute.STORAGE_SLVM {
+				if err := lvmutils.LVActive(diskPath, true, false); err != nil {
+					return nil, errors.Wrap(err, "lvm active with shared")
+				}
+				_, err := storageman.GetManager().GetDiskByPath(diskPath)
+				if err != nil {
+					return nil, errors.Wrapf(err, "slvm GetDiskByPath(%s)", diskPath)
+				}
+			}
+		}
 	}
 
 	body := jsonutils.NewDict()
-
 	if len(migParams.SrcMemorySnapshots) > 0 {
 		preparedMs, err := m.destinationPrepareMigrateMemorySnapshots(ctx, migParams.Sid, migParams.MemorySnapshotsUri, migParams.SrcMemorySnapshots)
 		if err != nil {

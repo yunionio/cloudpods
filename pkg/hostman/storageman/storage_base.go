@@ -98,6 +98,8 @@ type IStorage interface {
 	GetStoragecacheId() string
 	SetStoragecacheId(storagecacheId string)
 
+	Lvmlockd() bool
+
 	SetPath(string)
 	GetPath() string
 
@@ -169,6 +171,10 @@ func NewBaseStorage(manager *SStorageManager, path string) *SBaseStorage {
 
 func (s *SBaseStorage) GetId() string {
 	return s.StorageId
+}
+
+func (s *SBaseStorage) Lvmlockd() bool {
+	return false
 }
 
 func (s *SBaseStorage) GetStorageName() string {
