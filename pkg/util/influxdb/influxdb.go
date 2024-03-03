@@ -23,6 +23,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -298,4 +299,8 @@ func (db *SInfluxdb) SetRetentionPolicy(rp SRetentionPolicy) error {
 	} else {
 		return db.CreateRetentionPolicy(rp)
 	}
+}
+
+func (db *SInfluxdb) SetTimeout(timeout time.Duration) {
+	db.client.Timeout = timeout
 }
