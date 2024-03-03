@@ -48,12 +48,6 @@ func columnDefinitionBuffer(c sqlchemy.IColumnSpec) bytes.Buffer {
 
 	def := c.Default()
 	if hasDefault(c) {
-		// if c is NOT NULL, default value must be set
-		if !c.IsSupportDefault() {
-			panic(fmt.Errorf("column %q type %q does not support having default value: %q",
-				c.Name(), c.ColType(), def,
-			))
-		}
 		def = sqlchemy.GetStringValue(c.ConvertFromString(def))
 		buf.WriteString(" DEFAULT ")
 		if c.IsText() {
@@ -73,7 +67,9 @@ func columnDefinitionBuffer(c sqlchemy.IColumnSpec) bytes.Buffer {
 }
 
 func hasDefault(c sqlchemy.IColumnSpec) bool {
-	return (c.Default() != "" || !c.IsNullable()) && !c.IsAutoIncrement()
+	// if c is NOT NULL, default value must be set
+	// if datetime, empty default value is allowed for not null
+	return (c.Default() != "" || (!c.IsNullable() && !c.IsDateTime())) && !c.IsAutoIncrement()
 }
 
 // SBooleanColumn represents a boolean type column, which is a int(1) for mysql, with value of true or false
@@ -421,11 +417,6 @@ type STextColumn struct {
 	sqlchemy.SBaseWidthColumn
 }
 
-// IsSupportDefault implementation of STextColumn for IColumnSpec
-func (c *STextColumn) IsSupportDefault() bool {
-	return true // c.SBaseColumn.ColType() == "VARCHAR"
-}
-
 // IsText implementation of STextColumn for IColumnSpec
 func (c *STextColumn) IsText() bool {
 	return true
@@ -533,11 +524,17 @@ func NewTimeTypeColumn(name string, typeStr string, tagmap map[string]string, is
 type SDateTimeColumn struct {
 	STimeTypeColumn
 
-	// Is this column a 'created_at' field, whichi records the time of create this record
+	// Is this column a 'created_at' field, which records the time of create this record
 	isCreatedAt bool
 
-	// Is this column a 'updated_at' field, whichi records the time when this record was updated
+	// Is this column a 'updated_at' field, which records the time when this record was updated
 	isUpdatedAt bool
+}
+
+// DefinitionString implementation of SDateTimeColumn for IColumnSpec
+func (c *SDateTimeColumn) DefinitionString() string {
+	buf := columnDefinitionBuffer(c)
+	return buf.String()
 }
 
 func (c *SDateTimeColumn) IsCreatedAt() bool {
