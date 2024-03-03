@@ -426,6 +426,12 @@ type SDateTimeColumn struct {
 	isUpdatedAt bool
 }
 
+// DefinitionString implementation of SDateTimeColumn for IColumnSpec
+func (c *SDateTimeColumn) DefinitionString() string {
+	buf := columnDefinitionBuffer(c)
+	return buf.String()
+}
+
 func (c *SDateTimeColumn) IsCreatedAt() bool {
 	return c.isCreatedAt
 }

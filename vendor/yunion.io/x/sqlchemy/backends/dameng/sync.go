@@ -135,6 +135,7 @@ func (mysql *SDamengBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, change
 
 			if hasDefault(cols.NewCol) && cols.OldCol.Default() != cols.NewCol.Default() {
 				defStr := cols.NewCol.Default()
+				defStr = sqlchemy.GetStringValue(cols.NewCol.ConvertFromString(defStr))
 				if cols.NewCol.IsText() {
 					defStr = "'" + defStr + "'"
 				}
