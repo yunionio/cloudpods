@@ -60,6 +60,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -2169,6 +2170,13 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 				}
 			}
 			if migrated {
+				if d != nil && utils.IsInStringArray(d.GetType(), []string{api.STORAGE_SLVM, api.STORAGE_CLVM}) {
+					if err := lvmutils.LVDeactivate(d.GetPath()); err != nil {
+						log.Errorf("lv %s deactive failed %s", d.GetPath(), err)
+						return err
+					}
+				}
+
 				// remove memory snapshot files
 				dir := GetMemorySnapshotPath(s.GetId(), "")
 				if err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-rf", dir).Run(); err != nil {
@@ -3338,7 +3346,7 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotResetTask(ctx context.Context, inp
 	return nil, nil
 }
 
-func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JSONDict, *jsonutils.JSONDict, bool, error) {
+func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JSONDict, *jsonutils.JSONDict, bool, error) {
 	disksBackFile := jsonutils.NewDict()
 	diskSnapsChain := jsonutils.NewDict()
 	sysDiskHasTemplate := false
@@ -3349,7 +3357,7 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JS
 				return nil, nil, false, errors.Wrapf(err, "GetDiskByPath(%s)", disk.Path)
 			}
 			if d.GetType() == api.STORAGE_LOCAL {
-				snaps, back, hasTemplate, err := d.PrepareMigrate(liveMigrage)
+				snaps, back, hasTemplate, err := d.PrepareMigrate(liveMigrate)
 				if err != nil {
 					return nil, nil, false, err
 				}
@@ -3361,6 +3369,12 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JS
 				}
 				if hasTemplate {
 					sysDiskHasTemplate = hasTemplate
+				}
+			} else if d.GetType() == api.STORAGE_SLVM {
+				if d.GetStorage().Lvmlockd() {
+					if err := lvmutils.LVActive(d.GetPath(), true, false); err != nil {
+						return nil, nil, false, errors.Wrap(err, "lvm active with share")
+					}
 				}
 			}
 		}
