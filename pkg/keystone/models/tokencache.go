@@ -145,6 +145,7 @@ func (manager *STokenCacheManager) insert(ctx context.Context, token string, exp
 		Source:    source,
 		Ip:        ip,
 	}
+	val.SetModelManager(manager, &val)
 	err := manager.TableSpec().InsertOrUpdate(ctx, &val)
 	return errors.Wrap(err, "InsertOrUpdate")
 }
