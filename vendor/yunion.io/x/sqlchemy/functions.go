@@ -142,7 +142,9 @@ func (ff *sExprFunction) database() *SDatabase {
 			return db
 		}
 	}
-	log.Debugf("no fields function? %s", ff.expression())
+	if ff.function != "COUNT(*)" {
+		log.Debugf("no fields function? %s", ff.expression())
+	}
 	return nil
 }
 
