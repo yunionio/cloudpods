@@ -919,8 +919,11 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	if s.IsDirtyShotdown() && !pendingDelete {
 		log.Infof("Server dirty shutdown or a daemon %s", s.GetName())
 
-		if s.Desc.IsMaster || s.Desc.IsSlave ||
-			len(s.GetNeedMergeBackingFileDiskIndexs()) > 0 {
+		if len(s.GetNeedMergeBackingFileDiskIndexs()) > 0 {
+			go s.DirtyServerRequestStart()
+		} else if s.Desc.IsMaster {
+			go s.SyncStatus("Server dirty shutdown")
+		} else if s.Desc.IsSlave {
 			go s.DirtyServerRequestStart()
 		} else {
 			s.StartGuest(context.Background(), nil, jsonutils.NewDict())
