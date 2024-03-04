@@ -17,7 +17,6 @@ package apihelper
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -38,10 +37,6 @@ func (o GetDBModelsOptions) IncludeOtherCloudEnv() bool {
 
 func (o GetDBModelsOptions) GetModelSet() IModelSet {
 	return o.modelOptions.ModelSet
-}
-
-func (o GetDBModelsOptions) GetMinUpdatedAt() time.Time {
-	return o.modelOptions.MinUpdatedAt
 }
 
 func (o GetDBModelsOptions) IncludeDetails() bool {
