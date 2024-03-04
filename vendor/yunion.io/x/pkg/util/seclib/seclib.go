@@ -37,6 +37,7 @@ const (
 	ALL_PUNC    = "~`!@#$%^&*()-_=+[]{}|:';\",./<>?"
 )
 
+var FIRSTCHARS = fmt.Sprintf("%s%s", LETTERS, UPPERS)
 var CHARS = fmt.Sprintf("%s%s%s", DIGITS, LETTERS, UPPERS)
 
 func RandomPassword(width int) string {
@@ -49,8 +50,17 @@ func RandomPassword(width int) string {
 		letterCnt := 0
 		upperCnt := 0
 		for i := 0; i < width; i += 1 {
-			index := rand.Intn(len(CHARS))
-			ch := CHARS[index]
+			var ch byte
+			{
+				var candidates string
+				if i == 0 {
+					candidates = FIRSTCHARS
+				} else {
+					candidates = CHARS
+				}
+				index := rand.Intn(len(candidates))
+				ch = candidates[index]
+			}
 			if strings.IndexByte(DIGITS, ch) >= 0 {
 				digitsCnt += 1
 			} else if strings.IndexByte(LETTERS, ch) >= 0 {
@@ -105,13 +115,15 @@ func randomPassword2(width int) string {
 		var buf bytes.Buffer
 		for i := 0; i < width; i += 1 {
 			var ch byte
-			for {
-				index := rand.Intn(len(CHARS2))
-				ch = CHARS2[index]
-				if i == 0 && ch == '/' {
-					continue
+			{
+				var candidates string
+				if i == 0 {
+					candidates = FIRSTCHARS
+				} else {
+					candidates = CHARS2
 				}
-				break
+				index := rand.Intn(len(candidates))
+				ch = CHARS2[index]
 			}
 			if strings.IndexByte(DIGITS, ch) >= 0 {
 				ps.Digits += 1
