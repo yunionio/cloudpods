@@ -110,7 +110,10 @@ func generateId(orgId string, fullLabel string, level int) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId string, label string, fullLabel string, level int, weight *int, desc string) (*SOrganizationNode, error) {
+func (manager *SOrganizationNodeManager) ensureNode(ctx context.Context, orgId string, fullLabel string, weight *int, desc string) (*SOrganizationNode, error) {
+	labels := api.SplitLabel(fullLabel)
+	level := len(labels)
+	label := labels[level-1]
 	id := generateId(orgId, fullLabel, level)
 	obj, err := manager.FetchById(id)
 	if err != nil {
@@ -287,11 +290,14 @@ func tagSetList2Conditions(tagsetList tagutils.TTagSetList, keys []string, q *sq
 	conds := make([]sqlchemy.ICondition, 0)
 	paths := tagutils.TagSetList2Paths(tagsetList, keys)
 	for i := range paths {
-		label := api.JoinLabels(paths[i]...)
-		labelSlash := label + api.OrganizationLabelSeparator
-		conds = append(conds, sqlchemy.Contains(q.Field("full_label"), labelSlash))
-		conds = append(conds, sqlchemy.Startswith(q.Field("full_label"), labelSlash))
-		conds = append(conds, sqlchemy.Equals(q.Field("full_label"), label))
+		for j := range paths[i] {
+			label := api.JoinLabels(paths[i][:j+1]...)
+			conds = append(conds, sqlchemy.Equals(q.Field("full_label"), label))
+			if j == len(paths[i])-1 {
+				labelSlash := label + api.OrganizationLabelSeparator
+				conds = append(conds, sqlchemy.Startswith(q.Field("full_label"), labelSlash))
+			}
+		}
 	}
 	if len(conds) > 0 {
 		return sqlchemy.OR(conds...)

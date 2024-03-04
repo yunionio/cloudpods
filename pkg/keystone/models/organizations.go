@@ -436,7 +436,7 @@ func (org *SOrganization) PerformAddNode(
 			weight = &input.Weight
 			desc = input.Description
 		}
-		_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, labels[i], api.JoinLabels(labels[0:i+1]...), i+1, weight, desc)
+		_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, api.JoinLabels(labels[0:i+1]...), weight, desc)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to insert node %s", api.JoinLabels(labels[i:i]...))
 		}
@@ -575,7 +575,7 @@ func (org *SOrganization) syncTagValueMap(ctx context.Context, tagVal map[string
 		if val, ok := tagVal[key]; ok && val != tagutils.NoValue {
 			labels = append(labels, val)
 			log.Debugf("%d %s %s %s", i, key, val, strings.Join(labels, "/"))
-			_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, val, api.JoinLabels(labels...), i+1, nil, "")
+			_, err := OrganizationNodeManager.ensureNode(ctx, org.Id, api.JoinLabels(labels...), nil, "")
 			if err != nil {
 				return nil, errors.Wrapf(err, "fail to insert node %s", api.JoinLabels(labels...))
 			}
