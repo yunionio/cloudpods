@@ -189,6 +189,9 @@ func (self *SEipAddress) GetAssociationType() string {
 		if utils.IsInStringArray(resType, []string{"networkinterfaces"}) {
 			return api.EIP_ASSOCIATE_TYPE_SERVER
 		}
+		if utils.IsInStringArray(resType, []string{"loadbalancers"}) {
+			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+		}
 		return resType
 	}
 	return ""
