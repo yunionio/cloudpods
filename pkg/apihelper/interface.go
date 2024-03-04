@@ -90,11 +90,11 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 }
 
 func syncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (IModelSets, error) {
-	mss := mssOld.ModelSetList()
+	// mss := mssOld.ModelSetList()
 	mssNews := mssOld.NewEmpty()
-	for i, msNew := range mssNews.ModelSetList() {
+	for _, msNew := range mssNews.ModelSetList() {
 		var (
-			minUpdatedAt    = ModelSetMaxUpdatedAt(mss[i])
+			// minUpdatedAt    = ModelSetMaxUpdatedAt(mss[i])
 			includeEmulated = false
 		)
 		if optProvider, ok := msNew.(IModelSetEmulatedIncluder); ok {
@@ -103,7 +103,7 @@ func syncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 		err := GetModels(&GetModelsOptions{
 			ClientSession: s,
 			ModelManager:  msNew.ModelManager(),
-			MinUpdatedAt:  minUpdatedAt,
+			// MinUpdatedAt:  minUpdatedAt,
 			ModelSet:      msNew,
 			BatchListSize: opt.ListBatchSize,
 
@@ -119,11 +119,9 @@ func syncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 }
 
 func SyncDBModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (r ModelSetsUpdateResult, err error) {
-	mss := mssOld.ModelSetList()
 	mssNews := mssOld.NewEmpty()
-	for i, msNew := range mssNews.ModelSetList() {
+	for _, msNew := range mssNews.ModelSetList() {
 		var (
-			minUpdatedAt    = ModelSetMaxUpdatedAt(mss[i])
 			includeEmulated = false
 		)
 		if optProvider, ok := msNew.(IModelSetEmulatedIncluder); ok {
@@ -133,7 +131,6 @@ func SyncDBModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options)
 		opts := &GetModelsOptions{
 			ClientSession: s,
 			ModelManager:  msNew.ModelManager(),
-			MinUpdatedAt:  minUpdatedAt,
 			ModelSet:      msNew,
 			BatchListSize: opt.ListBatchSize,
 
