@@ -33,12 +33,7 @@ type SUnionQueryField struct {
 // Expression implementation of SUnionQueryField for IQueryField
 func (sqf *SUnionQueryField) Expression() string {
 	qChar := sqf.union.database().backend.QuoteChar()
-
-	alias := sqf.name
-	if len(sqf.alias) > 0 {
-		alias = sqf.alias
-	}
-	return fmt.Sprintf("%s%s%s.%s%s%s AS %s%s%s", qChar, sqf.union.Alias(), qChar, qChar, sqf.name, qChar, qChar, alias, qChar)
+	return fmt.Sprintf("%s%s%s.%s%s%s", qChar, sqf.union.Alias(), qChar, qChar, sqf.name, qChar)
 }
 
 // Name implementation of SUnionQueryField for IQueryField

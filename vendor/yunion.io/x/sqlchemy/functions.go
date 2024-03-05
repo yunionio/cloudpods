@@ -17,8 +17,6 @@ package sqlchemy
 import (
 	"fmt"
 	"strings"
-
-	"yunion.io/x/log"
 )
 
 // IFunctionQueryField is a special type of field that is an aggregate function
@@ -74,12 +72,6 @@ func (ff *SFunctionFieldBase) Reference() string {
 
 // Expression implementation of SFunctionFieldBase for IQueryField
 func (ff *SFunctionFieldBase) Expression() string {
-	if len(ff.alias) > 0 {
-		qChar := ff.getQuoteChar()
-		// add alias
-		return fmt.Sprintf("%s AS %s%s%s", ff.expression(), qChar, ff.alias, qChar)
-	}
-	// no alias
 	return ff.expression()
 }
 
@@ -116,12 +108,7 @@ type sExprFunction struct {
 func (ff *sExprFunction) expression() string {
 	fieldRefs := make([]interface{}, 0)
 	for _, f := range ff.fields {
-		switch tf := f.(type) {
-		case *SFunctionFieldBase:
-			fieldRefs = append(fieldRefs, tf.expression())
-		default:
-			fieldRefs = append(fieldRefs, tf.Reference())
-		}
+		fieldRefs = append(fieldRefs, f.Expression())
 	}
 	return fmt.Sprintf(ff.function, fieldRefs...)
 }
@@ -142,9 +129,9 @@ func (ff *sExprFunction) database() *SDatabase {
 			return db
 		}
 	}
-	if ff.function != "COUNT(*)" {
-		log.Debugf("no fields function? %s", ff.expression())
-	}
+	// if ff.function != "COUNT(*)" {
+	// 	log.Debugf("no fields function? %s", ff.expression())
+	// }
 	return nil
 }
 
@@ -224,12 +211,7 @@ type SConstField struct {
 
 // Expression implementation of SConstField for IQueryField
 func (s *SConstField) Expression() string {
-	name := s.Name()
-	if len(name) == 0 {
-		return s.Reference()
-	} else {
-		return fmt.Sprintf("%s AS %s", s.Reference(), name)
-	}
+	return s.Reference()
 }
 
 // Name implementation of SConstField for IQueryField
@@ -278,12 +260,7 @@ type SStringField struct {
 
 // Expression implementation of SStringField for IQueryField
 func (s *SStringField) Expression() string {
-	name := s.Name()
-	if len(name) == 0 {
-		return s.Reference()
-	} else {
-		return fmt.Sprintf("%s AS %s", s.Reference(), name)
-	}
+	return s.Reference()
 }
 
 // Name implementation of SStringField for IQueryField
