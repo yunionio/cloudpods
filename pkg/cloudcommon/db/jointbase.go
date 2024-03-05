@@ -75,6 +75,10 @@ func (manager *SJointResourceBaseManager) GetSlaveManager() IStandaloneModelMana
 	return manager._slave
 }
 
+func (manager *SJointResourceBaseManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 /*
 func queryField(q *sqlchemy.SQuery, manager IModelManager) sqlchemy.IQueryField {
 	field := q.Field(fmt.Sprintf("%s_id", manager.Keyword()))
