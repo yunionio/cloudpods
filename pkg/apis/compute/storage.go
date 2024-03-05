@@ -110,6 +110,7 @@ type StorageCreateInput struct {
 	// SLVM VG Name
 	SLVMVgName string
 	MasterHost string
+	Lvmlockd   bool
 }
 
 type RbdTimeoutInput struct {

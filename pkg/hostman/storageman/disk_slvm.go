@@ -15,12 +15,15 @@
 package storageman
 
 import (
+	"context"
 	"path"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -57,7 +60,7 @@ func (d *SSLVMDisk) Probe() error {
 		return errors.Wrap(err, "check lv is activated")
 	}
 	if !activated {
-		if err := lvmutils.LVActive(lvPath); err != nil {
+		if err := lvmutils.LVActive(lvPath, d.Storage.Lvmlockd(), false); err != nil {
 			return errors.Wrap(err, "lv active")
 		}
 	}
@@ -73,7 +76,7 @@ func (d *SSLVMDisk) Probe() error {
 			return errors.Wrap(err, "check lv is activated")
 		}
 		if !originActivated {
-			if err = lvmutils.LVActive(qemuImg.BackFilePath); err != nil {
+			if err = lvmutils.LVActive(qemuImg.BackFilePath, d.Storage.Lvmlockd(), false); err != nil {
 				return errors.Wrap(err, "lv active origin")
 			}
 		}
@@ -83,4 +86,33 @@ func (d *SSLVMDisk) Probe() error {
 		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", d.GetPath())
 	}
 	return nil
+}
+
+func (d *SSLVMDisk) CreateRaw(
+	ctx context.Context, sizeMb int, diskFormat string, fsFormat string,
+	encryptInfo *apis.SEncryptInfo, diskId string, back string,
+) (jsonutils.JSONObject, error) {
+	ret, err := d.SCLVMDisk.CreateRaw(ctx, sizeMb, diskFormat, fsFormat, encryptInfo, diskId, back)
+	if err != nil {
+		return ret, err
+	}
+	err = lvmutils.LVActive(d.GetPath(), true, false)
+	if err != nil {
+		return ret, errors.Wrap(err, "lvactive shared")
+	}
+	return ret, nil
+}
+
+func (d *SSLVMDisk) CreateFromTemplate(
+	ctx context.Context, imageId, format string, sizeMb int64, encryptInfo *apis.SEncryptInfo,
+) (jsonutils.JSONObject, error) {
+	ret, err := d.SCLVMDisk.CreateFromTemplate(ctx, imageId, format, sizeMb, encryptInfo)
+	if err != nil {
+		return ret, err
+	}
+	err = lvmutils.LVActive(d.GetPath(), true, false)
+	if err != nil {
+		return ret, errors.Wrap(err, "lvactive shared")
+	}
+	return ret, nil
 }

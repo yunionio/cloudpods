@@ -48,6 +48,7 @@ type IImageCacheManger interface {
 	GetId() string
 	GetPath() string
 	SetStoragecacheId(string)
+	Lvmlockd() bool
 
 	// for diskhandler
 	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
@@ -79,4 +80,8 @@ func (c *SBaseImageCacheManager) SetStoragecacheId(scid string) {
 
 func (c *SBaseImageCacheManager) GetStorageManager() IStorageManager {
 	return c.storageManager
+}
+
+func (c *SBaseImageCacheManager) Lvmlockd() bool {
+	return false
 }

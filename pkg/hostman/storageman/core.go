@@ -335,7 +335,7 @@ func (s *SStorageManager) InitLVMStorageImageCache(storagecacheId, vg string) {
 		s.LVMStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.LVMStorageImagecacheManagers[storagecacheId]; !ok {
-		s.LVMStorageImagecacheManagers[storagecacheId] = NewLVMImageCacheManager(s, vg, storagecacheId)
+		s.LVMStorageImagecacheManagers[storagecacheId] = NewLVMImageCacheManager(s, vg, storagecacheId, false)
 	}
 }
 
@@ -356,7 +356,7 @@ func (s *SStorageManager) AddSharedLVMStorageImagecache(imagecachePath string, s
 		s.SharedLVMStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.SharedLVMStorageImagecacheManagers[storagecacheId]; !ok {
-		imagecache := NewLVMImageCacheManager(s, imagecachePath, storagecacheId)
+		imagecache := NewLVMImageCacheManager(s, imagecachePath, storagecacheId, storage.Lvmlockd())
 		s.SharedLVMStorageImagecacheManagers[storagecacheId] = imagecache
 	}
 }
