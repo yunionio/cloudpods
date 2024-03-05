@@ -80,6 +80,7 @@ type StorageCreateOptions struct {
 	NfsSharedDir          string `help:"NFS shared dir"`
 	ClvmVgName            string `help:"clvm vg name"`
 	SlvmVgName            string `help:"slvm vg name"`
+	Lvmlockd              bool   `help:"shared lvm storage use lvmlockd"`
 	MasterHost            string `help:"slvm storage master host"`
 }
 

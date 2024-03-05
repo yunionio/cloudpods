@@ -106,6 +106,13 @@ func (c *SLVMImageCache) Acquire(
 		if err != nil {
 			return errors.Wrap(err, "lvm image cache acquire")
 		}
+		log.Infof("lvm lockd with cache %s %v", c.GetPath(), c.Manager.Lvmlockd())
+		if c.Manager.Lvmlockd() {
+			err = lvmutils.LVActive(c.GetPath(), true, false)
+			if err != nil {
+				return errors.Wrap(err, "lvmlockd set lv shared")
+			}
+		}
 
 		log.Infof("convert local image %s to lvm %s", c.imageId, c.GetPath())
 		out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
