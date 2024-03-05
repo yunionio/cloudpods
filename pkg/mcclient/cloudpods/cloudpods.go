@@ -53,6 +53,7 @@ type ModelManager interface {
 	PerformAction(session *mcclient.ClientSession, id string, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Update(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	GetKeyword() string
 }
 
 type CloudpodsClientConfig struct {
@@ -159,7 +160,11 @@ func (self *SCloudpodsClient) get(manager ModelManager, id string, params map[st
 		}
 		return errors.Wrapf(err, "Get(%s)", id)
 	}
-	return resp.Unmarshal(retVal)
+	obj := resp.(*jsonutils.JSONDict)
+	if manager.GetKeyword() == compute.Servers.GetKeyword() {
+		obj.Remove("cdrom")
+	}
+	return obj.Unmarshal(retVal)
 }
 
 func (self *SCloudpodsClient) perform(manager ModelManager, id, action string, params interface{}) (jsonutils.JSONObject, error) {
@@ -207,7 +212,11 @@ func (self *SCloudpodsClient) create(manager ModelManager, params interface{}, r
 	if err != nil {
 		return err
 	}
-	return resp.Unmarshal(retVal)
+	obj := resp.(*jsonutils.JSONDict)
+	if manager.GetKeyword() == compute.Servers.GetKeyword() {
+		obj.Remove("cdrom")
+	}
+	return obj.Unmarshal(retVal)
 }
 
 func (self *SCloudpodsClient) list(manager ModelManager, params map[string]interface{}, retVal interface{}) error {
@@ -226,7 +235,13 @@ func (self *SCloudpodsClient) list(manager ModelManager, params map[string]inter
 		if err != nil {
 			return errors.Wrapf(err, "list")
 		}
-		ret = append(ret, part.Data...)
+		for i := range part.Data {
+			data := part.Data[i].(*jsonutils.JSONDict)
+			if manager.GetKeyword() == compute.Servers.GetKeyword() {
+				data.Remove("cdrom")
+			}
+			ret = append(ret, data)
+		}
 		if len(ret) >= part.Total {
 			break
 		}
