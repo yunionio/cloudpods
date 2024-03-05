@@ -169,6 +169,9 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 			// normal
 			buf.WriteString(f.Expression())
 		}
+		if f.Name() != "" {
+			buf.WriteString(fmt.Sprintf(" AS %s%s%s", qChar, f.Name(), qChar))
+		}
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(fmt.Sprintf("%s AS %s%s%s", tq.from.Expression(), qChar, tq.from.Alias(), qChar))
