@@ -303,7 +303,7 @@ func (d *QemuKvmDriver) connect(guestDesc *apis.GuestDesc) error {
 	disks = append(disks, d.imageInfo.Path)
 	//}
 
-	err := d.qemuArchDriver.StartGuest(sshport, ncpu, memSizeMB, manager.hugepage, manager.hugepageSizeKB, disks)
+	err := d.qemuArchDriver.StartGuest(sshport, ncpu, memSizeMB, manager.hugepage, manager.hugepageSizeKB, d.imageInfo)
 	if err != nil {
 		return err
 	}
@@ -602,71 +602,80 @@ func (d *QemuBaseDriver) CleanGuest() {
 	}
 }
 
-type QemuX86Driver struct {
-	QemuBaseDriver
-}
-
-func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, disks []string) error {
-	uuid := stringutils.UUID4()
-	socketPath := fmt.Sprintf("/opt/cloud/host-deployer/hmp_%s.socket", uuid)
-
+func (d *QemuBaseDriver) startCmds(
+	sshPort, ncpu, memSizeMB int, imageInfo qemuimg.SImageInfo,
+	machineOpts, cdromDeviceOpts, fwOpts, socketPath, initrdPath, kernelPath string,
+) string {
 	cmd := manager.qemuCmd
+
 	if sysutils.IsKvmSupport() {
 		cmd += __("-enable-kvm")
 		cmd += __("-cpu host")
 	} else {
 		cmd += __("-cpu max")
 	}
-	cmd += __("-M pc")
+	cmd += machineOpts
 
-	d.pidPath = fmt.Sprintf("/opt/cloud/host-deployer/%s.pid", uuid)
 	cmd += __("-nodefaults")
 	cmd += __("-daemonize")
 	cmd += __("-monitor unix:%s,server,nowait", socketPath)
 	cmd += __("-pidfile %s", d.pidPath)
 	cmd += __("-vnc none")
 	cmd += __("-smp %d", ncpu)
-
-	//if hugePage {
-	//	if pageSizeKB/1024 > memSizeMB {
-	//		memSizeMB = pageSizeKB / 1024
-	//	}
-	//
-	//	hugepagePath := fmt.Sprintf("/dev/hugepages/host-deployer/%s", uuid)
-	//	out, err := procutils.NewCommand("mkdir", "-p", hugepagePath).Output()
-	//	if err != nil {
-	//		return errors.Wrapf(err, "mkdir %s failed: %s", hugepagePath, out)
-	//	}
-	//	d.hugepagePath = hugepagePath
-	//
-	//	mountCmd := fmt.Sprintf("mount -t hugetlbfs -o pagesize=%dK,size=%dM hugetlbfs-%s %s", pageSizeKB, memSizeMB, uuid, hugepagePath)
-	//	out, err = procutils.NewCommand("bash", "-c", mountCmd).Output()
-	//	if err != nil {
-	//		return errors.Wrapf(err, "mount %s failed: %s", mountCmd, out)
-	//	}
-	//
-	//	cmd += __("-m %dM", memSizeMB)
-	//	cmd += __("-object memory-backend-file,id=mem,prealloc=on,mem-path=%s,size=%dM,share=on", hugepagePath, memSizeMB)
-	//	cmd += __("-numa node,memdev=mem")
-	//} else {
 	cmd += __("-m %dM", memSizeMB)
-	//}
-
-	cmd += __("-initrd %s", manager.GetX86InitrdPath())
-	cmd += __("-kernel %s", manager.GetX86KernelPath())
+	cmd += __("-initrd %s", initrdPath)
+	cmd += __("-kernel %s", kernelPath)
 	cmd += __("-append rootfstype=ramfs")
-	cmd += __("-device VGA")
+	cmd += __("-append vsyscall=emulate")
+	cmd += fwOpts
 	cmd += __("-device virtio-serial-pci")
 	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp::%d-:22", sshPort)
 	cmd += __("-device virtio-net-pci,netdev=hostnet0")
 	cmd += __("-device virtio-scsi-pci,id=scsi")
-	for i, diskPath := range disks {
-		cmd += __("-drive file=%s,if=none,id=drive_%d,cache=none", diskPath, i)
+
+	if imageInfo.Encrypted() {
+		imageInfo.SetSecId("sec0")
+
+		cmd += __("-object %s", imageInfo.SecretOptions())
+	}
+	for i, diskPath := range []string{imageInfo.Path} {
+		diskDrive := __("-drive file=%s,if=none,id=drive_%d,cache=none", diskPath, i)
+		if imageInfo.Format != qemuimg.RAW && imageInfo.Encrypted() {
+			diskDrive += ",encrypt.format=luks,encrypt.key-secret=sec0"
+		}
+
+		cmd += diskDrive
 		cmd += __("-device scsi-hd,drive=drive_%d,bus=scsi.0,id=drive_%d", i, i)
 	}
-	cmd += __("-drive id=ide0-cd0,if=none,media=cdrom,file=%s", DEPLOY_ISO)
-	cmd += __("-device ide-cd,drive=ide0-cd0,bus=ide.1")
-	cmd += __("-append vsyscall=emulate")
+	cmd += __("-drive id=cd0,if=none,media=cdrom,file=%s", DEPLOY_ISO)
+	cmd += cdromDeviceOpts
+
+	return cmd
+}
+
+type QemuX86Driver struct {
+	QemuBaseDriver
+}
+
+func (d *QemuX86Driver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, imageInfo qemuimg.SImageInfo) error {
+	uuid := stringutils.UUID4()
+	socketPath := fmt.Sprintf("/opt/cloud/host-deployer/hmp_%s.socket", uuid)
+	d.pidPath = fmt.Sprintf("/opt/cloud/host-deployer/%s.pid", uuid)
+
+	machineOpts := __("-M pc")
+	cdromDeviceOpts := __("-device ide-cd,drive=cd0,bus=ide.1")
+	cmd := d.startCmds(
+		sshPort,
+		ncpu,
+		memSizeMB,
+		imageInfo,
+		machineOpts,
+		cdromDeviceOpts,
+		"",
+		socketPath,
+		manager.GetX86InitrdPath(),
+		manager.GetX86KernelPath(),
+	)
 
 	log.Infof("start guest %s", cmd)
 	out, err := manager.startQemu(cmd)
@@ -702,48 +711,32 @@ type QemuARMDriver struct {
 	QemuBaseDriver
 }
 
-func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, disks []string) error {
+func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, imageInfo qemuimg.SImageInfo) error {
 	uuid := stringutils.UUID4()
 	socketPath := fmt.Sprintf("/opt/cloud/host-deployer/hmp_%s.socket", uuid)
-
-	cmd := manager.qemuCmd
-	if sysutils.IsKvmSupport() {
-		cmd += __("-enable-kvm")
-		cmd += __("-cpu host")
-	} else {
-		cmd += __("-cpu max")
-	}
-	cmd += __("-M virt,gic-version=max")
-
 	d.pidPath = fmt.Sprintf("/opt/cloud/host-deployer/%s.pid", uuid)
-	cmd += __("-nodefaults")
-	cmd += __("-daemonize")
-	cmd += __("-monitor unix:%s,server,nowait", socketPath)
-	cmd += __("-pidfile %s", d.pidPath)
-	cmd += __("-vnc none")
-	cmd += __("-smp %d", ncpu)
 
-	cmd += __("-m %dM", memSizeMB)
-	cmd += __("-initrd %s", manager.GetARMInitrdPath())
-	cmd += __("-kernel %s", manager.GetARMKernelPath())
-	cmd += __("-append rootfstype=ramfs")
+	machineOpts := __("-M virt,gic-version=max")
+	cdromDeviceOpts := __("-device scsi-cd,drive=cd0,share-rw=true")
+	fwOpts := ""
 	if manager.runOnHost() {
-		cmd += __("-drive if=pflash,format=raw,unit=0,file=/opt/cloud/contrib/OVMF.fd,readonly=on")
+		fwOpts = __("-drive if=pflash,format=raw,unit=0,file=/opt/cloud/contrib/OVMF.fd,readonly=on")
 	} else {
-		cmd += __("-drive if=pflash,format=raw,unit=0,file=/usr/share/AAVMF/AAVMF_CODE.fd,readonly=on")
+		fwOpts = __("-drive if=pflash,format=raw,unit=0,file=/usr/share/AAVMF/AAVMF_CODE.fd,readonly=on")
 	}
 
-	cmd += __("-device virtio-serial-pci")
-	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp::%d-:22", sshPort)
-	cmd += __(" -device virtio-net-pci,netdev=hostnet0")
-	cmd += __("-device virtio-scsi-pci,id=scsi")
-	for i, diskPath := range disks {
-		cmd += __("-drive file=%s,if=none,id=drive_%d,cache=none", diskPath, i)
-		cmd += __("-device scsi-hd,drive=drive_%d,bus=scsi.0,id=drive_%d", i, i)
-	}
-	cmd += __("-drive if=none,file=%s,id=cd0,media=cdrom", DEPLOY_ISO)
-	cmd += __("-device scsi-cd,drive=cd0,share-rw=true")
-	cmd += __("-append vsyscall=emulate")
+	cmd := d.startCmds(
+		sshPort,
+		ncpu,
+		memSizeMB,
+		imageInfo,
+		machineOpts,
+		cdromDeviceOpts,
+		fwOpts,
+		socketPath,
+		manager.GetX86InitrdPath(),
+		manager.GetX86KernelPath(),
+	)
 
 	log.Infof("start guest %s", cmd)
 	out, err := manager.startQemu(cmd)
@@ -776,7 +769,7 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 }
 
 type IQemuArchDriver interface {
-	StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, disks []string) error
+	StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, imageInfo qemuimg.SImageInfo) error
 	CleanGuest()
 }
 
