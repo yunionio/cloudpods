@@ -163,3 +163,7 @@ func (self *SCtyunProvider) GetCloudRegionExternalIdPrefix() string {
 func (self *SCtyunProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
+
+func (self *SCtyunProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}
