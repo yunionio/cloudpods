@@ -31,12 +31,7 @@ type SSubQueryField struct {
 // Expression implementation of SSubQueryField for IQueryField
 func (sqf *SSubQueryField) Expression() string {
 	qChar := sqf.query.database().backend.QuoteChar()
-
-	alias := sqf.field.Name()
-	if len(sqf.alias) > 0 {
-		alias = sqf.alias
-	}
-	return fmt.Sprintf("%s%s%s.%s%s%s AS %s%s%s", qChar, sqf.query.alias, qChar, qChar, sqf.field.Name(), qChar, qChar, alias, qChar)
+	return fmt.Sprintf("%s%s%s.%s%s%s", qChar, sqf.query.alias, qChar, qChar, sqf.field.Name(), qChar)
 }
 
 // Name implementation of SSubQueryField for IQueryField
@@ -125,7 +120,7 @@ func (sq *SSubQuery) findField(id string) IQueryField {
 func (sq *SSubQuery) Field(id string, alias ...string) IQueryField {
 	f := sq.field(id, alias...)
 	if f == nil {
-		log.Errorf("subquery %s AS %s cannot find field %s", sq.query.String(), sq.alias, id)
+		log.Errorf("subquery %s as %s cannot find field %s", sq.query.String(), sq.alias, id)
 	}
 	return f
 }
