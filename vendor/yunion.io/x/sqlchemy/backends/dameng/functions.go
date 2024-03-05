@@ -21,6 +21,25 @@ import (
 )
 
 // GROUP_CONCAT2 represents the SQL function GROUP_CONCAT
-func (mysql *SDamengBackend) GROUP_CONCAT2(name string, sep string, field sqlchemy.IQueryField) sqlchemy.IQueryField {
-	return sqlchemy.NewFunctionField(name, true, fmt.Sprintf("REPLACE(WM_CONCAT(%%s), ',', '%s')", sep), field)
+func (dameng *SDamengBackend) GROUP_CONCAT2(name string, sep string, field sqlchemy.IQueryField) sqlchemy.IQueryField {
+	if sep == "," {
+		return sqlchemy.NewFunctionField(name, true, `WM_CONCAT(%s)`, field)
+	} else {
+		return sqlchemy.NewFunctionField(name, true, fmt.Sprintf("REPLACE(WM_CONCAT(%%s), ',', '%s')", sep), field)
+	}
+}
+
+// INET_ATON represents the SQL function INET_ATON
+func (dameng *SDamengBackend) INET_ATON(field sqlchemy.IQueryField) sqlchemy.IQueryField {
+	expr := ""
+	vars := make([]sqlchemy.IQueryField, 0)
+	expr += `TO_NUMBER(SUBSTR(%s,1,INSTR(%s,'.')-1))*POWER(256,3)+`
+	vars = append(vars, field, field)
+	expr += `TO_NUMBER(SUBSTR(%s,INSTR(%s,'.')+1,INSTR(%s,'.',1,2)-INSTR(%s,'.')-1))*POWER(256,2)+`
+	vars = append(vars, field, field, field, field)
+	expr += `TO_NUMBER(SUBSTR(%s,INSTR(%s,'.',1,2)+1,INSTR(%s,'.',1,3)-INSTR(%s,'.',1,2)-1))*256+`
+	vars = append(vars, field, field, field, field)
+	expr += `TO_NUMBER(SUBSTR(%s,INSTR(%s,'.',1,3)+1))`
+	vars = append(vars, field, field)
+	return sqlchemy.NewFunctionField("", false, expr, vars...)
 }

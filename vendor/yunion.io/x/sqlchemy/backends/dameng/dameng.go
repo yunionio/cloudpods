@@ -16,6 +16,7 @@ package dameng
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -84,11 +85,17 @@ func (dameng *SDamengBackend) PrepareInsertOrUpdateSQL(ts sqlchemy.ITableSpec, i
 	selectValues := make([]string, 0, len(insertColNames))
 	onConditions := make([]string, 0, len(onPrimaryCols))
 
+	colNameMap := make(map[string]struct{})
 	for i := range insertColNames {
 		colName := strings.Trim(insertColNames[i], "'\"")
+		colNameMap[colName] = struct{}{}
 		selectValues = append(selectValues, fmt.Sprintf("%s AS \"%s\"", insertFields[i], colName))
 	}
 	for _, primary := range onPrimaryCols {
+		colName := strings.Trim(primary, "'\"")
+		if _, ok := colNameMap[colName]; !ok {
+			log.Fatalf("primary colume %s missing from insert columes for table %s", colName, ts.Name())
+		}
 		onConditions = append(onConditions, fmt.Sprintf("T1.%s=T2.%s", primary, primary))
 	}
 	for i := range updateSetCols {
