@@ -828,6 +828,10 @@ func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential
 			return err
 		}
 	}
+	eip, _ := self.GetElasticIp()
+	if eip != nil {
+		eip.Dissociate(ctx, userCred)
+	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
