@@ -156,9 +156,10 @@ func isExitAddress(ip string) bool {
 }
 
 func AddNicRoutes(routes [][]string, nicDesc *types.SServerNic, mainIp string, nicCnt int) [][]string {
-	if mainIp == nicDesc.Ip {
-		return routes
-	}
+	// always add static routes, even if this is the default NIC
+	// if mainIp == nicDesc.Ip {
+	// 	return routes
+	// }
 	if len(nicDesc.Routes) > 0 {
 		routes = extendRoutes(routes, nicDesc.Routes)
 	} else if len(nicDesc.Gateway) > 0 && !isExitAddress(nicDesc.Ip) &&
