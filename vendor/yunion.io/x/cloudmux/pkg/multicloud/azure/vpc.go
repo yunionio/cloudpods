@@ -29,11 +29,6 @@ type AddressSpace struct {
 	AddressPrefixes []string `json:"addressPrefixes,omitempty"`
 }
 
-type SubnetPropertiesFormat struct {
-	AddressPrefix string `json:"addressPrefix,omitempty"`
-	//ProvisioningState string
-}
-
 type VirtualNetworkPropertiesFormat struct {
 	ProvisioningState      string
 	Status                 string
