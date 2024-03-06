@@ -48,17 +48,26 @@ func (s *SSLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred mc
 	if len(input.SLVMVgName) == 0 {
 		return httperrors.NewMissingParameterError("slvm_vg_name")
 	}
-	if len(input.MasterHost) == 0 {
+	if input.Lvmlockd {
+		input.MasterHost = ""
+	}
+	if !input.Lvmlockd && len(input.MasterHost) == 0 {
 		return httperrors.NewMissingParameterError("master_host")
 	}
-	host, err := models.HostManager.FetchByIdOrName(userCred, input.MasterHost)
-	if err != nil {
-		return httperrors.NewInputParameterError("get host %s failed", input.MasterHost)
+
+	if input.MasterHost != "" {
+		host, err := models.HostManager.FetchByIdOrName(userCred, input.MasterHost)
+		if err != nil {
+			return httperrors.NewInputParameterError("get host %s failed", input.MasterHost)
+		}
+		input.MasterHost = host.GetId()
 	}
-	input.MasterHost = host.GetId()
 
 	input.StorageConf = jsonutils.NewDict()
 	input.StorageConf.Set("slvm_vg_name", jsonutils.NewString(input.SLVMVgName))
+	if input.Lvmlockd {
+		input.StorageConf.Set("enabled_lvmlockd", jsonutils.NewBool(true))
+	}
 	return nil
 }
 

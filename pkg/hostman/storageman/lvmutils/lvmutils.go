@@ -92,11 +92,28 @@ func LvIsActivated(lvPath string) (bool, error) {
 	return false, errors.Errorf("unexpect res %v", res)
 }
 
-func LVActive(lvPath string) error {
-	cmd := fmt.Sprintf("lvm lvchange -ay %s", lvPath)
+func LVActive(lvPath string, share, exclusive bool) error {
+	opts := "-ay"
+	if share {
+		opts += "s"
+	} else if exclusive {
+		opts += "e"
+	}
+
+	cmd := fmt.Sprintf("lvm lvchange %s %s", opts, lvPath)
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
 	if err != nil {
-		return errors.Wrapf(err, "lvchange -ay %s failed %s", lvPath, out)
+		return errors.Wrapf(err, "lvchange %s %s failed %s", opts, lvPath, out)
+	}
+	return nil
+}
+
+func LVDeactivate(lvPath string) error {
+	opts := "-an"
+	cmd := fmt.Sprintf("lvm lvchange %s %s", opts, lvPath)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	if err != nil {
+		return errors.Wrapf(err, "lvchange %s %s failed %s", opts, lvPath, out)
 	}
 	return nil
 }
