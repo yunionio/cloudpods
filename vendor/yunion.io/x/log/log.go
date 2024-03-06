@@ -17,6 +17,7 @@ package log
 
 import (
 	"runtime"
+	"runtime/debug"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -134,10 +135,12 @@ func Errorln(args ...interface{}) {
 }
 
 func Fatalf(format string, args ...interface{}) {
+	debug.PrintStack()
 	logrus.Fatalf(format, args...)
 }
 
 func Fatalln(args ...interface{}) {
+	debug.PrintStack()
 	logrus.Fatalln(args...)
 }
 
