@@ -26,6 +26,21 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
+type SubnetPropertiesFormat struct {
+	AddressPrefix   string   `json:"addressPrefix,omitempty"`
+	AddressPrefixes []string `json:"addressPrefixes,omitempty"`
+}
+
+func (self *SubnetPropertiesFormat) getPrefix() string {
+	if len(self.AddressPrefix) > 0 {
+		return self.AddressPrefix
+	}
+	for _, prefix := range self.AddressPrefixes {
+		return prefix
+	}
+	return ""
+}
+
 type SNetwork struct {
 	multicloud.SResourceBase
 	AzureTags
@@ -62,8 +77,15 @@ func (self *SNetwork) Delete() error {
 	return self.wire.vpc.region.del(self.ID)
 }
 
+func (self *SNetwork) getPrefix() string {
+	if len(self.AddressPrefix) > 0 {
+		return self.AddressPrefix
+	}
+	return self.Properties.getPrefix()
+}
+
 func (self *SNetwork) GetGateway() string {
-	pref, _ := netutils.NewIPV4Prefix(self.Properties.AddressPrefix)
+	pref, _ := netutils.NewIPV4Prefix(self.getPrefix())
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
 	return endIp.String()
@@ -74,20 +96,20 @@ func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 }
 
 func (self *SNetwork) GetIpEnd() string {
-	pref, _ := netutils.NewIPV4Prefix(self.Properties.AddressPrefix)
+	pref, _ := netutils.NewIPV4Prefix(self.getPrefix())
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
 	return endIp.String()
 }
 
 func (self *SNetwork) GetIpMask() int8 {
-	pref, _ := netutils.NewIPV4Prefix(self.Properties.AddressPrefix)
+	pref, _ := netutils.NewIPV4Prefix(self.getPrefix())
 	return pref.MaskLen
 }
 
 // https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq
 func (self *SNetwork) GetIpStart() string {
-	pref, _ := netutils.NewIPV4Prefix(self.Properties.AddressPrefix)
+	pref, _ := netutils.NewIPV4Prefix(self.getPrefix())
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
 	startIp = startIp.StepUp()                    // 2

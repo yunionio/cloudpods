@@ -1195,8 +1195,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240304114834-4acad53ed995 h1:3fDd+m7JZ4wzmlSuNkLj8XMQjsnTFOzw4T0Sm4iFnYI=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240304114834-4acad53ed995/go.mod h1:jmuNDDZbSZwC2ACXC8c+741N8o4pzVvK0fgkA9OrKpI=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240306095153-5c75a91aa845 h1:XmGweeOYIXZ88Z253wDhMv8cqTXq+WBXAA5Df1/9r7Q=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240306095153-5c75a91aa845/go.mod h1:jmuNDDZbSZwC2ACXC8c+741N8o4pzVvK0fgkA9OrKpI=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32 h1:v7POYkQwo1XzOxBoIoRVr/k0V9Y5JyjpshlIFa9raug=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
@@ -1204,8 +1204,8 @@ yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401 h1:4l6ELFSQ0MBVInscZ8
 yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401/go.mod h1:VK4Z93dgiKgAijcSqbMKmGaBMJuHulR16Hz4K015ZPo=
 yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b/go.mod h1:+gauLs73omeJAPlsXcevLsJLKixV+sR/E7WSYTSx1fE=
 yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
-yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361 h1:c5LyNdhbvBe/92pXs9jgXOU/S+RgYh/DHe538LpT/Mo=
-yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
+yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91 h1:inY5o3LDa/zgsIZuPN0HmpzKIsu/lLgsBmMttuDPGj4=
+yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
 yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900 h1:Hu/4ERvoWaN6aiFs4h4/yvVBMeVzb3eDaYTxkVx9Kdo=
 yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
