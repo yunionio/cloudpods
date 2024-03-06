@@ -615,7 +615,7 @@ func (snet *SNetwork) GetGuestIpv4StartAddress() netutils.IPV4Addr {
 }
 
 func (snet *SNetwork) IsExitNetwork() bool {
-	return netutils.IsExitAddress(snet.GetGuestIpv4StartAddress())
+	return len(snet.ExternalId) == 0 && netutils.IsExitAddress(snet.GetGuestIpv4StartAddress())
 }
 
 func (manager *SNetworkManager) getNetworksByWire(ctx context.Context, wire *SWire) ([]SNetwork, error) {
