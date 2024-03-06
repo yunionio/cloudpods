@@ -188,7 +188,7 @@ func IsNetworkAvailable(
 		return len(data.HostId) > 0
 	}
 
-	if n.IsExitNetwork() != exit {
+	if isExit := n.IsExitNetwork(); isExit && isExit != exit {
 		return FailReason{
 			Reason: fmt.Sprintf("%v(%v): %s", n.Name, n.Id, ErrExitIsNotMatch),
 		}
