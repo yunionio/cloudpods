@@ -51,6 +51,7 @@ type CloudDeviceInfo struct {
 type IHost interface {
 	GetHostId() string
 	GetSession() *mcclient.ClientSession
+	IsContainerHost() bool
 
 	AppendHostError(content string)
 	AppendError(content, objType, id, name string)
@@ -184,6 +185,24 @@ func (man *isolatedDeviceManager) probeContainerDevices() {
 			panicFatal(errors.Wrapf(err, "NewDevices %#v", dev))
 		}
 		man.devices = append(man.devices, iDevs...)
+	}
+}
+
+func (man *isolatedDeviceManager) probeContainerNvidiaGPUs() {
+	devman, err := GetContainerDeviceManager(ContainerDeviceTypeNVIDIAGPU)
+	if err != nil {
+		log.Errorf("no container device manager %s found", ContainerDeviceTypeNVIDIAGPU)
+		return
+	}
+	devs, err := devman.ProbeDevices()
+	if err != nil {
+		log.Warningf("Probe container nvidia gpu devices: %v", err)
+		return
+	} else {
+		for idx, dev := range devs {
+			man.devices = append(man.devices, dev)
+			log.Infof("Add Container nvidia GPU device: %d => %#v", idx, dev)
+		}
 	}
 }
 
@@ -352,20 +371,24 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 
 func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool) {
 	man.devices = make([]IDevice, 0)
-	/*devModels, err := man.getCustomIsolatedDeviceModels()
-	if err != nil {
-		log.Errorf("get isolated device devModels %s", err.Error())
-		man.host.AppendError(fmt.Sprintf("get custom isolated device devModels %s", err.Error()), "isolated_devices", "", "")
-		return
+	if man.host.IsContainerHost() {
+		man.probeContainerNvidiaGPUs()
+		man.probeContainerDevices()
+	} else {
+		devModels, err := man.getCustomIsolatedDeviceModels()
+		if err != nil {
+			log.Errorf("get isolated device devModels %s", err.Error())
+			man.host.AppendError(fmt.Sprintf("get custom isolated device devModels %s", err.Error()), "isolated_devices", "", "")
+			return
+		}
+		man.probeUSBs(skipUSBs)
+		man.probeCustomPCIDevs(skipCustomDevs, devModels, GpuClassCodes)
+		man.probeSRIOVNics(sriovNics)
+		man.probeOffloadNICS(ovsOffloadNics)
+		man.probeAMDVgpus(amdVgpuPFs)
+		man.probeNVIDIAVgpus(nvidiaVgpuPFs)
+		man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs, enableWhitelist, devModels)
 	}
-	man.probeUSBs(skipUSBs)
-	man.probeCustomPCIDevs(skipCustomDevs, devModels, GpuClassCodes)
-	man.probeSRIOVNics(sriovNics)
-	man.probeOffloadNICS(ovsOffloadNics)
-	man.probeAMDVgpus(amdVgpuPFs)
-	man.probeNVIDIAVgpus(nvidiaVgpuPFs)
-	man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs, enableWhitelist, devModels)*/
-	man.probeContainerDevices()
 }
 
 type IsolatedDeviceModel struct {
@@ -591,6 +614,12 @@ func (dev *SBaseDevice) GetModelName() string {
 		return dev.dev.ModelName
 	} else {
 		return dev.dev.DeviceName
+	}
+}
+
+func (dev *SBaseDevice) SetModelName(modelName string) {
+	if dev.dev.ModelName == "" {
+		dev.dev.ModelName = modelName
 	}
 }
 

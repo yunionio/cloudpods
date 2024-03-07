@@ -111,7 +111,7 @@ type SIsolatedDevice struct {
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
 	Addr       string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
-	DevicePath string `width:"36" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"optional"`
+	DevicePath string `width:"128" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"optional"`
 
 	// Is vgpu physical funcion, That means it cannot be attached to guest
 	// VGPUPhysicalFunction bool `nullable:"true" default:"false" list:"domain" create:"domain_optional"`
