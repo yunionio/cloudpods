@@ -74,6 +74,10 @@ func (m *netintDeviceManager) GetType() isolated_device.ContainerDeviceType {
 	return m.devType
 }
 
+func (m *netintDeviceManager) ProbeDevices() ([]isolated_device.IDevice, error) {
+	return nil, nil
+}
+
 type NVMEListResult struct {
 	Devices []*NetintDeviceInfo `json:"devices"`
 }
@@ -159,6 +163,10 @@ func (m *netintDeviceManager) NewContainerDevices(_ *hostapi.ContainerCreateInpu
 		},
 	}
 	return ctrDevs, nil
+}
+
+func (m *netintDeviceManager) GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
+	return nil
 }
 
 type netintDevice struct {

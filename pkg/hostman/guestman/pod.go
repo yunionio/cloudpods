@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -665,6 +666,14 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				return "", errors.Wrapf(err, "GetRuntimeDevices of %s", jsonutils.Marshal(dev))
 			}
 			ctrCfg.Devices = append(ctrCfg.Devices, ctrDevs...)
+		}
+
+		nvMan, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceTypeNVIDIAGPU)
+		if err != nil {
+			return "", errors.Wrapf(err, "GetContainerDeviceManager by type %q", isolated_device.ContainerDeviceTypeNVIDIAGPU)
+		}
+		if envs := nvMan.GetContainerEnvs(spec.Devices); len(envs) > 0 {
+			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
 		}
 	}
 	if len(spec.Command) != 0 {

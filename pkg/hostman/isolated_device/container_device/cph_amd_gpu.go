@@ -37,6 +37,10 @@ func newCphAMDGPUManager() *cphAMDGPUManager {
 	return &cphAMDGPUManager{}
 }
 
+func (m *cphAMDGPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
+	return nil, nil
+}
+
 func (m *cphAMDGPUManager) GetType() isolated_device.ContainerDeviceType {
 	return isolated_device.ContainerDeviceTypeCphAMDGPU
 }
@@ -74,6 +78,10 @@ func (m *cphAMDGPUManager) NewContainerDevices(_ *hostapi.ContainerCreateInput, 
 		Permissions:   "rwm",
 	}
 	return []*runtimeapi.Device{cDev}, nil
+}
+
+func (m *cphAMDGPUManager) GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
+	return nil
 }
 
 type cphAMDGPU struct {
