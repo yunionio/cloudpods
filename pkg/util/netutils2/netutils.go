@@ -229,9 +229,10 @@ func isExitAddress(ip string) bool {
 }
 
 func AddNicRoutes(routes *[][]string, nicDesc *types.SServerNic, mainIp string, nicCnt int, privatePrefixes []string) {
-	if mainIp == nicDesc.Ip {
-		return
-	}
+	// always add static routes, even if this is the default NIC
+	// if mainIp == nicDesc.Ip {
+	// 	return
+	// }
 	if len(nicDesc.Routes) > 0 {
 		extendRoutes(routes, nicDesc.Routes)
 	} else if len(nicDesc.Gateway) > 0 && !isExitAddress(nicDesc.Ip) &&
