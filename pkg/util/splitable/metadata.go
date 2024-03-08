@@ -42,7 +42,7 @@ func (spec *SSplitTableSpec) getTableLastMeta() (*STableMetadata, error) {
 func (spec *SSplitTableSpec) GetTableMetaByTime(recordTime time.Time) (*STableMetadata, error) {
 	q := spec.metaSpec.Query().Desc("id").IsFalse("deleted")
 	if !recordTime.IsZero() {
-		q = q.LE("start_date", recordTime)
+		q = q.LE("start_date", recordTime.Add(time.Second))
 	}
 	meta := new(STableMetadata)
 	err := q.First(meta)
