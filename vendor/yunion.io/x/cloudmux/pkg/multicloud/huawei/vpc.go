@@ -207,7 +207,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	nats, err := self.region.GetNatGateways(self.GetId(), "")
-	if err != nil {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 		return nil, err
 	}
 	ret := make([]cloudprovider.ICloudNatGateway, len(nats))
