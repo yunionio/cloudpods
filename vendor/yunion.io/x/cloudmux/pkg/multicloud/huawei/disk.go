@@ -243,14 +243,14 @@ func (self *SDisk) checkAutoDelete(attachments []Attachment) bool {
 			// todo : 忽略错误？？
 			vm, err := self.storage.zone.region.GetInstanceByID(attach.ServerID)
 			if err != nil {
-				volumes := vm.OSExtendedVolumesVolumesAttached
-				for _, vol := range volumes {
-					if vol.ID == self.ID && strings.ToLower(vol.DeleteOnTermination) == "true" {
-						autodelete = true
-					}
+				return false
+			}
+			volumes := vm.OSExtendedVolumesVolumesAttached
+			for _, vol := range volumes {
+				if vol.ID == self.ID && strings.ToLower(vol.DeleteOnTermination) == "true" {
+					autodelete = true
 				}
 			}
-
 			break
 		}
 	}
