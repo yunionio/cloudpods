@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"path"
 	"sort"
@@ -72,6 +73,7 @@ type sFileList struct {
 	ModTime time.Time
 	IsDir   bool
 	Mode    string
+	ModeNum fs.FileMode
 }
 
 type Files []sFileList
@@ -119,6 +121,7 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 			vv := sFileList{
 				Name:    f.Name(),
 				Mode:    f.Mode().String(),
+				ModeNum: f.Mode().Perm(),
 				Size:    f.Size(),
 				ModTime: f.ModTime(),
 				IsDir:   f.IsDir(),
