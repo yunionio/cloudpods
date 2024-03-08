@@ -16,9 +16,11 @@ package db
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,6 +29,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/util/splitable"
 )
 
@@ -126,13 +129,19 @@ func CheckRecordChecksumConsistent(model IModel) error {
 }
 
 func calculateRecordChecksumByValues(vals []interface{}) string {
-	ss := ""
+	ss := strings.Builder{}
 	for _, val := range vals {
-		ss += fmt.Sprintf("\n%v", val)
+		ss.WriteString(fmt.Sprintf("\n%v", val))
 	}
-	hStr := md5.Sum([]byte(ss))
-	sum := fmt.Sprintf("%x", hStr)
-	log.Debugf("calculate values string: %s checksum: %s", ss, sum)
+	var sum string
+	algStr := consts.DefaultDBChecksumHashAlgorithm()
+	switch algStr {
+	case "md5":
+		sum = fmt.Sprintf("%x", md5.Sum([]byte(ss.String())))
+	default:
+		sum = fmt.Sprintf("%x", sha256.Sum256([]byte(ss.String())))
+	}
+	// log.Debugf("calculate values string: %s alg: %s, checksum: %s", ss, algStr, sum)
 	return sum
 }
 

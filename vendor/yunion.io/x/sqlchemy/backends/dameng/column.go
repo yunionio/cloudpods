@@ -505,12 +505,12 @@ func (c *STimeTypeColumn) ConvertFromString(str string) interface{} {
 // NewTimeTypeColumn return an instance of STimeTypeColumn
 func NewTimeTypeColumn(name string, typeStr string, tagmap map[string]string, isPointer bool) STimeTypeColumn {
 	tagmap, v, ok := utils.TagPop(tagmap, sqlchemy.TAG_PRECISION)
-	prec := 6
+	prec := 0
 	if ok {
 		prec, _ = strconv.Atoi(v)
-		if prec > 6 || prec <= 0 {
+		if prec > 6 || prec < 0 {
 			log.Warningf("datetime field %s precision %d change to 6", name, prec)
-			prec = 6
+			prec = 0
 		}
 	}
 	dc := STimeTypeColumn{

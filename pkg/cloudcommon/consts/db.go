@@ -14,6 +14,8 @@
 
 package consts
 
+import "yunion.io/x/log"
+
 var (
 	QueryOffsetOptimization = false
 
@@ -22,6 +24,8 @@ var (
 	defaultDBDialect string
 
 	defaultDBConnectionString string
+
+	defaultDBChecksumHashAlgorithm string
 )
 
 func SetDefaultDB(dialect, connStr string) {
@@ -35,4 +39,16 @@ func DefaultDBDialect() string {
 
 func DefaultDBConnStr() string {
 	return defaultDBConnectionString
+}
+
+func SetDefaultDBChecksumHashAlgorithm(alg string) {
+	log.Infof("Set default DB checksum hash algorithm: %s", alg)
+	defaultDBChecksumHashAlgorithm = alg
+}
+
+func DefaultDBChecksumHashAlgorithm() string {
+	if len(defaultDBChecksumHashAlgorithm) > 0 {
+		return defaultDBChecksumHashAlgorithm
+	}
+	return "sha256"
 }

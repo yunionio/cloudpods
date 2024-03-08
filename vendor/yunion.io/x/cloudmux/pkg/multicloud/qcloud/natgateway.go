@@ -28,18 +28,18 @@ type SNatGateway struct {
 	QcloudTags
 	vpc *SVpc
 
-	NatId            string  `json:"natId"`
-	NatName          string  `json:"natName"`
-	ProductionStatus float32 `json:"productionStatus"`
-	State            string  `json:"state"`
-	UnVpcId          string  `json:"unVpcId"`
-	VpcId            float32 `json:"vpcId"`
-	VpcName          string  `json:"vpcName"`
-	Zone             string  `json:"zone"`
+	NatId            string `json:"natId"`
+	NatName          string `json:"natName"`
+	ProductionStatus string `json:"productionStatus"`
+	State            string `json:"state"`
+	UnVpcId          string `json:"unVpcId"`
+	VpcId            string `json:"vpcId"`
+	VpcName          string `json:"vpcName"`
+	Zone             string `json:"zone"`
 
-	Bandwidth     float32   `json:"bandwidth"`
+	Bandwidth     string    `json:"bandwidth"`
 	CreateTime    time.Time `json:"createTime"`
-	EipCount      float32   `json:"eipCount"`
+	EipCount      string    `json:"eipCount"`
 	MaxConcurrent float32   `json:"maxConcurrent"`
 }
 
