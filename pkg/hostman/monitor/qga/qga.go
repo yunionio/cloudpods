@@ -447,9 +447,34 @@ func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify
 }
 
 func (qga *QemuGuestAgent) QgaSetLinuxNetwork(qgaNetMod *monitor.NetworkModify) error {
-	args := []string{"-c", fmt.Sprintf("/sbin/dhclient -r %s && /sbin/dhclient -1 %s", qgaNetMod.Device, qgaNetMod.Device)}
-	_, err := qga.GuestExecCommand("/bin/bash", args, []string{}, "", false)
-	return err
+	pid, err := qga.GuestExecCommand("/sbin/dhclient", []string{"-r", qgaNetMod.Device}, []string{}, "", false)
+	if err != nil {
+		return errors.Wrap(err, "failed release dhcp current lease")
+	}
+
+	for i := 0; i < 3; i++ {
+		// wait dhclient release current lease
+		time.Sleep(time.Millisecond * 100)
+		res, err := qga.GuestExecStatusCommand(pid.Pid)
+		if err != nil {
+			log.Errorf("failed get exec status %s", err)
+			continue
+		}
+		if res.Exited {
+			break
+		}
+	}
+
+	// flush ipv4 address
+	_, err = qga.GuestExecCommand("ifconfig", []string{qgaNetMod.Device, "0.0.0.0"}, []string{}, "", false)
+	if err != nil {
+		return errors.Wrap(err, "failed release dhcp current lease")
+	}
+	_, err = qga.GuestExecCommand("/sbin/dhclient", []string{"-1", qgaNetMod.Device}, []string{}, "", false)
+	if err != nil {
+		return errors.Wrap(err, "failed request dhcp lease")
+	}
+	return nil
 }
 
 func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify) error {
