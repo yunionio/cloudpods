@@ -109,8 +109,14 @@ type IBackend interface {
 	////////////////// FUNCTIONS //////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 
-	// cast
+	// cast field to specified type
 	CAST(field IQueryField, typeStr string, fieldname string) IQueryField
+	// cast field to string
+	CASTString(field IQueryField, fieldname string) IQueryField
+	// cast field to integer
+	CASTInt(field IQueryField, fieldname string) IQueryField
+	// cast field to float
+	CASTFloat(field IQueryField, fieldname string) IQueryField
 	// TIMESTAMPADD
 	TIMESTAMPADD(name string, field IQueryField, offsetSeconds int) IQueryField
 	// DATE_FORMAT
@@ -139,6 +145,8 @@ type IBackend interface {
 	MIN(name string, field IQueryField) IQueryField
 	// SUM
 	SUM(name string, field IQueryField) IQueryField
+	// AVG
+	AVG(name string, field IQueryField) IQueryField
 	// LENGTH
 	LENGTH(name string, field IQueryField) IQueryField
 	// LOWER

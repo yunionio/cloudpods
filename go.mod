@@ -95,7 +95,7 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.10.1-0.20240303050651-73685b15a96e
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.3-0.20240309051602-9ab0cc051bcc
+	yunion.io/x/sqlchemy v1.1.3-0.20240309151155-b34f29f02c79
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
