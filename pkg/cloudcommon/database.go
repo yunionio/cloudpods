@@ -143,6 +143,10 @@ func InitDB(options *common_options.DBOptions) {
 	}
 	// lm := lockman.NewNoopLockManager()
 
+	if options.EnableDBChecksumTables && len(options.DBChecksumHashAlgorithm) > 0 {
+		consts.SetDefaultDBChecksumHashAlgorithm(options.DBChecksumHashAlgorithm)
+	}
+
 	initDBNotifier()
 	startInitInformer(options)
 }

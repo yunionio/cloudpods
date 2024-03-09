@@ -164,6 +164,8 @@ type DBOptions struct {
 	EnableDBChecksumTables bool `help:"Enable DB tables with record checksum for consistency"`
 	DBChecksumSkipInit     bool `help:"Skip DB tables with record checksum calculation when init" default:"false"`
 
+	DBChecksumHashAlgorithm string `help:"hash algorithm for db checksum hash" choices:"md5|sha256" default:"sha256"`
+
 	AutoSyncTable   bool `help:"Automatically synchronize table changes if differences are detected"`
 	ExitAfterDBInit bool `help:"Exit program after db initialization" default:"false"`
 

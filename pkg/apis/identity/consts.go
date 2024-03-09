@@ -165,6 +165,7 @@ var (
 			"db_checksum_skip_init",
 			"db_checksum_tables",
 			"enable_db_checksum_tables",
+			"db_checksum_hash_algorithm",
 			"auto_sync_table",
 			"exit_after_db_init",
 			"global_virtual_resource_namespace",
