@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/printutils"
-	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	mcclient "yunion.io/x/onecloud/pkg/mcclient"
@@ -41,7 +40,6 @@ type GetModelsOptions struct {
 	ModelSet      IModelSet
 
 	BatchListSize        int
-	MinUpdatedAt         time.Time
 	IncludeDetails       bool
 	IncludeEmulated      bool
 	InCludeOtherCloudEnv bool
@@ -51,12 +49,7 @@ func GetModels(opts *GetModelsOptions) error {
 	man := opts.ModelManager
 	manKeyPlural := man.KeyString()
 
-	minUpdatedAt := opts.MinUpdatedAt
-	minUpdatedAtFilter := func(time time.Time) string {
-		// TODO add GE
-		tstr := timeutils.MysqlTime(time)
-		return fmt.Sprintf("updated_at.ge('%s')", tstr)
-	}
+	minUpdatedAt := PseudoZeroTime
 	setNextListParams := func(params *jsonutils.JSONDict, lastResult *printutils.ListResult) error {
 		// NOTE: the updated_at field has second-level resolution.
 		// If they all have the same date...
@@ -70,13 +63,11 @@ func GetModels(opts *GetModelsOptions) error {
 		Scope:        "system",
 		Details:      options.Bool(opts.IncludeDetails),
 		ShowEmulated: options.Bool(opts.IncludeEmulated),
-		Filter: []string{
-			minUpdatedAtFilter(minUpdatedAt), // order matters, filter.0
-		},
-		OrderBy: []string{"updated_at", "created_at", "id"},
-		Order:   "asc",
-		Limit:   options.Int(opts.BatchListSize),
-		Offset:  options.Int(0),
+		Filter:       []string{},
+		OrderBy:      []string{"updated_at", "created_at", "id"},
+		Order:        "asc",
+		Limit:        options.Int(opts.BatchListSize),
+		Offset:       options.Int(0),
 	}
 	if !opts.InCludeOtherCloudEnv {
 		listOptions.Filter = append(listOptions.Filter,
@@ -146,8 +137,7 @@ func InitializeModelSetFromJSON(set IModelSet, entriesJson []jsonutils.JSONObjec
 	manKeyPlural := set.ModelManager().KeyString()
 	for _, entryJson := range entriesJson {
 		m := set.NewModel()
-		var err error
-		err = entryJson.Unmarshal(m)
+		err := entryJson.Unmarshal(m)
 		if err != nil {
 			return fmt.Errorf("%s: unmarshal: %v: %s", manKeyPlural, err, entryJson.String())
 		}
