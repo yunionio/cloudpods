@@ -172,6 +172,11 @@ func SUM(name string, field IQueryField) IQueryField {
 	return getFieldBackend(field).SUM(name, field)
 }
 
+// AVG represents the SQL function SUM
+func AVG(name string, field IQueryField) IQueryField {
+	return getFieldBackend(field).AVG(name, field)
+}
+
 // LOWER represents the SQL function SUM
 func LOWER(name string, field IQueryField) IQueryField {
 	return getFieldBackend(field).LOWER(name, field)
@@ -350,6 +355,21 @@ func DATE_FORMAT(name string, field IQueryField, format string) IQueryField {
 // CAST represents a SQL function cast types
 func CAST(field IQueryField, typeStr string, fieldname string) IQueryField {
 	return getFieldBackend(field).CAST(field, typeStr, fieldname)
+}
+
+// CASTString represents a SQL function cast any type to String
+func CASTString(field IQueryField, fieldname string) IQueryField {
+	return getFieldBackend(field).CASTString(field, fieldname)
+}
+
+// CASTInt represents a SQL function cast any type to Integer
+func CASTInt(field IQueryField, fieldname string) IQueryField {
+	return getFieldBackend(field).CASTInt(field, fieldname)
+}
+
+// CASTFloat represents a SQL function cast any type to Float
+func CASTFloat(field IQueryField, fieldname string) IQueryField {
+	return getFieldBackend(field).CASTFloat(field, fieldname)
 }
 
 // LENGTH represents a SQL function of LENGTH

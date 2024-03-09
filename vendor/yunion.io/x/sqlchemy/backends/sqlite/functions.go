@@ -24,3 +24,18 @@ import (
 func (sqlite *SSqliteBackend) GROUP_CONCAT2(name string, sep string, field sqlchemy.IQueryField) sqlchemy.IQueryField {
 	return sqlchemy.NewFunctionField(name, true, fmt.Sprintf("GROUP_CONCAT(%%s, '%s')", sep), field)
 }
+
+// cast field to string
+func (sqlite *SSqliteBackend) CASTString(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS TEXT)`, field)
+}
+
+// cast field to integer
+func (sqlite *SSqliteBackend) CASTInt(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS INTEGER)`, field)
+}
+
+// cast field to float
+func (sqlite *SSqliteBackend) CASTFloat(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS REAL)`, field)
+}

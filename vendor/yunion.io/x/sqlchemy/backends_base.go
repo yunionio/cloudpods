@@ -124,6 +124,21 @@ func (bb *SBaseBackend) CAST(field IQueryField, typeStr string, fieldname string
 	return NewFunctionField(fieldname, false, `CAST(%s AS `+typeStr+`)`, field)
 }
 
+// cast field to string
+func (bb *SBaseBackend) CASTString(field IQueryField, fieldname string) IQueryField {
+	return NewFunctionField(fieldname, false, `CAST(%s AS CHAR)`, field)
+}
+
+// cast field to integer
+func (bb *SBaseBackend) CASTInt(field IQueryField, fieldname string) IQueryField {
+	return NewFunctionField(fieldname, false, `CAST(%s AS SIGNED)`, field)
+}
+
+// cast field to float
+func (bb *SBaseBackend) CASTFloat(field IQueryField, fieldname string) IQueryField {
+	return NewFunctionField(fieldname, false, `CAST(%s AS REAL)`, field)
+}
+
 // TimestampAdd represents a SQL function TimestampAdd
 func (bb *SBaseBackend) TIMESTAMPADD(name string, field IQueryField, offsetSeconds int) IQueryField {
 	return NewFunctionField(name, false, `TIMESTAMPADD(SECOND, `+fmt.Sprintf("%d", offsetSeconds)+`, %s)`, field)
@@ -205,6 +220,11 @@ func (bb *SBaseBackend) MIN(name string, field IQueryField) IQueryField {
 // SUM represents the SQL function SUM
 func (bb *SBaseBackend) SUM(name string, field IQueryField) IQueryField {
 	return NewFunctionField(name, true, "SUM(%s)", field)
+}
+
+// AVG represents the SQL function SUM
+func (bb *SBaseBackend) AVG(name string, field IQueryField) IQueryField {
+	return NewFunctionField(name, true, "AVG(%s)", field)
 }
 
 // LENGTH represents SQL function LENGTH

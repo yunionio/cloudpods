@@ -43,3 +43,18 @@ func (dameng *SDamengBackend) INET_ATON(field sqlchemy.IQueryField) sqlchemy.IQu
 	vars = append(vars, field, field)
 	return sqlchemy.NewFunctionField("", false, expr, vars...)
 }
+
+// cast field to string
+func (dameng *SDamengBackend) CASTString(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS VARCHAR)`, field)
+}
+
+// cast field to integer
+func (dameng *SDamengBackend) CASTInt(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS INTEGER)`, field)
+}
+
+// cast field to float
+func (dameng *SDamengBackend) CASTFloat(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS REAL)`, field)
+}

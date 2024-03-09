@@ -3364,6 +3364,7 @@ func (network *SNetwork) PerformChangeOwner(ctx context.Context, userCred mcclie
 }
 
 func (network *SNetwork) getUsedAddressQuery(ctx context.Context, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope, addrOnly bool) *sqlchemy.SQuery {
+	usedAddressQueryProviders := getUsedAddressQueryProviders()
 	var (
 		args = &usedAddressQueryArgs{
 			network:  network,
@@ -3377,12 +3378,14 @@ func (network *SNetwork) getUsedAddressQuery(ctx context.Context, userCred mccli
 	)
 
 	for _, provider := range usedAddressQueryProviders {
-		queries = append(queries, provider.usedAddressQuery(ctx, args))
+		q := provider.usedAddressQuery(ctx, args)
+		queries = append(queries, q)
 	}
 	return sqlchemy.Union(queries...).Query()
 }
 
 func (network *SNetwork) getUsedAddressQuery6(ctx context.Context, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope, addrOnly bool) *sqlchemy.SQuery {
+	usedAddress6QueryProviders := getUsedAddress6QueryProviders()
 	var (
 		args = &usedAddressQueryArgs{
 			network:  network,
@@ -3396,7 +3399,8 @@ func (network *SNetwork) getUsedAddressQuery6(ctx context.Context, userCred mccl
 	)
 
 	for _, provider := range usedAddress6QueryProviders {
-		queries = append(queries, provider.usedAddressQuery(ctx, args))
+		q := provider.usedAddressQuery(ctx, args)
+		queries = append(queries, q)
 	}
 	return sqlchemy.Union(queries...).Query()
 }

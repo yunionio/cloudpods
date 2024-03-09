@@ -24,3 +24,18 @@ import (
 func (mysql *SMySQLBackend) GROUP_CONCAT2(name string, sep string, field sqlchemy.IQueryField) sqlchemy.IQueryField {
 	return sqlchemy.NewFunctionField(name, true, fmt.Sprintf("GROUP_CONCAT(%%s SEPARATOR '%s')", sep), field)
 }
+
+// cast field to string
+func (mysql *SMySQLBackend) CASTString(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS CHAR)`, field)
+}
+
+// cast field to integer
+func (mysql *SMySQLBackend) CASTInt(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS SIGNED)`, field)
+}
+
+// cast field to float
+func (mysql *SMySQLBackend) CASTFloat(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS DECIMAL)`, field)
+}
