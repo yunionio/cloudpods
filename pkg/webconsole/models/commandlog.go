@@ -60,11 +60,11 @@ type SCommandLog struct {
 
 	SessionId  string      `width:"128" charset:"ascii" list:"user"`
 	AccessedAt time.Time   `nullable:"false" list:"user" create:"required"`
-	Type       string      `width:"32" charset:"utf8" nullable:"true" list:"user" create:"required"`
+	Type       CommandType `width:"32" charset:"utf8" nullable:"true" list:"user" create:"required"`
 	LoginUser  string      `charset:"utf8" list:"user" create:"required"`
 	StartTime  time.Time   `list:"user" create:"required"`
 	Ps1        string      `charset:"utf8" list:"user" create:"optional" json:"ps1"`
-	Command    CommandType `charset:"utf8" list:"user" create:"required"`
+	Command    string      `charset:"utf8" list:"user" create:"required"`
 }
 
 type CommandLogCreateInput struct {
@@ -92,12 +92,35 @@ type CommandLogCreateInput struct {
 }
 
 func (m *SCommandLogManager) Create(ctx context.Context, userCred mcclient.TokenCredential, input *CommandLogCreateInput) (*SCommandLog, error) {
-	data := jsonutils.Marshal(input)
-	obj, err := db.DoCreate(GetCommandLogManager(), ctx, userCred, jsonutils.NewDict(), data, userCred)
+	record := &SCommandLog{}
+	record.ObjId = input.ObjId
+	record.ObjName = input.ObjName
+	record.Action = input.Action
+	record.UserId = input.UserId
+	record.User = input.User
+	record.ProjectId = input.TenantId
+	record.Project = input.Tenant
+	record.DomainId = input.DomainId
+	record.Domain = input.Domain
+	record.ProjectDomainId = input.ProjectDomainId
+	record.ProjectDomain = input.ProjectDomain
+	record.Roles = input.Roles
+	record.SessionId = input.SessionId
+	record.AccessedAt = input.AccessedAt
+	record.Type = input.Type
+	record.LoginUser = input.LoginUser
+	record.StartTime = input.StartTime
+	record.Ps1 = input.Ps1
+	record.Command = input.Command
+	record.Notes = input.Notes.String()
+	record.OpsTime = input.StartTime
+
+	record.SetModelManager(m, record)
+	err := m.TableSpec().Insert(ctx, record)
 	if err != nil {
-		return nil, errors.Wrap(err, "Create CommandLog")
+		return nil, errors.Wrap(err, "Insert")
 	}
-	return obj.(*SCommandLog), nil
+	return record, nil
 }
 
 func (m *SCommandLogManager) ListItemFilter(
