@@ -35,24 +35,29 @@ type usedAddressQueryArgs struct {
 }
 
 type usedAddressQueryProvider interface {
+	KeywordPlural() string
 	usedAddressQuery(ctx context.Context, args *usedAddressQueryArgs) *sqlchemy.SQuery
 }
 
-var usedAddressQueryProviders = []usedAddressQueryProvider{
-	GuestnetworkManager,
-	HostnetworkManager,
-	ReservedipManager,
-	GroupnetworkManager,
-	LoadbalancernetworkManager,
-	ElasticipManager,
-	NetworkinterfacenetworkManager,
-	DBInstanceManager,
-	NetworkAddressManager,
+func getUsedAddressQueryProviders() []usedAddressQueryProvider {
+	return []usedAddressQueryProvider{
+		GuestnetworkManager,
+		HostnetworkManager,
+		ReservedipManager,
+		GroupnetworkManager,
+		LoadbalancernetworkManager,
+		ElasticipManager,
+		NetworkinterfacenetworkManager,
+		DBInstanceManager,
+		NetworkAddressManager,
+	}
 }
 
-var usedAddress6QueryProviders = []usedAddressQueryProvider{
-	GuestnetworkManager,
-	ReservedipManager,
+func getUsedAddress6QueryProviders() []usedAddressQueryProvider {
+	return []usedAddressQueryProvider{
+		GuestnetworkManager,
+		ReservedipManager,
+	}
 }
 
 func (manager *SGuestnetworkManager) usedAddressQuery(ctx context.Context, args *usedAddressQueryArgs) *sqlchemy.SQuery {
@@ -143,7 +148,7 @@ func (manager *SReservedipManager) usedAddressQuery(ctx context.Context, args *u
 		fields = append(fields,
 			sqlchemy.NewStringField("").Label("mac_addr"),
 			sqlchemy.NewStringField(ReservedipManager.KeywordPlural()).Label("owner_type"),
-			baseq.Field("id").Label("owner_id"),
+			sqlchemy.CASTString(baseq.Field("id"), "owner_id"),
 			baseq.Field("status").Label("owner_status"),
 			baseq.Field("notes").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),

@@ -24,3 +24,18 @@ import (
 func (click *SClickhouseBackend) GROUP_CONCAT2(name string, sep string, field sqlchemy.IQueryField) sqlchemy.IQueryField {
 	return sqlchemy.NewFunctionField(name, true, fmt.Sprintf("arrayStringConcat(groupUniqArray(%%s), '%s')", sep), field)
 }
+
+// cast field to string
+func (click *SClickhouseBackend) CASTString(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s, 'String')`, field)
+}
+
+// cast field to integer
+func (click *SClickhouseBackend) CASTInt(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s, 'Int64')`, field)
+}
+
+// cast field to float
+func (click *SClickhouseBackend) CASTFloat(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s, 'Float64')`, field)
+}
