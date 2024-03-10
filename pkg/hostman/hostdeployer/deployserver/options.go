@@ -18,10 +18,12 @@ import (
 	"os"
 
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	host_options "yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SDeployOptions struct {
-	common_options.HostCommonOptions
+	host_options.SHostBaseOptions
 
 	PrivatePrefixes []string `help:"IPv4 private prefixes"`
 	ChntpwPath      string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
@@ -31,9 +33,10 @@ type SDeployOptions struct {
 
 	DeployTempDir string `help:"temp dir for deployer" default:"/opt/cloud/workspace/run/deploy"`
 
-	HugepagesOption      string   `help:"Hugepages option: disable|native|transparent" default:"transparent"`
-	HugepageSizeMb       int      `help:"hugepage size mb default 1G" default:"1024"`
-	DefaultQemuVersion   string   `help:"Default qemu version" default:"4.2.0"`
+	HugepagesOption string `help:"Hugepages option: disable|native|transparent" default:"transparent"`
+	HugepageSizeMb  int    `help:"hugepage size mb default 1G" default:"1024"`
+	// DefaultQemuVersion   string   `help:"Default qemu version" default:"4.2.0"`
+
 	DeployGuestMemSizeMb int      `help:"Deploy guest mem size mb" default:"320"`
 	ListenInterface      string   `help:"Master address of host server"`
 	Networks             []string `help:"Network interface information"`
@@ -46,14 +49,15 @@ type SDeployOptions struct {
 
 var DeployOption SDeployOptions
 
-func Parse() (hostOpts SDeployOptions) {
-	common_options.ParseOptionsIgnoreNoConfigfile(&hostOpts, os.Args, "host.conf", "host")
-	if len(hostOpts.CommonConfigFile) > 0 {
-		commonCfg := &common_options.HostCommonOptions{}
+func Parse() SDeployOptions {
+	var hostOpts SDeployOptions
+	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
+	if len(hostOpts.CommonConfigFile) > 0 && fileutils2.Exists(hostOpts.CommonConfigFile) {
+		commonCfg := &host_options.SHostBaseOptions{}
 		commonCfg.Config = hostOpts.CommonConfigFile
 		common_options.ParseOptions(commonCfg, []string{os.Args[0]}, "common.conf", "host")
 		baseOpt := hostOpts.BaseOptions.BaseOptions
-		hostOpts.HostCommonOptions = *commonCfg
+		hostOpts.SHostBaseOptions = *commonCfg
 		// keep base options
 		hostOpts.BaseOptions.BaseOptions = baseOpt
 	}
