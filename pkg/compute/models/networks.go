@@ -789,8 +789,8 @@ func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 }
 
 func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) (*SNetwork, error) {
-	net := SNetwork{}
-	net.SetModelManager(manager, &net)
+	net := &SNetwork{}
+	net.SetModelManager(manager, net)
 
 	net.Status = extNet.GetStatus()
 	net.ExternalId = extNet.GetGlobalId()
@@ -800,6 +800,11 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	net.GuestIpMask = extNet.GetIpMask()
 	net.GuestGateway = extNet.GetGateway()
 	net.ServerType = extNet.GetServerType()
+	net.GuestIp6Start = extNet.GetIp6Start()
+	net.GuestIp6End = extNet.GetIp6End()
+	net.GuestIp6Mask = extNet.GetIp6Mask()
+	net.GuestGateway6 = extNet.GetGateway6()
+
 	// net.IsPublic = extNet.GetIsPublic()
 	// extScope := extNet.GetPublicScope()
 	// if extScope == rbacutils.ScopeDomain && !consts.GetNonDefaultDomainProjects() {
@@ -823,16 +828,16 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		}
 		net.Name = newName
 
-		return manager.TableSpec().Insert(ctx, &net)
+		return manager.TableSpec().Insert(ctx, net)
 	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, &net, extNet, false)
+	syncVirtualResourceMetadata(ctx, userCred, net, extNet, false)
 
 	if provider != nil {
-		SyncCloudProject(ctx, userCred, &net, syncOwnerId, extNet, provider)
+		SyncCloudProject(ctx, userCred, net, syncOwnerId, extNet, provider)
 		shareInfo := provider.getAccountShareInfo()
 		if utils.IsInStringArray(provider.Provider, api.PRIVATE_CLOUD_PROVIDERS) && extNet.GetPublicScope() == rbacscope.ScopeNone {
 			shareInfo = apis.SAccountShareInfo{
@@ -843,13 +848,13 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		net.SyncShareState(ctx, userCred, shareInfo)
 	}
 
-	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-		Obj:    &net,
+		Obj:    net,
 		Action: notifyclient.ActionSyncCreate,
 	})
 
-	return &net, nil
+	return net, nil
 }
 
 func (net *SNetwork) IsAddressInRange(address netutils.IPV4Addr) bool {
