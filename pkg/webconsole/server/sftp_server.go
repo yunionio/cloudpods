@@ -66,14 +66,27 @@ func getSftpClient(sId string) (*sftp.Client, error) {
 	return client, nil
 }
 
+type sLinkFile struct {
+	Name      string
+	Path      string
+	Size      int64
+	IsDir     bool
+	Mode      string
+	IsRegular bool
+	ModeNum   fs.FileMode
+}
+
 type sFileList struct {
-	Name    string
-	Path    string
-	Size    int64
-	ModTime time.Time
-	IsDir   bool
-	Mode    string
-	ModeNum fs.FileMode
+	Name      string
+	Path      string
+	Size      int64
+	ModTime   time.Time
+	IsDir     bool
+	Mode      string
+	ModeNum   fs.FileMode
+	IsRegular bool
+
+	LinkFile *sLinkFile
 }
 
 type Files []sFileList
@@ -108,24 +121,41 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	}
 	sId := params[SESSION_ID]
 	files, err := func() (Files, error) {
-		sftp, err := getSftpClient(sId)
+		client, err := getSftpClient(sId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getSftpClient")
 		}
-		files, err := sftp.ReadDir(dir)
+		files, err := client.ReadDir(dir)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadDir %s", dir)
 		}
 		ret := Files{}
 		for _, f := range files {
 			vv := sFileList{
-				Name:    f.Name(),
-				Mode:    f.Mode().String(),
-				ModeNum: f.Mode().Perm(),
-				Size:    f.Size(),
-				ModTime: f.ModTime(),
-				IsDir:   f.IsDir(),
-				Path:    path.Join(dir, f.Name()),
+				Name:      f.Name(),
+				Mode:      f.Mode().String(),
+				ModeNum:   f.Mode().Perm(),
+				IsRegular: f.Mode().IsRegular(),
+				Size:      f.Size(),
+				ModTime:   f.ModTime(),
+				IsDir:     f.IsDir(),
+				Path:      path.Join(dir, f.Name()),
+			}
+			f.Mode().IsRegular()
+			if f.Mode().Type() == fs.ModeSymlink {
+				if link, err := client.ReadLink(vv.Path); err == nil {
+					vv.LinkFile = &sLinkFile{
+						Name: link,
+					}
+					if stat, err := client.Stat(path.Join(dir, link)); err == nil {
+						vv.LinkFile.IsDir = stat.IsDir()
+						vv.LinkFile.Path = path.Join(dir, link)
+						vv.LinkFile.Size = stat.Size()
+						vv.LinkFile.Mode = stat.Mode().String()
+						vv.LinkFile.ModeNum = stat.Mode().Perm()
+						vv.LinkFile.IsRegular = stat.Mode().IsRegular()
+					}
+				}
 			}
 			ret = append(ret, vv)
 		}
