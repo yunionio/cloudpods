@@ -234,6 +234,15 @@ func (s *sPodGuestInstance) GetDiskMountPoint(disk storageman.IDisk) string {
 	return filepath.Join(s.GetVolumesDir(), disk.GetId())
 }
 
+func (s *sPodGuestInstance) getPodPrivilegedMode(input *computeapi.PodCreateInput) bool {
+	for _, ctr := range input.Containers {
+		if ctr.Privileged {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	podInput, err := s.getPodCreateParams()
 	if err != nil {
@@ -264,7 +273,7 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 				RunAsGroup:         nil,
 				ReadonlyRootfs:     false,
 				SupplementalGroups: nil,
-				//Privileged:         true,
+				Privileged:         s.getPodPrivilegedMode(podInput),
 				Seccomp:            nil,
 				Apparmor:           nil,
 				SeccompProfilePath: "",
@@ -576,28 +585,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	if err != nil {
 		return "", errors.Wrap(err, "getPodSandboxConfig")
 	}
-	kboxCaps := []string{
-		"SETPCAP",
-		"AUDIT_WRITE",
-		"SYS_CHROOT",
-		"CHOWN",
-		"DAC_OVERRIDE",
-		"FOWNER",
-		"SETGID",
-		"SETUID",
-		"SYSLOG",
-		"SYS_ADMIN",
-		"WAKE_ALARM",
-		"SYS_PTRACE",
-		"BLOCK_SUSPEND",
-		"MKNOD",
-		"KILL",
-		"SYS_RESOURCE",
-		"NET_RAW",
-		"NET_ADMIN",
-		"NET_BIND_SERVICE",
-		"SYS_NICE",
-	}
 	mounts, err := s.getContainerMounts(input)
 	if err != nil {
 		return "", errors.Wrap(err, "get container mounts")
@@ -624,11 +611,8 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			//	MemorySwapLimitInBytes: 0,
 			//},
 			SecurityContext: &runtimeapi.LinuxContainerSecurityContext{
-				Capabilities: &runtimeapi.Capability{
-					//AddCapabilities: []string{"SYS_ADMIN"},
-					AddCapabilities: kboxCaps,
-				},
-				//Privileged:         true,
+				Capabilities:       &runtimeapi.Capability{},
+				Privileged:         spec.Privileged,
 				NamespaceOptions:   nil,
 				SelinuxOptions:     nil,
 				RunAsUser:          nil,
@@ -652,6 +636,10 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	}
 	if spec.EnableLxcfs {
 		ctrCfg.Mounts = append(ctrCfg.Mounts, s.getLxcfsMounts()...)
+	}
+	if spec.Capabilities != nil {
+		ctrCfg.Linux.SecurityContext.Capabilities.AddCapabilities = spec.Capabilities.Add
+		ctrCfg.Linux.SecurityContext.Capabilities.DropCapabilities = spec.Capabilities.Drop
 	}
 	for _, env := range spec.Envs {
 		ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
