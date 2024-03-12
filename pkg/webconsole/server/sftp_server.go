@@ -20,8 +20,10 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -245,7 +247,7 @@ func HandleSftpDownload(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		}
 		defer reader.Close()
 
-		w.Header().Add("Content-Disposition", "attachment;filename="+file.Name())
+		w.Header().Add("Content-Disposition", "attachment;filename*=utf-8''"+strings.ReplaceAll(url.QueryEscape(file.Name()), "+", "%20"))
 		w.Header().Add("Content-Type", "application/octet-stream")
 		_, err = io.Copy(w, reader)
 		return err
