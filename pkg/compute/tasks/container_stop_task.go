@@ -45,7 +45,7 @@ func (t *ContainerStopTask) requestStop(ctx context.Context, container *models.S
 }
 
 func (t *ContainerStopTask) OnStoppedFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
-	container.SetStatus(t.GetUserCred(), api.CONTAINER_STATUS_STOP_FAILED, reason.String())
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_STOP_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 

@@ -46,11 +46,11 @@ func (t *ContainerPullImageTask) requestPullImage(ctx context.Context, container
 }
 
 func (t *ContainerPullImageTask) OnPulledFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
-	container.SetStatus(t.GetUserCred(), api.CONTAINER_STATUS_PULL_IMAGE_FAILED, reason.String())
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_PULL_IMAGE_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 
 func (t *ContainerPullImageTask) OnPulled(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
-	container.SetStatus(t.GetUserCred(), api.CONTAINER_STATUS_PULLED_IMAGE, "")
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_PULLED_IMAGE, "")
 	t.SetStageComplete(ctx, nil)
 }

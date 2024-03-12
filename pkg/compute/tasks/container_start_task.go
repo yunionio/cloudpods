@@ -51,7 +51,7 @@ func (t *ContainerStartTask) OnStarted(ctx context.Context, container *models.SC
 }
 
 func (t *ContainerStartTask) OnStartedFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
-	container.SetStatus(t.GetUserCred(), api.CONTAINER_STATUS_START_FAILED, reason.String())
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_START_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 

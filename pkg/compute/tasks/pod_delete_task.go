@@ -42,7 +42,7 @@ func (t *PodDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, bod
 }
 
 func (t *PodDeleteTask) OnWaitContainerDeleted(ctx context.Context, pod *models.SGuest, _ jsonutils.JSONObject) {
-	pod.SetStatus(t.GetUserCred(), api.POD_STATUS_DELETING_CONTAINER, "")
+	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_DELETING_CONTAINER, "")
 	ctrs, err := models.GetContainerManager().GetContainersByPod(pod.GetId())
 	if err != nil {
 		t.OnWaitContainerDeletedFailed(ctx, pod, jsonutils.NewString(errors.Wrap(err, "GetContainersByPod").Error()))
@@ -57,7 +57,7 @@ func (t *PodDeleteTask) OnWaitContainerDeleted(ctx context.Context, pod *models.
 }
 
 func (t *PodDeleteTask) OnWaitContainerDeletedFailed(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
-	pod.SetStatus(t.GetUserCred(), api.POD_STATUS_DELETE_CONTAINER_FAILED, data.String())
+	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_DELETE_CONTAINER_FAILED, data.String())
 	t.SetStageFailed(ctx, data)
 }
 
@@ -79,6 +79,6 @@ func (t *PodDeleteTask) OnPodUndeploy(ctx context.Context, pod *models.SGuest, d
 }
 
 func (t *PodDeleteTask) OnPodUndeployFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
-	pod.SetStatus(t.GetUserCred(), api.VM_DELETE_FAIL, reason.String())
+	pod.SetStatus(ctx, t.GetUserCred(), api.VM_DELETE_FAIL, reason.String())
 	t.SetStageFailed(ctx, reason)
 }

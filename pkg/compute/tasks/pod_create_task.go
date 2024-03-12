@@ -55,7 +55,7 @@ func (t *PodCreateTask) OnWaitPodCreated(ctx context.Context, obj db.IStandalone
 func (t *PodCreateTask) OnPodCreated(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	t.SetStage("OnContainerCreated", nil)
 
-	guest.SetStatus(t.GetUserCred(), api.POD_STATUS_CREATING_CONTAINER, "")
+	guest.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_CREATING_CONTAINER, "")
 	ctrs, err := models.GetContainerManager().GetContainersByPod(guest.GetId())
 	if err != nil {
 		t.onCreateContainerError(ctx, guest, errors.Wrapf(err, "get containers by pod %s", guest.GetId()))
@@ -71,7 +71,7 @@ func (t *PodCreateTask) OnPodCreated(ctx context.Context, guest *models.SGuest, 
 }
 
 func (t *PodCreateTask) onCreateContainerError(ctx context.Context, guest *models.SGuest, err error) {
-	guest.SetStatus(t.GetUserCred(), api.POD_STATUS_CREATE_CONTAINER_FAILED, err.Error())
+	guest.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_CREATE_CONTAINER_FAILED, err.Error())
 	t.onError(ctx, err)
 }
 
@@ -103,7 +103,7 @@ func (t *PodCreateTask) OnContainerCreated(ctx context.Context, guest *models.SG
 }
 
 func (t *PodCreateTask) OnContainerCreatedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(t.GetUserCred(), api.POD_STATUS_CREATE_CONTAINER_FAILED, data.String())
+	guest.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_CREATE_CONTAINER_FAILED, data.String())
 	t.SetStageFailed(ctx, data)
 }
 

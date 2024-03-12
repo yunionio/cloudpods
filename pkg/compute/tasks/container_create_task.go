@@ -77,7 +77,7 @@ func (t *ContainerCreateTask) OnImagePulledFailed(ctx context.Context, container
 
 func (t *ContainerCreateTask) requestCreate(ctx context.Context, container *models.SContainer) {
 	t.SetStage("OnCreated", nil)
-	container.SetStatus(t.GetUserCred(), api.CONTAINER_STATUS_CREATING, "")
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_CREATING, "")
 	if err := t.GetPodDriver().RequestCreateContainer(ctx, t.GetUserCred(), t); err != nil {
 		t.OnCreatedFailed(ctx, container, jsonutils.NewString(err.Error()))
 		return
@@ -92,7 +92,7 @@ func (t *ContainerCreateTask) OnCreated(ctx context.Context, container *models.S
 }
 
 func (t *ContainerCreateTask) OnCreatedFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
-	container.SetStatus(t.GetUserCred(), api.CONTAINER_STATUS_CREATE_FAILED, reason.String())
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_CREATE_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 

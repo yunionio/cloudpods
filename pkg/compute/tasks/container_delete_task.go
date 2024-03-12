@@ -55,6 +55,6 @@ func (t *ContainerDeleteTask) OnDeleted(ctx context.Context, container *models.S
 }
 
 func (t *ContainerDeleteTask) OnDeleteFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
-	container.SetStatus(t.GetUserCred(), api.CONTAINER_STATUS_DELETE_FAILED, reason.String())
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_DELETE_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }

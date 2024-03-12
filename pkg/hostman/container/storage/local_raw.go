@@ -18,8 +18,8 @@ import (
 	"fmt"
 
 	losetup "github.com/zexi/golosetup"
-	"yunion.io/x/log"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
