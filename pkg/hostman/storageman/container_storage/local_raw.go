@@ -53,6 +53,14 @@ func (l localLoopDiskManager) NewContainerDevices(_ *hostapi.ContainerCreateInpu
 	return []*runtimeapi.Device{retDev}, nil
 }
 
+func (m *localLoopDiskManager) ProbeDevices() ([]isolated_device.IDevice, error) {
+	return nil, nil
+}
+
+func (m *localLoopDiskManager) GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
+	return nil
+}
+
 func newLocalLoopDiskManager() *localLoopDiskManager {
 	return &localLoopDiskManager{}
 }

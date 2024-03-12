@@ -55,9 +55,9 @@ func main() {
 				Name: "nvidia-smi",
 			},
 			Image: &runtimeapi.ImageSpec{
-				Image: "docker.io/nvidia/cuda:12.3.1-base-ubuntu20.04",
+				Image: "ubuntu",
 			},
-			Command: []string{"nvidia-smi"},
+			Command: []string{"sleep", "100d"},
 			Linux:   &runtimeapi.LinuxContainerConfig{
 				//SecurityContext: &runtimeapi.LinuxContainerSecurityContext{
 				//	Privileged: true,
@@ -66,7 +66,7 @@ func main() {
 			Envs: []*runtimeapi.KeyValue{
 				{
 					Key:   "NVIDIA_VISIBLE_DEVICES",
-					Value: "all",
+					Value: "GPU-e588f4f5-29a4-4374-a335-86e120b50e14,GPU-f7160578-ba3b-3e42-6991-14c815ce032a,GPU-679b381b-eb98-62b7-c7c4-175f7d751aad",
 				},
 				{
 					Key:   "NVIDIA_DRIVER_CAPABILITIES",

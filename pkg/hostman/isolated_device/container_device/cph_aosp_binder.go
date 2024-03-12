@@ -52,6 +52,10 @@ func (m *cphAOSPBinderManager) GetType() isolated_device.ContainerDeviceType {
 	return isolated_device.ContainerDeviceTypeCphASOPBinder
 }
 
+func (m *cphAOSPBinderManager) ProbeDevices() ([]isolated_device.IDevice, error) {
+	return nil, nil
+}
+
 func (m *cphAOSPBinderManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
 	if err := CheckVirtualNumber(dev); err != nil {
 		return nil, err
@@ -116,6 +120,10 @@ func (m *cphAOSPBinderManager) NewContainerDevices(ctrInput *hostapi.ContainerCr
 		},
 	}
 	return ctrDevs, nil
+}
+
+func (m *cphAOSPBinderManager) GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
+	return nil
 }
 
 func (m *cphAOSPBinderManager) ensureBinderDeviceOldWay(dev *hostapi.ContainerIsolatedDevice) error {
