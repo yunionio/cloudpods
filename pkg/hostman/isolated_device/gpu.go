@@ -81,6 +81,11 @@ func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
 			continue
 		}
+		if !utils.IsInStringArray(dev.VendorId, []string{api.NVIDIA_VENDOR_ID, api.AMD_VENDOR_ID}) {
+			log.Infof("Skip add device %s vendor is unsupport", dev.Addr)
+			continue
+		}
+
 		if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 			warns = append(warns, errors.Wrapf(err, "get dev %s iommu group devices", dev.Addr))
 			continue
