@@ -131,7 +131,7 @@ func init() {
 			return err
 		}
 		data := &printutils.ListResult{Data: hosts, Total: len(hosts)}
-		printList(data, []string{"ID", "Name", "Mem", "CPU", "Storage_Info"})
+		printList(data, []string{"ID", "Name", "MEM", "CPU", "Storage_Info"})
 		return nil
 	})
 

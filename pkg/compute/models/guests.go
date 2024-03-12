@@ -1497,7 +1497,7 @@ func (manager *SGuestManager) validateCreateData(
 	// var rootStorageType string
 	var osProf osprofile.SOSProfile
 	hypervisor = input.Hypervisor
-	if hypervisor != api.HYPERVISOR_CONTAINER {
+	if hypervisor != api.HYPERVISOR_POD {
 		if len(input.Disks) == 0 && input.Cdrom == "" {
 			return nil, httperrors.NewInputParameterError("No bootable disk information provided")
 		}
@@ -1631,7 +1631,7 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
-	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI}
+	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_POD}
 
 	if !utils.IsInStringArray(input.Hypervisor, optionSystemHypervisor) && len(input.Disks[0].ImageId) == 0 && len(input.Disks[0].SnapshotId) == 0 && input.Cdrom == "" {
 		return nil, httperrors.NewBadRequestError("Miss operating system???")
@@ -1645,7 +1645,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	hypervisor = input.Hypervisor
-	if hypervisor != api.HYPERVISOR_CONTAINER {
+	if hypervisor != api.HYPERVISOR_POD {
 		// support sku here
 		var sku *SServerSku
 		skuName := input.InstanceType
@@ -4760,9 +4760,11 @@ func (self *SGuest) DeleteAllInstanceSnapshotInDB(ctx context.Context, userCred 
 
 func (self *SGuest) isNeedDoResetPasswd() bool {
 	guestdisks, _ := self.GetGuestDisks()
-	disk := guestdisks[0].GetDisk()
-	if len(disk.SnapshotId) > 0 {
-		return false
+	if len(guestdisks) > 0 {
+		disk := guestdisks[0].GetDisk()
+		if len(disk.SnapshotId) > 0 {
+			return false
+		}
 	}
 	return true
 }
@@ -5000,7 +5002,8 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 
 		IsDaemon: self.IsDaemon.Bool(),
 
-		LightMode: self.RescueMode,
+		LightMode:  self.RescueMode,
+		Hypervisor: self.GetHypervisor(),
 	}
 
 	if len(self.BackupHostId) > 0 {

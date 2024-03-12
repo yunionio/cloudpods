@@ -55,7 +55,7 @@ type SHostOptions struct {
 	CommonConfigFile string `help:"common config file for container"`
 	LocalConfigFile  string `help:"local config file" default:"/etc/yunion/host_local.conf"`
 
-	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
+	HostType        string   `help:"Host server type, either hypervisor or container" default:"hypervisor" choices:"hypervisor|container"`
 	ListenInterface string   `help:"Master address of host server"`
 	BridgeDriver    string   `help:"Bridge driver, bridge or openvswitch" default:"openvswitch"`
 	Networks        []string `help:"Network interface information"`
@@ -203,6 +203,11 @@ type SHostOptions struct {
 	MaxHotplugVCpuCount int  `help:"maximal possible vCPU count that the platform kvm supports"`
 	PcieRootPortCount   int  `help:"pcie root port count" default:"2"`
 	EnableQemuDebugLog  bool `help:"enable qemu debug logs" default:"false"`
+
+	// container related endpoint
+	// EnableContainerRuntime   bool   `help:"enable container runtime" default:"false"`
+	ContainerRuntimeEndpoint  string `help:"endpoint of container runtime service" default:"unix:///var/run/onecloud/containerd/containerd.sock"`
+	ContainerDeviceConfigFile string `help:"container device configuration file path"`
 }
 
 var (

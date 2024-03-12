@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
@@ -128,7 +129,8 @@ func TestSKVMGuestInstance_initGuestDesc(t *testing.T) {
 
 	s := &sKVMGuestInstance{
 		SKVMGuestInstance: SKVMGuestInstance{
-			archMan: arch.NewArch(arch.Arch_x86_64),
+			archMan:            arch.NewArch(arch.Arch_x86_64),
+			sBaseGuestInstance: newBaseGuestInstance("", nil, api.HYPERVISOR_KVM),
 		},
 		//manager:
 	}

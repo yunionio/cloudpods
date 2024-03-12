@@ -25,7 +25,7 @@ import (
 )
 
 type sNVMEDevice struct {
-	*sBaseDevice
+	*SBaseDevice
 
 	sizeMB int
 }
@@ -48,7 +48,7 @@ func (dev *sNVMEDevice) GetNVMESizeMB() int {
 
 func newNVMEDevice(dev *PCIDevice, devType string, sizeMB int) *sNVMEDevice {
 	return &sNVMEDevice{
-		sBaseDevice: newBaseDevice(dev, devType),
+		SBaseDevice: NewBaseDevice(dev, devType),
 		sizeMB:      sizeMB,
 	}
 }

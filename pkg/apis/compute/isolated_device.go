@@ -93,6 +93,8 @@ type IsolatedDeviceCreateInput struct {
 	VendorDeviceId string `json:"vendor_device_id"`
 	// PCIE information
 	PCIEInfo *IsolatedDevicePCIEInfo `json:"pcie_info"`
+	// Host device path
+	DevicePath string `json:"device_path"`
 }
 
 type IsolatedDeviceReservedResourceInput struct {
@@ -112,6 +114,8 @@ type IsolatedDeviceUpdateInput struct {
 	DevType string `json:"dev_type"`
 	// PCIE information
 	PCIEInfo *IsolatedDevicePCIEInfo `json:"pcie_info"`
+	// Host device path
+	DevicePath string `json:"device_path"`
 }
 
 type IsolatedDeviceJsonDesc struct {

@@ -242,22 +242,22 @@ func ParseServerDeployInfoList(list []string) ([]*computeapi.DeployConfig, error
 	return ret, nil
 }
 
-type ServerConfigs struct {
-	Manager    string `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager"`
-	Region     string `help:"Preferred region where virtual server should be created" json:"prefer_region"`
-	Zone       string `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
-	Wire       string `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
-	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
-	BackupHost string `help:"Perfered host where virtual backup server should be created"`
+type ServerCreateCommonConfig struct {
+	Manager string `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager"`
+	Region  string `help:"Preferred region where virtual server should be created" json:"prefer_region"`
+	Zone    string `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
+	Wire    string `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
+	Host    string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 
-	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox"`
-	ResourceType                 string `help:"Resource type" choices:"shared|prepaid|dedicated"`
-	Backup                       bool   `help:"Create server with backup server"`
-	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
-	Daemon                       *bool  `help:"Set as a daemon server" json:"is_daemon"`
-
-	Schedtag []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
-	Disk     []string `help:"
+	ResourceType   string   `help:"Resource type" choices:"shared|prepaid|dedicated"`
+	Schedtag       []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
+	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
+	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
+	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
+	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
+	User           string   `help:"Owner user ID or Name"`
+	Count          int      `help:"Create multiple simultaneously" default:"1"`
+	Disk           []string `help:"
 	Disk descriptions
 	size: 500M, 10G
 	fs: swap, ext2, ext3, ext4, xfs, ntfs, fat, hfsplus
@@ -277,47 +277,20 @@ type ServerConfigs struct {
 		--disk 'size=500M'
 		--disk 'snpahost_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
 	" nargs:"+"`
-	DiskSchedtag   []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
-	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
-	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
-	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
-	RaidConfig     []string `help:"Baremetal raid config" json:"-"`
-	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
-	User           string   `help:"Owner user ID or Name"`
-	Count          int      `help:"Create multiple simultaneously" default:"1"`
+	DiskSchedtag []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 }
 
-func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
+func (o ServerCreateCommonConfig) Data() (*computeapi.ServerConfigs, error) {
 	data := &computeapi.ServerConfigs{
-		PreferManager:    o.Manager,
-		PreferRegion:     o.Region,
-		PreferZone:       o.Zone,
-		PreferWire:       o.Wire,
-		PreferHost:       o.Host,
-		PreferBackupHost: o.BackupHost,
-		Hypervisor:       o.Hypervisor,
-		ResourceType:     o.ResourceType,
-		Backup:           o.Backup,
-		Count:            o.Count,
-		IsDaemon:         o.Daemon,
-	}
-	for i, d := range o.Disk {
-		disk, err := cmdline.ParseDiskConfig(d, i)
-		if err != nil {
-			return nil, err
-		}
-		data.Disks = append(data.Disks, disk)
-	}
-	for _, dtag := range o.DiskSchedtag {
-		idx, tag, err := cmdline.ParseResourceSchedtagConfig(dtag)
-		if err != nil {
-			return nil, fmt.Errorf("ParseDiskSchedtag: %v", err)
-		}
-		if idx >= len(data.Disks) {
-			return nil, fmt.Errorf("Invalid disk index: %d", idx)
-		}
-		d := data.Disks[idx]
-		d.Schedtags = append(d.Schedtags, tag)
+		PreferManager: o.Manager,
+		PreferRegion:  o.Region,
+		PreferZone:    o.Zone,
+		PreferWire:    o.Wire,
+		PreferHost:    o.Host,
+		ResourceType:  o.ResourceType,
+		Count:         o.Count,
+		Networks:      make([]*computeapi.NetworkConfig, 0),
+		Disks:         make([]*computeapi.DiskConfig, 0),
 	}
 	for i, n := range o.Net {
 		net, err := cmdline.ParseNetworkConfig(n, i)
@@ -344,6 +317,54 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 		}
 		data.IsolatedDevices = append(data.IsolatedDevices, dev)
 	}
+	for _, tag := range o.Schedtag {
+		schedtag, err := cmdline.ParseSchedtagConfig(tag)
+		if err != nil {
+			return nil, err
+		}
+		data.Schedtags = append(data.Schedtags, schedtag)
+	}
+	for i, d := range o.Disk {
+		disk, err := cmdline.ParseDiskConfig(d, i)
+		if err != nil {
+			return nil, err
+		}
+		data.Disks = append(data.Disks, disk)
+	}
+	for _, dtag := range o.DiskSchedtag {
+		idx, tag, err := cmdline.ParseResourceSchedtagConfig(dtag)
+		if err != nil {
+			return nil, fmt.Errorf("ParseDiskSchedtag: %v", err)
+		}
+		if idx >= len(data.Disks) {
+			return nil, fmt.Errorf("Invalid disk index: %d", idx)
+		}
+		d := data.Disks[idx]
+		d.Schedtags = append(d.Schedtags, tag)
+	}
+	return data, nil
+}
+
+type ServerConfigs struct {
+	ServerCreateCommonConfig
+	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|pod|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox"`
+	Backup                       bool   `help:"Create server with backup server"`
+	BackupHost                   string `help:"Perfered host where virtual backup server should be created"`
+	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
+	Daemon                       *bool  `help:"Set as a daemon server" json:"is_daemon"`
+
+	RaidConfig []string `help:"Baremetal raid config" json:"-"`
+}
+
+func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
+	data, err := o.ServerCreateCommonConfig.Data()
+	if err != nil {
+		return nil, err
+	}
+	data.Backup = o.Backup
+	data.PreferBackupHost = o.BackupHost
+	data.IsDaemon = o.Daemon
+	data.Hypervisor = o.Hypervisor
 	if len(o.RaidConfig) > 0 {
 		// if data.Hypervisor != "baremetal" {
 		// 	return nil, fmt.Errorf("RaidConfig is applicable to baremetal ONLY")
@@ -355,13 +376,6 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 			}
 			data.BaremetalDiskConfigs = append(data.BaremetalDiskConfigs, raidConf)
 		}
-	}
-	for _, tag := range o.Schedtag {
-		schedtag, err := cmdline.ParseSchedtagConfig(tag)
-		if err != nil {
-			return nil, err
-		}
-		data.Schedtags = append(data.Schedtags, schedtag)
 	}
 	return data, nil
 }
@@ -620,7 +634,6 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 }
 
 func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
-
 	params, err := opts.OptionalParams()
 	if err != nil {
 		return nil, err
