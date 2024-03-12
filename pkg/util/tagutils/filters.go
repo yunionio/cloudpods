@@ -30,48 +30,12 @@ func splitValues(values []string) (bool, []string) {
 	}
 }
 
-func (ts TTagSet) toFilters() (map[string][]string, map[string][]string) {
-	filter := tagset2Map(ts)
-	pos := make(map[string][]string)
-	neg := make(map[string][]string)
-	negExist := false
-	for k, v := range filter {
-		noval, values := splitValues(v)
-		if noval {
-			negExist = true
-			if len(values) > 0 {
-				pos[k] = values
-			}
-			neg[k] = []string{}
-		} else {
-			pos[k] = values
-			neg[k] = values
-		}
-	}
-	if !negExist {
-		neg = nil
-	}
-	return pos, neg
-}
-
 func (tf *STagFilters) AddFilter(ts TTagSet) {
-	pos, neg := ts.toFilters()
-	if pos != nil {
-		tf.Filters = append(tf.Filters, pos)
-	}
-	if neg != nil {
-		tf.NoFilters = append(tf.NoFilters, neg)
-	}
+	tf.Filters = append(tf.Filters, tagset2Map(ts))
 }
 
 func (tf *STagFilters) AddNoFilter(ts TTagSet) {
-	pos, neg := ts.toFilters()
-	if pos != nil {
-		tf.NoFilters = append(tf.NoFilters, pos)
-	}
-	if neg != nil {
-		tf.Filters = append(tf.Filters, neg)
-	}
+	tf.NoFilters = append(tf.NoFilters, tagset2Map(ts))
 }
 
 func (tf *STagFilters) AddFilters(tsl TTagSetList) {
