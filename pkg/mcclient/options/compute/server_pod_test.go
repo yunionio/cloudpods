@@ -8,6 +8,7 @@ import (
 )
 
 func Test_parsePodPortMapping(t *testing.T) {
+	var port80 int = 80
 	tests := []struct {
 		args    string
 		want    *computeapi.PodPortMapping
@@ -18,7 +19,7 @@ func Test_parsePodPortMapping(t *testing.T) {
 			want: &computeapi.PodPortMapping{
 				Protocol:      computeapi.PodPortMappingProtocolTCP,
 				ContainerPort: 8080,
-				HostPort:      80,
+				HostPort:      &port80,
 			},
 			wantErr: false,
 		},
@@ -27,7 +28,7 @@ func Test_parsePodPortMapping(t *testing.T) {
 			want: &computeapi.PodPortMapping{
 				Protocol:      computeapi.PodPortMappingProtocolTCP,
 				ContainerPort: 8080,
-				HostPort:      80,
+				HostPort:      &port80,
 			},
 			wantErr: false,
 		},
@@ -37,9 +38,11 @@ func Test_parsePodPortMapping(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			args:    "80",
-			want:    nil,
-			wantErr: true,
+			args: "80",
+			want: &computeapi.PodPortMapping{
+				Protocol:      computeapi.PodPortMappingProtocolTCP,
+				ContainerPort: 80,
+			},
 		},
 		{
 			args:    "80s:ctrP",
@@ -56,6 +59,59 @@ func Test_parsePodPortMapping(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("parsePodPortMapping() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_parsePodPortMappingDetails(t *testing.T) {
+	port8080 := 8080
+	tests := []struct {
+		input   string
+		want    *computeapi.PodPortMapping
+		wantErr bool
+	}{
+		{
+			input: "host_port=8080,port=80",
+			want: &computeapi.PodPortMapping{
+				Protocol:      computeapi.PodPortMappingProtocolTCP,
+				ContainerPort: 80,
+				HostPort:      &port8080,
+			},
+		},
+		{
+			input: "host_port=8080,port=80,protocol=udp",
+			want: &computeapi.PodPortMapping{
+				Protocol:      computeapi.PodPortMappingProtocolUDP,
+				ContainerPort: 80,
+				HostPort:      &port8080,
+			},
+		},
+		{
+			input:   "host_port=8080,protocol=udp",
+			wantErr: true,
+		},
+		{
+			input: "container_port=80,protocol=udp,host_port_range=20000-25000",
+			want: &computeapi.PodPortMapping{
+				Protocol:      computeapi.PodPortMappingProtocolUDP,
+				ContainerPort: 80,
+				HostPortRange: &computeapi.PodPortMappingPortRange{
+					Start: 20000,
+					End:   25000,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parsePodPortMappingDetails(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parsePodPortMappingDetails() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parsePodPortMappingDetails() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
