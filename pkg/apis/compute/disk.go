@@ -160,6 +160,9 @@ type DiskListInput struct {
 	// swagger:ignore
 	// Deprecated
 	Snapshot string `json:"snapshot" yunion-deprecated-by:"snapshot_id"`
+
+	// 根据虚拟机状态过滤
+	GuestStatus string `json:"guest_status"`
 }
 
 type DiskResourceInput struct {
