@@ -259,6 +259,12 @@ func (manager *SDiskManager) ListItemFilter(
 		q = q.Equals("snapshot_id", query.SnapshotId)
 	}
 
+	if len(query.GuestStatus) > 0 {
+		guests := GuestManager.Query("id").Equals("status", query.GuestStatus).SubQuery()
+		sq := GuestdiskManager.Query().In("guest_id", guests).SubQuery()
+		q = q.Join(sq, sqlchemy.Equals(sq.Field("disk_id"), q.Field("id")))
+	}
+
 	return q, nil
 }
 
