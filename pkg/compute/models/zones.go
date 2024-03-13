@@ -356,7 +356,12 @@ func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.Toke
 	}
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.Name = extZone.GetName()
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, extZone.GetName())
+			if len(newName) > 0 && newName != self.Name {
+				self.Name = newName
+			}
+		}
 		self.Status = extZone.GetStatus()
 
 		self.IsEmulated = extZone.IsEmulated()
