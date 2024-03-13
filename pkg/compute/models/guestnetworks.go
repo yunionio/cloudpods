@@ -876,11 +876,13 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCr
 			}
 		}
 
-		if reserve && regutils.MatchIP4Addr(gn.IpAddr) {
-			ReservedipManager.ReserveIP(ctx, userCred, net, gn.IpAddr, "Delete to reserve", api.AddressTypeIPv4)
-		}
-		if reserve && regutils.MatchIP6Addr(gn.Ip6Addr) {
-			ReservedipManager.ReserveIP(ctx, userCred, net, gn.Ip6Addr, "Delete to reserve", api.AddressTypeIPv6)
+		if !gotypes.IsNil(net) {
+			if reserve && regutils.MatchIP4Addr(gn.IpAddr) {
+				ReservedipManager.ReserveIP(ctx, userCred, net, gn.IpAddr, "Delete to reserve", api.AddressTypeIPv4)
+			}
+			if reserve && regutils.MatchIP6Addr(gn.Ip6Addr) {
+				ReservedipManager.ReserveIP(ctx, userCred, net, gn.Ip6Addr, "Delete to reserve", api.AddressTypeIPv6)
+			}
 		}
 	}
 	return nil
@@ -908,7 +910,10 @@ func (manager *SGuestnetworkManager) getGuestNicByIP(ip string, networkId string
 
 func (gn *SGuestnetwork) LogDetachEvent(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork) {
 	if network == nil {
-		netTmp, _ := NetworkManager.FetchById(gn.NetworkId)
+		netTmp, err := NetworkManager.FetchById(gn.NetworkId)
+		if err != nil {
+			return
+		}
 		network = netTmp.(*SNetwork)
 	}
 	db.OpsLog.LogDetachEvent(ctx, guest, network, userCred, nil)
