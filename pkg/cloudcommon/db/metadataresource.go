@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -57,23 +58,30 @@ func ObjectIdQueryWithPolicyResult(q *sqlchemy.SQuery, manager IModelManager, re
 }
 
 func ObjectIdQueryWithTagFilters(q *sqlchemy.SQuery, idField string, modelName string, filters tagutils.STagFilters) *sqlchemy.SQuery {
-	if len(filters.Filters) > 0 {
-		sq := objIdQueryWithTags(modelName, filters.Filters)
-		if sq != nil {
-			sqq := sq.SubQuery()
-			q = q.Join(sqq, sqlchemy.Equals(q.Field(idField), sqq.Field("obj_id")))
+	if len(filters.Filters) > 0 || len(filters.NoFilters) > 0 {
+		idSubQ := q.Copy().SubQuery().Query()
+		idSubQ.AppendField(sqlchemy.DISTINCT(idField, idSubQ.Field(idField)))
+		subQ := idSubQ.SubQuery()
+		if len(filters.Filters) > 0 {
+			sq := objIdQueryWithTags(subQ, idField, modelName, filters.Filters)
+			if sq != nil {
+				sqq := sq.SubQuery()
+				q = q.Join(sqq, sqlchemy.Equals(q.Field(idField), sqq.Field(idField)))
+			}
 		}
-	}
-	if len(filters.NoFilters) > 0 {
-		sq := objIdQueryWithTags(modelName, filters.NoFilters)
-		if sq != nil {
-			q = q.Filter(sqlchemy.NotIn(q.Field(idField), sq.SubQuery()))
+		if len(filters.NoFilters) > 0 {
+			sq := objIdQueryWithTags(subQ, idField, modelName, filters.NoFilters)
+			if sq != nil {
+				sqq := sq.SubQuery()
+				q = q.LeftJoin(sqq, sqlchemy.Equals(q.Field(idField), sqq.Field(idField)))
+				q = q.Filter(sqlchemy.IsNull(sqq.Field(idField)))
+			}
 		}
 	}
 	return q
 }
 
-func objIdQueryWithTags(modelName string, tagsList []map[string][]string) *sqlchemy.SQuery {
+func objIdQueryWithTags(objIdSubQ *sqlchemy.SSubQuery, idField string, modelName string, tagsList []map[string][]string) *sqlchemy.SQuery {
 	metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
 
 	queries := make([]sqlchemy.IQuery, 0)
@@ -81,28 +89,37 @@ func objIdQueryWithTags(modelName string, tagsList []map[string][]string) *sqlch
 		if len(tags) == 0 {
 			continue
 		}
-		metadataView := metadataResQ.Query(metadataResQ.Field("obj_id"))
+		objIdQ := objIdSubQ.Query()
+		objIdQ = objIdQ.AppendField(objIdQ.Field(idField))
 		for key, val := range tags {
-			q := metadataResQ.Query().Equals("key", key)
+			sq := metadataResQ.Query().Equals("key", key).SubQuery()
+			objIdQ = objIdQ.LeftJoin(sq, sqlchemy.Equals(objIdQ.Field(idField), sq.Field("obj_id")))
 			if len(val) > 0 {
-				q = q.Equals("key", key).In("value", val)
+				if utils.IsInArray(tagutils.NoValue, val) {
+					objIdQ = objIdQ.Filter(sqlchemy.OR(
+						sqlchemy.In(sq.Field("value"), val),
+						sqlchemy.IsNull(sq.Field("value")),
+					))
+				} else {
+					objIdQ = objIdQ.Filter(sqlchemy.In(sq.Field("value"), val))
+				}
+			} else {
+				objIdQ = objIdQ.Filter(sqlchemy.IsNotNull(sq.Field("obj_id")))
 			}
-			sq := q.SubQuery()
-			metadataView = metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
 		}
-		queries = append(queries, metadataView.Distinct())
+		queries = append(queries, objIdQ.Distinct())
 	}
 	if len(queries) == 0 {
 		return nil
 	}
-	var query sqlchemy.IQuery
+	var query *sqlchemy.SQuery
 	if len(queries) == 1 {
-		query = queries[0]
+		query = queries[0].(*sqlchemy.SQuery)
 	} else {
 		uq, _ := sqlchemy.UnionWithError(queries...)
 		query = uq.Query()
 	}
-	return query.SubQuery().Query()
+	return query
 }
 
 func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
