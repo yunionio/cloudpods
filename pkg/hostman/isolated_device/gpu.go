@@ -95,6 +95,11 @@ func getPassthroughGPUs(filteredAddrs []string, enableWhitelist bool, whitelistM
 		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
 			continue
 		}
+		if !utils.IsInStringArray(dev.VendorId, []string{api.NVIDIA_VENDOR_ID, api.AMD_VENDOR_ID}) {
+			log.Infof("Skip add device %s vendor is unsupport", dev.Addr)
+			continue
+		}
+
 		if enableWhitelist {
 			if !isInWhitelistModels(whitelistModels, dev) {
 				log.Infof("skip add device %s cause of not in isolated_device_models", dev.String())
