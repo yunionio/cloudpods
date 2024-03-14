@@ -1742,7 +1742,12 @@ func (h *SHost) getNetInterfacesInternal(wireId string, nicTypes []compute.TNicT
 		q = q.Equals("wire_id", wireId)
 	}
 	if len(nicTypes) > 0 {
-		q = q.In("nic_type", nicTypes)
+		//q.IsNullOrEmpty()
+		if ok, _ := utils.InArray(compute.NIC_TYPE_NORMAL, nicTypes); ok {
+			q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("nic_type"), nicTypes), sqlchemy.IsNull(q.Field("nic_type"))))
+		} else {
+			q = q.In("nic_type", nicTypes)
+		}
 	}
 	q = q.Asc("index")
 	q = q.Asc("vlan_id")
