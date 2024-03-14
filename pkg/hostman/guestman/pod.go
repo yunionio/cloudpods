@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestman
 
 import (
@@ -13,6 +27,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
 )
 
@@ -234,6 +250,120 @@ func (s *sPodGuestInstance) GetDiskMountPoint(disk storageman.IDisk) string {
 	return filepath.Join(s.GetVolumesDir(), disk.GetId())
 }
 
+func (s *sPodGuestInstance) getPodPrivilegedMode(input *computeapi.PodCreateInput) bool {
+	for _, ctr := range input.Containers {
+		if ctr.Privileged {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *sPodGuestInstance) getPortMappings(input []*computeapi.PodPortMapping) ([]*runtimeapi.PortMapping, error) {
+	result := make([]*runtimeapi.PortMapping, len(input))
+	for idx := range input {
+		pm, err := s.getPortMapping(input[idx])
+		if err != nil {
+			return nil, errors.Wrapf(err, "get port mapping %s", jsonutils.Marshal(input[idx]))
+		}
+		result[idx] = pm
+	}
+	return result, nil
+}
+
+func (s *sPodGuestInstance) getOtherPods() []*sPodGuestInstance {
+	man := s.manager
+	otherPods := make([]*sPodGuestInstance, 0)
+	man.Servers.Range(func(id, value any) bool {
+		if id == s.Id {
+			return true
+		}
+		ins := value.(GuestRuntimeInstance)
+		pod, ok := ins.(*sPodGuestInstance)
+		if !ok {
+			return true
+		}
+		otherPods = append(otherPods, pod)
+		return true
+	})
+	return otherPods
+}
+
+func (s *sPodGuestInstance) getOtherPodsUsedPorts() (map[computeapi.PodPortMappingProtocol]sets.Int, error) {
+	otherPods := s.getOtherPods()
+	ret := make(map[computeapi.PodPortMappingProtocol]sets.Int)
+	for _, pod := range otherPods {
+		pms, err := pod.GetPodMetadataPortMappings()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get pod %s port_mappins", pod.GetId())
+		}
+		for _, pm := range pms {
+			ps, ok := ret[pm.Protocol]
+			if !ok {
+				ps = sets.NewInt()
+			}
+			ps.Insert(int(pm.HostPort))
+			ret[pm.Protocol] = ps
+		}
+	}
+	return ret, nil
+}
+
+func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runtimeapi.PortMapping, error) {
+	runtimePm := &runtimeapi.PortMapping{
+		ContainerPort: int32(pm.ContainerPort),
+		HostIp:        pm.HostIp,
+	}
+	portProtocol := getport.TCP
+	switch pm.Protocol {
+	case computeapi.PodPortMappingProtocolTCP:
+		runtimePm.Protocol = runtimeapi.Protocol_TCP
+		portProtocol = getport.TCP
+	case computeapi.PodPortMappingProtocolUDP:
+		runtimePm.Protocol = runtimeapi.Protocol_UDP
+		portProtocol = getport.UDP
+	//case computeapi.PodPortMappingProtocolSCTP:
+	//	runtimePm.Protocol = runtimeapi.Protocol_SCTP
+	default:
+		return nil, errors.Errorf("invalid protocol: %q", pm.Protocol)
+	}
+	// listen random port
+	otherPorts, err := s.getOtherPodsUsedPorts()
+	if err != nil {
+		return nil, errors.Wrap(err, "getOtherPodsUsedPorts")
+	}
+	if pm.HostPort != nil {
+		runtimePm.HostPort = int32(*pm.HostPort)
+		if getport.IsPortUsed(portProtocol, "", *pm.HostPort) {
+			return nil, httperrors.NewInputParameterError("host_port %d is used", pm.HostPort)
+		}
+		usedPorts, ok := otherPorts[pm.Protocol]
+		if ok {
+			if usedPorts.Has(*pm.HostPort) {
+				return nil, errors.Wrapf(err, "%s host_port %d is already used", pm.Protocol, *pm.HostPort)
+			}
+		}
+		return runtimePm, nil
+	} else {
+		start := 20000
+		end := 25000
+		if pm.HostPortRange != nil {
+			start = pm.HostPortRange.Start
+			end = pm.HostPortRange.End
+		}
+		otherPodPorts, ok := otherPorts[pm.Protocol]
+		if !ok {
+			otherPodPorts = sets.NewInt()
+		}
+		portResult, err := getport.GetPortByRangeBySets(portProtocol, start, end, otherPodPorts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "listen %s port inside %d and %d", pm.Protocol, start, end)
+		}
+		runtimePm.HostPort = int32(portResult.Port)
+		return runtimePm, nil
+	}
+}
+
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	podInput, err := s.getPodCreateParams()
 	if err != nil {
@@ -264,7 +394,7 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 				RunAsGroup:         nil,
 				ReadonlyRootfs:     false,
 				SupplementalGroups: nil,
-				//Privileged:         true,
+				Privileged:         s.getPodPrivilegedMode(podInput),
 				Seccomp:            nil,
 				Apparmor:           nil,
 				SeccompProfilePath: "",
@@ -275,26 +405,11 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 	}
 
 	if len(podInput.PortMappings) != 0 {
-		podCfg.PortMappings = make([]*runtimeapi.PortMapping, len(podInput.PortMappings))
-		for idx := range podInput.PortMappings {
-			pm := podInput.PortMappings[idx]
-			runtimePm := &runtimeapi.PortMapping{
-				ContainerPort: pm.ContainerPort,
-				HostPort:      pm.HostPort,
-				HostIp:        pm.HostIp,
-			}
-			switch pm.Protocol {
-			case computeapi.PodPortMappingProtocolTCP:
-				runtimePm.Protocol = runtimeapi.Protocol_TCP
-			case computeapi.PodPortMappingProtocolUDP:
-				runtimePm.Protocol = runtimeapi.Protocol_UDP
-			case computeapi.PodPortMappingProtocolSCTP:
-				runtimePm.Protocol = runtimeapi.Protocol_SCTP
-			default:
-				return nil, errors.Errorf("invalid protocol: %q", pm.Protocol)
-			}
-			podCfg.PortMappings[idx] = runtimePm
+		pms, err := s.getPortMappings(podInput.PortMappings)
+		if err != nil {
+			return nil, errors.Wrap(err, "get port mappings")
 		}
+		podCfg.PortMappings = pms
 	}
 
 	criId, err := s.getCRI().RunPod(ctx, podCfg, "")
@@ -426,15 +541,41 @@ func (s *sPodGuestInstance) getCRIId() string {
 	return s.GetSourceDesc().Metadata[computeapi.POD_METADATA_CRI_ID]
 }
 
+func (s *sPodGuestInstance) convertToPodMetadataPortMappings(cfg *runtimeapi.PodSandboxConfig) []*computeapi.PodMetadataPortMapping {
+	if cfg.PortMappings == nil {
+		return []*computeapi.PodMetadataPortMapping{}
+	}
+	ret := make([]*computeapi.PodMetadataPortMapping, len(cfg.PortMappings))
+	for idx := range cfg.PortMappings {
+		pm := cfg.PortMappings[idx]
+		var proto computeapi.PodPortMappingProtocol = computeapi.PodPortMappingProtocolTCP
+		if pm.Protocol == runtimeapi.Protocol_UDP {
+			proto = computeapi.PodPortMappingProtocolUDP
+		}
+		ret[idx] = &computeapi.PodMetadataPortMapping{
+			Protocol:      proto,
+			ContainerPort: pm.ContainerPort,
+			HostPort:      pm.HostPort,
+			HostIp:        pm.HostIp,
+		}
+	}
+	return ret
+}
+
 func (s *sPodGuestInstance) setCRIInfo(ctx context.Context, userCred mcclient.TokenCredential, criId string, cfg *runtimeapi.PodSandboxConfig) error {
 	s.Desc.Metadata[computeapi.POD_METADATA_CRI_ID] = criId
 	cfgStr := jsonutils.Marshal(cfg).String()
 	s.Desc.Metadata[computeapi.POD_METADATA_CRI_CONFIG] = cfgStr
 
+	pms := s.convertToPodMetadataPortMappings(cfg)
+	pmStr := jsonutils.Marshal(pms).String()
+	s.Desc.Metadata[computeapi.POD_METADATA_PORT_MAPPINGS] = pmStr
+
 	session := auth.GetSession(ctx, userCred, options.HostOptions.Region)
 	if _, err := computemod.Servers.SetMetadata(session, s.GetId(), jsonutils.Marshal(map[string]string{
-		computeapi.POD_METADATA_CRI_ID:     criId,
-		computeapi.POD_METADATA_CRI_CONFIG: cfgStr,
+		computeapi.POD_METADATA_CRI_ID:        criId,
+		computeapi.POD_METADATA_CRI_CONFIG:    cfgStr,
+		computeapi.POD_METADATA_PORT_MAPPINGS: pmStr,
 	})); err != nil {
 		return errors.Wrapf(err, "set cri_id of pod %s", s.GetId())
 	}
@@ -462,6 +603,22 @@ func (s *sPodGuestInstance) getPodSandboxConfig() (*runtimeapi.PodSandboxConfig,
 		return nil, errors.Wrap(err, "Unmarshal to PodSandboxConfig")
 	}
 	return podCfg, nil
+}
+
+func (s *sPodGuestInstance) GetPodMetadataPortMappings() ([]*computeapi.PodMetadataPortMapping, error) {
+	cfgStr := s.GetSourceDesc().Metadata[computeapi.POD_METADATA_PORT_MAPPINGS]
+	if cfgStr == "" {
+		return nil, nil
+	}
+	obj, err := jsonutils.ParseString(cfgStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ParseString to json object: %s", cfgStr)
+	}
+	pms := make([]*computeapi.PodMetadataPortMapping, 0)
+	if err := obj.Unmarshal(pms); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal to PodMetadataPortMappings")
+	}
+	return pms, nil
 }
 
 func (s *sPodGuestInstance) saveContainer(id string, criId string) error {
@@ -576,28 +733,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	if err != nil {
 		return "", errors.Wrap(err, "getPodSandboxConfig")
 	}
-	kboxCaps := []string{
-		"SETPCAP",
-		"AUDIT_WRITE",
-		"SYS_CHROOT",
-		"CHOWN",
-		"DAC_OVERRIDE",
-		"FOWNER",
-		"SETGID",
-		"SETUID",
-		"SYSLOG",
-		"SYS_ADMIN",
-		"WAKE_ALARM",
-		"SYS_PTRACE",
-		"BLOCK_SUSPEND",
-		"MKNOD",
-		"KILL",
-		"SYS_RESOURCE",
-		"NET_RAW",
-		"NET_ADMIN",
-		"NET_BIND_SERVICE",
-		"SYS_NICE",
-	}
 	mounts, err := s.getContainerMounts(input)
 	if err != nil {
 		return "", errors.Wrap(err, "get container mounts")
@@ -624,11 +759,8 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			//	MemorySwapLimitInBytes: 0,
 			//},
 			SecurityContext: &runtimeapi.LinuxContainerSecurityContext{
-				Capabilities: &runtimeapi.Capability{
-					//AddCapabilities: []string{"SYS_ADMIN"},
-					AddCapabilities: kboxCaps,
-				},
-				//Privileged:         true,
+				Capabilities:       &runtimeapi.Capability{},
+				Privileged:         spec.Privileged,
 				NamespaceOptions:   nil,
 				SelinuxOptions:     nil,
 				RunAsUser:          nil,
@@ -652,6 +784,10 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	}
 	if spec.EnableLxcfs {
 		ctrCfg.Mounts = append(ctrCfg.Mounts, s.getLxcfsMounts()...)
+	}
+	if spec.Capabilities != nil {
+		ctrCfg.Linux.SecurityContext.Capabilities.AddCapabilities = spec.Capabilities.Add
+		ctrCfg.Linux.SecurityContext.Capabilities.DropCapabilities = spec.Capabilities.Drop
 	}
 	for _, env := range spec.Envs {
 		ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{

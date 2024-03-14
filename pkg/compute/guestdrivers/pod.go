@@ -89,12 +89,28 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 }
 
 func (p *SPodDriver) validatePortMappings(input *api.PodCreateInput) error {
+	usedPorts := make(map[api.PodPortMappingProtocol]sets.Int)
 	for idx, pm := range input.PortMappings {
-		// TODO: 判断 host port 是否重复
+		ports, ok := usedPorts[pm.Protocol]
+		if !ok {
+			ports = sets.NewInt()
+		}
+		if pm.HostPort != nil {
+			if ports.Has(*pm.HostPort) {
+				return httperrors.NewInputParameterError("%s host_port %d is already specified", pm.Protocol, *pm.HostPort)
+			}
+			ports.Insert(*pm.HostPort)
+		}
+		usedPorts[pm.Protocol] = ports
 		if err := p.validatePortMapping(pm); err != nil {
 			return errors.Wrapf(err, "validate portmapping %d", idx)
 		}
 	}
+	return nil
+}
+
+func (p *SPodDriver) validateHostPortMapping(hostId string, pm *api.PodPortMapping) error {
+	// TODO:
 	return nil
 }
 
@@ -137,7 +153,22 @@ func (p *SPodDriver) validateContainerVolumeMount(ctx context.Context, userCred 
 	return nil
 }
 
-func (p *SPodDriver) validatePortRange(port int32) error {
+func (p *SPodDriver) validatePortRange(portRange *api.PodPortMappingPortRange) error {
+	if portRange != nil {
+		if portRange.Start > portRange.End {
+			return httperrors.NewInputParameterError("port range start %d is large than %d", portRange.Start, portRange.End)
+		}
+		if portRange.Start <= 0 {
+			return httperrors.NewInputParameterError("port range start %d <= 0", portRange.Start)
+		}
+		if portRange.End > 65535 {
+			return httperrors.NewInputParameterError("port range end %d > 65535", portRange.End)
+		}
+	}
+	return nil
+}
+
+func (p *SPodDriver) validatePort(port int) error {
 	if port <= 0 || port > 65535 {
 		return httperrors.NewInputParameterError("port number %d isn't within 1 to 65535", port)
 	}
@@ -145,16 +176,21 @@ func (p *SPodDriver) validatePortRange(port int32) error {
 }
 
 func (p *SPodDriver) validatePortMapping(pm *api.PodPortMapping) error {
-	if err := p.validatePortRange(pm.HostPort); err != nil {
-		return errors.Wrap(err, "validate host_port")
+	if err := p.validatePortRange(pm.HostPortRange); err != nil {
+		return err
 	}
-	if err := p.validatePortRange(pm.ContainerPort); err != nil {
+	if pm.HostPort != nil {
+		if err := p.validatePort(*pm.HostPort); err != nil {
+			return errors.Wrap(err, "validate host_port")
+		}
+	}
+	if err := p.validatePort(pm.ContainerPort); err != nil {
 		return errors.Wrap(err, "validate container_port")
 	}
 	if pm.Protocol == "" {
 		pm.Protocol = api.PodPortMappingProtocolTCP
 	}
-	if !sets.NewString(api.PodPortMappingProtocolSCTP, api.PodPortMappingProtocolUDP, api.PodPortMappingProtocolTCP).Has(string(pm.Protocol)) {
+	if !sets.NewString(api.PodPortMappingProtocolUDP, api.PodPortMappingProtocolTCP).Has(string(pm.Protocol)) {
 		return httperrors.NewInputParameterError("unsupported protocol %s", pm.Protocol)
 	}
 	return nil

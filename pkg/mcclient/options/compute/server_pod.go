@@ -29,63 +29,132 @@ import (
 )
 
 type PodCreateOptions struct {
-	NAME        string   `help:"Name of server pod" json:"-"`
-	IMAGE       string   `help:"Image of container" json:"-"`
+	NAME string `help:"Name of server pod" json:"-"`
+	ServerCreateCommonConfig
 	MEM         string   `help:"Memory size MB" metavar:"MEM" json:"-"`
 	VcpuCount   int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	AllowDelete *bool    `help:"Unlock server to allow deleting" json:"-"`
-	PortMapping []string `help:"Port mapping of the pod and the format is: <host_port>:<container_port>/<tcp|udp>" short-token:"p"`
+	PortMapping []string `help:"Port mapping of the pod and the format is: host_port=8080,port=80,protocol=<tcp|udp>,host_port_range=<int>-<int>" short-token:"p"`
 	Arch        string   `help:"image arch" choices:"aarch64|x86_64"`
-	Command     []string `help:"Command to execute (i.e., entrypoint for docker)" json:"command"`
-	Args        []string `help:"Args for the Command (i.e. command for docker)" json:"args"`
-	WorkingDir  string   `help:"Current working directory of the command" json:"working_dir"`
-	Volume      []string `help:"Volume specification: name=<name>,disk_index=<index>, e.g.: name=disk0,disk_index=0"`
-	Device      []string `help:"Host device: <host_path>:<container_path>:<permissions>, e.g.: /dev/snd:/dev/snd:rwm"`
-	Env         []string `help:"List of environment variable to set in the container and format is: <key>=<value>"`
-	EnableLxcfs bool     `help:"Enable lxcfs"`
-	VolumeMount []string `help:"Volume mount of the container and the format is: name=<val>,mount=<container_path>,readonly=<true_or_false>"`
 
-	ServerCreateCommonConfig
+	ContainerCreateCommonOptions
+}
+
+func parsePodPortMappingDetails(input string) (*computeapi.PodPortMapping, error) {
+	pm := &computeapi.PodPortMapping{
+		Protocol: computeapi.PodPortMappingProtocolTCP,
+	}
+	for _, seg := range strings.Split(input, ",") {
+		info := strings.Split(seg, "=")
+		if len(info) != 2 {
+			return nil, errors.Errorf("invalid option %s", seg)
+		}
+		key := info[0]
+		val := info[1]
+		switch key {
+		case "host_port":
+			hp, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid host_port %s", val)
+			}
+			pm.HostPort = &hp
+		case "container_port", "port":
+			cp, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid container_port %s", val)
+			}
+			pm.ContainerPort = cp
+		case "proto", "protocol":
+			pm.Protocol = computeapi.PodPortMappingProtocol(val)
+		case "host_port_range":
+			rangeParts := strings.Split(val, "-")
+			if len(rangeParts) != 2 {
+				return nil, errors.Errorf("invalid range string %s", val)
+			}
+			start, err := strconv.Atoi(rangeParts[0])
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid host_port_range %s", rangeParts[0])
+			}
+			end, err := strconv.Atoi(rangeParts[1])
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid host_port_range %s", rangeParts[1])
+			}
+			pm.HostPortRange = &computeapi.PodPortMappingPortRange{
+				Start: start,
+				End:   end,
+			}
+		}
+	}
+	if pm.ContainerPort == 0 {
+		return nil, errors.Error("container_port must specified")
+	}
+	return pm, nil
+}
+
+func ParsePodPortMapping(input string) (*computeapi.PodPortMapping, error) {
+	pm, err := parsePodPortMapping(input)
+	if err != nil {
+		return parsePodPortMappingDetails(input)
+	}
+	return pm, nil
 }
 
 func parsePodPortMapping(input string) (*computeapi.PodPortMapping, error) {
 	segs := strings.Split(input, ":")
-	if len(segs) != 2 {
+	parseCtrPart := func(ctrPortPart string) (computeapi.PodPortMappingProtocol, int, error) {
+		ctrPortSegs := strings.Split(ctrPortPart, "/")
+		if len(ctrPortSegs) > 2 {
+			return "", 0, errors.Errorf("wrong format: %s", ctrPortPart)
+		}
+		ctrPortStr := ctrPortSegs[0]
+		ctrPort, err := strconv.Atoi(ctrPortStr)
+		if err != nil {
+			return "", 0, errors.Wrapf(err, "container_port %s isn't integer", ctrPortStr)
+		}
+		var protocol computeapi.PodPortMappingProtocol = computeapi.PodPortMappingProtocolTCP
+		if len(ctrPortSegs) == 2 {
+			switch ctrPortSegs[1] {
+			case "tcp":
+				protocol = computeapi.PodPortMappingProtocolTCP
+			case "udp":
+				protocol = computeapi.PodPortMappingProtocolUDP
+			//case "sctp":
+			//	protocol = computeapi.PodPortMappingProtocolSCTP
+			default:
+				return "", 0, errors.Wrapf(err, "wrong protocol: %s", ctrPortSegs[1])
+			}
+		}
+		return protocol, ctrPort, nil
+	}
+
+	if len(segs) == 1 {
+		protocol, ctrPort, err := parseCtrPart(segs[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse %s", segs[0])
+		}
+		return &computeapi.PodPortMapping{
+			Protocol:      protocol,
+			ContainerPort: ctrPort,
+		}, nil
+	} else if len(segs) == 2 {
+		hostPortStr := segs[0]
+		hostPort, err := strconv.Atoi(hostPortStr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "host_port %s isn't integer", hostPortStr)
+		}
+		ctrPortPart := segs[1]
+		protocol, ctrPort, err := parseCtrPart(ctrPortPart)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse %s", ctrPortPart)
+		}
+		return &computeapi.PodPortMapping{
+			Protocol:      protocol,
+			ContainerPort: ctrPort,
+			HostPort:      &hostPort,
+		}, nil
+	} else {
 		return nil, errors.Errorf("wrong format: %s", input)
 	}
-	hostPortStr := segs[0]
-	hostPort, err := strconv.Atoi(hostPortStr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "host_port %s isn't integer", hostPortStr)
-	}
-	ctrPortPart := segs[1]
-	ctrPortSegs := strings.Split(ctrPortPart, "/")
-	if len(ctrPortSegs) > 2 {
-		return nil, errors.Wrapf(err, "wrong format: %s", ctrPortPart)
-	}
-	ctrPortStr := ctrPortSegs[0]
-	ctrPort, err := strconv.Atoi(ctrPortStr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "container_port %s isn't integer", ctrPortStr)
-	}
-	var protocol computeapi.PodPortMappingProtocol = computeapi.PodPortMappingProtocolTCP
-	if len(ctrPortSegs) == 2 {
-		switch ctrPortSegs[1] {
-		case "tcp":
-			protocol = computeapi.PodPortMappingProtocolTCP
-		case "udp":
-			protocol = computeapi.PodPortMappingProtocolUDP
-		case "sctp":
-			protocol = computeapi.PodPortMappingProtocolSCTP
-		default:
-			return nil, errors.Wrapf(err, "wrong protocol: %s", ctrPortSegs[1])
-		}
-	}
-	return &computeapi.PodPortMapping{
-		Protocol:      protocol,
-		ContainerPort: int32(ctrPort),
-		HostPort:      int32(hostPort),
-	}, nil
 }
 
 func parseContainerDevice(dev string) (*computeapi.ContainerDevice, error) {
@@ -113,7 +182,7 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 	portMappings := make([]*computeapi.PodPortMapping, 0)
 	if len(o.PortMapping) != 0 {
 		for _, input := range o.PortMapping {
-			pm, err := parsePodPortMapping(input)
+			pm, err := ParsePodPortMapping(input)
 			if err != nil {
 				return nil, errors.Wrapf(err, "parse port mapping: %s", input)
 			}
@@ -121,31 +190,9 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 		}
 	}
 
-	devs := make([]*computeapi.ContainerDevice, len(o.Device))
-	for idx, devStr := range o.Device {
-		dev, err := parseContainerDevice(devStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "parseContainerDevice")
-		}
-		devs[idx] = dev
-	}
-
-	envs := make([]*apis.ContainerKeyValue, 0)
-	for _, env := range o.Env {
-		e, err := parseContainerEnv(env)
-		if err != nil {
-			return nil, errors.Wrapf(err, "parseContainerEnv %s", env)
-		}
-		envs = append(envs, e)
-	}
-
-	vms := make([]*apis.ContainerVolumeMount, 0)
-	for _, vmStr := range o.VolumeMount {
-		vm, err := parseContainerVolumeMount(vmStr)
-		if err != nil {
-			return nil, errors.Wrapf(err, "parseContainerVolumeMount %s", vmStr)
-		}
-		vms = append(vms, vm)
+	spec, err := o.getCreateSpec()
+	if err != nil {
+		return nil, errors.Wrap(err, "get container create spec")
 	}
 
 	params := &computeapi.ServerCreateInput{
@@ -155,18 +202,7 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 			PortMappings: portMappings,
 			Containers: []*computeapi.PodContainerCreateInput{
 				{
-					ContainerSpec: computeapi.ContainerSpec{
-						ContainerSpec: apis.ContainerSpec{
-							Image:        o.IMAGE,
-							Command:      o.Command,
-							Args:         o.Args,
-							WorkingDir:   o.WorkingDir,
-							Envs:         envs,
-							EnableLxcfs:  o.EnableLxcfs,
-							VolumeMounts: vms,
-						},
-						Devices: devs,
-					},
+					ContainerSpec: *spec,
 				},
 			},
 		},

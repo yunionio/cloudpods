@@ -39,46 +39,80 @@ type ContainerDeleteOptions struct {
 	ServerIdsOptions
 }
 
-type ContainerCreateOptions struct {
-	PODID       string   `help:"Name or id of server pod" json:"-"`
-	NAME        string   `help:"Name of container" json:"-"`
+type ContainerCreateCommonOptions struct {
 	IMAGE       string   `help:"Image of container" json:"image"`
 	Command     []string `help:"Command to execute (i.e., entrypoint for docker)" json:"command"`
 	Args        []string `help:"Args for the Command (i.e. command for docker)" json:"args"`
 	WorkingDir  string   `help:"Current working directory of the command" json:"working_dir"`
 	Env         []string `help:"List of environment variable to set in the container and the format is: <key>=<value>"`
 	VolumeMount []string `help:"Volume mount of the container and the format is: name=<val>,mount=<container_path>,readonly=<true_or_false>,disk_index=<disk_number>,disk_id=<disk_id>"`
+	Device      []string `help:"Host device: <host_path>:<container_path>:<permissions>, e.g.: /dev/snd:/dev/snd:rwm"`
+	Privileged  bool     `help:"Privileged mode"`
+	Caps        string   `help:"Container capabilities, e.g.: SETPCAP,AUDIT_WRITE,SYS_CHROOT,CHOWN,DAC_OVERRIDE,FOWNER,SETGID,SETUID,SYSLOG,SYS_ADMIN,WAKE_ALARM,SYS_PTRACE,BLOCK_SUSPEND,MKNOD,KILL,SYS_RESOURCE,NET_RAW,NET_ADMIN,NET_BIND_SERVICE,SYS_NICE"`
+	DropCaps    string   `help:"Container dropped capabilities, split by ','"`
+	EnableLxcfs bool     `help:"Enable lxcfs"`
 }
 
-func (o *ContainerCreateOptions) Params() (jsonutils.JSONObject, error) {
-	req := computeapi.ContainerCreateInput{
-		GuestId: o.PODID,
-		Spec: computeapi.ContainerSpec{
-			ContainerSpec: apis.ContainerSpec{
-				Image:        o.IMAGE,
-				Command:      o.Command,
-				Args:         o.Args,
-				WorkingDir:   o.WorkingDir,
-				Envs:         make([]*apis.ContainerKeyValue, 0),
-				VolumeMounts: make([]*apis.ContainerVolumeMount, 0),
-			},
+func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
+	req := &computeapi.ContainerSpec{
+		ContainerSpec: apis.ContainerSpec{
+			Image:        o.IMAGE,
+			Command:      o.Command,
+			Args:         o.Args,
+			WorkingDir:   o.WorkingDir,
+			EnableLxcfs:  o.EnableLxcfs,
+			Privileged:   o.Privileged,
+			Capabilities: &apis.ContainerCapability{},
 		},
 	}
-	req.Name = o.NAME
+	if len(o.Caps) != 0 {
+		req.Capabilities.Add = strings.Split(o.Caps, ",")
+	}
+	if len(o.DropCaps) != 0 {
+		req.Capabilities.Drop = strings.Split(o.DropCaps, ",")
+	}
 	for _, env := range o.Env {
 		e, err := parseContainerEnv(env)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parseContainerEnv %s", env)
 		}
-		req.Spec.Envs = append(req.Spec.Envs, e)
+		req.Envs = append(req.Envs, e)
 	}
 	for _, vmStr := range o.VolumeMount {
 		vm, err := parseContainerVolumeMount(vmStr)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parseContainerVolumeMount %s", vmStr)
 		}
-		req.Spec.VolumeMounts = append(req.Spec.VolumeMounts, vm)
+		req.VolumeMounts = append(req.VolumeMounts, vm)
 	}
+	devs := make([]*computeapi.ContainerDevice, len(o.Device))
+	for idx, devStr := range o.Device {
+		dev, err := parseContainerDevice(devStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "parseContainerDevice")
+		}
+		devs[idx] = dev
+	}
+	req.Devices = devs
+	return req, nil
+}
+
+type ContainerCreateOptions struct {
+	ContainerCreateCommonOptions
+	PODID string `help:"Name or id of server pod" json:"-"`
+	NAME  string `help:"Name of container" json:"-"`
+}
+
+func (o *ContainerCreateOptions) Params() (jsonutils.JSONObject, error) {
+	spec, err := o.getCreateSpec()
+	if err != nil {
+		return nil, errors.Wrap(err, "get container create spec")
+	}
+	req := computeapi.ContainerCreateInput{
+		GuestId: o.PODID,
+		Spec:    *spec,
+	}
+	req.Name = o.NAME
 	return jsonutils.Marshal(req), nil
 }
 

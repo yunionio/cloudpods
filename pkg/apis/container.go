@@ -38,6 +38,13 @@ type ContainerSpec struct {
 	EnableLxcfs bool `json:"enable_lxcfs"`
 	// Volume mounts
 	VolumeMounts []*ContainerVolumeMount `json:"volume_mounts"`
+	Capabilities *ContainerCapability    `json:"capabilities"`
+	Privileged   bool                    `json:"privileged"`
+}
+
+type ContainerCapability struct {
+	Add  []string `json:"add"`
+	Drop []string `json:"drop"`
 }
 
 type ImagePullPolicy string

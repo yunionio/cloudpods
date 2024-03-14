@@ -22,8 +22,9 @@ const (
 )
 
 const (
-	POD_METADATA_CRI_ID     = "cri_id"
-	POD_METADATA_CRI_CONFIG = "cri_config"
+	POD_METADATA_CRI_ID        = "cri_id"
+	POD_METADATA_CRI_CONFIG    = "cri_config"
+	POD_METADATA_PORT_MAPPINGS = "port_mappings"
 )
 
 type PodContainerCreateInput struct {
@@ -35,16 +36,22 @@ type PodContainerCreateInput struct {
 type PodPortMappingProtocol string
 
 const (
-	PodPortMappingProtocolTCP  = "tcp"
-	PodPortMappingProtocolUDP  = "udp"
-	PodPortMappingProtocolSCTP = "sctp"
+	PodPortMappingProtocolTCP = "tcp"
+	PodPortMappingProtocolUDP = "udp"
+	//PodPortMappingProtocolSCTP = "sctp"
 )
 
+type PodPortMappingPortRange struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
+}
+
 type PodPortMapping struct {
-	Protocol      PodPortMappingProtocol `json:"protocol"`
-	ContainerPort int32                  `json:"container_port"`
-	HostPort      int32                  `json:"host_port"`
-	HostIp        string                 `json:"host_ip"`
+	Protocol      PodPortMappingProtocol   `json:"protocol"`
+	ContainerPort int                      `json:"container_port"`
+	HostPort      *int                     `json:"host_port,omitempty"`
+	HostIp        string                   `json:"host_ip"`
+	HostPortRange *PodPortMappingPortRange `json:"host_port_range,omitempty"`
 }
 
 type PodCreateInput struct {
@@ -55,4 +62,11 @@ type PodCreateInput struct {
 type PodStartResponse struct {
 	CRIId     string `json:"cri_id"`
 	IsRunning bool   `json:"is_running"`
+}
+
+type PodMetadataPortMapping struct {
+	Protocol      PodPortMappingProtocol `json:"protocol"`
+	ContainerPort int32                  `json:"container_port"`
+	HostPort      int32                  `json:"host_port,omitempty"`
+	HostIp        string                 `json:"host_ip"`
 }
