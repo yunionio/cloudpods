@@ -753,8 +753,6 @@ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 github.com/yusufpapurcu/wmi v1.2.2 h1:KBNDSne4vP5mbSWnJbO+51IMOXJB67QiYCSBrubbPRg=
 github.com/yusufpapurcu/wmi v1.2.2/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-github.com/zexi/golosetup v0.0.0-20181117053200-8c308e8bbf44 h1:t8QkjgKJTQyJT7/MJJgAdRGt316wkQ0Ar3poFd1E0X0=
-github.com/zexi/golosetup v0.0.0-20181117053200-8c308e8bbf44/go.mod h1:uswjAAGley+FRw3bgWor83twfO8Ru6owCpic+Xnh2Xo=
 github.com/zexi/golosetup v0.0.1 h1:y7RRI/2xqzR2ByO3a2QTARUp5ivbC5R6zFXEx2WrInA=
 github.com/zexi/golosetup v0.0.1/go.mod h1:U4bxWs+J/Kq1/pyRHBCOk2FzqO+AYA4GTzrwgeDmWvY=
 github.com/zexi/influxql-to-metricsql v0.0.6 h1:E16T4oqgjIJtSNVvhGGHnw+pmY3yGz2iRsmmmSVuOpY=
@@ -1214,8 +1212,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240308095621-979378c55149 h1:Dl+rEbNcuy76Lou3/C2U5bDKSsVB9GyFQJXkIh8ORzo=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240308095621-979378c55149/go.mod h1:dsUESXIbXJ+/ywbNClhldOrbPOiBi2udrgOnB/ffoWk=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240314033843-5935078cc5c5 h1:MFldLYXlTgTx5cdQ2k1Id4Uj2lP3h1lkay0tVdbR17A=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240314033843-5935078cc5c5/go.mod h1:dsUESXIbXJ+/ywbNClhldOrbPOiBi2udrgOnB/ffoWk=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32 h1:v7POYkQwo1XzOxBoIoRVr/k0V9Y5JyjpshlIFa9raug=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
