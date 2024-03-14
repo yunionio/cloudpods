@@ -59,6 +59,13 @@ func (c *SLVMImageCache) GetDesc() *remotefile.SImageDesc {
 
 func (c *SLVMImageCache) Load() error {
 	log.Debugf("loading lvm imagecache %s", c.GetPath())
+	if c.Manager.Lvmlockd() {
+		err := lvmutils.LVActive(c.GetPath(), true, false)
+		if err != nil {
+			return errors.Wrap(err, "lvmlockd set lv shared")
+		}
+	}
+
 	origin, err := qemuimg.NewQemuImage(c.GetPath())
 	if err != nil {
 		return errors.Wrap(err, "NewQemuImage")
