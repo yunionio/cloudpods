@@ -717,6 +717,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 type SCreateVMParam struct {
 	Name                 string
+	Desc                 string `json:"description"`
 	Uuid                 string
 	OsName               string
 	Cpu                  int
@@ -1000,13 +1001,14 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	version := self.getVmVersion()
 
 	spec := types.VirtualMachineConfigSpec{
-		Name:     name,
-		Version:  version,
-		Uuid:     params.Uuid,
-		GuestId:  guestId,
-		NumCPUs:  int32(params.Cpu),
-		MemoryMB: int64(params.Mem),
-		Firmware: firmware,
+		Name:       name,
+		Annotation: params.Desc,
+		Version:    version,
+		Uuid:       params.Uuid,
+		GuestId:    guestId,
+		NumCPUs:    int32(params.Cpu),
+		MemoryMB:   int64(params.Mem),
+		Firmware:   firmware,
 	}
 	spec.Files = &types.VirtualMachineFileInfo{
 		VmPathName: datastorePath,
@@ -1193,10 +1195,11 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		name = params.Uuid
 	}
 	spec := types.VirtualMachineConfigSpec{
-		Name:     name,
-		Uuid:     params.Uuid,
-		NumCPUs:  int32(params.Cpu),
-		MemoryMB: int64(params.Mem),
+		Name:       name,
+		Annotation: params.Desc,
+		Uuid:       params.Uuid,
+		NumCPUs:    int32(params.Cpu),
+		MemoryMB:   int64(params.Mem),
 	}
 	cloneSpec.Config = &spec
 	task, err := ovm.Clone(ctx, folders.VmFolder, name, *cloneSpec)
