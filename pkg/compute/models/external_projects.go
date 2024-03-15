@@ -366,6 +366,15 @@ func (self *SExternalProject) GetProjectCount() (int, error) {
 	return ExternalProjectManager.Query().Equals("tenant_id", self.ProjectId).CountWithError()
 }
 
+func (self *SExternalProject) IsMaxPriority() bool {
+	project := &SExternalProject{}
+	err := ExternalProjectManager.Query().Equals("tenant_id", self.ProjectId).Equals("cloudaccount_id", self.CloudaccountId).Desc("priority").First(project)
+	if err != nil {
+		return false
+	}
+	return project.Priority == self.Priority
+}
+
 func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, ext cloudprovider.ICloudProject) error {
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	providers := account.GetCloudproviders()
@@ -472,10 +481,13 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 		return errors.Wrapf(err, "db.UpdateWithLock")
 	}
 
-	tags, _ := ext.GetTags()
-	if len(tags) > 0 {
-		identity.Projects.PerformAction(s, self.ProjectId, "user-metadata", jsonutils.Marshal(tags))
+	if self.IsMaxPriority() {
+		tags, _ := ext.GetTags()
+		if len(tags) > 0 {
+			identity.Projects.PerformAction(s, self.ProjectId, "user-metadata", jsonutils.Marshal(tags))
+		}
 	}
+
 	syncMetadata(ctx, userCred, self, ext, account.ReadOnly)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -613,10 +625,12 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	tags, _ := extProject.GetTags()
-	if len(tags) > 0 {
-		s := auth.GetAdminSession(ctx, consts.GetRegion())
-		identity.Projects.PerformAction(s, project.ProjectId, "user-metadata", jsonutils.Marshal(tags))
+	if project.IsMaxPriority() {
+		tags, _ := extProject.GetTags()
+		if len(tags) > 0 {
+			s := auth.GetAdminSession(ctx, consts.GetRegion())
+			identity.Projects.PerformAction(s, project.ProjectId, "user-metadata", jsonutils.Marshal(tags))
+		}
 	}
 
 	syncMetadata(ctx, userCred, &project, extProject, account.ReadOnly)
