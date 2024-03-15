@@ -149,6 +149,11 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 			}
 			vm.Type = apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH
 			vm.HostPath.Path = val
+		case "host_type":
+			if vm.HostPath == nil {
+				vm.HostPath = &apis.ContainerVolumeMountHostPath{}
+			}
+			vm.HostPath.Type = apis.ContainerVolumeMountHostPathType(val)
 		case "disk_index":
 			vm.Type = apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK
 			if vm.Disk == nil {

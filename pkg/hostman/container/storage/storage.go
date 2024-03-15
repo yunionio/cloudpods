@@ -87,5 +87,8 @@ func Unmount(mountPoint string) error {
 	if strings.Contains(string(mountOut), "No such file or directory") {
 		return nil
 	}
+	if strings.Contains(string(mountOut), "not a mountpoint") {
+		return nil
+	}
 	return errors.Wrapf(err, "check mountpoint %s: %s", mountPoint, string(mountOut))
 }

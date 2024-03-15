@@ -107,6 +107,14 @@ type ContainerVolumeMountDisk struct {
 	StorageSizeFile string `json:"storage_size_file"`
 }
 
+type ContainerVolumeMountHostPathType string
+
+const (
+	ContainerVolumeMountHostPathTypeDirectory ContainerVolumeMountHostPathType = "directory"
+	ContainerVolumeMountHostPathTypeFile      ContainerVolumeMountHostPathType = "file"
+)
+
 type ContainerVolumeMountHostPath struct {
-	Path string `json:"path"`
+	Type ContainerVolumeMountHostPathType `json:"type"`
+	Path string                           `json:"path"`
 }

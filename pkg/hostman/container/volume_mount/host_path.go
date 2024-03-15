@@ -1,8 +1,11 @@
 package volume_mount
 
 import (
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func init() {
@@ -32,5 +35,23 @@ func (h hostLocal) GetRuntimeMountHostPath(pod IPodInfo, vm *apis.ContainerVolum
 	if host == nil {
 		return "", httperrors.NewNotEmptyError("host_local is nil")
 	}
-	return host.Path, nil
+	switch host.Type {
+	case "", apis.ContainerVolumeMountHostPathTypeFile:
+		return host.Path, nil
+	case apis.ContainerVolumeMountHostPathTypeDirectory:
+		return h.getDirectoryPath(host)
+	}
+	return "", httperrors.NewInputParameterError("unsupported type %q", host.Type)
+}
+
+func (h hostLocal) getDirectoryPath(input *apis.ContainerVolumeMountHostPath) (string, error) {
+	if input.Type != apis.ContainerVolumeMountHostPathTypeDirectory {
+		return "", httperrors.NewInputParameterError("unsupported type %q", input.Type)
+	}
+	dirPath := input.Path
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dirPath).Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "mkdir -p %s: %s", dirPath, out)
+	}
+	return dirPath, nil
 }

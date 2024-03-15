@@ -3,6 +3,8 @@ package volume_mount
 import (
 	"context"
 
+	"yunion.io/x/pkg/util/sets"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -32,6 +34,14 @@ func (h hostLocal) ValidatePodCreateData(ctx context.Context, userCred mcclient.
 	hp := vm.HostPath
 	if hp == nil {
 		return httperrors.NewNotEmptyError("host_path is nil")
+	}
+	if hp.Type == "" {
+		hp.Type = apis.ContainerVolumeMountHostPathTypeFile
+	}
+	if !sets.NewString(
+		string(apis.ContainerVolumeMountHostPathTypeFile),
+		string(apis.ContainerVolumeMountHostPathTypeDirectory)).Has(string(hp.Type)) {
+		return httperrors.NewInputParameterError("unsupported type %s", hp.Type)
 	}
 	if hp.Path == "" {
 		return httperrors.NewNotEmptyError("path is required")
