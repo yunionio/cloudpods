@@ -48,7 +48,7 @@ type SBaremetalagent struct {
 
 	AgentType string `width:"32" charset:"ascii" nullable:"true" default:"baremetal" list:"admin" update:"admin" create:"admin_optional"`
 
-	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
+	Version string `width:"128" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
 
 	StoragecacheId    string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"admin_optional"`
 	DisableImageCache bool   `default:"false" list:"admin" create:"admin_optional" update:"admin"`
