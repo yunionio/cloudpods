@@ -3241,28 +3241,25 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 
 func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
 	ctx context.Context, disk storageman.IDisk,
-	deleteSnapshot string, convertSnapshot string, pendingDelete bool,
+	deleteSnapshot string, convertSnapshot string, blockStream bool,
 ) (jsonutils.JSONObject, error) {
 	if s.IsRunning() {
 		if s.isLiveSnapshotEnabled() {
-			task := NewGuestSnapshotDeleteTask(ctx, s, disk,
-				deleteSnapshot, convertSnapshot, pendingDelete)
+			task := NewGuestSnapshotDeleteTask(ctx, s, disk, deleteSnapshot, convertSnapshot, blockStream)
 			task.Start()
 			return nil, nil
 		} else {
 			return nil, fmt.Errorf("Guest dosen't support live snapshot delete")
 		}
 	} else {
-		return s.deleteStaticSnapshotFile(ctx, disk, deleteSnapshot,
-			convertSnapshot, pendingDelete)
+		return s.deleteStaticSnapshotFile(ctx, disk, deleteSnapshot, convertSnapshot, blockStream)
 	}
 }
 
 func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
-	ctx context.Context, disk storageman.IDisk,
-	deleteSnapshot string, convertSnapshot string, pendingDelete bool,
+	ctx context.Context, disk storageman.IDisk, deleteSnapshot, convertSnapshot string, blockStream bool,
 ) (jsonutils.JSONObject, error) {
-	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot, pendingDelete); err != nil {
+	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot, false); err != nil {
 		log.Errorln(err)
 		return nil, err
 	}

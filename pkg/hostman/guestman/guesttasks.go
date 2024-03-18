@@ -1893,7 +1893,7 @@ func (s *SGuestStreamDisksTask) OnGetBlockJobs(jobs []monitor.BlockJob) {
 
 func (s *SGuestStreamDisksTask) taskComplete() {
 	hostutils.UpdateServerProgress(context.Background(), s.Id, 100.0, 0.0)
-	s.SyncStatus("")
+	s.SyncStatus("Guest Disks Block Stream Complete")
 
 	if s.callback != nil {
 		s.callback()
@@ -2074,28 +2074,52 @@ type SGuestSnapshotDeleteTask struct {
 	*SGuestReloadDiskTask
 	deleteSnapshot  string
 	convertSnapshot string
-	pendingDelete   bool
+	blockStream     bool
 
 	tmpPath string
 }
 
 func NewGuestSnapshotDeleteTask(
 	ctx context.Context, s *SKVMGuestInstance, disk storageman.IDisk,
-	deleteSnapshot, convertSnapshot string, pendingDelete bool,
+	deleteSnapshot, convertSnapshot string, blockStream bool,
 ) *SGuestSnapshotDeleteTask {
 	return &SGuestSnapshotDeleteTask{
 		SGuestReloadDiskTask: NewGuestReloadDiskTask(ctx, s, disk),
 		deleteSnapshot:       deleteSnapshot,
 		convertSnapshot:      convertSnapshot,
-		pendingDelete:        pendingDelete,
+		blockStream:          blockStream,
 	}
 }
 
 func (s *SGuestSnapshotDeleteTask) Start() {
+	if s.blockStream {
+		s.startBlockStream()
+		return
+	}
+
 	if err := s.doDiskConvert(); err != nil {
 		s.taskFailed(err.Error())
+		return
 	}
 	s.fetchDisksInfo(s.doReloadDisk)
+}
+
+func (s *SGuestSnapshotDeleteTask) startBlockStream() {
+	diskIdx := []int{}
+	for i := range s.Desc.Disks {
+		if s.Desc.Disks[i].DiskId == s.disk.GetId() {
+			diskIdx = append(diskIdx, int(s.Desc.Disks[i].Index))
+		}
+	}
+	s.StreamDisks(s.ctx, s.onStreamDiskComplete, diskIdx)
+}
+
+func (s *SGuestSnapshotDeleteTask) onStreamDiskComplete() {
+	// remove snapshot file
+	s.disk.DoDeleteSnapshot(s.deleteSnapshot)
+	body := jsonutils.NewDict()
+	body.Set("deleted", jsonutils.JSONTrue)
+	hostutils.TaskComplete(s.ctx, body)
 }
 
 func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
@@ -2163,9 +2187,7 @@ func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 			log.Errorf("rm %s failed: %s, %s", s.tmpPath, err, output)
 		}
 	}
-	if !s.pendingDelete {
-		s.disk.DoDeleteSnapshot(s.deleteSnapshot)
-	}
+	s.disk.DoDeleteSnapshot(s.deleteSnapshot)
 	body := jsonutils.NewDict()
 	body.Set("deleted", jsonutils.JSONTrue)
 	hostutils.TaskComplete(s.ctx, body)

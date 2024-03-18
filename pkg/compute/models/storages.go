@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -1861,31 +1860,6 @@ func (self *SStorage) PerformSetSchedtag(ctx context.Context, userCred mcclient.
 
 func (self *SStorage) GetSchedtagJointManager() ISchedtagJointManager {
 	return StorageschedtagManager
-}
-
-func (manager *SStorageManager) StorageSnapshotsRecycle(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	storages := []SStorage{}
-	q := manager.Query().Equals("enabled", true).
-		In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).
-		In("storage_type", api.SHARED_FILE_STORAGE)
-	err := db.FetchModelObjects(manager, q, &storages)
-	if err != nil {
-		log.Errorf("Get shared file storage failed %s", err)
-		return
-	}
-	for i := 0; i < len(storages); i++ {
-		host, err := storages[i].GetMasterHost()
-		if err != nil {
-			log.Errorf("get master host for storage %s(%s) failed: %v", storages[i].Name, storages[i].Id, err)
-			continue
-		}
-		url := fmt.Sprintf("%s/storages/%s/snapshots-recycle", host.ManagerUri, storages[i].Id)
-		headers := mcclient.GetTokenHeaders(userCred)
-		_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, headers, nil, false)
-		if err != nil {
-			log.Errorf("Storage request snapshots recycle failed %s", err)
-		}
-	}
 }
 
 func (self *SStorage) StartDeleteRbdDisks(ctx context.Context, userCred mcclient.TokenCredential, disksId []string) error {

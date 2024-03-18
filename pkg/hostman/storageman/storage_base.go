@@ -17,13 +17,9 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"path"
-	"regexp"
-	"runtime/debug"
 	"strings"
 	"sync"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -33,16 +29,13 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -488,89 +481,6 @@ func (s *SBaseStorage) onSaveToGlanceFailed(ctx context.Context, imageId string,
 	)
 	if err != nil {
 		log.Errorln(err)
-	}
-}
-
-/*************************Background delete snapshot job****************************/
-
-func StartSnapshotRecycle(storage IStorage) {
-	log.Infof("Snapshot recyle job started")
-	if !fileutils2.Exists(storage.GetSnapshotDir()) {
-		procutils.NewCommand("mkdir", "-p", storage.GetSnapshotDir()).Run()
-	}
-	cronman.GetCronJobManager().AddJobAtIntervals(
-		"SnapshotRecycle", time.Hour*6,
-		func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-			snapshotRecycle(ctx, userCred, isStart, storage)
-		})
-}
-
-func StorageRequestSnapshotRecycle(ctx context.Context, userCred mcclient.TokenCredential, storage IStorage) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("On storage request snapshot recycle %s \n %s", r, debug.Stack())
-		}
-	}()
-
-	if !fileutils2.Exists(storage.GetSnapshotDir()) {
-		procutils.NewCommand("mkdir", "-p", storage.GetSnapshotDir()).Run()
-	}
-	snapshotRecycle(ctx, userCred, false, storage)
-}
-
-func snapshotRecycle(ctx context.Context, userCred mcclient.TokenCredential, isStart bool, storage IStorage) {
-	log.Infof("Snapshot Recycle Job Start, storage is  %s, ss dir is %s", storage.GetStorageName(), storage.GetSnapshotDir())
-	res, err := modules.Snapshots.GetById(hostutils.GetComputeSession(ctx), "max-count", nil)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	maxSnapshotCount, err := res.Int("max_count")
-	if err != nil {
-		log.Errorln("Request region get snapshot max count failed")
-		return
-	}
-	files, err := ioutil.ReadDir(storage.GetSnapshotDir())
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	for _, file := range files {
-		checkSnapshots(storage, file.Name(), int(maxSnapshotCount))
-	}
-}
-
-func checkSnapshots(storage IStorage, snapshotDir string, maxSnapshotCount int) {
-	re := regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}_snap$`)
-	if !re.MatchString(snapshotDir) {
-		log.Warningf("snapshot_dir got unexcept file %s", snapshotDir)
-		return
-	}
-	diskId := snapshotDir[:len(snapshotDir)-len(options.HostOptions.SnapshotDirSuffix)]
-	snapshotPath := path.Join(storage.GetSnapshotDir(), snapshotDir)
-
-	// If disk is Deleted, request delete this disk all snapshots
-	if !fileutils2.Exists(path.Join(storage.GetPath(), diskId)) && fileutils2.Exists(snapshotPath) {
-		params := jsonutils.NewDict()
-		params.Set("disk_id", jsonutils.NewString(diskId))
-		_, err := modules.Snapshots.PerformClassAction(
-			hostutils.GetComputeSession(context.Background()),
-			"delete-disk-snapshots", params)
-		if err != nil {
-			log.Infof("Request delele disk %s snapshots failed %s", diskId, err)
-		}
-		return
-	}
-
-	snapshots, err := ioutil.ReadDir(snapshotPath)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-
-	// if snapshot count greater than maxsnapshot count, do convert
-	if len(snapshots) >= maxSnapshotCount {
-		requestConvertSnapshot(storage, snapshotPath, diskId)
 	}
 }
 
