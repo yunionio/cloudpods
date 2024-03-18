@@ -64,7 +64,7 @@ func GetStringValue(dat interface{}) string {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return fmt.Sprintf("%d", value.Uint())
 	case reflect.Float32, reflect.Float64:
-		return fmt.Sprintf("%f", value.Float())
+		return fmt.Sprintf("%v", value.Float())
 	case reflect.String:
 		return value.String()
 	}

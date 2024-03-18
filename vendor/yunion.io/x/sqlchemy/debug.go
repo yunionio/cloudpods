@@ -30,7 +30,7 @@ var (
 func sqlDebug(key, sqlstr string, variables []interface{}) {
 	sqlstr = _sqlDebug(sqlstr, variables)
 	if key == "" {
-		key = "SQUery"
+		key = "SQuery"
 	}
 	log.Debugln(key, sqlstr)
 }
