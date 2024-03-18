@@ -769,6 +769,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 type SCreateVMParam struct {
 	Name                 string
+	Desc                 string `json:"description"`
 	Uuid                 string
 	OsName               string
 	CpuSockets           int
@@ -1062,6 +1063,7 @@ func (host *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 
 	spec := types.VirtualMachineConfigSpec{
 		Name:              name,
+		Annotation:        params.Desc,
 		Version:           version,
 		Uuid:              params.Uuid,
 		GuestId:           guestId,
@@ -1299,6 +1301,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 	perSocket := params.Cpu / params.CpuSockets
 	spec := types.VirtualMachineConfigSpec{
 		Name:              name,
+		Annotation:        params.Desc,
 		Uuid:              params.Uuid,
 		NumCPUs:           int32(params.Cpu),
 		NumCoresPerSocket: int32(perSocket),
