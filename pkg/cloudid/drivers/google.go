@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package drivers
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
+)
 
-type CachedLoadbalancerCertificateDetails struct {
-	apis.StatusStandaloneResourceDetails
-	ManagedResourceInfo
-	CloudregionResourceInfo
-	LoadbalancerCertificateResourceInfo
-
-	SCachedLoadbalancerCertificate
+type SGoogleDriver struct {
+	SAccountBaseProviderDriver
 }
 
-type CachedLoadbalancerCertificateListInput struct {
-	apis.StatusStandaloneResourceListInput
-	ManagedResourceListInput
-	RegionalFilterListInput
-	LoadbalancerCertificateFilterListInput
+func (driver SGoogleDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_GOOGLE
+}
+
+func init() {
+	models.RegisterProviderDriver(&SGoogleDriver{})
 }

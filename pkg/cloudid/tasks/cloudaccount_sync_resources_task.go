@@ -17,35 +17,48 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-type CloudpolicyCacheTask struct {
+type CloudaccountSyncResourcesTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(CloudpolicyCacheTask{})
+	taskman.RegisterTask(CloudaccountSyncResourcesTask{})
 }
 
-func (self *CloudpolicyCacheTask) taskFailed(ctx context.Context, policy *models.SCloudpolicycache, err error) {
-	policy.SetStatus(ctx, self.GetUserCred(), apis.STATUS_CREATE_FAILED, err.Error())
+func (self *CloudaccountSyncResourcesTask) taskFailed(ctx context.Context, cloudaccount *models.SCloudaccount, err error) {
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *CloudpolicyCacheTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	cache := obj.(*models.SCloudpolicycache)
+func (self *CloudaccountSyncResourcesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	account := obj.(*models.SCloudaccount)
 
-	err := cache.CacheCustomCloudpolicy()
+	provider, err := account.GetProvider()
 	if err != nil {
-		self.taskFailed(ctx, cache, errors.Wrapf(err, "CacheCustomCloudpolicy"))
+		self.taskFailed(ctx, account, errors.Wrap(err, "GetProvider"))
 		return
+	}
+
+	driver, err := account.GetDriver()
+	if err != nil {
+		self.taskFailed(ctx, account, errors.Wrap(err, "GetDriver"))
+		return
+	}
+
+	err = driver.RequestSyncCloudaccountResources(ctx, self.GetUserCred(), account, provider)
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotImplemented {
+			self.taskFailed(ctx, account, errors.Wrap(err, "RequestSyncCloudaccountResources"))
+			return
+		}
 	}
 
 	self.SetStageComplete(ctx, nil)

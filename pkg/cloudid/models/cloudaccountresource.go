@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,11 +25,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SCloudaccountResourceBaseManager struct {
 }
 
@@ -40,15 +40,12 @@ type SCloudaccountResourceBase struct {
 }
 
 func (manager *SCloudaccountResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudaccountResourceListInput) (*sqlchemy.SQuery, error) {
-	if len(query.Cloudaccount) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(ctx, nil, query.Cloudaccount)
+	if len(query.CloudaccountId) > 0 {
+		_, err := validators.ValidateModel(ctx, userCred, CloudaccountManager, &query.CloudaccountId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudaccount", query.Cloudaccount)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, err
 		}
-		q = q.Equals("cloudaccount_id", account.GetId())
+		q = q.Equals("cloudaccount_id", query.CloudaccountId)
 	}
 	if len(query.Provider) > 0 {
 		sq := CloudaccountManager.Query().SubQuery()

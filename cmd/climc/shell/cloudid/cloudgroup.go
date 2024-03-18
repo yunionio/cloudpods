@@ -35,4 +35,5 @@ func init() {
 	cmd.Perform("set-users", &cloudid.CloudgroupUserOptions{})
 	cmd.Perform("public", &cloudid.CloudgroupPublicOptions{})
 	cmd.Perform("private", &cloudid.CloudgroupIdOptions{})
+	cmd.Get("saml", &cloudid.CloudgroupIdOptions{})
 }

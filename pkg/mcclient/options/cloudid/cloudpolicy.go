@@ -26,10 +26,10 @@ import (
 type CloudpolicyListOptions struct {
 	options.BaseListOptions
 
-	CloudproviderId string `json:"cloudprovider_id"`
-	ClouduserId     string `json:"clouduser_id"`
-	CloudgroupId    string `json:"cloudgroup_id"`
-	PolicyType      string `help:"Filter cloudpolicy by policy type" choices:"system|custom"`
+	ManagerId    string `json:"manager_id"`
+	ClouduserId  string `json:"clouduser_id"`
+	CloudgroupId string `json:"cloudgroup_id"`
+	PolicyType   string `help:"Filter cloudpolicy by policy type" choices:"system|custom"`
 }
 
 func (opts *CloudpolicyListOptions) Params() (jsonutils.JSONObject, error) {

@@ -17,8 +17,8 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -26,34 +26,40 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-type SyncCloudrolesTask struct {
+type CloudproviderSyncResourcesTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(SyncCloudrolesTask{})
+	taskman.RegisterTask(CloudproviderSyncResourcesTask{})
 }
 
-func (self *SyncCloudrolesTask) taskFailed(ctx context.Context, account *models.SCloudaccount, err error) {
+func (self *CloudproviderSyncResourcesTask) taskFailed(ctx context.Context, cp *models.SCloudprovider, err error) {
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *SyncCloudrolesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	account := obj.(*models.SCloudaccount)
+func (self *CloudproviderSyncResourcesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	cp := obj.(*models.SCloudprovider)
 
-	provider, err := account.GetProvider()
+	provider, err := cp.GetProvider()
 	if err != nil {
-		self.taskFailed(ctx, account, errors.Wrapf(err, "GetProvider"))
+		self.taskFailed(ctx, cp, errors.Wrap(err, "GetProvider"))
 		return
 	}
 
-	roles, err := provider.GetICloudroles()
+	driver, err := cp.GetDriver()
 	if err != nil {
-		self.taskFailed(ctx, account, errors.Wrapf(err, "GetICloudroles"))
+		self.taskFailed(ctx, cp, errors.Wrap(err, "GetDriver"))
 		return
 	}
-	result := account.SyncCloudroles(ctx, self.GetUserCred(), roles)
-	log.Infof("SyncCloudroles for account %s(%s) result: %s", account.Name, account.Provider, result.Result())
+
+	err = driver.RequestSyncCloudproviderResources(ctx, self.GetUserCred(), cp, provider)
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotImplemented {
+			self.taskFailed(ctx, cp, errors.Wrap(err, "RequestSyncCloudproviderResources"))
+			return
+		}
+	}
 
 	self.SetStageComplete(ctx, nil)
 }

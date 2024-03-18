@@ -33,17 +33,16 @@ func (opts *ClouduserListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ClouduserCreateOptions struct {
-	NAME            string   `help:"Clouduser name"`
-	CLOUDACCOUNT_ID string   `help:"Cloudaccount Id"`
-	CloudproviderId string   `help:"Cloudprovider Id"`
-	OwnerId         string   `help:"Owner Id"`
-	CloudpolicyIds  []string `help:"cloudpolicy ids"`
-	CloudgroupIds   []string `help:"cloudgroup ids"`
-	Email           string   `help:"email address"`
-	MobilePhone     string   `help:"phone number"`
-	IsConsoleLogin  *bool    `help:"is console login"`
-	Password        string   `help:"clouduser password"`
-	Notify          *bool    `help:"Notify user which set email when clouduser created"`
+	NAME           string   `help:"Clouduser name"`
+	MANAGER_ID     string   `help:"Cloudprovider Id"`
+	OwnerId        string   `help:"Owner Id"`
+	CloudpolicyIds []string `help:"cloudpolicy ids"`
+	CloudgroupIds  []string `help:"cloudgroup ids"`
+	Email          string   `help:"email address"`
+	MobilePhone    string   `help:"phone number"`
+	IsConsoleLogin *bool    `help:"is console login"`
+	Password       string   `help:"clouduser password"`
+	Notify         *bool    `help:"Notify user which set email when clouduser created"`
 }
 
 func (opts *ClouduserCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -73,14 +72,12 @@ func (opts *ClouduserSyncOptions) Params() (jsonutils.JSONObject, error) {
 
 type ClouduserPolicyOptions struct {
 	ClouduserIdOption
-	CLOUDPOLICY_ID  string `help:"cloudpolicy Id"`
-	CloudproviderId string `help:"cloudprovider Id"`
+	CLOUDPOLICY_ID string `help:"cloudpolicy Id"`
 }
 
 func (opts *ClouduserPolicyOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string]string{
-		"cloudpolicy_id":   opts.CLOUDPOLICY_ID,
-		"cloudprovider_id": opts.CloudproviderId,
+		"cloudpolicy_id": opts.CLOUDPOLICY_ID,
 	}), nil
 }
 
