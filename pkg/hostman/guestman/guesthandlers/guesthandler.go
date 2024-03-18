@@ -695,18 +695,17 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 		Disk:           disk,
 	}
 
-	if !jsonutils.QueryBoolean(body, "auto_deleted", false) {
+	blockStream := jsonutils.QueryBoolean(body, "block_stream", false)
+	autoDeleted := jsonutils.QueryBoolean(body, "auto_deleted", false)
+
+	if !blockStream && !autoDeleted {
 		convertSnapshot, err := body.GetString("convert_snapshot")
 		if err != nil {
 			return nil, httperrors.NewMissingParameterError("convert_snapshot")
 		}
 		params.ConvertSnapshot = convertSnapshot
-		pendingDelete, err := body.Bool("pending_delete")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("pending_delete")
-		}
-		params.PendingDelete = pendingDelete
 	}
+	params.BlockStream = blockStream
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DeleteSnapshot, params)
 	return nil, nil
 }

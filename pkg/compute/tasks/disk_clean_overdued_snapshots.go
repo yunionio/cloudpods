@@ -34,7 +34,6 @@ type DiskCleanOverduedSnapshots struct {
 }
 
 func init() {
-	taskman.RegisterTask(DiskCleanOverduedSnapshots{})
 	taskman.RegisterTask(SnapshotCleanupTask{})
 }
 
