@@ -2451,7 +2451,7 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 
 		storageType, ok := storages[diskIds[i]]
 		if ok && utils.IsInStringArray(storageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
-			rows[i].MaxManualSnapshotCount = options.Options.DefaultMaxManualSnapshotCount
+			//rows[i].MaxManualSnapshotCount = options.Options.DefaultMaxManualSnapshotCount
 			snps, _ := snapshots[diskIds[i]]
 			rows[i].ManualSnapshotCount = len(snps)
 		}
@@ -2704,6 +2704,9 @@ func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
 			return fmt.Errorf("Guest(%s) in status(%s) cannot do disk snapshot", guests[0].Id, guests[0].Status)
 		}
 	}
+	if storageFree := storage.GetFreeCapacity(); storageFree < int64(disk.DiskSize) {
+		return fmt.Errorf("Storage(%s) space not enough", storage.GetName())
+	}
 	return nil
 }
 
@@ -2721,7 +2724,6 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			log.Errorf("get disk error: %v", err)
 			continue
 		}
-		autoSnapshotCount := options.Options.DefaultMaxSnapshotCount - options.Options.DefaultMaxManualSnapshotCount
 
 		err = func() error {
 			policy, err := disks[i].GetSnapshotPolicy()
@@ -2741,16 +2743,8 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 				return errors.Wrapf(err, "CreateSnapshotAuto")
 			}
 
-			snapCount, err := SnapshotManager.Query().Equals("fake_deleted", false).
-				Equals("disk_id", disk.Id).Equals("created_by", api.SNAPSHOT_AUTO).
-				CountWithError()
-			if err != nil {
-				return errors.Wrap(err, "get snapshot count")
-			}
-			// if auto snapshot count gt max auto snapshot count, do clean overdued snapshots
-			cleanOverdueSnapshots := snapCount > autoSnapshotCount
-			if cleanOverdueSnapshots {
-				disk.CleanOverdueSnapshots(ctx, userCred, policy, now)
+			if err = disk.CleanOverduedSnapshots(ctx, userCred, policy, now); err != nil {
+				log.Errorf("failed clean ")
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT, snapshot.Name, userCred)
 			policy.ExecuteNotify(ctx, userCred, disk.GetName())
@@ -2817,15 +2811,21 @@ func (self *SDisk) CreateSnapshotAuto(
 	return snapshot, nil
 }
 
-func (self *SDisk) CleanOverdueSnapshots(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, now time.Time) error {
-	kwargs := jsonutils.NewDict()
-	kwargs.Set("retention_day", jsonutils.NewInt(int64(sp.RetentionDays)))
-	kwargs.Set("start_time", jsonutils.NewTimeString(now))
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskCleanOverduedSnapshots", self, userCred, kwargs, "", "", nil)
+func (self *SDisk) CleanOverduedSnapshots(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, now time.Time) error {
+	snapshot := new(SSnapshot)
+	err := SnapshotManager.Query().Equals("disk_id", self.Id).
+		Equals("created_by", api.SNAPSHOT_AUTO).Equals("fake_deleted", false).Asc("created_at").First(snapshot)
 	if err != nil {
-		return errors.Wrapf(err, "NewTask")
+		return errors.Wrap(err, "get snapshot")
 	}
-	return task.ScheduleRun(nil)
+	snapshot.SetModelManager(SnapshotManager, snapshot)
+	if snapshot.ExpiredAt.Before(now) {
+		err = snapshot.StartSnapshotDeleteTask(ctx, userCred, false, self.Id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (self *SDisk) StartCreateBackupTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {

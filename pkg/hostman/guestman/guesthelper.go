@@ -140,7 +140,7 @@ type SDeleteDiskSnapshot struct {
 	DeleteSnapshot  string
 	Disk            storageman.IDisk
 	ConvertSnapshot string
-	PendingDelete   bool
+	BlockStream     bool
 }
 
 type SLibvirtServer struct {

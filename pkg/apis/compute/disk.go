@@ -237,7 +237,7 @@ type DiskDetails struct {
 	// 手动快照数量
 	ManualSnapshotCount int `json:"manual_snapshot_count"`
 	// 最多可创建手动快照数量
-	MaxManualSnapshotCount int `json:"max_manual_snapshot_count"`
+	//MaxManualSnapshotCount int `json:"max_manual_snapshot_count"`
 }
 
 type DiskResourceInfoBase struct {
