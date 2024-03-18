@@ -15,26 +15,94 @@
 package compute
 
 import (
+	"context"
+	"net/http"
+	"net/url"
+
+	"golang.org/x/net/http/httpproxy"
+
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+type SCloudaccount struct {
+	modulebase.ResourceManager
+}
+
 var (
-	Cloudaccounts modulebase.ResourceManager
+	Cloudaccounts SCloudaccount
 )
 
 func init() {
-	Cloudaccounts = modules.NewComputeManager("cloudaccount", "cloudaccounts",
-		[]string{"ID", "Name", "Enabled", "Status", "Access_url",
-			"balance", "currency", "error_count", "health_status",
-			"Sync_Status", "Last_sync",
-			"guest_count", "project_domain", "domain_id",
-			"Provider", "Brand",
-			"Enable_Auto_Sync", "Sync_Interval_Seconds",
-			"Share_Mode", "is_public", "public_scope",
-			"auto_create_project",
-		},
-		[]string{})
+	Cloudaccounts = SCloudaccount{
+		modules.NewComputeManager("cloudaccount", "cloudaccounts",
+			[]string{"ID", "Name", "Enabled", "Status", "Access_url",
+				"balance", "currency", "error_count", "health_status",
+				"Sync_Status", "Last_sync",
+				"guest_count", "project_domain", "domain_id",
+				"Provider", "Brand",
+				"Enable_Auto_Sync", "Sync_Interval_Seconds",
+				"Share_Mode", "is_public", "public_scope",
+				"auto_create_project",
+			},
+			[]string{}),
+	}
 
 	modules.RegisterCompute(&Cloudaccounts)
+}
+
+func (self *SCloudaccount) GetProvider(ctx context.Context, s *mcclient.ClientSession, id string) (cloudprovider.ICloudProvider, error) {
+	result, err := self.Get(s, id, jsonutils.Marshal(map[string]string{"scope": "system"}))
+	if err != nil {
+		return nil, errors.Wrap(err, "Cloudaccounts.Get")
+	}
+	account := &SCloudDelegate{}
+	err = result.Unmarshal(account)
+	if err != nil {
+		return nil, errors.Wrap(err, "result.Unmarshal")
+	}
+	if !account.Enabled {
+		log.Warningf("Cloud account %s is disabled", account.Name)
+	}
+
+	accessUrl := account.getAccessUrl()
+	passwd, err := account.getPassword()
+	if err != nil {
+		return nil, err
+	}
+	var proxyFunc httputils.TransportProxyFunc
+	{
+		cfg := &httpproxy.Config{
+			HTTPProxy:  account.ProxySetting.HTTPProxy,
+			HTTPSProxy: account.ProxySetting.HTTPSProxy,
+			NoProxy:    account.ProxySetting.NoProxy,
+		}
+		cfgProxyFunc := cfg.ProxyFunc()
+		proxyFunc = func(req *http.Request) (*url.URL, error) {
+			return cfgProxyFunc(req.URL)
+		}
+	}
+	options := account.getOptions(ctx, s)
+	defaultRegion, _ := options.GetString("default_region")
+	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
+		Id:        account.Id,
+		Name:      account.Name,
+		Vendor:    account.Provider,
+		URL:       accessUrl,
+		Account:   account.Account,
+		Secret:    passwd,
+		ProxyFunc: proxyFunc,
+
+		ReadOnly: account.ReadOnly,
+
+		DefaultRegion: defaultRegion,
+		Options:       options.(*jsonutils.JSONDict),
+	})
 }

@@ -26,36 +26,50 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-type ClouduserSyncstatusTask struct {
+type SamlUserCreateTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(ClouduserSyncstatusTask{})
+	taskman.RegisterTask(SamlUserCreateTask{})
 }
 
-func (self *ClouduserSyncstatusTask) taskFailed(ctx context.Context, user *models.SClouduser, err error) {
+func (self *SamlUserCreateTask) taskFailed(ctx context.Context, user *models.SSamluser, err error) {
 	user.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *ClouduserSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	clouduser := obj.(*models.SClouduser)
-
-	iUser, err := clouduser.GetIClouduser()
-	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetIClouduser"))
-		return
-	}
-
-	err = clouduser.SyncWithClouduser(ctx, self.GetUserCred(), iUser)
-	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrapf(err, "SyncWithClouduser"))
-		return
-	}
-
-	clouduser.SyncCloudpolicies(ctx, self.GetUserCred(), iUser)
-	clouduser.SyncCloudgroups(ctx, self.GetUserCred(), iUser)
-
+func (self *SamlUserCreateTask) taskComplete(ctx context.Context, user *models.SSamluser) {
+	user.SetStatus(ctx, self.GetUserCred(), apis.STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *SamlUserCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	user := obj.(*models.SSamluser)
+
+	group, err := user.GetCloudgroup()
+	if err != nil {
+		self.taskFailed(ctx, user, errors.Wrapf(err, "GetCloudgroup"))
+		return
+	}
+
+	account, err := group.GetCloudaccount()
+	if err != nil {
+		self.taskFailed(ctx, user, errors.Wrapf(err, "GetCloudaccount"))
+		return
+	}
+
+	driver, err := account.GetDriver()
+	if err != nil {
+		self.taskFailed(ctx, user, errors.Wrapf(err, "GetDriver"))
+		return
+	}
+
+	err = driver.RequestCreateRoleForSamlUser(ctx, self.GetUserCred(), account, group, user)
+	if err != nil {
+		self.taskFailed(ctx, user, errors.Wrapf(err, "GetDriver"))
+		return
+	}
+
+	self.taskComplete(ctx, user)
 }

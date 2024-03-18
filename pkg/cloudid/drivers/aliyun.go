@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudid
+package drivers
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-var (
-	Cloudgroupcaches modulebase.ResourceManager
-)
+type SAliyunDriver struct {
+	SProviderBaseProviderDriver
+}
+
+func (driver SAliyunDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ALIYUN
+}
 
 func init() {
-	Cloudgroupcaches = modules.NewCloudIdManager("cloudgroupcache", "cloudgroupcaches",
-		[]string{},
-		[]string{})
-
-	modules.Register(&Cloudgroupcaches)
+	models.RegisterProviderDriver(&SAliyunDriver{})
 }

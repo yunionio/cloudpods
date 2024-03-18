@@ -16,52 +16,39 @@ package aliyun
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/samlutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
+func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, managerId string, sp *idp.SSAMLServiceProvider, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
 
-	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
+	provider, err := models.CloudproviderManager.FetchProvier(managerId)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return data, httperrors.NewResourceNotFoundError2("cloudaccount", cloudAccountId)
-		}
-		return data, httperrors.NewGeneralError(err)
-	}
-	account := _account.(*models.SCloudaccount)
-	if account.Provider != api.CLOUD_PROVIDER_ALIYUN {
-		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_ALIYUN)
-	}
-	if account.SAMLAuth.IsFalse() {
-		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+		return data, err
 	}
 
-	SAMLProvider, valid := account.IsSAMLProviderValid()
-	if !valid {
-		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	role, err := provider.GetRole(ctx, userCred.GetUserId())
+	if err != nil {
+		return data, err
 	}
 
-	roles, err := account.SyncRoles(userCred.GetUserId(), true)
+	samlProvider, err := provider.GetSamlProvider()
 	if err != nil {
-		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
+		return data, err
 	}
 
 	data.NameId = userCred.GetUserName()
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_PERSISTENT
 	data.AudienceRestriction = sp.GetEntityId()
 	for k, v := range map[string]string{
-		"https://www.aliyun.com/SAML-Role/Attributes/Role":            fmt.Sprintf("%s,%s", roles[0].ExternalId, SAMLProvider.ExternalId),
+		"https://www.aliyun.com/SAML-Role/Attributes/Role":            fmt.Sprintf("%s,%s", role.ExternalId, samlProvider.ExternalId),
 		"https://www.aliyun.com/SAML-Role/Attributes/RoleSessionName": userCred.GetUserId(),
 		"https://www.aliyun.com/SAML-Role/Attributes/SessionDuration": "1800",
 	} {

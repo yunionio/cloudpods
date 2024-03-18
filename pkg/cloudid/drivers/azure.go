@@ -12,32 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudid
+package drivers
 
 import (
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-type CloudgroupcacheListOptions struct {
-	options.BaseListOptions
-
-	CloudgroupId string `json:"cloudgroup_id"`
+type SAzureDriver struct {
+	SAccountBaseProviderDriver
 }
 
-func (opts *CloudgroupcacheListOptions) Params() (jsonutils.JSONObject, error) {
-	return options.ListStructToParams(opts)
+func (driver SAzureDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_AZURE
 }
 
-type CloudgroupcacheIdOption struct {
-	ID string `help:"Cloudgroup cache Id"`
-}
-
-func (opts *CloudgroupcacheIdOption) GetId() string {
-	return opts.ID
-}
-
-func (opts *CloudgroupcacheIdOption) Params() (jsonutils.JSONObject, error) {
-	return nil, nil
+func init() {
+	models.RegisterProviderDriver(&SAzureDriver{})
 }

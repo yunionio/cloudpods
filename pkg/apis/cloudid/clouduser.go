@@ -17,19 +17,6 @@ package cloudid
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
-	CLOUD_USER_STATUS_CREATING              = "creating"              // 创建中
-	CLOUD_USER_STATUS_CREATE_FAILED         = "create_failed"         //创建失败
-	CLOUD_USER_STATUS_AVAILABLE             = "available"             // 可用
-	CLOUD_USER_STATUS_UNKNOWN               = "unknown"               // 未知
-	CLOUD_USER_STATUS_DELETING              = "deleting"              // 删除中
-	CLOUD_USER_STATUS_DELETE_FAILED         = "delete_failed"         // 删除失败
-	CLOUD_USER_STATUS_SYNC_STATUS           = "sync_status"           // 同步状态中
-	CLOUD_USER_STATUS_SYNC                  = "sync"                  // 同步配置中
-	CLOUD_USER_STATUS_SYNC_FAILED           = "sync_failed"           // 同步配置失败
-	CLOUD_USER_STATUS_SYNC_POLICIES         = "sync_policies"         // 同步权限中
-	CLOUD_USER_STATUS_SYNC_POLICIES_FAILED  = "sync_policies_failed"  // 同步权限失败
-	CLOUD_USER_STATUS_SYNC_GROUPS           = "sync_groups"           // 同步权限组中
-	CLOUD_USER_STATUS_SYNC_GROUPS_FAILED    = "sync_groups_failed"    // 同步权限组失败
 	CLOUD_USER_STATUS_RESET_PASSWORD        = "reset_password"        // 重置密码中
 	CLOUD_USER_STATUS_RESET_PASSWORD_FAILED = "reset_password_failed" // 重置密码失败
 )
@@ -38,9 +25,8 @@ type ClouduserCreateInput struct {
 	apis.StatusDomainLevelUserResourceCreateInput
 	apis.StatusBaseResourceCreateInput
 
-	// 云订阅ID, 若此参数为空, 则cloudpolicy_ids的权限会绑定到此账号的所有订阅, 若不为空则cloudpolicy_ids仅绑定的指定的订阅
-	// 此参数仅对Google,Azure生效
-	CloudproviderId string `json:"cloudprovider_id"`
+	// 云订阅ID
+	ManagerId string `json:"manager_id"`
 	// 云账号ID
 	// Azure云账号需要有User administrator权限，否则删操作会出现Insufficient privileges to complete the operation错误信息
 	CloudaccountId string `json:"cloudaccount_id"`
@@ -96,24 +82,13 @@ type ClouduserListInput struct {
 	apis.StatusDomainLevelUserResourceListInput
 
 	CloudaccountResourceListInput
+	CloudproviderResourceListInput
 
 	// 过滤绑定权限的子账号
 	CloudpolicyId string `json:"cloudpolicy_id"`
 
 	// 过滤属于指定权限组的子账号
 	CloudgroupId string `json:"cloudgroup_id"`
-}
-
-type ClouduserpolicyDetails struct {
-	// 权限Id
-	Id string `json:"id"`
-	// 权限名称
-	Name string `json:"name"`
-
-	// 子订阅Id
-	CloudproviderId string `json:"cloudprovider_id"`
-	// 子订阅名称
-	Manager string `json:"manager"`
 }
 
 type ClouduserDetails struct {
@@ -129,8 +104,8 @@ type ClouduserDetails struct {
 	// 权限组数量
 	CloudgroupCount int `json:"cloudgroup_count"`
 
-	Cloudgroups   []SCloudIdBaseResource   `json:"cloudgroups"`
-	Cloudpolicies []ClouduserpolicyDetails `json:"cloudpolicies"`
+	Cloudgroups   []SCloudIdBaseResource `json:"cloudgroups"`
+	Cloudpolicies []SCloudIdBaseResource `json:"cloudpolicies"`
 }
 
 type ClouduserJointResourceDetails struct {
@@ -181,9 +156,6 @@ type ClouduserResourceDetails struct {
 }
 
 type ClouduserAttachPolicyInput struct {
-	// 订阅Id, 向云账号赋予某个订阅的权限, 目前仅Google,Azure平台此参数生效
-	CloudproviderId string `json:"cloudprovider_id"`
-
 	// 权限Id
 	//
 	//
@@ -199,9 +171,6 @@ type ClouduserAttachPolicyInput struct {
 }
 
 type ClouduserSetPoliciesInput struct {
-	// 订阅Id, 设置云账号赋予某个订阅的权限, 目前仅Google,Azure平台此参数生效
-	CloudproviderId string `json:"cloudprovider_id"`
-
 	// 权限Ids
 	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 }
@@ -223,8 +192,6 @@ type ClouduserLeaveGroupInput struct {
 }
 
 type ClouduserDetachPolicyInput struct {
-	// 订阅Id, 解绑云账号赋予某个订阅的权限, 目前仅Google,Azure平台此参数生效
-	CloudproviderId string `json:"cloudprovider_id"`
 	// 权限Id
 	//
 	//

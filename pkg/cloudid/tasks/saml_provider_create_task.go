@@ -17,16 +17,12 @@ package tasks
 import (
 	"context"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SAMLProviderCreateTask struct {
@@ -37,56 +33,28 @@ func init() {
 	taskman.RegisterTask(SAMLProviderCreateTask{})
 }
 
-func (self *SAMLProviderCreateTask) taskFailed(ctx context.Context, saml *models.SSAMLProvider, err error) {
-	saml.SetStatus(ctx, self.GetUserCred(), api.SAML_PROVIDER_STATUS_CREATE_FAILED, err.Error())
-	logclient.AddActionLogWithStartable(self, saml, logclient.ACT_CREATE, err, self.UserCred, false)
+func (self *SAMLProviderCreateTask) taskFailed(ctx context.Context, account *models.SCloudaccount, err error) {
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *SAMLProviderCreateTask) taskComplete(ctx context.Context, saml *models.SSAMLProvider) {
+func (self *SAMLProviderCreateTask) taskComplete(ctx context.Context, account *models.SCloudaccount) {
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *SAMLProviderCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	saml := obj.(*models.SSAMLProvider)
+	account := obj.(*models.SCloudaccount)
 
-	metadata, err := saml.GetMetadataDocument()
+	driver, err := account.GetDriver()
 	if err != nil {
-		self.taskFailed(ctx, saml, errors.Wrapf(err, "GetMetadataDocument"))
+		self.taskFailed(ctx, account, errors.Wrapf(err, "GetDriver"))
 		return
 	}
 
-	account, err := saml.GetCloudaccount()
+	err = driver.RequestCreateSAMLProvider(ctx, self.GetUserCred(), account)
 	if err != nil {
-		self.taskFailed(ctx, saml, errors.Wrapf(err, "GetCloudaccount"))
+		self.taskFailed(ctx, account, errors.Wrapf(err, "RequestCreateSAMLProvider"))
 		return
 	}
 
-	provider, err := account.GetProvider()
-	if err != nil {
-		self.taskFailed(ctx, saml, errors.Wrap(err, "GetProvider"))
-		return
-	}
-
-	opts := cloudprovider.SAMLProviderCreateOptions{
-		Name:     saml.Name,
-		Metadata: metadata,
-	}
-
-	lockman.LockRawObject(ctx, saml.CloudaccountId, "saml-provider")
-	defer lockman.ReleaseRawObject(ctx, saml.CloudaccountId, "saml-provider")
-
-	iSAMLProvider, err := provider.CreateICloudSAMLProvider(&opts)
-	if err != nil {
-		self.taskFailed(ctx, saml, errors.Wrapf(err, "CreateICloudSAMLProvider"))
-		return
-	}
-
-	err = saml.SyncWithCloudSAMLProvider(ctx, self.GetUserCred(), iSAMLProvider)
-	if err != nil {
-		self.taskFailed(ctx, saml, errors.Wrap(err, "SyncWithCloudSAMLProvider"))
-		return
-	}
-
-	self.SetStageComplete(ctx, nil)
+	self.taskComplete(ctx, account)
 }
