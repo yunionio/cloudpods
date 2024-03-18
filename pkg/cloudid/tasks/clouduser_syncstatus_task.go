@@ -20,7 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
@@ -34,20 +34,28 @@ func init() {
 	taskman.RegisterTask(ClouduserSyncstatusTask{})
 }
 
-func (self *ClouduserSyncstatusTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_UNKNOWN, err.Error())
+func (self *ClouduserSyncstatusTask) taskFailed(ctx context.Context, user *models.SClouduser, err error) {
+	user.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *ClouduserSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	clouduser := obj.(*models.SClouduser)
 
-	_, err := clouduser.GetIClouduser()
+	iUser, err := clouduser.GetIClouduser()
 	if err != nil {
 		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetIClouduser"))
 		return
 	}
 
-	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
+	err = clouduser.SyncWithClouduser(ctx, self.GetUserCred(), iUser)
+	if err != nil {
+		self.taskFailed(ctx, clouduser, errors.Wrapf(err, "SyncWithClouduser"))
+		return
+	}
+
+	clouduser.SyncCloudpolicies(ctx, self.GetUserCred(), iUser)
+	clouduser.SyncCloudgroups(ctx, self.GetUserCred(), iUser)
+
 	self.SetStageComplete(ctx, nil)
 }

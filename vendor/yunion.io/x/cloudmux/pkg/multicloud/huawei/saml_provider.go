@@ -250,7 +250,7 @@ var (
 			{
 				"remote": []map[string]interface{}{
 					{
-						"type": "User",
+						"type": "UserName",
 					},
 					{
 						"type": "Groups",
@@ -328,12 +328,13 @@ func (self *SHuaweiClient) InitSAMLProviderMapping(spId string) error {
 			if protocols[i].MappingId == mapping.Id {
 				return nil
 			}
-			// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneUpdateMapping
+			// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneUpdateProtocol
 			_, err := self.patch(SERVICE_IAM_V3, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/saml", spId), nil, params)
 			return err
 		}
 	}
-	_, err = self.patch(SERVICE_IAM, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/saml", spId), nil, params)
+	// https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneCreateProtocol
+	_, err = self.put(SERVICE_IAM_V3, "", fmt.Sprintf("OS-FEDERATION/identity_providers/%s/protocols/saml", spId), params)
 	return err
 }
 

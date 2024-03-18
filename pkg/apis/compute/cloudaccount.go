@@ -529,19 +529,6 @@ type SubscriptonCreateInput struct {
 type EnrollmentAccountQuery struct {
 }
 
-type GetCloudaccountSamlOutput struct {
-	// cloudaccount SAML ServiceProvider entity ID
-	EntityId string `json:"entity_id,allowempty"`
-	// redirect login URL for this cloudaccount
-	RedirectLoginUrl string `json:"redirect_login_url,allowempty"`
-	// redirect logout URL for this cloudaccount
-	RedirectLogoutUrl string `json:"redirect_logout_url,allowempty"`
-	// metadata URL for this cloudaccount
-	MetadataUrl string `json:"metadata_url,allowempty"`
-	// initial SAML SSO login URL for this cloudaccount
-	InitLoginUrl string `json:"init_login_url,allowempty"`
-}
-
 type CloudaccountSyncSkusInput struct {
 	Resource string
 	Force    bool

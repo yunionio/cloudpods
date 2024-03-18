@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudid
+package drivers
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-var (
-	Cloudpolicycaches modulebase.ResourceManager
-)
+type SAwsDriver struct {
+	SProviderBaseProviderDriver
+}
+
+func (driver SAwsDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_AWS
+}
 
 func init() {
-	Cloudpolicycaches = modules.NewCloudIdManager("cloudpolicycache", "cloudpolicycaches",
-		[]string{},
-		[]string{})
-
-	modules.Register(&Cloudpolicycaches)
+	models.RegisterProviderDriver(&SAwsDriver{})
 }

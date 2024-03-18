@@ -19,49 +19,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/httputils"
 
-	"yunion.io/x/onecloud/pkg/apis/cloudid"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	cloudid_modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
 )
 
-func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (api.GetCloudaccountSamlOutput, error) {
-	output := api.GetCloudaccountSamlOutput{}
-
-	if account.SAMLAuth.IsFalse() {
-		return output, httperrors.NewNotSupportedError("account %s not enable saml auth", account.Name)
-	}
-
-	provider, err := account.GetProvider(ctx)
-	if err != nil {
-		return output, errors.Wrap(err, "GetProviderFactory")
-	}
-
-	output.EntityId = provider.GetSamlEntityId()
-	if len(output.EntityId) == 0 {
-		return output, errors.Wrap(httperrors.ErrNotSupported, "SAML login not supported")
-	}
-	output.RedirectLoginUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/login", account.Id)
-	output.RedirectLogoutUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/logout", account.Id)
-	output.MetadataUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "metadata", account.Id)
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	params := map[string]string{
-		"scope":           "system",
-		"cloudaccount_id": account.Id,
-		"status":          cloudid.SAML_PROVIDER_STATUS_AVAILABLE,
-	}
-	samlproviders, _ := cloudid_modules.SAMLProviders.List(s, jsonutils.Marshal(params))
-	for _, sp := range samlproviders.Data {
-		authUrl, _ := sp.GetString("auth_url")
-		if len(authUrl) > 0 {
-			output.InitLoginUrl = authUrl
-			break
-		}
-	}
-	return output, nil
+func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, errors.Wrap(httperrors.ErrForbidden, "use /cloudgroup/<id>/saml instead")
 }

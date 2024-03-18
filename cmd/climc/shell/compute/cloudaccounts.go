@@ -150,5 +150,4 @@ func init() {
 	cmd.Get("change-owner-candidate-domains", &options.SCloudAccountIdOptions{})
 	cmd.Get("enrollment-accounts", &options.SCloudAccountIdOptions{})
 	cmd.Get("balance", &options.SCloudAccountIdOptions{})
-	cmd.Get("saml", &options.SCloudAccountIdOptions{})
 }

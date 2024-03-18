@@ -25,5 +25,4 @@ func init() {
 	cmd.List(&cloudid.CloudroleListOptions{})
 	cmd.Delete(&cloudid.CloudroleIdOptions{})
 	cmd.Show(&cloudid.CloudroleIdOptions{})
-	cmd.Perform("purge", &cloudid.CloudroleIdOptions{})
 }

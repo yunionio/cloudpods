@@ -12,33 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudid
+package drivers
 
 import (
-	"yunion.io/x/jsonutils"
+	"context"
 
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-type CloudpolicycacheListOptions struct {
-	options.BaseListOptions
-
-	CloudpolyId    string
-	CloudaccountId string
+type SHuaweiDriver struct {
+	SProviderBaseProviderDriver
 }
 
-func (opts *CloudpolicycacheListOptions) Params() (jsonutils.JSONObject, error) {
-	return options.ListStructToParams(opts)
+func (driver SHuaweiDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_HUAWEI
 }
 
-type CloudpolicycacheIdOptions struct {
-	ID string
+func init() {
+	models.RegisterProviderDriver(&SHuaweiDriver{})
 }
 
-func (opts *CloudpolicycacheIdOptions) GetId() string {
-	return opts.ID
-}
-
-func (opts *CloudpolicycacheIdOptions) Params() (jsonutils.JSONObject, error) {
-	return nil, nil
+func (base SHuaweiDriver) RequestCreateRoleForSamlUser(ctx context.Context, userCred mcclient.TokenCredential, account *models.SCloudaccount, group *models.SCloudgroup, user *models.SSamluser) error {
+	return nil
 }

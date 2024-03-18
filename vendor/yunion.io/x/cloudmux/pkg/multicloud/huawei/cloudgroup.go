@@ -90,13 +90,6 @@ func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolic
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
-		_, err := group.client.GetRole(roles[i].GetName())
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				continue
-			}
-			return nil, errors.Wrapf(err, "GetRole(%s)", roles[i].GetName())
-		}
 		ret = append(ret, &roles[i])
 	}
 	return ret, nil
@@ -109,13 +102,6 @@ func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolic
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
-		_, err := group.client.GetCustomRole(roles[i].GetName())
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				continue
-			}
-			return nil, errors.Wrapf(err, "GetRole(%s)", roles[i].GetName())
-		}
 		ret = append(ret, &roles[i])
 	}
 	return ret, nil
@@ -291,30 +277,30 @@ func (self *SHuaweiClient) GetCustomRoles() ([]SRole, error) {
 	return ret, nil
 }
 
-func (self *SHuaweiClient) GetCustomRole(name string) (*SRole, error) {
-	roles, err := self.GetCustomRoles()
+func (self *SHuaweiClient) GetCustomRole(id string) (*SRole, error) {
+	resp, err := self.list(SERVICE_IAM, "", "OS-ROLE/roles/"+id, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetCustomRoles(%s)", name)
+		return nil, err
 	}
-	for i := range roles {
-		if roles[i].DisplayName == name {
-			return &roles[i], nil
-		}
+	ret := &SRole{}
+	err = resp.Unmarshal(ret, "role")
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return ret, nil
 }
 
-func (self *SHuaweiClient) GetRole(name string) (*SRole, error) {
-	roles, err := self.GetRoles("", "")
+func (self *SHuaweiClient) GetRole(id string) (*SRole, error) {
+	resp, err := self.list(SERVICE_IAM_V3, "", "roles/"+id, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetRoles(%s)", name)
+		return nil, err
 	}
-	for i := range roles {
-		if roles[i].DisplayName == name {
-			return &roles[i], nil
-		}
+	ret := &SRole{}
+	err = resp.Unmarshal(ret, "role")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return ret, nil
 }
 
 func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
@@ -382,6 +368,7 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 	if err != nil {
 		return errors.Wrapf(err, "GetRole(%s)", roleId)
 	}
+
 	if role.Type == "AX" || role.Type == "AA" {
 		err := self.KeystoneAssociateGroupWithDomainPermission(self.ownerId, groupId, roleId)
 		if err != nil {
