@@ -830,7 +830,8 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			return nil
 		}
 		host := self.getHost()
-		if host.Status != api.BAREMETAL_RUNNING || !host.GetEnabled() || host.HostType != api.HOST_TYPE_HYPERVISOR {
+		if host.Status != api.BAREMETAL_RUNNING || !host.GetEnabled() ||
+			(host.HostType != api.HOST_TYPE_HYPERVISOR && host.HostType != api.HOST_TYPE_CONTAINER) {
 			return nil
 		}
 	}

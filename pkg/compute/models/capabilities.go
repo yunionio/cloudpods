@@ -381,6 +381,9 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 		capa.SecurityGroupBrands = append(capa.SecurityGroupBrands, api.ONECLOUD_BRAND_ONECLOUD)
 		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 		capa.SnapshotPolicyBrands = append(capa.SnapshotPolicyBrands, api.ONECLOUD_BRAND_ONECLOUD)
+	} else if utils.IsInStringArray(api.HYPERVISOR_POD, capa.Hypervisors) {
+		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
+		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
 
 	if count, _ := LoadbalancerClusterManager.Query().Limit(1).CountWithError(); count > 0 {
