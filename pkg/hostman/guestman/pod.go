@@ -164,13 +164,13 @@ func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, status string
 }
 
 func (s *sPodGuestInstance) HandleGuestStart(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	hostutils.DelayTaskWithWorker(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 		resp, err := s.startPod(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrap(err, "startPod")
 		}
 		return jsonutils.Marshal(resp), nil
-	}, nil)
+	}, nil, s.manager.GuestStartWorker)
 	return nil, nil
 }
 
