@@ -208,6 +208,7 @@ type SHostOptions struct {
 	// EnableContainerRuntime   bool   `help:"enable container runtime" default:"false"`
 	ContainerRuntimeEndpoint  string `help:"endpoint of container runtime service" default:"unix:///var/run/onecloud/containerd/containerd.sock"`
 	ContainerDeviceConfigFile string `help:"container device configuration file path"`
+	LxcfsPath                 string `help:"lxcfs directory path" default:"/var/lib/lxcfs"`
 }
 
 var (

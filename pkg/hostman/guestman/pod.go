@@ -335,7 +335,7 @@ func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runt
 	if pm.HostPort != nil {
 		runtimePm.HostPort = int32(*pm.HostPort)
 		if getport.IsPortUsed(portProtocol, "", *pm.HostPort) {
-			return nil, httperrors.NewInputParameterError("host_port %d is used", pm.HostPort)
+			return nil, httperrors.NewInputParameterError("host_port %d is used", *pm.HostPort)
 		}
 		usedPorts, ok := otherPorts[pm.Protocol]
 		if ok {
@@ -364,6 +364,11 @@ func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runt
 	}
 }
 
+func (s *sPodGuestInstance) getCgroupParent() string {
+	// return fmt.Sprintf("/cloudpods/%s", s.GetId())
+	return "/cloudpods"
+}
+
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	podInput, err := s.getPodCreateParams()
 	if err != nil {
@@ -386,7 +391,7 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 		Labels:       nil,
 		Annotations:  nil,
 		Linux: &runtimeapi.LinuxPodSandboxConfig{
-			CgroupParent: "",
+			CgroupParent: s.getCgroupParent(),
 			SecurityContext: &runtimeapi.LinuxSandboxSecurityContext{
 				NamespaceOptions:   nil,
 				SelinuxOptions:     nil,
@@ -395,8 +400,12 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 				ReadonlyRootfs:     false,
 				SupplementalGroups: nil,
 				Privileged:         s.getPodPrivilegedMode(podInput),
-				Seccomp:            nil,
-				Apparmor:           nil,
+				Seccomp: &runtimeapi.SecurityProfile{
+					ProfileType: runtimeapi.SecurityProfile_Unconfined,
+				},
+				Apparmor: &runtimeapi.SecurityProfile{
+					ProfileType: runtimeapi.SecurityProfile_Unconfined,
+				},
 				SeccompProfilePath: "",
 			},
 			Sysctls: nil,
@@ -667,8 +676,8 @@ func (s *sPodGuestInstance) getContainerLogPath(ctrId string) string {
 }
 
 func (s *sPodGuestInstance) getLxcfsMounts() []*runtimeapi.Mount {
-	// TODO: make lxcfs configurable or be able to auto detect
-	lxcfsPath := "/var/lib/lxc/lxcfs"
+	// lxcfsPath := "/var/lib/lxc/lxcfs"
+	lxcfsPath := options.HostOptions.LxcfsPath
 	return []*runtimeapi.Mount{
 		{
 			ContainerPath: "/proc/uptime",
@@ -737,6 +746,9 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	if err != nil {
 		return "", errors.Wrap(err, "get container mounts")
 	}
+
+	// REF: https://docs.docker.com/config/containers/resource_constraints/#configure-the-default-cfs-scheduler
+	var defaultCPUPeriod int64 = 1000
 	spec := input.Spec
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
@@ -746,18 +758,18 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			Image: spec.Image,
 		},
 		Linux: &runtimeapi.LinuxContainerConfig{
-			//Resources: &runtimeapi.LinuxContainerResources{
-			//	CpuPeriod: 0,
-			//	CpuQuota:  0,
-			//	CpuShares: 0,
-			//	MemoryLimitInBytes:     1024 * 1024 * 4,
-			//	OomScoreAdj:            0,
-			//	CpusetCpus:             "",
-			//	CpusetMems:             "",
-			//	HugepageLimits:         nil,
-			//	Unified:                nil,
-			//	MemorySwapLimitInBytes: 0,
-			//},
+			Resources: &runtimeapi.LinuxContainerResources{
+				CpuPeriod: defaultCPUPeriod,
+				//CpuQuota:               s.GetDesc().Cpu * defaultCPUPeriod,
+				//CpuShares:              defaultCPUPeriod,
+				MemoryLimitInBytes:     s.GetDesc().Mem * 1024 * 1024,
+				OomScoreAdj:            0,
+				CpusetCpus:             "",
+				CpusetMems:             "",
+				HugepageLimits:         nil,
+				Unified:                nil,
+				MemorySwapLimitInBytes: 0,
+			},
 			SecurityContext: &runtimeapi.LinuxContainerSecurityContext{
 				Capabilities:       &runtimeapi.Capability{},
 				Privileged:         spec.Privileged,
@@ -768,11 +780,15 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				RunAsUsername:      "",
 				ReadonlyRootfs:     false,
 				SupplementalGroups: nil,
-				NoNewPrivs:         false,
+				NoNewPrivs:         true,
 				MaskedPaths:        nil,
 				ReadonlyPaths:      nil,
-				Seccomp:            nil,
-				Apparmor:           nil,
+				Seccomp: &runtimeapi.SecurityProfile{
+					ProfileType: runtimeapi.SecurityProfile_Unconfined,
+				},
+				Apparmor: &runtimeapi.SecurityProfile{
+					ProfileType: runtimeapi.SecurityProfile_Unconfined,
+				},
 				ApparmorProfile:    "",
 				SeccompProfilePath: "",
 			},
