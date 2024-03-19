@@ -223,6 +223,14 @@ func (svm *SVirtualMachine) GetHostname() string {
 	return svm.GetName()
 }
 
+func (svm *SVirtualMachine) GetDescription() string {
+	vm := svm.getVirtualMachine()
+	if vm != nil && vm.Config != nil {
+		return vm.Config.Annotation
+	}
+	return ""
+}
+
 func (svm *SVirtualMachine) GetStatus() string {
 	// err := svm.CheckFileInfo(context.Background())
 	// if err != nil {

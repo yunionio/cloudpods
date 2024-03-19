@@ -88,7 +88,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240315103716-4e9c071d4ee6
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240319073717-8c6322bcf367
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
