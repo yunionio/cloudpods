@@ -2919,6 +2919,10 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		return errors.Wrap(err, "GetIVMById")
 	}
 
+	if self.Status != api.VM_UNKNOWN {
+		self.SetStatus(userCred, api.VM_UNKNOWN, "Sync lost")
+	}
+
 	if options.Options.EnableSyncPurge {
 		log.Debugf("purge removed resource %s", self.Name)
 		err := self.purge(ctx, userCred)
@@ -2929,6 +2933,8 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 			Obj:    self,
 			Action: notifyclient.ActionSyncDelete,
 		})
+
+		return nil
 	}
 
 	if !lostNamePattern.MatchString(self.Name) {
@@ -2938,9 +2944,6 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		})
 	}
 
-	if self.Status != api.VM_UNKNOWN {
-		self.SetStatus(userCred, api.VM_UNKNOWN, "Sync lost")
-	}
 	return nil
 }
 
