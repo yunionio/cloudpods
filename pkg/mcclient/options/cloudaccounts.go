@@ -1376,20 +1376,44 @@ func (opts *SRemoteFileAccountCreateOptions) Params() (jsonutils.JSONObject, err
 type SKsyunCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
+
+	OptionsBillingReportBucket string `help:"update Ksyun S3 bucket that stores account billing report" json:"-"`
 }
 
 func (opts *SKsyunCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts)
-	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ksyun"), "provider")
-	return params, nil
+	options := params.(*jsonutils.JSONDict)
+	options.Add(jsonutils.NewString("Ksyun"), "provider")
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Set("billing_report_bucket", jsonutils.NewString(opts.OptionsBillingReportBucket))
+	}
+	return options, nil
 }
 
 type SKsyunCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket       string `help:"update VolcEngine S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket bool   `help:"remove VolcEngine S3 bucket that stores account billing report" json:"-"`
 }
 
 func (opts *SKsyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+
+	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBucket) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+	removeOptions := make([]string, 0)
+	if opts.RemoveOptionsBillingReportBucket {
+		removeOptions = append(removeOptions, "billing_report_bucket")
+	}
+	if len(removeOptions) > 0 {
+		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+	}
 
 	return params, nil
 }
