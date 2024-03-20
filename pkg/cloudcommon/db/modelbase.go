@@ -62,6 +62,7 @@ type SModelBaseManager struct {
 	keywordPlural string
 	alias         string
 	aliasPlural   string
+	extraHook     IModelManagerExtraHook
 }
 
 func NewModelBaseManager(model interface{}, tableName string, keyword string, keywordPlural string) SModelBaseManager {
@@ -82,6 +83,7 @@ func NewModelBaseManagerWithSplitableDBName(model interface{}, tableName string,
 		tableSpec:     ts,
 		keyword:       keyword,
 		keywordPlural: keywordPlural,
+		extraHook:     NewEmptyExtraHook(),
 	}
 	return modelMan
 }
@@ -585,6 +587,14 @@ func (manager *SModelBaseManager) CustomizedTotalCount(ctx context.Context, user
 	return ret.Count, nil, nil
 }
 
+func (manager *SModelBaseManager) RegisterExtraHook(eh IModelManagerExtraHook) {
+	manager.extraHook = eh
+}
+
+func (manager *SModelBaseManager) GetExtraHook() IModelManagerExtraHook {
+	return manager.extraHook
+}
+
 func (model SModelBase) GetId() string {
 	return ""
 }
@@ -765,5 +775,15 @@ func (model *SModelBase) GetUsages() []IUsage {
 }
 
 func (model *SModelBase) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	return nil
+}
+
+type SEmptyExtraHook struct{}
+
+func NewEmptyExtraHook() *SEmptyExtraHook {
+	return new(SEmptyExtraHook)
+}
+
+func (e SEmptyExtraHook) AfterPostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, model IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	return nil
 }
