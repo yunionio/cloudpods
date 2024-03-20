@@ -144,6 +144,13 @@ type IModelManager interface {
 	CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error)
 
 	PrepareQueryContext(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) context.Context
+
+	RegisterExtraHook(eh IModelManagerExtraHook)
+	GetExtraHook() IModelManagerExtraHook
+}
+
+type IModelManagerExtraHook interface {
+	AfterPostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, model IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 }
 
 type IModel interface {

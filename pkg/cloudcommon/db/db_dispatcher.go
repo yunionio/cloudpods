@@ -1423,6 +1423,9 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		defer lockman.ReleaseObject(ctx, model)
 
 		model.PostCreate(ctx, userCred, ownerId, query, data)
+		if err := manager.GetExtraHook().AfterPostCreate(ctx, userCred, ownerId, model, query, data); err != nil {
+			logclient.AddActionLogWithContext(ctx, model, logclient.ACT_POST_CREATE_HOOK, err, userCred, false)
+		}
 	}()
 
 	// 添加操作日志与消息通知
