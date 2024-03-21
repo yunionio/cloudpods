@@ -81,11 +81,8 @@ func (c *SLVMImageCacheManager) loadCache(ctx context.Context) {
 }
 
 func (c *SLVMImageCacheManager) LoadImageCache(imageId string) {
-	imageCache := NewLocalImageCache(imageId, c)
+	imageCache := NewLVMImageCache(imageId, c)
 	if err := imageCache.Load(); err == nil {
-		if c.lvmlockd {
-			lvmutils.LVActive(imageCache.GetPath(), true, false)
-		}
 		c.cachedImages[imageId] = imageCache
 	} else {
 		log.Errorf("failed load cache %s %s", c.GetPath(), err)
