@@ -237,5 +237,12 @@ func ModelSetApplyUpdates(aSet, bSet IModelSet) *ModelSetUpdateResult {
 			r.Changed = true
 		}
 	}
+	for _, kRv := range aSetRv.MapKeys() {
+		bMRv := bSetRv.MapIndex(kRv)
+		if !bMRv.IsValid() { // alread deleted
+			aSetRv.SetMapIndex(kRv, reflect.Value{})
+			r.Changed = true
+		}
+	}
 	return r
 }
