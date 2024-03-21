@@ -17,6 +17,10 @@ package compute
 const (
 	POD_STATUS_CREATING_CONTAINER      = "creating_container"
 	POD_STATUS_CREATE_CONTAINER_FAILED = "create_container_failed"
+	POD_STATUS_STARTING_CONTAINER      = "starting_container"
+	POD_STATUS_START_CONTAINER_FAILED  = "start_container_failed"
+	POD_STATUS_STOPPING_CONTAINER      = "stopping_container"
+	POD_STATUS_STOP_CONTAINER_FAILED   = "stop_container_failed"
 	POD_STATUS_DELETING_CONTAINER      = "deleting_container"
 	POD_STATUS_DELETE_CONTAINER_FAILED = "delete_container_failed"
 )

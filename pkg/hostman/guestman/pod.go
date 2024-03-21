@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -508,12 +509,17 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if hasCtr {
 		status, err := s.getContainerStatus(ctx, ctrId)
 		if err != nil {
-			return nil, errors.Wrap(err, "get container status")
-		}
-		if status == computeapi.CONTAINER_STATUS_EXITED {
-			needRecreate = true
-		} else if status != computeapi.CONTAINER_STATUS_CREATED {
-			return nil, errors.Wrapf(err, "can't start container when status is %s", status)
+			if strings.Contains(err.Error(), "not found") {
+				needRecreate = true
+			} else {
+				return nil, errors.Wrap(err, "get container status")
+			}
+		} else {
+			if status == computeapi.CONTAINER_STATUS_EXITED {
+				needRecreate = true
+			} else if status != computeapi.CONTAINER_STATUS_CREATED {
+				return nil, errors.Wrapf(err, "can't start container when status is %s", status)
+			}
 		}
 	}
 	if !hasCtr || needRecreate {
@@ -899,7 +905,7 @@ func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclie
 		return nil, errors.Wrap(err, "getContainerCRIId")
 	}
 	if criId != "" {
-		if err := s.getCRI().RemoveContainer(ctx, criId); err != nil {
+		if err := s.getCRI().RemoveContainer(ctx, criId); err != nil && !strings.Contains(err.Error(), "not found") {
 			return nil, errors.Wrap(err, "cri.RemoveContainer")
 		}
 	}
