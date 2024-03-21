@@ -48,6 +48,20 @@ func (s *SCLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred mc
 	if len(input.CLVMVgName) == 0 {
 		return httperrors.NewMissingParameterError("clvm_vg_name")
 	}
+	storages := []models.SStorage{}
+	q := models.StorageManager.Query().Equals("storage_type", api.STORAGE_CLVM)
+	err := db.FetchModelObjects(models.StorageManager, q, &storages)
+	if err != nil {
+		return httperrors.NewGeneralError(err)
+	}
+
+	for i := 0; i < len(storages); i++ {
+		vgName, _ := storages[i].StorageConf.GetString("clvm_vg_name")
+		if input.CLVMVgName == vgName {
+			return httperrors.NewDuplicateResourceError("This CLVM Storage[%s/%s] has already exist", storages[i].Name, input.CLVMVgName)
+		}
+	}
+
 	input.StorageConf = jsonutils.NewDict()
 	input.StorageConf.Set("clvm_vg_name", jsonutils.NewString(input.CLVMVgName))
 	return nil

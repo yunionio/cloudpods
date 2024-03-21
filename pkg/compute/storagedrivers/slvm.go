@@ -63,6 +63,20 @@ func (s *SSLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred mc
 		input.MasterHost = host.GetId()
 	}
 
+	storages := []models.SStorage{}
+	q := models.StorageManager.Query().Equals("storage_type", api.STORAGE_SLVM)
+	err := db.FetchModelObjects(models.StorageManager, q, &storages)
+	if err != nil {
+		return httperrors.NewGeneralError(err)
+	}
+
+	for i := 0; i < len(storages); i++ {
+		vgName, _ := storages[i].StorageConf.GetString("slvm_vg_name")
+		if input.SLVMVgName == vgName {
+			return httperrors.NewDuplicateResourceError("This SLVM Storage[%s/%s] has already exist", storages[i].Name, input.SLVMVgName)
+		}
+	}
+
 	input.StorageConf = jsonutils.NewDict()
 	input.StorageConf.Set("slvm_vg_name", jsonutils.NewString(input.SLVMVgName))
 	if input.Lvmlockd {
