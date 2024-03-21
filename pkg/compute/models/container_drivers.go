@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"sync"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -11,28 +12,67 @@ import (
 )
 
 var (
-	containerVolumeDrivers = make(map[apis.ContainerVolumeMountType]IContainerVolumeMountDriver)
-	containerDeviceDrivers = make(map[apis.ContainerDeviceType]IContainerDeviceDriver)
+	containerVolumeDrivers    = newContainerDrivers()
+	containerDeviceDrivers    = newContainerDrivers()
+	containerLifecycleDrivers = newContainerDrivers()
 )
 
-func RegisterContainerVolumeMountDriver(drv IContainerVolumeMountDriver) {
-	containerVolumeDrivers[drv.GetType()] = drv
+type containerDrivers struct {
+	drivers *sync.Map
 }
 
-func GetContainerVolumeMountDriver(typ apis.ContainerVolumeMountType) IContainerVolumeMountDriver {
-	drv, err := GetContainerVolumeMountDriverWithError(typ)
+func newContainerDrivers() *containerDrivers {
+	return &containerDrivers{
+		drivers: new(sync.Map),
+	}
+}
+
+func (cd *containerDrivers) GetWithError(typ string) (interface{}, error) {
+	drv, ok := cd.drivers.Load(typ)
+	if !ok {
+		return drv, httperrors.NewNotFoundError("not found driver by type %q", typ)
+	}
+	return drv, nil
+}
+
+func (cd *containerDrivers) Get(typ string) interface{} {
+	drv, err := cd.GetWithError(typ)
 	if err != nil {
 		panic(err.Error())
 	}
 	return drv
 }
 
-func GetContainerVolumeMountDriverWithError(typ apis.ContainerVolumeMountType) (IContainerVolumeMountDriver, error) {
-	drv, ok := containerVolumeDrivers[typ]
-	if !ok {
-		return nil, httperrors.NewNotFoundError("not found driver by type %q", typ)
+func (cd *containerDrivers) Register(typ string, drv interface{}) {
+	cd.drivers.Store(typ, drv)
+}
+
+func registerContainerDriver[K ~string, D any](drvs *containerDrivers, typ K, drv D) {
+	drvs.Register(string(typ), drv)
+}
+
+func getContainerDriver[K ~string, D any](drvs *containerDrivers, typ K) D {
+	return drvs.Get(string(typ)).(D)
+}
+
+func getContainerDriverWithError[K ~string, D any](drvs *containerDrivers, typ K) (D, error) {
+	drv, err := drvs.GetWithError(string(typ))
+	if err != nil {
+		return drv.(D), err
 	}
-	return drv, nil
+	return drv.(D), nil
+}
+
+func RegisterContainerVolumeMountDriver(drv IContainerVolumeMountDriver) {
+	registerContainerDriver(containerVolumeDrivers, drv.GetType(), drv)
+}
+
+func GetContainerVolumeMountDriver(typ apis.ContainerVolumeMountType) IContainerVolumeMountDriver {
+	return getContainerDriver[apis.ContainerVolumeMountType, IContainerVolumeMountDriver](containerVolumeDrivers, typ)
+}
+
+func GetContainerVolumeMountDriverWithError(typ apis.ContainerVolumeMountType) (IContainerVolumeMountDriver, error) {
+	return getContainerDriverWithError[apis.ContainerVolumeMountType, IContainerVolumeMountDriver](containerVolumeDrivers, typ)
 }
 
 type IContainerVolumeMountDriver interface {
@@ -42,23 +82,15 @@ type IContainerVolumeMountDriver interface {
 }
 
 func RegisterContainerDeviceDriver(drv IContainerDeviceDriver) {
-	containerDeviceDrivers[drv.GetType()] = drv
+	registerContainerDriver(containerDeviceDrivers, drv.GetType(), drv)
 }
 
 func GetContainerDeviceDriver(typ apis.ContainerDeviceType) IContainerDeviceDriver {
-	drv, err := GetContainerDeviceDriverWithError(typ)
-	if err != nil {
-		panic(err.Error())
-	}
-	return drv
+	return getContainerDriver[apis.ContainerDeviceType, IContainerDeviceDriver](containerDeviceDrivers, typ)
 }
 
 func GetContainerDeviceDriverWithError(typ apis.ContainerDeviceType) (IContainerDeviceDriver, error) {
-	drv, ok := containerDeviceDrivers[typ]
-	if !ok {
-		return nil, httperrors.NewNotFoundError("not found driver by type %q", typ)
-	}
-	return drv, nil
+	return getContainerDriverWithError[apis.ContainerDeviceType, IContainerDeviceDriver](containerDeviceDrivers, typ)
 }
 
 type IContainerDeviceDriver interface {
@@ -66,4 +98,21 @@ type IContainerDeviceDriver interface {
 	ValidatePodCreateData(ctx context.Context, userCred mcclient.TokenCredential, dev *api.ContainerDevice, input *api.ServerCreateInput) error
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, dev *api.ContainerDevice) (*api.ContainerDevice, error)
 	ToHostDevice(dev *api.ContainerDevice) (*hostapi.ContainerDevice, error)
+}
+
+type IContainerLifecyleDriver interface {
+	GetType() apis.ContainerLifecyleHandlerType
+	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerLifecyleHandler) error
+}
+
+func RegisterContainerLifecyleDriver(drv IContainerLifecyleDriver) {
+	registerContainerDriver(containerLifecycleDrivers, drv.GetType(), drv)
+}
+
+func GetContainerLifecyleDriver(typ apis.ContainerLifecyleHandlerType) IContainerLifecyleDriver {
+	return getContainerDriver[apis.ContainerLifecyleHandlerType, IContainerLifecyleDriver](containerLifecycleDrivers, typ)
+}
+
+func GetContainerLifecyleDriverWithError(typ apis.ContainerLifecyleHandlerType) (IContainerLifecyleDriver, error) {
+	return getContainerDriverWithError[apis.ContainerLifecyleHandlerType, IContainerLifecyleDriver](containerLifecycleDrivers, typ)
 }

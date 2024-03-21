@@ -556,6 +556,8 @@ func (manager *SIsolatedDeviceManager) _isValidDeviceInfo(config *api.IsolatedDe
 func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	if len(devConfig.Id) > 0 {
 		return manager.attachSpecificDeviceToGuest(ctx, guest, devConfig, userCred)
+	} else if len(devConfig.DevicePath) > 0 {
+		return manager.attachHostDeviceToGuestByDevicePath(ctx, guest, host, devConfig, userCred)
 	} else {
 		return manager.attachHostDeviceToGuestByModel(ctx, guest, host, devConfig, userCred)
 	}
@@ -571,6 +573,19 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.C
 		dev.DevType = devConfig.DevType
 	}
 	return guest.attachIsolatedDevice(ctx, userCred, dev, devConfig.NetworkIndex, devConfig.DiskIndex)
+}
+
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+	if len(devConfig.Model) == 0 || len(devConfig.DevicePath) == 0 {
+		return fmt.Errorf("Model or DevicePath is empty: %#v", devConfig)
+	}
+	// if dev type is not nic, wire is empty string
+	devs, err := manager.findHostUnusedByDevAttr(devConfig.Model, "device_path", devConfig.DevicePath, host.Id, devConfig.WireId)
+	if err != nil || len(devs) == 0 {
+		return fmt.Errorf("Can't found model %s device_path %s on host %s", devConfig.Model, devConfig.DevicePath, host.Id)
+	}
+	selectedDev := devs[0]
+	return guest.attachIsolatedDevice(ctx, userCred, &selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
 func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
@@ -642,11 +657,15 @@ func (manager *SIsolatedDeviceManager) FindUnusedGpusOnHost(hostId string) ([]SI
 }
 
 func (manager *SIsolatedDeviceManager) findHostUnusedByDevConfig(model, devType, hostId, wireId string) ([]SIsolatedDevice, error) {
+	return manager.findHostUnusedByDevAttr(model, "dev_type", devType, hostId, wireId)
+}
+
+func (manager *SIsolatedDeviceManager) findHostUnusedByDevAttr(model, attrKey, attrVal, hostId, wireId string) ([]SIsolatedDevice, error) {
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.findUnusedQuery()
 	q = q.Equals("model", model).Equals("host_id", hostId)
-	if devType != "" {
-		q.Equals("dev_type", devType)
+	if attrVal != "" {
+		q.Equals(attrKey, attrVal)
 	}
 	if wireId != "" {
 		wire := WireManager.FetchWireById(wireId)

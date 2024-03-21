@@ -33,8 +33,8 @@ type CRI interface {
 	ImageStatus(ctx context.Context, req *runtimeapi.ImageStatusRequest) (*runtimeapi.ImageStatusResponse, error)
 
 	// lower layer client
-	// getImageClient() runtimeapi.ImageServiceClient
-	// getRuntimeClient() runtimeapi.RuntimeServiceClient
+	GetImageClient() runtimeapi.ImageServiceClient
+	GetRuntimeClient() runtimeapi.RuntimeServiceClient
 }
 
 type ListContainerOptions struct {
@@ -92,23 +92,23 @@ func NewCRI(endpoint string, timeout time.Duration) (CRI, error) {
 	}, nil
 }
 
-func (c crictl) getImageClient() runtimeapi.ImageServiceClient {
+func (c crictl) GetImageClient() runtimeapi.ImageServiceClient {
 	return c.imgCli
 }
 
-func (c crictl) getRuntimeClient() runtimeapi.RuntimeServiceClient {
+func (c crictl) GetRuntimeClient() runtimeapi.RuntimeServiceClient {
 	return c.runCli
 }
 
 func (c crictl) Version(ctx context.Context) (*runtimeapi.VersionResponse, error) {
-	return c.getRuntimeClient().Version(ctx, &runtimeapi.VersionRequest{})
+	return c.GetRuntimeClient().Version(ctx, &runtimeapi.VersionRequest{})
 }
 
 func (c crictl) ListImages(ctx context.Context, filter *runtimeapi.ImageFilter) ([]*runtimeapi.Image, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	resp, err := c.getImageClient().ListImages(ctx, &runtimeapi.ListImagesRequest{
+	resp, err := c.GetImageClient().ListImages(ctx, &runtimeapi.ListImagesRequest{
 		Filter: filter,
 	})
 	if err != nil {
@@ -123,7 +123,7 @@ func (c crictl) RunPod(ctx context.Context, podConfig *runtimeapi.PodSandboxConf
 		RuntimeHandler: runtimeHandler,
 	}
 	log.Infof("RunPodSandboxRequest: %v", req)
-	r, err := c.getRuntimeClient().RunPodSandbox(ctx, req)
+	r, err := c.GetRuntimeClient().RunPodSandbox(ctx, req)
 	if err != nil {
 		return "", errors.Wrapf(err, "RunPod with request: %s", req.String())
 	}
@@ -131,7 +131,7 @@ func (c crictl) RunPod(ctx context.Context, podConfig *runtimeapi.PodSandboxConf
 }
 
 func (c crictl) StopPod(ctx context.Context, req *runtimeapi.StopPodSandboxRequest) error {
-	_, err := c.getRuntimeClient().StopPodSandbox(ctx, req)
+	_, err := c.GetRuntimeClient().StopPodSandbox(ctx, req)
 	if err != nil {
 		return errors.Wrap(err, "StopPodSandbox")
 	}
@@ -150,7 +150,7 @@ func (c crictl) PullImageWithSandbox(ctx context.Context, image string, auth *ru
 		SandboxConfig: sandbox,
 	}
 	log.Infof("PullImageRequest: %v", req)
-	r, err := c.getImageClient().PullImage(ctx, req)
+	r, err := c.GetImageClient().PullImage(ctx, req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "PullImage with %s", req)
 	}
@@ -188,7 +188,7 @@ func (c crictl) CreateContainer(ctx context.Context,
 	}
 
 	log.Infof("CreateContainerRequest: %v", req)
-	r, err := c.getRuntimeClient().CreateContainer(ctx, req)
+	r, err := c.GetRuntimeClient().CreateContainer(ctx, req)
 	if err != nil {
 		return "", errors.Wrapf(err, "CreateContainer with: %s", req)
 	}
@@ -201,7 +201,7 @@ func (c crictl) StartContainer(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.Error("Id can't be empty")
 	}
-	if _, err := c.getRuntimeClient().StartContainer(ctx, &runtimeapi.StartContainerRequest{
+	if _, err := c.GetRuntimeClient().StartContainer(ctx, &runtimeapi.StartContainerRequest{
 		ContainerId: id,
 	}); err != nil {
 		return errors.Wrapf(err, "StartContainer %s", id)
@@ -270,7 +270,7 @@ func (c crictl) ListContainers(ctx context.Context, opts ListContainerOptions) (
 	req := &runtimeapi.ListContainersRequest{
 		Filter: filter,
 	}
-	r, err := c.getRuntimeClient().ListContainers(ctx, req)
+	r, err := c.GetRuntimeClient().ListContainers(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListContainers")
 	}
@@ -302,7 +302,7 @@ func (c crictl) ListPods(ctx context.Context, opts ListPodOptions) ([]*runtimeap
 	req := &runtimeapi.ListPodSandboxRequest{
 		Filter: filter,
 	}
-	ret, err := c.getRuntimeClient().ListPodSandbox(ctx, req)
+	ret, err := c.GetRuntimeClient().ListPodSandbox(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListPodSandbox")
 	}
@@ -310,7 +310,7 @@ func (c crictl) ListPods(ctx context.Context, opts ListPodOptions) ([]*runtimeap
 }
 
 func (c crictl) RemovePod(ctx context.Context, podId string) error {
-	if _, err := c.getRuntimeClient().RemovePodSandbox(ctx, &runtimeapi.RemovePodSandboxRequest{
+	if _, err := c.GetRuntimeClient().RemovePodSandbox(ctx, &runtimeapi.RemovePodSandboxRequest{
 		PodSandboxId: podId,
 	}); err != nil {
 		return errors.Wrap(err, "RemovePodSandbox")
@@ -319,7 +319,7 @@ func (c crictl) RemovePod(ctx context.Context, podId string) error {
 }
 
 func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64) error {
-	if _, err := c.getRuntimeClient().StopContainer(ctx, &runtimeapi.StopContainerRequest{
+	if _, err := c.GetRuntimeClient().StopContainer(ctx, &runtimeapi.StopContainerRequest{
 		ContainerId: ctrId,
 		Timeout:     timeout,
 	}); err != nil {
@@ -329,7 +329,7 @@ func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64) 
 }
 
 func (c crictl) RemoveContainer(ctx context.Context, ctrId string) error {
-	_, err := c.getRuntimeClient().RemoveContainer(ctx, &runtimeapi.RemoveContainerRequest{
+	_, err := c.GetRuntimeClient().RemoveContainer(ctx, &runtimeapi.RemoveContainerRequest{
 		ContainerId: ctrId,
 	})
 	if err != nil {
@@ -343,11 +343,11 @@ func (c crictl) ContainerStatus(ctx context.Context, ctrId string) (*runtimeapi.
 		ContainerId: ctrId,
 		Verbose:     false,
 	}
-	return c.getRuntimeClient().ContainerStatus(ctx, req)
+	return c.GetRuntimeClient().ContainerStatus(ctx, req)
 }
 
 func (c crictl) PullImage(ctx context.Context, req *runtimeapi.PullImageRequest) (*runtimeapi.PullImageResponse, error) {
-	resp, err := c.getImageClient().PullImage(ctx, req)
+	resp, err := c.GetImageClient().PullImage(ctx, req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "PullImage")
 	}
@@ -355,5 +355,5 @@ func (c crictl) PullImage(ctx context.Context, req *runtimeapi.PullImageRequest)
 }
 
 func (c crictl) ImageStatus(ctx context.Context, req *runtimeapi.ImageStatusRequest) (*runtimeapi.ImageStatusResponse, error) {
-	return c.getImageClient().ImageStatus(ctx, req)
+	return c.GetImageClient().ImageStatus(ctx, req)
 }

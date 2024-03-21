@@ -299,6 +299,10 @@ func (b baseHostGetter) UnusedIsolatedDevicesByVendorModel(vendorModel string) [
 	return b.h.UnusedIsolatedDevicesByVendorModel(vendorModel)
 }
 
+func (b baseHostGetter) UnusedIsolatedDevicesByDevicePath(devPath string) []*core.IsolatedDeviceDesc {
+	return b.h.UnusedIsolatedDevicesByDevicePath(devPath)
+}
+
 func (b baseHostGetter) UnusedIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
 	return b.h.UnusedIsolatedDevicesByModel(model)
 }
@@ -507,6 +511,16 @@ func (h *BaseHostDesc) UnusedIsolatedDevicesByModel(model string) []*core.Isolat
 	return ret
 }
 
+func (h *BaseHostDesc) UnusedIsolatedDevicesByDevicePath(devPath string) []*core.IsolatedDeviceDesc {
+	ret := make([]*core.IsolatedDeviceDesc, 0)
+	for _, dev := range h.UnusedIsolatedDevices() {
+		if devPath == dev.DevicePath {
+			ret = append(ret, dev)
+		}
+	}
+	return ret
+}
+
 func (h *BaseHostDesc) UnusedIsolatedDevicesByModelAndWire(model, wire string) []*core.IsolatedDeviceDesc {
 	ret := make([]*core.IsolatedDeviceDesc, 0)
 	for _, dev := range h.UnusedIsolatedDevices() {
@@ -558,6 +572,7 @@ func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.S
 			Addr:           devModel.Addr,
 			VendorDeviceID: devModel.VendorDeviceId,
 			WireId:         devModel.WireId,
+			DevicePath:     devModel.DevicePath,
 		}
 		devs[index] = dev
 	}

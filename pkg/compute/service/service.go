@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/compute/container_drivers/device"
+	_ "yunion.io/x/onecloud/pkg/compute/container_drivers/lifecycle"
 	_ "yunion.io/x/onecloud/pkg/compute/container_drivers/volume_mount"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
