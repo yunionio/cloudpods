@@ -700,6 +700,14 @@ func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByModel(arg0 string) 
 	return ret0
 }
 
+// UnusedIsolatedDevicesByDevicePath mocks base method
+func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByDevicePath(arg0 string) []*core.IsolatedDeviceDesc {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnusedIsolatedDevicesByDevicePath", arg0)
+	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
+	return ret0
+}
+
 // UnusedIsolatedDevicesByModel indicates an expected call of UnusedIsolatedDevicesByModel
 func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevicesByModel(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()

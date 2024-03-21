@@ -362,6 +362,8 @@ func ParseIsolatedDevice(desc string, idx int) (*compute.IsolatedDeviceConfig, e
 			dev.DevType = p
 		} else if strings.HasPrefix(p, "vendor=") {
 			dev.Vendor = p[len("vendor="):]
+		} else if strings.HasPrefix(p, "device_path=") {
+			dev.DevicePath = p[len("device_path="):]
 		} else {
 			dev.Model = p
 		}

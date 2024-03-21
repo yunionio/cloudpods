@@ -287,6 +287,7 @@ type IsolatedDeviceConfig struct {
 	NetworkIndex *int8  `json:"network_index"`
 	WireId       string `json:"wire_id"`
 	DiskIndex    *int8  `json:"disk_index"`
+	DevicePath   string `json:"device_path"`
 }
 
 type BaremetalDiskConfig struct {

@@ -33,6 +33,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/device"
+	"yunion.io/x/onecloud/pkg/hostman/container/lifecycle"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -47,6 +48,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type PodInstance interface {
@@ -444,9 +446,15 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
-	return s.getCRI().StopPod(ctx, &runtimeapi.StopPodSandboxRequest{
+	/*if err := s.getCRI().StopPod(ctx, &runtimeapi.StopPodSandboxRequest{
 		PodSandboxId: s.getCRIId(),
-	})
+	}); err != nil {
+		return errors.Wrapf(err, "stop cri pod: %s", s.getCRIId())
+	}*/
+	if err := s.getCRI().RemovePod(ctx, s.getCRIId()); err != nil {
+		return errors.Wrapf(err, "remove cri pod: %s", s.getCRIId())
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) LoadDesc() error {
@@ -528,7 +536,28 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if err := s.getCRI().StartContainer(ctx, criId); err != nil {
 		return nil, errors.Wrap(err, "CRI.StartContainer")
 	}
+	if err := s.setContainerCgroupDevicesAllow(criId, input.Spec.CgroupDevicesAllow); err != nil {
+		return nil, errors.Wrap(err, "set cgroup devices allow")
+	}
+	if err := s.doContainerStartPostLifecycle(ctx, criId, input); err != nil {
+		return nil, errors.Wrap(err, "do container lifecycle")
+	}
 	return nil, nil
+}
+
+func (s *sPodGuestInstance) doContainerStartPostLifecycle(ctx context.Context, criId string, input *hostapi.ContainerCreateInput) error {
+	ls := input.Spec.Lifecyle
+	if ls == nil {
+		return nil
+	}
+	if ls.PostStart == nil {
+		return nil
+	}
+	drv := lifecycle.GetDriver(ls.PostStart.Type)
+	if err := drv.Run(ctx, ls.PostStart, s.getCRI(), criId); err != nil {
+		return errors.Wrapf(err, "run %s", ls.PostStart.Type)
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -734,6 +763,26 @@ func (s *sPodGuestInstance) getContainerMounts(input *hostapi.ContainerCreateInp
 		mounts[idx] = mnt
 	}
 	return mounts, nil
+}
+
+func (s *sPodGuestInstance) getContainerCgroupDir(dirType string, ctrId string) string {
+	cgroupDir := "/sys/fs/cgroup"
+	return filepath.Join(cgroupDir, dirType, s.getCgroupParent(), ctrId)
+}
+
+func (s *sPodGuestInstance) getContainerCgroupDevicesDir(ctrId string) string {
+	return s.getContainerCgroupDir("devices", ctrId)
+}
+
+func (s *sPodGuestInstance) setContainerCgroupDevicesAllow(ctrId string, allowStrs []string) error {
+	for _, allowStr := range allowStrs {
+		deviceAllowFile := filepath.Join(s.getContainerCgroupDevicesDir(ctrId), "devices.allow")
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("echo '%s' > %s", allowStr, deviceAllowFile)).Output()
+		if err != nil {
+			return errors.Wrapf(err, "echo %s to %s: %s", deviceAllowFile, allowStr, out)
+		}
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (string, error) {

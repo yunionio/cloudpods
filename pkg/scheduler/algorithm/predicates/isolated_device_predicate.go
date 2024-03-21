@@ -146,6 +146,25 @@ func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c c
 		}
 	}
 
+	// check host device by device_path
+	devicePathReq := make(map[string]int, 0)
+	for _, dev := range reqIsoDevs {
+		if len(dev.DevicePath) != 0 {
+			devicePathReq[dev.DevicePath] += 1
+		}
+	}
+	for devPath, reqCnt := range devicePathReq {
+		freeCount := len(getter.UnusedIsolatedDevicesByDevicePath(devPath))
+		if freeCount < reqCount {
+			h.Exclude(fmt.Sprintf("IsolatedDevice device_path %q not enough, request: %d, hostFree: %d", devPath, reqCount, freeCount))
+			return h.GetResult()
+		}
+		cap := freeCount / reqCnt
+		if int64(cap) < minCapacity {
+			minCapacity = int64(cap)
+		}
+	}
+
 	h.SetCapacity(minCapacity)
 	return h.GetResult()
 }

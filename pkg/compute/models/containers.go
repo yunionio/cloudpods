@@ -148,13 +148,35 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 		}
 	}
 
+	if err := m.ValidateSpecLifecycle(ctx, userCred, spec); err != nil {
+		return errors.Wrap(err, "validate lifecycle")
+	}
+
 	return nil
+}
+
+func (m *SContainerManager) ValidateSpecLifecycle(ctx context.Context, cred mcclient.TokenCredential, spec *api.ContainerSpec) error {
+	if spec.Lifecyle == nil {
+		return nil
+	}
+	if err := m.ValidateSpecLifecyclePostStart(ctx, cred, spec.Lifecyle.PostStart); err != nil {
+		return errors.Wrap(err, "validate post start")
+	}
+	return nil
+}
+
+func (m *SContainerManager) ValidateSpecLifecyclePostStart(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerLifecyleHandler) error {
+	drv, err := GetContainerLifecyleDriverWithError(input.Type)
+	if err != nil {
+		return httperrors.NewInputParameterError("get lifecycle driver: %v", err)
+	}
+	return drv.ValidateCreateData(ctx, userCred, input)
 }
 
 func (m *SContainerManager) ValidateSpecDevice(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, dev *api.ContainerDevice) (*api.ContainerDevice, error) {
 	drv, err := GetContainerDeviceDriverWithError(dev.Type)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("get device drvice: %v", err)
+		return nil, httperrors.NewInputParameterError("get device driver: %v", err)
 	}
 	return drv.ValidateCreateData(ctx, userCred, pod, dev)
 }

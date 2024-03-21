@@ -195,3 +195,49 @@ func TestFetchDiskConfigsByJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestParseIsolatedDevice(t *testing.T) {
+	tests := []struct {
+		desc    string
+		idx     int
+		want    *compute.IsolatedDeviceConfig
+		wantErr bool
+	}{
+		{
+			desc: "device_path=/dev/nvme0",
+			idx:  0,
+			want: &compute.IsolatedDeviceConfig{
+				DevicePath: "/dev/nvme0",
+			},
+		},
+		{
+			desc: "GPU_HPC:device_path=/dev/nvme0",
+			idx:  0,
+			want: &compute.IsolatedDeviceConfig{
+				DevicePath: "/dev/nvme0",
+				Model:      "GPU_HPC",
+			},
+		},
+		{
+			desc: "GPU_HPC:device_path=/dev/nvme0:1d3ce781-2b64-4ee7-8d23-6bbcf478c54b",
+			idx:  0,
+			want: &compute.IsolatedDeviceConfig{
+				Id:         "1d3ce781-2b64-4ee7-8d23-6bbcf478c54b",
+				DevicePath: "/dev/nvme0",
+				Model:      "GPU_HPC",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			got, err := ParseIsolatedDevice(tt.desc, tt.idx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseIsolatedDevice() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseIsolatedDevice() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

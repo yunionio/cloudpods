@@ -44,30 +44,43 @@ type ContainerDeleteOptions struct {
 }
 
 type ContainerCreateCommonOptions struct {
-	IMAGE       string   `help:"Image of container" json:"image"`
-	Command     []string `help:"Command to execute (i.e., entrypoint for docker)" json:"command"`
-	Args        []string `help:"Args for the Command (i.e. command for docker)" json:"args"`
-	WorkingDir  string   `help:"Current working directory of the command" json:"working_dir"`
-	Env         []string `help:"List of environment variable to set in the container and the format is: <key>=<value>"`
-	VolumeMount []string `help:"Volume mount of the container and the format is: name=<val>,mount=<container_path>,readonly=<true_or_false>,disk_index=<disk_number>,disk_id=<disk_id>"`
-	Device      []string `help:"Host device: <host_path>:<container_path>:<permissions>, e.g.: /dev/snd:/dev/snd:rwm"`
-	Privileged  bool     `help:"Privileged mode"`
-	Caps        string   `help:"Container capabilities, e.g.: SETPCAP,AUDIT_WRITE,SYS_CHROOT,CHOWN,DAC_OVERRIDE,FOWNER,SETGID,SETUID,SYSLOG,SYS_ADMIN,WAKE_ALARM,SYS_PTRACE,BLOCK_SUSPEND,MKNOD,KILL,SYS_RESOURCE,NET_RAW,NET_ADMIN,NET_BIND_SERVICE,SYS_NICE"`
-	DropCaps    string   `help:"Container dropped capabilities, split by ','"`
-	EnableLxcfs bool     `help:"Enable lxcfs"`
+	IMAGE             string   `help:"Image of container" json:"image"`
+	Command           []string `help:"Command to execute (i.e., entrypoint for docker)" json:"command"`
+	Args              []string `help:"Args for the Command (i.e. command for docker)" json:"args"`
+	WorkingDir        string   `help:"Current working directory of the command" json:"working_dir"`
+	Env               []string `help:"List of environment variable to set in the container and the format is: <key>=<value>"`
+	VolumeMount       []string `help:"Volume mount of the container and the format is: name=<val>,mount=<container_path>,readonly=<true_or_false>,disk_index=<disk_number>,disk_id=<disk_id>"`
+	Device            []string `help:"Host device: <host_path>:<container_path>:<permissions>, e.g.: /dev/snd:/dev/snd:rwm"`
+	Privileged        bool     `help:"Privileged mode"`
+	Caps              string   `help:"Container capabilities, e.g.: SETPCAP,AUDIT_WRITE,SYS_CHROOT,CHOWN,DAC_OVERRIDE,FOWNER,SETGID,SETUID,SYSLOG,SYS_ADMIN,WAKE_ALARM,SYS_PTRACE,BLOCK_SUSPEND,MKNOD,KILL,SYS_RESOURCE,NET_RAW,NET_ADMIN,NET_BIND_SERVICE,SYS_NICE"`
+	DropCaps          string   `help:"Container dropped capabilities, split by ','"`
+	EnableLxcfs       bool     `help:"Enable lxcfs"`
+	PostStartExec     string   `help:"Post started execution command"`
+	CgroupDeviceAllow []string `help:"Cgroup devices.allow, e.g.: 'c 13:* rwm'"`
 }
 
 func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
 	req := &computeapi.ContainerSpec{
 		ContainerSpec: apis.ContainerSpec{
-			Image:        o.IMAGE,
-			Command:      o.Command,
-			Args:         o.Args,
-			WorkingDir:   o.WorkingDir,
-			EnableLxcfs:  o.EnableLxcfs,
-			Privileged:   o.Privileged,
-			Capabilities: &apis.ContainerCapability{},
+			Image:              o.IMAGE,
+			Command:            o.Command,
+			Args:               o.Args,
+			WorkingDir:         o.WorkingDir,
+			EnableLxcfs:        o.EnableLxcfs,
+			Privileged:         o.Privileged,
+			Capabilities:       &apis.ContainerCapability{},
+			CgroupDevicesAllow: o.CgroupDeviceAllow,
 		},
+	}
+	if len(o.PostStartExec) != 0 {
+		req.Lifecyle = &apis.ContainerLifecyle{
+			PostStart: &apis.ContainerLifecyleHandler{
+				Type: apis.ContainerLifecyleHandlerTypeExec,
+				Exec: &apis.ContainerLifecyleHandlerExecAction{
+					Command: strings.Split(o.PostStartExec, " "),
+				},
+			},
+		}
 	}
 	if len(o.Caps) != 0 {
 		req.Capabilities.Add = strings.Split(o.Caps, ",")

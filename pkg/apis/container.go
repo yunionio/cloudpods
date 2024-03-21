@@ -21,6 +21,25 @@ type ContainerKeyValue struct {
 	Value string `json:"value"`
 }
 
+type ContainerLifecyleHandlerType string
+
+const (
+	ContainerLifecyleHandlerTypeExec ContainerLifecyleHandlerType = "exec"
+)
+
+type ContainerLifecyleHandlerExecAction struct {
+	Command []string `json:"command"`
+}
+
+type ContainerLifecyleHandler struct {
+	Type ContainerLifecyleHandlerType        `json:"type"`
+	Exec *ContainerLifecyleHandlerExecAction `json:"exec"`
+}
+
+type ContainerLifecyle struct {
+	PostStart *ContainerLifecyleHandler `json:"post_start"`
+}
+
 type ContainerSpec struct {
 	// Image to use.
 	Image string `json:"image"`
@@ -37,9 +56,11 @@ type ContainerSpec struct {
 	// Enable lxcfs
 	EnableLxcfs bool `json:"enable_lxcfs"`
 	// Volume mounts
-	VolumeMounts []*ContainerVolumeMount `json:"volume_mounts"`
-	Capabilities *ContainerCapability    `json:"capabilities"`
-	Privileged   bool                    `json:"privileged"`
+	VolumeMounts       []*ContainerVolumeMount `json:"volume_mounts"`
+	Capabilities       *ContainerCapability    `json:"capabilities"`
+	Privileged         bool                    `json:"privileged"`
+	Lifecyle           *ContainerLifecyle      `json:"lifecyle"`
+	CgroupDevicesAllow []string                `json:"cgroup_devices_allow"`
 }
 
 type ContainerCapability struct {
