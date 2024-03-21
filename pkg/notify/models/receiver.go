@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/sets"
@@ -44,7 +43,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	notify_modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -827,49 +825,30 @@ func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclien
 }
 
 func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverIntellijGetInput) (jsonutils.JSONObject, error) {
-	getParam := jsonutils.NewDict()
-	getParam.Set("scope", jsonutils.NewString(input.Scope))
-	// try to get itself
-	s := auth.GetSession(ctx, userCred, "")
-	// modules.NotifyReceiver
-	ret, err := notify_modules.NotifyReceiver.Get(s, input.UserId, getParam)
-	if err == nil {
-		return ret, nil
-	}
-	jerr, ok := err.(*httputils.JSONClientError)
-	if !ok {
+	ret := &SReceiver{}
+	ret.SetModelManager(rm, ret)
+	err := rm.Query().Equals("id", input.UserId).First(ret)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, err
 	}
-	if jerr.Code != 404 {
-		return nil, errors.Wrapf(err, "unable to get NotifyReceiver via id %q", input.UserId)
-	}
-	if input.CreateIfNo == nil || !*input.CreateIfNo {
-		return jsonutils.NewDict(), nil
+	if len(ret.Id) > 0 {
+		return jsonutils.Marshal(ret), nil
 	}
 	// create one
 	adminSession := auth.GetAdminSession(ctx, "")
-	ret, err = identity_modules.UsersV3.GetById(adminSession, input.UserId, getParam)
+	resp, err := identity_modules.UsersV3.GetById(adminSession, input.UserId, jsonutils.Marshal(map[string]string{"scope": "system"}))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable get user from keystone")
 	}
-	id, _ := ret.GetString("id")
-	name, _ := ret.GetString("name")
-	r := &SReceiver{}
-	r.Id = id
-	r.Name = name
-	r.SetModelManager(rm, r)
-	err = rm.TableSpec().InsertOrUpdate(ctx, r)
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	err = rm.TableSpec().InsertOrUpdate(ctx, ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create receiver")
 	}
-	rets, err := db.FetchCustomizeColumns(rm, ctx, userCred, jsonutils.NewDict(), []interface{}{r}, stringutils2.SSortedStrings{}, false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to get details of receiver %q", id)
-	}
-	if len(rets) == 0 {
-		return nil, errors.Wrapf(err, "details of receiver %q is empty", id)
-	}
-	return rets[0], nil
+	return jsonutils.Marshal(ret), nil
 }
 
 func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverTriggerVerifyInput) (jsonutils.JSONObject, error) {
