@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	alierr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -826,21 +828,43 @@ func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDe
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
+	// 未到期包年包月实例需要先转换到按量计费后, 进行删除
+	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID && self.GetExpiredAt().After(time.Now()) {
+		err := self.host.zone.region.ConvertVmPostpaid([]string{self.InstanceId})
+		if err != nil {
+			log.Warningf("convert vm %s to postpaid error: %v", self.InstanceId, err)
+		}
+	}
 	for {
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
-		if err != nil {
-			if isError(err, "IncorrectInstanceStatus.Initializing") {
-				log.Infof("The instance is initializing, try later ...")
-				time.Sleep(10 * time.Second)
-			} else {
-				log.Errorf("DeleteVM fail: %s", err)
-				return err
-			}
-		} else {
+		if err == nil {
 			break
+		}
+		e, ok := errors.Cause(err).(*alierr.ServerError)
+		if !ok {
+			return err
+		}
+		switch e.ErrorCode() {
+		case "IncorrectInstanceStatus.Initializing":
+			time.Sleep(10 * time.Second)
+		case "LastTokenProcessing": // 等待转换按量付费完成
+			time.Sleep(10 * time.Second)
+		default:
+			return err
 		}
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
+}
+
+func (self *SRegion) ConvertVmPostpaid(instanceIds []string) error {
+	params := map[string]string{
+		"RegionId":           self.RegionId,
+		"InstanceIds":        jsonutils.Marshal(instanceIds).String(),
+		"InstanceChargeType": "PostPaid",
+		"ClientToken":        utils.GenRequestId(20),
+	}
+	_, err := self.ecsRequest("ModifyInstanceChargeType", params)
+	return err
 }
 
 func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUpdateOptions, osType string) error {
