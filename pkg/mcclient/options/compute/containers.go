@@ -35,6 +35,10 @@ func (o *ContainerListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(o)
 }
 
+type ContainerShowOptions struct {
+	ServerIdOptions
+}
+
 type ContainerDeleteOptions struct {
 	ServerIdsOptions
 }

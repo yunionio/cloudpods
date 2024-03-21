@@ -24,6 +24,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.Containers)
 	cmd.Create(new(options.ContainerCreateOptions))
 	cmd.List(new(options.ContainerListOptions))
+	cmd.Show(new(options.ContainerShowOptions))
 	cmd.BatchDelete(new(options.ContainerDeleteOptions))
 	cmd.BatchPerform("stop", new(options.ContainerStopOptions))
 	cmd.BatchPerform("start", new(options.ContainerStartOptions))
