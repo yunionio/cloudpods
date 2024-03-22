@@ -28,7 +28,8 @@ import (
 	"yunion.io/x/pkg/errors"
 )
 
-const ovnNbCtlTimeout = 8 * time.Second
+const ovnNbCtlTimeout = 20 * time.Second
+const ovnBatchCmd = 75
 
 type CmdResult struct {
 	Output string
@@ -76,7 +77,36 @@ func (cli *OvnNbCtl) run(ctx context.Context, args []string) *CmdResult {
 	return res
 }
 
+func (cli *OvnNbCtl) splitArgs(args []string) [][]string {
+	idx, ret, part := 0, [][]string{}, []string{}
+	for _, arg := range args {
+		if arg == "--" {
+			if idx > 0 && idx%ovnBatchCmd == 0 {
+				ret = append(ret, part)
+				part = []string{}
+			}
+			idx++
+		}
+		part = append(part, arg)
+	}
+	if len(part) > 0 {
+		ret = append(ret, part)
+	}
+	return ret
+}
+
 func (cli *OvnNbCtl) Must(ctx context.Context, msg string, args []string) *CmdResult {
+	var res *CmdResult
+	for _, _args := range cli.splitArgs(args) {
+		res = cli.must(ctx, msg, _args)
+		if res.Err != nil {
+			return res
+		}
+	}
+	return res
+}
+
+func (cli *OvnNbCtl) must(ctx context.Context, msg string, args []string) *CmdResult {
 	res := cli.run(ctx, args)
 	if res.Err != nil {
 		panic(cli.errWrap(res, msg, args))
