@@ -235,11 +235,19 @@ func (p *SPodDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SG
 	return task.ScheduleRun(nil)
 }
 
+func (p *SPodDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "PodStartTask", guest, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrap(err, "New PodStartTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
 func (p *SPodDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
 	header := p.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
-	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, userCred, guest, host, nil)
+	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host, nil)
 	if err != nil {
 		return errors.Wrapf(err, "GetJsonDescAtHost")
 	}
@@ -279,6 +287,14 @@ func (p *SPodDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *m
 	//guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	// do nothing here
 	return nil
+}
+
+func (p *SPodDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "PodStopTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "New PodStopTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 func (p *SPodDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
