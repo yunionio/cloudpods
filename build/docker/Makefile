@@ -44,7 +44,7 @@ GLANCE_BASE_VERSION = v0.0.1
 glance-base:
 	$(DOCKER_BUILDX)/glance-base:$(GLANCE_BASE_VERSION) -f ./Dockerfile.glance-base .
 
-FILE_REPO_VERSION = v0.3.3
+FILE_REPO_VERSION = v0.5.2
 
 file-repo:
 	$(DOCKER_BUILDX)/file-repo:$(FILE_REPO_VERSION) -f ./Dockerfile.file-repo .
