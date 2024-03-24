@@ -1406,6 +1406,7 @@ func (manager *SServerSkuManager) InitializeData() error {
 			sku.Name, _ = genInstanceType(sku.InstanceTypeFamily, int64(item.cpu), int64(item.memGb*1024))
 			sku.PrepaidStatus = api.SkuStatusAvailable
 			sku.PostpaidStatus = api.SkuStatusAvailable
+			sku.SetModelManager(manager, sku)
 			err := manager.TableSpec().Insert(context.TODO(), sku)
 			if err != nil {
 				log.Errorf("ServerSkuManager Initialize local sku %s", err)
