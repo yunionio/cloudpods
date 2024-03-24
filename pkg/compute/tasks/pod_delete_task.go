@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -62,23 +63,46 @@ func (t *PodDeleteTask) OnWaitContainerDeletedFailed(ctx context.Context, pod *m
 }
 
 func (t *PodDeleteTask) OnContainerDeleted(ctx context.Context, pod *models.SGuest) {
-	t.SetStage("OnPodUndeploy", nil)
-	host, _ := pod.GetHost()
-	if err := pod.GetDriver().(*guestdrivers.SPodDriver).RequestUndeployPod(ctx, pod, host, t); err != nil {
+	t.SetStage("OnPodStopped", nil)
+	if pod.HostId == "" {
+		t.OnPodStopped(ctx, pod, nil)
+		return
+	}
+	// call stop task to umount volumes
+	if err := pod.GetDriver().(*guestdrivers.SPodDriver).StartGuestStopTask(pod, ctx, t.GetUserCred(), nil, t.GetTaskId()); err != nil {
 		if errors.Cause(err) == httperrors.ErrNotFound {
-			t.OnPodUndeploy(ctx, pod, nil)
+			t.OnPodStopped(ctx, pod, nil)
 			return
 		}
-		t.OnPodUndeployFailed(ctx, pod, jsonutils.NewString(err.Error()))
+		t.OnPodStoppedFailed(ctx, pod, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (t *PodDeleteTask) OnPodUndeploy(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
+func (t *PodDeleteTask) OnPodStopped(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
+	t.SetStage("OnPodDeleted", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", pod, t.GetUserCred(), t.GetParams(), t.GetTaskId(), "", nil)
+	if err != nil {
+		t.OnPodDeletedFailed(ctx, pod, jsonutils.NewString(err.Error()))
+		return
+	}
+	task.ScheduleRun(nil)
+}
+
+func (t *PodDeleteTask) OnPodStoppedFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
+	if strings.Contains(reason.String(), "NotFoundError") {
+		t.OnPodStopped(ctx, pod, jsonutils.NewDict())
+		return
+	} else {
+		pod.SetStatus(ctx, t.GetUserCred(), api.VM_STOP_FAILED, reason.String())
+		t.SetStageFailed(ctx, reason)
+	}
+}
+
+func (t *PodDeleteTask) OnPodDeleted(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
 	t.SetStageComplete(ctx, nil)
 }
 
-func (t *PodDeleteTask) OnPodUndeployFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
-	pod.SetStatus(ctx, t.GetUserCred(), api.VM_DELETE_FAIL, reason.String())
+func (t *PodDeleteTask) OnPodDeletedFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
 	t.SetStageFailed(ctx, reason)
 }

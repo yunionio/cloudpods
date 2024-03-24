@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -25,6 +26,32 @@ import (
 
 	"yunion.io/x/onecloud/pkg/util/pod"
 )
+
+func getLxcfsMounts() []*runtimeapi.Mount {
+	lxcfsPath := "/var/lib/lxcfs"
+	const (
+		procCpuinfo   = "/proc/cpuinfo"
+		procDiskstats = "/proc/diskstats"
+		procMeminfo   = "/proc/meminfo"
+		procStat      = "/proc/stat"
+		procSwaps     = "/proc/swaps"
+		procUptime    = "/proc/uptime"
+	)
+	newLxcfsMount := func(fp string) *runtimeapi.Mount {
+		return &runtimeapi.Mount{
+			ContainerPath: fp,
+			HostPath:      fmt.Sprintf("%s%s", lxcfsPath, fp),
+		}
+	}
+	return []*runtimeapi.Mount{
+		newLxcfsMount(procUptime),
+		newLxcfsMount(procMeminfo),
+		newLxcfsMount(procStat),
+		newLxcfsMount(procCpuinfo),
+		newLxcfsMount(procSwaps),
+		newLxcfsMount(procDiskstats),
+	}
+}
 
 func main() {
 	ctl, err := pod.NewCRI("unix:///var/run/onecloud/containerd/containerd.sock", 3*time.Second)
@@ -50,7 +77,7 @@ func main() {
 	podCfg := &runtimeapi.PodSandboxConfig{
 		Metadata: &runtimeapi.PodSandboxMetadata{
 			Name:      "test-gpu",
-			Uid:       "e25e38ef-fe98-4993-8641-699cd0530fc0",
+			Uid:       "6659d5d0-9187-4b4f-8143-dbe0453229af",
 			Namespace: "27c9464ab54947328a29298761895be3",
 			Attempt:   1,
 		},
@@ -63,19 +90,32 @@ func main() {
 		Linux:        nil,
 		Windows:      nil,
 	}
+	var defaultCPUPeriod int64 = 100000
 	ctrCfgs := []*runtimeapi.ContainerConfig{
 		{
 			Metadata: &runtimeapi.ContainerMetadata{
 				Name: "nvidia-smi",
 			},
 			Image: &runtimeapi.ImageSpec{
-				Image: "ubuntu",
+				Image: "ubuntu:18.04",
 			},
 			Command: []string{"sleep", "100d"},
-			Linux:   &runtimeapi.LinuxContainerConfig{
+			Linux: &runtimeapi.LinuxContainerConfig{
 				//SecurityContext: &runtimeapi.LinuxContainerSecurityContext{
 				//	Privileged: true,
 				//},
+				Resources: &runtimeapi.LinuxContainerResources{
+					CpuPeriod:              defaultCPUPeriod,
+					CpuQuota:               2 * defaultCPUPeriod,
+					CpuShares:              0,
+					MemoryLimitInBytes:     512 * 1024 * 1024,
+					OomScoreAdj:            0,
+					CpusetCpus:             "",
+					CpusetMems:             "",
+					HugepageLimits:         nil,
+					Unified:                nil,
+					MemorySwapLimitInBytes: 0,
+				},
 			},
 			Envs: []*runtimeapi.KeyValue{
 				{
@@ -87,6 +127,7 @@ func main() {
 					Value: "compute,utility",
 				},
 			},
+			// Mounts: getLxcfsMounts(),
 			/*Devices: []*runtimeapi.Device{
 				{
 					HostPath:      "/dev/nvidia0",

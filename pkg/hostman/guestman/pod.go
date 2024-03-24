@@ -49,7 +49,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type PodInstance interface {
@@ -431,10 +430,24 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 	if err := s.setCRIInfo(ctx, userCred, criId, podCfg); err != nil {
 		return nil, errors.Wrap(err, "setCRIId")
 	}
+	// set pod cgroup resources
+	if err := s.setPodCgroupResources(criId, s.GetDesc().Mem, s.GetDesc().Cpu); err != nil {
+		return nil, errors.Wrapf(err, "set pod %s cgroup memMB %d, cpu %d", criId, s.GetDesc().Mem, s.GetDesc().Cpu)
+	}
 	return &computeapi.PodStartResponse{
 		CRIId:     criId,
 		IsRunning: false,
 	}, nil
+}
+
+func (s *sPodGuestInstance) setPodCgroupResources(criId string, memMB int64, cpuCnt int64) error {
+	if err := s.getCGUtil().SetMemoryLimitBytes(criId, memMB*1024*1024); err != nil {
+		return errors.Wrap(err, "set cgroup memory limit")
+	}
+	if err := s.getCGUtil().SetCPUCfs(criId, cpuCnt*s.getDefaultCPUPeriod(), s.getDefaultCPUPeriod()); err != nil {
+		return errors.Wrap(err, "set cgroup cfs")
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
@@ -452,8 +465,11 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 	}); err != nil {
 		return errors.Wrapf(err, "stop cri pod: %s", s.getCRIId())
 	}*/
-	if err := s.getCRI().RemovePod(ctx, s.getCRIId()); err != nil {
-		return errors.Wrapf(err, "remove cri pod: %s", s.getCRIId())
+	criId := s.getCRIId()
+	if criId != "" {
+		if err := s.getCRI().RemovePod(ctx, s.getCRIId()); err != nil {
+			return errors.Wrapf(err, "remove cri pod: %s", s.getCRIId())
+		}
 	}
 	return nil
 }
@@ -659,7 +675,7 @@ func (s *sPodGuestInstance) GetPodMetadataPortMappings() ([]*computeapi.PodMetad
 		return nil, errors.Wrapf(err, "ParseString to json object: %s", cfgStr)
 	}
 	pms := make([]*computeapi.PodMetadataPortMapping, 0)
-	if err := obj.Unmarshal(pms); err != nil {
+	if err := obj.Unmarshal(&pms); err != nil {
 		return nil, errors.Wrap(err, "Unmarshal to PodMetadataPortMappings")
 	}
 	return pms, nil
@@ -713,37 +729,27 @@ func (s *sPodGuestInstance) getContainerLogPath(ctrId string) string {
 func (s *sPodGuestInstance) getLxcfsMounts() []*runtimeapi.Mount {
 	// lxcfsPath := "/var/lib/lxc/lxcfs"
 	lxcfsPath := options.HostOptions.LxcfsPath
+	const (
+		procCpuinfo   = "/proc/cpuinfo"
+		procDiskstats = "/proc/diskstats"
+		procMeminfo   = "/proc/meminfo"
+		procStat      = "/proc/stat"
+		procSwaps     = "/proc/swaps"
+		procUptime    = "/proc/uptime"
+	)
+	newLxcfsMount := func(fp string) *runtimeapi.Mount {
+		return &runtimeapi.Mount{
+			ContainerPath: fp,
+			HostPath:      fmt.Sprintf("%s%s", lxcfsPath, fp),
+		}
+	}
 	return []*runtimeapi.Mount{
-		{
-			ContainerPath: "/proc/uptime",
-			HostPath:      fmt.Sprintf("%s/proc/uptime", lxcfsPath),
-			Readonly:      true,
-		},
-		{
-			ContainerPath: "/proc/meminfo",
-			HostPath:      fmt.Sprintf("%s/proc/meminfo", lxcfsPath),
-			Readonly:      true,
-		},
-		{
-			ContainerPath: "/proc/stat",
-			HostPath:      fmt.Sprintf("%s/proc/stat", lxcfsPath),
-			Readonly:      true,
-		},
-		{
-			ContainerPath: "/proc/cpuinfo",
-			HostPath:      fmt.Sprintf("%s/proc/cpuinfo", lxcfsPath),
-			Readonly:      true,
-		},
-		{
-			ContainerPath: "/proc/swaps",
-			HostPath:      fmt.Sprintf("%s/proc/swaps", lxcfsPath),
-			Readonly:      true,
-		},
-		{
-			ContainerPath: "/proc/diskstats",
-			HostPath:      fmt.Sprintf("%s/proc/diskstats", lxcfsPath),
-			Readonly:      true,
-		},
+		newLxcfsMount(procUptime),
+		newLxcfsMount(procMeminfo),
+		newLxcfsMount(procStat),
+		newLxcfsMount(procCpuinfo),
+		newLxcfsMount(procSwaps),
+		newLxcfsMount(procDiskstats),
 	}
 }
 
@@ -771,24 +777,16 @@ func (s *sPodGuestInstance) getContainerMounts(input *hostapi.ContainerCreateInp
 	return mounts, nil
 }
 
-func (s *sPodGuestInstance) getContainerCgroupDir(dirType string, ctrId string) string {
-	cgroupDir := "/sys/fs/cgroup"
-	return filepath.Join(cgroupDir, dirType, s.getCgroupParent(), ctrId)
-}
-
-func (s *sPodGuestInstance) getContainerCgroupDevicesDir(ctrId string) string {
-	return s.getContainerCgroupDir("devices", ctrId)
+func (s *sPodGuestInstance) getCGUtil() pod.CgroupUtil {
+	return pod.NewPodCgroupV1Util(s.getCgroupParent())
 }
 
 func (s *sPodGuestInstance) setContainerCgroupDevicesAllow(ctrId string, allowStrs []string) error {
-	for _, allowStr := range allowStrs {
-		deviceAllowFile := filepath.Join(s.getContainerCgroupDevicesDir(ctrId), "devices.allow")
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("echo '%s' > %s", allowStr, deviceAllowFile)).Output()
-		if err != nil {
-			return errors.Wrapf(err, "echo %s to %s: %s", deviceAllowFile, allowStr, out)
-		}
-	}
-	return nil
+	return s.getCGUtil().SetDevicesAllow(ctrId, allowStrs)
+}
+
+func (s *sPodGuestInstance) getDefaultCPUPeriod() int64 {
+	return 100000
 }
 
 func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (string, error) {
@@ -803,7 +801,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	}
 
 	// REF: https://docs.docker.com/config/containers/resource_constraints/#configure-the-default-cfs-scheduler
-	var defaultCPUPeriod int64 = 1000
 	spec := input.Spec
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
@@ -814,8 +811,8 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		},
 		Linux: &runtimeapi.LinuxContainerConfig{
 			Resources: &runtimeapi.LinuxContainerResources{
-				CpuPeriod: defaultCPUPeriod,
-				//CpuQuota:               s.GetDesc().Cpu * defaultCPUPeriod,
+				CpuPeriod: s.getDefaultCPUPeriod(),
+				CpuQuota:  s.GetDesc().Cpu * s.getDefaultCPUPeriod(),
 				//CpuShares:              defaultCPUPeriod,
 				MemoryLimitInBytes:     s.GetDesc().Mem * 1024 * 1024,
 				OomScoreAdj:            0,
