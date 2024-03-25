@@ -748,10 +748,12 @@ func (opts *SAliyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, er
 type SAzureCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 
-	OptionsBalanceKey       string `help:"update cloud balance account key, such as Azure EA key" json:"-"`
-	RemoveOptionsBalanceKey bool   `help:"remove cloud blance account key" json:"-"`
+	OptionsBalanceKey         string `help:"update cloud balance account key, such as Azure EA key" json:"-"`
+	RemoveOptionsBalanceKey   bool   `help:"remove cloud blance account key" json:"-"`
+	RemoveOptionsBillingScope bool
 
 	OptionsBillingReportBucket       string `help:"update Azure bucket that stores account billing report" json:"-"`
+	OptionsBillingScope              string `help:"update billing scope" choices:"all|managed" json:"-"`
 	RemoveOptionsBillingReportBucket bool   `help:"remove Azure bucket that stores account billing report" json:"-"`
 }
 
@@ -765,12 +767,20 @@ func (opts *SAzureCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, err
 	if len(opts.OptionsBillingReportBucket) > 0 {
 		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
 	}
+	if len(opts.OptionsBillingScope) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingScope), "billing_scope")
+	}
+
 	if options.Size() > 0 {
 		params.Add(options, "options")
 	}
 	removeOptions := make([]string, 0)
 	if opts.RemoveOptionsBalanceKey {
 		removeOptions = append(removeOptions, "balance_key")
+		removeOptions = append(removeOptions, "enrollment_number")
+	}
+	if opts.RemoveOptionsBillingScope {
+		removeOptions = append(removeOptions, "billing_scope")
 	}
 	if opts.RemoveOptionsBillingReportBucket {
 		removeOptions = append(removeOptions, "billing_report_bucket")
