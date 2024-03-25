@@ -32,6 +32,7 @@ type CloudproviderListOptions struct {
 	ReadOnly *bool `help:"filter read only account" negative:"no-read-only"`
 
 	HostSchedtagId string `help:"filter by host schedtag"`
+	ZoneId         string
 }
 
 func (opts *CloudproviderListOptions) Params() (jsonutils.JSONObject, error) {
