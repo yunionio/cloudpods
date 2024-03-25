@@ -357,7 +357,7 @@ func getDiskDriveOption(
 }
 
 func isLocalStorage(disk api.GuestdiskJsonDesc) bool {
-	if disk.StorageType == api.STORAGE_LOCAL || len(disk.StorageType) == 0 {
+	if disk.StorageType == api.STORAGE_LOCAL || disk.StorageType == api.STORAGE_LVM || len(disk.StorageType) == 0 {
 		return true
 	} else {
 		return false

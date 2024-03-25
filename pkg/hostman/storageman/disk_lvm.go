@@ -17,7 +17,9 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"path"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -30,11 +32,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/fuseutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SLVMDisk struct {
@@ -42,7 +48,15 @@ type SLVMDisk struct {
 }
 
 func (d *SLVMDisk) GetSnapshotDir() string {
-	return ""
+	return d.GetSnapshotPrefix()
+}
+
+func (d *SLVMDisk) GetSnapshotPrefix() string {
+	return path.Join("/dev", d.Storage.GetPath(), "snap_")
+}
+
+func (d *SLVMDisk) GetImageCachePrefix() string {
+	return path.Join("/dev", d.Storage.GetPath(), "imagecache_")
 }
 
 func (d *SLVMDisk) GetType() string {
@@ -54,28 +68,17 @@ func (d *SLVMDisk) GetLvPath() string {
 	return path.Join("/dev", d.Storage.GetPath(), d.Id)
 }
 
-func (d *SLVMDisk) GetDevMapperDiskId() string {
-	return "dm_" + d.Id
-}
-
-func (d *SLVMDisk) GetDevMapperPath() string {
-	return path.Join("/dev/mapper", "dm_"+d.Id)
-}
-
-func (d *SLVMDisk) GetExtendDiskId() string {
-	return "ex_" + d.Id
-}
-
-func (d *SLVMDisk) GetSysDiskExtendPath() string {
-	return path.Join("/dev", d.Storage.GetPath(), d.GetExtendDiskId())
-}
-
 func (d *SLVMDisk) GetPath() string {
-	var diskPath = d.GetLvPath()
-	if fileutils2.Exists(d.GetDevMapperPath()) {
-		diskPath = d.GetDevMapperPath()
-	}
-	return diskPath
+	return path.Join("/dev", d.Storage.GetPath(), d.Id)
+}
+
+// The LVM logical volume name is limited to 64 characters.
+func (d *SLVMDisk) GetSnapshotName(snapshotId string) string {
+	return "snap_" + d.Id + snapshotId
+}
+
+func (d *SLVMDisk) GetSnapshotPath(snapshotId string) string {
+	return path.Join("/dev", d.Storage.GetPath(), d.GetSnapshotName(snapshotId))
 }
 
 func (d *SLVMDisk) GetDiskSetupScripts(idx int) string {
@@ -85,56 +88,56 @@ func (d *SLVMDisk) GetDiskSetupScripts(idx int) string {
 func (d *SLVMDisk) GetDiskDesc() jsonutils.JSONObject {
 	qemuImg, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("qemuimg.NewQemuImage %s: %s", d.GetPath(), err)
 		return nil
 	}
 
 	var desc = jsonutils.NewDict()
 	desc.Set("disk_id", jsonutils.NewString(d.Id))
 	desc.Set("disk_size", jsonutils.NewInt(qemuImg.SizeBytes/1024/1024))
-	desc.Set("format", jsonutils.NewString(string(qemuimg.RAW)))
-	desc.Set("disk_path", jsonutils.NewString(d.Storage.GetPath()))
+	desc.Set("format", jsonutils.NewString(string(qemuImg.Format)))
+	desc.Set("disk_path", jsonutils.NewString(d.GetPath()))
 	return desc
 }
 
-func (d *SLVMDisk) CleanUpDisk() error {
-	// device mapper /dev/mapper/dm_<disk_id>
-	if fileutils2.Exists(d.GetDevMapperPath()) {
-		if err := lvmutils.DmRemove(d.GetDevMapperPath()); err != nil {
-			return err
-		}
-	}
-	// sys disk extend lv /dev/<vg>/ex_<disk_id>
-	if fileutils2.Exists(d.GetSysDiskExtendPath()) {
-		if err := lvmutils.LvRemove(d.GetSysDiskExtendPath()); err != nil {
-			return err
-		}
-	}
-	// disk path /dev/<vg>/<disk_id>
-	if fileutils2.Exists(d.GetLvPath()) {
-		if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (d *SLVMDisk) CreateRaw(
-	ctx context.Context, sizeMb int, diskFormat string, fsFormat string,
+	ctx context.Context, sizeMB int, diskFormat string, fsFormat string,
 	encryptInfo *apis.SEncryptInfo, diskId string, back string,
 ) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
-		if err := d.CleanUpDisk(); err != nil {
-			return nil, errors.Wrap(err, "failed remove exists lvm")
+		if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
+			return nil, errors.Wrap(err, "CreateRaw lvremove")
 		}
 	}
 
-	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, int64(sizeMb)*1024*1024); err != nil {
+	img, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+
+	qcow2Size := lvmutils.GetQcow2LvSize(int64(sizeMB))
+	err = lvmutils.LvCreate(d.Storage.GetPath(), d.Id, qcow2Size*1024*1024)
+	if err != nil {
 		return nil, errors.Wrap(err, "CreateRaw")
+	}
+
+	if encryptInfo != nil {
+		err = img.CreateQcow2(sizeMB, false, back, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+	} else {
+		err = img.CreateQcow2(sizeMB, false, back, "", "", "")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("create_raw: Fail to create disk: %s", err)
 	}
 
 	diskInfo := &deployapi.DiskInfo{
 		Path: d.GetPath(),
+	}
+	if encryptInfo != nil {
+		diskInfo.EncryptPassword = encryptInfo.Key
+		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
 		d.FormatFs(fsFormat, diskId, diskInfo)
@@ -143,18 +146,80 @@ func (d *SLVMDisk) CreateRaw(
 }
 
 func (d *SLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	if err := d.CleanUpDisk(); err != nil {
-		return nil, errors.Wrap(err, "Delete")
+	if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
+		return nil, errors.Wrap(err, "Delete lvremove")
 	}
 	d.Storage.RemoveDisk(d)
 	return nil, nil
 }
 
 func (d *SLVMDisk) PostCreateFromImageFuse() {
+	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
+	if output, err := procutils.NewCommand("umount", mntPath).Output(); err != nil {
+		log.Errorf("umount %s failed: %s, %s", mntPath, err, output)
+	}
+	if output, err := procutils.NewCommand("rm", "-rf", mntPath).Output(); err != nil {
+		log.Errorf("rm %s failed: %s, %s", mntPath, err, output)
+	}
+	tmpPath := d.Storage.GetFuseTmpPath()
+	tmpFiles, err := ioutil.ReadDir(tmpPath)
+	if err != nil {
+		for _, f := range tmpFiles {
+			if strings.HasPrefix(f.Name(), d.Id) {
+				procutils.NewCommand("rm", "-f", path.Join(tmpPath, f.Name()))
+			}
+		}
+	}
+}
+
+func (d *SLVMDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+	log.Infof("Create from image fuse %s", url)
+
+	localPath := d.Storage.GetFuseTmpPath()
+	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
+	contentPath := path.Join(mntPath, "content")
+	newImg, err := qemuimg.NewQemuImage(d.GetPath())
+
+	if err != nil {
+		log.Errorf("qemuimg.NewQemuImage %s fail: %s", d.GetPath(), err)
+		return err
+	}
+
+	if newImg.IsValid() && newImg.IsChained() && newImg.BackFilePath != contentPath {
+		if err := lvmutils.LvRemove(d.GetPath()); err != nil {
+			return errors.Wrap(err, "remove disk")
+		}
+	}
+	if !newImg.IsValid() || newImg.IsChained() {
+		if err := fuseutils.MountFusefs(
+			options.HostOptions.FetcherfsPath, url, localPath,
+			auth.GetTokenString(), mntPath, options.HostOptions.FetcherfsBlockSize, encryptInfo,
+		); err != nil {
+			log.Errorln(err)
+			return err
+		}
+	}
+	if !newImg.IsValid() {
+		lvSize := lvmutils.GetQcow2LvSize(size)
+		if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize*1024*1024); err != nil {
+			return errors.Wrap(err, "lvcreate")
+		}
+
+		if encryptInfo != nil {
+			err = newImg.CreateQcow2(0, false, contentPath, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+		} else {
+			err = newImg.CreateQcow2(0, false, contentPath, "", "", "")
+		}
+		if err != nil {
+			return errors.Wrapf(err, "create from fuse")
+		}
+	}
+
+	return nil
 }
 
 func (d *SLVMDisk) IsFile() bool {
-	return false
+	return true
 }
 
 func (d *SLVMDisk) Probe() error {
@@ -170,8 +235,24 @@ func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 		return nil, hostutils.ParamsError
 	}
 	sizeMb, _ := diskInfo.Int("size")
-	if err := d.resize(sizeMb * 1024 * 1024); err != nil {
-		return nil, err
+
+	qemuImg, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return nil, errors.Wrap(err, "lvm qemuimg.NewQemuImage")
+	}
+
+	lvsize := sizeMb
+	if qemuImg.Format == qemuimg.QCOW2 {
+		lvsize = lvmutils.GetQcow2LvSize(sizeMb)
+	}
+
+	err = lvmutils.LvResize(d.Storage.GetPath(), d.GetPath(), lvsize*1024*1024)
+	if err != nil {
+		return nil, errors.Wrap(err, "lv resize")
+	}
+	err = qemuImg.Resize(int(sizeMb))
+	if err != nil {
+		return nil, errors.Wrap(err, "qemuImg resize")
 	}
 
 	resizeFsInfo := &deployapi.DiskInfo{
@@ -183,85 +264,63 @@ func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SLVMDisk) resize(newSize int64) error {
-	qemuImg, err := qemuimg.NewQemuImage(d.GetPath())
-	if err != nil {
-		return errors.Wrapf(err, "Open image %s", d.GetPath())
-	}
-	if qemuImg.SizeBytes >= newSize {
-		return nil
-	}
-
-	resizePath := d.GetLvPath()
-	origin, err := lvmutils.GetLvOrigin(resizePath)
-	if err != nil {
-		return errors.Wrap(err, "get lv origin")
-	}
-
-	if origin != "" {
-		// lv created from snapshot
-		if !fileutils2.Exists(d.GetDevMapperPath()) {
-			// create an lvm extend disk directly.
-			err = lvmutils.LvCreate(d.Storage.GetPath(), d.GetExtendDiskId(), newSize-qemuImg.SizeBytes)
-			if err != nil {
-				return errors.Wrap(err, "lv create")
-			}
-			// create a device mapper disk
-			err = lvmutils.DmCreate(d.GetLvPath(), d.GetSysDiskExtendPath(), d.GetDevMapperDiskId())
-			if err != nil {
-				if errT := lvmutils.LvRemove(d.GetSysDiskExtendPath()); errT != nil {
-					log.Errorf("failed remove extend disk path %s", errT)
-				}
-				return errors.Wrap(err, "dm create")
-			}
-		} else {
-			// resize extend disk
-			resizePath = d.GetSysDiskExtendPath()
-			extendImg, err := qemuimg.NewQemuImage(resizePath)
-			if err != nil {
-				return errors.Wrapf(err, "Open image %s", resizePath)
-			}
-
-			newSize = newSize - qemuImg.SizeBytes + extendImg.SizeBytes
-			err = lvmutils.LvResize(d.Storage.GetPath(), resizePath, newSize)
-			if err != nil {
-				return errors.Wrap(err, "lv resize")
-			}
-		}
-	} else {
-		err = lvmutils.LvResize(d.Storage.GetPath(), resizePath, newSize)
-		if err != nil {
-			return errors.Wrap(err, "lv resize")
-		}
-	}
-	return nil
-}
-
 func (d *SLVMDisk) CreateFromTemplate(
-	ctx context.Context, imageId, format string, size int64, encryptInfo *apis.SEncryptInfo,
+	ctx context.Context, imageId, format string, sizeMb int64, encryptInfo *apis.SEncryptInfo,
 ) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
-		if err := d.CleanUpDisk(); err != nil {
-			return nil, errors.Wrap(err, "failed remove exists lvm")
+		if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
+			return nil, errors.Wrap(err, "CreateRaw lvremove")
 		}
 	}
 
 	var imageCacheManager = storageManager.GetStoragecacheById(d.Storage.GetStoragecacheId())
-	ret, err := d.createFromTemplate(ctx, imageId, format, size, imageCacheManager, encryptInfo)
+	ret, err := d.createFromTemplate(ctx, imageId, format, sizeMb, imageCacheManager, encryptInfo)
 	if err != nil {
 		return nil, err
 	}
 	retSize, _ := ret.Int("disk_size")
-	log.Infof("REQSIZE: %d, RETSIZE: %d", size, retSize)
-	if size > retSize {
+	log.Infof("REQSIZE: %d, RETSIZE: %d", sizeMb, retSize)
+	if sizeMb > retSize {
 		params := jsonutils.NewDict()
-		params.Set("size", jsonutils.NewInt(size))
+		params.Set("size", jsonutils.NewInt(sizeMb))
 		if encryptInfo != nil {
 			params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
 		}
 		return d.Resize(ctx, params)
 	}
 	return ret, nil
+}
+
+func (d *SLVMDisk) createFromTemplate(
+	ctx context.Context, imageId, format string, sizeMb int64, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo,
+) (jsonutils.JSONObject, error) {
+	input := api.CacheImageInput{ImageId: imageId, Zone: d.GetZoneId()}
+	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "AcquireImage")
+	}
+
+	defer imageCacheManager.ReleaseImage(ctx, imageId)
+	cacheImagePath := imageCache.GetPath()
+
+	lvSizeMb := lvmutils.GetQcow2LvSize(imageCache.GetDesc().Size)
+	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSizeMb*1024*1024); err != nil {
+		return nil, errors.Wrap(err, "CreateRaw")
+	}
+	newImg, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewQemuImage(%s)", d.GetPath())
+	}
+	if encryptInfo != nil {
+		err = newImg.CreateQcow2(0, false, cacheImagePath, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+	} else {
+		err = newImg.CreateQcow2(0, false, cacheImagePath, "", "", "")
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateQcow2(%s)", cacheImagePath)
+	}
+
+	return d.GetDiskDesc(), nil
 }
 
 func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -289,7 +348,7 @@ func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	backupPath := path.Join(destDir, fmt.Sprintf("%s.%s", d.Id, appctx.AppContextTaskId(ctx)))
 	srcInfo := qemuimg.SImageInfo{
 		Path:     d.GetPath(),
-		Format:   qemuimg.RAW,
+		Format:   qemuImg.Format,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
@@ -309,33 +368,220 @@ func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	return res, nil
 }
 
-func (d *SLVMDisk) createFromTemplate(
-	ctx context.Context, imageId, format string, sizeMb int64, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo,
-) (jsonutils.JSONObject, error) {
-	input := api.CacheImageInput{ImageId: imageId, Zone: d.GetZoneId()}
-	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)
+func (d *SLVMDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.ErrNotImplemented
+}
+
+func (d *SLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
+	snapName := d.GetSnapshotName(snapshotId)
+	log.Infof("Start create snapshot %s of lvm Disk %s", snapName, d.Id)
+	lvSize, err := lvmutils.GetLvSize(d.GetPath())
 	if err != nil {
-		return nil, errors.Wrapf(err, "AcquireImage")
+		return err
 	}
 
-	defer imageCacheManager.ReleaseImage(ctx, imageId)
-	cacheImagePath := imageCache.GetPath()
-	cacheImage, err := qemuimg.NewQemuImage(cacheImagePath)
+	err = lvmutils.LvRename(d.Storage.GetPath(), d.Id, snapName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "NewQemuImage(%s)", cacheImagePath)
+		return err
+	}
+	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize); err != nil {
+		return errors.Wrap(err, "snapshot LvCreate")
+	}
+	img, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		lvmutils.LvRemove(d.GetPath())
+		lvmutils.LvRename(d.Storage.GetPath(), snapName, d.Id)
+		return errors.Wrapf(err, "failed qemuimg.NewQemuImage(%s))", d.GetPath())
 	}
 
-	if sizeMb*1024*1024 > cacheImage.SizeBytes {
-		if err = lvmutils.LvCreateFromSnapshot(d.GetLvPath(), cacheImagePath, cacheImage.SizeBytes); err != nil {
-			return nil, errors.Wrap(err, "lv create from snapshot")
-		}
-	} else {
-		if err = lvmutils.LvCreate(d.Storage.GetPath(), d.Id, cacheImage.SizeBytes); err != nil {
-			return nil, errors.Wrap(err, "lv create")
-		}
+	snapPath := d.GetSnapshotPath(snapshotId)
+	err = img.CreateQcow2(0, false, snapPath, "", "", "")
+	if err != nil {
+		lvmutils.LvRemove(d.GetPath())
+		lvmutils.LvRename(d.Storage.GetPath(), snapName, d.Id)
+		return errors.Wrapf(err, "CreateQcow2(%s)", snapPath)
+	}
+	return nil
+}
+
+func (d *SLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	resetParams, ok := params.(*SDiskReset)
+	if !ok {
+		return nil, hostutils.ParamsError
 	}
 
-	return d.GetDiskDesc(), nil
+	img, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return nil, err
+	}
+	diskSizeMB := int(img.SizeBytes / 1024 / 1024)
+
+	lvSize, err := lvmutils.GetLvSize(d.GetPath())
+	if err != nil {
+		return nil, err
+	}
+	// rename disk to temp logical volume
+	tmpVolume := d.Id + "-reset.tmp"
+	err = lvmutils.LvRename(d.Storage.GetPath(), d.Id, tmpVolume)
+	if err != nil {
+		return nil, err
+	}
+	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize); err != nil {
+		return nil, errors.Wrap(err, "reset snapshot LvCreate")
+	}
+
+	imgNew, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		lvmutils.LvRemove(d.GetPath())
+		lvmutils.LvRename(d.Storage.GetPath(), tmpVolume, d.Id)
+		return nil, errors.Wrapf(err, "failed qemuimg.NewQemuImage(%s))", d.GetPath())
+	}
+
+	snapPath := d.GetSnapshotPath(resetParams.SnapshotId)
+	err = imgNew.CreateQcow2(diskSizeMB, false, snapPath, "", "", "")
+	if err != nil {
+		lvmutils.LvRemove(d.GetPath())
+		lvmutils.LvRename(d.Storage.GetPath(), tmpVolume, d.Id)
+		return nil, errors.Wrapf(err, "CreateQcow2(%s)", snapPath)
+	}
+	tmpVolumePath := path.Join("/dev", d.Storage.GetPath(), tmpVolume)
+	err = lvmutils.LvRemove(tmpVolumePath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed remove tmp volume")
+	}
+	return nil, nil
+}
+
+func (d *SLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string) error {
+	if len(convertSnapshot) > 0 {
+		if err := d.ConvertSnapshot(convertSnapshot); err != nil {
+			return err
+		}
+	}
+	return lvmutils.LvRemove(d.GetSnapshotPath(snapshotId))
+}
+
+func (d *SLVMDisk) DeleteAllSnapshot(skipRecycle bool) error {
+	lvNames, err := lvmutils.GetLvNames(d.Storage.GetPath())
+	if err != nil {
+		log.Errorf("failed get lvm %s lvs %s", d.Storage.GetPath(), err)
+		return nil
+	}
+
+	snapPrefix := "snap_" + d.Id
+	for _, f := range lvNames {
+		if strings.HasPrefix(f, snapPrefix) {
+			if err := lvmutils.LvRemove(path.Join("/dev", d.Storage.GetPath(), f)); err != nil {
+				return errors.Wrap(err, "delele lvm snapshots")
+			}
+		}
+	}
+	return nil
+}
+
+func (d *SLVMDisk) ConvertSnapshot(convertSnapshot string) error {
+	convertSnapshotPath := d.GetSnapshotPath(convertSnapshot)
+	qemuImg, err := qemuimg.NewQemuImage(convertSnapshotPath)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	lvSize, err := lvmutils.GetLvSize(convertSnapshotPath)
+	if err != nil {
+		return err
+	}
+
+	tmpVolume := d.Id + "-convert.tmp"
+	tmpVolumePath := path.Join("/dev", d.Storage.GetPath(), tmpVolume)
+	// create /dev/vg/snapshot-convert.tmp
+	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize); err != nil {
+		return errors.Wrap(err, "delete snapshot LvCreate")
+	}
+	srcInfo := qemuimg.SImageInfo{
+		Path:     convertSnapshotPath,
+		Format:   qemuImg.Format,
+		IoLevel:  qemuimg.IONiceNone,
+		Password: "",
+	}
+	destInfo := qemuimg.SImageInfo{
+		Path:     tmpVolumePath,
+		Format:   qemuimg.QCOW2,
+		IoLevel:  qemuimg.IONiceNone,
+		Password: "",
+	}
+	// convert /dev/vg/snapshot to /dev/vg/snapshot-convert.tmp
+	if err = qemuimg.Convert(srcInfo, destInfo, false, nil); err != nil {
+		lvmutils.LvRemove(tmpVolumePath)
+		return errors.Wrap(err, "failed convert tmp disk")
+	}
+
+	tmpVolume2 := d.Id + "-convert.tmp2"
+	tmpVolume2Path := path.Join("/dev", d.Storage.GetPath(), tmpVolume2)
+	// rename /dev/vg/snapshot to /dev/vg/snapshot-convert.tmp2
+	err = lvmutils.LvRename(d.Storage.GetPath(), convertSnapshot, tmpVolume2)
+	if err != nil {
+		return errors.Wrap(err, "failed rename disk to tmp")
+	}
+	// rename /dev/vg/snapshot-convert.tmp to /dev/vg/snapshot
+	err = lvmutils.LvRename(d.Storage.GetPath(), tmpVolume, convertSnapshot)
+	if err != nil {
+		return errors.Wrap(err, "failed rename tmp to disk")
+	}
+	// delete /dev/vg/snapshot-convert.tmp2
+	err = lvmutils.LvRemove(tmpVolume2Path)
+	if err != nil {
+		return errors.Wrap(err, "failed remove tmp disk")
+	}
+	return nil
+}
+
+func (d *SLVMDisk) DoDeleteSnapshot(snapshotId string) error {
+	snapshotPath := d.GetSnapshotPath(snapshotId)
+	return lvmutils.LvRemove(snapshotPath)
+}
+
+func (d *SLVMDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, error) {
+	disk, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		log.Errorln(err)
+		return nil, "", false, err
+	}
+	ret, err := disk.WholeChainFormatIs("qcow2")
+	if err != nil {
+		log.Errorln(err)
+		return nil, "", false, err
+	}
+	if liveMigrate && !ret {
+		return nil, "", false, fmt.Errorf("Disk format doesn't support live migrate")
+	}
+	if disk.IsChained() {
+		backingChain, err := disk.GetBackingChain()
+		if err != nil {
+			return nil, "", false, err
+		}
+		snapshots := []string{}
+		for i := range backingChain {
+			if strings.HasPrefix(backingChain[i], d.GetSnapshotDir()) {
+				snapshots = append(snapshots, path.Base(backingChain[i]))
+			} else if !strings.HasPrefix(backingChain[i], d.GetImageCachePrefix()) {
+				return nil, "", false, errors.Errorf("backing file path %s unsupported", backingChain[i])
+			}
+		}
+		hasTemplate := strings.HasPrefix(backingChain[len(backingChain)-1], d.GetImageCachePrefix())
+		return snapshots, backingChain[0], hasTemplate, nil
+	}
+	return nil, "", false, nil
+}
+
+func (d *SLVMDisk) RebuildSlaveDisk(diskUri string) error {
+	if err := lvmutils.LvRemove(d.GetPath()); err != nil {
+		return errors.Wrap(err, "lvremove")
+	}
+	diskUrl := fmt.Sprintf("%s/%s", diskUri, d.Id)
+	if err := d.CreateFromImageFuse(context.Background(), diskUrl, 0, nil); err != nil {
+		return errors.Wrap(err, "failed create slave disk")
+	}
+	return nil
 }
 
 func NewLVMDisk(storage IStorage, id string) *SLVMDisk {

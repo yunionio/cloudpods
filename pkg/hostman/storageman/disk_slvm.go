@@ -32,12 +32,12 @@ import (
 
 // shared lvm
 type SSLVMDisk struct {
-	SCLVMDisk
+	SLVMDisk
 }
 
 func NewSLVMDisk(storage IStorage, id string) *SSLVMDisk {
 	return &SSLVMDisk{
-		SCLVMDisk: *NewCLVMDisk(storage, id),
+		SLVMDisk: *NewLVMDisk(storage, id),
 	}
 }
 
@@ -92,11 +92,11 @@ func (d *SSLVMDisk) CreateRaw(
 	ctx context.Context, sizeMb int, diskFormat string, fsFormat string,
 	encryptInfo *apis.SEncryptInfo, diskId string, back string,
 ) (jsonutils.JSONObject, error) {
-	ret, err := d.SCLVMDisk.CreateRaw(ctx, sizeMb, diskFormat, fsFormat, encryptInfo, diskId, back)
+	ret, err := d.SLVMDisk.CreateRaw(ctx, sizeMb, diskFormat, fsFormat, encryptInfo, diskId, back)
 	if err != nil {
 		return ret, err
 	}
-	err = lvmutils.LVActive(d.GetPath(), true, false)
+	err = lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
 	if err != nil {
 		return ret, errors.Wrap(err, "lvactive shared")
 	}
@@ -106,11 +106,11 @@ func (d *SSLVMDisk) CreateRaw(
 func (d *SSLVMDisk) CreateFromTemplate(
 	ctx context.Context, imageId, format string, sizeMb int64, encryptInfo *apis.SEncryptInfo,
 ) (jsonutils.JSONObject, error) {
-	ret, err := d.SCLVMDisk.CreateFromTemplate(ctx, imageId, format, sizeMb, encryptInfo)
+	ret, err := d.SLVMDisk.CreateFromTemplate(ctx, imageId, format, sizeMb, encryptInfo)
 	if err != nil {
 		return ret, err
 	}
-	err = lvmutils.LVActive(d.GetPath(), true, false)
+	err = lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
 	if err != nil {
 		return ret, errors.Wrap(err, "lvactive shared")
 	}
@@ -128,6 +128,5 @@ func (d *SSLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.J
 			return nil, errors.Wrap(err, "lv active")
 		}
 	}
-	d.SCLVMDisk.Delete(ctx, params)
-	return nil, nil
+	return d.SLVMDisk.Delete(ctx, params)
 }

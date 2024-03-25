@@ -222,10 +222,17 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 	defer resp.Body.Close()
 	if resp.StatusCode < 300 {
 		if getData {
-			os.Remove(r.tmpPath)
-			fi, err := os.Create(r.tmpPath)
-			if err != nil {
-				return errors.Wrapf(err, "os.Create(%s)", r.tmpPath)
+			var fi *os.File
+			if r.tmpPath == r.localPath && fileutils2.Exists(r.localPath) {
+				fi, err = os.Open(r.tmpPath)
+				if err != nil {
+					return errors.Wrapf(err, "os.Open(%s)", r.tmpPath)
+				}
+			} else {
+				fi, err = os.Create(r.tmpPath)
+				if err != nil {
+					return errors.Wrapf(err, "os.Create(%s)", r.tmpPath)
+				}
 			}
 			defer fi.Close()
 
