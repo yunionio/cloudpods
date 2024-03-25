@@ -73,14 +73,6 @@ func NewLocalStorage(manager *SStorageManager, path string, index int) *SLocalSt
 	return ret
 }
 
-func (s *SLocalStorage) GetFuseTmpPath() string {
-	return path.Join(s.Path, _FUSE_TMP_PATH_)
-}
-
-func (s *SLocalStorage) GetFuseMountPath() string {
-	return path.Join(s.Path, _FUSE_MOUNT_PATH_)
-}
-
 func (s *SLocalStorage) StorageType() string {
 	return api.STORAGE_LOCAL
 }

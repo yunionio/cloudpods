@@ -1063,8 +1063,12 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 	for _, disk := range guest.Desc.Disks {
 		if disk.Path != "" {
+			d, err := storageman.GetManager().GetDiskByPath(disk.Path)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", disk.Path)
+			}
 			if disk.StorageType == compute.STORAGE_SLVM {
-				if err := lvmutils.LVActive(disk.Path, true, false); err != nil {
+				if err := lvmutils.LVActive(disk.Path, d.GetStorage().Lvmlockd(), false); err != nil {
 					return nil, errors.Wrap(err, "lvm active with shared")
 				}
 				_, err := storageman.GetManager().GetDiskByPath(disk.Path)
@@ -1259,7 +1263,7 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 	} else {
 		res := jsonutils.NewDict()
 		res.Set("deleted", jsonutils.JSONTrue)
-		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "")
 	}
 }
 

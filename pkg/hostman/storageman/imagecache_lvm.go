@@ -109,7 +109,8 @@ func (c *SLVMImageCache) Acquire(
 		if err != nil {
 			return errors.Wrapf(err, "NewQemuImage for local image path %s", localImageCache.GetPath())
 		}
-		err = lvmutils.LvCreate(c.Manager.GetPath(), c.GetName(), localImg.SizeBytes)
+		lvSize := lvmutils.GetQcow2LvSize(localImg.SizeBytes/1024/1024) * 1024 * 1024
+		err = lvmutils.LvCreate(c.Manager.GetPath(), c.GetName(), lvSize)
 		if err != nil {
 			return errors.Wrap(err, "lvm image cache acquire")
 		}
@@ -123,7 +124,7 @@ func (c *SLVMImageCache) Acquire(
 
 		log.Infof("convert local image %s to lvm %s", c.imageId, c.GetPath())
 		out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
-			"convert", "-W", "-m", "16", "-O", "raw", localImageCache.GetPath(), c.GetPath()).Output()
+			"convert", "-W", "-m", "16", "-O", "qcow2", localImageCache.GetPath(), c.GetPath()).Output()
 		if err != nil {
 			return errors.Wrapf(err, "convert local image %s to lvm %s: %s", c.imageId, c.GetPath(), out)
 		}
