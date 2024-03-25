@@ -3259,7 +3259,7 @@ func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
 func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
 	ctx context.Context, disk storageman.IDisk, deleteSnapshot, convertSnapshot string, blockStream bool,
 ) (jsonutils.JSONObject, error) {
-	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot, false); err != nil {
+	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot); err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
@@ -3356,7 +3356,7 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 			if err != nil {
 				return nil, nil, false, errors.Wrapf(err, "GetDiskByPath(%s)", disk.Path)
 			}
-			if d.GetType() == api.STORAGE_LOCAL {
+			if d.GetType() == api.STORAGE_LOCAL || d.GetType() == api.STORAGE_LVM {
 				snaps, back, hasTemplate, err := d.PrepareMigrate(liveMigrate)
 				if err != nil {
 					return nil, nil, false, err
@@ -3372,7 +3372,7 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 				}
 			} else if d.GetType() == api.STORAGE_SLVM {
 				if d.GetStorage().Lvmlockd() {
-					if err := lvmutils.LVActive(d.GetPath(), true, false); err != nil {
+					if err := lvmutils.LVActive(d.GetPath(), d.GetStorage().Lvmlockd(), false); err != nil {
 						return nil, nil, false, errors.Wrap(err, "lvm active with share")
 					}
 				}

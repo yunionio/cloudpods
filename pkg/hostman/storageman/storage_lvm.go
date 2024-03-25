@@ -23,16 +23,23 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SLVMStorage struct {
@@ -116,7 +123,9 @@ func (s *SLVMStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetUsedSizeMb")
 	}
+
 	content.Set("capacity", jsonutils.NewInt(sizeMb))
+
 	content.Set("actual_capacity_used", jsonutils.NewInt(usedSizeMb))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
 	content.Set("zone", jsonutils.NewString(s.GetZoneId()))
@@ -126,7 +135,6 @@ func (s *SLVMStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	)
 
 	log.Infof("Sync storage info %s/%s", s.StorageId, name)
-
 	if len(s.StorageId) > 0 {
 		res, err = modules.Storages.Put(
 			hostutils.GetComputeSession(context.Background()),
@@ -138,6 +146,12 @@ func (s *SLVMStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		} else {
 			content.Set("medium_type", jsonutils.NewString(mediumType))
 		}
+		// reserved for imagecache
+		reserved := sizeMb / 10
+		if reserved > 1024*1024 {
+			reserved = 1024 * 1024
+		}
+		content.Set("reserved", jsonutils.NewInt(reserved))
 
 		res, err = modules.Storages.Create(hostutils.GetComputeSession(context.Background()), content)
 		if err == nil {
@@ -167,7 +181,12 @@ func (s *SLVMStorage) GetSnapshotDir() string {
 }
 
 func (s *SLVMStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
-	return ""
+	disk, err := s.GetDiskById(diskId)
+	if err != nil {
+		log.Errorf("lvm failed get disk by id %s: %s", diskId, err)
+		return ""
+	}
+	return disk.GetSnapshotPath(snapshotId)
 }
 
 func (s *SLVMStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -291,24 +310,167 @@ func (s *SLVMStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	return nil
 }
 
-func (s *SLVMStorage) CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error {
-	return errors.Errorf("unsupported operation")
+func (s *SLVMStorage) DestinationPrepareMigrate(
+	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
+	disksBackingFile, diskSnapsChain, outChainSnaps jsonutils.JSONObject,
+	rebaseDisks bool,
+	diskinfo *desc.SGuestDisk,
+	serverId string, idx, totalDiskCount int,
+	encInfo *apis.SEncryptInfo, sysDiskHasTemplate bool,
+) error {
+	var (
+		diskId               = diskinfo.DiskId
+		snapshots, _         = diskSnapsChain.GetArray(diskId)
+		disk                 = s.CreateDisk(diskId)
+		diskOutChainSnaps, _ = outChainSnaps.GetArray(diskId)
+	)
+
+	if disk == nil {
+		return fmt.Errorf(
+			"Storage %s create disk %s failed", s.GetId(), diskId)
+	}
+
+	templateId := diskinfo.TemplateId
+	// create snapshots form remote url
+	var (
+		diskStorageId = diskinfo.StorageId
+		baseImagePath string
+	)
+	for i, snapshotId := range snapshots {
+		snapId, _ := snapshotId.GetString()
+		snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+			snapshotsUri, diskStorageId, diskId, snapId)
+		snapshotPath := path.Join("/dev", s.GetPath(), "snap_"+snapId)
+		log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
+		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
+			return errors.Wrap(err, "create from snapshot url failed")
+		}
+		if i == 0 && len(templateId) > 0 && sysDiskHasTemplate {
+			templatePath := path.Join("/dev", s.GetPath(), "imagecache_"+templateId)
+			// check if template is encrypted
+			img, err := qemuimg.NewQemuImage(templatePath)
+			if err != nil {
+				return errors.Wrap(err, "template image probe fail")
+			}
+			if img.Encrypted {
+				templatePath = qemuimg.GetQemuFilepath(templatePath, "sec0", qemuimg.EncryptFormatLuks)
+			}
+			if err := doRebaseDisk(snapshotPath, templatePath, encInfo); err != nil {
+				return err
+			}
+		} else if rebaseDisks && len(baseImagePath) > 0 {
+			if encInfo != nil {
+				baseImagePath = qemuimg.GetQemuFilepath(baseImagePath, "sec0", qemuimg.EncryptFormatLuks)
+			}
+			if err := doRebaseDisk(snapshotPath, baseImagePath, encInfo); err != nil {
+				return err
+			}
+		}
+		baseImagePath = snapshotPath
+	}
+
+	for _, snapshotId := range diskOutChainSnaps {
+		snapId, _ := snapshotId.GetString()
+		snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+			snapshotsUri, diskStorageId, diskId, snapId)
+		snapshotPath := disk.GetSnapshotPath(snapId)
+		log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
+		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
+			return errors.Wrap(err, "create from snapshot url failed")
+		}
+	}
+
+	if liveMigrate {
+		// create local disk
+		backingFile, _ := disksBackingFile.GetString(diskId)
+		_, err := disk.CreateRaw(ctx, int(diskinfo.Size), "qcow2", "", encInfo, "", backingFile)
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+	} else {
+		// download disk form remote url
+		diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
+		err := disk.CreateFromUrl(ctx, diskUrl, 0, func(progress, progressMbps float64, totalSizeMb int64) {
+			log.Debugf("[%.2f / %d] disk %s create %.2f with speed %.2fMbps", progress*float64(totalSizeMb)/100, totalSizeMb, disk.GetId(), progress, progressMbps)
+			newProgress := float64(idx-1)/float64(totalDiskCount)*100.0 + 1/float64(totalDiskCount)*progress
+			if len(serverId) > 0 {
+				log.Debugf("server %s migrate %.2f with speed %.2fMbps", serverId, newProgress, progressMbps)
+				hostutils.UpdateServerProgress(context.Background(), serverId, newProgress, progressMbps)
+			}
+		})
+		if err != nil {
+			return errors.Wrap(err, "CreateFromUrl")
+		}
+	}
+	if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
+		templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
+		// check if template is encrypted
+		img, err := qemuimg.NewQemuImage(templatePath)
+		if err != nil {
+			return errors.Wrap(err, "template image probe fail")
+		}
+		if img.Encrypted {
+			templatePath = qemuimg.GetQemuFilepath(templatePath, "sec0", qemuimg.EncryptFormatLuks)
+		}
+		if err := doRebaseDisk(disk.GetPath(), templatePath, encInfo); err != nil {
+			return err
+		}
+	} else if rebaseDisks && len(baseImagePath) > 0 {
+		if encInfo != nil {
+			baseImagePath = qemuimg.GetQemuFilepath(baseImagePath, "sec0", qemuimg.EncryptFormatLuks)
+		}
+		if err := doRebaseDisk(disk.GetPath(), baseImagePath, encInfo); err != nil {
+			return err
+		}
+	}
+	diskinfo.Path = disk.GetPath()
+	return nil
+}
+
+func (s *SLVMStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+	info := input.DiskInfo
+	if info.Protocol == "fuse" {
+		var encryptInfo *apis.SEncryptInfo
+		if info.Encryption {
+			encryptInfo = &info.EncryptInfo
+		}
+		err := disk.CreateFromImageFuse(ctx, info.SnapshotUrl, int64(info.DiskSizeMb), encryptInfo)
+		if err != nil {
+			return errors.Wrapf(err, "CreateFromImageFuse")
+		}
+		return nil
+	}
+	return httperrors.NewUnsupportOperationError("Unsupport protocol %s for lvm storage", info.Protocol)
 }
 
 func (s *SLVMStorage) CreateDiskFromExistingPath(context.Context, IDisk, *SDiskCreateByDiskinfo) error {
 	return errors.Errorf("unsupported operation")
 }
 
-func (s *SLVMStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error {
-	return errors.Errorf("unsupported operation")
-}
-
 func (s *SLVMStorage) GetFuseTmpPath() string {
-	return ""
+	localPath := options.HostOptions.ImageCachePath
+	if len(options.HostOptions.LocalImagePath) > 0 {
+		localPath = options.HostOptions.LocalImagePath[0]
+	}
+
+	return path.Join(localPath, _FUSE_TMP_PATH_)
 }
 
 func (s *SLVMStorage) GetFuseMountPath() string {
-	return ""
+	localPath := options.HostOptions.ImageCachePath
+	if len(options.HostOptions.LocalImagePath) > 0 {
+		localPath = options.HostOptions.LocalImagePath[0]
+	}
+
+	return path.Join(localPath, _FUSE_MOUNT_PATH_)
+}
+
+func (s *SLVMStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error {
+	remoteFile := remotefile.NewRemoteFile(ctx, snapshotUrl, snapshotPath,
+		false, "", -1, nil, "", "")
+	err := remoteFile.Fetch(nil)
+	return errors.Wrapf(err, "fetch snapshot from %s", snapshotUrl)
 }
 
 func (s *SLVMStorage) GetImgsaveBackupPath() string {
@@ -328,4 +490,41 @@ func (s *SLVMStorage) Accessible() error {
 
 func (s *SLVMStorage) Detach() error {
 	return nil
+}
+
+func (s *SLVMStorage) CloneDiskFromStorage(
+	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool,
+) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
+	srcDiskPath := srcDisk.GetPath()
+	srcImg, err := qemuimg.NewQemuImage(srcDiskPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get source image %q info", srcDiskPath)
+	}
+
+	// create target disk lv
+	lvSize := lvmutils.GetQcow2LvSize(srcImg.SizeBytes/1024/1024) * 1024 * 1024
+	if err = lvmutils.LvCreate(s.GetPath(), targetDiskId, lvSize); err != nil {
+		return nil, errors.Wrap(err, "lvcreate")
+	}
+
+	// start create target disk. if full copy is false, just create
+	// empty target disk with same size and format
+	accessPath := path.Join("/dev", s.GetPath(), targetDiskId)
+	if fullCopy {
+		_, err = srcImg.Clone(accessPath, qemuimgfmt.QCOW2, false)
+	} else {
+		newImg, err := qemuimg.NewQemuImage(accessPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed new qemu image")
+		}
+
+		err = newImg.CreateQcow2(srcImg.GetSizeMB(), false, "", "", "", "")
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "Clone source disk to target local storage")
+	}
+	return &hostapi.ServerCloneDiskFromStorageResponse{
+		TargetAccessPath: accessPath,
+		TargetFormat:     qemuimgfmt.QCOW2.String(),
+	}, nil
 }

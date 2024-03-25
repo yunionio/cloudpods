@@ -694,6 +694,7 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 		Disk:           disk,
 	}
 
+	// blockStream indicate snapshot<-disk
 	blockStream := jsonutils.QueryBoolean(body, "block_stream", false)
 	autoDeleted := jsonutils.QueryBoolean(body, "auto_deleted", false)
 

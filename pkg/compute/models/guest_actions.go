@@ -3768,7 +3768,7 @@ func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
 	disks, _ := self.GetDisks()
 	for _, disk := range disks {
 		storage, _ := disk.GetStorage()
-		if storage.StorageType != api.STORAGE_LOCAL {
+		if storage.StorageType != api.STORAGE_LOCAL && storage.StorageType != api.STORAGE_LVM {
 			return false
 		}
 	}
@@ -3779,7 +3779,7 @@ func (self *SGuest) guestDisksStorageTypeIsShared() bool {
 	disks, _ := self.GetDisks()
 	for _, disk := range disks {
 		storage, _ := disk.GetStorage()
-		if storage.StorageType == api.STORAGE_LOCAL {
+		if storage.StorageType == api.STORAGE_LOCAL || storage.StorageType == api.STORAGE_LVM {
 			return false
 		}
 	}

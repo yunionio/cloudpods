@@ -173,6 +173,14 @@ func (s *SBaseStorage) Lvmlockd() bool {
 	return false
 }
 
+func (s *SBaseStorage) GetFuseTmpPath() string {
+	return path.Join(s.Path, _FUSE_TMP_PATH_)
+}
+
+func (s *SBaseStorage) GetFuseMountPath() string {
+	return path.Join(s.Path, _FUSE_MOUNT_PATH_)
+}
+
 func (s *SBaseStorage) GetStorageName() string {
 	return s.StorageName
 }
@@ -482,41 +490,6 @@ func (s *SBaseStorage) onSaveToGlanceFailed(ctx context.Context, imageId string,
 	if err != nil {
 		log.Errorln(err)
 	}
-}
-
-func requestConvertSnapshot(storage IStorage, snapshotPath, diskId string) {
-	log.Infof("SNPASHOT path %s", snapshotPath)
-	res, err := modules.Disks.GetSpecific(
-		hostutils.GetComputeSession(context.Background()), diskId, "convert-snapshot", nil)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-
-	var (
-		deleteSnapshot, _  = res.GetString("delete_snapshot")
-		convertSnapshot, _ = res.GetString("convert_snapshot")
-		pendingDelete, _   = res.Bool("pending_delete")
-	)
-	log.Infof("start convert disk(%s) snapshot(%s), delete_snapshot is %s",
-		diskId, convertSnapshot, deleteSnapshot)
-	convertSnapshotPath := path.Join(snapshotPath, convertSnapshot)
-	outfile := convertSnapshotPath + ".tmp"
-	img, err := qemuimg.NewQemuImage(convertSnapshotPath)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	log.Infof("convertSnapshot path %s", convertSnapshotPath)
-	err = img.Convert2Qcow2To(outfile, true, "", "", "")
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	requestDeleteSnapshot(
-		storage, diskId, snapshotPath, deleteSnapshot,
-		convertSnapshotPath, outfile, pendingDelete,
-	)
 }
 
 func requestDeleteSnapshot(

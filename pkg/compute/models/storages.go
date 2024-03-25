@@ -80,7 +80,7 @@ type SStorage struct {
 	// we always expect actual capacity great or equal than zero, otherwise something wrong
 	ActualCapacityUsed int64 `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
 	// 预留容量大小
-	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain"`
+	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// 存储类型
 	// example: local
 	StorageType string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`

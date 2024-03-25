@@ -73,7 +73,7 @@ func (self *SLVMStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 }
 
 func (self *SLVMStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SnapshotCreateInput) error {
-	return errors.Errorf("lvm storage unsupported create snapshot")
+	return nil
 }
 
 func (self *SLVMStorageDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
