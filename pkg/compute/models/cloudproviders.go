@@ -1275,18 +1275,20 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	var region *SCloudregion
 
 	if len(query.ZoneId) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, query.ZoneId)
+		_, err := validators.ValidateModel(ctx, userCred, ZoneManager, &query.ZoneId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.ZoneId)
-			} else {
-				return nil, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
-			}
+			return nil, err
 		}
-		zone = zoneObj.(*SZone)
-		pr := CloudproviderRegionManager.Query().SubQuery()
-		sq := pr.Query(pr.Field("cloudprovider_id")).Equals("cloudregion_id", zone.CloudregionId).Distinct()
-		q = q.In("id", sq)
+		vpcs := VpcManager.Query("manager_id").Distinct()
+		wires := WireManager.Query().Equals("zone_id", query.ZoneId).SubQuery()
+		vpcs = vpcs.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		wireManager := WireManager.Query("manager_id").Equals("zone_id", query.ZoneId).Distinct().SubQuery()
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(q.Field("id"), vpcs.SubQuery()),
+				sqlchemy.In(q.Field("id"), wireManager), //vmware
+			),
+		)
 	} else if len(query.CloudregionId) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(ctx, userCred, query.CloudregionId)
 		if err != nil {
