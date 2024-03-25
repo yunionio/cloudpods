@@ -513,18 +513,19 @@ func (manager *SLoadbalancerListenerRuleManager) FilterByUniqValues(q *sqlchemy.
 
 func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject,
-	input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {
+	input *api.LoadbalancerListenerRuleCreateInput,
+) (*api.LoadbalancerListenerRuleCreateInput, error) {
 	var err error
 	input.StatusStandaloneResourceCreateInput, err = man.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ValidateCreateData")
 	}
 	if len(input.Status) == 0 {
 		input.Status = api.LB_STATUS_ENABLED
 	}
 	listenerObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerListenerManager, &input.ListenerId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ValidateModel LoadbalancerListenerManager")
 	}
 	listener := listenerObj.(*SLoadbalancerListener)
 	if listener.ListenerType != api.LB_LISTENER_TYPE_HTTP && listener.ListenerType != api.LB_LISTENER_TYPE_HTTPS {
@@ -532,12 +533,12 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	}
 	region, err := listener.GetRegion()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "listener.GetRegion")
 	}
 	if region.GetDriver().IsSupportLoadbalancerListenerRuleRedirect() {
 		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
 		}
 	}
 	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, input)
