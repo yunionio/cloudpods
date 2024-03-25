@@ -264,6 +264,10 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
 	if pos > 0 {
 		diskId = diskId[:pos]
 	}
+
+	if strings.HasPrefix(sPath, "/dev/") {
+		sPath = strings.TrimPrefix(sPath, "/dev/")
+	}
 	storages, err := s.GetStoragesByPath(sPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetStoragesByPath")
