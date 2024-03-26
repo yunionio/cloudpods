@@ -271,7 +271,7 @@ var (
 		"project_domain_id",
 		"domain_id",
 		"project_domain",
-		"domain",
+		// "domain",
 	}
 )
 
