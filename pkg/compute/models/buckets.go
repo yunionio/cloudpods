@@ -1554,6 +1554,7 @@ func (manager *SBucketManager) TotalCount(ctx context.Context, scope rbacscope.T
 				buckets.Field("object_cnt"),
 			).Else(sqlchemy.NewConstField(0)),
 			"object_cnt1",
+			false,
 		),
 		sqlchemy.NewFunction(
 			sqlchemy.NewCase().When(
@@ -1561,6 +1562,7 @@ func (manager *SBucketManager) TotalCount(ctx context.Context, scope rbacscope.T
 				buckets.Field("size_bytes"),
 			).Else(sqlchemy.NewConstField(0)),
 			"size_bytes1",
+			false,
 		),
 		sqlchemy.NewFunction(
 			sqlchemy.NewCase().When(
@@ -1569,6 +1571,7 @@ func (manager *SBucketManager) TotalCount(ctx context.Context, scope rbacscope.T
 			).Else(
 				buckets.Field("size_bytes")),
 			"size_bytes_limit",
+			false,
 		),
 	)
 	bucketsQ = manager.usageQ(bucketsQ, rangeObjs, providers, brands, cloudEnv)
