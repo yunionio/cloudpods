@@ -1,3 +1,5 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.4.0 as file-repo
+
 FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
 
 MAINTAINER "Rain Zheng <zhengyu@yunion.com>"
@@ -11,12 +13,13 @@ RUN set -x \
 
 # install default playbook and install pkg
 Run mkdir -p /opt/yunion/ansible-install-pkg
-Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf-1.19.2-yn~be742cbf-0.x86_64.rpm -P /opt/yunion/ansible-install-pkg
-Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf-1.19.2-yn~be742cbf-0.aarch64.rpm -P /opt/yunion/ansible-install-pkg
-Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf_1.19.2-yn~be742cbf-0_arm64.deb -P /opt/yunion/ansible-install-pkg
-Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf_1.19.2-yn~be742cbf-0_amd64.deb -P /opt/yunion/ansible-install-pkg
-Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf-1.19.2-yn~be742cbf_windows_amd64.zip -P /opt/yunion/ansible-install-pkg
-Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf-1.19.2-yn~be742cbf_windows_i386.zip -P /opt/yunion/ansible-install-pkg
+
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf-0.x86_64.rpm /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf-0.aarch64.rpm /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf_1.19.2-yn~be742cbf-0_arm64.deb /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf_1.19.2-yn~be742cbf-0_amd64.deb /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf_windows_amd64.zip /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf_windows_i386.zip /opt/yunion/ansible-install-pkg
 
 Run mkdir -p /opt/yunion/playbook
 Run mkdir /opt/yunion/playbook/monitor-agent
