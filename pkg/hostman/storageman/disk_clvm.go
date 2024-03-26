@@ -141,7 +141,7 @@ func (d *SCLVMDisk) createFromTemplate(
 	defer imageCacheManager.ReleaseImage(ctx, imageId)
 	cacheImagePath := imageCache.GetPath()
 
-	lvSizeMb := d.getQcow2LvSize(sizeMb)
+	lvSizeMb := d.getQcow2LvSize(imageCache.GetDesc().Size)
 	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSizeMb*1024*1024); err != nil {
 		return nil, errors.Wrap(err, "CreateRaw")
 	}
@@ -149,7 +149,7 @@ func (d *SCLVMDisk) createFromTemplate(
 	if err != nil {
 		return nil, errors.Wrapf(err, "NewQemuImage(%s)", d.GetPath())
 	}
-	err = newImg.CreateQcow2(int(sizeMb), false, cacheImagePath, "", "", "")
+	err = newImg.CreateQcow2(0, false, cacheImagePath, "", "", "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateQcow2(%s)", cacheImagePath)
 	}
