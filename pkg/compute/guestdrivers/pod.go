@@ -297,15 +297,15 @@ func (p *SPodDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Contex
 	return task.ScheduleRun(nil)
 }
 
-func (p *SPodDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "PodDeleteTask", guest, task.GetUserCred(), nil, task.GetTaskId(), "", nil)
+func (p *SPodDriver) StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "PodDeleteTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "New PodDeleteTask")
 	}
 	return task.ScheduleRun(nil)
 }
 
-func (p *SPodDriver) RequestUndeployPod(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (p *SPodDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	url := fmt.Sprintf("%s/servers/%s", host.ManagerUri, guest.Id)
 	header := p.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, nil, false)
