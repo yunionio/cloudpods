@@ -269,3 +269,28 @@ func SetCellStyleWithColumnKey(keys []string, sheet, style string, f *excelize.F
 	}
 	return f, nil
 }
+
+// 按行读取excel文件,注:第一行为json的key
+func ReadDataWithRow(f *excelize.File, sheet string) (jsonutils.JSONObject, error) {
+	datas := jsonutils.NewArray()
+	keys := []string{}
+	rows, err := f.GetRows(sheet)
+	if err != nil {
+		return nil, errors.Wrap(err, "get rows")
+	}
+	for index, row := range rows {
+		data := jsonutils.NewDict()
+		if index == 0 {
+			keys = row
+			continue
+		}
+		for i, value := range row {
+			if i >= len(keys) {
+				break
+			}
+			data.Set(keys[i], jsonutils.NewString(value))
+		}
+		datas.Add(data)
+	}
+	return jsonutils.Marshal(datas), nil
+}
