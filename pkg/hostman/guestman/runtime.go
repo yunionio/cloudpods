@@ -48,6 +48,7 @@ type GuestRuntimeInstance interface {
 
 	LoadDesc() error
 	PostLoad(m *SGuestManager) error
+	SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error)
 }
 
 type sBaseGuestInstance struct {

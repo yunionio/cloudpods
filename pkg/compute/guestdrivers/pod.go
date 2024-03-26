@@ -429,16 +429,6 @@ func (p *SPodDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *model
 	return guest.DeleteAllDisksInDB(ctx, userCred)
 }
 
-func (p *SPodDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	// do nothing, call next stage
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (p *SPodDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
-	return p.newUnsupportOperationError("change config")
-}
-
 func (p *SPodDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	// do nothing, call next stage
 	return p.newUnsupportOperationError("rebuild root")
@@ -462,4 +452,8 @@ func (p *SPodDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 
 func (p *SPodDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
 	return false, nil
+}
+
+func (p *SPodDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+	return []string{api.VM_READY}, nil
 }
