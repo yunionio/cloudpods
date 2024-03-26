@@ -1196,7 +1196,7 @@ func (hh *SHostManager) GetPropertyHostTypeCount(ctx context.Context, userCred m
 	hcso := sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_HCSO)
 	cs.When(hcso, sqlchemy.COUNT("", sqlchemy.DISTINCT("", hosts.Field("external_id"))))
 	cs.Else(sqlchemy.COUNT("", hosts.Field("id")))
-	q := hosts.Query(hosts.Field("host_type"), sqlchemy.NewFunction(cs, "count"))
+	q := hosts.Query(hosts.Field("host_type"), sqlchemy.NewFunction(cs, "count", true))
 	return hh.getCount(ctx, userCred, q, query)
 }
 

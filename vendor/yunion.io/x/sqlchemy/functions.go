@@ -37,10 +37,11 @@ type IFunction interface {
 
 // NewFunction creates a field with SQL function
 // for example: SUM(count) as total
-func NewFunction(ifunc IFunction, name string) IQueryField {
+func NewFunction(ifunc IFunction, name string, isAggre bool) IQueryField {
 	return &SFunctionFieldBase{
 		IFunction: ifunc,
 		alias:     name,
+		aggregate: isAggre,
 	}
 }
 
