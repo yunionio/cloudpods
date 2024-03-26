@@ -648,6 +648,7 @@ func (manager *SAssignmentManager) queryAll(
 				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentUserDomain)),
 			), assigments.Field("actor_id")).Else(sqlchemy.NewStringField("")),
 			"user_id",
+			false,
 		),
 		sqlchemy.NewFunction(
 			sqlchemy.NewCase().When(sqlchemy.OR(
@@ -655,6 +656,7 @@ func (manager *SAssignmentManager) queryAll(
 				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentGroupDomain)),
 			), assigments.Field("actor_id")).Else(sqlchemy.NewStringField("")),
 			"group_id",
+			false,
 		),
 		sqlchemy.NewFunction(
 			sqlchemy.NewCase().When(sqlchemy.OR(
@@ -662,6 +664,7 @@ func (manager *SAssignmentManager) queryAll(
 				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentGroupDomain)),
 			), assigments.Field("target_id")).Else(sqlchemy.NewStringField("")),
 			"domain_id",
+			false,
 		),
 		sqlchemy.NewFunction(
 			sqlchemy.NewCase().When(sqlchemy.OR(
@@ -669,6 +672,7 @@ func (manager *SAssignmentManager) queryAll(
 				sqlchemy.Equals(assigments.Field("type"), sqlchemy.NewStringField(api.AssignmentGroupProject)),
 			), assigments.Field("target_id")).Else(sqlchemy.NewStringField("")),
 			"project_id",
+			false,
 		),
 		assigments.Field("role_id"),
 	)

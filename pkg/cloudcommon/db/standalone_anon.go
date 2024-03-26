@@ -1022,6 +1022,7 @@ func GetTagValueCountMap(
 			sqlchemy.NewFunction(
 				sqlchemy.NewCase().When(sqlchemy.IsNull(subq.Field("value")), sqlchemy.NewStringField(tagutils.NoValue)).Else(subq.Field("value")),
 				valueFieldName,
+				false,
 			),
 		)
 		groupBy = append(groupBy, q.Field(valueFieldName))
