@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/cachesync"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
@@ -142,7 +143,7 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 	}
 
 	cronFunc := func() {
-		db.StartTenantCacheSync(app.GetContext(), opts.TenantCacheExpireSeconds)
+		cachesync.StartTenantCacheSync(opts.TenantCacheExpireSeconds)
 
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
 		cron.AddJobAtIntervals("CleanPendingDeleteServers", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)

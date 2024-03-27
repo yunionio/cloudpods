@@ -78,3 +78,15 @@ func (r *Ring) Size() int {
 		return len(r.buffer) - r.tail + r.header
 	}
 }
+
+func (r *Ring) Range(proc func(obj interface{}) bool) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	for i := r.header; i != r.tail && i != r.header; i = nextPointer(i, len(r.buffer)) {
+		cont := proc(r.buffer[i])
+		if !cont {
+			break
+		}
+	}
+}

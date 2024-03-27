@@ -34,7 +34,7 @@ func newEndpointChangeManager() *SEndpointChangeManager {
 	return man
 }
 
-func (man *SEndpointChangeManager) DoSync(first bool) (time.Duration, error) {
+func (man *SEndpointChangeManager) DoSync(first bool, timeout bool) (time.Duration, error) {
 	// reauth to refresh endpoint list
 	auth.ReAuth()
 	return time.Hour * 2, nil

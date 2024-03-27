@@ -61,7 +61,7 @@ var RoleCacheManager *SRoleCacheManager
 
 func init() {
 	RoleCacheManager = &SRoleCacheManager{
-		NewKeystoneCacheObjectManager(SRole{}, "roles_cache_tbl", "role", "roles"), false}
+		NewKeystoneCacheObjectManager(SRole{}, "roles_cache_tbl", "role_cache", "role_caches"), false}
 	// log.Debugf("initialize role cache manager %s", RoleCacheManager.KeywordPlural())
 	RoleCacheManager.SetVirtualObject(RoleCacheManager)
 

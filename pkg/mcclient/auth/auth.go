@@ -277,12 +277,12 @@ func (a *authManager) authAdmin() error {
 	}
 }
 
-func (a *authManager) DoSync(first bool) (time.Duration, error) {
+func (a *authManager) DoSync(first bool, timeout bool) (time.Duration, error) {
 	err := a.authAdmin()
 	if err != nil {
 		return time.Minute, errors.Wrap(err, "authAdmin")
 	} else {
-		return a.adminCredential.GetExpires().Sub(time.Now()) / 2, nil
+		return time.Until(a.adminCredential.GetExpires()) / 2, nil
 	}
 }
 
@@ -295,7 +295,7 @@ func (a *authManager) Name() string {
 }
 
 func (a *authManager) reAuth() {
-	a.SyncOnce()
+	a.SyncOnce(false, false)
 }
 
 func (a *authManager) GetServiceURL(service, region, zone, endpointType string) (string, error) {
