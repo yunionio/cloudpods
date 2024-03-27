@@ -923,7 +923,7 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest, _ := m.GetKVMServer(syncParams.Sid)
+	guest, _ := m.GetServer(syncParams.Sid)
 	if syncParams.Body.Contains("desc") {
 		guestDesc := new(desc.SGuestDesc)
 		if err := syncParams.Body.Unmarshal(guestDesc, "desc"); err != nil {

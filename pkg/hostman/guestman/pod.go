@@ -342,7 +342,7 @@ func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runt
 		usedPorts, ok := otherPorts[pm.Protocol]
 		if ok {
 			if usedPorts.Has(*pm.HostPort) {
-				return nil, errors.Wrapf(err, "%s host_port %d is already used", pm.Protocol, *pm.HostPort)
+				return nil, errors.Errorf("%s host_port %d is already used", pm.Protocol, *pm.HostPort)
 			}
 		}
 		return runtimePm, nil
@@ -367,7 +367,6 @@ func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runt
 }
 
 func (s *sPodGuestInstance) getCgroupParent() string {
-	// return fmt.Sprintf("/cloudpods/%s", s.GetId())
 	return "/cloudpods"
 }
 
@@ -455,7 +454,7 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 		return errors.Wrapf(err, "umount pod volumes")
 	}
 	if timeout == 0 {
-		timeout = 15
+		timeout = 5
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
@@ -509,6 +508,16 @@ func (s *sPodGuestInstance) loadContainers() error {
 
 func (s *sPodGuestInstance) PostLoad(m *SGuestManager) error {
 	return nil
+}
+
+func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error) {
+	if err := SaveDesc(s, guestDesc); err != nil {
+		return nil, errors.Wrap(err, "SaveDesc")
+	}
+	if err := SaveLiveDesc(s, s.Desc); err != nil {
+		return nil, errors.Wrap(err, "SaveLiveDesc")
+	}
+	return nil, nil
 }
 
 func (s *sPodGuestInstance) getContainerCRIId(ctrId string) (string, error) {
@@ -790,7 +799,6 @@ func (s *sPodGuestInstance) getDefaultCPUPeriod() int64 {
 }
 
 func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (string, error) {
-	log.Infof("=====container input: %s", jsonutils.Marshal(input).PrettyString())
 	podCfg, err := s.getPodSandboxConfig()
 	if err != nil {
 		return "", errors.Wrap(err, "getPodSandboxConfig")

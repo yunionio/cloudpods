@@ -92,6 +92,11 @@ type ContainerCreateInput struct {
 	SkipTask bool `json:"skip_task"`
 }
 
+type ContainerUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
+	Spec ContainerSpec `json:"spec"`
+}
+
 type ContainerListInput struct {
 	apis.VirtualResourceListInput
 }

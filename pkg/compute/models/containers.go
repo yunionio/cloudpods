@@ -62,7 +62,7 @@ type SContainer struct {
 	// GuestId is also the pod id
 	GuestId string `width:"36" charset:"ascii" create:"required" list:"user" index:"true"`
 	// Spec stores all container running options
-	Spec *api.ContainerSpec `length:"long" create:"required" list:"user"`
+	Spec *api.ContainerSpec `length:"long" create:"required" list:"user" update:"user"`
 }
 
 func (m *SContainerManager) CreateOnPod(
@@ -251,6 +251,24 @@ func (c *SContainer) StartCreateTask(ctx context.Context, userCred mcclient.Toke
 		return errors.Wrap(err, "NewTask")
 	}
 	return task.ScheduleRun(nil)
+}
+
+func (c *SContainer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerUpdateInput) (*api.ContainerUpdateInput, error) {
+	if c.GetStatus() != api.CONTAINER_STATUS_EXITED {
+		return nil, httperrors.NewInvalidStatusError("current status %s is not %s", c.GetStatus(), api.CONTAINER_STATUS_EXITED)
+	}
+
+	baseInput, err := c.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	input.VirtualResourceBaseUpdateInput = baseInput
+
+	if err := GetContainerManager().ValidateSpec(ctx, userCred, &input.Spec, c.GetPod()); err != nil {
+		return nil, errors.Wrap(err, "validate spec")
+	}
+
+	return input, nil
 }
 
 func (c *SContainer) GetPod() *SGuest {
