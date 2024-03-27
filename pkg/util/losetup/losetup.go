@@ -1,10 +1,12 @@
-package golosetup
+package losetup
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 	"strings"
+
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const (
@@ -14,16 +16,14 @@ const (
 type Command struct {
 	Path   string
 	Args   []string
-	stdout *bytes.Buffer
-	stderr *bytes.Buffer
+	output string
 }
 
 func NewCommand(path string, args ...string) *Command {
 	return &Command{
 		Path:   path,
 		Args:   args,
-		stdout: &bytes.Buffer{},
-		stderr: &bytes.Buffer{},
+		output: "",
 	}
 }
 
@@ -33,22 +33,17 @@ func (cmd *Command) AddArgs(args ...string) *Command {
 }
 
 func (cmd *Command) Run() (*Command, error) {
-	ecmd := exec.Command(cmd.Path, cmd.Args...)
-	ecmd.Stdout = cmd.stdout
-	ecmd.Stderr = cmd.stderr
-	err := ecmd.Run()
+	ecmd := procutils.NewRemoteCommandAsFarAsPossible(cmd.Path, cmd.Args...)
+	out, err := ecmd.Output()
 	if err != nil {
-		err = fmt.Errorf("%v: %s", err, cmd.ErrOutput())
+		err = errors.Wrapf(err, "%s %v: %s", cmd.Path, cmd.Args, out)
 	}
+	cmd.output = string(out)
 	return cmd, err
 }
 
 func (cmd *Command) Output() string {
-	return cmd.stdout.String()
-}
-
-func (cmd *Command) ErrOutput() string {
-	return cmd.stderr.String()
+	return cmd.output
 }
 
 type LosetupCommand struct {
