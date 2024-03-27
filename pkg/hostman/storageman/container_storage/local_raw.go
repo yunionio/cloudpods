@@ -1,7 +1,6 @@
 package container_storage
 
 import (
-	losetup "github.com/zexi/golosetup"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	"yunion.io/x/pkg/errors"
@@ -10,6 +9,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/losetup"
 )
 
 func init() {

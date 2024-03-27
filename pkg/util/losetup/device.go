@@ -1,4 +1,4 @@
-package golosetup
+package losetup
 
 import (
 	"fmt"
