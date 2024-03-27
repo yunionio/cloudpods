@@ -297,6 +297,20 @@ func (p *SPodDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Contex
 	return task.ScheduleRun(nil)
 }
 
+func (p *SPodDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Set("is_force", jsonutils.NewBool(isForce))
+	if err := guest.SetStatus(ctx, userCred, api.VM_STOPPING, ""); err != nil {
+		return err
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "PodRestartTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (p *SPodDriver) StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "PodDeleteTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
@@ -446,10 +460,6 @@ func (p *SPodDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.S
 
 func (p *SPodDriver) GetRandomNetworkTypes() []string {
 	return []string{api.NETWORK_TYPE_CONTAINER, api.NETWORK_TYPE_GUEST}
-}
-
-func (p *SPodDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
-	return fmt.Errorf("Not Implement")
 }
 
 func (p *SPodDriver) IsSupportGuestClone() bool {
