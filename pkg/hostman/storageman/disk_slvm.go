@@ -116,3 +116,18 @@ func (d *SSLVMDisk) CreateFromTemplate(
 	}
 	return ret, nil
 }
+
+func (d *SSLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	var lvPath = d.GetPath()
+	activated, err := lvmutils.LvIsActivated(lvPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "check lv is activated")
+	}
+	if !activated {
+		if err := lvmutils.LVActive(lvPath, d.Storage.Lvmlockd(), false); err != nil {
+			return nil, errors.Wrap(err, "lv active")
+		}
+	}
+	d.SCLVMDisk.Delete(ctx, params)
+	return nil, nil
+}
