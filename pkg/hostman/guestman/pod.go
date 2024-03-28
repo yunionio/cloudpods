@@ -60,6 +60,7 @@ type PodInstance interface {
 	SyncContainerStatus(ctx context.Context, cred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
+	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (jsonutils.JSONObject, error)
 }
 
 type sContainer struct {
@@ -998,4 +999,25 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrapf(err, "cri.PullImage %s", input.Image)
 	}
 	return jsonutils.Marshal(resp), nil
+}
+
+func (s *sPodGuestInstance) ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (jsonutils.JSONObject, error) {
+	rCli := s.getCRI().GetRuntimeClient()
+	criId, err := s.getContainerCRIId(ctrId)
+	if err != nil {
+		return nil, errors.Wrap(err, "get container cri id")
+	}
+	req := &runtimeapi.ExecRequest{
+		ContainerId: criId,
+		Cmd:         input.Command,
+		Tty:         input.Tty,
+		Stdin:       true,
+		Stdout:      true,
+	}
+	resp, err := rCli.Exec(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "exec")
+	}
+	log.Infof("=====exec url: %s", resp.Url)
+	return nil, nil
 }

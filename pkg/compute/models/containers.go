@@ -420,3 +420,14 @@ func (c *SContainer) GetJsonDescAtHost() *api.ContainerDesc {
 		Spec: c.Spec,
 	}
 }
+
+func (c *SContainer) GetPodDriver() IPodDriver {
+	return c.GetPod().GetDriver().(IPodDriver)
+}
+
+func (c *SContainer) PerformExec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerExecInput) (jsonutils.JSONObject, error) {
+	if c.Status != api.CONTAINER_STATUS_RUNNING {
+		return nil, httperrors.NewInvalidStatusError("Can't exec container in status %s", c.Status)
+	}
+	return c.GetPodDriver().RequestExecContainer(ctx, userCred, c, input)
+}

@@ -438,6 +438,15 @@ func (p *SPodDriver) RequestPullContainerImage(ctx context.Context, userCred mcc
 	return p.performContainerAction(ctx, userCred, task, "pull-image", task.GetParams())
 }
 
+func (p *SPodDriver) RequestExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctr *models.SContainer, input *api.ContainerExecInput) (jsonutils.JSONObject, error) {
+	pod := ctr.GetPod()
+	host, _ := pod.GetHost()
+	header := mcclient.GetTokenHeaders(userCred)
+	url := fmt.Sprintf("%s/pods/%s/containers/%s/%s", host.ManagerUri, pod.GetId(), ctr.GetId(), "exec")
+	_, body, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(input), false)
+	return body, err
+}
+
 func (p *SPodDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
 	// clean disk records in DB
 	return guest.DeleteAllDisksInDB(ctx, userCred)

@@ -216,3 +216,17 @@ func (o *ContainerStopOptions) Params() (jsonutils.JSONObject, error) {
 type ContainerStartOptions struct {
 	ServerIdsOptions
 }
+
+type ContainerExecOptions struct {
+	ServerIdOptions
+	Tty     bool `help:"Using tty" short-token:"t"`
+	COMMAND string
+}
+
+func (o *ContainerExecOptions) Params() (jsonutils.JSONObject, error) {
+	params := &computeapi.ContainerExecInput{
+		Command: strings.Split(o.COMMAND, "' "),
+		Tty:     o.Tty,
+	}
+	return jsonutils.Marshal(params), nil
+}

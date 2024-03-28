@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
@@ -68,6 +69,7 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 		"start":       startContainer,
 		"stop":        stopContainer,
 		"delete":      deleteContainer,
+		"exec":        execContainer,
 		"sync-status": syncContainerStatus,
 		"pull-image":  pullImage,
 	}
@@ -112,4 +114,12 @@ func deleteContainer(ctx context.Context, userCred mcclient.TokenCredential, pod
 
 func syncContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, id string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return pod.SyncContainerStatus(ctx, userCred, id)
+}
+
+func execContainer(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(compute.ContainerExecInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to ContainerExecInput")
+	}
+	return pod.ExecContainer(ctx, userCred, ctrId, input)
 }
