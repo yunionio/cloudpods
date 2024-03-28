@@ -28,4 +28,5 @@ func init() {
 	cmd.BatchDelete(new(options.ContainerDeleteOptions))
 	cmd.BatchPerform("stop", new(options.ContainerStopOptions))
 	cmd.BatchPerform("start", new(options.ContainerStartOptions))
+	cmd.Perform("exec", new(options.ContainerExecOptions))
 }

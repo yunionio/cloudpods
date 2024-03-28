@@ -137,3 +137,8 @@ type ContainerDevice struct {
 	IsolatedDevice *ContainerIsolatedDevice `json:"isolated_device"`
 	Host           *ContainerHostDevice     `json:"host"`
 }
+
+type ContainerExecInput struct {
+	Command []string `json:"command"`
+	Tty     bool     `json:"tty"`
+}
