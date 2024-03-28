@@ -111,6 +111,10 @@ func (self *SCloudpodsProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
+func (self *SCloudpodsProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetCloudRegionExternalIdPrefix()
+}
+
 func (self *SCloudpodsProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
 	return &cloudprovider.SBalanceInfo{
 		Currency: "CNY",
