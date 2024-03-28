@@ -281,6 +281,10 @@ func (self *SCloudpodsClient) GetRegions() ([]SRegion, error) {
 	return ret, self.list(&compute.Cloudregions, nil, &ret)
 }
 
+func (self *SCloudpodsClient) GetCloudRegionExternalIdPrefix() string {
+	return fmt.Sprintf("%s/%s", api.CLOUD_PROVIDER_CLOUDPODS, self.cpcfg.Id)
+}
+
 func (self *SCloudpodsClient) GetCapabilities() []string {
 	return []string{
 		cloudprovider.CLOUD_CAPABILITY_PROJECT + cloudprovider.READ_ONLY_SUFFIX,
