@@ -231,7 +231,7 @@ func (this *ClientSession) getServiceVersionURLs(service, region, zone, endpoint
 	return urls, err
 }
 
-func (this *ClientSession) getBaseUrl(service, endpointType string) (string, error) {
+func (this *ClientSession) GetBaseUrl(service, endpointType string) (string, error) {
 	if len(service) > 0 {
 		if strings.HasPrefix(service, "http://") || strings.HasPrefix(service, "https://") {
 			return service, nil
@@ -251,7 +251,7 @@ func (this *ClientSession) RawBaseUrlRequest(
 	headers http.Header, body io.Reader,
 	baseurlFactory func(string) string,
 ) (*http.Response, error) {
-	baseurl, err := this.getBaseUrl(service, endpointType)
+	baseurl, err := this.GetBaseUrl(service, endpointType)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +288,7 @@ func (this *ClientSession) JSONVersionRequest(
 	service, endpointType string, method httputils.THttpMethod, url string,
 	headers http.Header, body jsonutils.JSONObject,
 ) (http.Header, jsonutils.JSONObject, error) {
-	baseUrl, err := this.getBaseUrl(service, endpointType)
+	baseUrl, err := this.GetBaseUrl(service, endpointType)
 	if err != nil {
 		return headers, nil, err
 	}

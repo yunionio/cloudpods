@@ -17,6 +17,10 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+
+	"k8s.io/apimachinery/pkg/util/proxy"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -29,12 +33,14 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/pod/remotecommand/spdy"
 )
 
 var _ models.IPodDriver = new(SPodDriver)
@@ -446,6 +452,35 @@ func (p *SPodDriver) RequestSyncContainerStatus(ctx context.Context, userCred mc
 
 func (p *SPodDriver) RequestPullContainerImage(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
 	return p.performContainerAction(ctx, userCred, task, "pull-image", task.GetParams())
+}
+
+type responder struct {
+	errorMessage string
+}
+
+func (r *responder) Error(w http.ResponseWriter, req *http.Request, err error) {
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+
+func (p *SPodDriver) RequestExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctr *models.SContainer, input *api.ContainerExecInput) error {
+	pod := ctr.GetPod()
+	host, _ := pod.GetHost()
+	urlPath := fmt.Sprintf("%s/pods/%s/containers/%s/%s?%s", host.ManagerUri, pod.GetId(), ctr.GetId(), "exec", jsonutils.Marshal(input).QueryString())
+	loc, _ := url.Parse(urlPath)
+	tokenHeader := mcclient.GetTokenHeaders(userCred)
+	trans, _, _ := spdy.RoundTripperFor()
+	handler := proxy.NewUpgradeAwareHandler(loc, trans, false, true, new(responder))
+	appParams := appsrv.AppContextGetParams(ctx)
+	newHeader := appParams.Request.Header
+	for key, vals := range tokenHeader {
+		for _, val := range vals {
+			newHeader.Add(key, val)
+		}
+	}
+	appParams.Request.Header = newHeader
+	appParams.Request.Method = "POST"
+	handler.ServeHTTP(appParams.Response, appParams.Request)
+	return nil
 }
 
 func (p *SPodDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {

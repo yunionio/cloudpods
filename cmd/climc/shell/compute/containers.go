@@ -110,4 +110,9 @@ func init() {
 		}
 		return nil
 	})
+
+	R(new(options.ContainerExecOptions), "container-exec", "Container exec", func(s *mcclient.ClientSession, opts *options.ContainerExecOptions) error {
+		man := modules.Containers
+		return man.Exec(s, opts.ID, opts.ToAPIInput())
+	})
 }

@@ -16,6 +16,9 @@ require (
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-iptables v0.6.0
 	github.com/creack/pty v1.1.11
+	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
+	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96
+	github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153
 	github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
@@ -45,6 +48,7 @@ require (
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.25
 	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/pierrec/lz4/v4 v4.1.15
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.6
@@ -88,6 +92,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	k8s.io/cri-api v0.22.17
+	k8s.io/klog/v2 v2.2.0
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240416095221-40e74d0a722d
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
@@ -105,6 +110,7 @@ require (
 	cloud.google.com/go/storage v1.10.0 // indirect
 	gitee.com/chunanyong/dm v1.8.14 // indirect
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.9.6 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.2 // indirect
@@ -180,6 +186,7 @@ require (
 	github.com/googleapis/gnostic v0.4.1 // indirect
 	github.com/googollee/go-engine.io v0.0.0-20180829091931-e2f255711dcb // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
+	github.com/gotestyourself/gotestyourself v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/huaweicloud/huaweicloud-sdk-go v1.0.26 // indirect
@@ -211,6 +218,7 @@ require (
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/mozillazg/go-pinyin v0.19.0 // indirect
 	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
+	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
@@ -267,7 +275,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/klog/v2 v2.2.0 // indirect
+	gotest.tools v1.4.0 // indirect
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.0.1 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
