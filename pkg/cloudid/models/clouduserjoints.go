@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SClouduserJointsManager struct {
 	db.SJointResourceBaseManager
 	SClouduserResourceBaseManager

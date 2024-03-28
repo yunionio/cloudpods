@@ -16,23 +16,19 @@ package cloudid
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-const (
-	CLOUD_ROLE_STATUS_CREATING      = "creating"      // 创建中
-	CLOUD_ROLE_STATUS_AVAILABLE     = "available"     // 正常
-	CLOUD_ROLE_STATUS_DELETING      = "deleting"      // 删除中
-	CLOUD_ROLE_STATUS_DELETE_FAILED = "delete_failed" // 删除失败
-)
-
 type CloudroleListInput struct {
 	apis.StatusInfrasResourceBaseListInput
 
 	CloudaccountResourceListInput
+	CloudproviderResourceListInput
+
 	CloudgroupResourceListInput
 }
 
 type CloudroleDetails struct {
 	apis.StatusInfrasResourceBaseDetails
 	CloudaccountResourceDetails
+	CloudproviderResourceDetails
 
 	SCloudrole
 }

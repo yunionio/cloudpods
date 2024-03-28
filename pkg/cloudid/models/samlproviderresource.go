@@ -16,6 +16,7 @@ package models
 
 import "yunion.io/x/pkg/errors"
 
+// +onecloud:swagger-gen-ignore
 type SAMLProviderResourceBaseManager struct {
 }
 

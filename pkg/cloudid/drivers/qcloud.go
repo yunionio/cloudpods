@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package drivers
 
-type SHuaweiSAMLDriver struct {
-	EntityId         string
-	MetadataFileName string
-	MetadataUrl      string
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
+)
+
+type SQcloudDriver struct {
+	SProviderBaseProviderDriver
 }
 
-func (d *SHuaweiSAMLDriver) GetEntityID() string {
-	return d.EntityId
+func (driver SQcloudDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_QCLOUD
 }
 
-func (d *SHuaweiSAMLDriver) GetMetadataFilename() string {
-	return d.MetadataFileName
-}
-
-func (d *SHuaweiSAMLDriver) GetMetadataUrl() string {
-	return d.MetadataUrl
+func init() {
+	models.RegisterProviderDriver(&SQcloudDriver{})
 }

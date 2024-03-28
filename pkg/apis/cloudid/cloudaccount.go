@@ -27,10 +27,10 @@ type CloudaccountResourceListInput struct {
 
 type CloudproviderResourceListInput struct {
 	// 根据云订阅过滤资源
-	Cloudprovider string `json:"cloudprovider"`
+	ManagerId string `json:"manager_id"`
 
 	// swagger:ignore
-	CloudproviderId string `json:"cloudprovider_id" yunion-deprecated-by:"cloudprovider"`
+	CloudproviderId string `json:"cloudprovider_id" yunion-deprecated-by:"manager_id"`
 }
 
 type CloudaccountResourceDetails struct {
@@ -47,5 +47,5 @@ type CloudaccountResourceDetails struct {
 
 type CloudproviderResourceDetails struct {
 	// 云订阅名称
-	Cloudprovider string `json:"cloudprovider"`
+	Manager string `json:"manager"`
 }

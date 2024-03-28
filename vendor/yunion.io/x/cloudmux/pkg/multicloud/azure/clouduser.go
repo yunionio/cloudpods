@@ -19,9 +19,7 @@ import (
 	"net/url"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -162,7 +160,8 @@ func (user *SClouduser) DetachSystemPolicy(policyId string) error {
 			return errors.Wrapf(err, "GetRule(%s)", assignment.Properties.RoleDefinitionId)
 		}
 		if role.Properties.RoleName == policyId {
-			return user.client.gdel(assignment.Id)
+			_, err := user.client._delete_v2(SERVICE_GRAPH, assignment.Id, "")
+			return err
 		}
 	}
 	return nil
@@ -200,20 +199,27 @@ func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 
 func (self *SAzureClient) GetUserGroups(userId string) ([]SCloudgroup, error) {
 	resource := fmt.Sprintf("users/%s/memberOf", userId)
+	resp, err := self._list_v2(SERVICE_GRAPH, resource, "", nil)
+	if err != nil {
+		return nil, err
+	}
 	groups := []SCloudgroup{}
-	err := self.glist(resource, url.Values{}, &groups)
+	err = resp.Unmarshal(&groups, "value")
+	if err != nil {
+		return nil, err
+	}
 	return groups, err
 }
 
 func (self *SAzureClient) ResetClouduserPassword(id, password string) error {
-	body := jsonutils.Marshal(map[string]interface{}{
+	body := map[string]interface{}{
 		"passwordPolicies": "DisablePasswordExpiration, DisableStrongPassword",
 		"passwordProfile": map[string]interface{}{
 			"password": password,
 		},
-	})
+	}
 	resource := fmt.Sprintf("%s/users/%s", self.tenantId, id)
-	_, err := self.gpatch(resource, body)
+	_, err := self._patch_v2(SERVICE_GRAPH, resource, "", body)
 	return err
 }
 
@@ -233,8 +239,11 @@ func (self *SAzureClient) GetClouduser(name string) (*SClouduser, error) {
 
 func (self *SAzureClient) GetCloudusers() ([]SClouduser, error) {
 	users := []SClouduser{}
-	params := url.Values{}
-	err := self.glist("users", params, &users)
+	resp, err := self._list_v2(SERVICE_GRAPH, "users", "", url.Values{})
+	if err != nil {
+		return nil, err
+	}
+	err = resp.Unmarshal(&users, "value")
 	if err != nil {
 		return nil, err
 	}
@@ -242,14 +251,14 @@ func (self *SAzureClient) GetCloudusers() ([]SClouduser, error) {
 }
 
 func (self *SAzureClient) DeleteClouduser(id string) error {
-	_, err := self.msGraphRequest(string(httputils.DELETE), "users/"+id, nil)
+	_, err := self._delete_v2(SERVICE_GRAPH, "users/"+id, "")
 	return err
 }
 
 func (self *SAzureClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
-	users, err := self.ListGraphUsers()
+	users, err := self.GetCloudusers()
 	if err != nil {
-		return nil, errors.Wrap(err, "ListGraphUsers")
+		return nil, errors.Wrap(err, "GetCloudusers")
 	}
 	ret := []cloudprovider.IClouduser{}
 	for i := range users {
@@ -293,9 +302,13 @@ type SDomain struct {
 
 func (self *SAzureClient) GetDomains() ([]SDomain, error) {
 	domains := []SDomain{}
-	err := self.glist("domains", nil, &domains)
+	resp, err := self._list_v2(SERVICE_GRAPH, "domains", "", nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "glist")
+		return nil, errors.Wrap(err, "list domains")
+	}
+	err = resp.Unmarshal(&domains, "value")
+	if err != nil {
+		return nil, err
 	}
 	return domains, nil
 }
@@ -332,27 +345,14 @@ func (self *SAzureClient) CreateClouduser(name, password string) (*SClouduser, e
 		return nil, errors.Wrap(err, "GetDefaultDomain")
 	}
 	params["userPrincipalName"] = fmt.Sprintf("%s@%s", name, domain)
-	user := SClouduser{client: self}
-	resp, err := self.msGraphRequest(string(httputils.POST), "users", jsonutils.Marshal(params))
+	user := &SClouduser{client: self}
+	resp, err := self._post_v2(SERVICE_GRAPH, "users", "", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "Create")
 	}
-	err = resp.Unmarshal(&user)
+	err = resp.Unmarshal(user)
 	if err != nil {
 		return nil, err
 	}
-	return &user, nil
-}
-
-func (self *SAzureClient) ListGraphUsers() ([]SClouduser, error) {
-	resp, err := self.msGraphRequest("GET", "users", nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "msGraphRequest.users")
-	}
-	users := []SClouduser{}
-	err = resp.Unmarshal(&users, "value")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	return users, nil
+	return user, nil
 }

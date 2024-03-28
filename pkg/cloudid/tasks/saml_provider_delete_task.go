@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *SAMLProviderDeleteTask) taskFailed(ctx context.Context, saml *models.SSAMLProvider, err error) {
-	saml.SetStatus(ctx, self.GetUserCred(), api.SAML_PROVIDER_STATUS_DELETE_FAILED, err.Error())
+	saml.SetStatus(ctx, self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, saml, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -50,36 +50,19 @@ func (self *SAMLProviderDeleteTask) taskComplete(ctx context.Context, saml *mode
 func (self *SAMLProviderDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	saml := obj.(*models.SSAMLProvider)
 
-	if len(saml.ExternalId) == 0 {
-		self.taskComplete(ctx, saml)
-		return
-	}
-
-	account, err := saml.GetCloudaccount()
+	iSAMLProvider, err := saml.GetISAMLProvider()
 	if err != nil {
-		self.taskFailed(ctx, saml, errors.Wrapf(err, "GetCloudaccount"))
-		return
-	}
-
-	provider, err := account.GetProvider()
-	if err != nil {
-		self.taskFailed(ctx, saml, errors.Wrapf(err, "GetProvider"))
-		return
-	}
-	samls, err := provider.GetICloudSAMLProviders()
-	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-		self.taskFailed(ctx, saml, errors.Wrapf(err, "GetICloudSAMLProviders"))
-		return
-	}
-
-	for i := range samls {
-		if samls[i].GetGlobalId() == saml.ExternalId {
-			err = samls[i].Delete()
-			if err != nil {
-				self.taskFailed(ctx, saml, errors.Wrapf(err, "Delete"))
-				return
-			}
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			self.taskComplete(ctx, saml)
+			return
 		}
+		self.taskFailed(ctx, saml, errors.Wrapf(err, "GetISAMLProvider"))
+		return
+	}
+	err = iSAMLProvider.Delete()
+	if err != nil {
+		self.taskFailed(ctx, saml, errors.Wrapf(err, "Delete"))
+		return
 	}
 
 	self.taskComplete(ctx, saml)

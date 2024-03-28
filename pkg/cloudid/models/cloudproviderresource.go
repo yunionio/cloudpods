@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,29 +24,27 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SCloudproviderResourceBaseManager struct {
 }
 
 type SCloudproviderResourceBase struct {
 	// 子订阅Id
-	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"cloudprovider_id"`
+	ManagerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"manager_id"`
 }
 
 func (manager *SCloudproviderResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudproviderResourceListInput) (*sqlchemy.SQuery, error) {
-	if len(query.Cloudprovider) > 0 {
-		provider, err := CloudproviderManager.FetchByIdOrName(ctx, nil, query.Cloudprovider)
+	if len(query.ManagerId) > 0 {
+		_, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &query.ManagerId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudprovider", query.Cloudprovider)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, err
 		}
-		q = q.Equals("cloudprovider_id", provider.GetId())
+		q = q.Equals("manager_id", query.ManagerId)
 	}
 	return q, nil
 }
@@ -67,8 +64,8 @@ func (manager *SCloudproviderResourceBaseManager) FetchCustomizeColumns(
 		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if err != nil {
 			log.Errorf("Cannot find SCloudproviderResourceBase in %#v: %s", objs[i], err)
-		} else if base != nil && len(base.CloudproviderId) > 0 {
-			providerIds[i] = base.CloudproviderId
+		} else if base != nil && len(base.ManagerId) > 0 {
+			providerIds[i] = base.ManagerId
 		}
 	}
 	providerMaps, err := db.FetchIdNameMap2(CloudproviderManager, providerIds)
@@ -77,7 +74,7 @@ func (manager *SCloudproviderResourceBaseManager) FetchCustomizeColumns(
 		return rows
 	}
 	for i := range rows {
-		rows[i].Cloudprovider, _ = providerMaps[providerIds[i]]
+		rows[i].Manager, _ = providerMaps[providerIds[i]]
 	}
 	return rows
 }

@@ -22,18 +22,15 @@ import (
 )
 
 const (
-	CLOUD_POLICY_STATUS_AVAILABLE     = cloudid.CLOUD_POLICY_STATUS_AVAILABLE
-	CLOUD_POLICY_STATUS_SYNCING       = "syncing"
-	CLOUD_POLICY_STATUS_SYNC_FAILE    = "sync_failed"
-	CLOUD_POLICY_STATUS_DELETING      = "deleting"
-	CLOUD_POLICY_STATUS_DELETE_FAILED = "delete_failed"
-
 	CLOUD_POLICY_TYPE_SYSTEM = cloudid.CLOUD_POLICY_TYPE_SYSTEM
 	CLOUD_POLICY_TYPE_CUSTOM = cloudid.CLOUD_POLICY_TYPE_CUSTOM
 )
 
 type CloudpolicyListInput struct {
 	apis.StatusInfrasResourceBaseListInput
+
+	CloudaccountResourceListInput
+	CloudproviderResourceListInput
 
 	// 根据平台过滤
 	Provider []string `json:"provider"`
@@ -45,7 +42,7 @@ type CloudpolicyListInput struct {
 	CloudgroupId string `json:"cloudgroup_id"`
 
 	// 根据订阅过滤权限
-	CloudproviderId string `json:"cloudprovider_id"`
+	ManagerId string `json:"manager_id"`
 
 	// 权限类型
 	//
@@ -55,26 +52,29 @@ type CloudpolicyListInput struct {
 	// | system  |  过滤系统权限        |
 	// | custom  |  过滤自定义权限      |
 	PolicyType string `json:"policy_type"`
+}
 
-	// 是否显示Locked的权限
-	Locked *bool `json:"locked"`
+type PolicyUsage struct {
+	CloudgroupCount int
+	ClouduserCount  int
 }
 
 type CloudpolicyDetails struct {
 	apis.StatusInfrasResourceBaseDetails
+
+	CloudaccountResourceDetails
+	CloudproviderResourceDetails
+
 	SCloudpolicy
+
+	PolicyUsage
 }
 
 type CloudpolicyCreateInput struct {
 	apis.StatusInfrasResourceBaseCreateInput
 
-	// 平台
-	Provider string `json:"provider"`
-
 	// default: custom
 	PolicyType string `json:"policy_type"`
-
-	CloudEnv string `json:"cloud_env"`
 
 	// 策略详情
 	Document *jsonutils.JSONDict `json:"document"`
@@ -112,15 +112,4 @@ type CloudpolicyRevokeGroupInput struct {
 
 	// 权限组Id
 	CloudgroupId string `json:"cloudgroup_id"`
-}
-
-type CloudpolicyLockInput struct {
-}
-
-type CloudpolicyUnLockInput struct {
-}
-
-type CloudpolicyCacheInput struct {
-	// 云订阅Id
-	ManagerId string `json:"manager_id"`
 }

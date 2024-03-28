@@ -12,33 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudid
+package drivers
 
 import (
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-type CloudpolicycacheListOptions struct {
-	options.BaseListOptions
-
-	CloudpolyId    string
-	CloudaccountId string
+type SGoogleDriver struct {
+	SAccountBaseProviderDriver
 }
 
-func (opts *CloudpolicycacheListOptions) Params() (jsonutils.JSONObject, error) {
-	return options.ListStructToParams(opts)
+func (driver SGoogleDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_GOOGLE
 }
 
-type CloudpolicycacheIdOptions struct {
-	ID string
-}
-
-func (opts *CloudpolicycacheIdOptions) GetId() string {
-	return opts.ID
-}
-
-func (opts *CloudpolicycacheIdOptions) Params() (jsonutils.JSONObject, error) {
-	return nil, nil
+func init() {
+	models.RegisterProviderDriver(&SGoogleDriver{})
 }

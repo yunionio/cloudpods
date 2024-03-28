@@ -17,10 +17,9 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
@@ -35,42 +34,44 @@ func init() {
 }
 
 func (self *CloudpolicyDeleteTask) taskFailed(ctx context.Context, policy *models.SCloudpolicy, err error) {
-	policy.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_DELETE_FAILED, err.Error())
+	policy.SetStatus(ctx, self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *CloudpolicyDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	policy := obj.(*models.SCloudpolicy)
 
-	caches, err := policy.GetCloudpolicycaches()
-	if err != nil {
-		self.taskFailed(ctx, policy, errors.Wrapf(err, "GetCloudpolicycaches"))
-		return
-	}
-	for i := range caches {
-		if len(caches[i].ExternalId) > 0 {
-			provider, err := caches[i].GetProvider()
-			if err != nil {
-				self.taskFailed(ctx, policy, errors.Wrapf(err, "GetProvider for cache %s(%s)", caches[i].Name, caches[i].Id))
-				return
-			}
-			policies, err := provider.GetICustomCloudpolicies()
-			if err != nil {
-				self.taskFailed(ctx, policy, errors.Wrapf(err, "GetICustomCloudpolicies for account %s provider %s", caches[i].CloudaccountId, caches[i].CloudproviderId))
-				return
-			}
-			for i := range policies {
-				if policies[i].GetGlobalId() == caches[i].ExternalId {
-					err = policies[i].Delete()
-					if err != nil {
-						self.taskFailed(ctx, policy, errors.Wrapf(err, "Delete %s", policies[i].GetName()))
-						return
+	/*
+		caches, err := policy.GetCloudpolicycaches()
+		if err != nil {
+			self.taskFailed(ctx, policy, errors.Wrapf(err, "GetCloudpolicycaches"))
+			return
+		}
+		for i := range caches {
+			if len(caches[i].ExternalId) > 0 {
+				provider, err := caches[i].GetProvider()
+				if err != nil {
+					self.taskFailed(ctx, policy, errors.Wrapf(err, "GetProvider for cache %s(%s)", caches[i].Name, caches[i].Id))
+					return
+				}
+				policies, err := provider.GetICustomCloudpolicies()
+				if err != nil {
+					self.taskFailed(ctx, policy, errors.Wrapf(err, "GetICustomCloudpolicies for account %s provider %s", caches[i].CloudaccountId, caches[i].CloudproviderId))
+					return
+				}
+				for i := range policies {
+					if policies[i].GetGlobalId() == caches[i].ExternalId {
+						err = policies[i].Delete()
+						if err != nil {
+							self.taskFailed(ctx, policy, errors.Wrapf(err, "Delete %s", policies[i].GetName()))
+							return
+						}
 					}
 				}
 			}
 		}
-	}
 
+	*/
 	policy.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }

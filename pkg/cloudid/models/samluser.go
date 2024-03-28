@@ -16,30 +16,25 @@ package models
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
-	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
-	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSamluserManager struct {
 	db.SStatusDomainLevelUserResourceBaseManager
-	db.SExternalizedResourceBaseManager
 
 	SCloudgroupResourceBaseManager
-	SCloudaccountResourceBaseManager
 }
 
 var SamluserManager *SSamluserManager
@@ -58,12 +53,13 @@ func init() {
 
 type SSamluser struct {
 	db.SStatusDomainLevelUserResourceBase
-	db.SExternalizedResourceBase
 	SCloudgroupResourceBase
-	SCloudaccountResourceBase
 
 	// 邮箱地址
 	Email string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
+
+	CloudroleId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
+	OwnerId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 func (manager *SSamluserManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
@@ -86,18 +82,13 @@ func (manager *SSamluserManager) GetIVirtualModelManager() db.IVirtualModelManag
 
 func (manager *SSamluserManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	groupId, _ := data.GetString("cloudgroup_id")
-	accountId, _ := data.GetString("cloudaccount_id")
-	return jsonutils.Marshal(map[string]string{"cloudgroup_id": groupId, "cloudaccount_id": accountId})
+	return jsonutils.Marshal(map[string]string{"cloudgroup_id": groupId})
 }
 
 func (manager *SSamluserManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
 	groupId, _ := values.GetString("cloudgroup_id")
-	accountId, _ := values.GetString("cloudaccount_id")
 	if len(groupId) > 0 {
 		q = q.Equals("cloudgroup_id", groupId)
-	}
-	if len(accountId) > 0 {
-		q = q.Equals("cloudaccount_id", accountId)
 	}
 	return q
 }
@@ -113,15 +104,17 @@ func (manager *SSamluserManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if err != nil {
 		return nil, err
 	}
-	q, err = manager.SCloudaccountResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudaccountResourceListInput)
-	if err != nil {
-		return nil, err
-	}
 	return q, nil
 }
 
 // 创建SAML认证用户
-func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SamluserCreateInput) (api.SamluserCreateInput, error) {
+func (manager *SSamluserManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input *api.SamluserCreateInput,
+) (*api.SamluserCreateInput, error) {
 	if len(input.OwnerId) > 0 {
 		user, err := db.UserCacheManager.FetchUserById(ctx, input.OwnerId)
 		if err != nil {
@@ -137,40 +130,33 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 			input.Name = userCred.GetUserName()
 		}
 	}
-	_group, err := validators.ValidateModel(ctx, userCred, CloudgroupManager, &input.CloudgroupId)
+	groupObj, err := validators.ValidateModel(ctx, userCred, CloudgroupManager, &input.CloudgroupId)
 	if err != nil {
 		return input, err
 	}
-	group := _group.(*SCloudgroup)
-	_account, err := validators.ValidateModel(ctx, userCred, CloudaccountManager, &input.CloudaccountId)
+	group := groupObj.(*SCloudgroup)
+	cnt, err := manager.Query().Equals("owner_id", input.OwnerId).Equals("cloudgroup_id", input.CloudgroupId).CountWithError()
 	if err != nil {
-		return input, err
+		return nil, err
 	}
-	account := _account.(*SCloudaccount)
-	if account.SAMLAuth.IsFalse() {
-		return input, httperrors.NewNotSupportedError("cloudaccount %s not enable saml auth", account.Name)
+	if cnt > 0 {
+		return input, httperrors.NewConflictError("user %s has already in group %s", input.Name, group.Name)
 	}
-	if account.Provider != group.Provider {
-		return input, httperrors.NewConflictError("account %s and group %s not with same provider", account.Name, group.Name)
-	}
-	if account.Provider == compute_api.CLOUD_PROVIDER_AZURE {
-		if info := strings.Split(options.Options.ApiServer, ":"); len(info) > 1 {
-			domain := strings.TrimPrefix(info[1], "//")
-			input.Email = fmt.Sprintf("%s@%s", input.Name, domain)
-		}
-	}
-	sq := CloudgroupManager.Query("id").Equals("provider", group.Provider).SubQuery()
-	q := manager.Query().Equals("owner_id", input.OwnerId).Equals("cloudaccount_id", account.Id).In("cloudgroup_id", sq)
-	groups := []SCloudgroup{}
-	err = db.FetchModelObjects(CloudgroupManager, q, &groups)
-	if err != nil {
-		return input, httperrors.NewGeneralError(errors.Wrapf(err, "db.FetchModelObjects"))
-	}
-	if len(groups) > 0 {
-		return input, httperrors.NewConflictError("user %s has already in other %s group", input.Name, group.Provider)
-	}
-	input.Status = api.SAML_USER_STATUS_AVAILABLE
+	input.Status = apis.STATUS_CREATING
 	return input, nil
+}
+
+func (self *SSamluser) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.StartCreateTask(ctx, userCred, "")
+}
+
+func (self *SSamluser) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "SamlUserCreateTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 func (manager *SSamluserManager) FetchCustomizeColumns(
@@ -184,48 +170,11 @@ func (manager *SSamluserManager) FetchCustomizeColumns(
 	rows := make([]api.SamluserDetails, len(objs))
 	userRows := manager.SStatusDomainLevelUserResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	groupRows := manager.SCloudgroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	acRows := manager.SCloudaccountResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.SamluserDetails{
 			StatusDomainLevelUserResourceDetails: userRows[i],
 			CloudgroupResourceDetails:            groupRows[i],
-			CloudaccountResourceDetails:          acRows[i],
 		}
 	}
 	return rows
-}
-
-func (self *SSamluser) SyncAzureGroup() error {
-	group, err := self.GetCloudgroup()
-	if err != nil {
-		return errors.Wrapf(err, "GetCloudgroup")
-	}
-	account, err := self.GetCloudaccount()
-	if err != nil {
-		return errors.Wrapf(err, "GetCloudaccount")
-	}
-	cache, err := CloudgroupcacheManager.Register(group, account)
-	if err != nil {
-		return errors.Wrapf(err, "group cache Register")
-	}
-	if len(cache.ExternalId) == 0 {
-		s := auth.GetAdminSession(context.TODO(), options.Options.Region)
-		_, err = cache.GetOrCreateICloudgroup(context.TODO(), s.GetToken())
-		if err != nil {
-			return errors.Wrapf(err, "GetOrCreateICloudgroup")
-		}
-		cache, err = CloudgroupcacheManager.Register(group, account)
-		if err != nil {
-			return errors.Wrapf(err, "group cache Register")
-		}
-	}
-	iGroup, err := cache.GetICloudgroup()
-	if err != nil {
-		return errors.Wrapf(err, "GetICloudgroup")
-	}
-	err = iGroup.AddUser(self.ExternalId)
-	if err != nil {
-		return errors.Wrapf(err, "iGroup.AddUser")
-	}
-	return nil
 }

@@ -16,10 +16,6 @@ package cloudid
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-const (
-	SAML_USER_STATUS_AVAILABLE = "available"
-)
-
 type SamluserCreateInput struct {
 	apis.StatusDomainLevelUserResourceCreateInput
 
