@@ -19,7 +19,6 @@ import (
 	"net/url"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/pinyinutils"
 
@@ -121,7 +120,8 @@ func (group *SCloudgroup) DetachSystemPolicy(policyId string) error {
 			return errors.Wrapf(err, "GetRule(%s)", assignment.Properties.RoleDefinitionId)
 		}
 		if role.Properties.RoleName == policyId {
-			return group.client.gdel(assignment.Id)
+			_, err := group.client._delete_v2(SERVICE_GRAPH, assignment.Id, "")
+			return err
 		}
 	}
 	return nil
@@ -136,12 +136,16 @@ func (group *SCloudgroup) Delete() error {
 }
 
 func (self *SAzureClient) GetCloudgroups(name string) ([]SCloudgroup, error) {
-	groups := []SCloudgroup{}
 	params := url.Values{}
 	if len(name) > 0 {
 		params.Set("$filter", fmt.Sprintf("displayName eq '%s'", name))
 	}
-	err := self.glist("groups", params, &groups)
+	resp, err := self._list_v2(SERVICE_GRAPH, "groups", "", params)
+	if err != nil {
+		return nil, err
+	}
+	groups := []SCloudgroup{}
+	err = resp.Unmarshal(&groups, "value")
 	if err != nil {
 		return nil, err
 	}
@@ -177,9 +181,13 @@ func (self *SAzureClient) GetICloudgroupByName(name string) (cloudprovider.IClou
 }
 
 func (self *SAzureClient) ListGroupMemebers(id string) ([]SClouduser, error) {
-	users := []SClouduser{}
 	resource := fmt.Sprintf("groups/%s/members", id)
-	err := self.glist(resource, nil, &users)
+	resp, err := self._list_v2(SERVICE_GRAPH, resource, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	users := []SClouduser{}
+	err = resp.Unmarshal(&users, "value")
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +195,8 @@ func (self *SAzureClient) ListGroupMemebers(id string) ([]SClouduser, error) {
 }
 
 func (self *SAzureClient) DeleteGroup(id string) error {
-	return self.gdel(fmt.Sprintf("groups/%s", id))
+	_, err := self._delete_v2(SERVICE_GRAPH, "groups/"+id, "")
+	return err
 }
 
 func (self *SAzureClient) CreateGroup(name, desc string) (*SCloudgroup, error) {
@@ -200,12 +209,16 @@ func (self *SAzureClient) CreateGroup(name, desc string) (*SCloudgroup, error) {
 	if len(desc) > 0 {
 		params["Description"] = desc
 	}
-	group := SCloudgroup{client: self}
-	err := self.gcreate("groups", jsonutils.Marshal(params), &group)
+	resp, err := self._post_v2(SERVICE_GRAPH, "groups", "", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "Create")
+		return nil, err
 	}
-	return &group, nil
+	group := &SCloudgroup{client: self}
+	err = resp.Unmarshal(group)
+	if err != nil {
+		return nil, err
+	}
+	return group, nil
 }
 
 func (self *SAzureClient) RemoveGroupUser(id, userName string) error {
@@ -213,7 +226,9 @@ func (self *SAzureClient) RemoveGroupUser(id, userName string) error {
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudusers(%s)", userName)
 	}
-	return self.gdel(fmt.Sprintf("/groups/%s/members/%s/$ref", id, user.Id))
+	resource := fmt.Sprintf("/groups/%s/members/%s/$ref", id, user.Id)
+	_, err = self._delete_v2(SERVICE_GRAPH, resource, "")
+	return err
 }
 
 func (self *SAzureClient) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
@@ -230,14 +245,14 @@ func (self *SAzureClient) AddGroupUser(id, userName string) error {
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudusers(%s)", userName)
 	}
-	resource := fmt.Sprintf("groups/%s/members/$ref", id)
-	params := map[string]string{
+	params := map[string]interface{}{
 		"@odata.id": fmt.Sprintf("https://graph.microsoft.com/v1.0/directoryObjects/%s", user.Id),
 	}
 	if self.envName == "AzureChinaCloud" {
 		params["@odata.id"] = fmt.Sprintf("https://microsoftgraph.chinacloudapi.cn/v1.0/directoryObjects/%s", user.Id)
 	}
-	err = self.gcreate(resource, jsonutils.Marshal(params), nil)
+	resource := fmt.Sprintf("groups/%s/members/$ref", id)
+	_, err = self._post_v2(SERVICE_GRAPH, resource, "", params)
 	if err != nil && !strings.Contains(err.Error(), "One or more added object references already exist for the following modified properties") {
 		return err
 	}
