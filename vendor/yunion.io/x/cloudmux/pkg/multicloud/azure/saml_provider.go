@@ -79,25 +79,30 @@ func (self *SAMLProvider) GetAuthUrl(apiServer string) string {
 }
 
 func (self *SAzureClient) ListSAMLProviders() ([]SAMLProvider, error) {
-	_, err := self.msGraphRequest("GET", "identityProviders", nil)
+	resp, err := self._list_v2(SERVICE_GRAPH, "identityProviders", "", nil)
 	if err != nil {
 		return nil, err
 	}
-	return []SAMLProvider{}, nil
+	ret := []SAMLProvider{}
+	err = resp.Unmarshal(&ret, "value")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (self *SAzureClient) InviteUser(email string) (*SClouduser, error) {
-	body := jsonutils.Marshal(map[string]string{
+	body := map[string]interface{}{
 		"invitedUserEmailAddress": email,
 		"inviteRedirectUrl":       fmt.Sprintf("https://portal.azure.com/%s?login_hint=%s", self.tenantId, email),
-	})
-	resp, err := self.msGraphRequest("POST", "invitations", body)
+	}
+	resp, err := self._post_v2(SERVICE_GRAPH, "invitations", "", body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "msGraphRequest.invitations")
+		return nil, errors.Wrapf(err, "invitations")
 	}
 	inviteUrl, _ := resp.GetString("inviteRedeemUrl")
 	err = cloudprovider.Wait(time.Second*2, time.Minute, func() (bool, error) {
-		users, err := self.ListGraphUsers()
+		users, err := self.GetCloudusers()
 		if err != nil {
 			return false, errors.Wrapf(err, "GetCloudusers")
 		}
@@ -112,7 +117,7 @@ func (self *SAzureClient) InviteUser(email string) (*SClouduser, error) {
 	if err != nil {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after invite %s", email)
 	}
-	users, err := self.ListGraphUsers()
+	users, err := self.GetCloudusers()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudusers")
 	}
