@@ -328,6 +328,10 @@ func (self *SNutanixClient) get(res string, id string, params url.Values, retVal
 	return nil
 }
 
+func (cli *SNutanixClient) GetCloudRegionExternalIdPrefix() string {
+	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_NUTANIX, cli.cpcfg.Id)
+}
+
 func (self *SNutanixClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account:      self.username,
