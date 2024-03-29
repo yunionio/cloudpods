@@ -95,6 +95,14 @@ func (cli *SAzureClient) ListServicePrincipal(appId string) ([]SServicePrincipal
 	if len(appId) > 0 {
 		params.Set("$filter", fmt.Sprintf(`appId eq '%s'`, cli.clientId))
 	}
+	resp, err := cli._list_v2(SERVICE_GRAPH, "servicePrincipals", "", params)
+	if err != nil {
+		return nil, err
+	}
 	result := []SServicePrincipal{}
-	return result, cli.glist("servicePrincipals", params, &result)
+	err = resp.Unmarshal(&result, "value")
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

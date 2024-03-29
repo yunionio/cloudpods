@@ -143,6 +143,10 @@ type SNutanixProvider struct {
 	client *nutanix.SNutanixClient
 }
 
+func (self *SNutanixProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetCloudRegionExternalIdPrefix()
+}
+
 func (self *SNutanixProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return jsonutils.NewDict(), nil
 }
