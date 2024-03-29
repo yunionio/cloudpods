@@ -736,8 +736,8 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 		cdromDeviceOpts,
 		fwOpts,
 		socketPath,
-		manager.GetX86InitrdPath(),
-		manager.GetX86KernelPath(),
+		manager.GetARMInitrdPath(),
+		manager.GetARMKernelPath(),
 	)
 
 	log.Infof("start guest %s", cmd)
