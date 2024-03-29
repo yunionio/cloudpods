@@ -143,6 +143,10 @@ type SProxmoxProvider struct {
 	client *proxmox.SProxmoxClient
 }
 
+func (self *SProxmoxProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetCloudRegionExternalIdPrefix()
+}
+
 func (self *SProxmoxProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return jsonutils.NewDict(), nil
 }

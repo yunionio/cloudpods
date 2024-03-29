@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -341,7 +340,7 @@ func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.
 	}
 	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -367,6 +366,10 @@ func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.
 		time.Sleep(time.Second * 10)
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after upload")
+}
+
+func (cli *SProxmoxClient) GetCloudRegionExternalIdPrefix() string {
+	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_PROXMOX, cli.cpcfg.Id)
 }
 
 func (self *SProxmoxClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
