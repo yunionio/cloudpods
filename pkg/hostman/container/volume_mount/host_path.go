@@ -14,11 +14,11 @@ func init() {
 
 type hostLocal struct{}
 
-func (h hostLocal) Mount(pod IPodInfo, vm *apis.ContainerVolumeMount) error {
+func (h hostLocal) Mount(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) error {
 	return nil
 }
 
-func (h hostLocal) Unmount(pod IPodInfo, vm *apis.ContainerVolumeMount) error {
+func (h hostLocal) Unmount(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) error {
 	return nil
 }
 
@@ -30,7 +30,7 @@ func (h hostLocal) GetType() apis.ContainerVolumeMountType {
 	return apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH
 }
 
-func (h hostLocal) GetRuntimeMountHostPath(pod IPodInfo, vm *apis.ContainerVolumeMount) (string, error) {
+func (h hostLocal) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) (string, error) {
 	host := vm.HostPath
 	if host == nil {
 		return "", httperrors.NewNotEmptyError("host_local is nil")

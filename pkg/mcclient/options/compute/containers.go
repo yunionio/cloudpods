@@ -199,6 +199,13 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 				vm.Disk = &apis.ContainerVolumeMountDisk{}
 			}
 			vm.Disk.StorageSizeFile = val
+		case "overlay":
+			if vm.Disk == nil {
+				vm.Disk = &apis.ContainerVolumeMountDisk{}
+			}
+			vm.Disk.Overlay = &apis.ContainerVolumeMountDiskOverlay{
+				LowerDir: strings.Split(val, ":"),
+			}
 		}
 	}
 	return vm, nil
