@@ -15,7 +15,18 @@
 package compute
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+
+	"github.com/ghodss/yaml"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
@@ -28,4 +39,50 @@ func init() {
 	cmd.BatchDelete(new(options.ContainerDeleteOptions))
 	cmd.BatchPerform("stop", new(options.ContainerStopOptions))
 	cmd.BatchPerform("start", new(options.ContainerStartOptions))
+
+	type UpdateSpecOptions struct {
+		ID string `help:"ID or name of server" json:"-"`
+	}
+	R(&UpdateSpecOptions{}, "container-update-spec", "Update spec of a container", func(s *mcclient.ClientSession, opts *UpdateSpecOptions) error {
+		result, err := modules.Containers.Get(s, opts.ID, nil)
+		if err != nil {
+			return errors.Wrap(err, "get container id")
+		}
+		yamlBytes := result.YAMLString()
+		tempfile, err := ioutil.TempFile("", fmt.Sprintf("container-%s*.yaml", opts.ID))
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tempfile.Name())
+		if _, err := tempfile.Write([]byte(yamlBytes)); err != nil {
+			return err
+		}
+		if err := tempfile.Close(); err != nil {
+			return err
+		}
+
+		cmd := exec.Command("vim", tempfile.Name())
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+		content, err := ioutil.ReadFile(tempfile.Name())
+		if err != nil {
+			return err
+		}
+		jsonBytes, err := yaml.YAMLToJSON(content)
+		if err != nil {
+			return err
+		}
+		body, err := jsonutils.Parse(jsonBytes)
+		if err != nil {
+			return err
+		}
+		if _, err := modules.Containers.Update(s, opts.ID, body); err != nil {
+			return errors.Wrap(err, "update spec")
+		}
+
+		return nil
+	})
 }
