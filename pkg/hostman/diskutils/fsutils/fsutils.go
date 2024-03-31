@@ -36,6 +36,18 @@ import (
 	"yunion.io/x/onecloud/pkg/util/xfsutils"
 )
 
+var ext4UsageTypeLargefileSize int64 = 1024 * 1024 * 1024 * 1024 * 4
+var ext4UsageTypeHugefileSize int64 = 1024 * 1024 * 1024 * 512
+
+func SetExt4UsageTypeThresholds(largefile, hugefile int64) {
+	if largefile > 0 {
+		ext4UsageTypeLargefileSize = largefile
+	}
+	if hugefile > 0 {
+		ext4UsageTypeHugefileSize = hugefile
+	}
+}
+
 func IsPartedFsString(fsstr string) bool {
 	return utils.IsInStringArray(strings.ToLower(fsstr), []string{
 		"ext2", "ext3", "ext4", "xfs",
@@ -348,6 +360,27 @@ func Mkpartition(imagePath, fsFormat string) error {
 	return nil
 }
 
+func ext4UsageType(path string) string {
+	out, err := procutils.NewCommand("blockdev", "--getsize64", path).Output()
+	if err != nil {
+		log.Errorf("failed get blockdev %s size: %s", path, err)
+		return ""
+	}
+	size, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		log.Errorf("failed parse blocksize %s", out)
+		return ""
+	}
+	if size > ext4UsageTypeLargefileSize {
+		// node_ratio 1M
+		return "largefile"
+	} else if size > ext4UsageTypeHugefileSize {
+		// node_ratio 64K
+		return "huge"
+	}
+	return ""
+}
+
 func FormatPartition(path, fs, uuid string) error {
 	var cmd, cmdUuid []string
 	switch {
@@ -360,7 +393,21 @@ func FormatPartition(path, fs, uuid string) error {
 		cmd = []string{"mkfs.ext3"}
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4":
-		cmd = []string{"mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1", "-T", "largefile"}
+		cmd = []string{"mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1"}
+		/*
+			// see /etc/mke2fs.conf, default inode_ratio is 16384
+			If  this option is is not specified, mke2fs will pick a single default usage type based on the size
+			of the filesystem to be created.  If the filesystem size is less than  or  equal  to  3  megabytes,
+			mke2fs will use the filesystem type floppy.  If the filesystem size is greater than 3 but less than
+			or equal to 512 megabytes, mke2fs(8) will use the filesystem type small.  If the filesystem size is
+			greater  than or equal to 4 terabytes but less than 16 terabytes, mke2fs(8) will use the filesystem
+			type big.  If the filesystem size is greater than or equal to 16 terabytes, mke2fs(8) will use  the
+			filesystem type huge.  Otherwise, mke2fs(8) will use the default filesystem type default.
+		*/
+		if usageType := ext4UsageType(path); usageType != "" {
+			cmd = append(cmd, "-T", usageType)
+		}
+
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4dev":
 		cmd = []string{"mkfs.ext4dev", "-E", "lazy_itable_init=1"}
@@ -479,25 +526,24 @@ func ResizeFs(d deploy_iface.IDeployer) (*apis.Empty, error) {
 	}
 
 	root, err := d.MountRootfs(false)
-	if err != nil {
-		if errors.Cause(err) == errors.ErrNotFound {
-			return new(apis.Empty), nil
-		}
+	if err != nil && errors.Cause(err) != errors.ErrNotFound {
 		return new(apis.Empty), errors.Wrapf(err, "disk.MountRootfs")
-	}
-	if !root.IsResizeFsPartitionSupport() {
-		err := unmount(root)
+	} else if err == nil {
+		if !root.IsResizeFsPartitionSupport() {
+			err := unmount(root)
+			if err != nil {
+				return new(apis.Empty), err
+			}
+			return new(apis.Empty), errors.ErrNotSupported
+		}
+
+		// must umount rootfs before resize partition
+		err = unmount(root)
 		if err != nil {
 			return new(apis.Empty), err
 		}
-		return new(apis.Empty), errors.ErrNotSupported
 	}
 
-	// must umount rootfs before resize partition
-	err = unmount(root)
-	if err != nil {
-		return new(apis.Empty), err
-	}
 	err = d.ResizePartition()
 	if err != nil {
 		return new(apis.Empty), errors.Wrap(err, "resize disk partition")
