@@ -22,11 +22,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/netutils"
 
-	commonconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -113,12 +110,11 @@ func LocalInitEnv() error {
 		return errors.Wrap(err, "set env path")
 	}
 
-	netutils.SetPrivatePrefixes(DeployOption.CustomizedPrivatePrefixes)
-	if err := fsdriver.Init(DeployOption.CloudrootDir); err != nil {
-		return errors.Wrap(err, "init fsdriver")
-	}
-	commonconsts.SetAllowVmSELinux(DeployOption.AllowVmSELinux)
 	winutils.SetChntpwPath("/opt/yunion/bin/chntpw.static")
+	err = InitEnvCommon()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -31,12 +31,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	commonconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/fsutils"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/libguestfs"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/qemu_kvm"
@@ -315,6 +317,21 @@ func (s *SDeployService) FixPathEnv() error {
 	return os.Setenv("PATH", strings.Join(paths, ":"))
 }
 
+func InitEnvCommon() error {
+	commonconsts.SetAllowVmSELinux(DeployOption.AllowVmSELinux)
+
+	fsutils.SetExt4UsageTypeThresholds(
+		int64(DeployOption.Ext4LargefileSizeGb)*1024*1024*1024,
+		int64(DeployOption.Ext4HugefileSizeGb)*1024*1024*1024,
+	)
+	if err := fsdriver.Init(DeployOption.CloudrootDir); err != nil {
+		return errors.Wrap(err, "init fsdriver")
+	}
+
+	netutils.SetPrivatePrefixes(DeployOption.CustomizedPrivatePrefixes)
+	return nil
+}
+
 func (s *SDeployService) PrepareEnv() error {
 	if !fileutils2.Exists(DeployOption.DeployTempDir) {
 		err := os.MkdirAll(DeployOption.DeployTempDir, 0755)
@@ -323,15 +340,15 @@ func (s *SDeployService) PrepareEnv() error {
 		}
 	}
 	commonconsts.SetDeployTempDir(DeployOption.DeployTempDir)
-	commonconsts.SetAllowVmSELinux(DeployOption.AllowVmSELinux)
+
+	if err := InitEnvCommon(); err != nil {
+		return err
+	}
 
 	if err := s.FixPathEnv(); err != nil {
 		return err
 	}
 
-	if err := fsdriver.Init(DeployOption.CloudrootDir); err != nil {
-		log.Fatalln(err)
-	}
 	if DeployOption.ImageDeployDriver == consts.DEPLOY_DRIVER_LIBGUESTFS {
 		if err := libguestfs.Init(3); err != nil {
 			log.Fatalln(err)
