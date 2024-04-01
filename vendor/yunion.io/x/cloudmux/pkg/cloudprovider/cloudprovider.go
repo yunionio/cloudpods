@@ -218,18 +218,6 @@ type ICloudProviderFactory interface {
 
 	IsNeedForceAutoCreateProject() bool
 
-	IsCloudpolicyWithSubscription() bool     // 自定义权限属于订阅级别资源
-	IsClouduserpolicyWithSubscription() bool // 绑定用户权限需要指定订阅
-
-	IsSupportCloudIdService() bool
-	IsSupportClouduserPolicy() bool
-	IsSupportResetClouduserPassword() bool
-	GetClouduserMinPolicyCount() int
-	IsClouduserNeedInitPolicy() bool
-	IsSupportCreateCloudgroup() bool
-
-	IsSystemCloudpolicyUnified() bool // 国内国外权限是否一致
-
 	IsSupportCrossCloudEnvVpcPeering() bool
 	IsSupportCrossRegionVpcPeering() bool
 	IsSupportVpcPeeringVpcCidrOverlap() bool
@@ -672,40 +660,10 @@ func GetPrivateProviders() []string {
 	return providers
 }
 
-func GetSupportCloudgroupProviders() []string {
-	providers := []string{}
-	for p, d := range providerTable {
-		if d.IsSupportCreateCloudgroup() {
-			providers = append(providers, p)
-		}
-	}
-	return providers
-}
-
 func GetOnPremiseProviders() []string {
 	providers := make([]string, 0)
 	for p, d := range providerTable {
 		if !d.IsPublicCloud() && d.IsOnPremise() {
-			providers = append(providers, p)
-		}
-	}
-	return providers
-}
-
-func GetSupportCloudIdProvider() []string {
-	providers := []string{}
-	for p, d := range providerTable {
-		if d.IsSupportCloudIdService() {
-			providers = append(providers, p)
-		}
-	}
-	return providers
-}
-
-func GetClouduserpolicyWithSubscriptionProviders() []string {
-	providers := []string{}
-	for p, d := range providerTable {
-		if d.IsClouduserpolicyWithSubscription() {
 			providers = append(providers, p)
 		}
 	}
@@ -767,43 +725,6 @@ func (factory *baseProviderFactory) GetMaxCloudEventKeepDays() int {
 
 func (factory *baseProviderFactory) IsNeedForceAutoCreateProject() bool {
 	return false
-}
-
-func (factory *baseProviderFactory) IsCloudpolicyWithSubscription() bool {
-	return false
-}
-
-func (factory *baseProviderFactory) IsClouduserpolicyWithSubscription() bool {
-	return false
-}
-
-func (factory *baseProviderFactory) IsSupportCloudIdService() bool {
-	return false
-}
-
-func (factory *baseProviderFactory) IsSupportClouduserPolicy() bool {
-	return true
-}
-
-func (factory *baseProviderFactory) IsSupportResetClouduserPassword() bool {
-	return true
-}
-
-func (factory *baseProviderFactory) IsClouduserNeedInitPolicy() bool {
-	return false
-}
-
-func (factory *baseProviderFactory) GetClouduserMinPolicyCount() int {
-	// unlimited
-	return -1
-}
-
-func (factory *baseProviderFactory) IsSupportCreateCloudgroup() bool {
-	return false
-}
-
-func (factory *baseProviderFactory) IsSystemCloudpolicyUnified() bool {
-	return true
 }
 
 func (factory *baseProviderFactory) IsSupportCrossCloudEnvVpcPeering() bool {

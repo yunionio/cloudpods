@@ -52,14 +52,6 @@ func (self *SQcloudProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 30
 }
 
-func (self *SQcloudProviderFactory) IsSupportCloudIdService() bool {
-	return true
-}
-
-func (self *SQcloudProviderFactory) IsSupportCreateCloudgroup() bool {
-	return true
-}
-
 func (self *SQcloudProviderFactory) IsSupportSAMLAuth() bool {
 	return true
 }

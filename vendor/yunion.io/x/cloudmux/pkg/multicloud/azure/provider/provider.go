@@ -64,14 +64,6 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (self *SAzureProviderFactory) IsSupportCloudIdService() bool {
-	return true
-}
-
-func (self *SAzureProviderFactory) IsSupportCreateCloudgroup() bool {
-	return true
-}
-
 func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.DirectoryId) == 0 {
