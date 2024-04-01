@@ -75,6 +75,9 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 			return nil, httperrors.NewNotFoundError("not found pod disk by %s", disk.Id)
 		}
 	}
+	if err := d.validateOverlay(vm); err != nil {
+		return nil, errors.Wrapf(err, "validate overlay")
+	}
 	return vm, nil
 }
 
@@ -96,6 +99,25 @@ func (d disk) ValidatePodCreateData(ctx context.Context, userCred mcclient.Token
 	}
 	if diskIndex >= len(disks) {
 		return httperrors.NewInputParameterError("disk.index %d is large than disk size %d", diskIndex, len(disks))
+	}
+	return nil
+}
+
+func (d disk) validateOverlay(vm *apis.ContainerVolumeMount) error {
+	if vm.Disk.Overlay == nil {
+		return nil
+	}
+	ov := vm.Disk.Overlay
+	if len(ov.LowerDir) == 0 {
+		return httperrors.NewNotEmptyError("lower_dir is required")
+	}
+	for idx, ld := range ov.LowerDir {
+		if ld == "" {
+			return httperrors.NewNotEmptyError("empty %d dir", idx)
+		}
+		if ld == "/" {
+			return httperrors.NewInputParameterError("can't use '/' as lower_dir")
+		}
 	}
 	return nil
 }

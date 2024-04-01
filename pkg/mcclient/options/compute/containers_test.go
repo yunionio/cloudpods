@@ -29,12 +29,17 @@ func Test_parseContainerVolumeMount(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			args: "readonly=true,mount_path=/data,disk_index=0",
+			args: "readonly=true,mount_path=/data,disk_index=0,overlay=/abc:/bca",
 			want: &apis.ContainerVolumeMount{
 				ReadOnly:  true,
 				MountPath: "/data",
-				Disk:      &apis.ContainerVolumeMountDisk{Index: &index0},
-				Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				Disk: &apis.ContainerVolumeMountDisk{
+					Index: &index0,
+					Overlay: &apis.ContainerVolumeMountDiskOverlay{
+						LowerDir: []string{"/abc", "/bca"},
+					},
+				},
+				Type: apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			},
 		},
 		{

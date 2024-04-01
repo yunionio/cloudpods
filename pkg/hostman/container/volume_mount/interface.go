@@ -28,15 +28,16 @@ func GetDriver(typ apis.ContainerVolumeMountType) IVolumeMount {
 
 type IPodInfo interface {
 	GetVolumesDir() string
+	GetVolumesOverlayDir() string
 	GetDisks() []*desc.SGuestDisk
 	GetDiskMountPoint(disk storageman.IDisk) string
 }
 
 type IVolumeMount interface {
 	GetType() apis.ContainerVolumeMountType
-	GetRuntimeMountHostPath(pod IPodInfo, vm *apis.ContainerVolumeMount) (string, error)
-	Mount(pod IPodInfo, vm *apis.ContainerVolumeMount) error
-	Unmount(pod IPodInfo, vm *apis.ContainerVolumeMount) error
+	GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) (string, error)
+	Mount(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) error
+	Unmount(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) error
 }
 
 func GetRuntimeVolumeMountPropagation(input apis.ContainerMountPropagation) runtimeapi.MountPropagation {

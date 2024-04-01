@@ -121,11 +121,16 @@ type ContainerVolumeMount struct {
 	Propagation ContainerMountPropagation `json:"propagation,omitempty"`
 }
 
+type ContainerVolumeMountDiskOverlay struct {
+	LowerDir []string `json:"lower_dir"`
+}
+
 type ContainerVolumeMountDisk struct {
-	Index           *int   `json:"index,omitempty"`
-	Id              string `json:"id"`
-	SubDirectory    string `json:"sub_directory"`
-	StorageSizeFile string `json:"storage_size_file"`
+	Index           *int                             `json:"index,omitempty"`
+	Id              string                           `json:"id"`
+	SubDirectory    string                           `json:"sub_directory"`
+	StorageSizeFile string                           `json:"storage_size_file"`
+	Overlay         *ContainerVolumeMountDiskOverlay `json:"overlay"`
 }
 
 type ContainerVolumeMountHostPathType string
