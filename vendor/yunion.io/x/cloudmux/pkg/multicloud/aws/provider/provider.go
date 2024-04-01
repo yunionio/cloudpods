@@ -54,18 +54,6 @@ func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (self *SAwsProviderFactory) IsSupportCloudIdService() bool {
-	return true
-}
-
-func (self *SAwsProviderFactory) IsSupportCreateCloudgroup() bool {
-	return true
-}
-
-func (factory *SAwsProviderFactory) IsSystemCloudpolicyUnified() bool {
-	return false
-}
-
 func (factory *SAwsProviderFactory) IsSupportSAMLAuth() bool {
 	return true
 }

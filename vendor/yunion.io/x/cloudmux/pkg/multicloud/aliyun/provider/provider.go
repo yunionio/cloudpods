@@ -43,18 +43,6 @@ func (self *SAliyunProviderFactory) IsCloudeventRegional() bool {
 	return true
 }
 
-func (self *SAliyunProviderFactory) IsSupportCloudIdService() bool {
-	return true
-}
-
-func (self *SAliyunProviderFactory) IsSupportCreateCloudgroup() bool {
-	return true
-}
-
-func (factory *SAliyunProviderFactory) IsSystemCloudpolicyUnified() bool {
-	return false
-}
-
 func (factory *SAliyunProviderFactory) IsSupportSAMLAuth() bool {
 	return true
 }
