@@ -118,7 +118,8 @@ type SHostInfo struct {
 
 	IoScheduler string
 
-	cri pod.CRI
+	cri             pod.CRI
+	containerCPUMap *pod.HostContainerCPUMap
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
@@ -225,6 +226,9 @@ func (h *SHostInfo) Init() error {
 		if err := h.initCRI(); err != nil {
 			return errors.Wrap(err, "init container runtime interface")
 		}
+		if err := h.initContainerCPUMap(h.sysinfo.Topology); err != nil {
+			return errors.Wrap(err, "init container cpu map")
+		}
 	}
 
 	return nil
@@ -244,8 +248,22 @@ func (h *SHostInfo) initCRI() error {
 	return nil
 }
 
+func (h *SHostInfo) initContainerCPUMap(topo *hostapi.HostTopology) error {
+	statefile := path.Join(options.HostOptions.ServersPath, "container_cpu_map")
+	cm, err := pod.NewHostContainerCPUMap(topo, statefile)
+	if err != nil {
+		return errors.Wrap(err, "NewHostContainerCPUMap")
+	}
+	h.containerCPUMap = cm
+	return nil
+}
+
 func (h *SHostInfo) GetCRI() pod.CRI {
 	return h.cri
+}
+
+func (h *SHostInfo) GetContainerCPUMap() *pod.HostContainerCPUMap {
+	return h.containerCPUMap
 }
 
 func (h *SHostInfo) setupOvnChassis() error {

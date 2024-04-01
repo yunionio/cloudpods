@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
@@ -83,6 +84,28 @@ func init() {
 			return errors.Wrap(err, "update spec")
 		}
 
+		return nil
+	})
+
+	type SetSpecOptions struct {
+		ID                string `help:"ID or name of server" json:"-"`
+		EnableSimulateCpu bool   `help:"Enable simulating /sys/devices/system/cpu directory"`
+	}
+	R(&SetSpecOptions{}, "container-set-spec", "Set spec of a container", func(s *mcclient.ClientSession, opts *SetSpecOptions) error {
+		result, err := modules.Containers.Get(s, opts.ID, nil)
+		if err != nil {
+			return errors.Wrap(err, "get container id")
+		}
+		spec := new(computeapi.ContainerSpec)
+		if err := result.Unmarshal(spec, "spec"); err != nil {
+			return errors.Wrap(err, "unmarshal to spec")
+		}
+		spec.SimulateCpu = opts.EnableSimulateCpu
+		result.(*jsonutils.JSONDict).Set("spec", jsonutils.Marshal(spec))
+
+		if _, err := modules.Containers.Update(s, opts.ID, result); err != nil {
+			return errors.Wrap(err, "update spec")
+		}
 		return nil
 	})
 }

@@ -206,6 +206,10 @@ func (m *SGuestManager) GetCRI() pod.CRI {
 	return m.host.GetCRI()
 }
 
+func (m *SGuestManager) GetContainerCPUMap() *pod.HostContainerCPUMap {
+	return m.host.GetContainerCPUMap()
+}
+
 func (m *SGuestManager) getPythonPath() string {
 	return m.pythonPath
 }

@@ -120,6 +120,10 @@ func (s *sPodGuestInstance) getCRI() pod.CRI {
 	return s.manager.GetCRI()
 }
 
+func (s *sPodGuestInstance) getHostCPUMap() *pod.HostContainerCPUMap {
+	return s.manager.GetContainerCPUMap()
+}
+
 func (s *sPodGuestInstance) getPod(ctx context.Context) (*runtimeapi.PodSandbox, error) {
 	pods, err := s.getCRI().ListPods(ctx, pod.ListPodOptions{})
 	if err != nil {
@@ -816,13 +820,21 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	if err != nil {
 		return "", errors.Wrap(err, "getPodSandboxConfig")
 	}
+	spec := input.Spec
 	mounts, err := s.getContainerMounts(ctrId, input)
 	if err != nil {
 		return "", errors.Wrap(err, "get container mounts")
 	}
+	if spec.SimulateCpu {
+		systemCpuMounts, err := s.simulateContainerSystemCpu(ctx, ctrId)
+		if err != nil {
+			return "", errors.Wrapf(err, "simulate container system cpu")
+		}
+		newMounts := systemCpuMounts
+		newMounts = append(newMounts, mounts...)
+		mounts = newMounts
+	}
 
-	// REF: https://docs.docker.com/config/containers/resource_constraints/#configure-the-default-cfs-scheduler
-	spec := input.Spec
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
 			Name: input.Name,
@@ -832,6 +844,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		},
 		Linux: &runtimeapi.LinuxContainerConfig{
 			Resources: &runtimeapi.LinuxContainerResources{
+				// REF: https://docs.docker.com/config/containers/resource_constraints/#configure-the-default-cfs-scheduler
 				CpuPeriod: s.getDefaultCPUPeriod(),
 				CpuQuota:  s.GetDesc().Cpu * s.getDefaultCPUPeriod(),
 				//CpuShares:              defaultCPUPeriod,
@@ -917,6 +930,69 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	return criId, nil
 }
 
+func (s *sPodGuestInstance) getContainerSystemCpusDir(ctrId string) string {
+	return filepath.Join(s.HomeDir(), "cpus", ctrId)
+}
+
+func (s *sPodGuestInstance) ensureContainerSystemCpuDir(cpuDir string, cpuCnt int64) error {
+	// create cpu dir like /var/lib/docker/cpus/$ctr_name
+	if err := pod.EnsureContainerSystemCpuDir(cpuDir, cpuCnt); err != nil {
+		return errors.Wrap(err, "ensure container system cpu dir")
+	}
+
+	return nil
+}
+
+func (s *sPodGuestInstance) findHostCpuPath(ctrId string, cpuIndex int) (int, error) {
+	return s.getHostCPUMap().Get(ctrId, cpuIndex)
+}
+
+func (s *sPodGuestInstance) simulateContainerSystemCpu(ctx context.Context, ctrId string) ([]*runtimeapi.Mount, error) {
+	cpuDir := s.getContainerSystemCpusDir(ctrId)
+	cpuCnt := s.GetDesc().Cpu
+	if err := s.ensureContainerSystemCpuDir(cpuDir, cpuCnt); err != nil {
+		return nil, err
+	}
+	sysCpuPath := "/sys/devices/system/cpu"
+	ret := []*runtimeapi.Mount{
+		{
+			ContainerPath: sysCpuPath,
+			HostPath:      cpuDir,
+		},
+	}
+	for i := 0; i < int(cpuCnt); i++ {
+		hostCpuIdx, err := s.findHostCpuPath(ctrId, i)
+		if err != nil {
+			return nil, errors.Wrapf(err, "find host cpu by container %s with index %d", ctrId, i)
+		}
+		hostCpuPath := filepath.Join(sysCpuPath, fmt.Sprintf("cpu%d", hostCpuIdx))
+		ret = append(ret, &runtimeapi.Mount{
+			ContainerPath: filepath.Join(sysCpuPath, fmt.Sprintf("cpu%d", i)),
+			HostPath:      hostCpuPath,
+		})
+	}
+	pathMap := func(baseName string) *runtimeapi.Mount {
+		p := filepath.Join(sysCpuPath, baseName)
+		return &runtimeapi.Mount{
+			ContainerPath: p,
+			HostPath:      p,
+			Readonly:      true,
+		}
+	}
+	for _, baseName := range []string{
+		"modalias",
+		"power",
+		"cpuidle",
+		"hotplug",
+		"isolated",
+		"cpufreq",
+		"uevent",
+	} {
+		ret = append(ret, pathMap(baseName))
+	}
+	return ret, nil
+}
+
 func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error) {
 	criId, err := s.getContainerCRIId(ctrId)
 	if err != nil && errors.Cause(err) != errors.ErrNotFound {
@@ -931,6 +1007,9 @@ func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclie
 	delete(s.containers, ctrId)
 	if err := s.saveContainersFile(s.containers); err != nil {
 		return nil, errors.Wrap(err, "saveContainersFile")
+	}
+	if err := s.getHostCPUMap().Delete(ctrId); err != nil {
+		log.Warningf("delete container %s cpu map: %v", ctrId, err)
 	}
 	return nil, nil
 }

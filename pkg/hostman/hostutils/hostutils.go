@@ -77,6 +77,7 @@ type IHost interface {
 	IsContainerHost() bool
 	GetContainerRuntimeEndpoint() string
 	GetCRI() pod.CRI
+	GetContainerCPUMap() *pod.HostContainerCPUMap
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
