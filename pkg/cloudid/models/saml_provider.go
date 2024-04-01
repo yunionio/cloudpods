@@ -16,22 +16,20 @@ package models
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/samlutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -40,6 +38,7 @@ type SSAMLProviderManager struct {
 	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SCloudaccountResourceBaseManager
+	SCloudproviderResourceBaseManager
 }
 
 var SAMLProviderManager *SSAMLProviderManager
@@ -59,7 +58,9 @@ func init() {
 type SSAMLProvider struct {
 	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
+
 	SCloudaccountResourceBase
+	SCloudproviderResourceBase
 
 	EntityId         string `get:"domain" create:"domain_optional" list:"domain"`
 	MetadataDocument string `get:"domain" create:"domain_optional"`
@@ -87,32 +88,27 @@ func (manager *SSAMLProviderManager) FilterByUniqValues(q *sqlchemy.SQuery, valu
 	return q
 }
 
-// 创建云账号的身份提供商
-func (manager *SSAMLProviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SAMLProviderCreateInput) (api.SAMLProviderCreateInput, error) {
-	if len(input.CloudaccountId) == 0 {
-		return input, httperrors.NewMissingParameterError("cloudaccount_id")
-	}
-	_, err := validators.ValidateModel(ctx, userCred, CloudaccountManager, &input.CloudaccountId)
+func (self *SSAMLProvider) GetCloudprovider() (*SCloudprovider, error) {
+	provider, err := CloudproviderManager.FetchById(self.ManagerId)
 	if err != nil {
-		return input, err
+		return nil, errors.Wrapf(err, "CloudproviderManager.FetchById(%s)", self.ManagerId)
 	}
-	input.EntityId = options.Options.ApiServer
-	if len(input.EntityId) == 0 {
-		return input, httperrors.NewResourceNotReadyError("not set api_server")
-	}
-	input.Name = strings.TrimPrefix(input.EntityId, "https://")
-	input.Name = strings.TrimPrefix(input.Name, "http://")
-
-	input.MetadataDocument = SamlIdpInstance().GetMetadata(input.CloudaccountId).String()
-	input.StatusInfrasResourceBaseCreateInput, err = manager.SStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusInfrasResourceBaseCreateInput)
-	if err != nil {
-		return input, err
-	}
-	return input, nil
+	return provider.(*SCloudprovider), nil
 }
 
-func (self *SSAMLProvider) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.StartSAMLProviderCreateTask(ctx, userCred, "")
+func (self *SSAMLProvider) GetProvider() (cloudprovider.ICloudProvider, error) {
+	if len(self.ManagerId) > 0 {
+		provider, err := self.GetCloudprovider()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetCloudprovider")
+		}
+		return provider.GetProvider()
+	}
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCloudaccount")
+	}
+	return account.GetProvider()
 }
 
 // 公有云身份提供商列表
@@ -126,6 +122,12 @@ func (manager *SSAMLProviderManager) ListItemFilter(ctx context.Context, q *sqlc
 	if err != nil {
 		return nil, err
 	}
+
+	q, err = manager.SCloudproviderResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudproviderResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+
 	return q, nil
 }
 
@@ -133,6 +135,35 @@ func (manager *SSAMLProviderManager) ListItemFilter(ctx context.Context, q *sqlc
 func (self *SSAMLProvider) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	params := jsonutils.NewDict()
 	return self.StartSAMLProviderDeleteTask(ctx, userCred, params, "")
+}
+
+func (self *SSAMLProvider) StartSAMLProviderDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderDeleteTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SSAMLProvider) GetISAMLProvider() (cloudprovider.ICloudSAMLProvider, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	provider, err := self.GetProvider()
+	if err != nil {
+		return nil, err
+	}
+	samlProviders, err := provider.GetICloudSAMLProviders()
+	if err != nil {
+		return nil, err
+	}
+	for i := range samlProviders {
+		if samlProviders[i].GetGlobalId() == self.ExternalId {
+			return samlProviders[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
 }
 
 func (self *SSAMLProvider) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -143,84 +174,25 @@ func (self *SSAMLProvider) RealDelete(ctx context.Context, userCred mcclient.Tok
 	return self.SStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SSAMLProvider) StartSAMLProviderDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderDeleteTask", self, userCred, data, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_DELETING, "")
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SSAMLProvider) IsNeedUpldateMetadata() bool {
-	if len(self.ExternalId) == 0 || len(self.EntityId) == 0 || len(self.MetadataDocument) == 0 {
-		return false
-	}
-	metadata := SamlIdpInstance().GetMetadata(self.Id)
-	if self.EntityId != metadata.EntityId {
-		return false
-	}
-
-	keyword := fmt.Sprintf("login/%s", self.CloudaccountId)
-	if strings.Contains(self.MetadataDocument, keyword) {
-		return false
-	}
-	return true
-}
-
-func (self *SSAMLProvider) StartSAMLProviderUpdateMetadataTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderUpdateMetadataTask", self, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_UPDATE_METADATA, "")
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SSAMLProvider) StartSAMLProviderCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderCreateTask", self, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_CREATING, "")
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SSAMLProvider) StartSAMLProviderSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "SAMLProviderSyncTask", self, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	self.SetStatus(ctx, userCred, api.SAML_PROVIDER_STATUS_SYNC, "")
-	task.ScheduleRun(nil)
-	return nil
-}
-
 func (self *SSAMLProvider) syncRemove(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SSAMLProvider) SyncWithCloudSAMLProvider(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSAMLProvider) error {
+func (self *SSAMLProvider) SyncWithCloudSAMLProvider(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSAMLProvider, managerId string) error {
 	_, err := db.Update(self, func() error {
 		self.ExternalId = ext.GetGlobalId()
 		self.AuthUrl = ext.GetAuthUrl(options.Options.ApiServer)
-		self.Status = ext.GetStatus()
-		metadata, err := ext.GetMetadataDocument()
-		if err != nil {
-			log.Errorf("failed to get metadata for %s error: %v", self.Name, err)
-		}
+		metadata, _ := ext.GetMetadataDocument()
 		if metadata != nil {
 			self.EntityId = metadata.EntityId
 			self.MetadataDocument = metadata.String()
-			if self.IsNeedUpldateMetadata() {
-				self.Status = api.SAML_PROVIDER_STATUS_NOT_MATCH
-			}
 		}
-		if self.EntityId != options.Options.ApiServer {
-			self.Status = api.SAML_PROVIDER_STATUS_NOT_MATCH
+		self.Status = apis.STATUS_UNKNOWN
+		if self.EntityId == options.Options.ApiServer && strings.Contains(self.MetadataDocument, "login/"+self.ManagerId) {
+			self.Status = apis.STATUS_AVAILABLE
+		}
+		if len(managerId) > 0 {
+			self.ManagerId = managerId
 		}
 		return nil
 	})
@@ -249,4 +221,84 @@ func (manager *SSAMLProviderManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
+}
+
+func (self *SCloudaccount) SyncSAMLProviders(ctx context.Context, userCred mcclient.TokenCredential, samls []cloudprovider.ICloudSAMLProvider, managerId string) compare.SyncResult {
+	result := compare.SyncResult{}
+	dbSamls, err := self.GetSAMLProviders(managerId)
+	if err != nil {
+		result.Error(errors.Wrap(err, "GetSAMLProviders"))
+		return result
+	}
+
+	removed := make([]SSAMLProvider, 0)
+	commondb := make([]SSAMLProvider, 0)
+	commonext := make([]cloudprovider.ICloudSAMLProvider, 0)
+	added := make([]cloudprovider.ICloudSAMLProvider, 0)
+
+	err = compare.CompareSets(dbSamls, samls, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrap(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudSAMLProvider(ctx, userCred, commonext[i], managerId)
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		err = self.newFromCloudSAMLProvider(ctx, userCred, added[i], managerId)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+	return result
+}
+
+func (self *SCloudaccount) newFromCloudSAMLProvider(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSAMLProvider, managerId string) error {
+	saml := &SSAMLProvider{}
+	saml.SetModelManager(SAMLProviderManager, saml)
+	saml.Name = ext.GetName()
+	saml.ExternalId = ext.GetGlobalId()
+	saml.DomainId = self.DomainId
+	saml.CloudaccountId = self.Id
+	saml.ManagerId = managerId
+	saml.AuthUrl = ext.GetAuthUrl(options.Options.ApiServer)
+	metadata, _ := ext.GetMetadataDocument()
+	if metadata != nil {
+		saml.EntityId = metadata.EntityId
+		saml.MetadataDocument = metadata.String()
+	}
+	saml.Status = ext.GetStatus()
+	saml.Status = apis.STATUS_UNKNOWN
+	if saml.EntityId == options.Options.ApiServer && strings.Contains(saml.MetadataDocument, "login/"+saml.ManagerId) {
+		saml.Status = apis.STATUS_AVAILABLE
+	}
+	return SAMLProviderManager.TableSpec().Insert(ctx, saml)
+}
+
+func (self *SCloudprovider) GetSamlProviders() ([]SSAMLProvider, error) {
+	q := SAMLProviderManager.Query().Equals("manager_id", self.Id)
+	ret := []SSAMLProvider{}
+	err := db.FetchModelObjects(SAMLProviderManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }

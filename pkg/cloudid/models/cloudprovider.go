@@ -19,15 +19,18 @@ import (
 	"database/sql"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
@@ -57,248 +60,55 @@ type SCloudprovider struct {
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
-func (manager *SCloudproviderManager) newFromRegionProvider(ctx context.Context, userCred mcclient.TokenCredential, provider SCloudprovider) error {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	return manager.TableSpec().Insert(ctx, &provider)
-}
-
-func (self *SCloudprovider) syncWithRegionProvider(ctx context.Context, userCred mcclient.TokenCredential, provider SCloudprovider) error {
-	_, err := db.UpdateWithLock(ctx, self, func() error {
-		self.Name = provider.Name
-		return nil
-	})
-	return err
-}
-
-func (self SCloudprovider) GetGlobalId() string {
-	return self.Id
-}
-
-func (self SCloudprovider) GetExternalId() string {
-	return self.Id
-}
-
-func (manager *SCloudproviderManager) FetchProvider(ctx context.Context, id string) (*SCloudprovider, error) {
-	provider, err := manager.FetchById(id)
+func (m *SCloudproviderManager) FetchProvier(id string) (*SCloudprovider, error) {
+	ret, err := m.FetchById(id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			session := auth.GetAdminSession(context.Background(), options.Options.Region)
-			result, err := modules.Cloudproviders.Get(session, id, nil)
-			if err != nil {
-				return nil, errors.Wrap(err, "Cloudproviders.Get")
-			}
-			_provider := &SCloudprovider{}
-			_provider.SetModelManager(manager, _provider)
-			err = result.Unmarshal(_provider)
-			if err != nil {
-				return nil, errors.Wrap(err, "result.Unmarshal")
-			}
-
-			lockman.LockRawObject(ctx, manager.KeywordPlural(), id)
-			defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), id)
-			return _provider, manager.TableSpec().InsertOrUpdate(ctx, _provider)
-		}
-		return nil, errors.Wrap(err, "manager.FetchById")
+		return nil, err
 	}
-	return provider.(*SCloudprovider), nil
+	return ret.(*SCloudprovider), nil
 }
 
-func (self *SCloudprovider) getCloudDelegate(ctx context.Context) (*SCloudDelegate, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	result, err := modules.Cloudproviders.Get(s, self.Id, nil)
+func (self *SCloudprovider) GetRole(ctx context.Context, userId string) (*SCloudrole, error) {
+	groups := CloudgroupManager.Query().Equals("manager_id", self.Id).SubQuery()
+	sq := SamluserManager.Query("cloudrole_id").Equals("owner_id", userId)
+	sq = sq.Join(groups, sqlchemy.Equals(groups.Field("id"), sq.Field("cloudgroup_id")))
+	ret := &SCloudrole{}
+	ret.SetModelManager(CloudroleManager, ret)
+	err := CloudroleManager.Query().In("id", sq.SubQuery()).IsNotEmpty("external_id").First(ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "Cloudproviders.Get")
+		return nil, err
 	}
-	delegate := &SCloudDelegate{}
-	err = result.Unmarshal(delegate)
+	return ret, nil
+}
+
+func (self *SCloudprovider) GetSamlUser(userId string) (*SSamluser, error) {
+	groups := CloudgroupManager.Query("id").Equals("manager_id", self.Id).SubQuery()
+	q := SamluserManager.Query().Equals("owner_id", userId).In("cloudgroup_id", groups)
+	ret := &SSamluser{}
+	ret.SetModelManager(SamluserManager, ret)
+	err := q.First(ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "result.Unmarshal")
+		return nil, err
 	}
-	return delegate, nil
+	return ret, nil
+}
+
+func (self *SCloudprovider) GetSamlProvider() (*SSAMLProvider, error) {
+	q := SAMLProviderManager.Query().Equals("status", apis.STATUS_AVAILABLE).
+		Equals("entity_id", options.Options.ApiServer).Equals("manager_id", self.Id).IsNotEmpty("external_id")
+	ret := &SSAMLProvider{}
+	ret.SetModelManager(SAMLProviderManager, ret)
+	err := q.First(ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
-	delegate, err := self.getCloudDelegate(context.Background())
-	if err != nil {
-		return nil, errors.Wrap(err, "getCloudproviderDelegate")
-	}
-	return delegate.GetProvider()
-}
-
-func (self *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
-	return cloudprovider.GetProviderFactory(self.Provider)
-}
-
-func (self *SCloudprovider) SyncCustomCloudpoliciesForCloud(ctx context.Context, clouduser *SClouduser) error {
-	account, err := self.GetCloudaccount()
-	if err != nil {
-		return errors.Wrap(err, "GetCloudaccount")
-	}
-
-	factory, err := self.GetProviderFactory()
-	if err != nil {
-		return errors.Wrapf(err, "GetProviderFactory")
-	}
-
-	policyIds := []string{}
-	policies, err := clouduser.GetCustomCloudpolicies("")
-	if err != nil {
-		return errors.Wrap(err, "GetSystemCloudpolicies")
-	}
-	for i := range policies {
-		err = account.getOrCacheCustomCloudpolicy(ctx, self.Id, policies[i].Id)
-		if err != nil {
-			return errors.Wrapf(err, "getOrCacheCloudpolicy %s(%s) for cloudprovider %s", policies[i].Name, policies[i].Provider, self.Name)
-		}
-		policyIds = append(policyIds, policies[i].Id)
-	}
-
-	if !factory.IsSupportCreateCloudgroup() {
-		policies, err = clouduser.GetCustomCloudgroupPolicies()
-		if err != nil {
-			return errors.Wrap(err, "GetSystemCloudgroupPolicies")
-		}
-		for i := range policies {
-			err = account.getOrCacheCustomCloudpolicy(ctx, self.Id, policies[i].Id)
-			if err != nil {
-				return errors.Wrapf(err, "getOrCacheCloudpolicy %s(%s) for cloudprovider %s", policies[i].Name, policies[i].Provider, self.Name)
-			}
-			policyIds = append(policyIds, policies[i].Id)
-		}
-	}
-
-	dbCaches := []SCloudpolicycache{}
-	if len(policyIds) > 0 {
-		dbCaches, err = account.GetCloudpolicycaches(policyIds, self.Id)
-		if err != nil {
-			return errors.Wrapf(err, "GetCloudpolicycaches")
-		}
-	}
-
-	provider, err := self.GetProvider()
-	if err != nil {
-		return errors.Wrapf(err, "GetProvider")
-	}
-
-	iUser, err := provider.GetIClouduserByName(clouduser.Name)
-	if err != nil {
-		return errors.Wrapf(err, "GetIClouduser")
-	}
-
-	iPolicies, err := iUser.GetICustomCloudpolicies()
-	if err != nil {
-		return errors.Wrap(err, "GetISystemCloudpolicies")
-	}
-
-	added := make([]SCloudpolicycache, 0)
-	commondb := make([]SCloudpolicycache, 0)
-	commonext := make([]cloudprovider.ICloudpolicy, 0)
-	removed := make([]cloudprovider.ICloudpolicy, 0)
-
-	err = compare.CompareSets(dbCaches, iPolicies, &added, &commondb, &commonext, &removed)
-	if err != nil {
-		return errors.Wrap(err, "compare.CompareSets")
-	}
-
-	result := compare.SyncResult{}
-	for i := 0; i < len(removed); i++ {
-		err = iUser.DetachCustomPolicy(removed[i].GetGlobalId())
-		if err != nil {
-			result.DeleteError(err)
-			continue
-		}
-		result.Delete()
-	}
-
-	result.UpdateCnt = len(commondb)
-
-	for i := 0; i < len(added); i++ {
-		err = iUser.AttachCustomPolicy(added[i].ExternalId)
-		if err != nil {
-			result.AddError(err)
-			continue
-		}
-		result.Add()
-	}
-
-	log.Infof("Sync %s(%s) custom policies for user %s result: %s", self.Name, self.Provider, clouduser.Name, result.Result())
-	return nil
-}
-
-func (self *SCloudprovider) SyncSystemCloudpoliciesForCloud(ctx context.Context, clouduser *SClouduser) error {
-	dbPolicies, err := clouduser.GetSystemCloudpolicies(self.Id)
-	if err != nil {
-		return errors.Wrap(err, "GetSystemCloudpolicies")
-	}
-	factory, err := self.GetProviderFactory()
-	if err != nil {
-		return errors.Wrap(err, "GetProviderFactory")
-	}
-	if !factory.IsSupportCreateCloudgroup() {
-		policyMaps := map[string]SCloudpolicy{}
-		for i := range dbPolicies {
-			policyMaps[dbPolicies[i].Id] = dbPolicies[i]
-		}
-		policies, err := clouduser.GetSystemCloudgroupPolicies()
-		if err != nil {
-			return errors.Wrap(err, "GetSystemCloudgroupPolicies")
-		}
-		for i := range policies {
-			_, ok := policyMaps[policies[i].Id]
-			if !ok {
-				policyMaps[policies[i].Id] = policies[i]
-				dbPolicies = append(dbPolicies, policies[i])
-			}
-		}
-	}
-	provider, err := self.GetProvider()
-	if err != nil {
-		return errors.Wrapf(err, "GetProvider")
-	}
-	iUser, err := provider.GetIClouduserByName(clouduser.Name)
-	if err != nil {
-		return errors.Wrapf(err, "GetIClouduserByName(%s)", clouduser.Name)
-	}
-
-	iPolicies, err := iUser.GetISystemCloudpolicies()
-	if err != nil {
-		return errors.Wrap(err, "GetISystemCloudpolicies")
-	}
-
-	added := make([]SCloudpolicy, 0)
-	commondb := make([]SCloudpolicy, 0)
-	commonext := make([]cloudprovider.ICloudpolicy, 0)
-	removed := make([]cloudprovider.ICloudpolicy, 0)
-
-	err = compare.CompareSets(dbPolicies, iPolicies, &added, &commondb, &commonext, &removed)
-	if err != nil {
-		return errors.Wrap(err, "compare.CompareSets")
-	}
-
-	result := compare.SyncResult{}
-	for i := 0; i < len(removed); i++ {
-		err = iUser.DetachSystemPolicy(removed[i].GetGlobalId())
-		if err != nil {
-			result.DeleteError(err)
-			continue
-		}
-		result.Delete()
-	}
-
-	result.UpdateCnt = len(commondb)
-
-	for i := 0; i < len(added); i++ {
-		err = iUser.AttachSystemPolicy(added[i].ExternalId)
-		if err != nil {
-			result.AddError(err)
-			continue
-		}
-		result.Add()
-	}
-
-	log.Infof("Sync %s(%s) system policies for user %s in provider %s result: %s", self.Name, self.Provider, clouduser.Name, self.Name, result.Result())
-	return nil
+	ctx := context.Background()
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	return modules.Cloudproviders.GetProvider(ctx, s, self.Id)
 }
 
 func (self *SCloudprovider) GetCloudaccount() (*SCloudaccount, error) {
@@ -309,23 +119,118 @@ func (self *SCloudprovider) GetCloudaccount() (*SCloudaccount, error) {
 	return account.(*SCloudaccount), nil
 }
 
-func (self *SCloudprovider) SyncCustomCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential) error {
-	provider, err := self.GetProvider()
+func (self *SCloudprovider) GetDriver() (IProviderDriver, error) {
+	return GetProviderDriver(self.Provider)
+}
+
+func (self *SCloudprovider) StartCloudproviderSyncResourcesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudproviderSyncResourcesTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		return errors.Wrapf(err, "GetProvider")
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (manager *SCloudproviderManager) GetSupportCloudIdProviders() ([]SCloudprovider, error) {
+	ret := []SCloudprovider{}
+	q := manager.Query().In("provider", cloudprovider.GetSupportCloudIdProvider())
+	err := db.FetchModelObjects(manager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return ret, nil
+}
+
+func (manager *SCloudproviderManager) SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	managers, err := manager.GetSupportCloudIdProviders()
+	if err != nil {
+		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
+		return
+	}
+	for i := range managers {
+		err = managers[i].StartCloudproviderSyncResourcesTask(ctx, userCred, "")
+		if err != nil {
+			log.Errorf("StartCloudproviderSyncResourcesTask for manager %s(%s) error: %v", managers[i].Name, managers[i].Provider, err)
+		}
+	}
+}
+
+func (m *SCloudproviderManager) StartWatchInRegion() error {
+	adminSession := auth.GetAdminSession(context.Background(), "")
+	watchMan, err := informer.NewWatchManagerBySession(adminSession)
+	if err != nil {
+		return err
+	}
+	resMan := &modules.Cloudproviders
+	return watchMan.For(resMan).AddEventHandler(context.Background(), m)
+}
+
+func (m *SCloudproviderManager) OnAdd(obj *jsonutils.JSONDict) {
+	model := &SCloudprovider{}
+	model.SetModelManager(m, model)
+	ctx := context.Background()
+	err := obj.Unmarshal(model)
+	if err != nil {
+		return
+	}
+	if len(model.Provider) == 0 || len(model.CloudaccountId) == 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		data, err := modules.Cloudproviders.GetById(s, model.Id, nil)
+		if err != nil {
+			return
+		}
+		err = data.Unmarshal(model)
+		if err != nil {
+			return
+		}
 	}
 
-	account, err := self.GetCloudaccount()
+	err = m.TableSpec().InsertOrUpdate(ctx, model)
 	if err != nil {
-		return errors.Wrapf(err, "GetCloudaccount")
+		return
 	}
 
-	policies, err := provider.GetICustomCloudpolicies()
-	if err != nil {
-		return errors.Wrapf(err, "GetICustomCloudpolicies for account %s(%s)", self.Name, self.Provider)
-	}
+	model.StartCloudproviderSyncResourcesTask(ctx, auth.AdminCredential(), "")
+}
 
-	result := account.SyncCustomCloudpoliciesToLocal(ctx, userCred, policies, self.Id)
-	log.Infof("Sync %s custom policies for cloudprovider %s result: %s", self.Provider, self.Name, result.Result())
-	return nil
+func (self *SCloudprovider) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.purge(ctx)
+}
+
+func (m *SCloudproviderManager) OnDelete(obj *jsonutils.JSONDict) {
+	provider, err := func() (*SCloudprovider, error) {
+		id, err := obj.GetString("id")
+		if err != nil {
+			return nil, errors.Wrapf(err, "get id")
+		}
+		provider, err := m.FetchById(id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetch by id %s", id)
+		}
+		return provider.(*SCloudprovider), nil
+	}()
+	if err != nil {
+		log.Errorf("fetch manager error: %v", err)
+		return
+	}
+	err = provider.Delete(context.Background(), nil)
+	if err != nil {
+		log.Errorf("purge account error: %v", err)
+		return
+	}
+}
+
+func (m *SCloudproviderManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
+	info := struct {
+		Id   string
+		Name string
+	}{}
+	newObj.Unmarshal(&info)
+	log.Debugf("OnUpdate %s", jsonutils.Marshal(info).String())
+	_, err := m.FetchProvier(info.Id)
+	if err != nil && errors.Cause(err) == sql.ErrNoRows {
+		m.OnAdd(newObj)
+		return
+	}
 }

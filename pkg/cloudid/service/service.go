@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	_ "yunion.io/x/onecloud/pkg/cloudid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
 	_ "yunion.io/x/onecloud/pkg/cloudid/policy"
@@ -72,13 +73,20 @@ func StartService() {
 		return
 	}
 
+	models.CloudaccountManager.StartWatchSAMLInRegion()
+	if err != nil {
+		log.Fatalf("StartWatchSAMLInRegion error: %v", err)
+	}
+
+	models.CloudproviderManager.StartWatchInRegion()
+	if err != nil {
+		log.Fatalf("StartWatchInRegion error: %v", err)
+	}
+
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
-		cron.AddJobAtIntervalsWithStartRun("SyncCloudaccounts", time.Duration(opts.CloudaccountSyncIntervalMinutes)*time.Minute, models.CloudaccountManager.SyncCloudaccounts, true)
-		cron.AddJobAtIntervalsWithStartRun("SyncSAMLProviders", time.Duration(opts.SAMLProviderSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncSAMLProviders, true)
-		cron.AddJobAtIntervalsWithStartRun("SyncSystemCloudpolicies", time.Duration(opts.SystemPoliciesSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudidSystemPolicies, true)
-		cron.AddJobAtIntervalsWithStartRun("SyncCloudIdResources", time.Duration(opts.CloudIdResourceSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudidResources, true)
-		cron.AddJobAtIntervalsWithStartRun("SyncCloudroles", time.Duration(opts.CloudroleSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudroles, true)
+		cron.AddJobAtIntervalsWithStartRun("SyncCloudaccountResources", time.Duration(opts.CloudIdResourceSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudaccountResources, false)
+		cron.AddJobAtIntervalsWithStartRun("SyncCloudproviderResources", time.Duration(opts.CloudIdResourceSyncIntervalHours)*time.Hour, models.CloudproviderManager.SyncCloudproviderResources, false)
 
 		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 

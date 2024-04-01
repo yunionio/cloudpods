@@ -15,28 +15,14 @@
 package cloudid
 
 import (
-	"yunion.io/x/cloudmux/pkg/apis/cloudid"
-
 	"yunion.io/x/onecloud/pkg/apis"
-)
-
-const (
-	SAML_PROVIDER_STATUS_AVAILABLE              = cloudid.SAML_PROVIDER_STATUS_AVAILABLE
-	SAML_PROVIDER_STATUS_NOT_MATCH              = "not_match"
-	SAML_PROVIDER_STATUS_DELETING               = "deleting"
-	SAML_PROVIDER_STATUS_DELETE_FAILED          = "delete_failed"
-	SAML_PROVIDER_STATUS_UNKNOWN                = "unknown"
-	SAML_PROVIDER_STATUS_CREATING               = "creating"
-	SAML_PROVIDER_STATUS_CREATE_FAILED          = "create_failed"
-	SAML_PROVIDER_STATUS_UNVALIABLE             = cloudid.SAML_PROVIDER_STATUS_UNVALIABLE
-	SAML_PROVIDER_STATUS_UPDATE_METADATA        = "update_metadata"
-	SAML_PROVIDER_STATUS_UPDATE_METADATA_FAILED = "update_metadata_failed"
-	SAML_PROVIDER_STATUS_SYNC                   = "sync"
 )
 
 type SAMLProviderListInput struct {
 	apis.StatusInfrasResourceBaseListInput
+
 	CloudaccountResourceListInput
+	CloudproviderResourceListInput
 }
 
 type SAMLProviderDetails struct {

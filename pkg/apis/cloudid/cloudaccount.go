@@ -16,21 +16,21 @@ package cloudid
 
 type CloudaccountResourceListInput struct {
 	// 根据云账号名称过滤资源
-	Cloudaccount string `json:"cloudaccount"`
+	Cloudaccount string `json:"cloudaccount" yunion-deprecated-by:"cloudaccount_id"`
 
 	// 根据平台过滤
 	Provider []string `json:"provider"`
 
 	// swagger:ignore
-	CloudaccountId string `json:"cloudaccount_id" yunion-deprecated-by:"cloudaccount"`
+	CloudaccountId string `json:"cloudaccount_id"`
 }
 
 type CloudproviderResourceListInput struct {
 	// 根据云订阅过滤资源
-	Cloudprovider string `json:"cloudprovider"`
+	ManagerId string `json:"manager_id"`
 
 	// swagger:ignore
-	CloudproviderId string `json:"cloudprovider_id" yunion-deprecated-by:"cloudprovider"`
+	CloudproviderId string `json:"cloudprovider_id" yunion-deprecated-by:"manager_id"`
 }
 
 type CloudaccountResourceDetails struct {
@@ -47,5 +47,5 @@ type CloudaccountResourceDetails struct {
 
 type CloudproviderResourceDetails struct {
 	// 云订阅名称
-	Cloudprovider string `json:"cloudprovider"`
+	Manager string `json:"manager"`
 }

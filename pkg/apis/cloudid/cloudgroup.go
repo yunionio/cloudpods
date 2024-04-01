@@ -16,17 +16,6 @@ package cloudid
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-const (
-	CLOUD_GROUP_STATUS_AVAILABLE            = "available"            // 可用
-	CLOUD_GROUP_STATUS_DELETING             = "deleting"             // 删除中
-	CLOUD_GROUP_STATUS_DELETE_FAILED        = "delete_failed"        // 删除失败
-	CLOUD_GROUP_STATUS_SYNC_POLICIES        = "sync_policies"        // 同步权限中
-	CLOUD_GROUP_STATUS_SYNC_POLICIES_FAILED = "sync_policies_failed" // 同步权限失败
-	CLOUD_GROUP_STATUS_SYNC_USERS           = "sync_users"           // 同步用户中
-	CLOUD_GROUP_STATUS_SYNC_USERS_FAILED    = "sync_users_failed"    // 同步用户失败
-	CLOUD_GROUP_STATUS_SYNC_STATUS          = "sync_status"          // 同步状态
-)
-
 type CloudgroupJointResourceDetails struct {
 	apis.JointResourceBaseDetails
 
@@ -74,18 +63,14 @@ type CloudgroupPolicyListInput struct {
 
 type CloudgroupListInput struct {
 	apis.StatusInfrasResourceBaseListInput
-
-	// 根据平台过滤
-	Provider []string `json:"provider"`
+	CloudaccountResourceListInput
+	CloudproviderResourceListInput
 
 	// 过滤子账号所在的权限组
 	ClouduserId string `json:"clouduser_id"`
 
 	// 根据权限过滤权限组
 	CloudpolicyId string `json:"cloudpolicy_id"`
-
-	// 是否可用
-	Usable *bool `json:"usable"`
 }
 
 type SCloudIdBaseResource struct {
@@ -95,14 +80,15 @@ type SCloudIdBaseResource struct {
 
 type CloudgroupDetails struct {
 	apis.StatusInfrasResourceBaseDetails
+	CloudaccountResourceDetails
+	CloudproviderResourceDetails
+
 	SCloudgroup
 
 	// 公有云子用户数量
 	ClouduserCount int `json:"clouduser_count"`
 	// 权限数量
 	CloudpolicyCount int `json:"cloudpolicy_count"`
-	// 公有云权限组缓存数量
-	CloudgroupcacheCount int `json:"cloudgroupcache_count"`
 
 	Cloudpolicies []SCloudIdBaseResource `json:"cloudpolicies"`
 	Cloudusers    []SCloudIdBaseResource `json:"cloudusers"`
@@ -111,8 +97,10 @@ type CloudgroupDetails struct {
 type CloudgroupCreateInput struct {
 	apis.StatusInfrasResourceBaseCreateInput
 
-	// 平台, 目前支持Qcloud,Google,Azure,Aliyun,Huawei,Aws
-	Provider string `json:"provider"`
+	// 子账号Id
+	ManagerId string `json:"manager_id"`
+	// swagger: ignore
+	CloudaccountId string `json:"cloudaccount_id"`
 
 	// 权限Id列表, 权限provider必须和权限组provider一致
 	CloudpolicyIds []string `json:"cloudpolicy_ids"`
@@ -171,4 +159,33 @@ type CloudgroupResourceListInput struct {
 type CloudgroupResourceDetails struct {
 	// 公有云用户名称
 	Cloudgroup string `json:"cloudgroup"`
+}
+
+type SPolicy struct {
+	Name       string
+	ExternalId string
+	PolicyType string
+}
+
+type GroupUser struct {
+	Name       string
+	ExternalId string
+}
+
+type SGroup struct {
+	Id   string
+	Name string
+}
+
+type GetCloudaccountSamlOutput struct {
+	// cloudaccount SAML ServiceProvider entity ID
+	EntityId string `json:"entity_id,allowempty"`
+	// redirect login URL for this cloudaccount
+	RedirectLoginUrl string `json:"redirect_login_url,allowempty"`
+	// redirect logout URL for this cloudaccount
+	RedirectLogoutUrl string `json:"redirect_logout_url,allowempty"`
+	// metadata URL for this cloudaccount
+	MetadataUrl string `json:"metadata_url,allowempty"`
+	// initial SAML SSO login URL for this cloudaccount
+	InitLoginUrl string `json:"init_login_url,allowempty"`
 }

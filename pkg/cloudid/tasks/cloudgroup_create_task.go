@@ -17,37 +17,50 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type CloudgroupcacheSyncstatusTask struct {
+type CloudgroupCreateTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(CloudgroupcacheSyncstatusTask{})
+	taskman.RegisterTask(CloudgroupCreateTask{})
 }
 
-func (self *CloudgroupcacheSyncstatusTask) taskFailed(ctx context.Context, cache *models.SCloudgroupcache, err error) {
-	cache.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, err.Error())
-	logclient.AddActionLogWithStartable(self, cache, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
+func (self *CloudgroupCreateTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
+	group.SetStatus(ctx, self.GetUserCred(), apis.STATUS_CREATE_FAILED, err.Error())
+	logclient.AddActionLogWithStartable(self, group, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *CloudgroupcacheSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	cache := obj.(*models.SCloudgroupcache)
-	_, err := cache.GetICloudgroup()
+func (self *CloudgroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	group := obj.(*models.SCloudgroup)
+
+	provider, err := group.GetCloudprovider()
 	if err != nil {
-		self.taskFailed(ctx, cache, errors.Wrap(err, "GetICloudgroup"))
+		self.taskFailed(ctx, group, errors.Wrapf(err, "GetCloudprovider"))
 		return
 	}
-	cache.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE, "")
+
+	driver, err := provider.GetDriver()
+	if err != nil {
+		self.taskFailed(ctx, group, errors.Wrapf(err, "GetDriver"))
+		return
+	}
+
+	err = driver.RequestCreateCloudgroup(ctx, self.GetUserCred(), provider, group)
+	if err != nil {
+		self.taskFailed(ctx, group, errors.Wrapf(err, "RequestCreateCloudgroup"))
+		return
+	}
+
 	self.SetStageComplete(ctx, nil)
 }

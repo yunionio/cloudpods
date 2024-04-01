@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
@@ -37,19 +37,13 @@ func init() {
 }
 
 func (self *ClouduserDeleteTask) taskFailed(ctx context.Context, clouduser *models.SClouduser, err error) {
-	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_DELETE_FAILED, err.Error())
+	clouduser.SetStatus(ctx, self.GetUserCred(), apis.STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *ClouduserDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	clouduser := obj.(*models.SClouduser)
-
-	if len(clouduser.ExternalId) == 0 {
-		clouduser.RealDelete(ctx, self.GetUserCred())
-		self.SetStageComplete(ctx, nil)
-		return
-	}
 
 	iUser, err := clouduser.GetIClouduser()
 	if err != nil {

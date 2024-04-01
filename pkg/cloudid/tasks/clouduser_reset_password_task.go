@@ -45,37 +45,20 @@ func (self *ClouduserResetPasswordTask) OnInit(ctx context.Context, obj db.IStan
 	clouduser := obj.(*models.SClouduser)
 	password, _ := self.GetParams().GetString("password")
 
-	account, err := clouduser.GetCloudaccount()
-	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetCloudaccount"))
-		return
-	}
-
-	factory, err := account.GetProviderFactory()
-	if err != nil {
-		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetProviderFactory"))
-		return
-	}
-
 	iUser, err := clouduser.GetIClouduser()
 	if err != nil {
 		self.taskFailed(ctx, clouduser, errors.Wrap(err, "GetIClouduser"))
 		return
 	}
 
-	if factory.IsSupportResetClouduserPassword() {
-		err = iUser.ResetPassword(password)
-		if err != nil {
-			self.taskFailed(ctx, clouduser, errors.Wrap(err, "ResetPassword"))
-			return
-		}
-		clouduser.SyncWithClouduser(ctx, self.GetUserCred(), iUser)
-	} else {
-		password = ""
+	err = iUser.ResetPassword(password)
+	if err != nil {
+		self.taskFailed(ctx, clouduser, errors.Wrap(err, "ResetPassword"))
+		return
 	}
+	clouduser.SyncWithClouduser(ctx, self.GetUserCred(), iUser)
 
 	clouduser.SavePassword(password)
-	clouduser.SetStatus(ctx, self.GetUserCred(), api.CLOUD_USER_STATUS_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, clouduser, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

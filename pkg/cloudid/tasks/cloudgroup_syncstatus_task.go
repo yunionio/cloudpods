@@ -17,10 +17,10 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
@@ -35,32 +35,27 @@ func init() {
 }
 
 func (self *CloudgroupSyncstatusTask) taskFailed(ctx context.Context, group *models.SCloudgroup, err error) {
-	group.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, err.Error())
+	group.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *CloudgroupSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	group := obj.(*models.SCloudgroup)
 
-	caches, err := group.GetCloudgroupcaches()
+	iGroup, err := group.GetICloudgroup()
 	if err != nil {
-		self.taskFailed(ctx, group, errors.Wrapf(err, "GetCloudgroupcaches"))
+		self.taskFailed(ctx, group, errors.Wrapf(err, "GetICloudgroup"))
 		return
 	}
 
-	for i := range caches {
-		if len(caches[i].ExternalId) > 0 {
-			_, err := caches[i].GetICloudgroup()
-			if err != nil {
-				caches[i].SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_UNKNOWN, errors.Wrap(err, "GetICloudgroup").Error())
-				continue
-			}
-			if caches[i].Status != api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE {
-				caches[i].SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_CACHE_STATUS_AVAILABLE, "")
-			}
-		}
+	err = group.SyncWithCloudgroup(ctx, self.GetUserCred(), iGroup)
+	if err != nil {
+		self.taskFailed(ctx, group, errors.Wrapf(err, "SyncWithCloudgroup"))
+		return
 	}
 
-	group.SetStatus(ctx, self.GetUserCred(), api.CLOUD_GROUP_STATUS_AVAILABLE, "")
+	group.SyncCloudusers(ctx, self.GetUserCred(), iGroup)
+	group.SyncCloudpolicies(ctx, self.GetUserCred(), iGroup)
+
 	self.SetStageComplete(ctx, nil)
 }
