@@ -39,21 +39,21 @@ type SInformerSyncManager struct {
 func (manager *SInformerSyncManager) OnAdd(obj *jsonutils.JSONDict) {
 	log.Infof("[CREATED]: \n%s", obj.String())
 	if manager.NeedSync(obj) {
-		manager.SyncOnce()
+		manager.SyncOnce(false, false)
 	}
 }
 
 func (manager *SInformerSyncManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 	log.Infof("[UPDATED]: \n[NEW]: %s\n[OLD]: %s", newObj.String(), oldObj.String())
 	if manager.NeedSync(oldObj) || manager.NeedSync(newObj) {
-		manager.SyncOnce()
+		manager.SyncOnce(false, false)
 	}
 }
 
 func (manager *SInformerSyncManager) OnDelete(obj *jsonutils.JSONDict) {
 	log.Infof("[DELETED]: \n%s", obj.String())
 	if manager.NeedSync(obj) {
-		manager.SyncOnce()
+		manager.SyncOnce(false, false)
 	}
 }
 

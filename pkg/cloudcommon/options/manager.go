@@ -123,7 +123,7 @@ func optionsEquals(newOpts interface{}, oldOpts interface{}) bool {
 	return true
 }
 
-func (manager *SOptionManager) DoSync(first bool) (time.Duration, error) {
+func (manager *SOptionManager) DoSync(first bool, timeout bool) (time.Duration, error) {
 	newOpts := manager.newOptions()
 	copyOptions(newOpts, manager.options)
 	merged := manager.session.Merge(newOpts, manager.serviceType, manager.serviceVersion)

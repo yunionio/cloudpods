@@ -199,7 +199,7 @@ func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.To
 			return nil, httperrors.NewInternalServerError("update config version fail %s", err)
 		}
 		if service.Type == api.SERVICE_TYPE || service.Type == consts.COMMON_SERVICE {
-			options.OptionManager.SyncOnce()
+			options.OptionManager.SyncOnce(false, false)
 		}
 	}
 	return service.GetDetailsConfig(ctx, userCred, query)

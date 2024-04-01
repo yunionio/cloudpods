@@ -83,8 +83,8 @@ func init() {
 		SKeystoneCacheObjectManager: NewKeystoneCacheObjectManager(
 			STenant{},
 			"tenant_cache_tbl",
-			"tenant",
-			"tenants",
+			"tenant_cache",
+			"tenant_caches",
 		)}
 	// log.Debugf("Initialize tenant cache manager %s %s", TenantCacheManager.KeywordPlural(), TenantCacheManager)
 
