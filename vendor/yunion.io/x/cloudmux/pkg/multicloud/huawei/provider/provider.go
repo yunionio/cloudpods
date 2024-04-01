@@ -49,18 +49,6 @@ func (self *SHuaweiProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 7
 }
 
-func (self *SHuaweiProviderFactory) IsSupportCloudIdService() bool {
-	return true
-}
-
-func (self *SHuaweiProviderFactory) IsSupportClouduserPolicy() bool {
-	return false
-}
-
-func (self *SHuaweiProviderFactory) IsSupportCreateCloudgroup() bool {
-	return true
-}
-
 func (factory *SHuaweiProviderFactory) IsSupportCrossCloudEnvVpcPeering() bool {
 	return false
 }
