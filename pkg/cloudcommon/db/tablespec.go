@@ -57,6 +57,8 @@ type ITableSpec interface {
 	GetTableSpec() *sqlchemy.STableSpec
 
 	GetDBName() sqlchemy.DBName
+
+	InformUpdate(ctx context.Context, dt interface{}, oldObj *jsonutils.JSONDict)
 }
 
 type sTableSpec struct {
@@ -303,6 +305,7 @@ func (ts *sTableSpec) informUpdate(ctx context.Context, dt interface{}, oldObj *
 			debug.PrintStack()
 			return
 		}
+		debug.PrintStack()
 		if err := informer.Update(ctx, obj, oldObj); err != nil {
 			if errors.Cause(err) == informer.ErrBackendNotInit {
 				log.V(4).Warningf("informer backend not init")
@@ -312,4 +315,8 @@ func (ts *sTableSpec) informUpdate(ctx context.Context, dt interface{}, oldObj *
 		}
 	}
 	nopanic.Run(nf)
+}
+
+func (ts *sTableSpec) InformUpdate(ctx context.Context, dt interface{}, oldObj *jsonutils.JSONDict) {
+	ts.informUpdate(ctx, dt, oldObj)
 }

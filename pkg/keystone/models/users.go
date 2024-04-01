@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -1124,12 +1125,17 @@ func (manager *SUserManager) traceLoginEvent(ctx context.Context, token mcclient
 		log.Errorf("fetchUserById fail %s", err)
 		return
 	}
-	db.Update(usr, func() error {
-		usr.LastActiveAt = time.Now().UTC()
-		usr.LastLoginIp = authCtx.Ip
-		usr.LastLoginSource = authCtx.Source
-		return nil
-	})
+
+	// only save web console login record
+	if usr.LastActiveAt.IsZero() || utils.IsInArray(authCtx.Source, []string{mcclient.AuthSourceWeb}) {
+		db.Update(usr, func() error {
+			usr.LastActiveAt = time.Now().UTC()
+			usr.LastLoginIp = authCtx.Ip
+			usr.LastLoginSource = authCtx.Source
+			return nil
+		})
+	}
+
 	db.OpsLog.LogEvent(usr, "auth", &s, token)
 	// to reduce auth event, log web console login only
 	if authCtx.Source == mcclient.AuthSourceWeb && token.GetProjectId() != "" {

@@ -84,6 +84,24 @@ func (worker *SWorker) run() {
 		req := worker.manager.queue.Pop()
 		if req != nil {
 			task := req.(*sWorkerTask)
+
+			if worker.manager.cancelPrevIdent {
+				// cancel previous identical tasks
+				findIdent := false
+				worker.manager.queue.Range(func(iReq interface{}) bool {
+					iTask := iReq.(*sWorkerTask)
+					if iTask.task.Dump() == task.task.Dump() {
+						// found idential task
+						findIdent = true
+						return false
+					}
+					return true
+				})
+				if findIdent {
+					continue
+				}
+			}
+
 			if task.worker != nil {
 				task.worker <- worker
 			}
@@ -161,6 +179,8 @@ type SWorkerManager struct {
 	dbWorker       bool
 
 	ignoreOverflow bool
+
+	cancelPrevIdent bool
 }
 
 func NewWorkerManager(name string, workerCount int, backlog int, dbWorker bool) *SWorkerManager {
@@ -179,6 +199,8 @@ func NewWorkerManagerIgnoreOverflow(name string, workerCount int, backlog int, d
 		dbWorker:       dbWorker,
 
 		ignoreOverflow: ignoreOverflow,
+
+		cancelPrevIdent: false,
 	}
 
 	workerManagerLock.Lock()
@@ -198,6 +220,10 @@ type sWorkerTask struct {
 	worker  chan *SWorker
 	onError func(error)
 	start   time.Time
+}
+
+func (wm *SWorkerManager) EnableCancelPreviousIdenticalTask() {
+	wm.cancelPrevIdent = true
 }
 
 func (wm *SWorkerManager) UpdateWorkerCount(workerCount int) error {

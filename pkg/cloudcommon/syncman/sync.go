@@ -26,7 +26,7 @@ import (
 )
 
 type ISyncClient interface {
-	DoSync(first bool) (time.Duration, error)
+	DoSync(first bool, timeout bool) (time.Duration, error)
 	NeedSync(dat *jsonutils.JSONDict) bool
 	Name() string
 }
@@ -46,46 +46,48 @@ func (manager *SSyncManager) InitSync(client ISyncClient) {
 	manager.syncWorkerManager = appsrv.NewWorkerManagerIgnoreOverflow(fmt.Sprintf("(%s)sync_worker", client.Name()), 1, 1, true, true)
 }
 
-func (manager *SSyncManager) syncByInterval() error {
+func (manager *SSyncManager) syncInternal(isFirst bool, isTimeout bool) error {
 	if manager.syncTimer != nil {
 		manager.syncTimer.Stop()
 		manager.syncTimer = nil
 	}
-	isFirst := false
-	if manager.lastSync.IsZero() {
-		isFirst = true
-	}
-	next, err := manager.DoSync(isFirst)
+	next, err := manager.DoSync(isFirst, isTimeout)
 	if err == nil {
 		manager.lastSync = time.Now()
 	}
-	manager.syncTimer = time.AfterFunc(next, manager.SyncOnce)
+	manager.syncTimer = time.AfterFunc(next, func() {
+		manager.SyncOnce(false, true)
+	})
 	return err
 }
 
 type SyncTask struct {
-	manager *SSyncManager
+	manager   *SSyncManager
+	isFirst   bool
+	isTimeout bool
 }
 
 func (t *SyncTask) Run() {
 	atomic.StoreInt32(&t.manager.syncOnce, 0)
-	t.manager.syncByInterval()
+	t.manager.syncInternal(t.isFirst, t.isTimeout)
 }
 
 func (t *SyncTask) Dump() string {
-	return ""
+	return "SyncTask"
 }
 
-func (manager *SSyncManager) SyncOnce() {
-	log.Debugf("[%s] SyncOnce", manager.Name())
+func (manager *SSyncManager) SyncOnce(isFirst bool, isTimeout bool) {
+	log.Debugf("[%s] SyncOnce isFirst %v isTimeout %v", manager.Name(), isFirst, isTimeout)
 	if atomic.CompareAndSwapInt32(&manager.syncOnce, 0, 1) {
 		task := SyncTask{
-			manager: manager,
+			manager:   manager,
+			isFirst:   isFirst,
+			isTimeout: isTimeout,
 		}
 		manager.syncWorkerManager.Run(&task, nil, nil)
 	}
 }
 
 func (manager *SSyncManager) FirstSync() error {
-	return manager.syncByInterval()
+	return manager.syncInternal(true, false)
 }
