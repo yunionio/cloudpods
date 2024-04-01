@@ -194,20 +194,10 @@ func (self *SCloudaccount) GetCloudgroups(managerId string) ([]SCloudgroup, erro
 	return groups, nil
 }
 
-func (manager *SCloudaccountManager) GetSupportCloudIdAccounts() ([]SCloudaccount, error) {
-	accounts := []SCloudaccount{}
-	q := manager.Query().In("provider", cloudprovider.GetSupportCloudIdProvider())
-	err := db.FetchModelObjects(manager, q, &accounts)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	return accounts, nil
-}
-
 func (manager *SCloudaccountManager) SyncCloudaccountResources(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	accounts, err := manager.GetSupportCloudIdAccounts()
+	accounts, err := manager.GetCloudaccounts()
 	if err != nil {
-		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
+		log.Errorf("GetCloudaccounts error: %v", err)
 		return
 	}
 	for i := range accounts {

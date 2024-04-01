@@ -132,9 +132,9 @@ func (self *SCloudprovider) StartCloudproviderSyncResourcesTask(ctx context.Cont
 	return task.ScheduleRun(nil)
 }
 
-func (manager *SCloudproviderManager) GetSupportCloudIdProviders() ([]SCloudprovider, error) {
+func (manager *SCloudproviderManager) GetCloudproviders() ([]SCloudprovider, error) {
 	ret := []SCloudprovider{}
-	q := manager.Query().In("provider", cloudprovider.GetSupportCloudIdProvider())
+	q := manager.Query()
 	err := db.FetchModelObjects(manager, q, &ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
@@ -143,9 +143,9 @@ func (manager *SCloudproviderManager) GetSupportCloudIdProviders() ([]SCloudprov
 }
 
 func (manager *SCloudproviderManager) SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	managers, err := manager.GetSupportCloudIdProviders()
+	managers, err := manager.GetCloudproviders()
 	if err != nil {
-		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
+		log.Errorf("GetCloudproviders error: %v", err)
 		return
 	}
 	for i := range managers {

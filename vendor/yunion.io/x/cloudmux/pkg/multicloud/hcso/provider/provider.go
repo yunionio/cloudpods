@@ -50,18 +50,6 @@ func (self *SHCSOProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 7
 }
 
-func (self *SHCSOProviderFactory) IsSupportCloudIdService() bool {
-	return true
-}
-
-func (self *SHCSOProviderFactory) IsSupportClouduserPolicy() bool {
-	return false
-}
-
-func (self *SHCSOProviderFactory) IsSupportCreateCloudgroup() bool {
-	return true
-}
-
 func (factory *SHCSOProviderFactory) IsSupportCrossCloudEnvVpcPeering() bool {
 	return false
 }

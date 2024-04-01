@@ -51,30 +51,6 @@ func (self *SGoogleProviderFactory) IsClouduserSupportPassword() bool {
 	return false
 }
 
-func (factory *SGoogleProviderFactory) IsCloudpolicyWithSubscription() bool {
-	return true
-}
-
-func (factory *SGoogleProviderFactory) IsClouduserpolicyWithSubscription() bool {
-	return true
-}
-
-func (factory *SGoogleProviderFactory) IsSupportCloudIdService() bool {
-	return true
-}
-
-func (factory *SGoogleProviderFactory) IsClouduserNeedInitPolicy() bool {
-	return true
-}
-
-func (factory *SGoogleProviderFactory) IsSupportResetClouduserPassword() bool {
-	return false
-}
-
-func (factory *SGoogleProviderFactory) GetClouduserMinPolicyCount() int {
-	return 1
-}
-
 func (self *SGoogleProviderFactory) IsClouduserBelongCloudprovider() bool {
 	return true
 }
