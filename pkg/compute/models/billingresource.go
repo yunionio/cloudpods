@@ -267,14 +267,15 @@ func fetchExpiredModels(manager db.IModelManager, advanceDay int) ([]IBillingMod
 }
 
 func (bm *SBillingResourceCheckManager) Create(ctx context.Context, resourceId, resourceType string, advanceDays int) error {
-	bc := SBillingResourceCheck{
+	bc := &SBillingResourceCheck{
 		ResourceId:   resourceId,
 		ResourceType: resourceType,
 		AdvanceDays:  advanceDays,
 		LastCheck:    time.Now(),
 		NotifyNumber: 1,
 	}
-	return bm.TableSpec().InsertOrUpdate(ctx, &bc)
+	bc.SetModelManager(bm, bc)
+	return bm.TableSpec().InsertOrUpdate(ctx, bc)
 }
 
 func (bm *SBillingResourceCheckManager) Fetch(resourceIds []string, advanceDays int, length int) (map[string]*SBillingResourceCheck, error) {
