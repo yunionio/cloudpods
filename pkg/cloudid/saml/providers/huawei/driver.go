@@ -12,44 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package huawei
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/url"
-	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/samlutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
+func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, managerId string, sp *idp.SSAMLServiceProvider, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
-	_account, err := CloudaccountManager.FetchById(cloudAccountId)
+
+	provider, err := models.CloudproviderManager.FetchProvier(managerId)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return data, httperrors.NewResourceNotFoundError2("cloudaccount", cloudAccountId)
-		}
-		return data, httperrors.NewGeneralError(err)
-	}
-	account := _account.(*SCloudaccount)
-	if account.Provider != api.CLOUD_PROVIDER_HUAWEI && account.Provider != api.CLOUD_PROVIDER_HCSO {
-		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_HUAWEI)
-	}
-	if account.SAMLAuth.IsFalse() {
-		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+		return data, err
 	}
 
-	saml, valid := account.IsSAMLProviderValid()
-	if !valid {
-		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	saml, err := provider.GetSamlProvider()
+	if err != nil {
+		return data, errors.Wrapf(err, "GetSamlProvider")
+	}
+
+	user, err := provider.GetSamlUser(userCred.GetUserId())
+	if err != nil {
+		return data, errors.Wrapf(err, "GetSamlUser")
+	}
+
+	group, err := user.GetCloudgroup()
+	if err != nil {
+		return data, errors.Wrapf(err, "GetCloudgroup")
 	}
 
 	uri := saml.AuthUrl
@@ -69,17 +69,13 @@ func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 	if len(idpId) == 0 {
 		return data, httperrors.NewInputParameterError("saml auth url %s missing idp", uri)
 	}
-	users, groups, err := account.GetUserCloudgroups(userCred)
-	if err != nil {
-		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
-	}
 
 	data.NameId = userCred.GetUserName()
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = sp.GetEntityId()
 	for k, v := range map[string][]string{
-		"User":   {strings.Join(users, ",")},
-		"Groups": groups,
+		"UserName": {userCred.GetUserName()},
+		"Groups":   {group.Name},
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
 			Name: k, FriendlyName: k,
@@ -104,40 +100,32 @@ func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 	return data, nil
 }
 
-func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
+func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, managerId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
 	data := samlutils.SSAMLSpInitiatedLoginData{}
 
-	_account, err := CloudaccountManager.FetchById(cloudAccountId)
+	provider, err := models.CloudproviderManager.FetchProvier(managerId)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return data, httperrors.NewResourceNotFoundError2("cloudaccount", cloudAccountId)
-		}
-		return data, httperrors.NewGeneralError(err)
-	}
-	account := _account.(*SCloudaccount)
-	if account.Provider != api.CLOUD_PROVIDER_HUAWEI && account.Provider != api.CLOUD_PROVIDER_HCSO {
-		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_HUAWEI)
-	}
-	if account.SAMLAuth.IsFalse() {
-		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+		return data, err
 	}
 
-	_, valid := account.IsSAMLProviderValid()
-	if !valid {
-		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	user, err := provider.GetSamlUser(userCred.GetUserId())
+	if err != nil {
+		return data, errors.Wrapf(err, "GetSamlUser")
 	}
 
-	users, groups, err := account.GetUserCloudgroups(userCred)
+	group, err := user.GetCloudgroup()
 	if err != nil {
-		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
+		return data, errors.Wrapf(err, "GetCloudgroup")
 	}
+
+	log.Errorf("group name: %s", group.Name)
 
 	data.NameId = userCred.GetUserName()
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = sp.GetEntityId()
 	for k, v := range map[string][]string{
-		"User":   {strings.Join(users, ",")},
-		"Groups": groups,
+		"UserName": {userCred.GetUserName()},
+		"Groups":   {group.Name},
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
 			Name: k, FriendlyName: k,

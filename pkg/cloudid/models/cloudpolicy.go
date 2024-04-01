@@ -17,21 +17,19 @@ package models
 import (
 	"context"
 	"database/sql"
-	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -40,6 +38,8 @@ import (
 type SCloudpolicyManager struct {
 	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	SCloudaccountResourceBaseManager
+	SCloudproviderResourceBaseManager
 }
 
 var CloudpolicyManager *SCloudpolicyManager
@@ -59,6 +59,8 @@ func init() {
 type SCloudpolicy struct {
 	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
+	SCloudaccountResourceBase
+	SCloudproviderResourceBase
 
 	// 权限类型
 	//
@@ -68,24 +70,8 @@ type SCloudpolicy struct {
 	// | custom        | 用户自定义权限       |
 	PolicyType string `width:"16" charset:"ascii" list:"domain" create:"optional" default:"custom"`
 
-	// 平台
-	//
-	// | 云平台   | 说明                                        |
-	// |----------|---------------------------------------------|
-	// | Google   | 支持                                        |
-	// | Aliyun   | 支持										|
-	// | Huawei   | 支持                                        |
-	// | Azure    | 支持                                        |
-	// | 腾讯云   | 支持                                        |
-	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
-
 	// 策略内容
-	Document *jsonutils.JSONDict `length:"long" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
-
-	// 是否锁定, 若锁定后, 此策略不允许被绑定到用户或权限组, 仅管理员可以设置是否锁定
-	Locked tristate.TriState `get:"user" create:"optional" list:"user" default:"false"`
-
-	CloudEnv string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
+	Document *jsonutils.JSONDict `length:"long" charset:"utf8" list:"domain" update:"domain" create:"domain_required"`
 }
 
 func (self SCloudpolicy) GetGlobalId() string {
@@ -100,6 +86,29 @@ func (manager *SCloudpolicyManager) GetResourceCount() ([]db.SScopeResourceCount
 	return nil, nil
 }
 
+func (self *SCloudpolicy) GetCloudprovider() (*SCloudprovider, error) {
+	provider, err := CloudproviderManager.FetchById(self.ManagerId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CloudproviderManager.FetchById(%s)", self.ManagerId)
+	}
+	return provider.(*SCloudprovider), nil
+}
+
+func (self *SCloudpolicy) GetProvider() (cloudprovider.ICloudProvider, error) {
+	if len(self.ManagerId) > 0 {
+		provider, err := self.GetCloudprovider()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetCloudprovider")
+		}
+		return provider.GetProvider()
+	}
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCloudaccount")
+	}
+	return account.GetProvider()
+}
+
 // 公有云权限列表
 func (manager *SCloudpolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudpolicyListInput) (*sqlchemy.SQuery, error) {
 	var err error
@@ -108,24 +117,18 @@ func (manager *SCloudpolicyManager) ListItemFilter(ctx context.Context, q *sqlch
 		return nil, err
 	}
 
-	if len(query.Provider) > 0 {
-		q = q.In("provider", query.Provider)
+	q, err = manager.SCloudaccountResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudaccountResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.SCloudproviderResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudproviderResourceListInput)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(query.PolicyType) > 0 {
 		q = q.Equals("policy_type", query.PolicyType)
-	}
-
-	if len(query.CloudproviderId) > 0 {
-		_, err = CloudproviderManager.FetchById(query.CloudproviderId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("cloudprovider", query.CloudproviderId)
-			}
-			return q, httperrors.NewGeneralError(errors.Wrap(err, "CloudproviderManager.FetchById"))
-		}
-		sq := ClouduserPolicyManager.Query("cloudpolicy_id").Equals("cloudprovider_id", query.CloudproviderId)
-		q = q.In("id", sq.SubQuery())
 	}
 
 	if len(query.ClouduserId) > 0 {
@@ -152,169 +155,46 @@ func (manager *SCloudpolicyManager) ListItemFilter(ctx context.Context, q *sqlch
 		q = q.In("id", sq.SubQuery())
 	}
 
-	if query.Locked == nil || !*query.Locked {
-		q = q.IsFalse("locked")
-	}
-
 	return q, nil
 }
 
-// 创建自定义策略
-func (manager *SCloudpolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.CloudpolicyCreateInput) (api.CloudpolicyCreateInput, error) {
-	var err error
-	input.StatusInfrasResourceBaseCreateInput, err = manager.SStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusInfrasResourceBaseCreateInput)
-	if err != nil {
-		return input, err
-	}
-	input.Status = api.SAML_PROVIDER_STATUS_AVAILABLE
-	envs := []string{input.Provider}
-	if envMap, ok := compute.CLOUD_ENV_MAP[input.Provider]; ok {
-		for _, v := range envMap {
-			if !utils.IsInStringArray(v, envs) {
-				envs = append(envs, v)
-			}
-		}
-	}
-	input.CloudEnv = strings.Join(envs, ",")
-	return input, nil
+// +onecloud:swagger-gen-ignore
+func (manager *SCloudpolicyManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input *api.CloudpolicyCreateInput,
+) (*api.CloudpolicyCreateInput, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
-// 更新策略(仅限自定义)
-func (self *SCloudpolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyUpdateInput) (api.CloudpolicyUpdateInput, error) {
-	var err error
-	input.StatusInfrasResourceBaseUpdateInput, err = self.SStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusInfrasResourceBaseUpdateInput)
-	if err != nil {
-		return input, err
-	}
-	if self.PolicyType != api.CLOUD_POLICY_TYPE_CUSTOM {
-		return input, httperrors.NewNotSupportedError("only support update custom policy")
-	}
-	input.OriginDocument = self.Document
-	return input, nil
+// +onecloud:swagger-gen-ignore
+func (self *SCloudpolicy) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.CloudpolicyUpdateInput,
+) (*api.CloudpolicyUpdateInput, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SCloudpolicy) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
-
-	if data.Contains("document") {
-		document, err := data.Get("origin_document")
-		if err != nil {
-			log.Errorf("failed get origin document")
-			return
-		}
-		if !document.Equals(self.Document) {
-			err = self.StartCloudpolicyUpdateTask(ctx, userCred, "")
-			if err != nil {
-				log.Errorf("StartCloudpolicyUpdateTask error: %v", err)
-			}
-		}
-	}
-}
-
-func (self *SCloudpolicy) StartCloudpolicyUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "CloudpolicyUpdateTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	self.SetStatus(ctx, userCred, api.CLOUD_POLICY_STATUS_SYNCING, "update")
-	task.ScheduleRun(nil)
-	return nil
-}
-
-// 删除自定义权限
-func (self *SCloudpolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	err := self.SStatusInfrasResourceBase.CustomizeDelete(ctx, userCred, query, data)
-	if err != nil {
-		return err
-	}
-	if self.PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
-		return httperrors.NewForbiddenError("not allow delete system policy")
-	}
-	return self.StartCloudpolicyDeleteTask(ctx, userCred, "")
-}
-
-func (self *SCloudpolicy) StartCloudpolicyDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "CloudpolicyDeleteTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	self.SetStatus(ctx, userCred, api.CLOUD_POLICY_STATUS_DELETING, "delete")
-	return task.ScheduleRun(nil)
-}
-
-func (self *SCloudpolicy) GetCloudusers() ([]SClouduser, error) {
-	sq := ClouduserPolicyManager.Query("clouduser_id").Equals("cloudpolicy_id", self.Id)
-	q := ClouduserManager.Query().In("id", sq.SubQuery())
-	users := []SClouduser{}
-	err := db.FetchModelObjects(ClouduserManager, q, &users)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	return users, nil
-}
-
-func (self *SCloudpolicy) GetCloudgroups() ([]SCloudgroup, error) {
-	sq := CloudgroupPolicyManager.Query("cloudgroup_id").Equals("cloudpolicy_id", self.Id)
-	q := CloudgroupManager.Query().In("id", sq.SubQuery())
-	groups := []SCloudgroup{}
-	err := db.FetchModelObjects(CloudgroupManager, q, &groups)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	return groups, nil
-}
-
-func (self *SCloudpolicy) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (self *SCloudpolicy) ValidateDeleteCondition(ctx context.Context, info *api.CloudpolicyDetails) error {
 	if self.PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
 		return httperrors.NewNotSupportedError("can not delete system policy")
 	}
-	users, err := self.GetCloudusers()
-	if err != nil {
-		return httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudusers"))
+	if gotypes.IsNil(info) {
+		info := &api.CloudpolicyDetails{}
+		usage, err := CloudpolicyManager.TotalResourceCount([]string{self.Id})
+		if err != nil {
+			return err
+		}
+		info.PolicyUsage, _ = usage[self.Id]
 	}
-	if len(users) > 0 {
-		return httperrors.NewNotEmptyError("policy %s has %d users used", self.Name, len(users))
-	}
-	groups, err := self.GetCloudgroups()
-	if err != nil {
-		return httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudgroups"))
-	}
-	if len(groups) > 0 {
-		return httperrors.NewNotEmptyError("policy %s has %d groups used", self.Name, len(groups))
+	if info.CloudgroupCount > 0 || info.ClouduserCount > 0 {
+		return httperrors.NewNotEmptyError("attach %d groups, %d users", info.CloudgroupCount, info.ClouduserCount)
 	}
 	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
-}
-
-func (self *SCloudpolicy) syncRemove(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
-
-	err := self.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return self.RealDelete(ctx, userCred)
-}
-
-func (self *SCloudpolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return nil
-}
-
-func (self *SCloudpolicy) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SStatusInfrasResourceBase.Delete(ctx, userCred)
-}
-
-func (self *SCloudpolicy) ValidateUse() error {
-	if self.Status != api.CLOUD_POLICY_STATUS_AVAILABLE {
-		return httperrors.NewInvalidStatusError("policy %s status is %s", self.Name, self.Status)
-	}
-	if self.Locked.IsTrue() {
-		return httperrors.NewForbiddenError("policy %s is locked", self.Name)
-	}
-	return nil
 }
 
 func (manager *SCloudpolicyManager) OrderByExtraFields(
@@ -340,109 +220,57 @@ func (manager *SCloudpolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 	return q, httperrors.ErrNotFound
 }
 
-// 缓存自定义权限到云上
-func (self *SCloudpolicy) PerformCache(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyCacheInput) (jsonutils.JSONObject, error) {
-	if self.PolicyType != api.CLOUD_POLICY_TYPE_CUSTOM {
-		return nil, httperrors.NewNotSupportedError("can not support cache %s policy type", self.PolicyType)
-	}
-
-	if len(input.ManagerId) == 0 {
-		return nil, httperrors.NewMissingParameterError("manager_id")
-	}
-
-	provider, err := CloudproviderManager.FetchProvider(ctx, input.ManagerId)
-	if err != nil {
-		return nil, err
-	}
-
-	if provider.Provider != self.Provider {
-		return nil, httperrors.NewInputParameterError("can not cache %s policy for %s", self.Provider, provider.Provider)
-	}
-
-	cache, err := CloudpolicycacheManager.Register(ctx, provider.CloudaccountId, provider.Id, self.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cache.ExternalId) > 0 {
-		return jsonutils.Marshal(cache), nil
-	}
-
-	return jsonutils.Marshal(cache), cache.StartPolicyCacheTask(ctx, userCred)
+type SPolicyUsageCount struct {
+	Id string
+	api.PolicyUsage
 }
 
-// 恢复权限组状态
-func (self *SCloudpolicy) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSyncstatusInput) (jsonutils.JSONObject, error) {
-	self.SetStatus(ctx, userCred, api.CLOUD_POLICY_STATUS_AVAILABLE, "syncstatus")
-	return nil, nil
+func (m *SCloudpolicyManager) query(manager db.IModelManager, field string, policyIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("cloudpolicy_id"),
+		sqlchemy.COUNT(field),
+	).In("cloudpolicy_id", policyIds).GroupBy(sq.Field("cloudpolicy_id")).SubQuery()
 }
 
-// 锁定权限(禁止使用此权限)
-func (self *SCloudpolicy) PerformLock(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyAssignGroupInput) (jsonutils.JSONObject, error) {
-	_, err := db.Update(self, func() error {
-		self.Locked = tristate.True
-		return nil
-	})
-	return nil, err
-}
+func (manager *SCloudpolicyManager) TotalResourceCount(policyIds []string) (map[string]api.PolicyUsage, error) {
+	// group
+	groupSQ := manager.query(CloudgroupPolicyManager, "group_cnt", policyIds, nil)
 
-// 解锁权限(允许使用此权限)
-func (self *SCloudpolicy) PerformUnlock(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyAssignGroupInput) (jsonutils.JSONObject, error) {
-	_, err := db.Update(self, func() error {
-		self.Locked = tristate.False
-		return nil
-	})
-	return nil, err
-}
+	userSQ := manager.query(ClouduserPolicyManager, "user_cnt", policyIds, nil)
 
-// 将权限加入权限组
-func (self *SCloudpolicy) PerformAssignGroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyAssignGroupInput) (jsonutils.JSONObject, error) {
-	if self.Locked.IsTrue() {
-		return nil, httperrors.NewForbiddenError("policy %s is locked", self.Name)
-	}
-	if len(input.CloudgroupId) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudgroup_id")
-	}
-	_group, err := CloudgroupManager.FetchById(input.CloudgroupId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("cloudgroup", input.CloudgroupId)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	group := _group.(*SCloudgroup)
-	if self.Provider != group.Provider {
-		return nil, httperrors.NewConflictError("policy and group not with same provider")
-	}
-	err = group.attachPolicy(self.Id)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	return nil, group.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
-}
+	policy := manager.Query().SubQuery()
+	policyQ := policy.Query(
+		sqlchemy.SUM("cloudgroup_count", groupSQ.Field("group_cnt")),
+		sqlchemy.SUM("clouduser_count", userSQ.Field("user_cnt")),
+	)
 
-// 将权限从权限组中移除
-func (self *SCloudpolicy) PerformRevokeGroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyRevokeGroupInput) (jsonutils.JSONObject, error) {
-	if len(input.CloudgroupId) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudgroup_id")
-	}
-	_group, err := CloudgroupManager.FetchById(input.CloudgroupId)
+	policyQ.AppendField(policyQ.Field("id"))
+
+	policyQ = policyQ.LeftJoin(groupSQ, sqlchemy.Equals(policyQ.Field("id"), groupSQ.Field("cloudpolicy_id")))
+	policyQ = policyQ.LeftJoin(userSQ, sqlchemy.Equals(policyQ.Field("id"), userSQ.Field("cloudpolicy_id")))
+
+	policyQ = policyQ.Filter(sqlchemy.In(policyQ.Field("id"), policyIds)).GroupBy(policyQ.Field("id"))
+
+	policyCount := []SPolicyUsageCount{}
+	err := policyQ.All(&policyCount)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("cloudgroup", input.CloudgroupId)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	group := _group.(*SCloudgroup)
-	if self.Provider != group.Provider {
-		return nil, httperrors.NewConflictError("policy and group not with same provider")
-	}
-	err = group.detachPolicy(self.Id)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return nil, errors.Wrapf(err, "policyQ.All")
 	}
 
-	return nil, group.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
+	result := map[string]api.PolicyUsage{}
+	for i := range policyCount {
+		result[policyCount[i].Id] = policyCount[i].PolicyUsage
+	}
+
+	return result, nil
 }
 
 // 获取公有云权限详情
@@ -456,27 +284,43 @@ func (manager *SCloudpolicyManager) FetchCustomizeColumns(
 ) []api.CloudpolicyDetails {
 	rows := make([]api.CloudpolicyDetails, len(objs))
 	infsRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	acRows := manager.SCloudaccountResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	mRows := manager.SCloudproviderResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	policyIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.CloudpolicyDetails{
 			StatusInfrasResourceBaseDetails: infsRows[i],
+			CloudaccountResourceDetails:     acRows[i],
+			CloudproviderResourceDetails:    mRows[i],
 		}
 		policy := objs[i].(*SCloudpolicy)
 		policyIds[i] = policy.Id
 	}
+
+	usage, err := manager.TotalResourceCount(policyIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+
+	for i := range rows {
+		rows[i].PolicyUsage, _ = usage[policyIds[i]]
+	}
+
 	return rows
 }
 
-func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy SCloudpolicy) error {
+func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) error {
 	_, err := db.Update(self, func() error {
 		self.Name = iPolicy.GetName()
-		self.Description = iPolicy.Description
-		self.Status = api.CLOUD_POLICY_STATUS_AVAILABLE
-		if self.PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
-			self.IsPublic = true
+		self.Description = iPolicy.GetDescription()
+		self.Status = apis.STATUS_AVAILABLE
+		self.IsPublic = true
+		doc, err := iPolicy.GetDocument()
+		if err != nil {
+			return errors.Wrapf(err, "GetDocument")
 		}
-		self.CloudEnv = iPolicy.CloudEnv
-		self.Document = iPolicy.Document
+		self.Document = doc
 		return nil
 	})
 	if err != nil {
@@ -485,24 +329,81 @@ func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SCloudpolicy) newCloudpolicycache(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, cloudaccontId, cloudproviderId string) error {
-	cache := &SCloudpolicycache{}
-	cache.SetModelManager(CloudpolicycacheManager, cache)
-	cache.ExternalId = iPolicy.GetGlobalId()
-	cache.CloudpolicyId = self.Id
-	cache.Status = api.CLOUD_POLICY_STATUS_AVAILABLE
-	cache.CloudaccountId = cloudaccontId
-	cache.CloudproviderId = cloudproviderId
-	cache.Name = iPolicy.GetName()
-	return CloudpolicycacheManager.TableSpec().Insert(ctx, cache)
+func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, policyType string, iPolicy cloudprovider.ICloudpolicy, managerId string) (*SCloudpolicy, error) {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	policy := &SCloudpolicy{}
+	policy.SetModelManager(CloudpolicyManager, policy)
+	doc, err := iPolicy.GetDocument()
+	if err != nil {
+		return nil, err
+	}
+	policy.Document = doc
+	policy.Name = iPolicy.GetName()
+	policy.Status = apis.STATUS_AVAILABLE
+	policy.PolicyType = policyType
+	policy.IsPublic = true
+	policy.ExternalId = iPolicy.GetGlobalId()
+	policy.Description = iPolicy.GetDescription()
+	policy.CloudaccountId = self.Id
+	policy.ManagerId = managerId
+	return policy, CloudpolicyManager.TableSpec().Insert(ctx, policy)
 }
 
-func (self *SCloudpolicy) GetCloudpolicycaches() ([]SCloudpolicycache, error) {
-	caches := []SCloudpolicycache{}
-	q := CloudpolicycacheManager.Query().Equals("cloudpolicy_id", self.Id)
-	err := db.FetchModelObjects(CloudpolicycacheManager, q, &caches)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+func (self *SCloudaccount) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, policyType string, iPolicies []cloudprovider.ICloudpolicy, managerId string) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	removed := make([]SCloudpolicy, 0)
+	commondb := make([]SCloudpolicy, 0)
+	commonext := make([]cloudprovider.ICloudpolicy, 0)
+	added := make([]cloudprovider.ICloudpolicy, 0)
+
+	var dbPolicies []SCloudpolicy
+	var err error
+	switch policyType {
+	case api.CLOUD_POLICY_TYPE_CUSTOM:
+		dbPolicies, err = self.GetCustomCloudpolicies(managerId)
+	case api.CLOUD_POLICY_TYPE_SYSTEM:
+		dbPolicies, err = self.GetSystemCloudpolicies(managerId)
 	}
-	return caches, nil
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetCloudpolicies %s", policyType))
+		return result
+	}
+
+	err = compare.CompareSets(dbPolicies, iPolicies, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].Delete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudpolicy(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		_, err := self.newCloudpolicy(ctx, userCred, policyType, added[i], managerId)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	return result
 }

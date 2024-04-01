@@ -20,24 +20,31 @@ import (
 
 	"gopkg.in/fatih/set.v0"
 
+	"yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudgroupManager struct {
 	db.SStatusInfrasResourceBaseManager
+	SCloudaccountResourceBaseManager
+	SCloudproviderResourceBaseManager
 }
 
 var CloudgroupManager *SCloudgroupManager
@@ -56,8 +63,10 @@ func init() {
 
 type SCloudgroup struct {
 	db.SStatusInfrasResourceBase
+	db.SExternalizedResourceBase
 
-	Provider string `width:"64" charset:"ascii" list:"domain" create:"required"`
+	SCloudaccountResourceBase
+	SCloudproviderResourceBase
 }
 
 // 权限组列表
@@ -68,8 +77,14 @@ func (manager *SCloudgroupManager) ListItemFilter(ctx context.Context, q *sqlche
 		return nil, err
 	}
 
-	if len(query.Provider) > 0 {
-		q = q.In("provider", query.Provider)
+	q, err = manager.SCloudaccountResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudaccountResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.SCloudproviderResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudproviderResourceListInput)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(query.ClouduserId) > 0 {
@@ -96,24 +111,44 @@ func (manager *SCloudgroupManager) ListItemFilter(ctx context.Context, q *sqlche
 		q = q.In("id", sq.SubQuery())
 	}
 
-	if query.Usable != nil && *query.Usable {
-		sq := CloudaccountManager.Query("provider").SubQuery()
-		q = q.In("provider", sq)
-	}
-
 	return q, nil
 }
 
+func (self *SCloudgroup) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SCloudgroup) StartSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupSyncstatusTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
+	return task.ScheduleRun(nil)
+}
+
 func (manager *SCloudgroupManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
-	provider, _ := data.GetString("provider")
-	return jsonutils.Marshal(map[string]string{"provider": provider})
+	accountId, _ := data.GetString("cloudaccount_id")
+	managerId, _ := data.GetString("manager_id")
+	return jsonutils.Marshal(map[string]string{"cloudaccount_id": accountId, "manager_id": managerId})
 }
 
 func (manager *SCloudgroupManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
-	provider, _ := values.GetString("provider")
-	if len(provider) > 0 {
-		q = q.Equals("provider", provider)
+	accountId, _ := values.GetString("cloudaccount_id")
+	if len(accountId) > 0 {
+		q = q.Equals("cloudaccount_id", accountId)
 	}
+
+	providerId, _ := values.GetString("manager_id")
+	if len(providerId) > 0 {
+		q = q.Equals("manager_id", providerId)
+	}
+
 	return q
 }
 
@@ -133,53 +168,122 @@ func (manager *SCloudgroupManager) FetchCustomizeColumns(
 ) []api.CloudgroupDetails {
 	rows := make([]api.CloudgroupDetails, len(objs))
 	statusRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	acRows := manager.SCloudaccountResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	mRows := manager.SCloudproviderResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	groupIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.CloudgroupDetails{
 			StatusInfrasResourceBaseDetails: statusRows[i],
+			CloudaccountResourceDetails:     acRows[i],
+			CloudproviderResourceDetails:    mRows[i],
 			Cloudpolicies:                   []api.SCloudIdBaseResource{},
 		}
 		group := objs[i].(*SCloudgroup)
-		rows[i].CloudgroupcacheCount, _ = group.GetCloudgroupcacheCount()
-		policies, _ := group.GetCloudpolicies()
-		for _, policy := range policies {
-			rows[i].Cloudpolicies = append(rows[i].Cloudpolicies, api.SCloudIdBaseResource{Id: policy.Id, Name: policy.Name})
-		}
-		rows[i].CloudpolicyCount = len(policies)
-		users, _ := group.GetCloudusers()
-		for _, user := range users {
-			rows[i].Cloudusers = append(rows[i].Cloudusers, api.SCloudIdBaseResource{Id: user.Id, Name: user.Name})
-		}
-		rows[i].ClouduserCount = len(users)
+		groupIds[i] = group.Id
 	}
+
+	userSQ := ClouduserManager.Query().SubQuery()
+	ugQ := CloudgroupUserManager.Query().SubQuery()
+	q := userSQ.Query(
+		userSQ.Field("id"),
+		userSQ.Field("name"),
+		ugQ.Field("cloudgroup_id"),
+	).
+		Join(ugQ, sqlchemy.Equals(ugQ.Field("clouduser_id"), userSQ.Field("id"))).
+		Filter(sqlchemy.In(ugQ.Field("cloudgroup_id"), groupIds))
+
+	userInfo := []struct {
+		Id           string
+		Name         string
+		CloudgroupId string
+	}{}
+	err := q.All(&userInfo)
+	if err != nil {
+		log.Errorf("query group user info error: %v", err)
+		return rows
+	}
+
+	users := map[string][]api.SCloudIdBaseResource{}
+	for _, user := range userInfo {
+		_, ok := users[user.CloudgroupId]
+		if !ok {
+			users[user.CloudgroupId] = []api.SCloudIdBaseResource{}
+		}
+		users[user.CloudgroupId] = append(users[user.CloudgroupId], api.SCloudIdBaseResource{
+			Id:   user.Id,
+			Name: user.Name,
+		})
+	}
+
+	policySQ := CloudpolicyManager.Query().SubQuery()
+	pgQ := CloudgroupPolicyManager.Query().SubQuery()
+	q = policySQ.Query(
+		policySQ.Field("id"),
+		policySQ.Field("name"),
+		pgQ.Field("cloudgroup_id"),
+	).
+		Join(pgQ, sqlchemy.Equals(pgQ.Field("cloudpolicy_id"), policySQ.Field("id"))).
+		Filter(sqlchemy.In(pgQ.Field("cloudgroup_id"), groupIds))
+
+	policyInfo := []struct {
+		Id           string
+		Name         string
+		CloudgroupId string
+	}{}
+	err = q.All(&policyInfo)
+	if err != nil {
+		log.Errorf("query group policy info error: %v", err)
+		return rows
+	}
+
+	policies := map[string][]api.SCloudIdBaseResource{}
+	for _, policy := range policyInfo {
+		_, ok := policies[policy.CloudgroupId]
+		if !ok {
+			policies[policy.CloudgroupId] = []api.SCloudIdBaseResource{}
+		}
+		policies[policy.CloudgroupId] = append(policies[policy.CloudgroupId], api.SCloudIdBaseResource{
+			Id:   policy.Id,
+			Name: policy.Name,
+		})
+	}
+
+	for i := range rows {
+		rows[i].Cloudusers, _ = users[groupIds[i]]
+		rows[i].ClouduserCount = len(rows[i].Cloudusers)
+		rows[i].Cloudpolicies, _ = policies[groupIds[i]]
+		rows[i].CloudpolicyCount = len(rows[i].Cloudpolicies)
+	}
+
 	return rows
 }
 
 // 创建权限组
-func (manager *SCloudgroupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.CloudgroupCreateInput) (api.CloudgroupCreateInput, error) {
-	if len(input.Provider) == 0 {
-		return input, httperrors.NewMissingParameterError("provider")
+func (manager *SCloudgroupManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input *api.CloudgroupCreateInput,
+) (*api.CloudgroupCreateInput, error) {
+	if len(input.ManagerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager_id")
 	}
-	factory, err := cloudprovider.GetProviderFactory(input.Provider)
+	providerObj, err := validators.ValidateModel(ctx, userCred, CloudproviderManager, &input.ManagerId)
 	if err != nil {
-		return input, errors.Wrap(err, "cloudprovider.GetProviderFactory")
+		return nil, err
 	}
-	if !factory.IsSupportCloudIdService() {
-		return input, httperrors.NewUnsupportOperationError("Unsupport cloudgroup for %s", input.Provider)
+	provider := providerObj.(*SCloudprovider)
+	input.CloudaccountId = provider.CloudaccountId
+	driver, err := provider.GetDriver()
+	if err != nil {
+		return nil, err
 	}
-	for _, cloudpolicyId := range input.CloudpolicyIds {
-		_policy, err := CloudpolicyManager.FetchById(cloudpolicyId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return input, httperrors.NewResourceNotFoundError2("cloudpolicy", cloudpolicyId)
-			}
-			return input, httperrors.NewGeneralError(err)
-		}
-		policy := _policy.(*SCloudpolicy)
-		if policy.Provider != input.Provider {
-			return input, httperrors.NewConflictError("cloudpolicy %s(%s) and cloudgroup not with same provider", policy.Name, policy.Id)
-		}
+	input, err = driver.ValidateCreateCloudgroup(ctx, userCred, provider, input)
+	if err != nil {
+		return nil, err
 	}
-	input.Status = api.CLOUD_GROUP_STATUS_AVAILABLE
+	input.Status = apis.STATUS_CREATING
 	return input, nil
 }
 
@@ -189,31 +293,16 @@ func (self *SCloudgroup) PostCreate(ctx context.Context, userCred mcclient.Token
 	for _, policyId := range input.CloudpolicyIds {
 		self.attachPolicy(policyId)
 	}
+	self.StartCreateTask(ctx, userCred, "")
 }
 
-func (manager *SCloudgroupManager) newCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, iGroup cloudprovider.ICloudgroup, provider string) (*SCloudgroup, error) {
-	group := &SCloudgroup{}
-	group.Description = iGroup.GetDescription()
-	group.Provider = provider
-	group.DomainId = ownerId.GetProjectDomainId()
-	group.Status = api.CLOUD_GROUP_STATUS_AVAILABLE
-	group.SetModelManager(manager, group)
-	var err = func() error {
-		lockman.LockRawObject(ctx, manager.Keyword(), "name")
-		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
-
-		var err error
-		group.Name, err = db.GenerateName(ctx, manager, ownerId, iGroup.GetName())
-		if err != nil {
-			return errors.Wrapf(err, "db.GenerateName")
-		}
-
-		return manager.TableSpec().Insert(ctx, group)
-	}()
+func (self *SCloudgroup) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupCreateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "Insert")
+		return errors.Wrapf(err, "NewTask")
 	}
-	return group, nil
+	return task.ScheduleRun(nil)
 }
 
 // 删除权限组
@@ -227,9 +316,8 @@ func (self *SCloudgroup) StartCloudgroupDeleteTask(ctx context.Context, userCred
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_DELETING, "")
-	task.ScheduleRun(nil)
-	return nil
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
+	return task.ScheduleRun(nil)
 }
 
 func (self *SCloudgroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -237,19 +325,7 @@ func (self *SCloudgroup) Delete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SCloudgroup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := self.removePolicies()
-	if err != nil {
-		return errors.Wrap(err, "removePolicies")
-	}
-	err = self.removeUsers()
-	if err != nil {
-		return errors.Wrap(err, "remoteUsers")
-	}
-	err = self.removeSamlusers()
-	if err != nil {
-		return errors.Wrapf(err, "removeSamlusers")
-	}
-	return self.SStatusInfrasResourceBase.Delete(ctx, userCred)
+	return self.purge(ctx)
 }
 
 func (self *SCloudgroup) GetSamlusers() ([]SSamluser, error) {
@@ -262,48 +338,6 @@ func (self *SCloudgroup) GetSamlusers() ([]SSamluser, error) {
 	return users, nil
 }
 
-func (self *SCloudgroup) removeSamlusers() error {
-	users, err := self.GetSamlusers()
-	if err != nil {
-		return errors.Wrap(err, "GetSamlusers")
-	}
-	for i := range users {
-		err = users[i].Delete(context.TODO(), nil)
-		if err != nil {
-			return errors.Wrapf(err, "rm saml user(%s)", users[i].Id)
-		}
-	}
-	return nil
-}
-
-func (self *SCloudgroup) removeUsers() error {
-	users, err := self.GetCloudusers()
-	if err != nil {
-		return errors.Wrap(err, "GetCloudusers")
-	}
-	for i := range users {
-		err = self.removeUser(users[i].Id)
-		if err != nil {
-			return errors.Wrapf(err, "removeUser(%s)", users[i].Id)
-		}
-	}
-	return nil
-}
-
-func (self *SCloudgroup) removePolicies() error {
-	policies, err := self.GetCloudpolicies()
-	if err != nil {
-		return errors.Wrap(err, "GetCloudpolicies")
-	}
-	for i := range policies {
-		err = self.detachPolicy(policies[i].Id)
-		if err != nil {
-			return errors.Wrapf(err, "detachPolicy(%s)", policies[i].Id)
-		}
-	}
-	return nil
-}
-
 func (self *SCloudgroup) GetCloudpolicyQuery() *sqlchemy.SQuery {
 	sq := CloudgroupPolicyManager.Query("cloudpolicy_id").Equals("cloudgroup_id", self.Id).SubQuery()
 	return CloudpolicyManager.Query().In("id", sq)
@@ -311,24 +345,6 @@ func (self *SCloudgroup) GetCloudpolicyQuery() *sqlchemy.SQuery {
 
 func (self *SCloudgroup) GetCloudpolicyCount() (int, error) {
 	return self.GetCloudpolicyQuery().CountWithError()
-}
-
-func (self *SCloudgroup) GetCloudgroupcacheQuery() *sqlchemy.SQuery {
-	return CloudgroupcacheManager.Query().Equals("cloudgroup_id", self.Id)
-}
-
-func (self *SCloudgroup) GetCloudgroupcacheCount() (int, error) {
-	return self.GetCloudgroupcacheQuery().CountWithError()
-}
-
-func (self *SCloudgroup) GetCloudgroupcaches() ([]SCloudgroupcache, error) {
-	caches := []SCloudgroupcache{}
-	q := self.GetCloudgroupcacheQuery()
-	err := db.FetchModelObjects(CloudgroupcacheManager, q, &caches)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return caches, nil
 }
 
 func (self *SCloudgroup) GetCloudpolicies() ([]SCloudpolicy, error) {
@@ -444,55 +460,49 @@ func (self *SCloudgroup) removeUser(userId string) error {
 	return nil
 }
 
-func (self *SCloudgroup) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
-	return cloudprovider.GetProviderFactory(self.Provider)
-}
-
 // 向权限组加入用户
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformAddUser(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupAddUserInput) (jsonutils.JSONObject, error) {
-	if len(input.ClouduserId) == 0 {
-		return nil, httperrors.NewMissingParameterError("clouduser_id")
+	if self.Status != apis.STATUS_AVAILABLE {
+		return nil, httperrors.NewInvalidStatusError("Can not remove user in status %s", self.Status)
 	}
-	_user, err := ClouduserManager.FetchById(input.ClouduserId)
+	userObj, err := validators.ValidateModel(ctx, userCred, ClouduserManager, &input.ClouduserId)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("clouduser", input.ClouduserId)
-		}
-		return nil, httperrors.NewGeneralError(err)
+		return nil, err
 	}
-	user := _user.(*SClouduser)
-	account, err := user.GetCloudaccount()
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+	user := userObj.(*SClouduser)
+	if user.ManagerId != self.ManagerId || user.CloudaccountId != self.CloudaccountId {
+		return nil, httperrors.NewConflictError("Users and user groups do not belong to the same account")
 	}
-	if account.Provider != self.Provider {
-		return nil, httperrors.NewDuplicateResourceError("group and user not with same provider")
-	}
-
 	_, err = self.GetClouduser(input.ClouduserId)
 	if err == nil || errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
 		return nil, httperrors.NewDuplicateResourceError("user %s has aleady in this group", input.ClouduserId)
 	}
 
-	err = self.addUser(input.ClouduserId)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrap(err, "addUser"))
+	add := []api.GroupUser{
+		{
+			Name:       user.Name,
+			ExternalId: user.ExternalId,
+		},
 	}
 
-	logclient.AddSimpleActionLog(self, logclient.ACT_ADD_USER, user, userCred, true)
-	logclient.AddSimpleActionLog(user, logclient.ACT_ADD_USER, self, userCred, true)
-	return nil, self.StartCloudgroupSyncUsersTask(ctx, userCred, "")
+	return nil, self.StartSetUsersTask(ctx, userCred, add, nil, "")
 }
 
-func (self *SCloudgroup) StartCloudgroupSyncUsersTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupSyncUsersTask", self, userCred, nil, parentTaskId, "", nil)
+func (self *SCloudgroup) StartSetUsersTask(ctx context.Context, userCred mcclient.TokenCredential, add, del []api.GroupUser, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	if len(add) > 0 {
+		params.Set("add", jsonutils.Marshal(add))
+	}
+	if len(del) > 0 {
+		params.Set("del", jsonutils.Marshal(del))
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupSetUsersTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_SYNC_USERS, "")
-	task.ScheduleRun(nil)
-	return nil
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
+	return task.ScheduleRun(nil)
 }
 
 func (self *SCloudgroup) StartCloudgroupSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -500,9 +510,8 @@ func (self *SCloudgroup) StartCloudgroupSyncstatusTask(ctx context.Context, user
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_SYNC_STATUS, "")
-	task.ScheduleRun(nil)
-	return nil
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
+	return task.ScheduleRun(nil)
 }
 
 // 恢复权限组状态
@@ -513,20 +522,15 @@ func (self *SCloudgroup) PerformSyncstatus(ctx context.Context, userCred mcclien
 // 从权限组移除用户
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformRemoveUser(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupRemoveUserInput) (jsonutils.JSONObject, error) {
-	if self.Status != api.CLOUD_GROUP_STATUS_AVAILABLE {
+	if self.Status != apis.STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("Can not remove user in status %s", self.Status)
 	}
-	if len(input.ClouduserId) == 0 {
-		return nil, httperrors.NewMissingParameterError("clouduser_id")
-	}
-	_user, err := ClouduserManager.FetchById(input.ClouduserId)
+
+	userObj, err := validators.ValidateModel(ctx, userCred, ClouduserManager, &input.ClouduserId)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("clouduser", input.ClouduserId)
-		}
-		return nil, httperrors.NewGeneralError(err)
+		return nil, err
 	}
-	user := _user.(*SClouduser)
+	user := userObj.(*SClouduser)
 
 	_, err = self.GetClouduser(input.ClouduserId)
 	if err != nil {
@@ -535,14 +539,15 @@ func (self *SCloudgroup) PerformRemoveUser(ctx context.Context, userCred mcclien
 		}
 		return nil, httperrors.NewGeneralError(err)
 	}
-	err = self.removeUser(input.ClouduserId)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrap(err, "RemoveUser"))
+
+	del := []api.GroupUser{
+		{
+			Name:       user.Name,
+			ExternalId: user.ExternalId,
+		},
 	}
 
-	logclient.AddSimpleActionLog(self, logclient.ACT_REMOVE_USER, user, userCred, true)
-	logclient.AddSimpleActionLog(user, logclient.ACT_REMOVE_USER, self, userCred, true)
-	return nil, self.StartCloudgroupSyncUsersTask(ctx, userCred, "")
+	return nil, self.StartSetUsersTask(ctx, userCred, nil, del, "")
 }
 
 func (self *SCloudgroup) addUser(userId string) error {
@@ -556,7 +561,7 @@ func (self *SCloudgroup) addUser(userId string) error {
 // 设置权限组用户(全量覆盖)
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformSetUsers(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSetUsersInput) (jsonutils.JSONObject, error) {
-	if self.Status != api.CLOUD_GROUP_STATUS_AVAILABLE {
+	if self.Status != apis.STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("Can not set users in status %s", self.Status)
 	}
 
@@ -565,67 +570,50 @@ func (self *SCloudgroup) PerformSetUsers(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	userMaps := map[string]*SClouduser{}
+	userMap := map[string]*SClouduser{}
 	local := set.New(set.ThreadSafe)
 	for i := range users {
 		local.Add(users[i].Id)
-		userMaps[users[i].Id] = &users[i]
+		userMap[users[i].Id] = &users[i]
 	}
 
 	newU := set.New(set.ThreadSafe)
-	for _, userId := range input.ClouduserIds {
-		_user, err := ClouduserManager.FetchById(userId)
+	for i := range input.ClouduserIds {
+		_user, err := validators.ValidateModel(ctx, userCred, ClouduserManager, &input.ClouduserIds[i])
 		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				return nil, httperrors.NewResourceNotFoundError2("clouduser", userId)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, err
 		}
 		user := _user.(*SClouduser)
-		account, err := user.GetCloudaccount()
-		if err != nil {
-			return nil, errors.Wrap(err, "user.GetCloudaccount")
+		if user.ManagerId != self.ManagerId || user.CloudaccountId != self.CloudaccountId {
+			return nil, httperrors.NewConflictError("Users and user groups do not belong to the same account")
 		}
-		if account.Provider != self.Provider {
-			return nil, httperrors.NewConflictError("user %s(%s) and group not with same provider", user.Name, user.Id)
-		}
-		newU.Add(userId)
-		userMaps[user.Id] = user
+		newU.Add(user.Id)
+		userMap[user.Id] = user
 	}
 
-	for _, del := range set.Difference(local, newU).List() {
-		id := del.(string)
-		user, ok := userMaps[id]
-		if ok {
-			err = self.removeUser(id)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(errors.Wrap(err, "removeUser"))
-			}
-			logclient.AddSimpleActionLog(self, logclient.ACT_REMOVE_USER, user, userCred, true)
-			logclient.AddSimpleActionLog(user, logclient.ACT_REMOVE_USER, self, userCred, true)
-		}
+	del, add := []api.GroupUser{}, []api.GroupUser{}
+	for _, id := range set.Difference(local, newU).List() {
+		user := userMap[id.(string)]
+		del = append(del, api.GroupUser{
+			Name:       user.Name,
+			ExternalId: user.ExternalId,
+		})
+	}
+	for _, id := range set.Difference(newU, local).List() {
+		user := userMap[id.(string)]
+		add = append(add, api.GroupUser{
+			Name:       user.Name,
+			ExternalId: user.ExternalId,
+		})
 	}
 
-	for _, add := range set.Difference(newU, local).List() {
-		id := add.(string)
-		user, ok := userMaps[id]
-		if ok {
-			err = self.addUser(id)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(errors.Wrap(err, "addUser"))
-			}
-			logclient.AddSimpleActionLog(self, logclient.ACT_ADD_USER, user, userCred, true)
-			logclient.AddSimpleActionLog(user, logclient.ACT_ADD_USER, self, userCred, true)
-		}
-	}
-
-	return nil, self.StartCloudgroupSyncUsersTask(ctx, userCred, "")
+	return nil, self.StartSetUsersTask(ctx, userCred, add, del, "")
 }
 
 // 设置权限组添权限(全量覆盖)
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformSetPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSetPoliciesInput) (jsonutils.JSONObject, error) {
-	if self.Status != api.CLOUD_GROUP_STATUS_AVAILABLE {
+	if self.Status != apis.STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("Can not set policies in status %s", self.Status)
 	}
 
@@ -634,142 +622,121 @@ func (self *SCloudgroup) PerformSetPolicies(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	policyMaps := map[string]*SCloudpolicy{}
+	policyMap := map[string]*SCloudpolicy{}
 	local := set.New(set.ThreadSafe)
 	for i := range policies {
 		local.Add(policies[i].Id)
-		policyMaps[policies[i].Id] = &policies[i]
+		policyMap[policies[i].Id] = &policies[i]
 	}
 
 	newP := set.New(set.ThreadSafe)
-	for _, policyId := range input.CloudpolicyIds {
-		_policy, err := CloudpolicyManager.FetchById(policyId)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				return nil, httperrors.NewResourceNotFoundError2("cloudpolicy", policyId)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		policy := _policy.(*SCloudpolicy)
-		err = policy.ValidateUse()
+	for i := range input.CloudpolicyIds {
+		policObj, err := validators.ValidateModel(ctx, userCred, CloudpolicyManager, &input.CloudpolicyIds[i])
 		if err != nil {
 			return nil, err
 		}
-		if policy.Provider != self.Provider {
-			return nil, httperrors.NewConflictError("policy %s(%s) and group not with same provider", policy.Name, policy.Id)
+		policy := policObj.(*SCloudpolicy)
+		if policy.ManagerId != self.ManagerId || policy.CloudaccountId != self.CloudaccountId {
+			return nil, httperrors.NewConflictError("Policies and groups do not belong to the same account")
 		}
-		newP.Add(policyId)
-		policyMaps[policyId] = policy
+		newP.Add(policy.Id)
+		policyMap[policy.Id] = policy
 	}
 
-	for _, del := range set.Difference(local, newP).List() {
-		id := del.(string)
-		policy, ok := policyMaps[id]
-		if ok {
-			err = self.detachPolicy(id)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(errors.Wrap(err, "detachPolicy"))
-			}
-			logclient.AddSimpleActionLog(self, logclient.ACT_DETACH_POLICY, policy, userCred, true)
-		}
+	del, add := []api.SPolicy{}, []api.SPolicy{}
+	for _, id := range set.Difference(local, newP).List() {
+		policy := policyMap[id.(string)]
+		del = append(del, api.SPolicy{
+			Name:       policy.Name,
+			ExternalId: policy.ExternalId,
+			PolicyType: policy.PolicyType,
+		})
+	}
+	for _, id := range set.Difference(newP, local).List() {
+		policy := policyMap[id.(string)]
+		add = append(add, api.SPolicy{
+			Name:       policy.Name,
+			ExternalId: policy.ExternalId,
+			PolicyType: policy.PolicyType,
+		})
 	}
 
-	for _, add := range set.Difference(newP, local).List() {
-		id := add.(string)
-		policy, ok := policyMaps[id]
-		if ok {
-			err = self.attachPolicy(id)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(errors.Wrap(err, "attachPolicy"))
-			}
-			logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_POLICY, policy, userCred, true)
-		}
-	}
-
-	return nil, self.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
+	return nil, self.StartSetPoliciesTask(ctx, userCred, add, del, "")
 }
 
-func (self *SCloudgroup) StartCloudgroupSyncPoliciesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupSyncPoliciesTask", self, userCred, nil, parentTaskId, "", nil)
+func (self *SCloudgroup) StartSetPoliciesTask(ctx context.Context, userCred mcclient.TokenCredential, add, del []api.SPolicy, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	if len(add) > 0 {
+		params.Set("add", jsonutils.Marshal(add))
+	}
+	if len(del) > 0 {
+		params.Set("del", jsonutils.Marshal(del))
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupSetPoliciesTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(ctx, userCred, api.CLOUD_GROUP_STATUS_SYNC_POLICIES, "")
-	task.ScheduleRun(nil)
-	return nil
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
+	return task.ScheduleRun(nil)
 }
 
 // 向权限组添加权限
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformAttachPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupAttachPolicyInput) (jsonutils.JSONObject, error) {
-	if self.Status != api.CLOUD_GROUP_STATUS_AVAILABLE {
+	if self.Status != apis.STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("Can not attach policy in status %s", self.Status)
 	}
-
-	if len(input.CloudpolicyId) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudpolicy_id")
-	}
-
-	_policy, err := CloudpolicyManager.FetchById(input.CloudpolicyId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("cloudpolicy", input.CloudpolicyId)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	policy := _policy.(*SCloudpolicy)
-	err = policy.ValidateUse()
+	policyObj, err := validators.ValidateModel(ctx, userCred, CloudpolicyManager, &input.CloudpolicyId)
 	if err != nil {
 		return nil, err
 	}
-	if policy.Provider != self.Provider {
-		return nil, httperrors.NewDuplicateResourceError("group and policy not with same provider")
+	policy := policyObj.(*SCloudpolicy)
+	if policy.ManagerId != self.ManagerId || policy.CloudaccountId != self.CloudaccountId {
+		return nil, httperrors.NewConflictError("policy and groups do not belong to the same account")
 	}
-
 	_, err = self.GetCloudpolicy(input.CloudpolicyId)
 	if err == nil || errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
 		return nil, httperrors.NewDuplicateResourceError("policy %s has aleady in this group", input.CloudpolicyId)
 	}
 
-	err = self.attachPolicy(input.CloudpolicyId)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrap(err, "attachPolicy"))
+	add := []api.SPolicy{
+		{
+			Name:       policy.Name,
+			ExternalId: policy.ExternalId,
+			PolicyType: policy.PolicyType,
+		},
 	}
 
-	logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_POLICY, policy, userCred, true)
-	return nil, self.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
+	return nil, self.StartSetPoliciesTask(ctx, userCred, add, nil, "")
 }
 
 // 从权限组移除权限
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformDetachPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupDetachPolicyInput) (jsonutils.JSONObject, error) {
-	if self.Status != api.CLOUD_GROUP_STATUS_AVAILABLE {
+	if self.Status != apis.STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("Can not detach policy in status %s", self.Status)
 	}
-	if len(input.CloudpolicyId) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudpolicy_id")
-	}
-	_policy, err := CloudpolicyManager.FetchById(input.CloudpolicyId)
+
+	policObj, err := validators.ValidateModel(ctx, userCred, CloudpolicyManager, &input.CloudpolicyId)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("cloudpolicy", input.CloudpolicyId)
-		}
-		return nil, httperrors.NewGeneralError(err)
+		return nil, err
 	}
-	policy := _policy.(*SCloudpolicy)
+	policy := policObj.(*SCloudpolicy)
 
 	_, err = self.GetCloudpolicy(input.CloudpolicyId)
 	if err != nil && errors.Cause(err) == sql.ErrNoRows {
 		return nil, nil
 	}
 
-	err = self.detachPolicy(input.CloudpolicyId)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrap(err, "detachPolicy"))
+	del := []api.SPolicy{
+		{
+			Name:       policy.Name,
+			ExternalId: policy.ExternalId,
+			PolicyType: policy.PolicyType,
+		},
 	}
 
-	logclient.AddSimpleActionLog(self, logclient.ACT_DETACH_POLICY, policy, userCred, true)
-	return nil, self.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
+	return nil, self.StartSetPoliciesTask(ctx, userCred, nil, del, "")
 }
 
 func (self *SCloudgroup) attachPolicy(policyId string) error {
@@ -780,41 +747,341 @@ func (self *SCloudgroup) attachPolicy(policyId string) error {
 	return CloudgroupPolicyManager.TableSpec().Insert(context.Background(), gp)
 }
 
-func (self *SCloudgroup) IsEqual(system, custom []cloudprovider.ICloudpolicy) (bool, error) {
-	dbSystem, err := self.GetSystemCloudpolicies()
+func (self *SCloudaccount) SyncCloudgroups(ctx context.Context, userCred mcclient.TokenCredential, iGroups []cloudprovider.ICloudgroup, managerId string) ([]SCloudgroup, []cloudprovider.ICloudgroup, compare.SyncResult) {
+	lockman.LockRawObject(ctx, CloudgroupManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, CloudgroupManager.Keyword(), self.Id)
+
+	result := compare.SyncResult{}
+	dbGroups, err := self.GetCloudgroups(managerId)
 	if err != nil {
-		return false, errors.Wrap(err, "GetCloudpolicies")
+		result.Error(errors.Wrap(err, "GetCloudgroups"))
+		return nil, nil, result
+	}
+
+	localGroups := []SCloudgroup{}
+	remoteGroups := []cloudprovider.ICloudgroup{}
+
+	removed := make([]SCloudgroup, 0)
+	commondb := make([]SCloudgroup, 0)
+	commonext := make([]cloudprovider.ICloudgroup, 0)
+	added := make([]cloudprovider.ICloudgroup, 0)
+
+	err = compare.CompareSets(dbGroups, iGroups, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrap(err, "compare.CompareSets"))
+		return nil, nil, result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudgroup(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		localGroups = append(localGroups, commondb[i])
+		remoteGroups = append(remoteGroups, commonext[i])
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		group, err := self.newCloudgroup(ctx, userCred, added[i], managerId)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		localGroups = append(localGroups, *group)
+		remoteGroups = append(remoteGroups, added[i])
+		result.Add()
+	}
+
+	return localGroups, remoteGroups, result
+}
+
+func (group *SCloudgroup) GetCloudprovider() (*SCloudprovider, error) {
+	provider, err := CloudproviderManager.FetchById(group.ManagerId)
+	if err != nil {
+		return nil, err
+	}
+	return provider.(*SCloudprovider), nil
+}
+
+func (self *SCloudgroup) GetProvider() (cloudprovider.ICloudProvider, error) {
+	if len(self.ManagerId) > 0 {
+		provider, err := self.GetCloudprovider()
+		if err != nil {
+			return nil, err
+		}
+		return provider.GetProvider()
+	}
+	if len(self.CloudaccountId) > 0 {
+		account, err := self.GetCloudaccount()
+		if err != nil {
+			if err != nil {
+				return nil, err
+			}
+		}
+		return account.GetProvider()
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty account info")
+}
+
+func (group *SCloudgroup) GetICloudgroup() (cloudprovider.ICloudgroup, error) {
+	if len(group.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	provider, err := group.GetProvider()
+	if err != nil {
+		return nil, err
+	}
+	groups, err := provider.GetICloudgroups()
+	if err != nil {
+		return nil, err
+	}
+	for i := range groups {
+		if groups[i].GetGlobalId() == group.ExternalId {
+			return groups[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, group.ExternalId)
+}
+
+func (group *SCloudgroup) SyncWithCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) error {
+	_, err := db.Update(group, func() error {
+		group.Name = iGroup.GetName()
+		group.Status = apis.STATUS_AVAILABLE
+		return nil
+	})
+	return err
+}
+
+func (self *SCloudaccount) newCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup, managerId string) (*SCloudgroup, error) {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	group := &SCloudgroup{}
+	group.SetModelManager(CloudgroupManager, group)
+	group.Name = iGroup.GetName()
+	group.ExternalId = iGroup.GetGlobalId()
+	group.Status = apis.STATUS_AVAILABLE
+	group.CloudaccountId = self.Id
+	group.ManagerId = managerId
+	group.DomainId = self.DomainId
+	err := CloudgroupManager.TableSpec().Insert(ctx, group)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
+	return group, nil
+}
+
+func (self *SCloudgroup) SyncCloudusers(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) {
+	iUsers, err := iGroup.GetICloudusers()
+	if err == nil {
+		result := self.SyncUsers(ctx, userCred, iUsers)
+		log.Debugf("sync cloudusers for group %s result: %s", self.Name, result.Result())
+	}
+}
+
+func (self *SCloudgroup) SyncUsers(ctx context.Context, userCred mcclient.TokenCredential, iUsers []cloudprovider.IClouduser) compare.SyncResult {
+	lockman.LockRawObject(ctx, ClouduserManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, ClouduserManager.Keyword(), self.Id)
+
+	result := compare.SyncResult{}
+	dbUsers, err := self.GetCloudusers()
+	if err != nil {
+		result.Error(errors.Wrap(err, "GetCloudusers"))
+		return result
+	}
+
+	removed := make([]SClouduser, 0)
+	commondb := make([]SClouduser, 0)
+	commonext := make([]cloudprovider.IClouduser, 0)
+	added := make([]cloudprovider.IClouduser, 0)
+
+	err = compare.CompareSets(dbUsers, iUsers, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrap(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		self.removeUser(removed[i].Id)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	result.UpdateCnt = len(commondb)
+
+	for i := 0; i < len(added); i++ {
+		user, err := db.FetchByExternalIdAndManagerId(ClouduserManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if len(self.ManagerId) > 0 {
+				return q.Equals("manager_id", self.ManagerId)
+			}
+			return q.Equals("cloudaccount_id", self.CloudaccountId)
+		})
+		if err != nil {
+			result.AddError(errors.Wrapf(err, "Fetch %s", added[i].GetGlobalId()))
+			continue
+		}
+		err = self.addUser(user.GetId())
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	return result
+}
+
+func (self *SCloudgroup) SyncCloudpolicies(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) {
+	iPolicies, err := iGroup.GetISystemCloudpolicies()
+	if err == nil {
+		result := self.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_SYSTEM, iPolicies)
+		log.Infof("SyncSystemCloudpolicies for group %s(%s) result: %s", self.Name, self.Id, result.Result())
+	}
+	iPolicies, err = iGroup.GetICustomCloudpolicies()
+	if err == nil {
+		result := self.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_CUSTOM, iPolicies)
+		log.Infof("SyncCustomCloudpolicies for group %s(%s) result: %s", self.Name, self.Id, result.Result())
+	}
+}
+
+func (self *SCloudgroup) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, policyType string, iPolicies []cloudprovider.ICloudpolicy) compare.SyncResult {
+	result := compare.SyncResult{}
+	var dbPolicies []SCloudpolicy
+	var err error
+	switch policyType {
+	case api.CLOUD_POLICY_TYPE_CUSTOM:
+		dbPolicies, err = self.GetCustomCloudpolicies()
+	case api.CLOUD_POLICY_TYPE_SYSTEM:
+		dbPolicies, err = self.GetSystemCloudpolicies()
+	}
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetCloudpolicies %s", policyType))
+		return result
 	}
 
 	removed := make([]SCloudpolicy, 0)
 	commondb := make([]SCloudpolicy, 0)
 	commonext := make([]cloudprovider.ICloudpolicy, 0)
 	added := make([]cloudprovider.ICloudpolicy, 0)
-	err = compare.CompareSets(dbSystem, system, &removed, &commondb, &commonext, &added)
+
+	err = compare.CompareSets(dbPolicies, iPolicies, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		return false, errors.Wrap(err, "CompareSets")
+		result.Error(errors.Wrap(err, "compare.CompareSets"))
+		return result
 	}
-	if len(removed)+len(added) != 0 {
-		return false, nil
+
+	for i := 0; i < len(removed); i++ {
+		err := self.detachPolicy(removed[i].Id)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
 	}
-	dbCustom, err := self.GetCustomCloudpolicies()
+
+	result.UpdateCnt = len(commondb)
+
+	for i := 0; i < len(added); i++ {
+		policy, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			q = q.Equals("policy_type", policyType)
+			if len(self.ManagerId) > 0 {
+				return q.Equals("manager_id", self.ManagerId)
+			}
+			return q.Equals("cloudaccount_id", self.CloudaccountId)
+		})
+		if err != nil {
+			result.AddError(errors.Wrapf(err, "add %s", added[i].GetName()))
+			continue
+		}
+		err = self.attachPolicy(policy.GetId())
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+	return result
+}
+
+func (self *SCloudgroup) GetSamlProvider() (*SSAMLProvider, error) {
+	q := SAMLProviderManager.Query().Equals("status", apis.STATUS_AVAILABLE).
+		Equals("entity_id", options.Options.ApiServer).
+		Equals("cloudaccount_id", self.CloudaccountId).
+		IsNotEmpty("external_id")
+	if len(self.ManagerId) > 0 {
+		q = q.Equals("manager_id", self.ManagerId)
+	}
+	ret := &SSAMLProvider{}
+	ret.SetModelManager(SAMLProviderManager, ret)
+	err := q.First(ret)
 	if err != nil {
-		return false, errors.Wrapf(err, "GetCustomCloudpolicies")
+		return nil, err
 	}
-	if len(custom) != len(dbCustom) {
-		return false, nil
+	return ret, nil
+}
+
+func (self *SCloudgroup) GetCloudroles() ([]SCloudrole, error) {
+	sq := SamluserManager.Query("cloudrole_id").Equals("cloudgroup_id", self.Id).SubQuery()
+	q := CloudroleManager.Query().Equals("cloudgroup_id", self.Id).IsNotEmpty("external_id").In("id", sq)
+	ret := []SCloudrole{}
+	err := db.FetchModelObjects(CloudroleManager, q, &ret)
+	if err != nil {
+		return nil, err
 	}
-	local := set.New(set.ThreadSafe)
-	for _, l := range dbCustom {
-		local.Add(l.Document)
+	return ret, nil
+}
+
+func (self *SCloudgroup) GetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.GetCloudaccountSamlOutput, error) {
+	output := &api.GetCloudaccountSamlOutput{}
+
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return nil, err
 	}
-	remote := set.New(set.ThreadSafe)
-	for _, r := range custom {
-		doc, _ := r.GetDocument()
-		remote.Add(doc)
+	if account.SAMLAuth.IsFalse() {
+		return output, httperrors.NewNotSupportedError("account %s not enable saml auth", account.Name)
 	}
-	if local.IsEqual(remote) {
-		return true, nil
+
+	provider, err := account.GetProvider()
+	if err != nil {
+		return output, errors.Wrap(err, "GetProviderFactory")
 	}
-	return false, nil
+
+	samlProvider, err := self.GetSamlProvider()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotReadyError("no available saml provider")
+		}
+		return nil, errors.Wrapf(err, "GetSamlProvider")
+	}
+
+	output.EntityId = provider.GetSamlEntityId()
+	if len(output.EntityId) == 0 {
+		return output, errors.Wrap(httperrors.ErrNotSupported, "SAML login not supported")
+	}
+
+	id := self.CloudaccountId
+	if len(self.ManagerId) > 0 {
+		id = self.ManagerId
+	}
+
+	output.RedirectLoginUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/login", id)
+	output.RedirectLogoutUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/logout", id)
+	output.MetadataUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "metadata", id)
+	output.InitLoginUrl = samlProvider.AuthUrl
+	return output, nil
 }

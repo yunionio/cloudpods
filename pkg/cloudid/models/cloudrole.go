@@ -16,20 +16,15 @@ package models
 
 import (
 	"context"
-	"fmt"
-	"strconv"
-	"strings"
 
-	"gopkg.in/fatih/set.v0"
-
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -40,6 +35,7 @@ type SCloudroleManager struct {
 	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SCloudaccountResourceBaseManager
+	SCloudproviderResourceBaseManager
 	SAMLProviderResourceBaseManager
 	SCloudgroupResourceBaseManager
 }
@@ -62,11 +58,11 @@ type SCloudrole struct {
 	db.SEnabledStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 	SCloudaccountResourceBase
+	SCloudproviderResourceBase
 	SAMLProviderResourceBase
 	SCloudgroupResourceBase
 
 	Document *jsonutils.JSONDict `length:"long" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
-	OwnerId  string              `width:"128" charset:"ascii" index:"true" list:"user" nullable:"false" create:"optional"`
 }
 
 // 公有云角色列表
@@ -78,6 +74,11 @@ func (manager *SCloudroleManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	q, err = manager.SCloudaccountResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudaccountResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.SCloudproviderResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudproviderResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -102,10 +103,12 @@ func (manager *SCloudroleManager) FetchCustomizeColumns(
 	rows := make([]api.CloudroleDetails, len(objs))
 	infRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	acRows := manager.SCloudaccountResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	mRows := manager.SCloudproviderResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.CloudroleDetails{
 			StatusInfrasResourceBaseDetails: infRows[i],
 			CloudaccountResourceDetails:     acRows[i],
+			CloudproviderResourceDetails:    mRows[i],
 		}
 	}
 	return rows
@@ -113,153 +116,56 @@ func (manager *SCloudroleManager) FetchCustomizeColumns(
 
 // 删除公有云角色
 func (self *SCloudrole) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartCloudroleDeleteTask(ctx, userCred, false, "")
+	return self.StartCloudroleDeleteTask(ctx, userCred, "")
 }
 
-func (self *SCloudrole) StartCloudroleDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, purge bool, parentTaskId string) error {
+func (self *SCloudrole) StartCloudroleDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewBool(purge), "purge")
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudroleDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-	self.SetStatus(ctx, userCred, api.CLOUD_ROLE_STATUS_DELETING, "")
-	task.ScheduleRun(nil)
-	return nil
+	self.SetStatus(ctx, userCred, apis.STATUS_DELETE_FAILED, "")
+	return task.ScheduleRun(nil)
 }
 
-// 清除角色(不删除云上资源)
-func (self *SCloudrole) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudrolePurgeInput) (jsonutils.JSONObject, error) {
-	return nil, self.StartCloudroleDeleteTask(ctx, userCred, true, "")
+func (self *SCloudrole) GetCloudprovider() (*SCloudprovider, error) {
+	provider, err := CloudproviderManager.FetchById(self.ManagerId)
+	if err != nil {
+		return nil, err
+	}
+	return provider.(*SCloudprovider), nil
+}
+
+func (self *SCloudrole) GetProvider() (cloudprovider.ICloudProvider, error) {
+	if len(self.ManagerId) > 0 {
+		provider, err := self.GetCloudprovider()
+		if err != nil {
+			return nil, err
+		}
+		return provider.GetProvider()
+	}
+	if len(self.CloudaccountId) > 0 {
+		account, err := self.GetCloudaccount()
+		if err != nil {
+			if err != nil {
+				return nil, err
+			}
+		}
+		return account.GetProvider()
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty account info")
 }
 
 func (self *SCloudrole) GetICloudrole() (cloudprovider.ICloudrole, error) {
-	account, err := self.GetCloudaccount()
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	provider, err := self.GetProvider()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetCloudaccount")
+		return nil, err
 	}
-	provider, err := account.GetProvider()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetProvider")
-	}
-	if len(self.ExternalId) > 0 {
-		iRole, err := provider.GetICloudroleById(self.ExternalId)
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, errors.Wrapf(err, "GetICloudroleById(%s)", self.ExternalId)
-		}
-		if err == nil {
-			return iRole, nil
-		}
-	}
-	sp, err := self.GetSAMLProvider()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetSAMLProvider")
-	}
-	for {
-		_, err := provider.GetICloudroleByName(self.Name)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				break
-			}
-			return nil, errors.Wrapf(err, "GetICloudroleByName(%s)", self.Name)
-		}
-		info := strings.Split(self.Name, "-")
-		num, err := strconv.Atoi(info[len(info)-1])
-		if err != nil {
-			info = append(info, "1")
-		} else {
-			info[len(info)-1] = fmt.Sprintf("%d", num+1)
-		}
-		self.Name = strings.Join(info, "-")
-	}
-	opts := &cloudprovider.SRoleCreateOptions{
-		Name:         self.Name,
-		Desc:         self.Description,
-		SAMLProvider: sp.ExternalId,
-	}
-	iRole, err := provider.CreateICloudrole(opts)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CreateICloudrole")
-	}
-	db.Update(self, func() error {
-		self.ExternalId = iRole.GetGlobalId()
-		self.Name = iRole.GetName()
-		self.Document = iRole.GetDocument()
-		self.Status = api.CLOUD_ROLE_STATUS_AVAILABLE
-		return nil
-	})
-	return iRole, nil
-}
-
-func (self *SCloudrole) GetCloudpolicies() ([]SCloudpolicy, error) {
-	q := CloudpolicyManager.Query()
-	var sq *sqlchemy.SSubQuery
-	if len(self.OwnerId) > 0 {
-		su := SamluserManager.Query("cloudgroup_id").Equals("owner_id", self.OwnerId).Equals("cloudaccount_id", self.CloudaccountId).SubQuery()
-		sq = CloudgroupPolicyManager.Query("cloudpolicy_id").In("cloudgroup_id", su).SubQuery()
-	} else if len(self.CloudgroupId) > 0 {
-		sq = CloudgroupPolicyManager.Query("cloudpolicy_id").Equals("cloudgroup_id", self.CloudgroupId).SubQuery()
-	} else {
-		return nil, fmt.Errorf("empty owner id or cloudgroup id")
-	}
-	q = q.In("id", sq)
-	policies := []SCloudpolicy{}
-	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	return policies, nil
-}
-
-func (self *SCloudrole) SyncRoles() error {
-	iRole, err := self.GetICloudrole()
-	if err != nil {
-		return errors.Wrapf(err, "GetICloudrole")
-	}
-	policies, err := self.GetCloudpolicies()
-	if err != nil {
-		return errors.Wrapf(err, "GetICloudpolicies")
-	}
-	account, err := self.GetCloudaccount()
-	if err != nil {
-		if err != nil {
-			return errors.Wrapf(err, "GetCloudaccount")
-		}
-	}
-	cloudEnv := computeapi.GetCloudEnv(account.Provider, account.AccessUrl)
-	local := set.New(set.ThreadSafe)
-	for i := range policies {
-		envs := strings.Split(policies[i].CloudEnv, ",")
-		if !utils.IsInStringArray(cloudEnv, envs) {
-			continue
-		}
-		if policies[i].PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
-			local.Add(policies[i].ExternalId)
-		} else {
-		}
-	}
-	iPolicies, err := iRole.GetICloudpolicies()
-	if err != nil {
-		return errors.Wrapf(err, "GetICloudpolicies")
-	}
-	remote := set.New(set.ThreadSafe)
-	for i := range iPolicies {
-		remote.Add(iPolicies[i].GetGlobalId())
-	}
-	for _, id := range set.Difference(remote, local).List() {
-		err = iRole.DetachPolicy(id.(string))
-		if err != nil {
-			return errors.Wrapf(err, "DetachPolicy(%s)", id)
-		}
-	}
-	for _, id := range set.Difference(local, remote).List() {
-		err = iRole.AttachPolicy(id.(string))
-		if err != nil {
-			return errors.Wrapf(err, "AttachPolicy(%s)", id)
-		}
-	}
-
-	return nil
+	return provider.GetICloudroleById(self.ExternalId)
 }
 
 func (self *SCloudrole) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -270,8 +176,78 @@ func (self *SCloudrole) syncWithCloudrole(ctx context.Context, userCred mcclient
 	_, err := db.Update(self, func() error {
 		self.Name = self.GetName()
 		self.Document = iRole.GetDocument()
-		self.Status = api.CLOUD_ROLE_STATUS_AVAILABLE
+		self.Status = apis.STATUS_AVAILABLE
 		return nil
 	})
 	return err
+}
+
+func (self *SCloudaccount) SyncCloudroles(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudrole, managerId string) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	roles, err := self.GetCloudroles(managerId)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetCloudroles"))
+		return result
+	}
+
+	removed := make([]SCloudrole, 0)
+	commondb := make([]SCloudrole, 0)
+	commonext := make([]cloudprovider.ICloudrole, 0)
+	added := make([]cloudprovider.ICloudrole, 0)
+
+	err = compare.CompareSets(roles, exts, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].syncWithCloudrole(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		err := self.newCloudrole(ctx, userCred, added[i], managerId)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	return result
+}
+
+func (self *SCloudaccount) newCloudrole(ctx context.Context, userCred mcclient.TokenCredential, iRole cloudprovider.ICloudrole, managerId string) error {
+	role := &SCloudrole{}
+	role.SetModelManager(CloudroleManager, role)
+	role.Name = iRole.GetName()
+	role.ExternalId = iRole.GetGlobalId()
+	role.Document = iRole.GetDocument()
+	if spId := iRole.GetSAMLProvider(); len(spId) > 0 {
+		sp, _ := db.FetchByExternalIdAndManagerId(SAMLProviderManager, spId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("cloudaccount_id", self.Id)
+		})
+		if sp != nil {
+			role.SAMLProviderId = sp.GetId()
+		}
+	}
+	role.CloudaccountId = self.Id
+	role.ManagerId = managerId
+	role.Status = apis.STATUS_AVAILABLE
+	return CloudroleManager.TableSpec().Insert(ctx, role)
 }

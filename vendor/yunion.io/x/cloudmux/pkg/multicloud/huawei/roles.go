@@ -81,15 +81,16 @@ func (self *SHuaweiClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpoli
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListPermissions
 func (self *SHuaweiClient) GetRoles(domainId, name string) ([]SRole, error) {
-	params := url.Values{}
+	query := url.Values{}
 	if len(domainId) > 0 {
-		params.Set("domain_id", self.ownerId)
+		query.Set("domain_id", self.ownerId)
 	}
 	if len(name) > 0 {
-		params.Set("name", name)
+		query.Set("name", name)
 	}
 
-	query := url.Values{}
+	query.Set("type", "domain")
+
 	query.Set("per_page", "300")
 	page := 1
 	query.Set("page", fmt.Sprintf("%d", page))

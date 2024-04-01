@@ -609,7 +609,7 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 
 func init() {
 	Register(ResourceServer, compute.Servers.ResourceManager)
-	Register(ResourceCloudAccount, compute.Cloudaccounts)
+	Register(ResourceCloudAccount, compute.Cloudaccounts.ResourceManager)
 }
 
 // Modules describe the correspondence between Resource and modulebase.ResourceManager,

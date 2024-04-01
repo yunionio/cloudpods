@@ -767,6 +767,23 @@ func (client *SQcloudClient) verifyAppId() error {
 	return errors.Wrap(err, "Head")
 }
 
+func (client *SQcloudClient) getOwnerName() string {
+	if len(client.ownerName) > 0 {
+		return client.ownerName
+	}
+	coscli, err := client.getCosClient(nil)
+	if err != nil {
+		return ""
+	}
+	s, _, err := coscli.Service.Get(context.Background())
+	if err != nil {
+		return ""
+	}
+	client.ownerId = s.Owner.ID
+	client.ownerName = s.Owner.DisplayName
+	return client.ownerName
+}
+
 func (client *SQcloudClient) fetchBuckets() error {
 	coscli, err := client.getCosClient(nil)
 	if err != nil {

@@ -104,7 +104,7 @@ func (account *SCloudDelegate) getOptions(ctx context.Context, s *mcclient.Clien
 func (self *SCloudprovider) GetProvider(ctx context.Context, s *mcclient.ClientSession, id string) (cloudprovider.ICloudProvider, error) {
 	result, err := self.Get(s, id, jsonutils.Marshal(map[string]string{"scope": "system"}))
 	if err != nil {
-		return nil, errors.Wrap(err, "Cloudaccounts.Get")
+		return nil, errors.Wrap(err, "Cloudprovider.Get")
 	}
 	account := &SCloudDelegate{}
 	err = result.Unmarshal(account)
@@ -112,7 +112,7 @@ func (self *SCloudprovider) GetProvider(ctx context.Context, s *mcclient.ClientS
 		return nil, errors.Wrap(err, "result.Unmarshal")
 	}
 	if !account.Enabled {
-		log.Warningf("Cloud account %s is disabled", account.Name)
+		log.Warningf("Cloud provider %s is disabled", account.Name)
 	}
 
 	accessUrl := account.getAccessUrl()

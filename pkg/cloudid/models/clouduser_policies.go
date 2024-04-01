@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
@@ -59,7 +58,6 @@ func init() {
 type SClouduserPolicy struct {
 	SClouduserJointsBase
 
-	SCloudproviderResourceBase
 	SCloudpolicyResourceBase
 }
 
@@ -166,19 +164,5 @@ func (manager *SClouduserPolicyManager) ListItemExportKeys(ctx context.Context,
 }
 
 func (manager *SClouduserPolicyManager) InitializeData() error {
-	sq := CloudaccountManager.Query("id").In("provider", cloudprovider.GetClouduserpolicyWithSubscriptionProviders())
-	ssq := ClouduserManager.Query("id").In("cloudaccount_id", sq.SubQuery())
-	q := manager.Query().IsNullOrEmpty("cloudprovider_id").In("clouduser_id", ssq.SubQuery())
-	ugs := []SClouduserPolicy{}
-	err := db.FetchModelObjects(manager, q, &ugs)
-	if err != nil {
-		return errors.Wrap(err, "db.FetchModelObjects")
-	}
-	for i := range ugs {
-		err = ugs[i].Delete(context.Background(), nil)
-		if err != nil {
-			return errors.Wrapf(err, "Delete clouduserpolicy user: %s policy %s", ugs[i].ClouduserId, ugs[i].CloudpolicyId)
-		}
-	}
 	return nil
 }

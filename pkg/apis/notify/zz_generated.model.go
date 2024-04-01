@@ -201,7 +201,7 @@ type STopic struct {
 	apis.SEnabledStatusStandaloneResourceBase
 	Type              string           `json:"type"`
 	Resources         uint64           `json:"resources"`
-	Actions           uint32           `json:"actions"`
+	Actions           uint64           `json:"actions"`
 	Results           *bool            `json:"results,omitempty"`
 	TitleCn           string           `json:"title_cn"`
 	TitleEn           string           `json:"title_en"`
