@@ -16,6 +16,7 @@ package storage
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -76,6 +77,9 @@ func (l localRaw) DisconnectDisk(diskPath string, mountPoint string) error {
 		if dev.BackFile == diskPath {
 			log.Infof("Start detach loop device %s", dev.Name)
 			if err := losetup.DetachDevice(dev.Name); err != nil {
+				if strings.Contains(err.Error(), "No such device or address") {
+					return nil
+				}
 				return errors.Wrapf(err, "detach device %s", dev.Name)
 			} else {
 				log.Infof("detach loop device %s of disk %s", dev.Name, diskPath)
