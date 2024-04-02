@@ -57,6 +57,7 @@ type ContainerCreateCommonOptions struct {
 	EnableLxcfs       bool     `help:"Enable lxcfs"`
 	PostStartExec     string   `help:"Post started execution command"`
 	CgroupDeviceAllow []string `help:"Cgroup devices.allow, e.g.: 'c 13:* rwm'"`
+	SimulateCpu       bool     `help:"Simulating /sys/devices/system/cpu files"`
 }
 
 func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
@@ -70,6 +71,7 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 			Privileged:         o.Privileged,
 			Capabilities:       &apis.ContainerCapability{},
 			CgroupDevicesAllow: o.CgroupDeviceAllow,
+			SimulateCpu:        o.SimulateCpu,
 		},
 	}
 	if len(o.PostStartExec) != 0 {

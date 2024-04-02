@@ -61,6 +61,7 @@ type ContainerSpec struct {
 	Privileged         bool                    `json:"privileged"`
 	Lifecyle           *ContainerLifecyle      `json:"lifecyle"`
 	CgroupDevicesAllow []string                `json:"cgroup_devices_allow"`
+	SimulateCpu        bool                    `json:"simulate_cpu"`
 }
 
 type ContainerCapability struct {
