@@ -322,12 +322,8 @@ func (self *SAwsProvider) CreateICloudgroup(name, desc string) (cloudprovider.IC
 	return self.client.CreateICloudgroup(name, desc)
 }
 
-func (self *SAwsProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetISystemCloudpolicies()
-}
-
-func (self *SAwsProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetICustomCloudpolicies()
+func (self *SAwsProvider) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
 }
 
 func (self *SAwsProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {

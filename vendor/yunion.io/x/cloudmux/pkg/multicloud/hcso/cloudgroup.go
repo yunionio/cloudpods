@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -67,23 +68,21 @@ func (group *SCloudgroup) RemoveUser(name string) error {
 	return group.client.RemoveUserFromGroup(group.Id, user.GetGlobalId())
 }
 
-func (group *SCloudgroup) DetachSystemPolicy(roleId string) error {
+func (group *SCloudgroup) DetachPolicy(roleId string, policyType api.TPolicyType) error {
+	if policyType == api.PolicyTypeCustom {
+		return group.client.DetachGroupCustomRole(group.Id, roleId)
+	}
 	return group.client.DetachGroupRole(group.Id, roleId)
 }
 
-func (group *SCloudgroup) DetachCustomPolicy(roleId string) error {
-	return group.client.DetachGroupCustomRole(group.Id, roleId)
-}
-
-func (group *SCloudgroup) AttachSystemPolicy(roleId string) error {
+func (group *SCloudgroup) AttachPolicy(roleId string, policyType api.TPolicyType) error {
+	if policyType == api.PolicyTypeCustom {
+		return group.client.AttachGroupCustomRole(group.Id, roleId)
+	}
 	return group.client.AttachGroupRole(group.Id, roleId)
 }
 
-func (group *SCloudgroup) AttachCustomPolicy(roleId string) error {
-	return group.client.AttachGroupCustomRole(group.Id, roleId)
-}
-
-func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (group *SCloudgroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	roles, err := group.client.GetGroupRoles(group.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetGroupRoles")
@@ -91,25 +90,6 @@ func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolic
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
 		_, err := group.client.GetRole(roles[i].GetName())
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				continue
-			}
-			return nil, errors.Wrapf(err, "GetRole(%s)", roles[i].GetName())
-		}
-		ret = append(ret, &roles[i])
-	}
-	return ret, nil
-}
-
-func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := group.client.GetGroupRoles(group.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetGroupRoles")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range roles {
-		_, err := group.client.GetCustomRole(roles[i].GetName())
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				continue

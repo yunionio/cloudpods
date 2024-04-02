@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package volcengine
+package ksyun
 
 import (
-	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -30,18 +30,23 @@ const (
 )
 
 type SPolicy struct {
-	client *SVolcEngineClient
+	client *SKsyunClient
 
-	CreateDate          string
-	UpdateDate          string
-	PolicyDocument      string
-	Status              string
-	PolicyName          string
-	PolicyType          string
-	Description         string
-	Category            string
-	IsServiceRolePolicy int
-	AttachmentCount     int
+	CreateDate       time.Time
+	DefaultVersionId string
+	Description      string
+	Krn              string
+	PolicyKrn        string
+	Path             string
+	PolicyId         string
+	PolicyName       string
+	ServiceId        string
+	ServiceName      string
+	ServiceViewName  string
+	PolicyType       int
+	CreateMode       int
+	UpdateDate       time.Time
+	AttachmentCount  int
 }
 
 func (policy *SPolicy) GetName() string {
@@ -53,11 +58,11 @@ func (policy *SPolicy) GetDescription() string {
 }
 
 func (policy *SPolicy) GetGlobalId() string {
-	return policy.PolicyName
+	return policy.Krn + policy.PolicyKrn
 }
 
 func (policy *SPolicy) GetPolicyType() api.TPolicyType {
-	if policy.PolicyType == "System" {
+	if policy.PolicyType == 1 {
 		return api.PolicyTypeSystem
 	}
 	return api.PolicyTypeCustom
@@ -68,22 +73,22 @@ func (policy *SPolicy) UpdateDocument(document *jsonutils.JSONDict) error {
 }
 
 func (policy *SPolicy) Delete() error {
-	return policy.client.DeletePolicy(policy.PolicyName)
+	return policy.client.DeletePolicy(policy.Krn)
 }
 
 func (policy *SPolicy) GetDocument() (*jsonutils.JSONDict, error) {
-	doc, err := jsonutils.Parse([]byte(policy.PolicyDocument))
+	doc, err := policy.client.GetPolicyVersion(policy.Krn, policy.DefaultVersionId)
 	if err != nil {
 		return nil, err
 	}
-	ret, ok := doc.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, policy.PolicyDocument)
+	obj, err := jsonutils.ParseString(doc.Document)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ParseString %s", doc.Document)
 	}
-	return ret, nil
+	return obj.(*jsonutils.JSONDict), nil
 }
 
-func (self *SVolcEngineClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SKsyunClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := self.ListPolicies("")
 	if err != nil {
 		return nil, err
@@ -96,43 +101,63 @@ func (self *SVolcEngineClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy
 	return ret, nil
 }
 
-func (client *SVolcEngineClient) ListPolicies(scope string) ([]SPolicy, error) {
+func (client *SKsyunClient) ListPolicies(scope string) ([]SPolicy, error) {
 	params := map[string]string{
-		"Limit": "50",
+		"MaxItems": "100",
 	}
 	if len(scope) > 0 {
 		params["Scope"] = scope
 	}
-	offset := 0
 	ret := []SPolicy{}
 	for {
-		params["Offset"] = fmt.Sprintf("%d", offset)
 		resp, err := client.iamRequest("", "ListPolicies", params)
 		if err != nil {
 			return nil, err
 		}
 		part := struct {
-			PolicyMetadata []SPolicy
-			Total          int
+			Policies struct {
+				Member []SPolicy
+			}
+			Marker string
 		}{}
 		err = resp.Unmarshal(&part)
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, part.PolicyMetadata...)
-		if len(part.PolicyMetadata) == 0 || len(ret) >= part.Total {
+		ret = append(ret, part.Policies.Member...)
+		if len(part.Policies.Member) == 0 || len(part.Marker) == 0 {
 			break
 		}
-		offset = len(ret)
+		params["Marker"] = part.Marker
 	}
 	return ret, nil
-
 }
 
-func (client *SVolcEngineClient) DeletePolicy(name string) error {
+func (client *SKsyunClient) DeletePolicy(krn string) error {
 	params := map[string]string{
-		"PolicyName": name,
+		"PolicyKrn": krn,
 	}
 	_, err := client.iamRequest("", "DeletePolicy", params)
 	return err
+}
+
+type SPolicyVersion struct {
+	Document string
+}
+
+func (client *SKsyunClient) GetPolicyVersion(krn, version string) (*SPolicyVersion, error) {
+	params := map[string]string{
+		"PolicyKrn": krn,
+		"VersionId": version,
+	}
+	resp, err := client.iamRequest("", "GetPolicyVersion", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SPolicyVersion{}
+	err = resp.Unmarshal(ret, "PolicyVersion")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }

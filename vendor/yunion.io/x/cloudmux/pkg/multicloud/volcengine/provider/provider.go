@@ -273,12 +273,8 @@ func (self *SVolcEngineProvider) GetICloudgroupByName(name string) (cloudprovide
 	return self.client.GetICloudgroupByName(name)
 }
 
-func (self *SVolcEngineProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetISystemCloudpolicies()
-}
-
-func (self *SVolcEngineProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetICustomCloudpolicies()
+func (self *SVolcEngineProvider) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
 }
 
 func (self *SVolcEngineProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {

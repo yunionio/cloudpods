@@ -17,9 +17,9 @@ package qcloud
 import (
 	"fmt"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -49,7 +49,7 @@ func (self *SUser) GetInviteUrl() string {
 	return ""
 }
 
-func (user *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (user *SUser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies := []SPolicy{}
 	offset := 1
 	for {
@@ -65,51 +65,17 @@ func (user *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, erro
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].PolicyType == "QCS" || policies[i].PolicyType == "" {
-			policies[i].client = user.client
-			ret = append(ret, &policies[i])
-		}
+		policies[i].client = user.client
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
 
-func (user *SUser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies := []SPolicy{}
-	offset := 1
-	for {
-		part, total, err := user.client.ListAttachedUserPolicies(user.GetGlobalId(), offset, 50)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetClouduserPolicy")
-		}
-		policies = append(policies, part...)
-		if len(policies) >= total {
-			break
-		}
-		offset += 1
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		if policies[i].PolicyType == "User" {
-			policies[i].client = user.client
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (user *SUser) AttachSystemPolicy(policyId string) error {
+func (user *SUser) AttachPolicy(policyId string, policyType api.TPolicyType) error {
 	return user.client.AttachUserPolicy(user.GetGlobalId(), policyId)
 }
 
-func (user *SUser) AttachCustomPolicy(policyId string) error {
-	return user.client.AttachUserPolicy(user.GetGlobalId(), policyId)
-}
-
-func (user *SUser) DetachSystemPolicy(policyId string) error {
-	return user.client.DetachUserPolicy(user.GetGlobalId(), policyId)
-}
-
-func (user *SUser) DetachCustomPolicy(policyId string) error {
+func (user *SUser) DetachPolicy(policyId string, policyType api.TPolicyType) error {
 	return user.client.DetachUserPolicy(user.GetGlobalId(), policyId)
 }
 
@@ -249,12 +215,6 @@ func (self *SQcloudClient) CreateIClouduser(conf *cloudprovider.SClouduserCreate
 	user, err := self.AddUser(conf.Name, conf.Password, conf.Desc, conf.IsConsoleLogin)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateClouduser")
-	}
-	for _, policyId := range conf.ExternalPolicyIds {
-		err = user.client.AttachUserPolicy(fmt.Sprintf("%d", user.Uin), policyId)
-		if err != nil {
-			log.Errorf("attach policy %s for user %s error: %v", policyId, conf.Name, err)
-		}
 	}
 	return user, nil
 }

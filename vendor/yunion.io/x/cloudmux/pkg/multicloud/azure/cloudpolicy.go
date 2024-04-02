@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -60,6 +61,13 @@ func (role *SCloudpolicy) GetDescription() string {
 	return role.Properties.Description
 }
 
+func (role *SCloudpolicy) GetPolicyType() api.TPolicyType {
+	if role.Properties.Type == "BuiltInRole" {
+		return api.PolicyTypeSystem
+	}
+	return api.PolicyTypeCustom
+}
+
 func (role *SCloudpolicy) UpdateDocument(document *jsonutils.JSONDict) error {
 	return cloudprovider.ErrNotImplemented
 }
@@ -93,20 +101,8 @@ func (cli *SAzureClient) GetRoles(name, policyType string) ([]SCloudpolicy, erro
 	return ret, nil
 }
 
-func (cli *SAzureClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := cli.GetRoles("", "BuiltInRole")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetRoles")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range roles {
-		ret = append(ret, &roles[i])
-	}
-	return ret, nil
-}
-
-func (cli *SAzureClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := cli.GetRoles("", "CustomRole")
+func (cli *SAzureClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	roles, err := cli.GetRoles("", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRoles")
 	}

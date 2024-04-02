@@ -12,40 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudprovider
+package drivers
 
 import (
-	"time"
-
-	"yunion.io/x/jsonutils"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-type SClouduserCreateConfig struct {
-	Name           string
-	Desc           string
-	Password       string
-	IsConsoleLogin bool
-	Email          string
-	MobilePhone    string
-	UserType       string
+type SKsyunDriver struct {
+	SProviderBaseProviderDriver
 }
 
-type SCloudpolicyPermission struct {
-	Name     string
-	Action   string
-	Category string
+func (driver SKsyunDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_KSYUN
 }
 
-type SCloudpolicyCreateOptions struct {
-	Name     string
-	Desc     string
-	Document *jsonutils.JSONDict
-}
-
-type SAccessKey struct {
-	Name      string
-	AccessKey string
-	Secret    string
-	Status    string
-	CreatedAt time.Time
+func init() {
+	models.RegisterProviderDriver(&SKsyunDriver{})
 }

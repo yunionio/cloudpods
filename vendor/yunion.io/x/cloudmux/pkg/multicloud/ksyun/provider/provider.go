@@ -205,3 +205,31 @@ func (self *SKsyunProvider) GetCloudRegionExternalIdPrefix() string {
 func (self *SKsyunProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SKsyunProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SKsyunProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SKsyunProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SKsyunProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SKsyunProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SKsyunProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
+}
+
+func (self *SKsyunProvider) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
+}

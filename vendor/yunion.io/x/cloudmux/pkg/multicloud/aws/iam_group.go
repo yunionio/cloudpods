@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -72,19 +73,11 @@ func (self *SGroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 	return ret, nil
 }
 
-func (self *SGroup) AttachSystemPolicy(policyId string) error {
+func (self *SGroup) AttachPolicy(policyId string, policyType api.TPolicyType) error {
 	return self.client.AttachGroupPolicy(self.GroupName, self.client.getIamArn(policyId))
 }
 
-func (self *SGroup) AttachCustomPolicy(policyId string) error {
-	return self.client.AttachGroupPolicy(self.GroupName, self.client.getIamArn(policyId))
-}
-
-func (self *SGroup) DetachSystemPolicy(policyId string) error {
-	return self.client.DetachGroupPolicy(self.GroupName, self.client.getIamArn(policyId))
-}
-
-func (self *SGroup) DetachCustomPolicy(policyId string) error {
+func (self *SGroup) DetachPolicy(policyId string, policyType api.TPolicyType) error {
 	return self.client.DetachGroupPolicy(self.GroupName, self.client.getIamArn(policyId))
 }
 
@@ -116,40 +109,14 @@ func (self *SGroup) ListPolicies() ([]SAttachedPolicy, error) {
 	return policies, nil
 }
 
-func (self *SGroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SGroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := self.ListPolicies()
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListPolicies")
 	}
-	customMaps, err := self.client.GetCustomPolicyMaps()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetCustomPolicyMaps")
-	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		_, ok := customMaps[policies[i].PolicyName]
-		if !ok {
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (self *SGroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := self.ListPolicies()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListPolicies")
-	}
-	customMaps, err := self.client.GetCustomPolicyMaps()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetCustomPolicyMaps")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		_, ok := customMaps[policies[i].PolicyName]
-		if ok {
-			ret = append(ret, &policies[i])
-		}
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }

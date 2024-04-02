@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/hcso/client/modules"
 )
@@ -61,27 +62,15 @@ func (user *SClouduser) GetInviteUrl() string {
 	return ""
 }
 
-func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (user *SClouduser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	return []cloudprovider.ICloudpolicy{}, nil
 }
 
-func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return []cloudprovider.ICloudpolicy{}, nil
-}
-
-func (user *SClouduser) AttachSystemPolicy(policyType string) error {
+func (user *SClouduser) AttachPolicy(policyName string, policyType api.TPolicyType) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (user *SClouduser) AttachCustomPolicy(policyType string) error {
-	return cloudprovider.ErrNotSupported
-}
-
-func (user *SClouduser) DetachSystemPolicy(policyId string) error {
-	return cloudprovider.ErrNotSupported
-}
-
-func (user *SClouduser) DetachCustomPolicy(policyId string) error {
+func (user *SClouduser) DetachPolicy(policyName string, policyType api.TPolicyType) error {
 	return cloudprovider.ErrNotSupported
 }
 

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -47,8 +48,8 @@ func (role *SRole) GetDescription() string {
 	return role.DescriptionCn
 }
 
-func (role *SRole) GetPolicyType() string {
-	return "System"
+func (role *SRole) GetPolicyType() api.TPolicyType {
+	return api.PolicyTypeSystem
 }
 
 func (role *SRole) GetGlobalId() string {
@@ -67,7 +68,7 @@ func (role *SRole) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SHuaweiClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SHuaweiClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	roles, err := self.GetRoles("", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRoles")

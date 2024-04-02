@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -42,6 +43,13 @@ func (self *SPolicy) GetGlobalId() string {
 
 func (self *SPolicy) GetName() string {
 	return self.PolicyName
+}
+
+func (self *SPolicy) GetPolicyType() api.TPolicyType {
+	if self.PolicyType == "User" {
+		return api.PolicyTypeCustom
+	}
+	return api.PolicyTypeSystem
 }
 
 func (self *SPolicy) UpdateDocument(document *jsonutils.JSONDict) error {
@@ -87,31 +95,11 @@ func (self *SPolicy) GetDescription() string {
 	return self.Description
 }
 
-func (self *SQcloudClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SQcloudClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	ret := []cloudprovider.ICloudpolicy{}
 	offset := 1
 	for {
-		part, total, err := self.ListPolicies("", "QCS", offset, 50)
-		if err != nil {
-			return nil, errors.Wrap(err, "ListPolicies")
-		}
-		for i := range part {
-			part[i].client = self
-			ret = append(ret, &part[i])
-		}
-		if len(ret) >= total {
-			break
-		}
-		offset += 1
-	}
-	return ret, nil
-}
-
-func (self *SQcloudClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	ret := []cloudprovider.ICloudpolicy{}
-	offset := 1
-	for {
-		part, total, err := self.ListPolicies("", "Local", offset, 50)
+		part, total, err := self.ListPolicies("", "", offset, 50)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListPolicies")
 		}
