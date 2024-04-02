@@ -17,31 +17,31 @@ package models // import "yunion.io/x/onecloud/pkg/notify/models"
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	apis "yunion.io/x/onecloud/pkg/apis/notify"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type SNotificationGroupManager struct {
-	db.SLogBaseManager
+	db.SModelBaseManager
 }
 
 var NotificationGroupManager *SNotificationGroupManager
 
 func init() {
 	NotificationGroupManager = &SNotificationGroupManager{
-		SLogBaseManager: db.NewLogBaseManager(
+		SModelBaseManager: db.NewModelBaseManager(
 			SNotificationGroup{},
 			"notification_group_tbl",
 			"notification_group",
 			"notification_groups",
-			"created_at",
-			consts.OpsLogWithClickhouse,
 		),
 	}
 	NotificationGroupManager.SetVirtualObject(NotificationGroupManager)
@@ -49,8 +49,9 @@ func init() {
 
 // 站内信
 type SNotificationGroup struct {
-	db.SLogBase
+	db.SModelBase
 
+	Id       string `width:"128" nullable:"false" create:"required" list:"user"  index:"true" get:"user"`
 	GroupKey string `width:"128" nullable:"false" create:"required" list:"user" get:"user"`
 	Title    string
 	// swagger:ignore
@@ -70,6 +71,7 @@ func (ng *SNotificationGroupManager) TaskCreate(ctx context.Context, contactType
 		return nil
 	}
 	insertNotificationGroup := SNotificationGroup{
+		Id:          db.DefaultUUIDGenerator(),
 		ContactType: contactType,
 		Body:        args.Body,
 		Header:      args.Header,
@@ -121,9 +123,19 @@ func (ng *SNotificationGroupManager) TaskSend(ctx context.Context, input apis.SN
 	if input.ContactType == apis.EMAIL {
 		joinStr = " <br>"
 	}
+	deleteIds := []string{}
 	for _, ng := range ngs {
 		msg += fmt.Sprintf("%s %s", ng.Message, joinStr)
+		deleteIds = append(deleteIds, fmt.Sprintf("'%s'", ng.Id))
 	}
+
+	defer func() {
+		_, err = sqlchemy.Exec(fmt.Sprintf("delete from %s where id in (%s) ", ng.TableSpec().Name(), strings.Join(deleteIds, ",")))
+		if err != nil {
+			log.Errorln("clean notification_groups err:", err)
+		}
+	}()
+
 	sendParams.Message = msg
 	if input.ContactType == apis.EMAIL {
 		sendParams.EmailMsg = apis.SEmailMessage{
