@@ -335,7 +335,7 @@ type IdentityProviderListInput struct {
 
 	// 过滤支持SSO的认证源，如果值为all，则列出所有的全局认证源，否则可出sso为域ID的域认证源
 	// example: all
-	SsoDomain string `json:"sso"`
+	SsoDomain string `json:"sso_domain"`
 
 	AutoCreateProject *bool `json:"auto_create_project"`
 	AutoCreateUser    *bool `json:"auto_create_user"`
