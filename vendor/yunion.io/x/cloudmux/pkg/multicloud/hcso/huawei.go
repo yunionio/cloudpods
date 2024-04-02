@@ -308,11 +308,7 @@ func (self *SHuaweiClient) fetchBuckets() error {
 }
 
 func (self *SHuaweiClient) GetCloudRegionExternalIdPrefix() string {
-	if len(self.projectId) > 0 {
-		return self.iregions[0].GetGlobalId()
-	} else {
-		return CLOUD_PROVIDER_HUAWEI
-	}
+	return CLOUD_PROVIDER_HUAWEI
 }
 
 func (self *SHuaweiClient) UpdateAccount(accessKey, secret string) error {

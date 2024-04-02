@@ -35,7 +35,7 @@ type SRegion struct {
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s%s", self.client.GetCloudRegionExternalIdPrefix(), self.Id)
+	return fmt.Sprintf("%s/%s", self.client.GetCloudRegionExternalIdPrefix(), self.Id)
 }
 
 func (self *SRegion) GetProvider() string {

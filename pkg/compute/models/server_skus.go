@@ -1544,28 +1544,28 @@ func (self *SServerSku) GetICloudSku(ctx context.Context) (cloudprovider.ICloudS
 		}
 		return nil, errors.Wrapf(err, "GetRegion")
 	}
-	provider, err := region.GetCloudprovider()
+	providers, err := region.GetCloudproviders()
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetCloudprovider")
-		}
 		return nil, errors.Wrapf(err, "GetCloudprovider")
 	}
-	driver, err := provider.GetProvider(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetDriver()")
-	}
-	iRegion, err := driver.GetIRegionById(region.ExternalId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetIRegionById(%s)", region.ExternalId)
-	}
-	skus, err := iRegion.GetISkus()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetICloudSku")
-	}
-	for i := range skus {
-		if skus[i].GetGlobalId() == self.ExternalId {
-			return skus[i], nil
+	for i := range providers {
+		provider := providers[i]
+		driver, err := provider.GetProvider(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDriver()")
+		}
+		iRegion, err := driver.GetIRegionById(region.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIRegionById(%s)", region.ExternalId)
+		}
+		skus, err := iRegion.GetISkus()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetICloudSku")
+		}
+		for i := range skus {
+			if skus[i].GetGlobalId() == self.ExternalId {
+				return skus[i], nil
+			}
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
