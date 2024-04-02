@@ -1367,8 +1367,8 @@ type ICloudrole interface {
 	GetSAMLProvider() string
 
 	GetICloudpolicies() ([]ICloudpolicy, error)
-	AttachPolicy(id string) error
-	DetachPolicy(id string) error
+	AttachPolicy(policyName string, policyType string) error
+	DetachPolicy(policyName string, policyType string) error
 
 	Delete() error
 }

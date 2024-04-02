@@ -16,6 +16,7 @@ package volcengine
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -64,6 +65,10 @@ func (f *SVolcEngineProviderFactory) ValidateUpdateCloudaccountCredential(ctx co
 		Secret:  input.AccessKeySecret,
 	}
 	return output, nil
+}
+
+func (factory *SVolcEngineProviderFactory) IsSupportSAMLAuth() bool {
+	return true
 }
 
 func validateClientCloudenv(client *volcengine.SVolcEngineClient) error {
@@ -209,4 +214,77 @@ func (self *SVolcEngineProvider) GetVersion() string {
 
 func (self *SVolcEngineProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	return self.client.GetMetrics(opts)
+}
+
+func (self *SVolcEngineProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLProviderCreateOptions) (cloudprovider.ICloudSAMLProvider, error) {
+	sp, err := self.client.CreateSAMLProvider(opts.Name, opts.Metadata.String(), opts.Desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateSAMLProvider")
+	}
+	return sp, nil
+}
+
+func (self *SVolcEngineProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
+	return self.client.GetICloudSAMLProviders()
+}
+
+func (self *SVolcEngineProvider) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
+	return self.client.GetICloudroles()
+}
+
+func (self *SVolcEngineProvider) GetICloudroleById(id string) (cloudprovider.ICloudrole, error) {
+	role, err := self.client.GetRole(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRole(%s)", id)
+	}
+	return role, nil
+}
+
+func (self *SVolcEngineProvider) CreateICloudrole(opts *cloudprovider.SRoleCreateOptions) (cloudprovider.ICloudrole, error) {
+	stetement := fmt.Sprintf(`{"Statement":[{"Effect":"Allow","Action":["sts:AssumeRoleWithSAML"],"Principal":{"Federated":["trn:iam::%s:saml-provider/%s"]}}]}`, self.client.GetAccountId(), opts.SAMLProvider)
+	role, err := self.client.CreateRole(opts.Name, stetement, opts.Desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateRole")
+	}
+	return role, nil
+}
+
+func (self *SVolcEngineProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SVolcEngineProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SVolcEngineProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
+}
+
+func (self *SVolcEngineProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SVolcEngineProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SVolcEngineProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
+}
+
+func (self *SVolcEngineProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetISystemCloudpolicies()
+}
+
+func (self *SVolcEngineProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICustomCloudpolicies()
+}
+
+func (self *SVolcEngineProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SVolcEngineProvider) GetSamlEntityId() string {
+	return cloudprovider.SAML_ENTITY_ID_VOLC_ENGINE
 }

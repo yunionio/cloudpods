@@ -12,15 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package saml
+package volcengine
 
 import (
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/aliyun"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/aws"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/awscn"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/azure"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/google"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/huawei"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/qcloud"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/volcengine"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
+
+type SVolcEngineSAMLDriver struct{}
+
+func (d *SVolcEngineSAMLDriver) GetEntityID() string {
+	return cloudprovider.SAML_ENTITY_ID_VOLC_ENGINE
+}
+
+func (d *SVolcEngineSAMLDriver) GetMetadataFilename() string {
+	return "volcengine.xml"
+}
+
+func (d *SVolcEngineSAMLDriver) GetMetadataUrl() string {
+	return "https://signin.volcengine.com/saml_role/SpMetadata.xml"
+}
+
+func init() {
+	models.Register(&SVolcEngineSAMLDriver{})
+}

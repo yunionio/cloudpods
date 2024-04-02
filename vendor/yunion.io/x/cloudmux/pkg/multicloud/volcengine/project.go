@@ -36,8 +36,8 @@ type SProject struct {
 	Path              string
 	DisplayName       string
 	Description       string
-	CreateDate        time.Time
-	UpdateDate        time.Time
+	CreateDate        string
+	UpdateDate        string
 	Status            string
 }
 
@@ -77,7 +77,7 @@ func (client *SVolcEngineClient) GetProject(name string) (*SProject, error) {
 	params := map[string]string{
 		"ProjectName": name,
 	}
-	body, err := client.iamRequest("", "GetProject", params)
+	body, err := client.iam20210801Request("", "GetProject", params)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (client *SVolcEngineClient) ListProjects(limit int, offset int) ([]SProject
 		"Limit":  fmt.Sprintf("%d", limit),
 		"Offset": fmt.Sprintf("%d", offset),
 	}
-	resp, err := client.iamRequest("", "ListProjects", params)
+	resp, err := client.iam20210801Request("", "ListProjects", params)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "iamRequest.ListProjects")
 	}
@@ -123,7 +123,7 @@ func (client *SVolcEngineClient) CreateProject(name string) (*SProject, error) {
 		"DisplayName": name,
 		"ProjectName": name,
 	}
-	resp, err := client.iamRequest("", "CreateProject", params)
+	resp, err := client.iam20210801Request("", "CreateProject", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateProject")
 	}
