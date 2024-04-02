@@ -485,15 +485,10 @@ func (self *SClouduser) detachPolicy(policyId string) error {
 }
 
 func (self *SClouduser) SyncCloudpolicies(ctx context.Context, userCred mcclient.TokenCredential, iUser cloudprovider.IClouduser) {
-	iPolicies, err := iUser.GetISystemCloudpolicies()
+	iPolicies, err := iUser.GetICloudpolicies()
 	if err == nil {
-		result := self.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_SYSTEM, iPolicies)
-		log.Infof("SyncSystemCloudpolicies for user %s(%s) result: %s", self.Name, self.Id, result.Result())
-	}
-	iPolicies, err = iUser.GetICustomCloudpolicies()
-	if err == nil {
-		result := self.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_CUSTOM, iPolicies)
-		log.Infof("SyncCustomCloudpolicies for user %s(%s) result: %s", self.Name, self.Id, result.Result())
+		result := self.SyncPolicies(ctx, userCred, iPolicies)
+		log.Infof("SyncCloudpolicies for user %s(%s) result: %s", self.Name, self.Id, result.Result())
 	}
 }
 
@@ -505,18 +500,11 @@ func (self *SClouduser) SyncCloudgroups(ctx context.Context, userCred mcclient.T
 	}
 }
 
-func (self *SClouduser) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, policyType string, iPolicies []cloudprovider.ICloudpolicy) compare.SyncResult {
+func (self *SClouduser) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy) compare.SyncResult {
 	result := compare.SyncResult{}
-	var dbPolicies []SCloudpolicy
-	var err error
-	switch policyType {
-	case api.CLOUD_POLICY_TYPE_CUSTOM:
-		dbPolicies, err = self.GetCustomCloudpolicies()
-	case api.CLOUD_POLICY_TYPE_SYSTEM:
-		dbPolicies, err = self.GetSystemCloudpolicies()
-	}
+	dbPolicies, err := self.GetCloudpolicies()
 	if err != nil {
-		result.Error(errors.Wrapf(err, "GetCloudpolicies %s", policyType))
+		result.Error(errors.Wrapf(err, "GetCloudpolicies"))
 		return result
 	}
 
@@ -544,7 +532,6 @@ func (self *SClouduser) SyncPolicies(ctx context.Context, userCred mcclient.Toke
 
 	for i := 0; i < len(added); i++ {
 		policy, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			q = q.Equals("policy_type", policyType)
 			if len(self.ManagerId) > 0 {
 				return q.Equals("manager_id", self.ManagerId)
 			}

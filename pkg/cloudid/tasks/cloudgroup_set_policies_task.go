@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/cloudmux/pkg/apis"
+	"yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -80,17 +81,12 @@ func (self *CloudgroupSetPoliciesTask) OnInit(ctx context.Context, obj db.IStand
 
 	for _, policy := range input.Add {
 		for id, role := range iRoleMap {
-			err := role.AttachPolicy(policy.ExternalId, policy.PolicyType)
+			err := role.AttachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 			if err != nil {
 				logclient.AddSimpleActionLog(roleMap[id], logclient.ACT_ATTACH_POLICY, err, self.GetUserCred(), false)
 			}
 		}
-		switch policy.PolicyType {
-		case api.CLOUD_POLICY_TYPE_CUSTOM:
-			err = iGroup.AttachCustomPolicy(policy.ExternalId)
-		case api.CLOUD_POLICY_TYPE_SYSTEM:
-			err = iGroup.AttachSystemPolicy(policy.ExternalId)
-		}
+		err = iGroup.AttachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 		if err != nil {
 			self.taskFailed(ctx, group, errors.Wrapf(err, "AttachPolicy %s", policy.Name))
 			return
@@ -99,17 +95,12 @@ func (self *CloudgroupSetPoliciesTask) OnInit(ctx context.Context, obj db.IStand
 
 	for _, policy := range input.Del {
 		for id, role := range iRoleMap {
-			err := role.DetachPolicy(policy.ExternalId, policy.PolicyType)
+			err := role.DetachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 			if err != nil {
 				logclient.AddSimpleActionLog(roleMap[id], logclient.ACT_DETACH_POLICY, err, self.GetUserCred(), false)
 			}
 		}
-		switch policy.PolicyType {
-		case api.CLOUD_POLICY_TYPE_CUSTOM:
-			err = iGroup.DetachCustomPolicy(policy.ExternalId)
-		case api.CLOUD_POLICY_TYPE_SYSTEM:
-			err = iGroup.DetachSystemPolicy(policy.ExternalId)
-		}
+		err = iGroup.DetachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 		if err != nil {
 			self.taskFailed(ctx, group, errors.Wrapf(err, "DetachPolicy %s", policy.Name))
 			return

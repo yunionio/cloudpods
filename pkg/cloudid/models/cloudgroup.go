@@ -946,30 +946,18 @@ func (self *SCloudgroup) SyncUsers(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SCloudgroup) SyncCloudpolicies(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) {
-	iPolicies, err := iGroup.GetISystemCloudpolicies()
+	iPolicies, err := iGroup.GetICloudpolicies()
 	if err == nil {
-		result := self.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_SYSTEM, iPolicies)
-		log.Infof("SyncSystemCloudpolicies for group %s(%s) result: %s", self.Name, self.Id, result.Result())
-	}
-	iPolicies, err = iGroup.GetICustomCloudpolicies()
-	if err == nil {
-		result := self.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_CUSTOM, iPolicies)
-		log.Infof("SyncCustomCloudpolicies for group %s(%s) result: %s", self.Name, self.Id, result.Result())
+		result := self.SyncPolicies(ctx, userCred, iPolicies)
+		log.Infof("SyncCloudpolicies for group %s(%s) result: %s", self.Name, self.Id, result.Result())
 	}
 }
 
-func (self *SCloudgroup) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, policyType string, iPolicies []cloudprovider.ICloudpolicy) compare.SyncResult {
+func (self *SCloudgroup) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy) compare.SyncResult {
 	result := compare.SyncResult{}
-	var dbPolicies []SCloudpolicy
-	var err error
-	switch policyType {
-	case api.CLOUD_POLICY_TYPE_CUSTOM:
-		dbPolicies, err = self.GetCustomCloudpolicies()
-	case api.CLOUD_POLICY_TYPE_SYSTEM:
-		dbPolicies, err = self.GetSystemCloudpolicies()
-	}
+	dbPolicies, err := self.GetCloudpolicies()
 	if err != nil {
-		result.Error(errors.Wrapf(err, "GetCloudpolicies %s", policyType))
+		result.Error(errors.Wrapf(err, "GetCloudpolicies"))
 		return result
 	}
 
@@ -997,7 +985,6 @@ func (self *SCloudgroup) SyncPolicies(ctx context.Context, userCred mcclient.Tok
 
 	for i := 0; i < len(added); i++ {
 		policy, err := db.FetchByExternalIdAndManagerId(CloudpolicyManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			q = q.Equals("policy_type", policyType)
 			if len(self.ManagerId) > 0 {
 				return q.Equals("manager_id", self.ManagerId)
 			}

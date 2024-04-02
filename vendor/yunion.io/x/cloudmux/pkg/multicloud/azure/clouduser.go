@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -101,35 +102,19 @@ func (user *SClouduser) GetInviteUrl() string {
 	return user.inviteRedeemUrl
 }
 
-func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (user *SClouduser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := user.client.GetCloudpolicies(user.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].Properties.Type == "BuiltInRole" {
-			ret = append(ret, &policies[i])
-		}
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
 
-func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := user.client.GetCloudpolicies(user.Id)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.Id)
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		if policies[i].Properties.Type != "BuiltInRole" {
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (user *SClouduser) AttachSystemPolicy(policyId string) error {
+func (user *SClouduser) AttachPolicy(policyId string, policyType api.TPolicyType) error {
 	for _, subscription := range user.client.subscriptions {
 		err := user.client.AssignPolicy(user.Id, policyId, subscription.SubscriptionId)
 		if err != nil {
@@ -139,17 +124,7 @@ func (user *SClouduser) AttachSystemPolicy(policyId string) error {
 	return nil
 }
 
-func (user *SClouduser) AttachCustomPolicy(policyId string) error {
-	for _, subscription := range user.client.subscriptions {
-		err := user.client.AssignPolicy(user.Id, policyId, subscription.SubscriptionId)
-		if err != nil {
-			return errors.Wrapf(err, "AssignPolicy for subscription %s", subscription.SubscriptionId)
-		}
-	}
-	return nil
-}
-
-func (user *SClouduser) DetachSystemPolicy(policyId string) error {
+func (user *SClouduser) DetachPolicy(policyId string, policyType api.TPolicyType) error {
 	assignments, err := user.client.GetAssignments(user.Id)
 	if err != nil {
 		return errors.Wrapf(err, "GetAssignments(%s)", user.Id)
@@ -165,10 +140,6 @@ func (user *SClouduser) DetachSystemPolicy(policyId string) error {
 		}
 	}
 	return nil
-}
-
-func (user *SClouduser) DetachCustomPolicy(policyId string) error {
-	return user.DetachSystemPolicy(policyId)
 }
 
 func (user *SClouduser) IsConsoleLogin() bool {

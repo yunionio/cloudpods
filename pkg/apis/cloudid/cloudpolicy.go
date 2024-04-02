@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	CLOUD_POLICY_TYPE_SYSTEM = cloudid.CLOUD_POLICY_TYPE_SYSTEM
-	CLOUD_POLICY_TYPE_CUSTOM = cloudid.CLOUD_POLICY_TYPE_CUSTOM
+	CLOUD_POLICY_TYPE_SYSTEM = string(cloudid.PolicyTypeSystem)
+	CLOUD_POLICY_TYPE_CUSTOM = string(cloudid.PolicyTypeCustom)
 )
 
 type CloudpolicyListInput struct {

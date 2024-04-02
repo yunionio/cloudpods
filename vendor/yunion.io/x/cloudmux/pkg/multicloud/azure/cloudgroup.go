@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/pinyinutils"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -52,30 +53,14 @@ func (group *SCloudgroup) GetDescription() string {
 	return group.Description
 }
 
-func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (group *SCloudgroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := group.client.GetCloudpolicies(group.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].Properties.Type == "BuiltInRole" {
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := group.client.GetCloudpolicies(group.Id)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.Id)
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		if policies[i].Properties.Type != "BuiltInRole" {
-			ret = append(ret, &policies[i])
-		}
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
@@ -101,15 +86,11 @@ func (group *SCloudgroup) RemoveUser(name string) error {
 	return group.client.RemoveGroupUser(group.Id, name)
 }
 
-func (group *SCloudgroup) AttachSystemPolicy(policyId string) error {
+func (group *SCloudgroup) AttachPolicy(policyId string, policyType api.TPolicyType) error {
 	return group.client.AssignPolicy(group.Id, policyId, "")
 }
 
-func (group *SCloudgroup) AttachCustomPolicy(policyId string) error {
-	return group.client.AssignPolicy(group.Id, policyId, "")
-}
-
-func (group *SCloudgroup) DetachSystemPolicy(policyId string) error {
+func (group *SCloudgroup) DetachPolicy(policyId string, policyType api.TPolicyType) error {
 	assignments, err := group.client.GetAssignments(group.Id)
 	if err != nil {
 		return errors.Wrapf(err, "GetAssignments(%s)", group.Id)
@@ -125,10 +106,6 @@ func (group *SCloudgroup) DetachSystemPolicy(policyId string) error {
 		}
 	}
 	return nil
-}
-
-func (group *SCloudgroup) DetachCustomPolicy(policyId string) error {
-	return group.DetachSystemPolicy(policyId)
 }
 
 func (group *SCloudgroup) Delete() error {

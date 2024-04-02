@@ -351,12 +351,8 @@ func (self *SQcloudProvider) CreateICloudgroup(name, desc string) (cloudprovider
 	return self.client.CreateICloudgroup(name, desc)
 }
 
-func (self *SQcloudProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetISystemCloudpolicies()
-}
-
-func (self *SQcloudProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetICustomCloudpolicies()
+func (self *SQcloudProvider) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
 }
 
 func (self *SQcloudProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {

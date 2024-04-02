@@ -66,29 +66,15 @@ func (self *CloudgroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 			return
 		}
 	}
-	policies, err := iGroup.GetISystemCloudpolicies()
+	policies, err := iGroup.GetICloudpolicies()
 	if err != nil {
-		self.taskFailed(ctx, group, errors.Wrapf(err, "GetISystemCloudpolicies"))
+		self.taskFailed(ctx, group, errors.Wrapf(err, "GetICloudpolicies"))
 		return
 	}
 	for i := range policies {
-		err = iGroup.DetachSystemPolicy(policies[i].GetGlobalId())
+		err = iGroup.DetachPolicy(policies[i].GetGlobalId(), policies[i].GetPolicyType())
 		if err != nil {
-			self.taskFailed(ctx, group, errors.Wrapf(err, "DetachSystemPolicy(%s)", policies[i].GetName()))
-			return
-		}
-	}
-
-	policies, err = iGroup.GetICustomCloudpolicies()
-	if err != nil {
-		self.taskFailed(ctx, group, errors.Wrapf(err, "GetICustomCloudpolicies"))
-		return
-	}
-
-	for i := range policies {
-		err = iGroup.DetachCustomPolicy(policies[i].GetGlobalId())
-		if err != nil {
-			self.taskFailed(ctx, group, errors.Wrapf(err, "DetachCustomPolicy(%s)", policies[i].GetName()))
+			self.taskFailed(ctx, group, errors.Wrapf(err, "DetachPolicy(%s)", policies[i].GetName()))
 			return
 		}
 	}

@@ -120,17 +120,17 @@ func (self *SKsyunClient) GetRegion(id string) (*SRegion, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SKsyunClient) getUrl(service, regionId string) string {
+func (self *SKsyunClient) getUrl(service, regionId string) (string, error) {
 	if len(regionId) == 0 {
 		regionId = KSYUN_DEFAULT_REGION
 	}
 	switch service {
-	case "kingpay":
-		return "http://kingpay.api.ksyun.com"
+	case "kingpay", "iam":
+		return fmt.Sprintf("http://%s.api.ksyun.com", service), nil
 	case "kec":
-		return fmt.Sprintf("https://kec.%s.api.ksyun.com", regionId)
+		return fmt.Sprintf("https://kec.%s.api.ksyun.com", regionId), nil
 	}
-	return ""
+	return "", errors.Wrapf(cloudprovider.ErrNotSupported, "service %s", service)
 }
 
 func (cli *SKsyunClient) getDefaultClient() *http.Client {
@@ -234,8 +234,15 @@ func (self *SKsyunClient) ec2Request(regionId, apiName string, params map[string
 	return self.request("kec", regionId, apiName, "2016-03-04", params)
 }
 
+func (self *SKsyunClient) iamRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return self.request("iam", regionId, apiName, "2015-11-01", params)
+}
+
 func (self *SKsyunClient) request(service, regionId, apiName, apiVersion string, params map[string]string) (jsonutils.JSONObject, error) {
-	uri := self.getUrl(service, regionId)
+	uri, err := self.getUrl(service, regionId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getUrl")
+	}
 	if params == nil {
 		params = map[string]string{}
 	}
@@ -256,7 +263,17 @@ func (self *SKsyunClient) request(service, regionId, apiName, apiVersion string,
 	ksErr := &sKsyunError{}
 	client := httputils.NewJsonClient(self)
 	_, resp, err := client.Send(self.ctx, req, ksErr, self.debug)
-	return resp, err
+	if err != nil {
+		return nil, err
+	}
+	if info, err := resp.GetMap(); err == nil {
+		for k, v := range info {
+			if strings.HasSuffix(k, "Result") {
+				return v, nil
+			}
+		}
+	}
+	return resp, nil
 }
 
 func (self *SKsyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
@@ -301,6 +318,7 @@ func (self *SKsyunClient) QueryCashWalletAction() (*CashWalletDetail, error) {
 func (self *SKsyunClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 	}
 	return caps
 }

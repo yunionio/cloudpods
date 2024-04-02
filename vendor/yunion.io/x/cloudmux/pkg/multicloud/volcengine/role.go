@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -64,12 +65,12 @@ func (self *SRole) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	return ret, nil
 }
 
-func (self *SRole) AttachPolicy(policyName string, policyType string) error {
-	return self.client.AttachRolePolicy(self.RoleName, policyName, utils.Capitalize(policyType))
+func (self *SRole) AttachPolicy(policyName string, policyType api.TPolicyType) error {
+	return self.client.AttachRolePolicy(self.RoleName, policyName, utils.Capitalize(string(policyType)))
 }
 
-func (self *SRole) DetachPolicy(policyName string, policyType string) error {
-	return self.client.DetachRolePolicy(self.RoleName, policyName, utils.Capitalize(policyType))
+func (self *SRole) DetachPolicy(policyName string, policyType api.TPolicyType) error {
+	return self.client.DetachRolePolicy(self.RoleName, policyName, utils.Capitalize(string(policyType)))
 }
 
 func (self *SRole) Delete() error {

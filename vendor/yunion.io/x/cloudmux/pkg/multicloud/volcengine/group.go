@@ -17,7 +17,9 @@ package volcengine
 import (
 	"fmt"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/utils"
 )
 
 type SGroup struct {
@@ -56,7 +58,7 @@ func (self *SGroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 	return ret, nil
 }
 
-func (self *SGroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SGroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := self.client.ListAttachedUserGroupPolicies(self.UserGroupName)
 	if err != nil {
 		return nil, err
@@ -64,24 +66,7 @@ func (self *SGroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, err
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
 		policies[i].client = self.client
-		if policies[i].PolicyType == "System" {
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (self *SGroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := self.client.ListAttachedUserGroupPolicies(self.UserGroupName)
-	if err != nil {
-		return nil, err
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		policies[i].client = self.client
-		if policies[i].PolicyType == "Custom" {
-			ret = append(ret, &policies[i])
-		}
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
@@ -94,20 +79,12 @@ func (self *SGroup) RemoveUser(name string) error {
 	return self.client.RemoveUserFromGroup(name, self.UserGroupName)
 }
 
-func (self *SGroup) AttachSystemPolicy(policyName string) error {
-	return self.client.AttachUserGroupPolicy(self.UserGroupName, policyName, "System")
+func (self *SGroup) AttachPolicy(policyName string, policyType api.TPolicyType) error {
+	return self.client.AttachUserGroupPolicy(self.UserGroupName, policyName, utils.Capitalize(string(policyType)))
 }
 
-func (self *SGroup) AttachCustomPolicy(policyName string) error {
-	return self.client.AttachUserGroupPolicy(self.UserGroupName, policyName, "Custom")
-}
-
-func (self *SGroup) DetachSystemPolicy(policyName string) error {
-	return self.client.DetachUserGroupPolicy(self.UserGroupName, policyName, "System")
-}
-
-func (self *SGroup) DetachCustomPolicy(policyName string) error {
-	return self.client.DetachUserGroupPolicy(self.UserGroupName, policyName, "Custom")
+func (self *SGroup) DetachPolicy(policyName string, policyType api.TPolicyType) error {
+	return self.client.DetachUserGroupPolicy(self.UserGroupName, policyName, utils.Capitalize(string(policyType)))
 }
 
 func (self *SGroup) Delete() error {

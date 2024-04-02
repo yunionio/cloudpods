@@ -35,7 +35,6 @@ type SRole struct {
 	CreatedTime   string
 	Links         SLink
 	Policy        jsonutils.JSONDict
-	roleType      string
 }
 
 func (role *SRole) GetName() string {
@@ -46,8 +45,8 @@ func (role *SRole) GetDescription() string {
 	return role.DescriptionCn
 }
 
-func (role *SRole) GetPolicyType() string {
-	return role.roleType
+func (role *SRole) GetPolicyType() api.TPolicyType {
+	return api.PolicyTypeSystem
 }
 
 func (role *SRole) GetGlobalId() string {
@@ -66,27 +65,13 @@ func (role *SRole) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SHuaweiClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SHuaweiClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	roles, err := self.GetRoles("", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRoles")
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
-		roles[i].roleType = api.CLOUD_POLICY_TYPE_SYSTEM
-		ret = append(ret, &roles[i])
-	}
-	return ret, nil
-}
-
-func (self *SHuaweiClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := self.GetCustomRoles()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetCustomRoles")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range roles {
-		roles[i].roleType = api.CLOUD_POLICY_TYPE_CUSTOM
 		ret = append(ret, &roles[i])
 	}
 	return ret, nil
@@ -133,7 +118,7 @@ func (self *SHuaweiClient) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCr
 	if err != nil {
 		return nil, err
 	}
-	role := &SRole{roleType: api.CLOUD_POLICY_TYPE_CUSTOM}
+	role := &SRole{}
 	err = resp.Unmarshal(role)
 	if err != nil {
 		return nil, err

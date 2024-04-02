@@ -25,6 +25,8 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/samlutils"
 	"yunion.io/x/pkg/util/secrules"
+
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 )
 
 type ICloudResource interface {
@@ -1248,14 +1250,10 @@ type IClouduser interface {
 
 	GetICloudgroups() ([]ICloudgroup, error)
 
-	GetISystemCloudpolicies() ([]ICloudpolicy, error)
-	GetICustomCloudpolicies() ([]ICloudpolicy, error)
+	GetICloudpolicies() ([]ICloudpolicy, error)
 
-	AttachSystemPolicy(policyName string) error
-	DetachSystemPolicy(policyName string) error
-
-	AttachCustomPolicy(policyName string) error
-	DetachCustomPolicy(policyName string) error
+	AttachPolicy(policyName string, policyType api.TPolicyType) error
+	DetachPolicy(policyName string, policyType api.TPolicyType) error
 
 	Delete() error
 
@@ -1272,6 +1270,7 @@ type ICloudpolicy interface {
 	GetGlobalId() string
 	GetName() string
 	GetDescription() string
+	GetPolicyType() api.TPolicyType
 
 	GetDocument() (*jsonutils.JSONDict, error)
 	UpdateDocument(*jsonutils.JSONDict) error
@@ -1284,18 +1283,14 @@ type ICloudgroup interface {
 	GetGlobalId() string
 	GetName() string
 	GetDescription() string
-	GetISystemCloudpolicies() ([]ICloudpolicy, error)
-	GetICustomCloudpolicies() ([]ICloudpolicy, error)
+	GetICloudpolicies() ([]ICloudpolicy, error)
 	GetICloudusers() ([]IClouduser, error)
 
 	AddUser(name string) error
 	RemoveUser(name string) error
 
-	AttachSystemPolicy(policyName string) error
-	DetachSystemPolicy(policyName string) error
-
-	AttachCustomPolicy(policyName string) error
-	DetachCustomPolicy(policyName string) error
+	AttachPolicy(policyName string, policyType api.TPolicyType) error
+	DetachPolicy(policyName string, policyType api.TPolicyType) error
 
 	Delete() error
 }
@@ -1367,8 +1362,8 @@ type ICloudrole interface {
 	GetSAMLProvider() string
 
 	GetICloudpolicies() ([]ICloudpolicy, error)
-	AttachPolicy(policyName string, policyType string) error
-	DetachPolicy(policyName string, policyType string) error
+	AttachPolicy(policyName string, policyType api.TPolicyType) error
+	DetachPolicy(policyName string, policyType api.TPolicyType) error
 
 	Delete() error
 }

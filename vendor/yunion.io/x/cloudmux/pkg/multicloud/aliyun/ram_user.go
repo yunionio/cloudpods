@@ -20,7 +20,9 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -112,32 +114,15 @@ func (user *SUser) UpdatePassword(password string) error {
 	return user.client.UpdateLoginProfile(user.UserName, password)
 }
 
-func (user *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (user *SUser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := user.client.ListPoliciesForUser(user.UserName)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListPoliciesForUser")
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].PolicyType == "System" {
-			policies[i].client = user.client
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (user *SUser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := user.client.ListPoliciesForUser(user.UserName)
-	if err != nil {
-		return nil, errors.Wrap(err, "ListPoliciesForUser")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		if policies[i].PolicyType == "Custom" {
-			policies[i].client = user.client
-			ret = append(ret, &policies[i])
-		}
+		policies[i].client = user.client
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
@@ -154,20 +139,12 @@ func (user *SUser) ResetPassword(password string) error {
 	return user.client.ResetClouduserPassword(user.UserName, password)
 }
 
-func (user *SUser) AttachSystemPolicy(policyName string) error {
-	return user.client.AttachPolicyToUser(policyName, POLICY_TYPE_SYSTEM, user.UserName)
+func (user *SUser) AttachPolicy(policyName string, policyType api.TPolicyType) error {
+	return user.client.AttachPolicyToUser(policyName, utils.Capitalize(string(policyType)), user.UserName)
 }
 
-func (user *SUser) AttachCustomPolicy(policyName string) error {
-	return user.client.AttachPolicyToUser(policyName, POLICY_TYPE_CUSTOM, user.UserName)
-}
-
-func (user *SUser) DetachSystemPolicy(policyName string) error {
-	return user.client.DetachPolicyFromUser(policyName, POLICY_TYPE_SYSTEM, user.UserName)
-}
-
-func (user *SUser) DetachCustomPolicy(policyName string) error {
-	return user.client.DetachPolicyFromUser(policyName, POLICY_TYPE_CUSTOM, user.UserName)
+func (user *SUser) DetachPolicy(policyName string, policyType api.TPolicyType) error {
+	return user.client.DetachPolicyFromUser(policyName, utils.Capitalize(string(policyType)), user.UserName)
 }
 
 func (self *SAliyunClient) DeleteClouduser(name string) error {
@@ -234,12 +211,6 @@ func (self *SAliyunClient) CreateIClouduser(conf *cloudprovider.SClouduserCreate
 		_, err := self.CreateLoginProfile(conf.Name, conf.Password)
 		if err != nil {
 			return nil, errors.Wrap(err, "CreateLoginProfile")
-		}
-	}
-	for _, policyId := range conf.ExternalPolicyIds {
-		err := user.AttachSystemPolicy(policyId)
-		if err != nil {
-			log.Errorf("attach policy %s for user %s error: %v", policyId, conf.Name, err)
 		}
 	}
 	return user, nil
