@@ -168,6 +168,7 @@ type SendParams struct {
 	// minutes
 	GroupTimes uint
 	ReceiverId string
+	SendTime   time.Time
 }
 
 type SRemoteTemplateParam struct {
