@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/cloudmux/pkg/apis"
+	"yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -63,12 +64,7 @@ func (self *ClouduserSetPoliciesTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 
 	for _, policy := range input.Add {
-		switch policy.PolicyType {
-		case api.CLOUD_POLICY_TYPE_CUSTOM:
-			err = iUser.AttachCustomPolicy(policy.ExternalId)
-		case api.CLOUD_POLICY_TYPE_SYSTEM:
-			err = iUser.AttachSystemPolicy(policy.ExternalId)
-		}
+		err = iUser.AttachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 		if err != nil {
 			self.taskFailed(ctx, user, errors.Wrapf(err, "AttachPolicy %s", policy.Name))
 			return
@@ -76,12 +72,7 @@ func (self *ClouduserSetPoliciesTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 
 	for _, policy := range input.Del {
-		switch policy.PolicyType {
-		case api.CLOUD_POLICY_TYPE_CUSTOM:
-			err = iUser.DetachCustomPolicy(policy.ExternalId)
-		case api.CLOUD_POLICY_TYPE_SYSTEM:
-			err = iUser.DetachSystemPolicy(policy.ExternalId)
-		}
+		err = iUser.DetachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 		if err != nil {
 			self.taskFailed(ctx, user, errors.Wrapf(err, "DetachPolicy %s", policy.Name))
 			return

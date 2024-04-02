@@ -12,36 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package volcengine
+package ksyun
 
 import (
-	"fmt"
+	"time"
 
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 )
 
 type SUser struct {
 	multicloud.SBaseClouduser
-	client *SVolcEngineClient
+	client *SKsyunClient
 
-	Id                  int
-	CreateDate          string
-	UpdateDate          string
-	Status              string
-	AccountId           string
-	UserName            string
-	Description         string
-	DisplayName         string
-	Email               string
-	EmailIsVerify       bool
-	MobilePhone         string
-	MobilePhoneIsVerify bool
-	Trn                 string
-	Source              string
+	UserId                string
+	Path                  string
+	UserName              string
+	RealName              string
+	CreateDate            time.Time
+	Phone                 string
+	CountryMobileCode     string
+	Email                 string
+	PhoneVerified         string
+	EmailVerified         string
+	Remark                string
+	Krn                   string
+	PasswordResetRequired bool
+	EnableMFA             int
+	UpdateDate            time.Time
 }
 
 func (user *SUser) GetGlobalId() string {
@@ -95,109 +95,30 @@ func (user *SUser) IsConsoleLogin() bool {
 	if err != nil {
 		return false
 	}
-	return profile.LoginAllowed
+	return profile.ConsoleLogin
 }
 
 func (user *SUser) ResetPassword(password string) error {
-	return user.client.UpdateLoginProfile(user.UserName, password, nil)
+	return user.client.UpdateLoginProfile(user.UserName, password)
 }
 
-func (user *SUser) AttachPolicy(policyName string, policyType api.TPolicyType) error {
-	return user.client.AttachUserPolicy(user.UserName, policyName, utils.Capitalize(string(policyType)))
-}
-
-func (user *SUser) DetachPolicy(policyName string, policyType api.TPolicyType) error {
-	return user.client.DetachUserPolicy(user.UserName, policyName, utils.Capitalize(string(policyType)))
-}
-
-func (client *SVolcEngineClient) GetUsers() ([]SUser, error) {
+func (self *SKsyunClient) UpdateLoginProfile(name, password string) error {
 	params := map[string]string{
-		"Limit": "50",
+		"UserName":       name,
+		"Password":       password,
+		"ViewAllProject": "true",
 	}
-	offset := 0
-	ret := []SUser{}
-	for {
-		params["Offset"] = fmt.Sprintf("%d", offset)
-		resp, err := client.iamRequest("", "ListUsers", params)
-		if err != nil {
-			return nil, err
-		}
-		part := struct {
-			UserMetadata []SUser
-			Total        int
-		}{}
-		err = resp.Unmarshal(&part)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, part.UserMetadata...)
-		if len(part.UserMetadata) == 0 || len(ret) >= part.Total {
-			break
-		}
-		offset = len(ret)
-	}
-	return ret, nil
-}
-
-func (self *SVolcEngineClient) DeleteUser(name string) error {
-	params := map[string]string{
-		"UserName": name,
-	}
-	_, err := self.iamRequest("", "DeleteUser", params)
+	_, err := self.iamRequest("", "UpdateLoginProfile", params)
 	return err
-}
-
-func (client *SVolcEngineClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
-	users, err := client.GetUsers()
-	if err != nil {
-		return nil, err
-	}
-	ret := []cloudprovider.IClouduser{}
-	for i := range users {
-		users[i].client = client
-		ret = append(ret, &users[i])
-	}
-	return ret, nil
-}
-
-func (client *SVolcEngineClient) CreateIClouduser(opts *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
-	user, err := client.CreateUser(opts)
-	if err != nil {
-		return nil, err
-	}
-	err = client.CreateLoginProfile(user.UserName, opts.Password, &opts.IsConsoleLogin)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CreateLoginProfile")
-	}
-	return user, nil
-}
-
-func (self *SVolcEngineClient) CreateUser(opts *cloudprovider.SClouduserCreateConfig) (*SUser, error) {
-	params := map[string]string{
-		"UserName":    opts.Name,
-		"Description": opts.Desc,
-		"Email":       opts.Email,
-		"MobilePhone": opts.MobilePhone,
-	}
-	resp, err := self.iamRequest("", "CreateUser", params)
-	if err != nil {
-		return nil, err
-	}
-	ret := &SUser{client: self}
-	err = resp.Unmarshal(ret, "User")
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
 }
 
 type LoginProfile struct {
 	PasswordResetRequired bool
-	LoginAllowed          bool
-	LastLoginDate         string
+	ConsoleLogin          bool
+	LastLoginDate         time.Time
 }
 
-func (self *SVolcEngineClient) GetLoginProfile(name string) (*LoginProfile, error) {
+func (self *SKsyunClient) GetLoginProfile(name string) (*LoginProfile, error) {
 	params := map[string]string{
 		"UserName": name,
 	}
@@ -213,97 +134,171 @@ func (self *SVolcEngineClient) GetLoginProfile(name string) (*LoginProfile, erro
 	return ret, nil
 }
 
-func (self *SVolcEngineClient) CreateLoginProfile(name, password string, loginAllowd *bool) error {
-	params := map[string]string{
-		"UserName": name,
-		"Password": password,
-	}
-	if loginAllowd != nil {
-		params["LoginAllowed"] = fmt.Sprintf("%v", *loginAllowd)
-	}
-	_, err := self.iamRequest("", "CreateLoginProfile", params)
-	return err
+func (user *SUser) AttachPolicy(policyName string, policyType api.TPolicyType) error {
+	return user.client.AttachUserPolicy(user.UserName, policyName)
 }
 
-func (self *SVolcEngineClient) UpdateLoginProfile(name, password string, loginAllowd *bool) error {
-	params := map[string]string{
-		"UserName": name,
-		"Password": password,
-	}
-	if loginAllowd != nil {
-		params["LoginAllowed"] = fmt.Sprintf("%v", *loginAllowd)
-	}
-	_, err := self.iamRequest("", "UpdateLoginProfile", params)
-	return err
+func (user *SUser) DetachPolicy(policyName string, policyType api.TPolicyType) error {
+	return user.client.DetachUserPolicy(user.UserName, policyName)
 }
 
-func (client *SVolcEngineClient) ListGroupsForUser(name string) ([]SGroup, error) {
+func (client *SKsyunClient) GetUsers() ([]SUser, error) {
 	params := map[string]string{
-		"Limit":    "50",
-		"UserName": name,
+		"MaxItems": "100",
 	}
-	offset := 0
-	ret := []SGroup{}
+	ret := []SUser{}
 	for {
-		params["Offset"] = fmt.Sprintf("%d", offset)
-		resp, err := client.iamRequest("", "ListGroupsForUser", params)
+		resp, err := client.iamRequest("", "ListUsers", params)
 		if err != nil {
 			return nil, err
 		}
 		part := struct {
-			UserGroups []SGroup
-			Total      int
+			Users struct {
+				Member []SUser
+			}
+			Marker string
 		}{}
 		err = resp.Unmarshal(&part)
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, part.UserGroups...)
-		if len(part.UserGroups) == 0 || len(ret) >= part.Total {
+		ret = append(ret, part.Users.Member...)
+		if len(part.Users.Member) == 0 || len(part.Marker) == 0 {
 			break
 		}
-		offset = len(ret)
+		params["Marker"] = part.Marker
 	}
 	return ret, nil
 }
 
-func (client *SVolcEngineClient) ListAttachedUserPolicies(name string) ([]SPolicy, error) {
+func (self *SKsyunClient) DeleteUser(name string) error {
 	params := map[string]string{
 		"UserName": name,
 	}
-	resp, err := client.iamRequest("", "ListAttachedUserPolicies", params)
+	_, err := self.iamRequest("", "DeleteUser", params)
+	return err
+}
+
+func (client *SKsyunClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	users, err := client.GetUsers()
 	if err != nil {
 		return nil, err
 	}
-	ret := []SPolicy{}
-	err = resp.Unmarshal(&ret, "AttachedPolicyMetadata")
+	ret := []cloudprovider.IClouduser{}
+	for i := range users {
+		users[i].client = client
+		ret = append(ret, &users[i])
+	}
+	return ret, nil
+}
+
+func (client *SKsyunClient) CreateIClouduser(opts *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	user, err := client.CreateUser(opts)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (self *SKsyunClient) CreateUser(opts *cloudprovider.SClouduserCreateConfig) (*SUser, error) {
+	params := map[string]string{
+		"UserName": opts.Name,
+		"Remark":   opts.Desc,
+		"Email":    opts.Email,
+		"Phone":    opts.MobilePhone,
+		"Password": opts.Password,
+	}
+	resp, err := self.iamRequest("", "CreateUser", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SUser{client: self}
+	err = resp.Unmarshal(ret, "User")
 	if err != nil {
 		return nil, err
 	}
 	return ret, nil
 }
 
-func (client *SVolcEngineClient) AttachUserPolicy(name, policy, policyType string) error {
+func (client *SKsyunClient) ListGroupsForUser(name string) ([]SGroup, error) {
 	params := map[string]string{
-		"UserName":   name,
-		"PolicyName": policy,
-		"PolicyType": policyType,
+		"UserName": name,
+		"MaxItems": "100",
+	}
+	ret := []SGroup{}
+	for {
+		resp, err := client.iamRequest("", "ListGroupsForUser", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Groups struct {
+				Memeber []SGroup
+			}
+			Marker string
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Groups.Memeber...)
+		if len(part.Marker) == 0 || len(part.Groups.Memeber) == 0 {
+			break
+		}
+		params["Marker"] = part.Marker
+	}
+	return ret, nil
+}
+
+func (client *SKsyunClient) ListAttachedUserPolicies(name string) ([]SPolicy, error) {
+	params := map[string]string{
+		"UserName": name,
+		"MaxItems": "100",
+	}
+	ret := []SPolicy{}
+	for {
+		resp, err := client.iamRequest("", "ListAttachedUserPolicies", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			AttachedPolicies struct {
+				Member []SPolicy
+			}
+			Marker string
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		ret = append(ret, part.AttachedPolicies.Member...)
+		if len(part.Marker) == 0 || len(part.AttachedPolicies.Member) == 0 {
+			break
+		}
+		params["Marker"] = part.Marker
+	}
+	return ret, nil
+}
+
+func (client *SKsyunClient) AttachUserPolicy(name, policy string) error {
+	params := map[string]string{
+		"UserName":  name,
+		"PolicyKrn": policy,
 	}
 	_, err := client.iamRequest("", "AttachUserPolicy", params)
 	return err
 }
 
-func (client *SVolcEngineClient) DetachUserPolicy(name, policy, policyType string) error {
+func (client *SKsyunClient) DetachUserPolicy(name, policy string) error {
 	params := map[string]string{
-		"UserName":   name,
-		"PolicyName": policy,
-		"PolicyType": policyType,
+		"UserName":  name,
+		"PolicyKrn": policy,
 	}
 	_, err := client.iamRequest("", "DetachUserPolicy", params)
 	return err
 }
 
-func (client *SVolcEngineClient) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+func (client *SKsyunClient) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
 	user, err := client.GetUser(name)
 	if err != nil {
 		return nil, err
@@ -311,7 +306,7 @@ func (client *SVolcEngineClient) GetIClouduserByName(name string) (cloudprovider
 	return user, nil
 }
 
-func (client *SVolcEngineClient) GetUser(name string) (*SUser, error) {
+func (client *SKsyunClient) GetUser(name string) (*SUser, error) {
 	params := map[string]string{
 		"UserName": name,
 	}

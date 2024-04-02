@@ -329,7 +329,7 @@ func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, policyType string, iPolicy cloudprovider.ICloudpolicy, managerId string) (*SCloudpolicy, error) {
+func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, managerId string) (*SCloudpolicy, error) {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
@@ -342,7 +342,7 @@ func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient
 	policy.Document = doc
 	policy.Name = iPolicy.GetName()
 	policy.Status = apis.STATUS_AVAILABLE
-	policy.PolicyType = policyType
+	policy.PolicyType = string(iPolicy.GetPolicyType())
 	policy.IsPublic = true
 	policy.ExternalId = iPolicy.GetGlobalId()
 	policy.Description = iPolicy.GetDescription()
@@ -351,7 +351,7 @@ func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient
 	return policy, CloudpolicyManager.TableSpec().Insert(ctx, policy)
 }
 
-func (self *SCloudaccount) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, policyType string, iPolicies []cloudprovider.ICloudpolicy, managerId string) compare.SyncResult {
+func (self *SCloudaccount) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy, managerId string) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	removed := make([]SCloudpolicy, 0)
@@ -359,16 +359,9 @@ func (self *SCloudaccount) SyncPolicies(ctx context.Context, userCred mcclient.T
 	commonext := make([]cloudprovider.ICloudpolicy, 0)
 	added := make([]cloudprovider.ICloudpolicy, 0)
 
-	var dbPolicies []SCloudpolicy
-	var err error
-	switch policyType {
-	case api.CLOUD_POLICY_TYPE_CUSTOM:
-		dbPolicies, err = self.GetCustomCloudpolicies(managerId)
-	case api.CLOUD_POLICY_TYPE_SYSTEM:
-		dbPolicies, err = self.GetSystemCloudpolicies(managerId)
-	}
+	dbPolicies, err := self.GetCloudpolicies()
 	if err != nil {
-		result.Error(errors.Wrapf(err, "GetCloudpolicies %s", policyType))
+		result.Error(errors.Wrapf(err, "GetCloudpolicies"))
 		return result
 	}
 
@@ -397,7 +390,7 @@ func (self *SCloudaccount) SyncPolicies(ctx context.Context, userCred mcclient.T
 	}
 
 	for i := 0; i < len(added); i++ {
-		_, err := self.newCloudpolicy(ctx, userCred, policyType, added[i], managerId)
+		_, err := self.newCloudpolicy(ctx, userCred, added[i], managerId)
 		if err != nil {
 			result.AddError(err)
 			continue

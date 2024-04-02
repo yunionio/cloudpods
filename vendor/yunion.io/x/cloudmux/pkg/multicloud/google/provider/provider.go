@@ -253,11 +253,7 @@ func (self *SGoogleProvider) GetICloudgroupByName(name string) (cloudprovider.IC
 }
 
 func (self *SGoogleProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetISystemCloudpolicies()
-}
-
-func (self *SGoogleProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return self.client.GetICustomCloudpolicies()
+	return self.client.GetICloudpolicies()
 }
 
 func (self *SGoogleProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {

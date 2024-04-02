@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -93,6 +94,13 @@ func (policy *SPolicy) Delete() error {
 	return policy.client.DeletePolicy(policy.PolicyType, policy.PolicyName)
 }
 
+func (policy *SPolicy) GetPolicyType() api.TPolicyType {
+	if policy.PolicyType == "System" {
+		return api.PolicyTypeSystem
+	}
+	return api.PolicyTypeCustom
+}
+
 func (policy *SPolicy) GetDocument() (*jsonutils.JSONDict, error) {
 	details, err := policy.client.GetPolicy(policy.PolicyType, policy.PolicyName)
 	if err != nil {
@@ -105,31 +113,11 @@ func (policy *SPolicy) GetDocument() (*jsonutils.JSONDict, error) {
 	return obj.(*jsonutils.JSONDict), nil
 }
 
-func (self *SAliyunClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SAliyunClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	ret := []cloudprovider.ICloudpolicy{}
 	offset := ""
 	for {
-		part, err := self.ListPolicies(POLICY_TYPE_SYSTEM, offset, 1000)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ListPolicies")
-		}
-		for i := range part.Policies.Policy {
-			part.Policies.Policy[i].client = self
-			ret = append(ret, &part.Policies.Policy[i])
-		}
-		offset = part.Marker
-		if len(offset) == 0 || !part.IsTruncated {
-			break
-		}
-	}
-	return ret, nil
-}
-
-func (self *SAliyunClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	ret := []cloudprovider.ICloudpolicy{}
-	offset := ""
-	for {
-		part, err := self.ListPolicies(POLICY_TYPE_CUSTOM, offset, 1000)
+		part, err := self.ListPolicies("", offset, 1000)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListPolicies")
 		}

@@ -14,9 +14,9 @@
 
 package cloudid
 
-const (
-	CLOUD_POLICY_STATUS_AVAILABLE = "available"
+type TPolicyType string
 
-	CLOUD_POLICY_TYPE_SYSTEM = "system"
-	CLOUD_POLICY_TYPE_CUSTOM = "custom"
+const (
+	PolicyTypeSystem = TPolicyType("system")
+	PolicyTypeCustom = TPolicyType("custom")
 )

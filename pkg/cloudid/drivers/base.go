@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	cloudid "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -139,27 +140,15 @@ func (base SAccountBaseProviderDriver) ValidateCreateClouduser(ctx context.Conte
 func (base SAccountBaseProviderDriver) RequestSyncCloudaccountResources(ctx context.Context, userCred mcclient.TokenCredential, account *models.SCloudaccount, provider cloudprovider.ICloudProvider) error {
 
 	func() {
-		policies, err := provider.GetISystemCloudpolicies()
+		policies, err := provider.GetICloudpolicies()
 		if err != nil {
 			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				log.Errorf("get system policies for account %s error: %v", account.Name, err)
+				log.Errorf("get policies for account %s error: %v", account.Name, err)
 			}
 			return
 		}
-		result := account.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_SYSTEM, policies, "")
-		log.Infof("Sync %s system policies for account %s result: %s", account.Provider, account.Name, result.Result())
-	}()
-
-	func() {
-		policies, err := provider.GetICustomCloudpolicies()
-		if err != nil {
-			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				log.Errorf("get custom policies for account %s error: %v", account.Name, err)
-			}
-			return
-		}
-		result := account.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_CUSTOM, policies, "")
-		log.Infof("Sync %s custom policies for account %s result: %s", account.Provider, account.Name, result.Result())
+		result := account.SyncPolicies(ctx, userCred, policies, "")
+		log.Infof("Sync %s policies for account %s result: %s", account.Provider, account.Name, result.Result())
 	}()
 
 	func() {
@@ -246,27 +235,15 @@ func (base SProviderBaseProviderDriver) RequestSyncCloudproviderResources(ctx co
 	}
 
 	func() {
-		policies, err := provider.GetISystemCloudpolicies()
+		policies, err := provider.GetICloudpolicies()
 		if err != nil {
 			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 				log.Errorf("get system policies for manager %s error: %v", cp.Name, err)
 			}
 			return
 		}
-		result := account.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_SYSTEM, policies, cp.Id)
-		log.Infof("Sync %s system policies for manager %s result: %s", cp.Provider, cp.Name, result.Result())
-	}()
-
-	func() {
-		policies, err := provider.GetICustomCloudpolicies()
-		if err != nil {
-			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				log.Errorf("get custom policies for manager %s error: %v", cp.Name, err)
-			}
-			return
-		}
-		result := account.SyncPolicies(ctx, userCred, api.CLOUD_POLICY_TYPE_CUSTOM, policies, cp.Id)
-		log.Infof("Sync %s custom policies for manager %s result: %s", cp.Provider, cp.Name, result.Result())
+		result := account.SyncPolicies(ctx, userCred, policies, cp.Id)
+		log.Infof("Sync %s policies for manager %s result: %s", cp.Provider, cp.Name, result.Result())
 	}()
 
 	func() {
@@ -404,16 +381,9 @@ func (base SProviderBaseProviderDriver) RequestCreateCloudgroup(ctx context.Cont
 		return errors.Wrapf(err, "GetCloudpolicies")
 	}
 	for i := range policies {
-		switch policies[i].PolicyType {
-		case api.CLOUD_POLICY_TYPE_SYSTEM:
-			err = iGroup.AttachSystemPolicy(policies[i].ExternalId)
-		case api.CLOUD_POLICY_TYPE_CUSTOM:
-			err = iGroup.AttachCustomPolicy(policies[i].ExternalId)
-		default:
-			err = fmt.Errorf("unknown policy type %s for policy %s(%s)", policies[i].PolicyType, policies[i].Name, policies[i].Id)
-		}
+		err = iGroup.AttachPolicy(policies[i].ExternalId, cloudid.TPolicyType(policies[i].PolicyType))
 		if err != nil {
-			return errors.Wrapf(err, "Attach policy")
+			return errors.Wrapf(err, "Attach %s policy %s", policies[i].PolicyType, policies[i].ExternalId)
 		}
 	}
 	group.SyncCloudpolicies(ctx, userCred, iGroup)
@@ -451,16 +421,9 @@ func (base SProviderBaseProviderDriver) RequestCreateClouduser(ctx context.Conte
 		return errors.Wrapf(err, "GetCloudpolicies")
 	}
 	for i := range policies {
-		switch policies[i].PolicyType {
-		case api.CLOUD_POLICY_TYPE_SYSTEM:
-			err = iUser.AttachSystemPolicy(policies[i].ExternalId)
-		case api.CLOUD_POLICY_TYPE_CUSTOM:
-			err = iUser.AttachCustomPolicy(policies[i].ExternalId)
-		default:
-			err = fmt.Errorf("unknown policy type %s for policy %s(%s)", policies[i].PolicyType, policies[i].Name, policies[i].Id)
-		}
+		err = iUser.AttachPolicy(policies[i].ExternalId, cloudid.TPolicyType(policies[i].PolicyType))
 		if err != nil {
-			return errors.Wrapf(err, "Attach policy")
+			return errors.Wrapf(err, "Attach %s policy %s", policies[i].PolicyType, policies[i].ExternalId)
 		}
 	}
 	user.SyncCloudpolicies(ctx, userCred, iUser)
@@ -612,7 +575,7 @@ func (base SProviderBaseProviderDriver) RequestCreateRoleForSamlUser(ctx context
 			}
 			for _, policy := range policies {
 				if !utils.IsInStringArray(policy.ExternalId, existPolicies) {
-					err = iRole.AttachPolicy(policy.ExternalId, policy.PolicyType)
+					err = iRole.AttachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 					if err != nil {
 						return errors.Wrapf(err, "attach %s policy %s", policy.PolicyType, policy.ExternalId)
 					}
@@ -657,7 +620,7 @@ func (base SProviderBaseProviderDriver) RequestCreateRoleForSamlUser(ctx context
 		return err
 	}
 	for _, policy := range policies {
-		err := iRole.AttachPolicy(policy.ExternalId, policy.PolicyType)
+		err := iRole.AttachPolicy(policy.ExternalId, cloudid.TPolicyType(policy.PolicyType))
 		if err != nil {
 			return errors.Wrapf(err, "attach %s policy %s", policy.PolicyType, policy.ExternalId)
 		}

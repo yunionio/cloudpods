@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/cloudmux/pkg/apis/cloudid"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
@@ -88,11 +89,11 @@ func (self *SRole) GetSAMLProvider() string {
 	return ""
 }
 
-func (self *SRole) AttachPolicy(id string, policyType string) error {
+func (self *SRole) AttachPolicy(id string, policyType cloudid.TPolicyType) error {
 	return self.client.AttachRolePolicy(self.RoleName, self.client.getIamArn(id))
 }
 
-func (self *SRole) DetachPolicy(id string, polityType string) error {
+func (self *SRole) DetachPolicy(id string, polityType cloudid.TPolicyType) error {
 	return self.client.DetachRolePolicy(self.RoleName, self.client.getIamArn(id))
 }
 

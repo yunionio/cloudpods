@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -75,32 +77,15 @@ func (self *SGroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 	return ret, nil
 }
 
-func (self *SGroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SGroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := self.client.ListPoliciesForGroup(self.GroupName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListPoliciesForGroup")
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		if policies[i].PolicyType == POLICY_TYPE_SYSTEM {
-			policies[i].client = self.client
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (self *SGroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := self.client.ListPoliciesForGroup(self.GroupName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListPoliciesForGroup")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range policies {
-		if policies[i].PolicyType == POLICY_TYPE_CUSTOM {
-			policies[i].client = self.client
-			ret = append(ret, &policies[i])
-		}
+		policies[i].client = self.client
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
@@ -113,20 +98,12 @@ func (self *SGroup) RemoveUser(name string) error {
 	return self.client.RemoveUserFromGroup(self.GroupName, name)
 }
 
-func (self *SGroup) AttachSystemPolicy(policyName string) error {
-	return self.client.AttachPolicyToGroup(POLICY_TYPE_SYSTEM, policyName, self.GroupName)
+func (self *SGroup) AttachPolicy(policyName string, policyType api.TPolicyType) error {
+	return self.client.AttachPolicyToGroup(utils.Capitalize(string(policyType)), policyName, self.GroupName)
 }
 
-func (self *SGroup) AttachCustomPolicy(policyName string) error {
-	return self.client.AttachPolicyToGroup(POLICY_TYPE_CUSTOM, policyName, self.GroupName)
-}
-
-func (self *SGroup) DetachSystemPolicy(policyName string) error {
-	return self.client.DetachPolicyFromGroup(POLICY_TYPE_SYSTEM, policyName, self.GroupName)
-}
-
-func (self *SGroup) DetachCustomPolicy(policyName string) error {
-	return self.client.DetachPolicyFromGroup(POLICY_TYPE_CUSTOM, policyName, self.GroupName)
+func (self *SGroup) DetachPolicy(policyName string, policyType api.TPolicyType) error {
+	return self.client.DetachPolicyFromGroup(utils.Capitalize(string(policyType)), policyName, self.GroupName)
 }
 
 func (self *SGroup) Delete() error {
