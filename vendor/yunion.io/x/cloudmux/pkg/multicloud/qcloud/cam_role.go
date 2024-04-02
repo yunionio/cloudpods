@@ -128,11 +128,11 @@ func (self *SRole) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	return ret, nil
 }
 
-func (self *SRole) AttachPolicy(id string) error {
+func (self *SRole) AttachPolicy(id string, policyType string) error {
 	return self.client.AttachRolePolicy(self.RoleName, id)
 }
 
-func (self *SRole) DetachPolicy(id string) error {
+func (self *SRole) DetachPolicy(id string, policyType string) error {
 	return self.client.DetachRolePolicy(self.RoleName, id)
 }
 
