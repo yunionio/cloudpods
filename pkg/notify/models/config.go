@@ -192,7 +192,11 @@ func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredent
 
 func (c *SConfig) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	c.SStandaloneResourceBase.PreDelete(ctx, userCred)
-	delete(ConfigMap, fmt.Sprintf("%s-%s", c.Type, c.DomainId))
+	key := fmt.Sprintf("%s-%s", c.Type, c.DomainId)
+	if c.Type == api.MOBILE || c.Type == api.EMAIL {
+		key = c.Type
+	}
+	delete(ConfigMap, key)
 }
 
 func (c *SConfig) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -392,6 +396,7 @@ func (confManager *SConfigManager) InitializeData() error {
 			logclient.AddSimpleActionLog(&config, logclient.ACT_INIT_NOTIFY_CONFIGMAP, err, session.GetToken(), false)
 		}
 	}
+	log.Infoln("init ConfigMap:", jsonutils.Marshal(ConfigMap))
 	return nil
 }
 
