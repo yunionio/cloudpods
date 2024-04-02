@@ -85,6 +85,7 @@ func GetMetadata(driver ICloudSAMLLoginDriver) ([]byte, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "read body %s fail", metaUrl)
 			}
+			os.WriteFile(filePath, metaBytes, 0644)
 		} else {
 			return nil, errors.Wrapf(err, "read file %s fail", filePath)
 		}
