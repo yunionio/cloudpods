@@ -288,6 +288,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 				params.Receivers.Contact = mobile
 			}
 			params.ReceiverId = receiver.Id
+			params.SendTime = time.Now().Truncate(time.Second)
 			if len(params.GroupKey) > 0 && params.GroupTimes > 0 {
 				notificationGroupLock.Lock()
 				if _, ok := notificationSendMap.Load(params.GroupKey + receiver.Id + notification.ContactType); ok {
@@ -328,8 +329,8 @@ func createTimeTicker(ctx context.Context, driver models.ISenderDriver, params a
 		GroupKey:    params.GroupKey,
 		ReceiverId:  receiverId,
 		ContactType: contactType,
-		StartTime:   time.Now(),
-		EndTime:     time.Now().Add(time.Duration(params.GroupTimes) * time.Minute),
+		StartTime:   params.SendTime,
+		EndTime:     params.SendTime.Add(time.Duration(params.GroupTimes) * time.Minute),
 	})
 
 	// 启动一个goroutine来处理计时器触发的事件
@@ -349,8 +350,7 @@ func createTimeTicker(ctx context.Context, driver models.ISenderDriver, params a
 				log.Errorln("TaskSend err:", err)
 				return
 			}
-			driverT := models.GetDriver(contactType)
-			driverT.Send(ctx, *sendParams)
+			driver.Send(ctx, *sendParams)
 			notificationSendMap.Delete(params.GroupKey + receiverId + contactType)
 		}
 	}()
