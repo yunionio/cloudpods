@@ -594,7 +594,7 @@ func (manager *SWireManager) totalCountQ(
 		dbsQ = CloudProviderFilter(dbsQ, dbsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
 	if len(rangeObjs) > 0 {
-		dbsQ = RangeObjectsFilter(dbsQ, rangeObjs, dbsQ.Field("cloudregion_id"), dbsQ.Field("zone_id"), dbsQ.Field("manager_id"), nil, nil)
+		dbsQ = RangeObjectsFilter(dbsQ, rangeObjs, dbsQ.Field("cloudregion_id"), dbsQ.Field("zone1"), dbsQ.Field("manager_id"), nil, nil)
 	}
 	dbs := dbsQ.SubQuery()
 
