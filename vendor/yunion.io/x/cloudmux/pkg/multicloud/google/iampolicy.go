@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -151,23 +152,10 @@ func (self *SClouduser) GetInviteUrl() string {
 	return ""
 }
 
-func (self *SGoogleClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SGoogleClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	roles, err := self.GetRoles("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRoles")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range roles {
-		roles[i].client = self
-		ret = append(ret, &roles[i])
-	}
-	return ret, nil
-}
-
-func (self *SGoogleClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := self.GetRoles(self.projectId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRoles for project %s", self.projectId)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
@@ -198,6 +186,10 @@ func (role *SRole) GetGlobalId() string {
 
 func (role *SRole) GetDescription() string {
 	return role.Description
+}
+
+func (role *SRole) GetPolicyType() api.TPolicyType {
+	return api.PolicyTypeSystem
 }
 
 func (role *SRole) UpdateDocument(document *jsonutils.JSONDict) error {
@@ -262,24 +254,10 @@ func (user *SClouduser) IsConsoleLogin() bool {
 	return true
 }
 
-func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (user *SClouduser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	ret := []cloudprovider.ICloudpolicy{}
 	for _, roleStr := range user.Roles {
 		if strings.HasPrefix(roleStr, "roles/") {
-			role, err := user.policy.client.GetRole(roleStr)
-			if err != nil {
-				return nil, errors.Wrap(err, "GetRole")
-			}
-			ret = append(ret, role)
-		}
-	}
-	return ret, nil
-}
-
-func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	ret := []cloudprovider.ICloudpolicy{}
-	for _, roleStr := range user.Roles {
-		if strings.HasPrefix(roleStr, "projects/") {
 			role, err := user.policy.client.GetRole(roleStr)
 			if err != nil {
 				return nil, errors.Wrap(err, "GetRole")
@@ -315,7 +293,7 @@ func (policy *SIamPolicy) AttachPolicy(user string, roles []string) error {
 	return policy.client.SetIamPlicy(policy)
 }
 
-func (user *SClouduser) AttachSystemPolicy(role string) error {
+func (user *SClouduser) AttachPolicy(role string, policyType api.TPolicyType) error {
 	return user.policy.AttachPolicy(user.Name, []string{role})
 }
 
@@ -344,18 +322,7 @@ func (policy *SIamPolicy) DetachPolicy(user, role string) error {
 }
 
 func (client *SGoogleClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
-	policy, err := client.GetIamPolicy()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetIamPolicy")
-	}
-	if len(conf.ExternalPolicyIds) == 0 {
-		return nil, fmt.Errorf("missing policy info")
-	}
-	err = policy.AttachPolicy(conf.Name, conf.ExternalPolicyIds)
-	if err != nil {
-		return nil, errors.Wrap(err, "policy.AttachPolicy")
-	}
-	return client.GetIClouduserByName(conf.Name)
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (client *SGoogleClient) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
@@ -375,11 +342,7 @@ func (client *SGoogleClient) GetIClouduserByName(name string) (cloudprovider.ICl
 	return &SClouduser{policy: policy, Name: name, Roles: []string{}}, nil
 }
 
-func (user *SClouduser) DetachSystemPolicy(role string) error {
-	return user.policy.DetachPolicy(user.Name, role)
-}
-
-func (user *SClouduser) DetachCustomPolicy(role string) error {
+func (user *SClouduser) DetachPolicy(role string, policyType api.TPolicyType) error {
 	return user.policy.DetachPolicy(user.Name, role)
 }
 

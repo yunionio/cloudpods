@@ -17,10 +17,10 @@ package huawei
 import (
 	"fmt"
 	"net/url"
-	"strings"
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -67,35 +67,21 @@ func (group *SCloudgroup) RemoveUser(name string) error {
 	return group.client.RemoveUserFromGroup(group.Id, user.GetGlobalId())
 }
 
-func (group *SCloudgroup) DetachSystemPolicy(roleId string) error {
+func (group *SCloudgroup) DetachPolicy(roleId string, policyType api.TPolicyType) error {
+	if policyType == api.PolicyTypeCustom {
+		return group.client.DetachGroupCustomRole(group.Id, roleId)
+	}
 	return group.client.DetachGroupRole(group.Id, roleId)
 }
 
-func (group *SCloudgroup) DetachCustomPolicy(roleId string) error {
-	return group.client.DetachGroupCustomRole(group.Id, roleId)
-}
-
-func (group *SCloudgroup) AttachSystemPolicy(roleId string) error {
+func (group *SCloudgroup) AttachPolicy(roleId string, policyType api.TPolicyType) error {
+	if policyType == api.PolicyTypeCustom {
+		return group.client.AttachGroupCustomRole(group.Id, roleId)
+	}
 	return group.client.AttachGroupRole(group.Id, roleId)
 }
 
-func (group *SCloudgroup) AttachCustomPolicy(roleId string) error {
-	return group.client.AttachGroupCustomRole(group.Id, roleId)
-}
-
-func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	roles, err := group.client.GetGroupRoles(group.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetGroupRoles")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	for i := range roles {
-		ret = append(ret, &roles[i])
-	}
-	return ret, nil
-}
-
-func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (group *SCloudgroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	roles, err := group.client.GetGroupRoles(group.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetGroupRoles")
@@ -313,12 +299,6 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 		if err != nil {
 			return errors.Wrapf(err, "remove domain role")
 		}
-		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
-			err := self.KeystoneRemoveProjectPermissionFromGroup(self.GetMosProjectId(), groupId, role.Id)
-			if err != nil {
-				return errors.Wrapf(err, "remove project role ")
-			}
-		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
 		projects, err := self.GetProjects()
@@ -374,12 +354,6 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 		if err != nil {
 			return errors.Wrapf(err, "AddRole")
 		}
-		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
-			err := self.KeystoneAssociateGroupWithProjectPermission(self.GetMosProjectId(), groupId, role.Id)
-			if err != nil {
-				return errors.Wrapf(err, "add project role ")
-			}
-		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
 		projects, err := self.GetProjects()
@@ -406,12 +380,6 @@ func (self *SHuaweiClient) AttachGroupCustomRole(groupId, roleId string) error {
 		if err != nil {
 			return errors.Wrapf(err, "AddRole")
 		}
-		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
-			err = self.KeystoneAssociateGroupWithProjectPermission(self.GetMosProjectId(), groupId, role.Id)
-			if err != nil {
-				return errors.Wrapf(err, "add project role ")
-			}
-		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
 		projects, err := self.GetProjects()
@@ -437,12 +405,6 @@ func (self *SHuaweiClient) DetachGroupCustomRole(groupId, roleId string) error {
 		err := self.KeystoneRemoveDomainPermissionFromGroup(self.ownerId, groupId, roleId)
 		if err != nil {
 			return errors.Wrapf(err, "DeleteRole")
-		}
-		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
-			err := self.KeystoneRemoveProjectPermissionFromGroup(self.GetMosProjectId(), groupId, role.Id)
-			if err != nil {
-				return errors.Wrapf(err, "remove project role ")
-			}
 		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {

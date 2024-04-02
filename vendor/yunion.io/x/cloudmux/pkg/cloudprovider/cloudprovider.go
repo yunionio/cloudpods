@@ -273,8 +273,7 @@ type ICloudProvider interface {
 
 	IsClouduserSupportPassword() bool
 	GetICloudusers() ([]IClouduser, error)
-	GetISystemCloudpolicies() ([]ICloudpolicy, error)
-	GetICustomCloudpolicies() ([]ICloudpolicy, error)
+	GetICloudpolicies() ([]ICloudpolicy, error)
 	GetICloudgroups() ([]ICloudgroup, error)
 	GetICloudgroupByName(name string) (ICloudgroup, error)
 	CreateICloudgroup(name, desc string) (ICloudgroup, error)
@@ -500,11 +499,7 @@ func (self *SBaseProvider) CreateICloudgroup(name, desc string) (ICloudgroup, er
 	return nil, ErrNotImplemented
 }
 
-func (self *SBaseProvider) GetISystemCloudpolicies() ([]ICloudpolicy, error) {
-	return nil, ErrNotImplemented
-}
-
-func (self *SBaseProvider) GetICustomCloudpolicies() ([]ICloudpolicy, error) {
+func (self *SBaseProvider) GetICloudpolicies() ([]ICloudpolicy, error) {
 	return nil, ErrNotImplemented
 }
 

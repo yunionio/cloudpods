@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -84,19 +85,11 @@ func (self *SGroup) RemoveUser(name string) error {
 	return self.client.RemoveUserFromGroup(self.GroupId, int(user.Uid))
 }
 
-func (self *SGroup) AttachSystemPolicy(policyId string) error {
+func (self *SGroup) AttachPolicy(policyId string, policyType api.TPolicyType) error {
 	return self.client.AttachGroupPolicy(self.GroupId, policyId)
 }
 
-func (self *SGroup) AttachCustomPolicy(policyId string) error {
-	return self.client.AttachGroupPolicy(self.GroupId, policyId)
-}
-
-func (self *SGroup) DetachSystemPolicy(policyId string) error {
-	return self.client.DetachGroupPolicy(self.GroupId, policyId)
-}
-
-func (self *SGroup) DetachCustomPolicy(policyId string) error {
+func (self *SGroup) DetachPolicy(policyId string, policyType api.TPolicyType) error {
 	return self.client.DetachGroupPolicy(self.GroupId, policyId)
 }
 
@@ -117,61 +110,15 @@ func (self *SGroup) ListGroupPolicies() ([]SPolicy, error) {
 	return policies, nil
 }
 
-func (self *SGroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+func (self *SGroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies, err := self.ListGroupPolicies()
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListGroupPolicies")
 	}
 	ret := []cloudprovider.ICloudpolicy{}
-	customPolicyMaps, err := self.client.GetCustomPolicyMaps()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetCustomPolicyIds")
-	}
 	for i := range policies {
-		_, ok := customPolicyMaps[policies[i].PolicyName]
-		if ok {
-			policies[i].client = self.client
-			ret = append(ret, &policies[i])
-		}
-	}
-	return ret, nil
-}
-
-func (self *SQcloudClient) GetCustomPolicyMaps() (map[string]int64, error) {
-	policyMaps := map[string]int64{}
-	offset := 1
-	for {
-		part, total, err := self.ListPolicies("", "Local", offset, 50)
-		if err != nil {
-			return nil, errors.Wrap(err, "ListPolicies")
-		}
-		for _, policy := range part {
-			policyMaps[policy.PolicyName] = policy.PolicyId
-		}
-		if len(policyMaps) >= total {
-			break
-		}
-		offset += 1
-	}
-	return policyMaps, nil
-}
-
-func (self *SGroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := self.ListGroupPolicies()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListGroupPolicies")
-	}
-	ret := []cloudprovider.ICloudpolicy{}
-	customPolicyMaps, err := self.client.GetCustomPolicyMaps()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetCustomPolicyIds")
-	}
-	for i := range policies {
-		_, ok := customPolicyMaps[policies[i].PolicyName]
-		if !ok {
-			policies[i].client = self.client
-			ret = append(ret, &policies[i])
-		}
+		policies[i].client = self.client
+		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
