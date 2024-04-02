@@ -551,7 +551,7 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if hasCtr {
 		status, err := s.getContainerStatus(ctx, ctrId)
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
+			if errors.Cause(err) == errors.ErrNotFound {
 				needRecreate = true
 			} else {
 				return nil, errors.Wrap(err, "get container status")
@@ -611,13 +611,17 @@ func (s *sPodGuestInstance) doContainerStartPostLifecycle(ctx context.Context, c
 func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	criId, err := s.getContainerCRIId(ctrId)
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			// cri id not found, should already stopped
+			return nil, nil
+		}
 		return nil, errors.Wrap(err, "get container cri id")
 	}
 	var timeout int64 = 0
 	if body.Contains("timeout") {
 		timeout, _ = body.Int("timeout")
 	}
-	if err := s.getCRI().StopContainer(context.Background(), criId, timeout); err != nil {
+	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {
 		return nil, errors.Wrap(err, "CRI.StopContainer")
 	}
 	return nil, nil
@@ -1017,6 +1021,10 @@ func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclie
 func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string) (string, error) {
 	criId, err := s.getContainerCRIId(ctrId)
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			// not found, already stopped
+			return computeapi.CONTAINER_STATUS_EXITED, nil
+		}
 		return "", errors.Wrapf(err, "get container cri_id by %s", ctrId)
 	}
 	resp, err := s.getCRI().ContainerStatus(ctx, criId)
