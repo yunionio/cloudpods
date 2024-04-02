@@ -61,7 +61,7 @@ func (self *SAMLProvider) Delete() error {
 }
 
 func (self *SAMLProvider) GetAuthUrl(apiServer string) string {
-	return fmt.Sprintf("https://cloud.tencent.com/login/forwardIdp/%s/%s", self.client.ownerName, self.Name)
+	return fmt.Sprintf("https://cloud.tencent.com/login/forwardIdp/%s/%s", self.client.getOwnerName(), self.Name)
 }
 
 func (self *SAMLProvider) GetMetadataDocument() (*samlutils.EntityDescriptor, error) {

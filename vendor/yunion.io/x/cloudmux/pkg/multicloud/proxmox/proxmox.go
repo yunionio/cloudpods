@@ -369,7 +369,7 @@ func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.
 }
 
 func (cli *SProxmoxClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_PROXMOX, cli.cpcfg.Id)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_PROXMOX, cli.cpcfg.Id)
 }
 
 func (self *SProxmoxClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

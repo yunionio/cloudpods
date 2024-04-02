@@ -138,7 +138,7 @@ func (cli *SOpenStackClient) getProjectToken(projectId, projectName string) (osc
 }
 
 func (cli *SOpenStackClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_OPENSTACK, cli.cpcfg.Id)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_OPENSTACK, cli.cpcfg.Id)
 }
 
 func (cli *SOpenStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

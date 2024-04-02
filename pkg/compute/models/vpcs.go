@@ -868,9 +868,6 @@ func (manager *SVpcManager) ValidateCreateData(
 	}
 	region := regionObj.(*SCloudregion)
 	if region.isManaged() {
-		if len(region.ManagerId) > 0 {
-			input.CloudproviderId = region.ManagerId
-		}
 		_, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
 			return input, err

@@ -98,7 +98,7 @@ func NewRemoteFileClient(cfg *RemoteFileClientConfig) (*SRemoteFileClient, error
 }
 
 func (cli *SRemoteFileClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_REMOTEFILE, cli.cpcfg.Id)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_REMOTEFILE, cli.cpcfg.Id)
 }
 
 func (cli *SRemoteFileClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
