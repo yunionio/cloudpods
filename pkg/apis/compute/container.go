@@ -99,6 +99,7 @@ type ContainerUpdateInput struct {
 
 type ContainerListInput struct {
 	apis.VirtualResourceListInput
+	GuestId string `json:"guest_id"`
 }
 
 type ContainerStopInput struct {

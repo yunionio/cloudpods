@@ -99,6 +99,9 @@ func (m *SContainerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	if query.GuestId != "" {
+		q = q.Equals("guest_id", query.GuestId)
+	}
 	return q, nil
 }
 
