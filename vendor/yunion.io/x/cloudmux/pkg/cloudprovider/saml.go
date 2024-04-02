@@ -24,9 +24,11 @@ const (
 	SAML_ENTITY_ID_HUAWEI_CLOUD = "https://auth.huaweicloud.com/"
 	SAML_ENTITY_ID_GOOGLE       = "google.com"
 	SAML_ENTITY_ID_AZURE        = "urn:federation:MicrosoftOnline"
+	SAML_ENTITY_ID_VOLC_ENGINE  = "https://www.volcengine.com/"
 )
 
 type SAMLProviderCreateOptions struct {
 	Name     string
 	Metadata samlutils.EntityDescriptor
+	Desc     string
 }

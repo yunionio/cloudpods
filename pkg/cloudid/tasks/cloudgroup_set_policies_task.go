@@ -80,7 +80,7 @@ func (self *CloudgroupSetPoliciesTask) OnInit(ctx context.Context, obj db.IStand
 
 	for _, policy := range input.Add {
 		for id, role := range iRoleMap {
-			err := role.AttachPolicy(policy.ExternalId)
+			err := role.AttachPolicy(policy.ExternalId, policy.PolicyType)
 			if err != nil {
 				logclient.AddSimpleActionLog(roleMap[id], logclient.ACT_ATTACH_POLICY, err, self.GetUserCred(), false)
 			}
@@ -99,7 +99,7 @@ func (self *CloudgroupSetPoliciesTask) OnInit(ctx context.Context, obj db.IStand
 
 	for _, policy := range input.Del {
 		for id, role := range iRoleMap {
-			err := role.DetachPolicy(policy.ExternalId)
+			err := role.DetachPolicy(policy.ExternalId, policy.PolicyType)
 			if err != nil {
 				logclient.AddSimpleActionLog(roleMap[id], logclient.ACT_DETACH_POLICY, err, self.GetUserCred(), false)
 			}

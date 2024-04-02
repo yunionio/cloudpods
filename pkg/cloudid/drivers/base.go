@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
@@ -436,7 +437,7 @@ func (base SProviderBaseProviderDriver) RequestCreateClouduser(ctx context.Conte
 
 	iUser, err := provider.CreateIClouduser(opts)
 	if err != nil {
-		return errors.Wrapf(err, "CreateICloudgroup")
+		return errors.Wrapf(err, "CreateIClouduser")
 	}
 	_, err = db.Update(user, func() error {
 		user.ExternalId = iUser.GetGlobalId()
@@ -537,7 +538,10 @@ func (base SProviderBaseProviderDriver) RequestCreateSAMLProvider(ctx context.Co
 			opts := &cloudprovider.SAMLProviderCreateOptions{
 				Metadata: models.SamlIdpInstance().GetMetadata(providers[i].Id),
 				Name:     strings.TrimPrefix(options.Options.ApiServer, "https://"),
+				Desc:     "create by cloudpods",
 			}
+
+			log.Debugf("create saml provider for manager %s(%s) %s", providers[i].Name, providers[i].Id, opts.Metadata.String())
 
 			opts.Name = strings.TrimPrefix(opts.Name, "http://")
 
@@ -577,17 +581,44 @@ func (base SProviderBaseProviderDriver) RequestCreateRoleForSamlUser(ctx context
 	if err != nil {
 		return errors.Wrapf(err, "GetSamlProvider")
 	}
+	policies, err := group.GetCloudpolicies()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudpolicies")
+	}
 	roles, err := account.GetCloudroles(provider.Id)
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudroles")
 	}
 	for i := range roles {
-		if roles[i].Status == apis.STATUS_AVAILABLE && len(roles[i].ExternalId) > 0 && roles[i].SAMLProviderId == samlProvider.Id {
+		if roles[i].Status == apis.STATUS_AVAILABLE && len(roles[i].ExternalId) > 0 && roles[i].SAMLProviderId == samlProvider.Id && roles[i].CloudgroupId == group.Id {
 			_, err := db.Update(user, func() error {
 				user.CloudroleId = roles[i].Id
 				return nil
 			})
-			return err
+			if err != nil {
+				return err
+			}
+			existPolicies := []string{}
+			iRole, err := roles[i].GetICloudrole()
+			if err != nil {
+				return err
+			}
+			iPolicies, err := iRole.GetICloudpolicies()
+			if err != nil {
+				return errors.Wrapf(err, "GetICloudpolicies")
+			}
+			for _, policy := range iPolicies {
+				existPolicies = append(existPolicies, policy.GetGlobalId())
+			}
+			for _, policy := range policies {
+				if !utils.IsInStringArray(policy.ExternalId, existPolicies) {
+					err = iRole.AttachPolicy(policy.ExternalId, policy.PolicyType)
+					if err != nil {
+						return errors.Wrapf(err, "attach %s policy %s", policy.PolicyType, policy.ExternalId)
+					}
+				}
+			}
+			return nil
 		}
 	}
 	iProvider, err := group.GetProvider()
@@ -622,5 +653,14 @@ func (base SProviderBaseProviderDriver) RequestCreateRoleForSamlUser(ctx context
 		user.CloudroleId = role.Id
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	for _, policy := range policies {
+		err := iRole.AttachPolicy(policy.ExternalId, policy.PolicyType)
+		if err != nil {
+			return errors.Wrapf(err, "attach %s policy %s", policy.PolicyType, policy.ExternalId)
+		}
+	}
+	return nil
 }

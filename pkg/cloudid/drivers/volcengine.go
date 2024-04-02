@@ -12,15 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package saml
+package drivers
 
 import (
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/aliyun"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/aws"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/awscn"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/azure"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/google"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/huawei"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/qcloud"
-	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/volcengine"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
+
+type SVolcEngineDriver struct {
+	SProviderBaseProviderDriver
+}
+
+func (driver SVolcEngineDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_VOLCENGINE
+}
+
+func init() {
+	models.RegisterProviderDriver(&SVolcEngineDriver{})
+}

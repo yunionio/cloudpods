@@ -82,9 +82,9 @@ func (self *ClouduserCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		}{
 			Id:          self.Id,
 			IamLoginUrl: account.IamLoginUrl,
+			Account:     account.AccountId,
 		}
 		msg.Password, _ = user.GetPassword()
-		msg.Account, msg.Name = account.GetClouduserAccountName(user.Name)
 
 		notifyclient.NotifyWithContact(ctx, []string{user.Email}, npk.NotifyByEmail, npk.NotifyPriorityNormal, "CLOUD_USER_CREATED", jsonutils.Marshal(msg))
 	}
