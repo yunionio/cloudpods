@@ -305,7 +305,6 @@ func (ts *sTableSpec) informUpdate(ctx context.Context, dt interface{}, oldObj *
 			debug.PrintStack()
 			return
 		}
-		debug.PrintStack()
 		if err := informer.Update(ctx, obj, oldObj); err != nil {
 			if errors.Cause(err) == informer.ErrBackendNotInit {
 				log.V(4).Warningf("informer backend not init")
