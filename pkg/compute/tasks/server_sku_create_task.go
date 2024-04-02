@@ -51,38 +51,43 @@ func (self *ServerSkuCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
-	provider, err := region.GetCloudprovider()
+	providers, err := region.GetCloudproviders()
 	if err != nil {
-		self.taskFail(ctx, sku, errors.Wrapf(err, "GetCloudprovider"))
+		self.taskFail(ctx, sku, errors.Wrapf(err, "GetCloudproviders"))
 		return
 	}
 
-	driver, err := provider.GetProvider(ctx)
-	if err != nil {
-		self.taskFail(ctx, sku, errors.Wrapf(err, "GetDriver"))
+	for i := range providers {
+		provider := providers[i]
+		driver, err := provider.GetProvider(ctx)
+		if err != nil {
+			self.taskFail(ctx, sku, errors.Wrapf(err, "GetDriver"))
+			return
+		}
+
+		iRegion, err := driver.GetIRegionById(region.ExternalId)
+		if err != nil {
+			self.taskFail(ctx, sku, errors.Wrapf(err, "GetIRegionById"))
+			return
+		}
+
+		opts := cloudprovider.SServerSkuCreateOption{
+			Name:             sku.Name,
+			CpuCount:         sku.CpuCoreCount,
+			VmemSizeMb:       sku.MemorySizeMB,
+			SysDiskMinSizeGb: sku.SysDiskMinSizeGB,
+			SysDiskMaxSizeGb: sku.SysDiskMaxSizeGB,
+		}
+
+		iSku, err := iRegion.CreateISku(&opts)
+		if err != nil {
+			self.taskFail(ctx, sku, errors.Wrapf(err, "CreateISku"))
+			return
+		}
+
+		sku.SyncWithPrivateCloudSku(ctx, self.GetUserCred(), iSku)
+		self.SetStageComplete(ctx, nil)
 		return
 	}
-
-	iRegion, err := driver.GetIRegionById(region.ExternalId)
-	if err != nil {
-		self.taskFail(ctx, sku, errors.Wrapf(err, "GetIRegionById"))
-		return
-	}
-
-	opts := cloudprovider.SServerSkuCreateOption{
-		Name:             sku.Name,
-		CpuCount:         sku.CpuCoreCount,
-		VmemSizeMb:       sku.MemorySizeMB,
-		SysDiskMinSizeGb: sku.SysDiskMinSizeGB,
-		SysDiskMaxSizeGb: sku.SysDiskMaxSizeGB,
-	}
-
-	iSku, err := iRegion.CreateISku(&opts)
-	if err != nil {
-		self.taskFail(ctx, sku, errors.Wrapf(err, "CreateISku"))
-		return
-	}
-
-	sku.SyncWithPrivateCloudSku(ctx, self.GetUserCred(), iSku)
-	self.SetStageComplete(ctx, nil)
+	self.taskFail(ctx, sku, errors.Wrapf(cloudprovider.ErrNotFound, "region %s", region.Name))
 }
