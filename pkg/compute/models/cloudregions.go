@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -64,7 +63,6 @@ func init() {
 type SCloudregion struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SI18nResourceBase
-	SManagedResourceBase
 	db.SExternalizedResourceBase
 
 	cloudprovider.SGeographicInfo
@@ -473,16 +471,15 @@ func (self *SCloudregion) GetServerSkus() ([]SServerSku, error) {
 }
 
 func (self *SCloudprovider) GetRegionByExternalIdPrefix(prefix string) ([]SCloudregion, error) {
-	factory, err := self.GetProviderFactory()
-	if err != nil {
-		return nil, err
-	}
 	regions := make([]SCloudregion, 0)
-	q := CloudregionManager.Query().Startswith("external_id", prefix)
-	if !factory.IsPublicCloud() && !strings.Contains(prefix, "/") {
-		q = CloudregionManager.Query().Equals("manager_id", self.Id)
-	}
-	err = db.FetchModelObjects(CloudregionManager, q, &regions)
+	q := CloudregionManager.Query()
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.Startswith(q.Field("external_id"), prefix),
+			sqlchemy.Equals(q.Field("external_id"), prefix),
+		),
+	)
+	err := db.FetchModelObjects(CloudregionManager, q, &regions)
 	if err != nil {
 		return nil, err
 	}
@@ -494,17 +491,7 @@ func (manager *SCloudregionManager) GetRegionByProvider(provider string) ([]SClo
 	q := manager.Query().Equals("provider", provider)
 	err := db.FetchModelObjects(manager, q, &regions)
 	if err != nil {
-		log.Errorf("%s", err)
-		return nil, err
-	}
-	return regions, nil
-}
-
-func (manager *SCloudregionManager) getCloudregionsByProviderId(providerId string) ([]SCloudregion, error) {
-	regions := []SCloudregion{}
-	err := fetchByManagerId(manager, providerId, &regions)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchByManagerId")
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return regions, nil
 }
@@ -521,8 +508,8 @@ func (manager *SCloudregionManager) SyncRegions(
 	[]SCloudproviderregion,
 	compare.SyncResult,
 ) {
-	lockman.LockRawObject(ctx, "cloudregions", externalIdPrefix)
-	defer lockman.ReleaseRawObject(ctx, "cloudregions", externalIdPrefix)
+	lockman.LockRawObject(ctx, manager.Keyword(), externalIdPrefix)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), externalIdPrefix)
 
 	syncResult := compare.SyncResult{}
 	localRegions := make([]SCloudregion, 0)
@@ -555,11 +542,10 @@ func (manager *SCloudregionManager) SyncRegions(
 	}
 	for i := 0; i < len(commondb); i += 1 {
 		// update
-		err = commondb[i].syncWithCloudRegion(ctx, userCred, commonext[i], cloudProvider)
+		err = commondb[i].syncWithCloudRegion(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i], false)
 			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, commondb[i].Id)
 			cpr.setCapabilities(ctx, userCred, commonext[i].GetCapabilities())
 			cloudProviderRegions = append(cloudProviderRegions, *cpr)
@@ -573,7 +559,6 @@ func (manager *SCloudregionManager) SyncRegions(
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i], false)
 			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, new.Id)
 			cpr.setCapabilities(ctx, userCred, added[i].GetCapabilities())
 			cloudProviderRegions = append(cloudProviderRegions, *cpr)
@@ -592,15 +577,10 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 	return self.purgeAll(ctx, cloudProvider.Id)
 }
 
-func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, cloudRegion cloudprovider.ICloudRegion, provider *SCloudprovider) error {
+func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, cloudRegion cloudprovider.ICloudRegion) error {
 	err := CloudregionManager.SyncI18ns(ctx, userCred, self, cloudRegion.GetI18n())
 	if err != nil {
 		return errors.Wrap(err, "SyncI18ns")
-	}
-
-	factory, err := provider.GetProviderFactory()
-	if err != nil {
-		return err
 	}
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
@@ -617,10 +597,6 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 		self.SetEnabled(true)
 
 		self.IsEmulated = cloudRegion.IsEmulated()
-
-		if !factory.IsPublicCloud() && !factory.IsOnPremise() && !factory.IsMultiTenant() {
-			self.ManagerId = provider.Id
-		}
 
 		return nil
 	})
@@ -645,14 +621,7 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 
 	region.IsEmulated = cloudRegion.IsEmulated()
 
-	factory, err := provider.GetProviderFactory()
-	if err != nil {
-		return nil, err
-	}
-	if !factory.IsOnPremise() && !factory.IsPublicCloud() {
-		region.ManagerId = provider.Id
-	}
-
+	var err error
 	err = func() error {
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
@@ -1066,7 +1035,7 @@ func (self *SCloudregion) GetRegionExtId() string {
 }
 
 func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
-	if len(self.ExternalId) > 0 && len(self.ManagerId) == 0 {
+	if len(self.ExternalId) > 0 {
 		return httperrors.NewConflictError("Cannot update external resource")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)
@@ -1334,13 +1303,14 @@ func (self *SCloudregion) StartSyncSkusTask(ctx context.Context, userCred mcclie
 	return task.ScheduleRun(nil)
 }
 
-func (self *SCloudregion) GetCloudprovider() (*SCloudprovider, error) {
-	if len(self.ManagerId) == 0 {
-		return nil, sql.ErrNoRows
-	}
-	provider, err := CloudproviderManager.FetchById(self.ManagerId)
+func (self *SCloudregion) GetCloudproviders() ([]SCloudprovider, error) {
+	sq := CloudproviderRegionManager.Query().Equals("cloudregion_id", self.Id).SubQuery()
+	q := CloudproviderManager.Query()
+	q = q.Join(sq, sqlchemy.Equals(sq.Field("cloudprovider_id"), q.Field("id")))
+	ret := []SCloudprovider{}
+	err := db.FetchModelObjects(CloudproviderManager, q, &ret)
 	if err != nil {
-		return nil, errors.Wrapf(err, "FetchByI(%s)", self.ManagerId)
+		return nil, err
 	}
-	return provider.(*SCloudprovider), nil
+	return ret, nil
 }
