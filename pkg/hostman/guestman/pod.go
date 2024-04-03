@@ -1029,6 +1029,9 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 	}
 	resp, err := s.getCRI().ContainerStatus(ctx, criId)
 	if err != nil {
+		if strings.Contains(err.Error(), "NotFound") {
+			return computeapi.CONTAINER_STATUS_EXITED, nil
+		}
 		return "", errors.Wrap(err, "cri.ContainerStatus")
 	}
 	status := computeapi.CONTAINER_STATUS_UNKNOWN

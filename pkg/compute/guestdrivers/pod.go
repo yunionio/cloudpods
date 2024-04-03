@@ -319,6 +319,14 @@ func (p *SPodDriver) StartDeleteGuestTask(ctx context.Context, userCred mcclient
 	return task.ScheduleRun(nil)
 }
 
+func (p *SPodDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "PodSyncstatusTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "New PodSyncstatusTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
 func (p *SPodDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	url := fmt.Sprintf("%s/servers/%s", host.ManagerUri, guest.Id)
 	header := p.getTaskRequestHeader(task)
