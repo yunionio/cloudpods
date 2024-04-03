@@ -551,7 +551,7 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if hasCtr {
 		status, err := s.getContainerStatus(ctx, ctrId)
 		if err != nil {
-			if errors.Cause(err) == errors.ErrNotFound {
+			if errors.Cause(err) == errors.ErrNotFound || strings.Contains(err.Error(), "not found") {
 				needRecreate = true
 			} else {
 				return nil, errors.Wrap(err, "get container status")
@@ -617,7 +617,7 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 		}
 		return nil, errors.Wrap(err, "get container cri id")
 	}
-	var timeout int64 = 0
+	var timeout int64 = 15
 	if body.Contains("timeout") {
 		timeout, _ = body.Int("timeout")
 	}
