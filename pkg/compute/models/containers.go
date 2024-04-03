@@ -340,6 +340,10 @@ func (c *SContainer) StartStopTask(ctx context.Context, userCred mcclient.TokenC
 	return task.ScheduleRun(nil)
 }
 
+func (c *SContainer) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, c.StartSyncStatusTask(ctx, userCred, "")
+}
+
 func (c *SContainer) StartSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_SYNC_STATUS, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ContainerSyncStatusTask", c, userCred, nil, parentTaskId, "", nil)

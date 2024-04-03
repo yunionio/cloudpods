@@ -40,6 +40,7 @@ func init() {
 	cmd.BatchDelete(new(options.ContainerDeleteOptions))
 	cmd.BatchPerform("stop", new(options.ContainerStopOptions))
 	cmd.BatchPerform("start", new(options.ContainerStartOptions))
+	cmd.BatchPerform("syncstatus", new(options.ContainerIdsOptions))
 
 	type UpdateSpecOptions struct {
 		ID string `help:"ID or name of server" json:"-"`

@@ -213,8 +213,20 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 	return vm, nil
 }
 
+type ContainerIdsOptions struct {
+	ID []string `help:"ID of containers to operate" metavar:"CONTAINER" json:"-"`
+}
+
+func (o *ContainerIdsOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o *ContainerIdsOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type ContainerStopOptions struct {
-	ServerIdsOptions
+	ContainerIdsOptions
 	Timeout int `help:"Stopping timeout" json:"timeout"`
 }
 
@@ -223,5 +235,5 @@ func (o *ContainerStopOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ContainerStartOptions struct {
-	ServerIdsOptions
+	ContainerIdsOptions
 }
