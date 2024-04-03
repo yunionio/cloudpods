@@ -136,6 +136,9 @@ func (h *HostContainerCPU) DeleteContainer(ctrId string) {
 }
 
 func (h *HostContainerCPU) InsertContainer(ctrId string, ctrIdx int) {
+	if h.Containers == nil {
+		h.Containers = make(map[string][]*ContainerCPU)
+	}
 	if h.HasContainer(ctrId) {
 		h.Containers[ctrId] = append(h.Containers[ctrId], NewContainerCPU(ctrId, ctrIdx))
 	} else {
