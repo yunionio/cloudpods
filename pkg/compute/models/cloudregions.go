@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -433,11 +434,12 @@ func (self *SCloudregion) GetServerSkus() ([]SServerSku, error) {
 }
 
 func (self *SCloudprovider) GetRegionByExternalIdPrefix(prefix string) ([]SCloudregion, error) {
+	prefix = strings.TrimSuffix(prefix, "/")
 	regions := make([]SCloudregion, 0)
 	q := CloudregionManager.Query()
 	q = q.Filter(
 		sqlchemy.OR(
-			sqlchemy.Startswith(q.Field("external_id"), prefix),
+			sqlchemy.Startswith(q.Field("external_id"), prefix+"/"),
 			sqlchemy.Equals(q.Field("external_id"), prefix),
 		),
 	)
