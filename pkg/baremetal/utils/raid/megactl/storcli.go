@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
@@ -279,6 +280,50 @@ type StorcliLogicalVolume struct {
 	Index int
 }
 
+func fetchLvInfo(data *jsonutils.JSONDict, keyIdx string, vIdx int) (*StorcliLogicalVolume, error) {
+	lvObj, err := data.Get(keyIdx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get %s", keyIdx)
+	}
+
+	// parse PDs
+	pdKey := fmt.Sprintf("PDs for VD %d", vIdx)
+	if !data.Contains(pdKey) {
+		return nil, nil
+	}
+
+	lvArr := make([]*StorcliLogicalVolume, 0)
+	if err := lvObj.Unmarshal(&lvArr); err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal %s to StorcliLogicalVolume", lvObj)
+	}
+	lv := lvArr[0]
+	lv.Index = vIdx
+	lv.Name = keyIdx
+	pdObj, err := data.Get(pdKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get %s", pdKey)
+	}
+	pds := make([]*StorcliLogicalVolumePD, 0)
+	if err := pdObj.Unmarshal(&pds); err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal %s to PDs", pdObj)
+	}
+	lv.PDs = pds
+
+	// parse Properties
+	ppKey := fmt.Sprintf("VD%d Properties", vIdx)
+	ppObj, err := data.Get(ppKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get %s", ppKey)
+	}
+	props := new(StorcliLogicalVolumeProperties)
+	if err := ppObj.Unmarshal(props); err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal %s to Properties", ppObj)
+	}
+	lv.Properties = props
+
+	return lv, nil
+}
+
 func (lvs *StorcliLogicalVolumes) GetLogicalVolumes(controller int) ([]*StorcliLogicalVolume, error) {
 	data, err := lvs.responseData(controller)
 	if err != nil {
@@ -287,55 +332,29 @@ func (lvs *StorcliLogicalVolumes) GetLogicalVolumes(controller int) ([]*StorcliL
 		}
 		return nil, errors.Wrap(err, "responseData")
 	}
-	vIdx := 0
 	result := make([]*StorcliLogicalVolume, 0)
-	for {
-		// find volumes of controller
-		keyIdx := fmt.Sprintf("/c%d/v%d", controller, vIdx)
-		if !data.Contains(keyIdx) {
-			break
+	dataMap, err := data.GetMap()
+	if err != nil {
+		return nil, errors.Wrap(err, "response data get map")
+	}
+	vdPrefix := fmt.Sprintf("/c%d/v", controller)
+	for k := range dataMap {
+		if strings.HasPrefix(k, vdPrefix) {
+			// find a LV like cXvXXX
+			vIdx, err := strconv.ParseInt(k[len(vdPrefix):], 10, 64)
+			if err != nil {
+				log.Errorf("key %s not a valid LV key: %s", k, err)
+				continue
+			}
+			lv, err := fetchLvInfo(data, k, int(vIdx))
+			if err != nil {
+				log.Errorf("fetchLvInfo %s failed %s", k, err)
+				continue
+			}
+			if lv != nil {
+				result = append(result, lv)
+			}
 		}
-		lvObj, err := data.Get(keyIdx)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Get %s", keyIdx)
-		}
-
-		// parse PDs
-		pdKey := fmt.Sprintf("PDs for VD %d", vIdx)
-		if !data.Contains(pdKey) {
-			break
-		}
-		lvArr := make([]*StorcliLogicalVolume, 0)
-		if err := lvObj.Unmarshal(&lvArr); err != nil {
-			return nil, errors.Wrapf(err, "Unmarshal %s to StorcliLogicalVolume", lvObj)
-		}
-		lv := lvArr[0]
-		lv.Index = vIdx
-		lv.Name = keyIdx
-		pdObj, err := data.Get(pdKey)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Get %s", pdKey)
-		}
-		pds := make([]*StorcliLogicalVolumePD, 0)
-		if err := pdObj.Unmarshal(&pds); err != nil {
-			return nil, errors.Wrapf(err, "Unmarshal %s to PDs", pdObj)
-		}
-		lv.PDs = pds
-
-		// parse Properties
-		ppKey := fmt.Sprintf("VD%d Properties", vIdx)
-		ppObj, err := data.Get(ppKey)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Get %s", ppKey)
-		}
-		props := new(StorcliLogicalVolumeProperties)
-		if err := ppObj.Unmarshal(props); err != nil {
-			return nil, errors.Wrapf(err, "Unmarshal %s to Properties", ppObj)
-		}
-		lv.Properties = props
-
-		result = append(result, lv)
-		vIdx++
 	}
 	return result, nil
 }
