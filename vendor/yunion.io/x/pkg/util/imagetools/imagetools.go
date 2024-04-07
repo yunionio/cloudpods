@@ -141,7 +141,7 @@ var imageVersions = map[string][]string{
 
 	"Alibaba Cloud Linux": {"2.1903", "3.2104"},
 	"Anolis OS":           {"7.9", "8.2", "8.4"},
-	"Rocky Linux":         {"8.5"},
+	"Rocky Linux":         {"8.5", "8.6", "8.7", "8.8", "8.9", "9.0", "9.1", "9.2"},
 	"Fedora":              {"33", "34", "35"},
 	"AlmaLinux":           {"8.5"},
 
