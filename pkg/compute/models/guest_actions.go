@@ -1505,7 +1505,7 @@ func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.Tok
 		if len(networks[i].IpAddr) > 0 {
 			continue
 		}
-		network := networks[i].GetNetwork()
+		network, _ := networks[i].GetNetwork()
 		if network != nil {
 			db.Update(&networks[i], func() error {
 				networks[i].IpAddr, _ = network.GetFreeIP(ctx, userCred, nil, nil, "", api.IPAllocationRandom, false, api.AddressTypeIPv4)
@@ -2477,7 +2477,10 @@ func (self *SGuest) PerformChangeIpaddr(
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
 		taskData.Set("prev_mac", jsonutils.NewString(newMacAddr))
-		net := ngn.GetNetwork()
+		net, err := ngn.GetNetwork()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetNetwork")
+		}
 		taskData.Set("is_vpc_network", jsonutils.NewBool(net.isOneCloudVpcNetwork()))
 		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
 		taskData.Set("gateway", jsonutils.NewString(newGateway))
@@ -2596,10 +2599,12 @@ func (guest *SGuest) fixDefaultGateway(ctx context.Context, userCred mcclient.To
 	nicList := netutils2.SNicInfoList{}
 	nics, _ := guest.GetNetworks("")
 	for i := range nics {
-		net := nics[i].GetNetwork()
-		nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)
-		if nics[i].IsDefault {
-			defaultGwCnt++
+		net, _ := nics[i].GetNetwork()
+		if net != nil {
+			nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)
+			if nics[i].IsDefault {
+				defaultGwCnt++
+			}
 		}
 	}
 	if defaultGwCnt != 1 {

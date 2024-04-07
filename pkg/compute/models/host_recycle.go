@@ -187,10 +187,14 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		}
 		ifname := fmt.Sprintf("eth%d", i)
 		brname := fmt.Sprintf("br%d", i)
+		net, err := guestnics[i].GetNetwork()
+		if err != nil {
+			return errors.Wrapf(err, "GetNetwork")
+		}
 		err = fakeHost.addNetif(ctx, userCred,
 			guestnics[i].MacAddr,
 			1,
-			guestnics[i].GetNetwork().WireId,
+			net.WireId,
 			"",
 			1000,
 			nicType,
