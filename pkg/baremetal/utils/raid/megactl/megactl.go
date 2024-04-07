@@ -444,15 +444,24 @@ func (adapter *MegaRaidAdaptor) GetDevices() []*baremetal.BaremetalStorage {
 }
 
 func (adapter *MegaRaidAdaptor) GetLogicVolumes() ([]*raiddrivers.RaidLogicalVolume, error) {
-	lvs, err := adapter.getMegacliLogicVolumes()
-	if err == nil {
-		return lvs, nil
-	}
-	errs := []error{err}
-	if lvs, err := adapter.getStorcliLogicVolums(); err == nil {
-		return lvs, nil
-	} else {
+	errs := make([]error, 0)
+	megaLvs, err := adapter.getMegacliLogicVolumes()
+	if err != nil {
 		errs = append(errs, err)
+	}
+	storeLvs, err := adapter.getStorcliLogicVolums()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(megaLvs) > 0 {
+		return megaLvs, nil
+	}
+	if len(storeLvs) > 0 {
+		return storeLvs, nil
+	}
+	if len(errs) == 0 {
+		// no error, no volume
+		return []*raiddrivers.RaidLogicalVolume{}, nil
 	}
 	return nil, errors.NewAggregate(errs)
 }
@@ -461,23 +470,17 @@ func (adapter *MegaRaidAdaptor) getMegacliLogicVolumes() ([]*raiddrivers.RaidLog
 	cmd := GetCommand("-LDInfo", "-Lall", fmt.Sprintf("-a%d", adapter.index))
 	ret, err := adapter.remoteRun(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("getMegacliLogicVolumes error: %v", err)
+		return nil, errors.Wrapf(err, "remoteRun %s", cmd)
 	}
-	return adapter.parseLogicVolumes(ret)
+	lvs, err := adapter.parseLogicVolumes(ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+	for i := range lvs {
+		lvs[i].Driver = raiddrivers.RaidDriverToolMegacli64
+	}
+	return lvs, nil
 }
-
-// func (adapter *MegaRaidAdaptor) getStorcliLogicVolums() ([]*raiddrivers.RaidLogicalVolume, error) {
-// 	cmd := GetCommand2(fmt.Sprintf("/c%d/vall", adapter.index), "show")
-// 	ret, err := adapter.remoteRun(cmd)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("getStorcliLogicVolums error: %v", err)
-// 	}
-// 	lvs, err := parseStorcliLogicalVolumes(adapter.index, ret)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return lvs, nil
-// }
 
 func (adapter *MegaRaidAdaptor) getStorcliLogicVolums() ([]*raiddrivers.RaidLogicalVolume, error) {
 	lvs, err := adapter.getStorcliLogicVolumsV2()
@@ -488,10 +491,11 @@ func (adapter *MegaRaidAdaptor) getStorcliLogicVolums() ([]*raiddrivers.RaidLogi
 	for i := range lvs {
 		lv := lvs[i]
 		ret[i] = &raiddrivers.RaidLogicalVolume{
-			Index:    i,
+			Index:    lv.Index,
 			Adapter:  adapter.index,
 			BlockDev: lv.GetOSDevice(),
 			IsSSD:    tristate.NewFromBool(lv.IsSSD()),
+			Driver:   raiddrivers.RaidDriverToolStorecli,
 		}
 	}
 	return ret, nil
@@ -905,20 +909,33 @@ func (adapter *MegaRaidAdaptor) megacliBuildJBOD(devs []*baremetal.BaremetalStor
 func (adapter *MegaRaidAdaptor) RemoveLogicVolumes() error {
 	lvIdx, err := adapter.GetLogicVolumes()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetLogicVolumes")
 	}
-	for _, i := range raiddrivers.ReverseLogicalArray(lvIdx) {
-		cmd := GetCommand("-CfgLdDel", fmt.Sprintf("-L%d", i.Index), "-Force", fmt.Sprintf("-a%d", adapter.index))
-		_, err := adapter.remoteRun(cmd)
-		if err == nil {
-			continue
+	if len(lvIdx) == 0 {
+		log.Infof("RemoveLogicVolumes: no logical volume to delete!")
+		return nil
+	}
+	errs := make([]error, 0)
+	lvIdx = raiddrivers.ReverseLogicalArray(lvIdx)
+	for i := range lvIdx {
+		lv := lvIdx[i]
+		switch lv.Driver {
+		case raiddrivers.RaidDriverToolMegacli64:
+			cmd := GetCommand("-CfgLdDel", fmt.Sprintf("-L%d", lv.Index), "-Force", fmt.Sprintf("-a%d", adapter.index))
+			_, err := adapter.remoteRun(cmd)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		case raiddrivers.RaidDriverToolStorecli:
+			cmd := GetCommand2(fmt.Sprintf("/c%d/v%d", adapter.index, lv.Index), "delete", "force")
+			_, err := adapter.remoteRun(cmd)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
-		errs := []error{err}
-		cmd = GetCommand2(fmt.Sprintf("/c%d/v%d", adapter.index, i.Index), "delete", "force")
-		if _, err := adapter.remoteRun(cmd); err != nil {
-			errs = append(errs, err)
-			return errors.NewAggregate(errs)
-		}
+	}
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
 	}
 	return nil
 }
