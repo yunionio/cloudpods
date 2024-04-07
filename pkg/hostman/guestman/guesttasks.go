@@ -43,7 +43,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
@@ -1893,7 +1892,7 @@ func (s *SGuestStreamDisksTask) OnGetBlockJobs(jobs []monitor.BlockJob) {
 
 func (s *SGuestStreamDisksTask) taskComplete() {
 	hostutils.UpdateServerProgress(context.Background(), s.Id, 100.0, 0.0)
-	s.SyncStatus("")
+	s.SyncStatus("Guest Disks Block Stream Complete")
 
 	if s.callback != nil {
 		s.callback()
@@ -2074,63 +2073,59 @@ type SGuestSnapshotDeleteTask struct {
 	*SGuestReloadDiskTask
 	deleteSnapshot  string
 	convertSnapshot string
-	pendingDelete   bool
+	blockStream     bool
 
 	tmpPath string
 }
 
 func NewGuestSnapshotDeleteTask(
 	ctx context.Context, s *SKVMGuestInstance, disk storageman.IDisk,
-	deleteSnapshot, convertSnapshot string, pendingDelete bool,
+	deleteSnapshot, convertSnapshot string, blockStream bool,
 ) *SGuestSnapshotDeleteTask {
 	return &SGuestSnapshotDeleteTask{
 		SGuestReloadDiskTask: NewGuestReloadDiskTask(ctx, s, disk),
 		deleteSnapshot:       deleteSnapshot,
 		convertSnapshot:      convertSnapshot,
-		pendingDelete:        pendingDelete,
+		blockStream:          blockStream,
 	}
 }
 
 func (s *SGuestSnapshotDeleteTask) Start() {
+	if s.blockStream {
+		s.startBlockStream()
+		return
+	}
+
 	if err := s.doDiskConvert(); err != nil {
 		s.taskFailed(err.Error())
+		return
 	}
 	s.fetchDisksInfo(s.doReloadDisk)
 }
 
-func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
-	snapshotDir := s.disk.GetSnapshotDir()
-	snapshotPath := path.Join(snapshotDir, s.convertSnapshot)
-	img, err := qemuimg.NewQemuImage(snapshotPath)
-	if err != nil {
-		log.Errorln(err)
-		return err
-	}
-	convertedDisk := snapshotPath + ".tmp"
-	if err = img.Convert2Qcow2To(convertedDisk, true, "", "", ""); err != nil {
-		log.Errorln(err)
-		if fileutils2.Exists(convertedDisk) {
-			os.Remove(convertedDisk)
+func (s *SGuestSnapshotDeleteTask) startBlockStream() {
+	diskIdx := []int{}
+	for i := range s.Desc.Disks {
+		if s.Desc.Disks[i].DiskId == s.disk.GetId() {
+			diskIdx = append(diskIdx, int(s.Desc.Disks[i].Index))
 		}
-		return err
 	}
+	s.StreamDisks(s.ctx, s.onStreamDiskComplete, diskIdx)
+}
 
-	s.tmpPath = snapshotPath + ".swap"
-	if output, err := procutils.NewCommand("mv", "-f", snapshotPath, s.tmpPath).Output(); err != nil {
-		log.Errorf("mv %s to %s failed: %s, %s", snapshotPath, s.tmpPath, err, output)
-		if fileutils2.Exists(s.tmpPath) {
-			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output()
-		}
-		return err
+func (s *SGuestSnapshotDeleteTask) onStreamDiskComplete() {
+	// remove snapshot file
+	if err := s.disk.DoDeleteSnapshot(s.deleteSnapshot); err != nil {
+		hostutils.TaskFailed(s.ctx, err.Error())
+		return
 	}
-	if output, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Output(); err != nil {
-		log.Errorf("mv %s to %s failed: %s, %s", convertedDisk, snapshotPath, err, output)
-		if fileutils2.Exists(s.tmpPath) {
-			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output()
-		}
-		return err
-	}
-	return nil
+	body := jsonutils.NewDict()
+	body.Set("deleted", jsonutils.JSONTrue)
+	hostutils.TaskComplete(s.ctx, body)
+}
+
+func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
+	return s.disk.ConvertSnapshot(s.convertSnapshot)
 }
 
 func (s *SGuestSnapshotDeleteTask) doReloadDisk(device string) {
@@ -2163,9 +2158,7 @@ func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 			log.Errorf("rm %s failed: %s, %s", s.tmpPath, err, output)
 		}
 	}
-	if !s.pendingDelete {
-		s.disk.DoDeleteSnapshot(s.deleteSnapshot)
-	}
+	s.disk.DoDeleteSnapshot(s.deleteSnapshot)
 	body := jsonutils.NewDict()
 	body.Set("deleted", jsonutils.JSONTrue)
 	hostutils.TaskComplete(s.ctx, body)

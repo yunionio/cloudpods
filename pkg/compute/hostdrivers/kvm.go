@@ -287,7 +287,7 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, us
 		}
 		snapshot := snapObj.(*models.SSnapshot)
 		snapshotStorage := models.StorageManager.FetchStorageById(snapshot.StorageId)
-		if snapshotStorage.StorageType == api.STORAGE_LOCAL {
+		if snapshotStorage.StorageType == api.STORAGE_LOCAL || snapshotStorage.StorageType == api.STORAGE_LVM {
 			snapshotHost, err := snapshotStorage.GetMasterHost()
 			if err != nil {
 				return errors.Wrapf(err, "GetMasterHost")

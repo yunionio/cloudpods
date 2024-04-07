@@ -90,25 +90,10 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 		log.Infof("OnDeleteSnapshot with no deleted")
 		return
 	}
+
 	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "OnDeleteSnapshot")
-	if snapshot.OutOfChain {
-		snapshot.RealDelete(ctx, self.UserCred)
-		self.TaskComplete(ctx, snapshot, nil)
-	} else {
-		var FakeDelete = false
-		if snapshot.CreatedBy == api.SNAPSHOT_MANUAL && snapshot.FakeDeleted == false {
-			FakeDelete = true
-		}
-		if FakeDelete {
-			db.Update(snapshot, func() error {
-				snapshot.OutOfChain = true
-				return nil
-			})
-		} else {
-			snapshot.RealDelete(ctx, self.UserCred)
-		}
-		self.TaskComplete(ctx, snapshot, nil)
-	}
+	snapshot.RealDelete(ctx, self.UserCred)
+	self.TaskComplete(ctx, snapshot, nil)
 }
 
 func (self *SnapshotDeleteTask) OnDeleteSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
