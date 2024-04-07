@@ -88,7 +88,10 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 
 	nics, _ := guest.GetNetworks("")
 	if len(nics) > 0 {
-		net := nics[0].GetNetwork()
+		net, err := nics[0].GetNetwork()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetNetwork")
+		}
 		config.ExternalNetworkId = net.ExternalId
 		vpc, err := net.GetVpc()
 		if err == nil {

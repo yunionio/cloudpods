@@ -1038,9 +1038,9 @@ func (guest *SGuest) GetVpc() (*SVpc, error) {
 		return nil, errors.Wrapf(err, "failed getting guest network of %s(%s)", guest.Name, guest.Id)
 	}
 	guestnic.SetModelManager(GuestnetworkManager, guestnic)
-	network := guestnic.GetNetwork()
-	if network == nil {
-		return nil, errors.Wrapf(err, "failed getting network for guest %s(%s)", guest.Name, guest.Id)
+	network, err := guestnic.GetNetwork()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpc")
 	}
 	vpc, err := network.GetVpc()
 	if err != nil {
@@ -1055,7 +1055,7 @@ func (guest *SGuest) IsOneCloudVpcNetwork() (bool, error) {
 		return false, errors.Wrap(err, "GetNetworks")
 	}
 	for _, gn := range gns {
-		n := gn.GetNetwork()
+		n, _ := gn.GetNetwork()
 		if n != nil && n.isOneCloudVpcNetwork() {
 			return true, nil
 		}
@@ -3656,7 +3656,7 @@ func (self *SGuest) SyncVMNics(
 			continue
 		}
 		_, err = db.Update(&commondb[i], func() error {
-			network := commondb[i].GetNetwork()
+			network, _ := commondb[i].GetNetwork()
 			ip := commonext[i].GetIP()
 			ip6 := commonext[i].GetIP6()
 			if len(ip) > 0 {
@@ -4166,10 +4166,13 @@ func (self *SGuest) allocSriovNicDevice(
 	gn *SGuestnetwork, netConfig *api.NetworkConfig,
 	pendingUsageZone quotas.IQuota,
 ) error {
-	net := gn.GetNetwork()
+	net, err := gn.GetNetwork()
+	if err != nil {
+		return errors.Wrapf(err, "GetNetwork")
+	}
 	netConfig.SriovDevice.NetworkIndex = &gn.Index
 	netConfig.SriovDevice.WireId = net.WireId
-	err := self.createIsolatedDeviceOnHost(ctx, userCred, host, netConfig.SriovDevice, pendingUsageZone)
+	err = self.createIsolatedDeviceOnHost(ctx, userCred, host, netConfig.SriovDevice, pendingUsageZone)
 	if err != nil {
 		return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
 	}
@@ -6332,7 +6335,10 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 	}
 	for _, guestNetwork := range guestNetworks {
 		netConf := new(api.NetworkConfig)
-		network := guestNetwork.GetNetwork()
+		network, err := guestNetwork.GetNetwork()
+		if err != nil {
+			continue
+		}
 		requireTeaming := false
 		if tg, _ := guestNetwork.GetTeamGuestnetwork(); tg != nil {
 			requireTeaming = true

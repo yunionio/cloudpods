@@ -206,10 +206,9 @@ func (man *SNetworkAddressManager) removeGuestnetworkSubIPs(ctx context.Context,
 }
 
 func (man *SNetworkAddressManager) addGuestnetworkSubIPs(ctx context.Context, userCred mcclient.TokenCredential, guestnetwork *SGuestnetwork, ipAddrs []string, useReserved bool) error {
-	net := guestnetwork.GetNetwork()
-	if net == nil {
-		return errors.Wrapf(errors.ErrNotFound, "find network %s of guestnetwork %d",
-			guestnetwork.NetworkId, guestnetwork.RowId)
+	net, err := guestnetwork.GetNetwork()
+	if err != nil {
+		return errors.Wrapf(err, "GetNetwork")
 	}
 
 	lockman.LockObject(ctx, net)
@@ -655,9 +654,9 @@ func (g *SGuest) PerformAddSubIps(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return nil, errors.Wrapf(err, "getGuestnetworkByIpOrMac ip=%s mac=%s", input.IpAddr, input.Mac)
 	}
-	net := gn.GetNetwork()
-	if net == nil {
-		return nil, httperrors.NewInternalServerError("cannot fetch network of guestnetwork %d", gn.RowId)
+	net, err := gn.GetNetwork()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetwork")
 	}
 
 	if input.Count == 0 {

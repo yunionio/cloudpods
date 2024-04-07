@@ -450,7 +450,10 @@ func (flow *SNetTapFlow) getMirrorConfig(needTapHostIp bool) (api.SMirrorConfig,
 		}
 		ret.Port = gn.Ifname
 		hostId = guest.HostId
-		net := gn.GetNetwork()
+		net, err := gn.GetNetwork()
+		if err != nil {
+			return ret, errors.Wrapf(err, "GetNetwork")
+		}
 		if net.IsClassic() {
 			wireId = net.WireId
 		} else {

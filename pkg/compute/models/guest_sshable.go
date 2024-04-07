@@ -137,7 +137,7 @@ func (guest *SGuest) sshableTryEach(
 	var gnInfos []gnInfo
 	for i := range gns {
 		gn := &gns[i]
-		network := gn.GetNetwork()
+		network, _ := gn.GetNetwork()
 		if network == nil {
 			continue
 		}
