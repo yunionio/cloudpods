@@ -195,6 +195,14 @@ func (manager *SImageManager) InitializeData() error {
 	return nil
 }
 
+func (manager *SImageManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
+	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/images") {
+		log.Debugf("upload image, set process timeout to 4 hour!!!")
+		return 4 * time.Hour
+	}
+	return manager.SSharableVirtualResourceBaseManager.SetHandlerProcessTimeout(info, r)
+}
+
 func (manager *SImageManager) GetPropertyDetail(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	appParams := appsrv.AppContextGetParams(ctx)
 	appParams.OverrideResponseBodyWrapper = true
