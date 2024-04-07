@@ -45,6 +45,7 @@ type IDisk interface {
 	GetSnapshotDir() string
 	DoDeleteSnapshot(snapshotId string) error
 	GetSnapshotLocation() string
+	GetSnapshotPath(snapshotId string) string
 
 	GetStorage() IStorage
 
@@ -58,6 +59,7 @@ type IDisk interface {
 	CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	PrepareMigrate(liveMigrate bool) ([]string, string, bool, error)
+	RebuildSlaveDisk(diskUri string) error
 	CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error
 	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error
@@ -67,9 +69,10 @@ type IDisk interface {
 		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
-	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
+	DeleteSnapshot(snapshotId, convertSnapshot string) error
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
+	ConvertSnapshot(convertSnapshotId string) error
 
 	// GetBackupDir() string
 	DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -133,7 +136,11 @@ func (d *SBaseDisk) CreateSnapshot(snapshotId string, encryptKey string, encForm
 	return errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error {
+func (d *SBaseDisk) ConvertSnapshot(convertSnapshotId string) error {
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string) error {
 	return errors.Errorf("unsupported operation")
 }
 
@@ -155,6 +162,10 @@ func (d *SBaseDisk) CleanupSnapshots(ctx context.Context, params interface{}) (j
 
 func (d *SBaseDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, error) {
 	return nil, "", false, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) RebuildSlaveDisk(diskUri string) error {
+	return nil
 }
 
 func (d *SBaseDisk) PostCreateFromImageFuse() {
@@ -192,6 +203,10 @@ func (d *SBaseDisk) GetDiskSetupScripts(diskIndex int) string {
 }
 
 func (d *SBaseDisk) GetSnapshotLocation() string {
+	return ""
+}
+
+func (d *SBaseDisk) GetSnapshotPath(snapshotId string) string {
 	return ""
 }
 

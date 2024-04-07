@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -582,7 +581,7 @@ func (self *SSnapshot) GetFuseUrl() (string, error) {
 		return "", errors.Wrapf(err, "StorageManager.FetchById(%s)", self.StorageId)
 	}
 	storage := iStorage.(*SStorage)
-	if storage.StorageType != api.STORAGE_LOCAL {
+	if storage.StorageType != api.STORAGE_LOCAL && storage.StorageType != api.STORAGE_LVM {
 		return "", nil
 	}
 	host, err := storage.GetMasterHost()
@@ -633,16 +632,6 @@ func (self *SSnapshotManager) GetDiskSnapshots(diskId string) []SSnapshot {
 
 func (self *SSnapshotManager) GetDiskManualSnapshotCount(diskId string) (int, error) {
 	return self.Query().Equals("disk_id", diskId).Equals("fake_deleted", false).CountWithError()
-}
-
-func (self *SSnapshotManager) IsDiskSnapshotsNeedConvert(diskId string) (bool, error) {
-	count, err := self.Query().Equals("disk_id", diskId).
-		In("status", []string{api.SNAPSHOT_READY, api.SNAPSHOT_DELETING}).
-		Equals("out_of_chain", false).CountWithError()
-	if err != nil {
-		return false, err
-	}
-	return count >= options.Options.DefaultMaxSnapshotCount, nil
 }
 
 func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
@@ -806,12 +795,6 @@ func (self *SSnapshot) PerformSyncstatus(ctx context.Context, userCred mcclient.
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "SnapshotSyncstatusTask", "")
 }
 
-func (self *SSnapshotManager) GetPropertyMaxCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ret := jsonutils.NewDict()
-	ret.Set("max_count", jsonutils.NewInt(int64(options.Options.DefaultMaxSnapshotCount)))
-	return ret, nil
-}
-
 func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SSnapshot, error) {
 	dest := &SSnapshot{}
 	q := self.Query()
@@ -911,18 +894,6 @@ func (self *SSnapshot) GetBackingDisks() ([]string, error) {
 		res = append(res, self.DiskId)
 		return res, nil
 	}
-}
-
-func (self *SSnapshot) FakeDelete(userCred mcclient.TokenCredential) error {
-	_, err := db.Update(self, func() error {
-		self.FakeDeleted = true
-		self.Name += timeutils.IsoTime(time.Now())
-		return nil
-	})
-	if err == nil {
-		db.OpsLog.LogEvent(self, db.ACT_SNAPSHOT_FAKE_DELETE, "snapshot fake delete", userCred)
-	}
-	return err
 }
 
 func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -448,8 +448,32 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string, encryptKey string, encFor
 	return nil
 }
 
-func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error {
+func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string) error {
 	snapshotDir := d.GetSnapshotDir()
+	snapshotPath := path.Join(snapshotDir, convertSnapshotId)
+	img, err := qemuimg.NewQemuImage(snapshotPath)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	convertedDisk := snapshotPath + ".tmp"
+	if err = img.Convert2Qcow2To(convertedDisk, false, "", "", ""); err != nil {
+		log.Errorln(err)
+		if fileutils2.Exists(convertedDisk) {
+			os.Remove(convertedDisk)
+		}
+		return err
+	}
+	if output, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Output(); err != nil {
+		log.Errorf("mv %s to %s failed: %s, %s", convertedDisk, snapshotPath, err, output)
+		return err
+	}
+	return nil
+}
+
+func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string) error {
+	snapshotDir := d.GetSnapshotDir()
+	snapshotPath := path.Join(snapshotDir, snapshotId)
 	if len(convertSnapshot) > 0 {
 		if !fileutils2.Exists(snapshotDir) {
 			err := procutils.NewCommand("mkdir", "-p", snapshotDir).Run()
@@ -465,38 +489,28 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingD
 		}
 		img, err := qemuimg.NewQemuImage(convertSnapshotPath)
 		if err != nil {
-			log.Errorln(err)
-			return err
+			return errors.Wrap(err, "NewQemuImage")
 		}
-		if err = img.Convert2Qcow2To(output, true, "", "", ""); err != nil {
-			log.Errorln(err)
+		if err = img.Convert2Qcow2To(output, false, "", "", ""); err != nil {
+			log.Errorf("convert image %s to %s: %s", img.Path, output, err)
 			procutils.NewCommand("rm", "-f", output).Run()
 			return err
 		}
 		if err = procutils.NewCommand("rm", "-f", convertSnapshotPath).Run(); err != nil {
-			log.Errorln(err)
+			log.Errorf("rm convert snapshot file %s: %s", convertSnapshotPath, err)
 			return err
 		}
 		if err = procutils.NewCommand("mv", "-f", output, convertSnapshotPath).Run(); err != nil {
-			log.Errorln(err)
+			log.Errorf("mv snapshot file %s to %s: %s", output, convertSnapshotPath, err)
 			return err
 		}
-		if !pendingDelete {
-			err = procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
-			if err != nil {
-				log.Errorln(err)
-				return err
-			}
-		}
-		return nil
-	} else {
-		err := procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
-		if err != nil {
-			log.Errorln(err)
-			return err
-		}
-		return nil
 	}
+	err := procutils.NewCommand("rm", "-f", snapshotPath).Run()
+	if err != nil {
+		log.Errorf("rm snapshot file: %s", err)
+		return errors.Wrap(err, "rm snapshot file")
+	}
+	return nil
 }
 
 func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -548,6 +562,12 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 }
 
 func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
+	img, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return nil, err
+	}
+	diskSizeMB := int(img.SizeBytes / 1024 / 1024)
+
 	diskTmpPath := d.GetPath() + "_reset.tmp"
 	if output, err := procutils.NewCommand("mv", "-f", d.GetPath(), diskTmpPath).Output(); err != nil {
 		err = errors.Wrapf(err, "mv disk to tmp failed: %s", output)
@@ -570,7 +590,7 @@ func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool, enc
 			encFmt = qemuimg.EncryptFormatLuks
 			encAlg = encryptInfo.Alg
 		}
-		if err := img.CreateQcow2(0, false, snapshotPath, encKey, encFmt, encAlg); err != nil {
+		if err := img.CreateQcow2(diskSizeMB, false, snapshotPath, encKey, encFmt, encAlg); err != nil {
 			err = errors.Wrap(err, "qemu-img create disk by snapshot")
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
@@ -684,6 +704,18 @@ func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
 
 func (d *SLocalDisk) IsFile() bool {
 	return true
+}
+
+func (d *SLocalDisk) RebuildSlaveDisk(diskUri string) error {
+	diskPath := d.getPath()
+	if output, err := procutils.NewCommand("rm", "-f", diskPath).Output(); err != nil {
+		return errors.Errorf("failed delete slave top disk file %s %s", output, err)
+	}
+	diskUrl := fmt.Sprintf("%s/%s", diskUri, d.Id)
+	if err := d.CreateFromImageFuse(context.Background(), diskUrl, 0, nil); err != nil {
+		return errors.Wrap(err, "failed create slave disk")
+	}
+	return nil
 }
 
 func (d *SLocalDisk) fallocate() error {
