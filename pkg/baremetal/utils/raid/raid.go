@@ -137,11 +137,20 @@ func ReverseLogicalArray(input []*RaidLogicalVolume) []*RaidLogicalVolume {
 	return s
 }
 
+type TRaidDriverToolType string
+
+const (
+	RaidDriverToolMegacli64 = TRaidDriverToolType("megacli64")
+	RaidDriverToolStorecli  = TRaidDriverToolType("storecli")
+)
+
 type RaidLogicalVolume struct {
 	Index    int
 	Adapter  int
 	BlockDev string
 	IsSSD    tristate.TriState
+
+	Driver TRaidDriverToolType
 }
 
 func SGMap(term IExecTerm) ([]compute.SGMapItem, error) {
