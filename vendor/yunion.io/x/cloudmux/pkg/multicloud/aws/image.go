@@ -247,7 +247,7 @@ func (self *SImage) GetSizeByte() int64 {
 
 func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if self.imgInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo("", self.Architecture, getImageOSType(*self), getImageOSDist(*self), getImageOSVersion(*self))
+		imgInfo := imagetools.NormalizeImageInfo(self.ImageName, self.Architecture, getImageOSType(*self), getImageOSDist(*self), getImageOSVersion(*self))
 		self.imgInfo = &imgInfo
 	}
 	return self.imgInfo
