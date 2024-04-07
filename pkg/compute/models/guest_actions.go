@@ -3797,7 +3797,7 @@ func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
 	disks, _ := self.GetDisks()
 	for _, disk := range disks {
 		storage, _ := disk.GetStorage()
-		if storage.StorageType != api.STORAGE_LOCAL {
+		if storage.StorageType != api.STORAGE_LOCAL && storage.StorageType != api.STORAGE_LVM {
 			return false
 		}
 	}
@@ -3808,7 +3808,7 @@ func (self *SGuest) guestDisksStorageTypeIsShared() bool {
 	disks, _ := self.GetDisks()
 	for _, disk := range disks {
 		storage, _ := disk.GetStorage()
-		if storage.StorageType == api.STORAGE_LOCAL {
+		if storage.StorageType == api.STORAGE_LOCAL || storage.StorageType == api.STORAGE_LVM {
 			return false
 		}
 	}
@@ -4870,17 +4870,17 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		if err != nil {
 			return nil, input, errors.Wrapf(err, "GetDisks")
 		}
-		for i := 0; i < len(disks); i++ {
-			if storage, _ := disks[i].GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
-				count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].Id)
-				if err != nil {
-					return nil, input, httperrors.NewInternalServerError("%v", err)
-				}
-				if count >= options.Options.DefaultMaxManualSnapshotCount {
-					return nil, input, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
-				}
-			}
-		}
+		//for i := 0; i < len(disks); i++ {
+		//	if storage, _ := disks[i].GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+		//		count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].Id)
+		//		if err != nil {
+		//			return nil, input, httperrors.NewInternalServerError("%v", err)
+		//		}
+		//		if count >= options.Options.DefaultMaxManualSnapshotCount {
+		//			return nil, input, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+		//		}
+		//	}
+		//}
 		pendingUsage.Snapshot = len(disks)
 	}
 	keys, err := self.GetRegionalQuotaKeys()

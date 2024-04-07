@@ -321,7 +321,7 @@ func getDiskDriveOption(drvOpt QemuOptions, disk *desc.SGuestDisk, isEncrypt boo
 }
 
 func isLocalStorage(disk *desc.SGuestDisk) bool {
-	if disk.StorageType == api.STORAGE_LOCAL || len(disk.StorageType) == 0 {
+	if disk.StorageType == api.STORAGE_LOCAL || disk.StorageType == api.STORAGE_LVM || len(disk.StorageType) == 0 {
 		return true
 	} else {
 		return false

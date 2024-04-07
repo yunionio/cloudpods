@@ -74,7 +74,6 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 	for i, d := range options.HostOptions.LocalImagePath {
 		s := NewLocalStorage(ret, d, i)
 		if err := s.Accessible(); err == nil {
-			StartSnapshotRecycle(s)
 			ret.Storages = append(ret.Storages, s)
 			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
 				allFull = false
@@ -277,6 +276,10 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
 	pos = strings.LastIndex(diskId, ".")
 	if pos > 0 {
 		diskId = diskId[:pos]
+	}
+
+	if strings.HasPrefix(sPath, "/dev/") {
+		sPath = strings.TrimPrefix(sPath, "/dev/")
 	}
 	storages, err := s.GetStoragesByPath(sPath)
 	if err != nil {

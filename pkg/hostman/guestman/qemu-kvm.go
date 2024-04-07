@@ -3119,28 +3119,25 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 
 func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
 	ctx context.Context, disk storageman.IDisk,
-	deleteSnapshot string, convertSnapshot string, pendingDelete bool,
+	deleteSnapshot string, convertSnapshot string, blockStream bool,
 ) (jsonutils.JSONObject, error) {
 	if s.IsRunning() {
 		if s.isLiveSnapshotEnabled() {
-			task := NewGuestSnapshotDeleteTask(ctx, s, disk,
-				deleteSnapshot, convertSnapshot, pendingDelete)
+			task := NewGuestSnapshotDeleteTask(ctx, s, disk, deleteSnapshot, convertSnapshot, blockStream)
 			task.Start()
 			return nil, nil
 		} else {
 			return nil, fmt.Errorf("Guest dosen't support live snapshot delete")
 		}
 	} else {
-		return s.deleteStaticSnapshotFile(ctx, disk, deleteSnapshot,
-			convertSnapshot, pendingDelete)
+		return s.deleteStaticSnapshotFile(ctx, disk, deleteSnapshot, convertSnapshot, blockStream)
 	}
 }
 
 func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
-	ctx context.Context, disk storageman.IDisk,
-	deleteSnapshot string, convertSnapshot string, pendingDelete bool,
+	ctx context.Context, disk storageman.IDisk, deleteSnapshot, convertSnapshot string, blockStream bool,
 ) (jsonutils.JSONObject, error) {
-	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot, pendingDelete); err != nil {
+	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot); err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
@@ -3237,7 +3234,7 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 			if err != nil {
 				return nil, nil, false, errors.Wrapf(err, "GetDiskByPath(%s)", disk.Path)
 			}
-			if d.GetType() == api.STORAGE_LOCAL {
+			if d.GetType() == api.STORAGE_LOCAL || d.GetType() == api.STORAGE_LVM {
 				snaps, back, hasTemplate, err := d.PrepareMigrate(liveMigrate)
 				if err != nil {
 					return nil, nil, false, err
@@ -3253,7 +3250,7 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 				}
 			} else if d.GetType() == api.STORAGE_SLVM {
 				if d.GetStorage().Lvmlockd() {
-					if err := lvmutils.LVActive(d.GetPath(), true, false); err != nil {
+					if err := lvmutils.LVActive(d.GetPath(), d.GetStorage().Lvmlockd(), false); err != nil {
 						return nil, nil, false, errors.Wrap(err, "lvm active with share")
 					}
 				}
