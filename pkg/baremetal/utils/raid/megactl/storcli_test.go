@@ -656,12 +656,18 @@ func TestStorcliLogicalVolumes_GetLogicalVolumes(t *testing.T) {
 	assert := assert.New(t)
 	assert.Equal(7, len(lvs), "Should 7 logical volumes")
 
-	first2SDDs := lvs[0].PDs
-	assert.Equal("SSD", first2SDDs[0].Med)
-	assert.Equal("446.625 GB", first2SDDs[0].Size)
-	assert.Equal("SSD", first2SDDs[1].Med)
-	assert.Equal("446.625 GB", first2SDDs[1].Size)
-	assert.Equal(true, lvs[0].IsSSD())
-	assert.Equal("/dev/sda", lvs[0].Properties.DeviceName)
-	assert.Equal("/dev/sdg", lvs[6].Properties.DeviceName)
+	for i := range lvs {
+		switch lvs[i].Index {
+		case 0:
+			first2SDDs := lvs[i].PDs
+			assert.Equal("SSD", first2SDDs[0].Med)
+			assert.Equal("446.625 GB", first2SDDs[0].Size)
+			assert.Equal("SSD", first2SDDs[1].Med)
+			assert.Equal("446.625 GB", first2SDDs[1].Size)
+			assert.Equal(true, lvs[i].IsSSD())
+			assert.Equal("/dev/sda", lvs[i].Properties.DeviceName)
+		case 6:
+			assert.Equal("/dev/sdg", lvs[i].Properties.DeviceName)
+		}
+	}
 }
