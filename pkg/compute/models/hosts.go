@@ -477,7 +477,10 @@ func (manager *SHostManager) ListItemFilter(
 			if len(nets) > 0 {
 				wires := []string{}
 				for i := 0; i < len(nets); i++ {
-					net := nets[i].GetNetwork()
+					net, _ := nets[i].GetNetwork()
+					if net == nil {
+						continue
+					}
 					vpc, _ := net.GetVpc()
 					if vpc.Id != api.DEFAULT_VPC_ID {
 						q = q.IsNotEmpty("ovn_version")
