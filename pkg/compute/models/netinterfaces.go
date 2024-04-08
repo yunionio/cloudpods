@@ -48,7 +48,8 @@ type SNetInterface struct {
 
 	NicType compute.TNicType `width:"36" charset:"ascii" nullable:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
 
-	Index  int8  `nullable:"true"` // Column(TINYINT, nullable=True)
+	// SR-IOV nic index may exceed 256
+	Index  int   `nullable:"true"` // Column(TINYINT, nullable=True)
 	LinkUp bool  `nullable:"true"` // Column(Boolean, nullable=True)
 	Mtu    int16 `nullable:"true"` // Column(SMALLINT, nullable=True)
 
@@ -244,6 +245,8 @@ func (netif *SNetInterface) getBaremetalJsonDesc() *types.SNic {
 		LinkUp:    netif.LinkUp,
 		Interface: netif.Interface,
 		Bridge:    netif.Bridge,
+
+		Index: netif.Index,
 	}
 	wire := netif.GetWire()
 	if wire != nil {

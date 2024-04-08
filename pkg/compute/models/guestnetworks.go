@@ -99,7 +99,7 @@ type SGuestnetwork struct {
 	TxTrafficLimit int64 `nullable:"false" default:"0" list:"user"`
 	TxTrafficUsed  int64 `nullable:"false" default:"0" list:"user"`
 	// 网卡序号
-	Index int8 `nullable:"false" default:"0" list:"user" update:"user"`
+	Index int `nullable:"false" default:"0" list:"user" update:"user"`
 	// 是否为虚拟接口（无IP）
 	Virtual bool `default:"false" list:"user"`
 	// 虚拟网卡设备名称
@@ -238,7 +238,7 @@ type newGuestNetworkArgs struct {
 	guest   *SGuest
 	network *SNetwork
 
-	index int8
+	index int
 
 	ipAddr              string
 	allocDir            api.IPAllocationDirection
@@ -690,6 +690,11 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 				}
 			}
 		}
+	}
+
+	if options.Options.NetworkAlwaysManualConfig {
+		manual := true
+		desc.Manual = &manual
 	}
 
 	return desc

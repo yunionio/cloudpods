@@ -126,7 +126,9 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 					if len(fields) == 0 || fields.Contains("ips") {
 						ips := make([]string, 0, len(nics))
 						for _, nic := range nics {
-							ips = append(ips, nic.IpAddr)
+							if len(nic.IpAddr) > 0 {
+								ips = append(ips, nic.IpAddr)
+							}
 							if len(nic.Ip6Addr) > 0 {
 								ips = append(ips, nic.Ip6Addr)
 							}

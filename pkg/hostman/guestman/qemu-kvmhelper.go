@@ -808,7 +808,7 @@ func (s *SKVMGuestInstance) WriteMigrateCerts(certs map[string]string) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) SetNicDown(index int8) error {
+func (s *SKVMGuestInstance) SetNicDown(index int) error {
 	var nic *desc.SGuestNetwork
 	for i := range s.Desc.Nics {
 		if s.Desc.Nics[i].Index == index {

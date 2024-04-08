@@ -260,7 +260,7 @@ show_update_cmd() {
     'apimap')
         spec='apiMap'
         ;;
-    'baremetal')
+    'baremetal-agent')
         spec='baremetalagent'
         name='baremetal-agent'
         ;;

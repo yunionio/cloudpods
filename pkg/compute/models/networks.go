@@ -1031,7 +1031,7 @@ func (manager *SNetworkManager) TotalPortCount(
 
 type SNicConfig struct {
 	Mac    string
-	Index  int8
+	Index  int
 	Ifname string
 }
 
