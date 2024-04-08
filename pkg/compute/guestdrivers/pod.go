@@ -83,8 +83,6 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 		sameName = ctr.Name
 	}
 
-	// always set auto_start to true
-	input.AutoStart = true
 	return input, nil
 }
 

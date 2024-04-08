@@ -68,7 +68,12 @@ func (t *ContainerCreateTask) startPullImage(ctx context.Context, container *mod
 }
 
 func (t *ContainerCreateTask) OnImagePulled(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
-	t.requestCreate(ctx, container)
+	if jsonutils.QueryBoolean(t.GetParams(), "auto_start", false) {
+		t.requestCreate(ctx, container)
+	} else {
+		container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_EXITED, "")
+		t.OnStarted(ctx, container, nil)
+	}
 }
 
 func (t *ContainerCreateTask) OnImagePulledFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
@@ -76,8 +81,8 @@ func (t *ContainerCreateTask) OnImagePulledFailed(ctx context.Context, container
 }
 
 func (t *ContainerCreateTask) requestCreate(ctx context.Context, container *models.SContainer) {
-	t.SetStage("OnCreated", nil)
 	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_CREATING, "")
+	t.SetStage("OnCreated", nil)
 	if err := t.GetPodDriver().RequestCreateContainer(ctx, t.GetUserCred(), t); err != nil {
 		t.OnCreatedFailed(ctx, container, jsonutils.NewString(err.Error()))
 		return

@@ -43,9 +43,13 @@ func (t *PodSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		t.OnWaitContainerSyncedFailed(ctx, pod, jsonutils.NewString(errors.Wrap(err, "GetContainersByPod").Error()))
 		return
 	}
-	for i := range ctrs {
-		curCtr := ctrs[i]
-		curCtr.StartSyncStatusTask(ctx, t.GetUserCred(), t.GetTaskId())
+	if len(ctrs) == 0 {
+		t.OnWaitContainerSynced(ctx, pod, nil)
+	} else {
+		for i := range ctrs {
+			curCtr := ctrs[i]
+			curCtr.StartSyncStatusTask(ctx, t.GetUserCred(), t.GetTaskId())
+		}
 	}
 }
 

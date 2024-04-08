@@ -140,27 +140,9 @@ func (s *sPodGuestInstance) getPod(ctx context.Context) (*runtimeapi.PodSandbox,
 func (s *sPodGuestInstance) IsRunning() bool {
 	_, err := s.getPod(context.Background())
 	if err != nil {
-		log.Warningf("check if pod of guest %s is running", s.Id)
 		return false
 	}
 	return true
-	/*ctrs, err := s.getCRI().ListContainers(context.Background(), pod.ListContainerOptions{
-		PodId: s.Id,
-	})
-	if err != nil {
-		log.Errorf("List containers of pod %q", s.GetId())
-		return false
-	}
-	// TODO: container s状态应该存在每个 container 资源里面
-	// Pod 状态只放 guest 表
-	isAllRunning := true
-	for _, ctr := range ctrs {
-		if ctr.State != runtimeapi.ContainerState_CONTAINER_RUNNING {
-			isAllRunning = false
-			break
-		}
-	}
-	return isAllRunning*/
 }
 
 func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, status string, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
