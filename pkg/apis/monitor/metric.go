@@ -161,3 +161,17 @@ type MetricFieldDetail struct {
 	Unit        string `json:"unit"`
 	Id          string `json:"id"`
 }
+
+type InfluxMeasurement struct {
+	apis.Meta
+	Database               string
+	Measurement            string
+	MeasurementDisplayName string
+	ResType                string
+	Score                  int
+	TagKey                 []string
+	TagValue               map[string][]string
+	FieldKey               []string
+	FieldDescriptions      map[string]MetricFieldDetail
+	Unit                   []string
+}
