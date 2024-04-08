@@ -828,6 +828,12 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 		}
 	} else if len(templateId) > 0 {
 		input.ImageId = templateId
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		img, err := image.Images.Get(s, templateId, nil)
+		if err != nil {
+			return errors.Wrapf(err, "get image details from glance")
+		}
+		input.ImageFormat, _ = img.GetString("disk_format")
 	}
 	if len(fsFormat) > 0 {
 		input.FsFormat = fsFormat
@@ -1204,7 +1210,7 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 	if !isPurge {
 		storage, _ := self.GetStorage()
 		if storage == nil {
-			// storage is empty, a dirty data, allow delete
+			// storage is empty, a dirty data, allow to delete
 			return nil
 		}
 		host, _ := storage.GetMasterHost()

@@ -6,6 +6,7 @@ import (
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 )
@@ -35,9 +36,9 @@ type IPodInfo interface {
 
 type IVolumeMount interface {
 	GetType() apis.ContainerVolumeMountType
-	GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) (string, error)
-	Mount(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) error
-	Unmount(pod IPodInfo, ctrId string, vm *apis.ContainerVolumeMount) error
+	GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) (string, error)
+	Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
+	Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
 }
 
 func GetRuntimeVolumeMountPropagation(input apis.ContainerMountPropagation) runtimeapi.MountPropagation {

@@ -157,3 +157,7 @@ func (c *SLVMImageCache) Remove(ctx context.Context) error {
 	}()
 	return nil
 }
+
+func (c *SLVMImageCache) GetAccessDirectory() (string, error) {
+	return "", errors.ErrNotImplemented
+}

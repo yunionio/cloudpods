@@ -516,18 +516,16 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string) error {
 
 func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	if err := d.Probe(); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "do probe")
 	}
 	destDir := d.Storage.GetImgsaveBackupPath()
 	if err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrapf(err, "mkdir -p %s", destDir)
 	}
 	backupPath := path.Join(destDir, fmt.Sprintf("%s.%s", d.Id, appctx.AppContextTaskId(ctx)))
 	if err := procutils.NewCommand("cp", "--sparse=always", "-f", d.GetPath(), backupPath).Run(); err != nil {
-		log.Errorln(err)
 		procutils.NewCommand("rm", "-f", backupPath).Run()
-		return nil, err
+		return nil, errors.Wrapf(err, "cp %s to %s", d.getPath(), backupPath)
 	}
 	res := jsonutils.NewDict()
 	res.Set("backup", jsonutils.NewString(backupPath))

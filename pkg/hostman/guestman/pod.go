@@ -223,12 +223,12 @@ func (s *sPodGuestInstance) umountPodVolumes() error {
 	return nil
 }
 
-func (s *sPodGuestInstance) getContainerVolumeMounts() map[string][]*apis.ContainerVolumeMount {
-	result := make(map[string][]*apis.ContainerVolumeMount, 0)
+func (s *sPodGuestInstance) getContainerVolumeMounts() map[string][]*hostapi.ContainerVolumeMount {
+	result := make(map[string][]*hostapi.ContainerVolumeMount, 0)
 	for _, ctr := range s.GetDesc().Containers {
 		mnts, ok := result[ctr.Id]
 		if !ok {
-			mnts = make([]*apis.ContainerVolumeMount, 0)
+			mnts = make([]*hostapi.ContainerVolumeMount, 0)
 		}
 		for _, vol := range ctr.Spec.VolumeMounts {
 			tmp := vol

@@ -161,3 +161,7 @@ func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 func (r *SRbdImageCache) GetImageId() string {
 	return r.imageId
 }
+
+func (r *SRbdImageCache) GetAccessDirectory() (string, error) {
+	return "", errors.ErrNotImplemented
+}

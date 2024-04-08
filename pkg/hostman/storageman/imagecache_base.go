@@ -31,4 +31,6 @@ type IImageCache interface {
 	GetImageId() string
 
 	GetDesc() *remotefile.SImageDesc
+	// GetAccessDirectory is used by container's volume mount
+	GetAccessDirectory() (string, error)
 }

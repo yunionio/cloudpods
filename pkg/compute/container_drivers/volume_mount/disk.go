@@ -16,10 +16,20 @@ func init() {
 	models.RegisterContainerVolumeMountDriver(newDisk())
 }
 
-type disk struct{}
+type iDiskOverlay interface {
+	validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay) error
+}
+
+type disk struct {
+	overlayDrivers map[apis.ContainerDiskOverlayType]iDiskOverlay
+}
 
 func newDisk() models.IContainerVolumeMountDriver {
-	return &disk{}
+	return &disk{
+		overlayDrivers: map[apis.ContainerDiskOverlayType]iDiskOverlay{
+			apis.CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY: newDiskOverlayDir(),
+		},
+	}
 }
 
 func (d disk) GetType() apis.ContainerVolumeMountType {
@@ -56,9 +66,15 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 		if diskIndex >= len(disks) {
 			return nil, httperrors.NewInputParameterError("disk.index %d is large than disk size %d", diskIndex, len(disks))
 		}
-		vm.Disk.Id = disks[diskIndex].GetId()
+		diskObj := disks[diskIndex]
+		vm.Disk.Id = diskObj.GetId()
 		// remove index
 		vm.Disk.Index = nil
+		if diskObj.TemplateId != "" {
+			if vm.Disk.SubDirectory == "" {
+				return nil, httperrors.NewInputParameterError("sub_directory is required when disk has template_id %s", diskObj.TemplateId)
+			}
+		}
 	} else {
 		if disk.Id == "" {
 			return nil, httperrors.NewNotEmptyError("disk.id is empty")
@@ -67,6 +83,11 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 		for _, d := range disks {
 			if d.GetId() == disk.Id || d.GetName() == disk.Id {
 				disk.Id = d.GetId()
+				if d.TemplateId != "" {
+					if vm.Disk.SubDirectory == "" {
+						return nil, httperrors.NewInputParameterError("sub_directory is required when disk has template_id %s", d.TemplateId)
+					}
+				}
 				foundDisk = true
 				break
 			}
@@ -75,7 +96,7 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 			return nil, httperrors.NewNotFoundError("not found pod disk by %s", disk.Id)
 		}
 	}
-	if err := d.validateOverlay(vm); err != nil {
+	if err := d.validateOverlay(ctx, userCred, vm); err != nil {
 		return nil, errors.Wrapf(err, "validate overlay")
 	}
 	return vm, nil
@@ -100,18 +121,44 @@ func (d disk) ValidatePodCreateData(ctx context.Context, userCred mcclient.Token
 	if diskIndex >= len(disks) {
 		return httperrors.NewInputParameterError("disk.index %d is large than disk size %d", diskIndex, len(disks))
 	}
+	inputDisk := disks[diskIndex]
+	if inputDisk.ImageId != "" {
+		if disk.SubDirectory == "" {
+			return httperrors.NewInputParameterError("sub_directory is required when disk has image_id %s", inputDisk.ImageId)
+		}
+	}
 	return nil
 }
 
-func (d disk) validateOverlay(vm *apis.ContainerVolumeMount) error {
+func (d disk) getOverlayDriver(ov *apis.ContainerVolumeMountDiskOverlay) iDiskOverlay {
+	return d.overlayDrivers[ov.GetType()]
+}
+
+func (d disk) validateOverlay(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount) error {
 	if vm.Disk.Overlay == nil {
 		return nil
 	}
 	ov := vm.Disk.Overlay
-	if len(ov.LowerDir) == 0 {
+	if err := ov.IsValid(); err != nil {
+		return httperrors.NewInputParameterError("invalid overlay input: %v", err)
+	}
+	if err := d.getOverlayDriver(ov).validateCreateData(ctx, userCred, ov); err != nil {
+		return errors.Wrapf(err, "validate overlay %s", ov.GetType())
+	}
+	return nil
+}
+
+type diskOverlayDir struct{}
+
+func newDiskOverlayDir() iDiskOverlay {
+	return &diskOverlayDir{}
+}
+
+func (d diskOverlayDir) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay) error {
+	if len(input.LowerDir) == 0 {
 		return httperrors.NewNotEmptyError("lower_dir is required")
 	}
-	for idx, ld := range ov.LowerDir {
+	for idx, ld := range input.LowerDir {
 		if ld == "" {
 			return httperrors.NewNotEmptyError("empty %d dir", idx)
 		}

@@ -36,11 +36,11 @@ func (h hostLocal) ValidatePodCreateData(ctx context.Context, userCred mcclient.
 		return httperrors.NewNotEmptyError("host_path is nil")
 	}
 	if hp.Type == "" {
-		hp.Type = apis.ContainerVolumeMountHostPathTypeFile
+		hp.Type = apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE
 	}
 	if !sets.NewString(
-		string(apis.ContainerVolumeMountHostPathTypeFile),
-		string(apis.ContainerVolumeMountHostPathTypeDirectory)).Has(string(hp.Type)) {
+		string(apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE),
+		string(apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY)).Has(string(hp.Type)) {
 		return httperrors.NewInputParameterError("unsupported type %s", hp.Type)
 	}
 	if hp.Path == "" {

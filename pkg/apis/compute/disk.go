@@ -284,6 +284,7 @@ type DiskAllocateInput struct {
 	Format        string
 	DiskSizeMb    int
 	ImageId       string
+	ImageFormat   string
 	FsFormat      string
 	Rebuild       bool
 	BackingDiskId string

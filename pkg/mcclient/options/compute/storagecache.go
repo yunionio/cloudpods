@@ -34,7 +34,7 @@ type StorageCacheImageActionOptions struct {
 	options.BaseIdOptions
 	IMAGE  string `help:"ID or name of image"`
 	Force  bool   `help:"Force refresh cache, even if the image exists in cache"`
-	Format string `help:"Image force" choices:"iso|vmdk|qcow2|vhd"`
+	Format string `help:"Image force" choices:"iso|vmdk|qcow2|vhd|tgz"`
 }
 
 func (opts *StorageCacheImageActionOptions) Params() (jsonutils.JSONObject, error) {

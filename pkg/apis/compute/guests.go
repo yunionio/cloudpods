@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/apis/host"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -906,8 +907,8 @@ type GuestJsonDesc struct {
 
 	LightMode bool `json:"light_mode"`
 
-	Hypervisor string           `json:"hypervisor"`
-	Containers []*ContainerDesc `json:"containers"`
+	Hypervisor string                `json:"hypervisor"`
+	Containers []*host.ContainerDesc `json:"containers"`
 }
 
 type ServerSetBootIndexInput struct {

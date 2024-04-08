@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -366,7 +367,7 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 	case len(createParams.DiskInfo.SnapshotId) > 0:
 		log.Infof("CreateDiskFromSnpashot %s", createParams)
 		return s.CreateDiskFromSnpashot(ctx, disk, createParams)
-	case len(createParams.DiskInfo.ImageId) > 0:
+	case len(createParams.DiskInfo.ImageId) > 0 && createParams.DiskInfo.ImageFormat != imageapi.IMAGE_DISK_FORMAT_TGZ:
 		log.Infof("CreateDiskFromTemplate %s", createParams)
 		return s.CreateDiskFromTemplate(ctx, disk, createParams)
 	case createParams.DiskInfo.Backup != nil:
