@@ -2158,7 +2158,7 @@ func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred 
 	return err
 }
 
-func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice, networkIndex, diskIndex *int8) error {
+func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice, networkIndex *int, diskIndex *int8) error {
 	if len(dev.GuestId) > 0 {
 		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
 	}

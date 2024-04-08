@@ -284,7 +284,7 @@ type IsolatedDeviceConfig struct {
 	DevType      string `json:"dev_type"`
 	Model        string `json:"model"`
 	Vendor       string `json:"vendor"`
-	NetworkIndex *int8  `json:"network_index"`
+	NetworkIndex *int   `json:"network_index"`
 	WireId       string `json:"wire_id"`
 	DiskIndex    *int8  `json:"disk_index"`
 	DevicePath   string `json:"device_path"`

@@ -920,6 +920,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			rootFs.Remove(netplanDir+f, false)
 		}
 		netplanConfig := NewNetplanConfig(allNics, bondNics)
+		log.Debugf("netplanConfig:\n %s", netplanConfig.YAMLString())
 		if err := rootFs.FilePutContents(path.Join(netplanDir, "config.yaml"), netplanConfig.YAMLString(), false, false); err != nil {
 			return errors.Wrap(err, "Put netplan config")
 		}
