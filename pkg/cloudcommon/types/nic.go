@@ -50,6 +50,8 @@ type SNic struct {
 	VlanId int `json:"vlan_id"`
 
 	Bandwidth int `json:"bandwidth"`
+
+	Index int `json:"index"`
 }
 
 type SRoute []string

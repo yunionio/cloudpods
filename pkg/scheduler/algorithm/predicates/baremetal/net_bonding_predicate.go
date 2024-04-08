@@ -61,10 +61,19 @@ func (p *NetBondingPredicate) Execute(ctx context.Context, u *core.Unit, c core.
 			continue
 		}
 		count := 0
-		if _, ok := bondingCount[netConf.Wire]; ok {
-			count = bondingCount[netConf.Wire]
+		wireId := netConf.Wire
+		if len(wireId) == 0 && len(netConf.Network) > 0 {
+			for _, n := range c.Getter().Networks() {
+				if n.Id == netConf.Network || n.Name == netConf.Network {
+					wireId = n.WireId
+					break
+				}
+			}
 		}
-		bondingCount[netConf.Wire] = count + 2
+		if _, ok := bondingCount[wireId]; ok {
+			count = bondingCount[wireId]
+		}
+		bondingCount[wireId] = count + 2
 	}
 	for wireId, count := range bondingCount {
 		if len(wireId) > 0 {

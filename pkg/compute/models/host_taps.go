@@ -68,7 +68,7 @@ func (g *SGuest) getTapNicJsonDesc(ctx context.Context, p *api.GuestnetworkJsonD
 		return nil
 	}
 	var driver string
-	var index int8
+	var index int
 	if p == nil {
 		driver = "virtio"
 		index = 0

@@ -69,9 +69,9 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 			network.AddEthernet(sn.Name, nicConf)
 		}
 
-		primaryNic := bondNic.TeamingSlaves[0]
+		primaryNic := bondNic
 		netConf := getNetplanEthernetConfig(primaryNic, true)
-		netConf.MacAddress = primaryNic.Mac
+		netConf.MacAddress = bondNic.Mac
 
 		if netConf.Mtu == 0 {
 			netConf.Mtu = defaultMtu
@@ -79,7 +79,7 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 
 		// TODO: implement kinds of bond mode config
 		// bondConf := netplan.NewBondMode4(netConf, interfaces)
-		bondConf := netplan.NewBondMode1(netConf, interfaces)
+		bondConf := netplan.NewBondMode4(netConf, interfaces)
 
 		network.AddBond(bondNic.Name, bondConf)
 	}
@@ -97,12 +97,14 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool) *netplan.Ether
 		nicConf = netplan.NewStaticEthernetConfig(addr, "", "", "", nil, nil, nil)
 	} else if nic.Manual {
 		addr := fmt.Sprintf("%s/%d", nic.Ip, nic.Masklen)
+		gateway := nic.Gateway
 		addr6 := ""
+		gateway6 := ""
 		if len(nic.Ip6) > 0 {
 			addr6 = fmt.Sprintf("%s/%d", nic.Ip6, nic.Masklen6)
+			gateway6 = nic.Gateway6
 		}
-		gateway := nic.Gateway
-		gateway6 := nic.Gateway6
+
 		var routes []*netplan.Route
 
 		for _, route := range nic.Routes {
