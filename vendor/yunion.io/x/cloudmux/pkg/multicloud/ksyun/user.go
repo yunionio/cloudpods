@@ -102,13 +102,13 @@ func (user *SUser) ResetPassword(password string) error {
 	return user.client.UpdateLoginProfile(user.UserName, password)
 }
 
-func (self *SKsyunClient) UpdateLoginProfile(name, password string) error {
+func (client *SKsyunClient) UpdateLoginProfile(name, password string) error {
 	params := map[string]string{
 		"UserName":       name,
 		"Password":       password,
 		"ViewAllProject": "true",
 	}
-	_, err := self.iamRequest("", "UpdateLoginProfile", params)
+	_, err := client.iamRequest("", "UpdateLoginProfile", params)
 	return err
 }
 
@@ -118,11 +118,11 @@ type LoginProfile struct {
 	LastLoginDate         time.Time
 }
 
-func (self *SKsyunClient) GetLoginProfile(name string) (*LoginProfile, error) {
+func (client *SKsyunClient) GetLoginProfile(name string) (*LoginProfile, error) {
 	params := map[string]string{
 		"UserName": name,
 	}
-	resp, err := self.iamRequest("", "GetLoginProfile", params)
+	resp, err := client.iamRequest("", "GetLoginProfile", params)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +171,11 @@ func (client *SKsyunClient) GetUsers() ([]SUser, error) {
 	return ret, nil
 }
 
-func (self *SKsyunClient) DeleteUser(name string) error {
+func (client *SKsyunClient) DeleteUser(name string) error {
 	params := map[string]string{
 		"UserName": name,
 	}
-	_, err := self.iamRequest("", "DeleteUser", params)
+	_, err := client.iamRequest("", "DeleteUser", params)
 	return err
 }
 
@@ -200,7 +200,7 @@ func (client *SKsyunClient) CreateIClouduser(opts *cloudprovider.SClouduserCreat
 	return user, nil
 }
 
-func (self *SKsyunClient) CreateUser(opts *cloudprovider.SClouduserCreateConfig) (*SUser, error) {
+func (client *SKsyunClient) CreateUser(opts *cloudprovider.SClouduserCreateConfig) (*SUser, error) {
 	params := map[string]string{
 		"UserName": opts.Name,
 		"Remark":   opts.Desc,
@@ -208,11 +208,11 @@ func (self *SKsyunClient) CreateUser(opts *cloudprovider.SClouduserCreateConfig)
 		"Phone":    opts.MobilePhone,
 		"Password": opts.Password,
 	}
-	resp, err := self.iamRequest("", "CreateUser", params)
+	resp, err := client.iamRequest("", "CreateUser", params)
 	if err != nil {
 		return nil, err
 	}
-	ret := &SUser{client: self}
+	ret := &SUser{client: client}
 	err = resp.Unmarshal(ret, "User")
 	if err != nil {
 		return nil, err
