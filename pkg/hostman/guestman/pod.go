@@ -883,6 +883,20 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			Value: env.Value,
 		})
 	}
+	pms, err := s.GetPodMetadataPortMappings()
+	if err != nil {
+		return "", errors.Wrapf(err, "get pod port mappings")
+	}
+	if len(pms) != 0 {
+		for _, pm := range pms {
+			envKey := fmt.Sprintf("CLOUDPODS_%s_PORT_%d", strings.ToUpper(string(pm.Protocol)), pm.ContainerPort)
+			envVal := fmt.Sprintf("%d", pm.HostPort)
+			ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
+				Key:   envKey,
+				Value: envVal,
+			})
+		}
+	}
 	if len(spec.Devices) != 0 {
 		for _, dev := range spec.Devices {
 			ctrDevs, err := device.GetDriver(dev.Type).GetRuntimeDevices(input, dev)
