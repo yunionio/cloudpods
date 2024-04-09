@@ -55,7 +55,7 @@ func (t *localTask) Run() {
 			yunionconf.BugReport.SendBugReport(context.Background(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", r))
 			log.Errorf("LocalTaskRun error: %s", r)
 			debug.PrintStack()
-			t.task.ScheduleRun(Error2TaskData(fmt.Errorf("LocalTaskRun error: %s", r)))
+			t.task.ScheduleRun(Error2TaskData(fmt.Errorf("LocalTaskRun error: %s stack: %s", r, string(debug.Stack()))))
 		}
 	}()
 	data, err := t.proc()
