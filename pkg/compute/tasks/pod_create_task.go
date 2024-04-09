@@ -63,7 +63,7 @@ func (t *PodCreateTask) OnPodCreated(ctx context.Context, guest *models.SGuest, 
 	}
 
 	for idx, ctr := range ctrs {
-		if err := ctr.StartCreateTask(ctx, t.GetUserCred(), t.GetTaskId()); err != nil {
+		if err := ctr.StartCreateTask(ctx, t.GetUserCred(), t.GetTaskId(), t.GetParams()); err != nil {
 			t.onCreateContainerError(ctx, guest, errors.Wrapf(err, "start container %d creation task", idx))
 			return
 		}

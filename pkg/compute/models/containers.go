@@ -242,14 +242,14 @@ func (c *SContainer) CustomizeCreate(ctx context.Context, userCred mcclient.Toke
 func (c *SContainer) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	c.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	if !jsonutils.QueryBoolean(data, "skip_task", false) {
-		if err := c.StartCreateTask(ctx, userCred, ""); err != nil {
+		if err := c.StartCreateTask(ctx, userCred, "", nil); err != nil {
 			log.Errorf("StartCreateTask error: %v", err)
 		}
 	}
 }
 
-func (c *SContainer) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "ContainerCreateTask", c, userCred, nil, parentTaskId, "", nil)
+func (c *SContainer) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ContainerCreateTask", c, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
