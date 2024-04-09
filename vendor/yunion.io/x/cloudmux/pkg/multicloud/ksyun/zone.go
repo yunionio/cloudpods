@@ -100,9 +100,9 @@ func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 		return nil, errors.Wrap(err, "GetStorages")
 	}
 	istorages := []cloudprovider.ICloudStorage{}
-	for _, storage := range storages {
-		storage.zone = zone
-		istorages = append(istorages, &storage)
+	for i := range storages {
+		storages[i].zone = zone
+		istorages = append(istorages, &storages[i])
 	}
 	return istorages, nil
 }
