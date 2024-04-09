@@ -54,9 +54,10 @@ func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	fwOnly, _ := self.GetParams().Bool("fw_only")
 	if restart, _ := self.Params.Bool("restart_network"); restart {
 		self.StartRestartNetworkTask(ctx, guest)
-	} else if data.Contains("task") {
+	} else if !fwOnly && data.Contains("task") {
 		// XXX this is only applied to KVM, which will call task_complete twice
 		self.SetStage("on_disk_sync_complete", nil)
 	} else {

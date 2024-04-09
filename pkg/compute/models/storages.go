@@ -39,7 +39,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -80,7 +79,7 @@ type SStorage struct {
 	// we always expect actual capacity great or equal than zero, otherwise something wrong
 	ActualCapacityUsed int64 `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
 	// 预留容量大小
-	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain"`
+	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// 存储类型
 	// example: local
 	StorageType string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`
@@ -1852,31 +1851,6 @@ func (self *SStorage) PerformSetSchedtag(ctx context.Context, userCred mcclient.
 
 func (self *SStorage) GetSchedtagJointManager() ISchedtagJointManager {
 	return StorageschedtagManager
-}
-
-func (manager *SStorageManager) StorageSnapshotsRecycle(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	storages := []SStorage{}
-	q := manager.Query().Equals("enabled", true).
-		In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).
-		In("storage_type", api.SHARED_FILE_STORAGE)
-	err := db.FetchModelObjects(manager, q, &storages)
-	if err != nil {
-		log.Errorf("Get shared file storage failed %s", err)
-		return
-	}
-	for i := 0; i < len(storages); i++ {
-		host, err := storages[i].GetMasterHost()
-		if err != nil {
-			log.Errorf("get master host for storage %s(%s) failed: %v", storages[i].Name, storages[i].Id, err)
-			continue
-		}
-		url := fmt.Sprintf("%s/storages/%s/snapshots-recycle", host.ManagerUri, storages[i].Id)
-		headers := mcclient.GetTokenHeaders(userCred)
-		_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, headers, nil, false)
-		if err != nil {
-			log.Errorf("Storage request snapshots recycle failed %s", err)
-		}
-	}
 }
 
 func (self *SStorage) StartDeleteRbdDisks(ctx context.Context, userCred mcclient.TokenCredential, disksId []string) error {

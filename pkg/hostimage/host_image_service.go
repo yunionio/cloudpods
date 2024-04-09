@@ -41,6 +41,7 @@ import (
 type SHostImageOptions struct {
 	common_options.CommonOptions
 	LocalImagePath    []string `help:"Local Image Paths"`
+	LVMVolumeGroups   []string `help:"LVM Volume Groups(vgs)"`
 	SnapshotDirSuffix string   `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
 	CommonConfigFile  string   `help:"common config file for container"`
 	StreamChunkSize   int      `help:"Download stream chunk size KB" default:"4096"`
@@ -96,6 +97,12 @@ func getDiskPath(diskId string) string {
 			return diskPath
 		}
 	}
+	for _, vg := range HostImageOptions.LVMVolumeGroups {
+		diskPath := path.Join("/dev", vg, diskId)
+		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
+			return diskPath
+		}
+	}
 	return ""
 }
 
@@ -103,6 +110,12 @@ func getSnapshotPath(diskId, snapshotId string) string {
 	for _, imagePath := range HostImageOptions.LocalImagePath {
 		diskPath := path.Join(imagePath, "snapshots",
 			diskId+HostImageOptions.SnapshotDirSuffix, snapshotId)
+		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
+			return diskPath
+		}
+	}
+	for _, vg := range HostImageOptions.LVMVolumeGroups {
+		diskPath := path.Join("/dev", vg, "snap_"+diskId+snapshotId)
 		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
 			return diskPath
 		}

@@ -230,11 +230,6 @@ type DiskDetails struct {
 
 	// 自动快照策略
 	Snapshotpolicies []SimpleSnapshotPolicy `json:"snapshotpolicies"`
-
-	// 手动快照数量
-	ManualSnapshotCount int `json:"manual_snapshot_count"`
-	// 最多可创建手动快照数量
-	MaxManualSnapshotCount int `json:"max_manual_snapshot_count"`
 }
 
 type DiskResourceInfoBase struct {

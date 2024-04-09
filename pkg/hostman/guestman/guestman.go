@@ -941,14 +941,14 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 	for i := range disks {
 		diskPath, _ := disks[i].GetString("path")
 		if diskPath != "" {
+			d, err := storageman.GetManager().GetDiskByPath(diskPath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+			}
 			storageType, _ := disks[i].GetString("storage_type")
 			if storageType == compute.STORAGE_SLVM {
-				if err := lvmutils.LVActive(diskPath, true, false); err != nil {
+				if err := lvmutils.LVActive(diskPath, d.GetStorage().Lvmlockd(), false); err != nil {
 					return nil, errors.Wrap(err, "lvm active with shared")
-				}
-				_, err := storageman.GetManager().GetDiskByPath(diskPath)
-				if err != nil {
-					return nil, errors.Wrapf(err, "slvm GetDiskByPath(%s)", diskPath)
 				}
 			}
 		}
@@ -1135,14 +1135,14 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 		return nil, hostutils.ParamsError
 	}
 
-	if len(delParams.ConvertSnapshot) > 0 {
+	if len(delParams.ConvertSnapshot) > 0 || delParams.BlockStream {
 		guest, _ := m.GetServer(delParams.Sid)
 		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
-			delParams.ConvertSnapshot, delParams.PendingDelete)
+			delParams.ConvertSnapshot, delParams.BlockStream)
 	} else {
 		res := jsonutils.NewDict()
 		res.Set("deleted", jsonutils.JSONTrue)
-		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "")
 	}
 }
 

@@ -143,11 +143,12 @@ type VgReports struct {
 	} `json:"report"`
 }
 
+// lvm units https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/logical_volume_manager_administration/report_units
 func GetVgProps(vg string) (*VgProps, error) {
 	cmd := fmt.Sprintf("lvm vgs --reportformat json -o vg_free,vg_size,vg_extent_size --units=B %s 2>/dev/null", vg)
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
 	if err != nil {
-		return nil, errors.Wrapf(err, "exec lvm command: %s", out)
+		return nil, errors.Wrapf(err, "exec lvm command %s: %s", cmd, out)
 	}
 	var vgReports VgReports
 	err = json.Unmarshal(out, &vgReports)
@@ -275,4 +276,33 @@ func VgActive(vgName string, active bool) error {
 		return errors.Wrapf(err, "vgchange %s %s failed %s", opts, vgName, out)
 	}
 	return nil
+}
+
+func LvRename(vgName, oldName, newName string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("lvm", "lvrename", vgName, oldName, newName).Output()
+	if err != nil {
+		return errors.Wrapf(err, "lvrename vg: %s oldName: %s newName: %s failed: %s", vgName, oldName, newName, out)
+	}
+	return nil
+}
+
+func GetQcow2LvSize(sizeMb int64) int64 {
+	// 100G reserve 1M for qcow2 metadata
+	metaSize := sizeMb/1024/100 + 10
+	return sizeMb + metaSize
+}
+
+// get lvsize unit byte
+func GetLvSize(lvPath string) (int64, error) {
+	cmd := fmt.Sprintf("lvm lvs %s -o LV_SIZE --noheadings --units B --nosuffix 2>/dev/null", lvPath)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	if err != nil {
+		return -1, errors.Wrapf(err, "exec lvm command %s: %s", cmd, out)
+	}
+	strSize := strings.TrimSpace(string(out))
+	size, err := strconv.ParseInt(strSize, 10, 64)
+	if err != nil {
+		return -1, errors.Wrapf(err, "failed parse size %s", strSize)
+	}
+	return size, nil
 }

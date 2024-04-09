@@ -15,7 +15,6 @@
 package guestman
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"path"
@@ -617,12 +616,9 @@ func (s *SKVMGuestInstance) slaveDiskPrepare(input *qemu.GenerateStartOptionsInp
 		if err != nil {
 			return errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
-		if output, err := procutils.NewCommand("rm", "-f", diskPath).Output(); err != nil {
-			return errors.Errorf("failed delete slave top disk file %s %s", output, err)
-		}
-		diskUrl := fmt.Sprintf("%s/%s", diskUri, input.Disks[i].DiskId)
-		if err := d.CreateFromImageFuse(context.Background(), diskUrl, 0, nil); err != nil {
-			return errors.Wrap(err, "failed create slave disk")
+		err = d.RebuildSlaveDisk(diskUri)
+		if err != nil {
+			return errors.Wrap(err, "RebuildSlaveDisk")
 		}
 	}
 	return nil
