@@ -88,14 +88,14 @@ func (policy *SPolicy) GetDocument() (*jsonutils.JSONDict, error) {
 	return obj.(*jsonutils.JSONDict), nil
 }
 
-func (self *SKsyunClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := self.ListPolicies("")
+func (client *SKsyunClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := client.ListPolicies("")
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		policies[i].client = self
+		policies[i].client = client
 		ret = append(ret, &policies[i])
 	}
 	return ret, nil

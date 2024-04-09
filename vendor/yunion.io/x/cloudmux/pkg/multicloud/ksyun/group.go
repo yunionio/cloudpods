@@ -33,71 +33,71 @@ type SGroup struct {
 	PolicyCount int
 }
 
-func (self *SGroup) GetName() string {
-	return self.GroupName
+func (group *SGroup) GetName() string {
+	return group.GroupName
 }
 
-func (self *SGroup) GetGlobalId() string {
-	return self.GroupName
+func (group *SGroup) GetGlobalId() string {
+	return group.GroupName
 }
 
-func (self *SGroup) GetDescription() string {
-	return self.Description
+func (group *SGroup) GetDescription() string {
+	return group.Description
 }
 
-func (self *SGroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+func (group *SGroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SGroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := self.client.ListGroupPolicies(self.GroupName)
+func (group *SGroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := group.client.ListGroupPolicies(group.GroupName)
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		policies[i].client = self.client
+		policies[i].client = group.client
 		ret = append(ret, &policies[i])
 	}
 	return ret, nil
 }
 
-func (self *SGroup) AddUser(name string) error {
-	return self.client.AddUserToGroup(name, self.GroupName)
+func (group *SGroup) AddUser(name string) error {
+	return group.client.AddUserToGroup(name, group.GroupName)
 }
 
-func (self *SGroup) RemoveUser(name string) error {
-	return self.client.RemoveUserFromGroup(name, self.GroupName)
+func (group *SGroup) RemoveUser(name string) error {
+	return group.client.RemoveUserFromGroup(name, group.GroupName)
 }
 
-func (self *SGroup) AttachPolicy(policyName string, policyType api.TPolicyType) error {
-	return self.client.AttachGroupPolicy(self.GroupName, policyName)
+func (group *SGroup) AttachPolicy(policyName string, policyType api.TPolicyType) error {
+	return group.client.AttachGroupPolicy(group.GroupName, policyName)
 }
 
-func (self *SGroup) DetachPolicy(policyName string, policyType api.TPolicyType) error {
-	return self.client.DetachGroupPolicy(self.GroupName, policyName)
+func (group *SGroup) DetachPolicy(policyName string, policyType api.TPolicyType) error {
+	return group.client.DetachGroupPolicy(group.GroupName, policyName)
 }
 
-func (self *SGroup) Delete() error {
-	return self.client.DeleteGroup(self.GroupName)
+func (group *SGroup) Delete() error {
+	return group.client.DeleteGroup(group.GroupName)
 }
 
-func (self *SKsyunClient) CreateICloudgroup(name string, desc string) (cloudprovider.ICloudgroup, error) {
-	group, err := self.CreateGroup(name, desc)
+func (client *SKsyunClient) CreateICloudgroup(name string, desc string) (cloudprovider.ICloudgroup, error) {
+	group, err := client.CreateGroup(name, desc)
 	if err != nil {
 		return nil, err
 	}
 	return group, nil
 }
 
-func (self *SKsyunClient) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	groups, err := self.ListGroups()
+func (client *SKsyunClient) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	groups, err := client.ListGroups()
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudgroup{}
 	for i := range groups {
-		groups[i].client = self
+		groups[i].client = client
 		ret = append(ret, &groups[i])
 	}
 	return ret, nil
