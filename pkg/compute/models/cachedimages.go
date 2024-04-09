@@ -957,6 +957,12 @@ func (manager *SCachedimageManager) ListItemExportKeys(ctx context.Context, q *s
 
 // 清理已经删除的镜像缓存
 func (manager *SCachedimageManager) AutoCleanImageCaches(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	defer func() {
+		err := manager.cleanExternalImages()
+		if err != nil {
+			log.Errorf("cleanExternalImages error: %v", err)
+		}
+	}()
 	lastSync := time.Now().Add(time.Duration(-1*api.CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS) * time.Second)
 	q := manager.Query()
 	q = q.LT("last_sync", lastSync).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).IsNullOrEmpty("external_id").Limit(50)
@@ -990,6 +996,95 @@ func (manager *SCachedimageManager) AutoCleanImageCaches(ctx context.Context, us
 			return nil
 		})
 	}
+}
+
+func (manager *SCachedimageManager) getExpireExternalImageIds() ([]string, error) {
+	ids := []string{}
+	templatedIds := DiskManager.Query("template_id").IsNotEmpty("template_id").Distinct().SubQuery()
+	cachedimageIds := StoragecachedimageManager.Query("cachedimage_id").Distinct().SubQuery()
+	externalIds := CloudimageManager.Query("external_id").Distinct().SubQuery()
+	q := manager.RawQuery("id")
+	q = q.Filter(
+		sqlchemy.AND(
+			sqlchemy.IsNotEmpty(q.Field("external_id")),
+			sqlchemy.NotIn(q.Field("id"), templatedIds),
+			sqlchemy.NotIn(q.Field("id"), cachedimageIds),
+			sqlchemy.NotIn(q.Field("external_id"), externalIds),
+		),
+	)
+	rows, err := q.Rows()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return ids, nil
+		}
+		return nil, errors.Wrap(err, "Query")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		err := rows.Scan(&id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "rows.Scan")
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (manager *SCachedimageManager) cleanExternalImages() error {
+	ids, err := manager.getExpireExternalImageIds()
+	if err != nil {
+		return errors.Wrapf(err, "getExpireExternalImageIds")
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var splitByLen = func(data []string, splitLen int) [][]string {
+		var result [][]string
+		for i := 0; i < len(data); i += splitLen {
+			end := i + splitLen
+			if end > len(data) {
+				end = len(data)
+			}
+			result = append(result, data[i:end])
+		}
+		return result
+	}
+
+	var purge = func(ids []string) error {
+		vars := []interface{}{}
+		placeholders := make([]string, len(ids))
+		for i := range placeholders {
+			placeholders[i] = "?"
+			vars = append(vars, ids[i])
+		}
+		placeholder := strings.Join(placeholders, ",")
+		sql := fmt.Sprintf(
+			"delete from %s where id in (%s)",
+			manager.TableSpec().Name(), placeholder,
+		)
+		_, err = sqlchemy.GetDB().Exec(
+			sql, vars...,
+		)
+		if err != nil {
+			return errors.Wrapf(err, strings.ReplaceAll(sql, "?", "%s"), vars...)
+		}
+		return nil
+	}
+
+	idsArr := splitByLen(ids, 100)
+	for i := range idsArr {
+		err = purge(idsArr[i])
+		if err != nil {
+			return errors.Wrapf(err, "purge")
+		}
+	}
+
+	log.Debugf("clean %d expired external images", len(ids))
+	return nil
 }
 
 func (image *SCachedimage) GetAllClassMetadata() (map[string]string, error) {
