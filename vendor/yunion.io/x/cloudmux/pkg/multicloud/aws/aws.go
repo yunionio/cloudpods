@@ -361,13 +361,13 @@ func (self *SAwsClient) GetRegions() ([]SRegion, error) {
 	return ret.RegionInfo, nil
 }
 
-func (self *SAwsClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SAwsClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range self.regions {
 		self.regions[i].client = self
 		ret = append(ret, &self.regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SAwsClient) GetRegion(regionId string) (*SRegion, error) {

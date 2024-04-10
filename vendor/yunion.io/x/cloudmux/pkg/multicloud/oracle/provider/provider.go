@@ -152,13 +152,16 @@ func (self *SOracleProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SOracleProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	regions, _ := self.client.GetRegions()
+func (self *SOracleProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	regions, err := self.client.GetRegions()
+	if err != nil {
+		return nil, err
+	}
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range regions {
 		ret = append(ret, &regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SOracleProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {

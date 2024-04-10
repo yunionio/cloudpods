@@ -403,17 +403,20 @@ func (self *SHuaweiClient) GetRegions() []SRegion {
 	return ret
 }
 
-func (self *SHuaweiClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SHuaweiClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	regions := self.GetRegions()
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range regions {
 		ret = append(ret, &regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SHuaweiClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	regions := self.GetIRegions()
+	regions, err := self.GetIRegions()
+	if err != nil {
+		return nil, err
+	}
 	for i := range regions {
 		if regions[i].GetId() == id || regions[i].GetGlobalId() == id {
 			return regions[i], nil

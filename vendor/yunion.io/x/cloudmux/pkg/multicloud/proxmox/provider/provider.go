@@ -163,12 +163,15 @@ func (self *SProxmoxProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SProxmoxProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SProxmoxProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 
 func (self *SProxmoxProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	regions := self.GetIRegions()
+	regions, err := self.GetIRegions()
+	if err != nil {
+		return nil, err
+	}
 	for i := range regions {
 		if regions[i].GetGlobalId() == id {
 			return regions[i], nil
