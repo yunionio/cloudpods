@@ -131,7 +131,7 @@ func (self *SUcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, erro
 }
 
 func (self *SUcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	regions := self.client.GetIRegions()
+	regions, _ := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	info.Add(jsonutils.NewString(ucloud.UCLOUD_API_VERSION), "api_version")
@@ -150,7 +150,7 @@ func (self *SUcloudProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SUcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SUcloudProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 

@@ -123,16 +123,16 @@ func (self *SChinaUnionProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SChinaUnionProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SChinaUnionProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	regions, err := self.client.GetRegions()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range regions {
 		ret = append(ret, &regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SChinaUnionProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
