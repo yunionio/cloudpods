@@ -131,7 +131,8 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 		tnic.Gateway6 = ""
 		master.Name = fmt.Sprintf("bond%d", len(bondNics))
 		master.TeamingSlaves = []*types.SServerNic{&nnic, &tnic}
-		master.Mac = ""
+		// why reset master.Mac?
+		// master.Mac = ""
 		allNics = append(allNics, &nnic, &tnic, master)
 		bondNics = append(bondNics, master)
 	}
