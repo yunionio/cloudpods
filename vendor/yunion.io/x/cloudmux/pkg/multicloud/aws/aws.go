@@ -422,8 +422,8 @@ func (self *SAwsClient) GetRegions() ([]SRegion, error) {
 	return self.fetchRegions()
 }
 
-func (self *SAwsClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return self.iregions
+func (self *SAwsClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return self.iregions, nil
 }
 
 func (self *SAwsClient) GetRegion(regionId string) (*SRegion, error) {

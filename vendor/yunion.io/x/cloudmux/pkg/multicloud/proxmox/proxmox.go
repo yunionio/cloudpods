@@ -384,11 +384,11 @@ func (self *SProxmoxClient) GetAccountId() string {
 	return self.host
 }
 
-func (self *SProxmoxClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SProxmoxClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	ret := []cloudprovider.ICloudRegion{}
 	region := self.GetRegion()
 	ret = append(ret, region)
-	return ret
+	return ret, nil
 }
 
 func (self *SProxmoxClient) GetCapabilities() []string {

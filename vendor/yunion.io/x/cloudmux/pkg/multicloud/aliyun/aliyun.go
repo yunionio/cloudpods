@@ -702,8 +702,8 @@ func (self *SAliyunClient) GetAccountId() string {
 	return self.ownerId
 }
 
-func (self *SAliyunClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return self.iregions
+func (self *SAliyunClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return self.iregions, nil
 }
 
 func (self *SAliyunClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

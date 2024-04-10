@@ -138,7 +138,7 @@ func (self *SCloudpodsProvider) GetIRegionById(extId string) (cloudprovider.IClo
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SCloudpodsProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SCloudpodsProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 

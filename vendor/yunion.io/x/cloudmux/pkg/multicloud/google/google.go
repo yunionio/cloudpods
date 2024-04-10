@@ -957,8 +957,8 @@ func (self *SGoogleClient) GetIRegionById(id string) (cloudprovider.ICloudRegion
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SGoogleClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return self.iregions
+func (self *SGoogleClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return self.iregions, nil
 }
 
 func (self *SGoogleClient) fetchGlobalNetwork() ([]SGlobalNetwork, error) {

@@ -111,8 +111,8 @@ func NewObjectStoreProvider(factory cloudprovider.ICloudProviderFactory, client 
 	}
 }
 
-func (self *SObjectStoreProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	return nil
+func (self *SObjectStoreProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SObjectStoreProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

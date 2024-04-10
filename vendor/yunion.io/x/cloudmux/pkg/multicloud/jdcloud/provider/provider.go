@@ -119,12 +119,12 @@ func (p *SJdcloudProvider) GetAccountId() string {
 	return p.client.GetAccountId()
 }
 
-func (p *SJdcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (p *SJdcloudProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return p.client.GetIRegions()
 }
 
 func (p *SJdcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	iregions := p.GetIRegions()
+	iregions, _ := p.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(iregions))), "region_count")
 	return info, nil
@@ -135,7 +135,10 @@ func (p *SJdcloudProvider) GetVersion() string {
 }
 
 func (p *SJdcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	iregions := p.GetIRegions()
+	iregions, err := p.GetIRegions()
+	if err != nil {
+		return nil, err
+	}
 	for i := range iregions {
 		if iregions[i].GetGlobalId() == id {
 			return iregions[i], nil
@@ -186,7 +189,7 @@ func (p *SJdcloudProvider) GetCloudRegionExternalIdPrefix() string {
 }
 
 func (p *SJdcloudProvider) GetCapabilities() []string {
-	iRegions := p.GetIRegions()
+	iRegions, _ := p.GetIRegions()
 	if len(iRegions) > 0 {
 		return iRegions[0].GetCapabilities()
 	}

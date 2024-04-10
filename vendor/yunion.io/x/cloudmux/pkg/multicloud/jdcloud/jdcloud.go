@@ -64,9 +64,9 @@ func NewJDCloudClient(cfg *JDCloudClientConfig) (*SJDCloudClient, error) {
 	return &client, err
 }
 
-func (self *SJDCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SJDCloudClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	if self.iregion != nil {
-		return self.iregion
+		return self.iregion, nil
 	}
 
 	self.iregion = []cloudprovider.ICloudRegion{}
@@ -77,7 +77,7 @@ func (self *SJDCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 			client: self,
 		})
 	}
-	return self.iregion
+	return self.iregion, nil
 }
 
 func (self *SJDCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
@@ -92,12 +92,15 @@ func (self *SJDCloudClient) GetAccountId() string {
 	return self.accessKey
 }
 
-func (self *SJDCloudClient) GetRegion(regionId string) *SRegion {
-	iregions := self.GetIRegions()
+func (self *SJDCloudClient) GetRegion(regionId string) (*SRegion, error) {
+	iregions, err := self.GetIRegions()
+	if err != nil {
+		return nil, err
+	}
 	for i := range iregions {
 		if len(regionId) == 0 || iregions[i].GetId() == regionId {
-			return iregions[i].(*SRegion)
+			return iregions[i].(*SRegion), nil
 		}
 	}
-	return nil
+	return nil, cloudprovider.ErrNotFound
 }

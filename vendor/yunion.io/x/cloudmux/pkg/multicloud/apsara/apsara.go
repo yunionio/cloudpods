@@ -459,8 +459,8 @@ func (self *SApsaraClient) GetAccountId() string {
 	return self.cpcfg.URL
 }
 
-func (self *SApsaraClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return self.iregions
+func (self *SApsaraClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return self.iregions, nil
 }
 
 func (self *SApsaraClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
