@@ -163,12 +163,15 @@ func (self *SNutanixProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SNutanixProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SNutanixProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 
 func (self *SNutanixProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	regions := self.GetIRegions()
+	regions, err := self.GetIRegions()
+	if err != nil {
+		return nil, err
+	}
 	for i := range regions {
 		if regions[i].GetGlobalId() == id {
 			return regions[i], nil

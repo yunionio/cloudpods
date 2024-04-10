@@ -263,17 +263,17 @@ func (self *SCloudpodsClient) GetIRegionById(id string) (cloudprovider.ICloudReg
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SCloudpodsClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SCloudpodsClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	regions, err := self.GetRegions()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range regions {
 		regions[i].cli = self
 		ret = append(ret, &regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SCloudpodsClient) GetRegions() ([]SRegion, error) {

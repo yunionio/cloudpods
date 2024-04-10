@@ -203,8 +203,8 @@ func (self *SCephFSProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SCephFSProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	return nil
+func (self *SCephFSProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SCephFSProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

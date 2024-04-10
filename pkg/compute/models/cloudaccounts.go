@@ -576,7 +576,10 @@ func (manager *SCloudaccountManager) validateCreateData(
 		if err != nil {
 			return input, err
 		}
-		regions := provider.GetIRegions()
+		regions, err := provider.GetIRegions()
+		if err != nil {
+			return input, err
+		}
 		for _, region := range regions {
 			input.SubAccounts.Cloudregions = append(input.SubAccounts.Cloudregions, struct {
 				Id     string

@@ -120,13 +120,13 @@ func (self *SBaiduProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SBaiduProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SBaiduProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	regions := self.client.GetRegions()
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range regions {
 		ret = append(ret, &regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SBaiduProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
