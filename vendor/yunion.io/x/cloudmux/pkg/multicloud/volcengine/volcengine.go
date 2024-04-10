@@ -163,8 +163,8 @@ func (client *SVolcEngineClient) GetRegion(regionId string) *SRegion {
 	return nil
 }
 
-func (client *SVolcEngineClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return client.iregions
+func (client *SVolcEngineClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return client.iregions, nil
 }
 
 func (client *SVolcEngineClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

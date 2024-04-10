@@ -71,14 +71,6 @@ func (factory *SVolcEngineProviderFactory) IsSupportSAMLAuth() bool {
 	return true
 }
 
-func validateClientCloudenv(client *volcengine.SVolcEngineClient) error {
-	regions := client.GetIRegions()
-	if len(regions) == 0 {
-		return nil
-	}
-	return nil
-}
-
 func parseAccount(account string) (accessKey string, projectId string) {
 	segs := strings.Split(account, "::")
 	if len(segs) == 2 {
@@ -102,11 +94,6 @@ func (self *SVolcEngineProviderFactory) GetProvider(cfg cloudprovider.ProviderCo
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	err = validateClientCloudenv(client)
-	if err != nil {
-		return nil, errors.Wrap(err, "validateClientCloudenv")
 	}
 
 	return &SVolcEngineProvider{
@@ -141,7 +128,7 @@ func (self *SVolcEngineProvider) GetAccountId() string {
 }
 
 func (self *SVolcEngineProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	regions := self.client.GetIRegions()
+	regions, _ := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	info.Add(jsonutils.NewString(volcengine.VOLCENGINE_API_VERSION), "api_version")
@@ -200,7 +187,7 @@ func (self *SVolcEngineProvider) GetIRegionById(extId string) (cloudprovider.ICl
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SVolcEngineProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SVolcEngineProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 

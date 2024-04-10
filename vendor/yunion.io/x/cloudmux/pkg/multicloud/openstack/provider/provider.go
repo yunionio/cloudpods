@@ -182,7 +182,7 @@ func (self *SOpenStackProvider) GetAccountId() string {
 	return ""
 }
 
-func (self *SOpenStackProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SOpenStackProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 

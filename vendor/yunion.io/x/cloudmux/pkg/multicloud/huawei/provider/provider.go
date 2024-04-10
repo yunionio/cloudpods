@@ -136,14 +136,14 @@ func (self *SHuaweiProvider) GetVersion() string {
 }
 
 func (self *SHuaweiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	regions := self.client.GetIRegions()
+	regions, _ := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	info.Add(jsonutils.NewString(huawei.HUAWEI_API_VERSION), "api_version")
 	return info, nil
 }
 
-func (self *SHuaweiProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SHuaweiProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 
