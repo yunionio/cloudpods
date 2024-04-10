@@ -348,13 +348,13 @@ func (self *SBingoCloudClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollm
 	return eas, nil
 }
 
-func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SBingoCloudClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	var ret []cloudprovider.ICloudRegion
 	for i := range self.regions {
 		self.regions[i].client = self
 		ret = append(ret, &self.regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SBingoCloudClient) describeTags(filter map[string]string) (jsonutils.JSONObject, error) {
@@ -369,7 +369,10 @@ func (self *SBingoCloudClient) describeTags(filter map[string]string) (jsonutils
 }
 
 func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	iregions := self.GetIRegions()
+	iregions, err := self.GetIRegions()
+	if err != nil {
+		return nil, err
+	}
 	for i := range iregions {
 		if iregions[i].GetGlobalId() == id {
 			return iregions[i], nil

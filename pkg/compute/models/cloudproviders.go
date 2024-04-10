@@ -1531,7 +1531,10 @@ func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context,
 		cpr.setCapabilities(ctx, userCred, driver.GetCapabilities())
 		return []SCloudproviderregion{*cpr}, nil
 	}
-	iregions := driver.GetIRegions()
+	iregions, err := driver.GetIRegions()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIRegions")
+	}
 	externalIdPrefix := driver.GetCloudRegionExternalIdPrefix()
 	_, _, cprs, result := CloudregionManager.SyncRegions(ctx, userCred, provider, externalIdPrefix, iregions)
 	if result.IsError() {

@@ -257,7 +257,7 @@ type ICloudProvider interface {
 	GetVersion() string
 	GetIamLoginUrl() string
 
-	GetIRegions() []ICloudRegion
+	GetIRegions() ([]ICloudRegion, error)
 	GetIProjects() ([]ICloudProject, error)
 	CreateIProject(name string) (ICloudProject, error)
 	GetIRegionById(id string) (ICloudRegion, error)

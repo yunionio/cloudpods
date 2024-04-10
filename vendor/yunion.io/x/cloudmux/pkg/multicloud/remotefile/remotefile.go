@@ -231,17 +231,20 @@ func (self *SRemoteFileClient) GetLoadbalancers() ([]SLoadbalancer, error) {
 	return self.lbs, resp.Unmarshal(&self.lbs)
 }
 
-func (self *SRemoteFileClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SRemoteFileClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range self.regions {
 		self.regions[i].client = self
 		ret = append(ret, &self.regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SRemoteFileClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	regions := self.GetIRegions()
+	regions, err := self.GetIRegions()
+	if err != nil {
+		return nil, err
+	}
 	for i := range regions {
 		if regions[i].GetGlobalId() == id {
 			return regions[i], nil

@@ -198,8 +198,8 @@ func (self *SESXiProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SESXiProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	return nil
+func (self *SESXiProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SESXiProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

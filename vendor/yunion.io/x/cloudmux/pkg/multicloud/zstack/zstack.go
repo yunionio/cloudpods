@@ -143,8 +143,8 @@ func (cli *SZStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
-func (cli *SZStackClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return cli.iregions
+func (cli *SZStackClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return cli.iregions, nil
 }
 
 func (cli *SZStackClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

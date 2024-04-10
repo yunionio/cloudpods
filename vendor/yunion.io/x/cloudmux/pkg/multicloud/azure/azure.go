@@ -915,12 +915,12 @@ func (self *SAzureClient) GetIamLoginUrl() string {
 	}
 }
 
-func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SAzureClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range self.regions {
 		ret = append(ret, &self.regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SAzureClient) getDefaultRegion() (cloudprovider.ICloudRegion, error) {

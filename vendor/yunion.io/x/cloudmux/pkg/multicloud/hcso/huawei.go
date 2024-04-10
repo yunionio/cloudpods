@@ -366,8 +366,8 @@ func (client *SHuaweiClient) GetIamLoginUrl() string {
 	return fmt.Sprintf("https://auth.huaweicloud.com/authui/login.html?account=%s#/login", client.ownerName)
 }
 
-func (self *SHuaweiClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return self.iregions
+func (self *SHuaweiClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return self.iregions, nil
 }
 
 func (self *SHuaweiClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
