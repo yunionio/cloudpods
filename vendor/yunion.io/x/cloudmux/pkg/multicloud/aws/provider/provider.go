@@ -239,12 +239,12 @@ func (self *SAwsProvider) GetIamLoginUrl() string {
 	return self.client.GetIamLoginUrl()
 }
 
-func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SAwsProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 
 func (self *SAwsProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	regions := self.client.GetIRegions()
+	regions, _ := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	info.Add(jsonutils.NewString(aws.AWS_API_VERSION), "api_version")

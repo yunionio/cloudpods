@@ -120,13 +120,13 @@ func (self *SQingCloudProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
-func (self *SQingCloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SQingCloudProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	regions := self.client.GetRegions()
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range regions {
 		ret = append(ret, &regions[i])
 	}
-	return ret
+	return ret, nil
 }
 
 func (self *SQingCloudProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {

@@ -124,7 +124,7 @@ func (self *SZStackProvider) GetAccountId() string {
 	return ""
 }
 
-func (self *SZStackProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SZStackProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 

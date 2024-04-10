@@ -247,7 +247,7 @@ type SQcloudProvider struct {
 }
 
 func (self *SQcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	regions := self.client.GetIRegions()
+	regions, _ := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	info.Add(jsonutils.NewString(qcloud.QCLOUD_API_VERSION), "api_version")
@@ -270,7 +270,7 @@ func (self *SQcloudProvider) GetIamLoginUrl() string {
 	return self.client.GetIamLoginUrl()
 }
 
-func (self *SQcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SQcloudProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 

@@ -108,7 +108,7 @@ func (self *SRemoteFileProvider) GetAccountId() string {
 	return ""
 }
 
-func (self *SRemoteFileProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SRemoteFileProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegions()
 }
 

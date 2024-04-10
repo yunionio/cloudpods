@@ -389,9 +389,9 @@ func _rawRequest(cli *http.Client, method httputils.THttpMethod, url string, hea
 	return httputils.Request(cli, context.Background(), method, url, header, body, debug)
 }
 
-func (self *SNutanixClient) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SNutanixClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	region := &SRegion{cli: self}
-	return []cloudprovider.ICloudRegion{region}
+	return []cloudprovider.ICloudRegion{region}, nil
 }
 
 func (self *SNutanixClient) getTask(id string) (*STask, error) {
