@@ -14,7 +14,10 @@
 
 package apis
 
-import "yunion.io/x/pkg/util/sets"
+import (
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
+)
 
 type ContainerKeyValue struct {
 	Key   string `json:"key"`
@@ -54,14 +57,12 @@ type ContainerSpec struct {
 	// List of environment variable to set in the container.
 	Envs []*ContainerKeyValue `json:"envs"`
 	// Enable lxcfs
-	EnableLxcfs bool `json:"enable_lxcfs"`
-	// Volume mounts
-	VolumeMounts       []*ContainerVolumeMount `json:"volume_mounts"`
-	Capabilities       *ContainerCapability    `json:"capabilities"`
-	Privileged         bool                    `json:"privileged"`
-	Lifecyle           *ContainerLifecyle      `json:"lifecyle"`
-	CgroupDevicesAllow []string                `json:"cgroup_devices_allow"`
-	SimulateCpu        bool                    `json:"simulate_cpu"`
+	EnableLxcfs        bool                 `json:"enable_lxcfs"`
+	Capabilities       *ContainerCapability `json:"capabilities"`
+	Privileged         bool                 `json:"privileged"`
+	Lifecyle           *ContainerLifecyle   `json:"lifecyle"`
+	CgroupDevicesAllow []string             `json:"cgroup_devices_allow"`
+	SimulateCpu        bool                 `json:"simulate_cpu"`
 }
 
 type ContainerCapability struct {
@@ -122,8 +123,34 @@ type ContainerVolumeMount struct {
 	Propagation ContainerMountPropagation `json:"propagation,omitempty"`
 }
 
+type ContainerOverlayDiskImage struct {
+	DiskId  string `json:"disk_id"`
+	ImageId string `json:"image_id"`
+}
+
+type ContainerDiskOverlayType string
+
+const (
+	CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY ContainerDiskOverlayType = "directory"
+	CONTAINER_DISK_OVERLAY_TYPE_UNKNOWN   ContainerDiskOverlayType = "unknown"
+)
+
 type ContainerVolumeMountDiskOverlay struct {
 	LowerDir []string `json:"lower_dir"`
+}
+
+func (o ContainerVolumeMountDiskOverlay) GetType() ContainerDiskOverlayType {
+	if len(o.LowerDir) != 0 {
+		return CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY
+	}
+	return CONTAINER_DISK_OVERLAY_TYPE_UNKNOWN
+}
+
+func (o ContainerVolumeMountDiskOverlay) IsValid() error {
+	if o.GetType() == CONTAINER_DISK_OVERLAY_TYPE_UNKNOWN {
+		return errors.ErrNotSupported
+	}
+	return nil
 }
 
 type ContainerVolumeMountDisk struct {
@@ -137,8 +164,8 @@ type ContainerVolumeMountDisk struct {
 type ContainerVolumeMountHostPathType string
 
 const (
-	ContainerVolumeMountHostPathTypeDirectory ContainerVolumeMountHostPathType = "directory"
-	ContainerVolumeMountHostPathTypeFile      ContainerVolumeMountHostPathType = "file"
+	CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY ContainerVolumeMountHostPathType = "directory"
+	CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE      ContainerVolumeMountHostPathType = "file"
 )
 
 type ContainerVolumeMountHostPath struct {

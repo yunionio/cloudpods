@@ -228,7 +228,7 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 
 	if self.IsGuestImage.IsFalse() {
 		formatStr := jsonutils.GetAnyString(query, []string{"format", "disk_format"})
-		if len(formatStr) > 0 {
+		if len(formatStr) > 0 && formatStr != api.IMAGE_DISK_FORMAT_TGZ {
 			subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
 			if subimg != nil {
 				if strings.HasPrefix(subimg.Location, api.LocalFilePrefix) {
@@ -546,7 +546,6 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calCh
 		if err != nil {
 			return err
 		}
-		format = string(img.Format)
 		virtualSizeBytes = img.SizeBytes
 
 		var fastChksum string
@@ -1035,6 +1034,8 @@ func (manager *SImageManager) Usage(ctx context.Context, scope rbacscope.TRbacSc
 func (self *SImage) GetImageType() api.TImageType {
 	if self.DiskFormat == string(qemuimgfmt.ISO) {
 		return api.ImageTypeISO
+	} else if self.DiskFormat == api.IMAGE_DISK_FORMAT_TGZ {
+		return api.ImageTypeTarGzip
 	} else {
 		return api.ImageTypeTemplate
 	}
@@ -1112,7 +1113,7 @@ func (img *SImage) isEncrypted() bool {
 }
 
 func (self *SImage) makeSubImages(ctx context.Context) error {
-	if self.GetImageType() == api.ImageTypeISO {
+	if self.GetImageType() == api.ImageTypeISO || self.GetImageType() == api.ImageTypeTarGzip {
 		// do not convert iso
 		return nil
 	}

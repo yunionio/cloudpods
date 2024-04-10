@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -214,6 +215,9 @@ func (img *SQemuImage) parse() error {
 	// test if it is an ISO
 	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) && fileutils2.IsIsoFile(img.Path) {
 		img.Format = qemuimgfmt.ISO
+	}
+	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) && fileutils2.IsTarGzipFile(img.Path) {
+		img.Format = imageapi.IMAGE_DISK_FORMAT_TGZ
 	}
 	return nil
 }

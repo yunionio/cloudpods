@@ -185,7 +185,7 @@ func (m *SContainerManager) ValidateSpecDevice(ctx context.Context, userCred mcc
 }
 
 func (m *SContainerManager) ValidateSpecVolumeMounts(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, spec *api.ContainerSpec) error {
-	relation, err := m.GetVolumeMountRelations(ctx, userCred, pod, spec)
+	relation, err := m.GetVolumeMountRelations(pod, spec)
 	if err != nil {
 		return errors.Wrap(err, "GetVolumeMountRelations")
 	}
@@ -288,11 +288,39 @@ type ContainerVolumeMountRelation struct {
 	pod *SGuest
 }
 
-func (vm *ContainerVolumeMountRelation) ToHostMount() (*apis.ContainerVolumeMount, error) {
-	return vm.VolumeMount, nil
+func (vm *ContainerVolumeMountRelation) toHostDiskMount(disk *apis.ContainerVolumeMountDisk) (*hostapi.ContainerVolumeMountDisk, error) {
+	diskObj := DiskManager.FetchDiskById(disk.Id)
+	if diskObj == nil {
+		return nil, errors.Errorf("fetch disk by id %s", disk.Id)
+	}
+	ret := &hostapi.ContainerVolumeMountDisk{
+		Index:           disk.Index,
+		Id:              disk.Id,
+		TemplateId:      diskObj.TemplateId,
+		SubDirectory:    disk.SubDirectory,
+		StorageSizeFile: disk.StorageSizeFile,
+		Overlay:         disk.Overlay,
+	}
+	return ret, nil
 }
 
-func (m *SContainerManager) GetVolumeMountRelations(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, spec *api.ContainerSpec) ([]*ContainerVolumeMountRelation, error) {
+func (vm *ContainerVolumeMountRelation) ToHostMount() (*hostapi.ContainerVolumeMount, error) {
+	disk, err := vm.toHostDiskMount(vm.VolumeMount.Disk)
+	if err != nil {
+		return nil, errors.Wrap(err, "toHostDiskMount")
+	}
+	return &hostapi.ContainerVolumeMount{
+		Type:           vm.VolumeMount.Type,
+		Disk:           disk,
+		HostPath:       vm.VolumeMount.HostPath,
+		ReadOnly:       vm.VolumeMount.ReadOnly,
+		MountPath:      vm.VolumeMount.MountPath,
+		SelinuxRelabel: vm.VolumeMount.SelinuxRelabel,
+		Propagation:    vm.VolumeMount.Propagation,
+	}, nil
+}
+
+func (m *SContainerManager) GetVolumeMountRelations(pod *SGuest, spec *api.ContainerSpec) ([]*ContainerVolumeMountRelation, error) {
 	relation := make([]*ContainerVolumeMountRelation, len(spec.VolumeMounts))
 	for idx, vm := range spec.VolumeMounts {
 		tmpVm := vm
@@ -304,8 +332,8 @@ func (m *SContainerManager) GetVolumeMountRelations(ctx context.Context, userCre
 	return relation, nil
 }
 
-func (c *SContainer) GetVolumeMountRelations(ctx context.Context, userCred mcclient.TokenCredential) ([]*ContainerVolumeMountRelation, error) {
-	return GetContainerManager().GetVolumeMountRelations(ctx, userCred, c.GetPod(), c.Spec)
+func (c *SContainer) GetVolumeMountRelations() ([]*ContainerVolumeMountRelation, error) {
+	return GetContainerManager().GetVolumeMountRelations(c.GetPod(), c.Spec)
 }
 
 func (c *SContainer) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -379,8 +407,8 @@ func (c *SContainer) RealDelete(ctx context.Context, userCred mcclient.TokenCred
 	return c.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
-func (m *SContainerManager) ConvertVolumeMountRelationToSpec(relation []*ContainerVolumeMountRelation) ([]*apis.ContainerVolumeMount, error) {
-	mounts := make([]*apis.ContainerVolumeMount, 0)
+func (m *SContainerManager) ConvertVolumeMountRelationToSpec(relation []*ContainerVolumeMountRelation) ([]*hostapi.ContainerVolumeMount, error) {
+	mounts := make([]*hostapi.ContainerVolumeMount, 0)
 	for _, r := range relation {
 		mount, err := r.ToHostMount()
 		if err != nil {
@@ -393,20 +421,14 @@ func (m *SContainerManager) ConvertVolumeMountRelationToSpec(relation []*Contain
 	return mounts, nil
 }
 
-func (c *SContainer) ToHostContainerSpec(ctx context.Context, userCred mcclient.TokenCredential) (*hostapi.ContainerSpec, error) {
-	vmRelation, err := c.GetVolumeMountRelations(ctx, userCred)
+func (c *SContainer) ToHostContainerSpec() (*hostapi.ContainerSpec, error) {
+	vmRelation, err := c.GetVolumeMountRelations()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVolumeMountRelations")
 	}
 	mounts, err := GetContainerManager().ConvertVolumeMountRelationToSpec(vmRelation)
 	if err != nil {
 		return nil, errors.Wrap(err, "ConvertVolumeRelationToSpec")
-	}
-
-	spec := c.Spec.ContainerSpec
-	spec.VolumeMounts = mounts
-	hSpec := &hostapi.ContainerSpec{
-		ContainerSpec: spec,
 	}
 	ctrDevs := make([]*hostapi.ContainerDevice, 0)
 	for _, dev := range c.Spec.Devices {
@@ -416,14 +438,24 @@ func (c *SContainer) ToHostContainerSpec(ctx context.Context, userCred mcclient.
 		}
 		ctrDevs = append(ctrDevs, ctrDev)
 	}
-	hSpec.Devices = ctrDevs
+
+	spec := c.Spec.ContainerSpec
+	hSpec := &hostapi.ContainerSpec{
+		ContainerSpec: spec,
+		VolumeMounts:  mounts,
+		Devices:       ctrDevs,
+	}
 	return hSpec, nil
 }
 
-func (c *SContainer) GetJsonDescAtHost() *api.ContainerDesc {
-	return &api.ContainerDesc{
+func (c *SContainer) GetJsonDescAtHost() (*hostapi.ContainerDesc, error) {
+	spec, err := c.ToHostContainerSpec()
+	if err != nil {
+		return nil, errors.Wrap(err, "ToHostContainerSpec")
+	}
+	return &hostapi.ContainerDesc{
 		Id:   c.GetId(),
 		Name: c.GetName(),
-		Spec: c.Spec,
-	}
+		Spec: spec,
+	}, nil
 }

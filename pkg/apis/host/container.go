@@ -14,11 +14,38 @@
 
 package host
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
+type ContainerVolumeMountDisk struct {
+	Index           *int                                  `json:"index,omitempty"`
+	Id              string                                `json:"id"`
+	TemplateId      string                                `json:"template_id"`
+	SubDirectory    string                                `json:"sub_directory"`
+	StorageSizeFile string                                `json:"storage_size_file"`
+	Overlay         *apis.ContainerVolumeMountDiskOverlay `json:"overlay"`
+}
+
+type ContainerVolumeMount struct {
+	Type     apis.ContainerVolumeMountType      `json:"type"`
+	Disk     *ContainerVolumeMountDisk          `json:"disk"`
+	HostPath *apis.ContainerVolumeMountHostPath `json:"host_path"`
+	// Mounted read-only if true, read-write otherwise (false or unspecified).
+	ReadOnly bool `json:"read_only"`
+	// Path within the container at which the volume should be mounted.  Must
+	// not contain ':'.
+	MountPath string `json:"mount_path"`
+	// If set, the mount needs SELinux relabeling.
+	SelinuxRelabel bool `json:"selinux_relabel,omitempty"`
+	// Requested propagation mode.
+	Propagation apis.ContainerMountPropagation `json:"propagation,omitempty"`
+}
 
 type ContainerSpec struct {
 	apis.ContainerSpec
-	Devices []*ContainerDevice `json:"devices"`
+	VolumeMounts []*ContainerVolumeMount `json:"volume_mounts"`
+	Devices      []*ContainerDevice      `json:"devices"`
 }
 
 type ContainerDevice struct {
@@ -68,4 +95,10 @@ type ContainerPullImageInput struct {
 	Image      string                        `json:"image"`
 	PullPolicy apis.ImagePullPolicy          `json:"pull_policy"`
 	Auth       *ContainerPullImageAuthConfig `json:"auth"`
+}
+
+type ContainerDesc struct {
+	Id   string         `json:"id"`
+	Name string         `json:"name"`
+	Spec *ContainerSpec `json:"spec"`
 }

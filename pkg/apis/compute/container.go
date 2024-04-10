@@ -47,6 +47,8 @@ const (
 	CONTAINER_STATUS_PULLED_IMAGE       = "pulled_image"
 	CONTAINER_STATUS_CREATING           = "creating"
 	CONTAINER_STATUS_CREATE_FAILED      = "create_failed"
+	CONTAINER_STATUS_CACHING_IMAGE      = "caching_image"
+	CONTAINER_STATUS_CACHE_IMAGE_FAILED = "cache_image_failed"
 	CONTAINER_STATUS_STARTING           = "starting"
 	CONTAINER_STATUS_START_FAILED       = "start_failed"
 	CONTAINER_STATUS_STOPPING           = "stopping"
@@ -67,9 +69,9 @@ const (
 
 type ContainerSpec struct {
 	apis.ContainerSpec
-	// Mounts for the container.
-	// Mounts []*ContainerMount `json:"mounts"`
-	Devices []*ContainerDevice `json:"devices"`
+	// Volume mounts
+	VolumeMounts []*apis.ContainerVolumeMount `json:"volume_mounts"`
+	Devices      []*ContainerDevice           `json:"devices"`
 }
 
 func (c *ContainerSpec) String() string {
@@ -108,12 +110,6 @@ type ContainerStopInput struct {
 
 type ContainerSyncStatusResponse struct {
 	Status string `json:"status"`
-}
-
-type ContainerDesc struct {
-	Id   string         `json:"id"`
-	Name string         `json:"name"`
-	Spec *ContainerSpec `json:"spec"`
 }
 
 type ContainerHostDevice struct {

@@ -31,11 +31,13 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -56,7 +58,8 @@ type SLocalImageCache struct {
 	cond          *sync.Cond
 	lastCheckTime time.Time
 
-	remoteFile *remotefile.SRemoteFile
+	remoteFile    *remotefile.SRemoteFile
+	accessDirLock sync.Mutex
 }
 
 func NewLocalImageCache(imageId string, imagecacheManager IImageCacheManger) *SLocalImageCache {
@@ -64,6 +67,7 @@ func NewLocalImageCache(imageId string, imagecacheManager IImageCacheManger) *SL
 	imageCache.imageId = imageId
 	imageCache.Manager = imagecacheManager
 	imageCache.cond = sync.NewCond(new(sync.Mutex))
+	imageCache.accessDirLock = sync.Mutex{}
 	return imageCache
 }
 
@@ -285,4 +289,32 @@ func (l *SLocalImageCache) GetSize() int64 {
 	} else {
 		return fi.Size()
 	}
+}
+
+func (l *SLocalImageCache) getAccessDirPath() string {
+	return fmt.Sprintf("%s-dir", l.GetPath())
+}
+
+func (l *SLocalImageCache) GetAccessDirectory() (string, error) {
+	if l.Desc.Format != imageapi.IMAGE_DISK_FORMAT_TGZ {
+		return "", errors.Wrapf(errors.ErrNotSupported, "format %s", l.Desc.Format)
+	}
+
+	l.accessDirLock.Lock()
+	defer l.accessDirLock.Unlock()
+	dir := l.getAccessDirPath()
+	if fileutils2.Exists(dir) {
+		return dir, nil
+	}
+	// untar cached image
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "mkdir %s: %s", dir, out)
+	}
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("tar", "xf", l.GetPath(), "-C", dir).Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "untar to %s: %s", dir, out)
+	}
+
+	return dir, nil
 }

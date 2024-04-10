@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/host"
 )
 
 type SGuestCpu struct {
@@ -381,7 +382,7 @@ type SGuestMetaDesc struct {
 }
 
 type SGuestContainerDesc struct {
-	Containers []*api.ContainerDesc
+	Containers []*host.ContainerDesc
 }
 
 type SGuestDesc struct {

@@ -34,7 +34,7 @@ import (
 )
 
 type ImageOptionalOptions struct {
-	Format             string   `help:"Image format" choices:"raw|qcow2|iso|vmdk|docker|vhd"`
+	Format             string   `help:"Image format" choices:"raw|qcow2|iso|vmdk|docker|vhd|tgz"`
 	Protected          bool     `help:"Prevent image from being deleted"`
 	Unprotected        bool     `help:"Allow image to be deleted"`
 	Standard           bool     `help:"Mark image as a standard image"`

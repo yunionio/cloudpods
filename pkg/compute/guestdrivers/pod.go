@@ -338,9 +338,13 @@ func (p *SPodDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, errors.Wrap(err, "GetContainersByPod")
 	}
-	ctrDescs := make([]*api.ContainerDesc, len(ctrs))
+	ctrDescs := make([]*hostapi.ContainerDesc, len(ctrs))
 	for idx, ctr := range ctrs {
-		ctrDescs[idx] = ctr.GetJsonDescAtHost()
+		desc, err := ctr.GetJsonDescAtHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetJsonDescAtHost of container %s", ctr.GetId())
+		}
+		ctrDescs[idx] = desc
 	}
 	desc.Containers = ctrDescs
 	return jsonutils.Marshal(desc), nil
@@ -398,7 +402,7 @@ func (p *SPodDriver) performContainerAction(ctx context.Context, userCred mcclie
 }
 
 func (p *SPodDriver) getContainerCreateInput(ctx context.Context, userCred mcclient.TokenCredential, ctr *models.SContainer) (*hostapi.ContainerCreateInput, error) {
-	spec, err := ctr.ToHostContainerSpec(ctx, userCred)
+	spec, err := ctr.ToHostContainerSpec()
 	if err != nil {
 		return nil, errors.Wrap(err, "ToHostContainerSpec")
 	}
