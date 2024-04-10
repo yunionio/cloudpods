@@ -523,7 +523,7 @@ func (manager *SCloudregionManager) SyncRegions(
 		syncResult.Error(err)
 		return nil, nil, nil, syncResult
 	}
-	log.Debugf("Region with provider %s %d", externalIdPrefix, len(dbRegions))
+	log.Debugf("Region with provider %s %d -> %d", externalIdPrefix, len(regions), len(dbRegions))
 
 	removed := make([]SCloudregion, 0)
 	commondb := make([]SCloudregion, 0)

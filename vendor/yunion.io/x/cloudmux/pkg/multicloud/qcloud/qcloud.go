@@ -879,8 +879,8 @@ func (client *SQcloudClient) GetIamLoginUrl() string {
 	return fmt.Sprintf("https://cloud.tencent.com/login/subAccount")
 }
 
-func (client *SQcloudClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return client.iregions
+func (client *SQcloudClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return client.iregions, nil
 }
 
 func (client *SQcloudClient) getDefaultRegion() (*SRegion, error) {

@@ -79,7 +79,7 @@ func (self *CloudeventSyncTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	count := 0
 	for {
 		events := []cloudprovider.ICloudEvent{}
-		regions := iProvider.GetIRegions()
+		regions, _ := iProvider.GetIRegions()
 		for i := range regions {
 			if factory.IsCloudeventRegional() || i == 0 {
 				_events, err := regions[i].GetICloudEvents(start, end, options.Options.SyncWithReadEvent)

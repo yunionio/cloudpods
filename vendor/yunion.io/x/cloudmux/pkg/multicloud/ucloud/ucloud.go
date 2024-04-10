@@ -314,8 +314,8 @@ func (self *SUcloudClient) GetAccountId() string {
 	return "" // no account ID found for ucloud
 }
 
-func (self *SUcloudClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return self.iregions
+func (self *SUcloudClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return self.iregions, nil
 }
 
 func removeDigit(idstr string) string {

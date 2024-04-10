@@ -488,8 +488,8 @@ func (cli *SOpenStackClient) GetRegion(regionId string) *SRegion {
 	return nil
 }
 
-func (cli *SOpenStackClient) GetIRegions() []cloudprovider.ICloudRegion {
-	return cli.iregions
+func (cli *SOpenStackClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return cli.iregions, nil
 }
 
 func (cli *SOpenStackClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
