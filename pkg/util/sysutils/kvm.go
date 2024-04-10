@@ -204,7 +204,6 @@ func GetSysConfig(pa string) string {
 		}
 		cont, err := fileutils2.FileGetContents(pa)
 		if err != nil {
-			log.Errorln(err)
 			return ""
 		}
 		return strings.TrimSpace(cont)
