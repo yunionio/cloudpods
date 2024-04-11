@@ -110,8 +110,8 @@ func TestNewNetplanConfig(t *testing.T) {
 								Addresses: []string{
 									"10.168.222.175/24",
 								},
-								// MacAddress: "00:24:c7:16:80:f2",
-								Gateway4: "10.168.222.1",
+								MacAddress: "00:24:c7:16:80:f2",
+								Gateway4:   "10.168.222.1",
 								Nameservers: &netplan.Nameservers{
 									Search: []string{
 										"cloud.local",

@@ -69,16 +69,13 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 			network.AddEthernet(sn.Name, nicConf)
 		}
 
-		primaryNic := bondNic
-		netConf := getNetplanEthernetConfig(primaryNic, true)
-		netConf.MacAddress = bondNic.Mac
+		netConf := getNetplanEthernetConfig(bondNic, true)
 
 		if netConf.Mtu == 0 {
 			netConf.Mtu = defaultMtu
 		}
 
 		// TODO: implement kinds of bond mode config
-		// bondConf := netplan.NewBondMode4(netConf, interfaces)
 		bondConf := netplan.NewBondMode4(netConf, interfaces)
 
 		network.AddBond(bondNic.Name, bondConf)
@@ -120,6 +117,7 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool) *netplan.Ether
 			netutils2.GetNicDns(nic),
 			routes,
 		)
+		nicConf.MacAddress = nic.Mac
 		if nic.Mtu > 0 {
 			nicConf.Mtu = nic.Mtu
 		}
