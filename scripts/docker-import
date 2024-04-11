@@ -1,0 +1,66 @@
+#!/bin/bash
+
+TAR=$1
+TARGET=$2
+
+if [[ -z "$TARGET" ]]; then
+    echo "Usage: $0 <tar_file> <docker_image_url>"
+	echo " Eg: $0 docs-ee-v3.10.10.tar registry.cn-beijing.aliyuncs.com/examplerepo/docs-ee:v3.10.10"
+    exit 1
+fi
+
+WORK_DIR=`mktemp -d -p "."`
+
+if [[ ! "$WORK_DIR" || ! -d "$WORK_DIR" ]]; then
+  echo "Could not create temp dir"
+  exit 1
+fi
+
+function cleanup {      
+  rm -rf "$WORK_DIR"
+  echo "Deleted temp working directory $WORK_DIR"
+}
+
+# register the cleanup function to be called on the EXIT signal
+trap cleanup EXIT
+
+tar xvf $TAR --strip-components=1 -C $WORK_DIR
+
+echo "cd $WORK_DIR"
+
+cd $WORK_DIR
+
+IMGCNT=$(ls img* | wc -l)
+
+if [ "$IMGCNT" -eq "0" ]; then
+	echo "Not a recognized package, give up ..."
+	exit 1
+fi
+
+if [ "$IMGCNT" -eq "1" ]; then
+	echo "This is a single image package"
+	IMG=$(docker load < $f | tail -n 1 | awk '{print $3}')
+    echo "Loading $IMG..."
+	docker tag $IMG $TARGET
+	docker push $TARGET
+else
+	for f in $(ls img*)
+	do
+		echo $f
+		IMG=$(docker load < $f | tail -n 1 | awk '{print $3}')
+		echo "Loading $IMG..."
+		ARCH=$(echo -n $IMG | rev | cut -d - -f 1 | rev)
+		TIMG="$TARGET-$ARCH"
+		echo "tag $IMG to $TIMG ..."
+		docker tag $IMG $TIMG
+		docker push $TIMG
+		echo "$TIMG $ARCH" >> imglist
+	done
+	# create manifest
+	cat imglist | awk '{print $1}' | xargs docker manifest create $TARGET
+	cat imglist | awk '{print "docker manifest annotate '$TARGET' " $1 " --arch " $2 " --os linux"}'
+	docker manifest push $TARGET
+
+fi
+
+echo $TARGET

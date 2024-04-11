@@ -101,7 +101,7 @@ type GuestnetworkBaseDesc struct {
 	Vlan           int                  `json:"vlan"`
 	Bw             int                  `json:"bw"`
 	Mtu            int16                `json:"mtu"`
-	Index          int8                 `json:"index"`
+	Index          int                  `json:"index"`
 	RxTrafficLimit int64                `json:"rx_traffic_limit"`
 	TxTrafficLimit int64                `json:"tx_traffic_limit"`
 	NicType        compute.TNicType     `json:"nic_type"`

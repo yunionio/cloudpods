@@ -198,7 +198,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 			"",
 			1000,
 			nicType,
-			int8(i),
+			i,
 			tristate.True,
 			1500,
 			false,

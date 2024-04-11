@@ -3299,13 +3299,13 @@ func (self *SGuest) getAttach2NetworkCount(net *SNetwork) (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SGuest) getUsableNicIndex() int8 {
+func (self *SGuest) getUsableNicIndex() int {
 	nics, err := self.GetNetworks("")
 	if err != nil {
 		return -1
 	}
-	maxIndex := int8(len(nics))
-	for i := int8(0); i <= maxIndex; i++ {
+	maxIndex := len(nics)
+	for i := 0; i <= maxIndex; i++ {
 		found := true
 		for j := range nics {
 			if nics[j].Index == i {
@@ -4953,7 +4953,7 @@ func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
 	return devs, nil
 }
 
-func (self *SGuest) GetIsolatedDeviceByNetworkIndex(index int8) (*SIsolatedDevice, error) {
+func (self *SGuest) GetIsolatedDeviceByNetworkIndex(index int) (*SIsolatedDevice, error) {
 	dev := SIsolatedDevice{}
 	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id).Equals("network_index", index)
 	if cnt, err := q.CountWithError(); err != nil {
