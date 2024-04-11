@@ -563,7 +563,7 @@ type HostAddNetifInput struct {
 
 	NicType cloudmux.TNicType `json:"nic_type"`
 
-	Index int8 `json:"index"`
+	Index int `json:"index"`
 
 	LinkUp string `json:"link_up"`
 
