@@ -200,7 +200,7 @@ func GenerateStartOptions(
 	}
 
 	// genereate disk options
-	opts = append(opts, generateDisksOptions(drvOpt, input.Disks, input.PCIBus, input.IsVdiSpice, isEncrypt, input.IsSlave, input.IsMaster)...)
+	opts = append(opts, generateDisksOptions(drvOpt, input.Disks, input.PCIBus, input.IsVdiSpice, isEncrypt, input.IsSlave, input.IsMaster, input.OsName)...)
 
 	// cdrom
 	opts = append(opts, drvOpt.Cdrom(input.CdromPath, input.OsName, input.IsQ35, len(input.Disks))...)
@@ -266,6 +266,7 @@ func getMonitorOptions(drvOpt QemuOptions, input *Monitor) []string {
 func generateDisksOptions(
 	drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pciBus string,
 	isVdiSpice, isEncrypt, isSlave, isMaster bool,
+	osName string,
 ) []string {
 	opts := []string{}
 	isArm := drvOpt.IsArm()
@@ -296,7 +297,7 @@ func generateDisksOptions(
 			opts = append(opts, getDiskDriveOption(drvOpt, disk, isArm, isEncrypt))
 		}
 
-		opts = append(opts, getDiskDeviceOption(drvOpt, disk, isArm, pciBus, isVdiSpice))
+		opts = append(opts, getDiskDeviceOption(drvOpt, disk, isArm, pciBus, isVdiSpice, osName))
 	}
 	return opts
 }
@@ -364,7 +365,7 @@ func isLocalStorage(disk api.GuestdiskJsonDesc) bool {
 	}
 }
 
-func getDiskDeviceOption(optDrv QemuOptions, disk api.GuestdiskJsonDesc, isArm bool, pciBus string, isVdiSpice bool) string {
+func getDiskDeviceOption(optDrv QemuOptions, disk api.GuestdiskJsonDesc, isArm bool, pciBus string, isVdiSpice bool, osName string) string {
 	diskIndex := disk.Index
 	diskDriver := disk.Driver
 	numQueues := disk.NumQueues
@@ -383,7 +384,9 @@ func getDiskDeviceOption(optDrv QemuOptions, disk api.GuestdiskJsonDesc, isArm b
 
 	var opt = ""
 	opt += GetDiskDeviceModel(diskDriver)
-	opt += fmt.Sprintf(",serial=%s", strings.ReplaceAll(disk.DiskId, "-", ""))
+	if osName != OS_NAME_VMWARE {
+		opt += fmt.Sprintf(",serial=%s", strings.ReplaceAll(disk.DiskId, "-", ""))
+	}
 	opt += fmt.Sprintf(",drive=drive_%d", diskIndex)
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		// virtio-blk
