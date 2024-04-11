@@ -346,6 +346,13 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	cnt, err := self.getNetworkCount()
+	if err != nil {
+		return errors.Wrapf(err, "getNetworkCount")
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("contains %d networks", cnt)
+	}
 	return self.purgeAll(ctx, provider.Id)
 }
 
