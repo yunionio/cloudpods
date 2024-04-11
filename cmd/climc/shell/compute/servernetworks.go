@@ -94,6 +94,7 @@ func init() {
 		Driver  string `help:"Driver model of vNIC" choices:"virtio|e1000|vmxnet3|rtl8139"`
 		Index   int64  `help:"Index of NIC" default:"-1"`
 		Ifname  string `help:"Interface name of vNIC on host"`
+		Default bool   `help:"is default nic?"`
 	}
 	R(&ServerNetworkUpdateOptions{}, "server-network-update", "Update server network settings", func(s *mcclient.ClientSession, args *ServerNetworkUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -105,6 +106,9 @@ func init() {
 		}
 		if len(args.Ifname) > 0 {
 			params.Add(jsonutils.NewString(args.Ifname), "ifname")
+		}
+		if args.Default {
+			params.Add(jsonutils.JSONTrue, "is_default")
 		}
 		if params.Size() == 0 {
 			return InvalidUpdateError()
