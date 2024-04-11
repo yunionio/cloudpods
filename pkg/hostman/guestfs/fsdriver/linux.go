@@ -912,6 +912,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			rootFs.Remove(netplanDir+f, false)
 		}
 		netplanConfig := NewNetplanConfig(allNics, bondNics)
+		log.Debugf("netplanConfig:\n %s", netplanConfig.YAMLString())
 		if err := rootFs.FilePutContents(path.Join(netplanDir, "config.yaml"), netplanConfig.YAMLString(), false, false); err != nil {
 			return errors.Wrap(err, "Put netplan config")
 		}
@@ -946,6 +947,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString(fmt.Sprintf("iface %s inet static\n", nicDesc.Name))
 			cmds.WriteString(fmt.Sprintf("    address %s\n", nicDesc.Ip))
 			cmds.WriteString(fmt.Sprintf("    netmask %s\n", netmask))
+			cmds.WriteString(fmt.Sprintf("    hwaddress ether %s\n", nicDesc.Mac))
 			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
 				cmds.WriteString(fmt.Sprintf("    gateway %s\n", nicDesc.Gateway))
 			}
@@ -1362,15 +1364,20 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
 		}
 		if len(nicDesc.Mac) > 0 {
-			cmds.WriteString("HWADDR=")
-			cmds.WriteString(nicDesc.Mac)
-			cmds.WriteString("\n")
+			if len(nicDesc.TeamingSlaves) == 0 {
+				// only real physical nic can set HWADDR
+				cmds.WriteString("HWADDR=")
+				cmds.WriteString(nicDesc.Mac)
+				cmds.WriteString("\n")
+			}
 			cmds.WriteString("MACADDR=")
 			cmds.WriteString(nicDesc.Mac)
 			cmds.WriteString("\n")
 		}
-		if len(nicDesc.TeamingSlaves) != 0 {
-			cmds.WriteString(`BONDING_OPTS="mode=4 miimon=100"\n`)
+		if len(nicDesc.TeamingSlaves) > 0 {
+			// bonding
+			cmds.WriteString(`BONDING_OPTS="mode=4 miimon=100"`)
+			cmds.WriteString("\n")
 		}
 		if nicDesc.TeamingMaster != nil {
 			cmds.WriteString("BOOTPROTO=none\n")
