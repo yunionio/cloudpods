@@ -134,7 +134,7 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
-	for i := 0; i <= len(self.iwires); i++ {
+	for i := 0; i < len(self.iwires); i++ {
 		wire := self.iwires[i].(*SWire)
 		if wire.zone.Zone == zoneId {
 			return wire
