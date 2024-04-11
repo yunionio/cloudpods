@@ -246,7 +246,7 @@ func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMet
 
 			var nicIo *NetIOMetric
 			for j := range data.VmNetio {
-				if gm.Nics[i].Index == int8(data.VmNetio[j].Meta.Index) {
+				if gm.Nics[i].Index == data.VmNetio[j].Meta.Index {
 					nicIo = data.VmNetio[j]
 					break
 				}
@@ -504,7 +504,7 @@ func (m *SGuestMonitor) SetNicDown(index int) {
 	if !ok {
 		return
 	}
-	if err := guest.SetNicDown(int8(index)); err != nil {
+	if err := guest.SetNicDown(index); err != nil {
 		log.Errorf("guest %s SetNicDown failed %s", m.Id, err)
 	}
 }

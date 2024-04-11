@@ -3432,7 +3432,7 @@ func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []*desc.SGuestDisk) (
 	return cmd, nil
 }
 
-func (s *SKVMGuestInstance) GetSriovDeviceByNetworkIndex(networkIndex int8) (isolated_device.IDevice, error) {
+func (s *SKVMGuestInstance) GetSriovDeviceByNetworkIndex(networkIndex int) (isolated_device.IDevice, error) {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		if s.Desc.IsolatedDevices[i].DevType == api.NIC_TYPE &&
@@ -3476,7 +3476,7 @@ func getIbPortMac(mac string) string {
 	return "00:10:" + mac
 }
 
-func (s *SKVMGuestInstance) sriovNicAttachInitScript(networkIndex int8, dev isolated_device.IDevice) (string, error) {
+func (s *SKVMGuestInstance) sriovNicAttachInitScript(networkIndex int, dev isolated_device.IDevice) (string, error) {
 	for i := range s.Desc.Nics {
 		if s.Desc.Nics[i].Driver == "vfio-pci" && s.Desc.Nics[i].Index == networkIndex {
 			cmd := s.generateSriovInitCmd(i, dev)

@@ -222,6 +222,8 @@ type ComputeOptions struct {
 	ResourceExpiredNotifyDays []int `help:"The notify of resource expired" default:"1,3,30"`
 
 	esxi.EsxiOptions
+
+	NetworkAlwaysManualConfig bool `help:"always manually configure network settings" default:"false"`
 }
 
 type SCapabilityOptions struct {

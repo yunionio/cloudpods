@@ -97,7 +97,7 @@ type SIsolatedDevice struct {
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain"`
 	// guest network index
-	NetworkIndex int8 `nullable:"true" default:"-1" list:"user" update:"user"`
+	NetworkIndex int `nullable:"true" default:"-1" list:"user" update:"user"`
 	// Nic wire id
 	WireId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// Offload interface name
@@ -1094,7 +1094,7 @@ func (model *SIsolatedDevice) GetOwnerId() mcclient.IIdentityProvider {
 	return nil
 }
 
-func (model *SIsolatedDevice) SetNetworkIndex(idx int8) error {
+func (model *SIsolatedDevice) SetNetworkIndex(idx int) error {
 	_, err := db.Update(model, func() error {
 		model.NetworkIndex = idx
 		return nil

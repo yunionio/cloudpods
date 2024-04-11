@@ -4652,14 +4652,14 @@ func (h *SHost) PerformAddNetif(
 		}
 	}
 
-	err = h.addNetif(ctx, userCred, mac, vlan, wire, ipAddr, int(rate), nicType, int8(index), isLinkUp,
+	err = h.addNetif(ctx, userCred, mac, vlan, wire, ipAddr, int(rate), nicType, index, isLinkUp,
 		int16(mtu), reset, netIf, bridge, reserve, requireDesignatedIp)
 	return nil, errors.Wrap(err, "addNetif")
 }
 
 func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 	mac string, vlanId int, wire string, ipAddr string,
-	rate int, nicType compute.TNicType, index int8, linkUp tristate.TriState, mtu int16,
+	rate int, nicType compute.TNicType, index int, linkUp tristate.TriState, mtu int16,
 	reset bool, strInterface *string, strBridge *string,
 	reserve bool, requireDesignatedIp bool,
 ) error {
@@ -4735,7 +4735,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 	if nicType != "" && nicType != netif.NicType {
 		netif.NicType = nicType
 	}
-	if index >= 0 && index != netif.Index {
+	if index >= 0 {
 		netif.Index = index
 	}
 	if !linkUp.IsNone() && linkUp.Bool() != netif.LinkUp {
@@ -4749,6 +4749,28 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 	}
 	if strBridge != nil {
 		netif.Bridge = *strBridge
+	}
+	// ensure index is unique on host
+	{
+		ifs := h.GetHostNetInterfaces()
+		dupIdx := false
+		var maxIdx int
+		for i := range ifs {
+			if ifs[i].Mac == netif.Mac && ifs[i].VlanId == netif.VlanId {
+				// find self, skip
+				continue
+			}
+			if netif.Index == ifs[i].Index {
+				// duplicate nic index
+				dupIdx = true
+			}
+			if maxIdx < ifs[i].Index {
+				maxIdx = ifs[i].Index
+			}
+		}
+		if dupIdx {
+			netif.Index = maxIdx + 1
+		}
 	}
 	err = NetInterfaceManager.TableSpec().InsertOrUpdate(ctx, netif)
 	if err != nil {
@@ -5644,7 +5666,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 			}
 		}
 		err = host.addNetif(ctx, userCred, extNic.GetMac(), extNic.GetVlanId(), wireId, extNic.GetIpAddr(), 0,
-			compute.TNicType(extNic.GetNicType()), extNic.GetIndex(),
+			compute.TNicType(extNic.GetNicType()), int(extNic.GetIndex()),
 			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, strNetIf, strBridge, true, true)
 		if err != nil {
 			result.AddError(err)
