@@ -42,6 +42,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Disks)
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("rebuild", &options.ResourceIdOptions{})
 
 	type DiskListOptions struct {
 		options.BaseListOptions
