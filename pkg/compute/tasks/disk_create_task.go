@@ -130,6 +130,13 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 		Obj:    disk,
 		Action: notifyclient.ActionCreate,
 	})
+	if !self.IsSubtask() {
+		guest := disk.GetGuest()
+		if guest != nil {
+			// just sync guest status
+			guest.StartSyncstatus(ctx, self.GetUserCred(), "")
+		}
+	}
 	self.SetStageComplete(ctx, nil)
 }
 
