@@ -17,7 +17,8 @@ func init() {
 }
 
 type iDiskOverlay interface {
-	validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay) error
+	validatePodCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay, disk *api.DiskConfig) error
+	validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay, obj *models.SDisk) error
 }
 
 type disk struct {
@@ -27,7 +28,8 @@ type disk struct {
 func newDisk() models.IContainerVolumeMountDriver {
 	return &disk{
 		overlayDrivers: map[apis.ContainerDiskOverlayType]iDiskOverlay{
-			apis.CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY: newDiskOverlayDir(),
+			apis.CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY:  newDiskOverlayDir(),
+			apis.CONTAINER_DISK_OVERLAY_TYPE_DISK_IMAGE: newDiskOverlayImage(),
 		},
 	}
 }
@@ -61,20 +63,16 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 		return nil, errors.Wrap(err, "get pod disks")
 	}
 	disk := vm.Disk
+	var diskObj models.SDisk
 	if disk.Index != nil {
 		diskIndex := *disk.Index
 		if diskIndex >= len(disks) {
 			return nil, httperrors.NewInputParameterError("disk.index %d is large than disk size %d", diskIndex, len(disks))
 		}
-		diskObj := disks[diskIndex]
+		diskObj = disks[diskIndex]
 		vm.Disk.Id = diskObj.GetId()
 		// remove index
 		vm.Disk.Index = nil
-		if diskObj.TemplateId != "" {
-			if vm.Disk.SubDirectory == "" {
-				return nil, httperrors.NewInputParameterError("sub_directory is required when disk has template_id %s", diskObj.TemplateId)
-			}
-		}
 	} else {
 		if disk.Id == "" {
 			return nil, httperrors.NewNotEmptyError("disk.id is empty")
@@ -83,11 +81,7 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 		for _, d := range disks {
 			if d.GetId() == disk.Id || d.GetName() == disk.Id {
 				disk.Id = d.GetId()
-				if d.TemplateId != "" {
-					if vm.Disk.SubDirectory == "" {
-						return nil, httperrors.NewInputParameterError("sub_directory is required when disk has template_id %s", d.TemplateId)
-					}
-				}
+				diskObj = d
 				foundDisk = true
 				break
 			}
@@ -96,7 +90,7 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 			return nil, httperrors.NewNotFoundError("not found pod disk by %s", disk.Id)
 		}
 	}
-	if err := d.validateOverlay(ctx, userCred, vm); err != nil {
+	if err := d.validateOverlay(ctx, userCred, vm, &diskObj); err != nil {
 		return nil, errors.Wrapf(err, "validate overlay")
 	}
 	return vm, nil
@@ -122,9 +116,9 @@ func (d disk) ValidatePodCreateData(ctx context.Context, userCred mcclient.Token
 		return httperrors.NewInputParameterError("disk.index %d is large than disk size %d", diskIndex, len(disks))
 	}
 	inputDisk := disks[diskIndex]
-	if inputDisk.ImageId != "" {
-		if disk.SubDirectory == "" {
-			return httperrors.NewInputParameterError("sub_directory is required when disk has image_id %s", inputDisk.ImageId)
+	if vm.Disk.Overlay != nil {
+		if err := d.getOverlayDriver(vm.Disk.Overlay).validatePodCreateData(ctx, userCred, vm.Disk.Overlay, inputDisk); err != nil {
+			return httperrors.NewInputParameterError("valid overlay %v", err)
 		}
 	}
 	return nil
@@ -134,7 +128,7 @@ func (d disk) getOverlayDriver(ov *apis.ContainerVolumeMountDiskOverlay) iDiskOv
 	return d.overlayDrivers[ov.GetType()]
 }
 
-func (d disk) validateOverlay(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount) error {
+func (d disk) validateOverlay(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount, diskObj *models.SDisk) error {
 	if vm.Disk.Overlay == nil {
 		return nil
 	}
@@ -142,7 +136,7 @@ func (d disk) validateOverlay(ctx context.Context, userCred mcclient.TokenCreden
 	if err := ov.IsValid(); err != nil {
 		return httperrors.NewInputParameterError("invalid overlay input: %v", err)
 	}
-	if err := d.getOverlayDriver(ov).validateCreateData(ctx, userCred, ov); err != nil {
+	if err := d.getOverlayDriver(ov).validateCreateData(ctx, userCred, ov, diskObj); err != nil {
 		return errors.Wrapf(err, "validate overlay %s", ov.GetType())
 	}
 	return nil
@@ -154,7 +148,7 @@ func newDiskOverlayDir() iDiskOverlay {
 	return &diskOverlayDir{}
 }
 
-func (d diskOverlayDir) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay) error {
+func (d diskOverlayDir) validateCommonCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay) error {
 	if len(input.LowerDir) == 0 {
 		return httperrors.NewNotEmptyError("lower_dir is required")
 	}
@@ -165,6 +159,40 @@ func (d diskOverlayDir) validateCreateData(ctx context.Context, userCred mcclien
 		if ld == "/" {
 			return httperrors.NewInputParameterError("can't use '/' as lower_dir")
 		}
+	}
+	return nil
+}
+
+func (d diskOverlayDir) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay, _ *models.SDisk) error {
+	return d.validateCommonCreateData(ctx, userCred, input)
+}
+
+func (d diskOverlayDir) validatePodCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay, disk *api.DiskConfig) error {
+	return d.validateCommonCreateData(ctx, userCred, input)
+}
+
+type diskOverlayImage struct{}
+
+func newDiskOverlayImage() iDiskOverlay {
+	return &diskOverlayImage{}
+}
+
+func (d diskOverlayImage) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay, diskObj *models.SDisk) error {
+	if !input.UseDiskImage {
+		return nil
+	}
+	if diskObj.TemplateId == "" {
+		return httperrors.NewInputParameterError("disk %s must have template_id", diskObj.GetId())
+	}
+	return nil
+}
+
+func (d diskOverlayImage) validatePodCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay, disk *api.DiskConfig) error {
+	if !input.UseDiskImage {
+		return nil
+	}
+	if disk.ImageId == "" {
+		return httperrors.NewInputParameterError("disk %#v must have image_id", disk)
 	}
 	return nil
 }

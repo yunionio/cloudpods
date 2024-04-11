@@ -35,7 +35,8 @@ type disk struct {
 func newDisk() IVolumeMount {
 	return &disk{
 		overlayDrivers: map[apis.ContainerDiskOverlayType]iDiskOverlay{
-			apis.CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY: newDiskOverlayDir(),
+			apis.CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY:  newDiskOverlayDir(),
+			apis.CONTAINER_DISK_OVERLAY_TYPE_DISK_IMAGE: newDiskOverlayImage(),
 		},
 	}
 }
@@ -160,11 +161,6 @@ func (d disk) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount
 			return errors.Wrapf(err, "mount container %s overlay dir: %#v", ctrId, vmDisk.Overlay)
 		}
 	}
-	if vmDisk.TemplateId != "" {
-		if err := d.mountTemplateOverlay(context.Background(), pod, ctrId, vm); err != nil {
-			return errors.Wrapf(err, "mount container %s template overlay: %#v", ctrId, vmDisk.TemplateId)
-		}
-	}
 	return nil
 }
 
@@ -195,11 +191,6 @@ func (d disk) Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMou
 	if vm.Disk.Overlay != nil {
 		if err := d.unmoutOverlay(pod, ctrId, vm); err != nil {
 			return errors.Wrapf(err, "umount overlay")
-		}
-	}
-	if vm.Disk.TemplateId != "" {
-		if err := d.unmountTemplateOverlay(context.Background(), pod, ctrId, vm); err != nil {
-			return errors.Wrapf(err, "unmount container %s template overlay: %#v", ctrId, vm.Disk.TemplateId)
 		}
 	}
 	mntPoint := pod.GetDiskMountPoint(iDisk)
@@ -258,24 +249,6 @@ func (d disk) doTemplateOverlayAction(
 	return nil
 }
 
-func (d disk) mountTemplateOverlay(
-	ctx context.Context,
-	pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	if err := d.doTemplateOverlayAction(ctx, pod, ctrId, vm, newDiskOverlayDir().mount); err != nil {
-		return errors.Wrapf(err, "mount template overlay")
-	}
-	return nil
-}
-
-func (d disk) unmountTemplateOverlay(
-	ctx context.Context,
-	pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	if err := d.doTemplateOverlayAction(ctx, pod, ctrId, vm, newDiskOverlayDir().unmount); err != nil {
-		return errors.Wrapf(err, "unmount template overlay")
-	}
-	return nil
-}
-
 type diskOverlayDir struct{}
 
 func newDiskOverlayDir() iDiskOverlay {
@@ -313,4 +286,24 @@ func (dod diskOverlayDir) unmount(d disk, pod IPodInfo, ctrId string, vm *hostap
 	}
 	overlayDir := d.getOverlayMergedDir(pod, ctrId, vm, upperDir)
 	return container_storage.Unmount(overlayDir)
+}
+
+type diskOverlayImage struct{}
+
+func newDiskOverlayImage() iDiskOverlay {
+	return &diskOverlayImage{}
+}
+
+func (di diskOverlayImage) mount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().mount); err != nil {
+		return errors.Wrapf(err, "mount template overlay")
+	}
+	return nil
+}
+
+func (di diskOverlayImage) unmount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().unmount); err != nil {
+		return errors.Wrapf(err, "unmount template overlay")
+	}
+	return nil
 }

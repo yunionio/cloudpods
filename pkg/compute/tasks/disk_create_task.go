@@ -44,9 +44,14 @@ func (self *DiskCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	// use image only if disk not created from snapshot or backup
 	if len(imageId) > 0 && len(disk.SnapshotId) == 0 && len(disk.BackupId) == 0 {
 		self.SetStage("OnStorageCacheImageComplete", nil)
+		cacheImageFmt, err := disk.GetCacheImageFormat(ctx)
+		if err != nil {
+			self.OnStartAllocateFailed(ctx, disk, jsonutils.NewString(err.Error()))
+			return
+		}
 		input := api.CacheImageInput{
 			ImageId:      imageId,
-			Format:       disk.GetCacheImageFormat(),
+			Format:       cacheImageFmt,
 			ParentTaskId: self.GetTaskId(),
 		}
 		guest := disk.GetGuest()
