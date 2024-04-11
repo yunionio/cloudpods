@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -436,11 +436,11 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
 	cli.WithHttpTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ioutil.ReadAll")
 		}
-		req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		req.Body = io.NopCloser(bytes.NewBuffer(body))
 		params, err := url.ParseQuery(string(body))
 		if err != nil {
 			return nil, errors.Wrapf(err, "ParseQuery(%s)", string(body))
@@ -807,7 +807,7 @@ func (client *SQcloudClient) fetchBuckets() error {
 		}
 		name := bInfo.Name[:slashPos]
 		region, err := client.getIRegionByRegionId(bInfo.Region)
-		var zone cloudprovider.ICloudZone
+		var zone *SZone = nil
 		if err != nil {
 			log.Errorf("fail to find region %s", bInfo.Region)
 			// possibly a zone, try zone
@@ -824,10 +824,12 @@ func (client *SQcloudClient) fetchBuckets() error {
 				continue
 			}
 			zoneId := bInfo.Region
-			zone, _ = region.(*SRegion).getZoneById(bInfo.Region)
-			if zone != nil {
-				zoneId = zone.GetId()
+			zone, err = region.(*SRegion).getZoneById(bInfo.Region)
+			if err != nil {
+				log.Errorf("fail to find zone %s", zoneId)
+				continue
 			}
+			zoneId = zone.GetId()
 			log.Debugf("find zonal bucket %s", zoneId)
 		}
 		b := SBucket{
@@ -838,7 +840,7 @@ func (client *SQcloudClient) fetchBuckets() error {
 			CreateDate: createAt,
 		}
 		if zone != nil {
-			b.zone = zone.(*SZone)
+			b.zone = zone
 		}
 		ret = append(ret, &b)
 	}
