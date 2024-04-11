@@ -129,6 +129,18 @@ func (opts *DomainTagValueTreeOptions) Property() string {
 	return "domain-tag-value-tree"
 }
 
+type ResourceIdOptions struct {
+	ID string `help:"ID or name of the resource" json:"-"`
+}
+
+func (o *ResourceIdOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ResourceIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type ResourceMetadataOptions struct {
 	ID   string   `help:"ID or name of resources" json:"-"`
 	TAGS []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`

@@ -328,3 +328,5 @@ type DiskResetInput struct {
 type DiskSnapshotpolicyInput struct {
 	SnapshotpolicyId string `json:"snapshotpolicy_id"`
 }
+
+type DiskRebuildInput struct{}
