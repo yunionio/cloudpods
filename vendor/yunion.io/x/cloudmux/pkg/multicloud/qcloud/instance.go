@@ -214,7 +214,7 @@ func (self *SInstance) GetInstanceType() string {
 }
 
 func (self *SInstance) getVpc() (*SVpc, error) {
-	return self.host.zone.region.getVpc(self.VirtualPrivateCloud.VpcId)
+	return self.host.zone.region.GetVpc(self.VirtualPrivateCloud.VpcId)
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
