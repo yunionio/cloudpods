@@ -2556,6 +2556,29 @@ func (self *SGuest) PerformDetachnetwork(
 		return nil, httperrors.NewMissingParameterError("net_id")
 	}
 
+	removeNics := make(map[string]*SGuestnetwork)
+	for i := range gns {
+		removeNics[gns[i].MacAddr] = &gns[i]
+	}
+
+	slaveNics, err := self.GetSlaveNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSlaveNetworks")
+	}
+
+	for i := range slaveNics {
+		teamMac := slaveNics[i].TeamWith
+		if len(teamMac) > 0 {
+			if _, ok := removeNics[teamMac]; ok {
+				// to remove slave's master NIC, should also remove slave itself
+				if _, ok2 := removeNics[slaveNics[i].MacAddr]; !ok2 {
+					// otherwise, report the error
+					return nil, errors.Wrap(errors.ErrInvalidStatus, "")
+				}
+			}
+		}
+	}
+
 	err = self.detachNetworks(ctx, userCred, gns, input.Reserve)
 	if err != nil {
 		return nil, errors.Wrap(err, "detachNetworks")
@@ -2591,6 +2614,9 @@ func (guest *SGuest) fixDefaultGateway(ctx context.Context, userCred mcclient.To
 	nicList := netutils2.SNicInfoList{}
 	nics, _ := guest.GetNetworks("")
 	for i := range nics {
+		if nics[i].Virtual || len(nics[i].TeamWith) > 0 {
+			continue
+		}
 		net, _ := nics[i].GetNetwork()
 		if net != nil {
 			nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)

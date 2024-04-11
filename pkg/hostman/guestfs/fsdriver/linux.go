@@ -841,7 +841,7 @@ func (d *sDebianLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	netplanDir := "/etc/netplan/"
 	if rootFs.Exists(netplanDir, false) {
 		for _, f := range rootFs.ListDir(netplanDir, false) {
-			rootFs.Remove(netplanDir+f, false)
+			rootFs.Remove(filepath.Join(netplanDir, f), false)
 		}
 	}
 	return nil
@@ -885,16 +885,6 @@ func getNicTeamingConfigCmds(slaves []*types.SServerNic) string {
 	return cmds.String()
 }
 
-func (d *sDebianLikeRootFs) deployNetplanConfigFile(rootFs IDiskPartition, nics []*types.SServerNic) error {
-	netplanDir := "/etc/netplan/"
-	dirExists := rootFs.Exists(netplanDir, false)
-	if !dirExists {
-		return nil
-	}
-
-	return nil
-}
-
 func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	if err := d.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
@@ -914,22 +904,22 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	// ToServerNics(nics)
 	allNics, bondNics := convertNicConfigs(nics)
 
-	netplanDir := "/etc/netplan"
-	if rootFs.Exists(netplanDir, false) {
-		for _, f := range rootFs.ListDir(netplanDir, false) {
-			rootFs.Remove(netplanDir+f, false)
-		}
-		netplanConfig := NewNetplanConfig(allNics, bondNics)
-		log.Debugf("netplanConfig:\n %s", netplanConfig.YAMLString())
-		if err := rootFs.FilePutContents(path.Join(netplanDir, "config.yaml"), netplanConfig.YAMLString(), false, false); err != nil {
-			return errors.Wrap(err, "Put netplan config")
-		}
-	}
-
 	mainNic := getMainNic(allNics)
 	var mainIp string
 	if mainNic != nil {
 		mainIp = mainNic.Ip
+	}
+
+	netplanDir := "/etc/netplan"
+	if rootFs.Exists(netplanDir, false) {
+		for _, f := range rootFs.ListDir(netplanDir, false) {
+			rootFs.Remove(filepath.Join(netplanDir, f), false)
+		}
+		netplanConfig := NewNetplanConfig(allNics, bondNics, mainIp)
+		log.Debugf("netplanConfig:\n %s", netplanConfig.YAMLString())
+		if err := rootFs.FilePutContents(path.Join(netplanDir, "config.yaml"), netplanConfig.YAMLString(), false, false); err != nil {
+			return errors.Wrap(err, "Put netplan config")
+		}
 	}
 
 	var systemdResolveConfig strings.Builder

@@ -1073,6 +1073,16 @@ func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	return guestnics, nil
 }
 
+func (guest *SGuest) GetSlaveNetworks() ([]SGuestnetwork, error) {
+	guestnics := make([]SGuestnetwork, 0)
+	q := guest.GetNetworksQuery("").IsNotEmpty("team_with")
+	err := db.FetchModelObjects(GuestnetworkManager, q, &guestnics)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return guestnics, nil
+}
+
 func (guest *SGuest) ConvertEsxiNetworks(targetGuest *SGuest) error {
 	gns, err := guest.GetNetworks("")
 	if err != nil {
