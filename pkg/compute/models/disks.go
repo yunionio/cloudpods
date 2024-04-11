@@ -2985,3 +2985,18 @@ func (manager *SDiskManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
+
+func (disk *SDisk) PerformRebuild(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.DiskRebuildInput,
+) (jsonutils.JSONObject, error) {
+	guests := disk.GetGuests()
+	for _, guest := range guests {
+		if guest.GetStatus() != api.VM_READY {
+			return nil, httperrors.NewInvalidStatusError("Guest %s status is %s", guest.GetId(), guest.GetStatus())
+		}
+	}
+	return nil, disk.StartDiskCreateTask(ctx, userCred, true, disk.SnapshotId, "")
+}
