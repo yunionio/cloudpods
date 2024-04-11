@@ -131,17 +131,22 @@ type ContainerOverlayDiskImage struct {
 type ContainerDiskOverlayType string
 
 const (
-	CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY ContainerDiskOverlayType = "directory"
-	CONTAINER_DISK_OVERLAY_TYPE_UNKNOWN   ContainerDiskOverlayType = "unknown"
+	CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY  ContainerDiskOverlayType = "directory"
+	CONTAINER_DISK_OVERLAY_TYPE_DISK_IMAGE ContainerDiskOverlayType = "disk_image"
+	CONTAINER_DISK_OVERLAY_TYPE_UNKNOWN    ContainerDiskOverlayType = "unknown"
 )
 
 type ContainerVolumeMountDiskOverlay struct {
-	LowerDir []string `json:"lower_dir"`
+	LowerDir     []string `json:"lower_dir"`
+	UseDiskImage bool     `json:"use_disk_image"`
 }
 
 func (o ContainerVolumeMountDiskOverlay) GetType() ContainerDiskOverlayType {
 	if len(o.LowerDir) != 0 {
 		return CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY
+	}
+	if o.UseDiskImage {
+		return CONTAINER_DISK_OVERLAY_TYPE_DISK_IMAGE
 	}
 	return CONTAINER_DISK_OVERLAY_TYPE_UNKNOWN
 }

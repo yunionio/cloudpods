@@ -305,19 +305,23 @@ func (vm *ContainerVolumeMountRelation) toHostDiskMount(disk *apis.ContainerVolu
 }
 
 func (vm *ContainerVolumeMountRelation) ToHostMount() (*hostapi.ContainerVolumeMount, error) {
-	disk, err := vm.toHostDiskMount(vm.VolumeMount.Disk)
-	if err != nil {
-		return nil, errors.Wrap(err, "toHostDiskMount")
-	}
-	return &hostapi.ContainerVolumeMount{
+	ret := &hostapi.ContainerVolumeMount{
 		Type:           vm.VolumeMount.Type,
-		Disk:           disk,
+		Disk:           nil,
 		HostPath:       vm.VolumeMount.HostPath,
 		ReadOnly:       vm.VolumeMount.ReadOnly,
 		MountPath:      vm.VolumeMount.MountPath,
 		SelinuxRelabel: vm.VolumeMount.SelinuxRelabel,
 		Propagation:    vm.VolumeMount.Propagation,
-	}, nil
+	}
+	if vm.VolumeMount.Disk != nil {
+		disk, err := vm.toHostDiskMount(vm.VolumeMount.Disk)
+		if err != nil {
+			return nil, errors.Wrap(err, "toHostDiskMount")
+		}
+		ret.Disk = disk
+	}
+	return ret, nil
 }
 
 func (m *SContainerManager) GetVolumeMountRelations(pod *SGuest, spec *api.ContainerSpec) ([]*ContainerVolumeMountRelation, error) {

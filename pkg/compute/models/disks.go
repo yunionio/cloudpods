@@ -1377,11 +1377,24 @@ func (self *SDisk) GetFsFormat() string {
 	return self.FsFormat
 }
 
-func (self *SDisk) GetCacheImageFormat() string {
-	if self.DiskFormat == "raw" {
-		return "qcow2"
+func (self *SDisk) GetCacheImageFormat(ctx context.Context) (string, error) {
+	if self.TemplateId != "" {
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		img, err := image.Images.Get(s, self.TemplateId, nil)
+		if err == nil {
+			diskFmt, err := img.GetString("disk_format")
+			if err != nil {
+				return "", errors.Wrapf(err, "not found disk_format of image %s", self.TemplateId)
+			}
+			if diskFmt == imageapi.IMAGE_DISK_FORMAT_TGZ {
+				return imageapi.IMAGE_DISK_FORMAT_TGZ, nil
+			}
+		}
 	}
-	return self.DiskFormat
+	if self.DiskFormat == "raw" {
+		return "qcow2", nil
+	}
+	return self.DiskFormat, nil
 }
 
 func (manager *SDiskManager) getDisksByStorage(storage *SStorage) ([]SDisk, error) {
