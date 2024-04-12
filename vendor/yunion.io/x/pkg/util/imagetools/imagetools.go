@@ -112,6 +112,8 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		return "AlmaLinux"
 	} else if strings.Contains(osDist, "amazon") && strings.Contains(osDist, "linux") {
 		return "Amazon Linux"
+	} else if strings.Contains(osDist, "kylin") {
+		return "Kylin"
 	} else if strings.Contains(osDist, "windows") {
 		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022"} {
 			if strings.Contains(osDist, ver) {
