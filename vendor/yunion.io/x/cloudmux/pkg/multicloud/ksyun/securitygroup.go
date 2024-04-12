@@ -104,6 +104,14 @@ func (secgroup *SSecurityGroup) Refresh() error {
 	return jsonutils.Update(secgroup, group)
 }
 
+func (secgroup *SSecurityGroup) GetTags() (map[string]string, error) {
+	tags, err := secgroup.region.ListTags("security-group", secgroup.SecurityGroupID)
+	if err != nil {
+		return nil, err
+	}
+	return tags.GetTags(), nil
+}
+
 func (secgroup *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {
 	references, err := secgroup.region.DescribeSecurityGroupReferences(secgroup.SecurityGroupID)
 	if err != nil {

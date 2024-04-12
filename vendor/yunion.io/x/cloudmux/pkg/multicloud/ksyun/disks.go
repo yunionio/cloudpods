@@ -141,6 +141,14 @@ func (disk *SDisk) GetId() string {
 	return disk.VolumeID
 }
 
+func (disk *SDisk) GetTags() (map[string]string, error) {
+	tags, err := disk.storage.zone.region.ListTags("volume", disk.VolumeID)
+	if err != nil {
+		return nil, err
+	}
+	return tags.GetTags(), nil
+}
+
 func (disk *SDisk) GetGlobalId() string {
 	return disk.VolumeID
 }

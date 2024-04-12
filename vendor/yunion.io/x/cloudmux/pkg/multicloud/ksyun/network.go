@@ -139,6 +139,14 @@ func (net *SNetwork) Refresh() error {
 	return jsonutils.Update(net, extNet)
 }
 
+func (net *SNetwork) GetTags() (map[string]string, error) {
+	tags, err := net.wire.zone.region.ListTags("subnet", net.SubnetID)
+	if err != nil {
+		return nil, err
+	}
+	return tags.GetTags(), nil
+}
+
 func (net *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return net.wire
 }
