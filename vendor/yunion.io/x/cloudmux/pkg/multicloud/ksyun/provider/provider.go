@@ -163,7 +163,7 @@ func (self *SKsyunProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
 }
 
 func (self *SKsyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	return []cloudprovider.ICloudProject{}, nil
+	return self.client.GetIProjects()
 }
 
 func (self *SKsyunProvider) CreateIProject(name string) (cloudprovider.ICloudProject, error) {

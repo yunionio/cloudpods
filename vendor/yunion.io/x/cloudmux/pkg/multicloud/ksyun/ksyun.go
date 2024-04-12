@@ -39,8 +39,9 @@ import (
 )
 
 const (
-	CLOUD_PROVIDER_KSYUN_CN = "金山云"
-	KSYUN_DEFAULT_REGION    = "cn-beijing-6"
+	CLOUD_PROVIDER_KSYUN_CN   = "金山云"
+	KSYUN_DEFAULT_REGION      = "cn-beijing-6"
+	KSYUN_DEFAULT_API_VERSION = "2016-03-04"
 )
 
 type KsyunClientConfig struct {
@@ -125,16 +126,10 @@ func (cli *SKsyunClient) getUrl(service, regionId string) (string, error) {
 		regionId = KSYUN_DEFAULT_REGION
 	}
 	switch service {
-	case "kingpay", "iam":
+	case "kingpay", "iam", "vpc", "ebs", "eip":
 		return fmt.Sprintf("http://%s.api.ksyun.com", service), nil
-	case "kec":
-		return fmt.Sprintf("https://kec.%s.api.ksyun.com", regionId), nil
-	case "vpc":
-		return "http://vpc.api.ksyun.com", nil
-	case "ebs":
-		return "http://ebs.api.ksyun.com", nil
-	case "eip":
-		return "http://eip.api.ksyun.com", nil
+	case "kec", "tag":
+		return fmt.Sprintf("https://%s.%s.api.ksyun.com", service, regionId), nil
 	}
 	return "", errors.Wrapf(cloudprovider.ErrNotSupported, "service %s", service)
 }
@@ -237,11 +232,27 @@ func (cli *SKsyunClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func (cli *SKsyunClient) ec2Request(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return cli.request("kec", regionId, apiName, "2016-03-04", params)
+	return cli.request("kec", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
 func (cli *SKsyunClient) iamRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	return cli.request("iam", regionId, apiName, "2015-11-01", params)
+}
+
+func (cli *SKsyunClient) tagRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return cli.request("tag", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
+}
+
+func (cli *SKsyunClient) eipRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return cli.request("eip", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
+}
+
+func (cli *SKsyunClient) ebsRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return cli.request("ebs", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
+}
+
+func (cli *SKsyunClient) vpcRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return cli.request("vpc", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
 func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -269,7 +280,7 @@ func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, 
 	}
 	uri = fmt.Sprintf("%s?%s", uri, values.Encode())
 	method := httputils.GET
-	if !strings.HasPrefix(apiName, "Describe") {
+	if !strings.HasPrefix(apiName, "Describe") && !strings.HasPrefix(apiName, "Get") {
 		method = httputils.POST
 	}
 	req := httputils.NewJsonRequest(method, uri, nil)
@@ -331,6 +342,7 @@ func (cli *SKsyunClient) QueryCashWalletAction() (*CashWalletDetail, error) {
 func (cli *SKsyunClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 	}
 	return caps

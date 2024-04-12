@@ -111,6 +111,14 @@ func (eip *SEip) GetGlobalId() string {
 	return eip.AllocationID
 }
 
+func (eip *SEip) GetTags() (map[string]string, error) {
+	tags, err := eip.region.ListTags("eip", eip.AllocationID)
+	if err != nil {
+		return nil, err
+	}
+	return tags.GetTags(), nil
+}
+
 func (eip *SEip) GetStatus() string {
 	switch eip.State {
 	case "associate":
