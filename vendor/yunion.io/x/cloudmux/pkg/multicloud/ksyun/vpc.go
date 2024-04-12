@@ -163,6 +163,14 @@ func (vpc *SVpc) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
+func (vpc *SVpc) GetTags() (map[string]string, error) {
+	tags, err := vpc.region.ListTags("vpc", vpc.VpcID)
+	if err != nil {
+		return nil, err
+	}
+	return tags.GetTags(), nil
+}
+
 func (vpc *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 	wires, err := vpc.GetIWires()
 	if err != nil {

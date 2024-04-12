@@ -239,17 +239,21 @@ func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (region *SRegion) ecsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
-	return region.client.request("kec", region.Region, action, "2016-03-04", params)
+	return region.client.ec2Request(region.Region, action, params)
+}
+
+func (region *SRegion) tagRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	return region.client.tagRequest(region.Region, action, params)
 }
 
 func (region *SRegion) eipRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
-	return region.client.request("eip", region.Region, action, "2016-03-04", params)
+	return region.client.eipRequest(region.Region, action, params)
 }
 
 func (region *SRegion) ebsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
-	return region.client.request("ebs", region.Region, action, "2016-03-04", params)
+	return region.client.ebsRequest(region.Region, action, params)
 }
 
 func (region *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
-	return region.client.request("vpc", region.Region, action, "2016-03-04", params)
+	return region.client.vpcRequest(region.Region, action, params)
 }
