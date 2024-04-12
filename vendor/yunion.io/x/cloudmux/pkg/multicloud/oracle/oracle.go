@@ -356,6 +356,18 @@ func (self *SOracleClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		ret = append(ret, subAccount)
 	}
+	if len(self.compartment) == 0 {
+		compartment, err := self.GetCompartment(self.tenancyOCID)
+		if err != nil {
+			return nil, err
+		}
+		subAccount := cloudprovider.SSubAccount{}
+		subAccount.Id = compartment.Id
+		subAccount.Name = compartment.Name
+		subAccount.Account = fmt.Sprintf("%s/%s", self.userOCID, compartment.Id)
+		subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
+		ret = append(ret, subAccount)
+	}
 	return ret, nil
 }
 
@@ -374,6 +386,19 @@ func (self *SOracleClient) GetCompartments() ([]Compartment, error) {
 		return nil, err
 	}
 	ret := []Compartment{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return ret, nil
+}
+
+func (self *SOracleClient) GetCompartment(id string) (*Compartment, error) {
+	resp, err := self.get(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, "compartments", id, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := &Compartment{}
 	err = resp.Unmarshal(&ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal")
