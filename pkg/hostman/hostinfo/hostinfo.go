@@ -2068,18 +2068,39 @@ func (h *SHostInfo) initIsolatedDevices() error {
 	return nil
 }
 
-func (h *SHostInfo) getNicsInterfaces(nics []string) []isolated_device.HostNic {
+func (h *SHostInfo) getNicsInterfaces(nics []string) ([]isolated_device.HostNic, error) {
 	if len(nics) == 0 {
-		return nil
+		return nil, nil
 	}
+
 	log.Infof("sriov input nics %v", nics)
 	res := []isolated_device.HostNic{}
 	for i := 0; i < len(nics); i++ {
 		found := false
 		for j := 0; j < len(h.Nics); j++ {
 			if nics[i] == h.Nics[j].Inter {
+				if fileutils2.Exists(fmt.Sprintf("/sys/class/net/%s/bonding/slaves", h.Nics[j].Inter)) {
+					interStr, err := fileutils2.FileGetContents(fmt.Sprintf("/sys/class/net/%s/bonding/slaves", h.Nics[j].Inter))
+					if err != nil {
+						return nil, err
+					}
+					inters := strings.Split(strings.TrimSpace(interStr), " ")
+					for _, inter := range inters {
+						res = append(res, isolated_device.HostNic{
+							Bridge:    h.Nics[j].Bridge,
+							Interface: inter,
+							Wire:      h.Nics[j].WireId,
+						})
+					}
+				} else {
+					res = append(res, isolated_device.HostNic{
+						Bridge:    h.Nics[j].Bridge,
+						Interface: h.Nics[j].Inter,
+						Wire:      h.Nics[j].WireId,
+					})
+				}
+
 				found = true
-				res = append(res, isolated_device.HostNic{h.Nics[j].Bridge, h.Nics[j].Inter, h.Nics[j].WireId})
 			}
 		}
 		if !found {
@@ -2087,39 +2108,6 @@ func (h *SHostInfo) getNicsInterfaces(nics []string) []isolated_device.HostNic {
 		}
 	}
 	log.Infof("sriov output nics %v", res)
-	return res
-}
-
-func (h *SHostInfo) getNicsOvsOffloadInterfaces(nics []string) ([]isolated_device.HostNic, error) {
-	if len(nics) == 0 {
-		return nil, nil
-	}
-
-	res := []isolated_device.HostNic{}
-	for i := 0; i < len(h.Nics); i++ {
-		if utils.IsInStringArray(h.Nics[i].Inter, nics) {
-			if fileutils2.Exists(fmt.Sprintf("/sys/class/net/%s/bonding/slaves", h.Nics[i].Inter)) {
-				interStr, err := fileutils2.FileGetContents(fmt.Sprintf("/sys/class/net/%s/bonding/slaves", h.Nics[i].Inter))
-				if err != nil {
-					return nil, err
-				}
-				inters := strings.Split(strings.TrimSpace(interStr), " ")
-				for _, inter := range inters {
-					res = append(res, isolated_device.HostNic{
-						Bridge:    h.Nics[i].Bridge,
-						Interface: inter,
-						Wire:      h.Nics[i].WireId,
-					})
-				}
-			} else {
-				res = append(res, isolated_device.HostNic{
-					Bridge:    h.Nics[i].Bridge,
-					Interface: h.Nics[i].Inter,
-					Wire:      h.Nics[i].WireId,
-				})
-			}
-		}
-	}
 	return res, nil
 }
 
@@ -2137,12 +2125,14 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	}
 
 	enableDevWhitelist := options.HostOptions.EnableIsolatedDeviceWhitelist
-
-	offloadNics, err := h.getNicsOvsOffloadInterfaces(options.HostOptions.OvsOffloadNics)
+	offloadNics, err := h.getNicsInterfaces(options.HostOptions.OvsOffloadNics)
 	if err != nil {
 		return nil, err
 	}
-	sriovNics := h.getNicsInterfaces(options.HostOptions.SRIOVNics)
+	sriovNics, err := h.getNicsInterfaces(options.HostOptions.SRIOVNics)
+	if err != nil {
+		return nil, err
+	}
 	h.IsolatedDeviceMan.ProbePCIDevices(
 		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB, options.HostOptions.DisableCustomDevice,
 		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs, options.HostOptions.AMDVgpuPFs, options.HostOptions.NVIDIAVgpuPFs,
