@@ -54,8 +54,6 @@ func (self *SRegion) GetDisk(id string) (*SDisk, error) {
 		return nil, err
 	}
 	return ret, nil
-
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) GetId() string {
