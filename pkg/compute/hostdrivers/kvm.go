@@ -321,7 +321,7 @@ func (self *SKVMHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, hos
 	return self.RequestAllocateDiskOnStorage(ctx, task.GetUserCred(), host, storage, disk, task, input)
 }
 
-func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, cleanSnapshots bool, task taskman.ITask) error {
 	log.Infof("Deallocating disk on host %s", host.GetName())
 	header := task.GetTaskRequestHeader()
 
@@ -330,6 +330,7 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, hos
 	if flatPath := disk.GetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, nil); flatPath != "" {
 		body.Set("esxi_flat_file_path", jsonutils.NewString(flatPath))
 	}
+	body.Set("clean_snapshots", jsonutils.NewBool(cleanSnapshots))
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -369,6 +370,22 @@ func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *m
 	}
 	body.Add(content, "disk")
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMHostDriver) RequestDiskSrcMigratePrepare(ctx context.Context, host *models.SHost, disk *models.SDisk, task taskman.ITask) (jsonutils.JSONObject, error) {
+	body := jsonutils.NewDict()
+	destUrl := fmt.Sprintf("/disks/%s/src-migrate-prepare/%s", disk.StorageId, disk.Id)
+
+	header := task.GetTaskRequestHeader()
+	return host.Request(ctx, task.GetUserCred(), "POST", destUrl, header, body)
+}
+
+func (self *SKVMHostDriver) RequestDiskMigrate(ctx context.Context, targetHost *models.SHost, targetStorage *models.SStorage, disk *models.SDisk, task taskman.ITask, body *jsonutils.JSONDict) error {
+	destUrl := fmt.Sprintf("/disks/%s/migrate/%s", targetStorage.Id, disk.Id)
+
+	header := task.GetTaskRequestHeader()
+	_, err := targetHost.Request(ctx, task.GetUserCred(), "POST", destUrl, header, body)
 	return err
 }
 

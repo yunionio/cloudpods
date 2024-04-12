@@ -146,7 +146,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("fail to find master host"))
 		return
 	}
-	err = host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self)
+	err = host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, false, self)
 	if err != nil {
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
 		return
@@ -161,7 +161,7 @@ func (self *DiskDeleteTask) OnMasterStorageDeleteDiskComplete(ctx context.Contex
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("backup storage %s fail to find master host", disk.BackupStorageId)))
 		return
 	}
-	err = host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self)
+	err = host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, false, self)
 	if err != nil {
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
 	}

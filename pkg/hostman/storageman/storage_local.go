@@ -789,6 +789,80 @@ func doRebaseDisk(diskPath, newBasePath string, encInfo *apis.SEncryptInfo) erro
 	return nil
 }
 
+func (s *SLocalStorage) DiskMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input := params.(*SDiskMigrate)
+
+	disk := s.CreateDisk(input.DiskId)
+	snapshots := input.SnapsChain
+	diskOutChainSnaps := input.OutChainSnaps
+	// prepare disk snapshot dir
+	if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
+		output, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
+		if err != nil {
+			return nil, errors.Wrapf(err, "mkdir %s failed: %s", disk.GetSnapshotDir(), output)
+		}
+	}
+
+	baseImagePath := ""
+	templateId := input.TemplateId
+	for i, snapshotId := range snapshots {
+		snapId, _ := snapshotId.GetString()
+		snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+			input.SnapshotsUri, input.SrcStorageId, input.DiskId, snapId)
+		snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
+		log.Infof("Disk %s snapshot %s url: %s", input.DiskId, snapId, snapshotUrl)
+		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, input.DiskId, snapshotPath); err != nil {
+			return nil, errors.Wrap(err, "create from snapshot url failed")
+		}
+		if i == 0 && len(templateId) > 0 && input.SysDiskHasTemplate {
+			templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
+			if err := doRebaseDisk(snapshotPath, templatePath, nil); err != nil {
+				return nil, err
+			}
+		} else if len(baseImagePath) > 0 {
+			if err := doRebaseDisk(snapshotPath, baseImagePath, nil); err != nil {
+				return nil, err
+			}
+		}
+		baseImagePath = snapshotPath
+	}
+
+	for _, snapshotId := range diskOutChainSnaps {
+		snapId, _ := snapshotId.GetString()
+		snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+			input.SnapshotsUri, input.SrcStorageId, input.DiskId, snapId)
+		snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
+		log.Infof("Disk %s snapshot %s url: %s", input.DiskId, snapId, snapshotUrl)
+		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, input.DiskId, snapshotPath); err != nil {
+			return nil, errors.Wrap(err, "create from snapshot url failed")
+		}
+	}
+
+	// download disk form remote url
+	diskUrl := fmt.Sprintf("%s/%s/%s", input.DiskUri, input.SrcStorageId, input.DiskId)
+	err := disk.CreateFromUrl(ctx, diskUrl, 0, func(progress, progressMbps float64, totalSizeMb int64) {
+		log.Debugf("[%.2f / %d] disk %s create %.2f with speed %.2fMbps",
+			progress*float64(totalSizeMb)/100, totalSizeMb, disk.GetId(), progress, progressMbps)
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateFromUrl")
+	}
+	if len(templateId) > 0 && len(baseImagePath) == 0 {
+		templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
+		if err := doRebaseDisk(disk.GetPath(), templatePath, nil); err != nil {
+			return nil, err
+		}
+	} else if len(baseImagePath) > 0 {
+		if err := doRebaseDisk(disk.GetPath(), baseImagePath, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	res := jsonutils.NewDict()
+	res.Set("disk_path", jsonutils.NewString(disk.GetPath()))
+	return nil, nil
+}
+
 func (s *SLocalStorage) CreateDiskFromSnapshot(
 	ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo,
 ) error {
