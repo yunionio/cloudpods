@@ -986,7 +986,7 @@ func (client *SQcloudClient) fetchBuckets() error {
 		}
 		name := bInfo.Name[:slashPos]
 		region, err := client.getIRegionByRegionId(bInfo.Region)
-		var zone cloudprovider.ICloudZone
+		var zone *SZone = nil
 		if err != nil {
 			log.Errorf("fail to find region %s", bInfo.Region)
 			// possibly a zone, try zone
@@ -1017,7 +1017,7 @@ func (client *SQcloudClient) fetchBuckets() error {
 			CreateDate: createAt,
 		}
 		if zone != nil {
-			b.zone = zone.(*SZone)
+			b.zone = zone
 		}
 		ret = append(ret, &b)
 	}
