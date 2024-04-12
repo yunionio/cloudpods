@@ -32,8 +32,6 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires []cloudprovider.ICloudWire
-
 	secgroups []cloudprovider.ICloudSecurityGroup
 
 	CidrBlock       string
@@ -134,16 +132,6 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 	return &routetables[0], nil
 }
 
-func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
-	for i := 0; i < len(self.iwires); i++ {
-		wire := self.iwires[i].(*SWire)
-		if wire.zone.Zone == zoneId {
-			return wire
-		}
-	}
-	return nil
-}
-
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	nats := []SNatGateway{}
 	for {
@@ -164,48 +152,30 @@ func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	return inats, nil
 }
 
-func (self *SVpc) fetchNetworks() error {
-	networks, total, err := self.region.GetNetworks(nil, self.VpcId, 0, 50)
-	if err != nil {
-		return err
-	}
-	if total > len(networks) {
-		networks, _, err = self.region.GetNetworks(nil, self.VpcId, 0, total)
-		if err != nil {
-			return err
-		}
-	}
-	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByZoneId(networks[i].Zone)
-		networks[i].wire = wire
-		wire.addNetwork(&networks[i])
-	}
-	return nil
-}
-
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
+	wires, err := self.GetIWires()
+	if err != nil {
+		return nil, err
 	}
-	for i := 0; i < len(self.iwires); i += 1 {
-		if self.iwires[i].GetGlobalId() == wireId {
-			return self.iwires[i], nil
+	for i := 0; i < len(wires); i += 1 {
+		if wires[i].GetGlobalId() == wireId {
+			return wires[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
+	zones, err := self.region.GetZones()
+	if err != nil {
+		return nil, err
 	}
-	return self.iwires, nil
+	ret := []cloudprovider.ICloudWire{}
+	for i := range zones {
+		wire := &SWire{zone: &zones[i], vpc: self}
+		ret = append(ret, wire)
+	}
+	return ret, nil
 }
 
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
@@ -213,18 +183,11 @@ func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SVpc) Refresh() error {
-	new, err := self.region.getVpc(self.VpcId)
+	new, err := self.region.GetVpc(self.VpcId)
 	if err != nil {
 		return err
 	}
 	return jsonutils.Update(self, new)
-}
-
-func (self *SVpc) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
 }
 
 func (self *SVpc) GetSVpcPeeringConnections() ([]SVpcPC, error) {

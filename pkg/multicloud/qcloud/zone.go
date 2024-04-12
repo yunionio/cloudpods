@@ -42,8 +42,6 @@ type SZone struct {
 	multicloud.QcloudTags
 	region *SRegion
 
-	iwires []cloudprovider.ICloudWire
-
 	host *SHost
 
 	istorages []cloudprovider.ICloudStorage
@@ -247,28 +245,17 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SZone) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
-}
-
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.iwires, nil
-}
-
-func (self *SZone) getNetworkById(networkId string) *SNetwork {
-	log.Debugf("Search in wires %d", len(self.iwires))
-	for i := 0; i < len(self.iwires); i += 1 {
-		log.Debugf("Search in wire %s", self.iwires[i].GetName())
-		wire := self.iwires[i].(*SWire)
-		net := wire.getNetworkById(networkId)
-		if net != nil {
-			return net
-		}
+	vpcs, err := self.region.GetVpcs(nil)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		wire := &SWire{vpc: &vpcs[i], zone: self}
+		ret = append(ret, wire)
+	}
+	return ret, nil
 }
 
 func (self *SZone) fetchInstanceTypes() {

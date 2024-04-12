@@ -22,15 +22,14 @@ import (
 
 func init() {
 	type VpcListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Ids []string
 	}
 	shellutils.R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *qcloud.SRegion, args *VpcListOptions) error {
-		vpcs, total, err := cli.GetVpcs(nil, args.Offset, args.Limit)
+		vpcs, err := cli.GetVpcs(args.Ids)
 		if err != nil {
 			return err
 		}
-		printList(vpcs, total, args.Offset, args.Limit, []string{})
+		printList(vpcs, 0, 0, 0, []string{})
 		return nil
 	})
 

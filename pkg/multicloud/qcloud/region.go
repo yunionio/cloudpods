@@ -39,9 +39,6 @@ type SRegion struct {
 
 	client *SQcloudClient
 
-	izones []cloudprovider.ICloudZone
-	ivpcs  []cloudprovider.ICloudVpc
-
 	storageCache *SStoragecache
 
 	instanceTypes []SInstanceType
@@ -309,11 +306,11 @@ func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprov
 	if err != nil {
 		return nil, err
 	}
-	err = self.fetchInfrastructure()
+	vpc, err := self.GetVpc(vpcId)
 	if err != nil {
 		return nil, err
 	}
-	return self.GetIVpcById(vpcId)
+	return vpc, nil
 }
 
 func (self *SRegion) GetCosClient(bucket *SBucket) (*cos.Client, error) {
@@ -485,27 +482,28 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 }
 
 func (self *SRegion) getZoneById(id string) (*SZone, error) {
-	izones, err := self.GetIZones()
+	zones, err := self.GetZones()
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(izones); i += 1 {
-		zone := izones[i].(*SZone)
-		if zone.Zone == id {
-			return zone, nil
+	for i := 0; i < len(zones); i += 1 {
+		if zones[i].Zone == id {
+			return &zones[i], nil
 		}
 	}
-	return nil, fmt.Errorf("no such zone %s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self.ivpcs == nil {
-		err := self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
+	vpcs, err := self.GetVpcs(nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpcs")
 	}
-	return self.ivpcs, nil
+	ret := []cloudprovider.ICloudVpc{}
+	for i := range vpcs {
+		ret = append(ret, &vpcs[i])
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
@@ -522,123 +520,86 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if self.izones == nil {
-		var err error
-		err = self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
+	zones, err := self.GetZones()
+	if err != nil {
+		return nil, err
 	}
-	return self.izones, nil
+	ret := []cloudprovider.ICloudZone{}
+	for i := range zones {
+		ret = append(ret, &zones[i])
+	}
+	return ret, nil
 }
 
-func (self *SRegion) _fetchZones() error {
+func (self *SRegion) GetZones() ([]SZone, error) {
 	params := make(map[string]string)
-	zones := make([]SZone, 0)
 	body, err := self.cvmRequest("DescribeZones", params, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	zones := make([]SZone, 0)
 	err = body.Unmarshal(&zones, "ZoneSet")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	self.izones = make([]cloudprovider.ICloudZone, len(zones))
 	for i := 0; i < len(zones); i++ {
 		zones[i].region = self
-		self.izones[i] = &zones[i]
 	}
-	return nil
-}
-
-func (self *SRegion) fetchInfrastructure() error {
-	err := self._fetchZones()
-	if err != nil {
-		return err
-	}
-	err = self.fetchIVpcs()
-	if err != nil {
-		return err
-	}
-	for i := 0; i < len(self.ivpcs); i += 1 {
-		for j := 0; j < len(self.izones); j += 1 {
-			zone := self.izones[j].(*SZone)
-			vpc := self.ivpcs[i].(*SVpc)
-			wire := SWire{zone: zone, vpc: vpc}
-			zone.addWire(&wire)
-			vpc.addWire(&wire)
-		}
-	}
-	return nil
+	return zones, nil
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
 	params := make(map[string]string)
 	params["VpcId"] = vpcId
-
 	_, err := self.vpcRequest("DeleteVpc", params)
 	return err
 }
 
-func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
-	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
+func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
+	vpcs, err := self.GetVpcs([]string{vpcId})
 	if err != nil {
 		return nil, err
 	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
+	for i := range vpcs {
+		if vpcs[i].VpcId == vpcId {
+			vpcs[i].region = self
+			return &vpcs[i], nil
+		}
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	vpcs[0].region = self
-	return &vpcs[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetVpc(%s)", vpcId)
 }
 
-func (self *SRegion) fetchIVpcs() error {
-	vpcs := make([]SVpc, 0)
+func (self *SRegion) GetVpcs(vpcIds []string) ([]SVpc, error) {
+	params := map[string]string{
+		"Limit": "100",
+	}
+	for index, vpcId := range vpcIds {
+		params[fmt.Sprintf("VpcIds.%d", index)] = vpcId
+	}
+	ret := []SVpc{}
 	for {
-		part, total, err := self.GetVpcs(nil, len(vpcs), 50)
+		resp, err := self.vpcRequest("DescribeVpcs", params)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		vpcs = append(vpcs, part...)
-		if len(vpcs) >= total {
+		part := struct {
+			VpcSet     []SVpc
+			TotalCount float64
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+		for i := range part.VpcSet {
+			part.VpcSet[i].region = self
+			ret = append(ret, part.VpcSet[i])
+		}
+		if len(ret) >= int(part.TotalCount) || len(part.VpcSet) == 0 {
 			break
 		}
+		params["Offset"] = fmt.Sprintf("%d", len(ret))
 	}
-	self.ivpcs = make([]cloudprovider.ICloudVpc, len(vpcs))
-	for i := 0; i < len(vpcs); i += 1 {
-		vpcs[i].region = self
-		self.ivpcs[i] = &vpcs[i]
-	}
-	return nil
-}
-
-func (self *SRegion) GetVpcs(vpcIds []string, offset int, limit int) ([]SVpc, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
-	params := make(map[string]string)
-	params["Limit"] = fmt.Sprintf("%d", limit)
-	params["Offset"] = fmt.Sprintf("%d", offset)
-	if vpcIds != nil && len(vpcIds) > 0 {
-		for index, vpcId := range vpcIds {
-			params[fmt.Sprintf("VpcIds.%d", index)] = vpcId
-		}
-	}
-	body, err := self.vpcRequest("DescribeVpcs", params)
-	if err != nil {
-		return nil, 0, err
-	}
-	vpcs := make([]SVpc, 0)
-	err = body.Unmarshal(&vpcs, "VpcSet")
-	if err != nil {
-		log.Errorf("Unmarshal vpc fail %s", err)
-		return nil, 0, err
-	}
-	total, _ := body.Float("TotalCount")
-	return vpcs, int(total), nil
+	return ret, nil
 }
 
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
@@ -765,53 +726,61 @@ func (self *SRegion) memcachedRequest(apiName string, params map[string]string) 
 	return self.client.memcachedRequest(apiName, params)
 }
 
-func (self *SRegion) GetNetworks(ids []string, vpcId string, offset int, limit int) ([]SNetwork, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
+func (self *SRegion) GetNetworks(ids []string, vpcId, zone string) ([]SNetwork, error) {
+	params := map[string]string{
+		"Limit": "100",
 	}
-	params := make(map[string]string)
-	params["Limit"] = fmt.Sprintf("%d", limit)
-	params["Offset"] = fmt.Sprintf("%d", offset)
+	for index, networkId := range ids {
+		params[fmt.Sprintf("SubnetIds.%d", index)] = networkId
+	}
 	base := 0
-	if ids != nil && len(ids) > 0 {
-		for index, networkId := range ids {
-			params[fmt.Sprintf("SubnetIds.%d", index)] = networkId
-		}
-		base += len(ids)
-	}
 	if len(vpcId) > 0 {
-		params["Filters.0.Name"] = "vpc-id"
-		params["Filters.0.Values.0"] = vpcId
+		params[fmt.Sprintf("Filters.%d.Name", base)] = "vpc-id"
+		params[fmt.Sprintf("Filters.%d.Values.0", base)] = vpcId
+		base++
 	}
 
-	body, err := self.vpcRequest("DescribeSubnets", params)
-	if err != nil {
-		log.Errorf("DescribeSubnets fail %s", err)
-		return nil, 0, err
+	if len(zone) > 0 {
+		params[fmt.Sprintf("Filters.%d.Name", base)] = "zone"
+		params[fmt.Sprintf("Filters.%d.Values.0", base)] = zone
+		base++
 	}
 
-	networks := make([]SNetwork, 0)
-	err = body.Unmarshal(&networks, "SubnetSet")
-	if err != nil {
-		log.Errorf("Unmarshal network fail %s", err)
-		return nil, 0, err
+	ret := []SNetwork{}
+	for {
+		resp, err := self.vpcRequest("DescribeSubnets", params)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			SubnetSet  []SNetwork
+			TotalCount float64
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.SubnetSet...)
+		if len(ret) >= int(part.TotalCount) || len(part.SubnetSet) == 0 {
+			break
+		}
+		params["Offset"] = fmt.Sprintf("%d", len(ret))
 	}
-	total, _ := body.Float("TotalCount")
-	return networks, int(total), nil
+
+	return ret, nil
 }
 
-func (self *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
-	networks, total, err := self.GetNetworks([]string{networkId}, "", 0, 1)
+func (self *SRegion) GetNetwork(id string) (*SNetwork, error) {
+	networks, err := self.GetNetworks([]string{id}, "", "")
 	if err != nil {
 		return nil, err
 	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
+	for i := range networks {
+		if networks[i].SubnetId == id {
+			return &networks[i], nil
+		}
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return &networks[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
@@ -851,39 +820,43 @@ func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId s
 }
 
 func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, memGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string, secgroup string, tags map[string]string) (*SInstance, error) {
-	izones, err := self.GetIZones()
+	zones, err := self.GetZones()
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(izones); i += 1 {
-		z := izones[i].(*SZone)
+	net, err := self.GetNetwork(networkId)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(zones); i += 1 {
+		z := zones[i]
 		log.Debugf("Search in zone %s", z.Zone)
-		net := z.getNetworkById(networkId)
-		if net != nil {
-			desc := &cloudprovider.SManagedVMCreateConfig{
-				Name:              name,
-				ExternalImageId:   imgId,
-				SysDisk:           cloudprovider.SDiskInfo{SizeGB: 0, StorageType: storageType},
-				Cpu:               cpu,
-				MemoryMB:          memGB * 1024,
-				ExternalNetworkId: networkId,
-				Password:          passwd,
-				DataDisks:         []cloudprovider.SDiskInfo{},
-				PublicKey:         publicKey,
-
-				Tags: tags,
-
-				ExternalSecgroupId: secgroup,
-			}
-			for _, sizeGB := range dataDiskSizesGB {
-				desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
-			}
-			inst, err := z.getHost().CreateVM(desc)
-			if err != nil {
-				return nil, err
-			}
-			return inst.(*SInstance), nil
+		if z.ZoneName != net.Zone {
+			continue
 		}
+		desc := &cloudprovider.SManagedVMCreateConfig{
+			Name:              name,
+			ExternalImageId:   imgId,
+			SysDisk:           cloudprovider.SDiskInfo{SizeGB: 0, StorageType: storageType},
+			Cpu:               cpu,
+			MemoryMB:          memGB * 1024,
+			ExternalNetworkId: networkId,
+			Password:          passwd,
+			DataDisks:         []cloudprovider.SDiskInfo{},
+			PublicKey:         publicKey,
+
+			Tags: tags,
+
+			ExternalSecgroupId: secgroup,
+		}
+		for _, sizeGB := range dataDiskSizesGB {
+			desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
+		}
+		inst, err := z.getHost().CreateVM(desc)
+		if err != nil {
+			return nil, err
+		}
+		return inst.(*SInstance), nil
 	}
 	return nil, fmt.Errorf("cannot find network %s", networkId)
 }
