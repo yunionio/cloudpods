@@ -366,7 +366,7 @@ func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 			return &vpcs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(err, "GetVpc(%s)", vpcId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetVpc(%s)", vpcId)
 }
 
 func (self *SRegion) GetVpcs(vpcIds []string) ([]SVpc, error) {
