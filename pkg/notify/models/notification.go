@@ -947,5 +947,6 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 	}
 	out.Title = html.UnescapeString(tmpTitle.String())
 	out.Message = html.UnescapeString(tmpContent.String())
+	out.RobotUseTemplate = no.RobotUseTemplate
 	return out, errors.NewAggregate(failedReason)
 }
