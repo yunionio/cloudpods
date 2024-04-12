@@ -87,7 +87,7 @@ func (self *SBaremetalHostDriver) RequestAllocateDiskOnStorage(ctx context.Conte
 	return fmt.Errorf("not supported")
 }
 
-func (self *SBaremetalHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+func (self *SBaremetalHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, cleanSnapshots bool, task taskman.ITask) error {
 	return fmt.Errorf("not supported")
 }
 

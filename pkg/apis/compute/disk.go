@@ -317,11 +317,16 @@ type DiskAllocateFromBackupInput struct {
 type DiskDeleteInput struct {
 	SkipRecycle      *bool
 	EsxiFlatFilePath string
+	CleanSnapshots   bool
 }
 
 type DiskResetInput struct {
 	SnapshotId string `json:"snapshot_id"`
 	AutoStart  bool   `json:"auto_start"`
+}
+
+type DiskMigrateInput struct {
+	TargetStorageId string `json:"target_storage_id"`
 }
 
 type DiskSnapshotpolicyInput struct {
