@@ -39,13 +39,15 @@ func (self *SWebhookSender) Send(ctx context.Context, args api.SendParams) error
 	dict := jsonutils.NewDict()
 	header := http.Header{}
 	if len(args.Event) == 0 {
-		if len(args.MsgKey) == 0 {
-			dict.Set("Msg", jsonutils.NewString(args.Message))
-		} else {
-			dict.Set(args.MsgKey, jsonutils.NewString(args.Message))
-		}
-		if args.Body != nil {
-			jsonutils.Update(dict, args.Body)
+		if args.RobotUseTemplate {
+			if len(args.MsgKey) == 0 {
+				dict.Set("Msg", jsonutils.NewString(args.Message))
+			} else {
+				dict.Set(args.MsgKey, jsonutils.NewString(args.Message))
+			}
+			if args.Body != nil {
+				jsonutils.Update(dict, args.Body)
+			}
 		}
 	} else {
 		body, err := jsonutils.ParseString(args.Message)
@@ -53,10 +55,12 @@ func (self *SWebhookSender) Send(ctx context.Context, args api.SendParams) error
 			return errors.Wrapf(err, "unable to parse %q", args.Message)
 		}
 		jsonutils.Update(dict, body)
-		if len(args.MsgKey) == 0 {
-			dict.Set("Msg", jsonutils.NewString(args.Message))
-		} else {
-			dict.Set(args.MsgKey, jsonutils.NewString(args.Message))
+		if args.RobotUseTemplate {
+			if len(args.MsgKey) == 0 {
+				dict.Set("Msg", jsonutils.NewString(args.Message))
+			} else {
+				dict.Set(args.MsgKey, jsonutils.NewString(args.Message))
+			}
 		}
 		if args.Body != nil {
 			jsonutils.Update(dict, args.Body)

@@ -166,9 +166,10 @@ type SendParams struct {
 	RemoteTemplateParam SRemoteTemplateParam
 	GroupKey            string
 	// minutes
-	GroupTimes uint
-	ReceiverId string
-	SendTime   time.Time
+	GroupTimes       uint
+	ReceiverId       string
+	SendTime         time.Time
+	RobotUseTemplate bool
 }
 
 type SRemoteTemplateParam struct {
