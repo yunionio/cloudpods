@@ -129,6 +129,22 @@ type SInstance struct {
 }
 
 func (region *SRegion) GetInstances(zoneName string, instanceIds []string) ([]SInstance, error) {
+	projectIds, err := region.client.GetSplitProjectIds()
+	if err != nil {
+		return nil, err
+	}
+	ret := []SInstance{}
+	for _, projects := range projectIds {
+		part, err := region.getInstances(zoneName, instanceIds, projects)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part...)
+	}
+	return ret, nil
+}
+
+func (region *SRegion) getInstances(zoneName string, instanceIds []string, projectIds []string) ([]SInstance, error) {
 	instances := []SInstance{}
 	params := map[string]string{
 		"MaxResults": "1000",
@@ -139,7 +155,10 @@ func (region *SRegion) GetInstances(zoneName string, instanceIds []string) ([]SI
 		params["Filter.1.Value.1"] = zoneName
 	}
 	for i, v := range instanceIds {
-		params[fmt.Sprintf("%d", i+1)] = v
+		params[fmt.Sprintf("InstanceId.%d", i+1)] = v
+	}
+	for i, v := range projectIds {
+		params[fmt.Sprintf("ProjectId.%d", i+1)] = v
 	}
 	for {
 		resp, err := region.ecsRequest("DescribeInstances", params)
@@ -180,6 +199,14 @@ func (ins *SInstance) Refresh() error {
 		return errors.Wrap(err, "GetInstance")
 	}
 	return jsonutils.Update(ins, extIns)
+}
+
+func (ins *SInstance) GetTags() (map[string]string, error) {
+	tags, err := ins.host.zone.region.ListTags("kec-instance", ins.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	return tags.GetTags(), nil
 }
 
 func (ins *SInstance) AssignSecurityGroup(secgroupId string) error {
