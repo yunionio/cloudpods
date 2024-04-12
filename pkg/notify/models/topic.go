@@ -277,8 +277,15 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_LOADBALANCER,
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
+				notify.TOPIC_RESOURCE_CLOUDPHONE,
 			)
 			t.addAction(
+				notify.ActionStart,
+				notify.ActionStop,
+				notify.ActionRestart,
+				notify.ActionReset,
+				notify.ActionAttach,
+				notify.ActionDetach,
 				notify.ActionCreate,
 				notify.ActionSyncStatus,
 				notify.ActionRebuildRoot,
@@ -292,8 +299,13 @@ func (sm *STopicManager) InitializeData() error {
 		case DefaultResourceOperationSuccessed:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
+				notify.TOPIC_RESOURCE_CLOUDPHONE,
 			)
 			t.addAction(
+				notify.ActionStart,
+				notify.ActionStop,
+				notify.ActionRestart,
+				notify.ActionReset,
 				notify.ActionCreateBackupServer,
 			)
 			t.Results = tristate.True
@@ -505,6 +517,7 @@ func (sm *STopicManager) InitializeData() error {
 		case DefaultAttachOrDetach:
 			t.addResources(
 				notify.TOPIC_RESOURCE_HOST,
+				notify.TOPIC_RESOURCE_CLOUDPHONE,
 			)
 			t.addAction(
 				notify.ActionAttach,
@@ -839,6 +852,7 @@ func init() {
 			notify.TOPIC_RESOURCE_SERVICE:                  40,
 			notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK:       41,
 			notify.TOPIC_RESOURCE_PROJECT:                  42,
+			notify.TOPIC_RESOURCE_CLOUDPHONE:               43,
 		},
 	)
 	converter.registerAction(
@@ -879,6 +893,10 @@ func init() {
 			notify.ActionIsolatedDeviceUpdate: 33,
 			notify.ActionIsolatedDeviceDelete: 34,
 			notify.ActionStatusChanged:        35,
+			notify.ActionStart:                36,
+			notify.ActionStop:                 37,
+			notify.ActionRestart:              38,
+			notify.ActionReset:                39,
 		},
 	)
 }
