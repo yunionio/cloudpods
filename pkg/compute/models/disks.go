@@ -39,6 +39,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -923,6 +924,75 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		guest = &guests[0]
 	}
 	return nil, self.StartResetDisk(ctx, userCred, snapshot.Id, input.AutoStart, guest, "")
+}
+
+func (self *SDisk) validateMigrate(ctx context.Context, userCred mcclient.TokenCredential, input *api.DiskMigrateInput) error {
+	hypervisor := self.getHypervisor()
+	if !utils.IsInStringArray(hypervisor, []string{api.HYPERVISOR_KVM}) {
+		return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", hypervisor)
+	}
+	if guest := self.GetGuest(); guest != nil {
+		return httperrors.NewBadRequestError("Disk attached guest, cannot migrate")
+	}
+	if input.TargetStorageId != "" {
+		srcStorage, err := self.GetStorage()
+		if err != nil {
+			return errors.Wrap(err, "get src storage")
+		}
+		iDstStorage, err := StorageManager.FetchByIdOrName(ctx, userCred, input.TargetStorageId)
+		if err != nil {
+			return errors.Wrap(err, "get target storage")
+		}
+		if srcStorage.StorageType != iDstStorage.(*SStorage).StorageType {
+			return httperrors.NewBadRequestError("Cannot migrate disk from storage type %s to %s", srcStorage.StorageType, iDstStorage.(*SStorage).StorageType)
+		}
+		input.TargetStorageId = iDstStorage.GetId()
+	}
+	return nil
+}
+
+func (self *SDisk) PerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.DiskMigrateInput) (jsonutils.JSONObject, error) {
+	err := self.validateMigrate(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	self.SetStatus(ctx, userCred, api.DISK_START_MIGRATE, "")
+	params := jsonutils.NewDict()
+	params.Set("target_storage_id", jsonutils.NewString(input.TargetStorageId))
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskMigrateTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewTask")
+	}
+	return nil, task.ScheduleRun(nil)
+}
+
+func (self *SDisk) GetSchedMigrateParams(targetStorageId string) (*schedapi.ScheduleInput, error) {
+	diskConfig := self.ToDiskConfig()
+	diskConfig.Medium = ""
+	diskConfig.Storage = targetStorageId
+	input := new(api.DiskCreateInput)
+	input.DiskConfig = diskConfig
+
+	srvInput := input.ToServerCreateInput()
+	ret := new(schedapi.ScheduleInput)
+	err := srvInput.JSON(srvInput).Unmarshal(ret)
+	if err != nil {
+		return nil, err
+	}
+
+	if targetStorageId == "" {
+		storage, err := self.GetStorage()
+		if err != nil {
+			return nil, err
+		}
+		host, err := storage.GetMasterHost()
+		if err != nil {
+			return nil, err
+		}
+		ret.HostId = host.Id
+		ret.LiveMigrate = false
+	}
+	return ret, err
 }
 
 func (self *SDisk) StartResetDisk(
