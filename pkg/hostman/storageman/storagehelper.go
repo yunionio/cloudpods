@@ -35,6 +35,21 @@ func (i *SDiskCreateByDiskinfo) String() string {
 	return fmt.Sprintf("disk_id: %s, disk_info: %s", i.DiskId, jsonutils.Marshal(i.DiskInfo))
 }
 
+type SDiskMigrate struct {
+	DiskId             string
+	Disk               IDisk
+	SrcStorageId       string
+	TemplateId         string
+	OutChainSnaps      []jsonutils.JSONObject
+	SnapsChain         []jsonutils.JSONObject
+	DiskBackingFile    string
+	SnapshotsUri       string
+	DiskUri            string
+	SysDiskHasTemplate bool
+
+	Storage IStorage
+}
+
 type SDiskReset struct {
 	SnapshotId    string
 	BackingDiskId string
