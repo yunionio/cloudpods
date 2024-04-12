@@ -310,6 +310,11 @@ func init() {
 			"用户",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_CLOUDPHONE,
+			"cloudphone",
+			"云手机",
+		},
+		sI18nElme{
 			string(api.ActionCreate),
 			"created",
 			"创建",
@@ -413,6 +418,26 @@ func init() {
 			string(api.ActionCreateBackupServer),
 			"add_backup_server",
 			"添加主机备份",
+		},
+		sI18nElme{
+			string(api.ActionStart),
+			"start",
+			"开机",
+		},
+		sI18nElme{
+			string(api.ActionStop),
+			"stop",
+			"关机",
+		},
+		sI18nElme{
+			string(api.ActionRestart),
+			"restart",
+			"重启",
+		},
+		sI18nElme{
+			string(api.ActionReset),
+			"reset",
+			"重置",
 		},
 	)
 }
