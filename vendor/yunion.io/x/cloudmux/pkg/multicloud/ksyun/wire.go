@@ -68,13 +68,12 @@ func (wire *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetNetworks")
 	}
-	inetworks := []cloudprovider.ICloudNetwork{}
+	ret := []cloudprovider.ICloudNetwork{}
 	for i := 0; i < len(networks); i++ {
-		if networks[i].AvailabilityZoneName == wire.zone.GetName() {
-			inetworks = append(inetworks, &networks[i])
-		}
+		networks[i].wire = wire
+		ret = append(ret, &networks[i])
 	}
-	return inetworks, nil
+	return ret, nil
 }
 
 func (wire *SWire) GetBandwidth() int {
