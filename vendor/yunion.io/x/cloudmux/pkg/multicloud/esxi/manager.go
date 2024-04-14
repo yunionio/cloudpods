@@ -459,14 +459,14 @@ func (cli *SESXiClient) SearchTemplateVM(id string) (*SVirtualMachine, error) {
 	var movms []mo.VirtualMachine
 	err := cli.scanMObjectsWithFilter(cli.client.ServiceContent.RootFolder, VIRTUAL_MACHINE_PROPS, &movms, filter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "scanMObjectsWithFilter")
 	}
 	if len(movms) == 0 {
-		return nil, errors.ErrNotFound
+		return nil, errors.Wrapf(errors.ErrNotFound, "empty templates")
 	}
 	vm := NewVirtualMachine(cli, &movms[0], nil)
 	if !vm.IsTemplate() {
-		return nil, errors.ErrNotFound
+		return nil, errors.Wrapf(errors.ErrNotFound, "%s is not template", vm.GetName())
 	}
 	dc, err := vm.fetchDatacenter()
 	if err != nil {
