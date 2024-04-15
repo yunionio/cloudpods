@@ -54,7 +54,7 @@ func (d *sLinuxRootFs) deployUserDataByCron(userData string) error {
 	if err != nil {
 		return errors.Wrap(err, "chmod user_data fail")
 	}
-	cron := fmt.Sprintf("@reboot %s\n", userDataPath)
+	cron := fmt.Sprintf("@reboot /bin/sh %s\n", userDataPath)
 	err = d.rootFs.FilePutContents(userDataCronPath, cron, false, false)
 	if err != nil {
 		return errors.Wrap(err, "save user_data cron fail")
@@ -89,7 +89,7 @@ func (d *sLinuxRootFs) deployUserDataBySystemd(userData string) error {
 		}
 	}
 	{
-		err := d.installInitScript(serviceName, scriptPath)
+		err := d.installInitScript(serviceName, "/bin/sh "+scriptPath)
 		if err != nil {
 			return errors.Wrap(err, "installInitScript")
 		}
