@@ -147,6 +147,10 @@ func (s *Client) RawRun(cmds ...string) ([]string, error) {
 	return s.run(false, cmds, nil, false)
 }
 
+func (s *Client) RunCmd(cmd string) ([]string, error) {
+	return s.Run(cmd)
+}
+
 func (s *Client) Run(cmds ...string) ([]string, error) {
 	return s.run(true, cmds, nil, false)
 }
