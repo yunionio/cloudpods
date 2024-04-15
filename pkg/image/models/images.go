@@ -163,7 +163,7 @@ func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 
 	switch info.GetName(nil) {
 	case "get_details", "create", "update":
-		info.SetProcessTimeout(time.Minute * 120).SetWorkerManager(imgStreamingWorkerMan)
+		info.SetProcessTimeout(time.Hour * 4).SetWorkerManager(imgStreamingWorkerMan)
 	}
 }
 
