@@ -848,21 +848,29 @@ func (manager *SCachedimageManager) ListItemFilter(
 
 	{
 		var idFilter bool
-		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
+		storagecachedImages := StoragecachedimageManager.Query("cachedimage_id").Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
-		var storages *sqlchemy.SSubQuery
 
-		if query.Valid == nil {
-			storages = StorageManager.Query().SubQuery()
-		} else if *query.Valid {
+		storagesQ := StorageManager.Query()
+		if query.Valid {
 			idFilter = true
-			storages = StorageManager.Query().In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled").SubQuery()
-		} else {
-			idFilter = true
-			stroage := StorageManager.Query()
-			storages = stroage.Filter(sqlchemy.OR(sqlchemy.NotIn(stroage.Field("status"), []string{}), sqlchemy.IsFalse(stroage.Field("enabled")))).SubQuery()
+			storagesQ = storagesQ.In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled")
 		}
-		zones := ZoneManager.Query().SubQuery()
+		if len(query.CloudproviderId) > 0 {
+			idFilter = true
+			storagesQ = storagesQ.In("manager_id", query.CloudproviderId)
+		}
+		storages := storagesQ.SubQuery()
+		zonesQ := ZoneManager.Query()
+		if len(query.ZoneId) > 0 {
+			idFilter = true
+			zonesQ = zonesQ.Equals("id", query.ZoneId)
+		}
+		if len(query.CloudregionId) > 0 {
+			idFilter = true
+			zonesQ = zonesQ.In("cloudregion_id", query.CloudregionId)
+		}
+		zones := zonesQ.SubQuery()
 
 		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
@@ -871,40 +879,10 @@ func (manager *SCachedimageManager) ListItemFilter(
 
 		if len(query.HostSchedtagId) > 0 {
 			idFilter = true
-			schedTagObj, err := SchedtagManager.FetchByIdOrName(ctx, userCred, query.HostSchedtagId)
-			if err != nil {
-				if errors.Cause(err) == sql.ErrNoRows {
-					return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SchedtagManager.Keyword(), query.HostSchedtagId)
-				} else {
-					return nil, errors.Wrap(err, "SchedtagManager.FetchByIdOrName")
-				}
-			}
 			hoststorages := HoststorageManager.Query("host_id", "storage_id").SubQuery()
-			hostschedtags := HostschedtagManager.Query().Equals("schedtag_id", schedTagObj.GetId()).SubQuery()
+			hostschedtags := HostschedtagManager.Query().Equals("schedtag_id", query.HostSchedtagId).SubQuery()
 			subq = subq.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id")))
 			subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), hoststorages.Field("host_id")))
-		}
-		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE))
-
-		subq = subq.Snapshot()
-
-		subq, err = managedResourceFilterByAccount(ctx, subq, query.ManagedResourceListInput, "", nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-		}
-
-		subq, err = managedResourceFilterByRegion(ctx, subq, query.RegionalFilterListInput, "", nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "_managedResourceFilterByRegion")
-		}
-
-		subq, err = managedResourceFilterByZone(ctx, subq, query.ZonalFilterListInput, "", nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "_managedResourceFilterByZone")
-		}
-
-		if subq.IsAltered() {
-			idFilter = true
 		}
 
 		if idFilter {
