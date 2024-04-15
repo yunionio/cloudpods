@@ -812,6 +812,9 @@ func (gn *SGuestnetwork) ValidateUpdateData(
 		}
 	}
 	if input.IsDefault != nil && *input.IsDefault {
+		if gn.Virtual || len(gn.TeamWith) > 0 {
+			return input, errors.Wrap(httperrors.ErrInvalidStatus, "cannot set virtual/slave interface as default")
+		}
 		net, err := gn.GetNetwork()
 		if err != nil {
 			return input, errors.Wrapf(err, "GetNetwork")
