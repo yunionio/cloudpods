@@ -685,10 +685,6 @@ func (acnt *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 
-	if acnt.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-		return nil, httperrors.NewInvalidStatusError("Account is not idle")
-	}
-
 	syncRange := SSyncRange{SyncRangeInput: input}
 	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 || len(syncRange.Resources) > 0 {
 		syncRange.DeepSync = true
