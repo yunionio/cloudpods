@@ -747,7 +747,7 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 	devs := []*isolated_device.PCIDevice{}
 	for _, line := range lines {
 		if len(line) > 0 {
-			dev := isolated_device.NewPCIDevice2(line)
+			dev := isolated_device.NewPCIDevice2(line, cli)
 			if len(dev.Addr) > 0 && utils.IsInArray(dev.ClassCode, isolated_device.GpuClassCodes) && !isBootVga(cli, dev, bootVgaPath) {
 				devs = append(devs, dev)
 			}
