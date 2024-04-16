@@ -139,9 +139,9 @@ func (self *SEipAddress) GetInternetChargeType() string {
 
 func (self *SEipAddress) GetBillingType() string {
 	if len(self.BillingInfo) > 0 {
-		return billing_api.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	}
-	return billing_api.BILLING_TYPE_PREPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SEipAddress) GetCreatedAt() time.Time {
@@ -153,6 +153,9 @@ func (self *SEipAddress) GetExpiredAt() time.Time {
 }
 
 func (self *SEipAddress) Delete() error {
+	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+		return self.region.CancelResourcesSubscription([]string{self.Id})
+	}
 	return self.region.DeallocateEIP(self.Id)
 }
 
