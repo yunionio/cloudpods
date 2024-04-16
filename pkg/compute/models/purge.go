@@ -77,7 +77,7 @@ func (self *SCloudregion) purgeAll(ctx context.Context, managerId string) error 
 		return errors.Wrapf(err, "purgeResources")
 	}
 
-	cprCount, err := CloudproviderRegionManager.Query().Equals("cloudregion_id", self.Id).CountWithError()
+	cprCount, err := CloudproviderRegionManager.Query().Equals("cloudregion_id", self.Id).NotEquals("cloudprovider_id", managerId).CountWithError()
 	if err != nil {
 		return errors.Wrapf(err, "cpr count")
 	}
