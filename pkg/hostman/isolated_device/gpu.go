@@ -154,6 +154,22 @@ func getGPUPCIStr() ([]string, error) {
 	return GetPCIStrByAddr("")
 }
 
+type IExecutor interface {
+	RunCmd(cmd string) ([]string, error)
+}
+
+var defaultExecutor IExecutor = new(SDefaultExecutor)
+
+func GetDefaultExecutor() IExecutor {
+	return defaultExecutor
+}
+
+type SDefaultExecutor struct{}
+
+func (*SDefaultExecutor) RunCmd(cmd string) ([]string, error) {
+	return bashOutput(cmd)
+}
+
 type PCIDevice struct {
 	Addr          string `json:"bus_id"`
 	ClassName     string `json:"class_name"`
@@ -172,11 +188,23 @@ type PCIDevice struct {
 	PCIEInfo           *api.IsolatedDevicePCIEInfo `json:"pcie_info"`
 }
 
-func NewPCIDevice(line string) (*PCIDevice, error) {
-	if len(line) == 0 {
+func NewPCIDevice(addr string, executors ...IExecutor) (*PCIDevice, error) {
+	if len(addr) == 0 {
 		return nil, errors.Errorf("input line is empty")
 	}
-	dev := NewPCIDevice2(line)
+
+	var executor IExecutor
+	if len(executors) == 0 {
+		executor = GetDefaultExecutor()
+	} else {
+		executor = executors[0]
+	}
+	ret, err := executor.RunCmd(fmt.Sprintf("lspci -nnmm -s %s", addr))
+	if err != nil {
+		return nil, errors.Wrapf(err, "run lspci -nnmm -s %s", addr)
+	}
+
+	dev := NewPCIDevice2(strings.Join(ret, ""))
 	if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 		return nil, err
 	}
@@ -186,9 +214,16 @@ func NewPCIDevice(line string) (*PCIDevice, error) {
 	return dev, nil
 }
 
-func NewPCIDevice2(line string) *PCIDevice {
+func NewPCIDevice2(line string, executors ...IExecutor) *PCIDevice {
+	var executor IExecutor
+	if len(executors) == 0 {
+		executor = GetDefaultExecutor()
+	} else {
+		executor = executors[0]
+	}
+
 	dev := parseLspci(line)
-	if err := dev.fillPCIEInfo(); err != nil {
+	if err := dev.fillPCIEInfo(executor); err != nil {
 		log.Warningf("fillPCIEInfo for line: %q, device: %s, error: %v", line, dev.String(), err)
 	}
 	return dev
@@ -416,12 +451,13 @@ func (d *PCIDevice) bindDriver() error {
 	)
 }
 
-func (d *PCIDevice) fillPCIEInfo() error {
+func (d *PCIDevice) fillPCIEInfo(executor IExecutor) error {
 	if d.Addr == "" {
 		return errors.Errorf("device address is empty: %s", d.String())
 	}
+
 	cmd := fmt.Sprintf("lspci -vvv -s %s", d.Addr)
-	lines, err := bashOutput(cmd)
+	lines, err := executor.RunCmd(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "execute cmd: %s", cmd)
 	}
@@ -561,11 +597,7 @@ func (g *IOMMUGroup) String() string {
 }
 
 func detectPCIDevByAddr(addr string) (*PCIDevice, error) {
-	ret, err := bashOutput(fmt.Sprintf("lspci -nnmm -s %s", addr))
-	if err != nil {
-		return nil, err
-	}
-	return NewPCIDevice(strings.Join(ret, ""))
+	return NewPCIDevice(addr)
 }
 
 func detectPCIDevByAddrWithoutIOMMUGroup(addr string) (*PCIDevice, error) {
