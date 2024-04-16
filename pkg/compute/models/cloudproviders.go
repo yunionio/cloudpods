@@ -2212,7 +2212,7 @@ func (cprvd *SCloudprovider) PerformSetSyncing(ctx context.Context, userCred mcc
 }
 
 func (cprvd *SCloudprovider) SyncError(result compare.SyncResult, iNotes interface{}, userCred mcclient.TokenCredential) {
-	if result.IsError() {
+	if result.IsGenerateError() {
 		account := &SCloudaccount{}
 		account.Id = cprvd.CloudaccountId
 		account.Name = cprvd.Account

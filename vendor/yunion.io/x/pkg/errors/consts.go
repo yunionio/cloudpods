@@ -14,6 +14,7 @@ const (
 	ErrTimeout        = Error("TimeoutError")
 
 	ErrNotFound        = Error("NotFoundError")
+	ErrNotEmpty        = Error("NotEmptyError")
 	ErrDuplicateId     = Error("DuplicateIdError")
 	ErrInvalidStatus   = Error("InvalidStatusError")
 	ErrNotImplemented  = Error("NotImplementedError")
