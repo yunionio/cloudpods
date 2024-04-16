@@ -27,6 +27,7 @@ type IsolatedDeviceModelListOptions struct {
 	Model    string `help:"filter by device model"`
 	VendorId string `help:"filter by vendor id"`
 	DeviceId string `help:"filter by device id"`
+	HostId   string `help:"filter by host id"`
 }
 
 func (o *IsolatedDeviceModelListOptions) Params() (jsonutils.JSONObject, error) {
@@ -34,11 +35,12 @@ func (o *IsolatedDeviceModelListOptions) Params() (jsonutils.JSONObject, error) 
 }
 
 type IsolatedDeviceModelCreateOptions struct {
-	MODEL     string   `help:"device model name"`
-	DEV_TYPE  string   `help:"custom device type"`
-	VENDOR_ID string   `help:"pci vendor id"`
-	DEVICE_ID string   `help:"pci device id"`
-	Hosts     []string `help:"hosts id or name rescan isolated device"`
+	MODEL               string   `help:"device model name"`
+	DEV_TYPE            string   `help:"custom device type"`
+	VENDOR_ID           string   `help:"pci vendor id"`
+	DEVICE_ID           string   `help:"pci device id"`
+	DISABLE_AUTO_DETECT bool     `help:"disable auto detect isolated devices on all of host"`
+	Hosts               []string `help:"hosts id or name rescan isolated device"`
 }
 
 func (o *IsolatedDeviceModelCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -48,9 +50,10 @@ func (o *IsolatedDeviceModelCreateOptions) Params() (jsonutils.JSONObject, error
 type IsolatedDeviceModelUpdateOptions struct {
 	options.BaseIdOptions
 
-	MODEL     string `help:"device model name"`
-	VENDOR_ID string `help:"pci vendor id"`
-	DEVICE_ID string `help:"pci device id"`
+	MODEL               string `help:"device model name"`
+	VENDOR_ID           string `help:"pci vendor id"`
+	DEVICE_ID           string `help:"pci device id"`
+	DISABLE_AUTO_DETECT bool   `help:"disable auto detect isolated devices on all of host"`
 }
 
 func (o *IsolatedDeviceModelUpdateOptions) Params() (jsonutils.JSONObject, error) {
