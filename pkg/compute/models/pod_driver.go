@@ -23,4 +23,5 @@ type IPodDriver interface {
 	RequestDeleteContainer(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 	RequestSyncContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 	RequestPullContainerImage(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
+	RequestSaveVolumeMountImage(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 }

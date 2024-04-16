@@ -64,12 +64,13 @@ func containerActionHandler(cf containerActionFunc) appsrv.FilterHandler {
 
 func AddPodHandlers(prefix string, app *appsrv.Application) {
 	ctrHandlers := map[string]containerActionFunc{
-		"create":      createContainer,
-		"start":       startContainer,
-		"stop":        stopContainer,
-		"delete":      deleteContainer,
-		"sync-status": syncContainerStatus,
-		"pull-image":  pullImage,
+		"create":                     createContainer,
+		"start":                      startContainer,
+		"stop":                       stopContainer,
+		"delete":                     deleteContainer,
+		"sync-status":                syncContainerStatus,
+		"pull-image":                 pullImage,
+		"save-volume-mount-to-image": saveVolumeMountToImage,
 	}
 	for action, f := range ctrHandlers {
 		app.AddHandler("POST",
@@ -112,4 +113,12 @@ func deleteContainer(ctx context.Context, userCred mcclient.TokenCredential, pod
 
 func syncContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, id string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return pod.SyncContainerStatus(ctx, userCred, id)
+}
+
+func saveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(hostapi.ContainerSaveVolumeMountToImageInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to input")
+	}
+	return pod.SaveVolumeMountToImage(ctx, userCred, input, ctrId)
 }

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -462,4 +463,66 @@ func (c *SContainer) GetJsonDescAtHost() (*hostapi.ContainerDesc, error) {
 		Name: c.GetName(),
 		Spec: spec,
 	}, nil
+}
+
+func (c *SContainer) PrepareSaveImage(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerSaveVolumeMountToImageInput) (string, error) {
+	imageInput := &CreateGlanceImageInput{
+		Name:         input.Name,
+		GenerateName: input.GenerateName,
+		DiskFormat:   imageapi.IMAGE_DISK_FORMAT_TGZ,
+		Properties: map[string]string{
+			"notes": input.Notes,
+		},
+		// inherit the ownership of disk
+		ProjectId: c.ProjectId,
+	}
+	// check class metadata
+	cm, err := c.GetAllClassMetadata()
+	if err != nil {
+		return "", errors.Wrap(err, "unable to GetAllClassMetadata")
+	}
+	imageInput.ClassMetadata = cm
+	return DiskManager.CreateGlanceImage(ctx, userCred, imageInput)
+}
+
+func (c *SContainer) PerformSaveVolumeMountImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerSaveVolumeMountToImageInput) (*hostapi.ContainerSaveVolumeMountToImageInput, error) {
+	if c.GetStatus() != api.CONTAINER_STATUS_EXITED {
+		return nil, httperrors.NewInvalidStatusError("Can't save volume disk of container in status %s", c.Status)
+	}
+	if c.GetPod().GetStatus() != api.VM_READY {
+		return nil, httperrors.NewInvalidStatusError("Can't save volume disk of pod in status %s", c.GetPod().GetStatus())
+	}
+	vols := c.GetVolumeMounts()
+	if input.Index < 0 || input.Index >= len(vols) {
+		return nil, httperrors.NewInputParameterError("Only %d volume_mounts", len(vols))
+	}
+
+	imageId, err := c.PrepareSaveImage(ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "prepare to save image")
+	}
+	vrs, err := c.GetVolumeMountRelations()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetVolumeMountRelations")
+	}
+	hvm, err := vrs[input.Index].ToHostMount()
+	if err != nil {
+		return nil, errors.Wrap(err, "ToHostMount")
+	}
+	hostInput := &hostapi.ContainerSaveVolumeMountToImageInput{
+		ImageId:          imageId,
+		VolumeMountIndex: input.Index,
+		VolumeMount:      hvm,
+	}
+
+	return hostInput, c.StartSaveVolumeMountImage(ctx, userCred, hostInput, "")
+}
+
+func (c *SContainer) StartSaveVolumeMountImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, parentTaskId string) error {
+	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_SAVING_IMAGE, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "ContainerSaveVolumeMountImageTask", c, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
 }

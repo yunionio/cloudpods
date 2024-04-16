@@ -477,3 +477,7 @@ func (p *SPodDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
 func (p *SPodDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
+
+func (p *SPodDriver) RequestSaveVolumeMountImage(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
+	return p.performContainerAction(ctx, userCred, task, "save-volume-mount-to-image", task.GetParams())
+}
