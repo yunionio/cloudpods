@@ -451,6 +451,9 @@ func (rds *SDBInstance) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstan
 }
 
 func (rds *SDBInstance) Delete() error {
+	if rds.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+		return rds.region.CancelResourcesSubscription([]string{rds.Id})
+	}
 	return rds.region.DeleteDBInstance(rds.Id)
 }
 
