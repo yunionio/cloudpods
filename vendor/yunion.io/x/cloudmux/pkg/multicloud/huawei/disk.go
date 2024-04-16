@@ -295,6 +295,9 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
+	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+		return self.storage.zone.region.CancelResourcesSubscription([]string{self.ID})
+	}
 	disk, err := self.storage.zone.region.GetDisk(self.GetId())
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
