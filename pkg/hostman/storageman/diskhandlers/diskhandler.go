@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -41,15 +42,17 @@ var (
 	snapshotKeywords = []string{"snapshots"}
 
 	actionFuncs = map[string]actionFunc{
-		"create":            diskCreate,
-		"delete":            diskDelete,
-		"resize":            diskResize,
-		"save-prepare":      diskSavePrepare,
-		"reset":             diskReset,
-		"snapshot":          diskSnapshot,
-		"delete-snapshot":   diskDeleteSnapshot,
-		"cleanup-snapshots": diskCleanupSnapshots,
-		"backup":            diskBackup,
+		"create":              diskCreate,
+		"delete":              diskDelete,
+		"resize":              diskResize,
+		"save-prepare":        diskSavePrepare,
+		"reset":               diskReset,
+		"snapshot":            diskSnapshot,
+		"delete-snapshot":     diskDeleteSnapshot,
+		"cleanup-snapshots":   diskCleanupSnapshots,
+		"backup":              diskBackup,
+		"src-migrate-prepare": diskSrcMigratePrepare,
+		"migrate":             diskMigrate,
 	}
 )
 
@@ -239,7 +242,7 @@ func performDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	var err error
 
 	rebuild, _ := body.Bool("disk", "rebuild")
-	if action != "create" || rebuild {
+	if !utils.IsInStringArray(action, []string{"create", "migrate"}) || rebuild {
 		disk, err = storage.GetDiskById(diskId)
 		if err != nil {
 			hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
@@ -281,8 +284,14 @@ func diskCreate(ctx context.Context, userCred mcclient.TokenCredential, storage 
 
 func diskDelete(ctx context.Context, userCred mcclient.TokenCredential, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	flatPath, _ := body.GetString("esxi_flat_file_path")
+	input := compute.DiskDeleteInput{
+		EsxiFlatFilePath: flatPath,
+
+		// Only local storage support clean snapshots
+		CleanSnapshots: jsonutils.QueryBoolean(body, "clean_snapshots", false),
+	}
 	if disk != nil {
-		hostutils.DelayTask(ctx, disk.Delete, compute.DiskDeleteInput{EsxiFlatFilePath: flatPath})
+		hostutils.DelayTask(ctx, disk.Delete, input)
 	} else {
 		hostutils.DelayTask(ctx, nil, nil)
 	}
@@ -324,6 +333,64 @@ func diskReset(ctx context.Context, userCred mcclient.TokenCredential, storage s
 		BackingDiskId: backingDiskId,
 		Input:         body,
 	})
+	return nil, nil
+}
+
+func diskSrcMigratePrepare(ctx context.Context, userCred mcclient.TokenCredential, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	snaps, back, hasTemplate, err := disk.PrepareMigrate(false)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	if len(back) > 0 {
+		ret.Set("disk_back", jsonutils.NewString(back))
+	}
+	if len(snaps) > 0 {
+		ret.Set("disk_snaps_chain", jsonutils.NewStringArray(snaps))
+	}
+	if hasTemplate {
+		ret.Set("sys_disk_has_template", jsonutils.JSONTrue)
+	}
+	return ret, nil
+}
+
+func diskMigrate(ctx context.Context, userCred mcclient.TokenCredential, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	srcStorageId, _ := body.GetString("src_storage_id")
+	if srcStorageId == "" {
+		return nil, httperrors.NewMissingParameterError("src_storage_id")
+	}
+	snapshotsUri, _ := body.GetString("snapshots_uri")
+	if snapshotsUri == "" {
+		return nil, httperrors.NewMissingParameterError("snapshots_uri")
+	}
+	diskUri, _ := body.GetString("disk_uri")
+	if diskUri == "" {
+		return nil, httperrors.NewMissingParameterError("disk_uri")
+	}
+
+	templateId, _ := body.GetString("template_id")
+	sysDiskHasTemplate := jsonutils.QueryBoolean(body, "sys_disk_has_template", false)
+	diskBackingFile, _ := body.GetString("disk_back")
+
+	outChainSnaps, _ := body.GetArray("out_chain_snapshots")
+	diskSnapsChain, _ := body.GetArray("disk_snaps_chain")
+
+	params := storageman.SDiskMigrate{
+		DiskId:  diskId,
+		Disk:    disk,
+		Storage: storage,
+
+		DiskUri:            diskUri,
+		SnapshotsUri:       snapshotsUri,
+		SrcStorageId:       srcStorageId,
+		TemplateId:         templateId,
+		DiskBackingFile:    diskBackingFile,
+		SysDiskHasTemplate: sysDiskHasTemplate,
+
+		OutChainSnaps: outChainSnaps,
+		SnapsChain:    diskSnapsChain,
+	}
+	hostutils.DelayTask(ctx, storage.DiskMigrate, &params)
 	return nil, nil
 }
 
