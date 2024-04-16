@@ -270,3 +270,11 @@ func (driver *SBaseHostDriver) RequestSyncOnHost(ctx context.Context, host *mode
 func (driver *SBaseHostDriver) RequestProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, input jsonutils.JSONObject) (*jsonutils.JSONArray, error) {
 	return nil, nil
 }
+
+func (driver *SBaseHostDriver) RequestDiskSrcMigratePrepare(ctx context.Context, host *models.SHost, disk *models.SDisk, task taskman.ITask) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (driver *SBaseHostDriver) RequestDiskMigrate(ctx context.Context, targetHost *models.SHost, targetStorage *models.SStorage, disk *models.SDisk, task taskman.ITask, body *jsonutils.JSONDict) error {
+	return fmt.Errorf("not supported")
+}

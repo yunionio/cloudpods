@@ -15,8 +15,11 @@
 package compute
 
 import (
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type DiskCreateOptions struct {
@@ -73,4 +76,18 @@ func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
 	}
 	params.BackupId = o.BackupId
 	return params, nil
+}
+
+type DiskMigrateOptions struct {
+	ID string `help:"ID of the server" json:"-"`
+
+	TargetStorageId string `help:"Disk migrate target storage id or name" json:"target_storage_id"`
+}
+
+func (o *DiskMigrateOptions) GetId() string {
+	return o.ID
+}
+
+func (o *DiskMigrateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
 }

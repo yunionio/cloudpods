@@ -139,6 +139,11 @@ func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.
 			return nil, err
 		}
 	}
+	if p.CleanSnapshots {
+		if err := d.DeleteAllSnapshot(p.SkipRecycle != nil && *p.SkipRecycle); err != nil {
+			return nil, errors.Wrap(err, "delete snapshots")
+		}
+	}
 
 	d.Storage.RemoveDisk(d)
 	return nil, nil
