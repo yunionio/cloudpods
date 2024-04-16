@@ -17,6 +17,8 @@ package compare
 import (
 	"fmt"
 	"strings"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type SyncResult struct {
@@ -80,6 +82,15 @@ func (self *SyncResult) AllError() error {
 
 func (self *SyncResult) IsError() bool {
 	return self.errors != nil && len(self.errors) > 0
+}
+
+func (self *SyncResult) IsGenerateError() bool {
+	for _, err := range self.errors {
+		if e := errors.Cause(err); e != errors.ErrNotImplemented && e != errors.ErrNotSupported && e != errors.ErrNotEmpty {
+			return true
+		}
+	}
+	return false
 }
 
 func (self *SyncResult) Result() string {
