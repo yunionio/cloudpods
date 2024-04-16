@@ -718,6 +718,7 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 }*/
 
 func (disk *SDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	disk.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	input := api.DiskCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
