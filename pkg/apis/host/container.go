@@ -102,3 +102,10 @@ type ContainerDesc struct {
 	Name string         `json:"name"`
 	Spec *ContainerSpec `json:"spec"`
 }
+
+type ContainerSaveVolumeMountToImageInput struct {
+	ImageId string `json:"image_id"`
+
+	VolumeMountIndex int                   `json:"volume_mount_index"`
+	VolumeMount      *ContainerVolumeMount `json:"volume_mount"`
+}

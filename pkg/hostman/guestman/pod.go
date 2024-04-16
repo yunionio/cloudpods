@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -46,9 +47,11 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type PodInstance interface {
@@ -60,6 +63,7 @@ type PodInstance interface {
 	SyncContainerStatus(ctx context.Context, cred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
+	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
 }
 
 type sContainer struct {
@@ -1132,4 +1136,71 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrapf(err, "cri.PullImage %s", input.Image)
 	}
 	return jsonutils.Marshal(resp), nil
+}
+
+func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error) {
+	vol := input.VolumeMount
+	drv := volume_mount.GetDriver(vol.Type)
+	if err := drv.Mount(s, ctrId, vol); err != nil {
+		return nil, errors.Wrapf(err, "mount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+	}
+	defer func() {
+		if err := drv.Unmount(s, ctrId, vol); err != nil {
+			log.Warningf("unmount volume %s: %v", jsonutils.Marshal(vol), err)
+		}
+	}()
+
+	hostPath, err := drv.GetRuntimeMountHostPath(s, ctrId, vol)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get runtime host mount path of %s", jsonutils.Marshal(vol))
+	}
+	// 1. tar hostPath to tgz
+	imgPath, err := s.tarGzDir(input, ctrId, hostPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "tar and zip directory %s", hostPath)
+	}
+	defer func() {
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", imgPath).Output()
+		if err != nil {
+			log.Warningf("rm -f %s: %s", imgPath, out)
+		}
+	}()
+
+	// 2. upload target tgz to glance
+	if err := s.saveTarGzToGlance(ctx, input, imgPath); err != nil {
+		return nil, errors.Wrapf(err, "saveTarGzToGlance: %s", imgPath)
+	}
+	return nil, nil
+}
+
+func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, error) {
+	fp := fmt.Sprintf("volimg-%s-ctr-%s-%d.tar.gz", input.ImageId, ctrId, input.VolumeMountIndex)
+	outputFp := filepath.Join(s.GetVolumesDir(), fp)
+	cmd := fmt.Sprintf("tar -czf %s -C %s .", outputFp, hostPath)
+	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
+		return "", errors.Wrapf(err, "%s: %s", cmd, out)
+	}
+	return outputFp, nil
+}
+
+func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostapi.ContainerSaveVolumeMountToImageInput, imgPath string) error {
+	f, err := os.Open(imgPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	finfo, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	size := finfo.Size()
+
+	var params = jsonutils.NewDict()
+	params.Set("image_id", jsonutils.NewString(input.ImageId))
+
+	if _, err := image.Images.Upload(hostutils.GetImageSession(ctx), params, f, size); err != nil {
+		return errors.Wrap(err, "upload image")
+	}
+
+	return err
 }

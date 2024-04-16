@@ -1149,34 +1149,67 @@ func (self *SDisk) GetZone() (*SZone, error) {
 	return storage.getZone()
 }
 
+func (m *SDiskManager) CheckGlanceImage(ctx context.Context, userCred mcclient.TokenCredential, name string, generateName string) error {
+	if len(generateName) == 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		imageList, err := image.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"}))
+		if err != nil {
+			return err
+		}
+		if imageList.Total > 0 {
+			return httperrors.NewConflictError("Duplicate image name %s", name)
+		}
+	}
+	return nil
+}
+
+type CreateGlanceImageInput struct {
+	Name          string
+	GenerateName  string
+	VirtualSize   int
+	DiskFormat    string
+	OsArch        string
+	Properties    map[string]string
+	ProjectId     string
+	EncryptKeyId  string
+	ClassMetadata map[string]string
+}
+
+func (m *SDiskManager) CreateGlanceImage(ctx context.Context, userCred mcclient.TokenCredential, input *CreateGlanceImageInput) (string, error) {
+	if err := DiskManager.CheckGlanceImage(ctx, userCred, input.Name, input.GenerateName); err != nil {
+		return "", err
+	}
+	/*
+		no need to check quota anymore
+		session := auth.GetSession(userCred, options.Options.Region, "v2")
+		quota := image_models.SQuota{Image: 1}
+		if _, err := image.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
+			return "", err
+		}*/
+	us := auth.GetSession(ctx, userCred, options.Options.Region)
+	result, err := image.Images.Create(us, jsonutils.Marshal(input))
+	if err != nil {
+		return "", err
+	}
+	imageId, err := result.GetString("id")
+	if err != nil {
+		return "", err
+	}
+	if len(input.ClassMetadata) > 0 {
+		_, err = image.Images.PerformAction(us, imageId, "set-class-metadata", jsonutils.Marshal(input.ClassMetadata))
+		if err != nil {
+			return "", errors.Wrapf(err, "unable to SetClassMetadata for image %s", imageId)
+		}
+	}
+	return imageId, nil
+}
+
 func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerSaveImageInput) (string, error) {
 	zone, _ := self.GetZone()
 	if zone == nil {
 		return "", httperrors.NewResourceNotFoundError("No zone for this disk")
 	}
-	if len(input.GenerateName) == 0 {
-		s := auth.GetAdminSession(ctx, options.Options.Region)
-		imageList, err := image.Images.List(s, jsonutils.Marshal(map[string]string{"name": input.Name, "admin": "true"}))
-		if err != nil {
-			return "", err
-		}
-		if imageList.Total > 0 {
-			return "", httperrors.NewConflictError("Duplicate image name %s", input.Name)
-		}
-	}
-
-	opts := struct {
-		Name         string
-		GenerateName string
-		VirtualSize  int
-		DiskFormat   string
-		OsArch       string
-		Properties   map[string]string
-
-		ProjectId string
-
-		EncryptKeyId string
-	}{
+	imageInput := &CreateGlanceImageInput{
 		Name:         input.Name,
 		GenerateName: input.GenerateName,
 		VirtualSize:  self.DiskSize,
@@ -1191,43 +1224,21 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		// inherit the ownership of disk
 		ProjectId: self.ProjectId,
 	}
-
 	if self.IsEncrypted() {
 		encKey, err := self.GetEncryptInfo(ctx, userCred)
 		if err != nil {
 			return "", errors.Wrap(err, "GetEncryptInfo")
 		}
-		opts.EncryptKeyId = encKey.Id
-	}
-
-	/*
-		no need to check quota anymore
-		session := auth.GetSession(userCred, options.Options.Region, "v2")
-		quota := image_models.SQuota{Image: 1}
-		if _, err := image.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
-			return "", err
-		}*/
-	us := auth.GetSession(ctx, userCred, options.Options.Region)
-	result, err := image.Images.Create(us, jsonutils.Marshal(opts))
-	if err != nil {
-		return "", err
-	}
-	imageId, err := result.GetString("id")
-	if err != nil {
-		return "", err
+		imageInput.EncryptKeyId = encKey.Id
 	}
 	// check class metadata
 	cm, err := self.GetAllClassMetadata()
 	if err != nil {
 		return "", errors.Wrap(err, "unable to GetAllClassMetadata")
 	}
-	if len(cm) > 0 {
-		_, err = image.Images.PerformAction(us, imageId, "set-class-metadata", jsonutils.Marshal(cm))
-		if err != nil {
-			return "", errors.Wrapf(err, "unable to SetClassMetadata for image %s", imageId)
-		}
-	}
-	return imageId, nil
+	imageInput.ClassMetadata = cm
+
+	return DiskManager.CreateGlanceImage(ctx, userCred, imageInput)
 }
 
 func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSaveInput) (jsonutils.JSONObject, error) {
@@ -1249,6 +1260,7 @@ func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCrede
 	opts := api.ServerSaveImageInput{
 		Name: input.Name,
 	}
+
 	input.ImageId, err = self.PrepareSaveImage(ctx, userCred, opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "PrepareSaveImage")

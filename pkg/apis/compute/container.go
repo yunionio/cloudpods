@@ -47,8 +47,8 @@ const (
 	CONTAINER_STATUS_PULLED_IMAGE       = "pulled_image"
 	CONTAINER_STATUS_CREATING           = "creating"
 	CONTAINER_STATUS_CREATE_FAILED      = "create_failed"
-	CONTAINER_STATUS_CACHING_IMAGE      = "caching_image"
-	CONTAINER_STATUS_CACHE_IMAGE_FAILED = "cache_image_failed"
+	CONTAINER_STATUS_SAVING_IMAGE       = "saving_image"
+	CONTAINER_STATUS_SAVE_IMAGE_FAILED  = "save_image_failed"
 	CONTAINER_STATUS_STARTING           = "starting"
 	CONTAINER_STATUS_START_FAILED       = "start_failed"
 	CONTAINER_STATUS_STOPPING           = "stopping"
@@ -133,4 +133,11 @@ type ContainerDevice struct {
 	Type           apis.ContainerDeviceType `json:"type"`
 	IsolatedDevice *ContainerIsolatedDevice `json:"isolated_device"`
 	Host           *ContainerHostDevice     `json:"host"`
+}
+
+type ContainerSaveVolumeMountToImageInput struct {
+	Name         string `json:"name"`
+	GenerateName string `json:"generate_name"`
+	Notes        string `json:"notes"`
+	Index        int    `json:"index"`
 }
