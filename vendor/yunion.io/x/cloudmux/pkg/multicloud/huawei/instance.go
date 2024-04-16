@@ -570,7 +570,21 @@ func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerSto
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
+	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+		return self.host.zone.region.CancelResourcesSubscription([]string{self.ID})
+	}
 	return self.host.zone.region.DeleteVM(self.GetId())
+}
+
+func (self *SRegion) CancelResourcesSubscription(resourceIds []string) error {
+	params := map[string]interface{}{
+		"resource_ids":            resourceIds,
+		"unsubscribe_type":        1,
+		"unsubscribe_reason_type": 5,
+		"unsubscribe_reason":      "cloudpods auto delete prepaid resources",
+	}
+	_, err := self.post(SERVICE_BSS, "orders/subscriptions/resources/unsubscribe", params)
+	return err
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {

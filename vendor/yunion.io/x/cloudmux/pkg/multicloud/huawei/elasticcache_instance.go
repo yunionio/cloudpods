@@ -501,6 +501,9 @@ func (self *SElasticcache) Restart() error {
 }
 
 func (self *SElasticcache) Delete() error {
+	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+		return self.region.CancelResourcesSubscription([]string{self.InstanceID})
+	}
 	_, err := self.region.delete(SERVICE_DCS, "instances/"+self.GetId())
 	return err
 }
