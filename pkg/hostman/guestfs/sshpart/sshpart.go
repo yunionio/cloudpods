@@ -37,7 +37,7 @@ import (
 )
 
 type SSHPartition struct {
-	term      *ssh.Client
+	term      ISSHClient // *ssh.Client
 	partDev   string
 	mountPath string
 	isLVM     bool
@@ -45,7 +45,7 @@ type SSHPartition struct {
 
 var _ fsdriver.IDiskPartition = &SSHPartition{}
 
-func NewSSHPartition(term *ssh.Client, partDev string, isLVM bool) *SSHPartition {
+func NewSSHPartition(term ISSHClient, partDev string, isLVM bool) *SSHPartition {
 	p := new(SSHPartition)
 	p.term = term
 	p.partDev = partDev
