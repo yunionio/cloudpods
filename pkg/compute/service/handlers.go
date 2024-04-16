@@ -253,6 +253,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.HostnetworkManager,
 		models.HoststorageManager,
 		models.HostschedtagManager,
+		models.HostIsolatedDeviceModelManager,
 		models.StorageschedtagManager,
 		models.NetworkschedtagManager,
 		models.CloudproviderschedtagManager,
