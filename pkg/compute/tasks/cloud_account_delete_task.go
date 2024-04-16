@@ -41,6 +41,34 @@ func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	providers := account.GetCloudproviders()
 
+	for _, provider := range providers {
+		regions, err := provider.GetRegions()
+		if err != nil {
+			provider.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+			account.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+			return
+		}
+		for _, region := range regions {
+			skus, err := region.GetServerSkus()
+			if err != nil {
+				provider.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+				account.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+				self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+				return
+			}
+			for _, sku := range skus {
+				err := sku.RealDelete(ctx, self.UserCred)
+				if err != nil {
+					provider.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+					account.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_DELETE_FAILED, err.Error())
+					self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+					return
+				}
+			}
+		}
+	}
+
 	for i := range providers {
 		err := providers[i].RealDelete(ctx, self.UserCred)
 		if err != nil {
