@@ -44,6 +44,8 @@ const (
 	DISK_START_MIGRATE = "start_migrate"
 	DISK_POST_MIGRATE  = "post_migrate"
 	DISK_MIGRATING     = "migrating"
+	DISK_MIGRATE_FAIL  = "migrate_failed"
+	DISK_IMAGE_CACHING = "image_caching" // 缓存镜像中
 
 	DISK_CLONE      = "clone"
 	DISK_CLONE_FAIL = "clone_failed"
