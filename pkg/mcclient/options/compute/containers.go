@@ -263,3 +263,21 @@ func (o ContainerSaveVolumeMountImage) Params() (jsonutils.JSONObject, error) {
 		Index:        o.INDEX,
 	}), nil
 }
+
+type ContainerExecOptions struct {
+	ServerIdOptions
+	// Tty     bool `help:"Using tty" short-token:"t"`
+	COMMAND string
+}
+
+func (o *ContainerExecOptions) ToAPIInput() *computeapi.ContainerExecInput {
+	return &computeapi.ContainerExecInput{
+		Command: strings.Split(o.COMMAND, " "),
+		//Tty:     o.Tty,
+		Tty: true,
+	}
+}
+
+func (o *ContainerExecOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o.ToAPIInput()), nil
+}

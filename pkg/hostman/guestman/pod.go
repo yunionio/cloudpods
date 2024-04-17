@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -64,6 +65,7 @@ type PodInstance interface {
 	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
 	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
+	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
 }
 
 type sContainer struct {
@@ -1203,4 +1205,25 @@ func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostap
 	}
 
 	return err
+}
+
+func (s *sPodGuestInstance) ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error) {
+	rCli := s.getCRI().GetRuntimeClient()
+	criId, err := s.getContainerCRIId(ctrId)
+	if err != nil {
+		return nil, errors.Wrap(err, "get container cri id")
+	}
+	req := &runtimeapi.ExecRequest{
+		ContainerId: criId,
+		Cmd:         input.Command,
+		Tty:         input.Tty,
+		Stdin:       true,
+		Stdout:      true,
+		//Stderr:      true,
+	}
+	resp, err := rCli.Exec(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "exec")
+	}
+	return url.Parse(resp.Url)
 }

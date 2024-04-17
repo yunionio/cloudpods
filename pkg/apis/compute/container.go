@@ -141,3 +141,14 @@ type ContainerSaveVolumeMountToImageInput struct {
 	Notes        string `json:"notes"`
 	Index        int    `json:"index"`
 }
+
+type ContainerExecInfoOutput struct {
+	HostUri     string `json:"host_uri"`
+	PodId       string `json:"pod_id"`
+	ContainerId string `json:"container_id"`
+}
+
+type ContainerExecInput struct {
+	Command []string `json:"command"`
+	Tty     bool     `json:"tty"`
+}

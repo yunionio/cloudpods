@@ -101,7 +101,11 @@ func (m *SContainerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	if query.GuestId != "" {
-		q = q.Equals("guest_id", query.GuestId)
+		gst, err := GuestManager.FetchByIdOrName(ctx, userCred, query.GuestId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetch guest by %s", query.GuestId)
+		}
+		q = q.Equals("guest_id", gst.GetId())
 	}
 	return q, nil
 }
@@ -526,3 +530,35 @@ func (c *SContainer) StartSaveVolumeMountImage(ctx context.Context, userCred mcc
 	}
 	return task.ScheduleRun(nil)
 }
+
+func (c *SContainer) GetPodDriver() IPodDriver {
+	return c.GetPod().GetDriver().(IPodDriver)
+}
+
+func (c *SContainer) GetDetailsExecInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.ContainerExecInfoOutput, error) {
+	gst := c.GetPod()
+	host, err := gst.GetHost()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetHost")
+	}
+	out := &api.ContainerExecInfoOutput{
+		HostUri:     host.ManagerUri,
+		PodId:       c.GuestId,
+		ContainerId: c.Id,
+	}
+	return out, nil
+}
+
+/*func (c *SContainer) PerformExec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if c.Status != api.CONTAINER_STATUS_RUNNING {
+		return nil, httperrors.NewInvalidStatusError("Can't exec container in status %s", c.Status)
+	}
+	input := new(api.ContainerExecInput)
+	if err := query.Unmarshal(input); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal query to input: %s", query)
+	}
+	if err := c.GetPodDriver().RequestExecContainer(ctx, userCred, c, input); err != nil {
+		return nil, errors.Wrap(err, "RequestExecContainer")
+	}
+	return nil, nil
+}*/
