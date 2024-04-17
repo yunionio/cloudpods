@@ -235,6 +235,24 @@ func (d *SLVMDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInp
 	return err
 }
 
+func (d *SLVMDisk) PreResize(ctx context.Context, sizeMb int64) error {
+	qemuImg, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return errors.Wrap(err, "lvm qemuimg.NewQemuImage")
+	}
+
+	lvsize := sizeMb
+	if qemuImg.Format == qemuimgfmt.QCOW2 {
+		lvsize = lvmutils.GetQcow2LvSize(sizeMb)
+	}
+
+	err = lvmutils.LvResize(d.Storage.GetPath(), d.GetPath(), lvsize*1024*1024)
+	if err != nil {
+		return errors.Wrap(err, "lv resize")
+	}
+	return nil
+}
+
 func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	diskInfo, ok := params.(*jsonutils.JSONDict)
 	if !ok {
