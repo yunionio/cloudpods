@@ -255,6 +255,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.HostwireManagerDeprecated,
 		models.HostnetworkManager,
 		models.HoststorageManager,
+		models.HostBackupstorageManager,
 		models.HostschedtagManager,
 		models.HostIsolatedDeviceModelManager,
 		models.StorageschedtagManager,
