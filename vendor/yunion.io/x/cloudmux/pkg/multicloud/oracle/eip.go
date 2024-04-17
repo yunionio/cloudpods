@@ -15,6 +15,7 @@
 package oracle
 
 import (
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -163,16 +164,15 @@ func (self *SRegion) GetEips(lifetime string) ([]SEipAddress, error) {
 	if err != nil {
 		return nil, err
 	}
-	params := map[string]interface{}{
-		"scope": "AVAILABILITY_DOMAIN",
-	}
+	query := url.Values{}
+	query.Set("scope", "AVAILABILITY_DOMAIN")
 	if len(lifetime) > 0 {
-		params["lifetime"] = lifetime
+		query.Set("lifetime", lifetime)
 	}
 	ret := []SEipAddress{}
 	for _, zone := range zones {
-		params["availabilityDomain"] = zone.Name
-		resp, err := self.list(SERVICE_IAAS, "publicIps", params)
+		query.Set("availabilityDomain", zone.Name)
+		resp, err := self.list(SERVICE_IAAS, "publicIps", query)
 		if err != nil {
 			return nil, err
 		}

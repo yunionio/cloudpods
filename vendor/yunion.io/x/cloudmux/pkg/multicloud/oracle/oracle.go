@@ -44,11 +44,13 @@ const (
 	CLOUD_PROVIDER_ORACLE_CN = "甲骨文"
 	ORACLE_DEFAULT_REGION    = "ap-singapore-1"
 	DEFAULT_API_VERSION      = "20160918"
+	MONITORY_API_VERSION     = "20180401"
 
 	NEXT_TOKEN = "opc-next-page"
 
-	SERVICE_IAAS     = "iaas"
-	SERVICE_IDENTITY = "identity"
+	SERVICE_IAAS      = "iaas"
+	SERVICE_IDENTITY  = "identity"
+	SERVICE_TELEMETRY = "telemetry"
 )
 
 type OracleClientConfig struct {
@@ -189,8 +191,10 @@ func (self *SOracleClient) getUrl(service, regionId, resource string) (string, e
 		regionId = ORACLE_DEFAULT_REGION
 	}
 	switch service {
-	case "iaas", "identity":
+	case SERVICE_IAAS, SERVICE_IDENTITY:
 		return fmt.Sprintf("https://%s.%s.oraclecloud.com/%s/%s", service, regionId, DEFAULT_API_VERSION, strings.TrimPrefix(resource, "/")), nil
+	case SERVICE_TELEMETRY:
+		return fmt.Sprintf("https://%s.%s.oraclecloud.com/%s/%s", service, regionId, MONITORY_API_VERSION, strings.TrimPrefix(resource, "/")), nil
 	default:
 		return "", errors.Wrapf(cloudprovider.ErrNotSupported, service)
 	}
@@ -271,16 +275,16 @@ func (self *SOracleClient) Do(req *http.Request) (*http.Response, error) {
 	return client.Do(req)
 }
 
-func (self *SOracleClient) list(service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	if params == nil {
-		params = map[string]interface{}{}
+func (self *SOracleClient) list(service, regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	if query == nil {
+		query = url.Values{}
 	}
 	if len(self.compartment) > 0 {
-		params["compartmentId"] = self.compartment
+		query.Set("compartmentId", self.compartment)
 	}
 	ret := jsonutils.NewArray()
 	for {
-		resp, token, err := self.request(httputils.GET, service, regionId, resource, params)
+		resp, token, err := self.request(httputils.GET, service, regionId, resource, query, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -289,28 +293,25 @@ func (self *SOracleClient) list(service, regionId, resource string, params map[s
 		if len(token) == 0 {
 			break
 		}
-		params["page"] = token
+		query.Set("page", token)
 	}
 	return ret, nil
 }
 
-func (self *SOracleClient) get(service, regionId, resource, id string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+func (self *SOracleClient) get(service, regionId, resource, id string, query url.Values) (jsonutils.JSONObject, error) {
 	if len(id) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty id")
 	}
-	if params == nil {
-		params = map[string]interface{}{}
-	}
-	resp, _, err := self.request(httputils.GET, service, regionId, resource+"/"+id, params)
+	resp, _, err := self.request(httputils.GET, service, regionId, resource+"/"+id, query, nil)
 	return resp, err
 }
 
-func (self *SOracleClient) post(service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	resp, _, err := self.request(httputils.POST, service, regionId, resource, params)
+func (self *SOracleClient) post(service, regionId, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	resp, _, err := self.request(httputils.POST, service, regionId, resource, query, params)
 	return resp, err
 }
 
-func (self *SOracleClient) request(method httputils.THttpMethod, service, regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, string, error) {
+func (self *SOracleClient) request(method httputils.THttpMethod, service, regionId, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, string, error) {
 	uri, err := self.getUrl(service, regionId, resource)
 	if err != nil {
 		return nil, "", err
@@ -318,15 +319,9 @@ func (self *SOracleClient) request(method httputils.THttpMethod, service, region
 	if params == nil {
 		params = map[string]interface{}{}
 	}
-	values := url.Values{}
-	if method == httputils.GET {
-		for k, v := range params {
-			values.Set(k, v.(string))
-		}
-		if len(values) > 0 {
-			uri = fmt.Sprintf("%s?%s", uri, values.Encode())
-		}
-		params = nil
+
+	if len(query) > 0 {
+		uri = fmt.Sprintf("%s?%s", uri, query.Encode())
 	}
 
 	req := httputils.NewJsonRequest(method, uri, params)
@@ -381,7 +376,9 @@ type Compartment struct {
 }
 
 func (self *SOracleClient) GetCompartments() ([]Compartment, error) {
-	resp, err := self.list(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, "compartments", map[string]interface{}{"compartmentId": self.tenancyOCID})
+	query := url.Values{}
+	query.Set("compartmentId", self.tenancyOCID)
+	resp, err := self.list(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, "compartments", query)
 	if err != nil {
 		return nil, err
 	}
