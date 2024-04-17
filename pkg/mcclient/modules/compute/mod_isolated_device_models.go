@@ -26,7 +26,7 @@ var (
 func init() {
 	IsolatedDeviceModels = modules.NewComputeManager("isolated_device_model", "isolated_device_models",
 		[]string{"ID", "Dev_type",
-			"Model", "Vendor_id", "Device_id"},
+			"Model", "Vendor_id", "Device_id", "Hot_pluggable", "Disable_auto_detect"},
 		[]string{})
 	modules.RegisterCompute(&IsolatedDeviceModels)
 }
