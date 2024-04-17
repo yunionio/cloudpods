@@ -232,7 +232,6 @@ github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFP
 github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/edsrzf/mmap-go v1.0.0 h1:CEBF7HpRnUCSJgGUb5h1Gm7e3VkmVDrR8lvWVLtrOFw=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
-github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153 h1:yUdfgN0XgIJw7foRItutHYUIhlcKzcSf5vDpdhQAKTc=
 github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153/go.mod h1:/Zj4wYkgs4iZTTu3o/KG3Itv/qCCa8VVMlb3i9OVuzc=
 github.com/elgatito/upnp v0.0.0-20180711183757-2f244d205f9a h1:2Zw3pxDRTs4nX1WCLAEm27UN0hvjZSge7EaUUQexRZw=
 github.com/elgatito/upnp v0.0.0-20180711183757-2f244d205f9a/go.mod h1:afkYpY8JAIL4341N7Zj9xJ5yTovsg6BkWfBFlCzIoF4=
@@ -1223,8 +1222,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240416095221-40e74d0a722d h1:3MKLW5Tn17b3xhXFznehE+piKiHurIBJIEIhhTej+7E=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240416095221-40e74d0a722d/go.mod h1:dsUESXIbXJ+/ywbNClhldOrbPOiBi2udrgOnB/ffoWk=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240417061807-510a6f7b1a9f h1:vmDtx0/KIMBB/zqyscfgY+5bkrDky+Ny6SBs0lfatsI=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240417061807-510a6f7b1a9f/go.mod h1:dsUESXIbXJ+/ywbNClhldOrbPOiBi2udrgOnB/ffoWk=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32 h1:v7POYkQwo1XzOxBoIoRVr/k0V9Y5JyjpshlIFa9raug=
 yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=

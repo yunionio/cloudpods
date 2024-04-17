@@ -381,9 +381,6 @@ github.com/eapache/queue
 # github.com/edsrzf/mmap-go v1.0.0
 ## explicit
 github.com/edsrzf/mmap-go
-# github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153
-## explicit
-github.com/elazarl/goproxy
 # github.com/elgatito/upnp v0.0.0-20180711183757-2f244d205f9a
 ## explicit
 github.com/elgatito/upnp
@@ -1504,7 +1501,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240416095221-40e74d0a722d
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240417061807-510a6f7b1a9f
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
