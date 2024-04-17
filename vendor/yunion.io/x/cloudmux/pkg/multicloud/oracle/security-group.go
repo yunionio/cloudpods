@@ -15,6 +15,8 @@
 package oracle
 
 import (
+	"net/url"
+
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -88,9 +90,9 @@ func (self *SSecurityGroup) GetProjectId() string {
 }
 
 func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
-	params := map[string]interface{}{}
+	params := url.Values{}
 	if len(vpcId) > 0 {
-		params["vcnId"] = vpcId
+		params.Set("vcnId", vpcId)
 	}
 	resp, err := self.list(SERVICE_IAAS, "securityLists", params)
 	if err != nil {
