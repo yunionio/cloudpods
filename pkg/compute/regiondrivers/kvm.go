@@ -940,17 +940,11 @@ func (self *SKVMRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib 
 	if err != nil {
 		return errors.Wrap(err, "unable to get backups")
 	}
-	storage, err := backups[0].GetStorage()
+	host, err := models.HostManager.GetEnabledKvmHostForDiskBackup(&backups[0])
 	if err != nil {
-		return errors.Wrapf(err, "GetStorage")
+		return errors.Wrap(err, "GetEnabledKvmHostForDiskBackup")
 	}
-	host, _ := storage.GetMasterHost()
-	if host == nil {
-		host, err = models.HostManager.GetEnabledKvmHost()
-		if err != nil {
-			return errors.Wrap(err, "unable to GetEnabledKvmHost")
-		}
-	}
+
 	backupIds := make([]string, len(backups))
 	for i := range backupIds {
 		backupIds[i] = backups[i].GetId()
@@ -984,7 +978,7 @@ func (self *SKVMRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, i
 	if err != nil {
 		return errors.Wrap(err, "unable to get backupStorage")
 	}
-	host, err := models.HostManager.GetEnabledKvmHost()
+	host, err := models.HostManager.GetEnabledKvmHostForBackupStorage(backupStorage)
 	if err != nil {
 		return errors.Wrap(err, "unable to GetEnabledKvmHost")
 	}
@@ -1011,9 +1005,9 @@ func (self *SKVMRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, i
 
 func (self *SKVMRegionDriver) RequestSyncBackupStorageStatus(ctx context.Context, userCred mcclient.TokenCredential, bs *models.SBackupStorage, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		host, err := models.HostManager.GetEnabledKvmHost()
+		host, err := models.HostManager.GetEnabledKvmHostForBackupStorage(bs)
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to GetEnabledKvmHost")
+			return nil, errors.Wrap(err, "GetEnabledKvmHostForBackupStorage")
 		}
 		url := fmt.Sprintf("%s/storages/sync-backup-storage", host.ManagerUri)
 		body := jsonutils.NewDict()
@@ -1083,7 +1077,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to get backupStorage")
 		}
-		storage, _ := backup.GetStorage()
+		/*storage, _ := backup.GetStorage()
 		var host *models.SHost
 		if storage != nil {
 			host, _ = storage.GetMasterHost()
@@ -1093,6 +1087,10 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 			if err != nil {
 				return nil, errors.Wrap(err, "unable to GetEnabledKvmHost")
 			}
+		}*/
+		host, err := models.HostManager.GetEnabledKvmHostForDiskBackup(backup)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetEnabledKvmHostForDiskBackup")
 		}
 		log.Infof("host: %s, ManagerUri: %s", host.GetId(), host.ManagerUri)
 		url := fmt.Sprintf("%s/storages/sync-backup", host.ManagerUri)
@@ -1300,17 +1298,11 @@ func (self *SKVMRegionDriver) RequestDeleteBackup(ctx context.Context, backup *m
 	if err != nil {
 		return errors.Wrap(err, "unable to get backupStorage")
 	}
-	storage, _ := backup.GetStorage()
-	var host *models.SHost
-	if storage != nil {
-		host, _ = storage.GetMasterHost()
+	host, err := models.HostManager.GetEnabledKvmHostForDiskBackup(backup)
+	if err != nil {
+		return errors.Wrap(err, "GetEnabledKvmHostForDiskBackup")
 	}
-	if host == nil {
-		host, err = models.HostManager.GetEnabledKvmHost()
-		if err != nil {
-			return errors.Wrap(err, "unable to GetEnabledKvmHost")
-		}
-	}
+
 	url := fmt.Sprintf("%s/storages/delete-backup", host.ManagerUri)
 	body := jsonutils.NewDict()
 	body.Set("backup_id", jsonutils.NewString(backup.GetId()))
