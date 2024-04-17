@@ -50,8 +50,8 @@ func (self *SOracleClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 	} {
 		params := map[string]interface{}{
 			"namespace": "oci_computeagent",
-			"startTime": opts.StartTime,
-			"endTime":   opts.EndTime,
+			"startTime": opts.StartTime.UTC().Format(time.RFC3339),
+			"endTime":   opts.EndTime.UTC().Format(time.RFC3339),
 			"query":     queryStr,
 		}
 		resp, err := self.post(SERVICE_TELEMETRY, opts.RegionExtId, "metrics/actions/summarizeMetricsData", query, params)
