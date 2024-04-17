@@ -1202,13 +1202,13 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 	return nil, nil
 }
 
-func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, diskId string, sizeMb int64) (jsonutils.JSONObject, error) {
+func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, disk storageman.IDisk, sizeMb int64) (jsonutils.JSONObject, error) {
 	guest, ok := m.GetServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
 	if guest.IsRunning() {
-		guest.onlineResizeDisk(ctx, diskId, sizeMb)
+		guest.onlineResizeDisk(ctx, disk, sizeMb)
 		return nil, nil
 	} else {
 		return nil, httperrors.NewInvalidStatusError("guest is not runnign")
