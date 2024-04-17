@@ -297,7 +297,7 @@ func diskResize(ctx context.Context, userCred mcclient.TokenCredential, storage 
 	serverId, _ := diskInfo.GetString("server_id")
 	if len(serverId) > 0 && guestman.GetGuestManager().Status(serverId) == "running" {
 		sizeMb, _ := diskInfo.Int("size")
-		return guestman.GetGuestManager().OnlineResizeDisk(ctx, serverId, diskId, sizeMb)
+		return guestman.GetGuestManager().OnlineResizeDisk(ctx, serverId, disk, sizeMb)
 	} else {
 		hostutils.DelayTask(ctx, disk.Resize, diskInfo)
 		return nil, nil
