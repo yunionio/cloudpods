@@ -15,6 +15,7 @@
 package oracle
 
 import (
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -140,9 +141,9 @@ func (self *SNetwork) GetProjectId() string {
 }
 
 func (self *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
-	params := map[string]interface{}{}
+	params := url.Values{}
 	if len(vpcId) > 0 {
-		params["vcnId"] = vpcId
+		params.Set("vcnId", vpcId)
 	}
 	resp, err := self.list(SERVICE_IAAS, "subnets", params)
 	if err != nil {
