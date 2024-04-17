@@ -178,4 +178,23 @@ type IsolatedDeviceModelListInput struct {
 
 	// 支持热插拔 HotPluggable
 	HotPluggable bool `json:"hot_pluggable"`
+
+	// 宿主机 Id
+	HostId string `json:"host_id"`
+}
+
+type HostIsolatedDeviceModelDetails struct {
+	SHostJointsBase
+	HostJointResourceDetails
+	// 宿主机Id
+	HostId string `json:"host_id"`
+	// 存储Id
+	IsolatedDeviceModelId string `json:"isolated_device_model_id"`
+
+	Model             string
+	VendorId          string
+	DeviceId          string
+	DevType           string
+	HotPluggable      bool
+	DisableAutoDetect bool
 }

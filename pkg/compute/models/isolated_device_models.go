@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -62,7 +61,14 @@ type SIsolatedDeviceModel struct {
 	DevType string `width:"16" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 
 	HotPluggable tristate.TriState `default:"false" list:"domain" create:"domain_optional" update:"domain"`
+
+	// Disable auto detect isolated devices on host
+	DisableAutoDetect tristate.TriState `default:"false" list:"domain" create:"domain_optional" update:"domain"`
 }
+
+var _ db.IStandaloneModel = new(SIsolatedDeviceModel)
+
+func (self *SIsolatedDeviceModel) SetName(name string) {}
 
 func (manager *SIsolatedDeviceModelManager) ValidateCreateData(ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -102,9 +108,8 @@ func (self *SIsolatedDeviceModel) PostCreate(ctx context.Context, userCred mccli
 	if err != nil {
 		log.Errorf("!!!data.Unmarshal api.IsolatedDeviceModelCreateInput fail %s", err)
 	}
-	go func() {
-		defer self.RemoveMetadata(ctx, api.MEAT_PROBED_HOST_COUNT, userCred)
 
+	go func() {
 		for i := range input.Hosts {
 			iHost, err := HostManager.FetchByIdOrName(userCred, input.Hosts[i])
 			if err != nil {
@@ -112,13 +117,35 @@ func (self *SIsolatedDeviceModel) PostCreate(ctx context.Context, userCred mccli
 				continue
 			}
 			host := iHost.(*SHost)
+
+			if self.DisableAutoDetect.Bool() {
+				err = self.Attach2Host(ctx, userCred, host)
+				if err != nil {
+					log.Errorf("failed attach to host %s: %s", input.Hosts[i], err)
+					continue
+				}
+			}
+
 			log.Infof("start request host %s scan isolated devices", host.GetName())
 			if err := host.RequestScanIsolatedDevices(ctx, userCred); err != nil {
 				log.Errorf("failed scan isolated device %s", err)
 			}
-			self.SetMetadata(ctx, api.MEAT_PROBED_HOST_COUNT, strconv.Itoa(i+1), userCred)
 		}
 	}()
+}
+
+func (self *SIsolatedDeviceModel) Attach2Host(ctx context.Context, userCred mcclient.TokenCredential, host *SHost) error {
+	hs := SHostIsolatedDeviceModel{}
+	hs.SetModelManager(HostIsolatedDeviceModelManager, &hs)
+
+	hs.IsolatedDeviceModelId = self.Id
+	hs.HostId = host.Id
+	err := HostIsolatedDeviceModelManager.TableSpec().Insert(ctx, &hs)
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogAttachEvent(ctx, host, self, userCred, nil)
+	return nil
 }
 
 func (self *SIsolatedDeviceModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -217,6 +244,15 @@ func (manager *SIsolatedDeviceModelManager) ListItemFilter(
 	if len(query.DeviceId) > 0 {
 		q = q.Equals("device_id", query.DeviceId)
 	}
+	if len(query.HostId) > 0 {
+		hidmq := HostIsolatedDeviceModelManager.Query("isolated_device_model_id").Equals("host_id", query.HostId).SubQuery()
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsFalse(q.Field("disable_auto_detect")),
+			sqlchemy.IsNull(q.Field("disable_auto_detect")),
+			sqlchemy.In(q.Field("id"), hidmq)),
+		)
+	}
+
 	return q, nil
 }
 
