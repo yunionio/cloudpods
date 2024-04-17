@@ -403,6 +403,7 @@ func (man *isolatedDeviceManager) getCustomIsolatedDeviceModels() ([]IsolatedDev
 	params := jsonutils.NewDict()
 	params.Set("limit", jsonutils.NewInt(0))
 	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("host_id", jsonutils.NewString(man.host.GetHostId()))
 	res, err := modules.IsolatedDeviceModels.List(man.getSession(), jsonutils.NewDict())
 	if err != nil {
 		return nil, errors.Wrap(err, "list isolated_device_models from compute service")
