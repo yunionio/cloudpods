@@ -100,7 +100,6 @@ func (zone *SZone) GeneralUsage(ctx context.Context) api.ZoneGeneralUsage {
 	usage.Baremetals, _ = zone.HostCount("", "", tristate.None, "", tristate.True)
 	usage.BaremetalsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.True)
 	usage.Wires, _ = zone.getWireCount()
-	usage.Networks, _ = zone.getNetworkCount(ctx)
 	usage.Storages, _ = zone.getStorageCount()
 	return usage
 }
