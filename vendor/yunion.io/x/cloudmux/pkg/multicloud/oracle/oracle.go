@@ -212,7 +212,7 @@ func (cli *SOracleClient) getDefaultClient() *http.Client {
 	ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	cli.client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response) error, error) {
 		if cli.cpcfg.ReadOnly {
-			if req.Method == "GET" {
+			if req.Method == "GET" || strings.Contains(req.URL.Path, "metrics/actions/summarizeMetricsData") {
 				return nil, nil
 			}
 			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
