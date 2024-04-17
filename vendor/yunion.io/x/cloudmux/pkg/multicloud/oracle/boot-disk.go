@@ -16,6 +16,7 @@ package oracle
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -60,8 +61,6 @@ func (self *SRegion) GetBootDisk(id string) (*SBootDisk, error) {
 		return nil, err
 	}
 	return ret, nil
-
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SBootDisk) GetId() string {
@@ -187,11 +186,11 @@ func (self *SBootDisk) GetProjectId() string {
 }
 
 func (self *SRegion) GetBootDisks(zoneId string) ([]SBootDisk, error) {
-	params := map[string]interface{}{}
+	query := url.Values{}
 	if len(zoneId) > 0 {
-		params["availabilityDomain"] = zoneId
+		query.Set("availabilityDomain", zoneId)
 	}
-	resp, err := self.list(SERVICE_IAAS, "bootVolumes", params)
+	resp, err := self.list(SERVICE_IAAS, "bootVolumes", query)
 	if err != nil {
 		return nil, err
 	}

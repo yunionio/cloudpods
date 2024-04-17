@@ -16,6 +16,7 @@ package oracle
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
@@ -103,9 +104,9 @@ type SInstance struct {
 }
 
 func (self *SRegion) GetInstances(zoneId string) ([]SInstance, error) {
-	params := map[string]interface{}{}
+	params := url.Values{}
 	if len(zoneId) > 0 {
-		params["availabilityDomain"] = zoneId
+		params.Set("availabilityDomain", zoneId)
 	}
 	resp, err := self.list(SERVICE_IAAS, "instances", params)
 	if err != nil {
@@ -389,9 +390,8 @@ type SVolumeAttachment struct {
 }
 
 func (self *SRegion) GetAttachedDisks(instanceId string) ([]SVolumeAttachment, error) {
-	params := map[string]interface{}{
-		"instanceId": instanceId,
-	}
+	params := url.Values{}
+	params.Set("instanceId", instanceId)
 	resp, err := self.list(SERVICE_IAAS, "volumeAttachments", params)
 	if err != nil {
 		return nil, err
@@ -409,10 +409,9 @@ type SBootVolumeAttachment struct {
 }
 
 func (self *SRegion) GetBootVolumeAttachments(zoneId, instanceId string) ([]SBootVolumeAttachment, error) {
-	params := map[string]interface{}{
-		"instanceId":         instanceId,
-		"availabilityDomain": zoneId,
-	}
+	params := url.Values{}
+	params.Set("instanceId", instanceId)
+	params.Set("availabilityDomain", zoneId)
 	resp, err := self.list(SERVICE_IAAS, "bootVolumeAttachments", params)
 	if err != nil {
 		return nil, err
@@ -430,9 +429,9 @@ type SVnicAttachment struct {
 }
 
 func (self *SRegion) GetVnicAttachments(instanceId string) ([]SVnicAttachment, error) {
-	params := map[string]interface{}{}
+	params := url.Values{}
 	if len(instanceId) > 0 {
-		params["instanceId"] = instanceId
+		params.Set("instanceId", instanceId)
 	}
 	resp, err := self.list(SERVICE_IAAS, "vnicAttachments", params)
 	if err != nil {

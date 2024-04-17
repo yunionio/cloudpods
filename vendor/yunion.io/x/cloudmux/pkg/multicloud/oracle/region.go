@@ -16,6 +16,7 @@ package oracle
 
 import (
 	"fmt"
+	"net/url"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -171,12 +172,12 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) list(service, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.list(service, self.RegionName, resource, params)
+func (self *SRegion) list(service, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return self.client.list(service, self.RegionName, resource, query)
 }
 
-func (self *SRegion) get(service, resource, id string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.get(service, self.RegionName, resource, id, params)
+func (self *SRegion) get(service, resource, id string, query url.Values) (jsonutils.JSONObject, error) {
+	return self.client.get(service, self.RegionName, resource, id, query)
 }
 
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
