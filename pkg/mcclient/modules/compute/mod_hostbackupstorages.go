@@ -14,25 +14,21 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+)
 
-type HostJointResourceDetailsBase struct {
-	// 宿主机名称
-	Host string `json:"host"`
-	// 裸金属服务器名称
-	// Deprecated
-	Baremetal string `json:"baremetal" yunion-deprecated-by:"host"`
-}
+var (
+	HostBackupstorages modulebase.JointResourceManager
+)
 
-type HostJointResourceDetails struct {
-	apis.JointResourceBaseDetails
-
-	// HostJointResourceDetailsBase
-	HostResourceInfo
-}
-
-type HostJointsListInput struct {
-	apis.JointResourceBaseListInput
-
-	HostFilterListInput
+func init() {
+	HostBackupstorages = modules.NewJointComputeManager("hostbackupstorage", "hostbackupstorages",
+		[]string{"Host_ID", "Host", "Backupstorage_ID",
+			"Backupstorage", "Capacity_Mb", "Host_Status", "Backupstorage_Status"},
+		[]string{},
+		&Hosts,
+		&BackupStorages)
+	modules.RegisterCompute(&HostBackupstorages)
 }
