@@ -836,10 +836,14 @@ func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
-	wires := WireManager.Query("id").Equals("zone_id", self.Id).Equals("manager_id", managerId)
-	// vpcs := VpcManager.Query().SubQuery()
-	// wires = wires.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
-	// Filter(sqlchemy.Equals(vpcs.Field("manager_id"), managerId))
+	wires := WireManager.Query("id").Equals("zone_id", self.Id)
+	vpcs := VpcManager.Query().SubQuery()
+	wires = wires.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(vpcs.Field("manager_id"), managerId),
+			sqlchemy.Equals(wires.Field("manager_id"), managerId),
+		),
+	)
 
 	hostwires := HostwireManagerDeprecated.Query("row_id").In("wire_id", wires.SubQuery())
 	isolateds := IsolatedDeviceManager.Query("id").In("wire_id", wires.SubQuery())
