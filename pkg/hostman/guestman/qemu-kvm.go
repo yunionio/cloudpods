@@ -404,6 +404,25 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		srcDesc.VcpuPin = nil
 		srcDesc.CpuNumaPin = nil
 	} else {
+		if scpuset, ok := srcDesc.Metadata[api.VM_METADATA_CGROUP_CPUSET]; ok {
+			s.manager.cpuSet.Lock.Lock()
+			s.manager.cpuSet.ReleaseCpus(cpus, int(srcDesc.Cpu))
+			s.manager.cpuSet.Lock.Unlock()
+
+			cpusetJson, err := jsonutils.ParseString(scpuset)
+			if err != nil {
+				log.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+				return errors.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+			}
+			input := new(api.ServerCPUSetInput)
+			err = cpusetJson.Unmarshal(input)
+			if err != nil {
+				log.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+				return errors.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+			}
+			cpus = input.CPUS
+		}
+
 		srcDesc.VcpuPin = []desc.SCpuPin{
 			{
 				Vcpus: fmt.Sprintf("0-%d", srcDesc.Cpu-1),
@@ -2746,6 +2765,10 @@ func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 		s.Desc.CpuNumaPin = cpuNumaPin
 	} else if !s.manager.numaAllocate {
 		if scpuset, ok := s.Desc.Metadata[api.VM_METADATA_CGROUP_CPUSET]; ok {
+			s.manager.cpuSet.Lock.Lock()
+			s.manager.cpuSet.ReleaseCpus(cpus, int(s.Desc.Cpu))
+			s.manager.cpuSet.Lock.Unlock()
+
 			cpusetJson, err := jsonutils.ParseString(scpuset)
 			if err != nil {
 				log.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
