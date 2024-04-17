@@ -18,7 +18,6 @@ require (
 	github.com/creack/pty v1.1.11
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96
-	github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153
 	github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
@@ -94,7 +93,7 @@ require (
 	k8s.io/cri-api v0.22.17
 	k8s.io/klog/v2 v2.2.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240416095221-40e74d0a722d
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240417061807-510a6f7b1a9f
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
