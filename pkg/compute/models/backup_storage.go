@@ -140,10 +140,14 @@ func (bs *SBackupStorage) PostCreate(ctx context.Context, userCred mcclient.Toke
 			log.Errorf("convert object secret fail %s", err)
 		}
 	}
-	err := StartResourceSyncStatusTask(ctx, userCred, bs, "BackupStorageSyncstatusTask", "")
+	err := bs.startSyncStatusTask(ctx, userCred, "")
 	if err != nil {
 		log.Errorf("unable to sync backup storage status")
 	}
+}
+
+func (bs *SBackupStorage) startSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	return StartResourceSyncStatusTask(ctx, userCred, bs, "BackupStorageSyncstatusTask", parentTaskId)
 }
 
 func (bs *SBackupStorage) saveObjectSecret(secret string) error {
@@ -189,9 +193,55 @@ func (bm *SBackupStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	var err error
 	q, err = bm.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
+	}
+	if len(input.ServerId) > 0 {
+		serverObj, err := GuestManager.FetchByIdOrName(ctx, userCred, input.ServerId)
+		if err != nil {
+			if errors.Cause(err) == errors.ErrNotFound {
+				return nil, httperrors.NewResourceNotFoundError2(GuestManager.Keyword(), input.ServerId)
+			} else {
+				return nil, errors.Wrap(err, "GuestManager.FetchByIdOrName")
+			}
+		}
+		server := serverObj.(*SGuest)
+		input.ServerId = server.Id
+		hostIds, err := server.getDisksCandidateHostIds()
+		if err != nil {
+			return nil, errors.Wrap(err, "getDisksCandidateHostIds")
+		}
+		q = bm.filterByCandidateHostIds(q, hostIds)
+	}
+	if len(input.DiskId) > 0 {
+		diskObj, err := DiskManager.FetchByIdOrName(ctx, userCred, input.DiskId)
+		if err != nil {
+			if errors.Cause(err) == errors.ErrNotFound {
+				return nil, httperrors.NewResourceNotFoundError2(DiskManager.Keyword(), input.DiskId)
+			} else {
+				return nil, errors.Wrap(err, "DiskManager.FetchByIdOrName")
+			}
+		}
+		disk := diskObj.(*SDisk)
+		input.DiskId = disk.Id
+		hostIds, err := disk.getCandidateHostIds()
+		if err != nil {
+			return nil, errors.Wrap(err, "getDisksCandidateHostIds")
+		}
+		q = bm.filterByCandidateHostIds(q, hostIds)
 	}
 	return q, nil
+}
+
+func (bm *SBackupStorageManager) filterByCandidateHostIds(q *sqlchemy.SQuery, candidateIds []string) *sqlchemy.SQuery {
+	hbsSubQ := HostBackupstorageManager.Query().SubQuery()
+
+	q = q.LeftJoin(hbsSubQ, sqlchemy.Equals(q.Field("id"), hbsSubQ.Field("backupstorage_id")))
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.IsNull(hbsSubQ.Field("host_id")),
+		sqlchemy.In(hbsSubQ.Field("host_id"), candidateIds),
+	))
+
+	return q
 }
 
 func (bs *SBackupStorage) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskBackupSyncstatusInput) (jsonutils.JSONObject, error) {
@@ -204,7 +254,7 @@ func (bs *SBackupStorage) PerformSyncstatus(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewBadRequestError("Backup has %d task active, can't sync status", count)
 	}
 
-	return nil, StartResourceSyncStatusTask(ctx, userCred, bs, "BackupStorageSyncstatusTask", "")
+	return nil, bs.startSyncStatusTask(ctx, userCred, "")
 }
 
 func (bs *SBackupStorage) ValidateUpdateData(
@@ -294,4 +344,24 @@ func (bs *SBackupStorage) GetAccessInfo() (*api.SBackupStorageAccessInfo, error)
 		accessInfo.ObjectSecret = secret
 	}
 	return &accessInfo, nil
+}
+
+func (bs *SBackupStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("Host delete do nothing")
+	// cleanup hostbackupstorage
+	hbs, err := HostBackupstorageManager.GetBackupStoragesByBackup(bs.Id)
+	if err != nil {
+		return errors.Wrap(err, "GetBackupStoragesByBackup")
+	}
+	var errs []error
+	for i := range hbs {
+		err := hbs[i].Detach(ctx, userCred)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "Detach %s %s", hbs[i].HostId, hbs[i].BackupstorageId))
+		}
+	}
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	}
+	return bs.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
