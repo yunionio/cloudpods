@@ -199,6 +199,9 @@ func getNewStateInternal(c *EvalContext) monitor.AlertStateType {
 
 func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTemplateConfig {
 	desc := c.Rule.Message
+	if len(c.Rule.TriggeredMessages) > 0 {
+		desc = strings.Join(c.Rule.TriggeredMessages, " ")
+	}
 	if c.Error != nil {
 		if desc != "" {
 			desc += "\n"
@@ -248,10 +251,9 @@ func (c *EvalContext) GetResourceNameOfMathes(matches []monitor.EvalMatch) strin
 	}
 	for i, match := range matches {
 		if name, ok := match.Tags["name"]; ok {
-			names.WriteString(name)
-			names.WriteString(fmt.Sprintf("(%s)", match.ValueStr))
+			names.WriteString(fmt.Sprintf("%s.%s(%s)", name, match.Metric, match.ValueStr))
 			if i < len(matches)-1 {
-				names.WriteString("、")
+				names.WriteString(", ")
 			}
 		}
 	}
