@@ -1952,20 +1952,7 @@ func (h *SHostInfo) initIsolatedDevices() error {
 	return nil
 }
 
-func (h *SHostInfo) getNicsInterfaces(nics []string) []isolated_device.HostNic {
-	if len(nics) == 0 {
-		return nil
-	}
-	res := []isolated_device.HostNic{}
-	for i := 0; i < len(h.Nics); i++ {
-		if utils.IsInStringArray(h.Nics[i].Inter, nics) {
-			res = append(res, isolated_device.HostNic{h.Nics[i].Bridge, h.Nics[i].Inter, h.Nics[i].WireId})
-		}
-	}
-	return res
-}
-
-func (h *SHostInfo) getNicsOvsOffloadInterfaces(nics []string) ([]isolated_device.HostNic, error) {
+func (h *SHostInfo) getNicsInterfaces(nics []string) ([]isolated_device.HostNic, error) {
 	if len(nics) == 0 {
 		return nil, nil
 	}
@@ -2003,11 +1990,14 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		}
 	}
 
-	offloadNics, err := h.getNicsOvsOffloadInterfaces(options.HostOptions.OvsOffloadNics)
+	offloadNics, err := h.getNicsInterfaces(options.HostOptions.OvsOffloadNics)
 	if err != nil {
 		return nil, err
 	}
-	sriovNics := h.getNicsInterfaces(options.HostOptions.SRIOVNics)
+	sriovNics, err := h.getNicsInterfaces(options.HostOptions.SRIOVNics)
+	if err != nil {
+		return nil, err
+	}
 	h.IsolatedDeviceMan.ProbePCIDevices(
 		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB, options.HostOptions.DisableCustomDevice,
 		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs, options.HostOptions.AMDVgpuPFs, options.HostOptions.NVIDIAVgpuPFs,
