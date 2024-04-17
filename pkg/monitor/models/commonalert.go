@@ -269,14 +269,16 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	}
 	data.Name = name
 
-	alertCreateInput := man.toAlertCreatInput(data)
+	alertCreateInput, err := man.toAlertCreatInput(data)
+	if err != nil {
+		return data, errors.Wrap(err, "to alert creation input")
+	}
 	alertCreateInput, err = AlertManager.ValidateCreateData(ctx, userCred, ownerId, query, alertCreateInput)
 	if err != nil {
 		return data, err
 	}
 	data.AlertCreateInput = alertCreateInput
 	return data, nil
-
 }
 
 func (man *SCommonAlertManager) genName(ctx context.Context, ownerId mcclient.IIdentityProvider, name string) (string,
@@ -841,6 +843,7 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 	metricDetails.DB = db
 	metricDetails.Groupby = groupby
 	metricDetails.Filters = cond.Query.Model.Tags
+	metricDetails.Operator = cond.Operator
 
 	//fill measurement\field desciption info
 	getMetricDescriptionDetails(metricDetails)
@@ -924,7 +927,7 @@ func getQueryEvalType(evalType string) string {
 	return typ
 }
 
-func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreateInput) monitor.AlertCreateInput {
+func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreateInput) (monitor.AlertCreateInput, error) {
 	freq, _ := time.ParseDuration(input.Period)
 	ret := new(monitor.AlertCreateInput)
 	ret.Name = input.Name
@@ -947,12 +950,18 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 				Params: []float64{fieldOperatorThreshold(metricquery.FieldOpt, metricquery.Threshold)}},
 			Operator: "and",
 		}
+		if metricquery.Operator != "" {
+			if !sets.NewString("and", "or").Has(metricquery.Operator) {
+				return *ret, httperrors.NewInputParameterError("invalid operator %s", metricquery.Operator)
+			}
+			condition.Operator = metricquery.Operator
+		}
 		if metricquery.FieldOpt != "" {
 			condition.Reducer.Operators = []string{metricquery.FieldOpt}
 		}
 		ret.Settings.Conditions = append(ret.Settings.Conditions, condition)
 	}
-	return *ret
+	return *ret, nil
 }
 
 func fieldOperatorThreshold(opt string, threshold float64) float64 {
@@ -1053,7 +1062,10 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		if err != nil {
 			return data, errors.Wrap(err, "updataInput Unmarshal err")
 		}
-		alertCreateInput := alert.getUpdateAlertInput(*updataInput)
+		alertCreateInput, err := alert.getUpdateAlertInput(*updataInput)
+		if err != nil {
+			return data, errors.Wrap(err, "getUpdateAlertInput")
+		}
 		alertCreateInput, err = AlertManager.ValidateCreateData(ctx, userCred, nil, query, alertCreateInput)
 		if err != nil {
 			return data, err
@@ -1120,14 +1132,13 @@ func (alert *SCommonAlert) UpdateNotification(ctx context.Context, userCred mccl
 	return err
 }
 
-func (alert *SCommonAlert) getUpdateAlertInput(updateInput monitor.CommonAlertUpdateInput) monitor.AlertCreateInput {
+func (alert *SCommonAlert) getUpdateAlertInput(updateInput monitor.CommonAlertUpdateInput) (monitor.AlertCreateInput, error) {
 	input := monitor.CommonAlertCreateInput{
 		CommonMetricInputQuery: updateInput.CommonMetricInputQuery,
 		Period:                 updateInput.Period,
 	}
 	input.AlertDuration = updateInput.AlertDuration
-	alertCreateInput := CommonAlertManager.toAlertCreatInput(input)
-	return alertCreateInput
+	return CommonAlertManager.toAlertCreatInput(input)
 }
 
 func (alert *SCommonAlert) CustomizeDelete(
