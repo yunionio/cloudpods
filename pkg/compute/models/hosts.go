@@ -75,6 +75,8 @@ type SHostManager struct {
 	SZoneResourceBaseManager
 	SManagedResourceBaseManager
 	SHostnameResourceBaseManager
+
+	SBackupstorageResourceBaseManager
 }
 
 var HostManager *SHostManager
@@ -326,6 +328,22 @@ func (manager *SHostManager) ListItemFilter(
 			q = q.In("id", scopeQuery)
 		} else {
 			q = q.NotIn("id", scopeQuery)
+		}
+	}
+
+	if len(query.BackupstorageId) > 0 {
+		hbsQ := HostBackupstorageManager.Query("host_id", "backupstorage_id")
+		hbsQ, err = manager.SBackupstorageResourceBaseManager.ListItemFilter(ctx, hbsQ, userCred, query.BackupstorageFilterListInput)
+		if err != nil {
+			return q, errors.Wrap(err, "SBackupStorageResouceBaseManager.ListItemFiled")
+		}
+		hbsSubQ := hbsQ.SubQuery()
+		q = q.LeftJoin(hbsSubQ, sqlchemy.Equals(q.Field("id"), hbsSubQ.Field("host_id")))
+		notAttached := (query.StorageNotAttached != nil && *query.StorageNotAttached)
+		if !notAttached {
+			q = q.Filter(sqlchemy.IsNotNull(hbsSubQ.Field("backupstorage_id")))
+		} else {
+			q = q.Filter(sqlchemy.IsNull(hbsSubQ.Field("backupstorage_id")))
 		}
 	}
 
@@ -1518,8 +1536,69 @@ func (self *SHost) getAttachedWires() []SWire {
 	return ret
 }
 
-func (self *SHostManager) GetEnabledKvmHost() (*SHost, error) {
-	hostq := HostManager.Query().IsTrue("enabled").Equals("host_status", api.HOST_ONLINE).In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM})
+func (hh *SHostManager) GetEnabledKvmHostForBackupStorage(bs *SBackupStorage) (*SHost, error) {
+	hbs, err := HostBackupstorageManager.GetBackupStoragesByBackup(bs.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBackupStoragesByBackup")
+	}
+	candidates := make([]string, 0)
+	for i := range hbs {
+		candidates = append(candidates, hbs[i].HostId)
+	}
+	host, err := HostManager.GetEnabledKvmHost(candidates)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetEnabledKvmHost")
+	}
+	return host, nil
+}
+
+func (hh *SHostManager) GetEnabledKvmHostForDiskBackup(backup *SDiskBackup) (*SHost, error) {
+	bs, err := backup.GetBackupStorage()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get backupStorage")
+	}
+	storage, err := backup.GetStorage()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get storage of diskbackup")
+	}
+
+	hbs, err := HostBackupstorageManager.GetBackupStoragesByBackup(bs.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "HostBackupstorageManager.GetBackupStoragesByBackup")
+	}
+	hbsCandidates := stringutils2.NewSortedStrings(nil)
+	for i := range hbs {
+		hbsCandidates = hbsCandidates.Append(hbs[i].HostId)
+	}
+	hss, err := HoststorageManager.GetHostStoragesByStorageId(storage.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "HoststorageManager.GetStorages")
+	}
+	hssCandidates := stringutils2.NewSortedStrings(nil)
+	for i := range hss {
+		hssCandidates = hssCandidates.Append(hss[i].HostId)
+	}
+	var candidates []string
+	if len(hbsCandidates) == 0 {
+		candidates = []string(hssCandidates)
+	} else {
+		candidates = []string(stringutils2.Intersect(hbsCandidates, hssCandidates))
+	}
+
+	host, err := HostManager.GetEnabledKvmHost(candidates)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetEnabledKvmHost")
+	}
+	return host, nil
+}
+
+func (hh *SHostManager) GetEnabledKvmHost(candidates []string) (*SHost, error) {
+	hostq := HostManager.Query().IsTrue("enabled")
+	hostq = hostq.Equals("host_status", api.HOST_ONLINE)
+	hostq = hostq.In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM})
+	if len(candidates) > 0 {
+		hostq = hostq.In("id", candidates)
+	}
 	host := SHost{}
 	err := hostq.First(&host)
 	if err != nil {

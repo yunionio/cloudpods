@@ -1342,6 +1342,18 @@ func (self *SDisk) GetPathAtHost(host *SHost) string {
 	return ""
 }
 
+func (disk *SDisk) getCandidateHostIds() ([]string, error) {
+	hss, err := HoststorageManager.GetHostStoragesByStorageId(disk.StorageId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetHostStoragesByStorageId")
+	}
+	candidates := make([]string, 0)
+	for i := range hss {
+		candidates = append(candidates, hss[i].HostId)
+	}
+	return candidates, nil
+}
+
 func (self *SDisk) GetMasterHost(storage *SStorage) (*SHost, error) {
 	if storage.MasterHost != "" {
 		return storage.GetMasterHost()
