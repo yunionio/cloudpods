@@ -1003,7 +1003,6 @@ func (manager *SCachedimageManager) getExpireExternalImageIds() ([]string, error
 		err := rows.Scan(&id)
 		if err != nil {
 			return nil, errors.Wrapf(err, "rows.Scan")
-			continue
 		}
 		ids = append(ids, id)
 	}
