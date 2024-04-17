@@ -43,11 +43,13 @@ type IHostDriver interface {
 	RequestRebuildDiskOnStorage(ctx context.Context, host *SHost, storage *SStorage, disk *SDisk, task taskman.ITask, input api.DiskAllocateInput) error
 
 	// delete disk
-	RequestDeallocateDiskOnHost(ctx context.Context, host *SHost, storage *SStorage, disk *SDisk, task taskman.ITask) error
+	RequestDeallocateDiskOnHost(ctx context.Context, host *SHost, storage *SStorage, disk *SDisk, cleanSnapshots bool, task taskman.ITask) error
 	RequestDeallocateBackupDiskOnHost(ctx context.Context, host *SHost, storage *SStorage, disk *SDisk, task taskman.ITask) error
 
 	// resize disk
 	RequestResizeDiskOnHost(ctx context.Context, host *SHost, storage *SStorage, disk *SDisk, size int64, task taskman.ITask) error
+	RequestDiskSrcMigratePrepare(ctx context.Context, host *SHost, disk *SDisk, task taskman.ITask) (jsonutils.JSONObject, error)
+	RequestDiskMigrate(ctx context.Context, targetHost *SHost, targetStorage *SStorage, disk *SDisk, task taskman.ITask, body *jsonutils.JSONDict) error
 
 	RequestDeleteSnapshotsWithStorage(ctx context.Context, host *SHost, snapshot *SSnapshot, task taskman.ITask) error
 	RequestResetDisk(ctx context.Context, host *SHost, disk *SDisk, params *jsonutils.JSONDict, task taskman.ITask) error

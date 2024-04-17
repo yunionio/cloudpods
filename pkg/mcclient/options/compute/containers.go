@@ -246,3 +246,38 @@ func (o *ContainerStopOptions) Params() (jsonutils.JSONObject, error) {
 type ContainerStartOptions struct {
 	ContainerIdsOptions
 }
+
+type ContainerSaveVolumeMountImage struct {
+	options.ResourceIdOptions
+	IMAGENAME    string `help:"Image name"`
+	INDEX        int    `help:"Index of volume mount"`
+	GenerateName string `help:"Generate image name automatically"`
+	Notes        string `help:"Extra notes of the image"`
+}
+
+func (o ContainerSaveVolumeMountImage) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(&computeapi.ContainerSaveVolumeMountToImageInput{
+		Name:         o.IMAGENAME,
+		GenerateName: o.GenerateName,
+		Notes:        o.Notes,
+		Index:        o.INDEX,
+	}), nil
+}
+
+type ContainerExecOptions struct {
+	ServerIdOptions
+	// Tty     bool `help:"Using tty" short-token:"t"`
+	COMMAND string
+}
+
+func (o *ContainerExecOptions) ToAPIInput() *computeapi.ContainerExecInput {
+	return &computeapi.ContainerExecInput{
+		Command: strings.Split(o.COMMAND, " "),
+		//Tty:     o.Tty,
+		Tty: true,
+	}
+}
+
+func (o *ContainerExecOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o.ToAPIInput()), nil
+}

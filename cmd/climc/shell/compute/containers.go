@@ -41,6 +41,7 @@ func init() {
 	cmd.BatchPerform("stop", new(options.ContainerStopOptions))
 	cmd.BatchPerform("start", new(options.ContainerStartOptions))
 	cmd.BatchPerform("syncstatus", new(options.ContainerIdsOptions))
+	cmd.Perform("save-volume-mount-image", new(options.ContainerSaveVolumeMountImage))
 
 	type UpdateSpecOptions struct {
 		ID string `help:"ID or name of server" json:"-"`
@@ -108,5 +109,10 @@ func init() {
 			return errors.Wrap(err, "update spec")
 		}
 		return nil
+	})
+
+	R(new(options.ContainerExecOptions), "container-exec", "Container exec", func(s *mcclient.ClientSession, opts *options.ContainerExecOptions) error {
+		man := modules.Containers
+		return man.Exec(s, opts.ID, opts.ToAPIInput())
 	})
 }

@@ -140,6 +140,11 @@ func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.
 			return nil, err
 		}
 	}
+	if p.CleanSnapshots {
+		if err := d.DeleteAllSnapshot(p.SkipRecycle != nil && *p.SkipRecycle); err != nil {
+			return nil, errors.Wrap(err, "delete snapshots")
+		}
+	}
 
 	d.Storage.RemoveDisk(d)
 	return nil, nil
@@ -240,7 +245,13 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size i
 }
 
 func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
-	var imageCacheManager = storageManager.LocalStorageImagecacheManager
+	imageCacheManager := storageManager.LocalStorageImagecacheManager
+	return d.createFromTemplateAndResize(ctx, imageId, format, imageCacheManager, encryptInfo, size)
+}
+
+func (d *SLocalDisk) createFromTemplateAndResize(
+	ctx context.Context, imageId, format string, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo, size int64,
+) (jsonutils.JSONObject, error) {
 	ret, err := d.createFromTemplate(ctx, imageId, format, imageCacheManager, encryptInfo)
 	if err != nil {
 		return nil, err

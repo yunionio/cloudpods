@@ -125,6 +125,7 @@ type IStorage interface {
 	CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 	CreateDiskFromExistingPath(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 	CreateDiskFromBackup(context.Context, IDisk, *SDiskCreateByDiskinfo) error
+	DiskMigrate(context.Context, interface{}) (jsonutils.JSONObject, error)
 
 	// GetCloneTargetDiskPath generate target disk path by target disk id
 	GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string
@@ -479,6 +480,10 @@ func (s *SBaseStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, inp
 	}
 	_, err = img.Clone(disk.GetPath(), qemuimgfmt.QCOW2, false)
 	return err
+}
+
+func (s *SBaseStorage) DiskMigrate(context.Context, interface{}) (jsonutils.JSONObject, error) {
+	return nil, httperrors.ErrNotImplemented
 }
 
 func (s *SBaseStorage) onSaveToGlanceFailed(ctx context.Context, imageId string, reason string) {

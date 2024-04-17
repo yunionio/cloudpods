@@ -287,7 +287,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, cleanSnapshots bool, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		idisk, err := disk.GetIDisk(ctx)
 		if err != nil {

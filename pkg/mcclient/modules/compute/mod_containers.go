@@ -15,12 +15,81 @@
 package compute
 
 import (
+	"fmt"
+	"io"
+	"net/url"
+	"os"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/pod/remotecommand"
+	"yunion.io/x/onecloud/pkg/util/pod/term"
 )
 
 type ContainerManager struct {
 	modulebase.ResourceManager
+}
+
+func (man ContainerManager) SetupTTY(in io.Reader, out io.Writer, errOut io.Writer, raw bool) term.TTY {
+	/*t := term.TTY{
+		Out: out,
+	}
+	if in == nil {
+		t.In = nil
+		return t
+	}*/
+	return term.TTY{
+		In:     in,
+		Out:    out,
+		Raw:    raw,
+		TryDev: false,
+		Parent: nil,
+	}
+}
+
+func (man ContainerManager) Exec(s *mcclient.ClientSession, id string, opt *api.ContainerExecInput) error {
+	//baseUrl, err := man.GetBaseUrl(s)
+	//if err != nil {
+	//	return errors.Wrapf(err, "GetBaseUrl")
+	//}
+	info, err := man.GetSpecific(s, id, "exec-info", nil)
+	if err != nil {
+		return errors.Wrap(err, "get exec info")
+	}
+	infoOut := new(api.ContainerExecInfoOutput)
+	info.Unmarshal(infoOut)
+	qs := jsonutils.Marshal(opt).QueryString()
+	// urlLoc := fmt.Sprintf("%s/%s/%s/exec?%s", baseUrl, man.URLPath(), url.PathEscape(id), qs)
+	urlLoc := fmt.Sprintf("%s/pods/%s/containers/%s/exec?%s", infoOut.HostUri, infoOut.PodId, infoOut.ContainerId, qs)
+	url, err := url.Parse(urlLoc)
+	if err != nil {
+		return errors.Wrapf(err, "parse url: %s", urlLoc)
+	}
+	exec, err := remotecommand.NewSPDYExecutor("POST", url)
+	if err != nil {
+		return errors.Wrap(err, "NewSPDYExecutor")
+	}
+	headers := mcclient.GetTokenHeaders(s.GetToken())
+
+	t := man.SetupTTY(os.Stdin, os.Stdout, os.Stderr, opt.Tty)
+	sizeQueue := t.MonitorSize(t.GetSize())
+	fn := func() error {
+		return exec.Stream(remotecommand.StreamOptions{
+			Stdin:  os.Stdin,
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+			// Tty:               opt.Tty,
+			Tty:               true,
+			TerminalSizeQueue: sizeQueue,
+			Header:            headers,
+		})
+	}
+	return t.Safe(fn)
 }
 
 var (

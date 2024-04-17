@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
+
+	"k8s.io/apimachinery/pkg/util/proxy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
@@ -64,18 +68,21 @@ func containerActionHandler(cf containerActionFunc) appsrv.FilterHandler {
 
 func AddPodHandlers(prefix string, app *appsrv.Application) {
 	ctrHandlers := map[string]containerActionFunc{
-		"create":      createContainer,
-		"start":       startContainer,
-		"stop":        stopContainer,
-		"delete":      deleteContainer,
-		"sync-status": syncContainerStatus,
-		"pull-image":  pullImage,
+		"create":                     createContainer,
+		"start":                      startContainer,
+		"stop":                       stopContainer,
+		"delete":                     deleteContainer,
+		"sync-status":                syncContainerStatus,
+		"pull-image":                 pullImage,
+		"save-volume-mount-to-image": saveVolumeMountToImage,
 	}
 	for action, f := range ctrHandlers {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/pods/%s/containers/%s/%s", prefix, POD_ID, CONTAINER_ID, action),
 			containerActionHandler(f))
 	}
+
+	app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execContainer())
 }
 
 func pullImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -112,4 +119,56 @@ func deleteContainer(ctx context.Context, userCred mcclient.TokenCredential, pod
 
 func syncContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, id string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return pod.SyncContainerStatus(ctx, userCred, id)
+}
+
+func saveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(hostapi.ContainerSaveVolumeMountToImageInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to input")
+	}
+	return pod.SaveVolumeMountToImage(ctx, userCred, input, ctrId)
+}
+
+func execContainer() appsrv.FilterHandler {
+	return auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		params, query, _ := appsrv.FetchEnv(ctx, w, r)
+		podId := params[POD_ID]
+		ctrId := params[CONTAINER_ID]
+		userCred := auth.FetchUserCredential(ctx, nil)
+		podObj, ok := guestman.GetGuestManager().GetServer(podId)
+		if !ok {
+			hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found pod %s", podId))
+			return
+		}
+		pod, ok := podObj.(guestman.PodInstance)
+		if !ok {
+			hostutils.Response(ctx, w, httperrors.NewBadRequestError("runtime instance is %#v", podObj))
+			return
+		}
+		input := new(compute.ContainerExecInput)
+		if err := query.Unmarshal(input); err != nil {
+			hostutils.Response(ctx, w, errors.Wrap(err, "unmarshal to ContainerExecInput"))
+			return
+		}
+		criUrl, err := pod.ExecContainer(ctx, userCred, ctrId, input)
+		if err != nil {
+			hostutils.Response(ctx, w, errors.Wrap(err, "get exec url"))
+			return
+		}
+		proxyStream(w, r, criUrl)
+		return
+	})
+}
+
+type responder struct {
+	errorMessage string
+}
+
+func (r *responder) Error(w http.ResponseWriter, req *http.Request, err error) {
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+
+func proxyStream(w http.ResponseWriter, r *http.Request, url *url.URL) {
+	handler := proxy.NewUpgradeAwareHandler(url, nil, false, true, &responder{})
+	handler.ServeHTTP(w, r)
 }

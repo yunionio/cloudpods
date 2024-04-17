@@ -29,6 +29,10 @@ github.com/360EntSecGroup-Skylar/excelize
 ## explicit
 github.com/Azure/azure-sdk-for-go/storage
 github.com/Azure/azure-sdk-for-go/version
+# github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161
+## explicit; go 1.16
+github.com/Azure/go-ansiterm
+github.com/Azure/go-ansiterm/winterm
 # github.com/Azure/go-autorest v14.2.0+incompatible
 ## explicit
 # github.com/Azure/go-autorest/autorest v0.9.6
@@ -354,6 +358,14 @@ github.com/dimchansky/utfbom
 # github.com/dnstap/golang-dnstap v0.0.0-20170829151710-2cf77a2b5e11
 ## explicit
 github.com/dnstap/golang-dnstap
+# github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
+## explicit
+github.com/docker/docker/pkg/term
+github.com/docker/docker/pkg/term/windows
+# github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96
+## explicit
+github.com/docker/spdystream
+github.com/docker/spdystream/spdy
 # github.com/dustin/go-humanize v1.0.0
 ## explicit
 github.com/dustin/go-humanize
@@ -369,6 +381,9 @@ github.com/eapache/queue
 # github.com/edsrzf/mmap-go v1.0.0
 ## explicit
 github.com/edsrzf/mmap-go
+# github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153
+## explicit
+github.com/elazarl/goproxy
 # github.com/elgatito/upnp v0.0.0-20180711183757-2f244d205f9a
 ## explicit
 github.com/elgatito/upnp
@@ -520,6 +535,8 @@ github.com/gorilla/websocket
 github.com/gosuri/uitable
 github.com/gosuri/uitable/util/strutil
 github.com/gosuri/uitable/util/wordwrap
+# github.com/gotestyourself/gotestyourself v1.4.0
+## explicit
 # github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 ## explicit
 github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc
@@ -709,6 +726,9 @@ github.com/minio/minio-go/v6/pkg/set
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
+# github.com/mitchellh/go-wordwrap v1.0.1
+## explicit; go 1.14
+github.com/mitchellh/go-wordwrap
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
@@ -727,6 +747,9 @@ github.com/mozillazg/go-pinyin
 # github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae
 ## explicit
 github.com/mschoch/smat
+# github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f
+## explicit
+github.com/mxk/go-flowrate/flowrate
 # github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 ## explicit
 github.com/op/go-logging
@@ -1307,6 +1330,8 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# gotest.tools v1.4.0
+## explicit
 # k8s.io/api v0.19.3
 ## explicit; go 1.15
 k8s.io/api/admissionregistration/v1
@@ -1374,10 +1399,12 @@ k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/clock
 k8s.io/apimachinery/pkg/util/errors
 k8s.io/apimachinery/pkg/util/framer
+k8s.io/apimachinery/pkg/util/httpstream
 k8s.io/apimachinery/pkg/util/intstr
 k8s.io/apimachinery/pkg/util/json
 k8s.io/apimachinery/pkg/util/naming
 k8s.io/apimachinery/pkg/util/net
+k8s.io/apimachinery/pkg/util/proxy
 k8s.io/apimachinery/pkg/util/runtime
 k8s.io/apimachinery/pkg/util/sets
 k8s.io/apimachinery/pkg/util/validation
@@ -1386,6 +1413,7 @@ k8s.io/apimachinery/pkg/util/wait
 k8s.io/apimachinery/pkg/util/yaml
 k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
+k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
 # k8s.io/client-go v0.19.3
 ## explicit; go 1.15
@@ -1476,7 +1504,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240414044505-f2da647a5300
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240416095221-40e74d0a722d
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1573,7 +1601,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.1-0.20240412065625-b89c998df243
+# yunion.io/x/pkg v1.10.1-0.20240416041628-5e17b8728132
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors

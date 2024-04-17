@@ -236,3 +236,8 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 	params.Name = o.NAME
 	return params, nil
 }
+
+type PodExecOptions struct {
+	ContainerExecOptions
+	Container string `help:"Container name. If omitted, use the first container." short-token:"c"`
+}

@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -46,9 +48,11 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type PodInstance interface {
@@ -60,6 +64,8 @@ type PodInstance interface {
 	SyncContainerStatus(ctx context.Context, cred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
+	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
+	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
 }
 
 type sContainer struct {
@@ -104,6 +110,20 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 }
 
 func (s *sPodGuestInstance) DeployFs(ctx context.Context, userCred mcclient.TokenCredential, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+	// update port_mappings
+	podInput, err := s.getPodCreateParams()
+	if err != nil {
+		return nil, errors.Wrap(err, "getPodCreateParams")
+	}
+	if len(podInput.PortMappings) != 0 {
+		pms, err := s.getPortMappings(podInput.PortMappings)
+		if err != nil {
+			return nil, errors.Wrap(err, "get port mappings")
+		}
+		if err := s.setPortMappings(ctx, userCred, s.convertToPodMetadataPortMappings(pms)); err != nil {
+			return nil, errors.Wrap(err, "set port mappings")
+		}
+	}
 	return nil, nil
 }
 
@@ -413,10 +433,27 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 		Windows: nil,
 	}
 
-	if len(podInput.PortMappings) != 0 {
-		pms, err := s.getPortMappings(podInput.PortMappings)
-		if err != nil {
-			return nil, errors.Wrap(err, "get port mappings")
+	metaPms, err := s.GetPodMetadataPortMappings()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPodMetadataPortMappings")
+	}
+	if len(metaPms) != 0 {
+		pms := make([]*runtimeapi.PortMapping, len(metaPms))
+		for idx := range metaPms {
+			pm := metaPms[idx]
+			proto := runtimeapi.Protocol_TCP
+			switch pm.Protocol {
+			case computeapi.PodPortMappingProtocolTCP:
+				proto = runtimeapi.Protocol_TCP
+			case computeapi.PodPortMappingProtocolUDP:
+				proto = runtimeapi.Protocol_UDP
+			}
+			pms[idx] = &runtimeapi.PortMapping{
+				Protocol:      proto,
+				ContainerPort: pm.ContainerPort,
+				HostPort:      pm.HostPort,
+				HostIp:        pm.HostIp,
+			}
 		}
 		podCfg.PortMappings = pms
 	}
@@ -613,13 +650,10 @@ func (s *sPodGuestInstance) getCRIId() string {
 	return s.GetSourceDesc().Metadata[computeapi.POD_METADATA_CRI_ID]
 }
 
-func (s *sPodGuestInstance) convertToPodMetadataPortMappings(cfg *runtimeapi.PodSandboxConfig) []*computeapi.PodMetadataPortMapping {
-	if cfg.PortMappings == nil {
-		return []*computeapi.PodMetadataPortMapping{}
-	}
-	ret := make([]*computeapi.PodMetadataPortMapping, len(cfg.PortMappings))
-	for idx := range cfg.PortMappings {
-		pm := cfg.PortMappings[idx]
+func (s *sPodGuestInstance) convertToPodMetadataPortMappings(pms []*runtimeapi.PortMapping) []*computeapi.PodMetadataPortMapping {
+	ret := make([]*computeapi.PodMetadataPortMapping, len(pms))
+	for idx := range pms {
+		pm := pms[idx]
 		var proto computeapi.PodPortMappingProtocol = computeapi.PodPortMappingProtocolTCP
 		if pm.Protocol == runtimeapi.Protocol_UDP {
 			proto = computeapi.PodPortMappingProtocolUDP
@@ -634,20 +668,27 @@ func (s *sPodGuestInstance) convertToPodMetadataPortMappings(cfg *runtimeapi.Pod
 	return ret
 }
 
+func (s *sPodGuestInstance) setPortMappings(ctx context.Context, userCred mcclient.TokenCredential, pms []*computeapi.PodMetadataPortMapping) error {
+	pmStr := jsonutils.Marshal(pms).String()
+	s.Desc.Metadata[computeapi.POD_METADATA_PORT_MAPPINGS] = pmStr
+	session := auth.GetSession(ctx, userCred, options.HostOptions.Region)
+	if _, err := computemod.Servers.SetMetadata(session, s.GetId(), jsonutils.Marshal(map[string]string{
+		computeapi.POD_METADATA_PORT_MAPPINGS: pmStr,
+	})); err != nil {
+		return errors.Wrapf(err, "set cri_id of pod %s", s.GetId())
+	}
+	return SaveDesc(s, s.Desc)
+}
+
 func (s *sPodGuestInstance) setCRIInfo(ctx context.Context, userCred mcclient.TokenCredential, criId string, cfg *runtimeapi.PodSandboxConfig) error {
 	s.Desc.Metadata[computeapi.POD_METADATA_CRI_ID] = criId
 	cfgStr := jsonutils.Marshal(cfg).String()
 	s.Desc.Metadata[computeapi.POD_METADATA_CRI_CONFIG] = cfgStr
 
-	pms := s.convertToPodMetadataPortMappings(cfg)
-	pmStr := jsonutils.Marshal(pms).String()
-	s.Desc.Metadata[computeapi.POD_METADATA_PORT_MAPPINGS] = pmStr
-
 	session := auth.GetSession(ctx, userCred, options.HostOptions.Region)
 	if _, err := computemod.Servers.SetMetadata(session, s.GetId(), jsonutils.Marshal(map[string]string{
-		computeapi.POD_METADATA_CRI_ID:        criId,
-		computeapi.POD_METADATA_CRI_CONFIG:    cfgStr,
-		computeapi.POD_METADATA_PORT_MAPPINGS: pmStr,
+		computeapi.POD_METADATA_CRI_ID:     criId,
+		computeapi.POD_METADATA_CRI_CONFIG: cfgStr,
 	})); err != nil {
 		return errors.Wrapf(err, "set cri_id of pod %s", s.GetId())
 	}
@@ -1097,4 +1138,92 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrapf(err, "cri.PullImage %s", input.Image)
 	}
 	return jsonutils.Marshal(resp), nil
+}
+
+func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error) {
+	vol := input.VolumeMount
+	drv := volume_mount.GetDriver(vol.Type)
+	if err := drv.Mount(s, ctrId, vol); err != nil {
+		return nil, errors.Wrapf(err, "mount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+	}
+	defer func() {
+		if err := drv.Unmount(s, ctrId, vol); err != nil {
+			log.Warningf("unmount volume %s: %v", jsonutils.Marshal(vol), err)
+		}
+	}()
+
+	hostPath, err := drv.GetRuntimeMountHostPath(s, ctrId, vol)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get runtime host mount path of %s", jsonutils.Marshal(vol))
+	}
+	// 1. tar hostPath to tgz
+	imgPath, err := s.tarGzDir(input, ctrId, hostPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "tar and zip directory %s", hostPath)
+	}
+	defer func() {
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", imgPath).Output()
+		if err != nil {
+			log.Warningf("rm -f %s: %s", imgPath, out)
+		}
+	}()
+
+	// 2. upload target tgz to glance
+	if err := s.saveTarGzToGlance(ctx, input, imgPath); err != nil {
+		return nil, errors.Wrapf(err, "saveTarGzToGlance: %s", imgPath)
+	}
+	return nil, nil
+}
+
+func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, error) {
+	fp := fmt.Sprintf("volimg-%s-ctr-%s-%d.tar.gz", input.ImageId, ctrId, input.VolumeMountIndex)
+	outputFp := filepath.Join(s.GetVolumesDir(), fp)
+	cmd := fmt.Sprintf("tar -czf %s -C %s .", outputFp, hostPath)
+	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
+		return "", errors.Wrapf(err, "%s: %s", cmd, out)
+	}
+	return outputFp, nil
+}
+
+func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostapi.ContainerSaveVolumeMountToImageInput, imgPath string) error {
+	f, err := os.Open(imgPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	finfo, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	size := finfo.Size()
+
+	var params = jsonutils.NewDict()
+	params.Set("image_id", jsonutils.NewString(input.ImageId))
+
+	if _, err := image.Images.Upload(hostutils.GetImageSession(ctx), params, f, size); err != nil {
+		return errors.Wrap(err, "upload image")
+	}
+
+	return err
+}
+
+func (s *sPodGuestInstance) ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error) {
+	rCli := s.getCRI().GetRuntimeClient()
+	criId, err := s.getContainerCRIId(ctrId)
+	if err != nil {
+		return nil, errors.Wrap(err, "get container cri id")
+	}
+	req := &runtimeapi.ExecRequest{
+		ContainerId: criId,
+		Cmd:         input.Command,
+		Tty:         input.Tty,
+		Stdin:       true,
+		Stdout:      true,
+		//Stderr:      true,
+	}
+	resp, err := rCli.Exec(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "exec")
+	}
+	return url.Parse(resp.Url)
 }
