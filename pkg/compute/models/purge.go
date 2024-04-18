@@ -31,20 +31,7 @@ import (
 )
 
 func (self *SCloudregion) purgeAll(ctx context.Context, managerId string) error {
-	zones, err := self.GetZones()
-	if err != nil {
-		return errors.Wrapf(err, "GetZones")
-	}
-	for i := range zones {
-		lockman.LockObject(ctx, &zones[i])
-		defer lockman.ReleaseObject(ctx, &zones[i])
-
-		err = zones[i].purgeAll(ctx, managerId)
-		if err != nil {
-			return errors.Wrapf(err, "zone purgeAll %s", zones[i].Name)
-		}
-	}
-	err = self.purgeAccessGroups(ctx, managerId)
+	err := self.purgeAccessGroups(ctx, managerId)
 	if err != nil {
 		return errors.Wrapf(err, "purgeAccessGroups")
 	}
@@ -77,7 +64,22 @@ func (self *SCloudregion) purgeAll(ctx context.Context, managerId string) error 
 		return errors.Wrapf(err, "purgeResources")
 	}
 
-	cprCount, err := CloudproviderRegionManager.Query().Equals("cloudregion_id", self.Id).CountWithError()
+	// fix #20036 避免regional子网未删除, 导致zone残留
+	zones, err := self.GetZones()
+	if err != nil {
+		return errors.Wrapf(err, "GetZones")
+	}
+	for i := range zones {
+		lockman.LockObject(ctx, &zones[i])
+		defer lockman.ReleaseObject(ctx, &zones[i])
+
+		err = zones[i].purgeAll(ctx, managerId)
+		if err != nil {
+			return errors.Wrapf(err, "zone purgeAll %s", zones[i].Name)
+		}
+	}
+
+	cprCount, err := CloudproviderRegionManager.Query().Equals("cloudregion_id", self.Id).NotEquals("cloudprovider_id", managerId).CountWithError()
 	if err != nil {
 		return errors.Wrapf(err, "cpr count")
 	}
