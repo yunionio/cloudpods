@@ -51,6 +51,7 @@ type IDisk interface {
 	DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	PreResize(ctx context.Context, sizeMb int64) error
 	PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -127,6 +128,10 @@ func (d *SBaseDisk) CreateFromImageFuse(ctx context.Context, url string, size in
 
 func (d *SBaseDisk) Resize(context.Context, interface{}) (jsonutils.JSONObject, error) {
 	return nil, errors.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) PreResize(ctx context.Context, sizeMb int64) error {
+	return nil
 }
 
 func (d *SBaseDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {

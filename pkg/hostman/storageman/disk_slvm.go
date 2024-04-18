@@ -117,6 +117,46 @@ func (d *SSLVMDisk) CreateFromTemplate(
 	return ret, nil
 }
 
+func (d *SSLVMDisk) PreResize(ctx context.Context, sizeMb int64) error {
+	if ok, err := lvmutils.LvIsActivated(d.GetPath()); err != nil {
+		return err
+	} else if ok && d.Storage.Lvmlockd() {
+		err = lvmutils.LVActive(d.GetPath(), false, true)
+		if err != nil {
+			return errors.Wrap(err, "lvactive shared")
+		}
+	}
+	err := d.SLVMDisk.PreResize(ctx, sizeMb)
+	if err != nil {
+		return err
+	}
+	err = lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+	if err != nil {
+		return errors.Wrap(err, "lvactive shared")
+	}
+	return nil
+}
+
+func (d *SSLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	if ok, err := lvmutils.LvIsActivated(d.GetPath()); err != nil {
+		return nil, err
+	} else if ok && d.Storage.Lvmlockd() {
+		err = lvmutils.LVActive(d.GetPath(), false, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "lvactive shared")
+		}
+	}
+	ret, err := d.SLVMDisk.Resize(ctx, params)
+	if err != nil {
+		return ret, err
+	}
+	err = lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+	if err != nil {
+		return ret, errors.Wrap(err, "lvactive shared")
+	}
+	return ret, nil
+}
+
 func (d *SSLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	var lvPath = d.GetPath()
 	activated, err := lvmutils.LvIsActivated(lvPath)
