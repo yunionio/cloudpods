@@ -173,11 +173,20 @@ func (ts *STableSpec) SyncColumnIndexes() error {
 
 	cols, err := ts.Database().backend.FetchTableColumnSpecs(ts)
 	if err != nil {
-		log.Errorf("fetchColumnDefs fail: %s", err)
 		return errors.Wrap(err, "FetchTableColumnSpecs")
 	}
 	if len(cols) != len(ts._columns) {
-		return errors.Wrapf(errors.ErrInvalidStatus, "ts col %d != actual col %d", len(ts._columns), len(cols))
+		colsName := map[string]bool{}
+		for _, col := range ts._columns {
+			colsName[col.Name()] = true
+		}
+		removed := []string{}
+		for _, col := range cols {
+			if _, ok := colsName[col.Name()]; !ok {
+				removed = append(removed, col.Name())
+			}
+		}
+		return errors.Wrapf(errors.ErrInvalidStatus, "ts %s col %d != actual col %d need remove columns %s", ts.Name(), len(ts._columns), len(cols), removed)
 	}
 	for i := range cols {
 		cols[i].SetColIndex(i)

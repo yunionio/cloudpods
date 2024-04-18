@@ -128,7 +128,7 @@ class ModelAPI(FuncDispatcher):
     def gen_cloudcommon(self):
         self.run(pkg=["cloudcommon", "db"])
         self.run(pkg=["cloudcommon", "db", "proxy"], out=["cloudcommon", "proxy"])
-        self.run_same("cloudprovider")
+        run_swagger_gen(['yunion.io/x/cloudmux/pkg/cloudprovider'], 'yunion.io/x/onecloud/pkg/apis/cloudprovider')
         self.run(pkg=["keystone", "models"], out=["identity"])
         self.run_model("compute")
         self.run_model("image")
