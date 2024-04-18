@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -104,7 +105,7 @@ func statusBaseSetStatus(ctx context.Context, model IStatusBaseModel, userCred m
 		}
 		OpsLog.LogEvent(model, ACT_UPDATE_STATUS, notes, userCred)
 		success := true
-		if strings.Contains(status, "fail") || status == apis.STATUS_UNKNOWN {
+		if strings.Contains(status, "fail") || status == apis.STATUS_UNKNOWN || status == api.CLOUD_PROVIDER_DISCONNECTED {
 			success = false
 		}
 		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_STATUS, notes, userCred, success)
