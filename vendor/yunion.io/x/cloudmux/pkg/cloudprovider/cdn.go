@@ -77,6 +77,7 @@ func (self SCdnOrigins) String() string {
 }
 
 // 是否忽略参数
+// +onecloud:model-api-gen
 type SCDNCacheKeys struct {
 	// 开启关闭忽略参数
 	Enabled *bool
@@ -110,6 +111,7 @@ func (self SCDNCacheKeys) String() string {
 }
 
 // 是否分片回源
+// +onecloud:model-api-gen
 type SCDNRangeOriginPull struct {
 	Enabled              *bool
 	RangeOriginPullRules []SRangeOriginPullRule
@@ -143,6 +145,7 @@ type CacheRule struct {
 	CacheTime int
 }
 
+// +onecloud:model-api-gen
 type SCDNCache struct {
 	RuleCache []SCacheRuleCache
 }
@@ -186,6 +189,7 @@ func (self SCDNCache) String() string {
 	return jsonutils.Marshal(self).String()
 }
 
+// +onecloud:model-api-gen
 type SCDNHttps struct {
 	// https 配置开关
 	Enabled *bool
@@ -201,6 +205,7 @@ func (self SCDNHttps) String() string {
 	return jsonutils.Marshal(self).String()
 }
 
+// +onecloud:model-api-gen
 type SCDNForceRedirect struct {
 	// 访问强制跳转配置开关
 	Enabled *bool
@@ -230,6 +235,7 @@ type RefererRule struct {
 	AllowEmpty  *bool
 }
 
+// +onecloud:model-api-gen
 type SCDNReferer struct {
 	// 是否开启防盗链
 	Enabled *bool
@@ -253,6 +259,7 @@ type SMaxAgeRule struct {
 }
 
 // 浏览器缓存配置
+// +onecloud:model-api-gen
 type SCDNMaxAge struct {
 	Enabled     *bool
 	MaxAgeRules []SMaxAgeRule
