@@ -16,7 +16,10 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,6 +30,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -1042,4 +1046,68 @@ func GetTagValueCountMap(
 		return nil, errors.Wrap(err, "AllStringAmp")
 	}
 	return valueMap, nil
+}
+
+func (manager *SStandaloneAnonResourceBaseManager) HistoryDataClean(ctx context.Context, timeBefor time.Time) (int, error) {
+	q := manager.RawQuery("id").IsTrue("deleted").LE("deleted_at", timeBefor)
+	rows, err := q.Rows()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, errors.Wrap(err, "Query")
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		err := rows.Scan(&id)
+		if err != nil {
+			return 0, errors.Wrap(err, "rows.Scan")
+		}
+		ids = append(ids, id)
+	}
+	var purge = func(ids []string) error {
+		vars := []interface{}{}
+		placeholders := make([]string, len(ids))
+		for i := range placeholders {
+			placeholders[i] = "?"
+			vars = append(vars, ids[i])
+		}
+		placeholder := strings.Join(placeholders, ",")
+		sql := fmt.Sprintf(
+			"delete from %s where id in (%s)",
+			manager.TableSpec().Name(), placeholder,
+		)
+		lockman.LockRawObject(ctx, manager.Keyword(), "purge")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "purge")
+
+		_, err = sqlchemy.GetDB().Exec(
+			sql, vars...,
+		)
+		if err != nil {
+			return errors.Wrapf(err, strings.ReplaceAll(sql, "?", "%s"), vars...)
+		}
+		return nil
+	}
+
+	var splitByLen = func(data []string, splitLen int) [][]string {
+		var result [][]string
+		for i := 0; i < len(data); i += splitLen {
+			end := i + splitLen
+			if end > len(data) {
+				end = len(data)
+			}
+			result = append(result, data[i:end])
+		}
+		return result
+	}
+	idsArr := splitByLen(ids, 100)
+	for i := range idsArr {
+		err = purge(idsArr[i])
+		if err != nil {
+			return 0, err
+		}
+	}
+	return len(ids), nil
 }

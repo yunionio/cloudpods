@@ -37,6 +37,7 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegistUserCredCacheUpdater()
 
 	db.AddScopeResourceCountHandler("", app)
+	db.AddHistoryDataCleanHandler("", app)
 
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, "", app)
 	quotas.AddQuotaHandler(&models.RegionQuotaManager.SQuotaBaseManager, "", app)
