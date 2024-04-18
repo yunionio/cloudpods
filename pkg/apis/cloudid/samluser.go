@@ -39,8 +39,9 @@ type SamluserDetails struct {
 	CloudgroupResourceDetails
 	CloudaccountResourceDetails
 
-	ManagerId string
-	Manager   string
+	CloudaccountId string
+	ManagerId      string
+	Manager        string
 
 	SSamluser
 }
