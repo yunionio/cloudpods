@@ -57,7 +57,7 @@ func (self *GuestHardResetTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 func (self *GuestHardResetTask) StopServer(ctx context.Context, guest *models.SGuest) {
 	guest.SetStatus(ctx, self.UserCred, api.VM_STOPPING, "")
 	self.SetStage("OnServerStopComplete", nil)
-	guest.StartGuestStopTask(ctx, self.UserCred, false, false, self.GetTaskId())
+	guest.StartGuestStopTask(ctx, self.UserCred, 30, false, false, self.GetTaskId())
 	// logclient.AddActionLogWith(guest, logclient.ACT_VM_RESTART, `{"is_force": true}`, self.UserCred, true)
 }
 
@@ -81,6 +81,6 @@ type GuestRestartTask struct {
 func (self *GuestRestartTask) StopServer(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnServerStopComplete", nil)
 	isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
-	guest.StartGuestStopTask(ctx, self.UserCred, isForce, false, self.GetTaskId())
+	guest.StartGuestStopTask(ctx, self.UserCred, 60, isForce, false, self.GetTaskId())
 	// logclient.AddActionLog(guest, logclient.ACT_VM_RESTART, `{"is_force": false}`, self.UserCred, true)
 }

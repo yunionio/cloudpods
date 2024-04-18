@@ -41,7 +41,7 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	restart := jsonutils.QueryBoolean(self.Params, "restart", false)
 	if restart && guest.Status != api.VM_READY {
 		self.SetStage("OnStopServerComplete", nil)
-		guest.StartGuestStopTask(ctx, self.GetUserCred(), false, false, self.GetTaskId())
+		guest.StartGuestStopTask(ctx, self.GetUserCred(), 60, false, false, self.GetTaskId())
 		return
 	}
 	self.OnStopServerComplete(ctx, guest, nil)
