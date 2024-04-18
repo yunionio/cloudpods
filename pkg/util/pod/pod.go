@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
@@ -168,8 +167,6 @@ func (c crictl) CreateContainer(ctx context.Context,
 		SandboxConfig: podConfig,
 	}
 
-	log.Infof("======container config: %s", jsonutils.Marshal(ctrConfig).PrettyString())
-
 	image := ctrConfig.GetImage().GetImage()
 
 	// When there is a withPull request or the image default mode is to
@@ -187,7 +184,7 @@ func (c crictl) CreateContainer(ctx context.Context,
 		log.Infof("Pull image %s", resp.String())
 	}
 
-	log.Infof("CreateContainerRequest: %v", req)
+	log.Debugf("CreateContainerRequest pod %s: %v", podId, req)
 	r, err := c.GetRuntimeClient().CreateContainer(ctx, req)
 	if err != nil {
 		return "", errors.Wrapf(err, "CreateContainer with: %s", req)

@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
@@ -160,8 +161,16 @@ func RemoteStoragecacheCacheImage(ctx context.Context, storagecacheId, imageId, 
 		storagecacheId, imageId, query, params)
 }
 
+func UpdateResourceStatus(ctx context.Context, man modulebase.IResourceManager, id string, statusInput *apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	return man.PerformAction(GetComputeSession(ctx), id, "status", jsonutils.Marshal(statusInput))
+}
+
+func UpdateContainerStatus(ctx context.Context, cid string, statusInput *apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	return UpdateResourceStatus(ctx, &modules.Containers, cid, statusInput)
+}
+
 func UpdateServerStatus(ctx context.Context, sid string, statusInput *apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	return modules.Servers.PerformAction(GetComputeSession(ctx), sid, "status", jsonutils.Marshal(statusInput))
+	return UpdateResourceStatus(ctx, &modules.Servers, sid, statusInput)
 }
 
 func UpdateServerProgress(ctx context.Context, sid string, progress, progressMbps float64) (jsonutils.JSONObject, error) {

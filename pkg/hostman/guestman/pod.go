@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -103,10 +104,51 @@ func (s *sPodGuestInstance) CleanGuest(ctx context.Context, params interface{}) 
 }
 
 func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
-	log.Infof("======pod %s ImportServer do nothing", s.Id)
 	// TODO: 参考SKVMGuestInstance，可以做更多的事，比如同步状态
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
+	s.SyncStatus("sync status after host started")
+}
+
+func (s *sPodGuestInstance) SyncStatus(reason string) {
+	// sync pod status
+	var status = computeapi.VM_READY
+	if s.IsRunning() {
+		status = computeapi.VM_RUNNING
+	}
+	ctx := context.Background()
+	if status == computeapi.VM_READY {
+		// remove pod
+		if err := s.stopPod(ctx, 1); err != nil {
+			log.Warningf("stop cri pod when sync status: %s", s.Id)
+		}
+	}
+	statusInput := &apis.PerformStatusInput{
+		Status:      status,
+		Reason:      reason,
+		PowerStates: GetPowerStates(s),
+		HostId:      hostinfo.Instance().HostId,
+	}
+
+	if _, err := hostutils.UpdateServerStatus(ctx, s.Id, statusInput); err != nil {
+		log.Errorf("failed update guest status %s", err)
+	}
+	// sync container's status
+	for _, c := range s.containers {
+		status, err := s.getContainerStatus(ctx, c.Id)
+		if err != nil {
+			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
+			continue
+		}
+		statusInput = &apis.PerformStatusInput{
+			Status: status,
+			Reason: reason,
+			HostId: hostinfo.Instance().HostId,
+		}
+		if _, err := hostutils.UpdateContainerStatus(ctx, c.Id, statusInput); err != nil {
+			log.Errorf("failed update container %s status: %s", c.Id, err)
+		}
+	}
 }
 
 func (s *sPodGuestInstance) DeployFs(ctx context.Context, userCred mcclient.TokenCredential, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
@@ -158,11 +200,14 @@ func (s *sPodGuestInstance) getPod(ctx context.Context) (*runtimeapi.PodSandbox,
 }
 
 func (s *sPodGuestInstance) IsRunning() bool {
-	_, err := s.getPod(context.Background())
+	pod, err := s.getPod(context.Background())
 	if err != nil {
 		return false
 	}
-	return true
+	if pod.GetState() == runtimeapi.PodSandboxState_SANDBOX_READY {
+		return true
+	}
+	return false
 }
 
 func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, status string, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
