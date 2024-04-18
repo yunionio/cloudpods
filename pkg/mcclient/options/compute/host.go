@@ -32,7 +32,7 @@ type HostListOptions struct {
 	Occupied        bool     `help:"show occupid host" json:"-"`
 	Enabled         bool     `help:"Show enabled host only" json:"-"`
 	Disabled        bool     `help:"Show disabled host only" json:"-"`
-	HostType        string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun"`
+	HostType        string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|container|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun"`
 	AnyMac          string   `help:"Mac matches one of the host's interface"`
 	AnyIp           []string `help:"IP matches one of the host's interface"`
 	HostStorageType []string `help:"List host in host_storage_type"`
