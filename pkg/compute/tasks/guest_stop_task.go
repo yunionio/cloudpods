@@ -89,7 +89,7 @@ type GuestStopAndFreezeTask struct {
 func (self *GuestStopAndFreezeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStage("OnStopGuest", nil)
-	err := guest.StartGuestStopTask(ctx, self.UserCred, false, false, self.GetTaskId())
+	err := guest.StartGuestStopTask(ctx, self.UserCred, 60, false, false, self.GetTaskId())
 	if err != nil {
 		self.OnStopGuestFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
