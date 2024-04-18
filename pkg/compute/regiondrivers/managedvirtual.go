@@ -2695,7 +2695,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncBucketStatus(ctx cont
 			return nil, errors.Wrap(err, "bucket.GetIBucket")
 		}
 
-		return nil, bucket.SetStatus(ctx, userCred, iBucket.GetStatus(), "syncstatus")
+		return nil, bucket.SyncWithCloudBucket(ctx, userCred, iBucket, false)
 	})
 	return nil
 }
