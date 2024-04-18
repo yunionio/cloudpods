@@ -63,10 +63,12 @@ func (manager *SHostJointsManager) FetchCustomizeColumns(
 	rows := make([]api.HostJointResourceDetails, len(objs))
 
 	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostRows := manager.SHostResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.HostJointResourceDetails{
 			JointResourceBaseDetails: jointRows[i],
+			HostResourceInfo:         hostRows[i],
 		}
 	}
 

@@ -657,6 +657,7 @@ func (self *SZone) purgeHosts(ctx context.Context, managerId string) error {
 	hosts := HostManager.Query("id").Equals("manager_id", managerId).Equals("zone_id", self.Id)
 	isolateds := IsolatedDeviceManager.Query("id").In("host_id", hosts.SubQuery())
 	hoststorages := HoststorageManager.Query("row_id").In("host_id", hosts.SubQuery())
+	hostbackupStorages := HostBackupstorageManager.Query("row_id").In("host_id", hosts.SubQuery())
 	hostwires := HostwireManager.Query("row_id").In("host_id", hosts.SubQuery())
 	guests := GuestManager.Query("id").In("host_id", hosts.SubQuery())
 	guestdisks := GuestdiskManager.Query("row_id").In("guest_id", guests.SubQuery())
@@ -705,6 +706,7 @@ func (self *SZone) purgeHosts(ctx context.Context, managerId string) error {
 		{manager: InstanceBackupManager, key: "id", q: instancebackups},
 		{manager: GuestManager, key: "id", q: guests},
 		{manager: HoststorageManager, key: "row_id", q: hoststorages},
+		{manager: HostBackupstorageManager, key: "row_id", q: hostbackupStorages},
 		{manager: HostwireManager, key: "row_id", q: hostwires},
 		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
 		{manager: HostManager, key: "id", q: hosts},
@@ -721,6 +723,7 @@ func (self *SZone) purgeHosts(ctx context.Context, managerId string) error {
 func (self *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	isolateds := IsolatedDeviceManager.Query("id").Equals("host_id", self.Id)
 	hoststorages := HoststorageManager.Query("row_id").Equals("host_id", self.Id)
+	hostbackupStorages := HostBackupstorageManager.Query("row_id").Equals("host_id", self.Id)
 	hostwires := HostwireManager.Query("row_id").Equals("host_id", self.Id)
 	guests := GuestManager.Query("id").Equals("host_id", self.Id)
 	guestdisks := GuestdiskManager.Query("row_id").In("guest_id", guests.SubQuery())
@@ -761,6 +764,7 @@ func (self *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 		{manager: InstanceBackupManager, key: "id", q: instancebackups},
 		{manager: GuestManager, key: "id", q: guests},
 		{manager: HoststorageManager, key: "row_id", q: hoststorages},
+		{manager: HostBackupstorageManager, key: "row_id", q: hostbackupStorages},
 		{manager: HostwireManager, key: "row_id", q: hostwires},
 		{manager: IsolatedDeviceManager, key: "id", q: isolateds},
 	}

@@ -312,12 +312,22 @@ func (self *SHoststorage) Detach(ctx context.Context, userCred mcclient.TokenCre
 	return db.DetachJoint(ctx, userCred, self)
 }
 
-func (manager *SHoststorageManager) GetStorages(hostId string) ([]SHoststorage, error) {
+func (manager *SHoststorageManager) GetHostStoragesByHostId(hostId string) ([]SHoststorage, error) {
 	hoststorage := make([]SHoststorage, 0)
-	hoststorages := HoststorageManager.Query().SubQuery()
-	err := hoststorages.Query().Equals("host_id", hostId).All(&hoststorage)
+	hoststoragesQ := HoststorageManager.Query().Equals("host_id", hostId)
+	err := db.FetchModelObjects(manager, hoststoragesQ, &hoststorage)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return hoststorage, nil
+}
+
+func (manager *SHoststorageManager) GetHostStoragesByStorageId(storageId string) ([]SHoststorage, error) {
+	hoststorage := make([]SHoststorage, 0)
+	hoststoragesQ := HoststorageManager.Query().Equals("storage_id", storageId)
+	err := db.FetchModelObjects(manager, hoststoragesQ, &hoststorage)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	return hoststorage, nil
 }
