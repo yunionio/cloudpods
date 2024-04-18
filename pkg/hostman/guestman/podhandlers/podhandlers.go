@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/proxy"
 
@@ -82,7 +83,8 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 			containerActionHandler(f))
 	}
 
-	app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execContainer())
+	execWorker := appsrv.NewWorkerManager("exec-worker", 16, appsrv.DEFAULT_BACKLOG, false)
+	app.AddHandler3(newExecContainerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execWorker))
 }
 
 func pullImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -127,6 +129,16 @@ func saveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredenti
 		return nil, errors.Wrap(err, "unmarshal to input")
 	}
 	return pod.SaveVolumeMountToImage(ctx, userCred, input, ctrId)
+}
+
+func newExecContainerHandler(method, urlPath string, worker *appsrv.SWorkerManager) *appsrv.SHandlerInfo {
+	hi := &appsrv.SHandlerInfo{}
+	hi.SetMethod(method)
+	hi.SetPath(urlPath)
+	hi.SetHandler(execContainer())
+	hi.SetProcessTimeout(1 * time.Hour)
+	hi.SetWorkerManager(worker)
+	return hi
 }
 
 func execContainer() appsrv.FilterHandler {
