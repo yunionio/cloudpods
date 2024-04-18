@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+    xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+    xmlns:ds="http://www.w3.org/2000/09/xmldsig#" entityID="https://www.volcengine.com/">
+    <SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol" WantAssertionsSigned="true">
+        <KeyDescriptor use="signing">
+            <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+                <ds:X509Data>
+                    <ds:X509Certificate>MIIDJjCCAg6gAwIBAgIUF3lH8/cdlQeyPBqt066RFnt3cI4wDQYJKoZIhvcNAQELBQAwJTEjMCEGA1UEAxMadXJuOnZvbGNlbmdpbmU6d2Vic2VydmljZXMwHhcNMjMwODA4MDIzNzI4WhcNMzMwODIxMTYwMDAwWjAlMSMwIQYDVQQDExp1cm46dm9sY2VuZ2luZTp3ZWJzZXJ2aWNlczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPZ+nhODpFTe+A8PbuZYA5XDQ04WckV1A5U90tKaaUX5uKLUYfDtFA1TwMO/qG87LU/0Pxs4FhgZJkUOeBHkyYzzXZQvtfsJ9frcKkcTjX/WF4XJyitXCULSjhcclMS3gOqeI/Mo3P90KutfhNli/mAHQJaRsuPFG4ZwBusbUo8i5sqBqt/Sg8JapH7DjEU2mN1165o59gavPGSByPeEuu28EkivVFcI7Jox5ztwgMrOYY+pYP9GeSurzpyLq3CfvvahTsAJjuHDHTTnYNcq/I3VOap/y4cOU6vgxcQvBmgb+CBvGldjn0em3BIn5meQwuB6jfQ7kqBaO1PRD1nhDTMCAwEAAaNOMEwwSgYIKwYBBQUHAQEEPjA8MDoGCCsGAQUFBzABhi5odHRwOi8vbmV4dXMtcHJvZHVjdGlvbi5ieXRlZGFuY2UubmV0L3BjYS9vY3NwMA0GCSqGSIb3DQEBCwUAA4IBAQBxySDr9TPJxRN+otrFDaV8HSeFKUUSO3+r8bEVAXmS+xUsdUOZbaf2r/g+eKrW58dpn+iBWTAAKug9Jwe5KVGqB7G5r2r6k/eI5dvv5r/Fr5T7NppRCXKQTQiAhrrVlqttsagPztJ6LmVAcm4sh4Ckx99FgibQCbT/zui+c6IUyEQcVIwtmoPANl3K2Yn85t+G+Cu9xxXY0JPlZcUHntHg0R0PUWc3LuzLXnff7JWEzPyhMUBLpQk5BltxuD5cTGCA6WafJuBTAqkt48VN0MFTP5c5m3PJFz8Ro1GLY8hw1uhUEx28DKBkQSGpkZNx0oJXETIDpSBfD0dHWBvZQPd0</ds:X509Certificate>
+                </ds:X509Data>
+            </ds:KeyInfo>
+        </KeyDescriptor>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos</NameIDFormat>
+        <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:entity</NameIDFormat>
+        <AssertionConsumerService index="1" isDefault="true" Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://signin.volcengine.com/saml/sso"/>
+        <AttributeConsumingService index="1">
+            <ServiceName xml:lang="en">Volcengine Single Sign-On</ServiceName>
+            <RequestedAttribute isRequired="true" Name="https://www.volcengine.com/SAML/Attributes/Identity" FriendlyName="Identity"/>
+            <RequestedAttribute isRequired="true" Name="https://www.volcengine.com/SAML/Attributes/SessionName" FriendlyName="SessionName"/>
+            <RequestedAttribute isRequired="false" Name="https://www.volcengine.com/SAML/Attributes/SessionDuration" FriendlyName="SessionDuration"/>
+
+        </AttributeConsumingService>
+    </SPSSODescriptor>
+    <Organization>
+        <OrganizationName xml:lang="en">Volcengine, Inc.</OrganizationName>
+        <OrganizationDisplayName xml:lang="en">Volcengine</OrganizationDisplayName>
+        <OrganizationURL xml:lang="en">https://www.volcengine.com</OrganizationURL>
+    </Organization>
+</EntityDescriptor>
