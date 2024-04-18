@@ -126,6 +126,7 @@ type SInstance struct {
 	DataDisks             []DataDisks           `json:"DataDisks"`
 	VncSupport            bool                  `json:"VncSupport"`
 	Platform              string                `json:"Platform"`
+	ServiceEndTime        time.Time             `json:"ServiceEndTime"`
 }
 
 func (region *SRegion) GetInstances(zoneName string, instanceIds []string) ([]SInstance, error) {
@@ -447,4 +448,8 @@ func (ins *SInstance) GetBillingType() string {
 
 func (ins *SInstance) GetCreatedAt() time.Time {
 	return ins.CreationDate
+}
+
+func (ins *SInstance) GetExpiredAt() time.Time {
+	return ins.ServiceEndTime
 }
