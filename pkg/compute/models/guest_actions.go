@@ -3158,13 +3158,25 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
-	if ispId := self.GetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
-		ispM, err := InstanceSnapshotManager.FetchById(ispId)
-		if err == nil {
-			isp := ispM.(*SInstanceSnapshot)
-			isp.DecRefCount(ctx, userCred)
+	if input.Status == api.VM_RUNNING && input.BlockJobsCount == 0 {
+		if ispId := self.GetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
+			var disksMerged = true
+			disks, _ := self.GetDisks()
+			for _, disk := range disks {
+				if disk.GetMetadata(ctx, "merge_snapshot", userCred) == "true" {
+					disksMerged = false
+				}
+			}
+
+			if disksMerged {
+				ispM, err := InstanceSnapshotManager.FetchById(ispId)
+				if err == nil {
+					isp := ispM.(*SInstanceSnapshot)
+					isp.DecRefCount(ctx, userCred)
+				}
+				self.SetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, "", userCred)
+			}
 		}
-		self.SetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, "", userCred)
 	}
 
 	if preStatus != self.Status && !self.isNotRunningStatus(preStatus) && self.isNotRunningStatus(self.Status) {

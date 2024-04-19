@@ -2842,6 +2842,8 @@ func (s *SKVMGuestInstance) sendStreamDisksComplete(ctx context.Context) {
 	if err := SaveLiveDesc(s, s.Desc); err != nil {
 		log.Errorf("save guest desc failed %s", err)
 	}
+
+	s.SyncStatus("")
 }
 
 func (s *SKVMGuestInstance) GetQemuVersionStr() string {
