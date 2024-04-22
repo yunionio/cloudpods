@@ -165,7 +165,10 @@ func AddNicRoutes(routes [][]string, nicDesc *types.SServerNic, mainIp string, n
 	} else if len(nicDesc.Gateway) > 0 && !isExitAddress(nicDesc.Ip) &&
 		nicCnt == 2 && nicDesc.Ip != mainIp && isExitAddress(mainIp) {
 		for _, pref := range netutils.GetPrivateIPRanges() {
-			routes = addRoute(routes, pref.String(), nicDesc.Gateway)
+			prefs := pref.ToPrefixes()
+			for _, p := range prefs {
+				routes = addRoute(routes, p.String(), nicDesc.Gateway)
+			}
 		}
 	}
 	return routes
