@@ -212,7 +212,7 @@ func (self *SInstance) SetSecurityGroups(ids []string) error {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return api.HYPERVISOR_CLOUDPODS
+	return self.Hypervisor
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
@@ -321,7 +321,7 @@ func (self *SRegion) GetInstanceVnc(id, name string) (*cloudprovider.ServerVncOu
 		Protocol:     "cloudpods",
 		InstanceId:   id,
 		InstanceName: name,
-		Hypervisor:   api.HYPERVISOR_CLOUDPODS,
+		Hypervisor:   api.HYPERVISOR_DEFAULT,
 	}
 	err = resp.Unmarshal(&result)
 	if err != nil {

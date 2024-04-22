@@ -61,8 +61,12 @@ func (self *BaremetalUnconvertHypervisorTask) OnInit(ctx context.Context, obj db
 
 func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(baremetal, db.ACT_UNCONVERT_COMPLETE, "", self.UserCred)
-	driver := baremetal.GetDriverWithDefault()
-	err := driver.FinishUnconvert(ctx, self.UserCred, baremetal)
+	driver, err := baremetal.GetHostDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "GetHostDriver").Error()))
+		return
+	}
+	err = driver.FinishUnconvert(ctx, self.UserCred, baremetal)
 	if err != nil {
 		log.Errorf("Fail to exec finish_unconvert: %s", err.Error())
 	}

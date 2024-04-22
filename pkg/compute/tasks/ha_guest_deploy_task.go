@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -50,13 +49,17 @@ func (self *HAGuestDeployTask) OnDeployWaitServerStop(
 func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnDeploySlaveGuestComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
-	err := guest.GetDriver().RequestDeployGuestOnHost(ctx, guest, host, self)
+	drv, err := guest.GetDriver()
 	if err != nil {
-		log.Errorf("request_deploy_guest_on_host %s", err)
 		self.OnDeployGuestFail(ctx, guest, err)
-	} else {
-		guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING_BACKUP, "")
+		return
 	}
+	err = drv.RequestDeployGuestOnHost(ctx, guest, host, self)
+	if err != nil {
+		self.OnDeployGuestFail(ctx, guest, err)
+		return
+	}
+	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING_BACKUP, "")
 }
 
 func (self *HAGuestDeployTask) OnDeploySlaveGuestComplete(
@@ -87,9 +90,13 @@ func (self *GuestDeployBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 	}
 	self.SetStage("OnDeployGuestComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
-	err := guest.GetDriver().RequestDeployGuestOnHost(ctx, guest, host, self)
+	drv, err := guest.GetDriver()
 	if err != nil {
-		log.Errorf("request_deploy_guest_on_host %s", err)
+		self.OnDeployGuestCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestDeployGuestOnHost(ctx, guest, host, self)
+	if err != nil {
 		self.OnDeployGuestCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }

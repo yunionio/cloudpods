@@ -284,11 +284,9 @@ type ICloudHost interface {
 	GetIVMs() ([]ICloudVM, error)
 	GetIVMById(id string) (ICloudVM, error)
 
-	// GetIWires() ([]ICloudWire, error)
 	GetIStorages() ([]ICloudStorage, error)
 	GetIStorageById(id string) (ICloudStorage, error)
 
-	// GetStatus() string     // os status
 	GetEnabled() bool      // is enabled
 	GetHostStatus() string // service status
 	GetAccessIp() string   //
@@ -308,6 +306,7 @@ type ICloudHost interface {
 	GetStorageSizeMB() int64
 	GetStorageType() string
 	GetHostType() string
+	GetStorageInfo() jsonutils.JSONObject
 
 	GetIsMaintenance() bool
 	GetVersion() string

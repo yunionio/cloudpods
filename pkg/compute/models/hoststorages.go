@@ -155,7 +155,12 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 	}
 	host := hostObj.(*SHost)
 
-	input, err = host.GetHostDriver().ValidateAttachStorage(ctx, userCred, host, storage, input)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		return input, errors.Wrapf(err, "GetHostDriver")
+	}
+
+	input, err = driver.ValidateAttachStorage(ctx, userCred, host, storage, input)
 	if err != nil {
 		return input, err
 	}

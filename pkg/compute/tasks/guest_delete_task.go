@@ -53,15 +53,20 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		self.OnGuestStopComplete(ctx, guest, data)
 		return
 	}
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnGuestStopComplete(ctx, guest, data)
+		return
+	}
 	if len(guest.BackupHostId) > 0 {
 		self.SetStage("OnMasterHostStopGuestComplete", nil)
-		if err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
+		if err := drv.RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
 			log.Errorf("RequestStopGuestForDelete fail %s", err)
 			self.OnMasterHostStopGuestComplete(ctx, guest, nil)
 		}
 	} else {
 		self.SetStage("OnGuestStopComplete", nil)
-		if err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
+		if err := drv.RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
 			log.Errorf("RequestStopGuestForDelete fail %s", err)
 			self.OnGuestStopComplete(ctx, guest, nil)
 		}
@@ -71,7 +76,12 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 func (self *GuestDeleteTask) OnMasterHostStopGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnGuestStopComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
-	err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, host, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnGuestStopComplete(ctx, guest, nil)
+		return
+	}
+	err = drv.RequestStopGuestForDelete(ctx, guest, host, self)
 	if err != nil {
 		log.Errorf("RequestStopGuestForDelete fail %s", err)
 		self.OnGuestStopComplete(ctx, guest, nil)
@@ -287,7 +297,12 @@ func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models
 	}
 	// No snapshot
 	self.SetStage("OnGuestDetachDisksComplete", nil)
-	guest.GetDriver().RequestDetachDisksFromGuestForDelete(ctx, guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	drv.RequestDetachDisksFromGuestForDelete(ctx, guest, self)
 }
 
 func (self *GuestDeleteTask) OnGuestDetachDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -342,7 +357,10 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 	guest.EjectAllIso(self.UserCred)
 	guest.EjectAllVfd(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)
-	guest.GetDriver().OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
+	drv, _ := guest.GetDriver()
+	if drv != nil {
+		drv.OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
+	}
 	self.DeleteGuest(ctx, guest)
 }
 

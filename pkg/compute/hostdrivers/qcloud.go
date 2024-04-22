@@ -44,6 +44,10 @@ func (self *SQcloudHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_QCLOUD
 }
 
+func (self *SQcloudHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_QCLOUD
+}
+
 func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if sizeGb%10 != 0 {
 		return fmt.Errorf("The disk size must be a multiple of 10Gb")

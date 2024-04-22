@@ -135,7 +135,7 @@ func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo,
 }
 
 func IsDriverSkipScheduleDirtyMark(driver computemodels.IGuestDriver) bool {
-	return !(driver.DoScheduleCPUFilter() && driver.DoScheduleMemoryFilter() && driver.DoScheduleStorageFilter())
+	return driver == nil || !(driver.DoScheduleCPUFilter() && driver.DoScheduleMemoryFilter() && driver.DoScheduleStorageFilter())
 }
 
 func (te *TaskExecutor) cleanup() {

@@ -294,7 +294,11 @@ func IsNetworkAvailable(
 }
 
 func (p *NetworkPredicate) GetNetworkTypes(u *core.Unit, specifyType string) []string {
-	netTypes := p.GetHypervisorDriver(u).GetRandomNetworkTypes()
+	netTypes := []string{}
+	driver := p.GetHypervisorDriver(u)
+	if driver != nil {
+		netTypes = driver.GetRandomNetworkTypes()
+	}
 	if len(specifyType) > 0 {
 		netTypes = []string{specifyType}
 	}

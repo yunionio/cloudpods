@@ -40,6 +40,10 @@ func (self *SZStackHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ZSTACK
 }
 
+func (self *SZStackHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ZSTACK
+}
+
 func (self *SZStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	return nil
 }

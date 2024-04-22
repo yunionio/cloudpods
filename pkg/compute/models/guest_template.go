@@ -360,8 +360,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 	// sku deal
 	if len(input.InstanceType) > 0 {
 		skuOutput := computeapis.GuestTemplateSku{}
-		provider := GetDriver(gt.Hypervisor).GetProvider()
-		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, provider, true)
+		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, out.Provider, true)
 		if err != nil {
 			skuOutput.Name = input.InstanceType
 			skuOutput.MemorySizeMb = gt.VmemSize

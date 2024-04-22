@@ -350,6 +350,9 @@ type ServerConfigs struct {
 	// default: kvm
 	Hypervisor string `json:"hypervisor"`
 
+	// swagger: ignore
+	Provider string `json:"provider"`
+
 	// 包年包月资源池
 	// swagger:ignore
 	// emum: shared, prepaid, dedicated

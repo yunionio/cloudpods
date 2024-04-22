@@ -16,11 +16,12 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -33,22 +34,30 @@ type BaremetalSyncStatusTask struct {
 	SBaremetalBaseTask
 }
 
+func (self *BaremetalSyncStatusTask) taskFailed(ctx context.Context, baremetal *models.SHost, err error) {
+	baremetal.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+}
+
 func (self *BaremetalSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
 	if baremetal.IsBaremetal {
 		self.DoSyncStatus(ctx, baremetal)
-	} else {
-		self.SetStageComplete(ctx, nil)
+		return
 	}
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *BaremetalSyncStatusTask) DoSyncStatus(ctx context.Context, baremetal *models.SHost) {
-	self.SetStage("OnSyncstatusComplete", nil)
-	url := fmt.Sprintf("/baremetals/%s/syncstatus", baremetal.Id)
-	headers := self.GetTaskRequestHeader()
-	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
+	drv, err := baremetal.GetHostDriver()
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, baremetal, errors.Wrapf(err, "GetHostDriver"))
+		return
+	}
+	self.SetStage("OnSyncstatusComplete", nil)
+	err = drv.RequestSyncBaremetalHostStatus(ctx, self.GetUserCred(), baremetal, self)
+	if err != nil {
+		self.taskFailed(ctx, baremetal, errors.Wrapf(err, "GetHostDriver"))
 		return
 	}
 }
@@ -58,7 +67,7 @@ func (self *BaremetalSyncStatusTask) OnSyncstatusComplete(ctx context.Context, b
 }
 
 func (self *BaremetalSyncStatusTask) OnSyncstatusCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, body)
+	self.taskFailed(ctx, baremetal, errors.Errorf(body.String()))
 }
 
 type BaremetalSyncAllGuestsStatusTask struct {

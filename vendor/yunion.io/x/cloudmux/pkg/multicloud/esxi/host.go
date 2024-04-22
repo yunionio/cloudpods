@@ -598,14 +598,10 @@ func (host *SHost) GetMemSizeMB() int {
 	return int(host.getHostSystem().Summary.Hardware.MemorySize / 1024 / 1024)
 }
 
-func (host *SHost) GetStorageInfo() []SHostStorageInfo {
-	if host.storageInfo == nil {
-		host.storageInfo = host.getStorageInfo()
-	}
-	return host.storageInfo
-}
-
 func (host *SHost) getStorageInfo() []SHostStorageInfo {
+	if host.storageInfo != nil {
+		return host.storageInfo
+	}
 	diskSlots := make(map[int]SHostStorageInfo)
 	list := host.getStorages()
 	for i := 0; i < len(list); i += 1 {
@@ -633,7 +629,8 @@ func (host *SHost) getStorageInfo() []SHostStorageInfo {
 			break
 		}
 	}
-	return disks
+	host.storageInfo = disks
+	return host.storageInfo
 }
 
 func (host *SHost) getStorages() []*SHostStorageAdapterInfo {
@@ -731,7 +728,7 @@ func (host *SHost) GetStorageSizeMB() int64 {
 func (host *SHost) GetStorageType() string {
 	ssd := 0
 	rotate := 0
-	storages := host.GetStorageInfo()
+	storages := host.getStorageInfo()
 	for i := 0; i < len(storages); i += 1 {
 		if storages[i].Rotate {
 			rotate += 1

@@ -39,7 +39,11 @@ func (self *GuestRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandalon
 	self.SetStage("OnRemoteUpdateComplete", nil)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		err := guest.GetDriver().RequestRemoteUpdate(ctx, guest, self.UserCred, replaceTags)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			return nil, err
+		}
+		err = drv.RequestRemoteUpdate(ctx, guest, self.UserCred, replaceTags)
 		if err != nil {
 			return nil, errors.Wrap(err, "RequestRemoteUpdate")
 		}

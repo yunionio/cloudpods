@@ -35,3 +35,7 @@ func (self *SCucloudHostDriver) GetHostType() string {
 func (self *SCucloudHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_CUCLOUD
 }
+
+func (self *SCucloudHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_CUCLOUD
+}

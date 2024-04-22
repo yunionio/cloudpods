@@ -184,7 +184,12 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string][]models.SNetInterface, 0)
 
-	netTypes := guest.GetDriver().GetRandomNetworkTypes()
+	drv, err := guest.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	netTypes := drv.GetRandomNetworkTypes()
 	if len(netConfig.NetType) > 0 {
 		netTypes = []string{netConfig.NetType}
 	}

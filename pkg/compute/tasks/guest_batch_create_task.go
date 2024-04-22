@@ -210,8 +210,14 @@ func (task *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		input.Eip = eip.Id
 	}
 
+	drv, err := guest.GetDriver()
+	if err != nil {
+		guest.SetStatus(ctx, task.UserCred, api.VM_DISK_FAILED, err.Error())
+		return err
+	}
+
 	// allocate disks
-	extraDisks, err := guest.GetDriver().PrepareDiskRaidConfig(task.UserCred, host, input.BaremetalDiskConfigs, input.Disks)
+	extraDisks, err := drv.PrepareDiskRaidConfig(task.UserCred, host, input.BaremetalDiskConfigs, input.Disks)
 	if err != nil {
 		log.Errorf("PrepareDiskRaidConfig fail: %s", err)
 		guest.SetStatus(ctx, task.UserCred, api.VM_DISK_FAILED, err.Error())

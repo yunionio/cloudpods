@@ -78,7 +78,7 @@ func (self *SHCSOPGuestDriver) GetMinimalSysDiskSizeGb() int {
 }
 
 func (self *SHCSOPGuestDriver) GetStorageTypes() []string {
-	storages, _ := models.StorageManager.GetStorageTypesByHostType(api.HYPERVISOR_HOSTTYPE[self.GetHypervisor()])
+	storages, _ := models.StorageManager.GetStorageTypesByProvider(self.GetProvider())
 	return storages
 }
 

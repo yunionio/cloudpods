@@ -43,6 +43,10 @@ func (self *SGoogleHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_GOOGLE
 }
 
+func (self *SGoogleHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_GOOGLE
+}
+
 func (self *SGoogleHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	minGB := 10
 	maxGB := -1

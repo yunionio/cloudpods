@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -38,20 +39,29 @@ func init() {
 	taskman.RegisterTask(PrepaidRecycleHostRenewTask{})
 }
 
+func (self *GuestRenewTask) taskFailed(ctx context.Context, guest *models.SGuest, err error) {
+	db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, err, self.UserCred, false)
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_RENEW_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+	return
+}
+
 func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
 	durationStr, _ := self.GetParams().GetString("duration")
 	bc, _ := billing.ParseBillingCycle(durationStr)
 
-	exp, err := guest.GetDriver().RequestRenewInstance(ctx, guest, bc)
+	drv, err := guest.GetDriver()
 	if err != nil {
-		msg := fmt.Sprintf("RequestRenewInstance failed %s", err)
-		log.Errorf(msg)
-		db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, err, self.UserCred)
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, err, self.UserCred, false)
-		guest.SetStatus(ctx, self.GetUserCred(), api.VM_RENEW_FAILED, msg)
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, guest, errors.Wrapf(err, "GetDriver"))
+		return
+	}
+
+	exp, err := drv.RequestRenewInstance(ctx, guest, bc)
+	if err != nil {
+		self.taskFailed(ctx, guest, errors.Wrapf(err, "RequestRenewInstance"))
 		return
 	}
 

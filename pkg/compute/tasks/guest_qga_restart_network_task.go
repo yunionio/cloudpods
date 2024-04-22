@@ -78,7 +78,11 @@ func (self *GuestQgaRestartNetworkTask) requestSetNetwork(ctx context.Context, g
 
 	// if success, log network related information
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_INPUT, inputQgaNet, self.UserCred, true)
-	return guest.GetDriver().QgaRequestSetNetwork(ctx, self.UserCred, jsonutils.Marshal(inputQgaNet), host, guest)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	return drv.QgaRequestSetNetwork(ctx, self.UserCred, jsonutils.Marshal(inputQgaNet), host, guest)
 }
 
 func (self *GuestQgaRestartNetworkTask) taskFailed(ctx context.Context, guest *models.SGuest, prevIp string, inBlockStream bool, err error) {

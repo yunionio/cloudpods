@@ -100,7 +100,11 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	}
 	hostNetifs := host.GetHostNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
-	netTypes := guest.GetDriver().GetRandomNetworkTypes()
+	driver, err := guest.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	netTypes := driver.GetRandomNetworkTypes()
 	if len(netConfig.NetType) > 0 {
 		netTypes = []string{netConfig.NetType}
 	}

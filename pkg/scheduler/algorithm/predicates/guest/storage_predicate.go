@@ -46,7 +46,8 @@ func (p *StoragePredicate) Clone() core.FitPredicate {
 }
 
 func (p *StoragePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
-	if !u.GetHypervisorDriver().DoScheduleStorageFilter() {
+	driver := u.GetHypervisorDriver()
+	if driver != nil && !driver.DoScheduleStorageFilter() {
 		return false, nil
 	}
 	return true, nil

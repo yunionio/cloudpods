@@ -753,7 +753,12 @@ func (task *ManagedGuestMigrateTask) MigrateStart(ctx context.Context, guest *mo
 	guest.SetStatus(ctx, task.UserCred, api.VM_MIGRATING, "")
 	input := api.GuestMigrateInput{}
 	task.GetParams().Unmarshal(&input)
-	if err := guest.GetDriver().RequestMigrate(ctx, guest, task.UserCred, input, task); err != nil {
+	drv, err := guest.GetDriver()
+	if err != nil {
+		task.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	if err := drv.RequestMigrate(ctx, guest, task.UserCred, input, task); err != nil {
 		task.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
@@ -807,7 +812,12 @@ func (task *ManagedGuestLiveMigrateTask) MigrateStart(ctx context.Context, guest
 	guest.SetStatus(ctx, task.UserCred, api.VM_MIGRATING, "")
 	input := api.GuestLiveMigrateInput{}
 	task.GetParams().Unmarshal(&input)
-	if err := guest.GetDriver().RequestLiveMigrate(ctx, guest, task.UserCred, input, task); err != nil {
+	drv, err := guest.GetDriver()
+	if err != nil {
+		task.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	if err := drv.RequestLiveMigrate(ctx, guest, task.UserCred, input, task); err != nil {
 		task.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }

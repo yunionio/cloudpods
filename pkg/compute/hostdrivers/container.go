@@ -23,3 +23,7 @@ func (d *SContainerHostDriver) GetHostType() string {
 func (d *SContainerHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_POD
 }
+
+func (d *SContainerHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ONECLOUD
+}

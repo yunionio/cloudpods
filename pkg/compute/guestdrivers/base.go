@@ -565,8 +565,13 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 	confs.Old.CpuSockets = guest.CpuSockets
 	confs.Old.VmemSize = guest.VmemSize
 
+	region, err := guest.GetRegion()
+	if err != nil {
+		return nil, err
+	}
+
 	if len(input.InstanceType) > 0 {
-		sku, err := models.ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, guest.GetDriver().GetProvider(), true)
+		sku, err := models.ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, region.Provider, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchSkuByNameAndProvider")
 		}

@@ -44,6 +44,38 @@ func (self *SBaremetalHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
+func (self *SBaremetalHostDriver) RequestBaremetalUnmaintence(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	url := fmt.Sprintf("/baremetals/%s/unmaintenance", baremetal.Id)
+	headers := task.GetTaskRequestHeader()
+	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, task.GetParams())
+	return err
+}
+
+func (self *SBaremetalHostDriver) RequestBaremetalMaintence(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	url := fmt.Sprintf("/baremetals/%s/maintenance", baremetal.Id)
+	headers := task.GetTaskRequestHeader()
+	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, task.GetParams())
+	return err
+}
+
+func (self *SBaremetalHostDriver) RequestSyncBaremetalHostStatus(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	url := fmt.Sprintf("/baremetals/%s/syncstatus", baremetal.Id)
+	headers := task.GetTaskRequestHeader()
+	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
+	return err
+}
+
+func (self *SBaremetalHostDriver) RequestSyncBaremetalHostConfig(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	url := fmt.Sprintf("/baremetals/%s/sync-config", baremetal.Id)
+	headers := task.GetTaskRequestHeader()
+	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
+	return err
+}
+
 func (self *SBaremetalHostDriver) IsDisableImageCache(host *models.SHost) (bool, error) {
 	agent := host.GetAgent(api.AgentTypeBaremetal)
 	if agent == nil {

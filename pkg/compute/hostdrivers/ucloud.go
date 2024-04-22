@@ -41,6 +41,10 @@ func (self *SUCloudHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_UCLOUD
 }
 
+func (self *SUCloudHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_UCLOUD
+}
+
 func (self *SUCloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if storage.StorageType == api.STORAGE_UCLOUD_CLOUD_NORMAL {
 		if sizeGb < 20 || sizeGb > 8000 {
