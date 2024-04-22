@@ -344,7 +344,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 					return nil, errors.Wrap(err, "GetFreeIPv4")
 				}
 				if len(address) > 0 && ipAddr != address && requiredDesignatedIp {
-					return nil, errors.Wrapf(httperrors.ErrConflict, "candidate ip %s is occupied!", address)
+					usedAddr, _ := network.GetUsedAddressDetails(ctx, address)
+					return nil, errors.Wrapf(httperrors.ErrConflict, "candidate ip %s is occupied with %#v!", address, usedAddr)
 				}
 				gn.IpAddr = ipAddr
 			}
@@ -398,7 +399,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 					return nil, errors.Wrap(err, "GetFreeIPv6")
 				}
 				if len(address6) > 0 && ip6Addr != address6 && !derived && requiredDesignatedIp {
-					return nil, errors.Wrapf(httperrors.ErrConflict, "candidate v6 ip %s is occupied!", address6)
+					usedAddr, _ := network.GetUsedAddressDetails(ctx, address6)
+					return nil, errors.Wrapf(httperrors.ErrConflict, "candidate v6 ip %s is occupied with %#v!", address6, usedAddr)
 				}
 				gn.Ip6Addr = ip6Addr
 			}
