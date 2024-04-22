@@ -74,17 +74,17 @@ func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int
 
 func (s *SGuestStopTask) Start() {
 	s.stopping = true
+	s.startPowerdown = time.Now()
 	if s.IsRunning() && s.IsMonitorAlive() {
 		s.Monitor.SimpleCommand("system_powerdown", s.onPowerdownGuest)
-	} else {
-		s.checkGuestRunning()
 	}
+	s.checkGuestRunning()
 }
 
 func (s *SGuestStopTask) onPowerdownGuest(results string) {
 	//s.ExitCleanup(true)
-	s.startPowerdown = time.Now()
-	s.checkGuestRunning()
+	log.Debugf("system_powerdown callback successfully")
+	// s.checkGuestRunning()
 }
 
 func (s *SGuestStopTask) checkGuestRunning() {
