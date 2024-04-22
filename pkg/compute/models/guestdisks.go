@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SGuestdiskManager struct {
 	SGuestJointsManager
 	SDiskResourceBaseManager
@@ -54,6 +55,7 @@ func init() {
 
 }
 
+// +onecloud:model-api-gen
 type SGuestdisk struct {
 	SGuestJointsBase
 

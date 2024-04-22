@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SHostBackupstorageManager struct {
 	SHostJointsManager
 	SBackupstorageResourceBaseManager
@@ -54,6 +55,7 @@ func init() {
 	})
 }
 
+// +onecloud:model-api-gen
 type SHostBackupstorage struct {
 	SHostJointsBase
 

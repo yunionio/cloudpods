@@ -53,6 +53,7 @@ func init() {
 
 }
 
+// +onecloud:swagger-gen-ignore
 type SCloudgroupPolicy struct {
 	SCloudgroupJointsBase
 	SCloudpolicyResourceBase

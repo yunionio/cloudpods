@@ -167,13 +167,6 @@ func (manager *SOrganizationManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 	return q, httperrors.ErrNotFound
 }
 
-type SOrganizationDetails struct {
-	api.EnabledIdentityBaseResourceDetails
-	apis.SharableResourceBaseInfo
-
-	SOrganization
-}
-
 func (manager *SOrganizationManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -181,13 +174,13 @@ func (manager *SOrganizationManager) FetchCustomizeColumns(
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []SOrganizationDetails {
-	rows := make([]SOrganizationDetails, len(objs))
+) []api.SOrganizationDetails {
+	rows := make([]api.SOrganizationDetails, len(objs))
 	infRows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	sharedRows := manager.SSharableBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		// org := objs[i].(*SOrganization)
-		rows[i] = SOrganizationDetails{
+		rows[i] = api.SOrganizationDetails{
 			EnabledIdentityBaseResourceDetails: infRows[i],
 			SharableResourceBaseInfo:           sharedRows[i],
 		}

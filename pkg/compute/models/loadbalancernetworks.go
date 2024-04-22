@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SLoadbalancernetworkManager struct {
 	db.SVirtualJointResourceBaseManager
 	SLoadbalancerResourceBaseManager
@@ -58,6 +59,7 @@ func init() {
 	})
 }
 
+// +onecloud:model-api-gen
 type SLoadbalancerNetwork struct {
 	db.SVirtualJointResourceBase
 

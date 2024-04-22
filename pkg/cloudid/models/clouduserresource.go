@@ -35,6 +35,7 @@ import (
 type SClouduserResourceBaseManager struct {
 }
 
+// +onecloud:swagger-gen-ignore
 type SClouduserResourceBase struct {
 	ClouduserId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }

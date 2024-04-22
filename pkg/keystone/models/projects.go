@@ -224,6 +224,7 @@ func (manager *SProjectManager) FetchProject(projectId, projectName string, doma
 	return nil, fmt.Errorf("no project Id or name provided")
 }
 
+// +onecloud:model-api-gen
 type SProjectExtended struct {
 	SProject
 

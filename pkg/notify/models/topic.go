@@ -641,6 +641,7 @@ func (sm *STopicManager) FetchCustomizeColumns(ctx context.Context, userCred mcc
 	return rows
 }
 
+// +onecloud:model-api-gen
 type SSubscriberDis struct {
 	SSubscriber
 	ReceiverName string `json:"receiver_name"`

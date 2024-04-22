@@ -51,7 +51,7 @@ func init() {
 | deleted    | tinyint(1)   | NO   | MUL | NULL    |                |
 +------------+--------------+------+-----+---------+----------------+
 */
-
+// +onecloud:swagger-gen-ignore
 type SImageMember struct {
 	SImagePeripheral
 

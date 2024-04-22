@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SAlertJointsManager struct {
 	db.SJointResourceBaseManager
 }
@@ -41,6 +42,7 @@ func NewAlertJointsManager(
 	}
 }
 
+// +onecloud:swagger-gen-ignore
 type SAlertJointsBase struct {
 	db.SVirtualJointResourceBase
 

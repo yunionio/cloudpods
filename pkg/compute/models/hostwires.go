@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SHostwireManagerDeprecated struct {
 	SHostJointsManager
 	SWireResourceBaseManager
@@ -52,6 +53,7 @@ func init() {
 	})
 }
 
+// +onecloud:model-api-gen
 type SHostwireDeprecated struct {
 	SHostJointsBase
 

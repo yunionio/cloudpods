@@ -49,6 +49,7 @@ func NewCloudgroupJointsManager(dt interface{}, tableName string, keyword string
 	}
 }
 
+// +onecloud:swagger-gen-ignore
 type SCloudgroupJointsBase struct {
 	db.SJointResourceBase
 
