@@ -1184,12 +1184,16 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	notifyclient.SystemNotifyWithCtx(ctx, priority, event, kwargs)
 }
 
-func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce, stopCharging bool, parentTaskId string) error {
+func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, timeoutSecs int, isForce, stopCharging bool, parentTaskId string) error {
 	if len(parentTaskId) == 0 {
 		self.SetStatus(ctx, userCred, api.VM_START_STOP, "")
 	}
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewBool(isForce), "is_force")
+	if isForce {
+		params.Add(jsonutils.NewBool(isForce), "is_force")
+	} else {
+		params.Add(jsonutils.NewInt(int64(timeoutSecs)), "timeout")
+	}
 	params.Add(jsonutils.NewBool(stopCharging), "stop_charging")
 	if len(parentTaskId) > 0 {
 		params.Add(jsonutils.JSONTrue, "subtask")
@@ -3196,7 +3200,7 @@ func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCred
 		if err := self.ValidateEncryption(ctx, userCred); err != nil {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
 		}
-		return nil, self.StartGuestStopTask(ctx, userCred, input.IsForce, input.StopCharging, "")
+		return nil, self.StartGuestStopTask(ctx, userCred, input.TimeoutSecs, input.IsForce, input.StopCharging, "")
 	}
 	return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
 }
