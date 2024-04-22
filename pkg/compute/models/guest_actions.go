@@ -4590,6 +4590,17 @@ func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrapf(err, "unable to change owner for instance snapshot %s", isps[i].GetId())
 		}
 	}
+
+	ctrs, err := GetContainerManager().GetContainersByPod(guest.GetId())
+	if err != nil {
+		return nil, errors.Wrapf(err, "get containers by guest_id %s", guest.GetId())
+	}
+	for _, ctr := range ctrs {
+		if _, err := ctr.PerformChangeOwner(ctx, userCred, query, input); err != nil {
+			return nil, errors.Wrapf(err, "unable to change owner for container %s", ctr.GetName())
+		}
+	}
+
 	changOwner, err := guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
