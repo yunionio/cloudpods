@@ -3458,19 +3458,38 @@ func (network *SNetwork) GetDetailsAddresses(
 	return output, nil
 }
 
+func (network *SNetwork) GetUsedAddressDetails(ctx context.Context, addr string) (*api.SNetworkUsedAddress, error) {
+	address, err := network.GetAddressDetails(ctx, nil, nil, rbacscope.ScopeSystem)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetAddressDetails")
+	}
+	for i := range address {
+		if address[i].IpAddr == addr || address[i].Ip6Addr == addr {
+			return &address[i], nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, addr)
+}
+
+func (network *SNetwork) GetAddressDetails(ctx context.Context, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]api.SNetworkUsedAddress, error) {
+	netAddrs := make([]api.SNetworkUsedAddress, 0)
+	q := network.getUsedAddressQuery(ctx, userCred, owner, scope, false)
+	err := q.All(&netAddrs)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	sort.Sort(SNetworkUsedAddressList(netAddrs))
+	return netAddrs, nil
+}
+
 func (network *SNetwork) fetchAddressDetails(ctx context.Context, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) (api.GetNetworkAddressesOutput, error) {
 	output := api.GetNetworkAddressesOutput{}
 	{
-		netAddrs := make([]api.SNetworkUsedAddress, 0)
-		q := network.getUsedAddressQuery(ctx, userCred, owner, scope, false)
-		err := q.All(&netAddrs)
+		var err error
+		output.Addresses, err = network.GetAddressDetails(ctx, userCred, owner, scope)
 		if err != nil {
-			return output, httperrors.NewGeneralError(err)
+			return output, err
 		}
-
-		sort.Sort(SNetworkUsedAddressList(netAddrs))
-
-		output.Addresses = netAddrs
 	}
 	{
 		netAddrs6 := make([]api.SNetworkUsedAddress, 0)
