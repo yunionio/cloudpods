@@ -34,10 +34,12 @@ type IAlertResourceJointModel interface {
 	GetDetails(base monitor.AlertResourceJointBaseDetails, isList bool) interface{}
 }
 
+// +onecloud:swagger-gen-ignore
 type SAlertResourceJointsManager struct {
 	db.SJointResourceBaseManager
 }
 
+// +onecloud:swagger-gen-ignore
 type SAlertResourceJointsBase struct {
 	db.SJointResourceBase
 

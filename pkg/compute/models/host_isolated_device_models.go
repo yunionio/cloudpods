@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SHostIsolatedDeviceModelManager struct {
 	SHostJointsManager
 }
@@ -35,6 +36,7 @@ func init() {
 	})
 }
 
+// +onecloud:swagger-gen-ignore
 type SHostIsolatedDeviceModel struct {
 	SHostJointsBase
 

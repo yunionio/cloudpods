@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SUsergroupManager struct {
 	db.SResourceBaseManager
 }
@@ -57,6 +58,7 @@ func init() {
 +----------+-------------+------+-----+---------+-------+
 */
 
+// +onecloud:swagger-gen-ignore
 type SUsergroupMembership struct {
 	db.SResourceBase
 

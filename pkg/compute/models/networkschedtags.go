@@ -45,11 +45,13 @@ func init() {
 	})
 }
 
+// +onecloud:swagger-gen-ignore
 type SNetworkschedtagManager struct {
 	*SSchedtagJointsManager
 	resourceBaseManager SNetworkResourceBaseManager
 }
 
+// +onecloud:model-api-gen
 type SNetworkschedtag struct {
 	SSchedtagJointsBase
 

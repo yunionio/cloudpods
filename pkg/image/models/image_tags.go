@@ -49,6 +49,7 @@ func init() {
 | deleted    | tinyint(1)   | NO   |     | NULL    |                |
 +------------+--------------+------+-----+---------+----------------+
 */
+// +onecloud:swagger-gen-ignore
 type SImageTag struct {
 	SImagePeripheral
 

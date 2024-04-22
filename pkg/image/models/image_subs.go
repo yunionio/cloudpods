@@ -58,6 +58,7 @@ func init() {
 	ImageSubformatManager.TableSpec().AddIndex(true, "image_id", "format")
 }
 
+// +onecloud:swagger-gen-ignore
 type SImageSubformat struct {
 	SImagePeripheral
 

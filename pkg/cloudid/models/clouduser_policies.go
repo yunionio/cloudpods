@@ -55,6 +55,7 @@ func init() {
 
 }
 
+// +onecloud:swagger-gen-ignore
 type SClouduserPolicy struct {
 	SClouduserJointsBase
 

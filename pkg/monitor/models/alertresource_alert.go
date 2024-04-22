@@ -53,10 +53,12 @@ func GetAlertResourceAlertManager() *SAlertResourceAlertManager {
 	return alertResourceAlertManager
 }
 
+// +onecloud:swagger-gen-ignore
 type SAlertResourceAlertManager struct {
 	SAlertResourceJointsManager
 }
 
+// +onecloud:swagger-gen-ignore
 type SAlertResourceAlert struct {
 	SAlertResourceJointsBase
 

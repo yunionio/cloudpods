@@ -50,6 +50,7 @@ const (
 	MAX_GUESTNIC_TO_SAME_NETWORK = 2
 )
 
+// +onecloud:swagger-gen-ignore
 type SGuestnetworkManager struct {
 	SGuestJointsManager
 	SNetworkResourceBaseManager
@@ -75,6 +76,7 @@ func init() {
 	})
 }
 
+// +onecloud:model-api-gen
 type SGuestnetwork struct {
 	SGuestJointsBase
 

@@ -30,6 +30,7 @@ var (
 	_                      ISchedtagJointModel = new(SStorageschedtag)
 )
 
+// +onecloud:swagger-gen-ignore
 type SStorageschedtagManager struct {
 	*SSchedtagJointsManager
 	resourceBaseManager SStorageResourceBaseManager
@@ -50,6 +51,7 @@ func init() {
 	})
 }
 
+// +onecloud:model-api-gen
 type SStorageschedtag struct {
 	SSchedtagJointsBase
 

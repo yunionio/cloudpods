@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SElasticcacheJointsManager struct {
 	db.SVirtualJointResourceBaseManager
 	SElasticcacheResourceBaseManager
@@ -47,6 +48,7 @@ func NewElasticcacheJointsManager(dt interface{}, tableName string, keyword stri
 	}
 }
 
+// +onecloud:model-api-gen
 type SElasticcacheJointsBase struct {
 	db.SVirtualJointResourceBase
 	SElasticcacheResourceBase

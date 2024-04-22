@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
+// +onecloud:model-api-gen
 type SImagePeripheral struct {
 	db.SResourceBase
 

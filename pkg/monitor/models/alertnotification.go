@@ -35,6 +35,7 @@ const (
 	AlertNotificationUsedByMigrationAlert = monitor.AlertNotificationUsedByMigrationAlert
 )
 
+// +onecloud:swagger-gen-ignore
 type SAlertNotificationManager struct {
 	SAlertJointsManager
 }
@@ -56,6 +57,7 @@ func init() {
 	})
 }
 
+// +onecloud:swagger-gen-ignore
 type SAlertnotification struct {
 	SAlertJointsBase
 	NotificationId string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
