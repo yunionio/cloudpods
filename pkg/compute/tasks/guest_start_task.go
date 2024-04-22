@@ -49,7 +49,12 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 	self.SetStage("OnStartComplete", nil)
 	host, _ := guest.GetHost()
 	guest.SetStatus(ctx, self.UserCred, api.VM_STARTING, "")
-	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return

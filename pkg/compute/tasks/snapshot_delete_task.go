@@ -116,7 +116,12 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
 		params.Set("auto_deleted", jsonutils.JSONTrue)
 		self.SetStage("OnDeleteSnapshot", nil)
-		err = guest.GetDriver().RequestDeleteSnapshot(ctx, guest, self, params)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
+			return
+		}
+		err = drv.RequestDeleteSnapshot(ctx, guest, self, params)
 		if err != nil {
 			self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 		}
@@ -171,8 +176,13 @@ func (self *BatchSnapshotsDeleteTask) StartStorageDeleteSnapshot(ctx context.Con
 		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "snapshot.GetHost").Error()))
 		return
 	}
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "GetHostDriver").Error()))
+		return
+	}
 	self.SetStage("OnStorageDeleteSnapshot", nil)
-	err = host.GetHostDriver().RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
+	err = driver.RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}

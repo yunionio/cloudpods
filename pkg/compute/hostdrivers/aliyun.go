@@ -43,6 +43,10 @@ func (self *SAliyunHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ALIYUN
 }
 
+func (self *SAliyunHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ALIYUN
+}
+
 func (self *SAliyunHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	minGB := -1
 	maxGB := -1

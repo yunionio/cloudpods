@@ -41,6 +41,10 @@ func (self *SHuaweiHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_HUAWEI
 }
 
+func (self *SHuaweiHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_HUAWEI
+}
+
 // 系统盘必须至少40G
 func (self *SHuaweiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	switch storage.StorageType {

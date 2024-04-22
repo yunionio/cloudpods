@@ -42,7 +42,12 @@ func (self *GuestEjectISOTask) startEjectIso(ctx context.Context, obj db.IStanda
 	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
 	if guest.EjectIso(cdromOrdinal, self.UserCred) && guest.Status == api.VM_RUNNING {
 		self.SetStage("OnConfigSyncComplete", nil)
-		guest.GetDriver().RequestGuestHotRemoveIso(ctx, guest, self)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+			return
+		}
+		drv.RequestGuestHotRemoveIso(ctx, guest, self)
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

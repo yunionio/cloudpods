@@ -44,7 +44,12 @@ func (self *HAGuestStopTask) OnGuestStopTaskComplete(
 	}
 
 	self.SetStage("OnSlaveGuestStopTaskComplete", nil)
-	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, true)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestStopOnHost(ctx, guest, host, self, true)
 	if err != nil {
 		log.Errorf("RequestStopOnHost fail %s", err)
 		self.OnGuestStopTaskCompleteFailed(

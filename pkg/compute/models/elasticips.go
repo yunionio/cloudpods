@@ -158,7 +158,11 @@ func (manager *SElasticipManager) ListItemFilter(
 				return nil, httperrors.NewGeneralError(err)
 			}
 			guest := serverObj.(*SGuest)
-			if guest.Hypervisor == api.HYPERVISOR_KVM || (utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) &&
+			region, err := guest.GetRegion()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetRegion")
+			}
+			if guest.Hypervisor == api.HYPERVISOR_KVM || (utils.IsInStringArray(region.Provider, api.PRIVATE_CLOUD_PROVIDERS) &&
 				guest.Hypervisor != api.HYPERVISOR_HCSO && guest.Hypervisor != api.HYPERVISOR_HCS) {
 				zone, _ := guest.getZone()
 				networks := NetworkManager.Query().SubQuery()

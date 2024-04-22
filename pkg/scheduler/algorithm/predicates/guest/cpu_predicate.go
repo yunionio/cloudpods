@@ -37,7 +37,8 @@ func (f *CPUPredicate) Clone() core.FitPredicate {
 }
 
 func (f *CPUPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
-	if !u.GetHypervisorDriver().DoScheduleCPUFilter() {
+	driver := u.GetHypervisorDriver()
+	if driver != nil && !driver.DoScheduleCPUFilter() {
 		return false, nil
 	}
 

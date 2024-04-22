@@ -50,6 +50,7 @@ type ModelManager interface {
 	List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*printutils.ListResult, error)
 	Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Delete(session *mcclient.ClientSession, id string, param jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	DeleteWithParam(session *mcclient.ClientSession, id string, query jsonutils.JSONObject, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PerformAction(session *mcclient.ClientSession, id string, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Update(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
@@ -123,7 +124,11 @@ func (self *SCloudpodsClient) auth() error {
 			serviceRegion = region
 		}
 	}
-	self.s = client.NewSession(context.Background(), serviceRegion, "", "publicURL", token)
+	endpoint := "publicURL"
+	if strings.Contains(self.authURL, "api/s/identity/v3") {
+		endpoint = "apigateway"
+	}
+	self.s = client.NewSession(context.Background(), serviceRegion, "", endpoint, token)
 	if !self.s.GetToken().HasSystemAdminPrivilege() {
 		return fmt.Errorf("no system admin privilege")
 	}
@@ -176,7 +181,7 @@ func (self *SCloudpodsClient) delete(manager ModelManager, id string) error {
 		return nil
 	}
 	params := map[string]interface{}{"override_pending_delete": true}
-	_, err := manager.Delete(self.s, id, jsonutils.Marshal(params))
+	_, err := manager.DeleteWithParam(self.s, id, jsonutils.Marshal(params), nil)
 	return err
 }
 

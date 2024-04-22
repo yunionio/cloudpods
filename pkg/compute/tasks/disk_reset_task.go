@@ -124,7 +124,12 @@ func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SD
 	params := snapshot.GetRegionDriver().GetDiskResetParams(snapshot)
 
 	self.SetStage("OnRequestResetDisk", nil)
-	err = host.GetHostDriver().RequestResetDisk(ctx, host, disk, params, self)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		self.TaskFailed(ctx, disk, errors.Wrap(err, "GetHostDriver"))
+		return
+	}
+	err = driver.RequestResetDisk(ctx, host, disk, params, self)
 	if err != nil {
 		self.TaskFailed(ctx, disk, errors.Wrap(err, "RequestResetDisk"))
 	}
@@ -172,7 +177,12 @@ func (self *DiskCleanUpSnapshotsTask) StartCleanUpSnapshots(ctx context.Context,
 		return
 	}
 	self.SetStage("OnCleanUpSnapshots", nil)
-	err := host.GetHostDriver().RequestCleanUpDiskSnapshots(ctx, host, disk, self.Params, self)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "GetHostDriver").Error()))
+		return
+	}
+	err = driver.RequestCleanUpDiskSnapshots(ctx, host, disk, self.Params, self)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}

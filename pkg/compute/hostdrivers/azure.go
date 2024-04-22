@@ -44,7 +44,11 @@ func (self *SAzureHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_AZURE
 }
 
-func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskUpdateInput) (api.DiskUpdateInput, error) {
+func (self *SAzureHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_AZURE
+}
+
+func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input *api.DiskUpdateInput) (*api.DiskUpdateInput, error) {
 	if len(input.Name) > 0 {
 		return input, httperrors.NewInputParameterError("cannot support change azure disk name")
 	}

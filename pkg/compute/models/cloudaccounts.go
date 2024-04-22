@@ -2783,32 +2783,6 @@ func (manager *SCloudaccountManager) getBrandsOfProvider(provider string) ([]str
 	return ret, nil
 }
 
-func guessBrandForHypervisor(hypervisor string) string {
-	if hypervisor == "" {
-		return api.HYPERVISOR_KVM
-	}
-	driver := GetDriver(hypervisor)
-	if driver == nil {
-		log.Errorf("guestBrandFromHypervisor: fail to find driver for hypervisor %s", hypervisor)
-		return ""
-	}
-	provider := driver.GetProvider()
-	if len(provider) == 0 {
-		log.Errorf("guestBrandFromHypervisor: fail to find provider for hypervisor %s", hypervisor)
-		return ""
-	}
-	brands, err := CloudaccountManager.getBrandsOfProvider(provider)
-	if err != nil {
-		log.Errorf("guestBrandFromHypervisor: fail to find brands for hypervisor %s", hypervisor)
-		return ""
-	}
-	if len(brands) != 1 {
-		log.Errorf("guestBrandFromHypervisor: find mistached number of brands for hypervisor %s %s", hypervisor, brands)
-		return ""
-	}
-	return brands[0]
-}
-
 func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountSyncSkusInput) (jsonutils.JSONObject, error) {
 	if !account.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")

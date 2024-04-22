@@ -57,7 +57,12 @@ func (self *GuestDiskSnapshotTask) DoDiskSnapshot(ctx context.Context, guest *mo
 	params.Set("guest_old_status", jsonutils.NewString(guest.Status))
 	self.SetStage("OnDiskSnapshotComplete", params)
 	guest.SetStatus(ctx, self.UserCred, api.VM_SNAPSHOT, "")
-	err = guest.GetDriver().RequestDiskSnapshot(ctx, guest, self, snapshotId, diskId)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestDiskSnapshot(ctx, guest, self, snapshotId, diskId)
 	if err != nil {
 		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return

@@ -14,7 +14,10 @@
 
 package multicloud
 
-import "yunion.io/x/cloudmux/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis"
+	"yunion.io/x/jsonutils"
+)
 
 type SHostBase struct {
 	SResourceBase
@@ -43,4 +46,8 @@ func (host *SHostBase) GetOvnVersion() string {
 
 func (host *SHostBase) GetCpuArchitecture() string {
 	return apis.OS_ARCH_X86_64
+}
+
+func (host *SHostBase) GetStorageInfo() jsonutils.JSONObject {
+	return nil
 }

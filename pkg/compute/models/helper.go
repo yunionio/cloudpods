@@ -84,24 +84,34 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			return nil, httperrors.NewInvalidStatusError("Baremetal %s not enabled", bmName)
 		}
 
-		if len(hypervisor) > 0 && hypervisor != api.HOSTTYPE_HYPERVISOR[baremetal.HostType] {
+		hostDriver, err := baremetal.GetHostDriver()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetHostDriver")
+		}
+
+		if len(hypervisor) > 0 && hypervisor != hostDriver.GetHypervisor() {
 			return nil, httperrors.NewInputParameterError("cannot run hypervisor %s on specified host with type %s", hypervisor, baremetal.HostType)
 		}
 
 		if len(hypervisor) == 0 {
-			hypervisor = api.HOSTTYPE_HYPERVISOR[baremetal.HostType]
+			hypervisor = hostDriver.GetHypervisor()
 		}
 
 		if len(hypervisor) == 0 {
 			hypervisor = api.HYPERVISOR_DEFAULT
 		}
 
-		_, err = GetDriver(hypervisor).ValidateCreateDataOnHost(ctx, userCred, bmName, baremetal, input)
+		driver, err := GetDriver(hypervisor, input.Provider)
 		if err != nil {
 			return nil, err
 		}
 
-		defaultStorage, err := GetDriver(hypervisor).ChooseHostStorage(baremetal, nil, &api.DiskConfig{}, nil)
+		_, err = driver.ValidateCreateDataOnHost(ctx, userCred, bmName, baremetal, input)
+		if err != nil {
+			return nil, err
+		}
+
+		defaultStorage, err := driver.ChooseHostStorage(baremetal, nil, &api.DiskConfig{}, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "ChooseHostStorage")
 		}

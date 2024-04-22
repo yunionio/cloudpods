@@ -60,7 +60,8 @@ func (b *BasePredicate) PreExecute(ctx context.Context, unit *core.Unit, candis 
 }
 
 func (b *BasePredicate) GetHypervisorDriver(u *core.Unit) models.IGuestDriver {
-	return models.GetDriver(u.GetHypervisor())
+	driver, _ := models.GetDriver(u.GetHypervisor(), u.SchedInfo.Provider)
+	return driver
 }
 
 type PredicateHelper struct {
@@ -280,6 +281,7 @@ type BaseSchedtagPredicate struct {
 	CandidateInputResources *CandidateInputResourcesMap
 
 	Hypervisor string
+	Provider   string
 }
 
 func NewBaseSchedtagPredicate() *BaseSchedtagPredicate {
@@ -344,7 +346,8 @@ func (w SchedtagResourceW) GetDynamicSchedDesc() *jsonutils.JSONDict {
 }
 
 func (p *BaseSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
-	return models.GetDriver(p.Hypervisor)
+	driver, _ := models.GetDriver(p.Hypervisor, p.Provider)
+	return driver
 }
 
 func (p *BaseSchedtagPredicate) check(input ISchedtagCustomer, candidate ISchedtagCandidateResource, u *core.Unit, c core.Candidater) (*PredicatedSchedtagResource, error) {

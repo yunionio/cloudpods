@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -260,16 +261,17 @@ func init() {
 }
 
 func RegisterGuestDriver(driver IGuestDriver) {
-	guestDrivers[driver.GetHypervisor()] = driver
+	key := fmt.Sprintf("%s-%s", driver.GetHypervisor(), driver.GetProvider())
+	guestDrivers[key] = driver
 }
 
-func GetDriver(hypervisor string) IGuestDriver {
-	driver, ok := guestDrivers[hypervisor]
+func GetDriver(hypervisor, provider string) (IGuestDriver, error) {
+	key := fmt.Sprintf("%s-%s", hypervisor, provider)
+	driver, ok := guestDrivers[key]
 	if ok {
-		return driver
-	} else {
-		panic(fmt.Sprintf("Unsupported hypervisor %q", hypervisor))
+		return driver, nil
 	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "hypervisor: %s provider: %s", hypervisor, provider)
 }
 
 func GetNotSupportAutoRenewHypervisors() []string {

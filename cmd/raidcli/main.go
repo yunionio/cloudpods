@@ -32,7 +32,7 @@ type BaseOptions struct {
 	Host       string `help:"SSH Host IP" default:"$RAID_HOST" metavar:"RAID_HOST"`
 	Username   string `help:"Username, usually root" default:"$RAID_USERNAME" metavar:"RAID_USERNAME"`
 	Password   string `help:"Password" default:"$RAID_PASSWORD" metavar:"RAID_PASSWORD"`
-	Driver     string `help:"Raid dirver" default:"$RAID_DRIVER" metavar:"RAID_DRIVER" choices:"MegaRaid|HPSARaid|Mpt2SAS|MarvelRaid"`
+	Driver     string `help:"Raid driver" default:"$RAID_DRIVER" metavar:"RAID_DRIVER" choices:"MegaRaid|HPSARaid|Mpt2SAS|MarvelRaid"`
 	LocalHost  bool   `help:"Run raidcli in localhost"`
 	SUBCOMMAND string `help:"s3cli subcommand" subcommand:"true"`
 }

@@ -35,7 +35,12 @@ func init() {
 
 func (self *HostSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	host := obj.(*models.SHost)
-	err := host.GetHostDriver().RequestSyncOnHost(ctx, host, self)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = driver.RequestSyncOnHost(ctx, host, self)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		log.Errorf("syncHost:%s err:%v", host.GetId(), err)

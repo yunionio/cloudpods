@@ -37,7 +37,11 @@ func (self *SGuestQgaBaseTask) guestPing(ctx context.Context, guest *models.SGue
 	if err != nil {
 		return err
 	}
-	return guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, true, nil)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		return err
+	}
+	return drv.QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, true, nil)
 }
 
 func (self *SGuestQgaBaseTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
@@ -73,7 +77,12 @@ func (self *GuestQgaSetPasswordTask) OnQgaGuestPing(ctx context.Context, guest *
 		self.taskFailed(ctx, guest, err.Error())
 		return
 	}
-	err = guest.GetDriver().QgaRequestSetUserPassword(ctx, self, host, guest, input)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.taskFailed(ctx, guest, err.Error())
+		return
+	}
+	err = drv.QgaRequestSetUserPassword(ctx, self, host, guest, input)
 	if err != nil {
 		self.taskFailed(ctx, guest, err.Error())
 	}

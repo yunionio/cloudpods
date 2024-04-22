@@ -43,15 +43,20 @@ func init() {
 func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
-	if host, _ := guest.GetHost(); host == nil {
-		self.SetStageFailed(ctx, jsonutils.NewString("No host for sync"))
+	host, err := guest.GetHost()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
-	} else {
-		self.SetStage("OnSyncComplete", nil)
-		if err := guest.GetDriver().RequestSyncConfigOnHost(ctx, guest, host, self); err != nil {
-			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-			log.Errorf("SyncConfTask faled %v", err)
-		}
+	}
+	self.SetStage("OnSyncComplete", nil)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestSyncConfigOnHost(ctx, guest, host, self)
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -95,8 +100,15 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 
 	// try use qga restart network
 	err = func() error {
-		host, _ := guest.GetHost()
-		err = guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{1000})
+		host, err := guest.GetHost()
+		if err != nil {
+			return err
+		}
+		drv, err := guest.GetDriver()
+		if err != nil {
+			return err
+		}
+		err = drv.QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{1000})
 		if err != nil {
 			return errors.Wrap(err, "qga guest-ping")
 		}

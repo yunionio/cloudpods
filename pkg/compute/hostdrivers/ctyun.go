@@ -41,6 +41,10 @@ func (self *SCtyunHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_CTYUN
 }
 
+func (self *SCtyunHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_CTYUN
+}
+
 // 系统盘必须至少40G
 func (self *SCtyunHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	switch storage.StorageType {

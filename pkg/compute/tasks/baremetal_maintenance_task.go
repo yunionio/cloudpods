@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -37,12 +36,16 @@ func init() {
 
 func (self *BaremetalMaintenanceTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
-	url := fmt.Sprintf("/baremetals/%s/maintenance", baremetal.Id)
-	headers := self.GetTaskRequestHeader()
 	self.SetStage("OnEnterMaintenantModeSucc", nil)
-	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
+	drv, err := baremetal.GetHostDriver()
 	if err != nil {
 		self.OnEnterMaintenantModeSuccFailed(ctx, baremetal, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestBaremetalMaintence(ctx, self.GetUserCred(), baremetal, self)
+	if err != nil {
+		self.OnEnterMaintenantModeSuccFailed(ctx, baremetal, jsonutils.NewString(err.Error()))
+		return
 	}
 	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_MAINTAINING, "")
 }

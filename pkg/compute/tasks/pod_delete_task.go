@@ -68,7 +68,12 @@ func (t *PodDeleteTask) OnContainerDeleted(ctx context.Context, pod *models.SGue
 		return
 	}
 	// call stop task to umount volumes
-	if err := pod.GetDriver().StartGuestStopTask(pod, ctx, t.GetUserCred(), nil, t.GetTaskId()); err != nil {
+	drv, err := pod.GetDriver()
+	if err != nil {
+		t.OnPodStoppedFailed(ctx, pod, jsonutils.NewString(err.Error()))
+		return
+	}
+	if err := drv.StartGuestStopTask(pod, ctx, t.GetUserCred(), nil, t.GetTaskId()); err != nil {
 		if errors.Cause(err) == httperrors.ErrNotFound {
 			t.OnPodStopped(ctx, pod, nil)
 			return

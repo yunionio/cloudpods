@@ -44,6 +44,10 @@ func (self *SVolcengineHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_VOLCENGINE
 }
 
+func (self *SVolcengineHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_VOLCENGINE
+}
+
 func (self *SVolcengineHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if sizeGb%10 != 0 {
 		return fmt.Errorf("The disk size must be a multiple of 10Gb")

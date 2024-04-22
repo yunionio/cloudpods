@@ -35,3 +35,7 @@ func (d *SEcloudHostDriver) GetHostType() string {
 func (d *SEcloudHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ECLOUD
 }
+
+func (d *SEcloudHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ECLOUD
+}

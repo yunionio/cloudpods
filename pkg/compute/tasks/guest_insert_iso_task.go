@@ -94,10 +94,15 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	guest := obj.(*models.SGuest)
 	if cdrom, ok := guest.InsertIsoSucc(cdromOrdinal, imageId, path, size, name, bootIndex); ok {
 		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, cdrom.GetDetails(), self.UserCred)
-		if guest.GetDriver().NeedRequestGuestHotAddIso(ctx, guest) {
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.OnIsoPrepareCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		if drv.NeedRequestGuestHotAddIso(ctx, guest) {
 			self.SetStage("OnConfigSyncComplete", nil)
 			boot := jsonutils.QueryBoolean(self.Params, "boot", false)
-			guest.GetDriver().RequestGuestHotAddIso(ctx, guest, path, boot, self)
+			drv.RequestGuestHotAddIso(ctx, guest, path, boot, self)
 		} else {
 			self.SetStageComplete(ctx, nil)
 		}

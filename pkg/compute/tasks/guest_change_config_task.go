@@ -211,7 +211,12 @@ func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 }
 
 func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount, cpuSockets int, vmemSize int) {
-	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, task, instanceType, int64(vcpuCount), int64(cpuSockets), int64(vmemSize))
+	drv, err := guest.GetDriver()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestChangeVmConfig(ctx, guest, task, instanceType, int64(vcpuCount), int64(cpuSockets), int64(vmemSize))
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
@@ -313,7 +318,12 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 }
 
 func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if err := guest.GetDriver().OnGuestChangeCpuMemFailed(ctx, guest, data.(*jsonutils.JSONDict), task); err != nil {
+	drv, err := guest.GetDriver()
+	if err != nil {
+		task.markStageFailed(ctx, guest, data)
+		return
+	}
+	if err := drv.OnGuestChangeCpuMemFailed(ctx, guest, data.(*jsonutils.JSONDict), task); err != nil {
 		log.Errorln(err)
 	}
 	task.markStageFailed(ctx, guest, data)
@@ -333,7 +343,12 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Con
 		// resetTraffics := []api.ServerNicTrafficLimit{}
 		// task.Params.Unmarshal(&resetTraffics, "reset_traffic_limits")
 		task.SetStage("OnGuestResetNicTraffics", nil)
-		err := guest.GetDriver().RequestResetNicTrafficLimit(ctx, task, host, guest, confs.ResetTrafficLimits)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		err = drv.RequestResetNicTrafficLimit(ctx, task, host, guest, confs.ResetTrafficLimits)
 		if err != nil {
 			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			return
@@ -372,7 +387,12 @@ func (task *GuestChangeConfigTask) OnGuestResetNicTraffics(ctx context.Context, 
 		host, _ := guest.GetHost()
 		setTraffics := confs.SetTrafficLimits
 		task.SetStage("OnGuestSetNicTraffics", nil)
-		err := guest.GetDriver().RequestSetNicTrafficLimit(ctx, task, host, guest, setTraffics)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		err = drv.RequestSetNicTrafficLimit(ctx, task, host, guest, setTraffics)
 		if err != nil {
 			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			return

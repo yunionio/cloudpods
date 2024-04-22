@@ -44,7 +44,12 @@ func (self *SGuest) PerformAddSecgroup(
 		return nil, httperrors.NewInputParameterError("Cannot add security groups in status %s", self.Status)
 	}
 
-	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	maxCount := drv.GetMaxSecurityGroupCount()
 	if maxCount == 0 {
 		return nil, httperrors.NewUnsupportOperationError("Cannot add security groups for hypervisor %s", self.Hypervisor)
 	}
@@ -290,7 +295,12 @@ func (self *SGuest) PerformSetSecgroup(
 		return nil, httperrors.NewMissingParameterError("secgroup_ids")
 	}
 
-	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	maxCount := drv.GetMaxSecurityGroupCount()
 	if maxCount == 0 {
 		return nil, httperrors.NewUnsupportOperationError("Cannot set security group for this guest %s", self.Name)
 	}

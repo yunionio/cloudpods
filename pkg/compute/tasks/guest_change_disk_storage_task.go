@@ -97,7 +97,12 @@ func (t *GuestChangeDiskStorageTask) ChangeDiskStorage(ctx context.Context, gues
 	}
 
 	// create target disk
-	if err := guest.GetDriver().RequestChangeDiskStorage(ctx, t.GetUserCred(), guest, input, t); err != nil {
+	drv, err := guest.GetDriver()
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetDriver: %s", err)))
+		return
+	}
+	if err := drv.RequestChangeDiskStorage(ctx, t.GetUserCred(), guest, input, t); err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("RequestChangeDiskStorage: %s", err)))
 		return
 	}
@@ -155,7 +160,12 @@ func (t *GuestChangeDiskStorageTask) OnDiskLiveChangeStorageReady(
 
 	t.SetStage("OnDiskChangeStorageComplete", nil)
 	// block job ready, start switch to target storage disk
-	err = guest.GetDriver().RequestSwitchToTargetStorageDisk(ctx, t.UserCred, guest, input, t)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetDriver: %s", err)))
+		return
+	}
+	err = drv.RequestSwitchToTargetStorageDisk(ctx, t.UserCred, guest, input, t)
 	if err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("OnDiskLiveChangeStorageReady: %s", err)))
 		return
@@ -272,7 +282,12 @@ func (t *GuestChangeDiskStorageTask) attachTargetDisk(ctx context.Context, guest
 	attachData := jsonutils.Marshal(confData).(*jsonutils.JSONDict)
 	attachData.Add(jsonutils.NewString(targetDisk.GetId()), "disk_id")
 
-	return guest.GetDriver().StartGuestAttachDiskTask(ctx, t.GetUserCred(), guest, attachData, t.GetTaskId())
+	drv, err := guest.GetDriver()
+	if err != nil {
+		return err
+	}
+
+	return drv.StartGuestAttachDiskTask(ctx, t.GetUserCred(), guest, attachData, t.GetTaskId())
 }
 
 func (t *GuestChangeDiskStorageTask) OnTargetDiskAttachComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

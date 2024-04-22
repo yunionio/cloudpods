@@ -251,7 +251,11 @@ func (p *SPodDriver) RequestStartOnHost(ctx context.Context, guest *models.SGues
 	header := p.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
-	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host, nil)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		return err
+	}
+	desc, err := drv.GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host, nil)
 	if err != nil {
 		return errors.Wrapf(err, "GetJsonDescAtHost")
 	}

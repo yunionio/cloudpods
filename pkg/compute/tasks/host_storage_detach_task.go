@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -34,7 +35,7 @@ func init() {
 	taskman.RegisterTask(HostStorageDetachTask{})
 }
 
-func (self *HostStorageDetachTask) taskFail(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
+func (self *HostStorageDetachTask) taskFail(ctx context.Context, host *models.SHost, reason error) {
 	var hoststorage = new(models.SHoststorage)
 	storageId, _ := self.GetParams().GetString("storage_id")
 	err := models.HoststorageManager.Query().Equals("host_id", host.Id).Equals("storage_id", storageId).First(hoststorage)
@@ -44,7 +45,7 @@ func (self *HostStorageDetachTask) taskFail(ctx context.Context, host *models.SH
 		db.OpsLog.LogEvent(storage, db.ACT_DETACH_FAIL, reason, self.GetUserCred())
 		logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_DETACH_HOST, reason, self.GetUserCred(), false)
 	}
-	self.SetStageFailed(ctx, reason)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *HostStorageDetachTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -52,14 +53,19 @@ func (self *HostStorageDetachTask) OnInit(ctx context.Context, obj db.IStandalon
 	storageId, _ := self.GetParams().GetString("storage_id")
 	_storage, err := models.StorageManager.FetchById(storageId)
 	if err != nil {
-		self.taskFail(ctx, host, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, host, errors.Wrapf(err, "FetchById %s", storageId))
 		return
 	}
 	storage := _storage.(*models.SStorage)
 	self.SetStage("OnDetachStorageComplete", nil)
-	err = host.GetHostDriver().RequestDetachStorage(ctx, host, storage, self)
+	driver, err := host.GetHostDriver()
 	if err != nil {
-		self.taskFail(ctx, host, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, host, errors.Wrapf(err, "GetHostDriver"))
+		return
+	}
+	err = driver.RequestDetachStorage(ctx, host, storage, self)
+	if err != nil {
+		self.taskFail(ctx, host, errors.Wrapf(err, "RequestDetachStorage"))
 	}
 }
 
@@ -75,5 +81,5 @@ func (self *HostStorageDetachTask) OnDetachStorageComplete(ctx context.Context, 
 }
 
 func (self *HostStorageDetachTask) OnDetachStorageCompleteFailed(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, host, reason)
+	self.taskFail(ctx, host, errors.Errorf(reason.String()))
 }

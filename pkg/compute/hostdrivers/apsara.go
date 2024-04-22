@@ -35,3 +35,7 @@ func (self *SApsaraHostDriver) GetHostType() string {
 func (self *SApsaraHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_APSARA
 }
+
+func (self *SApsaraHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_APSARA
+}
