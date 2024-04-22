@@ -402,36 +402,37 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 	}
 
 	pm, _ := account.GetProjectMapping()
-	if pm != nil && pm.Enabled.IsTrue() && pm.IsNeedProjectSync() && self.ProjectSrc != string(apis.OWNER_SOURCE_LOCAL) {
-		extTags, err := ext.GetTags()
-		if err != nil {
-			return errors.Wrapf(err, "extModel.GetTags")
-		}
+	if self.ProjectSrc != string(apis.OWNER_SOURCE_LOCAL) {
 		find := false
-		if pm.Rules != nil {
-			for _, rule := range *pm.Rules {
-				var newProj string
-				var isMatch bool
-				domainId, projectId, newProj, isMatch = rule.IsMatchTags(extTags)
-				if isMatch && len(newProj) > 0 {
-					domainId, projectId, err = account.getOrCreateTenant(ctx, newProj, "", "", "auto create from tag")
-					if err != nil {
-						log.Errorf("getOrCreateTenant(%s) error: %v", newProj, err)
-						continue
+		if pm != nil && pm.Enabled.IsTrue() && pm.IsNeedProjectSync() {
+			extTags, err := ext.GetTags()
+			if err != nil {
+				return errors.Wrapf(err, "extModel.GetTags")
+			}
+			if pm.Rules != nil {
+				for _, rule := range *pm.Rules {
+					var newProj string
+					var isMatch bool
+					domainId, projectId, newProj, isMatch = rule.IsMatchTags(extTags)
+					if isMatch && len(newProj) > 0 {
+						domainId, projectId, err = account.getOrCreateTenant(ctx, newProj, "", "", "auto create from tag")
+						if err != nil {
+							log.Errorf("getOrCreateTenant(%s) error: %v", newProj, err)
+							continue
+						}
+						find = true
+						break
 					}
-					find = true
-					break
 				}
 			}
 		}
-		if !find {
+		if !find && account.AutoCreateProject {
 			domainId, projectId = account.DomainId, account.ProjectId
-			if account.AutoCreateProject {
-				desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
-				domainId, projectId, err = account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
-				if err != nil {
-					return errors.Wrapf(err, "getOrCreateTenant")
-				}
+			desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+			var err error
+			domainId, projectId, err = account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
+			if err != nil {
+				return errors.Wrapf(err, "getOrCreateTenant")
 			}
 		}
 	}
@@ -552,6 +553,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project.DomainId = account.DomainId
 	project.ProjectId = account.ProjectId
 	project.ExternalDomainId = extProject.GetDomainId()
+	project.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
 
 	providers := account.GetCloudproviders()
 	providerMaps := map[string]string{}
