@@ -38,6 +38,18 @@ func (c BaseDevice) GetDevicePath() string {
 	return c.Path
 }
 
+func (c BaseDevice) GetNvidiaMpsMemoryLimit() int {
+	return -1
+}
+
+func (c BaseDevice) GetNvidiaMpsMemoryTotal() int {
+	return -1
+}
+
+func (c BaseDevice) GetNvidiaMpsThreadPercentage() int {
+	return -1
+}
+
 func CheckVirtualNumber(dev *isolated_device.ContainerDevice) error {
 	if dev.VirtualNumber <= 0 {
 		return errors.Errorf("virtual_number must > 0")

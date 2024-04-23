@@ -111,13 +111,18 @@ type IDevice interface {
 	// Get extra PCIE information
 	GetPCIEInfo() *api.IsolatedDevicePCIEInfo
 	GetDevicePath() string
+
+	// mps infos
+	GetNvidiaMpsMemoryLimit() int
+	GetNvidiaMpsMemoryTotal() int
+	GetNvidiaMpsThreadPercentage() int
 }
 
 type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool)
+	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableWhitelist bool)
 	StartDetachTask()
 	BatchCustomProbe()
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -188,10 +193,15 @@ func (man *isolatedDeviceManager) probeContainerDevices() {
 	}
 }
 
-func (man *isolatedDeviceManager) probeContainerNvidiaGPUs() {
-	devman, err := GetContainerDeviceManager(ContainerDeviceTypeNVIDIAGPU)
+func (man *isolatedDeviceManager) probeContainerNvidiaGPUs(enableCudaMps bool) {
+	devType := ContainerDeviceTypeNvidiaGpu
+	if enableCudaMps {
+		devType = ContainerDeviceTypeNvidiaMps
+	}
+
+	devman, err := GetContainerDeviceManager(devType)
 	if err != nil {
-		log.Errorf("no container device manager %s found", ContainerDeviceTypeNVIDIAGPU)
+		log.Errorf("no container device manager %s found", devType)
 		return
 	}
 	devs, err := devman.ProbeDevices()
@@ -369,10 +379,15 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 	}
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool) {
+func (man *isolatedDeviceManager) ProbePCIDevices(
+	skipGPUs, skipUSBs, skipCustomDevs bool,
+	sriovNics, ovsOffloadNics []HostNic,
+	nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string,
+	enableCudaMps, enableWhitelist bool,
+) {
 	man.devices = make([]IDevice, 0)
 	if man.host.IsContainerHost() {
-		man.probeContainerNvidiaGPUs()
+		man.probeContainerNvidiaGPUs(enableCudaMps)
 		man.probeContainerDevices()
 	} else {
 		devModels, err := man.getCustomIsolatedDeviceModels()
@@ -569,6 +584,10 @@ func (dev *SBaseDevice) GetAddr() string {
 	return dev.dev.Addr
 }
 
+func (dev *SBaseDevice) SetAddr(addr string) {
+	dev.dev.Addr = addr
+}
+
 func (dev *SBaseDevice) GetDeviceType() string {
 	return dev.devType
 }
@@ -628,6 +647,18 @@ func (dev *SBaseDevice) GetGuestId() string {
 	return dev.guestId
 }
 
+func (dev *SBaseDevice) GetNvidiaMpsMemoryLimit() int {
+	return -1
+}
+
+func (dev *SBaseDevice) GetNvidiaMpsMemoryTotal() int {
+	return -1
+}
+
+func (dev *SBaseDevice) GetNvidiaMpsThreadPercentage() int {
+	return -1
+}
+
 func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	data := map[string]interface{}{
 		"dev_type":         dev.GetDeviceType(),
@@ -681,6 +712,16 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	devPath := dev.GetDevicePath()
 	if devPath != "" {
 		data["device_path"] = devPath
+	}
+
+	if mpsMemTotal := dev.GetNvidiaMpsMemoryTotal(); mpsMemTotal > 0 {
+		data["mps_memory_total"] = mpsMemTotal
+	}
+	if mpsMemLimit := dev.GetNvidiaMpsMemoryLimit(); mpsMemLimit > 0 {
+		data["mps_memory_limit"] = mpsMemLimit
+	}
+	if mpsThreadPercentage := dev.GetNvidiaMpsThreadPercentage(); mpsThreadPercentage > 0 {
+		data["mps_thread_percentage"] = mpsThreadPercentage
 	}
 	return jsonutils.Marshal(data).(*jsonutils.JSONDict)
 }

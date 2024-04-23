@@ -132,6 +132,13 @@ type SIsolatedDevice struct {
 	// The maximum number of vGPU instances per physical GPU
 	MaxInstance string `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
+	// MPS perdevice memory limit MB
+	MpsMemoryLimit int `nullable:"true" default:"-1" list:"domain" update:"domain" create:"domain_optional"`
+	// MPS device memory total MB
+	MpsMemoryTotal int `nullable:"true" default:"-1" list:"domain" update:"domain" create:"domain_optional"`
+	// MPS device thread percentage
+	MpsThreadPercentage int `nullable:"true" default:"-1" list:"domain" update:"domain" create:"domain_optional"`
+
 	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 
 	// reserved memory size for isolated device
@@ -553,11 +560,11 @@ func (manager *SIsolatedDeviceManager) _isValidDeviceInfo(config *api.IsolatedDe
 	return nil
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]struct{}) error {
 	if len(devConfig.Id) > 0 {
 		return manager.attachSpecificDeviceToGuest(ctx, guest, devConfig, userCred)
 	} else if len(devConfig.DevicePath) > 0 {
-		return manager.attachHostDeviceToGuestByDevicePath(ctx, guest, host, devConfig, userCred)
+		return manager.attachHostDeviceToGuestByDevicePath(ctx, guest, host, devConfig, userCred, usedDevMap)
 	} else {
 		return manager.attachHostDeviceToGuestByModel(ctx, guest, host, devConfig, userCred)
 	}
@@ -575,7 +582,7 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.C
 	return guest.attachIsolatedDevice(ctx, userCred, dev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]struct{}) error {
 	if len(devConfig.Model) == 0 || len(devConfig.DevicePath) == 0 {
 		return fmt.Errorf("Model or DevicePath is empty: %#v", devConfig)
 	}
@@ -584,7 +591,16 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx c
 	if err != nil || len(devs) == 0 {
 		return fmt.Errorf("Can't found model %s device_path %s on host %s", devConfig.Model, devConfig.DevicePath, host.Id)
 	}
-	selectedDev := devs[0]
+	var selectedDev SIsolatedDevice
+	for i := range devs {
+		if _, ok := usedDevMap[devs[i].DevicePath]; !ok {
+			selectedDev = devs[i]
+			usedDevMap[devs[i].DevicePath] = struct{}{}
+		}
+	}
+	if selectedDev.Id == "" {
+		return fmt.Errorf("Can't found unused model %s device_path %s on host %s", devConfig.Model, devConfig.DevicePath, host.Id)
+	}
 	return guest.attachIsolatedDevice(ctx, userCred, &selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 

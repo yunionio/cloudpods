@@ -101,6 +101,18 @@ func (dev *sNVIDIAVgpuDevice) GetDevicePath() string {
 	return ""
 }
 
+func (dev *sNVIDIAVgpuDevice) GetNvidiaMpsMemoryLimit() int {
+	return -1
+}
+
+func (dev *sNVIDIAVgpuDevice) GetNvidiaMpsMemoryTotal() int {
+	return -1
+}
+
+func (dev *sNVIDIAVgpuDevice) GetNvidiaMpsThreadPercentage() int {
+	return -1
+}
+
 func (dev *sNVIDIAVgpuDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	if len(info.Id) != 0 {
 		dev.cloudId = info.Id
