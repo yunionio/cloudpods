@@ -538,6 +538,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calCh
 		if err != nil {
 			return err
 		}
+		format = string(img.Format)
 		virtualSizeBytes = img.SizeBytes
 
 		var fastChksum string
