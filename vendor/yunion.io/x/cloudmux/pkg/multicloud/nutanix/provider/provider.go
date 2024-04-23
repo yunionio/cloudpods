@@ -190,7 +190,6 @@ func (self *SNutanixProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) 
 
 func (self *SNutanixProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return []cloudprovider.ICloudProject{}, nil
-	//return self.client.GetIProjects()
 }
 
 func (self *SNutanixProvider) GetStorageClasses(regionId string) []string {

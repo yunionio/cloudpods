@@ -934,21 +934,14 @@ func getResourceGroup(id string) string {
 }
 
 func (self *SAzureClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	subscriptionId := self.subscriptionId
-	groups := []SResourceGroup{}
-	for _, sub := range self.subscriptions {
-		self.subscriptionId = sub.SubscriptionId
-		resourceGroups, err := self.ListResourceGroups()
-		if err != nil {
-			return nil, errors.Wrapf(err, "ListResourceGroups")
-		}
-		groups = append(groups, resourceGroups...)
+	resourceGroups, err := self.ListResourceGroups()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListResourceGroups")
 	}
-	self.subscriptionId = subscriptionId
 	iprojects := []cloudprovider.ICloudProject{}
-	for i := range groups {
-		groups[i].client = self
-		iprojects = append(iprojects, &groups[i])
+	for i := range resourceGroups {
+		resourceGroups[i].client = self
+		iprojects = append(iprojects, &resourceGroups[i])
 	}
 	return iprojects, nil
 }
