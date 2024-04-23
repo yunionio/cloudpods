@@ -896,13 +896,7 @@ func (self *SAliyunClient) GetProjects() ([]SResourceGroup, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "GetResourceGroups")
 		}
-		for i := range parts {
-			parts[i].AccountId = self.accessKey
-			if len(self.accountId) > 0 {
-				parts[i].AccountId = self.accountId
-			}
-			resourceGroups = append(resourceGroups, parts[i])
-		}
+		resourceGroups = append(resourceGroups, parts...)
 		if len(resourceGroups) >= total {
 			break
 		}
@@ -936,27 +930,14 @@ func (self *SAliyunClient) GetResourceGroupIds() []string {
 }
 
 func (self *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	defer func() {
-		self.accountId = ""
-	}()
-	accounts, err := self.GetSubAccounts()
+	ret := []cloudprovider.ICloudProject{}
+	resourceGroups, err := self.GetProjects()
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudProject{}
-	for _, account := range accounts {
-		info := strings.Split(account.Account, "/")
-		if len(info) == 2 {
-			self.accountId = info[1]
-		}
-		resourceGroups, err := self.GetProjects()
-		if err != nil {
-			return nil, err
-		}
-		for i := range resourceGroups {
-			resourceGroups[i].AccountId = account.Account
-			ret = append(ret, &resourceGroups[i])
-		}
+	for i := range resourceGroups {
+		resourceGroups[i].client = self
+		ret = append(ret, &resourceGroups[i])
 	}
 	return ret, nil
 }
