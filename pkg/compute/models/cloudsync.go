@@ -2656,25 +2656,9 @@ func SyncCloudDomain(userCred mcclient.TokenCredential, model db.IDomainLevelMod
 	model.SyncCloudDomainId(userCred, newOwnerId)
 }
 
-func SyncCloudaccountResources(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, syncRange *SSyncRange) error {
-	provider, err := account.GetProvider(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "GetProvider")
-	}
-
-	if cloudprovider.IsSupportProject(provider) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_PROJECT) {
-		err = syncProjects(ctx, userCred, SSyncResultSet{}, account, provider, syncRange.Xor)
-		if err != nil {
-			log.Errorf("Sync project for account %s error: %v", account.Name, err)
-		}
-	}
-
-	return nil
-}
-
-func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, account *SCloudaccount, provider cloudprovider.ICloudProvider, xor bool) error {
-	lockman.LockRawObject(ctx, ExternalProjectManager.Keyword(), account.Id)
-	defer lockman.ReleaseRawObject(ctx, ExternalProjectManager.Keyword(), account.Id)
+func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, cp *SCloudprovider, provider cloudprovider.ICloudProvider, xor bool) error {
+	lockman.LockRawObject(ctx, ExternalProjectManager.Keyword(), cp.Id)
+	defer lockman.ReleaseRawObject(ctx, ExternalProjectManager.Keyword(), cp.Id)
 
 	projects, err := func() ([]cloudprovider.ICloudProject, error) {
 		defer syncResults.AddRequestCost(ExternalProjectManager)()
@@ -2686,15 +2670,15 @@ func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 
 	result := func() compare.SyncResult {
 		defer syncResults.AddSqlCost(ExternalProjectManager)()
-		return ExternalProjectManager.SyncProjects(ctx, userCred, account, projects, xor)
+		return cp.SyncProjects(ctx, userCred, projects, xor)
 	}()
 
 	syncResults.Add(ExternalProjectManager, result)
 
 	msg := result.Result()
-	notes := fmt.Sprintf("SyncProjects for account %s result: %s", account.Name, msg)
+	notes := fmt.Sprintf("SyncProjects for manager %s result: %s", cp.Name, msg)
 	log.Infof(notes)
-	account.SyncError(result, notes, userCred)
+	cp.SyncError(result, notes, userCred)
 	if result.IsError() {
 		return err
 	}
@@ -2705,6 +2689,13 @@ func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCred
 	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetProvider")
+	}
+
+	if cloudprovider.IsSupportProject(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_PROJECT) {
+		err = syncProjects(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		if err != nil {
+			log.Errorf("Sync project for manager %s error: %v", provider.Name, err)
+		}
 	}
 
 	if cloudprovider.IsSupportCDN(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CDN) {

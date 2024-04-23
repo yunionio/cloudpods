@@ -59,14 +59,6 @@ func (self *SResourceGroup) GetId() string {
 	return self.Id
 }
 
-func (self *SResourceGroup) GetDomainName() string {
-	return ""
-}
-
-func (self *SResourceGroup) GetDomainId() string {
-	return ""
-}
-
 func (self *SResourceGroup) GetName() string {
 	return self.ResourceGroupName
 }
