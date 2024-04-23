@@ -41,6 +41,8 @@ type sPolicyDefinition struct {
 	Scope    rbacutils.TRbacScope
 	Services map[string][]string
 	Extra    map[string]map[string][]string
+
+	AvailableRoles []string
 }
 
 type SRoleDefiniton struct {
@@ -518,6 +520,18 @@ var (
 			Scope:  rbacutils.ScopeSystem,
 			Services: map[string][]string{
 				"notify": nil,
+			},
+		},
+		{
+			Name:   "log",
+			DescCN: "日志服务相关资源",
+			Desc:   "resources of logger service",
+			Scope:  rbacutils.ScopeSystem,
+			Services: map[string][]string{
+				"log": nil,
+			},
+			AvailableRoles: []string{
+				"viewer",
 			},
 		},
 	}
