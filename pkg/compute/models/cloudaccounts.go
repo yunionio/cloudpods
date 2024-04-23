@@ -2857,32 +2857,6 @@ func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mccl
 	return nil, nil
 }
 
-func (acnt *SCloudaccount) GetExternalProjects() ([]SExternalProject, error) {
-	projects := []SExternalProject{}
-	q := ExternalProjectManager.Query().Equals("cloudaccount_id", acnt.Id)
-	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return projects, nil
-}
-
-func (acnt *SCloudaccount) GetExternalProjectsByProjectIdOrName(projectId, name string) ([]SExternalProject, error) {
-	projects := []SExternalProject{}
-	q := ExternalProjectManager.Query().Equals("cloudaccount_id", acnt.Id)
-	q = q.Filter(
-		sqlchemy.OR(
-			sqlchemy.Equals(q.Field("name"), name),
-			sqlchemy.Equals(q.Field("tenant_id"), projectId),
-		),
-	).Desc("priority")
-	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return projects, nil
-}
-
 func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SCloudregion, zone *SZone, domainId string, enabled tristate.TriState, capability string) *sqlchemy.SQuery {
 	providers := CloudproviderManager.Query().SubQuery()
 	q := manager.Query()
@@ -2993,66 +2967,6 @@ func GetAvailableExternalProject(local *db.STenant, projects []SExternalProject)
 		}
 	}
 	return ret
-}
-
-// 若本地项目映射了多个云上项目，则在根据优先级找优先级最大的云上项目
-// 若本地项目没有映射云上任何项目，则在云上新建一个同名项目
-// 若本地项目a映射云上项目b，但b项目不可用,则看云上是否有a项目，有则直接使用,若没有则在云上创建a-1, a-2类似项目
-func (acnt *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, projectId string) (string, error) {
-	lockman.LockRawObject(ctx, "projects", acnt.Id)
-	defer lockman.ReleaseRawObject(ctx, "projects", acnt.Id)
-
-	provider, err := acnt.GetProvider(ctx)
-	if err != nil {
-		return "", errors.Wrap(err, "GetProvider")
-	}
-
-	if !cloudprovider.IsSupportProject(provider) {
-		return "", nil
-	}
-
-	project, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
-	if err != nil {
-		return "", errors.Wrapf(err, "FetchTenantById(%s)", projectId)
-	}
-
-	projects, err := acnt.GetExternalProjectsByProjectIdOrName(projectId, project.Name)
-	if err != nil {
-		return "", errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", projectId, project.Name)
-	}
-
-	extProj := GetAvailableExternalProject(project, projects)
-	if extProj != nil {
-		return extProj.ExternalId, nil
-	}
-
-	retry := 1
-	if len(projects) > 0 {
-		retry = 10
-	}
-
-	var iProject cloudprovider.ICloudProject = nil
-	projectName := project.Name
-	for i := 0; i < retry; i++ {
-		iProject, err = provider.CreateIProject(projectName)
-		if err == nil {
-			break
-		}
-		projectName = fmt.Sprintf("%s-%d", project.Name, i)
-	}
-	if err != nil {
-		if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-			logclient.AddSimpleActionLog(acnt, logclient.ACT_CREATE, err, userCred, false)
-		}
-		return "", errors.Wrapf(err, "CreateIProject(%s)", projectName)
-	}
-
-	extProj, err = ExternalProjectManager.newFromCloudProject(ctx, userCred, acnt, project, iProject)
-	if err != nil {
-		return "", errors.Wrap(err, "newFromCloudProject")
-	}
-
-	return extProj.ExternalId, nil
 }
 
 // 获取Azure Enrollment Accounts

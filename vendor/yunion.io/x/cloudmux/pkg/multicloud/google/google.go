@@ -999,7 +999,7 @@ func (self *SGoogleClient) GetIProjects() ([]cloudprovider.ICloudProject, error)
 
 func (self *SGoogleClient) GetCapabilities() []string {
 	caps := []string{
-		cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,

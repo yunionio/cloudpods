@@ -446,6 +446,8 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 		return err
 	}
 
+	provider := host.GetCloudprovider()
+
 	action, _ := config.GetString("action")
 	if action == "create" {
 		project, err := db.TenantCacheManager.FetchTenantById(ctx, guest.ProjectId)
@@ -453,7 +455,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 			return errors.Wrapf(err, "FetchTenantById(%s)", guest.ProjectId)
 		}
 
-		projects, err := account.GetExternalProjectsByProjectIdOrName(project.Id, project.Name)
+		projects, err := provider.GetExternalProjectsByProjectIdOrName(project.Id, project.Name)
 		if err != nil {
 			return errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", project.Id, project.Name)
 		}

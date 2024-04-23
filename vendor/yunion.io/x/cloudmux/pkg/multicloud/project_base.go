@@ -18,15 +18,3 @@ type SProjectBase struct {
 	SResourceBase
 	STagBase
 }
-
-func (self *SProjectBase) GetDomainName() string {
-	return ""
-}
-
-func (self *SProjectBase) GetDomainId() string {
-	return ""
-}
-
-func (self *SProjectBase) GetAccountId() string {
-	return ""
-}

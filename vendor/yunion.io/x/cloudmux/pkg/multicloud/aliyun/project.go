@@ -32,7 +32,6 @@ type SResourceGroup struct {
 	client *SAliyunClient
 
 	Status      string
-	AccountId   string
 	DisplayName string
 	Id          string
 	CreateDate  time.Time
@@ -52,13 +51,6 @@ func (self *SResourceGroup) GetName() string {
 		return self.DisplayName
 	}
 	return self.Name
-}
-
-func (self *SResourceGroup) GetAccountId() string {
-	if len(self.AccountId) == 0 {
-		return self.client.accessKey
-	}
-	return self.AccountId
 }
 
 func (self *SResourceGroup) Refresh() error {
