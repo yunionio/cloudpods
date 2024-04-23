@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 )
 
 var (
@@ -50,6 +51,7 @@ func getEditActionPolicy(service, resource string) jsonutils.JSONObject {
 	perform := jsonutils.NewDict()
 	perform.Add(denyResult, "purge")
 	perform.Add(denyResult, "clone")
+	perform.Add(denyResult, "disable")
 	if resActions, ok := adminPerformActions[service]; ok {
 		if actions, ok := resActions[resource]; ok {
 			for _, action := range actions {
@@ -180,6 +182,8 @@ type SPolicyData struct {
 
 	Description   string
 	DescriptionCN string
+
+	AvailableRoles []string
 }
 
 func generatePolicies(scope rbacscope.TRbacScope, def sPolicyDefinition) []SPolicyData {
@@ -205,25 +209,29 @@ func generatePolicies(scope rbacscope.TRbacScope, def sPolicyDefinition) []SPoli
 
 	var roleConfs []sRoleConf
 	if len(def.Services) > 0 {
-		roleConfs = []sRoleConf{
-			{
+		if len(def.AvailableRoles) == 0 || utils.IsInStringArray("admin", def.AvailableRoles) {
+			roleConfs = append(roleConfs, sRoleConf{
 				name:       "admin",
 				policyFunc: getAdminPolicy,
 				fullNameCN: "管理",
 				fullName:   "full",
-			},
-			{
+			})
+		}
+		if len(def.AvailableRoles) == 0 || utils.IsInStringArray("editor", def.AvailableRoles) {
+			roleConfs = append(roleConfs, sRoleConf{
 				name:       "editor",
 				policyFunc: getEditorPolicy,
 				fullNameCN: "编辑/操作",
 				fullName:   "editor/operator",
-			},
-			{
+			})
+		}
+		if len(def.AvailableRoles) == 0 || utils.IsInStringArray("viewer", def.AvailableRoles) {
+			roleConfs = append(roleConfs, sRoleConf{
 				name:       "viewer",
 				policyFunc: getViewerPolicy,
 				fullNameCN: "只读",
 				fullName:   "read-only",
-			},
+			})
 		}
 	} else {
 		roleConfs = []sRoleConf{
