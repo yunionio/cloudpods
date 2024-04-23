@@ -193,6 +193,10 @@ func init() {
 		Sn string `help:"serial number"`
 
 		Hostname string `help:"update host name"`
+
+		PublicIp string `help:"public_ip"`
+
+		NoPublicIp bool `help:"clear public ip"`
 	}
 	R(&HostUpdateOptions{}, "host-update", "Update information of a host", func(s *mcclient.ClientSession, args *HostUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -241,6 +245,11 @@ func init() {
 				enableNumaAllocate = true
 			}
 			params.Add(jsonutils.NewBool(enableNumaAllocate), "enable_numa_allocate")
+		}
+		if len(args.PublicIp) > 0 {
+			params.Add(jsonutils.NewString(args.PublicIp), "public_ip")
+		} else if args.NoPublicIp {
+			params.Add(jsonutils.NewString(""), "public_ip")
 		}
 		if params.Size() == 0 {
 			return fmt.Errorf("Not data to update")

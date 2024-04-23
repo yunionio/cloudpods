@@ -61,6 +61,8 @@ func (task *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 	// save start mem and cpu
 	guest.SetMetadata(ctx, api.VM_METADATA_START_VCPU_COUNT, guest.VcpuCount, task.UserCred)
 	guest.SetMetadata(ctx, api.VM_METADATA_START_VMEM_MB, guest.VmemSize, task.UserCred)
+	// save start time
+	guest.SaveLastStartAt()
 	// sync Vpc Topology
 	isVpc, err := guest.IsOneCloudVpcNetwork()
 	if err != nil {

@@ -188,6 +188,9 @@ type SGuest struct {
 	PowerStates string `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional"`
 	// Used for guest rescue
 	RescueMode bool `nullable:"false" default:"false" list:"user" create:"optional"`
+
+	// 上次开机时间
+	LastStartAt time.Time `json:"last_start_at" list:"user"`
 }
 
 func (manager *SGuestManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
@@ -6838,4 +6841,12 @@ func (guest *SGuest) getDisksCandidateHostIds() ([]string, error) {
 		}
 	}
 	return ret, nil
+}
+
+func (guest *SGuest) SaveLastStartAt() error {
+	_, err := db.Update(guest, func() error {
+		guest.LastStartAt = time.Now().UTC()
+		return nil
+	})
+	return errors.Wrap(err, "SaveLastStartAt")
 }
