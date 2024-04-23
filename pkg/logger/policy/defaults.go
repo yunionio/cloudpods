@@ -15,6 +15,9 @@
 package policy
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
+
+	api "yunion.io/x/onecloud/pkg/apis/logger"
 	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -27,32 +30,30 @@ const (
 
 var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
-		/*
-			{
-				Auth:  true,
-				Scope: rbacscope.ScopeUser,
-				Rules: []rbacutils.SRbacRule{
-					{
-						Service:  api.SERVICE_TYPE,
-						Resource: "actions",
-						Action:   PolicyActionList,
-						Result:   rbacutils.Allow,
-					},
-					{
-						Service:  api.SERVICE_TYPE,
-						Resource: "actions",
-						Action:   PolicyActionGet,
-						Result:   rbacutils.Allow,
-					},
-					{
-						Service:  api.SERVICE_TYPE,
-						Resource: "actions",
-						Action:   PolicyActionCreate,
-						Result:   rbacutils.Allow,
-					},
+		{
+			Auth:  true,
+			Scope: rbacscope.ScopeUser,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "actions",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "actions",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "actions",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
 				},
 			},
-		*/
+		},
 	}
 )
 
