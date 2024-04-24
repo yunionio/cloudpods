@@ -133,7 +133,7 @@ func (region *SRegion) GetInstance(id string) (*SInstance, error) {
 }
 
 func (instance *SInstance) GetHostname() string {
-	return instance.GetName()
+	return ""
 }
 
 func (instance *SInstance) fetchMachineType() error {

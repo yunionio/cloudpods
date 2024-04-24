@@ -138,7 +138,7 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetHostname() string {
-	return self.GetName()
+	return ""
 }
 
 func (self *SInstance) GetGlobalId() string {
