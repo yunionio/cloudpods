@@ -22,10 +22,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/s3auth"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 type SAkskTokenCredential struct {
@@ -59,7 +59,7 @@ func (this *Client) _verifyKeySecret(aksk s3auth.IAccessKeySecretRequest, aCtx S
 }
 
 func (this *Client) VerifyRequest(req http.Request, aksk s3auth.IAccessKeySecretRequest, virtualHost bool) (*SAkskTokenCredential, error) {
-	cliIp := netutils2.GetHttpRequestIp(&req)
+	cliIp := netutils.GetHttpRequestIp(&req)
 	aCtx := SAuthContext{
 		Source: AuthSourceSrv,
 		Ip:     cliIp,

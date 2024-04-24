@@ -1,57 +1,55 @@
-//go:build linux && go1.10
-// +build linux,go1.10
-
 package netns
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
 
-// Deprecated: use syscall pkg instead (go >= 1.5 needed).
+// Deprecated: use golang.org/x/sys/unix pkg instead.
 const (
-	CLONE_NEWUTS  = 0x04000000   /* New utsname group? */
-	CLONE_NEWIPC  = 0x08000000   /* New ipcs */
-	CLONE_NEWUSER = 0x10000000   /* New user namespace */
-	CLONE_NEWPID  = 0x20000000   /* New pid namespace */
-	CLONE_NEWNET  = 0x40000000   /* New network namespace */
-	CLONE_IO      = 0x80000000   /* Get io context */
-	bindMountPath = "/run/netns" /* Bind mount path for named netns */
+	CLONE_NEWUTS  = unix.CLONE_NEWUTS  /* New utsname group? */
+	CLONE_NEWIPC  = unix.CLONE_NEWIPC  /* New ipcs */
+	CLONE_NEWUSER = unix.CLONE_NEWUSER /* New user namespace */
+	CLONE_NEWPID  = unix.CLONE_NEWPID  /* New pid namespace */
+	CLONE_NEWNET  = unix.CLONE_NEWNET  /* New network namespace */
+	CLONE_IO      = unix.CLONE_IO      /* Get io context */
 )
 
-// Setns sets namespace using syscall. Note that this should be a method
-// in syscall but it has not been added.
-func Setns(ns NsHandle, nstype int) (err error) {
+const bindMountPath = "/run/netns" /* Bind mount path for named netns */
+
+// Setns sets namespace using golang.org/x/sys/unix.Setns.
+//
+// Deprecated: Use golang.org/x/sys/unix.Setns instead.
+func Setns(ns NsHandle, nstype int) error {
 	return unix.Setns(int(ns), nstype)
 }
 
 // Set sets the current network namespace to the namespace represented
 // by NsHandle.
-func Set(ns NsHandle) (err error) {
-	return Setns(ns, CLONE_NEWNET)
+func Set(ns NsHandle) error {
+	return unix.Setns(int(ns), unix.CLONE_NEWNET)
 }
 
 // New creates a new network namespace, sets it as current and returns
 // a handle to it.
-func New() (ns NsHandle, err error) {
-	if err := unix.Unshare(CLONE_NEWNET); err != nil {
+func New() (NsHandle, error) {
+	if err := unix.Unshare(unix.CLONE_NEWNET); err != nil {
 		return -1, err
 	}
 	return Get()
 }
 
-// NewNamed creates a new named network namespace and returns a handle to it
+// NewNamed creates a new named network namespace, sets it as current,
+// and returns a handle to it
 func NewNamed(name string) (NsHandle, error) {
 	if _, err := os.Stat(bindMountPath); os.IsNotExist(err) {
-		err = os.MkdirAll(bindMountPath, 0755)
+		err = os.MkdirAll(bindMountPath, 0o755)
 		if err != nil {
 			return None(), err
 		}
@@ -64,15 +62,17 @@ func NewNamed(name string) (NsHandle, error) {
 
 	namedPath := path.Join(bindMountPath, name)
 
-	f, err := os.OpenFile(namedPath, os.O_CREATE|os.O_EXCL, 0444)
+	f, err := os.OpenFile(namedPath, os.O_CREATE|os.O_EXCL, 0o444)
 	if err != nil {
+		newNs.Close()
 		return None(), err
 	}
 	f.Close()
 
-	nsPath := fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), syscall.Gettid())
-	err = syscall.Mount(nsPath, namedPath, "bind", syscall.MS_BIND, "")
+	nsPath := fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), unix.Gettid())
+	err = unix.Mount(nsPath, namedPath, "bind", unix.MS_BIND, "")
 	if err != nil {
+		newNs.Close()
 		return None(), err
 	}
 
@@ -83,7 +83,7 @@ func NewNamed(name string) (NsHandle, error) {
 func DeleteNamed(name string) error {
 	namedPath := path.Join(bindMountPath, name)
 
-	err := syscall.Unmount(namedPath, syscall.MNT_DETACH)
+	err := unix.Unmount(namedPath, unix.MNT_DETACH)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func GetFromPath(path string) (NsHandle, error) {
 // GetFromName gets a handle to a named network namespace such as one
 // created by `ip netns add`.
 func GetFromName(name string) (NsHandle, error) {
-	return GetFromPath(fmt.Sprintf("/var/run/netns/%s", name))
+	return GetFromPath(filepath.Join(bindMountPath, name))
 }
 
 // GetFromPid gets a handle to the network namespace of a given pid.
@@ -135,7 +135,7 @@ func GetFromDocker(id string) (NsHandle, error) {
 
 // borrowed from docker/utils/utils.go
 func findCgroupMountpoint(cgroupType string) (int, string, error) {
-	output, err := ioutil.ReadFile("/proc/mounts")
+	output, err := os.ReadFile("/proc/mounts")
 	if err != nil {
 		return -1, "", err
 	}
@@ -165,7 +165,7 @@ func findCgroupMountpoint(cgroupType string) (int, string, error) {
 // borrowed from docker/utils/utils.go
 // modified to get the docker pid instead of using /proc/self
 func getDockerCgroup(cgroupVer int, cgroupType string) (string, error) {
-	dockerpid, err := ioutil.ReadFile("/var/run/docker.pid")
+	dockerpid, err := os.ReadFile("/var/run/docker.pid")
 	if err != nil {
 		return "", err
 	}
@@ -177,7 +177,7 @@ func getDockerCgroup(cgroupVer int, cgroupType string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	output, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
+	output, err := os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
 	if err != nil {
 		return "", err
 	}
@@ -217,11 +217,12 @@ func getPidForContainer(id string) (int, error) {
 	id += "*"
 
 	var pidFile string
-	if cgroupVer == 1 {
+	switch cgroupVer {
+	case 1:
 		pidFile = "tasks"
-	} else if cgroupVer == 2 {
+	case 2:
 		pidFile = "cgroup.procs"
-	} else {
+	default:
 		return -1, fmt.Errorf("Invalid cgroup version '%d'", cgroupVer)
 	}
 
@@ -264,7 +265,7 @@ func getPidForContainer(id string) (int, error) {
 		return pid, fmt.Errorf("Unable to find container: %v", id[:len(id)-1])
 	}
 
-	output, err := ioutil.ReadFile(filename)
+	output, err := os.ReadFile(filename)
 	if err != nil {
 		return pid, err
 	}
@@ -276,7 +277,7 @@ func getPidForContainer(id string) (int, error) {
 
 	pid, err = strconv.Atoi(result[0])
 	if err != nil {
-		return pid, fmt.Errorf("Invalid pid '%s': %s", result[0], err)
+		return pid, fmt.Errorf("Invalid pid '%s': %w", result[0], err)
 	}
 
 	return pid, nil
