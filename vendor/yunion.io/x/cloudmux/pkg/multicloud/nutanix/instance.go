@@ -224,7 +224,7 @@ func (self *SInstance) GetError() error {
 }
 
 func (self *SInstance) GetHostname() string {
-	return self.Name
+	return ""
 }
 
 func (self *SInstance) GetHypervisor() string {

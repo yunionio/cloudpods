@@ -150,7 +150,7 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetHostname() string {
-	return self.DisplayName
+	return ""
 }
 
 func (self *SInstance) GetGlobalId() string {
