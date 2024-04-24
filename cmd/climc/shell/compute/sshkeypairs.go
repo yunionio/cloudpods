@@ -18,12 +18,11 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -101,8 +100,44 @@ func init() {
 			}
 			oldKeys = string(output)
 		}
-		pubKeys := &deployapi.SSHKeys{AdminPublicKey: pubKey}
-		newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys, true)
+		var MergeAuthorizedKeys = func(oldKeys string, pubKey string) string {
+			const sshKeySignature = "@yunioncloudpods"
+			var allkeys = make(map[string]string)
+			if len(oldKeys) > 0 {
+				for _, line := range strings.Split(oldKeys, "\n") {
+					line = strings.TrimSpace(line)
+					dat := strings.Split(line, " ")
+					if len(dat) > 1 {
+						if len(dat) > 2 && dat[2] == sshKeySignature {
+							// skip ssh keys with signature
+							continue
+						}
+						if _, ok := allkeys[dat[1]]; !ok {
+							allkeys[dat[1]] = line
+						}
+					}
+				}
+			}
+			candiateKeys := []string{pubKey}
+			for _, k := range candiateKeys {
+				if len(k) > 0 {
+					k = strings.TrimSpace(k)
+					dat := strings.Split(k, " ")
+					if len(dat) > 1 {
+						if _, ok := allkeys[dat[1]]; !ok {
+							allkeys[dat[1]] = strings.Join([]string{dat[0], dat[1], sshKeySignature}, " ")
+						}
+					}
+				}
+			}
+			var keys = make([]string, 0)
+			for _, val := range allkeys {
+				keys = append(keys, val)
+			}
+			return strings.Join(keys, "\n") + "\n"
+		}
+
+		newKeys := MergeAuthorizedKeys(oldKeys, pubKey)
 		if output, err := procutils.NewCommand(
 			"sh", "-c", fmt.Sprintf("echo '%s' > %s", newKeys, authFile)).Output(); err != nil {
 			return errors.Wrapf(err, "write public keys: %s", output)

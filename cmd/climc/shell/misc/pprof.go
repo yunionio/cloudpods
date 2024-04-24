@@ -23,11 +23,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/signalutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -125,7 +125,7 @@ func init() {
 	} {
 		pType := kind
 		R(&TraceOptions{}, fmt.Sprintf("pprof-%s", pType), fmt.Sprintf("pprof %s of backend service", pType), func(s *mcclient.ClientSession, args *TraceOptions) error {
-			port, err := netutils2.GetFreePort()
+			port, err := netutils.GetFreePort()
 			if err != nil {
 				return err
 			}

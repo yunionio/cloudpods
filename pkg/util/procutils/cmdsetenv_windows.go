@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package netutils2
+//go:build windows
+// +build windows
+
+package procutils
 
 import (
-	"net/http"
+	"os/exec"
 
-	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/executor/client"
 )
 
-func GetHttpRequestIp(r *http.Request) string {
-	return netutils.GetHttpRequestIp(r)
+func cmdSetEnv(cmd *exec.Cmd) {
+}
+
+func remoteCmdSetEnv(cmd *client.Cmd) {
 }
