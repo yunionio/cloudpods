@@ -12,14 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package netutils2
+package netutils
 
 import (
 	"net/http"
-
-	"yunion.io/x/pkg/util/netutils"
+	"strings"
 )
 
 func GetHttpRequestIp(r *http.Request) string {
-	return netutils.GetHttpRequestIp(r)
+	ipStr := r.Header.Get("X-Forwarded-For")
+	if len(ipStr) > 0 {
+		ipList := strings.Split(ipStr, ",")
+		if len(ipList) > 0 {
+			return ipList[0]
+		}
+	}
+	ipStr = r.Header.Get("X-Real-Ip")
+	if len(ipStr) > 0 {
+		return ipStr
+	}
+	ipStr = r.RemoteAddr
+	colonPos := strings.Index(ipStr, ":")
+	if colonPos > 0 {
+		ipStr = ipStr[:colonPos]
+	}
+	return ipStr
 }
