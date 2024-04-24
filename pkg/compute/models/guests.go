@@ -3044,6 +3044,16 @@ func (g *SGuest) SyncOsInfo(ctx context.Context, userCred mcclient.TokenCredenti
 	return g.GetDriver().SyncOsInfo(ctx, userCred, g, extVM)
 }
 
+func (g *SGuest) SyncHostname(ext cloudprovider.ICloudVM) {
+	hostname := pinyinutils.Text2Pinyin(ext.GetHostname())
+	if len(hostname) > 128 {
+		hostname = hostname[:128]
+	}
+	if len(hostname) > 0 {
+		g.Hostname = hostname
+	}
+}
+
 func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, syncStatus bool) error {
 	recycle := false
 
@@ -3058,13 +3068,9 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 				g.Name = newName
 			}
 		}
-		hostname := pinyinutils.Text2Pinyin(extVM.GetHostname())
-		if len(hostname) > 128 {
-			hostname = hostname[:128]
-		}
-		if extVM.GetName() != hostname {
-			g.Hostname = hostname
-		}
+
+		g.SyncHostname(extVM)
+
 		if !g.IsFailureStatus() && syncStatus {
 			g.Status = extVM.GetStatus()
 			g.PowerStates = extVM.GetPowerStates()
@@ -3179,7 +3185,11 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Bios = string(extVM.GetBios())
 	guest.Machine = extVM.GetMachine()
 	guest.Hypervisor = extVM.GetHypervisor()
-	guest.Hostname = pinyinutils.Text2Pinyin(extVM.GetHostname())
+	hostname := extVM.GetHostname()
+	if len(hostname) == 0 {
+		hostname = extVM.GetName()
+	}
+	guest.Hostname = pinyinutils.Text2Pinyin(hostname)
 	guest.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
 	guest.Throughput = extVM.GetThroughput()
 	guest.Description = extVM.GetDescription()

@@ -220,7 +220,7 @@ func (svm *SVirtualMachine) GetGlobalId() string {
 }
 
 func (svm *SVirtualMachine) GetHostname() string {
-	return svm.GetName()
+	return ""
 }
 
 func (svm *SVirtualMachine) GetDescription() string {

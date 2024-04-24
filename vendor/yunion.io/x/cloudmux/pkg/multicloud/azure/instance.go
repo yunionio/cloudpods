@@ -803,7 +803,7 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetHostname() string {
-	return self.Name
+	return ""
 }
 
 func (self *SInstance) GetGlobalId() string {
