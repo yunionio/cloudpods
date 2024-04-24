@@ -945,11 +945,17 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=UpdateServer
 func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUpdateOptions) error {
+	server := map[string]interface{}{
+		"name": input.NAME,
+	}
+	if len(input.HostName) > 0 {
+		server["hostname"] = input.HostName
+	}
+	if len(input.Description) > 0 {
+		server["description"] = input.Description
+	}
 	params := map[string]interface{}{
-		"server": map[string]interface{}{
-			"name":        input.NAME,
-			"description": input.Description,
-		},
+		"server": server,
 	}
 	_, err := self.put(SERVICE_ECS, "cloudservers/"+instanceId, params)
 	return err

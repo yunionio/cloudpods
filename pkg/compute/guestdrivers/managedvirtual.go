@@ -1442,7 +1442,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Conte
 		return err
 	}
 
-	err = iVM.UpdateVM(ctx, cloudprovider.SInstanceUpdateOptions{NAME: guest.Name, Description: guest.Description})
+	err = iVM.UpdateVM(ctx, cloudprovider.SInstanceUpdateOptions{NAME: guest.Name, HostName: guest.Hostname, Description: guest.Description})
 	if err != nil {
 		if errors.Cause(err) != cloudprovider.ErrNotSupported {
 			return errors.Wrap(err, "iVM.UpdateVM")
