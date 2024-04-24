@@ -359,6 +359,7 @@ type ServerVncOutput struct {
 
 type SInstanceUpdateOptions struct {
 	NAME        string
+	HostName    string
 	Description string
 }
 
