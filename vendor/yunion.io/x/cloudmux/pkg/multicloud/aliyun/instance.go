@@ -874,7 +874,12 @@ func (self *SRegion) UpdateVM(instanceId string, input cloudprovider.SInstanceUp
 	*/
 	params := make(map[string]string)
 	params["InstanceName"] = input.NAME
-	params["Description"] = input.Description
+	if len(input.HostName) > 0 {
+		params["HostName"] = input.HostName
+	}
+	if len(input.Description) > 0 {
+		params["Description"] = input.Description
+	}
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 
