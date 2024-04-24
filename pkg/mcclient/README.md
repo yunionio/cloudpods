@@ -49,7 +49,7 @@ func main() {
 		"",
 		"publicURL",
 		token,
-		"")
+		)
 
 	result, err := modules.Servers.List(s, nil)
 	if err != nil {
