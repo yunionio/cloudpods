@@ -411,8 +411,8 @@ func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runt
 		}
 		return runtimePm, nil
 	} else {
-		start := 20000
-		end := 25000
+		start := computeapi.POD_PORT_MAPPING_RANGE_START
+		end := computeapi.POD_PORT_MAPPING_RANGE_END
 		if pm.HostPortRange != nil {
 			start = pm.HostPortRange.Start
 			end = pm.HostPortRange.End
@@ -1157,15 +1157,15 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 			}), nil
 		}
 	}
-	podCfg, err := s.getPodSandboxConfig()
+	/*podCfg, err := s.getPodSandboxConfig()
 	if err != nil {
 		return nil, errors.Wrap(err, "get pod sandbox config")
-	}
+	}*/
 	req := &runtimeapi.PullImageRequest{
 		Image: &runtimeapi.ImageSpec{
 			Image: input.Image,
 		},
-		SandboxConfig: podCfg,
+		// SandboxConfig: podCfg,
 	}
 	if input.Auth != nil {
 		authCfg := &runtimeapi.AuthConfig{

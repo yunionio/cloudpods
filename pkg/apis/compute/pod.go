@@ -47,6 +47,11 @@ const (
 	//PodPortMappingProtocolSCTP = "sctp"
 )
 
+const (
+	POD_PORT_MAPPING_RANGE_START = 20000
+	POD_PORT_MAPPING_RANGE_END   = 25000
+)
+
 type PodPortMappingPortRange struct {
 	Start int `json:"start"`
 	End   int `json:"end"`
