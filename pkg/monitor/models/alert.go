@@ -292,6 +292,10 @@ func (man *SAlertManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
+	if len(input.MonitorResourceId) != 0 {
+		sq := MonitorResourceAlertManager.Query("alert_id").In("monitor_resource_id", input.MonitorResourceId).SubQuery()
+		q = q.In("id", sq)
+	}
 	return q, nil
 }
 
