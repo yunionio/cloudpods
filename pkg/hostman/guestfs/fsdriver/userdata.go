@@ -87,6 +87,10 @@ func (d *sLinuxRootFs) deployUserDataBySystemd(userData string) error {
 		if err != nil {
 			return errors.Wrap(err, "save user_data fail")
 		}
+		err = d.rootFs.Chmod(scriptPath, 0755, false)
+		if err != nil {
+			return errors.Wrap(err, "chmod user_data fail")
+		}
 	}
 	{
 		err := d.installInitScript(serviceName, "/bin/sh "+scriptPath)
