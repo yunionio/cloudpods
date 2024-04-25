@@ -159,20 +159,20 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		return q, errors.Wrap(err, "SJointResourceBaseManager ListItemFilter err")
 	}
 	if input.Alerting {
-		q.Equals("alert_state", monitor.AlertStateAlerting)
+		q = q.Equals("alert_state", monitor.AlertStateAlerting)
 		resQ := MonitorResourceManager.Query("res_id")
 		resQ, err = MonitorResourceManager.ListItemFilter(ctx, resQ, userCred, monitor.MonitorResourceListInput{})
 		if err != nil {
 			return q, errors.Wrap(err, "Get monitor in Query err")
 		}
 		resQ = m.SMonitorScopedResourceManager.FilterByOwner(ctx, resQ, m, userCred, userCred, rbacscope.TRbacScope(input.Scope))
-		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
+		q = q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	if len(input.SendState) != 0 {
-		q.Equals("send_state", input.SendState)
+		q = q.Equals("send_state", input.SendState)
 	}
 	if len(input.ResType) != 0 {
-		q.Equals("res_type", input.ResType)
+		q = q.Equals("res_type", input.ResType)
 	}
 	if len(input.ResName) != 0 {
 		resQ := MonitorResourceManager.Query("res_id")
@@ -181,20 +181,23 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		if err != nil {
 			return q, errors.Wrap(err, "Get monitor in Query err")
 		}
-		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
+		q = q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	alertQuery := CommonAlertManager.Query("id")
 	alertQuery = m.SMonitorScopedResourceManager.FilterByOwner(ctx, alertQuery, m, userCred, userCred, rbacscope.TRbacScope(input.Scope))
 	if len(input.AlertName) != 0 {
 		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Name: input.AlertName})
-		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
+		q = q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
 	}
 	if len(input.Level) != 0 {
 		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Level: input.Level})
-		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
+		q = q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
 	}
-	q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
-	q.Filter(sqlchemy.In(q.Field("alert_record_id"), AlertRecordManager.Query("id").SubQuery()))
+	if len(input.MonitorResourceId) != 0 {
+		q = q.Filter(sqlchemy.Equals(q.Field("monitor_resource_id"), input.MonitorResourceId))
+	}
+	q = q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
+	q = q.Filter(sqlchemy.In(q.Field("alert_record_id"), AlertRecordManager.Query("id").SubQuery()))
 	return q, nil
 }
 
