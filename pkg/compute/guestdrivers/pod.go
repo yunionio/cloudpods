@@ -162,19 +162,19 @@ func (p *SPodDriver) validatePortRange(portRange *api.PodPortMappingPortRange) e
 		if portRange.Start > portRange.End {
 			return httperrors.NewInputParameterError("port range start %d is large than %d", portRange.Start, portRange.End)
 		}
-		if portRange.Start <= 0 {
-			return httperrors.NewInputParameterError("port range start %d <= 0", portRange.Start)
+		if portRange.Start <= api.POD_PORT_MAPPING_RANGE_START {
+			return httperrors.NewInputParameterError("port range start %d <= %d", api.POD_PORT_MAPPING_RANGE_START, portRange.Start)
 		}
-		if portRange.End > 65535 {
-			return httperrors.NewInputParameterError("port range end %d > 65535", portRange.End)
+		if portRange.End > api.POD_PORT_MAPPING_RANGE_END {
+			return httperrors.NewInputParameterError("port range end %d > %d", api.POD_PORT_MAPPING_RANGE_END, portRange.End)
 		}
 	}
 	return nil
 }
 
-func (p *SPodDriver) validatePort(port int) error {
-	if port <= 0 || port > 65535 {
-		return httperrors.NewInputParameterError("port number %d isn't within 1 to 65535", port)
+func (p *SPodDriver) validatePort(port int, start int, end int) error {
+	if port < start || port > end {
+		return httperrors.NewInputParameterError("port number %d isn't within %d to %d", port, start, end)
 	}
 	return nil
 }
@@ -184,11 +184,11 @@ func (p *SPodDriver) validatePortMapping(pm *api.PodPortMapping) error {
 		return err
 	}
 	if pm.HostPort != nil {
-		if err := p.validatePort(*pm.HostPort); err != nil {
+		if err := p.validatePort(*pm.HostPort, api.POD_PORT_MAPPING_RANGE_START, api.POD_PORT_MAPPING_RANGE_END); err != nil {
 			return errors.Wrap(err, "validate host_port")
 		}
 	}
-	if err := p.validatePort(pm.ContainerPort); err != nil {
+	if err := p.validatePort(pm.ContainerPort, 1, 65535); err != nil {
 		return errors.Wrap(err, "validate container_port")
 	}
 	if pm.Protocol == "" {
