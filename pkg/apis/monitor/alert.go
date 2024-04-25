@@ -155,6 +155,7 @@ type AlertListInput struct {
 	apis.StatusStandaloneResourceListInput
 	// 以报警是否启用/禁用过滤列表
 	// Enabled *bool `json:"enabled"`
+	MonitorResourceId []string `json:"monitor_resource_id"`
 }
 
 type AlertDetails struct {
