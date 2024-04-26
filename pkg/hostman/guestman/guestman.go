@@ -1545,7 +1545,7 @@ func (m *SGuestManager) RequestVerifyDirtyServer(s *SKVMGuestInstance) {
 	} else if jsonutils.QueryBoolean(ret, "guest_unknown_need_clean", false) {
 		m.Delete(s.Id)
 		if err := s.cleanDirtyGuest(context.Background()); err != nil {
-			log.Errorf("failed clean dirty server %: %s", s.Id, err)
+			log.Errorf("failed clean dirty server %s: %s", s.Id, err)
 		}
 	}
 }
