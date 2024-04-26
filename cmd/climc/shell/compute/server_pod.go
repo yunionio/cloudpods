@@ -43,9 +43,13 @@ func init() {
 	})
 
 	R(&options.PodExecOptions{}, "pod-exec", "Execute a command in a container", func(s *mcclient.ClientSession, opt *options.PodExecOptions) error {
-		ctrs, err := modules.Containers.List(s, jsonutils.Marshal(map[string]string{
+		listOpt := map[string]string{
 			"guest_id": opt.ID,
-		}))
+		}
+		if len(opt.Scope) != 0 {
+			listOpt["scope"] = opt.Scope
+		}
+		ctrs, err := modules.Containers.List(s, jsonutils.Marshal(listOpt))
 		if err != nil {
 			return errors.Wrapf(err, "list containers by guest_id %s", opt.ID)
 		}

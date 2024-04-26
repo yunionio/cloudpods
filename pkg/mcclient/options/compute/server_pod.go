@@ -239,5 +239,6 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 
 type PodExecOptions struct {
 	ContainerExecOptions
+	Scope     string `help:"Scope of containers query" choices:"system|domain|project"`
 	Container string `help:"Container name. If omitted, use the first container." short-token:"c"`
 }
