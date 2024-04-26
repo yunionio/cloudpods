@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -702,6 +703,9 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 		noti, err := alertNoti.GetNotification()
 		if err != nil {
 			return out, errors.Wrap(err, "get notify")
+		}
+		if noti == nil || gotypes.IsNil(noti) || noti.Settings.IsZero() {
+			continue
 		}
 		settings := new(monitor.NotificationSettingOneCloud)
 		if err := noti.Settings.Unmarshal(settings); err != nil {
