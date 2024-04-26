@@ -1499,7 +1499,7 @@ func (m *SGuestManager) RequestVerifyDirtyServer(s GuestRuntimeInstance) {
 	} else if jsonutils.QueryBoolean(ret, "guest_unknown_need_clean", false) {
 		m.Delete(s.GetInitialId())
 		if err := s.CleanDirtyGuest(context.Background()); err != nil {
-			log.Errorf("failed clean dirty server %: %s", s.Id, err)
+			log.Errorf("failed clean dirty server %s: %s", s.GetInitialId(), err)
 		}
 	}
 }
