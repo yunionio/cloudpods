@@ -41,7 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
-var BASE_SSH_PORT = 22222
+var BASE_SSH_PORT = 28000
 
 var (
 	QEMU_KVM_PATH = "/usr/libexec/qemu-kvm"
@@ -154,7 +154,7 @@ func (m *QemuDeployManager) unsetPort(port int) {
 func (m *QemuDeployManager) GetSshFreePort() int {
 	port := m.GetFreePortByBase(BASE_SSH_PORT + m.lastUsedSshPort)
 	m.lastUsedSshPort = port - BASE_SSH_PORT
-	if m.lastUsedSshPort > 10000 {
+	if m.lastUsedSshPort >= 2000 {
 		m.lastUsedSshPort = 0
 	}
 	return port
@@ -631,7 +631,7 @@ func (d *QemuBaseDriver) startCmds(
 	cmd += __("-append vsyscall=emulate")
 	cmd += fwOpts
 	cmd += __("-device virtio-serial-pci")
-	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp::%d-:22", sshPort)
+	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp:127.0.0.1:%d-:22", sshPort)
 	cmd += __("-device virtio-net-pci,netdev=hostnet0")
 	cmd += __("-device virtio-scsi-pci,id=scsi")
 
