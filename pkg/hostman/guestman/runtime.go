@@ -39,6 +39,7 @@ type GuestRuntimeInstance interface {
 	IsLoaded() bool
 	GetNicDescMatch(mac, ip, port, bridge string) *desc.SGuestNetwork
 	CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	CleanDirtyGuest(ctx context.Context) error
 	ImportServer(pendingDelete bool)
 
 	HandleGuestStatus(ctx context.Context, status string, body *jsonutils.JSONDict) (jsonutils.JSONObject, error)
