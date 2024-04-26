@@ -51,7 +51,10 @@ func main() {
 		token,
 		)
 
-	result, err := modules.Servers.List(s, nil)
+	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("system"))
+
+	result, err := modules.Servers.List(s, params)
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +63,6 @@ func main() {
 ```
 
 使用统一API入口调用
-文档说明: https://www.cloudpods.org/docs/development/apisdk/apigateway/
 
 ```golang
 package main
@@ -75,6 +77,7 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
+// 文档说明: https://www.cloudpods.org/docs/development/apisdk/apigateway/
 func main() {
 	client := mcclient.NewClient("https://10.127.100.2/api/s/identity/v3", // 注意此地址不带端口
 		60,
@@ -93,7 +96,11 @@ func main() {
 		token,
 		)
 
-	result, err := modules.Servers.List(s, nil)
+
+	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("system"))
+
+	result, err := modules.Servers.List(s, params)
 	if err != nil {
 		panic(err)
 	}
