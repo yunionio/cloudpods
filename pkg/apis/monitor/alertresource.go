@@ -26,7 +26,7 @@ const (
 	// AlertResourceTypeCloudaccount means cloudaccount resource
 	AlertResourceTypeCloudaccount AlertResourceType = "cloudaccount"
 	// AlertResourceTypeVM means virtual machine guest resource
-	// AlertResourceTypeVM AlertResourceType = "vm"
+	AlertResourceTypeVM AlertResourceType = "vm"
 )
 
 type AlertResourceCreateInput struct {
