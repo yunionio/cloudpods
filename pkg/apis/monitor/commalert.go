@@ -103,6 +103,8 @@ type CommonAlertQuery struct {
 	//field yunsuan
 	FieldOpt      string `json:"field_opt"`
 	ConditionType string `json:"condition_type"`
+	// Operator should be chosen from 'and | or'
+	Operator string `json:"operator"`
 }
 
 type CommonAlertListInput struct {
@@ -159,6 +161,7 @@ type CommonAlertDetails struct {
 }
 
 type CommonAlertMetricDetails struct {
+	Operator      string    `json:"operator"`
 	Comparator    string    `json:"comparator"`
 	Threshold     float64   `json:"threshold"`
 	WithinRange   []float64 `json:"within_range"`
