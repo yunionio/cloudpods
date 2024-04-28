@@ -314,6 +314,7 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series moni
 		msg = fmt.Sprintf("%s %s", strings.ToUpper(op), msg)
 	}
 	context.Rule.TriggeredMessages = append(context.Rule.TriggeredMessages, msg)
+	evalMatch.AlertDetails = jsonutils.Marshal(alertDetails)
 	return evalMatch, nil
 }
 
