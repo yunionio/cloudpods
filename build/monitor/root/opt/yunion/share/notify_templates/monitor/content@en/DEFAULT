@@ -3,7 +3,7 @@ AlertName: {{.name}}
 Time: {{.start_time}}
 Level: {{.level}}
 TriggerCondition: {{.description | unescaped}}
-ResourceCount: {{len .matches}}
+AlertCount: {{len .matches}}
 ResourceName: {{.resource_name}}
 
 WebUrl: {{.web_url}}

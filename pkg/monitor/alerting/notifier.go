@@ -176,12 +176,12 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 		State:     string(evalCtx.Rule.State),
 		SendState: monitor.SEND_STATE_OK,
 		EvalData:  matches,
-		AlertRule: newAlertRecordRule(evalCtx),
+		AlertRule: newAlertRecordRules(evalCtx),
 	}
 	if !shouldNotify {
 		recordCreateInput.SendState = monitor.SEND_STATE_SILENT
 	}
-	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
+	recordCreateInput.ResType = recordCreateInput.AlertRule[0].ResType
 	if len(recordCreateInput.ResType) == 0 {
 		recordCreateInput.ResType = monitor.METRIC_RES_TYPE_HOST
 	}
@@ -272,10 +272,19 @@ func InitNotifier(config NotificationConfig) (Notifier, error) {
 	return plug.(Notifier), nil
 }
 
-func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
+func newAlertRecordRules(ctx *EvalContext) []*monitor.AlertRecordRule {
+	rules := make([]*monitor.AlertRecordRule, 0)
+	for i := range ctx.Rule.RuleDescription {
+		rule := newAlertRecordRule(ctx, i)
+		rules = append(rules, rule)
+	}
+	return rules
+}
+
+func newAlertRecordRule(evalCtx *EvalContext, idx int) *monitor.AlertRecordRule {
 	alertRule := monitor.AlertRecordRule{}
 	if len(evalCtx.Rule.RuleDescription) != 0 {
-		alertRule = evalCtx.Rule.RuleDescription[0].AlertRecordRule
+		alertRule = evalCtx.Rule.RuleDescription[idx].AlertRecordRule
 	}
 	if evalCtx.Rule.Frequency < 60 {
 		alertRule.Period = fmt.Sprintf("%ds", evalCtx.Rule.Frequency)
@@ -291,5 +300,5 @@ func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
 	if evalCtx.Rule.SilentPeriod != 0 {
 		alertRule.SilentPeriod = fmt.Sprintf("%dm", evalCtx.Rule.SilentPeriod/60)
 	}
-	return alertRule
+	return &alertRule
 }
