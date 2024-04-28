@@ -95,12 +95,15 @@ func (net *SNetwork) GetType() string {
 func (net *SNetwork) Summary() SNetworkSummary {
 	moNet := net.getMONetwork()
 	summary := moNet.Summary.GetNetworkSummary()
-	return SNetworkSummary{
+	ret := SNetworkSummary{
 		Accessible: summary.Accessible,
 		Name:       summary.Name,
 		IpPoolName: summary.IpPoolName,
-		IpPoolId:   summary.IpPoolId,
 	}
+	if summary.IpPoolId != nil {
+		ret.IpPoolId = *summary.IpPoolId
+	}
+	return ret
 }
 
 func (net *SNetwork) SummaryText() string {
@@ -134,12 +137,15 @@ func (net *SDistributedVirtualPortgroup) GetType() string {
 func (net *SDistributedVirtualPortgroup) Summary() SNetworkSummary {
 	moNet := net.getMODVPortgroup()
 	summary := moNet.Summary.GetNetworkSummary()
-	return SNetworkSummary{
+	ret := SNetworkSummary{
 		Accessible: summary.Accessible,
 		Name:       summary.Name,
 		IpPoolName: summary.IpPoolName,
-		IpPoolId:   summary.IpPoolId,
 	}
+	if summary.IpPoolId != nil {
+		ret.IpPoolId = *summary.IpPoolId
+	}
+	return ret
 }
 
 func (net *SDistributedVirtualPortgroup) SummaryText() string {

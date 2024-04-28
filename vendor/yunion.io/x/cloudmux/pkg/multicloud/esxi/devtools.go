@@ -15,6 +15,7 @@
 package esxi
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -39,7 +40,7 @@ type SDiskConfig struct {
 // In fact, it is the default lable of first one disk
 const rootDiskMark = "Hard disk 1"
 
-func NewDiskDev(sizeMb int64, config SDiskConfig) *types.VirtualDisk {
+func NewDiskDev(ctx context.Context, sizeMb int64, config SDiskConfig) (*types.VirtualDisk, error) {
 	device := types.VirtualDisk{}
 	diskFile := types.VirtualDiskFlatVer2BackingInfo{}
 	diskFile.DiskMode = "persistent"
@@ -56,7 +57,11 @@ func NewDiskDev(sizeMb int64, config SDiskConfig) *types.VirtualDisk {
 		diskFile.FileName = config.ImagePath
 	}
 	if config.Datastore != nil {
-		ref := config.Datastore.getDatastoreObj().Reference()
+		ds, err := config.Datastore.getDatastoreObj(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getDatastoreObj")
+		}
+		ref := ds.Reference()
 		diskFile.Datastore = &ref
 	}
 	device.Backing = &diskFile
@@ -75,7 +80,7 @@ func NewDiskDev(sizeMb int64, config SDiskConfig) *types.VirtualDisk {
 		device.DeviceInfo = &types.Description{Label: label}
 	}
 
-	return &device
+	return &device, nil
 }
 
 func addDevSpec(device types.BaseVirtualDevice) *types.VirtualDeviceConfigSpec {

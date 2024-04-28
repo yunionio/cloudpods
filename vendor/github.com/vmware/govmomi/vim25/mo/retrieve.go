@@ -46,7 +46,7 @@ func ignoreMissingProperty(ref types.ManagedObjectReference, p types.MissingProp
 // it returns the first fault it finds there as error. If the 'MissingSet'
 // field is empty, it returns a pointer to a reflect.Value. It handles contain
 // nested properties, such as 'guest.ipAddress' or 'config.hardware'.
-func ObjectContentToType(o types.ObjectContent) (interface{}, error) {
+func ObjectContentToType(o types.ObjectContent, ptr ...bool) (interface{}, error) {
 	// Expect no properties in the missing set
 	for _, p := range o.MissingSet {
 		if ignoreMissingProperty(o.Obj, p) {
@@ -62,6 +62,9 @@ func ObjectContentToType(o types.ObjectContent) (interface{}, error) {
 		return nil, err
 	}
 
+	if len(ptr) == 1 && ptr[0] {
+		return v.Interface(), nil
+	}
 	return v.Elem().Interface(), nil
 }
 
@@ -74,6 +77,10 @@ func ApplyPropertyChange(obj Reference, changes []types.PropertyChange) {
 	for _, p := range changes {
 		rv, ok := t.props[p.Name]
 		if !ok {
+			// For now, skip unknown properties allowing PC updates to be triggered
+			// for partial updates (e.g. extensionList["my.extension"]).
+			// Ultimately we should support partial updates by assigning the value
+			// reflectively in assignValue.
 			continue
 		}
 
@@ -81,9 +88,9 @@ func ApplyPropertyChange(obj Reference, changes []types.PropertyChange) {
 	}
 }
 
-// LoadRetrievePropertiesResponse converts the response of a call to
-// RetrieveProperties to one or more managed objects.
-func LoadRetrievePropertiesResponse(res *types.RetrievePropertiesResponse, dst interface{}) error {
+// LoadObjectContent converts the response of a call to
+// RetrieveProperties{Ex} to one or more managed objects.
+func LoadObjectContent(content []types.ObjectContent, dst interface{}) error {
 	rt := reflect.TypeOf(dst)
 	if rt == nil || rt.Kind() != reflect.Ptr {
 		panic("need pointer")
@@ -104,7 +111,7 @@ func LoadRetrievePropertiesResponse(res *types.RetrievePropertiesResponse, dst i
 	}
 
 	if isSlice {
-		for _, p := range res.Returnval {
+		for _, p := range content {
 			v, err := ObjectContentToType(p)
 			if err != nil {
 				return err
@@ -123,10 +130,10 @@ func LoadRetrievePropertiesResponse(res *types.RetrievePropertiesResponse, dst i
 			rv.Set(reflect.Append(rv, reflect.ValueOf(v)))
 		}
 	} else {
-		switch len(res.Returnval) {
+		switch len(content) {
 		case 0:
 		case 1:
-			v, err := ObjectContentToType(res.Returnval[0])
+			v, err := ObjectContentToType(content[0])
 			if err != nil {
 				return err
 			}
@@ -151,16 +158,49 @@ func LoadRetrievePropertiesResponse(res *types.RetrievePropertiesResponse, dst i
 	return nil
 }
 
+// RetrievePropertiesEx wraps RetrievePropertiesEx and ContinueRetrievePropertiesEx to collect properties in batches.
+func RetrievePropertiesEx(ctx context.Context, r soap.RoundTripper, req types.RetrievePropertiesEx) ([]types.ObjectContent, error) {
+	rx, err := methods.RetrievePropertiesEx(ctx, r, &req)
+	if err != nil {
+		return nil, err
+	}
+
+	if rx.Returnval == nil {
+		return nil, nil
+	}
+
+	objects := rx.Returnval.Objects
+	token := rx.Returnval.Token
+
+	for token != "" {
+		cx, err := methods.ContinueRetrievePropertiesEx(ctx, r, &types.ContinueRetrievePropertiesEx{
+			This:  req.This,
+			Token: token,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		token = cx.Returnval.Token
+		objects = append(objects, cx.Returnval.Objects...)
+	}
+
+	return objects, nil
+}
+
 // RetrievePropertiesForRequest calls the RetrieveProperties method with the
 // specified request and decodes the response struct into the value pointed to
 // by dst.
 func RetrievePropertiesForRequest(ctx context.Context, r soap.RoundTripper, req types.RetrieveProperties, dst interface{}) error {
-	res, err := methods.RetrieveProperties(ctx, r, &req)
+	objects, err := RetrievePropertiesEx(ctx, r, types.RetrievePropertiesEx{
+		This:    req.This,
+		SpecSet: req.SpecSet,
+	})
 	if err != nil {
 		return err
 	}
 
-	return LoadRetrievePropertiesResponse(res, dst)
+	return LoadObjectContent(objects, dst)
 }
 
 // RetrieveProperties retrieves the properties of the managed object specified
@@ -187,4 +227,66 @@ func RetrieveProperties(ctx context.Context, r soap.RoundTripper, pc, obj types.
 	}
 
 	return RetrievePropertiesForRequest(ctx, r, req, dst)
+}
+
+var morType = reflect.TypeOf((*types.ManagedObjectReference)(nil)).Elem()
+
+// References returns all non-nil moref field values in the given struct.
+// Only Anonymous struct fields are followed by default. The optional follow
+// param will follow any struct fields when true.
+func References(s interface{}, follow ...bool) []types.ManagedObjectReference {
+	var refs []types.ManagedObjectReference
+	rval := reflect.ValueOf(s)
+	rtype := rval.Type()
+
+	if rval.Kind() == reflect.Ptr {
+		rval = rval.Elem()
+		rtype = rval.Type()
+	}
+
+	for i := 0; i < rval.NumField(); i++ {
+		val := rval.Field(i)
+		finfo := rtype.Field(i)
+
+		if finfo.Anonymous {
+			refs = append(refs, References(val.Interface(), follow...)...)
+			continue
+		}
+		if finfo.Name == "Self" {
+			continue
+		}
+
+		ftype := val.Type()
+
+		if ftype.Kind() == reflect.Slice {
+			if ftype.Elem() == morType {
+				s := val.Interface().([]types.ManagedObjectReference)
+				for i := range s {
+					refs = append(refs, s[i])
+				}
+			}
+			continue
+		}
+
+		if ftype.Kind() == reflect.Ptr {
+			if val.IsNil() {
+				continue
+			}
+			val = val.Elem()
+			ftype = val.Type()
+		}
+
+		if ftype == morType {
+			refs = append(refs, val.Interface().(types.ManagedObjectReference))
+			continue
+		}
+
+		if len(follow) != 0 && follow[0] {
+			if ftype.Kind() == reflect.Struct && val.CanSet() {
+				refs = append(refs, References(val.Interface(), follow...)...)
+			}
+		}
+	}
+
+	return refs
 }
