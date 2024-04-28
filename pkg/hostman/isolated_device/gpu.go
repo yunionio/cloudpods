@@ -110,7 +110,16 @@ func getPassthroughGPUs(filteredAddrs []string, enableWhitelist bool, whitelistM
 			warns = append(warns, errors.Wrapf(err, "get dev %s iommu group devices", dev.Addr))
 			continue
 		}
-		if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga); err != nil {
+
+		if isBootVga, err := dev.IsBootVGA(); err != nil {
+			warns = append(warns, errors.Wrapf(err, "check dev %s is boot vga devices", dev.Addr))
+			continue
+		} else if isBootVga && !o.HostOptions.UseBootVga {
+			log.Infof("skip boot vga device %s", dev.Addr)
+			continue
+		}
+
+		if err := dev.forceBindVFIOPCIDriver(); err != nil {
 			warns = append(warns, errors.Wrapf(err, "force bind vfio-pci driver %s", dev.Addr))
 			continue
 		}
@@ -208,7 +217,7 @@ func NewPCIDevice(addr string, executors ...IExecutor) (*PCIDevice, error) {
 	if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 		return nil, err
 	}
-	if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga); err != nil {
+	if err := dev.forceBindVFIOPCIDriver(); err != nil {
 		return nil, fmt.Errorf("Force bind vfio-pci driver: %v", err)
 	}
 	return dev, nil
@@ -389,27 +398,18 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 	return false, nil
 }
 
-func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool) error {
+func (d *PCIDevice) forceBindVFIOPCIDriver() error {
 	if !utils.IsInArray(d.ClassCode, GpuClassCodes) {
 		return nil
 	}
-	isBootVGA, err := d.IsBootVGA()
-	if err != nil {
-		return err
-	}
-	if !useBootVGA && isBootVGA {
-		log.Infof("%#v is boot vga card, skip it", d)
-		return nil
-	}
-	if d.IsVFIOPCIDriverUsed() {
-		log.Infof("%s already use vfio-pci driver", d)
-		return nil
-	}
-
 	devs := []*PCIDevice{}
 	devs = append(devs, d.RestIOMMUGroupDevs...)
 	devs = append(devs, d)
 	for _, dev := range devs {
+		if dev.IsVFIOPCIDriverUsed() {
+			log.Infof("%s already use vfio-pci driver", d.Addr)
+			continue
+		}
 		if err := dev.bindAddrVFIOPCI(); err != nil {
 			return fmt.Errorf("bind %s vfio-pci driver: %v", dev, err)
 		}
@@ -444,11 +444,20 @@ func (d *PCIDevice) unbindDriver() error {
 
 func (d *PCIDevice) bindDriver() error {
 	vendorDevId := fmt.Sprintf("%s %s", d.VendorId, d.DeviceId)
-	return fileutils2.FilePutContents(
+	err := fileutils2.FilePutContents(
 		"/sys/bus/pci/drivers/vfio-pci/new_id",
 		fmt.Sprintf("%s\n", vendorDevId),
 		false,
 	)
+	if err != nil {
+		log.Errorf("failed write %s to %s, try bind addr", vendorDevId, "/sys/bus/pci/drivers/vfio-pci/new_id")
+	} else {
+		return nil
+	}
+	if err := fileutils2.FilePutContents("/sys/bus/pci/drivers/vfio-pci/bind", fmt.Sprintf("0000:%s", d.Addr), false); err != nil {
+		return fmt.Errorf("bind driver %s : %v", d.Addr, err)
+	}
+	return nil
 }
 
 func (d *PCIDevice) fillPCIEInfo(executor IExecutor) error {
