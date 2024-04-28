@@ -3,7 +3,7 @@
 触发时间: {{.start_time}}
 报警级别: {{.level}}
 触发条件: {{.description | unescaped}}
-资源数量：{{len .matches}}
+报警数量：{{len .matches}}
 资源名称：{{.resource_name}}
 
 详情地址: {{.web_url}}
