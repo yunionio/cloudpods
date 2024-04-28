@@ -35,9 +35,11 @@ import (
 )
 
 type GuestRuntimeInstance interface {
+	GetHypervisor() string
 	GetName() string
 	GetInitialId() string
 	GetId() string
+	IsValid() bool
 	HomeDir() string
 	GetDesc() *desc.SGuestDesc
 	SetDesc(guestDesc *desc.SGuestDesc)
@@ -82,6 +84,14 @@ func newBaseGuestInstance(id string, manager *SGuestManager, hypervisor string) 
 		manager:    manager,
 		Hypervisor: hypervisor,
 	}
+}
+
+func (s *sBaseGuestInstance) GetHypervisor() string {
+	return s.Hypervisor
+}
+
+func (s *sBaseGuestInstance) IsValid() bool {
+	return s.Desc != nil && s.Desc.Uuid != ""
 }
 
 func (s *sBaseGuestInstance) GetInitialId() string {

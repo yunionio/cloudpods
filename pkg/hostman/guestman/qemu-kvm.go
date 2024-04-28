@@ -459,10 +459,6 @@ func (s *SKVMGuestInstance) IsStopping() bool {
 	return s.stopping
 }
 
-func (s *SKVMGuestInstance) IsValid() bool {
-	return s.Desc != nil && s.Desc.Uuid != ""
-}
-
 func (s *SKVMGuestInstance) getStateFilePathRootPrefix() string {
 	return path.Join(s.HomeDir(), STATE_FILE_PREFIX)
 }

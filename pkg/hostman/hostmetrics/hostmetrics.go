@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/pod/stats"
 )
 
 const (
@@ -53,9 +54,9 @@ type SHostMetricsCollector struct {
 
 var hostMetricsCollector *SHostMetricsCollector
 
-func Init() {
+func Init(csp stats.ContainerStatsProvider) {
 	if hostMetricsCollector == nil {
-		hostMetricsCollector = NewHostMetricsCollector()
+		hostMetricsCollector = NewHostMetricsCollector(csp)
 	}
 }
 
@@ -140,25 +141,27 @@ func (m *SHostMetricsCollector) collectReportData() string {
 	return m.guestMonitor.CollectReportData()
 }
 
-func NewHostMetricsCollector() *SHostMetricsCollector {
+func NewHostMetricsCollector(csp stats.ContainerStatsProvider) *SHostMetricsCollector {
 	return &SHostMetricsCollector{
 		ReportInterval:    options.HostOptions.ReportInterval,
 		waitingReportData: make([]string, 0),
-		guestMonitor:      NewGuestMonitorCollector(),
+		guestMonitor:      NewGuestMonitorCollector(csp),
 	}
 }
 
 type SGuestMonitorCollector struct {
-	monitors       map[string]*SGuestMonitor
-	prevPids       map[string]int
-	prevReportData map[string]*GuestMetrics
+	monitors               map[string]*SGuestMonitor
+	prevPids               map[string]int
+	prevReportData         map[string]*GuestMetrics
+	containerStatsProvider stats.ContainerStatsProvider
 }
 
-func NewGuestMonitorCollector() *SGuestMonitorCollector {
+func NewGuestMonitorCollector(csp stats.ContainerStatsProvider) *SGuestMonitorCollector {
 	return &SGuestMonitorCollector{
-		monitors:       make(map[string]*SGuestMonitor, 0),
-		prevPids:       make(map[string]int, 0),
-		prevReportData: make(map[string]*GuestMetrics, 0),
+		monitors:               make(map[string]*SGuestMonitor, 0),
+		prevPids:               make(map[string]int, 0),
+		prevReportData:         make(map[string]*GuestMetrics, 0),
+		containerStatsProvider: csp,
 	}
 }
 
@@ -166,41 +169,72 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 	var err error
 	gms := make(map[string]*SGuestMonitor, 0)
 	guestmanager := guestman.GetGuestManager()
+
+	var podStats []stats.PodStats = nil
+
 	guestmanager.Servers.Range(func(k, v interface{}) bool {
-		guest, ok := v.(*guestman.SKVMGuestInstance)
+		instance, ok := v.(guestman.GuestRuntimeInstance)
 		if !ok {
 			return false
 		}
-		if !guest.IsValid() {
+		if !instance.IsValid() {
 			return false
 		}
-		pid := guest.GetPid()
-		if pid > 0 {
-			guestName := guest.Desc.Name
-			guestId := guest.GetId()
-			nicsDesc := guest.Desc.Nics
-			vcpuCount := guest.Desc.Cpu
-			gm, ok := s.monitors[guestId]
-			if ok && gm.Pid == pid {
-				delete(s.monitors, guestId)
-				gm.UpdateVmName(guestName)
-				gm.UpdateNicsDesc(nicsDesc)
-				gm.UpdateCpuCount(int(vcpuCount))
-			} else {
-				delete(s.monitors, guestId)
-				gm, err = NewGuestMonitor(guestName, guestId, pid, nicsDesc, int(vcpuCount))
+		hypervisor := instance.GetHypervisor()
+		guestId := instance.GetId()
+		guestName := instance.GetDesc().Name
+		nicsDesc := instance.GetDesc().Nics
+		vcpuCount := instance.GetDesc().Cpu
+		switch hypervisor {
+		case compute.HYPERVISOR_KVM:
+			guest := instance.(*guestman.SKVMGuestInstance)
+			pid := guest.GetPid()
+			if pid > 0 {
+				gm, ok := s.monitors[guestId]
+				if ok && gm.Pid == pid {
+					delete(s.monitors, guestId)
+					gm.UpdateVmName(guestName)
+					gm.UpdateNicsDesc(nicsDesc)
+					gm.UpdateCpuCount(int(vcpuCount))
+					gm.MemMB = instance.GetDesc().Mem
+				} else {
+					delete(s.monitors, guestId)
+					gm, err = NewGuestMonitor(guestName, guestId, pid, nicsDesc, int(vcpuCount))
+					if err != nil {
+						log.Errorf("NewGuestMonitor for %s(%s), pid: %d, nics: %#v", guestName, guestId, pid, nicsDesc)
+						return true
+					}
+				}
+				gm.ScalingGroupId = guest.GetDesc().ScalingGroupId
+				gm.Tenant = guest.GetDesc().Tenant
+				gm.TenantId = guest.GetDesc().TenantId
+				gm.DomainId = guest.GetDesc().DomainId
+				gm.ProjectDomain = guest.GetDesc().ProjectDomain
+
+				gms[guestId] = gm
+			}
+			return true
+		case compute.HYPERVISOR_POD:
+			if podStats == nil {
+				var err error
+				podStats, err = s.containerStatsProvider.ListPodCPUAndMemoryStats()
 				if err != nil {
-					log.Errorf("NewGuestMonitor for %s(%s), pid: %d, nics: %#v", guestName, guestId, pid, nicsDesc)
+					log.Errorf("ListPodCPUAndMemoryStats: %s", err)
 					return true
 				}
 			}
-			gm.ScalingGroupId = guest.Desc.ScalingGroupId
-			gm.Tenant = guest.Desc.Tenant
-			gm.TenantId = guest.Desc.TenantId
-			gm.DomainId = guest.Desc.DomainId
-			gm.ProjectDomain = guest.Desc.ProjectDomain
-
-			gms[guestId] = gm
+			podStat := GetPodStatsById(podStats, guestId)
+			if podStat != nil {
+				gm, err := NewGuestPodMonitor(guestName, guestId, podStat, nicsDesc, int(vcpuCount))
+				if err != nil {
+					return true
+				}
+				gm.UpdateByInstance(instance)
+				gms[guestId] = gm
+				return true
+			} else {
+				delete(s.monitors, guestId)
+			}
 		}
 		return true
 	})
@@ -360,10 +394,30 @@ func (s *SGuestMonitorCollector) cleanedPrevData(gms map[string]*SGuestMonitor) 
 }
 
 type GuestMetrics struct {
-	VmCpu    *CpuMetric     `json:"vm_cpu"`
-	VmMem    *MemMetric     `json:"vm_mem"`
-	VmNetio  []*NetIOMetric `json:"vm_netio"`
-	VmDiskio *DiskIOMetric  `json:"vm_diskio"`
+	VmCpu      *CpuMetric     `json:"vm_cpu"`
+	VmMem      *MemMetric     `json:"vm_mem"`
+	VmNetio    []*NetIOMetric `json:"vm_netio"`
+	VmDiskio   *DiskIOMetric  `json:"vm_diskio"`
+	PodMetrics *PodMetrics    `json:"pod_metrics"`
+}
+
+func (d *GuestMetrics) mapToStatStr(m map[string]interface{}) string {
+	var statArr = []string{}
+	for k, v := range m {
+		statArr = append(statArr, fmt.Sprintf("%s=%v", k, v))
+	}
+	return strings.Join(statArr, ",")
+}
+
+func (d *GuestMetrics) toVmTelegrafData(tagStr string) []string {
+	var res = []string{}
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_cpu", tagStr, d.mapToStatStr(d.VmCpu.ToMap())))
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_mem", tagStr, d.mapToStatStr(d.VmMem.ToMap())))
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_diskio", tagStr, d.mapToStatStr(d.VmDiskio.ToMap())))
+	for i := range d.VmNetio {
+		res = append(res, fmt.Sprintf("%s,%s %s", "vm_netio", tagStr, d.mapToStatStr(d.VmNetio[i].ToMap())))
+	}
+	return res
 }
 
 func (d *GuestMetrics) toTelegrafData(tags map[string]string) []string {
@@ -372,23 +426,11 @@ func (d *GuestMetrics) toTelegrafData(tags map[string]string) []string {
 		tagArr = append(tagArr, fmt.Sprintf("%s=%s", k, strings.ReplaceAll(v, " ", "+")))
 	}
 	tagStr := strings.Join(tagArr, ",")
-
-	mapToStatStr := func(m map[string]interface{}) string {
-		var statArr = []string{}
-		for k, v := range m {
-			statArr = append(statArr, fmt.Sprintf("%s=%v", k, v))
-		}
-		return strings.Join(statArr, ",")
+	if d.PodMetrics == nil {
+		return d.toVmTelegrafData(tagStr)
+	} else {
+		return d.toPodTelegrafData(tagStr)
 	}
-
-	var res = []string{}
-	res = append(res, fmt.Sprintf("%s,%s %s", "vm_cpu", tagStr, mapToStatStr(d.VmCpu.ToMap())))
-	res = append(res, fmt.Sprintf("%s,%s %s", "vm_mem", tagStr, mapToStatStr(d.VmMem.ToMap())))
-	res = append(res, fmt.Sprintf("%s,%s %s", "vm_diskio", tagStr, mapToStatStr(d.VmDiskio.ToMap())))
-	for i := range d.VmNetio {
-		res = append(res, fmt.Sprintf("%s,%s %s", "vm_netio", tagStr, mapToStatStr(d.VmNetio[i].ToMap())))
-	}
-	return res
 }
 
 func (s *SGuestMonitorCollector) collectGmReport(
@@ -397,6 +439,15 @@ func (s *SGuestMonitorCollector) collectGmReport(
 	if prevUsage == nil {
 		prevUsage = new(GuestMetrics)
 	}
+
+	if !gm.HasPodMetrics() {
+		return s.collectGuestMetrics(gm, prevUsage)
+	} else {
+		return s.collectPodMetrics(gm, prevUsage)
+	}
+}
+
+func (s *SGuestMonitorCollector) collectGuestMetrics(gm *SGuestMonitor, prevUsage *GuestMetrics) *GuestMetrics {
 	gmData := new(GuestMetrics)
 	gmData.VmCpu = gm.Cpu()
 	gmData.VmMem = gm.Mem()
@@ -480,6 +531,7 @@ type SGuestMonitor struct {
 	Pid            int
 	Nics           []*desc.SGuestNetwork
 	CpuCnt         int
+	MemMB          int64
 	Ip             string
 	Process        *process.Process
 	ScalingGroupId string
@@ -487,19 +539,59 @@ type SGuestMonitor struct {
 	TenantId       string
 	DomainId       string
 	ProjectDomain  string
+	podStat        *stats.PodStats
 }
 
-func NewGuestMonitor(name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int,
-) (*SGuestMonitor, error) {
-	var ip string
-	if len(nics) >= 1 {
-		ip = nics[0].Ip
-	}
+func NewGuestMonitor(name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err
 	}
-	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc, "", "", "", "", ""}, nil
+	return newGuestMonitor(name, id, proc, nics, cpuCount)
+}
+
+func NewGuestPodMonitor(name, id string, stat *stats.PodStats, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
+	m, err := newGuestMonitor(name, id, nil, nics, cpuCount)
+	if err != nil {
+		return nil, errors.Wrap(err, "new pod GuestMonitor")
+	}
+	m.podStat = stat
+	return m, nil
+}
+
+func newGuestMonitor(name, id string, proc *process.Process, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
+	var ip string
+	if len(nics) >= 1 {
+		ip = nics[0].Ip
+	}
+	pid := 0
+	if proc != nil {
+		pid = int(proc.Pid)
+	}
+	return &SGuestMonitor{
+		Name:    name,
+		Id:      id,
+		Pid:     pid,
+		Nics:    nics,
+		CpuCnt:  cpuCount,
+		Ip:      ip,
+		Process: proc,
+	}, nil
+}
+
+func (m *SGuestMonitor) UpdateByInstance(instance guestman.GuestRuntimeInstance) {
+	guestName := instance.GetDesc().Name
+	nicsDesc := instance.GetDesc().Nics
+	vcpuCount := instance.GetDesc().Cpu
+	m.UpdateVmName(guestName)
+	m.UpdateNicsDesc(nicsDesc)
+	m.UpdateCpuCount(int(vcpuCount))
+	m.MemMB = instance.GetDesc().Mem
+	m.ScalingGroupId = instance.GetDesc().ScalingGroupId
+	m.Tenant = instance.GetDesc().Tenant
+	m.TenantId = instance.GetDesc().TenantId
+	m.DomainId = instance.GetDesc().DomainId
+	m.ProjectDomain = instance.GetDesc().ProjectDomain
 }
 
 func (m *SGuestMonitor) SetNicDown(index int) {

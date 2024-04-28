@@ -71,6 +71,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/ovnutils"
 	"yunion.io/x/onecloud/pkg/util/pod"
+	"yunion.io/x/onecloud/pkg/util/pod/cadvisor"
+	"yunion.io/x/onecloud/pkg/util/pod/stats"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -118,8 +120,9 @@ type SHostInfo struct {
 
 	IoScheduler string
 
-	cri             pod.CRI
-	containerCPUMap *pod.HostContainerCPUMap
+	cri                   pod.CRI
+	containerCPUMap       *pod.HostContainerCPUMap
+	containerStatsProvier stats.ContainerStatsProvider
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
@@ -229,6 +232,9 @@ func (h *SHostInfo) Init() error {
 		if err := h.initContainerCPUMap(h.sysinfo.Topology); err != nil {
 			return errors.Wrap(err, "init container cpu map")
 		}
+		if err := h.startContainerStatsProvider(h.cri); err != nil {
+			return errors.Wrap(err, "start container stats provider")
+		}
 	}
 
 	return nil
@@ -258,12 +264,28 @@ func (h *SHostInfo) initContainerCPUMap(topo *hostapi.HostTopology) error {
 	return nil
 }
 
+func (h *SHostInfo) startContainerStatsProvider(cri pod.CRI) error {
+	ca, err := cadvisor.New(nil, "/opt/cloud/workspace", []string{"cloudpods"})
+	if err != nil {
+		return errors.Wrap(err, "new cadvisor")
+	}
+	if err := ca.Start(); err != nil {
+		return errors.Wrap(err, "start cadvisor")
+	}
+	h.containerStatsProvier = stats.NewCRIContainerStatsProvider(ca, cri.GetRuntimeClient(), cri.GetImageClient())
+	return nil
+}
+
 func (h *SHostInfo) GetCRI() pod.CRI {
 	return h.cri
 }
 
 func (h *SHostInfo) GetContainerCPUMap() *pod.HostContainerCPUMap {
 	return h.containerCPUMap
+}
+
+func (h *SHostInfo) GetContainerStatsProvider() stats.ContainerStatsProvider {
+	return h.containerStatsProvier
 }
 
 func (h *SHostInfo) setupOvnChassis() error {
