@@ -949,8 +949,12 @@ func (host *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 		} else {
 			tds = ds
 		}
-		log.Debugf("ds: %s, size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s, key: %d.", tds.getDatastoreObj().String(), size, imagePath, uuid, unitNumber, ctrlKey, disk.Driver, 2000+i)
-		spec := addDevSpec(NewDiskDev(size, SDiskConfig{
+		vds, err := tds.getDatastoreObj(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getDatastoreObj")
+		}
+		log.Debugf("ds: %s, size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s, key: %d.", vds.String(), size, imagePath, uuid, unitNumber, ctrlKey, disk.Driver, 2000+i)
+		diskDev, err := NewDiskDev(ctx, size, SDiskConfig{
 			SizeMb:        size,
 			Uuid:          uuid,
 			ControllerKey: int32(ctrlKey),
@@ -960,7 +964,11 @@ func (host *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 			IsRoot:        i == 0,
 			Datastore:     tds,
 			Preallocation: disk.Preallocation,
-		}))
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "NewDiskDev")
+		}
+		spec := addDevSpec(diskDev)
 		if len(imagePath) == 0 {
 			spec.FileOperation = "create"
 		}
@@ -1273,7 +1281,11 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 	folderref := folders.VmFolder.Reference()
 	poolref := resourcePool.Reference()
 	hostref := host.GetHostSystem().Reference()
-	dsref := ds.getDatastoreObj().Reference()
+	tds, err := ds.getDatastoreObj(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getDatastoreObj")
+	}
+	dsref := tds.Reference()
 	relocateSpec := types.VirtualMachineRelocateSpec{
 		Folder:    &folderref,
 		Pool:      &poolref,

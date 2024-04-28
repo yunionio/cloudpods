@@ -34,29 +34,41 @@ func NewListView(c *vim25.Client, ref types.ManagedObjectReference) *ListView {
 	}
 }
 
-func (v ListView) Add(ctx context.Context, refs []types.ManagedObjectReference) error {
+func (v ListView) Add(ctx context.Context, refs []types.ManagedObjectReference) ([]types.ManagedObjectReference, error) {
 	req := types.ModifyListView{
 		This: v.Reference(),
 		Add:  refs,
 	}
-	_, err := methods.ModifyListView(ctx, v.Client(), &req)
-	return err
+	res, err := methods.ModifyListView(ctx, v.Client(), &req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Returnval, nil
 }
 
-func (v ListView) Remove(ctx context.Context, refs []types.ManagedObjectReference) error {
+func (v ListView) Remove(ctx context.Context, refs []types.ManagedObjectReference) ([]types.ManagedObjectReference, error) {
 	req := types.ModifyListView{
 		This:   v.Reference(),
 		Remove: refs,
 	}
-	_, err := methods.ModifyListView(ctx, v.Client(), &req)
-	return err
+	res, err := methods.ModifyListView(ctx, v.Client(), &req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Returnval, nil
 }
 
-func (v ListView) Reset(ctx context.Context, refs []types.ManagedObjectReference) error {
+func (v ListView) Reset(ctx context.Context, refs []types.ManagedObjectReference) ([]types.ManagedObjectReference, error) {
 	req := types.ResetListView{
 		This: v.Reference(),
 		Obj:  refs,
 	}
-	_, err := methods.ResetListView(ctx, v.Client(), &req)
-	return err
+	res, err := methods.ResetListView(ctx, v.Client(), &req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Returnval, nil
 }

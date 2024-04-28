@@ -1,11 +1,11 @@
 /*
-Copyright (c) 2014-2016 VMware, Inc. All Rights Reserved.
+Copyright (c) 2014-2023 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,7 @@ This package is the root package of the govmomi library.
 
 The library is structured as follows:
 
-Package vim25
+# Package vim25
 
 The minimal usable functionality is available through the vim25 package.
 It contains subpackages that contain generated types, managed objects, and all
@@ -30,25 +30,25 @@ The vim25 package itself contains a client structure that is
 passed around throughout the entire library. It abstracts a session and its
 immutable state. See the vim25 package for more information.
 
-Package session
+# Package session
 
 The session package contains an abstraction for the session manager that allows
 a user to login and logout. It also provides access to the current session
 (i.e. to determine if the user is in fact logged in)
 
-Package object
+# Package object
 
 The object package contains wrappers for a selection of managed objects. The
 constructors of these objects all take a *vim25.Client, which they pass along
 to derived objects, if applicable.
 
-Package govc
+# Package govc
 
 The govc package contains the govc CLI. The code in this tree is not intended
 to be used as a library. Any functionality that govc contains that _could_ be
 used as a library function but isn't, _should_ live in a root level package.
 
-Other packages
+# Other packages
 
 Other packages, such as "event", "guest", or "license", provide wrappers for
 the respective subsystems. They are typically not needed in normal workflows so

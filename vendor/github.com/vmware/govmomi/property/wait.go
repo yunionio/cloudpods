@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015-2017 VMware, Inc. All Rights Reserved.
+Copyright (c) 2015-2024 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,15 +18,23 @@ package property
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/types"
 )
+
+// WaitOptions defines options for a property collector's WaitForUpdatesEx
+// method.
+type WaitOptions struct {
+	Options          *types.WaitOptions
+	PropagateMissing bool
+	Truncated        bool
+}
 
 // WaitFilter provides helpers to construct a types.CreateFilter for use with property.Wait
 type WaitFilter struct {
 	types.CreateFilter
-	Options *types.WaitOptions
+	WaitOptions
 }
 
 // Add a new ObjectSpec and PropertySpec to the WaitFilter
@@ -67,8 +75,8 @@ func Wait(ctx context.Context, c *Collector, obj types.ManagedObjectReference, p
 	})
 }
 
-// WaitForUpdates waits for any of the specified properties of the specified managed
-// object to change. It calls the specified function for every update it
+// WaitForUpdates waits for any of the specified properties of the specified
+// managed object to change. It calls the specified function for every update it
 // receives. If this function returns false, it continues waiting for
 // subsequent updates. If this function returns true, it stops waiting and
 // returns.
@@ -77,55 +85,86 @@ func Wait(ctx context.Context, c *Collector, obj types.ManagedObjectReference, p
 // creates a new property collector and calls CreateFilter. A new property
 // collector is required because filters can only be added, not removed.
 //
-// If the Context is canceled, a call to CancelWaitForUpdates() is made and its error value is returned.
-// The newly created collector is destroyed before this function returns (both
-// in case of success or error).
+// If the Context is canceled, a call to CancelWaitForUpdates() is made and its
+// error value is returned. The newly created collector is destroyed before this
+// function returns (both in case of success or error).
 //
-func WaitForUpdates(ctx context.Context, c *Collector, filter *WaitFilter, f func([]types.ObjectUpdate) bool) error {
-	p, err := c.Create(ctx)
+// By default, ObjectUpdate.MissingSet faults are not propagated to the returned
+// error, set WaitFilter.PropagateMissing=true to enable MissingSet fault
+// propagation.
+func WaitForUpdates(
+	ctx context.Context,
+	c *Collector,
+	filter *WaitFilter,
+	onUpdatesFn func([]types.ObjectUpdate) bool) (result error) {
+
+	pc, err := c.Create(ctx)
 	if err != nil {
 		return err
 	}
 
 	// Attempt to destroy the collector using the background context, as the
 	// specified context may have timed out or have been canceled.
-	defer p.Destroy(context.Background())
+	defer func() {
+		if err := pc.Destroy(context.Background()); err != nil {
+			if result == nil {
+				result = err
+			} else {
+				result = fmt.Errorf(
+					"destroy property collector failed with %s after failing to wait for updates: %w",
+					err,
+					result)
+			}
+		}
+	}()
 
-	err = p.CreateFilter(ctx, filter.CreateFilter)
+	// Create a property filter for the property collector.
+	if _, err := pc.CreateFilter(ctx, filter.CreateFilter); err != nil {
+		return err
+	}
+
+	return pc.WaitForUpdatesEx(ctx, filter.WaitOptions, onUpdatesFn)
+}
+
+// WaitForUpdates waits for any of the specified properties of the specified
+// managed object to change. It calls the specified function for every update it
+// receives. If this function returns false, it continues waiting for
+// subsequent updates. If this function returns true, it stops waiting and
+// returns.
+//
+// If the Context is canceled, a call to CancelWaitForUpdates() is made and its
+// error value is returned.
+//
+// By default, ObjectUpdate.MissingSet faults are not propagated to the returned
+// error, set WaitFilter.PropagateMissing=true to enable MissingSet fault
+// propagation.
+func WaitForUpdatesEx(
+	ctx context.Context,
+	pc *Collector,
+	filter *WaitFilter,
+	onUpdatesFn func([]types.ObjectUpdate) bool) (result error) {
+
+	// Create a property filter for the property collector.
+	pf, err := pc.CreateFilter(ctx, filter.CreateFilter)
 	if err != nil {
 		return err
 	}
 
-	req := types.WaitForUpdatesEx{
-		This:    p.Reference(),
-		Options: filter.Options,
-	}
-
-	for {
-		res, err := methods.WaitForUpdatesEx(ctx, p.roundTripper, &req)
-		if err != nil {
-			if ctx.Err() == context.Canceled {
-				werr := p.CancelWaitForUpdates(context.Background())
-				return werr
-			}
-			return err
-		}
-
-		set := res.Returnval
-		if set == nil {
-			if req.Options != nil && req.Options.MaxWaitSeconds != nil {
-				return nil // WaitOptions.MaxWaitSeconds exceeded
-			}
-			// Retry if the result came back empty
-			continue
-		}
-
-		req.Version = set.Version
-
-		for _, fs := range set.FilterSet {
-			if f(fs.ObjectSet) {
-				return nil
+	// Destroy the filter using the background context, as the specified context
+	// may have timed out or have been canceled.
+	defer func() {
+		if err := pf.Destroy(context.Background()); err != nil {
+			if result == nil {
+				result = err
+			} else {
+				result = fmt.Errorf(
+					"destroy property filter failed with %s after failing to wait for updates: %w",
+					err,
+					result)
 			}
 		}
-	}
+
+	}()
+
+	return pc.WaitForUpdatesEx(ctx, filter.WaitOptions, onUpdatesFn)
 }
