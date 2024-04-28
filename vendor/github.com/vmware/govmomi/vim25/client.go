@@ -1,11 +1,11 @@
 /*
-Copyright (c) 2015-2016 VMware, Inc. All Rights Reserved.
+Copyright (c) 2015-2023 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,7 +28,7 @@ import (
 
 const (
 	Namespace = "vim25"
-	Version   = "6.7"
+	Version   = "8.0.2.0"
 	Path      = "/sdk"
 )
 
@@ -54,7 +54,7 @@ type Client struct {
 	RoundTripper soap.RoundTripper
 }
 
-// NewClient creates and returns a new client wirh the ServiceContent field
+// NewClient creates and returns a new client with the ServiceContent field
 // filled in.
 func NewClient(ctx context.Context, rt soap.RoundTripper) (*Client, error) {
 	c := Client{
@@ -67,7 +67,7 @@ func NewClient(ctx context.Context, rt soap.RoundTripper) (*Client, error) {
 
 		if c.Namespace == "" {
 			c.Namespace = "urn:" + Namespace
-		} else if strings.Index(c.Namespace, ":") < 0 {
+		} else if !strings.Contains(c.Namespace, ":") {
 			c.Namespace = "urn:" + c.Namespace // ensure valid URI format
 		}
 		if c.Version == "" {
@@ -138,6 +138,11 @@ func (c *Client) Valid() bool {
 	}
 
 	return true
+}
+
+// Path returns vim25.Path (see cache.Client)
+func (c *Client) Path() string {
+	return Path
 }
 
 // IsVC returns true if we are connected to a vCenter

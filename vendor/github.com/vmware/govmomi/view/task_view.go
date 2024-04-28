@@ -73,7 +73,7 @@ func (v TaskView) Collect(ctx context.Context, f func([]types.TaskInfo)) error {
 					tasks = change.Val.(types.ArrayOfManagedObjectReference).ManagedObjectReference
 					if len(tasks) != 0 {
 						reset = func() {
-							_ = v.Reset(ctx, tasks)
+							_, _ = v.Reset(ctx, tasks)
 
 							// Remember any tasks we've reported as complete already,
 							// to avoid reporting multiple times when Reset is triggered.
@@ -113,7 +113,7 @@ func (v TaskView) Collect(ctx context.Context, f func([]types.TaskInfo)) error {
 		if reset != nil {
 			reset()
 		} else if len(prune) != 0 {
-			_ = v.Remove(ctx, prune)
+			_, _ = v.Remove(ctx, prune)
 		}
 
 		if len(tasks) != 0 && len(infos) == 0 {

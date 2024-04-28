@@ -36,7 +36,7 @@ func NewContainerView(c *vim25.Client, ref types.ManagedObjectReference) *Contai
 }
 
 // Retrieve populates dst as property.Collector.Retrieve does, for all entities in the view of types specified by kind.
-func (v ContainerView) Retrieve(ctx context.Context, kind []string, ps []string, dst interface{}) error {
+func (v ContainerView) Retrieve(ctx context.Context, kind []string, ps []string, dst interface{}, pspec ...types.PropertySpec) error {
 	pc := property.DefaultCollector(v.Client())
 
 	ospec := types.ObjectSpec{
@@ -49,8 +49,6 @@ func (v ContainerView) Retrieve(ctx context.Context, kind []string, ps []string,
 			},
 		},
 	}
-
-	var pspec []types.PropertySpec
 
 	if len(kind) == 0 {
 		kind = []string{"ManagedEntity"}
@@ -89,11 +87,11 @@ func (v ContainerView) Retrieve(ctx context.Context, kind []string, ps []string,
 		return nil
 	}
 
-	return mo.LoadRetrievePropertiesResponse(res, dst)
+	return mo.LoadObjectContent(res.Returnval, dst)
 }
 
 // RetrieveWithFilter populates dst as Retrieve does, but only for entities matching the given filter.
-func (v ContainerView) RetrieveWithFilter(ctx context.Context, kind []string, ps []string, dst interface{}, filter property.Filter) error {
+func (v ContainerView) RetrieveWithFilter(ctx context.Context, kind []string, ps []string, dst interface{}, filter property.Match) error {
 	if len(filter) == 0 {
 		return v.Retrieve(ctx, kind, ps, dst)
 	}
@@ -105,7 +103,7 @@ func (v ContainerView) RetrieveWithFilter(ctx context.Context, kind []string, ps
 		return err
 	}
 
-	objs := filter.MatchObjectContent(content)
+	objs := filter.ObjectContent(content)
 
 	pc := property.DefaultCollector(v.Client())
 
@@ -113,10 +111,10 @@ func (v ContainerView) RetrieveWithFilter(ctx context.Context, kind []string, ps
 }
 
 // Find returns object references for entities of type kind, matching the given filter.
-func (v ContainerView) Find(ctx context.Context, kind []string, filter property.Filter) ([]types.ManagedObjectReference, error) {
+func (v ContainerView) Find(ctx context.Context, kind []string, filter property.Match) ([]types.ManagedObjectReference, error) {
 	if len(filter) == 0 {
 		// Ensure we have at least 1 filter to avoid retrieving all properties.
-		filter = property.Filter{"name": "*"}
+		filter = property.Match{"name": "*"}
 	}
 
 	var content []types.ObjectContent
@@ -126,5 +124,22 @@ func (v ContainerView) Find(ctx context.Context, kind []string, filter property.
 		return nil, err
 	}
 
-	return filter.MatchObjectContent(content), nil
+	return filter.ObjectContent(content), nil
+}
+
+// FindAny returns object references for entities of type kind, matching any property the given filter.
+func (v ContainerView) FindAny(ctx context.Context, kind []string, filter property.Match) ([]types.ManagedObjectReference, error) {
+	if len(filter) == 0 {
+		// Ensure we have at least 1 filter to avoid retrieving all properties.
+		filter = property.Match{"name": "*"}
+	}
+
+	var content []types.ObjectContent
+
+	err := v.Retrieve(ctx, kind, filter.Keys(), &content)
+	if err != nil {
+		return nil, err
+	}
+
+	return filter.AnyObjectContent(content), nil
 }

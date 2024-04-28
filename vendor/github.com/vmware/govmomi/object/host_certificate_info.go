@@ -1,11 +1,11 @@
 /*
-Copyright (c) 2016 VMware, Inc. All Rights Reserved.
+Copyright (c) 2016-2023 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,6 @@ limitations under the License.
 package object
 
 import (
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -36,10 +35,10 @@ import (
 type HostCertificateInfo struct {
 	types.HostCertificateManagerCertificateInfo
 
-	ThumbprintSHA1   string
-	ThumbprintSHA256 string
+	ThumbprintSHA1   string `json:"thumbprintSHA1"`
+	ThumbprintSHA256 string `json:"thumbprintSHA256"`
 
-	Err         error
+	Err         error             `json:"err"`
 	Certificate *x509.Certificate `json:"-"`
 
 	subjectName *pkix.Name
@@ -58,14 +57,7 @@ func (info *HostCertificateInfo) FromCertificate(cert *x509.Certificate) *HostCe
 	info.Subject = info.fromName(info.subjectName)
 
 	info.ThumbprintSHA1 = soap.ThumbprintSHA1(cert)
-
-	// SHA-256 for info purposes only, API fields all use SHA-1
-	sum := sha256.Sum256(cert.Raw)
-	hex := make([]string, len(sum))
-	for i, b := range sum {
-		hex[i] = fmt.Sprintf("%02X", b)
-	}
-	info.ThumbprintSHA256 = strings.Join(hex, ":")
+	info.ThumbprintSHA256 = soap.ThumbprintSHA256(cert)
 
 	if info.Status == "" {
 		info.Status = string(types.HostCertificateManagerCertificateInfoCertificateStatusUnknown)
@@ -86,10 +78,7 @@ func (info *HostCertificateInfo) FromURL(u *url.URL, config *tls.Config) error {
 
 	conn, err := tls.Dial("tcp", addr, config)
 	if err != nil {
-		switch err.(type) {
-		case x509.UnknownAuthorityError:
-		case x509.HostnameError:
-		default:
+		if !soap.IsCertificateUntrusted(err) {
 			return err
 		}
 

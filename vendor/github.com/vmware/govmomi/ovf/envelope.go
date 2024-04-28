@@ -1,11 +1,11 @@
 /*
-Copyright (c) 2015 VMware, Inc. All Rights Reserved.
+Copyright (c) 2015-2023 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,10 @@ limitations under the License.
 */
 
 package ovf
+
+import (
+	"fmt"
+)
 
 type Envelope struct {
 	References []File `xml:"References>File"`
@@ -61,6 +65,7 @@ type Content struct {
 type Section struct {
 	Required *bool  `xml:"required,attr"`
 	Info     string `xml:"Info"`
+	Category string `xml:"Category"`
 }
 
 type AnnotationSection struct {
@@ -83,6 +88,20 @@ type ProductSection struct {
 	VendorURL   string     `xml:"VendorUrl"`
 	AppURL      string     `xml:"AppUrl"`
 	Property    []Property `xml:"Property"`
+}
+
+func (p ProductSection) Key(prop Property) string {
+	// From OVF spec, section 9.5.1:
+	// key-value-env = [class-value "."] key-value-prod ["." instance-value]
+
+	k := prop.Key
+	if p.Class != nil {
+		k = fmt.Sprintf("%s.%s", *p.Class, k)
+	}
+	if p.Instance != nil {
+		k = fmt.Sprintf("%s.%s", k, *p.Instance)
+	}
+	return k
 }
 
 type Property struct {
@@ -148,14 +167,23 @@ type EulaSection struct {
 	License string `xml:"License"`
 }
 
+type Config struct {
+	Required *bool  `xml:"required,attr"`
+	Key      string `xml:"key,attr"`
+	Value    string `xml:"value,attr"`
+}
+
 type VirtualHardwareSection struct {
 	Section
 
 	ID        *string `xml:"id,attr"`
 	Transport *string `xml:"transport,attr"`
 
-	System *VirtualSystemSettingData       `xml:"System"`
-	Item   []ResourceAllocationSettingData `xml:"Item"`
+	System      *VirtualSystemSettingData       `xml:"System"`
+	Item        []ResourceAllocationSettingData `xml:"Item"`
+	StorageItem []StorageAllocationSettingData  `xml:"StorageItem"`
+	Config      []Config                        `xml:"Config"`
+	ExtraConfig []Config                        `xml:"ExtraConfig"`
 }
 
 type VirtualSystemSettingData struct {
@@ -164,6 +192,14 @@ type VirtualSystemSettingData struct {
 
 type ResourceAllocationSettingData struct {
 	CIMResourceAllocationSettingData
+
+	Required      *bool   `xml:"required,attr"`
+	Configuration *string `xml:"configuration,attr"`
+	Bound         *string `xml:"bound,attr"`
+}
+
+type StorageAllocationSettingData struct {
+	CIMStorageAllocationSettingData
 
 	Required      *bool   `xml:"required,attr"`
 	Configuration *string `xml:"configuration,attr"`

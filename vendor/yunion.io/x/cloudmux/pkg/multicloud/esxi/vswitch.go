@@ -71,7 +71,7 @@ type SDistributedVirtualSwitch struct {
 
 func (vs *SDistributedVirtualSwitch) FindNetworkByVlanID(vlanID int32) (IVMNetwork, error) {
 	var modvpgs []mo.DistributedVirtualPortgroup
-	filter := property.Filter{}
+	filter := property.Match{}
 	filter["config.distributedVirtualSwitch"] = vs.DistributedVirtualSwitch.Self
 	err := vs.Host.manager.scanMObjectsWithFilter(vs.Host.datacenter.object.Entity().Self, DVPORTGROUP_PROPS, &modvpgs, filter)
 	if err != nil {
