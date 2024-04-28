@@ -45,11 +45,13 @@ func init() {
 
 // Rule is the in-memory version of an alert rule.
 type Rule struct {
-	Id                  string
-	Frequency           int64
-	Title               string
-	Name                string
-	Message             string
+	Id        string
+	Frequency int64
+	Title     string
+	Name      string
+	Message   string
+	// 使用 TriggeredMessages 存储触发的条件，替代 Message
+	TriggeredMessages   []string
 	LastStateChange     time.Time
 	For                 time.Duration
 	NoDataState         monitor.NoDataOption
@@ -115,6 +117,7 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 	model.Title = ruleDef.GetTitle()
 	model.Name = ruleDef.Name
 	model.Message = ruleDef.Message
+	model.TriggeredMessages = make([]string, 0)
 	model.State = monitor.AlertStateType(ruleDef.State)
 	model.LastStateChange = ruleDef.LastStateChange
 	model.For = time.Duration(ruleDef.For)

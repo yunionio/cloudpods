@@ -309,6 +309,11 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series moni
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
+	op := alertDetails.Operator
+	if op != "" && c.Index > 0 {
+		msg = fmt.Sprintf("%s %s", strings.ToUpper(op), msg)
+	}
+	context.Rule.TriggeredMessages = append(context.Rule.TriggeredMessages, msg)
 	return evalMatch, nil
 }
 
