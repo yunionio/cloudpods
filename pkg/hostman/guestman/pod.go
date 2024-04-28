@@ -103,6 +103,11 @@ func (s *sPodGuestInstance) CleanGuest(ctx context.Context, params interface{}) 
 	return nil, DeleteHomeDir(s)
 }
 
+func (s *sPodGuestInstance) CleanDirtyGuest(ctx context.Context) error {
+	_, err := s.CleanGuest(ctx, false)
+	return err
+}
+
 func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 	// TODO: 参考SKVMGuestInstance，可以做更多的事，比如同步状态
 	s.manager.SaveServer(s.Id, s)

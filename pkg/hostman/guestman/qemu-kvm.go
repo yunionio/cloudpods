@@ -479,6 +479,10 @@ func (s *SKVMGuestInstance) getQemuLogPath() string {
 	return path.Join(s.HomeDir(), "qemu.log")
 }
 
+func (s *SKVMGuestInstance) RecycleDir() string {
+	return path.Join(s.manager.ServersPath, "recycle")
+}
+
 func (s *SKVMGuestInstance) GetPidFilePath() string {
 	return path.Join(s.HomeDir(), "pid")
 }
@@ -2020,12 +2024,20 @@ func (s *SKVMGuestInstance) CleanGuest(ctx context.Context, params interface{}) 
 	return nil, nil
 }
 
+func (s *SKVMGuestInstance) CleanDirtyGuest(ctx context.Context) error {
+	for s.IsRunning() {
+		s.ForceStop()
+		time.Sleep(time.Second * 1)
+	}
+	return s.Delete(ctx, false, true)
+}
+
 func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) error {
 	for s.IsRunning() {
 		s.ForceStop()
 		time.Sleep(time.Second * 1)
 	}
-	return s.Delete(ctx, migrated)
+	return s.Delete(ctx, migrated, false)
 }
 
 func (s *SKVMGuestInstance) ForceStop() bool {
@@ -2145,11 +2157,26 @@ func (s *SKVMGuestInstance) delFlatFiles(ctx context.Context) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
+func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated, recycle bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return errors.Wrap(err, "delTmpDisks")
 	}
-	return DeleteHomeDir(s)
+
+	if recycle {
+		if !fileutils2.Exists(s.RecycleDir()) {
+			output, err := procutils.NewCommand("mkdir", "-p", s.RecycleDir()).Output()
+			if err != nil {
+				return errors.Wrapf(err, "mkdir %s failed: %s", s.RecycleDir(), output)
+			}
+		}
+		output, err := procutils.NewCommand("mv", "-f", s.HomeDir(), s.RecycleDir()).Output()
+		if err != nil {
+			return errors.Wrapf(err, "mv %s to %s failed: %s", s.HomeDir(), s.RecycleDir(), output)
+		}
+	} else {
+		return DeleteHomeDir(s)
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) Stop() bool {
