@@ -27,6 +27,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/vmware/govmomi/internal"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/vim25"
@@ -67,7 +68,37 @@ func NewDatastore(c *vim25.Client, ref types.ManagedObjectReference) *Datastore 
 	}
 }
 
+// FindInventoryPath sets InventoryPath and DatacenterPath,
+// needed by NewURL() to compose an upload/download endpoint URL
+func (d *Datastore) FindInventoryPath(ctx context.Context) error {
+	entities, err := mo.Ancestors(ctx, d.c, d.c.ServiceContent.PropertyCollector, d.r)
+	if err != nil {
+		return err
+	}
+
+	val := "/"
+
+	for _, entity := range entities {
+		if entity.Parent == nil {
+			continue // root folder
+		}
+		val = path.Join(val, entity.Name)
+		if entity.Self.Type == "Datacenter" {
+			d.DatacenterPath = val
+		}
+	}
+
+	d.InventoryPath = val
+
+	return nil
+}
+
 func (d Datastore) Path(path string) string {
+	var p DatastorePath
+	if p.FromString(path) {
+		return p.String() // already in "[datastore] path" format
+	}
+
 	return (&DatastorePath{
 		Datastore: d.Name(),
 		Path:      path,
@@ -78,8 +109,14 @@ func (d Datastore) Path(path string) string {
 func (d Datastore) NewURL(path string) *url.URL {
 	u := d.c.URL()
 
+	scheme := u.Scheme
+	// In rare cases where vCenter and ESX are accessed using different schemes.
+	if overrideScheme := os.Getenv("GOVMOMI_DATASTORE_ACCESS_SCHEME"); overrideScheme != "" {
+		scheme = overrideScheme
+	}
+
 	return &url.URL{
-		Scheme: u.Scheme,
+		Scheme: scheme,
 		Host:   u.Host,
 		Path:   fmt.Sprintf("/folder/%s", path),
 		RawQuery: url.Values{
@@ -87,11 +124,6 @@ func (d Datastore) NewURL(path string) *url.URL {
 			"dsName": []string{d.Name()},
 		}.Encode(),
 	}
-}
-
-// URL is deprecated, use NewURL instead.
-func (d Datastore) URL(ctx context.Context, dc *Datacenter, path string) (*url.URL, error) {
-	return d.NewURL(path), nil
 }
 
 func (d Datastore) Browser(ctx context.Context) (*HostDatastoreBrowser, error) {
@@ -174,6 +206,10 @@ func (d Datastore) HostContext(ctx context.Context, host *HostSystem) context.Co
 // that can be used along with the ticket cookie to access the given path.  An host is chosen at random unless the
 // the given Context was created with a specific host via the HostContext method.
 func (d Datastore) ServiceTicket(ctx context.Context, path string, method string) (*url.URL, *http.Cookie, error) {
+	if d.InventoryPath == "" {
+		_ = d.FindInventoryPath(ctx)
+	}
+
 	u := d.NewURL(path)
 
 	host, ok := ctx.Value(datastoreServiceTicketHostKey{}).(*HostSystem)
@@ -218,8 +254,18 @@ func (d Datastore) ServiceTicket(ctx context.Context, path string, method string
 	delete(q, "dcPath")
 	u.RawQuery = q.Encode()
 
+	// Now that we have a host selected, take a copy of the URL.
+	transferURL := *u
+
+	if internal.UsingEnvoySidecar(d.Client()) {
+		// Rewrite the host URL to go through the Envoy sidecar on VC.
+		// Reciever must use a custom dialer.
+		u = internal.HostGatewayTransferURL(u, host.Reference())
+	}
+
 	spec := types.SessionManagerHttpServiceRequestSpec{
-		Url: u.String(),
+		// Use the original URL (without rewrites) for the session ticket.
+		Url: transferURL.String(),
 		// See SessionManagerHttpServiceRequestSpecMethod enum
 		Method: fmt.Sprintf("http%s%s", method[0:1], strings.ToLower(method[1:])),
 	}
@@ -256,7 +302,10 @@ func (d Datastore) uploadTicket(ctx context.Context, path string, param *soap.Up
 		return nil, nil, err
 	}
 
-	p.Ticket = ticket
+	if ticket != nil {
+		p.Ticket = ticket
+		p.Close = true // disable Keep-Alive connection to ESX
+	}
 
 	return u, &p, nil
 }
@@ -272,7 +321,10 @@ func (d Datastore) downloadTicket(ctx context.Context, path string, param *soap.
 		return nil, nil, err
 	}
 
-	p.Ticket = ticket
+	if ticket != nil {
+		p.Ticket = ticket
+		p.Close = true // disable Keep-Alive connection to ESX
+	}
 
 	return u, &p, nil
 }
@@ -292,7 +344,13 @@ func (d Datastore) UploadFile(ctx context.Context, file string, path string, par
 	if err != nil {
 		return err
 	}
-	return d.Client().UploadFile(ctx, file, u, p)
+	vc := d.Client()
+	if internal.UsingEnvoySidecar(vc) {
+		// Override the vim client with a new one that wraps a Unix socket transport.
+		// Using HTTP here so secure means nothing.
+		vc = internal.ClientWithEnvoyHostGateway(vc)
+	}
+	return vc.UploadFile(ctx, file, u, p)
 }
 
 // Download via soap.Download with an http service ticket
@@ -310,7 +368,13 @@ func (d Datastore) DownloadFile(ctx context.Context, path string, file string, p
 	if err != nil {
 		return err
 	}
-	return d.Client().DownloadFile(ctx, file, u, p)
+	vc := d.Client()
+	if internal.UsingEnvoySidecar(vc) {
+		// Override the vim client with a new one that wraps a Unix socket transport.
+		// Using HTTP here so secure means nothing.
+		vc = internal.ClientWithEnvoyHostGateway(vc)
+	}
+	return vc.DownloadFile(ctx, file, u, p)
 }
 
 // AttachedHosts returns hosts that have this Datastore attached, accessible and writable.

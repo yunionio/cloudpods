@@ -196,9 +196,9 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	log.Debugf("exist: %t, remotePath: %s", exists, remotePath)
 	if !exists || data.IsForce {
 		if format == "iso" {
-			err := ds.ImportISO(ctx, localImgPath, remotePath, host)
+			err := ds.ImportISO(ctx, localImgPath, remotePath)
 			if err != nil {
-				return nil, errors.Wrap(err, "SDatastore.ImportISO")
+				return nil, errors.Wrapf(err, "SDatastore.ImportISO %s -> %s", localImage, remotePath)
 			}
 		} else {
 			err := ds.ImportVMDK(ctx, localImgPath, remotePath, host)

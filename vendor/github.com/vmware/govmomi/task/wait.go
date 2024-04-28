@@ -1,11 +1,11 @@
 /*
-Copyright (c) 2015 VMware, Inc. All Rights Reserved.
+Copyright (c) 2015-2024 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,7 +38,7 @@ func (t taskProgress) Detail() string {
 
 func (t taskProgress) Error() error {
 	if t.info.Error != nil {
-		return Error{t.info.Error}
+		return Error{t.info.Error, t.info.Description}
 	}
 
 	return nil
@@ -68,7 +68,7 @@ func (t *taskCallback) fn(pc []types.PropertyChange) bool {
 		t.info = &ti
 	}
 
-	// t.info could be nil if pc can't satify the rules above
+	// t.info could be nil if pc can't satisfy the rules above
 	if t.info == nil {
 		return false
 	}
@@ -99,7 +99,7 @@ func (t *taskCallback) fn(pc []types.PropertyChange) bool {
 	}
 }
 
-// Wait waits for a task to finish with either success or failure. It does so
+// WaitEx waits for a task to finish with either success or failure. It does so
 // by waiting for the "info" property of task managed object to change. The
 // function returns when it finds the task in the "success" or "error" state.
 // In the former case, the return value is nil. In the latter case the return
@@ -113,8 +113,12 @@ func (t *taskCallback) fn(pc []types.PropertyChange) bool {
 // The detail for the progress update is set to an empty string. If the task
 // finishes in the error state, the error instance is passed through as well.
 // Note that this error is the same error that is returned by this function.
-//
-func Wait(ctx context.Context, ref types.ManagedObjectReference, pc *property.Collector, s progress.Sinker) (*types.TaskInfo, error) {
+func WaitEx(
+	ctx context.Context,
+	ref types.ManagedObjectReference,
+	pc *property.Collector,
+	s progress.Sinker) (*types.TaskInfo, error) {
+
 	cb := &taskCallback{}
 
 	// Include progress sink if specified
@@ -123,8 +127,29 @@ func Wait(ctx context.Context, ref types.ManagedObjectReference, pc *property.Co
 		defer close(cb.ch)
 	}
 
-	err := property.Wait(ctx, pc, ref, []string{"info"}, cb.fn)
-	if err != nil {
+	filter := &property.WaitFilter{
+		WaitOptions: property.WaitOptions{
+			PropagateMissing: true,
+		},
+	}
+	filter.Add(ref, ref.Type, []string{"info"})
+
+	if err := property.WaitForUpdatesEx(
+		ctx,
+		pc,
+		filter,
+		func(updates []types.ObjectUpdate) bool {
+			for _, update := range updates {
+				// Only look at updates for the expected task object.
+				if update.Obj.Value == ref.Value && update.Obj.Type == ref.Type {
+					if cb.fn(update.ChangeSet) {
+						return true
+					}
+				}
+			}
+			return false
+		}); err != nil {
+
 		return nil, err
 	}
 

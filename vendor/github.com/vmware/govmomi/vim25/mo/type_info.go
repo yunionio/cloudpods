@@ -80,9 +80,12 @@ func buildName(fn string, f reflect.StructField) string {
 		fn += "."
 	}
 
-	motag := f.Tag.Get("mo")
+	motag := f.Tag.Get("json")
 	if motag != "" {
-		return fn + motag
+		tokens := strings.Split(motag, ",")
+		if tokens[0] != "" {
+			return fn + tokens[0]
+		}
 	}
 
 	xmltag := f.Tag.Get("xml")
@@ -157,7 +160,7 @@ func (t *typeInfo) build(typ reflect.Type, fn string, fi []int) {
 
 var nilValue reflect.Value
 
-// assignValue assignes a value 'pv' to the struct pointed to by 'val', given a
+// assignValue assigns a value 'pv' to the struct pointed to by 'val', given a
 // slice of field indices. It recurses into the struct until it finds the field
 // specified by the indices. It creates new values for pointer types where
 // needed.
@@ -255,4 +258,9 @@ func (t *typeInfo) LoadFromObjectContent(o types.ObjectContent) (reflect.Value, 
 	}
 
 	return v, nil
+}
+
+func IsManagedObjectType(kind string) bool {
+	_, ok := t[kind]
+	return ok
 }
