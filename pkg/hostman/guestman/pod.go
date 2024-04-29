@@ -125,7 +125,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 	if status == computeapi.VM_READY {
 		// remove pod
 		if err := s.stopPod(ctx, 1); err != nil {
-			log.Warningf("stop cri pod when sync status: %s", s.Id)
+			log.Warningf("stop cri pod when sync status: %s: %v", s.Id, err)
 		}
 	}
 	statusInput := &apis.PerformStatusInput{
@@ -447,6 +447,9 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 	if err := s.mountPodVolumes(); err != nil {
 		return nil, errors.Wrap(err, "mountPodVolumes")
 	}
+	if err := s.ensurePodRemoved(ctx, 0); err != nil {
+		log.Warningf("ensure pod removed before starting %s: %v", s.GetId(), err)
+	}
 	podCfg := &runtimeapi.PodSandboxConfig{
 		Metadata: &runtimeapi.PodSandboxMetadata{
 			Name:      s.GetDesc().Name,
@@ -535,10 +538,7 @@ func (s *sPodGuestInstance) setPodCgroupResources(criId string, memMB int64, cpu
 	return nil
 }
 
-func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
-	if err := s.umountPodVolumes(); err != nil {
-		return errors.Wrapf(err, "umount pod volumes")
-	}
+func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64) error {
 	if timeout == 0 {
 		timeout = 5
 	}
@@ -557,6 +557,17 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 		}
 	}
 	return nil
+}
+
+func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
+	if err := s.umountPodVolumes(); err != nil {
+		return errors.Wrapf(err, "umount pod volumes")
+	}
+	if timeout == 0 {
+		timeout = 5
+	}
+
+	return s.ensurePodRemoved(ctx, timeout)
 }
 
 func (s *sPodGuestInstance) LoadDesc() error {
