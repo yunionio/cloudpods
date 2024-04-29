@@ -245,8 +245,10 @@ func performDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	if !utils.IsInStringArray(action, []string{"create", "migrate"}) || rebuild {
 		disk, err = storage.GetDiskById(diskId)
 		if err != nil {
-			hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
-			return
+			if errors.Cause(err) != cloudprovider.ErrNotFound || action != "delete" {
+				hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
+				return
+			}
 		}
 	}
 
