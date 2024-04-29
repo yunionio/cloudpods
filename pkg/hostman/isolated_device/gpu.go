@@ -93,6 +93,11 @@ func detectGPUS() ([]*PCIDevice, error) {
 		if err != nil {
 			return nil, err
 		}
+		if ok, err := dev.IsBootVGA(); err != nil {
+			return nil, err
+		} else if ok && !o.HostOptions.UseBootVga {
+			continue
+		}
 		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
 			continue
 		}
