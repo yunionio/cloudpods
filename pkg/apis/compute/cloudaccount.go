@@ -224,6 +224,8 @@ type CloudaccountCreateInput struct {
 	// 货币类型
 	// enmu: CNY, USD
 	Currency string `json:"currency"`
+
+	EnableAutoSyncResource *bool `json:"enable_auto_sync_resource"`
 }
 
 type SProjectMappingResourceInput struct {
@@ -405,6 +407,8 @@ type CloudaccountUpdateInput struct {
 	ReadOnly bool `json:"read_only"`
 
 	Currency string `json:"currency"`
+
+	EnableAutoSyncResource *bool `json:"enable_auto_sync_resource"`
 }
 
 type CloudaccountPerformPublicInput struct {
