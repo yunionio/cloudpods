@@ -123,8 +123,8 @@ func (m *cphAOSPBinderManager) NewContainerDevices(ctrInput *hostapi.ContainerCr
 	return ctrDevs, nil
 }
 
-func (m *cphAOSPBinderManager) GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
-	return nil
+func (m *cphAOSPBinderManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
+	return nil, nil
 }
 
 func (m *cphAOSPBinderManager) ensureBinderDeviceOldWay(dev *hostapi.ContainerIsolatedDevice) error {

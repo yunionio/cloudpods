@@ -166,8 +166,8 @@ func (m *netintDeviceManager) NewContainerDevices(_ *hostapi.ContainerCreateInpu
 	return ctrDevs, nil
 }
 
-func (m *netintDeviceManager) GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
-	return nil
+func (m *netintDeviceManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
+	return nil, nil
 }
 
 type netintDevice struct {

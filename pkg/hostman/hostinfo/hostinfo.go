@@ -2134,9 +2134,16 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		return nil, err
 	}
 	h.IsolatedDeviceMan.ProbePCIDevices(
-		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB, options.HostOptions.DisableCustomDevice,
-		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs, options.HostOptions.AMDVgpuPFs, options.HostOptions.NVIDIAVgpuPFs,
-		enableDevWhitelist)
+		options.HostOptions.DisableGPU,
+		options.HostOptions.DisableUSB,
+		options.HostOptions.DisableCustomDevice,
+		sriovNics, offloadNics,
+		options.HostOptions.PTNVMEConfigs,
+		options.HostOptions.AMDVgpuPFs,
+		options.HostOptions.NVIDIAVgpuPFs,
+		options.HostOptions.EnableCudaMPS,
+		enableDevWhitelist,
+	)
 
 	objs, err := h.getRemoteIsolatedDevices()
 	if err != nil {

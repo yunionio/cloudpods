@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package container_device
 
 import (
@@ -8,7 +22,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/apis/host"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -25,7 +38,7 @@ func newNvidiaGPUManager() *nvidiaGPUManager {
 }
 
 func (m *nvidiaGPUManager) GetType() isolated_device.ContainerDeviceType {
-	return isolated_device.ContainerDeviceTypeNVIDIAGPU
+	return isolated_device.ContainerDeviceTypeNvidiaGpu
 }
 
 func (m *nvidiaGPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
@@ -40,19 +53,19 @@ func (m *nvidiaGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInp
 	return nil, nil
 }
 
-func (m *nvidiaGPUManager) GetContainerEnvs(devs []*host.ContainerDevice) []*runtimeapi.KeyValue {
+func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
 	gpuIds := []string{}
 	for _, dev := range devs {
 		if dev.IsolatedDevice == nil {
 			continue
 		}
-		if isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType) != isolated_device.ContainerDeviceTypeNVIDIAGPU {
+		if isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType) != isolated_device.ContainerDeviceTypeNvidiaGpu {
 			continue
 		}
 		gpuIds = append(gpuIds, dev.IsolatedDevice.Path)
 	}
 	if len(gpuIds) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	return []*runtimeapi.KeyValue{
@@ -64,7 +77,7 @@ func (m *nvidiaGPUManager) GetContainerEnvs(devs []*host.ContainerDevice) []*run
 			Key:   "NVIDIA_DRIVER_CAPABILITIES",
 			Value: "all",
 		},
-	}
+	}, nil
 }
 
 type nvidiaGPU struct {
@@ -76,7 +89,9 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 	// nvidia-smi --query-gpu=gpu_uuid,gpu_name,gpu_bus_id --format=csv
 	// uuid, name, pci.bus_id
 	// GPU-bc1a3bb9-55cb-8c52-c374-4f8b4f388a20, NVIDIA A800-SXM4-80GB, 00000000:10:00.0
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("nvidia-smi", "--query-gpu=gpu_uuid,gpu_name,gpu_bus_id", "--format=csv").Output()
+
+	// nvidia-smi  --query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode --format=csv
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("nvidia-smi", "--query-gpu=gpu_uuid,gpu_name,gpu_bus_id,compute_mode", "--format=csv").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "nvidia-smi")
 	}
@@ -90,14 +105,19 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 			log.Errorf("unknown nvidia-smi out line %s", line)
 			continue
 		}
-		gpuId, gpuName, gpuPciAddr := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2])
+		gpuId, gpuName, gpuPciAddr, computeMode := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2]), strings.TrimSpace(segs[3])
+		if computeMode != "Default" {
+			log.Warningf("gpu device %s compute mode %s, skip.", gpuId, computeMode)
+			continue
+		}
+
 		pciOutput, err := isolated_device.GetPCIStrByAddr(gpuPciAddr)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", gpuPciAddr)
 		}
 		dev := isolated_device.NewPCIDevice2(pciOutput[0])
 		gpuDev := &nvidiaGPU{
-			BaseDevice: NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNVIDIAGPU, gpuId),
+			BaseDevice: NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaGpu, gpuId),
 		}
 		gpuDev.SetModelName(gpuName)
 

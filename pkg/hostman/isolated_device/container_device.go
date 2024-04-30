@@ -36,7 +36,8 @@ const (
 	ContainerDeviceTypeCphASOPBinder ContainerDeviceType = api.CONTAINER_DEV_CPH_AOSP_BINDER
 	ContainerNetintCAASIC            ContainerDeviceType = api.CONTAINER_DEV_NETINT_CA_ASIC
 	ContainerNetintCAQuadra          ContainerDeviceType = api.CONTAINER_DEV_NETINT_CA_QUADRA
-	ContainerDeviceTypeNVIDIAGPU     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU
+	ContainerDeviceTypeNvidiaGpu     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU
+	ContainerDeviceTypeNvidiaMps     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_MPS
 )
 
 func GetContainerDeviceManager(t ContainerDeviceType) (IContainerDeviceManager, error) {
@@ -69,5 +70,5 @@ type IContainerDeviceManager interface {
 	NewDevices(dev *ContainerDevice) ([]IDevice, error)
 	NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, error)
 	ProbeDevices() ([]IDevice, error)
-	GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue
+	GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount)
 }

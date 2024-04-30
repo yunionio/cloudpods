@@ -4195,7 +4195,7 @@ func (self *SGuest) allocSriovNicDevice(
 	}
 	netConfig.SriovDevice.NetworkIndex = &gn.Index
 	netConfig.SriovDevice.WireId = net.WireId
-	err = self.createIsolatedDeviceOnHost(ctx, userCred, host, netConfig.SriovDevice, pendingUsageZone)
+	err = self.createIsolatedDeviceOnHost(ctx, userCred, host, netConfig.SriovDevice, pendingUsageZone, nil)
 	if err != nil {
 		return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
 	}
@@ -4377,7 +4377,7 @@ func (self *SGuest) attachNVMEDevice(
 ) error {
 	gd := self.GetGuestDisk(disk.Id)
 	diskConfig.NVMEDevice.DiskIndex = &gd.Index
-	err := self.createIsolatedDeviceOnHost(ctx, userCred, host, diskConfig.NVMEDevice, pendingUsage)
+	err := self.createIsolatedDeviceOnHost(ctx, userCred, host, diskConfig.NVMEDevice, pendingUsage, nil)
 	if err != nil {
 		return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
 	}
@@ -4518,11 +4518,12 @@ func (self *SGuest) createDiskOnHost(
 }
 
 func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devs []*api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
+	usedDeviceMap := map[string]struct{}{}
 	for _, devConfig := range devs {
 		if devConfig.DevType == api.NIC_TYPE || devConfig.DevType == api.NVME_PT_TYPE {
 			continue
 		}
-		err := self.createIsolatedDeviceOnHost(ctx, userCred, host, devConfig, pendingUsage)
+		err := self.createIsolatedDeviceOnHost(ctx, userCred, host, devConfig, pendingUsage, usedDeviceMap)
 		if err != nil {
 			return err
 		}
@@ -4530,11 +4531,11 @@ func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devConfig *api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
+func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devConfig *api.IsolatedDeviceConfig, pendingUsage quotas.IQuota, usedDevMap map[string]struct{}) error {
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
 
-	err := IsolatedDeviceManager.attachHostDeviceToGuestByDesc(ctx, self, host, devConfig, userCred)
+	err := IsolatedDeviceManager.attachHostDeviceToGuestByDesc(ctx, self, host, devConfig, userCred, usedDevMap)
 	if err != nil {
 		return err
 	}

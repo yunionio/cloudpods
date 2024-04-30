@@ -1007,13 +1007,8 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			}
 			ctrCfg.Devices = append(ctrCfg.Devices, ctrDevs...)
 		}
-
-		nvMan, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceTypeNVIDIAGPU)
-		if err != nil {
-			return "", errors.Wrapf(err, "GetContainerDeviceManager by type %q", isolated_device.ContainerDeviceTypeNVIDIAGPU)
-		}
-		if envs := nvMan.GetContainerEnvs(spec.Devices); len(envs) > 0 {
-			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
+		if err := s.getIsolatedDeviceExtraConfig(spec, ctrCfg); err != nil {
+			return "", err
 		}
 	}
 	if len(spec.Command) != 0 {
@@ -1030,6 +1025,24 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		return "", errors.Wrap(err, "saveContainer")
 	}
 	return criId, nil
+}
+
+func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.ContainerSpec, ctrCfg *runtimeapi.ContainerConfig) error {
+	devTypes := []isolated_device.ContainerDeviceType{isolated_device.ContainerDeviceTypeNvidiaGpu, isolated_device.ContainerDeviceTypeNvidiaMps}
+	for _, devType := range devTypes {
+		devMan, err := isolated_device.GetContainerDeviceManager(devType)
+		if err != nil {
+			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", devType)
+		}
+		envs, mounts := devMan.GetContainerExtraConfigures(spec.Devices)
+		if len(envs) > 0 {
+			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
+		}
+		if len(mounts) > 0 {
+			ctrCfg.Mounts = append(ctrCfg.Mounts, mounts...)
+		}
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) getContainerSystemCpusDir(ctrId string) string {

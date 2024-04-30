@@ -1,0 +1,2 @@
+DESCRIPTION="Yunion MPS Daemon Utility"
+SERVICE="yes"

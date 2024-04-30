@@ -81,8 +81,8 @@ func (m *cphAMDGPUManager) NewContainerDevices(_ *hostapi.ContainerCreateInput, 
 	return []*runtimeapi.Device{cDev}, nil
 }
 
-func (m *cphAMDGPUManager) GetContainerEnvs(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
-	return nil
+func (m *cphAMDGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
+	return nil, nil
 }
 
 type cphAMDGPU struct {
