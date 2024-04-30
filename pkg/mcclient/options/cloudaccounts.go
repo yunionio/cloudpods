@@ -664,10 +664,11 @@ type SCloudAccountUpdateBaseOptions struct {
 	SCloudAccountIdOptions
 	Name string `help:"New name to update"`
 
-	SyncIntervalSeconds *int   `help:"auto synchornize interval in seconds"`
-	AutoCreateProject   *bool  `help:"automatically create local project for new remote project" negative:"no_auto_create_project"`
-	ProxySetting        string `help:"proxy setting name or id" json:"proxy_setting"`
-	SamlAuth            string `help:"Enable or disable saml auth" choices:"true|false"`
+	SyncIntervalSeconds    *int   `help:"auto synchornize interval in seconds"`
+	AutoCreateProject      *bool  `help:"automatically create local project for new remote project" negative:"no_auto_create_project"`
+	EnableAutoSyncResource *bool  `help:"automatically sync resources" negative:"disable_auto_sync_resource"`
+	ProxySetting           string `help:"proxy setting name or id" json:"proxy_setting"`
+	SamlAuth               string `help:"Enable or disable saml auth" choices:"true|false"`
 
 	ReadOnly *bool `help:"is account read only" negative:"no_read_only"`
 

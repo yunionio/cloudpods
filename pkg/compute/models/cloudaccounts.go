@@ -177,6 +177,8 @@ type SCloudaccount struct {
 
 	// 跳过部分资源同步
 	SkipSyncResources *api.SkipSyncResources `length:"medium" get:"user" update:"domain" list:"user"`
+
+	EnableAutoSyncResource tristate.TriState `get:"user" update:"domain" create:"optional" list:"user" default:"true"`
 }
 
 func (acnt *SCloudaccount) IsNotSkipSyncResource(res lockman.ILockedClass) bool {
