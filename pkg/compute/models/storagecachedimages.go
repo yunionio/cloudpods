@@ -385,7 +385,7 @@ func (self *SStoragecachedimage) syncRemoveCloudImage(ctx context.Context, userC
 	defer lockman.ReleaseObject(ctx, self)
 
 	image := self.GetCachedimage()
-	err := self.Detach(ctx, userCred)
+	err := self.Delete(ctx, userCred)
 	if err != nil {
 		return err
 	}
