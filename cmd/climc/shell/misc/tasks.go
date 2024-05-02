@@ -15,41 +15,80 @@
 package misc
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/devtool"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 )
 
 func init() {
-	type RegionTaskListOptions struct {
-		ObjName  string `help:"object name"`
-		ObjId    string `help:"object id"`
-		TaskName string `help:"task name"`
+	cmds := []struct {
+		service string
+		manager modulebase.Manager
+	}{
+		{
+			service: "region",
+			manager: &compute.ComputeTasks,
+		},
+		{
+			service: "devtool",
+			manager: &devtool.DevtoolTasks,
+		},
+		{
+			service: "image",
+			manager: &image.Tasks,
+		},
+		{
+			service: "identity",
+			manager: &identity.Tasks,
+		},
+		{
+			service: "k8s",
+			manager: k8s.KubeTasks,
+		},
+		{
+			service: "notify",
+			manager: &notify.Tasks,
+		},
 	}
-	R(&RegionTaskListOptions{}, "region-task-list", "List tasks on region server", func(s *mcclient.ClientSession, args *RegionTaskListOptions) error {
-		params := jsonutils.Marshal(args)
-		result, err := compute.ComputeTasks.List(s, params)
-		if err != nil {
-			return err
+	for i := range cmds {
+		c := cmds[i]
+		type TaskListOptions struct {
+			apis.TaskListInput
 		}
-		printList(result, compute.ComputeTasks.GetColumns(s))
-		return nil
-	})
+		R(&TaskListOptions{}, fmt.Sprintf("%s-task-list", c.service), "List tasks on region server", func(s *mcclient.ClientSession, args *TaskListOptions) error {
+			params := jsonutils.Marshal(args)
+			result, err := c.manager.List(s, params)
+			if err != nil {
+				return err
+			}
+			printList(result, c.manager.GetColumns(s))
+			return nil
+		})
 
-	type RegionTaskShowOptions struct {
-		ID string `help:"ID or name of the task"`
+		type TaskShowOptions struct {
+			ID string `help:"ID or name of the task"`
+		}
+		R(&TaskShowOptions{}, "region-task-show", "Show details of a region task", func(s *mcclient.ClientSession, args *TaskShowOptions) error {
+			result, err := c.manager.GetById(s, args.ID, nil)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+			return nil
+		})
 	}
-	R(&RegionTaskShowOptions{}, "region-task-show", "Show details of a region task", func(s *mcclient.ClientSession, args *RegionTaskShowOptions) error {
-		result, err := compute.ComputeTasks.Get(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
 
-	type TaskListOptions struct {
+	/*type TaskListOptions struct {
 		ObjName     string `help:"object name"`
 		ObjId       string `help:"object id"`
 		TaskName    string `help:"task name"`
@@ -80,6 +119,6 @@ func init() {
 		}
 		printObject(result)
 		return nil
-	})
+	})*/
 
 }

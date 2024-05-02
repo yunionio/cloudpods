@@ -15,93 +15,17 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/printutils"
-
-	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/tasks"
 )
 
-var (
-	ComputeTasks TasksManager
-	DevtoolTasks TasksManager
-)
-
-type TasksManager struct {
-	modulebase.ResourceManager
-}
+var ComputeTasks tasks.TasksManager
 
 func init() {
-	ComputeTasks = TasksManager{
+	ComputeTasks = tasks.TasksManager{
 		ResourceManager: modules.NewComputeManager("task", "tasks",
 			[]string{},
 			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"}),
 	}
 	modules.RegisterCompute(&ComputeTasks)
-
-	DevtoolTasks = TasksManager{
-		ResourceManager: modules.NewDevtoolManager("task", "tasks",
-			[]string{},
-			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"},
-		),
-	}
-}
-
-func (man TasksManager) TaskComplete(session *mcclient.ClientSession, taskId string, params jsonutils.JSONObject) {
-	modules.TaskComplete(&man, session, taskId, params)
-}
-
-func (man TasksManager) TaskFailed(session *mcclient.ClientSession, taskId string, err error) {
-	man.TaskFailed2(session, taskId, err.Error())
-}
-
-func (man TasksManager) TaskFailed2(session *mcclient.ClientSession, taskId string, reason string) {
-	man.TaskFailed3(session, taskId, reason, nil)
-}
-
-func (man TasksManager) TaskFailed3(session *mcclient.ClientSession, taskId string, reason string, params *jsonutils.JSONDict) {
-	if params == nil {
-		params = jsonutils.NewDict()
-	}
-	params.Add(jsonutils.NewString("error"), "__status__")
-	params.Add(jsonutils.NewString(reason), "__reason__")
-	man.TaskComplete(session, taskId, params)
-}
-
-func (self *TasksManager) getManager(session *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ResourceManager, error) {
-	serviceType := apis.SERVICE_TYPE_REGION
-	if params.Contains("service_type") {
-		serviceType, _ = params.GetString("service_type")
-	}
-
-	version := ""
-	switch serviceType {
-	case apis.SERVICE_TYPE_KEYSTONE:
-		version = "v3"
-	case apis.SERVICE_TYPE_REGION, apis.SERVICE_TYPE_NOTIFY:
-		version = "v2"
-	case apis.SERVICE_TYPE_IMAGE:
-		version = "v1"
-	}
-
-	_, err := session.GetServiceURL(serviceType, "")
-	if err != nil {
-		return nil, httperrors.NewNotFoundError("service %s not found error: %v", serviceType, err)
-	}
-
-	return &modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(serviceType, "", version, []string{}, []string{}),
-		Keyword:     "task", KeywordPlural: "tasks",
-	}, nil
-}
-
-func (this *TasksManager) List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*printutils.ListResult, error) {
-	man, err := this.getManager(session, params)
-	if err != nil {
-		return nil, err
-	}
-	return man.List(session, params)
 }
