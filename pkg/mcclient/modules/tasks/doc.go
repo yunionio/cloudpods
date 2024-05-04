@@ -12,24 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package k8s
-
-import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules/tasks"
-)
-
-var (
-	KubeTasks *tasks.TasksManager
-)
-
-type KubeTasksManager struct {
-	ResourceManager
-}
-
-func init() {
-	k8sResMan := NewResourceManager("task", "tasks", NewColumns(), NewColumns("Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"))
-
-	KubeTasks = &tasks.TasksManager{
-		ResourceManager: k8sResMan.GetBaseManager(),
-	}
-}
+package tasks // import "yunion.io/x/onecloud/pkg/mcclient/modules/tasks"

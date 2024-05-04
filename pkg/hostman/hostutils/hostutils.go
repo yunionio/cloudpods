@@ -119,7 +119,7 @@ func TaskComplete(ctx context.Context, params jsonutils.JSONObject) {
 
 func K8sTaskFailed(ctx context.Context, reason string) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
-		k8s.KubeTasks.TaskFailed(GetK8sSession(ctx), taskId.(string), reason)
+		k8s.KubeTasks.TaskFailed2(GetK8sSession(ctx), taskId.(string), reason)
 	} else {
 		log.Errorf("Reqeuest k8s task failed missing task id, with reason(%s)", reason)
 	}

@@ -36,7 +36,7 @@ func init() {
 		[]string{"id", "ansible_playbook_id", "template_id", "server_id", "name", "day", "hour", "min", "sec", "interval", "start", "enabled", "created_at"},
 		[]string{},
 	)
-	modules.RegisterCompute(&DevToolCronjobs)
+	modules.Register(&DevToolCronjobs)
 
 	DevToolTemplates = modules.NewDevtoolManager(
 		"devtool_template",
@@ -44,7 +44,7 @@ func init() {
 		[]string{"id", "name", "domain_id", "tenant_id", "day", "hour", "min", "sec", "interval", "start", "enabled", "description"},
 		[]string{"is_system"},
 	)
-	modules.RegisterCompute(&DevToolTemplates)
+	modules.Register(&DevToolTemplates)
 
 	DevToolScripts = modules.NewDevtoolManager(
 		"script",
@@ -52,14 +52,15 @@ func init() {
 		[]string{"Id", "Name", "Type", "Playbook_Reference", "Max_Try_Times"},
 		[]string{},
 	)
-	modules.RegisterCompute(&DevToolScripts)
+	modules.Register(&DevToolScripts)
+
 	DevToolScriptApplyRecords = modules.NewDevtoolManager(
 		"scriptapplyrecord",
 		"scriptapplyrecords",
 		[]string{"Script_Id", "Server_Id", "Start_Time", "End_Time", "Reason", "Status"},
 		[]string{},
 	)
-	modules.RegisterCompute(&DevToolScriptApplyRecords)
+	modules.Register(&DevToolScriptApplyRecords)
 
 	DevToolSshInfos = modules.NewDevtoolManager(
 		"sshinfo",
@@ -67,7 +68,7 @@ func init() {
 		[]string{"Id", "Server_Id", "Server_Name", "Server_Hypervisor", "Forward_Id", "User", "Host", "Port", "Need_Clean", "Failed_Reason"},
 		[]string{},
 	)
-	modules.RegisterCompute(&DevToolSshInfos)
+	modules.Register(&DevToolSshInfos)
 
 	DevToolServiceUrls = modules.NewDevtoolManager(
 		"serviceurl",
