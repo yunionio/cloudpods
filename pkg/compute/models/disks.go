@@ -3080,6 +3080,8 @@ func (disk *SDisk) PerformRebuild(
 		if guest.GetStatus() != api.VM_READY {
 			return nil, httperrors.NewInvalidStatusError("Guest %s status is %s", guest.GetId(), guest.GetStatus())
 		}
+		guest.SetStatus(ctx, userCred, api.VM_DISK_RESET, "disk rebuild")
 	}
+	disk.SetStatus(ctx, userCred, api.DISK_REBUILD, "disk rebuild")
 	return nil, disk.StartDiskCreateTask(ctx, userCred, true, disk.SnapshotId, "")
 }
