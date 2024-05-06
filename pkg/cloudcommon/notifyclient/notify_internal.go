@@ -201,9 +201,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 				uidSet.Insert(id)
 			}
 		}
-		for _, uid := range uidSet.UnsortedList() {
-			reIds = append(reIds, uid)
-		}
+		reIds = append(reIds, uidSet.UnsortedList()...)
 	} else {
 		reIds = p.recipientId
 	}
