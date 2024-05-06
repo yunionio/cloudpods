@@ -92,10 +92,16 @@ func (r *SRemoteFile) Fetch(callback func(progress, progressMbps float64, totalS
 		return r.fetch(r.preChksum, callback)
 	}
 	if fileutils2.Exists(r.localPath) {
-		err := r.VerifyIntegrity(callback)
-		if err != nil {
-			log.Warningf("Local path %s file mistmatch, refetch", r.localPath)
-			return r.fetch("", callback)
+		if r.preChksum != "" {
+			err := r.VerifyIntegrity(callback)
+			if err != nil {
+				log.Warningf("Local path %s file mistmatch, refetch", r.localPath)
+				return r.fetch("", callback)
+			}
+		} else {
+			if err := r.FillAttributes(callback); err != nil {
+				return errors.Wrap(err, "fetch remote attribute")
+			}
 		}
 		return nil
 	}
@@ -161,6 +167,13 @@ func (r *SRemoteFile) fetch(preChksum string, callback func(progress, progressMb
 		}
 	}
 	return errors.Wrapf(err, "download")
+}
+
+func (r *SRemoteFile) FillAttributes(callback func(progress, progressMbps float64, totalSizeMb int64)) error {
+	if err := r.download(false, "", callback); err != nil {
+		return errors.Wrap(err, "download attribute data")
+	}
+	return nil
 }
 
 // retry download
