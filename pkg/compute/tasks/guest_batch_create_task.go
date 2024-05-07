@@ -138,6 +138,14 @@ func (task *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		}
 	}
 
+	if len(candidate.CpuNumaPin) > 0 {
+		if err := guest.SetCpuNumaPin(ctx, task.UserCred, candidate.CpuNumaPin, nil); err != nil {
+			log.Errorf("SetCpuNumaPin fail %s", err)
+			guest.SetStatus(ctx, task.UserCred, api.VM_CREATE_FAILED, err.Error())
+			return err
+		}
+	}
+
 	host, _ := guest.GetHost()
 
 	quotaCpuMem := models.SQuota{Count: 1, Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}

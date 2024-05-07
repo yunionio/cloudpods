@@ -58,6 +58,7 @@ type IHost interface {
 	IsHugepagesEnabled() bool
 	HugepageSizeKb() int
 	IsNumaAllocateEnabled() bool
+	CpuCmtBound() int
 
 	IsKvmSupport() bool
 	IsNestedVirtualization() bool

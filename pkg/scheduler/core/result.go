@@ -77,11 +77,23 @@ func (its SchedResultItems) Less(i, j int) bool {
 
 func (item *SchedResultItem) ToCandidateResource(storageUsed *StorageUsed) *schedapi.CandidateResource {
 	return &schedapi.CandidateResource{
-		HostId: item.ID,
-		Name:   item.Name,
-		Disks:  item.getDisks(storageUsed),
-		Nets:   item.Nets,
+		HostId:     item.ID,
+		CpuNumaPin: item.selectCpuNumaPin(),
+		Name:       item.Name,
+		Disks:      item.getDisks(storageUsed),
+		Nets:       item.Nets,
 	}
+}
+
+func (item *SchedResultItem) selectCpuNumaPin() []schedapi.SCpuNumaPin {
+	// if !item.Candidater.Getter().Host().EnableNumaAllocate {
+	// 	return nil
+	// }
+
+	if item.SchedData.LiveMigrate && len(item.SchedData.CpuNumaPin) > 0 {
+		return item.Candidater.AllocCpuNumaPinWithNodeCount(item.SchedData.Ncpu, item.SchedData.Memory, len(item.SchedData.CpuNumaPin))
+	}
+	return item.Candidater.AllocCpuNumaPin(item.SchedData.Ncpu, item.SchedData.Memory*1024)
 }
 
 func (item *SchedResultItem) getDisks(used *StorageUsed) []*schedapi.CandidateDisk {

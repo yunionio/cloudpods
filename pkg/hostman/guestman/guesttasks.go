@@ -2378,27 +2378,31 @@ func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(err string) {
 type SGuestHotplugCpuMemTask struct {
 	*SKVMGuestInstance
 
-	ctx         context.Context
-	addCpuCount int
-	addMemSize  int
+	ctx             context.Context
+	addCpuCount     int
+	addMemSize      int
+	addMemNodeIndex int
 
 	originalCpuCount int
 	addedCpuCount    int
 	addedVcpuIds     []int
+	cpuNumaPin       []*desc.SCpuNumaPin
 
-	addedMemSize    int
-	memSlotNewIndex *int
-	memSlot         *desc.SMemSlot
+	addedMemSize     int
+	memSlotNewIndex  *int
+	memSlotNewIndexs []int
+	memSlots         []*desc.SMemSlot
 }
 
 func NewGuestHotplugCpuMemTask(
-	ctx context.Context, s *SKVMGuestInstance, addCpuCount, addMemSize int,
+	ctx context.Context, s *SKVMGuestInstance, addCpuCount, addMemSize int, cpuNumaPin []*desc.SCpuNumaPin,
 ) *SGuestHotplugCpuMemTask {
 	return &SGuestHotplugCpuMemTask{
 		SKVMGuestInstance: s,
 		ctx:               ctx,
 		addCpuCount:       addCpuCount,
 		addMemSize:        addMemSize,
+		cpuNumaPin:        cpuNumaPin,
 	}
 }
 
@@ -2431,12 +2435,14 @@ func (task *SGuestHotplugCpuMemTask) buildVcpusMap() {
 		}
 	}
 
+	allocatedVcpus := make([]int, 0)
 	for i := range task.Desc.CpuNumaPin {
-		if task.Desc.CpuNumaPin[i].Vcpus != nil {
-			allocedVcpus, _ := cpuset.Parse(*task.Desc.CpuNumaPin[i].Vcpus)
-			vcpuSet = vcpuSet.Difference(allocedVcpus)
+		for j := range task.Desc.CpuNumaPin[i].VcpuPin {
+			allocatedVcpus = append(allocatedVcpus, task.Desc.CpuNumaPin[i].VcpuPin[j].Vcpu)
 		}
 	}
+	allocatedCpuset := cpuset.NewCPUSet(allocatedVcpus...)
+	vcpuSet = vcpuSet.Difference(allocatedCpuset)
 
 	task.startAddCpusWithFreeVcpuSet(vcpuSet.ToSlice())
 }
@@ -2455,17 +2461,29 @@ func (task *SGuestHotplugCpuMemTask) startAddCpusWithFreeVcpuSet(vcpuSet []int) 
 			return
 		}
 
-		cpus, _ := task.manager.cpuSet.AllocCpuset(1, 0, -1)
-		for _, cpus := range cpus {
-			pcpus := cpuset.NewCPUSet(cpus.Cpuset...).String()
-			vcpus := fmt.Sprintf("%d-%d", vcpuId, vcpuId)
-			cpuPin := &desc.SCpuNumaPin{
-				SizeMB:  0,
-				Pcpus:   &pcpus,
-				Vcpus:   &vcpus,
-				Regular: true,
+		if len(task.cpuNumaPin) > 0 {
+			for i := range task.cpuNumaPin {
+				for j := range task.cpuNumaPin[i].VcpuPin {
+					if task.cpuNumaPin[i].VcpuPin[j].Vcpu == -1 {
+						task.cpuNumaPin[i].VcpuPin[j].Vcpu = vcpuId
+					}
+				}
 			}
-			task.Desc.CpuNumaPin = append(task.Desc.CpuNumaPin, cpuPin)
+		} else {
+			cpus, _ := task.manager.cpuSet.AllocCpuset(1, 0, -1)
+			for _, cpus := range cpus {
+				//pcpus := cpuset.NewCPUSet(cpus.Cpuset...).String()
+				//vcpus := fmt.Sprintf("%d-%d", vcpuId, vcpuId)
+				vcpuPin := make([]desc.SVCpuPin, 1)
+				vcpuPin[0].Pcpu = cpus.Cpuset[0]
+				vcpuPin[0].Vcpu = vcpuId
+				cpuPin := &desc.SCpuNumaPin{
+					SizeMB:    0,
+					VcpuPin:   vcpuPin,
+					Unregular: false,
+				}
+				task.Desc.CpuNumaPin = append(task.Desc.CpuNumaPin, cpuPin)
+			}
 		}
 		if task.addedVcpuIds == nil {
 			task.addedVcpuIds = []int{vcpuId}
@@ -2514,6 +2532,21 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 	var newIndex = index + len(task.Desc.MemDesc.Mem.Mems)
 	task.memSlotNewIndex = &newIndex
 
+	var addMemSize = task.addMemSize
+	var numaNodeDesc *desc.SCpuNumaPin
+	for i := task.addMemNodeIndex; i < len(task.cpuNumaPin); i++ {
+		if task.cpuNumaPin[i].SizeMB > 0 {
+			task.addMemNodeIndex = i + 1
+			numaNodeDesc = task.cpuNumaPin[i]
+			addMemSize = int(task.cpuNumaPin[i].SizeMB)
+			break
+		}
+	}
+	var hostNodes *uint16
+	if numaNodeDesc != nil {
+		hostNodes = numaNodeDesc.NodeId
+	}
+
 	var objType string
 	var id = fmt.Sprintf("mem%d", *task.memSlotNewIndex)
 	var opts map[string]string
@@ -2529,7 +2562,7 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 			return
 		}
 		err = procutils.NewRemoteCommandAsFarAsPossible("mount", "-t", "hugetlbfs", "-o",
-			fmt.Sprintf("pagesize=%dK,size=%dM", task.manager.host.HugepageSizeKb(), task.addMemSize),
+			fmt.Sprintf("pagesize=%dK,size=%dM", task.manager.host.HugepageSizeKb(), addMemSize),
 			fmt.Sprintf("hugetlbfs-%s-%d", task.GetId(), index),
 			memPath,
 		).Run()
@@ -2542,11 +2575,17 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 
 		objType = "memory-backend-file"
 		opts = map[string]string{
-			"size":     fmt.Sprintf("%dM", task.addMemSize),
+			"size":     fmt.Sprintf("%dM", addMemSize),
 			"mem-path": memPath,
 			"share":    "on",
 			"prealloc": "on",
 		}
+
+		if hostNodes != nil {
+			opts["host-nodes"] = fmt.Sprintf("%d", *hostNodes)
+			opts["policy"] = "bind"
+		}
+
 	} else {
 		objType = "memory-backend-ram"
 		opts = map[string]string{
@@ -2555,14 +2594,12 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 	}
 	opts["id"] = id
 	cb := func(reason string) {
-		if reason == "" {
-			memObj := desc.NewMemDesc(objType, id, nil, nil)
-			memObj.Options = opts
-			task.memSlot = new(desc.SMemSlot)
-			task.memSlot.MemObj = memObj
-			task.memSlot.SizeMB = int64(task.addMemSize)
-		}
-		task.onAddMemObject(reason)
+		memObj := desc.NewMemDesc(objType, id, nil, nil)
+		memObj.Options = opts
+		memSlot := new(desc.SMemSlot)
+		memSlot.MemObj = memObj
+		memSlot.SizeMB = int64(addMemSize)
+		task.onAddMemObject(reason, memSlot)
 	}
 	task.Monitor.ObjectAdd(objType, opts, cb)
 }
@@ -2574,7 +2611,7 @@ func (task *SGuestHotplugCpuMemTask) onAddMemFailed(reason string) {
 	task.onFail(reason)
 }
 
-func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string) {
+func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string, memSlot *desc.SMemSlot) {
 	if len(reason) > 0 {
 		task.onAddMemFailed(reason)
 		return
@@ -2585,39 +2622,59 @@ func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string) {
 	}
 	cb := func(reason string) {
 		if reason == "" {
-			task.memSlot.MemDev = &desc.SMemDevice{
+			memSlot.MemDev = &desc.SMemDevice{
 				Type: "pc-dimm",
 				Id:   fmt.Sprintf("dimm%d", *task.memSlotNewIndex),
 			}
 		}
-		task.onAddMemDevice(reason)
+		task.onAddMemDevice(reason, memSlot)
 	}
 
 	task.Monitor.DeviceAdd("pc-dimm", params, cb)
 }
 
-func (task *SGuestHotplugCpuMemTask) onAddMemDevice(reason string) {
+func (task *SGuestHotplugCpuMemTask) onAddMemDevice(reason string, memSlot *desc.SMemSlot) {
 	if len(reason) > 0 {
 		task.onAddMemFailed(reason)
 		return
 	}
-	task.addedMemSize = task.addMemSize
-	task.onSucc()
+	task.addedMemSize = int(memSlot.SizeMB)
+	task.addMemSize -= int(memSlot.SizeMB)
+	if task.memSlots == nil {
+		task.memSlots = []*desc.SMemSlot{memSlot}
+		task.memSlotNewIndexs = []int{*task.memSlotNewIndex}
+	} else {
+		task.memSlots = append(task.memSlots, memSlot)
+		task.memSlotNewIndexs = append(task.memSlotNewIndexs, *task.memSlotNewIndex)
+	}
+
+	if task.addMemSize > 0 {
+		task.startAddMem()
+	} else {
+		task.onSucc()
+	}
 }
 
 func (task *SGuestHotplugCpuMemTask) updateGuestDesc() {
 	task.Desc.Cpu += int64(task.addedCpuCount)
 	task.Desc.CpuDesc.Cpus += uint(task.addedCpuCount)
 	task.Desc.Mem += int64(task.addedMemSize)
+
+	if len(task.cpuNumaPin) > 0 {
+		task.Desc.CpuNumaPin = append(task.Desc.CpuNumaPin, task.cpuNumaPin...)
+	}
+
 	if task.addedMemSize > 0 {
 		if task.Desc.MemDesc.MemSlots == nil {
 			task.Desc.MemDesc.MemSlots = make([]*desc.SMemSlot, 0)
 		}
-		task.Desc.MemDesc.MemSlots = append(task.Desc.MemDesc.MemSlots, task.memSlot)
+		task.Desc.MemDesc.MemSlots = append(task.Desc.MemDesc.MemSlots, task.memSlots...)
 
 		if task.manager.numaAllocate {
-			hugepageId := fmt.Sprintf("%s-%d", task.getOriginId(), *task.memSlotNewIndex)
-			task.validateNumaAllocated(hugepageId, false, true, nil)
+			for i := range task.memSlotNewIndexs {
+				hugepageId := fmt.Sprintf("%s-%d", task.getOriginId(), task.memSlotNewIndexs[i])
+				task.validateNumaAllocated(hugepageId, false, true, nil)
+			}
 		}
 	}
 
@@ -2656,7 +2713,12 @@ func (task *SGuestHotplugCpuMemTask) onFail(reason string) {
 
 func (task *SGuestHotplugCpuMemTask) onSucc() {
 	task.updateGuestDesc()
-	hostutils.TaskComplete(task.ctx, nil)
+
+	res := jsonutils.NewDict()
+	if len(task.cpuNumaPin) > 0 {
+		res.Set("cpu_numa_pin", jsonutils.Marshal(task.Desc.CpuNumaPin))
+	}
+	hostutils.TaskComplete(task.ctx, res)
 }
 
 type SGuestBlockIoThrottleTask struct {

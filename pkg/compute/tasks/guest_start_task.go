@@ -101,6 +101,11 @@ func (self *GuestSchedStartTask) OnInit(ctx context.Context, obj db.IStandaloneM
 }
 
 func (self *GuestSchedStartTask) StartScheduler(ctx context.Context, guest *models.SGuest) {
+	if guest.CpuNumaPin != nil {
+		self.ScheduleFailed(ctx, guest)
+		return
+	}
+
 	host, _ := guest.GetHost()
 	if request := host.GetRunningGuestResourceUsage(); request == nil {
 		self.TaskFailed(ctx, guest, jsonutils.NewString("Guest Start Failed: Can't Get Host Guests CPU Memory Usage"))
@@ -119,7 +124,13 @@ func (self *GuestSchedStartTask) StartScheduler(ctx context.Context, guest *mode
 
 func (self *GuestSchedStartTask) ScheduleFailed(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnGuestMigrate", nil)
-	guest.StartMigrateTask(ctx, self.UserCred, false, false, guest.Status, "", self.GetId())
+
+	preferHostId := ""
+	if guest.CpuNumaPin != nil {
+		preferHostId = guest.HostId
+	}
+
+	guest.StartMigrateTask(ctx, self.UserCred, false, false, guest.Status, preferHostId, self.GetId())
 }
 
 func (self *GuestSchedStartTask) OnGuestMigrate(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

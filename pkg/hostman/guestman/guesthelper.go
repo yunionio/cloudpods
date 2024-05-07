@@ -100,6 +100,8 @@ type SGuestHotplugCpuMem struct {
 	Sid         string
 	AddCpuCount int64
 	AddMemSize  int64
+
+	CpuNumaPin []*desc.SCpuNumaPin
 }
 
 type SReloadDisk struct {
@@ -199,7 +201,7 @@ type CpuSetCounter struct {
 	Lock        sync.Mutex
 }
 
-func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUSet, numaAllocate bool, hugepageSizeKB int) (*CpuSetCounter, error) {
+func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUSet, numaAllocate bool, hugepageSizeKB, cpuCmtbound int) (*CpuSetCounter, error) {
 	cpuSetCounter := new(CpuSetCounter)
 	cpuSetCounter.Nodes = make([]*NumaNode, len(info.Nodes))
 	cpuSetCounter.NumaEnabled = numaAllocate
@@ -226,6 +228,8 @@ func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUS
 			cpuDie.LogicalProcessors = dieBuilder.Result()
 			node.CpuCount += cpuDie.LogicalProcessors.Size()
 			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
+			cpuDie.initCpuFree(cpuCmtbound)
+
 			cpuDies = append(cpuDies, cpuDie)
 		}
 		if !hasL3Cache {
@@ -242,11 +246,14 @@ func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUS
 			cpuDie.LogicalProcessors = dieBuilder.Result()
 			node.CpuCount += cpuDie.LogicalProcessors.Size()
 			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
+			cpuDie.initCpuFree(cpuCmtbound)
+
 			cpuDies = append(cpuDies, cpuDie)
 		}
 
 		hasL3Cache = false
 		node.CpuDies = cpuDies
+		sort.Sort(node.CpuDies)
 		cpuSetCounter.Nodes[i] = node
 	}
 	sort.Sort(cpuSetCounter)
@@ -277,9 +284,9 @@ func (pq *CpuSetCounter) AllocCpusetWithNodeCount(vcpuCount int, memSizeKB int64
 				remPcpuCount -= 1
 			}
 			res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-				Cpuset:    pq.Nodes[i].AllocCpuset(npcpuCount),
+				Cpuset:    pq.Nodes[i].AllocCpuset1(npcpuCount),
 				MemSizeKB: nodeAllocSize,
-				Regular:   true,
+				Unregular: false,
 			}
 			pq.Nodes[i].NumaHugeFreeMemSizeKB -= nodeAllocSize
 			pq.Nodes[i].VcpuCount += npcpuCount
@@ -292,7 +299,7 @@ type SAllocNumaCpus struct {
 	Cpuset    []int
 	MemSizeKB int64
 
-	Regular bool
+	Unregular bool
 }
 
 func (pq *CpuSetCounter) IsNumaEnabled() bool {
@@ -336,9 +343,9 @@ func (pq *CpuSetCounter) AllocNumaNodes(vcpuCount int, memSizeKB int64, perferNu
 			}
 			if pq.Nodes[i].NumaHugeFreeMemSizeKB >= memSizeKB {
 				res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-					Cpuset:    pq.Nodes[i].AllocCpuset(vcpuCount),
+					Cpuset:    pq.Nodes[i].AllocCpuset1(vcpuCount),
 					MemSizeKB: memSizeKB,
-					Regular:   true,
+					Unregular: false,
 				}
 				pq.Nodes[i].NumaHugeFreeMemSizeKB -= memSizeKB
 				pq.Nodes[i].VcpuCount += vcpuCount
@@ -373,9 +380,9 @@ func (pq *CpuSetCounter) AllocNumaNodes(vcpuCount int, memSizeKB int64, perferNu
 					remPcpuCount -= 1
 				}
 				res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-					Cpuset:    pq.Nodes[i].AllocCpuset(npcpuCount),
+					Cpuset:    pq.Nodes[i].AllocCpuset1(npcpuCount),
 					MemSizeKB: nodeAllocSize,
-					Regular:   true,
+					Unregular: false,
 				}
 				pq.Nodes[i].NumaHugeFreeMemSizeKB -= nodeAllocSize
 				pq.Nodes[i].VcpuCount += npcpuCount
@@ -416,9 +423,9 @@ func (pq *CpuSetCounter) setNumaNodes(numaMaps map[int]int, vcpuCount int64) map
 			allocMem := int64(size) * 1024
 			//npcpuCount := int(vcpuCount*allocMem/memSizeKB + (vcpuCount*allocMem)%memSizeKB)
 			res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-				Cpuset:    pq.Nodes[i].AllocCpuset(int(vcpuCount)),
+				Cpuset:    pq.Nodes[i].AllocCpuset1(int(vcpuCount)),
 				MemSizeKB: allocMem,
-				Regular:   false,
+				Unregular: true,
 			}
 
 			pq.Nodes[i].NumaHugeFreeMemSizeKB -= allocMem
@@ -568,6 +575,62 @@ func NewNumaNode(nodeId int, numaAllocate bool, hugepageSizeKB int) (*NumaNode, 
 	return n, nil
 }
 
+func (n *NumaNode) AllocCpuset1(vcpuCount int) []int {
+	var allocCount = vcpuCount
+	var dieCnt = 0
+
+	// If request vcpu count great then node cpucount,
+	// vcpus should evenly distributed to all dies.
+	// Otherwise figure out how many dies can hold
+	// all of vcpus at first, and evenly distributed
+	// to selected dies.
+	if vcpuCount > n.CpuCount {
+		dieCnt = len(n.CpuDies)
+	} else {
+		var pcpuCount = 0
+		for dieCnt < len(n.CpuDies) {
+			pcpuCount += n.CpuDies[dieCnt].LogicalProcessors.Size()
+			dieCnt += 1
+
+			if pcpuCount >= vcpuCount {
+				break
+			}
+		}
+	}
+
+	var perDieCpuCount = vcpuCount / dieCnt
+	var allocCpuCountMap = make([]int, dieCnt)
+	for allocCount > 0 {
+		for i := 0; i < dieCnt; i++ {
+			var allocNum = perDieCpuCount
+			if allocCount < allocNum {
+				allocNum = allocCount
+			}
+			allocCount -= allocNum
+			allocCpuCountMap[i] += allocNum
+		}
+	}
+
+	var pcpus = make([]int, 0)
+	for i := 0; i < len(allocCpuCountMap); i++ {
+		var allocCpuCount = allocCpuCountMap[i]
+		for allocCpuCount > 0 {
+			pcpus := n.CpuDies[i].LogicalProcessors.ToSliceNoSort()
+			for j := 0; j < len(pcpus); j++ {
+				if n.CpuDies[i].CpuFree[pcpus[j]] > 0 {
+					pcpus = append(pcpus, n.CpuDies[i].CpuFree[pcpus[j]])
+					n.CpuDies[i].CpuFree[pcpus[j]] -= 1
+				}
+				allocCpuCount -= 1
+				if allocCpuCount <= 0 {
+					break
+				}
+			}
+		}
+	}
+	return pcpus
+}
+
 func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
 	cpus := make([]int, 0)
 
@@ -587,8 +650,17 @@ func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
 }
 
 type CPUDie struct {
+	CpuFree           map[int]int
 	LogicalProcessors cpuset.CPUSet
 	VcpuCount         int
+}
+
+func (d *CPUDie) initCpuFree(cpuCmtbound int) {
+	cpuFree := map[int]int{}
+	for _, cpuId := range d.LogicalProcessors.ToSliceNoSort() {
+		cpuFree[cpuId] = cpuCmtbound
+	}
+	d.CpuFree = cpuFree
 }
 
 type SorttedCPUDie []*CPUDie
@@ -633,7 +705,11 @@ func (pq *SorttedCPUDie) ReleaseCpus(cpus []int, vcpuCount int) {
 
 	for i := 0; i < len(*pq); i++ {
 		if _, ok := cpuDies[i]; ok {
-			(*pq)[i].VcpuCount -= vcpuCount
+			d := (*pq)[i]
+			for _, cpu := range cpus {
+				d.CpuFree[cpu] += 1
+			}
+			d.VcpuCount -= vcpuCount
 		}
 	}
 	sort.Sort(pq)
@@ -655,8 +731,12 @@ func (pq *SorttedCPUDie) LoadCpus(cpus []int, vcpuCount int) {
 	}
 
 	for i := 0; i < len(*pq); i++ {
-		if _, ok := cpuDies[i]; ok {
-			(*pq)[i].VcpuCount += vcpuCount
+		if cpus, ok := cpuDies[i]; ok {
+			d := (*pq)[i]
+			for _, cpu := range cpus {
+				d.CpuFree[cpu] -= 1
+			}
+			d.VcpuCount += vcpuCount
 		}
 	}
 	sort.Sort(pq)

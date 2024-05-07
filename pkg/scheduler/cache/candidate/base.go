@@ -439,7 +439,7 @@ func (b BaseHostDesc) GetSchedDesc() *jsonutils.JSONDict {
 func (b *BaseHostDesc) GetPendingUsage() *schedmodels.SPendingUsage {
 	usage, err := schedmodels.HostPendingUsageManager.GetPendingUsage(b.GetId())
 	if err != nil {
-		return schedmodels.NewPendingUsageBySchedInfo(b.GetId(), nil)
+		return schedmodels.NewPendingUsageBySchedInfo(b.GetId(), nil, nil)
 	}
 	return usage
 }
