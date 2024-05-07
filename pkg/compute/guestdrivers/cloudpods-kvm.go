@@ -49,7 +49,7 @@ func (self *SCloudpodsGuestDriver) DoScheduleSKUFilter() bool { return false }
 func (self *SCloudpodsGuestDriver) DoScheduleStorageFilter() bool { return true }
 
 func (self *SCloudpodsGuestDriver) GetHypervisor() string {
-	return api.HYPERVISOR_CLOUDPODS
+	return api.HYPERVISOR_DEFAULT
 }
 
 func (self *SCloudpodsGuestDriver) GetProvider() string {
@@ -124,7 +124,7 @@ func (self *SCloudpodsGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacScop
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_CLOUDPODS
 	keys.Brand = brand
-	keys.Hypervisor = api.HYPERVISOR_CLOUDPODS
+	keys.Hypervisor = api.HYPERVISOR_DEFAULT
 	return keys
 }
 

@@ -68,8 +68,14 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnDetachDiskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+
 	self.SetStage("OnDetachDiskComplete", nil)
-	err = guest.GetDriver().RequestDetachDisk(ctx, guest, disk, self)
+	err = drv.RequestDetachDisk(ctx, guest, disk, self)
 	if err != nil {
 		self.OnDetachDiskCompleteFailed(ctx, guest, jsonutils.Marshal(map[string]string{"error": err.Error()}))
 	}
@@ -114,7 +120,12 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 		if cnt == 0 {
 			self.SetStage("OnDiskDeleteComplete", nil)
 			db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
-			err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
+			drv, err := guest.GetDriver()
+			if err != nil {
+				self.OnTaskFail(ctx, guest, disk, jsonutils.NewString(err.Error()))
+				return
+			}
+			err = drv.RequestDeleteDetachedDisk(ctx, disk, self, purge)
 			if err != nil {
 				self.OnTaskFail(ctx, guest, disk, jsonutils.NewString(err.Error()))
 			}

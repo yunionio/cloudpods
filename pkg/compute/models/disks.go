@@ -421,7 +421,7 @@ func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskUpdateInput) (api.DiskUpdateInput, error) {
+func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.DiskUpdateInput) (*api.DiskUpdateInput, error) {
 	var err error
 
 	if input.DiskType != "" {
@@ -435,12 +435,17 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		return input, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
 	}
 
-	host, _ := storage.GetMasterHost()
-	if host == nil {
-		return input, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
+	host, err := storage.GetMasterHost()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMasterHost")
 	}
 
-	input, err = host.GetHostDriver().ValidateUpdateDisk(ctx, userCred, input)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHostDriver")
+	}
+
+	input, err = driver.ValidateUpdateDisk(ctx, userCred, input)
 	if err != nil {
 		return input, errors.Wrap(err, "GetHostDriver().ValidateUpdateDisk")
 	}
@@ -461,36 +466,48 @@ func (man *SDiskManager) BatchCreateValidateCreateData(ctx context.Context, user
 	return input.JSON(input), nil
 }
 
-func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
-	// input.Hypervisor must be set
-	brand := guessBrandForHypervisor(input.Hypervisor)
-	keys := GetDriver(input.Hypervisor).GetComputeQuotaKeys(
-		rbacscope.ScopeProject,
-		ownerId,
-		brand,
-	)
+func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) (SComputeResourceKeys, error) {
+	var keys SComputeResourceKeys
 	if len(input.PreferHost) > 0 {
-		hostObj, _ := HostManager.FetchById(input.PreferHost)
+		hostObj, err := HostManager.FetchById(input.PreferHost)
+		if err != nil {
+			return keys, err
+		}
 		host := hostObj.(*SHost)
-		zone, _ := host.GetZone()
-		keys.ZoneId = zone.Id
-		keys.RegionId = zone.CloudregionId
-	} else if len(input.PreferZone) > 0 {
-		zoneObj, _ := ZoneManager.FetchById(input.PreferZone)
-		zone := zoneObj.(*SZone)
-		keys.ZoneId = zone.Id
-		keys.RegionId = zone.CloudregionId
-	} else if len(input.PreferWire) > 0 {
-		wireObj, _ := WireManager.FetchById(input.PreferWire)
-		wire := wireObj.(*SWire)
-		zone, _ := wire.GetZone()
-		keys.ZoneId = zone.Id
-		keys.RegionId = zone.CloudregionId
-	} else if len(input.PreferRegion) > 0 {
-		regionObj, _ := CloudregionManager.FetchById(input.PreferRegion)
-		keys.RegionId = regionObj.GetId()
+		input.PreferZone = host.ZoneId
+		keys.ZoneId = host.ZoneId
 	}
-	return keys
+	if len(input.PreferWire) > 0 {
+		wireObj, err := WireManager.FetchById(input.PreferWire)
+		if err != nil {
+			return keys, err
+		}
+		wire := wireObj.(*SWire)
+		if len(wire.ZoneId) > 0 {
+			input.PreferZone = wire.ZoneId
+			keys.ZoneId = wire.ZoneId
+		}
+	}
+	if len(input.PreferZone) > 0 {
+		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
+		if err != nil {
+			return keys, err
+		}
+		zone := zoneObj.(*SZone)
+		input.PreferRegion = zone.CloudregionId
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	}
+	if len(input.PreferRegion) > 0 {
+		regionObj, err := CloudregionManager.FetchById(input.PreferRegion)
+		if err != nil {
+			return keys, err
+		}
+		region := regionObj.(*SCloudregion)
+		keys.RegionId = region.GetId()
+		keys.Brand = region.Provider
+	}
+	return keys, nil
 }
 
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DiskCreateInput) (api.DiskCreateInput, error) {
@@ -522,11 +539,15 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 			return input, httperrors.NewResourceNotReadyError("cloudprovider %s not available", provider.Name)
 		}
 
-		host, _ := storage.GetMasterHost()
-		if host == nil {
-			return input, httperrors.NewResourceNotFoundError("storage %s(%s) need online and attach host for create disk", storage.Name, storage.Id)
+		host, err := storage.GetMasterHost()
+		if err != nil {
+			return input, errors.Wrapf(err, "GetMasterHost")
 		}
-		input.Hypervisor = host.GetHostDriver().GetHypervisor()
+		hostDriver, err := host.GetHostDriver()
+		if err != nil {
+			return input, errors.Wrapf(err, "GetHostDriver")
+		}
+		input.Hypervisor = hostDriver.GetHypervisor()
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = storage.StorageType
 		}
@@ -571,7 +592,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		encInput := input.EncryptedResourceCreateInput
 		input = *serverInput.ToDiskCreateInput()
 		input.EncryptedResourceCreateInput = encInput
-		quotaKey = diskCreateInput2ComputeQuotaKeys(input, ownerId)
+		quotaKey, _ = diskCreateInput2ComputeQuotaKeys(input, ownerId)
 	}
 
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
@@ -611,10 +632,15 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 	var guestdriver IGuestDriver = nil
 	if host, _ := storage.GetMasterHost(); host != nil {
 		//公有云磁盘大小检查。
-		if err := host.GetHostDriver().ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
+		hostDriver, err := host.GetHostDriver()
+		if err != nil {
+			return errors.Wrapf(err, "GetHostDriver")
+		}
+		if err := hostDriver.ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError("%v", err)
 		}
-		guestdriver = GetDriver(api.HOSTTYPE_HYPERVISOR[host.HostType])
+
+		guestdriver, _ = GetDriver(hostDriver.GetHypervisor(), hostDriver.GetProvider())
 	}
 	hoststorages := HoststorageManager.Query().SubQuery()
 	hoststorage := make([]SHoststorage, 0)
@@ -705,7 +731,7 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 			input.Hypervisor,
 		)
 	} else {
-		quotaKey = diskCreateInput2ComputeQuotaKeys(input, ownerId)
+		quotaKey, _ = diskCreateInput2ComputeQuotaKeys(input, ownerId)
 	}
 	req.SetKeys(quotaKey)
 	return req
@@ -846,11 +872,15 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 		input.ExistingPath = ePath
 	}
 
-	if rebuild {
-		return host.GetHostDriver().RequestRebuildDiskOnStorage(ctx, host, storage, self, task, input)
-	} else {
-		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, userCred, host, storage, self, task, input)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetHostDriver")
 	}
+
+	if rebuild {
+		return driver.RequestRebuildDiskOnStorage(ctx, host, storage, self, task, input)
+	}
+	return driver.RequestAllocateDiskOnStorage(ctx, userCred, host, storage, self, task, input)
 }
 
 // make snapshot after reset out of chain
@@ -914,8 +944,13 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewBadRequestError("Cannot reset disk %s(%s),Snapshot is belong to disk %s", self.Name, self.Id, snapshot.DiskId)
 	}
 
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHostDriver")
+	}
+
 	guests := self.GetGuests()
-	input, err = host.GetHostDriver().ValidateResetDisk(ctx, userCred, self, snapshot, guests, input)
+	input, err = driver.ValidateResetDisk(ctx, userCred, self, snapshot, guests, input)
 	if err != nil {
 		return nil, err
 	}
@@ -1032,7 +1067,10 @@ func (disk *SDisk) getHypervisor() string {
 	if storage != nil {
 		host, _ := storage.GetMasterHost()
 		if host != nil {
-			return host.GetHostDriver().GetHypervisor()
+			driver, _ := host.GetHostDriver()
+			if driver != nil {
+				return driver.GetHypervisor()
+			}
 		}
 	}
 	hypervisor := disk.GetMetadata(context.Background(), "hypervisor", nil)
@@ -1079,10 +1117,14 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 
 	var guestdriver IGuestDriver
 	if host, _ := storage.GetMasterHost(); host != nil {
-		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
+		hostDriver, err := host.GetHostDriver()
+		if err != nil {
+			return errors.Wrapf(err, "GetHostDriver")
+		}
+		if err := hostDriver.ValidateDiskSize(storage, sizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError("%v", err)
 		}
-		guestdriver = GetDriver(api.HOSTTYPE_HYPERVISOR[host.HostType])
+		guestdriver, _ = GetDriver(hostDriver.GetHypervisor(), hostDriver.GetProvider())
 	}
 	if guestdriver == nil || guestdriver.DoScheduleStorageFilter() {
 		if int64(addDisk) > storage.GetFreeCapacity() && !storage.IsEmulated {
@@ -1879,7 +1921,7 @@ func totalDiskSize(
 		hosts := HostManager.Query().SubQuery()
 		q = q.Join(hoststorages, sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")))
 		q = q.Join(hosts, sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")))
-		q = q.Filter(sqlchemy.In(hosts.Field("host_type"), api.Hypervisors2HostTypes(hypervisors)))
+		q = q.Filter(sqlchemy.In(hosts.Field("host_type"), Hypervisors2HostTypes(hypervisors)))
 	}
 	if !active.IsNone() {
 		if active.IsTrue() {

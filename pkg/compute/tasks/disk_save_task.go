@@ -80,7 +80,12 @@ func (self *DiskSaveTask) StartBackupDisk(ctx context.Context, disk *models.SDis
 	self.SetStage("OnDiskBackupComplete", nil)
 	disk.SetStatus(ctx, self.GetUserCred(), api.DISK_SAVING, "")
 	imageId, _ := self.GetParams().GetString("image_id")
-	err := host.GetHostDriver().RequestPrepareSaveDiskOnHost(ctx, host, disk, imageId, self)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		self.taskFailed(ctx, disk, errors.Wrapf(err, "GetHostDriver"))
+		return
+	}
+	err = driver.RequestPrepareSaveDiskOnHost(ctx, host, disk, imageId, self)
 	if err != nil {
 		self.taskFailed(ctx, disk, errors.Wrapf(err, "RequestPrepareSaveDiskOnHost"))
 		return
@@ -122,8 +127,12 @@ func (self *DiskSaveTask) RefreshImageCache(ctx context.Context, imageId string)
 }
 
 func (self *DiskSaveTask) UploadDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, data *jsonutils.JSONDict) error {
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetHostDriver")
+	}
 	self.SetStage("OnUploadDiskComplete", nil)
-	return host.GetHostDriver().RequestSaveUploadImageOnHost(ctx, host, disk, imageId, self, jsonutils.Marshal(data))
+	return driver.RequestSaveUploadImageOnHost(ctx, host, disk, imageId, self, jsonutils.Marshal(data))
 }
 
 func (self *DiskSaveTask) OnUploadDiskComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {

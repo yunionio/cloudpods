@@ -62,11 +62,15 @@ func (d SManagedVirtualizedGuestDriver) DoScheduleStorageFilter() bool { return 
 func (d SManagedVirtualizedGuestDriver) DoScheduleCloudproviderTagFilter() bool { return true }
 
 func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	driver, err := guest.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	config := cloudprovider.SManagedVMCreateConfig{
-		IsNeedInjectPasswordByCloudInit: guest.GetDriver().IsNeedInjectPasswordByCloudInit(),
-		UserDataType:                    guest.GetDriver().GetUserDataType(),
-		WindowsUserDataType:             guest.GetDriver().GetWindowsUserDataType(),
-		IsWindowsUserDataTypeNeedEncode: guest.GetDriver().IsWindowsUserDataTypeNeedEncode(),
+		IsNeedInjectPasswordByCloudInit: driver.IsNeedInjectPasswordByCloudInit(),
+		UserDataType:                    driver.GetUserDataType(),
+		WindowsUserDataType:             driver.GetWindowsUserDataType(),
+		IsWindowsUserDataTypeNeedEncode: driver.IsWindowsUserDataTypeNeedEncode(),
 	}
 	config.Name = guest.Name
 	config.NameEn = pinyinutils.Text2Pinyin(guest.Name)
@@ -100,7 +104,6 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 		config.IpAddr = nics[0].IpAddr
 	}
 
-	var err error
 	provider := host.GetCloudprovider()
 	config.ProjectId, err = provider.SyncProject(ctx, userCred, guest.ProjectId)
 	if err != nil {
@@ -500,7 +503,11 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 		ImageType      string
 	}{}
 	config.Unmarshal(&osInfo, "desc")
-	desc.Account = guest.GetDriver().GetDefaultAccount(osInfo.OsType, osInfo.OsDistribution, osInfo.ImageType)
+	driver, err := guest.GetDriver()
+	if err != nil {
+		return err
+	}
+	desc.Account = driver.GetDefaultAccount(osInfo.OsType, osInfo.OsDistribution, osInfo.ImageType)
 	err = desc.GetConfig(config)
 	if err != nil {
 		return errors.Wrapf(err, "desc.GetConfig")
@@ -523,10 +530,14 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 		return err
 	}
 
+	region, err := host.GetRegion()
+	if err != nil {
+		return errors.Wrapf(err, "GetRegion")
+	}
+
 	switch action {
 	case "create":
-		region, _ := host.GetRegion()
-		if len(desc.InstanceType) == 0 && region != nil && utils.IsInStringArray(guest.Hypervisor, api.PUBLIC_CLOUD_HYPERVISORS) {
+		if len(desc.InstanceType) == 0 && region != nil && utils.IsInStringArray(region.Provider, api.PUBLIC_CLOUD_PROVIDERS) {
 			sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), int64(desc.Cpu), int64(desc.MemoryMB))
 			if err != nil {
 				return errors.Wrap(err, "ManagedVirtualizedGuestDriver.RequestDeployGuestOnHost.GetMatchedSku")
@@ -540,15 +551,15 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			return guest.GetDriver().RemoteDeployGuestForCreate(ctx, task.GetUserCred(), guest, host, desc)
+			return driver.RemoteDeployGuestForCreate(ctx, task.GetUserCred(), guest, host, desc)
 		})
 	case "deploy":
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			return guest.GetDriver().RemoteDeployGuestForDeploy(ctx, guest, ihost, task, desc)
+			return driver.RemoteDeployGuestForDeploy(ctx, guest, ihost, task, desc)
 		})
 	case "rebuild":
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			return guest.GetDriver().RemoteDeployGuestForRebuildRoot(ctx, guest, ihost, task, desc)
+			return driver.RemoteDeployGuestForRebuildRoot(ctx, guest, ihost, task, desc)
 		})
 	default:
 		log.Errorf("RequestDeployGuestOnHost: Action %s not supported", action)
@@ -629,14 +640,18 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 	if err != nil {
 		return nil, err
 	}
+	driver, err := guest.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	// iVM 实际所在的ihost 可能和 调度选择的host不是同一个,此处根据iVM实际所在host，重新同步
-	ihost, err = guest.GetDriver().RemoteDeployGuestSyncHost(ctx, userCred, guest, host, iVM)
+	ihost, err = driver.RemoteDeployGuestSyncHost(ctx, userCred, guest, host, iVM)
 	if err != nil {
 		return nil, errors.Wrap(err, "RemoteDeployGuestSyncHost")
 	}
 
 	vmId := iVM.GetGlobalId()
-	initialState := guest.GetDriver().GetGuestInitialStateAfterCreate()
+	initialState := driver.GetGuestInitialStateAfterCreate()
 	log.Debugf("VMcreated %s, wait status %s ...", vmId, initialState)
 	err = cloudprovider.WaitStatusWithInstanceErrorCheck(iVM, initialState, time.Second*5, time.Second*1800, func() error {
 		return iVM.GetError()
@@ -651,7 +666,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 		return nil, errors.Wrapf(err, "GetIVMById(%s)", vmId)
 	}
 
-	if guest.GetDriver().GetMaxSecurityGroupCount() > 0 {
+	if driver.GetMaxSecurityGroupCount() > 0 {
 		err = iVM.SetSecurityGroups(desc.ExternalSecgroupIds)
 		if err != nil {
 			return nil, errors.Wrapf(err, "SetSecurityGroups")
@@ -708,7 +723,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 		}
 	}
 
-	guest.GetDriver().RemoteActionAfterGuestCreated(ctx, userCred, guest, host, iVM, &desc)
+	driver.RemoteActionAfterGuestCreated(ctx, userCred, guest, host, iVM, &desc)
 
 	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "create")
 	return data, nil
@@ -821,7 +836,12 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx c
 		return nil, err
 	}
 
-	initialState := guest.GetDriver().GetGuestInitialStateAfterRebuild()
+	driver, err := guest.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	initialState := driver.GetGuestInitialStateAfterRebuild()
 	log.Debugf("VMrebuildRoot %s new diskID %s, wait status %s ...", iVM.GetGlobalId(), diskId, initialState)
 	err = cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
 	if err != nil {
@@ -1192,7 +1212,9 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 	if err == nil && !guest.IsPrepaidRecycle() {
 		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp, "")
 	}
-	if guest.GetDriver().IsSupportSetAutoRenew() {
+
+	driver, _ := guest.GetDriver()
+	if driver != nil && driver.IsSupportSetAutoRenew() {
 		autoRenew, _ := data.Bool("auto_renew")
 		guest.SetAutoRenew(autoRenew)
 	}
@@ -1231,7 +1253,11 @@ func (drv *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.C
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
 		if jsonutils.QueryBoolean(task.GetParams(), "fw_only", false) {
-			err := guest.GetDriver().RequestSyncSecgroupsOnHost(ctx, guest, host, task)
+			driver, err := guest.GetDriver()
+			if err != nil {
+				return nil, err
+			}
+			err = driver.RequestSyncSecgroupsOnHost(ctx, guest, host, task)
 			if err != nil {
 				return nil, err
 			}

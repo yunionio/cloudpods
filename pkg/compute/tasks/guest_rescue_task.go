@@ -71,7 +71,12 @@ func (self *StartRescueTask) PrepareRescue(ctx context.Context, guest *models.SG
 	guest.SetStatus(ctx, self.UserCred, api.VM_START_RESCUE, "PrepareRescue")
 
 	host, _ := guest.GetHost()
-	err := guest.GetDriver().RequestStartRescue(ctx, self, jsonutils.NewDict(), host, guest)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnRescuePrepareCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestStartRescue(ctx, self, jsonutils.NewDict(), host, guest)
 	if err != nil {
 		self.OnRescuePrepareCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
@@ -100,7 +105,12 @@ func (self *StartRescueTask) RescueStartServer(ctx context.Context, guest *model
 
 	// Set Guest rescue params to guest start params
 	host, _ := guest.GetHost()
-	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnRescueStartServerCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnRescueStartServerCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
@@ -192,7 +202,12 @@ func (self *StopRescueTask) RescueStartServer(ctx context.Context, guest *models
 
 	// Set Guest rescue params to guest start params
 	host, _ := guest.GetHost()
-	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnRescueStartServerCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnRescueStartServerCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return

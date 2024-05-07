@@ -37,7 +37,12 @@ type GuestCreateDiskTask struct {
 func (self *GuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStage("OnDiskPrepared", nil)
 	guest := obj.(*models.SGuest)
-	err := guest.GetDriver().DoGuestCreateDisksTask(ctx, guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.DoGuestCreateDisksTask(ctx, guest, self)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}

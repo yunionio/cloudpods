@@ -40,13 +40,22 @@ func (self *GuestQgaSyncOsInfoTask) guestPing(ctx context.Context, guest *models
 	if err != nil {
 		return err
 	}
-	return guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, true, nil)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		return err
+	}
+	return drv.QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, true, nil)
 }
 
 func (self *GuestQgaSyncOsInfoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	host, _ := guest.GetHost()
-	res, err := guest.GetDriver().QgaRequestGetOsInfo(ctx, self.UserCred, nil, host, guest)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.taskFailed(ctx, guest, err.Error())
+		return
+	}
+	res, err := drv.QgaRequestGetOsInfo(ctx, self.UserCred, nil, host, guest)
 	if err != nil {
 		self.taskFailed(ctx, guest, err.Error())
 		return

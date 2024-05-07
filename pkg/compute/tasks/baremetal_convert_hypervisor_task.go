@@ -72,11 +72,17 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Co
 
 	guest := self.getGuest()
 	hypervisor := self.getHypervisor()
-	driver := models.GetHostDriver(hypervisor)
-	if driver == nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Get Host Driver error %s", hypervisor)))
+	region, err := baremetal.GetRegion()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Get Host region error %v", err)))
+		return
 	}
-	err := driver.FinishConvert(ctx, self.UserCred, baremetal, guest, driver.GetHostType())
+	driver, err := models.GetHostDriver(hypervisor, region.Provider)
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Get Host Driver error %v", err)))
+		return
+	}
+	err = driver.FinishConvert(ctx, self.UserCred, baremetal, guest, driver.GetHostType())
 	if err != nil {
 		log.Errorln(err)
 		logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert deploy falied %s", err.Error()), self.UserCred, false)
@@ -97,7 +103,12 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployCompleteFailed(ctx cont
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeleteComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	hypervisor := self.getHypervisor()
-	driver := models.GetHostDriver(hypervisor)
+	region, err := baremetal.GetRegion()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Get Host region error %v", err)))
+		return
+	}
+	driver, _ := models.GetHostDriver(hypervisor, region.Provider)
 	if driver != nil {
 		driver.ConvertFailed(baremetal)
 	}

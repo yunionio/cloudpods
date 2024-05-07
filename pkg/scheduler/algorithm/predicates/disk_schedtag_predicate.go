@@ -129,7 +129,11 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.
 			}
 		}
 	}
-	storageTypes := p.GetHypervisorDriver().GetStorageTypes()
+	storageTypes := []string{}
+	driver := p.GetHypervisorDriver()
+	if driver != nil {
+		storageTypes = driver.GetStorageTypes()
+	}
 	if len(storageTypes) != 0 && !utils.IsInStringArray(storage.StorageType, storageTypes) {
 		return &FailReason{
 			fmt.Sprintf("Storage %s storage type %s not in %v", storage.Name, storage.StorageType, storageTypes),
@@ -148,7 +152,7 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.
 		}
 	}
 
-	if u.GetHypervisorDriver().DoScheduleStorageFilter() {
+	if driver != nil && driver.DoScheduleStorageFilter() {
 		// free capacity check
 		isMigrate := len(u.SchedData().HostId) > 0
 		if !isMigrate || !utils.IsInStringArray(storage.StorageType, computeapi.SHARED_STORAGE) {

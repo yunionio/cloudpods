@@ -44,7 +44,8 @@ func (p *CloudproviderSchedtagPredicate) Clone() core.FitPredicate {
 }
 
 func (p *CloudproviderSchedtagPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
-	if !u.GetHypervisorDriver().DoScheduleCloudproviderTagFilter() {
+	driver := u.GetHypervisorDriver()
+	if driver != nil && !driver.DoScheduleCloudproviderTagFilter() {
 		return false, nil
 	}
 	return p.ServerBaseSchedtagPredicate.PreExecute(ctx, u, cs)

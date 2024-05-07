@@ -156,8 +156,8 @@ func (r *SRobot) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 	}
 	if len(input.Address) > 0 {
 		// check Address
-		dirver := GetDriver(fmt.Sprintf("%s-robot", r.Type))
-		err := dirver.Send(ctx, api.SendParams{
+		driver := GetDriver(fmt.Sprintf("%s-robot", r.Type))
+		err := driver.Send(ctx, api.SendParams{
 			Header:  input.Header,
 			Body:    input.Body,
 			MsgKey:  input.MsgKey,

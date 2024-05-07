@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -45,9 +44,12 @@ func (self *BaremetalSyncConfigTask) OnInit(ctx context.Context, obj db.IStandal
 
 func (self *BaremetalSyncConfigTask) DoSyncConfig(ctx context.Context, baremetal *models.SHost) {
 	self.SetStage("OnSyncConfigComplete", nil)
-	url := fmt.Sprintf("/baremetals/%s/sync-config", baremetal.Id)
-	headers := self.GetTaskRequestHeader()
-	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
+	drv, err := baremetal.GetHostDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestSyncBaremetalHostConfig(ctx, self.GetUserCred(), baremetal, self)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}

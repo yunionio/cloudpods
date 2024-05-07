@@ -67,7 +67,12 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	}
 	disk.SetStatus(ctx, self.UserCred, api.DISK_ATTACHING, "Disk attach")
 	self.SetStage("OnSyncConfigComplete", nil)
-	guest.GetDriver().RequestAttachDisk(ctx, guest, disk, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnTaskFail(ctx, guest, disk, jsonutils.NewString("GetDriver"))
+		return
+	}
+	drv.RequestAttachDisk(ctx, guest, disk, self)
 }
 
 func (self *GuestAttachDiskTask) OnSyncConfigComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

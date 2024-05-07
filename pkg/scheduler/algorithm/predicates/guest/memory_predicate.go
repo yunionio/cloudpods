@@ -37,7 +37,8 @@ func (p *MemoryPredicate) Clone() core.FitPredicate {
 }
 
 func (p *MemoryPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
-	if !u.GetHypervisorDriver().DoScheduleMemoryFilter() {
+	driver := u.GetHypervisorDriver()
+	if driver != nil && !driver.DoScheduleMemoryFilter() {
 		return false, nil
 	}
 

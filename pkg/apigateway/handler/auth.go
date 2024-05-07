@@ -34,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	policytool "yunion.io/x/onecloud/pkg/apigateway/policy"
 	agapi "yunion.io/x/onecloud/pkg/apis/apigateway"
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1068,25 +1067,6 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 		item.Add(jsonutils.NewString(ep.Name), "name")
 		item.Add(jsonutils.NewString(ep.Service), "service")
 		menus.Add(item)
-	}
-
-	log.Infof("getUserInfo modules.Hosts.Get")
-	// s2 := auth.GetSession(ctx, token, FetchRegion(req), "v2")
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString("host_type"), "field")
-	params.Add(jsonutils.NewString("system"), "scope")
-	params.Add(jsonutils.JSONTrue, "usable")
-	params.Add(jsonutils.JSONTrue, "show_emulated")
-	cap, err := compute_modules.Hosts.Get(s, "distinct-field", params)
-	if err != nil {
-		log.Errorf("modules.Servers.Get distinct-field fail %s", err)
-	} else {
-		hostTypes, _ := jsonutils.GetStringArray(cap, "host_type")
-		hypervisors := make([]string, len(hostTypes))
-		for i, hostType := range hostTypes {
-			hypervisors[i] = compute.HOSTTYPE_HYPERVISOR[hostType]
-		}
-		data.Add(jsonutils.NewStringArray(hypervisors), "hypervisors")
 	}
 
 	data.Add(menus, "menus")

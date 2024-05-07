@@ -47,7 +47,13 @@ func (self *GuestIsolatedDeviceSyncTask) onTaskFail(ctx context.Context, guest *
 func (self *GuestIsolatedDeviceSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStage("OnSyncConfigComplete", nil)
-	if err := guest.GetDriver().RequestSyncIsolatedDevice(ctx, guest, self); err != nil {
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.onTaskFail(ctx, guest, jsonErrorObj(err))
+		return
+	}
+	err = drv.RequestSyncIsolatedDevice(ctx, guest, self)
+	if err != nil {
 		self.onTaskFail(ctx, guest, jsonErrorObj(err))
 		return
 	}

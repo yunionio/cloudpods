@@ -49,7 +49,12 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
 	self.SetStage("OnSaveRootImageComplete", nil)
-	err := guest.GetDriver().RequestSaveImage(ctx, self.GetUserCred(), guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnSaveRootImageCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestSaveImage(ctx, self.GetUserCred(), guest, self)
 	if err != nil {
 		self.OnSaveRootImageCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return

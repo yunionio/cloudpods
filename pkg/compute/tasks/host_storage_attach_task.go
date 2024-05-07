@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -34,7 +35,7 @@ func init() {
 	taskman.RegisterTask(HostStorageAttachTask{})
 }
 
-func (self *HostStorageAttachTask) taskFail(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
+func (self *HostStorageAttachTask) taskFail(ctx context.Context, host *models.SHost, reason error) {
 	if hoststorage := self.getHoststorage(host); hoststorage != nil {
 		storage := hoststorage.GetStorage()
 		hoststorage.Detach(ctx, self.GetUserCred())
@@ -42,7 +43,7 @@ func (self *HostStorageAttachTask) taskFail(ctx context.Context, host *models.SH
 		db.OpsLog.LogEvent(storage, db.ACT_ATTACH_FAIL, note, self.GetUserCred())
 		logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_ATTACH_HOST, note, self.GetUserCred(), false)
 	}
-	self.SetStageFailed(ctx, reason)
+	self.SetStageFailed(ctx, jsonutils.NewString(reason.Error()))
 }
 
 func (self *HostStorageAttachTask) getHoststorage(host *models.SHost) *models.SHoststorage {
@@ -60,14 +61,19 @@ func (self *HostStorageAttachTask) OnInit(ctx context.Context, obj db.IStandalon
 	host := obj.(*models.SHost)
 	hoststorage := self.getHoststorage(host)
 	if hoststorage == nil {
-		self.taskFail(ctx, host, jsonutils.NewString("failed to find hoststorage"))
+		self.taskFail(ctx, host, errors.Errorf("failed to find hoststorage"))
 		return
 	}
 	storage := hoststorage.GetStorage()
 	self.SetStage("OnAttachStorageComplete", nil)
-	err := host.GetHostDriver().RequestAttachStorage(ctx, hoststorage, host, storage, self)
+	driver, err := host.GetHostDriver()
 	if err != nil {
-		self.taskFail(ctx, host, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, host, errors.Wrapf(err, "GetHostDriver"))
+		return
+	}
+	err = driver.RequestAttachStorage(ctx, hoststorage, host, storage, self)
+	if err != nil {
+		self.taskFail(ctx, host, errors.Wrapf(err, "RequestAttachStorage"))
 	}
 }
 
@@ -83,5 +89,5 @@ func (self *HostStorageAttachTask) OnAttachStorageComplete(ctx context.Context, 
 }
 
 func (self *HostStorageAttachTask) OnAttachStorageCompleteFailed(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, host, reason)
+	self.taskFail(ctx, host, errors.Errorf(reason.String()))
 }

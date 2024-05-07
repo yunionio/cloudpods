@@ -777,11 +777,15 @@ func (b *BaseHostDesc) fillOnecloudVpcNetworks(netGetter *networkGetter) error {
 }
 
 func (b *BaseHostDesc) GetHypervisorDriver() computemodels.IGuestDriver {
-	hypervisor := computeapi.HOSTTYPE_HYPERVISOR[b.HostType]
-	if hypervisor == "" {
+	if b.Region == nil {
 		return nil
 	}
-	return computemodels.GetDriver(hypervisor)
+	hostDriver, _ := computemodels.GetHostDriver(b.HostType, b.Region.Provider)
+	if hostDriver == nil {
+		return nil
+	}
+	driver, _ := computemodels.GetDriver(hostDriver.GetHypervisor(), b.Region.Provider)
+	return driver
 }
 
 func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
@@ -796,12 +800,9 @@ func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 			SStorage:           &storage,
 			ActualFreeCapacity: storage.Capacity - storage.ActualCapacityUsed,
 		}
-		if b.GetHypervisorDriver() == nil {
+		driver := b.GetHypervisorDriver()
+		if driver == nil || driver.DoScheduleStorageFilter() {
 			cs.FreeCapacity = storage.GetFreeCapacity()
-		} else {
-			if b.GetHypervisorDriver().DoScheduleStorageFilter() {
-				cs.FreeCapacity = storage.GetFreeCapacity()
-			}
 		}
 		ss = append(ss, cs)
 	}
@@ -883,7 +884,10 @@ func (h *BaseHostDesc) getQuotaKeys(s *api.SchedInfo) computemodels.SComputeReso
 	}
 	computeKeys.RegionId = h.Region.Id
 	computeKeys.ZoneId = h.Zone.Id
-	computeKeys.Hypervisor = computeapi.HOSTTYPE_HYPERVISOR[h.HostType]
+	driver, _ := computemodels.GetHostDriver(h.HostType, computeKeys.Provider)
+	if driver != nil {
+		computeKeys.Hypervisor = driver.GetHypervisor()
+	}
 	return computeKeys
 }
 

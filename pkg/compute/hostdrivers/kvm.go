@@ -59,6 +59,10 @@ func (self *SKVMHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_KVM
 }
 
+func (self *SKVMHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
 func (self *SKVMHostDriver) validateGPFS(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
 	header := http.Header{}
 	header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())

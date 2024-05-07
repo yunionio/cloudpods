@@ -263,7 +263,11 @@ func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mc
 			return httperrors.NewNotFoundError("find guest %s: %v", name, err)
 		}
 		guest := obj.(*SGuest)
-		if utils.IsInStringArray(guest.Hypervisor, compute_apis.PUBLIC_CLOUD_HYPERVISORS) {
+		region, err := guest.GetRegion()
+		if err != nil {
+			return errors.Wrapf(err, "GetRegion")
+		}
+		if utils.IsInStringArray(region.Provider, compute_apis.PUBLIC_CLOUD_PROVIDERS) {
 			return httperrors.NewBadRequestError("lbagent cannot be deployed on public guests")
 		}
 		if guest.Status != compute_apis.VM_RUNNING {

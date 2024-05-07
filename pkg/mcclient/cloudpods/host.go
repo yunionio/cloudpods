@@ -59,11 +59,11 @@ func (host *SHost) GetOvnVersion() string {
 }
 
 func (host *SHost) Refresh() error {
-	host, err := host.zone.region.GetHost(host.Id)
+	h, err := host.zone.region.GetHost(host.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(host, host)
+	return jsonutils.Update(host, h)
 }
 
 func (host *SHost) getIWires() ([]cloudprovider.ICloudWire, error) {
@@ -157,12 +157,16 @@ func (host *SHost) GetStorageSizeMB() int64 {
 	return host.StorageSize
 }
 
+func (host *SHost) GetStorageInfo() jsonutils.JSONObject {
+	return host.StorageInfo
+}
+
 func (host *SHost) GetStorageType() string {
 	return host.StorageType
 }
 
 func (host *SHost) GetHostType() string {
-	return api.HOST_TYPE_CLOUDPODS
+	return host.HostType
 }
 
 func (host *SHost) GetIsMaintenance() bool {
@@ -262,13 +266,36 @@ func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 }
 
 func (host *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	hypervisor := api.HOSTTYPE_HYPERVISOR[host.HostType]
+	hypervisor := api.HOST_TYPE_HYPERVISOR
+	if host.HostType == api.HOST_TYPE_ESXI {
+		hypervisor = api.HYPERVISOR_ESXI
+	}
 	ins, err := host.zone.region.CreateInstance(host.Id, hypervisor, opts)
 	if err != nil {
 		return nil, err
 	}
 	ins.host = host
 	return ins, nil
+}
+
+func (host *SHost) Start() error {
+	_, err := host.zone.region.perform(&modules.Hosts, host.Id, "start", nil)
+	return err
+}
+
+func (host *SHost) Stop() error {
+	_, err := host.zone.region.perform(&modules.Hosts, host.Id, "stop", nil)
+	return err
+}
+
+func (host *SHost) CreateBaremetalServer(opts *api.ServerCreateInput) (cloudprovider.ICloudVM, error) {
+	vm := &SInstance{host: host}
+	opts.PreferHost = host.Id
+	err := host.zone.region.create(&modules.Servers, opts, vm)
+	if err != nil {
+		return nil, err
+	}
+	return vm, nil
 }
 
 func (region *SRegion) GetHost(id string) (*SHost, error) {
@@ -303,9 +330,7 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (region *SRegion) GetHosts(zoneId string) ([]SHost, error) {
-	params := map[string]interface{}{
-		"baremetal": false,
-	}
+	params := map[string]interface{}{}
 	if len(zoneId) > 0 {
 		params["zone_id"] = zoneId
 	}

@@ -43,6 +43,10 @@ func (self *SAwsHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_AWS
 }
 
+func (self *SAwsHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_AWS
+}
+
 func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if storage.StorageType == api.STORAGE_GP2_SSD || storage.StorageType == api.STORAGE_GP3_SSD {
 		if sizeGb < 1 || sizeGb > 16384 {

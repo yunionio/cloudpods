@@ -50,7 +50,12 @@ func (self *GuestDeleteOnHostTask) OnInit(ctx context.Context, obj db.IStandalon
 
 	self.SetStage("OnStopGuest", nil)
 	self.Params.Set("is_force", jsonutils.JSONTrue)
-	if err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, true); err != nil {
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	if err := drv.RequestStopOnHost(ctx, guest, host, self, true); err != nil {
 		log.Errorf("RequestStopGuestForDelete fail %s", err)
 		self.OnStopGuest(ctx, guest, nil)
 	}

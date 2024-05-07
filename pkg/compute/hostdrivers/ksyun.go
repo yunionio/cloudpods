@@ -35,3 +35,7 @@ func (self *SKsyunHostDriver) GetHostType() string {
 func (self *SKsyunHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_KSYUN
 }
+
+func (self *SKsyunHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_KSYUN
+}

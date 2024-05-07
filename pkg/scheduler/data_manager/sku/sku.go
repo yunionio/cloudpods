@@ -69,6 +69,7 @@ type ServerSku struct {
 	Name     string `json:"name"`
 	RegionId string `json:"cloudregion_id"`
 	ZoneId   string `json:"zone_id"`
+	Provider string `json:"provider"`
 }
 
 type skuList []*ServerSku
@@ -140,7 +141,7 @@ func (m *SSkuManager) syncOnce() {
 	startTime := time.Now()
 
 	skus := make([]ServerSku, 0)
-	q := models.ServerSkuManager.Query("id", "name", "cloudregion_id", "zone_id").IsTrue("enabled")
+	q := models.ServerSkuManager.Query("id", "name", "cloudregion_id", "zone_id", "provider").IsTrue("enabled")
 	q = q.Filter(
 		sqlchemy.OR(
 			sqlchemy.Equals(q.Field("prepaid_status"), computeapi.SkuStatusAvailable),

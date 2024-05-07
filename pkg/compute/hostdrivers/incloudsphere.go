@@ -39,6 +39,10 @@ func (self *SInCloudSphereHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_INCLOUD_SPHERE
 }
 
+func (self *SInCloudSphereHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_INCLOUD_SPHERE
+}
+
 func (self *SInCloudSphereHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	return nil
 }
