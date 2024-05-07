@@ -74,6 +74,10 @@ func (task *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 		preferHostId, _ := task.Params.GetString("prefer_host_id")
 		input.PreferHostId = preferHostId
 	}
+	if jsonutils.QueryBoolean(task.Params, "reset_cpu_numa_pin", false) {
+		input.ResetCpuNumaPin = true
+	}
+
 	if task.isLiveMigrate() {
 		input.LiveMigrate = true
 		skipCpuCheck := jsonutils.QueryBoolean(task.Params, "skip_cpu_check", false)
@@ -105,19 +109,29 @@ func (task *GuestMigrateTask) OnScheduleFailed(ctx context.Context, reason jsonu
 }
 
 func (task *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource, index int) {
-	targetHostId := target.HostId
 	guest := obj.(*models.SGuest)
+	if jsonutils.QueryBoolean(task.Params, "reset_cpu_numa_pin", false) {
+		guest.SetCpuNumaPin(ctx, task.UserCred, target.CpuNumaPin, nil)
+		db.OpsLog.LogEvent(guest, db.ACT_RESET_CPU_NUMA_PIN, fmt.Sprintf("reset cpu numa pin %s", jsonutils.Marshal(target.CpuNumaPin)), task.UserCred)
+		task.SetStageComplete(ctx, nil)
+		return
+	}
+
+	targetHostId := target.HostId
 	targetHost := models.HostManager.FetchHostById(targetHostId)
 	if targetHost == nil {
 		task.TaskFailed(ctx, guest, jsonutils.NewString("target host not found?"))
 		return
 	}
-	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, fmt.Sprintf("guest start migrate from host %s to %s", guest.HostId, targetHostId), task.UserCred)
-	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATING,
-		fmt.Sprintf("guest start migrate from host %s to %s(%s)", guest.HostId, targetHostId, targetHost.GetName()), task.UserCred, true)
 
 	body := jsonutils.NewDict()
 	body.Set("target_host_id", jsonutils.NewString(targetHostId))
+	if len(target.CpuNumaPin) > 0 {
+		body.Set("target_cpu_numa_pin", jsonutils.Marshal(target.CpuNumaPin))
+	} else {
+		body.Set("target_cpu_numa_pin", jsonutils.JSONNull)
+	}
+
 	// for params notes
 	body.Set("target_host_name", jsonutils.NewString(targetHost.Name))
 	srcHost := models.HostManager.FetchHostById(guest.HostId)
@@ -166,6 +180,11 @@ func (task *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 			body.Set("cache_templates", jsonutils.NewStringArray(templates))
 		}
 	}
+
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, fmt.Sprintf("guest start migrate from host %s to %s", guest.HostId, targetHostId), task.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATING,
+		fmt.Sprintf("guest start migrate from host %s to %s(%s)", guest.HostId, targetHostId, targetHost.GetName()), task.UserCred, true)
+
 	task.SetStage("OnStartCacheImages", body)
 	task.OnStartCacheImages(ctx, guest, nil)
 }
@@ -434,6 +453,12 @@ func (task *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, gues
 	body.Set("is_local_storage", jsonutils.JSONFalse)
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(task.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
+	if task.Params.Contains("target_cpu_numa_pin") {
+		if err := task.setCpuNumaPin(targetDesc); err != nil {
+			return nil, errors.Wrap(err, "setCpuNumaPin")
+		}
+	}
+
 	body.Set("desc", jsonutils.Marshal(targetDesc))
 
 	sourceHost, _ := guest.GetHost()
@@ -488,6 +513,12 @@ func (task *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	if len(targetDesc.Disks) == 0 {
 		return nil, errors.Errorf("Get disksDesc error")
 	}
+	if task.Params.Contains("target_cpu_numa_pin") {
+		if err := task.setCpuNumaPin(targetDesc); err != nil {
+			return nil, errors.Wrap(err, "setCpuNumaPin")
+		}
+	}
+
 	targetStorages, _ := task.Params.GetArray("target_storages")
 	for i := 0; i < len(disks); i++ {
 		targetStorageId, err := targetStorages[i].GetString()
@@ -501,6 +532,20 @@ func (task *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	body.Set("rebase_disks", jsonutils.JSONTrue)
 	body.Set("is_local_storage", jsonutils.JSONTrue)
 	return body, nil
+}
+
+func (task *GuestMigrateTask) setCpuNumaPin(targetDesc *api.GuestJsonDesc) error {
+	cpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
+	if err := task.Params.Unmarshal(&cpuNumaPin, "cpu_numa_pin"); err != nil {
+		return errors.Wrap(err, "unmarshal cpu_numa_pin")
+	}
+	for i := range targetDesc.CpuNumaPin {
+		for j := range targetDesc.CpuNumaPin[i].VcpuPin {
+			targetDesc.CpuNumaPin[i].VcpuPin[j].Pcpu = cpuNumaPin[i].CpuPin[j]
+		}
+	}
+	task.Params.Set("target_vcpu_numa_pin", jsonutils.Marshal(targetDesc.CpuNumaPin))
+	return nil
 }
 
 func (task *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -575,6 +620,29 @@ func (task *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 			}
 		}
 	}
+
+	if task.Params.Contains("target_cpu_numa_pin") {
+		var cpuNumaPinSrc []schedapi.SCpuNumaPin = nil
+		var cpuNumaPin []api.SCpuNumaPin = nil
+
+		val, _ := task.Params.Get("target_cpu_numa_pin")
+		if !val.Equals(jsonutils.JSONNull) {
+			cpuNumaPinSrc = make([]schedapi.SCpuNumaPin, 0)
+			if err := task.Params.Unmarshal(&cpuNumaPinSrc, "target_cpu_numa_pin"); err != nil {
+				return errors.Wrap(err, "unmarshal target_cpu_numa_pin")
+			}
+
+			cpuNumaPin = make([]api.SCpuNumaPin, 0)
+			if err := task.Params.Unmarshal(&cpuNumaPin, "target_vcpu_numa_pin"); err != nil {
+				return errors.Wrap(err, "unmarshal target_vcpu_numa_pin")
+			}
+		}
+
+		if err := guest.SetCpuNumaPin(ctx, task.UserCred, cpuNumaPinSrc, cpuNumaPin); err != nil {
+			return errors.Wrap(err, "SetCpuNumaPin")
+		}
+	}
+
 	oldHost, _ := guest.GetHost()
 	oldHost.ClearSchedDescCache()
 	err := guest.OnScheduleToHost(ctx, task.UserCred, targetHostId)

@@ -16,7 +16,11 @@ package guest
 
 import (
 	"context"
+	"fmt"
 
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -62,6 +66,40 @@ func (p *MemoryPredicate) Execute(ctx context.Context, u *core.Unit, c core.Cand
 	if freeMemSize < reqMemSize {
 		totalMemSize := getter.TotalMemorySize(useRsvd)
 		h.AppendInsufficientResourceError(reqMemSize, totalMemSize, freeMemSize)
+	}
+
+	if cpuNumaFree := getter.GetFreeCpuNuma(); cpuNumaFree != nil {
+		allcateEnough := false
+		reqCpuCount := d.Ncpu
+		if d.CpuNumaPin != nil {
+			nodeCount := len(d.CpuNumaPin)
+			if scheduler.NodesFreeCpuEnough(nodeCount, d.Ncpu, cpuNumaFree) &&
+				scheduler.NodesFreeMemSizeEnough(nodeCount, int(reqMemSize), cpuNumaFree) {
+				allcateEnough = true
+			}
+		} else {
+			for nodeCount := 1; nodeCount <= len(cpuNumaFree); nodeCount *= 2 {
+				if nodeCount > reqCpuCount {
+					break
+				}
+
+				if !scheduler.NodesFreeCpuEnough(nodeCount, d.Ncpu, cpuNumaFree) {
+					continue
+				}
+
+				if !scheduler.NodesFreeMemSizeEnough(nodeCount, int(reqMemSize), cpuNumaFree) {
+					continue
+				}
+				allcateEnough = true
+			}
+		}
+
+		if !allcateEnough {
+			h.AppendPredicateFailMsg(
+				fmt.Sprintf("cpu numa free %s can't alloc with req mem %v req cpu %v ",
+					jsonutils.Marshal(cpuNumaFree).String(), d.Memory, d.Ncpu),
+			)
+		}
 	}
 
 	h.SetCapacity(freeMemSize / reqMemSize)

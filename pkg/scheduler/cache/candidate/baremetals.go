@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -42,6 +43,14 @@ func (h baremetalGetter) FreeCPUCount(_ bool) int64 {
 
 func (h baremetalGetter) FreeMemorySize(_ bool) int64 {
 	return h.bm.FreeMemSize()
+}
+
+func (h *baremetalGetter) NumaAllocateEnabled() bool {
+	return false
+}
+
+func (h *baremetalGetter) GetFreeCpuNuma() []*scheduler.SFreeNumaCpuMem {
+	return nil
 }
 
 func (h baremetalGetter) IsEmpty() bool {
@@ -104,6 +113,14 @@ func (bd *BaremetalDesc) GetGuestCount() int64 {
 
 func (bd *BaremetalDesc) IndexKey() string {
 	return bd.Id
+}
+
+func (bd *BaremetalDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int) []scheduler.SCpuNumaPin {
+	return nil
+}
+
+func (bd *BaremetalDesc) AllocCpuNumaPinWithNodeCount(vcpuCount, memSizeKB, nodeCount int) []scheduler.SCpuNumaPin {
+	return nil
 }
 
 func (bd *BaremetalDesc) FreeCPUCount() int64 {

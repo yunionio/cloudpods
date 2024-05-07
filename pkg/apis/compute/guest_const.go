@@ -321,6 +321,7 @@ const (
 	VM_METADATA_HOT_REMOVE_NIC      = "hot_remove_nic"
 	VM_METADATA_START_VMEM_MB       = "start_vmem_mb"
 	VM_METADATA_START_VCPU_COUNT    = "start_vcpu_count"
+	VM_METADATA_CPU_NUMA_PIN        = "__cpu_numa_pin"
 )
 
 // windows allow a maximal length of 15
