@@ -40,9 +40,9 @@ type StorageUpdateTask struct {
 func (self *StorageUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStage("OnStorageUpdate", nil)
 	storage := obj.(*models.SStorage)
-	dirver := models.GetStorageDriver(storage.StorageType)
-	if dirver != nil {
-		err := dirver.DoStorageUpdateTask(ctx, self.UserCred, storage, self)
+	driver := models.GetStorageDriver(storage.StorageType)
+	if driver != nil {
+		err := driver.DoStorageUpdateTask(ctx, self.UserCred, storage, self)
 		if err != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		}

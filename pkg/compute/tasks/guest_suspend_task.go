@@ -39,7 +39,12 @@ func (self *GuestSuspendTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	db.OpsLog.LogEvent(guest, db.ACT_STOPPING, "", self.UserCred)
 	guest.SetStatus(ctx, self.UserCred, api.VM_SUSPENDING, "GuestSusPendTask")
 	self.SetStage("OnSuspendComplete", nil)
-	err := guest.GetDriver().RequestSuspendOnHost(ctx, guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnSuspendGuestFail(guest, err.Error())
+		return
+	}
+	err = drv.RequestSuspendOnHost(ctx, guest, self)
 	if err != nil {
 		self.OnSuspendGuestFail(guest, err.Error())
 	}

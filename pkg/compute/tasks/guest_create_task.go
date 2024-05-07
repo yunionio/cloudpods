@@ -62,7 +62,12 @@ func (self *GuestCreateTask) OnWaitGuestNetworksReady(ctx context.Context, obj d
 func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
 	guest.SetStatus(ctx, self.UserCred, api.VM_CREATE_DISK, "")
 	self.SetStage("OnDiskPrepared", nil)
-	err := guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnDiskPreparedFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestGuestCreateAllDisks(ctx, guest, self)
 	if err != nil {
 		msg := fmt.Sprintf("unable to RequestGuestCreateAllDisks: %v", err)
 		self.OnDiskPreparedFailed(ctx, guest, jsonutils.NewString(msg))
@@ -103,6 +108,7 @@ func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, guest *models.S
 		self.OnSecurityGroupPreparedFailed(ctx, guest, jsonutils.NewString(errors.Wrapf(err, "GetRegion").Error()))
 		return
 	}
+
 	self.SetStage("OnSecurityGroupPrepared", nil)
 	err = region.GetDriver().RequestPrepareSecurityGroups(ctx, self.UserCred, guest.GetOwnerId(), secgroups, vpc, func(ids []string) error {
 		return guest.SaveSecgroups(ctx, self.UserCred, ids)
@@ -149,7 +155,12 @@ func (self *GuestCreateTask) OnSecurityGroupPrepared(ctx context.Context, guest 
 			guest.SetAllMetadata(ctx, imagePros, self.UserCred)
 		}
 		self.SetStage("OnCdromPrepared", nil)
-		guest.GetDriver().RequestGuestCreateInsertIso(ctx, cdrom, bootIndex, self, guest)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.OnCdromPreparedFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		drv.RequestGuestCreateInsertIso(ctx, cdrom, bootIndex, self, guest)
 	} else {
 		self.OnCdromPrepared(ctx, guest, data)
 	}

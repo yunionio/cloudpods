@@ -81,7 +81,11 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 		if options.Options.ForceUseOriginVnc {
 			input.Origin = true
 		}
-		ret, err = self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host, input)
+		driver, err := self.GetDriver()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDriver")
+		}
+		ret, err = driver.GetGuestVncInfo(ctx, userCred, self, host, input)
 		if err != nil {
 			return nil, err
 		}
@@ -156,11 +160,15 @@ func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	host, _ := self.GetHost()
-	if host == nil {
-		return nil, httperrors.NewInvalidStatusError("No host for server")
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHost")
 	}
-	return self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host, nil)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	return driver.GetJsonDescAtHost(ctx, userCred, self, host, nil)
 }
 
 // 保存镜像
@@ -168,7 +176,10 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return input, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
 	}
-	driver := self.GetDriver()
+	driver, err := self.GetDriver()
+	if err != nil {
+		return input, errors.Wrapf(err, "GetDriver")
+	}
 	input.Restart = ((self.Status == api.VM_RUNNING) || input.AutoStart) && !driver.IsAllowSaveImageOnRunning()
 	if len(input.Name) == 0 && len(input.GenerateName) == 0 {
 		return input, httperrors.NewInputParameterError("Image name is required")
@@ -189,7 +200,7 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 
-	factory, _ := cloudprovider.GetProviderFactory(self.GetDriver().GetProvider())
+	factory, _ := cloudprovider.GetProviderFactory(driver.GetProvider())
 	if factory == nil || factory.IsOnPremise() { // OneCloud or VMware
 		lockman.LockObject(ctx, disks.Root)
 		defer lockman.ReleaseObject(ctx, disks.Root)
@@ -209,7 +220,11 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerSaveImageInput, parentTaskId string) error {
-	return self.GetDriver().StartGuestSaveImage(ctx, userCred, self, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
+	return driver.StartGuestSaveImage(ctx, userCred, self, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId)
 }
 
 // 保存主机模板
@@ -315,7 +330,11 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) StartGuestSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	return self.GetDriver().StartGuestSaveGuestImage(ctx, userCred, self, data, parentTaskId)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return err
+	}
+	return driver.StartGuestSaveGuestImage(ctx, userCred, self, data, parentTaskId)
 }
 
 // 同步配置
@@ -384,12 +403,17 @@ func (self *SGuest) validateMigrate(
 		isLiveMigrate = true
 	}
 
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
+
 	if isLiveMigrate {
 		// do live migrate check
-		if !self.GetDriver().IsSupportLiveMigrate() {
+		if !driver.IsSupportLiveMigrate() {
 			return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 		}
-		if err := self.GetDriver().CheckLiveMigrate(ctx, self, userCred, *liveMigrateInput); err != nil {
+		if err := driver.CheckLiveMigrate(ctx, self, userCred, *liveMigrateInput); err != nil {
 			return err
 		}
 		if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
@@ -406,13 +430,13 @@ func (self *SGuest) validateMigrate(
 		return httperrors.NewBadRequestError("Cannot live migrate in status %s", self.Status)
 	} else {
 		// do migrate check
-		if !self.GetDriver().IsSupportMigrate() {
+		if !driver.IsSupportMigrate() {
 			return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 		}
 		if !migrateInput.IsRescueMode && self.Status != api.VM_READY {
 			return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
 		}
-		if err := self.GetDriver().CheckMigrate(ctx, self, userCred, *migrateInput); err != nil {
+		if err := driver.CheckMigrate(ctx, self, userCred, *migrateInput); err != nil {
 			return err
 		}
 		if len(migrateInput.PreferHostId) > 0 {
@@ -659,7 +683,12 @@ func (self *SGuest) PerformCancelLiveMigrate(
 		return nil, httperrors.NewServerStatusError("cannot set migrate params in status %s", self.Status)
 	}
 
-	return nil, self.GetDriver().RequestCancelLiveMigrate(ctx, self, userCred)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDriver")
+	}
+
+	return nil, driver.RequestCancelLiveMigrate(ctx, self, userCred)
 }
 
 // 克隆虚拟机
@@ -671,7 +700,12 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 		return nil, httperrors.NewBadRequestError("Can't clone guest with backup guest")
 	}
 
-	if !self.GetDriver().IsSupportGuestClone() {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	if !driver.IsSupportGuestClone() {
 		return nil, httperrors.NewBadRequestError("Guest hypervisor %s does not support clone", self.Hypervisor)
 	}
 
@@ -832,13 +866,18 @@ func (self *SGuest) PerformDeploy(
 		input.ResetPassword = true
 	}
 
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDriver")
+	}
+
 	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
 	if input.ResetPassword {
-		doRestart = self.GetDriver().IsNeedRestartForResetLoginInfo()
+		doRestart = driver.IsNeedRestartForResetLoginInfo()
 	}
 
-	deployStatus, err := self.GetDriver().GetDeployStatus()
+	deployStatus, err := driver.GetDeployStatus()
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("%v", err)
 	}
@@ -888,7 +927,13 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 	if disk.Status != api.DISK_READY {
 		return httperrors.NewInputParameterError("Disk in %s not able to attach", disk.Status)
 	}
-	guestStatus, err := self.GetDriver().GetAttachDiskStatus()
+
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
+
+	guestStatus, err := driver.GetAttachDiskStatus()
 	if err != nil {
 		return err
 	}
@@ -936,8 +981,14 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 		taskData.Add(jsonutils.NewInt(int64(*input.BootIndex)), "boot_index")
 	}
 
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDriver")
+	}
+
 	self.SetStatus(ctx, userCred, api.VM_ATTACH_DISK, "")
-	return nil, self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
+
+	return nil, driver.StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
 }
 
 func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, ip string, inBlockStream bool) error {
@@ -1013,7 +1064,13 @@ func (self *SGuest) StartSuspendTask(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return err
 	}
-	return self.GetDriver().StartSuspendTask(ctx, userCred, self, nil, parentTaskId)
+
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
+
+	return driver.StartSuspendTask(ctx, userCred, self, nil, parentTaskId)
 }
 
 // 恢复虚拟机挂起状态
@@ -1030,7 +1087,13 @@ func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return err
 	}
-	return self.GetDriver().StartResumeTask(ctx, userCred, self, nil, parentTaskId)
+
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
+
+	return driver.StartResumeTask(ctx, userCred, self, nil, parentTaskId)
 }
 
 // 开机
@@ -1062,7 +1125,11 @@ func (self *SGuest) PerformStart(
 		}
 		if self.isAllDisksReady() {
 			kwargs := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-			err := self.GetDriver().PerformStart(ctx, userCred, self, kwargs)
+			driver, err := self.GetDriver()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetDriver")
+			}
+			err = driver.PerformStart(ctx, userCred, self, kwargs)
 			return nil, err
 		} else {
 			return nil, httperrors.NewInvalidStatusError("Some disk not ready")
@@ -1216,12 +1283,15 @@ func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.To
 	if len(parentTaskId) > 0 {
 		params.Add(jsonutils.JSONTrue, "subtask")
 	}
-	driver := self.GetDriver()
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
 	shutdownMode := api.VM_SHUTDOWN_MODE_KEEP_CHARGING
 	if stopCharging && driver.IsSupportShutdownMode() {
 		shutdownMode = api.VM_SHUTDOWN_MODE_STOP_CHARGING
 	}
-	_, err := db.Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.ShutdownMode = shutdownMode
 		return nil
 	})
@@ -1505,7 +1575,11 @@ func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.
 		self.fixFakeServerInfo(ctx, userCred)
 		return nil
 	}
-	return self.GetDriver().StartGuestCreateTask(self, ctx, userCred, input.JSON(input), pendingUsage, parentTaskId)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
+	return driver.StartGuestCreateTask(self, ctx, userCred, input.JSON(input), pendingUsage, parentTaskId)
 }
 
 func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.TokenCredential) {
@@ -1553,7 +1627,11 @@ func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	return self.GetDriver().StartGuestSyncstatusTask(self, ctx, userCred, parentTaskId)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
+	return driver.StartGuestSyncstatusTask(self, ctx, userCred, parentTaskId)
 }
 
 func (self *SGuest) StartAutoDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -1566,11 +1644,15 @@ func (self *SGuest) StartDeleteGuestTask(
 	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string,
 	opts api.ServerDeleteInput,
 ) error {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.Status), "guest_status")
 	params.Update(jsonutils.Marshal(opts))
 	self.SetStatus(ctx, userCred, api.VM_START_DELETE, "")
-	return self.GetDriver().StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
+	return driver.StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
 }
 
 // 清除虚拟机记录(仅数据库操作)
@@ -1608,7 +1690,11 @@ func (self *SGuest) PerformRebuildRoot(
 	query jsonutils.JSONObject,
 	input *api.ServerRebuildRootInput,
 ) (*api.SGuest, error) {
-	input, err := self.GetDriver().ValidateRebuildRoot(ctx, userCred, self, input)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	input, err = driver.ValidateRebuildRoot(ctx, userCred, self, input)
 	if err != nil {
 		return nil, err
 	}
@@ -1626,15 +1712,24 @@ func (self *SGuest) PerformRebuildRoot(
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("failed to find %s", input.ImageId)
 		}
-		err = self.GetDriver().ValidateImage(ctx, img)
+		err = driver.ValidateImage(ctx, img)
 		if err != nil {
 			return nil, err
 		}
 
+		host, err := self.GetHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetHost")
+		}
+
+		region, err := host.GetRegion()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRegion")
+		}
+
 		// compare os arch
 		if len(self.InstanceType) > 0 {
-			provider := GetDriver(self.Hypervisor).GetProvider()
-			sku, _ := ServerSkuManager.FetchSkuByNameAndProvider(self.InstanceType, provider, true)
+			sku, _ := ServerSkuManager.FetchSkuByNameAndProvider(self.InstanceType, region.Provider, true)
 			if sku != nil && len(sku.CpuArch) > 0 && len(img.Properties["os_arch"]) > 0 && !strings.Contains(img.Properties["os_arch"], sku.CpuArch) {
 				return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch", img.Properties["os_arch"], sku.CpuArch)
 			}
@@ -1656,7 +1751,7 @@ func (self *SGuest) PerformRebuildRoot(
 	}
 	templateId := self.GetTemplateId()
 
-	if templateId != input.ImageId && len(templateId) > 0 && len(input.ImageId) > 0 && !self.GetDriver().IsRebuildRootSupportChangeUEFI() {
+	if templateId != input.ImageId && len(templateId) > 0 && len(input.ImageId) > 0 && !driver.IsRebuildRootSupportChangeUEFI() {
 		q := CachedimageManager.Query().In("id", []string{input.ImageId, templateId})
 		images := []SCachedimage{}
 		err := db.FetchModelObjects(CachedimageManager, q, &images)
@@ -1668,17 +1763,17 @@ func (self *SGuest) PerformRebuildRoot(
 		}
 	}
 
-	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
+	rebuildStatus, err := driver.GetRebuildRootStatus()
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
-	if !self.GetDriver().IsRebuildRootSupportChangeImage() && len(input.ImageId) > 0 {
+	if !driver.IsRebuildRootSupportChangeImage() && len(input.ImageId) > 0 {
 		if len(templateId) == 0 {
 			return nil, httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
 		}
 		if input.ImageId != templateId {
-			return nil, httperrors.NewInputParameterError("%s not support rebuild root with a different image", self.GetDriver().GetHypervisor())
+			return nil, httperrors.NewInputParameterError("%s not support rebuild root with a different image", driver.GetHypervisor())
 		}
 	}
 
@@ -1895,15 +1990,21 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	if !attached {
 		return nil, nil
 	}
-	detachDiskStatus, err := self.GetDriver().GetDetachDiskStatus()
+
+	driver, err := self.GetDriver()
 	if err != nil {
 		return nil, err
 	}
-	if input.KeepDisk && !self.GetDriver().CanKeepDetachDisk() {
+
+	detachDiskStatus, err := driver.GetDetachDiskStatus()
+	if err != nil {
+		return nil, err
+	}
+	if input.KeepDisk && !driver.CanKeepDetachDisk() {
 		return nil, httperrors.NewInputParameterError("Cannot keep detached disk")
 	}
 
-	err = self.GetDriver().ValidateDetachDisk(ctx, userCred, self, disk)
+	err = driver.ValidateDetachDisk(ctx, userCred, self, disk)
 	if err != nil {
 		return nil, err
 	}
@@ -1935,8 +2036,12 @@ func (self *SGuest) StartGuestDetachdiskTask(
 			return nil
 		})
 	}
+	driver, err := self.GetDriver()
+	if err != nil {
+		return errors.Wrapf(err, "GetDriver")
+	}
 	disk.SetStatus(ctx, userCred, api.DISK_DETACHING, "")
-	return self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, parentTaskId)
+	return driver.StartGuestDetachdiskTask(ctx, userCred, self, taskData, parentTaskId)
 }
 
 // 卸载透传设备
@@ -2556,7 +2661,12 @@ func (self *SGuest) PerformDetachnetwork(
 		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
 	}
 
-	err := self.GetDriver().ValidateDetachNetwork(ctx, userCred, self)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	err = driver.ValidateDetachNetwork(ctx, userCred, self)
 	if err != nil {
 		if !input.IsForce() {
 			return nil, errors.Wrap(err, "ValidateDetachNetwork")
@@ -2915,7 +3025,11 @@ func (self *SGuest) PerformModifySrcCheck(ctx context.Context, userCred mcclient
 
 // 调整配置
 func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerChangeConfigInput) (jsonutils.JSONObject, error) {
-	if !self.GetDriver().AllowReconfigGuest() {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	if !driver.AllowReconfigGuest() {
 		return nil, httperrors.NewInvalidStatusError("Not allow to change config")
 	}
 
@@ -2923,7 +3037,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewBadRequestError("Guest have backup not allow to change config")
 	}
 
-	changeStatus, err := self.GetDriver().GetChangeConfigStatus(self)
+	changeStatus, err := driver.GetChangeConfigStatus(self)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("%v", err)
 	}
@@ -2936,13 +3050,13 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("no valid host")
 	}
 
-	confs, err := self.GetDriver().ValidateGuestChangeConfigInput(ctx, self, input)
+	confs, err := driver.ValidateGuestChangeConfigInput(ctx, self, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "ValidateGuestChangeConfigInput")
 	}
 
 	if self.PowerStates == api.VM_POWER_STATES_ON && (confs.CpuChanged() || confs.MemChanged()) {
-		confs, err = self.GetDriver().ValidateGuestHotChangeConfigInput(ctx, self, confs)
+		confs, err = driver.ValidateGuestHotChangeConfigInput(ctx, self, confs)
 		if err != nil {
 			return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in power status %s: %s", self.PowerStates, err)
 		}
@@ -3085,9 +3199,13 @@ func (self *SGuest) StartUndeployGuestTask(ctx context.Context, userCred mcclien
 // 重置虚拟机状态
 func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	isHard := jsonutils.QueryBoolean(data, "is_hard", false)
 	if self.Status == api.VM_RUNNING || self.Status == api.VM_STOP_FAILED {
-		self.GetDriver().StartGuestResetTask(self, ctx, userCred, isHard, "")
+		drv.StartGuestResetTask(self, ctx, userCred, isHard, "")
 		return nil, nil
 	}
 	return nil, httperrors.NewInvalidStatusError("Cannot reset VM in status %s", self.Status)
@@ -3268,10 +3386,13 @@ func (self *SGuest) StartGuestStopAndFreezeTask(ctx context.Context, userCred mc
 func (self *SGuest) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) || (isForce && self.Status == api.VM_STOPPING) {
-		return nil, self.GetDriver().StartGuestRestartTask(self, ctx, userCred, isForce, "")
-	} else {
-		return nil, httperrors.NewInvalidStatusError("Cannot do restart server in status %s", self.Status)
+		driver, err := self.GetDriver()
+		if err != nil {
+			return nil, err
+		}
+		return nil, driver.StartGuestRestartTask(self, ctx, userCred, isForce, "")
 	}
+	return nil, httperrors.NewInvalidStatusError("Cannot do restart server in status %s", self.Status)
 }
 
 // 发送远程命令
@@ -3486,7 +3607,12 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 
-	err = self.GetDriver().ValidateCreateEip(ctx, userCred, input)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	err = driver.ValidateCreateEip(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
@@ -4086,7 +4212,11 @@ func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.T
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("guest billing type %s not support cancel expire", self.BillingType)
 	}
-	if err := self.GetDriver().CancelExpireTime(ctx, userCred, self); err != nil {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	if err := driver.CancelExpireTime(ctx, userCred, self); err != nil {
 		return nil, err
 	}
 	disks, err := self.GetDisks()
@@ -4107,7 +4237,12 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("guest billing type is %s", self.BillingType)
 	}
 
-	if !self.GetDriver().IsSupportPostpaidExpire() {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	if !driver.IsSupportPostpaidExpire() {
 		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
 	}
 
@@ -4136,7 +4271,12 @@ func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCre
 		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
 	}
 
-	if !self.GetDriver().IsSupportedBillingCycle(bc) {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	if !driver.IsSupportedBillingCycle(bc) {
 		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
 	}
 
@@ -4471,9 +4611,14 @@ func (self *SGuest) GetDetailsVirtInstall(
 		vdiListenPort int64
 	)
 
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
 	host, _ := self.GetHost()
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
-		vncInfo, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host, nil)
+		vncInfo, err := driver.GetGuestVncInfo(ctx, userCred, self, host, nil)
 		if err != nil {
 			log.Errorln(err)
 			return nil, err
@@ -5534,7 +5679,11 @@ func (self *SGuest) PerformPublicipToEip(ctx context.Context, userCred mcclient.
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewUnsupportOperationError("The guest status need be %s or %s, current is %s", api.VM_READY, api.VM_RUNNING, self.Status)
 	}
-	if !self.GetDriver().IsSupportPublicipToEip() {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	if !driver.IsSupportPublicipToEip() {
 		return nil, httperrors.NewUnsupportOperationError("The %s guest not support public ip to eip operation", self.Hypervisor)
 	}
 	return nil, self.StartPublicipToEipTask(ctx, userCred, input.AutoStart, "")
@@ -5585,7 +5734,12 @@ func (self *SGuest) PerformSetAutoRenew(ctx context.Context, userCred mcclient.T
 		return nil, nil
 	}
 
-	if !self.GetDriver().IsSupportSetAutoRenew() {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	if !driver.IsSupportSetAutoRenew() {
 		err := self.SetAutoRenew(input.AutoRenew)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
@@ -5636,7 +5790,12 @@ func (self *SGuest) PerformOpenForward(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError("guest has no vpc ip")
 	}
 
-	resp, err := self.GetDriver().RequestOpenForward(ctx, userCred, self, req)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDriver")
+	}
+
+	resp, err := driver.RequestOpenForward(ctx, userCred, self, req)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_WEBSSH, err, userCred, false)
 		return nil, httperrors.NewGeneralError(err)
@@ -5659,7 +5818,12 @@ func (self *SGuest) PerformCloseForward(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInputParameterError("guest has no vpc ip")
 	}
 
-	resp, err := self.GetDriver().RequestCloseForward(ctx, userCred, self, req)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := driver.RequestCloseForward(ctx, userCred, self, req)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -5683,7 +5847,12 @@ func (self *SGuest) PerformListForward(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError("guest has no vpc ip")
 	}
 
-	resp, err := self.GetDriver().RequestListForward(ctx, userCred, self, req)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := driver.RequestListForward(ctx, userCred, self, req)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -5718,7 +5887,10 @@ func (self *SGuest) PerformChangeStorage(ctx context.Context, userCred mcclient.
 	}
 
 	// driver validate
-	drv := self.GetDriver()
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	if err := drv.ValidateChangeDiskStorage(ctx, userCred, self, input.TargetStorageId); err != nil {
 		return nil, err
 	}
@@ -5779,7 +5951,10 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 	input.TargetStorageId = storage.GetId()
 
 	// driver validate
-	drv := self.GetDriver()
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	if err := drv.ValidateChangeDiskStorage(ctx, userCred, self, input.TargetStorageId); err != nil {
 		return nil, err
 	}
@@ -5811,7 +5986,11 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 func (self *SGuest) StartChangeDiskStorageTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error {
 	reason := fmt.Sprintf("Change disk %s to storage %s", input.DiskId, input.TargetStorageId)
 	self.SetStatus(ctx, userCred, api.VM_DISK_CHANGE_STORAGE, reason)
-	return self.GetDriver().StartChangeDiskStorageTask(self, ctx, userCred, input, parentTaskId)
+	driver, err := self.GetDriver()
+	if err != nil {
+		return err
+	}
+	return driver.StartChangeDiskStorageTask(self, ctx, userCred, input, parentTaskId)
 }
 
 func (self *SGuest) startSwitchToClonedDisk(ctx context.Context, userCred mcclient.TokenCredential, taskId string) error {
@@ -5920,7 +6099,11 @@ func (self *SGuest) PerformProbeIsolatedDevices(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, errors.Wrap(err, "GetHost")
 	}
-	hostDevs, err := host.GetHostDriver().RequestProbeIsolatedDevices(ctx, userCred, host, data)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHostDriver")
+	}
+	hostDevs, err := driver.RequestProbeIsolatedDevices(ctx, userCred, host, data)
 	if err != nil {
 		return nil, errors.Wrap(err, "RequestProbeIsolatedDevices")
 	}
@@ -6004,7 +6187,11 @@ func (self *SGuest) PerformCpusetRemove(ctx context.Context, userCred mcclient.T
 	// TODO: maybe change to async task
 	db.OpsLog.LogEvent(self, db.ACT_GUEST_CPUSET_REMOVE, nil, userCred)
 	resp := new(api.ServerCPUSetRemoveResp)
-	if err := self.GetDriver().RequestCPUSetRemove(ctx, userCred, host, self, data); err != nil {
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	if err := drv.RequestCPUSetRemove(ctx, userCred, host, self, data); err != nil {
 		db.OpsLog.LogEvent(self, db.ACT_GUEST_CPUSET_REMOVE_FAIL, err, userCred)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CPUSET_REMOVE, data, userCred, false)
 		resp.Error = err.Error()
@@ -6174,7 +6361,11 @@ func (self *SGuest) PerformEnableMemclean(ctx context.Context, userCred mcclient
 
 // 设置操作系统信息
 func (self *SGuest) PerformSetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetOSInfoInput) (jsonutils.JSONObject, error) {
-	if err := self.GetDriver().ValidateSetOSInfo(ctx, userCred, self, &input); err != nil {
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	if err := drv.ValidateSetOSInfo(ctx, userCred, self, &input); err != nil {
 		return nil, err
 	}
 
@@ -6204,7 +6395,11 @@ func (self *SGuest) PerformSetOsInfo(ctx context.Context, userCred mcclient.Toke
 
 // 同步操作系统信息
 func (self *SGuest) PerformSyncOsInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if err := self.GetDriver().ValidateSyncOSInfo(ctx, userCred, self); err != nil {
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	if err := drv.ValidateSyncOSInfo(ctx, userCred, self); err != nil {
 		return nil, err
 	}
 	if self.Status == api.VM_READY {

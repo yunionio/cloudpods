@@ -366,11 +366,7 @@ func (manager *SHostManager) ListItemFilter(
 
 	hypervisorStr := query.Hypervisor
 	if len(hypervisorStr) > 0 {
-		hostType, ok := api.HYPERVISOR_HOSTTYPE[hypervisorStr]
-		if !ok {
-			return nil, httperrors.NewInputParameterError("not supported hypervisor %s", hypervisorStr)
-		}
-		q = q.Filter(sqlchemy.Equals(q.Field("host_type"), hostType))
+		q = q.Filter(sqlchemy.In(q.Field("host_type"), Hypervisors2HostTypes([]string{query.Hypervisor})))
 	}
 
 	usable := (query.Usable != nil && *query.Usable)
@@ -733,11 +729,15 @@ func (hh *SHost) GetZone() (*SZone, error) {
 }
 
 func (hh *SHost) GetRegion() (*SCloudregion, error) {
-	zone, err := hh.GetZone()
+	zones := ZoneManager.Query("cloudregion_id").Equals("id", hh.ZoneId).SubQuery()
+	q := CloudregionManager.Query().In("id", zones)
+	ret := &SCloudregion{}
+	ret.SetModelManager(CloudregionManager, ret)
+	err := q.First(ret)
 	if err != nil {
 		return nil, err
 	}
-	return zone.GetRegion()
+	return ret, nil
 }
 
 func (hh *SHost) GetCpuCount() int {
@@ -1875,11 +1875,15 @@ func (hh *SHost) DeleteBaremetalnetwork(ctx context.Context, userCred mcclient.T
 	}
 }
 
-func (hh *SHost) GetHostDriver() IHostDriver {
-	if !utils.IsInStringArray(hh.HostType, api.HOST_TYPES) {
-		log.Fatalf("Unsupported host type %s", hh.HostType)
+func (hh *SHost) GetHostDriver() (IHostDriver, error) {
+	if len(hh.HostType) == 0 {
+		hh.HostType = api.HOST_TYPE_DEFAULT
 	}
-	return GetHostDriver(hh.HostType)
+	region, err := hh.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	return GetHostDriver(hh.HostType, region.Provider)
 }
 
 func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, region *SCloudregion, provider *SCloudprovider) ([]SHost, error) {
@@ -1949,7 +1953,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	}
 	for i := 0; i < len(commondb); i += 1 {
 		if !xor {
-			err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider)
+			err = commondb[i].SyncWithCloudHost(ctx, userCred, commonext[i])
 			if err != nil {
 				syncResult.UpdateError(err)
 			}
@@ -1988,7 +1992,7 @@ func (hh *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
-func (hh *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider) error {
+func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
 	diff, err := db.UpdateWithLock(ctx, hh, func() error {
 		// hh.Name = extHost.GetName()
 
@@ -2010,6 +2014,10 @@ func (hh *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 		hh.StorageSize = extHost.GetStorageSizeMB()
 		hh.StorageType = extHost.GetStorageType()
 		hh.HostType = extHost.GetHostType()
+		if hh.HostType == api.HOST_TYPE_BAREMETAL {
+			hh.IsBaremetal = true
+		}
+		hh.StorageInfo = extHost.GetStorageInfo()
 		hh.OvnVersion = extHost.GetOvnVersion()
 
 		if cpuCmt := extHost.GetCpuCmtbound(); cpuCmt > 0 {
@@ -2042,6 +2050,7 @@ func (hh *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 
 	db.OpsLog.LogSyncUpdate(hh, diff, userCred)
 
+	provider := hh.GetCloudprovider()
 	if provider != nil {
 		SyncCloudDomain(userCred, hh, provider.GetOwnerId())
 		hh.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
@@ -2239,6 +2248,11 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 	host.ZoneId = izone.Id
 
 	host.HostType = extHost.GetHostType()
+	if host.HostType == api.HOST_TYPE_BAREMETAL {
+		host.IsBaremetal = true
+	}
+	host.StorageInfo = extHost.GetStorageInfo()
+
 	host.OvnVersion = extHost.GetOvnVersion()
 
 	host.Status = extHost.GetStatus()
@@ -4145,8 +4159,7 @@ func (hh *SHost) InitializedGuestStart(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (hh *SHost) InitializedGuestStop(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error {
@@ -4186,8 +4199,7 @@ func (hh *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return nil, err
 	}
-	task.ScheduleRun(nil)
-	return nil, nil
+	return nil, task.ScheduleRun(nil)
 }
 
 func (hh *SHost) PerformUnmaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -4233,10 +4245,9 @@ func (hh *SHost) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCre
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalSyncStatusTask", hh, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (hh *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostOfflineInput) (jsonutils.JSONObject, error) {
@@ -5369,9 +5380,9 @@ func (hh *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclient
 	} else {
 		ownerId = userCred
 	}
-	driver := GetHostDriver(hostType)
-	if driver == nil {
-		return nil, httperrors.NewNotAcceptableError("Unsupport driver type %s", hostType)
+	driver, err := GetHostDriver(hostType, api.CLOUD_PROVIDER_ONECLOUD)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHostDriver")
 	}
 	if data.Contains("name") {
 		name, _ := data.GetString("name")
@@ -5440,11 +5451,11 @@ func (hh *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Token
 	if !utils.IsInStringArray(hh.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewNotAcceptableError("Cannot unconvert in status %s", hh.Status)
 	}
-	driver := hh.GetDriverWithDefault()
-	if driver == nil {
-		return nil, httperrors.NewNotAcceptableError("Unsupport driver type %s", hh.HostType)
+	driver, err := hh.GetHostDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHostDriver")
 	}
-	err := driver.PrepareUnconvert(hh)
+	err = driver.PrepareUnconvert(hh)
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("%v", err)
 	}
@@ -5472,14 +5483,6 @@ func (hh *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Token
 	}
 	task.ScheduleRun(nil)
 	return nil, nil
-}
-
-func (hh *SHost) GetDriverWithDefault() IHostDriver {
-	hostType := hh.HostType
-	if len(hostType) == 0 {
-		hostType = api.HOST_TYPE_DEFAULT
-	}
-	return GetHostDriver(hostType)
 }
 
 func (hh *SHost) UpdateDiskConfig(userCred mcclient.TokenCredential, layouts []baremetal.Layout) error {
@@ -6383,8 +6386,7 @@ func (hh *SHost) startSyncConfig(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (model *SHost) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -6623,7 +6625,11 @@ func (manager *SHostManager) InitializeData() error {
 }
 
 func (hh *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return hh.GetHostDriver().RequestProbeIsolatedDevices(ctx, userCred, hh, data)
+	driver, err := hh.GetHostDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHostDriver")
+	}
+	return driver.RequestProbeIsolatedDevices(ctx, userCred, hh, data)
 }
 
 func (hh *SHost) GetPinnedCpusetCores(ctx context.Context, userCred mcclient.TokenCredential) (map[string][]int, error) {

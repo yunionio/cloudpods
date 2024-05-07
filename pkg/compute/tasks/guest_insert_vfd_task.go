@@ -86,10 +86,15 @@ func (self *GuestInsertVfdTask) OnVfdPrepareComplete(ctx context.Context, obj db
 	guest := obj.(*models.SGuest)
 	if guest.InsertVfdSucc(floppyOrdinal, imageId, path, size, name) {
 		db.OpsLog.LogEvent(guest, db.ACT_VFD_ATTACH, guest.GetDetailsVfd(floppyOrdinal, self.UserCred), self.UserCred)
-		if guest.GetDriver().NeedRequestGuestHotAddVfd(ctx, guest) {
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.OnVfdPrepareCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		if drv.NeedRequestGuestHotAddVfd(ctx, guest) {
 			self.SetStage("OnConfigSyncComplete", nil)
 			boot := jsonutils.QueryBoolean(self.Params, "boot", false)
-			guest.GetDriver().RequestGuestHotAddVfd(ctx, guest, path, boot, self)
+			drv.RequestGuestHotAddVfd(ctx, guest, path, boot, self)
 		} else {
 			self.SetStageComplete(ctx, nil)
 		}

@@ -16,10 +16,10 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -58,27 +58,27 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 
 	host, err := storageCache.GetMasterHost()
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(fmt.Sprintf("fail to get host %s", err)))
+		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetMasterHost"))
 		return
 	}
 
-	if host == nil {
-		self.OnImageUncacheComplete(ctx, obj, data)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetHostDriver"))
 		return
 	}
 
 	self.SetStage("OnImageUncacheComplete", nil)
 
-	err = host.GetHostDriver().RequestUncacheImage(ctx, host, storageCache, self)
-
+	err = driver.RequestUncacheImage(ctx, host, storageCache, self)
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(err.Error()))
+		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "RequestUncacheImage"))
 	}
 }
 
-func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCache *models.SStoragecache, reason jsonutils.JSONObject) {
+func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCache *models.SStoragecache, reason error) {
 	body := jsonutils.NewDict()
-	body.Add(reason, "reason")
+	body.Add(jsonutils.NewString(reason.Error()), "reason")
 	imageId, _ := self.Params.GetString("image_id")
 	body.Add(jsonutils.NewString(imageId), "image_id")
 
@@ -92,7 +92,7 @@ func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCa
 func (self *StorageUncacheImageTask) OnImageUncacheCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	storageCache := obj.(*models.SStoragecache)
 
-	self.OnTaskFailed(ctx, storageCache, data)
+	self.OnTaskFailed(ctx, storageCache, errors.Errorf(data.String()))
 }
 
 func (self *StorageUncacheImageTask) OnImageUncacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

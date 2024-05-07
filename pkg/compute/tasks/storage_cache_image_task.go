@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -80,7 +81,13 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 		}
 	}
 
-	err = host.GetHostDriver().CheckAndSetCacheImage(ctx, self.UserCred, host, storageCache, self)
+	driver, err := host.GetHostDriver()
+	if err != nil {
+		self.OnImageCacheCompleteFailed(ctx, storageCache, jsonutils.NewString(errors.Wrapf(err, "GetHostDriver").Error()))
+		return
+	}
+
+	err = driver.CheckAndSetCacheImage(ctx, self.UserCred, host, storageCache, self)
 	if err != nil {
 		errData := taskman.Error2TaskData(err)
 		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)

@@ -754,7 +754,14 @@ func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 		}
 	}
 	host, _ := self.GetMasterHost()
-	return host.GetHostDriver().IsReachStoragecacheCapacityLimit(host, cachedImages)
+	if host == nil {
+		return false
+	}
+	driver, _ := host.GetHostDriver()
+	if driver == nil {
+		return false
+	}
+	return driver.IsReachStoragecacheCapacityLimit(host, cachedImages)
 }
 
 func (self *SStoragecache) GetStoragecachedimages() ([]SStoragecachedimage, error) {

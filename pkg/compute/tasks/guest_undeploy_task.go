@@ -48,7 +48,12 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		host = models.HostManager.FetchHostById(targetHostId)
 	}
 	if host != nil {
-		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.OnStartDeleteGuestFail(ctx, err)
+			return
+		}
+		err = drv.RequestUndeployGuestOnHost(ctx, guest, host, self)
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)
 		}
@@ -61,7 +66,12 @@ func (self *GuestUndeployTask) OnMasterHostUndeployGuestComplete(ctx context.Con
 	self.SetStage("OnGuestUndeployComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	if host != nil {
-		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.OnStartDeleteGuestFail(ctx, err)
+			return
+		}
+		err = drv.RequestUndeployGuestOnHost(ctx, guest, host, self)
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)
 		}

@@ -149,7 +149,12 @@ func (task *DiskMigrateTask) OnStorageCacheImage(ctx context.Context, disk *mode
 		task.TaskFailed(ctx, disk, jsonutils.NewString(err.Error()))
 		return
 	}
-	ret, err := sourceHost.GetHostDriver().RequestDiskSrcMigratePrepare(ctx, sourceHost, disk, task)
+	driver, err := sourceHost.GetHostDriver()
+	if err != nil {
+		task.TaskFailed(ctx, disk, jsonutils.NewString(err.Error()))
+		return
+	}
+	ret, err := driver.RequestDiskSrcMigratePrepare(ctx, sourceHost, disk, task)
 	if err != nil {
 		task.TaskFailed(ctx, disk, jsonutils.NewString(err.Error()))
 		return
@@ -193,7 +198,12 @@ func (task *DiskMigrateTask) OnStorageCacheImage(ctx context.Context, disk *mode
 	targetStorage := models.StorageManager.FetchStorageById(targetStorageId)
 
 	task.SetStage("OnDiskMigrate", nil)
-	if err = targetHost.GetHostDriver().RequestDiskMigrate(ctx, targetHost, targetStorage, disk, task, body); err != nil {
+	targetDriver, err := targetHost.GetHostDriver()
+	if err != nil {
+		task.TaskFailed(ctx, disk, jsonutils.NewString(errors.Wrap(err, "GetHostDriver").Error()))
+		return
+	}
+	if err = targetDriver.RequestDiskMigrate(ctx, targetHost, targetStorage, disk, task, body); err != nil {
 		task.TaskFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("failed request disk migrate %s", err)))
 		return
 	}
@@ -230,7 +240,12 @@ func (task *DiskMigrateTask) OnDiskMigrate(ctx context.Context, disk *models.SDi
 	}
 
 	task.SetStage("OnDeallocateSourceDisk", nil)
-	err = srcHost.GetHostDriver().RequestDeallocateDiskOnHost(ctx, srcHost, srcStorage, disk, true, task)
+	driver, err := srcHost.GetHostDriver()
+	if err != nil {
+		task.TaskFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("GetHostDriver: %v", err)))
+		return
+	}
+	err = driver.RequestDeallocateDiskOnHost(ctx, srcHost, srcStorage, disk, true, task)
 	if err != nil {
 		task.TaskFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("failed deallocate disk on src storage %s", err)))
 		return

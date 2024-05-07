@@ -40,7 +40,11 @@ func (t *ContainerBaseTask) GetPod() *models.SGuest {
 }
 
 func (t *ContainerBaseTask) GetPodDriver() models.IPodDriver {
-	return t.GetPod().GetDriver().(models.IPodDriver)
+	drv, err := t.GetPod().GetDriver()
+	if err != nil {
+		return nil
+	}
+	return drv.(models.IPodDriver)
 }
 
 type ContainerCreateTask struct {

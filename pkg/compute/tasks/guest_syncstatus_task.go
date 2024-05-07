@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -38,17 +39,25 @@ func init() {
 
 func (self *GuestSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	host, _ := guest.GetHost()
-	if host == nil || host.HostStatus == api.HOST_OFFLINE {
-		log.Errorf("host is not reachable")
-		guest.SetStatus(ctx, self.UserCred, api.VM_UNKNOWN, "Host not responding")
+	host, err := guest.GetHost()
+	if err != nil {
+		guest.SetStatus(ctx, self.UserCred, api.VM_UNKNOWN, fmt.Sprintf("get host error: %v", err))
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+	if !host.IsBaremetal && host.HostStatus == api.HOST_OFFLINE {
+		guest.SetStatus(ctx, self.UserCred, api.VM_UNKNOWN, "host offline")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
 	self.SetStage("OnGetStatusComplete", nil)
-	err := guest.GetDriver().RequestSyncstatusOnHost(ctx, guest, host, self.UserCred, self)
+	drv, err := guest.GetDriver()
 	if err != nil {
-		log.Errorf("request_syncstatus_on_host: %s", err)
+		self.OnGetStatusCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestSyncstatusOnHost(ctx, guest, host, self.UserCred, self)
+	if err != nil {
 		self.OnGetStatusCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}

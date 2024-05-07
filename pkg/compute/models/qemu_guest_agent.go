@@ -80,8 +80,15 @@ func (self *SGuest) PerformQgaPing(
 	}
 
 	res := jsonutils.NewDict()
-	host, _ := self.GetHost()
-	err := self.GetDriver().QgaRequestGuestPing(ctx, mcclient.GetTokenHeaders(userCred), host, self, false, input)
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
+	}
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	err = drv.QgaRequestGuestPing(ctx, mcclient.GetTokenHeaders(userCred), host, self, false, input)
 	if err != nil {
 		res.Set("ping_error", jsonutils.NewString(err.Error()))
 	}
@@ -100,8 +107,15 @@ func (self *SGuest) PerformQgaCommand(
 	if input.Command == "" {
 		return nil, httperrors.NewMissingParameterError("command")
 	}
-	host, _ := self.GetHost()
-	return self.GetDriver().RequestQgaCommand(ctx, userCred, jsonutils.Marshal(input), host, self)
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
+	}
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	return drv.RequestQgaCommand(ctx, userCred, jsonutils.Marshal(input), host, self)
 }
 
 func (self *SGuest) PerformQgaGuestInfoTask(
@@ -113,8 +127,15 @@ func (self *SGuest) PerformQgaGuestInfoTask(
 	if self.PowerStates != api.VM_POWER_STATES_ON {
 		return nil, httperrors.NewBadRequestError("can't use qga in vm status: %s", self.Status)
 	}
-	host, _ := self.GetHost()
-	return self.GetDriver().QgaRequestGuestInfoTask(ctx, userCred, nil, host, self)
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
+	}
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	return drv.QgaRequestGuestInfoTask(ctx, userCred, nil, host, self)
 }
 
 func (self *SGuest) PerformQgaGetNetwork(
@@ -126,8 +147,15 @@ func (self *SGuest) PerformQgaGetNetwork(
 	if self.PowerStates != api.VM_POWER_STATES_ON {
 		return nil, httperrors.NewBadRequestError("can't use qga in vm status: %s", self.Status)
 	}
-	host, _ := self.GetHost()
-	return self.GetDriver().QgaRequestGetNetwork(ctx, userCred, nil, host, self)
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
+	}
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	return drv.QgaRequestGetNetwork(ctx, userCred, nil, host, self)
 }
 
 func (self *SGuest) startQgaSyncOsInfoTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {

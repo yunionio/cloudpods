@@ -42,7 +42,12 @@ func (self *GuestEjectVFDTask) startEjectVfd(ctx context.Context, obj db.IStanda
 	floppyOrdinal, _ := self.Params.Int("floppy_ordinal")
 	if guest.EjectVfd(floppyOrdinal, self.UserCred) && guest.Status == api.VM_RUNNING {
 		self.SetStage("OnConfigSyncComplete", nil)
-		guest.GetDriver().RequestGuestHotRemoveVfd(ctx, guest, self)
+		drv, err := guest.GetDriver()
+		if err != nil {
+			self.SetStageFailed(ctx, jsonutils.Marshal(map[string]string{"reason": err.Error()}))
+			return
+		}
+		drv.RequestGuestHotRemoveVfd(ctx, guest, self)
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

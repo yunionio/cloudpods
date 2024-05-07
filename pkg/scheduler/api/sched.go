@@ -156,6 +156,14 @@ func NewSchedInfo(input *api.ScheduleInput) *SchedInfo {
 		preferCandidates = append(preferCandidates, data.PreferHost)
 	}
 
+	if len(data.PreferRegion) > 0 && len(data.Provider) == 0 {
+		regionObj, _ := models.CloudregionManager.FetchById(data.PreferRegion)
+		if regionObj != nil {
+			region := regionObj.(*models.SCloudregion)
+			data.Provider = region.Provider
+		}
+	}
+
 	if data.Backup {
 		if data.PreferBackupHost != "" {
 			preferCandidates = append(preferCandidates, data.PreferBackupHost)

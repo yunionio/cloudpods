@@ -41,6 +41,10 @@ func (self *SHCSOPHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_HCSOP
 }
 
+func (self *SHCSOPHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_HCSOP
+}
+
 // 系统盘必须至少40G
 func (self *SHCSOPHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if sizeGb < 1 || sizeGb > 65536 {

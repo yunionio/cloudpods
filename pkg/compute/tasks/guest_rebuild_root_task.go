@@ -103,7 +103,12 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 	loginParams["login_key_timestamp"] = "none"
 	guest.SetAllMetadata(ctx, loginParams, self.UserCred)
 
-	guest.GetDriver().RequestRebuildRootDisk(ctx, guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnRebuildRootDiskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	drv.RequestRebuildRootDisk(ctx, guest, self)
 }
 
 func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -270,7 +275,12 @@ func (self *ManagedGuestRebuildRootTask) OnInit(ctx context.Context, obj db.ISta
 	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnHostCacheImageComplete", nil)
-	guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnHostCacheImageCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	drv.RequestGuestCreateAllDisks(ctx, guest, self)
 }
 
 func (self *ManagedGuestRebuildRootTask) OnHostCacheImageComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

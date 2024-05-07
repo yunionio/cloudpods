@@ -97,11 +97,16 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		}
 	}
 
+	drv, err := guest.GetDriver()
+	if err != nil {
+		return err
+	}
+
 	if jsonutils.QueryBoolean(task.GetParams(), "reload_disk", false) && snapshot.OutOfChain {
 		guest.SetStatus(ctx, task.GetUserCred(), api.VM_SNAPSHOT, "Start Reload Snapshot")
 		params := jsonutils.NewDict()
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
-		return guest.GetDriver().RequestReloadDiskSnapshot(ctx, guest, task, params)
+		return drv.RequestReloadDiskSnapshot(ctx, guest, task, params)
 	} else {
 		convertSnapshot, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
 		if err != nil && err != sql.ErrNoRows {
@@ -121,7 +126,7 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 			params.Set("auto_deleted", jsonutils.JSONTrue)
 		}
 		guest.SetStatus(ctx, task.GetUserCred(), api.VM_SNAPSHOT_DELETE, "Start Delete Snapshot")
-		return guest.GetDriver().RequestDeleteSnapshot(ctx, guest, task, params)
+		return drv.RequestDeleteSnapshot(ctx, guest, task, params)
 	}
 }
 

@@ -41,6 +41,10 @@ func (self *SJDcloudHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_JDCLOUD
 }
 
+func (self *SJDcloudHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_JDCLOUD
+}
+
 // ValidateResetDisk 仅可用状态的云硬盘支持恢复
 // 卸载硬盘需要停止云主机
 func (self *SJDcloudHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {

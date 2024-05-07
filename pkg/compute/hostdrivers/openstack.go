@@ -40,6 +40,10 @@ func (self *SOpenStackHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_OPENSTACK
 }
 
+func (self *SOpenStackHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_OPENSTACK
+}
+
 func (self *SOpenStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	return nil
 }

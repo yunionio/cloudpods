@@ -35,3 +35,7 @@ func (self *SQingCloudHostDriver) GetHostType() string {
 func (self *SQingCloudHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_QINGCLOUD
 }
+
+func (self *SQingCloudHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_QINGCLOUD
+}

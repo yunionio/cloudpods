@@ -53,7 +53,12 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 		guest.SetStatus(ctx, self.GetUserCred(), api.VM_STOPPING, "")
 	}
 	self.SetStage("OnGuestStopTaskComplete", nil)
-	err = guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, !self.IsSubtask())
+	drv, err := guest.GetDriver()
+	if err != nil {
+		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestStopOnHost(ctx, guest, host, self, !self.IsSubtask())
 	if err != nil {
 		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}

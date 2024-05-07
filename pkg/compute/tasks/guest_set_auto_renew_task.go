@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -34,19 +35,28 @@ func init() {
 	taskman.RegisterTask(GuestSetAutoRenewTask{})
 }
 
+func (self *GuestSetAutoRenewTask) taskFailed(ctx context.Context, guest *models.SGuest, err error) {
+	db.OpsLog.LogEvent(guest, db.ACT_SET_AUTO_RENEW_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SET_AUTO_RENEW, err, self.UserCred, false)
+	guest.SetStatus(ctx, self.GetUserCred(), api.VM_SET_AUTO_RENEW_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+
+}
+
 func (self *GuestSetAutoRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnSetAutoRenewComplete", nil)
 	input := api.GuestAutoRenewInput{}
 	self.GetParams().Unmarshal(&input)
-	err := guest.GetDriver().RequestSetAutoRenewInstance(ctx, self.UserCred, guest, input, self)
+	drv, err := guest.GetDriver()
 	if err != nil {
-		// msg := fmt.Sprintf("RequestSetAutoRenewInstance failed %s", err)
-		db.OpsLog.LogEvent(guest, db.ACT_SET_AUTO_RENEW_FAIL, err, self.UserCred)
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SET_AUTO_RENEW, err, self.UserCred, false)
-		guest.SetStatus(ctx, self.GetUserCred(), api.VM_SET_AUTO_RENEW_FAILED, err.Error())
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, guest, errors.Wrapf(err, "GetDriver"))
+		return
+	}
+	err = drv.RequestSetAutoRenewInstance(ctx, self.UserCred, guest, input, self)
+	if err != nil {
+		self.taskFailed(ctx, guest, errors.Wrapf(err, "RequestSetAutoRenewInstance"))
 		return
 	}
 }

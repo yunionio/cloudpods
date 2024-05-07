@@ -19,27 +19,31 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type SCloudpodsHostDriver struct {
+type SCloudpodsESXiHostDriver struct {
 	SManagedVirtualizationHostDriver
 }
 
 func init() {
-	driver := SCloudpodsHostDriver{}
+	driver := SCloudpodsESXiHostDriver{}
 	models.RegisterHostDriver(&driver)
 }
 
-func (self *SCloudpodsHostDriver) GetHostType() string {
-	return api.HOST_TYPE_CLOUDPODS
+func (self *SCloudpodsESXiHostDriver) GetHostType() string {
+	return api.HOST_TYPE_ESXI
 }
 
-func (self *SCloudpodsHostDriver) GetHypervisor() string {
-	return api.HYPERVISOR_CLOUDPODS
+func (self *SCloudpodsESXiHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_ESXI
 }
 
-func (self *SCloudpodsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+func (self *SCloudpodsESXiHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_CLOUDPODS
+}
+
+func (self *SCloudpodsESXiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	return nil
 }
 
-func (driver *SCloudpodsHostDriver) GetStoragecacheQuota(host *models.SHost) int {
+func (driver *SCloudpodsESXiHostDriver) GetStoragecacheQuota(host *models.SHost) int {
 	return 100
 }

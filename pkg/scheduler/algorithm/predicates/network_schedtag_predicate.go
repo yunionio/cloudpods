@@ -103,7 +103,11 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *co
 }
 
 func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {
-	netTypes := p.GetHypervisorDriver().GetRandomNetworkTypes()
+	netTypes := []string{}
+	driver := p.GetHypervisorDriver()
+	if driver != nil {
+		netTypes = driver.GetRandomNetworkTypes()
+	}
 	if len(specifyType) > 0 {
 		netTypes = []string{specifyType}
 	}

@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -36,20 +35,23 @@ func init() {
 
 func (self *BaremetalUnmaintenanceTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
-	url := fmt.Sprintf("/baremetals/%s/unmaintenance", baremetal.Id)
-	headers := self.GetTaskRequestHeader()
-	self.SetStage("OnUnmaintenantComplete", nil)
+	drv, err := baremetal.GetHostDriver()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
 	action := self.Action()
-	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
+	self.SetStage("OnUnmaintenantComplete", nil)
+	err = drv.RequestBaremetalUnmaintence(ctx, self.GetUserCred(), baremetal, self)
 	if err != nil {
 		if len(action) > 0 {
 			logclient.AddActionLogWithStartable(self, baremetal, action, err, self.UserCred, false)
 		}
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-	} else {
-		if len(action) > 0 {
-			logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)
-		}
+		return
+	}
+	if len(action) > 0 {
+		logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)
 	}
 }
 

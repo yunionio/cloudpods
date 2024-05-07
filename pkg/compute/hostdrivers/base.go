@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -35,7 +36,23 @@ import (
 type SBaseHostDriver struct {
 }
 
-func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskUpdateInput) (api.DiskUpdateInput, error) {
+func (self *SBaseHostDriver) RequestBaremetalUnmaintence(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestBaremetalUnmaintence")
+}
+
+func (self *SBaseHostDriver) RequestBaremetalMaintence(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestBaremetalMaintence")
+}
+
+func (self *SBaseHostDriver) RequestSyncBaremetalHostStatus(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestSyncBaremetalHostStatus")
+}
+
+func (self *SBaseHostDriver) RequestSyncBaremetalHostConfig(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestSyncBaremetalHostConfig")
+}
+
+func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input *api.DiskUpdateInput) (*api.DiskUpdateInput, error) {
 	return input, nil
 }
 

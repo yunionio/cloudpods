@@ -113,7 +113,7 @@ func (self *SOpenStackGuestDriver) GetMinimalSysDiskSizeGb() int {
 }
 
 func (self *SOpenStackGuestDriver) GetStorageTypes() []string {
-	storages, _ := models.StorageManager.GetStorageTypesByHostType(api.HYPERVISOR_HOSTTYPE[self.GetHypervisor()])
+	storages, _ := models.StorageManager.GetStorageTypesByProvider(self.GetProvider())
 	return storages
 }
 
@@ -218,6 +218,11 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 		return nil, fmt.Errorf("cannot find vm %s(%s)", guest.Id, guest.Name)
 	}
 
+	driver, err := guest.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
 	instanceId := iVM.GetGlobalId()
 
 	diskId, err := func() (string, error) {
@@ -290,7 +295,7 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 
 		instanceId = iVM.GetGlobalId()
 		db.SetExternalId(guest, task.GetUserCred(), instanceId)
-		initialState := guest.GetDriver().GetGuestInitialStateAfterCreate()
+		initialState := driver.GetGuestInitialStateAfterCreate()
 		log.Debugf("VMrebuildRoot %s new instance, wait status %s ...", iVM.GetGlobalId(), initialState)
 		cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
 
@@ -324,7 +329,7 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 		return nil, err
 	}
 
-	initialState := guest.GetDriver().GetGuestInitialStateAfterRebuild()
+	initialState := driver.GetGuestInitialStateAfterRebuild()
 	log.Debugf("VMrebuildRoot %s new diskID %s, wait status %s ...", iVM.GetGlobalId(), diskId, initialState)
 	err = cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
 	if err != nil {

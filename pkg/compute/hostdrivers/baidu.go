@@ -35,3 +35,7 @@ func (self *SBaiduHostDriver) GetHostType() string {
 func (self *SBaiduHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_BAIDU
 }
+
+func (self *SBaiduHostDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_BAIDU
+}

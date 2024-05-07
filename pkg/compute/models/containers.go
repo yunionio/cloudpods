@@ -532,7 +532,11 @@ func (c *SContainer) StartSaveVolumeMountImage(ctx context.Context, userCred mcc
 }
 
 func (c *SContainer) GetPodDriver() IPodDriver {
-	return c.GetPod().GetDriver().(IPodDriver)
+	driver, err := c.GetPod().GetDriver()
+	if err != nil {
+		return nil
+	}
+	return driver.(IPodDriver)
 }
 
 func (c *SContainer) GetDetailsExecInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.ContainerExecInfoOutput, error) {

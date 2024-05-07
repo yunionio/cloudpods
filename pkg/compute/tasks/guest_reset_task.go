@@ -37,12 +37,17 @@ type GuestSoftResetTask struct {
 
 func (self *GuestSoftResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	err := guest.GetDriver().RequestSoftReset(ctx, guest, self)
-	if err == nil {
-		self.SetStageComplete(ctx, nil)
-	} else {
+	drv, err := guest.GetDriver()
+	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
 	}
+	err = drv.RequestSoftReset(ctx, guest, self)
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+	self.SetStageComplete(ctx, nil)
 }
 
 type GuestHardResetTask struct {

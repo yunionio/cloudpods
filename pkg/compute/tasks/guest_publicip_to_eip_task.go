@@ -38,7 +38,15 @@ func (self *GuestPublicipToEipTask) OnInit(ctx context.Context, obj db.IStandalo
 	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnEipConvertComplete", nil)
-	err := guest.GetDriver().RequestConvertPublicipToEip(ctx, self.GetUserCred(), guest, self)
+	drv, err := guest.GetDriver()
+	if err != nil {
+		db.OpsLog.LogEvent(guest, db.ACT_EIP_CONVERT_FAIL, err, self.UserCred)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_CONVERT, err, self.UserCred, false)
+		guest.SetStatus(ctx, self.GetUserCred(), api.VM_EIP_CONVERT_FAILED, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = drv.RequestConvertPublicipToEip(ctx, self.GetUserCred(), guest, self)
 	if err != nil {
 		db.OpsLog.LogEvent(guest, db.ACT_EIP_CONVERT_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_CONVERT, err, self.UserCred, false)

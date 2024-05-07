@@ -731,7 +731,17 @@ func (self *SHost) PerformRenewPrepaidRecycle(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
 	}
 
-	if !GetDriver(api.HOSTTYPE_HYPERVISOR[self.HostType]).IsSupportedBillingCycle(bc) {
+	hostDriver, err := self.GetHostDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHostDriver")
+	}
+
+	driver, err := GetDriver(hostDriver.GetHypervisor(), hostDriver.GetProvider())
+	if err != nil {
+		return nil, err
+	}
+
+	if !driver.IsSupportedBillingCycle(bc) {
 		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
 	}
 

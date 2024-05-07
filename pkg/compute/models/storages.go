@@ -221,6 +221,28 @@ func (self *SStorage) IsNeedDeleteStoragecache() (bool, error) {
 	return cnt == 0, nil
 }
 
+func (manager *SStorageManager) GetStorageTypesByProvider(provider string) ([]string, error) {
+	q := manager.Query("storage_type")
+	providers := CloudproviderManager.Query().SubQuery()
+	q = q.Join(providers, sqlchemy.Equals(q.Field("manager_id"), providers.Field("id"))).
+		Filter(sqlchemy.Equals(providers.Field("provider"), provider)).Distinct()
+	storages := []string{}
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var storage string
+		err = rows.Scan(&storage)
+		if err != nil {
+			return nil, errors.Wrap(err, "rows.Scan(&storage)")
+		}
+		storages = append(storages, storage)
+	}
+	return storages, nil
+}
+
 func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]string, error) {
 	q := manager.Query("storage_type")
 	hosts := HostManager.Query().SubQuery()

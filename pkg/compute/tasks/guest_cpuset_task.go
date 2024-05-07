@@ -53,7 +53,12 @@ func (self *GuestCPUSetTask) OnSyncComplete(ctx context.Context, obj *models.SGu
 	host, _ := obj.GetHost()
 	input := new(api.ServerCPUSetInput)
 	self.GetParams().Unmarshal(input)
-	_, err := obj.GetDriver().RequestCPUSet(ctx, self.GetUserCred(), host, obj, input)
+	drv, err := obj.GetDriver()
+	if err != nil {
+		self.setStageFailed(ctx, obj, jsonutils.NewString(err.Error()))
+		return
+	}
+	_, err = drv.RequestCPUSet(ctx, self.GetUserCred(), host, obj, input)
 	if err != nil {
 		self.setStageFailed(ctx, obj, jsonutils.NewString(err.Error()))
 		return

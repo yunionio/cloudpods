@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
@@ -38,7 +39,8 @@ import (
 )
 
 type SCapabilities struct {
-	Hypervisors []string `json:",allowempty"`
+	Hypervisors    []string            `json:",allowempty"`
+	HypervisorInfo map[string][]string `json:",allowempty"`
 
 	Brands                           []string `json:",allowempty"`
 	EnabledBrands                    []string `json:",allowempty"`
@@ -126,8 +128,6 @@ type SCapabilities struct {
 	ReadOnlyDisabledSnapshotPolicyBrands []string `json:",allowempty"`
 
 	ResourceTypes      []string           `json:",allowempty"`
-	StorageTypes       []string           `json:",allowempty"` // going to remove on 2.14
-	DataStorageTypes   []string           `json:",allowempty"` // going to remove on 2.14
 	GPUModels          []string           `json:",allowempty"` // Deprecated by PCIModelTypes
 	PCIModelTypes      []PCIDevModelTypes `json:",allowempty"`
 	HostCpuArchs       []string           `json:",allowempty"` // x86_64 aarch64
@@ -146,20 +146,24 @@ type SCapabilities struct {
 	Specs                 jsonutils.JSONObject
 	AvailableHostCount    int
 
+	*StorageInfos
+	InstanceCapabilities []cloudprovider.SInstanceCapability
+}
+
+type StorageInfos struct {
 	StorageTypes2     map[string][]string                      `json:",allowempty"`
 	StorageTypes3     map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
 	DataStorageTypes2 map[string][]string                      `json:",allowempty"`
 	DataStorageTypes3 map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
-
-	InstanceCapabilities []cloudprovider.SInstanceCapability
 }
 
 func GetDiskCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
-	s1, d1, s2, s3, d2, d3 := getStorageTypes(ctx, userCred, region, zone, "")
-	capa.StorageTypes, capa.DataStorageTypes = s1, d1
-	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
-	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
+	var err error
+	capa.StorageInfos, err = getStorageTypes(ctx, userCred, region, zone, "")
+	if err != nil {
+		return capa, errors.Wrapf(err, "getStorageTypes")
+	}
 	capa.MinDataDiskCount = getMinDataDiskCount(region, zone)
 	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
 	return capa, nil
@@ -194,21 +198,34 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		}
 		domainId = ""
 	}
-	capa.Hypervisors = getHypervisors(ctx, userCred, region, zone, domainId)
+	var err error
+	capa.HypervisorInfo, err = getHypervisors(ctx, userCred, region, zone, domainId)
+	if err != nil {
+		return capa, errors.Wrapf(err, "getHypervisors")
+	}
+	capa.Hypervisors = []string{}
+	for _, hypervisors := range capa.HypervisorInfo {
+		for _, h := range hypervisors {
+			if !utils.IsInStringArray(h, capa.Hypervisors) {
+				capa.Hypervisors = append(capa.Hypervisors, h)
+			}
+		}
+	}
 	capa.InstanceCapabilities = []cloudprovider.SInstanceCapability{}
-	for _, hypervisor := range capa.Hypervisors {
-		driver := GetDriver(hypervisor)
-		if driver != nil {
-			capa.InstanceCapabilities = append(capa.InstanceCapabilities, driver.GetInstanceCapability())
+	for provider, hypervisors := range capa.HypervisorInfo {
+		for _, hypervisor := range hypervisors {
+			driver, _ := GetDriver(hypervisor, provider)
+			if driver != nil {
+				capa.InstanceCapabilities = append(capa.InstanceCapabilities, driver.GetInstanceCapability())
+			}
 		}
 	}
 	getBrands(region, zone, domainId, &capa)
-	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(ctx, userCred, region, zone, domainId)
-	s1, d1, s2, s3, d2, d3 := getStorageTypes(ctx, userCred, region, zone, domainId)
-	capa.StorageTypes, capa.DataStorageTypes = s1, d1
-	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
-	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
+	capa.StorageInfos, err = getStorageTypes(ctx, userCred, region, zone, domainId)
+	if err != nil {
+		return capa, errors.Wrapf(err, "getStorageTypes")
+	}
 	capa.GPUModels, capa.PCIModelTypes = getIsolatedDeviceInfo(ctx, userCred, region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
@@ -230,7 +247,6 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if len(domainId) > 0 {
 		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(domainId), "domain_id")
 	}
-	var err error
 	serverType := jsonutils.GetAnyString(query, []string{"host_type", "server_type"})
 	autoAllocNetworkCount, _ := getAutoAllocNetworkCount(ctx, userCred, ownerId, scope, region, zone, serverType)
 	capa.PublicNetworkCount = autoAllocNetworkCount
@@ -483,46 +499,58 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	return
 }
 
-func getHypervisors(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) []string {
-	q := HostManager.Query("host_type", "manager_id")
-	if region != nil {
-		subq := getRegionZoneSubq(region)
-		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
-	}
+func getHypervisors(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) (map[string][]string, error) {
+	q := HostManager.Query().IsNotEmpty("host_type").IsTrue("enabled")
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
+	}
+	zoneQ := ZoneManager.Query()
+	if region != nil {
+		zoneQ = zoneQ.Equals("cloudregion_id", region.Id)
 	}
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
 		q = HostManager.FilterByOwner(ctx, q, HostManager, userCred, ownerId, rbacscope.ScopeDomain)
-		/*subq := getDomainManagerSubq(domainId)
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("manager_id"), subq),
-			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-		))*/
 	}
-	q = q.IsNotEmpty("host_type").IsNotNull("host_type")
-	// q = q.Equals("host_status", HOST_ONLINE)
-	q = q.IsTrue("enabled")
-	q = q.Distinct()
-	rows, err := q.Rows()
+
+	zones := zoneQ.SubQuery()
+	regions := CloudregionManager.Query().SubQuery()
+
+	sq := q.SubQuery()
+	hQ := sq.Query(
+		sq.Field("host_type"),
+		regions.Field("provider"),
+	)
+
+	hQ = hQ.Join(zones, sqlchemy.Equals(hQ.Field("zone_id"), zones.Field("id")))
+	hQ = hQ.Join(regions, sqlchemy.Equals(zones.Field("cloudregion_id"), regions.Field("id")))
+
+	result := []struct {
+		HostType string
+		Provider string
+	}{}
+
+	hQ = hQ.Distinct()
+
+	err := hQ.All(&result)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	defer rows.Close()
-	hypervisors := make([]string, 0)
-	for rows.Next() {
-		var hostType string
-		var managerId string
-		rows.Scan(&hostType, &managerId)
-		if len(hostType) > 0 && IsProviderAccountEnabled(managerId) {
-			hypervisor := api.HOSTTYPE_HYPERVISOR[hostType]
-			if !utils.IsInStringArray(hypervisor, hypervisors) {
-				hypervisors = append(hypervisors, hypervisor)
-			}
+	ret := map[string][]string{}
+	for _, h := range result {
+		drv, err := GetHostDriver(h.HostType, h.Provider)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetHostDriver")
+		}
+		_, ok := ret[h.Provider]
+		if !ok {
+			ret[h.Provider] = []string{}
+		}
+		if !utils.IsInStringArray(drv.GetHypervisor(), ret[h.Provider]) {
+			ret[h.Provider] = append(ret[h.Provider], drv.GetHypervisor())
 		}
 	}
-	return hypervisors
+	return ret, nil
 }
 
 func getResourceTypes(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) []string {
@@ -579,6 +607,7 @@ type StorageInfo struct {
 	FreeCapacity    int64
 	IsSysDiskStore  bool
 	HostType        string
+	Provider        string
 }
 
 type sStorage struct {
@@ -602,12 +631,8 @@ func getStorageTypes(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	region *SCloudregion, zone *SZone, domainId string,
-) (
-	[]string, []string,
-	map[string][]string, map[string]map[string]*SimpleStorageInfo,
-	map[string][]string, map[string]map[string]*SimpleStorageInfo,
-) {
-	storages := StorageManager.Query().SubQuery()
+) (*StorageInfos, error) {
+	storageQ := StorageManager.Query()
 	disks1 := DiskManager.Query().SubQuery()
 	usedDisk := disks1.Query(
 		disks1.Field("storage_id"),
@@ -627,6 +652,18 @@ func getStorageTypes(
 	}
 	hosts := hostQuery.SubQuery()
 
+	zoneQ := ZoneManager.Query()
+	if zone != nil {
+		zoneQ = zoneQ.Equals("id", zone.Id)
+	}
+	if region != nil {
+		zoneQ = zoneQ.Equals("cloudregion_id", region.Id)
+	}
+	zones := zoneQ.SubQuery()
+	regions := CloudregionManager.Query().SubQuery()
+
+	storages := storageQ.SubQuery()
+
 	q := storages.Query(
 		storages.Field("id"),
 		storages.Field("name"),
@@ -639,7 +676,9 @@ func getStorageTypes(
 		failedDisk.Field("waste_capacity"),
 		storages.Field("is_sys_disk_store"),
 		hosts.Field("host_type"),
+		regions.Field("provider"),
 	)
+
 	q = q.LeftJoin(usedDisk, sqlchemy.Equals(usedDisk.Field("storage_id"), storages.Field("id")))
 	q = q.LeftJoin(failedDisk, sqlchemy.Equals(failedDisk.Field("storage_id"), storages.Field("id")))
 
@@ -647,17 +686,22 @@ func getStorageTypes(
 		hostStorages.Field("storage_id"),
 		storages.Field("id"),
 	))
+
 	q = q.Join(hosts, sqlchemy.Equals(
 		hosts.Field("id"),
 		hostStorages.Field("host_id"),
 	))
-	if region != nil {
-		subq := getRegionZoneSubq(region)
-		q = q.Filter(sqlchemy.In(storages.Field("zone_id"), subq))
-	}
-	if zone != nil {
-		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
-	}
+
+	q = q.Join(zones, sqlchemy.Equals(
+		storages.Field("zone_id"),
+		zones.Field("id"),
+	))
+
+	q = q.Join(regions, sqlchemy.Equals(
+		zones.Field("cloudregion_id"),
+		regions.Field("id"),
+	))
+
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
 		q = StorageManager.FilterByOwner(ctx, q, StorageManager, userCred, ownerId, rbacscope.ScopeDomain)
@@ -670,34 +714,14 @@ func getStorageTypes(
 	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}))
 	q = q.Filter(sqlchemy.IsTrue(storages.Field("enabled")))
 	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL))
-	rows, err := q.Rows()
-	if err != nil {
-		log.Errorf("get storage types failed %s", err)
-		return nil, nil, nil, nil, nil, nil
+
+	ret := &StorageInfos{
+		StorageTypes2:     map[string][]string{},
+		StorageTypes3:     map[string]map[string]*SimpleStorageInfo{},
+		DataStorageTypes2: map[string][]string{},
+		DataStorageTypes3: map[string]map[string]*SimpleStorageInfo{},
 	}
-	defer rows.Close()
-
 	var (
-		sysStorageTypes           = make([]string, 0)
-		allStorageTypes           = make([]string, 0)
-		storageInfos              = make(map[string]*SimpleStorageInfo)
-		sysHypervisorStorageTypes = make(map[string][]string)
-		allHypervisorStorageTypes = make(map[string][]string)
-		sysHypervisorStorageInfos = make(map[string]map[string]*SimpleStorageInfo)
-		allHypervisorStorageInfos = make(map[string]map[string]*SimpleStorageInfo)
-
-		setStorageTypes = func(storageHypervisor, storageType string, hypervisorStorageTypes map[string][]string) {
-			sts, ok := hypervisorStorageTypes[storageHypervisor]
-			if !ok {
-				sts = make([]string, 0)
-			}
-
-			if !utils.IsInStringArray(storageType, sts) {
-				sts = append(sts, storageType)
-			}
-
-			hypervisorStorageTypes[storageHypervisor] = sts
-		}
 		addStorageInfo = func(storage *StorageInfo, simpleStorage *SimpleStorageInfo) {
 			simpleStorage.VirtualCapacity += storage.VirtualCapacity
 			simpleStorage.FreeCapacity += storage.FreeCapacity
@@ -707,10 +731,10 @@ func getStorageTypes(
 			simpleStorage.UsedCapacity += storage.UsedCapacity.Int64
 			simpleStorage.Storages = append(simpleStorage.Storages, sStorage{Id: storage.Id, Name: storage.Name})
 		}
-		setStorageInfos = func(storageHypervisor, storageType string, storage *StorageInfo,
-			hypervisorStorageInfos map[string]map[string]*SimpleStorageInfo) bool {
+		setStorageInfos = func(hostDriver IHostDriver, storageType string, storage *StorageInfo,
+			storageInfos map[string]map[string]*SimpleStorageInfo) bool {
 			var notFound bool
-			sfs, ok := hypervisorStorageInfos[storageHypervisor]
+			sfs, ok := storageInfos[hostDriver.GetHypervisor()]
 			if !ok {
 				sfs = make(map[string]*SimpleStorageInfo)
 				notFound = true
@@ -720,62 +744,62 @@ func getStorageTypes(
 				notFound = true
 				simpleStorage = &SimpleStorageInfo{Storages: []sStorage{}}
 			}
-			if !utils.IsInStringArray(storageHypervisor, api.PUBLIC_CLOUD_HYPERVISORS) {
+			if !utils.IsInStringArray(hostDriver.GetProvider(), api.PUBLIC_CLOUD_PROVIDERS) {
 				addStorageInfo(storage, simpleStorage)
 				sfs[storageType] = simpleStorage
-				hypervisorStorageInfos[storageHypervisor] = sfs
+				storageInfos[hostDriver.GetHypervisor()] = sfs
 			}
 			return notFound
 		}
 	)
 
-	for rows.Next() {
-		var storage StorageInfo
-		err := rows.Scan(
-			&storage.Id, &storage.Name,
-			&storage.Capacity, &storage.Reserved,
-			&storage.StorageType, &storage.MediumType,
-			&storage.Cmtbound, &storage.UsedCapacity,
-			&storage.WasteCapacity, &storage.IsSysDiskStore,
-			&storage.HostType,
-		)
-		if err != nil {
-			log.Errorf("Scan storage rows %s", err)
-			return nil, nil, nil, nil, nil, nil
+	info := []StorageInfo{}
+
+	q.DebugQuery()
+
+	err := q.All(&info)
+	if err != nil {
+		return nil, errors.Wrapf(err, "q.All")
+	}
+
+	for i := range info {
+		storage := info[i]
+		if len(storage.Provider) == 0 {
+			storage.Provider = api.CLOUD_PROVIDER_ONECLOUD
 		}
-		storageHypervisor := api.HOSTTYPE_HYPERVISOR[storage.HostType]
+
+		hostDriver, err := GetHostDriver(storage.HostType, storage.Provider)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetHostDriver")
+		}
 		if len(storage.StorageType) > 0 && len(storage.MediumType) > 0 {
 			storageType := fmt.Sprintf("%s/%s", storage.StorageType, storage.MediumType)
-			simpleStorage, ok := storageInfos[storageType]
+			_, ok := ret.StorageTypes2[hostDriver.GetHypervisor()]
 			if !ok {
-				simpleStorage = &SimpleStorageInfo{Storages: []sStorage{}}
-				if storage.IsSysDiskStore {
-					sysStorageTypes = append(sysStorageTypes, storageType)
-				}
-				allStorageTypes = append(allStorageTypes, storageType)
+				ret.StorageTypes2[hostDriver.GetHypervisor()] = []string{}
 			}
+			if !utils.IsInStringArray(storageType, ret.StorageTypes2[hostDriver.GetHypervisor()]) {
+				ret.StorageTypes2[hostDriver.GetHypervisor()] = append(ret.StorageTypes2[hostDriver.GetHypervisor()], storageType)
+			}
+
+			simpleStorage := &SimpleStorageInfo{Storages: []sStorage{}}
 			if storage.Cmtbound.Float64 == 0 {
 				storage.Cmtbound.Float64 = float64(options.Options.DefaultStorageOvercommitBound)
 			}
 			storage.VirtualCapacity = int64(float64(storage.Capacity-storage.Reserved.Int64) * storage.Cmtbound.Float64)
 			storage.FreeCapacity = storage.VirtualCapacity - storage.UsedCapacity.Int64 - storage.WasteCapacity.Int64
 			addStorageInfo(&storage, simpleStorage)
-			storageInfos[storageType] = simpleStorage
 
 			// set hypervisor storage types and infos
 			if storage.IsSysDiskStore {
-				if setStorageInfos(storageHypervisor, storageType, &storage, sysHypervisorStorageInfos) {
-					setStorageTypes(storageHypervisor, storageType, sysHypervisorStorageTypes)
-				}
+				setStorageInfos(hostDriver, storageType, &storage, ret.StorageTypes3)
 			}
-			if setStorageInfos(storageHypervisor, storageType, &storage, allHypervisorStorageInfos) {
-				setStorageTypes(storageHypervisor, storageType, allHypervisorStorageTypes)
-			}
+			setStorageInfos(hostDriver, storageType, &storage, ret.DataStorageTypes3)
 		}
+
 	}
-	return sysStorageTypes, allStorageTypes,
-		sysHypervisorStorageTypes, sysHypervisorStorageInfos,
-		allHypervisorStorageTypes, allHypervisorStorageInfos
+
+	return ret, nil
 }
 
 type PCIDevModelTypes struct {
