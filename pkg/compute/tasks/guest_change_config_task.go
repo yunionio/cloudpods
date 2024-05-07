@@ -85,6 +85,11 @@ func (task *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj I
 	// must get object from task, because of obj is nil
 	guest := task.GetObject().(*models.SGuest)
 	task.Params.Set("sched_session_id", jsonutils.NewString(target.SessionId))
+
+	if len(target.CpuNumaPin) > 0 {
+		task.Params.Set("cpu_numa_pin", jsonutils.Marshal(target.CpuNumaPin))
+	}
+
 	/*confs, err := task.getChangeConfigSetting()
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -258,6 +263,19 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update fail %s", err)))
 		return
 	}
+
+	if task.Params.Contains("cpu_numa_pin") {
+		cpuNumaPinSched := make([]schedapi.SCpuNumaPin, 0)
+		task.Params.Unmarshal(&cpuNumaPinSched, "cpu_numa_pin")
+		cpuNumaPinTarget := make([]api.SCpuNumaPin, 0)
+		data.Unmarshal(&cpuNumaPinTarget, "cpu_numa_pin")
+		err = guest.UpdateCpuNumaPin(ctx, task.UserCred, cpuNumaPinSched, cpuNumaPinTarget)
+		if err != nil {
+			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update cpu numa pin fail %s", err)))
+			return
+		}
+	}
+
 	changeConfigSpec := guest.GetShortDesc(ctx)
 	if confs.VcpuCount > 0 && confs.AddedCpu() > 0 {
 		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(confs.AddedCpu())))

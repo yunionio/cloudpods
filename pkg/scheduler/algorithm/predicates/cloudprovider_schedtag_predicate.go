@@ -48,6 +48,9 @@ func (p *CloudproviderSchedtagPredicate) PreExecute(ctx context.Context, u *core
 	if driver == nil || !driver.DoScheduleCloudproviderTagFilter() {
 		return false, nil
 	}
+	if u.SchedData().ResetCpuNumaPin {
+		return false, nil
+	}
 	return p.ServerBaseSchedtagPredicate.PreExecute(ctx, u, cs)
 }
 

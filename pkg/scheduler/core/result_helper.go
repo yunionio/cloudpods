@@ -61,6 +61,7 @@ func transToSchedResult(result *SchedResultItemList, schedInfo *api.SchedInfo) *
 	}
 }
 
+// trans to region sched results
 func transToRegionSchedResult(result SchedResultItems, count int64, sid string) *schedapi.ScheduleOutput {
 	apiResults := make([]*schedapi.CandidateResource, 0)
 	succCount := 0

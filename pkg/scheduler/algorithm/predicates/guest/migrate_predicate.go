@@ -36,6 +36,10 @@ func (p *MigratePredicate) Clone() core.FitPredicate {
 }
 
 func (p *MigratePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
+	if u.SchedData().ResetCpuNumaPin {
+		return false, nil
+	}
+
 	return len(u.SchedData().HostId) > 0, nil
 }
 
