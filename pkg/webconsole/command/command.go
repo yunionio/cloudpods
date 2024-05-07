@@ -56,9 +56,7 @@ func (c *BaseCommand) GetClientSession() *mcclient.ClientSession {
 }
 
 func (c *BaseCommand) AppendArgs(args ...string) *BaseCommand {
-	for _, arg := range args {
-		c.args = append(c.args, arg)
-	}
+	c.args = append(c.args, args...)
 	return c
 }
 

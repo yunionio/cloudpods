@@ -77,9 +77,7 @@ func newCommonAlertQuery(tem *CommonAlertTerm) *monitorapi.CommonAlertQuery {
 		mq.Selects = append(mq.Selects, selectPart)
 	}
 	if len(tem.Filters) != 0 {
-		for _, filter := range tem.Filters {
-			mq.Tags = append(mq.Tags, filter)
-		}
+		mq.Tags = append(mq.Tags, tem.Filters...)
 	}
 
 	alertQ := new(monitorapi.AlertQuery)

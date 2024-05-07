@@ -348,9 +348,7 @@ func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([
 		if err != nil {
 			return nil, errors.Wrapf(err, "list %s resources with params %s", manager.KeyString(), params.String())
 		}
-		for _, data := range result.Data {
-			objs = append(objs, data)
-		}
+		objs = append(objs, result.Data...)
 		total := result.Total
 		count = count + len(result.Data)
 		if count >= total {
