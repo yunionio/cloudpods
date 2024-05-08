@@ -17,7 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -210,7 +210,7 @@ func (s *SStorageManager) initLocalStorageImagecache() error {
 		}
 	}
 	if len(cachePath) > 0 {
-		s.LocalStorageImagecacheManager = NewLocalImageCacheManager(s, cachePath, "")
+		s.LocalStorageImagecacheManager = NewLocalImageCacheManager(s, cachePath, "", nil)
 		return nil
 	} else {
 		return fmt.Errorf("Cannot allocate image cache storage")
@@ -300,7 +300,17 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
 func (s *SStorageManager) GetTotalCapacity() int {
 	var capa = 0
 	for _, s := range s.Storages {
-		capa += s.GetCapacity()
+		capa += s.GetCapacityMb()
+	}
+	return capa
+}
+
+func (s *SStorageManager) GetTotalLocalCapacity() int {
+	var capa = 0
+	for _, s := range s.Storages {
+		if _, ok := s.(*SLocalStorage); ok {
+			capa += s.GetCapacityMb()
+		}
 	}
 	return capa
 }
@@ -331,7 +341,7 @@ func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType strin
 
 func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath string, storage IStorage) {
 	if utils.IsInStringArray(storageType, api.SHARED_FILE_STORAGE) {
-		s.InitSharedFileStorageImagecache(storagecacheId, imagecachePath)
+		s.InitSharedFileStorageImagecache(storagecacheId, imagecachePath, storage)
 	} else if storageType == api.STORAGE_RBD {
 		if rbdStorageCache := s.GetStoragecacheById(storagecacheId); rbdStorageCache == nil {
 			s.AddRbdStorageImagecache(imagecachePath, storage, storagecacheId)
@@ -343,7 +353,7 @@ func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheI
 	}
 }
 
-func (s *SStorageManager) InitLVMStorageImageCache(storagecacheId, vg string) {
+func (s *SStorageManager) InitLVMStorageImageCache(storagecacheId, vg string, storage IStorage) {
 	if len(storagecacheId) == 0 {
 		return
 	}
@@ -351,11 +361,11 @@ func (s *SStorageManager) InitLVMStorageImageCache(storagecacheId, vg string) {
 		s.LVMStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.LVMStorageImagecacheManagers[storagecacheId]; !ok {
-		s.LVMStorageImagecacheManagers[storagecacheId] = NewLVMImageCacheManager(s, vg, storagecacheId, false)
+		s.LVMStorageImagecacheManagers[storagecacheId] = NewLVMImageCacheManager(s, vg, storagecacheId, storage, false)
 	}
 }
 
-func (s *SStorageManager) InitSharedFileStorageImagecache(storagecacheId, path string) {
+func (s *SStorageManager) InitSharedFileStorageImagecache(storagecacheId, path string, storage IStorage) {
 	if len(path) == 0 {
 		return
 	}
@@ -363,7 +373,7 @@ func (s *SStorageManager) InitSharedFileStorageImagecache(storagecacheId, path s
 		s.SharedFileStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.SharedFileStorageImagecacheManagers[storagecacheId]; !ok {
-		s.SharedFileStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, storagecacheId)
+		s.SharedFileStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, storagecacheId, storage)
 	}
 }
 
@@ -372,7 +382,7 @@ func (s *SStorageManager) AddSharedLVMStorageImagecache(imagecachePath string, s
 		s.SharedLVMStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.SharedLVMStorageImagecacheManagers[storagecacheId]; !ok {
-		imagecache := NewLVMImageCacheManager(s, imagecachePath, storagecacheId, storage.Lvmlockd())
+		imagecache := NewLVMImageCacheManager(s, imagecachePath, storagecacheId, storage, storage.Lvmlockd())
 		s.SharedLVMStorageImagecacheManagers[storagecacheId] = imagecache
 	}
 }
@@ -422,7 +432,7 @@ func cleanDailyFiles(storagePath, subDir string, keepDay int) {
 
 	// before mark should be deleted
 	markTime := timeutils.UtcNow().Add(time.Hour * 24 * -1 * time.Duration(keepDay))
-	files, err := ioutil.ReadDir(recycleDir)
+	files, err := os.ReadDir(recycleDir)
 	if err != nil {
 		log.Errorln(err)
 		return
@@ -454,9 +464,30 @@ func cleanDailyFiles(storagePath, subDir string, keepDay int) {
 }
 
 func CleanRecycleDiskfiles(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	for _, d := range options.HostOptions.LocalImagePath {
-		cleanDailyFiles(d, _RECYCLE_BIN_, options.HostOptions.RecycleDiskfileKeepDays)
-		cleanDailyFiles(d, _IMGSAVE_BACKUPS_, options.HostOptions.RecycleDiskfileKeepDays)
+	if storageManager == nil {
+		return
+	}
+	for _, storage := range storageManager.Storages {
+		storage.CleanRecycleDiskfiles(ctx)
+	}
+}
+
+func CleanImageCachefiles(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if storageManager == nil {
+		return
+	}
+	storageManager.LocalStorageImagecacheManager.CleanImageCachefiles(ctx)
+	for _, imageCacheMan := range storageManager.LVMStorageImagecacheManagers {
+		imageCacheMan.CleanImageCachefiles(ctx)
+	}
+	for _, imageCacheMan := range storageManager.SharedLVMStorageImagecacheManagers {
+		imageCacheMan.CleanImageCachefiles(ctx)
+	}
+	for _, imageCacheMan := range storageManager.RbdStorageImagecacheManagers {
+		imageCacheMan.CleanImageCachefiles(ctx)
+	}
+	for _, imageCacheMan := range storageManager.SharedFileStorageImagecacheManagers {
+		imageCacheMan.CleanImageCachefiles(ctx)
 	}
 }
 

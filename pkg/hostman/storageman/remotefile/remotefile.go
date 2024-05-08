@@ -42,7 +42,9 @@ type SImageDesc struct {
 	Id     string `json:"id"`
 	Chksum string `json:"chksum"`
 	Path   string `json:"path"`
-	Size   int64  `json:"size"`
+	SizeMb int64  `json:"size"`
+
+	AccessAt time.Time `json:"access_at"`
 }
 
 type SRemoteFile struct {
@@ -115,12 +117,19 @@ func (r *SRemoteFile) GetInfo() (*SImageDesc, error) {
 		return nil, errors.Wrapf(err, "os.Stat(%s)", r.localPath)
 	}
 
+	var atime time.Time
+	if fi.Sys() != nil {
+		atm := fi.Sys().(*syscall.Stat_t).Atim
+		atime = time.Unix(atm.Sec, atm.Nsec)
+	}
+
 	return &SImageDesc{
-		Name:   r.name,
-		Format: r.format,
-		Chksum: r.chksum,
-		Path:   r.localPath,
-		Size:   fi.Size(),
+		Name:     r.name,
+		Format:   r.format,
+		Chksum:   r.chksum,
+		Path:     r.localPath,
+		SizeMb:   fi.Size() / 1024 / 1024,
+		AccessAt: atime,
 	}, nil
 }
 
