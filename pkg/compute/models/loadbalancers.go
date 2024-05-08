@@ -119,9 +119,6 @@ type SLoadbalancer struct {
 
 	// 默认后端服务器组Id
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" json:"backend_group_id"`
-
-	// LB的其他配置信息
-	LBInfo jsonutils.JSONObject `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"admin" create:"admin_optional" json:"lb_info"`
 }
 
 // 负载均衡实例列表
@@ -1105,10 +1102,6 @@ func (region *SCloudregion) newFromCloudLoadbalancer(ctx context.Context, userCr
 		}
 	}
 
-	if ext.GetSysTags() != nil {
-		lb.LBInfo = jsonutils.Marshal(ext.GetSysTags())
-	}
-
 	syncOwnerId := provider.GetOwnerId()
 
 	err = func() error {
@@ -1401,8 +1394,17 @@ func (lb *SLoadbalancer) syncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.ChargeType = ext.GetChargeType()
 		lbNetworkIds := getExtLbNetworkIds(ext, lb.ManagerId)
 		lb.NetworkId = strings.Join(lbNetworkIds, ",")
-		if ext.GetSysTags() != nil {
-			lb.LBInfo = jsonutils.Marshal(ext.GetSysTags())
+		if len(lb.VpcId) == 0 {
+			if vpcId := ext.GetVpcId(); len(vpcId) > 0 {
+				vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("manager_id", lb.ManagerId)
+				})
+				if err != nil {
+					log.Errorf("fetch vpc %s error: %v", vpcId, err)
+				} else {
+					lb.VpcId = vpc.GetId()
+				}
+			}
 		}
 
 		if createdAt := ext.GetCreatedAt(); !createdAt.IsZero() {
