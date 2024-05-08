@@ -242,7 +242,8 @@ func (d disk) doTemplateOverlayAction(
 	ovAction func(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error) error {
 	templateId := vm.Disk.TemplateId
 	input := computeapi.CacheImageInput{
-		ImageId: templateId,
+		ImageId:              templateId,
+		SkipChecksumIfExists: true,
 	}
 	cachedImgMan := storageman.GetManager().LocalStorageImagecacheManager
 	cachedImg, err := cachedImgMan.AcquireImage(ctx, input, nil)
