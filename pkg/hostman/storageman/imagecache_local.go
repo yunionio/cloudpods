@@ -228,8 +228,19 @@ func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput,
 		}
 		return nil
 	}
-	if fileutils2.Exists(l.GetPath()) && l.remoteFile.VerifyIntegrity(callback) == nil {
-		return _fetch()
+	if fileutils2.Exists(l.GetPath()) {
+		if input.SkipChecksumIfExists {
+			if err := l.remoteFile.FillAttributes(callback); err != nil {
+				return errors.Wrap(err, "fetch remote attribute")
+			}
+			return _fetch()
+		} else {
+			if err := l.remoteFile.VerifyIntegrity(callback); err == nil {
+				return _fetch()
+			} else {
+				log.Warningf("Verify remotefile checksum error: %v, starting fetching it", err)
+			}
+		}
 	}
 	err := l.remoteFile.Fetch(callback)
 	if err != nil {
