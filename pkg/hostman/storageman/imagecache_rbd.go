@@ -119,7 +119,6 @@ func (r *SRbdImageCache) Remove(ctx context.Context) error {
 
 func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
-	storage := imageCacheManger.storage.(*SRbdStorage)
 
 	desc := &remotefile.SImageDesc{
 		SizeMb: -1,

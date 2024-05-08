@@ -44,7 +44,10 @@ func NewLVMImageCacheManager(manager IStorageManager, cachePath, storagecacheId 
 }
 
 func (c *SLVMImageCacheManager) IsLocal() bool {
-	return c.storage.IsLocal()
+	if _, ok := c.storage.(*SLVMStorage); ok {
+		return true
+	}
+	return false
 }
 
 func (c *SLVMImageCacheManager) Lvmlockd() bool {
