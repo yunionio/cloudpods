@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -884,14 +885,15 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
 		lblis.EnableHttp2 = extListener.HTTP2Enabled()
 		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
-			if _cert, err := db.FetchByExternalIdAndManagerId(LoadbalancerCertificateManager, certificateId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			cert, err := db.FetchByExternalIdAndManagerId(LoadbalancerCertificateManager, certificateId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", lb.ManagerId)
-			}); err == nil {
-				cert := _cert.(*SLoadbalancerCertificate)
-				lblis.CertificateId = cert.Id
+			})
+			if err != nil {
+				log.Errorf("fetch cert %s error: %v", certificateId, err)
+			} else {
+				lblis.CertificateId = cert.GetId()
 			}
 		}
-		fallthrough
 	case api.LB_LISTENER_TYPE_HTTP:
 		if len(extListener.GetStickySessionType()) > 0 {
 			if lblis.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) {

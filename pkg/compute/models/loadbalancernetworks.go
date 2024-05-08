@@ -188,6 +188,7 @@ func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Contex
 	}
 	if len(lns) == 0 {
 		ln := &SLoadbalancerNetwork{LoadbalancerId: req.Loadbalancer.Id, NetworkId: req.NetworkId, IpAddr: req.Address}
+		ln.SetModelManager(LoadbalancernetworkManager, ln)
 		return m.TableSpec().Insert(ctx, ln)
 	}
 	for i := 0; i < len(lns); i++ {

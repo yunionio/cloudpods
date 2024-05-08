@@ -20,15 +20,16 @@ type SLoadbalancerProperties struct {
 	OperationalState                    string                              `json:"operationalState"`
 	ResourceGUID                        string                              `json:"resourceGuid"`
 	GatewayIPConfigurations             []GatewayIPConfiguration            `json:"gatewayIPConfigurations"`
-	SSLCertificates                     []SSLCertificate                    `json:"sslCertificates"`
+	SSLCertificates                     []SLoadbalancerCert                 `json:"sslCertificates"`
 	FrontendIPConfigurations            []FrontendIPConfiguration           `json:"frontendIPConfigurations"`
 	FrontendPorts                       []FrontendPort                      `json:"frontendPorts"`
 	BackendAddressPools                 []BackendAddressPool                `json:"backendAddressPools"`
 	BackendHTTPSettingsCollection       []BackendHTTPSettingsCollection     `json:"backendHttpSettingsCollection"`
-	LoadBalancingRules                  []LoadBalancingRule                 `json:"loadBalancingRules"`
+	LoadBalancingRules                  []SLoadBalancerListener             `json:"loadBalancingRules"`
 	Probes                              []Probe                             `json:"probes"`
-	InboundNatRules                     []InboundNatRule                    `json:"inboundNatRules"`
-	HTTPListeners                       []HTTPListener                      `json:"httpListeners"`
+	InboundNatRules                     []SLoadBalancerListener             `json:"inboundNatRules"`
+	OutboundRules                       []SLoadBalancerListener             `json:"outboundRules"`
+	HTTPListeners                       []SLoadBalancerHTTPListener         `json:"httpListeners"`
 	URLPathMaps                         []URLPathMap                        `json:"urlPathMaps"`
 	RequestRoutingRules                 []RequestRoutingRule                `json:"requestRoutingRules"`
 	RedirectConfigurations              []RedirectConfiguration             `json:"redirectConfigurations"`
@@ -44,20 +45,20 @@ type AutoscaleConfiguration struct {
 
 type BackendAddressPool struct {
 	Name       string                       `json:"name"`
-	ID         string                       `json:"id"`
+	Id         string                       `json:"id"`
 	Etag       string                       `json:"etag"`
 	Properties BackendAddressPoolProperties `json:"properties"`
 	Type       string                       `json:"type"`
 }
 
 type BackendAddressPoolProperties struct {
-	ProvisioningState       string                   `json:"provisioningState"`
-	LoadBalancingRules      []Subnet                 `json:"loadBalancingRules"`
-	BackendIPConfigurations []BackendIPConfiguration `json:"backendIPConfigurations"`
-	BackendAddresses        []BackendAddress         `json:"backendAddresses"`
-	RequestRoutingRules     []BackendIPConfiguration `json:"requestRoutingRules"`
-	URLPathMaps             []BackendIPConfiguration `json:"urlPathMaps"`
-	PathRules               []BackendIPConfiguration `json:"pathRules"`
+	ProvisioningState       string `json:"provisioningState"`
+	BackendIPConfigurations []struct {
+		Id string
+	}
+	BackendAddresses []BackendAddress
+	URLPathMaps      []BackendIPConfiguration `json:"urlPathMaps"`
+	PathRules        []BackendIPConfiguration `json:"pathRules"`
 }
 
 type BackendIPConfiguration struct {
@@ -129,7 +130,7 @@ type PathRuleProperties struct {
 }
 
 type BackendAddress struct {
-	IPAddress string `json:"ipAddress"`
+	IPAddress string
 }
 
 type BackendHTTPSettingsCollection struct {
@@ -191,19 +192,6 @@ type RequestRoutingRuleProperties struct {
 	BackendHTTPSettings PublicIPAddress `json:"backendHttpSettings"`
 }
 
-type SSLCertificate struct {
-	Name       string                   `json:"name"`
-	ID         string                   `json:"id"`
-	Properties SSLCertificateProperties `json:"properties"`
-}
-
-type SSLCertificateProperties struct {
-	ProvisioningState string `json:"provisioningState"`
-	PublicCertData    string `json:"public_cert_data"`
-	Data              string `json:"data"`
-	Password          string `json:"password"`
-}
-
 type Sku struct {
 	Name     string `json:"name"`
 	Tier     string `json:"tier"`
@@ -224,33 +212,14 @@ type FrontendIPConfiguration struct {
 }
 
 type FrontendIPConfigurationProperties struct {
-	ProvisioningState         string           `json:"provisioningState"`
-	PrivateIPAddress          string           `json:"privateIPAddress"`
-	PublicIPAddress           *PublicIPAddress `json:"publicIPAddress,omitempty"`
-	PrivateIPAllocationMethod string           `json:"privateIPAllocationMethod"`
-	PrivateIPAddressVersion   string           `json:"privateIPAddressVersion"`
-	Subnet                    Subnet           `json:"subnet"`
-	LoadBalancingRules        []Subnet         `json:"loadBalancingRules"`
-	InboundNatRules           []Subnet         `json:"inboundNatRules"`
-}
-
-type InboundNatRule struct {
-	Name       string                   `json:"name"`
-	ID         string                   `json:"id"`
-	Etag       string                   `json:"etag"`
-	Type       string                   `json:"type"`
-	Properties InboundNatRuleProperties `json:"properties"`
-}
-
-type InboundNatRuleProperties struct {
-	ProvisioningState       string `json:"provisioningState"`
-	FrontendIPConfiguration Subnet `json:"frontendIPConfiguration"`
-	FrontendPort            int64  `json:"frontendPort"`
-	BackendPort             int64  `json:"backendPort"`
-	EnableFloatingIP        bool   `json:"enableFloatingIP"`
-	IdleTimeoutInMinutes    int64  `json:"idleTimeoutInMinutes"`
-	Protocol                string `json:"protocol"`
-	EnableTCPReset          bool   `json:"enableTcpReset"`
+	ProvisioningState         string          `json:"provisioningState"`
+	PrivateIPAddress          string          `json:"privateIPAddress"`
+	PublicIPAddress           PublicIPAddress `json:"publicIPAddress,omitempty"`
+	PrivateIPAllocationMethod string          `json:"privateIPAllocationMethod"`
+	PrivateIPAddressVersion   string          `json:"privateIPAddressVersion"`
+	Subnet                    Subnet          `json:"subnet"`
+	LoadBalancingRules        []Subnet        `json:"loadBalancingRules"`
+	InboundNatRules           []Subnet        `json:"inboundNatRules"`
 }
 
 type SLoadbalancerSku struct {
@@ -261,7 +230,7 @@ type Probe struct {
 	lb *SLoadbalancer
 
 	Name       string          `json:"name"`
-	ID         string          `json:"id"`
+	Id         string          `json:"id"`
 	Etag       string          `json:"etag"`
 	Type       string          `json:"type"`
 	Properties ProbeProperties `json:"properties"`
@@ -292,14 +261,6 @@ type Match struct {
 	StatusCodes []string `json:"statusCodes"`
 }
 
-type LoadBalancingRule struct {
-	Name       string                      `json:"name"`
-	ID         string                      `json:"id"`
-	Etag       string                      `json:"etag"`
-	Type       string                      `json:"type"`
-	Properties LoadBalancingRuleProperties `json:"properties"`
-}
-
 type LoadBalancingRuleProperties struct {
 	ProvisioningState       string `json:"provisioningState"`
 	FrontendIPConfiguration Subnet `json:"frontendIPConfiguration"`
@@ -312,22 +273,6 @@ type LoadBalancingRuleProperties struct {
 	LoadDistribution        string `json:"loadDistribution"`
 	BackendAddressPool      Subnet `json:"backendAddressPool"`
 	Probe                   Subnet `json:"probe"`
-}
-
-type HTTPListener struct {
-	Name       string                 `json:"name"`
-	ID         string                 `json:"id"`
-	Properties HTTPListenerProperties `json:"properties"`
-}
-
-type HTTPListenerProperties struct {
-	FrontendIPConfiguration     PublicIPAddress `json:"frontendIPConfiguration"`
-	FrontendPort                PublicIPAddress `json:"frontendPort"`
-	HostName                    string          `json:"hostName"`
-	Protocol                    string          `json:"protocol"`
-	SSLCertificate              PublicIPAddress `json:"sslCertificate"`
-	RequestRoutingRules         []Subnet        `json:"requestRoutingRules"`
-	RequireServerNameIndication bool            `json:"requireServerNameIndication"`
 }
 
 type ContentProperties struct {

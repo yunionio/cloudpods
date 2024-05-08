@@ -170,12 +170,9 @@ func (region *SRegion) DissociateEip(eipId string) error {
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
-	if self.GetAssociationType() == api.EIP_ASSOCIATE_TYPE_SERVER {
-		info := strings.Split(self.Properties.IPConfiguration.ID, "/")
-		nic, _ := self.region.GetNetworkInterface(strings.Join(info[:len(info)-2], "/"))
-		if nic != nil {
-			return strings.ToLower(nic.Properties.VirtualMachine.ID)
-		}
+	info := strings.Split(self.Properties.IPConfiguration.ID, "/")
+	if len(info) > 2 {
+		return strings.ToLower(strings.Join(info[:len(info)-2], "/"))
 	}
 	return ""
 }
@@ -189,7 +186,7 @@ func (self *SEipAddress) GetAssociationType() string {
 		if utils.IsInStringArray(resType, []string{"networkinterfaces"}) {
 			return api.EIP_ASSOCIATE_TYPE_SERVER
 		}
-		if utils.IsInStringArray(resType, []string{"loadbalancers"}) {
+		if utils.IsInStringArray(resType, []string{"loadbalancers", "applicationgateways"}) {
 			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 		}
 		return resType

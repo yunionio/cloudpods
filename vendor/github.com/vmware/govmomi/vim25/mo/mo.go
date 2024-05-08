@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2014-2018 VMware, Inc. All Rights Reserved.
+Copyright (c) 2014-2023 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 type Alarm struct {
 	ExtensibleManagedObject
 
-	Info types.AlarmInfo `mo:"info"`
+	Info types.AlarmInfo `json:"info"`
 }
 
 func init() {
@@ -34,10 +34,10 @@ func init() {
 }
 
 type AlarmManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	DefaultExpression []types.BaseAlarmExpression `mo:"defaultExpression"`
-	Description       types.AlarmDescription      `mo:"description"`
+	DefaultExpression []types.BaseAlarmExpression `json:"defaultExpression"`
+	Description       types.AlarmDescription      `json:"description"`
 }
 
 func (m AlarmManager) Reference() types.ManagedObjectReference {
@@ -49,11 +49,11 @@ func init() {
 }
 
 type AuthorizationManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	PrivilegeList []types.AuthorizationPrivilege `mo:"privilegeList"`
-	RoleList      []types.AuthorizationRole      `mo:"roleList"`
-	Description   types.AuthorizationDescription `mo:"description"`
+	PrivilegeList []types.AuthorizationPrivilege `json:"privilegeList"`
+	RoleList      []types.AuthorizationRole      `json:"roleList"`
+	Description   types.AuthorizationDescription `json:"description"`
 }
 
 func (m AuthorizationManager) Reference() types.ManagedObjectReference {
@@ -65,7 +65,7 @@ func init() {
 }
 
 type CertificateManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m CertificateManager) Reference() types.ManagedObjectReference {
@@ -79,12 +79,13 @@ func init() {
 type ClusterComputeResource struct {
 	ComputeResource
 
-	Configuration     types.ClusterConfigInfo          `mo:"configuration"`
-	Recommendation    []types.ClusterRecommendation    `mo:"recommendation"`
-	DrsRecommendation []types.ClusterDrsRecommendation `mo:"drsRecommendation"`
-	MigrationHistory  []types.ClusterDrsMigration      `mo:"migrationHistory"`
-	ActionHistory     []types.ClusterActionHistory     `mo:"actionHistory"`
-	DrsFault          []types.ClusterDrsFaults         `mo:"drsFault"`
+	Configuration     types.ClusterConfigInfo                    `json:"configuration"`
+	Recommendation    []types.ClusterRecommendation              `json:"recommendation"`
+	DrsRecommendation []types.ClusterDrsRecommendation           `json:"drsRecommendation"`
+	HciConfig         *types.ClusterComputeResourceHCIConfigInfo `json:"hciConfig"`
+	MigrationHistory  []types.ClusterDrsMigration                `json:"migrationHistory"`
+	ActionHistory     []types.ClusterActionHistory               `json:"actionHistory"`
+	DrsFault          []types.ClusterDrsFaults                   `json:"drsFault"`
 }
 
 func init() {
@@ -94,8 +95,8 @@ func init() {
 type ClusterEVCManager struct {
 	ExtensibleManagedObject
 
-	ManagedCluster types.ManagedObjectReference    `mo:"managedCluster"`
-	EvcState       types.ClusterEVCManagerEVCState `mo:"evcState"`
+	ManagedCluster types.ManagedObjectReference    `json:"managedCluster"`
+	EvcState       types.ClusterEVCManagerEVCState `json:"evcState"`
 }
 
 func init() {
@@ -121,13 +122,14 @@ func init() {
 type ComputeResource struct {
 	ManagedEntity
 
-	ResourcePool       *types.ManagedObjectReference       `mo:"resourcePool"`
-	Host               []types.ManagedObjectReference      `mo:"host"`
-	Datastore          []types.ManagedObjectReference      `mo:"datastore"`
-	Network            []types.ManagedObjectReference      `mo:"network"`
-	Summary            types.BaseComputeResourceSummary    `mo:"summary"`
-	EnvironmentBrowser *types.ManagedObjectReference       `mo:"environmentBrowser"`
-	ConfigurationEx    types.BaseComputeResourceConfigInfo `mo:"configurationEx"`
+	ResourcePool       *types.ManagedObjectReference       `json:"resourcePool"`
+	Host               []types.ManagedObjectReference      `json:"host"`
+	Datastore          []types.ManagedObjectReference      `json:"datastore"`
+	Network            []types.ManagedObjectReference      `json:"network"`
+	Summary            types.BaseComputeResourceSummary    `json:"summary"`
+	EnvironmentBrowser *types.ManagedObjectReference       `json:"environmentBrowser"`
+	ConfigurationEx    types.BaseComputeResourceConfigInfo `json:"configurationEx"`
+	LifecycleManaged   *bool                               `json:"lifecycleManaged"`
 }
 
 func (m *ComputeResource) Entity() *ManagedEntity {
@@ -141,9 +143,9 @@ func init() {
 type ContainerView struct {
 	ManagedObjectView
 
-	Container types.ManagedObjectReference `mo:"container"`
-	Type      []string                     `mo:"type"`
-	Recursive bool                         `mo:"recursive"`
+	Container types.ManagedObjectReference `json:"container"`
+	Type      []string                     `json:"type"`
+	Recursive bool                         `json:"recursive"`
 }
 
 func init() {
@@ -151,9 +153,9 @@ func init() {
 }
 
 type CryptoManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Enabled bool `mo:"enabled"`
+	Enabled bool `json:"enabled"`
 }
 
 func (m CryptoManager) Reference() types.ManagedObjectReference {
@@ -183,7 +185,7 @@ func init() {
 type CryptoManagerKmip struct {
 	CryptoManager
 
-	KmipServers []types.KmipClusterInfo `mo:"kmipServers"`
+	KmipServers []types.KmipClusterInfo `json:"kmipServers"`
 }
 
 func init() {
@@ -191,9 +193,9 @@ func init() {
 }
 
 type CustomFieldsManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Field []types.CustomFieldDef `mo:"field"`
+	Field []types.CustomFieldDef `json:"field"`
 }
 
 func (m CustomFieldsManager) Reference() types.ManagedObjectReference {
@@ -205,10 +207,10 @@ func init() {
 }
 
 type CustomizationSpecManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Info          []types.CustomizationSpecInfo `mo:"info"`
-	EncryptionKey []byte                        `mo:"encryptionKey"`
+	Info          []types.CustomizationSpecInfo `json:"info"`
+	EncryptionKey []byte                        `json:"encryptionKey"`
 }
 
 func (m CustomizationSpecManager) Reference() types.ManagedObjectReference {
@@ -222,13 +224,13 @@ func init() {
 type Datacenter struct {
 	ManagedEntity
 
-	VmFolder        types.ManagedObjectReference   `mo:"vmFolder"`
-	HostFolder      types.ManagedObjectReference   `mo:"hostFolder"`
-	DatastoreFolder types.ManagedObjectReference   `mo:"datastoreFolder"`
-	NetworkFolder   types.ManagedObjectReference   `mo:"networkFolder"`
-	Datastore       []types.ManagedObjectReference `mo:"datastore"`
-	Network         []types.ManagedObjectReference `mo:"network"`
-	Configuration   types.DatacenterConfigInfo     `mo:"configuration"`
+	VmFolder        types.ManagedObjectReference   `json:"vmFolder"`
+	HostFolder      types.ManagedObjectReference   `json:"hostFolder"`
+	DatastoreFolder types.ManagedObjectReference   `json:"datastoreFolder"`
+	NetworkFolder   types.ManagedObjectReference   `json:"networkFolder"`
+	Datastore       []types.ManagedObjectReference `json:"datastore"`
+	Network         []types.ManagedObjectReference `json:"network"`
+	Configuration   types.DatacenterConfigInfo     `json:"configuration"`
 }
 
 func (m *Datacenter) Entity() *ManagedEntity {
@@ -242,13 +244,13 @@ func init() {
 type Datastore struct {
 	ManagedEntity
 
-	Info              types.BaseDatastoreInfo        `mo:"info"`
-	Summary           types.DatastoreSummary         `mo:"summary"`
-	Host              []types.DatastoreHostMount     `mo:"host"`
-	Vm                []types.ManagedObjectReference `mo:"vm"`
-	Browser           types.ManagedObjectReference   `mo:"browser"`
-	Capability        types.DatastoreCapability      `mo:"capability"`
-	IormConfiguration *types.StorageIORMInfo         `mo:"iormConfiguration"`
+	Info              types.BaseDatastoreInfo        `json:"info"`
+	Summary           types.DatastoreSummary         `json:"summary"`
+	Host              []types.DatastoreHostMount     `json:"host"`
+	Vm                []types.ManagedObjectReference `json:"vm"`
+	Browser           types.ManagedObjectReference   `json:"browser"`
+	Capability        types.DatastoreCapability      `json:"capability"`
+	IormConfiguration *types.StorageIORMInfo         `json:"iormConfiguration"`
 }
 
 func (m *Datastore) Entity() *ManagedEntity {
@@ -260,7 +262,7 @@ func init() {
 }
 
 type DatastoreNamespaceManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m DatastoreNamespaceManager) Reference() types.ManagedObjectReference {
@@ -272,7 +274,7 @@ func init() {
 }
 
 type DiagnosticManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m DiagnosticManager) Reference() types.ManagedObjectReference {
@@ -286,9 +288,9 @@ func init() {
 type DistributedVirtualPortgroup struct {
 	Network
 
-	Key      string                      `mo:"key"`
-	Config   types.DVPortgroupConfigInfo `mo:"config"`
-	PortKeys []string                    `mo:"portKeys"`
+	Key      string                      `json:"key"`
+	Config   types.DVPortgroupConfigInfo `json:"config"`
+	PortKeys []string                    `json:"portKeys"`
 }
 
 func init() {
@@ -298,13 +300,13 @@ func init() {
 type DistributedVirtualSwitch struct {
 	ManagedEntity
 
-	Uuid                string                         `mo:"uuid"`
-	Capability          types.DVSCapability            `mo:"capability"`
-	Summary             types.DVSSummary               `mo:"summary"`
-	Config              types.BaseDVSConfigInfo        `mo:"config"`
-	NetworkResourcePool []types.DVSNetworkResourcePool `mo:"networkResourcePool"`
-	Portgroup           []types.ManagedObjectReference `mo:"portgroup"`
-	Runtime             *types.DVSRuntimeInfo          `mo:"runtime"`
+	Uuid                string                         `json:"uuid"`
+	Capability          types.DVSCapability            `json:"capability"`
+	Summary             types.DVSSummary               `json:"summary"`
+	Config              types.BaseDVSConfigInfo        `json:"config"`
+	NetworkResourcePool []types.DVSNetworkResourcePool `json:"networkResourcePool"`
+	Portgroup           []types.ManagedObjectReference `json:"portgroup"`
+	Runtime             *types.DVSRuntimeInfo          `json:"runtime"`
 }
 
 func (m *DistributedVirtualSwitch) Entity() *ManagedEntity {
@@ -316,7 +318,7 @@ func init() {
 }
 
 type DistributedVirtualSwitchManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m DistributedVirtualSwitchManager) Reference() types.ManagedObjectReference {
@@ -328,9 +330,9 @@ func init() {
 }
 
 type EnvironmentBrowser struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	DatastoreBrowser *types.ManagedObjectReference `mo:"datastoreBrowser"`
+	DatastoreBrowser *types.ManagedObjectReference `json:"datastoreBrowser"`
 }
 
 func (m EnvironmentBrowser) Reference() types.ManagedObjectReference {
@@ -344,7 +346,7 @@ func init() {
 type EventHistoryCollector struct {
 	HistoryCollector
 
-	LatestPage []types.BaseEvent `mo:"latestPage"`
+	LatestPage []types.BaseEvent `json:"latestPage"`
 }
 
 func init() {
@@ -352,11 +354,11 @@ func init() {
 }
 
 type EventManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Description  types.EventDescription `mo:"description"`
-	LatestEvent  types.BaseEvent        `mo:"latestEvent"`
-	MaxCollector int32                  `mo:"maxCollector"`
+	Description  types.EventDescription `json:"description"`
+	LatestEvent  types.BaseEvent        `json:"latestEvent"`
+	MaxCollector int32                  `json:"maxCollector"`
 }
 
 func (m EventManager) Reference() types.ManagedObjectReference {
@@ -368,10 +370,10 @@ func init() {
 }
 
 type ExtensibleManagedObject struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Value          []types.BaseCustomFieldValue `mo:"value"`
-	AvailableField []types.CustomFieldDef       `mo:"availableField"`
+	Value          []types.BaseCustomFieldValue `json:"value"`
+	AvailableField []types.CustomFieldDef       `json:"availableField"`
 }
 
 func (m ExtensibleManagedObject) Reference() types.ManagedObjectReference {
@@ -383,9 +385,9 @@ func init() {
 }
 
 type ExtensionManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	ExtensionList []types.Extension `mo:"extensionList"`
+	ExtensionList []types.Extension `json:"extensionList"`
 }
 
 func (m ExtensionManager) Reference() types.ManagedObjectReference {
@@ -397,9 +399,9 @@ func init() {
 }
 
 type FailoverClusterConfigurator struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	DisabledConfigureMethod []string `mo:"disabledConfigureMethod"`
+	DisabledConfigureMethod []string `json:"disabledConfigureMethod"`
 }
 
 func (m FailoverClusterConfigurator) Reference() types.ManagedObjectReference {
@@ -411,9 +413,9 @@ func init() {
 }
 
 type FailoverClusterManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	DisabledClusterMethod []string `mo:"disabledClusterMethod"`
+	DisabledClusterMethod []string `json:"disabledClusterMethod"`
 }
 
 func (m FailoverClusterManager) Reference() types.ManagedObjectReference {
@@ -425,7 +427,7 @@ func init() {
 }
 
 type FileManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m FileManager) Reference() types.ManagedObjectReference {
@@ -439,8 +441,9 @@ func init() {
 type Folder struct {
 	ManagedEntity
 
-	ChildType   []string                       `mo:"childType"`
-	ChildEntity []types.ManagedObjectReference `mo:"childEntity"`
+	ChildType   []string                       `json:"childType"`
+	ChildEntity []types.ManagedObjectReference `json:"childEntity"`
+	Namespace   *string                        `json:"namespace"`
 }
 
 func (m *Folder) Entity() *ManagedEntity {
@@ -452,7 +455,7 @@ func init() {
 }
 
 type GuestAliasManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m GuestAliasManager) Reference() types.ManagedObjectReference {
@@ -464,7 +467,7 @@ func init() {
 }
 
 type GuestAuthManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m GuestAuthManager) Reference() types.ManagedObjectReference {
@@ -476,7 +479,7 @@ func init() {
 }
 
 type GuestFileManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m GuestFileManager) Reference() types.ManagedObjectReference {
@@ -488,13 +491,13 @@ func init() {
 }
 
 type GuestOperationsManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	AuthManager                 *types.ManagedObjectReference `mo:"authManager"`
-	FileManager                 *types.ManagedObjectReference `mo:"fileManager"`
-	ProcessManager              *types.ManagedObjectReference `mo:"processManager"`
-	GuestWindowsRegistryManager *types.ManagedObjectReference `mo:"guestWindowsRegistryManager"`
-	AliasManager                *types.ManagedObjectReference `mo:"aliasManager"`
+	AuthManager                 *types.ManagedObjectReference `json:"authManager"`
+	FileManager                 *types.ManagedObjectReference `json:"fileManager"`
+	ProcessManager              *types.ManagedObjectReference `json:"processManager"`
+	GuestWindowsRegistryManager *types.ManagedObjectReference `json:"guestWindowsRegistryManager"`
+	AliasManager                *types.ManagedObjectReference `json:"aliasManager"`
 }
 
 func (m GuestOperationsManager) Reference() types.ManagedObjectReference {
@@ -506,7 +509,7 @@ func init() {
 }
 
 type GuestProcessManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m GuestProcessManager) Reference() types.ManagedObjectReference {
@@ -518,7 +521,7 @@ func init() {
 }
 
 type GuestWindowsRegistryManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m GuestWindowsRegistryManager) Reference() types.ManagedObjectReference {
@@ -530,7 +533,7 @@ func init() {
 }
 
 type HealthUpdateManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HealthUpdateManager) Reference() types.ManagedObjectReference {
@@ -542,9 +545,9 @@ func init() {
 }
 
 type HistoryCollector struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Filter types.AnyType `mo:"filter"`
+	Filter types.AnyType `json:"filter"`
 }
 
 func (m HistoryCollector) Reference() types.ManagedObjectReference {
@@ -556,9 +559,9 @@ func init() {
 }
 
 type HostAccessManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	LockdownMode types.HostLockdownMode `mo:"lockdownMode"`
+	LockdownMode types.HostLockdownMode `json:"lockdownMode"`
 }
 
 func (m HostAccessManager) Reference() types.ManagedObjectReference {
@@ -577,11 +580,26 @@ func init() {
 	t["HostActiveDirectoryAuthentication"] = reflect.TypeOf((*HostActiveDirectoryAuthentication)(nil)).Elem()
 }
 
-type HostAuthenticationManager struct {
-	Self types.ManagedObjectReference
+type HostAssignableHardwareManager struct {
+	Self types.ManagedObjectReference `json:"self"`
 
-	Info           types.HostAuthenticationManagerInfo `mo:"info"`
-	SupportedStore []types.ManagedObjectReference      `mo:"supportedStore"`
+	Binding []types.HostAssignableHardwareBinding `json:"binding"`
+	Config  types.HostAssignableHardwareConfig    `json:"config"`
+}
+
+func (m HostAssignableHardwareManager) Reference() types.ManagedObjectReference {
+	return m.Self
+}
+
+func init() {
+	t["HostAssignableHardwareManager"] = reflect.TypeOf((*HostAssignableHardwareManager)(nil)).Elem()
+}
+
+type HostAuthenticationManager struct {
+	Self types.ManagedObjectReference `json:"self"`
+
+	Info           types.HostAuthenticationManagerInfo `json:"info"`
+	SupportedStore []types.ManagedObjectReference      `json:"supportedStore"`
 }
 
 func (m HostAuthenticationManager) Reference() types.ManagedObjectReference {
@@ -593,9 +611,9 @@ func init() {
 }
 
 type HostAuthenticationStore struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Info types.BaseHostAuthenticationStoreInfo `mo:"info"`
+	Info types.BaseHostAuthenticationStoreInfo `json:"info"`
 }
 
 func (m HostAuthenticationStore) Reference() types.ManagedObjectReference {
@@ -607,9 +625,9 @@ func init() {
 }
 
 type HostAutoStartManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Config types.HostAutoStartManagerConfig `mo:"config"`
+	Config types.HostAutoStartManagerConfig `json:"config"`
 }
 
 func (m HostAutoStartManager) Reference() types.ManagedObjectReference {
@@ -621,7 +639,7 @@ func init() {
 }
 
 type HostBootDeviceSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostBootDeviceSystem) Reference() types.ManagedObjectReference {
@@ -633,9 +651,9 @@ func init() {
 }
 
 type HostCacheConfigurationManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	CacheConfigurationInfo []types.HostCacheConfigurationInfo `mo:"cacheConfigurationInfo"`
+	CacheConfigurationInfo []types.HostCacheConfigurationInfo `json:"cacheConfigurationInfo"`
 }
 
 func (m HostCacheConfigurationManager) Reference() types.ManagedObjectReference {
@@ -647,9 +665,9 @@ func init() {
 }
 
 type HostCertificateManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	CertificateInfo types.HostCertificateManagerCertificateInfo `mo:"certificateInfo"`
+	CertificateInfo types.HostCertificateManagerCertificateInfo `json:"certificateInfo"`
 }
 
 func (m HostCertificateManager) Reference() types.ManagedObjectReference {
@@ -663,7 +681,7 @@ func init() {
 type HostCpuSchedulerSystem struct {
 	ExtensibleManagedObject
 
-	HyperthreadInfo *types.HostHyperThreadScheduleInfo `mo:"hyperthreadInfo"`
+	HyperthreadInfo *types.HostHyperThreadScheduleInfo `json:"hyperthreadInfo"`
 }
 
 func init() {
@@ -671,10 +689,10 @@ func init() {
 }
 
 type HostDatastoreBrowser struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Datastore     []types.ManagedObjectReference `mo:"datastore"`
-	SupportedType []types.BaseFileQuery          `mo:"supportedType"`
+	Datastore     []types.ManagedObjectReference `json:"datastore"`
+	SupportedType []types.BaseFileQuery          `json:"supportedType"`
 }
 
 func (m HostDatastoreBrowser) Reference() types.ManagedObjectReference {
@@ -686,10 +704,10 @@ func init() {
 }
 
 type HostDatastoreSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Datastore    []types.ManagedObjectReference        `mo:"datastore"`
-	Capabilities types.HostDatastoreSystemCapabilities `mo:"capabilities"`
+	Datastore    []types.ManagedObjectReference        `json:"datastore"`
+	Capabilities types.HostDatastoreSystemCapabilities `json:"capabilities"`
 }
 
 func (m HostDatastoreSystem) Reference() types.ManagedObjectReference {
@@ -701,9 +719,9 @@ func init() {
 }
 
 type HostDateTimeSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	DateTimeInfo types.HostDateTimeInfo `mo:"dateTimeInfo"`
+	DateTimeInfo types.HostDateTimeInfo `json:"dateTimeInfo"`
 }
 
 func (m HostDateTimeSystem) Reference() types.ManagedObjectReference {
@@ -715,9 +733,9 @@ func init() {
 }
 
 type HostDiagnosticSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	ActivePartition *types.HostDiagnosticPartition `mo:"activePartition"`
+	ActivePartition *types.HostDiagnosticPartition `json:"activePartition"`
 }
 
 func (m HostDiagnosticSystem) Reference() types.ManagedObjectReference {
@@ -737,9 +755,9 @@ func init() {
 }
 
 type HostEsxAgentHostManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	ConfigInfo types.HostEsxAgentHostManagerConfigInfo `mo:"configInfo"`
+	ConfigInfo types.HostEsxAgentHostManagerConfigInfo `json:"configInfo"`
 }
 
 func (m HostEsxAgentHostManager) Reference() types.ManagedObjectReference {
@@ -753,7 +771,7 @@ func init() {
 type HostFirewallSystem struct {
 	ExtensibleManagedObject
 
-	FirewallInfo *types.HostFirewallInfo `mo:"firewallInfo"`
+	FirewallInfo *types.HostFirewallInfo `json:"firewallInfo"`
 }
 
 func init() {
@@ -761,7 +779,7 @@ func init() {
 }
 
 type HostFirmwareSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostFirmwareSystem) Reference() types.ManagedObjectReference {
@@ -775,10 +793,10 @@ func init() {
 type HostGraphicsManager struct {
 	ExtensibleManagedObject
 
-	GraphicsInfo           []types.HostGraphicsInfo          `mo:"graphicsInfo"`
-	GraphicsConfig         *types.HostGraphicsConfig         `mo:"graphicsConfig"`
-	SharedPassthruGpuTypes []string                          `mo:"sharedPassthruGpuTypes"`
-	SharedGpuCapabilities  []types.HostSharedGpuCapabilities `mo:"sharedGpuCapabilities"`
+	GraphicsInfo           []types.HostGraphicsInfo          `json:"graphicsInfo"`
+	GraphicsConfig         *types.HostGraphicsConfig         `json:"graphicsConfig"`
+	SharedPassthruGpuTypes []string                          `json:"sharedPassthruGpuTypes"`
+	SharedGpuCapabilities  []types.HostSharedGpuCapabilities `json:"sharedGpuCapabilities"`
 }
 
 func init() {
@@ -786,9 +804,9 @@ func init() {
 }
 
 type HostHealthStatusSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Runtime types.HealthSystemRuntime `mo:"runtime"`
+	Runtime types.HealthSystemRuntime `json:"runtime"`
 }
 
 func (m HostHealthStatusSystem) Reference() types.ManagedObjectReference {
@@ -800,7 +818,7 @@ func init() {
 }
 
 type HostImageConfigManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostImageConfigManager) Reference() types.ManagedObjectReference {
@@ -812,7 +830,7 @@ func init() {
 }
 
 type HostKernelModuleSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostKernelModuleSystem) Reference() types.ManagedObjectReference {
@@ -824,7 +842,7 @@ func init() {
 }
 
 type HostLocalAccountManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostLocalAccountManager) Reference() types.ManagedObjectReference {
@@ -846,8 +864,8 @@ func init() {
 type HostMemorySystem struct {
 	ExtensibleManagedObject
 
-	ConsoleReservationInfo        *types.ServiceConsoleReservationInfo       `mo:"consoleReservationInfo"`
-	VirtualMachineReservationInfo *types.VirtualMachineMemoryReservationInfo `mo:"virtualMachineReservationInfo"`
+	ConsoleReservationInfo        *types.ServiceConsoleReservationInfo       `json:"consoleReservationInfo"`
+	VirtualMachineReservationInfo *types.VirtualMachineMemoryReservationInfo `json:"virtualMachineReservationInfo"`
 }
 
 func init() {
@@ -857,13 +875,13 @@ func init() {
 type HostNetworkSystem struct {
 	ExtensibleManagedObject
 
-	Capabilities         *types.HostNetCapabilities        `mo:"capabilities"`
-	NetworkInfo          *types.HostNetworkInfo            `mo:"networkInfo"`
-	OffloadCapabilities  *types.HostNetOffloadCapabilities `mo:"offloadCapabilities"`
-	NetworkConfig        *types.HostNetworkConfig          `mo:"networkConfig"`
-	DnsConfig            types.BaseHostDnsConfig           `mo:"dnsConfig"`
-	IpRouteConfig        types.BaseHostIpRouteConfig       `mo:"ipRouteConfig"`
-	ConsoleIpRouteConfig types.BaseHostIpRouteConfig       `mo:"consoleIpRouteConfig"`
+	Capabilities         *types.HostNetCapabilities        `json:"capabilities"`
+	NetworkInfo          *types.HostNetworkInfo            `json:"networkInfo"`
+	OffloadCapabilities  *types.HostNetOffloadCapabilities `json:"offloadCapabilities"`
+	NetworkConfig        *types.HostNetworkConfig          `json:"networkConfig"`
+	DnsConfig            types.BaseHostDnsConfig           `json:"dnsConfig"`
+	IpRouteConfig        types.BaseHostIpRouteConfig       `json:"ipRouteConfig"`
+	ConsoleIpRouteConfig types.BaseHostIpRouteConfig       `json:"consoleIpRouteConfig"`
 }
 
 func init() {
@@ -871,9 +889,9 @@ func init() {
 }
 
 type HostNvdimmSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	NvdimmSystemInfo types.NvdimmSystemInfo `mo:"nvdimmSystemInfo"`
+	NvdimmSystemInfo types.NvdimmSystemInfo `json:"nvdimmSystemInfo"`
 }
 
 func (m HostNvdimmSystem) Reference() types.ManagedObjectReference {
@@ -885,7 +903,7 @@ func init() {
 }
 
 type HostPatchManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostPatchManager) Reference() types.ManagedObjectReference {
@@ -899,8 +917,8 @@ func init() {
 type HostPciPassthruSystem struct {
 	ExtensibleManagedObject
 
-	PciPassthruInfo     []types.BaseHostPciPassthruInfo     `mo:"pciPassthruInfo"`
-	SriovDevicePoolInfo []types.BaseHostSriovDevicePoolInfo `mo:"sriovDevicePoolInfo"`
+	PciPassthruInfo     []types.BaseHostPciPassthruInfo     `json:"pciPassthruInfo"`
+	SriovDevicePoolInfo []types.BaseHostSriovDevicePoolInfo `json:"sriovDevicePoolInfo"`
 }
 
 func init() {
@@ -908,10 +926,10 @@ func init() {
 }
 
 type HostPowerSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Capability types.PowerSystemCapability `mo:"capability"`
-	Info       types.PowerSystemInfo       `mo:"info"`
+	Capability types.PowerSystemCapability `json:"capability"`
+	Info       types.PowerSystemInfo       `json:"info"`
 }
 
 func (m HostPowerSystem) Reference() types.ManagedObjectReference {
@@ -925,10 +943,10 @@ func init() {
 type HostProfile struct {
 	Profile
 
-	ValidationState           *string                                 `mo:"validationState"`
-	ValidationStateUpdateTime *time.Time                              `mo:"validationStateUpdateTime"`
-	ValidationFailureInfo     *types.HostProfileValidationFailureInfo `mo:"validationFailureInfo"`
-	ReferenceHost             *types.ManagedObjectReference           `mo:"referenceHost"`
+	ValidationState           *string                                 `json:"validationState"`
+	ValidationStateUpdateTime *time.Time                              `json:"validationStateUpdateTime"`
+	ValidationFailureInfo     *types.HostProfileValidationFailureInfo `json:"validationFailureInfo"`
+	ReferenceHost             *types.ManagedObjectReference           `json:"referenceHost"`
 }
 
 func init() {
@@ -946,7 +964,7 @@ func init() {
 type HostServiceSystem struct {
 	ExtensibleManagedObject
 
-	ServiceInfo types.HostServiceInfo `mo:"serviceInfo"`
+	ServiceInfo types.HostServiceInfo `json:"serviceInfo"`
 }
 
 func init() {
@@ -954,10 +972,10 @@ func init() {
 }
 
 type HostSnmpSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Configuration types.HostSnmpConfigSpec        `mo:"configuration"`
-	Limits        types.HostSnmpSystemAgentLimits `mo:"limits"`
+	Configuration types.HostSnmpConfigSpec        `json:"configuration"`
+	Limits        types.HostSnmpSystemAgentLimits `json:"limits"`
 }
 
 func (m HostSnmpSystem) Reference() types.ManagedObjectReference {
@@ -969,7 +987,7 @@ func init() {
 }
 
 type HostSpecificationManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostSpecificationManager) Reference() types.ManagedObjectReference {
@@ -983,10 +1001,10 @@ func init() {
 type HostStorageSystem struct {
 	ExtensibleManagedObject
 
-	StorageDeviceInfo    *types.HostStorageDeviceInfo   `mo:"storageDeviceInfo"`
-	FileSystemVolumeInfo types.HostFileSystemVolumeInfo `mo:"fileSystemVolumeInfo"`
-	SystemFile           []string                       `mo:"systemFile"`
-	MultipathStateInfo   *types.HostMultipathStateInfo  `mo:"multipathStateInfo"`
+	StorageDeviceInfo    *types.HostStorageDeviceInfo   `json:"storageDeviceInfo"`
+	FileSystemVolumeInfo types.HostFileSystemVolumeInfo `json:"fileSystemVolumeInfo"`
+	SystemFile           []string                       `json:"systemFile"`
+	MultipathStateInfo   *types.HostMultipathStateInfo  `json:"multipathStateInfo"`
 }
 
 func init() {
@@ -996,25 +1014,25 @@ func init() {
 type HostSystem struct {
 	ManagedEntity
 
-	Runtime                    types.HostRuntimeInfo                      `mo:"runtime"`
-	Summary                    types.HostListSummary                      `mo:"summary"`
-	Hardware                   *types.HostHardwareInfo                    `mo:"hardware"`
-	Capability                 *types.HostCapability                      `mo:"capability"`
-	LicensableResource         types.HostLicensableResourceInfo           `mo:"licensableResource"`
-	RemediationState           *types.HostSystemRemediationState          `mo:"remediationState"`
-	PrecheckRemediationResult  *types.ApplyHostProfileConfigurationSpec   `mo:"precheckRemediationResult"`
-	RemediationResult          *types.ApplyHostProfileConfigurationResult `mo:"remediationResult"`
-	ComplianceCheckState       *types.HostSystemComplianceCheckState      `mo:"complianceCheckState"`
-	ComplianceCheckResult      *types.ComplianceResult                    `mo:"complianceCheckResult"`
-	ConfigManager              types.HostConfigManager                    `mo:"configManager"`
-	Config                     *types.HostConfigInfo                      `mo:"config"`
-	Vm                         []types.ManagedObjectReference             `mo:"vm"`
-	Datastore                  []types.ManagedObjectReference             `mo:"datastore"`
-	Network                    []types.ManagedObjectReference             `mo:"network"`
-	DatastoreBrowser           types.ManagedObjectReference               `mo:"datastoreBrowser"`
-	SystemResources            *types.HostSystemResourceInfo              `mo:"systemResources"`
-	AnswerFileValidationState  *types.AnswerFileStatusResult              `mo:"answerFileValidationState"`
-	AnswerFileValidationResult *types.AnswerFileStatusResult              `mo:"answerFileValidationResult"`
+	Runtime                    types.HostRuntimeInfo                      `json:"runtime"`
+	Summary                    types.HostListSummary                      `json:"summary"`
+	Hardware                   *types.HostHardwareInfo                    `json:"hardware"`
+	Capability                 *types.HostCapability                      `json:"capability"`
+	LicensableResource         types.HostLicensableResourceInfo           `json:"licensableResource"`
+	RemediationState           *types.HostSystemRemediationState          `json:"remediationState"`
+	PrecheckRemediationResult  *types.ApplyHostProfileConfigurationSpec   `json:"precheckRemediationResult"`
+	RemediationResult          *types.ApplyHostProfileConfigurationResult `json:"remediationResult"`
+	ComplianceCheckState       *types.HostSystemComplianceCheckState      `json:"complianceCheckState"`
+	ComplianceCheckResult      *types.ComplianceResult                    `json:"complianceCheckResult"`
+	ConfigManager              types.HostConfigManager                    `json:"configManager"`
+	Config                     *types.HostConfigInfo                      `json:"config"`
+	Vm                         []types.ManagedObjectReference             `json:"vm"`
+	Datastore                  []types.ManagedObjectReference             `json:"datastore"`
+	Network                    []types.ManagedObjectReference             `json:"network"`
+	DatastoreBrowser           types.ManagedObjectReference               `json:"datastoreBrowser"`
+	SystemResources            *types.HostSystemResourceInfo              `json:"systemResources"`
+	AnswerFileValidationState  *types.AnswerFileStatusResult              `json:"answerFileValidationState"`
+	AnswerFileValidationResult *types.AnswerFileStatusResult              `json:"answerFileValidationResult"`
 }
 
 func (m *HostSystem) Entity() *ManagedEntity {
@@ -1026,9 +1044,9 @@ func init() {
 }
 
 type HostVFlashManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	VFlashConfigInfo *types.HostVFlashManagerVFlashConfigInfo `mo:"vFlashConfigInfo"`
+	VFlashConfigInfo *types.HostVFlashManagerVFlashConfigInfo `json:"vFlashConfigInfo"`
 }
 
 func (m HostVFlashManager) Reference() types.ManagedObjectReference {
@@ -1042,8 +1060,8 @@ func init() {
 type HostVMotionSystem struct {
 	ExtensibleManagedObject
 
-	NetConfig *types.HostVMotionNetConfig `mo:"netConfig"`
-	IpConfig  *types.HostIpConfig         `mo:"ipConfig"`
+	NetConfig *types.HostVMotionNetConfig `json:"netConfig"`
+	IpConfig  *types.HostIpConfig         `json:"ipConfig"`
 }
 
 func init() {
@@ -1061,7 +1079,7 @@ func init() {
 type HostVirtualNicManager struct {
 	ExtensibleManagedObject
 
-	Info types.HostVirtualNicManagerInfo `mo:"info"`
+	Info types.HostVirtualNicManagerInfo `json:"info"`
 }
 
 func init() {
@@ -1069,7 +1087,7 @@ func init() {
 }
 
 type HostVsanInternalSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m HostVsanInternalSystem) Reference() types.ManagedObjectReference {
@@ -1081,9 +1099,9 @@ func init() {
 }
 
 type HostVsanSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Config types.VsanHostConfigInfo `mo:"config"`
+	Config types.VsanHostConfigInfo `json:"config"`
 }
 
 func (m HostVsanSystem) Reference() types.ManagedObjectReference {
@@ -1095,15 +1113,15 @@ func init() {
 }
 
 type HttpNfcLease struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	InitializeProgress int32                          `mo:"initializeProgress"`
-	TransferProgress   int32                          `mo:"transferProgress"`
-	Mode               string                         `mo:"mode"`
-	Capabilities       types.HttpNfcLeaseCapabilities `mo:"capabilities"`
-	Info               *types.HttpNfcLeaseInfo        `mo:"info"`
-	State              types.HttpNfcLeaseState        `mo:"state"`
-	Error              *types.LocalizedMethodFault    `mo:"error"`
+	InitializeProgress int32                          `json:"initializeProgress"`
+	TransferProgress   int32                          `json:"transferProgress"`
+	Mode               string                         `json:"mode"`
+	Capabilities       types.HttpNfcLeaseCapabilities `json:"capabilities"`
+	Info               *types.HttpNfcLeaseInfo        `json:"info"`
+	State              types.HttpNfcLeaseState        `json:"state"`
+	Error              *types.LocalizedMethodFault    `json:"error"`
 }
 
 func (m HttpNfcLease) Reference() types.ManagedObjectReference {
@@ -1123,7 +1141,7 @@ func init() {
 }
 
 type IoFilterManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m IoFilterManager) Reference() types.ManagedObjectReference {
@@ -1135,7 +1153,7 @@ func init() {
 }
 
 type IpPoolManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m IpPoolManager) Reference() types.ManagedObjectReference {
@@ -1147,7 +1165,7 @@ func init() {
 }
 
 type IscsiManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m IscsiManager) Reference() types.ManagedObjectReference {
@@ -1159,7 +1177,7 @@ func init() {
 }
 
 type LicenseAssignmentManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m LicenseAssignmentManager) Reference() types.ManagedObjectReference {
@@ -1171,16 +1189,16 @@ func init() {
 }
 
 type LicenseManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Source                   types.BaseLicenseSource            `mo:"source"`
-	SourceAvailable          bool                               `mo:"sourceAvailable"`
-	Diagnostics              *types.LicenseDiagnostics          `mo:"diagnostics"`
-	FeatureInfo              []types.LicenseFeatureInfo         `mo:"featureInfo"`
-	LicensedEdition          string                             `mo:"licensedEdition"`
-	Licenses                 []types.LicenseManagerLicenseInfo  `mo:"licenses"`
-	LicenseAssignmentManager *types.ManagedObjectReference      `mo:"licenseAssignmentManager"`
-	Evaluation               types.LicenseManagerEvaluationInfo `mo:"evaluation"`
+	Source                   types.BaseLicenseSource            `json:"source"`
+	SourceAvailable          bool                               `json:"sourceAvailable"`
+	Diagnostics              *types.LicenseDiagnostics          `json:"diagnostics"`
+	FeatureInfo              []types.LicenseFeatureInfo         `json:"featureInfo"`
+	LicensedEdition          string                             `json:"licensedEdition"`
+	Licenses                 []types.LicenseManagerLicenseInfo  `json:"licenses"`
+	LicenseAssignmentManager *types.ManagedObjectReference      `json:"licenseAssignmentManager"`
+	Evaluation               types.LicenseManagerEvaluationInfo `json:"evaluation"`
 }
 
 func (m LicenseManager) Reference() types.ManagedObjectReference {
@@ -1200,9 +1218,9 @@ func init() {
 }
 
 type LocalizationManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Catalog []types.LocalizationManagerMessageCatalog `mo:"catalog"`
+	Catalog []types.LocalizationManagerMessageCatalog `json:"catalog"`
 }
 
 func (m LocalizationManager) Reference() types.ManagedObjectReference {
@@ -1216,20 +1234,20 @@ func init() {
 type ManagedEntity struct {
 	ExtensibleManagedObject
 
-	Parent              *types.ManagedObjectReference  `mo:"parent"`
-	CustomValue         []types.BaseCustomFieldValue   `mo:"customValue"`
-	OverallStatus       types.ManagedEntityStatus      `mo:"overallStatus"`
-	ConfigStatus        types.ManagedEntityStatus      `mo:"configStatus"`
-	ConfigIssue         []types.BaseEvent              `mo:"configIssue"`
-	EffectiveRole       []int32                        `mo:"effectiveRole"`
-	Permission          []types.Permission             `mo:"permission"`
-	Name                string                         `mo:"name"`
-	DisabledMethod      []string                       `mo:"disabledMethod"`
-	RecentTask          []types.ManagedObjectReference `mo:"recentTask"`
-	DeclaredAlarmState  []types.AlarmState             `mo:"declaredAlarmState"`
-	TriggeredAlarmState []types.AlarmState             `mo:"triggeredAlarmState"`
-	AlarmActionsEnabled *bool                          `mo:"alarmActionsEnabled"`
-	Tag                 []types.Tag                    `mo:"tag"`
+	Parent              *types.ManagedObjectReference  `json:"parent"`
+	CustomValue         []types.BaseCustomFieldValue   `json:"customValue"`
+	OverallStatus       types.ManagedEntityStatus      `json:"overallStatus"`
+	ConfigStatus        types.ManagedEntityStatus      `json:"configStatus"`
+	ConfigIssue         []types.BaseEvent              `json:"configIssue"`
+	EffectiveRole       []int32                        `json:"effectiveRole"`
+	Permission          []types.Permission             `json:"permission"`
+	Name                string                         `json:"name"`
+	DisabledMethod      []string                       `json:"disabledMethod"`
+	RecentTask          []types.ManagedObjectReference `json:"recentTask"`
+	DeclaredAlarmState  []types.AlarmState             `json:"declaredAlarmState"`
+	TriggeredAlarmState []types.AlarmState             `json:"triggeredAlarmState"`
+	AlarmActionsEnabled *bool                          `json:"alarmActionsEnabled"`
+	Tag                 []types.Tag                    `json:"tag"`
 }
 
 func init() {
@@ -1237,9 +1255,9 @@ func init() {
 }
 
 type ManagedObjectView struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	View []types.ManagedObjectReference `mo:"view"`
+	View []types.ManagedObjectReference `json:"view"`
 }
 
 func (m ManagedObjectView) Reference() types.ManagedObjectReference {
@@ -1251,7 +1269,7 @@ func init() {
 }
 
 type MessageBusProxy struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m MessageBusProxy) Reference() types.ManagedObjectReference {
@@ -1265,10 +1283,10 @@ func init() {
 type Network struct {
 	ManagedEntity
 
-	Name    string                         `mo:"name"`
-	Summary types.BaseNetworkSummary       `mo:"summary"`
-	Host    []types.ManagedObjectReference `mo:"host"`
-	Vm      []types.ManagedObjectReference `mo:"vm"`
+	Summary types.BaseNetworkSummary       `json:"summary"`
+	Host    []types.ManagedObjectReference `json:"host"`
+	Vm      []types.ManagedObjectReference `json:"vm"`
+	Name    string                         `json:"name"`
 }
 
 func (m *Network) Entity() *ManagedEntity {
@@ -1282,8 +1300,8 @@ func init() {
 type OpaqueNetwork struct {
 	Network
 
-	Capability  *types.OpaqueNetworkCapability `mo:"capability"`
-	ExtraConfig []types.BaseOptionValue        `mo:"extraConfig"`
+	Capability  *types.OpaqueNetworkCapability `json:"capability"`
+	ExtraConfig []types.BaseOptionValue        `json:"extraConfig"`
 }
 
 func init() {
@@ -1291,10 +1309,10 @@ func init() {
 }
 
 type OptionManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	SupportedOption []types.OptionDef       `mo:"supportedOption"`
-	Setting         []types.BaseOptionValue `mo:"setting"`
+	SupportedOption []types.OptionDef       `json:"supportedOption"`
+	Setting         []types.BaseOptionValue `json:"setting"`
 }
 
 func (m OptionManager) Reference() types.ManagedObjectReference {
@@ -1306,7 +1324,7 @@ func init() {
 }
 
 type OverheadMemoryManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m OverheadMemoryManager) Reference() types.ManagedObjectReference {
@@ -1318,10 +1336,10 @@ func init() {
 }
 
 type OvfManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	OvfImportOption []types.OvfOptionInfo `mo:"ovfImportOption"`
-	OvfExportOption []types.OvfOptionInfo `mo:"ovfExportOption"`
+	OvfImportOption []types.OvfOptionInfo `json:"ovfImportOption"`
+	OvfExportOption []types.OvfOptionInfo `json:"ovfExportOption"`
 }
 
 func (m OvfManager) Reference() types.ManagedObjectReference {
@@ -1333,11 +1351,11 @@ func init() {
 }
 
 type PerformanceManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Description        types.PerformanceDescription `mo:"description"`
-	HistoricalInterval []types.PerfInterval         `mo:"historicalInterval"`
-	PerfCounter        []types.PerfCounterInfo      `mo:"perfCounter"`
+	Description        types.PerformanceDescription `json:"description"`
+	HistoricalInterval []types.PerfInterval         `json:"historicalInterval"`
+	PerfCounter        []types.PerfCounterInfo      `json:"perfCounter"`
 }
 
 func (m PerformanceManager) Reference() types.ManagedObjectReference {
@@ -1349,15 +1367,15 @@ func init() {
 }
 
 type Profile struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Config           types.BaseProfileConfigInfo    `mo:"config"`
-	Description      *types.ProfileDescription      `mo:"description"`
-	Name             string                         `mo:"name"`
-	CreatedTime      time.Time                      `mo:"createdTime"`
-	ModifiedTime     time.Time                      `mo:"modifiedTime"`
-	Entity           []types.ManagedObjectReference `mo:"entity"`
-	ComplianceStatus string                         `mo:"complianceStatus"`
+	Config           types.BaseProfileConfigInfo    `json:"config"`
+	Description      *types.ProfileDescription      `json:"description"`
+	Name             string                         `json:"name"`
+	CreatedTime      time.Time                      `json:"createdTime"`
+	ModifiedTime     time.Time                      `json:"modifiedTime"`
+	Entity           []types.ManagedObjectReference `json:"entity"`
+	ComplianceStatus string                         `json:"complianceStatus"`
 }
 
 func (m Profile) Reference() types.ManagedObjectReference {
@@ -1369,7 +1387,7 @@ func init() {
 }
 
 type ProfileComplianceManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m ProfileComplianceManager) Reference() types.ManagedObjectReference {
@@ -1381,9 +1399,9 @@ func init() {
 }
 
 type ProfileManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Profile []types.ManagedObjectReference `mo:"profile"`
+	Profile []types.ManagedObjectReference `json:"profile"`
 }
 
 func (m ProfileManager) Reference() types.ManagedObjectReference {
@@ -1395,9 +1413,9 @@ func init() {
 }
 
 type PropertyCollector struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Filter []types.ManagedObjectReference `mo:"filter"`
+	Filter []types.ManagedObjectReference `json:"filter"`
 }
 
 func (m PropertyCollector) Reference() types.ManagedObjectReference {
@@ -1409,10 +1427,10 @@ func init() {
 }
 
 type PropertyFilter struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Spec           types.PropertyFilterSpec `mo:"spec"`
-	PartialUpdates bool                     `mo:"partialUpdates"`
+	Spec           types.PropertyFilterSpec `json:"spec"`
+	PartialUpdates bool                     `json:"partialUpdates"`
 }
 
 func (m PropertyFilter) Reference() types.ManagedObjectReference {
@@ -1424,7 +1442,7 @@ func init() {
 }
 
 type ResourcePlanningManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m ResourcePlanningManager) Reference() types.ManagedObjectReference {
@@ -1438,13 +1456,14 @@ func init() {
 type ResourcePool struct {
 	ManagedEntity
 
-	Summary            types.BaseResourcePoolSummary  `mo:"summary"`
-	Runtime            types.ResourcePoolRuntimeInfo  `mo:"runtime"`
-	Owner              types.ManagedObjectReference   `mo:"owner"`
-	ResourcePool       []types.ManagedObjectReference `mo:"resourcePool"`
-	Vm                 []types.ManagedObjectReference `mo:"vm"`
-	Config             types.ResourceConfigSpec       `mo:"config"`
-	ChildConfiguration []types.ResourceConfigSpec     `mo:"childConfiguration"`
+	Summary            types.BaseResourcePoolSummary  `json:"summary"`
+	Runtime            types.ResourcePoolRuntimeInfo  `json:"runtime"`
+	Owner              types.ManagedObjectReference   `json:"owner"`
+	ResourcePool       []types.ManagedObjectReference `json:"resourcePool"`
+	Vm                 []types.ManagedObjectReference `json:"vm"`
+	Config             types.ResourceConfigSpec       `json:"config"`
+	Namespace          *string                        `json:"namespace"`
+	ChildConfiguration []types.ResourceConfigSpec     `json:"childConfiguration"`
 }
 
 func (m *ResourcePool) Entity() *ManagedEntity {
@@ -1458,7 +1477,7 @@ func init() {
 type ScheduledTask struct {
 	ExtensibleManagedObject
 
-	Info types.ScheduledTaskInfo `mo:"info"`
+	Info types.ScheduledTaskInfo `json:"info"`
 }
 
 func init() {
@@ -1466,10 +1485,10 @@ func init() {
 }
 
 type ScheduledTaskManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	ScheduledTask []types.ManagedObjectReference `mo:"scheduledTask"`
-	Description   types.ScheduledTaskDescription `mo:"description"`
+	ScheduledTask []types.ManagedObjectReference `json:"scheduledTask"`
+	Description   types.ScheduledTaskDescription `json:"description"`
 }
 
 func (m ScheduledTaskManager) Reference() types.ManagedObjectReference {
@@ -1481,7 +1500,7 @@ func init() {
 }
 
 type SearchIndex struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m SearchIndex) Reference() types.ManagedObjectReference {
@@ -1493,11 +1512,11 @@ func init() {
 }
 
 type ServiceInstance struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	ServerClock time.Time            `mo:"serverClock"`
-	Capability  types.Capability     `mo:"capability"`
-	Content     types.ServiceContent `mo:"content"`
+	ServerClock time.Time            `json:"serverClock"`
+	Capability  types.Capability     `json:"capability"`
+	Content     types.ServiceContent `json:"content"`
 }
 
 func (m ServiceInstance) Reference() types.ManagedObjectReference {
@@ -1509,9 +1528,9 @@ func init() {
 }
 
 type ServiceManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	Service []types.ServiceManagerServiceInfo `mo:"service"`
+	Service []types.ServiceManagerServiceInfo `json:"service"`
 }
 
 func (m ServiceManager) Reference() types.ManagedObjectReference {
@@ -1523,14 +1542,14 @@ func init() {
 }
 
 type SessionManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	SessionList         []types.UserSession `mo:"sessionList"`
-	CurrentSession      *types.UserSession  `mo:"currentSession"`
-	Message             *string             `mo:"message"`
-	MessageLocaleList   []string            `mo:"messageLocaleList"`
-	SupportedLocaleList []string            `mo:"supportedLocaleList"`
-	DefaultLocale       string              `mo:"defaultLocale"`
+	SessionList         []types.UserSession `json:"sessionList"`
+	CurrentSession      *types.UserSession  `json:"currentSession"`
+	Message             *string             `json:"message"`
+	MessageLocaleList   []string            `json:"messageLocaleList"`
+	SupportedLocaleList []string            `json:"supportedLocaleList"`
+	DefaultLocale       string              `json:"defaultLocale"`
 }
 
 func (m SessionManager) Reference() types.ManagedObjectReference {
@@ -1542,10 +1561,10 @@ func init() {
 }
 
 type SimpleCommand struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	EncodingType types.SimpleCommandEncoding     `mo:"encodingType"`
-	Entity       types.ServiceManagerServiceInfo `mo:"entity"`
+	EncodingType types.SimpleCommandEncoding     `json:"encodingType"`
+	Entity       types.ServiceManagerServiceInfo `json:"entity"`
 }
 
 func (m SimpleCommand) Reference() types.ManagedObjectReference {
@@ -1556,19 +1575,43 @@ func init() {
 	t["SimpleCommand"] = reflect.TypeOf((*SimpleCommand)(nil)).Elem()
 }
 
+type SiteInfoManager struct {
+	Self types.ManagedObjectReference `json:"self"`
+}
+
+func (m SiteInfoManager) Reference() types.ManagedObjectReference {
+	return m.Self
+}
+
+func init() {
+	t["SiteInfoManager"] = reflect.TypeOf((*SiteInfoManager)(nil)).Elem()
+}
+
 type StoragePod struct {
 	Folder
 
-	Summary            *types.StoragePodSummary  `mo:"summary"`
-	PodStorageDrsEntry *types.PodStorageDrsEntry `mo:"podStorageDrsEntry"`
+	Summary            *types.StoragePodSummary  `json:"summary"`
+	PodStorageDrsEntry *types.PodStorageDrsEntry `json:"podStorageDrsEntry"`
 }
 
 func init() {
 	t["StoragePod"] = reflect.TypeOf((*StoragePod)(nil)).Elem()
 }
 
+type StorageQueryManager struct {
+	Self types.ManagedObjectReference `json:"self"`
+}
+
+func (m StorageQueryManager) Reference() types.ManagedObjectReference {
+	return m.Self
+}
+
+func init() {
+	t["StorageQueryManager"] = reflect.TypeOf((*StorageQueryManager)(nil)).Elem()
+}
+
 type StorageResourceManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m StorageResourceManager) Reference() types.ManagedObjectReference {
@@ -1582,7 +1625,7 @@ func init() {
 type Task struct {
 	ExtensibleManagedObject
 
-	Info types.TaskInfo `mo:"info"`
+	Info types.TaskInfo `json:"info"`
 }
 
 func init() {
@@ -1592,7 +1635,7 @@ func init() {
 type TaskHistoryCollector struct {
 	HistoryCollector
 
-	LatestPage []types.TaskInfo `mo:"latestPage"`
+	LatestPage []types.TaskInfo `json:"latestPage"`
 }
 
 func init() {
@@ -1600,11 +1643,11 @@ func init() {
 }
 
 type TaskManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	RecentTask   []types.ManagedObjectReference `mo:"recentTask"`
-	Description  types.TaskDescription          `mo:"description"`
-	MaxCollector int32                          `mo:"maxCollector"`
+	RecentTask   []types.ManagedObjectReference `json:"recentTask"`
+	Description  types.TaskDescription          `json:"description"`
+	MaxCollector int32                          `json:"maxCollector"`
 }
 
 func (m TaskManager) Reference() types.ManagedObjectReference {
@@ -1615,10 +1658,22 @@ func init() {
 	t["TaskManager"] = reflect.TypeOf((*TaskManager)(nil)).Elem()
 }
 
-type UserDirectory struct {
-	Self types.ManagedObjectReference
+type TenantTenantManager struct {
+	Self types.ManagedObjectReference `json:"self"`
+}
 
-	DomainList []string `mo:"domainList"`
+func (m TenantTenantManager) Reference() types.ManagedObjectReference {
+	return m.Self
+}
+
+func init() {
+	t["TenantTenantManager"] = reflect.TypeOf((*TenantTenantManager)(nil)).Elem()
+}
+
+type UserDirectory struct {
+	Self types.ManagedObjectReference `json:"self"`
+
+	DomainList []string `json:"domainList"`
 }
 
 func (m UserDirectory) Reference() types.ManagedObjectReference {
@@ -1630,7 +1685,7 @@ func init() {
 }
 
 type VStorageObjectManagerBase struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m VStorageObjectManagerBase) Reference() types.ManagedObjectReference {
@@ -1650,7 +1705,7 @@ func init() {
 }
 
 type View struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m View) Reference() types.ManagedObjectReference {
@@ -1662,9 +1717,9 @@ func init() {
 }
 
 type ViewManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 
-	ViewList []types.ManagedObjectReference `mo:"viewList"`
+	ViewList []types.ManagedObjectReference `json:"viewList"`
 }
 
 func (m ViewManager) Reference() types.ManagedObjectReference {
@@ -1678,12 +1733,12 @@ func init() {
 type VirtualApp struct {
 	ResourcePool
 
-	ParentFolder *types.ManagedObjectReference  `mo:"parentFolder"`
-	Datastore    []types.ManagedObjectReference `mo:"datastore"`
-	Network      []types.ManagedObjectReference `mo:"network"`
-	VAppConfig   *types.VAppConfigInfo          `mo:"vAppConfig"`
-	ParentVApp   *types.ManagedObjectReference  `mo:"parentVApp"`
-	ChildLink    []types.VirtualAppLinkInfo     `mo:"childLink"`
+	ParentFolder *types.ManagedObjectReference  `json:"parentFolder"`
+	Datastore    []types.ManagedObjectReference `json:"datastore"`
+	Network      []types.ManagedObjectReference `json:"network"`
+	VAppConfig   *types.VAppConfigInfo          `json:"vAppConfig"`
+	ParentVApp   *types.ManagedObjectReference  `json:"parentVApp"`
+	ChildLink    []types.VirtualAppLinkInfo     `json:"childLink"`
 }
 
 func init() {
@@ -1691,7 +1746,7 @@ func init() {
 }
 
 type VirtualDiskManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m VirtualDiskManager) Reference() types.ManagedObjectReference {
@@ -1705,23 +1760,23 @@ func init() {
 type VirtualMachine struct {
 	ManagedEntity
 
-	Capability           types.VirtualMachineCapability    `mo:"capability"`
-	Config               *types.VirtualMachineConfigInfo   `mo:"config"`
-	Layout               *types.VirtualMachineFileLayout   `mo:"layout"`
-	LayoutEx             *types.VirtualMachineFileLayoutEx `mo:"layoutEx"`
-	Storage              *types.VirtualMachineStorageInfo  `mo:"storage"`
-	EnvironmentBrowser   types.ManagedObjectReference      `mo:"environmentBrowser"`
-	ResourcePool         *types.ManagedObjectReference     `mo:"resourcePool"`
-	ParentVApp           *types.ManagedObjectReference     `mo:"parentVApp"`
-	ResourceConfig       *types.ResourceConfigSpec         `mo:"resourceConfig"`
-	Runtime              types.VirtualMachineRuntimeInfo   `mo:"runtime"`
-	Guest                *types.GuestInfo                  `mo:"guest"`
-	Summary              types.VirtualMachineSummary       `mo:"summary"`
-	Datastore            []types.ManagedObjectReference    `mo:"datastore"`
-	Network              []types.ManagedObjectReference    `mo:"network"`
-	Snapshot             *types.VirtualMachineSnapshotInfo `mo:"snapshot"`
-	RootSnapshot         []types.ManagedObjectReference    `mo:"rootSnapshot"`
-	GuestHeartbeatStatus types.ManagedEntityStatus         `mo:"guestHeartbeatStatus"`
+	Capability           types.VirtualMachineCapability    `json:"capability"`
+	Config               *types.VirtualMachineConfigInfo   `json:"config"`
+	Layout               *types.VirtualMachineFileLayout   `json:"layout"`
+	LayoutEx             *types.VirtualMachineFileLayoutEx `json:"layoutEx"`
+	Storage              *types.VirtualMachineStorageInfo  `json:"storage"`
+	EnvironmentBrowser   types.ManagedObjectReference      `json:"environmentBrowser"`
+	ResourcePool         *types.ManagedObjectReference     `json:"resourcePool"`
+	ParentVApp           *types.ManagedObjectReference     `json:"parentVApp"`
+	ResourceConfig       *types.ResourceConfigSpec         `json:"resourceConfig"`
+	Runtime              types.VirtualMachineRuntimeInfo   `json:"runtime"`
+	Guest                *types.GuestInfo                  `json:"guest"`
+	Summary              types.VirtualMachineSummary       `json:"summary"`
+	Datastore            []types.ManagedObjectReference    `json:"datastore"`
+	Network              []types.ManagedObjectReference    `json:"network"`
+	Snapshot             *types.VirtualMachineSnapshotInfo `json:"snapshot"`
+	RootSnapshot         []types.ManagedObjectReference    `json:"rootSnapshot"`
+	GuestHeartbeatStatus types.ManagedEntityStatus         `json:"guestHeartbeatStatus"`
 }
 
 func (m *VirtualMachine) Entity() *ManagedEntity {
@@ -1733,7 +1788,7 @@ func init() {
 }
 
 type VirtualMachineCompatibilityChecker struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m VirtualMachineCompatibilityChecker) Reference() types.ManagedObjectReference {
@@ -1744,8 +1799,20 @@ func init() {
 	t["VirtualMachineCompatibilityChecker"] = reflect.TypeOf((*VirtualMachineCompatibilityChecker)(nil)).Elem()
 }
 
+type VirtualMachineGuestCustomizationManager struct {
+	Self types.ManagedObjectReference `json:"self"`
+}
+
+func (m VirtualMachineGuestCustomizationManager) Reference() types.ManagedObjectReference {
+	return m.Self
+}
+
+func init() {
+	t["VirtualMachineGuestCustomizationManager"] = reflect.TypeOf((*VirtualMachineGuestCustomizationManager)(nil)).Elem()
+}
+
 type VirtualMachineProvisioningChecker struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m VirtualMachineProvisioningChecker) Reference() types.ManagedObjectReference {
@@ -1759,9 +1826,9 @@ func init() {
 type VirtualMachineSnapshot struct {
 	ExtensibleManagedObject
 
-	Config        types.VirtualMachineConfigInfo `mo:"config"`
-	ChildSnapshot []types.ManagedObjectReference `mo:"childSnapshot"`
-	Vm            types.ManagedObjectReference   `mo:"vm"`
+	Config        types.VirtualMachineConfigInfo `json:"config"`
+	ChildSnapshot []types.ManagedObjectReference `json:"childSnapshot"`
+	Vm            types.ManagedObjectReference   `json:"vm"`
 }
 
 func init() {
@@ -1769,7 +1836,7 @@ func init() {
 }
 
 type VirtualizationManager struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m VirtualizationManager) Reference() types.ManagedObjectReference {
@@ -1789,7 +1856,7 @@ func init() {
 }
 
 type VsanUpgradeSystem struct {
-	Self types.ManagedObjectReference
+	Self types.ManagedObjectReference `json:"self"`
 }
 
 func (m VsanUpgradeSystem) Reference() types.ManagedObjectReference {

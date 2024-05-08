@@ -24,7 +24,7 @@ require (
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/mock v1.4.4
 	github.com/google/gopacket v1.1.17
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.6.0
 	github.com/googollee/go-socket.io v0.0.0-20181214084611-0ad7206c347a
 	github.com/gorilla/mux v1.7.0
 	github.com/gorilla/websocket v1.4.1
@@ -58,7 +58,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
 	github.com/smartystreets/goconvey v1.7.2
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.9.0
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
 	github.com/tjfoc/gmsm v1.4.1
 	github.com/tredoe/osutil/v2 v2.0.0-rc.16
@@ -88,12 +88,12 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240424102104-109bec5ee38c
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240508110740-0c43aca72e75
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.1-0.20240424071144-ff6b95d2046d
+	yunion.io/x/pkg v1.10.1-0.20240508102846-e4ad08e1f410
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v1.1.3-0.20240417115142-4f4271cd8305
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
@@ -232,7 +232,7 @@ require (
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.413 // indirect
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.24 // indirect
 	github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e // indirect
@@ -240,7 +240,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
-	github.com/vmware/govmomi v0.20.1 // indirect
+	github.com/vmware/govmomi v0.37.1 // indirect
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.6.2 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.23 // indirect
 	github.com/willf/bitset v1.1.9 // indirect
@@ -254,7 +254,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
-	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
 	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect

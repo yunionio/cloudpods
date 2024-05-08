@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2017 VMware, Inc. All Rights Reserved.
+Copyright (c) 2017-2024 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,123 +17,38 @@ limitations under the License.
 package property
 
 import (
-	"fmt"
-	"path"
-	"reflect"
-	"strconv"
-	"strings"
+	"context"
 
+	"github.com/vmware/govmomi/vim25/methods"
+	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-// Filter provides methods for matching against types.DynamicProperty
-type Filter map[string]types.AnyType
-
-// Keys returns the Filter map keys as a []string
-func (f Filter) Keys() []string {
-	keys := make([]string, 0, len(f))
-
-	for key := range f {
-		keys = append(keys, key)
-	}
-
-	return keys
+// Filter models the Filter managed object.
+//
+// For more information, see:
+// https://vdc-download.vmware.com/vmwb-repository/dcr-public/184bb3ba-6fa8-4574-a767-d0c96e2a38f4/ba9422ef-405c-47dd-8553-e11b619185b2/SDK/vsphere-ws/docs/ReferenceGuide/vmodl.query.PropertyCollector.Filter.html.
+type Filter struct {
+	roundTripper soap.RoundTripper
+	reference    types.ManagedObjectReference
 }
 
-// MatchProperty returns true if a Filter entry matches the given prop.
-func (f Filter) MatchProperty(prop types.DynamicProperty) bool {
-	match, ok := f[prop.Name]
-	if !ok {
-		return false
-	}
-
-	if match == prop.Val {
-		return true
-	}
-
-	ptype := reflect.TypeOf(prop.Val)
-
-	if strings.HasPrefix(ptype.Name(), "ArrayOf") {
-		pval := reflect.ValueOf(prop.Val).Field(0)
-
-		for i := 0; i < pval.Len(); i++ {
-			prop.Val = pval.Index(i).Interface()
-
-			if f.MatchProperty(prop) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	if reflect.TypeOf(match) != ptype {
-		s, ok := match.(string)
-		if !ok {
-			return false
-		}
-
-		// convert if we can
-		switch prop.Val.(type) {
-		case bool:
-			match, _ = strconv.ParseBool(s)
-		case int16:
-			x, _ := strconv.ParseInt(s, 10, 16)
-			match = int16(x)
-		case int32:
-			x, _ := strconv.ParseInt(s, 10, 32)
-			match = int32(x)
-		case int64:
-			match, _ = strconv.ParseInt(s, 10, 64)
-		case float32:
-			x, _ := strconv.ParseFloat(s, 32)
-			match = float32(x)
-		case float64:
-			match, _ = strconv.ParseFloat(s, 64)
-		case fmt.Stringer:
-			prop.Val = prop.Val.(fmt.Stringer).String()
-		default:
-			if ptype.Kind() != reflect.String {
-				return false
-			}
-			// An enum type we can convert to a string type
-			prop.Val = reflect.ValueOf(prop.Val).String()
-		}
-	}
-
-	switch pval := prop.Val.(type) {
-	case string:
-		s := match.(string)
-		if s == "*" {
-			return true // TODO: path.Match fails if s contains a '/'
-		}
-		m, _ := path.Match(s, pval)
-		return m
-	default:
-		return reflect.DeepEqual(match, pval)
-	}
+func (f Filter) Reference() types.ManagedObjectReference {
+	return f.reference
 }
 
-// MatchPropertyList returns true if all given props match the Filter.
-func (f Filter) MatchPropertyList(props []types.DynamicProperty) bool {
-	for _, p := range props {
-		if !f.MatchProperty(p) {
-			return false
-		}
+// Destroy destroys this filter.
+//
+// This operation can be called explicitly, or it can take place implicitly when
+// the session that created the filter is closed.
+func (f *Filter) Destroy(ctx context.Context) error {
+	if _, err := methods.DestroyPropertyFilter(
+		ctx,
+		f.roundTripper,
+		&types.DestroyPropertyFilter{This: f.Reference()}); err != nil {
+
+		return err
 	}
-
-	return len(f) == len(props) // false if a property such as VM "guest" is unset
-}
-
-// MatchObjectContent returns a list of ObjectContent.Obj where the ObjectContent.PropSet matches the Filter.
-func (f Filter) MatchObjectContent(objects []types.ObjectContent) []types.ManagedObjectReference {
-	var refs []types.ManagedObjectReference
-
-	for _, o := range objects {
-		if f.MatchPropertyList(o.PropSet) {
-			refs = append(refs, o.Obj)
-		}
-	}
-
-	return refs
+	f.reference = types.ManagedObjectReference{}
+	return nil
 }
