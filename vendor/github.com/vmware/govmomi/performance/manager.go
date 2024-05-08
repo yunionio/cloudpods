@@ -32,6 +32,17 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
+var (
+	// Intervals maps name to seconds for the built-in historical intervals
+	Intervals = map[string]int32{
+		"real":  0, // 0 == default 20s interval
+		"day":   300,
+		"week":  1800,
+		"month": 7200,
+		"year":  86400,
+	}
+)
+
 // Manager wraps mo.PerformanceManager.
 type Manager struct {
 	object.Common
@@ -194,10 +205,18 @@ func (d groupPerfCounterInfo) Len() int {
 func (d groupPerfCounterInfo) Less(i, j int) bool {
 	ci := d.ids[i].CounterId
 	cj := d.ids[j].CounterId
-	gi := d.info[ci].GroupInfo.GetElementDescription()
-	gj := d.info[cj].GroupInfo.GetElementDescription()
 
-	return gi.Key < gj.Key
+	giKey := "-"
+	gjKey := "-"
+
+	if gi, ok := d.info[ci]; ok {
+		giKey = gi.GroupInfo.GetElementDescription().Key
+	}
+	if gj, ok := d.info[cj]; ok {
+		gjKey = gj.GroupInfo.GetElementDescription().Key
+	}
+
+	return giKey < gjKey
 }
 
 func (d groupPerfCounterInfo) Swap(i, j int) {
@@ -260,6 +279,21 @@ func (m *Manager) Query(ctx context.Context, spec []types.PerfQuerySpec) ([]type
 	return res.Returnval, nil
 }
 
+// QueryCounter wraps the QueryPerfCounter method.
+func (m *Manager) QueryCounter(ctx context.Context, ids []int32) ([]types.PerfCounterInfo, error) {
+	req := types.QueryPerfCounter{
+		This:      m.Reference(),
+		CounterId: ids,
+	}
+
+	res, err := methods.QueryPerfCounter(ctx, m.Client(), &req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Returnval, nil
+}
+
 // SampleByName uses the spec param as a template, constructing a []types.PerfQuerySpec for the given metrics and entities
 // and invoking the Query method.
 // The spec template can specify instances using the MetricId.Instance field, by default all instances are collected.
@@ -297,7 +331,10 @@ func (m *Manager) SampleByName(ctx context.Context, spec types.PerfQuerySpec, me
 		spec.MaxSample = 1
 	}
 
+	truncate := false
+
 	if spec.IntervalId >= 60 && spec.StartTime == nil {
+		truncate = true
 		// Need a StartTime to make use of history
 		now, err := methods.GetCurrentTime(ctx, m.Client())
 		if err != nil {
@@ -305,7 +342,7 @@ func (m *Manager) SampleByName(ctx context.Context, spec types.PerfQuerySpec, me
 		}
 
 		// Go back in time
-		x := spec.IntervalId * -1 * spec.MaxSample
+		x := spec.IntervalId * -1 * (spec.MaxSample * 2)
 		t := now.Add(time.Duration(x) * time.Second)
 		spec.StartTime = &t
 	}
@@ -317,15 +354,51 @@ func (m *Manager) SampleByName(ctx context.Context, spec types.PerfQuerySpec, me
 		query = append(query, spec)
 	}
 
-	return m.Query(ctx, query)
+	series, err := m.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	if truncate {
+		// Going back in time with IntervalId * MaxSample isn't always far enough,
+		// depending on when the historical data is saved in vCenter.
+		// So we go back twice as far and truncate here if needed.
+		for i := range series {
+			s, ok := series[i].(*types.PerfEntityMetric)
+			if !ok {
+				break
+			}
+
+			n := len(s.SampleInfo)
+			diff := n - int(spec.MaxSample)
+			if diff > 0 {
+				s.SampleInfo = s.SampleInfo[diff:]
+			}
+
+			for j := range s.Value {
+				v, ok := s.Value[j].(*types.PerfMetricIntSeries)
+				if !ok {
+					break
+				}
+
+				n = len(v.Value)
+				diff = n - int(spec.MaxSample)
+				if diff > 0 {
+					v.Value = v.Value[diff:]
+				}
+			}
+		}
+	}
+
+	return series, nil
 }
 
 // MetricSeries contains the same data as types.PerfMetricIntSeries, but with the CounterId converted to Name.
 type MetricSeries struct {
-	Name     string
+	Name     string `json:"name"`
 	unit     string
-	Instance string
-	Value    []int64
+	Instance string  `json:"instance"`
+	Value    []int64 `json:"value"`
 }
 
 func (s *MetricSeries) Format(val int64) string {
@@ -350,10 +423,10 @@ func (s *MetricSeries) ValueCSV() string {
 
 // EntityMetric contains the same data as types.PerfEntityMetric, but with MetricSeries type for the Value field.
 type EntityMetric struct {
-	Entity types.ManagedObjectReference
+	Entity types.ManagedObjectReference `json:"entity"`
 
-	SampleInfo []types.PerfSampleInfo
-	Value      []MetricSeries
+	SampleInfo []types.PerfSampleInfo `json:"sampleInfo"`
+	Value      []MetricSeries         `json:"value"`
 }
 
 // SampleInfoCSV converts the SampleInfo field to a CSV string
@@ -390,10 +463,14 @@ func (m *Manager) ToMetricSeries(ctx context.Context, series []types.BasePerfEnt
 
 		for j := range s.Value {
 			v := s.Value[j].(*types.PerfMetricIntSeries)
+			info, ok := counters[v.Id.CounterId]
+			if !ok {
+				continue
+			}
 
 			values = append(values, MetricSeries{
-				Name:     counters[v.Id.CounterId].Name(),
-				unit:     counters[v.Id.CounterId].UnitInfo.GetElementDescription().Key,
+				Name:     info.Name(),
+				unit:     info.UnitInfo.GetElementDescription().Key,
 				Instance: v.Id.Instance,
 				Value:    v.Value,
 			})

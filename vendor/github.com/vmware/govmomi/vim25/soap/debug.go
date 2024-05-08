@@ -21,39 +21,24 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
-	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/vmware/govmomi/vim25/debug"
 )
 
-// teeReader wraps io.TeeReader and patches through the Close() function.
-type teeReader struct {
-	io.Reader
-	io.Closer
-}
-
-func newTeeReader(rc io.ReadCloser, w io.Writer) io.ReadCloser {
-	return teeReader{
-		Reader: io.TeeReader(rc, w),
-		Closer: rc,
+var (
+	// Trace reads an http request or response from rc and writes to w.
+	// The content type (kind) should be one of "xml" or "json".
+	Trace = func(rc io.ReadCloser, w io.Writer, kind string) io.ReadCloser {
+		return debug.NewTeeReader(rc, w)
 	}
-}
+)
 
 // debugRoundTrip contains state and logic needed to debug a single round trip.
 type debugRoundTrip struct {
-	cn  uint64         // Client number
-	rn  uint64         // Request number
-	log io.WriteCloser // Request log
-	cs  []io.Closer    // Files that need closing when done
-}
-
-func (d *debugRoundTrip) logf(format string, a ...interface{}) {
-	now := time.Now().Format("2006-01-02T15-04-05.000000000")
-	fmt.Fprintf(d.log, "%s - %04d: ", now, d.rn)
-	fmt.Fprintf(d.log, format, a...)
-	fmt.Fprintf(d.log, "\n")
+	cn uint64      // Client number
+	rn uint64      // Request number
+	cs []io.Closer // Files that need closing when done
 }
 
 func (d *debugRoundTrip) enabled() bool {
@@ -71,50 +56,52 @@ func (d *debugRoundTrip) newFile(suffix string) io.WriteCloser {
 }
 
 func (d *debugRoundTrip) ext(h http.Header) string {
+	const json = "application/json"
 	ext := "xml"
-	if strings.Contains(h.Get("Content-Type"), "/json") {
+	if h.Get("Accept") == json || h.Get("Content-Type") == json {
 		ext = "json"
 	}
 	return ext
 }
 
-func (d *debugRoundTrip) debugRequest(req *http.Request) {
+func (d *debugRoundTrip) debugRequest(req *http.Request) string {
 	if d == nil {
-		return
+		return ""
 	}
 
-	var wc io.WriteCloser
-
 	// Capture headers
-	wc = d.newFile("req.headers")
+	var wc io.WriteCloser = d.newFile("req.headers")
 	b, _ := httputil.DumpRequest(req, false)
 	wc.Write(b)
 	wc.Close()
 
+	ext := d.ext(req.Header)
 	// Capture body
-	wc = d.newFile("req." + d.ext(req.Header))
-	req.Body = newTeeReader(req.Body, wc)
+	wc = d.newFile("req." + ext)
+	if req.Body != nil {
+		req.Body = Trace(req.Body, wc, ext)
+	}
 
 	// Delay closing until marked done
 	d.cs = append(d.cs, wc)
+
+	return ext
 }
 
-func (d *debugRoundTrip) debugResponse(res *http.Response) {
+func (d *debugRoundTrip) debugResponse(res *http.Response, ext string) {
 	if d == nil {
 		return
 	}
 
-	var wc io.WriteCloser
-
 	// Capture headers
-	wc = d.newFile("res.headers")
+	var wc io.WriteCloser = d.newFile("res.headers")
 	b, _ := httputil.DumpResponse(res, false)
 	wc.Write(b)
 	wc.Close()
 
 	// Capture body
-	wc = d.newFile("res." + d.ext(res.Header))
-	res.Body = newTeeReader(res.Body, wc)
+	wc = d.newFile("res." + ext)
+	res.Body = Trace(res.Body, wc, ext)
 
 	// Delay closing until marked done
 	d.cs = append(d.cs, wc)
@@ -124,9 +111,8 @@ var cn uint64 // Client counter
 
 // debugContainer wraps the debugging state for a single client.
 type debugContainer struct {
-	cn  uint64         // Client number
-	rn  uint64         // Request counter
-	log io.WriteCloser // Request log
+	cn uint64 // Client number
+	rn uint64 // Request counter
 }
 
 func newDebug() *debugContainer {
@@ -138,8 +124,6 @@ func newDebug() *debugContainer {
 	if !debug.Enabled() {
 		return nil
 	}
-
-	d.log = debug.NewFile(fmt.Sprintf("%d-client.log", d.cn))
 	return &d
 }
 
@@ -149,9 +133,8 @@ func (d *debugContainer) newRoundTrip() *debugRoundTrip {
 	}
 
 	drt := debugRoundTrip{
-		cn:  d.cn,
-		rn:  atomic.AddUint64(&d.rn, 1),
-		log: d.log,
+		cn: d.cn,
+		rn: atomic.AddUint64(&d.rn, 1),
 	}
 
 	return &drt

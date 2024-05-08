@@ -66,6 +66,8 @@ const (
 	FullIsoNanoTimeFormat3 = "2006-01-02 15:04:05.000000000"
 
 	RFC2882Format = time.RFC1123
+
+	CephTimeFormat = "Mon Jan  2 15:04:05 2006"
 )
 
 func IsoTime(now time.Time) string {
@@ -98,6 +100,10 @@ func CompactTime(now time.Time) string {
 
 func RFC2882Time(now time.Time) string {
 	return Utcify(now).Format(RFC2882Format)
+}
+
+func CephTime(now time.Time) string {
+	return Utcify(now).Format(CephTimeFormat)
 }
 
 func DateStr(now time.Time) string {
@@ -198,6 +204,10 @@ func ParseRFC2882Time(str string) (time.Time, error) {
 	return time.Parse(RFC2882Format, str)
 }
 
+func ParseCephTime(str string) (time.Time, error) {
+	return time.Parse(CephTimeFormat, str)
+}
+
 func ParseDate(str string) (time.Time, error) {
 	return time.Parse(DateFormat, str)
 }
@@ -240,6 +250,8 @@ func ParseTimeStr(str string) (time.Time, error) {
 		return ParseFullNormalTime(str)
 	} else if regutils.MatchRFC2882Time(str) {
 		return ParseRFC2882Time(str)
+	} else if regutils.MatchCephTime(str) {
+		return ParseCephTime(str)
 	} else if regutils.MatchCompactTime(str) {
 		return ParseCompactTime(str)
 	} else if regutils.MatchDate(str) {
