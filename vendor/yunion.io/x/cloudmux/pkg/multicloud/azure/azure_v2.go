@@ -141,8 +141,24 @@ func (self *SAzureClient) _list_v2(service string, resource, apiVersion string, 
 	}
 
 	domain := azServices[service][self.envName]
-	url := fmt.Sprintf("%s/%s", domain, resource)
+	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(domain, "/"), strings.TrimPrefix(resource, "/"))
+	if service == SERVICE_MANAGEMENT {
+		switch resource {
+		case "subscriptions":
+		case "locations", "resourcegroups", "resources":
+			url = fmt.Sprintf("%s/subscriptions/%s/%s", strings.TrimSuffix(domain, "/"), self.subscriptionId, resource)
+		default:
+			if !strings.HasPrefix(resource, "/") {
+				url = fmt.Sprintf("%s/subscriptions/%s/providers/%s", strings.TrimSuffix(domain, "/"), self.subscriptionId, resource)
+			}
+		}
+	}
 	if len(params) > 0 {
+		filters := []string{}
+		if params.Has("$filter") {
+			filters = params["$filter"]
+			params.Set("$filter", strings.Join(filters, " and "))
+		}
 		url += fmt.Sprintf("?%s", params.Encode())
 	}
 	_, resp, err := httputils.JSONRequest(self, self.ctx, httputils.GET, url, nil, nil, self.debug)
