@@ -38,7 +38,7 @@ func (s *SNVMEStorage) GetAvailSizeMb() int {
 	return s.sizeMB
 }
 
-func (s *SNVMEStorage) GetCapacity() int {
+func (s *SNVMEStorage) GetCapacityMb() int {
 	return s.GetAvailSizeMb()
 }
 
@@ -193,4 +193,8 @@ func (s *SNVMEStorage) GetComposedName() string {
 	p := strings.ReplaceAll(s.Path, ".", "_")
 	p = strings.ReplaceAll(s.Path, ":", "_")
 	return fmt.Sprintf("host_%s_%s_storage_%s", s.Manager.host.GetMasterIp(), s.StorageType(), p)
+}
+
+func (s *SNVMEStorage) CleanRecycleDiskfiles(ctx context.Context) {
+	log.Infof("SNVMEStorage CleanRecycleDiskfiles do nothing!")
 }
