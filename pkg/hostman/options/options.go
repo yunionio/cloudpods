@@ -45,6 +45,11 @@ type SHostBaseOptions struct {
 
 	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
 	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
+
+	ImageCacheExpireDays        int  `help:"Image cache expire duration in days" default:"30"`
+	ImageCacheCleanupPercentage int  `help:"The cleanup threshold ratio of image cache size v.s. total storage size" default:"12"`
+	ImageCacheCleanupOnStartup  bool `help:"Cleanup image cache on host startup" default:"false"`
+	ImageCacheCleanupDryRun     bool `help:"Dry run cleanup image cache" default:"true"`
 }
 
 type SHostOptions struct {

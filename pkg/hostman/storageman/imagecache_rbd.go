@@ -121,11 +121,30 @@ func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
 	storage := imageCacheManger.storage.(*SRbdStorage)
 
-	size, _ := storage.getImageSizeMb(imageCacheManger.Pool, r.GetName())
-	return &remotefile.SImageDesc{
-		Size: int64(size),
-		Name: r.imageName,
+	desc := &remotefile.SImageDesc{
+		SizeMb: -1,
+		Name:   r.imageName,
 	}
+
+	cli, err := imageCacheManger.getCephClient()
+	if err != nil {
+		log.Errorf("getCephClient fail %s", err)
+		return desc
+	}
+	img, err := cli.GetImage(r.GetName())
+	if err != nil {
+		log.Errorf("getName fail %s", err)
+		return desc
+	}
+	info, err := img.GetInfo()
+	if err != nil {
+		log.Errorf("GetInfo fail %s", err)
+		return desc
+	}
+	desc.SizeMb = info.SizeByte / 1024 / 1024
+	desc.AccessAt = info.AccessTimestamp
+
+	return desc
 }
 
 func (r *SRbdImageCache) GetImageId() string {

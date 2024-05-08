@@ -309,7 +309,7 @@ func (d *SLVMDisk) createFromTemplate(
 	defer imageCacheManager.ReleaseImage(ctx, imageId)
 	cacheImagePath := imageCache.GetPath()
 
-	lvSizeMb := lvmutils.GetQcow2LvSize(imageCache.GetDesc().Size)
+	lvSizeMb := lvmutils.GetQcow2LvSize(imageCache.GetDesc().SizeMb)
 	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSizeMb*1024*1024); err != nil {
 		return nil, errors.Wrap(err, "CreateRaw")
 	}
