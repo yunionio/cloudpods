@@ -79,6 +79,8 @@ type CacheImageInput struct {
 	StoragecacheId string `json:"storagecache_id"`
 	// swagger: ignore
 	Checksum string `json:"checksum"`
+	// swagger: ignore
+	SkipChecksumIfExists bool `json:"skip_checksum_if_exists"`
 }
 
 type StoragecacheResourceInput struct {
