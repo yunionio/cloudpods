@@ -20,29 +20,32 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
-
-	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 )
 
 type SLoadbalancerCert struct {
 	multicloud.SResourceBase
-	lb        *SLoadbalancer
-	cert      *x509.Certificate
-	Name      string `json:"name"`
-	ID        string `json:"id"`
-	PublicKey string `json:"public_key"`
+	AzureTags
+	region     *SRegion
+	Name       string `json:"name"`
+	Id         string `json:"id"`
+	Properties struct {
+		PublicCertData string
+		HttpListeners  []struct {
+			Id string
+		}
+	}
 }
 
 func (self *SLoadbalancerCert) GetId() string {
-	return self.ID
+	return self.Id
 }
 
 func (self *SLoadbalancerCert) GetName() string {
@@ -57,32 +60,6 @@ func (self *SLoadbalancerCert) GetStatus() string {
 	return apis.STATUS_AVAILABLE
 }
 
-func (self *SLoadbalancerCert) Refresh() error {
-	cert, err := self.lb.GetILoadBalancerCertificateById(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "GetILoadBalancerCertificateById")
-	}
-
-	err = jsonutils.Update(self, cert)
-	if err != nil {
-		return errors.Wrap(err, "Update")
-	}
-
-	return nil
-}
-
-func (self *SLoadbalancerCert) GetSysTags() map[string]string {
-	return nil
-}
-
-func (self *SLoadbalancerCert) GetTags() (map[string]string, error) {
-	return nil, nil
-}
-
-func (self *SLoadbalancerCert) SetTags(tags map[string]string, replace bool) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
-}
-
 func (self *SLoadbalancerCert) GetProjectId() string {
 	return getResourceGroup(self.GetId())
 }
@@ -92,22 +69,11 @@ func (self *SLoadbalancerCert) Delete() error {
 }
 
 func (self *SLoadbalancerCert) ParsePublicKey() (*x509.Certificate, error) {
-	if self.cert != nil {
-		return self.cert, nil
-	}
-
-	publicKey := self.GetPublickKey()
-	if len(publicKey) == 0 {
-		return nil, fmt.Errorf("SElbCertificate ParsePublicKey public key is empty")
-	}
-
-	block, _ := pem.Decode([]byte(publicKey))
+	block, _ := pem.Decode([]byte(self.GetPublickKey()))
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, errors.Wrap(err, "ParseCertificate")
 	}
-
-	self.cert = cert
 	return cert, nil
 }
 
@@ -116,7 +82,6 @@ func (self *SLoadbalancerCert) GetCommonName() string {
 	if err != nil {
 		return ""
 	}
-
 	return cert.Issuer.CommonName
 }
 
@@ -125,7 +90,6 @@ func (self *SLoadbalancerCert) GetSubjectAlternativeNames() string {
 	if err != nil {
 		return ""
 	}
-
 	return ""
 }
 
@@ -150,10 +114,10 @@ func (self *SLoadbalancerCert) GetExpireTime() time.Time {
 }
 
 func (self *SLoadbalancerCert) GetPublickKey() string {
-	if len(self.PublicKey) > 0 {
+	if len(self.Properties.PublicCertData) > 0 {
 		var pk bytes.Buffer
 		pk.WriteString("-----BEGIN CERTIFICATE-----\r\n")
-		content := bytes.NewBufferString(self.PublicKey)
+		content := bytes.NewBufferString(self.Properties.PublicCertData)
 		for {
 			l := content.Next(64)
 			if len(l) == 64 {
@@ -166,10 +130,30 @@ func (self *SLoadbalancerCert) GetPublickKey() string {
 		pk.WriteString("-----END CERTIFICATE-----")
 		return pk.String()
 	}
-
 	return ""
 }
 
 func (self *SLoadbalancerCert) GetPrivateKey() string {
 	return ""
+}
+
+func (self *SRegion) GetLoadbalancerCertificates() ([]SLoadbalancerCert, error) {
+	params := url.Values{}
+	resp, err := self.client.list_v2("Microsoft.Network/applicationGateways", "2023-09-01", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := []SLoadbalancer{}
+	err = resp.Unmarshal(&ret, "value")
+	if err != nil {
+		return nil, err
+	}
+	result := []SLoadbalancerCert{}
+	for i := range ret {
+		if ret[i].Location != self.Name {
+			continue
+		}
+		result = append(result, ret[i].Properties.SSLCertificates...)
+	}
+	return result, nil
 }
