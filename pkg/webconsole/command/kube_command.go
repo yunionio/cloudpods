@@ -133,6 +133,7 @@ func NewPodBashCommand(env *K8sEnv) ICommand {
 		args = append(args, shellRequest.Command)
 		shellRequest.Command = "env"
 	}
+	args = append(args, shellRequest.Args...)
 
 	return NewKubectlCommand(env.Session, env.Kubeconfig, env.Namespace).Exec().
 		Stdin().

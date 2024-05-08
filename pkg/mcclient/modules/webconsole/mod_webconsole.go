@@ -69,7 +69,22 @@ func (m WebConsoleManager) DoK8sShellConnect(s *mcclient.ClientSession, id strin
 	return m.DoK8sConnect(s, id, "shell", params)
 }
 
+func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	containerId, err := data.GetString("container_id")
+	if err != nil {
+		return nil, errors.Wrap(err, "get container_id")
+	}
+	if containerId == "" {
+		return nil, httperrors.NewNotEmptyError("container_id")
+	}
+	return m.doCloudShell(s, "/opt/yunion/bin/climc", "container-exec", containerId, "sh")
+}
+
 func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return m.doCloudShell(s, "/bin/bash")
+}
+
+func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, cmd string, args ...string) (jsonutils.JSONObject, error) {
 	adminSession := auth.GetAdminSession(s.GetContext(), s.GetRegion())
 
 	query := jsonutils.NewDict()
@@ -113,7 +128,8 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 	req.Cluster = clusterId
 	req.Namespace = "onecloud"
 	req.Container = "climc"
-	req.Command = "/bin/bash"
+	req.Command = cmd
+	req.Args = args
 	endpointType := "internal"
 	authUrl, _ := s.GetServiceURL("identity", endpointType)
 	if err != nil {
