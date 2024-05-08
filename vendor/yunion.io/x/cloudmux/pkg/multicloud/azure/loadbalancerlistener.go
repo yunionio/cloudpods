@@ -16,106 +16,55 @@ package azure
 
 import (
 	"context"
-	"net/url"
-	"regexp"
-	"strconv"
 	"strings"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
-// todo: 目前不支持 入站 NAT 规则
-// todo： HTTP 设置(端口+协议，其余信息丢弃) + 后端池  = onecloud 路径的路由 的 onecloud 后端服务器组
-/*
-应用型LB： urlPathMaps（defaultBackendAddressPool+defaultBackendHttpSettings+requestRoutingRules+httpListeners）= Onecloud监听器
-4层LB: loadBalancingRules（前端） = Onecloud监听器
-*/
+type ListenerProperties struct {
+	ProvisioningState       string `json:"provisioningState"`
+	FrontendIPConfiguration Subnet `json:"frontendIPConfiguration"`
+	FrontendPort            int    `json:"frontendPort"`
+	BackendPort             int    `json:"backendPort"`
+	AllocatedOutboundPorts  int    `json:"allocatedOutboundPorts"`
+	EnableFloatingIP        bool   `json:"enableFloatingIP"`
+	IdleTimeoutInMinutes    int64  `json:"idleTimeoutInMinutes"`
+	Protocol                string `json:"protocol"`
+	EnableTCPReset          bool   `json:"enableTcpReset"`
+	LoadDistribution        string
+	BackendIPConfiguration  struct {
+		Id string `json:"id"`
+	} `json:"backendIPConfiguration"`
+	BackendAddressPool struct {
+		Id string `json:"id"`
+	} `json:"backendAddressPool"`
+	BackendAddressPools []struct {
+		Id string `json:"id"`
+	} `json:"backendAddressPools"`
+	Probe struct {
+		Id string `json:"id"`
+	}
+}
+
 type SLoadBalancerListener struct {
 	multicloud.SResourceBase
 	AzureTags
 	multicloud.SLoadbalancerRedirectBase
+	lb *SLoadbalancer
 
-	lb   *SLoadbalancer
-	lbrs []cloudprovider.ICloudLoadbalancerListenerRule
-
-	/*
-		IPVersion    string
-		FrontendIP   string // 前端IP
-		FrontendIPId string // 前端IP ID
-	*/
-	fp *FrontendIPConfiguration
-
-	/*
-		    Protocol     string // 监听协议
-			HostName     string // 监听器 监听域名
-			FrontendPort int    // 前端端口
-	*/
-	listener *HTTPListener
-
-	/*
-		   Protocol     string // 后端协议
-		   BackendPort  int    // 后端端口
-			IdleTimeoutInMinutes      int    // 空闲超时(分钟)
-			LoadDistribution          string // 会话保持方法SourceIP|SourceIPProtocol
-			CookieBasedAffinity       string // cookies 关联
-			CookieName                string // cookie 名称
-			EnabledConnectionDraining bool   //   排出超时这应用于通过 API 调用从后端池明确删除的后端实例，以及运行状况探测报告的运行不正常的实例。
-			ConnectionDrainingSec     int    // 排出超时时长(秒)
-			RequestTimeout            int    // 请求超时时间(秒)
-		    probe                            // 健康检查
-	*/
-	backendSetting *BackendHTTPSettingsCollection
-
-	//
-	backendGroup *BackendAddressPool
-
-	/*
-			redirectType string // 重定向类型
-		    targetListener      // 重定向到监听
-	*/
-	redirect *RedirectConfiguration
-
-	/*
-	 "protocol": "Http",
-	 "host": "baidu.com",
-	 "path": "/test",
-	 "interval": 30,
-	 "timeout": 30,
-	 "unhealthyThreshold": 3,
-	 "pickHostNameFromBackendHttpSettings": false,
-	 "minServers": 0,
-	 "match": {
-	 	"body": "500",
-	 	"statusCodes": [
-	 		"200-399"
-	 	]
-	 },
-	*/
-	healthcheck *Probe
-
-	Name              string
-	ID                string
-	ProvisioningState string
-	IPVersion         string
-	Protocol          string // 监听协议
-	LoadDistribution  string // 调度算法
-	FrontendPort      int    // 前端端口
-	BackendPort       int    // 后端端口
-	ClientIdleTimeout int    // 客户端连接超时
-	EnableFloatingIP  bool   // 浮动 IP
-	EnableTcpReset    bool
-
-	rules []PathRule
+	Name       string             `json:"name"`
+	Id         string             `json:"id"`
+	Etag       string             `json:"etag"`
+	Type       string             `json:"type"`
+	Properties ListenerProperties `json:"properties"`
 }
 
 func (self *SLoadBalancerListener) GetId() string {
-	return self.ID
+	return self.Id
 }
 
 func (self *SLoadBalancerListener) GetName() string {
@@ -127,7 +76,7 @@ func (self *SLoadBalancerListener) GetGlobalId() string {
 }
 
 func (self *SLoadBalancerListener) GetStatus() string {
-	switch self.ProvisioningState {
+	switch self.Properties.ProvisioningState {
 	case "Succeeded", "Updating", "Deleting":
 		return api.LB_STATUS_ENABLED
 	case "Failed":
@@ -138,18 +87,12 @@ func (self *SLoadBalancerListener) GetStatus() string {
 }
 
 func (self *SLoadBalancerListener) Refresh() error {
-	lbl, err := self.lb.GetILoadBalancerListenerById(self.GetId())
+	lblis, err := self.lb.GetILoadBalancerListenerById(self.GetId())
 	if err != nil {
 		return errors.Wrap(err, "GetILoadBalancerListenerById")
 	}
 
-	err = jsonutils.Update(self, lbl)
-	if err != nil {
-		return errors.Wrap(err, "refresh.Update")
-	}
-
-	self.lbrs = nil
-	return nil
+	return jsonutils.Update(self, lblis)
 }
 
 func (listerner *SLoadBalancerListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
@@ -160,33 +103,12 @@ func (listerner *SLoadBalancerListener) SetAcl(ctx context.Context, opts *cloudp
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SLoadBalancerListener) GetTags() (map[string]string, error) {
-	if self.fp != nil {
-		if self.fp.Properties.PublicIPAddress != nil && len(self.fp.Properties.PublicIPAddress.ID) > 0 {
-			eip, _ := self.lb.GetIEIPById(self.fp.Properties.PublicIPAddress.ID)
-			if eip != nil {
-				return map[string]string{"FrontendIP": eip.GetIpAddr()}, nil
-			}
-		}
-
-		if len(self.fp.Properties.PrivateIPAddress) > 0 {
-			return map[string]string{"FrontendIP": self.fp.Properties.PrivateIPAddress}, nil
-		}
-	}
-
-	return map[string]string{}, nil
-}
-
-func (self *SLoadBalancerListener) SetTags(tags map[string]string, replace bool) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
-}
-
 func (self *SLoadBalancerListener) GetProjectId() string {
 	return getResourceGroup(self.GetId())
 }
 
 func (self *SLoadBalancerListener) GetListenerType() string {
-	switch strings.ToLower(self.Protocol) {
+	switch strings.ToLower(self.Properties.Protocol) {
 	case "tcp":
 		return api.LB_LISTENER_TYPE_TCP
 	case "udp":
@@ -196,21 +118,24 @@ func (self *SLoadBalancerListener) GetListenerType() string {
 	case "https":
 		return api.LB_LISTENER_TYPE_HTTPS
 	default:
-		return ""
+		return strings.ToLower(self.Properties.Protocol)
 	}
 }
 
 func (self *SLoadBalancerListener) GetListenerPort() int {
-	return int(self.FrontendPort)
+	return self.Properties.FrontendPort
 }
 
 func (self *SLoadBalancerListener) GetScheduler() string {
-	switch self.LoadDistribution {
-	case "SourceIPProtocol", "SourceIP":
+	switch self.Properties.LoadDistribution {
+	case "Default":
+		return api.LB_SCHEDULER_MH
+	case "SourceIP":
 		return api.LB_SCHEDULER_SCH
-	default:
-		return ""
+	case "SourceIPProtocol":
+		return api.LB_SCHEDULER_TCH
 	}
+	return ""
 }
 
 func (self *SLoadBalancerListener) GetAclStatus() string {
@@ -230,56 +155,32 @@ func (self *SLoadBalancerListener) GetEgressMbps() int {
 }
 
 func (self *SLoadBalancerListener) GetHealthCheck() string {
-	// if self.probe != nil
-	if self.healthcheck != nil {
+	if len(self.Properties.Probe.Id) > 0 {
 		return api.LB_BOOL_ON
 	}
-
 	return api.LB_BOOL_OFF
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckType() string {
-	if self.healthcheck == nil {
-		return ""
+	for _, prob := range self.lb.Properties.Probes {
+		if strings.EqualFold(prob.Id, self.Properties.Probe.Id) {
+			return strings.ToLower(prob.Properties.Protocol)
+		}
 	}
-	switch strings.ToLower(self.healthcheck.Properties.Protocol) {
-	case "tcp":
-		return api.LB_HEALTH_CHECK_TCP
-	case "udp":
-		return api.LB_HEALTH_CHECK_UDP
-	case "http":
-		return api.LB_HEALTH_CHECK_HTTP
-	case "https":
-		return api.LB_HEALTH_CHECK_HTTPS
-	default:
-		return ""
-	}
+	return ""
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckTimeout() int {
-	if self.healthcheck == nil {
-		return 0
-	}
-	switch self.GetHealthCheckType() {
-	case api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS:
-		return self.healthcheck.Properties.Timeout
-	}
-
-	return self.healthcheck.Properties.IntervalInSeconds
+	return 0
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckInterval() int {
-	if self.healthcheck == nil {
-		return 0
-	}
-	switch self.GetHealthCheckType() {
-	case api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS:
-		if self.healthcheck.Properties.Interval > 0 {
-			return self.healthcheck.Properties.Interval
+	for _, prob := range self.lb.Properties.Probes {
+		if strings.EqualFold(prob.Id, self.Properties.Probe.Id) {
+			return prob.Properties.IntervalInSeconds
 		}
 	}
-
-	return self.healthcheck.Properties.IntervalInSeconds
+	return 0
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckRise() int {
@@ -287,17 +188,12 @@ func (self *SLoadBalancerListener) GetHealthCheckRise() int {
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckFail() int {
-	if self.healthcheck == nil {
-		return 0
-	}
-	switch self.GetHealthCheckType() {
-	case api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS:
-		if self.healthcheck.Properties.UnhealthyThreshold > 0 {
-			return self.healthcheck.Properties.UnhealthyThreshold
+	for _, prob := range self.lb.Properties.Probes {
+		if strings.EqualFold(prob.Id, self.Properties.Probe.Id) {
+			return prob.Properties.NumberOfProbes
 		}
 	}
-
-	return self.healthcheck.Properties.NumberOfProbes
+	return 0
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckReq() string {
@@ -309,45 +205,29 @@ func (self *SLoadBalancerListener) GetHealthCheckExp() string {
 }
 
 func (self *SLoadBalancerListener) GetBackendGroupId() string {
-	if self.backendGroup != nil {
-		return self.backendGroup.ID + "::" + strconv.Itoa(self.BackendPort)
+	for _, id := range []string{
+		self.Properties.BackendIPConfiguration.Id,
+		self.Properties.BackendAddressPool.Id,
+	} {
+		if len(id) > 0 {
+			return strings.ToLower(id)
+		}
 	}
-
 	return ""
 }
 
 func (self *SLoadBalancerListener) GetBackendServerPort() int {
-	return self.BackendPort
+	return self.Properties.BackendPort
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckDomain() string {
-	if self.healthcheck == nil {
-		return ""
-	}
-	switch self.GetHealthCheckType() {
-	case api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS:
-		return self.healthcheck.Properties.Host
-	}
-
 	return ""
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckURI() string {
-	if self.healthcheck == nil {
-		return ""
-	}
-	switch self.GetHealthCheckType() {
-	case api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS:
-		return self.healthcheck.Properties.Path
-	}
-
 	return ""
 }
 
-/*
-todo: 和onecloud code不兼容？
-与此处输入的 HTTP 状态代码或代码范围相匹配的响应将被视为成功。请输入逗号分隔的代码列表(例如 200, 201)或者输入一个代码范围(例如 220-226)
-*/
 func (self *SLoadBalancerListener) GetHealthCheckCode() string {
 	return ""
 }
@@ -368,77 +248,15 @@ func (self *SLoadBalancerListener) GetILoadBalancerListenerRuleById(ruleId strin
 		}
 	}
 
-	return nil, errors.Wrap(err, "GetILoadBalancerListenerRuleById")
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, ruleId)
 }
 
 func (self *SLoadBalancerListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	if self.lbrs != nil {
-		return self.lbrs, nil
-	}
-
-	irules := []cloudprovider.ICloudLoadbalancerListenerRule{}
-	for i := range self.rules {
-		r := self.rules[i]
-		var redirect *RedirectConfiguration
-		var lbbg *SLoadbalancerBackendGroup
-		if r.Properties.RedirectConfiguration != nil {
-			redirect = self.lb.getRedirectConfiguration(r.Properties.RedirectConfiguration.ID)
-		} else {
-			if r.Properties.BackendAddressPool == nil || r.Properties.BackendHTTPSettings == nil {
-				continue
-			}
-
-			pool := self.lb.getBackendAddressPool(r.Properties.BackendAddressPool.ID)
-			if pool == nil {
-				log.Debugf("getBackendAddressPool %s not found", r.Properties.BackendAddressPool.ID)
-				continue
-			}
-			backsetting := self.lb.getBackendHTTPSettingsCollection(r.Properties.BackendHTTPSettings.ID)
-			if backsetting == nil {
-				log.Debugf("getBackendHTTPSettingsCollection %s not found", r.Properties.BackendHTTPSettings.ID)
-				continue
-			}
-
-			lbbg = &SLoadbalancerBackendGroup{
-				lb:           self.lb,
-				Pool:         *pool,
-				DefaultPort:  backsetting.Properties.Port,
-				HttpSettings: backsetting,
-				BackendIps:   pool.Properties.BackendIPConfigurations,
-			}
-		}
-
-		domain := ""
-		if self.listener != nil {
-			domain = self.listener.Properties.HostName
-		}
-
-		rule := SLoadbalancerListenerRule{
-			SResourceBase: multicloud.SResourceBase{},
-			listener:      self,
-			lbbg:          lbbg,
-			redirect:      redirect,
-			Name:          r.Name,
-			ID:            r.ID,
-			Domain:        domain,
-			Properties:    r.Properties,
-		}
-		irules = append(irules, &rule)
-	}
-
-	return irules, nil
+	return []cloudprovider.ICloudLoadbalancerListenerRule{}, nil
 }
 
 func (self *SLoadBalancerListener) GetStickySession() string {
-	if self.backendSetting == nil {
-		return api.LB_BOOL_OFF
-	}
-
-	if self.backendSetting.Properties.CookieBasedAffinity == "Enabled" {
-		return api.LB_BOOL_ON
-	} else {
-		return api.LB_BOOL_OFF
-	}
+	return api.LB_BOOL_OFF
 }
 
 func (self *SLoadBalancerListener) GetStickySessionType() string {
@@ -449,24 +267,10 @@ func (self *SLoadBalancerListener) GetStickySessionType() string {
 }
 
 func (self *SLoadBalancerListener) GetStickySessionCookie() string {
-	if self.backendSetting == nil {
-		return ""
-	}
-
-	return self.backendSetting.Properties.AffinityCookieName
+	return ""
 }
 
 func (self *SLoadBalancerListener) GetStickySessionCookieTimeout() int {
-	if self.backendSetting == nil {
-		return 0
-	}
-
-	if self.backendSetting.Properties.ConnectionDraining.Enabled {
-		_sec := strings.TrimSpace(self.backendSetting.Properties.ConnectionDraining.DrainTimeoutInSEC)
-		sec, _ := strconv.ParseInt(_sec, 10, 64)
-		return int(sec)
-	}
-
 	return 0
 }
 
@@ -479,10 +283,6 @@ func (self *SLoadBalancerListener) GzipEnabled() bool {
 }
 
 func (self *SLoadBalancerListener) GetCertificateId() string {
-	if self.listener != nil {
-		return self.listener.Properties.SSLCertificate.ID
-	}
-
 	return ""
 }
 
@@ -515,91 +315,29 @@ func (self *SLoadBalancerListener) Delete(ctx context.Context) error {
 }
 
 func (self *SLoadBalancerListener) GetRedirect() string {
-	if self.redirect != nil {
-		return api.LB_REDIRECT_RAW
-	}
-
 	return api.LB_REDIRECT_OFF
 }
 
 func (self *SLoadBalancerListener) GetRedirectCode() int64 {
-	if self.redirect == nil {
-		return 0
-	}
-
-	switch self.redirect.Properties.RedirectType {
-	case "Permanent":
-		return api.LB_REDIRECT_CODE_301
-	case "Found":
-		return api.LB_REDIRECT_CODE_302
-	case "Temporary", "SeeOther":
-		return api.LB_REDIRECT_CODE_307
-	default:
-		return 0
-	}
+	return 0
 }
 
-func (self *SLoadBalancerListener) getRedirectUrl() *url.URL {
-	if self.redirect == nil {
-		return nil
-	}
-
-	if len(self.redirect.Properties.TargetUrl) == 0 {
-		return nil
-	}
-
-	_url := self.redirect.Properties.TargetUrl
-	if matched, _ := regexp.MatchString("^\\w{0,5}://", _url); !matched {
-		_url = "http://" + _url
-	}
-
-	u, err := url.Parse(_url)
-	if err != nil {
-		log.Debugf("url Parse %s : %s", self.redirect.Properties.TargetUrl, err)
-		return nil
-	}
-
-	return u
-}
 func (self *SLoadBalancerListener) GetRedirectScheme() string {
-	u := self.getRedirectUrl()
-	if u == nil {
-		return ""
-	}
-
-	return strings.ToLower(u.Scheme)
+	return ""
 }
 
 func (self *SLoadBalancerListener) GetRedirectHost() string {
-	u := self.getRedirectUrl()
-	if u == nil {
-		if self.redirect != nil && len(self.redirect.Properties.TargetListener.ID) > 0 {
-			segs := strings.Split(self.redirect.Properties.TargetListener.ID, "/")
-			return segs[len(segs)-1]
-		}
-		return ""
-	}
-
-	return u.Host
+	return ""
 }
 
 func (self *SLoadBalancerListener) GetRedirectPath() string {
-	u := self.getRedirectUrl()
-	if u == nil {
-		return ""
-	}
-
-	return u.Path
+	return ""
 }
 
 func (self *SLoadBalancerListener) GetClientIdleTimeout() int {
-	return self.ClientIdleTimeout
+	return int(self.Properties.IdleTimeoutInMinutes) * 60
 }
 
 func (self *SLoadBalancerListener) GetBackendConnectTimeout() int {
-	if self.backendSetting == nil {
-		return 0
-	}
-
-	return self.backendSetting.Properties.RequestTimeout
+	return 0
 }
