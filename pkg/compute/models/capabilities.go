@@ -54,22 +54,24 @@ type SCapabilities struct {
 	CloudIdBrands                    []string `json:",allowempty"`
 	DisabledCloudIdBrands            []string `json:",allowempty"`
 	// 支持SAML 2.0
-	SamlAuthBrands              []string `json:",allowempty"`
-	DisabledSamlAuthBrands      []string `json:",allowempty"`
-	NatBrands                   []string `json:",allowempty"`
-	DisabledNatBrands           []string `json:",allowempty"`
-	NasBrands                   []string `json:",allowempty"`
-	DisabledNasBrands           []string `json:",allowempty"`
-	WafBrands                   []string `json:",allowempty"`
-	DisabledWafBrands           []string `json:",allowempty"`
-	CdnBrands                   []string `json:",allowempty"`
-	DisabledCdnBrands           []string `json:",allowempty"`
-	PublicIpBrands              []string `json:",allowempty"`
-	DisabledPublicIpBrands      []string `json:",allowempty"`
-	NetworkManageBrands         []string `json:",allowempty"`
-	DisabledNetworkManageBrands []string `json:",allowempty"`
-	ObjectStorageBrands         []string `json:",allowempty"`
-	DisabledObjectStorageBrands []string `json:",allowempty"`
+	SamlAuthBrands               []string `json:",allowempty"`
+	DisabledSamlAuthBrands       []string `json:",allowempty"`
+	NatBrands                    []string `json:",allowempty"`
+	DisabledNatBrands            []string `json:",allowempty"`
+	NasBrands                    []string `json:",allowempty"`
+	DisabledNasBrands            []string `json:",allowempty"`
+	WafBrands                    []string `json:",allowempty"`
+	DisabledWafBrands            []string `json:",allowempty"`
+	CdnBrands                    []string `json:",allowempty"`
+	DisabledCdnBrands            []string `json:",allowempty"`
+	PublicIpBrands               []string `json:",allowempty"`
+	DisabledPublicIpBrands       []string `json:",allowempty"`
+	NetworkManageBrands          []string `json:",allowempty"`
+	DisabledNetworkManageBrands  []string `json:",allowempty"`
+	ObjectStorageBrands          []string `json:",allowempty"`
+	DisabledObjectStorageBrands  []string `json:",allowempty"`
+	DisabledModelartsPoolsBrands []string `json:",allowempty"`
+	ModelartsPoolsBrands         []string `json:",allowempty"`
 
 	ContainerBrands         []string `json:",allowempty"`
 	DisabledContainerBrands []string `json:",allowempty"`
@@ -96,22 +98,24 @@ type SCapabilities struct {
 	ReadOnlyCloudIdBrands                    []string `json:",allowempty"`
 	ReadOnlyDisabledCloudIdBrands            []string `json:",allowempty"`
 	// 支持SAML 2.0
-	ReadOnlySamlAuthBrands              []string `json:",allowempty"`
-	ReadOnlyDisabledSamlAuthBrands      []string `json:",allowempty"`
-	ReadOnlyNatBrands                   []string `json:",allowempty"`
-	ReadOnlyDisabledNatBrands           []string `json:",allowempty"`
-	ReadOnlyNasBrands                   []string `json:",allowempty"`
-	ReadOnlyDisabledNasBrands           []string `json:",allowempty"`
-	ReadOnlyWafBrands                   []string `json:",allowempty"`
-	ReadOnlyDisabledWafBrands           []string `json:",allowempty"`
-	ReadOnlyCdnBrands                   []string `json:",allowempty"`
-	ReadOnlyDisabledCdnBrands           []string `json:",allowempty"`
-	ReadOnlyPublicIpBrands              []string `json:",allowempty"`
-	ReadOnlyDisabledPublicIpBrands      []string `json:",allowempty"`
-	ReadOnlyNetworkManageBrands         []string `json:",allowempty"`
-	ReadOnlyDisabledNetworkManageBrands []string `json:",allowempty"`
-	ReadOnlyObjectStorageBrands         []string `json:",allowempty"`
-	ReadOnlyDisabledObjectStorageBrands []string `json:",allowempty"`
+	ReadOnlySamlAuthBrands               []string `json:",allowempty"`
+	ReadOnlyDisabledSamlAuthBrands       []string `json:",allowempty"`
+	ReadOnlyNatBrands                    []string `json:",allowempty"`
+	ReadOnlyDisabledNatBrands            []string `json:",allowempty"`
+	ReadOnlyNasBrands                    []string `json:",allowempty"`
+	ReadOnlyDisabledNasBrands            []string `json:",allowempty"`
+	ReadOnlyWafBrands                    []string `json:",allowempty"`
+	ReadOnlyDisabledWafBrands            []string `json:",allowempty"`
+	ReadOnlyCdnBrands                    []string `json:",allowempty"`
+	ReadOnlyDisabledCdnBrands            []string `json:",allowempty"`
+	ReadOnlyPublicIpBrands               []string `json:",allowempty"`
+	ReadOnlyDisabledPublicIpBrands       []string `json:",allowempty"`
+	ReadOnlyNetworkManageBrands          []string `json:",allowempty"`
+	ReadOnlyDisabledNetworkManageBrands  []string `json:",allowempty"`
+	ReadOnlyObjectStorageBrands          []string `json:",allowempty"`
+	ReadOnlyDisabledObjectStorageBrands  []string `json:",allowempty"`
+	ReadOnlyModelartsPoolsBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledModelartsPoolsBrands []string `json:",allowempty"`
 
 	ReadOnlyContainerBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledContainerBrands []string `json:",allowempty"`
@@ -472,6 +476,8 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 				appendBrand(&capa.SecurityGroupBrands, &capa.DisabledSecurityGroupBrands, &capa.ReadOnlySecurityGroupBrands, &capa.ReadOnlyDisabledSecurityGroupBrands, brand, capability, enabled, readOnly)
 			case cloudprovider.CLOUD_CAPABILITY_SNAPSHOT_POLICY:
 				appendBrand(&capa.SnapshotPolicyBrands, &capa.DisabledSnapshotPolicyBrands, &capa.ReadOnlySnapshotPolicyBrands, &capa.ReadOnlyDisabledSnapshotPolicyBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_MODELARTES:
+				appendBrand(&capa.ModelartsPoolsBrands, &capa.DisabledModelartsPoolsBrands, &capa.ReadOnlyModelartsPoolsBrands, &capa.ReadOnlyDisabledModelartsPoolsBrands, brand, capability, enabled, readOnly)
 			default:
 			}
 		}
