@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -28,25 +27,23 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis/notify"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func parseEvent(es string) (notify.SNotifyEvent, error) {
+func parseEvent(es string) (api.SNotifyEvent, error) {
 	es = strings.ToLower(es)
-	ess := strings.Split(es, notify.DelimiterInEvent)
+	ess := strings.Split(es, api.DelimiterInEvent)
 	if len(ess) != 2 && len(ess) != 3 {
-		return notify.SNotifyEvent{}, fmt.Errorf("invalid event string %q", es)
+		return api.SNotifyEvent{}, fmt.Errorf("invalid event string %q", es)
 	}
-	event := notify.Event.WithResourceType(ess[0]).WithAction(notify.SAction(ess[1]))
+	event := api.Event.WithResourceType(ess[0]).WithAction(api.SAction(ess[1]))
 	if len(ess) == 3 {
-		event = event.WithResult(notify.SResult(ess[2]))
+		event = event.WithResult(api.SResult(ess[2]))
 	}
 	return event, nil
 }
@@ -74,8 +71,6 @@ type STopic struct {
 	db.SEnabledStatusStandaloneResourceBase
 
 	Type        string               `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
-	Resources   uint64               `nullable:"false"`
-	Actions     uint64               `nullable:"false"`
 	Results     tristate.TriState    `default:"true"`
 	TitleCn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	TitleEn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
@@ -162,185 +157,64 @@ func (sm *STopicManager) InitializeData() error {
 	ctx := context.Background()
 	for name, topic := range nameTopicMap {
 		t := new(STopic)
+		if topic == nil {
+			t.Id = db.DefaultUUIDGenerator()
+		} else {
+			t.Id = topic.Id
+		}
 		t.Name = name
 		t.Enabled = tristate.True
 		switch name {
 		case DefaultResourceCreateDelete:
-			t.addResources(
-				notify.TOPIC_RESOURCE_HOST,
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_SCALINGGROUP,
-				notify.TOPIC_RESOURCE_IMAGE,
-				notify.TOPIC_RESOURCE_DISK,
-				notify.TOPIC_RESOURCE_SNAPSHOT,
-				notify.TOPIC_RESOURCE_INSTANCESNAPSHOT,
-				notify.TOPIC_RESOURCE_SNAPSHOTPOLICY,
-				notify.TOPIC_RESOURCE_NETWORK,
-				notify.TOPIC_RESOURCE_EIP,
-				notify.TOPIC_RESOURCE_LOADBALANCER,
-				notify.TOPIC_RESOURCE_LOADBALANCERACL,
-				notify.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE,
-				notify.TOPIC_RESOURCE_BUCKET,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-				notify.TOPIC_RESOURCE_BAREMETAL,
-				notify.TOPIC_RESOURCE_SECGROUP,
-				notify.TOPIC_RESOURCE_FILESYSTEM,
-				notify.TOPIC_RESOURCE_NATGATEWAY,
-				notify.TOPIC_RESOURCE_VPC,
-				notify.TOPIC_RESOURCE_CDNDOMAIN,
-				notify.TOPIC_RESOURCE_WAF,
-				notify.TOPIC_RESOURCE_KAFKA,
-				notify.TOPIC_RESOURCE_ELASTICSEARCH,
-				notify.TOPIC_RESOURCE_MONGODB,
-				notify.TOPIC_RESOURCE_DNSZONE,
-				notify.TOPIC_RESOURCE_DNSRECORDSET,
-				notify.TOPIC_RESOURCE_LOADBALANCERLISTENER,
-				notify.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP,
-				notify.TOPIC_RESOURCE_PROJECT,
-			)
-			t.addAction(
-				notify.ActionCreate,
-				notify.ActionDelete,
-				notify.ActionPendingDelete,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 			t.ContentCn = api.COMMON_CONTENT_CN
 			t.ContentEn = api.COMMON_CONTENT_EN
 			t.TitleCn = api.COMMON_TITLE_CN
 			t.TitleEn = api.COMMON_TITLE_EN
 		case DefaultResourceChangeConfig:
-			t.addResources(
-				notify.TOPIC_RESOURCE_HOST,
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-			)
-			t.addAction(notify.ActionChangeConfig)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 			t.ContentCn = api.COMMON_CONTENT_CN
 			t.ContentEn = api.COMMON_CONTENT_EN
 			t.TitleCn = api.COMMON_TITLE_CN
 			t.TitleEn = api.COMMON_TITLE_EN
 		case DefaultResourceUpdate:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-				notify.TOPIC_RESOURCE_USER,
-				notify.TOPIC_RESOURCE_HOST,
-				notify.TOPIC_RESOURCE_PROJECT,
-			)
-			t.addAction(notify.ActionUpdate)
-			t.addAction(notify.ActionRebuildRoot)
-			t.addAction(notify.ActionResetPassword)
-			t.addAction(notify.ActionChangeIpaddr)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 			t.ContentCn = api.UPDATE_CONTENT_CN
 			t.ContentEn = api.UPDATE_CONTENT_EN
 			t.TitleCn = api.UPDATE_TITLE_CN
 			t.TitleEn = api.UPDATE_TITLE_EN
 		case DefaultScheduledTaskExecute:
-			t.addResources(notify.TOPIC_RESOURCE_SCHEDULEDTASK)
-			t.addAction(notify.ActionExecute)
-			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Type = api.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 			t.ContentCn = api.SCHEDULEDTASK_EXECUTE_CONTENT_CN
 			t.ContentEn = api.SCHEDULEDTASK_EXECUTE_CONTENT_EN
 			t.TitleCn = api.SCHEDULEDTASK_EXECUTE_TITLE_CN
 			t.TitleEn = api.SCHEDULEDTASK_EXECUTE_TITLE_EN
 		case DefaultScalingPolicyExecute:
-			t.addResources(notify.TOPIC_RESOURCE_SCALINGPOLICY)
-			t.addAction(notify.ActionExecute)
-			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Type = api.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 			t.ContentCn = api.SCALINGPOLICY_EXECUTE_CONTENT_CN
 			t.ContentEn = api.SCALINGPOLICY_EXECUTE_CONTENT_EN
 			t.TitleCn = api.SCALINGPOLICY_EXECUTE_TITLE_CN
 			t.TitleEn = api.SCALINGPOLICY_EXECUTE_TITLE_EN
 		case DefaultSnapshotPolicyExecute:
-			t.addResources(notify.TOPIC_RESOURCE_SNAPSHOTPOLICY)
-			t.addAction(notify.ActionExecute)
-			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Type = api.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 			t.ContentCn = api.SNAPSHOTPOLICY_EXECUTE_CONTENT_CN
 			t.ContentEn = api.SNAPSHOTPOLICY_EXECUTE_CONTENT_EN
 			t.TitleCn = api.SNAPSHOTPOLICY_EXECUTE_TITLE_CN
 			t.TitleEn = api.SNAPSHOTPOLICY_EXECUTE_TITLE_EN
 		case DefaultResourceOperationFailed:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_EIP,
-				notify.TOPIC_RESOURCE_LOADBALANCER,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-				notify.TOPIC_RESOURCE_CLOUDPHONE,
-			)
-			t.addAction(
-				notify.ActionStart,
-				notify.ActionStop,
-				notify.ActionRestart,
-				notify.ActionReset,
-				notify.ActionAttach,
-				notify.ActionDetach,
-				notify.ActionCreate,
-				notify.ActionSyncStatus,
-				notify.ActionRebuildRoot,
-				notify.ActionChangeConfig,
-				notify.ActionCreateBackupServer,
-				notify.ActionDelBackupServer,
-				notify.ActionMigrate,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.False
 		case DefaultResourceOperationSuccessed:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_CLOUDPHONE,
-			)
-			t.addAction(
-				notify.ActionStart,
-				notify.ActionStop,
-				notify.ActionRestart,
-				notify.ActionReset,
-				notify.ActionCreateBackupServer,
-			)
 			t.Results = tristate.True
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 		case DefaultResourceSync:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DISK,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-				notify.TOPIC_RESOURCE_LOADBALANCER,
-				notify.TOPIC_RESOURCE_EIP,
-				notify.TOPIC_RESOURCE_VPC,
-				notify.TOPIC_RESOURCE_NETWORK,
-				notify.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE,
-				notify.TOPIC_RESOURCE_DNSZONE,
-				notify.TOPIC_RESOURCE_NATGATEWAY,
-				notify.TOPIC_RESOURCE_BUCKET,
-				notify.TOPIC_RESOURCE_FILESYSTEM,
-				notify.TOPIC_RESOURCE_WEBAPP,
-				notify.TOPIC_RESOURCE_CDNDOMAIN,
-				notify.TOPIC_RESOURCE_WAF,
-				notify.TOPIC_RESOURCE_KAFKA,
-				notify.TOPIC_RESOURCE_ELASTICSEARCH,
-				notify.TOPIC_RESOURCE_MONGODB,
-				notify.TOPIC_RESOURCE_DNSRECORDSET,
-				notify.TOPIC_RESOURCE_LOADBALANCERLISTENER,
-				notify.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP,
-			)
-			t.addAction(
-				notify.ActionSyncCreate,
-				notify.ActionSyncUpdate,
-				notify.ActionSyncDelete,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.WebconsoleDisable = tristate.True
 			t.Results = tristate.True
 			t.ContentCn = api.COMMON_CONTENT_CN
@@ -350,72 +224,35 @@ func (sm *STopicManager) InitializeData() error {
 			groupKeys := []string{"action_display"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
 		case DefaultSystemExceptionEvent:
-			t.addResources(
-				notify.TOPIC_RESOURCE_HOST,
-				notify.TOPIC_RESOURCE_TASK,
-			)
-			t.addAction(
-				notify.ActionSystemPanic,
-				notify.ActionSystemException,
-				notify.ActionOffline,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.False
 			t.ContentCn = api.EXCEPTION_CONTENT_CN
 			t.ContentEn = api.EXCEPTION_CONTENT_EN
 			t.TitleCn = api.EXCEPTION_TITLE_CN
 			t.TitleEn = api.EXCEPTION_TITLE_EN
 		case DefaultChecksumTestFailed:
-			t.addResources(
-				notify.TOPIC_RESOURCE_DB_TABLE_RECORD,
-				notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK,
-				notify.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
-				notify.TOPIC_RESOURCE_SNAPSHOT,
-				notify.TOPIC_RESOURCE_IMAGE,
-			)
-			t.addAction(
-				notify.ActionChecksumTest,
-			)
-			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.Type = api.TOPIC_TYPE_SECURITY
 			t.Results = tristate.False
 			t.ContentCn = api.CHECKSUM_TEST_FAILED_CONTENT_CN
 			t.ContentEn = api.CHECKSUM_TEST_FAILED_CONTENT_EN
 			t.TitleCn = api.CHECKSUM_TEST_FAILED_TITLE_CN
 			t.TitleEn = api.CHECKSUM_TEST_FAILED_TITLE_EN
 		case DefaultUserLock:
-			t.addResources(
-				notify.TOPIC_RESOURCE_USER,
-			)
-			t.addAction(
-				notify.ActionLock,
-			)
-			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.Type = api.TOPIC_TYPE_SECURITY
 			t.Results = tristate.True
 			t.ContentCn = api.USER_LOCK_CONTENT_CN
 			t.ContentEn = api.USER_LOCK_CONTENT_EN
 			t.TitleCn = api.USER_LOCK_TITLE_CN
 			t.TitleEn = api.USER_LOCK_TITLE_EN
 		case DefaultActionLogExceedCount:
-			t.addResources(
-				notify.TOPIC_RESOURCE_ACTION_LOG,
-			)
-			t.addAction(
-				notify.ActionExceedCount,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 			t.ContentCn = api.ACTION_LOG_EXCEED_COUNT_CONTENT_CN
 			t.ContentEn = api.ACTION_LOG_EXCEED_COUNT_CONTENT_EN
 			t.TitleCn = api.ACTION_LOG_EXCEED_COUNT_TITLE_CN
 			t.TitleEn = api.ACTION_LOG_EXCEED_COUNT_TITLE_EN
 		case DefaultSyncAccountStatus:
-			t.addResources(
-				notify.TOPIC_RESOURCE_ACCOUNT_STATUS,
-			)
-			t.addAction(
-				notify.ActionSyncAccountStatus,
-			)
-			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Type = api.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 			t.ContentCn = api.SYNC_ACCOUNT_STATUS_CONTENT_CN
 			t.ContentEn = api.SYNC_ACCOUNT_STATUS_CONTENT_EN
@@ -424,13 +261,7 @@ func (sm *STopicManager) InitializeData() error {
 			groupKeys := []string{"name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
 		case DefaultNetOutOfSync:
-			t.addResources(
-				notify.TOPIC_RESOURCE_NET,
-			)
-			t.addAction(
-				notify.ActionNetOutOfSync,
-			)
-			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Type = api.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 			t.ContentCn = api.NET_OUT_OF_SYNC_CONTENT_CN
 			t.ContentEn = api.NET_OUT_OF_SYNC_CONTENT_EN
@@ -439,13 +270,7 @@ func (sm *STopicManager) InitializeData() error {
 			groupKeys := []string{"service_name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
 		case DefaultMysqlOutOfSync:
-			t.addResources(
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-			)
-			t.addAction(
-				notify.ActionMysqlOutOfSync,
-			)
-			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Type = api.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 			t.ContentCn = api.MYSQL_OUT_OF_SYNC_CONTENT_CN
 			t.ContentEn = api.MYSQL_OUT_OF_SYNC_CONTENT_EN
@@ -454,14 +279,8 @@ func (sm *STopicManager) InitializeData() error {
 			groupKeys := []string{"ip"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
 		case DefaultServiceAbnormal:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVICE,
-			)
-			t.addAction(
-				notify.ActionServiceAbnormal,
-			)
 			t.Results = tristate.True
-			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Type = api.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.ContentCn = api.SERVICE_ABNORMAL_CONTENT_CN
 			t.ContentEn = api.SERVICE_ABNORMAL_CONTENT_EN
 			t.TitleCn = api.SERVICE_ABNORMAL_TITLE_CN
@@ -469,14 +288,8 @@ func (sm *STopicManager) InitializeData() error {
 			groupKeys := []string{"service_name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
 		case DefaultServerPanicked:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-			)
-			t.addAction(
-				notify.ActionServerPanicked,
-			)
 			t.Results = tristate.False
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.ContentCn = api.SERVER_PANICKED_CONTENT_CN
 			t.ContentEn = api.SERVER_PANICKED_CONTENT_EN
 			t.TitleCn = api.SERVER_PANICKED_TITLE_CN
@@ -484,30 +297,15 @@ func (sm *STopicManager) InitializeData() error {
 			groupKeys := []string{"name"}
 			t.GroupKeys = (*api.STopicGroupKeys)(&groupKeys)
 		case DefaultPasswordExpire:
-			t.addResources(
-				notify.TOPIC_RESOURCE_USER,
-			)
-			t.addAction(
-				notify.ActionPasswordExpireSoon,
-			)
 			t.AdvanceDays = []int{1, 7}
-			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.Type = api.TOPIC_TYPE_SECURITY
 			t.Results = tristate.True
 			t.ContentCn = api.PWD_EXPIRE_SOON_CONTENT_CN
 			t.ContentEn = api.PWD_EXPIRE_SOON_CONTENT_EN
 			t.TitleCn = api.PWD_EXPIRE_SOON_TITLE_CN
 			t.TitleEn = api.PWD_EXPIRE_SOON_TITLE_EN
 		case DefaultResourceRelease:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DISK,
-				notify.TOPIC_RESOURCE_EIP,
-				notify.TOPIC_RESOURCE_LOADBALANCER,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-			)
-			t.addAction(notify.ActionExpiredRelease)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = []int{1, 7, 30}
 			t.Results = tristate.True
 			t.ContentCn = api.EXPIRED_RELEASE_CONTENT_CN
@@ -515,43 +313,19 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleCn = api.EXPIRED_RELEASE_TITLE_CN
 			t.TitleEn = api.EXPIRED_RELEASE_TITLE_EN
 		case DefaultAttachOrDetach:
-			t.addResources(
-				notify.TOPIC_RESOURCE_HOST,
-				notify.TOPIC_RESOURCE_CLOUDPHONE,
-			)
-			t.addAction(
-				notify.ActionAttach,
-				notify.ActionDetach,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 		case DefaultIsolatedDeviceChanged:
-			t.addResources(
-				notify.TOPIC_RESOURCE_HOST,
-			)
-			t.addAction(
-				notify.ActionIsolatedDeviceCreate,
-				notify.ActionIsolatedDeviceUpdate,
-				notify.ActionIsolatedDeviceDelete,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 		case DefaultStatusChanged:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_HOST,
-			)
-			t.addAction(
-				notify.ActionStatusChanged,
-			)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Type = api.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 			t.ContentCn = api.STATUS_CHANGED_CONTENT_CN
 			t.ContentEn = api.STATUS_CHANGED_CONTENT_EN
 			t.TitleCn = api.STATUS_CHANGED_TITLE_CN
 			t.TitleEn = api.STATUS_CHANGED_TITLE_EN
 		}
-
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
 			if err != nil {
@@ -575,8 +349,8 @@ func (sm *STopicManager) InitializeData() error {
 
 			_, err := db.Update(topic, func() error {
 				topic.Name = t.Name
-				topic.Resources = t.Resources
-				topic.Actions = t.Actions
+				// topic.Resources = t.Resources
+				// topic.Actions = t.Actions
 				topic.Type = t.Type
 				topic.Results = t.Results
 				topic.WebconsoleDisable = t.WebconsoleDisable
@@ -614,11 +388,262 @@ func (sm *STopicManager) InitializeData() error {
 				return errors.Wrapf(err, "unable to update topic %s", topic.Name)
 			}
 		}
+		switch name {
+		case DefaultResourceCreateDelete:
+			t.addResources(
+				api.TOPIC_RESOURCE_HOST,
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_SCALINGGROUP,
+				api.TOPIC_RESOURCE_IMAGE,
+				api.TOPIC_RESOURCE_DISK,
+				api.TOPIC_RESOURCE_SNAPSHOT,
+				api.TOPIC_RESOURCE_INSTANCESNAPSHOT,
+				api.TOPIC_RESOURCE_SNAPSHOTPOLICY,
+				api.TOPIC_RESOURCE_NETWORK,
+				api.TOPIC_RESOURCE_EIP,
+				api.TOPIC_RESOURCE_LOADBALANCER,
+				api.TOPIC_RESOURCE_LOADBALANCERACL,
+				api.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE,
+				api.TOPIC_RESOURCE_BUCKET,
+				api.TOPIC_RESOURCE_DBINSTANCE,
+				api.TOPIC_RESOURCE_ELASTICCACHE,
+				api.TOPIC_RESOURCE_BAREMETAL,
+				api.TOPIC_RESOURCE_SECGROUP,
+				api.TOPIC_RESOURCE_FILESYSTEM,
+				api.TOPIC_RESOURCE_NATGATEWAY,
+				api.TOPIC_RESOURCE_VPC,
+				api.TOPIC_RESOURCE_CDNDOMAIN,
+				api.TOPIC_RESOURCE_WAF,
+				api.TOPIC_RESOURCE_KAFKA,
+				api.TOPIC_RESOURCE_ELASTICSEARCH,
+				api.TOPIC_RESOURCE_MONGODB,
+				api.TOPIC_RESOURCE_DNSZONE,
+				api.TOPIC_RESOURCE_DNSRECORDSET,
+				api.TOPIC_RESOURCE_LOADBALANCERLISTENER,
+				api.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP,
+				api.TOPIC_RESOURCE_PROJECT,
+			)
+			t.addAction(
+				api.ActionCreate,
+				api.ActionDelete,
+				api.ActionPendingDelete,
+			)
+		case DefaultResourceChangeConfig:
+			t.addResources(
+				api.TOPIC_RESOURCE_HOST,
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_DBINSTANCE,
+				api.TOPIC_RESOURCE_ELASTICCACHE,
+			)
+			t.addAction(api.ActionChangeConfig)
+		case DefaultResourceUpdate:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_DBINSTANCE,
+				api.TOPIC_RESOURCE_ELASTICCACHE,
+				api.TOPIC_RESOURCE_USER,
+				api.TOPIC_RESOURCE_HOST,
+				api.TOPIC_RESOURCE_PROJECT,
+			)
+			t.addAction(api.ActionUpdate)
+			t.addAction(api.ActionRebuildRoot)
+			t.addAction(api.ActionResetPassword)
+			t.addAction(api.ActionChangeIpaddr)
+		case DefaultScheduledTaskExecute:
+			t.addResources(api.TOPIC_RESOURCE_SCHEDULEDTASK)
+			t.addAction(api.ActionExecute)
+		case DefaultScalingPolicyExecute:
+			t.addResources(api.TOPIC_RESOURCE_SCALINGPOLICY)
+			t.addAction(api.ActionExecute)
+		case DefaultSnapshotPolicyExecute:
+			t.addResources(api.TOPIC_RESOURCE_SNAPSHOTPOLICY)
+			t.addAction(api.ActionExecute)
+		case DefaultResourceOperationFailed:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_EIP,
+				api.TOPIC_RESOURCE_LOADBALANCER,
+				api.TOPIC_RESOURCE_DBINSTANCE,
+				api.TOPIC_RESOURCE_ELASTICCACHE,
+				api.TOPIC_RESOURCE_CLOUDPHONE,
+			)
+			t.addAction(
+				api.ActionStart,
+				api.ActionStop,
+				api.ActionRestart,
+				api.ActionReset,
+				api.ActionAttach,
+				api.ActionDetach,
+				api.ActionCreate,
+				api.ActionSyncStatus,
+				api.ActionRebuildRoot,
+				api.ActionChangeConfig,
+				api.ActionCreateBackupServer,
+				api.ActionDelBackupServer,
+				api.ActionMigrate,
+			)
+		case DefaultResourceOperationSuccessed:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_CLOUDPHONE,
+			)
+			t.addAction(
+				api.ActionStart,
+				api.ActionStop,
+				api.ActionRestart,
+				api.ActionReset,
+				api.ActionCreateBackupServer,
+			)
+		case DefaultResourceSync:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_DISK,
+				api.TOPIC_RESOURCE_DBINSTANCE,
+				api.TOPIC_RESOURCE_ELASTICCACHE,
+				api.TOPIC_RESOURCE_LOADBALANCER,
+				api.TOPIC_RESOURCE_EIP,
+				api.TOPIC_RESOURCE_VPC,
+				api.TOPIC_RESOURCE_NETWORK,
+				api.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE,
+				api.TOPIC_RESOURCE_DNSZONE,
+				api.TOPIC_RESOURCE_NATGATEWAY,
+				api.TOPIC_RESOURCE_BUCKET,
+				api.TOPIC_RESOURCE_FILESYSTEM,
+				api.TOPIC_RESOURCE_WEBAPP,
+				api.TOPIC_RESOURCE_CDNDOMAIN,
+				api.TOPIC_RESOURCE_WAF,
+				api.TOPIC_RESOURCE_KAFKA,
+				api.TOPIC_RESOURCE_ELASTICSEARCH,
+				api.TOPIC_RESOURCE_MONGODB,
+				api.TOPIC_RESOURCE_DNSRECORDSET,
+				api.TOPIC_RESOURCE_LOADBALANCERLISTENER,
+				api.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP,
+			)
+			t.addAction(
+				api.ActionSyncCreate,
+				api.ActionSyncUpdate,
+				api.ActionSyncDelete,
+			)
+		case DefaultSystemExceptionEvent:
+			t.addResources(
+				api.TOPIC_RESOURCE_HOST,
+				api.TOPIC_RESOURCE_TASK,
+			)
+			t.addAction(
+				api.ActionSystemPanic,
+				api.ActionSystemException,
+				api.ActionOffline,
+			)
+		case DefaultChecksumTestFailed:
+			t.addResources(
+				api.TOPIC_RESOURCE_DB_TABLE_RECORD,
+				api.TOPIC_RESOURCE_VM_INTEGRITY_CHECK,
+				api.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
+				api.TOPIC_RESOURCE_SNAPSHOT,
+				api.TOPIC_RESOURCE_IMAGE,
+			)
+			t.addAction(
+				api.ActionChecksumTest,
+			)
+		case DefaultUserLock:
+			t.addResources(
+				api.TOPIC_RESOURCE_USER,
+			)
+			t.addAction(
+				api.ActionLock,
+			)
+		case DefaultActionLogExceedCount:
+			t.addResources(
+				api.TOPIC_RESOURCE_ACTION_LOG,
+			)
+			t.addAction(
+				api.ActionExceedCount,
+			)
+		case DefaultSyncAccountStatus:
+			t.addResources(
+				api.TOPIC_RESOURCE_ACCOUNT_STATUS,
+			)
+			t.addAction(
+				api.ActionSyncAccountStatus,
+			)
+		case DefaultNetOutOfSync:
+			t.addResources(
+				api.TOPIC_RESOURCE_NET,
+			)
+			t.addAction(
+				api.ActionNetOutOfSync,
+			)
+		case DefaultMysqlOutOfSync:
+			t.addResources(
+				api.TOPIC_RESOURCE_DBINSTANCE,
+			)
+			t.addAction(
+				api.ActionMysqlOutOfSync,
+			)
+		case DefaultServiceAbnormal:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVICE,
+			)
+			t.addAction(
+				api.ActionServiceAbnormal,
+			)
+		case DefaultServerPanicked:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVER,
+			)
+			t.addAction(
+				api.ActionServerPanicked,
+			)
+		case DefaultPasswordExpire:
+			t.addResources(
+				api.TOPIC_RESOURCE_USER,
+			)
+			t.addAction(
+				api.ActionPasswordExpireSoon,
+			)
+		case DefaultResourceRelease:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_DISK,
+				api.TOPIC_RESOURCE_EIP,
+				api.TOPIC_RESOURCE_LOADBALANCER,
+				api.TOPIC_RESOURCE_DBINSTANCE,
+				api.TOPIC_RESOURCE_ELASTICCACHE,
+			)
+			t.addAction(api.ActionExpiredRelease)
+		case DefaultAttachOrDetach:
+			t.addResources(
+				api.TOPIC_RESOURCE_HOST,
+				api.TOPIC_RESOURCE_CLOUDPHONE,
+			)
+			t.addAction(
+				api.ActionAttach,
+				api.ActionDetach,
+			)
+		case DefaultIsolatedDeviceChanged:
+			t.addResources(
+				api.TOPIC_RESOURCE_HOST,
+			)
+			t.addAction(
+				api.ActionIsolatedDeviceCreate,
+				api.ActionIsolatedDeviceUpdate,
+				api.ActionIsolatedDeviceDelete,
+			)
+		case DefaultStatusChanged:
+			t.addResources(
+				api.TOPIC_RESOURCE_SERVER,
+				api.TOPIC_RESOURCE_HOST,
+			)
+			t.addAction(
+				api.ActionStatusChanged,
+			)
+		}
+
 	}
 	return nil
 }
 
-func (sm *STopicManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input notify.TopicListInput) (*sqlchemy.SQuery, error) {
+func (sm *STopicManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.TopicListInput) (*sqlchemy.SQuery, error) {
 	q, err := sm.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
@@ -630,39 +655,15 @@ func (sm *STopicManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	return q, nil
 }
 
-func (sm *STopicManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []notify.TopicDetails {
+func (sm *STopicManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.TopicDetails {
 	sRows := sm.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	rows := make([]notify.TopicDetails, len(objs))
+	rows := make([]api.TopicDetails, len(objs))
 	for i := range rows {
 		rows[i].StandaloneResourceDetails = sRows[i]
 		ss := objs[i].(*STopic)
 		rows[i].Resources = ss.getResources()
 	}
 	return rows
-}
-
-type SSubscriberDis struct {
-	SSubscriber
-	ReceiverName string `json:"receiver_name"`
-	RoleName     string `json:"role_name"`
-}
-
-func (s *STopic) subscriptionReceiverDiss() ([]SSubscriberDis, error) {
-	q := SubscriberManager.Query().Equals("subscription_id", s.Id)
-	rq := ReceiverManager.Query("id", "name").SubQuery()
-	roq := db.RoleCacheManager.Query("id", "name").SubQuery()
-	q = q.LeftJoin(rq, sqlchemy.Equals(q.Field("receiver"), rq.Field("id")))
-	q = q.LeftJoin(roq, sqlchemy.Equals(q.Field("receiver"), roq.Field("id")))
-	// It looks strange, but the order of append cannot be changed
-	q.AppendField(q.QueryFields()...)
-	q.AppendField(rq.Field("name", "receiver_name"))
-	q.AppendField(roq.Field("name", "role_name"))
-	srs := make([]SSubscriberDis, 0)
-	err := q.All(&srs)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to fetch All")
-	}
-	return srs, nil
 }
 
 func (sm *STopicManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -678,44 +679,41 @@ func (ss *STopic) ValidateDeleteCondition(ctx context.Context, info jsonutils.JS
 }
 
 func (s *STopic) addResources(resources ...string) {
-	for _, resource := range resources {
-		v := converter.resourceValue(resource)
-		if v < 0 {
-			continue
+	for i := range resources {
+		if TopicResourceManager.Query().Equals("topic_id", s.Id).Equals("resource_id", resources[i]).Count() == 0 {
+			TopicResourceManager.TableSpec().InsertOrUpdate(context.Background(), &STopicResource{
+				ResourceId: resources[i],
+				TopicId:    s.Id,
+			})
 		}
-		s.Resources += 1 << v
 	}
 }
 
-func (s *STopic) addAction(actions ...notify.SAction) {
-	for _, action := range actions {
-		v := converter.actionValue(action)
-		if v < 0 {
-			continue
+func (s *STopic) addAction(actions ...api.SAction) {
+	for i := range actions {
+		if TopicActionManager.Query().Equals("topic_id", s.Id).Equals("action_id", actions[i]).Count() == 0 {
+			TopicActionManager.TableSpec().InsertOrUpdate(context.Background(), &STopicAction{
+				ActionId: string(actions[i]),
+				TopicId:  s.Id,
+			})
 		}
-		s.Actions += 1 << v
 	}
 }
 
 func (s *STopic) getResources() []string {
-	vs := bitmap.Uint64ToIntArray(s.Resources)
-	resources := make([]string, 0, len(vs))
-	for _, v := range vs {
-		resources = append(resources, converter.resource(v))
+	temp := []SNotifyResource{}
+	q := NotifyResourceManager.Query()
+	sq := TopicResourceManager.Query().Equals("topic_id", s.Id).SubQuery()
+	q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("resource_id")))
+	q.All(&temp)
+	resources := make([]string, 0, len(temp))
+	for i := range temp {
+		resources = append(resources, temp[i].Id)
 	}
 	return resources
 }
 
-func (s *STopic) getActions() []notify.SAction {
-	vs := bitmap.Uint64ToIntArray(s.Actions)
-	actions := make([]notify.SAction, 0, len(vs))
-	for _, v := range vs {
-		actions = append(actions, converter.action(v))
-	}
-	return actions
-}
-
-func (sm *STopicManager) GetTopicByEvent(resourceType string, action notify.SAction, isFailed notify.SResult) (*STopic, error) {
+func (sm *STopicManager) GetTopicByEvent(resourceType string, action api.SAction, isFailed api.SResult) (*STopic, error) {
 	topics, err := sm.GetTopicsByEvent(resourceType, action, isFailed)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetTopicsByEvent")
@@ -730,55 +728,48 @@ func (sm *STopicManager) GetTopicByEvent(resourceType string, action notify.SAct
 	return &topics[0], nil
 }
 
-func (sm *STopicManager) GetTopicsByEvent(resourceType string, action notify.SAction, isFailed notify.SResult) ([]STopic, error) {
-	resourceV := converter.resourceValue(resourceType)
-	if resourceV < 0 {
-		return nil, fmt.Errorf("unknow resource type %s", resourceType)
-	}
-	actionV := converter.actionValue(action)
-	if actionV < 0 {
-		return nil, fmt.Errorf("unkonwn action %s", action)
-	}
+func (sm *STopicManager) GetTopicsByEvent(resourceType string, action api.SAction, isFailed api.SResult) ([]STopic, error) {
 	q := sm.Query()
-	if isFailed == api.ResultSucceed {
-		q = q.Equals("results", true)
-	} else {
-		q = q.Equals("results", false)
-	}
+	q = q.Equals("results", isFailed)
 	q = q.Equals("enabled", true)
-	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
-	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
-	topics := []STopic{}
+	actionQ := NotifyActionManager.Query().Equals("name", action).SubQuery()
+	topicActionQ := TopicActionManager.Query()
+	topicActionQ = topicActionQ.Join(actionQ, sqlchemy.Equals(topicActionQ.Field("action_id"), actionQ.Field("id")))
+	resourceQ := NotifyResourceManager.Query().Equals("name", resourceType).SubQuery()
+	topicResourceQ := TopicResourceManager.Query()
+	topicResourceSq := topicResourceQ.Join(resourceQ, sqlchemy.Equals(topicResourceQ.Field("resource_id"), resourceQ.Field("id"))).SubQuery()
+	tempSQ := topicActionQ.LeftJoin(topicResourceSq, sqlchemy.Equals(topicActionQ.Field("topic_id"), topicResourceSq.Field("topic_id"))).SubQuery()
+	q = q.Join(tempSQ, sqlchemy.Equals(tempSQ.Field("topic_id"), q.Field("id")))
+	var topics []STopic
 	err := db.FetchModelObjects(sm, q, &topics)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to FetchModelObjects")
+	}
 	return topics, err
 }
 
-func (sm *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
+func (manager *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
 	event, err := parseEvent(eventStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
 	}
-	resourceV := converter.resourceValue(event.ResourceType())
-	if resourceV < 0 {
-		log.Warningf("unknown resource type: %s", event.ResourceType())
-		return nil, nil
-	}
-	actionV := converter.actionValue(event.Action())
-	if actionV < 0 {
-		log.Warningf("unknown action type: %s", event.Action())
-		return nil, nil
-	}
-	q := sm.Query()
+	q := manager.Query()
 	if event.Result() == api.ResultSucceed {
 		q = q.Equals("results", true)
 	} else {
 		q = q.Equals("results", false)
 	}
 	q = q.Equals("enabled", true)
-	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
-	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
+	actionQ := NotifyActionManager.Query().Equals("name", event.Action()).SubQuery()
+	topicActionQ := TopicActionManager.Query()
+	topicActionQ = topicActionQ.Join(actionQ, sqlchemy.Equals(topicActionQ.Field("action_id"), actionQ.Field("id")))
+	resourceQ := NotifyResourceManager.Query().Equals("name", event.ResourceType()).SubQuery()
+	topicResourceQ := TopicResourceManager.Query()
+	topicResourceSq := topicResourceQ.Join(resourceQ, sqlchemy.Equals(topicResourceQ.Field("resource_id"), resourceQ.Field("id"))).SubQuery()
+	tempSQ := topicActionQ.LeftJoin(topicResourceSq, sqlchemy.Equals(topicActionQ.Field("topic_id"), topicResourceSq.Field("topic_id"))).SubQuery()
+	q = q.Join(tempSQ, sqlchemy.Equals(tempSQ.Field("topic_id"), q.Field("id")))
 	var topics []STopic
-	err = db.FetchModelObjects(sm, q, &topics)
+	err = db.FetchModelObjects(manager, q, &topics)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to FetchModelObjects")
 	}
@@ -800,210 +791,14 @@ func (t *STopic) PreCheckPerformAction(
 	return nil
 }
 
-func init() {
-	converter = &sConverter{
-		resource2Value: &sync.Map{},
-		value2Resource: &sync.Map{},
-		action2Value:   &sync.Map{},
-		value2Action:   &sync.Map{},
-	}
-	converter.registerResource(
-		map[string]int{
-			notify.TOPIC_RESOURCE_SERVER:                   0,
-			notify.TOPIC_RESOURCE_SCALINGGROUP:             1,
-			notify.TOPIC_RESOURCE_SCALINGPOLICY:            2,
-			notify.TOPIC_RESOURCE_IMAGE:                    3,
-			notify.TOPIC_RESOURCE_DISK:                     4,
-			notify.TOPIC_RESOURCE_SNAPSHOT:                 5,
-			notify.TOPIC_RESOURCE_INSTANCESNAPSHOT:         6,
-			notify.TOPIC_RESOURCE_SNAPSHOTPOLICY:           7,
-			notify.TOPIC_RESOURCE_NETWORK:                  8,
-			notify.TOPIC_RESOURCE_EIP:                      9,
-			notify.TOPIC_RESOURCE_SECGROUP:                 10,
-			notify.TOPIC_RESOURCE_LOADBALANCER:             11,
-			notify.TOPIC_RESOURCE_LOADBALANCERACL:          12,
-			notify.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE:  13,
-			notify.TOPIC_RESOURCE_BUCKET:                   14,
-			notify.TOPIC_RESOURCE_DBINSTANCE:               15,
-			notify.TOPIC_RESOURCE_ELASTICCACHE:             16,
-			notify.TOPIC_RESOURCE_SCHEDULEDTASK:            17,
-			notify.TOPIC_RESOURCE_BAREMETAL:                18,
-			notify.TOPIC_RESOURCE_VPC:                      19,
-			notify.TOPIC_RESOURCE_DNSZONE:                  20,
-			notify.TOPIC_RESOURCE_NATGATEWAY:               21,
-			notify.TOPIC_RESOURCE_WEBAPP:                   22,
-			notify.TOPIC_RESOURCE_CDNDOMAIN:                23,
-			notify.TOPIC_RESOURCE_FILESYSTEM:               24,
-			notify.TOPIC_RESOURCE_WAF:                      25,
-			notify.TOPIC_RESOURCE_KAFKA:                    26,
-			notify.TOPIC_RESOURCE_ELASTICSEARCH:            27,
-			notify.TOPIC_RESOURCE_MONGODB:                  28,
-			notify.TOPIC_RESOURCE_DNSRECORDSET:             29,
-			notify.TOPIC_RESOURCE_LOADBALANCERLISTENER:     30,
-			notify.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP: 31,
-			notify.TOPIC_RESOURCE_HOST:                     32,
-			notify.TOPIC_RESOURCE_TASK:                     33,
-			notify.TOPIC_RESOURCE_CLOUDPODS_COMPONENT:      34,
-			notify.TOPIC_RESOURCE_DB_TABLE_RECORD:          35,
-			notify.TOPIC_RESOURCE_USER:                     36,
-			notify.TOPIC_RESOURCE_ACTION_LOG:               37,
-			notify.TOPIC_RESOURCE_ACCOUNT_STATUS:           38,
-			notify.TOPIC_RESOURCE_NET:                      39,
-			notify.TOPIC_RESOURCE_SERVICE:                  40,
-			notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK:       41,
-			notify.TOPIC_RESOURCE_PROJECT:                  42,
-			notify.TOPIC_RESOURCE_CLOUDPHONE:               43,
-		},
-	)
-	converter.registerAction(
-		map[notify.SAction]int{
-			notify.ActionCreate:               0,
-			notify.ActionDelete:               1,
-			notify.ActionPendingDelete:        2,
-			notify.ActionUpdate:               3,
-			notify.ActionRebuildRoot:          4,
-			notify.ActionResetPassword:        5,
-			notify.ActionChangeConfig:         6,
-			notify.ActionExpiredRelease:       7,
-			notify.ActionExecute:              8,
-			notify.ActionChangeIpaddr:         9,
-			notify.ActionSyncStatus:           10,
-			notify.ActionCleanData:            11,
-			notify.ActionMigrate:              12,
-			notify.ActionCreateBackupServer:   13,
-			notify.ActionDelBackupServer:      14,
-			notify.ActionSyncCreate:           15,
-			notify.ActionSyncUpdate:           16,
-			notify.ActionSyncDelete:           17,
-			notify.ActionOffline:              18,
-			notify.ActionSystemPanic:          19,
-			notify.ActionSystemException:      20,
-			notify.ActionChecksumTest:         21,
-			notify.ActionLock:                 22,
-			notify.ActionExceedCount:          23,
-			notify.ActionSyncAccountStatus:    24,
-			notify.ActionPasswordExpireSoon:   25,
-			notify.ActionNetOutOfSync:         26,
-			notify.ActionMysqlOutOfSync:       27,
-			notify.ActionServiceAbnormal:      28,
-			notify.ActionServerPanicked:       29,
-			notify.ActionAttach:               30,
-			notify.ActionDetach:               31,
-			notify.ActionIsolatedDeviceCreate: 32,
-			notify.ActionIsolatedDeviceUpdate: 33,
-			notify.ActionIsolatedDeviceDelete: 34,
-			notify.ActionStatusChanged:        35,
-			notify.ActionStart:                36,
-			notify.ActionStop:                 37,
-			notify.ActionRestart:              38,
-			notify.ActionReset:                39,
-		},
-	)
-}
-
-var converter *sConverter
-
-type sConverter struct {
-	resource2Value *sync.Map
-	value2Resource *sync.Map
-	action2Value   *sync.Map
-	value2Action   *sync.Map
-}
-
-type sResourceValue struct {
-	resource string
-	value    int
-}
-
-type sActionValue struct {
-	action string
-	value  int
-}
-
-func (rc *sConverter) registerResource(resourceValues map[string]int) {
-	for resource, value := range resourceValues {
-		if v, ok := rc.resource2Value.Load(resource); ok && v.(int) != value {
-			log.Fatalf("resource '%s' has been mapped to value '%d', and it is not allowed to map to another value '%d'", resource, v, value)
-		}
-		if r, ok := rc.value2Resource.Load(value); ok && r.(string) != resource {
-			log.Fatalf("value '%d' has been mapped to resource '%s', and it is not allowed to map to another resource '%s'", value, r, resource)
-		}
-		rc.resource2Value.Store(resource, value)
-		rc.value2Resource.Store(value, resource)
-	}
-}
-
-func (rc *sConverter) registerAction(actionValues map[notify.SAction]int) {
-	for action, value := range actionValues {
-		if v, ok := rc.action2Value.Load(action); ok && v.(int) != value {
-			log.Fatalf("action '%s' has been mapped to value '%d', and it is not allowed to map to another value '%d'", action, v, value)
-		}
-		if a, ok := rc.value2Action.Load(value); ok && a.(notify.SAction) != action {
-			log.Fatalf("value '%d' has been mapped to action '%s', and it is not allowed to map to another action '%s'", value, a, action)
-		}
-		rc.action2Value.Store(action, value)
-		rc.value2Action.Store(value, action)
-	}
-}
-
-func (rc *sConverter) resourceValue(resource string) int {
-	v, ok := rc.resource2Value.Load(resource)
-	if !ok {
-		return -1
-	}
-	return v.(int)
-}
-
-func (rc *sConverter) resource(resourceValue int) string {
-	r, ok := rc.value2Resource.Load(resourceValue)
-	if !ok {
-		return ""
-	}
-	return r.(string)
-}
-
-func (rc *sConverter) actionValue(action notify.SAction) int {
-	v, ok := rc.action2Value.Load(action)
-	if !ok {
-		return -1
-	}
-	return v.(int)
-}
-
-func (rc *sConverter) action(actionValue int) notify.SAction {
-	a, ok := rc.value2Action.Load(actionValue)
-	if !ok {
-		return notify.SAction("")
-	}
-	return a.(notify.SAction)
-}
-
-func (self *STopic) CreateEvent(ctx context.Context, resType, action, message string) (*SEvent, error) {
+func (topic *STopic) CreateEvent(ctx context.Context, resType, action, message string) (*SEvent, error) {
 	eve := &SEvent{
 		Message:      message,
 		ResourceType: resType,
 		Action:       action,
-		TopicId:      self.Id,
+		TopicId:      topic.Id,
 	}
 	return eve, EventManager.TableSpec().Insert(ctx, eve)
-}
-
-func (self *STopic) GetEnabledSubscribers(domainId, projectId string) ([]SSubscriber, error) {
-	q := SubscriberManager.Query().Equals("topic_id", self.Id).IsTrue("enabled")
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.AND(
-			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_PROJECT),
-			sqlchemy.Equals(q.Field("resource_attribution_id"), projectId),
-		),
-		sqlchemy.AND(
-			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_DOMAIN),
-			sqlchemy.Equals(q.Field("resource_attribution_id"), domainId),
-		),
-		sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_SYSTEM),
-	))
-	ret := []SSubscriber{}
-	err := db.FetchModelObjects(SubscriberManager, q, &ret)
-	return ret, err
 }
 
 func (sm *STopicManager) TopicByEvent(eventStr string) (*STopic, error) {

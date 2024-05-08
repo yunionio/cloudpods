@@ -24,14 +24,18 @@ type ConfigsManager struct {
 }
 
 var (
-	NotifyReceiver   modulebase.ResourceManager
-	NotifyConfig     modulebase.ResourceManager
-	NotifyRobot      modulebase.ResourceManager
-	Notification     modulebase.ResourceManager
-	NotifyTemplate   modulebase.ResourceManager
-	NotifyTopic      modulebase.ResourceManager
-	NotifySubscriber modulebase.ResourceManager
-	Configs          ConfigsManager
+	NotifyReceiver      modulebase.ResourceManager
+	NotifyConfig        modulebase.ResourceManager
+	NotifyRobot         modulebase.ResourceManager
+	Notification        modulebase.ResourceManager
+	NotifyTemplate      modulebase.ResourceManager
+	NotifyTopic         modulebase.ResourceManager
+	NotifySubscriber    modulebase.ResourceManager
+	NotifyAction        modulebase.ResourceManager
+	NotifyResource      modulebase.ResourceManager
+	NotifyTopicAction   modulebase.ResourceManager
+	NotifyTopicResource modulebase.ResourceManager
+	Configs             ConfigsManager
 )
 
 func init() {
@@ -91,6 +95,30 @@ func init() {
 	)
 	modules.Register(&NotifySubscriber)
 
+	NotifyAction = modules.NewNotifyv2Manager(
+		"notify_action",
+		"notify_actions",
+		[]string{},
+		[]string{},
+	)
+	NotifyResource = modules.NewNotifyv2Manager(
+		"notify_resource",
+		"notify_resources",
+		[]string{},
+		[]string{},
+	)
+	NotifyTopicAction = modules.NewNotifyv2Manager(
+		"topic_action",
+		"topic_actions",
+		[]string{},
+		[]string{},
+	)
+	NotifyTopicResource = modules.NewNotifyv2Manager(
+		"topic_resource",
+		"topic_resources",
+		[]string{},
+		[]string{},
+	)
 	// important: Notifications' init must be behind Notication's init
 	Notifications = NotificationManager{
 		Notification,

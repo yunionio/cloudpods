@@ -67,6 +67,10 @@ func InitHandlers(app *appsrv.Application) {
 		models.SubscriberManager,
 		models.EmailQueueManager,
 		models.NotificationGroupManager,
+		models.NotifyActionManager,
+		models.NotifyResourceManager,
+		models.TopicActionManager,
+		models.TopicResourceManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
