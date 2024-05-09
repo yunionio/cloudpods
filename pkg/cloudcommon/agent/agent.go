@@ -276,7 +276,7 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 			return errors.Error("agent not support storagecache_id, region might not be up-to-date")
 		}
 	}
-	agent.CacheManager = storageman.NewLocalImageCacheManager(agent.IAgent(), agent.CachePath, storageCacheId)
+	agent.CacheManager = storageman.NewLocalImageCacheManager(agent.IAgent(), agent.CachePath, storageCacheId, nil)
 
 	return nil
 }

@@ -108,7 +108,7 @@ type IStorage interface {
 	StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	GetFreeSizeMb() int
-	GetCapacity() int
+	GetCapacityMb() int
 
 	// Find owner disks first, if not found, call create disk
 	GetDiskById(diskId string) (IDisk, error)
@@ -141,6 +141,8 @@ type IStorage interface {
 
 	Accessible() error
 	Detach() error
+
+	CleanRecycleDiskfiles(ctx context.Context)
 }
 
 type SBaseStorage struct {
@@ -221,7 +223,7 @@ func (s *SBaseStorage) GetZoneId() string {
 	return s.Manager.GetZoneId()
 }
 
-func (s *SBaseStorage) GetCapacity() int {
+func (s *SBaseStorage) GetCapacityMb() int {
 	return s.GetAvailSizeMb()
 }
 
@@ -278,7 +280,7 @@ func (s *SBaseStorage) SyncStorageSize() (api.SHostStorageStat, error) {
 	stat := api.SHostStorageStat{
 		StorageId: s.StorageId,
 	}
-	stat.CapacityMb = int64(s.GetCapacity())
+	stat.CapacityMb = int64(s.GetCapacityMb())
 	stat.ActualCapacityUsedMb = int64(s.GetUsedSizeMb())
 	return stat, nil
 }

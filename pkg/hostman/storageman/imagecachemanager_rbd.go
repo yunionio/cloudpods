@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/cephutils"
 )
@@ -50,7 +52,7 @@ func NewRbdImageCacheManager(manager IStorageManager, cachePath string, storage 
 	} else {
 		imageCacheManager.Pool, imageCacheManager.Prefix = cachePath, "image_cache_"
 	}
-	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
+	imageCacheManager.cachedImages = &sync.Map{} // make(map[string]IImageCache, 0)
 	imageCacheManager.loadCache(context.Background())
 	return imageCacheManager
 }
@@ -104,8 +106,12 @@ func (c *SRbdImageCacheManager) loadCache(ctx context.Context) {
 func (c *SRbdImageCacheManager) LoadImageCache(imageId string) {
 	imageCache := NewRbdImageCache(imageId, c)
 	if imageCache.Load() == nil {
-		c.cachedImages[imageId] = imageCache
+		c.cachedImages.Store(imageId, imageCache)
 	}
+}
+
+func (c *SRbdImageCacheManager) IsLocal() bool {
+	return false
 }
 
 func (c *SRbdImageCacheManager) GetPath() string {
@@ -142,7 +148,7 @@ func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 
 	if desc := cache.GetDesc(); desc != nil {
 		ret.Name = desc.Name
-		ret.Size = desc.Size
+		ret.Size = desc.SizeMb
 	}
 	return jsonutils.Marshal(ret), nil
 }
@@ -154,16 +160,16 @@ func (c *SRbdImageCacheManager) DeleteImageCache(ctx context.Context, data inter
 	}
 
 	imageId, _ := body.GetString("image_id")
-	return nil, c.removeImage(ctx, imageId)
+	return nil, c.RemoveImage(ctx, imageId)
 }
 
-func (c *SRbdImageCacheManager) removeImage(ctx context.Context, imageId string) error {
+func (c *SRbdImageCacheManager) RemoveImage(ctx context.Context, imageId string) error {
 	lockman.LockRawObject(ctx, "image-cache", imageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
 
-	if img, ok := c.cachedImages[imageId]; ok {
-		delete(c.cachedImages, imageId)
-		return img.Remove(ctx)
+	if img, ok := c.cachedImages.Load(imageId); ok {
+		c.cachedImages.Delete(imageId)
+		return img.(IImageCache).Remove(ctx)
 	}
 	return nil
 }
@@ -172,19 +178,47 @@ func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, input api.Cach
 	lockman.LockRawObject(ctx, "image-cache", input.ImageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", input.ImageId)
 
-	img, ok := c.cachedImages[input.ImageId]
+	imgObj, ok := c.cachedImages.Load(input.ImageId)
 	if !ok {
-		img = NewRbdImageCache(input.ImageId, c)
-		c.cachedImages[input.ImageId] = img
+		imgObj = NewRbdImageCache(input.ImageId, c)
+		c.cachedImages.Store(input.ImageId, imgObj)
 	}
-
+	img := imgObj.(IImageCache)
 	return img, img.Acquire(ctx, input, callback)
 }
 
 func (c *SRbdImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {
 	lockman.LockRawObject(ctx, "image-cache", imageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
-	if img, ok := c.cachedImages[imageId]; ok {
-		img.Release()
+	if img, ok := c.cachedImages.Load(imageId); ok {
+		img.(IImageCache).Release()
+	}
+}
+
+func (c *SRbdImageCacheManager) getTotalSize(ctx context.Context) (int64, map[string]IImageCache) {
+	total := int64(0)
+	images := make(map[string]IImageCache, 0)
+	c.cachedImages.Range(func(imgId, imgObj any) bool {
+		img := imgObj.(IImageCache)
+		total += img.GetDesc().SizeMb
+		images[imgId.(string)] = img
+		return true
+	})
+	return total, images
+}
+
+func (c *SRbdImageCacheManager) CleanImageCachefiles(ctx context.Context) {
+	totalSize, images := c.getTotalSize(ctx)
+	ratio := float64(totalSize) / float64(c.storage.GetCapacityMb())
+	log.Infof("SRbdImageCacheManager %s total size %dMB storage capacity %dMB ratio %f expect ration %d", c.cachePath, totalSize, c.storage.GetCapacityMb(), ratio*100, options.HostOptions.ImageCacheCleanupPercentage)
+	if int(ratio*100) < options.HostOptions.ImageCacheCleanupPercentage {
+		return
+	}
+
+	deletedMb, err := cleanImages(ctx, c, images)
+	if err != nil {
+		log.Errorf("SRbdImageCacheManager clean image %s fail %s", c.cachePath, err)
+	} else {
+		log.Infof("SLocalImageCacheManager %s cleanup %dMB", c.cachePath, deletedMb)
 	}
 }

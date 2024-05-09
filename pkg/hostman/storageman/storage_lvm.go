@@ -157,7 +157,7 @@ func (s *SLVMStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		if err == nil {
 			log.Errorf("storage created %s", res)
 			storageCacheId, _ := res.GetString("storagecache_id")
-			storageManager.InitLVMStorageImageCache(storageCacheId, s.GetPath())
+			storageManager.InitLVMStorageImageCache(storageCacheId, s.GetPath(), s)
 			s.SetStoragecacheId(storageCacheId)
 		}
 	}
@@ -527,4 +527,8 @@ func (s *SLVMStorage) CloneDiskFromStorage(
 		TargetAccessPath: accessPath,
 		TargetFormat:     qemuimgfmt.QCOW2.String(),
 	}, nil
+}
+
+func (s *SLVMStorage) CleanRecycleDiskfiles(ctx context.Context) {
+	log.Infof("SLVMStorage CleanRecycleDiskfiles do nothing!")
 }
