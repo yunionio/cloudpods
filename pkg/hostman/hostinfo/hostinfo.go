@@ -1923,7 +1923,7 @@ func (h *SHostInfo) initStoragesInternal(hoststorages []jsonutils.JSONObject) {
 				}
 				if storagetype == api.STORAGE_LVM {
 					// lvm set storage image cache info
-					storageManager.InitLVMStorageImageCache(storagecacheId, mountPoint)
+					storageManager.InitLVMStorageImageCache(storagecacheId, mountPoint, storage)
 				}
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage

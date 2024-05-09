@@ -38,7 +38,7 @@ func (d *SNVMEDisk) GetDiskDesc() jsonutils.JSONObject {
 	var desc = jsonutils.NewDict()
 
 	desc.Set("disk_id", jsonutils.NewString(d.Id))
-	desc.Set("disk_size", jsonutils.NewInt(int64(d.Storage.GetCapacity())))
+	desc.Set("disk_size", jsonutils.NewInt(int64(d.Storage.GetCapacityMb())))
 	desc.Set("format", jsonutils.NewString(string(qemuimgfmt.RAW)))
 	desc.Set("disk_path", jsonutils.NewString(d.Storage.GetPath()))
 	return desc

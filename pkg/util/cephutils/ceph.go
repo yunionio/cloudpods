@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -320,9 +321,9 @@ type SImageInfo struct {
 	Features        []string      `json:"features"`
 	OpFeatures      []interface{} `json:"op_features"`
 	Flags           []interface{} `json:"flags"`
-	CreateTimestamp string        `json:"create_timestamp"`
-	AccessTimestamp string        `json:"access_timestamp"`
-	ModifyTimestamp string        `json:"modify_timestamp"`
+	CreateTimestamp time.Time     `json:"create_timestamp"`
+	AccessTimestamp time.Time     `json:"access_timestamp"`
+	ModifyTimestamp time.Time     `json:"modify_timestamp"`
 }
 
 func (img *SImage) options() []string {
