@@ -1569,6 +1569,9 @@ func (manager *SGuestManager) validateCreateData(
 		region := regionObj.(*SCloudregion)
 		input.Provider = region.Provider
 	}
+	if len(input.Provider) == 0 {
+		input.Provider = api.CLOUD_PROVIDER_ONECLOUD
+	}
 
 	var hypervisor string
 	// var rootStorageType string
