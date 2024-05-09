@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -137,7 +138,7 @@ func (c *SLVMImageCache) Remove(ctx context.Context) error {
 	go func() {
 		_, err := modules.Storagecachedimages.Detach(hostutils.GetComputeSession(ctx),
 			c.Manager.GetId(), c.imageId, nil)
-		if err != nil {
+		if err != nil && httputils.ErrorCode(err) != 404 {
 			log.Errorf("Fail to delete host cached image: %s", err)
 		}
 	}()
