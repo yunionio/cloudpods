@@ -81,6 +81,7 @@ const (
 	// Zstack storage type
 	STORAGE_ZSTACK_LOCAL_STORAGE = "localstorage"
 	STORAGE_ZSTACK_CEPH          = "ceph"
+	STORAGE_ZSTACK_SHARED_BLOCK  = "sharedblock"
 
 	// Google storage type
 	STORAGE_GOOGLE_LOCAL_SSD   = "local-ssd"   //本地SSD暂存盘 (最多8个)
