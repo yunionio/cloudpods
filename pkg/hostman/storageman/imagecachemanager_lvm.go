@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,6 +27,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -35,21 +37,28 @@ const IMAGECACHE_PREFIX = "imagecache_"
 type SLVMImageCacheManager struct {
 	SBaseImageCacheManager
 
+	storage IStorage
+
 	lvmlockd bool
 	lock     lockman.ILockManager
 }
 
-func NewLVMImageCacheManager(manager IStorageManager, cachePath, storagecacheId string, lvmlockd bool) *SLVMImageCacheManager {
+func NewLVMImageCacheManager(manager IStorageManager, cachePath, storagecacheId string, storage IStorage, lvmlockd bool) *SLVMImageCacheManager {
 	imageCacheManager := new(SLVMImageCacheManager)
 	imageCacheManager.lock = lockman.NewInMemoryLockManager()
 	imageCacheManager.storageManager = manager
 	imageCacheManager.storagecacaheId = storagecacheId
 	imageCacheManager.cachePath = cachePath
-	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
+	imageCacheManager.cachedImages = &sync.Map{} // make(map[string]IImageCache, 0)
+	imageCacheManager.storage = storage
 	imageCacheManager.lvmlockd = lvmlockd
 
 	imageCacheManager.loadCache(context.Background())
 	return imageCacheManager
+}
+
+func (c *SLVMImageCacheManager) IsLocal() bool {
+	return c.storage.IsLocal()
 }
 
 func (c *SLVMImageCacheManager) Lvmlockd() bool {
@@ -83,7 +92,7 @@ func (c *SLVMImageCacheManager) loadCache(ctx context.Context) {
 func (c *SLVMImageCacheManager) LoadImageCache(imageId string) {
 	imageCache := NewLVMImageCache(imageId, c)
 	if err := imageCache.Load(); err == nil {
-		c.cachedImages[imageId] = imageCache
+		c.cachedImages.Store(imageId, imageCache)
 	} else {
 		log.Errorf("failed load cache %s %s", c.GetPath(), err)
 	}
@@ -96,10 +105,10 @@ func (c *SLVMImageCacheManager) AcquireImage(
 	c.lock.LockRawObject(ctx, "image-cache", input.ImageId)
 	defer c.lock.ReleaseRawObject(ctx, "image-cache", input.ImageId)
 
-	img, ok := c.cachedImages[input.ImageId]
+	imgObj, ok := c.cachedImages.Load(input.ImageId)
 	if !ok {
-		img = NewLVMImageCache(input.ImageId, c)
-		c.cachedImages[input.ImageId] = img
+		imgObj = NewLVMImageCache(input.ImageId, c)
+		c.cachedImages.Store(input.ImageId, imgObj)
 	}
 	if callback == nil && len(input.ServerId) > 0 {
 		callback = func(progress, progressMbps float64, totalSizeMb int64) {
@@ -108,6 +117,7 @@ func (c *SLVMImageCacheManager) AcquireImage(
 			}
 		}
 	}
+	img := imgObj.(IImageCache)
 	return img, img.Acquire(ctx, input, callback)
 }
 
@@ -143,7 +153,7 @@ func (c *SLVMImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 
 	if desc := cache.GetDesc(); desc != nil {
 		ret.Name = desc.Name
-		ret.Size = desc.Size
+		ret.Size = desc.SizeMb
 	}
 	return jsonutils.Marshal(ret), nil
 }
@@ -155,16 +165,16 @@ func (c *SLVMImageCacheManager) DeleteImageCache(ctx context.Context, data inter
 	}
 
 	imageId, _ := body.GetString("image_id")
-	return nil, c.removeImage(ctx, imageId)
+	return nil, c.RemoveImage(ctx, imageId)
 }
 
-func (c *SLVMImageCacheManager) removeImage(ctx context.Context, imageId string) error {
+func (c *SLVMImageCacheManager) RemoveImage(ctx context.Context, imageId string) error {
 	lockman.LockRawObject(ctx, "image-cache", imageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
 
-	if img, ok := c.cachedImages[imageId]; ok {
-		delete(c.cachedImages, imageId)
-		return img.Remove(ctx)
+	if img, ok := c.cachedImages.Load(imageId); ok {
+		c.cachedImages.Delete(imageId)
+		return img.(IImageCache).Remove(ctx)
 	}
 	return nil
 }
@@ -172,7 +182,35 @@ func (c *SLVMImageCacheManager) removeImage(ctx context.Context, imageId string)
 func (c *SLVMImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {
 	lockman.LockRawObject(ctx, "image-cache", imageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
-	if img, ok := c.cachedImages[imageId]; ok {
-		img.Release()
+	if img, ok := c.cachedImages.Load(imageId); ok {
+		img.(IImageCache).Release()
+	}
+}
+
+func (c *SLVMImageCacheManager) getTotalSize(ctx context.Context) (int64, map[string]IImageCache) {
+	total := int64(0)
+	images := make(map[string]IImageCache, 0)
+	c.cachedImages.Range(func(imgId, imgObj any) bool {
+		img := imgObj.(IImageCache)
+		total += img.GetDesc().SizeMb
+		images[imgId.(string)] = img
+		return true
+	})
+	return total, images
+}
+
+func (c *SLVMImageCacheManager) CleanImageCachefiles(ctx context.Context) {
+	totalSize, images := c.getTotalSize(ctx)
+	ratio := float64(totalSize) / float64(c.storage.GetCapacityMb())
+	log.Infof("SLVMImageCacheManager %s total size %dMB storage capacity %dMB ratio %f expect ratio %d", c.cachePath, totalSize, c.storage.GetCapacityMb(), ratio, options.HostOptions.ImageCacheCleanupPercentage)
+	if int(ratio*100) < options.HostOptions.ImageCacheCleanupPercentage {
+		return
+	}
+
+	deletedMb, err := cleanImages(ctx, c, images)
+	if err != nil {
+		log.Errorf("SLVMImageCacheManager clean image %s fail %s", c.cachePath, err)
+	} else {
+		log.Infof("SLVMImageCacheManager %s cleanup %dMB", c.cachePath, deletedMb)
 	}
 }

@@ -16,6 +16,7 @@ package storageman
 
 import (
 	"context"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -50,20 +51,26 @@ type IImageCacheManger interface {
 	SetStoragecacheId(string)
 	Lvmlockd() bool
 
+	IsLocal() bool
+
 	// for diskhandler
 	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
 	DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
 
+	RemoveImage(ctx context.Context, imageId string) error
+
 	AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) (IImageCache, error)
 	ReleaseImage(ctx context.Context, imageId string)
 	LoadImageCache(imageId string)
+
+	CleanImageCachefiles(ctx context.Context)
 }
 
 type SBaseImageCacheManager struct {
 	storageManager  IStorageManager
 	storagecacaheId string
 	cachePath       string
-	cachedImages    map[string]IImageCache
+	cachedImages    *sync.Map // map[string]IImageCache
 }
 
 func (c *SBaseImageCacheManager) GetPath() string {
