@@ -377,7 +377,7 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost, netGetter *netwo
 		return nil, fmt.Errorf("Fill networks error: %v", err)
 	}
 	// only onecloud host should fill onecloud vpc networks
-	if host.HostType == computeapi.HOST_TYPE_HYPERVISOR {
+	if sets.NewString(computeapi.HOST_TYPE_HYPERVISOR, computeapi.HOST_TYPE_CONTAINER).Has(host.HostType) {
 		if err := desc.fillOnecloudVpcNetworks(netGetter); err != nil {
 			return nil, fmt.Errorf("Fill onecloud vpc networks error: %v", err)
 		}
