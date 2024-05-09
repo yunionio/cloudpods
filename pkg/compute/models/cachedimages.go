@@ -238,6 +238,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 		Status      string
 		IsPublic    bool
 		ProjectId   string `json:"tenant_id"`
+		DomainId    string
 		PublicScope string
 	}{}
 	err := info.Unmarshal(&img)
@@ -256,7 +257,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 
 	err = manager.RawQuery().Equals("id", img.Id).First(&imageCache)
 	if err != nil {
-		if err == sql.ErrNoRows { // insert
+		if errors.Cause(err) == sql.ErrNoRows { // insert
 			imageCache.Id = img.Id
 			imageCache.Name = img.Name
 			imageCache.Size = img.Size
@@ -264,6 +265,8 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			imageCache.Status = img.Status
 			imageCache.IsPublic = img.IsPublic
 			imageCache.PublicScope = img.PublicScope
+			imageCache.ProjectId = img.ProjectId
+			imageCache.DomainId = img.DomainId
 			imageCache.LastSync = timeutils.UtcNow()
 
 			err = manager.TableSpec().Insert(ctx, &imageCache)
@@ -285,6 +288,8 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			imageCache.IsPublic = img.IsPublic
 			imageCache.PublicScope = img.PublicScope
 			imageCache.LastSync = timeutils.UtcNow()
+			imageCache.ProjectId = img.ProjectId
+			imageCache.DomainId = img.DomainId
 			if imageCache.Deleted == true {
 				imageCache.Deleted = false
 				imageCache.DeletedAt = time.Time{}
