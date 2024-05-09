@@ -130,9 +130,13 @@ func (host *SHostService) RunService() {
 		},
 	)
 
-	cronManager.AddJobEveryFewDays(
-		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
-	cronManager.Start()
+	{
+		cronManager.AddJobEveryFewDays(
+			"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
+		cronManager.AddJobEveryFewDays(
+			"CleanImageCachefiles", 1, 3, 0, 0, storageman.CleanImageCachefiles, options.HostOptions.ImageCacheCleanupOnStartup)
+		cronManager.Start()
+	}
 
 	close(guestChan)
 	app_common.ServeForeverWithCleanup(app, &options.HostOptions.BaseOptions, func() {

@@ -17,7 +17,6 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -403,16 +402,31 @@ func (s *SRbdStorage) SyncStorageSize() (api.SHostStorageStat, error) {
 	return stat, nil
 }
 
+func (s *SRbdStorage) GetCapacityMb() int {
+	capa, err := s.getRbdCapacity()
+	if err != nil {
+		return -1
+	}
+	return int(capa.CapacitySizeKb) / 1024
+}
+
+func (s *SRbdStorage) getRbdCapacity() (*cephutils.SCapacity, error) {
+	client, err := s.getClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "getClient")
+	}
+	defer client.Close()
+	capacity, err := client.GetCapacity()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCapacity")
+	}
+	return capacity, nil
+}
+
 func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := map[string]interface{}{}
 	if len(s.StorageId) > 0 {
-		client, err := s.getClient()
-		if err != nil {
-			reason := jsonutils.Marshal(map[string]string{"reason": errors.Wrapf(err, "GetClient").Error()})
-			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, api.STORAGE_OFFLINE, reason)
-		}
-		defer client.Close()
-		capacity, err := client.GetCapacity()
+		capacity, err := s.getRbdCapacity()
 		if err != nil {
 			reason := jsonutils.Marshal(map[string]string{"reason": errors.Wrapf(err, "GetCapacity").Error()})
 			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, api.STORAGE_OFFLINE, reason)
@@ -518,7 +532,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 		return err
 	}
 
-	tmpFileDir, err := ioutil.TempDir(options.HostOptions.TempPath, "ceph_save_images")
+	tmpFileDir, err := os.MkdirTemp(options.HostOptions.TempPath, "ceph_save_images")
 	if err != nil {
 		log.Errorf("fail to obtain tempFile for ceph save glance image: %s", err)
 		return errors.Wrap(err, "ioutil.TempDir")
@@ -683,4 +697,8 @@ func (s *SRbdStorage) SetStorageInfo(storageId, storageName string, conf jsonuti
 		s.ClientMountTimeout = api.RBD_DEFAULT_MOUNT_TIMEOUT
 	}
 	return nil
+}
+
+func (s *SRbdStorage) CleanRecycleDiskfiles(ctx context.Context) {
+	log.Infof("SRbdStorage CleanRecycleDiskfiles do nothing!")
 }
