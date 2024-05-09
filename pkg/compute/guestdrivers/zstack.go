@@ -77,6 +77,7 @@ func (self *SZStackGuestDriver) GetStorageTypes() []string {
 	return []string{
 		api.STORAGE_ZSTACK_LOCAL_STORAGE,
 		api.STORAGE_ZSTACK_CEPH,
+		api.STORAGE_ZSTACK_SHARED_BLOCK,
 	}
 }
 
