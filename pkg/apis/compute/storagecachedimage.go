@@ -15,8 +15,6 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -29,15 +27,20 @@ type StoragecachedimageDetails struct {
 	Cachedimage string `json:"cachedimage"`
 
 	// 存储列表
-	Storages []string `json:"storages"`
+	// Storages []string `json:"storages"`
 	// 通过一致性哈希获取的一个宿主机详情
-	Host *jsonutils.JSONDict `json:"host"`
+	// Host *jsonutils.JSONDict `json:"host"`
+
 	// 镜像名称
 	Image string `json:"image"`
 	// 镜像大小
 	Size int64 `json:"size"`
 	// 引用次数
 	Reference int `json:"reference"`
+	// Disk引用次数
+	DiskReference int `json:"disk_reference"`
+	// Cdrom引用次数
+	CdromReference int `json:"cdrom_reference"`
 }
 
 type StoragecachedimageListInput struct {

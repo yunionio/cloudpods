@@ -128,6 +128,9 @@ func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
 ) []api.StoragecachedimageDetails {
 	rows := make([]api.StoragecachedimageDetails, len(objs))
 
+	storagecacheIds := make([]string, 0)
+	imageIds := make([]string, 0)
+
 	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	scRows := manager.SStoragecacheResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
@@ -135,7 +138,45 @@ func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
 			JointResourceBaseDetails: jointRows[i],
 			StoragecacheResourceInfo: scRows[i],
 		}
-		rows[i] = objs[i].(*SStoragecachedimage).getExtraDetails(ctx, rows[i])
+		sci := objs[i].(*SStoragecachedimage)
+		storagecacheIds = append(storagecacheIds, sci.StoragecacheId)
+		imageIds = append(imageIds, sci.CachedimageId)
+	}
+
+	cachedImages := make(map[string]SCachedimage)
+	err := db.FetchModelObjectsByIds(CachedimageManager, "id", imageIds, &cachedImages)
+	if err != nil {
+		log.Errorf("db.FetchModelObjectsByIds fail %s", err)
+	}
+	cdromRefs, err := manager.fetchCdromReferenceCounts(storagecacheIds, imageIds)
+	if err != nil {
+		log.Errorf("manager.fetchCdromReferenceCounts fail %s", err)
+	}
+	diskRefs, err := manager.fetchDiskReferenceCounts(storagecacheIds, imageIds)
+	if err != nil {
+		log.Errorf("manager.fetchDiskReferenceCounts fail %s", err)
+	}
+
+	for i := range rows {
+		sci := objs[i].(*SStoragecachedimage)
+		if cachedImages != nil {
+			if cachedImage, ok := cachedImages[sci.CachedimageId]; ok {
+				rows[i].Cachedimage = cachedImage.Name
+				rows[i].Image = cachedImage.Name
+				rows[i].Size = cachedImage.Size
+			}
+		}
+		if cdromRefs != nil {
+			if refMap, ok := cdromRefs[sci.StoragecacheId]; ok {
+				rows[i].CdromReference = refMap[sci.CachedimageId]
+			}
+		}
+		if diskRefs != nil {
+			if refMap, ok := diskRefs[sci.StoragecacheId]; ok {
+				rows[i].DiskReference = refMap[sci.CachedimageId]
+				rows[i].Reference = rows[i].CdromReference + rows[i].DiskReference
+			}
+		}
 	}
 
 	return rows
@@ -149,7 +190,7 @@ func (self *SStoragecachedimage) GetCachedimage() *SCachedimage {
 	return nil
 }
 
-func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.StoragecachedimageDetails) api.StoragecachedimageDetails {
+/*func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.StoragecachedimageDetails) api.StoragecachedimageDetails {
 	storagecache := self.GetStoragecache()
 	if storagecache != nil {
 		// out.Storagecache = storagecache.Name
@@ -176,6 +217,54 @@ func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.St
 	}
 	out.Reference, _ = self.getReferenceCount()
 	return out
+}*/
+
+func (manager *SStoragecachedimageManager) fetchCdromReferenceCounts(storagecacheIds []string, imageIds []string) (map[string]map[string]int, error) {
+	q := GuestcdromManager.Query()
+	guests := GuestManager.Query().SubQuery()
+	hostStorages := HoststorageManager.Query().SubQuery()
+	storages := StorageManager.Query().SubQuery()
+
+	q = q.Join(guests, sqlchemy.Equals(q.Field("id"), guests.Field("id")))
+	q = q.Join(hostStorages, sqlchemy.Equals(guests.Field("host_id"), hostStorages.Field("host_id")))
+	q = q.Join(storages, sqlchemy.Equals(hostStorages.Field("storage_id"), storages.Field("id")))
+
+	q = q.GroupBy(q.Field("image_id"))
+	q = q.GroupBy(storages.Field("storagecache_id"))
+
+	q = q.Filter(sqlchemy.In(q.Field("image_id"), imageIds))
+	q = q.Filter(sqlchemy.In(storages.Field("storagecache_id"), storagecacheIds))
+
+	q = q.AppendField(sqlchemy.COUNT("ref_count"))
+	q = q.AppendField(q.Field("image_id"))
+	q = q.AppendField(storages.Field("storagecache_id"))
+
+	return manager.fetchRefCount(q)
+}
+
+func (maanger *SStoragecachedimageManager) fetchRefCount(q *sqlchemy.SQuery) (map[string]map[string]int, error) {
+	results := []struct {
+		RefCount       int    `json:"ref_count"`
+		ImageId        string `json:"image_id"`
+		StoragecacheId string `json:"storagecache_id"`
+	}{}
+
+	q.DebugQuery()
+
+	err := q.All(&results)
+	if err != nil {
+		return nil, errors.Wrap(err, "Query")
+	}
+
+	ret := make(map[string]map[string]int)
+	for _, r := range results {
+		if _, ok := ret[r.StoragecacheId]; !ok {
+			ret[r.StoragecacheId] = make(map[string]int)
+		}
+		ret[r.StoragecacheId][r.ImageId] = r.RefCount
+	}
+
+	return ret, nil
 }
 
 func (self *SStoragecachedimage) getCdromReferenceCount() (int, error) {
@@ -186,6 +275,27 @@ func (self *SStoragecachedimage) getCdromReferenceCount() (int, error) {
 	q = q.Join(guests, sqlchemy.Equals(cdroms.Field("id"), guests.Field("id")))
 	q = q.Filter(sqlchemy.Equals(cdroms.Field("image_id"), self.CachedimageId))
 	return q.CountWithError()
+}
+
+func (manager *SStoragecachedimageManager) fetchDiskReferenceCounts(storagecacheIds, imageIds []string) (map[string]map[string]int, error) {
+	disks := DiskManager.Query().SubQuery()
+	storages := StorageManager.Query().SubQuery()
+
+	q := disks.Query()
+
+	q = q.Join(storages, sqlchemy.Equals(disks.Field("storage_id"), storages.Field("id")))
+
+	q = q.GroupBy(disks.Field("template_id"))
+	q = q.GroupBy(storages.Field("storagecache_id"))
+
+	q = q.Filter(sqlchemy.In(disks.Field("template_id"), imageIds))
+	q = q.Filter(sqlchemy.In(storages.Field("storagecache_id"), storagecacheIds))
+
+	q = q.AppendField(sqlchemy.COUNT("ref_count"))
+	q = q.AppendField(disks.Field("template_id").Label("image_id"))
+	q = q.AppendField(storages.Field("storagecache_id"))
+
+	return manager.fetchRefCount(q)
 }
 
 func (self *SStoragecachedimage) getDiskReferenceCount() (int, error) {
