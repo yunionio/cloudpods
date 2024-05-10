@@ -19,6 +19,8 @@ import (
 )
 
 type StoragecachedimageDetails struct {
+	SStoragecachedimage
+
 	apis.JointResourceBaseDetails
 
 	StoragecacheResourceInfo

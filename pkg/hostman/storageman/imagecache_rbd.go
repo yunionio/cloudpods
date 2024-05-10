@@ -135,8 +135,8 @@ func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
 
 	desc := &remotefile.SImageDesc{
-		Size: -1,
-		Name: r.imageName,
+		SizeMb: -1,
+		Name:   r.imageName,
 	}
 
 	cli, err := imageCacheManger.getCephClient()
@@ -154,7 +154,8 @@ func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 		log.Errorf("GetInfo fail %s", err)
 		return desc
 	}
-	desc.Size = info.SizeByte / 1024 / 1024
+	desc.SizeMb = info.SizeByte / 1024 / 1024
+	desc.AccessAt = info.AccessTimestamp
 
 	return desc
 }

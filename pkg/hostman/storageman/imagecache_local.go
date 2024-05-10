@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"sync"
@@ -94,7 +95,25 @@ func (l *SLocalImageCache) Load() error {
 		desc    = &remotefile.SImageDesc{}
 	)
 	if fileutils2.Exists(imgPath) {
-		if !fileutils2.Exists(infPath) {
+		needReload := false
+		if fileutils2.Exists(infPath) {
+			sdesc, err := fileutils2.FileGetContents(infPath)
+			if err != nil {
+				return errors.Wrapf(err, "fileutils2.FileGetContents(%s)", infPath)
+			}
+			err = json.Unmarshal([]byte(sdesc), desc)
+			if err != nil {
+				return errors.Wrapf(err, "jsonutils.Unmarshal(%s)", infPath)
+			}
+			fi := l.getFileInfo()
+			if fi != nil && fi.Size()/1024/1024 != desc.SizeMb {
+				// fix file size
+				needReload = true
+			}
+		} else {
+			needReload = true
+		}
+		if needReload {
 			img, err := qemuimg.NewQemuImage(imgPath)
 			if err != nil {
 				return errors.Wrapf(err, "NewQemuImage(%s)", imgPath)
@@ -106,25 +125,26 @@ func (l *SLocalImageCache) Load() error {
 			if err != nil {
 				return errors.Wrapf(err, "fileutils2.MD5(%s)", imgPath)
 			}
+
 			desc = &remotefile.SImageDesc{
 				Format: string(img.Format),
 				Id:     l.imageId,
 				Chksum: chksum,
 				Path:   imgPath,
-				Size:   l.GetSize(),
 			}
+
+			fi := l.getFileInfo()
+			if fi != nil {
+				desc.SizeMb = fi.Size() / 1024 / 1024
+				if fi.Sys() != nil {
+					atime := fi.Sys().(*syscall.Stat_t).Atim
+					desc.AccessAt = time.Unix(atime.Sec, atime.Nsec)
+				}
+			}
+
 			err = fileutils2.FilePutContents(infPath, jsonutils.Marshal(desc).PrettyString(), false)
 			if err != nil {
 				return errors.Wrapf(err, "fileutils2.FilePutContents(%s)", infPath)
-			}
-		} else {
-			sdesc, err := fileutils2.FileGetContents(infPath)
-			if err != nil {
-				return errors.Wrapf(err, "fileutils2.FileGetContents(%s)", infPath)
-			}
-			err = json.Unmarshal([]byte(sdesc), desc)
-			if err != nil {
-				return errors.Wrapf(err, "jsonutils.Unmarshal(%s)", infPath)
 			}
 		}
 		if len(desc.Chksum) > 0 && len(desc.Id) > 0 && desc.Id == l.imageId {
@@ -216,8 +236,10 @@ func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput,
 		if err != nil {
 			return errors.Wrapf(err, "remoteFile.GetInfo")
 		}
-
-		l.Size = l.GetSize() / 1024 / 1024
+		fi := l.getFileInfo()
+		if fi != nil {
+			l.Size = fi.Size() / 1024 / 1024
+		}
 		l.Desc.Id = l.imageId
 		l.lastCheckTime = time.Now()
 		l.consumerCount++
@@ -257,17 +279,17 @@ func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput,
 func (l *SLocalImageCache) Remove(ctx context.Context) error {
 	if fileutils2.Exists(l.GetPath()) {
 		if err := syscall.Unlink(l.GetPath()); err != nil {
-			return err
+			return errors.Wrap(err, l.GetPath())
 		}
 	}
 	if fileutils2.Exists(l.GetInfPath()) {
 		if err := syscall.Unlink(l.GetInfPath()); err != nil {
-			return err
+			return errors.Wrap(err, l.GetInfPath())
 		}
 	}
 	if fileutils2.Exists(l.GetTmpPath()) {
 		if err := syscall.Unlink(l.GetTmpPath()); err != nil {
-			return err
+			return errors.Wrap(err, l.GetTmpPath())
 		}
 	}
 
@@ -294,12 +316,12 @@ func (l *SLocalImageCache) GetInfPath() string {
 	return l.GetPath() + _INF_SUFFIX_
 }
 
-func (l *SLocalImageCache) GetSize() int64 {
+func (l *SLocalImageCache) getFileInfo() fs.FileInfo {
 	if fi, err := os.Stat(l.GetPath()); err != nil {
 		log.Errorln(err)
-		return 0
+		return nil
 	} else {
-		return fi.Size()
+		return fi
 	}
 }
 

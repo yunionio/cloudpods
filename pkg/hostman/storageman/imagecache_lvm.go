@@ -67,8 +67,8 @@ func (c *SLVMImageCache) GetDesc() *remotefile.SImageDesc {
 	}
 
 	return &remotefile.SImageDesc{
-		Size: sizeMb,
-		Name: c.GetName(),
+		SizeMb: sizeMb,
+		Name:   c.GetName(),
 	}
 }
 
