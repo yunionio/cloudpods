@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -74,10 +75,12 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 	ctx = manager.PrepareQueryContext(ctx, userCred, query)
 
 	model, err := fetchItem(manager.GetMasterManager(), ctx, userCred, idStr, query)
-	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(manager.GetMasterManager().Keyword(), idStr)
-	} else if err != nil {
-		return nil, err
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(manager.GetMasterManager().Keyword(), idStr)
+		} else {
+			return nil, err
+		}
 	}
 	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", manager.GetMasterManager().Keyword()))
 	queryDict.Add(jsonutils.NewString(model.GetId()), manager.GetMasterFieldName())
@@ -104,10 +107,12 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 	ctx = manager.PrepareQueryContext(ctx, userCred, query)
 
 	model, err := fetchItem(manager.GetSlaveManager(), ctx, userCred, idStr, query)
-	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(manager.GetSlaveManager().Keyword(), idStr)
-	} else if err != nil {
-		return nil, err
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(manager.GetSlaveManager().Keyword(), idStr)
+		} else {
+			return nil, httperrors.NewGeneralError(err)
+		}
 	}
 	queryDict.Add(jsonutils.NewString(model.GetId()), fmt.Sprintf("%s_id", manager.GetSlaveManager().Keyword()))
 	queryDict.Add(jsonutils.NewString(model.GetId()), manager.GetSlaveFieldName())
@@ -130,15 +135,27 @@ func _listJoint(manager IModelManager, ctx context.Context, userCred mcclient.To
 func fetchJointItem(manager IJointModelManager, ctx context.Context, userCred mcclient.TokenCredential, id1 string, id2 string, query jsonutils.JSONObject) (IStandaloneModel, IStandaloneModel, IJointModel, error) {
 	master, err := fetchItem(manager.GetMasterManager(), ctx, userCred, id1, query)
 	if err != nil {
-		return nil, nil, nil, httperrors.NewGeneralError(err)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil, nil, httperrors.NewResourceNotFoundError2(manager.GetMasterManager().Keyword(), id1)
+		} else {
+			return nil, nil, nil, httperrors.NewGeneralError(err)
+		}
 	}
 	slave, err := fetchItem(manager.GetSlaveManager(), ctx, userCred, id2, query)
 	if err != nil {
-		return nil, nil, nil, httperrors.NewGeneralError(err)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil, nil, httperrors.NewResourceNotFoundError2(manager.GetSlaveManager().Keyword(), id2)
+		} else {
+			return nil, nil, nil, httperrors.NewGeneralError(err)
+		}
 	}
 	item, err := FetchJointByIds(manager, master.GetId(), slave.GetId(), query)
 	if err != nil {
-		return nil, nil, nil, err
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil, nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), id1+"-"+id2)
+		} else {
+			return nil, nil, nil, httperrors.NewGeneralError(err)
+		}
 	}
 	return master.(IStandaloneModel), slave.(IStandaloneModel), item, nil
 }
