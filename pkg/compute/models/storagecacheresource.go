@@ -87,6 +87,27 @@ func (manager *SStoragecacheResourceBaseManager) FetchCustomizeColumns(
 		return nil
 	}
 
+	storageMap := make(map[string][]api.StorageInfo, 0)
+	{
+		q := StorageManager.Query("id", "name", "storage_type", "medium_type", "storagecache_id", "zone_id").In("storagecache_id", storagecacheIds)
+		zones := ZoneManager.Query().SubQuery()
+		q = q.Join(zones, sqlchemy.Equals(q.Field("zone_id"), zones.Field("id")))
+		q = q.AppendField(zones.Field("name").Label("zone"))
+
+		storages := make([]struct {
+			api.StorageInfo
+			StoragecacheId string `json:"storagecache_id"`
+		}, 0)
+		err := q.All(&storages)
+		if err != nil {
+			log.Errorf("Storage Info Query query fail %s", err)
+		} else {
+			for _, si := range storages {
+				storageMap[si.StoragecacheId] = append(storageMap[si.StoragecacheId], si.StorageInfo)
+			}
+		}
+	}
+
 	managerList := make([]interface{}, len(rows))
 
 	for i := range rows {
@@ -95,6 +116,12 @@ func (manager *SStoragecacheResourceBaseManager) FetchCustomizeColumns(
 			storagecache := storagecaches[storagecacheIds[i]]
 			rows[i].Storagecache = storagecache.Name
 			rows[i].ManagerId = storagecache.ManagerId
+		}
+		if info, ok := storageMap[storagecacheIds[i]]; ok {
+			rows[i].StorageInfo = info
+			for i := range info {
+				rows[i].Storages = append(rows[i].Storages, info[i].Name)
+			}
 		}
 		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
 	}
