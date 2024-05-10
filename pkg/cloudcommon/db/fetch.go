@@ -54,6 +54,7 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 	}
 	cond := sqlchemy.AND(sqlchemy.Equals(masterField, masterId), sqlchemy.Equals(slaveField, slaveId))
 	q = q.Filter(cond)
+	q.DebugQuery()
 	q = manager.FilterByParams(q, query)
 	count, err := q.CountWithError()
 	if err != nil {
