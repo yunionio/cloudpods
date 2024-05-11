@@ -58,6 +58,7 @@ type ContainerCreateCommonOptions struct {
 	PostStartExec     string   `help:"Post started execution command"`
 	CgroupDeviceAllow []string `help:"Cgroup devices.allow, e.g.: 'c 13:* rwm'"`
 	SimulateCpu       bool     `help:"Simulating /sys/devices/system/cpu files"`
+	ShmSizeMb         int      `help:"Shm size MB"`
 }
 
 func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
@@ -73,6 +74,9 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 			CgroupDevicesAllow: o.CgroupDeviceAllow,
 			SimulateCpu:        o.SimulateCpu,
 		},
+	}
+	if o.ShmSizeMb > 0 {
+		req.ContainerSpec.ShmSizeMB = o.ShmSizeMb
 	}
 	if len(o.PostStartExec) != 0 {
 		req.Lifecyle = &apis.ContainerLifecyle{

@@ -443,6 +443,10 @@ func (p *SPodDriver) RequestStartContainer(ctx context.Context, userCred mcclien
 }
 
 func (p *SPodDriver) RequestStopContainer(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
+	ctr := task.GetContainer()
+	params := task.GetParams()
+	params.Add(jsonutils.NewString(ctr.GetName()), "container_name")
+	params.Add(jsonutils.NewInt(int64(ctr.Spec.ShmSizeMB)), "shm_size_mb")
 	return p.performContainerAction(ctx, userCred, task, "stop", task.GetParams())
 }
 

@@ -63,6 +63,7 @@ type ContainerSpec struct {
 	Lifecyle           *ContainerLifecyle   `json:"lifecyle"`
 	CgroupDevicesAllow []string             `json:"cgroup_devices_allow"`
 	SimulateCpu        bool                 `json:"simulate_cpu"`
+	ShmSizeMB          int                  `json:"shm_size_mb"`
 }
 
 type ContainerCapability struct {

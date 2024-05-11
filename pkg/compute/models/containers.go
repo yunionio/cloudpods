@@ -160,6 +160,10 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 		return errors.Wrap(err, "validate lifecycle")
 	}
 
+	if spec.ShmSizeMB < 64 {
+		return httperrors.NewInputParameterError("/dev/shm size is small than 64MB")
+	}
+
 	return nil
 }
 

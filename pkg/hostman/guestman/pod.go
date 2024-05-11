@@ -267,6 +267,14 @@ func (s *sPodGuestInstance) getPodLogDir() string {
 	return filepath.Join(s.HomeDir(), "logs")
 }
 
+func (s *sPodGuestInstance) getShmDir() string {
+	return filepath.Join(s.HomeDir(), "shm")
+}
+
+func (s *sPodGuestInstance) getContainerShmDir(containerName string) string {
+	return filepath.Join(s.getShmDir(), fmt.Sprintf("%s-shm", containerName))
+}
+
 func (s *sPodGuestInstance) GetDisks() []*desc.SGuestDisk {
 	return s.GetDesc().Disks
 }
@@ -701,6 +709,18 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 	if body.Contains("timeout") {
 		timeout, _ = body.Int("timeout")
 	}
+	if body.Contains("shm_size_mb") {
+		shmSizeMB, _ := body.Int("shm_size_mb")
+		if shmSizeMB > 64 {
+			name, err := body.GetString("container_name")
+			if err != nil {
+				return nil, errors.Wrapf(err, "not found name from body: %s", body)
+			}
+			if err := s.unmountDevShm(name); err != nil {
+				return nil, errors.Wrapf(err, "unmount shm %s", name)
+			}
+		}
+	}
 	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {
 		return nil, errors.Wrap(err, "CRI.StopContainer")
 	}
@@ -921,6 +941,19 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		newMounts := systemCpuMounts
 		newMounts = append(newMounts, mounts...)
 		mounts = newMounts
+	}
+
+	// process shm size
+	if spec.ShmSizeMB > 64 {
+		// mount empty dir
+		shmPath, err := s.mountDevShm(input, spec.ShmSizeMB)
+		if err != nil {
+			return "", errors.Wrapf(err, "mount dev shm")
+		}
+		mounts = append(mounts, &runtimeapi.Mount{
+			ContainerPath: "/dev/shm",
+			HostPath:      shmPath,
+		})
 	}
 
 	ctrCfg := &runtimeapi.ContainerConfig{
@@ -1300,4 +1333,35 @@ func (s *sPodGuestInstance) ExecContainer(ctx context.Context, userCred mcclient
 		return nil, errors.Wrap(err, "exec")
 	}
 	return url.Parse(resp.Url)
+}
+
+func (s *sPodGuestInstance) mountDevShm(input *hostapi.ContainerCreateInput, mb int) (string, error) {
+	shmPath := s.getContainerShmDir(input.Name)
+	if !fileutils2.Exists(shmPath) {
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", shmPath).Output()
+		if err != nil {
+			return "", errors.Wrapf(err, "mkdir -p %s: %s", shmPath, out)
+		}
+	}
+	if err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", shmPath).Run(); err == nil {
+		log.Warningf("mountpoint %s is already mounted", shmPath)
+		return "", nil
+	}
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", "-t", "tmpfs", "-o", fmt.Sprintf("size=%dM", mb), "tmpfs", shmPath).Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "mount tmpfs %s: %s", shmPath, out)
+	}
+	return shmPath, nil
+}
+
+func (s *sPodGuestInstance) unmountDevShm(containerName string) error {
+	shmPath := s.getContainerShmDir(containerName)
+	if err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", shmPath).Run(); err != nil {
+		return nil
+	}
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", shmPath).Output()
+	if err != nil {
+		return errors.Wrapf(err, "mount tmpfs %s: %s", shmPath, out)
+	}
+	return nil
 }
