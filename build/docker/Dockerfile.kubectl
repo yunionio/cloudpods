@@ -1,4 +1,4 @@
-FROM alpine:3.11
+FROM alpine:3.19
 
 RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >>/etc/apk/repositories
-RUN apk update && apk add kubectl && rm -rf /var/cache/apk/*
+RUN apk update && apk add android-tools && rm -rf /var/cache/apk/*

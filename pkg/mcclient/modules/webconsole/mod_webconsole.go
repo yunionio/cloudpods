@@ -69,6 +69,10 @@ func (m WebConsoleManager) DoK8sShellConnect(s *mcclient.ClientSession, id strin
 	return m.DoK8sConnect(s, id, "shell", params)
 }
 
+func (m WebConsoleManager) DoAdbShell(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return m.DoConnect(s, "adb", id, "shell", params)
+}
+
 func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	containerId, err := data.GetString("container_id")
 	if err != nil {
