@@ -43,7 +43,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -70,14 +69,15 @@ var (
 )
 
 type SReceiverManager struct {
-	db.SEnabledStatusDomainLevelResourceBaseManager
+	db.SVirtualResourceBaseManager
+	db.SEnabledResourceBaseManager
 }
 
 var ReceiverManager *SReceiverManager
 
 func init() {
 	ReceiverManager = &SReceiverManager{
-		SEnabledStatusDomainLevelResourceBaseManager: db.NewEnabledStatusDomainLevelResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SReceiver{},
 			"receivers_tbl",
 			"receiver",
@@ -89,7 +89,8 @@ func init() {
 
 // 接收人
 type SReceiver struct {
-	db.SEnabledStatusDomainLevelResourceBase
+	db.SVirtualResourceBase
+	db.SEnabledResourceBase
 
 	Email string `width:"128" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
 	// swagger:ignore
@@ -116,7 +117,7 @@ func (rm *SReceiverManager) CreateByInsertOrUpdate() bool {
 
 func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ReceiverCreateInput) (api.ReceiverCreateInput, error) {
 	var err error
-	input.EnabledStatusDomainLevelResourceCreateInput, err = rm.SEnabledStatusDomainLevelResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusDomainLevelResourceCreateInput)
+	input.VirtualResourceCreateInput, err = rm.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -320,19 +321,6 @@ func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSO
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (rm *SReceiverManager) filterByOwner(ctx context.Context, q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if owner == nil {
-		return q
-	}
-	switch scope {
-	case rbacscope.ScopeDomain:
-		q = q.Equals("domain_id", owner.GetProjectDomainId())
-	case rbacscope.ScopeProject, rbacscope.ScopeUser:
-		q = q.Equals("id", owner.GetUserId())
-	}
-	return q
-}
-
 func (rm *SReceiverManager) filterByOwnerAndProjectDomain(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, scope rbacscope.TRbacScope) (*sqlchemy.SQuery, error) {
 	if userCred == nil {
 		return q, nil
@@ -377,7 +365,7 @@ func (rm *SReceiverManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuer
 }
 
 func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ReceiverListInput) (*sqlchemy.SQuery, error) {
-	q, err := rm.SEnabledStatusDomainLevelResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledStatusDomainLevelResourceListInput)
+	q, err := rm.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -408,18 +396,6 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 			sq := SubContactManager.Query("receiver_id").Equals("type", input.VerifiedContactType).IsTrue("verified").SubQuery()
 			q = q.Join(sq, sqlchemy.Equals(sq.Field("receiver_id"), q.Field("id")))
 		}
-	}
-	ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, jsonutils.Marshal(input), rm, policy.PolicyActionList, true)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	if input.ProjectDomainFilter && userCred.GetProjectDomainId() != "" {
-		q, err = rm.filterByOwnerAndProjectDomain(ctx, userCred, q, queryScope)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to filterByOwnerAndProjectDomain")
-		}
-	} else {
-		q = rm.filterByOwner(ctx, q, ownerId, queryScope)
 	}
 	return q, nil
 }
@@ -524,11 +500,11 @@ func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclie
 }
 
 func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.ReceiverDetails {
-	sRows := rm.SEnabledStatusDomainLevelResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	sRows := rm.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	rows := make([]api.ReceiverDetails, len(objs))
 	recvIds := []string{}
 	for i := range rows {
-		rows[i].EnabledStatusDomainLevelResourceDetails = sRows[i]
+		rows[i].VirtualResourceDetails = sRows[i]
 		user := objs[i].(*SReceiver)
 		recvIds = append(recvIds, user.Id)
 		rows[i].InternationalMobile = api.ParseInternationalMobile(user.Mobile)
@@ -577,7 +553,7 @@ func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred 
 }
 
 func (rm *SReceiverManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	q, err := rm.SEnabledStatusDomainLevelResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err := rm.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -585,7 +561,7 @@ func (rm *SReceiverManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 }
 
 func (rm *SReceiverManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ReceiverListInput) (*sqlchemy.SQuery, error) {
-	q, err := rm.SEnabledStatusDomainLevelResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusDomainLevelResourceListInput)
+	q, err := rm.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -593,7 +569,7 @@ func (rm *SReceiverManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.
 }
 
 func (r *SReceiver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SEnabledStatusDomainLevelResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	r.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	cTypes := jsonutils.GetQueryStringArray(data, "enabled_contact_types")
 	err := r.StartSubcontactPullTask(ctx, userCred, cTypes, "")
 	if err != nil {
@@ -604,7 +580,7 @@ func (r *SReceiver) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	err := r.SEnabledStatusDomainLevelResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	err := r.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil
 	}
@@ -633,7 +609,7 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 
 func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverUpdateInput) (api.ReceiverUpdateInput, error) {
 	var err error
-	input.EnabledStatusDomainLevelResourceBaseUpdateInput, err = r.SEnabledStatusDomainLevelResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusDomainLevelResourceBaseUpdateInput)
+	input.VirtualResourceBaseUpdateInput, err = r.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
 		return input, err
 	}
@@ -658,7 +634,7 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 }
 
 func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SEnabledStatusDomainLevelResourceBase.PreUpdate(ctx, userCred, query, data)
+	r.SVirtualResourceBase.PreUpdate(ctx, userCred, query, data)
 	originEmailEnable, originMobileEnable := r.EnabledEmail, r.EnabledMobile
 	var input api.ReceiverUpdateInput
 	data.Unmarshal(&input)
@@ -728,7 +704,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (r *SReceiver) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SEnabledStatusDomainLevelResourceBase.PostUpdate(ctx, userCred, query, data)
+	r.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 	cTypes := jsonutils.GetQueryStringArray(data, "enabled_contact_types")
 	err := r.StartSubcontactPullTask(ctx, userCred, cTypes, "")
 	if err != nil {
@@ -763,7 +739,7 @@ func (r *SReceiver) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 		}
 	}
 	r.deleteReceiverInSubscriber(ctx)
-	return r.SEnabledStatusDomainLevelResourceBase.Delete(ctx, userCred)
+	return r.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (r *SReceiver) deleteReceiverInSubscriber(ctx context.Context) error {
@@ -1169,6 +1145,22 @@ func (manager *SReceiverManager) SyncUserFromKeystone(ctx context.Context, userC
 	}
 }
 
+func InitReceiverProject(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	q := ReceiverManager.Query().IsNullOrEmpty("tenant_id")
+	receivers := []SReceiver{}
+	err := db.FetchModelObjects(ReceiverManager, q, &receivers)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "fetch receiver"))
+		return
+	}
+	for _, receiver := range receivers {
+		db.Update(&receiver, func() error {
+			receiver.ProjectId = auth.AdminCredential().GetTenantId()
+			return nil
+		})
+	}
+}
+
 func (manager *SReceiverManager) syncUserFromKeystone(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
@@ -1304,7 +1296,7 @@ func (manager *SReceiverManager) GetPropertyRoleContactType(ctx context.Context,
 		params.Add(jsonutils.NewString(input.ProjectId), "scope", "project", "id")
 	}
 	s := auth.GetAdminSession(ctx, "")
-	listRet, err := modules.RoleAssignments.List(s, params)
+	listRet, err := identity_modules.RoleAssignments.List(s, params)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list RoleAssignments")
 	}
