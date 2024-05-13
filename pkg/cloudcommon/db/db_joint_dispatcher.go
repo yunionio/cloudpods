@@ -151,11 +151,7 @@ func fetchJointItem(manager IJointModelManager, ctx context.Context, userCred mc
 	}
 	item, err := FetchJointByIds(manager, master.GetId(), slave.GetId(), query)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, nil, nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), id1+"-"+id2)
-		} else {
-			return nil, nil, nil, httperrors.NewGeneralError(err)
-		}
+		return nil, nil, nil, err
 	}
 	return master.(IStandaloneModel), slave.(IStandaloneModel), item, nil
 }
@@ -241,7 +237,7 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 
 	_, _, joinItem, err := fetchJointItem(dispatcher.JointModelManager(), ctx, userCred, master.GetId(), slave.GetId(), query)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+		return nil, httperrors.NewGeneralError(err)
 	}
 	if joinItem != nil {
 		return nil, httperrors.NewNotAcceptableError("Object %s %s has attached %s %s", master.KeywordPlural(), master.GetId(), slave.KeywordPlural(), slave.GetId())
