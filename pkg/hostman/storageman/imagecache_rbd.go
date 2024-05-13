@@ -87,7 +87,7 @@ func (r *SRbdImageCache) Acquire(ctx context.Context, input api.CacheImageInput,
 		err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
 			"convert", "-W", "-m", "16", "-O", "raw", localImageCache.GetPath(), r.GetPath()).Run()
 		if err != nil {
-			return errors.Wrapf(err, "convert loca image %s to rbd pool %s at host %s", r.imageId, r.Manager.GetPath(), options.HostOptions.Hostname)
+			return errors.Wrapf(err, "convert local image %s to rbd pool %s at host %s", r.imageId, r.Manager.GetPath(), options.HostOptions.Hostname)
 		}
 		if len(input.ServerId) > 0 {
 			modules.Servers.Update(hostutils.GetComputeSession(context.Background()), input.ServerId, jsonutils.Marshal(map[string]float32{"progress": 100.0}))

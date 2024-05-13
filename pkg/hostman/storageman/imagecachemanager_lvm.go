@@ -141,7 +141,22 @@ func (c *SLVMImageCacheManager) DeleteImageCache(ctx context.Context, data inter
 	}
 
 	imageId, _ := body.GetString("image_id")
-	return nil, c.removeImage(ctx, imageId)
+	if jsonutils.QueryBoolean(body, "deactivate_image", false) {
+		return nil, c.DeactiveImageCacahe(ctx, imageId)
+	} else {
+		return nil, c.removeImage(ctx, imageId)
+	}
+}
+
+func (c *SLVMImageCacheManager) DeactiveImageCacahe(ctx context.Context, imageId string) error {
+	lockman.LockRawObject(ctx, "image-cache", imageId)
+	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
+
+	if img, ok := c.cachedImages[imageId]; ok {
+		delete(c.cachedImages, imageId)
+		return lvmutils.LVDeactivate(img.(IImageCache).GetPath())
+	}
+	return nil
 }
 
 func (c *SLVMImageCacheManager) removeImage(ctx context.Context, imageId string) error {

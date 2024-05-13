@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 // shared lvm
@@ -169,4 +170,41 @@ func (d *SSLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.J
 		}
 	}
 	return d.SLVMDisk.Delete(ctx, params)
+}
+
+func (d *SSLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
+	err := lvmutils.LVActive(d.GetPath(), false, true)
+	if err != nil {
+		return errors.Wrap(err, "lvactive exclusive")
+	}
+	err = d.SLVMDisk.CreateSnapshot(snapshotId, encryptKey, encFormat, encAlg)
+	if err != nil {
+		err := lvmutils.LVActive(d.GetPath(), true, false)
+		if err != nil {
+			log.Errorf("failed lvactive share %s", err)
+		}
+		return err
+	}
+	snapPath := d.GetSnapshotPath(snapshotId)
+	err = lvmutils.LVActive(snapPath, false, true)
+	if err != nil {
+		return errors.Wrap(err, "lvactive snapshot share")
+	}
+	return nil
+}
+
+func (d *SSLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	err := lvmutils.LVActive(d.GetPath(), false, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "lvactive exclusive")
+	}
+	ret, err := d.SLVMDisk.ResetFromSnapshot(ctx, params)
+	if err != nil {
+		err := lvmutils.LVActive(d.GetPath(), true, false)
+		if err != nil {
+			log.Errorf("failed lvactive share %s", err)
+		}
+		return nil, err
+	}
+	return ret, nil
 }
