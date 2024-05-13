@@ -160,7 +160,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+func (self *SManagedVirtualizationHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask, deactivateImage bool) error {
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
 	if err != nil {

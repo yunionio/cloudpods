@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -56,6 +57,39 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 		return
 	}
 
+	storage, err := models.StorageManager.GetStorageByStoragecache(storageCache.Id)
+	if err != nil {
+		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(fmt.Sprintf("fail to get storage by storagecache %s", err)))
+		return
+	}
+	if storage.IsNeedDeactivateOnAllHost() {
+		self.RequestUncacheDeactivateImage(ctx, storageCache)
+		return
+	}
+	self.RequestUncacheRemoveImage(ctx, storageCache)
+}
+
+func (self *StorageUncacheImageTask) RequestUncacheDeactivateImage(ctx context.Context, storageCache *models.SStoragecache) {
+	hosts, err := storageCache.GetHosts()
+	if err != nil {
+		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(fmt.Sprintf("fail to get hosts %s", err)))
+		return
+	}
+	for i := range hosts {
+		if !hosts[i].Enabled.IsTrue() || hosts[i].HostStatus != compute.HOST_ONLINE {
+			continue
+		}
+		err = hosts[i].GetHostDriver().RequestUncacheImage(ctx, &hosts[i], storageCache, self, true)
+		if err != nil {
+			self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(err.Error()))
+			return
+		}
+	}
+
+	self.RequestUncacheRemoveImage(ctx, storageCache)
+}
+
+func (self *StorageUncacheImageTask) RequestUncacheRemoveImage(ctx context.Context, storageCache *models.SStoragecache) {
 	host, err := storageCache.GetMasterHost()
 	if err != nil {
 		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(fmt.Sprintf("fail to get host %s", err)))
@@ -63,13 +97,12 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 
 	if host == nil {
-		self.OnImageUncacheComplete(ctx, obj, data)
+		self.OnImageUncacheComplete(ctx, storageCache, nil)
 		return
 	}
 
 	self.SetStage("OnImageUncacheComplete", nil)
-
-	err = host.GetHostDriver().RequestUncacheImage(ctx, host, storageCache, self)
+	err = host.GetHostDriver().RequestUncacheImage(ctx, host, storageCache, self, false)
 
 	if err != nil {
 		self.OnTaskFailed(ctx, storageCache, jsonutils.NewString(err.Error()))
