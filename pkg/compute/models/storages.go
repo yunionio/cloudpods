@@ -243,6 +243,10 @@ func (manager *SStorageManager) GetStorageTypesByProvider(provider string) ([]st
 	return storages, nil
 }
 
+func (self *SStorage) IsNeedDeactivateOnAllHost() bool {
+	return self.StorageType == api.STORAGE_SLVM
+}
+
 func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]string, error) {
 	q := manager.Query("storage_type")
 	hosts := HostManager.Query().SubQuery()
@@ -890,6 +894,16 @@ func (manager *SStorageManager) getStoragesByZone(zone *SZone, provider *SCloudp
 		return nil, err
 	}
 	return storages, nil
+}
+
+func (manager *SStorageManager) GetStorageByStoragecache(storagecacheId string) (*SStorage, error) {
+	s := SStorage{}
+	s.SetModelManager(StorageManager, &s)
+	err := manager.Query().Equals("storagecache_id", storagecacheId).First(&s)
+	if err != nil {
+		return nil, errors.Wrap(err, "get storage by storagecache")
+	}
+	return &s, nil
 }
 
 func (manager *SStorageManager) scanLegacyStorages() error {

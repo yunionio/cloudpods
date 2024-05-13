@@ -2006,7 +2006,13 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 			return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
 		diskInfo.Path = disk.GetPath()
-		return disk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
+		ret, err := disk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
+		if utils.IsInStringArray(disk.GetType(), []string{api.STORAGE_SLVM, api.STORAGE_CLVM}) {
+			if errDeactive := lvmutils.LVDeactivate(diskPath); err != nil {
+				log.Errorf("failed deactive disk %s: %s", diskPath, errDeactive)
+			}
+		}
+		return ret, err
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
 	}
@@ -3352,6 +3358,7 @@ func (s *SKVMGuestInstance) IsSharedStorage() bool {
 }
 
 func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []*desc.SGuestDisk) (string, error) {
+	slvmImages := map[string]string{}
 	cmd := " "
 	for i := range disks {
 		diskPath := disks[i].Path
@@ -3359,11 +3366,20 @@ func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []*desc.SGuestDisk) (
 		if err != nil {
 			return "", errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
+		if d.GetType() == api.STORAGE_SLVM && disks[i].TemplateId != "" {
+			slvmImages[disks[i].StorageId] = disks[i].TemplateId
+		}
 		if len(disks[i].StorageType) == 0 {
 			disks[i].StorageType = d.GetType()
 		}
 		diskIndex := disks[i].Index
 		cmd += d.GetDiskSetupScripts(int(diskIndex))
+	}
+
+	for storageId, imageId := range slvmImages {
+		storage := storageman.GetManager().GetStorage(storageId)
+		imageCacheManager := storageman.GetManager().GetStoragecacheById(storage.GetStoragecacheId())
+		imageCacheManager.LoadImageCache(imageId)
 	}
 	return cmd, nil
 }
