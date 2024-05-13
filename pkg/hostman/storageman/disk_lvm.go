@@ -75,7 +75,7 @@ func (d *SLVMDisk) GetPath() string {
 
 // The LVM logical volume name is limited to 64 characters.
 func (d *SLVMDisk) GetSnapshotName(snapshotId string) string {
-	return "snap_" + d.Id + snapshotId
+	return "snap_" + d.Id + "_" + snapshotId
 }
 
 func (d *SLVMDisk) GetSnapshotPath(snapshotId string) string {

@@ -248,7 +248,7 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask, deactivateImage bool) error {
 	type contentStruct struct {
 		ImageId        string
 		StoragecacheId string
@@ -268,6 +268,9 @@ func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *model
 
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.Marshal(&content), "disk")
+	if deactivateImage {
+		body.Add(jsonutils.JSONTrue, "deactivate_image")
+	}
 
 	header := task.GetTaskRequestHeader()
 
