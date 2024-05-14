@@ -1,4 +1,4 @@
 #FROM registry.cn-beijing.aliyuncs.com/yunionio/webconsole-base:20230731.2
-FROM registry.cn-beijing.aliyuncs.com/swordqiu/webconsole-base:20240511
+FROM registry.cn-beijing.aliyuncs.com/yunionio/webconsole-base:20240514.0
 
 ADD ./_output/alpine-build/bin/webconsole /opt/yunion/bin/webconsole
