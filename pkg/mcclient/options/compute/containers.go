@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"os"
 	"strconv"
 	"strings"
 
@@ -220,6 +221,15 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 				vm.Disk.Overlay = &apis.ContainerVolumeMountDiskOverlay{
 					UseDiskImage: true,
 				}
+			}
+		case "text_file":
+			content, err := os.ReadFile(val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "read file %s", val)
+			}
+			vm.Type = apis.CONTAINER_VOLUME_MOUNT_TYPE_TEXT
+			vm.Text = &apis.ContainerVolumeMountText{
+				Content: string(content),
 			}
 		}
 	}

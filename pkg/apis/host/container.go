@@ -31,6 +31,7 @@ type ContainerVolumeMount struct {
 	Type     apis.ContainerVolumeMountType      `json:"type"`
 	Disk     *ContainerVolumeMountDisk          `json:"disk"`
 	HostPath *apis.ContainerVolumeMountHostPath `json:"host_path"`
+	Text     *apis.ContainerVolumeMountText     `json:"text"`
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	ReadOnly bool `json:"read_only"`
 	// Path within the container at which the volume should be mounted.  Must

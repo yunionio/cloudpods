@@ -83,6 +83,7 @@ type ContainerVolumeMountType string
 const (
 	CONTAINER_VOLUME_MOUNT_TYPE_DISK      ContainerVolumeMountType = "disk"
 	CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH ContainerVolumeMountType = "host_path"
+	CONTAINER_VOLUME_MOUNT_TYPE_TEXT      ContainerVolumeMountType = "text"
 )
 
 type ContainerDeviceType string
@@ -113,6 +114,7 @@ type ContainerVolumeMount struct {
 	Type     ContainerVolumeMountType      `json:"type"`
 	Disk     *ContainerVolumeMountDisk     `json:"disk"`
 	HostPath *ContainerVolumeMountHostPath `json:"host_path"`
+	Text     *ContainerVolumeMountText     `json:"text"`
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	ReadOnly bool `json:"read_only"`
 	// Path within the container at which the volume should be mounted.  Must
@@ -177,4 +179,8 @@ const (
 type ContainerVolumeMountHostPath struct {
 	Type ContainerVolumeMountHostPathType `json:"type"`
 	Path string                           `json:"path"`
+}
+
+type ContainerVolumeMountText struct {
+	Content string `json:"content"`
 }
