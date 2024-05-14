@@ -124,7 +124,7 @@ func (as *SAppSite) GetStack() (string, error) {
 	if len(as.stack) > 0 {
 		return as.stack, nil
 	}
-	res := fmt.Sprintf("%s/config/metadata", as.Id)
+	res := fmt.Sprintf("%s/config/metadata/list", as.Id)
 	resp, err := as.region.post_v2(res, "2023-12-01", nil)
 	if err != nil {
 		return "", nil
@@ -267,14 +267,61 @@ func (a *SAppSite) GetTechStack() string {
 	if s, ok := techStacks[stack]; ok {
 		return s
 	}
+
+	res := fmt.Sprintf("%s/config", a.Id)
+	resp, err := a.region.list_v2(res, "2023-12-01", nil)
+	if err != nil {
+		return ""
+	}
+	value := []struct {
+		Properties struct {
+			PhpVersion        string
+			PythonVersion     string
+			NodeVersion       string
+			PowerShellVersion string
+			JavaVersion       string
+		}
+	}{}
+	resp.Unmarshal(&value, "value")
+	for _, v := range value {
+		if len(v.Properties.NodeVersion) > 0 {
+			return "Node"
+		}
+		if len(v.Properties.PhpVersion) > 0 {
+			return "PHP"
+		}
+		if len(v.Properties.PowerShellVersion) > 0 {
+			return "PowerShell"
+		}
+		if len(v.Properties.JavaVersion) > 0 {
+			return "Java"
+		}
+	}
 	return stack
 }
 
 func (a *SAppSite) GetOsType() cloudprovider.TOsType {
-	if strings.Contains(strings.ToLower(a.GetTechStack()), "net") {
-		return cloudprovider.OsTypeWindows
+	res := fmt.Sprintf("%s/config", a.Id)
+	resp, err := a.region.list_v2(res, "2023-12-01", nil)
+	if err != nil {
+		return cloudprovider.OsTypeLinux
 	}
-	return cloudprovider.OsTypeLinux
+	value := []struct {
+		Properties struct {
+			LinuxFxVersion   string
+			WindowsFxVersion string
+		}
+	}{}
+	resp.Unmarshal(&value, "value")
+	for _, v := range value {
+		if len(v.Properties.LinuxFxVersion) > 0 {
+			return cloudprovider.OsTypeLinux
+		}
+		if len(v.Properties.WindowsFxVersion) > 0 {
+			return cloudprovider.OsTypeWindows
+		}
+	}
+	return cloudprovider.OsTypeWindows
 }
 
 func (self *SAppSite) SetTags(tags map[string]string, replace bool) error {
