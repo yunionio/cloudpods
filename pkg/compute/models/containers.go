@@ -317,6 +317,7 @@ func (vm *ContainerVolumeMountRelation) ToHostMount() (*hostapi.ContainerVolumeM
 	ret := &hostapi.ContainerVolumeMount{
 		Type:           vm.VolumeMount.Type,
 		Disk:           nil,
+		Text:           vm.VolumeMount.Text,
 		HostPath:       vm.VolumeMount.HostPath,
 		ReadOnly:       vm.VolumeMount.ReadOnly,
 		MountPath:      vm.VolumeMount.MountPath,
