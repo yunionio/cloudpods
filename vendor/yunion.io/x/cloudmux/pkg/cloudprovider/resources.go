@@ -1579,19 +1579,63 @@ type ICloudKafka interface {
 	Delete() error
 }
 
+type AppBackupConfig struct {
+	Enabled               bool
+	FrequencyInterval     int
+	FrequencyUnit         string
+	RetentionPeriodInDays int
+}
+
 type ICloudApp interface {
 	IVirtualResource
 	GetEnvironments() ([]ICloudAppEnvironment, error)
 	GetTechStack() string
-	GetType() string
-	GetKind() string
 	GetOsType() TOsType
+	GetIpAddress() string
+	GetHostname() string
+	GetServerFarm() string
+	GetBackups() ([]IAppBackup, error)
+	GetPublicNetworkAccess() string
+	GetNetworkId() string
+	GetHybirdConnections() ([]IAppHybirdConnection, error)
+	GetCertificates() ([]IAppCertificate, error)
+	GetBackupConfig() AppBackupConfig
+	GetDomains() ([]IAppDomain, error)
+}
+
+type IAppDomain interface {
+	GetGlobalId() string
+	GetName() string
+	GetStatus() string
+	GetSslState() string
+}
+
+type IAppCertificate interface {
+	GetGlobalId() string
+	GetName() string
+	GetSubjectName() string
+	GetIssuer() string
+	GetIssueDate() time.Time
+	GetThumbprint() string
+	GetExpireTime() time.Time
+}
+
+type IAppHybirdConnection interface {
+	GetGlobalId() string
+	GetName() string
+	GetHostname() string
+	GetNamespace() string
+	GetPort() int
+}
+
+type IAppBackup interface {
+	GetGlobalId() string
+	GetName() string
+	GetType() string
 }
 
 type ICloudAppEnvironment interface {
 	IVirtualResource
-	GetInstanceType() (string, error)
-	GetInstanceNumber() (int, error)
 }
 
 type ICloudDBInstanceSku interface {
