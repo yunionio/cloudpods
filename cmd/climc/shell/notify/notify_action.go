@@ -21,12 +21,7 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.NotifyTopic).WithKeyword("notify-topic")
-	cmd.List(new(options.TopicListOptions))
-	cmd.Update(new(options.TopicUpdateOptions))
-	cmd.Show(new(options.TopicOptions))
-	cmd.Perform("add-action", new(options.STopicAddActionInput))
-	cmd.Perform("add-resource", new(options.STopicAddResourceInput))
-	cmd.Perform("remove-action", new(options.STopicAddActionInput))
-	cmd.Perform("remove-resource", new(options.STopicAddResourceInput))
+	cmd := shell.NewResourceCmd(&modules.NotifyAction)
+	cmd.List(new(options.SNotifyActionListInput))
+	cmd.Create(new(options.SNotifyActionCreateInput))
 }

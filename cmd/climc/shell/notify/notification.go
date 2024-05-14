@@ -21,7 +21,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -42,17 +41,17 @@ func init() {
 			err error
 		)
 		if args.Oldsdk {
-			msg := notify.SNotifyMessage{
+			msg := modules.SNotifyMessage{
 				Uid:         args.Receivers,
 				Robots:      args.Robots,
-				ContactType: notify.TNotifyChannel(args.ContactType),
+				ContactType: modules.TNotifyChannel(args.ContactType),
 				Topic:       args.TOPIC,
-				Priority:    notify.TNotifyPriority(args.Priority),
+				Priority:    modules.TNotifyPriority(args.Priority),
 				Msg:         args.MESSAGE,
 				Remark:      "",
 				Broadcast:   false,
 			}
-			err = notify.Notifications.Send(s, msg)
+			err = modules.Notifications.Send(s, msg)
 			if err != nil {
 				return err
 			}
