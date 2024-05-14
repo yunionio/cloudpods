@@ -132,7 +132,58 @@ func (self *SAzureClient) list_v2(resource, apiVersion string, params url.Values
 	return self._list_v2(SERVICE_MANAGEMENT, resource, apiVersion, params)
 }
 
+func (self *SAzureClient) post_v2(resource, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self._post_v2(SERVICE_MANAGEMENT, resource, apiVersion, body)
+}
+
 func (self *SAzureClient) _list_v2(service string, resource, apiVersion string, params url.Values) (jsonutils.JSONObject, error) {
+	return self._request_v2(service, httputils.GET, resource, apiVersion, params, nil)
+}
+
+func (self *SAzureClient) _post_v2(service string, resource, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self._request_v2(service, httputils.POST, resource, apiVersion, nil, body)
+}
+
+func (self *SAzureClient) _request_v2(service string, method httputils.THttpMethod, resource, apiVersion string, params url.Values, body map[string]interface{}) (jsonutils.JSONObject, error) {
+	value := []jsonutils.JSONObject{}
+	for {
+		resp, err := self.__request_v2(service, method, resource, apiVersion, params, body)
+		if err != nil {
+			return nil, err
+		}
+		if !resp.Contains("value") {
+			return resp, nil
+		}
+		part := struct {
+			Value    []jsonutils.JSONObject
+			NextLink string
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		value = append(value, part.Value...)
+		if len(part.Value) == 0 || len(part.NextLink) == 0 {
+			break
+		}
+		link, err := url.Parse(part.NextLink)
+		if err != nil {
+			return nil, errors.Wrapf(err, "url.Parse(%s)", part.NextLink)
+		}
+		token := ""
+		for _, key := range []string{"$skipToken", "$skiptoken"} {
+			_token := link.Query().Get(key)
+			if len(_token) > 0 {
+				token = _token
+			}
+			params.Del(key)
+		}
+		params.Set("$skipToken", token)
+	}
+	return jsonutils.Marshal(map[string]interface{}{"value": value}), nil
+}
+
+func (self *SAzureClient) __request_v2(service string, method httputils.THttpMethod, resource, apiVersion string, params url.Values, body map[string]interface{}) (jsonutils.JSONObject, error) {
 	if params == nil {
 		params = url.Values{}
 	}
@@ -146,10 +197,10 @@ func (self *SAzureClient) _list_v2(service string, resource, apiVersion string, 
 		switch resource {
 		case "subscriptions":
 		case "locations", "resourcegroups", "resources":
-			url = fmt.Sprintf("%s/subscriptions/%s/%s", strings.TrimSuffix(domain, "/"), self.subscriptionId, resource)
+			url = fmt.Sprintf("%s/subscriptions/%s/%s", strings.TrimSuffix(domain, "/"), self._subscriptionId(), resource)
 		default:
 			if !strings.HasPrefix(resource, "/") {
-				url = fmt.Sprintf("%s/subscriptions/%s/providers/%s", strings.TrimSuffix(domain, "/"), self.subscriptionId, resource)
+				url = fmt.Sprintf("%s/subscriptions/%s/providers/%s", strings.TrimSuffix(domain, "/"), self._subscriptionId(), resource)
 			}
 		}
 	}
@@ -161,21 +212,11 @@ func (self *SAzureClient) _list_v2(service string, resource, apiVersion string, 
 		}
 		url += fmt.Sprintf("?%s", params.Encode())
 	}
-	_, resp, err := httputils.JSONRequest(self, self.ctx, httputils.GET, url, nil, nil, self.debug)
-	return resp, err
-}
-
-func (self *SAzureClient) post_v2(resource, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self._post_v2("", resource, apiVersion, body)
-}
-
-func (self *SAzureClient) _post_v2(service string, resource, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
-	domain := azServices[service][self.envName]
-	url := fmt.Sprintf("%s/%s", domain, resource)
-	if len(apiVersion) > 0 {
-		url += fmt.Sprintf("?api-version=%s", apiVersion)
+	var input jsonutils.JSONObject = nil
+	if body != nil {
+		input = jsonutils.Marshal(body)
 	}
-	_, resp, err := httputils.JSONRequest(self, self.ctx, httputils.POST, url, nil, jsonutils.Marshal(body), self.debug)
+	_, resp, err := httputils.JSONRequest(self, self.ctx, method, url, nil, input, self.debug)
 	return resp, err
 }
 
