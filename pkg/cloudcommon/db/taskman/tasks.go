@@ -114,8 +114,8 @@ type STask struct {
 
 	Stage string `width:"64" charset:"ascii" nullable:"false" default:"on_init" list:"user"` // Column(VARCHAR(64, charset='ascii'), nullable=False, default='on_init')
 
-	// 父任务时间
-	ParentTaskId string `width:"36" charset:"ascii" primary:"true" list:"user" index:"true" json:"parent_task_id"`
+	// 父任务Id
+	ParentTaskId string `width:"36" charset:"ascii" list:"user" index:"true" json:"parent_task_id"`
 
 	taskObject  db.IStandaloneModel   `ignore:"true"`
 	taskObjects []db.IStandaloneModel `ignore:"true"`
