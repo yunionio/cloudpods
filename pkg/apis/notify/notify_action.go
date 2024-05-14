@@ -14,17 +14,8 @@
 
 package notify
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/notify"
-)
+import "yunion.io/x/onecloud/pkg/apis"
 
-func init() {
-	cmd := shell.NewResourceCmd(&modules.NotifyTopic).WithKeyword("notify-topic")
-	cmd.List(new(options.TopicListOptions))
-	cmd.Update(new(options.TopicUpdateOptions))
-	cmd.Show(new(options.TopicOptions))
-	cmd.Perform("add-action", new(options.STopicAddActionInput))
-	cmd.Perform("add-resource", new(options.STopicAddResourceInput))
+type SNotifyActionCreateInput struct {
+	apis.SEnabledResourceBase
 }

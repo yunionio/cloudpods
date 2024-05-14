@@ -67,3 +67,29 @@ func (opts *TopicUpdateOptions) Params() (jsonutils.JSONObject, error) {
 func (so *TopicUpdateOptions) GetId() string {
 	return so.ID
 }
+
+type STopicAddActionInput struct {
+	ID        string
+	ACTION_ID string
+}
+
+func (opt *STopicAddActionInput) GetId() string {
+	return opt.ID
+}
+
+func (rl *STopicAddActionInput) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(rl)
+}
+
+type STopicAddResourceInput struct {
+	ID          string
+	RESOURCE_ID string
+}
+
+func (opt *STopicAddResourceInput) GetId() string {
+	return opt.ID
+}
+
+func (rl *STopicAddResourceInput) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(rl)
+}

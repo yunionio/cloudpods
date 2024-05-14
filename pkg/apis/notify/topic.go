@@ -74,3 +74,13 @@ type PerformDisableInput struct {
 
 type STopicGroupKeys []string
 type TopicAdvanceDays []int
+
+type STopicActionCreateInput struct {
+	TopicId  string
+	ActionId string
+}
+
+type STopicResourceCreateInput struct {
+	TopicId    string
+	ResourceId string
+}
