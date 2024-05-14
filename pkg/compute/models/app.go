@@ -46,6 +46,7 @@ type SAppManager struct {
 
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
+	SNetworkResourceBaseManager
 }
 
 type SApp struct {
@@ -55,10 +56,14 @@ type SApp struct {
 
 	SManagedResourceBase
 	SCloudregionResourceBase
+	SNetworkResourceBase
 
-	Type      string `width:"16" charset:"ascii" nullable:"false" get:"user" list:"user"`
-	TechStack string `width:"64" charset:"ascii" nullable:"false" get:"user" list:"user"`
-	Kind      string `width:"64" charset:"ascii" nullable:"false" get:"user" list:"user"`
+	TechStack           string `width:"64" charset:"ascii" nullable:"false" get:"user" list:"user"`
+	OsType              string `width:"12" charset:"ascii" nullable:"true" get:"user" list:"user"`
+	IpAddr              string `width:"32" charset:"ascii" nullable:"true" list:"user"`
+	Hostname            string `width:"256" charset:"utf8" nullable:"true" list:"user"`
+	ServerFarm          string `width:"64" charset:"utf8" nullable:"true" list:"user"`
+	PublicNetworkAccess string `width:"32" charset:"utf8" nullable:"true" list:"user"`
 }
 
 var AppManager *SAppManager
@@ -73,10 +78,6 @@ func init() {
 		),
 	}
 	AppManager.SetVirtualObject(AppManager)
-}
-
-func (am *SAppManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (am *SAppManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.AppListInput) (*sqlchemy.SQuery, error) {
@@ -277,11 +278,29 @@ func (self *SCloudregion) newFromCloudApp(ctx context.Context, userCred mcclient
 	app.ManagerId = provider.Id
 	app.IsEmulated = ext.IsEmulated()
 	app.Status = ext.GetStatus()
-	app.Type = ext.GetType()
-	app.Kind = ext.GetKind()
 	app.TechStack = ext.GetTechStack()
 	app.Name = ext.GetName()
 	app.Enabled = tristate.True
+	app.OsType = string(ext.GetOsType())
+	app.IpAddr = ext.GetIpAddress()
+	app.Hostname = ext.GetHostname()
+	app.ServerFarm = ext.GetServerFarm()
+	app.PublicNetworkAccess = ext.GetPublicNetworkAccess()
+
+	if netId := ext.GetNetworkId(); len(netId) > 0 {
+		network, err := db.FetchByExternalIdAndManagerId(NetworkManager, netId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wire := WireManager.Query().SubQuery()
+			vpc := VpcManager.Query().SubQuery()
+			return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+				Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
+		})
+		if err != nil {
+			log.Errorf("fetch network %s error: %v", netId, err)
+		} else {
+			app.NetworkId = network.GetId()
+		}
+	}
 
 	err := AppManager.TableSpec().Insert(ctx, &app)
 	if err != nil {
@@ -321,6 +340,10 @@ func (am *SAppManager) purgeAll(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
+func (a *SApp) GetChangeOwnerCandidateDomainIds() []string {
+	return nil
+}
+
 func (a *SApp) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	aes, err := a.GetAppEnvironments()
 	if err != nil {
@@ -351,9 +374,28 @@ func (a *SApp) SyncWithCloudApp(ctx context.Context, userCred mcclient.TokenCred
 	diff, err := db.UpdateWithLock(ctx, a, func() error {
 		a.ExternalId = ext.GetGlobalId()
 		a.Status = ext.GetStatus()
-		a.Type = ext.GetType()
-		a.Kind = ext.GetKind()
 		a.TechStack = ext.GetTechStack()
+		a.OsType = string(ext.GetOsType())
+		a.IpAddr = ext.GetIpAddress()
+		a.Hostname = ext.GetHostname()
+		a.ServerFarm = ext.GetServerFarm()
+		a.PublicNetworkAccess = ext.GetPublicNetworkAccess()
+
+		if netId := ext.GetNetworkId(); len(netId) > 0 && len(a.NetworkId) == 0 {
+			network, err := db.FetchByExternalIdAndManagerId(NetworkManager, netId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				wire := WireManager.Query().SubQuery()
+				vpc := VpcManager.Query().SubQuery()
+				return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+					Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+					Filter(sqlchemy.Equals(vpc.Field("manager_id"), provider.Id))
+			})
+			if err != nil {
+				log.Errorf("fetch network %s error: %v", netId, err)
+			} else {
+				a.NetworkId = network.GetId()
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -384,10 +426,14 @@ func (am *SAppManager) FetchCustomizeColumns(ctx context.Context, userCred mccli
 	virtRows := am.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := am.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := am.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	netRows := am.SNetworkResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i].VirtualResourceDetails = virtRows[i]
 		rows[i].ManagedResourceInfo = manRows[i]
 		rows[i].CloudregionResourceInfo = regRows[i]
+		rows[i].Network = netRows[i].Network
+		rows[i].VpcId = netRows[i].VpcId
+		rows[i].Vpc = netRows[i].Vpc
 	}
 	return rows
 }
@@ -406,7 +452,7 @@ func (a *SApp) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (a *SApp) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
-	region, err := a.GetRegion()
+	region, err := a.SCloudregionResourceBase.GetRegion()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRegion")
 	}
@@ -458,4 +504,108 @@ func (self *SApp) OnMetadataUpdated(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
+}
+
+// 获取混合连接
+func (self *SApp) GetDetailsHybirdConnections(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.AppHybirdConnectionOutput, error) {
+	iApp, err := self.GetIApp(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret := &api.AppHybirdConnectionOutput{
+		Data: []api.AppHybirdConnection{},
+	}
+	connections, err := iApp.GetHybirdConnections()
+	if err != nil {
+		return nil, err
+	}
+	for _, conn := range connections {
+		ret.Data = append(ret.Data, api.AppHybirdConnection{
+			Id:        conn.GetGlobalId(),
+			Name:      conn.GetName(),
+			Hostname:  conn.GetHostname(),
+			Namespace: conn.GetNamespace(),
+			Port:      conn.GetPort(),
+		})
+	}
+	return ret, nil
+}
+
+// 获取备份列表
+func (self *SApp) GetDetailsBackups(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.AppBackupOutput, error) {
+	iApp, err := self.GetIApp(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret := &api.AppBackupOutput{
+		Data: []api.AppBackup{},
+	}
+
+	backups, err := iApp.GetBackups()
+	if err != nil {
+		return nil, err
+	}
+	for _, backup := range backups {
+		ret.Data = append(ret.Data, api.AppBackup{
+			Id:   backup.GetGlobalId(),
+			Name: backup.GetName(),
+			Type: backup.GetType(),
+		})
+	}
+	opts := iApp.GetBackupConfig()
+	jsonutils.Update(&ret.BackupConfig, opts)
+	return ret, nil
+}
+
+// 获取证书列表
+func (self *SApp) GetDetailsCertificates(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.AppCertificateOutput, error) {
+	iApp, err := self.GetIApp(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret := &api.AppCertificateOutput{
+		Data: []api.AppCertificate{},
+	}
+
+	certs, err := iApp.GetCertificates()
+	if err != nil {
+		return nil, err
+	}
+	for _, cert := range certs {
+		ret.Data = append(ret.Data, api.AppCertificate{
+			Id:          cert.GetGlobalId(),
+			Name:        cert.GetName(),
+			SubjectName: cert.GetSubjectName(),
+			Issuer:      cert.GetIssuer(),
+			IssueDate:   cert.GetIssueDate(),
+			Thumbprint:  cert.GetThumbprint(),
+			ExpireTime:  cert.GetExpireTime(),
+		})
+	}
+	return ret, nil
+}
+
+// 获取自定义域列表
+func (self *SApp) GetDetailsDomains(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.AppDomainOutput, error) {
+	iApp, err := self.GetIApp(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret := &api.AppDomainOutput{
+		Data: []api.AppDomain{},
+	}
+
+	domains, err := iApp.GetDomains()
+	if err != nil {
+		return nil, err
+	}
+	for _, domain := range domains {
+		ret.Data = append(ret.Data, api.AppDomain{
+			Id:       domain.GetGlobalId(),
+			Name:     domain.GetName(),
+			Status:   domain.GetStatus(),
+			SslState: domain.GetSslState(),
+		})
+	}
+	return ret, nil
 }

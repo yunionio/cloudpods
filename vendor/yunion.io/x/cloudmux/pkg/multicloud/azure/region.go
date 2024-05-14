@@ -44,8 +44,7 @@ type SRegion struct {
 	multicloud.SRegion
 	client *SAzureClient
 
-	storageCache    *SStoragecache
-	appServicePlans map[string]*SAppServicePlan
+	storageCache *SStoragecache
 
 	ID          string
 	Name        string
@@ -650,13 +649,24 @@ func (self *SRegion) list(resource string, params url.Values, retVal interface{}
 	return jsonutils.Update(retVal, ret)
 }
 
-func (self *SRegion) list_v2(resource string, apiVersion string, params url.Values) (jsonutils.JSONObject, error) {
+func (self *SRegion) list_resources(resource string, apiVersion string, params url.Values) (jsonutils.JSONObject, error) {
 	if gotypes.IsNil(params) {
 		params = url.Values{}
 	}
 	params.Add("$filter", fmt.Sprintf("location eq '%s'", self.Name))
 	params.Add("$filter", fmt.Sprintf("resourceType eq '%s'", resource))
 	return self.client.list_v2("resources", apiVersion, params)
+}
+
+func (self *SRegion) list_v2(resource string, apiVersion string, params url.Values) (jsonutils.JSONObject, error) {
+	if gotypes.IsNil(params) {
+		params = url.Values{}
+	}
+	return self.client.list_v2(resource, apiVersion, params)
+}
+
+func (self *SRegion) post_v2(resource string, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.post_v2(resource, apiVersion, body)
 }
 
 func (self *SRegion) show(resource string, apiVersion string) (jsonutils.JSONObject, error) {

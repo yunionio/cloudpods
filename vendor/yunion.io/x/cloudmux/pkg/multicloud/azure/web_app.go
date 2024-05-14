@@ -16,12 +16,13 @@ package azure
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -29,56 +30,58 @@ import (
 type SAppSite struct {
 	multicloud.SResourceBase
 	AzureTags
-	region         *SRegion
-	appServicePlan *SAppServicePlan
+	region *SRegion
 
-	Properties SAppSiteProperties
+	Properties *SAppSiteProperties
 	Id         string
 	Name       string
 	Kind       string
 	Location   string
 	Type       string
+	stack      string
+}
 
-	stack *string
+type HostNameSslState struct {
+	Name     string
+	SslState string
+	Status   string
+}
+
+func (self *HostNameSslState) GetGlobalId() string {
+	return self.Name
+}
+
+func (self *HostNameSslState) GetName() string {
+	return self.Name
+}
+
+func (self *HostNameSslState) GetStatus() string {
+	return self.Status
+}
+
+func (self *HostNameSslState) GetSslState() string {
+	return self.SslState
 }
 
 type SAppSiteProperties struct {
-	AvailabilityState   string
-	DefaultHostName     string
-	Enabled             bool
-	EnabledHostNames    []string
-	HostNameSslStates   []SHostNameSslState
-	HostNames           []string
-	HttpsOnly           bool
-	OutboundIpAddresses string
-	ResourceGroup       string
-	ServerFarmId        string
-	SiteConfig          SSiteConfig
-	State               string
-}
-
-type SSiteConfig struct {
-	// TODO
-}
-
-type SHostNameSslState struct {
-	HostType   string
-	Name       string
-	SslState   string
-	Thumbprint string
-	ToUpdate   bool
-	VirtualIP  string
+	DefaultHostName        string
+	InboundIpAddress       string
+	ServerFarmId           string
+	PublicNetworkAccess    string
+	VirtualNetworkSubnetId string
+	HostNames              []string
+	HostNameSslStates      []HostNameSslState
 }
 
 func (r *SRegion) GetAppSites() ([]SAppSite, error) {
-	result := []SAppSite{}
-	resource := "Microsoft.Web/sites"
-	err := r.list(resource, url.Values{"api-version": []string{"2019-08-01"}}, &result)
+	resp, err := r.list_resources("Microsoft.Web/sites", "2019-08-01", nil)
 	if err != nil {
 		return nil, err
 	}
-	for i := range result {
-		result[i].region = r
+	result := []SAppSite{}
+	err = resp.Unmarshal(&result, "value")
+	if err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -90,9 +93,8 @@ func (r *SRegion) GetICloudApps() ([]cloudprovider.ICloudApp, error) {
 	}
 	apps := make([]cloudprovider.ICloudApp, 0, len(ass))
 	for i := range ass {
-		apps = append(apps, &SApp{
-			SAppSite: ass[i],
-		})
+		ass[i].region = r
+		apps = append(apps, &ass[i])
 	}
 	return apps, nil
 }
@@ -102,101 +104,128 @@ func (r *SRegion) GetICloudAppById(id string) (cloudprovider.ICloudApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SApp{
-		SAppSite: *as,
-	}, nil
-}
-
-func (as *SAppSite) GetSlots() ([]SAppSite, error) {
-	result := []SAppSite{}
-	resource := fmt.Sprintf("subscriptions/%s/resourceGroups/%s/providers/Microsoft.Web/sites/%s/slots", as.region.client.subscriptionId, as.Properties.ResourceGroup, as.Name)
-	err := as.region.list(resource, url.Values{"api-version": []string{"2019-08-01"}}, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+	return as, nil
 }
 
 func (r *SRegion) GetAppSite(siteId string) (*SAppSite, error) {
-	as := &SAppSite{region: r}
-	params := url.Values{"api-version": []string{"2019-08-01"}}
-	return as, r.get(siteId, params, as)
-}
-
-func (as *SAppSite) GetAppServicePlan() (*SAppServicePlan, error) {
-	if as.appServicePlan != nil {
-		return as.appServicePlan, nil
-	}
-	plan, err := as.region.GetAppServicePlanWithCache(as.Properties.ServerFarmId)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get AppServicePlan")
-	}
-	as.appServicePlan = plan
-	return plan, nil
-}
-
-type SDeployment struct {
-	ID         string
-	Name       string
-	Kind       string
-	Type       string
-	Properties SDeploymentProperties
-}
-
-type SDeploymentProperties struct {
-	Active      bool
-	Author      string
-	AuthorEmail string
-	Deployer    string
-	Details     string
-	EndTime     string
-	Message     string
-	StartTime   string
-	Status      string
-}
-
-func (as *SAppSite) GetDeployments() ([]SDeployment, error) {
-	result := []SDeployment{}
-	resource := fmt.Sprintf("subscriptions/%s/resourceGroups/%s/providers/Microsoft.Web/sites/%s/deployments", as.region.client._subscriptionId(), as.Properties.ResourceGroup, as.Name)
-	err := as.region.client.list(resource, url.Values{"api-version": []string{"2019-08-01"}}, &result)
+	resp, err := r.show(siteId, "2023-12-01")
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
-}
-
-type SStringDictionary struct {
-	Id         string
-	Kind       string
-	Name       string
-	Type       string
-	Properties map[string]string
+	as := &SAppSite{region: r}
+	err = resp.Unmarshal(as)
+	if err != nil {
+		return nil, err
+	}
+	return as, nil
 }
 
 func (as *SAppSite) GetStack() (string, error) {
-	if as.stack != nil {
-		return *as.stack, nil
+	if len(as.stack) > 0 {
+		return as.stack, nil
 	}
-	// result := SStringDictionary{}
-	resource := fmt.Sprintf("subscriptions/%s/resourceGroups/%s/providers/Microsoft.Web/sites/%s/config/metadata", as.region.client.subscriptionId, as.Properties.ResourceGroup, as.Name)
-
-	params := url.Values{}
-	params.Set("api-version", "2019-08-01")
-	path := resource + "/list"
-	response, err := as.region.client.jsonRequest("POST", path, nil, params, true)
+	res := fmt.Sprintf("%s/config/metadata", as.Id)
+	resp, err := as.region.post_v2(res, "2023-12-01", nil)
 	if err != nil {
-		return "", err
+		return "", nil
 	}
-	stack, err := response.GetString("properties", "CURRENT_STACK")
+	ret := struct {
+		Properties struct {
+			CurrentStack string
+		}
+	}{}
+	err = resp.Unmarshal(&ret)
 	if err != nil {
-		return "", errors.Wrapf(err, "unable to parse response correctly, response: %s", response)
+		return "", nil
 	}
-	as.stack = &stack
-	return stack, nil
+	as.stack = ret.Properties.CurrentStack
+	return ret.Properties.CurrentStack, nil
 }
 
 func (as *SAppSite) GetId() string {
 	return as.Id
+}
+
+func (as *SAppSite) GetProperties() (*SAppSiteProperties, error) {
+	if as.Properties != nil {
+		return as.Properties, nil
+	}
+	app, err := as.region.GetAppSite(as.Id)
+	if err != nil {
+		return nil, err
+	}
+	as.Properties = app.Properties
+	return as.Properties, nil
+}
+
+func (as *SAppSite) GetIpAddress() string {
+	properties, err := as.GetProperties()
+	if err != nil {
+		return ""
+	}
+	return properties.InboundIpAddress
+}
+
+func (as *SAppSite) GetHostname() string {
+	properties, err := as.GetProperties()
+	if err != nil {
+		return ""
+	}
+	return properties.DefaultHostName
+}
+
+func (as *SAppSite) GetPublicNetworkAccess() string {
+	properties, err := as.GetProperties()
+	if err != nil {
+		return ""
+	}
+	return properties.PublicNetworkAccess
+}
+
+func (as *SAppSite) GetServerFarm() string {
+	properties, err := as.GetProperties()
+	if err != nil {
+		return ""
+	}
+	if len(properties.ServerFarmId) == 0 {
+		return ""
+	}
+	farm, err := as.region.GetServicePlan(properties.ServerFarmId)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s(%s:%d)", farm.Name, farm.Sku.Name, farm.Sku.Capacity)
+}
+
+func (as *SAppSite) GetBackups() ([]cloudprovider.IAppBackup, error) {
+	backups, err := as.region.GetAppBackups(as.Id)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.IAppBackup{}
+	for i := range backups {
+		backups[i].Type = "manual"
+		ret = append(ret, &backups[i])
+	}
+	snapshots, err := as.region.GetAppSnapshots(as.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range snapshots {
+		snapshots[i].Type = "auto"
+		ret = append(ret, &snapshots[i])
+	}
+
+	return ret, nil
+}
+
+func (as *SAppSite) GetNetworkId() string {
+	properties, err := as.GetProperties()
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(properties.VirtualNetworkSubnetId)
 }
 
 func (as *SAppSite) GetName() string {
@@ -212,51 +241,7 @@ func (as *SAppSite) GetStatus() string {
 }
 
 func (as *SAppSite) GetProjectId() string {
-	return strings.ToLower(as.Properties.ResourceGroup)
-}
-
-type SApp struct {
-	SAppSite
-}
-
-type SAppEnvironment struct {
-	multicloud.SResourceBase
-	AzureTags
-	SAppSite
-}
-
-func (ae *SAppEnvironment) GetInstanceType() (string, error) {
-	asp, err := ae.SAppSite.GetAppServicePlan()
-	if err != nil {
-		return "", err
-	}
-	return asp.Sku.Name, nil
-}
-
-func (ae *SAppEnvironment) GetInstanceNumber() (int, error) {
-	asp, err := ae.SAppSite.GetAppServicePlan()
-	if err != nil {
-		return 0, err
-	}
-	return asp.Sku.Capacity, nil
-}
-
-func (a *SApp) GetEnvironments() ([]cloudprovider.ICloudAppEnvironment, error) {
-	sites, err := a.SAppSite.GetSlots()
-	if err != nil {
-		return nil, err
-	}
-	aes := make([]cloudprovider.ICloudAppEnvironment, 0, len(sites)+1)
-	aes = append(aes, &SAppEnvironment{
-		SAppSite: a.SAppSite,
-	})
-	for i := range sites {
-		sites[i].region = a.region
-		aes = append(aes, &SAppEnvironment{
-			SAppSite: sites[i],
-		})
-	}
-	return aes, nil
+	return getResourceGroup(as.Id)
 }
 
 var techStacks = map[string]string{
@@ -271,8 +256,8 @@ var techStacks = map[string]string{
 	"javacontainers": "Jave Containers",
 }
 
-func (a *SApp) GetTechStack() string {
-	if strings.Contains(a.SAppSite.Kind, "container") {
+func (a *SAppSite) GetTechStack() string {
+	if strings.Contains(a.Kind, "container") {
 		return "Docker container"
 	}
 	stack, err := a.GetStack()
@@ -285,22 +270,14 @@ func (a *SApp) GetTechStack() string {
 	return stack
 }
 
-func (a *SApp) GetType() string {
-	return "web"
-}
-
-func (a *SApp) GetKind() string {
-	return a.Kind
-}
-
-func (a *SApp) GetOsType() cloudprovider.TOsType {
-	if strings.Contains(a.Kind, "linux") {
-		return cloudprovider.OsTypeLinux
+func (a *SAppSite) GetOsType() cloudprovider.TOsType {
+	if strings.Contains(strings.ToLower(a.GetTechStack()), "net") {
+		return cloudprovider.OsTypeWindows
 	}
-	return cloudprovider.OsTypeWindows
+	return cloudprovider.OsTypeLinux
 }
 
-func (self *SApp) SetTags(tags map[string]string, replace bool) error {
+func (self *SAppSite) SetTags(tags map[string]string, replace bool) error {
 	if !replace {
 		for k, v := range self.Tags {
 			if _, ok := tags[k]; !ok {
@@ -313,4 +290,46 @@ func (self *SApp) SetTags(tags map[string]string, replace bool) error {
 		return errors.Wrapf(err, "SetTags")
 	}
 	return nil
+}
+
+func (self *SAppSite) GetDomains() ([]cloudprovider.IAppDomain, error) {
+	properties, err := self.GetProperties()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.IAppDomain{}
+	for i := range properties.HostNameSslStates {
+		domain := properties.HostNameSslStates[i]
+		if !utils.IsInStringArray(domain.Name, properties.HostNames) {
+			continue
+		}
+		domain.Status = "no_bind"
+		if domain.Name == properties.DefaultHostName {
+			domain.Status = apis.STATUS_AVAILABLE
+		}
+		ret = append(ret, &domain)
+	}
+	return ret, nil
+}
+
+type SAppServicePlan struct {
+	Id   string
+	Name string
+	Sku  struct {
+		Name     string
+		Capacity int
+	}
+}
+
+func (self *SRegion) GetServicePlan(farmId string) (*SAppServicePlan, error) {
+	resp, err := self.show(farmId, "2023-12-01")
+	if err != nil {
+		return nil, err
+	}
+	ret := &SAppServicePlan{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
