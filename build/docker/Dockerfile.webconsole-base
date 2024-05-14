@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/kubectl:1.18.6
+FROM registry.cn-beijing.aliyuncs.com/yunionio/kubectl:1.22.9
 
 MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
 

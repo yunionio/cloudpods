@@ -1,4 +1,9 @@
-FROM alpine:3.11
+FROM alpine:3.19
+
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETARCH
 
 RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >>/etc/apk/repositories
-RUN apk update && apk add kubectl && rm -rf /var/cache/apk/*
+RUN apk update && apk add curl android-tools && rm -rf /var/cache/apk/*
+RUN curl https://iso.yunion.cn/binaries/kubernetes-release/release/v1.22.9/bin/linux/${TARGETARCH}/kubectl -o /usr/bin/kubectl && chmod a+x /usr/bin/kubectl

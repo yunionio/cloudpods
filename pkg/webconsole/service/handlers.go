@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/regutils"
 
+	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
@@ -59,6 +60,7 @@ func initHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
 	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
 	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
+	app.AddHandler("POST", ApiPathPrefix+"adb/<id>/shell", auth.Authenticate(handleAdbShell))
 	app.AddHandler("POST", ApiPathPrefix+"server-rdp/<id>", auth.Authenticate(handleServerRemoteRDPConsole))
 	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/list", server.HandleSftpList)
 	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/download", server.HandleSftpDownload)
@@ -397,4 +399,71 @@ func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {
 		ret.Add(body, "webconsole")
 	}
 	appsrv.SendJSON(w, ret)
+}
+
+func handleAdbShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	env, err := fetchCloudEnv(ctx, w, r)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	serverId := env.Params["<id>"]
+	serverDetails := compute_api.ServerDetails{}
+	resp, err := modules.Servers.GetById(env.ClientSessin, serverId, nil)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	err = resp.Unmarshal(&serverDetails)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+
+	adbPort := -1
+	// {\"container_port\":5555,\"host_port\":23888,\"protocol\":\"tcp\"}
+	type sPortMapping struct {
+		ContainerPort int    `json:"container_port"`
+		HostPort      int    `json:"host_port"`
+		Protocol      string `json:"protocol"`
+	}
+	if pmstr, ok := serverDetails.Metadata["port_mappings"]; ok {
+		pmJson, err := jsonutils.ParseString(pmstr)
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
+		portMaps := make([]sPortMapping, 0)
+		err = pmJson.Unmarshal(&portMaps)
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
+		for i := range portMaps {
+			portMap := portMaps[i]
+			if portMap.ContainerPort == 5555 && portMap.Protocol == "tcp" {
+				adbPort = portMap.HostPort
+				break
+			}
+		}
+		if adbPort < 0 {
+			httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError("adb port not found"))
+			return
+		}
+	} else {
+		httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError("porting_mapping not supported"))
+		return
+	}
+
+	info := command.SAdbShellInfo{
+		IpAddr: serverDetails.HostAccessIp,
+		Port:   adbPort,
+	}
+
+	cmd, err := command.NewAdbShellCommand(&info, env.ClientSessin)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	handleCommandSession(ctx, cmd, w)
 }
