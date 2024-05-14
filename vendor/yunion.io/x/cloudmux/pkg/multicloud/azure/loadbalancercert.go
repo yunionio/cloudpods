@@ -139,7 +139,7 @@ func (self *SLoadbalancerCert) GetPrivateKey() string {
 
 func (self *SRegion) GetLoadbalancerCertificates() ([]SLoadbalancerCert, error) {
 	params := url.Values{}
-	resp, err := self.client.list_v2("Microsoft.Network/applicationGateways", "2023-09-01", params)
+	resp, err := self.list_resources("Microsoft.Network/applicationGateways", "2023-09-01", params)
 	if err != nil {
 		return nil, err
 	}
