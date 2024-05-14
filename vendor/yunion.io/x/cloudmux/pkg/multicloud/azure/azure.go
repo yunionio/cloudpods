@@ -81,8 +81,6 @@ type SAzureClient struct {
 	tokenMap    map[string]*Token
 	httpClient  *http.Client
 
-	ressourceGroups []SResourceGroup
-
 	regions  []SRegion
 	iBuckets []cloudprovider.ICloudBucket
 
@@ -152,10 +150,6 @@ func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	}
 	for i := range client.regions {
 		client.regions[i].client = &client
-	}
-	client.ressourceGroups, err = client.ListResourceGroups()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListResourceGroups")
 	}
 	return &client, nil
 }
@@ -807,9 +801,16 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 }
 
 func (self *SAzureClient) ListRegions() ([]SRegion, error) {
+	resp, err := self.list_v2("locations", "2014-02-26", nil)
+	if err != nil {
+		return nil, err
+	}
 	regions := []SRegion{}
-	err := self.list("locations", url.Values{}, &regions)
-	return regions, err
+	err = resp.Unmarshal(&regions, "value")
+	if err != nil {
+		return nil, err
+	}
+	return regions, nil
 }
 
 func (self *SAzureClient) GetRegions() []SRegion {

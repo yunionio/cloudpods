@@ -114,6 +114,8 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		return "Amazon Linux"
 	} else if strings.Contains(osDist, "kylin") {
 		return "Kylin"
+	} else if strings.Contains(osDist, "uos") {
+		return "UOS"
 	} else if strings.Contains(osDist, "windows") {
 		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022"} {
 			if strings.Contains(osDist, ver) {
@@ -154,6 +156,7 @@ var imageVersions = map[string][]string{
 	"Windows":        {"XP", "7", "8", "Vista", "10", "11"},
 
 	"Kylin": {"V10"},
+	"UOS":   {"V20", "20 1050", "1050", "1060", "1070"},
 }
 
 func normalizeOsVersion(imageName string, osDist string, osVersion string) string {
