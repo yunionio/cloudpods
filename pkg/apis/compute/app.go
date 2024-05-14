@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	APP_TYPE_WEB = "web"
@@ -38,6 +42,9 @@ type AppDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	Network string
+	VpcId   string
+	Vpc     string
 }
 
 type AppEnvironmentListInput struct {
@@ -50,4 +57,57 @@ type AppEnvironmentListInput struct {
 
 type AppEnvironmentDetails struct {
 	apis.VirtualResourceDetails
+}
+
+type AppHybirdConnection struct {
+	Id        string
+	Name      string
+	Hostname  string
+	Namespace string
+	Port      int
+}
+
+type AppHybirdConnectionOutput struct {
+	Data []AppHybirdConnection
+}
+
+type AppBackup struct {
+	Id   string
+	Name string
+	Type string
+}
+
+type AppBackupOutput struct {
+	Data         []AppBackup
+	BackupConfig struct {
+		Enabled               bool
+		FrequencyInterval     int
+		FrequencyUnit         string
+		RetentionPeriodInDays int
+	}
+}
+
+type AppCertificate struct {
+	Id          string
+	Name        string
+	SubjectName string
+	Issuer      string
+	IssueDate   time.Time
+	Thumbprint  string
+	ExpireTime  time.Time
+}
+
+type AppCertificateOutput struct {
+	Data []AppCertificate
+}
+
+type AppDomain struct {
+	Id       string
+	Name     string
+	Status   string
+	SslState string
+}
+
+type AppDomainOutput struct {
+	Data []AppDomain
 }
