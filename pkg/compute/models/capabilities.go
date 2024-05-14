@@ -780,12 +780,21 @@ func getStorageTypes(
 		}
 		if len(storage.StorageType) > 0 && len(storage.MediumType) > 0 {
 			storageType := fmt.Sprintf("%s/%s", storage.StorageType, storage.MediumType)
-			_, ok := ret.StorageTypes2[hostDriver.GetHypervisor()]
-			if !ok {
-				ret.StorageTypes2[hostDriver.GetHypervisor()] = []string{}
+			if storage.IsSysDiskStore {
+				_, ok := ret.StorageTypes2[hostDriver.GetHypervisor()]
+				if !ok {
+					ret.StorageTypes2[hostDriver.GetHypervisor()] = []string{}
+				}
+				if !utils.IsInStringArray(storageType, ret.StorageTypes2[hostDriver.GetHypervisor()]) {
+					ret.StorageTypes2[hostDriver.GetHypervisor()] = append(ret.StorageTypes2[hostDriver.GetHypervisor()], storageType)
+				}
 			}
-			if !utils.IsInStringArray(storageType, ret.StorageTypes2[hostDriver.GetHypervisor()]) {
-				ret.StorageTypes2[hostDriver.GetHypervisor()] = append(ret.StorageTypes2[hostDriver.GetHypervisor()], storageType)
+			_, ok := ret.DataStorageTypes2[hostDriver.GetHypervisor()]
+			if !ok {
+				ret.DataStorageTypes2[hostDriver.GetHypervisor()] = []string{}
+			}
+			if !utils.IsInStringArray(storageType, ret.DataStorageTypes2[hostDriver.GetHypervisor()]) {
+				ret.DataStorageTypes2[hostDriver.GetHypervisor()] = append(ret.DataStorageTypes2[hostDriver.GetHypervisor()], storageType)
 			}
 
 			simpleStorage := &SimpleStorageInfo{Storages: []sStorage{}}
