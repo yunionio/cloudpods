@@ -16,36 +16,15 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-const (
-	WAF_RULE_GROUP_STATUS_AVAILABLE = "available"
-	WAF_RULE_GROUP_STATUS_DELETING  = "deleting"
-)
-
 type WafRuleGroupDetails struct {
 	apis.StatusInfrasResourceBaseDetails
 	SWafRuleGroup
+	ManagedResourceInfo
+	CloudregionResourceInfo
 }
 
 type WafRuleGroupListInput struct {
 	apis.StatusInfrasResourceBaseListInput
-
-	// 是否是系统RuleGroup
-	IsSystem *bool `json:"is_system"`
-	// 云平台
-	Provider string `json:"provider"`
-	// 云环境
-	CloudEnv string `json:"cloud_env"`
-}
-
-type WafRuleGroupCacheDetails struct {
-	apis.StatusStandaloneResourceDetails
-	ManagedResourceInfo
-	CloudregionResourceInfo
-	SWafRuleGroupCache
-}
-
-type WafRuleGroupCacheListInput struct {
-	apis.StatusStandaloneResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	ManagedResourceListInput
 	RegionalFilterListInput
