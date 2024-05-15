@@ -115,7 +115,7 @@ func getSnapshotPath(diskId, snapshotId string) string {
 		}
 	}
 	for _, vg := range HostImageOptions.LVMVolumeGroups {
-		diskPath := path.Join("/dev", vg, "snap_"+diskId+snapshotId)
+		diskPath := path.Join("/dev", vg, "snap_"+snapshotId)
 		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
 			return diskPath
 		}
