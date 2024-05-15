@@ -115,7 +115,16 @@ func performImageCache(
 	if performAction == "perfetch" {
 		performTask = storagecache.PrefetchImageCache
 	} else {
-		performTask = storagecache.DeleteImageCache
+		if jsonutils.QueryBoolean(body, "deactivate_image", false) {
+			_, err := storagecache.DeleteImageCache(ctx, body)
+			if err != nil {
+				hostutils.Response(ctx, w, err)
+			}
+			hostutils.ResponseOk(ctx, w)
+			return
+		} else {
+			performTask = storagecache.DeleteImageCache
+		}
 	}
 
 	hostutils.DelayTask(ctx, performTask, disk)

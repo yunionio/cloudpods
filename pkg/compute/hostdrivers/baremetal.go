@@ -107,6 +107,6 @@ func (self *SBaremetalHostDriver) RequestSaveUploadImageOnHost(ctx context.Conte
 	return fmt.Errorf("not supported")
 }
 
-func (self *SBaremetalHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+func (self *SBaremetalHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask, deactivateImage bool) error {
 	return fmt.Errorf("not supported")
 }
