@@ -81,22 +81,20 @@ func (self *SWafRuleStatement) syncWithStatement(ctx context.Context, userCred m
 		switch self.Type {
 		case cloudprovider.WafStatementTypeIPSet:
 			if len(self.IPSetId) > 0 {
-				_cache, err := db.FetchByExternalId(WafIPSetCacheManager, self.IPSetId)
+				ipSet, err := db.FetchByExternalId(WafIPSetManager, self.IPSetId)
 				if err != nil {
-					log.Errorf("WafIPSetCacheManager(%s) error: %v", self.IPSetId, err)
+					log.Errorf("WafIPSetManager(%s) error: %v", self.IPSetId, err)
 				} else {
-					cache := _cache.(*SWafIPSetCache)
-					self.IPSetId = cache.WafIPSetId
+					self.IPSetId = ipSet.GetId()
 				}
 			}
 		case cloudprovider.WafStatementTypeRegexSet:
 			if len(self.RegexSetId) > 0 {
-				_cache, err := db.FetchByExternalId(WafRegexSetCacheManager, self.RegexSetId)
+				regexSet, err := db.FetchByExternalId(WafRegexSetManager, self.RegexSetId)
 				if err != nil {
-					log.Errorf("WafRegexSetCacheManager(%s) error: %v", self.RegexSetId, err)
+					log.Errorf("WafRegexSetManager(%s) error: %v", self.RegexSetId, err)
 				} else {
-					cache := _cache.(*SWafRegexSetCache)
-					self.RegexSetId = cache.WafRegexSetId
+					self.RegexSetId = regexSet.GetId()
 				}
 			}
 		}
@@ -114,22 +112,20 @@ func (self *SWafRule) newFromCloudStatement(ctx context.Context, userCred mcclie
 	switch statement.Type {
 	case cloudprovider.WafStatementTypeIPSet:
 		if len(statement.IPSetId) > 0 {
-			_cache, err := db.FetchByExternalId(WafIPSetCacheManager, statement.IPSetId)
+			ipSet, err := db.FetchByExternalId(WafIPSetManager, statement.IPSetId)
 			if err != nil {
-				log.Errorf("WafIPSetCacheManager(%s) error: %v", statement.IPSetId, err)
+				log.Errorf("WafIPSetManager(%s) error: %v", statement.IPSetId, err)
 			} else {
-				cache := _cache.(*SWafIPSetCache)
-				statement.IPSetId = cache.WafIPSetId
+				statement.IPSetId = ipSet.GetId()
 			}
 		}
 	case cloudprovider.WafStatementTypeRegexSet:
 		if len(statement.RegexSetId) > 0 {
-			_cache, err := db.FetchByExternalId(WafRegexSetCacheManager, statement.RegexSetId)
+			regexSet, err := db.FetchByExternalId(WafRegexSetManager, statement.RegexSetId)
 			if err != nil {
-				log.Errorf("WafRegexSetCacheManager(%s) error: %v", statement.RegexSetId, err)
+				log.Errorf("WafRegexSetManager(%s) error: %v", statement.RegexSetId, err)
 			} else {
-				cache := _cache.(*SWafRegexSetCache)
-				statement.RegexSetId = cache.WafRegexSetId
+				statement.RegexSetId = regexSet.GetId()
 			}
 		}
 	}
