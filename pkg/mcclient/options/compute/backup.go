@@ -206,3 +206,38 @@ type InstanceBackupManagerCreateFromPackageOptions struct {
 func (opts *InstanceBackupManagerCreateFromPackageOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type HostBackupStorageListOptions struct {
+	options.BaseListOptions
+	Host          string `json:"-" help:"filter by host"`
+	Backupstorage string `json:"-" help:"filter by backupstorage"`
+}
+
+func (opts HostBackupStorageListOptions) GetMasterOpt() string {
+	return opts.Host
+}
+
+func (opts HostBackupStorageListOptions) GetSlaveOpt() string {
+	return opts.Backupstorage
+}
+
+func (opts *HostBackupStorageListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
+type HostBackupStorageJoinOptions struct {
+	HOST          string `json:"-" help:"host id"`
+	BACKUPSTORAGE string `json:"-" help:"backup storage id"`
+}
+
+func (opts HostBackupStorageJoinOptions) GetMasterId() string {
+	return opts.HOST
+}
+
+func (opts HostBackupStorageJoinOptions) GetSlaveId() string {
+	return opts.BACKUPSTORAGE
+}
+
+func (opts HostBackupStorageJoinOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
+}
