@@ -96,6 +96,42 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 			return err
 		}
 	}
+	if guest == nil {
+		storage := snapshot.GetStorage()
+		host, err := storage.GetMasterHost()
+		if err != nil {
+			return err
+		}
+		convertSnapshot, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.Wrap(err, "get convert snapshot")
+		}
+		params := jsonutils.NewDict()
+		params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
+		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
+		disk, err := models.DiskManager.FetchById(snapshot.DiskId)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.Wrap(err, "get disk by snapshot")
+		}
+		if !snapshot.OutOfChain {
+			if convertSnapshot != nil {
+				params.Set("convert_snapshot", jsonutils.NewString(convertSnapshot.Id))
+			} else if disk != nil {
+				params.Set("block_stream", jsonutils.JSONTrue)
+			} else {
+				params.Set("auto_deleted", jsonutils.JSONTrue)
+			}
+		} else {
+			params.Set("auto_deleted", jsonutils.JSONTrue)
+		}
+
+		drv, err := host.GetHostDriver()
+		if err != nil {
+			return err
+		}
+
+		return drv.RequestDeleteSnapshotWithoutGuest(ctx, host, snapshot, params, task)
+	}
 
 	drv, err := guest.GetDriver()
 	if err != nil {

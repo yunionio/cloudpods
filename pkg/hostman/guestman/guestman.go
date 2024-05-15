@@ -1256,8 +1256,15 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 		return nil, hostutils.ParamsError
 	}
 
-	guest, _ := m.GetServer(delParams.Sid)
-	return guest.DeleteSnapshot(ctx, delParams)
+	if len(delParams.ConvertSnapshot) > 0 || delParams.BlockStream {
+		guest, _ := m.GetKVMServer(delParams.Sid)
+		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
+			delParams.ConvertSnapshot, delParams.BlockStream)
+	} else {
+		res := jsonutils.NewDict()
+		res.Set("deleted", jsonutils.JSONTrue)
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
+	}
 }
 
 func (m *SGuestManager) DoMemorySnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

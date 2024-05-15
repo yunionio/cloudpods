@@ -106,6 +106,10 @@ func (s *SNVMEStorage) DeleteSnapshots(ctx context.Context, params interface{}) 
 	return nil, errors.Errorf("unsupported operation")
 }
 
+func (s *SNVMEStorage) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
+}
+
 func (s *SNVMEStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
 	return false, errors.Errorf("unsupported operation")
 }
@@ -142,8 +146,8 @@ func (s *SNVMEStorage) SaveToGlance(context.Context, interface{}) (jsonutils.JSO
 	return nil, errors.Errorf("unsupported operation")
 }
 
-func (s *SNVMEStorage) CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error {
-	return errors.Errorf("unsupported operation")
+func (s *SNVMEStorage) CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
 }
 
 func (s *SNVMEStorage) CreateDiskFromExistingPath(context.Context, IDisk, *SDiskCreateByDiskinfo) error {

@@ -102,6 +102,7 @@ type IStorage interface {
 
 	GetSnapshotDir() string
 	GetSnapshotPathByIds(diskId, snapshotId string) string
+	DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	IsSnapshotExist(diskId, snapshotId string) (bool, error)
 
@@ -122,7 +123,7 @@ type IStorage interface {
 	// *SDiskCreateByDiskinfo
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
 	SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error)
-	CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error
+	CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error)
 	CreateDiskFromExistingPath(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 	CreateDiskFromBackup(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 	DiskMigrate(context.Context, interface{}) (jsonutils.JSONObject, error)
@@ -413,12 +414,7 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, i
 		return nil, httperrors.NewMissingParameterError("snapshot_url")
 	}
 
-	err := storage.CreateDiskFromSnapshot(ctx, disk, input)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CreateDiskFromSnapshot")
-	}
-
-	return disk.GetDiskDesc(), nil
+	return storage.CreateDiskFromSnapshot(ctx, disk, input)
 }
 
 func (s *SBaseStorage) createDiskFromExistingPath(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {

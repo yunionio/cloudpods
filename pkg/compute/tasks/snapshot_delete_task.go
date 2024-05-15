@@ -176,13 +176,22 @@ func (self *BatchSnapshotsDeleteTask) StartStorageDeleteSnapshot(ctx context.Con
 		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "snapshot.GetHost").Error()))
 		return
 	}
+
+	snapshotIds := []string{}
+	err = self.Params.Unmarshal(&snapshotIds, "snapshot_ids")
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "unmarshal snapshot ids").Error()))
+		return
+	}
+
 	driver, err := host.GetHostDriver()
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "GetHostDriver").Error()))
 		return
 	}
+
 	self.SetStage("OnStorageDeleteSnapshot", nil)
-	err = driver.RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
+	err = driver.RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self, snapshotIds)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
