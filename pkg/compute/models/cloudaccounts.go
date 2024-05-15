@@ -2464,7 +2464,7 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 		if providers[i].GetEnabled() {
 			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
 			if err != nil {
-				return errors.Wrapf(err, "prepareCloudproviderRegions for provider %s", providers[i].Name)
+				providers[i].SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DISCONNECTED, errors.Wrapf(err, "prepareCloudproviderRegions").Error())
 			}
 		}
 	}
