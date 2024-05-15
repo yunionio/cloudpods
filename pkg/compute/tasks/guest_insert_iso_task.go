@@ -54,6 +54,7 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 			ImageId:      imageId,
 			Format:       "iso",
 			ParentTaskId: self.GetTaskId(),
+			ServerId:     guest.Id,
 		}
 		storageCache.StartImageCacheTask(ctx, self.UserCred, input)
 	} else {

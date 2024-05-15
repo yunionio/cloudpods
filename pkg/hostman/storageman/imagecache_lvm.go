@@ -108,9 +108,13 @@ func (c *SLVMImageCache) Acquire(
 			}
 		}
 
+		targetImageFormat := "qcow2"
+		if localImg.Format != qemuimg.QCOW2 {
+			targetImageFormat = "raw"
+		}
 		log.Infof("convert local image %s to lvm %s", c.imageId, c.GetPath())
 		out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
-			"convert", "-W", "-m", "16", "-O", "qcow2", localImageCache.GetPath(), c.GetPath()).Output()
+			"convert", "-W", "-m", "16", "-O", targetImageFormat, localImageCache.GetPath(), c.GetPath()).Output()
 		if err != nil {
 			return errors.Wrapf(err, "convert local image %s to lvm %s: %s", c.imageId, c.GetPath(), out)
 		}
