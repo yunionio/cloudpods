@@ -49,4 +49,10 @@ func init() {
 	ibCmd.Create(&compute.InstanceBackupManagerCreateFromPackageOptions{})
 	ibCmd.Perform("syncstatus", &compute.DiskBackupSyncstatusOptions{})
 	ibCmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+
+	hbsCmd := shell.NewJointCmd(&modules.HostBackupstorages)
+	hbsCmd.List(&compute.HostBackupStorageListOptions{})
+	hbsCmd.Show(&compute.HostBackupStorageJoinOptions{})
+	hbsCmd.Attach(&compute.HostBackupStorageJoinOptions{})
+	hbsCmd.Detach(&compute.HostBackupStorageJoinOptions{})
 }
