@@ -515,46 +515,9 @@ func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string) error {
 	return nil
 }
 
-func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string) error {
+func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error {
 	snapshotDir := d.GetSnapshotDir()
-	snapshotPath := path.Join(snapshotDir, snapshotId)
-	if len(convertSnapshot) > 0 {
-		if !fileutils2.Exists(snapshotDir) {
-			err := procutils.NewCommand("mkdir", "-p", snapshotDir).Run()
-			if err != nil {
-				log.Errorln(err)
-				return err
-			}
-		}
-		convertSnapshotPath := path.Join(snapshotDir, convertSnapshot)
-		output := convertSnapshotPath + ".tmp"
-		if fileutils2.Exists(output) {
-			procutils.NewCommand("rm", "-f", output).Run()
-		}
-		img, err := qemuimg.NewQemuImage(convertSnapshotPath)
-		if err != nil {
-			return errors.Wrap(err, "NewQemuImage")
-		}
-		if err = img.Convert2Qcow2To(output, false, "", "", ""); err != nil {
-			log.Errorf("convert image %s to %s: %s", img.Path, output, err)
-			procutils.NewCommand("rm", "-f", output).Run()
-			return err
-		}
-		if err = procutils.NewCommand("rm", "-f", convertSnapshotPath).Run(); err != nil {
-			log.Errorf("rm convert snapshot file %s: %s", convertSnapshotPath, err)
-			return err
-		}
-		if err = procutils.NewCommand("mv", "-f", output, convertSnapshotPath).Run(); err != nil {
-			log.Errorf("mv snapshot file %s to %s: %s", output, convertSnapshotPath, err)
-			return err
-		}
-	}
-	err := procutils.NewCommand("rm", "-f", snapshotPath).Run()
-	if err != nil {
-		log.Errorf("rm snapshot file: %s", err)
-		return errors.Wrap(err, "rm snapshot file")
-	}
-	return nil
+	return DeleteLocalSnapshot(snapshotDir, snapshotId, d.getPath(), convertSnapshot, blockStream)
 }
 
 func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

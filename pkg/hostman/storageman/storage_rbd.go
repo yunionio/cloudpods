@@ -576,9 +576,17 @@ func (s *SRbdStorage) DeleteSnapshots(ctx context.Context, params interface{}) (
 	return nil, fmt.Errorf("Not support delete snapshots")
 }
 
-func (s *SRbdStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+func (s *SRbdStorage) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("Not support delete snapshot")
+}
+
+func (s *SRbdStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	info := input.DiskInfo
-	return disk.CreateFromRbdSnapshot(ctx, info.SnapshotUrl, info.SrcDiskId, info.SrcPool)
+	err := disk.CreateFromRbdSnapshot(ctx, info.SnapshotUrl, info.SrcDiskId, info.SrcPool)
+	if err != nil {
+		return nil, err
+	}
+	return disk.GetDiskDesc(), nil
 }
 
 func (s *SRbdStorage) GetBackupDir() string {

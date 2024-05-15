@@ -2211,7 +2211,7 @@ func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
 func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
 	ctx context.Context, disk storageman.IDisk, deleteSnapshot, convertSnapshot string, blockStream bool,
 ) (jsonutils.JSONObject, error) {
-	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot); err != nil {
+	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot, blockStream); err != nil {
 		log.Errorln(err)
 		return nil, err
 	}

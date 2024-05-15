@@ -64,7 +64,10 @@ const (
 	DISK_EXIST     = "exist"
 )
 
-const DISK_META_EXISTING_PATH = "disk_existing_path"
+const (
+	DISK_META_EXISTING_PATH      = "disk_existing_path"
+	DISK_META_LAST_ATTACHED_HOST = "__disk_last_attached_host"
+)
 
 const (
 	DISK_DRIVER_VIRTIO = "virtio"

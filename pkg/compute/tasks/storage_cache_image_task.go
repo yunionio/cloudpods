@@ -62,8 +62,6 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 
 	db.OpsLog.LogEvent(storageCache, db.ACT_CACHING_IMAGE, imageId, self.UserCred)
 
-	self.SetStage("OnImageCacheComplete", nil)
-
 	var host *models.SHost
 	var err error
 	serverId, _ := self.Params.GetString("server_id")
@@ -75,7 +73,8 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 			return
 		}
 		server := guest.(*models.SGuest)
-		server.SetStatus(self.GetUserCred(), api.VM_IMAGE_CACHING, "")
+		self.Params.Set("guest_oldstatus", jsonutils.NewString(server.Status))
+		server.SetStatus(self.GetUserCred(), api.VM_IMAGE_CACHING, "start cache image")
 		host, _ = server.GetHost()
 	} else {
 		host, err = storageCache.GetMasterHost()
@@ -86,6 +85,7 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 		}
 	}
 
+	self.SetStage("OnImageCacheComplete", nil)
 	err = host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
 	if err != nil {
 		errData := taskman.Error2TaskData(err)
@@ -133,6 +133,20 @@ func (self *StorageCacheImageTask) OnCacheSucc(ctx context.Context, cache *model
 		scimg.SetExternalId(extImgId)
 	}
 	models.CachedimageManager.ImageAddRefCount(imageId)
+
+	serverId, _ := self.Params.GetString("server_id")
+	if len(serverId) > 0 {
+		guest, err := models.GuestManager.FetchById(serverId)
+		if err != nil {
+			errData := taskman.Error2TaskData(err)
+			self.OnImageCacheCompleteFailed(ctx, cache, errData)
+			return
+		}
+		server := guest.(*models.SGuest)
+		serverOldStatus, _ := self.Params.GetString("guest_oldstatus")
+		server.SetStatus(self.GetUserCred(), serverOldStatus, "on cache image success")
+	}
+
 	db.OpsLog.LogEvent(cache, db.ACT_CACHED_IMAGE, imageId, self.UserCred)
 	self.SetStageComplete(ctx, data)
 }

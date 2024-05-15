@@ -74,7 +74,7 @@ func (d *SLVMDisk) GetPath() string {
 
 // The LVM logical volume name is limited to 64 characters.
 func (d *SLVMDisk) GetSnapshotName(snapshotId string) string {
-	return "snap_" + d.Id + "_" + snapshotId
+	return "snap_" + snapshotId
 }
 
 func (d *SLVMDisk) GetSnapshotPath(snapshotId string) string {
@@ -408,20 +408,31 @@ func (d *SLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encForma
 		return err
 	}
 	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize); err != nil {
+		if e := lvmutils.LvRename(d.Storage.GetPath(), snapName, d.Id); e != nil {
+			log.Errorf("failed rename lv %s to %s: %s", snapName, d.GetPath(), e)
+		}
 		return errors.Wrap(err, "snapshot LvCreate")
 	}
 	img, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
-		lvmutils.LvRemove(d.GetPath())
-		lvmutils.LvRename(d.Storage.GetPath(), snapName, d.Id)
+		if e := lvmutils.LvRemove(d.GetPath()); e != nil {
+			log.Errorf("failed remove lv %s: %s", d.GetPath(), e)
+		}
+		if e := lvmutils.LvRename(d.Storage.GetPath(), snapName, d.Id); e != nil {
+			log.Errorf("failed rename lv %s to %s: %s", snapName, d.GetPath(), e)
+		}
 		return errors.Wrapf(err, "failed qemuimg.NewQemuImage(%s))", d.GetPath())
 	}
 
 	snapPath := d.GetSnapshotPath(snapshotId)
 	err = img.CreateQcow2(0, false, snapPath, "", "", "")
 	if err != nil {
-		lvmutils.LvRemove(d.GetPath())
-		lvmutils.LvRename(d.Storage.GetPath(), snapName, d.Id)
+		if e := lvmutils.LvRemove(d.GetPath()); e != nil {
+			log.Errorf("failed remove lv %s: %s", d.GetPath(), e)
+		}
+		if e := lvmutils.LvRename(d.Storage.GetPath(), snapName, d.Id); e != nil {
+			log.Errorf("failed rename lv %s to %s: %s", snapName, d.GetPath(), e)
+		}
 		return errors.Wrapf(err, "CreateQcow2(%s)", snapPath)
 	}
 	return nil
@@ -475,8 +486,12 @@ func (d *SLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (j
 	return nil, nil
 }
 
-func (d *SLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string) error {
-	if len(convertSnapshot) > 0 {
+func (d *SLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error {
+	if blockStream {
+		if err := ConvertLVMDisk(d.Storage.GetPath(), d.Id); err != nil {
+			return err
+		}
+	} else if len(convertSnapshot) > 0 {
 		if err := d.ConvertSnapshot(convertSnapshot); err != nil {
 			return err
 		}
@@ -503,59 +518,8 @@ func (d *SLVMDisk) DeleteAllSnapshot(skipRecycle bool) error {
 }
 
 func (d *SLVMDisk) ConvertSnapshot(convertSnapshot string) error {
-	convertSnapshotPath := d.GetSnapshotPath(convertSnapshot)
-	qemuImg, err := qemuimg.NewQemuImage(convertSnapshotPath)
-	if err != nil {
-		log.Errorln(err)
-		return err
-	}
-	lvSize, err := lvmutils.GetLvSize(convertSnapshotPath)
-	if err != nil {
-		return err
-	}
-
-	tmpVolume := d.Id + "-convert.tmp"
-	tmpVolumePath := path.Join("/dev", d.Storage.GetPath(), tmpVolume)
-	// create /dev/vg/snapshot-convert.tmp
-	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize); err != nil {
-		return errors.Wrap(err, "delete snapshot LvCreate")
-	}
-	srcInfo := qemuimg.SImageInfo{
-		Path:     convertSnapshotPath,
-		Format:   qemuImg.Format,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: "",
-	}
-	destInfo := qemuimg.SImageInfo{
-		Path:     tmpVolumePath,
-		Format:   qemuimg.QCOW2,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: "",
-	}
-	// convert /dev/vg/snapshot to /dev/vg/snapshot-convert.tmp
-	if err = qemuimg.Convert(srcInfo, destInfo, false, nil); err != nil {
-		lvmutils.LvRemove(tmpVolumePath)
-		return errors.Wrap(err, "failed convert tmp disk")
-	}
-
-	tmpVolume2 := d.Id + "-convert.tmp2"
-	tmpVolume2Path := path.Join("/dev", d.Storage.GetPath(), tmpVolume2)
-	// rename /dev/vg/snapshot to /dev/vg/snapshot-convert.tmp2
-	err = lvmutils.LvRename(d.Storage.GetPath(), convertSnapshot, tmpVolume2)
-	if err != nil {
-		return errors.Wrap(err, "failed rename disk to tmp")
-	}
-	// rename /dev/vg/snapshot-convert.tmp to /dev/vg/snapshot
-	err = lvmutils.LvRename(d.Storage.GetPath(), tmpVolume, convertSnapshot)
-	if err != nil {
-		return errors.Wrap(err, "failed rename tmp to disk")
-	}
-	// delete /dev/vg/snapshot-convert.tmp2
-	err = lvmutils.LvRemove(tmpVolume2Path)
-	if err != nil {
-		return errors.Wrap(err, "failed remove tmp disk")
-	}
-	return nil
+	convertSnapshotName := d.GetSnapshotName(convertSnapshot)
+	return ConvertLVMDisk(d.Storage.GetPath(), convertSnapshotName)
 }
 
 func (d *SLVMDisk) DoDeleteSnapshot(snapshotId string) error {

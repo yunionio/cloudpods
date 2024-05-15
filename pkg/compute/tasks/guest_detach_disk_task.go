@@ -60,6 +60,12 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
+	err = disk.RecordLastAttachedHost(ctx, self.UserCred, host.Id)
+	if err != nil {
+		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
+		return
+	}
+
 	if !host.GetEnabled() {
 		self.OnDetachDiskCompleteFailed(ctx, guest, jsonutils.Marshal(map[string]string{"error": fmt.Sprintf("host %s(%s) is disabled", host.Name, host.Id)}))
 		return
