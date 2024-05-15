@@ -18,30 +18,15 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-const (
-	WAF_IPSET_STATUS_AVAILABLE     = "available"
-	WAF_IPSET_STATUS_DELETING      = "deleting"
-	WAF_IPSET_STATUS_DELETE_FAILED = "delete_failed"
-)
-
 type WafIPSetDetails struct {
 	apis.StatusInfrasResourceBaseDetails
 	SWafIPSet
+	ManagedResourceInfo
+	CloudregionResourceInfo
 }
 
 type WafIPSetListInput struct {
 	apis.StatusInfrasResourceBaseListInput
-}
-
-type WafIPSetCacheDetails struct {
-	apis.StatusStandaloneResourceDetails
-	ManagedResourceInfo
-	CloudregionResourceInfo
-	SWafIPSetCache
-}
-
-type WafIPSetCacheListInput struct {
-	apis.StatusStandaloneResourceListInput
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput

@@ -181,7 +181,6 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 		cron.AddJobEveryFewHour("AutoCleanImageCache", 1, 5, 0, models.CachedimageManager.AutoCleanImageCaches, false)
 
 		cron.AddJobAtIntervalsWithStartRun("SyncSkus", time.Duration(opts.ServerSkuSyncIntervalMinutes)*time.Minute, models.SyncServerSkus, true)
-		cron.AddJobAtIntervalsWithStartRun("SyncManagedWafGroups", time.Duration(opts.ServerSkuSyncIntervalMinutes)*time.Minute, models.SyncWafGroups, true)
 
 		cron.AddJobEveryFewDays("SyncDBInstanceSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncDBInstanceSkus, true)
 		cron.AddJobEveryFewDays("SyncNatSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncNatSkus, true)
