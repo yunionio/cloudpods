@@ -75,6 +75,7 @@ const (
 type STaskManager struct {
 	db.SModelBaseManager
 	db.SProjectizedResourceBaseManager
+	db.SStatusResourceBaseManager
 }
 
 var TaskManager *STaskManager
@@ -89,6 +90,7 @@ func init() {
 type STask struct {
 	db.SModelBase
 	db.SProjectizedResourceBase
+	db.SStatusResourceBase
 
 	// 资源创建时间
 	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" json:"created_at"`
@@ -1030,6 +1032,10 @@ func (manager *STaskManager) ListItemFilter(
 	if err != nil {
 		return q, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SStatusResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusResourceBaseListInput)
+	if err != nil {
+		return q, errors.Wrap(err, "SStatusResourceBaseManager.ListItemFilter")
+	}
 
 	if len(input.Id) > 0 {
 		q = q.In("id", input.Id)
@@ -1163,4 +1169,27 @@ func (manager *STaskManager) OrderByExtraFields(
 	//	return q, errors.Wrap(err, "SProjectizedResourceBaseManager.OrderByExtraField")
 	// }
 	return q, nil
+}
+
+func (task *STask) SetProgressAndStatus(progress float32, status string) error {
+	_, err := db.Update(task, func() error {
+		task.SetProgressValue(progress)
+		task.SetStatusValue(status)
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	return nil
+}
+
+func (task *STask) SetProgress(progress float32) error {
+	_, err := db.Update(task, func() error {
+		task.SetProgressValue(progress)
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	return nil
 }

@@ -23,6 +23,7 @@ import (
 type TaskListInput struct {
 	ModelBaseListInput
 	ProjectizedResourceListInput
+	StatusResourceBaseListInput
 
 	Id         []string `json:"id" help:"id filter"`
 	ObjId      []string `json:"obj_id" help:"object id filter"`

@@ -87,7 +87,7 @@ func ensureBucket() error {
 	return nil
 }
 
-func Put(ctx context.Context, filePath, objName string) (string, error) {
+func PutStream(ctx context.Context, file io.Reader, fSize int64, objName string) (string, error) {
 	if client == nil {
 		return "", ErrClientNotInit
 	}
@@ -95,7 +95,16 @@ func Put(ctx context.Context, filePath, objName string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "client.getBucket")
 	}
+	const blockSizeMB = 100
+	err = cloudprovider.UploadObject(ctx, bucket, objName, blockSizeMB*1000*1000, file, fSize, cloudprovider.ACLPrivate, "", nil, false)
+	if err != nil {
+		return "", errors.Wrap(err, "cloudprovider.UploadObject")
+	}
+	log.Debugf("put object %s size %d", objName, fSize)
+	return client.Location(objName), nil
+}
 
+func Put(ctx context.Context, filePath, objName string) (string, error) {
 	finfo, err := os.Stat(filePath)
 	if err != nil {
 		return "", errors.Wrap(err, "os.Stat")
@@ -106,13 +115,7 @@ func Put(ctx context.Context, filePath, objName string) (string, error) {
 		return "", errors.Wrap(err, "os.Open")
 	}
 	defer file.Close()
-	const blockSizeMB = 100
-	err = cloudprovider.UploadObject(ctx, bucket, objName, blockSizeMB*1000*1000, file, fSize, cloudprovider.ACLPrivate, "", nil, false)
-	if err != nil {
-		return "", errors.Wrap(err, "cloudprovider.UploadObject")
-	}
-	log.Debugf("put object %s size %d", objName, fSize)
-	return client.Location(objName), nil
+	return PutStream(ctx, file, fSize, objName)
 }
 
 func Get(ctx context.Context, fileName string) (int64, io.ReadCloser, error) {
