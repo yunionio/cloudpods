@@ -51,6 +51,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -3157,4 +3158,40 @@ func (disk *SDisk) PerformRebuild(
 	}
 	disk.SetStatus(ctx, userCred, api.DISK_REBUILD, "disk rebuild")
 	return nil, disk.StartDiskCreateTask(ctx, userCred, true, disk.SnapshotId, "")
+}
+
+func (disk *SDisk) PerformResetTemplate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONDict,
+	input api.DiskResetTemplateInput,
+) (jsonutils.JSONObject, error) {
+	if disk.DiskFormat != "raw" {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "disk_format must be raw, not %s", disk.DiskFormat)
+	}
+	if len(disk.FsFormat) == 0 {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "fs_format must be set")
+	}
+	if len(input.TemplateId) > 0 {
+		imageObj, err := CachedimageManager.FetchById(input.TemplateId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), input.TemplateId)
+			} else {
+				return nil, errors.Wrap(err, "CachedimageManager.FetchById")
+			}
+		}
+		input.TemplateId = imageObj.GetId()
+	}
+	notes, err := db.Update(disk, func() error {
+		disk.TemplateId = input.TemplateId
+		return nil
+	})
+	if err != nil {
+		logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_UPDATE, err, userCred, false)
+		return nil, errors.Wrap(err, "Update")
+	}
+	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_UPDATE, err, userCred, true)
+	db.OpsLog.LogEvent(disk, db.ACT_UPDATE, notes, userCred)
+	return nil, nil
 }
