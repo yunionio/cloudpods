@@ -44,6 +44,7 @@ func init() {
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("rebuild", &options.ResourceIdOptions{})
 	cmd.Perform("migrate", &compute_options.DiskMigrateOptions{})
+	cmd.Perform("reset-template", &compute_options.DiskResetTemplateOptions{})
 
 	type DiskListOptions struct {
 		options.BaseListOptions

@@ -91,3 +91,17 @@ func (o *DiskMigrateOptions) GetId() string {
 func (o *DiskMigrateOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
+
+type DiskResetTemplateOptions struct {
+	ID string `help:"ID of the server" json:"-"`
+
+	TemplateId string `help:"reset disk tempalte id" json:"template_id"`
+}
+
+func (o *DiskResetTemplateOptions) GetId() string {
+	return o.ID
+}
+
+func (o *DiskResetTemplateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
