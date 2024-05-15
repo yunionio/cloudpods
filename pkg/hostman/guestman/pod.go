@@ -282,8 +282,15 @@ func (s *sPodGuestInstance) GetDisks() []*desc.SGuestDisk {
 func (s *sPodGuestInstance) mountPodVolumes() error {
 	for ctrId, vols := range s.getContainerVolumeMounts() {
 		for _, vol := range vols {
-			if err := volume_mount.GetDriver(vol.Type).Mount(s, ctrId, vol); err != nil {
+			drv := volume_mount.GetDriver(vol.Type)
+			if err := drv.Mount(s, ctrId, vol); err != nil {
 				return errors.Wrapf(err, "mount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+			}
+			if vol.FsUser != nil || vol.FsGroup != nil {
+				// change mountpoint owner
+				if err := volume_mount.ChangeDirOwner(s, drv, ctrId, vol); err != nil {
+					return errors.Wrapf(err, "change dir owner")
+				}
 			}
 		}
 	}
@@ -445,6 +452,10 @@ func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runt
 
 func (s *sPodGuestInstance) getCgroupParent() string {
 	return "/cloudpods"
+}
+
+func Int64Ptr(i int64) *int64 {
+	return &i
 }
 
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
@@ -1005,6 +1016,22 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		Devices: []*runtimeapi.Device{},
 		Mounts:  mounts,
 	}
+
+	// inherit security context
+	if spec.SecurityContext != nil {
+		secInput := spec.SecurityContext
+		if secInput.RunAsUser != nil {
+			ctrCfg.Linux.SecurityContext.RunAsUser = &runtimeapi.Int64Value{
+				Value: *secInput.RunAsUser,
+			}
+		}
+		if secInput.RunAsGroup != nil {
+			ctrCfg.Linux.SecurityContext.RunAsGroup = &runtimeapi.Int64Value{
+				Value: *secInput.RunAsGroup,
+			}
+		}
+	}
+
 	if spec.EnableLxcfs {
 		ctrCfg.Mounts = append(ctrCfg.Mounts, s.getLxcfsMounts()...)
 	}

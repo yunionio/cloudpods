@@ -50,6 +50,9 @@ func (h hostLocal) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hosta
 	if host == nil {
 		return "", httperrors.NewNotEmptyError("host_local is nil")
 	}
+	if vm.FsUser != nil || vm.FsGroup != nil {
+		return "", httperrors.NewInputParameterError("cannot use fs_user and fs_group for host_local volume")
+	}
 	switch host.Type {
 	case "", apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE:
 		return host.Path, nil
