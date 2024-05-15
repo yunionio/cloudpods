@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -56,6 +57,45 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 		return
 	}
 
+	storage, err := models.StorageManager.GetStorageByStoragecache(storageCache.Id)
+	if err != nil {
+		self.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "fail to get storage by storagecache"))
+		return
+	}
+	if storage.IsNeedDeactivateOnAllHost() {
+		self.RequestUncacheDeactivateImage(ctx, storageCache)
+		return
+	}
+	self.RequestUncacheRemoveImage(ctx, storageCache)
+}
+
+func (self *StorageUncacheImageTask) RequestUncacheDeactivateImage(ctx context.Context, storageCache *models.SStoragecache) {
+	hosts, err := storageCache.GetHosts()
+	if err != nil {
+		self.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "fail to get hosts"))
+		return
+	}
+	for i := range hosts {
+		if !hosts[i].Enabled.IsTrue() || hosts[i].HostStatus != compute.HOST_ONLINE {
+			continue
+		}
+		driver, err := hosts[i].GetHostDriver()
+		if err != nil {
+			self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetHostDriver"))
+			return
+		}
+
+		err = driver.RequestUncacheImage(ctx, &hosts[i], storageCache, self, true)
+		if err != nil {
+			self.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "RequestUncacheImage"))
+			return
+		}
+	}
+
+	self.RequestUncacheRemoveImage(ctx, storageCache)
+}
+
+func (self *StorageUncacheImageTask) RequestUncacheRemoveImage(ctx context.Context, storageCache *models.SStoragecache) {
 	host, err := storageCache.GetMasterHost()
 	if err != nil {
 		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetMasterHost"))
@@ -69,8 +109,7 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 
 	self.SetStage("OnImageUncacheComplete", nil)
-
-	err = driver.RequestUncacheImage(ctx, host, storageCache, self)
+	err = driver.RequestUncacheImage(ctx, host, storageCache, self, false)
 	if err != nil {
 		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "RequestUncacheImage"))
 	}
