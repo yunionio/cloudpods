@@ -43,6 +43,11 @@ type ContainerLifecyle struct {
 	PostStart *ContainerLifecyleHandler `json:"post_start"`
 }
 
+type ContainerSecurityContext struct {
+	RunAsUser  *int64 `json:"run_as_user,omitempty"`
+	RunAsGroup *int64 `json:"run_as_group,omitempty"`
+}
+
 type ContainerSpec struct {
 	// Image to use.
 	Image string `json:"image"`
@@ -57,13 +62,14 @@ type ContainerSpec struct {
 	// List of environment variable to set in the container.
 	Envs []*ContainerKeyValue `json:"envs"`
 	// Enable lxcfs
-	EnableLxcfs        bool                 `json:"enable_lxcfs"`
-	Capabilities       *ContainerCapability `json:"capabilities"`
-	Privileged         bool                 `json:"privileged"`
-	Lifecyle           *ContainerLifecyle   `json:"lifecyle"`
-	CgroupDevicesAllow []string             `json:"cgroup_devices_allow"`
-	SimulateCpu        bool                 `json:"simulate_cpu"`
-	ShmSizeMB          int                  `json:"shm_size_mb"`
+	EnableLxcfs        bool                      `json:"enable_lxcfs"`
+	Capabilities       *ContainerCapability      `json:"capabilities"`
+	Privileged         bool                      `json:"privileged"`
+	Lifecyle           *ContainerLifecyle        `json:"lifecyle"`
+	CgroupDevicesAllow []string                  `json:"cgroup_devices_allow"`
+	SimulateCpu        bool                      `json:"simulate_cpu"`
+	ShmSizeMB          int                       `json:"shm_size_mb"`
+	SecurityContext    *ContainerSecurityContext `json:"security_context,omitempty"`
 }
 
 type ContainerCapability struct {
@@ -124,6 +130,9 @@ type ContainerVolumeMount struct {
 	SelinuxRelabel bool `json:"selinux_relabel,omitempty"`
 	// Requested propagation mode.
 	Propagation ContainerMountPropagation `json:"propagation,omitempty"`
+	// Owner permissions
+	FsUser  *int64 `json:"fs_user,omitempty"`
+	FsGroup *int64 `json:"fs_group,omitempty"`
 }
 
 type ContainerOverlayDiskImage struct {

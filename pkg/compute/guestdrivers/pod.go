@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -67,6 +68,13 @@ func (p *SPodDriver) GetProvider() string {
 }
 
 func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	for i, d := range input.Disks {
+		if d.Format != "" {
+			if d.Format != image.IMAGE_DISK_FORMAT_RAW {
+				return nil, httperrors.NewInputParameterError("not support format %s for disk %d", d.Format, i)
+			}
+		}
+	}
 	if input.Pod == nil {
 		return nil, httperrors.NewNotEmptyError("pod data is empty")
 	}
@@ -350,7 +358,7 @@ func (p *SPodDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.To
 	}
 	ctrDescs := make([]*hostapi.ContainerDesc, len(ctrs))
 	for idx, ctr := range ctrs {
-		desc, err := ctr.GetJsonDescAtHost()
+		desc, err := ctr.GetJsonDescAtHost(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetJsonDescAtHost of container %s", ctr.GetId())
 		}
@@ -412,7 +420,7 @@ func (p *SPodDriver) performContainerAction(ctx context.Context, userCred mcclie
 }
 
 func (p *SPodDriver) getContainerCreateInput(ctx context.Context, userCred mcclient.TokenCredential, ctr *models.SContainer) (*hostapi.ContainerCreateInput, error) {
-	spec, err := ctr.ToHostContainerSpec()
+	spec, err := ctr.ToHostContainerSpec(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "ToHostContainerSpec")
 	}

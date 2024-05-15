@@ -41,6 +41,8 @@ type ContainerVolumeMount struct {
 	SelinuxRelabel bool `json:"selinux_relabel,omitempty"`
 	// Requested propagation mode.
 	Propagation apis.ContainerMountPropagation `json:"propagation,omitempty"`
+	FsUser      *int64                         `json:"fs_user,omitempty"`
+	FsGroup     *int64                         `json:"fs_group,omitempty"`
 }
 
 type ContainerSpec struct {

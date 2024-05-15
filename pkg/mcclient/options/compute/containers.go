@@ -60,6 +60,8 @@ type ContainerCreateCommonOptions struct {
 	CgroupDeviceAllow []string `help:"Cgroup devices.allow, e.g.: 'c 13:* rwm'"`
 	SimulateCpu       bool     `help:"Simulating /sys/devices/system/cpu files"`
 	ShmSizeMb         int      `help:"Shm size MB"`
+	Uid               int64    `help:"UID of pod" default:"0"`
+	Gid               int64    `help:"GID of pod" default:"0"`
 }
 
 func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
@@ -74,10 +76,20 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 			Capabilities:       &apis.ContainerCapability{},
 			CgroupDevicesAllow: o.CgroupDeviceAllow,
 			SimulateCpu:        o.SimulateCpu,
+			SecurityContext: &apis.ContainerSecurityContext{
+				RunAsUser:  nil,
+				RunAsGroup: nil,
+			},
 		},
 	}
 	if o.ShmSizeMb > 0 {
 		req.ContainerSpec.ShmSizeMB = o.ShmSizeMb
+	}
+	if o.Uid > 0 {
+		req.ContainerSpec.SecurityContext.RunAsUser = &o.Uid
+	}
+	if o.Gid > 0 {
+		req.ContainerSpec.SecurityContext.RunAsGroup = &o.Gid
 	}
 	if len(o.PostStartExec) != 0 {
 		req.Lifecyle = &apis.ContainerLifecyle{
@@ -165,6 +177,20 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 			if strings.ToLower(val) == "true" {
 				vm.ReadOnly = true
 			}
+		case "fs_user":
+			uId, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid fs_user %s", val)
+			}
+			uId64 := int64(uId)
+			vm.FsUser = &uId64
+		case "fs_group":
+			gId, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid fs_group %s", val)
+			}
+			gId64 := int64(gId)
+			vm.FsGroup = &gId64
 		case "mount_path":
 			vm.MountPath = val
 		case "host_path":
