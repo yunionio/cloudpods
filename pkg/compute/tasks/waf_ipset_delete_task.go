@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -37,34 +37,26 @@ func init() {
 }
 
 func (self *WafIPSetDeleteTask) taskFailed(ctx context.Context, ipset *models.SWafIPSet, err error) {
-	ipset.SetStatus(ctx, self.UserCred, api.WAF_IPSET_STATUS_DELETE_FAILED, err.Error())
+	ipset.SetStatus(ctx, self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, ipset, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *WafIPSetDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	ipset := obj.(*models.SWafIPSet)
-	caches, err := ipset.GetCaches()
+	iIpSet, err := ipset.GetICloudWafIPSet(ctx)
 	if err != nil {
-		self.taskFailed(ctx, ipset, errors.Wrapf(err, "GetCaches"))
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			self.taskComplete(ctx, ipset)
+			return
+		}
+		self.taskFailed(ctx, ipset, errors.Wrapf(err, "GetICloudWafIPSet"))
 		return
 	}
-	for i := range caches {
-		iCache, err := caches[i].GetICloudWafIPSet(ctx)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				caches[i].RealDelete(ctx, self.GetUserCred())
-				continue
-			}
-			self.taskFailed(ctx, ipset, errors.Wrapf(err, "GetICloudWafIPSet"))
-			return
-		}
-		err = iCache.Delete()
-		if err != nil {
-			self.taskFailed(ctx, ipset, errors.Wrapf(err, "iCache.Delete"))
-			return
-		}
-		caches[i].RealDelete(ctx, self.GetUserCred())
+	err = iIpSet.Delete()
+	if err != nil {
+		self.taskFailed(ctx, ipset, errors.Wrapf(err, "iCache.Delete"))
+		return
 	}
 	self.taskComplete(ctx, ipset)
 }
