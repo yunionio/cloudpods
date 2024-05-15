@@ -62,14 +62,14 @@ type IDisk interface {
 	RebuildSlaveDisk(diskUri string) error
 	CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error
 	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
-	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error
+	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
 	CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string,
 		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
-	DeleteSnapshot(snapshotId, convertSnapshot string) error
+	DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
 	ConvertSnapshot(convertSnapshotId string) error
@@ -120,8 +120,8 @@ func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64, *
 	return nil, errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error {
-	return errors.Errorf("unsupported operation")
+func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
@@ -144,7 +144,7 @@ func (d *SBaseDisk) ConvertSnapshot(convertSnapshotId string) error {
 	return errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string) error {
+func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error {
 	return errors.Errorf("unsupported operation")
 }
 
