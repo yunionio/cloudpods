@@ -651,15 +651,15 @@ func (cmd JointCmd) List(args IJointListOpt) {
 	cmd.RunWithDesc("list", fmt.Sprintf("list %s %s pairs", man.MasterManager().KeyString(), man.SlaveManager().KeyString()), args, callback)
 }
 
-type IJointShowOpt interface {
+type IJointOpt interface {
 	IOpt
 	GetMasterId() string
 	GetSlaveId() string
 }
 
-func (cmd JointCmd) Show(args IJointShowOpt) {
+func (cmd JointCmd) Show(args IJointOpt) {
 	man := cmd.manager.(modulebase.JointManager)
-	callback := func(s *mcclient.ClientSession, args IJointShowOpt) error {
+	callback := func(s *mcclient.ClientSession, args IJointOpt) error {
 		params, err := args.Params()
 		if err != nil {
 			return err
@@ -672,4 +672,55 @@ func (cmd JointCmd) Show(args IJointShowOpt) {
 		return nil
 	}
 	cmd.Run("show", args, callback)
+}
+
+func (cmd JointCmd) Attach(args IJointOpt) {
+	man := cmd.manager.(modulebase.JointManager)
+	callback := func(s *mcclient.ClientSession, args IJointOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		result, err := man.Attach(s, args.GetMasterId(), args.GetSlaveId(), params)
+		if err != nil {
+			return err
+		}
+		PrintObject(result)
+		return nil
+	}
+	cmd.Run("attach", args, callback)
+}
+
+func (cmd JointCmd) Detach(args IJointOpt) {
+	man := cmd.manager.(modulebase.JointManager)
+	callback := func(s *mcclient.ClientSession, args IJointOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		result, err := man.Detach(s, args.GetMasterId(), args.GetSlaveId(), params)
+		if err != nil {
+			return err
+		}
+		PrintObject(result)
+		return nil
+	}
+	cmd.Run("detach", args, callback)
+}
+
+func (cmd JointCmd) Update(args IJointOpt) {
+	man := cmd.manager.(modulebase.JointManager)
+	callback := func(s *mcclient.ClientSession, args IJointOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		result, err := man.Update(s, args.GetMasterId(), args.GetSlaveId(), nil, params)
+		if err != nil {
+			return err
+		}
+		PrintObject(result)
+		return nil
+	}
+	cmd.Run("update", args, callback)
 }
