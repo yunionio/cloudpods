@@ -50,4 +50,28 @@ func init() {
 		fmt.Println(result)
 		return nil
 	})
+
+	type DistinctFieldsOption struct {
+		MODULE        string   `help:"module name"`
+		Field         []string `help:"distinct field name to query"`
+		ExtraField    []string `help:"distinct field name to query"`
+		ExtraResource string
+	}
+	R(&DistinctFieldsOption{}, "distinct-fields", "Query values of a distinct fields for a module", func(s *mcclient.ClientSession, args *DistinctFieldsOption) error {
+		mod, err := modulebase.GetModule(s, args.MODULE)
+		if err != nil || mod == nil {
+			if err != nil {
+				return fmt.Errorf("module %s not found %s", args.MODULE, err)
+			}
+			return fmt.Errorf("No module %s found", args.MODULE)
+		}
+		params := jsonutils.Marshal(args)
+		result, err := mod.Get(s, "distinct-fields", params)
+		if err != nil {
+			return err
+		}
+		fmt.Println(result)
+		return nil
+	})
+
 }
