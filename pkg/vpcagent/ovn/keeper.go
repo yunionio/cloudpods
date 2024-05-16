@@ -31,6 +31,7 @@ import (
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identity_module "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovn/mac"
@@ -340,6 +341,13 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 				// log.Errorf("auth.GetDNSServers fail %s", err)
 			} else {
 				dnsSrvs = strings.Join(dns, ",")
+			}
+		}
+		if len(dnsSrvs) == 0 {
+			s := auth.GetAdminSession(ctx, "")
+			conf, _ := identity_module.ServicesV3.GetConfig(s, "compute")
+			if conf != nil {
+				dnsSrvs, _ = conf.GetString("config", "default", "dns_server")
 			}
 		}
 		if len(dnsSrvs) > 0 {
