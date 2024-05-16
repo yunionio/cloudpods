@@ -178,6 +178,19 @@ func (manager *SNetworkResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SNetworkResourceBaseManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	switch resource {
+	case NetworkManager.Keyword():
+		netQuery := NetworkManager.Query().SubQuery()
+		for _, field := range fields {
+			q = q.AppendField(netQuery.Field(field))
+		}
+		q = q.Join(netQuery, sqlchemy.Equals(q.Field("network_id"), netQuery.Field("id")))
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SNetworkResourceBaseManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
