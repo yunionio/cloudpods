@@ -15,13 +15,39 @@
 package identity
 
 import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+type ServiceManagerV3 struct {
+	modulebase.ResourceManager
+}
+
+func (m *ServiceManagerV3) GetConfig(s *mcclient.ClientSession, serviceType string) (jsonutils.JSONObject, error) {
+	serviceType = s.GetServiceName(serviceType)
+	resp, err := m.List(s, jsonutils.Marshal(map[string]string{"type": serviceType}))
+	if err != nil {
+		return nil, errors.Wrap(err, "list")
+	}
+	if len(resp.Data) == 0 {
+		return nil, httperrors.NewResourceNotFoundError2("service", serviceType)
+	}
+	serviceId, _ := resp.Data[0].GetString("id")
+	conf, err := m.GetSpecific(s, serviceId, "config", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSpecific")
+	}
+	return conf, nil
+}
+
 var (
 	Services   modulebase.ResourceManager
-	ServicesV3 modulebase.ResourceManager
+	ServicesV3 ServiceManagerV3
 )
 
 func init() {
@@ -32,10 +58,12 @@ func init() {
 
 	modules.Register(&Services)
 
-	ServicesV3 = modules.NewIdentityV3Manager("service",
-		"services",
-		[]string{},
-		[]string{"ID", "Name", "Type", "Description"})
+	ServicesV3 = ServiceManagerV3{
+		ResourceManager: modules.NewIdentityV3Manager("service",
+			"services",
+			[]string{},
+			[]string{"ID", "Name", "Type", "Description"}),
+	}
 
 	modules.Register(&ServicesV3)
 }
