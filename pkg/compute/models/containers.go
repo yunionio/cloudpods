@@ -224,7 +224,7 @@ func (m *SContainerManager) ValidateSpecVolumeMount(ctx context.Context, userCre
 	}
 	vm, err = drv.ValidateCreateData(ctx, userCred, pod, vm)
 	if err != nil {
-		return nil, errors.Wrapf(err, "validate %s create data", vm.Type)
+		return nil, errors.Wrapf(err, "validate %s create data", drv.GetType())
 	}
 	return vm, nil
 }
