@@ -383,6 +383,12 @@ type DistinctFieldInput struct {
 	ExtraField []string
 }
 
+type DistinctFieldsInput struct {
+	Field         []string
+	ExtraField    []string
+	ExtraResource string
+}
+
 type PostpaidExpireInput struct {
 	Duration   string    `json:"duration"`
 	ExpireTime time.Time `json:"expire_time"`
