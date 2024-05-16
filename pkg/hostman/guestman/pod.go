@@ -505,6 +505,24 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 		Windows: nil,
 	}
 
+	// inject pod security context
+	podSec := podInput.SecurityContext
+	if podSec != nil {
+		/*podCfg.Linux.Sysctls = map[string]string{
+			"net.ipv4.ip_unprivileged_port_start": "80",
+		}*/
+		if podSec.RunAsUser != nil {
+			podCfg.Linux.SecurityContext.RunAsUser = &runtimeapi.Int64Value{
+				Value: *podSec.RunAsUser,
+			}
+		}
+		if podSec.RunAsGroup != nil {
+			podCfg.Linux.SecurityContext.RunAsGroup = &runtimeapi.Int64Value{
+				Value: *podSec.RunAsGroup,
+			}
+		}
+	}
+
 	metaPms, err := s.GetPodMetadataPortMappings()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetPodMetadataPortMappings")

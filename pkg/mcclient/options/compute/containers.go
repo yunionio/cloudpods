@@ -60,8 +60,8 @@ type ContainerCreateCommonOptions struct {
 	CgroupDeviceAllow []string `help:"Cgroup devices.allow, e.g.: 'c 13:* rwm'"`
 	SimulateCpu       bool     `help:"Simulating /sys/devices/system/cpu files"`
 	ShmSizeMb         int      `help:"Shm size MB"`
-	Uid               int64    `help:"UID of pod" default:"0"`
-	Gid               int64    `help:"GID of pod" default:"0"`
+	Uid               int64    `help:"UID of container" default:"0"`
+	Gid               int64    `help:"GID of container" default:"0"`
 }
 
 func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
