@@ -811,6 +811,17 @@ func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SGuestManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	switch resource {
+	case NetworkManager.Keyword():
+		guestnets := GuestnetworkManager.Query("guest_id", "network_id").SubQuery()
+		q = q.LeftJoin(guestnets, sqlchemy.Equals(q.Field("id"), guestnets.Field("guest_id")))
+
+		return manager.SNetworkResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SGuestManager) initHostname() error {
 	guests := []SGuest{}
 	q := manager.Query().IsNullOrEmpty("hostname")
