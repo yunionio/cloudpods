@@ -101,7 +101,7 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 			continue
 		}
 		segs := strings.Split(line, ",")
-		if len(segs) != 3 {
+		if len(segs) != 4 {
 			log.Errorf("unknown nvidia-smi out line %s", line)
 			continue
 		}
