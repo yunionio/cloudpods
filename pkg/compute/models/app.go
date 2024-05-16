@@ -586,7 +586,7 @@ func (self *SApp) GetDetailsCertificates(ctx context.Context, userCred mcclient.
 }
 
 // 获取自定义域列表
-func (self *SApp) GetDetailsDomains(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.AppDomainOutput, error) {
+func (self *SApp) GetDetailsCustomDomains(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.AppDomainOutput, error) {
 	iApp, err := self.GetIApp(ctx)
 	if err != nil {
 		return nil, err
