@@ -28,7 +28,7 @@ func init() {
 	cmd.Get("hybird-connections", &compute.AppIdOptions{})
 	cmd.Get("certificates", &compute.AppIdOptions{})
 	cmd.Get("backups", &compute.AppIdOptions{})
-	cmd.Get("domains", &compute.AppIdOptions{})
+	cmd.Get("custom-domains", &compute.AppIdOptions{})
 
 	cmd1 := shell.NewResourceCmd(&modules.AppEnvironments)
 	cmd1.List(&compute.AppEnvironmentListOptions{})
