@@ -112,7 +112,7 @@ func (host *SHostService) RunService() {
 		log.Fatalf("Guest manager Bootstrap %s", err)
 	}
 	// hostmetrics after guestmanager bootstrap
-	hostmetrics.Init()
+	hostmetrics.Init(hostInstance.GetContainerStatsProvider())
 	hostmetrics.Start()
 
 	host.initHandlers(app)
