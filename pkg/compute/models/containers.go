@@ -222,11 +222,11 @@ func (m *SContainerManager) ValidateSpecVolumeMount(ctx context.Context, userCre
 	if err != nil {
 		return nil, errors.Wrapf(err, "get container volume mount driver %s", vm.Type)
 	}
-	vm, err = drv.ValidateCreateData(ctx, userCred, pod, vm)
+	nvm, err := drv.ValidateCreateData(ctx, userCred, pod, vm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "validate %s create data", vm.Type)
 	}
-	return vm, nil
+	return nvm, nil
 }
 
 /*func (m *SContainerManager) GetContainerIndex(guestId string) (int, error) {
