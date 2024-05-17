@@ -577,8 +577,6 @@ github.com/google/cadvisor/container/docker
 github.com/google/cadvisor/container/docker/utils
 github.com/google/cadvisor/container/libcontainer
 github.com/google/cadvisor/container/raw
-github.com/google/cadvisor/container/systemd
-github.com/google/cadvisor/container/systemd/install
 github.com/google/cadvisor/devicemapper
 github.com/google/cadvisor/events
 github.com/google/cadvisor/fs
@@ -1686,7 +1684,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240514124338-cc25bab7c709
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240517071502-157196020dae
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
