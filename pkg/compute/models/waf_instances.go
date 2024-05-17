@@ -68,6 +68,14 @@ type SWafInstance struct {
 
 	Type          cloudprovider.TWafType       `width:"20" charset:"ascii" nullable:"false" list:"domain" create:"required"`
 	DefaultAction *cloudprovider.DefaultAction `charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
+
+	Cname string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	// 前面是否有代理服务
+	IsAccessProduct bool     `nullable:"false" default:"false" list:"user" update:"user" create:"optional"`
+	AccessHeaders   []string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	SourceIps       []string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	HttpPorts       []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	HttpsPorts      []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
 }
 
 func (manager *SWafInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -432,6 +440,12 @@ func (self *SWafInstance) SyncWithCloudWafInstance(ctx context.Context, userCred
 		self.SetEnabled(ext.GetEnabled())
 		self.DefaultAction = ext.GetDefaultAction()
 		self.Status = ext.GetStatus()
+		self.IsAccessProduct = ext.GetIsAccessProduct()
+		self.HttpsPorts = ext.GetHttpsPorts()
+		self.HttpPorts = ext.GetHttpPorts()
+		self.Cname = ext.GetCname()
+		self.SourceIps = ext.GetSourceIps()
+		self.AccessHeaders = ext.GetAccessHeaders()
 		return nil
 	})
 	if len(diff) > 0 {
@@ -456,6 +470,12 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 	waf.DefaultAction = ext.GetDefaultAction()
 	waf.Type = ext.GetWafType()
 	waf.ExternalId = ext.GetGlobalId()
+	waf.IsAccessProduct = ext.GetIsAccessProduct()
+	waf.HttpsPorts = ext.GetHttpsPorts()
+	waf.HttpPorts = ext.GetHttpPorts()
+	waf.Cname = ext.GetCname()
+	waf.SourceIps = ext.GetSourceIps()
+	waf.AccessHeaders = ext.GetAccessHeaders()
 	var err = func() error {
 		lockman.LockRawObject(ctx, WafInstanceManager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, WafInstanceManager.Keyword(), "name")

@@ -64,6 +64,30 @@ type SWebAcl struct {
 	LockToken string
 }
 
+func (self *SWebAcl) GetIsAccessProduct() bool {
+	return false
+}
+
+func (self *SWebAcl) GetAccessHeaders() []string {
+	return []string{}
+}
+
+func (self *SWebAcl) GetHttpPorts() []int {
+	return []int{}
+}
+
+func (self *SWebAcl) GetHttpsPorts() []int {
+	return []int{}
+}
+
+func (self *SWebAcl) GetCname() string {
+	return ""
+}
+
+func (self *SWebAcl) GetSourceIps() []string {
+	return []string{}
+}
+
 func (self *SRegion) ListWebACLs(scope string) ([]SWebAcl, error) {
 	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
 		return []SWebAcl{}, nil
