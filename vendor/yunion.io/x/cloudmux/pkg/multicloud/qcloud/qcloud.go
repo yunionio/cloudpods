@@ -71,6 +71,7 @@ const (
 	QCLOUD_DNS_API_VERSION       = "2021-03-23"
 	QCLOUD_STS_API_VERSION       = "2018-08-13"
 	QCLOUD_TAG_API_VERSION       = "2018-08-13"
+	QCLOUD_WAF_API_VERSION       = "2018-01-25"
 )
 
 type QcloudClientConfig struct {
@@ -171,6 +172,12 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string,
 func esRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("es", params)
 	return _jsonRequest(client, domain, QCLOUD_ES_API_VERSION, apiName, params, updateFunc, debug, true)
+}
+
+// waf
+func wafRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("waf", params)
+	return _jsonRequest(client, domain, QCLOUD_WAF_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // kafka
@@ -534,6 +541,15 @@ func (client *SQcloudClient) esRequest(apiName string, params map[string]string)
 	}
 
 	return esRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
+}
+
+func (client *SQcloudClient) wafRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return wafRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -1039,6 +1055,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CONTAINER + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CERT,
 		cloudprovider.CLOUD_CAPABILITY_SNAPSHOT_POLICY,
+		cloudprovider.CLOUD_CAPABILITY_WAF + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }
