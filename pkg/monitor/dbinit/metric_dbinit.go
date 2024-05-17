@@ -494,4 +494,22 @@ func init() {
 			newMetricFieldCreateInput("pod_restart_total", "pod restart count in node", monitor.METRIC_UNIT_COUNT, 4),
 		})
 
+	//  metrics of pod and container
+	RegistryMetricCreateInput("pod_cpu", "Pod cpu", monitor.METRIC_RES_TYPE_CONTAINER,
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("usage_rate", "Pod cpu usage rate", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+	RegistryMetricCreateInput("pod_mem", "Pod memory", monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+		newMetricFieldCreateInput("usage_rate", "Pod memory usage rate", monitor.METRIC_UNIT_PERCENT, 1),
+		newMetricFieldCreateInput("working_set_bytes", "Pod memory working set bytes", monitor.METRIC_UNIT_BYTE, 2),
+	})
+
+	RegistryMetricCreateInput("container_cpu", "Container cpu", monitor.METRIC_RES_TYPE_CONTAINER,
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("usage_rate", "Container cpu usage rate", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+	RegistryMetricCreateInput("container_mem", "Container memory", monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+		newMetricFieldCreateInput("usage_rate", "Container memory usage rate", monitor.METRIC_UNIT_PERCENT, 1),
+		newMetricFieldCreateInput("working_set_bytes", "Container memory working set bytes", monitor.METRIC_UNIT_BYTE, 2),
+	})
 }

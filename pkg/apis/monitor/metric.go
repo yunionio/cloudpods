@@ -31,6 +31,7 @@ const (
 	METRIC_RES_TYPE_STORAGE      = "storage"
 	METRIC_RES_TYPE_ELB          = "elb"
 	METRIC_RES_TYPE_K8S          = "k8s"
+	METRIC_RES_TYPE_CONTAINER    = "container"
 
 	//ext is prefix！
 	METRIC_RES_TYPE_JENKINS      = "ext_jenkins"
