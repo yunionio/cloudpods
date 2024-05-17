@@ -1480,6 +1480,14 @@ type ICloudWafInstance interface {
 	// 绑定的资源列表
 	GetCloudResources() ([]SCloudResource, error)
 
+	// 前面是否有代理服务
+	GetIsAccessProduct() bool
+	GetAccessHeaders() []string
+	GetHttpPorts() []int
+	GetHttpsPorts() []int
+	GetCname() string
+	GetSourceIps() []string
+
 	Delete() error
 }
 

@@ -442,6 +442,30 @@ func (self *SAppGatewayWaf) GetWafType() cloudprovider.TWafType {
 	return cloudprovider.WafTypeAppGateway
 }
 
+func (self *SAppGatewayWaf) GetIsAccessProduct() bool {
+	return true
+}
+
+func (self *SAppGatewayWaf) GetAccessHeaders() []string {
+	return []string{}
+}
+
+func (self *SAppGatewayWaf) GetHttpPorts() []int {
+	return []int{}
+}
+
+func (self *SAppGatewayWaf) GetHttpsPorts() []int {
+	return []int{}
+}
+
+func (self *SAppGatewayWaf) GetCname() string {
+	return ""
+}
+
+func (self *SAppGatewayWaf) GetSourceIps() []string {
+	return []string{}
+}
+
 func (self *SAppGatewayWaf) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloudWafRule, error) {
 	rule, err := wafRuleLocal2Cloud(opts)
 	if err != nil {

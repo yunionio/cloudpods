@@ -33,11 +33,11 @@ type SWafDomain struct {
 	insId           string
 	name            string
 	Httptouserip    int           `json:"HttpToUserIp"`
-	Httpport        []int         `json:"HttpPort"`
-	Isaccessproduct int           `json:"IsAccessProduct"`
+	HttpPort        []int         `json:"HttpPort"`
+	IsAccessProduct int           `json:"IsAccessProduct"`
 	Resourcegroupid string        `json:"ResourceGroupId"`
 	Readtime        int           `json:"ReadTime"`
-	Sourceips       []string      `json:"SourceIps"`
+	SourceIps       []string      `json:"SourceIps"`
 	Ipfollowstatus  int           `json:"IpFollowStatus"`
 	Clustertype     int           `json:"ClusterType"`
 	Loadbalancing   int           `json:"LoadBalancing"`
@@ -48,7 +48,8 @@ type SWafDomain struct {
 	Httpsredirect   int           `json:"HttpsRedirect"`
 	Connectiontime  int           `json:"ConnectionTime"`
 	Accesstype      string        `json:"AccessType"`
-	Httpsport       []interface{} `json:"HttpsPort"`
+	HttpsPort       []int         `json:"HttpsPort"`
+	AccessHeaders   []string
 }
 
 func (self *SRegion) DescribeDomain(id, domain string) (*SWafDomain, error) {
@@ -173,6 +174,30 @@ func (self *SWafDomain) GetName() string {
 
 func (self *SWafDomain) GetGlobalId() string {
 	return self.name
+}
+
+func (self *SWafDomain) GetIsAccessProduct() bool {
+	return self.IsAccessProduct == 1
+}
+
+func (self *SWafDomain) GetAccessHeaders() []string {
+	return self.AccessHeaders
+}
+
+func (self *SWafDomain) GetHttpPorts() []int {
+	return self.HttpPort
+}
+
+func (self *SWafDomain) GetHttpsPorts() []int {
+	return self.HttpsPort
+}
+
+func (self *SWafDomain) GetCname() string {
+	return self.Cname
+}
+
+func (self *SWafDomain) GetSourceIps() []string {
+	return self.SourceIps
 }
 
 func (self *SWafDomain) Delete() error {

@@ -502,6 +502,11 @@ func (self *SRegion) esRequest(apiName string, params map[string]string) (jsonut
 	return self.client.esRequest(apiName, params)
 }
 
+func (self *SRegion) wafRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.wafRequest(apiName, params)
+}
+
 func (self *SRegion) memcachedRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.memcachedRequest(apiName, params)
