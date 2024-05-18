@@ -447,11 +447,16 @@ func (u *Unit) SchedData() *api.SchedInfo {
 }
 
 func (u *Unit) GetHypervisor() string {
+	driver, _ := models.GetHostDriver(u.SchedInfo.Hypervisor, u.SchedInfo.Provider)
+	if driver != nil {
+		return driver.GetHypervisor()
+	}
 	return u.SchedData().Hypervisor
 }
 
 func (u *Unit) GetHypervisorDriver() models.IGuestDriver {
-	driver, _ := models.GetDriver(u.GetHypervisor(), u.SchedInfo.Provider)
+	hypervisor := u.GetHypervisor()
+	driver, _ := models.GetDriver(hypervisor, u.SchedInfo.Provider)
 	return driver
 }
 

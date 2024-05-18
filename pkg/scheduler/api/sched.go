@@ -163,6 +163,9 @@ func NewSchedInfo(input *api.ScheduleInput) *SchedInfo {
 			data.Provider = region.Provider
 		}
 	}
+	if len(data.Provider) == 0 {
+		data.Provider = computeapi.CLOUD_PROVIDER_ONECLOUD
+	}
 
 	if data.Backup {
 		if data.PreferBackupHost != "" {

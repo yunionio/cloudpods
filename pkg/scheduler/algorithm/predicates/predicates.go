@@ -60,7 +60,8 @@ func (b *BasePredicate) PreExecute(ctx context.Context, unit *core.Unit, candis 
 }
 
 func (b *BasePredicate) GetHypervisorDriver(u *core.Unit) models.IGuestDriver {
-	driver, _ := models.GetDriver(u.GetHypervisor(), u.SchedInfo.Provider)
+	hypervisor := u.GetHypervisor()
+	driver, _ := models.GetDriver(hypervisor, u.SchedInfo.Provider)
 	return driver
 }
 
@@ -346,7 +347,11 @@ func (w SchedtagResourceW) GetDynamicSchedDesc() *jsonutils.JSONDict {
 }
 
 func (p *BaseSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
-	driver, _ := models.GetDriver(p.Hypervisor, p.Provider)
+	hypervisor := p.Hypervisor
+	if hypervisor == api.HostHypervisorForKvm {
+		hypervisor = api.SchedTypeKvm
+	}
+	driver, _ := models.GetDriver(hypervisor, p.Provider)
 	return driver
 }
 
@@ -413,6 +418,7 @@ func (p *BaseSchedtagPredicate) PreExecute(ctx context.Context, sp ISchedtagPred
 	}
 
 	p.Hypervisor = u.GetHypervisor()
+	p.Provider = u.SchedInfo.Provider
 
 	// always do select step
 	u.AppendSelectPlugin(sp)
