@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +58,8 @@ type SSkuResourcesMeta struct {
 	CloudpolicyBase string `json:"cloudpolicy_base"`
 
 	RateBase string `json:"rate_base"`
+	// 汇率转换
+	CurrencyExchangeBase string `json:"currency_exchange_base"`
 
 	// 3天过期, 重新刷新
 	expire time.Time
@@ -101,6 +104,28 @@ func (self *SSkuResourcesMeta) request(url string) (jsonutils.JSONObject, error)
 	header.Set("User-Agent", "vendor/yunion-OneCloud@"+version.Get().GitVersion)
 	_, resp, err := httputils.JSONRequest(client, context.TODO(), httputils.GET, url, header, nil, false)
 	return resp, err
+}
+
+func (self *SSkuResourcesMeta) head(url string) (http.Header, jsonutils.JSONObject, error) {
+	client := httputils.GetAdaptiveTimeoutClient()
+
+	header := http.Header{}
+	header.Set("User-Agent", "vendor/yunion-OneCloud@"+version.Get().GitVersion)
+	_header, resp, err := httputils.JSONRequest(client, context.TODO(), httputils.HEAD, url, header, nil, false)
+	return _header, resp, err
+}
+
+func (self *SSkuResourcesMeta) GetCurrencyRate(currency string) (float64, error) {
+	url := fmt.Sprintf("%s/%s", self.CurrencyExchangeBase, currency)
+	header, _, err := self.head(url)
+	if err != nil {
+		return 0.0, errors.Wrapf(err, "head %s", url)
+	}
+	rate := header.Get("x-oss-meta-rate")
+	if len(rate) == 0 {
+		return 0.0, errors.Wrapf(cloudprovider.ErrNotFound, "x-oss-meta-rate %s", currency)
+	}
+	return strconv.ParseFloat(rate, 64)
 }
 
 func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) {
