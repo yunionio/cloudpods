@@ -2365,17 +2365,17 @@ type SGuestOnlineResizeDiskTask struct {
 	*SKVMGuestInstance
 
 	ctx    context.Context
-	diskId string
+	disk   storageman.IDisk
 	sizeMB int64
 }
 
 func NewGuestOnlineResizeDiskTask(
-	ctx context.Context, s *SKVMGuestInstance, diskId string, sizeMB int64,
+	ctx context.Context, s *SKVMGuestInstance, disk storageman.IDisk, sizeMB int64,
 ) *SGuestOnlineResizeDiskTask {
 	return &SGuestOnlineResizeDiskTask{
 		SKVMGuestInstance: s,
 		ctx:               ctx,
-		diskId:            diskId,
+		disk:              disk,
 		sizeMB:            sizeMB,
 	}
 }
@@ -2397,12 +2397,16 @@ func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(blocks []monitor.QemuBlo
 			}
 			image, _ = fileJson.GetString("file", "image")
 		}
-		if len(blocks[i].Inserted.File) > 0 && strings.HasSuffix(blocks[i].Inserted.File, task.diskId) || image == task.diskId {
+		if len(blocks[i].Inserted.File) > 0 && strings.HasSuffix(blocks[i].Inserted.File, task.disk.GetId()) || image == task.disk.GetId() {
+			if err := task.disk.PreResize(task.ctx, task.sizeMB); err != nil {
+				hostutils.TaskFailed(task.ctx, fmt.Sprintf("disk %s preResize failed %s", task.disk.GetId(), err))
+				return
+			}
 			task.Monitor.ResizeDisk(blocks[i].Device, task.sizeMB, task.OnResizeSucc)
 			return
 		}
 	}
-	hostutils.TaskFailed(task.ctx, fmt.Sprintf("disk %s not found on this guest", task.diskId))
+	hostutils.TaskFailed(task.ctx, fmt.Sprintf("disk %s not found on this guest", task.disk.GetId()))
 }
 
 func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(err string) {
@@ -2412,7 +2416,7 @@ func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(err string) {
 		hostutils.TaskComplete(task.ctx, params)
 		return
 	}
-	hostutils.TaskFailed(task.ctx, fmt.Sprintf("resize disk %s %dMb error: %v", task.diskId, task.sizeMB, err))
+	hostutils.TaskFailed(task.ctx, fmt.Sprintf("resize disk %s %dMb error: %v", task.disk.GetId(), task.sizeMB, err))
 }
 
 /**

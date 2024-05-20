@@ -52,7 +52,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	storage, _ := disk.GetStorage()
 	guest := disk.GetGuest()
 
-	if guest != nil && guest.PowerStates == api.VM_POWER_STATES_ON {
+	if guest != nil {
 		host, _ = guest.GetHost()
 	} else {
 		host, _ = storage.GetMasterHost()
