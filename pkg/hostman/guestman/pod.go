@@ -49,10 +49,11 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	imagemod "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
+	"yunion.io/x/onecloud/pkg/util/pod/image"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -1264,6 +1265,39 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 			}), nil
 		}
 	}
+	return s.pullImageByCtrCmd(ctx, userCred, ctrId, input)
+	// return s.pullImageByCRI(ctx, userCred, ctrId, input)
+}
+
+func (s *sPodGuestInstance) pullImageByCtrCmd(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error) {
+	opt := &image.PullOptions{
+		SkipVerify: true,
+	}
+	if input.Auth != nil {
+		opt.Username = input.Auth.Username
+		opt.Password = input.Auth.Password
+	}
+	addr := options.HostOptions.ContainerRuntimeEndpoint
+	addr = strings.TrimPrefix(addr, "unix://")
+	imgTool := image.NewImageTool(addr, "k8s.io")
+	output, err := imgTool.Pull(input.Image, opt)
+	errs := make([]error, 0)
+	if err != nil {
+		// try http protocol
+		errs = append(errs, errors.Wrapf(err, "pullImageByCtrCmd: %s", output))
+		opt.PlainHttp = true
+		log.Infof("try pull image %s by http", input.Image)
+		if output2, err := imgTool.Pull(input.Image, opt); err != nil {
+			errs = append(errs, errors.Wrapf(err, "pullImageByCtrCmd by http: %s", output2))
+			return nil, errors.NewAggregate(errs)
+		}
+	}
+	return jsonutils.Marshal(&runtimeapi.PullImageResponse{
+		ImageRef: input.Image,
+	}), nil
+}
+
+func (s *sPodGuestInstance) pullImageByCRI(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error) {
 	/*podCfg, err := s.getPodSandboxConfig()
 	if err != nil {
 		return nil, errors.Wrap(err, "get pod sandbox config")
@@ -1352,7 +1386,7 @@ func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostap
 	var params = jsonutils.NewDict()
 	params.Set("image_id", jsonutils.NewString(input.ImageId))
 
-	if _, err := image.Images.Upload(hostutils.GetImageSession(ctx), params, f, size); err != nil {
+	if _, err := imagemod.Images.Upload(hostutils.GetImageSession(ctx), params, f, size); err != nil {
 		return errors.Wrap(err, "upload image")
 	}
 
