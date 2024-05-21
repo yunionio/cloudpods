@@ -249,8 +249,6 @@ func (maanger *SStoragecachedimageManager) fetchRefCount(q *sqlchemy.SQuery) (ma
 		StoragecacheId string `json:"storagecache_id"`
 	}{}
 
-	q.DebugQuery()
-
 	err := q.All(&results)
 	if err != nil {
 		return nil, errors.Wrap(err, "Query")

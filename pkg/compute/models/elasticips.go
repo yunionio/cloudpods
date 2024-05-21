@@ -437,7 +437,26 @@ func (manager *SElasticipManager) SyncEips(
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudEip(ctx, userCred, added[i], provider, region, syncOwnerId)
+		eip := &SElasticip{}
+		eip.SetModelManager(ElasticipManager, eip)
+		err := ElasticipManager.Query().
+			Equals("ip_addr", added[i].GetIpAddr()).
+			Equals("manager_id", provider.Id).
+			Equals("cloudregion_id", region.Id).
+			Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP).First(eip)
+
+		// 公网IP转弹性IP
+		if err == nil {
+			err = eip.SyncWithCloudEip(ctx, userCred, provider, added[i], syncOwnerId)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			syncResult.Update()
+			continue
+		}
+
+		_, err = manager.newFromCloudEip(ctx, userCred, added[i], provider, region, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
