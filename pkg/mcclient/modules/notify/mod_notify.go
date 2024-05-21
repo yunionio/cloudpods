@@ -31,6 +31,8 @@ var (
 	NotifyTemplate   modulebase.ResourceManager
 	NotifyTopic      modulebase.ResourceManager
 	NotifySubscriber modulebase.ResourceManager
+	NotifyAction     modulebase.ResourceManager
+	NotifyResource   modulebase.ResourceManager
 	Configs          ConfigsManager
 )
 
@@ -91,6 +93,18 @@ func init() {
 	)
 	modules.Register(&NotifySubscriber)
 
+	NotifyAction = modules.NewNotifyv2Manager(
+		"notify_action",
+		"notify_actions",
+		[]string{},
+		[]string{},
+	)
+	NotifyResource = modules.NewNotifyv2Manager(
+		"notify_resource",
+		"notify_resources",
+		[]string{},
+		[]string{},
+	)
 	// important: Notifications' init must be behind Notication's init
 	Notifications = NotificationManager{
 		Notification,
