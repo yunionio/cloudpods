@@ -115,15 +115,15 @@ func (self *SSkuResourcesMeta) head(url string) (http.Header, jsonutils.JSONObje
 	return _header, resp, err
 }
 
-func (self *SSkuResourcesMeta) GetCurrencyRate(currency string) (float64, error) {
-	url := fmt.Sprintf("%s/%s", self.CurrencyExchangeBase, currency)
+func (self *SSkuResourcesMeta) GetCurrencyRate(src, dest string) (float64, error) {
+	url := fmt.Sprintf("%s/%s-%s", self.CurrencyExchangeBase, src, dest)
 	header, _, err := self.head(url)
 	if err != nil {
 		return 0.0, errors.Wrapf(err, "head %s", url)
 	}
 	rate := header.Get("x-oss-meta-rate")
 	if len(rate) == 0 {
-		return 0.0, errors.Wrapf(cloudprovider.ErrNotFound, "x-oss-meta-rate %s", currency)
+		return 0.0, errors.Wrapf(cloudprovider.ErrNotFound, "x-oss-meta-rate %s -> %s", src, dest)
 	}
 	return strconv.ParseFloat(rate, 64)
 }
