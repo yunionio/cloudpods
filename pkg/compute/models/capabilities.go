@@ -761,8 +761,6 @@ func getStorageTypes(
 
 	info := []StorageInfo{}
 
-	q.DebugQuery()
-
 	err := q.All(&info)
 	if err != nil {
 		return nil, errors.Wrapf(err, "q.All")
