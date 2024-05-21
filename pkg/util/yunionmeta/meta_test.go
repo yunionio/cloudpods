@@ -29,7 +29,7 @@ func TestCurrencyRate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unmarshal meta error: %v", err)
 	}
-	rate, err := meta.GetCurrencyRate("USD")
+	rate, err := meta.GetCurrencyRate("CNY", "USD")
 	if err != nil {
 		t.Fatalf("get used rate error: %v", rate)
 	}
