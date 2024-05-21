@@ -15,19 +15,23 @@
 package compute
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/pod/remotecommand"
+	"yunion.io/x/onecloud/pkg/util/pod/stream"
 	"yunion.io/x/onecloud/pkg/util/pod/term"
 )
 
@@ -90,6 +94,28 @@ func (man ContainerManager) Exec(s *mcclient.ClientSession, id string, opt *api.
 		})
 	}
 	return t.Safe(fn)
+}
+
+func (man ContainerManager) Log(s *mcclient.ClientSession, id string, opt *api.PodLogOptions) (io.ReadCloser, error) {
+	info, err := man.GetSpecific(s, id, "exec-info", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "get exec info")
+	}
+	infoOut := new(api.ContainerExecInfoOutput)
+	if err := info.Unmarshal(infoOut); err != nil {
+		return nil, errors.Wrap(err, "unmarshal exec info")
+	}
+
+	qs := jsonutils.Marshal(opt).QueryString()
+	urlLoc := fmt.Sprintf("%s/pods/%s/containers/%s/log?%s", infoOut.HostUri, infoOut.PodId, infoOut.ContainerId, qs)
+
+	headers := mcclient.GetTokenHeaders(s.GetToken())
+	req := stream.NewRequest(httputils.GetTimeoutClient(1*time.Hour), nil, headers)
+	reader, err := req.Stream(context.Background(), "GET", urlLoc)
+	if err != nil {
+		return nil, errors.Wrap(err, "stream request")
+	}
+	return reader, nil
 }
 
 var (

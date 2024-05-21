@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/proxy"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -34,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/flushwriter"
 )
 
 const (
@@ -115,9 +117,12 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 			containerActionHandler(f))
 	}
 
-	execWorker := appsrv.NewWorkerManager("exec-worker", 16, appsrv.DEFAULT_BACKLOG, false)
-	app.AddHandler3(newExecContainerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec-sync", prefix, POD_ID, CONTAINER_ID), execWorker, containerSyncActionHandler(containerExecSync)))
-	app.AddHandler3(newExecContainerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execWorker, execContainer()))
+	execWorker := appsrv.NewWorkerManager("container-exec-worker", 16, appsrv.DEFAULT_BACKLOG, false)
+	app.AddHandler3(newContainerWorkerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec-sync", prefix, POD_ID, CONTAINER_ID), execWorker, containerSyncActionHandler(containerExecSync)))
+	app.AddHandler3(newContainerWorkerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execWorker, execContainer()))
+
+	logWorker := appsrv.NewWorkerManager("container-log-worker", 64, appsrv.DEFAULT_BACKLOG, false)
+	app.AddHandler3(newContainerWorkerHandler("GET", fmt.Sprintf("%s/pods/%s/containers/%s/log", prefix, POD_ID, CONTAINER_ID), logWorker, logContainer()))
 }
 
 func pullImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -164,7 +169,7 @@ func saveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredenti
 	return pod.SaveVolumeMountToImage(ctx, userCred, input, ctrId)
 }
 
-func newExecContainerHandler(method, urlPath string, worker *appsrv.SWorkerManager, hander appsrv.FilterHandler) *appsrv.SHandlerInfo {
+func newContainerWorkerHandler(method, urlPath string, worker *appsrv.SWorkerManager, hander appsrv.FilterHandler) *appsrv.SHandlerInfo {
 	hi := &appsrv.SHandlerInfo{}
 	hi.SetMethod(method)
 	hi.SetPath(urlPath)
@@ -174,9 +179,11 @@ func newExecContainerHandler(method, urlPath string, worker *appsrv.SWorkerManag
 	return hi
 }
 
-func execContainer() appsrv.FilterHandler {
+type containerWorkerActionHander func(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, query, body jsonutils.JSONObject, r *http.Request, w http.ResponseWriter)
+
+func containerWorkerAction(handler containerWorkerActionHander) appsrv.FilterHandler {
 	return auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		params, query, _ := appsrv.FetchEnv(ctx, w, r)
+		params, query, body := appsrv.FetchEnv(ctx, w, r)
 		podId := params[POD_ID]
 		ctrId := params[CONTAINER_ID]
 		userCred := auth.FetchUserCredential(ctx, nil)
@@ -190,6 +197,48 @@ func execContainer() appsrv.FilterHandler {
 			hostutils.Response(ctx, w, httperrors.NewBadRequestError("runtime instance is %#v", podObj))
 			return
 		}
+		handler(ctx, userCred, pod, ctrId, query, body, r, w)
+	})
+}
+
+func logContainer() appsrv.FilterHandler {
+	return containerWorkerAction(func(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, query, body jsonutils.JSONObject, r *http.Request, w http.ResponseWriter) {
+		input := new(compute.PodLogOptions)
+		if err := query.Unmarshal(input); err != nil {
+			hostutils.Response(ctx, w, errors.Wrap(err, "unmarshal to PodLogOptions"))
+			return
+		}
+		if err := compute.ValidatePodLogOptions(input); err != nil {
+			hostutils.Response(ctx, w, err)
+			return
+		}
+		if _, ok := w.(http.Flusher); !ok {
+			hostutils.Response(ctx, w, errors.Errorf("unable to convert to http.Flusher"))
+			return
+		}
+		w.Header().Set("Transfer-Encoding", "chunked")
+		fw := flushwriter.Wrap(w)
+		ctx, cancel := context.WithCancel(ctx)
+		go func() {
+			for {
+				// check whether client request is closed
+				select {
+				case <-r.Context().Done():
+					log.Infof("client request is closed, end session")
+					cancel()
+					return
+				}
+			}
+		}()
+		if err := pod.ReadLogs(ctx, userCred, ctrId, input, fw, fw); err != nil {
+			hostutils.Response(ctx, w, errors.Wrap(err, "Read logs"))
+			return
+		}
+	})
+}
+
+func execContainer() appsrv.FilterHandler {
+	return containerWorkerAction(func(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, query, body jsonutils.JSONObject, r *http.Request, w http.ResponseWriter) {
 		input := new(compute.ContainerExecInput)
 		if err := query.Unmarshal(input); err != nil {
 			hostutils.Response(ctx, w, errors.Wrap(err, "unmarshal to ContainerExecInput"))
