@@ -119,35 +119,25 @@ func (self *SRegion) DescribeDomainRuleGroup(insId, domain string) (string, erro
 }
 
 func (self *SRegion) GetICloudWafInstances() ([]cloudprovider.ICloudWafInstance, error) {
-	ins, err := self.DescribeInstanceSpecInfo()
+	wafs, err := self.GetICloudWafInstancesV1()
 	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			return []cloudprovider.ICloudWafInstance{}, nil
-		}
-		return nil, errors.Wrapf(err, "DescribeInstanceSpecInfo")
+		return nil, err
 	}
-	domains, err := self.DescribeDomainNames(ins.InstanceId)
+	wafv2, err := self.GetICloudWafInstancesV2()
 	if err != nil {
-		return nil, errors.Wrapf(err, "DescribeDomainNames")
+		return nil, err
 	}
-	ret := []cloudprovider.ICloudWafInstance{}
-	for i := range domains {
-		domain, err := self.DescribeDomain(ins.InstanceId, domains[i])
-		if err != nil {
-			return nil, errors.Wrapf(err, "DescribeDomain %s", domains[i])
-		}
-		domain.region = self
-		domain.insId = ins.InstanceId
-		domain.name = domains[i]
-		ret = append(ret, domain)
-	}
-	return ret, nil
+	return append(wafs, wafv2...), nil
 }
 
 func (self *SRegion) GetICloudWafInstanceById(id string) (cloudprovider.ICloudWafInstance, error) {
 	ins, err := self.DescribeInstanceSpecInfo()
 	if err != nil {
-		return nil, errors.Wrapf(err, "DescribeInstanceSpecInfo")
+		ins, err = self.DescribeWafInstance()
+		if err != nil {
+			return nil, err
+		}
+		return self.DescribeDomainV2(ins.InstanceId, id)
 	}
 	return self.DescribeDomain(ins.InstanceId, id)
 }
