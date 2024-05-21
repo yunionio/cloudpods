@@ -151,6 +151,19 @@ func (self *SRegion) wafRequest(apiName string, params map[string]string) (jsonu
 	return jsonRequest(client, endpoint, ALIYUN_WAF_API_VERSION, apiName, params, self.client.debug)
 }
 
+func (self *SRegion) wafv2Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	if self.RegionId != "cn-hangzhou" && self.RegionId != "ap-southeast-1" {
+		return nil, cloudprovider.ErrNotSupported
+	}
+	params = self.client.SetResourceGropuId(params)
+	endpoint := fmt.Sprintf("wafopenapi.%s.aliyuncs.com", self.RegionId)
+	return jsonRequest(client, endpoint, ALIYUN_WAF_V2_API_VERSION, apiName, params, self.client.debug)
+}
+
 func (self *SRegion) esRequest(apiName string, params map[string]string, body interface{}) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {
@@ -306,7 +319,7 @@ func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain strin
 	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.client.debug)
 }
 
-/////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) GetId() string {
 	return self.RegionId
 }

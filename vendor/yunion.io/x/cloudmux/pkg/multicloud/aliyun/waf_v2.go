@@ -15,30 +15,17 @@
 package aliyun
 
 import (
-	"yunion.io/x/pkg/errors"
-
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 )
 
-type SInstanceSpecs struct {
-	Code  int
-	Value bool
-}
-
-type SWafInstance struct {
-	Version           string
-	InstanceSpecInfos []SInstanceSpecs
-	InstanceId        string
-	ExpireTime        uint64
-}
-
-func (self *SRegion) DescribeInstanceSpecInfo() (*SWafInstance, error) {
+func (self *SRegion) DescribeWafInstance() (*SWafInstance, error) {
 	params := map[string]string{
 		"RegionId": self.RegionId,
 	}
-	resp, err := self.wafRequest("DescribeInstanceSpecInfo", params)
+	resp, err := self.wafv2Request("DescribeInstance", params)
 	if err != nil {
-		return nil, errors.Wrapf(err, "DescribeInstanceSpecInfo")
+		return nil, errors.Wrapf(err, "DescribeInstance")
 	}
 	ret := &SWafInstance{}
 	err = resp.Unmarshal(&ret)
@@ -51,36 +38,26 @@ func (self *SRegion) DescribeInstanceSpecInfo() (*SWafInstance, error) {
 	return ret, nil
 }
 
-func (self *SRegion) DeleteInstance(id string) error {
-	params := map[string]string{
-		"RegionId":   self.RegionId,
-		"InstanceId": id,
-	}
-	_, err := self.wafRequest("DeleteInstance", params)
-	return errors.Wrapf(err, "DeleteInstance")
-}
-
-func (self *SRegion) GetICloudWafInstancesV1() ([]cloudprovider.ICloudWafInstance, error) {
-	ins, err := self.DescribeInstanceSpecInfo()
+func (self *SRegion) GetICloudWafInstancesV2() ([]cloudprovider.ICloudWafInstance, error) {
+	ins, err := self.DescribeWafInstance()
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return []cloudprovider.ICloudWafInstance{}, nil
 		}
 		return nil, errors.Wrapf(err, "DescribeInstanceSpecInfo")
 	}
-	domains, err := self.DescribeDomainNames(ins.InstanceId)
+	domains, err := self.DescribeWafDomains(ins.InstanceId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeDomainNames")
 	}
 	ret := []cloudprovider.ICloudWafInstance{}
 	for i := range domains {
-		domain, err := self.DescribeDomain(ins.InstanceId, domains[i])
+		domain, err := self.DescribeDomainV2(ins.InstanceId, domains[i].Domain)
 		if err != nil {
-			return nil, errors.Wrapf(err, "DescribeDomain %s", domains[i])
+			return nil, errors.Wrapf(err, "DescribeDomain %s", domains[i].Domain)
 		}
 		domain.region = self
 		domain.insId = ins.InstanceId
-		domain.name = domains[i]
 		ret = append(ret, domain)
 	}
 	return ret, nil
