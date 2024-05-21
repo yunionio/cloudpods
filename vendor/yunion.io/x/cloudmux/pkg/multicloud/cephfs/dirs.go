@@ -147,10 +147,8 @@ func (cli *SCephFSClient) CreateDir(fsId, path string) error {
 }
 
 func (cli *SCephFSClient) DeleteDir(fsId, path string) error {
-	res := fmt.Sprintf("cephfs/%s/tree", fsId)
-	_, err := cli.delete(res, map[string]interface{}{
-		"path": fmt.Sprintf("/%s", strings.TrimPrefix(path, "/")),
-	})
+	res := fmt.Sprintf("cephfs/%s/tree?path=%s", fsId, fmt.Sprintf("/%s", strings.TrimPrefix(path, "/")))
+	_, err := cli.delete(res, map[string]interface{}{})
 	return err
 }
 
