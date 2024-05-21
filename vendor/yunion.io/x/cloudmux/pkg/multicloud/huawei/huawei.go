@@ -250,7 +250,10 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, regionId, url s
 		}
 		return nil, err
 	}
-	return resp, err
+	if gotypes.IsNil(resp) {
+		return nil, fmt.Errorf("empty response return")
+	}
+	return resp, nil
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneListRegions
