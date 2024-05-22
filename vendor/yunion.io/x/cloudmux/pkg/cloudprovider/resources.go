@@ -1479,6 +1479,8 @@ type ICloudWafInstance interface {
 	GetHttpsPorts() []int
 	GetCname() string
 	GetSourceIps() []string
+	GetUpstreamScheme() string
+	GetUpstreamPort() int
 
 	Delete() error
 }
