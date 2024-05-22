@@ -107,11 +107,18 @@ type SReloadDisk struct {
 	Disk storageman.IDisk
 }
 
+type SBackupDiskConfig struct {
+	compute.DiskConfig
+	Name        string                        `json:"name"`
+	BackupAsTar *compute.DiskBackupAsTarInput `json:"backup_as_tar"`
+}
+
 type SDiskSnapshot struct {
-	UserCred   mcclient.TokenCredential
-	Sid        string
-	SnapshotId string
-	Disk       storageman.IDisk
+	UserCred         mcclient.TokenCredential
+	Sid              string
+	SnapshotId       string
+	BackupDiskConfig *SBackupDiskConfig
+	Disk             storageman.IDisk
 }
 
 type SMemorySnapshot struct {

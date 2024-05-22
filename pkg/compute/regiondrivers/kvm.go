@@ -798,7 +798,7 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 
 		return models.SnapshotManager.CreateSnapshot(
 			ctx, task.GetUserCred(), api.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
-			guest.Id, "", snapshotName, -1, false)
+			guest.Id, "", snapshotName, -1, false, "")
 	}()
 	if err != nil {
 		return err
@@ -1337,10 +1337,18 @@ func (self *SKVMRegionDriver) RequestCreateBackup(ctx context.Context, backup *m
 	if err != nil {
 		return errors.Wrap(err, "unable to get storage")
 	}
+	snapshotObj, err := models.SnapshotManager.FetchById(snapshotId)
+	if err != nil {
+		return errors.Wrap(err, "fetch snapshot")
+	}
+	snapshot := snapshotObj.(*models.SSnapshot)
 	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/disks/%s/backup/%s", host.ManagerUri, storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	body.Set("snapshot_id", jsonutils.NewString(snapshotId))
+	if snapshot.Location != "" {
+		body.Set("snapshot_location", jsonutils.NewString(snapshot.Location))
+	}
 	body.Set("backup_id", jsonutils.NewString(backup.GetId()))
 	body.Set("backup_storage_id", jsonutils.NewString(backupStorage.GetId()))
 	accessInfo, err := backupStorage.GetAccessInfo()

@@ -419,6 +419,9 @@ func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonut
 
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, diskBackup.SnapshotId)
+	if diskBackup.SnapshotLocation != "" {
+		snapshotPath = diskBackup.SnapshotLocation
+	}
 
 	size, err := doBackupDisk(ctx, snapshotPath, diskBackup)
 	if err != nil {

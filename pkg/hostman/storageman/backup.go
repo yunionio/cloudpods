@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -28,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
 	_ "yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage/nfs"
@@ -39,7 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
-func ensureBackupDir() (string, error) {
+func EnsureBackupDir() (string, error) {
 	backupTmpDir := options.HostOptions.LocalBackupTempPath
 	if !fileutils2.Exists(backupTmpDir) {
 		output, err := procutils.NewCommand("mkdir", "-p", backupTmpDir).Output()
@@ -55,43 +57,58 @@ func ensureBackupDir() (string, error) {
 	return tmpFileDir, nil
 }
 
-func cleanupDirOrFile(path string) {
+func CleanupDirOrFile(path string) {
 	log.Debugf("cleanup backup %s", path)
 	if output, err := procutils.NewCommand("rm", "-rf", path).Output(); err != nil {
 		log.Errorf("unable to rm %s: %s", path, output)
 	}
 }
 
+func isTarSnapshot(path string) bool {
+	return strings.HasSuffix(path, ".tar")
+}
+
 func doBackupDisk(ctx context.Context, snapshotPath string, diskBackup *SDiskBackup) (int, error) {
-	backupTmpDir, err := ensureBackupDir()
+	backupTmpDir, err := EnsureBackupDir()
 	if err != nil {
-		return 0, errors.Wrap(err, "ensureBackupDir")
+		return 0, errors.Wrap(err, "EnsureBackupDir")
 	}
-	defer cleanupDirOrFile(backupTmpDir)
+	defer CleanupDirOrFile(backupTmpDir)
 
 	backupPath := path.Join(backupTmpDir, diskBackup.BackupId)
-	img, err := qemuimg.NewQemuImage(snapshotPath)
-	if err != nil {
-		return 0, errors.Wrap(err, "NewQemuImage snapshot")
-	}
-	encKey := ""
-	if len(diskBackup.EncryptKeyId) > 0 {
-		session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion())
-		secKey, err := identity_modules.Credentials.GetEncryptKey(session, diskBackup.EncryptKeyId)
-		if err != nil {
-			return 0, errors.Wrap(err, "GetEncryptKey")
-		}
-		encKey = secKey.Key
-	}
-	if len(encKey) > 0 {
-		img.SetPassword(encKey)
-	}
-	newImage, err := img.Clone(backupPath, qemuimgfmt.QCOW2, true)
-	if err != nil {
-		return 0, errors.Wrap(err, "unable to backup snapshot")
-	}
+	var newImageSizeMb int
 
-	newImageSizeMb := newImage.GetActualSizeMB()
+	if isTarSnapshot(snapshotPath) {
+		backupPath = snapshotPath
+		fileSize := fileutils2.FileSize(backupPath)
+		if fileSize <= 0 {
+			return 0, errors.Errorf("get snapshot path %s size failed", snapshotPath)
+		}
+		newImageSizeMb = int(fileSize / 1024 / 1024)
+	} else {
+		img, err := qemuimg.NewQemuImage(snapshotPath)
+		if err != nil {
+			return 0, errors.Wrap(err, "NewQemuImage snapshot")
+		}
+		encKey := ""
+		if len(diskBackup.EncryptKeyId) > 0 {
+			session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion())
+			secKey, err := identity_modules.Credentials.GetEncryptKey(session, diskBackup.EncryptKeyId)
+			if err != nil {
+				return 0, errors.Wrap(err, "GetEncryptKey")
+			}
+			encKey = secKey.Key
+		}
+		if len(encKey) > 0 {
+			img.SetPassword(encKey)
+		}
+		newImage, err := img.Clone(backupPath, qemuimgfmt.QCOW2, true)
+		if err != nil {
+			return 0, errors.Wrap(err, "unable to backup snapshot")
+		}
+
+		newImageSizeMb = newImage.GetActualSizeMB()
+	}
 
 	backupStorage, err := backupstorage.GetBackupStorage(diskBackup.BackupStorageId, diskBackup.BackupStorageAccessInfo)
 	if err != nil {
@@ -106,12 +123,18 @@ func doBackupDisk(ctx context.Context, snapshotPath string, diskBackup *SDiskBac
 	return newImageSizeMb, nil
 }
 
-func doRestoreDisk(ctx context.Context, diskInfo api.DiskAllocateInput, destImgPath string, format string) error {
-	backupTmpDir, err := ensureBackupDir()
+type IDiskCreator interface {
+	CreateRawDisk(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error)
+}
+
+func doRestoreDisk(ctx context.Context, dc IDiskCreator, input *SDiskCreateByDiskinfo, disk IDisk, destImgPath string) error {
+	diskInfo := input.DiskInfo
+	format := diskInfo.Format
+	backupTmpDir, err := EnsureBackupDir()
 	if err != nil {
-		return errors.Wrap(err, "ensureBackupDir")
+		return errors.Wrap(err, "EnsureBackupDir")
 	}
-	defer cleanupDirOrFile(backupTmpDir)
+	defer CleanupDirOrFile(backupTmpDir)
 
 	backupStorage, err := backupstorage.GetBackupStorage(diskInfo.Backup.BackupStorageId, diskInfo.Backup.BackupStorageAccessInfo)
 	if err != nil {
@@ -122,6 +145,17 @@ func doRestoreDisk(ctx context.Context, diskInfo api.DiskAllocateInput, destImgP
 	if err != nil {
 		return errors.Wrap(err, "RestoreBackupTo")
 	}
+
+	backupInput := diskInfo.Backup
+
+	if backupInput.BackupAsTar != nil {
+		return doRestoreTarDisk(ctx, dc, disk, input, destImgPath, backupPath)
+	} else {
+		return doRestoreQCOW2Disk(ctx, diskInfo, destImgPath, format, backupPath)
+	}
+}
+
+func doRestoreQCOW2Disk(ctx context.Context, diskInfo api.DiskAllocateInput, destImgPath string, format string, backupPath string) error {
 	img, err := qemuimg.NewQemuImage(backupPath)
 	if err != nil {
 		return errors.Wrap(err, "NewQemuImage")
@@ -139,17 +173,71 @@ func doRestoreDisk(ctx context.Context, diskInfo api.DiskAllocateInput, destImgP
 	return nil
 }
 
+func doRestoreTarDisk(ctx context.Context, dc IDiskCreator, disk IDisk, input *SDiskCreateByDiskinfo, destImgPath string, backupPath string) error {
+	diskInfo := input.DiskInfo
+	backupInput := diskInfo.Backup
+	if backupInput.BackupAsTar == nil {
+		return errors.Error("backup.backup_as_tar input is empty")
+	}
+	if backupInput.DiskConfig == nil {
+		return errors.Error("backup.disk_config input is empty")
+	}
+	_, err := dc.CreateRawDisk(ctx, disk, input)
+	if err != nil {
+		return errors.Wrapf(err, "CreateRawDisk by input: %s", jsonutils.Marshal(input))
+	}
+
+	drv, err := disk.GetContainerStorageDriver()
+	if err != nil {
+		return errors.Wrap(err, "get disk storage driver")
+	}
+	devPath, isConnected, err := drv.CheckConnect(destImgPath)
+	if err != nil {
+		return errors.Wrapf(err, "CheckConnect %s", disk.GetPath())
+	}
+	if !isConnected {
+		devPath, err = drv.ConnectDisk(disk.GetPath())
+		if err != nil {
+			return errors.Wrapf(err, "ConnectDisk %s", disk.GetPath())
+		}
+	}
+
+	backupMntDir, err := EnsureBackupDir()
+	if err != nil {
+		return errors.Wrap(err, "EnsureBackupDir")
+	}
+	defer CleanupDirOrFile(backupMntDir)
+
+	if err := container_storage.Mount(devPath, backupMntDir, diskInfo.FsFormat); err != nil {
+		return errors.Wrapf(err, "mount %s to %s", devPath, backupMntDir)
+	}
+
+	cmd := fmt.Sprintf("tar -xf %s -C %s", backupPath, backupMntDir)
+	log.Infof("start restore %s to %s, disk: %s", backupPath, backupMntDir, disk.GetId())
+	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
+		return errors.Wrapf(err, "%s: %s", cmd, out)
+	}
+
+	if err := container_storage.Unmount(backupMntDir); err != nil {
+		return errors.Wrapf(err, "unmount %s", backupMntDir)
+	}
+	if err := drv.DisconnectDisk(disk.GetPath(), backupMntDir); err != nil {
+		return errors.Wrapf(err, "DisconnectDisk %s %s", disk.GetPath(), backupMntDir)
+	}
+	return nil
+}
+
 const (
 	PackageDiskFilename     = "disk"
 	PackageMetadataFilename = "metadata"
 )
 
 func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBackup) (string, error) {
-	backupTmpDir, err := ensureBackupDir()
+	backupTmpDir, err := EnsureBackupDir()
 	if err != nil {
-		return "", errors.Wrap(err, "ensureBackupDir")
+		return "", errors.Wrap(err, "EnsureBackupDir")
 	}
-	defer cleanupDirOrFile(backupTmpDir)
+	defer CleanupDirOrFile(backupTmpDir)
 
 	backupStorage, err := backupstorage.GetBackupStorage(backupInfo.BackupStorageId, backupInfo.BackupStorageAccessInfo)
 	if err != nil {
@@ -221,11 +309,11 @@ func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBa
 }
 
 func DoInstanceUnpackBackup(ctx context.Context, backupInfo SStorageUnpackInstanceBackup) ([]string, *api.InstanceBackupPackMetadata, error) {
-	backupTmpDir, err := ensureBackupDir()
+	backupTmpDir, err := EnsureBackupDir()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "ensureBackupDir")
+		return nil, nil, errors.Wrap(err, "EnsureBackupDir")
 	}
-	defer cleanupDirOrFile(backupTmpDir)
+	defer CleanupDirOrFile(backupTmpDir)
 
 	packageName := backupInfo.PackageName
 	metadataOnly := false

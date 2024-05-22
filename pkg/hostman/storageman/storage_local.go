@@ -98,7 +98,7 @@ func (s *SLocalStorage) GetComposedName() string {
 }
 
 func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
-	err := doRestoreDisk(ctx, input.DiskInfo, disk.GetPath(), input.DiskInfo.Format)
+	err := doRestoreDisk(ctx, s, input, disk, disk.GetPath())
 	if err != nil {
 		return errors.Wrap(err, "doRestoreDisk")
 	}

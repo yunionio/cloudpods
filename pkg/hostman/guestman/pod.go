@@ -324,6 +324,24 @@ func (s *sPodGuestInstance) getContainerVolumeMounts() map[string][]*hostapi.Con
 	return result
 }
 
+func (s *sPodGuestInstance) getContainerVolumeMountsByDiskId(ctrId, diskId string) []*hostapi.ContainerVolumeMount {
+	ctrVols := s.getContainerVolumeMounts()
+	vols, ok := ctrVols[ctrId]
+	if !ok {
+		return nil
+	}
+	volList := make([]*hostapi.ContainerVolumeMount, 0)
+	for _, vol := range vols {
+		if vol.Disk != nil {
+			if vol.Disk.Id == diskId {
+				tmpVol := vol
+				volList = append(volList, tmpVol)
+			}
+		}
+	}
+	return volList
+}
+
 func (s *sPodGuestInstance) GetVolumesDir() string {
 	return filepath.Join(s.HomeDir(), "volumes")
 }
@@ -333,7 +351,11 @@ func (s *sPodGuestInstance) GetVolumesOverlayDir() string {
 }
 
 func (s *sPodGuestInstance) GetDiskMountPoint(disk storageman.IDisk) string {
-	return filepath.Join(s.GetVolumesDir(), disk.GetId())
+	return s.GetDiskMountPointById(disk.GetId())
+}
+
+func (s *sPodGuestInstance) GetDiskMountPointById(diskId string) string {
+	return filepath.Join(s.GetVolumesDir(), diskId)
 }
 
 func (s *sPodGuestInstance) getPodPrivilegedMode(input *computeapi.PodCreateInput) bool {
@@ -1409,4 +1431,126 @@ func (s *sPodGuestInstance) unmountDevShm(containerName string) error {
 		return errors.Wrapf(err, "mount tmpfs %s: %s", shmPath, out)
 	}
 	return nil
+}
+
+func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapshot) (jsonutils.JSONObject, error) {
+	if s.IsRunning() {
+		return nil, errors.Errorf("Pod dosen't support live snapshot")
+	}
+	if params.BackupDiskConfig == nil {
+		return nil, httperrors.NewMissingParameterError("missing backup_disk_config")
+	}
+	if params.BackupDiskConfig.BackupAsTar == nil {
+		return nil, httperrors.NewMissingParameterError("missing backup_disk_config.backup_as_tar")
+	}
+	input := params.BackupDiskConfig.BackupAsTar
+	if input.ContainerId == "" {
+		return nil, httperrors.NewMissingParameterError("missing backup_disk_config.backup_as_tar.container_id")
+	}
+	vols := s.getContainerVolumeMountsByDiskId(input.ContainerId, params.Disk.GetId())
+	if len(vols) == 0 {
+		return nil, httperrors.NewNotFoundError("not found container volume_mount by container_id %s and disk_id %s", input.ContainerId, params.Disk.GetId())
+	}
+
+	tmpBackRootDir, err := storageman.EnsureBackupDir()
+	if err != nil {
+		return nil, errors.Wrap(err, "EnsureBackupDir")
+	}
+	defer storageman.CleanupDirOrFile(tmpBackRootDir)
+	for _, vol := range vols {
+		drv := volume_mount.GetDriver(vol.Type)
+		if err := drv.Mount(s, input.ContainerId, vol); err != nil {
+			return nil, errors.Wrapf(err, "mount %s to %s", input.ContainerId, jsonutils.Marshal(vol))
+		}
+		mntPath, err := drv.GetRuntimeMountHostPath(s, input.ContainerId, vol)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRuntimeMountHostPath containerId: %s, vol: %s", input.ContainerId, jsonutils.Marshal(vol))
+		}
+		// bind mount
+		// mkdir tmpBackRootDir/subdirectory
+		targetBindMntPath := filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
+		if out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", targetBindMntPath).Output(); err != nil {
+			return nil, errors.Wrapf(err, "mkdir -p %s: %s", targetBindMntPath, out)
+		}
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", "--bind", mntPath, targetBindMntPath).Output()
+		if err != nil {
+			return nil, errors.Wrapf(err, "bind mount %s to %s: %s", mntPath, targetBindMntPath, out)
+		}
+	}
+	snapshotPath, err := s.createSnapshot(params, tmpBackRootDir)
+	if err != nil {
+		return nil, errors.Wrap(err, "create snapshot")
+	}
+	for _, vol := range vols {
+		// unbind mount
+		// umount
+		targetBindMntPath := filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", targetBindMntPath).Output()
+		if err != nil {
+			return nil, errors.Wrapf(err, "umount bind point %s: %s", targetBindMntPath, out)
+		}
+	}
+	for _, vol := range vols {
+		drv := volume_mount.GetDriver(vol.Type)
+		if err := drv.Unmount(s, input.ContainerId, vol); err != nil {
+			return nil, errors.Wrapf(err, "unmount %s to %s", input.ContainerId, jsonutils.Marshal(vol))
+		}
+	}
+	res := jsonutils.NewDict()
+	res.Set("location", jsonutils.NewString(snapshotPath))
+	return res, nil
+}
+
+func (s *sPodGuestInstance) createSnapshot(params *SDiskSnapshot, hostPath string) (string, error) {
+	d := params.Disk
+	snapshotDir := d.GetSnapshotDir()
+	log.Infof("snapshotDir of LocalDisk %s: %s", d.GetId(), snapshotDir)
+	if !fileutils2.Exists(snapshotDir) {
+		output, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Output()
+		if err != nil {
+			log.Errorf("mkdir %s failed: %s", snapshotDir, output)
+			return "", errors.Wrapf(err, "mkdir %s failed: %s", snapshotDir, output)
+		}
+	}
+	snapshotPath := s.getSnapshotPath(d, params.SnapshotId)
+	// tar hostPath to snapshotPath
+	input := params.BackupDiskConfig.BackupAsTar
+	if err := s.tarHostDir(hostPath, snapshotPath, input.IncludeFiles, input.ExcludeFiles); err != nil {
+		return "", errors.Wrapf(err, "tar host dir %s to %s", hostPath, snapshotPath)
+	}
+	return snapshotPath, nil
+}
+
+func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string, includeFiles, excludeFiles []string) error {
+	baseCmd := "tar"
+	for _, exclude := range excludeFiles {
+		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
+	}
+	includeStr := "."
+	if len(includeFiles) > 0 {
+		includeStr = strings.Join(includeFiles, " ")
+	}
+	cmd := fmt.Sprintf("%s -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
+	log.Infof("tar cmd: %s", cmd)
+	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
+		return errors.Wrapf(err, "%s: %s", cmd, out)
+	}
+	return nil
+}
+
+func (s *sPodGuestInstance) getSnapshotPath(d storageman.IDisk, snapshotId string) string {
+	snapshotDir := d.GetSnapshotDir()
+	snapshotPath := path.Join(snapshotDir, fmt.Sprintf("%s.tar", snapshotId))
+	return snapshotPath
+}
+
+func (s *sPodGuestInstance) DeleteSnapshot(ctx context.Context, params *SDeleteDiskSnapshot) (jsonutils.JSONObject, error) {
+	snapshotPath := s.getSnapshotPath(params.Disk, params.DeleteSnapshot)
+	out, err := procutils.NewCommand("rm", "-f", snapshotPath).Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "rm -f %s: %s", snapshotPath, out)
+	}
+	res := jsonutils.NewDict()
+	res.Set("deleted", jsonutils.JSONTrue)
+	return res, nil
 }

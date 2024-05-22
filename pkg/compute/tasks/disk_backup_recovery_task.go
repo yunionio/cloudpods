@@ -63,6 +63,11 @@ func (self *DiskBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 	input.GenerateName = diskName
 	input.Description = fmt.Sprintf("recovered from backup %s", backup.GetName())
 	input.Hypervisor = api.HYPERVISOR_KVM
+	if backup.DiskConfig != nil {
+		if backup.DiskConfig.BackupAsTar != nil && backup.DiskConfig.BackupAsTar.ContainerId != "" {
+			input.Hypervisor = api.HYPERVISOR_POD
+		}
+	}
 	input.DiskConfig = diskConfig
 	ownerId := backup.GetOwnerId()
 	input.ProjectDomainId = ownerId.GetProjectDomainId()

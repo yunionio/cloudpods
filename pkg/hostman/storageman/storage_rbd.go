@@ -620,7 +620,7 @@ func (s *SRbdStorage) CreateDiskFromExistingPath(context.Context, IDisk, *SDiskC
 func (s *SRbdStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
 	pool, _ := s.StorageConf.GetString("pool")
 	destPath := fmt.Sprintf("rbd:%s/%s%s", pool, disk.GetId(), s.getStorageConfString())
-	err := doRestoreDisk(ctx, input.DiskInfo, destPath, input.DiskInfo.Format)
+	err := doRestoreDisk(ctx, s, input, disk, destPath)
 	if err != nil {
 		return errors.Wrap(err, "doRestore")
 	}
