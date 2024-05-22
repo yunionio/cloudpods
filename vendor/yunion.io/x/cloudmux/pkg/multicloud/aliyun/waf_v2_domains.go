@@ -105,6 +105,14 @@ func (self *SWafDomainV2) GetCname() string {
 	return self.Cname
 }
 
+func (self *SWafDomainV2) GetUpstreamPort() int {
+	return 0
+}
+
+func (self *SWafDomainV2) GetUpstreamScheme() string {
+	return ""
+}
+
 func (self *SWafDomainV2) GetSourceIps() []string {
 	ret := []string{}
 	for _, backend := range self.Redirect.Backends {

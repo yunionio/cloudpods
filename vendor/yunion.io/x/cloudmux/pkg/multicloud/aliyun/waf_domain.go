@@ -32,7 +32,7 @@ type SWafDomain struct {
 
 	insId           string
 	name            string
-	Httptouserip    int           `json:"HttpToUserIp"`
+	HttpToUserIp    int           `json:"HttpToUserIp"`
 	HttpPort        []int         `json:"HttpPort"`
 	IsAccessProduct int           `json:"IsAccessProduct"`
 	Resourcegroupid string        `json:"ResourceGroupId"`
@@ -148,6 +148,14 @@ func (self *SWafDomain) GetId() string {
 
 func (self *SWafDomain) GetStatus() string {
 	return api.WAF_STATUS_AVAILABLE
+}
+
+func (self *SWafDomain) GetUpstreamPort() int {
+	return 0
+}
+
+func (self *SWafDomain) GetUpstreamScheme() string {
+	return ""
 }
 
 func (self *SWafDomain) GetWafType() cloudprovider.TWafType {
