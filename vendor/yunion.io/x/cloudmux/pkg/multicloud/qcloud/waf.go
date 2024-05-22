@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
 type SWafInstance struct {
@@ -29,31 +30,33 @@ type SWafInstance struct {
 	QcloudTags
 	region *SRegion
 
-	AccessStatus string
-	AlbType      string
-	ApiStatus    int
-	AppId        string
-	BotStatus    string
-	CCList       []string
-	CdcClusters  string
-	CloudType    string
-	ClsStatus    string
-	Cname        string
-	IsCdn        *int
-	CreateTime   time.Time
-	Domain       string
-	DomainId     string
-	Edition      string
-	Engine       int
-	FlowMode     int
-	InstanceId   string
-	InstanceName string
-	Ipv6Status   int
-	Level        int
-	Mode         int
-	IpHeaders    *[]string
-	Note         string
-	Ports        []struct {
+	AccessStatus      string
+	AlbType           string
+	ApiStatus         int
+	AppId             string
+	BotStatus         string
+	CCList            []string
+	CdcClusters       string
+	CloudType         string
+	ClsStatus         string
+	Cname             string
+	IsCdn             *int
+	CreateTime        time.Time
+	Domain            string
+	DomainId          string
+	Edition           string
+	Engine            int
+	FlowMode          int
+	InstanceId        string
+	InstanceName      string
+	UpstreamScheme    *string
+	HttpsUpstreamPort *int
+	Ipv6Status        int
+	Level             int
+	Mode              int
+	IpHeaders         *[]string
+	Note              string
+	Ports             []struct {
 		NginxServerId    string
 		Port             int
 		Protocol         string
@@ -83,7 +86,14 @@ func (self *SWafInstance) GetId() string {
 }
 
 func (self *SWafInstance) GetWafType() cloudprovider.TWafType {
-	return cloudprovider.WafTypeDefault
+	switch self.Edition {
+	case "sparta-waf":
+		return cloudprovider.WafTypeSaaS
+	case "clb-waf", "cdc-clb-waf":
+		return cloudprovider.WafTypeLoadbalancer
+	default:
+		return cloudprovider.TWafType(self.Edition)
+	}
 }
 
 func (self *SWafInstance) GetCreatedAt() time.Time {
@@ -182,6 +192,26 @@ func (self *SWafInstance) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SWafInstance) GetUpstreamScheme() string {
+	if self.UpstreamScheme == nil {
+		self.Refresh()
+	}
+	if self.UpstreamScheme != nil {
+		return *self.UpstreamScheme
+	}
+	return ""
+}
+
+func (self *SWafInstance) GetUpstreamPort() int {
+	if self.HttpsUpstreamPort == nil {
+		self.Refresh()
+	}
+	if self.HttpsUpstreamPort != nil {
+		return *self.HttpsUpstreamPort
+	}
+	return 0
+}
+
 func (self *SRegion) GetWafInstances() ([]SWafInstance, error) {
 	params := map[string]string{
 		"Limit": "1000",
@@ -220,6 +250,20 @@ func (self *SRegion) GetICloudWafInstances() ([]cloudprovider.ICloudWafInstance,
 		ret = append(ret, &wafs[i])
 	}
 	return ret, nil
+}
+
+func (self *SRegion) GetICloudWafInstanceById(id string) (cloudprovider.ICloudWafInstance, error) {
+	wafs, err := self.GetWafInstances()
+	if err != nil {
+		return nil, err
+	}
+	for i := range wafs {
+		wafs[i].region = self
+		if wafs[i].GetGlobalId() == id {
+			return &wafs[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetWafInstance(domain, domainId, instanceId string) (*SWafInstance, error) {

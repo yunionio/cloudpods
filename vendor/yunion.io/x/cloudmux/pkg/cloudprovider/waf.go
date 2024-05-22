@@ -37,6 +37,9 @@ var (
 	WafTypeDefault    = TWafType("Default")
 	WafTypeAppGateway = TWafType("AppGateway")
 
+	WafTypeSaaS         = TWafType("SaaS")
+	WafTypeLoadbalancer = TWafType("Loadbalancer")
+
 	WafStatementTypeByteMatch        = TWafStatementType("ByteMatch")
 	WafStatementTypeGeoMatch         = TWafStatementType("GeoMatch")
 	WafStatementTypeIPSet            = TWafStatementType("IPSet")
