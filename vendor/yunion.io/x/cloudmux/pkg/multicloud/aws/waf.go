@@ -84,6 +84,14 @@ func (self *SWebAcl) GetCname() string {
 	return ""
 }
 
+func (self *SWebAcl) GetUpstreamScheme() string {
+	return ""
+}
+
+func (self *SWebAcl) GetUpstreamPort() int {
+	return 0
+}
+
 func (self *SWebAcl) GetSourceIps() []string {
 	return []string{}
 }
