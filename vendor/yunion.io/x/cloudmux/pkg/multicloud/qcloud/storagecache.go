@@ -105,7 +105,7 @@ func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider
 
 func (self *SRegion) getCosUrl(bucket, object string) string {
 	//signature := cosauth.NewSignature(self.client.AppID, bucket, self.client.secretId, time.Now().Add(time.Minute*30).String(), time.Now().String(), "yunion", object).SignOnce(self.client.secretKey)
-	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.appId, self.Region, object)
+	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.GetAppId(), self.Region, object)
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {

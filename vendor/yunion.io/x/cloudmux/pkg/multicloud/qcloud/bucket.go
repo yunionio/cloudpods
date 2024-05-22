@@ -60,7 +60,7 @@ func (b *SBucket) GetProjectId() string {
 }
 
 func (b *SBucket) GetGlobalId() string {
-	if b.getAppId() == b.region.client.appId {
+	if b.getAppId() == b.region.client.GetAppId() {
 		return b.Name
 	} else {
 		return b.getFullName()
@@ -152,9 +152,9 @@ func (b *SBucket) getAppId() string {
 		return b.appId
 	}
 	if b.zone != nil {
-		return b.zone.region.client.appId
+		return b.zone.region.client.GetAppId()
 	}
-	return b.region.client.appId
+	return b.region.client.GetAppId()
 }
 
 func (b *SBucket) getFullName() string {
