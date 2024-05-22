@@ -164,16 +164,13 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 
 func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
-	if len(input.AppId) == 0 {
-		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "app_id")
-	}
 	if len(input.SecretId) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_id")
 	}
 	if len(input.SecretKey) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_key")
 	}
-	output.Account = fmt.Sprintf("%s/%s", input.SecretId, input.AppId)
+	output.Account = input.SecretId
 	output.Secret = input.SecretKey
 	return output, nil
 }
@@ -182,10 +179,9 @@ func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AppId) == 0 {
 		accountInfo := strings.Split(cloudaccount, "/")
-		if len(accountInfo) < 2 {
-			return output, errors.Wrap(cloudprovider.ErrMissingParameter, "app_id")
+		if len(accountInfo) == 2 {
+			input.AppId = accountInfo[1]
 		}
-		input.AppId = accountInfo[1]
 	}
 	if len(input.SecretId) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_id")
@@ -193,8 +189,12 @@ func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	if len(input.SecretKey) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_key")
 	}
+	account := input.SecretId
+	if len(input.AppId) > 0 {
+		account = fmt.Sprintf("%s/%s", input.SecretId, input.AppId)
+	}
 	output = cloudprovider.SCloudaccount{
-		Account: fmt.Sprintf("%s/%s", input.SecretId, input.AppId),
+		Account: account,
 		Secret:  input.SecretKey,
 	}
 	return output, nil
@@ -202,15 +202,15 @@ func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 
 func (self *SQcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	secretId := cfg.Account
-	appId := ""
+	accountId := ""
 	if tmp := strings.Split(cfg.Account, "/"); len(tmp) == 2 {
 		secretId = tmp[0]
-		appId = tmp[1]
+		accountId = tmp[1]
 	}
 	client, err := qcloud.NewQcloudClient(
 		qcloud.NewQcloudClientConfig(
 			secretId, cfg.Secret,
-		).AppId(appId).CloudproviderConfig(cfg),
+		).AccountId(accountId).CloudproviderConfig(cfg),
 	)
 	if err != nil {
 		return nil, err
@@ -223,17 +223,20 @@ func (self *SQcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 
 func (self *SQcloudProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	secretId := info.Account
-	appId := ""
+	accountId := ""
 	if tmp := strings.Split(info.Account, "/"); len(tmp) == 2 {
 		secretId = tmp[0]
-		appId = tmp[1]
+		accountId = tmp[1]
 	}
-	return map[string]string{
-		"QCLOUD_APPID":      appId,
+	ret := map[string]string{
 		"QCLOUD_SECRET_ID":  secretId,
 		"QCLOUD_SECRET_KEY": info.Secret,
 		"QCLOUD_REGION":     qcloud.QCLOUD_DEFAULT_REGION,
-	}, nil
+	}
+	if len(accountId) == 12 {
+		ret["QCLOUD_ACCOUNT_ID"] = accountId
+	}
+	return ret, nil
 }
 
 func init() {
