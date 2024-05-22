@@ -76,6 +76,9 @@ type SWafInstance struct {
 	SourceIps       []string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"admin"`
 	HttpPorts       []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
 	HttpsPorts      []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+
+	UpstreamScheme string `width:"32" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	UpstreamPort   int    `nullable:"true" list:"user" update:"admin"`
 }
 
 func (manager *SWafInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -441,10 +444,13 @@ func (self *SWafInstance) SyncWithCloudWafInstance(ctx context.Context, userCred
 		self.DefaultAction = ext.GetDefaultAction()
 		self.Status = ext.GetStatus()
 		self.IsAccessProduct = ext.GetIsAccessProduct()
+		self.Type = ext.GetWafType()
 		self.HttpsPorts = ext.GetHttpsPorts()
 		self.HttpPorts = ext.GetHttpPorts()
 		self.Cname = ext.GetCname()
 		self.SourceIps = ext.GetSourceIps()
+		self.UpstreamScheme = ext.GetUpstreamScheme()
+		self.UpstreamPort = ext.GetUpstreamPort()
 		self.AccessHeaders = ext.GetAccessHeaders()
 		return nil
 	})
@@ -474,6 +480,8 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 	waf.HttpsPorts = ext.GetHttpsPorts()
 	waf.HttpPorts = ext.GetHttpPorts()
 	waf.Cname = ext.GetCname()
+	waf.UpstreamScheme = ext.GetUpstreamScheme()
+	waf.UpstreamPort = ext.GetUpstreamPort()
 	waf.SourceIps = ext.GetSourceIps()
 	waf.AccessHeaders = ext.GetAccessHeaders()
 	var err = func() error {
