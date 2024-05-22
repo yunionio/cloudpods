@@ -462,6 +462,14 @@ func (self *SAppGatewayWaf) GetCname() string {
 	return ""
 }
 
+func (self *SAppGatewayWaf) GetUpstreamScheme() string {
+	return ""
+}
+
+func (self *SAppGatewayWaf) GetUpstreamPort() int {
+	return 0
+}
+
 func (self *SAppGatewayWaf) GetSourceIps() []string {
 	return []string{}
 }
