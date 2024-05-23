@@ -829,7 +829,8 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		defRule.Direction = secrules.DIR_IN
 		defRule.Protocol = secrules.PROTO_ANY
 		defRule.Priority = 1
-		defRule.CIDR = "0.0.0.0/0"
+		// empty CIDR means ::/0 or 0.0.0.0/0
+		defRule.CIDR = "" // "0.0.0.0/0"
 		defRule.Action = string(secrules.SecurityRuleAllow)
 		defRule.SecgroupId = api.SECGROUP_DEFAULT_ID
 		err = SecurityGroupRuleManager.TableSpec().Insert(context.TODO(), &defRule)
