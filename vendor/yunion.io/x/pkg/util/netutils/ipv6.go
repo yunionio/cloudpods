@@ -316,7 +316,7 @@ func (addr IPV6Addr) String() string {
 			maxZeroLen = maxZeroEnd - maxZeroStart + 1
 		}
 	}
-	if maxZeroLen > 0 {
+	if maxZeroLen > 1 {
 		return strings.Join(hexStrs[:maxZeroStart], ":") + "::" + strings.Join(hexStrs[maxZeroEnd+1:], ":")
 	} else {
 		return strings.Join(hexStrs, ":")

@@ -37,6 +37,10 @@ func (self *SKsyunProviderFactory) GetName() string {
 	return ksyun.CLOUD_PROVIDER_KSYUN_CN
 }
 
+func (self *SKsyunProviderFactory) IsReadOnly() bool {
+	return true
+}
+
 func (self *SKsyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {

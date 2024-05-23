@@ -42,6 +42,10 @@ func (f *SEcloudProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (f *SEcloudProviderFactory) IsReadOnly() bool {
+	return true
+}
+
 func (f *SEcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
