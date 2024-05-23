@@ -38,6 +38,10 @@ func (self *SOracleProviderFactory) GetName() string {
 	return oracle.CLOUD_PROVIDER_ORACLE_CN
 }
 
+func (self *SOracleProviderFactory) IsReadOnly() bool {
+	return true
+}
+
 func (self *SOracleProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.OracleTenancyOCID) == 0 {
