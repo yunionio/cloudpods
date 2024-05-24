@@ -102,14 +102,14 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *co
 	return IsNetworkAvailable(ctx, c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
 }
 
-func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {
-	netTypes := []string{}
+func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType computeapi.TNetworkType) []computeapi.TNetworkType {
+	netTypes := []computeapi.TNetworkType{}
 	driver := p.GetHypervisorDriver()
 	if driver != nil {
 		netTypes = driver.GetRandomNetworkTypes()
 	}
 	if len(specifyType) > 0 {
-		netTypes = []string{specifyType}
+		netTypes = []computeapi.TNetworkType{specifyType}
 	}
 	return netTypes
 }

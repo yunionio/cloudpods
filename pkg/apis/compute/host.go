@@ -600,7 +600,7 @@ type HostEnableNetifInput struct {
 
 	AllocDir string `json:"alloc_dir"`
 
-	NetType string `json:"net_type"`
+	NetType TNetworkType `json:"net_type"`
 
 	Reserve *bool `json:"reserve"`
 

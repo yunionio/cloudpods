@@ -175,8 +175,8 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 	return net, nil, "", false, nil
 }
 
-func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST}
+func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []api.TNetworkType {
+	return []api.TNetworkType{api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST}
 }
 
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
@@ -191,7 +191,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 
 	netTypes := drv.GetRandomNetworkTypes()
 	if len(netConfig.NetType) > 0 {
-		netTypes = []string{netConfig.NetType}
+		netTypes = []api.TNetworkType{api.TNetworkType(netConfig.NetType)}
 	}
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {

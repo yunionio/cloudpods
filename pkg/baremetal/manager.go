@@ -1298,7 +1298,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 	cliMac net.HardwareAddr,
 	wireId string,
 	nicType compute.TNicType,
-	netType string,
+	netType api.TNetworkType,
 	isDoImport bool,
 	importIpAddr string,
 ) error {
@@ -1357,7 +1357,7 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 	return modules.Hosts.PerformAction(session, b.GetId(), "add-netif", params)
 }
 
-func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType compute.TNicType, netType string, ipAddr string) error {
+func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType compute.TNicType, netType api.TNetworkType, ipAddr string) error {
 	if ipAddr == "" {
 		switch nicType {
 		case api.NIC_TYPE_IPMI:
@@ -1379,7 +1379,7 @@ func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType comput
 	return b.SaveDesc(desc)
 }
 
-func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nicType compute.TNicType, netType string) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nicType compute.TNicType, netType api.TNetworkType) (jsonutils.JSONObject, error) {
 	session := b.manager.GetClientSession()
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(mac.String()), "mac")
@@ -1394,7 +1394,7 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 		params.Add(jsonutils.NewString("stepup"), "alloc_dir") // alloc bottom up
 	}
 	if len(netType) > 0 {
-		params.Add(jsonutils.NewString(netType), "net_type")
+		params.Add(jsonutils.NewString(string(netType)), "net_type")
 	}
 	log.Infof("enable net if params: %s", params.String())
 	return modules.Hosts.PerformAction(session, b.GetId(), "enable-netif", params)

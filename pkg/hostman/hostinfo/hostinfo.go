@@ -71,7 +71,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/ovnutils"
 	"yunion.io/x/onecloud/pkg/util/pod"
-	"yunion.io/x/onecloud/pkg/util/pod/cadvisor"
 	"yunion.io/x/onecloud/pkg/util/pod/stats"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -201,7 +200,7 @@ func (h *SHostInfo) HugepageSizeKb() int {
  * 4. parse host config, config ip address
  * 5. check is ovn support, setup ovn chassis
  */
-func (h *SHostInfo) Init() error {
+func (h *SHostInfo) Init(ctx context.Context) error {
 	if err := h.prepareEnv(); err != nil {
 		return errors.Wrap(err, "Prepare environment")
 	}
@@ -238,54 +237,6 @@ func (h *SHostInfo) Init() error {
 	}
 
 	return nil
-}
-
-func (h *SHostInfo) initCRI() error {
-	cri, err := pod.NewCRI(h.GetContainerRuntimeEndpoint(), 3*time.Second)
-	if err != nil {
-		return errors.Wrapf(err, "New CRI by endpoint %q", h.GetContainerRuntimeEndpoint())
-	}
-	ver, err := cri.Version(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "get runtime version")
-	}
-	log.Infof("Init container runtime: %s", ver)
-	h.cri = cri
-	return nil
-}
-
-func (h *SHostInfo) initContainerCPUMap(topo *hostapi.HostTopology) error {
-	statefile := path.Join(options.HostOptions.ServersPath, "container_cpu_map")
-	cm, err := pod.NewHostContainerCPUMap(topo, statefile)
-	if err != nil {
-		return errors.Wrap(err, "NewHostContainerCPUMap")
-	}
-	h.containerCPUMap = cm
-	return nil
-}
-
-func (h *SHostInfo) startContainerStatsProvider(cri pod.CRI) error {
-	ca, err := cadvisor.New(nil, "/opt/cloud/workspace", []string{"cloudpods"})
-	if err != nil {
-		return errors.Wrap(err, "new cadvisor")
-	}
-	if err := ca.Start(); err != nil {
-		return errors.Wrap(err, "start cadvisor")
-	}
-	h.containerStatsProvier = stats.NewCRIContainerStatsProvider(ca, cri.GetRuntimeClient(), cri.GetImageClient())
-	return nil
-}
-
-func (h *SHostInfo) GetCRI() pod.CRI {
-	return h.cri
-}
-
-func (h *SHostInfo) GetContainerCPUMap() *pod.HostContainerCPUMap {
-	return h.containerCPUMap
-}
-
-func (h *SHostInfo) GetContainerStatsProvider() stats.ContainerStatsProvider {
-	return h.containerStatsProvier
 }
 
 func (h *SHostInfo) setupOvnChassis() error {
@@ -395,11 +346,7 @@ func (h *SHostInfo) parseConfig() error {
 		}
 		h.Nics = append(h.Nics, nic)
 	}
-	for i := 0; i < len(h.Nics); i++ {
-		if err := h.Nics[i].SetupDhcpRelay(); err != nil {
-			return errors.Wrapf(err, "SetupDhcpRelay %s/%s/%s", h.Nics[i].Inter, h.Nics[i].Bridge, h.Nics[i].Ip)
-		}
-	}
+
 	if len(options.HostOptions.ListenInterface) > 0 {
 		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
 		if len(h.MasterNic.Addr) == 0 {
@@ -1143,24 +1090,34 @@ func (h *SHostInfo) register() {
 	hostInfo, err := h.initHostRecord()
 	if err != nil {
 		h.onFail(errors.Wrap(err, "initHostRecords"))
+		return
 	}
 	defer h.reportHostErrors()
 
 	err = h.initCgroup()
 	if err != nil {
 		h.onFail(errors.Wrap(err, "initCgroup"))
+		return
 	}
 	err = h.initHostNetworks(hostInfo)
 	if err != nil {
 		h.onFail(errors.Wrap(err, "initHostNetworks"))
+		return
 	}
 	err = h.initIsolatedDevices()
 	if err != nil {
 		h.onFail(errors.Wrap(err, "initIsolatedDevices"))
+		return
 	}
 	err = h.initStorages()
 	if err != nil {
 		h.onFail(errors.Wrap(err, "initStorages"))
+		return
+	}
+	err = h.finalizeNetworkSetup(context.Background())
+	if err != nil {
+		h.onFail(errors.Wrap(err, "finalizeNetworkSetup"))
+		return
 	}
 	h.deployAdminAuthorizedKeys()
 	h.onSucc()
@@ -1257,7 +1214,7 @@ func (h *SHostInfo) tryCreateNetworkOnWire() (string, error) {
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("mask", jsonutils.NewInt(int64(mask)))
 	params.Set("is_classic", jsonutils.JSONTrue)
-	params.Set("server_type", jsonutils.NewString(api.NETWORK_TYPE_BAREMETAL))
+	params.Set("server_type", jsonutils.NewString(string(api.NETWORK_TYPE_BAREMETAL)))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
 	ret, err := modules.Networks.PerformClassAction(h.GetSession(), "try-create-network", params)
 	if err != nil {

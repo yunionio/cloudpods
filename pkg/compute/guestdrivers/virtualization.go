@@ -79,8 +79,8 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 	return net, nicConfs, api.IPAllocationStepdown, false, nil
 }
 
-func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{api.NETWORK_TYPE_GUEST}
+func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []api.TNetworkType {
+	return []api.TNetworkType{api.NETWORK_TYPE_GUEST}
 }
 
 func (self *SVirtualizedGuestDriver) wireAvaiableForGuest(guest *models.SGuest, wire *models.SWire) (bool, error) {
@@ -106,7 +106,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	}
 	netTypes := driver.GetRandomNetworkTypes()
 	if len(netConfig.NetType) > 0 {
-		netTypes = []string{netConfig.NetType}
+		netTypes = []api.TNetworkType{api.TNetworkType(netConfig.NetType)}
 	}
 
 	var sriovWires []string

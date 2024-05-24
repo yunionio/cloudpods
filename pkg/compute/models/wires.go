@@ -1004,7 +1004,7 @@ func (swire *SWire) getPrivateNetworks(ctx context.Context, userCred mcclient.To
 	return nets, nil
 }
 
-func (swire *SWire) GetCandidatePrivateNetwork(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
+func (swire *SWire) GetCandidatePrivateNetwork(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, isExit bool, serverTypes []api.TNetworkType) (*SNetwork, error) {
 	nets, err := swire.getPrivateNetworks(ctx, userCred, ownerId, scope)
 	if err != nil {
 		return nil, err
@@ -1012,7 +1012,7 @@ func (swire *SWire) GetCandidatePrivateNetwork(ctx context.Context, userCred mcc
 	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (swire *SWire) GetCandidateAutoAllocNetwork(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
+func (swire *SWire) GetCandidateAutoAllocNetwork(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, isExit bool, serverTypes []api.TNetworkType) (*SNetwork, error) {
 	nets, err := swire.getAutoAllocNetworks(ctx, userCred, ownerId, scope)
 	if err != nil {
 		return nil, err
@@ -1072,14 +1072,14 @@ func chooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
 	return minSel, maxSel
 }
 
-func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverTypes []string) *SNetwork {
+func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverTypes []api.TNetworkType) *SNetwork {
 	matchingNets := make([]*SNetwork, 0)
 	notMatchingNets := make([]*SNetwork, 0)
 
 	for _, s := range serverTypes {
 		net := chooseCandidateNetworksByNetworkType(nets, isExit, s)
 		if net != nil {
-			if utils.IsInStringArray(net.ServerType, serverTypes) {
+			if api.IsInNetworkTypes(net.ServerType, serverTypes) {
 				matchingNets = append(matchingNets, net)
 			} else {
 				notMatchingNets = append(notMatchingNets, net)
@@ -1098,7 +1098,7 @@ func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverTypes []string)
 	return nil
 }
 
-func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverType string) *SNetwork {
+func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverType api.TNetworkType) *SNetwork {
 	matchingNets := make([]*SNetwork, 0)
 	notMatchingNets := make([]*SNetwork, 0)
 

@@ -158,8 +158,9 @@ type NetworkTopologyOutput struct {
 	GuestIpStart string `json:"guest_ip_start"`
 	GuestIpEnd   string `json:"guest_ip_end"`
 	GuestIpMask  int8   `json:"guest_ip_mask"`
-	ServerType   string `json:"server_type"`
 	VlanId       int    `json:"vlan_id"`
+
+	ServerType TNetworkType `json:"server_type"`
 
 	GetNetworkAddressesOutput
 	// Address      []SNetworkUsedAddress `json:"address"`

@@ -299,7 +299,7 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 	idx := 0
 	for i := range ret.Data {
 		netType, _ := ret.Data[i].GetString("server_type")
-		if netType == api.NETWORK_TYPE_PXE {
+		if netType == string(api.NETWORK_TYPE_PXE) {
 			idx = i
 			break
 		}

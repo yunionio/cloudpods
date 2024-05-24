@@ -73,7 +73,7 @@ type IGuestDriver interface {
 	GetNamedNetworkConfiguration(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig) (*SNetwork, []SNicConfig, api.IPAllocationDirection, bool, error)
 
 	Attach2RandomNetwork(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error)
-	GetRandomNetworkTypes() []string
+	GetRandomNetworkTypes() []api.TNetworkType
 
 	GetStorageTypes() []string
 	ChooseHostStorage(host *SHost, guest *SGuest, diskConfig *api.DiskConfig, storageIds []string) (*SStorage, error)
