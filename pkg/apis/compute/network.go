@@ -471,6 +471,9 @@ type NetworkUpdateInput struct {
 
 	// 是否加入自动分配地址池
 	IsAutoAlloc *bool `json:"is_auto_alloc"`
+
+	// 更新网络类型
+	ServerType string `json:"server_type"`
 }
 
 type GetNetworkAddressesInput struct {
