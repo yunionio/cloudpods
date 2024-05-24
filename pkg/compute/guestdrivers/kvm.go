@@ -132,13 +132,29 @@ func (self *SKVMGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *
 }
 
 func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
+	obj, err := models.SnapshotManager.FetchById(snapshotId)
+	if err != nil {
+		return errors.Wrapf(err, "failed to find snapshot %s", snapshotId)
+	}
+	snapshot := obj.(*models.SSnapshot)
+
 	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/snapshot", host.ManagerUri, guest.Id)
 	body := jsonutils.NewDict()
 	body.Set("disk_id", jsonutils.NewString(diskId))
 	body.Set("snapshot_id", jsonutils.NewString(snapshotId))
+
+	if snapshot.DiskBackupId != "" {
+		backupObj, err := models.DiskBackupManager.FetchById(snapshot.DiskBackupId)
+		if err != nil {
+			return errors.Wrapf(err, "failed to find backup %s", snapshot.DiskBackupId)
+		}
+		backup := backupObj.(*models.SDiskBackup)
+		body.Set("backup_disk_config", jsonutils.Marshal(backup.DiskConfig))
+	}
+
 	header := self.getTaskRequestHeader(task)
-	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	return err
 }
 

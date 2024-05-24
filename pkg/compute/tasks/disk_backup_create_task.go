@@ -196,7 +196,7 @@ func (self *DiskBackupCreateTask) CreateSnapshot(ctx context.Context, diskBackup
 
 		return models.SnapshotManager.CreateSnapshot(
 			ctx, self.GetUserCred(), api.SNAPSHOT_MANUAL, disk.GetId(),
-			guest.Id, "", snapshotName, -1, true)
+			guest.Id, "", snapshotName, -1, true, diskBackup.GetId())
 	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to create snapshot of disk %s", disk.GetId())

@@ -628,19 +628,18 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
 
 	var disk storageman.IDisk
-	disks := guest.Desc.Disks
+	disks := guest.GetDesc().Disks
 	for _, d := range disks {
 		if diskId == d.DiskId {
-			diskPath := d.Path
-			disk, err = storageman.GetManager().GetDiskByPath(diskPath)
+			disk, err = storageman.GetManager().GetDiskById(diskId)
 			if err != nil {
-				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+				return nil, errors.Wrapf(err, "GetDiskById(%s)", diskId)
 			}
 			break
 		}
@@ -648,13 +647,22 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	if disk == nil {
 		return nil, httperrors.NewNotFoundError("Disk not found")
 	}
-
-	hostutils.DelayTask(ctx, guestman.GetGuestManager().DoSnapshot, &guestman.SDiskSnapshot{
+	input := &guestman.SDiskSnapshot{
 		UserCred:   userCred,
 		Sid:        sid,
 		SnapshotId: snapshotId,
 		Disk:       disk,
-	})
+	}
+
+	if body.Contains("backup_disk_config") {
+		backupDiskConfig := new(guestman.SBackupDiskConfig)
+		if err := body.Unmarshal(backupDiskConfig, "backup_disk_config"); err != nil {
+			return nil, httperrors.NewInputParameterError("unmarshal backup_disk_config")
+		}
+		input.BackupDiskConfig = backupDiskConfig
+	}
+
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().DoSnapshot, input)
 	return nil, nil
 }
 
@@ -667,18 +675,18 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
 
 	var disk storageman.IDisk
-	disks := guest.Desc.Disks
+	disks := guest.GetDesc().Disks
 	for _, d := range disks {
 		if diskId == d.DiskId {
-			disk, err = storageman.GetManager().GetDiskByPath(d.Path)
+			disk, err = storageman.GetManager().GetDiskById(diskId)
 			if err != nil {
-				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", d.Path)
+				return nil, errors.Wrapf(err, "GetDiskById(%s)", diskId)
 			}
 			break
 		}

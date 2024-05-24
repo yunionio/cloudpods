@@ -63,6 +63,7 @@ type SDiskCleanupSnapshots struct {
 
 type SDiskBackup struct {
 	SnapshotId              string              `json:"snapshot_id"`
+	SnapshotLocation        string              `json:"snapshot_location"`
 	BackupId                string              `json:"backup_id"`
 	BackupStorageId         string              `json:"backup_storage_id"`
 	BackupStorageAccessInfo *jsonutils.JSONDict `json:"backup_storage_access_info"`

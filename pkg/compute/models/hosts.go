@@ -1610,7 +1610,7 @@ func (hh *SHostManager) GetEnabledKvmHostForDiskBackup(backup *SDiskBackup) (*SH
 func (hh *SHostManager) GetEnabledKvmHost(candidates []string) (*SHost, error) {
 	hostq := HostManager.Query().IsTrue("enabled")
 	hostq = hostq.Equals("host_status", api.HOST_ONLINE)
-	hostq = hostq.In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM})
+	hostq = hostq.In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM, api.HOST_TYPE_CONTAINER})
 	if len(candidates) > 0 {
 		hostq = hostq.In("id", candidates)
 	}

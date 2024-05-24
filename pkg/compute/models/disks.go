@@ -829,6 +829,8 @@ func (self *SDisk) getDiskAllocateFromBackupInput(ctx context.Context, backupId 
 		BackupId:                backupId,
 		BackupStorageId:         bs.GetId(),
 		BackupStorageAccessInfo: jsonutils.Marshal(accessInfo).(*jsonutils.JSONDict),
+		DiskConfig:              &backup.DiskConfig.DiskConfig,
+		BackupAsTar:             backup.DiskConfig.BackupAsTar,
 	}, nil
 }
 

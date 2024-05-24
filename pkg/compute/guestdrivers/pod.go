@@ -532,3 +532,17 @@ func (p *SPodDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, erro
 func (p *SPodDriver) RequestSaveVolumeMountImage(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
 	return p.performContainerAction(ctx, userCred, task, "save-volume-mount-to-image", task.GetParams())
 }
+
+func (p *SPodDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
+	/*if guest.GetStatus() != api.VM_READY {
+		return httperrors.NewNotAcceptableError("pod status %s is not ready", guest.GetStatus())
+	}*/
+	return p.SKVMGuestDriver.RequestDiskSnapshot(ctx, guest, task, snapshotId, diskId)
+}
+
+func (p *SPodDriver) RequestDeleteSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
+	/*if guest.GetStatus() != api.VM_READY {
+		return httperrors.NewNotAcceptableError("pod status %s is not ready", guest.GetStatus())
+	}*/
+	return p.SKVMGuestDriver.RequestDeleteSnapshot(ctx, guest, task, params)
+}

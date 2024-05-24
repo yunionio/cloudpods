@@ -3124,6 +3124,10 @@ func (s *SKVMGuestInstance) ExecReloadDiskTask(ctx context.Context, disk storage
 	}
 }
 
+func (s *SKVMGuestInstance) DoSnapshot(ctx context.Context, snapshotParams *SDiskSnapshot) (jsonutils.JSONObject, error) {
+	return s.ExecDiskSnapshotTask(ctx, snapshotParams.UserCred, snapshotParams.Disk, snapshotParams.SnapshotId)
+}
+
 func (s *SKVMGuestInstance) ExecDiskSnapshotTask(
 	ctx context.Context, userCred mcclient.TokenCredential, disk storageman.IDisk, snapshotId string,
 ) (jsonutils.JSONObject, error) {
@@ -3169,6 +3173,17 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 	res := jsonutils.NewDict()
 	res.Set("location", jsonutils.NewString(location))
 	return res, nil
+}
+
+func (s *SKVMGuestInstance) DeleteSnapshot(ctx context.Context, delParams *SDeleteDiskSnapshot) (jsonutils.JSONObject, error) {
+	if len(delParams.ConvertSnapshot) > 0 || delParams.BlockStream {
+		return s.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
+			delParams.ConvertSnapshot, delParams.BlockStream)
+	} else {
+		res := jsonutils.NewDict()
+		res.Set("deleted", jsonutils.JSONTrue)
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "")
+	}
 }
 
 func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
