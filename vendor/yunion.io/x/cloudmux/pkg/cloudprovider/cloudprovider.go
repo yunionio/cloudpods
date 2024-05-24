@@ -203,6 +203,7 @@ type ICloudProviderFactory interface {
 
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
 	ValidateCreateCloudaccountData(ctx context.Context, input SCloudaccountCredential) (SCloudaccount, error)
+	IsReadOnly() bool
 	ValidateUpdateCloudaccountCredential(ctx context.Context, input SCloudaccountCredential, cloudaccount string) (SCloudaccount, error)
 	GetSupportedBrands() []string
 
@@ -703,6 +704,10 @@ func (factory *baseProviderFactory) IsOnPremise() bool {
 }
 
 func (factory *baseProviderFactory) IsMultiTenant() bool {
+	return false
+}
+
+func (factory *baseProviderFactory) IsReadOnly() bool {
 	return false
 }
 
