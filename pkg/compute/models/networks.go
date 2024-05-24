@@ -127,7 +127,7 @@ type SNetwork struct {
 
 	// 服务器类型
 	// example: server
-	ServerType string `width:"16" charset:"ascii" default:"guest" nullable:"true" list:"user" create:"optional"`
+	ServerType api.TNetworkType `width:"16" charset:"ascii" default:"guest" nullable:"true" list:"user" create:"optional"`
 
 	// 分配策略
 	AllocPolicy string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"`
@@ -734,7 +734,7 @@ func (snet *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		snet.GuestIpEnd = extNet.GetIpEnd()
 		snet.GuestIpMask = extNet.GetIpMask()
 		snet.GuestGateway = extNet.GetGateway()
-		snet.ServerType = extNet.GetServerType()
+		snet.ServerType = api.TNetworkType(extNet.GetServerType())
 
 		snet.GuestIp6Start = extNet.GetIp6Start()
 		snet.GuestIp6End = extNet.GetIp6End()
@@ -799,7 +799,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	net.GuestIpEnd = extNet.GetIpEnd()
 	net.GuestIpMask = extNet.GetIpMask()
 	net.GuestGateway = extNet.GetGateway()
-	net.ServerType = extNet.GetServerType()
+	net.ServerType = api.TNetworkType(extNet.GetServerType())
 	net.GuestIp6Start = extNet.GetIp6Start()
 	net.GuestIp6End = extNet.GetIp6End()
 	net.GuestIp6Mask = extNet.GetIp6Mask()
@@ -988,7 +988,7 @@ func (manager *SNetworkManager) TotalPortCount(
 	providers []string, brands []string, cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
 	policyResult rbacutils.SPolicyResult,
-) map[string]NetworkPortStat {
+) map[api.TNetworkType]NetworkPortStat {
 	nets := make([]SNetwork, 0)
 	err := manager.totalPortCountQ(
 		ctx,
@@ -1001,7 +1001,7 @@ func (manager *SNetworkManager) TotalPortCount(
 	if err != nil {
 		log.Errorf("TotalPortCount: %v", err)
 	}
-	ret := make(map[string]NetworkPortStat)
+	ret := make(map[api.TNetworkType]NetworkPortStat)
 	for _, net := range nets {
 		var stat NetworkPortStat
 		var allStat NetworkPortStat
@@ -1702,7 +1702,7 @@ func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userC
 func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkCreateInput) (api.NetworkCreateInput, error) {
 	if input.ServerType == "" {
 		input.ServerType = api.NETWORK_TYPE_GUEST
-	} else if !utils.IsInStringArray(input.ServerType, api.ALL_NETWORK_TYPES) {
+	} else if !api.IsInNetworkTypes(input.ServerType, api.ALL_NETWORK_TYPES) {
 		return input, httperrors.NewInputParameterError("Invalid server_type: %s", input.ServerType)
 	}
 

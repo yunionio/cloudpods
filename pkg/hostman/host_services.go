@@ -77,7 +77,7 @@ func (host *SHostService) RunService() {
 	hostutils.Init()
 
 	hostInstance := hostinfo.Instance()
-	if err := hostInstance.Init(); err != nil {
+	if err := hostInstance.Init(app.GetContext()); err != nil {
 		log.Fatalf("Host instance init error: %v", err)
 	}
 

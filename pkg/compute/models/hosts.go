@@ -3799,7 +3799,7 @@ func (manager *SHostManager) ValidateCreateData(
 					wire := wireObj.(*SWire)
 					lockman.LockObject(ctx, wire)
 					defer lockman.ReleaseObject(ctx, wire)
-					net, err := wire.GetCandidatePrivateNetwork(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
+					net, err := wire.GetCandidatePrivateNetwork(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), false, []api.TNetworkType{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
 					if err != nil {
 						return input, httperrors.NewGeneralError(err)
 					}
@@ -4939,7 +4939,7 @@ func (h *SHost) PerformEnableNetif(
 }
 
 func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface,
-	network, ipAddr, allocDir string, netType string, reserve, requireDesignatedIp bool) error {
+	network, ipAddr, allocDir string, netType api.TNetworkType, reserve, requireDesignatedIp bool) error {
 	bn := netif.GetHostNetwork()
 	if bn != nil {
 		log.Debugf("Netif has been attach2network? %s", jsonutils.Marshal(bn))
@@ -4982,11 +4982,11 @@ func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				return fmt.Errorf("Network %s not reacheable on mac %s", network, netif.Mac)
 			}
 		} else {
-			var netTypes []string
+			var netTypes []api.TNetworkType
 			if len(netType) > 0 && netType != api.NETWORK_TYPE_BAREMETAL {
-				netTypes = []string{netType, api.NETWORK_TYPE_BAREMETAL}
+				netTypes = []api.TNetworkType{netType, api.NETWORK_TYPE_BAREMETAL}
 			} else {
-				netTypes = []string{api.NETWORK_TYPE_BAREMETAL}
+				netTypes = []api.TNetworkType{api.NETWORK_TYPE_BAREMETAL}
 			}
 			net, err = wire.GetCandidatePrivateNetwork(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), false, netTypes)
 			if err != nil {

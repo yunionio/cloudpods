@@ -100,7 +100,7 @@ func (p *NetworkPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []co
 	return true, nil
 }
 
-func IsNetworksAvailable(ctx context.Context, c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []string, getFreePort func(string) int) (int, []core.PredicateFailureReason) {
+func IsNetworksAvailable(ctx context.Context, c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []computeapi.TNetworkType, getFreePort func(string) int) (int, []core.PredicateFailureReason) {
 	var fullErrMsgs []core.PredicateFailureReason
 	var freeCnt int
 
@@ -173,7 +173,7 @@ func IsNetworkAvailable(
 	ctx context.Context,
 	c core.Candidater, data *api.SchedInfo,
 	req *computeapi.NetworkConfig, n *api.CandidateNetwork,
-	netTypes []string, getFreePort func(string) int,
+	netTypes []computeapi.TNetworkType, getFreePort func(string) int,
 ) core.PredicateFailureReason {
 	address := req.Address
 	private := req.Private
@@ -181,7 +181,7 @@ func IsNetworkAvailable(
 	wire := req.Wire
 
 	isMatchServerType := func(network *models.SNetwork) bool {
-		return utils.IsInStringArray(network.ServerType, netTypes)
+		return computeapi.IsInNetworkTypes(network.ServerType, netTypes)
 	}
 
 	isMigrate := func() bool {
@@ -293,14 +293,14 @@ func IsNetworkAvailable(
 	return nil
 }
 
-func (p *NetworkPredicate) GetNetworkTypes(u *core.Unit, specifyType string) []string {
-	netTypes := []string{}
+func (p *NetworkPredicate) GetNetworkTypes(u *core.Unit, specifyType computeapi.TNetworkType) []computeapi.TNetworkType {
+	netTypes := []computeapi.TNetworkType{}
 	driver := p.GetHypervisorDriver(u)
 	if driver != nil {
 		netTypes = driver.GetRandomNetworkTypes()
 	}
 	if len(specifyType) > 0 {
-		netTypes = []string{specifyType}
+		netTypes = []computeapi.TNetworkType{specifyType}
 	}
 	return netTypes
 }

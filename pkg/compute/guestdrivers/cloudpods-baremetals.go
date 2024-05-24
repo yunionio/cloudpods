@@ -175,8 +175,8 @@ func (self *SCloudpodsBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *
 	return net, nil, "", false, nil
 }
 
-func (self *SCloudpodsBaremetalGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST}
+func (self *SCloudpodsBaremetalGuestDriver) GetRandomNetworkTypes() []api.TNetworkType {
+	return []api.TNetworkType{api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST}
 }
 
 func (self *SCloudpodsBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
@@ -191,7 +191,7 @@ func (self *SCloudpodsBaremetalGuestDriver) Attach2RandomNetwork(guest *models.S
 
 	netTypes := drv.GetRandomNetworkTypes()
 	if len(netConfig.NetType) > 0 {
-		netTypes = []string{netConfig.NetType}
+		netTypes = []api.TNetworkType{netConfig.NetType}
 	}
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {

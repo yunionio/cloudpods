@@ -509,8 +509,8 @@ func (p *SPodDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.S
 	return p.newUnsupportOperationError("rebuild root")
 }
 
-func (p *SPodDriver) GetRandomNetworkTypes() []string {
-	return []string{api.NETWORK_TYPE_CONTAINER, api.NETWORK_TYPE_GUEST}
+func (p *SPodDriver) GetRandomNetworkTypes() []api.TNetworkType {
+	return []api.TNetworkType{api.NETWORK_TYPE_CONTAINER, api.NETWORK_TYPE_GUEST, api.NETWORK_TYPE_HOSTLOCAL}
 }
 
 func (p *SPodDriver) IsSupportGuestClone() bool {

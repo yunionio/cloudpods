@@ -337,8 +337,8 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			if err != nil {
 				return nil, errors.Wrap(err, "parse tx-traffic-limit")
 			}
-		} else if utils.IsInStringArray(p, compute.ALL_NETWORK_TYPES) {
-			netConfig.NetType = p
+		} else if compute.IsInNetworkTypes(compute.TNetworkType(p), compute.ALL_NETWORK_TYPES) {
+			netConfig.NetType = compute.TNetworkType(p)
 		} else {
 			netConfig.Network = p
 		}

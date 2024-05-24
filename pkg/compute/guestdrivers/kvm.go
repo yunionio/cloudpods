@@ -1257,3 +1257,7 @@ func (kvm *SKVMGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Contex
 	}
 	return confs, nil
 }
+
+func (kvm *SKVMGuestDriver) GetRandomNetworkTypes() []api.TNetworkType {
+	return []api.TNetworkType{api.NETWORK_TYPE_GUEST, api.NETWORK_TYPE_HOSTLOCAL}
+}

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
@@ -93,7 +94,7 @@ type IBaremetalInstance interface {
 	GetIPMINic(cliMac net.HardwareAddr) *types.SNic
 	GetPXEDHCPConfig(arch uint16) (*dhcp.ResponseConfig, error)
 	GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error)
-	InitAdminNetif(cliMac net.HardwareAddr, wireId string, nicType compute.TNicType, netType string, isDoImport bool, ipAddr string) error
+	InitAdminNetif(cliMac net.HardwareAddr, wireId string, nicType compute.TNicType, netType computeapi.TNetworkType, isDoImport bool, ipAddr string) error
 	RegisterNetif(cliMac net.HardwareAddr, wireId string) error
 	GetTFTPResponse() string
 }

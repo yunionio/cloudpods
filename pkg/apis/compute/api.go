@@ -94,10 +94,11 @@ type NetworkConfig struct {
 	BwLimit        int    `json:"bw_limit"`
 	Vip            bool   `json:"vip"`
 	Reserved       bool   `json:"reserved"`
-	NetType        string `json:"net_type"`
 	NumQueues      int    `json:"num_queues"`
 	RxTrafficLimit int64  `json:"rx_traffic_limit"`
 	TxTrafficLimit int64  `json:"tx_traffic_limit"`
+
+	NetType TNetworkType `json:"net_type"`
 
 	IsDefault bool `json:"is_default"`
 

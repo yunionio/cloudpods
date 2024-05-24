@@ -20,18 +20,21 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 )
 
+type TNetworkType string
+
 const (
 	// # DEFAULT_BANDWIDTH = options.default_bandwidth
 
 	// in mbps, maximal is 100Tbps
 	MAX_BANDWIDTH = 100000000
 
-	NETWORK_TYPE_GUEST     = compute.NETWORK_TYPE_GUEST
-	NETWORK_TYPE_BAREMETAL = "baremetal"
-	NETWORK_TYPE_CONTAINER = "container"
-	NETWORK_TYPE_PXE       = "pxe"
-	NETWORK_TYPE_IPMI      = "ipmi"
-	NETWORK_TYPE_EIP       = "eip"
+	NETWORK_TYPE_GUEST     = TNetworkType(compute.NETWORK_TYPE_GUEST)
+	NETWORK_TYPE_BAREMETAL = TNetworkType("baremetal")
+	NETWORK_TYPE_CONTAINER = TNetworkType("container")
+	NETWORK_TYPE_PXE       = TNetworkType("pxe")
+	NETWORK_TYPE_IPMI      = TNetworkType("ipmi")
+	NETWORK_TYPE_EIP       = TNetworkType("eip")
+	NETWORK_TYPE_HOSTLOCAL = TNetworkType("hostlocal")
 
 	STATIC_ALLOC = "static"
 
@@ -59,13 +62,14 @@ const (
 )
 
 var (
-	ALL_NETWORK_TYPES = []string{
+	ALL_NETWORK_TYPES = []TNetworkType{
 		NETWORK_TYPE_GUEST,
 		NETWORK_TYPE_BAREMETAL,
 		NETWORK_TYPE_CONTAINER,
 		NETWORK_TYPE_PXE,
 		NETWORK_TYPE_IPMI,
 		NETWORK_TYPE_EIP,
+		NETWORK_TYPE_HOSTLOCAL,
 	}
 
 	REGIONAL_NETWORK_PROVIDERS = []string{
@@ -81,6 +85,15 @@ var (
 		CLOUD_PROVIDER_H3C,
 	}
 )
+
+func IsInNetworkTypes(netType TNetworkType, types []TNetworkType) bool {
+	for _, t := range types {
+		if t == netType {
+			return true
+		}
+	}
+	return false
+}
 
 type IPAllocationDirection string
 
