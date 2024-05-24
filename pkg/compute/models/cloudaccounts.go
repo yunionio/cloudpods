@@ -521,6 +521,9 @@ func (manager *SCloudaccountManager) validateCreateData(
 	}
 	input.IsPublicCloud = providerDriver.IsPublicCloud()
 	input.IsOnPremise = providerDriver.IsOnPremise()
+	if providerDriver.IsReadOnly() {
+		input.ReadOnly = true
+	}
 
 	if !input.SkipDuplicateAccountCheck {
 		q := manager.Query().Equals("provider", input.Provider)
