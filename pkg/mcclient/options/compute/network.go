@@ -157,6 +157,8 @@ type NetworkUpdateOptions struct {
 	ExternalId  string `help:"External ID"`
 	AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
 	IsAutoAlloc *bool  `help:"Add network into auto-allocation pool" negative:"no_auto_alloc"`
+
+	ServerType string `help:"specify network server_type" choices:"baremetal|container|guest|pxe|ipmi|eip|hostlocal"`
 }
 
 func (opts *NetworkUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -233,6 +235,9 @@ func (opts *NetworkUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if opts.IsAutoAlloc != nil {
 		params.Add(jsonutils.NewBool(*opts.IsAutoAlloc), "is_auto_alloc")
+	}
+	if len(opts.ServerType) > 0 {
+		params.Add(jsonutils.NewString(opts.ServerType), "server_type")
 	}
 	if params.Size() == 0 {
 		return nil, shell.InvalidUpdateError()
