@@ -308,11 +308,14 @@ type ContainerExecOptions struct {
 	ServerIdOptions
 	// Tty     bool `help:"Using tty" short-token:"t"`
 	COMMAND string
+	Args    []string
 }
 
 func (o *ContainerExecOptions) ToAPIInput() *computeapi.ContainerExecInput {
+	cmd := []string{o.COMMAND}
+	cmd = append(cmd, o.Args...)
 	return &computeapi.ContainerExecInput{
-		Command: strings.Split(o.COMMAND, " "),
+		Command: cmd,
 		//Tty:     o.Tty,
 		Tty: true,
 	}
