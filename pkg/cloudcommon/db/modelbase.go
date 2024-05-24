@@ -513,7 +513,7 @@ func (manager *SModelBaseManager) GetPropertyDistinctFields(ctx context.Context,
 	result := jsonutils.NewDict()
 	fields := jsonutils.NewArray()
 	if len(input.Field) > 0 {
-		sq := q.Copy()
+		sq := q.Copy().ResetFields()
 		// query field
 		for i := 0; i < len(input.Field); i++ {
 			sq = sq.AppendField(sq.Field(input.Field[i]))
@@ -536,7 +536,7 @@ func (manager *SModelBaseManager) GetPropertyDistinctFields(ctx context.Context,
 	extraFields := jsonutils.NewArray()
 	if len(input.ExtraResource) > 0 && len(input.ExtraField) > 0 {
 		// query extra field
-		sq := q.Copy()
+		sq := q.Copy().ResetFields()
 		em := GetModelManager(input.ExtraResource)
 		if gotypes.IsNil(em) {
 			return nil, httperrors.NewInputParameterError("invalid extra_resource %s", input.ExtraResource)
