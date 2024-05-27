@@ -39,10 +39,11 @@ type ImageListOptions struct {
 }
 
 func (o *ImageListOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := o.BaseListOptions.Params()
+	param, err := o.BaseListOptions.Params()
 	if err != nil {
 		return nil, err
 	}
+	params := param.(*jsonutils.JSONDict)
 	if len(o.IsPublic) > 0 {
 		params.Add(jsonutils.NewString(o.IsPublic), "is_public")
 	}

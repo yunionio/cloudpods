@@ -29,12 +29,11 @@ func init() {
 	R(&VCenterListOptions{}, "vcenter-list", "List VMWare vcenters", func(s *mcclient.ClientSession, args *VCenterListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		result, err := modules.VCenters.List(s, params)
 		if err != nil {

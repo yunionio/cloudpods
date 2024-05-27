@@ -37,12 +37,11 @@ func init() {
 	R(&ListOptions{}, "spec", "List all kinds of model specs", func(s *mcclient.ClientSession, args *ListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		model := ""
 		if len(args.Model) != 0 {
@@ -108,12 +107,11 @@ func init() {
 		}
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		if len(args.HostType) > 0 {
 			params.Add(jsonutils.NewString(args.HostType), "host_type")
@@ -153,12 +151,11 @@ func init() {
 		}
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		resp, err := modules.Specs.SpecsQueryModelObjects(s, "isolated_devices", newSpecKeys(), params)
 		if err != nil {

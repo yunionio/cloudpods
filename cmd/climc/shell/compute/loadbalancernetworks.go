@@ -33,12 +33,11 @@ func init() {
 	R(&LoadbalancerNetworkListOptions{}, "lbnetwork-list", "List loadbalancer network pairs", func(s *mcclient.ClientSession, args *LoadbalancerNetworkListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		if len(args.Ip) > 0 {
 			params.Add(jsonutils.NewString(args.Ip), "ip_addr")

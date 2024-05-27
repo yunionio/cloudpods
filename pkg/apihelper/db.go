@@ -83,10 +83,11 @@ func GetDBModels(opts *GetDBModelsOptions) error {
 		filter := inter.ModelFilter()
 		listOptions.Filter = append(listOptions.Filter, filter...)
 	}
-	params, err := listOptions.Params()
+	param, err := listOptions.Params()
 	if err != nil {
 		return fmt.Errorf("%s: making list params: %s", manKeyPlural, err)
 	}
+	params := param.(*jsonutils.JSONDict)
 	if inter, ok := opts.GetModelSet().(IModelListParam); ok {
 		filter := inter.ModelParamFilter()
 		params.Update(filter)

@@ -35,12 +35,11 @@ func init() {
 	R(&DeviceListOptions{}, "isolated-device-list", "List isolated devices like GPU", func(s *mcclient.ClientSession, args *DeviceListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		if len(args.Host) > 0 {
 			params.Add(jsonutils.NewString(args.Host), "host")

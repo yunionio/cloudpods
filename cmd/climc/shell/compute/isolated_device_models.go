@@ -43,12 +43,11 @@ func init() {
 		"List host Isolated device model pairs", func(s *mcclient.ClientSession, args *HostIsolatedDeviceModelListOptions) error {
 			var params *jsonutils.JSONDict
 			{
-				var err error
-				params, err = args.BaseListOptions.Params()
+				param, err := args.BaseListOptions.Params()
 				if err != nil {
 					return err
-
 				}
+				params = param.(*jsonutils.JSONDict)
 			}
 			var result *printutils.ListResult
 			var err error

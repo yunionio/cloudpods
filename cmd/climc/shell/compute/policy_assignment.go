@@ -28,10 +28,11 @@ func init() {
 		Policydefinition string `help:"filter by policydefinition"`
 	}
 	R(&PolicyListOptions{}, "policy-assignment-list", "List policy assignments", func(s *mcclient.ClientSession, args *PolicyListOptions) error {
-		params, err := args.Params()
+		param, err := args.Params()
 		if err != nil {
 			return err
 		}
+		params := param.(*jsonutils.JSONDict)
 		if len(args.Policydefinition) > 0 {
 			params.Add(jsonutils.NewString(args.Policydefinition), "policydefinition")
 		}

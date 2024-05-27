@@ -29,11 +29,11 @@ func init() {
 	R(&SchedpoliciesListOptions{}, "sched-policy-list", "List scheduler policies", func(s *mcclient.ClientSession, args *SchedpoliciesListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		results, err := modules.Schedpolicies.List(s, params)
 		if err != nil {

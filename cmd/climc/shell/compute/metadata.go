@@ -24,20 +24,7 @@ import (
 )
 
 func init() {
-	R(&options.MetadataListOptions{}, "metadata-list", "List metadatas", func(s *mcclient.ClientSession, opts *options.MetadataListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.ComputeMetadatas.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, []string{})
-		return nil
-	})
-
-	R(&options.TagListOptions{}, "tag-list", "List tags", func(s *mcclient.ClientSession, opts *options.TagListOptions) error {
+	R(&options.TagListOptions{}, "metadata-list", "List tags", func(s *mcclient.ClientSession, opts *options.TagListOptions) error {
 		var mod modulebase.IResourceManager
 		switch opts.Service {
 		case "compute":

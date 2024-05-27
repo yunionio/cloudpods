@@ -32,12 +32,11 @@ func init() {
 	R(&HostStorageListOptions{}, "host-storage-list", "List host storage pairs", func(s *mcclient.ClientSession, args *HostStorageListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		var result *printutils.ListResult
 		var err error

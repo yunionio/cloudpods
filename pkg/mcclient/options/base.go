@@ -301,7 +301,7 @@ func SplitTag(tag string) tagutils.TTagSet {
 	return tags
 }
 
-func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *BaseListOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := optionsStructToParams(opts)
 	if err != nil {
 		return nil, err

@@ -35,12 +35,11 @@ func init() {
 	R(&ServerDiskListOptions{}, "server-disk-list", "List server disk pairs", func(s *mcclient.ClientSession, args *ServerDiskListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		if args.Index >= 0 {
 			params.Add(jsonutils.NewInt(args.Index), "index")

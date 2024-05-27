@@ -31,12 +31,11 @@ func init() {
 	R(&BaremetalStorageListOptions{}, "baremetal-storage-list", "List baremetal storage pairs", func(s *mcclient.ClientSession, args *BaremetalStorageListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		var result *printutils.ListResult
 		var err error

@@ -40,12 +40,11 @@ func init() {
 	R(&ServerNetworkListOptions{}, "server-network-list", "List server network pairs", func(s *mcclient.ClientSession, args *ServerNetworkListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		if len(args.Mac) > 0 {
 			params.Add(jsonutils.NewString(args.Mac), "mac_addr")

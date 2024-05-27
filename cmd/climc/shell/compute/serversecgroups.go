@@ -32,12 +32,11 @@ func init() {
 	R(&ServerSecgroupListOptions{}, "server-secgroup-list", "List server secgroup pairs", func(s *mcclient.ClientSession, args *ServerSecgroupListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		var result *printutils.ListResult
 		var err error

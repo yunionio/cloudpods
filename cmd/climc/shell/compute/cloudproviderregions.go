@@ -33,12 +33,11 @@ func init() {
 	R(&CloudproviderRegionListOptions{}, "cloud-provider-region-list", "List cloudprovider region synchronization status", func(s *mcclient.ClientSession, args *CloudproviderRegionListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		var result *printutils.ListResult
 		var err error

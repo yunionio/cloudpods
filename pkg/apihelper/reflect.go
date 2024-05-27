@@ -86,10 +86,11 @@ func GetModels(opts *GetModelsOptions) error {
 		listOptions.PendingDeleteAll = options.Bool(true)
 		listOptions.DeleteAll = options.Bool(true)
 	}
-	params, err := listOptions.Params()
+	param, err := listOptions.Params()
 	if err != nil {
 		return fmt.Errorf("%s: making list params: %s", manKeyPlural, err)
 	}
+	params := param.(*jsonutils.JSONDict)
 	if inter, ok := opts.ModelSet.(IModelListParam); ok {
 		filter := inter.ModelParamFilter()
 		params.Update(filter)

@@ -31,10 +31,11 @@ func init() {
 	}
 
 	R(&CloudproviderQuotaListOptions{}, "cloud-provider-quota-list", "List cloudprovider quota", func(s *mcclient.ClientSession, args *CloudproviderQuotaListOptions) error {
-		params, err := args.Params()
+		param, err := args.Params()
 		if err != nil {
 			return err
 		}
+		params := param.(*jsonutils.JSONDict)
 
 		if len(args.QuotaType) > 0 {
 			params.Add(jsonutils.NewString(args.QuotaType), "quota_type")

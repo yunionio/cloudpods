@@ -71,10 +71,11 @@ func init() {
 	R(&GuestImageListOptions{}, "guest-image-list", "List guest images", func(s *mcclient.ClientSession,
 		args *GuestImageListOptions) error {
 
-		params, err := args.Params()
+		param, err := args.Params()
 		if err != nil {
 			return err
 		}
+		params := param.(*jsonutils.JSONDict)
 
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")

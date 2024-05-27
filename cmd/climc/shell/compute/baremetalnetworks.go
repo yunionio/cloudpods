@@ -32,12 +32,11 @@ func init() {
 	R(&HostNetworkListOptions{}, "host-network-list", "List baremetal network pairs", func(s *mcclient.ClientSession, args *HostNetworkListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		if len(args.Network) > 0 {
 			params.Add(jsonutils.NewString(args.Network), "network_id")

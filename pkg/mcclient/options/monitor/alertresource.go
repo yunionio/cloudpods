@@ -26,10 +26,11 @@ type AlertResourceListOptions struct {
 }
 
 func (o AlertResourceListOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := o.BaseListOptions.Params()
+	param, err := o.BaseListOptions.Params()
 	if err != nil {
 		return nil, err
 	}
+	params := param.(*jsonutils.JSONDict)
 	if o.Type != "" {
 		params.Add(jsonutils.NewString(o.Type), "type")
 	}

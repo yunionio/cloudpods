@@ -29,11 +29,11 @@ func init() {
 	R(&DynamicschedtagListOptions{}, "dynamic-schedtag-list", "List dynamic schedtag conditions", func(s *mcclient.ClientSession, args *DynamicschedtagListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		results, err := modules.Dynamicschedtags.List(s, params)
 		if err != nil {

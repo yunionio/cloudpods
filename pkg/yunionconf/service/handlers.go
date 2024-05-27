@@ -52,6 +52,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.ParameterManager,
 		models.ScopedPolicyBindingManager,
 		models.ScopedPolicyManager,
+		models.TagManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

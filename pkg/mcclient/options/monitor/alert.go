@@ -210,7 +210,7 @@ type AlertNotificationListOptions struct {
 	Notification string `help:"ID or name of notification" short-token:"n"`
 }
 
-func (o AlertNotificationListOptions) Params() (*jsonutils.JSONDict, error) {
+func (o AlertNotificationListOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.BaseListOptions.Params()
 	if err != nil {
 		return nil, err

@@ -27,7 +27,7 @@ type SchedtagModelListOptions struct {
 	Schedtag string `help:"ID or Name of schedtag"`
 }
 
-func (o SchedtagModelListOptions) Params() (*jsonutils.JSONDict, error) {
+func (o SchedtagModelListOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := o.BaseListOptions.Params()
 	if err != nil {
 		return nil, err
@@ -60,10 +60,12 @@ type SchedtagListOptions struct {
 }
 
 func (o SchedtagListOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := o.BaseListOptions.Params()
+	param, err := o.BaseListOptions.Params()
 	if err != nil {
 		return nil, err
 	}
+
+	params := param.(*jsonutils.JSONDict)
 
 	if len(o.Type) > 0 {
 		params.Add(jsonutils.NewString(o.Type), "resource_type")

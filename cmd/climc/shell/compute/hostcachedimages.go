@@ -32,12 +32,11 @@ func init() {
 	R(&HostCachedImageListOptions{}, "host-cachedimage-list", "List host cached image pairs", func(s *mcclient.ClientSession, args *HostCachedImageListOptions) error {
 		var params *jsonutils.JSONDict
 		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+			param, err := args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
+			params = param.(*jsonutils.JSONDict)
 		}
 		var result *printutils.ListResult
 		var err error
