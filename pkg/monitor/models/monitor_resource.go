@@ -416,7 +416,20 @@ func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx con
 	}
 	deleteJointIds := make([]int64, 0)
 	for _, joint := range resourceAlerts {
-		if utils.IsInStringArray(joint.MonitorResourceId, matchResourceIds) {
+		evalData, err := joint.GetData()
+		if err != nil {
+			log.Warningf("get data of monitor_resource_alert %s: %s", jsonutils.Marshal(joint), err)
+			continue
+		}
+		metricName := evalData.Metric
+		isMetricFound := false
+		for _, match := range matches {
+			if match.Metric == metricName {
+				isMetricFound = true
+				break
+			}
+		}
+		if utils.IsInStringArray(joint.MonitorResourceId, matchResourceIds) && isMetricFound {
 			continue
 		}
 		deleteJointIds = append(deleteJointIds, joint.RowId)
