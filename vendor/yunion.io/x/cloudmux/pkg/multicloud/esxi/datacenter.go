@@ -17,6 +17,7 @@ package esxi
 import (
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
@@ -41,6 +42,8 @@ type SDatacenter struct {
 	inetworks    map[string]IVMNetwork
 	iresoucePool []cloudprovider.ICloudProject
 	clusters     []*SCluster
+
+	netLock sync.Mutex
 
 	Name string
 }
@@ -522,6 +525,8 @@ func (dc *SDatacenter) scanAllDvPortgroups() error {
 	if err != nil {
 		return errors.Wrap(err, "dc.manager.scanAllMObjects mo.DistributedVirtualPortgroup")
 	}
+	dc.netLock.Lock()
+	defer dc.netLock.Unlock()
 	for i := range dvports {
 		net := NewDistributedVirtualPortgroup(dc.manager, &dvports[i], dc)
 		dc.inetworks[net.GetName()] = net
@@ -536,6 +541,8 @@ func (dc *SDatacenter) scanAllNetworks() error {
 	if err != nil {
 		return errors.Wrap(err, "dc.manager.scanAllMObjects mo.Network")
 	}
+	dc.netLock.Lock()
+	defer dc.netLock.Unlock()
 	for i := range nets {
 		net := NewNetwork(dc.manager, &nets[i], dc)
 		dc.inetworks[net.GetName()] = net
@@ -548,6 +555,8 @@ func (dc *SDatacenter) scanDcNetworks() error {
 	if err != nil {
 		return errors.Wrap(err, "resolveNetworks")
 	}
+	dc.netLock.Lock()
+	defer dc.netLock.Unlock()
 	for i := range nets {
 		net := nets[i]
 		dc.inetworks[net.GetName()] = net

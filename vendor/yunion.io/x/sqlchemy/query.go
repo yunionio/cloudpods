@@ -50,8 +50,7 @@ type sQueryJoin struct {
 }
 
 // SQuery is a data structure represents a SQL query in the form of
-//
-//	SELECT ... FROM ... JOIN ... ON ... WHERE ... GROUP BY ... ORDER BY ... HAVING ...
+//     SELECT ... FROM ... JOIN ... ON ... WHERE ... GROUP BY ... ORDER BY ... HAVING ...
 type SQuery struct {
 	rawSql   string
 	fields   []IQueryField
