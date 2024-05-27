@@ -1449,7 +1449,7 @@ jointLoop:
 		errs := make([]error, 0)
 		for _, monRes := range monitorResources {
 			resDesc := fmt.Sprintf("%s/%s/%s", monRes.ResType, monRes.GetName(), monRes.ResId)
-			if err := monRes.AttachAlert(ctx, userCred, alert.GetId()); err != nil {
+			if _, err := monRes.AttachAlert(ctx, userCred, alert.GetId()); err != nil {
 				errs = append(errs, errors.Wrapf(err, "AttachAlert %s to %s", alert.GetName(), resDesc))
 			}
 			if err := monRes.UpdateAlertState(); err != nil {
