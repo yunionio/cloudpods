@@ -152,6 +152,17 @@ func (obj *SMonitorResourceAlert) UpdateAlertRecordData(record *SAlertRecord, ma
 	return nil
 }
 
+func (obj *SMonitorResourceAlert) GetData() (*monitor.EvalMatch, error) {
+	if obj.Data == nil {
+		return nil, errors.Errorf("data is nil")
+	}
+	match := new(monitor.EvalMatch)
+	if err := obj.Data.Unmarshal(match); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to monitor.EvalMatch")
+	}
+	return match, nil
+}
+
 func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *monitor.MonitorResourceJointListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = m.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, input.JointResourceBaseListInput)
