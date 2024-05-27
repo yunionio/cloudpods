@@ -403,7 +403,10 @@ type SDecimalColumn struct {
 // ColType implementation of SDecimalColumn for IColumnSpec
 func (c *SDecimalColumn) ColType() string {
 	str := c.SClickhouseBaseColumn.ColType()
-	return fmt.Sprintf("%s(%d, %d)", str, c.width, c.Precision)
+	if str == "Decimal" {
+		return fmt.Sprintf("%s(%d, %d)", str, c.width, c.Precision)
+	}
+	return fmt.Sprintf("%s(%d)", str, c.Precision)
 }
 
 // IsNumeric implementation of SDecimalColumn for IColumnSpec
