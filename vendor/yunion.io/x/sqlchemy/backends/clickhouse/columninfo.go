@@ -83,6 +83,14 @@ func (info *sSqlColumnInfo) getTagmap() map[string]string {
 		}
 		tagmap[sqlchemy.TAG_DEFAULT] = defVal
 	}
+	sqlType := info.getType()
+	if strings.HasPrefix(sqlType, "Decimal") {
+		re := regexp.MustCompile(`Decimal\((\d+),\s*(\d+)\)`)
+		match := re.FindStringSubmatch(sqlType)
+		if len(match) == 3 {
+			tagmap[sqlchemy.TAG_WIDTH], tagmap[sqlchemy.TAG_PRECISION] = match[1], match[2]
+		}
+	}
 	return tagmap
 }
 
