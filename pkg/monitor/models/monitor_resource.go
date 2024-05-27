@@ -262,7 +262,7 @@ func (man *SMonitorResourceManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SMonitorResource) AttachAlert(ctx context.Context, userCred mcclient.TokenCredential, alertId string) error {
+func (self *SMonitorResource) AttachAlert(ctx context.Context, userCred mcclient.TokenCredential, alertId string) (*SMonitorResourceAlert, error) {
 	iModel, _ := db.NewModelObject(MonitorResourceAlertManager)
 	input := monitor.MonitorResourceJointCreateInput{
 		MonitorResourceId: self.ResId,
@@ -272,12 +272,12 @@ func (self *SMonitorResource) AttachAlert(ctx context.Context, userCred mcclient
 	data := input.JSON(&input)
 	err := data.Unmarshal(iModel)
 	if err != nil {
-		return errors.Wrap(err, "MonitorResourceJointCreateInput unmarshal to joint err")
+		return nil, errors.Wrap(err, "MonitorResourceJointCreateInput unmarshal to joint err")
 	}
 	if err := MonitorResourceAlertManager.TableSpec().Insert(ctx, iModel); err != nil {
-		return errors.Wrap(err, "insert MonitorResourceJoint model err")
+		return nil, errors.Wrap(err, "insert MonitorResourceJoint model err")
 	}
-	return nil
+	return iModel.(*SMonitorResourceAlert), nil
 }
 
 func (self *SMonitorResource) UpdateAlertState() error {
@@ -437,22 +437,44 @@ func (self *SMonitorResource) UpdateAttachJoint(alertRecord *SAlertRecord, match
 		return errors.Wrapf(err, "SMonitorResource:%s UpdateAttachJoint err", self.Name)
 	}
 	errs := make([]error, 0)
-	// 报警时发现没有进行关联，增加attach
-	if len(joints) == 0 {
-		self.AttachAlert(context.Background(), nil, alertRecord.AlertId)
-		joints, _ = MonitorResourceAlertManager.GetJoinsByListInput(monitor.
-			MonitorResourceJointListInput{MonitorResourceId: self.
-			ResId, AlertId: alertRecord.AlertId})
-	}
+	updateJoints := make([]SMonitorResourceAlert, 0)
 	for _, joint := range joints {
-		err := joint.UpdateAlertRecordData(alertRecord, &match)
+		jointMatch := new(monitor.EvalMatch)
+		if joint.Data != nil {
+			if err := joint.Data.Unmarshal(jointMatch); err != nil {
+				return errors.Wrapf(err, "unmarshal joint %s to monitor.EvalMatch", jsonutils.Marshal(joint))
+			}
+			if jointMatch.Metric == match.Metric {
+				tmpJoint := joint
+				updateJoints = append(updateJoints, tmpJoint)
+			}
+		}
+	}
+	// 报警时发现没有进行关联，增加attach
+	if len(updateJoints) == 0 {
+		newJoint, err := self.AttachAlert(context.Background(), nil, alertRecord.AlertId)
 		if err != nil {
-			errs = append(errs, errors.Wrapf(err, "joint %s:%s %s:%s UpdateAlertRecordData err",
+			log.Errorf("attach alert error: %s", err)
+		}
+		log.Infof("Attach Alert joint: %#v, match: %s", newJoint, jsonutils.Marshal(match))
+		if err := newJoint.UpdateAlertRecordData(alertRecord, &match); err != nil {
+			errs = append(errs, errors.Wrapf(err, "new joint %s:%s %s:%s UpdateAlertRecordData err",
 				MonitorResourceAlertManager.GetMasterFieldName(), self.ResId,
 				MonitorResourceAlertManager.GetSlaveFieldName(), alertRecord.AlertId))
 		}
+	} else {
+		for _, joint := range updateJoints {
+			err := joint.UpdateAlertRecordData(alertRecord, &match)
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "joint %s:%s %s:%s UpdateAlertRecordData err",
+					MonitorResourceAlertManager.GetMasterFieldName(), self.ResId,
+					MonitorResourceAlertManager.GetSlaveFieldName(), alertRecord.AlertId))
+			}
+		}
 	}
-	self.UpdateAlertState()
+	if err := self.UpdateAlertState(); err != nil {
+		errs = append(errs, errors.Wrapf(err, "UpdateAlertState"))
+	}
 	return errors.NewAggregate(errs)
 
 }
