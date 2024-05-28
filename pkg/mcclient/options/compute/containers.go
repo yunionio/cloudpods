@@ -324,3 +324,19 @@ func (o *ContainerExecOptions) ToAPIInput() *computeapi.ContainerExecInput {
 func (o *ContainerExecOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o.ToAPIInput()), nil
 }
+
+type ContainerExecSyncOptions struct {
+	ServerIdOptions
+	COMMAND string
+	Args    []string
+	Timeout int64
+}
+
+func (o *ContainerExecSyncOptions) Params() (jsonutils.JSONObject, error) {
+	cmd := []string{o.COMMAND}
+	cmd = append(cmd, o.Args...)
+	return jsonutils.Marshal(&computeapi.ContainerExecSyncInput{
+		Command: cmd,
+		Timeout: o.Timeout,
+	}), nil
+}

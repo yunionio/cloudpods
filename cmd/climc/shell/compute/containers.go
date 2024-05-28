@@ -42,6 +42,7 @@ func init() {
 	cmd.BatchPerform("start", new(options.ContainerStartOptions))
 	cmd.BatchPerform("syncstatus", new(options.ContainerIdsOptions))
 	cmd.Perform("save-volume-mount-image", new(options.ContainerSaveVolumeMountImage))
+	cmd.Perform("exec-sync", new(options.ContainerExecSyncOptions))
 
 	type UpdateSpecOptions struct {
 		ID string `help:"ID or name of server" json:"-"`

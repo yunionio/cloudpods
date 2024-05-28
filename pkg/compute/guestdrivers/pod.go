@@ -499,6 +499,15 @@ func (p *SPodDriver) RequestExecContainer(ctx context.Context, userCred mcclient
 	return nil
 }
 
+func (p *SPodDriver) RequestExecSyncContainer(ctx context.Context, userCred mcclient.TokenCredential, container *models.SContainer, input *api.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
+	pod := container.GetPod()
+	host, _ := pod.GetHost()
+	url := fmt.Sprintf("%s/pods/%s/containers/%s/exec-sync", host.ManagerUri, pod.GetId(), container.GetId())
+	header := mcclient.GetTokenHeaders(userCred)
+	_, ret, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(input), false)
+	return ret, err
+}
+
 func (p *SPodDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
 	// clean disk records in DB
 	return guest.DeleteAllDisksInDB(ctx, userCred)

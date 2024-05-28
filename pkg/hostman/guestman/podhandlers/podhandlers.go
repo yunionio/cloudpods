@@ -49,7 +49,15 @@ type containerDelayActionParams struct {
 	body        jsonutils.JSONObject
 }
 
+func containerSyncActionHandler(cf containerActionFunc) appsrv.FilterHandler {
+	return _containerActionHandler(cf, true)
+}
+
 func containerActionHandler(cf containerActionFunc) appsrv.FilterHandler {
+	return _containerActionHandler(cf, false)
+}
+
+func _containerActionHandler(cf containerActionFunc, isSync bool) appsrv.FilterHandler {
 	return auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		params, _, body := appsrv.FetchEnv(ctx, w, r)
 		podId := params[POD_ID]
@@ -73,11 +81,21 @@ func containerActionHandler(cf containerActionFunc) appsrv.FilterHandler {
 			containerId: ctrId,
 			body:        body,
 		}
-		hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-			dp := params.(*containerDelayActionParams)
-			return cf(ctx, userCred, dp.pod, dp.containerId, dp.body)
-		}, delayParams)
-		hostutils.ResponseOk(ctx, w)
+		if isSync {
+			data, err := cf(ctx, userCred, delayParams.pod, delayParams.containerId, delayParams.body)
+			if err != nil {
+				hostutils.Response(ctx, w, httperrors.NewBadRequestError("error: %v", err))
+				return
+			}
+			hostutils.Response(ctx, w, data)
+			return
+		} else {
+			hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+				dp := params.(*containerDelayActionParams)
+				return cf(ctx, userCred, dp.pod, dp.containerId, dp.body)
+			}, delayParams)
+			hostutils.ResponseOk(ctx, w)
+		}
 	})
 }
 
@@ -98,7 +116,8 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 	}
 
 	execWorker := appsrv.NewWorkerManager("exec-worker", 16, appsrv.DEFAULT_BACKLOG, false)
-	app.AddHandler3(newExecContainerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execWorker))
+	app.AddHandler3(newExecContainerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec-sync", prefix, POD_ID, CONTAINER_ID), execWorker, containerSyncActionHandler(containerExecSync)))
+	app.AddHandler3(newExecContainerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execWorker, execContainer()))
 }
 
 func pullImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -145,11 +164,11 @@ func saveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredenti
 	return pod.SaveVolumeMountToImage(ctx, userCred, input, ctrId)
 }
 
-func newExecContainerHandler(method, urlPath string, worker *appsrv.SWorkerManager) *appsrv.SHandlerInfo {
+func newExecContainerHandler(method, urlPath string, worker *appsrv.SWorkerManager, hander appsrv.FilterHandler) *appsrv.SHandlerInfo {
 	hi := &appsrv.SHandlerInfo{}
 	hi.SetMethod(method)
 	hi.SetPath(urlPath)
-	hi.SetHandler(execContainer())
+	hi.SetHandler(hander)
 	hi.SetProcessTimeout(1 * time.Hour)
 	hi.SetWorkerManager(worker)
 	return hi
@@ -197,4 +216,12 @@ func (r *responder) Error(w http.ResponseWriter, req *http.Request, err error) {
 func proxyStream(w http.ResponseWriter, r *http.Request, url *url.URL) {
 	handler := proxy.NewUpgradeAwareHandler(url, nil, false, true, &responder{})
 	handler.ServeHTTP(w, r)
+}
+
+func containerExecSync(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(compute.ContainerExecSyncInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to ContainerExecSyncInput")
+	}
+	return pod.ContainerExecSync(ctx, userCred, containerId, input)
 }

@@ -68,6 +68,7 @@ type PodInstance interface {
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
 	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
 	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
+	ContainerExecSync(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error)
 }
 
 type sContainer struct {
@@ -1587,4 +1588,25 @@ func (s *sPodGuestInstance) DeleteSnapshot(ctx context.Context, params *SDeleteD
 	res := jsonutils.NewDict()
 	res.Set("deleted", jsonutils.JSONTrue)
 	return res, nil
+}
+
+func (s *sPodGuestInstance) ContainerExecSync(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
+	ctrCriId, err := s.getContainerCRIId(ctrId)
+	if err != nil {
+		return nil, errors.Wrap(err, "get container cri id")
+	}
+	cli := s.getCRI().GetRuntimeClient()
+	resp, err := cli.ExecSync(ctx, &runtimeapi.ExecSyncRequest{
+		ContainerId: ctrCriId,
+		Cmd:         input.Command,
+		Timeout:     input.Timeout,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "exec sync %#v to %s", input.Command, ctrCriId)
+	}
+	return jsonutils.Marshal(&computeapi.ContainerExecSyncResponse{
+		Stdout:   string(resp.Stdout),
+		Stderr:   string(resp.Stderr),
+		ExitCode: resp.ExitCode,
+	}), nil
 }
