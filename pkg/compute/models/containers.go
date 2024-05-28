@@ -560,16 +560,9 @@ func (c *SContainer) GetDetailsExecInfo(ctx context.Context, userCred mcclient.T
 	return out, nil
 }
 
-/*func (c *SContainer) PerformExec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (c *SContainer) PerformExecSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
 	if c.Status != api.CONTAINER_STATUS_RUNNING {
 		return nil, httperrors.NewInvalidStatusError("Can't exec container in status %s", c.Status)
 	}
-	input := new(api.ContainerExecInput)
-	if err := query.Unmarshal(input); err != nil {
-		return nil, errors.Wrapf(err, "unmarshal query to input: %s", query)
-	}
-	if err := c.GetPodDriver().RequestExecContainer(ctx, userCred, c, input); err != nil {
-		return nil, errors.Wrap(err, "RequestExecContainer")
-	}
-	return nil, nil
-}*/
+	return c.GetPodDriver().RequestExecSyncContainer(ctx, userCred, c, input)
+}
