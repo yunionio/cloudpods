@@ -55,8 +55,8 @@ func (m *nvidiaMPSManager) NewDevices(dev *isolated_device.ContainerDevice) ([]i
 	return nil, nil
 }
 
-func (m *nvidiaMPSManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
-	return nil, nil
+func (m *nvidiaMPSManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
+	return nil, nil, nil
 }
 
 func (m *nvidiaMPSManager) getMPSPipeDirectory() string {

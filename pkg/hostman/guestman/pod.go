@@ -1101,10 +1101,19 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		}
 	}
 	if len(spec.Devices) != 0 {
-		for _, dev := range spec.Devices {
-			ctrDevs, err := device.GetDriver(dev.Type).GetRuntimeDevices(input, dev)
+		devsByType := map[apis.ContainerDeviceType][]*hostapi.ContainerDevice{}
+		for i := range spec.Devices {
+			if devs, ok := devsByType[spec.Devices[i].Type]; ok {
+				devsByType[spec.Devices[i].Type] = append(devs, spec.Devices[i])
+			} else {
+				devsByType[spec.Devices[i].Type] = []*hostapi.ContainerDevice{spec.Devices[i]}
+			}
+		}
+
+		for cdType, devs := range devsByType {
+			ctrDevs, err := device.GetDriver(cdType).GetRuntimeDevices(input, devs)
 			if err != nil {
-				return "", errors.Wrapf(err, "GetRuntimeDevices of %s", jsonutils.Marshal(dev))
+				return "", errors.Wrapf(err, "GetRuntimeDevices of %s", jsonutils.Marshal(devs))
 			}
 			ctrCfg.Devices = append(ctrCfg.Devices, ctrDevs...)
 		}
@@ -1129,7 +1138,11 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 }
 
 func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.ContainerSpec, ctrCfg *runtimeapi.ContainerConfig) error {
-	devTypes := []isolated_device.ContainerDeviceType{isolated_device.ContainerDeviceTypeNvidiaGpu, isolated_device.ContainerDeviceTypeNvidiaMps}
+	devTypes := []isolated_device.ContainerDeviceType{
+		isolated_device.ContainerDeviceTypeNvidiaGpu,
+		isolated_device.ContainerDeviceTypeNvidiaMps,
+		isolated_device.ContainerDeviceTypeAscendNpu,
+	}
 	for _, devType := range devTypes {
 		devMan, err := isolated_device.GetContainerDeviceManager(devType)
 		if err != nil {

@@ -36,12 +36,15 @@ func (h hostDevice) GetType() apis.ContainerDeviceType {
 	return apis.CONTAINER_DEVICE_TYPE_HOST
 }
 
-func (h hostDevice) GetRuntimeDevices(_ *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
-	return []*runtimeapi.Device{
-		{
+func (h hostDevice) GetRuntimeDevices(input *hostapi.ContainerCreateInput, devs []*hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
+	res := make([]*runtimeapi.Device, len(devs))
+	for i, dev := range devs {
+		res[i] = &runtimeapi.Device{
 			ContainerPath: dev.ContainerPath,
 			HostPath:      dev.Host.HostPath,
 			Permissions:   dev.Permissions,
-		},
-	}, nil
+		}
+	}
+
+	return res, nil
 }

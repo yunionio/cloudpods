@@ -41,5 +41,5 @@ func GetDriver(typ apis.ContainerDeviceType) IDeviceDriver {
 
 type IDeviceDriver interface {
 	GetType() apis.ContainerDeviceType
-	GetRuntimeDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, error)
+	GetRuntimeDevices(input *hostapi.ContainerCreateInput, devs []*hostapi.ContainerDevice) ([]*runtimeapi.Device, error)
 }

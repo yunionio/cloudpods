@@ -2121,6 +2121,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		options.HostOptions.AMDVgpuPFs,
 		options.HostOptions.NVIDIAVgpuPFs,
 		options.HostOptions.EnableCudaMPS,
+		options.HostOptions.EnableContainerAscendNPU,
 		enableDevWhitelist,
 	)
 

@@ -49,8 +49,8 @@ func (m *nvidiaGPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]i
 	return nil, nil
 }
 
-func (m *nvidiaGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
-	return nil, nil
+func (m *nvidiaGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
+	return nil, nil, nil
 }
 
 func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
