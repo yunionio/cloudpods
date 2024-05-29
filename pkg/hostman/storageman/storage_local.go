@@ -342,11 +342,12 @@ func (s *SLocalStorage) GetDiskById(diskId string) (IDisk, error) {
 		}
 	}
 	var disk = NewLocalDisk(s, diskId)
-	if disk.Probe() == nil {
+	err := disk.Probe()
+	if err == nil {
 		s.Disks = append(s.Disks, disk)
 		return disk, nil
 	}
-	return nil, errors.ErrNotFound
+	return nil, errors.Wrapf(errors.ErrNotFound, "probe: %s", err)
 }
 
 func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
