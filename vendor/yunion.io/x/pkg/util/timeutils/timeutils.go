@@ -67,7 +67,7 @@ const (
 
 	RFC2882Format = time.RFC1123
 
-	CephTimeFormat = "Mon Jan  2 15:04:05 2006"
+	CephTimeFormat = "Mon Jan _2 15:04:05 2006"
 )
 
 func IsoTime(now time.Time) string {

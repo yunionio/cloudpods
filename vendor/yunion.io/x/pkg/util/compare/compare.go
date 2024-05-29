@@ -107,6 +107,7 @@ func CompareSetsFunc(cs SCompareSet, removed interface{}, commonDB interface{}, 
 
 	errs := make([]error, 0)
 	newExtSetArray := make([]valueElement, 0)
+	duplicateMap := map[string]bool{}
 	for k, idx := range dupCheck {
 		if len(idx) > 1 {
 			if !storeDup {
@@ -119,6 +120,7 @@ func CompareSetsFunc(cs SCompareSet, removed interface{}, commonDB interface{}, 
 					dupArrays.Index(i).Set(extSetArray[idx[i]].value)
 				}
 				dupValue.SetMapIndex(reflect.ValueOf(k), dupArrays)
+				duplicateMap[k] = true
 			}
 		} else {
 			newExtSetArray = append(newExtSetArray, extSetArray[idx[0]])
@@ -151,7 +153,7 @@ func CompareSetsFunc(cs SCompareSet, removed interface{}, commonDB interface{}, 
 				i += 1
 				j += 1
 			} else if cmp < 0 {
-				if len(dbSetArray[i].key) > 0 {
+				if _, ok := duplicateMap[dbSetArray[i].key]; !ok && len(dbSetArray[i].key) > 0 {
 					newVal := reflect.Append(removedValue, dbSetArray[i].value)
 					removedValue.Set(newVal)
 				}
@@ -166,7 +168,7 @@ func CompareSetsFunc(cs SCompareSet, removed interface{}, commonDB interface{}, 
 			addedValue.Set(newVal)
 			j += 1
 		} else if j >= len(extSetArray) {
-			if len(dbSetArray[i].key) > 0 {
+			if _, ok := duplicateMap[dbSetArray[i].key]; !ok && len(dbSetArray[i].key) > 0 {
 				newVal := reflect.Append(removedValue, dbSetArray[i].value)
 				removedValue.Set(newVal)
 			}
