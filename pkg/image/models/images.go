@@ -1827,7 +1827,7 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 		imagePath := image.GetLocalLocation()
 		image.SetStatus(ctx, userCred, api.IMAGE_STATUS_SAVING, "save image to specific storage")
 		storage := GetStorage()
-		location, err := storage.SaveImage(ctx, imagePath)
+		location, err := storage.SaveImage(ctx, imagePath, nil)
 		if err != nil {
 			log.Errorf("Failed save image to specific storage %s", err)
 			errStr := fmt.Sprintf("save image to storage %s: %v", storage.Type(), err)
@@ -1870,7 +1870,7 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 		} else {
 			imagePath := subimgs[i].GetLocalLocation()
 			storage := GetStorage()
-			location, err := GetStorage().SaveImage(ctx, imagePath)
+			location, err := GetStorage().SaveImage(ctx, imagePath, nil)
 			if err != nil {
 				log.Errorf("Failed save image to sepcific storage %s", err)
 				subimgs[i].SetStatus(api.IMAGE_STATUS_SAVE_FAIL)

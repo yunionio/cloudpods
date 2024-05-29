@@ -63,11 +63,14 @@ func (self *GuestSaveGuestImageTask) OnInit(ctx context.Context, obj db.IStandal
 }
 
 func (self *GuestSaveGuestImageTask) OnSaveRootImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	subTasks := taskman.SubTaskManager.GetTotalSubtasks(self.Id, "on_save_root_image_complete", taskman.SUBTASK_FAIL)
-
-	if len(subTasks) > 0 {
+	subTasksCnt, err := taskman.SubTaskManager.GetSubtasksCount(self.Id, "on_save_root_image_complete", taskman.SUBTASK_FAIL)
+	if err != nil {
+		self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	} else if subTasksCnt > 0 {
 		self.taskFailed(ctx, guest, jsonutils.NewString("subtask failed"))
 		// ??? return ???
+		return
 	}
 
 	if restart, _ := self.GetParams().Bool("auto_start"); restart {

@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	_ "yunion.io/x/sqlchemy/backends"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -77,16 +78,16 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 	})
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
-	serviceUrl, err := auth.GetServiceURL(api.SERVER_TYPE_V2, opts.Region, "", identity.EndpointInterfaceInternal)
+	serviceUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_REGION, opts.Region, "", identity.EndpointInterfaceInternal)
 	if err != nil {
 		log.Fatalf("unable to get service url: %v", err)
 	}
 	log.Infof("serviceUrl: %s", serviceUrl)
 	taskman.SetServiceUrl(serviceUrl)
-	err = taskman.UpdateWorkerCount(opts.TaskWorkerCount)
-	if err != nil {
-		log.Fatalf("failed update task manager worker count %s", err)
-	}
+	// err = taskman.UpdateWorkerCount(opts.TaskWorkerCount)
+	// if err != nil {
+	//	log.Fatalf("failed update task manager worker count %s", err)
+	// }
 
 	err = esxi.InitEsxiConfig(opts.EsxiOptions)
 	if err != nil {

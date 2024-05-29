@@ -181,6 +181,9 @@ type SWorkerManager struct {
 	ignoreOverflow bool
 
 	cancelPrevIdent bool
+
+	queueInitHook  func() error
+	queueEmptyHook func() error
 }
 
 func NewWorkerManager(name string, workerCount int, backlog int, dbWorker bool) *SWorkerManager {
@@ -222,6 +225,14 @@ type sWorkerTask struct {
 	start   time.Time
 }
 
+func (wm *SWorkerManager) SetQueueInitHook(f func() error) {
+	wm.queueInitHook = f
+}
+
+func (wm *SWorkerManager) SetQueueEmptyHook(f func() error) {
+	wm.queueEmptyHook = f
+}
+
 func (wm *SWorkerManager) EnableCancelPreviousIdenticalTask() {
 	wm.cancelPrevIdent = true
 }
@@ -260,6 +271,12 @@ func (wm *SWorkerManager) removeWorker(worker *SWorker) {
 	} else {
 		wm.detachedWorker.removeWithLock(worker)
 	}
+	if wm.activeWorker.size()+wm.detachedWorker.size() == 0 && wm.queueEmptyHook != nil {
+		err := wm.queueEmptyHook()
+		if err != nil {
+			log.Errorf("queueEmptyHook fail %s", err)
+		}
+	}
 }
 
 func execCallback(task *sWorkerTask) {
@@ -283,6 +300,13 @@ func (wm *SWorkerManager) schedule() {
 }
 
 func (wm *SWorkerManager) scheduleWithLock() {
+	if wm.activeWorker.size()+wm.detachedWorker.size() == 0 && wm.queueInitHook != nil {
+		err := wm.queueInitHook()
+		if err != nil {
+			log.Errorf("queueInitHook fail %s", err)
+			return
+		}
+	}
 	queueSize := wm.queue.Size()
 	if wm.activeWorker.size() < wm.workerCount && queueSize > 0 {
 		wm.workerId += 1

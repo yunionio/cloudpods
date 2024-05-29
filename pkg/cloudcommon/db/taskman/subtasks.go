@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
@@ -36,7 +37,12 @@ type SSubTaskmanager struct {
 var SubTaskManager *SSubTaskmanager
 
 func init() {
-	SubTaskManager = &SSubTaskmanager{SModelBaseManager: db.NewModelBaseManager(SSubTask{}, "subtasks_tbl", "subtask", "subtasks")}
+	SubTaskManager = &SSubTaskmanager{SModelBaseManager: db.NewModelBaseManager(
+		SSubTask{},
+		"subtasks_tbl",
+		"subtask",
+		"subtasks",
+	)}
 }
 
 type SSubTask struct {
@@ -62,12 +68,17 @@ func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SS
 	return &subtask
 }
 
-func (manager *SSubTaskmanager) GetTotalSubtasks(taskId string, stage string, status string) []SSubTask {
-	subtasks := make([]SSubTask, 0)
+func (manager *SSubTaskmanager) getTotalSubtasksQuery(taskId string, stage string, status string) *sqlchemy.SQuery {
 	q := manager.Query().Equals("task_id", taskId).Equals("stage", stage)
 	if len(status) > 0 {
 		q = q.Equals("status", status)
 	}
+	return q
+}
+
+func (manager *SSubTaskmanager) GetSubtasks(taskId string, stage string, status string) []SSubTask {
+	subtasks := make([]SSubTask, 0)
+	q := manager.getTotalSubtasksQuery(taskId, stage, status)
 	err := db.FetchModelObjects(manager, q, &subtasks)
 	if err != nil {
 		log.Errorf("GetInitSubtasks fail %s", err)
@@ -76,8 +87,25 @@ func (manager *SSubTaskmanager) GetTotalSubtasks(taskId string, stage string, st
 	return subtasks
 }
 
+func (manager *SSubTaskmanager) GetSubtasksCount(taskId string, stage string, status string) (int, error) {
+	q := manager.getTotalSubtasksQuery(taskId, stage, status)
+	return q.CountWithError()
+}
+
+func (manager *SSubTaskmanager) GetTotalSubtasks(taskId string, stage string) []SSubTask {
+	return manager.GetSubtasks(taskId, stage, "")
+}
+
+func (manager *SSubTaskmanager) GetTotalSubtasksCount(taskId string, stage string) (int, error) {
+	return manager.GetSubtasksCount(taskId, stage, "")
+}
+
 func (manager *SSubTaskmanager) GetInitSubtasks(taskId string, stage string) []SSubTask {
-	return manager.GetTotalSubtasks(taskId, stage, SUBTASK_INIT)
+	return manager.GetSubtasks(taskId, stage, SUBTASK_INIT)
+}
+
+func (manager *SSubTaskmanager) GetInitSubtasksCount(taskId string, stage string) (int, error) {
+	return manager.GetSubtasksCount(taskId, stage, SUBTASK_INIT)
 }
 
 func (self *SSubTask) SaveResults(failed bool, result jsonutils.JSONObject) error {

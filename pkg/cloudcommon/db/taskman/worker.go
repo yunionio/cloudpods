@@ -18,34 +18,45 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 )
 
-const (
-	DEFAULT_WORKER_COUNT = 4
-)
-
-var taskWorkMan *appsrv.SWorkerManager
+var _taskWorkMan *appsrv.SWorkerManager
 var taskWorkerTable map[string]*appsrv.SWorkerManager
+var taskWorkManLock *sync.Mutex
 
 func init() {
-	taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", DEFAULT_WORKER_COUNT, 1024, true)
 	taskWorkerTable = make(map[string]*appsrv.SWorkerManager)
+	taskWorkManLock = &sync.Mutex{}
 }
 
-func UpdateWorkerCount(workerCount int) error {
+func getTaskWorkMan() *appsrv.SWorkerManager {
+	taskWorkManLock.Lock()
+	defer taskWorkManLock.Unlock()
+
+	if _taskWorkMan != nil {
+		return _taskWorkMan
+	}
+	log.Infof("TaskWorkerManager %d", consts.TaskWorkerCount())
+	_taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", consts.TaskWorkerCount(), 1024, true)
+	return _taskWorkMan
+}
+
+/*func UpdateWorkerCount(workerCount int) error {
 	if workerCount != DEFAULT_WORKER_COUNT {
 		log.Infof("update task work count: %d", workerCount)
 		return taskWorkMan.UpdateWorkerCount(workerCount)
 	}
 	return nil
-}
+}*/
 
 type taskTask struct {
 	taskId string
@@ -65,7 +76,7 @@ func runTask(taskId string, data jsonutils.JSONObject) error {
 	if len(taskName) == 0 {
 		return fmt.Errorf("no such task??? task_id=%s", taskId)
 	}
-	worker := taskWorkMan
+	worker := getTaskWorkMan()
 	if workerMan, ok := taskWorkerTable[taskName]; ok {
 		worker = workerMan
 	}

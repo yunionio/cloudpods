@@ -152,7 +152,7 @@ func (self *SImageSubformat) Save(image *SImage) error {
 		log.Errorf("updateStatus fail %s", err)
 		return err
 	}
-	info, err := storage.ConvertImage(context.Background(), image, self.Format)
+	info, err := storage.ConvertImage(context.Background(), image, self.Format, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to ConvertImage")
 	}

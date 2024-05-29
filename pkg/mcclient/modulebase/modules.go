@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -178,57 +179,107 @@ var (
 	jointModules map[string][]JointManager
 )
 
-func _getJointKey(mod1 Manager, mod2 Manager) string {
+func resourceKey(mod IBaseManager) string {
+	return fmt.Sprintf("%s-%s", mod.ServiceType(), mod.KeyString())
+}
+
+func resourceKey2(mod IBaseManager) string {
+	return mod.KeyString()
+}
+
+func jointResourceKey(mod1, mod2 IBaseManager) string {
+	return fmt.Sprintf("%s-%s-%s", mod1.ServiceType(), mod1.KeyString(), mod2.KeyString())
+}
+
+func jointResourceKey2(mod1, mod2 IBaseManager) string {
 	return fmt.Sprintf("%s-%s", mod1.KeyString(), mod2.KeyString())
 }
 
-func ensureModuleNotRegistered(mod, newMod IBaseManager) {
+func ensureModuleNotRegistered(mod, newMod IBaseManager, isFatal bool) bool {
 	modSvcType := mod.ServiceType()
 	newModSvcType := newMod.ServiceType()
 	if mod == newMod {
-		log.Fatalf("Module %#v duplicate registered, service type: %q", mod, modSvcType)
+		if isFatal {
+			log.Fatalf("Module %#v duplicate registered, service type: %q", mod, modSvcType)
+		} else {
+			return false
+		}
 	}
 	if modSvcType != newModSvcType {
-		log.Fatalf("Module %#v already registered, service type is %q.\nSo new module %#v can't be registered, service type is %q", mod, modSvcType, newMod, newModSvcType)
+		if isFatal {
+			log.Fatalf("Module %#v already registered, service type is %q.\nSo new module %#v can't be registered, service type is %q", mod, modSvcType, newMod, newModSvcType)
+		} else {
+			return false
+		}
 	}
+	return true
 }
 
-func Register(mod IBaseManager) {
+func Register(m IBaseManager) {
 	if modules == nil {
 		modules = make(map[string][]IBaseManager)
 	}
-	mods, ok := modules[mod.KeyString()]
-	if !ok {
-		mods = make([]IBaseManager, 0)
+	for i, key := range []string{
+		resourceKey(m),
+		resourceKey2(m),
+	} {
+		fatal := false
+		if i == 0 {
+			fatal = true
+		}
+		mods, ok := modules[key]
+		if !ok {
+			mods = make([]IBaseManager, 0)
+		}
+		skip := false
+		for i := range mods {
+			if !ensureModuleNotRegistered(mods[i], m, fatal) {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			mods = append(mods, m)
+			modules[key] = mods
+		}
 	}
-	for i := range mods {
-		ensureModuleNotRegistered(mods[i], mod)
-	}
-	mods = append(mods, mod)
-	modules[mod.KeyString()] = mods
-	// modtable[mod.KeyString()] = append(mods, mod)
 }
 
 func RegisterJointModule(mod IBaseManager) {
 	jointMod, ok := mod.(JointManager)
 	if ok { // also a joint manager
-		jointKey := _getJointKey(jointMod.MasterManager(), jointMod.SlaveManager())
-		// log.Printf("%s(%s) is also a joint module", mod.KeyString(), jointKey)
-		jointMods, ok := jointModules[jointKey]
-		if !ok {
-			jointMods = make([]JointManager, 0)
+		for _, jointKey := range []string{
+			jointResourceKey(jointMod.MasterManager(), jointMod.SlaveManager()),
+			jointResourceKey2(jointMod.MasterManager(), jointMod.SlaveManager()),
+		} {
+			jointMods, ok := jointModules[jointKey]
+			if !ok {
+				jointMods = make([]JointManager, 0)
+			}
+			skip := false
+			for i := range jointMods {
+				if !ensureModuleNotRegistered(jointMods[i], jointMod, false) {
+					skip = true
+					break
+				}
+			}
+			if !skip {
+				jointModules[jointKey] = append(jointMods, jointMod)
+			}
 		}
-		for i := range jointMods {
-			// if m == jointMod {
-			ensureModuleNotRegistered(jointMods[i], jointMod)
-			//}
-		}
-		// modtable[jointKey] = append(jointMods, jointMod)
-		jointModules[jointKey] = append(jointMods, jointMod)
 	}
 }
 
+var jointModulesLock *sync.Mutex
+
+func init() {
+	jointModulesLock = &sync.Mutex{}
+}
+
 func registerAllJointModules() {
+	jointModulesLock.Lock()
+	defer jointModulesLock.Unlock()
+
 	if jointModules == nil {
 		jointModules = make(map[string][]JointManager)
 		for modname := range modules {
@@ -291,22 +342,28 @@ func GetJointModule(session *mcclient.ClientSession, name string) (JointManager,
 
 func GetJointModule2(session *mcclient.ClientSession, mod1 Manager, mod2 Manager) (JointManager, error) {
 	registerAllJointModules()
-	key := _getJointKey(mod1, mod2)
-	mods, ok := jointModules[key]
-	if !ok {
-		return nil, fmt.Errorf("No such joint module: %s", key)
-	}
-	for _, mod := range mods {
-		url, e := session.GetServiceVersionURL(mod.ServiceType(), mod.EndpointType())
-		if e != nil {
-			return nil, e
+
+	for _, key := range []string{
+		jointResourceKey(mod1, mod2),
+		jointResourceKey2(mod1, mod2),
+	} {
+		mods, ok := jointModules[key]
+		if !ok {
+			continue
 		}
-		_, ver := mcclient.SplitVersionedURL(url)
-		if strings.EqualFold(ver, mod.Version()) {
-			return mod, nil
+		for _, mod := range mods {
+			url, e := session.GetServiceVersionURL(mod.ServiceType(), mod.EndpointType())
+			if e != nil {
+				return nil, e
+			}
+			_, ver := mcclient.SplitVersionedURL(url)
+			if strings.EqualFold(ver, mod.Version()) {
+				return mod, nil
+			}
 		}
+		return nil, fmt.Errorf("Version mismatch")
 	}
-	return nil, fmt.Errorf("Version mismatch")
+	return nil, fmt.Errorf("No such joint module: %s", jointResourceKey(mod1, mod2))
 }
 
 func GetRegisterdModules() ([]string, []string) {

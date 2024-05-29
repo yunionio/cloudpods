@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -87,7 +88,7 @@ func ensureBucket() error {
 	return nil
 }
 
-func PutStream(ctx context.Context, file io.Reader, fSize int64, objName string) (string, error) {
+func PutStream(ctx context.Context, file io.Reader, fSize int64, objName string, progresser func(saved int64)) (string, error) {
 	if client == nil {
 		return "", ErrClientNotInit
 	}
@@ -96,7 +97,10 @@ func PutStream(ctx context.Context, file io.Reader, fSize int64, objName string)
 		return "", errors.Wrap(err, "client.getBucket")
 	}
 	const blockSizeMB = 100
-	err = cloudprovider.UploadObject(ctx, bucket, objName, blockSizeMB*1000*1000, file, fSize, cloudprovider.ACLPrivate, "", nil, false)
+	pFile := multicloud.NewProgress(fSize, 100, file, func(ratio float32) {
+		progresser(int64(float64(ratio) * float64(fSize)))
+	})
+	err = cloudprovider.UploadObject(ctx, bucket, objName, blockSizeMB*1000*1000, pFile, fSize, cloudprovider.ACLPrivate, "", nil, false)
 	if err != nil {
 		return "", errors.Wrap(err, "cloudprovider.UploadObject")
 	}
@@ -104,7 +108,7 @@ func PutStream(ctx context.Context, file io.Reader, fSize int64, objName string)
 	return client.Location(objName), nil
 }
 
-func Put(ctx context.Context, filePath, objName string) (string, error) {
+func Put(ctx context.Context, filePath, objName string, progresser func(int64)) (string, error) {
 	finfo, err := os.Stat(filePath)
 	if err != nil {
 		return "", errors.Wrap(err, "os.Stat")
@@ -115,7 +119,7 @@ func Put(ctx context.Context, filePath, objName string) (string, error) {
 		return "", errors.Wrap(err, "os.Open")
 	}
 	defer file.Close()
-	return PutStream(ctx, file, fSize, objName)
+	return PutStream(ctx, file, fSize, objName, progresser)
 }
 
 func Get(ctx context.Context, fileName string) (int64, io.ReadCloser, error) {
