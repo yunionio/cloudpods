@@ -64,13 +64,18 @@ func (self *HostNameSslState) GetSslState() string {
 }
 
 type SAppSiteProperties struct {
-	DefaultHostName        string
-	InboundIpAddress       string
-	ServerFarmId           string
-	PublicNetworkAccess    string
-	VirtualNetworkSubnetId string
-	HostNames              []string
-	HostNameSslStates      []HostNameSslState
+	DefaultHostName            string
+	InboundIpAddress           string
+	ServerFarmId               string
+	PublicNetworkAccess        string
+	VirtualNetworkSubnetId     string
+	HostNames                  []string
+	HostNameSslStates          []HostNameSslState
+	PrivateEndpointConnections []struct {
+		Properties struct {
+			IpAddresses []string
+		}
+	}
 }
 
 func (r *SRegion) GetAppSites() ([]SAppSite, error) {
@@ -159,11 +164,16 @@ func (as *SAppSite) GetProperties() (*SAppSiteProperties, error) {
 }
 
 func (as *SAppSite) GetIpAddress() string {
+	ret := []string{}
 	properties, err := as.GetProperties()
 	if err != nil {
 		return ""
 	}
-	return properties.InboundIpAddress
+	ret = append(ret, properties.InboundIpAddress)
+	for _, conn := range properties.PrivateEndpointConnections {
+		ret = append(ret, conn.Properties.IpAddresses...)
+	}
+	return strings.Join(ret, ",")
 }
 
 func (as *SAppSite) GetHostname() string {
@@ -347,11 +357,11 @@ func (self *SAppSite) GetDomains() ([]cloudprovider.IAppDomain, error) {
 	ret := []cloudprovider.IAppDomain{}
 	for i := range properties.HostNameSslStates {
 		domain := properties.HostNameSslStates[i]
+		domain.Status = "no_bind"
 		if !utils.IsInStringArray(domain.Name, properties.HostNames) {
 			continue
 		}
-		domain.Status = "no_bind"
-		if domain.Name == properties.DefaultHostName {
+		if domain.Name == properties.DefaultHostName || domain.SslState == "SniEnabled" {
 			domain.Status = apis.STATUS_AVAILABLE
 		}
 		ret = append(ret, &domain)
