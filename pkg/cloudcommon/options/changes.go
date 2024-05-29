@@ -62,6 +62,12 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.ApiServer != newOpts.ApiServer {
 		log.Debugf("api_server changed from %s to %s", oldOpts.ApiServer, newOpts.ApiServer)
 	}
+	if oldOpts.TaskWorkerCount != newOpts.TaskWorkerCount {
+		consts.SetTaskWorkerCount(newOpts.TaskWorkerCount)
+	}
+	if oldOpts.LocalTaskWorkerCount != newOpts.LocalTaskWorkerCount {
+		consts.SetLocalTaskWorkerCount(newOpts.LocalTaskWorkerCount)
+	}
 	return changed
 }
 

@@ -69,7 +69,7 @@ func (self *InstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStanda
 }
 
 func (self *InstanceBackupCreateTask) OnKvmDisksSnapshot(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	subTasks := taskman.SubTaskManager.GetTotalSubtasks(self.Id, "OnKvmDisksSnapshot", "")
+	subTasks := taskman.SubTaskManager.GetSubtasks(self.Id, "OnKvmDisksSnapshot", "")
 	guest := models.GuestManager.FetchGuestById(ib.GuestId)
 	self.SetStage("OnInstanceBackup", nil)
 	for i := range subTasks {
@@ -107,7 +107,7 @@ func (self *InstanceBackupCreateTask) OnKvmDisksSnapshotFailed(ctx context.Conte
 }
 
 func (self *InstanceBackupCreateTask) OnInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	subTasks := taskman.SubTaskManager.GetTotalSubtasks(self.Id, "OnInstanceBackup", "")
+	subTasks := taskman.SubTaskManager.GetSubtasks(self.Id, "OnInstanceBackup", "")
 	for i := range subTasks {
 		if subTasks[i].Status == taskman.SUBTASK_SUCC {
 			continue

@@ -26,6 +26,9 @@ var (
 	defaultDBConnectionString string
 
 	defaultDBChecksumHashAlgorithm string
+
+	taskWorkerCount      int
+	localTaskWorkerCount int
 )
 
 func SetDefaultDB(dialect, connStr string) {
@@ -51,4 +54,20 @@ func DefaultDBChecksumHashAlgorithm() string {
 		return defaultDBChecksumHashAlgorithm
 	}
 	return "sha256"
+}
+
+func SetTaskWorkerCount(cnt int) {
+	taskWorkerCount = cnt
+}
+
+func SetLocalTaskWorkerCount(cnt int) {
+	localTaskWorkerCount = cnt
+}
+
+func TaskWorkerCount() int {
+	return taskWorkerCount
+}
+
+func LocalTaskWorkerCount() int {
+	return localTaskWorkerCount
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,13 +26,15 @@ import (
 	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
 
 var localTaskWorkerMan *appsrv.SWorkerManager
+var localTaskWorkerManLock *sync.Mutex
 
 func init() {
-	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", 4, 1024, false)
+	localTaskWorkerManLock = &sync.Mutex{}
 }
 
 func Error2TaskData(err error) jsonutils.JSONObject {
@@ -47,9 +50,6 @@ type localTask struct {
 }
 
 func (t *localTask) Run() {
-	log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN STARTXXXXXXXXXXXXXXXXX")
-	defer log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN END  XXXXXXXXXXXXXXXXX")
-
 	defer func() {
 		if r := recover(); r != nil {
 			yunionconf.BugReport.SendBugReport(context.Background(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", r))
@@ -78,6 +78,18 @@ func LocalTaskRunWithWorkers(task ITask, proc func() (jsonutils.JSONObject, erro
 	wm.Run(&t, nil, nil)
 }
 
+func getLocalTaskWorkerMan() *appsrv.SWorkerManager {
+	localTaskWorkerManLock.Lock()
+	defer localTaskWorkerManLock.Unlock()
+
+	if localTaskWorkerMan != nil {
+		return localTaskWorkerMan
+	}
+	log.Infof("LocalTaskWorkerManager %d", consts.LocalTaskWorkerCount())
+	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", consts.LocalTaskWorkerCount(), 1024, false)
+	return localTaskWorkerMan
+}
+
 func LocalTaskRun(task ITask, proc func() (jsonutils.JSONObject, error)) {
-	LocalTaskRunWithWorkers(task, proc, localTaskWorkerMan)
+	LocalTaskRunWithWorkers(task, proc, getLocalTaskWorkerMan())
 }
