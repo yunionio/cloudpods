@@ -1322,8 +1322,8 @@ yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900 h1:Hu/4ERvoWaN6aiFs4h4/yvVB
 yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
-yunion.io/x/pkg v1.10.1-0.20240529092737-3da904b113a0 h1:eJ24XjkLVZ+7HXVc5J/5E4b2hzXJsAAz0dvqeJjZBI0=
-yunion.io/x/pkg v1.10.1-0.20240529092737-3da904b113a0/go.mod h1:ksCJVQ+DwKrJ5QBEoU8pzrDFfDaZVAFH/iJ6yQCYxJk=
+yunion.io/x/pkg v1.10.1-0.20240530045123-0d65278dc326 h1:aGFAPLOA1CoE48qV4qeKSsRfeL9EC5YCukxPEQ3Q0Yw=
+yunion.io/x/pkg v1.10.1-0.20240530045123-0d65278dc326/go.mod h1:EE/+PnAAdVMeWumUxMw26gVMobULwvBqvfpgCDarqko=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8J50Cise/HCylsOJngmo=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v1.1.3-0.20240524113104-170e3ba87126 h1:lg8ZkMsuF4L+yqRhFDNxhxaOuuvY9HLzr3FW7BRa5vE=

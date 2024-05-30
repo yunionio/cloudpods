@@ -1781,7 +1781,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.1-0.20240529092737-3da904b113a0
+# yunion.io/x/pkg v1.10.1-0.20240530045123-0d65278dc326
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
@@ -1801,7 +1801,6 @@ yunion.io/x/pkg/util/delayedwork
 yunion.io/x/pkg/util/encode
 yunion.io/x/pkg/util/errors
 yunion.io/x/pkg/util/fileutils
-yunion.io/x/pkg/util/filterclause
 yunion.io/x/pkg/util/goroutine_pool
 yunion.io/x/pkg/util/httputils
 yunion.io/x/pkg/util/imagetools
