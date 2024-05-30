@@ -49,6 +49,10 @@ func (self *SStorage) GetName() string {
 	return res
 }
 
+func (self *SStorage) IsEmulated() bool {
+	return true
+}
+
 func (self *SStorage) GetStatus() string {
 	return api.STORAGE_ONLINE
 }
