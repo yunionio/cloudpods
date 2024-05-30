@@ -128,6 +128,9 @@ func Get(ctx context.Context, fileName string) (int64, io.ReadCloser, error) {
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "bucket.ListObject")
 	}
+	if len(result.Objects) == 0 {
+		return 0, nil, errors.Wrapf(errors.ErrNotFound, "no such object %s", fileName)
+	}
 
 	rc, err := bucket.GetObject(ctx, fileName, nil)
 	if err != nil {

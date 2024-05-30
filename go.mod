@@ -94,9 +94,9 @@ require (
 	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.1-0.20240530045123-0d65278dc326
+	yunion.io/x/pkg v1.10.1-0.20240530085551-cc859990d9be
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.3-0.20240524113104-170e3ba87126
+	yunion.io/x/sqlchemy v1.1.3-0.20240530085133-5058648977dd
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
@@ -241,6 +241,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
+	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/vmware/govmomi v0.37.1 // indirect
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.6.2 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.23 // indirect
