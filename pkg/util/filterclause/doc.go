@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package filterclause // import "yunion.io/x/pkg/util/filterclause"
+package filterclause // import "yunion.io/x/onecloud/pkg/util/filterclause"
