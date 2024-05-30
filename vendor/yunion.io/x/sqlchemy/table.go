@@ -328,7 +328,7 @@ func (tbl *STable) Field(name string, alias ...string) IQueryField {
 	}
 	col := STableField{table: tbl, spec: spec}
 	if len(alias) > 0 {
-		col.Label(alias[0])
+		return col.Label(alias[0])
 	}
 	return &col
 }
@@ -385,9 +385,13 @@ func (c *STableField) Reference() string {
 // Label implementation of STableField for IQueryField
 func (c *STableField) Label(label string) IQueryField {
 	if len(label) > 0 {
-		c.alias = label
+		// label make a copy of the field
+		nc := *c
+		nc.alias = label
+		return &nc
+	} else {
+		return c
 	}
-	return c
 }
 
 // Variables implementation of STableField for IQueryField
