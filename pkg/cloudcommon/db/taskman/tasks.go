@@ -983,7 +983,7 @@ func (manager *STaskManager) QueryTasksOfObject(obj db.IStandaloneModel, since t
 	subq1 := manager.Query()
 	{
 		subq1 = subq1.Equals("obj_id", obj.GetId())
-		subq1 = subq1.Equals("obj_name", obj.Keyword())
+		subq1 = subq1.Equals("obj_type", obj.Keyword())
 		if !since.IsZero() {
 			subq1 = subq1.GE("created_at", since)
 		}
@@ -1006,7 +1006,7 @@ func (manager *STaskManager) QueryTasksOfObject(obj db.IStandaloneModel, since t
 			sqlchemy.Equals(taskObjs.Field("obj_id"), obj.GetId()),
 		))
 		subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_id"), MULTI_OBJECTS_ID))
-		subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_name"), obj.Keyword()))
+		subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_type"), obj.Keyword()))
 		if !since.IsZero() {
 			subq2 = subq2.Filter(sqlchemy.GE(subq2.Field("created_at"), since))
 		}
@@ -1087,7 +1087,11 @@ func (manager *STaskManager) ListItemFilter(
 	}
 
 	if len(input.ObjName) > 0 {
-		q = q.In("obj_name", input.ObjName)
+		q = q.In("object", input.ObjName)
+	}
+
+	if len(input.ObjType) > 0 {
+		q = q.In("obj_type", input.ObjType)
 	}
 
 	if len(input.TaskName) > 0 {
