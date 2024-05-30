@@ -318,11 +318,32 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 			if listener.Scheduler == "rr" {
 				serverLine += " weight 1"
 			} else {
-				serverLine += fmt.Sprintf(" weight %d", backend.Weight)
+				weight := backend.Weight
+				if weight <= 0 {
+					weight = 1
+				}
+				serverLine += fmt.Sprintf(" weight %d", weight)
 			}
 			if checkEnable {
-				serverLine += fmt.Sprintf(" check rise %d fall %d inter %ds",
-					listener.HealthCheckRise, listener.HealthCheckFall, listener.HealthCheckInterval)
+				/*
+				 * The inter parameter changes the interval between checks; it defaults to two seconds.
+				 * The fall parameter sets how many failed checks are allowed; it defaults to three.
+				 * The rise parameter sets how many passing checks there must be before returning a previously
+				 *  failed server to the rotation; it defaults to two.
+				 */
+				rise := listener.HealthCheckRise
+				fall := listener.HealthCheckFall
+				intv := listener.HealthCheckInterval
+				if rise == 0 {
+					rise = 2
+				}
+				if fall == 0 {
+					fall = 3
+				}
+				if intv == 0 {
+					intv = 2
+				}
+				serverLine += fmt.Sprintf(" check rise %d fall %d inter %ds", rise, fall, intv)
 			}
 			if stickySessionEnable {
 				serverLine += fmt.Sprintf(" cookie %q", backend.Id)
