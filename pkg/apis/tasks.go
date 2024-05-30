@@ -27,7 +27,8 @@ type TaskListInput struct {
 
 	Id         []string `json:"id" help:"id filter"`
 	ObjId      []string `json:"obj_id" help:"object id filter"`
-	ObjName    []string `json:"obj_name" help:"object type (in singular form) filter"`
+	ObjType    []string `json:"obj_type" help:"object type (in singular form) filter"`
+	ObjName    []string `json:"obj_name" help:"object name filter"`
 	TaskName   []string `json:"task_name" help:"task name filter"`
 	IsMulti    *bool    `json:"is_multi" negative:"is_single" help:"is multi task"`
 	IsComplete *bool    `json:"is_complete" negative:"not_complete" help:"is task completed, either fail or complete"`
