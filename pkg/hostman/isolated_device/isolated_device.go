@@ -122,7 +122,7 @@ type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableWhitelist bool)
+	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableContainerNPU, enableWhitelist bool)
 	StartDetachTask()
 	BatchCustomProbe()
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -212,6 +212,28 @@ func (man *isolatedDeviceManager) probeContainerNvidiaGPUs(enableCudaMps bool) {
 		for idx, dev := range devs {
 			man.devices = append(man.devices, dev)
 			log.Infof("Add Container nvidia GPU device: %d => %#v", idx, dev)
+		}
+	}
+}
+
+func (man *isolatedDeviceManager) probeContainerAscendNPUs(enable bool) {
+	if !enable {
+		return
+	}
+
+	devman, err := GetContainerDeviceManager(ContainerDeviceTypeAscendNpu)
+	if err != nil {
+		log.Errorf("no container device manager %s found", ContainerDeviceTypeAscendNpu)
+		return
+	}
+	devs, err := devman.ProbeDevices()
+	if err != nil {
+		log.Warningf("Probe container Ascend npu devices: %v", err)
+		return
+	} else {
+		for idx, dev := range devs {
+			man.devices = append(man.devices, dev)
+			log.Infof("Add Container Ascend npu device: %d => %#v", idx, dev)
 		}
 	}
 }
@@ -379,15 +401,11 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 	}
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(
-	skipGPUs, skipUSBs, skipCustomDevs bool,
-	sriovNics, ovsOffloadNics []HostNic,
-	nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string,
-	enableCudaMps, enableWhitelist bool,
-) {
+func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableContainerNPU, enableWhitelist bool) {
 	man.devices = make([]IDevice, 0)
 	if man.host.IsContainerHost() {
 		man.probeContainerNvidiaGPUs(enableCudaMps)
+		man.probeContainerAscendNPUs(enableContainerNPU)
 		man.probeContainerDevices()
 	} else {
 		devModels, err := man.getCustomIsolatedDeviceModels()

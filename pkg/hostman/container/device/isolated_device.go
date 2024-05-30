@@ -38,14 +38,38 @@ func (i isolatedDevice) GetType() apis.ContainerDeviceType {
 	return apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE
 }
 
-func (i isolatedDevice) GetRuntimeDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
-	man, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType))
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetContainerDeviceManager by type %q", dev.Type)
+func (i isolatedDevice) GetRuntimeDevices(input *hostapi.ContainerCreateInput, devs []*hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
+	if len(devs) == 0 {
+		return nil, nil
 	}
-	ctrDevs, err := man.NewContainerDevices(input, dev)
-	if err != nil {
-		return nil, errors.Wrapf(err, "NewContainerDevices with %#v", dev)
+	devsMap := map[string][]*hostapi.ContainerDevice{}
+	for _, dev := range devs {
+		if mapDevs, ok := devsMap[dev.IsolatedDevice.DeviceType]; ok {
+			devsMap[dev.IsolatedDevice.DeviceType] = append(mapDevs, dev)
+		} else {
+			devsMap[dev.IsolatedDevice.DeviceType] = []*hostapi.ContainerDevice{dev}
+		}
 	}
-	return ctrDevs, nil
+
+	ret := make([]*runtimeapi.Device, 0)
+	for devType, mappedDevs := range devsMap {
+		man, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceType(devType))
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetContainerDeviceManager by type %q", devType)
+		}
+
+		for idx := range mappedDevs {
+			ctrDevs, commonDevs, err := man.NewContainerDevices(input, mappedDevs[idx])
+			if err != nil {
+				return nil, errors.Wrapf(err, "NewContainerDevices with %#v", devs)
+			}
+			ret = append(ret, ctrDevs...)
+
+			// commonDevs add once
+			if len(commonDevs) > 0 && idx == 0 {
+				ret = append(ret, commonDevs...)
+			}
+		}
+	}
+	return ret, nil
 }

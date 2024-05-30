@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -60,17 +61,20 @@ func (f *CPUPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candida
 
 	archMatch := true
 	isArmHost := getter.IsArmHost()
-	if apis.IsARM(d.OsArch) {
-		// process arm64 host
-		if !isArmHost {
-			archMatch = false
-		}
-	} else {
-		// process x86_64 host
-		if isArmHost {
-			archMatch = false
+	if d.Hypervisor != compute.HYPERVISOR_POD {
+		if apis.IsARM(d.OsArch) {
+			// process arm64 host
+			if !isArmHost {
+				archMatch = false
+			}
+		} else {
+			// process x86_64 host
+			if isArmHost {
+				archMatch = false
+			}
 		}
 	}
+
 	if !archMatch {
 		h.Exclude2(predicates.ErrHostCpuArchitectureNotMatch, getter.CPUArch(), d.OsArch)
 		return h.GetResult()

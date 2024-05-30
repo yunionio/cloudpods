@@ -41,30 +41,30 @@ func (l localLoopDiskManager) NewDevices(dev *isolated_device.ContainerDevice) (
 	return nil, errors.Errorf("%s storage doesn't support NewDevices", l.GetType())
 }
 
-func (l localLoopDiskManager) NewContainerDevices(_ *hostapi.ContainerCreateInput, input *hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
+func (l localLoopDiskManager) NewContainerDevices(_ *hostapi.ContainerCreateInput, input *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
 	dev := input.Disk
 	disk, err := storageman.GetManager().GetDiskById(dev.Id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetDiskById %s", dev.Id)
+		return nil, nil, errors.Wrapf(err, "GetDiskById %s", dev.Id)
 	}
 	format, err := disk.GetFormat()
 	if err != nil {
-		return nil, errors.Wrapf(err, "get disk %s format", dev.Id)
+		return nil, nil, errors.Wrapf(err, "get disk %s format", dev.Id)
 	}
 	if format != "raw" {
-		return nil, errors.Errorf("disk %s format isn't raw", dev.Id)
+		return nil, nil, errors.Errorf("disk %s format isn't raw", dev.Id)
 	}
 	dPath := disk.GetPath()
 	loDev, err := losetup.AttachDevice(dPath, false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to attach %s as loop device", dPath)
+		return nil, nil, errors.Wrapf(err, "failed to attach %s as loop device", dPath)
 	}
 	retDev := &runtimeapi.Device{
 		ContainerPath: input.ContainerPath,
 		HostPath:      loDev.Name,
 		Permissions:   "rwm",
 	}
-	return []*runtimeapi.Device{retDev}, nil
+	return []*runtimeapi.Device{retDev}, nil, nil
 }
 
 func (m *localLoopDiskManager) ProbeDevices() ([]isolated_device.IDevice, error) {

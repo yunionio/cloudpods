@@ -68,17 +68,17 @@ func (m *cphAMDGPUManager) getDeviceHostPathByAddr(dev *hostapi.ContainerDevice)
 	return dev.IsolatedDevice.Path, nil
 }
 
-func (m *cphAMDGPUManager) NewContainerDevices(_ *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
+func (m *cphAMDGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
 	hostPath, err := m.getDeviceHostPathByAddr(dev)
 	if err != nil {
-		return nil, errors.Wrap(err, "get device host path")
+		return nil, nil, errors.Wrap(err, "get device host path")
 	}
 	cDev := &runtimeapi.Device{
 		ContainerPath: "/dev/dri/renderD128",
 		HostPath:      hostPath,
 		Permissions:   "rwm",
 	}
-	return []*runtimeapi.Device{cDev}, nil
+	return []*runtimeapi.Device{cDev}, nil, nil
 }
 
 func (m *cphAMDGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {

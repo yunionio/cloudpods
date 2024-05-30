@@ -94,10 +94,10 @@ func (m *cphAOSPBinderManager) initialize(dev *isolated_device.ContainerDevice) 
 	return nil
 }
 
-func (m *cphAOSPBinderManager) NewContainerDevices(ctrInput *hostapi.ContainerCreateInput, input *hostapi.ContainerDevice) ([]*runtimeapi.Device, error) {
+func (m *cphAOSPBinderManager) NewContainerDevices(ctrInput *hostapi.ContainerCreateInput, input *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
 	dev := input.IsolatedDevice
 	if err := m.ensureBinderDevice(ctrInput.Name, dev); err != nil {
-		return nil, errors.Wrap(err, "createBinderDevice")
+		return nil, nil, errors.Wrap(err, "createBinderDevice")
 	}
 	binderFs := "/dev/binderfs"
 	binderDev := func(devName string) string {
@@ -120,7 +120,7 @@ func (m *cphAOSPBinderManager) NewContainerDevices(ctrInput *hostapi.ContainerCr
 			Permissions:   "rwm",
 		},
 	}
-	return ctrDevs, nil
+	return ctrDevs, nil, nil
 }
 
 func (m *cphAOSPBinderManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
