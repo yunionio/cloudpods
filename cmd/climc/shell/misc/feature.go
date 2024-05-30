@@ -19,11 +19,44 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
+
+type GlobalSettingsValue struct {
+	SetupKeys                []string        `json:"setupKeys"`
+	SetupKeysVersion         string          `json:"setupKeysVersion"`
+	SetupOneStackInitialized bool            `json:"setupOneStackInitialized"`
+	ProductVersion           string          `json:"productVersion"`
+	UserDefinedKeys          map[string]bool `json:"userDefinedKeys"`
+}
+
+func NewGlobalSettingsValue(setupKeys []string, setupOneStack bool) *GlobalSettingsValue {
+	settings := &GlobalSettingsValue{
+		SetupOneStackInitialized: setupOneStack,
+		UserDefinedKeys:          make(map[string]bool),
+	}
+	for _, key := range setupKeys {
+		settings.Switch(key, true)
+	}
+	return settings
+}
+
+func (g *GlobalSettingsValue) Switch(featureKey string, on bool) {
+	if g.UserDefinedKeys == nil {
+		g.UserDefinedKeys = map[string]bool{}
+	}
+	g.UserDefinedKeys[featureKey] = on
+	ss := sets.NewString(g.SetupKeys...)
+	if on {
+		ss.Insert(featureKey)
+	} else {
+		ss.Delete(featureKey)
+	}
+	g.SetupKeys = ss.List()
+}
 
 func init() {
 	var features = []string{
@@ -99,10 +132,7 @@ func init() {
 					input := map[string]interface{}{
 						"name":       GlobalSettings,
 						"service_id": YunionAgent,
-						"value": map[string]interface{}{
-							"setupKeys":                []string{name},
-							"setupOneStackInitialized": true,
-						},
+						"value":      NewGlobalSettingsValue([]string{name}, true),
 					}
 					params := jsonutils.Marshal(input)
 					if _, err := yunionconf.Parameters.Create(s, params); err != nil {
@@ -124,33 +154,20 @@ func init() {
 			if err != nil {
 				return errors.Wrap(err, "get value")
 			}
-			setupKeys := []string{}
-			if value.Contains("setupKeys") {
-				if err := value.Unmarshal(&setupKeys, "setupKeys"); err != nil {
-					return errors.Wrap(err, "unmarshal setupKeys")
-				}
+			curConf := new(GlobalSettingsValue)
+			if err := value.Unmarshal(curConf); err != nil {
+				return errors.Wrapf(err, "unmarshal to GlobalSettingsValue: %s", value)
 			}
 			if !enable {
-				if utils.IsInStringArray(name, setupKeys) {
-					newKeys := []string{}
-					for _, key := range setupKeys {
-						if key != name {
-							newKeys = append(newKeys, key)
-						}
-					}
-					setupKeys = newKeys
-				}
-			} else if enable {
-				if !utils.IsInStringArray(name, setupKeys) {
-					setupKeys = append(setupKeys, name)
-				}
+				curConf.Switch(name, false)
+			} else {
+				curConf.Switch(name, true)
 			}
-			value.(*jsonutils.JSONDict).Set("setupKeys", jsonutils.Marshal(setupKeys))
 			id, err := ss.GetString("id")
 			if err != nil {
 				return errors.Errorf("get id from %s", ss)
 			}
-			ss.(*jsonutils.JSONDict).Set("value", value)
+			ss.(*jsonutils.JSONDict).Set("value", jsonutils.Marshal(curConf))
 			obj, err := yunionconf.Parameters.Update(s, id, ss)
 			if err != nil {
 				return errors.Wrapf(err, "update %s(%s)", GlobalSettings, id)
