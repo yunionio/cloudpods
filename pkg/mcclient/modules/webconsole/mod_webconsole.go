@@ -16,15 +16,18 @@ package webconsole
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
@@ -81,14 +84,40 @@ func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonu
 	if containerId == "" {
 		return nil, httperrors.NewNotEmptyError("container_id")
 	}
-	return m.doCloudShell(s, "/opt/yunion/bin/climc", "container-exec", containerId, "sh")
+	obj, err := compute.Containers.Get(s, containerId, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get container by %s", containerId)
+	}
+	containerName, _ := obj.GetString("name")
+	serverId, _ := obj.GetString("guest_id")
+	if serverId == "" {
+		return nil, httperrors.NewNotFoundError("not found guest_id from container %s", obj)
+	}
+	serverObj, err := compute.Servers.Get(s, serverId, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get server by %s", serverId)
+	}
+	serverDetails := &compute_api.ServerDetails{}
+	if err := serverObj.Unmarshal(serverDetails); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal server details: %s", serverObj)
+	}
+	info := &webconsole_api.SK8sShellDisplayInfo{
+		InstanceName: containerName,
+		IPs:          strings.Split(serverDetails.IPs, ","),
+	}
+	return m.doCloudShell(s, info, "/opt/yunion/bin/climc", "container-exec", containerId, "sh")
+}
+
+type CloudShellRequest struct {
+	InstanceName string   `json:"instance_name"`
+	IPs          []string `json:"ips"`
 }
 
 func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return m.doCloudShell(s, "/bin/bash")
+	return m.doCloudShell(s, nil, "/bin/bash")
 }
 
-func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, cmd string, args ...string) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, info *webconsole_api.SK8sShellDisplayInfo, cmd string, args ...string) (jsonutils.JSONObject, error) {
 	adminSession := auth.GetAdminSession(s.GetContext(), s.GetRegion())
 
 	query := jsonutils.NewDict()
@@ -154,6 +183,7 @@ func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, cmd string, a
 		"OS_SECRET_KEY":           "",
 		"OS_TRY_TERM_WIDTH":       "false",
 	}
+	req.DisplayInfo = info
 	return m.DoK8sConnect(s, podName, "shell", jsonutils.Marshal(req))
 }
 

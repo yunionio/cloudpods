@@ -106,6 +106,13 @@ type ISessionData interface {
 	GetDisplayInfo(ctx context.Context) (*SDisplayInfo, error)
 }
 
+type ISessionCommand interface {
+	command.ICommand
+
+	GetInstanceName() string
+	GetIPs() []string
+}
+
 type RandomSessionData struct {
 	command.ICommand
 	id string
@@ -134,6 +141,17 @@ func (s *RandomSessionData) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, 
 	dispInfo := SDisplayInfo{}
 	dispInfo.WaterMark = fetchWaterMark(userInfo)
 	dispInfo.InstanceName = s.GetCommand().String()
+	si, ok := s.ICommand.(ISessionCommand)
+	if ok {
+		iName := si.GetInstanceName()
+		if iName != "" {
+			dispInfo.InstanceName = iName
+		}
+		ips := si.GetIPs()
+		if len(ips) > 0 {
+			dispInfo.Ips = strings.Join(ips, ",")
+		}
+	}
 	return &dispInfo, nil
 }
 
