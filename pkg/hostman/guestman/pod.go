@@ -617,6 +617,12 @@ func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64)
 			return errors.Wrapf(err, "remove cri pod: %s", s.getCRIId())
 		}
 	}
+	p, _ := s.getPod(ctx)
+	if p != nil {
+		if err := s.getCRI().RemovePod(ctx, p.GetId()); err != nil {
+			return errors.Wrapf(err, "remove cri pod: %s", p.GetId())
+		}
+	}
 	return nil
 }
 
