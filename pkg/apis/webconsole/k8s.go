@@ -20,10 +20,17 @@ type SK8sRequest struct {
 	Container string `json:"container"`
 }
 
+type SK8sShellDisplayInfo struct {
+	InstanceName string   `json:"instanceName"`
+	IPs          []string `json:"ips,omitempty"`
+}
+
 type SK8sShellRequest struct {
 	SK8sRequest
 
 	Command string            `json:"command"`
 	Args    []string          `json:"args"`
 	Env     map[string]string `json:"env"`
+
+	DisplayInfo *SK8sShellDisplayInfo `json:"display_info"`
 }
