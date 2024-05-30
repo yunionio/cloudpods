@@ -730,16 +730,20 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 	if snapshots == nil || len(snapshots) == 0 {
 		return nil, httperrors.NewNotFoundError("Disk %s dose not have snapshot", diskId)
 	}
+	snapshotIds := []string{}
 	for i := 0; i < len(snapshots); i++ {
 		if snapshots[i].FakeDeleted == false {
 			return nil, httperrors.NewBadRequestError("Can not delete disk snapshots, have manual snapshot")
 		}
+		snapshotIds = append(snapshotIds, snapshots[i].Id)
 	}
-	err = snapshots[0].StartSnapshotsDeleteTask(ctx, userCred, "")
+	err = snapshots[0].StartSnapshotsDeleteTask(ctx, userCred, "", snapshotIds)
 	return nil, err
 }
 
-func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, snapshotIds []string) error {
+	data := jsonutils.NewDict()
+	data.Set("snapshot_ids", jsonutils.NewStringArray(snapshotIds))
 	task, err := taskman.TaskManager.NewTask(ctx, "BatchSnapshotsDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorln(err)

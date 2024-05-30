@@ -56,6 +56,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<storageId>/delete-snapshots", prefix, keyWords),
 			auth.Authenticate(storageDeleteSnapshots))
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/<storageId>/delete-snapshot", prefix, keyWords),
+			auth.Authenticate(storageDeleteSnapshot))
 		app.AddHandler("GET",
 			fmt.Sprintf("%s/%s/is-mount-point", prefix, keyWords),
 			auth.Authenticate(storageVerifyMountPoint))
@@ -441,6 +444,41 @@ func deleteBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject
 	return nil, nil
 }
 
+func storageDeleteSnapshot(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
+	var storageId = params["<storageId>"]
+	storage := storageman.GetManager().GetStorage(storageId)
+	if storage == nil {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Stroage Not found"))
+		return
+	}
+	diskId, err := body.GetString("disk_id")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewImageNotFoundError("disk_id"))
+		return
+	}
+	// blockStream indicate snapshot<-disk
+	blockStream := jsonutils.QueryBoolean(body, "block_stream", false)
+	autoDeleted := jsonutils.QueryBoolean(body, "auto_deleted", false)
+
+	input := &storageman.SStorageDeleteSnapshot{
+		DiskId:      diskId,
+		BlockStream: blockStream,
+	}
+
+	if !blockStream && !autoDeleted {
+		convertSnapshot, err := body.GetString("convert_snapshot")
+		if err != nil {
+			hostutils.Response(ctx, w, httperrors.NewMissingParameterError("convert_snapshot"))
+			return
+		}
+		input.ConvertSnapshot = convertSnapshot
+	}
+
+	hostutils.DelayTask(ctx, storage.DeleteSnapshot, input)
+	hostutils.ResponseOk(ctx, w)
+}
+
 func storageDeleteSnapshots(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var storageId = params["<storageId>"]
@@ -454,6 +492,18 @@ func storageDeleteSnapshots(ctx context.Context, w http.ResponseWriter, r *http.
 		hostutils.Response(ctx, w, httperrors.NewImageNotFoundError("disk_id"))
 		return
 	}
-	hostutils.DelayTask(ctx, storage.DeleteSnapshots, diskId)
+	snapshotIds := []string{}
+	err = body.Unmarshal(&snapshotIds, "snapshot_ids")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("snapshot_ids"))
+		return
+	}
+
+	input := &storageman.SStorageDeleteSnapshots{
+		DiskId:      diskId,
+		SnapshotIds: snapshotIds,
+	}
+
+	hostutils.DelayTask(ctx, storage.DeleteSnapshots, input)
 	hostutils.ResponseOk(ctx, w)
 }

@@ -2190,6 +2190,21 @@ func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
+func (self *SDisk) RecordLastAttachedHost(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {
+	storage, err := self.GetStorage()
+	if err != nil {
+		return err
+	}
+	if storage.StorageType != api.STORAGE_SLVM {
+		return nil
+	}
+	return self.SetMetadata(ctx, api.DISK_META_LAST_ATTACHED_HOST, hostId, userCred)
+}
+
+func (self *SDisk) GetLastAttachedHost(ctx context.Context, userCred mcclient.TokenCredential) string {
+	return self.GetMetadata(ctx, api.DISK_META_LAST_ATTACHED_HOST, userCred)
+}
+
 // 同步磁盘状态
 func (self *SDisk) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true

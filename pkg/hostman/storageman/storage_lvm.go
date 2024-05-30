@@ -186,7 +186,33 @@ func (s *SLVMStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 }
 
 func (s *SLVMStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, errors.Errorf("unsupported operation")
+	input := params.(SStorageDeleteSnapshots)
+	for i := range input.SnapshotIds {
+		lvPath := path.Join("/dev", s.GetPath(), "snap_"+input.SnapshotIds[i])
+		if err := lvmutils.LvRemove(lvPath); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func (s *SLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input, ok := params.(SStorageDeleteSnapshot)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	if input.BlockStream {
+		if err := ConvertLVMDisk(s.GetPath(), input.DiskId); err != nil {
+			return nil, err
+		}
+	} else if len(input.ConvertSnapshot) > 0 {
+		convertSnapshotName := "snap_" + input.ConvertSnapshot
+		if err := ConvertLVMDisk(s.GetPath(), convertSnapshotName); err != nil {
+			return nil, err
+		}
+	}
+	snapId := path.Join("/dev", s.GetPath(), input.SnapshotId)
+	return nil, lvmutils.LvRemove(snapId)
 }
 
 func (s *SLVMStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
@@ -426,7 +452,7 @@ func (s *SLVMStorage) DestinationPrepareMigrate(
 	return nil
 }
 
-func (s *SLVMStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+func (s *SLVMStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	info := input.DiskInfo
 	if info.Protocol == "fuse" {
 		var encryptInfo *apis.SEncryptInfo
@@ -435,11 +461,11 @@ func (s *SLVMStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, in
 		}
 		err := disk.CreateFromImageFuse(ctx, info.SnapshotUrl, int64(info.DiskSizeMb), encryptInfo)
 		if err != nil {
-			return errors.Wrapf(err, "CreateFromImageFuse")
+			return nil, errors.Wrapf(err, "CreateFromImageFuse")
 		}
-		return nil
+		return disk.GetDiskDesc(), nil
 	}
-	return httperrors.NewUnsupportOperationError("Unsupport protocol %s for lvm storage", info.Protocol)
+	return nil, httperrors.NewUnsupportOperationError("Unsupport protocol %s for lvm storage", info.Protocol)
 }
 
 func (s *SLVMStorage) CreateDiskFromExistingPath(context.Context, IDisk, *SDiskCreateByDiskinfo) error {
@@ -525,4 +551,59 @@ func (s *SLVMStorage) CloneDiskFromStorage(
 		TargetAccessPath: accessPath,
 		TargetFormat:     qemuimg.QCOW2.String(),
 	}, nil
+}
+
+func ConvertLVMDisk(vgName, lvName string) error {
+	diskPath := path.Join("/dev", vgName, lvName)
+	qemuImg, err := qemuimg.NewQemuImage(diskPath)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	lvSize, err := lvmutils.GetLvSize(diskPath)
+	if err != nil {
+		return err
+	}
+
+	tmpVolume := lvName + "-convert.tmp"
+	tmpVolumePath := path.Join("/dev", vgName, tmpVolume)
+	// create /dev/vg/disk-convert.tmp
+	if err := lvmutils.LvCreate(vgName, tmpVolume, lvSize); err != nil {
+		return errors.Wrap(err, "delete snapshot LvCreate")
+	}
+	srcInfo := qemuimg.SImageInfo{
+		Path:     diskPath,
+		Format:   qemuImg.Format,
+		IoLevel:  qemuimg.IONiceNone,
+		Password: "",
+	}
+	destInfo := qemuimg.SImageInfo{
+		Path:     tmpVolumePath,
+		Format:   qemuimg.QCOW2,
+		IoLevel:  qemuimg.IONiceNone,
+		Password: "",
+	}
+	// convert /dev/vg/disk to /dev/vg/disk-convert.tmp
+	if err = qemuimg.Convert(srcInfo, destInfo, false, nil); err != nil {
+		lvmutils.LvRemove(tmpVolumePath)
+		return errors.Wrap(err, "failed convert tmp disk")
+	}
+	tmpVolume2 := lvName + "-convert.tmp2"
+	tmpVolume2Path := path.Join("/dev", vgName, tmpVolume2)
+	// rename /dev/vg/disk to /dev/vg/disk-convert.tmp2
+	err = lvmutils.LvRename(vgName, diskPath, tmpVolume2)
+	if err != nil {
+		return errors.Wrap(err, "failed rename disk to tmp")
+	}
+	// rename /dev/vg/disk-convert.tmp to /dev/vg/disk
+	err = lvmutils.LvRename(vgName, tmpVolume, diskPath)
+	if err != nil {
+		return errors.Wrap(err, "failed rename tmp to disk")
+	}
+	// delete /dev/vg/disk-convert.tmp2
+	err = lvmutils.LvRemove(tmpVolume2Path)
+	if err != nil {
+		return errors.Wrap(err, "failed remove tmp disk")
+	}
+	return nil
 }

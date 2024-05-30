@@ -94,11 +94,12 @@ func (s *SNasStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	return res, err
 }
 
-func (s *SNasStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+func (s *SNasStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	info := input.DiskInfo
 	var encryptInfo *apis.SEncryptInfo
 	if info.Encryption {
 		encryptInfo = &info.EncryptInfo
 	}
+
 	return disk.CreateFromSnapshotLocation(ctx, input.DiskInfo.SnapshotUrl, int64(input.DiskInfo.DiskSizeMb), encryptInfo)
 }
