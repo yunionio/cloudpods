@@ -59,7 +59,11 @@ func (self *SBaseHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb i
 	return fmt.Errorf("Not Implement ValidateDiskSize")
 }
 
-func (self *SBaseHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
+func (self *SBaseHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask, snapshotIds []string) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseHostDriver) RequestDeleteSnapshotWithoutGuest(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, params *jsonutils.JSONDict, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
 

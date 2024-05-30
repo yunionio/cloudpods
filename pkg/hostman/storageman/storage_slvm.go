@@ -15,11 +15,15 @@
 package storageman
 
 import (
+	"context"
+	"path"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 )
 
@@ -88,11 +92,55 @@ func (s *SSLVMStorage) GetDiskById(diskId string) (IDisk, error) {
 	}
 
 	var disk = NewSLVMDisk(s, diskId)
-	if disk.Probe() == nil {
+	err := disk.Probe()
+	if err == nil {
 		s.Disks = append(s.Disks, disk)
 		return disk, nil
+	} else {
+		log.Errorf("failed probe slvm disk %s: %s", diskId, err)
 	}
 	return nil, errors.ErrNotFound
+}
+
+func (s *SSLVMStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+	snapshotLocation := disk.GetSnapshotPath(input.DiskInfo.SnapshotId)
+
+	return disk.CreateFromSnapshotLocation(ctx, snapshotLocation, int64(input.DiskInfo.DiskSizeMb), &input.DiskInfo.EncryptInfo)
+}
+
+func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input, ok := params.(SStorageDeleteSnapshot)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	if input.BlockStream {
+		diskLvPath := path.Join("/dev", s.GetPath(), input.DiskId)
+		err := lvmutils.LVActive(diskLvPath, false, s.Lvmlockd())
+		if err != nil {
+			return nil, errors.Wrap(err, "lvactive exclusive")
+		}
+
+		err = ConvertLVMDisk(s.GetPath(), input.DiskId)
+		if err != nil {
+			return nil, err
+		}
+
+	} else if len(input.ConvertSnapshot) > 0 {
+		convertSnapshotName := "snap_" + input.ConvertSnapshot
+		convertSnapshotPath := path.Join("/dev", s.GetPath(), convertSnapshotName)
+		err := lvmutils.LVActive(convertSnapshotPath, false, s.Lvmlockd())
+		if err != nil {
+			return nil, errors.Wrap(err, "lvactive exclusive")
+		}
+
+		if err := ConvertLVMDisk(s.GetPath(), convertSnapshotName); err != nil {
+			return nil, err
+		}
+	}
+
+	snapId := path.Join("/dev", s.GetPath(), input.SnapshotId)
+	return nil, lvmutils.LvRemove(snapId)
 }
 
 func (s *SSLVMStorage) Accessible() error {
