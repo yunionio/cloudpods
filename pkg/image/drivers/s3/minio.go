@@ -98,7 +98,9 @@ func PutStream(ctx context.Context, file io.Reader, fSize int64, objName string,
 	}
 	const blockSizeMB = 100
 	pFile := multicloud.NewProgress(fSize, 100, file, func(ratio float32) {
-		progresser(int64(float64(ratio) * float64(fSize)))
+		if progresser != nil {
+			progresser(int64(float64(ratio) * float64(fSize)))
+		}
 	})
 	err = cloudprovider.UploadObject(ctx, bucket, objName, blockSizeMB*1000*1000, pFile, fSize, cloudprovider.ACLPrivate, "", nil, false)
 	if err != nil {
@@ -134,6 +136,9 @@ func Get(ctx context.Context, fileName string) (int64, io.ReadCloser, error) {
 	result, err := bucket.ListObjects(fileName, "", "", 1)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "bucket.ListObject")
+	}
+	if len(result.Objects) == 0 {
+		return 0, nil, errors.Wrapf(errors.ErrNotFound, "no such object %s", fileName)
 	}
 
 	rc, err := bucket.GetObject(ctx, fileName, nil)
