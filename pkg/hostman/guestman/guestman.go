@@ -1263,7 +1263,7 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 	} else {
 		res := jsonutils.NewDict()
 		res.Set("deleted", jsonutils.JSONTrue)
-		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "")
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
 	}
 }
 

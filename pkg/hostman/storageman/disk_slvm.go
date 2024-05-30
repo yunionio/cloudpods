@@ -56,29 +56,27 @@ func (d *SSLVMDisk) Probe() error {
 	}
 
 	var lvPath = d.GetPath()
-	activated, err := lvmutils.LvIsActivated(lvPath)
-	if err != nil {
-		return errors.Wrap(err, "check lv is activated")
-	}
-	if !activated {
-		if err := lvmutils.LVActive(lvPath, d.Storage.Lvmlockd(), false); err != nil {
-			return errors.Wrap(err, "lv active")
-		}
+	if err := lvmutils.LVActive(lvPath, d.Storage.Lvmlockd(), false); err != nil {
+		return errors.Wrap(err, "lv active")
 	}
 
-	qemuImg, err := qemuimg.NewQemuImage(d.GetPath())
-	if err != nil {
-		log.Errorln(err)
-		return err
-	}
-	if qemuImg.BackFilePath != "" {
-		originActivated, err := lvmutils.LvIsActivated(qemuImg.BackFilePath)
+	diskPath := d.GetPath()
+	for diskPath != "" {
+		qemuImg, err := qemuimg.NewQemuImage(diskPath)
 		if err != nil {
-			return errors.Wrap(err, "check lv is activated")
+			log.Errorln(err)
+			return err
 		}
-		if !originActivated {
-			if err = lvmutils.LVActive(qemuImg.BackFilePath, d.Storage.Lvmlockd(), false); err != nil {
-				return errors.Wrap(err, "lv active origin")
+		diskPath = qemuImg.BackFilePath
+		if qemuImg.BackFilePath != "" {
+			originActivated, err := lvmutils.LvIsActivated(qemuImg.BackFilePath)
+			if err != nil {
+				return errors.Wrap(err, "check lv is activated")
+			}
+			if !originActivated {
+				if err = lvmutils.LVActive(qemuImg.BackFilePath, d.Storage.Lvmlockd(), false); err != nil {
+					return errors.Wrap(err, "lv active origin")
+				}
 			}
 		}
 	}
@@ -97,9 +95,10 @@ func (d *SSLVMDisk) CreateRaw(
 	if err != nil {
 		return ret, err
 	}
-	err = lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+
+	err = lvmutils.LVDeactivate(d.GetPath())
 	if err != nil {
-		return ret, errors.Wrap(err, "lvactive shared")
+		return ret, errors.Wrap(err, "LVDeactivate")
 	}
 	return ret, nil
 }
@@ -111,9 +110,9 @@ func (d *SSLVMDisk) CreateFromTemplate(
 	if err != nil {
 		return ret, err
 	}
-	err = lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+	err = lvmutils.LVDeactivate(d.GetPath())
 	if err != nil {
-		return ret, errors.Wrap(err, "lvactive shared")
+		return ret, errors.Wrap(err, "LVDeactivate")
 	}
 	return ret, nil
 }
@@ -122,7 +121,7 @@ func (d *SSLVMDisk) PreResize(ctx context.Context, sizeMb int64) error {
 	if ok, err := lvmutils.LvIsActivated(d.GetPath()); err != nil {
 		return err
 	} else if ok && d.Storage.Lvmlockd() {
-		err = lvmutils.LVActive(d.GetPath(), false, true)
+		err = lvmutils.LVActive(d.GetPath(), false, d.Storage.Lvmlockd())
 		if err != nil {
 			return errors.Wrap(err, "lvactive shared")
 		}
@@ -142,7 +141,7 @@ func (d *SSLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.J
 	if ok, err := lvmutils.LvIsActivated(d.GetPath()); err != nil {
 		return nil, err
 	} else if ok && d.Storage.Lvmlockd() {
-		err = lvmutils.LVActive(d.GetPath(), false, true)
+		err = lvmutils.LVActive(d.GetPath(), false, d.Storage.Lvmlockd())
 		if err != nil {
 			return nil, errors.Wrap(err, "lvactive shared")
 		}
@@ -158,6 +157,23 @@ func (d *SSLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.J
 	return ret, nil
 }
 
+func TryDeactivateBackingLvs(backingFile string) {
+	if backingFile == "" {
+		return
+	}
+	qemuImg, err := qemuimg.NewQemuImage(backingFile)
+	if err != nil {
+		log.Errorf("tryDeactivateBackingLvs NewQemuImage %s", err)
+		return
+	}
+	err = lvmutils.LVDeactivate(backingFile)
+	if err != nil {
+		log.Errorf("tryDeactivateBackingLvs LVDeactivate %s", err)
+		return
+	}
+	TryDeactivateBackingLvs(qemuImg.BackFilePath)
+}
+
 func (d *SSLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	var lvPath = d.GetPath()
 	activated, err := lvmutils.LvIsActivated(lvPath)
@@ -169,42 +185,79 @@ func (d *SSLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.J
 			return nil, errors.Wrap(err, "lv active")
 		}
 	}
+	qemuImg, err := qemuimg.NewQemuImage(lvPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewQemuImage")
+	}
+	TryDeactivateBackingLvs(qemuImg.BackFilePath)
+
 	return d.SLVMDisk.Delete(ctx, params)
 }
 
 func (d *SSLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
-	err := lvmutils.LVActive(d.GetPath(), false, true)
+	err := lvmutils.LVActive(d.GetPath(), false, d.Storage.Lvmlockd())
 	if err != nil {
 		return errors.Wrap(err, "lvactive exclusive")
 	}
 	err = d.SLVMDisk.CreateSnapshot(snapshotId, encryptKey, encFormat, encAlg)
 	if err != nil {
-		err := lvmutils.LVActive(d.GetPath(), true, false)
-		if err != nil {
-			log.Errorf("failed lvactive share %s", err)
+		e3 := lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+		if e3 != nil {
+			log.Errorf("failed lvactive share %s", e3)
 		}
 		return err
 	}
+
+	// active disk share mode
+	err = lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+	if err != nil {
+		return errors.Wrap(err, "lvactive snapshot share")
+	}
+
+	// active snapshot active mode
 	snapPath := d.GetSnapshotPath(snapshotId)
-	err = lvmutils.LVActive(snapPath, false, true)
+	err = lvmutils.LVActive(snapPath, d.Storage.Lvmlockd(), false)
 	if err != nil {
 		return errors.Wrap(err, "lvactive snapshot share")
 	}
 	return nil
 }
 
+func (d *SSLVMDisk) PostCreateFromImageFuse() {
+	log.Infof("slvm post create from fuse do nothing")
+}
+
 func (d *SSLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	err := lvmutils.LVActive(d.GetPath(), false, true)
+	err := lvmutils.LVActive(d.GetPath(), false, d.Storage.Lvmlockd())
 	if err != nil {
 		return nil, errors.Wrap(err, "lvactive exclusive")
 	}
 	ret, err := d.SLVMDisk.ResetFromSnapshot(ctx, params)
 	if err != nil {
-		err := lvmutils.LVActive(d.GetPath(), true, false)
+		err := lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
 		if err != nil {
 			log.Errorf("failed lvactive share %s", err)
 		}
 		return nil, err
+	}
+	return ret, nil
+}
+
+func (d *SSLVMDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocation string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
+	ret, err := d.SLVMDisk.CreateRaw(ctx, int(size), "", "", encryptInfo, d.Id, snapshotLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	qemuImg, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return nil, errors.Wrap(err, "NewQemuImage")
+	}
+	TryDeactivateBackingLvs(qemuImg.BackFilePath)
+
+	err = lvmutils.LVDeactivate(d.GetPath())
+	if err != nil {
+		return nil, errors.Wrap(err, "LVDeactivate")
 	}
 	return ret, nil
 }
