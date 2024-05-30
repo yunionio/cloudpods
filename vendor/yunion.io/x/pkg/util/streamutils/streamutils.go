@@ -19,6 +19,10 @@ import (
 	"fmt"
 	"hash"
 	"io"
+
+	"github.com/ulikunitz/xz"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type SStreamProperty struct {
@@ -26,12 +30,72 @@ type SStreamProperty struct {
 	Size     int64
 }
 
-func StreamPipe(reader io.Reader, writer io.Writer, CalChecksum bool, callback func(saved int64)) (*SStreamProperty, error) {
+type sXZReadAheadReader struct {
+	offset   int64
+	header   []byte
+	upstream io.Reader
+}
+
+func newXZReadAheadReader(stream io.Reader) (*sXZReadAheadReader, error) {
+	xzHdr := make([]byte, xz.HeaderLen)
+	n, err := stream.Read(xzHdr)
+	if err != nil {
+		return nil, errors.Wrap(err, "Read XZ hader")
+	}
+	if n != len(xzHdr) {
+		return nil, errors.Wrap(errors.ErrEOF, "too few header bytes")
+	}
+	return &sXZReadAheadReader{
+		offset:   0,
+		header:   xzHdr,
+		upstream: stream,
+	}, nil
+}
+
+func (s *sXZReadAheadReader) IsXz() bool {
+	return xz.ValidHeader(s.header)
+}
+
+func (s *sXZReadAheadReader) Read(buf []byte) (int, error) {
+	if s.offset < int64(len(s.header)) {
+		// read from header
+		rdSize := len(s.header) - int(s.offset)
+		if rdSize > len(buf) {
+			rdSize = len(buf)
+		}
+		n := copy(buf, s.header[s.offset:s.offset+int64(rdSize)])
+		s.offset += int64(n)
+		return n, nil
+	} else {
+		n, err := s.upstream.Read(buf)
+		s.offset += int64(n)
+		return n, err
+	}
+}
+
+func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(saved int64)) (*SStreamProperty, error) {
 	sp := SStreamProperty{}
 
 	var md5sum hash.Hash
 	if CalChecksum {
 		md5sum = md5.New()
+	}
+
+	aheadReader, err := newXZReadAheadReader(upstream)
+	if err != nil {
+		return nil, errors.Wrap(err, "ReadAheadReader")
+	}
+
+	var reader io.Reader
+
+	if aheadReader.IsXz() {
+		xzReader, err := xz.NewReader(aheadReader)
+		if err != nil {
+			return nil, errors.Wrap(err, "xz.NewReader")
+		}
+		reader = xzReader
+	} else {
+		reader = aheadReader
 	}
 
 	buf := make([]byte, 4096)
