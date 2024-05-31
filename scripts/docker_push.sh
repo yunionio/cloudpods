@@ -157,6 +157,16 @@ build_process() {
     local arch=$2
     local is_all_arch=$3
     local img_name=$(get_image_name $component $arch $is_all_arch)
+    local build_env=""
+
+    case "$component" in
+    host | host-image)
+        build_env="$build_env CGO_ENABLED=1"
+        ;;
+    *)
+        build_env="$build_env CGO_ENABLED=0"
+        ;;
+    esac
 
     build_bin $component
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -174,13 +184,14 @@ build_process_with_buildx() {
     local is_all_arch=$3
     local img_name=$(get_image_name $component $arch $is_all_arch)
 
-    build_env="GOARCH=$arch"
-    if [[ "$arch" == arm64 ]]; then
-        build_env="$build_env"
-        if [[ $component == host ]]; then
-            build_env="$build_env CGO_ENABLED=1"
-        fi
-    fi
+    case "$component" in
+    host | host-image)
+        build_env="$build_env CGO_ENABLED=1"
+        ;;
+    *)
+        build_env="$build_env CGO_ENABLED=0"
+        ;;
+    esac
 
     case "$component" in
     host | torrent)
