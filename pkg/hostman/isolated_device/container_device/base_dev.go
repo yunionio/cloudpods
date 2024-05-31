@@ -64,6 +64,10 @@ func (c BaseDevice) GetNvidiaMpsThreadPercentage() int {
 	return -1
 }
 
+func (c BaseDevice) GetNumaNode() (int, error) {
+	return -1, nil
+}
+
 func CheckVirtualNumber(dev *isolated_device.ContainerDevice) error {
 	if dev.VirtualNumber <= 0 {
 		return errors.Errorf("virtual_number must > 0")
