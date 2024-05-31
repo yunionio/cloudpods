@@ -89,11 +89,14 @@ vet:
 # cmd/esxi-agent: prepare_dir
 # 	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
-cmd/fetcherfs: prepare_dir
-	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
+cmd/host: prepare_dir
+	CGO_ENABLED=1 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
+
+cmd/host-image: prepare_dir
+	CGO_ENABLED=1 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
 cmd/%: prepare_dir
-	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
+	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
 rpm/%: cmd/%
 	$(BUILD_SCRIPT) $*
