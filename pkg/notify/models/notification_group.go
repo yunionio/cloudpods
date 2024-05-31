@@ -55,7 +55,7 @@ type SNotificationGroup struct {
 	GroupKey string `width:"128" nullable:"false" create:"required" list:"user" get:"user"`
 	Title    string
 	// swagger:ignore
-	Message     string
+	Message     string `length:"medium"`
 	ReceiverId  string `width:"128" nullable:"false" create:"required" list:"user" get:"user"`
 	Body        jsonutils.JSONObject
 	Header      jsonutils.JSONObject
