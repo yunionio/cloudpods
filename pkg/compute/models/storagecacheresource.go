@@ -119,8 +119,8 @@ func (manager *SStoragecacheResourceBaseManager) FetchCustomizeColumns(
 		}
 		if info, ok := storageMap[storagecacheIds[i]]; ok {
 			rows[i].StorageInfo = info
-			for i := range info {
-				rows[i].Storages = append(rows[i].Storages, info[i].Name)
+			for j := range info {
+				rows[i].Storages = append(rows[i].Storages, info[j].Name)
 			}
 		}
 		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
