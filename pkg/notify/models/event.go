@@ -44,7 +44,7 @@ type SEvent struct {
 	// 资源创建时间
 	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" json:"created_at"`
 
-	Message      string
+	Message      string `length:"medium"`
 	Event        string `width:"64" nullable:"true"`
 	ResourceType string `width:"64" nullable:"true"`
 	Action       string `width:"64" nullable:"true"`
