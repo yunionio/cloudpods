@@ -47,6 +47,14 @@ func (s *queryReducer) GetType() string {
 	return s.Type
 }
 
+func getRoundFloat(point monitor.TimePoint) float64 {
+	pv := point.Value()
+	if pv < 1 {
+		return pv
+	}
+	return math.Trunc(pv)
+}
+
 func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 	if len(series.Points) == 0 {
 		return nil, nil
@@ -80,8 +88,9 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 		for _, point := range series.Points {
 			if point.IsValid() {
 				allNull = false
-				if value > point.Value() {
-					value = point.Value()
+				pv := getRoundFloat(point)
+				if value > pv {
+					value = pv
 				}
 			}
 		}
@@ -90,8 +99,9 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 		for _, point := range series.Points {
 			if point.IsValid() {
 				allNull = false
-				if value < point.Value() {
-					value = point.Value()
+				pv := getRoundFloat(point)
+				if value < pv {
+					value = pv
 				}
 			}
 		}
