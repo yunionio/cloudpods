@@ -1051,6 +1051,7 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 		return nil, errors.Wrap(err, "db.NewModelObject")
 	}
 	user := userObj.(*SUser)
+	user.SetModelManager(UserManager, user)
 	q := UserManager.RawQuery().Equals("id", userId)
 	err = q.First(user)
 	if err != nil && err != sql.ErrNoRows {
@@ -1083,9 +1084,6 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 			return nil, errors.Wrap(err, "Update")
 		}
 	} else {
-		if syncUserInfo != nil {
-			syncUserInfo(user)
-		}
 		if enableDefault {
 			user.Enabled = tristate.True
 		} else {
@@ -1108,6 +1106,9 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 		}()
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
+		}
+		if syncUserInfo != nil {
+			syncUserInfo(user)
 		}
 	}
 	return user, nil
