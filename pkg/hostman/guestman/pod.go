@@ -1520,12 +1520,26 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetRuntimeMountHostPath containerId: %s, vol: %s", input.ContainerId, jsonutils.Marshal(vol))
 		}
-		// bind mount
-		// mkdir tmpBackRootDir/subdirectory
-		targetBindMntPath := filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
-		if out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", targetBindMntPath).Output(); err != nil {
-			return nil, errors.Wrapf(err, "mkdir -p %s: %s", targetBindMntPath, out)
+		isMntPathFile := false
+		targetBindMntPath := tmpBackRootDir
+		if vol.Disk.SubDirectory != "" {
+			// mkdir tmpBackRootDir/subdirectory
+			targetBindMntPath = filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
 		}
+		if vol.Disk.StorageSizeFile != "" {
+			targetBindMntPath = filepath.Join(tmpBackRootDir, vol.Disk.StorageSizeFile)
+			isMntPathFile = true
+		}
+		if isMntPathFile {
+			if out, err := procutils.NewRemoteCommandAsFarAsPossible("touch", targetBindMntPath).Output(); err != nil {
+				return nil, errors.Wrapf(err, "touch %s: %s", targetBindMntPath, out)
+			}
+		} else {
+			if out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", targetBindMntPath).Output(); err != nil {
+				return nil, errors.Wrapf(err, "mkdir -p %s: %s", targetBindMntPath, out)
+			}
+		}
+		// do bind mount
 		out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", "--bind", mntPath, targetBindMntPath).Output()
 		if err != nil {
 			return nil, errors.Wrapf(err, "bind mount %s to %s: %s", mntPath, targetBindMntPath, out)
@@ -1539,6 +1553,9 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 		// unbind mount
 		// umount
 		targetBindMntPath := filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
+		if vol.Disk.StorageSizeFile != "" {
+			targetBindMntPath = filepath.Join(tmpBackRootDir, vol.Disk.StorageSizeFile)
+		}
 		out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", targetBindMntPath).Output()
 		if err != nil {
 			return nil, errors.Wrapf(err, "umount bind point %s: %s", targetBindMntPath, out)
