@@ -793,7 +793,10 @@ func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
 		return false, errors.Wrap(err, "chmod supervise run script")
 	}
 	initCmd := fmt.Sprintf("%s/supervise %s", cloudMonitorPath, telegrafPath)
-	err = d.installInitScript("telegraf", initCmd)
+	if d.isSupportSystemd() {
+		initCmd = path.Join(telegrafPath, "run")
+	}
+	err = d.installInitScript("telegraf", initCmd, false)
 	if err != nil {
 		return false, errors.Wrap(err, "installInitScript")
 	}
