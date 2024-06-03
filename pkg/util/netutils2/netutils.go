@@ -172,7 +172,9 @@ func AddNicRoutes(routes *[][]string, nicDesc *types.SServerNic, mainIp string, 
 func GetNicDns(nicdesc *types.SServerNic) []string {
 	dnslist := []string{}
 	if len(nicdesc.Dns) > 0 {
-		dnslist = append(dnslist, nicdesc.Dns)
+		for _, dns := range strings.Split(nicdesc.Dns, ",") {
+			dnslist = append(dnslist, dns)
+		}
 	}
 	return dnslist
 }
