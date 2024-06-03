@@ -184,6 +184,7 @@ build_process_with_buildx() {
     local is_all_arch=$3
     local img_name=$(get_image_name $component $arch $is_all_arch)
 
+    build_env="GOARCH=$arch"
     case "$component" in
     host | host-image)
         build_env="$build_env CGO_ENABLED=1"
