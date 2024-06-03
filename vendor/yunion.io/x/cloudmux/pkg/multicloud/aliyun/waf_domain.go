@@ -194,8 +194,20 @@ func (self *SWafDomain) GetCname() string {
 	return self.Cname
 }
 
+func (self *SWafDomain) GetCertId() string {
+	return ""
+}
+
+func (self *SWafDomain) GetCertName() string {
+	return ""
+}
+
 func (self *SWafDomain) GetSourceIps() []string {
 	return self.SourceIps
+}
+
+func (self *SWafDomain) GetCcList() []string {
+	return []string{}
 }
 
 func (self *SWafDomain) Delete() error {
