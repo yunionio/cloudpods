@@ -16,6 +16,8 @@ package ldap
 
 import (
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/keystone/options"
 )
 
 const (
@@ -61,7 +63,7 @@ func (info SUserInfo) isValid() error {
 		return err
 	}
 	// regarding disabled LDAP user as invalid
-	if !info.Enabled {
+	if !options.Options.LdapSyncDisabledUsers && !info.Enabled {
 		return ErrDisabledUser
 	}
 	return nil

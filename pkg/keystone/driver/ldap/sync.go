@@ -248,7 +248,11 @@ func (drv *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId s
 	if err != nil {
 		return "", errors.Wrap(err, "models.IdentityProviderManager.FetchIdentityProviderById")
 	}
-	usr, err := idp.SyncOrCreateUser(ctx, ui.Id, ui.Name, domainId, !drv.ldapConfig.DisableUserOnImport, func(user *models.SUser) {
+	enableDefault := !drv.ldapConfig.DisableUserOnImport
+	if !ui.Enabled {
+		enableDefault = false
+	}
+	usr, err := idp.SyncOrCreateUser(ctx, ui.Id, ui.Name, domainId, enableDefault, func(user *models.SUser) {
 		// LDAP user is always enabled
 		// if ui.Enabled {
 		// 	user.Enabled = tristate.True
