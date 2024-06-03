@@ -736,6 +736,12 @@ func (project *SProject) PerformJoin(
 		}
 	}
 
+	if input.EnableAllUsers {
+		for i := range users {
+			db.EnabledPerformEnable(users[i], ctx, userCred, true)
+		}
+	}
+
 	return nil, nil
 }
 

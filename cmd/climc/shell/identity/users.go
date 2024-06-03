@@ -413,15 +413,32 @@ func init() {
 		return nil
 	})
 
+	type UserGroupsOptions struct {
+		USER    string   `help:"User ID or Name"`
+		Gids    []string `help:"group ID or Name"`
+		Action  string   `default:"join" choices:"join|leave"`
+		Enabled bool
+	}
+
+	R(&UserGroupsOptions{}, "user-join-groups", "Add a user to groups", func(s *mcclient.ClientSession, args *UserGroupsOptions) error {
+		_, err := modules.UsersV3.DoJoinGroups(s, args.USER, jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	type UserJoinProjectOptions struct {
 		User    string   `help:"User Id or name" optional:"false" positional:"true"`
 		Project []string `help:"Projects to join" nargs:"+"`
 		Role    []string `help:"User join project with roles" nargs:"+"`
+		Enabled bool
 	}
 	R(&UserJoinProjectOptions{}, "user-join-project", "User join projects with roles", func(s *mcclient.ClientSession, args *UserJoinProjectOptions) error {
 		input := api.SJoinProjectsInput{}
 		input.Projects = args.Project
 		input.Roles = args.Role
+		input.Enabled = args.Enabled
 		result, err := modules.UsersV3.PerformAction(s, args.User, "join", jsonutils.Marshal(input))
 		if err != nil {
 			return err
