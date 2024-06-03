@@ -1233,6 +1233,9 @@ func (user *SUser) PerformJoin(
 	if err != nil {
 		return nil, errors.Wrap(err, "joinProjects")
 	}
+	if input.Enabled {
+		db.EnabledPerformEnable(user, ctx, userCred, true)
+	}
 	return nil, nil
 }
 
