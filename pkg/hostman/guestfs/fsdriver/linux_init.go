@@ -31,9 +31,9 @@ func (d *sLinuxRootFs) isSupportSystemd() bool {
 	return d.rootFs.Exists(unitDirPath, false) && d.rootFs.Exists(enableDirPath, false)
 }
 
-func (d *sLinuxRootFs) installInitScript(name, cmd string) error {
+func (d *sLinuxRootFs) installInitScript(name, cmd string, oneshot bool) error {
 	if d.isSupportSystemd() {
-		return d.installSystemd(name, cmd)
+		return d.installSystemd(name, cmd, oneshot)
 	} else {
 		return d.installCrond(cmd)
 	}
@@ -54,10 +54,15 @@ func (d *sLinuxRootFs) installCrond(cmd string) error {
 	return nil
 }
 
-func (d *sLinuxRootFs) installSystemd(name, cmd string) error {
+func (d *sLinuxRootFs) installSystemd(name, cmd string, oneshot bool) error {
 	var serviceName = fmt.Sprintf("%s.service", name)
 	var unitPath = fmt.Sprintf("%s/%s", unitDirPath, serviceName)
 	var enablePath = fmt.Sprintf("%s/%s", enableDirPath, serviceName)
+	var serviceType = "simple"
+	if oneshot {
+		serviceType = "oneshot"
+	}
+
 	var unitContent = fmt.Sprintf(`[Unit]
 Description=Run once
 After=local-fs.target
@@ -66,11 +71,11 @@ After=network.target
 [Service]
 ExecStart=%s
 RemainAfterExit=true
-Type=oneshot
+Type=%s
 
 [Install]
 WantedBy=multi-user.target
-`, cmd)
+`, cmd, serviceType)
 	err := d.rootFs.FilePutContents(unitPath, unitContent, false, false)
 	if err != nil {
 		return errors.Wrap(err, "save user_data unit fail")

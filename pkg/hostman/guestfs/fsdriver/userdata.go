@@ -93,7 +93,7 @@ func (d *sLinuxRootFs) deployUserDataBySystemd(userData string) error {
 		}
 	}
 	{
-		err := d.installInitScript(serviceName, "/bin/sh "+scriptPath)
+		err := d.installInitScript(serviceName, "/bin/sh "+scriptPath, true)
 		if err != nil {
 			return errors.Wrap(err, "installInitScript")
 		}
