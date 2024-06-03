@@ -58,6 +58,10 @@ type SWafDomainV2 struct {
 			Backend string
 		}
 	}
+	CertDetail *struct {
+		Id   string
+		Name string
+	}
 	ResourceManagerResourceGroupId string
 }
 
@@ -105,6 +109,26 @@ func (self *SWafDomainV2) GetCname() string {
 	return self.Cname
 }
 
+func (self *SWafDomainV2) GetCertId() string {
+	if self.CertDetail == nil {
+		self.Refresh()
+	}
+	if self.CertDetail != nil {
+		return self.CertDetail.Id
+	}
+	return ""
+}
+
+func (self *SWafDomainV2) GetCertName() string {
+	if self.CertDetail == nil {
+		self.Refresh()
+	}
+	if self.CertDetail != nil {
+		return self.CertDetail.Name
+	}
+	return ""
+}
+
 func (self *SWafDomainV2) GetUpstreamPort() int {
 	return 0
 }
@@ -119,6 +143,10 @@ func (self *SWafDomainV2) GetSourceIps() []string {
 		ret = append(ret, backend.Backend)
 	}
 	return ret
+}
+
+func (self *SWafDomainV2) GetCcList() []string {
+	return []string{}
 }
 
 func (self *SWafDomainV2) Delete() error {
