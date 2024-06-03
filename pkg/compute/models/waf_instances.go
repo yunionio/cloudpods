@@ -73,12 +73,17 @@ type SWafInstance struct {
 	// 前面是否有代理服务
 	IsAccessProduct bool     `nullable:"false" default:"false" list:"user" update:"user" create:"optional"`
 	AccessHeaders   []string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"admin"`
-	SourceIps       []string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"admin"`
-	HttpPorts       []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
-	HttpsPorts      []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	// 源站地址
+	SourceIps []string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	// 回源地址
+	CcList     []string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	HttpPorts  []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	HttpsPorts []int    `width:"64" charset:"utf8" nullable:"true" list:"user" update:"admin"`
 
 	UpstreamScheme string `width:"32" charset:"utf8" nullable:"true" list:"user" update:"admin"`
 	UpstreamPort   int    `nullable:"true" list:"user" update:"admin"`
+	CertId         string `width:"36" charset:"utf8" nullable:"true" list:"user" update:"admin"`
+	CertName       string `width:"128" charset:"utf8" nullable:"true" list:"user" update:"admin"`
 }
 
 func (manager *SWafInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -449,6 +454,15 @@ func (self *SWafInstance) SyncWithCloudWafInstance(ctx context.Context, userCred
 		self.HttpPorts = ext.GetHttpPorts()
 		self.Cname = ext.GetCname()
 		self.SourceIps = ext.GetSourceIps()
+		if ccList := ext.GetCcList(); len(ccList) > 0 {
+			self.CcList = ccList
+		}
+		if certId := ext.GetCertId(); len(certId) > 0 {
+			self.CertId = certId
+		}
+		if certName := ext.GetCertName(); len(certName) > 0 {
+			self.CertName = certName
+		}
 		self.UpstreamScheme = ext.GetUpstreamScheme()
 		self.UpstreamPort = ext.GetUpstreamPort()
 		self.AccessHeaders = ext.GetAccessHeaders()
@@ -483,6 +497,9 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 	waf.UpstreamScheme = ext.GetUpstreamScheme()
 	waf.UpstreamPort = ext.GetUpstreamPort()
 	waf.SourceIps = ext.GetSourceIps()
+	waf.CcList = ext.GetCcList()
+	waf.CertId = ext.GetCertId()
+	waf.CertName = ext.GetCertName()
 	waf.AccessHeaders = ext.GetAccessHeaders()
 	var err = func() error {
 		lockman.LockRawObject(ctx, WafInstanceManager.Keyword(), "name")

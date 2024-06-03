@@ -71,6 +71,7 @@ type SWafInstance struct {
 	SrcList            []string
 	Status             int
 	UpstreamDomainList []string
+	SSLId              *string
 }
 
 func (self *SWafInstance) GetName() string {
@@ -184,8 +185,34 @@ func (self *SWafInstance) GetHttpsPorts() []int {
 	return ret
 }
 
+func (self *SWafInstance) GetCertId() string {
+	if self.SSLId == nil {
+		self.Refresh()
+	}
+	if self.SSLId != nil {
+		return *self.SSLId
+	}
+	return ""
+}
+
+func (self *SWafInstance) GetCertName() string {
+	sslId := self.GetCertId()
+	if len(sslId) > 0 {
+		cert, err := self.region.client.GetCertificate(sslId)
+		if err != nil {
+			return ""
+		}
+		return cert.GetName()
+	}
+	return ""
+}
+
 func (self *SWafInstance) GetSourceIps() []string {
 	return append(self.SrcList, self.UpstreamDomainList...)
+}
+
+func (self *SWafInstance) GetCcList() []string {
+	return self.CCList
 }
 
 func (self *SWafInstance) Delete() error {
