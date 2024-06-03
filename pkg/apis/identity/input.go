@@ -232,6 +232,8 @@ type EndpointListInput struct {
 type SJoinProjectsInput struct {
 	Projects []string `json:"projects"`
 	Roles    []string `json:"roles"`
+	// 启用用户, 仅用户禁用时生效
+	Enabled bool
 }
 
 func (input SJoinProjectsInput) Validate() error {
@@ -269,9 +271,10 @@ func (input SLeaveProjectsInput) Validate() error {
 }
 
 type SProjectAddUserGroupInput struct {
-	Users  []string
-	Groups []string
-	Roles  []string
+	Users          []string
+	Groups         []string
+	Roles          []string
+	EnableAllUsers bool
 }
 
 func (input SProjectAddUserGroupInput) Validate() error {
