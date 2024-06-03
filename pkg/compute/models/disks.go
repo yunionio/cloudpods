@@ -3173,6 +3173,18 @@ func (disk *SDisk) PerformRebuild(
 		}
 		guest.SetStatus(ctx, userCred, api.VM_DISK_RESET, "disk rebuild")
 	}
+	if input.BackupId != "" {
+		bkObj, err := DiskBackupManager.FetchByIdOrName(ctx, userCred, input.BackupId)
+		if err != nil {
+			return nil, httperrors.NewNotFoundError("found dick backup object by %s", input.BackupId)
+		}
+		if _, err := db.Update(disk, func() error {
+			disk.BackupId = bkObj.GetId()
+			return nil
+		}); err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "update disk backup_id to %s", bkObj.GetId()))
+		}
+	}
 	disk.SetStatus(ctx, userCred, api.DISK_REBUILD, "disk rebuild")
 	return nil, disk.StartDiskCreateTask(ctx, userCred, true, disk.SnapshotId, "")
 }

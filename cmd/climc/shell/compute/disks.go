@@ -42,7 +42,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Disks)
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
-	cmd.Perform("rebuild", &options.ResourceIdOptions{})
+	cmd.Perform("rebuild", &compute_options.DiskRebuildOptions{})
 	cmd.Perform("migrate", &compute_options.DiskMigrateOptions{})
 	cmd.Perform("reset-template", &compute_options.DiskResetTemplateOptions{})
 

@@ -105,3 +105,12 @@ func (o *DiskResetTemplateOptions) GetId() string {
 func (o *DiskResetTemplateOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
+
+type DiskRebuildOptions struct {
+	options.ResourceIdOptions
+	BackupId string `help:"disk backup id" json:"backup_id"`
+}
+
+func (o *DiskRebuildOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
