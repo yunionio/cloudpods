@@ -1478,7 +1478,12 @@ type ICloudWafInstance interface {
 	GetHttpPorts() []int
 	GetHttpsPorts() []int
 	GetCname() string
+	// 源站地址
 	GetSourceIps() []string
+	// 回源地址
+	GetCcList() []string
+	GetCertId() string
+	GetCertName() string
 	GetUpstreamScheme() string
 	GetUpstreamPort() int
 

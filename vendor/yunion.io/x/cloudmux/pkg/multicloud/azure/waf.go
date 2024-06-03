@@ -466,11 +466,23 @@ func (self *SAppGatewayWaf) GetUpstreamScheme() string {
 	return ""
 }
 
+func (self *SAppGatewayWaf) GetCertId() string {
+	return ""
+}
+
+func (self *SAppGatewayWaf) GetCertName() string {
+	return ""
+}
+
 func (self *SAppGatewayWaf) GetUpstreamPort() int {
 	return 0
 }
 
 func (self *SAppGatewayWaf) GetSourceIps() []string {
+	return []string{}
+}
+
+func (self *SAppGatewayWaf) GetCcList() []string {
 	return []string{}
 }
 
