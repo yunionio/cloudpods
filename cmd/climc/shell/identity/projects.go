@@ -388,16 +388,18 @@ func init() {
 	})
 
 	type ProjectAddUserGroupOptions struct {
-		Project string   `help:"ID or name of project to add users/groups" positional:"true" optional:"false"`
-		User    []string `help:"ID of user to add"`
-		Group   []string `help:"ID of group to add"`
-		Role    []string `help:"ID of role to add"`
+		Project        string   `help:"ID or name of project to add users/groups" positional:"true" optional:"false"`
+		User           []string `help:"ID of user to add"`
+		Group          []string `help:"ID of group to add"`
+		Role           []string `help:"ID of role to add"`
+		EnableAllUsers bool
 	}
 	R(&ProjectAddUserGroupOptions{}, "project-add-user-group", "Batch add users/groups to project", func(s *mcclient.ClientSession, args *ProjectAddUserGroupOptions) error {
 		input := api.SProjectAddUserGroupInput{}
 		input.Users = args.User
 		input.Groups = args.Group
 		input.Roles = args.Role
+		input.EnableAllUsers = args.EnableAllUsers
 		err := input.Validate()
 		if err != nil {
 			return err

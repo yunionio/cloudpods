@@ -141,6 +141,13 @@ func (this *UserManagerV3) DoJoinGroups(s *mcclient.ClientSession, uid string, p
 		return nil, httperrors.NewInputParameterError("unsupported action %s", action)
 	}
 
+	if enabled, _ := params.Bool("enabled"); enabled && action == "join" {
+		_, err := this.PerformAction(s, uid, "enable", nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	errs := make([]error, 0)
 	for _, gid := range gids {
 		_gid, _ := gid.GetString()
