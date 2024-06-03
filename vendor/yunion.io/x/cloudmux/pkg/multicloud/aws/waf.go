@@ -84,6 +84,14 @@ func (self *SWebAcl) GetCname() string {
 	return ""
 }
 
+func (self *SWebAcl) GetCertId() string {
+	return ""
+}
+
+func (self *SWebAcl) GetCertName() string {
+	return ""
+}
+
 func (self *SWebAcl) GetUpstreamScheme() string {
 	return ""
 }
@@ -93,6 +101,10 @@ func (self *SWebAcl) GetUpstreamPort() int {
 }
 
 func (self *SWebAcl) GetSourceIps() []string {
+	return []string{}
+}
+
+func (self *SWebAcl) GetCcList() []string {
 	return []string{}
 }
 
