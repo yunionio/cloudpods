@@ -115,8 +115,10 @@ func (self *SMongoDB) GetName() string {
 
 func (self *SMongoDB) GetStatus() string {
 	switch self.Status {
-	case 0, 1:
+	case 0:
 		return api.MONGO_DB_STATUS_CREATING
+	case 1:
+		return api.MONGO_DB_STATUS_PROCESSING
 	case 2:
 		return api.MONGO_DB_STATUS_RUNNING
 	case -2, -3:
