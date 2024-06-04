@@ -306,6 +306,7 @@ type ICloudHost interface {
 	GetStorageSizeMB() int64
 	GetStorageType() string
 	GetHostType() string
+	GetStorageDriver() string
 	GetStorageInfo() jsonutils.JSONObject
 
 	GetIsMaintenance() bool
