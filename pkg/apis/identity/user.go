@@ -23,6 +23,13 @@ const (
 	PasswordResetHintExpire     = "expire"
 )
 
+type SUserGroup struct {
+	Id       string
+	Name     string
+	Domain   string
+	DomainId string
+}
+
 type UserDetails struct {
 	EnabledIdentityBaseResourceDetails
 	// IdpResourceInfo
@@ -36,6 +43,8 @@ type UserDetails struct {
 
 	// 用户归属的的项目信息
 	Projects []SFetchDomainObjectWithMetadata `json:"projects"`
+	// 用户归属的组
+	Groups []SUserGroup `json:"groups"`
 }
 
 type UserUsage struct {
