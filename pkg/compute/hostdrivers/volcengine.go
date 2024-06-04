@@ -81,5 +81,5 @@ func (self *SVolcengineHostDriver) RequestDeleteSnapshotWithStorage(ctx context.
 }
 
 func (driver *SVolcengineHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 10
+	return -1
 }
