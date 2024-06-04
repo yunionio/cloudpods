@@ -353,7 +353,8 @@ type ServerConfigs struct {
 	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
 	Daemon                       *bool  `help:"Set as a daemon server" json:"is_daemon"`
 
-	RaidConfig []string `help:"Baremetal raid config" json:"-"`
+	RaidConfig      []string `help:"Baremetal raid config" json:"-"`
+	RootDiskMatcher string   `help:"Baremetal root disk matcher, e.g. 'device=/dev/sdb' 'size=900G' 'size_start=800G,size_end=900G'" json:"-"`
 }
 
 func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
@@ -376,6 +377,13 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 			}
 			data.BaremetalDiskConfigs = append(data.BaremetalDiskConfigs, raidConf)
 		}
+	}
+	if len(o.RootDiskMatcher) > 0 {
+		matcher, err := cmdline.ParseBaremetalRootDiskMatcher(o.RootDiskMatcher)
+		if err != nil {
+			return nil, err
+		}
+		data.BaremetalRootDiskMatcher = matcher
 	}
 	return data, nil
 }

@@ -2546,6 +2546,34 @@ func (s *SBaremetalServer) GetRootTemplateId() string {
 	return id
 }
 
+func (s *SBaremetalServer) GetMetadata() (*jsonutils.JSONDict, error) {
+	metadata, err := s.desc.Get("metadata")
+	if err != nil {
+		return nil, errors.Wrap(err, "get desc.metadata")
+	}
+	return metadata.(*jsonutils.JSONDict), nil
+}
+
+func (s *SBaremetalServer) GetRootDiskMatcher() (*api.BaremetalRootDiskMatcher, error) {
+	metadata, err := s.GetMetadata()
+	if err != nil {
+		return nil, errors.Wrap(err, "get metadata")
+	}
+	if !metadata.Contains(api.BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER) {
+		return nil, errors.Wrapf(errors.ErrNotFound, "not found %s in metadata", api.BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER)
+	}
+	jStr, _ := metadata.GetString(api.BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER)
+	jObj, err := jsonutils.ParseString(jStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse json string: %s", jStr)
+	}
+	matcher := new(api.BaremetalRootDiskMatcher)
+	if err := jObj.Unmarshal(matcher); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal to matcher")
+	}
+	return matcher, nil
+}
+
 func (s *SBaremetalServer) GetDiskConfig() ([]*api.BaremetalDiskConfig, error) {
 	layouts := make([]baremetal.Layout, 0)
 	err := s.desc.Unmarshal(&layouts, "disk_config")
@@ -2598,7 +2626,11 @@ func (s *SBaremetalServer) NewConfigedSSHPartitionTool(term *ssh.Client) (*diskt
 		}
 	}
 
-	tool, err := disktool.NewSSHPartitionTool(term, layouts)
+	matcher, err := s.GetRootDiskMatcher()
+	if errors.Cause(err) != errors.ErrNotFound {
+		log.Errorf("GetRootDiskMatcher: %v", err)
+	}
+	tool, err := disktool.NewSSHPartitionTool(term, layouts, matcher)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewSSHPartitionTool")
 	}
@@ -2651,7 +2683,11 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) (*disktool.SSHPartitio
 		}
 	}
 
-	tool, err := disktool.NewSSHPartitionTool(term, layouts)
+	matcher, err := s.GetRootDiskMatcher()
+	if errors.Cause(err) != errors.ErrNotFound {
+		log.Errorf("GetRootDiskMatcher: %v", err)
+	}
+	tool, err := disktool.NewSSHPartitionTool(term, layouts, matcher)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewSSHPartitionTool")
 	}
