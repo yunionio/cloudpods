@@ -761,10 +761,44 @@ func (manager *SUserManager) FetchCustomizeColumns(
 		projectMap[p.UserId] = append(projectMap[p.UserId], p.SFetchDomainObjectWithMetadata)
 	}
 
+	groups := GroupManager.Query().SubQuery()
+	domains = DomainManager.Query().SubQuery()
+	ugs := UsergroupManager.Query().In("user_id", userIds).SubQuery()
+
+	q = groups.Query(
+		groups.Field("id"),
+		groups.Field("name"),
+		domains.Field("id").Label("domain_id"),
+		domains.Field("name").Label("domain"),
+		ugs.Field("user_id"),
+	)
+
+	q = q.Join(domains, sqlchemy.Equals(groups.Field("domain_id"), domains.Field("id")))
+	q = q.Join(ugs, sqlchemy.Equals(groups.Field("id"), ugs.Field("group_id")))
+
+	useGroups := []struct {
+		api.SUserGroup
+		UserId string
+	}{}
+	err = q.All(&useGroups)
+	if err != nil {
+		log.Errorf("query user groups error: %v", err)
+		return rows
+	}
+	groupMap := map[string][]api.SUserGroup{}
+	for _, ug := range useGroups {
+		_, ok := groupMap[ug.UserId]
+		if !ok {
+			groupMap[ug.UserId] = []api.SUserGroup{}
+		}
+		groupMap[ug.UserId] = append(groupMap[ug.UserId], ug.SUserGroup)
+	}
+
 	for i := range rows {
 		rows[i].ExternalResourceInfo, _ = scopeResources[userIds[i]]
 		rows[i].UserUsage, _ = usage[userIds[i]]
 		rows[i].Projects, _ = projectMap[userIds[i]]
+		rows[i].Groups, _ = groupMap[userIds[i]]
 	}
 
 	return rows
