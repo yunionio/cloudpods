@@ -45,5 +45,5 @@ func (self *SCloudpodsESXiHostDriver) ValidateDiskSize(storage *models.SStorage,
 }
 
 func (driver *SCloudpodsESXiHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }

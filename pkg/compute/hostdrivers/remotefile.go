@@ -45,5 +45,5 @@ func (self *SRemoteFileDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 }
 
 func (driver *SRemoteFileDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }

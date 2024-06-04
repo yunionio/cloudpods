@@ -56,7 +56,7 @@ func (self *SCloudpodsBaremetalHostDriver) ValidateDiskSize(storage *models.SSto
 }
 
 func (driver *SCloudpodsBaremetalHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }
 
 func (driver *SCloudpodsBaremetalHostDriver) RequestBaremetalUnmaintence(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
