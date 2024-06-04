@@ -664,7 +664,7 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 	}
 }
 
-func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguration) *PartitionTool {
+func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguration, rootMatcher *api.BaremetalRootDiskMatcher) *PartitionTool {
 	for _, d := range diskConfs {
 		disk := newDiskPartitions(d.Driver, d.Adapter, d.RaidConfig, d.Size, d.Block, d.DiskType, tool)
 		tool.disks = append(tool.disks, disk)
@@ -681,7 +681,54 @@ func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguratio
 		}
 		tool.diskTable[key] = append(tool.diskTable[key], disk)
 	}
+	// reorder tool.disks
+	if rootMatcher != nil {
+		tool.reorderRootDisk(rootMatcher)
+	}
 	return tool
+}
+
+func (tool *PartitionTool) reorderRootDisk(matcher *api.BaremetalRootDiskMatcher) {
+	var rootDiskIdx = 0
+
+	isDiskMatch := func(disk *DiskPartitions, matcher *api.BaremetalRootDiskMatcher) bool {
+		if matcher.Device != "" {
+			if disk.dev == matcher.Device {
+				return true
+			}
+			if disk.devName == matcher.Device {
+				return true
+			}
+		}
+		if matcher.SizeMB > 0 {
+			if disk.sizeMB == matcher.SizeMB {
+				return true
+			}
+		}
+		if matcher.SizeMBRange != nil {
+			if disk.sizeMB >= matcher.SizeMBRange.Start && disk.sizeMB <= matcher.SizeMBRange.End {
+				return true
+			}
+		}
+		return false
+	}
+
+	for idx, disk := range tool.disks {
+		if isDiskMatch(disk, matcher) {
+			rootDiskIdx = idx
+			break
+		}
+	}
+	log.Infof("Select %d as root disk", rootDiskIdx)
+	newDisks := make([]*DiskPartitions, 0)
+	newDisks = append(newDisks, tool.disks[rootDiskIdx])
+	for idx := range tool.disks {
+		if idx == rootDiskIdx {
+			continue
+		}
+		newDisks = append(newDisks, tool.disks[idx])
+	}
+	tool.disks = newDisks
 }
 
 func (tool *PartitionTool) IsAllDisksReady() bool {
@@ -788,9 +835,9 @@ func newSSHPartitionTool(term *ssh.Client) *SSHPartitionTool {
 	return tool
 }
 
-func NewSSHPartitionTool(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartitionTool, error) {
+func NewSSHPartitionTool(term *ssh.Client, layouts []baremetal.Layout, rootMatcher *api.BaremetalRootDiskMatcher) (*SSHPartitionTool, error) {
 	tool := newSSHPartitionTool(term)
-	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
+	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts), rootMatcher)
 	if err := tool.RetrieveDiskInfo(); err != nil {
 		return nil, errors.Wrapf(err, "RetrieveDiskInfo")
 	}

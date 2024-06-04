@@ -410,6 +410,11 @@ func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userC
 			return nil, httperrors.NewInputParameterError("Invalid raid config: %v", err)
 		}
 	}
+	if input.BaremetalRootDiskMatcher != nil {
+		if err := baremetal.ValidateRootDiskMatcher(input.BaremetalRootDiskMatcher); err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid root disk matcher: %v", err)
+		}
+	}
 	//if len(input.Disks) <= 0 {
 	//	return nil, httperrors.NewInputParameterError("Root disk must be present")
 	//}

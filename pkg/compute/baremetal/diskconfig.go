@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
@@ -679,6 +680,15 @@ func ValidateDiskConfigs(confs []*api.BaremetalDiskConfig) error {
 			if hasRaidConf {
 				return fmt.Errorf("Raid config after none raid config %d", idx)
 			}
+		}
+	}
+	return nil
+}
+
+func ValidateRootDiskMatcher(input *api.BaremetalRootDiskMatcher) error {
+	if input.SizeMBRange != nil {
+		if input.SizeMBRange.Start > input.SizeMBRange.End {
+			return errors.Errorf("size_mb_range.start %d is large than size_mb_range.end %d", input.SizeMBRange.Start, input.SizeMBRange.End)
 		}
 	}
 	return nil
