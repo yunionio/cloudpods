@@ -369,6 +369,47 @@ func ParseIsolatedDevice(desc string, idx int) (*compute.IsolatedDeviceConfig, e
 	return dev, nil
 }
 
+func ParseBaremetalRootDiskMatcher(line string) (*compute.BaremetalRootDiskMatcher, error) {
+	ret := new(compute.BaremetalRootDiskMatcher)
+	for _, seg := range strings.Split(line, ",") {
+		info := strings.Split(seg, "=")
+		if len(info) != 2 {
+			return nil, errors.Errorf("invalid option %s", seg)
+		}
+		key := info[0]
+		val := info[1]
+		switch key {
+		case "size":
+			sizeMB, err := fileutils.GetSizeMb(val, 'M', 1024)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse size %s", val)
+			}
+			ret.SizeMB = int64(sizeMB)
+		case "device", "dev":
+			ret.Device = val
+		case "size_start":
+			sizeMB, err := fileutils.GetSizeMb(val, 'M', 1024)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse size_start %s", val)
+			}
+			if ret.SizeMBRange == nil {
+				ret.SizeMBRange = new(compute.RootDiskMatcherSizeMBRange)
+			}
+			ret.SizeMBRange.Start = int64(sizeMB)
+		case "size_end":
+			sizeMB, err := fileutils.GetSizeMb(val, 'M', 1024)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse size_end %s", val)
+			}
+			if ret.SizeMBRange == nil {
+				ret.SizeMBRange = new(compute.RootDiskMatcherSizeMBRange)
+			}
+			ret.SizeMBRange.End = int64(sizeMB)
+		}
+	}
+	return ret, nil
+}
+
 func ParseBaremetalDiskConfig(desc string) (*compute.BaremetalDiskConfig, error) {
 	bdc := new(compute.BaremetalDiskConfig)
 	bdc.Type = compute.DISK_TYPE_HYBRID

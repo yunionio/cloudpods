@@ -277,14 +277,15 @@ type ServerConfigs struct {
 		--disk 'size=500M'
 		--disk 'snpahost_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
 	" nargs:"+"`
-	DiskSchedtag   []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
-	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
-	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
-	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
-	RaidConfig     []string `help:"Baremetal raid config" json:"-"`
-	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
-	User           string   `help:"Owner user ID or Name"`
-	Count          int      `help:"Create multiple simultaneously" default:"1"`
+	DiskSchedtag    []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
+	Net             []string `help:"Network descriptions" metavar:"NETWORK"`
+	NetSchedtag     []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
+	IsolatedDevice  []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
+	RaidConfig      []string `help:"Baremetal raid config" json:"-"`
+	RootDiskMatcher string   `help:"Baremetal root disk matcher, e.g. 'device=/dev/sdb' 'size=900G' 'size_start=800G,size_end=900G'" json:"-"`
+	Project         string   `help:"'Owner project ID or Name" json:"tenant"`
+	User            string   `help:"Owner user ID or Name"`
+	Count           int      `help:"Create multiple simultaneously" default:"1"`
 }
 
 func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
@@ -355,6 +356,13 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 			}
 			data.BaremetalDiskConfigs = append(data.BaremetalDiskConfigs, raidConf)
 		}
+	}
+	if len(o.RootDiskMatcher) > 0 {
+		matcher, err := cmdline.ParseBaremetalRootDiskMatcher(o.RootDiskMatcher)
+		if err != nil {
+			return nil, err
+		}
+		data.BaremetalRootDiskMatcher = matcher
 	}
 	for _, tag := range o.Schedtag {
 		schedtag, err := cmdline.ParseSchedtagConfig(tag)
