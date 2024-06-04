@@ -45,5 +45,5 @@ func (self *SBingoCloudHostDriver) ValidateDiskSize(storage *models.SStorage, si
 }
 
 func (driver *SBingoCloudHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }

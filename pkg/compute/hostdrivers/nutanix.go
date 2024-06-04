@@ -45,5 +45,5 @@ func (self *SNutanixHostDriver) ValidateDiskSize(storage *models.SStorage, sizeG
 }
 
 func (driver *SNutanixHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }
