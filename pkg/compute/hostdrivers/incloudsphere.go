@@ -44,7 +44,7 @@ func (self *SInCloudSphereHostDriver) ValidateDiskSize(storage *models.SStorage,
 }
 
 func (self *SInCloudSphereHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }
 
 func (self *SInCloudSphereHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {

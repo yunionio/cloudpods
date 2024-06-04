@@ -45,7 +45,7 @@ func (self *SOpenStackHostDriver) ValidateDiskSize(storage *models.SStorage, siz
 }
 
 func (driver *SOpenStackHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }
 
 func (self *SOpenStackHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
