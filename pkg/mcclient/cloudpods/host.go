@@ -157,6 +157,10 @@ func (host *SHost) GetStorageSizeMB() int64 {
 	return host.StorageSize
 }
 
+func (host *SHost) GetStorageDriver() string {
+	return host.StorageDriver
+}
+
 func (host *SHost) GetStorageInfo() jsonutils.JSONObject {
 	return host.StorageInfo
 }
