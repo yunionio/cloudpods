@@ -58,7 +58,7 @@ func (self *SProxmoxHostDriver) ValidateDiskSize(storage *models.SStorage, sizeG
 }
 
 func (driver *SProxmoxHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 100
+	return -1
 }
 
 func (self *SProxmoxHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {

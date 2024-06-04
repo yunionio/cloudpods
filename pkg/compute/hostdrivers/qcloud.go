@@ -81,5 +81,5 @@ func (self *SQcloudHostDriver) RequestDeleteSnapshotWithStorage(ctx context.Cont
 }
 
 func (driver *SQcloudHostDriver) GetStoragecacheQuota(host *models.SHost) int {
-	return 10
+	return 500
 }
