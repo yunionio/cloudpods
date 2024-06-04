@@ -1476,7 +1476,7 @@ func (b *SBaremetalInstance) GetServer() baremetaltypes.IBaremetalServer {
 	defer b.serverLock.Unlock()
 	if !b.desc.Contains("server_id") && b.server != nil {
 		log.Warningf("baremetal %s server_id not present, remove server %q", b.GetName(), b.server.GetName())
-		b.RemoveServer()
+		b.removeServer()
 		return nil
 	}
 	return b.server
