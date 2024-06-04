@@ -17,6 +17,7 @@ package compute
 const (
 	MONGO_DB_STATUS_CREATING      = "creating"
 	MONGO_DB_STATUS_RUNNING       = "running"
+	MONGO_DB_STATUS_PROCESSING    = "processing"
 	MONGO_DB_STATUS_DEPLOY        = "deploy"
 	MONGO_DB_STATUS_CHANGE_CONFIG = "change_config"
 	MONGO_DB_STATUS_DELETING      = "deleting"
