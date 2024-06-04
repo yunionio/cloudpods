@@ -3164,7 +3164,7 @@ func (disk *SDisk) PerformRebuild(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input *api.DiskRebuildInput,
+	input api.DiskRebuildInput,
 ) (jsonutils.JSONObject, error) {
 	guests := disk.GetGuests()
 	for _, guest := range guests {
@@ -3173,54 +3173,67 @@ func (disk *SDisk) PerformRebuild(
 		}
 		guest.SetStatus(ctx, userCred, api.VM_DISK_RESET, "disk rebuild")
 	}
-	if input.BackupId != "" {
-		bkObj, err := DiskBackupManager.FetchByIdOrName(ctx, userCred, input.BackupId)
-		if err != nil {
-			return nil, httperrors.NewNotFoundError("found dick backup object by %s", input.BackupId)
-		}
-		if _, err := db.Update(disk, func() error {
-			disk.BackupId = bkObj.GetId()
-			return nil
-		}); err != nil {
-			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "update disk backup_id to %s", bkObj.GetId()))
-		}
+	err := disk.resetDiskinfo(ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "disk.resetDiskinfo")
 	}
 	disk.SetStatus(ctx, userCred, api.DISK_REBUILD, "disk rebuild")
 	return nil, disk.StartDiskCreateTask(ctx, userCred, true, disk.SnapshotId, "")
 }
 
-func (disk *SDisk) PerformResetTemplate(
+func (disk *SDisk) resetDiskinfo(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	query jsonutils.JSONDict,
-	input api.DiskResetTemplateInput,
-) (jsonutils.JSONObject, error) {
+	input api.DiskRebuildInput,
+) error {
 	if disk.DiskFormat != "raw" {
-		return nil, errors.Wrapf(errors.ErrInvalidStatus, "disk_format must be raw, not %s", disk.DiskFormat)
+		return errors.Wrapf(errors.ErrInvalidStatus, "disk_format must be raw, not %s", disk.DiskFormat)
 	}
 	if len(disk.FsFormat) == 0 {
-		return nil, errors.Wrap(errors.ErrInvalidStatus, "fs_format must be set")
+		return errors.Wrap(errors.ErrInvalidStatus, "fs_format must be set")
 	}
-	if len(input.TemplateId) > 0 {
-		imageObj, err := CachedimageManager.FetchById(input.TemplateId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), input.TemplateId)
-			} else {
-				return nil, errors.Wrap(err, "CachedimageManager.FetchById")
+	if input.TemplateId != nil {
+		if len(*input.TemplateId) > 0 {
+			imageObj, err := CachedimageManager.FetchByIdOrName(ctx, userCred, *input.TemplateId)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), *input.TemplateId)
+				} else {
+					return errors.Wrap(err, "CachedimageManager.FetchById")
+				}
 			}
+			image := imageObj.(*SCachedimage)
+			input.TemplateId = &image.Id
 		}
-		input.TemplateId = imageObj.GetId()
+	}
+	if input.BackupId != nil {
+		if len(*input.BackupId) > 0 {
+			bkObj, err := DiskBackupManager.FetchByIdOrName(ctx, userCred, *input.BackupId)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return httperrors.NewResourceNotFoundError2(DiskBackupManager.Keyword(), *input.BackupId)
+				} else {
+					return errors.Wrap(err, "DiskBackupManager.FetchByIdOrName")
+				}
+			}
+			backup := bkObj.(*SDiskBackup)
+			input.BackupId = &backup.Id
+		}
 	}
 	notes, err := db.Update(disk, func() error {
-		disk.TemplateId = input.TemplateId
+		if input.TemplateId != nil {
+			disk.TemplateId = *input.TemplateId
+		}
+		if input.BackupId != nil {
+			disk.BackupId = *input.BackupId
+		}
 		return nil
 	})
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_UPDATE, err, userCred, false)
-		return nil, errors.Wrap(err, "Update")
+		return errors.Wrap(err, "Update")
 	}
 	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_UPDATE, err, userCred, true)
 	db.OpsLog.LogEvent(disk, db.ACT_UPDATE, notes, userCred)
-	return nil, nil
+	return nil
 }
