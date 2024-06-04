@@ -256,6 +256,21 @@ type BaremetalDiskConfig struct {
 	Direct       *bool   `json:"direct,omitempty"`
 }
 
+type RootDiskMatcherSizeMBRange struct {
+	Start int64 `json:"start"`
+	End   int64 `json:"end"`
+}
+
+const (
+	BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER = "baremetal_root_disk_matcher"
+)
+
+type BaremetalRootDiskMatcher struct {
+	Device      string                      `json:"device"`
+	SizeMB      int64                       `json:"size_mb"`
+	SizeMBRange *RootDiskMatcherSizeMBRange `json:"size_mb_range"`
+}
+
 type ServerConfigs struct {
 	// 调度使用指定的云账号
 	PreferManager string `json:"prefer_manager_id"`
@@ -347,6 +362,9 @@ type ServerConfigs struct {
 
 	// 裸金属磁盘配置列表
 	BaremetalDiskConfigs []*BaremetalDiskConfig `json:"baremetal_disk_configs"`
+
+	// 裸金属系统盘匹配器
+	BaremetalRootDiskMatcher *BaremetalRootDiskMatcher `json:"baremetal_root_disk_matcher"`
 
 	// 主机组列表, 参数可以是主机组名称或ID,建议使用ID
 	InstanceGroupIds []string `json:"groups"`
