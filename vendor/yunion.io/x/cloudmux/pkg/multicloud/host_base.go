@@ -48,6 +48,10 @@ func (host *SHostBase) GetCpuArchitecture() string {
 	return apis.OS_ARCH_X86_64
 }
 
+func (host *SHostBase) GetStorageDriver() string {
+	return ""
+}
+
 func (host *SHostBase) GetStorageInfo() jsonutils.JSONObject {
 	return nil
 }

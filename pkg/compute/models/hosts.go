@@ -2015,6 +2015,9 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 			hh.IsBaremetal = true
 		}
 		hh.StorageInfo = extHost.GetStorageInfo()
+		if storageDriver := extHost.GetStorageDriver(); len(storageDriver) > 0 {
+			hh.StorageDriver = storageDriver
+		}
 		hh.OvnVersion = extHost.GetOvnVersion()
 
 		if cpuCmt := extHost.GetCpuCmtbound(); cpuCmt > 0 {
@@ -2271,6 +2274,7 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 	host.MemSize = extHost.GetMemSizeMB()
 	host.StorageSize = extHost.GetStorageSizeMB()
 	host.StorageType = extHost.GetStorageType()
+	host.StorageDriver = extHost.GetStorageDriver()
 	host.CpuCmtbound = 8.0
 	if cpuCmt := extHost.GetCpuCmtbound(); cpuCmt > 0 {
 		host.CpuCmtbound = cpuCmt
