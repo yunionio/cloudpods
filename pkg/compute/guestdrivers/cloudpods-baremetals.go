@@ -485,6 +485,33 @@ func (self *SCloudpodsBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context
 			data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "create")
 			return data, nil
 		})
+	case "rebuild":
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			iVm, err := guest.GetIVM(ctx)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetIVM")
+			}
+
+			opts := &cloudprovider.SManagedVMRebuildRootConfig{
+				Account:   desc.Account,
+				ImageId:   desc.ExternalImageId,
+				Password:  desc.Password,
+				PublicKey: desc.PublicKey,
+			}
+
+			_, err = iVm.RebuildRoot(ctx, opts)
+			if err != nil {
+				return nil, err
+			}
+			initialState := driver.GetGuestInitialStateAfterRebuild()
+			err = cloudprovider.WaitStatus(iVm, initialState, time.Second*5, time.Hour*1)
+			if err != nil {
+				return nil, err
+			}
+			data := fetchIVMinfo(desc, iVm, guest.Id, desc.Account, desc.Password, desc.PublicKey, "rebuild")
+			return data, nil
+		})
+		return nil
 	default:
 		return fmt.Errorf("Action %s not supported", val)
 	}
