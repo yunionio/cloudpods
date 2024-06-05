@@ -466,7 +466,7 @@ func (self *SBaremetalGuestDriver) RequestRebuildRootDisk(ctx context.Context, g
 	return nil
 }
 
-func (self *SBaremetalGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
+func (self *SBaremetalGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict, parentTaskId string) error {
 	return guest.StartGueststartTask(ctx, userCred, data, "")
 }
 

@@ -314,8 +314,8 @@ func (self *SVirtualizedGuestDriver) ValidateCreateDataOnHost(ctx context.Contex
 	return input, nil
 }
 
-func (self *SVirtualizedGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
-	return guest.StartGueststartTask(ctx, userCred, data, "")
+func (self *SVirtualizedGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict, parentTaskId string) error {
+	return guest.StartGueststartTask(ctx, userCred, data, parentTaskId)
 }
 
 func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, storageId string, task taskman.ITask) error {

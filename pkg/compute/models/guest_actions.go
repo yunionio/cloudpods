@@ -1044,7 +1044,7 @@ func (self *SGuest) PerformStart(
 		}
 		if self.isAllDisksReady() {
 			kwargs := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-			err := self.GetDriver().PerformStart(ctx, userCred, self, kwargs)
+			err := self.GetDriver().PerformStart(ctx, userCred, self, kwargs, "")
 			return nil, err
 		} else {
 			return nil, httperrors.NewInvalidStatusError("Some disk not ready")
