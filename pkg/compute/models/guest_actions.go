@@ -1129,7 +1129,7 @@ func (self *SGuest) PerformStart(
 			if err != nil {
 				return nil, errors.Wrapf(err, "GetDriver")
 			}
-			err = driver.PerformStart(ctx, userCred, self, kwargs)
+			err = driver.PerformStart(ctx, userCred, self, kwargs, "")
 			return nil, err
 		} else {
 			return nil, httperrors.NewInvalidStatusError("Some disk not ready")
