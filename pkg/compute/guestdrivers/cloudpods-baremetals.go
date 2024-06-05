@@ -401,13 +401,14 @@ func (self *SCloudpodsBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context
 
 	log.Debugf("%s baremetal config: %s", val, jsonutils.Marshal(desc).String())
 
+	iHost, err := host.GetIHost(ctx)
+	if err != nil {
+		return err
+	}
+
 	switch val {
 	case "create":
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			iHost, err := host.GetIHost(ctx)
-			if err != nil {
-				return nil, err
-			}
 			h := iHost.(*cloudpods.SHost)
 			opts := &api.ServerCreateInput{
 				ServerConfigs: &api.ServerConfigs{},
@@ -484,6 +485,10 @@ func (self *SCloudpodsBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context
 
 			data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "create")
 			return data, nil
+		})
+	case "deploy":
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			return self.SManagedVirtualizedGuestDriver.RemoteDeployGuestForDeploy(ctx, guest, iHost, task, desc)
 		})
 	case "rebuild":
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
