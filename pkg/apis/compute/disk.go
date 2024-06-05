@@ -337,9 +337,6 @@ type DiskSnapshotpolicyInput struct {
 }
 
 type DiskRebuildInput struct {
-	BackupId string `json:"backup_id"`
-}
-
-type DiskResetTemplateInput struct {
-	TemplateId string `json:"template_id"`
+	BackupId   *string `json:"backup_id,allowempty"`
+	TemplateId *string `json:"template_id,allowempty"`
 }
