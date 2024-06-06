@@ -235,8 +235,8 @@ func (p *SPodDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SG
 	return task.ScheduleRun(nil)
 }
 
-func (p *SPodDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "PodStartTask", guest, userCred, nil, "", "", nil)
+func (p *SPodDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "PodStartTask", guest, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "New PodStartTask")
 	}
