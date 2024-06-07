@@ -39,11 +39,11 @@ func (d *SAliyunSMSDriver) Name() string {
 }
 
 func (d *SAliyunSMSDriver) Verify(config *api.NotifyConfig) error {
-	err := d.Send(api.SSMSSendParams{}, true, config)
-	if err == ErrSignnameInvalid || err == ErrSignatureDoesNotMatch || err == ErrAccessKeyIdNotFound {
-		return nil
-	}
-	return errors.Wrap(err, "Verify")
+	return d.Send(api.SSMSSendParams{
+		RemoteTemplate:      config.VerifiyCode,
+		To:                  config.PhoneNumber,
+		RemoteTemplateParam: api.SRemoteTemplateParam{Code: "0000"},
+	}, true, config)
 }
 
 func (d *SAliyunSMSDriver) Send(args api.SSMSSendParams, isVerify bool, config *api.NotifyConfig) error {
@@ -64,9 +64,8 @@ func (d *SAliyunSMSDriver) sendSms(args api.SSMSSendParams) error {
 	// lock and update
 	client, err := sdk.NewClientWithAccessKey("default", args.AppKey, args.AppSecret)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "NewClientWithAccessKey")
 	}
-
 	m := parser.FindStringSubmatch(args.To)
 	if len(m) > 0 {
 		if m[1] == "86" {
