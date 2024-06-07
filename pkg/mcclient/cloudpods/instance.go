@@ -295,7 +295,11 @@ func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstan
 	if err != nil {
 		return errors.Wrapf(err, "deploy")
 	}
-	return cloudprovider.WaitMultiStatus(self, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
+	timeout := time.Minute * 3
+	if self.Hypervisor == api.HYPERVISOR_BAREMETAL {
+		timeout = time.Minute * 10
+	}
+	return cloudprovider.WaitMultiStatus(self, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, timeout)
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
