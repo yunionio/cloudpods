@@ -27,6 +27,7 @@ import (
 	"time"
 	"unsafe"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -171,12 +172,8 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTi
 		}
 	}
 
-	rawCmd, err := json.Marshal(cmd)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal qga cmd")
-	}
-
-	err = qga.write(rawCmd)
+	rawCmd := jsonutils.Marshal(cmd).String()
+	err := qga.write([]byte(rawCmd))
 	if err != nil {
 		return nil, errors.Wrap(err, "write cmd")
 	}
