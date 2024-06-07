@@ -902,11 +902,13 @@ func qgaCommand(ctx context.Context, userCred mcclient.TokenCredential, sid stri
 		return nil, httperrors.NewInputParameterError("failed parse qga command")
 	}
 	qgaCmd := &monitor.Command{}
-	err = cmdJson.Unmarshal(qgaCmd)
+	qgaCmd.Execute, err = cmdJson.GetString("execute")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("failed unmarshal qga command")
+		return nil, httperrors.NewInputParameterError("failed get qga command")
 	}
-
+	if cmdJson.Contains("arguments") {
+		qgaCmd.Args, _ = cmdJson.Get("arguments")
+	}
 	return gm.QgaCommand(qgaCmd, sid, input.Timeout)
 }
 
