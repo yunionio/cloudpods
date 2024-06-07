@@ -433,7 +433,11 @@ func (task *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj
 	guest := obj.(*models.SGuest)
 	if guest.Status == api.VM_READY && jsonutils.QueryBoolean(task.Params, "auto_start", false) {
 		task.SetStage("OnGuestStartComplete", nil)
-		guest.StartGueststartTask(ctx, task.UserCred, nil, task.GetTaskId())
+		drv := guest.GetDriver()
+		if err := drv.PerformStart(ctx, task.GetUserCred(), guest, nil, task.GetTaskId()); err != nil {
+			task.OnGuestStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
 	} else {
 		dt := jsonutils.NewDict()
 		dt.Add(jsonutils.NewString(guest.Id), "id")
