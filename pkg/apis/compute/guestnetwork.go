@@ -85,7 +85,8 @@ type GuestnetworkUpdateInput struct {
 
 	Index *int8 `json:"index"`
 
-	IsDefault *bool `json:"is_default"`
+	IsDefault    *bool             `json:"is_default"`
+	PortMappings GuestPortMappings `json:"port_mappings"`
 }
 
 type GuestnetworkBaseDesc struct {

@@ -87,3 +87,7 @@ type PodMetadataPortMapping struct {
 	HostPort      int32                  `json:"host_port,omitempty"`
 	HostIp        string                 `json:"host_ip"`
 }
+
+type GuestSetPortMappingsInput struct {
+	PortMappings []*PodPortMapping `json:"port_mappings"`
+}

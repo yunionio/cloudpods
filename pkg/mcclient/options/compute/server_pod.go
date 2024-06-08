@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
@@ -251,4 +252,25 @@ type PodExecOptions struct {
 	ContainerExecOptions
 	Scope     string `help:"Scope of containers query" choices:"system|domain|project"`
 	Container string `help:"Container name. If omitted, use the first container." short-token:"c"`
+}
+
+type PodSetPortMappingOptions struct {
+	ServerIdOptions
+	PortMapping []string `help:"Port mapping of the pod and the format is: host_port=8080,port=80,protocol=<tcp|udp>,host_port_range=<int>-<int>" short-token:"p"`
+}
+
+func (o *PodSetPortMappingOptions) Params() (jsonutils.JSONObject, error) {
+	portMappings := make([]*computeapi.PodPortMapping, 0)
+	if len(o.PortMapping) != 0 {
+		for _, input := range o.PortMapping {
+			pm, err := ParsePodPortMapping(input)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse port mapping: %s", input)
+			}
+			portMappings = append(portMappings, pm)
+		}
+	}
+	return jsonutils.Marshal(&computeapi.GuestSetPortMappingsInput{
+		PortMappings: portMappings,
+	}), nil
 }
