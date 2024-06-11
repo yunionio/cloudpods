@@ -790,6 +790,11 @@ func (m *SGuestManager) startDeploy(
 		return nil, errors.Errorf("missing telegraf_conf")
 	}
 
+	// refresh port_mappings
+	if err := NewPortMappingManager(m).AllocateGuestPortMappings(ctx, deployParams.UserCred, guest); err != nil {
+		return nil, errors.Wrap(err, "allocate port mappings")
+	}
+
 	guestInfo, err := guest.DeployFs(ctx, deployParams.UserCred,
 		deployapi.NewDeployInfo(
 			publicKey, deployArray,

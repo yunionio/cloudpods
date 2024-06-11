@@ -31,14 +31,14 @@ import (
 type PodCreateOptions struct {
 	NAME string `help:"Name of server pod" json:"-"`
 	ServerCreateCommonConfig
-	MEM         string   `help:"Memory size MB" metavar:"MEM" json:"-"`
-	VcpuCount   int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
-	AllowDelete *bool    `help:"Unlock server to allow deleting" json:"-"`
-	PortMapping []string `help:"Port mapping of the pod and the format is: host_port=8080,port=80,protocol=<tcp|udp>,host_port_range=<int>-<int>" short-token:"p"`
-	Arch        string   `help:"image arch" choices:"aarch64|x86_64"`
-	AutoStart   bool     `help:"Auto start server after it is created"`
-	PodUid      int64    `help:"UID of pod" default:"0"`
-	PodGid      int64    `help:"GID of pod" default:"0"`
+	MEM         string `help:"Memory size MB" metavar:"MEM" json:"-"`
+	VcpuCount   int    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
+	AllowDelete *bool  `help:"Unlock server to allow deleting" json:"-"`
+	//PortMapping []string `help:"Port mapping of the pod and the format is: host_port=8080,port=80,protocol=<tcp|udp>,host_port_range=<int>-<int>" short-token:"p"`
+	Arch      string `help:"image arch" choices:"aarch64|x86_64"`
+	AutoStart bool   `help:"Auto start server after it is created"`
+	PodUid    int64  `help:"UID of pod" default:"0"`
+	PodGid    int64  `help:"GID of pod" default:"0"`
 
 	ContainerCreateCommonOptions
 }
@@ -182,7 +182,7 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 	}
 	config.Hypervisor = computeapi.HYPERVISOR_POD
 
-	portMappings := make([]*computeapi.PodPortMapping, 0)
+	/*portMappings := make([]*computeapi.PodPortMapping, 0)
 	if len(o.PortMapping) != 0 {
 		for _, input := range o.PortMapping {
 			pm, err := ParsePodPortMapping(input)
@@ -191,7 +191,7 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 			}
 			portMappings = append(portMappings, pm)
 		}
-	}
+	}*/
 
 	spec, err := o.getCreateSpec()
 	if err != nil {
@@ -203,7 +203,7 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 		VcpuCount:     o.VcpuCount,
 		AutoStart:     o.AutoStart,
 		Pod: &computeapi.PodCreateInput{
-			PortMappings: portMappings,
+			//PortMappings: portMappings,
 			Containers: []*computeapi.PodContainerCreateInput{
 				{
 					ContainerSpec: *spec,

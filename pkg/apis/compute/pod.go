@@ -71,9 +71,9 @@ type PodSecurityContext struct {
 }
 
 type PodCreateInput struct {
-	Containers      []*PodContainerCreateInput `json:"containers"`
-	PortMappings    []*PodPortMapping          `json:"port_mappings"`
-	SecurityContext *PodSecurityContext        `json:"security_context,omitempty"`
+	Containers []*PodContainerCreateInput `json:"containers"`
+	//PortMappings    []*PodPortMapping          `json:"port_mappings"`
+	SecurityContext *PodSecurityContext `json:"security_context,omitempty"`
 }
 
 type PodStartResponse struct {

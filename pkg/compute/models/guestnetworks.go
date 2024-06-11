@@ -118,6 +118,8 @@ type SGuestnetwork struct {
 
 	// 是否为缺省路由
 	IsDefault bool `default:"false" list:"user"`
+
+	PortMappings api.GuestPortMappings `length:"long" list:"user" update:"user"`
 }
 
 func (gn SGuestnetwork) GetIP() string {
@@ -263,7 +265,8 @@ type newGuestNetworkArgs struct {
 	rxTrafficLimit int64
 	txTrafficLimit int64
 
-	virtual bool
+	virtual      bool
+	portMappings api.GuestPortMappings
 }
 
 func (manager *SGuestnetworkManager) newGuestNetwork(
@@ -310,6 +313,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	if bwLimit >= 0 {
 		gn.BwLimit = bwLimit
 	}
+	gn.PortMappings = args.portMappings
 
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
@@ -629,7 +633,8 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 			Mac:     gn.MacAddr,
 			Virtual: gn.Virtual,
 
-			IsDefault: gn.IsDefault,
+			IsDefault:    gn.IsDefault,
+			PortMappings: gn.PortMappings,
 		},
 	}
 
@@ -741,6 +746,14 @@ func (gn *SGuestnetwork) UpdateNicTrafficLimit(rx, tx *int64) error {
 		if tx != nil {
 			gn.TxTrafficLimit = *tx
 		}
+		return nil
+	})
+	return err
+}
+
+func (gn *SGuestnetwork) UpdatePortMappings(pms api.GuestPortMappings) error {
+	_, err := db.Update(gn, func() error {
+		gn.PortMappings = pms
 		return nil
 	})
 	return err

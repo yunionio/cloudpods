@@ -160,7 +160,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 
 func (s *sPodGuestInstance) DeployFs(ctx context.Context, userCred mcclient.TokenCredential, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
 	// update port_mappings
-	podInput, err := s.getPodCreateParams()
+	/*podInput, err := s.getPodCreateParams()
 	if err != nil {
 		return nil, errors.Wrap(err, "getPodCreateParams")
 	}
@@ -172,7 +172,7 @@ func (s *sPodGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 		if err := s.setPortMappings(ctx, userCred, s.convertToPodMetadataPortMappings(pms)); err != nil {
 			return nil, errors.Wrap(err, "set port mappings")
 		}
-	}
+	}*/
 	return nil, nil
 }
 
@@ -547,7 +547,7 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 
-	metaPms, err := s.GetPodMetadataPortMappings()
+	/*metaPms, err := s.GetPodMetadataPortMappings()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetPodMetadataPortMappings")
 	}
@@ -570,7 +570,7 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 			}
 		}
 		podCfg.PortMappings = pms
-	}
+	}*/
 
 	criId, err := s.getCRI().RunPod(ctx, podCfg, "")
 	if err != nil {

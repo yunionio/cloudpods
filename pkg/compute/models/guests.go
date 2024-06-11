@@ -3495,7 +3495,8 @@ type Attach2NetworkArgs struct {
 
 	Virtual bool
 
-	IsDefault bool
+	IsDefault    bool
+	PortMappings api.GuestPortMappings
 
 	PendingUsage quotas.IQuota
 }
@@ -3527,6 +3528,7 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		isDefault: args.IsDefault,
 
 		pendingUsage: args.PendingUsage,
+		portMappings: args.PortMappings,
 	}
 	if i > 0 {
 		r.ipAddr = ""
@@ -3569,6 +3571,7 @@ type attach2NetworkOnceArgs struct {
 	isDefault bool
 
 	pendingUsage quotas.IQuota
+	portMappings api.GuestPortMappings
 }
 
 func (self *SGuest) Attach2Network(
@@ -3644,7 +3647,8 @@ func (self *SGuest) attach2NetworkOnce(
 
 		virtual: args.virtual,
 
-		isDefault: args.isDefault,
+		isDefault:    args.isDefault,
+		portMappings: args.portMappings,
 	}
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
@@ -4416,7 +4420,8 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			UseDesignatedIP:     reuseAddr,
 			NicConfs:            nicConfs,
 
-			IsDefault: netConfig.IsDefault,
+			IsDefault:    netConfig.IsDefault,
+			PortMappings: netConfig.PortMappings,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "Attach2Network fail")
