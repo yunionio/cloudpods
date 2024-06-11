@@ -843,6 +843,12 @@ func (gn *SGuestnetwork) ValidateUpdateData(
 			return input, errors.Wrap(httperrors.ErrInvalidStatus, "nic of default gateway has no ip")
 		}
 	}
+	for _, pm := range input.PortMappings {
+		if err := validatePortMapping(pm); err != nil {
+			return input, err
+		}
+	}
+
 	var err error
 	input.GuestJointBaseUpdateInput, err = gn.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, input.GuestJointBaseUpdateInput)
 	if err != nil {
