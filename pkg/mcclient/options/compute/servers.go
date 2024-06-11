@@ -15,13 +15,13 @@
 package compute
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
 
@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 )
 
-var ErrEmtptyUpdate = errors.New("No valid update data")
+var ErrEmtptyUpdate = errors.Error("No valid update data")
 
 type ServerListOptions struct {
 	Zone               string   `help:"Zone ID or Name"`
@@ -252,6 +252,7 @@ type ServerCreateCommonConfig struct {
 	ResourceType   string   `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Schedtag       []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
+	NetPortMapping []string `help:"Network port mapping, e.g. 'index=0,port=80,host_port=8080,protocol=<tcp|udp>,host_port_range=<int>-<int>,remote_ips=x.x.x.x|y.y.y.y'" short-token:"p"`
 	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
 	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
 	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
@@ -298,6 +299,19 @@ func (o ServerCreateCommonConfig) Data() (*computeapi.ServerConfigs, error) {
 			return nil, err
 		}
 		data.Networks = append(data.Networks, net)
+	}
+	if len(o.NetPortMapping) != 0 {
+		pms, err := cmdline.ParseNetworkConfigPortMappings(o.NetPortMapping)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse network port mapping")
+		}
+		for idx, _ := range pms {
+			if idx >= len(data.Networks) {
+				return nil, errors.Errorf("not found %d network of index", idx)
+			}
+			pm := pms[idx]
+			data.Networks[idx].PortMappings = pm
+		}
 	}
 	for _, ntag := range o.NetSchedtag {
 		idx, tag, err := cmdline.ParseResourceSchedtagConfig(ntag)
@@ -1459,7 +1473,7 @@ func (o *ServerCPUSetOptions) Params() (jsonutils.JSONObject, error) {
 	sets := cgrouputils.ParseCpusetStr(o.SETS)
 	parts := strings.Split(sets, ",")
 	if len(parts) == 0 {
-		return nil, errors.New(fmt.Sprintf("Invalid cpu sets %q", o.SETS))
+		return nil, errors.Error(fmt.Sprintf("Invalid cpu sets %q", o.SETS))
 	}
 	input := &computeapi.ServerCPUSetInput{
 		CPUS: make([]int, 0),
@@ -1467,7 +1481,7 @@ func (o *ServerCPUSetOptions) Params() (jsonutils.JSONObject, error) {
 	for _, s := range parts {
 		sd, err := strconv.Atoi(s)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Not digit part %q", s))
+			return nil, errors.Wrapf(err, "Not digit part %q", s)
 		}
 		input.CPUS = append(input.CPUS, sd)
 	}

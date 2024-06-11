@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -1189,6 +1190,63 @@ func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, 
 		ct, ctExit := NetworkManager.to
 	}
 	*/
+	if len(netConfig.PortMappings) != 0 {
+		for i := range netConfig.PortMappings {
+			if err := validatePortMapping(netConfig.PortMappings[i]); err != nil {
+				return errors.Wrapf(err, "validate port mapping %s", jsonutils.Marshal(netConfig.PortMappings[i]))
+			}
+		}
+	}
+	return nil
+}
+
+func validatePortRange(portRange *api.GuestPortMappingPortRange) error {
+	if portRange != nil {
+		if portRange.Start > portRange.End {
+			return httperrors.NewInputParameterError("port range start %d is large than %d", portRange.Start, portRange.End)
+		}
+		if portRange.Start <= api.GUEST_PORT_MAPPING_RANGE_START {
+			return httperrors.NewInputParameterError("port range start %d <= %d", api.GUEST_PORT_MAPPING_RANGE_START, portRange.Start)
+		}
+		if portRange.End > api.GUEST_PORT_MAPPING_RANGE_END {
+			return httperrors.NewInputParameterError("port range end %d > %d", api.GUEST_PORT_MAPPING_RANGE_END, portRange.End)
+		}
+	}
+	return nil
+}
+
+func validatePort(port int, start int, end int) error {
+	if port < start || port > end {
+		return httperrors.NewInputParameterError("port number %d isn't within %d to %d", port, start, end)
+	}
+	return nil
+}
+
+func validatePortMapping(pm *api.GuestPortMapping) error {
+	if err := validatePortRange(pm.HostPortRange); err != nil {
+		return err
+	}
+	if pm.HostPort != nil {
+		if err := validatePort(*pm.HostPort, api.GUEST_PORT_MAPPING_RANGE_START, api.GUEST_PORT_MAPPING_RANGE_END); err != nil {
+			return errors.Wrap(err, "validate host_port")
+		}
+	}
+	if err := validatePort(pm.Port, 1, 65535); err != nil {
+		return errors.Wrap(err, "validate port")
+	}
+	if pm.Protocol == "" {
+		pm.Protocol = api.GuestPortMappingProtocolTCP
+	}
+	if !sets.NewString(string(api.GuestPortMappingProtocolUDP), string(api.GuestPortMappingProtocolTCP)).Has(string(pm.Protocol)) {
+		return httperrors.NewInputParameterError("unsupported protocol %s", pm.Protocol)
+	}
+	if len(pm.RemoteIps) != 0 {
+		for _, ip := range pm.RemoteIps {
+			if !regutils.MatchIPAddr(ip) {
+				return httperrors.NewInputParameterError("invalid ip %s", ip)
+			}
+		}
+	}
 	return nil
 }
 

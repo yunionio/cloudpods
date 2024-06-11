@@ -113,6 +113,8 @@ type NetworkConfig struct {
 	StandbyPortCount int `json:"standby_port_count"`
 	StandbyAddrCount int `json:"standby_addr_count"`
 
+	PortMappings GuestPortMappings `json:"port_mappings"`
+
 	// swagger:ignore
 	Project string `json:"project_id"`
 

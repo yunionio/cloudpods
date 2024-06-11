@@ -82,9 +82,9 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewNotEmptyError("containers data is empty")
 	}
 	// validate port mappings
-	if err := p.validatePortMappings(input.Pod); err != nil {
+	/*if err := p.validatePortMappings(input.Pod); err != nil {
 		return nil, errors.Wrap(err, "validate port mappings")
-	}
+	}*/
 
 	sameName := ""
 	for idx, ctr := range input.Pod.Containers {
@@ -100,7 +100,7 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 	return input, nil
 }
 
-func (p *SPodDriver) validatePortMappings(input *api.PodCreateInput) error {
+/*func (p *SPodDriver) validatePortMappings(input *api.PodCreateInput) error {
 	usedPorts := make(map[api.PodPortMappingProtocol]sets.Int)
 	for idx, pm := range input.PortMappings {
 		ports, ok := usedPorts[pm.Protocol]
@@ -119,7 +119,7 @@ func (p *SPodDriver) validatePortMappings(input *api.PodCreateInput) error {
 		}
 	}
 	return nil
-}
+}*/
 
 func (p *SPodDriver) validateHostPortMapping(hostId string, pm *api.PodPortMapping) error {
 	// TODO:
