@@ -45,11 +45,11 @@ func (d *SHuaweiSMSDriver) Name() string {
 }
 
 func (d *SHuaweiSMSDriver) Verify(config *api.NotifyConfig) error {
-	err := d.Send(api.SSMSSendParams{}, true, config)
-	if err == ErrSignnameInvalid || err == ErrSignatureDoesNotMatch || err == ErrAccessKeyIdNotFound {
-		return nil
-	}
-	return errors.Wrap(err, "Verify")
+	return d.Send(api.SSMSSendParams{
+		RemoteTemplate:      config.VerifiyCode,
+		To:                  config.PhoneNumber,
+		RemoteTemplateParam: api.SRemoteTemplateParam{Code: "0000"},
+	}, true, config)
 }
 
 func (d *SHuaweiSMSDriver) Send(args api.SSMSSendParams, isVerify bool, config *api.NotifyConfig) error {
@@ -62,7 +62,6 @@ func (d *SHuaweiSMSDriver) Send(args api.SSMSSendParams, isVerify bool, config *
 		args.AppSecret = models.ConfigMap[api.MOBILE].Content.AccessKeySecret
 		args.Signature = models.ConfigMap[api.MOBILE].Content.Signature
 	}
-
 	args.TemplateId = strings.Split(args.RemoteTemplate, "/")[1]
 	args.From = strings.Split(args.RemoteTemplate, "/")[0]
 	return d.sendSms(args)
