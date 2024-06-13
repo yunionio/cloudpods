@@ -218,6 +218,12 @@ type loggingResponseWriter struct {
 	data   []byte
 }
 
+func (lrw *loggingResponseWriter) Flush() {
+	if fw, ok := lrw.ResponseWriter.(http.Flusher); ok {
+		fw.Flush()
+	}
+}
+
 func (lrw *loggingResponseWriter) Write(data []byte) (int, error) {
 	lrw.data = data
 	return lrw.ResponseWriter.Write(data)

@@ -14,6 +14,12 @@
 
 package compute
 
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
+
 const (
 	POD_STATUS_CREATING_CONTAINER              = "creating_container"
 	POD_STATUS_CREATE_CONTAINER_FAILED         = "create_container_failed"
@@ -90,4 +96,68 @@ type PodMetadataPortMapping struct {
 
 type GuestSetPortMappingsInput struct {
 	PortMappings []*PodPortMapping `json:"port_mappings"`
+}
+
+type PodLogOptions struct {
+	// The container for which to stream logs. Defaults to only container if there is one container in the pod.
+	// +optional
+	Container string `json:"container,omitempty"`
+	// Follow the log stream of the pod. Defaults to false.
+	// +optional
+	Follow bool `json:"follow,omitempty"`
+	// Return previous terminated container logs. Defaults to false.
+	// +optional
+	Previous bool `json:"previous,omitempty"`
+	// A relative time in seconds before the current time from which to show logs. If this value
+	// precedes the time a pod was started, only logs since the pod start will be returned.
+	// If this value is in the future, no logs will be returned.
+	// Only one of sinceSeconds or sinceTime may be specified.
+	// +optional
+	SinceSeconds *int64 `json:"sinceSeconds,omitempty"`
+	// An RFC3339 timestamp from which to show logs. If this value
+	// precedes the time a pod was started, only logs since the pod start will be returned.
+	// If this value is in the future, no logs will be returned.
+	// Only one of sinceSeconds or sinceTime may be specified.
+	// +optional
+	SinceTime *time.Time `json:"sinceTime,omitempty"`
+	// If true, add an RFC3339 or RFC3339Nano timestamp at the beginning of every line
+	// of log output. Defaults to false.
+	// +optional
+	Timestamps bool `json:"timestamps,omitempty"`
+	// If set, the number of lines from the end of the logs to show. If not specified,
+	// logs are shown from the creation of the container or sinceSeconds or sinceTime
+	// +optional
+	TailLines *int64 `json:"tailLines,omitempty"`
+	// If set, the number of bytes to read from the server before terminating the
+	// log output. This may not display a complete final line of logging, and may return
+	// slightly more or slightly less than the specified limit.
+	// +optional
+	LimitBytes *int64 `json:"limitBytes,omitempty"`
+
+	// insecureSkipTLSVerifyBackend indicates that the apiserver should not confirm the validity of the
+	// serving certificate of the backend it is connecting to.  This will make the HTTPS connection between the apiserver
+	// and the backend insecure. This means the apiserver cannot verify the log data it is receiving came from the real
+	// kubelet.  If the kubelet is configured to verify the apiserver's TLS credentials, it does not mean the
+	// connection to the real kubelet is vulnerable to a man in the middle attack (e.g. an attacker could not intercept
+	// the actual log data coming from the real kubelet).
+	// +optional
+	InsecureSkipTLSVerifyBackend bool `json:"insecureSkipTLSVerifyBackend,omitempty"`
+}
+
+func ValidatePodLogOptions(opts *PodLogOptions) error {
+	if opts.TailLines != nil && *opts.TailLines < 0 {
+		return httperrors.NewInputParameterError("negative tail lines")
+	}
+	if opts.LimitBytes != nil && *opts.LimitBytes < 1 {
+		return httperrors.NewInputParameterError("limit_bytes must be greater than zero")
+	}
+	if opts.SinceSeconds != nil && opts.SinceTime != nil {
+		return httperrors.NewInputParameterError("at most one of since_time or since_seconds must be specified")
+	}
+	if opts.SinceSeconds != nil {
+		if *opts.SinceSeconds < 1 {
+			return httperrors.NewInputParameterError("since_seconds must be greater than zero")
+		}
+	}
+	return nil
 }

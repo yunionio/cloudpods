@@ -15,7 +15,9 @@
 package compute
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -115,5 +117,32 @@ func init() {
 	R(new(options.ContainerExecOptions), "container-exec", "Container exec", func(s *mcclient.ClientSession, opts *options.ContainerExecOptions) error {
 		man := modules.Containers
 		return man.Exec(s, opts.ID, opts.ToAPIInput())
+	})
+
+	R(new(options.ContainerLogOptions), "container-log", "Get container log", func(s *mcclient.ClientSession, opts *options.ContainerLogOptions) error {
+		man := modules.Containers
+		input, err := opts.ToAPIInput()
+		if err != nil {
+			return err
+		}
+		reader, err := man.Log(s, opts.ID, input)
+		if err != nil {
+			return errors.Wrap(err, "get container log")
+		}
+		defer reader.Close()
+
+		r := bufio.NewReader(reader)
+		for {
+			bytes, err := r.ReadBytes('\n')
+			if _, err := os.Stdout.Write(bytes); err != nil {
+				return errors.Wrap(err, "write container log to stdout")
+			}
+			if err != nil {
+				if err != io.EOF {
+					return errors.Wrap(err, "read container log")
+				}
+				return nil
+			}
+		}
 	})
 }

@@ -17,6 +17,7 @@ package guestman
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -54,6 +55,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/pod/image"
+	"yunion.io/x/onecloud/pkg/util/pod/logs"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -69,6 +71,8 @@ type PodInstance interface {
 	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
 	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
 	ContainerExecSync(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error)
+
+	ReadLogs(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.PodLogOptions, stdout, stderr io.Writer) error
 }
 
 type sContainer struct {
@@ -1645,4 +1649,24 @@ func (s *sPodGuestInstance) ContainerExecSync(ctx context.Context, userCred mccl
 		Stderr:   string(resp.Stderr),
 		ExitCode: resp.ExitCode,
 	}), nil
+}
+
+func (s *sPodGuestInstance) ReadLogs(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.PodLogOptions, stdout, stderr io.Writer) error {
+	// Do a zero-byte write to stdout before handing off to the container runtime.
+	// This ensures at least one Write call is made to the writer when copying starts,
+	// even if we then block waiting for log output from the container.
+	if _, err := stdout.Write([]byte{}); err != nil {
+		return err
+	}
+	ctrCriId, err := s.getContainerCRIId(ctrId)
+	if err != nil {
+		return errors.Wrapf(err, "get container cri id %s", ctrId)
+	}
+	resp, err := s.getCRI().ContainerStatus(ctx, ctrCriId)
+	if err != nil {
+		return errors.Wrapf(err, "get container status %s", ctrCriId)
+	}
+	logPath := resp.GetStatus().GetLogPath()
+	opts := logs.NewLogOptions(input, time.Now())
+	return logs.ReadLogs(ctx, logPath, ctrCriId, opts, s.getCRI().GetRuntimeClient(), stdout, stderr)
 }

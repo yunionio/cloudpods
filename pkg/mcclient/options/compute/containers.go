@@ -18,6 +18,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -339,4 +340,43 @@ func (o *ContainerExecSyncOptions) Params() (jsonutils.JSONObject, error) {
 		Command: cmd,
 		Timeout: o.Timeout,
 	}), nil
+}
+
+type ContainerLogOptions struct {
+	ServerIdOptions
+	Since      string `help:"Only return logs newer than a relative duration like 5s, 2m, or 3h"`
+	Follow     bool   `help:"Follow log output" short-token:"f"`
+	Tail       int64  `help:"Lines of recent log file to display"`
+	Timestamps bool   `help:"Show timestamps on each line in the log output"`
+	LimitBytes int64  `help:"Maximum amount of bytes that can be used."`
+}
+
+func (o *ContainerLogOptions) Params() (jsonutils.JSONObject, error) {
+	input, err := o.ToAPIInput()
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(input), nil
+}
+
+func (o *ContainerLogOptions) ToAPIInput() (*computeapi.PodLogOptions, error) {
+	opt := &computeapi.PodLogOptions{
+		Follow:     o.Follow,
+		Timestamps: o.Timestamps,
+	}
+	if o.LimitBytes > 0 {
+		opt.LimitBytes = &o.LimitBytes
+	}
+	if o.Tail > 0 {
+		opt.TailLines = &o.Tail
+	}
+	if len(o.Since) > 0 {
+		dur, err := time.ParseDuration(o.Since)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse duration %s", o.Since)
+		}
+		sec := int64(dur.Round(time.Second).Seconds())
+		opt.SinceSeconds = &sec
+	}
+	return opt, nil
 }
