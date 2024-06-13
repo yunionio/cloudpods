@@ -417,6 +417,9 @@ func parseNetworkConfigPortMapping(desc string) (int, *compute.GuestPortMapping,
 				Start: start,
 				End:   end,
 			}
+		case "remote_ips", "remote_ip":
+			ips := strings.Split(val, "|")
+			pm.RemoteIps = ips
 		}
 	}
 	if pm.Port == 0 {
