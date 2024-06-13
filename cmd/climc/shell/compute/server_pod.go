@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"os"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
@@ -44,34 +46,57 @@ func init() {
 		return nil
 	})
 
-	R(&options.PodExecOptions{}, "pod-exec", "Execute a command in a container", func(s *mcclient.ClientSession, opt *options.PodExecOptions) error {
+	getContainerId := func(s *mcclient.ClientSession, scope string, podId string, container string) (string, error) {
 		listOpt := map[string]string{
-			"guest_id": opt.ID,
+			"guest_id": podId,
 		}
-		if len(opt.Scope) != 0 {
-			listOpt["scope"] = opt.Scope
+		if len(scope) != 0 {
+			listOpt["scope"] = scope
 		}
 		ctrs, err := modules.Containers.List(s, jsonutils.Marshal(listOpt))
 		if err != nil {
-			return errors.Wrapf(err, "list containers by guest_id %s", opt.ID)
+			return "", errors.Wrapf(err, "list containers by guest_id %s", podId)
 		}
 		if len(ctrs.Data) == 0 {
-			return errors.Errorf("count of container is 0")
+			return "", errors.Errorf("count of container is 0")
 		}
 		var ctrId string
-		if opt.Container == "" {
+		if container == "" {
 			ctrId, _ = ctrs.Data[0].GetString("id")
 		} else {
 			for _, ctr := range ctrs.Data {
 				id, _ := ctr.GetString("id")
 				name, _ := ctr.GetString("name")
-				if opt.Container == id || opt.Container == name {
+				if container == id || container == name {
 					ctrId, _ = ctr.GetString("id")
 					break
 				}
 			}
 		}
+		return ctrId, nil
+	}
+
+	R(&options.PodExecOptions{}, "pod-exec", "Execute a command in a container", func(s *mcclient.ClientSession, opt *options.PodExecOptions) error {
+		ctrId, err := getContainerId(s, opt.Scope, opt.ID, opt.Container)
+		if err != nil {
+			return err
+		}
 		return modules.Containers.Exec(s, ctrId, opt.ToAPIInput())
+	})
+
+	R(&options.PodLogOptions{}, "pod-log", "Get container log of a pod", func(s *mcclient.ClientSession, opt *options.PodLogOptions) error {
+		ctrId, err := getContainerId(s, opt.Scope, opt.ID, opt.Container)
+		if err != nil {
+			return err
+		}
+		input, err := opt.ToAPIInput()
+		if err != nil {
+			return err
+		}
+		if err := modules.Containers.LogToWriter(s, ctrId, input, os.Stdout); err != nil {
+			return errors.Wrap(err, "get container log")
+		}
+		return nil
 	})
 
 	type MigratePortMappingsOptions struct {
