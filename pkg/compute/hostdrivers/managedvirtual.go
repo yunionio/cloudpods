@@ -59,6 +59,8 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 		image.OsVersion = input.OsFullVersion
 	}
 
+	size := int64(0)
+
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
 		lockman.LockRawObject(ctx, models.CachedimageManager.Keyword(), fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
@@ -138,11 +140,12 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 			}()
 			log.Infof("upload image %s id: %s", image.ImageName, image.ExternalId)
 		} else {
-			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
+			_, err := iStorageCache.GetIImageById(cachedImage.ExternalId)
 			if err != nil {
 				return nil, errors.Wrapf(err, "iStorageCache.GetIImageById(%s) for %s", cachedImage.ExternalId, iStorageCache.GetGlobalId())
 			}
 			image.ExternalId = cachedImage.ExternalId
+			size = cachedImage.Size
 		}
 		if err != nil {
 			return nil, err
@@ -155,6 +158,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 
 		ret := jsonutils.NewDict()
 		ret.Add(jsonutils.NewString(image.ExternalId), "image_id")
+		ret.Add(jsonutils.NewInt(size), "size")
 		return ret, nil
 	})
 	return nil

@@ -79,6 +79,7 @@ const (
 	HYPERVISOR_QINGCLOUD      = "qingcloud"
 	HYPERVISOR_VOLCENGINE     = "volcengine"
 	HYPERVISOR_ORACLE         = "oracle"
+	HYPERVISOR_SANGFOR        = "sangfor"
 )
 
 const (
