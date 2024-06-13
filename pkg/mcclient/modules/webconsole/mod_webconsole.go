@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 var (
@@ -76,7 +77,7 @@ func (m WebConsoleManager) DoAdbShell(s *mcclient.ClientSession, id string, para
 	return m.DoConnect(s, "adb", id, "shell", params)
 }
 
-func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) doContainerAction(s *mcclient.ClientSession, data jsonutils.JSONObject, getArgs func(containerId string) []string) (jsonutils.JSONObject, error) {
 	containerId, err := data.GetString("container_id")
 	if err != nil {
 		return nil, errors.Wrap(err, "get container_id")
@@ -105,7 +106,36 @@ func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonu
 		InstanceName: containerName,
 		IPs:          strings.Split(serverDetails.IPs, ","),
 	}
-	return m.doCloudShell(s, info, "/opt/yunion/bin/climc", "container-exec", containerId, "sh")
+	args := getArgs(containerId)
+	return m.doCloudShell(s, info, "/opt/yunion/bin/climc", args...)
+}
+
+func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	opt := new(compute_options.ContainerLogOptions)
+	data.Unmarshal(opt)
+	return m.doContainerAction(s, data, func(containerId string) []string {
+		args := []string{"container-exec"}
+		if opt.Tail > 0 {
+			args = append(args, "--tail", fmt.Sprintf("%d", opt.Tail))
+		}
+		if opt.LimitBytes > 0 {
+			args = append(args, "--limit-bytes", fmt.Sprintf("%d", opt.LimitBytes))
+		}
+		if opt.Since != "" {
+			args = append(args, "--since", opt.Since)
+		}
+		if opt.Follow {
+			args = append(args, "-f")
+		}
+		args = append(args, containerId)
+		return []string{"container-exec", containerId}
+	})
+}
+
+func (m WebConsoleManager) DoContainerLog(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return m.doContainerAction(s, data, func(containerId string) []string {
+		return []string{"container-log", containerId, "sh"}
+	})
 }
 
 type CloudShellRequest struct {

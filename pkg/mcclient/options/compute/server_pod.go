@@ -254,6 +254,12 @@ type PodExecOptions struct {
 	Container string `help:"Container name. If omitted, use the first container." short-token:"c"`
 }
 
+type PodLogOptions struct {
+	ContainerLogOptions
+	Scope     string `help:"Scope of containers query" choices:"system|domain|project"`
+	Container string `help:"Container name. If omitted, use the first container." short-token:"c"`
+}
+
 type PodSetPortMappingOptions struct {
 	ServerIdOptions
 	PortMapping []string `help:"Port mapping of the pod and the format is: host_port=8080,port=80,protocol=<tcp|udp>,host_port_range=<int>-<int>" short-token:"p"`

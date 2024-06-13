@@ -11,7 +11,6 @@ import (
 
 	"golang.org/x/net/http2"
 	"k8s.io/apimachinery/pkg/util/net"
-	"moul.io/http2curl/v2"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/httputils"
@@ -46,8 +45,6 @@ func (r *Request) Stream(ctx context.Context, method string, url string) (io.Rea
 		client = httputils.GetTimeoutClient(1 * time.Hour)
 	}
 
-	curlCmd, _ := http2curl.GetCurlCommand(req)
-	log.Infof("curl: %s", curlCmd)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

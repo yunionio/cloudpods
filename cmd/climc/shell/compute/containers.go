@@ -15,9 +15,7 @@
 package compute
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -125,24 +123,9 @@ func init() {
 		if err != nil {
 			return err
 		}
-		reader, err := man.Log(s, opts.ID, input)
-		if err != nil {
+		if err := man.LogToWriter(s, opts.ID, input, os.Stdout); err != nil {
 			return errors.Wrap(err, "get container log")
 		}
-		defer reader.Close()
-
-		r := bufio.NewReader(reader)
-		for {
-			bytes, err := r.ReadBytes('\n')
-			if _, err := os.Stdout.Write(bytes); err != nil {
-				return errors.Wrap(err, "write container log to stdout")
-			}
-			if err != nil {
-				if err != io.EOF {
-					return errors.Wrap(err, "read container log")
-				}
-				return nil
-			}
-		}
+		return nil
 	})
 }

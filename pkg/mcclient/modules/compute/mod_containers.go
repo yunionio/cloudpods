@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -116,6 +117,29 @@ func (man ContainerManager) Log(s *mcclient.ClientSession, id string, opt *api.P
 		return nil, errors.Wrap(err, "stream request")
 	}
 	return reader, nil
+}
+
+func (man ContainerManager) LogToWriter(s *mcclient.ClientSession, id string, opt *api.PodLogOptions, out io.Writer) error {
+	reader, err := man.Log(s, id, opt)
+	if err != nil {
+		return errors.Wrap(err, "get container log")
+	}
+	defer reader.Close()
+
+	r := bufio.NewReader(reader)
+	for {
+		bytes, err := r.ReadBytes('\n')
+		if _, err := out.Write(bytes); err != nil {
+			return errors.Wrap(err, "write container log to stdout")
+		}
+		if err != nil {
+			if err != io.EOF {
+				return errors.Wrap(err, "read container log")
+			}
+			return nil
+		}
+	}
+	return nil
 }
 
 var (

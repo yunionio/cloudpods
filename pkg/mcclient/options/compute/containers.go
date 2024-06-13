@@ -344,11 +344,11 @@ func (o *ContainerExecSyncOptions) Params() (jsonutils.JSONObject, error) {
 
 type ContainerLogOptions struct {
 	ServerIdOptions
-	Since      string `help:"Only return logs newer than a relative duration like 5s, 2m, or 3h"`
-	Follow     bool   `help:"Follow log output" short-token:"f"`
-	Tail       int64  `help:"Lines of recent log file to display"`
-	Timestamps bool   `help:"Show timestamps on each line in the log output"`
-	LimitBytes int64  `help:"Maximum amount of bytes that can be used."`
+	Since      string `help:"Only return logs newer than a relative duration like 5s, 2m, or 3h" json:"since"`
+	Follow     bool   `help:"Follow log output" short-token:"f" json:"follow"`
+	Tail       int64  `help:"Lines of recent log file to display" json:"tail"`
+	Timestamps bool   `help:"Show timestamps on each line in the log output" json:"timestamps"`
+	LimitBytes int64  `help:"Maximum amount of bytes that can be used." json:"limitBytes"`
 }
 
 func (o *ContainerLogOptions) Params() (jsonutils.JSONObject, error) {
