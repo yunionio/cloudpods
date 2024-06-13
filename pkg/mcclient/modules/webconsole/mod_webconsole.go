@@ -128,13 +128,13 @@ func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonu
 			args = append(args, "-f")
 		}
 		args = append(args, containerId)
-		return []string{"container-exec", containerId}
+		return []string{"container-exec", containerId, "sh"}
 	})
 }
 
 func (m WebConsoleManager) DoContainerLog(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.doContainerAction(s, data, func(containerId string) []string {
-		return []string{"container-log", containerId, "sh"}
+		return []string{"container-log", containerId}
 	})
 }
 
