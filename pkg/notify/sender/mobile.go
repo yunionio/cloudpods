@@ -53,7 +53,7 @@ func (smsSender *SMobileSender) ValidateConfig(ctx context.Context, config api.N
 	if driver == nil {
 		return "", errors.Wrap(errors.ErrNotFound, "driver disabled")
 	}
-	return "", nil
+	return "", driver.Verify(&config)
 }
 
 func (smsSender *SMobileSender) UpdateConfig(config api.NotifyConfig) error {
