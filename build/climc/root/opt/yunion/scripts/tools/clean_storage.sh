@@ -29,6 +29,11 @@ do
     climc disk-purge $disk_id > /dev/null
 done
 
+for snapshot_id in $(climc snapshot-list --limit 2048 --scope system  --admin  --filter "storage_id.equals($STORAGE_ID)" | egrep '[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}' | awk '{print $2}')
+do
+    climc snapshot-delete $snapshot_id > /dev/null
+done
+
 # CACHE_ID=$(climc storage-show $STORAGE_ID | grep -w " storagecache_id " | awk '{print $4}')
 
 climc storage-delete $STORAGE_ID > /dev/null
