@@ -2612,6 +2612,22 @@ func (self *SGuest) moreExtraInfo(
 		out.MonitorUrl = drv.FetchMonitorUrl(ctx, self)
 	}
 
+	if drv != nil && drv.GetHypervisor() == api.HYPERVISOR_POD {
+		ctrs, _ := GetContainerManager().GetContainersByPod(self.GetId())
+		desc := make([]*api.PodContainerDesc, len(ctrs))
+		for i := range ctrs {
+			ctr := ctrs[i]
+			desc[i] = &api.PodContainerDesc{
+				Id:   ctr.GetId(),
+				Name: ctr.GetName(),
+			}
+			if ctr.Spec != nil {
+				desc[i].Image = ctr.Spec.Image
+			}
+		}
+		out.Containers = desc
+	}
+
 	return out
 }
 
