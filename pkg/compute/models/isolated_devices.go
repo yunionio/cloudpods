@@ -1003,7 +1003,20 @@ func (manager *SIsolatedDeviceManager) DeleteDevicesByHost(ctx context.Context, 
 	}
 }
 
-func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string, count int) ([]SIsolatedDevice, error) {
+func (manager *SIsolatedDeviceManager) GetAllDevsOnHost(hostId string) ([]SIsolatedDevice, error) {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.Query().Equals("host_id", hostId)
+	err := db.FetchModelObjects(manager, q, &devs)
+	if err != nil {
+		return nil, err
+	}
+	if len(devs) == 0 {
+		return nil, nil
+	}
+	return devs, nil
+}
+
+func (manager *SIsolatedDeviceManager) GetUnusedDevsOnHost(hostId string, model string, count int) ([]SIsolatedDevice, error) {
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.Query().Equals("host_id", hostId).Equals("model", model).IsNullOrEmpty("guest_id").Limit(count)
 	err := db.FetchModelObjects(manager, q, &devs)

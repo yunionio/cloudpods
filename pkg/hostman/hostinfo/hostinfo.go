@@ -2138,10 +2138,31 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs, options.HostOptions.AMDVgpuPFs, options.HostOptions.NVIDIAVgpuPFs,
 		enableDevWhitelist)
 
-	objs, err := h.getRemoteIsolatedDevices()
-	if err != nil {
-		return nil, errors.Wrap(err, "getRemoteIsolatedDevices")
+	h.IsolatedDeviceMan.BatchCustomProbe()
+	// sync each isolated device found
+	updateDevs := jsonutils.NewArray()
+	for _, dev := range h.IsolatedDeviceMan.GetDevices() {
+		dev.SetHostId(h.HostId)
+		data := isolated_device.GetApiResourceData(dev)
+		updateDevs.Add(data)
 	}
+
+	params := jsonutils.NewDict()
+	params.Set("isolated_devices", updateDevs)
+	ret, err := modules.Hosts.PerformAction(h.GetSession(), h.HostId, "sync-isolated-devices", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "sync isolated devices")
+	}
+	devRet, err := ret.Get("isolated_devices")
+	if err != nil {
+		return nil, errors.Wrap(err, "sync isolated devices faild get dev rets")
+	}
+	devRets, _ := devRet.(*jsonutils.JSONArray)
+	if devRets.Length() != len(h.IsolatedDeviceMan.GetDevices()) {
+		return nil, errors.Wrap(err, "sync devices not match")
+	}
+
+	objs, _ := devRets.GetArray()
 	for _, obj := range objs {
 		info := isolated_device.CloudDeviceInfo{}
 		if err := obj.Unmarshal(&info); err != nil {
@@ -2151,23 +2172,11 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		if dev != nil {
 			dev.SetDeviceInfo(info)
 		} else {
-			// detach device
-			h.IsolatedDeviceMan.AppendDetachedDevice(&info)
+			return nil, errors.Wrapf(err, "unknown device %s", obj)
 		}
 	}
-	h.IsolatedDeviceMan.StartDetachTask()
-	h.IsolatedDeviceMan.BatchCustomProbe()
 
-	// sync each isolated device found
-	updateDevs := jsonutils.NewArray()
-	for _, dev := range h.IsolatedDeviceMan.GetDevices() {
-		if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev); err != nil {
-			return nil, errors.Wrapf(err, "Sync device %s", dev)
-		} else {
-			updateDevs.Add(obj)
-		}
-	}
-	return updateDevs, nil
+	return devRets, nil
 }
 
 func (h *SHostInfo) deployAdminAuthorizedKeys() {
