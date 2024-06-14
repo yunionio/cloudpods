@@ -109,8 +109,8 @@ type STask struct {
 
 	Id string `width:"36" charset:"ascii" primary:"true" list:"user"` // Column(VARCHAR(36, charset='ascii'), primary_key=True, default=get_uuid)
 
-	ObjType  string `old_name:"obj_name" json:"obj_type" width:"128" charset:"utf8" nullable:"false" list:"user"`
-	Object   string `json:"object" width:"128" charset:"utf8" nullable:"false" list:"user"` //  Column(VARCHAR(128, charset='utf8'), nullable=False)
+	ObjType  string `old_name:"obj_name" json:"obj_type" width:"128" charset:"utf8" nullable:"true" list:"user"`
+	Object   string `json:"object" width:"128" charset:"utf8" nullable:"true" list:"user"`  //  Column(VARCHAR(128, charset='utf8'), nullable=False)
 	ObjId    string `width:"128" charset:"ascii" nullable:"false" list:"user" index:"true"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 	TaskName string `width:"64" charset:"ascii" nullable:"false" list:"user"`               // Column(VARCHAR(64, charset='ascii'), nullable=False)
 
