@@ -1242,8 +1242,8 @@ func validatePortMapping(pm *api.GuestPortMapping) error {
 	}
 	if len(pm.RemoteIps) != 0 {
 		for _, ip := range pm.RemoteIps {
-			if !regutils.MatchIPAddr(ip) {
-				return httperrors.NewInputParameterError("invalid ip %s", ip)
+			if !regutils.MatchIPAddr(ip) && !regutils.MatchCIDR(ip) {
+				return httperrors.NewInputParameterError("invalid ip or prefix %s", ip)
 			}
 		}
 	}
