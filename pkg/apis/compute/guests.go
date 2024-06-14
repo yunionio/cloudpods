@@ -274,6 +274,15 @@ type ServerDetails struct {
 
 	// 监控上报URL
 	MonitorUrl string `json:"monitor_url"`
+
+	// 容器描述信息
+	Containers []*PodContainerDesc `json:"containers"`
+}
+
+type PodContainerDesc struct {
+	Id    string `json:"id"`
+	Name  string `json:"name"`
+	Image string `json:"image"`
 }
 
 type Floppy struct {
