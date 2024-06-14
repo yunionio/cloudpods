@@ -1767,6 +1767,13 @@ func reflectDispatcherInternal(
 	}
 }
 
+func DoUpdate(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	lockman.LockObject(ctx, item)
+	defer lockman.ReleaseObject(ctx, item)
+
+	return updateItem(manager, item, ctx, userCred, query, data)
+}
+
 func updateItem(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var err error
 
