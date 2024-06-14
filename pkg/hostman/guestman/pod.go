@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -52,7 +51,6 @@ import (
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	imagemod "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
 	"yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/pod/image"
 	"yunion.io/x/onecloud/pkg/util/pod/logs"
@@ -373,18 +371,6 @@ func (s *sPodGuestInstance) getPodPrivilegedMode(input *computeapi.PodCreateInpu
 	return false
 }
 
-func (s *sPodGuestInstance) getPortMappings(input []*computeapi.PodPortMapping) ([]*runtimeapi.PortMapping, error) {
-	result := make([]*runtimeapi.PortMapping, len(input))
-	for idx := range input {
-		pm, err := s.getPortMapping(input[idx])
-		if err != nil {
-			return nil, errors.Wrapf(err, "get port mapping %s", jsonutils.Marshal(input[idx]))
-		}
-		result[idx] = pm
-	}
-	return result, nil
-}
-
 func (s *sPodGuestInstance) getOtherPods() []*sPodGuestInstance {
 	man := s.manager
 	otherPods := make([]*sPodGuestInstance, 0)
@@ -401,81 +387,6 @@ func (s *sPodGuestInstance) getOtherPods() []*sPodGuestInstance {
 		return true
 	})
 	return otherPods
-}
-
-func (s *sPodGuestInstance) getOtherPodsUsedPorts() (map[computeapi.PodPortMappingProtocol]sets.Int, error) {
-	otherPods := s.getOtherPods()
-	ret := make(map[computeapi.PodPortMappingProtocol]sets.Int)
-	for _, pod := range otherPods {
-		pms, err := pod.GetPodMetadataPortMappings()
-		if err != nil {
-			return nil, errors.Wrapf(err, "get pod %s port_mappins", pod.GetId())
-		}
-		for _, pm := range pms {
-			ps, ok := ret[pm.Protocol]
-			if !ok {
-				ps = sets.NewInt()
-			}
-			ps.Insert(int(pm.HostPort))
-			ret[pm.Protocol] = ps
-		}
-	}
-	return ret, nil
-}
-
-func (s *sPodGuestInstance) getPortMapping(pm *computeapi.PodPortMapping) (*runtimeapi.PortMapping, error) {
-	runtimePm := &runtimeapi.PortMapping{
-		ContainerPort: int32(pm.ContainerPort),
-		HostIp:        pm.HostIp,
-	}
-	portProtocol := getport.TCP
-	switch pm.Protocol {
-	case computeapi.PodPortMappingProtocolTCP:
-		runtimePm.Protocol = runtimeapi.Protocol_TCP
-		portProtocol = getport.TCP
-	case computeapi.PodPortMappingProtocolUDP:
-		runtimePm.Protocol = runtimeapi.Protocol_UDP
-		portProtocol = getport.UDP
-	//case computeapi.PodPortMappingProtocolSCTP:
-	//	runtimePm.Protocol = runtimeapi.Protocol_SCTP
-	default:
-		return nil, errors.Errorf("invalid protocol: %q", pm.Protocol)
-	}
-	// listen random port
-	otherPorts, err := s.getOtherPodsUsedPorts()
-	if err != nil {
-		return nil, errors.Wrap(err, "getOtherPodsUsedPorts")
-	}
-	if pm.HostPort != nil {
-		runtimePm.HostPort = int32(*pm.HostPort)
-		if getport.IsPortUsed(portProtocol, "", *pm.HostPort) {
-			return nil, httperrors.NewInputParameterError("host_port %d is used", *pm.HostPort)
-		}
-		usedPorts, ok := otherPorts[pm.Protocol]
-		if ok {
-			if usedPorts.Has(*pm.HostPort) {
-				return nil, errors.Errorf("%s host_port %d is already used", pm.Protocol, *pm.HostPort)
-			}
-		}
-		return runtimePm, nil
-	} else {
-		start := computeapi.POD_PORT_MAPPING_RANGE_START
-		end := computeapi.POD_PORT_MAPPING_RANGE_END
-		if pm.HostPortRange != nil {
-			start = pm.HostPortRange.Start
-			end = pm.HostPortRange.End
-		}
-		otherPodPorts, ok := otherPorts[pm.Protocol]
-		if !ok {
-			otherPodPorts = sets.NewInt()
-		}
-		portResult, err := getport.GetPortByRangeBySets(portProtocol, start, end, otherPodPorts)
-		if err != nil {
-			return nil, errors.Wrapf(err, "listen %s port inside %d and %d", pm.Protocol, start, end)
-		}
-		runtimePm.HostPort = int32(portResult.Port)
-		return runtimePm, nil
-	}
 }
 
 func (s *sPodGuestInstance) getCgroupParent() string {
@@ -551,9 +462,9 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 
-	/*metaPms, err := s.GetPodMetadataPortMappings()
+	/*metaPms, err := s.GetPortMappings()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetPodMetadataPortMappings")
+		return nil, errors.Wrap(err, "GetPortMappings")
 	}
 	if len(metaPms) != 0 {
 		pms := make([]*runtimeapi.PortMapping, len(metaPms))
@@ -862,18 +773,15 @@ func (s *sPodGuestInstance) getPodSandboxConfig() (*runtimeapi.PodSandboxConfig,
 	return podCfg, nil
 }
 
-func (s *sPodGuestInstance) GetPodMetadataPortMappings() ([]*computeapi.PodMetadataPortMapping, error) {
-	cfgStr := s.GetSourceDesc().Metadata[computeapi.POD_METADATA_PORT_MAPPINGS]
-	if cfgStr == "" {
-		return nil, nil
-	}
-	obj, err := jsonutils.ParseString(cfgStr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ParseString to json object: %s", cfgStr)
-	}
-	pms := make([]*computeapi.PodMetadataPortMapping, 0)
-	if err := obj.Unmarshal(&pms); err != nil {
-		return nil, errors.Wrap(err, "Unmarshal to PodMetadataPortMappings")
+func (s *sPodGuestInstance) GetPortMappings() (computeapi.GuestPortMappings, error) {
+	srcDesc := s.GetSourceDesc()
+	nics := srcDesc.Nics
+	pms := make([]*computeapi.GuestPortMapping, 0)
+	for _, nic := range nics {
+		for _, pm := range nic.PortMappings {
+			tmpPm := pm
+			pms = append(pms, tmpPm)
+		}
 	}
 	return pms, nil
 }
@@ -1097,14 +1005,14 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			Value: env.Value,
 		})
 	}
-	pms, err := s.GetPodMetadataPortMappings()
+	pms, err := s.GetPortMappings()
 	if err != nil {
 		return "", errors.Wrapf(err, "get pod port mappings")
 	}
 	if len(pms) != 0 {
 		for _, pm := range pms {
-			envKey := fmt.Sprintf("CLOUDPODS_%s_PORT_%d", strings.ToUpper(string(pm.Protocol)), pm.ContainerPort)
-			envVal := fmt.Sprintf("%d", pm.HostPort)
+			envKey := fmt.Sprintf("CLOUDPODS_%s_PORT_%d", strings.ToUpper(string(pm.Protocol)), pm.Port)
+			envVal := fmt.Sprintf("%d", *pm.HostPort)
 			ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
 				Key:   envKey,
 				Value: envVal,
