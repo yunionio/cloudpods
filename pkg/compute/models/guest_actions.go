@@ -2196,7 +2196,7 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
-	devs, err := IsolatedDeviceManager.GetDevsOnHost(host.Id, devModel, count)
+	devs, err := IsolatedDeviceManager.GetUnusedDevsOnHost(host.Id, devModel, count)
 	if err != nil {
 		return httperrors.NewInternalServerError("fetch gpu failed %s", err)
 	}
