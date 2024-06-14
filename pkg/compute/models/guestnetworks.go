@@ -119,6 +119,7 @@ type SGuestnetwork struct {
 	// 是否为缺省路由
 	IsDefault bool `default:"false" list:"user"`
 
+	// 端口映射
 	PortMappings api.GuestPortMappings `length:"long" list:"user" update:"user"`
 }
 
