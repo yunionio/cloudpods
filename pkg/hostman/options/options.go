@@ -49,7 +49,7 @@ type SHostBaseOptions struct {
 	ImageCacheExpireDays        int  `help:"Image cache expire duration in days" default:"30"`
 	ImageCacheCleanupPercentage int  `help:"The cleanup threshold ratio of image cache size v.s. total storage size" default:"12"`
 	ImageCacheCleanupOnStartup  bool `help:"Cleanup image cache on host startup" default:"false"`
-	ImageCacheCleanupDryRun     bool `help:"Dry run cleanup image cache" default:"true"`
+	ImageCacheCleanupDryRun     bool `help:"Dry run cleanup image cache" default:"false"`
 }
 
 type SHostOptions struct {
