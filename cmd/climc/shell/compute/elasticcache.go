@@ -41,7 +41,7 @@ func init() {
 	cmd.PerformWithKeyword("disable-auth", "update-auth-mode", &compute.ElasticCacheDisableAuthOptions{})
 
 	type ElasticCacheAccountResetPasswordOptions struct {
-		options.ElasticCacheIdOptions
+		compute.ElasticCacheIdOptions
 		PASSWORD string `help:"elastic cache account password."`
 	}
 
@@ -77,7 +77,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheAccountCreateOptions{}, "elastic-cache-account-create", "Create elastisc cache account", func(s *mcclient.ClientSession, opts *options.ElasticCacheAccountCreateOptions) error {
+	R(&compute.ElasticCacheAccountCreateOptions{}, "elastic-cache-account-create", "Create elastisc cache account", func(s *mcclient.ClientSession, opts *compute.ElasticCacheAccountCreateOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -92,7 +92,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-account-delete", "Delete elastisc cache account", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
+	R(&compute.ElasticCacheIdOptions{}, "elastic-cache-account-delete", "Delete elastisc cache account", func(s *mcclient.ClientSession, opts *compute.ElasticCacheIdOptions) error {
 		result, err := modules.ElasticCacheAccount.Delete(s, opts.ID, nil)
 		if err != nil {
 			return err
@@ -102,7 +102,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheBackupCreateOptions{}, "elastic-cache-backup-create", "Create elastisc cache backup", func(s *mcclient.ClientSession, opts *options.ElasticCacheBackupCreateOptions) error {
+	R(&compute.ElasticCacheBackupCreateOptions{}, "elastic-cache-backup-create", "Create elastisc cache backup", func(s *mcclient.ClientSession, opts *compute.ElasticCacheBackupCreateOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -132,7 +132,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-backup-delete", "Delete elastisc cache backup", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
+	R(&compute.ElasticCacheIdOptions{}, "elastic-cache-backup-delete", "Delete elastisc cache backup", func(s *mcclient.ClientSession, opts *compute.ElasticCacheIdOptions) error {
 		result, err := modules.ElasticCacheBackup.Delete(s, opts.ID, nil)
 		if err != nil {
 			return err
@@ -142,7 +142,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-backup-restore", "Restore elastisc cache backup", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
+	R(&compute.ElasticCacheIdOptions{}, "elastic-cache-backup-restore", "Restore elastisc cache backup", func(s *mcclient.ClientSession, opts *compute.ElasticCacheIdOptions) error {
 		result, err := modules.ElasticCacheBackup.PerformAction(s, opts.ID, "restore-instance", nil)
 		if err != nil {
 			return err
@@ -152,7 +152,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheAclCreateOptions{}, "elastic-cache-acl-create", "Create elastisc cache acl", func(s *mcclient.ClientSession, opts *options.ElasticCacheAclCreateOptions) error {
+	R(&compute.ElasticCacheAclCreateOptions{}, "elastic-cache-acl-create", "Create elastisc cache acl", func(s *mcclient.ClientSession, opts *compute.ElasticCacheAclCreateOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -167,7 +167,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheIdOptions{}, "elastic-cache-acl-delete", "Delete elastisc cache acl", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
+	R(&compute.ElasticCacheIdOptions{}, "elastic-cache-acl-delete", "Delete elastisc cache acl", func(s *mcclient.ClientSession, opts *compute.ElasticCacheIdOptions) error {
 		result, err := modules.ElasticCacheAcl.Delete(s, opts.ID, nil)
 		if err != nil {
 			return err
@@ -192,7 +192,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheAclUpdateOptions{}, "elastic-cache-acl-update", "Update elastisc cache acl", func(s *mcclient.ClientSession, opts *options.ElasticCacheAclUpdateOptions) error {
+	R(&compute.ElasticCacheAclUpdateOptions{}, "elastic-cache-acl-update", "Update elastisc cache acl", func(s *mcclient.ClientSession, opts *compute.ElasticCacheAclUpdateOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -223,7 +223,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheParameterUpdateOptions{}, "elastic-cache-parameter-update", "Update elastisc cache parameter", func(s *mcclient.ClientSession, opts *options.ElasticCacheParameterUpdateOptions) error {
+	R(&compute.ElasticCacheParameterUpdateOptions{}, "elastic-cache-parameter-update", "Update elastisc cache parameter", func(s *mcclient.ClientSession, opts *compute.ElasticCacheParameterUpdateOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -293,7 +293,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheRemoteUpdateOptions{}, "elastic-cache-remote-update", "Restore elastisc cache backup", func(s *mcclient.ClientSession, opts *options.ElasticCacheRemoteUpdateOptions) error {
+	R(&compute.ElasticCacheRemoteUpdateOptions{}, "elastic-cache-remote-update", "Restore elastisc cache backup", func(s *mcclient.ClientSession, opts *compute.ElasticCacheRemoteUpdateOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err
@@ -307,7 +307,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheAutoRenewOptions{}, "elastic-cache-auto-renew", "Set elastisc cache auto renew", func(s *mcclient.ClientSession, opts *options.ElasticCacheAutoRenewOptions) error {
+	R(&compute.ElasticCacheAutoRenewOptions{}, "elastic-cache-auto-renew", "Set elastisc cache auto renew", func(s *mcclient.ClientSession, opts *compute.ElasticCacheAutoRenewOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err
@@ -321,7 +321,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ElasticCacheRenewOptions{}, "elastic-cache-renew", "Renew elastisc cache", func(s *mcclient.ClientSession, opts *options.ElasticCacheRenewOptions) error {
+	R(&compute.ElasticCacheRenewOptions{}, "elastic-cache-renew", "Renew elastisc cache", func(s *mcclient.ClientSession, opts *compute.ElasticCacheRenewOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err

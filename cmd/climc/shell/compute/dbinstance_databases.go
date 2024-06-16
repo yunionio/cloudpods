@@ -17,13 +17,14 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.DBInstanceDatabases).WithKeyword("dbinstance-database")
 	cmd.List(&options.DBInstanceDatabaseListOptions{})
-	cmd.Update(&options.BaseUpdateOptions{})
+	cmd.Update(&baseoptions.BaseUpdateOptions{})
 	cmd.Delete(&options.DBInstanceDatabaseIdOptions{})
 	cmd.Show(&options.DBInstanceDatabaseIdOptions{})
 	cmd.Create(&options.DBInstanceDatabaseCreateOptions{})

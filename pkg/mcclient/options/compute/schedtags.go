@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type SchedtagModelListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 	Schedtag string `help:"ID or Name of schedtag"`
 }
 
@@ -54,7 +55,7 @@ func (o SchedtagSetOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SchedtagListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 	Type            string `help:"Filter by resource type"`
 	CloudproviderId string `help:"Filter by cloudprovider id"`
 }
