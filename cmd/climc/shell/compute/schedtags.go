@@ -17,7 +17,8 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -29,6 +30,6 @@ func init() {
 	cmd.Create(new(options.SchedtagCreateOptions))
 	cmd.Update(new(options.SchedtagUpdateOptions))
 	cmd.BatchPerform("set-scope", new(options.SchedtagSetScopeOptions))
-	cmd.PerformWithKeyword("set-user-metadata", "user-metadata", new(options.ResourceMetadataOptions))
+	cmd.PerformWithKeyword("set-user-metadata", "user-metadata", new(baseoptions.ResourceMetadataOptions))
 	cmd.Perform("set-resource", new(options.SchedtagSetResource))
 }
