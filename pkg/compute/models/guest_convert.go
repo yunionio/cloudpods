@@ -90,6 +90,10 @@ func (self *SGuest) ConvertCloudpodsToKvm(ctx context.Context, userCred mcclient
 			createInput.Networks[i].Network = data.Networks[i].Network
 			createInput.Networks[i].Address = data.Networks[i].Address
 			createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
+		} else {
+			createInput.Networks[i].Network = ""
+			createInput.Networks[i].Address = ""
+			createInput.Networks[i].Schedtags = nil
 		}
 	}
 
@@ -129,6 +133,21 @@ func (self *SGuest) ConvertEsxiToKvm(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return nil, errors.Wrap(err, "create converted server")
 	}
+
+	if data.Networks != nil && len(data.Networks) != len(createInput.Networks) {
+		return nil, httperrors.NewInputParameterError("input network configs length must equal guestnetworks length")
+	}
+
+	for i := 0; i < len(createInput.Networks); i++ {
+		createInput.Networks[i].Network = ""
+		createInput.Networks[i].Wire = ""
+		if data.Networks != nil {
+			createInput.Networks[i].Network = data.Networks[i].Network
+			createInput.Networks[i].Address = data.Networks[i].Address
+			createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
+		}
+	}
+
 	return nil, self.StartConvertToKvmTask(ctx, userCred, "GuestConvertEsxiToKvmTask", preferHost, newGuest, createInput)
 }
 
