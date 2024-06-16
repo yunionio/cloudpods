@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
@@ -22,10 +22,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type CloudaccountListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 	Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event|tablestore"`
 
 	ReadOnly *bool `help:"filter read only account" negative:"no-read-only"`
@@ -38,7 +39,7 @@ type CloudaccountListOptions struct {
 }
 
 func (opts *CloudaccountListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type SUserPasswordCredential struct {
@@ -1152,7 +1153,7 @@ type CloudaccountEnableAutoSyncOptions struct {
 }
 
 func (opts *CloudaccountEnableAutoSyncOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(opts)
+	return baseoptions.StructToParams(opts)
 }
 
 type CloudaccountPublicOptions struct {

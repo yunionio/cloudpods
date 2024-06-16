@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type VpcListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 
 	Usable                     *bool  `help:"Filter usable vpcs"`
 	Region                     string `help:"ID or Name of region" json:"-"`
@@ -41,7 +43,7 @@ func (opts *VpcListOptions) GetContextId() string {
 }
 
 func (opts *VpcListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type VpcCreateOptions struct {
@@ -99,8 +101,8 @@ func (opts *VpcIdOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type VpcUpdateOptions struct {
-	BaseUpdateOptions
-	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
+	baseoptions.BaseUpdateOptions
+	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw|none"`
 	Direct             bool   `help:"Can it be connected directly"`
 
 	CidrBlock  string `help:"IPv4 CIDR block"`

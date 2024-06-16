@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type DBInstanceDatabaseListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 	DBInstance string `help:"ID or Name of DBInstance" json:"dbinstance"`
 }
 
 func (opts *DBInstanceDatabaseListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type DBInstanceDatabaseIdOptions struct {
@@ -44,5 +48,5 @@ type DBInstanceDatabaseCreateOptions struct {
 }
 
 func (opts *DBInstanceDatabaseCreateOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }

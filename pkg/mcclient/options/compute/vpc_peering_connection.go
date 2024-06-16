@@ -12,16 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type VpcPeeringConnectionListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 }
 
 func (opts *VpcPeeringConnectionListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type VpcPeeringConnectionIdOptions struct {
@@ -37,7 +41,7 @@ func (opts *VpcPeeringConnectionIdOptions) Params() (jsonutils.JSONObject, error
 }
 
 type VpcPeeringConnectionCreateOptions struct {
-	EnabledStatusCreateOptions
+	baseoptions.EnabledStatusCreateOptions
 	VpcId     string
 	PeerVpcId string
 	Bandwidth int
