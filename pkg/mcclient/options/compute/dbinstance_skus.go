@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type DBInstanceSkuListOption struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 	Engine        string
 	EngineVersion string
 	Category      string
@@ -28,7 +32,7 @@ type DBInstanceSkuListOption struct {
 }
 
 func (opts *DBInstanceSkuListOption) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type DBInstanceSkuIdOption struct {

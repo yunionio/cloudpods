@@ -18,7 +18,8 @@ import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -33,12 +34,12 @@ func init() {
 	cmd.Perform("sync", &options.VpcIdOptions{})
 	cmd.Perform("syncstatus", &options.VpcIdOptions{})
 	cmd.Perform("private", &options.VpcIdOptions{})
-	cmd.Perform("public", &options.BasePublicOptions{})
+	cmd.Perform("public", &baseoptions.BasePublicOptions{})
 	cmd.Perform("change-owner", &options.VpcChangeOwnerOptions{})
 	cmd.Get("vpc-change-owner-candidate-domains", &options.VpcIdOptions{})
 	cmd.Get("topology", &options.VpcIdOptions{})
 
-	R(&options.ResourceMetadataOptions{}, "vpc-set-user-metadata", "Set metadata of a vpc", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+	R(&baseoptions.ResourceMetadataOptions{}, "vpc-set-user-metadata", "Set metadata of a vpc", func(s *mcclient.ClientSession, opts *baseoptions.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
