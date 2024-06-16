@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type Route struct {
@@ -63,7 +65,7 @@ type RouteTableCreateOptions struct {
 }
 
 func (opts *RouteTableCreateOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := baseoptions.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +105,7 @@ func (opts *RouteTableUpdateOptions) GetId() string {
 }
 
 func (opts *RouteTableUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := baseoptions.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +173,11 @@ type RouteTableListOptions struct {
 	Vpc         string
 	Cloudregion string
 
-	BaseListOptions
+	baseoptions.BaseListOptions
 }
 
 func (opts *RouteTableListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type RouteTableSyncstatusOptions struct {

@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type NetworkAddressCreateOptions struct {
@@ -39,7 +41,7 @@ func (opts *NetworkAddressCreateOptions) Params() (jsonutils.JSONObject, error) 
 	} else {
 		return nil, errors.Error("requires parent spec, try --guest, etc.")
 	}
-	return StructToParams(opts)
+	return baseoptions.StructToParams(opts)
 }
 
 func (opts *NetworkAddressCreateOptions) GetCountParam() int {
@@ -47,7 +49,7 @@ func (opts *NetworkAddressCreateOptions) GetCountParam() int {
 }
 
 type NetworkAddressListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 
 	Type       string
 	ParentType string
@@ -59,7 +61,7 @@ type NetworkAddressListOptions struct {
 }
 
 func (opts *NetworkAddressListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type NetworkAddressIdOptions struct {

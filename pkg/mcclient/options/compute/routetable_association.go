@@ -12,18 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type RouteTableAssociationListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 	RouteTableId string
 	VpcId        string
 }
 
 func (opts *RouteTableAssociationListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type RouteTableAssociationIdOptions struct {
