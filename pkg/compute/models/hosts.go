@@ -6633,6 +6633,73 @@ func (hh *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mccli
 	return driver.RequestProbeIsolatedDevices(ctx, userCred, hh, data)
 }
 
+func (hh *SHost) PerformSyncIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	devs, err := IsolatedDeviceManager.GetAllDevsOnHost(hh.Id)
+	if err != nil {
+		return nil, err
+	}
+	reqDevs, err := data.GetArray("isolated_devices")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("isolated_devices")
+	}
+
+	retDevs := jsonutils.NewArray()
+	foundDevIndex := map[int]struct{}{}
+	for i := range devs {
+		dev, err := IsolatedDeviceManager.FetchById(devs[i].Id)
+		if err != nil {
+			return nil, err
+		}
+
+		foundDev := false
+		for j := range reqDevs {
+			venderDeviceId, _ := reqDevs[j].GetString("vendor_device_id")
+			devAddr, _ := reqDevs[j].GetString("addr")
+			mdevId, _ := reqDevs[j].GetString("mdev_id")
+			if devs[i].VendorDeviceId == venderDeviceId && devs[i].Addr == devAddr && devs[i].MdevId == mdevId {
+				// update isolated device
+				devRet, err := db.DoUpdate(IsolatedDeviceManager, dev, ctx, userCred, jsonutils.NewDict(), reqDevs[j])
+				if err != nil {
+					return nil, err
+				}
+				retDevs.Add(devRet)
+				foundDevIndex[j] = struct{}{}
+				foundDev = true
+			}
+		}
+
+		if !foundDev {
+			// detach isolated device
+			isolatedDev := dev.(*SIsolatedDevice)
+			params := jsonutils.NewDict()
+			params.Set("purge", jsonutils.JSONTrue)
+			_, err := isolatedDev.PerformPurge(ctx, userCred, nil, params)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	for i := range reqDevs {
+		if _, ok := foundDevIndex[i]; ok {
+			continue
+		}
+		// create isolated device
+		dev, err := db.DoCreate(IsolatedDeviceManager, ctx, userCred, nil, reqDevs[i], userCred)
+		if err != nil {
+			return nil, err
+		}
+		devRet, err := db.GetItemDetails(IsolatedDeviceManager, dev, ctx, userCred)
+		if err != nil {
+			return nil, err
+		}
+		retDevs.Add(devRet)
+	}
+	res := jsonutils.NewDict()
+	res.Set("isolated_devices", retDevs)
+	return res, nil
+}
+
 func (hh *SHost) GetPinnedCpusetCores(ctx context.Context, userCred mcclient.TokenCredential) (map[string][]int, error) {
 	gsts, err := hh.GetGuests()
 	if err != nil {
