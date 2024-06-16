@@ -1180,7 +1180,7 @@ type SGuestnetwork struct {
 	// 网卡关联的Eip实例
 	EipId string `json:"eip_id"`
 	// 是否为缺省路由
-	IsDefault    bool                        `json:"is_default"`
+	IsDefault bool `json:"is_default"`
 	// 端口映射
 	PortMappings []*GuestPortMapping `json:"port_mappings"`
 }

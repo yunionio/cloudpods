@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type ServerSkusListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 	Cloudregion            string  `help:"region Id or name"`
 	Usable                 bool    `help:"Filter usable sku"`
 	Zone                   string  `help:"zone Id or name"`
@@ -38,7 +42,7 @@ func (opts *ServerSkusListOptions) GetId() string {
 }
 
 func (opts *ServerSkusListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type ServerSkusIdOptions struct {
@@ -85,7 +89,7 @@ type ServerSkusCreateOptions struct {
 }
 
 func (opts *ServerSkusCreateOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(opts)
+	return baseoptions.StructToParams(opts)
 }
 
 type ServerSkusUpdateOptions struct {
@@ -119,5 +123,5 @@ type ServerSkusUpdateOptions struct {
 }
 
 func (opts *ServerSkusUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(opts)
+	return baseoptions.StructToParams(opts)
 }

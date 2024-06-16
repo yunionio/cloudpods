@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
@@ -24,10 +24,11 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type SecgroupListOptions struct {
-	BaseListOptions
+	baseoptions.BaseListOptions
 
 	Equals         string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
 	Server         string `help:"Filter secgroups bound to specified server"`
@@ -42,11 +43,11 @@ type SecgroupListOptions struct {
 }
 
 func (opts *SecgroupListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return baseoptions.ListStructToParams(opts)
 }
 
 type SecgroupCreateOptions struct {
-	BaseCreateOptions
+	baseoptions.BaseCreateOptions
 	VpcId string
 	Tags  []string
 	Rules []string `help:"security rule to create"`
