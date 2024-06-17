@@ -103,7 +103,7 @@ func (m WebConsoleManager) doContainerAction(s *mcclient.ClientSession, data jso
 		return nil, errors.Wrapf(err, "unmarshal server details: %s", serverObj)
 	}
 	info := &webconsole_api.SK8sShellDisplayInfo{
-		InstanceName: containerName,
+		InstanceName: fmt.Sprintf("%s/%s", serverDetails.Name, containerName),
 		IPs:          strings.Split(serverDetails.IPs, ","),
 	}
 	args := getArgs(containerId)
