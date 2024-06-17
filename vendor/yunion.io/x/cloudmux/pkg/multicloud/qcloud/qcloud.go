@@ -475,7 +475,20 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 		service := strings.Split(req.URL.Host, ".")[0]
 		action := params.Get("Action")
 		respCheck := func(resp *http.Response) error {
-			if client.cpcfg.UpdatePermission != nil {
+			if resp.ContentLength <= 0 {
+				return nil
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.Wrapf(err, "ioutil.ReadAll")
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(body))
+			obj, _ := jsonutils.Parse(body)
+			code := ""
+			if obj != nil {
+				code, _ = obj.GetString("Response", "Error", "Code")
+			}
+			if client.cpcfg.UpdatePermission != nil && code == "UnauthorizedOperation" {
 				client.cpcfg.UpdatePermission(service, action)
 			}
 			return nil
