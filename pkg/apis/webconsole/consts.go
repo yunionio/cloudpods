@@ -38,4 +38,5 @@ const (
 	CLOUDPODS   = "cloudpods"
 	PROXMOX     = "proxmox"
 	VOLC_ENGINE = "volcengine"
+	SANGFOR     = "sangfor"
 )

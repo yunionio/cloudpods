@@ -101,6 +101,7 @@ func init() {
 		"qingcloud",
 		"volcengine",
 		"oraclecloud",
+		"sangfor",
 	}
 
 	const (
