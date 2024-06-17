@@ -23,7 +23,7 @@ import (
 
 func init() {
 	type WorkerListOptions struct {
-		ServiceType string `choices:"image|cloudid|cloudevent|devtool|ansible|identity|notify|log|compute|compute_v2"`
+		ServiceType string `choices:"image|cloudid|cloudevent|devtool|ansible|identity|notify|log|compute|compute_v2|meter|suggestion|cloudmon|cloudproxy|dns|monitor|scheduler|vpcagent|webconsole|yunionconf|bastionhost|extdb|yunionapi"`
 	}
 	R(&WorkerListOptions{}, "worker-list", "List workers", func(s *mcclient.ClientSession, args *WorkerListOptions) error {
 		result, err := modules.Workers.List(s, jsonutils.Marshal(args))
