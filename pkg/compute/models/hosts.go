@@ -5906,7 +5906,7 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 	deadline := time.Now().Add(-1 * time.Duration(options.Options.HostOfflineMaxSeconds) * time.Second)
 
 	q := manager.Query().Equals("host_status", api.HOST_ONLINE).
-		Equals("host_type", api.HOST_TYPE_HYPERVISOR)
+		Equals("host_type", api.HOST_TYPE_HYPERVISOR).IsNullOrEmpty("manager_id")
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_ping_at")),
 		sqlchemy.LT(q.Field("last_ping_at"), deadline)))
 

@@ -159,6 +159,9 @@ type StorageInfos struct {
 	StorageTypes3     map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
 	DataStorageTypes2 map[string][]string                      `json:",allowempty"`
 	DataStorageTypes3 map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
+
+	SystemStorageTypes map[string]map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
+	DataStorageTypes   map[string]map[string]map[string]*SimpleStorageInfo `json:",allowempty"`
 }
 
 func GetDiskCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -726,6 +729,9 @@ func getStorageTypes(
 		StorageTypes3:     map[string]map[string]*SimpleStorageInfo{},
 		DataStorageTypes2: map[string][]string{},
 		DataStorageTypes3: map[string]map[string]*SimpleStorageInfo{},
+
+		SystemStorageTypes: map[string]map[string]map[string]*SimpleStorageInfo{},
+		DataStorageTypes:   map[string]map[string]map[string]*SimpleStorageInfo{},
 	}
 	var (
 		addStorageInfo = func(storage *StorageInfo, simpleStorage *SimpleStorageInfo) {
@@ -738,24 +744,29 @@ func getStorageTypes(
 			simpleStorage.Storages = append(simpleStorage.Storages, sStorage{Id: storage.Id, Name: storage.Name})
 		}
 		setStorageInfos = func(hostDriver IHostDriver, storageType string, storage *StorageInfo,
-			storageInfos map[string]map[string]*SimpleStorageInfo) bool {
-			var notFound bool
+			storageInfos map[string]map[string]*SimpleStorageInfo) {
 			sfs, ok := storageInfos[hostDriver.GetHypervisor()]
 			if !ok {
 				sfs = make(map[string]*SimpleStorageInfo)
-				notFound = true
 			}
 			simpleStorage, ok := sfs[storageType]
 			if !ok {
-				notFound = true
 				simpleStorage = &SimpleStorageInfo{Storages: []sStorage{}}
 			}
 			if !utils.IsInStringArray(hostDriver.GetProvider(), api.PUBLIC_CLOUD_PROVIDERS) {
 				addStorageInfo(storage, simpleStorage)
-				sfs[storageType] = simpleStorage
-				storageInfos[hostDriver.GetHypervisor()] = sfs
 			}
-			return notFound
+			sfs[storageType] = simpleStorage
+			storageInfos[hostDriver.GetHypervisor()] = sfs
+		}
+
+		setStorageInfos2 = func(hostDriver IHostDriver, storageType string, storage *StorageInfo,
+			storageInfos2 map[string]map[string]map[string]*SimpleStorageInfo) {
+			_, ok := storageInfos2[hostDriver.GetProvider()]
+			if !ok {
+				storageInfos2[hostDriver.GetProvider()] = make(map[string]map[string]*SimpleStorageInfo)
+			}
+			setStorageInfos(hostDriver, storageType, storage, storageInfos2[hostDriver.GetProvider()])
 		}
 	)
 
@@ -806,8 +817,10 @@ func getStorageTypes(
 			// set hypervisor storage types and infos
 			if storage.IsSysDiskStore {
 				setStorageInfos(hostDriver, storageType, &storage, ret.StorageTypes3)
+				setStorageInfos2(hostDriver, storageType, &storage, ret.SystemStorageTypes)
 			}
 			setStorageInfos(hostDriver, storageType, &storage, ret.DataStorageTypes3)
+			setStorageInfos2(hostDriver, storageType, &storage, ret.DataStorageTypes)
 		}
 
 	}
