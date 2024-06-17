@@ -97,7 +97,7 @@ func (self *SSangForGuestDriver) GetAttachDiskStatus() ([]string, error) {
 }
 
 func (self *SSangForGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SSangForGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
@@ -141,7 +141,7 @@ func (self *SSangForGuestDriver) ValidateCreateData(ctx context.Context, userCre
 }
 
 func (self *SSangForGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return api.VM_RUNNING
+	return api.VM_READY
 }
 
 func (self *SSangForGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -153,7 +153,7 @@ func (self *SSangForGuestDriver) DoGuestCreateDisksTask(ctx context.Context, gue
 }
 
 func (self *SSangForGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return api.VM_RUNNING
+	return api.VM_READY
 }
 
 func (self *SSangForGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
