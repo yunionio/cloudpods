@@ -486,6 +486,7 @@ func (self *SRegion) GetInstances(hostId string) ([]SInstance, error) {
 	if len(hostId) > 0 {
 		params["host_id"] = hostId
 	}
+	params["filter"] = fmt.Sprintf("hypervisor.in('kvm', 'baremetal')")
 	ret := []SInstance{}
 	return ret, self.list(&modules.Servers, params, &ret)
 }

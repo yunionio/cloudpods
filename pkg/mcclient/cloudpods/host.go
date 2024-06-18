@@ -15,6 +15,8 @@
 package cloudpods
 
 import (
+	"fmt"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/jsonutils"
@@ -270,7 +272,7 @@ func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 }
 
 func (host *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	hypervisor := api.HOST_TYPE_HYPERVISOR
+	hypervisor := api.HYPERVISOR_KVM
 	if host.HostType == api.HOST_TYPE_ESXI {
 		hypervisor = api.HYPERVISOR_ESXI
 	}
@@ -338,6 +340,7 @@ func (region *SRegion) GetHosts(zoneId string) ([]SHost, error) {
 	if len(zoneId) > 0 {
 		params["zone_id"] = zoneId
 	}
+	params["filter"] = fmt.Sprintf("host_type.in('hypervisor', 'baremetal')")
 	ret := []SHost{}
 	err := region.list(&modules.Hosts, params, &ret)
 	if err != nil {
