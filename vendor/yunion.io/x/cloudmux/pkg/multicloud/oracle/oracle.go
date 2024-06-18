@@ -160,7 +160,8 @@ func (self *SOracleClient) GetRegions() ([]SRegion, error) {
 		return self.regions, nil
 	}
 	resource := fmt.Sprintf("tenancies/%s/regionSubscriptions", self.tenancyOCID)
-	resp, err := self.list(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, resource, nil)
+	region, _ := self.Region()
+	resp, err := self.list(SERVICE_IDENTITY, region, resource, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +189,7 @@ func (self *SOracleClient) GetRegion(id string) (*SRegion, error) {
 
 func (self *SOracleClient) getUrl(service, regionId, resource string) (string, error) {
 	if len(regionId) == 0 {
-		regionId = ORACLE_DEFAULT_REGION
+		regionId, _ = self.Region()
 	}
 	switch service {
 	case SERVICE_IAAS, SERVICE_IDENTITY:
@@ -254,6 +255,9 @@ func (self *SOracleClient) KeyFingerprint() (string, error) {
 }
 
 func (self *SOracleClient) Region() (string, error) {
+	if len(self.cpcfg.RegionId) > 0 {
+		return self.cpcfg.RegionId, nil
+	}
 	return ORACLE_DEFAULT_REGION, nil
 }
 
@@ -378,7 +382,8 @@ type Compartment struct {
 func (self *SOracleClient) GetCompartments() ([]Compartment, error) {
 	query := url.Values{}
 	query.Set("compartmentId", self.tenancyOCID)
-	resp, err := self.list(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, "compartments", query)
+	region, _ := self.Region()
+	resp, err := self.list(SERVICE_IDENTITY, region, "compartments", query)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +396,8 @@ func (self *SOracleClient) GetCompartments() ([]Compartment, error) {
 }
 
 func (self *SOracleClient) GetCompartment(id string) (*Compartment, error) {
-	resp, err := self.get(SERVICE_IDENTITY, ORACLE_DEFAULT_REGION, "compartments", id, nil)
+	region, _ := self.Region()
+	resp, err := self.get(SERVICE_IDENTITY, region, "compartments", id, nil)
 	if err != nil {
 		return nil, err
 	}

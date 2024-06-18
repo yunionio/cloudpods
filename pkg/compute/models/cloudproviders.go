@@ -873,7 +873,6 @@ func (cprvd *SCloudprovider) GetProvider(ctx context.Context) (cloudprovider.ICl
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudaccount")
 	}
-	defaultRegion, _ := jsonutils.Marshal(account.Options).GetString("default_region")
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:        cprvd.Id,
 		Name:      cprvd.Name,
@@ -887,8 +886,8 @@ func (cprvd *SCloudprovider) GetProvider(ctx context.Context) (cloudprovider.ICl
 
 		ReadOnly: account.ReadOnly,
 
-		DefaultRegion: defaultRegion,
-		Options:       account.Options,
+		RegionId: account.regionId(),
+		Options:  account.Options,
 
 		UpdatePermission: account.UpdatePermission(ctx),
 	})
