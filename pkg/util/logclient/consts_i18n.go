@@ -688,6 +688,12 @@ func init() {
 		EN("Set Alert").
 		CN("配置报警"),
 	)
+	t.Set(ACT_CONFIGURE, i18n.NewTableEntry().EN("Configure").CN("配置"))
+	t.Set(ACT_ACTIVATE, i18n.NewTableEntry().EN("Activate").CN("启用"))
+	t.Set(ACT_SUSPEND, i18n.NewTableEntry().EN("Suspend").CN("暂停"))
+	t.Set(ACT_APPROVED, i18n.NewTableEntry().EN("Approved").CN("批准"))
+	t.Set(ACT_TRANSFERRED, i18n.NewTableEntry().EN("Transferred").CN("转交"))
+	t.Set(ACT_TRANSFERRED_REJECTED, i18n.NewTableEntry().EN("Transferred Rejected").CN("驳回"))
 
 	s.Set(apis.SERVICE_TYPE_MONITOR, i18n.NewTableEntry().
 		EN("Monitor").
@@ -734,6 +740,9 @@ func init() {
 		EN("Kubernetes").
 		CN("容器服务"),
 	)
+	s.Set("itsm", i18n.NewTableEntry().
+		EN("ITSM").
+		CN("工单服务"))
 
 	o.Set("domain", i18n.NewTableEntry().
 		EN("Domain").
@@ -1311,6 +1320,9 @@ func init() {
 		EN("Server Sku").
 		CN("虚拟机套餐"),
 	)
+	o.Set("process_definition", i18n.NewTableEntry().EN("Process Definition").CN("工单定义"))
+	o.Set("process_instance", i18n.NewTableEntry().EN("Process Instance").CN("工单"))
+	o.Set("process_task", i18n.NewTableEntry().EN("Process Task").CN("工单任务"))
 
 	o.Set(ACT_UPDATE_MONITOR_RESOURCE_JOINT, i18n.NewTableEntry().
 		EN("Update Monitor Resource joint").
