@@ -602,7 +602,7 @@ func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
 	}
 	result.Index = out.IndexDocument.Suffix
 	result.ErrorDocument = out.ErrorDocument.Key
-	endpoint := b.region.client.endpoints.GetEndpoint(b.region.client.cpcfg.DefaultRegion, "obs-website", b.region.GetId())
+	endpoint := b.region.client.endpoints.GetEndpoint(b.region.client.cpcfg.RegionId, "obs-website", b.region.GetId())
 	result.Url = fmt.Sprintf("https://%s.%s", b.Name, endpoint)
 	return result, nil
 }

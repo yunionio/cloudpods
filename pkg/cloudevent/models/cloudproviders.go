@@ -16,23 +16,16 @@ package models
 
 import (
 	"context"
-	"net/http"
-	"net/url"
 	"time"
-
-	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -305,61 +298,6 @@ func (self *SCloudprovider) GetNextTimeRange() (time.Time, time.Time, error) {
 	return start, end, nil
 }
 
-type SCloudproviderDelegate struct {
-	Id             string
-	Name           string
-	CloudaccountId string
-
-	Enabled    bool
-	Status     string
-	SyncStatus string
-
-	AccessUrl string
-	Account   string
-	Secret    string
-
-	Provider string
-	Brand    string
-
-	Options struct {
-		cloudprovider.SHCSOEndpoints
-	}
-
-	ProxySetting proxyapi.SProxySetting
-}
-
-func (self *SCloudprovider) GetDelegate() (*SCloudproviderDelegate, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	result, err := modules.Cloudproviders.Get(s, self.Id, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "modules.Cloudproviders.Get")
-	}
-	provider := &SCloudproviderDelegate{}
-	err = result.Unmarshal(provider)
-	if err != nil {
-		return nil, errors.Wrap(err, "result.Unmarshal")
-	}
-	if provider.Provider == api.CLOUD_PROVIDER_APSARA || provider.Provider == api.CLOUD_PROVIDER_HCSO {
-		result, err := modules.Cloudaccounts.Get(s, provider.CloudaccountId, nil)
-		if err != nil {
-			return nil, errors.Wrapf(err, "modules.Cloudaccounts.Get")
-		}
-		err = result.Unmarshal(&provider.Options, "options")
-		if err != nil {
-			return nil, errors.Wrap(err, "result.Unmarshal")
-		}
-	}
-	return provider, nil
-}
-
-func (provider *SCloudproviderDelegate) getPassword() (string, error) {
-	return utils.DescryptAESBase64(provider.Id, provider.Secret)
-}
-
-func (provider *SCloudproviderDelegate) getAccessUrl() string {
-	return provider.AccessUrl
-}
-
 func (provider *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
 	return cloudprovider.GetProviderFactory(provider.Provider)
 }
@@ -373,49 +311,9 @@ func (provider SCloudprovider) GetExternalId() string {
 }
 
 func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
-	if !self.GetEnabled() {
-		return nil, errors.Error("Cloud provider is not enabled")
-	}
-	delegate, err := self.GetDelegate()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetDelegate")
-	}
-	accessUrl := delegate.getAccessUrl()
-	passwd, err := delegate.getPassword()
-	if err != nil {
-		return nil, errors.Wrap(err, "delegate.getPassword")
-	}
-
-	var proxyFunc httputils.TransportProxyFunc
-	{
-		cfg := &httpproxy.Config{
-			HTTPProxy:  delegate.ProxySetting.HTTPProxy,
-			HTTPSProxy: delegate.ProxySetting.HTTPSProxy,
-			NoProxy:    delegate.ProxySetting.NoProxy,
-		}
-		cfgProxyFunc := cfg.ProxyFunc()
-		proxyFunc = func(req *http.Request) (*url.URL, error) {
-			return cfgProxyFunc(req.URL)
-		}
-	}
-
-	options := jsonutils.Marshal(delegate.Options)
-	defaultRegion, _ := options.GetString("default_region")
-	return cloudprovider.GetProvider(
-		cloudprovider.ProviderConfig{
-			Id:      self.Id,
-			Name:    self.Name,
-			Vendor:  self.Provider,
-			URL:     accessUrl,
-			Account: delegate.Account,
-			Secret:  passwd,
-
-			ProxyFunc: proxyFunc,
-
-			DefaultRegion: defaultRegion,
-			Options:       options.(*jsonutils.JSONDict),
-		},
-	)
+	ctx := context.Background()
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	return modules.Cloudproviders.GetProvider(ctx, s, self.Id)
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {

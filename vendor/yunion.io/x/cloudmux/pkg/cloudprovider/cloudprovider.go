@@ -94,10 +94,7 @@ type SCloudaccountCredential struct {
 	OracleUserOCID    string `json:"oracle_user_ocid"`
 	OraclePrivateKey  string `json:"oracle_private_key"`
 
-	// 默认区域Id, Apara及HCSO需要此参数
-	// example: cn-north-2
-	// required: true
-	DefaultRegion string `default:"$DEFAULT_REGION" metavar:"$DEFAULT_REGION"`
+	RegionId string
 
 	// Huawei Cloud Stack Online
 	*SHCSOEndpoints
@@ -166,9 +163,9 @@ type ProviderConfig struct {
 
 	Options *jsonutils.JSONDict
 
-	DefaultRegion string
-	ProxyFunc     httputils.TransportProxyFunc
-	Debug         bool
+	RegionId  string
+	ProxyFunc httputils.TransportProxyFunc
+	Debug     bool
 
 	// 仅用来检测cloudpods是否纳管自身环境(system项目id)
 	AdminProjectId string
