@@ -52,7 +52,7 @@ var DeployOption SDeployOptions
 
 func Parse() SDeployOptions {
 	var hostOpts SDeployOptions
-	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
+	common_options.ParseOptionsIgnoreNoConfigfile(&hostOpts, os.Args, "host.conf", "host")
 	if len(hostOpts.CommonConfigFile) > 0 && fileutils2.Exists(hostOpts.CommonConfigFile) {
 		commonCfg := &host_options.SHostBaseOptions{}
 		commonCfg.Config = hostOpts.CommonConfigFile
