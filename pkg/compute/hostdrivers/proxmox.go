@@ -54,7 +54,7 @@ func (self *SProxmoxHostDriver) GetHypervisor() string {
 }
 
 func (self *SProxmoxHostDriver) GetProvider() string {
-	return api.CLOUD_PROVIDER_NUTANIX
+	return api.CLOUD_PROVIDER_PROXMOX
 }
 
 func (self *SProxmoxHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
