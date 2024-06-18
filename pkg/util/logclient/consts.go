@@ -282,4 +282,12 @@ const (
 	ACT_CLEAN_PROJECT = "clean_project"
 
 	ACT_COLLECT_METRICS = "collect_metrics"
+
+	ACT_CONFIGURE            = "configure"
+	ACT_ACTIVATE             = "activate"
+	ACT_SUSPEND              = "suspend"
+	ACT_APPROVED             = "approved"
+	ACT_REJECTED             = "rejected"
+	ACT_TRANSFERRED          = "transferred"
+	ACT_TRANSFERRED_REJECTED = "trans_rejected"
 )
