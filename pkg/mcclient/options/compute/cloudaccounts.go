@@ -140,6 +140,8 @@ type SCloudAccountCreateBaseOptions struct {
 	ShowSubAccounts bool   `help:"test and show subaccount info"`
 	ReadOnly        bool   `help:"Read only account"`
 
+	RegionId string
+
 	ProjectMappingId   string
 	EnableProjectSync  bool
 	EnableResourceSync bool
@@ -324,8 +326,6 @@ type SHCSOAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	cloudprovider.SHCSOEndpoints
 	SAccessKeyCredential
-
-	DefaultRegion string `json:"default_region"`
 }
 
 func (opts *SHCSOAccountCreateOptions) Params() (jsonutils.JSONObject, error) {

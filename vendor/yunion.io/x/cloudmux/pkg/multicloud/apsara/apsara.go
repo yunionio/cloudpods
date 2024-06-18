@@ -357,7 +357,7 @@ func (self *SApsaraClient) ossRequest(apiName string, params map[string]string) 
 	//	params["Params"] = jsonutils.Marshal(pm).String()
 	//}
 	if _, ok := params["RegionId"]; !ok {
-		params["RegionId"] = self.cpcfg.DefaultRegion
+		params["RegionId"] = self.cpcfg.RegionId
 	}
 	params["ProductName"] = "oss"
 	params["OpenApiAction"] = apiName
@@ -375,8 +375,8 @@ func (self *SApsaraClient) trialRequest(apiName string, params map[string]string
 
 func (self *SApsaraClient) fetchRegions() error {
 	params := map[string]string{"AcceptLanguage": "zh-CN"}
-	if len(self.cpcfg.DefaultRegion) > 0 {
-		params["RegionId"] = self.cpcfg.DefaultRegion
+	if len(self.cpcfg.RegionId) > 0 {
+		params["RegionId"] = self.cpcfg.RegionId
 	}
 	body, err := self.ecsRequest("DescribeRegions", params)
 	if err != nil {

@@ -89,8 +89,7 @@ func (self *SCloudaccount) GetProvider(ctx context.Context, s *mcclient.ClientSe
 			return cfgProxyFunc(req.URL)
 		}
 	}
-	options := account.getOptions(ctx, s)
-	defaultRegion, _ := options.GetString("default_region")
+	regionId, options := account.getOptions(ctx, s)
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:        account.Id,
 		Name:      account.Name,
@@ -102,7 +101,7 @@ func (self *SCloudaccount) GetProvider(ctx context.Context, s *mcclient.ClientSe
 
 		ReadOnly: account.ReadOnly,
 
-		DefaultRegion: defaultRegion,
-		Options:       options.(*jsonutils.JSONDict),
+		RegionId: regionId,
+		Options:  options.(*jsonutils.JSONDict),
 	})
 }
