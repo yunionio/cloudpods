@@ -77,8 +77,9 @@ type SCloudDelegate struct {
 
 	Options struct {
 		cloudprovider.SHCSOEndpoints
-		Account  string
-		Password string
+		Account       string
+		Password      string
+		DefaultRegion string
 	}
 	ProxySetting proxyapi.SProxySetting
 }
@@ -91,14 +92,18 @@ func (account *SCloudDelegate) getAccessUrl() string {
 	return account.AccessUrl
 }
 
-func (account *SCloudDelegate) getOptions(ctx context.Context, s *mcclient.ClientSession) jsonutils.JSONObject {
-	ret := jsonutils.NewDict()
+func (account *SCloudDelegate) getOptions(ctx context.Context, s *mcclient.ClientSession) (string, jsonutils.JSONObject) {
+	regionId, ret := "", jsonutils.NewDict()
 	resp, _ := Cloudaccounts.GetById(s, account.CloudaccountId, jsonutils.Marshal(map[string]string{"scope": "system"}))
 	if !gotypes.IsNil(resp) {
 		options, _ := resp.Get("options")
 		ret.Update(options)
+		regionId, _ = resp.GetString("region_id")
+		if len(regionId) == 0 {
+			regionId, _ = ret.GetString("default_region")
+		}
 	}
-	return ret
+	return regionId, ret
 }
 
 func (self *SCloudprovider) GetProvider(ctx context.Context, s *mcclient.ClientSession, id string) (cloudprovider.ICloudProvider, error) {
@@ -132,8 +137,7 @@ func (self *SCloudprovider) GetProvider(ctx context.Context, s *mcclient.ClientS
 			return cfgProxyFunc(req.URL)
 		}
 	}
-	options := account.getOptions(ctx, s)
-	defaultRegion, _ := options.GetString("default_region")
+	regionId, options := account.getOptions(ctx, s)
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:        account.Id,
 		Name:      account.Name,
@@ -145,8 +149,8 @@ func (self *SCloudprovider) GetProvider(ctx context.Context, s *mcclient.ClientS
 
 		ReadOnly: account.ReadOnly,
 
-		DefaultRegion: defaultRegion,
-		Options:       options.(*jsonutils.JSONDict),
+		RegionId: regionId,
+		Options:  options.(*jsonutils.JSONDict),
 
 		AccountId: account.Id,
 	})

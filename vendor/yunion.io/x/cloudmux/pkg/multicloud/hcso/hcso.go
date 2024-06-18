@@ -264,7 +264,7 @@ func requestWithRetry(client *akClient, ctx context.Context, method httputils.TH
 func (self *SHuaweiClient) resetEndpoint(endpoint, serviceName string) string {
 	if len(endpoint) == 0 {
 		domain := self.HuaweiClientConfig.endpoints.EndpointDomain
-		regionId := self.HuaweiClientConfig.cpcfg.DefaultRegion
+		regionId := self.HuaweiClientConfig.cpcfg.RegionId
 		if len(regionId) == 0 {
 			regionId = self.GetRegions()[0].ID
 		}
