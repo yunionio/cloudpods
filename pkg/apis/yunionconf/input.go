@@ -44,6 +44,12 @@ type ParameterListInput struct {
 	Name []string `json:"name"`
 }
 
+type ParameterCloneInput struct {
+	DestNs   string `json:"dest_ns"`
+	DestNsId string `json:"dest_ns_id"`
+	DestName string `json:"dest_name"`
+}
+
 type ScopedPolicyCreateInput struct {
 	apis.InfrasResourceBaseCreateInput
 
