@@ -64,6 +64,7 @@ func (task *GuestConvertEsxiToKvmTask) GetSchedParams() (*schedapi.ScheduleInput
 		schedDesc.Disks[i].Medium = ""
 		schedDesc.Disks[i].Storage = ""
 	}
+
 	schedDesc.Networks = input.Networks
 	schedDesc.Hypervisor = api.HYPERVISOR_KVM
 	return schedDesc, nil
@@ -150,6 +151,17 @@ func (task *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 		task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest create networks %s", err)))
 		return
 	}
+	gns, _ := targetGuest.GetNetworks("")
+	for i := range gns {
+		_, err := db.Update(&gns[i], func() error {
+			gns[i].MacAddr = input.Networks[i].Mac
+			return nil
+		})
+		if err != nil {
+			task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("update guest networks macaddr %s", err)))
+			return
+		}
+	}
 
 	//pendingUsage.Storage = guest.GetDisksSize()
 	err = targetGuest.CreateDisksOnHost(ctx, task.UserCred, host, input.Disks, nil,
@@ -207,10 +219,20 @@ func (task *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.UserCred)
 	}
-
 	task.SetStage("OnGuestConvertDoDeployGuest", nil)
+
+	input := new(api.ServerCreateInput)
+	err := task.Params.Unmarshal(input, "input")
+	if err != nil {
+		task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed unmarshal input: %s", err)))
+		return
+	}
+
 	deployParams := jsonutils.NewDict()
 	deployParams.Set("reset_password", jsonutils.JSONFalse)
+	if jsonutils.QueryBoolean(task.Params, "deploy_telegraf", false) {
+		deployParams.Set("deploy_telegraf", jsonutils.JSONTrue)
+	}
 	targetGuest.StartGuestDeployTask(ctx, task.UserCred, deployParams, "deploy", task.GetTaskId())
 }
 

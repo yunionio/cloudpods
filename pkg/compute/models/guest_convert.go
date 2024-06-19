@@ -91,17 +91,19 @@ func (self *SGuest) ConvertCloudpodsToKvm(ctx context.Context, userCred mcclient
 		createInput.Networks[i].Network = ""
 		createInput.Networks[i].Wire = ""
 		if data.Networks != nil {
-			createInput.Networks[i].Network = data.Networks[i].Network
-			createInput.Networks[i].Address = data.Networks[i].Address
-			createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
-		} else {
-			createInput.Networks[i].Network = ""
-			createInput.Networks[i].Address = ""
-			createInput.Networks[i].Schedtags = nil
+			if data.Networks[i].Network != "" {
+				createInput.Networks[i].Network = data.Networks[i].Network
+			}
+			if data.Networks[i].Address != "" {
+				createInput.Networks[i].Address = data.Networks[i].Address
+			}
+			if data.Networks[i].Schedtags != nil {
+				createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
+			}
 		}
 	}
 
-	return nil, self.StartConvertToKvmTask(ctx, userCred, "GuestConvertCloudpodsToKvmTask", preferHost, newGuest, createInput)
+	return nil, self.StartConvertToKvmTask(ctx, userCred, "GuestConvertCloudpodsToKvmTask", preferHost, newGuest, createInput, data)
 }
 
 func (self *SGuest) ConvertEsxiToKvm(ctx context.Context, userCred mcclient.TokenCredential, data *api.ConvertToKvmInput) (jsonutils.JSONObject, error) {
@@ -146,18 +148,24 @@ func (self *SGuest) ConvertEsxiToKvm(ctx context.Context, userCred mcclient.Toke
 		createInput.Networks[i].Network = ""
 		createInput.Networks[i].Wire = ""
 		if data.Networks != nil {
-			createInput.Networks[i].Network = data.Networks[i].Network
-			createInput.Networks[i].Address = data.Networks[i].Address
-			createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
+			if data.Networks[i].Network != "" {
+				createInput.Networks[i].Network = data.Networks[i].Network
+			}
+			if data.Networks[i].Address != "" {
+				createInput.Networks[i].Address = data.Networks[i].Address
+			}
+			if data.Networks[i].Schedtags != nil {
+				createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
+			}
 		}
 	}
 
-	return nil, self.StartConvertToKvmTask(ctx, userCred, "GuestConvertEsxiToKvmTask", preferHost, newGuest, createInput)
+	return nil, self.StartConvertToKvmTask(ctx, userCred, "GuestConvertEsxiToKvmTask", preferHost, newGuest, createInput, data)
 }
 
 func (self *SGuest) StartConvertToKvmTask(
 	ctx context.Context, userCred mcclient.TokenCredential, taskName, preferHostId string,
-	newGuest *SGuest, createInput *api.ServerCreateInput,
+	newGuest *SGuest, createInput *api.ServerCreateInput, data *api.ConvertToKvmInput,
 ) error {
 	params := jsonutils.NewDict()
 	if len(preferHostId) > 0 {
@@ -165,6 +173,7 @@ func (self *SGuest) StartConvertToKvmTask(
 	}
 	params.Set("target_guest_id", jsonutils.NewString(newGuest.Id))
 	params.Set("input", jsonutils.Marshal(createInput))
+	params.Set("deploy_telegraf", jsonutils.NewBool(data.DeployTelegraf))
 	task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred,
 		params, "", "", nil)
 	if err != nil {
@@ -206,6 +215,10 @@ func (self *SGuest) createConvertedServer(
 	createInput.Hypervisor = api.HYPERVISOR_KVM
 	createInput.PreferHost = ""
 	createInput.GenerateName = fmt.Sprintf("%s-%s", self.Name, api.HYPERVISOR_KVM)
+	createInput.Hostname = self.Name
+	if self.Hostname != "" {
+		createInput.Hostname = self.Hostname
+	}
 
 	if self.Hypervisor == api.HYPERVISOR_ESXI {
 		// change drivers so as to bootable in KVM
@@ -217,10 +230,18 @@ func (self *SGuest) createConvertedServer(
 			createInput.Disks[i].Backend = ""
 			createInput.Disks[i].Medium = ""
 		}
+		gns, err := self.GetNetworks("")
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "GetNetworks")
+		}
 		for i := range createInput.Networks {
 			if createInput.Networks[i].Driver != "e1000" && createInput.Networks[i].Driver != "vmxnet3" {
 				createInput.Networks[i].Driver = "e1000"
 			}
+			createInput.Networks[i].Network = ""
+			createInput.Networks[i].Wire = ""
+			createInput.Networks[i].Mac = gns[i].MacAddr
+			createInput.Networks[i].Address = gns[i].IpAddr
 		}
 		createInput.Vdi = api.VM_VDI_PROTOCOL_VNC
 	} else {

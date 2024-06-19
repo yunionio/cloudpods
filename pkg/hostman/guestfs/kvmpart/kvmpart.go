@@ -190,13 +190,19 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 				errChan <- err
 			}
 		}()
+
+		// mount timeout
+		waitTime := time.Second * 30
+		if fsType == "ntfs-3g" {
+			waitTime = time.Second * 5
+		}
 		select {
 		case err = <-errChan:
 			if err != nil {
 				return false, err
 			}
 			return true, nil
-		case <-time.After(time.Second * 3):
+		case <-time.After(waitTime):
 			if fsType == "ntfs-3g" {
 				if err = procutils.NewCommand("mountpoint", p.mountPath).Run(); err != nil {
 					// mountpath is not a mountpoint
