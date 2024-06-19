@@ -24,3 +24,9 @@ const (
 	ANY_DOMAIN_ID  = "[any_domain_id]"
 	ANY_PROJECT_ID = "[any_project_id]"
 )
+
+const (
+	NAMESPACE_USER       = "user"
+	NAMESPACE_SERVICE    = "service"
+	NAMESPACE_BUG_REPORT = "bug-report"
+)
