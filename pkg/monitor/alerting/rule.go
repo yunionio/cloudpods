@@ -191,6 +191,7 @@ func newRuleDescription(rule *Rule, alertDetails *monitor.CommonAlertMetricDetai
 			Comparator:      alertDetails.Comparator,
 			Threshold:       RationalizeValueFromUnit(alertDetails.Threshold, alertDetails.FieldDescription.Unit, ""),
 			ConditionType:   alertDetails.ConditionType,
+			Reducer:         alertDetails.Reduce,
 		},
 	}
 	if len(ruleDes.ResType) == 0 {
