@@ -96,4 +96,5 @@ type AlertRecordRule struct {
 	ConditionType string `json:"condition_type"`
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
+	Reducer      string `json:"reducer"`
 }
