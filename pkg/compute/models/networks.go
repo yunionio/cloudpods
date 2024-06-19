@@ -1728,6 +1728,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	} else {
 		return input, httperrors.NewInputParameterError("zone and vpc info required when wire is absent")
 	}
+
 	input.WireId = wire.Id
 	if vpc.Status != api.VPC_STATUS_AVAILABLE {
 		return input, httperrors.NewInvalidStatusError("VPC not ready")
@@ -1980,7 +1981,8 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	}
 
 	{
-		nets, err := vpc.GetNetworks()
+		provider := wire.GetProviderName()
+		nets, err := vpc.GetNetworksByProvider(provider)
 		if err != nil {
 			return input, httperrors.NewInternalServerError("fail to GetNetworks of vpc: %v", err)
 		}
