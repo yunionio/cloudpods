@@ -337,6 +337,33 @@ func (svpc *SVpc) GetNetworks() ([]SNetwork, error) {
 	return nets, nil
 }
 
+func (svpc *SVpc) GetNetworksByProvider(provider string) ([]SNetwork, error) {
+	q := NetworkManager.Query()
+	wireQ := svpc.getWireQuery()
+	if provider == api.CLOUD_PROVIDER_ONECLOUD {
+		wireQ = wireQ.IsNullOrEmpty("manager_id")
+	} else {
+		account := CloudaccountManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
+		subq := providers.Query(providers.Field("id"))
+		subq = subq.Join(account, sqlchemy.Equals(
+			account.Field("id"), providers.Field("cloudaccount_id"),
+		))
+		subq = subq.Filter(sqlchemy.Equals(account.Field("provider"), provider))
+		wireQ = wireQ.Filter(sqlchemy.In(wireQ.Field("manager_id"), subq.SubQuery()))
+	}
+
+	wireSubQ := wireQ.SubQuery()
+	q = q.In("wire_id", wireSubQ.Query(wireSubQ.Field("id")).SubQuery())
+
+	nets := make([]SNetwork, 0, 5)
+	err := db.FetchModelObjects(NetworkManager, q, &nets)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return nets, nil
+}
+
 func (svpc *SVpc) GetNetworkByExtId(extId string) (*SNetwork, error) {
 	network, err := db.FetchByExternalIdAndManagerId(NetworkManager, extId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		wireQ := svpc.getWireQuery().SubQuery()
