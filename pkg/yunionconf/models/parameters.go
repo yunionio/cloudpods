@@ -28,18 +28,20 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/yunionconf/options"
 )
 
 const (
-	NAMESPACE_USER       = "user"
-	NAMESPACE_SERVICE    = "service"
-	NAMESPACE_BUG_REPORT = "bug-report"
+	NAMESPACE_USER       = api.NAMESPACE_USER
+	NAMESPACE_SERVICE    = api.NAMESPACE_SERVICE
+	NAMESPACE_BUG_REPORT = api.NAMESPACE_BUG_REPORT
 )
 
 type SParameterManager struct {
@@ -84,8 +86,8 @@ func isAdminQuery(query jsonutils.JSONObject) bool {
 	return false
 }
 
-func getUserId(user string) (string, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+func getUserId(ctx context.Context, user string) (string, error) {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	userObj, err := modules.UsersV3.Get(s, user, nil)
 	if err != nil {
 		return "", err
@@ -99,8 +101,8 @@ func getUserId(user string) (string, error) {
 	return uid, nil
 }
 
-func getServiceId(service string) (string, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+func getServiceId(ctx context.Context, service string) (string, error) {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	serviceObj, err := modules.ServicesV3.Get(s, service, nil)
 	if err != nil {
 		return "", err
@@ -114,17 +116,17 @@ func getServiceId(service string) (string, error) {
 	return uid, nil
 }
 
-func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (namespace string, namespaceId string, err error) {
+func getNamespaceInContext(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (namespace string, namespaceId string, err error) {
 	// 优先匹配上线文中的参数, /users/<user_id>/parameters  /services/<service_id>/parameters
 	if query != nil {
 		if uid := jsonutils.GetAnyString(query, []string{"user", "user_id"}); len(uid) > 0 {
-			uid, err := getUserId(uid)
+			uid, err := getUserId(ctx, uid)
 			if err != nil {
 				return "", "", err
 			}
 			return NAMESPACE_USER, uid, nil
 		} else if sid := jsonutils.GetAnyString(query, []string{"service", "service_id"}); len(sid) > 0 {
-			sid, err := getServiceId(sid)
+			sid, err := getServiceId(ctx, sid)
 			if err != nil {
 				return "", "", err
 			}
@@ -134,13 +136,13 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 
 	// 匹配/parameters中的参数
 	if uid := jsonutils.GetAnyString(data, []string{"user", "user_id"}); len(uid) > 0 {
-		uid, err := getUserId(uid)
+		uid, err := getUserId(ctx, uid)
 		if err != nil {
 			return "", "", err
 		}
 		return NAMESPACE_USER, uid, nil
 	} else if sid := jsonutils.GetAnyString(data, []string{"service", "service_id"}); len(sid) > 0 {
-		sid, err := getServiceId(sid)
+		sid, err := getServiceId(ctx, sid)
 		if err != nil {
 			return "", "", err
 		}
@@ -150,10 +152,10 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 	}
 }
 
-func getNamespace(userCred mcclient.TokenCredential, resource string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
+func getNamespace(ctx context.Context, userCred mcclient.TokenCredential, resource string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
 	var namespace, namespace_id string
 	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), resource, policy.PolicyActionList).Result.IsAllow() {
-		if name, nameId, e := getNamespaceInContext(userCred, query, data); e != nil {
+		if name, nameId, e := getNamespaceInContext(ctx, userCred, query, data); e != nil {
 			return "", "", e
 		} else {
 			namespace = name
@@ -187,7 +189,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
-	namespace, namespace_id, e := getNamespace(userCred, manager.KeywordPlural(), query, data)
+	namespace, namespace_id, e := getNamespace(ctx, userCred, manager.KeywordPlural(), query, data)
 	if e != nil {
 		return nil, e
 	}
@@ -253,13 +255,13 @@ func (manager *SParameterManager) ListItemFilter(
 		if id := query.NamespaceId; len(id) > 0 {
 			q = q.Equals("namespace_id", id)
 		} else if id := query.ServiceId; len(id) > 0 {
-			if sid, err := getServiceId(id); err != nil {
+			if sid, err := getServiceId(ctx, id); err != nil {
 				return q, err
 			} else {
 				q = q.Equals("namespace_id", sid).Equals("namespace", NAMESPACE_SERVICE)
 			}
 		} else if id := query.UserId; len(id) > 0 {
-			if uid, err := getUserId(id); err != nil {
+			if uid, err := getUserId(ctx, id); err != nil {
 				return q, err
 			} else {
 				q = q.Equals("namespace_id", uid).Equals("namespace", NAMESPACE_USER)
@@ -313,7 +315,7 @@ func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
-	namespace, namespace_id, e := getNamespace(userCred, model.KeywordPlural(), query, data)
+	namespace, namespace_id, e := getNamespace(ctx, userCred, model.KeywordPlural(), query, data)
 	if e != nil {
 		return nil, e
 	}
@@ -410,4 +412,152 @@ func (manager *SParameterManager) DisableBugReport(ctx context.Context) error {
 	)
 	bugReportEnable = nil
 	return err
+}
+
+func (manager *SParameterManager) FetchParameters(nsType string, nsId string, name string) ([]SParameter, error) {
+	q := manager.Query()
+	q = q.Equals("namespace", nsType)
+	q = q.Equals("namespace_id", nsId)
+	if len(name) > 0 {
+		q = q.Equals("name", name)
+	}
+	params := make([]SParameter, 0)
+	err := db.FetchModelObjects(manager, q, &params)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return params, nil
+}
+
+func (parameter *SParameter) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	return jsonutils.Marshal(struct {
+		Id          int64
+		Name        string
+		Namespace   string
+		NamespaceId string
+		Value       jsonutils.JSONObject
+	}{
+		Id:          parameter.Id,
+		Name:        parameter.Name,
+		Namespace:   parameter.Namespace,
+		NamespaceId: parameter.NamespaceId,
+		Value:       parameter.Value,
+	}).(*jsonutils.JSONDict)
+}
+
+func (parameter *SParameter) PerformClone(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.ParameterCloneInput,
+) (jsonutils.JSONObject, error) {
+	if len(input.DestName) == 0 {
+		input.DestName = parameter.Name
+	}
+	var nsType string
+	var nsId string
+	switch input.DestNs {
+	case "user", "users":
+		uid, err := getUserId(ctx, input.DestNsId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getDestUserId %s", input.DestNsId)
+		}
+		nsType = NAMESPACE_USER
+		nsId = uid
+	case "service", "services":
+		sid, err := getServiceId(ctx, input.DestNsId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getDestServiceId %s", input.DestNsId)
+		}
+		nsType = NAMESPACE_SERVICE
+		nsId = sid
+	default:
+		return nil, errors.Wrapf(errors.ErrNotSupported, "unsupported namespace %s/%s", input.DestNs, input.DestNsId)
+	}
+
+	lockman.LockClass(ctx, ParameterManager, nsId)
+	defer lockman.ReleaseClass(ctx, ParameterManager, nsId)
+
+	destParams, err := ParameterManager.FetchParameters(nsType, nsId, input.DestName)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchParameters")
+	}
+	switch len(destParams) {
+	case 0:
+		// create it
+		if !policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), ParameterManager.KeywordPlural(), policy.PolicyActionCreate).Result.IsAllow() {
+			return nil, httperrors.ErrNotSufficientPrivilege
+		}
+		newParam := SParameter{}
+		newParam.SetModelManager(ParameterManager, &newParam)
+		newParam.Namespace = nsType
+		newParam.NamespaceId = nsId
+		newParam.Name = input.DestName
+		newParam.Value = parameter.Value
+		newParam.CreatedBy = userCred.GetUserId()
+		newParam.UpdatedBy = userCred.GetUserId()
+
+		err := ParameterManager.TableSpec().Insert(ctx, &newParam)
+		if err != nil {
+			return nil, errors.Wrap(err, "Insert")
+		}
+		logclient.AddActionLogWithContext(ctx, &newParam, logclient.ACT_CREATE, newParam.GetShortDesc(ctx), userCred, true)
+		return jsonutils.Marshal(&newParam), nil
+	case 1:
+		// update it
+		if !policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), ParameterManager.KeywordPlural(), policy.PolicyActionUpdate).Result.IsAllow() {
+			return nil, httperrors.ErrNotSufficientPrivilege
+		}
+		destParam := destParams[0]
+		lockman.LockObject(ctx, &destParam)
+		defer lockman.ReleaseObject(ctx, &destParam)
+
+		var newValue jsonutils.JSONObject
+		if parameter.Value != nil {
+			switch srcVal := parameter.Value.(type) {
+			case *jsonutils.JSONDict:
+				if destParam.Value == nil {
+					newValue = srcVal
+				} else if destDict, ok := destParam.Value.(*jsonutils.JSONDict); ok {
+					dest := jsonutils.NewDict()
+					dest.Update(destDict)
+					dest.Update(srcVal)
+					newValue = dest
+				} else {
+					return nil, errors.Wrap(httperrors.ErrInvalidFormat, "cannot clone dictionary value to other type")
+				}
+			case *jsonutils.JSONArray:
+				if destParam.Value == nil {
+					newValue = srcVal
+				} else if destArray, ok := destParam.Value.(*jsonutils.JSONArray); ok {
+					dest := destArray.Copy()
+					srcObjs, _ := srcVal.GetArray()
+					dest.Add(srcObjs...)
+					newValue = dest
+				} else {
+					return nil, errors.Wrap(httperrors.ErrInvalidFormat, "cannot clone array value to other type")
+				}
+			default:
+				newValue = srcVal
+			}
+		} else {
+			// null operation
+			return nil, nil
+		}
+
+		diff, err := db.Update(&destParam, func() error {
+			destParam.Value = newValue
+			destParam.UpdatedBy = userCred.GetUserId()
+			return nil
+		})
+		if err != nil {
+			logclient.AddActionLogWithContext(ctx, &destParam, logclient.ACT_UPDATE, diff, userCred, false)
+			return nil, errors.Wrap(err, "update")
+		}
+		logclient.AddActionLogWithContext(ctx, &destParam, logclient.ACT_UPDATE, diff, userCred, true)
+		return jsonutils.Marshal(parameter), nil
+	default:
+		// error?
+		return nil, errors.Wrapf(httperrors.ErrInternalError, "duplicate dest?")
+	}
 }
