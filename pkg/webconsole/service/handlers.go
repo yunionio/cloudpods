@@ -18,11 +18,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
@@ -39,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	"yunion.io/x/onecloud/pkg/webconsole/models"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
@@ -102,7 +105,7 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("Not found cluster %q kubeconfig", k8sReq.Cluster)
 	}
-	f, err := ioutil.TempFile("", "kubeconfig-")
+	f, err := os.CreateTemp("", "kubeconfig-")
 	if err != nil {
 		return nil, fmt.Errorf("Save kubeconfig error: %v", err)
 	}
@@ -420,34 +423,27 @@ func handleAdbShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	phoneIp := ""
 	adbPort := -1
-	// {\"container_port\":5555,\"host_port\":23888,\"protocol\":\"tcp\"}
-	type sPortMapping struct {
-		ContainerPort int    `json:"container_port"`
-		HostPort      int    `json:"host_port"`
-		Protocol      string `json:"protocol"`
-	}
-	if pmstr, ok := serverDetails.Metadata["port_mappings"]; ok {
-		pmJson, err := jsonutils.ParseString(pmstr)
-		if err != nil {
-			httperrors.GeneralServerError(ctx, w, err)
-			return
-		}
-		portMaps := make([]sPortMapping, 0)
-		err = pmJson.Unmarshal(&portMaps)
-		if err != nil {
-			httperrors.GeneralServerError(ctx, w, err)
-			return
-		}
+	if len(serverDetails.Nics) > 0 {
+		phoneIp = serverDetails.Nics[0].IpAddr
+		portMaps := serverDetails.Nics[0].PortMappings
 		for i := range portMaps {
 			portMap := portMaps[i]
-			if portMap.ContainerPort == 5555 && portMap.Protocol == "tcp" {
-				adbPort = portMap.HostPort
+			if portMap.Port == 5555 && portMap.Protocol == "tcp" {
+				adbPort = *portMap.HostPort
 				break
 			}
 		}
+		var errMsgs []string
+		if !regutils.MatchIP4Addr(phoneIp) {
+			errMsgs = append(errMsgs, "invalid phone IP")
+		}
 		if adbPort < 0 {
-			httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError("adb port not found"))
+			errMsgs = append(errMsgs, "adb port not found")
+		}
+		if len(errMsgs) > 0 {
+			httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError(strings.Join(errMsgs, ";")))
 			return
 		}
 	} else {
@@ -455,9 +451,22 @@ func handleAdbShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	{
+		// test phoneIP is accessible
+		err := netutils2.TestTcpPort(phoneIp, 5555, 3, 3)
+		if err != nil {
+			log.Errorf("TestTcpPort %s:%d fail %s", phoneIp, 5555, err)
+			phoneIp = serverDetails.HostEIP
+			if len(phoneIp) == 0 {
+				phoneIp = serverDetails.HostAccessIp
+			}
+		} else {
+			adbPort = 5555
+		}
+	}
 	info := command.SAdbShellInfo{
-		IpAddr: serverDetails.HostAccessIp,
-		Port:   adbPort,
+		HostIp:   phoneIp,
+		HostPort: adbPort,
 	}
 
 	cmd, err := command.NewAdbShellCommand(&info, env.ClientSessin)

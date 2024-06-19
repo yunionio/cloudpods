@@ -20,14 +20,13 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 type SAdbShellInfo struct {
-	IpAddr string `json:"ip_addr"`
-	Port   int    `json:"port"`
+	HostIp   string `json:"host_ip"`
+	HostPort int    `json:"host_port"`
 }
 
 type SAdbShellCommand struct {
@@ -37,21 +36,18 @@ type SAdbShellCommand struct {
 }
 
 func NewAdbShellCommand(info *SAdbShellInfo, s *mcclient.ClientSession) (*SAdbShellCommand, error) {
-	if info.IpAddr == "" {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "Empty host ip address")
-	}
-	if info.Port == 0 {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "Empty host port")
-	}
 	name := o.Options.AdbPath
-	cmd := NewBaseCommand(s, name, "-s", fmt.Sprintf("%s:%d", info.IpAddr, info.Port), "shell")
+	var connStr string
+	initCmd := exec.Command(name, "connect", fmt.Sprintf("%s:%d", info.HostIp, info.HostPort))
+	if err := initCmd.Run(); err != nil {
+		return nil, errors.Wrap(err, "connect adb")
+	} else {
+		connStr = fmt.Sprintf("%s:%d", info.HostIp, info.HostPort)
+	}
+	cmd := NewBaseCommand(s, name, "-s", connStr, "shell")
 	tool := &SAdbShellCommand{
 		BaseCommand: cmd,
 		Info:        info,
-	}
-	initCmd := exec.Command(name, "connect", fmt.Sprintf("%s:%d", info.IpAddr, info.Port))
-	if err := initCmd.Run(); err != nil {
-		return nil, errors.Wrap(err, "connect adb")
 	}
 	return tool, nil
 }
@@ -65,7 +61,7 @@ func (c SAdbShellCommand) GetProtocol() string {
 }
 
 func (c *SAdbShellCommand) Cleanup() error {
-	initCmd := exec.Command(o.Options.AdbPath, "disconnect", fmt.Sprintf("%s:%d", c.Info.IpAddr, c.Info.Port))
+	initCmd := exec.Command(o.Options.AdbPath, "disconnect", fmt.Sprintf("%s:%d", c.Info.HostIp, c.Info.HostPort))
 	if err := initCmd.Run(); err != nil {
 		return errors.Wrap(err, "disconnect adb")
 	}
