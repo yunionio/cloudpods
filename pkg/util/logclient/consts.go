@@ -246,4 +246,35 @@ const (
 	ACT_CANCEL = "cancel"
 	ACT_START  = "start"
 	ACT_DONE   = "done"
+
+	ACT_ASSOCIATE  = "associate"
+	ACT_DISSOCIATE = "dissociate"
+
+	ACT_BIND     = "bind"
+	ACT_UNBIND   = "unbind"
+	ACT_PROGRESS = "progress"
+
+	ACT_ADD_BASTION_SERVER = "add_bastion_server"
+
+	ACT_SYNC_TRAFFIC_LIMIT = "sync_traffic_limit"
+
+	ACT_GENERATE_REPORT     = "generate_report"
+	ACT_REPORT_COLLECT_DATA = "report_collect_data"
+	ACT_REPORT_SEND         = "report_send"
+	ACT_REPORT_TEMPLATE     = "report_template"
+
+	ACT_CREATE_SECURITY_GROUP_RULE = "create_security_group_rule"
+	ACT_DELETE_SECURITY_GROUP_RULE = "delete_security_group_rule"
+
+	ACT_CLEAN_PROJECT = "clean_project"
+
+	ACT_COLLECT_METRICS = "collect_metrics"
+
+	ACT_CONFIGURE            = "configure"
+	ACT_ACTIVATE             = "activate"
+	ACT_SUSPEND              = "suspend"
+	ACT_APPROVED             = "approved"
+	ACT_REJECTED             = "rejected"
+	ACT_TRANSFERRED          = "transferred"
+	ACT_TRANSFERRED_REJECTED = "trans_rejected"
 )
