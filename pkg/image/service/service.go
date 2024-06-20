@@ -107,7 +107,11 @@ func StartService() {
 		log.Errorf("failed	get vmware cloudaccounts")
 	} else if ok {
 		if !utils.IsInStringArray(string(qemuimgfmt.VMDK), options.Options.TargetImageFormats) {
-			options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimgfmt.VMDK))
+			if err = models.UpdateImageConfigTargetImageFormats(context.Background(), auth.AdminCredential()); err != nil {
+				log.Errorf("failed update target_image_formats %s", err)
+			} else {
+				options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimgfmt.VMDK))
+			}
 		}
 	}
 
