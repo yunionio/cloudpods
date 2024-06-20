@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -81,7 +82,7 @@ func (s *SKVMGuestInstance) initGuestDevicesDesc(pciRoot, pciBridge *desc.PCICon
 	// vdi device for spice
 	s.Desc.VdiDevice = new(desc.SGuestVdi)
 	if s.IsVdiSpice() {
-		s.initSpiceDevices(pciRoot)
+		s.initSpiceDevices(pciRoot, s.isEnableSpiceStreaming())
 	}
 
 	s.initVirtioSerial(pciRoot)
@@ -501,7 +502,7 @@ func (s *SKVMGuestInstance) initGuestVga(pciRoot *desc.PCIController) {
 	}
 }
 
-func (s *SKVMGuestInstance) initSpiceDevices(pciRoot *desc.PCIController) {
+func (s *SKVMGuestInstance) initSpiceDevices(pciRoot *desc.PCIController, enableStreaming bool) {
 	spice := new(desc.SSpiceDesc)
 	spice.IntelHDA = &desc.SoundCard{
 		PCIDevice: desc.NewPCIDevice(pciRoot.CType, "intel-hda", "sound0"),
@@ -542,6 +543,22 @@ func (s *SKVMGuestInstance) initSpiceDevices(pciRoot *desc.PCIController) {
 			"nr": "1",
 		},
 	}
+
+	if enableStreaming {
+		// -chardev spiceport,name=org.spice-space.stream.0,id=charchannel1
+		streamingAgentCharDevId := "charchannel1"
+		streamingAgentCharDevName := "org.spice-space.stream.0"
+		spice.StreamingAgent = desc.NewCharDev("spiceport", streamingAgentCharDevId, streamingAgentCharDevName)
+		// -device virtserialport,bus=virtio-serial0.0,nr=1,chardev=charchannel1,id=channel1,name=org.spice-space.stream.0
+		spice.StreamingAgentPort = &desc.VirtSerialPort{
+			Chardev: streamingAgentCharDevId,
+			Name:    streamingAgentCharDevName,
+			Options: map[string]string{
+				"nr": "2",
+			},
+		}
+	}
+
 	spice.Options = map[string]string{
 		"disable-ticketing":  "off",
 		"seamless-migration": "on",
@@ -892,8 +909,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 		case "sound0":
 			if s.Desc.VdiDevice.Spice == nil {
-				s.Desc.Vdi = "spice"
-				s.initSpiceDevices(pciRoot)
+				s.Desc.Vdi = compute_api.VM_VDI_PROTOCOL_SPICE
+				s.initSpiceDevices(pciRoot, false)
 			}
 			s.Desc.VdiDevice.Spice.IntelHDA.PCIAddr = pciAddr
 			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.IntelHDA.PCIDevice, -1, nil)
@@ -902,8 +919,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 		case "vdagent-serial0":
 			if s.Desc.VdiDevice.Spice == nil {
-				s.Desc.Vdi = "spice"
-				s.initSpiceDevices(pciRoot)
+				s.Desc.Vdi = compute_api.VM_VDI_PROTOCOL_SPICE
+				s.initSpiceDevices(pciRoot, false)
 			}
 			s.Desc.VdiDevice.Spice.VdagentSerial.PCIAddr = pciAddr
 			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.VdagentSerial.PCIDevice, -1, nil)
@@ -922,8 +939,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 		case "usbspice":
 			if s.Desc.VdiDevice.Spice == nil {
-				s.Desc.Vdi = "spice"
-				s.initSpiceDevices(pciRoot)
+				s.Desc.Vdi = compute_api.VM_VDI_PROTOCOL_SPICE
+				s.initSpiceDevices(pciRoot, false)
 			}
 			s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIAddr = pciAddr
 			multiFunc := true
@@ -933,8 +950,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 		case "uhci1":
 			if s.Desc.VdiDevice.Spice == nil {
-				s.Desc.Vdi = "spice"
-				s.initSpiceDevices(pciRoot)
+				s.Desc.Vdi = compute_api.VM_VDI_PROTOCOL_SPICE
+				s.initSpiceDevices(pciRoot, false)
 			}
 			multiFunc := true
 			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr = pciAddr
@@ -944,8 +961,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 		case "uhci2":
 			if s.Desc.VdiDevice.Spice == nil {
-				s.Desc.Vdi = "spice"
-				s.initSpiceDevices(pciRoot)
+				s.Desc.Vdi = compute_api.VM_VDI_PROTOCOL_SPICE
+				s.initSpiceDevices(pciRoot, false)
 			}
 			multiFunc := true
 			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI2.PCIAddr = pciAddr
@@ -955,8 +972,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 		case "uhci3":
 			if s.Desc.VdiDevice.Spice == nil {
-				s.Desc.Vdi = "spice"
-				s.initSpiceDevices(pciRoot)
+				s.Desc.Vdi = compute_api.VM_VDI_PROTOCOL_SPICE
+				s.initSpiceDevices(pciRoot, false)
 			}
 			multiFunc := true
 			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIAddr = pciAddr
