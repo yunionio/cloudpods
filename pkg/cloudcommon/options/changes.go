@@ -62,6 +62,10 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.ApiServer != newOpts.ApiServer {
 		log.Debugf("api_server changed from %s to %s", oldOpts.ApiServer, newOpts.ApiServer)
 	}
+
+	if oldOpts.EnableChangeOwnerAutoRename != newOpts.EnableChangeOwnerAutoRename {
+		consts.SetChangeOwnerAutoRename(newOpts.EnableChangeOwnerAutoRename)
+	}
 	return changed
 }
 
