@@ -26,6 +26,8 @@ var (
 	defaultDBConnectionString string
 
 	defaultDBChecksumHashAlgorithm string
+
+	enableChangeOwnerAutoRename = false
 )
 
 func SetDefaultDB(dialect, connStr string) {
@@ -51,4 +53,12 @@ func DefaultDBChecksumHashAlgorithm() string {
 		return defaultDBChecksumHashAlgorithm
 	}
 	return "sha256"
+}
+
+func SetChangeOwnerAutoRename(enable bool) {
+	enableChangeOwnerAutoRename = enable
+}
+
+func GetChangeOwnerAutoRename() bool {
+	return enableChangeOwnerAutoRename
 }
