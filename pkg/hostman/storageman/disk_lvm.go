@@ -276,14 +276,28 @@ func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 	if err != nil {
 		return nil, errors.Wrap(err, "lv resize")
 	}
+
+	resizeFsInfo := &deployapi.DiskInfo{
+		Path: d.GetPath(),
+	}
+	if diskInfo.Contains("encrypt_info") {
+		var encryptInfo apis.SEncryptInfo
+		err := diskInfo.Unmarshal(&encryptInfo, "encrypt_info")
+		if err != nil {
+			log.Errorf("fail to fetch encryptInfo %s", err)
+			return nil, errors.Wrap(err, "Unmarshal encrpt_info")
+		} else {
+			qemuImg.SetPassword(encryptInfo.Key)
+			resizeFsInfo.EncryptPassword = encryptInfo.Key
+			resizeFsInfo.EncryptAlg = string(encryptInfo.Alg)
+		}
+	}
+
 	err = qemuImg.Resize(int(sizeMb))
 	if err != nil {
 		return nil, errors.Wrap(err, "qemuImg resize")
 	}
 
-	resizeFsInfo := &deployapi.DiskInfo{
-		Path: d.GetPath(),
-	}
 	if err := d.ResizeFs(resizeFsInfo); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
 	}
