@@ -121,6 +121,8 @@ type BaseOptions struct {
 	PlatformNames map[string]string `help:"identity name of this platform by language"`
 
 	EnableAppProfiling bool `help:"enable profiling API" default:"false"`
+
+	EnableChangeOwnerAutoRename bool `help:"Allows renaming when changing names" default:"false"`
 }
 
 const (

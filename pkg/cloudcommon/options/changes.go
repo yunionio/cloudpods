@@ -68,6 +68,9 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.LocalTaskWorkerCount != newOpts.LocalTaskWorkerCount {
 		consts.SetLocalTaskWorkerCount(newOpts.LocalTaskWorkerCount)
 	}
+	if oldOpts.EnableChangeOwnerAutoRename != newOpts.EnableChangeOwnerAutoRename {
+		consts.SetChangeOwnerAutoRename(newOpts.EnableChangeOwnerAutoRename)
+	}
 	return changed
 }
 

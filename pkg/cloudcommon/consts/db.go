@@ -29,6 +29,8 @@ var (
 
 	taskWorkerCount      int
 	localTaskWorkerCount int
+
+	enableChangeOwnerAutoRename = false
 )
 
 func SetDefaultDB(dialect, connStr string) {
@@ -62,6 +64,14 @@ func SetTaskWorkerCount(cnt int) {
 
 func SetLocalTaskWorkerCount(cnt int) {
 	localTaskWorkerCount = cnt
+}
+
+func SetChangeOwnerAutoRename(enable bool) {
+	enableChangeOwnerAutoRename = enable
+}
+
+func GetChangeOwnerAutoRename() bool {
+	return enableChangeOwnerAutoRename
 }
 
 func TaskWorkerCount() int {
