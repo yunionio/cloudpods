@@ -731,6 +731,8 @@ type ServerDeployInputBase struct {
 	ResetPassword bool `json:"reset_password"`
 	// 重置指定密码
 	Password string `json:"password"`
+	// swagger: ignore
+	LoginAccount string `json:"login_account"`
 
 	// swagger: ignore
 	Restart bool `json:"restart"`
