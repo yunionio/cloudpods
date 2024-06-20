@@ -146,6 +146,7 @@ type ServerRebuildRootInput struct {
 	Password      string `json:"password"`
 	AutoStart     *bool  `json:"auto_start"`
 	AllDisks      *bool  `json:"all_disks"`
+	LoginAccount  string `json:"login_account"`
 }
 
 type ServerResumeInput struct {
@@ -681,6 +682,9 @@ type ServerDeployInput struct {
 	// 若虚拟机重置密码后需要重启生效，并且当前虚拟机状态为running, 此参数默认为true
 	// 若虚拟机状态为ready, 指定此参数后，部署完成后，虚拟机会自动启动
 	AutoStart bool `json:"auto_start"`
+	// swagger: ignore
+	LoginAccount string `json:"login_account"`
+
 	// swagger: ignore
 	Restart bool `json:"restart"`
 
