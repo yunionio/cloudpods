@@ -692,6 +692,7 @@ func init() {
 	t.Set(ACT_ACTIVATE, i18n.NewTableEntry().EN("Activate").CN("启用"))
 	t.Set(ACT_SUSPEND, i18n.NewTableEntry().EN("Suspend").CN("暂停"))
 	t.Set(ACT_APPROVED, i18n.NewTableEntry().EN("Approved").CN("批准"))
+	t.Set(ACT_REJECTED, i18n.NewTableEntry().EN("Rejected").CN("驳回"))
 	t.Set(ACT_TRANSFERRED, i18n.NewTableEntry().EN("Transferred").CN("转交"))
 	t.Set(ACT_TRANSFERRED_REJECTED, i18n.NewTableEntry().EN("Transferred Rejected").CN("驳回"))
 
