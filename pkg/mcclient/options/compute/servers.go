@@ -744,6 +744,7 @@ type ServerDeployOptions struct {
 	Deploy         []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	ResetPassword  bool     `help:"Force reset password"`
 	Password       string   `help:"Default user password"`
+	LoginAccount   string   `help:"Guest login account"`
 	AutoStart      bool     `help:"Auto start server after deployed"`
 	DeployTelegraf bool     `help:"Deploy telegraf if guest os supported"`
 }
@@ -760,6 +761,7 @@ func (opts *ServerDeployOptions) Params() (jsonutils.JSONObject, error) {
 		params.ResetPassword = opts.ResetPassword
 		params.Password = opts.Password
 		params.DeployTelegraf = opts.DeployTelegraf
+		params.LoginAccount = opts.LoginAccount
 	}
 	{
 		deployInfos, err := ParseServerDeployInfoList(opts.Deploy)
@@ -992,6 +994,7 @@ type ServerRebuildRootOptions struct {
 	ImageId       string `help:"New root Image template ID" json:"image_id" token:"image"`
 	Keypair       string `help:"ssh Keypair used for login"`
 	Password      string `help:"Default user password"`
+	LoginAccount  string `help:"Guest login account"`
 	NoAccountInit *bool  `help:"Not reset account password"`
 	AutoStart     *bool  `help:"Auto start server after it is created"`
 	AllDisks      *bool  `help:"Rebuild all disks including data disks"`
