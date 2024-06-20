@@ -56,9 +56,8 @@ type SHostBaseOptions struct {
 }
 
 type SHostOptions struct {
-	common_options.EtcdOptions
-
-	SHostBaseOptions
+	common_options.EtcdOptions `json:"-"`
+	SHostBaseOptions           `json:"-"`
 
 	CommonConfigFile string `help:"common config file for container"`
 	LocalConfigFile  string `help:"local config file" default:"/etc/yunion/host_local.conf"`
