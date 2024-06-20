@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
-func getServiceIdByType(s *mcclient.ClientSession, typeStr string, verStr string) (string, error) {
+func GetServiceIdByType(s *mcclient.ClientSession, typeStr string, verStr string) (string, error) {
 	params := jsonutils.NewDict()
 	if len(verStr) > 0 {
 		typeStr += "_" + verStr
@@ -47,7 +47,7 @@ func getServiceIdByType(s *mcclient.ClientSession, typeStr string, verStr string
 	return result.Data[0].GetString("id")
 }
 
-func getServiceConfig(s *mcclient.ClientSession, serviceId string) (jsonutils.JSONObject, error) {
+func GetServiceConfig(s *mcclient.ClientSession, serviceId string) (jsonutils.JSONObject, error) {
 	conf, err := identity.ServicesV3.GetSpecific(s, serviceId, "config", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.ServicesV3.GetSpecific config")
@@ -81,11 +81,11 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 	// epType, _ := s.config.GetString("session_endpoint_type")
 	s.session = auth.GetAdminSession(context.Background(), region)
 	if len(serviceType) > 0 {
-		s.serviceId, _ = getServiceIdByType(s.session, serviceType, serviceVersion)
+		s.serviceId, _ = GetServiceIdByType(s.session, serviceType, serviceVersion)
 		if len(s.serviceId) > 0 {
-			serviceConf, err := getServiceConfig(s.session, s.serviceId)
+			serviceConf, err := GetServiceConfig(s.session, s.serviceId)
 			if err != nil {
-				log.Errorf("getServiceConfig for %s failed: %s", serviceType, err)
+				log.Errorf("GetServiceConfig for %s failed: %s", serviceType, err)
 			} else if serviceConf != nil {
 				s.config.Update(serviceConf)
 				merged = true
@@ -95,11 +95,11 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 			}
 		}
 	}
-	s.commonServiceId, _ = getServiceIdByType(s.session, consts.COMMON_SERVICE, "")
+	s.commonServiceId, _ = GetServiceIdByType(s.session, consts.COMMON_SERVICE, "")
 	if len(s.commonServiceId) > 0 {
-		commonConf, err := getServiceConfig(s.session, s.commonServiceId)
+		commonConf, err := GetServiceConfig(s.session, s.commonServiceId)
 		if err != nil {
-			log.Errorf("getServiceConfig for %s failed: %s", consts.COMMON_SERVICE, err)
+			log.Errorf("GetServiceConfig for %s failed: %s", consts.COMMON_SERVICE, err)
 		} else if commonConf != nil {
 			s.config.Update(commonConf)
 			merged = true
