@@ -26,8 +26,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 )
 
 func (self *SGuest) PerformConvert(
@@ -79,28 +82,9 @@ func (self *SGuest) ConvertCloudpodsToKvm(ctx context.Context, userCred mcclient
 	if self.Status != api.VM_READY {
 		return nil, httperrors.NewBadRequestError("guest status must be ready")
 	}
-	newGuest, createInput, err := self.createConvertedServer(ctx, userCred)
+	newGuest, createInput, err := self.createConvertedServer(ctx, userCred, data)
 	if err != nil {
 		return nil, errors.Wrap(err, "create converted server")
-	}
-	if data.Networks != nil && len(data.Networks) != len(createInput.Networks) {
-		return nil, httperrors.NewInputParameterError("input network configs length  must equal guestnetworks length")
-	}
-
-	for i := 0; i < len(createInput.Networks); i++ {
-		createInput.Networks[i].Network = ""
-		createInput.Networks[i].Wire = ""
-		if data.Networks != nil {
-			if data.Networks[i].Network != "" {
-				createInput.Networks[i].Network = data.Networks[i].Network
-			}
-			if data.Networks[i].Address != "" {
-				createInput.Networks[i].Address = data.Networks[i].Address
-			}
-			if data.Networks[i].Schedtags != nil {
-				createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
-			}
-		}
 	}
 
 	return nil, self.StartConvertToKvmTask(ctx, userCred, "GuestConvertCloudpodsToKvmTask", preferHost, newGuest, createInput, data)
@@ -135,7 +119,7 @@ func (self *SGuest) ConvertEsxiToKvm(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 
-	newGuest, createInput, err := self.createConvertedServer(ctx, userCred)
+	newGuest, createInput, err := self.createConvertedServer(ctx, userCred, data)
 	if err != nil {
 		return nil, errors.Wrap(err, "create converted server")
 	}
@@ -185,9 +169,7 @@ func (self *SGuest) StartConvertToKvmTask(
 	}
 }
 
-func (self *SGuest) createConvertedServer(
-	ctx context.Context, userCred mcclient.TokenCredential,
-) (*SGuest, *api.ServerCreateInput, error) {
+func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient.TokenCredential, data *api.ConvertToKvmInput) (*SGuest, *api.ServerCreateInput, error) {
 	// set guest pending usage
 	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(1)
 	keys, err := self.GetQuotaKeys()
@@ -213,7 +195,7 @@ func (self *SGuest) createConvertedServer(
 	// generate guest create params
 	createInput := self.ToCreateInput(ctx, userCred)
 	createInput.Hypervisor = api.HYPERVISOR_KVM
-	createInput.PreferHost = ""
+	createInput.PreferHost = data.PreferHost
 	createInput.GenerateName = fmt.Sprintf("%s-%s", self.Name, api.HYPERVISOR_KVM)
 	createInput.Hostname = self.Name
 	if self.Hostname != "" {
@@ -246,6 +228,45 @@ func (self *SGuest) createConvertedServer(
 		createInput.Vdi = api.VM_VDI_PROTOCOL_VNC
 	} else {
 		createInput.Disks[0].ImageId = ""
+	}
+
+	if data.Networks != nil && len(data.Networks) != len(createInput.Networks) {
+		return nil, nil, httperrors.NewInputParameterError("input network configs length  must equal guestnetworks length")
+	}
+
+	for i := 0; i < len(createInput.Networks); i++ {
+		createInput.Networks[i].Network = ""
+		createInput.Networks[i].Wire = ""
+		if data.Networks != nil {
+			if data.Networks[i].Network != "" {
+				createInput.Networks[i].Network = data.Networks[i].Network
+			}
+			if data.Networks[i].Address != "" {
+				createInput.Networks[i].Address = data.Networks[i].Address
+			}
+			if data.Networks[i].Schedtags != nil {
+				createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
+			}
+		}
+	}
+
+	schedDesc := self.ToSchedDesc()
+	schedDesc.PreferHost = data.PreferHost
+	for i := range schedDesc.Disks {
+		schedDesc.Disks[i].Backend = ""
+		schedDesc.Disks[i].Medium = ""
+		schedDesc.Disks[i].Storage = ""
+	}
+	schedDesc.Networks = data.Networks
+	schedDesc.Hypervisor = api.HYPERVISOR_KVM
+
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	succ, res, err := scheduler.SchedManager.DoScheduleForecast(s, schedDesc, 1)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "Do schedule migrate forecast")
+	}
+	if !succ {
+		return nil, nil, httperrors.NewInsufficientResourceError(res.String())
 	}
 
 	lockman.LockClass(ctx, GuestManager, userCred.GetProjectId())
