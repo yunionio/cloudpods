@@ -117,6 +117,7 @@ var (
 			"platform_name",
 			"enable_cloud_shell",
 			"platform_names",
+			"enable_change_owner_auto_rename",
 		},
 	}
 
