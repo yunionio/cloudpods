@@ -186,7 +186,7 @@ func transPointToSeries(p *points, query *tsdb.Query) monitor.TimeSeriesSlice {
 	points := transValuesToTSDBPoints(p.values)
 	tags := reviseTags(p.tags)
 	metricName := strings.Join(p.columns, ",")
-	ts := tsdb.NewTimeSeries(metricName, formatRawName(0, metricName, query, tags), append(p.columns, "time"), points, tags)
+	ts := tsdb.NewTimeSeries(metricName, formatRawName(0, metricName, query, tags, nil), append(p.columns, "time"), points, tags)
 	result = append(result, ts)
 	return result
 }
