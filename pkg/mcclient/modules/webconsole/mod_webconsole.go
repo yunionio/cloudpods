@@ -155,16 +155,23 @@ func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, info *webcons
 	query.Add(jsonutils.NewString("system"), "scope")
 	query.Add(jsonutils.NewString("system-default"), "name")
 	clusters, err := k8s.KubeClusters.List(adminSession, query)
-	if err != nil {
-		return nil, errors.Wrap(err, "KubeClusters")
-	}
-	if len(clusters.Data) == 0 {
+
+	climcSshConnect := func(s *mcclient.ClientSession) (jsonutils.JSONObject, error) {
 		// maybe running in docker compose environment, so try to use ssh way
 		if data, err := m.DoClimcSshConnect(s, "climc", 22); err != nil {
 			return nil, httperrors.NewNotFoundError(errors.Wrap(err, "cluster system-default not found, try to use ssh way").Error())
 		} else {
 			return data, nil
 		}
+	}
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound && strings.Contains(err.Error(), "No such service k8s") {
+			return climcSshConnect(s)
+		}
+		return nil, errors.Wrap(err, "KubeClusters")
+	}
+	if len(clusters.Data) == 0 {
+		return climcSshConnect(s)
 	}
 	clusterId, _ := clusters.Data[0].GetString("id")
 	if len(clusterId) == 0 {
