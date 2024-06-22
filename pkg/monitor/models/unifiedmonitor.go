@@ -512,7 +512,7 @@ func fillSerieTags(series *monitor.TimeSeriesSlice) {
 		}
 		for _, tag := range []string{
 			"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE,
-			hostconsts.TELEGRAF_TAG_KEY_RES_TYPE, "cpu",
+			hostconsts.TELEGRAF_TAG_KEY_RES_TYPE,
 			"is_vm", "os_type", "domain_name", "region",
 			labels.MetricName, translator.UNION_RESULT_NAME,
 		} {
