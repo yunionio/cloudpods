@@ -127,9 +127,26 @@ func translateResponse(resp *Response, query *tsdb.Query) (*tsdb.QueryResult, er
 	if len(results) > 0 {
 		_, isUnionResult = results[0].Metric[translator.UNION_RESULT_NAME]
 	}
+
+	// 添加值不同的 tag key
+	diffTagKeys := sets.NewString()
+	if len(results) > 1 {
+		result0 := results[0]
+		restResults := results[1:]
+		for tagKey, tagVal := range result0.Metric {
+			for _, result := range restResults {
+				resultTagVal := result.Metric[tagKey]
+				if tagVal != resultTagVal {
+					diffTagKeys.Insert(tagKey)
+					break
+				}
+			}
+		}
+	}
+
 	if !isUnionResult {
 		for _, result := range results {
-			ss := transformSeries(result, query)
+			ss := transformSeries(result, query, diffTagKeys)
 			queryRes.Series = append(queryRes.Series, ss...)
 		}
 	} else {
@@ -146,7 +163,7 @@ func translateResponse(resp *Response, query *tsdb.Query) (*tsdb.QueryResult, er
 }
 
 // Check VictoriaMetrics response at: https://docs.victoriametrics.com/keyConcepts.html#range-query
-func transformSeries(vmResult ResponseDataResult, query *tsdb.Query) monitor.TimeSeriesSlice {
+func transformSeries(vmResult ResponseDataResult, query *tsdb.Query, diffTagKeys sets.String) monitor.TimeSeriesSlice {
 	var result monitor.TimeSeriesSlice
 	metric := vmResult.Metric
 
@@ -169,12 +186,12 @@ func transformSeries(vmResult ResponseDataResult, query *tsdb.Query) monitor.Tim
 	if aliasName != "" {
 		metricName = aliasName
 	}
-	ts := tsdb.NewTimeSeries(metricName, formatRawName(0, metricName, query, tags), []string{metricName, "time"}, points, tags)
+	ts := tsdb.NewTimeSeries(metricName, formatRawName(0, metricName, query, tags, diffTagKeys), []string{metricName, "time"}, points, tags)
 	result = append(result, ts)
 	return result
 }
 
-func formatRawName(idx int, name string, query *tsdb.Query, tags map[string]string) string {
+func formatRawName(idx int, name string, query *tsdb.Query, tags map[string]string, diffTagKeys sets.String) string {
 	groupByTags := []string{}
 	if query != nil {
 		for _, group := range query.GroupBy {
@@ -183,7 +200,7 @@ func formatRawName(idx int, name string, query *tsdb.Query, tags map[string]stri
 			}
 		}
 	}
-	return tsdb.FormatRawName(idx, name, groupByTags, tags)
+	return tsdb.FormatRawName(idx, name, groupByTags, tags, diffTagKeys)
 }
 
 func parseTimepoint(val ResponseDataResultValue) (monitor.TimePoint, error) {

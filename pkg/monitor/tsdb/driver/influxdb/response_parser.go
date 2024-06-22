@@ -120,7 +120,7 @@ func formatRawName(idx int, name string, query *Query, tags map[string]string) s
 			groupByTags = append(groupByTags, group.Params[0])
 		}
 	}
-	return tsdb.FormatRawName(idx, name, groupByTags, tags)
+	return tsdb.FormatRawName(idx, name, groupByTags, tags, nil)
 }
 
 func (rp *ResponseParser) transformRowToTable(row Row, table *tsdb.Table) *tsdb.Table {
