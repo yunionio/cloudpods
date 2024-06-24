@@ -29,6 +29,8 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -40,6 +42,8 @@ type CASimpleNetConf struct {
 	IpMask  int8   `json:"guest_ip_mask"`
 	Gateway string `json:"guest_gateway"`
 	VlanID  int32  `json:"vlan_id"`
+
+	WireId string `json:"wire_id"`
 }
 
 type CANetConf struct {
@@ -47,17 +51,6 @@ type CANetConf struct {
 
 	Name        string `json:"name"`
 	Description string `json:"description"`
-}
-
-type CAPWire struct {
-	VsId         string
-	WireId       string
-	Name         string
-	Distributed  bool
-	Description  string
-	Hosts        []esxi.SSimpleHostDev
-	HostNetworks []CANetConf
-	// GuestNetworks []CANetConf
 }
 
 var ipMaskLen int8 = 24
@@ -76,16 +69,43 @@ func (account *SCloudaccount) PrepareEsxiHostNetwork(ctx context.Context, userCr
 	if !ok {
 		return errors.Wrap(httperrors.ErrNotSupported, "not a esxi provider")
 	}
-	// check network
-	nInfo, err := esxiClient.HostVmIPsPro(ctx)
+	iHosts, err := esxiClient.GetIHosts()
 	if err != nil {
-		return errors.Wrap(err, "esxiClient.HostVmIPsPro")
+		return errors.Wrap(err, "esxiClient.GetIHosts")
 	}
-	log.Infof("HostVmIPsPro: %s", jsonutils.Marshal(nInfo).String())
 
-	capWires := make([]CAPWire, 0)
-	vsList := nInfo.VsMap.List()
-	log.Infof("vsList: %s", jsonutils.Marshal(vsList))
+	hostIps := make([]netutils.IPV4Addr, 0)
+	for i := range iHosts {
+		accessIp := iHosts[i].GetAccessIp()
+		hostNics, err := iHosts[i].GetIHostNics()
+		if err != nil {
+			return errors.Wrapf(err, "iHosts[%d].GetIHostNics()", i)
+		}
+		findAccessIp := false
+		for _, hn := range hostNics {
+			if len(hn.GetBridge()) > 0 {
+				// a bridged nic, must be a virtual port group, skip
+				continue
+			}
+			ipAddrStr := hn.GetIpAddr()
+			if len(ipAddrStr) == 0 {
+				// skip interface without a valid ip address
+				continue
+			}
+			if accessIp == ipAddrStr {
+				findAccessIp = true
+			}
+			ipAddr, err := netutils.NewIPV4Addr(ipAddrStr)
+			if err != nil {
+				log.Errorf("fail to parse ipv4 addr %s: %s", ipAddrStr, err)
+			} else {
+				hostIps = append(hostIps, ipAddr)
+			}
+		}
+		if !findAccessIp {
+			log.Errorf("Fail to find access ip %s NIC for esxi host %s", accessIp, iHosts[i].GetName())
+		}
+	}
 
 	onPremiseNets, err := NetworkManager.fetchAllOnpremiseNetworks("", tristate.None)
 	if err != nil {
@@ -93,38 +113,53 @@ func (account *SCloudaccount) PrepareEsxiHostNetwork(ctx context.Context, userCr
 	}
 
 	if zoneId == "" {
-		zoneId, err = guessEsxiZoneId(vsList, onPremiseNets)
+		zoneIds, err := fetchOnpremiseZoneIds(onPremiseNets)
 		if err != nil {
-			return errors.Wrap(err, "fail to find zone of esxi")
+			return errors.Wrap(err, "fetchOnpremiseZoneIds")
+		}
+		if len(zoneIds) == 0 {
+			return errors.Wrap(httperrors.ErrInvalidStatus, "empty zone id?")
+		}
+		if len(zoneIds) == 1 {
+			zoneId = zoneIds[0]
+		} else {
+			zoneId, err = guessEsxiZoneId(hostIps, onPremiseNets)
+			if err != nil {
+				return errors.Wrap(err, "fail to find zone of esxi")
+			}
 		}
 	}
 
-	desc := fmt.Sprintf("Auto create for cloudaccount %q", account.Name)
-	for i := range vsList {
-		vs := vsList[i]
-		wireName := fmt.Sprintf("%s/%s", account.Name, vs.Name)
-		capWire, err := guessEsxiNetworks(vs, wireName, onPremiseNets)
+	netConfs, err := guessEsxiNetworks(hostIps, account.Name, onPremiseNets)
+	if err != nil {
+		return errors.Wrap(err, "guessEsxiNetworks")
+	}
+	log.Infof("netConfs: %s", jsonutils.Marshal(netConfs))
+	{
+		err := account.createNetworks(ctx, account.Name, zoneId, netConfs)
 		if err != nil {
-			return errors.Wrap(err, "guessEsxiNetworks")
+			return errors.Wrap(err, "account.createNetworks")
 		}
-		if len(capWire.WireId) == 0 {
-			capWire.Description = desc
-		}
-		capWires = append(capWires, *capWire)
 	}
-	log.Infof("capWires: %v", capWires)
-	host2Wire, err := account.createNetworks(ctx, zoneId, capWires)
-	if err != nil {
-		return errors.Wrap(err, "account.createNetworks")
-	}
-	err = account.SetHost2Wire(ctx, userCred, host2Wire)
-	if err != nil {
-		return errors.Wrap(err, "account.SetHost2Wire")
-	}
+
 	return nil
 }
 
-func guessEsxiZoneId(vsList []esxi.SVirtualSwitchSpec, onPremiseNets []SNetwork) (string, error) {
+func fetchOnpremiseZoneIds(onPremiseNets []SNetwork) ([]string, error) {
+	var zoneIds []string
+	for i := range onPremiseNets {
+		zone, err := onPremiseNets[i].GetZone()
+		if err != nil {
+			return nil, errors.Wrapf(err, "onPremiseNets[%d].GetZone", i)
+		}
+		if !utils.IsInArray(zone.Id, zoneIds) {
+			zoneIds = append(zoneIds, zone.Id)
+		}
+	}
+	return zoneIds, nil
+}
+
+func guessEsxiZoneId(hostIps []netutils.IPV4Addr, onPremiseNets []SNetwork) (string, error) {
 	zoneIds, err := ZoneManager.getOnpremiseZoneIds()
 	if err != nil {
 		return "", errors.Wrap(err, "getOnpremiseZoneIds")
@@ -136,17 +171,12 @@ func guessEsxiZoneId(vsList []esxi.SVirtualSwitchSpec, onPremiseNets []SNetwork)
 	}
 	// there are multiple zones
 	zoneIds = make([]string, 0)
-	for i := range vsList {
-		vs := vsList[i]
-		for _, ips := range vs.HostIps {
-			for _, ip := range ips {
-				for _, net := range onPremiseNets {
-					if net.IsAddressInRange(ip) || net.IsAddressInNet(ip) {
-						zone, _ := net.GetZone()
-						if zone != nil && !utils.IsInStringArray(zone.Id, zoneIds) {
-							zoneIds = append(zoneIds, zone.Id)
-						}
-					}
+	for _, ip := range hostIps {
+		for _, net := range onPremiseNets {
+			if net.IsAddressInRange(ip) || net.IsAddressInNet(ip) {
+				zone, _ := net.GetZone()
+				if zone != nil && !utils.IsInStringArray(zone.Id, zoneIds) {
+					zoneIds = append(zoneIds, zone.Id)
 				}
 			}
 		}
@@ -168,37 +198,29 @@ func (a sIpv4List) Len() int           { return len(a) }
 func (a sIpv4List) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a sIpv4List) Less(i, j int) bool { return uint32(a[i]) < uint32(a[j]) }
 
-func guessEsxiNetworks(vs esxi.SVirtualSwitchSpec, wireName string, onPremiseNets []SNetwork) (*CAPWire, error) {
-	capWire := CAPWire{
-		Name:        wireName,
-		VsId:        vs.Id,
-		Distributed: vs.Distributed,
-		Hosts:       vs.Hosts,
-	}
+func guessEsxiNetworks(hostIps []netutils.IPV4Addr, accountName string, onPremiseNets []SNetwork) ([]CANetConf, error) {
+	netConfs := make([]CANetConf, 0)
+
 	ipList := make([]netutils.IPV4Addr, 0)
-	for _, ips := range vs.HostIps {
-		for j := 0; j < len(ips); j++ {
-			var net *SNetwork
-			for _, n := range onPremiseNets {
-				if n.IsAddressInRange(ips[j]) {
-					// already covered by existing network
-					net = &n
-					break
-				}
+
+	for j := 0; j < len(hostIps); j++ {
+		var net *SNetwork
+		for _, n := range onPremiseNets {
+			if n.IsAddressInRange(hostIps[j]) {
+				// already covered by existing network
+				net = &n
+				break
 			}
-			if net != nil {
-				// found a network contains this IP, no need to create
-				if len(capWire.WireId) > 0 && capWire.WireId != net.WireId {
-					return nil, errors.Wrapf(httperrors.ErrConflict, "%s seems attaching conflict wires %s and %s", wireName, capWire.WireId, net.WireId)
-				}
-				capWire.WireId = net.WireId
-				continue
-			}
-			ipList = append(ipList, ips[j])
 		}
+		if net != nil {
+			// found a network contains this IP, no need to create
+			continue
+		}
+		ipList = append(ipList, hostIps[j])
 	}
 	if len(ipList) == 0 {
-		return &capWire, nil
+		// no need to create network
+		return nil, nil
 	}
 	sort.Sort(sIpv4List(ipList))
 	for i := 0; i < len(ipList); {
@@ -213,10 +235,7 @@ func guessEsxiNetworks(vs esxi.SVirtualSwitchSpec, wireName string, onPremiseNet
 		}
 
 		if net != nil {
-			if len(capWire.WireId) > 0 && capWire.WireId != net.WireId {
-				return nil, errors.Wrapf(httperrors.ErrConflict, "%s seems attaching conflict wires %s and %s", wireName, capWire.WireId, net.WireId)
-			}
-			capWire.WireId = net.WireId
+			simNetConfs.WireId = net.WireId
 			simNetConfs.Gateway = net.GuestGateway
 			simNetConfs.IpMask = net.GuestIpMask
 		} else {
@@ -235,61 +254,47 @@ func guessEsxiNetworks(vs esxi.SVirtualSwitchSpec, wireName string, onPremiseNet
 		simNetConfs.IpStart = ipList[i].String()
 		simNetConfs.IpEnd = ipList[j].String()
 		i = j + 1
-		capWire.HostNetworks = append(capWire.HostNetworks, CANetConf{
-			Name:            fmt.Sprintf("%s-host-network-%d", wireName, len(capWire.HostNetworks)+1),
-			Description:     fmt.Sprintf("Auto create for cloudaccount %q", wireName),
+		netConfs = append(netConfs, CANetConf{
+			Name:            fmt.Sprintf("%s-esxi-host-network", accountName),
+			Description:     fmt.Sprintf("Auto created network for cloudaccount %q", accountName),
 			CASimpleNetConf: simNetConfs,
 		})
 	}
-	return &capWire, nil
+	return netConfs, nil
 }
 
-func (account *SCloudaccount) createNetworks(ctx context.Context, zoneId string, capWires []CAPWire) (map[string][]SVs2Wire, error) {
+func (account *SCloudaccount) createNetworks(ctx context.Context, accountName string, zoneId string, netConfs []CANetConf) error {
 	var err error
-	ret := make(map[string][]SVs2Wire)
-	for i := range capWires {
-		// if len(capWires[i].GuestNetworks)+len(capWires[i].HostNetworks) == 0 {
-		if len(capWires[i].HostNetworks) == 0 {
-			for _, host := range capWires[i].Hosts {
-				ret[host.Id] = append(ret[host.Id], SVs2Wire{
-					VsId:        capWires[i].VsId,
-					Distributed: capWires[i].Distributed,
-					Mac:         host.Mac,
-				})
-			}
-			continue
-		}
-		var wireId = capWires[i].WireId
+	var defWireId string
+	for i := range netConfs {
+		var wireId = netConfs[i].WireId
 		if len(wireId) == 0 {
-			wireId, err = account.createWire(ctx, api.DEFAULT_VPC_ID, zoneId, capWires[i].Name, capWires[i].Description)
-			if err != nil {
-				return nil, errors.Wrapf(err, "can't create wire %s", capWires[i].Name)
+			if len(defWireId) == 0 {
+				// need to create one
+				name := fmt.Sprintf("%s-wire", accountName)
+				desc := fmt.Sprintf("Auto created wire for cloudaccount %q", accountName)
+				wireId, err = account.createWire(ctx, api.DEFAULT_VPC_ID, zoneId, name, desc)
+				if err != nil {
+					return errors.Wrapf(err, "can't create wire %s", name)
+				}
+				defWireId = wireId
 			}
-			capWires[i].WireId = wireId
+			netConfs[i].WireId = defWireId
+			wireId = defWireId
 		}
-		for _, net := range capWires[i].HostNetworks {
-			err := account.createNetwork(ctx, wireId, api.NETWORK_TYPE_BAREMETAL, net)
-			if err != nil {
-				return nil, errors.Wrapf(err, "can't create network %v", net)
-			}
-		}
-		for _, host := range capWires[i].Hosts {
-			ret[host.Id] = append(ret[host.Id], SVs2Wire{
-				VsId:        capWires[i].VsId,
-				WireId:      capWires[i].WireId,
-				Distributed: capWires[i].Distributed,
-				Mac:         host.Mac,
-			})
+		err := account.createNetwork(ctx, wireId, api.NETWORK_TYPE_BAREMETAL, netConfs[i])
+		if err != nil {
+			return errors.Wrapf(err, "can't create network %s", jsonutils.Marshal(netConfs[i]))
 		}
 	}
-	return ret, nil
+	return nil
 }
 
 // NETWORK_TYPE_GUEST     = "guest"
 // NETWORK_TYPE_BAREMETAL = "baremetal"
 func (account *SCloudaccount) createNetwork(ctx context.Context, wireId, networkType string, net CANetConf) error {
 	network := &SNetwork{}
-	network.Name = net.Name
+
 	if hint, err := NetworkManager.NewIfnameHint(net.Name); err != nil {
 		log.Errorf("can't NewIfnameHint form hint %s", net.Name)
 	} else {
@@ -309,11 +314,25 @@ func (account *SCloudaccount) createNetwork(ctx context.Context, wireId, network
 	network.DomainId = account.DomainId
 	network.Description = net.Description
 
+	lockman.LockClass(ctx, NetworkManager, network.ProjectId)
+	defer lockman.ReleaseClass(ctx, NetworkManager, network.ProjectId)
+
+	ownerId := network.GetOwnerId()
+	nName, err := db.GenerateName(ctx, NetworkManager, ownerId, net.Name)
+	if err != nil {
+		return errors.Wrap(err, "GenerateName")
+	}
+	network.Name = nName
+
 	network.SetModelManager(NetworkManager, network)
 	// TODO: Prevent IP conflict
 	log.Infof("create network %s succussfully", network.Id)
-	err := NetworkManager.TableSpec().Insert(ctx, network)
-	return err
+	err = NetworkManager.TableSpec().Insert(ctx, network)
+	if err != nil {
+		return errors.Wrap(err, "Insert")
+	}
+
+	return nil
 }
 
 func (account *SCloudaccount) createWire(ctx context.Context, vpcId, zoneId, wireName, desc string) (string, error) {
@@ -324,14 +343,24 @@ func (account *SCloudaccount) createWire(ctx context.Context, vpcId, zoneId, wir
 	wire.VpcId = vpcId
 	wire.ZoneId = zoneId
 	wire.IsEmulated = false
-	wire.Name = wireName
 	wire.DomainId = account.GetOwnerId().GetDomainId()
 	wire.Description = desc
 	wire.Status = api.WIRE_STATUS_AVAILABLE
 	wire.SetModelManager(WireManager, wire)
-	err := WireManager.TableSpec().Insert(ctx, wire)
+
+	lockman.LockClass(ctx, WireManager, wire.DomainId)
+	defer lockman.ReleaseClass(ctx, WireManager, wire.DomainId)
+
+	ownerId := wire.GetOwnerId()
+	wName, err := db.GenerateName(ctx, WireManager, ownerId, wireName)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "GenerateName")
+	}
+	wire.Name = wName
+
+	err = WireManager.TableSpec().Insert(ctx, wire)
+	if err != nil {
+		return "", errors.Wrap(err, "Insert")
 	}
 	log.Infof("create wire %s succussfully", wire.GetId())
 	return wire.GetId(), nil
