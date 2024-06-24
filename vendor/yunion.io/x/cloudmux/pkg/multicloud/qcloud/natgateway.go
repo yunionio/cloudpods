@@ -32,18 +32,28 @@ type SNatGateway struct {
 	NatName          string `json:"natName"`
 	ProductionStatus string `json:"productionStatus"`
 	State            string `json:"state"`
-	UnVpcId          string `json:"unVpcId"`
-	VpcId            string `json:"vpcId"`
-	VpcName          string `json:"vpcName"`
+	VpcId            string
 	Zone             string `json:"zone"`
+	NatGatewayName   string
+	NatGatewayId     string
 
 	Bandwidth     string    `json:"bandwidth"`
 	CreateTime    time.Time `json:"createTime"`
 	EipCount      string    `json:"eipCount"`
 	MaxConcurrent float32   `json:"maxConcurrent"`
+
+	PublicIpAddressSet []struct {
+		AddressId string
+	}
 }
 
 func (nat *SNatGateway) GetName() string {
+	if len(nat.NatGatewayId) > 0 {
+		return nat.NatGatewayId
+	}
+	if len(nat.NatGatewayName) > 0 {
+		return nat.NatName
+	}
 	if len(nat.NatName) > 0 {
 		return nat.NatName
 	}
@@ -51,11 +61,11 @@ func (nat *SNatGateway) GetName() string {
 }
 
 func (nat *SNatGateway) GetId() string {
-	return nat.NatId
+	return nat.NatId + nat.NatGatewayId
 }
 
 func (nat *SNatGateway) GetGlobalId() string {
-	return nat.NatId
+	return nat.NatId + nat.NatGatewayId
 }
 
 func (self *SNatGateway) GetINetworkId() string {
@@ -96,7 +106,7 @@ func (nat *SNatGateway) GetNatSpec() string {
 func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips := []SEipAddress{}
 	for {
-		part, total, err := nat.vpc.region.GetEips("", nat.NatId, len(eips), 50)
+		part, total, err := nat.vpc.region.GetEips("", nat.GetId(), len(eips), 50)
 		if err != nil {
 			return nil, err
 		}
