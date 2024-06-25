@@ -749,6 +749,9 @@ func (self *SNatGateway) GetVpc() (*SVpc, error) {
 }
 
 func (self *SNatGateway) GetINatGateway(ctx context.Context) (cloudprovider.ICloudNatGateway, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
 	vpc, err := self.GetVpc()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVpc")
