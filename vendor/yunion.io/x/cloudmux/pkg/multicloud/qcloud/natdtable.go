@@ -30,12 +30,10 @@ type SDTable struct {
 	CreatedTime      string `json:"CreatedTime"`
 	Description      string `json:"Description"`
 	IpProtocol       string `json:"IpProtocol"`
-	NatGatewayId     string `json:"NatGatewayId"`
 	PrivateIpAddress string `json:"PrivateIpAddress"`
 	PrivatePort      int    `json:"PrivatePort"`
 	PublicIpAddress  string `json:"PublicIpAddress"`
 	PublicPort       int    `json:"PublicPort"`
-	VpcId            string `json:"VpcId"`
 }
 
 func (table *SDTable) GetName() string {
@@ -46,7 +44,7 @@ func (table *SDTable) GetName() string {
 }
 
 func (table *SDTable) GetId() string {
-	return fmt.Sprintf("%s/%s/%d", table.NatGatewayId, table.PublicIpAddress, table.PublicPort)
+	return fmt.Sprintf("%s/%s/%d", table.nat.GetId(), table.PublicIpAddress, table.PublicPort)
 }
 
 func (table *SDTable) GetGlobalId() string {
@@ -79,25 +77,4 @@ func (table *SDTable) GetIpProtocol() string {
 
 func (table *SDTable) Delete() error {
 	return cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetDTables(natId string, offset, limit int) ([]SDTable, int, error) {
-	params := map[string]string{}
-	if limit < 1 || limit > 50 {
-		limit = 50
-	}
-	params["Limit"] = fmt.Sprintf("%d", limit)
-	params["Offset"] = fmt.Sprintf("%d", offset)
-	params["NatGatewayIds.0"] = natId
-	body, err := region.vpcRequest("DescribeNatGatewayDestinationIpPortTranslationNatRules", params)
-	if err != nil {
-		return nil, 0, err
-	}
-	tables := []SDTable{}
-	err = body.Unmarshal(&tables, "NatGatewayDestinationIpPortTranslationNatRuleSet")
-	if err != nil {
-		return nil, 0, err
-	}
-	total, _ := body.Float("TotalCount")
-	return tables, int(total), nil
 }
