@@ -46,9 +46,20 @@ type SESXiGuestDriver struct {
 	SManagedVirtualizedGuestDriver
 }
 
+type SOneCloudGuestDriver struct {
+	SESXiGuestDriver
+}
+
+func (self *SOneCloudGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
 func init() {
 	driver := SESXiGuestDriver{}
 	models.RegisterGuestDriver(&driver)
+
+	driver2 := SOneCloudGuestDriver{}
+	models.RegisterGuestDriver(&driver2)
 }
 
 func (self *SESXiGuestDriver) DoScheduleCPUFilter() bool { return true }
