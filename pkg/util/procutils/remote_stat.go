@@ -71,7 +71,7 @@ func RemoteStat(filename string) (os.FileInfo, error) {
 		if strings.Contains(strings.ToLower(string(output)), "no such file or directory") {
 			return nil, os.ErrNotExist
 		}
-		return nil, errors.Wrap(err, "NewRemoteCommandAsFarAsPossible")
+		return nil, errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible with stat %v: %s", args, output)
 	}
 	json, err := jsonutils.Parse(output)
 	if err != nil {

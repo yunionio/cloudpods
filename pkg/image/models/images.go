@@ -537,7 +537,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calCh
 		format := ""
 		img, err := qemuimg.NewQemuImage(localPath)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "NewQemuImage %s", localPath)
 		}
 		format = string(img.Format)
 		virtualSizeBytes = img.SizeBytes
