@@ -745,6 +745,9 @@ func (self *SGuest) PerformSetPassword(ctx context.Context, userCred mcclient.To
 		inputDeploy.AutoStart = input.AutoStart
 		inputDeploy.Password = input.Password
 		inputDeploy.ResetPassword = input.ResetPassword
+		if input.Username != "" {
+			inputDeploy.LoginAccount = input.Username
+		}
 		return self.PerformDeploy(ctx, userCred, query, inputDeploy)
 	}
 }
@@ -821,6 +824,15 @@ func (self *SGuest) PerformDeploy(
 	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
 	if input.ResetPassword {
+		if len(input.LoginAccount) > 0 {
+			if len(input.LoginAccount) > 32 {
+				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+			}
+			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
+				return nil, err
+			}
+		}
+
 		doRestart = self.GetDriver().IsNeedRestartForResetLoginInfo()
 	}
 
@@ -1703,6 +1715,16 @@ func (self *SGuest) PerformRebuildRoot(
 	}
 
 	input.ResetPassword = resetPasswd
+	if input.ResetPassword {
+		if len(input.LoginAccount) > 0 {
+			if len(input.LoginAccount) > 32 {
+				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+			}
+			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, allDisks, &input.ServerDeployInputBase)
 }
