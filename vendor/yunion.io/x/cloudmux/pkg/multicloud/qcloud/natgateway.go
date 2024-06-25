@@ -28,14 +28,11 @@ type SNatGateway struct {
 	QcloudTags
 	vpc *SVpc
 
-	NatId            string `json:"natId"`
-	NatName          string `json:"natName"`
-	ProductionStatus string `json:"productionStatus"`
-	State            string `json:"state"`
-	VpcId            string
-	Zone             string `json:"zone"`
-	NatGatewayName   string
-	NatGatewayId     string
+	State          string
+	VpcId          string
+	Zone           string
+	NatGatewayName string
+	NatGatewayId   string
 
 	Bandwidth     string    `json:"bandwidth"`
 	CreateTime    time.Time `json:"createTime"`
@@ -45,27 +42,23 @@ type SNatGateway struct {
 	PublicIpAddressSet []struct {
 		AddressId string
 	}
+	SourceIpTranslationNatRuleSet          []SSTable
+	DestinationIpPortTranslationNatRuleSet []SDTable
 }
 
 func (nat *SNatGateway) GetName() string {
-	if len(nat.NatGatewayId) > 0 {
-		return nat.NatGatewayId
-	}
 	if len(nat.NatGatewayName) > 0 {
-		return nat.NatName
+		return nat.NatGatewayName
 	}
-	if len(nat.NatName) > 0 {
-		return nat.NatName
-	}
-	return nat.NatId
+	return nat.NatGatewayId
 }
 
 func (nat *SNatGateway) GetId() string {
-	return nat.NatId + nat.NatGatewayId
+	return nat.NatGatewayId
 }
 
 func (nat *SNatGateway) GetGlobalId() string {
-	return nat.NatId + nat.NatGatewayId
+	return nat.NatGatewayId
 }
 
 func (self *SNatGateway) GetINetworkId() string {
@@ -124,27 +117,21 @@ func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (nat *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
-	return []cloudprovider.ICloudNatSEntry{}, nil
+	ret := []cloudprovider.ICloudNatSEntry{}
+	for i := 0; i < len(nat.SourceIpTranslationNatRuleSet); i++ {
+		nat.SourceIpTranslationNatRuleSet[i].nat = nat
+		ret = append(ret, &nat.SourceIpTranslationNatRuleSet[i])
+	}
+	return ret, nil
 }
 
 func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
-	tables := []SDTable{}
-	for {
-		part, total, err := nat.vpc.region.GetDTables(nat.NatId, len(tables), 50)
-		if err != nil {
-			return nil, err
-		}
-		tables = append(tables, part...)
-		if len(tables) >= total || len(part) == 0 {
-			break
-		}
+	ret := []cloudprovider.ICloudNatDEntry{}
+	for i := 0; i < len(nat.DestinationIpPortTranslationNatRuleSet); i++ {
+		nat.DestinationIpPortTranslationNatRuleSet[i].nat = nat
+		ret = append(ret, &nat.DestinationIpPortTranslationNatRuleSet[i])
 	}
-	itables := []cloudprovider.ICloudNatDEntry{}
-	for i := 0; i < len(tables); i++ {
-		tables[i].nat = nat
-		itables = append(itables, &tables[i])
-	}
-	return itables, nil
+	return ret, nil
 }
 
 func (nat *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
