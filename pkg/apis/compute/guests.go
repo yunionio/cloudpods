@@ -753,6 +753,8 @@ type ServerDeployInputBase struct {
 	// 支持特殊user data平台: Aliyun, Qcloud, Azure, Apsara, Ucloud
 	// required: false
 	UserData string `json:"user_data"`
+	// swagger: ignore
+	LoginAccount string `json:"login_account"`
 
 	// swagger: ignore
 	Restart bool `json:"restart"`

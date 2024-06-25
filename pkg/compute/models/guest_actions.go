@@ -779,6 +779,9 @@ func (self *SGuest) PerformSetPassword(ctx context.Context, userCred mcclient.To
 		inputDeploy.AutoStart = input.AutoStart
 		inputDeploy.Password = input.Password
 		inputDeploy.ResetPassword = input.ResetPassword
+		if input.Username != "" {
+			inputDeploy.LoginAccount = input.Username
+		}
 		return self.PerformDeploy(ctx, userCred, query, inputDeploy)
 	}
 }
@@ -861,6 +864,14 @@ func (self *SGuest) PerformDeploy(
 	doRestart := false
 	if input.ResetPassword {
 		doRestart = driver.IsNeedRestartForResetLoginInfo()
+		if len(input.LoginAccount) > 0 {
+			if len(input.LoginAccount) > 32 {
+				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+			}
+			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	deployStatus, err := driver.GetDeployStatus()
@@ -1806,6 +1817,16 @@ func (self *SGuest) PerformRebuildRoot(
 	}
 
 	input.ResetPassword = resetPasswd
+	if input.ResetPassword {
+		if len(input.LoginAccount) > 0 {
+			if len(input.LoginAccount) > 32 {
+				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+			}
+			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, allDisks, &input.ServerDeployInputBase)
 }
