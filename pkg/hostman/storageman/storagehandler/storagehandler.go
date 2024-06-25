@@ -447,7 +447,13 @@ func storageDeleteSnapshot(ctx context.Context, w http.ResponseWriter, r *http.R
 	}
 	diskId, err := body.GetString("disk_id")
 	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewImageNotFoundError("disk_id"))
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("disk_id"))
+		return
+	}
+
+	snapshotId, err := body.GetString("delete_snapshot")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("snapshot_id"))
 		return
 	}
 	// blockStream indicate snapshot<-disk
@@ -457,6 +463,7 @@ func storageDeleteSnapshot(ctx context.Context, w http.ResponseWriter, r *http.R
 	input := &storageman.SStorageDeleteSnapshot{
 		DiskId:      diskId,
 		BlockStream: blockStream,
+		SnapshotId:  snapshotId,
 	}
 
 	if !blockStream && !autoDeleted {
