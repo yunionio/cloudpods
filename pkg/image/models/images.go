@@ -48,6 +48,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1659,10 +1660,45 @@ func (img *SImage) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 	return ret, nil
 }
 
+func UpdateImageConfigTargetImageFormats(ctx context.Context, userCred mcclient.TokenCredential) error {
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	serviceId, err := common_options.GetServiceIdByType(s, api.SERVICE_TYPE, "")
+	if err != nil {
+		return errors.Wrap(err, "get service id")
+	}
+
+	defConf, err := common_options.GetServiceConfig(s, serviceId)
+	if err != nil {
+		return errors.Wrap(err, "GetServiceConfig")
+	}
+	targetFormats := make([]string, 0)
+	err = defConf.Unmarshal(&targetFormats, "target_image_formats")
+	if err != nil {
+		return errors.Wrap(err, "get target_image_formats")
+	}
+	if !utils.IsInStringArray(string(qemuimgfmt.VMDK), targetFormats) {
+		targetFormats = append(targetFormats, string(qemuimgfmt.VMDK))
+	}
+	defConfDict := defConf.(*jsonutils.JSONDict)
+	defConfDict.Set("target_image_formats", jsonutils.NewStringArray(targetFormats))
+	nconf := jsonutils.NewDict()
+	nconf.Add(defConfDict, "config", "default")
+	_, err = identity_modules.ServicesV3.PerformAction(s, serviceId, "config", nconf)
+	if err != nil {
+		return errors.Wrap(err, "fail to save config")
+	}
+	return nil
+}
+
 func (m *SImageManager) PerformVmwareAccountAdded(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 	log.Infof("perform vmware account added")
+
 	if !utils.IsInStringArray(string(qemuimgfmt.VMDK), options.Options.TargetImageFormats) {
-		options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimgfmt.VMDK))
+		if err := UpdateImageConfigTargetImageFormats(ctx, userCred); err != nil {
+			log.Errorf("failed update target_image_formats %s", err)
+		} else {
+			options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimgfmt.VMDK))
+		}
 	}
 	return nil, nil
 }
