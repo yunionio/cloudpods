@@ -714,6 +714,10 @@ func (self *SGuest) PerformSetPassword(ctx context.Context, userCred mcclient.To
 			ResetPassword: input.ResetPassword,
 			AutoStart:     input.AutoStart,
 		}
+
+		if input.Username != "" {
+			inputDeploy.LoginAccount = input.Username
+		}
 		return self.PerformDeploy(ctx, userCred, query, inputDeploy)
 	}
 }
@@ -785,6 +789,15 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
 	if input.ResetPassword {
+		if len(input.LoginAccount) > 0 {
+			if len(input.LoginAccount) > 32 {
+				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+			}
+			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
+				return nil, err
+			}
+		}
+
 		doRestart = self.GetDriver().IsNeedRestartForResetLoginInfo()
 	}
 
@@ -1492,7 +1505,18 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		allDisks = *input.AllDisks
 	}
 
-	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, passwd, resetPasswd, allDisks)
+	if resetPasswd {
+		if len(input.LoginAccount) > 0 {
+			if len(input.LoginAccount) > 32 {
+				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+			}
+			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, passwd, resetPasswd, allDisks, input.LoginAccount)
 }
 
 func (self *SGuest) GetTemplateId() string {
@@ -1503,7 +1527,7 @@ func (self *SGuest) GetTemplateId() string {
 	return ""
 }
 
-func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool) error {
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool, loginAccount string) error {
 	data := jsonutils.NewDict()
 	if len(imageId) == 0 {
 		imageId = self.GetTemplateId()
@@ -1525,6 +1549,9 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	}
 	if len(passwd) > 0 {
 		data.Set("password", jsonutils.NewString(passwd))
+	}
+	if len(loginAccount) > 0 {
+		data.Set("login_account", jsonutils.NewString(loginAccount))
 	}
 
 	if allDisk {
