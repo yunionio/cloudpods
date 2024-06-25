@@ -101,7 +101,7 @@ func (img *SQemuImage) parse() error {
 		fileInfo, err := procutils.RemoteStat(img.Path)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return err
+				return errors.Wrapf(err, "remote stat of %s", img.Path)
 			} else {
 				// not created yet
 				return nil
