@@ -263,7 +263,7 @@ func (self *SCloudregion) GetRegexSets(managerId string) ([]SWafRegexSet, error)
 		q = q.Equals("manager_id", managerId)
 	}
 	ret := []SWafRegexSet{}
-	err := db.FetchModelObjects(WafIPSetManager, q, &ret)
+	err := db.FetchModelObjects(WafRegexSetManager, q, &ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
