@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -66,12 +67,27 @@ func NewClimcSshCommand(info *ClimcSshInfo, s *mcclient.ClientSession) (*ClimcSs
 			return nil, err
 		}
 	}
-	name := "bash"
-	args := []string{
-		"-c",
-		fmt.Sprintf("ssh -o StrictHostKeyChecking=no -i %s %s@%s", filename, info.Username, info.IpAddr),
+	env := map[string]string{
+		"OS_AUTH_TOKEN":           s.GetToken().GetTokenString(),
+		"OS_PROJECT_NAME":         s.GetProjectName(),
+		"OS_PROJECT_DOMAIN":       s.GetProjectDomain(),
+		"YUNION_USE_CACHED_TOKEN": "false",
+		"OS_TRY_TERM_WIDTH":       "false",
 	}
-	bCmd := NewBaseCommand(s, name, args...)
+	envCmd := ""
+	for k, v := range env {
+		envCmd = fmt.Sprintf("%s export %s=%s", envCmd, k, v)
+	}
+	sshArgs := []string{
+		"-t", // force pseudo-terminal allocation
+		"-o", "StrictHostKeyChecking=no",
+		"-i", filename,
+		fmt.Sprintf("%s@%s", info.Username, info.IpAddr),
+		fmt.Sprintf("'%s && exec bash'", envCmd),
+	}
+	sshCmd := fmt.Sprintf("ssh %s", strings.Join(sshArgs, " "))
+	args := []string{"-c", sshCmd}
+	bCmd := NewBaseCommand(s, "bash", args...)
 	cmd := &ClimcSshCommand{
 		BaseCommand: bCmd,
 		Info:        info,
