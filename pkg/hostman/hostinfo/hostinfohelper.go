@@ -327,9 +327,10 @@ type SSysInfo struct {
 
 	StorageType string `json:"storage_type"`
 
-	HugepagesOption string `json:"hugepages_option"`
-	HugepageSizeKb  int    `json:"hugepage_size_kb"`
-	HugepageNr      *int   `json:"hugepage_nr"`
+	HugepagesOption string                       `json:"hugepages_option"`
+	HugepageSizeKb  int                          `json:"hugepage_size_kb"`
+	HugepageNr      *int                         `json:"hugepage_nr"`
+	NodeHugepages   []hostapi.HostNodeHugepageNr `json:"node_hugepages"`
 
 	Topology        *hostapi.HostTopology `json:"topology"`
 	CPUInfo         *hostapi.HostCPUInfo  `json:"cpu_info"`

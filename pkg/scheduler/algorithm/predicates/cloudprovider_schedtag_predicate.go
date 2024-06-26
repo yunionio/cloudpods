@@ -47,6 +47,9 @@ func (p *CloudproviderSchedtagPredicate) PreExecute(ctx context.Context, u *core
 	if !u.GetHypervisorDriver().DoScheduleCloudproviderTagFilter() {
 		return false, nil
 	}
+	if u.SchedData().ResetCpuNumaPin {
+		return false, nil
+	}
 	return p.ServerBaseSchedtagPredicate.PreExecute(ctx, u, cs)
 }
 

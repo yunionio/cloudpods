@@ -24,6 +24,11 @@ type ServerCloneDiskFromStorageResponse struct {
 	TargetFormat     string `json:"target_format"`
 }
 
+type HostNodeHugepageNr struct {
+	NodeId     int `json:"node_id"`
+	HugepageNr int `json:"hugepage_nr"`
+}
+
 type HostTopology struct {
 	*topology.Info
 }

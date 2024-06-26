@@ -147,6 +147,7 @@ func (g *GenericScheduler) Schedule(ctx context.Context, unit *Unit, candidates 
 	var selectedCandidates []*SelectedCandidate
 	if len(filteredCandidates) > 0 {
 		trace.Step("Prioritizing")
+		// prioritizing candidates
 		// load all priorities and calculate the candidate's score
 		priorityList, err := PrioritizeCandidates(unit, filteredCandidates, g.priorities)
 		if err != nil {
@@ -154,7 +155,7 @@ func (g *GenericScheduler) Schedule(ctx context.Context, unit *Unit, candidates 
 		}
 
 		trace.Step("Selecting hosts")
-		// select target candate hosts
+		// select target candidate hosts
 		selectedCandidates, err = SelectHosts(unit, priorityList)
 		if err != nil {
 			return nil, err
@@ -603,6 +604,7 @@ func PrioritizeCandidates(
 		results[i] = make(HostPriorityList, len(candidates))
 	}
 
+	// map reduce take priorities
 	processCandidate := func(index int) {
 		var err error
 		candidate := candidates[index]

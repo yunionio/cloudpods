@@ -883,11 +883,13 @@ func (s *SKVMGuestInstance) initCpuDesc(cpuMax uint) error {
 	}
 	s.Desc.CpuDesc = cpuDesc
 
-	err = s.allocGuestNumaCpuset()
-	if err != nil {
-		return err
+	// if region not allocate cpu numa pin
+	if len(s.Desc.CpuNumaPin) == 0 {
+		err = s.allocGuestNumaCpuset()
+		if err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -917,9 +919,15 @@ func (s *SKVMGuestInstance) initGuestMemObjects(memSizeMB int64) error {
 	var numaMems int64
 	var numaCpus = int(s.Desc.CpuDesc.MaxCpus) / len(s.Desc.CpuNumaPin)
 	var leastCpus = int(s.Desc.CpuDesc.MaxCpus) % len(s.Desc.CpuNumaPin)
-	var numaVcpuCount = int(s.Desc.Cpu) / len(s.Desc.CpuNumaPin)
+	var cpuStart = 0
+	var cpuEnd = numaCpus - 1
+
 	var mems = make([]desc.SMemDesc, 0)
 	for i := 0; i < len(s.Desc.CpuNumaPin); i++ {
+		if s.Desc.CpuNumaPin[i].SizeMB <= 0 {
+			continue
+		}
+
 		numaMems += s.Desc.CpuNumaPin[i].SizeMB
 		memId := "mem"
 		nodeId := uint16(i)
@@ -927,25 +935,23 @@ func (s *SKVMGuestInstance) initGuestMemObjects(memSizeMB int64) error {
 			memId += strconv.Itoa(i - 1)
 		}
 
-		vcpuCount := numaVcpuCount
 		if i == 0 {
-			vcpuCount += int(s.Desc.Cpu) % len(s.Desc.CpuNumaPin)
-		}
-
-		cpuStart := i * numaCpus
-		cpuEnd := (i+1)*numaCpus - 1
-		if i+1 == len(s.Desc.CpuNumaPin) {
 			cpuEnd += leastCpus
 		}
 		vcpus := fmt.Sprintf("%d-%d", cpuStart, cpuEnd)
-		vcpuAlloc := fmt.Sprintf("%d-%d", cpuStart, cpuStart+vcpuCount-1)
-		s.Desc.CpuNumaPin[i].Vcpus = &vcpuAlloc
 
-		if !s.Desc.CpuNumaPin[i].Regular {
+		for j := range s.Desc.CpuNumaPin[i].VcpuPin {
+			s.Desc.CpuNumaPin[i].VcpuPin[j].Vcpu = cpuStart + j
+		}
+
+		cpuStart = cpuEnd + 1
+		cpuEnd = cpuStart + numaCpus - 1
+
+		if s.Desc.CpuNumaPin[i].Unregular {
 			continue
 		}
 		memDesc := desc.NewMemDesc(s.memObjectType(), memId, &nodeId, &vcpus)
-		memDesc.Options = s.getMemObjectOptions(s.Desc.CpuNumaPin[i].SizeMB, s.Desc.Uuid, s.Desc.CpuNumaPin[i].HostNodes)
+		memDesc.Options = s.getMemObjectOptions(s.Desc.CpuNumaPin[i].SizeMB, s.Desc.Uuid, s.Desc.CpuNumaPin[i].NodeId)
 		mems = append(mems, *memDesc)
 	}
 	if len(mems) == 0 {
@@ -954,9 +960,6 @@ func (s *SKVMGuestInstance) initGuestMemObjects(memSizeMB int64) error {
 		return nil
 	}
 
-	if numaMems != memSizeMB {
-		return errors.Errorf("numa memory size not equal request mem size")
-	}
 	s.Desc.MemDesc.Mem = desc.NewMemsDesc(mems[0], mems[1:])
 	return nil
 }

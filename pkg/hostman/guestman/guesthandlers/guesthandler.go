@@ -25,6 +25,7 @@ import (
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -581,12 +582,39 @@ func guestHotplugCpuMem(ctx context.Context, userCred mcclient.TokenCredential, 
 
 	addCpuCount, _ := body.Int("add_cpu")
 	addMemSize, _ := body.Int("add_mem")
-	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().HotplugCpuMem,
-		&guestman.SGuestHotplugCpuMem{
-			Sid:         sid,
-			AddCpuCount: addCpuCount,
-			AddMemSize:  addMemSize,
-		})
+
+	input := &guestman.SGuestHotplugCpuMem{
+		Sid:         sid,
+		AddCpuCount: addCpuCount,
+		AddMemSize:  addMemSize,
+	}
+
+	if body.Contains("cpu_numa_pin") {
+		cpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
+		if err := body.Unmarshal(&cpuNumaPin, "cpu_numa_pin"); err != nil {
+			return nil, httperrors.NewInputParameterError("failed parse cpu_numa_pin %s", err)
+		}
+
+		if len(cpuNumaPin) > 0 {
+			descCpuNumaPin := make([]*desc.SCpuNumaPin, len(cpuNumaPin))
+			for i := range cpuNumaPin {
+				if cpuNumaPin[i].MemSizeMB != nil {
+					descCpuNumaPin[i].SizeMB = int64(*cpuNumaPin[i].MemSizeMB)
+					nodeId := uint16(cpuNumaPin[i].NodeId)
+					descCpuNumaPin[i].NodeId = &nodeId
+				}
+				if len(cpuNumaPin[i].CpuPin) > 0 {
+					vcpuPin := make([]desc.SVCpuPin, len(cpuNumaPin[i].CpuPin))
+					for j := range vcpuPin {
+						vcpuPin[j].Pcpu = cpuNumaPin[i].CpuPin[j]
+					}
+					descCpuNumaPin[i].VcpuPin = vcpuPin
+				}
+			}
+			input.CpuNumaPin = descCpuNumaPin
+		}
+	}
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().HotplugCpuMem, input)
 	return nil, nil
 }
 

@@ -56,10 +56,15 @@ type SMemSlot struct {
 
 type SCpuNumaPin struct {
 	SizeMB    int64
-	Regular   bool
-	HostNodes *uint16 `json:",omitempty"`
-	Vcpus     *string `json:",omitempty"`
-	Pcpus     *string `json:",omitempty"`
+	Unregular bool
+	NodeId    *uint16 `json:",omitempty"`
+
+	VcpuPin []SVCpuPin `json:",omitempty"`
+}
+
+type SVCpuPin struct {
+	Vcpu int
+	Pcpu int
 }
 
 type SMemDesc struct {

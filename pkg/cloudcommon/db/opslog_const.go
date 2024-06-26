@@ -74,6 +74,8 @@ const (
 	ACT_MIGRATE      = "migrate"
 	ACT_MIGRATE_FAIL = "migrate_fail"
 
+	ACT_RESET_CPU_NUMA_PIN = "reset_cpu_numa_pin"
+
 	ACT_VM_CONVERT      = "vm_convert"
 	ACT_VM_CONVERTING   = "vm_converting"
 	ACT_VM_CONVERT_FAIL = "vm_convert_fail"

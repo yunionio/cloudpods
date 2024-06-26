@@ -49,6 +49,10 @@ func (p *StoragePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []co
 	if !u.GetHypervisorDriver().DoScheduleStorageFilter() {
 		return false, nil
 	}
+	if u.SchedData().ResetCpuNumaPin {
+		return false, nil
+	}
+
 	return true, nil
 }
 

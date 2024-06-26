@@ -97,6 +97,8 @@ type CandidatePropertyGetter interface {
 	RunningMemorySize() int64
 	TotalMemorySize(useRsvd bool) int64
 	FreeMemorySize(useRsvd bool) int64
+	GetFreeCpuNuma() []*schedapi.SFreeNumaCpuMem
+	NumaAllocateEnabled() bool
 
 	StorageInfo() []*baremetal.BaremetalStorage
 	GetFreeStorageSizeOfType(storageType string, mediumType string, useRsvd bool, reqMaxSize int64) (int64, int64, error)
@@ -139,6 +141,8 @@ type Candidater interface {
 	GetSchedDesc() *jsonutils.JSONDict
 	GetGuestCount() int64
 	GetResourceType() string
+	AllocCpuNumaPin(vcpuCount, memSizeKB int) []schedapi.SCpuNumaPin
+	AllocCpuNumaPinWithNodeCount(vcpuCount, memSizeKB, nodeCount int) []schedapi.SCpuNumaPin
 }
 
 // HostPriority represents the priority of scheduling to particular host, higher priority is better.

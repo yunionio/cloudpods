@@ -38,6 +38,11 @@ func (f *IsolatedDevicePredicate) Clone() core.FitPredicate {
 
 func (f *IsolatedDevicePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
+
+	if data.ResetCpuNumaPin {
+		return false, nil
+	}
+
 	if len(data.IsolatedDevices) > 0 {
 		return true, nil
 	}

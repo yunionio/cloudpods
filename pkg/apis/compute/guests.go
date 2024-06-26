@@ -704,6 +704,7 @@ type ServerMigrateForecastInput struct {
 	SkipKernelCheck bool   `json:"skip_kernel_check"`
 	ConvertToKvm    bool   `json:"convert_to_kvm"`
 	IsRescueMode    bool   `json:"is_rescue_mode"`
+	ResetCpuNumaPin bool   `json:"reset_cpu_numa_pin"`
 }
 
 type ServerResizeDiskInput struct {
@@ -854,6 +855,8 @@ type GuestJsonDesc struct {
 
 	IsolatedDevices []*IsolatedDeviceJsonDesc `json:"isolated_devices"`
 
+	CpuNumaPin []SCpuNumaPin `json:"cpu_numa_pin"`
+
 	Domain string `json:"domain"`
 
 	Nics  []*GuestnetworkJsonDesc `json:"nics"`
@@ -908,6 +911,18 @@ type GuestJsonDesc struct {
 	IsDaemon bool `json:"is_daemon"`
 
 	LightMode bool `json:"light_mode"`
+}
+
+type SVCpuPin struct {
+	Vcpu int
+	Pcpu int
+}
+
+type SCpuNumaPin struct {
+	SizeMB *int `json:"size_mb"`
+	NodeId int  `json:"node_id"`
+
+	VcpuPin []SVCpuPin `json:"vcpu_pin"`
 }
 
 type ServerSetBootIndexInput struct {

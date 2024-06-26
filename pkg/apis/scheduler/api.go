@@ -78,13 +78,17 @@ type ScheduleInput struct {
 	ServerConfig
 
 	// HostId used by migrate
-	HostId       string `json:"host_id"`
-	LiveMigrate  bool   `json:"live_migrate"`
-	SkipCpuCheck *bool  `json:"skip_cpu_check"`
-	CpuDesc      string `json:"cpu_desc"`
-	CpuMicrocode string `json:"cpu_microcode"`
-	CpuMode      string `json:"cpu_mode"`
-	OsArch       string `json:"os_arch"`
+	HostId          string `json:"host_id"`
+	LiveMigrate     bool   `json:"live_migrate"`
+	SkipCpuCheck    *bool  `json:"skip_cpu_check"`
+	CpuDesc         string `json:"cpu_desc"`
+	CpuMicrocode    string `json:"cpu_microcode"`
+	CpuMode         string `json:"cpu_mode"`
+	OsArch          string `json:"os_arch"`
+	ResetCpuNumaPin bool   `json:"reset_cpu_numa_pin"`
+
+	// For Migrate
+	CpuNumaPin []SCpuNumaPin `json:"cpu_numa_pin"`
 
 	HostMemPageSizeKB int    `json:"host_mem_page_size"`
 	SkipKernelCheck   *bool  `json:"skip_kernel_check"`
@@ -130,12 +134,82 @@ type CandidateNet struct {
 	NetworkIds []string `json:"network_ids"`
 }
 
+type SFreeNumaCpuMem struct {
+	FreeCpuCount       int
+	MemSize            int
+	EnableNumaAllocate bool
+
+	CpuCount int
+	NodeId   int
+}
+
+type SortedFreeNumaCpuMam []*SFreeNumaCpuMem
+
+func (pq SortedFreeNumaCpuMam) Len() int { return len(pq) }
+
+func (pq SortedFreeNumaCpuMam) Less(i, j int) bool {
+	if pq[i].EnableNumaAllocate {
+		return pq[i].MemSize > pq[j].MemSize
+	} else {
+		return pq[i].FreeCpuCount > pq[j].FreeCpuCount
+	}
+}
+
+func (pq SortedFreeNumaCpuMam) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func NodesFreeMemSizeEnough(nodeCount, memSize int, cpuNumaFree []*SFreeNumaCpuMem) bool {
+	if !cpuNumaFree[0].EnableNumaAllocate {
+		return true
+	}
+
+	var freeMem = 0
+	var leastFree = memSize / nodeCount
+	for i := 0; i < nodeCount; i++ {
+		if cpuNumaFree[i].MemSize < leastFree {
+			return false
+		}
+		freeMem += cpuNumaFree[i].MemSize
+	}
+	return freeMem >= memSize
+}
+
+func NodesFreeCpuEnough(nodeCount, vcpuCount int, cpuNumaFree []*SFreeNumaCpuMem) bool {
+	var freeCpu = 0
+	var leaseCpu = vcpuCount / nodeCount
+
+	//if vcpuCount > nodeCount*cpuNumaFree[0].CpuCount {
+	//	return false
+	//}
+
+	for i := 0; i < nodeCount; i++ {
+		if cpuNumaFree[i].FreeCpuCount < leaseCpu {
+			return false
+		}
+		freeCpu += cpuNumaFree[i].FreeCpuCount
+	}
+	return freeCpu >= vcpuCount
+}
+
+type SCpuPin struct {
+	Vcpu int
+	Pcpu int
+}
+
+type SCpuNumaPin struct {
+	CpuPin    []int
+	NodeId    int
+	MemSizeMB *int
+}
+
 type CandidateResource struct {
-	SessionId string           `json:"session_id"`
-	HostId    string           `json:"host_id"`
-	Name      string           `json:"name"`
-	Disks     []*CandidateDisk `json:"disks"`
-	Nets      []*CandidateNet  `json:"nets"`
+	SessionId  string           `json:"session_id"`
+	HostId     string           `json:"host_id"`
+	Name       string           `json:"name"`
+	CpuNumaPin []SCpuNumaPin    `json:"cpu_numa_pin"`
+	Disks      []*CandidateDisk `json:"disks"`
+	Nets       []*CandidateNet  `json:"nets"`
 
 	// used by backup schedule
 	BackupCandidate *CandidateResource `json:"backup_candidate"`

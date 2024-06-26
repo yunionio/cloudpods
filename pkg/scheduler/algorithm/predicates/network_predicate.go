@@ -75,6 +75,11 @@ type INetworkNicCountGetter interface {
 
 func (p *NetworkPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
+
+	if data.ResetCpuNumaPin {
+		return false, nil
+	}
+
 	if len(data.Networks) == 0 {
 		return false, nil
 	}
