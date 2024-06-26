@@ -140,7 +140,14 @@ func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (
 	}
 
 	snapId := path.Join("/dev", s.GetPath(), input.SnapshotId)
-	return nil, lvmutils.LvRemove(snapId)
+	err := lvmutils.LvRemove(snapId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := jsonutils.NewDict()
+	res.Set("deleted", jsonutils.JSONTrue)
+	return res, nil
 }
 
 func (s *SSLVMStorage) Accessible() error {
