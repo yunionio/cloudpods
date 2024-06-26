@@ -474,6 +474,10 @@ type ConvertToKvmInput struct {
 	DeployTelegraf bool `json:"deploy_telegraf"`
 }
 
+type BatchConvertToKvmCheckInput struct {
+	GuestIds []string `json:"guest_ids"`
+}
+
 type GuestSaveToTemplateInput struct {
 	// The name of guest template
 	Name string `json:"name"`
