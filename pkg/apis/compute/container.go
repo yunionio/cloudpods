@@ -39,6 +39,14 @@ const (
 	CONTAINER_DEV_ASCEND_NPU       = "ASCEND_NPU"
 )
 
+var (
+	CONTAINER_GPU_TYPES = []string{
+		CONTAINER_DEV_CPH_AMD_GPU,
+		CONTAINER_DEV_NVIDIA_GPU,
+		CONTAINER_DEV_NVIDIA_MPS,
+	}
+)
+
 const (
 	CONTAINER_STORAGE_LOCAL_RAW = "local_raw"
 )
@@ -66,7 +74,8 @@ const (
 )
 
 const (
-	CONTAINER_METADATA_CRI_ID = "cri_id"
+	CONTAINER_METADATA_CRI_ID           = "cri_id"
+	CONTAINER_METADATA_RELEASED_DEVICES = "released_devices"
 )
 
 type ContainerSpec struct {

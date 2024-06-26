@@ -36,10 +36,11 @@ type PodCreateOptions struct {
 	VcpuCount   int    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	AllowDelete *bool  `help:"Unlock server to allow deleting" json:"-"`
 	//PortMapping []string `help:"Port mapping of the pod and the format is: host_port=8080,port=80,protocol=<tcp|udp>,host_port_range=<int>-<int>" short-token:"p"`
-	Arch      string `help:"image arch" choices:"aarch64|x86_64"`
-	AutoStart bool   `help:"Auto start server after it is created"`
-	PodUid    int64  `help:"UID of pod" default:"0"`
-	PodGid    int64  `help:"GID of pod" default:"0"`
+	Arch             string `help:"image arch" choices:"aarch64|x86_64"`
+	AutoStart        bool   `help:"Auto start server after it is created"`
+	ShutdownBehavior string `help:"Behavior after VM server shutdown" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate|stop_release_gpu"`
+	PodUid           int64  `help:"UID of pod" default:"0"`
+	PodGid           int64  `help:"GID of pod" default:"0"`
 
 	ContainerCreateCommonOptions
 }
@@ -200,9 +201,10 @@ func (o *PodCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
 	}
 
 	params := &computeapi.ServerCreateInput{
-		ServerConfigs: config,
-		VcpuCount:     o.VcpuCount,
-		AutoStart:     o.AutoStart,
+		ServerConfigs:    config,
+		VcpuCount:        o.VcpuCount,
+		AutoStart:        o.AutoStart,
+		ShutdownBehavior: o.ShutdownBehavior,
 		Pod: &computeapi.PodCreateInput{
 			//PortMappings: portMappings,
 			Containers: []*computeapi.PodContainerCreateInput{

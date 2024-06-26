@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/cloudmux/pkg/apis/compute"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+)
 
 const (
 	VM_INIT                  = compute.VM_INIT
@@ -178,8 +180,9 @@ const (
 	VM_QGA_SET_NETWORK        = "qga_set_network"
 	VM_QGA_SET_NETWORK_FAILED = "qga_set_network_failed"
 
-	SHUTDOWN_STOP      = "stop"
-	SHUTDOWN_TERMINATE = "terminate"
+	SHUTDOWN_STOP             = "stop"
+	SHUTDOWN_TERMINATE        = "terminate"
+	SHUTDOWN_STOP_RELEASE_GPU = "stop_release_gpu"
 
 	HYPERVISOR_KVM       = "kvm"
 	HYPERVISOR_POD       = "pod"
@@ -323,6 +326,8 @@ const (
 	VM_METADATA_HOT_REMOVE_NIC      = "hot_remove_nic"
 	VM_METADATA_START_VMEM_MB       = "start_vmem_mb"
 	VM_METADATA_START_VCPU_COUNT    = "start_vcpu_count"
+
+	VM_METADATA_RELEASED_DEVICES = "released_devices"
 )
 
 // windows allow a maximal length of 15

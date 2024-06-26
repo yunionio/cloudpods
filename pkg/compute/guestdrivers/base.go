@@ -696,3 +696,11 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 func (base *SBaseGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Context, guest *models.SGuest, confs *api.ServerChangeConfigSettings) (*api.ServerChangeConfigSettings, error) {
 	return confs, nil
 }
+
+func (base *SBaseGuestDriver) BeforeDetachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *models.SGuest, dev *models.SIsolatedDevice) error {
+	return nil
+}
+
+func (base *SBaseGuestDriver) BeforeAttachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *models.SGuest, dev *models.SIsolatedDevice) error {
+	return nil
+}

@@ -1331,3 +1331,8 @@ func (conf ServerChangeConfigSettings) AddedDisk() int {
 	}
 	return size
 }
+
+type ServerReleasedIsolatedDevice struct {
+	DevType string `json:"dev_type"`
+	Model   string `json:"model"`
+}
