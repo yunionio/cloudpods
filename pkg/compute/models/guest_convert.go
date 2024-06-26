@@ -20,6 +20,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -278,4 +280,63 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 		return nil, nil, errors.Wrap(err, "db.DoCreate")
 	}
 	return newGuest.(*SGuest), createInput, nil
+}
+
+func (manager *SGuestManager) PerformBatchConvertPrecheck(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *api.BatchConvertToKvmCheckInput,
+) (jsonutils.JSONObject, error) {
+	if len(data.GuestIds) == 0 {
+		return nil, httperrors.NewInputParameterError("missing guest ids")
+	}
+	guests := make([]SGuest, 0)
+	q := GuestManager.Query().In("id", data.GuestIds)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("%v", err)
+	}
+	if len(guests) != len(data.GuestIds) {
+		return nil, httperrors.NewBadRequestError("Check input guests is exist")
+	}
+	res := jsonutils.NewDict()
+	for i := 0; i < len(guests); i++ {
+		gns, err := guests[i].GetNetworks("")
+		if err != nil {
+			return nil, errors.Wrapf(err, "Get guest networks %s", err)
+		}
+		for j := 0; j < len(gns); j++ {
+			if gns[j].IpAddr != "" {
+				cnt, err := NetworkManager.checkIpHasOneCloudNetworks(gns[j].IpAddr)
+				if err != nil {
+					return nil, err
+				}
+				if cnt <= 0 {
+					reason := fmt.Sprintf("kvm networks has no addr %s for guest %s convert", gns[j].IpAddr, guests[i].GetName())
+					res.Set("reason", jsonutils.NewString(reason))
+					res.Set("network_failed", jsonutils.JSONTrue)
+					return res, nil
+				}
+			}
+		}
+	}
+
+	return res, nil
+}
+
+func (manager *SNetworkManager) checkIpHasOneCloudNetworks(ipAddr string) (int, error) {
+	ip4Addr, err := netutils.NewIPV4Addr(ipAddr)
+	if err != nil {
+		return -1, err
+	}
+	q := manager.Query()
+	// filter onecloud wire
+	wireQ := WireManager.Query().IsNullOrEmpty("manager_id").SubQuery()
+	ipStart := sqlchemy.INET_ATON(q.Field("guest_ip_start"))
+	ipEnd := sqlchemy.INET_ATON(q.Field("guest_ip_end"))
+	ipCondtion := sqlchemy.AND(
+		sqlchemy.GE(ipEnd, uint32(ip4Addr)),
+		sqlchemy.LE(ipStart, uint32(ip4Addr)),
+	)
+	q = q.Filter(ipCondtion)
+	q = q.Join(wireQ, sqlchemy.Equals(q.Field("wire_id"), wireQ.Field("id")))
+	return q.CountWithError()
 }
