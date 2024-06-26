@@ -577,7 +577,7 @@ func (s *SLocalStorage) CreateSnapshotFormUrl(
 }
 
 func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	input, ok := params.(SStorageDeleteSnapshots)
+	input, ok := params.(*SStorageDeleteSnapshots)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
@@ -590,14 +590,21 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 }
 
 func (s *SLocalStorage) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	input, ok := params.(SStorageDeleteSnapshot)
+	input, ok := params.(*SStorageDeleteSnapshot)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
 
+	log.Errorf("input %s", jsonutils.Marshal(input))
 	snapshotDir := path.Join(s.GetSnapshotDir(), input.DiskId+options.HostOptions.SnapshotDirSuffix)
 	diskPath := path.Join(s.GetPath(), input.DiskId)
-	return nil, DeleteLocalSnapshot(snapshotDir, input.SnapshotId, diskPath, input.ConvertSnapshot, input.BlockStream)
+	err := DeleteLocalSnapshot(snapshotDir, input.SnapshotId, diskPath, input.ConvertSnapshot, input.BlockStream)
+	if err != nil {
+		return nil, err
+	}
+	res := jsonutils.NewDict()
+	res.Set("deleted", jsonutils.JSONTrue)
+	return res, nil
 }
 
 func DeleteLocalSnapshot(snapshotDir, snapshotId, diskPath, convertSnapshot string, blockStream bool) error {
@@ -657,10 +664,12 @@ func DeleteLocalSnapshot(snapshotDir, snapshotId, diskPath, convertSnapshot stri
 			return err
 		}
 	}
-	err := procutils.NewCommand("rm", "-f", snapshotPath).Run()
-	if err != nil {
-		log.Errorf("rm snapshot file: %s", err)
-		return errors.Wrap(err, "rm snapshot file")
+	if fileutils2.Exists(snapshotPath) {
+		out, err := procutils.NewCommand("rm", "-f", snapshotPath).Output()
+		if err != nil {
+			log.Errorf("rm snapshot file: %s %s", out, err)
+			return errors.Wrap(err, "rm snapshot file")
+		}
 	}
 	return nil
 }

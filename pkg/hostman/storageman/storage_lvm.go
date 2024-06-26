@@ -190,7 +190,7 @@ func (s *SLVMStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 }
 
 func (s *SLVMStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	input := params.(SStorageDeleteSnapshots)
+	input := params.(*SStorageDeleteSnapshots)
 	for i := range input.SnapshotIds {
 		lvPath := path.Join("/dev", s.GetPath(), "snap_"+input.SnapshotIds[i])
 		if err := lvmutils.LvRemove(lvPath); err != nil {
@@ -201,7 +201,7 @@ func (s *SLVMStorage) DeleteSnapshots(ctx context.Context, params interface{}) (
 }
 
 func (s *SLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	input, ok := params.(SStorageDeleteSnapshot)
+	input, ok := params.(*SStorageDeleteSnapshot)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
@@ -216,7 +216,14 @@ func (s *SLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (j
 		}
 	}
 	snapId := path.Join("/dev", s.GetPath(), input.SnapshotId)
-	return nil, lvmutils.LvRemove(snapId)
+	err := lvmutils.LvRemove(snapId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := jsonutils.NewDict()
+	res.Set("deleted", jsonutils.JSONTrue)
+	return res, nil
 }
 
 func (s *SLVMStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
