@@ -211,11 +211,11 @@ func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, ite
 			sp.Status = api.SNAPSHOT_POLICY_READY
 			return nil
 		})
-		db.OpsLog.LogEvent(sp, db.ACT_DELETE, sp.GetShortDesc(ctx), userCred)
-		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_DELOCATE, nil, userCred, true)
+		db.OpsLog.LogEvent(sp, db.ACT_CREATE, sp.GetShortDesc(ctx), userCred)
+		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_CREATE, nil, userCred, true)
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 			Obj:    sp,
-			Action: notifyclient.ActionDelete,
+			Action: notifyclient.ActionCreate,
 		})
 	}
 }
