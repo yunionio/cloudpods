@@ -254,26 +254,6 @@ func (self *SSnapshotPolicy) ValidateUpdateData(ctx context.Context, userCred mc
 	return input, nil
 }
 
-func (self *SSnapshotPolicy) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-
-	input := &api.SSnapshotPolicyUpdateInput{}
-	data.Unmarshal(input)
-
-	self.StartSnapshotPolicyUpdateTask(ctx, userCred, input)
-}
-
-func (sp *SSnapshotPolicy) StartSnapshotPolicyUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyUpdateInput) error {
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.Marshal(input), "input")
-	sp.SetStatus(userCred, api.SNAPSHOT_POLICY_UPDATING, "")
-	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyUpdateTask", sp, userCred, params, "", "", nil)
-	if err != nil {
-		return errors.Wrapf(err, "NewTask")
-	}
-	return task.ScheduleRun(nil)
-}
-
 func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := SnapshotPolicyDiskManager.SyncDetachBySnapshotpolicy(ctx, userCred, nil, sp)
 	if err != nil {
