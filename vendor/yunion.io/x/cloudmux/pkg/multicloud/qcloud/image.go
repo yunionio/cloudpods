@@ -65,6 +65,8 @@ type SImage struct {
 	ImageSource        string          //	镜像来源
 	SyncPercent        int             //	同步百分比
 	IsSupportCloudinit bool            //	镜像是否支持cloud-init
+	OsType             string
+	OsVersion          string
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -189,7 +191,7 @@ func (self *SImage) GetSizeByte() int64 {
 
 func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if self.imgInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo(self.OsName, self.Architecture, self.Platform, self.Platform, "")
+		imgInfo := imagetools.NormalizeImageInfo(self.OsName, self.Architecture, self.OsType, self.Platform, self.OsVersion)
 		self.imgInfo = &imgInfo
 	}
 
