@@ -135,7 +135,7 @@ func (region *SRegion) RevokeDBInstancePrivilege(instanceId string, account, dat
 	if err != nil {
 		return err
 	}
-	_, err = region.client.request(httputils.DELETE, region.Id, url, nil, params)
+	_, err = region.client.request(httputils.DELETE, region.Id, SERVICE_RDS, url, nil, params)
 	return err
 }
 

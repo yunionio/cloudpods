@@ -17,7 +17,7 @@ package aliyun
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -155,8 +155,9 @@ type SAliyunClient struct {
 	ownerId string
 	arn     string
 
-	nasEndpoints map[string]string
-	vpcEndpoints map[string]string
+	nasEndpoints  map[string]string
+	vpcEndpoints  map[string]string
+	hbaseEndpoint map[string]string
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -329,6 +330,24 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		req.PathPattern = pathPattern
 		req.Method = method
 		req.GetHeaders()["Content-Type"] = "application/json"
+	} else if strings.HasPrefix(domain, "rocketmq") {
+		pathPattern, ok := params["PathPattern"]
+		if !ok {
+			return nil, errors.Errorf("Roa request missing pathPattern")
+		}
+		delete(params, "PathPattern")
+		req.PathPattern = pathPattern
+		req.Method = method
+		req.GetHeaders()["Content-Type"] = "application/json"
+	} else if strings.HasPrefix(domain, "fc") {
+		pathPattern, ok := params["PathPattern"]
+		if !ok {
+			return nil, errors.Errorf("Roa request missing pathPattern")
+		}
+		delete(params, "PathPattern")
+		req.PathPattern = fmt.Sprintf("/%s/%s", req.Version, strings.TrimPrefix(pathPattern, "/"))
+		req.Method = method
+		req.GetHeaders()["Content-Type"] = "application/json"
 	}
 
 	resp, err := processCommonRequest(client, req)
@@ -438,11 +457,11 @@ func (self *SAliyunClient) _getSdkClient(regionId string) (*sdk.Client, error) {
 		action := params.Get("Action")
 		respCheck := func(resp *http.Response) error {
 			if self.cpcfg.UpdatePermission != nil && resp.StatusCode >= 400 && resp.ContentLength > 0 {
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				if err != nil {
 					return nil
 				}
-				resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+				resp.Body = io.NopCloser(bytes.NewBuffer(body))
 				obj, err := jsonutils.Parse(body)
 				if err != nil {
 					return nil
