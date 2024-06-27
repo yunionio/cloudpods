@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -130,12 +131,8 @@ func (self *SGuest) ConvertEsxiToKvm(ctx context.Context, userCred mcclient.Toke
 		createInput.Networks[i].Network = ""
 		createInput.Networks[i].Wire = ""
 		if data.Networks != nil {
-			if data.Networks[i].Network != "" {
-				createInput.Networks[i].Network = data.Networks[i].Network
-			}
-			if data.Networks[i].Address != "" {
-				createInput.Networks[i].Address = data.Networks[i].Address
-			}
+			createInput.Networks[i].Network = data.Networks[i].Network
+			createInput.Networks[i].Address = data.Networks[i].Address
 			if data.Networks[i].Schedtags != nil {
 				createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
 			}
@@ -203,8 +200,8 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 	if self.Hypervisor == api.HYPERVISOR_ESXI {
 		// change drivers so as to bootable in KVM
 		for i := range createInput.Disks {
-			if createInput.Disks[i].Driver != "ide" {
-				createInput.Disks[i].Driver = "ide"
+			if !utils.IsInStringArray(createInput.Disks[i].Driver, []string{api.DISK_DRIVER_VIRTIO, api.DISK_DRIVER_PVSCSI, api.DISK_DRIVER_IDE}) {
+				createInput.Disks[i].Driver = api.DISK_DRIVER_IDE
 			}
 			createInput.Disks[i].Format = ""
 			createInput.Disks[i].Backend = ""
@@ -236,15 +233,11 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 		createInput.Networks[i].Network = ""
 		createInput.Networks[i].Wire = ""
 		if data.Networks != nil {
-			if data.Networks[i].Network != "" {
-				createInput.Networks[i].Network = data.Networks[i].Network
-			}
-			if data.Networks[i].Address != "" {
-				createInput.Networks[i].Address = data.Networks[i].Address
-			}
 			if data.Networks[i].Schedtags != nil {
 				createInput.Networks[i].Schedtags = data.Networks[i].Schedtags
 			}
+			createInput.Networks[i].Address = data.Networks[i].Address
+			createInput.Networks[i].Network = data.Networks[i].Network
 		}
 	}
 
