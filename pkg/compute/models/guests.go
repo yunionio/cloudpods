@@ -6783,7 +6783,7 @@ var (
 )
 
 func (manager *SGuestManager) ValidateNameLoginAccount(name string) error {
-	if hostnameREG.MatchString(name) {
+	if serverNameREG.MatchString(name) {
 		return nil
 	}
 	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
