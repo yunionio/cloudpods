@@ -22,6 +22,40 @@ import (
 	"yunion.io/x/pkg/util/osprofile"
 )
 
+const (
+	OS_DIST_CENTOS        = "CentOS"
+	OS_DIST_CENTOS_STREAM = "CentOS Stream"
+
+	OS_DIST_RHEL     = "RHEL"
+	OS_DIST_FREE_BSD = "FreeBSD"
+
+	OS_DIST_UBUNTU_SERVER = "Ubuntu Server"
+	OS_DIST_UBUNTU        = "Ubuntu"
+
+	OS_DIST_OPEN_SUSE = "OpenSUSE"
+	OS_DIST_SUSE      = "SUSE"
+	OS_DIST_DEBIAN    = "Debian"
+	OS_DIST_CORE_OS   = "CoreOS"
+	OS_DIST_EULER_OS  = "EulerOS"
+	OS_DIST_ALIYUN    = "Aliyun"
+
+	OS_DIST_ALIBABA_CLOUD_LINUX = "Alibaba Cloud Linux"
+	OS_DIST_ANOLIS              = "Anolis OS"
+	OS_DIST_ROCKY_LINUX         = "Rocky Linux"
+	OS_DIST_FEDORA              = "Fedora"
+	OS_DIST_ALMA_LINUX          = "AlmaLinux"
+	OS_DIST_AMAZON_LINUX        = "Amazon Linux"
+
+	OS_DIST_WINDOWS_SERVER = "Windows Server"
+	OS_DIST_WINDOWS        = "Windows"
+
+	OS_DIST_KYLIN = "Kylin"
+	OS_DIST_UOS   = "UOS"
+
+	OS_DIST_TENCENTOS_SERVER = "TencentOS Server"
+	OS_DIST_OTHER_LINUX      = "Others Linux"
+)
+
 func normalizeOsArch(osArch string, imageName string) string {
 	if len(osArch) > 0 {
 		switch strings.ToLower(osArch) {
@@ -76,87 +110,91 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		osDist = imageName
 	}
 	osDist = strings.ToLower(osDist)
-	if strings.Contains(osDist, "centos stream") {
-		return "CentOS Stream"
+	if strings.Contains(osDist, "tencentos") {
+		return OS_DIST_TENCENTOS_SERVER
+	} else if strings.Contains(osDist, "centos stream") {
+		return OS_DIST_CENTOS_STREAM
 	} else if strings.Contains(osDist, "centos") {
-		return "CentOS"
+		return OS_DIST_CENTOS
 	} else if strings.Contains(osDist, "redhat") || strings.Contains(osDist, "rhel") {
-		return "RHEL"
+		return OS_DIST_RHEL
 	} else if strings.Contains(osDist, "ubuntu server") {
-		return "Ubuntu Server"
+		return OS_DIST_UBUNTU_SERVER
 	} else if strings.Contains(osDist, "ubuntu") {
-		return "Ubuntu"
-	} else if strings.Contains(osDist, "suse") {
-		return "SUSE"
+		return OS_DIST_UBUNTU
 	} else if strings.Contains(osDist, "opensuse") {
-		return "OpenSUSE"
+		return OS_DIST_OPEN_SUSE
+	} else if strings.Contains(osDist, "suse") {
+		return OS_DIST_SUSE
 	} else if strings.Contains(osDist, "debian") {
-		return "Debian"
+		return OS_DIST_DEBIAN
 	} else if strings.Contains(osDist, "coreos") {
-		return "CoreOS"
+		return OS_DIST_CORE_OS
 	} else if strings.Contains(osDist, "aliyun") {
-		return "Aliyun"
+		return OS_DIST_ALIYUN
 	} else if strings.Contains(osDist, "freebsd") {
-		return "FreeBSD"
+		return OS_DIST_FREE_BSD
 	} else if strings.Contains(osDist, "euleros") {
-		return "EulerOS"
+		return OS_DIST_EULER_OS
 	} else if strings.Contains(osDist, "alibaba cloud linux") {
-		return "Alibaba Cloud Linux"
+		return OS_DIST_ALIBABA_CLOUD_LINUX
 	} else if strings.Contains(osDist, "anolis") {
-		return "Anolis OS"
+		return OS_DIST_ANOLIS
 	} else if strings.Contains(osDist, "rocky") {
-		return "Rocky Linux"
+		return OS_DIST_ROCKY_LINUX
 	} else if strings.Contains(osDist, "fedora") {
-		return "Fedora"
+		return OS_DIST_FEDORA
 	} else if strings.Contains(osDist, "alma") {
-		return "AlmaLinux"
+		return OS_DIST_ALMA_LINUX
 	} else if strings.Contains(osDist, "amazon") && strings.Contains(osDist, "linux") {
-		return "Amazon Linux"
+		return OS_DIST_AMAZON_LINUX
 	} else if strings.Contains(osDist, "kylin") {
-		return "Kylin"
+		return OS_DIST_KYLIN
 	} else if strings.Contains(osDist, "uos") {
-		return "UOS"
+		return OS_DIST_UOS
 	} else if strings.Contains(osDist, "windows") {
 		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022"} {
 			if strings.Contains(osDist, ver) {
-				return "Windows Server"
+				return OS_DIST_WINDOWS_SERVER
 			}
 		}
-		return "Windows"
+		return OS_DIST_WINDOWS
 	} else {
-		return "Others Linux"
+		return OS_DIST_OTHER_LINUX
 	}
 }
 
 var imageVersions = map[string][]string{
-	"CentOS":        {"5", "6", "7", "8"},
-	"CentOS Stream": {"8", "9"},
+	OS_DIST_CENTOS:        {"5", "6", "7", "8"},
+	OS_DIST_CENTOS_STREAM: {"8", "9"},
 
-	"RHEL":    {"5", "6", "7", "8", "9"},
-	"FreeBSD": {"10", "11", "12"},
+	OS_DIST_RHEL:     {"5", "6", "7", "8", "9"},
+	OS_DIST_FREE_BSD: {"10", "11", "12"},
 
-	"Ubuntu Server": {"10", "12", "14", "16", "18", "20", "22"},
-	"Ubuntu":        {"10", "12", "14", "16", "17", "18", "19", "20", "21", "22"},
+	OS_DIST_UBUNTU_SERVER: {"10", "12", "14", "16", "18", "20", "22"},
+	OS_DIST_UBUNTU:        {"10", "12", "14", "16", "17", "18", "19", "20", "21", "22"},
 
-	"OpenSUSE": {"11", "12"},
-	"SUSE":     {"10", "11", "12", "13"},
-	"Debian":   {"6", "7", "8", "9", "10", "11"},
-	"CoreOS":   {"7"},
-	"EulerOS":  {"2"},
-	"Aliyun":   {},
+	OS_DIST_OPEN_SUSE: {"11", "12"},
+	OS_DIST_SUSE:      {"10", "11", "12", "13"},
+	OS_DIST_DEBIAN:    {"6", "7", "8", "9", "10", "11"},
+	OS_DIST_CORE_OS:   {"7"},
+	OS_DIST_EULER_OS:  {"2"},
+	OS_DIST_ALIYUN:    {},
 
-	"Alibaba Cloud Linux": {"2.1903", "3.2104"},
-	"Anolis OS":           {"7.9", "8.2", "8.4"},
-	"Rocky Linux":         {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "9.0", "9.1", "9.2", "9.3", "9.4"},
-	"Fedora":              {"33", "34", "35"},
-	"AlmaLinux":           {"8.5"},
-	"Amazon Linux":        {"2023", "2"},
+	OS_DIST_ALIBABA_CLOUD_LINUX: {"2.1903", "3.2104"},
+	OS_DIST_ANOLIS:              {"7.9", "8.2", "8.4"},
+	OS_DIST_ROCKY_LINUX:         {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "9.0", "9.1", "9.2", "9.3", "9.4"},
+	OS_DIST_FEDORA:              {"33", "34", "35"},
+	OS_DIST_ALMA_LINUX:          {"8.5"},
+	OS_DIST_AMAZON_LINUX:        {"2023", "2"},
 
-	"Windows Server": {"2003", "2008", "2012", "2016", "2019", "2022"},
-	"Windows":        {"XP", "7", "8", "Vista", "10", "11"},
+	OS_DIST_WINDOWS_SERVER: {"2003", "2008", "2012", "2016", "2019", "2022"},
+	OS_DIST_WINDOWS:        {"XP", "7", "8", "Vista", "10", "11"},
 
-	"Kylin": {"V10"},
-	"UOS":   {"V20", "20 1050", "1050", "1060", "1070"},
+	OS_DIST_KYLIN: {"V10"},
+	OS_DIST_UOS:   {"V20", "20 1050", "1050", "1060", "1070"},
+
+	OS_DIST_TENCENTOS_SERVER: {"2.4", "3.1"},
 }
 
 func normalizeOsVersion(imageName string, osDist string, osVersion string) string {

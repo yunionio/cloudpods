@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"fmt"
 	"net/url"
 	"time"
 )
@@ -102,6 +103,37 @@ func (self *SRegion) ListFunctions() ([]SFunction, error) {
 			break
 		}
 		query.Set("marker", part.NextMarker)
+	}
+	return ret, nil
+}
+
+type SWorkerflow struct {
+	Id   string
+	Name string
+}
+
+func (self *SRegion) ListWorkerflows() ([]SWorkerflow, error) {
+	query := url.Values{}
+	query.Set("limit", "200")
+	ret := []SWorkerflow{}
+	for {
+		resp, err := self.list(SERVICE_FUNCTIONGRAPH, "fgs/workflows", query)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Workflows []SWorkerflow
+			Total     int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Workflows...)
+		if len(ret) >= part.Total || len(part.Workflows) == 0 {
+			break
+		}
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
 	}
 	return ret, nil
 }
