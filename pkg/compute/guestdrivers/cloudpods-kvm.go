@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/cloudinit"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
@@ -165,4 +166,14 @@ func (self *SCloudpodsGuestDriver) GetInstanceCapability() cloudprovider.SInstan
 
 func (self *SCloudpodsGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return options.Options.DefaultDiskSizeMB / 1024
+}
+
+func (self *SCloudpodsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	if len(input.UserData) > 0 {
+		_, err := cloudinit.ParseUserData(input.UserData)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return input, nil
 }
