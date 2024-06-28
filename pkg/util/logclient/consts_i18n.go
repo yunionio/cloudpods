@@ -1468,4 +1468,15 @@ func init() {
 		EN("Collect monitoring metrics").
 		CN("采集监控指标"),
 	)
+
+	o.Set(ACT_ADD_RATE, i18n.NewTableEntry().
+		EN("Add Rate").
+		CN("添加费率"),
+	)
+
+	o.Set(ACT_REMOVE_RATE, i18n.NewTableEntry().
+		EN("Remove Rate").
+		CN("删除费率"),
+	)
+
 }
