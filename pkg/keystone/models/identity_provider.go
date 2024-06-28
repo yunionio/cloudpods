@@ -276,7 +276,6 @@ func (ident *SIdentityProvider) MarkConnected(ctx context.Context, userCred mccl
 		}
 	}
 	if ident.Status != api.IdentityDriverStatusConnected {
-		logclient.AddSimpleActionLog(ident, logclient.ACT_ENABLE, nil, userCred, true)
 		return ident.SetStatus(ctx, userCred, api.IdentityDriverStatusConnected, "")
 	}
 	return nil
@@ -290,7 +289,6 @@ func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred m
 	if err != nil {
 		return errors.Wrap(err, "UpdateWithLock")
 	}
-	logclient.AddSimpleActionLog(ident, logclient.ACT_DISABLE, reason.Error(), userCred, false)
 	if ident.Status != api.IdentityDriverStatusDisconnected {
 		return ident.SetStatus(ctx, userCred, api.IdentityDriverStatusDisconnected, reason.Error())
 	}
