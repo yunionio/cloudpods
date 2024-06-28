@@ -282,6 +282,27 @@ func (manager *SElasticipManager) ListItemFilter(
 			q = q.IsFalse("auto_dellocate")
 		}
 	}
+	if len(query.AssociateName) > 0 {
+		filters := []sqlchemy.ICondition{}
+		likeQuery := func(sq *sqlchemy.SQuery) *sqlchemy.SQuery {
+			conditions := []sqlchemy.ICondition{}
+			for _, name := range query.AssociateName {
+				conditions = append(conditions, sqlchemy.Contains(sq.Field("name"), name))
+			}
+			return sq.Filter(sqlchemy.OR(conditions...))
+		}
+		for _, m := range []db.IModelManager{
+			GuestManager,
+			GroupManager,
+			LoadbalancerManager,
+			NatGatewayManager,
+		} {
+			sq := m.Query("id")
+			sq = likeQuery(sq)
+			filters = append(filters, sqlchemy.In(q.Field("associate_id"), sq))
+		}
+		q = q.Filter(sqlchemy.OR(filters...))
+	}
 
 	return q, nil
 }
