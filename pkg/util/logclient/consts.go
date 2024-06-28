@@ -290,4 +290,6 @@ const (
 	ACT_REJECTED             = "rejected"
 	ACT_TRANSFERRED          = "transferred"
 	ACT_TRANSFERRED_REJECTED = "trans_rejected"
+	ACT_ADD_RATE             = "add_rate"
+	ACT_REMOVE_RATE          = "remove_rate"
 )
