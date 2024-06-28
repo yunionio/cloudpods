@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -41,8 +42,51 @@ func init() {
 
 func (self *GuestStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	self.AttachReleasedDevices(ctx, guest)
+}
+
+func (self *GuestStartTask) attachReleasedDevices(ctx context.Context, guest *models.SGuest) error {
+	devs, err := guest.GetReleasedIsolatedDevices(ctx, self.GetUserCred())
+	if err != nil {
+		return errors.Wrap(err, "GetReleasedIsolatedDevices")
+	}
+	if len(devs) == 0 {
+		return self.ScheduleRun(nil)
+	}
+	attachReq := make(map[string]int)
+	for _, dev := range devs {
+		count, ok := attachReq[dev.Model]
+		if !ok {
+			attachReq[dev.Model] = 1
+		} else {
+			attachReq[dev.Model] = count + 1
+		}
+	}
+	if err := guest.AttachIsolatedDevices(ctx, self.GetUserCred(), attachReq); err != nil {
+		return errors.Wrap(err, "attach isolated devices")
+	}
+	return guest.StartIsolatedDevicesSyncTask(ctx, self.GetUserCred(), false, self.GetTaskId())
+}
+
+func (self *GuestStartTask) AttachReleasedDevices(ctx context.Context, guest *models.SGuest) {
+	self.SetStage("OnReleasedDevicesAttached", nil)
+	if guest.ShutdownBehavior != api.SHUTDOWN_STOP_RELEASE_GPU {
+		self.ScheduleRun(nil)
+		return
+	}
+	if err := self.attachReleasedDevices(ctx, guest); err != nil {
+		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(errors.Wrap(err, "attach released devices").Error()))
+		return
+	}
+}
+
+func (self *GuestStartTask) OnReleasedDevicesAttached(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_STARTING, nil, self.UserCred)
 	self.RequestStart(ctx, guest)
+}
+
+func (self *GuestStartTask) OnReleasedDevicesFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnStartCompleteFailed(ctx, guest, data)
 }
 
 func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGuest) {

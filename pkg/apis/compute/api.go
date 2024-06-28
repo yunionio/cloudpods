@@ -538,7 +538,7 @@ type ServerCreateInput struct {
 
 	// 关机后执行的操作
 	// terminate: 关机后自动删除
-	// emum: stop, terminate
+	// enum: stop, terminate, stop_release_gpu
 	// default: stop
 	ShutdownBehavior string `json:"shutdown_behavior"`
 

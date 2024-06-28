@@ -566,3 +566,36 @@ func (c *SContainer) PerformExecSync(ctx context.Context, userCred mcclient.Toke
 	}
 	return c.GetPodDriver().RequestExecSyncContainer(ctx, userCred, c, input)
 }
+
+type ContainerReleasedDevice struct {
+	*api.ContainerDevice
+	DeviceType  string
+	DeviceModel string
+}
+
+func NewContainerReleasedDevice(device *api.ContainerDevice, devType, devModel string) *ContainerReleasedDevice {
+	return &ContainerReleasedDevice{
+		ContainerDevice: device,
+		DeviceType:      devType,
+		DeviceModel:     devModel,
+	}
+}
+
+func (s *SContainer) SaveReleasedDevices(ctx context.Context, userCred mcclient.TokenCredential, devs map[string]ContainerReleasedDevice) error {
+	return s.SetMetadata(ctx, api.CONTAINER_METADATA_RELEASED_DEVICES, devs, userCred)
+}
+
+func (s *SContainer) GetReleasedDevices(ctx context.Context, userCred mcclient.TokenCredential) (map[string]ContainerReleasedDevice, error) {
+	out := make(map[string]ContainerReleasedDevice, 0)
+	if ret := s.GetMetadata(ctx, api.CONTAINER_METADATA_RELEASED_DEVICES, userCred); ret == "" {
+		return out, nil
+	}
+	obj := s.GetMetadataJson(ctx, api.CONTAINER_METADATA_RELEASED_DEVICES, userCred)
+	if obj == nil {
+		return nil, errors.Error("get metadata released devices")
+	}
+	if err := obj.Unmarshal(&out); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal metadata released devices")
+	}
+	return out, nil
+}
