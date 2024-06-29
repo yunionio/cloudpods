@@ -17,6 +17,7 @@ package models
 import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
+	"yunion.io/x/onecloud/pkg/compute/models/baremetal"
 )
 
 func InitDB() error {
@@ -73,6 +74,8 @@ func InitDB() error {
 		AccessGroupRuleManager,
 
 		GroupnetworkManager,
+
+		baremetal.BaremetalProfileManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

@@ -49,13 +49,13 @@ func (self *SBaremetalServerPrepareTask) GetName() string {
 
 // OnPXEBootRequest called by notify api handler
 func (self *SBaremetalServerPrepareTask) OnPXEBootRequest(ctx context.Context, cli *ssh.Client, args interface{}) error {
-	err := newBaremetalPrepareTask(self.Baremetal, self.userCred).DoPrepare(cli)
+	err := newBaremetalPrepareTask(self.Baremetal, self.userCred).DoPrepare(ctx, cli)
 	if err != nil {
 		log.Errorf("Prepare failed: %v", err)
-		self.Baremetal.SyncStatus(status.PREPARE_FAIL, err.Error())
+		self.Baremetal.SyncStatus(ctx, status.PREPARE_FAIL, err.Error())
 		return err
 	}
-	self.Baremetal.AutoSyncStatus()
+	self.Baremetal.AutoSyncStatus(ctx)
 	SetTaskComplete(self, nil)
 	return nil
 }

@@ -134,7 +134,9 @@ func (agent *SBaremetalAgent) StartService() error {
 	if err != nil {
 		return fmt.Errorf("Baremetal manager load config error: %v", err)
 	}
-	if err := manager.initBaremetals(files); err != nil {
+
+	ctx := context.Background()
+	if err := manager.initBaremetals(ctx, files); err != nil {
 		log.Warningf("init baremetals by files err: %v", err)
 	}
 

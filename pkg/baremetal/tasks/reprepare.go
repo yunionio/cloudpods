@@ -15,6 +15,8 @@
 package tasks
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -43,13 +45,13 @@ func (self *SBaremetalReprepareTask) GetName() string {
 	return "BaremetalReprepareTask"
 }
 
-func (self *SBaremetalReprepareTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
+func (self *SBaremetalReprepareTask) DoDeploys(ctx context.Context, term *ssh.Client) (jsonutils.JSONObject, error) {
 	task := newBaremetalPrepareTask(self.Baremetal, self.userCred)
-	err := task.DoPrepare(term)
+	err := task.DoPrepare(ctx, term)
 	return nil, err
 }
 
-func (self *SBaremetalReprepareTask) PostDeploys(term *ssh.Client) error {
-	self.Baremetal.AutoSyncStatus()
+func (self *SBaremetalReprepareTask) PostDeploys(ctx context.Context, term *ssh.Client) error {
+	self.Baremetal.AutoSyncStatus(ctx)
 	return nil
 }
