@@ -15,6 +15,7 @@
 package dhcp
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"runtime/debug"
@@ -88,7 +89,7 @@ func NewDHCPServer2(iface string, dhcpServerPort, dhcpRelayPort uint16) (*DHCPSe
 }
 
 type DHCPHandler interface {
-	ServeDHCP(pkt Packet, addr *net.UDPAddr, intf *net.Interface) (Packet, []string, error)
+	ServeDHCP(ctx context.Context, pkt Packet, addr *net.UDPAddr, intf *net.Interface) (Packet, []string, error)
 }
 
 func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
@@ -101,6 +102,7 @@ func (s *DHCPServer) GetConn() *Conn {
 }
 
 func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
+	ctx := context.WithValue(context.Background(), "dhcp_server", s)
 	for {
 		pkt, addr, mac, intf, err := s.conn.RecvDHCP()
 		if err != nil {
@@ -119,7 +121,7 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 				}
 			}()
 
-			resp, targets, err := handler.ServeDHCP(pkt, addr, intf)
+			resp, targets, err := handler.ServeDHCP(ctx, pkt, addr, intf)
 			if err != nil {
 				log.Warningf("[DHCP] handler serve error: %v", err)
 				return

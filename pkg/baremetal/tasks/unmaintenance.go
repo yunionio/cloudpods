@@ -58,12 +58,12 @@ func (task *SBaremetalUnmaintenanceTask) DoUnmaintenance(ctx context.Context, ar
 			}
 		} else {
 			if task.Baremetal.GetServer() != nil {
-				if err := task.EnsureSSHReboot(); err != nil {
+				if err := task.EnsureSSHReboot(ctx); err != nil {
 					return errors.Wrap(err, "Do unmaintenance for none BMC server")
 				}
 			}
 		}
-		task.Baremetal.SyncStatus(baremetalstatus.RUNNING, "")
+		task.Baremetal.SyncStatus(ctx, baremetalstatus.RUNNING, "")
 		SetTaskComplete(task, nil)
 		return nil
 	}
@@ -89,7 +89,7 @@ func (self *SBaremetalUnmaintenanceTask) WaitForStop(ctx context.Context, args i
 }
 
 func (self *SBaremetalUnmaintenanceTask) OnStopComplete(ctx context.Context, args interface{}) error {
-	self.Baremetal.SyncStatus(baremetalstatus.READY, "")
+	self.Baremetal.SyncStatus(ctx, baremetalstatus.READY, "")
 	SetTaskComplete(self, nil)
 	return nil
 }
