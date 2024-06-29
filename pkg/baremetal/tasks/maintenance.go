@@ -51,7 +51,7 @@ func (self *SBaremetalMaintenanceTask) OnPXEBoot(ctx context.Context, term *ssh.
 	if jsonutils.QueryBoolean(self.data, "guest_running", false) {
 		dataObj["guest_running"] = true
 	}
-	self.Baremetal.AutoSyncStatus()
+	self.Baremetal.AutoSyncStatus(ctx)
 	SetTaskComplete(self, jsonutils.Marshal(dataObj))
 	return nil
 }

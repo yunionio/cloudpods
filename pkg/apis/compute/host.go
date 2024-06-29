@@ -414,7 +414,7 @@ type HostIpmiAttributes struct {
 	// presence
 	IpmiPresent *bool `json:"ipmi_present"`
 	// lan channel
-	IpmiLanChannel *int `json:"ipmi_lan_channel"`
+	IpmiLanChannel *uint8 `json:"ipmi_lan_channel"`
 	// verified
 	IpmiVerified *bool `json:"ipmi_verified"`
 	// Redfish API support

@@ -15,6 +15,7 @@
 package hostdhcp
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -83,7 +84,7 @@ func (r *SDHCPRelay) Setup(addr string) error {
 	return nil
 }
 
-func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
+func (r *SDHCPRelay) ServeDHCP(ctx context.Context, pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
 	pkg, err := r.serveDHCPInternal(pkt, addr, intf)
 	return pkg, nil, err
 }

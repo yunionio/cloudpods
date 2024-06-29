@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/capabilities"
 	"yunion.io/x/onecloud/pkg/compute/misc"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	baremetalmodels "yunion.io/x/onecloud/pkg/compute/models/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/compute/specs"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
@@ -243,6 +244,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.MiscResourceManager,
 
 		models.SSLCertificateManager,
+
+		baremetalmodels.BaremetalProfileManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

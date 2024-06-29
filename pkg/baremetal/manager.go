@@ -17,6 +17,7 @@ package baremetal
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -43,6 +44,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	baremetalapi "yunion.io/x/onecloud/pkg/apis/compute/baremetal"
 	apiidenty "yunion.io/x/onecloud/pkg/apis/identity"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
@@ -114,16 +116,16 @@ func (m *SBaremetalManager) GetZoneName() string {
 	return m.Agent.Zone.Name
 }
 
-func (m *SBaremetalManager) loadConfigs() ([]os.FileInfo, error) {
+func (m *SBaremetalManager) loadConfigs() ([]fs.DirEntry, error) {
 	m.killAllIPMITool()
-	files, err := ioutil.ReadDir(m.configPath)
+	files, err := os.ReadDir(m.configPath)
 	if err != nil {
 		return nil, err
 	}
 	return files, nil
 }
 
-func (m *SBaremetalManager) initBaremetals(files []os.FileInfo) error {
+func (m *SBaremetalManager) initBaremetals(ctx context.Context, files []fs.DirEntry) error {
 	bmIds := make([]string, 0)
 	for _, file := range files {
 		if file.IsDir() && regutils.MatchUUID(file.Name()) {
@@ -134,7 +136,7 @@ func (m *SBaremetalManager) initBaremetals(files []os.FileInfo) error {
 	errsChannel := make(chan error, len(bmIds))
 	initBaremetal := func(i int) {
 		bmId := bmIds[i]
-		err := m.InitBaremetal(bmId, true)
+		err := m.InitBaremetal(ctx, bmId, true)
 		if err != nil {
 			errsChannel <- err
 			return
@@ -151,7 +153,7 @@ func (m *SBaremetalManager) initBaremetals(files []os.FileInfo) error {
 	return errors.NewAggregate(errs)
 }
 
-func (m *SBaremetalManager) InitBaremetal(bmId string, update bool) error {
+func (m *SBaremetalManager) InitBaremetal(ctx context.Context, bmId string, update bool) error {
 	session := m.GetClientSession()
 	var err error
 	var desc jsonutils.JSONObject
@@ -167,7 +169,7 @@ func (m *SBaremetalManager) InitBaremetal(bmId string, update bool) error {
 	if !isBaremetal {
 		return errors.Error("not a baremetal???")
 	}
-	bmInstance, err := m.AddBaremetal(desc)
+	bmInstance, err := m.AddBaremetal(ctx, desc)
 	if err != nil {
 		return err
 	}
@@ -213,15 +215,15 @@ func (m *SBaremetalManager) fetchBaremetal(session *mcclient.ClientSession, bmId
 	return obj, nil
 }
 
-func (m *SBaremetalManager) AddBaremetal(desc jsonutils.JSONObject) (pxe.IBaremetalInstance, error) {
+func (m *SBaremetalManager) AddBaremetal(ctx context.Context, desc jsonutils.JSONObject) (pxe.IBaremetalInstance, error) {
 	id, err := desc.GetString("id")
 	if err != nil {
 		return nil, fmt.Errorf("Not found baremetal id in desc %s", desc)
 	}
 	if instance, ok := m.baremetals.Get(id); ok {
-		return instance, instance.SaveDesc(desc)
+		return instance, instance.SaveDesc(ctx, desc)
 	}
-	bm, err := newBaremetalInstance(m, desc)
+	bm, err := newBaremetalInstance(ctx, m, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +339,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 		return
 	}
 
-	ipmiLanChannel, ipmiMac, err := m.checkIpmiInfo(input.Username, input.Password, input.IpAddr)
+	ipmiLanChannel, ipmiMac, err := m.checkIpmiInfo(ctx, input.Username, input.Password, input.IpAddr)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
@@ -360,9 +362,9 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 	)
 	var bmId string
 	if !registered {
-		bmId, err = registerTask.CreateBaremetal()
+		bmId, err = registerTask.CreateBaremetal(ctx)
 	} else {
-		bmId, err = registerTask.UpdateBaremetal()
+		bmId, err = registerTask.UpdateBaremetal(ctx)
 	}
 	if err != nil {
 		input.responseErr(ctx, httperrors.NewInternalServerError("%v", err))
@@ -452,14 +454,18 @@ func (m *SBaremetalManager) checkSshInfo(input *BmRegisterInput) (*ssh.Client, e
 	return sshCLi, nil
 }
 
-func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) (int, net.HardwareAddr, error) {
+func (m *SBaremetalManager) checkIpmiInfo(ctx context.Context, username, password, ipAddr string) (uint8, net.HardwareAddr, error) {
 	lanPlusTool := ipmitool.NewLanPlusIPMI(ipAddr, username, password)
 	sysInfo, err := ipmitool.GetSysInfo(lanPlusTool)
 	if err != nil {
-		return -1, nil, err
+		return 0, nil, errors.Wrap(err, "GetSysInfo")
+	}
+	profile, err := profiles.GetProfile(ctx, sysInfo)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "GetProfile")
 	}
 
-	for _, lanChannel := range ipmitool.GetLanChannels(sysInfo) {
+	for _, lanChannel := range profile.LanChannels {
 		config, err := ipmitool.GetLanConfig(lanPlusTool, lanChannel)
 		if err != nil {
 			log.Errorf("GetLanConfig failed %s", err)
@@ -470,7 +476,7 @@ func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) (in
 		}
 		return lanChannel, config.Mac, nil
 	}
-	return -1, nil, fmt.Errorf("Ipmi can't fetch lan config")
+	return 0, nil, fmt.Errorf("Ipmi can't fetch lan config")
 }
 
 func (m *SBaremetalManager) Stop() {
@@ -521,10 +527,12 @@ type SBaremetalInstance struct {
 	server     baremetaltypes.IBaremetalServer
 	serverLock *sync.Mutex
 
+	profile *baremetalapi.BaremetalProfileSpec
+
 	cronJobs []IBaremetalCronJob
 }
 
-func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*SBaremetalInstance, error) {
+func newBaremetalInstance(ctx context.Context, man *SBaremetalManager, desc jsonutils.JSONObject) (*SBaremetalInstance, error) {
 	bm := &SBaremetalInstance{
 		manager:    man,
 		desc:       desc.(*jsonutils.JSONDict),
@@ -541,7 +549,7 @@ func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*S
 	if err != nil {
 		return nil, err
 	}
-	err = bm.SaveDesc(desc)
+	err = bm.SaveDesc(ctx, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -614,17 +622,29 @@ func (b *SBaremetalInstance) GetStatus() string {
 	return status
 }
 
-func (b *SBaremetalInstance) AutoSaveDesc() error {
-	return b.SaveDesc(nil)
+func (b *SBaremetalInstance) AutoSaveDesc(ctx context.Context) error {
+	return b.SaveDesc(ctx, nil)
 }
 
-func (b *SBaremetalInstance) SaveDesc(desc jsonutils.JSONObject) error {
+func (b *SBaremetalInstance) SaveDesc(ctx context.Context, desc jsonutils.JSONObject) error {
 	b.descLock.Lock()
 	defer b.descLock.Unlock()
 	if desc != nil {
 		b.desc = desc.(*jsonutils.JSONDict)
+
+		if b.desc.Contains("sys_info") {
+			sysInfo := types.SSystemInfo{}
+			err := b.desc.Unmarshal(&sysInfo, "sys_info")
+			if err != nil {
+				return errors.Wrap(err, "Unmarshal sys_info")
+			}
+			b.profile, err = profiles.GetProfile(ctx, &sysInfo)
+			if err != nil {
+				return errors.Wrap(err, "GetProfile")
+			}
+		}
 	}
-	return ioutil.WriteFile(b.GetDescFilePath(), []byte(b.desc.String()), 0644)
+	return os.WriteFile(b.GetDescFilePath(), []byte(b.desc.String()), 0644)
 }
 
 func (b *SBaremetalInstance) loadServer() {
@@ -634,7 +654,7 @@ func (b *SBaremetalInstance) loadServer() {
 		return
 	}
 	descPath := b.GetServerDescFilePath()
-	desc, err := ioutil.ReadFile(descPath)
+	desc, err := os.ReadFile(descPath)
 	if err != nil {
 		log.Errorf("Failed to read server desc %s: %v", descPath, err)
 		return
@@ -668,7 +688,7 @@ func (b *SBaremetalInstance) SaveSSHConfig(remoteAddr string, key string) error 
 		RemoteIP: remoteAddr,
 	}
 	conf := jsonutils.Marshal(sshConf)
-	err = ioutil.WriteFile(b.GetSSHConfigFilePath(), []byte(conf.String()), 0644)
+	err = os.WriteFile(b.GetSSHConfigFilePath(), []byte(conf.String()), 0644)
 	if err != nil {
 		return err
 	}
@@ -679,7 +699,7 @@ func (b *SBaremetalInstance) SaveSSHConfig(remoteAddr string, key string) error 
 
 func (b *SBaremetalInstance) GetSSHConfig() (*types.SSHConfig, error) {
 	path := b.GetSSHConfigFilePath()
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -774,7 +794,7 @@ func (b *SBaremetalInstance) SyncSSHConfig(conf types.SSHConfig) error {
 
 func (b *SBaremetalInstance) SyncStatusBackground() {
 	go func() {
-		b.AutoSyncAllStatus()
+		b.AutoSyncAllStatus(context.Background())
 	}()
 }
 
@@ -785,12 +805,12 @@ func (b *SBaremetalInstance) InitializeServer(s *mcclient.ClientSession, name st
 	return err
 }
 
-func (b *SBaremetalInstance) ServerLoadDesc() error {
+func (b *SBaremetalInstance) ServerLoadDesc(ctx context.Context) error {
 	res, err := modules.Hosts.Get(b.manager.GetClientSession(), b.GetId(), nil)
 	if err != nil {
 		return err
 	}
-	b.SaveDesc(res)
+	b.SaveDesc(ctx, res)
 	sid, err := res.GetString("server_id")
 	if err == nil {
 		sDesc := jsonutils.NewDict()
@@ -830,11 +850,11 @@ func PowerStatusToServerStatus(bm *SBaremetalInstance, status string) string {
 	return baremetalstatus.UNKNOWN
 }
 
-func (b *SBaremetalInstance) AutoSyncStatus() {
-	b.SyncStatus("", "")
+func (b *SBaremetalInstance) AutoSyncStatus(ctx context.Context) {
+	b.SyncStatus(ctx, "", "")
 }
 
-func (b *SBaremetalInstance) SyncStatus(status string, reason string) {
+func (b *SBaremetalInstance) SyncStatus(ctx context.Context, status string, reason string) {
 	if status == "" {
 		powerStatus, err := b.GetPowerStatus()
 		if err != nil {
@@ -843,7 +863,7 @@ func (b *SBaremetalInstance) SyncStatus(status string, reason string) {
 		status = PowerStatusToBaremetalStatus(powerStatus)
 	}
 	b.desc.Set("status", jsonutils.NewString(status))
-	b.AutoSaveDesc()
+	b.AutoSaveDesc(ctx)
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(status), "status")
 	if reason != "" {
@@ -857,16 +877,16 @@ func (b *SBaremetalInstance) SyncStatus(status string, reason string) {
 	log.Infof("Update baremetal %s to status %s", b.GetId(), status)
 }
 
-func (b *SBaremetalInstance) AutoSyncAllStatus() {
-	b.SyncAllStatus("")
+func (b *SBaremetalInstance) AutoSyncAllStatus(ctx context.Context) {
+	b.SyncAllStatus(ctx, "")
 }
 
-func (b *SBaremetalInstance) DelayedSyncStatus(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	b.AutoSyncAllStatus()
+func (b *SBaremetalInstance) DelayedSyncStatus(ctx context.Context, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	b.AutoSyncAllStatus(ctx)
 	return nil, nil
 }
 
-func (b *SBaremetalInstance) SyncAllStatus(status string) {
+func (b *SBaremetalInstance) SyncAllStatus(ctx context.Context, status string) {
 	var err error
 	if status == "" {
 		status, err = b.GetPowerStatus()
@@ -874,7 +894,7 @@ func (b *SBaremetalInstance) SyncAllStatus(status string) {
 			log.Errorf("Get power status error: %v", err)
 		}
 	}
-	b.SyncStatus(PowerStatusToBaremetalStatus(status), "")
+	b.SyncStatus(ctx, PowerStatusToBaremetalStatus(status), "")
 	b.SyncServerStatus(PowerStatusToServerStatus(b, status))
 }
 
@@ -1295,6 +1315,7 @@ func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 }
 
 func (b *SBaremetalInstance) InitAdminNetif(
+	ctx context.Context,
 	cliMac net.HardwareAddr,
 	wireId string,
 	nicType compute.TNicType,
@@ -1312,7 +1333,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 				baremetalstatus.UNKNOWN}) &&
 		b.GetTask() == nil && b.GetServer() == nil {
 		b.SetTask(tasks.NewBaremetalServerPrepareTask(b))
-		b.SyncStatus(baremetalstatus.PREPARE, "")
+		b.SyncStatus(ctx, baremetalstatus.PREPARE, "")
 	}
 
 	nic := b.GetNicByMac(cliMac)
@@ -1321,14 +1342,14 @@ func (b *SBaremetalInstance) InitAdminNetif(
 		if err != nil {
 			return err
 		}
-		return b.postAttachWire(cliMac, nicType, netType, importIpAddr)
+		return b.postAttachWire(ctx, cliMac, nicType, netType, importIpAddr)
 	} else if nic.IpAddr == "" {
-		return b.postAttachWire(cliMac, nicType, netType, importIpAddr)
+		return b.postAttachWire(ctx, cliMac, nicType, netType, importIpAddr)
 	}
 	return nil
 }
 
-func (b *SBaremetalInstance) RegisterNetif(cliMac net.HardwareAddr, wireId string) error {
+func (b *SBaremetalInstance) RegisterNetif(ctx context.Context, cliMac net.HardwareAddr, wireId string) error {
 	var nicType compute.TNicType
 	nic := b.GetNicByMac(cliMac)
 	if nic != nil {
@@ -1339,7 +1360,7 @@ func (b *SBaremetalInstance) RegisterNetif(cliMac net.HardwareAddr, wireId strin
 		if err != nil {
 			return err
 		}
-		return b.SaveDesc(desc)
+		return b.SaveDesc(ctx, desc)
 	}
 	return nil
 }
@@ -1357,7 +1378,7 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 	return modules.Hosts.PerformAction(session, b.GetId(), "add-netif", params)
 }
 
-func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType compute.TNicType, netType api.TNetworkType, ipAddr string) error {
+func (b *SBaremetalInstance) postAttachWire(ctx context.Context, mac net.HardwareAddr, nicType compute.TNicType, netType api.TNetworkType, ipAddr string) error {
 	if ipAddr == "" {
 		switch nicType {
 		case api.NIC_TYPE_IPMI:
@@ -1376,7 +1397,7 @@ func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType comput
 	if err != nil {
 		return err
 	}
-	return b.SaveDesc(desc)
+	return b.SaveDesc(ctx, desc)
 }
 
 func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nicType compute.TNicType, netType api.TNetworkType) (jsonutils.JSONObject, error) {
@@ -1410,13 +1431,8 @@ func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 		log.Debugf("GetIPMIConfig password is nil")
 		return nil
 	}
-	if conf.Username == "" {
-		sysInfo := types.SSystemInfo{}
-		err := b.desc.Unmarshal(&sysInfo, "sys_info")
-		if err != nil {
-			log.Errorf("Unmarshal get sys_info error: %v", err)
-		}
-		conf.Username = profiles.GetRootName(&sysInfo)
+	if conf.Username == "" && b.profile != nil {
+		conf.Username = b.profile.RootName
 	}
 	if conf.IpAddr == "" {
 		nicIPAddr := b.GetIPMINicIPAddr()
@@ -1628,19 +1644,19 @@ func (b *SBaremetalInstance) sshRun(hostCmd string, serverCmd string) ([]string,
 	)
 }
 
-func (b *SBaremetalInstance) adjustUEFIWrapper(cli *ssh.Client, f func() error) error {
+func (b *SBaremetalInstance) adjustUEFIWrapper(ctx context.Context, cli *ssh.Client, f func() error) error {
 	isUEFI, err := uefi.RemoteIsUEFIBoot(cli)
 	if err != nil {
 		return errors.Wrap(err, "Check is uefi boot")
 	}
 	if !isUEFI {
-		return b.CleanUEFIInfo()
+		return b.CleanUEFIInfo(ctx)
 	}
 	return f()
 }
 
-func (b *SBaremetalInstance) AdjustUEFICurrentBootOrder(hostCli *ssh.Client) error {
-	return b.adjustUEFIWrapper(hostCli, func() error {
+func (b *SBaremetalInstance) AdjustUEFICurrentBootOrder(ctx context.Context, hostCli *ssh.Client) error {
+	return b.adjustUEFIWrapper(ctx, hostCli, func() error {
 		mgr, err := uefi.NewEFIBootMgrFromRemote(hostCli, false)
 		if err != nil {
 			return errors.Wrap(err, "NewEFIBootMgrFromRemote")
@@ -1648,14 +1664,14 @@ func (b *SBaremetalInstance) AdjustUEFICurrentBootOrder(hostCli *ssh.Client) err
 		if err := uefi.RemoteSetCurrentBootAtFirst(hostCli, mgr); err != nil {
 			return errors.Wrap(err, "Set current boot order at first")
 		}
-		return b.SendUEFIInfo(mgr)
+		return b.SendUEFIInfo(ctx, mgr)
 	})
 }
 
-func (b *SBaremetalInstance) updateUEFIInfo(uefiData jsonutils.JSONObject) error {
+func (b *SBaremetalInstance) updateUEFIInfo(ctx context.Context, uefiData jsonutils.JSONObject) error {
 	desc := b.desc
 	desc.Add(uefiData, "uefi_info")
-	if err := b.SaveDesc(desc); err != nil {
+	if err := b.SaveDesc(ctx, desc); err != nil {
 		return errors.Wrap(err, "Save uefi_info")
 	}
 	updateData := jsonutils.NewDict()
@@ -1666,26 +1682,26 @@ func (b *SBaremetalInstance) updateUEFIInfo(uefiData jsonutils.JSONObject) error
 	return nil
 }
 
-func (b *SBaremetalInstance) CleanUEFIInfo() error {
-	if err := b.updateUEFIInfo(jsonutils.NewDict()); err != nil {
+func (b *SBaremetalInstance) CleanUEFIInfo(ctx context.Context) error {
+	if err := b.updateUEFIInfo(ctx, jsonutils.NewDict()); err != nil {
 		return errors.Wrap(err, "CleanUEFIInfo")
 	}
 	return nil
 }
 
-func (b *SBaremetalInstance) SendUEFIInfo(mgr *uefi.BootMgr) error {
+func (b *SBaremetalInstance) SendUEFIInfo(ctx context.Context, mgr *uefi.BootMgr) error {
 	info, err := mgr.ToEFIBootMgrInfo()
 	if err != nil {
 		return err
 	}
-	if err := b.updateUEFIInfo(jsonutils.Marshal(info)); err != nil {
+	if err := b.updateUEFIInfo(ctx, jsonutils.Marshal(info)); err != nil {
 		return errors.Wrap(err, "SendUEFIInfo")
 	}
 	return nil
 }
 
-func (b *SBaremetalInstance) adjustServerUEFIBootOrder(srvCli *ssh.Client) error {
-	return b.adjustUEFIWrapper(srvCli, func() error {
+func (b *SBaremetalInstance) adjustServerUEFIBootOrder(ctx context.Context, srvCli *ssh.Client) error {
+	return b.adjustUEFIWrapper(ctx, srvCli, func() error {
 		info, err := b.GetUEFIInfo()
 		if err != nil {
 			return errors.Wrap(err, "GetUEFIInfo from local desc")
@@ -1701,22 +1717,22 @@ func (b *SBaremetalInstance) adjustServerUEFIBootOrder(srvCli *ssh.Client) error
 	})
 }
 
-func (b *SBaremetalInstance) AdjustUEFIBootOrder() error {
+func (b *SBaremetalInstance) AdjustUEFIBootOrder(ctx context.Context) error {
 	_, err := b.sshRunWrapper(
 		func(hostCli *ssh.Client) ([]string, error) {
-			return nil, b.AdjustUEFICurrentBootOrder(hostCli)
+			return nil, b.AdjustUEFICurrentBootOrder(ctx, hostCli)
 		},
 		func(srvCli *ssh.Client) ([]string, error) {
-			return nil, b.adjustServerUEFIBootOrder(srvCli)
+			return nil, b.adjustServerUEFIBootOrder(ctx, srvCli)
 		},
 	)
 	return err
 }
 
-func (b *SBaremetalInstance) SSHReboot() error {
+func (b *SBaremetalInstance) SSHReboot(ctx context.Context) error {
 	if !b.HasBMC() {
 		// try adjust uefi boot order before reboot
-		if err := b.AdjustUEFIBootOrder(); err != nil {
+		if err := b.AdjustUEFIBootOrder(ctx); err != nil {
 			return errors.Wrap(err, "Adjust uefi boot order")
 		}
 	}
@@ -1771,7 +1787,7 @@ func (b *SBaremetalInstance) GetRedfishCli(ctx context.Context) redfish.IRedfish
 		conf.Username, conf.Password, false)
 }
 
-func (b *SBaremetalInstance) GetIPMILanChannel() int {
+func (b *SBaremetalInstance) GetIPMILanChannel() uint8 {
 	conf := b.GetIPMIConfig()
 	if conf == nil {
 		return 0
@@ -1941,7 +1957,7 @@ func (b *SBaremetalInstance) GetMemGb() string {
 	return strconv.FormatInt(memMb/1024, 10)
 }
 
-func (b *SBaremetalInstance) DelayedRemove(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) DelayedRemove(_ context.Context, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	b.remove()
 	return nil, nil
 }
@@ -1982,10 +1998,10 @@ func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenC
 	return nil
 }
 
-func (b *SBaremetalInstance) StartBaremetalIpmiProbeTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+func (b *SBaremetalInstance) StartBaremetalIpmiProbeTask(ctx context.Context, userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
 	session := b.manager.GetClientSession()
 	data, _ = b.manager.fetchBaremetal(session, b.GetId())
-	if err := b.SaveDesc(data); err != nil {
+	if err := b.SaveDesc(ctx, data); err != nil {
 		return err
 	}
 	b.StartNewTask(tasks.NewBaremetalIpmiProbeTask, userCred, taskId, data)
@@ -1997,12 +2013,12 @@ func (b *SBaremetalInstance) StartBaremetalCdromTask(userCred mcclient.TokenCred
 	return nil
 }
 
-func (b *SBaremetalInstance) DelayedServerReset(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) DelayedServerReset(ctx context.Context, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := b.DoPXEBoot()
 	return nil, err
 }
 
-func (b *SBaremetalInstance) StartServerCreateTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+func (b *SBaremetalInstance) StartServerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
 	b.serverLock.Lock()
 	defer b.serverLock.Unlock()
 	if b.server != nil {
@@ -2018,7 +2034,7 @@ func (b *SBaremetalInstance) StartServerCreateTask(userCred mcclient.TokenCreden
 	}
 	b.server = server
 	b.desc.Set("server_id", jsonutils.NewString(b.server.GetId()))
-	if err := b.AutoSaveDesc(); err != nil {
+	if err := b.AutoSaveDesc(ctx); err != nil {
 		return err
 	}
 	b.StartNewTask(tasks.NewBaremetalServerCreateTask, userCred, taskId, data)
@@ -2063,15 +2079,22 @@ func (b *SBaremetalInstance) StartServerDestroyTask(userCred mcclient.TokenCrede
 	b.StartNewTask(tasks.NewBaremetalServerDestroyTask, userCred, taskId, data)
 }
 
-func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) DelayedSyncIPMIInfo(ctx context.Context, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ipmiCli := b.GetIPMITool()
 	lanChannel := b.GetIPMILanChannel()
 	sysInfo, err := ipmitool.GetSysInfo(ipmiCli)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetSysInfo")
+	}
+	profile, err := profiles.GetProfile(ctx, sysInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProfile")
 	}
 	if lanChannel <= 0 {
-		lanChannel = ipmitool.GetDefaultLanChannel(sysInfo)
+		if len(profile.LanChannels) == 0 {
+			return nil, errors.Wrap(errors.ErrInvalidStatus, "baremetal profile not valid lan channel?")
+		}
+		lanChannel = profile.LanChannels[0]
 	}
 	retObj := make(map[string]string)
 	if ipAddr, _ := data.GetString("ip_addr"); ipAddr != "" {
@@ -2083,7 +2106,7 @@ func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jso
 		retObj["ipmi_ip_addr"] = ipAddr
 	}
 	if passwd, _ := data.GetString("password"); passwd != "" {
-		err = ipmitool.SetLanPasswd(ipmiCli, ipmitool.GetRootId(sysInfo), passwd)
+		err = ipmitool.SetLanPasswd(ipmiCli, profile.RootId, passwd)
 		if err != nil {
 			return nil, err
 		}
@@ -2092,16 +2115,16 @@ func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jso
 	return jsonutils.Marshal(retObj), nil
 }
 
-func (b *SBaremetalInstance) DelayedSyncDesc(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) DelayedSyncDesc(ctx context.Context, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if data == nil {
 		session := b.manager.GetClientSession()
 		data, _ = b.manager.fetchBaremetal(session, b.GetId())
 	}
-	err := b.SaveDesc(data)
+	err := b.SaveDesc(ctx, data)
 	return nil, err
 }
 
-func (b *SBaremetalInstance) DelayedServerStatus(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) DelayedServerStatus(ctx context.Context, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ps, err := b.GetPowerStatus()
 	if err != nil {
 		return nil, err
@@ -2112,7 +2135,7 @@ func (b *SBaremetalInstance) DelayedServerStatus(data jsonutils.JSONObject) (jso
 	return resp, err
 }
 
-func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicType compute.TNicType, reset bool, ipAddr string, reserve bool) error {
+func (b *SBaremetalInstance) SendNicInfo(ctx context.Context, nic *types.SNicDevInfo, idx int, nicType compute.TNicType, reset bool, ipAddr string, reserve bool) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(nic.Mac.String()), "mac")
 	params.Add(jsonutils.NewInt(int64(nic.Speed)), "rate")
@@ -2149,7 +2172,7 @@ func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicTyp
 	if err != nil {
 		return err
 	}
-	return b.SaveDesc(resp)
+	return b.SaveDesc(ctx, resp)
 }
 
 func bindMount(src, dst string) error {
