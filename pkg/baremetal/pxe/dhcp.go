@@ -15,6 +15,7 @@
 package pxe
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -69,7 +70,7 @@ type dhcpRequest struct {
 	netConfig *types.SNetworkConfig
 }
 
-func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, []string, error) {
+func (h *DHCPHandler) ServeDHCP(ctx context.Context, pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, []string, error) {
 	req, err := h.newRequest(pkt, h.baremetalManager)
 	if err != nil {
 		log.Errorf("[DHCP] new request by packet error: %v", err)
@@ -81,7 +82,7 @@ func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interfac
 		return nil, nil, fmt.Errorf("Request not from a DHCP relay, ignore mac: %s", req.ClientMac)
 	}
 	log.Infof("[DHCP] from relay %s packet, mac: %s", req.RelayAddr, req.ClientMac)
-	conf, targets, err := req.fetchConfig(h.baremetalManager.GetClientSession())
+	conf, targets, err := req.fetchConfig(ctx, h.baremetalManager.GetClientSession())
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fetchConfig for %s", req.ClientMac.String())
 	}
@@ -185,7 +186,7 @@ func formatUuidString(uuidBytes []byte) string {
 	}, "-")
 }
 
-func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.ResponseConfig, []string, error) {
+func (req *dhcpRequest) fetchConfig(ctx context.Context, session *mcclient.ClientSession) (*dhcp.ResponseConfig, []string, error) {
 	// 1. find_network_conf
 	netConf, err := req.findNetworkConf(session, false)
 	if err != nil {
@@ -209,7 +210,7 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "createOrUpdateBaremetal for %s", req.ClientMac.String())
 		}
-		err = req.doInitBaremetalAdminNetif(bmDesc)
+		err = req.doInitBaremetalAdminNetif(ctx, bmDesc)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "doInitBaremetalAdminNetif for %s", req.ClientMac.String())
 		}
@@ -241,13 +242,13 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 		req.baremetalInstance = bmInstance
 		ipmiNic := req.baremetalInstance.GetIPMINic(req.ClientMac)
 		if ipmiNic != nil && ipmiNic.Mac == req.ClientMac.String() {
-			err = req.baremetalInstance.InitAdminNetif(
+			err = req.baremetalInstance.InitAdminNetif(ctx,
 				req.ClientMac, req.netConfig.WireId, api.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, false, "")
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "InitAdminNetif for %s", req.ClientMac.String())
 			}
 		} else {
-			err = req.baremetalInstance.RegisterNetif(req.ClientMac, req.netConfig.WireId)
+			err = req.baremetalInstance.RegisterNetif(ctx, req.ClientMac, req.netConfig.WireId)
 			if err != nil {
 				log.Errorf("RegisterNetif %s error: %v", req.ClientMac.String(), err)
 				return nil, nil, errors.Wrapf(err, "RegisterNetif for %s", req.ClientMac.String())
@@ -424,13 +425,13 @@ func (req *dhcpRequest) updateBaremetal(session *mcclient.ClientSession, id stri
 	return desc, nil
 }
 
-func (req *dhcpRequest) doInitBaremetalAdminNetif(desc jsonutils.JSONObject) error {
+func (req *dhcpRequest) doInitBaremetalAdminNetif(ctx context.Context, desc jsonutils.JSONObject) error {
 	var err error
-	req.baremetalInstance, err = req.baremetalManager.AddBaremetal(desc)
+	req.baremetalInstance, err = req.baremetalManager.AddBaremetal(ctx, desc)
 	if err != nil {
 		return err
 	}
-	err = req.baremetalInstance.InitAdminNetif(
+	err = req.baremetalInstance.InitAdminNetif(ctx,
 		req.ClientMac, req.netConfig.WireId, api.NIC_TYPE_ADMIN, api.NETWORK_TYPE_PXE, false, "")
 	return err
 }
