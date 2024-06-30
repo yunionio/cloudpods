@@ -16,44 +16,52 @@ package qemu
 
 func init() {
 	RegisterCmd(
-		newCmd_4_0_1_x86_64(),
-		newCmd_4_0_1_aarch64(),
+		newCmd_9_0_1_x86_64(),
+		newCmd_9_0_1_aarch64(),
 	)
 }
 
-func newCmd_4_0_1_x86_64() QemuCommand {
-	return newBaseCommand(
-		Version_4_0_1,
-		Arch_x86_64,
-		newOpt_4_0_1_x86_64())
-}
-
-type opt_401_x86_64 struct {
-	*baseOptions_x86_64
-	*baseOptions_ge_310
-}
-
-func newOpt_4_0_1_x86_64() QemuOptions {
-	return &opt_401_x86_64{
-		baseOptions_x86_64: newBaseOptions_x86_64(),
-		baseOptions_ge_310: newBaseOptionsGE310(),
+func newOpt_9_0_1_x86_64() QemuOptions {
+	return &opt_901_x86_64{
+		baseOptions_x86_64:        newBaseOptions_x86_64(),
+		baseOptions_ge_800_x86_64: newBaseOptionsGE800_x86_64(),
+		baseOptions_ge_310:        newBaseOptionsGE310(),
 	}
 }
 
-func newCmd_4_0_1_aarch64() QemuCommand {
+func newCmd_9_0_1_x86_64() QemuCommand {
 	return newBaseCommand(
-		Version_4_0_1,
-		Arch_aarch64,
-		newOpt_4_0_1_aarch64())
+		Version_9_0_1,
+		Arch_x86_64,
+		newOpt_9_0_1_x86_64(),
+	)
 }
 
-type opt_401_aarch64 struct {
+type opt_901_x86_64 struct {
+	*baseOptions_x86_64
+	*baseOptions_ge_800_x86_64
+	*baseOptions_ge_310
+}
+
+func (o opt_901_x86_64) NoHpet() (bool, string) {
+	return true, "hpet=off"
+}
+
+func newCmd_9_0_1_aarch64() QemuCommand {
+	return newBaseCommand(
+		Version_9_0_1,
+		Arch_aarch64,
+		newOpt_9_0_1_aarch64(),
+	)
+}
+
+type opt_901_aarch64 struct {
 	*baseOptions_aarch64
 	*baseOptions_ge_310
 }
 
-func newOpt_4_0_1_aarch64() QemuOptions {
-	return &opt_401_aarch64{
+func newOpt_9_0_1_aarch64() QemuOptions {
+	return &opt_901_aarch64{
 		baseOptions_aarch64: newBaseOptions_aarch64(),
 		baseOptions_ge_310:  newBaseOptionsGE310(),
 	}
