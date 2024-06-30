@@ -516,9 +516,18 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 	if opts.BillingCycle != nil {
 		input.Duration = opts.BillingCycle.String()
 	}
+	image, err := self.GetImage(opts.ExternalImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage")
+	}
+	imageId := opts.ExternalImageId
+	if image.DiskFormat == "iso" {
+		input.Cdrom = opts.ExternalImageId
+		imageId = ""
+	}
 	input.Disks = append(input.Disks, &api.DiskConfig{
 		Index:    0,
-		ImageId:  opts.ExternalImageId,
+		ImageId:  imageId,
 		DiskType: api.DISK_TYPE_SYS,
 		SizeMb:   opts.SysDisk.SizeGB * 1024,
 		Backend:  opts.SysDisk.StorageType,
