@@ -15,117 +15,68 @@
 package profiles
 
 import (
+	"context"
+
+	"yunion.io/x/pkg/errors"
+
+	baremetalapi "yunion.io/x/onecloud/pkg/apis/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	baremetalmodules "yunion.io/x/onecloud/pkg/mcclient/modules/compute/baremetal"
 )
 
-type IPMIProfile struct {
-	LanChannel []int
-	RootName   string
-	RootId     int
-	StrongPass bool
-}
-
-func DefaultProfile() IPMIProfile {
-	return IPMIProfile{
-		LanChannel: []int{1, 2, 8},
-		RootName:   "root",
-		RootId:     2,
+func GetProfile(ctx context.Context, sysinfo *types.SSystemInfo) (*baremetalapi.BaremetalProfileSpec, error) {
+	adminSession := auth.GetAdminSession(ctx, options.Options.Region)
+	specs, err := baremetalmodules.BaremetalProfiles.GetMatchProfiles(adminSession, sysinfo.OemName, sysinfo.Model)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMatchProfile %s %s", sysinfo.OemName, sysinfo.Model)
 	}
-}
-
-func InspurProfile() IPMIProfile {
-	return IPMIProfile{
-		LanChannel: []int{8, 1},
-		RootName:   "admin",
-		RootId:     2,
+	if len(specs) > 0 {
+		return &specs[len(specs)-1], nil
 	}
+	return nil, errors.ErrNotFound
 }
 
-func LenovoProfile() IPMIProfile {
-	return IPMIProfile{
-		LanChannel: []int{1, 8},
-		RootName:   "root",
-		RootId:     2,
+func GetLanChannels(ctx context.Context, sysinfo *types.SSystemInfo) ([]uint8, error) {
+	profile, err := GetProfile(ctx, sysinfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProfile")
 	}
+	return profile.LanChannels, nil
 }
 
-func HpProfile() IPMIProfile {
-	return IPMIProfile{
-		LanChannel: []int{1, 2},
-		RootName:   "root",
-		RootId:     1,
+func GetDefaultLanChannel(ctx context.Context, sysinfo *types.SSystemInfo) (uint8, error) {
+	channels, err := GetLanChannels(ctx, sysinfo)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetLanChannels")
 	}
-}
-
-func HuaweiProfile() IPMIProfile {
-	return IPMIProfile{
-		LanChannel: []int{1},
-		RootName:   "root",
-		RootId:     2,
-		StrongPass: true,
+	if len(channels) > 0 {
+		return channels[0], nil
 	}
+	return 0, errors.ErrNotFound
 }
 
-func FoxconnProfile() IPMIProfile {
-	return IPMIProfile{
-		LanChannel: []int{1},
-		RootName:   "root",
-		RootId:     2,
-		StrongPass: true,
+func GetRootId(ctx context.Context, sysinfo *types.SSystemInfo) (int, error) {
+	profile, err := GetProfile(ctx, sysinfo)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetProfile")
 	}
+	return profile.RootId, nil
 }
 
-func QemuProfile() IPMIProfile {
-	return IPMIProfile{
-		LanChannel: []int{8, 1},
-		RootName:   "root",
-		RootId:     2,
-		StrongPass: true,
+func GetRootName(ctx context.Context, sysinfo *types.SSystemInfo) (string, error) {
+	profile, err := GetProfile(ctx, sysinfo)
+	if err != nil {
+		return "", errors.Wrap(err, "GetProfile")
 	}
+	return profile.RootName, nil
 }
 
-func H3CProfile() IPMIProfile {
-	return IPMIProfile{
-		// LanChannel: []int{8, 1},
-		LanChannel: []int{1},
-		RootName:   "root",
-		RootId:     2,
-		StrongPass: true,
+func IsStrongPass(ctx context.Context, sysinfo *types.SSystemInfo) (bool, error) {
+	profile, err := GetProfile(ctx, sysinfo)
+	if err != nil {
+		return false, errors.Wrap(err, "GetProfile")
 	}
-}
-
-var (
-	PROFILES map[string]IPMIProfile = map[string]IPMIProfile{
-		types.OEM_NAME_INSPUR:  InspurProfile(),
-		types.OEM_NAME_LENOVO:  LenovoProfile(),
-		types.OEM_NAME_HP:      HpProfile(),
-		types.OEM_NAME_HUAWEI:  HuaweiProfile(),
-		types.OEM_NAME_FOXCONN: FoxconnProfile(),
-		types.OEM_NAME_QEMU:    QemuProfile(),
-		types.OEM_NAME_H3C:     H3CProfile(),
-	}
-)
-
-func GetProfile(sysinfo *types.SSystemInfo) IPMIProfile {
-	profile, ok := PROFILES[sysinfo.OemName]
-	if ok {
-		return profile
-	}
-	return DefaultProfile()
-}
-
-func GetLanChannel(sysinfo *types.SSystemInfo) []int {
-	return GetProfile(sysinfo).LanChannel
-}
-
-func GetRootId(sysinfo *types.SSystemInfo) int {
-	return GetProfile(sysinfo).RootId
-}
-
-func GetRootName(sysinfo *types.SSystemInfo) string {
-	return GetProfile(sysinfo).RootName
-}
-
-func IsStrongPass(sysinfo *types.SSystemInfo) bool {
-	return GetProfile(sysinfo).StrongPass
+	return profile.StrongPass, nil
 }

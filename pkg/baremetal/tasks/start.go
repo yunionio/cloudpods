@@ -58,7 +58,7 @@ func (self *SBaremetalServerStartTask) DoBoot(ctx context.Context, args interfac
 			}
 		}
 	} else {
-		if err := self.Baremetal.SSHReboot(); err != nil {
+		if err := self.Baremetal.SSHReboot(ctx); err != nil {
 			return errors.Wrap(err, "Try reboot")
 		}
 	}
@@ -85,7 +85,7 @@ func (self *SBaremetalServerStartTask) WaitForStart(ctx context.Context, args in
 }
 
 func (self *SBaremetalServerStartTask) OnStartComplete(ctx context.Context, args interface{}) error {
-	self.Baremetal.SyncAllStatus(types.POWER_STATUS_ON)
+	self.Baremetal.SyncAllStatus(ctx, types.POWER_STATUS_ON)
 	SetTaskComplete(self, nil)
 	return nil
 }

@@ -15,6 +15,7 @@
 package hostdhcp
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -237,7 +238,7 @@ func (s *SGuestDHCPServer) IsDhcpPacket(pkt dhcp.Packet) bool {
 	return pkt != nil && (pkt.Type() == dhcp.Request || pkt.Type() == dhcp.Discover)
 }
 
-func (s *SGuestDHCPServer) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
+func (s *SGuestDHCPServer) ServeDHCP(ctx context.Context, pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
 	pkg, err := s.serveDHCPInternal(pkt, addr, intf)
 	return pkg, nil, err
 }

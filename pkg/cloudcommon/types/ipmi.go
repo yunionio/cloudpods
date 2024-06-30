@@ -26,7 +26,7 @@ type SIPMIInfo struct {
 	Password   string `json:"password,omitempty"`
 	IpAddr     string `json:"ip_addr,omitempty"`
 	Present    bool   `json:"present,omitempty"`
-	LanChannel int    `json:"lan_channel,omitzero"`
+	LanChannel uint8  `json:"lan_channel,omitzero"`
 	Verified   bool   `json:"verified,omitfalse"`
 	RedfishApi bool   `json:"redfish_api,omitfalse"`
 	CdromBoot  bool   `json:"cdrom_boot,omitfalse"`

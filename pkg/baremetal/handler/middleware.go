@@ -88,7 +88,7 @@ func bmObjMiddlewareWithFetch(h bmObjHandlerFunc, fetch bool) appsrv.FilterHandl
 		baremetal := newCtx.GetBaremetalManager().GetBaremetalById(bmId)
 		if baremetal == nil {
 			if fetch {
-				err := newCtx.GetBaremetalManager().InitBaremetal(bmId, false)
+				err := newCtx.GetBaremetalManager().InitBaremetal(newCtx, bmId, false)
 				if err != nil {
 					newCtx.ResponseError(err)
 					return
