@@ -22,15 +22,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -197,7 +195,7 @@ func GetSysInfo(exector IPMIExecutor) (*types.SSystemInfo, error) {
 	return &info, err
 }
 
-func GetLanChannels(sysinfo *types.SSystemInfo) []int {
+/*func GetLanChannels(sysinfo *types.SSystemInfo) []int {
 	return profiles.GetLanChannel(sysinfo)
 }
 
@@ -207,9 +205,9 @@ func GetDefaultLanChannel(sysinfo *types.SSystemInfo) int {
 
 func GetRootId(sysinfo *types.SSystemInfo) int {
 	return profiles.GetRootId(sysinfo)
-}
+}*/
 
-func GetLanConfig(exector IPMIExecutor, channel int) (*types.SIPMILanConfig, error) {
+func GetLanConfig(exector IPMIExecutor, channel uint8) (*types.SIPMILanConfig, error) {
 	args := newArgs("lan", "print", channel)
 	lines, err := ExecuteCommands(exector, args)
 	if err != nil {
@@ -278,14 +276,14 @@ func doActions(exector IPMIExecutor, actionName string, args ...Args) error {
 	return nil
 }
 
-func SetLanDHCP(exector IPMIExecutor, lanChannel int) error {
+func SetLanDHCP(exector IPMIExecutor, lanChannel uint8) error {
 	args := newArgs("lan", "set", lanChannel, "ipsrc", "dhcp")
 	return doActions(exector, "set_lan_dhcp", args)
 }
 
 func SetLanStatic(
 	exector IPMIExecutor,
-	channel int,
+	channel uint8,
 	ip string,
 	mask string,
 	gateway string,
@@ -313,12 +311,12 @@ func SetLanStatic(
 	return doActions(exector, "set_lan_static", argss...)
 }
 
-func SetLanStaticIP(exector IPMIExecutor, channel int, ip string) error {
+func SetLanStaticIP(exector IPMIExecutor, channel uint8, ip string) error {
 	args := newArgs("lan", "set", channel, "ipaddr", ip)
 	return doActions(exector, "set_lan_static_ip", args)
 }
 
-func setLanAccess(exector IPMIExecutor, channel int, access string) error {
+func setLanAccess(exector IPMIExecutor, channel uint8, access string) error {
 	args := []Args{
 		newArgs("lan", "set", channel, "access", access),
 		// newArgs("lan", "set", channel, "auth", "ADMIN", "MD5"),
@@ -326,11 +324,11 @@ func setLanAccess(exector IPMIExecutor, channel int, access string) error {
 	return doActions(exector, "set_lan_access", args...)
 }
 
-func EnableLanAccess(exector IPMIExecutor, channel int) error {
+func EnableLanAccess(exector IPMIExecutor, channel uint8) error {
 	return setLanAccess(exector, channel, "on")
 }
 
-func ListLanUsers(exector IPMIExecutor, channel int) ([]compute.IPMIUser, error) {
+func ListLanUsers(exector IPMIExecutor, channel uint8) ([]compute.IPMIUser, error) {
 	args := newArgs("user", "list", channel)
 	ret, err := ExecuteCommands(exector, args)
 	if err != nil {
@@ -339,7 +337,7 @@ func ListLanUsers(exector IPMIExecutor, channel int) ([]compute.IPMIUser, error)
 	return sysutils.ParseIPMIUser(ret), nil
 }
 
-func CreateOrSetAdminUser(exector IPMIExecutor, channel int, rootId int, username string, password string) error {
+func CreateOrSetAdminUser(exector IPMIExecutor, channel uint8, rootId int, username string, password string) error {
 	users, err := ListLanUsers(exector, channel)
 	if err != nil {
 		return errors.Wrap(err, "List users")
@@ -372,7 +370,7 @@ func CreateOrSetAdminUser(exector IPMIExecutor, channel int, rootId int, usernam
 	return SetLanUserAdminPasswd(exector, channel, foundUser.Id, password)
 }
 
-func SetLanUserAdminPasswd(exector IPMIExecutor, channel int, id int, password string) error {
+func SetLanUserAdminPasswd(exector IPMIExecutor, channel uint8, id int, password string) error {
 	var err error
 	password, err = stringutils2.EscapeEchoString(password)
 	if err != nil {
@@ -403,7 +401,7 @@ func SetLanUserAdminPasswd(exector IPMIExecutor, channel int, id int, password s
 	return doActions(exector, "set_lan_user_password3", args...)
 }
 
-func SetIdUserPasswd(exector IPMIExecutor, channel int, id int, user string, password string) error {
+func SetIdUserPasswd(exector IPMIExecutor, channel uint8, id int, user string, password string) error {
 	args := newArgs("user", "set", "name", id, user)
 	if err := doActions(exector, fmt.Sprintf("set_id%d_name", id), args); err != nil {
 		return errors.Wrapf(err, "change root id %d to name %s", id, user)

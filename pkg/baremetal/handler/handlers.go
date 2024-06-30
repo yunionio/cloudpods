@@ -109,7 +109,7 @@ func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	task := bm.GetTask()
 	if task == nil {
 		task = tasks.NewBaremetalServerPrepareTask(bm)
-		bm.SyncStatus(baremetalstatus.PREPARE, "")
+		bm.SyncStatus(ctx, baremetalstatus.PREPARE, "")
 	}
 	log.Infof("Get notify from pxe rom os, start exec task: %s", task.GetName())
 	task.SSHExecute(remoteAddr, key, nil)
@@ -157,7 +157,7 @@ func handleBaremetalResetBMC(ctx *Context, bm *baremetal.SBaremetalInstance) {
 }
 
 func handleBaremetalIpmiProbe(ctx *Context, bm *baremetal.SBaremetalInstance) {
-	bm.StartBaremetalIpmiProbeTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	bm.StartBaremetalIpmiProbeTask(ctx, ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	ctx.ResponseOk()
 }
 
@@ -178,7 +178,7 @@ func handleBaremetalJnlpTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
 }
 
 func handleServerCreate(ctx *Context, bm *baremetal.SBaremetalInstance) {
-	err := bm.StartServerCreateTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	err := bm.StartServerCreateTask(ctx, ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	if err != nil {
 		ctx.ResponseError(httperrors.NewGeneralError(err))
 		return
@@ -238,7 +238,7 @@ func handleServerStatus(ctx *Context, bm *baremetal.SBaremetalInstance, _ bareme
 }
 
 func handleBaremetalRegister(ctx *Context, input *baremetal.BmRegisterInput) {
-	ctx.DelayProcess(func(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ctx.DelayProcess(func(_ context.Context, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 		baremetal.GetBaremetalManager().RegisterBaremetal(ctx, ctx.userCred, input)
 		return nil, nil
 	}, nil)

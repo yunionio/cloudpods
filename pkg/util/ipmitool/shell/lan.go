@@ -23,7 +23,7 @@ import (
 
 func init() {
 	type LanOptions struct {
-		CHANNEL int `help:"lan channel"`
+		CHANNEL uint8 `help:"lan channel"`
 	}
 	shellutils.R(&LanOptions{}, "set-lan-dhcp", "Set lan channel DHCP", func(client ipmitool.IPMIExecutor, args *LanOptions) error {
 		return ipmitool.SetLanDHCP(client, args.CHANNEL)

@@ -107,7 +107,7 @@ func (job *SStatusProbeJob) Do(ctx context.Context, now time.Time) error {
 		pps := PowerStatusToBaremetalStatus(ps)
 		if pps != bStatus {
 			log.Debugf("Detected baremetal status change!")
-			job.baremetal.SyncAllStatus(ps)
+			job.baremetal.SyncAllStatus(ctx, ps)
 			return nil
 		}
 	}
