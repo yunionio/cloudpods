@@ -15,6 +15,7 @@
 package tasks
 
 import (
+	"context"
 	"net"
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
@@ -39,7 +40,7 @@ type IBaremetal interface {
 	GetAdminNic() *types.SNic
 	GetName() string
 	GetClientSession() *mcclient.ClientSession
-	SaveDesc(desc jsonutils.JSONObject) error
+	SaveDesc(ctx context.Context, desc jsonutils.JSONObject) error
 	GetNics() []types.SNic
 	GetNicByMac(net.HardwareAddr) *types.SNic
 	GetRawIPMIConfig() *types.SIPMIInfo
@@ -47,10 +48,10 @@ type IBaremetal interface {
 	SetExistingIPMIIPAddr(ipAddr string)
 	GetServer() baremetaltypes.IBaremetalServer
 
-	SyncStatus(status, reason string)
-	AutoSyncStatus()
-	SyncAllStatus(status string)
-	AutoSyncAllStatus()
+	SyncStatus(ctx context.Context, status, reason string)
+	AutoSyncStatus(ctx context.Context)
+	SyncAllStatus(ctx context.Context, status string)
+	AutoSyncAllStatus(ctx context.Context)
 
 	GetPowerStatus() (string, error)
 	DoPowerShutdown(soft bool) error
@@ -61,25 +62,25 @@ type IBaremetal interface {
 	GetAccessIp() string
 	EnablePxeBoot() bool
 	GenerateBootISO() error
-	SendNicInfo(nic *types.SNicDevInfo, idx int, nicType compute.TNicType, reset bool, ipAddr string, reserve bool) error
+	SendNicInfo(ctx context.Context, nic *types.SNicDevInfo, idx int, nicType compute.TNicType, reset bool, ipAddr string, reserve bool) error
 	DoNTPConfig() error
 	GetImageUrl(needImageCache bool) string
 
 	RemoveServer()
 	InitializeServer(session *mcclient.ClientSession, name string) error
 	SaveSSHConfig(remoteAddr string, key string) error
-	ServerLoadDesc() error
+	ServerLoadDesc(ctx context.Context) error
 	GetDHCPServerIP() (net.IP, error)
 
 	HasBMC() bool
 	SSHReachable() (bool, error)
-	SSHReboot() error
+	SSHReboot(ctx context.Context) error
 	SSHShutdown() error
-	AdjustUEFICurrentBootOrder(cli *ssh.Client) error
+	AdjustUEFICurrentBootOrder(ctx context.Context, cli *ssh.Client) error
 }
 
 type IBmManager interface {
 	GetZoneId() string
-	AddBaremetal(jsonutils.JSONObject) (pxe.IBaremetalInstance, error)
+	AddBaremetal(context.Context, jsonutils.JSONObject) (pxe.IBaremetalInstance, error)
 	GetClientSession() *mcclient.ClientSession
 }

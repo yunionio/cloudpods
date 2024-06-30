@@ -15,6 +15,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -30,9 +31,10 @@ func init() {
 	delayTaskWorkerMan = appsrv.NewWorkerManager("DelayTaskWorkerManager", 8, 1024, false)
 }
 
-type ProcessFunc func(data jsonutils.JSONObject) (jsonutils.JSONObject, error)
+type ProcessFunc func(ctx context.Context, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 type delayTask struct {
+	ctx     context.Context
 	process ProcessFunc
 	taskId  string
 	session *mcclient.ClientSession
@@ -40,7 +42,7 @@ type delayTask struct {
 }
 
 func (t *delayTask) Run() {
-	ret, err := t.process(t.data)
+	ret, err := t.process(t.ctx, t.data)
 	if err != nil {
 		modules.ComputeTasks.TaskFailed(t.session, t.taskId, err)
 		return

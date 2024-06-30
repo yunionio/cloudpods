@@ -15,6 +15,7 @@
 package tasks
 
 import (
+	"context"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -50,32 +51,32 @@ func (self *SBaremetalServerCreateTask) RemoveEFIOSEntry() bool {
 	return true
 }
 
-func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
+func (self *SBaremetalServerCreateTask) DoDeploys(ctx context.Context, term *ssh.Client) (jsonutils.JSONObject, error) {
 	// Build raid
 	tool, err := self.Baremetal.GetServer().DoDiskConfig(term)
 	if err != nil {
-		return nil, self.onError(term, err)
+		return nil, self.onError(ctx, term, err)
 	}
 	time.Sleep(2 * time.Second)
 	if err := self.Baremetal.GetServer().DoEraseDisk(term); err != nil {
-		return nil, self.onError(term, err)
+		return nil, self.onError(ctx, term, err)
 	}
 	time.Sleep(2 * time.Second)
 	parts, err := self.Baremetal.GetServer().DoPartitionDisk(tool, term, self.IsDisableImageCache())
 	if err != nil {
-		return nil, self.onError(term, err)
+		return nil, self.onError(ctx, term, err)
 	}
 	data := jsonutils.NewDict()
 	disks, err := self.Baremetal.GetServer().SyncPartitionSize(term, parts)
 	if err != nil {
-		return nil, self.onError(term, err)
+		return nil, self.onError(ctx, term, err)
 	}
 	data.Add(jsonutils.Marshal(disks), "disks")
 	rootImageId := self.Baremetal.GetServer().GetRootTemplateId()
 	if len(rootImageId) > 0 {
 		deployInfo, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.data, true)
 		if err != nil {
-			return nil, self.onError(term, err)
+			return nil, self.onError(ctx, term, err)
 		}
 		if deployInfo != nil {
 			data.Update(deployInfo)
@@ -100,11 +101,11 @@ func (self *SBaremetalServerCreateTask) PostDeploys(term *ssh.Client) error {
 	return nil
 }
 
-func (self *SBaremetalServerCreateTask) onError(term *ssh.Client, err error) error {
+func (self *SBaremetalServerCreateTask) onError(ctx context.Context, term *ssh.Client, err error) error {
 	log.Errorf("Create server error: %+v", err)
 	if err1 := self.Baremetal.GetServer().DoEraseDisk(term); err1 != nil {
 		log.Warningf("EraseDisk error: %v", err1)
 	}
-	self.Baremetal.AutoSyncStatus()
+	self.Baremetal.AutoSyncStatus(ctx)
 	return err
 }

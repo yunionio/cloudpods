@@ -131,6 +131,7 @@ class ModelAPI(FuncDispatcher):
         run_swagger_gen(['yunion.io/x/cloudmux/pkg/cloudprovider'], 'yunion.io/x/onecloud/pkg/apis/cloudprovider')
         self.run(pkg=["keystone", "models"], out=["identity"])
         self.run_model("compute")
+        self.run(pkg=["compute", "models", "baremetal"], out=["compute", "baremetal"])
         self.run_model("image")
         self.run_model("cloudid")
         self.run_model("notify")

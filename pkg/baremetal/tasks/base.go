@@ -342,8 +342,8 @@ func (self *SBaremetalTaskBase) EnsurePowerUp() error {
 	return nil
 }
 
-func (self *SBaremetalTaskBase) EnsureSSHReboot() error {
-	if err := self.Baremetal.SSHReboot(); err != nil {
+func (self *SBaremetalTaskBase) EnsureSSHReboot(ctx context.Context) error {
+	if err := self.Baremetal.SSHReboot(ctx); err != nil {
 		return errors.Wrap(err, "Ensure ssh reboot")
 	}
 
@@ -425,7 +425,7 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(ctx context.Context, args
 
 	if !self.Baremetal.HasBMC() {
 		// Try remote ssh reboot
-		if err := self.Baremetal.SSHReboot(); err != nil {
+		if err := self.Baremetal.SSHReboot(ctx); err != nil {
 			return errors.Wrap(err, "Try ssh reboot")
 		}
 	} else {
@@ -491,6 +491,6 @@ func (self *SBaremetalPXEBootTaskBase) GetName() string {
 	return "BaremetalPXEBootTaskBase"
 }
 
-func AdjustUEFIBootOrder(term *ssh.Client, bm IBaremetal) error {
-	return bm.AdjustUEFICurrentBootOrder(term)
+func AdjustUEFIBootOrder(ctx context.Context, term *ssh.Client, bm IBaremetal) error {
+	return bm.AdjustUEFICurrentBootOrder(ctx, term)
 }
