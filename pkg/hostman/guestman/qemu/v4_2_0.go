@@ -30,16 +30,14 @@ func newCmd_4_2_0_x86_64() QemuCommand {
 
 type opt_420_x86_64 struct {
 	*baseOptions_x86_64
+	*baseOptions_ge_310
 }
 
 func newOpt_4_2_0_x86_64() QemuOptions {
 	return &opt_420_x86_64{
 		baseOptions_x86_64: newBaseOptions_x86_64(),
+		baseOptions_ge_310: newBaseOptionsGE310(),
 	}
-}
-
-func (o opt_420_x86_64) Nodefconfig() string {
-	return "-no-user-config"
 }
 
 func newCmd_4_2_0_aarch64() QemuCommand {
@@ -51,14 +49,12 @@ func newCmd_4_2_0_aarch64() QemuCommand {
 
 type opt_420_aarch64 struct {
 	*baseOptions_aarch64
+	*baseOptions_ge_310
 }
 
 func newOpt_4_2_0_aarch64() QemuOptions {
 	return &opt_420_aarch64{
 		baseOptions_aarch64: newBaseOptions_aarch64(),
+		baseOptions_ge_310:  newBaseOptionsGE310(),
 	}
-}
-
-func (o opt_420_aarch64) Nodefconfig() string {
-	return "-no-user-config"
 }
