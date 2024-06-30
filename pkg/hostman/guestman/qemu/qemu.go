@@ -33,6 +33,7 @@ const (
 	Version_4_2_0  Version = "4.2.0"
 	Version_4_0_1  Version = "4.0.1"
 	Version_2_12_1 Version = "2.12.1"
+	Version_9_0_1  Version = "9.0.1"
 )
 
 type Arch string
@@ -87,7 +88,7 @@ type QemuOptions interface {
 	Daemonize() string
 	Nodefaults() string
 	Nodefconfig() string
-	NoHpet() string
+	NoHpet() (bool, string)
 	Global() string
 	KeyboardLayoutLanguage(lang string) string
 	Name(name string) string
@@ -208,8 +209,8 @@ func (o baseOptions) Nodefaults() string {
 	return "-nodefaults"
 }
 
-func (o baseOptions) NoHpet() string {
-	return "-no-hpet"
+func (o baseOptions) NoHpet() (bool, string) {
+	return false, "-no-hpet"
 }
 
 func (o baseOptions) Nodefconfig() string {
@@ -356,6 +357,30 @@ func newBaseOptions_x86_64() *baseOptions_x86_64 {
 	}
 }
 
+// qemu version grate or equal 8.0.0
+type baseOptions_ge_800_x86_64 struct {
+}
+
+func (o baseOptions_ge_800_x86_64) NoHpet() (bool, string) {
+	return true, "hpet=off"
+}
+
+func newBaseOptionsGE800_x86_64() *baseOptions_ge_800_x86_64 {
+	return &baseOptions_ge_800_x86_64{}
+}
+
+// qemu version grate or equal 3.1.0
+type baseOptions_ge_310 struct {
+}
+
+func (o baseOptions_ge_310) Nodefconfig() string {
+	return "-no-user-config"
+}
+
+func newBaseOptionsGE310() *baseOptions_ge_310 {
+	return &baseOptions_ge_310{}
+}
+
 type baseOptions_aarch64 struct {
 	*baseOptions
 }
@@ -370,6 +395,6 @@ func (o baseOptions_aarch64) Global() string {
 	return ""
 }
 
-func (o baseOptions_aarch64) NoHpet() string {
-	return ""
+func (o baseOptions_aarch64) NoHpet() (bool, string) {
+	return false, ""
 }
