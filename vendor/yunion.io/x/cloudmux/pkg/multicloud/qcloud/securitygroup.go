@@ -338,6 +338,9 @@ func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider
 	if opts.Action == secrules.SecurityRuleDeny {
 		action = "drop"
 	}
+	if len(opts.CIDR) == 0 {
+		opts.CIDR = "0.0.0.0/0"
+	}
 	params := map[string]string{
 		"SecurityGroupId":            groupId,
 		prefix + "PolicyIndex":       fmt.Sprintf("%d", opts.Priority),
