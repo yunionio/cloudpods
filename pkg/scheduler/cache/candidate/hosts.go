@@ -453,8 +453,8 @@ func (b *HostBuilder) FetchHosts(ids []string) ([]computemodels.SHost, error) {
 }
 
 func (b *HostBuilder) setGuests(hosts []computemodels.SHost, errMessageChannel chan error) {
-	ids := GetHostIds(hosts)
-	guests, err := FetchGuestByHostIDs(ids)
+	idsQuery := b.AllIDsQuery()
+	guests, err := FetchGuestByHostIDsQuery(idsQuery)
 	if err != nil {
 		errMessageChannel <- err
 		return
@@ -679,6 +679,12 @@ func (b *HostBuilder) AllIDs() ([]string, error) {
 	q := computemodels.HostManager.Query("id")
 	q = q.Filter(sqlchemy.NotEquals(q.Field("host_type"), computeapi.HOST_TYPE_BAREMETAL))
 	return FetchModelIds(q)
+}
+
+func (b *HostBuilder) AllIDsQuery() sqlchemy.IQuery {
+	q := computemodels.HostManager.Query("id")
+	q = q.Filter(sqlchemy.NotEquals(q.Field("host_type"), computeapi.HOST_TYPE_BAREMETAL))
+	return q
 }
 
 func (b *HostBuilder) InitFuncs() []InitFunc {
