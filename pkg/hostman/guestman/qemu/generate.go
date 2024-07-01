@@ -178,10 +178,18 @@ func generateMemoryOption(memDesc *desc.SGuestMem) string {
 	return strings.Join(cmds, " ")
 }
 
-func generateMachineOption(machine string, machineDesc *desc.SGuestMachine) string {
-	cmd := fmt.Sprintf("-machine %s,accel=%s", machine, machineDesc.Accel)
-	if machineDesc.GicVersion != nil {
-		cmd += fmt.Sprintf(",gic-version=%s", *machineDesc.GicVersion)
+func generateMachineOption(drvOpt QemuOptions, desc *desc.SGuestDesc) string {
+	cmd := fmt.Sprintf("-machine %s,accel=%s", desc.Machine, desc.MachineDesc.Accel)
+	if desc.MachineDesc.GicVersion != nil {
+		cmd += fmt.Sprintf(",gic-version=%s", *desc.MachineDesc.GicVersion)
+	}
+	if desc.NoHpet != nil && *desc.NoHpet {
+		machineOpts, noHpetCmd := drvOpt.NoHpet()
+		if machineOpts {
+			cmd += fmt.Sprintf(",%s", noHpetCmd)
+		} else if noHpetCmd != "" {
+			cmd += fmt.Sprintf(" %s", noHpetCmd)
+		}
 	}
 
 	return cmd
@@ -714,9 +722,6 @@ func GenerateStartOptions(
 		opts = append(opts, getMonitorOptions(drvOpt, input.QMPMonitor)...)
 	}
 
-	if input.GuestDesc.NoHpet != nil && *input.GuestDesc.NoHpet {
-		opts = append(opts, drvOpt.NoHpet())
-	}
 	opts = append(opts,
 		drvOpt.RTC(),
 		// drvOpt.Daemonize(),
@@ -724,7 +729,7 @@ func GenerateStartOptions(
 		drvOpt.Nodefconfig(),
 		// drvOpt.NoKVMPitReinjection(),
 		drvOpt.Global(),
-		generateMachineOption(input.GuestDesc.Machine, input.GuestDesc.MachineDesc),
+		generateMachineOption(drvOpt, input.GuestDesc),
 		drvOpt.KeyboardLayoutLanguage("en-us"),
 		generateSMPOption(input.GuestDesc),
 		drvOpt.Name(input.GuestDesc.Name),
