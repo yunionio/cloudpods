@@ -131,6 +131,9 @@ func (self *SGoogleClient) CreateSecurityGroupRule(globalnetworkId, tag string, 
 		"direction":   "INGRESS",
 		"targetTags":  []string{strings.ToLower(tag)},
 	}
+	if len(opts.CIDR) == 0 {
+		opts.CIDR = "0.0.0.0/0"
+	}
 	if opts.Direction == secrules.DIR_OUT {
 		body["direction"] = "EGRESS"
 		body["destinationRanges"] = []string{opts.CIDR}

@@ -83,6 +83,9 @@ func (self *SecurityGroupRuleCreateTask) OnInit(ctx context.Context, obj db.ISta
 		CIDR:      rule.CIDR,
 		Action:    secrules.TSecurityRuleAction(rule.Action),
 	}
+	if len(opts.CIDR) == 0 {
+		opts.CIDR = "0.0.0.0/0"
+	}
 
 	iRule, err := iGroup.CreateRule(opts)
 	if err != nil {
