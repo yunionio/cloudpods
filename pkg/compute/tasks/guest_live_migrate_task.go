@@ -149,12 +149,19 @@ func (task *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	// prepare disk for migration
 	if len(disk.TemplateId) > 0 && isLocalStorage {
 		templates := []string{}
-		guestdisks, _ := guest.GetDisks()
-		for i := range guestdisks {
-			if guestdisks[i].TemplateId != "" {
-				templates = append(templates, guestdisks[i].TemplateId)
+		if sourceGuestId := guest.GetMetadata(ctx, api.SERVER_META_CONVERT_FROM_ESXI, task.UserCred); len(sourceGuestId) > 0 {
+			// skip cache images
+		} else if sourceGuestId := guest.GetMetadata(ctx, api.SERVER_META_CONVERT_FROM_CLOUDPODS, task.UserCred); len(sourceGuestId) > 0 {
+			// skip cache images
+		} else {
+			guestdisks, _ := guest.GetDisks()
+			for i := range guestdisks {
+				if guestdisks[i].TemplateId != "" {
+					templates = append(templates, guestdisks[i].TemplateId)
+				}
 			}
 		}
+
 		if len(templates) > 0 {
 			body.Set("cache_templates", jsonutils.NewStringArray(templates))
 		}
