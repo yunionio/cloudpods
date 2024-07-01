@@ -16,6 +16,7 @@ package candidate
 
 import (
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/sqlchemy"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -53,9 +54,12 @@ func GetHostIds(hosts []models.SHost) []string {
 	return ids
 }
 
-func FetchGuestByHostIDs(ids []string) ([]models.SGuest, error) {
+func FetchGuestByHostIDsQuery(idsQuery sqlchemy.IQuery) ([]models.SGuest, error) {
 	gs := make([]models.SGuest, 0)
-	q := models.GuestManager.Query().In("host_id", ids)
+
+	q := models.GuestManager.Query()
+	hostIdsSubq := idsQuery.SubQuery()
+	q = q.Join(hostIdsSubq, sqlchemy.Equals(q.Field("host_id"), hostIdsSubq.Field("id")))
 	err := db.FetchModelObjects(models.GuestManager, q, &gs)
 	return gs, err
 }
