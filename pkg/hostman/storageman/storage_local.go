@@ -835,7 +835,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 			return errors.Wrap(err, "CreateFromUrl")
 		}
 	}
-	if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
+	if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 && sysDiskHasTemplate {
 		templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
 		// check if template is encrypted
 		img, err := qemuimg.NewQemuImage(templatePath)
