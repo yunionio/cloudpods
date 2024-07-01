@@ -16,7 +16,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -129,7 +128,7 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		}
 		files, err := client.ReadDir(dir)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadDir %s", dir)
+			return nil, errors.Wrapf(httperrors.FsErrorNormalize(err), "ReadDir %s", dir)
 		}
 		ret := Files{}
 		for _, f := range files {
@@ -157,6 +156,8 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 						vv.LinkFile.ModeNum = stat.Mode().Perm()
 						vv.LinkFile.IsRegular = stat.Mode().IsRegular()
 					}
+				} else {
+					err = httperrors.FsErrorNormalize(err)
 				}
 			}
 			ret = append(ret, vv)
@@ -195,12 +196,12 @@ func HandleSftpUpload(ctx context.Context, w http.ResponseWriter, r *http.Reques
 
 		_, err = sftp.Stat(dir)
 		if err != nil {
-			return errors.Wrapf(err, "stat %s", dir)
+			return errors.Wrapf(httperrors.FsErrorNormalize(err), "stat %s", dir)
 		}
 
 		newFile, err := sftp.Create(path.Join(dir, header.Filename))
 		if err != nil {
-			return errors.Wrapf(err, "create file")
+			return errors.Wrapf(httperrors.FsErrorNormalize(err), "create file")
 		}
 
 		defer file.Close()
@@ -208,7 +209,7 @@ func HandleSftpUpload(ctx context.Context, w http.ResponseWriter, r *http.Reques
 
 		_, err = newFile.ReadFrom(file)
 		if err != nil {
-			return errors.Wrapf(err, "ReadFrom")
+			return errors.Wrapf(httperrors.FsErrorNormalize(err), "ReadFrom")
 		}
 		return nil
 	}()
@@ -235,22 +236,25 @@ func HandleSftpDownload(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		}
 		file, err := sftp.Stat(dir)
 		if err != nil {
-			return errors.Wrapf(err, "stat %s", dir)
+			return errors.Wrapf(httperrors.FsErrorNormalize(err), "stat %s", dir)
 		}
 		if file.IsDir() {
-			return fmt.Errorf("dir %s can not download", dir)
+			return errors.Wrapf(httperrors.ErrInvalidStatus, "dir %s can not be downloaded", dir)
 		}
 
 		reader, err := sftp.Open(dir)
 		if err != nil {
-			return errors.Wrapf(err, "open file")
+			return errors.Wrapf(httperrors.FsErrorNormalize(err), "open file")
 		}
 		defer reader.Close()
 
 		w.Header().Add("Content-Disposition", "attachment;filename*=utf-8''"+strings.ReplaceAll(url.QueryEscape(file.Name()), "+", "%20"))
 		w.Header().Add("Content-Type", "application/octet-stream")
 		_, err = io.Copy(w, reader)
-		return err
+		if err != nil {
+			return errors.Wrap(httperrors.FsErrorNormalize(err), "Copy")
+		}
+		return nil
 	}()
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
