@@ -57,10 +57,8 @@ type SForwardingRule struct {
 	BackendService      string   `json:"backendService"`
 }
 
-//
-//type STargetProxy struct {
-//}
-//
+// type STargetProxy struct {
+// }
 type SBackendServices struct {
 	SResourceBase
 
@@ -116,6 +114,17 @@ type STargetHttpsProxy struct {
 	AuthorizationPolicy string   `json:"authorizationPolicy"`
 	Fingerprint         string   `json:"fingerprint"`
 	Kind                string   `json:"kind"`
+}
+
+type STargetTcpProxy struct {
+	SResourceBase
+
+	Kind              string `json:"kind"`
+	CreationTimestamp string `json:"creationTimestamp"`
+	Description       string `json:"description"`
+	Service           string `json:"service"`
+	Region            string `json:"region"`
+	ProxyBind         bool   `json:"proxyBind"`
 }
 
 type SInstanceGroup struct {
