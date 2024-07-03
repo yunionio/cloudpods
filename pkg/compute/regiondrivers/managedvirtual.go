@@ -315,8 +315,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx co
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
+			return nil, errors.Wrapf(err, "GetILoadbalancer")
 		}
-		return nil, iLb.Delete(ctx)
+		err = iLb.Delete(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iLb.Delete")
+		}
+		return nil, nil
 	})
 	return nil
 }
