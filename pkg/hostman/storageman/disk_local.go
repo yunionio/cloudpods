@@ -678,6 +678,16 @@ func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
 	return d.Storage.DeleteDiskfile(snapshotPath, false)
 }
 
+func (d *SLocalDisk) RollbackDiskOnSnapshotFail(snapshotId string) error {
+	snapshotDir := d.GetSnapshotDir()
+	snapshotPath := path.Join(snapshotDir, snapshotId)
+	output, err := procutils.NewCommand("mv", "-f", snapshotPath, d.GetPath()).Output()
+	if err != nil {
+		return errors.Wrapf(err, "rollback disk on snapshot fail: %s", output)
+	}
+	return nil
+}
+
 func (d *SLocalDisk) IsFile() bool {
 	return true
 }
