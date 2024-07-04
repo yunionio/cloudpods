@@ -66,7 +66,7 @@ func (self *SVolcengineHostDriver) ValidateDiskSize(storage *models.SStorage, si
 func (self *SVolcengineHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	for _, guest := range guests {
 		if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-			return nil, httperrors.NewBadGatewayError("Volcengine reset disk required guest status is running or read")
+			return nil, httperrors.NewBadGatewayError("Volcengine reset disk required guest status is running or ready")
 		}
 	}
 	return input, nil
