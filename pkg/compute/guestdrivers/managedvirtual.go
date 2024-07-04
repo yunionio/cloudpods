@@ -129,6 +129,11 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 			cache := storage.GetStoragecache()
 			imageId := disk.GetTemplateId()
 			//避免因同步过来的instance没有对应的imagecache信息，重置密码时引发空指针访问
+			if len(imageId) == 0 {
+				if cdrom := guest.GetCdrom(); cdrom != nil {
+					imageId = cdrom.ImageId
+				}
+			}
 			if scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId); scimg != nil {
 				config.ExternalImageId = scimg.ExternalId
 				img := scimg.GetCachedimage()
