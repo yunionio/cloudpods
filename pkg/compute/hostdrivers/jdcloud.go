@@ -48,7 +48,7 @@ func (self *SJDcloudHostDriver) GetProvider() string {
 // ValidateResetDisk 仅可用状态的云硬盘支持恢复
 // 卸载硬盘需要停止云主机
 func (self *SJDcloudHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
-	return nil, httperrors.NewNotSupportedError("not supported")
+	return nil, httperrors.NewNotSupportedError("not supported resize disk")
 }
 
 // ValidateDiskSize

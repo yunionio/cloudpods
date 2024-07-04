@@ -460,7 +460,7 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 	params := appctx.AppContextParams(ctx)
 	template, ok := params["<template_id>"]
 	if !ok || len(template) == 0 {
-		httperrors.InvalidInputError(ctx, w, "template_id")
+		httperrors.MissingParameterError(ctx, w, "template_id")
 		return
 	}
 

@@ -34,8 +34,6 @@ import (
 )
 
 const (
-	ErrSync = errors.Error("sync error")
-
 	MinSyncIntervalSeconds  = 10
 	MinRunDelayMilliseconds = 100
 )
@@ -170,7 +168,7 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 		if err != nil {
 			log.Errorf("unable to EventNotify: %s", err)
 		}
-		return false, errors.Wrap(ErrSync, "incorrect")
+		return false, errors.Errorf("sync error")
 	}
 	changed = r.Changed
 	return changed, nil

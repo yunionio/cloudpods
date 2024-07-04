@@ -42,7 +42,7 @@ func historyDataCleanHandler(ctx context.Context, w http.ResponseWriter, r *http
 	}
 	input, err := appsrv.FetchJSON(r)
 	if err != nil {
-		httperrors.InputParameterError(ctx, w, "FetchJSON")
+		httperrors.InputParameterError(ctx, w, "invalid input json")
 		return
 	}
 	date := time.Now().AddDate(0, -1, 0)
