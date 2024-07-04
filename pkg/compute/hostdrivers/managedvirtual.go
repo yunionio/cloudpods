@@ -136,6 +136,9 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 				log.Debugf("UploadImage: no external ID")
 				return iStorageCache.UploadImage(ctx, image, callback)
 			}()
+			if err != nil {
+				return nil, err
+			}
 			log.Infof("upload image %s id: %s", image.ImageName, image.ExternalId)
 		} else {
 			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
@@ -143,9 +146,6 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 				return nil, errors.Wrapf(err, "iStorageCache.GetIImageById(%s) for %s", cachedImage.ExternalId, iStorageCache.GetGlobalId())
 			}
 			image.ExternalId = cachedImage.ExternalId
-		}
-		if err != nil {
-			return nil, err
 		}
 
 		// should record the externalId immediately
