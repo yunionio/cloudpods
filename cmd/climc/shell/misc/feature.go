@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
@@ -59,6 +60,9 @@ func (g *GlobalSettingsValue) Switch(featureKey string, on bool) {
 }
 
 func init() {
+	var storageFeatures = []string{
+		"s3", "xsky", "ceph",
+	}
 	var features = []string{
 		"onestack",
 		"baremetal",
@@ -81,9 +85,6 @@ func init() {
 		"cloudpods",
 		"hcso",
 		"nutanix",
-		"s3",
-		"ceph",
-		"xsky",
 		"bill",
 		"auth",
 		"onecloud",
@@ -102,6 +103,8 @@ func init() {
 		"volcengine",
 		"oraclecloud",
 	}
+
+	features = append(features, storageFeatures...)
 
 	const (
 		GlobalSettings = "global-settings"
@@ -129,10 +132,14 @@ func init() {
 			if len(items.Data) == 0 {
 				// create it if enabled
 				if enable {
+					value := []string{name}
+					if utils.IsInStringArray(name, storageFeatures) {
+						value = append(value, "storage")
+					}
 					input := map[string]interface{}{
 						"name":       GlobalSettings,
 						"service_id": YunionAgent,
-						"value":      NewGlobalSettingsValue([]string{name}, true),
+						"value":      NewGlobalSettingsValue(value, true),
 					}
 					params := jsonutils.Marshal(input)
 					if _, err := yunionconf.Parameters.Create(s, params); err != nil {
@@ -162,6 +169,9 @@ func init() {
 				curConf.Switch(name, false)
 			} else {
 				curConf.Switch(name, true)
+				if utils.IsInStringArray(name, storageFeatures) {
+					curConf.Switch("storage", true)
+				}
 			}
 			id, err := ss.GetString("id")
 			if err != nil {
