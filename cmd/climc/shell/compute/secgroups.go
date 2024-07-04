@@ -34,4 +34,5 @@ func init() {
 	cmd.Perform("add-rule", &options.SecgroupsAddRuleOptions{})
 	cmd.Perform("change-owner", &options.SecgroupChangeOwnerOptions{})
 	cmd.Perform("import-rules", &options.SecgroupImportRulesOptions{})
+	cmd.PerformClass("clean", &options.SecgroupCleanOptions{})
 }
