@@ -347,27 +347,6 @@ func diskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, storag
 	return nil, nil
 }
 
-func diskStorageBackup(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
-	backupId, err := body.GetString("backup_id")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("backup_id")
-	}
-	backupStorageId, err := body.GetString("backup_storage_id")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("backup_storage_id")
-	}
-	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("backup_storage_access_info")
-	}
-	hostutils.DelayTask(ctx, storage.StorageBackup, &storageman.SStorageBackup{
-		BackupId:                backupId,
-		BackupStorageId:         backupStorageId,
-		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
-	})
-	return nil, nil
-}
-
 func diskStorageBackupRecovery(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	backupId, err := body.GetString("backup_id")
 	if err != nil {

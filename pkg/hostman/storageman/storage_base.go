@@ -103,7 +103,7 @@ type IStorage interface {
 	IsSnapshotExist(diskId, snapshotId string) (bool, error)
 
 	GetBackupDir() string
-	StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	StorageBackup(ctx context.Context, params *SStorageBackup) (jsonutils.JSONObject, error)
 	StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	GetFreeSizeMb() int
@@ -191,7 +191,7 @@ func (s *SBaseStorage) SetStoragecacheId(storagecacheId string) {
 	s.StoragecacheId = storagecacheId
 }
 
-func (s *SBaseStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+func (s *SBaseStorage) StorageBackup(ctx context.Context, params *SStorageBackup) (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 

@@ -71,6 +71,7 @@ type SDiskBakcup struct {
 
 type SStorageBackup struct {
 	BackupId                string
+	BackupLocalPath         string
 	BackupStorageId         string
 	BackupStorageAccessInfo *jsonutils.JSONDict
 }
