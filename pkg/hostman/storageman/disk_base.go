@@ -47,6 +47,7 @@ type IDisk interface {
 	DoDeleteSnapshot(snapshotId string) error
 	GetSnapshotLocation() string
 	GetSnapshotPath(snapshotId string) string
+	RollbackDiskOnSnapshotFail(snapshotId string) error
 
 	GetStorage() IStorage
 
@@ -247,6 +248,10 @@ func (d *SBaseDisk) CreateFromRbdSnapshot(ctx context.Context, napshotUrl, srcDi
 
 func (d *SBaseDisk) DoDeleteSnapshot(snapshotId string) error {
 	return fmt.Errorf("Not implement disk.DoDeleteSnapshot")
+}
+
+func (d *SBaseDisk) RollbackDiskOnSnapshotFail(snapshotId string) error {
+	return errors.Errorf("Not implement disk.DoDeleteSnapshot")
 }
 
 func (d *SBaseDisk) GetBackupDir() string {
