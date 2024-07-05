@@ -180,3 +180,10 @@ func (opts *SecgroupImportRulesOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return jsonutils.Marshal(map[string]*jsonutils.JSONArray{"rules": rules}), nil
 }
+
+type SecgroupCleanOptions struct {
+}
+
+func (opts *SecgroupCleanOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}

@@ -839,7 +839,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		}
 	}
 	guests := make([]SGuest, 0)
-	q := GuestManager.Query().Equals("hypervisor", api.HYPERVISOR_KVM).IsNullOrEmpty("secgrp_id")
+	q := GuestManager.Query().Equals("hypervisor", api.HYPERVISOR_KVM).IsNotEmpty("external_id").IsNullOrEmpty("secgrp_id")
 	err = db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
 		log.Errorf("fetch guests without secgroup fail %s", err)
@@ -851,36 +851,36 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 			return nil
 		})
 	}
-	if options.Options.CleanUselessKvmSecurityGroup {
-		q := SecurityGroupManager.Query()
-		q = q.Filter(
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("cloudregion_id"), api.DEFAULT_REGION_ID),
-				sqlchemy.NotEquals(q.Field("id"), api.SECGROUP_DEFAULT_ID),
-				sqlchemy.NotIn(q.Field("id"), GuestManager.Query("secgrp_id").IsNotNull("secgrp_id").SubQuery()),
-				sqlchemy.NotIn(q.Field("id"), GuestManager.Query("admin_secgrp_id").IsNotNull("admin_secgrp_id").SubQuery()),
-				sqlchemy.NotIn(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
-				sqlchemy.NotIn(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
-				sqlchemy.NotIn(q.Field("id"), DBInstanceSecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
-				sqlchemy.NotIn(q.Field("id"), ElasticcachesecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
-			),
-		)
-		secgroups := []SSecurityGroup{}
-		err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups)
+	return nil
+}
+
+func (manager *SSecurityGroupManager) PerformClean(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := SecurityGroupManager.Query()
+	q = q.Filter(
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("cloudregion_id"), api.DEFAULT_REGION_ID),
+			sqlchemy.NotEquals(q.Field("id"), api.SECGROUP_DEFAULT_ID),
+			sqlchemy.NotIn(q.Field("id"), GuestManager.Query("secgrp_id").IsNotNull("secgrp_id").SubQuery()),
+			sqlchemy.NotIn(q.Field("id"), GuestManager.Query("admin_secgrp_id").IsNotNull("admin_secgrp_id").SubQuery()),
+			sqlchemy.NotIn(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
+			sqlchemy.NotIn(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
+			sqlchemy.NotIn(q.Field("id"), DBInstanceSecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
+			sqlchemy.NotIn(q.Field("id"), ElasticcachesecgroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
+			sqlchemy.NotIn(q.Field("id"), LoadbalancerSecurityGroupManager.Query("secgroup_id").IsNotNull("secgroup_id").SubQuery()),
+		),
+	)
+	secgroups := []SSecurityGroup{}
+	err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchModelObjects")
+	}
+	for i := range secgroups {
+		err = secgroups[i].RealDelete(ctx, userCred)
 		if err != nil {
-			return err
-		}
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "clean", "kvm security groups")
-		userCred := auth.GetAdminSession(ctx, options.Options.Region).GetToken()
-		for i := range secgroups {
-			err = secgroups[i].RealDelete(ctx, userCred)
-			if err != nil {
-				return err
-			}
+			return nil, errors.Wrapf(err, "delete %s", secgroups[i].Name)
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (self *SSecurityGroup) GetRegionDriver() (IRegionDriver, error) {
