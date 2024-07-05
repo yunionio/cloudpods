@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -523,6 +524,23 @@ func (s *SLVMStorage) Accessible() error {
 
 func (s *SLVMStorage) Detach() error {
 	return nil
+}
+
+func (s *SLVMStorage) StorageBackup(ctx context.Context, params *SStorageBackup) (jsonutils.JSONObject, error) {
+	backupStorage, err := backupstorage.GetBackupStorage(params.BackupStorageId, params.BackupStorageAccessInfo)
+	if err != nil {
+		return nil, err
+	}
+	backupPath := params.BackupLocalPath
+	err = backupStorage.CopyBackupFrom(backupPath, params.BackupId)
+	if err != nil {
+		return nil, err
+	}
+	// remove local backup
+	if err = lvmutils.LvRemove(backupPath); err != nil {
+		return nil, errors.Wrap(err, "On backuped lvremove")
+	}
+	return nil, nil
 }
 
 func (s *SLVMStorage) CloneDiskFromStorage(

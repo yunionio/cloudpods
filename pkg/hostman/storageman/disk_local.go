@@ -452,6 +452,7 @@ func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonut
 	}
 	_, err = d.Storage.StorageBackup(ctx, &SStorageBackup{
 		BackupId:                diskBackup.BackupId,
+		BackupLocalPath:         backupPath,
 		BackupStorageId:         diskBackup.BackupStorageId,
 		BackupStorageAccessInfo: diskBackup.BackupStorageAccessInfo,
 	})
@@ -704,6 +705,16 @@ func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, e
 func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
 	snapshotPath := path.Join(d.GetSnapshotDir(), snapshotId)
 	return d.Storage.DeleteDiskfile(snapshotPath, false)
+}
+
+func (d *SLocalDisk) RollbackDiskOnSnapshotFail(snapshotId string) error {
+	snapshotDir := d.GetSnapshotDir()
+	snapshotPath := path.Join(snapshotDir, snapshotId)
+	output, err := procutils.NewCommand("mv", "-f", snapshotPath, d.GetPath()).Output()
+	if err != nil {
+		return errors.Wrapf(err, "rollback disk on snapshot fail: %s", output)
+	}
+	return nil
 }
 
 func (d *SLocalDisk) IsFile() bool {

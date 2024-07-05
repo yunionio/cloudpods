@@ -143,14 +143,13 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 	return nil
 }
 
-func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	sbParams := params.(*SStorageBackup)
-	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+func (s *SLocalStorage) StorageBackup(ctx context.Context, params *SStorageBackup) (jsonutils.JSONObject, error) {
+	backupStorage, err := backupstorage.GetBackupStorage(params.BackupStorageId, params.BackupStorageAccessInfo)
 	if err != nil {
 		return nil, err
 	}
-	backupPath := path.Join(s.GetBackupDir(), sbParams.BackupId)
-	err = backupStorage.CopyBackupFrom(backupPath, sbParams.BackupId)
+	backupPath := params.BackupLocalPath
+	err = backupStorage.CopyBackupFrom(backupPath, params.BackupId)
 	if err != nil {
 		return nil, err
 	}

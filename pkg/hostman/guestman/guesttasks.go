@@ -2064,12 +2064,11 @@ func (s *SGuestDiskSnapshotTask) onReloadBlkdevSucc(res string) {
 }
 
 func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(reason string) {
-	snapshotDir := s.disk.GetSnapshotDir()
-	snapshotPath := path.Join(snapshotDir, s.snapshotId)
-	output, err := procutils.NewCommand("mv", "-f", snapshotPath, s.disk.GetPath()).Output()
-	if err != nil {
-		log.Errorf("mv %s to %s failed: %s, %s", snapshotPath, s.disk.GetPath(), err, output)
+	// rollback snapshot to disk file
+	if err := s.disk.RollbackDiskOnSnapshotFail(s.snapshotId); err != nil {
+		log.Errorf("failed do rollback %s", err)
 	}
+
 	hostutils.TaskFailed(s.ctx, fmt.Sprintf("Reload blkdev error: %s", reason))
 }
 
