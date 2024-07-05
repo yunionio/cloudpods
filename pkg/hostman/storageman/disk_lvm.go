@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -36,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -405,8 +407,72 @@ func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	return res, nil
 }
 
+func (d *SLVMDisk) GetBackupName(backupId string) string {
+	return "backup_" + backupId
+}
+
+func (d *SLVMDisk) GetBackupPath(backupId string) string {
+	return path.Join("/dev", d.Storage.GetPath(), d.GetBackupName(backupId))
+}
+
 func (d *SLVMDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, errors.ErrNotImplemented
+	diskBackup := params.(*SDiskBakcup)
+
+	encKey := ""
+	if len(diskBackup.EncryptKeyId) > 0 {
+		session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion())
+		secKey, err := identity_modules.Credentials.GetEncryptKey(session, diskBackup.EncryptKeyId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetEncryptKey")
+		}
+		encKey = secKey.Key
+	}
+
+	snapshotPath := d.GetSnapshotPath(diskBackup.SnapshotId)
+	snapshotImg, err := qemuimg.NewQemuImage(snapshotPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "lvm disk backup snapshotPath NewQemuImage")
+	}
+
+	// create backup lv
+	lvSizeMb := lvmutils.GetQcow2LvSize(snapshotImg.SizeBytes / 1024 / 1024)
+	err = lvmutils.LvCreate(d.Storage.GetPath(), d.GetBackupName(diskBackup.BackupId), lvSizeMb*1024*1024)
+	if err != nil {
+		return nil, errors.Wrap(err, "lvcreate backup")
+	}
+
+	backupPath := d.GetBackupPath(diskBackup.BackupId)
+	srcInfo := qemuimg.SImageInfo{
+		Path:     snapshotPath,
+		Format:   snapshotImg.Format,
+		IoLevel:  qemuimg.IONiceNone,
+		Password: encKey,
+	}
+	destInfo := qemuimg.SImageInfo{
+		Path:     backupPath,
+		Format:   qemuimg.QCOW2,
+		IoLevel:  qemuimg.IONiceNone,
+		Password: encKey,
+	}
+	if err = qemuimg.Convert(srcInfo, destInfo, true, nil); err != nil {
+		if errRm := lvmutils.LvRemove(backupPath); errRm != nil {
+			log.Errorf("failed delete backup lv %s", errRm)
+		}
+		return nil, errors.Wrap(err, "failed convert snapshot to backup")
+	}
+
+	_, err = d.Storage.StorageBackup(ctx, &SStorageBackup{
+		BackupId:                diskBackup.BackupId,
+		BackupLocalPath:         backupPath,
+		BackupStorageId:         diskBackup.BackupStorageId,
+		BackupStorageAccessInfo: diskBackup.BackupStorageAccessInfo,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to SStorageBackup")
+	}
+	data := jsonutils.NewDict()
+	data.Set("size_mb", jsonutils.NewInt(snapshotImg.SizeBytes/1024/1024))
+	return data, nil
 }
 
 func (d *SLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
@@ -439,7 +505,7 @@ func (d *SLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encForma
 	}
 
 	snapPath := d.GetSnapshotPath(snapshotId)
-	err = img.CreateQcow2(0, false, snapPath, "", "", "")
+	err = img.CreateQcow2(0, false, snapPath, encryptKey, encFormat, encAlg)
 	if err != nil {
 		if e := lvmutils.LvRemove(d.GetPath()); e != nil {
 			log.Errorf("failed remove lv %s: %s", d.GetPath(), e)
@@ -539,6 +605,20 @@ func (d *SLVMDisk) ConvertSnapshot(convertSnapshot string) error {
 func (d *SLVMDisk) DoDeleteSnapshot(snapshotId string) error {
 	snapshotPath := d.GetSnapshotPath(snapshotId)
 	return lvmutils.LvRemove(snapshotPath)
+}
+
+func (d *SLVMDisk) RollbackDiskOnSnapshotFail(snapshotId string) error {
+	diskPath := d.GetPath()
+	if fileutils2.Exists(diskPath) {
+		if err := lvmutils.LvRemove(diskPath); err != nil {
+			return errors.Wrap(err, "rollback disk on snapshot fail delete disk")
+		}
+	}
+	snapshotName := d.GetSnapshotName(snapshotId)
+	if err := lvmutils.LvRename(d.Storage.GetPath(), snapshotName, d.Id); err != nil {
+		return errors.Wrapf(err, "RollbackDiskOnSnapshotFail rename %s to %s failed: %s", snapshotName, d.Id, err)
+	}
+	return nil
 }
 
 func (d *SLVMDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, error) {

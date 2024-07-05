@@ -102,16 +102,29 @@ func (self *DiskResetTask) OnStartGuest(ctx context.Context, disk *models.SDisk,
 
 func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
-	storage, err := disk.GetStorage()
-	if err != nil {
-		self.TaskFailed(ctx, disk, errors.Wrapf(err, "disk.GetStorage"))
-		return
+	guest := disk.GetGuest()
+
+	var host *models.SHost
+	if guest == nil {
+		storage, err := disk.GetStorage()
+		if err != nil {
+			self.TaskFailed(ctx, disk, errors.Wrapf(err, "disk.GetStorage"))
+			return
+		}
+		host, err = storage.GetMasterHost()
+		if err != nil {
+			self.TaskFailed(ctx, disk, errors.Wrapf(err, "storage.GetMasterHost"))
+			return
+		}
+	} else {
+		var err error
+		host, err = guest.GetHost()
+		if err != nil {
+			self.TaskFailed(ctx, disk, errors.Wrapf(err, "guest.GetHost"))
+			return
+		}
 	}
-	host, err := storage.GetMasterHost()
-	if err != nil {
-		self.TaskFailed(ctx, disk, errors.Wrapf(err, "storage.GetMasterHost"))
-		return
-	}
+
 	self.RequestResetDisk(ctx, disk, host)
 }
 
