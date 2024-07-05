@@ -190,7 +190,7 @@ type SHostOptions struct {
 	AMDVgpuPFs          []string `help:"amd vgpu pf pci addresses"`
 	NVIDIAVgpuPFs       []string `help:"nvidia vgpu pf pci addresses"`
 
-	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
+	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"true" json:"ethtool_enable_gso"`
 
 	EthtoolEnableGsoInterfaces  []string `help:"use ethtool to turn on GSO for the specific interfaces" json:"ethtool_enable_gso_interfaces"`
 	EthtoolDisableGsoInterfaces []string `help:"use ethtool to turn off GSO for the specific interfaces" json:"ethtool_disable_gso_interfaces"`
