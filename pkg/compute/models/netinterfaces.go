@@ -54,9 +54,9 @@ type SNetInterface struct {
 	Mtu    int16 `nullable:"true"` // Column(SMALLINT, nullable=True)
 
 	// Bridge名称
-	Bridge string `width:"64" charset:"ascii" nullable:"false"`
+	Bridge string `width:"64" charset:"ascii" nullable:"true"`
 	// 接口名称
-	Interface string `width:"16" charset:"ascii" nullable:"false"`
+	Interface string `width:"16" charset:"ascii" nullable:"true"`
 }
 
 // +onecloud:swagger-gen-ignore
