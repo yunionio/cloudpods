@@ -1146,6 +1146,10 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 	if err != nil { // cannot delete
 		return lb.SetStatus(ctx, userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	}
+	err = lb.DeleteEip(ctx, userCred, false)
+	if err != nil {
+		return err
+	}
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    lb,
 		Action: notifyclient.ActionSyncDelete,
