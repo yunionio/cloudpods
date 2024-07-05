@@ -418,13 +418,15 @@ func (d *SLVMDisk) GetBackupPath(backupId string) string {
 func (d *SLVMDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	diskBackup := params.(*SDiskBakcup)
 
-	encKey := ""
+	var encKey = ""
+	var encAlg seclib2.TSymEncAlg
 	if len(diskBackup.EncryptKeyId) > 0 {
 		session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion())
 		secKey, err := identity_modules.Credentials.GetEncryptKey(session, diskBackup.EncryptKeyId)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetEncryptKey")
 		}
+		encAlg = secKey.Alg
 		encKey = secKey.Key
 	}
 
@@ -443,16 +445,20 @@ func (d *SLVMDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutil
 
 	backupPath := d.GetBackupPath(diskBackup.BackupId)
 	srcInfo := qemuimg.SImageInfo{
-		Path:     snapshotPath,
-		Format:   snapshotImg.Format,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: encKey,
+		Path:          snapshotPath,
+		Format:        snapshotImg.Format,
+		IoLevel:       qemuimg.IONiceNone,
+		Password:      encKey,
+		EncryptAlg:    encAlg,
+		EncryptFormat: qemuimg.EncryptFormatLuks,
 	}
 	destInfo := qemuimg.SImageInfo{
-		Path:     backupPath,
-		Format:   qemuimg.QCOW2,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: encKey,
+		Path:          backupPath,
+		Format:        qemuimg.QCOW2,
+		IoLevel:       qemuimg.IONiceNone,
+		Password:      encKey,
+		EncryptAlg:    encAlg,
+		EncryptFormat: qemuimg.EncryptFormatLuks,
 	}
 	if err = qemuimg.Convert(srcInfo, destInfo, true, nil); err != nil {
 		if errRm := lvmutils.LvRemove(backupPath); errRm != nil {
@@ -551,8 +557,29 @@ func (d *SLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (j
 		return nil, errors.Wrapf(err, "failed qemuimg.NewQemuImage(%s))", d.GetPath())
 	}
 
+	var encryptInfo *apis.SEncryptInfo
+	if resetParams.Input.Contains("encrypt_info") {
+		encInfo := apis.SEncryptInfo{}
+		err := resetParams.Input.Unmarshal(&encInfo, "encrypt_info")
+		if err != nil {
+			log.Errorf("unmarshal encrypt_info fail %s", err)
+		} else {
+			encryptInfo = &encInfo
+		}
+	}
+	var (
+		encKey string
+		encAlg seclib2.TSymEncAlg
+		encFmt qemuimg.TEncryptFormat
+	)
+	if encryptInfo != nil {
+		encKey = encryptInfo.Key
+		encFmt = qemuimg.EncryptFormatLuks
+		encAlg = encryptInfo.Alg
+	}
+
 	snapPath := d.GetSnapshotPath(resetParams.SnapshotId)
-	err = imgNew.CreateQcow2(diskSizeMB, false, snapPath, "", "", "")
+	err = imgNew.CreateQcow2(diskSizeMB, false, snapPath, encKey, encFmt, encAlg)
 	if err != nil {
 		lvmutils.LvRemove(d.GetPath())
 		lvmutils.LvRename(d.Storage.GetPath(), tmpVolume, d.Id)
