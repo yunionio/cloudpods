@@ -91,7 +91,7 @@ func (self *SLoadbalancer) GetSysTags() map[string]string {
 
 	ips := []string{}
 	for i := range frs {
-		if len(frs[i].IPAddress) > 0 {
+		if len(frs[i].IPAddress) > 0 && !utils.IsInStringArray(frs[i].IPAddress, ips) {
 			ips = append(ips, frs[i].IPAddress)
 		}
 	}
@@ -137,7 +137,6 @@ func (self *SLoadbalancer) GetAddress() string {
 			return frs[i].IPAddress
 		}
 	}
-
 	return ""
 }
 
@@ -344,7 +343,8 @@ func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (clou
 }
 
 // GET https://compute.googleapis.com/compute/v1/projects/{project}/aggregated/targetHttpProxies 前端监听
-//  tcp lb backend type: backend service
+//
+//	tcp lb backend type: backend service
 func (self *SRegion) GetRegionalTcpLoadbalancers() ([]SLoadbalancer, error) {
 	bss, err := self.GetRegionalBackendServices("protocol eq TCP")
 	if err != nil {
@@ -368,7 +368,7 @@ func (self *SRegion) GetRegionalTcpLoadbalancers() ([]SLoadbalancer, error) {
 	return lbs, nil
 }
 
-//  udp lb backend type: backend service
+// udp lb backend type: backend service
 func (self *SRegion) GetRegionalUdpLoadbalancers() ([]SLoadbalancer, error) {
 	bss, err := self.GetRegionalBackendServices("protocol eq UDP")
 	if err != nil {
@@ -392,7 +392,7 @@ func (self *SRegion) GetRegionalUdpLoadbalancers() ([]SLoadbalancer, error) {
 	return lbs, nil
 }
 
-//  http&https lb: urlmaps
+// http&https lb: urlmaps
 func (self *SRegion) GetRegionalHTTPLoadbalancers() ([]SLoadbalancer, error) {
 	ums, err := self.GetRegionalUrlMaps("")
 	if err != nil {
