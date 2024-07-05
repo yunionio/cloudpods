@@ -59,9 +59,10 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"us-south1":               api.RegionDallas,
 	"southamerica-west1":      api.RegionSantiago,
 
-	"me-west1":    api.RegionTelAviv,
-	"me-central1": api.RegionDoha,
-	"me-central2": api.RegionDamman,
+	"me-west1":      api.RegionTelAviv,
+	"me-central1":   api.RegionDoha,
+	"me-central2":   api.RegionDamman,
+	"africa-south1": api.RegionJohannesburg,
 }
 
 var RegionNames = map[string]string{
@@ -116,4 +117,7 @@ var RegionNames = map[string]string{
 	// Dual-region
 	"nam4": "爱荷华和南卡罗来纳",
 	"eur4": "荷兰和芬兰",
+
+	"global":        "全球",
+	"africa-south1": "约翰内斯堡",
 }
