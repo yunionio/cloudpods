@@ -44,7 +44,7 @@
         {
             "id": "The IDP of user has been disabled or in invalid status",
             "message": "The IDP of user has been disabled or in invalid status",
-            "translation": ""
+            "translation": "用户已经被禁用或处于不可用状态"
         },
         {
             "id": "invalid credential",
@@ -332,11 +332,6 @@
             "translation": "第%d行，名称重复：%s"
         },
         {
-            "id": "template_id",
-            "message": "template_id",
-            "translation": ""
-        },
-        {
             "id": "template not found %s",
             "message": "template not found %s",
             "translation": "找不到模板：%s"
@@ -385,11 +380,6 @@
             "id": "syslog webservice not enabled",
             "message": "syslog webservice not enabled",
             "translation": "syslog服务未启用"
-        },
-        {
-            "id": "sync error",
-            "message": "sync error",
-            "translation": ""
         },
         {
             "id": "invalid CannedAction %s ",
@@ -672,9 +662,9 @@
             "translation": "无效的handler：%s"
         },
         {
-            "id": "Handler not found",
-            "message": "Handler not found",
-            "translation": "未找到handler"
+            "id": "Handler %s not found",
+            "message": "Handler %s not found",
+            "translation": ""
         },
         {
             "id": "No request key: %s",
@@ -890,6 +880,16 @@
             "id": "Query database error %s",
             "message": "Query database error %s",
             "translation": "数据库查询出错：%s"
+        },
+        {
+            "id": "invalid extra_resource %s",
+            "message": "invalid extra_resource %s",
+            "translation": ""
+        },
+        {
+            "id": "resource %s does not have field %s",
+            "message": "resource %s does not have field %s",
+            "translation": "资源%s没有%s字段"
         },
         {
             "id": "table %s not found",
@@ -1242,6 +1242,11 @@
             "translation": "无效的RAID配置：%v"
         },
         {
+            "id": "Invalid root disk matcher: %v",
+            "message": "Invalid root disk matcher: %v",
+            "translation": ""
+        },
+        {
             "id": "Host %s is not a baremetal",
             "message": "Host %s is not a baremetal",
             "translation": "宿主机%s不是一个裸金属服务器"
@@ -1270,6 +1275,26 @@
             "id": "Not allow for hypervisor %s",
             "message": "Not allow for hypervisor %s",
             "translation": "hypervisor %s不允许此操作"
+        },
+        {
+            "id": "Memory size %q must be number[+unit], like 256M, 1G or 256",
+            "message": "Memory size %q must be number[+unit], like 256M, 1G or 256",
+            "translation": "内存大小%q必须是数字或数字单位组合, 例如 256M, 1G 或者 256"
+        },
+        {
+            "id": "Params vmem_size parse error",
+            "message": "Params vmem_size parse error",
+            "translation": "参数vmem_size解析出错"
+        },
+        {
+            "id": "snapshot %s not found",
+            "message": "snapshot %s not found",
+            "translation": "未找到快照%s"
+        },
+        {
+            "id": "Cannot reduce disk size for %dth disk",
+            "message": "Cannot reduce disk size for %dth disk",
+            "translation": "不能缩小第%d块磁盘大小"
         },
         {
             "id": "Cann't online resize root disk",
@@ -1344,7 +1369,7 @@
         {
             "id": "the host %s loses its ip address",
             "message": "the host %s loses its ip address",
-            "translation": ""
+            "translation": "宿主机%s丢失IP地址"
         },
         {
             "id": "Host %s not found",
@@ -1512,6 +1537,11 @@
             "translation": "磁盘存储在本地，不支持解绑"
         },
         {
+            "id": "Cannot change config with different instance family",
+            "message": "Cannot change config with different instance family",
+            "translation": "不可变更套餐类型"
+        },
+        {
             "id": "Host %s is not online",
             "message": "Host %s is not online",
             "translation": "宿主机%s不在线"
@@ -1592,9 +1622,9 @@
             "translation": "磁盘必须已解绑"
         },
         {
-            "id": "not supported",
-            "message": "not supported",
-            "translation": ""
+            "id": "not supported resize disk",
+            "message": "not supported resize disk",
+            "translation": "不支持扩容磁盘"
         },
         {
             "id": "%s is not mount point %s",
@@ -1604,11 +1634,6 @@
         {
             "id": "%s is local storage mount point",
             "message": "%s is local storage mount point",
-            "translation": ""
-        },
-        {
-            "id": "storage has no clvm_vg_name",
-            "message": "storage has no clvm_vg_name",
             "translation": ""
         },
         {
@@ -1637,6 +1662,16 @@
             "translation": "挂载NFS存储要求宿主机在线"
         },
         {
+            "id": "storage has no clvm_vg_name",
+            "message": "storage has no clvm_vg_name",
+            "translation": ""
+        },
+        {
+            "id": "storage has no slvm_vg_name",
+            "message": "storage has no slvm_vg_name",
+            "translation": ""
+        },
+        {
             "id": "Disk attach muti guests",
             "message": "Disk attach muti guests",
             "translation": "磁盘挂载到多个虚机"
@@ -1654,11 +1689,11 @@
         {
             "id": "can not reset with disk associate with guests",
             "message": "can not reset with disk associate with guests",
-            "translation": ""
+            "translation": "不允许挂载中的磁盘重置"
         },
         {
-            "id": "Qcloud reset disk required guest status is running or read",
-            "message": "Qcloud reset disk required guest status is running or read",
+            "id": "Qcloud reset disk required guest status is running or ready",
+            "message": "Qcloud reset disk required guest status is running or ready",
             "translation": "腾讯云重置磁盘要求虚机状态必须是运行中或已关机"
         },
         {
@@ -1672,8 +1707,8 @@
             "translation": "Ucloud仅支持数据盘重置操作"
         },
         {
-            "id": "Volcengine reset disk required guest status is running or read",
-            "message": "Volcengine reset disk required guest status is running or read",
+            "id": "Volcengine reset disk required guest status is running or ready",
+            "message": "Volcengine reset disk required guest status is running or ready",
             "translation": ""
         },
         {
@@ -1700,21 +1735,6 @@
             "id": "Baremetal package not prepared",
             "message": "Baremetal package not prepared",
             "translation": "裸金属服务器package未准备好"
-        },
-        {
-            "id": "not allow to delete default access group",
-            "message": "not allow to delete default access group",
-            "translation": "不支持删除默认NAS权限组"
-        },
-        {
-            "id": "access group not empty, please delete mount target first",
-            "message": "access group not empty, please delete mount target first",
-            "translation": "NAS权限组不为空，请先删除挂载点"
-        },
-        {
-            "id": "can not add rule for default access group",
-            "message": "can not add rule for default access group",
-            "translation": "NAS默认权限组不支持修改规则"
         },
         {
             "id": "not enough privilege",
@@ -1747,14 +1767,14 @@
             "translation": "不支持的用户权限 %s"
         },
         {
-            "id": "not allow to delete default access group rule",
-            "message": "not allow to delete default access group rule",
-            "translation": "不支持删除NAS默认权限组规则"
+            "id": "access group not empty, please delete mount target first",
+            "message": "access group not empty, please delete mount target first",
+            "translation": "NAS权限组不为空，请先删除挂载点"
         },
         {
             "id": "WebApp has %d task active, can't sync status",
             "message": "WebApp has %d task active, can't sync status",
-            "translation": ""
+            "translation": "应用程序有%d个任务进行中，请稍后进行同步状态"
         },
         {
             "id": "Invalid storage type %s",
@@ -2089,17 +2109,12 @@
         {
             "id": "%s not support cdn",
             "message": "%s not support cdn",
-            "translation": ""
+            "translation": "%s不支持CDN"
         },
         {
             "id": "CDN domain has %d task active, can't sync status",
             "message": "CDN domain has %d task active, can't sync status",
-            "translation": ""
-        },
-        {
-            "id": "account %s not enable saml auth",
-            "message": "account %s not enable saml auth",
-            "translation": "云账号%s为启用SAML认证"
+            "translation": "CDN已有%d个任务进行中，请稍后再试"
         },
         {
             "id": "account is enabled",
@@ -2175,11 +2190,6 @@
             "id": "Account disabled",
             "message": "Account disabled",
             "translation": "账号已禁用"
-        },
-        {
-            "id": "Account is not idle",
-            "message": "Account is not idle",
-            "translation": "账号正在同步中，稍后再试"
         },
         {
             "id": "Unable to synchronize frequently",
@@ -2604,7 +2614,7 @@
         {
             "id": "failed to find host for storage %s with disk %s",
             "message": "failed to find host for storage %s with disk %s",
-            "translation": "无法为存储%s和磁盘%s找不到对应的宿主机"
+            "translation": "无法为存储%s和磁盘%s找到对应的宿主机"
         },
         {
             "id": "disk create from existing disk must give storage",
@@ -2657,31 +2667,6 @@
             "translation": "空闲空间不够"
         },
         {
-            "id": "Fetch snapshot count failed %s",
-            "message": "Fetch snapshot count failed %s",
-            "translation": "获取快照数失败：%s"
-        },
-        {
-            "id": "Disk %s don't need convert snapshots",
-            "message": "Disk %s don't need convert snapshots",
-            "translation": "磁盘%s不需要转换快照"
-        },
-        {
-            "id": "Can not get disk snapshot",
-            "message": "Can not get disk snapshot",
-            "translation": "无法获得磁盘快照"
-        },
-        {
-            "id": "Get convert snapshot failed: %s",
-            "message": "Get convert snapshot failed: %s",
-            "translation": "获取转换快照对象失败：%s"
-        },
-        {
-            "id": "Snapshot %s dose not have convert snapshot",
-            "message": "Snapshot %s dose not have convert snapshot",
-            "translation": "快照%s没有转换快照对象"
-        },
-        {
             "id": "Cannot reset disk in status %s",
             "message": "Cannot reset disk in status %s",
             "translation": "无法重置状态为%s的磁盘"
@@ -2695,6 +2680,16 @@
             "id": "Cannot reset disk %s(%s),Snapshot is belong to disk %s",
             "message": "Cannot reset disk %s(%s),Snapshot is belong to disk %s",
             "translation": "无法重置磁盘%s(%s)，因快照属于磁盘%s"
+        },
+        {
+            "id": "Disk attached guest, cannot migrate",
+            "message": "Disk attached guest, cannot migrate",
+            "translation": "磁盘已挂载，不支持迁移"
+        },
+        {
+            "id": "Cannot migrate disk from storage type %s to %s",
+            "message": "Cannot migrate disk from storage type %s to %s",
+            "translation": ""
         },
         {
             "id": "Resize disk when disk is READY",
@@ -2830,6 +2825,11 @@
             "id": "The snapshot policy %s and the disk are in different region",
             "message": "The snapshot policy %s and the disk are in different region",
             "translation": "自动快照策略%s与磁盘所在的区域不匹配"
+        },
+        {
+            "id": "Guest %s status is %s",
+            "message": "Guest %s status is %s",
+            "translation": ""
         },
         {
             "id": "invalid record name %s",
@@ -3199,7 +3199,7 @@
         {
             "id": "loadbalancer is already associated with eip",
             "message": "loadbalancer is already associated with eip",
-            "translation": ""
+            "translation": "负载均衡已绑定弹性公网IP"
         },
         {
             "id": "eip cannot dissociate in status %s",
@@ -3369,7 +3369,7 @@
         {
             "id": "cannot clone encrypted server",
             "message": "cannot clone encrypted server",
-            "translation": ""
+            "translation": "不支持克隆加密虚拟机"
         },
         {
             "id": "Can't clone guest with backup guest",
@@ -3395,6 +3395,11 @@
             "id": "update keypairId %v",
             "message": "update keypairId %v",
             "translation": ""
+        },
+        {
+            "id": "login_account is longer than 32 chars",
+            "message": "login_account is longer than 32 chars",
+            "translation": "login_account长度已超过32字节"
         },
         {
             "id": "Cannot deploy in status %s",
@@ -3509,7 +3514,7 @@
         {
             "id": "Floppy not empty, please eject first",
             "message": "Floppy not empty, please eject first",
-            "translation": ""
+            "translation": "软盘已挂载，请先卸载"
         },
         {
             "id": "No VFD to eject",
@@ -3682,19 +3687,49 @@
             "translation": "找不到IP %s"
         },
         {
+            "id": "ipv6 %s not found",
+            "message": "ipv6 %s not found",
+            "translation": ""
+        },
+        {
             "id": "mac %s not found",
             "message": "mac %s not found",
             "translation": "找不到MAC %s"
         },
         {
-            "id": "no either ip_addr or mac specified",
-            "message": "no either ip_addr or mac specified",
-            "translation": "未指定ip_addr或mac"
+            "id": "nic at index %d not found",
+            "message": "nic at index %d not found",
+            "translation": ""
+        },
+        {
+            "id": "no either ip_addr, ip6_addr, mac or index specified",
+            "message": "no either ip_addr, ip6_addr, mac or index specified",
+            "translation": ""
         },
         {
             "id": "Cannot change network ip_addr in status %s",
             "message": "Cannot change network ip_addr in status %s",
             "translation": "状态为%s无法变更IP地址"
+        },
+        {
+            "id": "fail to parse net_desc %s: %s",
+            "message": "fail to parse net_desc %s: %s",
+            "translation": ""
+        },
+        {
+            "id": "parseNetworkInfo fail: %s",
+            "message": "parseNetworkInfo fail: %s",
+            "translation": ""
+        },
+        {
+            "id": "isValidNetworkInfo fail: %s",
+            "message": "isValidNetworkInfo fail: %s",
+            "translation": ""
+        },
+        {
+            "id": "no specific network",
+            "message": "no specific network",
+            "translation": ""
         },
         {
             "id": "cannot change mac when guest is running",
@@ -3710,6 +3745,11 @@
             "id": "mac addr %s has been occupied",
             "message": "mac addr %s has been occupied",
             "translation": "MAC地址%s已被占用"
+        },
+        {
+            "id": "addr %s has been occupied",
+            "message": "addr %s has been occupied",
+            "translation": ""
         },
         {
             "id": "Cannot detach network in status %s",
@@ -3762,34 +3802,14 @@
             "translation": ""
         },
         {
-            "id": "Cannot change config with different instance family",
-            "message": "Cannot change config with different instance family",
-            "translation": "不可变更套餐类型"
+            "id": "no valid host",
+            "message": "no valid host",
+            "translation": "找不到宿主机"
         },
         {
-            "id": "Memory size %q must be number[+unit], like 256M, 1G or 256",
-            "message": "Memory size %q must be number[+unit], like 256M, 1G or 256",
+            "id": "cannot change CPU/Memory spec in power status %s: %s",
+            "message": "cannot change CPU/Memory spec in power status %s: %s",
             "translation": ""
-        },
-        {
-            "id": "Params vmem_size parse error",
-            "message": "Params vmem_size parse error",
-            "translation": "参数vmem_size解析出错"
-        },
-        {
-            "id": "cannot change CPU/Memory spec in power status %s",
-            "message": "cannot change CPU/Memory spec in power status %s",
-            "translation": "不支持%s状态下调整cpu/内存"
-        },
-        {
-            "id": "snapshot %s not found",
-            "message": "snapshot %s not found",
-            "translation": "未找到快照%s"
-        },
-        {
-            "id": "Cannot reduce disk size",
-            "message": "Cannot reduce disk size",
-            "translation": "不可缩小磁盘大小"
         },
         {
             "id": "Cannot reset VM in status %s",
@@ -4052,6 +4072,11 @@
             "translation": "空的IP列表"
         },
         {
+            "id": "invalid IPv4 address %s",
+            "message": "invalid IPv4 address %s",
+            "translation": "不正确的IPv4地址 %s"
+        },
+        {
             "id": "Unreachable IP %s: %s",
             "message": "Unreachable IP %s: %s",
             "translation": "IP %s不可达：%s"
@@ -4157,11 +4182,6 @@
             "translation": "虚机状态为%s无法做快照"
         },
         {
-            "id": "guests disk %d snapshot full, can't take anymore",
-            "message": "guests disk %d snapshot full, can't take anymore",
-            "translation": "虚机%d号磁盘快照数达到上限，不可再创建"
-        },
-        {
             "id": "Check set pending quota error %s",
             "message": "Check set pending quota error %s",
             "translation": "检查并设置待使用配置时出错：%s"
@@ -4225,11 +4245,6 @@
             "id": "not a baremetal server",
             "message": "not a baremetal server",
             "translation": "不是裸金属服务器"
-        },
-        {
-            "id": "no valid host",
-            "message": "no valid host",
-            "translation": "找不到宿主机"
         },
         {
             "id": "host is not a baremetal",
@@ -4372,29 +4387,29 @@
             "translation": "虚机必须为关机状态"
         },
         {
+            "id": "input network configs length must equal guestnetworks length",
+            "message": "input network configs length must equal guestnetworks length",
+            "translation": ""
+        },
+        {
             "id": "input network configs length  must equal guestnetworks length",
             "message": "input network configs length  must equal guestnetworks length",
+            "translation": ""
+        },
+        {
+            "id": "missing guest ids",
+            "message": "missing guest ids",
+            "translation": ""
+        },
+        {
+            "id": "Cannot rescue guest hypervisor %s",
+            "message": "Cannot rescue guest hypervisor %s",
             "translation": ""
         },
         {
             "id": "guest status must be ready or running",
             "message": "guest status must be ready or running",
             "translation": "虚拟机状态必须是关机或者运行中"
-        },
-        {
-            "id": "vmem size must be greater than 2G",
-            "message": "vmem size must be greater than 2G",
-            "translation": "内存必须高于2G"
-        },
-        {
-            "id": "guest.GetHost: %s",
-            "message": "guest.GetHost: %s",
-            "translation": ""
-        },
-        {
-            "id": "BaremetalagentManager.GetAgent: %s",
-            "message": "BaremetalagentManager.GetAgent: %s",
-            "translation": ""
         },
         {
             "id": "guest.StartGuestRescueTask: %s",
@@ -4639,7 +4654,7 @@
         {
             "id": "hostname should be a legal domain name",
             "message": "hostname should be a legal domain name",
-            "translation": ""
+            "translation": "主机名必须是合法的域名"
         },
         {
             "id": "can't find instance snapshot %s",
@@ -4680,11 +4695,6 @@
             "id": "metdata must less then 20",
             "message": "metdata must less then 20",
             "translation": "metadata条目数不可超过20"
-        },
-        {
-            "id": "login_account is longer than 32 chars",
-            "message": "login_account is longer than 32 chars",
-            "translation": "login_account长度已超过32字节"
         },
         {
             "id": "No bootable disk information provided",
@@ -4934,7 +4944,7 @@
         {
             "id": "hostname cannot be number %d",
             "message": "hostname cannot be number %d",
-            "translation": ""
+            "translation": "主机名不能是数字%d"
         },
         {
             "id": "Windows hostname cannot be longer than %d characters",
@@ -4954,7 +4964,7 @@
         {
             "id": "not supported hypervisor %s",
             "message": "not supported hypervisor %s",
-            "translation": "不支持hypervisor %s"
+            "translation": "不支持虚拟化 %s"
         },
         {
             "id": "Host is a converted baremetal, should be unconverted before delete",
@@ -5607,6 +5617,11 @@
             "translation": ""
         },
         {
+            "id": "conflict region %s and cloudprovider %s",
+            "message": "conflict region %s and cloudprovider %s",
+            "translation": ""
+        },
+        {
             "id": "acl %s is still referred to by %d listener",
             "message": "acl %s is still referred to by %d listener",
             "translation": ""
@@ -5702,19 +5717,9 @@
             "translation": "第%d个后端所属的region与lb的region不匹配"
         },
         {
-            "id": "get isDefault fail %s",
-            "message": "get isDefault fail %s",
-            "translation": "调用isDefault出错：%s"
-        },
-        {
             "id": "backend group %s is default backend group",
             "message": "backend group %s is default backend group",
             "translation": "后端服务器组%s是默认组"
-        },
-        {
-            "id": "get refCount fail %s",
-            "message": "get refCount fail %s",
-            "translation": "调用refCount出错：%s"
         },
         {
             "id": "backend group %s is still referred by %d %s",
@@ -5987,6 +5992,16 @@
             "translation": "所选网络和文件系统不在同一个区域"
         },
         {
+            "id": "access group and filesystem do not belong to the same account",
+            "message": "access group and filesystem do not belong to the same account",
+            "translation": ""
+        },
+        {
+            "id": "access group and filesystem are not in the same region",
+            "message": "access group and filesystem are not in the same region",
+            "translation": ""
+        },
+        {
             "id": "not allow to delete",
             "message": "not allow to delete",
             "translation": "不支持删除"
@@ -6132,11 +6147,6 @@
             "translation": ""
         },
         {
-            "id": "cannot fetch network of guestnetwork %d",
-            "message": "cannot fetch network of guestnetwork %d",
-            "translation": ""
-        },
-        {
             "id": "allocate ip addr: %v",
             "message": "allocate ip addr: %v",
             "translation": ""
@@ -6152,9 +6162,9 @@
             "translation": "IP子网 %s 包含已分配的IP地址"
         },
         {
-            "id": "candidate %s out of range",
-            "message": "candidate %s out of range",
-            "translation": "候选IP %s不在范围内"
+            "id": "candidate %s out of range %s",
+            "message": "candidate %s out of range %s",
+            "translation": "候选IP %s 不在 %s 范围内"
         },
         {
             "id": "Out of IP address",
@@ -6197,6 +6207,26 @@
             "translation": "地址%s已被使用"
         },
         {
+            "id": "Address v6 %s not in range",
+            "message": "Address v6 %s not in range",
+            "translation": ""
+        },
+        {
+            "id": "Address v6 %s not reserved",
+            "message": "Address v6 %s not reserved",
+            "translation": ""
+        },
+        {
+            "id": "isAddress6Used fail %s",
+            "message": "isAddress6Used fail %s",
+            "translation": ""
+        },
+        {
+            "id": "v6 address %s has been used",
+            "message": "v6 address %s has been used",
+            "translation": ""
+        },
+        {
             "id": "Bandwidth limit cannot exceed %dMbps",
             "message": "Bandwidth limit cannot exceed %dMbps",
             "translation": "带宽限速不可超过%dMbps"
@@ -6217,14 +6247,24 @@
             "translation": "无效的时间长度%s"
         },
         {
-            "id": "not a valid ip address %s: %s",
-            "message": "not a valid ip address %s: %s",
-            "translation": "无效的IP地址%s：%s"
+            "id": "not a valid ipv6 address %s: %s",
+            "message": "not a valid ipv6 address %s: %s",
+            "translation": "无效的IPv6地址%s：%s"
+        },
+        {
+            "id": "network is not ipv6 enabled",
+            "message": "network is not ipv6 enabled",
+            "translation": ""
         },
         {
             "id": "Address %s not in network",
             "message": "Address %s not in network",
             "translation": "地址%s不在子网中"
+        },
+        {
+            "id": "not a valid ip address %s: %s",
+            "message": "not a valid ip address %s: %s",
+            "translation": "无效的IP地址%s：%s"
         },
         {
             "id": "get reserved ip error",
@@ -6245,6 +6285,26 @@
             "id": "Invalid server_type: %s",
             "message": "Invalid server_type: %s",
             "translation": "无效的server_type参数：%s"
+        },
+        {
+            "id": "zone and vpc info required when wire is absent",
+            "message": "zone and vpc info required when wire is absent",
+            "translation": "当wire未指定时必须指定zone和vpc信息"
+        },
+        {
+            "id": "VPC not ready",
+            "message": "VPC not ready",
+            "translation": "VPC未准备好"
+        },
+        {
+            "id": "eip network can only exist in default vpc, got %s(%s)",
+            "message": "eip network can only exist in default vpc, got %s(%s)",
+            "translation": "EIP子网仅能存在于经典网络vpc中，实际为%s(%s)"
+        },
+        {
+            "id": "the wire %s and project %s has different class metadata",
+            "message": "the wire %s and project %s has different class metadata",
+            "translation": ""
         },
         {
             "id": "valid vlan id",
@@ -6287,6 +6347,31 @@
             "translation": "起始和终止IP不在同一个子网"
         },
         {
+            "id": "ipv6 subnet masklen should be between 48~126",
+            "message": "ipv6 subnet masklen should be between 48~126",
+            "translation": ""
+        },
+        {
+            "id": "Invalid ipv6 masklen %d",
+            "message": "Invalid ipv6 masklen %d",
+            "translation": ""
+        },
+        {
+            "id": "Invalid start v6 ip: %s %s",
+            "message": "Invalid start v6 ip: %s %s",
+            "translation": ""
+        },
+        {
+            "id": "invalid end v6 ip: %s %s",
+            "message": "invalid end v6 ip: %s %s",
+            "translation": ""
+        },
+        {
+            "id": "v6 start and end ip not in the same subnet",
+            "message": "v6 start and end ip not in the same subnet",
+            "translation": ""
+        },
+        {
             "id": "%s: Invalid IP address %s",
             "message": "%s: Invalid IP address %s",
             "translation": "%s: 无效的IP地址%s"
@@ -6307,34 +6392,24 @@
             "translation": "网关IP必须与起始、终止IP在同一个子网"
         },
         {
-            "id": "zone and vpc info required when wire is absent",
-            "message": "zone and vpc info required when wire is absent",
-            "translation": "当wire未指定时必须指定zone和vpc信息"
-        },
-        {
-            "id": "VPC not ready",
-            "message": "VPC not ready",
-            "translation": "VPC未准备好"
-        },
-        {
-            "id": "eip network can only exist in default vpc, got %s(%s)",
-            "message": "eip network can only exist in default vpc, got %s(%s)",
-            "translation": "EIP子网仅能存在于经典网络vpc中，实际为%s(%s)"
-        },
-        {
-            "id": "the wire %s and project %s has different class metadata",
-            "message": "the wire %s and project %s has different class metadata",
+            "id": "bad v6 gateway ip: %v",
+            "message": "bad v6 gateway ip: %v",
             "translation": ""
         },
         {
-            "id": "start and end ip when masked are not in the same cidr subnet",
-            "message": "start and end ip when masked are not in the same cidr subnet",
-            "translation": "起始、终止IP使用掩码后不属于同一个CIDR子网"
+            "id": "ipv6 gateway ip must be in the same subnet as start, end v6 ip",
+            "message": "ipv6 gateway ip must be in the same subnet as start, end v6 ip",
+            "translation": ""
         },
         {
             "id": "Network not in range of VPC cidrblock %s",
             "message": "Network not in range of VPC cidrblock %s",
             "translation": "子网不在VPC cidrblock %s范围内"
+        },
+        {
+            "id": "Network not in range of VPC ipv6 cidrblock %s",
+            "message": "Network not in range of VPC ipv6 cidrblock %s",
+            "translation": ""
         },
         {
             "id": "fail to GetNetworks of vpc: %v",
@@ -6367,9 +6442,44 @@
             "translation": "起始、终止IP必须在同一子网"
         },
         {
+            "id": "no start v6 ip",
+            "message": "no start v6 ip",
+            "translation": "缺少IPv6开始地址"
+        },
+        {
+            "id": "no end v6 ip",
+            "message": "no end v6 ip",
+            "translation": "缺少IPv6结束地址"
+        },
+        {
+            "id": "Conflict v6 address space with existing networks",
+            "message": "Conflict v6 address space with existing networks",
+            "translation": ""
+        },
+        {
+            "id": "Network not in range of VPC v6 cidrblock %s",
+            "message": "Network not in range of VPC v6 cidrblock %s",
+            "translation": ""
+        },
+        {
+            "id": "v6 address %s been assigned out of new range",
+            "message": "v6 address %s been assigned out of new range",
+            "translation": ""
+        },
+        {
+            "id": "start, end v6 ip must be in the same subnet",
+            "message": "start, end v6 ip must be in the same subnet",
+            "translation": "IPv6开始结束地址必须在子网地址段中"
+        },
+        {
             "id": "%s: Invalid domain name or IP address  %s",
             "message": "%s: Invalid domain name or IP address  %s",
             "translation": ""
+        },
+        {
+            "id": "bad ipv6 gateway ip: %v",
+            "message": "bad ipv6 gateway ip: %v",
+            "translation": "IPv6网关地址 %v 不正确"
         },
         {
             "id": "network server_type %s not support auto alloc",
@@ -6405,6 +6515,16 @@
             "id": "only on premise support this operation",
             "message": "only on premise support this operation",
             "translation": "仅本地IDC支持此操作"
+        },
+        {
+            "id": "only on premise classic network support this operation",
+            "message": "only on premise classic network support this operation",
+            "translation": "仅经典网络支持此操作"
+        },
+        {
+            "id": "only on premise pure-ipv4 classic network support this operation",
+            "message": "only on premise pure-ipv4 classic network support this operation",
+            "translation": "仅经典网络IPv4子网支持此操作"
         },
         {
             "id": "Invalid IP %s",
@@ -6992,6 +7112,11 @@
             "translation": "标记缓存状态出错：%s"
         },
         {
+            "id": "get host %s failed",
+            "message": "get host %s failed",
+            "translation": ""
+        },
+        {
             "id": "Invalid medium type %s",
             "message": "Invalid medium type %s",
             "translation": "无效的介质类型%s"
@@ -7062,6 +7187,16 @@
             "translation": "无效的external_access_mode %q，要求%s"
         },
         {
+            "id": "invalid cidr_block %s",
+            "message": "invalid cidr_block %s",
+            "translation": "无效的cidr_block %s"
+        },
+        {
+            "id": "invalid ipv6 cidr_block %s",
+            "message": "invalid ipv6 cidr_block %s",
+            "translation": "IPv6地址段 %s 不正确"
+        },
+        {
             "id": "not allow to delete default vpc",
             "message": "not allow to delete default vpc",
             "translation": "不允许删除默认VPC"
@@ -7080,11 +7215,6 @@
             "id": "VPC not empty, please delete vpc peering first",
             "message": "VPC not empty, please delete vpc peering first",
             "translation": ""
-        },
-        {
-            "id": "invalid cidr_block %s",
-            "message": "invalid cidr_block %s",
-            "translation": "无效的cidr_block %s"
         },
         {
             "id": "Cannot purge vpc on enabled cloud provider",
@@ -7209,6 +7339,11 @@
         {
             "id": "not empty zone: %s",
             "message": "not empty zone: %s",
+            "translation": ""
+        },
+        {
+            "id": "contains %d networks",
+            "message": "contains %d networks",
             "translation": ""
         },
         {
@@ -7667,6 +7802,11 @@
             "translation": "无效的子网类型%q，期望%q"
         },
         {
+            "id": "candidate %s out of range",
+            "message": "candidate %s out of range",
+            "translation": "候选IP %s不在范围内"
+        },
+        {
             "id": "requested ip %s is occupied!",
             "message": "requested ip %s is occupied!",
             "translation": ""
@@ -7827,11 +7967,6 @@
             "translation": "快照正被磁盘使用，无法删除"
         },
         {
-            "id": "disk need at least one of snapshot as backing file",
-            "message": "disk need at least one of snapshot as backing file",
-            "translation": "磁盘需要至少1个快照作为后备文件"
-        },
-        {
             "id": "Disk %s dosen't attach guest ?",
             "message": "Disk %s dosen't attach guest ?",
             "translation": "磁盘%s没有挂载到虚机"
@@ -7847,19 +7982,19 @@
             "translation": "虚机状态为%s时无法创建快照"
         },
         {
-            "id": "check disk snapshot count fail %s",
-            "message": "check disk snapshot count fail %s",
-            "translation": "检查磁盘快照数时出错：%s"
-        },
-        {
-            "id": "Disk %s snapshot full, cannot take any more",
-            "message": "Disk %s snapshot full, cannot take any more",
-            "translation": "磁盘%s快照数满，不可再创建"
+            "id": "This CLVM Storage[%s/%s] has already exist",
+            "message": "This CLVM Storage[%s/%s] has already exist",
+            "translation": ""
         },
         {
             "id": "This RBD Storage[%s/%s] has already exist",
             "message": "This RBD Storage[%s/%s] has already exist",
             "translation": "RBD存储%s(%s)已存在"
+        },
+        {
+            "id": "This SLVM Storage[%s/%s] has already exist",
+            "message": "This SLVM Storage[%s/%s] has already exist",
+            "translation": ""
         },
         {
             "id": "start_date should befor end_date",
@@ -8262,6 +8397,11 @@
             "translation": "加密出错：%s"
         },
         {
+            "id": "readonly",
+            "message": "readonly",
+            "translation": "只读"
+        },
+        {
             "id": "cannot delete default domain",
             "message": "cannot delete default domain",
             "translation": "不可删除默认域"
@@ -8295,11 +8435,6 @@
             "id": "domain is in use by policy",
             "message": "domain is in use by policy",
             "translation": "域中仍有权限定义"
-        },
-        {
-            "id": "readonly",
-            "message": "readonly",
-            "translation": "只读"
         },
         {
             "id": "default domain is protected",
@@ -8522,14 +8657,14 @@
             "translation": "无效的密码：%s"
         },
         {
-            "id": "cannot delete non-local non-sso user",
-            "message": "cannot delete non-local non-sso user",
-            "translation": "无法删除非本地的非SSO用户"
-        },
-        {
             "id": "cannot delete system user",
             "message": "cannot delete system user",
             "translation": "不可删除系统用户"
+        },
+        {
+            "id": "cannot delete non-local non-sso user",
+            "message": "cannot delete non-local non-sso user",
+            "translation": "无法删除非本地的非SSO用户"
         },
         {
             "id": "cannot join user and group in differnt domain",
@@ -8994,6 +9129,11 @@
         {
             "id": "Cannot delete system alert",
             "message": "Cannot delete system alert",
+            "translation": ""
+        },
+        {
+            "id": "invalid operator %s",
+            "message": "invalid operator %s",
             "translation": ""
         },
         {
