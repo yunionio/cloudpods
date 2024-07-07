@@ -441,7 +441,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 		}
 	} else if !isCors {
 		ctx := appctx.WithRequestLang(context.TODO(), r)
-		httperrors.NotFoundError(ctx, w, "Handler not found")
+		httperrors.NotFoundError(ctx, w, "Handler %s not found", "/"+strings.Join(segs, "/"))
 	}
 	return nil, nil
 }

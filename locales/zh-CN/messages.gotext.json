@@ -44,7 +44,7 @@
         {
             "id": "The IDP of user has been disabled or in invalid status",
             "message": "The IDP of user has been disabled or in invalid status",
-            "translation": ""
+            "translation": "用户已经被禁用或处于不可用状态"
         },
         {
             "id": "invalid credential",
@@ -332,11 +332,6 @@
             "translation": "第%d行，名称重复：%s"
         },
         {
-            "id": "template_id",
-            "message": "template_id",
-            "translation": ""
-        },
-        {
             "id": "template not found %s",
             "message": "template not found %s",
             "translation": "找不到模板：%s"
@@ -385,11 +380,6 @@
             "id": "syslog webservice not enabled",
             "message": "syslog webservice not enabled",
             "translation": "syslog服务未启用"
-        },
-        {
-            "id": "sync error",
-            "message": "sync error",
-            "translation": ""
         },
         {
             "id": "invalid CannedAction %s ",
@@ -617,6 +607,26 @@
             "translation": "输入的 redirect_host %s 异常"
         },
         {
+            "id": "negative tail lines",
+            "message": "negative tail lines",
+            "translation": ""
+        },
+        {
+            "id": "limit_bytes must be greater than zero",
+            "message": "limit_bytes must be greater than zero",
+            "translation": ""
+        },
+        {
+            "id": "at most one of since_time or since_seconds must be specified",
+            "message": "at most one of since_time or since_seconds must be specified",
+            "translation": ""
+        },
+        {
+            "id": "since_seconds must be greater than zero",
+            "message": "since_seconds must be greater than zero",
+            "translation": ""
+        },
+        {
             "id": "missing tags",
             "message": "missing tags",
             "translation": "缺少标签"
@@ -672,9 +682,9 @@
             "translation": "无效的handler：%s"
         },
         {
-            "id": "Handler not found",
-            "message": "Handler not found",
-            "translation": "未找到handler"
+            "id": "Handler %s not found",
+            "message": "Handler %s not found",
+            "translation": ""
         },
         {
             "id": "No request key: %s",
@@ -867,6 +877,16 @@
             "translation": "权限不够 %s:%s:%s (require:%s,allow:%s,query:%s)"
         },
         {
+            "id": "only sysadmin can clean history data",
+            "message": "only sysadmin can clean history data",
+            "translation": "只有管理员允许清理历史数据"
+        },
+        {
+            "id": "invalid input json",
+            "message": "invalid input json",
+            "translation": ""
+        },
+        {
             "id": "Not support resource %s tag filter",
             "message": "Not support resource %s tag filter",
             "translation": "不支持%s资源使用标签过滤"
@@ -890,6 +910,16 @@
             "id": "Query database error %s",
             "message": "Query database error %s",
             "translation": "数据库查询出错：%s"
+        },
+        {
+            "id": "invalid extra_resource %s",
+            "message": "invalid extra_resource %s",
+            "translation": ""
+        },
+        {
+            "id": "resource %s does not have field %s",
+            "message": "resource %s does not have field %s",
+            "translation": "资源%s没有%s字段"
         },
         {
             "id": "table %s not found",
@@ -1187,6 +1217,181 @@
             "translation": "无效的证书算法：%s，要求为%s"
         },
         {
+            "id": "host is nil",
+            "message": "host is nil",
+            "translation": ""
+        },
+        {
+            "id": "host_path is empty",
+            "message": "host_path is empty",
+            "translation": ""
+        },
+        {
+            "id": "container_path is empty",
+            "message": "container_path is empty",
+            "translation": ""
+        },
+        {
+            "id": "permissions is empty",
+            "message": "permissions is empty",
+            "translation": ""
+        },
+        {
+            "id": "wrong permission %s",
+            "message": "wrong permission %s",
+            "translation": ""
+        },
+        {
+            "id": "isolated_device is nil",
+            "message": "isolated_device is nil",
+            "translation": ""
+        },
+        {
+            "id": "one of index or id is required",
+            "message": "one of index or id is required",
+            "translation": ""
+        },
+        {
+            "id": "index is less than 0",
+            "message": "index is less than 0",
+            "translation": ""
+        },
+        {
+            "id": "can't specify id %s when creating pod",
+            "message": "can't specify id %s when creating pod",
+            "translation": ""
+        },
+        {
+            "id": "index is required",
+            "message": "index is required",
+            "translation": ""
+        },
+        {
+            "id": "disk.index %d is large than disk size %d",
+            "message": "disk.index %d is large than disk size %d",
+            "translation": ""
+        },
+        {
+            "id": "index %d is large than isolated device size %d",
+            "message": "index %d is large than isolated device size %d",
+            "translation": ""
+        },
+        {
+            "id": "id is empty",
+            "message": "id is empty",
+            "translation": ""
+        },
+        {
+            "id": "device type %s is not supported by container",
+            "message": "device type %s is not supported by container",
+            "translation": ""
+        },
+        {
+            "id": "not found pod device by %s",
+            "message": "not found pod device by %s",
+            "translation": ""
+        },
+        {
+            "id": "exec field",
+            "message": "exec field",
+            "translation": ""
+        },
+        {
+            "id": "command is required",
+            "message": "command is required",
+            "translation": ""
+        },
+        {
+            "id": "disk is nil",
+            "message": "disk is nil",
+            "translation": ""
+        },
+        {
+            "id": "disk.id is empty",
+            "message": "disk.id is empty",
+            "translation": ""
+        },
+        {
+            "id": "not found pod disk by %s",
+            "message": "not found pod disk by %s",
+            "translation": ""
+        },
+        {
+            "id": "can't specify disk_id %s when creating pod",
+            "message": "can't specify disk_id %s when creating pod",
+            "translation": ""
+        },
+        {
+            "id": "disk.index is required",
+            "message": "disk.index is required",
+            "translation": ""
+        },
+        {
+            "id": "disk.index %d is less than 0",
+            "message": "disk.index %d is less than 0",
+            "translation": ""
+        },
+        {
+            "id": "valid overlay %v",
+            "message": "valid overlay %v",
+            "translation": ""
+        },
+        {
+            "id": "invalid overlay input: %v",
+            "message": "invalid overlay input: %v",
+            "translation": ""
+        },
+        {
+            "id": "lower_dir is required",
+            "message": "lower_dir is required",
+            "translation": ""
+        },
+        {
+            "id": "empty %d dir",
+            "message": "empty %d dir",
+            "translation": ""
+        },
+        {
+            "id": "can't use '/' as lower_dir",
+            "message": "can't use '/' as lower_dir",
+            "translation": ""
+        },
+        {
+            "id": "disk %s must have template_id",
+            "message": "disk %s must have template_id",
+            "translation": ""
+        },
+        {
+            "id": "disk %#v must have image_id",
+            "message": "disk %#v must have image_id",
+            "translation": ""
+        },
+        {
+            "id": "host_path is nil",
+            "message": "host_path is nil",
+            "translation": ""
+        },
+        {
+            "id": "unsupported type %s",
+            "message": "unsupported type %s",
+            "translation": ""
+        },
+        {
+            "id": "path is required",
+            "message": "path is required",
+            "translation": ""
+        },
+        {
+            "id": "content",
+            "message": "content",
+            "translation": ""
+        },
+        {
+            "id": "text is nil",
+            "message": "text is nil",
+            "translation": ""
+        },
+        {
             "id": "cannot support more than 1 nic",
             "message": "cannot support more than 1 nic",
             "translation": "不支持多网卡"
@@ -1242,6 +1447,11 @@
             "translation": "无效的RAID配置：%v"
         },
         {
+            "id": "Invalid root disk matcher: %v",
+            "message": "Invalid root disk matcher: %v",
+            "translation": ""
+        },
+        {
             "id": "Host %s is not a baremetal",
             "message": "Host %s is not a baremetal",
             "translation": "宿主机%s不是一个裸金属服务器"
@@ -1274,7 +1484,7 @@
         {
             "id": "Memory size %q must be number[+unit], like 256M, 1G or 256",
             "message": "Memory size %q must be number[+unit], like 256M, 1G or 256",
-            "translation": ""
+            "translation": "内存大小%q必须是数字或数字单位组合, 例如 256M, 1G 或者 256"
         },
         {
             "id": "Params vmem_size parse error",
@@ -1292,24 +1502,14 @@
             "translation": "不能缩小第%d块磁盘大小"
         },
         {
-            "id": "Cann't online resize root disk",
-            "message": "Cann't online resize root disk",
-            "translation": "不支持在线扩容系统盘"
+            "id": "CloudpodsBaremetal %s is not ready",
+            "message": "CloudpodsBaremetal %s is not ready",
+            "translation": ""
         },
         {
-            "id": "Cannot resize disk when guest in status %s",
-            "message": "Cannot resize disk when guest in status %s",
-            "translation": "实例状态为%s时不支持扩容磁盘"
-        },
-        {
-            "id": "Not supported, please use kubectl",
-            "message": "Not supported, please use kubectl",
-            "translation": "不支持此操作，请使用kubectl"
-        },
-        {
-            "id": "Container not support %s",
-            "message": "Container not support %s",
-            "translation": "容器不支持%s"
+            "id": "CloudpodsBaremetal %s is occupied",
+            "message": "CloudpodsBaremetal %s is occupied",
+            "translation": ""
         },
         {
             "id": "The number of cpu sockets cannot be greater than the number of cpus",
@@ -1330,6 +1530,16 @@
             "id": "can't rebuild root for a guest with instance snapshots",
             "message": "can't rebuild root for a guest with instance snapshots",
             "translation": "无法为有主机快照的虚拟机重装系统"
+        },
+        {
+            "id": "Cann't online resize root disk",
+            "message": "Cann't online resize root disk",
+            "translation": "不支持在线扩容系统盘"
+        },
+        {
+            "id": "Cannot resize disk when guest in status %s",
+            "message": "Cannot resize disk when guest in status %s",
+            "translation": "实例状态为%s时不支持扩容磁盘"
         },
         {
             "id": "Unknown google storage type %s",
@@ -1364,7 +1574,7 @@
         {
             "id": "the host %s loses its ip address",
             "message": "the host %s loses its ip address",
-            "translation": ""
+            "translation": "宿主机%s丢失IP地址"
         },
         {
             "id": "Host %s not found",
@@ -1475,6 +1685,61 @@
             "id": "data disk not support storage type %s",
             "message": "data disk not support storage type %s",
             "translation": "数据盘不支持存储类型%s"
+        },
+        {
+            "id": "Container not support %s",
+            "message": "Container not support %s",
+            "translation": "容器不支持%s"
+        },
+        {
+            "id": "not support format %s for disk %d",
+            "message": "not support format %s for disk %d",
+            "translation": ""
+        },
+        {
+            "id": "pod data is empty",
+            "message": "pod data is empty",
+            "translation": ""
+        },
+        {
+            "id": "containers data is empty",
+            "message": "containers data is empty",
+            "translation": ""
+        },
+        {
+            "id": "type is required",
+            "message": "type is required",
+            "translation": ""
+        },
+        {
+            "id": "mount_path is required",
+            "message": "mount_path is required",
+            "translation": ""
+        },
+        {
+            "id": "port range start %d is large than %d",
+            "message": "port range start %d is large than %d",
+            "translation": ""
+        },
+        {
+            "id": "port range start %d \u003c= %d",
+            "message": "port range start %d \u003c= %d",
+            "translation": ""
+        },
+        {
+            "id": "port range end %d \u003e %d",
+            "message": "port range end %d \u003e %d",
+            "translation": ""
+        },
+        {
+            "id": "port number %d isn't within %d to %d",
+            "message": "port number %d isn't within %d to %d",
+            "translation": ""
+        },
+        {
+            "id": "unsupported protocol %s",
+            "message": "unsupported protocol %s",
+            "translation": "不支持%s协议"
         },
         {
             "id": "The %s disk size must be in the range of 10GB ~ 16000GB",
@@ -1617,9 +1882,9 @@
             "translation": "磁盘必须已解绑"
         },
         {
-            "id": "not supported",
-            "message": "not supported",
-            "translation": ""
+            "id": "not supported resize disk",
+            "message": "not supported resize disk",
+            "translation": "不支持扩容磁盘"
         },
         {
             "id": "%s is not mount point %s",
@@ -1684,11 +1949,11 @@
         {
             "id": "can not reset with disk associate with guests",
             "message": "can not reset with disk associate with guests",
-            "translation": ""
+            "translation": "不允许挂载中的磁盘重置"
         },
         {
-            "id": "Qcloud reset disk required guest status is running or read",
-            "message": "Qcloud reset disk required guest status is running or read",
+            "id": "Qcloud reset disk required guest status is running or ready",
+            "message": "Qcloud reset disk required guest status is running or ready",
             "translation": "腾讯云重置磁盘要求虚机状态必须是运行中或已关机"
         },
         {
@@ -1702,8 +1967,8 @@
             "translation": "Ucloud仅支持数据盘重置操作"
         },
         {
-            "id": "Volcengine reset disk required guest status is running or read",
-            "message": "Volcengine reset disk required guest status is running or read",
+            "id": "Volcengine reset disk required guest status is running or ready",
+            "message": "Volcengine reset disk required guest status is running or ready",
             "translation": ""
         },
         {
@@ -1769,7 +2034,7 @@
         {
             "id": "WebApp has %d task active, can't sync status",
             "message": "WebApp has %d task active, can't sync status",
-            "translation": ""
+            "translation": "应用程序有%d个任务进行中，请稍后进行同步状态"
         },
         {
             "id": "Invalid storage type %s",
@@ -2104,17 +2369,12 @@
         {
             "id": "%s not support cdn",
             "message": "%s not support cdn",
-            "translation": ""
+            "translation": "%s不支持CDN"
         },
         {
             "id": "CDN domain has %d task active, can't sync status",
             "message": "CDN domain has %d task active, can't sync status",
-            "translation": ""
-        },
-        {
-            "id": "account %s not enable saml auth",
-            "message": "account %s not enable saml auth",
-            "translation": "云账号%s为启用SAML认证"
+            "translation": "CDN已有%d个任务进行中，请稍后再试"
         },
         {
             "id": "account is enabled",
@@ -2190,11 +2450,6 @@
             "id": "Account disabled",
             "message": "Account disabled",
             "translation": "账号已禁用"
-        },
-        {
-            "id": "Account is not idle",
-            "message": "Account is not idle",
-            "translation": "账号正在同步中，稍后再试"
         },
         {
             "id": "Unable to synchronize frequently",
@@ -2350,6 +2605,71 @@
             "id": "Cannot update external resource",
             "message": "Cannot update external resource",
             "translation": "不允许更新外部资源"
+        },
+        {
+            "id": "not found driver by type %q",
+            "message": "not found driver by type %q",
+            "translation": ""
+        },
+        {
+            "id": "guest_id is required",
+            "message": "guest_id is required",
+            "translation": ""
+        },
+        {
+            "id": "invalid image_pull_policy %s",
+            "message": "invalid image_pull_policy %s",
+            "translation": ""
+        },
+        {
+            "id": "/dev/shm size is small than 64MB",
+            "message": "/dev/shm size is small than 64MB",
+            "translation": ""
+        },
+        {
+            "id": "get lifecycle driver: %v",
+            "message": "get lifecycle driver: %v",
+            "translation": ""
+        },
+        {
+            "id": "get device driver: %v",
+            "message": "get device driver: %v",
+            "translation": ""
+        },
+        {
+            "id": "current status %s is not %s",
+            "message": "current status %s is not %s",
+            "translation": ""
+        },
+        {
+            "id": "Can't start container in status %s",
+            "message": "Can't start container in status %s",
+            "translation": ""
+        },
+        {
+            "id": "Can't stop container in status %s",
+            "message": "Can't stop container in status %s",
+            "translation": ""
+        },
+        {
+            "id": "Can't save volume disk of container in status %s",
+            "message": "Can't save volume disk of container in status %s",
+            "translation": ""
+        },
+        {
+            "id": "Can't save volume disk of pod in status %s",
+            "message": "Can't save volume disk of pod in status %s",
+            "translation": ""
+        },
+        {
+            "id": "Only %d volume_mounts",
+            "message": "Only %d volume_mounts",
+            "translation": ""
+        },
+        {
+            "id": "Can't exec container in status %s",
+            "message": "Can't exec container in status %s",
+            "translation": ""
         },
         {
             "id": "not allow update rds account name",
@@ -2607,6 +2927,11 @@
             "translation": ""
         },
         {
+            "id": "fetch container by %s",
+            "message": "fetch container by %s",
+            "translation": ""
+        },
+        {
             "id": "not support update disk_type %s",
             "message": "not support update disk_type %s",
             "translation": "不支持变更磁盘类型为%s"
@@ -2615,11 +2940,6 @@
             "id": "failed to find storage for disk %s",
             "message": "failed to find storage for disk %s",
             "translation": "找不到磁盘%s对应的存储"
-        },
-        {
-            "id": "failed to find host for storage %s with disk %s",
-            "message": "failed to find host for storage %s with disk %s",
-            "translation": "无法为存储%s和磁盘%s找不到对应的宿主机"
         },
         {
             "id": "disk create from existing disk must give storage",
@@ -2635,11 +2955,6 @@
             "id": "cloudprovider %s not available",
             "message": "cloudprovider %s not available",
             "translation": "云订阅 %s 不可用"
-        },
-        {
-            "id": "storage %s(%s) need online and attach host for create disk",
-            "message": "storage %s(%s) need online and attach host for create disk",
-            "translation": "存储%s(%s)需挂载到宿主机达到在线状态"
         },
         {
             "id": "Cannot create disk with disabled storage[%s]",
@@ -2672,31 +2987,6 @@
             "translation": "空闲空间不够"
         },
         {
-            "id": "Fetch snapshot count failed %s",
-            "message": "Fetch snapshot count failed %s",
-            "translation": "获取快照数失败：%s"
-        },
-        {
-            "id": "Disk %s don't need convert snapshots",
-            "message": "Disk %s don't need convert snapshots",
-            "translation": "磁盘%s不需要转换快照"
-        },
-        {
-            "id": "Can not get disk snapshot",
-            "message": "Can not get disk snapshot",
-            "translation": "无法获得磁盘快照"
-        },
-        {
-            "id": "Get convert snapshot failed: %s",
-            "message": "Get convert snapshot failed: %s",
-            "translation": "获取转换快照对象失败：%s"
-        },
-        {
-            "id": "Snapshot %s dose not have convert snapshot",
-            "message": "Snapshot %s dose not have convert snapshot",
-            "translation": "快照%s没有转换快照对象"
-        },
-        {
             "id": "Cannot reset disk in status %s",
             "message": "Cannot reset disk in status %s",
             "translation": "无法重置状态为%s的磁盘"
@@ -2710,6 +3000,16 @@
             "id": "Cannot reset disk %s(%s),Snapshot is belong to disk %s",
             "message": "Cannot reset disk %s(%s),Snapshot is belong to disk %s",
             "translation": "无法重置磁盘%s(%s)，因快照属于磁盘%s"
+        },
+        {
+            "id": "Disk attached guest, cannot migrate",
+            "message": "Disk attached guest, cannot migrate",
+            "translation": "磁盘已挂载，不支持迁移"
+        },
+        {
+            "id": "Cannot migrate disk from storage type %s to %s",
+            "message": "Cannot migrate disk from storage type %s to %s",
+            "translation": ""
         },
         {
             "id": "Resize disk when disk is READY",
@@ -2732,14 +3032,14 @@
             "translation": "disk.GetQuotaKeys失败：%s"
         },
         {
-            "id": "No zone for this disk",
-            "message": "No zone for this disk",
-            "translation": "该磁盘没有zone信息"
-        },
-        {
             "id": "Duplicate image name %s",
             "message": "Duplicate image name %s",
             "translation": "重复的镜像名%s"
+        },
+        {
+            "id": "No zone for this disk",
+            "message": "No zone for this disk",
+            "translation": "该磁盘没有zone信息"
         },
         {
             "id": "Save disk when disk is READY",
@@ -2845,6 +3145,11 @@
             "id": "The snapshot policy %s and the disk are in different region",
             "message": "The snapshot policy %s and the disk are in different region",
             "translation": "自动快照策略%s与磁盘所在的区域不匹配"
+        },
+        {
+            "id": "Guest %s status is %s",
+            "message": "Guest %s status is %s",
+            "translation": ""
         },
         {
             "id": "invalid record name %s",
@@ -3214,7 +3519,7 @@
         {
             "id": "loadbalancer is already associated with eip",
             "message": "loadbalancer is already associated with eip",
-            "translation": ""
+            "translation": "负载均衡已绑定弹性公网IP"
         },
         {
             "id": "eip cannot dissociate in status %s",
@@ -3337,11 +3642,6 @@
             "translation": "状态为%s时无法发送命令"
         },
         {
-            "id": "No host for server",
-            "message": "No host for server",
-            "translation": "无法找到虚机所在宿主机"
-        },
-        {
             "id": "Cannot save image in status %s",
             "message": "Cannot save image in status %s",
             "translation": "状态为%s时不可保持镜像"
@@ -3384,7 +3684,7 @@
         {
             "id": "cannot clone encrypted server",
             "message": "cannot clone encrypted server",
-            "translation": ""
+            "translation": "不支持克隆加密虚拟机"
         },
         {
             "id": "Can't clone guest with backup guest",
@@ -3410,6 +3710,11 @@
             "id": "update keypairId %v",
             "message": "update keypairId %v",
             "translation": ""
+        },
+        {
+            "id": "login_account is longer than 32 chars",
+            "message": "login_account is longer than 32 chars",
+            "translation": "login_account长度已超过32字节"
         },
         {
             "id": "Cannot deploy in status %s",
@@ -3524,7 +3829,7 @@
         {
             "id": "Floppy not empty, please eject first",
             "message": "Floppy not empty, please eject first",
-            "translation": ""
+            "translation": "软盘已挂载，请先卸载"
         },
         {
             "id": "No VFD to eject",
@@ -3652,9 +3957,9 @@
             "translation": "获取GPU失败：%s"
         },
         {
-            "id": "guest %s host %s isolated device not enough",
-            "message": "guest %s host %s isolated device not enough",
-            "translation": "虚机%s所在宿主机%s透传设备不足"
+            "id": "require %d %s isolated device of host %s is not enough",
+            "message": "require %d %s isolated device of host %s is not enough",
+            "translation": ""
         },
         {
             "id": "Can't separately attach dev type %s",
@@ -4089,7 +4394,7 @@
         {
             "id": "invalid IPv4 address %s",
             "message": "invalid IPv4 address %s",
-            "translation": ""
+            "translation": "不正确的IPv4地址 %s"
         },
         {
             "id": "Unreachable IP %s: %s",
@@ -4195,11 +4500,6 @@
             "id": "guest can't do snapshot in status %s",
             "message": "guest can't do snapshot in status %s",
             "translation": "虚机状态为%s无法做快照"
-        },
-        {
-            "id": "guests disk %d snapshot full, can't take anymore",
-            "message": "guests disk %d snapshot full, can't take anymore",
-            "translation": "虚机%d号磁盘快照数达到上限，不可再创建"
         },
         {
             "id": "Check set pending quota error %s",
@@ -4407,8 +4707,18 @@
             "translation": "虚机必须为关机状态"
         },
         {
+            "id": "input network configs length must equal guestnetworks length",
+            "message": "input network configs length must equal guestnetworks length",
+            "translation": ""
+        },
+        {
             "id": "input network configs length  must equal guestnetworks length",
             "message": "input network configs length  must equal guestnetworks length",
+            "translation": ""
+        },
+        {
+            "id": "missing guest ids",
+            "message": "missing guest ids",
             "translation": ""
         },
         {
@@ -4664,7 +4974,7 @@
         {
             "id": "hostname should be a legal domain name",
             "message": "hostname should be a legal domain name",
-            "translation": ""
+            "translation": "主机名必须是合法的域名"
         },
         {
             "id": "can't find instance snapshot %s",
@@ -4705,11 +5015,6 @@
             "id": "metdata must less then 20",
             "message": "metdata must less then 20",
             "translation": "metadata条目数不可超过20"
-        },
-        {
-            "id": "login_account is longer than 32 chars",
-            "message": "login_account is longer than 32 chars",
-            "translation": "login_account长度已超过32字节"
         },
         {
             "id": "No bootable disk information provided",
@@ -4954,7 +5259,7 @@
         {
             "id": "hostname cannot be number %d",
             "message": "hostname cannot be number %d",
-            "translation": ""
+            "translation": "主机名不能是数字%d"
         },
         {
             "id": "Windows hostname cannot be longer than %d characters",
@@ -4970,11 +5275,6 @@
             "id": "Schedtag %s not found",
             "message": "Schedtag %s not found",
             "translation": "找不到调度标签"
-        },
-        {
-            "id": "not supported hypervisor %s",
-            "message": "not supported hypervisor %s",
-            "translation": "不支持hypervisor %s"
         },
         {
             "id": "Host is a converted baremetal, should be unconverted before delete",
@@ -5345,11 +5645,6 @@
             "id": "require system previleges to convert host in other domain",
             "message": "require system previleges to convert host in other domain",
             "translation": "转换其它域的宿主机需要系统权限"
-        },
-        {
-            "id": "Unsupport driver type %s",
-            "message": "Unsupport driver type %s",
-            "translation": "不支持驱动%s"
         },
         {
             "id": "isAlterNameUnique fail %s",
@@ -6157,11 +6452,6 @@
             "translation": ""
         },
         {
-            "id": "cannot fetch network of guestnetwork %d",
-            "message": "cannot fetch network of guestnetwork %d",
-            "translation": ""
-        },
-        {
             "id": "allocate ip addr: %v",
             "message": "allocate ip addr: %v",
             "translation": ""
@@ -6185,11 +6475,6 @@
             "id": "Out of IP address",
             "message": "Out of IP address",
             "translation": "找不到可用IP地址"
-        },
-        {
-            "id": "candidate %s out of range",
-            "message": "candidate %s out of range",
-            "translation": "候选IP %s不在范围内"
         },
         {
             "id": "no allow to access network %s",
@@ -6260,6 +6545,11 @@
             "id": "network %s(%s) has no free addresses",
             "message": "network %s(%s) has no free addresses",
             "translation": "子网%s(%s)已没有可用地址"
+        },
+        {
+            "id": "invalid ip or prefix %s",
+            "message": "invalid ip or prefix %s",
+            "translation": ""
         },
         {
             "id": "Duration %s invalid",
@@ -7362,6 +7652,11 @@
             "translation": ""
         },
         {
+            "id": "contains %d networks",
+            "message": "contains %d networks",
+            "translation": ""
+        },
+        {
             "id": "failed to found cloudregion %s",
             "message": "failed to found cloudregion %s",
             "translation": "找不到cloudregion %s"
@@ -7817,6 +8112,11 @@
             "translation": "无效的子网类型%q，期望%q"
         },
         {
+            "id": "candidate %s out of range",
+            "message": "candidate %s out of range",
+            "translation": "候选IP %s不在范围内"
+        },
+        {
             "id": "requested ip %s is occupied!",
             "message": "requested ip %s is occupied!",
             "translation": ""
@@ -7977,11 +8277,6 @@
             "translation": "快照正被磁盘使用，无法删除"
         },
         {
-            "id": "disk need at least one of snapshot as backing file",
-            "message": "disk need at least one of snapshot as backing file",
-            "translation": "磁盘需要至少1个快照作为后备文件"
-        },
-        {
             "id": "Disk %s dosen't attach guest ?",
             "message": "Disk %s dosen't attach guest ?",
             "translation": "磁盘%s没有挂载到虚机"
@@ -7997,19 +8292,19 @@
             "translation": "虚机状态为%s时无法创建快照"
         },
         {
-            "id": "check disk snapshot count fail %s",
-            "message": "check disk snapshot count fail %s",
-            "translation": "检查磁盘快照数时出错：%s"
-        },
-        {
-            "id": "Disk %s snapshot full, cannot take any more",
-            "message": "Disk %s snapshot full, cannot take any more",
-            "translation": "磁盘%s快照数满，不可再创建"
+            "id": "This CLVM Storage[%s/%s] has already exist",
+            "message": "This CLVM Storage[%s/%s] has already exist",
+            "translation": ""
         },
         {
             "id": "This RBD Storage[%s/%s] has already exist",
             "message": "This RBD Storage[%s/%s] has already exist",
             "translation": "RBD存储%s(%s)已存在"
+        },
+        {
+            "id": "This SLVM Storage[%s/%s] has already exist",
+            "message": "This SLVM Storage[%s/%s] has already exist",
+            "translation": ""
         },
         {
             "id": "start_date should befor end_date",
@@ -8977,6 +9272,16 @@
             "translation": "不支持的动作%s"
         },
         {
+            "id": "container_id",
+            "message": "container_id",
+            "translation": ""
+        },
+        {
+            "id": "not found guest_id from container %s",
+            "message": "not found guest_id from container %s",
+            "translation": ""
+        },
+        {
             "id": "cluster system-default no id",
             "message": "cluster system-default no id",
             "translation": ""
@@ -9144,6 +9449,11 @@
         {
             "id": "Cannot delete system alert",
             "message": "Cannot delete system alert",
+            "translation": ""
+        },
+        {
+            "id": "invalid operator %s",
+            "message": "invalid operator %s",
             "translation": ""
         },
         {
