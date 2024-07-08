@@ -40,11 +40,18 @@ func (smsSender *SMobileSender) Send(ctx context.Context, args api.SendParams) e
 		RemoteTemplate:      args.RemoteTemplate,
 		RemoteTemplateParam: args.RemoteTemplateParam,
 	}
-	smsdriver := models.GetSMSDriver(models.ConfigMap[api.MOBILE].Content.SmsDriver)
+	config, ok := models.ConfigMap[api.MOBILE]
+	if !ok {
+		return errors.Wrapf(errors.ErrNotFound, "no set %s config", api.MOBILE)
+	}
+	if config.Content == nil {
+		return errors.Wrapf(errors.ErrNotFound, "no %s content found", api.MOBILE)
+	}
+	smsdriver := models.GetSMSDriver(config.Content.SmsDriver)
 	return smsdriver.Send(smsSendParams, false, &api.NotifyConfig{
-		SNotifyConfigContent: *models.ConfigMap[api.MOBILE].Content,
-		Attribution:          models.ConfigMap[api.MOBILE].Attribution,
-		DomainId:             models.ConfigMap[api.MOBILE].DomainId,
+		SNotifyConfigContent: *config.Content,
+		Attribution:          config.Attribution,
+		DomainId:             config.DomainId,
 	})
 }
 
