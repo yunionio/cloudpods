@@ -228,7 +228,7 @@ type HostDetails struct {
 	AutoMigrateOnHostShutdown bool `json:"auto_migrate_on_host_shutdown"`
 
 	// reserved resource for isolated device
-	ReservedResourceForGpu IsolatedDeviceReservedResourceInput `json:"reserved_resource_for_gpu"`
+	ReservedResourceForGpu *IsolatedDeviceReservedResourceInput `json:"reserved_resource_for_gpu"`
 	// isolated device count
 	IsolatedDeviceCount int
 
