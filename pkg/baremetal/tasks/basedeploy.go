@@ -32,8 +32,8 @@ type IServerBaseDeployTask interface {
 	IPXEBootTask
 
 	RemoveEFIOSEntry() bool
-	DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error)
-	PostDeploys(term *ssh.Client) error
+	DoDeploys(ctx context.Context, term *ssh.Client) (jsonutils.JSONObject, error)
+	PostDeploys(ctx context.Context, term *ssh.Client) error
 }
 
 type SBaremetalServerBaseDeployTask struct {
@@ -85,11 +85,11 @@ func (self *SBaremetalServerBaseDeployTask) RemoveEFIOSEntry() bool {
 	return false
 }
 
-func (self *SBaremetalServerBaseDeployTask) DoDeploys(_ *ssh.Client) (jsonutils.JSONObject, error) {
+func (self *SBaremetalServerBaseDeployTask) DoDeploys(ctx context.Context, _ *ssh.Client) (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
-func (self *SBaremetalServerBaseDeployTask) PostDeploys(_ *ssh.Client) error {
+func (self *SBaremetalServerBaseDeployTask) PostDeploys(_ context.Context, _ *ssh.Client) error {
 	return nil
 }
 
@@ -102,7 +102,7 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 		}
 	}
 
-	result, err := self.IServerBaseDeployTask().DoDeploys(term)
+	result, err := self.IServerBaseDeployTask().DoDeploys(ctx, term)
 	if err != nil {
 		return errors.Wrap(err, "Do deploy")
 	}
@@ -119,7 +119,7 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 		return errors.Wrap(err, "Sync disk")
 	}
 
-	if err := self.IServerBaseDeployTask().PostDeploys(term); err != nil {
+	if err := self.IServerBaseDeployTask().PostDeploys(ctx, term); err != nil {
 		return errors.Wrap(err, "post deploy")
 	}
 
