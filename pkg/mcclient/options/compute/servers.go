@@ -1491,6 +1491,16 @@ func (o *ServerAddSubIpsOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
 
+type ServerUpdateSubIpsOptions struct {
+	ServerIdOptions
+
+	computeapi.GuestUpdateSubIpsInput
+}
+
+func (o *ServerUpdateSubIpsOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type ServerSetOSInfoOptions struct {
 	ServerIdsOptions
 
