@@ -383,6 +383,10 @@ func (d *GuestMetrics) toTelegrafData(tags map[string]string) []string {
 	res = append(res, fmt.Sprintf("%s,%s %s", "vm_mem", tagStr, mapToStatStr(d.VmMem.ToMap())))
 	res = append(res, fmt.Sprintf("%s,%s %s", "vm_diskio", tagStr, mapToStatStr(d.VmDiskio.ToMap())))
 	for i := range d.VmNetio {
+		netTagMap := d.VmNetio[i].ToTag()
+		for k, v := range netTagMap {
+			tagStr = fmt.Sprintf("%s,%s=%s", tagStr, k, v)
+		}
 		res = append(res, fmt.Sprintf("%s,%s %s", "vm_netio", tagStr, mapToStatStr(d.VmNetio[i].ToMap())))
 	}
 	return res
@@ -616,6 +620,7 @@ func (m *SGuestMonitor) Netio() []*NetIOMetric {
 		}
 		data.Meta.Ip = ip
 		data.Meta.Index = i
+		data.Meta.Mac = nic.Mac
 		data.Meta.Ifname = ifname
 		data.Meta.NetId = nic.NetId
 		data.Meta.Uptime, _ = host.Uptime()
@@ -683,9 +688,19 @@ func (n *NetIOMetric) ToMap() map[string]interface{} {
 	}
 }
 
+func (n *NetIOMetric) ToTag() map[string]string {
+	return map[string]string{
+		"interface":      fmt.Sprintf("eth%d", n.Meta.Index),
+		"host_interface": n.Meta.Ifname,
+		"mac":            n.Meta.Mac,
+		"ip":             n.Meta.Ip,
+	}
+}
+
 type NetMeta struct {
 	IpType string `json:"ip_type"`
 	Ip     string `json:"ip"`
+	Mac    string `json:"mac"`
 	Index  int    `json:"index"`
 	Ifname string `json:"ifname"`
 	NetId  string `json:"net_id"`
