@@ -476,6 +476,278 @@ func TestCalculateLayout(t *testing.T) {
 	}
 }
 
+func TestCalculateLayout2(t *testing.T) {
+	adapater0 := 0
+	confs := []*api.BaremetalDiskConfig{
+		{
+			Adapter: &adapater0,
+			Conf:    DISK_CONF_RAID1,
+			Count:   2,
+			Driver:  DISK_DRIVER_MEGARAID,
+			Range:   []int64{12, 13},
+			Type:    DISK_TYPE_ROTATE,
+		},
+		{
+			Adapter: &adapater0,
+			Conf:    DISK_CONF_RAID10,
+			Count:   12,
+			Driver:  DISK_DRIVER_MEGARAID,
+			Range:   []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+			Type:    DISK_TYPE_ROTATE,
+		},
+		{
+			Adapter: &adapater0,
+			Conf:    DISK_CONF_NONE,
+			Count:   1,
+			Driver:  DISK_DRIVER_PCIE,
+			Range:   []int64{0},
+			Type:    DISK_TYPE_SSD,
+		},
+	}
+	storages := []*BaremetalStorage{}
+	storageJson := `[
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1A1JPM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 0,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1AMGGM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 1,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1AN53M",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 2,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1ATVBM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 3,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1AR4VM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 4,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1ARYBM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 5,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1AS36M",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 6,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1A1K6M",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 7,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1AM98M",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 8,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1ATTLM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 9,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1AR3DM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 10,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "HGST HUS728T8TAL5200 A9Y2VY1AN3DM",
+        "rotate": true,
+        "sector": 15626993664,
+        "size": 7630368,
+        "slot": 11,
+        "status": "unconfigured_good"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "TOSHIBA AL15SEB060N 310253K0A07BFYVH",
+        "rotate": true,
+        "sector": 1171062784,
+        "size": 571808,
+        "slot": 12,
+        "status": "online"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "driver": "MegaRaid",
+        "enclousure": 65,
+        "index": 0,
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "model": "TOSHIBA AL15SEB060N 310253K0A0EDFYVH",
+        "rotate": true,
+        "sector": 1171062784,
+        "size": 571808,
+        "slot": 13,
+        "status": "online"
+    },
+    {
+        "adapter": 0,
+        "block": 512,
+        "dev": "nvme0n1",
+        "driver": "",
+        "enclousure": 0,
+        "index": 0,
+        "kernel": "unknown",
+        "max_strip_size": 0,
+        "min_strip_size": 0,
+        "module": "INSPUR-NS8600G2U640",
+        "pci_class": "unknown",
+        "rotate": false,
+        "sector": 12502446768,
+        "size": 6104710,
+        "slot": 0
+    }
+]`
+	storageObj, err := jsonutils.ParseString(storageJson)
+	if err != nil {
+		t.Fatalf("parse json error: %v", err)
+	}
+	if err := storageObj.Unmarshal(&storages); err != nil {
+		t.Fatalf("unmarshal json to storages: %v", err)
+	}
+	layout, err := CalculateLayout(confs, storages)
+	if err != nil {
+		t.Fatalf("calculate layout: %v", err)
+	}
+	log.Infof("layout: %+v", layout)
+}
+
 func TestCheckDisksAllocable(t *testing.T) {
 	confs, err := NewBaremetalDiskConfigs(
 		"[0-1]:raid1:(100g,32g,):adapter0",
@@ -1211,12 +1483,12 @@ func TestRetrieveStorages(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotSelected, gotRest := RetrieveStorages(tt.args.diskConfig, tt.args.storages)
+			gotSelected, gotRest, err := RetrieveStorages(tt.args.diskConfig, tt.args.storages)
 			if !reflect.DeepEqual(gotSelected, tt.wantSelected) {
-				t.Errorf("RetrieveStorages() gotSelected = %v, want %v", gotSelected, tt.wantSelected)
+				t.Errorf("RetrieveStorages() gotSelected = %v, want %v, err: %s", gotSelected, tt.wantSelected, err)
 			}
 			if !reflect.DeepEqual(gotRest, tt.wantRest) {
-				t.Errorf("RetrieveStorages() gotRest = %v, want %v", gotRest, tt.wantRest)
+				t.Errorf("RetrieveStorages() gotRest = %v, want %v, err: %s", gotRest, tt.wantRest, err)
 			}
 		})
 	}
