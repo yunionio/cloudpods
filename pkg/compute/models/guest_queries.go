@@ -249,7 +249,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			for i := range rows {
 				for _, gcd := range gcds[guestIds[i]] {
 					if details := gcd.GetDetails(); len(details) > 0 {
-						t := api.Cdrom{Ordinal: gcd.Ordinal, Detail: details, BootIndex: gcd.BootIndex}
+						t := api.Cdrom{Ordinal: gcd.Ordinal, Detail: details, BootIndex: gcd.BootIndex, Name: gcd.Name}
 						rows[i].Cdrom = append(rows[i].Cdrom, t)
 					}
 				}
@@ -727,7 +727,19 @@ func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevi
 }
 
 func fetchGuestCdroms(guestIds []string) map[string][]SGuestcdrom {
-	q := GuestcdromManager.Query().In("id", guestIds)
+	sq := GuestcdromManager.Query().In("id", guestIds).SubQuery()
+	image := CachedimageManager.Query().SubQuery()
+
+	q := sq.Query(
+		sq.Field("id"),
+		sq.Field("path"),
+		sq.Field("boot_index"),
+		sq.Field("image_id"),
+		image.Field("size"),
+		image.Field("name"),
+	)
+	q = q.LeftJoin(image, sqlchemy.Equals(sq.Field("image_id"), image.Field("id")))
+
 	gcds := make([]SGuestcdrom, 0)
 	err := q.All(&gcds)
 	if err != nil {
