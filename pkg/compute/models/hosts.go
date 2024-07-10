@@ -3194,95 +3194,218 @@ func (hh *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 	return &stat
 }
 
-func (hh *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, showReason bool) api.HostDetails {
-	server := hh.GetBaremetalServer()
-	if server != nil {
-		out.ServerId = server.Id
-		out.Server = server.Name
-		out.ServerPendingDeleted = server.PendingDeleted
-		if hh.HostType == api.HOST_TYPE_BAREMETAL {
-			out.ServerIps = strings.Join(server.GetRealIPs(), ",")
+func fetchHostGuestResource(hostIds []string, status string) (map[string]SHostGuestResourceUsage, error) {
+	guests := GuestManager.Query()
+	cond := sqlchemy.OR(sqlchemy.In(guests.Field("host_id"), hostIds),
+		sqlchemy.In(guests.Field("backup_host_id"), hostIds))
+	guests = guests.Filter(cond)
+	if len(status) > 0 {
+		guests = guests.Equals("status", status)
+	}
+
+	sq := guests.SubQuery()
+	q := sq.Query(
+		sqlchemy.COUNT("id").Label("guest_count"),
+		sq.Field("host_id"),
+		sqlchemy.SUM("guest_vcpu_count", sq.Field("vcpu_count")),
+		sqlchemy.SUM("guest_vmem_size", sq.Field("vmem_size")),
+	).GroupBy(sq.Field("host_id"))
+	stat := []struct {
+		HostId string
+		SHostGuestResourceUsage
+	}{}
+	err := q.All(&stat)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string]SHostGuestResourceUsage{}
+	for i := range stat {
+		ret[stat[i].HostId] = stat[i].SHostGuestResourceUsage
+	}
+	return ret, nil
+}
+
+func fetchHostNics(hostIds []string) (map[string][]*types.SNic, error) {
+	nicQ := NetInterfaceManager.Query().In("baremetal_id", hostIds).SubQuery()
+
+	wires := WireManager.Query().SubQuery()
+	zones := ZoneManager.Query().SubQuery()
+	hn := HostnetworkManager.Query().SubQuery()
+	networks := NetworkManager.Query().SubQuery()
+	q := nicQ.Query(
+		nicQ.Field("mac"),
+		nicQ.Field("vlan_id"),
+		nicQ.Field("baremetal_id"),
+		nicQ.Field("wire_id"),
+		nicQ.Field("rate"),
+		nicQ.Field("nic_type"),
+		nicQ.Field("index"),
+		nicQ.Field("link_up"),
+		nicQ.Field("bridge"),
+		nicQ.Field("mtu"),
+		wires.Field("name").Label("wire"),
+		wires.Field("bandwidth"),
+		hn.Field("ip_addr"),
+		networks.Field("guest_gateway").Label("gateway"),
+		networks.Field("guest_dns").Label("dns"),
+		networks.Field("guest_domain").Label("domain"),
+		networks.Field("guest_ntp").Label("ntp"),
+		networks.Field("guest_ip_mask").Label("masklen"),
+		networks.Field("name").Label("net"),
+		networks.Field("id").Label("net_id"),
+		zones.Field("name").Label("zone"),
+	)
+
+	q = q.LeftJoin(wires, sqlchemy.Equals(wires.Field("id"), nicQ.Field("wire_id")))
+	q = q.LeftJoin(hn, sqlchemy.AND(
+		sqlchemy.Equals(nicQ.Field("baremetal_id"), hn.Field("baremetal_id")),
+		sqlchemy.Equals(nicQ.Field("mac"), hn.Field("mac_addr")),
+		sqlchemy.Equals(nicQ.Field("vlan_id"), hn.Field("vlan_id")),
+	))
+
+	q = q.LeftJoin(networks, sqlchemy.Equals(hn.Field("network_id"), networks.Field("id")))
+	q = q.LeftJoin(zones, sqlchemy.Equals(wires.Field("zone_id"), zones.Field("id")))
+
+	nics := []struct {
+		types.SNic
+		BaremetalId string
+		Zone        string
+	}{}
+	err := q.All(&nics)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := map[string][]*types.SNic{}
+	for _, nic := range nics {
+		_, ok := ret[nic.BaremetalId]
+		if !ok {
+			ret[nic.BaremetalId] = []*types.SNic{}
 		}
-	}
-	nics := hh.GetNics()
-	if nics != nil && len(nics) > 0 {
-		// nicInfos := []jsonutils.JSONObject{}
-		// for i := 0; i < len(nics); i += 1 {
-		// 	nicInfos = append(nicInfos, jsonutils.Marshal(nics[i]))
-		// }
-		out.NicCount = len(nics)
-		out.NicInfo = nics
-	}
-	out.Schedtags = GetSchedtagsDetailsToResourceV2(hh, ctx)
-	var usage *SHostGuestResourceUsage
-	if options.Options.IgnoreNonrunningGuests {
-		usage = hh.getGuestsResource(api.VM_RUNNING)
-	} else {
-		usage = hh.getGuestsResource("")
-	}
-	if usage != nil {
-		out.CpuCommit = usage.GuestVcpuCount
-		out.MemCommit = usage.GuestVmemSize
-	}
-	totalCpu := hh.GetCpuCount()
-	cpuCommitRate := 0.0
-	if totalCpu > 0 && usage.GuestVcpuCount > 0 {
-		cpuCommitRate = float64(usage.GuestVcpuCount) * 1.0 / float64(totalCpu)
-	}
-	out.CpuCommitRate = cpuCommitRate
-	totalMem := hh.GetMemSize()
-	memCommitRate := 0.0
-	if totalMem > 0 && usage.GuestVmemSize > 0 {
-		memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
-	}
-	out.MemCommitRate = memCommitRate
-	capa := hh.GetAttachedLocalStorageCapacity()
-	out.Storage = capa.Capacity
-	out.StorageUsed = capa.Used
-	out.ActualStorageUsed = capa.ActualUsed
-	out.StorageWaste = capa.Wasted
-	out.StorageVirtual = capa.VCapacity
-	out.StorageFree = capa.GetFree()
-	out.StorageCommitRate = capa.GetCommitRate()
-	out.Spec = hh.GetHardwareSpecification()
-
-	// custom cpu mem commit bound
-	out.CpuCommitBound = hh.GetCPUOvercommitBound()
-	out.MemCommitBound = hh.GetMemoryOvercommitBound()
-
-	// extra = hh.SManagedResourceBase.getExtraDetails(ctx, extra)
-
-	out.IsPrepaidRecycle = false
-	if hh.IsPrepaidRecycle() {
-		out.IsPrepaidRecycle = true
-	}
-
-	if hh.IsBaremetal {
-		out.CanPrepare = true
-		err := hh.canPrepare()
-		if err != nil {
-			out.CanPrepare = false
-			if showReason {
-				out.PrepareFailReason = err.Error()
+		if len(nic.Gateway) > 0 && !regutils.MatchIP4Addr(nic.Gateway) {
+			nic.Gateway = ""
+		}
+		if len(nic.Dns) == 0 && len(nic.Zone) > 0 {
+			srvs, _ := auth.GetDNSServers(options.Options.Region, nic.Zone)
+			if len(srvs) > 0 {
+				nic.Dns = strings.Join(srvs, ",")
+			} else {
+				nic.Dns = options.Options.DNSServer
 			}
 		}
+		if len(nic.Domain) == 0 {
+			nic.Domain = options.Options.DNSDomain
+		}
+		if len(nic.Ntp) == 0 && len(nic.Zone) > 0 {
+			srvs, _ := auth.GetNTPServers(options.Options.Region, nic.Zone)
+			if len(srvs) > 0 {
+				nic.Ntp = strings.Join(srvs, ",")
+			}
+		}
+
+		ret[nic.BaremetalId] = append(ret[nic.BaremetalId], &nic.SNic)
 	}
 
-	if hh.EnableHealthCheck && hostHealthChecker != nil {
-		out.AllowHealthCheck = true
-	}
-	if hh.GetMetadata(ctx, api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN, nil) == "enable" {
-		out.AutoMigrateOnHostDown = true
-	}
-	if hh.GetMetadata(ctx, api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN, nil) == "enable" {
-		out.AutoMigrateOnHostShutdown = true
-	}
+	return ret, nil
+}
 
-	if count, rs := hh.GetReservedResourceForIsolatedDevice(); rs != nil {
-		out.ReservedResourceForGpu = *rs
-		out.IsolatedDeviceCount = count
+func fetchHostStorages(hostIds []string) (map[string]*SStorageCapacity, error) {
+	hoststorages := HoststorageManager.Query().In("host_id", hostIds).SubQuery()
+	storageQ := StorageManager.Query().IsTrue("enabled").NotEquals("storage_type", api.STORAGE_BAREMETAL).In("storage_type", api.HOST_STORAGE_LOCAL_TYPES).SubQuery()
+
+	diskReadySQ := DiskManager.Query().Equals("status", api.DISK_READY).SubQuery()
+	diskReadyQ := diskReadySQ.Query(sqlchemy.SUM("sum", diskReadySQ.Field("disk_size")).Label("used")).GroupBy(diskReadySQ.Field("storage_id"))
+	readySQ := diskReadyQ.SubQuery()
+
+	diskWasteSQ := DiskManager.Query().NotEquals("status", api.DISK_READY).SubQuery()
+	diskWasteQ := diskWasteSQ.Query(sqlchemy.SUM("sum", diskWasteSQ.Field("disk_size")).Label("wasted")).GroupBy(diskWasteSQ.Field("storage_id"))
+	wasteSQ := diskWasteQ.SubQuery()
+
+	q := storageQ.Query(
+		storageQ.Field("id"),
+		storageQ.Field("capacity"),
+		storageQ.Field("reserved"),
+		hoststorages.Field("host_id"),
+		storageQ.Field("cmtbound"),
+		storageQ.Field("actual_capacity_used"),
+		readySQ.Field("used"),
+		wasteSQ.Field("wasted"),
+	)
+
+	q = q.Join(hoststorages, sqlchemy.Equals(q.Field("id"), hoststorages.Field("storage_id")))
+
+	q = q.LeftJoin(readySQ, sqlchemy.Equals(readySQ.Field("storage_id"), storageQ.Field("id")))
+	q = q.LeftJoin(wasteSQ, sqlchemy.Equals(wasteSQ.Field("storage_id"), storageQ.Field("id")))
+
+	values := []struct {
+		HostId             string
+		Capacity           int64
+		Reserved           int64
+		Cmtbound           float32
+		ActualCapacityUsed int64
+		Used               int64
+		Wasted             int64
+	}{}
+	err := q.All(&values)
+	if err != nil {
+		return nil, err
 	}
-	return out
+	ret := map[string]*SStorageCapacity{}
+	for _, v := range values {
+		_, ok := ret[v.HostId]
+		if !ok {
+			ret[v.HostId] = &SStorageCapacity{}
+		}
+		capa := SStorageCapacity{}
+		capa.Capacity = v.Capacity - v.Reserved
+		capa.Used = v.Used
+		capa.Wasted = v.Wasted
+		cmtbound := options.Options.DefaultStorageOvercommitBound
+		if v.Cmtbound > 0 {
+			cmtbound = v.Cmtbound
+		}
+		capa.VCapacity = int64(float32(capa.Capacity) * cmtbound)
+		capa.ActualUsed = v.ActualCapacityUsed
+		ret[v.HostId].Add(capa)
+	}
+	return ret, nil
+}
+
+func fetchHostSchedtags(hostIds []string) (map[string][]api.SchedtagShortDescDetails, error) {
+	schedtags := SchedtagManager.Query().SubQuery()
+	objschedtags := HostschedtagManager.Query().SubQuery()
+	q := schedtags.Query(
+		objschedtags.Field("host_id"),
+		schedtags.Field("id"),
+		schedtags.Field("name"),
+		schedtags.Field("default_strategy").Label("default"),
+		sqlchemy.NewStringField("schedtag").Label("res_name"),
+	)
+	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field("schedtag_id"), schedtags.Field("id")),
+		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
+	q = q.Filter(sqlchemy.In(objschedtags.Field("host_id"), hostIds))
+	tags := []struct {
+		Id      string
+		HostId  string
+		Name    string
+		ResName string
+		Default string
+	}{}
+	err := q.All(&tags)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string][]api.SchedtagShortDescDetails{}
+	for i := range tags {
+		_, ok := ret[tags[i].HostId]
+		if !ok {
+			ret[tags[i].HostId] = []api.SchedtagShortDescDetails{}
+		}
+		tag := api.SchedtagShortDescDetails{}
+		jsonutils.Update(&tag, tags[i])
+		ret[tags[i].HostId] = append(ret[tags[i].HostId], tag)
+	}
+	return ret, nil
 }
 
 type sGuestCnt struct {
@@ -3387,6 +3510,7 @@ func (manager *SHostManager) FetchCustomizeColumns(
 		showReason = true
 	}
 	hostIds := make([]string, len(objs))
+	hosts := make([]*SHost, len(objs))
 	for i := range rows {
 		rows[i] = api.HostDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
@@ -3395,8 +3519,74 @@ func (manager *SHostManager) FetchCustomizeColumns(
 		}
 		host := objs[i].(*SHost)
 		hostIds[i] = host.Id
-		rows[i] = host.getMoreDetails(ctx, rows[i], showReason)
+		hosts[i] = host
 	}
+	baremetalServers, err := fetchBaremetalServer(hostIds)
+	if err != nil {
+		log.Errorf("fetchBaremetalServer error: %v", err)
+		return rows
+	}
+
+	serverIds := []string{}
+	for _, server := range baremetalServers {
+		serverIds = append(serverIds, server.Id)
+	}
+	serverIps := fetchGuestIPs(serverIds, tristate.False)
+	status := ""
+	if options.Options.IgnoreNonrunningGuests {
+		status = api.VM_RUNNING
+	}
+
+	guestResources, err := fetchHostGuestResource(hostIds, status)
+	if err != nil {
+		log.Errorf("fetchHostGuestResource error: %v", err)
+		return rows
+	}
+
+	metas := []db.SMetadata{}
+	err = db.Metadata.Query().In("obj_id", hostIds).In("key", []string{api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN, api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN}).All(&metas)
+	if err != nil {
+		log.Errorf("query meta error: %v", err)
+		return rows
+	}
+	downMap, shutdownMap := map[string]bool{}, map[string]bool{}
+	for _, meta := range metas {
+		switch meta.Key {
+		case api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN:
+			downMap[meta.ObjId] = (meta.Value == "enable")
+		case api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN:
+			shutdownMap[meta.ObjId] = (meta.Value == "enable")
+		}
+	}
+
+	isolatedDevices := IsolatedDeviceManager.FindByHosts(hostIds)
+	isolatedDeviceMap := map[string][]SIsolatedDevice{}
+	for i := range isolatedDevices {
+		_, ok := isolatedDeviceMap[isolatedDevices[i].HostId]
+		if !ok {
+			isolatedDeviceMap[isolatedDevices[i].HostId] = []SIsolatedDevice{}
+		}
+		isolatedDeviceMap[isolatedDevices[i].HostId] = append(isolatedDeviceMap[isolatedDevices[i].HostId], isolatedDevices[i])
+	}
+
+	schedtags, err := fetchHostSchedtags(hostIds)
+	if err != nil {
+		log.Errorf("fetchHostSchedtags error: %v", err)
+		return rows
+	}
+
+	storages, err := fetchHostStorages(hostIds)
+	if err != nil {
+		log.Errorf("host storages error: %v", err)
+		return rows
+	}
+
+	nics, err := fetchHostNics(hostIds)
+	if err != nil {
+		log.Errorf("fetchHostNics error: %v", err)
+		return rows
+	}
+
 	guestCnts := manager.FetchGuestCnt(hostIds)
 	for i := range rows {
 		cnt, ok := guestCnts[hostIds[i]]
@@ -3408,8 +3598,96 @@ func (manager *SHostManager) FetchCustomizeColumns(
 			rows[i].NonsystemGuests = cnt.NonsystemGuestCnt
 			rows[i].PendingDeletedGuests = cnt.PendingDeletedGuestCnt
 		}
+
+		if server, ok := baremetalServers[hostIds[i]]; ok {
+			rows[i].ServerId = server.Id
+			rows[i].Server = server.Name
+			rows[i].ServerPendingDeleted = server.PendingDeleted
+			if hosts[i].HostType == api.HOST_TYPE_BAREMETAL && len(serverIps) > 0 {
+				if ips, _ := serverIps[server.Id]; len(ips) > 0 {
+					rows[i].ServerIps = strings.Join(ips, ",")
+				}
+			}
+		}
+
+		if hosts[i].EnableHealthCheck && hostHealthChecker != nil {
+			rows[i].AllowHealthCheck = true
+		}
+		rows[i].AutoMigrateOnHostDown = downMap[hostIds[i]]
+		rows[i].AutoMigrateOnHostShutdown = shutdownMap[hostIds[i]]
+
+		if hosts[i].IsBaremetal {
+			rows[i].CanPrepare = true
+			if server := baremetalServers[hostIds[i]]; server != nil && server.Status != api.VM_ADMIN {
+				rows[i].CanPrepare = false
+				if showReason {
+					rows[i].PrepareFailReason = fmt.Sprintf("Cannot prepare baremetal in server status %s", server.Status)
+				}
+			}
+			err := hosts[i].canPrepare()
+			if err != nil && rows[i].CanPrepare {
+				rows[i].CanPrepare = false
+				if showReason {
+					rows[i].PrepareFailReason = err.Error()
+				}
+			}
+		}
+
+		if usage, ok := guestResources[hostIds[i]]; ok {
+			rows[i].CpuCommit = usage.GuestVcpuCount
+			rows[i].MemCommit = usage.GuestVmemSize
+
+			totalCpu := hosts[i].GetCpuCount()
+			cpuCommitRate := 0.0
+			if totalCpu > 0 && usage.GuestVcpuCount > 0 {
+				cpuCommitRate = float64(usage.GuestVcpuCount) * 1.0 / float64(totalCpu)
+			}
+			rows[i].CpuCommitRate = cpuCommitRate
+			totalMem := hosts[i].GetMemSize()
+			memCommitRate := 0.0
+			if totalMem > 0 && usage.GuestVmemSize > 0 {
+				memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
+			}
+			rows[i].MemCommitRate = memCommitRate
+		}
+
+		if devs, ok := isolatedDeviceMap[hostIds[i]]; ok {
+			rows[i].IsolatedDeviceCount = len(devs)
+			rows[i].ReservedResourceForGpu = hosts[i].GetDevsReservedResource(devs)
+		}
+
+		if capa, ok := storages[hostIds[i]]; ok {
+			rows[i].Storage = capa.Capacity
+			rows[i].StorageUsed = capa.Used
+			rows[i].ActualStorageUsed = capa.ActualUsed
+			rows[i].StorageWaste = capa.Wasted
+			rows[i].StorageVirtual = capa.VCapacity
+			rows[i].StorageFree = capa.GetFree()
+			rows[i].StorageCommitRate = capa.GetCommitRate()
+		}
+
+		rows[i].IsPrepaidRecycle = hosts[i].IsPrepaidRecycle()
+		rows[i].CpuCommitBound = hosts[i].GetCPUOvercommitBound()
+		rows[i].MemCommitBound = hosts[i].GetMemoryOvercommitBound()
+		rows[i].Spec = hosts[i].GetHardwareSpecification()
+		rows[i].Schedtags, _ = schedtags[hostIds[i]]
+		rows[i].NicInfo, _ = nics[hostIds[i]]
+		rows[i].NicCount = len(rows[i].NicInfo)
 	}
 	return rows
+}
+
+func fetchBaremetalServer(hostIds []string) (map[string]*SGuest, error) {
+	guests := []SGuest{}
+	err := GuestManager.Query().In("host_id", hostIds).Equals("hypervisor", api.HOST_TYPE_BAREMETAL).All(&guests)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string]*SGuest{}
+	for i := range guests {
+		ret[guests[i].HostId] = &guests[i]
+	}
+	return ret, nil
 }
 
 func (hh *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -4535,29 +4813,28 @@ func (hh *SHost) isRedfishCapable() bool {
 }
 
 func (hh *SHost) canPrepare() error {
-	if !hh.IsBaremetal {
-		return httperrors.NewInvalidStatusError("not a baremetal")
-	}
 	if !hh.isRedfishCapable() && len(hh.AccessMac) == 0 && len(hh.Uuid) == 0 {
 		return httperrors.NewInvalidStatusError("need valid access_mac and uuid to do prepare")
 	}
 	if !utils.IsInStringArray(hh.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING, api.BAREMETAL_PREPARE_FAIL}) {
 		return httperrors.NewInvalidStatusError("Cannot prepare baremetal in status %s", hh.Status)
 	}
-	server := hh.GetBaremetalServer()
-	if server != nil && server.Status != api.VM_ADMIN {
-		return httperrors.NewInvalidStatusError("Cannot prepare baremetal in server status %s", server.Status)
-	}
 	return nil
 }
 
 func (hh *SHost) PerformPrepare(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !hh.IsBaremetal {
+		return nil, httperrors.NewInvalidStatusError("not a baremetal")
+	}
+	server := hh.GetBaremetalServer()
+	if server != nil && server.Status != api.VM_ADMIN {
+		return nil, httperrors.NewInvalidStatusError("Cannot prepare baremetal in server status %s", server.Status)
+	}
 	err := hh.canPrepare()
 	if err != nil {
 		return nil, err
 	}
 	var onfinish string
-	server := hh.GetBaremetalServer()
 	if server != nil && hh.Status == api.BAREMETAL_READY {
 		onfinish = "shutdown"
 	}
