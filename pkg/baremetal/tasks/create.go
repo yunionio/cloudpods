@@ -25,6 +25,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
+var _ IServerBaseDeployTask = new(SBaremetalServerCreateTask)
+
 type SBaremetalServerCreateTask struct {
 	SBaremetalServerBaseDeployTask
 }
@@ -94,7 +96,7 @@ func doPoweroff(term *ssh.Client) error {
 	return nil
 }
 
-func (self *SBaremetalServerCreateTask) PostDeploys(term *ssh.Client) error {
+func (self *SBaremetalServerCreateTask) PostDeploys(ctx context.Context, term *ssh.Client) error {
 	if self.Baremetal.HasBMC() {
 		return doPoweroff(term)
 	}
