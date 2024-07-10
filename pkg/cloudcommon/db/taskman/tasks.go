@@ -82,12 +82,18 @@ type STaskManager struct {
 }
 
 var TaskManager *STaskManager
+var userCredWidthLimit = 0
 
 func init() {
 	TaskManager = &STaskManager{
 		SModelBaseManager: db.NewModelBaseManager(STask{}, "tasks_tbl", "task", "tasks"),
 	}
 	TaskManager.SetVirtualObject(TaskManager)
+	if field, ok := reflect.TypeOf(&STask{}).Elem().FieldByName("UserCred"); ok {
+		if widthStr := field.Tag.Get(sqlchemy.TAG_WIDTH); len(widthStr) > 0 {
+			userCredWidthLimit, _ = strconv.Atoi(widthStr)
+		}
+	}
 }
 
 type STask struct {
@@ -319,6 +325,10 @@ func (manager *STaskManager) NewTask(
 		Params:       data,
 		Stage:        TASK_INIT_STAGE,
 		ParentTaskId: parentTaskId,
+	}
+
+	if userCredWidthLimit > 0 && len(userCred.String()) > userCredWidthLimit {
+		return nil, fmt.Errorf("Too many permissions for user %s", userCred.GetUserName())
 	}
 
 	ownerId := obj.GetOwnerId()
