@@ -286,6 +286,11 @@ type HostResourceInfo struct {
 	// 宿主机状态
 	HostStatus string `json:"host_status"`
 
+	HostResourceType string `json:"host_resource_type"`
+
+	// 宿主机计费类型
+	HostBillingType string `json:"host_billing_type"`
+
 	// 宿主机服务状态`
 	HostServiceStatus string `json:"host_service_status"`
 

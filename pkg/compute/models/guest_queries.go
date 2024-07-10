@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -29,9 +30,11 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -51,6 +54,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	guestIds := make([]string, len(objs))
 	guests := make([]SGuest, len(objs))
+	backupHostIds := make([]string, len(objs))
 	for i := range objs {
 		rows[i] = api.ServerDetails{
 			VirtualResourceDetails: virtRows[i],
@@ -60,6 +64,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		}
 		guest := objs[i].(*SGuest)
 		guestIds[i] = guest.GetId()
+		backupHostIds[i] = guest.BackupHostId
 		guests[i] = *guest
 	}
 
@@ -257,11 +262,65 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		}
 	}
 
+	if len(fields) == 0 || fields.Contains("backup_host_name") || fields.Contains("backup_host_status") && len(backupHostIds) > 0 {
+		backups, _ := fetchGuestBackupInfo(backupHostIds)
+		meta := []db.SMetadata{}
+		db.Metadata.Query().In("obj_id", guestIds).Equals("obj_type", manager.Keyword()).Equals("key", api.MIRROR_JOB).All(&meta)
+		syncStatus := map[string]string{}
+		for _, v := range meta {
+			syncStatus[v.ObjId] = v.Value
+		}
+		if len(backups) > 0 || len(syncStatus) > 0 {
+			for i := range rows {
+				rows[i].BackupInfo, _ = backups[backupHostIds[i]]
+				rows[i].BackupGuestSyncStatus, _ = syncStatus[guestIds[i]]
+			}
+		}
+	}
+
 	for i := range rows {
-		rows[i] = guests[i].moreExtraInfo(ctx, rows[i], userCred, query, fields, isList)
+		if len(fields) == 0 || fields.Contains("auto_delete_at") {
+			if guests[i].PendingDeleted {
+				pendingDeletedAt := guests[i].PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
+				rows[i].AutoDeleteAt = pendingDeletedAt
+			}
+		}
+		if len(fields) == 0 || fields.Contains("can_recycle") {
+			if guests[i].BillingType == billing_api.BILLING_TYPE_PREPAID && !guests[i].ExpiredAt.Before(time.Now()) && len(rows[i].ManagerId) > 0 {
+				rows[i].CanRecycle = true
+			}
+		}
+
+		rows[i].IsPrepaidRecycle = (rows[i].HostResourceType == api.HostResourceTypePrepaidRecycle && rows[i].HostBillingType == billing_api.BILLING_TYPE_PREPAID)
+
+		drv := guests[i].GetDriver()
+		if drv != nil {
+			rows[i].CdromSupport, _ = drv.IsSupportCdrom(&guests[i])
+			rows[i].FloppySupport, _ = drv.IsSupportFloppy(&guests[i])
+			rows[i].MonitorUrl = drv.FetchMonitorUrl(ctx, &guests[i])
+		}
+
 		if len(guests[i].HostId) == 0 && guests[i].Status == api.VM_SCHEDULE_FAILED {
 			rows[i].Brand = "Unknown"
 			rows[i].Provider = "Unknown"
+		}
+
+		if !isList {
+			rows[i].Networks = guests[i].getNetworksDetails()
+			rows[i].VirtualIps = strings.Join(guests[i].getVirtualIPs(), ",")
+			rows[i].SecurityRules = guests[i].getSecurityGroupsRules()
+
+			osName := guests[i].GetOS()
+			if len(osName) > 0 {
+				rows[i].OsName = osName
+				if len(guests[i].OsType) == 0 {
+					rows[i].OsType = osName
+				}
+			}
+
+			if userCred.HasSystemAdminPrivilege() {
+				rows[i].AdminSecurityRules = guests[i].getAdminSecurityRules()
+			}
 		}
 	}
 
@@ -684,6 +743,19 @@ func fetchGuestGpuInstanceTypes(guestIds []string) []string {
 		}
 	}
 	return instanceTypes
+}
+
+func fetchGuestBackupInfo(hostIds []string) (map[string]api.BackupInfo, error) {
+	ret := map[string]api.BackupInfo{}
+	hosts := []SHost{}
+	err := HostManager.Query().In("id", hostIds).All(&hosts)
+	if err != nil {
+		return nil, err
+	}
+	for _, host := range hosts {
+		ret[host.Id] = api.BackupInfo{BackupHostName: host.Name, BackupHostStatus: host.HostStatus}
+	}
+	return ret, nil
 }
 
 func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevice {
