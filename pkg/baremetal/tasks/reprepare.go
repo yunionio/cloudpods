@@ -23,6 +23,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
+var _ IServerBaseDeployTask = new(SBaremetalReprepareTask)
+
 type SBaremetalReprepareTask struct {
 	SBaremetalServerBaseDeployTask
 }
