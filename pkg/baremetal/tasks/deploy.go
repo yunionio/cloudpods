@@ -15,12 +15,16 @@
 package tasks
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
+
+var _ IServerBaseDeployTask = new(SBaremetalServerDeployTask)
 
 type SBaremetalServerDeployTask struct {
 	SBaremetalServerBaseDeployTask
@@ -48,7 +52,7 @@ func (self *SBaremetalServerDeployTask) RemoveEFIOSEntry() bool {
 	return false
 }
 
-func (self *SBaremetalServerDeployTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
+func (self *SBaremetalServerDeployTask) DoDeploys(ctx context.Context, term *ssh.Client) (jsonutils.JSONObject, error) {
 	tool, err := self.Baremetal.GetServer().NewConfigedSSHPartitionTool(term)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewConfigedSSHPartitionTool")
