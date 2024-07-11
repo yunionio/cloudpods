@@ -82,7 +82,9 @@ Please check this [issue](https://github.com/yunionio/cloudpods/issues/11427) fo
 
 ## Contact
 
-See [Contact Us](https://www.cloudpods.org/en/docs/contact/) for details.
+* See [Contact Us](https://www.cloudpods.org/en/docs/contact/) for details.
+
+* Telegram: [cloudpods](https://t.me/cloudpods_org)
 
 ## Changelog
 
