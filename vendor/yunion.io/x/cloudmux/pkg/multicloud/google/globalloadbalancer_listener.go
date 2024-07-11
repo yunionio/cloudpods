@@ -524,7 +524,7 @@ func (self *SGlobalLoadbalancerListener) GetHealthChecks() []HealthChecks {
 
 func (self *SGlobalLoadbalancerListener) GetHealthCheckType() string {
 	hcs := self.GetHealthChecks()
-	if hcs == nil {
+	if len(hcs) == 0 {
 		return ""
 	}
 

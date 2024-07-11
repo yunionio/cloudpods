@@ -16,6 +16,7 @@ package google
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -49,9 +50,11 @@ type SAddress struct {
 func (region *SRegion) GetEips(address string, maxResults int, pageToken string) ([]SAddress, error) {
 	eips := []SAddress{}
 	params := map[string]string{}
+	filters := []string{"addressType=EXTERNAL"}
 	if len(address) > 0 {
-		params["filter"] = fmt.Sprintf(`address="%s"`, address)
+		filters = append(filters, fmt.Sprintf(`address="%s"`, address))
 	}
+	params["filter"] = strings.Join(filters, " ADN ")
 	resource := fmt.Sprintf("regions/%s/addresses", region.Name)
 	return eips, region.List(resource, params, maxResults, pageToken, &eips)
 }
