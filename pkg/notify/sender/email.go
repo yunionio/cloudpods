@@ -87,7 +87,7 @@ func (emailSender *SEmailSender) Send(ctx context.Context, args api.SendParams) 
 		} {
 			for _, to := range tos {
 				to = strings.ToLower(to)
-				if _, ok := destMap[to]; !ok {
+				if _, ok := destMap[to]; !ok && len(to) > 0 {
 					destMap[to] = 1
 				}
 			}
@@ -130,7 +130,7 @@ func (emailSender *SEmailSender) Send(ctx context.Context, args api.SendParams) 
 			for tryTime := 3; tryTime > 0; tryTime-- {
 				err = gomail.Send(sender, gmsg)
 				if err != nil {
-					errs = append(errs, err)
+					errs = append(errs, errors.Wrapf(err, "Send"))
 					time.Sleep(time.Second * 10)
 					continue
 				}
