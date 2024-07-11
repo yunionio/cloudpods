@@ -47,6 +47,9 @@ func (self *SStorage) GetGlobalId() string {
 }
 
 func (self *SStorage) GetStatus() string {
+	if self.storageType == api.STORAGE_HUAWEI_SATA {
+		return api.STORAGE_OFFLINE
+	}
 	return api.STORAGE_ONLINE
 }
 
