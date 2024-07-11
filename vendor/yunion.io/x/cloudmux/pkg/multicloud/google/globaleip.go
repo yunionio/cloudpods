@@ -99,9 +99,12 @@ func (addr *SGlobalAddress) GetProjectId() string {
 func (region *SGlobalRegion) GetEips(address string) ([]SGlobalAddress, error) {
 	eips := []SGlobalAddress{}
 	params := map[string]string{}
+	filters := []string{"addressType=EXTERNAL"}
 	if len(address) > 0 {
-		params["filter"] = fmt.Sprintf(`address="%s"`, address)
+		filters = append(filters, fmt.Sprintf(`address="%s"`, address))
 	}
+	params["filter"] = strings.Join(filters, " ADN ")
+
 	resource := "global/addresses"
 
 	err := region.ListAll(resource, params, &eips)
