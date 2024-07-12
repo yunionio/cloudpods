@@ -607,10 +607,13 @@ func (self *SDatastore) ListDir(ctx context.Context, remotePath string) ([]SData
 	return ret, nil
 }
 
-func (self *SDatastore) listPath(b *object.HostDatastoreBrowser, path string, spec types.HostDatastoreBrowserSearchSpec) ([]types.HostDatastoreBrowserSearchResults, error) {
-	ctx := context.TODO()
+func (self *SDatastore) listPath(ctx context.Context, b *object.HostDatastoreBrowser, path string, spec types.HostDatastoreBrowserSearchSpec) ([]types.HostDatastoreBrowserSearchResults, error) {
+	ds, err := self.getDatastoreObj(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getDatastoreObj")
+	}
 
-	path = self.getDatastoreObj().Path(path)
+	path = ds.Path(path)
 
 	search := b.SearchDatastore
 
@@ -636,8 +639,10 @@ func (self *SDatastore) listPath(b *object.HostDatastoreBrowser, path string, sp
 }
 
 func (self *SDatastore) ListPath(ctx context.Context, remotePath string) ([]types.HostDatastoreBrowserSearchResults, error) {
-	//types.HostDatastoreBrowserSearchResults
-	ds := self.getDatastoreObj()
+	ds, err := self.getDatastoreObj(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	b, err := ds.Browser(ctx)
 	if err != nil {
@@ -657,7 +662,7 @@ func (self *SDatastore) ListPath(ctx context.Context, remotePath string) ([]type
 	}
 
 	for i := 0; ; i++ {
-		r, err := self.listPath(b, remotePath, spec)
+		r, err := self.listPath(ctx, b, remotePath, spec)
 		if err != nil {
 			// Treat the argument as a match pattern if not found as directory
 			if i == 0 && types.IsFileNotFound(err) || isInvalid(err) {
@@ -775,7 +780,7 @@ func (self *SDatastore) Upload(ctx context.Context, remotePath string, body io.R
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("%s", resp.Status)
 		}
-		_, err := ioutil.ReadAll(resp.Body)
+		_, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
@@ -794,8 +799,10 @@ func (self *SDatastore) FilePutContent(ctx context.Context, remotePath string, c
 // isNamespace: remotePath is uuid of namespace on vsan datastore
 // force: ignore nonexistent files and arguments
 func (self *SDatastore) Delete2(ctx context.Context, remotePath string, isNamespace, force bool) error {
-	var err error
-	ds := self.getDatastoreObj()
+	ds, err := self.getDatastoreObj(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "getDatastoreObj")
+	}
 	dc := self.datacenter.getObjectDatacenter()
 	if isNamespace {
 		nm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
@@ -824,7 +831,7 @@ func (self *SDatastore) Delete(ctx context.Context, remotePath string) error {
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("%s", resp.Status)
 		}
-		_, err := ioutil.ReadAll(resp.Body)
+		_, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
@@ -891,11 +898,13 @@ func (self *SDatastore) CheckVmdk(ctx context.Context, remotePath string) error 
 	return nil
 }
 
-func (self *SDatastore) getDatastoreObj() *object.Datastore {
+func (self *SDatastore) getDatastoreObj(ctx context.Context) (*object.Datastore, error) {
 	od := object.NewDatastore(self.manager.client.Client, self.getDatastore().Self)
-	od.DatacenterPath = self.GetDatacenterPathString()
-	od.InventoryPath = fmt.Sprintf("%s/%s", od.DatacenterPath, self.SManagedObject.GetName())
-	return od
+	err := od.FindInventoryPath(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FindInventoryPath")
+	}
+	return od, nil
 }
 
 func (self *SDatastore) MakeDir(remotePath string) error {
@@ -994,16 +1003,23 @@ func (self *SDatastore) ImportVMDK(ctx context.Context, diskFile, remotePath str
 		return errors.Wrap(err, "SDatastore.CheckDirC")
 	}
 
-	fm := self.getDatastoreObj().NewFileManager(self.datacenter.getObjectDatacenter(), true)
+	ds, err := self.getDatastoreObj(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "getDatastoreObj")
+	}
+	fm := ds.NewFileManager(self.datacenter.getObjectDatacenter(), true)
 
 	// if image_cache not exist
 	return fm.Move(ctx, fmt.Sprintf("[%s] %s/%s.vmdk", self.GetRelName(), name, name), fmt.Sprintf("[%s] %s",
 		self.GetRelName(), remotePath))
 }
 
-func (self *SDatastore) ImportISO(ctx context.Context, isoFile, remotePath string, host *SHost) error {
+func (self *SDatastore) ImportISO(ctx context.Context, isoFile, remotePath string) error {
 	p := soap.DefaultUpload
-	ds := self.getDatastoreObj()
+	ds, err := self.getDatastoreObj(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "getDatastoreObj")
+	}
 	return ds.UploadFile(ctx, isoFile, remotePath, &p)
 }
 
@@ -1103,10 +1119,11 @@ type ImportParams struct {
 // ImportVM will import a vm by uploading a local vmdk
 func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, host *SHost) (*object.VirtualMachine, error) {
 
-	var (
-		c         = self.manager.client.Client
-		datastore = self.getDatastoreObj()
-	)
+	c := self.manager.client.Client
+	datastore, err := self.getDatastoreObj(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getDatastoreObj")
+	}
 
 	m := ovf.NewManager(c)
 

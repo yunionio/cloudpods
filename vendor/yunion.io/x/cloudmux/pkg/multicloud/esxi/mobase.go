@@ -83,6 +83,7 @@ func (self *SManagedObject) fetchPath() []string {
 func (self *SManagedObject) GetPath() []string {
 	if self.path == nil {
 		self.path = self.fetchPath()
+		log.Errorf("fetch path: %s", self.path)
 	}
 	return self.path
 }
