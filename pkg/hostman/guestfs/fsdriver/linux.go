@@ -51,6 +51,9 @@ const (
 	YUNIONROOT_USER       = "cloudroot"
 	TELEGRAF_BINARY_PATH  = "/opt/yunion/bin/telegraf"
 	SUPERVISE_BINARY_PATH = "/opt/yunion/bin/supervise"
+
+	QGA_BINARY_PATH            = "/opt/yunion/bin/qemu-ga"
+	QGA_WIN_MSI_INSTALLER_PATH = "/opt/yunion/bin/qemu-ga-x86_64.msi"
 )
 
 var (
@@ -105,6 +108,44 @@ func getHostname(hostname, domain string) string {
 	} else {
 		return hostname
 	}
+}
+
+func (l *sLinuxRootFs) DeployQgaService(rootFs IDiskPartition) error {
+	qemuGuestAgentPath := "/usr/bin/qemu-ga"
+	if rootFs.Exists(qemuGuestAgentPath, false) {
+		// qemu-ga has been installed
+		return nil
+	}
+	output, err := procutils.NewCommand("cp", "-f",
+		QGA_BINARY_PATH, path.Join(rootFs.GetMountPath(), qemuGuestAgentPath)).Output()
+	if err != nil {
+		return errors.Wrapf(err, "cp qga binary failed %s", output)
+	}
+	if l.isSupportSystemd() {
+		udevPath := "/etc/udev/rules.d/"
+		if rootFs.Exists(udevPath, false) {
+			rules := rootFs.ListDir(udevPath, false)
+			for _, rule := range rules {
+				if strings.Index(rule, "qemu-guest-agent.rules") > 0 {
+					rootFs.Remove(path.Join(udevPath, rule), false)
+				}
+			}
+			qgaRules := `SUBSYSTEM=="virtio-ports", ATTR{name}=="org.qemu.guest_agent.0", \
+  TAG+="systemd" ENV{SYSTEMD_WANTS}="qemu-guest-agent.service"` + "\n"
+			if err := rootFs.FilePutContents(path.Join(udevPath, "99-qemu-guest-agent.rules"), qgaRules, false, false); err != nil {
+				return err
+			}
+		}
+		if err := l.InstallQemuGuestAgentSystemd(); err != nil {
+			return errors.Wrap(err, "qga InstallQemuGuestAgentSystemd")
+		}
+	} else {
+		initCmd := qemuGuestAgentPath
+		if err := l.installCrond(initCmd); err != nil {
+			return errors.Wrap(err, "qga installCrond")
+		}
+	}
+	return nil
 }
 
 func (l *sLinuxRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
@@ -223,43 +264,6 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 		usrDir = path.Join("/home", selUsr)
 	}
 	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false, false)
-}
-
-func (d *SCoreOsRootFs) DeployQgaBlackList(rootFs IDiskPartition) error {
-	var modeRwxOwner = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
-	var qgaConfDir = "/etc/sysconfig"
-	var etcSysconfigQemuga = path.Join(qgaConfDir, "qemu-ga")
-
-	if err := rootFs.Mkdir(qgaConfDir, modeRwxOwner, false); err != nil {
-		return errors.Wrap(err, "mkdir qga conf dir")
-	}
-	blackListContent := `# This is a systemd environment file, not a shell script.
-# It provides settings for \"/lib/systemd/system/qemu-guest-agent.service\".
-
-# Comma-separated blacklist of RPCs to disable, or empty list to enable all.
-#
-# You can get the list of RPC commands using \"qemu-ga --blacklist='?'\".
-# There should be no spaces between commas and commands in the blacklist.
-# BLACKLIST_RPC=guest-file-open,guest-file-close,guest-file-read,guest-file-write,guest-file-seek,guest-file-flush,guest-exec,guest-exec-status
-
-# Fsfreeze hook script specification.
-#
-# FSFREEZE_HOOK_PATHNAME=/dev/null           : disables the feature.
-#
-# FSFREEZE_HOOK_PATHNAME=/path/to/executable : enables the feature with the
-# specified binary or shell script.
-#
-# FSFREEZE_HOOK_PATHNAME=                    : enables the feature with the
-# default value (invoke \"qemu-ga --help\" to interrogate).
-FSFREEZE_HOOK_PATHNAME=/etc/qemu-ga/fsfreeze-hook"
-`
-
-	if rootFs.Exists(etcSysconfigQemuga, false) {
-		if err := rootFs.FilePutContents(etcSysconfigQemuga, blackListContent, false, false); err != nil {
-			return errors.Wrap(err, "etcSysconfigQemuga error")
-		}
-	}
-	return nil
 }
 
 func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {

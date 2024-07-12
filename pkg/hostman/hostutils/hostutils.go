@@ -71,6 +71,7 @@ type IHost interface {
 	// SyncRootPartitionUsedCapacity() error
 
 	GetKubeletConfig() kubelet.KubeletConfig
+	OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3)
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {

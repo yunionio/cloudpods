@@ -59,7 +59,6 @@ func (self *SGuest) PerformQgaSetPassword(
 		return nil, err
 	}
 	self.SetStatus(ctx, userCred, api.VM_QGA_SET_PASSWORD, "")
-	self.UpdateQgaStatus(api.QGA_STATUS_EXCUTING)
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestQgaSetPasswordTask", self, userCred, params, "", "", nil)
 	if err != nil {
