@@ -76,6 +76,7 @@ type IRootFsDriver interface {
 	DeployHostname(part IDiskPartition, hn, domain string) error
 	DeployHosts(part IDiskPartition, hn, domain string, ips []string) error
 	DeployQgaBlackList(part IDiskPartition) error
+	DeployQgaService(part IDiskPartition) error
 	DeployNetworkingScripts(IDiskPartition, []*types.SServerNic) error
 	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*types.SServerNic) error
 	DeployUdevSubsystemScripts(IDiskPartition) error

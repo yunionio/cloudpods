@@ -132,8 +132,11 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	}
 
 	if guestDesc.Hypervisor == comapi.HYPERVISOR_KVM {
+		if err := rootfs.DeployQgaService(partition); err != nil {
+			return nil, errors.Wrap(err, "DeployQgaService")
+		}
 		if err := rootfs.DeployQgaBlackList(partition); err != nil {
-			return nil, fmt.Errorf("DeployQgaBlackList: %v", err)
+			return nil, errors.Wrap(err, "DeployQgaBlackList")
 		}
 	}
 

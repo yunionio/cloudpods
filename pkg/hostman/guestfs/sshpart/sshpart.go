@@ -485,7 +485,7 @@ func (p *SSHPartition) osStat(sPath string) (os.FileInfo, error) {
 		dat := regexp.MustCompile(`\s+`).Split(strings.TrimSpace(line), -1)
 		if len(dat) > 7 && ((dat[2][0] != 'l' && dat[len(dat)-1] == sPath) ||
 			(dat[2][0] == 'l' && dat[len(dat)-3] == sPath)) {
-			stMode, err := modeStr2Bin(dat[2])
+			stMode, err := fsdriver.ModeStr2Bin(dat[2])
 			if err != nil {
 				return nil, err
 			}
@@ -493,79 +493,22 @@ func (p *SSHPartition) osStat(sPath string) (os.FileInfo, error) {
 			stUid, _ := strconv.Atoi(dat[4])
 			stGid, _ := strconv.Atoi(dat[5])
 			stSize, _ := strconv.Atoi(dat[6])
-			info := &sFileInfo{
-				name:  sPath,
-				size:  int64(stSize),
-				mode:  os.FileMode(stMode),
-				isDir: dat[2][0] == 'd',
-				stat: &syscall.Stat_t{
+			info := fsdriver.NewFileInfo(
+				sPath,
+				int64(stSize),
+				os.FileMode(stMode),
+				dat[2][0] == 'd',
+				&syscall.Stat_t{
 					Ino:  uint64(stIno),
 					Uid:  uint32(stUid),
 					Gid:  uint32(stGid),
 					Size: int64(stSize),
 				},
-			}
+			)
 			return info, nil
 		}
 	}
 	return nil, fmt.Errorf("Can't stat for path %s", sPath)
-}
-
-func modeStr2Bin(mode string) (uint32, error) {
-	table := []map[byte]uint32{
-		{'-': syscall.S_IRUSR, 'd': syscall.S_IFDIR, 'l': syscall.S_IFLNK},
-		{'r': syscall.S_IRUSR},
-		{'w': syscall.S_IWUSR},
-		{'x': syscall.S_IXUSR, 's': syscall.S_ISUID},
-		{'r': syscall.S_IRGRP},
-		{'w': syscall.S_IWGRP},
-		{'x': syscall.S_IXGRP, 's': syscall.S_ISGID},
-		{'r': syscall.S_IROTH},
-		{'w': syscall.S_IWOTH},
-		{'x': syscall.S_IXOTH},
-	}
-	if len(mode) != len(table) {
-		return 0, fmt.Errorf("Invalid mod %q", mode)
-	}
-	var ret uint32 = 0
-	for i := 0; i < len(table); i++ {
-		ret |= table[i][mode[i]]
-	}
-	return ret, nil
-}
-
-// sFileInfo implements os.FileInfo interface
-type sFileInfo struct {
-	name  string
-	size  int64
-	mode  os.FileMode
-	isDir bool
-	stat  *syscall.Stat_t
-}
-
-func (info sFileInfo) Name() string {
-	return info.name
-}
-
-func (info sFileInfo) Size() int64 {
-	return info.size
-}
-
-func (info sFileInfo) Mode() os.FileMode {
-	return info.mode
-}
-
-func (info sFileInfo) IsDir() bool {
-	return info.isDir
-}
-
-func (info sFileInfo) ModTime() time.Time {
-	// TODO: impl
-	return time.Now()
-}
-
-func (info sFileInfo) Sys() interface{} {
-	return info.stat
 }
 
 func (p *SSHPartition) Stat(sPath string, caseInsensitive bool) os.FileInfo {

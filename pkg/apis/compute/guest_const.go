@@ -234,10 +234,8 @@ const (
 )
 
 const (
-	QGA_STATUS_UNKNOWN        = "unknown"
-	QGA_STATUS_EXCUTING       = "executing"
-	QGA_STATUS_EXECUTE_FAILED = "execute_failed"
-	QGA_STATUS_AVAILABLE      = "available"
+	QGA_STATUS_UNKNOWN   = "unknown"
+	QGA_STATUS_AVAILABLE = "available"
 )
 
 const (

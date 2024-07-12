@@ -360,18 +360,33 @@ func (s *SDeployService) PrepareEnv() error {
 			return errors.Wrap(err, "nbd.Init")
 		}
 	} else {
+		cpuArch, err := procutils.NewCommand("uname", "-m").Output()
+		if err != nil {
+			return errors.Wrap(err, "get cpu architecture")
+		}
+		cpuArchStr := strings.TrimSpace(string(cpuArch))
+
 		// prepare for yunionos don't have but necessary files
 		out, err := procutils.NewCommand("mkdir", "-p", "/opt/yunion/bin/bundles").Output()
 		if err != nil {
 			return errors.Wrapf(err, "cp files failed %s", out)
 		}
-		for k, v := range map[string]string{
+		copyFiles := map[string]string{
 			"/usr/bin/chntpw.static":         "/opt/yunion/bin/chntpw.static",
 			"/usr/bin/.chntpw.static.bin":    "/opt/yunion/bin/.chntpw.static.bin",
 			"/usr/bin/bundles/chntpw.static": "/opt/yunion/bin/bundles/chntpw.static",
 			"/usr/bin/growpart":              "/opt/yunion/bin/growpart",
 			"/usr/sbin/zerofree":             "/opt/yunion/bin/zerofree",
-		} {
+		}
+		// x86_64 or aarch64
+		if cpuArchStr == qemu_kvm.OS_ARCH_AARCH64 {
+			copyFiles["/yunionos/aarch64/qemu-ga"] = fsdriver.QGA_BINARY_PATH
+		} else {
+			copyFiles["/yunionos/x86_64/qemu-ga"] = fsdriver.QGA_BINARY_PATH
+			copyFiles["/yunionos/x86_64/qemu-ga-x86_64.msi"] = fsdriver.QGA_WIN_MSI_INSTALLER_PATH
+		}
+
+		for k, v := range copyFiles {
 			out, err = procutils.NewCommand("cp", "-rf", k, v).Output()
 			if err != nil {
 				return errors.Wrapf(err, "cp files failed %s", out)
@@ -401,13 +416,8 @@ func (s *SDeployService) PrepareEnv() error {
 			return errors.Wrapf(err, "mkisofs failed %s", out)
 		}
 
-		cpuArch, err := procutils.NewCommand("uname", "-m").Output()
-		if err != nil {
-			return errors.Wrap(err, "get cpu architecture")
-		}
-
 		err = qemu_kvm.InitQemuDeployManager(
-			strings.TrimSpace(string(cpuArch)),
+			cpuArchStr,
 			DeployOption.DefaultQemuVersion,
 			DeployOption.EnableRemoteExecutor,
 			DeployOption.HugepagesOption == "native",
