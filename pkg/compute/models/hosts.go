@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	baremetalapi "yunion.io/x/onecloud/pkg/apis/baremetal"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
@@ -4875,6 +4876,16 @@ func (hh *SHost) StartIpmiProbeTask(ctx context.Context, userCred mcclient.Token
 	}
 }
 
+func (hm *SHostManager) PerformValidateIpmi(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *baremetalapi.ValidateIPMIRequest) (*baremetalapi.ValidateIPMIResponse, error) {
+	resp, err := hm.BaremetalSyncRequest(ctx, "POST", "/baremetals/validate-ipmi", mcclient.GetTokenHeaders(userCred), jsonutils.Marshal(input).(*jsonutils.JSONDict), "")
+	if err != nil {
+		return nil, err
+	}
+	out := new(baremetalapi.ValidateIPMIResponse)
+	resp.Unmarshal(out)
+	return out, nil
+}
+
 func (hh *SHost) PerformInitialize(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject,
@@ -6078,7 +6089,11 @@ func (hh *SHost) IsBaremetalAgentReady() bool {
 }
 
 func (hh *SHost) BaremetalSyncRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	return hh.doAgentRequest(api.AgentTypeBaremetal, ctx, method, url, headers, body)
+	return HostManager.BaremetalSyncRequest(ctx, method, url, headers, body, hh.ZoneId)
+}
+
+func (hm *SHostManager) BaremetalSyncRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict, zoneId string) (jsonutils.JSONObject, error) {
+	return hm.doAgentRequest(api.AgentTypeBaremetal, ctx, method, url, headers, body, zoneId)
 }
 
 func (hh *SHost) IsEsxiAgentReady() bool {
@@ -6086,11 +6101,15 @@ func (hh *SHost) IsEsxiAgentReady() bool {
 }
 
 func (hh *SHost) EsxiRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	return hh.doAgentRequest(api.AgentTypeEsxi, ctx, method, url, headers, body)
+	return HostManager.doAgentRequest(api.AgentTypeEsxi, ctx, method, url, headers, body, hh.ZoneId)
 }
 
 func (hh *SHost) GetAgent(at api.TAgentType) *SBaremetalagent {
-	agent := BaremetalagentManager.GetAgent(at, hh.ZoneId)
+	return HostManager.GetAgent(at, hh.ZoneId)
+}
+
+func (hm *SHostManager) GetAgent(at api.TAgentType, zoneId string) *SBaremetalagent {
+	agent := BaremetalagentManager.GetAgent(at, zoneId)
 	if agent == nil {
 		agent = BaremetalagentManager.GetAgent(at, "")
 	}
@@ -6106,8 +6125,8 @@ func (hh *SHost) isAgentReady(agentType api.TAgentType) bool {
 	return true
 }
 
-func (hh *SHost) doAgentRequest(agentType api.TAgentType, ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	agent := hh.GetAgent(agentType)
+func (hm *SHostManager) doAgentRequest(agentType api.TAgentType, ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict, zoneId string) (jsonutils.JSONObject, error) {
+	agent := hm.GetAgent(agentType, zoneId)
 	if agent == nil {
 		return nil, fmt.Errorf("no valid %s", agentType)
 	}
