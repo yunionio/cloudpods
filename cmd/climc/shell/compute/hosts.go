@@ -54,6 +54,7 @@ func init() {
 	cmd.Perform("probe-isolated-devices", &options.BaseIdOptions{})
 	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+	cmd.PerformClass("validate-ipmi", &compute.HostValidateIPMI{})
 
 	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("disable", &options.BaseIdsOptions{})

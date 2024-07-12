@@ -17,6 +17,7 @@ package compute
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis/baremetal"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -110,4 +111,18 @@ func (o *HostAutoMigrateOnHostDownOptions) Params() (jsonutils.JSONObject, error
 type HostStatusStatisticsOptions struct {
 	HostListOptions
 	options.StatusStatisticsOptions
+}
+
+type HostValidateIPMI struct {
+	IP       string `json:"ip" help:"IPMI ip address"`
+	USERNAME string `json:"username" help:"IPMI username"`
+	PASSWORD string `json:"password" help:"IPMI password"`
+}
+
+func (h HostValidateIPMI) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(baremetal.ValidateIPMIRequest{
+		Ip:       h.IP,
+		Username: h.USERNAME,
+		Password: h.PASSWORD,
+	}), nil
 }
