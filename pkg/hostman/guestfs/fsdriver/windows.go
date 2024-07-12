@@ -49,6 +49,8 @@ const (
 
 	WIN_TELEGRAF_BINARY_PATH = "/opt/yunion/bin/telegraf.exe"
 	WIN_TELEGRAF_PATH        = "/Program Files/Telegraf"
+
+	WIN_QGA_PATH = "/Program Files/Qemu-ga"
 )
 
 type SWindowsRootFs struct {
@@ -275,10 +277,6 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 		hf.Add(ip, getHostname(hn, domain), hn)
 	}
 	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
-}
-
-func (w *SWindowsRootFs) DeployQgaBlackList(part IDiskPartition) error {
-	return nil
 }
 
 func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
@@ -581,6 +579,28 @@ func (w *SWindowsRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
 
 func (l *SWindowsRootFs) IsResizeFsPartitionSupport() bool {
 	return true
+}
+
+func (w *SWindowsRootFs) DeployQgaService(part IDiskPartition) error {
+	if err := w.rootFs.Mkdir(WIN_QGA_PATH, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR, true); err != nil {
+		return errors.Wrap(err, "mkdir qemu-ga path")
+	}
+
+	qgaInstallerPath := path.Join(w.rootFs.GetMountPath(), WIN_QGA_PATH, "qemu-ga-x86_64.msi")
+	output, err := procutils.NewCommand("cp", "-f", QGA_WIN_MSI_INSTALLER_PATH, qgaInstallerPath).Output()
+	if err != nil {
+		return errors.Wrapf(err, "cp qga installer failed %s", output)
+	}
+
+	bootScript := strings.Join([]string{
+		`start "" "%PROGRAMFILES%\Qemu-ga\qemu-ga-x86_64.msi"`,
+	}, "\r\n")
+	w.appendGuestBootScript("qemu-ga", bootScript)
+	return nil
+}
+
+func (w *SWindowsRootFs) DeployQgaBlackList(part IDiskPartition) error {
+	return nil
 }
 
 func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {

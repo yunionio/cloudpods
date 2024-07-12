@@ -17,6 +17,7 @@ package apis
 import (
 	"encoding/json"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -185,4 +186,47 @@ func NewReleaseInfo(distro, version, arch string) *ReleaseInfo {
 		Version: version,
 		Arch:    arch,
 	}
+}
+
+func GuestNicsToServerNics(nics []*desc.SGuestNetwork) []*types.SServerNic {
+	ret := make([]*types.SServerNic, len(nics))
+	for i := 0; i < len(nics); i++ {
+		routes := ""
+		if nics[i].Routes != nil {
+			routes, _ = nics[i].Routes.GetString()
+		}
+
+		ret[i] = &types.SServerNic{
+			Name:      "",
+			Index:     int(nics[i].Index),
+			Bridge:    nics[i].Bridge,
+			Domain:    nics[i].Domain,
+			Ip:        nics[i].Ip,
+			Vlan:      int(nics[i].Vlan),
+			Driver:    nics[i].Driver,
+			Masklen:   int(nics[i].Masklen),
+			Virtual:   nics[i].Virtual,
+			Manual:    nics[i].Manual != nil && *nics[i].Manual,
+			WireId:    nics[i].WireId,
+			NetId:     nics[i].NetId,
+			Mac:       nics[i].Mac,
+			BandWidth: int(nics[i].Bw),
+			Dns:       nics[i].Dns,
+			Net:       nics[i].Net,
+			Interface: nics[i].Interface,
+			Gateway:   nics[i].Gateway,
+			Ifname:    nics[i].Ifname,
+			Routes:    ConvertRoutes(routes),
+			NicType:   compute.TNicType(nics[i].NicType),
+			LinkUp:    nics[i].LinkUp,
+			Mtu:       int16(nics[i].Mtu),
+			TeamWith:  nics[i].TeamWith,
+			IsDefault: nics[i].IsDefault,
+
+			Ip6:      nics[i].Ip6,
+			Masklen6: int(nics[i].Masklen6),
+			Gateway6: nics[i].Gateway6,
+		}
+	}
+	return ret
 }

@@ -239,7 +239,7 @@ type IGuestDriver interface {
 	QgaRequestSetUserPassword(ctx context.Context, task taskman.ITask, host *SHost, guest *SGuest, input *api.ServerQgaSetPasswordInput) error
 	RequestQgaCommand(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
 	QgaRequestGuestInfoTask(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
-	QgaRequestSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
+	QgaRequestSetNetwork(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
 	QgaRequestGetNetwork(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
 	QgaRequestGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
 

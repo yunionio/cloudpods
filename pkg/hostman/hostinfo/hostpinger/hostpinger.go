@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hostinfo
+package hostpinger
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -36,6 +37,7 @@ import (
 type SHostPingTask struct {
 	interval int // second
 	running  bool
+	host     hostutils.IHost
 
 	lastStatAt time.Time
 }
@@ -62,13 +64,14 @@ func NewCatalog() *SCatalog {
 	}
 }
 
-func NewHostPingTask(interval int) *SHostPingTask {
+func NewHostPingTask(interval int, host hostutils.IHost) *SHostPingTask {
 	if interval <= 0 {
 		return nil
 	}
 	return &SHostPingTask{
 		interval: interval,
 		running:  true,
+		host:     host,
 	}
 }
 
@@ -76,7 +79,7 @@ func (p *SHostPingTask) Start() {
 	log.Infof("Start host pinger ...")
 	var (
 		div    = 1
-		hostId = Instance().GetHostId()
+		hostId = p.host.GetHostId()
 		err    error
 	)
 	for {
@@ -113,6 +116,7 @@ func (p *SHostPingTask) payload() api.SHostPingInput {
 	memFree := int(info.Available / 1024 / 1024)
 	memUsed := memTotal - memFree
 	data.MemoryUsedMb = memUsed
+	data.QgaRunningGuestIds = guestman.GetGuestManager().GetQgaRunningGuests()
 	return data
 }
 
@@ -141,7 +145,7 @@ func (p *SHostPingTask) ping(div int, hostId string) error {
 				return nil
 			}
 
-			Instance().OnCatalogChanged(cl)
+			p.host.OnCatalogChanged(cl)
 		} else {
 			log.Errorf("get catalog from res %s: %v", res.String(), err)
 		}

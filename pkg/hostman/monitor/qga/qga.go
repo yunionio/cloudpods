@@ -31,10 +31,15 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 )
 
-const QGA_DEFAULT_READ_TIMEOUT_SECOND int = 5
+const (
+	QGA_DEFAULT_READ_TIMEOUT_SECOND int = 5
+	QGA_EXEC_DEFAULT_WAIT_TIMEOUT   int = 5
+)
 
 type QemuGuestAgent struct {
 	id            string
@@ -317,13 +322,12 @@ func (qga *QemuGuestAgent) QgaGuestGetOsInfo() (*GuestOsInfo, error) {
 	return resOsInfo, nil
 }
 
-func (qga *QemuGuestAgent) QgaFileOpen(path string) (int, error) {
-	//file open
+func (qga *QemuGuestAgent) QgaFileOpen(path, mode string) (int, error) {
 	cmdFileOpen := &monitor.Command{
 		Execute: "guest-file-open",
 		Args: map[string]interface{}{
 			"path": path,
-			"mode": "w+",
+			"mode": mode,
 		},
 	}
 	rawResFileOpen, err := qga.execCmd(cmdFileOpen, true, -1)
@@ -337,7 +341,12 @@ func (qga *QemuGuestAgent) QgaFileOpen(path string) (int, error) {
 	return int(fileNum), nil
 }
 
-func (qga *QemuGuestAgent) QgaFileWrite(fileNum int, content string) error {
+type GuestFileWrite struct {
+	Count int  `json:"count"`
+	Eof   bool `json:"eof"`
+}
+
+func (qga *QemuGuestAgent) QgaFileWrite(fileNum int, content string) (int, bool, error) {
 	contentEncode := base64.StdEncoding.EncodeToString([]byte(content))
 	//write shell to file
 	cmdFileWrite := &monitor.Command{
@@ -347,11 +356,53 @@ func (qga *QemuGuestAgent) QgaFileWrite(fileNum int, content string) error {
 			"buf-b64": contentEncode,
 		},
 	}
-	_, err := qga.execCmd(cmdFileWrite, true, -1)
+	rawResFileWrite, err := qga.execCmd(cmdFileWrite, true, -1)
 	if err != nil {
-		return err
+		return -1, false, err
 	}
-	return nil
+	resWrite := new(GuestFileWrite)
+	err = json.Unmarshal(*rawResFileWrite, resWrite)
+	if err != nil {
+		return -1, false, errors.Wrap(err, "unmarshal raw response")
+	}
+
+	return resWrite.Count, resWrite.Eof, nil
+}
+
+type GuestFileRead struct {
+	Count  int    `json:"count"`
+	BufB64 string `json:"buf-b64"`
+	Eof    bool   `json:"eof"`
+}
+
+func (qga *QemuGuestAgent) QgaFileRead(fileNum, readCount int) ([]byte, bool, error) {
+	cmdFileRead := &monitor.Command{
+		Execute: "guest-file-read",
+	}
+	args := map[string]interface{}{
+		"handle": fileNum,
+	}
+	// readCount: maximum number of bytes to read (default is 4KB, maximum is 48MB)
+	if readCount > 0 {
+		args["count"] = readCount
+	}
+	cmdFileRead.Args = args
+
+	rawResFileRead, err := qga.execCmd(cmdFileRead, true, -1)
+	if err != nil {
+		return nil, false, err
+	}
+	resReadInfo := new(GuestFileRead)
+	err = json.Unmarshal(*rawResFileRead, resReadInfo)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "unmarshal raw response")
+	}
+	content, err := base64.StdEncoding.DecodeString(resReadInfo.BufB64)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "failed decode base64")
+	}
+
+	return content, resReadInfo.Eof, nil
 }
 
 func (qga *QemuGuestAgent) QgaFileClose(fileNum int) error {
@@ -443,38 +494,66 @@ func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify
 	return nil
 }
 
-func (qga *QemuGuestAgent) QgaSetLinuxNetwork(qgaNetMod *monitor.NetworkModify) error {
-	pid, err := qga.GuestExecCommand("/sbin/dhclient", []string{"-r", qgaNetMod.Device}, []string{}, "", false)
-	if err != nil {
-		return errors.Wrap(err, "failed release dhcp current lease")
+var NETWORK_RESTRT_SCRIPT = `#!/bin/bash
+set -e
+DEV=$1
+
+if systemctl is-active --quiet NetworkManager.service; then
+	nmcli connection down $DEV && nmcli connection up $DEV
+	exit 0
+fi
+
+if command -v ifup &> /dev/null; then
+	ifdown $DEV && ifup $DEV
+	exit 0
+fi
+
+if command -v ifconfig &> /dev/null; then
+	ifconfig $DEV down && ifconfig $DEV up
+	exit 0
+fi
+
+if systemctl is-active --quiet network.service; then
+	systemctl restart network.service
+	exit 0
+fi
+
+if command -v ip &> /dev/null; then
+	ip link set $DEV down && ip link set $DEV up
+	exit 0
+fi
+
+echo "No valid method restart network device"
+exit 1
+`
+
+func (qga *QemuGuestAgent) QgaRestartLinuxNetwork(qgaNetMod *monitor.NetworkModify) error {
+	scriptPath := "/tmp/qga_restart_network"
+	if err := qga.FilePutContents(scriptPath, NETWORK_RESTRT_SCRIPT, false); err != nil {
+		return errors.Wrap(err, "write qga_restart_network script")
 	}
 
-	for i := 0; i < 3; i++ {
-		// wait dhclient release current lease
-		time.Sleep(time.Millisecond * 100)
-		res, err := qga.GuestExecStatusCommand(pid.Pid)
-		if err != nil {
-			log.Errorf("failed get exec status %s", err)
-			continue
-		}
-		if res.Exited {
-			break
-		}
-	}
-
-	// flush ipv4 address
-	_, err = qga.GuestExecCommand("ifconfig", []string{qgaNetMod.Device, "0.0.0.0"}, []string{}, "", false)
+	retCode, stdout, stderr, err := qga.CommandWithTimeout("bash", []string{scriptPath, qgaNetMod.Device}, nil, "", true, 10)
 	if err != nil {
-		return errors.Wrap(err, "failed release dhcp current lease")
+		return errors.Wrap(err, "CommandWithTimeout")
 	}
-	_, err = qga.GuestExecCommand("/sbin/dhclient", []string{"-1", qgaNetMod.Device}, []string{}, "", false)
-	if err != nil {
-		return errors.Wrap(err, "failed request dhcp lease")
+	if retCode != 0 {
+		return errors.Errorf("QgaRestartLinuxNetwork failed: %s %s retcode %d", stdout, stderr, retCode)
 	}
 	return nil
 }
 
-func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify) error {
+func (qga *QemuGuestAgent) qgaDeployNetworkConfigure(guestNics []*types.SServerNic) error {
+	qgaPart := NewQGAPartition(qga)
+	fsDriver, err := guestfs.DetectRootFs(qgaPart)
+	if err != nil {
+		return errors.Wrap(err, "qga DetectRootFs")
+	}
+	log.Infof("QGA %s DetectRootFs %s", qga.id, fsDriver.String())
+	return fsDriver.DeployNetworkingScripts(qgaPart, guestNics)
+}
+
+func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify, guestNics []*types.SServerNic) error {
 	//Getting information about the operating system
 	resOsInfo, err := qga.QgaGuestGetOsInfo()
 	if err != nil {
@@ -486,7 +565,11 @@ func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify) error
 	case "mswindows":
 		return qga.QgaSetWindowsNetwork(qgaNetMod)
 	default:
-		return qga.QgaSetLinuxNetwork(qgaNetMod)
+		// do deploy network configure
+		if err := qga.qgaDeployNetworkConfigure(guestNics); err != nil {
+			return errors.Wrap(err, "qgaDeployNetworkConfigure")
+		}
+		return qga.QgaRestartLinuxNetwork(qgaNetMod)
 	}
 }
 

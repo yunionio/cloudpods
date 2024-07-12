@@ -492,6 +492,27 @@ func (m *SGuestManager) ShutdownServers() {
 	})
 }
 
+func (m *SGuestManager) GetQgaRunningGuests() []string {
+	qgaRunningGuestIds := []string{}
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
+		if !guest.IsRunning() {
+			return true
+		}
+
+		if guest.guestAgent.TryLock() {
+			defer guest.guestAgent.Unlock()
+			err := guest.guestAgent.GuestPing(1)
+			if err == nil {
+				qgaRunningGuestIds = append(qgaRunningGuestIds, guest.Id)
+			}
+		}
+		return true
+	})
+
+	return qgaRunningGuestIds
+}
+
 func (m *SGuestManager) GetGuestNicDesc(
 	mac, ip, port, bridge string, isCandidate bool,
 ) (*desc.SGuestDesc, *desc.SGuestNetwork) {
