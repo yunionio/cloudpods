@@ -906,6 +906,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 
 	// ToServerNics(nics)
 	allNics, bondNics := convertNicConfigs(nics)
+	nicCnt := len(allNics) - len(bondNics)
 
 	mainNic := getMainNic(allNics)
 	var mainIp string
@@ -953,7 +954,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString(fmt.Sprintf("    mtu %d\n", nicDesc.Mtu))
 			}
 			var routes = make([][]string, 0)
-			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, len(nics))
+			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
 			for _, r := range routes {
 				cmds.WriteString(fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1]))
 				cmds.WriteString(fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1]))
@@ -1348,6 +1349,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			return errors.Wrap(err, "enableBondingModule")
 		}
 	}
+	nicCnt := len(allNics) - len(bondNics)
 
 	mainNic := getMainNic(allNics)
 	var mainIp string
@@ -1416,7 +1418,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString("\n")
 			}
 			var routes = make([][]string, 0)
-			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, len(nics))
+			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
 			var rtbl strings.Builder
 			for _, r := range routes {
 				rtbl.WriteString(r[0])
