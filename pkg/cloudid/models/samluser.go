@@ -117,6 +117,43 @@ func (manager *SSamluserManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	return q, nil
 }
 
+func (manager *SSamluserManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusDomainLevelUserResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	switch field {
+	case "manager":
+		managerQuery := CloudproviderManager.Query("name", "id").SubQuery()
+		groupQuery := CloudgroupManager.Query("id").SubQuery()
+		q.AppendField(managerQuery.Field("name", field)).Distinct()
+		q = q.Join(groupQuery, sqlchemy.Equals(q.Field("cloudgroup_id"), groupQuery.Field("id")))
+		q = q.Join(managerQuery, sqlchemy.Equals(groupQuery.Field("manager_id"), managerQuery.Field("id")))
+		return q, nil
+	case "account":
+		accountQuery := CloudaccountManager.Query("name", "id").SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		groupQuery := CloudgroupManager.Query("id").SubQuery()
+		q.AppendField(accountQuery.Field("name", field)).Distinct()
+		q = q.Join(groupQuery, sqlchemy.Equals(q.Field("cloudgroup_id"), groupQuery.Field("id")))
+		q = q.Join(providers, sqlchemy.Equals(groupQuery.Field("manager_id"), providers.Field("id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
+		return q, nil
+	case "provider", "brand":
+		accountQuery := CloudaccountManager.Query(field, "id").Distinct().SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		groupQuery := CloudgroupManager.Query("id").SubQuery()
+		q.AppendField(accountQuery.Field(field)).Distinct()
+		q = q.Join(groupQuery, sqlchemy.Equals(q.Field("cloudgroup_id"), groupQuery.Field("id")))
+		q = q.Join(providers, sqlchemy.Equals(groupQuery.Field("manager_id"), providers.Field("id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 // 创建SAML认证用户
 func (manager *SSamluserManager) ValidateCreateData(
 	ctx context.Context,
