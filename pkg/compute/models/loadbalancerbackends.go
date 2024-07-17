@@ -307,8 +307,8 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 				host.Name, host.ZoneId, lb.Name, lb.ZoneId)
 		}
 		if len(lb.ManagerId) == 0 {
-			if !utils.IsInStringArray(host.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_ESXI}) {
-				return nil, httperrors.NewInputParameterError("host type of host %q (%s) should be either hypervisor or esxi",
+			if !utils.IsInStringArray(host.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_ESXI, api.HOST_TYPE_BAREMETAL}) {
+				return nil, httperrors.NewInputParameterError("host type of host %q (%s) should be either hypervisor, baremetal or esxi",
 					host.Name, host.HostType)
 			}
 		} else if host.ManagerId != lb.ManagerId {
