@@ -99,6 +99,8 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 		}
 	}
 
+	nicCnt := len(allNics) - len(bondNics)
+
 	var dnsSrv []string
 	mainNic := getMainNic(allNics)
 	var mainIp string
@@ -144,7 +146,7 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 			}
 
 			var routes = make([][]string, 0)
-			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, len(nics))
+			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
 			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
 				routes = append(routes, []string{
 					"default",

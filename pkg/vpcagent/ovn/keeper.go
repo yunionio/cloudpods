@@ -456,7 +456,7 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 	var (
 		network = guestnetwork.Network
 		dhcpMac = mac.HashSubnetDhcpMac(network.Id)
-		mdIp    = "169.254.169.254"
+		mdIp    = "169.254.169.254/32"
 
 		ocDhcpRef = fmt.Sprintf("dhcp/%s/%s", guestnetwork.GuestId, guestnetwork.Ifname)
 	)

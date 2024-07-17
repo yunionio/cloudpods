@@ -123,6 +123,12 @@ func TestNewNetplanConfig(t *testing.T) {
 									},
 								},
 								Mtu: 1500,
+								Routes: []*netplan.Route{
+									&netplan.Route{
+										To:  "169.254.169.254/32",
+										Via: "0.0.0.0",
+									},
+								},
 							},
 							Interfaces: []string{
 								"eth0",
@@ -249,11 +255,11 @@ func TestNewNetplanConfig(t *testing.T) {
 			},
 		},
 	}
-	for _, c := range cases {
+	for i, c := range cases {
 		allNics, bondNics := convertNicConfigs(c.nics)
 		netplanConfig := NewNetplanConfig(allNics, bondNics, c.mainIp)
 		if jsonutils.Marshal(netplanConfig).String() != jsonutils.Marshal(c.want).String() {
-			t.Errorf("nics: %s want: %s got: %s", jsonutils.Marshal(c.nics), jsonutils.Marshal(c.want).PrettyString(), jsonutils.Marshal(netplanConfig).PrettyString())
+			t.Errorf("nics %d: %s want: %s got: %s", i, jsonutils.Marshal(c.nics), jsonutils.Marshal(c.want).PrettyString(), jsonutils.Marshal(netplanConfig).PrettyString())
 		}
 	}
 }
