@@ -258,6 +258,31 @@ func (manager *SCloudgroupManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (manager *SCloudgroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "manager":
+		managerQuery := CloudproviderManager.Query("name", "id").SubQuery()
+		q.AppendField(managerQuery.Field("name", field)).Distinct()
+		q = q.Join(managerQuery, sqlchemy.Equals(q.Field("manager_id"), managerQuery.Field("id")))
+		return q, nil
+	case "account":
+		accountQuery := CloudaccountManager.Query("name", "id").SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		q.AppendField(accountQuery.Field("name", field)).Distinct()
+		q = q.Join(providers, sqlchemy.Equals(q.Field("manager_id"), providers.Field("id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
+		return q, nil
+	case "provider", "brand":
+		accountQuery := CloudaccountManager.Query(field, "id").Distinct().SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		q.AppendField(accountQuery.Field(field)).Distinct()
+		q = q.Join(providers, sqlchemy.Equals(q.Field("manager_id"), providers.Field("id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 // 创建权限组
 func (manager *SCloudgroupManager) ValidateCreateData(
 	ctx context.Context,
