@@ -180,9 +180,13 @@ func (self *SLBBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudL
 	}
 
 	ret := []cloudprovider.ICloudLoadbalancerBackend{}
+	globalIds := map[string]bool{}
 	for i := range backends {
 		backends[i].group = self
-		ret = append(ret, &backends[i])
+		if _, ok := globalIds[backends[i].GetGlobalId()]; !ok {
+			globalIds[backends[i].GetGlobalId()] = true
+			ret = append(ret, &backends[i])
+		}
 	}
 
 	return ret, nil
