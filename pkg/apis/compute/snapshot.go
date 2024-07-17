@@ -92,6 +92,8 @@ type SnapshotDetails struct {
 
 	// 存储类型
 	StorageType string `json:"storage_type"`
+	// 存储名称
+	Storage string `json:"storage"`
 	// 磁盘状态
 	DiskStatus string `json:"disk_status"`
 	// 云主机名称
