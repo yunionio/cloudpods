@@ -17,8 +17,22 @@ import (
 const UNION_RESULT_NAME = "__union_result__"
 
 const (
-	CALL_TOP = "top"
+	CALL_TOP        = "top"
+	CALL_PERCENTILE = "percentile"
 )
+
+var MUL_ARGS_AGGREGATOR MulArgsAggregator = []string{CALL_TOP, CALL_PERCENTILE}
+
+type MulArgsAggregator []string
+
+func (m MulArgsAggregator) Has(aggr string) bool {
+	for _, a := range m {
+		if a == aggr {
+			return true
+		}
+	}
+	return false
+}
 
 type promQL struct {
 	groupByWildcard bool
@@ -331,6 +345,15 @@ func getAggrExpr(ops []*AggrOperator, expr promql.Expr) promql.Expr {
 			promql.Expressions{
 				aggrOp.Args[0],
 				restExpr})
+	case CALL_PERCENTILE:
+		expr = newAggrExprWithArgs("quantile_over_time",
+			[]promql.ValueType{
+				promql.ValueTypeString,
+				promql.ValueTypeMatrix,
+			}, promql.ValueTypeVector,
+			promql.Expressions{
+				aggrOp.Args[0],
+				restExpr})
 	}
 	return expr
 }
@@ -347,18 +370,25 @@ func newAggrOperatorByName(name string) *AggrOperator {
 }
 
 func getAggrOperator(op *influxql.Call) ([]*AggrOperator, error) {
-	if len(op.Args) != 1 && op.Name != CALL_TOP {
+	if len(op.Args) != 1 && !MUL_ARGS_AGGREGATOR.Has(op.Name) {
 		return nil, errors.Errorf("not supported aggregator: %s with args: %#v", op.String(), op.Args)
 	}
 	aggOp := newAggrOperatorByName(op.Name)
-	if op.Name == CALL_TOP {
-		topNumStr := op.Args[len(op.Args)-1].String()
-		topNum, err := strconv.Atoi(topNumStr)
+	if op.Name == CALL_TOP || op.Name == CALL_PERCENTILE {
+		numStr := op.Args[len(op.Args)-1].String()
+		num, err := strconv.Atoi(numStr)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parse top aggregator: %s", op)
 		}
+		numFloat := float64(num)
+		if op.Name == CALL_PERCENTILE {
+			if numFloat > 100 {
+				return nil, errors.Errorf("percentile %f is large than 100", numFloat)
+			}
+			numFloat = numFloat / 100
+		}
 		aggOp.Args = promql.Expressions{
-			&promql.NumberLiteral{Val: float64(topNum)},
+			&promql.NumberLiteral{Val: numFloat},
 		}
 	}
 	ret := []*AggrOperator{aggOp}
@@ -418,7 +448,7 @@ var (
 )
 
 func getCallVariable(c *influxql.Call) (string, error) {
-	if len(c.Args) != 1 && c.Name != CALL_TOP {
+	if len(c.Args) != 1 && !MUL_ARGS_AGGREGATOR.Has(c.Name) {
 		return "", errors.Errorf("length of call %q args %#v != 1", c.Name, c.Args)
 	}
 	switch args := c.Args[0].(type) {
