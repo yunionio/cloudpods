@@ -32,8 +32,9 @@ func NewNetplanConfig(allNics []*types.SServerNic, bondNics []*types.SServerNic,
 func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic, mainIp string) *netplan.Network {
 	network := netplan.NewNetwork()
 
+	nicCnt := len(allNics) - len(bondNics)
 	for _, nic := range allNics {
-		nicConf := getNetplanEthernetConfig(nic, false, mainIp)
+		nicConf := getNetplanEthernetConfig(nic, false, mainIp, nicCnt)
 
 		if nicConf == nil {
 			continue
@@ -69,7 +70,7 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 			network.AddEthernet(sn.Name, nicConf)
 		}
 
-		netConf := getNetplanEthernetConfig(bondNic, true, mainIp)
+		netConf := getNetplanEthernetConfig(bondNic, true, mainIp, nicCnt)
 
 		if netConf.Mtu == 0 {
 			netConf.Mtu = defaultMtu
@@ -84,7 +85,7 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 	return network
 }
 
-func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool, mainIp string) *netplan.EthernetConfig {
+func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool, mainIp string, nicCnt int) *netplan.EthernetConfig {
 	var nicConf *netplan.EthernetConfig
 
 	if !isBond && (nic.TeamingMaster != nil || nic.TeamingSlaves != nil) {
@@ -107,9 +108,12 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool, mainIp string)
 			}
 		}
 
+		var routeArrs = make([][]string, 0)
+		routeArrs = netutils2.AddNicRoutes(routeArrs, nic, mainIp, nicCnt)
+
 		var routes []*netplan.Route
 
-		for _, route := range nic.Routes {
+		for _, route := range routeArrs {
 			routes = append(routes, &netplan.Route{
 				To:  route[0],
 				Via: route[1],
