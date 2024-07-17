@@ -392,6 +392,7 @@ func (manager *SSnapshotManager) FetchCustomizeColumns(
 	for i := range rows {
 		if storage, ok := storages[storageIds[i]]; ok {
 			rows[i].StorageType = storage.StorageType
+			rows[i].Storage = storage.Name
 		}
 		if disk, ok := disks[diskIds[i]]; ok {
 			rows[i].DiskStatus = disk.Status
