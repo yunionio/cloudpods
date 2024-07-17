@@ -1451,6 +1451,12 @@ func (disk *SDisk) getCandidateHostIds() ([]string, error) {
 }
 
 func (self *SDisk) GetMasterHost(storage *SStorage) (*SHost, error) {
+	if storage.StorageType == api.STORAGE_SLVM {
+		if guest := self.GetGuest(); guest != nil {
+			return guest.GetHost()
+		}
+	}
+
 	if storage.MasterHost != "" {
 		return storage.GetMasterHost()
 	}
