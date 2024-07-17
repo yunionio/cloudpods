@@ -134,13 +134,9 @@ func (self *SRegion) GetBackends(lbId, listenerId string) ([]SLBBackend, error) 
 	}
 	backends := []SLBBackend{}
 	for _, entry := range lbackends {
-		if len(entry.Targets) > 0 {
-			backends = append(backends, entry.Targets...)
-		}
+		backends = append(backends, entry.Targets...)
 		for _, r := range entry.Rules {
-			if len(r.Targets) > 0 {
-				backends = append(backends, r.Targets...)
-			}
+			backends = append(backends, r.Targets...)
 		}
 	}
 	return backends, nil
