@@ -486,6 +486,19 @@ func (s *SLVMStorage) CreateDiskFromExistingPath(context.Context, IDisk, *SDiskC
 	return errors.Errorf("unsupported operation")
 }
 
+func (s *SLVMStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+	lvSizeMb := lvmutils.GetQcow2LvSize(int64(input.DiskInfo.DiskSizeMb))
+	if err := lvmutils.LvCreate(s.GetPath(), disk.GetId(), lvSizeMb*1024*1024); err != nil {
+		return errors.Wrap(err, "CreateRaw")
+	}
+
+	err := doRestoreDisk(ctx, input.DiskInfo, disk.GetPath(), input.DiskInfo.Format)
+	if err != nil {
+		return errors.Wrap(err, "doRestoreDisk")
+	}
+	return nil
+}
+
 func (s *SLVMStorage) GetFuseTmpPath() string {
 	localPath := options.HostOptions.ImageCachePath
 	if len(options.HostOptions.LocalImagePath) > 0 {

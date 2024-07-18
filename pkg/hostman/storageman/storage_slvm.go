@@ -177,3 +177,15 @@ func (s *SSLVMStorage) SetStorageInfo(storageId, storageName string, conf jsonut
 	}
 	return nil
 }
+
+func (s *SSLVMStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+	err := s.SLVMStorage.CreateDiskFromBackup(ctx, disk, input)
+	if err != nil {
+		return err
+	}
+	err = lvmutils.LVDeactivate(disk.GetPath())
+	if err != nil {
+		return errors.Wrap(err, "LVDeactivate")
+	}
+	return nil
+}
