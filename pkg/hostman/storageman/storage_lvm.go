@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -482,15 +483,70 @@ func (s *SLVMStorage) CreateDiskFromExistingPath(context.Context, IDisk, *SDiskC
 	return errors.Errorf("unsupported operation")
 }
 
+func (s *SLVMStorage) GetBackupDir() string {
+	localPath := options.HostOptions.ImageCachePath
+	if len(options.HostOptions.LocalImagePath) > 0 {
+		localPath = options.HostOptions.LocalImagePath[0]
+	}
+	return path.Join(localPath, _BACKUP_PATH_)
+}
+
+func (s *SLVMStorage) storageBackupRecovery(ctx context.Context, sbParams *SStorageBackup) (jsonutils.JSONObject, error) {
+	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+	if err != nil {
+		return nil, err
+	}
+	backupPath := path.Join(s.GetBackupDir(), sbParams.BackupId)
+	return nil, backupStorage.CopyBackupTo(backupPath, sbParams.BackupId)
+}
+
+func (s *SLVMStorage) StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sbParams := params.(*SStorageBackup)
+	return s.storageBackupRecovery(ctx, sbParams)
+}
+
 func (s *SLVMStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
 	lvSizeMb := lvmutils.GetQcow2LvSize(int64(input.DiskInfo.DiskSizeMb))
 	if err := lvmutils.LvCreate(s.GetPath(), disk.GetId(), lvSizeMb*1024*1024); err != nil {
 		return errors.Wrap(err, "CreateRaw")
 	}
 
-	err := doRestoreDisk(ctx, input.DiskInfo, disk.GetPath(), input.DiskInfo.Format)
+	info := input.DiskInfo
+	backupDir := s.GetBackupDir()
+	if !fileutils2.Exists(backupDir) {
+		output, err := procutils.NewCommand("mkdir", "-p", backupDir).Output()
+		if err != nil {
+			return errors.Wrapf(err, "mkdir %s failed: %s", backupDir, output)
+		}
+	}
+	backupPath := path.Join(s.GetBackupDir(), info.Backup.BackupId)
+	if !fileutils2.Exists(backupPath) {
+		_, err := s.storageBackupRecovery(ctx, &SStorageBackup{
+			BackupId:                input.DiskInfo.Backup.BackupId,
+			BackupStorageId:         input.DiskInfo.Backup.BackupStorageId,
+			BackupStorageAccessInfo: input.DiskInfo.Backup.BackupStorageAccessInfo.Copy(),
+		})
+		if err != nil {
+			return errors.Wrap(err, "unable to storageBackupRecovery")
+		}
+	}
+
+	img, err := qemuimg.NewQemuImage(backupPath)
 	if err != nil {
-		return errors.Wrap(err, "doRestoreDisk")
+		return errors.Wrap(err, "NewQemuImage")
+	}
+	if info.Encryption {
+		img.SetPassword(info.EncryptInfo.Key)
+	}
+
+	destImgPath := disk.GetPath()
+	format := info.Format
+	if len(format) == 0 {
+		format = qemuimgfmt.QCOW2.String()
+	}
+	_, err = img.Clone(destImgPath, qemuimgfmt.String2ImageFormat(format), false)
+	if err != nil {
+		return errors.Wrapf(err, "Clone %s", destImgPath)
 	}
 	return nil
 }
