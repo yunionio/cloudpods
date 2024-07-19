@@ -3296,7 +3296,8 @@ func fetchHostNics(hostIds []string) (map[string][]*types.SNic, error) {
 	}
 
 	ret := map[string][]*types.SNic{}
-	for _, nic := range nics {
+	for i := range nics {
+		nic := nics[i]
 		_, ok := ret[nic.BaremetalId]
 		if !ok {
 			ret[nic.BaremetalId] = []*types.SNic{}
@@ -3370,7 +3371,8 @@ func fetchHostStorages(hostIds []string) (map[string]*SStorageCapacity, error) {
 		return nil, err
 	}
 	ret := map[string]*SStorageCapacity{}
-	for _, v := range values {
+	for i := range values {
+		v := values[i]
 		_, ok := ret[v.HostId]
 		if !ok {
 			ret[v.HostId] = &SStorageCapacity{}
