@@ -64,10 +64,7 @@ See [Introduction](https://www.cloudpods.org/docs/introduction/) for details.
 
 ## Getting started
 
-- [All in One Installation](https://www.cloudpods.org/zh/docs/quickstart/allinone-converge/)：Building a full-featured Cloudpods service on linux distributions such as CentOS 7 or Debian 10 allows for a quick experience of the **built-in private cloud** and **multi-cloud management** features.
-- [Kubernetes Helm Installation](https://www.cloudpods.org/zh/docs/quickstart/k8s/)：Deploying the Cloudpods CMP service on an existing Kubernetes cluster using Helm and experience the **multi-cloud management** feature.
-- [Docker Compose Installation](https://www.cloudpods.org/zh/docs/quickstart/docker-compose/)：Deploying the Cloudpods CMP service using Docker Compose and quickly experience the **multi-cloud management** feature.
-- [High availability installation](https://www.cloudpods.org/zh/docs/setup/ha-ce/)：Deploying Cloudpods services in a highly available manner for production environments, including **built-in private cloud** and **multi-cloud management** features.
+Please refer to the document [Getting Started](https://www.cloudpods.org/en/docs/getting-started/) to select the appropriate scenario for installation.
 
 ## Documentations
 
