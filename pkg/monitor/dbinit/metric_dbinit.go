@@ -91,9 +91,10 @@ func init() {
 			newMetricFieldCreateInput("free", "Free space size", monitor.METRIC_UNIT_BYTE, 2),
 			newMetricFieldCreateInput("used", "Used disk size", monitor.METRIC_UNIT_BYTE, 3),
 			newMetricFieldCreateInput("total", "Total disk size", monitor.METRIC_UNIT_BYTE, 4),
-			newMetricFieldCreateInput("inodes_free", "Available inode", monitor.METRIC_UNIT_COUNT, 5),
-			newMetricFieldCreateInput("inodes_used", "Number of inodes used", monitor.METRIC_UNIT_COUNT, 6),
-			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("inodes_used_percent", "Percentage of used inodes", monitor.METRIC_UNIT_PERCENT, 5),
+			newMetricFieldCreateInput("inodes_free", "Available inode", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("inodes_used", "Number of inodes used", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 8),
 		})
 
 	// diskio
@@ -319,9 +320,10 @@ func init() {
 			newMetricFieldCreateInput("free", "Free space size", monitor.METRIC_UNIT_BYTE, 2),
 			newMetricFieldCreateInput("used", "Used disk size", monitor.METRIC_UNIT_BYTE, 3),
 			newMetricFieldCreateInput("total", "Total disk size", monitor.METRIC_UNIT_BYTE, 4),
-			newMetricFieldCreateInput("inodes_free", "Available inode", monitor.METRIC_UNIT_COUNT, 5),
-			newMetricFieldCreateInput("inodes_used", "Number of inodes used", monitor.METRIC_UNIT_COUNT, 6),
-			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("inodes_used_percent", "Percentage of used inodes", monitor.METRIC_UNIT_PERCENT, 5),
+			newMetricFieldCreateInput("inodes_free", "Available inode", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("inodes_used", "Number of inodes used", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 8),
 		})
 
 	// agent_diskio
