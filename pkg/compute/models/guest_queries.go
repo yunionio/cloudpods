@@ -292,7 +292,8 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		meta := []db.SMetadata{}
 		db.Metadata.Query().In("obj_id", guestIds).Equals("obj_type", manager.Keyword()).Equals("key", api.MIRROR_JOB).All(&meta)
 		syncStatus := map[string]string{}
-		for _, v := range meta {
+		for i := range meta {
+			v := meta[i]
 			syncStatus[v.ObjId] = v.Value
 		}
 		if len(backups) > 0 || len(syncStatus) > 0 {
@@ -787,7 +788,8 @@ func fetchContainers(guestIds []string) (map[string][]*api.PodContainerDesc, err
 	if err != nil {
 		return nil, err
 	}
-	for _, container := range containers {
+	for i := range containers {
+		container := containers[i]
 		_, ok := ret[container.GuestId]
 		if !ok {
 			ret[container.GuestId] = []*api.PodContainerDesc{}
