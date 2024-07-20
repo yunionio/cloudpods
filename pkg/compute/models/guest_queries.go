@@ -292,7 +292,8 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		meta := []db.SMetadata{}
 		db.Metadata.Query().In("obj_id", guestIds).Equals("obj_type", manager.Keyword()).Equals("key", api.MIRROR_JOB).All(&meta)
 		syncStatus := map[string]string{}
-		for _, v := range meta {
+		for i := range meta {
+			v := meta[i]
 			syncStatus[v.ObjId] = v.Value
 		}
 		if len(backups) > 0 || len(syncStatus) > 0 {
