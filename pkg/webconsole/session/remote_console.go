@@ -15,11 +15,13 @@
 package session
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os/exec"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -203,4 +205,20 @@ func (info *RemoteConsoleInfo) getApsaraURL() (string, error) {
 
 func (info *RemoteConsoleInfo) GetRecordObject() *recorder.Object {
 	return nil
+}
+
+func (info *RemoteConsoleInfo) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, error) {
+	userInfo, err := fetchUserInfo(ctx, info.GetClientSession())
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchUserInfo")
+	}
+	guestDetails, err := FetchServerInfo(ctx, info.GetClientSession(), info.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchServerInfo")
+	}
+
+	dispInfo := SDisplayInfo{}
+	dispInfo.WaterMark = fetchWaterMark(userInfo)
+	dispInfo.fetchGuestInfo(guestDetails)
+	return &dispInfo, nil
 }

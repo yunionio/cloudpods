@@ -35,6 +35,11 @@ const (
 
 func init() {
 	handleResult := func(opt o.WebConsoleOptions, obj jsonutils.JSONObject) error {
+		if obj.Contains("access_url") {
+			accessUrl, _ := obj.GetString("access_url")
+			fmt.Println("AccessURL:", accessUrl)
+			return nil
+		}
 		if opt.WebconsoleUrl == "" {
 			opt.WebconsoleUrl = DefaultWebconsoleServer
 		}
