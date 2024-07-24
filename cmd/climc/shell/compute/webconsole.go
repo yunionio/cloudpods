@@ -32,6 +32,11 @@ import (
 
 func init() {
 	handleResult := func(s *mcclient.ClientSession, opt o.WebConsoleOptions, obj jsonutils.JSONObject) error {
+		if obj.Contains("access_url") {
+			accessUrl, _ := obj.GetString("access_url")
+			fmt.Println("AccessURL:", accessUrl)
+			return nil
+		}
 		if opt.WebconsoleUrl == "" {
 			resp, err := identity.ServicesV3.GetSpecific(s, "common", "config", nil)
 			if err != nil {
