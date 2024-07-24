@@ -509,7 +509,7 @@ func (s *sendRobotImpl) execNotifyFunc() error {
 
 func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
 	tmpMatches := base.config.Matches
-	batch := 10
+	batch := 100
 	for i := 0; i < len(tmpMatches); i += batch {
 		split := i + batch
 		if split > len(tmpMatches) {
