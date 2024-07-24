@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/recorder"
@@ -125,6 +126,11 @@ func (s *RandomSessionData) IsNeedLogin() (bool, error) {
 	return false, nil
 }
 
+type IGuestCmd interface {
+	command.ICommand
+	GetGuestDetails() *computeapi.ServerDetails
+}
+
 func (s *RandomSessionData) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, error) {
 	userInfo, err := fetchUserInfo(ctx, s.GetClientSession())
 	if err != nil {
@@ -132,7 +138,16 @@ func (s *RandomSessionData) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, 
 	}
 	dispInfo := SDisplayInfo{}
 	dispInfo.WaterMark = fetchWaterMark(userInfo)
-	dispInfo.InstanceName = s.GetCommand().String()
+	cmd := s.GetCommand()
+	if cmd == nil {
+		dispInfo.InstanceName = cmd.String()
+	}
+	if ic, ok := s.ICommand.(IGuestCmd); ok {
+		details := ic.GetGuestDetails()
+		if details != nil {
+			dispInfo.fetchGuestInfo(details)
+		}
+	}
 	return &dispInfo, nil
 }
 

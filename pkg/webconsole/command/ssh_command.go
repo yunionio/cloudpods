@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -201,8 +202,13 @@ func (c *SSHtoolSol) GetCommand() *exec.Cmd {
 	return nil
 }
 
-func (c *SSHtoolSol) GetClientSession() *mcclient.ClientSession {
-	return c.userSession
+func (c *SSHtoolSol) GetGuestDetails() *computeapi.ServerDetails {
+	if c.object == nil {
+		return nil
+	}
+	out := new(computeapi.ServerDetails)
+	c.object.Unmarshal(out)
+	return out
 }
 
 func (c *SSHtoolSol) Cleanup() error {
