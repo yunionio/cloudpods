@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -192,14 +193,14 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			meta = &metas[0]
 		}
 		if evalMatch {
-			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr)
+			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr, evalMatch)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewEvalMatch error")
 			}
 			matches = append(matches, match)
 		}
 		if reducedValue != nil && !evalMatch {
-			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr)
+			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr, evalMatch)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewEvalMatch error")
 			}
@@ -278,8 +279,7 @@ func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
 	}
 }
 
-func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series monitor.TimeSeries,
-	meta *monitor.QueryResultMeta, value *float64, valStrArr []string) (*monitor.EvalMatch, error) {
+func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series monitor.TimeSeries, meta *monitor.QueryResultMeta, value *float64, valStrArr []string, isMatch bool) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
 	alertDetails, err := c.GetCommonAlertDetails(context)
 	if err != nil {
@@ -309,11 +309,17 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series moni
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
-	op := alertDetails.Operator
-	if op != "" && c.Index > 0 {
-		msg = fmt.Sprintf("%s %s", strings.ToUpper(op), msg)
+	// 避免重复指标
+	if isMatch {
+		op := alertDetails.Operator
+		if op != "" && c.Index > 0 {
+			msg = fmt.Sprintf("%s %s", strings.ToUpper(op), msg)
+		}
+		msgSet := sets.NewString(context.Rule.TriggeredMessages...)
+		if !msgSet.Has(msg) {
+			context.Rule.TriggeredMessages = append(context.Rule.TriggeredMessages, msg)
+		}
 	}
-	context.Rule.TriggeredMessages = append(context.Rule.TriggeredMessages, msg)
 	evalMatch.AlertDetails = jsonutils.Marshal(alertDetails)
 	return evalMatch, nil
 }
