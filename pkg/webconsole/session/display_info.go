@@ -39,6 +39,7 @@ type SDisplayInfo struct {
 	OsName         string `json:"os_name"`
 	OsArch         string `json:"os_arch"`
 	OsDistribution string `json:"os_distribution"`
+	SecretLevel    string `json:"secret_level"`
 }
 
 func (dispInfo *SDisplayInfo) fetchGuestInfo(guestDetails *compute_api.ServerDetails) {
@@ -49,6 +50,7 @@ func (dispInfo *SDisplayInfo) fetchGuestInfo(guestDetails *compute_api.ServerDet
 	dispInfo.OsDistribution = guestDetails.Metadata[compute_api.VM_METADATA_OS_DISTRO]
 	dispInfo.InstanceName = guestDetails.Name
 	dispInfo.Ips = guestDetails.IPs
+	dispInfo.SecretLevel = guestDetails.Metadata["cls:secret_level"]
 }
 
 func (dispInfo *SDisplayInfo) populateParams(params url.Values) url.Values {
@@ -75,6 +77,9 @@ func (dispInfo *SDisplayInfo) populateParams(params url.Values) url.Values {
 	}
 	if len(dispInfo.OsDistribution) > 0 {
 		params["os_distribution"] = []string{dispInfo.OsDistribution}
+	}
+	if len(dispInfo.SecretLevel) > 0 {
+		params["secret_level"] = []string{dispInfo.SecretLevel}
 	}
 
 	return params
