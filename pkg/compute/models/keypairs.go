@@ -153,7 +153,7 @@ func (km *SKeypairManager) query(manager db.IModelManager, field string, keyIds 
 	return sq.Query(
 		sq.Field("keypair_id"),
 		sqlchemy.COUNT(field),
-	).In("keypair_id", keyIds).GroupBy(sq.Field("keypir_id")).SubQuery()
+	).In("keypair_id", keyIds).GroupBy(sq.Field("keypair_id")).SubQuery()
 }
 
 type SKeypairUsageCount struct {
