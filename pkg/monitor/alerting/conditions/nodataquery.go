@@ -79,7 +79,7 @@ serLoop:
 				}
 
 				reducedValue, valStrArr := c.Reducer.Reduce(series)
-				match, err := c.NewEvalMatch(context, *series, nil, reducedValue, valStrArr)
+				match, err := c.NewEvalMatch(context, *series, nil, reducedValue, valStrArr, false)
 				if err != nil {
 					return nil, errors.Wrap(err, "NoDataQueryCondition NewEvalMatch error")
 				}
