@@ -82,9 +82,7 @@ type SHostInfo struct {
 	// registerCallback func()
 	stopped bool
 	isLoged bool
-
-	saved  bool
-	pinger *SHostPingTask
+	saved   bool
 
 	Cpu                 *SCPUInfo
 	Mem                 *SMemory
@@ -2192,7 +2190,7 @@ func (h *SHostInfo) onSucc() {
 		if err := h.save(); err != nil {
 			panic(err.Error())
 		}
-		h.StartPinger()
+		//h.StartPinger()
 		// if h.registerCallback != nil {
 		// 	h.registerCallback()
 		// }
@@ -2222,13 +2220,6 @@ func (h *SHostInfo) AppendError(content, errType, id, name string) {
 
 func (h *SHostInfo) RemoveErrorType(errType string) {
 	delete(h.SysError, errType)
-}
-
-func (h *SHostInfo) StartPinger() {
-	h.pinger = NewHostPingTask(options.HostOptions.PingRegionInterval)
-	if h.pinger != nil {
-		go h.pinger.Start()
-	}
 }
 
 func (h *SHostInfo) save() error {
@@ -2293,9 +2284,7 @@ func (h *SHostInfo) Keyword() string {
 func (h *SHostInfo) stop() {
 	log.Infof("Host Info stop ...")
 	h.unregister()
-	if h.pinger != nil {
-		h.pinger.Stop()
-	}
+
 	for _, nic := range h.Nics {
 		nic.ExitCleanup()
 	}

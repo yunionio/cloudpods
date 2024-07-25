@@ -125,7 +125,6 @@ func (self *GuestQgaSyncOsInfoTask) updateOsInfo(ctx context.Context, guest *mod
 
 func (self *GuestQgaSyncOsInfoTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
 	guest.SetStatus(ctx, self.UserCred, api.VM_QGA_EXEC_COMMAND_FAILED, reason)
-	guest.UpdateQgaStatus(api.QGA_STATUS_EXECUTE_FAILED)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_OS_INFO_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SET_USER_PASSWORD, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
@@ -133,7 +132,6 @@ func (self *GuestQgaSyncOsInfoTask) taskFailed(ctx context.Context, guest *model
 
 func (self *GuestQgaSyncOsInfoTask) OnUpdateOsInfoComplete(ctx context.Context, guest *models.SGuest, osInput api.ServerSetOSInfoInput) {
 	guest.SetStatus(ctx, self.UserCred, api.VM_RUNNING, "on qga set user password success")
-	guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_OS_INFO, jsonutils.Marshal(osInput), self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SET_USER_PASSWORD, jsonutils.Marshal(osInput), self.UserCred, false)
 	self.SetStageComplete(ctx, nil)

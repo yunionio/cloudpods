@@ -24,6 +24,7 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
@@ -31,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hosthandler"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostpinger"
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/metadata"
@@ -114,6 +116,12 @@ func (host *SHostService) RunService() {
 	// hostmetrics after guestmanager bootstrap
 	hostmetrics.Init()
 	hostmetrics.Start()
+	fsdriver.Init("")
+
+	hostPinger := hostpinger.NewHostPingTask(options.HostOptions.PingRegionInterval, hostInstance)
+	if hostPinger != nil {
+		go hostPinger.Start()
+	}
 
 	host.initHandlers(app)
 
@@ -140,6 +148,9 @@ func (host *SHostService) RunService() {
 
 	close(guestChan)
 	app_common.ServeForeverWithCleanup(app, &options.HostOptions.BaseOptions, func() {
+		if hostPinger != nil {
+			hostPinger.Stop()
+		}
 		hostinfo.Stop()
 		storageman.Stop()
 		hostmetrics.Stop()

@@ -46,7 +46,6 @@ func (self *SGuestQgaBaseTask) guestPing(ctx context.Context, guest *models.SGue
 
 func (self *SGuestQgaBaseTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
 	guest.SetStatus(ctx, self.UserCred, api.VM_QGA_EXEC_COMMAND_FAILED, reason)
-	guest.UpdateQgaStatus(api.QGA_STATUS_EXECUTE_FAILED)
 	db.OpsLog.LogEvent(guest, db.ACT_SET_USER_PASSWORD_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SET_USER_PASSWORD, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
@@ -94,7 +93,6 @@ func (self *GuestQgaSetPasswordTask) OnQgaGuestPingFailed(ctx context.Context, g
 
 func (self *GuestQgaSetPasswordTask) OnQgaSetUserPassword(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(ctx, self.UserCred, api.VM_RUNNING, "on qga set user password success")
-	guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
 	db.OpsLog.LogEvent(guest, db.ACT_SET_USER_PASSWORD, "", self.UserCred)
 
 	input := &api.ServerQgaSetPasswordInput{}
