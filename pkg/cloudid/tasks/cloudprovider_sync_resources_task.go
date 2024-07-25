@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
@@ -30,8 +31,13 @@ type CloudproviderSyncResourcesTask struct {
 	taskman.STask
 }
 
+var (
+	CloudproviderSyncWorkerManager *appsrv.SWorkerManager
+)
+
 func init() {
-	taskman.RegisterTask(CloudproviderSyncResourcesTask{})
+	CloudproviderSyncWorkerManager = appsrv.NewWorkerManager("CloudproviderSyncWorkerManager", 10, 1024, false)
+	taskman.RegisterTaskAndWorker(CloudproviderSyncResourcesTask{}, CloudproviderSyncWorkerManager)
 }
 
 func (self *CloudproviderSyncResourcesTask) taskFailed(ctx context.Context, cp *models.SCloudprovider, err error) {
