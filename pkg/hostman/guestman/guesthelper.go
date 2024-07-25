@@ -200,6 +200,14 @@ type SQgaGuestSetPassword struct {
 	Sid string
 }
 
+type SQgaGuestSetNetwork struct {
+	Timeout int
+	Sid     string
+	Device  string
+	Ipmask  string
+	Gateway string
+}
+
 type CpuSetCounter struct {
 	Nodes       []*NumaNode
 	NumaEnabled bool

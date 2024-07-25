@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -48,20 +49,10 @@ func (self *GuestQgaRestartNetworkTask) OnRestartNetwork(ctx context.Context, gu
 	inBlockStream, _ := self.Params.Bool("in_block_stream")
 
 	_, err := self.requestSetNetwork(ctx, guest, device, ipMask, gateway)
-	//the first set maybe fail,if failed, try again
 	if err != nil {
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, err, self.UserCred, false)
-		_, err = self.requestSetNetwork(ctx, guest, device, ipMask, gateway)
-		if err != nil {
-			logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, err, self.UserCred, false)
-			self.taskFailed(ctx, guest, prevIp, inBlockStream, err)
-			return
-		}
+		self.taskFailed(ctx, guest, prevIp, inBlockStream, err)
 	}
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_SUCCESS, "qga restart network success", self.UserCred, true)
-	guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
-	guest.StartSyncstatus(ctx, self.UserCred, "")
-	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestQgaRestartNetworkTask) requestSetNetwork(ctx context.Context, guest *models.SGuest, device string, ipMask string, gateway string) (jsonutils.JSONObject, error) {
@@ -82,12 +73,25 @@ func (self *GuestQgaRestartNetworkTask) requestSetNetwork(ctx context.Context, g
 	if err != nil {
 		return nil, err
 	}
-	return drv.QgaRequestSetNetwork(ctx, self.UserCred, jsonutils.Marshal(inputQgaNet), host, guest)
+
+	self.SetStage("OnSetNetwork", nil)
+	return drv.QgaRequestSetNetwork(ctx, self, jsonutils.Marshal(inputQgaNet), host, guest)
+}
+
+func (self *GuestQgaRestartNetworkTask) OnSetNetwork(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_QGA_NETWORK_SUCCESS, "qga restart network success", self.UserCred, true)
+	guest.StartSyncstatus(ctx, self.UserCred, "")
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestQgaRestartNetworkTask) OnSetNetworkFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	prevIp, _ := self.Params.GetString("prev_ip")
+	inBlockStream, _ := self.Params.Bool("in_block_stream")
+	self.taskFailed(ctx, guest, prevIp, inBlockStream, errors.Errorf(data.String()))
 }
 
 func (self *GuestQgaRestartNetworkTask) taskFailed(ctx context.Context, guest *models.SGuest, prevIp string, inBlockStream bool, err error) {
 	guest.SetStatus(ctx, self.GetUserCred(), api.VM_QGA_SET_NETWORK_FAILED, err.Error())
-	guest.UpdateQgaStatus(api.QGA_STATUS_EXECUTE_FAILED)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, jsonutils.NewString(err.Error()), self.UserCred, false)
 	self.SetStageFailed(ctx, nil)
 }

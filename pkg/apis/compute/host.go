@@ -544,6 +544,8 @@ type SHostPingInput struct {
 	RootPartitionUsedCapacityMb int `json:"root_partition_used_capacity_mb"`
 
 	StorageStats []SHostStorageStat `json:"storage_stats"`
+
+	QgaRunningGuestIds []string `json:"qga_running_guests"`
 }
 
 type HostReserveCpusInput struct {

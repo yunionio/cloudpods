@@ -88,3 +88,26 @@ WantedBy=multi-user.target
 
 	return nil
 }
+
+func (d *sLinuxRootFs) InstallQemuGuestAgentSystemd() error {
+	var serviceName = "qemu-guest-agent.service"
+	var unitPath = fmt.Sprintf("%s/%s", unitDirPath, serviceName)
+	var unitContent = fmt.Sprintf(`[Unit]
+Description=QEMU Guest Agent
+BindsTo=dev-virtio\x2dports-org.qemu.guest_agent.0.device
+After=dev-virtio\x2dports-org.qemu.guest_agent.0.device
+
+[Service]
+ExecStart=/usr/bin/qemu-ga
+Restart=always
+RestartSec=0
+
+[Install]
+`)
+	err := d.rootFs.FilePutContents(unitPath, unitContent, false, false)
+	if err != nil {
+		return errors.Wrap(err, "save qemu-guest-agent.service unit fail")
+	}
+
+	return nil
+}

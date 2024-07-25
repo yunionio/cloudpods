@@ -4665,6 +4665,19 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 		}
 		hh.SetMetadata(ctx, "root_partition_used_capacity_mb", input.RootPartitionUsedCapacityMb, userCred)
 		hh.SetMetadata(ctx, "memory_used_mb", input.MemoryUsedMb, userCred)
+
+		guests, _ := hh.GetGuests()
+		for _, guest := range guests {
+			if utils.IsInStringArray(guest.Id, input.QgaRunningGuestIds) {
+				if guest.QgaStatus != api.QGA_STATUS_AVAILABLE {
+					guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
+				}
+			} else {
+				if guest.QgaStatus != api.QGA_STATUS_UNKNOWN {
+					guest.UpdateQgaStatus(api.QGA_STATUS_UNKNOWN)
+				}
+			}
+		}
 	}
 	if hh.HostStatus != api.HOST_ONLINE {
 		hh.PerformOnline(ctx, userCred, query, nil)
@@ -6193,6 +6206,7 @@ func (hh *SHost) MarkGuestUnknown(ctx context.Context, userCred mcclient.TokenCr
 	guests, _ := hh.GetGuests()
 	for _, guest := range guests {
 		guest.SetStatus(ctx, userCred, api.VM_UNKNOWN, "host offline")
+		guest.UpdateQgaStatus(api.QGA_STATUS_UNKNOWN)
 	}
 	guests2 := hh.GetGuestsBackupOnThisHost()
 	for _, guest := range guests2 {

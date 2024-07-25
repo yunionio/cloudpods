@@ -79,6 +79,8 @@ type IHost interface {
 	GetContainerRuntimeEndpoint() string
 	GetCRI() pod.CRI
 	GetContainerCPUMap() *pod.HostContainerCPUMap
+
+	OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3)
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
