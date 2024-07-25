@@ -148,6 +148,14 @@ func (r *sGuestRootFsDriver) AllowAdminLogin() bool {
 	return true
 }
 
+func (m *sGuestRootFsDriver) DeployQgaBlackList(part IDiskPartition) error {
+	return nil
+}
+
+func (r *sGuestRootFsDriver) DeployQgaService(part IDiskPartition) error {
+	return nil
+}
+
 const (
 	modeAuthorizedKeysRWX = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	modeAuthorizedKeysRW  = syscall.S_IRUSR | syscall.S_IWUSR

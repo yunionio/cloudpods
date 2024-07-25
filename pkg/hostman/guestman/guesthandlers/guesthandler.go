@@ -922,7 +922,6 @@ func qgaGetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid s
 }
 
 func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	gm := guestman.GetGuestManager()
 	input := computeapi.ServerQgaSetNetworkInput{}
 	err := body.Unmarshal(&input)
 	if err != nil {
@@ -938,12 +937,15 @@ func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid s
 		return nil, httperrors.NewMissingParameterError("gateway")
 	}
 
-	qgaNetMod := &monitor.NetworkModify{
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().QgaSetNetwork, &guestman.SQgaGuestSetNetwork{
+		Sid:     sid,
+		Timeout: input.Timeout,
 		Device:  input.Device,
 		Ipmask:  input.Ipmask,
 		Gateway: input.Gateway,
-	}
-	return gm.QgaSetNetwork(qgaNetMod, sid, input.Timeout)
+	})
+
+	return nil, nil
 }
 
 func qgaGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {

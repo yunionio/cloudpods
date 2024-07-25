@@ -90,10 +90,6 @@ func (m *sBaseAndroidRootFs) DeployHosts(part IDiskPartition, hn, domain string,
 	return nil
 }
 
-func (m *sBaseAndroidRootFs) DeployQgaBlackList(part IDiskPartition) error {
-	return nil
-}
-
 func (m *sBaseAndroidRootFs) GetOs() string {
 	return "Android"
 }

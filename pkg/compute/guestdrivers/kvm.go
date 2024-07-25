@@ -1096,10 +1096,10 @@ func (self *SKVMGuestDriver) QgaRequestGuestInfoTask(ctx context.Context, userCr
 	return res, nil
 }
 
-func (self *SKVMGuestDriver) QgaRequestSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
+func (self *SKVMGuestDriver) QgaRequestSetNetwork(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
 	url := fmt.Sprintf("%s/servers/%s/qga-set-network", host.ManagerUri, guest.Id)
 	httpClient := httputils.GetDefaultClient()
-	header := mcclient.GetTokenHeaders(userCred)
+	header := task.GetTaskRequestHeader()
 	_, res, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "host request")

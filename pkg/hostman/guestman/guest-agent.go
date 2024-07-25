@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -122,26 +123,33 @@ func (m *SGuestManager) QgaGuestInfoTask(sid string) (string, error) {
 	return "", errors.Errorf("qga unfinished last cmd, is qga unavailable?")
 }
 
-func (m *SGuestManager) QgaSetNetwork(netmod *monitor.NetworkModify, sid string, execTimeout int) (string, error) {
-	guest, err := m.checkAndInitGuestQga(sid)
-	if err != nil {
-		return "", err
+func (m *SGuestManager) QgaSetNetwork(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input := params.(*SQgaGuestSetNetwork)
+	netmod := &monitor.NetworkModify{
+		Device:  input.Device,
+		Ipmask:  input.Ipmask,
+		Gateway: input.Gateway,
 	}
-	var res []byte
+
+	//func (m *SGuestManager) QgaSetNetwork(netmod *monitor.NetworkModify, sid string, execTimeout int) (string, error) {
+	guest, err := m.checkAndInitGuestQga(input.Sid)
+	if err != nil {
+		return nil, err
+	}
 	if guest.guestAgent.TryLock() {
 		defer guest.guestAgent.Unlock()
 
-		if execTimeout > 0 {
-			guest.guestAgent.SetTimeout(execTimeout)
+		if input.Timeout > 0 {
+			guest.guestAgent.SetTimeout(input.Timeout)
 			defer guest.guestAgent.ResetTimeout()
 		}
-		err = guest.guestAgent.QgaSetNetwork(netmod)
+		err = guest.guestAgent.QgaSetNetwork(netmod, deployapi.GuestNicsToServerNics(guest.Desc.Nics))
 		if err != nil {
-			return "", errors.Wrapf(err, "modify %s network failed", netmod.Device)
+			return nil, errors.Wrapf(err, "modify %s network failed", netmod.Device)
 		}
-		return string(res), nil
+		return nil, nil
 	}
-	return "", errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+	return nil, errors.Errorf("qga unfinished last cmd, is qga unavailable?")
 }
 
 func (m *SGuestManager) QgaGetNetwork(sid string) (string, error) {
