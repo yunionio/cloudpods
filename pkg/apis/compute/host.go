@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -525,4 +527,92 @@ type HostReserveCpusInput struct {
 type HostAutoMigrateInput struct {
 	AutoMigrateOnHostDown     string `json:"auto_migrate_on_host_down"`
 	AutoMigrateOnHostShutdown string `json:"auto_migrate_on_host_shutdown"`
+}
+
+type HostNetifInput struct {
+	Mac string `json:"mac"`
+
+	VlanId int `json:"vlan_id"`
+}
+
+type HostAddNetifInput struct {
+	HostNetifInput
+
+	// Deprecated
+	Wire string `json:"wire" yunion-deprecated-by:"wire_id"`
+
+	WireId string `json:"wire_id"`
+
+	IpAddr string `json:"ip_addr"`
+
+	Rate int `json:"rate"`
+
+	NicType string `json:"nic_type"`
+
+	Index int8 `json:"index"`
+
+	LinkUp string `json:"link_up"`
+
+	Mtu int16 `json:"mtu"`
+
+	Reset *bool `json:"reset"`
+
+	Interface *string `json:"interface"`
+
+	Bridge *string `json:"bridge"`
+
+	Reserve *bool `json:"reserve"`
+
+	RequireDesignatedIp *bool `json:"require_designated_ip"`
+}
+
+type HostEnableNetifInput struct {
+	HostNetifInput
+
+	// Deprecated
+	Network   string `json:"network" yunion-deprecated-by:"network_id"`
+	NetworkId string `json:"network_id"`
+
+	IpAddr string `json:"ip_addr"`
+
+	AllocDir string `json:"alloc_dir"`
+
+	NetType string `json:"net_type"`
+
+	Reserve *bool `json:"reserve"`
+
+	RequireDesignatedIp *bool `json:"require_designated_ip"`
+}
+
+type HostDisableNetifInput struct {
+	HostNetifInput
+
+	Reserve *bool `json:"reserve"`
+}
+
+type HostRemoveNetifInput struct {
+	HostNetifInput
+
+	Reserve *bool `json:"reserve"`
+}
+
+type HostError struct {
+	Type    string
+	Id      string
+	Name    string
+	Content string
+	Time    time.Time
+}
+
+type HostSyncErrorsInput struct {
+	HostErrors []HostError
+}
+
+type HostLoginInfoInput struct {
+}
+
+type HostLoginInfoOutput struct {
+	Ip       string `json:"ip"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
