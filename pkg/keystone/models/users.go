@@ -88,7 +88,7 @@ type SUser struct {
 	// 用户邮箱
 	Email string `width:"64" charset:"utf8" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 用户手机号
-	Mobile string `width:"20" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
+	Mobile string `width:"20" charset:"utf8" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 显示名称，用户登录后显示在右上角菜单入口
 	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
