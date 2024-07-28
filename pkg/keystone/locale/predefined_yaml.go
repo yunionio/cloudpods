@@ -45,6 +45,11 @@ policy:
       '*': deny
       list: allow
       get: allow
+    hosts:
+      '*': allow
+      perform:
+        '*': allow
+        login-info: deny
     servers:
       '*': allow
       perform:
