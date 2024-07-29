@@ -332,9 +332,9 @@ getNewMatchTag:
 
 func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	record.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	err := MonitorResourceManager.UpdateMonitorResourceAttachJoint(ctx, userCred, record)
+	err := MonitorResourceManager.UpdateMonitorResourceAttachJointByRecord(ctx, userCred, record)
 	if err != nil {
-		log.Errorf("UpdateMonitorResourceAttachJoint error: %v", err)
+		log.Errorf("UpdateMonitorResourceAttachJointByRecord error: %v", err)
 	}
 	if err := GetAlertResourceManager().ReconcileFromRecord(ctx, userCred, ownerId, record); err != nil {
 		log.Errorf("Reconcile from alert record error: %v", err)
@@ -357,7 +357,6 @@ func (manager *SAlertRecordManager) DeleteRecordsOfThirtyDaysAgo(ctx context.Con
 	records := make([]SAlertRecord, 0)
 	query := manager.Query()
 	query = query.LE("created_at", timeutils.MysqlTime(time.Now().Add(-time.Hour*24*30)))
-	log.Errorf("query:%s", query.String())
 	err := db.FetchModelObjects(manager, query, &records)
 	if err != nil {
 		log.Errorf("fetch records ofthirty days ago err:%v", err)
@@ -366,7 +365,7 @@ func (manager *SAlertRecordManager) DeleteRecordsOfThirtyDaysAgo(ctx context.Con
 	for i, _ := range records {
 		err := db.DeleteModel(ctx, userCred, &records[i])
 		if err != nil {
-			log.Errorf("delete expire record:%s err:%v", records[i].GetId(), err)
+			log.Errorf("delete expire record: %s err: %v", records[i].GetId(), err)
 		}
 	}
 }
