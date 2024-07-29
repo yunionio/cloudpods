@@ -296,7 +296,7 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series moni
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
 	evalMatch.Value = value
-	evalMatch.ValueStr = alerting.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
+	evalMatch.ValueStr = models.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
 		alertDetails.FieldOpt)
 	if alertDetails.GetPointStr {
 		evalMatch.ValueStr = c.jointPointStr(series, evalMatch.ValueStr, valStrArr)
@@ -305,7 +305,7 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series moni
 	//c.newRuleDescription(context, alertDetails)
 	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
+		alertDetails.Comparator, models.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
