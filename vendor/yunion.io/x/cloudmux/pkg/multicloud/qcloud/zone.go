@@ -17,9 +17,7 @@ package qcloud
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -44,13 +42,6 @@ type SZone struct {
 
 	host *SHost
 
-	istorages []cloudprovider.ICloudStorage
-
-	instanceTypes []string
-	refreshTime   time.Time
-	localstorages []string
-	cloudstorages []string
-
 	Zone      string
 	ZoneName  string
 	ZoneState string
@@ -61,7 +52,10 @@ func (self *SZone) GetId() string {
 }
 
 func (self *SZone) GetName() string {
-	return self.ZoneName
+	if len(self.ZoneName) > 0 {
+		return self.ZoneName
+	}
+	return self.Zone
 }
 
 func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
@@ -73,15 +67,6 @@ func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
 
 func (self *SZone) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.Zone)
-}
-
-func (self *SZone) IsEmulated() bool {
-	return false
-}
-
-func (self *SZone) Refresh() error {
-	// do nothing
-	return nil
 }
 
 func (self *SZone) GetStatus() string {
@@ -139,78 +124,53 @@ func (self *SRegion) GetDiskConfigSet(zoneName string) ([]SDiskConfigSet, error)
 	return diskConfigSet, body.Unmarshal(&diskConfigSet, "DiskConfigSet")
 }
 
-func (self *SZone) fetchStorages() error {
-	self.istorages = []cloudprovider.ICloudStorage{}
+func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	ret := []cloudprovider.ICloudStorage{}
 	diskConfigSet, err := self.region.GetDiskConfigSet(self.Zone)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	self.cloudstorages = []string{}
+	cloudstorages := []string{}
 	for _, diskConfig := range diskConfigSet {
-		if !utils.IsInStringArray(strings.ToUpper(diskConfig.DiskType), self.cloudstorages) {
-			self.cloudstorages = append(self.cloudstorages, strings.ToUpper(diskConfig.DiskType))
-			storage := SStorage{zone: self, storageType: diskConfig.DiskType, available: diskConfig.Available}
-			self.istorages = append(self.istorages, &storage)
+		if !utils.IsInStringArray(strings.ToUpper(diskConfig.DiskType), cloudstorages) {
+			cloudstorages = append(cloudstorages, strings.ToUpper(diskConfig.DiskType))
+			storage := &SStorage{zone: self, storageType: diskConfig.DiskType, available: diskConfig.Available}
+			ret = append(ret, storage)
 		}
 	}
 	for _, storageType := range []string{"CLOUD_PREMIUM", "CLOUD_SSD", "CLOUD_BASIC"} {
-		if !utils.IsInStringArray(storageType, self.cloudstorages) {
-			self.cloudstorages = append(self.cloudstorages, storageType)
+		if !utils.IsInStringArray(storageType, cloudstorages) {
+			cloudstorages = append(cloudstorages, storageType)
 			storage := SStorage{zone: self, storageType: storageType, available: false}
-			self.istorages = append(self.istorages, &storage)
+			ret = append(ret, &storage)
 		}
 	}
-	self.localstorages, err = self.region.GetZoneLocalStorages(self.Zone)
-	if err != nil {
-		log.Errorf("falied to fetch local storage for zone %s", self.Zone)
+	localstorages, err := self.region.GetZoneLocalStorages(self.Zone)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported {
+		return nil, errors.Wrapf(err, "GetZoneLocalStorages")
 	}
-	for _, localstorageType := range self.localstorages {
+	for _, localstorageType := range localstorages {
 		storage := SLocalStorage{zone: self, storageType: localstorageType, available: true}
-		self.istorages = append(self.istorages, &storage)
+		ret = append(ret, &storage)
 	}
 	for _, storageType := range QCLOUD_LOCAL_STORAGE_TYPES {
-		if !utils.IsInStringArray(storageType, self.localstorages) {
+		if !utils.IsInStringArray(storageType, localstorages) {
 			storage := SLocalStorage{zone: self, storageType: storageType, available: false}
-			self.istorages = append(self.istorages, &storage)
+			ret = append(ret, &storage)
 		}
 	}
-	return nil
-}
-
-func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
-		}
-	}
-	return self.istorages, nil
+	return ret, nil
 }
 
 func (self *SZone) getLocalStorageByCategory(category string) (*SLocalStorage, error) {
-	if len(self.localstorages) == 0 {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrap(err, "fetchStorages")
-		}
+	localstorages, err := self.region.GetZoneLocalStorages(self.Zone)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetZoneLocalStorages")
 	}
-	if utils.IsInStringArray(strings.ToUpper(category), self.localstorages) {
+	if utils.IsInStringArray(strings.ToUpper(category), localstorages) {
 		return &SLocalStorage{zone: self, storageType: strings.ToUpper(category)}, nil
 	}
 	return nil, fmt.Errorf("No such storage %s", category)
-}
-
-func (self *SZone) validateStorageType(category string) error {
-	if len(self.localstorages) == 0 || len(self.cloudstorages) == 0 {
-		err := self.fetchStorages()
-		if err != nil {
-			return errors.Wrap(err, "fetchStorages")
-		}
-	}
-	if utils.IsInStringArray(strings.ToUpper(category), self.localstorages) || utils.IsInStringArray(strings.ToUpper(category), self.cloudstorages) {
-		return nil
-	}
-	return fmt.Errorf("No such storage %s", category)
 }
 
 func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
@@ -231,15 +191,13 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
-		}
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
 	}
-	for i := 0; i < len(self.istorages); i += 1 {
-		if self.istorages[i].GetGlobalId() == id {
-			return self.istorages[i], nil
+	for i := 0; i < len(storages); i += 1 {
+		if storages[i].GetGlobalId() == id {
+			return storages[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
@@ -256,37 +214,6 @@ func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 		ret = append(ret, wire)
 	}
 	return ret, nil
-}
-
-func (self *SZone) fetchInstanceTypes() {
-	self.instanceTypes = []string{}
-	params := map[string]string{}
-	params["Region"] = self.region.Region
-	params["Filters.0.Name"] = "zone"
-	params["Filters.0.Values.0"] = self.Zone
-	if body, err := self.region.cvmRequest("DescribeInstanceTypeConfigs", params, true); err != nil {
-		log.Errorf("DescribeInstanceTypeConfigs error: %v", err)
-	} else if configSet, err := body.GetArray("InstanceTypeConfigSet"); err != nil {
-		log.Errorf("Get InstanceTypeConfigSet error: %v", err)
-	} else {
-		for _, config := range configSet {
-			if instanceType, err := config.GetString("InstanceType"); err == nil && !utils.IsInStringArray(instanceType, self.instanceTypes) {
-				self.instanceTypes = append(self.instanceTypes, instanceType)
-			}
-		}
-		self.refreshTime = time.Now()
-	}
-}
-
-func (self *SZone) getAvaliableInstanceTypes() []string {
-	if self.instanceTypes == nil || len(self.instanceTypes) == 0 || time.Now().Sub(self.refreshTime).Hours() > refreshHours() {
-		self.fetchInstanceTypes()
-	}
-	return self.instanceTypes
-}
-
-func refreshHours() float64 {
-	return 5
 }
 
 func (self *SZone) getCosEndpoint() string {

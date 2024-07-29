@@ -45,3 +45,8 @@ func SetupTest() {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	setPrivateKey(key)
 }
+
+type SApigatewayApi struct {
+	Id   string
+	Name string
+}
