@@ -473,7 +473,7 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 		log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
 	}
 	CommonAlertManager.SetSubscriptionAlert(alert)
-	alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
+	//alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
 }
 
 func (man *SCommonAlertManager) ListItemFilter(
@@ -1112,7 +1112,7 @@ func (alert *SCommonAlert) PostUpdate(
 		alert.setMetaName(ctx, userCred, updateInput.MetaName)
 	}
 	CommonAlertManager.SetSubscriptionAlert(alert)
-	alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
+	//alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
 }
 
 func (alert *SCommonAlert) UpdateNotification(ctx context.Context, userCred mcclient.TokenCredential,
@@ -1322,7 +1322,7 @@ func (alert *SCommonAlert) PerformEnable(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
-	alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
+	//alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
 	return nil, nil
 }
 
@@ -1406,60 +1406,24 @@ func (alert *SCommonAlert) UpdateMonitorResourceJoint(ctx context.Context, userC
 	if err != nil {
 		return errors.Wrapf(err, "TestRunAlert %s", alert.GetName())
 	}
-	resourceIds := make([]string, 0)
-	for _, em := range ret.EvalMatches {
-		resourceKeyId := monitor.MEASUREMENT_TAG_ID[resType]
-		resourceId := em.Tags[resourceKeyId]
-		if len(resourceId) == 0 {
-			continue
+	if len(ret.AlertOKEvalMatches) > 0 {
+		matches := make([]monitor.EvalMatch, len(ret.AlertOKEvalMatches))
+		for i := range ret.AlertOKEvalMatches {
+			matches[i] = *ret.AlertOKEvalMatches[i]
 		}
-		resourceIds = append(resourceIds, resourceId)
-	}
-	deleteJointIds := make([]int64, 0)
-	joints, _ := MonitorResourceAlertManager.GetJoinsByListInput(monitor.MonitorResourceJointListInput{AlertId: alert.GetId()})
-jointLoop:
-	for _, joint := range joints {
-		for i, resId := range resourceIds {
-			if resId == joint.MonitorResourceId {
-				resourceIds = append(resourceIds[0:i], resourceIds[i+1:]...)
-				continue jointLoop
-			}
+		input := &UpdateMonitorResourceAlertInput{
+			AlertId:       alert.GetId(),
+			Matches:       matches,
+			ResType:       resType,
+			AlertState:    string(monitor.AlertStateOK),
+			SendState:     monitor.SEND_STATE_SILENT,
+			TriggerTime:   time.Now(),
+			AlertRecordId: "",
 		}
-		// 排除近期有报警状态的情况：system.uptime
-		if joint.AlertState == monitor.MONITOR_RESOURCE_ALERT_STATUS_ALERTING && time.Now().Sub(joint.TriggerTime).
-			Minutes() < 30 {
-			continue
+		if err := MonitorResourceManager.UpdateMonitorResourceAttachJoint(ctx, userCred, input); err != nil {
+			return errors.Wrap(err, "UpdateMonitorResourceAttachJoint")
 		}
-		deleteJointIds = append(deleteJointIds, joint.RowId)
-	}
-
-	if len(resourceIds) == 0 && len(deleteJointIds) == 0 {
 		return nil
-	}
-	//  sync joints should be deleted
-	if len(deleteJointIds) > 0 {
-		err := MonitorResourceAlertManager.DetachJoint(ctx, userCred, monitor.MonitorResourceJointListInput{JointId: deleteJointIds})
-		if err != nil {
-			return errors.Wrapf(err, "DetachJoint by alert %s(%s)", alert.GetName(), alert.GetId())
-		}
-	}
-
-	if len(resourceIds) > 0 {
-		monitorResources, _ := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: resourceIds})
-		errs := make([]error, 0)
-		for _, monRes := range monitorResources {
-			resDesc := fmt.Sprintf("%s/%s/%s", monRes.ResType, monRes.GetName(), monRes.ResId)
-			if _, err := monRes.AttachAlert(ctx, userCred, alert.GetId()); err != nil {
-				errs = append(errs, errors.Wrapf(err, "AttachAlert %s to %s", alert.GetName(), resDesc))
-			}
-			if err := monRes.UpdateAlertState(); err != nil {
-				errs = append(errs, errors.Wrapf(err, "UpdateAlertState for monitor resource %s", resDesc))
-			}
-		}
-
-		if len(errs) != 0 {
-			return errors.NewAggregate(errs)
-		}
 	}
 	return nil
 }
@@ -1503,6 +1467,100 @@ func (alert *SCommonAlert) UpdateResType() error {
 		return errors.Wrapf(err, "alert:%s UpdateResType err", alert.Name)
 	}
 	return nil
+}
+
+func (alert *SCommonAlert) GetSilentPeriod() (int64, error) {
+	notis, err := alert.GetNotifications()
+	if err != nil {
+		return 0, errors.Wrap(err, "GetNotifications")
+	}
+	for _, n := range notis {
+		noti, _ := n.GetNotification()
+		if noti.Frequency != 0 {
+			return noti.Frequency, nil
+		}
+	}
+	return 0, nil
+}
+
+func (alert *SCommonAlert) GetAlertRules(silentPeriod int64) ([]*monitor.AlertRecordRule, error) {
+	rules := make([]*monitor.AlertRecordRule, 0)
+	settings, err := alert.GetSettings()
+	if err != nil {
+		return nil, errors.Wrapf(err, "get alert %s settings", alert.GetId())
+	}
+	for index := range settings.Conditions {
+		rule := alert.GetAlertRule(settings, index, silentPeriod)
+		rules = append(rules, rule)
+	}
+	return rules, nil
+}
+
+func (alert *SCommonAlert) GetAlertRule(settings *monitor.AlertSetting, index int, silentPeriod int64) *monitor.AlertRecordRule {
+	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(index, &settings.Conditions[index])
+	rule := &monitor.AlertRecordRule{
+		ResType:         alertDetails.ResType,
+		Metric:          fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field),
+		Measurement:     alertDetails.Measurement,
+		Database:        alertDetails.DB,
+		MeasurementDesc: alertDetails.MeasurementDisplayName,
+		Field:           alertDetails.Field,
+		FieldDesc:       alertDetails.FieldDescription.DisplayName,
+		Comparator:      alertDetails.Comparator,
+		Threshold:       RationalizeValueFromUnit(alertDetails.Threshold, alertDetails.FieldDescription.Unit, ""),
+		ConditionType:   alertDetails.ConditionType,
+		Reducer:         alertDetails.Reduce,
+	}
+	if len(rule.ResType) == 0 {
+		if alertDetails.DB == monitor.METRIC_DATABASE_TELE {
+			rule.ResType = monitor.METRIC_RES_TYPE_HOST
+		}
+	}
+	if alert.Frequency < 60 {
+		rule.Period = fmt.Sprintf("%ds", alert.Frequency)
+	} else {
+		rule.Period = fmt.Sprintf("%dm", alert.Frequency/60)
+	}
+	rule.AlertDuration = alert.For / alert.Frequency
+	if rule.AlertDuration == 0 {
+		rule.AlertDuration = 1
+	}
+	if silentPeriod > 0 {
+		rule.SilentPeriod = fmt.Sprintf("%dm", silentPeriod/60)
+	}
+	return rule
+}
+
+var fileSize = []string{"bps", "Bps", "byte"}
+
+func RationalizeValueFromUnit(value float64, unit string, opt string) string {
+	if utils.IsInStringArray(unit, fileSize) {
+		if unit == "byte" {
+			return (FormatFileSize(value, unit, float64(1024)))
+		}
+		return FormatFileSize(value, unit, float64(1000))
+	}
+	if unit == "%" && monitor.CommonAlertFieldOpt_Division == opt {
+		return fmt.Sprintf("%0.4f%s", value*100, unit)
+	}
+	return fmt.Sprintf("%0.4f%s", value, unit)
+}
+
+// 单位转换 保留四位小数
+func FormatFileSize(fileSize float64, unit string, unitsize float64) (size string) {
+	if fileSize < unitsize {
+		return fmt.Sprintf("%.4f%s", fileSize, unit)
+	} else if fileSize < (unitsize * unitsize) {
+		return fmt.Sprintf("%.4fK%s", float64(fileSize)/float64(unitsize), unit)
+	} else if fileSize < (unitsize * unitsize * unitsize) {
+		return fmt.Sprintf("%.4fM%s", float64(fileSize)/float64(unitsize*unitsize), unit)
+	} else if fileSize < (unitsize * unitsize * unitsize * unitsize) {
+		return fmt.Sprintf("%.4fG%s", float64(fileSize)/float64(unitsize*unitsize*unitsize), unit)
+	} else if fileSize < (unitsize * unitsize * unitsize * unitsize * unitsize) {
+		return fmt.Sprintf("%.4fT%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize), unit)
+	} else { //if fileSize < (1024 * 1024 * 1024 * 1024 * 1024 * 1024)
+		return fmt.Sprintf("%.4fE%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize*unitsize), unit)
+	}
 }
 
 type SCompanyInfo struct {

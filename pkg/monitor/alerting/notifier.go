@@ -16,7 +16,6 @@ package alerting
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -39,10 +38,12 @@ func newNotificationService() *notificationService {
 }
 
 func (n *notificationService) SendIfNeeded(evalCtx *EvalContext) error {
-	notifierStates, err := n.getNeededNotifiers(evalCtx.Rule.Notifications, evalCtx)
+	notifierStates, shouldNotify, err := n.getNeededNotifiers(evalCtx.Rule.Notifications, evalCtx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get alert notifiers")
 	}
+
+	n.syncResources(evalCtx, shouldNotify)
 
 	if len(notifierStates) == 0 {
 		return nil
@@ -98,10 +99,10 @@ func (n *notificationService) sendNotifications(evalCtx *EvalContext, states not
 	return nil
 }
 
-func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalContext) (notifierStateSlice, error) {
+func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalContext) (notifierStateSlice, bool, error) {
 	notis, err := models.NotificationManager.GetNotificationsWithDefault(nIds)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetNotificationsWithDefault with %v", nIds)
+		return nil, false, errors.Wrapf(err, "GetNotificationsWithDefault with %v", nIds)
 	}
 
 	var result notifierStateSlice
@@ -143,6 +144,11 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 			})
 		}
 	}
+
+	return result, shouldNotify, nil
+}
+
+func (n *notificationService) syncResources(evalCtx *EvalContext, shouldNotify bool) {
 	if shouldNotify || evalCtx.Rule.State == monitor.AlertStateAlerting {
 		go func() {
 			if err := n.createAlertRecordWhenNotify(evalCtx, shouldNotify); err != nil {
@@ -156,7 +162,13 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 		}()
 	}
 
-	return result, nil
+	if len(evalCtx.AlertOkEvalMatches) > 0 {
+		go func() {
+			if err := n.syncMonitorResourceAlerts(evalCtx); err != nil {
+				log.Errorf("syncMonitorResourceAlerts error: %v", err)
+			}
+		}()
+	}
 }
 
 func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, shouldNotify bool) error {
@@ -166,7 +178,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	} else {
 		matches = evalCtx.AlertOkEvalMatches
 	}
-	n.dealNeedShieldEvalMatchs(evalCtx, matches)
+	n.dealNeedShieldEvalMatches(evalCtx, matches)
 	recordCreateInput := monitor.AlertRecordCreateInput{
 		StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
 			GenerateName: evalCtx.Rule.Name,
@@ -176,7 +188,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 		State:     string(evalCtx.Rule.State),
 		SendState: monitor.SEND_STATE_OK,
 		EvalData:  matches,
-		AlertRule: newAlertRecordRules(evalCtx),
+		AlertRule: evalCtx.Rule.RuleDescription,
 	}
 	if !shouldNotify {
 		recordCreateInput.SendState = monitor.SEND_STATE_SILENT
@@ -187,8 +199,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	}
 	createData := recordCreateInput.JSON(recordCreateInput)
 	alert, _ := models.CommonAlertManager.GetAlert(evalCtx.Rule.Id)
-	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
-		createData, evalCtx.UserCred)
+	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(), createData, evalCtx.UserCred)
 	if err != nil {
 		return errors.Wrapf(err, "db.DoCreate")
 	}
@@ -206,7 +217,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	return nil
 }
 
-func (n *notificationService) dealNeedShieldEvalMatchs(evalCtx *EvalContext, match []*monitor.EvalMatch) {
+func (n *notificationService) dealNeedShieldEvalMatches(evalCtx *EvalContext, match []*monitor.EvalMatch) {
 	input := monitor.AlertRecordShieldListInput{
 		ResType: evalCtx.Rule.RuleDescription[0].ResType,
 		AlertId: evalCtx.Rule.Id,
@@ -236,6 +247,32 @@ func (n *notificationService) detachAlertResourceWhenNodata(evalCtx *EvalContext
 	if len(errs) != 0 {
 		log.Errorf("detachAlertResourceWhenNodata err:%#v", errors.NewAggregate(errs))
 	}
+}
+
+func (n *notificationService) syncMonitorResourceAlerts(evalCtx *EvalContext) error {
+	if len(evalCtx.AlertOkEvalMatches) == 0 {
+		log.Infof("alert_ok_eval_matches is empty, skip syncMonitorResourceAlerts")
+		return nil
+	}
+	// only sync resource not need notify
+	matches := make([]monitor.EvalMatch, len(evalCtx.AlertOkEvalMatches))
+	for i := range evalCtx.AlertOkEvalMatches {
+		matches[i] = *evalCtx.AlertOkEvalMatches[i]
+	}
+	alertRule := evalCtx.Rule.RuleDescription
+	input := &models.UpdateMonitorResourceAlertInput{
+		AlertId:       evalCtx.Rule.Id,
+		Matches:       matches,
+		ResType:       alertRule[0].ResType,
+		AlertState:    string(monitor.AlertStateOK),
+		SendState:     monitor.SEND_STATE_SILENT,
+		TriggerTime:   time.Now(),
+		AlertRecordId: "",
+	}
+	if err := models.MonitorResourceManager.UpdateMonitorResourceAttachJoint(evalCtx.Ctx, evalCtx.UserCred, input); err != nil {
+		return errors.Wrap(err, "UpdateMonitorResourceAttachJoint")
+	}
+	return nil
 }
 
 type NotifierPlugin struct {
@@ -270,35 +307,4 @@ func InitNotifier(config NotificationConfig) (Notifier, error) {
 		return nil, err
 	}
 	return plug.(Notifier), nil
-}
-
-func newAlertRecordRules(ctx *EvalContext) []*monitor.AlertRecordRule {
-	rules := make([]*monitor.AlertRecordRule, 0)
-	for i := range ctx.Rule.RuleDescription {
-		rule := newAlertRecordRule(ctx, i)
-		rules = append(rules, rule)
-	}
-	return rules
-}
-
-func newAlertRecordRule(evalCtx *EvalContext, idx int) *monitor.AlertRecordRule {
-	alertRule := monitor.AlertRecordRule{}
-	if len(evalCtx.Rule.RuleDescription) != 0 {
-		alertRule = evalCtx.Rule.RuleDescription[idx].AlertRecordRule
-	}
-	if evalCtx.Rule.Frequency < 60 {
-		alertRule.Period = fmt.Sprintf("%ds", evalCtx.Rule.Frequency)
-	} else {
-		alertRule.Period = fmt.Sprintf("%dm", evalCtx.Rule.Frequency/60)
-	}
-
-	alertRule.AlertDuration = int64(evalCtx.Rule.For) / evalCtx.Rule.Frequency
-	if alertRule.AlertDuration == 0 {
-		alertRule.AlertDuration = 1
-	}
-
-	if evalCtx.Rule.SilentPeriod != 0 {
-		alertRule.SilentPeriod = fmt.Sprintf("%dm", evalCtx.Rule.SilentPeriod/60)
-	}
-	return &alertRule
 }
