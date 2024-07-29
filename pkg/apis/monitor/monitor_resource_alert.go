@@ -28,18 +28,23 @@ type MonitorResourceJointListInput struct {
 	MonitorResourceId string  `json:"monitor_resource_id"`
 	AlertId           string  `json:"alert_id"`
 	JointId           []int64 `json:"joint_id"`
-	Alerting          bool    `json:"alertinng"`
+	Alerting          bool    `json:"alerting"`
+	AlertState        string  `json:"alert_state"`
 	SendState         string  `json:"send_state"`
 	ResType           string  `json:"res_type"`
+	Metric            string  `json:"metric"`
 	ResName           string  `json:"res_name"`
 	AlertName         string  `json:"alert_name"`
 	Level             string  `json:"level"`
+	// 查询所有状态
+	AllState bool `json:"all_state"`
 }
 
 type MonitorResourceJointCreateInput struct {
 	apis.Meta
 	MonitorResourceId string `json:"monitor_resource_id"`
 	AlertId           string `json:"alert_id"`
+	Metric            string `json:"metric"`
 
 	AlertRecordId string    `width:"36" charset:"ascii" list:"user"  update:"user"`
 	AlertState    string    `width:"18" charset:"ascii" list:"user"  update:"user"`
