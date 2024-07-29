@@ -48,7 +48,7 @@ type SGlobalInstanceGroupInstance struct {
 	NamedPorts    []NamedPort `json:"namedPorts"`
 }
 
-func (self *SGlobalLoadbalancer) isNameMatch(target interface{}) bool {
+func (self *SGlobalLoadbalancer) isNameMatch(target interface{}) (bool, error) {
 	var name string
 	switch t := target.(type) {
 	case *STargetHttpProxy, *STargetHttpsProxy:
@@ -59,7 +59,10 @@ func (self *SGlobalLoadbalancer) isNameMatch(target interface{}) bool {
 		case *STargetHttpsProxy:
 			URLMapUrl = t.(*STargetHttpsProxy).URLMap
 		}
-		urlMapResponse, _ := _jsonRequest(self.region.client.client, "GET", URLMapUrl, nil, false)
+		urlMapResponse, err := _jsonRequest(self.region.client.client, "GET", URLMapUrl, nil, false)
+		if err != nil {
+			return false, err
+		}
 		var urlMap SUrlMap
 		urlMapResponse.Unmarshal(&urlMap)
 		name = urlMap.Name
@@ -71,7 +74,7 @@ func (self *SGlobalLoadbalancer) isNameMatch(target interface{}) bool {
 		parts := strings.Split(t.Service, "/")
 		name = parts[len(parts)-1]
 	}
-	return name == self.GetName()
+	return name == self.GetName(), nil
 }
 
 func (self *SGlobalLoadbalancer) GetForwardingRules() ([]SForwardingRule, error) {
@@ -103,7 +106,11 @@ func (self *SGlobalLoadbalancer) GetForwardingRules() ([]SForwardingRule, error)
 			return nil, errors.Wrap(err, "getGlobalAddress.target.Unmarshal")
 		}
 
-		if self.isNameMatch(target) {
+		match, err := self.isNameMatch(target)
+		if err != nil {
+			return nil, errors.Wrapf(err, "isNameMatch")
+		}
+		if match {
 			_ret = append(_ret, item)
 		}
 	}

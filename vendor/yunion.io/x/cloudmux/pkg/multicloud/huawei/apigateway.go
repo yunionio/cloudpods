@@ -49,3 +49,61 @@ func (self *SRegion) ListApigateway() ([]SApigateway, error) {
 	}
 	return ret, nil
 }
+
+type SApigatewayApi struct {
+	Id   string
+	Name string
+}
+
+func (self *SRegion) ListApigatewayApis(id string) ([]SApigatewayApi, error) {
+	query := url.Values{}
+	query.Set("limit", "500")
+	ret := []SApigatewayApi{}
+	res := fmt.Sprintf("apigw/instances/%s/apis", id)
+	for {
+		resp, err := self.list(SERVICE_APIG, res, query)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Apis  []SApigatewayApi
+			Total int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Apis...)
+		if len(ret) >= part.Total || len(part.Apis) == 0 {
+			break
+		}
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
+	}
+	return ret, nil
+}
+
+func (self *SRegion) ListSharedApigatewayApis() ([]SApigatewayApi, error) {
+	query := url.Values{}
+	query.Set("limit", "500")
+	ret := []SApigatewayApi{}
+	for {
+		resp, err := self.list(SERVICE_APIG_V1_0, "apigw/apis", query)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Apis  []SApigatewayApi
+			Total int
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part.Apis...)
+		if len(ret) >= part.Total || len(part.Apis) == 0 {
+			break
+		}
+		query.Set("offset", fmt.Sprintf("%d", len(ret)))
+	}
+	return ret, nil
+}

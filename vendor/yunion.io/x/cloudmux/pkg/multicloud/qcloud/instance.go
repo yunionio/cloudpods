@@ -492,34 +492,8 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	return instance.SystemDisk.DiskId, nil
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
-	instanceTypes := []string{}
-	if len(config.InstanceType) > 0 {
-		instanceTypes = []string{config.InstanceType}
-	} else {
-		specs, err := self.host.zone.region.GetMatchInstanceTypes(config.Cpu, config.MemoryMB, 0, self.Placement.Zone)
-		if err != nil {
-			return errors.Wrapf(err, "GetMatchInstanceTypes")
-		}
-		for _, spec := range specs {
-			instanceTypes = append(instanceTypes, spec.InstanceType)
-		}
-	}
-
-	var err error
-	for _, instanceType := range instanceTypes {
-		err = self.host.zone.region.ChangeVMConfig(self.InstanceId, instanceType)
-		if err != nil {
-			log.Errorf("ChangeConfig for %s with %s error: %v", self.InstanceId, instanceType, err)
-			continue
-		}
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	return fmt.Errorf("Failed to change vm config, specification not supported")
+func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
+	return self.host.zone.region.ChangeVMConfig(self.InstanceId, opts.InstanceType)
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {

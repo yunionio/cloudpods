@@ -50,6 +50,7 @@ const (
 	SERVICE_VPC                = "vpc"
 	SERVICE_VPC_V2_0           = "vpc_v2.0"
 	SERVICE_VPC_V3             = "vpc_v3"
+	SERVICE_VPN                = "vpn"
 	SERVICE_CES                = "ces"
 	SERVICE_RDS                = "rds"
 	SERVICE_ECS                = "ecs"
@@ -77,10 +78,13 @@ const (
 	SERVICE_SCM                = "scm"
 	SERVICE_CDN                = "cdn"
 	SERVICE_GAUSSDB            = "gaussdb"
+	SERVICE_GAUSSDB_V3_1       = "gaussdb_v3.1"
 	SERVICE_GAUSSDB_NOSQL      = "gaussdb-nosql"
 	SERVICE_GAUSSDB_NOSQL_V3_1 = "gaussdb-nosql_v3.1"
+	SERVICE_GAUSSDB_OPENGAUSS  = "gaussdb-opengauss"
 	SERVICE_FUNCTIONGRAPH      = "functiongraph"
 	SERVICE_APIG               = "apig"
+	SERVICE_APIG_V1_0          = "apig_v1.0"
 	SERVICE_MRS                = "mrs"
 	SERVICE_DIS                = "dis"
 	SERVICE_LTS                = "lts"
@@ -625,6 +629,8 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 		}
 	case SERVICE_VPC_V3:
 		url = fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v3/%s/%s", regionId, projectId, resource)
+	case SERVICE_VPN:
+		url = fmt.Sprintf("https://vpn.%s.myhuaweicloud.com/v5/%s/%s", regionId, projectId, resource)
 	case SERVICE_CES:
 		url = fmt.Sprintf("https://ces.%s.myhuaweicloud.com/V1.0/%s/%s", regionId, projectId, resource)
 	case SERVICE_MODELARTS:
@@ -669,12 +675,18 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 		url = fmt.Sprintf("https://cdn.myhuaweicloud.com/v1.0/%s", resource)
 	case SERVICE_GAUSSDB, SERVICE_GAUSSDB_NOSQL:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v3/%s/%s", service, regionId, projectId, resource)
+	case SERVICE_GAUSSDB_V3_1:
+		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v3.1/%s/%s", SERVICE_GAUSSDB, regionId, projectId, resource)
 	case SERVICE_GAUSSDB_NOSQL_V3_1:
 		url = fmt.Sprintf("https://gaussdb-nosql.%s.myhuaweicloud.com/v3.1/%s/%s", regionId, projectId, resource)
+	case SERVICE_GAUSSDB_OPENGAUSS:
+		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v3.1/%s/%s", service, regionId, projectId, resource)
 	case SERVICE_FUNCTIONGRAPH:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v2/%s/%s", service, regionId, projectId, resource)
 	case SERVICE_APIG:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v2/%s/%s", service, regionId, projectId, resource)
+	case SERVICE_APIG_V1_0:
+		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v1.0/%s", SERVICE_APIG, regionId, resource)
 	case SERVICE_MRS:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v1.1/%s/%s", service, regionId, projectId, resource)
 	case SERVICE_DIS:
