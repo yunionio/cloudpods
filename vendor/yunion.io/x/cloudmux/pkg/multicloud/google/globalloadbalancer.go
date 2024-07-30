@@ -157,7 +157,12 @@ func (self *SGlobalLoadbalancer) GetAddress() string {
 			return ""
 		}
 
-		if self.isNameMatch(target) {
+		match, err := self.isNameMatch(target)
+		if err != nil {
+			log.Errorf("isNameMatch error: %v", err)
+			continue
+		}
+		if match {
 			return item.IPAddress
 		}
 	}
