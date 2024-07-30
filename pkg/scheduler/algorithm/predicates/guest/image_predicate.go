@@ -43,6 +43,10 @@ func (f *ImagePredicate) Clone() core.FitPredicate {
 }
 
 func (f *ImagePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
+	if u.SchedData().ResetCpuNumaPin {
+		return false, nil
+	}
+
 	disks := u.SchedData().Disks
 	if len(disks) == 0 {
 		return false, nil

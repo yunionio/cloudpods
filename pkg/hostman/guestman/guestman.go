@@ -238,9 +238,13 @@ func (m *SGuestManager) CleanServer(sid string) {
 
 func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 	hostTypo := m.host.GetHostTopology()
-	m.numaAllocate = m.host.IsNumaAllocateEnabled() && m.host.IsHugepagesEnabled() && (len(hostTypo.Nodes) > 1)
+
+	if options.HostOptions.EnableHostAgentNumaAllocate {
+		m.numaAllocate = m.host.IsNumaAllocateEnabled() && m.host.IsHugepagesEnabled() && (len(hostTypo.Nodes) > 1)
+	}
+
 	cpuSet, err := NewGuestCpuSetCounter(
-		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.HugepageSizeKb())
+		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.HugepageSizeKb(), m.host.CpuCmtBound())
 	if err != nil {
 		return nil, err
 	}
@@ -455,26 +459,12 @@ func (m *SGuestManager) loadGuestCpuset(guest *SKVMGuestInstance) {
 			m.cpuSet.LoadCpus(pcpuSet.ToSlice(), vcpuSet.Size())
 		}
 		for _, numaCpuset := range guest.Desc.CpuNumaPin {
-			pcpuSet, err := cpuset.Parse(*numaCpuset.Pcpus)
-			if err != nil {
-				log.Errorf("failed parse %s pcpus: %s", guest.GetName(), *numaCpuset.Pcpus)
-				continue
-			}
-			vcpuCount := int(guest.Desc.Cpu)
-			if numaCpuset.Vcpus != nil {
-				vcpuSet, err := cpuset.Parse(*numaCpuset.Vcpus)
-				if err != nil {
-					log.Errorf("failed parse %s vcpus: %s", guest.GetName(), *numaCpuset.Vcpus)
-					continue
-				}
-				vcpuCount = vcpuSet.Size()
-			}
-			hostNodes := -1
-			if numaCpuset.HostNodes != nil {
-				hostNodes = int(*numaCpuset.HostNodes)
+			pcpus := make([]int, 0)
+			for i := range numaCpuset.VcpuPin {
+				pcpus = append(pcpus, numaCpuset.VcpuPin[i].Pcpu)
 			}
 
-			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, hostNodes, pcpuSet.ToSlice(), vcpuCount)
+			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, int(*numaCpuset.NodeId), pcpus, len(numaCpuset.VcpuPin))
 		}
 	}
 }
@@ -1485,8 +1475,9 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
+
 	guest, _ := m.GetServer(hotplugParams.Sid)
-	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize)).Start()
+	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize), hotplugParams.CpuNumaPin).Start()
 	return nil, nil
 }
 

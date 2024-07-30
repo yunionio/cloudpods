@@ -409,6 +409,10 @@ func (p *BaseSchedtagPredicate) PreExecute(ctx context.Context, sp ISchedtagPred
 		return false, nil
 	}
 
+	if u.SchedData().ResetCpuNumaPin {
+		return false, nil
+	}
+
 	p.Hypervisor = u.GetHypervisor()
 
 	// always do select step

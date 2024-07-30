@@ -34,6 +34,7 @@ import (
 
 	jsonutils "yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis/scheduler"
 	types "yunion.io/x/onecloud/pkg/cloudcommon/types"
 	baremetal "yunion.io/x/onecloud/pkg/compute/baremetal"
 	models "yunion.io/x/onecloud/pkg/compute/models"
@@ -148,6 +149,30 @@ func (m *MockCandidatePropertyGetter) FreeMemorySize(arg0 bool) int64 {
 func (mr *MockCandidatePropertyGetterMockRecorder) FreeMemorySize(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreeMemorySize", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).FreeMemorySize), arg0)
+}
+
+func (m *MockCandidatePropertyGetter) NumaAllocateEnabled() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumaAllocateEnabled")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (mr *MockCandidatePropertyGetterMockRecorder) NumaAllocateEnabled() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumaAllocateEnabled", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).NumaAllocateEnabled))
+}
+
+func (m *MockCandidatePropertyGetter) GetFreeCpuNuma() []*scheduler.SFreeNumaCpuMem {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFreeCpuNuma")
+	ret0, _ := ret[0].([]*scheduler.SFreeNumaCpuMem)
+	return ret0
+}
+
+func (mr *MockCandidatePropertyGetterMockRecorder) GetFreeCpuNuma() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreeCpuNuma", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).GetFreeCpuNuma))
 }
 
 // GetFreeGroupCount mocks base method
@@ -853,6 +878,30 @@ func (m *MockCandidater) IndexKey() string {
 func (mr *MockCandidaterMockRecorder) IndexKey() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IndexKey", reflect.TypeOf((*MockCandidater)(nil).IndexKey))
+}
+
+func (m *MockCandidater) AllocCpuNumaPin(arg0, arg1 int) []scheduler.SCpuNumaPin {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllocCpuNumaPin", arg0, arg1)
+	ret0, _ := ret[0].([]scheduler.SCpuNumaPin)
+	return ret0
+}
+
+func (mr *MockCandidaterMockRecorder) AllocCpuNumaPin(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocCpuNumaPin", reflect.TypeOf((*MockCandidater)(nil).AllocCpuNumaPin), arg0, arg1)
+}
+
+func (m *MockCandidater) AllocCpuNumaPinWithNodeCount(arg0, arg1, arg2 int) []scheduler.SCpuNumaPin {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllocCpuNumaPinWithNodeCount", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]scheduler.SCpuNumaPin)
+	return ret0
+}
+
+func (mr *MockCandidaterMockRecorder) AllocCpuNumaPinWithNodeCount(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocCpuNumaPinWithNodeCount", reflect.TypeOf((*MockCandidater)(nil).AllocCpuNumaPinWithNodeCount), arg0, arg1, arg2)
 }
 
 // Type mocks base method

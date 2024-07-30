@@ -62,6 +62,10 @@ func (p *ClassMetadataPredicate) Clone() core.FitPredicate {
 
 func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	info := u.SchedData()
+	if info.ResetCpuNumaPin {
+		return false, nil
+	}
+
 	tenant, err := db.TenantCacheManager.FetchTenantById(ctx, info.Project)
 	if err != nil {
 		return false, errors.Wrapf(err, "unable to fetch tenant %s", info.Project)

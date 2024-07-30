@@ -93,6 +93,7 @@ type SHostInfo struct {
 	onHostDown         string
 	reservedCpusInfo   *api.HostReserveCpusInput
 	enableNumaAllocate bool
+	cpuCmtBound        int
 
 	IsolatedDeviceMan isolated_device.IsolatedDeviceManager
 
@@ -521,6 +522,9 @@ func (h *SHostInfo) detectHostInfo() error {
 	h.sysinfo.Topology = topoInfo
 	h.sysinfo.CPUInfo = cpuInfo
 
+	if err = h.GetNodeHugepages(); err != nil {
+		return errors.Wrap(err, "GetNodeHugepages")
+	}
 	system_service.Init()
 	if options.HostOptions.CheckSystemServices {
 		if err := h.checkSystemServices(); err != nil {
@@ -608,6 +612,33 @@ func (h *SHostInfo) EnableTransparentHugepages() {
 	for k, v := range kv {
 		sysutils.SetSysConfig(k, v)
 	}
+}
+
+func (h *SHostInfo) GetNodeHugepages() error {
+	if options.HostOptions.HugepagesOption != "native" {
+		return nil
+	}
+
+	hugepageSizeKB := h.sysinfo.HugepageSizeKb
+	nodeHugepages := make([]hostapi.HostNodeHugepageNr, len(h.sysinfo.Topology.Nodes))
+
+	for i := range h.sysinfo.Topology.Nodes {
+		nodeId := h.sysinfo.Topology.Nodes[i].ID
+		nodeHugepagePath := fmt.Sprintf("/sys/devices/system/node/node%d/hugepages/hugepages-%dkB", nodeId, hugepageSizeKB)
+		if !fileutils2.Exists(nodeHugepagePath) {
+			return errors.Errorf("node %s has no hugepages ?", nodeHugepagePath)
+		}
+		nrHugepage, err := fileutils2.FileGetIntContent(path.Join(nodeHugepagePath, "nr_hugepages"))
+		if err != nil {
+			return errors.Wrap(err, "get node nr hugepage")
+		}
+
+		nodeHugepages[i].NodeId = nodeId
+		nodeHugepages[i].HugepageNr = nrHugepage
+	}
+
+	h.sysinfo.NodeHugepages = nodeHugepages
+	return nil
 }
 
 func (h *SHostInfo) GetMemory() int {
@@ -1137,6 +1168,7 @@ func (h *SHostInfo) initHostRecord() (*api.HostDetails, error) {
 	}
 
 	h.HostId = hostInfo.Id
+	h.cpuCmtBound = int(hostInfo.CpuCmtbound)
 	hostInfo, err = h.updateHostMetadata(hostInfo.Name)
 	if err != nil {
 		return nil, errors.Wrap(err, "updateHostMetadata")
@@ -2413,6 +2445,10 @@ func (h *SHostInfo) GetReservedCpusInfo() *cpuset.CPUSet {
 
 func (h *SHostInfo) IsNumaAllocateEnabled() bool {
 	return h.enableNumaAllocate
+}
+
+func (h *SHostInfo) CpuCmtBound() int {
+	return h.cpuCmtBound
 }
 
 func NewHostInfo() (*SHostInfo, error) {
