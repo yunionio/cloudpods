@@ -672,7 +672,9 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 			succ := true
 			msgs := make([]string, 0)
 			defer func() {
-				logclient.AddActionLogWithContext(ctx, &sMetricProvider{manager}, logclient.ACT_COLLECT_METRICS, strings.Join(msgs, ";"), userCred, succ)
+				if len(msgs) > 0 {
+					logclient.AddActionLogWithContext(ctx, &sMetricProvider{manager}, logclient.ACT_COLLECT_METRICS, strings.Join(msgs, ";"), userCred, succ)
+				}
 				wg.Done()
 				<-ch
 			}()
@@ -680,7 +682,6 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 			if strings.Contains(strings.ToLower(options.Options.SkipMetricPullProviders), strings.ToLower(manager.Provider)) {
 				logmsg := fmt.Sprintf("skip %s metric pull with options: %s", manager.Provider, options.Options.SkipMetricPullProviders)
 				log.Infoln(logmsg)
-				msgs = append(msgs, logmsg)
 				return
 			}
 
@@ -696,7 +697,6 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 			if !driver.IsSupportMetrics() {
 				logmsg := fmt.Sprintf("%s not support metrics, skip", driver.GetProvider())
 				log.Infoln(logmsg)
-				msgs = append(msgs, logmsg)
 				return
 			}
 
