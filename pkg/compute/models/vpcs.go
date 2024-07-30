@@ -1025,6 +1025,10 @@ func (svpc *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 	}()
 
 	if len(svpc.ManagerId) == 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    svpc,
+			Action: notifyclient.ActionCreate,
+		})
 		return
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "VpcCreateTask", svpc, userCred, nil, "", "", nil)
