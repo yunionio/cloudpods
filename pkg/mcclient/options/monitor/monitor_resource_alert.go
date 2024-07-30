@@ -26,6 +26,7 @@ type MonitorResourceAlertListOptions struct {
 	AlertId           string `help:"ID  of alert" json:"alert_id"`
 	Alerting          bool   `help:"search alerting resource" json:"alerting"`
 	SendState         string `json:"send_state"`
+	AllState          bool   `help:"Show all state" json:"all_state"`
 }
 
 func (o *MonitorResourceAlertListOptions) GetMasterOpt() string {
