@@ -374,7 +374,10 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 				return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
 			}
 
-			if e.Code == "UnsupportedRegion" {
+			if utils.IsInStringArray(e.Code, []string{
+				"InvalidParameterValue.ZoneNotSupported",
+				"UnsupportedRegion",
+			}) {
 				return nil, cloudprovider.ErrNotSupported
 			}
 			if e.Code == "InvalidParameterValue" && apiName == "GetMonitorData" && strings.Contains(e.Message, "the instance has been destroyed") {

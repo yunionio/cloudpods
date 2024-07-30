@@ -42,16 +42,7 @@ type GaussDBMySQL struct {
 		Vcpus int
 		Ram   int
 	}
-	SecurityGroupId string `json:"security_group_id"`
-	BackupStrategy  struct {
-		StartTime string `json:"start_time"`
-		KeepDays  int    `json:"keep_days"`
-	} `json:"backup_strategy"`
-	PayMode           string `json:"pay_mode"`
-	MaintenanceWindow string `json:"maintenance_window"`
-	BackupSpaceUsage  struct {
-		BackupUsage int `json:"backup_usage"`
-	} `json:"backup_space_usage"`
+
 	Groups []struct {
 		Id     string `json:"id"`
 		Status string `json:"status"`
@@ -71,18 +62,31 @@ type GaussDBMySQL struct {
 			SupportReduce    bool   `json:"support_reduce"`
 		} `json:"nodes"`
 	} `json:"groups"`
+	SecurityGroupId string `json:"security_group_id"`
+	BackupStrategy  struct {
+		StartTime string `json:"start_time"`
+		KeepDays  int    `json:"keep_days"`
+	} `json:"backup_strategy"`
+	PayMode           string `json:"pay_mode"`
+	MaintenanceWindow string `json:"maintenance_window"`
+	BackupSpaceUsage  struct {
+		BackupUsage int `json:"backup_usage"`
+	} `json:"backup_space_usage"`
 	EnterpriseProjectId string   `json:"enterprise_project_id"`
 	TimeZone            string   `json:"time_zone"`
 	Actions             []string `json:"actions"`
 	LbIPAddress         string   `json:"lb_ip_address"`
 	LbPort              string   `json:"lb_port"`
+	Nodes               []struct {
+		Id string
+	}
 }
 
 func (self *SRegion) ListGaussMySqlInstances() ([]GaussDBMySQL, error) {
 	query := url.Values{}
 	ret := []GaussDBMySQL{}
 	for {
-		resp, err := self.list(SERVICE_GAUSSDB, "instances", query)
+		resp, err := self.list(SERVICE_GAUSSDB_V3_1, "instances", query)
 		if err != nil {
 			return nil, err
 		}
@@ -99,6 +103,19 @@ func (self *SRegion) ListGaussMySqlInstances() ([]GaussDBMySQL, error) {
 			break
 		}
 		query.Set("offset", fmt.Sprintf("%d", len(ret)))
+	}
+	return ret, nil
+}
+
+func (self *SRegion) GetGaussMySqlInstance(id string) (*GaussDBMySQL, error) {
+	resp, err := self.list(SERVICE_GAUSSDB_V3_1, "instances/"+id, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := &GaussDBMySQL{}
+	err = resp.Unmarshal(ret, "instance")
+	if err != nil {
+		return nil, err
 	}
 	return ret, nil
 }
