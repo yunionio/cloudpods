@@ -447,7 +447,8 @@ func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 }
 
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
-	if jsonutils.QueryBoolean(task.GetParams(), "guest_online", false) {
+	taskParams := task.GetParams()
+	if jsonutils.QueryBoolean(taskParams, "guest_online", false) {
 		addCpu := vcpuCount - int64(guest.VcpuCount)
 		addMem := vmemSize - int64(guest.VmemSize)
 		if addCpu < 0 || addMem < 0 {
@@ -460,6 +461,10 @@ func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *m
 		}
 		if vmemSize > int64(guest.VmemSize) {
 			body.Set("add_mem", jsonutils.NewInt(addMem))
+		}
+		if taskParams.Contains("cpu_numa_pin") {
+			cpuNumaPin, _ := taskParams.Get("cpu_numa_pin")
+			body.Set("cpu_numa_pin", cpuNumaPin)
 		}
 		host, _ := guest.GetHost()
 		url := fmt.Sprintf("%s/servers/%s/hotplug-cpu-mem", host.ManagerUri, guest.Id)

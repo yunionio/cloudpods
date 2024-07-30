@@ -50,14 +50,14 @@ func (m *SHostPendingUsageManager) Keyword() string {
 	return "pending_usage_manager"
 }
 
-func (m *SHostPendingUsageManager) newSessionUsage(req *api.SchedInfo, hostId string) *SessionPendingUsage {
+func (m *SHostPendingUsageManager) newSessionUsage(req *api.SchedInfo, hostId string, candidate *schedapi.CandidateResource) *SessionPendingUsage {
 	su := NewSessionUsage(req.SessionId, hostId)
-	su.Usage = NewPendingUsageBySchedInfo(hostId, req)
+	su.Usage = NewPendingUsageBySchedInfo(hostId, req, candidate)
 	return su
 }
 
 func (m *SHostPendingUsageManager) newPendingUsage(hostId string) *SPendingUsage {
-	return NewPendingUsageBySchedInfo(hostId, nil)
+	return NewPendingUsageBySchedInfo(hostId, nil, nil)
 }
 
 func (m *SHostPendingUsageManager) GetPendingUsage(hostId string) (*SPendingUsage, error) {
@@ -81,7 +81,7 @@ func (m *SHostPendingUsageManager) AddPendingUsage(req *api.SchedInfo, candidate
 
 	sessionUsage, _ := m.GetSessionUsage(req.SessionId, hostId)
 	if sessionUsage == nil {
-		sessionUsage = m.newSessionUsage(req, hostId)
+		sessionUsage = m.newSessionUsage(req, hostId, candidate)
 		sessionUsage.StartTimer()
 	}
 	m.addSessionUsage(candidate.HostId, sessionUsage)
@@ -100,6 +100,7 @@ func (m *SHostPendingUsageManager) addSessionUsage(hostId string, usage *Session
 	if pendingUsage == nil {
 		pendingUsage = m.newPendingUsage(hostId)
 	}
+	// add pending usage
 	pendingUsage.Add(usage.Usage)
 	usage.AddCount()
 	m.store.SetSessionUsage(usage.SessionId, hostId, usage)
@@ -190,7 +191,7 @@ func NewSessionUsage(sid, hostId string) *SessionPendingUsage {
 	su := &SessionPendingUsage{
 		HostId:    hostId,
 		SessionId: sid,
-		Usage:     NewPendingUsageBySchedInfo(hostId, nil),
+		Usage:     NewPendingUsageBySchedInfo(hostId, nil, nil),
 		count:     0,
 		countLock: new(sync.Mutex),
 		cancelCh:  make(chan string),
@@ -292,7 +293,9 @@ func (u *SResourcePendingUsage) IsEmpty() bool {
 type SPendingUsage struct {
 	HostId         string
 	Cpu            int
+	CpuPin         map[int]int
 	Memory         int
+	NumaMemPin     map[int]int
 	IsolatedDevice int
 	DiskUsage      *SResourcePendingUsage
 	NetUsage       *SResourcePendingUsage
@@ -300,7 +303,7 @@ type SPendingUsage struct {
 	InstanceGroupUsage map[string]*api.CandidateGroup
 }
 
-func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsage {
+func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo, candidate *schedapi.CandidateResource) *SPendingUsage {
 	u := &SPendingUsage{
 		HostId:    hostId,
 		DiskUsage: NewResourcePendingUsage(nil),
@@ -309,6 +312,8 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsag
 
 	// group init
 	u.InstanceGroupUsage = make(map[string]*api.CandidateGroup)
+	u.CpuPin = make(map[int]int)
+	u.NumaMemPin = make(map[int]int)
 
 	if req == nil {
 		return u
@@ -316,6 +321,24 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsag
 	u.Cpu = req.Ncpu
 	u.Memory = req.Memory
 	u.IsolatedDevice = len(req.IsolatedDevices)
+
+	if candidate != nil && len(candidate.CpuNumaPin) > 0 {
+		for _, cpuNumaPin := range candidate.CpuNumaPin {
+			if cpuNumaPin.MemSizeMB != nil {
+				if v, ok := u.NumaMemPin[cpuNumaPin.NodeId]; ok {
+					u.NumaMemPin[cpuNumaPin.NodeId] = v + *cpuNumaPin.MemSizeMB
+				}
+			}
+
+			for i := range cpuNumaPin.CpuPin {
+				if v, ok := u.CpuPin[cpuNumaPin.CpuPin[i]]; ok {
+					u.CpuPin[cpuNumaPin.CpuPin[i]] = v + 1
+				} else {
+					u.CpuPin[cpuNumaPin.CpuPin[i]] = 1
+				}
+			}
+		}
+	}
 
 	for _, disk := range req.Disks {
 		backend := disk.Backend
@@ -361,7 +384,22 @@ func (self *SPendingUsage) ToMap() map[string]interface{} {
 
 func (self *SPendingUsage) Add(sUsage *SPendingUsage) {
 	self.Cpu = self.Cpu + sUsage.Cpu
+	for k, v1 := range sUsage.CpuPin {
+		if v2, ok := self.CpuPin[k]; ok {
+			self.CpuPin[k] = v1 + v2
+		} else {
+			self.CpuPin[k] = v1
+		}
+	}
+
 	self.Memory = self.Memory + sUsage.Memory
+	for k, v1 := range sUsage.NumaMemPin {
+		if v2, ok := self.NumaMemPin[k]; ok {
+			self.NumaMemPin[k] = v1 + v2
+		} else {
+			self.NumaMemPin[k] = v1
+		}
+	}
 	self.IsolatedDevice = self.IsolatedDevice + sUsage.IsolatedDevice
 	self.DiskUsage.Add(sUsage.DiskUsage)
 	self.NetUsage.Add(sUsage.NetUsage)
@@ -376,7 +414,19 @@ func (self *SPendingUsage) Add(sUsage *SPendingUsage) {
 
 func (self *SPendingUsage) Sub(sUsage *SPendingUsage) {
 	self.Cpu = quotas.NonNegative(self.Cpu - sUsage.Cpu)
+	for k, v1 := range sUsage.CpuPin {
+		if v2, ok := self.CpuPin[k]; ok {
+			self.CpuPin[k] = quotas.NonNegative(v2 - v1)
+		}
+	}
+
 	self.Memory = quotas.NonNegative(self.Memory - sUsage.Memory)
+	for k, v1 := range sUsage.NumaMemPin {
+		if v2, ok := self.NumaMemPin[k]; ok {
+			self.NumaMemPin[k] = quotas.NonNegative(v2 - v1)
+		}
+	}
+
 	self.IsolatedDevice = quotas.NonNegative(self.IsolatedDevice - sUsage.IsolatedDevice)
 	self.DiskUsage.Sub(sUsage.DiskUsage)
 	self.NetUsage.Sub(sUsage.NetUsage)

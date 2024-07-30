@@ -4250,7 +4250,7 @@ func (hh *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 func (hh *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	hh.SEnabledStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	if data.Contains("cpu_cmtbound") || data.Contains("mem_cmtbound") {
+	if data.Contains("cpu_cmtbound") || data.Contains("mem_cmtbound") || data.Contains("enable_numa_allocate") {
 		hh.ClearSchedDescCache()
 	}
 

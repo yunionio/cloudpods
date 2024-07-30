@@ -527,6 +527,8 @@ func (self *SGuest) GetSchedMigrateParams(
 	if input.PreferHostId != "" {
 		schedDesc.ServerConfig.PreferHost = input.PreferHostId
 	}
+
+	schedDesc.ResetCpuNumaPin = input.ResetCpuNumaPin
 	if input.LiveMigrate {
 		schedDesc.LiveMigrate = input.LiveMigrate
 		if self.GetMetadata(context.Background(), "__cpu_mode", userCred) != api.CPU_MODE_QEMU {
@@ -543,6 +545,11 @@ func (self *SGuest) GetSchedMigrateParams(
 			schedDesc.TargetHostKernel, _ = host.SysInfo.GetString("kernel_version")
 			schedDesc.SkipKernelCheck = &input.SkipKernelCheck
 			schedDesc.HostMemPageSizeKB = host.PageSizeKB
+		}
+		if self.CpuNumaPin != nil {
+			cpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
+			self.CpuNumaPin.Unmarshal(&cpuNumaPin)
+			schedDesc.CpuNumaPin = cpuNumaPin
 		}
 	}
 	schedDesc.ReuseNetwork = true
@@ -562,7 +569,8 @@ func (self *SGuest) StartMigrateTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	isRescueMode, autoStart bool, guestStatus, preferHostId, parentTaskId string,
 ) error {
-	self.SetStatus(ctx, userCred, api.VM_START_MIGRATE, "")
+	vmStatus := api.VM_START_MIGRATE
+
 	data := jsonutils.NewDict()
 	if isRescueMode {
 		data.Set("is_rescue_mode", jsonutils.JSONTrue)
@@ -573,11 +581,17 @@ func (self *SGuest) StartMigrateTask(
 	if autoStart {
 		data.Set("auto_start", jsonutils.JSONTrue)
 	}
+	if self.HostId == preferHostId {
+		vmStatus = api.VM_STARTING
+		data.Set("reset_cpu_numa_pin", jsonutils.JSONTrue)
+	}
+
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	dedicateMigrateTask := "GuestMigrateTask"
 	if self.GetHypervisor() != api.HYPERVISOR_KVM {
 		dedicateMigrateTask = "ManagedGuestMigrateTask" //托管私有云
 	}
+	self.SetStatus(ctx, userCred, vmStatus, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, dedicateMigrateTask, self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -1543,7 +1557,12 @@ func (self *SGuest) StartGueststartTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
-	if self.Hypervisor == api.HYPERVISOR_KVM && self.guestDisksStorageTypeIsShared() {
+	schedStart := self.Hypervisor == api.HYPERVISOR_KVM && self.guestDisksStorageTypeIsShared()
+	if options.Options.IgnoreNonrunningGuests && self.CpuNumaPin != nil {
+		schedStart = true
+	}
+
+	if schedStart {
 		return self.GuestSchedStartTask(ctx, userCred, data, parentTaskId)
 	} else {
 		return self.GuestNonSchedStartTask(ctx, userCred, data, parentTaskId)

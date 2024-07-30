@@ -15,10 +15,13 @@
 package candidate
 
 import (
+	"context"
 	"encoding/json"
+	"sort"
 	gosync "sync"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
@@ -26,11 +29,14 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/apis/scheduler"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 )
 
 type hostGetter struct {
@@ -63,6 +69,14 @@ func (h *hostGetter) FreeCPUCount(useRsvd bool) int64 {
 
 func (h *hostGetter) FreeMemorySize(useRsvd bool) int64 {
 	return h.h.GetFreeMemSize(useRsvd)
+}
+
+func (h *hostGetter) NumaAllocateEnabled() bool {
+	return h.h.HostTopo.NumaEnabled
+}
+
+func (h *hostGetter) GetFreeCpuNuma() []*scheduler.SFreeNumaCpuMem {
+	return h.h.GetFreeCpuNuma()
 }
 
 func (h *hostGetter) RunningMemorySize() int64 {
@@ -116,6 +130,9 @@ type HostDesc struct {
 	RequiredMemSize    int64   `json:"required_mem_size"`
 	FakeDeletedMemSize int64   `json:"fake_deleted_mem_size"`
 
+	EnableCpuNumaAllocate bool       `json:"enable_cpu_numa_allocate"`
+	HostTopo              *SHostTopo `json:"host_topo"`
+
 	// storage
 	StorageTypes []string `json:"storage_types"`
 
@@ -133,6 +150,346 @@ type HostDesc struct {
 	IsMaintenance             bool              `json:"is_maintenance"`
 	GuestReservedResource     *ReservedResource `json:"guest_reserved_resource"`
 	GuestReservedResourceUsed *ReservedResource `json:"guest_reserved_used"`
+}
+
+type CPUDie struct {
+	LogicalProcessors cpuset.CPUSet
+	CpuFree           map[int]int
+	VcpuCount         int
+}
+
+func (d *CPUDie) initCpuFree(cpuCmtbound int) {
+	cpuFree := map[int]int{}
+	for _, cpuId := range d.LogicalProcessors.ToSliceNoSort() {
+		cpuFree[cpuId] = cpuCmtbound
+	}
+	d.CpuFree = cpuFree
+}
+
+type SorttedCPUDie []*CPUDie
+
+func (pq SorttedCPUDie) Len() int { return len(pq) }
+
+func (pq SorttedCPUDie) Less(i, j int) bool {
+	return pq[i].VcpuCount < pq[j].VcpuCount
+}
+
+func (pq SorttedCPUDie) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func (pq *SorttedCPUDie) Push(item interface{}) {
+	*pq = append(*pq, item.(*CPUDie))
+}
+
+func (pq *SorttedCPUDie) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil // avoid memory leak
+	*pq = old[0 : n-1]
+	return item
+}
+
+func (pq *SorttedCPUDie) LoadCpus(cpus []int, vcpuCount int) {
+	var cpuDies = map[int][]int{}
+	for i := 0; i < len(cpus); i++ {
+		for j := 0; j < len(*pq); j++ {
+			if (*pq)[j].LogicalProcessors.Contains(cpus[i]) {
+				if cpuDie, ok := cpuDies[j]; !ok {
+					cpuDies[j] = []int{cpus[i]}
+				} else {
+					cpuDies[j] = append(cpuDie, cpus[i])
+				}
+				break
+			}
+		}
+	}
+
+	for i := 0; i < len(*pq); i++ {
+		if cpus, ok := cpuDies[i]; ok {
+			d := (*pq)[i]
+			for _, cpu := range cpus {
+				d.CpuFree[cpu] -= 1
+			}
+			d.VcpuCount += vcpuCount
+		}
+	}
+	sort.Sort(pq)
+}
+
+type NumaNode struct {
+	CpuDies           SorttedCPUDie
+	LogicalProcessors cpuset.CPUSet
+	VcpuCount         int
+	CpuCount          int
+
+	NodeId                int
+	NumaHugeMemSizeKB     int
+	NumaHugeFreeMemSizeKB int
+}
+
+func (n *NumaNode) allocCpuset(vcpuCount int, usedCpu map[int]int) {
+	for i := range n.CpuDies {
+		for cpuId, nFree := range n.CpuDies[i].CpuFree {
+			if cnt, ok := usedCpu[cpuId]; ok {
+				if cnt < nFree {
+					usedCpu[cpuId] = cnt + 1
+					vcpuCount -= 1
+					if vcpuCount <= 0 {
+						return
+					}
+				}
+			} else {
+				if nFree > 0 {
+					usedCpu[cpuId] = 1
+					vcpuCount -= 1
+					if vcpuCount <= 0 {
+						return
+					}
+				}
+			}
+
+		}
+	}
+	n.allocCpuset(vcpuCount, usedCpu)
+}
+
+func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
+	var usedCpuCount = make(map[int]int)
+	n.allocCpuset(vcpuCount, usedCpuCount)
+
+	var ret = make([]int, 0)
+	for cpuId, cnt := range usedCpuCount {
+		for cnt > 0 {
+			ret = append(ret, cpuId)
+			cnt -= 1
+		}
+	}
+	return ret
+}
+
+func NewNumaNode(nodeId, hugepageSizeKb int, nodeHugepages []hostapi.HostNodeHugepageNr) *NumaNode {
+	n := new(NumaNode)
+	n.LogicalProcessors = cpuset.NewCPUSet()
+	n.NodeId = nodeId
+
+	for i := range nodeHugepages {
+		if nodeHugepages[i].NodeId == nodeId {
+			n.NumaHugeMemSizeKB = nodeHugepages[i].HugepageNr * hugepageSizeKb
+		}
+	}
+
+	n.NumaHugeFreeMemSizeKB = n.NumaHugeMemSizeKB
+	return n
+}
+
+type SHostTopo struct {
+	Nodes       []*NumaNode
+	NumaEnabled bool
+	CPUCmtbound int
+}
+
+func (pq SHostTopo) Len() int { return len(pq.Nodes) }
+
+func (pq SHostTopo) Less(i, j int) bool {
+	if pq.NumaEnabled {
+		if pq.Nodes[i].NumaHugeFreeMemSizeKB == pq.Nodes[j].NumaHugeFreeMemSizeKB {
+			return pq.Nodes[i].VcpuCount < pq.Nodes[j].VcpuCount
+		}
+		return pq.Nodes[i].NumaHugeFreeMemSizeKB > pq.Nodes[j].NumaHugeFreeMemSizeKB
+	} else {
+		return pq.Nodes[i].VcpuCount < pq.Nodes[j].VcpuCount
+	}
+}
+
+func (pq SHostTopo) Swap(i, j int) {
+	pq.Nodes[i], pq.Nodes[j] = pq.Nodes[j], pq.Nodes[i]
+}
+
+func (pq *SHostTopo) Push(item interface{}) {
+	(*pq).Nodes = append((*pq).Nodes, item.(*NumaNode))
+}
+
+func (h *SHostTopo) LoadCpuNumaPin(guestsCpuNumaPin []scheduler.SCpuNumaPin) {
+	for _, gCpuNumaPin := range guestsCpuNumaPin {
+		var node *NumaNode
+		for i := range h.Nodes {
+			if h.Nodes[i].NodeId == gCpuNumaPin.NodeId {
+				node = h.Nodes[i]
+			}
+		}
+
+		cpus := gCpuNumaPin.CpuPin
+		node.CpuDies.LoadCpus(cpus, len(cpus))
+		if h.NumaEnabled && gCpuNumaPin.MemSizeMB != nil {
+			node.NumaHugeFreeMemSizeKB -= *gCpuNumaPin.MemSizeMB * 1024
+		}
+		node.VcpuCount += len(cpus)
+	}
+	sort.Sort(h)
+}
+
+func (h *SHostTopo) nodesEnough(nodeCount, vcpuCount int, memSizeKB int) bool {
+	var leastFree = memSizeKB / nodeCount
+	var leastCpuCount = vcpuCount / nodeCount
+	var remPcpuCount = vcpuCount % nodeCount
+
+	for i := 0; i < nodeCount; i++ {
+		if h.NumaEnabled {
+			if h.Nodes[i].NumaHugeFreeMemSizeKB < leastFree {
+				return false
+			}
+		}
+
+		requireCpuCount := leastCpuCount
+		if remPcpuCount > 0 {
+			requireCpuCount += 1
+			remPcpuCount -= 1
+		}
+		if (h.Nodes[i].VcpuCount + requireCpuCount) > h.Nodes[i].CpuCount*h.CPUCmtbound {
+			return false
+		}
+
+	}
+	return true
+}
+
+func (h *SHostTopo) AllocCpuNumaNodes(vcpuCount, memSizeKB int) []scheduler.SCpuNumaPin {
+	res := make([]scheduler.SCpuNumaPin, 0)
+	for nodeCount := 1; nodeCount <= len(h.Nodes); nodeCount *= 2 {
+		if nodeCount > vcpuCount {
+			break
+		}
+		if ok := h.nodesEnough(nodeCount, vcpuCount, memSizeKB); !ok {
+			log.Infof("node count %d not enough", nodeCount)
+			continue
+		}
+		log.Infof("use node count %d", nodeCount)
+
+		var nodeAllocSize = memSizeKB / nodeCount
+		if h.NumaEnabled {
+			if nodeAllocSize/1024%1024 > 0 {
+				continue
+			}
+		}
+
+		var pcpuCount = vcpuCount / nodeCount
+		var remPcpuCount = vcpuCount % nodeCount
+		for i := 0; i < nodeCount; i++ {
+			var npcpuCount = pcpuCount
+			if remPcpuCount > 0 {
+				npcpuCount += 1
+				remPcpuCount -= 1
+			}
+			cpuNumaPin := scheduler.SCpuNumaPin{
+				CpuPin: h.Nodes[i].AllocCpuset(npcpuCount),
+				NodeId: h.Nodes[i].NodeId,
+			}
+			if h.NumaEnabled {
+				allocSize := nodeAllocSize / 1024
+				cpuNumaPin.MemSizeMB = &allocSize
+			}
+			res = append(res, cpuNumaPin)
+		}
+		break
+	}
+
+	return res
+}
+
+func (h *SHostTopo) AllocCpuNumaNodesWithNodeCount(vcpuCount, memSizeKB, nodeCount int) []scheduler.SCpuNumaPin {
+	res := make([]scheduler.SCpuNumaPin, 0)
+	var nodeAllocSize = memSizeKB / nodeCount
+	var pcpuCount = vcpuCount / nodeCount
+	var remPcpuCount = vcpuCount % nodeCount
+	for i := 0; i < nodeCount; i++ {
+		var npcpuCount = pcpuCount
+		if remPcpuCount > 0 {
+			npcpuCount += 1
+			remPcpuCount -= 1
+		}
+
+		cpuNumaPin := scheduler.SCpuNumaPin{
+			CpuPin: h.Nodes[i].AllocCpuset(npcpuCount),
+			NodeId: h.Nodes[i].NodeId,
+		}
+		if h.NumaEnabled {
+			allocSize := nodeAllocSize / 1024
+			cpuNumaPin.MemSizeMB = &allocSize
+		}
+		res = append(res, cpuNumaPin)
+	}
+	return res
+}
+
+func (b *HostBuilder) buildHostTopo(
+	desc *HostDesc, reservedCpus *cpuset.CPUSet,
+	hugepageSizeKb int, nodeHugepages []hostapi.HostNodeHugepageNr,
+	info *hostapi.HostTopology,
+) error {
+	hostTopo := new(SHostTopo)
+	hostTopo.Nodes = make([]*NumaNode, len(info.Nodes))
+
+	hasL3Cache := false
+	for i := 0; i < len(info.Nodes); i++ {
+		node := NewNumaNode(info.Nodes[i].ID, hugepageSizeKb, nodeHugepages)
+
+		cpuDies := make([]*CPUDie, 0)
+		for j := 0; j < len(info.Nodes[i].Caches); j++ {
+			if info.Nodes[i].Caches[j].Level != 3 {
+				continue
+			}
+			hasL3Cache = true
+			cpuDie := new(CPUDie)
+			dieBuilder := cpuset.NewBuilder()
+			for k := 0; k < len(info.Nodes[i].Caches[j].LogicalProcessors); k++ {
+				if reservedCpus != nil && reservedCpus.Contains(int(info.Nodes[i].Caches[j].LogicalProcessors[k])) {
+					continue
+				}
+				dieBuilder.Add(int(info.Nodes[i].Caches[j].LogicalProcessors[k]))
+			}
+			cpuDie.LogicalProcessors = dieBuilder.Result()
+			cpuDie.initCpuFree(int(desc.CPUCmtbound))
+
+			node.CpuCount += cpuDie.LogicalProcessors.Size()
+			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
+			cpuDies = append(cpuDies, cpuDie)
+
+			// TODO: add cpu core builder
+		}
+		if !hasL3Cache {
+			cpuDie := new(CPUDie)
+			dieBuilder := cpuset.NewBuilder()
+			for j := 0; j < len(info.Nodes[i].Cores); j++ {
+				for k := 0; k < len(info.Nodes[i].Cores[j].LogicalProcessors); k++ {
+					if reservedCpus != nil && reservedCpus.Contains(info.Nodes[i].Cores[j].LogicalProcessors[k]) {
+						continue
+					}
+					dieBuilder.Add(info.Nodes[i].Cores[j].LogicalProcessors[k])
+				}
+			}
+			cpuDie.LogicalProcessors = dieBuilder.Result()
+			node.CpuCount += cpuDie.LogicalProcessors.Size()
+			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
+			cpuDies = append(cpuDies, cpuDie)
+		}
+
+		hasL3Cache = false
+		node.CpuDies = cpuDies
+		hostTopo.Nodes[i] = node
+	}
+	hostTopo.CPUCmtbound = int(desc.CPUCmtbound)
+	if len(nodeHugepages) > 0 {
+		hostTopo.NumaEnabled = true
+	}
+
+	desc.HostTopo = hostTopo
+	log.Infof("host topo %s", jsonutils.Marshal(hostTopo))
+
+	sort.Sort(desc.HostTopo)
+	desc.EnableCpuNumaAllocate = true
+	return nil
 }
 
 type ReservedResource struct {
@@ -343,6 +700,36 @@ func (h *HostDesc) GetFreeMemSize(useRsvd bool) int64 {
 	return reservedResourceAddCal(h.FreeMemSize, h.GuestReservedMemSizeFree(), useRsvd) - int64(h.GetPendingUsage().Memory)
 }
 
+func (h *HostDesc) GetFreeCpuNuma() scheduler.SortedFreeNumaCpuMam {
+	if !h.EnableCpuNumaAllocate {
+		return nil
+	}
+
+	res := make(scheduler.SortedFreeNumaCpuMam, 0)
+	cpuPin := h.GetPendingUsage().CpuPin
+	numaPin := h.GetPendingUsage().NumaMemPin
+	for i := range h.HostTopo.Nodes {
+		nodeFree := new(scheduler.SFreeNumaCpuMem)
+		nodeFree.NodeId = h.HostTopo.Nodes[i].NodeId
+		nodeFree.CpuCount = h.HostTopo.Nodes[i].CpuCount
+		nodeFree.MemSize = h.HostTopo.Nodes[i].NumaHugeFreeMemSizeKB * 1024
+		nodeFree.EnableNumaAllocate = h.HostTopo.NumaEnabled
+		nodeFree.FreeCpuCount = h.HostTopo.Nodes[i].CpuCount*int(h.CPUCmtbound) - h.HostTopo.Nodes[i].VcpuCount
+		for cpuId, pending := range cpuPin {
+			if h.HostTopo.Nodes[i].LogicalProcessors.Contains(cpuId) {
+				nodeFree.FreeCpuCount -= pending
+			}
+		}
+
+		if memSize, ok := numaPin[h.HostTopo.Nodes[i].NodeId]; ok {
+			nodeFree.MemSize -= memSize
+		}
+		res = append(res, nodeFree)
+	}
+	sort.Sort(res)
+	return res
+}
+
 func (h *HostDesc) GuestReservedMemSizeFree() int64 {
 	return h.GuestReservedResource.MemorySize - h.GuestReservedResourceUsed.MemorySize
 }
@@ -377,6 +764,20 @@ func (h *HostDesc) GetFreeCPUCount(useRsvd bool) int64 {
 
 func (h *HostDesc) IndexKey() string {
 	return h.Id
+}
+
+func (h *HostDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int) []scheduler.SCpuNumaPin {
+	if !h.EnableCpuNumaAllocate {
+		return nil
+	}
+	return h.HostTopo.AllocCpuNumaNodes(vcpuCount, memSizeKB)
+}
+
+func (h *HostDesc) AllocCpuNumaPinWithNodeCount(vcpuCount, memSizeKB, nodeCount int) []scheduler.SCpuNumaPin {
+	if !h.EnableCpuNumaAllocate {
+		return nil
+	}
+	return h.HostTopo.AllocCpuNumaNodesWithNodeCount(vcpuCount, memSizeKB, nodeCount)
 }
 
 type WaitGroupWrapper struct {
@@ -694,13 +1095,13 @@ func (b *HostBuilder) InitFuncs() []InitFunc {
 	}
 }
 
+// build host desc
 func (b *HostBuilder) BuildOne(host *computemodels.SHost, getter *networkGetter, baseDesc *BaseHostDesc) (interface{}, error) {
 	desc := &HostDesc{
 		BaseHostDesc: baseDesc,
 	}
 
 	desc.Metadata = make(map[string]string)
-
 	desc.CPUCmtbound = host.GetCPUOvercommitBound()
 	desc.MemCmtbound = host.GetMemoryOvercommitBound()
 
@@ -712,10 +1113,11 @@ func (b *HostBuilder) BuildOne(host *computemodels.SHost, getter *networkGetter,
 	desc.GuestReservedResourceUsed = guestRsvdUsed
 
 	fillFuncs := []func(*HostDesc, *computemodels.SHost) error{
-		b.fillGuestsResourceInfo,
 		//b.fillResidentGroups,
 		b.fillMetadata,
 		b.fillCPUIOLoads,
+		b.fillGuestsCpuNumaPin,
+		b.fillGuestsResourceInfo,
 	}
 
 	for _, f := range fillFuncs {
@@ -728,13 +1130,52 @@ func (b *HostBuilder) BuildOne(host *computemodels.SHost, getter *networkGetter,
 	return desc, nil
 }
 
-func _in(s string, ss []string) bool {
-	for _, str := range ss {
-		if s == str {
-			return true
+func (b *HostBuilder) fillGuestsCpuNumaPin(desc *HostDesc, host *computemodels.SHost) error {
+	if !host.EnableNumaAllocate {
+		return nil
+	}
+
+	topoObj, err := host.SysInfo.Get("topology")
+	if err != nil {
+		return errors.Wrap(err, "get topology from host sys_info")
+	}
+	hostTopo := new(hostapi.HostTopology)
+	if err := topoObj.Unmarshal(hostTopo); err != nil {
+		return errors.Wrap(err, "Unmarshal host topology struct")
+	}
+	var reservedCpus *cpuset.CPUSet
+	reservedCpusStr := host.GetMetadata(context.Background(), computeapi.HOSTMETA_RESERVED_CPUS_INFO, nil)
+	if reservedCpusStr != "" {
+		reservedCpusJson, err := jsonutils.ParseString(reservedCpusStr)
+		if err != nil {
+			return errors.Wrap(err, "parse reserved cpus info failed")
+		}
+		reservedCpusInfo := computeapi.HostReserveCpusInput{}
+		err = reservedCpusJson.Unmarshal(&reservedCpusInfo)
+		if err != nil {
+			return errors.Wrap(err, "unmarshal host reserved cpus info failed")
+		}
+		reservedCpuset, err := cpuset.Parse(reservedCpusInfo.Cpus)
+		if err != nil {
+			return errors.Wrap(err, "cpuset parse reserved cpus")
+		}
+		reservedCpus = &reservedCpuset
+	}
+
+	nodeHugepages := make([]hostapi.HostNodeHugepageNr, 0)
+	if host.SysInfo.Contains("node_hugepages") {
+		err = host.SysInfo.Unmarshal(&nodeHugepages, "node_hugepages")
+		if err != nil {
+			return errors.Wrap(err, "unmarshal node hugepages")
 		}
 	}
-	return false
+
+	hugepageSizeKb, err := host.SysInfo.Int("hugepage_size_kb")
+	if err != nil {
+		return errors.Wrap(err, "unmarshal hugepage size kb")
+	}
+
+	return b.buildHostTopo(desc, reservedCpus, int(hugepageSizeKb), nodeHugepages, hostTopo)
 }
 
 func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels.SHost) error {
@@ -752,6 +1193,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		creatingMemSize     int64
 		creatingCPUCount    int64
 		creatingGuestCount  int64
+		guestsCpuNumaPin    = make([]scheduler.SCpuNumaPin, 0)
 	)
 	guestsOnHost, ok := b.hostGuests[host.Id]
 	if !ok {
@@ -775,6 +1217,13 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 			runningCount++
 			memSize += int64(guest.VmemSize)
 			cpuCount += int64(guest.VcpuCount)
+			if guest.CpuNumaPin != nil {
+				cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
+				if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
+					return errors.Wrap(err, "unmarshal cpu numa pin")
+				}
+				guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
+			}
 		} else if IsGuestCreating(guest) {
 			creatingGuestCount++
 			creatingMemSize += int64(guest.VmemSize)
@@ -796,6 +1245,11 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		//}
 		//}
 	}
+
+	if len(guestsCpuNumaPin) > 0 {
+		desc.HostTopo.LoadCpuNumaPin(guestsCpuNumaPin)
+	}
+
 	desc.GuestCount = guestCount
 	desc.CreatingGuestCount = creatingGuestCount
 	desc.RunningGuestCount = runningCount
