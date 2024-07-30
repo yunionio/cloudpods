@@ -127,6 +127,8 @@ type SGuest struct {
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
 	// 内存大小, 单位MB
 	VmemSize int `nullable:"false" list:"user" create:"required"`
+	// CPU 内存绑定信息
+	CpuNumaPin jsonutils.JSONObject `nullable:"true" get:"user" update:"user" create:"optional"`
 
 	// 启动顺序
 	BootOrder string `width:"8" charset:"ascii" nullable:"true" default:"cdn" list:"user" update:"user" create:"optional"`
@@ -1264,6 +1266,94 @@ func (guest *SGuest) SetHostIdWithBackup(userCred mcclient.TokenCredential, mast
 	if err != nil {
 		return err
 	}
+	db.OpsLog.LogEvent(guest, db.ACT_UPDATE, diff, userCred)
+	return err
+}
+
+func (guest *SGuest) UpdateCpuNumaPin(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	schedCpuNumaPin []schedapi.SCpuNumaPin, cpuNumaPinTarget []api.SCpuNumaPin,
+) error {
+	srcSchedCpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
+	err := guest.CpuNumaPin.Unmarshal(&srcSchedCpuNumaPin)
+	if err != nil {
+		return err
+	}
+	srcSchedCpuNumaPin = append(srcSchedCpuNumaPin, schedCpuNumaPin...)
+
+	srcCpuNumaPin := make([]api.SCpuNumaPin, 0)
+	cpuNumaPinStr := guest.GetMetadata(ctx, api.VM_METADATA_CPU_NUMA_PIN, nil)
+	cpuNumaPinJson, err := jsonutils.ParseString(cpuNumaPinStr)
+	if err != nil {
+		return err
+	}
+	err = cpuNumaPinJson.Unmarshal(&srcCpuNumaPin)
+	if err != nil {
+		return err
+	}
+	srcCpuNumaPin = append(srcCpuNumaPin, cpuNumaPinTarget...)
+
+	diff, err := db.Update(guest, func() error {
+		guest.CpuNumaPin = jsonutils.Marshal(srcSchedCpuNumaPin)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	var jcpuNumaPin = jsonutils.Marshal(srcCpuNumaPin)
+	err = guest.SetMetadata(ctx, api.VM_METADATA_CPU_NUMA_PIN, jcpuNumaPin, userCred)
+	if err != nil {
+		return err
+	}
+
+	db.OpsLog.LogEvent(guest, db.ACT_UPDATE, diff, userCred)
+	return nil
+}
+
+func (guest *SGuest) SetCpuNumaPin(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	schedCpuNumaPin []schedapi.SCpuNumaPin, cpuNumaPin []api.SCpuNumaPin,
+) error {
+	if cpuNumaPin == nil && schedCpuNumaPin != nil {
+		cpuNumaPin = make([]api.SCpuNumaPin, len(schedCpuNumaPin))
+
+		vcpuId := 0
+		for i := range schedCpuNumaPin {
+			cpuNumaPin[i] = api.SCpuNumaPin{
+				SizeMB: schedCpuNumaPin[i].MemSizeMB,
+				NodeId: schedCpuNumaPin[i].NodeId,
+			}
+			cpuNumaPin[i].VcpuPin = make([]api.SVCpuPin, len(schedCpuNumaPin[i].CpuPin))
+			for j := range schedCpuNumaPin[i].CpuPin {
+				cpuNumaPin[i].VcpuPin[j].Pcpu = schedCpuNumaPin[i].CpuPin[j]
+				cpuNumaPin[i].VcpuPin[j].Vcpu = vcpuId
+				vcpuId += 1
+			}
+		}
+	}
+
+	var schedCpuNumaPinJ jsonutils.JSONObject
+	if schedCpuNumaPin != nil {
+		schedCpuNumaPinJ = jsonutils.Marshal(schedCpuNumaPin)
+	}
+	diff, err := db.Update(guest, func() error {
+		guest.CpuNumaPin = schedCpuNumaPinJ
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	var jcpuNumaPin interface{} = ""
+	if cpuNumaPin != nil {
+		jcpuNumaPin = jsonutils.Marshal(cpuNumaPin)
+	}
+	err = guest.SetMetadata(ctx, api.VM_METADATA_CPU_NUMA_PIN, jcpuNumaPin, userCred)
+	if err != nil {
+		return err
+	}
+
 	db.OpsLog.LogEvent(guest, db.ACT_UPDATE, diff, userCred)
 	return err
 }
@@ -5094,6 +5184,18 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 	isolatedDevs, _ := self.GetIsolatedDevices()
 	for _, dev := range isolatedDevs {
 		desc.IsolatedDevices = append(desc.IsolatedDevices, dev.getDesc())
+	}
+
+	if self.CpuNumaPin != nil {
+		cpuNumaPin := make([]api.SCpuNumaPin, 0)
+		cpuNumaPinStr := self.GetMetadata(ctx, api.VM_METADATA_CPU_NUMA_PIN, nil)
+		cpuNumaPinJson, err := jsonutils.ParseString(cpuNumaPinStr)
+		if err != nil {
+			log.Errorf("failed parse cpu numa pin %s: %s", cpuNumaPinStr, err)
+		} else {
+			cpuNumaPinJson.Unmarshal(&cpuNumaPin)
+			desc.CpuNumaPin = cpuNumaPin
+		}
 	}
 
 	// nics, domain

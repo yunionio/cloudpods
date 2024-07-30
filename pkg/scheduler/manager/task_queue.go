@@ -84,6 +84,7 @@ func (te *TaskExecutor) Execute(ctx context.Context) {
 	}
 }
 
+// do execute schedule()
 func (te *TaskExecutor) execute(ctx context.Context) (*core.ScheduleResult, error) {
 	scheduler := te.scheduler
 	genericScheduler, err := core.NewGenericScheduler(scheduler.(core.Scheduler))
@@ -99,6 +100,7 @@ func (te *TaskExecutor) execute(ctx context.Context) (*core.ScheduleResult, erro
 
 	te.unit = scheduler.Unit()
 	schedInfo := te.unit.SchedInfo
+	// generate result helper
 	helper := GenerateResultHelper(schedInfo)
 	result, err := genericScheduler.Schedule(ctx, te.unit, candidates, helper)
 	if err != nil {
@@ -108,6 +110,8 @@ func (te *TaskExecutor) execute(ctx context.Context) (*core.ScheduleResult, erro
 		return result, nil
 	}
 	driver := te.unit.GetHypervisorDriver()
+
+	// set sched pending usage
 	if err := setSchedPendingUsage(driver, schedInfo, result.Result); err != nil {
 		return nil, errors.Wrap(err, "setSchedPendingUsage")
 	}

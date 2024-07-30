@@ -255,9 +255,13 @@ func (m *SGuestManager) CleanServer(sid string) {
 
 func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 	hostTypo := m.host.GetHostTopology()
-	m.numaAllocate = m.host.IsNumaAllocateEnabled() && m.host.IsHugepagesEnabled() && (len(hostTypo.Nodes) > 1)
+
+	if options.HostOptions.EnableHostAgentNumaAllocate {
+		m.numaAllocate = m.host.IsNumaAllocateEnabled() && m.host.IsHugepagesEnabled() && (len(hostTypo.Nodes) > 1)
+	}
+
 	cpuSet, err := NewGuestCpuSetCounter(
-		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.HugepageSizeKb())
+		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.HugepageSizeKb(), m.host.CpuCmtBound())
 	if err != nil {
 		return nil, err
 	}
@@ -1447,7 +1451,7 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetKVMServer(hotplugParams.Sid)
-	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize)).Start()
+	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize), hotplugParams.CpuNumaPin).Start()
 	return nil, nil
 }
 

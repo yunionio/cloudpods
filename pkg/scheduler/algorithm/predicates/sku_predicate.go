@@ -36,6 +36,10 @@ func (p *InstanceTypePredicate) Clone() core.FitPredicate {
 
 func (p *InstanceTypePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	driver := u.GetHypervisorDriver()
+	if u.SchedData().ResetCpuNumaPin {
+		return false, nil
+	}
+
 	if u.SchedData().InstanceType == "" || (driver == nil || !driver.DoScheduleSKUFilter()) {
 		return false, nil
 	}
