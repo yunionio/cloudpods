@@ -102,22 +102,23 @@ func (opslog *SLogBase) GetId() string {
 	return fmt.Sprintf("%d", opslog.Id)
 }
 
-func (self *SLogBase) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (logbase *SLogBase) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return httperrors.NewForbiddenError("not allow to delete log")
 }
 
-func (self *SLogBaseManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
-	id, _ := strconv.Atoi(idStr)
+func (logbase *SLogBaseManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
+	id, _ := strconv.ParseInt(idStr, 10, 64)
 	return q.Equals("id", id)
 }
 
-func (self *SLogBaseManager) FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
+func (logbase *SLogBaseManager) FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	id, _ := strconv.Atoi(idStr)
 	return q.NotEquals("id", id)
 }
 
-func (self *SLogBaseManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
-	return q
+func (logbase *SLogBaseManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
+	id, _ := strconv.ParseInt(name, 10, 64)
+	return q.Equals("id", id)
 }
 
 func (manager *SLogBaseManager) GetPagingConfig() *SPagingConfig {
