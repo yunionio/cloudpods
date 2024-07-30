@@ -110,11 +110,11 @@ func (self *SRegion) GetZoneInstanceTypes(zoneId string) ([]SZoneInstanceType, e
 }
 
 func (self *SRegion) GetZoneLocalStorages(zoneId string) ([]string, error) {
+	storages := []string{}
 	instanceTypes, err := self.GetZoneInstanceTypes(zoneId)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZoneInstanceTypes")
+		return storages, errors.Wrap(err, "GetZoneInstanceTypes")
 	}
-	storages := []string{}
 	for _, instanceType := range instanceTypes {
 		storage := instanceType.Externals.StorageBlockAttr.Type
 		if len(storage) > 0 && !utils.IsInStringArray(storage, storages) {
