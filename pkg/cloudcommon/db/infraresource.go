@@ -195,7 +195,8 @@ func (model *SInfrasResourceBase) PerformChangeOwner(
 }
 
 func (model *SInfrasResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	SharableModelCustomizeCreate(model.GetIInfrasModel(), ctx, userCred, ownerId, query, data)
+	// 避免domain_id为空导致异常
+	defer SharableModelCustomizeCreate(model.GetIInfrasModel(), ctx, userCred, ownerId, query, data)
 	return model.SDomainLevelResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
