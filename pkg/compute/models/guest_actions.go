@@ -588,7 +588,7 @@ func (self *SGuest) StartMigrateTask(
 
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	dedicateMigrateTask := "GuestMigrateTask"
-	if self.GetHypervisor() != api.HYPERVISOR_KVM {
+	if !utils.IsInStringArray(self.GetHypervisor(), []string{api.HYPERVISOR_KVM, api.HYPERVISOR_POD}) {
 		dedicateMigrateTask = "ManagedGuestMigrateTask" //托管私有云
 	}
 	self.SetStatus(ctx, userCred, vmStatus, "")
@@ -1558,8 +1558,11 @@ func (self *SGuest) StartGueststartTask(
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
 	schedStart := self.Hypervisor == api.HYPERVISOR_KVM && self.guestDisksStorageTypeIsShared()
-	if options.Options.IgnoreNonrunningGuests && self.CpuNumaPin != nil {
-		schedStart = true
+	if options.Options.IgnoreNonrunningGuests {
+		host := HostManager.FetchHostById(self.HostId)
+		if host != nil && host.EnableNumaAllocate {
+			schedStart = true
+		}
 	}
 
 	if schedStart {
