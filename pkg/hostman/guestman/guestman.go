@@ -499,7 +499,10 @@ func (m *SGuestManager) ShutdownServers() {
 func (m *SGuestManager) GetQgaRunningGuests() []string {
 	qgaRunningGuestIds := []string{}
 	m.Servers.Range(func(k, v interface{}) bool {
-		guest := v.(*SKVMGuestInstance)
+		guest, ok := v.(*SKVMGuestInstance)
+		if !ok {
+			return true
+		}
 		if !guest.IsRunning() {
 			return true
 		}
@@ -1455,7 +1458,7 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 
 func (m *SGuestManager) ExitGuestCleanup() {
 	m.Servers.Range(func(k, v interface{}) bool {
-		guest := v.(*SKVMGuestInstance)
+		guest := v.(GuestRuntimeInstance)
 		guest.ExitCleanup(false)
 		return true
 	})
