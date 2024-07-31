@@ -263,7 +263,7 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 			log.Errorf("get alertRecord:%s err:%v", obj.AlertRecordId, err)
 			return detail
 		}
-		detail.AlertRule = record.AlertRule
+		//detail.AlertRule = record.AlertRule
 		detail.SendState = record.SendState
 		detail.State = record.State
 	}
@@ -274,11 +274,9 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 	}
 	detail.AlertName = alert.Name
 	detail.Level = alert.Level
-	if len(obj.AlertRecordId) == 0 {
-		silentPeriod, _ := alert.GetSilentPeriod()
-		rule, _ := alert.GetAlertRules(silentPeriod)
-		detail.AlertRule = jsonutils.Marshal(rule)
-	}
+	silentPeriod, _ := alert.GetSilentPeriod()
+	rule, _ := alert.GetAlertRules(silentPeriod)
+	detail.AlertRule = jsonutils.Marshal(rule)
 
 	now := time.Now()
 	shields, err := AlertRecordShieldManager.GetRecordShields(monitor.AlertRecordShieldListInput{ResId: obj.MonitorResourceId,
