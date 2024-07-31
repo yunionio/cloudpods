@@ -161,6 +161,7 @@ func (c *NoDataQueryCondition) NewNoDataEvalMatch(context *alerting.EvalContext,
 
 	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.ValueStr = NO_DATA
+	evalMatch.AlertDetails = jsonutils.Marshal(alertDetails)
 	return evalMatch, nil
 }
 
