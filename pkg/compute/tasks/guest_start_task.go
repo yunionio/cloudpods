@@ -106,32 +106,32 @@ func (self *GuestSchedStartTask) OnInit(ctx context.Context, obj db.IStandaloneM
 }
 
 func (self *GuestSchedStartTask) StartScheduler(ctx context.Context, guest *models.SGuest) {
-	if guest.CpuNumaPin != nil {
-		self.ScheduleFailed(ctx, guest)
+	host, _ := guest.GetHost()
+	if host.EnableNumaAllocate {
+		self.ScheduleFailed(ctx, guest, true)
 		return
 	}
 
-	host, _ := guest.GetHost()
 	if request := host.GetRunningGuestResourceUsage(); request == nil {
 		self.TaskFailed(ctx, guest, jsonutils.NewString("Guest Start Failed: Can't Get Host Guests CPU Memory Usage"))
 	} else {
 		if float32(request.GuestVmemSize+guest.VmemSize) > host.GetVirtualMemorySize() {
 			log.Infof("host memory not enough to start guest")
-			self.ScheduleFailed(ctx, guest)
+			self.ScheduleFailed(ctx, guest, false)
 		} else if request.GuestVcpuCount+guest.VcpuCount > int(host.GetVirtualCPUCount()) {
 			log.Infof("host cpu not enough to start guest")
-			self.ScheduleFailed(ctx, guest)
+			self.ScheduleFailed(ctx, guest, false)
 		} else {
 			self.ScheduleSucc(ctx, guest)
 		}
 	}
 }
 
-func (self *GuestSchedStartTask) ScheduleFailed(ctx context.Context, guest *models.SGuest) {
+func (self *GuestSchedStartTask) ScheduleFailed(ctx context.Context, guest *models.SGuest, resetCpuNumaPin bool) {
 	self.SetStage("OnGuestMigrate", nil)
 
 	preferHostId := ""
-	if guest.CpuNumaPin != nil {
+	if resetCpuNumaPin {
 		preferHostId = guest.HostId
 	}
 
@@ -139,17 +139,27 @@ func (self *GuestSchedStartTask) ScheduleFailed(ctx context.Context, guest *mode
 }
 
 func (self *GuestSchedStartTask) OnGuestMigrate(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
-	guest.GuestNonSchedStartTask(ctx, self.UserCred, nil, "")
+	self.SetStage("OnGuestStarted", nil)
+
+	guest.GuestNonSchedStartTask(ctx, self.UserCred, self.Params, self.GetTaskId())
 }
 
 func (self *GuestSchedStartTask) OnGuestMigrateFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.TaskFailed(ctx, guest, data)
 }
 
-func (self *GuestSchedStartTask) ScheduleSucc(ctx context.Context, guest *models.SGuest) {
+func (self *GuestSchedStartTask) OnGuestStarted(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
-	guest.GuestNonSchedStartTask(ctx, self.UserCred, self.Params, "")
+}
+
+func (self *GuestSchedStartTask) OnGuestStartedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, data)
+}
+
+func (self *GuestSchedStartTask) ScheduleSucc(ctx context.Context, guest *models.SGuest) {
+	self.SetStage("OnGuestStarted", nil)
+
+	guest.GuestNonSchedStartTask(ctx, self.UserCred, self.Params, self.GetTaskId())
 }
 
 func (self *GuestSchedStartTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
