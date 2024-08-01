@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -599,6 +600,23 @@ func (s *SLVMStorage) CloneDiskFromStorage(
 
 func (s *SLVMStorage) CleanRecycleDiskfiles(ctx context.Context) {
 	log.Infof("SLVMStorage CleanRecycleDiskfiles do nothing!")
+}
+
+func (d *SLVMStorage) GetDisksPath() ([]string, error) {
+	spath := d.GetPath()
+	lvNames, err := lvmutils.GetLvNames(spath)
+	if err != nil {
+		return nil, err
+	}
+
+	disksPath := make([]string, 0)
+	for _, f := range lvNames {
+		if regutils.MatchUUIDExact(f) {
+			disksPath = append(disksPath, path.Join("/dev", spath, f))
+		}
+	}
+
+	return disksPath, nil
 }
 
 func ConvertLVMDisk(vgName, lvName string) error {

@@ -16,6 +16,7 @@ package storageman
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 func cleanImages(ctx context.Context, manager IImageCacheManger, images map[string]IImageCache) (int64, error) {
@@ -59,14 +61,53 @@ func cleanImages(ctx context.Context, manager IImageCacheManger, images map[stri
 		}
 	}
 
-	deleteSizeMb := int64(0)
+	var inUseCacheImageIds = make(map[string]struct{})
+	for i := range storageManager.Storages {
+		storage := storageManager.Storages[i]
+		if storage.GetStoragecacheId() != manager.GetId() {
+			continue
+		}
+		// load storage disks used image cache
+		disksPath, err := storage.GetDisksPath()
+		if err != nil {
+			log.Errorf("storage %s failed get disksPath: %s", storage.GetPath(), err)
+			continue
+		}
 
+		for j := range disksPath {
+			diskPath := disksPath[j]
+			img, err := qemuimg.NewQemuImage(diskPath)
+			if err != nil {
+				log.Errorf("failed NewQemuImage of %s", diskPath)
+				continue
+			}
+			backingChain, err := img.GetBackingChain()
+			if err != nil {
+				log.Errorf("disk %s failed get backing chain", diskPath)
+				continue
+			}
+			for _, backingPath := range backingChain {
+				if strings.HasPrefix(backingPath, manager.GetPath()) {
+					imageId := strings.Trim(strings.TrimPrefix(backingPath, manager.GetPath()), "/")
+					inUseCacheImageIds[imageId] = struct{}{}
+				}
+			}
+		}
+	}
+	log.Infof("found image caches in use: %v", inUseCacheImageIds)
+
+	deleteSizeMb := int64(0)
 	for imageId, image := range images {
 		if _, ok := storageCachedImages[imageId]; !ok {
 			atime := image.GetDesc().AccessAt
 			if !atime.IsZero() && time.Now().Sub(atime) > time.Duration(options.HostOptions.ImageCacheExpireDays*86400)*time.Second {
 				continue
 			}
+			if _, ok := inUseCacheImageIds[imageId]; ok {
+				log.Infof("cached image not found but referenced by disks backing file")
+				continue
+			}
+
 			log.Infof("cached image %s not found on region, to delete size %dMB ...", imageId, image.GetDesc().SizeMb)
 			// not found on region, clean directly
 			if options.HostOptions.ImageCacheCleanupDryRun {
@@ -95,6 +136,11 @@ func cleanImages(ctx context.Context, manager IImageCacheManger, images map[stri
 			if img.Size == 0 {
 				img.Size = images[imgId].GetDesc().SizeMb * 1024 * 1024
 			}
+			if _, ok := inUseCacheImageIds[imgId]; ok {
+				log.Infof("cached image database reference zero but referenced by disks locally")
+				continue
+			}
+
 			log.Infof("image reference zero, to delete %s(%s) size %dMB", img.Cachedimage, img.CachedimageId, img.Size/1024/1024)
 			if options.HostOptions.ImageCacheCleanupDryRun {
 				continue
