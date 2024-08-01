@@ -112,6 +112,28 @@ func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Co
 	return result, nil
 }
 
+func (manager *SVirtualResourceBaseManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+	results := struct {
+		apis.TotalCountBase
+		StatusInfo []apis.StatusStatisticStatusInfo
+	}{}
+
+	var err error
+	results.Count, err = totalQ.CountWithError()
+	if err != nil {
+		return -1, nil, errors.Wrapf(err, "CountWithError")
+	}
+
+	totalSQ := totalQ.ResetFields().SubQuery()
+	statQ := totalSQ.Query(totalSQ.Field("status"), sqlchemy.COUNT("total_count", totalSQ.Field("id")), sqlchemy.SUM("pending_deleted_count", totalSQ.Field("pending_deleted")))
+	statQ = statQ.GroupBy(totalSQ.Field("status"))
+	err = statQ.All(&results.StatusInfo)
+	if err != nil {
+		return -1, nil, errors.Wrapf(err, "status query")
+	}
+	return results.Count, jsonutils.Marshal(results), nil
+}
+
 func (manager *SVirtualResourceBaseManager) GetPropertyProjectStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]apis.ProjectStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
