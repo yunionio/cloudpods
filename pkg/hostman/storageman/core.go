@@ -480,15 +480,15 @@ func CleanImageCachefiles(ctx context.Context, userCred mcclient.TokenCredential
 	for _, imageCacheMan := range storageManager.LVMStorageImagecacheManagers {
 		imageCacheMan.CleanImageCachefiles(ctx)
 	}
-	for _, imageCacheMan := range storageManager.SharedLVMStorageImagecacheManagers {
-		imageCacheMan.CleanImageCachefiles(ctx)
-	}
-	for _, imageCacheMan := range storageManager.RbdStorageImagecacheManagers {
-		imageCacheMan.CleanImageCachefiles(ctx)
-	}
-	for _, imageCacheMan := range storageManager.SharedFileStorageImagecacheManagers {
-		imageCacheMan.CleanImageCachefiles(ctx)
-	}
+	// for _, imageCacheMan := range storageManager.SharedLVMStorageImagecacheManagers {
+	// 	imageCacheMan.CleanImageCachefiles(ctx)
+	// }
+	// for _, imageCacheMan := range storageManager.RbdStorageImagecacheManagers {
+	// 	imageCacheMan.CleanImageCachefiles(ctx)
+	// }
+	// for _, imageCacheMan := range storageManager.SharedFileStorageImagecacheManagers {
+	// 	imageCacheMan.CleanImageCachefiles(ctx)
+	// }
 }
 
 func GatherHostStorageStats() api.SHostPingInput {
