@@ -6975,9 +6975,15 @@ func (manager *SGuestManager) CustomizedTotalCount(ctx context.Context, userCred
 		return -1, nil, errors.Wrap(err, "SGuestManager query total_disk")
 	}
 
-	// log.Debugf("CustomizedTotalCount %s", jsonutils.Marshal(results))
+	_, statusInfo, err := manager.SVirtualResourceBaseManager.CustomizedTotalCount(ctx, userCred, query, totalQ)
+	if err != nil {
+		return -1, nil, errors.Wrapf(err, "virt.CustomizedTotalCount")
+	}
 
-	return results.Count, jsonutils.Marshal(results), nil
+	ret := jsonutils.Marshal(results).(*jsonutils.JSONDict)
+	ret.Update(statusInfo)
+
+	return results.Count, ret, nil
 }
 
 func (guest *SGuest) IsSriov() bool {
