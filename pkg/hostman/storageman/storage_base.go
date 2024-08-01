@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"strings"
 	"sync"
@@ -25,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -116,6 +118,7 @@ type IStorage interface {
 	GetDiskById(diskId string) (IDisk, error)
 	CreateDisk(diskId string) IDisk
 	RemoveDisk(IDisk)
+	GetDisksPath() ([]string, error)
 
 	// DeleteDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
@@ -224,6 +227,22 @@ func (s *SBaseStorage) SetPath(p string) {
 
 func (s *SBaseStorage) GetZoneId() string {
 	return s.Manager.GetZoneId()
+}
+
+func (d *SBaseStorage) GetDisksPath() ([]string, error) {
+	spath := d.GetPath()
+	files, err := ioutil.ReadDir(spath)
+	if err != nil {
+		return nil, err
+	}
+	disksPath := make([]string, 0)
+	for i := range files {
+		if !files[i].IsDir() && regutils.MatchUUIDExact(files[i].Name()) {
+			disksPath = append(disksPath, path.Join(spath, files[i].Name()))
+		}
+	}
+
+	return disksPath, nil
 }
 
 func (s *SBaseStorage) GetCapacityMb() int {
