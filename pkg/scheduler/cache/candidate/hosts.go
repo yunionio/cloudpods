@@ -152,18 +152,59 @@ type HostDesc struct {
 	GuestReservedResourceUsed *ReservedResource `json:"guest_reserved_used"`
 }
 
+type CPUFree struct {
+	Cpu  int
+	Free int
+}
+type SorttedCPUFree []*CPUFree
+
+func (pq *SorttedCPUFree) LoadCpu(cpuId int) {
+	for i := range *pq {
+		if (*pq)[i].Cpu == cpuId {
+			(*pq)[i].Free -= 1
+		}
+	}
+}
+
+func (pq SorttedCPUFree) Len() int { return len(pq) }
+
+func (pq SorttedCPUFree) Less(i, j int) bool {
+	return pq[i].Free > pq[j].Free
+}
+
+func (pq SorttedCPUFree) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func (pq *SorttedCPUFree) Push(item interface{}) {
+	*pq = append(*pq, item.(*CPUFree))
+}
+
+func (pq *SorttedCPUFree) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil // avoid memory leak
+	*pq = old[0 : n-1]
+	return item
+}
+
 type CPUDie struct {
 	LogicalProcessors cpuset.CPUSet
-	CpuFree           map[int]int
-	VcpuCount         int
+	// Core thread id maps
+	CoreThreadIdMaps map[int]int
+
+	CpuFree   SorttedCPUFree
+	VcpuCount int
 }
 
 func (d *CPUDie) initCpuFree(cpuCmtbound int) {
-	cpuFree := map[int]int{}
+	cpuFree := make([]*CPUFree, 0)
 	for _, cpuId := range d.LogicalProcessors.ToSliceNoSort() {
-		cpuFree[cpuId] = cpuCmtbound
+		cpuFree = append(cpuFree, &CPUFree{cpuId, cpuCmtbound})
 	}
 	d.CpuFree = cpuFree
+	sort.Sort(d.CpuFree)
 }
 
 type SorttedCPUDie []*CPUDie
@@ -210,9 +251,11 @@ func (pq *SorttedCPUDie) LoadCpus(cpus []int, vcpuCount int) {
 		if cpus, ok := cpuDies[i]; ok {
 			d := (*pq)[i]
 			for _, cpu := range cpus {
-				d.CpuFree[cpu] -= 1
+				d.CpuFree.LoadCpu(cpu)
 			}
 			d.VcpuCount += vcpuCount
+
+			sort.Sort(d.CpuFree)
 		}
 	}
 	sort.Sort(pq)
@@ -231,7 +274,8 @@ type NumaNode struct {
 
 func (n *NumaNode) allocCpuset(vcpuCount int, usedCpu map[int]int) {
 	for i := range n.CpuDies {
-		for cpuId, nFree := range n.CpuDies[i].CpuFree {
+		for j := range n.CpuDies[i].CpuFree {
+			cpuId, nFree := n.CpuDies[i].CpuFree[j].Cpu, n.CpuDies[i].CpuFree[j].Free
 			if cnt, ok := usedCpu[cpuId]; ok {
 				if cnt < nFree {
 					usedCpu[cpuId] = cnt + 1
@@ -249,8 +293,32 @@ func (n *NumaNode) allocCpuset(vcpuCount int, usedCpu map[int]int) {
 					}
 				}
 			}
-
+			if pairCpuId, ok := n.CpuDies[i].CoreThreadIdMaps[cpuId]; ok {
+				for k := range n.CpuDies[i].CpuFree {
+					if n.CpuDies[i].CpuFree[k].Cpu == pairCpuId {
+						pairNFree := n.CpuDies[i].CpuFree[k].Free
+						if cnt, ok := usedCpu[pairCpuId]; ok {
+							if cnt < pairNFree {
+								usedCpu[pairCpuId] = cnt + 1
+								vcpuCount -= 1
+								if vcpuCount <= 0 {
+									return
+								}
+							}
+						} else {
+							if pairNFree > 0 {
+								usedCpu[pairCpuId] = 1
+								vcpuCount -= 1
+								if vcpuCount <= 0 {
+									return
+								}
+							}
+						}
+					}
+				}
+			}
 		}
+		//sort.Sort(n.CpuDies[i].CpuFree)
 	}
 	n.allocCpuset(vcpuCount, usedCpu)
 }
@@ -288,6 +356,52 @@ type SHostTopo struct {
 	Nodes       []*NumaNode
 	NumaEnabled bool
 	CPUCmtbound int
+}
+
+func HostTopoSubPendingUsage(topo *SHostTopo, cpuUsage map[int]int, numaMemUsage map[int]int) *SHostTopo {
+	res := new(SHostTopo)
+	res.NumaEnabled = topo.NumaEnabled
+	res.CPUCmtbound = topo.CPUCmtbound
+	res.Nodes = make([]*NumaNode, len(topo.Nodes))
+	for i := range topo.Nodes {
+		res.Nodes[i] = new(NumaNode)
+		res.Nodes[i].LogicalProcessors = topo.Nodes[i].LogicalProcessors.Clone()
+		res.Nodes[i].VcpuCount = topo.Nodes[i].VcpuCount
+		res.Nodes[i].CpuCount = topo.Nodes[i].CpuCount
+		res.Nodes[i].NodeId = topo.Nodes[i].NodeId
+		res.Nodes[i].NumaHugeMemSizeKB = topo.Nodes[i].NumaHugeMemSizeKB
+		res.Nodes[i].NumaHugeFreeMemSizeKB = topo.Nodes[i].NumaHugeFreeMemSizeKB
+
+		if memUsed, ok := numaMemUsage[topo.Nodes[i].NodeId]; ok {
+			res.Nodes[i].NumaHugeMemSizeKB -= memUsed * 1024
+		}
+		res.Nodes[i].CpuDies = make([]*CPUDie, len(topo.Nodes[i].CpuDies))
+		for j := range topo.Nodes[i].CpuDies {
+			res.Nodes[i].CpuDies[j] = &CPUDie{
+				LogicalProcessors: topo.Nodes[i].CpuDies[j].LogicalProcessors.Clone(),
+				CpuFree:           make(SorttedCPUFree, 0),
+				VcpuCount:         topo.Nodes[i].CpuDies[j].VcpuCount,
+			}
+
+			for k := range topo.Nodes[i].CpuDies[j].CpuFree {
+				cpuFree := topo.Nodes[i].CpuDies[j].CpuFree[k]
+				cpuId := cpuFree.Cpu
+				free := cpuFree.Free
+				if pending, ok := cpuUsage[cpuId]; ok {
+					res.Nodes[i].CpuDies[j].CpuFree = append(res.Nodes[i].CpuDies[j].CpuFree, &CPUFree{cpuId, free - pending})
+
+					res.Nodes[i].CpuDies[j].VcpuCount += pending
+					res.Nodes[i].VcpuCount += pending
+				} else {
+					res.Nodes[i].CpuDies[j].CpuFree = append(res.Nodes[i].CpuDies[j].CpuFree, &CPUFree{cpuId, free})
+				}
+			}
+
+			sort.Sort(res.Nodes[i].CpuDies[j].CpuFree)
+		}
+	}
+	sort.Sort(res)
+	return res
 }
 
 func (pq SHostTopo) Len() int { return len(pq.Nodes) }
@@ -442,6 +556,7 @@ func (b *HostBuilder) buildHostTopo(
 			}
 			hasL3Cache = true
 			cpuDie := new(CPUDie)
+			cpuDie.CoreThreadIdMaps = make(map[int]int)
 			dieBuilder := cpuset.NewBuilder()
 			for k := 0; k < len(info.Nodes[i].Caches[j].LogicalProcessors); k++ {
 				if reservedCpus != nil && reservedCpus.Contains(int(info.Nodes[i].Caches[j].LogicalProcessors[k])) {
@@ -451,6 +566,16 @@ func (b *HostBuilder) buildHostTopo(
 			}
 			cpuDie.LogicalProcessors = dieBuilder.Result()
 			cpuDie.initCpuFree(int(desc.CPUCmtbound))
+
+			for _, c := range info.Nodes[i].Cores {
+				if len(c.LogicalProcessors) != 2 {
+					continue
+				}
+				if cpuDie.LogicalProcessors.Contains(c.LogicalProcessors[0]) {
+					cpuDie.CoreThreadIdMaps[c.LogicalProcessors[0]] = c.LogicalProcessors[1]
+					cpuDie.CoreThreadIdMaps[c.LogicalProcessors[1]] = c.LogicalProcessors[0]
+				}
+			}
 
 			node.CpuCount += cpuDie.LogicalProcessors.Size()
 			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
@@ -485,7 +610,7 @@ func (b *HostBuilder) buildHostTopo(
 	}
 
 	desc.HostTopo = hostTopo
-	log.Infof("host topo %s", jsonutils.Marshal(hostTopo))
+	//log.Infof("host topo %s", jsonutils.Marshal(hostTopo))
 
 	sort.Sort(desc.HostTopo)
 	desc.EnableCpuNumaAllocate = true
@@ -712,7 +837,7 @@ func (h *HostDesc) GetFreeCpuNuma() scheduler.SortedFreeNumaCpuMam {
 		nodeFree := new(scheduler.SFreeNumaCpuMem)
 		nodeFree.NodeId = h.HostTopo.Nodes[i].NodeId
 		nodeFree.CpuCount = h.HostTopo.Nodes[i].CpuCount
-		nodeFree.MemSize = h.HostTopo.Nodes[i].NumaHugeFreeMemSizeKB * 1024
+		nodeFree.MemSize = h.HostTopo.Nodes[i].NumaHugeFreeMemSizeKB / 1024
 		nodeFree.EnableNumaAllocate = h.HostTopo.NumaEnabled
 		nodeFree.FreeCpuCount = h.HostTopo.Nodes[i].CpuCount*int(h.CPUCmtbound) - h.HostTopo.Nodes[i].VcpuCount
 		for cpuId, pending := range cpuPin {
@@ -770,14 +895,27 @@ func (h *HostDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int) []scheduler.SCpuNum
 	if !h.EnableCpuNumaAllocate {
 		return nil
 	}
-	return h.HostTopo.AllocCpuNumaNodes(vcpuCount, memSizeKB)
+
+	hostTopo := h.HostTopo
+	pendingUsage := h.GetPendingUsage()
+	if len(pendingUsage.CpuPin) > 0 || len(pendingUsage.NumaMemPin) > 0 {
+		hostTopo = HostTopoSubPendingUsage(h.HostTopo, pendingUsage.CpuPin, pendingUsage.NumaMemPin)
+	}
+
+	return hostTopo.AllocCpuNumaNodes(vcpuCount, memSizeKB)
 }
 
 func (h *HostDesc) AllocCpuNumaPinWithNodeCount(vcpuCount, memSizeKB, nodeCount int) []scheduler.SCpuNumaPin {
 	if !h.EnableCpuNumaAllocate {
 		return nil
 	}
-	return h.HostTopo.AllocCpuNumaNodesWithNodeCount(vcpuCount, memSizeKB, nodeCount)
+	hostTopo := h.HostTopo
+	pendingUsage := h.GetPendingUsage()
+	if len(pendingUsage.CpuPin) > 0 || len(pendingUsage.NumaMemPin) > 0 {
+		hostTopo = HostTopoSubPendingUsage(h.HostTopo, pendingUsage.CpuPin, pendingUsage.NumaMemPin)
+	}
+
+	return hostTopo.AllocCpuNumaNodesWithNodeCount(vcpuCount, memSizeKB, nodeCount)
 }
 
 type WaitGroupWrapper struct {
@@ -1249,6 +1387,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 	if len(guestsCpuNumaPin) > 0 {
 		desc.HostTopo.LoadCpuNumaPin(guestsCpuNumaPin)
 	}
+	log.Infof("host topo %s", jsonutils.Marshal(desc.HostTopo))
 
 	desc.GuestCount = guestCount
 	desc.CreatingGuestCount = creatingGuestCount

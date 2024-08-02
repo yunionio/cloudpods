@@ -209,10 +209,6 @@ func (data *SchedInfo) reviseData() {
 	data.Raw = input.JSON(input).String()
 }
 
-func (d *SchedInfo) SkipDirtyMarkHost() bool {
-	return d.IsContainer || d.Hypervisor == SchedTypeContainer
-}
-
 func (d *SchedInfo) GetCandidateHostTypes() []string {
 	switch d.Hypervisor {
 	case SchedTypeContainer:
