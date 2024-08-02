@@ -129,7 +129,7 @@ func GenerateResultHelper(schedInfo *api.SchedInfo) core.IResultHelper {
 }
 
 func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {
-	if req.IsSuggestion || IsDriverSkipScheduleDirtyMark(driver) || req.SkipDirtyMarkHost() {
+	if req.IsSuggestion || IsDriverSkipScheduleDirtyMark(driver) {
 		return nil
 	}
 	for _, item := range resp.Candidates {
