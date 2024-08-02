@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -105,6 +106,9 @@ func (s *sPodGuestInstance) CleanGuest(ctx context.Context, params interface{}) 
 		}
 	}
 	return nil, DeleteHomeDir(s)
+}
+
+func (s *sPodGuestInstance) ExitCleanup(clear bool) {
 }
 
 func (s *sPodGuestInstance) CleanDirtyGuest(ctx context.Context) error {
@@ -927,6 +931,14 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		})
 	}
 
+	var cpuSetCpus string
+	cpuSets := sets.NewString()
+	for _, cpuNum := range s.GetDesc().CpuNumaPin {
+		for _, cpuPin := range cpuNum.VcpuPin {
+			cpuSets.Insert(fmt.Sprintf("%d", cpuPin.Pcpu))
+		}
+	}
+	cpuSetCpus = strings.Join(cpuSets.List(), ",")
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
 			Name: input.Name,
@@ -942,7 +954,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				//CpuShares:              defaultCPUPeriod,
 				MemoryLimitInBytes:     s.GetDesc().Mem * 1024 * 1024,
 				OomScoreAdj:            0,
-				CpusetCpus:             "",
+				CpusetCpus:             cpuSetCpus,
 				CpusetMems:             "",
 				HugepageLimits:         nil,
 				Unified:                nil,
