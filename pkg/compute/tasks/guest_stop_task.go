@@ -68,6 +68,9 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	if guest.Status != api.VM_READY && !self.IsSubtask() { // for kvm
 		guest.SetStatus(ctx, self.GetUserCred(), api.VM_READY, "")
+		if guest.CpuNumaPin != nil {
+			guest.SetCpuNumaPin(ctx, self.UserCred, nil, nil)
+		}
 	}
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "success", self.UserCred, true)
