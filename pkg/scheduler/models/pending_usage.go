@@ -21,9 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -291,10 +290,12 @@ func (u *SResourcePendingUsage) IsEmpty() bool {
 }
 
 type SPendingUsage struct {
-	HostId         string
-	Cpu            int
-	CpuPin         map[int]int
-	Memory         int
+	HostId string
+	Cpu    int
+	CpuPin map[int]int
+	Memory int
+
+	// nodeId: memSizeMB
 	NumaMemPin     map[int]int
 	IsolatedDevice int
 	DiskUsage      *SResourcePendingUsage
@@ -327,6 +328,8 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo, candidate *sc
 			if cpuNumaPin.MemSizeMB != nil {
 				if v, ok := u.NumaMemPin[cpuNumaPin.NodeId]; ok {
 					u.NumaMemPin[cpuNumaPin.NodeId] = v + *cpuNumaPin.MemSizeMB
+				} else {
+					u.NumaMemPin[cpuNumaPin.NodeId] = *cpuNumaPin.MemSizeMB
 				}
 			}
 

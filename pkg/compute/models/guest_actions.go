@@ -1543,6 +1543,11 @@ func (self *SGuest) StartGueststartTask(
 		}
 	}
 
+	if self.CpuNumaPin != nil {
+		// clean cpu numa pin
+		self.SetCpuNumaPin(ctx, userCred, nil, nil)
+	}
+
 	if schedStart {
 		return self.GuestSchedStartTask(ctx, userCred, data, parentTaskId)
 	} else {
