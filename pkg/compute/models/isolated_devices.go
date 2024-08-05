@@ -614,7 +614,30 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx contex
 	if err != nil || len(devs) == 0 {
 		return fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
 	}
-	selectedDev := devs[0]
+	// 1. group devices by device_path
+	groupDevs := make(map[string][]SIsolatedDevice, 0)
+	for i := range devs {
+		dev := devs[i]
+		devPath := dev.DevicePath
+		devs, ok := groupDevs[devPath]
+		if !ok {
+			devs = []SIsolatedDevice{dev}
+		} else {
+			devs = append(devs, dev)
+		}
+		groupDevs[devPath] = devs
+	}
+	// 2. select device by most unused count
+	var mostUnusedDevPath string
+	mostUnusedCount := 0
+	for devPath := range groupDevs {
+		devs := groupDevs[devPath]
+		if len(devs) > mostUnusedCount {
+			mostUnusedDevPath = devPath
+			mostUnusedCount = len(devs)
+		}
+	}
+	selectedDev := groupDevs[mostUnusedDevPath][0]
 	return guest.attachIsolatedDevice(ctx, userCred, &selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
