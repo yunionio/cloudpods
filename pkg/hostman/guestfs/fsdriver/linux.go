@@ -475,6 +475,19 @@ func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nic
 	return nil
 }
 
+func (l *sLinuxRootFs) DeployUdevSubsystemScripts(rootFs IDiskPartition) error {
+	udevPath := "/etc/udev/rules.d/"
+	if rootFs.Exists(udevPath, false) {
+		cpuMemHotplugRules := `SUBSYSTEM=="cpu", ACTION=="add", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
+SUBSYSTEM=="memory", ACTION=="add", TEST=="state", ATTR{state}=="offline", ATTR{state}="online"` + "\n"
+		if err := rootFs.FilePutContents(path.Join(udevPath, "80-hotplug-cpu-mem.rules"), cpuMemHotplugRules, false, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (l *sLinuxRootFs) GetOs() string {
 	return "Linux"
 }
