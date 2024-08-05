@@ -113,7 +113,7 @@ func (qga *QemuGuestAgent) Close() error {
 }
 
 func (qga *QemuGuestAgent) write(cmd []byte) error {
-	log.Infof("QGA Write %s: %s", qga.id, string(cmd))
+	log.Debugf("QGA Write %s: %s", qga.id, string(cmd))
 	length, index := len(cmd), 0
 	for index < length {
 		i, err := qga.rwc.Write(cmd)
@@ -196,7 +196,7 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTi
 	}
 	var objmap map[string]*json.RawMessage
 	b := qga.scanner.Bytes()
-	log.Infof("qga response %s", b)
+	log.Debugf("qga response %s", b)
 	if err := json.Unmarshal(b, &objmap); err != nil {
 		return nil, errors.Wrap(err, "unmarshal qga res")
 	}
