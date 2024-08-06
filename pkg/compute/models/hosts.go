@@ -23,8 +23,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -6957,39 +6959,54 @@ func (hh *SHost) PerformSyncIsolatedDevices(ctx context.Context, userCred mcclie
 
 	retDevs := jsonutils.NewArray()
 	foundDevIndex := map[int]struct{}{}
-	for i := range devs {
-		dev, err := IsolatedDeviceManager.FetchById(devs[i].Id)
-		if err != nil {
-			return nil, err
-		}
+	eg := errgroup.Group{}
+	wg := sync.Mutex{}
 
+	for i := range devs {
 		foundDev := false
+		dev := &devs[i]
+
 		for j := range reqDevs {
 			venderDeviceId, _ := reqDevs[j].GetString("vendor_device_id")
 			devAddr, _ := reqDevs[j].GetString("addr")
 			mdevId, _ := reqDevs[j].GetString("mdev_id")
-			if devs[i].VendorDeviceId == venderDeviceId && devs[i].Addr == devAddr && devs[i].MdevId == mdevId {
-				// update isolated device
-				devRet, err := db.DoUpdate(IsolatedDeviceManager, dev, ctx, userCred, jsonutils.NewDict(), reqDevs[j])
-				if err != nil {
-					return nil, err
-				}
-				retDevs.Add(devRet)
+
+			if dev.VendorDeviceId == venderDeviceId && dev.Addr == devAddr && dev.MdevId == mdevId {
+				eg.Go(func() error {
+					// update isolated device
+					log.Infof("dev %s %s do update", dev.DevType, dev.Addr)
+					devRet, err := db.DoUpdate(IsolatedDeviceManager, dev, ctx, userCred, jsonutils.NewDict(), reqDevs[j])
+					if err != nil {
+						return err
+					}
+					wg.Lock()
+					retDevs.Add(devRet)
+					wg.Unlock()
+					return nil
+				})
+
 				foundDevIndex[j] = struct{}{}
 				foundDev = true
+				break
 			}
 		}
 
 		if !foundDev {
-			// detach isolated device
-			isolatedDev := dev.(*SIsolatedDevice)
-			params := jsonutils.NewDict()
-			params.Set("purge", jsonutils.JSONTrue)
-			_, err := isolatedDev.PerformPurge(ctx, userCred, nil, params)
-			if err != nil {
-				return nil, err
-			}
+			eg.Go(func() error {
+				// detach isolated device
+				params := jsonutils.NewDict()
+				params.Set("purge", jsonutils.JSONTrue)
+				_, err := dev.PerformPurge(ctx, userCred, nil, params)
+				if err != nil {
+					return err
+				}
+				return err
+			})
 		}
+	}
+
+	if err = eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	for i := range reqDevs {
@@ -7007,6 +7024,7 @@ func (hh *SHost) PerformSyncIsolatedDevices(ctx context.Context, userCred mcclie
 		}
 		retDevs.Add(devRet)
 	}
+
 	res := jsonutils.NewDict()
 	res.Set("isolated_devices", retDevs)
 	return res, nil
