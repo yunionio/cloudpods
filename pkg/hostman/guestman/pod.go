@@ -1031,6 +1031,18 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			})
 		}
 	}
+	if s.GetDesc().HostAccessIp != "" {
+		ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
+			Key:   "CLOUDPODS_HOST_ACCESS_IP",
+			Value: s.GetDesc().HostAccessIp,
+		})
+	}
+	if s.GetDesc().HostEIP != "" {
+		ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
+			Key:   "CLOUDPODS_HOST_EIP",
+			Value: s.GetDesc().HostEIP,
+		})
+	}
 	if len(spec.Devices) != 0 {
 		devsByType := map[apis.ContainerDeviceType][]*hostapi.ContainerDevice{}
 		for i := range spec.Devices {

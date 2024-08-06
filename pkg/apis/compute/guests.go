@@ -874,6 +874,10 @@ type GuestJsonDesc struct {
 	IsSlave        *bool  `json:"is_slave"`
 	IsVolatileHost bool   `json:"is_volatile_host"`
 	HostId         string `json:"host_id"`
+	// 宿主机管理IP
+	HostAccessIp string `json:"host_access_ip"`
+	// 宿主机公网IP（如果有）
+	HostEIP string `json:"host_eip"`
 
 	IsolatedDevices []*IsolatedDeviceJsonDesc `json:"isolated_devices"`
 

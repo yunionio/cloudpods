@@ -347,10 +347,12 @@ type SGuestProjectDesc struct {
 }
 
 type SGuestRegionDesc struct {
-	Zone     string
-	Domain   string
-	HostId   string
-	Hostname string
+	Zone         string `json:"zone"`
+	Domain       string `json:"domain"`
+	HostId       string `json:"host_id"`
+	Hostname     string `json:"hostname"`
+	HostAccessIp string `json:"host_access_ip"`
+	HostEIP      string `json:"host_eip"`
 }
 
 type SGuestControlDesc struct {
