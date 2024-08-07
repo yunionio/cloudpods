@@ -51,6 +51,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	imagemod "yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/pod/image"
@@ -546,6 +547,7 @@ func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64)
 }
 
 func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
+	ReleaseGuestCpuset(s.manager, s)
 	if err := s.umountPodVolumes(); err != nil {
 		return errors.Wrapf(err, "umount pod volumes")
 	}
@@ -590,7 +592,7 @@ func (s *sPodGuestInstance) loadContainers() error {
 }
 
 func (s *sPodGuestInstance) PostLoad(m *SGuestManager) error {
-	return nil
+	return LoadGuestCpuset(m, s)
 }
 
 func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error) {
@@ -657,6 +659,40 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 		return nil, errors.Wrap(err, "do container lifecycle")
 	}
 	return nil, nil
+}
+
+func (s *sPodGuestInstance) allocateCpuNumaPin() error {
+	if len(s.Desc.CpuNumaPin) != 0 || len(s.Desc.VcpuPin) != 0 {
+		return nil
+	}
+
+	var cpus = make([]int, 0)
+	var perferNumaNode int8 = -1
+	for i := range s.Desc.IsolatedDevices {
+		if s.Desc.IsolatedDevices[i].NumaNode >= 0 {
+			perferNumaNode = s.Desc.IsolatedDevices[i].NumaNode
+			break
+		}
+	}
+
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, perferNumaNode)
+	if err != nil {
+		return err
+	}
+	for _, numaCpus := range nodeNumaCpus {
+		cpus = append(cpus, numaCpus.Cpuset...)
+	}
+
+	if !s.manager.numaAllocate {
+		s.Desc.VcpuPin = []desc.SCpuPin{
+			{
+				Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
+				Pcpus: cpuset.NewCPUSet(cpus...).String(),
+			},
+		}
+	}
+
+	return SaveLiveDesc(s, s.Desc)
 }
 
 func (s *sPodGuestInstance) doContainerStartPostLifecycle(ctx context.Context, criId string, input *hostapi.ContainerCreateInput) error {
@@ -931,14 +967,28 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		})
 	}
 
+	if err := s.allocateCpuNumaPin(); err != nil {
+		return "", errors.Wrap(err, "allocateCpuNumaPin")
+	}
+
 	var cpuSetCpus string
-	cpuSets := sets.NewString()
-	for _, cpuNum := range s.GetDesc().CpuNumaPin {
-		for _, cpuPin := range cpuNum.VcpuPin {
-			cpuSets.Insert(fmt.Sprintf("%d", cpuPin.Pcpu))
+	{
+		cpuSets := sets.NewString()
+		if len(s.Desc.CpuNumaPin) > 0 {
+			for _, cpuNum := range s.GetDesc().CpuNumaPin {
+				for _, cpuPin := range cpuNum.VcpuPin {
+					cpuSets.Insert(fmt.Sprintf("%d", cpuPin.Pcpu))
+				}
+			}
+			cpuSetCpus = strings.Join(cpuSets.List(), ",")
+		} else if len(s.Desc.VcpuPin) > 0 {
+			for _, vcpuPin := range s.Desc.VcpuPin {
+				cpuSets.Insert(vcpuPin.Pcpus)
+			}
+			cpuSetCpus = strings.Join(cpuSets.List(), ",")
 		}
 	}
-	cpuSetCpus = strings.Join(cpuSets.List(), ",")
+
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
 			Name: input.Name,

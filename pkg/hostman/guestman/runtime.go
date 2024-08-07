@@ -29,6 +29,7 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -159,6 +160,74 @@ func (s *sBaseGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) *desc
 		}
 	}
 	return nil
+}
+
+func LoadGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) error {
+	guestDesc := s.GetDesc()
+	if s.IsRunning() {
+		m.cpuSet.Lock.Lock()
+		defer m.cpuSet.Lock.Unlock()
+		for _, vcpuPin := range guestDesc.VcpuPin {
+			pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
+			if err != nil {
+				log.Errorf("failed parse %s pcpus: %s", s.GetName(), vcpuPin.Pcpus)
+				continue
+			}
+			vcpuSet, err := cpuset.Parse(vcpuPin.Vcpus)
+			if err != nil {
+				log.Errorf("failed parse %s vcpus: %s", s.GetName(), vcpuPin.Vcpus)
+				continue
+			}
+			m.cpuSet.LoadCpus(pcpuSet.ToSlice(), vcpuSet.Size())
+		}
+		for _, numaCpuset := range guestDesc.CpuNumaPin {
+			pcpus := make([]int, 0)
+			for i := range numaCpuset.VcpuPin {
+				pcpus = append(pcpus, numaCpuset.VcpuPin[i].Pcpu)
+			}
+
+			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, int(*numaCpuset.NodeId), pcpus, len(numaCpuset.VcpuPin))
+		}
+	}
+	return nil
+}
+
+func ReleaseCpuNumaPin(m *SGuestManager, cpuNumaPin []*desc.SCpuNumaPin) {
+	if !m.numaAllocate {
+		return
+	}
+
+	for _, numaCpus := range cpuNumaPin {
+		pcpus := make([]int, 0)
+		for i := range numaCpus.VcpuPin {
+			pcpus = append(pcpus, numaCpus.VcpuPin[i].Pcpu)
+		}
+		m.cpuSet.ReleaseNumaCpus(numaCpus.SizeMB, int(*numaCpus.NodeId), pcpus, len(numaCpus.VcpuPin))
+	}
+}
+
+func ReleaseGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) {
+	m.cpuSet.Lock.Lock()
+	defer m.cpuSet.Lock.Unlock()
+	guestDesc := s.GetDesc()
+	ReleaseCpuNumaPin(m, guestDesc.CpuNumaPin)
+
+	for _, vcpuPin := range guestDesc.VcpuPin {
+		pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
+		if err != nil {
+			log.Errorf("failed parse %s pcpus: %s", s.GetName(), vcpuPin.Pcpus)
+			continue
+		}
+		vcpuSet, err := cpuset.Parse(vcpuPin.Vcpus)
+		if err != nil {
+			log.Errorf("failed parse %s vcpus: %s", s.GetName(), vcpuPin.Vcpus)
+			continue
+		}
+		m.cpuSet.ReleaseCpus(pcpuSet.ToSlice(), vcpuSet.Size())
+	}
+	guestDesc.VcpuPin = nil
+	guestDesc.CpuNumaPin = nil
+	SaveLiveDesc(s, guestDesc)
 }
 
 type GuestRuntimeManager struct {

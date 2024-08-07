@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -561,13 +562,13 @@ func (manager *SIsolatedDeviceManager) _isValidDeviceInfo(config *api.IsolatedDe
 	return nil
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]struct{}) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice) error {
 	if len(devConfig.Id) > 0 {
 		return manager.attachSpecificDeviceToGuest(ctx, guest, devConfig, userCred)
 	} else if len(devConfig.DevicePath) > 0 {
 		return manager.attachHostDeviceToGuestByDevicePath(ctx, guest, host, devConfig, userCred, usedDevMap)
 	} else {
-		return manager.attachHostDeviceToGuestByModel(ctx, guest, host, devConfig, userCred)
+		return manager.attachHostDeviceToGuestByModel(ctx, guest, host, devConfig, userCred, usedDevMap)
 	}
 }
 
@@ -583,7 +584,7 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.C
 	return guest.attachIsolatedDevice(ctx, userCred, dev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]struct{}) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice) error {
 	if len(devConfig.Model) == 0 || len(devConfig.DevicePath) == 0 {
 		return fmt.Errorf("Model or DevicePath is empty: %#v", devConfig)
 	}
@@ -596,7 +597,7 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx c
 	for i := range devs {
 		if _, ok := usedDevMap[devs[i].DevicePath]; !ok {
 			selectedDev = devs[i]
-			usedDevMap[devs[i].DevicePath] = struct{}{}
+			usedDevMap[devs[i].DevicePath] = &selectedDev
 		}
 	}
 	if selectedDev.Id == "" {
@@ -605,7 +606,37 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx c
 	return guest.attachIsolatedDevice(ctx, userCred, &selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+type GroupDevs struct {
+	DevPath string
+	Devs    []SIsolatedDevice
+}
+
+type SorttedGroupDevs []*GroupDevs
+
+func (pq SorttedGroupDevs) Len() int { return len(pq) }
+
+func (pq SorttedGroupDevs) Less(i, j int) bool {
+	return len(pq[i].Devs) > len(pq[j].Devs)
+}
+
+func (pq SorttedGroupDevs) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func (pq *SorttedGroupDevs) Push(item interface{}) {
+	*pq = append(*pq, item.(*GroupDevs))
+}
+
+func (pq *SorttedGroupDevs) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil // avoid memory leak
+	*pq = old[0 : n-1]
+	return item
+}
+
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice) error {
 	if len(devConfig.Model) == 0 {
 		return fmt.Errorf("Not found model from info: %#v", devConfig)
 	}
@@ -615,30 +646,57 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx contex
 		return fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
 	}
 	// 1. group devices by device_path
-	groupDevs := make(map[string][]SIsolatedDevice, 0)
+	groupDevs := make(SorttedGroupDevs, 0)
+	mapDevs := map[string][]SIsolatedDevice{}
 	for i := range devs {
 		dev := devs[i]
 		devPath := dev.DevicePath
-		devs, ok := groupDevs[devPath]
+		var gdevs []SIsolatedDevice
+
+		gdevs, ok := mapDevs[devPath]
 		if !ok {
-			devs = []SIsolatedDevice{dev}
+			gdevs = []SIsolatedDevice{dev}
 		} else {
-			devs = append(devs, dev)
+			gdevs = append(gdevs, dev)
 		}
-		groupDevs[devPath] = devs
+		mapDevs[devPath] = gdevs
 	}
-	// 2. select device by most unused count
-	var mostUnusedDevPath string
-	mostUnusedCount := 0
-	for devPath := range groupDevs {
-		devs := groupDevs[devPath]
-		if len(devs) > mostUnusedCount {
-			mostUnusedDevPath = devPath
-			mostUnusedCount = len(devs)
+	for devPath, mappedDevs := range mapDevs {
+		groupDevs = append(groupDevs, &GroupDevs{
+			DevPath: devPath,
+			Devs:    mappedDevs,
+		})
+	}
+	sort.Sort(groupDevs)
+
+	var preferNumaNode int8 = -1
+	for _, dev := range usedDevMap {
+		if dev.NumaNode >= 0 {
+			preferNumaNode = dev.NumaNode
+			break
 		}
 	}
-	selectedDev := groupDevs[mostUnusedDevPath][0]
-	return guest.attachIsolatedDevice(ctx, userCred, &selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
+
+	var selectedDev *SIsolatedDevice
+	if preferNumaNode >= 0 {
+		for i := range groupDevs {
+			if groupDevs[i].DevPath == "" {
+				for j := range groupDevs[i].Devs {
+					if groupDevs[i].Devs[j].NumaNode == preferNumaNode {
+						selectedDev = &groupDevs[i].Devs[j]
+						break
+					}
+				}
+			} else if groupDevs[i].Devs[0].NumaNode == preferNumaNode {
+				selectedDev = &groupDevs[i].Devs[0]
+				break
+			}
+		}
+	}
+	if selectedDev == nil {
+		selectedDev = &groupDevs[0].Devs[0]
+	}
+	return guest.attachIsolatedDevice(ctx, userCred, selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
 func (manager *SIsolatedDeviceManager) findUnusedQuery() *sqlchemy.SQuery {
