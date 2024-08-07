@@ -61,6 +61,7 @@ const (
 	SERVICE_EVS_V1             = "evs_v1"
 	SERVICE_EVS_V2_1           = "evs_v2.1"
 	SERVICE_BSS                = "bss"
+	SERVICE_BSS_INTL           = "bss-intl"
 	SERVICE_SFS                = "sfs-turbo"
 	SERVICE_CTS                = "cts"
 	SERVICE_NAT                = "nat"
@@ -457,21 +458,31 @@ type SBalance struct {
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/BSS/doc?api=ShowCustomerAccountBalances
 func (self *SHuaweiClient) QueryAccountBalance() (*SBalance, error) {
-	resp, err := self.list(SERVICE_BSS, "", "accounts/customer-accounts/balances", nil)
-	if err != nil {
-		return nil, err
+	ret := struct {
+		AccountBalances []SBalance
+		Currency        string
+	}{}
+	for _, service := range []string{SERVICE_BSS, SERVICE_BSS_INTL} {
+		resp, err := self.list(service, "", "accounts/customer-accounts/balances", nil)
+		if err != nil {
+			// 国际区账号会报错: {"error_code":"CBC.0150","error_msg":"Access denied. The customer does not belong to the website you are now at."}
+			if e, ok := err.(*httputils.JSONClientError); ok && e.Class == "CBC.0150" {
+				continue
+			}
+			return nil, err
+		}
+		err = resp.Unmarshal(&ret)
+		if err != nil {
+			return nil, err
+		}
+		break
 	}
-	ret := []SBalance{}
-	err = resp.Unmarshal(&ret, "account_balances")
-	if err != nil {
-		return nil, err
-	}
-	for i := range ret {
-		if ret[i].AccountType == 1 {
-			return &ret[i], nil
+	for i := range ret.AccountBalances {
+		if ret.AccountBalances[i].AccountType == 1 {
+			return &ret.AccountBalances[i], nil
 		}
 	}
-	return &SBalance{Currency: "CYN"}, nil
+	return &SBalance{Currency: ret.Currency}, nil
 }
 
 func (self *SHuaweiClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
@@ -653,8 +664,8 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 		url = fmt.Sprintf("https://evs.%s.myhuaweicloud.com/v2/%s/%s", regionId, projectId, resource)
 	case SERVICE_EVS_V2_1:
 		url = fmt.Sprintf("https://evs.%s.myhuaweicloud.com/v2.1/%s/%s", regionId, projectId, resource)
-	case SERVICE_BSS:
-		url = fmt.Sprintf("https://bss.myhuaweicloud.com/v2/%s", resource)
+	case SERVICE_BSS, SERVICE_BSS_INTL:
+		url = fmt.Sprintf("https://%s.myhuaweicloud.com/v2/%s", service, resource)
 	case SERVICE_SFS:
 		url = fmt.Sprintf("https://sfs-turbo.%s.myhuaweicloud.com/v1/%s/%s", regionId, projectId, resource)
 	case SERVICE_IMS:
