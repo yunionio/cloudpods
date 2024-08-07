@@ -111,6 +111,11 @@ func (self *SLBBackend) GetBackendId() string {
 }
 
 func (self *SLBBackend) GetIpAddress() string {
+	for _, ip := range self.PrivateIPAddresses {
+		if len(ip) > 0 {
+			return ip
+		}
+	}
 	return ""
 }
 
