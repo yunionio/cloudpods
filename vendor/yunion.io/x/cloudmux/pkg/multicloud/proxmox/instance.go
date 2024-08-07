@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -170,7 +171,10 @@ type SInstance struct {
 }
 
 func (self *SInstance) GetName() string {
-	return self.Name
+	if len(self.Name) > 0 {
+		return self.Name
+	}
+	return self.GetId()
 }
 
 func (self *SInstance) GetId() string {
@@ -393,7 +397,10 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 }
 
 func (ins *SInstance) GetOsArch() string {
-	return "x86_64"
+	if utils.IsInStringArray(ins.QemuCpu, []string{"neoverse-n1"}) || strings.HasPrefix(ins.QemuCpu, "cortex-a") {
+		return apis.OS_ARCH_AARCH64
+	}
+	return ins.host.GetCpuArchitecture()
 }
 
 func (ins *SInstance) GetOsDist() string {
