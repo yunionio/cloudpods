@@ -2346,10 +2346,10 @@ func (net *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	if vpc != nil && vpc.IsManaged() {
 		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", net, userCred, data.(*jsonutils.JSONDict), "", "", nil)
 		if err != nil {
-			log.Errorf("networkcreateTask create fail: %s", err)
-		} else {
-			task.ScheduleRun(nil)
+			net.SetStatus(ctx, userCred, apis.STATUS_CREATE_FAILED, err.Error())
+			return
 		}
+		task.ScheduleRun(nil)
 	} else {
 		{
 			err := net.syncAdditionalWires(ctx, nil)
@@ -2361,6 +2361,10 @@ func (net *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		if err := net.ClearSchedDescCache(); err != nil {
 			log.Errorf("network post create clear schedcache error: %v", err)
 		}
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    net,
+			Action: notifyclient.ActionCreate,
+		})
 	}
 	// reserve gateway IP
 	{
