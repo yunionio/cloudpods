@@ -39,6 +39,7 @@ const (
 	ContainerDeviceTypeNvidiaGpu     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU
 	ContainerDeviceTypeNvidiaMps     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_MPS
 	ContainerDeviceTypeAscendNpu     ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU
+	ContainerDeviceTypeVastaitechGpu ContainerDeviceType = api.CONTAINER_DEV_VASTAITECH_GPU
 )
 
 func GetContainerDeviceManager(t ContainerDeviceType) (IContainerDeviceManager, error) {
