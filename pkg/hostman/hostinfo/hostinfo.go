@@ -2193,7 +2193,10 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	eg := errgroup.Group{}
 	mtx := sync.Mutex{}
 	updateDevs := jsonutils.NewArray()
-	for _, dev := range h.IsolatedDeviceMan.GetDevices() {
+
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		dev := devs[i]
 		eg.Go(func() error {
 			if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev); err != nil {
 				return errors.Wrapf(err, "Sync device %s", dev)
