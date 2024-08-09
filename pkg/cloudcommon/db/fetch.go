@@ -19,6 +19,8 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -601,4 +603,60 @@ func FetchDistinctField(modelManager IModelManager, field string) ([]string, err
 	return FetchField(modelManager, field, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Distinct()
 	})
+}
+
+func Purge(modelManager IModelManager, field string, ids []string, forceDelete bool) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var splitByLen = func(data []string, splitLen int) [][]string {
+		var result [][]string
+		for i := 0; i < len(data); i += splitLen {
+			end := i + splitLen
+			if end > len(data) {
+				end = len(data)
+			}
+			result = append(result, data[i:end])
+		}
+		return result
+	}
+
+	var purge = func(ids []string) error {
+		vars := []interface{}{}
+		placeholders := make([]string, len(ids))
+		for i := range placeholders {
+			placeholders[i] = "?"
+			vars = append(vars, ids[i])
+		}
+		placeholder := strings.Join(placeholders, ",")
+		sql := fmt.Sprintf(
+			"delete from %s where %s in (%s)",
+			modelManager.TableSpec().Name(), field, placeholder,
+		)
+
+		if !forceDelete {
+			sql = fmt.Sprintf(
+				"update %s set deleted=1, deleted_at= ? where %s in (%s)",
+				modelManager.TableSpec().Name(), field, placeholder,
+			)
+			vars = append([]interface{}{time.Now()}, vars...)
+		}
+		_, err := sqlchemy.GetDB().Exec(
+			sql, vars...,
+		)
+		if err != nil {
+			return errors.Wrapf(err, strings.ReplaceAll(sql, "?", "%s"), vars...)
+		}
+		return nil
+	}
+
+	idsArr := splitByLen(ids, 100)
+	for i := range idsArr {
+		err := purge(idsArr[i])
+		if err != nil {
+			return errors.Wrapf(err, "purge")
+		}
+	}
+	return nil
 }
