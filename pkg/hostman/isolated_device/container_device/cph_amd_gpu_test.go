@@ -40,7 +40,7 @@ func Test_getCphAMDGPUPCIAddr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.linkPartName, func(t *testing.T) {
-			got, err := getCphAMDGPUPCIAddr(tt.linkPartName)
+			got, err := getGPUPCIAddr(tt.linkPartName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getCphAMDGPUPCIAddr() error = %v, wantErr %v", err, tt.wantErr)
 				return

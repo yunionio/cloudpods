@@ -15,9 +15,6 @@
 package container_device
 
 import (
-	"fmt"
-	"os"
-	"path"
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -90,50 +87,11 @@ type cphAMDGPU struct {
 }
 
 func newCphAMDGPU(devPath string, index int) (*cphAMDGPU, error) {
-	dir := "/dev/dri/by-path/"
-	entries, err := os.ReadDir(dir)
+	dev, err := newPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeCphAMDGPU)
 	if err != nil {
-		return nil, errors.Wrap(err, "read dir")
+		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
 	}
-	for _, entry := range entries {
-		entryName := entry.Name()
-		fp := path.Join(dir, entryName)
-		linkPath, err := os.Readlink(fp)
-		if err != nil {
-			return nil, errors.Wrapf(err, "read link of %s", entry.Name())
-		}
-		linkDevPath := path.Join(dir, linkPath)
-		if linkDevPath == devPath {
-			// get pci address
-			if !strings.HasSuffix(entryName, "-render") {
-				return nil, errors.Errorf("%s isn't render device", devPath)
-			}
-			pciAddr, err := getCphAMDGPUPCIAddr(entryName)
-			if err != nil {
-				return nil, errors.Wrapf(err, "get pci address of %s", devPath)
-			}
-			pciOutput, err := isolated_device.GetPCIStrByAddr(pciAddr)
-			if err != nil {
-				return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", pciAddr)
-			}
-			dev := isolated_device.NewPCIDevice2(pciOutput[0])
-			dev.Addr = fmt.Sprintf("%s-%d", dev.Addr, index)
-			return &cphAMDGPU{
-				BaseDevice: NewBaseDevice(dev, isolated_device.ContainerDeviceTypeCphAMDGPU, devPath),
-			}, nil
-		}
-	}
-	return nil, errors.Wrapf(errors.ErrNotFound, "%s doesn't exist in %s", devPath, dir)
-}
-
-func getCphAMDGPUPCIAddr(linkPartName string) (string, error) {
-	if !strings.HasPrefix(linkPartName, "pci-") {
-		return "", errors.Errorf("wrong link name: %s", linkPartName)
-	}
-	segs := strings.Split(linkPartName, "-")
-	if len(segs) != 3 {
-		return "", errors.Errorf("segments is not 3 after splited by -")
-	}
-	fullAddr := segs[1]
-	return fullAddr, nil
+	return &cphAMDGPU{
+		BaseDevice: dev,
+	}, nil
 }

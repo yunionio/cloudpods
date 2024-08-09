@@ -2199,7 +2199,8 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		dev := devs[i]
 		eg.Go(func() error {
 			if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev); err != nil {
-				return errors.Wrapf(err, "Sync device %s", dev)
+				log.Errorf("Sync deviceInfo %s error: %v", dev.String(), err)
+				return errors.Wrapf(err, "Sync device %s", dev.String())
 			} else {
 				mtx.Lock()
 				updateDevs.Add(obj)

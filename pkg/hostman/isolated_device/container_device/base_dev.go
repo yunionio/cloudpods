@@ -15,6 +15,11 @@
 package container_device
 
 import (
+	"fmt"
+	"os"
+	"path"
+	"strings"
+
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
@@ -73,4 +78,51 @@ func CheckVirtualNumber(dev *isolated_device.ContainerDevice) error {
 		return errors.Errorf("virtual_number must > 0")
 	}
 	return nil
+}
+
+func getGPUPCIAddr(linkPartName string) (string, error) {
+	if !strings.HasPrefix(linkPartName, "pci-") {
+		return "", errors.Errorf("wrong link name: %s", linkPartName)
+	}
+	segs := strings.Split(linkPartName, "-")
+	if len(segs) < 3 {
+		return "", errors.Errorf("%s: segments length is less than 3 after splited by -", linkPartName)
+	}
+	fullAddr := segs[1]
+	return fullAddr, nil
+}
+
+func newPCIGPURenderBaseDevice(devPath string, index int, devType isolated_device.ContainerDeviceType) (*BaseDevice, error) {
+	dir := "/dev/dri/by-path/"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "read dir")
+	}
+	for _, entry := range entries {
+		entryName := entry.Name()
+		fp := path.Join(dir, entryName)
+		linkPath, err := os.Readlink(fp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "read link of %s", entry.Name())
+		}
+		linkDevPath := path.Join(dir, linkPath)
+		if linkDevPath == devPath {
+			// get pci address
+			if !strings.HasSuffix(entryName, "-render") {
+				return nil, errors.Errorf("%s isn't render device", devPath)
+			}
+			pciAddr, err := getGPUPCIAddr(entryName)
+			if err != nil {
+				return nil, errors.Wrapf(err, "get pci address of %s", devPath)
+			}
+			pciOutput, err := isolated_device.GetPCIStrByAddr(pciAddr)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", pciAddr)
+			}
+			dev := isolated_device.NewPCIDevice2(pciOutput[0])
+			dev.Addr = fmt.Sprintf("%s-%d", dev.Addr, index)
+			return NewBaseDevice(dev, devType, devPath), nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "%s doesn't exist in %s", devPath, dir)
 }

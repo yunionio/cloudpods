@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -215,7 +216,7 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 			desc.ImagePath = storagecacheimg.Path
 		}
 	}
-	if host.HostType == api.HOST_TYPE_HYPERVISOR {
+	if utils.IsInStringArray(host.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}) {
 		desc.StorageId = disk.StorageId
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
