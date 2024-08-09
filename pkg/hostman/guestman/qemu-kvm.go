@@ -152,26 +152,12 @@ func (s *SKVMGuestInstance) updateGuestDesc() error {
 	return SaveLiveDesc(s, s.Desc)
 }
 
-func (s *SKVMGuestInstance) releaseCpuNumaPin(cpuNumaPin []*desc.SCpuNumaPin) {
-	if !s.manager.numaAllocate {
-		return
-	}
-
-	for _, numaCpus := range cpuNumaPin {
-		pcpus := make([]int, 0)
-		for i := range numaCpus.VcpuPin {
-			pcpus = append(pcpus, numaCpus.VcpuPin[i].Pcpu)
-		}
-		s.manager.cpuSet.ReleaseNumaCpus(numaCpus.SizeMB, int(*numaCpus.NodeId), pcpus, len(numaCpus.VcpuPin))
-	}
-}
-
 // release allocated numa mems and realloc numa mems
 func (s *SKVMGuestInstance) reallocateNumaNodes(isMigrate bool) error {
 	s.manager.cpuSet.Lock.Lock()
 	defer s.manager.cpuSet.Lock.Unlock()
 
-	s.releaseCpuNumaPin(s.Desc.CpuNumaPin)
+	ReleaseCpuNumaPin(s.manager, s.Desc.CpuNumaPin)
 	s.Desc.CpuNumaPin = nil
 
 	if isMigrate {
@@ -651,36 +637,7 @@ func (s *SKVMGuestInstance) PostLoad(m *SGuestManager) error {
 	if s.needSyncStreamDisks {
 		go s.sendStreamDisksComplete(context.Background())
 	}
-	return s.loadGuestCpuset(m)
-}
-
-func (s *SKVMGuestInstance) loadGuestCpuset(m *SGuestManager) error {
-	if s.GetPid() > 0 {
-		m.cpuSet.Lock.Lock()
-		defer m.cpuSet.Lock.Unlock()
-		for _, vcpuPin := range s.Desc.VcpuPin {
-			pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
-			if err != nil {
-				log.Errorf("failed parse %s pcpus: %s", s.GetName(), vcpuPin.Pcpus)
-				continue
-			}
-			vcpuSet, err := cpuset.Parse(vcpuPin.Vcpus)
-			if err != nil {
-				log.Errorf("failed parse %s vcpus: %s", s.GetName(), vcpuPin.Vcpus)
-				continue
-			}
-			m.cpuSet.LoadCpus(pcpuSet.ToSlice(), vcpuSet.Size())
-		}
-		for _, numaCpuset := range s.Desc.CpuNumaPin {
-			pcpus := make([]int, 0)
-			for i := range numaCpuset.VcpuPin {
-				pcpus = append(pcpus, numaCpuset.VcpuPin[i].Pcpu)
-			}
-
-			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, int(*numaCpuset.NodeId), pcpus, len(numaCpuset.VcpuPin))
-		}
-	}
-	return nil
+	return LoadGuestCpuset(m, s)
 }
 
 func (s *SKVMGuestInstance) IsDirtyShotdown() bool {
@@ -844,7 +801,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, nil
 	}
 	// release guest acquired cpu mems on guest start failed
-	s.releaseGuestCpuset()
+	ReleaseGuestCpuset(s.manager, s)
 	log.Errorf("Async start server %s failed: %s!!!", s.GetName(), err)
 	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
@@ -1703,31 +1660,8 @@ func (s *SKVMGuestInstance) SlaveDisksBlockStream() error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) releaseGuestCpuset() {
-	s.manager.cpuSet.Lock.Lock()
-	defer s.manager.cpuSet.Lock.Unlock()
-	s.releaseCpuNumaPin(s.Desc.CpuNumaPin)
-
-	for _, vcpuPin := range s.Desc.VcpuPin {
-		pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
-		if err != nil {
-			log.Errorf("failed parse %s pcpus: %s", s.GetName(), vcpuPin.Pcpus)
-			continue
-		}
-		vcpuSet, err := cpuset.Parse(vcpuPin.Vcpus)
-		if err != nil {
-			log.Errorf("failed parse %s vcpus: %s", s.GetName(), vcpuPin.Vcpus)
-			continue
-		}
-		s.manager.cpuSet.ReleaseCpus(pcpuSet.ToSlice(), vcpuSet.Size())
-	}
-	s.Desc.VcpuPin = nil
-	s.Desc.CpuNumaPin = nil
-	SaveLiveDesc(s, s.Desc)
-}
-
 func (s *SKVMGuestInstance) clearCgroup(pid int) {
-	s.releaseGuestCpuset()
+	ReleaseGuestCpuset(s.manager, s)
 	if pid == 0 && s.cgroupPid > 0 {
 		pid = s.cgroupPid
 	}

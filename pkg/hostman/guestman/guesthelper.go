@@ -331,6 +331,28 @@ func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, perferNumaN
 		err := pq.AllocNumaNodes(vcpuCount, memSizeKB, perferNumaNode, res)
 		return res, err
 	} else {
+		if perferNumaNode > 0 {
+			for i := range pq.Nodes {
+				if pq.Nodes[i].NodeId != int(perferNumaNode) {
+					continue
+				}
+				if pq.Nodes[i].VcpuCount >= (pq.Nodes[0].VcpuCount + pq.Nodes[0].CpuCount) {
+					break
+				}
+
+				allocCount := vcpuCount
+				if vcpuCount > pq.Nodes[0].CpuCount {
+					allocCount = vcpuCount/2 + vcpuCount%2
+				}
+				res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
+					Cpuset: pq.Nodes[i].AllocCpuset(allocCount),
+				}
+				pq.Nodes[i].VcpuCount += sourceVcpuCount
+				vcpuCount -= allocCount
+				sort.Sort(pq)
+				break
+			}
+		}
 		for vcpuCount > 0 {
 			count := vcpuCount
 			if vcpuCount > pq.Nodes[0].CpuCount {
@@ -340,8 +362,8 @@ func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, perferNumaN
 				Cpuset: pq.Nodes[0].AllocCpuset(count),
 			}
 			pq.Nodes[0].VcpuCount += sourceVcpuCount
-			sort.Sort(pq)
 			vcpuCount -= count
+			sort.Sort(pq)
 		}
 		return res, nil
 	}
