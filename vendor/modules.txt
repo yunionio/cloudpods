@@ -907,11 +907,11 @@ github.com/tklauser/go-sysconf
 # github.com/tklauser/numcpus v0.4.0
 ## explicit; go 1.11
 github.com/tklauser/numcpus
-# github.com/tredoe/osutil/v2 v2.0.0-rc.16
+# github.com/tredoe/osutil v1.5.0
 ## explicit; go 1.16
-github.com/tredoe/osutil/v2/userutil/crypt
-github.com/tredoe/osutil/v2/userutil/crypt/common
-github.com/tredoe/osutil/v2/userutil/crypt/sha512_crypt
+github.com/tredoe/osutil/user/crypt
+github.com/tredoe/osutil/user/crypt/common
+github.com/tredoe/osutil/user/crypt/sha512_crypt
 # github.com/ugorji/go/codec v1.1.7
 ## explicit
 github.com/ugorji/go/codec
@@ -1586,7 +1586,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.1-0.20240627035901-5608be5905f9
+# yunion.io/x/pkg v1.10.1-0.20240812013427-0163ba9c86b1
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
