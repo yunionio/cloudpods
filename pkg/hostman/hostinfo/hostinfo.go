@@ -120,9 +120,10 @@ type SHostInfo struct {
 
 	IoScheduler string
 
-	cri                   pod.CRI
-	containerCPUMap       *pod.HostContainerCPUMap
-	containerStatsProvier stats.ContainerStatsProvider
+	// container related members
+	cri                    pod.CRI
+	containerCPUMap        *pod.HostContainerCPUMap
+	containerStatsProvider stats.ContainerStatsProvider
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {

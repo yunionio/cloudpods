@@ -73,6 +73,9 @@ const (
 	CONTAINER_STATUS_RUNNING            = "running"
 	CONTAINER_STATUS_DELETING           = "deleting"
 	CONTAINER_STATUS_DELETE_FAILED      = "delete_failed"
+	// for health check
+	CONTAINER_STATUS_PROBING      = "probing"
+	CONTAINER_STATUS_PROBE_FAILED = "probe_failed"
 )
 
 const (

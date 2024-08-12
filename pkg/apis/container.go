@@ -70,6 +70,23 @@ type ContainerSpec struct {
 	SimulateCpu        bool                      `json:"simulate_cpu"`
 	ShmSizeMB          int                       `json:"shm_size_mb"`
 	SecurityContext    *ContainerSecurityContext `json:"security_context,omitempty"`
+	// Periodic probe of container liveness.
+	// Container will be restarted if the probe fails.
+	// Cannot be updated.
+	//LivenessProbe *ContainerProbe `json:"liveness_probe,omitempty"`
+	// StartupProbe indicates that the Pod has successfully initialized.
+	// If specified, no other probes are executed until this completes successfully.
+	StartupProbe *ContainerProbe `json:"startup_probe,omitempty"`
+}
+
+func (c *ContainerSpec) NeedProbe() bool {
+	//if c.LivenessProbe != nil {
+	//	return true
+	//}
+	if c.StartupProbe != nil {
+		return true
+	}
+	return false
 }
 
 type ContainerCapability struct {
