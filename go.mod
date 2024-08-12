@@ -65,7 +65,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
 	github.com/tjfoc/gmsm v1.4.1
-	github.com/tredoe/osutil/v2 v2.0.0-rc.16
+	github.com/tredoe/osutil v1.5.0
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vishvananda/netns v0.0.5-0.20240412164733-9469873f4601
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
@@ -99,7 +99,7 @@ require (
 	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.1-0.20240627035901-5608be5905f9
+	yunion.io/x/pkg v1.10.1-0.20240812013427-0163ba9c86b1
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v1.1.3-0.20240624023332-82a08f917568
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
