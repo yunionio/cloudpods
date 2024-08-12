@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type PodDeleteTask struct {
@@ -45,6 +44,11 @@ func (t *PodDeleteTask) OnWaitContainerDeleted(ctx context.Context, pod *models.
 	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_DELETING_CONTAINER, "")
 	ctrs, err := models.GetContainerManager().GetContainersByPod(pod.GetId())
 	if err != nil {
+		if strings.Contains(err.Error(), "NotFoundError") {
+			// already deleted
+			t.OnContainerDeleted(ctx, pod)
+			return
+		}
 		t.OnWaitContainerDeletedFailed(ctx, pod, jsonutils.NewString(errors.Wrap(err, "GetContainersByPod").Error()))
 		return
 	}
@@ -74,7 +78,7 @@ func (t *PodDeleteTask) OnContainerDeleted(ctx context.Context, pod *models.SGue
 		return
 	}
 	if err := drv.StartGuestStopTask(pod, ctx, t.GetUserCred(), nil, t.GetTaskId()); err != nil {
-		if errors.Cause(err) == httperrors.ErrNotFound {
+		if strings.Contains(err.Error(), "NotFoundError") {
 			t.OnPodStopped(ctx, pod, nil)
 			return
 		}

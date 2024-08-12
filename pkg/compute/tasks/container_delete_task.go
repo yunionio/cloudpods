@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -41,6 +42,11 @@ func (t *ContainerDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 func (t *ContainerDeleteTask) requestDelete(ctx context.Context, container *models.SContainer) {
 	t.SetStage("OnDeleted", nil)
 	if err := t.GetPodDriver().RequestDeleteContainer(ctx, t.GetUserCred(), t); err != nil {
+		if strings.Contains(err.Error(), "NotFoundError") {
+			// already deleted
+			t.OnDeleted(ctx, container, nil)
+			return
+		}
 		t.OnDeleteFailed(ctx, container, jsonutils.NewString(err.Error()))
 		return
 	}

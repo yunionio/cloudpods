@@ -16,8 +16,10 @@ package tasks
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -34,11 +36,18 @@ type ContainerSyncStatusTask struct {
 }
 
 func (t *ContainerSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.SetStage("OnSyncStatus", nil)
 	if err := t.GetPodDriver().RequestSyncContainerStatus(ctx, t.GetUserCred(), t); err != nil {
+		log.Errorf("t.GetPodDriver().RequestSyncContainerStatus fail %s", err)
+		if strings.Contains(err.Error(), "NotFoundError") {
+			// already deleted
+			obj.(*models.SContainer).SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_UNKNOWN, "not found")
+			t.SetStageComplete(ctx, nil)
+			return
+		}
 		t.OnSyncStatusFailed(ctx, obj.(*models.SContainer), jsonutils.NewString(err.Error()))
 		return
 	}
+	t.SetStage("OnSyncStatus", nil)
 }
 
 func (t *ContainerSyncStatusTask) OnSyncStatus(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
@@ -49,6 +58,7 @@ func (t *ContainerSyncStatusTask) OnSyncStatus(ctx context.Context, container *m
 }
 
 func (t *ContainerSyncStatusTask) OnSyncStatusFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
+	log.Errorf("ContainerSyncStatusTask.OnSyncStatusFailed fail %s", reason.String())
 	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_SYNC_STATUS_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }

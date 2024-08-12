@@ -879,10 +879,16 @@ func (m *SGuestManager) GetGuestStatus(ctx context.Context, params interface{}) 
 	sid := params.(string)
 	status := m.getStatus(sid)
 	guest, _ := m.GetServer(sid)
+
 	body := jsonutils.NewDict()
-	if guest != nil {
-		body.Set("power_status", jsonutils.NewString(GetPowerStates(guest)))
+
+	if guest == nil {
+		body.Set("status", jsonutils.NewString(status))
+		hostutils.TaskComplete(ctx, body)
+		return nil, nil
 	}
+
+	body.Set("power_status", jsonutils.NewString(GetPowerStates(guest)))
 
 	return guest.HandleGuestStatus(ctx, status, body)
 }
