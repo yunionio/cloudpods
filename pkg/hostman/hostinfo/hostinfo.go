@@ -26,10 +26,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sync/errgroup"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -2024,13 +2026,27 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	h.IsolatedDeviceMan.BatchCustomProbe()
 
 	// sync each isolated device found
+	eg := errgroup.Group{}
+	mtx := sync.Mutex{}
 	updateDevs := jsonutils.NewArray()
-	for _, dev := range h.IsolatedDeviceMan.GetDevices() {
-		if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev); err != nil {
-			return nil, errors.Wrapf(err, "Sync device %s", dev)
-		} else {
-			updateDevs.Add(obj)
-		}
+	devs := h.IsolatedDeviceMan.GetDevices()
+
+	for i := range devs {
+		dev := devs[i]
+		eg.Go(func() error {
+			if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev); err != nil {
+				return errors.Wrapf(err, "Sync device %s", dev)
+			} else {
+				mtx.Lock()
+				updateDevs.Add(obj)
+				mtx.Unlock()
+				return nil
+			}
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 	return updateDevs, nil
 }

@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -2089,19 +2090,21 @@ type SGuestSnapshotDeleteTask struct {
 	deleteSnapshot  string
 	convertSnapshot string
 	blockStream     bool
+	encryptInfo     apis.SEncryptInfo
 
 	tmpPath string
 }
 
 func NewGuestSnapshotDeleteTask(
 	ctx context.Context, s *SKVMGuestInstance, disk storageman.IDisk,
-	deleteSnapshot, convertSnapshot string, blockStream bool,
+	deleteSnapshot, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo,
 ) *SGuestSnapshotDeleteTask {
 	return &SGuestSnapshotDeleteTask{
 		SGuestReloadDiskTask: NewGuestReloadDiskTask(ctx, s, disk),
 		deleteSnapshot:       deleteSnapshot,
 		convertSnapshot:      convertSnapshot,
 		blockStream:          blockStream,
+		encryptInfo:          encryptInfo,
 	}
 }
 
@@ -2140,7 +2143,7 @@ func (s *SGuestSnapshotDeleteTask) onStreamDiskComplete() {
 }
 
 func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
-	return s.disk.ConvertSnapshot(s.convertSnapshot)
+	return s.disk.ConvertSnapshot(s.convertSnapshot, s.encryptInfo)
 }
 
 func (s *SGuestSnapshotDeleteTask) doReloadDisk(device string) {
