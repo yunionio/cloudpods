@@ -20,7 +20,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"github.com/tredoe/osutil/v2/userutil/crypt/sha512_crypt"
+	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
 
 	"yunion.io/x/pkg/utils"
 )
