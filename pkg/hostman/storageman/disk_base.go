@@ -71,10 +71,10 @@ type IDisk interface {
 		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
-	DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error
+	DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
-	ConvertSnapshot(convertSnapshotId string) error
+	ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error
 
 	// GetBackupDir() string
 	DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -142,11 +142,11 @@ func (d *SBaseDisk) CreateSnapshot(snapshotId string, encryptKey string, encForm
 	return errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) ConvertSnapshot(convertSnapshotId string) error {
+func (d *SBaseDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error {
 	return errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error {
+func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
 	return errors.Errorf("unsupported operation")
 }
 

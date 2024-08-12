@@ -458,7 +458,7 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string, encryptKey string, encFor
 	return nil
 }
 
-func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string) error {
+func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error {
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, convertSnapshotId)
 	img, err := qemuimg.NewQemuImage(snapshotPath)
@@ -481,7 +481,7 @@ func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string) error {
 	return nil
 }
 
-func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error {
+func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
 	snapshotDir := d.GetSnapshotDir()
 	return DeleteLocalSnapshot(snapshotDir, snapshotId, d.getPath(), convertSnapshot, blockStream)
 }
