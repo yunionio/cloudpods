@@ -113,6 +113,15 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		if err != nil && err != sql.ErrNoRows {
 			return errors.Wrap(err, "get disk by snapshot")
 		}
+		sDisk, _ := disk.(*models.SDisk)
+		if sDisk.IsEncrypted() {
+			if encryptInfo, err := sDisk.GetEncryptInfo(ctx, task.GetUserCred()); err != nil {
+				return errors.Wrap(err, "faild get encryptInfo")
+			} else {
+				params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+			}
+		}
+
 		if !snapshot.OutOfChain {
 			if convertSnapshot != nil {
 				params.Set("convert_snapshot", jsonutils.NewString(convertSnapshot.Id))
@@ -152,6 +161,20 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		params := jsonutils.NewDict()
 		params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
+
+		disk, err := models.DiskManager.FetchById(snapshot.DiskId)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.Wrap(err, "get disk by snapshot")
+		}
+		sDisk, _ := disk.(*models.SDisk)
+		if sDisk.IsEncrypted() {
+			if encryptInfo, err := sDisk.GetEncryptInfo(ctx, task.GetUserCred()); err != nil {
+				return errors.Wrap(err, "faild get encryptInfo")
+			} else {
+				params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+			}
+		}
+
 		if !snapshot.OutOfChain {
 			if convertSnapshot != nil {
 				params.Set("convert_snapshot", jsonutils.NewString(convertSnapshot.Id))
