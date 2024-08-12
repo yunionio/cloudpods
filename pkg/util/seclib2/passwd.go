@@ -15,7 +15,7 @@
 package seclib2
 
 import (
-	"github.com/tredoe/osutil/v2/userutil/crypt/sha512_crypt"
+	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
 	"golang.org/x/crypto/bcrypt"
 
 	"yunion.io/x/pkg/util/seclib"
