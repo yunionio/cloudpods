@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -118,10 +119,9 @@ func (manager *SVirtualResourceBaseManager) CustomizedTotalCount(ctx context.Con
 		StatusInfo []apis.StatusStatisticStatusInfo
 	}{}
 
-	var err error
-	results.Count, err = totalQ.CountWithError()
-	if err != nil {
-		return -1, nil, errors.Wrapf(err, "CountWithError")
+	err := totalQ.First(&results.TotalCountBase)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return -1, nil, errors.Wrapf(err, "First")
 	}
 
 	totalSQ := totalQ.ResetFields().SubQuery()
