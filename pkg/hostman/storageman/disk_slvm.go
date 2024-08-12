@@ -262,6 +262,46 @@ func (d *SSLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (
 	return ret, nil
 }
 
+func (d *SSLVMDisk) GetDiskDesc() jsonutils.JSONObject {
+	active, err := lvmutils.LvIsActivated(d.GetPath())
+	if err != nil {
+		log.Errorf("failed check active of %s: %s", d.GetPath(), err)
+		return nil
+	}
+	if !active {
+		if err := lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false); err != nil {
+			log.Errorf("failed active lv %s: %s", d.GetPath(), err)
+			return nil
+		}
+	}
+	res := d.SLVMDisk.GetDiskDesc()
+	if !active {
+		if err := lvmutils.LVDeactivate(d.GetPath()); err != nil {
+			log.Errorf("failed deactivate lv %s: %s", d.GetPath(), err)
+		}
+	}
+	return res
+}
+
+func (d *SSLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	active, err := lvmutils.LvIsActivated(d.GetPath())
+	if err != nil {
+		return nil, errors.Wrap(err, "LvIsActivated")
+	}
+	if !active {
+		if err := lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false); err != nil {
+			return nil, errors.Wrap(err, "LVActive")
+		}
+	}
+	res, e := d.SLVMDisk.PrepareSaveToGlance(ctx, params)
+	if !active {
+		if err := lvmutils.LVDeactivate(d.GetPath()); err != nil {
+			log.Errorf("failed deactivate lv %s: %s", d.GetPath(), err)
+		}
+	}
+	return res, e
+}
+
 func (d *SSLVMDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocation string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
 	ret, err := d.SLVMDisk.CreateRaw(ctx, int(size), "", "", encryptInfo, d.Id, snapshotLocation)
 	if err != nil {
