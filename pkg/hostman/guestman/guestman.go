@@ -1287,11 +1287,11 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 	if len(delParams.ConvertSnapshot) > 0 || delParams.BlockStream {
 		guest, _ := m.GetKVMServer(delParams.Sid)
 		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
-			delParams.ConvertSnapshot, delParams.BlockStream)
+			delParams.ConvertSnapshot, delParams.BlockStream, delParams.EncryptInfo)
 	} else {
 		res := jsonutils.NewDict()
 		res.Set("deleted", jsonutils.JSONTrue)
-		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false, delParams.EncryptInfo)
 	}
 }
 
