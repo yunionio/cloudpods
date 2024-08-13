@@ -201,18 +201,26 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 	guid := ipmitool.GetSysGuid(cli)
 	var conf *types.SIPMILanConfig
 	var channel uint8
+	var errs []error
 	for _, lanChannel := range profile.LanChannels {
 		conf, err = ipmitool.GetLanConfig(cli, lanChannel)
 		if err != nil {
 			// ignore error
-			log.Errorf("ipmitool.GetLanConfig for channel %d fail: %s", lanChannel, err)
+			err := errors.Wrapf(err, "ipmitool.GetLanConfig for channel %d failed", lanChannel)
+			errs = append(errs, err)
+			log.Warningf(err.Error())
+		} else if conf.IPAddr == "0.0.0.0" {
+			err := errors.Errorf("get 0.0.0.0 ip address of channel %d", lanChannel)
+			errs = append(errs, err)
+			log.Warningf(err.Error())
+			continue
 		} else {
 			channel = lanChannel
 			break
 		}
 	}
 	if conf == nil {
-		return errors.Wrap(httperrors.ErrNotFound, "no IPMI lan")
+		return errors.Wrapf(httperrors.ErrNotFound, "no IPMI lan: %s", errors.NewAggregate(errs).Error())
 	}
 	err = self.sendIpmiNicInfo(ctx, conf)
 	if err != nil {
