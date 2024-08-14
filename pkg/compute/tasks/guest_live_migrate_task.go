@@ -16,9 +16,11 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
@@ -163,6 +165,30 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	self.OnStartCacheImages(ctx, guest, nil)
 }
 
+func (task *GuestMigrateTask) tryRecoverImageCache(ctx context.Context, guest *models.SGuest, input *api.CacheImageInput) error {
+	if _, err := models.CachedimageManager.FetchById(input.ImageId); err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+		if _, err := models.CachedimageManager.RecoverCachedImage(ctx, task.UserCred, input.ImageId); err != nil {
+			log.Errorf("failed recache image %s: %s", input.ImageId, err)
+		}
+
+		srcHost, err := guest.GetHost()
+		if err != nil {
+			return err
+		}
+		srcStorageCache := srcHost.GetLocalStoragecache()
+		if scImg := models.StoragecachedimageManager.GetStoragecachedimage(srcStorageCache.Id, input.ImageId); scImg == nil {
+			_, err = models.StoragecachedimageManager.RecoverStoragecachedImage(ctx, task.UserCred, srcStorageCache.Id, input.ImageId)
+			if err != nil {
+				log.Errorf("failed RecoverStoragecachedImage %s:%s %s", srcStorageCache.Id, input.ImageId, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (self *GuestMigrateTask) OnStartCacheImages(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	templates, _ := self.Params.GetArray("cache_templates")
 	if len(templates) == 0 {
@@ -184,13 +210,19 @@ func (self *GuestMigrateTask) OnStartCacheImages(ctx context.Context, guest *mod
 			SourceHostId: guest.HostId,
 			ParentTaskId: self.GetTaskId(),
 		}
+		if err := self.tryRecoverImageCache(ctx, guest, &input); err != nil {
+			self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+
 		err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, input)
 		if err != nil {
 			self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
 		}
-		return
+	} else {
+		self.OnStartCacheImages(ctx, guest, nil)
 	}
-	self.OnStartCacheImages(ctx, guest, nil)
 }
 
 func (self *GuestMigrateTask) OnStartCacheImagesFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -211,15 +243,21 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 				Format:       "iso",
 				IsForce:      false,
 				ParentTaskId: self.GetTaskId(),
+				SourceHostId: guest.HostId,
+			}
+			if err := self.tryRecoverImageCache(ctx, guest, &input); err != nil {
+				self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+				return
 			}
 			err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, input)
 			if err != nil {
 				self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+				return
 			}
-			return
 		}
+	} else {
+		self.OnCachedCdromComplete(ctx, guest, nil)
 	}
-	self.OnCachedCdromComplete(ctx, guest, nil)
 }
 
 func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -267,6 +305,11 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	} else {
 		body, err = self.sharedStorageMigrateConf(ctx, guest, targetHost)
 	}
+	if err != nil {
+		self.TaskFailed(ctx, guest, jsonutils.NewString(errors.Wrap(err, "get storage migrate conf").Error()))
+		return
+	}
+
 	if self.isLiveMigrate() {
 		srcDesc, err := data.Get("src_desc")
 		if err != nil {

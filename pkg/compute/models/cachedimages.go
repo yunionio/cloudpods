@@ -325,6 +325,36 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 	}
 }
 
+func (manager *SCachedimageManager) RecoverCachedImage(ctx context.Context, userCred mcclient.TokenCredential, imgId string) (*SCachedimage, error) {
+	lockman.LockRawObject(ctx, manager.Keyword(), "name")
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+	imageCache := SCachedimage{}
+	imageCache.SetModelManager(manager, &imageCache)
+
+	err := manager.RawQuery().Equals("id", imgId).First(&imageCache)
+	if err != nil {
+		return nil, err
+	}
+	diff, err := db.Update(&imageCache, func() error {
+		imageCache.Status = api.CACHED_IMAGE_STATUS_ACTIVE
+		imageCache.LastSync = timeutils.UtcNow()
+		if imageCache.Deleted == true {
+			imageCache.Deleted = false
+			imageCache.DeletedAt = time.Time{}
+			imageCache.RefCount = 0
+			imageCache.UpdateVersion = 0
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	db.OpsLog.LogEvent(&imageCache, db.ACT_UPDATE, diff, userCred)
+	return &imageCache, nil
+}
+
 func (image *SCachedimage) GetStorages() ([]SStorage, error) {
 	sq := StorageManager.Query()
 	storagecacheimageSubq := StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", image.GetId()).SubQuery()
