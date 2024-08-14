@@ -341,6 +341,9 @@ func (manager *SMetadataManager) metaDataQuery2List(ctx context.Context, q *sqlc
 }
 
 func (manager *SMetadataManager) metadataBaseFilter(q *sqlchemy.SQuery, input apis.MetadataBaseFilterInput) *sqlchemy.SQuery {
+	if len(input.KeyLike) > 0 {
+		q = q.Contains("key", input.KeyLike)
+	}
 	if len(input.Key) > 0 {
 		q = q.In("key", input.Key)
 	}
