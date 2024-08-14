@@ -584,6 +584,9 @@ func totalSecurityGroupCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdent
 }
 
 func (self *SSecurityGroup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.SecurityGroupSyncstatusInput) (jsonutils.JSONObject, error) {
+	if !self.IsManaged() {
+		return nil, self.SetStatus(ctx, userCred, api.SECGROUP_STATUS_READY, "")
+	}
 	return nil, self.StartSecurityGroupSyncTask(ctx, userCred, "")
 }
 
