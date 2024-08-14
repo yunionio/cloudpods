@@ -54,7 +54,7 @@ See [Introduction](https://www.cloudpods.org/docs/introduction/) for details.
 ### Supported resources
 
 * Servers: instances, disks, network interfaces, networks, vpcs, storages, hosts, wires, snapshots, snapshot policies, security groups, elastic IPs, SSH keypairs, images
-* Load Balancers: instances, listeners, backend groups, backends, TSL certificates, ACLs
+* Load Balancers: instances, listeners, backend groups, backends, TLS certificates, ACLs
 * Object Storage: buckets, objects
 * NAS: file_systems, access_groups, mount_targets
 * RDS: instances, accounts, backups, databases, parameters, privileges
