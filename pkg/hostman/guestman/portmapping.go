@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
@@ -119,7 +120,9 @@ func (m *portMappingManager) getOtherGuestsUsedPorts(gst GuestRuntimeInstance) (
 				ps = sets.NewInt()
 			}
 			if pm.HostPort == nil {
-				return nil, errors.Errorf("portmap %s has nil host port", jsonutils.Marshal(pm))
+				//return nil, errors.Errorf("guest (%s/%s) portmap %s has nil host port", ins.GetId(), ins.GetName(), jsonutils.Marshal(pm))
+				log.Warningf("%s", errors.Errorf("guest (%s/%s) portmap %s has nil host port", ins.GetId(), ins.GetName(), jsonutils.Marshal(pm)))
+				continue
 			}
 			ps.Insert(*pm.HostPort)
 			ret[pm.Protocol] = ps
