@@ -94,6 +94,7 @@ func init() {
 		"storage",
 		"default",
 		"k8s",
+		"pod",
 		"monitor",
 		"bingocloud",
 		"ksyun",
