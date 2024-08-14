@@ -2262,7 +2262,7 @@ func (snet *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 	}
 
 	if input.IsAutoAlloc != nil && *input.IsAutoAlloc {
-		if snet.ServerType != api.NETWORK_TYPE_GUEST {
+		if snet.ServerType != api.NETWORK_TYPE_GUEST && snet.ServerType != api.NETWORK_TYPE_HOSTLOCAL {
 			return input, httperrors.NewInputParameterError("network server_type %s not support auto alloc", snet.ServerType)
 		}
 	}
