@@ -43,14 +43,19 @@ func init() {
 		[]string{"id", "key", "value"},
 		[]string{})}
 	// !!! Register computer metadata ONLY !!! QIUJIAN
-	modules.RegisterCompute(&ComputeMetadatas)
+	// allpw register multiple metadatas! 20240815
+	modules.Register(&ComputeMetadatas)
 
 	IdentityMetadatas = MetadataManager{modules.NewIdentityV3Manager("metadata", "metadatas",
 		[]string{"id", "key", "value"},
 		[]string{})}
+	modules.Register(&IdentityMetadatas)
+
 	ImageMetadatas = MetadataManager{modules.NewImageManager("metadata", "metadatas",
 		[]string{"id", "key", "value"},
 		[]string{})}
+
+	modules.Register(&ImageMetadatas)
 }
 
 func (this *MetadataManager) getModule(session *mcclient.ClientSession, params jsonutils.JSONObject) (modulebase.Manager, error) {
