@@ -146,6 +146,10 @@ func (s *sBaseGuestInstance) IsLoaded() bool {
 	return s.Desc != nil
 }
 
+func (s *sBaseGuestInstance) IsDaemon() bool {
+	return s.Desc.IsDaemon
+}
+
 func (s *sBaseGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) *desc.SGuestNetwork {
 	nics := s.Desc.Nics
 	for _, nic := range nics {

@@ -52,14 +52,18 @@ type containerDelayActionParams struct {
 }
 
 func containerSyncActionHandler(cf containerActionFunc) appsrv.FilterHandler {
-	return _containerActionHandler(cf, true)
+	return _containerActionHandler(cf, true, nil)
 }
 
 func containerActionHandler(cf containerActionFunc) appsrv.FilterHandler {
-	return _containerActionHandler(cf, false)
+	return _containerActionHandler(cf, false, nil)
 }
 
-func _containerActionHandler(cf containerActionFunc, isSync bool) appsrv.FilterHandler {
+func containerActionHandlerWithWorker(cf containerActionFunc, workerMan *appsrv.SWorkerManager) appsrv.FilterHandler {
+	return _containerActionHandler(cf, false, workerMan)
+}
+
+func _containerActionHandler(cf containerActionFunc, isSync bool, workerMan *appsrv.SWorkerManager) appsrv.FilterHandler {
 	return auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		params, _, body := appsrv.FetchEnv(ctx, w, r)
 		podId := params[POD_ID]
@@ -92,10 +96,15 @@ func _containerActionHandler(cf containerActionFunc, isSync bool) appsrv.FilterH
 			hostutils.Response(ctx, w, data)
 			return
 		} else {
-			hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+			delayFunc := func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 				dp := params.(*containerDelayActionParams)
 				return cf(ctx, userCred, dp.pod, dp.containerId, dp.body)
-			}, delayParams)
+			}
+			if workerMan != nil {
+				hostutils.DelayTaskWithWorker(ctx, delayFunc, delayParams, workerMan)
+			} else {
+				hostutils.DelayTask(ctx, delayFunc, delayParams)
+			}
 			hostutils.ResponseOk(ctx, w)
 		}
 	})
@@ -104,8 +113,6 @@ func _containerActionHandler(cf containerActionFunc, isSync bool) appsrv.FilterH
 func AddPodHandlers(prefix string, app *appsrv.Application) {
 	ctrHandlers := map[string]containerActionFunc{
 		"create":                     createContainer,
-		"start":                      startContainer,
-		"stop":                       stopContainer,
 		"delete":                     deleteContainer,
 		"sync-status":                syncContainerStatus,
 		"pull-image":                 pullImage,
@@ -115,6 +122,22 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/pods/%s/containers/%s/%s", prefix, POD_ID, CONTAINER_ID, action),
 			containerActionHandler(f))
+	}
+
+	startWorker := appsrv.NewWorkerManager("container-start-worker", 2, appsrv.DEFAULT_BACKLOG, false)
+	stopWorker := appsrv.NewWorkerManager("container-stop-worker", 4, appsrv.DEFAULT_BACKLOG, false)
+
+	ctrWorkerHanders := map[string]struct {
+		workerMan *appsrv.SWorkerManager
+		f         containerActionFunc
+	}{
+		"start": {startWorker, startContainer},
+		"stop":  {stopWorker, stopContainer},
+	}
+	for action, fw := range ctrWorkerHanders {
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/pods/%s/containers/%s/%s", prefix, POD_ID, CONTAINER_ID, action),
+			containerActionHandlerWithWorker(fw.f, fw.workerMan))
 	}
 
 	execWorker := appsrv.NewWorkerManager("container-exec-worker", 16, appsrv.DEFAULT_BACKLOG, false)

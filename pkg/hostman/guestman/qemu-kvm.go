@@ -644,10 +644,6 @@ func (s *SKVMGuestInstance) IsDirtyShotdown() bool {
 	return s.GetPid() == -2
 }
 
-func (s *SKVMGuestInstance) IsDaemon() bool {
-	return s.Desc.IsDaemon
-}
-
 func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	var body = jsonutils.NewDict()
 	body.Set("guest_id", jsonutils.NewString(s.Id))
