@@ -54,6 +54,9 @@ type MetadataBaseFilterInput struct {
 	// 同时显示用户标签
 	WithUserMeta *bool `json:"with_user_meta"`
 
+	// 按key模糊匹配
+	KeyLike string `json:"key_like"`
+
 	// 按Key过滤
 	Key []string `json:"key"`
 
