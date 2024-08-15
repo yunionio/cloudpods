@@ -853,14 +853,13 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 
 	q := devices.Query(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
 	q = q.Filter(sqlchemy.NotIn(devices.Field("dev_type"), []string{api.USB_TYPE, api.NIC_TYPE, api.NVME_PT_TYPE}))
-	if region != nil {
-		subq := getRegionZoneSubq(region)
-		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
-		q = q.Filter(sqlchemy.In(hosts.Field("zone_id"), subq))
-	}
 	if zone != nil {
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.Id))
+	} else if region != nil {
+		subq := getRegionZoneSubq(region)
+		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
+		q = q.Filter(sqlchemy.In(hosts.Field("zone_id"), subq))
 	}
 	/*if len(domainId) > 0 {
 		subq := getDomainManagerSubq(domainId)
