@@ -71,6 +71,29 @@ func (route *Route) List4() ([]RouteSpec, error) {
 	return rs, nil
 }
 
+func (route *Route) List6() ([]RouteSpec, error) {
+	link, ok := route.link()
+	if !ok {
+		return nil, route.Err()
+	}
+
+	rs, err := netlink.RouteList(link, netlink.FAMILY_V6)
+	if err != nil {
+		route.addErr(err, "route list")
+		return nil, route.Err()
+	}
+	for i := range rs {
+		if rs[i].Dst == nil {
+			// make the return value easier to work with
+			rs[i].Dst = &net.IPNet{
+				IP:   net.IPv6zero,
+				Mask: net.IPMask(net.IPv6zero),
+			}
+		}
+	}
+	return rs, nil
+}
+
 func (route *Route) AddByIPNet(ipnet *net.IPNet, gw net.IP) *Route {
 	r := RouteSpec{
 		Dst: ipnet,

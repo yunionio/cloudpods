@@ -81,6 +81,18 @@ func TestFormatMac(t *testing.T) {
 func TestNewNetInterface(t *testing.T) {
 	n := NewNetInterface("eth0")
 	t.Logf("NetInterface: %s %s %s %s", n.name, n.Addr, n.Mask.String(), n.mac)
+	addrs := n.GetAddresses()
+	t.Logf("addrs: %s", addrs)
+	slaves := n.GetSlaveAddresses()
+	t.Logf("slaves: %s", slaves)
+	routes := n.GetRouteSpecs()
+	t.Logf("routes: %s", routes)
+	for i := range routes {
+		t.Logf("route to %s", routes[i].Dst.String())
+	}
+
+	m := NewNetInterface("docker0")
+	m.ClearAddrs()
 }
 
 func TestMyDefault(t *testing.T) {

@@ -161,3 +161,19 @@ func (address *Address) List4() ([]net.IPNet, error) {
 	}
 	return r, nil
 }
+
+func (address *Address) List6() ([]net.IPNet, error) {
+	link, ok := address.link()
+	if !ok {
+		return nil, address.Err()
+	}
+	oldAddrs, err := netlink.AddrList(link, netlink.FAMILY_V6)
+	if err != nil {
+		return nil, err
+	}
+	r := make([]net.IPNet, len(oldAddrs))
+	for i, oldAddr := range oldAddrs {
+		r[i] = *oldAddr.IPNet
+	}
+	return r, nil
+}

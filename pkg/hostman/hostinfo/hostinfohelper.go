@@ -288,7 +288,11 @@ func NewNIC(desc string) (*SNIC, error) {
 		}
 		time.Sleep(time.Second * 1)
 	} else {
-		log.Infof("Confirm to configuration!!")
+		log.Infof("Confirm to configuration!! To migrate physical interface configs")
+		err := nic.BridgeDev.MigrateSlaveConfigs(nic.BridgeDev)
+		if err != nil {
+			log.Errorf("fail to migrate configs: %s", err)
+		}
 	}
 	if err := nic.BridgeDev.PersistentConfig(); err != nil {
 		return nil, errors.Wrapf(err, "nic.BridgeDev.PersistentConfig %v", nic.BridgeDev)
