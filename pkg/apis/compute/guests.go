@@ -282,9 +282,10 @@ type BackupInfo struct {
 }
 
 type PodContainerDesc struct {
-	Id    string `json:"id"`
-	Name  string `json:"name"`
-	Image string `json:"image"`
+	Id     string `json:"id"`
+	Name   string `json:"name"`
+	Image  string `json:"image"`
+	Status string `json:"status"`
 }
 
 type Floppy struct {

@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/hostman/container/prober"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	fwd "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder"
@@ -106,6 +107,9 @@ type SGuestManager struct {
 	numaAllocate bool
 	cpuSet       *CpuSetCounter
 	pythonPath   string
+
+	// container related members
+	containerProbeManager prober.Manager
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string) (*SGuestManager, error) {
@@ -127,6 +131,9 @@ func NewGuestManager(host hostutils.IHost, serversPath string) (*SGuestManager, 
 	err := procutils.NewCommand("mkdir", "-p", manager.QemuLogDir()).Run()
 	if err != nil {
 		return nil, errors.Wrap(err, "mkdir qemu log dir")
+	}
+	if manager.host.IsContainerHost() {
+		manager.startContainerProbeManager()
 	}
 	return manager, nil
 }

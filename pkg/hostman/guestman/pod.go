@@ -38,6 +38,9 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/device"
 	"yunion.io/x/onecloud/pkg/hostman/container/lifecycle"
+	"yunion.io/x/onecloud/pkg/hostman/container/prober"
+	proberesults "yunion.io/x/onecloud/pkg/hostman/container/prober/results"
+	"yunion.io/x/onecloud/pkg/hostman/container/status"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -58,6 +61,48 @@ import (
 	"yunion.io/x/onecloud/pkg/util/pod/logs"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
+
+func (m *SGuestManager) startContainerProbeManager() {
+	livenessManager := proberesults.NewManager()
+	startupManager := proberesults.NewManager()
+	man := prober.NewManager(status.NewManager(), livenessManager, startupManager, newContainerRunner(m))
+	m.containerProbeManager = man
+	man.Start()
+}
+
+func (m *SGuestManager) GetContainerProbeManager() prober.Manager {
+	return m.containerProbeManager
+}
+
+func newContainerRunner(man *SGuestManager) *containerRunner {
+	return &containerRunner{man}
+}
+
+type containerRunner struct {
+	manager *SGuestManager
+}
+
+func (cr *containerRunner) RunInContainer(pod *desc.SGuestDesc, containerId string, cmd []string, timeout time.Duration) ([]byte, error) {
+	srv, ok := cr.manager.GetServer(pod.Uuid)
+	if !ok {
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "server %s not found", pod.Uuid)
+	}
+	s := srv.(*sPodGuestInstance)
+	ctrCriId, err := s.getContainerCRIId(containerId)
+	if err != nil {
+		return nil, errors.Wrap(err, "get container cri id")
+	}
+	cli := s.getCRI().GetRuntimeClient()
+	resp, err := cli.ExecSync(context.Background(), &runtimeapi.ExecSyncRequest{
+		ContainerId: ctrCriId,
+		Cmd:         cmd,
+		Timeout:     int64(timeout),
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "exec sync %#v to %s", cmd, ctrCriId)
+	}
+	return append(resp.Stdout, resp.Stderr...), nil
+}
 
 type PodInstance interface {
 	GuestRuntimeInstance
@@ -122,6 +167,7 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
 	s.SyncStatus("sync status after host started")
+	s.getProbeManager().AddPod(s.Desc)
 }
 
 func (s *sPodGuestInstance) SyncStatus(reason string) {
@@ -194,6 +240,10 @@ func (s *sPodGuestInstance) IsSuspend() bool {
 
 func (s *sPodGuestInstance) getCRI() pod.CRI {
 	return s.manager.GetCRI()
+}
+
+func (s *sPodGuestInstance) getProbeManager() prober.Manager {
+	return s.manager.GetContainerProbeManager()
 }
 
 func (s *sPodGuestInstance) getHostCPUMap() *pod.HostContainerCPUMap {
@@ -312,6 +362,21 @@ func (s *sPodGuestInstance) umountPodVolumes() error {
 			if err := volume_mount.GetDriver(vol.Type).Unmount(s, ctrId, vol); err != nil {
 				return errors.Wrapf(err, "Unmount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
 			}
+		}
+	}
+	return nil
+}
+
+func (s *sPodGuestInstance) GetContainers() []*hostapi.ContainerDesc {
+	return s.GetDesc().Containers
+}
+
+func (s *sPodGuestInstance) GetContainerById(ctrId string) *hostapi.ContainerDesc {
+	ctrs := s.GetContainers()
+	for i := range ctrs {
+		ctr := ctrs[i]
+		if ctr.Id == ctrId {
+			return ctr
 		}
 	}
 	return nil
@@ -503,6 +568,8 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 	if err := s.setPodCgroupResources(criId, s.GetDesc().Mem, s.GetDesc().Cpu); err != nil {
 		return nil, errors.Wrapf(err, "set pod %s cgroup memMB %d, cpu %d", criId, s.GetDesc().Mem, s.GetDesc().Cpu)
 	}
+
+	s.getProbeManager().AddPod(s.Desc)
 	return &computeapi.PodStartResponse{
 		CRIId:     criId,
 		IsRunning: false,
@@ -543,6 +610,8 @@ func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64)
 			return errors.Wrapf(err, "remove cri pod: %s", p.GetId())
 		}
 	}
+
+	s.getProbeManager().RemovePod(s.Desc)
 	return nil
 }
 
@@ -605,8 +674,12 @@ func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGue
 	return nil, nil
 }
 
+func (s *sPodGuestInstance) getContainerMeta(id string) *sContainer {
+	return s.containers[id]
+}
+
 func (s *sPodGuestInstance) getContainerCRIId(ctrId string) (string, error) {
-	ctr := s.getContainer(ctrId)
+	ctr := s.getContainerMeta(ctrId)
 	if ctr == nil {
 		return "", errors.Wrapf(errors.ErrNotFound, "Not found container %s", ctrId)
 	}
@@ -850,10 +923,6 @@ func (s *sPodGuestInstance) saveContainersFile(containers map[string]*sContainer
 
 func (s *sPodGuestInstance) getContainersFilePath() string {
 	return path.Join(s.HomeDir(), "containers")
-}
-
-func (s *sPodGuestInstance) getContainer(id string) *sContainer {
-	return s.containers[id]
 }
 
 func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, id string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error) {
@@ -1262,6 +1331,15 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 		status = computeapi.CONTAINER_STATUS_EXITED
 	case runtimeapi.ContainerState_CONTAINER_UNKNOWN:
 		status = computeapi.CONTAINER_STATUS_UNKNOWN
+	}
+	if status == computeapi.CONTAINER_STATUS_RUNNING {
+		ctr := s.GetContainerById(ctrId)
+		if ctr == nil {
+			return "", errors.Wrapf(httperrors.ErrNotFound, "not found container by id %s", ctrId)
+		}
+		if ctr.Spec.NeedProbe() {
+			status = computeapi.CONTAINER_STATUS_PROBING
+		}
 	}
 	return status, nil
 }

@@ -794,7 +794,11 @@ func fetchContainers(guestIds []string) (map[string][]*api.PodContainerDesc, err
 		if !ok {
 			ret[container.GuestId] = []*api.PodContainerDesc{}
 		}
-		desc := &api.PodContainerDesc{Id: container.GetId(), Name: container.GetName()}
+		desc := &api.PodContainerDesc{
+			Id:     container.GetId(),
+			Name:   container.GetName(),
+			Status: container.Status,
+		}
 		if container.Spec != nil {
 			desc.Image = container.Spec.Image
 		}

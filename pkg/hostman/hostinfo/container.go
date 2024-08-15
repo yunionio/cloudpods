@@ -61,7 +61,7 @@ func (h *SHostInfo) startContainerStatsProvider(cri pod.CRI) error {
 	if err := ca.Start(); err != nil {
 		return errors.Wrap(err, "start cadvisor")
 	}
-	h.containerStatsProvier = stats.NewCRIContainerStatsProvider(ca, cri.GetRuntimeClient(), cri.GetImageClient())
+	h.containerStatsProvider = stats.NewCRIContainerStatsProvider(ca, cri.GetRuntimeClient(), cri.GetImageClient())
 	return nil
 }
 
@@ -74,5 +74,5 @@ func (h *SHostInfo) GetContainerCPUMap() *pod.HostContainerCPUMap {
 }
 
 func (h *SHostInfo) GetContainerStatsProvider() stats.ContainerStatsProvider {
-	return h.containerStatsProvier
+	return h.containerStatsProvider
 }
