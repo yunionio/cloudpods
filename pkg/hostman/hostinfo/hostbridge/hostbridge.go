@@ -37,6 +37,7 @@ import (
 )
 
 type IBridgeDriver interface {
+	MigrateSlaveConfigs(IBridgeDriver) error
 	ConfirmToConfig() (bool, error)
 	GetMac() string
 	GetVlanId() int
@@ -151,6 +152,124 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 		}
 		if err := l.Err(); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func trySetupSlaveAddressesRoutes(o IBridgeDriver, migrateAddrs [][]string, migrateRoutes []iproute2.RouteSpec) error {
+	if len(migrateAddrs) > 0 {
+		tried := 0
+		const MAX_TRIES = 4
+		errs := make([]error, 0)
+		for tried < MAX_TRIES {
+			if err := o.SetupSlaveAddresses(migrateAddrs); err != nil {
+				errs = append(errs, err)
+				log.Errorf("SetupSlaveAddresses fail: %s", err)
+				tried += 1
+				if tried >= MAX_TRIES {
+					return errors.Wrap(errors.NewAggregate(errs), "SetupSlaveAddresses")
+				} else {
+					time.Sleep(time.Duration(tried) * time.Second)
+				}
+			} else {
+				break
+			}
+		}
+	}
+	if len(migrateRoutes) > 0 {
+		tried := 0
+		const MAX_TRIES = 4
+		errs := make([]error, 0)
+		for {
+			if err := o.SetupRoutes(migrateRoutes); err != nil {
+				errs = append(errs, err)
+				log.Errorf("SetupRoutes fail: %s", err)
+				tried += 1
+				if tried >= MAX_TRIES {
+					return errors.Wrap(errors.NewAggregate(errs), "SetupRoutes")
+				} else {
+					time.Sleep(time.Duration(tried) * time.Second)
+				}
+			} else {
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
+	if d.inter != nil {
+		migrateAddrs := make([][]string, 0)
+		migrateRoutes := make([]iproute2.RouteSpec, 0)
+		{
+			currentRoutes := d.bridge.GetRouteSpecs()
+			currentSlaves := d.bridge.GetSlaveAddresses()
+			routes := d.inter.GetRouteSpecs()
+			slaveAddrs := d.inter.GetSlaveAddresses()
+
+			log.Infof("to migrate routes: %s slaveAddress: %s", jsonutils.Marshal(routes), jsonutils.Marshal(slaveAddrs))
+
+			for i := range slaveAddrs {
+				if strings.HasPrefix(slaveAddrs[i][0], "fe80:") || strings.HasPrefix(slaveAddrs[i][0], "169.254.") {
+					// skip link local address
+					continue
+				}
+				if slaveAddrs[i][0] == d.bridge.Addr {
+					continue
+				}
+				find := false
+				for j := range currentSlaves {
+					if slaveAddrs[i][0] == currentSlaves[j][0] && slaveAddrs[i][1] == currentSlaves[j][1] {
+						find = true
+						break
+					}
+				}
+				if !find {
+					// need to migrate address
+					migrateAddrs = append(migrateAddrs, slaveAddrs[i])
+				}
+			}
+
+			for i := range routes {
+				if strings.HasPrefix(routes[i].Dst.String(), "fe80:") || strings.HasPrefix(routes[i].Dst.String(), "169.254.") {
+					// skip link local routes
+					continue
+				}
+				find := false
+				for j := range currentRoutes {
+					if routes[i].Dst.String() == currentRoutes[j].Dst.String() {
+						find = true
+						break
+					}
+				}
+				if !find {
+					for j := range slaveAddrs {
+						if routes[i].Dst.String() == fmt.Sprintf("%s/%s", slaveAddrs[j][0], slaveAddrs[j][1]) {
+							find = true
+							break
+						}
+					}
+				}
+				if !find {
+					// need to migrate route
+					migrateRoutes = append(migrateRoutes, routes[i])
+				}
+			}
+		}
+		log.Infof("to migrate routes: %s slaveAddress: %s", jsonutils.Marshal(migrateRoutes), jsonutils.Marshal(migrateAddrs))
+		{
+			err := trySetupSlaveAddressesRoutes(o, migrateAddrs, migrateRoutes)
+			if err != nil {
+				return errors.Wrap(err, "trySetupSlaveAddressesRoutes")
+			}
+		}
+		{
+			err := d.inter.ClearAddrs()
+			if err != nil {
+				return errors.Wrap(err, "ClearAddrs")
+			}
 		}
 	}
 	return nil
@@ -334,43 +453,8 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 				return errors.Wrap(err, "SetupAddresses")
 			}
 			time.Sleep(1 * time.Second)
-			if len(slaveAddrs) > 0 {
-				tried := 0
-				const MAX_TRIES = 4
-				errs := make([]error, 0)
-				for tried < MAX_TRIES {
-					if err := o.SetupSlaveAddresses(slaveAddrs); err != nil {
-						errs = append(errs, err)
-						log.Errorf("SetupSlaveAddresses fail: %s", err)
-						tried += 1
-						if tried >= MAX_TRIES {
-							return errors.Wrap(errors.NewAggregate(errs), "SetupSlaveAddresses")
-						} else {
-							time.Sleep(time.Duration(tried) * time.Second)
-						}
-					} else {
-						break
-					}
-				}
-			}
-			if len(routes) > 0 {
-				tried := 0
-				const MAX_TRIES = 4
-				errs := make([]error, 0)
-				for {
-					if err := o.SetupRoutes(routes); err != nil {
-						errs = append(errs, err)
-						log.Errorf("SetupRoutes fail: %s", err)
-						tried += 1
-						if tried >= MAX_TRIES {
-							return errors.Wrap(errors.NewAggregate(errs), "SetupRoutes")
-						} else {
-							time.Sleep(time.Duration(tried) * time.Second)
-						}
-					} else {
-						break
-					}
-				}
+			if err := trySetupSlaveAddressesRoutes(o, slaveAddrs, routes); err != nil {
+				return errors.Wrap(err, "trySetupSlaveAddressesRoutes")
 			}
 		} else {
 			if err := o.SetupAddresses(nil); err != nil {

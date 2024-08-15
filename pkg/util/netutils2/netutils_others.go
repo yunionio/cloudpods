@@ -33,6 +33,10 @@ func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
 	return []iproute2.RouteSpec{}
 }
 
+func (n *SNetInterface) ClearAddrs() error {
+	return nil
+}
+
 func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
 	err = errors.ErrNotImplemented
 	return
