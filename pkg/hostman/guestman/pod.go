@@ -166,6 +166,18 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 	// TODO: 参考SKVMGuestInstance，可以做更多的事，比如同步状态
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
+	/*if s.IsDaemon() {
+		ctx := context.Background()
+		if !s.IsRunning() {
+			if err := s.StartPod(ctx, hostutils.GetComputeSession(ctx).GetToken()); err != nil {
+				log.Errorf("start pod (%s/%s) error: %v", s.GetId(), s.GetName(), err)
+			}
+		// TODO: start related containers and sync status
+		}
+	} else {
+		s.SyncStatus("sync status after host started")
+		s.getProbeManager().AddPod(s.Desc)
+	}*/
 	s.SyncStatus("sync status after host started")
 	s.getProbeManager().AddPod(s.Desc)
 }
@@ -463,11 +475,53 @@ func (s *sPodGuestInstance) getCgroupParent() string {
 	return "/cloudpods"
 }
 
-func Int64Ptr(i int64) *int64 {
-	return &i
+type podStartTask struct {
+	ctx      context.Context
+	userCred mcclient.TokenCredential
+	pod      *sPodGuestInstance
+}
+
+func newPodStartTask(ctx context.Context, userCred mcclient.TokenCredential, pod *sPodGuestInstance) *podStartTask {
+	return &podStartTask{
+		ctx:      ctx,
+		userCred: userCred,
+		pod:      pod,
+	}
+}
+
+func (t *podStartTask) Run() {
+	if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
+		log.Errorf("start pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
+	}
+	t.pod.SyncStatus("sync status after pod start")
+}
+
+func (t *podStartTask) Dump() string {
+	return fmt.Sprintf("pod start task %s/%s", t.pod.GetId(), t.pod.GetName())
+}
+
+func (s *sPodGuestInstance) StartPod(ctx context.Context, userCred mcclient.TokenCredential) error {
+	s.manager.GuestStartWorker.Run(newPodStartTask(ctx, userCred, s), nil, nil)
+	return nil
 }
 
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
+	retries := 3
+	sec := 5 * time.Second
+	var err error
+	var resp *computeapi.PodStartResponse
+	for i := 1; i <= retries; i++ {
+		resp, err = s._startPod(ctx, userCred)
+		if err == nil {
+			return resp, nil
+		}
+		log.Errorf("start pod %s/%s error with %d times: %v", s.GetId(), s.GetName(), i, err)
+		time.Sleep(sec * time.Duration(i))
+	}
+	return resp, err
+}
+
+func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	podInput, err := s.getPodCreateParams()
 	if err != nil {
 		return nil, errors.Wrap(err, "getPodCreateParams")

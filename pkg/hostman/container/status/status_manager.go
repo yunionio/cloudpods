@@ -17,14 +17,12 @@ package status
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober/results"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
-	computemodules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type Manager interface {
@@ -40,16 +38,15 @@ func NewManager() Manager {
 }
 
 func (m *manager) SetContainerStartup(podId string, containerId string, started bool, result results.ProbeResult) {
-	s := hostutils.GetComputeSession(context.Background())
 	status := computeapi.CONTAINER_STATUS_PROBE_FAILED
 	if started {
 		status = computeapi.CONTAINER_STATUS_RUNNING
 	}
-	input := apis.PerformStatusInput{
+	input := &apis.PerformStatusInput{
 		Status: status,
 		Reason: result.Reason,
 	}
-	if _, err := computemodules.Containers.PerformAction(s, containerId, "status", jsonutils.Marshal(input)); err != nil {
+	if _, err := hostutils.UpdateContainerStatus(context.Background(), containerId, input); err != nil {
 		log.Errorf("set container(%s/%s) status failed: %s", podId, containerId, err)
 	}
 }
