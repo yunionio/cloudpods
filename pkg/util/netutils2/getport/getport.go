@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 )
@@ -119,6 +118,7 @@ func GetPortByRange(proto Protocol, start int, end int) (PortResult, error) {
 }
 
 func GetPortByRangeBySets(proto Protocol, start int, end int, usedPorts sets.Int) (PortResult, error) {
+	errs := []error{}
 	for i := start; i <= end; i++ {
 		rPort := rand.Intn(end-start) + start
 		if usedPorts.Has(rPort) {
@@ -127,7 +127,7 @@ func GetPortByRangeBySets(proto Protocol, start int, end int, usedPorts sets.Int
 		result, err := getPort(proto, "", rPort)
 		if err != nil {
 			usedPorts.Insert(rPort)
-			log.Debugf("check random port %d: %v", rPort, err)
+			errs = append(errs, errors.Wrapf(err, "check random port: %d", rPort))
 		} else {
 			return result, nil
 		}
@@ -135,7 +135,7 @@ func GetPortByRangeBySets(proto Protocol, start int, end int, usedPorts sets.Int
 	return PortResult{
 		IP:   "",
 		Port: -1,
-	}, errors.Errorf("can't get free port in [%d, %d]", start, end)
+	}, errors.Wrapf(errors.NewAggregate(errs), "can't get free port in [%d, %d]", start, end)
 }
 
 // GetTcpPort gets a port for some random available address using either
