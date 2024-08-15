@@ -327,6 +327,10 @@ func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, perferNumaN
 	pq.Lock.Lock()
 	defer pq.Lock.Unlock()
 
+	if len(pq.Nodes) == 0 {
+		return nil, nil
+	}
+
 	if pq.NumaEnabled {
 		err := pq.AllocNumaNodes(vcpuCount, memSizeKB, perferNumaNode, res)
 		return res, err
