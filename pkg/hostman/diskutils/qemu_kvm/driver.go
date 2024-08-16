@@ -66,6 +66,7 @@ type QemuDeployManager struct {
 	hugepage        bool
 	hugepageSizeKB  int
 	portsInUse      *sync.Map
+	sshPortLock     *sync.Mutex
 	lastUsedSshPort int
 	qemuCmd         string
 	memSizeMb       int
@@ -152,6 +153,8 @@ func (m *QemuDeployManager) unsetPort(port int) {
 }
 
 func (m *QemuDeployManager) GetSshFreePort() int {
+	m.sshPortLock.Lock()
+	defer m.sshPortLock.Unlock()
 	port := m.GetFreePortByBase(BASE_SSH_PORT + m.lastUsedSshPort)
 	m.lastUsedSshPort = port - BASE_SSH_PORT
 	if m.lastUsedSshPort >= 2000 {
@@ -230,6 +233,7 @@ func InitQemuDeployManager(
 			hugepageSizeKB: hugepageSizeKB,
 			memSizeMb:      memSizeMb,
 			portsInUse:     new(sync.Map),
+			sshPortLock:    new(sync.Mutex),
 			c:              make(chan struct{}, deployConcurrent),
 			qemuCmd:        qemuCmd,
 		}
