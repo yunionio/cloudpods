@@ -447,10 +447,16 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 	}
 }
 
+var incrementSync = false
+
 func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	if isStart {
+	if isStart || incrementSync {
 		return
 	}
+	incrementSync = true
+	defer func() {
+		incrementSync = false
+	}()
 	err := func() error {
 		errs := []error{}
 		err := self.Cloudaccounts.increment(ctx)
@@ -516,10 +522,16 @@ func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.Tok
 	}
 }
 
+var decrementSync = false
+
 func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	if isStart {
+	if isStart || decrementSync {
 		return
 	}
+	decrementSync = true
+	defer func() {
+		decrementSync = false
+	}()
 	err := func() error {
 		errs := []error{}
 		err := self.Cloudaccounts.decrement(ctx)
@@ -585,10 +597,16 @@ func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.Tok
 	}
 }
 
+var updateSync = false
+
 func (self *SResources) UpdateSync(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	if isStart {
+	if isStart || updateSync {
 		return
 	}
+	updateSync = true
+	defer func() {
+		updateSync = false
+	}()
 	err := func() error {
 		errs := []error{}
 		err := self.Cloudaccounts.update(ctx)
