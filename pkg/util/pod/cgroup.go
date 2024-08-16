@@ -31,6 +31,7 @@ type CgroupUtil interface {
 	SetMemoryLimitBytes(ctrId string, bytes int64) error
 	SetCPUCfs(ctrId string, quota int64, period int64) error
 	SetDevicesAllow(ctrId string, allows []string) error
+	SetPidsMax(ctrId string, max int) error
 }
 
 type podCgroupV1Util struct {
@@ -85,4 +86,9 @@ func (p podCgroupV1Util) SetDevicesAllow(ctrId string, allows []string) error {
 		}
 	}
 	return nil
+}
+
+func (p podCgroupV1Util) SetPidsMax(ctrId string, max int) error {
+	pidFp := p.getContainerCGFilePath("pids", ctrId, "pids.max")
+	return p.write(pidFp, fmt.Sprintf("%d", max))
 }

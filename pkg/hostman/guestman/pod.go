@@ -782,6 +782,11 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if err := s.setContainerCgroupDevicesAllow(criId, input.Spec.CgroupDevicesAllow); err != nil {
 		return nil, errors.Wrap(err, "set cgroup devices allow")
 	}
+	if input.Spec.CgroupPidsMax > 0 {
+		if err := s.getCGUtil().SetPidsMax(criId, input.Spec.CgroupPidsMax); err != nil {
+			return nil, errors.Wrap(err, "set cgroup pids.max")
+		}
+	}
 	if err := s.doContainerStartPostLifecycle(ctx, criId, input); err != nil {
 		return nil, errors.Wrap(err, "do container lifecycle")
 	}
