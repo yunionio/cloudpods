@@ -339,6 +339,33 @@ func (manager *SStoragecachedimageManager) GetStoragecachedimage(cacheId string,
 	return obj.(*SStoragecachedimage)
 }
 
+func (manager *SStoragecachedimageManager) RecoverStoragecachedImage(
+	ctx context.Context, userCred mcclient.TokenCredential, scId, imgId string,
+) (*SStoragecachedimage, error) {
+	lockman.LockRawObject(ctx, manager.Keyword(), "name")
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+	storagecachedImage := SStoragecachedimage{}
+	storagecachedImage.SetModelManager(manager, &storagecachedImage)
+
+	err := manager.RawQuery().Equals("storagecache_id", scId).Equals("cachedimage_id", imgId).First(&storagecachedImage)
+	if err != nil {
+		return nil, err
+	}
+	diff, err := db.Update(&storagecachedImage, func() error {
+		storagecachedImage.Status = api.CACHED_IMAGE_STATUS_ACTIVE
+		if storagecachedImage.Deleted == true {
+			storagecachedImage.Deleted = false
+			storagecachedImage.DeletedAt = time.Time{}
+			storagecachedImage.UpdateVersion = 0
+		}
+		return nil
+	})
+
+	db.OpsLog.LogEvent(&storagecachedImage, db.ACT_UPDATE, diff, userCred)
+	return &storagecachedImage, nil
+}
+
 func (self *SStoragecachedimage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	_, err := sqlchemy.GetDB().Exec(
 		fmt.Sprintf(
