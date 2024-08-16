@@ -132,16 +132,83 @@ func newContainer(id string) *sContainer {
 	}
 }
 
+type startStatHelper struct {
+	podId   string
+	homeDir string
+}
+
+func newStartStatHelper(podId string, homeDir string) *startStatHelper {
+	return &startStatHelper{
+		podId:   podId,
+		homeDir: homeDir,
+	}
+}
+
+func (h startStatHelper) getPodFile() string {
+	return filepath.Join(h.homeDir, "pod-start.stat")
+}
+
+func (h startStatHelper) IsPodFileExists() bool {
+	return fileutils2.Exists(h.getPodFile())
+}
+
+func (h startStatHelper) createStatFile(fp string) error {
+	if fileutils2.Exists(fp) {
+		return nil
+	}
+	if err := pod.EnsureFile(fp, "", "755"); err != nil {
+		return errors.Wrapf(err, "ensure file %s", fp)
+	}
+	return nil
+}
+
+func (h startStatHelper) removeStatFile(fp string) error {
+	if !fileutils2.Exists(fp) {
+		return nil
+	}
+	if err := os.Remove(fp); err != nil {
+		return errors.Wrapf(err, "remove file %s", fp)
+	}
+	return nil
+}
+
+func (h startStatHelper) CreatePodFile() error {
+	return h.createStatFile(h.getPodFile())
+}
+
+func (h startStatHelper) RemovePodFile() error {
+	return h.removeStatFile(h.getPodFile())
+}
+
+func (h startStatHelper) getContainerFile(ctrId string) string {
+	return filepath.Join(h.homeDir, fmt.Sprintf("container-start-%s.stat", ctrId))
+}
+
+func (h startStatHelper) IsContainerFileExists(ctrId string) bool {
+	return fileutils2.Exists(h.getContainerFile(ctrId))
+}
+
+func (h startStatHelper) CreateContainerFile(ctrId string) error {
+	return h.createStatFile(h.getContainerFile(ctrId))
+}
+
+func (h startStatHelper) RemoveContainerFile(ctrId string) error {
+	return h.removeStatFile(h.getContainerFile(ctrId))
+}
+
 type sPodGuestInstance struct {
 	*sBaseGuestInstance
 	containers map[string]*sContainer
+	startStat  *startStatHelper
 }
 
 func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
-	return &sPodGuestInstance{
+	p := &sPodGuestInstance{
 		sBaseGuestInstance: newBaseGuestInstance(id, man, computeapi.HYPERVISOR_POD),
 		containers:         make(map[string]*sContainer),
 	}
+	p.startStat = newStartStatHelper(id, p.HomeDir())
+	return p
 }
 
 func (s *sPodGuestInstance) CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -166,20 +233,42 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 	// TODO: 参考SKVMGuestInstance，可以做更多的事，比如同步状态
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
-	/*if s.IsDaemon() {
+	if s.IsDaemon() || s.IsDirtyShutdown() {
 		ctx := context.Background()
-		if !s.IsRunning() {
-			if err := s.StartPod(ctx, hostutils.GetComputeSession(ctx).GetToken()); err != nil {
-				log.Errorf("start pod (%s/%s) error: %v", s.GetId(), s.GetName(), err)
-			}
-		// TODO: start related containers and sync status
+		cred := hostutils.GetComputeSession(ctx).GetToken()
+		if err := s.StartLocalPod(ctx, cred); err != nil {
+			log.Errorf("start local pod err %s", err.Error())
 		}
 	} else {
 		s.SyncStatus("sync status after host started")
 		s.getProbeManager().AddPod(s.Desc)
-	}*/
-	s.SyncStatus("sync status after host started")
-	s.getProbeManager().AddPod(s.Desc)
+	}
+}
+
+func (s *sPodGuestInstance) isPodDirtyShutdown() bool {
+	if !s.IsRunning() && s.startStat.IsPodFileExists() {
+		return true
+	}
+	return false
+}
+
+func (s *sPodGuestInstance) isContainerDirtyShutdown(ctrId string) bool {
+	if !s.IsContainerRunning(context.Background(), ctrId) && s.startStat.IsContainerFileExists(ctrId) {
+		return true
+	}
+	return false
+}
+
+func (s *sPodGuestInstance) IsDirtyShutdown() bool {
+	if s.isPodDirtyShutdown() {
+		return true
+	}
+	for _, ctr := range s.GetContainers() {
+		if s.isContainerDirtyShutdown(ctr.Id) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *sPodGuestInstance) SyncStatus(reason string) {
@@ -281,6 +370,17 @@ func (s *sPodGuestInstance) IsRunning() bool {
 		return false
 	}
 	if pod.GetState() == runtimeapi.PodSandboxState_SANDBOX_READY {
+		return true
+	}
+	return false
+}
+
+func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string) bool {
+	status, err := s.getContainerStatus(ctx, ctrId)
+	if err != nil {
+		return false
+	}
+	if sets.NewString(computeapi.CONTAINER_STATUS_RUNNING, computeapi.CONTAINER_STATUS_PROBING).Has(status) {
 		return true
 	}
 	return false
@@ -475,33 +575,44 @@ func (s *sPodGuestInstance) getCgroupParent() string {
 	return "/cloudpods"
 }
 
-type podStartTask struct {
+type localPodStartTask struct {
 	ctx      context.Context
 	userCred mcclient.TokenCredential
 	pod      *sPodGuestInstance
 }
 
-func newPodStartTask(ctx context.Context, userCred mcclient.TokenCredential, pod *sPodGuestInstance) *podStartTask {
-	return &podStartTask{
+func newLocalPodStartTask(ctx context.Context, userCred mcclient.TokenCredential, pod *sPodGuestInstance) *localPodStartTask {
+	return &localPodStartTask{
 		ctx:      ctx,
 		userCred: userCred,
 		pod:      pod,
 	}
 }
 
-func (t *podStartTask) Run() {
-	if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
-		log.Errorf("start pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
+func (t *localPodStartTask) Run() {
+	if t.pod.isPodDirtyShutdown() {
+		log.Infof("start pod locally (%s/%s)", t.pod.Id, t.pod.GetName())
+		if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
+			log.Errorf("start pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
+		}
 	}
-	t.pod.SyncStatus("sync status after pod start")
+	for _, ctr := range t.pod.GetContainers() {
+		if t.pod.isContainerDirtyShutdown(ctr.Id) {
+			log.Infof("start container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
+			if _, err := t.pod.StartLocalContainer(t.ctx, t.userCred, ctr.Id); err != nil {
+				log.Errorf("start container %s err: %s", ctr.Id, err.Error())
+			}
+		}
+	}
+	t.pod.SyncStatus("sync status after pod start locally")
 }
 
-func (t *podStartTask) Dump() string {
+func (t *localPodStartTask) Dump() string {
 	return fmt.Sprintf("pod start task %s/%s", t.pod.GetId(), t.pod.GetName())
 }
 
-func (s *sPodGuestInstance) StartPod(ctx context.Context, userCred mcclient.TokenCredential) error {
-	s.manager.GuestStartWorker.Run(newPodStartTask(ctx, userCred, s), nil, nil)
+func (s *sPodGuestInstance) StartLocalPod(ctx context.Context, userCred mcclient.TokenCredential) error {
+	s.manager.GuestStartWorker.Run(newLocalPodStartTask(ctx, userCred, s), nil, nil)
 	return nil
 }
 
@@ -624,6 +735,9 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 	}
 
 	s.getProbeManager().AddPod(s.Desc)
+	if err := s.startStat.CreatePodFile(); err != nil {
+		return nil, errors.Wrap(err, "startStat.CreatePodFile")
+	}
 	return &computeapi.PodStartResponse{
 		CRIId:     criId,
 		IsRunning: false,
@@ -666,6 +780,9 @@ func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64)
 	}
 
 	s.getProbeManager().RemovePod(s.Desc)
+	if err := s.startStat.RemovePodFile(); err != nil {
+		return errors.Wrap(err, "startStat.RemovePodFile")
+	}
 	return nil
 }
 
@@ -740,6 +857,23 @@ func (s *sPodGuestInstance) getContainerCRIId(ctrId string) (string, error) {
 	return ctr.CRIId, nil
 }
 
+func (s *sPodGuestInstance) StartLocalContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error) {
+	ctr := s.GetContainerById(ctrId)
+	if ctr == nil {
+		return nil, errors.Wrapf(errors.ErrNotFound, "Not found container %s", ctrId)
+	}
+	input := &hostapi.ContainerCreateInput{
+		Name:    ctr.Name,
+		GuestId: s.GetId(),
+		Spec:    ctr.Spec,
+	}
+	ret, err := s.StartContainer(ctx, userCred, ctrId, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "start container")
+	}
+	return ret, nil
+}
+
 func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error) {
 	_, hasCtr := s.containers[ctrId]
 	needRecreate := false
@@ -784,6 +918,9 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	}
 	if err := s.doContainerStartPostLifecycle(ctx, criId, input); err != nil {
 		return nil, errors.Wrap(err, "do container lifecycle")
+	}
+	if err := s.startStat.CreateContainerFile(ctrId); err != nil {
+		return nil, errors.Wrapf(err, "create container startup stat file %s", ctrId)
 	}
 	return nil, nil
 }
@@ -864,6 +1001,9 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 	}
 	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {
 		return nil, errors.Wrap(err, "CRI.StopContainer")
+	}
+	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
+		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
 	}
 	return nil, nil
 }
