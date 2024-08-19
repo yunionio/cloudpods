@@ -4762,7 +4762,7 @@ func (hh *SHost) PerformReserveCpus(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input api.HostReserveCpusInput,
 ) (jsonutils.JSONObject, error) {
-	if hh.HostType != api.HOST_TYPE_HYPERVISOR {
+	if !utils.IsInStringArray(hh.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}) {
 		return nil, httperrors.NewNotSupportedError("host type %s not support reserve cpus", hh.HostType)
 	}
 
@@ -6220,7 +6220,7 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 	deadline := time.Now().Add(-1 * time.Duration(options.Options.HostOfflineMaxSeconds) * time.Second)
 
 	q := manager.Query().Equals("host_status", api.HOST_ONLINE).
-		Equals("host_type", api.HOST_TYPE_HYPERVISOR).IsNullOrEmpty("manager_id")
+		In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}).IsNullOrEmpty("manager_id")
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_ping_at")),
 		sqlchemy.LT(q.Field("last_ping_at"), deadline)))
 
