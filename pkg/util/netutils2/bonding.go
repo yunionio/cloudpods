@@ -16,7 +16,7 @@ package netutils2
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -44,7 +44,7 @@ func getBondingConfig(ifname string) *SBondingConfig {
 	}
 	conf := SBondingConfig{}
 	{
-		content, err := ioutil.ReadFile(modePath)
+		content, err := os.ReadFile(modePath)
 		if err != nil {
 			log.Errorf("fail to read %s", modePath)
 			return nil
@@ -56,7 +56,7 @@ func getBondingConfig(ifname string) *SBondingConfig {
 		conf.ModeName = modeName
 	}
 	{
-		content, err := ioutil.ReadFile(slavesPath)
+		content, err := os.ReadFile(slavesPath)
 		if err != nil {
 			log.Errorf("fail to read %s", modePath)
 			return nil

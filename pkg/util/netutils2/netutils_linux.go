@@ -17,6 +17,7 @@ package netutils2
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 
@@ -24,10 +25,21 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/iproute2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func (n *SNetInterface) GetAddresses() [][]string {
-	ipnets, err := iproute2.NewAddress(n.name).List4()
+	addrList := iproute2.NewAddress(n.name)
+	addrs4 := n.getAddresses(addrList.List4)
+	addrs6 := n.getAddresses(addrList.List6)
+	if len(addrs6) > 0 {
+		addrs4 = append(addrs4, addrs6...)
+	}
+	return addrs4
+}
+
+func (n *SNetInterface) getAddresses(listFunc func() ([]net.IPNet, error)) [][]string {
+	ipnets, err := listFunc()
 	if err != nil {
 		log.Errorf("list address %s: %v", n.name, err)
 		return nil
@@ -45,7 +57,26 @@ func (n *SNetInterface) GetAddresses() [][]string {
 }
 
 func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
-	routespecs, err := iproute2.NewRoute(n.name).List4()
+	routeList := iproute2.NewRoute(n.name)
+	routes4 := getRouteSpecs(routeList.List4)
+	routes6 := getRouteSpecs(routeList.List6)
+	if len(routes6) > 0 {
+		routes4 = append(routes4, routes6...)
+	}
+	return routes4
+}
+
+func (n *SNetInterface) ClearAddrs() error {
+	cmd := procutils.NewCommand("ip", "addr", "flush", "dev", n.name)
+	msg, err := cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, strings.TrimSpace(string(msg)))
+	}
+	return nil
+}
+
+func getRouteSpecs(listFunc func() ([]iproute2.RouteSpec, error)) []iproute2.RouteSpec {
+	routespecs, err := listFunc()
 	if err != nil {
 		return nil
 	}
