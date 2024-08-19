@@ -90,7 +90,7 @@ func (t *PodCreateTask) OnContainerCreated(ctx context.Context, guest *models.SG
 		return
 	}
 	isAllCreated := true
-	createdStatus := []string{api.CONTAINER_STATUS_RUNNING, api.CONTAINER_STATUS_UNKNOWN, api.CONTAINER_STATUS_CREATED, api.CONTAINER_STATUS_EXITED}
+	createdStatus := []string{api.CONTAINER_STATUS_RUNNING, api.CONTAINER_STATUS_UNKNOWN, api.CONTAINER_STATUS_CREATED, api.CONTAINER_STATUS_EXITED, api.CONTAINER_STATUS_PROBING}
 	for _, ctr := range ctrs {
 		if !sets.NewString(createdStatus...).Has(ctr.GetStatus()) {
 			isAllCreated = false
