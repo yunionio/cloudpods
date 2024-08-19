@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
@@ -32,6 +33,8 @@ func init() {
 	cmd.ClassShow(&compute.DnsZoneCapabilitiesOptions{})
 	cmd.Delete(&compute.SDnsZoneIdOptions{})
 	cmd.Create(&compute.DnsZoneCreateOptions{})
+	cmd.Perform("public", &options.BasePublicOptions{})
+	cmd.Perform("private", &options.BaseIdOptions{})
 	cmd.Perform("syncstatus", &compute.SDnsZoneIdOptions{})
 	cmd.Perform("purge", &compute.SDnsZoneIdOptions{})
 	cmd.Perform("add-vpcs", &compute.DnsZoneAddVpcsOptions{})
