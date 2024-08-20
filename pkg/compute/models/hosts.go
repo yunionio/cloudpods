@@ -5244,6 +5244,7 @@ func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			log.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
 			return fmt.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
 		} else {
+			log.Infof("not found network with scope: %s, ip_addr: %s", NetworkManager.AllowScope(userCred), ipAddr)
 			// the ipaddr is not usable, should be reset to empty
 			ipAddr = ""
 		}
@@ -5287,7 +5288,7 @@ func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredenti
 					return fmt.Errorf("fail to find public network %s", err)
 				}
 				if net == nil {
-					return fmt.Errorf("No network found")
+					return fmt.Errorf("No auto_alloc network found of wire: %s(%s), netTypes: %v", wire.GetName(), wire.GetId(), netTypes)
 				}
 			}
 		}
