@@ -1847,7 +1847,7 @@ func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac string, vlanId int, wire
 	}
 	res, err := modules.Hosts.PerformAction(h.GetSession(), h.HostId, "add-netif", content)
 	if err != nil {
-		return nil, errors.Wrap(err, "modules.Hosts.PerformAction add-netif")
+		return nil, errors.Wrapf(err, "modules.Hosts.PerformAction add-netif: %s", content.String())
 	}
 
 	return json2HostDetails(res)
