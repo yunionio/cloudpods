@@ -261,6 +261,14 @@ func (manager *SElasticipManager) ListItemFilter(
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("associate_id")), sqlchemy.IsEmpty(q.Field("associate_id"))))
 	}
 
+	if query.IsAssociated != nil {
+		if *query.IsAssociated {
+			q = q.IsNotEmpty("associate_type")
+		} else {
+			q = q.IsNullOrEmpty("associate_type")
+		}
+	}
+
 	if len(query.Mode) > 0 {
 		q = q.In("mode", query.Mode)
 	}
