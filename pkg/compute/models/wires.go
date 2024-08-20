@@ -1015,7 +1015,7 @@ func (swire *SWire) GetCandidatePrivateNetwork(ctx context.Context, userCred mcc
 func (swire *SWire) GetCandidateAutoAllocNetwork(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, isExit bool, serverTypes []api.TNetworkType) (*SNetwork, error) {
 	nets, err := swire.getAutoAllocNetworks(ctx, userCred, ownerId, scope)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "getAutoAllocNetworks with scope %s", scope)
 	}
 	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
@@ -1023,11 +1023,11 @@ func (swire *SWire) GetCandidateAutoAllocNetwork(ctx context.Context, userCred m
 func (swire *SWire) GetCandidateNetworkForIp(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, ipAddr string) (*SNetwork, error) {
 	ip, err := netutils.NewIPV4Addr(ipAddr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "netutils.NewIPV4Addr: %s", ipAddr)
 	}
 	netPrivates, err := swire.getPrivateNetworks(ctx, userCred, ownerId, scope)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "swire.getPrivateNetworks %s", swire.GetId())
 	}
 	for _, net := range netPrivates {
 		if net.IsAddressInRange(ip) {
