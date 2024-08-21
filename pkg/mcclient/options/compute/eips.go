@@ -30,6 +30,7 @@ type ElasticipListOptions struct {
 	AssociateId               []string
 	AssociateType             []string
 	AssociateName             []string
+	IsAssociated              *bool
 
 	IpAddr []string
 	options.BaseListOptions
