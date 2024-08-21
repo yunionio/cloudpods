@@ -77,7 +77,7 @@ func (manager *SIsolatedDeviceModelManager) ValidateCreateData(ctx context.Conte
 	query jsonutils.JSONObject,
 	input api.IsolatedDeviceModelCreateInput,
 ) (api.IsolatedDeviceModelCreateInput, error) {
-	if utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
+	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
 		return input, httperrors.NewInputParameterError("device type %q unsupported", input.DevType)
 	}
 
