@@ -87,6 +87,9 @@ type ElasticipListInput struct {
 	// example: elastic_ip
 	Mode string `json:"mode"`
 
+	// 是否已关联资源
+	IsAssociated *bool `json:"is_associated"`
+
 	// IP地址
 	IpAddr []string `json:"ip_addr"`
 
