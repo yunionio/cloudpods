@@ -27,7 +27,7 @@ import (
 
 type Reducer interface {
 	Reduce(series *monitor.TimeSeries) (*float64, []string)
-	GetType() string
+	GetType() monitor.ReducerType
 	GetParams() []float64
 }
 
@@ -35,7 +35,7 @@ type Reducer interface {
 type queryReducer struct {
 	// Type is how the timeseries should be reduced.
 	// Ex: avg, sum, max, min, count
-	Type   string
+	Type   monitor.ReducerType
 	Params []float64
 }
 
@@ -43,7 +43,7 @@ func (s *queryReducer) GetParams() []float64 {
 	return s.Params
 }
 
-func (s *queryReducer) GetType() string {
+func (s *queryReducer) GetType() monitor.ReducerType {
 	return s.Type
 }
 
@@ -64,7 +64,7 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 	allNull := true
 	valArr := make([]string, 0)
 	switch s.Type {
-	case "avg":
+	case monitor.REDUCER_AVG:
 		validPointsCount := 0
 		for _, point := range series.Points {
 			if point.IsValid() {
@@ -76,14 +76,14 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 		if validPointsCount > 0 {
 			value = value / float64(validPointsCount)
 		}
-	case "sum":
+	case monitor.REDUCER_SUM:
 		for _, point := range series.Points {
 			if point.IsValid() {
 				value += point.Value()
 				allNull = false
 			}
 		}
-	case "min":
+	case monitor.REDUCER_MIN:
 		value = math.MaxFloat64
 		for _, point := range series.Points {
 			if point.IsValid() {
@@ -94,7 +94,7 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 				}
 			}
 		}
-	case "max":
+	case monitor.REDUCER_MAX:
 		value = -math.MaxFloat64
 		for _, point := range series.Points {
 			if point.IsValid() {
@@ -105,10 +105,10 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 				}
 			}
 		}
-	case "count":
+	case monitor.REDUCER_COUNT:
 		value = float64(len(series.Points))
 		allNull = false
-	case "last":
+	case monitor.REDUCER_LAST:
 		points := series.Points
 		for i := len(points) - 1; i >= 0; i-- {
 			if points[i].IsValid() {
@@ -118,7 +118,7 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 				break
 			}
 		}
-	case "median":
+	case monitor.REDUCER_MEDIAN:
 		var values []float64
 		for _, v := range series.Points {
 			if v.IsValid() {
@@ -135,11 +135,11 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 				value = (values[(length/2)-1] + values[length/2]) / 2
 			}
 		}
-	case "diff":
+	case monitor.REDUCER_DIFF:
 		allNull, value = calculateDiff(series, allNull, value, diff)
-	case "percent_diff":
+	case monitor.REDUCER_PERCENT_DIFF:
 		allNull, value = calculateDiff(series, allNull, value, percentDiff)
-	case "count_non_null":
+	case monitor.REDUCER_COUNT_NON_NULL:
 		for _, v := range series.Points {
 			if v.IsValid() {
 				value++
@@ -149,7 +149,7 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 		if value > 0 {
 			allNull = false
 		}
-	case "percentile":
+	case monitor.REDUCER_PERCENTILE:
 		var values []float64
 		for _, v := range series.Points {
 			if v.IsValid() {
@@ -178,14 +178,14 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 
 func newSimpleReducer(cond *monitor.Condition) *queryReducer {
 	return &queryReducer{
-		Type:   cond.Type,
+		Type:   monitor.ReducerType(cond.Type),
 		Params: cond.Params,
 	}
 }
 
 func newSimpleReducerByType(typ string) *queryReducer {
 	return &queryReducer{
-		Type:   typ,
+		Type:   monitor.ReducerType(typ),
 		Params: []float64{},
 	}
 }
@@ -235,5 +235,5 @@ func NewAlertReducer(cond *monitor.Condition) (Reducer, error) {
 		return newMathReducer(cond)
 	}
 
-	return nil, errors.Wrapf(errors.Error("reducer operator is ilegal"), "operator: %s", cond.Operators[0])
+	return nil, errors.Wrapf(errors.Error("reducer operator is illegal"), "operator: %s", cond.Operators[0])
 }
