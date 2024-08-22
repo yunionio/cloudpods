@@ -66,6 +66,11 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 		if err := validators.ValidateToValue(qc.Query.To); err != nil {
 			return nil, errors.Wrapf(err, "validate to value %q", qc.Query.To)
 		}
+		reducer, err := NewAlertReducer(&model.Reducer)
+		if err != nil {
+			return nil, errors.Wrapf(err, "NewAlertReducer")
+		}
+		qc.Reducer = reducer
 		qc.setResType()
 		cond.QueryCons = append(cond.QueryCons, *qc)
 	}
@@ -100,6 +105,23 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 			return nil, errors.Wrapf(err, "query.executeQuery from %s", ds.Type)
 		}
 		log.Debugf("query metrics from TSDB %q elapsed: %s", ds.Type, time.Since(startTime))
+		if firstCond.Reducer.GetType() != "" {
+			if queryResult.reducedResult == nil {
+				queryResult.reducedResult = &monitor.ReducedResult{
+					Reducer: monitor.Condition{
+						Type:   string(firstCond.Reducer.GetType()),
+						Params: firstCond.Reducer.GetParams(),
+					},
+					Result: make([]float64, len(queryResult.series)),
+				}
+			}
+			for i, ss := range queryResult.series {
+				resultReducerValue, _ := firstCond.Reducer.Reduce(ss)
+				if resultReducerValue != nil {
+					queryResult.reducedResult.Result[i] = *resultReducerValue
+				}
+			}
+		}
 		return queryResult, nil
 	}
 
@@ -109,10 +131,10 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 			return nil, errors.Wrap(err, "queryTSDB")
 		}
 		metrics := monitor.MetricsQueryResult{
-			Series: make(monitor.TimeSeriesSlice, 0),
-			Metas:  qr.metas,
+			Series:        qr.series,
+			Metas:         qr.metas,
+			ReducedResult: qr.reducedResult,
 		}
-		metrics.Series = qr.series
 		return &metrics, nil
 	}
 
@@ -170,8 +192,9 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	//	metrics.Series = append(metrics.Series, serie)
 	//}
 	metrics := monitor.MetricsQueryResult{
-		Series: make(monitor.TimeSeriesSlice, 0),
-		Metas:  qr.metas,
+		Series:        make(monitor.TimeSeriesSlice, 0),
+		Metas:         qr.metas,
+		ReducedResult: qr.reducedResult,
 	}
 	mtx := sync.Mutex{}
 	workqueue.Parallelize(4, len(qr.series), func(piece int) {
@@ -187,6 +210,7 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	})
 	log.Debugf("fill metrics tag elapsed: %s", time.Since(startTime))
 	log.Debugf("all steps elapsed: %s", time.Since(allStartTime))
+
 	return &metrics, nil
 }
 
