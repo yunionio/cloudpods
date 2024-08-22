@@ -287,6 +287,13 @@ func (self *SyncObject) newMonitorResourceCreateInput(input jsonutils.JSONObject
 	return monitorResource
 }
 
+func SetQueryHostType(q *jsonutils.JSONDict) {
+	q.Set("filter", jsonutils.NewString(
+		fmt.Sprintf("host_type.in(%s,%s)",
+			hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR,
+			hostconsts.TELEGRAF_TAG_KEY_CONTAINER)))
+}
+
 func GetOnecloudResources(resTyep string) ([]jsonutils.JSONObject, error) {
 	var err error
 	allResources := make([]jsonutils.JSONObject, 0)
@@ -296,7 +303,6 @@ func GetOnecloudResources(resTyep string) ([]jsonutils.JSONObject, error) {
 	query.Add(jsonutils.NewString("true"), "admin")
 	switch resTyep {
 	case monitor.METRIC_RES_TYPE_HOST:
-		//query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
 		allResources, err = ListAllResources(&mc_mds.Hosts, query)
 	case monitor.METRIC_RES_TYPE_GUEST:
 		allResources, err = ListAllResources(&mc_mds.Servers, query)
@@ -322,7 +328,7 @@ func GetOnecloudResources(resTyep string) ([]jsonutils.JSONObject, error) {
 	default:
 		query := jsonutils.NewDict()
 		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
-		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		SetQueryHostType(query)
 		allResources, err = ListAllResources(&mc_mds.Hosts, query)
 	}
 

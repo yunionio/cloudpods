@@ -18,6 +18,7 @@ const (
 	TELEGRAF_TAG_KEY_BRAND      = "brand"
 	TELEGRAF_TAG_KEY_PLATFORM   = "platform"
 	TELEGRAF_TAG_KEY_HYPERVISOR = "hypervisor"
+	TELEGRAF_TAG_KEY_CONTAINER  = "container"
 	TELEGRAF_TAG_KEY_RES_TYPE   = "res_type"
 	TELEGRAF_TAG_KEY_HOST_TYPE  = "host_type"
 
