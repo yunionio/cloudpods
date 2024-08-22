@@ -98,7 +98,7 @@ func (c *QueryCondition) GenerateFormatCond(meta *monitor.QueryResultMeta, metri
 	return &FormatCond{
 		QueryMeta:    meta,
 		QueryKeyInfo: metric,
-		Reducer:      c.Reducer.GetType(),
+		Reducer:      string(c.Reducer.GetType()),
 		Evaluator:    c.Evaluator,
 	}
 }
@@ -376,8 +376,9 @@ func (c *QueryCondition) jointPointStr(series monitor.TimeSeries, value string, 
 }
 
 type queryResult struct {
-	series monitor.TimeSeriesSlice
-	metas  []monitor.QueryResultMeta
+	series        monitor.TimeSeriesSlice
+	metas         []monitor.QueryResultMeta
+	reducedResult *monitor.ReducedResult
 }
 
 func (c *QueryCondition) executeQuery(evalCtx *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {

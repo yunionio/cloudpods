@@ -96,9 +96,10 @@ type SimpleQueryOutput struct {
 }
 
 type MetricsQueryResult struct {
-	SeriesTotal int64
-	Series      TimeSeriesSlice
-	Metas       []QueryResultMeta
+	SeriesTotal   int64
+	Series        TimeSeriesSlice
+	Metas         []QueryResultMeta
+	ReducedResult *ReducedResult
 }
 
 type TimeSeriesPoints []TimePoint
@@ -190,7 +191,8 @@ func NewTimeSeriesPointsFromArgs(values ...float64) TimeSeriesPoints {
 }
 
 type QueryResultMeta struct {
-	RawQuery string `json:"raw_query"`
+	RawQuery           string  `json:"raw_query"`
+	ResultReducerValue float64 `json:"result_reducer_value"`
 }
 
 const ConditionTypeMetricQuery = "metricquery"
