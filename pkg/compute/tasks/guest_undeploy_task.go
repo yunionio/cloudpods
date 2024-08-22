@@ -57,6 +57,7 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)
 		}
+		self.SetStageComplete(ctx, nil)
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}
