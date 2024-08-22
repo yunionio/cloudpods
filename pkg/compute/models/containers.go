@@ -678,3 +678,12 @@ func (c *SContainer) GetReleasedDevices(ctx context.Context, userCred mcclient.T
 	}
 	return out, nil
 }
+
+func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	if c.GetStatus() == api.CONTAINER_STATUS_EXITED {
+		if input.Status == api.CONTAINER_STATUS_PROBE_FAILED {
+			return nil, httperrors.NewInputParameterError("can't set container status to %s when %s", input.Status, c.Status)
+		}
+	}
+	return c.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
+}
