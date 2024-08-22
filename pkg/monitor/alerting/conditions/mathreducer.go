@@ -35,8 +35,8 @@ func (s *mathReducer) GetParams() []float64 {
 	return s.Params
 }
 
-func (s *mathReducer) GetType() string {
-	return s.Type
+func (s *mathReducer) GetType() monitor.ReducerType {
+	return monitor.ReducerType(s.Type)
 }
 
 func (s *mathReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {

@@ -125,6 +125,11 @@ func ValidateSelectOfMetricQuery(input monitor.AlertQuery) error {
 			return httperrors.NewInputParameterError("select for nothing in query")
 		}
 	}
+	if input.ResultReducer != nil {
+		if !monitor.ValidateReducerTypes.Has(input.ResultReducer.Type) {
+			return httperrors.NewInputParameterError("invalid result reducer type %s", input.ResultReducer.Type)
+		}
+	}
 	return nil
 }
 

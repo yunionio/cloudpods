@@ -96,6 +96,8 @@ type AlertQuery struct {
 	Model MetricQuery `json:"model"`
 	From  string      `json:"from"`
 	To    string      `json:"to"`
+	// 查询结果 reducer，执行 p95 这些操作
+	ResultReducer *Condition `json:"result_reducer"`
 }
 
 type AlertCreateInput struct {
