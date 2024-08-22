@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -38,10 +39,13 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SLVMStorage struct {
@@ -275,9 +279,28 @@ func (s *SLVMStorage) SaveToGlance(ctx context.Context, input interface{}) (json
 		imageId, _   = data.GetString("image_id")
 		imagePath, _ = data.GetString("image_path")
 		compress     = jsonutils.QueryBoolean(data, "compress", true)
+		encKeyId, _  = data.GetString("encrypt_key_id")
 		err          error
 	)
-	if err = s.saveToGlance(ctx, imageId, imagePath, compress); err != nil {
+
+	var (
+		encKey    string
+		encFormat qemuimg.TEncryptFormat
+		encAlg    seclib2.TSymEncAlg
+	)
+
+	if len(encKeyId) > 0 {
+		session := auth.GetSession(ctx, info.UserCred, consts.GetRegion())
+		key, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetEncryptKey")
+		}
+		encKey = key.Key
+		encFormat = qemuimg.EncryptFormatLuks
+		encAlg = key.Alg
+	}
+
+	if err = s.saveToGlance(ctx, imageId, imagePath, compress, encKey, encFormat, encAlg); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
 		s.onSaveToGlanceFailed(ctx, imageId, err.Error())
 	}
@@ -300,10 +323,18 @@ func (s *SLVMStorage) SaveToGlance(ctx context.Context, input interface{}) (json
 	return nil, nil
 }
 
-func (s *SLVMStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool) error {
+func (s *SLVMStorage) saveToGlance(
+	ctx context.Context, imageId, imagePath string, compress bool,
+	encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg,
+) error {
 	log.Infof("saveToGlance %s", imagePath)
 	diskInfo := &deployapi.DiskInfo{
 		Path: imagePath,
+	}
+	if len(encryptKey) > 0 {
+		diskInfo.EncryptPassword = encryptKey
+		diskInfo.EncryptFormat = string(encFormat)
+		diskInfo.EncryptAlg = string(encAlg)
 	}
 	ret, err := deployclient.GetDeployClient().SaveToGlance(ctx,
 		&deployapi.SaveToGlanceParams{DiskInfo: diskInfo, Compress: compress})
