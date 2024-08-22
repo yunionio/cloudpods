@@ -591,7 +591,7 @@ func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, scope s
 	)
 	switch c.ResType {
 	case monitor.METRIC_RES_TYPE_HOST:
-		query.Set("host_type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		models.SetQueryHostType(query)
 		query.Set("enabled", jsonutils.NewInt(1))
 		manager = &mc_mds.Hosts
 	case monitor.METRIC_RES_TYPE_GUEST:
@@ -618,7 +618,7 @@ func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, scope s
 	default:
 		query := jsonutils.NewDict()
 		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
-		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		models.SetQueryHostType(query)
 		manager = &mc_mds.Hosts
 	}
 
