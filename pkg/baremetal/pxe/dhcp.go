@@ -205,7 +205,7 @@ func (req *dhcpRequest) fetchConfig(ctx context.Context, session *mcclient.Clien
 			return nil, nil, errors.Error("PXE Boot disabled")
 		}
 		// handle PXE DHCP request
-		log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %#v", req.RelayAddr, req.ClientAddr, req.ClientMac, netConf)
+		log.Infof("[PXE DHCP] relay from %s(%s) for %s, find matched networks: %#v", req.RelayAddr, req.ClientAddr, req.ClientMac, netConf)
 		bmDesc, err := req.createOrUpdateBaremetal(session)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "createOrUpdateBaremetal for %s", req.ClientMac.String())
@@ -236,7 +236,7 @@ func (req *dhcpRequest) fetchConfig(ctx context.Context, session *mcclient.Clien
 			// from guestdhcp import GuestDHCPHelperTask
 			// task = GuestDHCPHelperTask(self)
 			// task.start()
-			log.Infof("Not found baremetal by mac: %s", req.ClientMac)
+			log.Infof("[NORMAL DHCP] Not found baremetal from request with mac: %s", req.ClientMac)
 			return nil, nil, nil
 		}
 		req.baremetalInstance = bmInstance
