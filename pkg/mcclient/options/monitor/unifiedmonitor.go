@@ -15,6 +15,7 @@
 package monitor
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,6 +63,7 @@ type MetricQueryOptions struct {
 	GroupBy         []string `help:"group by tag"`
 	UseMean         bool     `help:"calcuate mean result for field"`
 	SkipCheckSeries bool     `help:"skip checking series: not fetch extra tags from region service"`
+	Reducer         string   `help:"series result reducer. e.g.: sum, percentile(95)"`
 }
 
 func (o MetricQueryOptions) GetQueryInput() (*api.MetricQueryInput, error) {
@@ -112,5 +114,41 @@ func (o MetricQueryOptions) GetQueryInput() (*api.MetricQueryInput, error) {
 		groupBy.TAG(tag)
 	}
 
+	if o.Reducer != "" {
+		r, err := o.parseReducer(o.Reducer)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid reducer: %q", o.Reducer)
+		}
+		input.Reducer(r.Type, r.Params)
+	}
+
 	return input.ToQueryData(), nil
+}
+
+func (o MetricQueryOptions) parseReducer(reducer string) (*api.Condition, error) {
+	if reducer == "" {
+		return nil, errors.Errorf("invalid reducer %q", reducer)
+	}
+	parts := strings.Split(reducer, "(")
+	if len(parts) < 1 {
+		return nil, errors.Errorf("invalid reducer %q", reducer)
+	}
+	rType := parts[0]
+	cond := &api.Condition{
+		Type: rType,
+	}
+	if len(parts) > 1 {
+		params := []float64{}
+		paramStr := parts[1]
+		paramsStr := strings.Split(strings.TrimSuffix(paramStr, ")"), ",")
+		for _, param := range paramsStr {
+			f, err := strconv.ParseFloat(strings.ReplaceAll(param, " ", ""), 64)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid reducer param %q", param)
+			}
+			params = append(params, f)
+		}
+		cond.Params = params
+	}
+	return cond, nil
 }

@@ -14,6 +14,8 @@
 
 package conditions
 
+import "yunion.io/x/onecloud/pkg/apis/monitor"
+
 func NewCommonAlertReducer(t string) *queryReducer {
-	return &queryReducer{Type: t}
+	return &queryReducer{Type: monitor.ReducerType(t)}
 }

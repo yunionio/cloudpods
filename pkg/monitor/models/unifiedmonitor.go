@@ -334,6 +334,9 @@ func doQuery(userCred mcclient.TokenCredential, query monitor.MetricQueryInput) 
 			Type:  monitor.ConditionTypeMetricQuery,
 			Query: *q,
 		}
+		if q.ResultReducer != nil {
+			condition.Reducer = *q.ResultReducer
+		}
 		conds = append(conds, &condition)
 	}
 	factory := mq.GetQueryFactories()[monitor.ConditionTypeMetricQuery]
