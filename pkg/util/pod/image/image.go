@@ -46,7 +46,7 @@ func (i imageTool) Pull(image string, opt *PullOptions) (string, error) {
 	if opt.PlainHttp {
 		args = append(args, "--plain-http")
 	}
-	if opt.PlainHttp {
+	if opt.SkipVerify {
 		args = append(args, "--skip-verify")
 	}
 	if opt.Username != "" && opt.Password != "" {
