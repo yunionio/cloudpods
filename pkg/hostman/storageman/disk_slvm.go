@@ -320,3 +320,17 @@ func (d *SSLVMDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLoca
 	}
 	return ret, nil
 }
+
+func (d *SSLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
+	err := lvmutils.LVActive(d.GetPath(), false, d.Storage.Lvmlockd())
+	if err != nil {
+		return errors.Wrap(err, "LVActive")
+	}
+	err = d.SLVMDisk.DeleteSnapshot(snapshotId, convertSnapshot, blockStream, encryptInfo)
+	// active disk share mode
+	e := lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+	if e != nil {
+		log.Errorf("failed active with share mode: %s", e)
+	}
+	return err
+}
