@@ -648,9 +648,15 @@ func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (
 
 	for _, snapshotId := range cleanupParams.DeleteSnapshots {
 		snapId, _ := snapshotId.GetString()
-		if err := procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapId)).Run(); err != nil {
-			log.Errorln(err)
-			return nil, err
+		snapPath := path.Join(snapshotDir, snapId)
+		if options.HostOptions.RecycleDiskfile {
+			return nil, d.Storage.DeleteDiskfile(snapPath, false)
+		} else {
+			log.Infof("Delete disk(%s) snapshot %s", d.Id, snapId)
+			if err := procutils.NewCommand("rm", "-f", snapPath).Run(); err != nil {
+				log.Errorln(err)
+				return nil, err
+			}
 		}
 	}
 	return nil, nil
