@@ -82,6 +82,18 @@ func ObjectIdQueryWithTagFilters(ctx context.Context, q *sqlchemy.SQuery, idFiel
 	return q
 }
 
+func ExtendQueryWithTag(ctx context.Context, q *sqlchemy.SQuery, idField string, modelName string, key string, fieldLabel string) *sqlchemy.SQuery {
+	manager := GetMetadaManagerInContext(ctx)
+	metadataQ := manager.Query().Equals("obj_type", modelName).Equals("key", key)
+	metadataQ = metadataQ.AppendField(metadataQ.Field("value").Label(fieldLabel))
+	metadataResQ := metadataQ.SubQuery()
+
+	q = q.LeftJoin(metadataResQ, sqlchemy.Equals(q.Field(idField), metadataResQ.Field("obj_id")))
+	q = q.AppendField(metadataResQ.Field(fieldLabel).Label(fieldLabel))
+
+	return q
+}
+
 func objIdQueryWithTags(ctx context.Context, objIdSubQ *sqlchemy.SSubQuery, idField string, modelName string, tagsList []map[string][]string) *sqlchemy.SQuery {
 	manager := GetMetadaManagerInContext(ctx)
 	metadataResQ := manager.Query().Equals("obj_type", modelName).SubQuery()
