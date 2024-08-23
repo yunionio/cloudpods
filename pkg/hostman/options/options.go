@@ -225,6 +225,8 @@ type SHostOptions struct {
 	CudaMPSReplicas      int    `help:"cuda mps replias" default:"10"`
 
 	EnableContainerAscendNPU bool `help:"enable container npu" default:"false"`
+
+	EnableDirtyRecoverySeconds int `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 }
 
 var (

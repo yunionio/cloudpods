@@ -260,6 +260,9 @@ func (s *sPodGuestInstance) isContainerDirtyShutdown(ctrId string) bool {
 }
 
 func (s *sPodGuestInstance) IsDirtyShutdown() bool {
+	if !s.manager.EnableDirtyRecoveryFeature() {
+		return false
+	}
 	if s.isPodDirtyShutdown() {
 		return true
 	}
