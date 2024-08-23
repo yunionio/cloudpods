@@ -109,7 +109,8 @@ type SGuestManager struct {
 	pythonPath   string
 
 	// container related members
-	containerProbeManager prober.Manager
+	containerProbeManager      prober.Manager
+	enableDirtyRecoveryFeature bool
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string) (*SGuestManager, error) {
@@ -281,12 +282,30 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 	} else {
 		m.isLoaded = true
 		log.Infof("Loading existing guests ...")
+		if m.needDirtyRecovery() {
+			if err := m.createDisableDirtyRecoveryFile(); err != nil {
+				log.Errorf("create disable dirty recovery file: %s", err)
+			} else {
+				log.Infof("[%s created] enable dirty recovery feature", m.disableDirtyRecoveryFilePath())
+				m.enableDirtyRecoveryFeature = true
+			}
+		} else {
+			log.Infof("[%s existed] disable dirty recovery feature", m.disableDirtyRecoveryFilePath())
+			m.enableDirtyRecoveryFeature = false
+		}
 		if len(m.CandidateServers) > 0 {
 			m.VerifyExistingGuests(false)
 		} else {
 			m.OnLoadExistingGuestsComplete()
 		}
 	}
+	timeutils2.AddTimeout(time.Second*time.Duration(options.HostOptions.EnableDirtyRecoverySeconds), func() {
+		if err := m.removeDisableDirtyRecoveryFile(); err != nil {
+			log.Errorf("remove disable dirty recovery file %s: %s", m.disableDirtyRecoveryFilePath(), err)
+		} else {
+			log.Infof("[%s removed] enable dirty recovery feature at next bootstrap", m.disableDirtyRecoveryFilePath())
+		}
+	})
 	return m.dirtyServersChan, nil
 }
 
@@ -317,6 +336,35 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 func (m *SGuestManager) OnVerifyExistingGuestsFail(err error, pendingDelete bool) {
 	log.Errorf("OnVerifyExistingGuestFail: %s, try again 30 seconds later", err.Error())
 	timeutils2.AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
+}
+
+func (m *SGuestManager) disableDirtyRecoveryFilePath() string {
+	return path.Join(options.HostOptions.ServersPath, "disable-guests-dirty-recovery")
+}
+
+func (m *SGuestManager) removeDisableDirtyRecoveryFile() error {
+	if !fileutils2.Exists(m.disableDirtyRecoveryFilePath()) {
+		return nil
+	}
+	return os.RemoveAll(m.disableDirtyRecoveryFilePath())
+}
+
+func (m *SGuestManager) createDisableDirtyRecoveryFile() error {
+	if fileutils2.Exists(m.disableDirtyRecoveryFilePath()) {
+		return nil
+	}
+	return fileutils2.FilePutContents(m.disableDirtyRecoveryFilePath(), "", false)
+}
+
+func (m *SGuestManager) needDirtyRecovery() bool {
+	if fileutils2.Exists(m.disableDirtyRecoveryFilePath()) {
+		return false
+	}
+	return true
+}
+
+func (m *SGuestManager) EnableDirtyRecoveryFeature() bool {
+	return m.enableDirtyRecoveryFeature
 }
 
 func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObject, pendingDelete bool) {
