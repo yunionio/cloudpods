@@ -118,6 +118,8 @@ type SHostOptions struct {
 	SetVncPassword         bool `default:"true" help:"Auto set vnc password after monitor connected"`
 	UseBootVga             bool `default:"false" help:"Use boot VGA GPU for guest"`
 
+	BootVgaPciAddr string `help:"Specific boot vga pci addr incase detect wrong device"`
+
 	EnableCpuBinding         bool `default:"false" help:"Enable cpu binding and rebalance"`
 	EnableOpenflowController bool `default:"false"`
 

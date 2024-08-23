@@ -142,7 +142,7 @@ func NewPCIDevice(line string) (*PCIDevice, error) {
 	if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 		return nil, err
 	}
-	if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga); err != nil {
+	if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga, o.HostOptions.BootVgaPciAddr); err != nil {
 		return nil, fmt.Errorf("Force bind vfio-pci driver: %v", err)
 	}
 	return dev, nil
@@ -338,18 +338,27 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 	return false, nil
 }
 
-func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool) error {
+func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool, bootVgaPciAddr string) error {
 	if !utils.IsInStringArray(d.ClassCode, []string{CLASS_CODE_VGA, CLASS_CODE_3D}) {
 		return nil
 	}
-	isBootVGA, err := d.IsBootVGA()
-	if err != nil {
-		return err
+
+	if !useBootVGA && bootVgaPciAddr != "" {
+		if d.Addr == bootVgaPciAddr {
+			log.Infof("device %#v is specific boot vga addr, skip it", d)
+			return nil
+		}
+	} else {
+		isBootVGA, err := d.IsBootVGA()
+		if err != nil {
+			return err
+		}
+		if !useBootVGA && isBootVGA {
+			log.Infof("%#v is boot vga card, skip it", d)
+			return nil
+		}
 	}
-	if !useBootVGA && isBootVGA {
-		log.Infof("%#v is boot vga card, skip it", d)
-		return nil
-	}
+
 	if d.IsVFIOPCIDriverUsed() {
 		log.Infof("%s already use vfio-pci driver", d)
 		return nil
