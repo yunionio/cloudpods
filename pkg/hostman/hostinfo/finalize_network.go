@@ -24,8 +24,10 @@ import (
 
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	computemodules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -53,6 +55,7 @@ func (n *SNIC) setupHostLocalNetworks(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "fetchHostLocalNetworks")
 	}
+	hostLocalNics := make([]computeapis.NetworkDetails, 0)
 	for i := range nets {
 		if len(nets[i].GuestGateway) == 0 {
 			continue
@@ -61,7 +64,11 @@ func (n *SNIC) setupHostLocalNetworks(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "setupHostLocalNet")
 		}
+		hostLocalNics = append(hostLocalNics, nets[i])
 	}
+	// save hostLocalNics
+	fn := options.HostOptions.HostLocalNetconfPath(n.Bridge)
+	fileutils2.FilePutContents(fn, jsonutils.Marshal(hostLocalNics).PrettyString(), false)
 	return nil
 }
 
