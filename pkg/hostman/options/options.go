@@ -15,7 +15,9 @@
 package options
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"yunion.io/x/log"
 	"yunion.io/x/structarg"
@@ -227,6 +229,10 @@ type SHostOptions struct {
 	EnableContainerAscendNPU bool `help:"enable container npu" default:"false"`
 
 	EnableDirtyRecoverySeconds int `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
+}
+
+func (o SHostOptions) HostLocalNetconfPath(br string) string {
+	return filepath.Join(o.ServersPath, fmt.Sprintf("host_local_netconf_%s.json", br))
 }
 
 var (
