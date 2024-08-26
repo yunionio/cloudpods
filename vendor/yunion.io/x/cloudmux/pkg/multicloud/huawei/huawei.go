@@ -222,6 +222,53 @@ func (self *SHuaweiClient) getAkClient() *akClient {
 	}
 }
 
+type sHuaweiError struct {
+	RequestId string `json:"request_id"`
+	ErrorMsg  string `json:"error_msg"`
+	ErrorCode string `json:"error_code"`
+	Code      string
+	Message   string
+	ErrorInfo struct {
+		Message string
+		Code    string
+		Title   string
+	} `json:"error"`
+	Errorcode  []string `json:"errorcode"`
+	ConvertMsg string
+	RawMsg     jsonutils.JSONObject
+}
+
+func (self *sHuaweiError) Error() string {
+	return jsonutils.Marshal(self).String()
+}
+
+// https://support.huaweicloud.com/api-iam/iam_02_0006.html
+var convertMsg = map[string]string{
+	"1101": "用户名校验失败,请检查用户名",
+	"1103": "密码校验失败,请检查密码",
+	"1104": "手机号校验失败,请检查手机号",
+	"1108": "新密码不能与原密码相同,请修改新密码",
+	"1109": "用户名已存在,请修改用户名",
+	"1118": "密码是弱密码,重新选择密码",
+}
+
+func (self *sHuaweiError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
+	if body != nil {
+		body.Unmarshal(self)
+		// 特殊错误将返回原始错误信息
+		if self.Error() == jsonutils.Marshal(sHuaweiError{}).String() {
+			self.RawMsg = body
+		}
+	}
+	for _, code := range self.Errorcode {
+		self.ConvertMsg = convertMsg[code]
+	}
+	if statusCode == 404 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, self.Error())
+	}
+	return self
+}
+
 func (self *SHuaweiClient) request(method httputils.THttpMethod, regionId, service, url string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	client := self.getAkClient()
 	if len(query) > 0 {
@@ -247,11 +294,12 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, regionId, servi
 		service == SERVICE_EPS) && len(self.ownerId) > 0 {
 		header.Set("X-Domain-Id", self.ownerId)
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, header, body, self.debug)
+	req := httputils.NewJsonRequest(method, url, body)
+	req.SetHeader(header)
+	hwErr := &sHuaweiError{}
+	cli := httputils.NewJsonClient(client)
+	_, resp, err := cli.Send(context.Background(), req, hwErr, self.debug)
 	if err != nil {
-		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
-			return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
-		}
 		return nil, err
 	}
 	if gotypes.IsNil(resp) {
