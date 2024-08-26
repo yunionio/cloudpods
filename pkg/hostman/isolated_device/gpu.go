@@ -78,6 +78,18 @@ func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
 			continue
 		}
+		if o.HostOptions.BootVgaPciAddr != "" {
+			if dev.Addr == o.HostOptions.BootVgaPciAddr && !o.HostOptions.UseBootVga {
+				continue
+			}
+		} else {
+			if ok, err := dev.IsBootVGA(); err != nil {
+				return nil, err, nil
+			} else if ok && !o.HostOptions.UseBootVga {
+				continue
+			}
+		}
+
 		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
 			continue
 		}

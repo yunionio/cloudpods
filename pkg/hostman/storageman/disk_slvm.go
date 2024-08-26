@@ -307,11 +307,21 @@ func (d *SSLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStre
 	if err != nil {
 		return errors.Wrap(err, "LVActive")
 	}
+	convertSnapshotPath := d.GetSnapshotPath(convertSnapshot)
+	err = lvmutils.LVActive(convertSnapshotPath, false, d.Storage.Lvmlockd())
+	if err != nil {
+		return errors.Wrap(err, "LVActive convert snapshot")
+	}
+
 	err = d.SLVMDisk.DeleteSnapshot(snapshotId, convertSnapshot, blockStream, encryptInfo)
 	// active disk share mode
 	e := lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
 	if e != nil {
 		log.Errorf("failed active with share mode: %s", e)
+	}
+	e = lvmutils.LVActive(convertSnapshotPath, d.Storage.Lvmlockd(), false)
+	if e != nil {
+		log.Errorf("failed active convert snapshot %s with share mode: %s", convertSnapshotPath, e)
 	}
 	return err
 }
