@@ -152,7 +152,7 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		return OS_DIST_KYLIN
 	} else if strings.Contains(osDist, "uos") {
 		return OS_DIST_UOS
-	} else if strings.Contains(osDist, "windows") {
+	} else if strings.Contains(osDist, "windows") || regexp.MustCompile(".+win(xp|7|8|10|11|2003|2008|2012|2016|2019|2022)*").MatchString(osDist) {
 		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022"} {
 			if strings.Contains(osDist, ver) {
 				return OS_DIST_WINDOWS_SERVER
@@ -216,6 +216,11 @@ func normalizeOsVersion(imageName string, osDist string, osVersion string) strin
 					}
 					return verStr
 				}
+			}
+		}
+		for i := len(versions) - 1; i > 0; i-- {
+			if strings.Contains(imageName, versions[i]) {
+				return versions[i]
 			}
 		}
 	}

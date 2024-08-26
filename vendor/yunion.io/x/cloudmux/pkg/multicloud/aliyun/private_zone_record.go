@@ -163,6 +163,10 @@ func (self *SPvtzRecord) Delete() error {
 	return self.szone.client.DeleteZoneRecord(self.RecordId)
 }
 
+func (self *SPvtzRecord) GetExtraAddresses() ([]string, error) {
+	return []string{}, nil
+}
+
 func (self *SPvtzRecord) GetMxPriority() int64 {
 	if self.GetDnsType() == cloudprovider.DnsTypeMX {
 		return self.Priority
