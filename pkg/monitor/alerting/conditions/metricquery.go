@@ -125,7 +125,8 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 		return queryResult, nil
 	}
 
-	if query.noCheckSeries(skipCheckSeries) {
+	noCheck := query.noCheckSeries(skipCheckSeries)
+	if noCheck {
 		qr, err = queryTSDB()
 		if err != nil {
 			return nil, errors.Wrap(err, "queryTSDB")
@@ -241,7 +242,20 @@ func (query *MetricQueryCondition) noCheckSeries(skipCheckSeries bool) bool {
 			return false
 		}
 	}
+
+	containNoCheckAggregator := false
+	sels := firstCond.Query.Model.Selects
+	lastSel := sels[len(sels)-1]
+	for _, part := range lastSel {
+		if utils.IsInStringArray(part.Type, []string{"sum"}) {
+			containNoCheckAggregator = true
+		}
+	}
+
 	if containGlob {
+		if containNoCheckAggregator {
+			return true
+		}
 		return false
 	}
 	return true
