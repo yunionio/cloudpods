@@ -68,7 +68,7 @@ var (
 	LAST_USED_PORT            = 0
 	LAST_USED_NBD_SERVER_PORT = 0
 	LAST_USED_MIGRATE_PORT    = 0
-	NbdWorker                 = appsrv.NewWorkerManager("nbd_worker", 1, appsrv.DEFAULT_BACKLOG, false)
+	NbdWorker                 *appsrv.SWorkerManager
 )
 
 const (
@@ -113,7 +113,10 @@ type SGuestManager struct {
 	enableDirtyRecoveryFeature bool
 }
 
-func NewGuestManager(host hostutils.IHost, serversPath string) (*SGuestManager, error) {
+func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*SGuestManager, error) {
+	// init nbd worker
+	NbdWorker = appsrv.NewWorkerManager("nbd_worker", workerCnt, appsrv.DEFAULT_BACKLOG, false)
+
 	manager := &SGuestManager{}
 	manager.host = host
 	manager.ServersPath = serversPath
@@ -1751,9 +1754,9 @@ func Stop() {
 	guestManager.ExitGuestCleanup()
 }
 
-func Init(host hostutils.IHost, serversPath string) error {
+func Init(host hostutils.IHost, serversPath string, workerCnt int) error {
 	if guestManager == nil {
-		manager, err := NewGuestManager(host, serversPath)
+		manager, err := NewGuestManager(host, serversPath, workerCnt)
 		if err != nil {
 			return err
 		}
