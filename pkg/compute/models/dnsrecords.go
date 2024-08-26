@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
@@ -78,6 +79,9 @@ type SDnsRecord struct {
 	PolicyType string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"`
 	// 解析线路
 	PolicyValue string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"`
+
+	// 目前存储阿里云GTM设置地址及AWS TrafficPolicy端点地址, 仅支持同步
+	ExtraAddresses []string `width:"512" charset:"utf8" nullable:"true" list:"user"`
 }
 
 func (manager *SDnsRecordManager) EnableGenerateName() bool {
@@ -492,6 +496,12 @@ func (self *SDnsRecord) syncWithDnsRecord(ctx context.Context, userCred mcclient
 		self.DnsValue = ext.GetDnsValue()
 		self.PolicyType = string(ext.GetPolicyType())
 		self.PolicyValue = string(ext.GetPolicyValue())
+		extraAddresses, err := ext.GetExtraAddresses()
+		if err != nil {
+			log.Errorf("GetExtraAddresses for record %s error: %v", self.Name, err)
+			return nil
+		}
+		self.ExtraAddresses = extraAddresses
 		return nil
 	})
 	if err != nil {
@@ -520,6 +530,7 @@ func (self *SDnsZone) newFromCloudDnsRecord(ctx context.Context, userCred mcclie
 	record.ExternalId = ext.GetGlobalId()
 	record.PolicyType = string(ext.GetPolicyType())
 	record.PolicyValue = string(ext.GetPolicyValue())
+	record.ExtraAddresses, _ = ext.GetExtraAddresses()
 
 	err := DnsRecordManager.TableSpec().Insert(ctx, record)
 	if err != nil {
