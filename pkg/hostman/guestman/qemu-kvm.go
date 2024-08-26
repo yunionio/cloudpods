@@ -3112,8 +3112,7 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 
 func (s *SKVMGuestInstance) DeleteSnapshot(ctx context.Context, delParams *SDeleteDiskSnapshot) (jsonutils.JSONObject, error) {
 	if len(delParams.ConvertSnapshot) > 0 || delParams.BlockStream {
-		guest, _ := m.GetServer(delParams.Sid)
-		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
+		return s.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
 			delParams.ConvertSnapshot, delParams.BlockStream, delParams.EncryptInfo)
 	} else {
 		res := jsonutils.NewDict()
