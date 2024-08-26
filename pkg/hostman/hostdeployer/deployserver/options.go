@@ -45,7 +45,6 @@ type SDeployOptions struct {
 	DeployAction     string `help:"local deploy action"`
 	DeployParams     string `help:"params for deploy action"`
 	DeployParamsFile string `help:"file store params for deploy action"`
-	DeployConcurrent int    `help:"qemu-kvm deploy driver concurrent" default:"5"`
 }
 
 var DeployOption SDeployOptions
