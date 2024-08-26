@@ -3457,8 +3457,9 @@ func (self *SManagedVirtualizationRegionDriver) CreateDefaultSecurityGroup(
 	newGroup.VpcId = vpc.Id
 	newGroup.ManagerId = vpc.ManagerId
 	newGroup.CloudregionId = vpc.CloudregionId
-	newGroup.DomainId = ownerId.GetDomainId()
+	newGroup.DomainId = ownerId.GetProjectDomainId()
 	newGroup.ProjectId = ownerId.GetProjectId()
+	newGroup.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 	err := models.SecurityGroupManager.TableSpec().Insert(ctx, newGroup)
 	if err != nil {
 		return nil, errors.Wrapf(err, "insert")

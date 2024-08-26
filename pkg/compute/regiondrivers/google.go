@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -339,7 +340,8 @@ func (self *SGoogleRegionDriver) CreateDefaultSecurityGroup(
 	newGroup.Name = fmt.Sprintf("default-auto-%d", time.Now().Unix())
 	newGroup.Description = "auto generage"
 	newGroup.ManagerId = vpc.ManagerId
-	newGroup.DomainId = ownerId.GetDomainId()
+	newGroup.DomainId = ownerId.GetProjectDomainId()
+	newGroup.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 	newGroup.GlobalvpcId = vpc.GlobalvpcId
 	newGroup.ProjectId = ownerId.GetProjectId()
 	err := models.SecurityGroupManager.TableSpec().Insert(ctx, newGroup)
