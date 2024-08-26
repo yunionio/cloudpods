@@ -15,10 +15,12 @@
 package aliyun
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -314,6 +316,62 @@ func (self *SDomainRecord) Enable() error {
 
 func (self *SDomainRecord) Disable() error {
 	return self.domain.client.SetDomainRecordStatus(self.RecordId, "Disable")
+}
+
+func (self *SAliyunClient) GetDnsExtraAddresses(dnsValue string) ([]string, error) {
+	ret := []string{}
+	if !strings.HasPrefix(dnsValue, "gtm") {
+		return ret, nil
+	}
+	instances, err := self.DescribeDnsGtmInstances()
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeDnsGtmInstances")
+	}
+	for _, instance := range instances {
+		if instance.Config.PublicZoneName == dnsValue {
+			pools, err := self.DescribeDnsGtmInstanceAddressPools(instance.InstanceId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "DescribeDnsGtmInstanceAddressPools")
+			}
+			for _, pool := range pools {
+				address, err := self.DescribeDnsGtmInstanceAddressPool(pool.AddrPoolId)
+				if err != nil {
+					return nil, errors.Wrapf(err, "DescribeDnsGtmInstanceAddressPools")
+				}
+				for _, addr := range address.Addrs.Addr {
+					if !utils.IsInStringArray(addr.Addr, ret) {
+						ret = append(ret, addr.Addr)
+					}
+				}
+			}
+			return ret, nil
+		}
+	}
+	gtm3, err := self.ListCloudGtmInstanceConfigs()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListCloudGtmInstanceConfigs")
+	}
+	for _, instance := range gtm3 {
+		if instance.ScheduleDomainName == dnsValue || dnsValue == fmt.Sprintf("%s.%s", instance.InstanceId, instance.ScheduleZoneName) {
+			for _, pool := range instance.AddressPools.AddressPool {
+				pool, err := self.DescribeCloudGtmAddressPool(pool.AddressPoolId)
+				if err != nil {
+					return nil, errors.Wrapf(err, "DescribeCloudGtmAddressPool")
+				}
+				for _, addr := range pool.Addresses.Address {
+					if !utils.IsInStringArray(addr.Address, ret) {
+						ret = append(ret, addr.Address)
+					}
+				}
+			}
+			return ret, nil
+		}
+	}
+	return ret, nil
+}
+
+func (self *SDomainRecord) GetExtraAddresses() ([]string, error) {
+	return self.domain.client.GetDnsExtraAddresses(self.GetDnsValue())
 }
 
 // line

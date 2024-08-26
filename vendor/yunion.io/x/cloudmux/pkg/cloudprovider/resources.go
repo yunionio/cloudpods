@@ -1326,6 +1326,7 @@ type ICloudDnsRecord interface {
 	GetDnsValue() string
 	GetTTL() int64
 	GetMxPriority() int64
+	GetExtraAddresses() ([]string, error)
 
 	Update(*DnsRecord) error
 

@@ -258,6 +258,10 @@ func (self *SDnsRecord) Delete() error {
 	return self.domain.client.DeleteDnsRecord(self.GetGlobalId(), self.domain.Name)
 }
 
+func (self *SDnsRecord) GetExtraAddresses() ([]string, error) {
+	return []string{}, nil
+}
+
 func (self *SDnsRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 	switch self.Line {
 	case "境内":

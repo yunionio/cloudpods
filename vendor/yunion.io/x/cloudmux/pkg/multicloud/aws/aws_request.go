@@ -276,6 +276,8 @@ func jsonRequest(cli *client.Client, apiName string, params map[string]string, r
 			"ListHostedZones":            "hostedzone",
 			"ListGeoLocations":           "geolocations",
 			"CreateHostedZone":           "hostedzone",
+			"GetTrafficPolicyInstance":   "trafficpolicyinstance",
+			"GetTrafficPolicy":           "trafficpolicy",
 			"GetHostedZone":              "",
 			"DeleteHostedZone":           "",
 			"AssociateVPCWithHostedZone": "",

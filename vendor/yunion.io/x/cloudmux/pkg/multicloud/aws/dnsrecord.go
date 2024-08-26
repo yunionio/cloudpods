@@ -21,6 +21,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
@@ -139,11 +140,47 @@ func (self *SDnsRecord) GetDnsValue() string {
 		}
 		records = append(records, value)
 	}
+	if len(self.AliasTarget.DNSName) > 0 {
+		records = append(records, self.AliasTarget.DNSName)
+	}
 	return strings.Join(records, "\n")
 }
 
 func (self *SDnsRecord) GetTTL() int64 {
 	return self.TTL
+}
+
+func (self *SAwsClient) GetDnsExtraAddresses(instanceId string) ([]string, error) {
+	ret := []string{}
+	if len(instanceId) > 0 {
+		instance, err := self.GetDnsTrafficPolicyInstance(instanceId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDnsTrafficPolicyInstance")
+		}
+		policy, err := self.GetTrafficPolicy(instance.TrafficPolicyId, instance.TrafficPolicyVersion)
+		if err != nil {
+			return nil, err
+		}
+		obj, err := jsonutils.ParseString(policy.Document)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ParseString")
+		}
+		endpoints, err := obj.GetMap("Endpoints")
+		if err != nil {
+			return nil, errors.Wrapf(err, "Get Endpoints")
+		}
+		for _, endpoint := range endpoints {
+			v, _ := endpoint.GetString("Value")
+			if !utils.IsInStringArray(v, ret) && len(v) > 0 {
+				ret = append(ret, v)
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SDnsRecord) GetExtraAddresses() ([]string, error) {
+	return self.zone.client.GetDnsExtraAddresses(self.TrafficPolicyInstanceId)
 }
 
 func (self *SDnsRecord) GetMxPriority() int64 {
