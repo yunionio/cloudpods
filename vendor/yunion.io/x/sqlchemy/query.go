@@ -50,7 +50,8 @@ type sQueryJoin struct {
 }
 
 // SQuery is a data structure represents a SQL query in the form of
-//     SELECT ... FROM ... JOIN ... ON ... WHERE ... GROUP BY ... ORDER BY ... HAVING ...
+//
+//	SELECT ... FROM ... JOIN ... ON ... WHERE ... GROUP BY ... ORDER BY ... HAVING ...
 type SQuery struct {
 	rawSql   string
 	fields   []IQueryField
@@ -342,7 +343,7 @@ func (tq *SQuery) Distinct() *SQuery {
 // SubQuery of SQuery generates a SSubQuery from a Query
 func (tq *SQuery) SubQuery() *SSubQuery {
 	sq := SSubQuery{
-		query:         tq,
+		query:         tq.Copy(),
 		alias:         getTableAliasName(),
 		referedFields: make(map[string]IQueryField),
 	}
