@@ -611,7 +611,7 @@ func init() {
 		i, e := modules.Hosts.PerformAction(s, args.ID, "login-info", nil)
 		privateKey := ""
 		if e != nil {
-			if httputils.ErrorCode(e) == 404 || e.Error() == "ciphertext too short" {
+			if httputils.ErrorCode(e) == 404 || strings.Contains(e.Error(), "ciphertext too short") {
 				var err error
 				privateKey, err = modules.Sshkeypairs.FetchPrivateKeyBySession(context.Background(), s)
 				if err != nil {
