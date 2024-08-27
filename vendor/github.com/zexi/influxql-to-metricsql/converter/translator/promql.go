@@ -19,6 +19,7 @@ const UNION_RESULT_NAME = "__union_result__"
 const (
 	CALL_TOP        = "top"
 	CALL_PERCENTILE = "percentile"
+	CALL_SUM        = "sum"
 )
 
 var MUL_ARGS_AGGREGATOR MulArgsAggregator = []string{CALL_TOP, CALL_PERCENTILE}
@@ -259,18 +260,37 @@ func (m promQL) generateExpr(
 
 	result = getAggrExpr(aggrOps, result)
 
-	//fmt.Printf("=====m.GroupByWildcard: %v, %#v\n", m.groupByWildcard, result)
+	//fmt.Printf("=====m.GroupByWildcard: %v, %#v, aggrOps: %#v\n", m.groupByWildcard, result, aggrOps)
 
-	if len(groups) != 0 && !m.groupByWildcard {
-		expr := &promql.AggregateExpr{
-			Op:   promql.ItemAvg,
-			Expr: result,
+	shouldSkipAggr := func(opName string) bool {
+		switch opName {
+		case CALL_PERCENTILE, CALL_TOP, "last":
+			return true
 		}
-		if len(groups) != 0 {
-			expr.Grouping = groups
-		}
-		result = expr
+		return false
 	}
+
+	if len(aggrOps) != 0 {
+		op := promql.ItemAvg
+		opName := aggrOps[0].Name
+		if !shouldSkipAggr(opName) {
+			switch opName {
+			case CALL_SUM:
+				op = promql.ItemSum
+			}
+			expr := &promql.AggregateExpr{
+				Op:   op,
+				Expr: result,
+			}
+			if len(groups) != 0 {
+				expr.Grouping = groups
+			}
+			if !m.groupByWildcard {
+				result = expr
+			}
+		}
+	}
+
 	return result, nil
 }
 
@@ -305,20 +325,18 @@ func getAggrExpr(ops []*AggrOperator, expr promql.Expr) promql.Expr {
 	case "abs":
 		// https://prometheus.io/docs/prometheus/latest/querying/functions/#abs
 		expr = newAggrExpr("abs", promql.ValueTypeVector, promql.ValueTypeVector, restExpr)
-	case "sum":
-		expr = newAggrExpr("sum", promql.ValueTypeVector, promql.ValueTypeVector, restExpr)
 	case "mean":
 		// https://docs.victoriametrics.com/MetricsQL.html#avg_over_time
 		expr = newAggrExpr("avg_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
 	case "last":
 		// https://docs.victoriametrics.com/MetricsQL.html#last_over_time
 		expr = newAggrExpr("last_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
-	case "count":
-		// use count, not use 'count_over_time' https://docs.victoriametrics.com/MetricsQL.html#count_over_time
-		expr = newAggrExpr("count", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
 	case "stddev":
 		// https://prometheus.io/docs/prometheus/latest/querying/functions/#aggregation_over_time
 		expr = newAggrExpr("stddev_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+	case "count":
+		// use count, not use 'count_over_time' https://docs.victoriametrics.com/MetricsQL.html#count_over_time
+		expr = newAggrExpr("count", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
 	case "median":
 		// https://docs.victoriametrics.com/MetricsQL.html#median_over_time
 		expr = newAggrExpr("median_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
