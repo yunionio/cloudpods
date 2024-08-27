@@ -390,7 +390,7 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryI
 
 	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 
-	checkQueryGroupBy(query, inputQuery)
+	//checkQueryGroupBy(query, inputQuery)
 
 	if len(inputQuery.Interval) != 0 {
 		query.Model.GroupBy = append(query.Model.GroupBy,
@@ -430,10 +430,10 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryI
 		if len(sel) > 1 {
 			continue
 		}
-		sel = append(sel, monitor.MetricQueryPart{
+		/*sel = append(sel, monitor.MetricQueryPart{
 			Type:   "mean",
 			Params: []string{},
-		})
+		})*/
 		query.Model.Selects[i] = sel
 	}
 	var projectId, domainId string
@@ -498,11 +498,13 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQuer
 	if len(tagId) == 0 || (len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0) {
 		tagId = "*"
 	}
-	query.Model.GroupBy = append(query.Model.GroupBy,
-		monitor.MetricQueryPart{
-			Type:   "field",
-			Params: []string{tagId},
-		})
+	if tagId != "" {
+		query.Model.GroupBy = append(query.Model.GroupBy,
+			monitor.MetricQueryPart{
+				Type:   "field",
+				Params: []string{tagId},
+			})
+	}
 }
 
 func fillSerieTags(series *monitor.TimeSeriesSlice) {
