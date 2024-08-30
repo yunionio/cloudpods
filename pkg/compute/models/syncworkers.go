@@ -18,12 +18,12 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
-	"strconv"
 
 	"github.com/serialx/hashring"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/version"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
@@ -36,11 +36,13 @@ var (
 	syncAccountWorker *appsrv.SWorkerManager
 	syncWorkers       []*appsrv.SWorkerManager
 	syncWorkerRing    *hashring.HashRing
+	indexMap          map[string]int
 )
 
 func InitSyncWorkers(count int) {
 	syncWorkers = make([]*appsrv.SWorkerManager, count)
 	syncWorkerIndexes := make([]string, count)
+	indexMap = map[string]int{}
 	for i := range syncWorkers {
 		syncWorkers[i] = appsrv.NewWorkerManager(
 			fmt.Sprintf("syncWorkerManager-%d", i+1),
@@ -48,7 +50,8 @@ func InitSyncWorkers(count int) {
 			2048,
 			true,
 		)
-		syncWorkerIndexes[i] = strconv.Itoa(i)
+		syncWorkerIndexes[i] = stringutils.UUID4()
+		indexMap[syncWorkerIndexes[i]] = i
 	}
 	syncWorkerRing = hashring.New(syncWorkerIndexes)
 	syncAccountWorker = appsrv.NewWorkerManager(
@@ -74,13 +77,12 @@ func (t *resSyncTask) Dump() string {
 
 func RunSyncCloudproviderRegionTask(ctx context.Context, key string, syncFunc func()) {
 	nodeIdxStr, _ := syncWorkerRing.GetNode(key)
-	nodeIdx, _ := strconv.Atoi(nodeIdxStr)
 	task := resSyncTask{
 		syncFunc: syncFunc,
 		key:      key,
 	}
-	log.Debugf("run sync task at %d len %d", nodeIdx, len(syncWorkers))
-	syncWorkers[nodeIdx].Run(&task, nil, func(err error) {
+	log.Debugf("run sync task at %d len %d", indexMap[nodeIdxStr], len(syncWorkers))
+	syncWorkers[indexMap[nodeIdxStr]].Run(&task, nil, func(err error) {
 		data := jsonutils.NewDict()
 		data.Add(jsonutils.NewString("SyncCloudproviderRegion"), "task_name")
 		data.Add(jsonutils.NewString(key), "task_id")
