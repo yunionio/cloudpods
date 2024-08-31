@@ -26,6 +26,7 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 func init() {
@@ -238,6 +239,23 @@ func init() {
 			return err
 		}
 		printObject(net)
+		return nil
+	})
+	type NetworkInterfaceInfoOptions struct {
+		DEV string `help:"name of device, e.g. eth0"`
+	}
+	R(&NetworkInterfaceInfoOptions{}, "network-interface-info", "Show addr and routes of interface", func(s *mcclient.ClientSession, args *NetworkInterfaceInfoOptions) error {
+		netIf := netutils2.NewNetInterface(args.DEV)
+
+		fmt.Println("[Slave Addresses]")
+		for _, addr := range netIf.GetSlaveAddresses() {
+			fmt.Printf("%s/%s\n", addr[0], addr[1])
+		}
+		fmt.Println("[Routes]")
+		for _, r := range netIf.GetRouteSpecs() {
+			fmt.Printf("%s via %s dev %d\n", r.Dst.String(), r.Gw.String(), r.LinkIndex)
+		}
+
 		return nil
 	})
 }
