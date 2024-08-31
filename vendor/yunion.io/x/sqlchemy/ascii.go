@@ -23,12 +23,42 @@ func (c *STableField) IsAscii() bool {
 	return c.spec.IsAscii()
 }
 
-func isFieldRequireAscii(f IQueryField) bool {
+func (c *STableField) IsText() bool {
+	return c.spec.IsText()
+}
+
+func (c *STableField) IsSearchable() bool {
+	return c.spec.IsSearchable()
+}
+
+func getTableField(f IQueryField) *STableField {
 	if gotypes.IsNil(f) {
-		return false
+		return nil
 	}
-	if tableField, ok := f.(*STableField); ok {
-		return tableField.IsAscii()
+	switch tf := f.(type) {
+	case *STableField:
+		return tf
+	case *sQueryField:
+		return getTableField(tf.from.Field(f.Name()))
+	case *SSubQueryField:
+		return getTableField(tf.field)
+	default:
+		return nil
+	}
+}
+
+func IsFieldText(f IQueryField) bool {
+	tf := getTableField(f)
+	if tf != nil {
+		return tf.IsText() && tf.IsSearchable()
+	}
+	return false
+}
+
+func isFieldRequireAscii(f IQueryField) bool {
+	tf := getTableField(f)
+	if tf != nil {
+		return tf.IsAscii()
 	}
 	return false
 }
