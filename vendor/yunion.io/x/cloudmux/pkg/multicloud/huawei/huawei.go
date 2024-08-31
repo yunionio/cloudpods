@@ -511,7 +511,7 @@ func (self *SHuaweiClient) QueryAccountBalance() (*SBalance, error) {
 		resp, err := self.list(service, "", "accounts/customer-accounts/balances", nil)
 		if err != nil {
 			// 国际区账号会报错: {"error_code":"CBC.0150","error_msg":"Access denied. The customer does not belong to the website you are now at."}
-			if e, ok := err.(*httputils.JSONClientError); ok && e.Class == "CBC.0150" {
+			if e, ok := err.(*sHuaweiError); ok && (e.ErrorCode == "CBC.0150" || e.ErrorCode == "CBC.0156") {
 				continue
 			}
 			return nil, err
