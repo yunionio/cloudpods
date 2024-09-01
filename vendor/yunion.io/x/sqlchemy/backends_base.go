@@ -258,3 +258,8 @@ func (bb *SBaseBackend) QuoteChar() string {
 func (bb *SBaseBackend) PrepareInsertOrUpdateSQL(ts ITableSpec, insertColNames []string, insertFields []string, onPrimaryCols []string, updateSetCols []string, insertValues []interface{}, updateValues []interface{}) (string, []interface{}) {
 	return "", nil
 }
+
+func (bb *SBaseBackend) Equals(f IQueryField, v interface{}) ICondition {
+	c := SEqualsCondition{NewTupleCondition(f, v)}
+	return &c
+}

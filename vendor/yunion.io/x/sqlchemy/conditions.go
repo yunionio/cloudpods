@@ -369,15 +369,30 @@ type STupleCondition struct {
 }
 
 func tupleConditionWhereClause(t *STupleCondition, op string) string {
+	return tupleConditionWhereClauseInternal(t, op, "")
+}
+
+func TupleConditionWhereClauseWithFuncname(t *STupleCondition, funcName string) string {
+	return tupleConditionWhereClauseInternal(t, ",", funcName)
+}
+
+func tupleConditionWhereClauseInternal(t *STupleCondition, op string, funcName string) string {
 	if isFieldRequireAscii(t.left) && !isVariableAscii(t.right) {
 		return "0"
 	}
 	var buf bytes.Buffer
+	if len(funcName) > 0 {
+		buf.WriteString(funcName)
+		buf.WriteByte('(')
+	}
 	buf.WriteString(t.left.Reference())
 	buf.WriteByte(' ')
 	buf.WriteString(op)
 	buf.WriteByte(' ')
 	buf.WriteString(VarConditionWhereClause(t.right))
+	if len(funcName) > 0 {
+		buf.WriteByte(')')
+	}
 	return buf.String()
 }
 
@@ -602,8 +617,7 @@ func (t *SEqualsCondition) WhereClause() string {
 
 // Equals method represents equal of two fields
 func Equals(f IQueryField, v interface{}) ICondition {
-	c := SEqualsCondition{NewTupleCondition(f, v)}
-	return &c
+	return f.database().backend.Equals(f, v)
 }
 
 // SNotEqualsCondition is the opposite of equal condition
