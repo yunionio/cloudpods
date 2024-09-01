@@ -1677,8 +1677,8 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
 			}
 		default:
-			// not UEFI or not detectable
-			if input.Bios == "UEFI" {
+			// not UEFI image
+			if input.Bios == "UEFI" && len(imgProperties) != 0 {
 				return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
 			}
 		}
