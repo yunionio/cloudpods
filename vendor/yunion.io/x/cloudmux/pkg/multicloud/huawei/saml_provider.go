@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/samlutils"
 	"yunion.io/x/pkg/util/stringutils"
 
@@ -209,11 +208,11 @@ func (self *SHuaweiClient) CreateSAMLProvider(opts *cloudprovider.SAMLProviderCr
 			if err == nil {
 				return nil
 			}
-			he, ok := errors.Cause(err).(*httputils.JSONClientError)
+			he, ok := errors.Cause(err).(*sHuaweiError)
 			if !ok {
 				return errors.Wrapf(err, "SAMLProviders.Update")
 			}
-			if he.Code != 409 {
+			if he.ErrorInfo.Code != "409" {
 				return errors.Wrapf(err, "SAMLProviders.Update")
 			}
 			samlName = fmt.Sprintf("%s-%d", string(name), idx)
