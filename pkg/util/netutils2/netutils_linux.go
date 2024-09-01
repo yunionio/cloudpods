@@ -60,10 +60,26 @@ func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
 	routeList := iproute2.NewRoute(n.name)
 	routes4 := getRouteSpecs(routeList.List4)
 	routes6 := getRouteSpecs(routeList.List6)
-	if len(routes6) > 0 {
-		routes4 = append(routes4, routes6...)
+	rets := make([]iproute2.RouteSpec, 0)
+	for i := range routes4 {
+		if routes4[i].Gw == nil {
+			continue
+		}
+		if strings.HasPrefix(routes4[i].Dst.String(), "169.") {
+			continue
+		}
+		rets = append(rets, routes4[i])
 	}
-	return routes4
+	for i := range routes6 {
+		if routes6[i].Gw == nil {
+			continue
+		}
+		if strings.HasPrefix(routes6[i].Dst.String(), "fe80:") {
+			continue
+		}
+		rets = append(rets, routes6[i])
+	}
+	return rets
 }
 
 func (n *SNetInterface) ClearAddrs() error {
