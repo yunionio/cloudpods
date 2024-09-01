@@ -2,6 +2,7 @@ package guestman
 
 import (
 	"context"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -15,6 +16,10 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/netutils2/getport"
+)
+
+var (
+	allocatePortLock sync.Mutex
 )
 
 type IPortMappingManager interface {
@@ -48,6 +53,9 @@ func (m *portMappingManager) IsGuestHasPortMapping(guest GuestRuntimeInstance) b
 }
 
 func (m *portMappingManager) AllocateGuestPortMappings(ctx context.Context, userCred mcclient.TokenCredential, guest GuestRuntimeInstance) error {
+	allocatePortLock.Lock()
+	defer allocatePortLock.Unlock()
+
 	for idx, nic := range guest.GetDesc().Nics {
 		if len(nic.PortMappings) == 0 {
 			continue
@@ -133,17 +141,23 @@ func (m *portMappingManager) getOtherGuestsUsedPorts(gst GuestRuntimeInstance) (
 
 func (m *portMappingManager) allocatePortMappings(gst GuestRuntimeInstance, input compute.GuestPortMappings) (compute.GuestPortMappings, error) {
 	result := make([]*compute.GuestPortMapping, len(input))
+	allocPorts := make(map[compute.GuestPortMappingProtocol]sets.Int)
 	for idx := range input {
-		pm, err := m.allocatePortMapping(gst, input[idx])
+		data := input[idx]
+		if _, ok := allocPorts[data.Protocol]; !ok {
+			allocPorts[data.Protocol] = sets.NewInt()
+		}
+		pm, err := m.allocatePortMapping(gst, data, allocPorts)
 		if err != nil {
 			return nil, errors.Wrapf(err, "get port mapping %s", jsonutils.Marshal(input[idx]))
 		}
 		result[idx] = pm
+		allocPorts[data.Protocol].Insert(*pm.HostPort)
 	}
 	return result, nil
 }
 
-func (m *portMappingManager) allocatePortMapping(gst GuestRuntimeInstance, pm *compute.GuestPortMapping) (*compute.GuestPortMapping, error) {
+func (m *portMappingManager) allocatePortMapping(gst GuestRuntimeInstance, pm *compute.GuestPortMapping, allocPorts map[compute.GuestPortMappingProtocol]sets.Int) (*compute.GuestPortMapping, error) {
 	otherPorts, err := m.getOtherGuestsUsedPorts(gst)
 	if err != nil {
 		return nil, errors.Wrap(err, "getOtherPodsUsedPorts")
@@ -176,6 +190,12 @@ func (m *portMappingManager) allocatePortMapping(gst GuestRuntimeInstance, pm *c
 				return nil, errors.Errorf("%s host_port %d is already used", pm.Protocol, *pm.HostPort)
 			}
 		}
+		allocProtoPorts, ok := allocPorts[pm.Protocol]
+		if ok {
+			if allocProtoPorts.Has(*pm.HostPort) {
+				return nil, errors.Errorf("%s host_port %d is already allocated", pm.Protocol, *pm.HostPort)
+			}
+		}
 		return runtimePm, nil
 	} else {
 		start := compute.GUEST_PORT_MAPPING_RANGE_START
@@ -187,6 +207,10 @@ func (m *portMappingManager) allocatePortMapping(gst GuestRuntimeInstance, pm *c
 		otherPodPorts, ok := otherPorts[pm.Protocol]
 		if !ok {
 			otherPodPorts = sets.NewInt()
+		}
+		allocProtoPorts, ok := allocPorts[pm.Protocol]
+		if ok {
+			otherPodPorts.Insert(allocProtoPorts.List()...)
 		}
 		portResult, err := getport.GetPortByRangeBySets(portProtocol, start, end, otherPodPorts)
 		if err != nil {
