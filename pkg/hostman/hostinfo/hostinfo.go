@@ -1366,7 +1366,11 @@ func (h *SHostInfo) ensureHostRecord(zoneId string) (*api.HostDetails, error) {
 		}
 	}
 
-	return h.updateOrCreateHost(h.HostId)
+	host, err := h.updateOrCreateHost(h.HostId)
+	if err != nil {
+		return nil, errors.Wrap(err, "updateOrCreateHost")
+	}
+	return host, nil
 }
 
 func (h *SHostInfo) UpdateSyncInfo(hostId string, body jsonutils.JSONObject) (interface{}, error) {
@@ -1510,11 +1514,14 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 	)
 	if !h.isInit {
 		res, err = modules.Hosts.Update(h.GetSession(), hostId, jsonutils.Marshal(input))
+		if err != nil {
+			return nil, errors.Wrapf(err, "update host with input: %s", jsonutils.Marshal(input))
+		}
 	} else {
 		res, err = modules.Hosts.CreateInContext(h.GetSession(), jsonutils.Marshal(input), &modules.Zones, h.ZoneId)
-	}
-	if err != nil {
-		return nil, errors.Wrapf(err, "host create or update with %s", jsonutils.Marshal(input))
+		if err != nil {
+			return nil, errors.Wrapf(err, "create host with zone: %q, input: %s", h.ZoneId, jsonutils.Marshal(input))
+		}
 	}
 
 	hostDetails := api.HostDetails{}
