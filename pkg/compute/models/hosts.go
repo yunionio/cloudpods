@@ -4240,10 +4240,12 @@ func (hh *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 		hh.UpdateDnsRecords(false)
 	}
 	if input.EnableNumaAllocate != nil {
-		if cnt, err := hh.GetRunningGuestCount(); err != nil {
-			return input, errors.Wrap(err, "GetRunningGuestCount")
-		} else if cnt > 0 {
-			return input, errors.Errorf("Host has running guest, can't enable/disable numa allocate")
+		if hh.HostType != api.HOST_TYPE_CONTAINER {
+			if cnt, err := hh.GetRunningGuestCount(); err != nil {
+				return input, errors.Wrap(err, "GetRunningGuestCount")
+			} else if cnt > 0 {
+				return input, errors.Errorf("Host has running guest, can't enable/disable numa allocate")
+			}
 		}
 	}
 	return input, nil
