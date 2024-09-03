@@ -175,7 +175,7 @@ func init() {
 		Desc         string `help:"Description" metavar:"DESCRIPTION"`
 		AutoDelete   string `help:"enable/disable auto delete of disk" choices:"enable|disable"`
 		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
-		DiskType     string `help:"Disk type" choices:"data|volume"`
+		DiskType     string `help:"Disk type" choices:"data|volume|sys"`
 		IsSsd        *bool  `help:"mark disk as ssd" negative:"no-is-ssd"`
 	}
 	R(&DiskUpdateOptions{}, "disk-update", "Update property of a virtual disk", func(s *mcclient.ClientSession, args *DiskUpdateOptions) error {
