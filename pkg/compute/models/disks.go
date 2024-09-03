@@ -425,7 +425,7 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	var err error
 
 	if input.DiskType != "" {
-		if !utils.IsInStringArray(input.DiskType, []string{api.DISK_TYPE_DATA, api.DISK_TYPE_VOLUME}) {
+		if !utils.IsInStringArray(input.DiskType, []string{api.DISK_TYPE_DATA, api.DISK_TYPE_VOLUME, api.DISK_TYPE_SYS}) {
 			return input, httperrors.NewInputParameterError("not support update disk_type %s", input.DiskType)
 		}
 	}
