@@ -1355,7 +1355,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 			runningCount++
 			memSize += int64(guest.VmemSize)
 			cpuCount += int64(guest.VcpuCount)
-			if guest.CpuNumaPin != nil {
+			if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
 				cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
 				if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
 					return errors.Wrap(err, "unmarshal cpu numa pin")
@@ -1384,7 +1384,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		//}
 	}
 
-	if len(guestsCpuNumaPin) > 0 {
+	if host.EnableNumaAllocate && len(guestsCpuNumaPin) > 0 {
 		desc.HostTopo.LoadCpuNumaPin(guestsCpuNumaPin)
 	}
 	log.Infof("host topo %s", jsonutils.Marshal(desc.HostTopo))
