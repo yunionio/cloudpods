@@ -532,10 +532,17 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 		return err
 	}
 
-	tmpFileDir, err := os.MkdirTemp(options.HostOptions.TempPath, "ceph_save_images")
+	tmpPath := "/opt/cloud/tmp"
+	err = os.MkdirAll(tmpPath, 0755)
+	if err != nil {
+		log.Errorf("failed mkdir %s", tmpPath)
+		return errors.Wrap(err, "os.MkdirAll")
+	}
+
+	tmpFileDir, err := os.MkdirTemp(tmpPath, "ceph_save_images")
 	if err != nil {
 		log.Errorf("fail to obtain tempFile for ceph save glance image: %s", err)
-		return errors.Wrap(err, "ioutil.TempDir")
+		return errors.Wrap(err, "os.MkdirTemp")
 	}
 	defer func() {
 		log.Debugf("clean up temp dir for glance image save %s", tmpFileDir)
