@@ -48,6 +48,17 @@ type ContainerSecurityContext struct {
 	RunAsGroup *int64 `json:"run_as_group,omitempty"`
 }
 
+type ContainerResources struct {
+	// CpuCfsQuota can be set to 0.5 that mapping to 0.5*100000 for cpu.cpu_cfs_quota_us
+	CpuCfsQuota *float64 `json:"cpu_cfs_quota,omitempty"`
+	// MemoryLimitMB will be transferred to memory.limit_in_bytes
+	// MemoryLimitMB *int64 `json:"memory_limit_mb,omitempty"`
+	// PidsMax will be set to pids.max
+	PidsMax *int `json:"pids_max"`
+	// DevicesAllow will be set to devices.allow
+	DevicesAllow []string `json:"devices_allow"`
+}
+
 type ContainerSpec struct {
 	// Image to use.
 	Image string `json:"image"`
@@ -68,6 +79,7 @@ type ContainerSpec struct {
 	Lifecyle           *ContainerLifecyle        `json:"lifecyle"`
 	CgroupDevicesAllow []string                  `json:"cgroup_devices_allow"`
 	CgroupPidsMax      int                       `json:"cgroup_pids_max"`
+	ResourcesLimit     *ContainerResources       `json:"resources_limit"`
 	SimulateCpu        bool                      `json:"simulate_cpu"`
 	ShmSizeMB          int                       `json:"shm_size_mb"`
 	SecurityContext    *ContainerSecurityContext `json:"security_context,omitempty"`
