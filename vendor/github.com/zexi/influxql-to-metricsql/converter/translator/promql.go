@@ -40,10 +40,13 @@ type promQL struct {
 	timeRange       *influxql.TimeRange
 	fieldIsWildcard bool
 	measurement     string
+	labelsVisitor   *labelsVisitor
 }
 
 func NewPromQL() Translator {
-	return &promQL{}
+	return &promQL{
+		labelsVisitor: newLabelsVisitor(),
+	}
 }
 
 func (m *promQL) Translate(s influxql.Statement) (string, error) {
@@ -93,7 +96,7 @@ func (m *promQL) translateField(s *influxql.SelectStatement, field *influxql.Fie
 	}
 	m.timeRange = timeRange
 
-	matchers, err := m.getLabels(cond)
+	matchers, err := m.getLabels(m.labelsVisitor, cond)
 	if err != nil {
 		return nil, errors.Wrap(err, "get matchers")
 	}
@@ -295,7 +298,15 @@ func (m promQL) generateExpr(
 }
 
 func (m promQL) formatExpr(expr promql.Expr) string {
-	return expr.String()
+	initialExpr := expr.String()
+	//fmt.Printf("---replaceLabels: %#v\n", m.labelsVisitor.replaceLabels)
+	//fmt.Printf("--src: %s\n", initialExpr)
+	if len(m.labelsVisitor.replaceLabels) > 0 && len(m.labelsVisitor.labels) > 1 {
+		for src, replace := range m.labelsVisitor.replaceLabels {
+			initialExpr = strings.ReplaceAll(initialExpr, src, replace)
+		}
+	}
+	return initialExpr
 }
 
 func newAggrExpr(name string, argType promql.ValueType, returnType promql.ValueType, restExpr promql.Expr) promql.Expr {
@@ -483,17 +494,19 @@ func getCallVariable(c *influxql.Call) (string, error) {
 }
 
 type labelsVisitor struct {
-	err    error
-	labels []*labels.Matcher
-	curKey string
-	curOp  influxql.Token
-	curVal string
+	err           error
+	labels        []*labels.Matcher
+	curKey        string
+	curOp         influxql.Token
+	curVal        string
+	replaceLabels map[string]string
 }
 
 func newLabelsVisitor() *labelsVisitor {
 	return &labelsVisitor{
-		err:    nil,
-		labels: make([]*labels.Matcher, 0),
+		err:           nil,
+		labels:        make([]*labels.Matcher, 0),
+		replaceLabels: map[string]string{},
 	}
 }
 
@@ -536,18 +549,24 @@ func (l *labelsVisitor) commitLabel() error {
 }
 
 func (l *labelsVisitor) Visit(node influxql.Node) influxql.Visitor {
-	//fmt.Printf("-- visit: %#v\n", node)
+	//fmt.Printf("-- visit: %s, %#v\n", node, node)
 	if l.err != nil {
 		log.Printf("error happend: %v, visting skipped", l.err)
 		return l
 	}
 	switch expr := node.(type) {
 	case *influxql.BinaryExpr:
-		if expr.Op == influxql.OR {
-			l.err = errors.Errorf("%#v: OR is not suported yet.", expr)
-			return l
+		if expr.Op != influxql.OR && expr.Op != influxql.AND {
+			l.curOp = expr.Op
 		}
-		l.curOp = expr.Op
+		l.Visit(expr.LHS)
+		if expr.Op == influxql.OR {
+			curLabel := l.labels[len(l.labels)-1]
+			key := fmt.Sprintf("%s,", curLabel.String())
+			l.replaceLabels[key] = fmt.Sprintf("%s or ", curLabel.String())
+		}
+		l.Visit(expr.RHS)
+		return nil
 	case *influxql.VarRef:
 		l.curKey = expr.Val
 	case *influxql.StringLiteral:
@@ -564,11 +583,10 @@ func (l *labelsVisitor) Visit(node influxql.Node) influxql.Visitor {
 	return l
 }
 
-func (m promQL) getLabels(cond influxql.Expr) ([]*labels.Matcher, error) {
+func (m promQL) getLabels(v *labelsVisitor, cond influxql.Expr) ([]*labels.Matcher, error) {
 	if cond == nil {
 		return nil, nil
 	}
-	v := newLabelsVisitor()
 	influxql.Walk(v, cond)
 	return v.Labels(), v.Error()
 }
