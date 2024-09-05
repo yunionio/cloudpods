@@ -53,11 +53,11 @@ func (user *SUser) GetInviteUrl() string {
 }
 
 func (user *SUser) AttachPolicy(policyArn string, policyType api.TPolicyType) error {
-	return user.client.AttachUserPolicy(user.UserName, user.client.getIamArn(policyArn))
+	return user.client.AttachUserPolicy(user.UserName, policyArn)
 }
 
 func (user *SUser) DetachPolicy(policyArn string, policyType api.TPolicyType) error {
-	return user.client.DetachUserPolicy(user.UserName, user.client.getIamArn(policyArn))
+	return user.client.DetachUserPolicy(user.UserName, policyArn)
 }
 
 func (user *SUser) GetGlobalId() string {

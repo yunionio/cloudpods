@@ -74,11 +74,11 @@ func (self *SGroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 }
 
 func (self *SGroup) AttachPolicy(policyId string, policyType api.TPolicyType) error {
-	return self.client.AttachGroupPolicy(self.GroupName, self.client.getIamArn(policyId))
+	return self.client.AttachGroupPolicy(self.GroupName, policyId)
 }
 
 func (self *SGroup) DetachPolicy(policyId string, policyType api.TPolicyType) error {
-	return self.client.DetachGroupPolicy(self.GroupName, self.client.getIamArn(policyId))
+	return self.client.DetachGroupPolicy(self.GroupName, policyId)
 }
 
 func (self *SGroup) Delete() error {
@@ -100,6 +100,26 @@ func (self *SGroup) ListPolicies() ([]SAttachedPolicy, error) {
 		for i := range part.AttachedPolicies {
 			part.AttachedPolicies[i].client = self.client
 			policies = append(policies, part.AttachedPolicies[i])
+		}
+		offset = part.Marker
+		if len(offset) == 0 || !part.IsTruncated {
+			break
+		}
+	}
+	return policies, nil
+}
+
+func (self *SGroup) ListGroupPolicies() ([]SPolicy, error) {
+	policies := []SPolicy{}
+	offset := ""
+	for {
+		part, err := self.client.ListGroupPolicies(self.GroupName, offset, 1000)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListGroupPolicies")
+		}
+		for i := range part.Policies {
+			part.Policies[i].client = self.client
+			policies = append(policies, part.Policies[i])
 		}
 		offset = part.Marker
 		if len(offset) == 0 || !part.IsTruncated {
@@ -182,6 +202,7 @@ func (self *SAwsClient) CreateGroup(name string, path string) (*SGroup, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "iamRequest.CreateGroup")
 	}
+	group.Group.client = self
 	return &group.Group, nil
 }
 

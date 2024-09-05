@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"gopkg.in/fatih/set.v0"
 
@@ -375,26 +376,6 @@ func (self *SCloudgroup) GetCloudpolicyCount() (int, error) {
 func (self *SCloudgroup) GetCloudpolicies() ([]SCloudpolicy, error) {
 	policies := []SCloudpolicy{}
 	q := self.GetCloudpolicyQuery()
-	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return policies, nil
-}
-
-func (self *SCloudgroup) GetSystemCloudpolicies() ([]SCloudpolicy, error) {
-	policies := []SCloudpolicy{}
-	q := self.GetCloudpolicyQuery().Equals("policy_type", api.CLOUD_POLICY_TYPE_SYSTEM)
-	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return policies, nil
-}
-
-func (self *SCloudgroup) GetCustomCloudpolicies() ([]SCloudpolicy, error) {
-	policies := []SCloudpolicy{}
-	q := self.GetCloudpolicyQuery().Equals("policy_type", api.CLOUD_POLICY_TYPE_CUSTOM)
 	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
 	if err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
@@ -773,8 +754,8 @@ func (self *SCloudgroup) attachPolicy(policyId string) error {
 }
 
 func (self *SCloudaccount) SyncCloudgroups(ctx context.Context, userCred mcclient.TokenCredential, iGroups []cloudprovider.ICloudgroup, managerId string) ([]SCloudgroup, []cloudprovider.ICloudgroup, compare.SyncResult) {
-	lockman.LockRawObject(ctx, CloudgroupManager.Keyword(), self.Id)
-	defer lockman.ReleaseRawObject(ctx, CloudgroupManager.Keyword(), self.Id)
+	lockman.LockRawObject(ctx, CloudgroupManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, managerId))
+	defer lockman.ReleaseRawObject(ctx, CloudgroupManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, managerId))
 
 	result := compare.SyncResult{}
 	dbGroups, err := self.GetCloudgroups(managerId)
@@ -889,9 +870,6 @@ func (group *SCloudgroup) SyncWithCloudgroup(ctx context.Context, userCred mccli
 }
 
 func (self *SCloudaccount) newCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup, managerId string) (*SCloudgroup, error) {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
-
 	group := &SCloudgroup{}
 	group.SetModelManager(CloudgroupManager, group)
 	group.Name = iGroup.GetName()
@@ -1016,7 +994,7 @@ func (self *SCloudgroup) SyncPolicies(ctx context.Context, userCred mcclient.Tok
 			return q.Equals("cloudaccount_id", self.CloudaccountId)
 		})
 		if err != nil {
-			result.AddError(errors.Wrapf(err, "add %s", added[i].GetName()))
+			result.AddError(errors.Wrapf(err, "add %s(%s)", added[i].GetName(), added[i].GetGlobalId()))
 			continue
 		}
 		err = self.attachPolicy(policy.GetId())

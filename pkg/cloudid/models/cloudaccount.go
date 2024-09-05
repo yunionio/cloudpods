@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
@@ -109,31 +108,8 @@ func (self *SCloudaccount) GetDriver() (IProviderDriver, error) {
 	return GetProviderDriver(self.Provider)
 }
 
-func (self *SCloudaccount) GetCloudpolicies() ([]SCloudpolicy, error) {
+func (self *SCloudaccount) GetCloudpolicies(managerId string) ([]SCloudpolicy, error) {
 	q := CloudpolicyManager.Query().Equals("cloudaccount_id", self.Id)
-	policies := []SCloudpolicy{}
-	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return policies, nil
-}
-
-func (self *SCloudaccount) GetSystemCloudpolicies(managerId string) ([]SCloudpolicy, error) {
-	q := CloudpolicyManager.Query().Equals("cloudaccount_id", self.Id).Equals("policy_type", api.CLOUD_POLICY_TYPE_SYSTEM)
-	if len(managerId) > 0 {
-		q = q.Equals("manager_id", managerId)
-	}
-	policies := []SCloudpolicy{}
-	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return policies, nil
-}
-
-func (self *SCloudaccount) GetCustomCloudpolicies(managerId string) ([]SCloudpolicy, error) {
-	q := CloudpolicyManager.Query().Equals("cloudaccount_id", self.Id).Equals("policy_type", api.CLOUD_POLICY_TYPE_CUSTOM)
 	if len(managerId) > 0 {
 		q = q.Equals("manager_id", managerId)
 	}

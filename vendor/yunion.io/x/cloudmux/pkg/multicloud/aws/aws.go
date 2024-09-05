@@ -133,15 +133,6 @@ func (cli *SAwsClient) getIamArn(arn string) string {
 	}
 }
 
-func (cli *SAwsClient) getIamCommonArn(arn string) string {
-	switch cli.GetAccessEnv() {
-	case api.CLOUD_ACCESS_ENV_AWS_GLOBAL:
-		return strings.TrimPrefix(arn, AWS_GLOBAL_ARN_PREFIX)
-	default:
-		return strings.TrimPrefix(arn, AWS_CHINA_ARN_PREFIX)
-	}
-}
-
 func GetDefaultRegionId(accessUrl string) string {
 	defaultRegion := AWS_INTERNATIONAL_DEFAULT_REGION
 	switch accessUrl {
