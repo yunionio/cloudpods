@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type StoragecacheDetails struct {
@@ -79,6 +80,13 @@ type CacheImageInput struct {
 	StoragecacheId string `json:"storagecache_id"`
 	// swagger: ignore
 	Checksum string `json:"checksum"`
+
+	// 是否加密
+	Encrypted bool `json:"encrypted"`
+	// 秘钥名称
+	EncryptKey string `json:"encrypt_key"`
+	// 加密算法，aes-256 or sm4
+	EncryptAlg seclib2.TSymEncAlg `json:"encrypt_alg"`
 }
 
 type StoragecacheResourceInput struct {

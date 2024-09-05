@@ -15,9 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
-	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
 type SLVMImageCache struct {
@@ -95,6 +93,12 @@ func (c *SLVMImageCache) Acquire(
 		if err != nil {
 			return errors.Wrapf(err, "NewQemuImage for local image path %s", localImageCache.GetPath())
 		}
+		log.Debugf("input encrypt %s %s", input.EncryptAlg, input.EncryptKey)
+		if input.Encrypted {
+			localImg.EncryptAlg = input.EncryptAlg
+			localImg.EncryptFormat = qemuimg.EncryptFormatLuks
+			localImg.Password = input.EncryptKey
+		}
 		lvSize := lvmutils.GetQcow2LvSize(localImg.SizeBytes/1024/1024) * 1024 * 1024
 		err = lvmutils.LvCreate(c.Manager.GetPath(), c.GetName(), lvSize)
 		if err != nil {
@@ -108,16 +112,39 @@ func (c *SLVMImageCache) Acquire(
 			}
 		}
 
-		targetImageFormat := "qcow2"
-		if localImg.Format != qemuimg.QCOW2 {
-			targetImageFormat = "raw"
+		newImg, err := qemuimg.NewQemuImage(c.GetPath())
+		if err != nil {
+			return errors.Wrapf(err, "NewQemuImage(%s)", c.GetPath())
+		}
+		if input.Encrypted {
+			err = newImg.CreateQcow2(int(localImg.SizeBytes/1024/1024), true, "", input.EncryptKey, qemuimg.EncryptFormatLuks, input.EncryptAlg)
+		} else {
+			err = newImg.CreateQcow2(int(localImg.SizeBytes/1024/1024), false, "", "", "", "")
+		}
+		if err != nil {
+			return errors.Wrapf(err, "CreateQcow2(%s)", c.GetPath())
 		}
 		log.Infof("convert local image %s to lvm %s", c.imageId, c.GetPath())
-		out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
-			"convert", "-W", "-m", "16", "-O", targetImageFormat, localImageCache.GetPath(), c.GetPath()).Output()
-		if err != nil {
-			return errors.Wrapf(err, "convert local image %s to lvm %s: %s", c.imageId, c.GetPath(), out)
+		srcInfo := qemuimg.SImageInfo{
+			Path:          localImageCache.GetPath(),
+			Format:        localImg.Format,
+			IoLevel:       qemuimg.IONiceNone,
+			Password:      input.EncryptKey,
+			EncryptFormat: qemuimg.EncryptFormatLuks,
+			EncryptAlg:    input.EncryptAlg,
 		}
+		destInfo := qemuimg.SImageInfo{
+			Path:          c.GetPath(),
+			Format:        qemuimg.QCOW2,
+			IoLevel:       qemuimg.IONiceNone,
+			Password:      input.EncryptKey,
+			EncryptFormat: qemuimg.EncryptFormatLuks,
+			EncryptAlg:    input.EncryptAlg,
+		}
+		if err = qemuimg.Convert(srcInfo, destInfo, false, nil); err != nil {
+			return errors.Wrap(err, "failed convert tmp disk")
+		}
+
 		if len(input.ServerId) > 0 {
 			modules.Servers.Update(hostutils.GetComputeSession(context.Background()), input.ServerId, jsonutils.Marshal(map[string]float32{"progress": 100.0}))
 		}

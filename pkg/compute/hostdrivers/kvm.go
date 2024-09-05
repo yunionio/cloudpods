@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -38,6 +39,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 )
@@ -211,6 +214,16 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		return errors.Wrapf(err, "Fetch cached image by image_id %s", input.ImageId)
 	}
 	cacheImage := obj.(*models.SCachedimage)
+	if cacheImage.EncryptStatus == imageapi.IMAGE_ENCRYPT_STATUS_ENCRYPTED {
+		secKey, err := identity_modules.Credentials.GetEncryptKey(auth.GetAdminSession(ctx, ""), cacheImage.EncryptKeyId)
+		if err != nil {
+			return errors.Wrapf(err, "fail to fetch enc key %s", cacheImage.EncryptKeyId)
+		}
+		input.Encrypted = true
+		input.EncryptAlg = secKey.Alg
+		input.EncryptKey = secKey.Key
+	}
+
 	zone, _ := host.GetZone()
 	rangeObjs := []interface{}{zone}
 	if srcHost != nil {
