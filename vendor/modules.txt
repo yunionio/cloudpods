@@ -542,7 +542,7 @@ github.com/imdario/mergo
 ## explicit
 github.com/influxdata/influxql
 github.com/influxdata/influxql/internal
-# github.com/influxdata/promql/v2 v2.12.0
+# github.com/influxdata/promql/v2 v2.12.0 => github.com/zexi/promql/v2 v2.12.1
 ## explicit; go 1.12
 github.com/influxdata/promql/v2
 github.com/influxdata/promql/v2/pkg/labels
@@ -983,7 +983,7 @@ github.com/xuri/nfp
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
-# github.com/zexi/influxql-to-metricsql v0.0.8
+# github.com/zexi/influxql-to-metricsql v0.0.9
 ## explicit; go 1.18
 github.com/zexi/influxql-to-metricsql/converter
 github.com/zexi/influxql-to-metricsql/converter/translator
@@ -1646,3 +1646,4 @@ yunion.io/x/sqlchemy/backends/sqlite
 # yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 ## explicit; go 1.12
 yunion.io/x/structarg
+# github.com/influxdata/promql/v2 => github.com/zexi/promql/v2 v2.12.1
