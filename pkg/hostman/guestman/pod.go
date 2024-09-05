@@ -116,6 +116,7 @@ type PodInstance interface {
 	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
 	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
 	ContainerExecSync(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error)
+	SetContainerResourceLimit(ctrId string, limit *apis.ContainerResources) (jsonutils.JSONObject, error)
 
 	ReadLogs(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.PodLogOptions, stdout, stderr io.Writer) error
 }
@@ -930,6 +931,11 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if err := s.startStat.CreateContainerFile(ctrId); err != nil {
 		return nil, errors.Wrapf(err, "create container startup stat file %s", ctrId)
 	}
+	if input.Spec.ResourcesLimit != nil {
+		if err := s.setContainerResourcesLimit(criId, input.Spec.ResourcesLimit); err != nil {
+			return nil, errors.Wrap(err, "set container resources limit")
+		}
+	}
 	return nil, nil
 }
 
@@ -1199,6 +1205,40 @@ func (s *sPodGuestInstance) getCGUtil() pod.CgroupUtil {
 
 func (s *sPodGuestInstance) setContainerCgroupDevicesAllow(ctrId string, allowStrs []string) error {
 	return s.getCGUtil().SetDevicesAllow(ctrId, allowStrs)
+}
+
+func (s *sPodGuestInstance) SetContainerResourceLimit(ctrId string, limit *apis.ContainerResources) (jsonutils.JSONObject, error) {
+	criId, err := s.getContainerCRIId(ctrId)
+	if err != nil {
+		return nil, errors.Wrap(err, "get container cri id")
+	}
+	return nil, s.setContainerResourcesLimit(criId, limit)
+}
+
+func (s *sPodGuestInstance) setContainerResourcesLimit(ctrId string, limit *apis.ContainerResources) error {
+	cgUtil := s.getCGUtil()
+	/*if limit.MemoryLimitMB != nil {
+		if err := cgUtil.SetMemoryLimitBytes(ctrId, *limit.MemoryLimitMB*1024*1024); err != nil {
+			return errors.Wrapf(err, "set memory limit to %d MB", *limit.MemoryLimitMB)
+		}
+	}*/
+	if limit.CpuCfsQuota != nil {
+		cpuCfsQuotaUs := *limit.CpuCfsQuota * float64(s.getDefaultCPUPeriod())
+		if err := cgUtil.SetCPUCfs(ctrId, int64(cpuCfsQuotaUs), s.getDefaultCPUPeriod()); err != nil {
+			return errors.Wrapf(err, "set cpu cfs quota to %d", int64(cpuCfsQuotaUs))
+		}
+	}
+	if limit.PidsMax != nil {
+		if err := cgUtil.SetPidsMax(ctrId, *limit.PidsMax); err != nil {
+			return errors.Wrapf(err, "set pids.max to %d", *limit.PidsMax)
+		}
+	}
+	if len(limit.DevicesAllow) != 0 {
+		if err := cgUtil.SetDevicesAllow(ctrId, limit.DevicesAllow); err != nil {
+			return errors.Wrapf(err, "set devices.allow %v", limit.DevicesAllow)
+		}
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) getDefaultCPUPeriod() int64 {

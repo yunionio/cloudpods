@@ -326,6 +326,32 @@ func (o *ContainerExecOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o.ToAPIInput()), nil
 }
 
+type ContainerSetResourcesLimitOptions struct {
+	ContainerIdsOptions
+	CpuCfsQuota float64 `help:"cpu cfs quota. e.g.:0.5 equals 0.5*100000"`
+	//MemoryLimitMb int64    `help:"memory limit MB"`
+	PidsMax     int      `help:"pids max"`
+	DeviceAllow []string `help:"devices allow"`
+}
+
+func (o *ContainerSetResourcesLimitOptions) Params() (jsonutils.JSONObject, error) {
+	limit := &apis.ContainerResources{}
+	if o.CpuCfsQuota > 0 {
+		limit.CpuCfsQuota = &o.CpuCfsQuota
+	}
+	//if o.MemoryLimitMb > 0 {
+	//	limit.MemoryLimitMB = &o.MemoryLimitMb
+	//}
+	if o.PidsMax > 0 {
+		limit.PidsMax = &o.PidsMax
+	}
+	if len(o.DeviceAllow) > 0 {
+		limit.DevicesAllow = o.DeviceAllow
+	}
+
+	return jsonutils.Marshal(limit), nil
+}
+
 type ContainerExecSyncOptions struct {
 	ServerIdOptions
 	COMMAND string

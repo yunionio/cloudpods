@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
@@ -76,6 +77,10 @@ const (
 	// for health check
 	CONTAINER_STATUS_PROBING      = "probing"
 	CONTAINER_STATUS_PROBE_FAILED = "probe_failed"
+)
+
+var (
+	ContainerRunningStatus = sets.NewString(CONTAINER_STATUS_RUNNING, CONTAINER_STATUS_PROBING)
 )
 
 const (

@@ -500,13 +500,21 @@ func (p *SPodDriver) RequestExecContainer(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (p *SPodDriver) RequestExecSyncContainer(ctx context.Context, userCred mcclient.TokenCredential, container *models.SContainer, input *api.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
+func (p *SPodDriver) requestContainerSyncAction(ctx context.Context, userCred mcclient.TokenCredential, container *models.SContainer, action string, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	pod := container.GetPod()
 	host, _ := pod.GetHost()
-	url := fmt.Sprintf("%s/pods/%s/containers/%s/exec-sync", host.ManagerUri, pod.GetId(), container.GetId())
+	url := fmt.Sprintf("%s/pods/%s/containers/%s/%s", host.ManagerUri, pod.GetId(), container.GetId(), action)
 	header := mcclient.GetTokenHeaders(userCred)
-	_, ret, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(input), false)
+	_, ret, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, input, false)
 	return ret, err
+}
+
+func (p *SPodDriver) RequestExecSyncContainer(ctx context.Context, userCred mcclient.TokenCredential, container *models.SContainer, input *api.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
+	return p.requestContainerSyncAction(ctx, userCred, container, "exec-sync", jsonutils.Marshal(input))
+}
+
+func (p *SPodDriver) RequestSetContainerResourcesLimit(ctx context.Context, userCred mcclient.TokenCredential, container *models.SContainer, limit *apis.ContainerResources) (jsonutils.JSONObject, error) {
+	return p.requestContainerSyncAction(ctx, userCred, container, "set-resources-limit", jsonutils.Marshal(limit))
 }
 
 func (p *SPodDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {

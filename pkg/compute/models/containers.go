@@ -646,6 +646,38 @@ func (c *SContainer) PerformExecSync(ctx context.Context, userCred mcclient.Toke
 	return c.GetPodDriver().RequestExecSyncContainer(ctx, userCred, c, input)
 }
 
+func (c *SContainer) PerformSetResourcesLimit(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, limit *apis.ContainerResources) (jsonutils.JSONObject, error) {
+	if err := c.ValidateResourcesLimit(limit); err != nil {
+		return nil, errors.Wrap(err, "ValidateResourcesLimit")
+	}
+	if _, err := db.Update(c, func() error {
+		c.Spec.ResourcesLimit = limit
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "Update spec.resources_limit")
+	}
+	if !api.ContainerRunningStatus.Has(c.GetStatus()) {
+		return nil, nil
+	}
+	return c.GetPodDriver().RequestSetContainerResourcesLimit(ctx, userCred, c, limit)
+}
+
+func (c *SContainer) ValidateResourcesLimit(limit *apis.ContainerResources) error {
+	if limit == nil {
+		return httperrors.NewInputParameterError("limit cannot be nil")
+	}
+	pod := c.GetPod()
+	if limit.CpuCfsQuota != nil {
+		if *limit.CpuCfsQuota <= 0 {
+			return httperrors.NewInputParameterError("invalid cpu_cfs_quota %f", *limit.CpuCfsQuota)
+		}
+		if *limit.CpuCfsQuota > float64(pod.VcpuCount) {
+			return httperrors.NewInputParameterError("cpu_cfs_quota %f can't large than %d", *limit.CpuCfsQuota, pod.VcpuCount)
+		}
+	}
+	return nil
+}
+
 type ContainerReleasedDevice struct {
 	*api.ContainerDevice
 	DeviceType  string
