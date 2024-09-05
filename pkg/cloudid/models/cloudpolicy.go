@@ -313,14 +313,18 @@ func (manager *SCloudpolicyManager) FetchCustomizeColumns(
 func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) error {
 	_, err := db.Update(self, func() error {
 		self.Name = iPolicy.GetName()
-		self.Description = iPolicy.GetDescription()
+		if self.PolicyType == api.CLOUD_POLICY_TYPE_CUSTOM || len(self.Description) == 0 {
+			self.Description = iPolicy.GetDescription()
+		}
 		self.Status = apis.STATUS_AVAILABLE
 		self.IsPublic = true
-		doc, err := iPolicy.GetDocument()
-		if err != nil {
-			return errors.Wrapf(err, "GetDocument")
+		if self.PolicyType == api.CLOUD_POLICY_TYPE_CUSTOM || gotypes.IsNil(self.Document) {
+			doc, err := iPolicy.GetDocument()
+			if err != nil {
+				return errors.Wrapf(err, "GetDocument")
+			}
+			self.Document = doc
 		}
-		self.Document = doc
 		return nil
 	})
 	if err != nil {
@@ -330,9 +334,6 @@ func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mccl
 }
 
 func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, managerId string) (*SCloudpolicy, error) {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
-
 	policy := &SCloudpolicy{}
 	policy.SetModelManager(CloudpolicyManager, policy)
 	doc, err := iPolicy.GetDocument()
@@ -352,6 +353,9 @@ func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient
 }
 
 func (self *SCloudaccount) SyncPolicies(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy, managerId string) compare.SyncResult {
+	lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), managerId)
+	defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), managerId)
+
 	result := compare.SyncResult{}
 
 	removed := make([]SCloudpolicy, 0)
@@ -359,7 +363,7 @@ func (self *SCloudaccount) SyncPolicies(ctx context.Context, userCred mcclient.T
 	commonext := make([]cloudprovider.ICloudpolicy, 0)
 	added := make([]cloudprovider.ICloudpolicy, 0)
 
-	dbPolicies, err := self.GetCloudpolicies()
+	dbPolicies, err := self.GetCloudpolicies(managerId)
 	if err != nil {
 		result.Error(errors.Wrapf(err, "GetCloudpolicies"))
 		return result
