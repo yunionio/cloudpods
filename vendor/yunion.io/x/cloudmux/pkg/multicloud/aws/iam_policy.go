@@ -56,7 +56,7 @@ func (self *SPolicy) GetName() string {
 }
 
 func (self *SPolicy) GetGlobalId() string {
-	return self.client.getIamCommonArn(self.Arn)
+	return self.Arn
 }
 
 func (self *SPolicy) GetPolicyType() cloudid.TPolicyType {
@@ -127,7 +127,7 @@ func (self *SAwsClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error
 	ret := []cloudprovider.ICloudpolicy{}
 	marker := ""
 	for {
-		part, err := self.ListPolicies(marker, 1000, false, "", "PermissionsPolicy", "AWS")
+		part, err := self.ListPolicies(marker, 1000, false, "", "", "AWS")
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListPolicies")
 		}
@@ -143,7 +143,7 @@ func (self *SAwsClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error
 	}
 
 	for {
-		part, err := self.ListPolicies(marker, 1000, false, "", "PermissionsPolicy", "Local")
+		part, err := self.ListPolicies(marker, 1000, false, "", "", "Local")
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListPolicies")
 		}
@@ -230,7 +230,7 @@ type SAttachedPolicy struct {
 }
 
 func (self *SAttachedPolicy) GetGlobalId() string {
-	return self.client.getIamCommonArn(self.PolicyArn)
+	return self.PolicyArn
 }
 
 func (self *SAttachedPolicy) GetName() string {
