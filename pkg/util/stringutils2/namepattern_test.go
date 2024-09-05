@@ -25,6 +25,7 @@ func TestParseNamePattern2(t *testing.T) {
 		pattern    string
 		patternLen int
 		offset     int
+		charType   byte
 	}{
 		{
 			input:      "testimg###",
@@ -32,6 +33,7 @@ func TestParseNamePattern2(t *testing.T) {
 			pattern:    "testimg%03d",
 			patternLen: 3,
 			offset:     0,
+			charType:   RepChar,
 		},
 		{
 			input:      "testimg###66#",
@@ -39,6 +41,7 @@ func TestParseNamePattern2(t *testing.T) {
 			pattern:    "testimg%03d",
 			patternLen: 3,
 			offset:     66,
+			charType:   RepChar,
 		},
 		{
 			input:      "testimg###ab#",
@@ -46,6 +49,7 @@ func TestParseNamePattern2(t *testing.T) {
 			pattern:    "testimg%03d",
 			patternLen: 3,
 			offset:     0,
+			charType:   RepChar,
 		},
 		{
 			input:      "testimg",
@@ -54,11 +58,19 @@ func TestParseNamePattern2(t *testing.T) {
 			patternLen: 0,
 			offset:     0,
 		},
+		{
+			input:      "testimg???",
+			match:      "testimg%",
+			pattern:    "testimg%s",
+			patternLen: 3,
+			offset:     0,
+			charType:   RandomChar,
+		},
 	}
 	for _, c := range cases {
-		m, p, pl, o := ParseNamePattern2(c.input)
-		if m != c.match || p != c.pattern || pl != c.patternLen || o != c.offset {
-			t.Errorf("match got %s want %s, pattern got %s want %s, patternLen got %d want %d, offset got %d want %d", m, c.match, p, c.pattern, pl, c.patternLen, o, c.offset)
+		m, p, pl, o, ch := ParseNamePattern2(c.input)
+		if m != c.match || p != c.pattern || pl != c.patternLen || o != c.offset || ch != c.charType {
+			t.Errorf("match got %s want %s, pattern got %s want %s, patternLen got %d want %d, offset got %d want %d, charType got %c want %c", m, c.match, p, c.pattern, pl, c.patternLen, o, c.offset, ch, c.charType)
 		}
 	}
 }

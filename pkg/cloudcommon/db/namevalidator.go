@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -124,7 +126,7 @@ func GenerateAlterName(model IModel, hint string) (string, error) {
 }
 
 func GenerateName2(ctx context.Context, manager IModelManager, ownerId mcclient.IIdentityProvider, hint string, model IModel, baseIndex int) (string, error) {
-	_, pattern, patternLen, offset := stringutils2.ParseNamePattern2(hint)
+	_, pattern, patternLen, offset, ch := stringutils2.ParseNamePattern2(hint)
 	var name string
 	if patternLen == 0 {
 		name = hint
@@ -132,8 +134,15 @@ func GenerateName2(ctx context.Context, manager IModelManager, ownerId mcclient.
 		if offset > 0 {
 			baseIndex = offset
 		}
-		name = fmt.Sprintf(pattern, baseIndex)
-		baseIndex += 1
+		switch ch {
+		case stringutils2.RandomChar:
+			name = fmt.Sprintf(pattern, strings.ToLower(seclib.RandomPassword(patternLen)))
+		case stringutils2.RepChar:
+			fallthrough
+		default:
+			name = fmt.Sprintf(pattern, baseIndex)
+			baseIndex += 1
+		}
 	}
 	for {
 		var uniq bool
@@ -149,8 +158,15 @@ func GenerateName2(ctx context.Context, manager IModelManager, ownerId mcclient.
 		if uniq {
 			return name, nil
 		}
-		name = fmt.Sprintf(pattern, baseIndex)
-		baseIndex += 1
+		switch ch {
+		case stringutils2.RandomChar:
+			name = fmt.Sprintf(pattern, strings.ToLower(seclib.RandomPassword(patternLen)))
+		case stringutils2.RepChar:
+			fallthrough
+		default:
+			name = fmt.Sprintf(pattern, baseIndex)
+			baseIndex += 1
+		}
 	}
 }
 

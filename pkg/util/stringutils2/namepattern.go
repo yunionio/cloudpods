@@ -20,14 +20,17 @@ import (
 	"strings"
 )
 
+const RepChar = '#'
+const RandomChar = '?'
+
 // name##
 // name##9#
-func ParseNamePattern2(name string) (string, string, int, int) {
-	const RepChar = '#'
+func ParseNamePattern2(name string) (string, string, int, int, byte) {
 	var match string
 	var pattern string
 	var patternLen int
 	var offset int
+	var charType byte
 
 	start := strings.IndexByte(name, RepChar)
 	if start >= 0 {
@@ -45,9 +48,22 @@ func ParseNamePattern2(name string) (string, string, int, int) {
 		}
 		match = fmt.Sprintf("%s%%%s", name[:start], name[end:])
 		pattern = fmt.Sprintf("%s%%0%dd%s", name[:start], patternLen, name[end:])
+		charType = RepChar
 	} else {
-		match = fmt.Sprintf("%s-%%", name)
-		pattern = fmt.Sprintf("%s-%%d", name)
+		start := strings.IndexByte(name, RandomChar)
+		if start >= 0 {
+			end := start + 1
+			for end < len(name) && name[end] == RandomChar {
+				end += 1
+			}
+			patternLen = end - start
+			match = fmt.Sprintf("%s%%%s", name[:start], name[end:])
+			pattern = fmt.Sprintf("%s%%s%s", name[:start], name[end:])
+			charType = RandomChar
+		} else {
+			match = fmt.Sprintf("%s-%%", name)
+			pattern = fmt.Sprintf("%s-%%d", name)
+		}
 	}
-	return match, pattern, patternLen, offset
+	return match, pattern, patternLen, offset, charType
 }
