@@ -15,7 +15,6 @@ package promql
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -193,6 +192,6 @@ func (node *VectorSelector) String() string {
 	if len(labelStrings) == 0 {
 		return fmt.Sprintf("%s%s", node.Name, offset)
 	}
-	sort.Strings(labelStrings)
+	// sort.Strings(labelStrings)
 	return fmt.Sprintf("%s{%s}%s", node.Name, strings.Join(labelStrings, ","), offset)
 }
