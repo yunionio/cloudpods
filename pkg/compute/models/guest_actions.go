@@ -3026,14 +3026,14 @@ func (self *SGuest) PerformAttachnetwork(
 }
 
 // 调整带宽
-func (self *SGuest) PerformChangeBandwidth(
+func (guest *SGuest) PerformChangeBandwidth(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input api.ServerChangeBandwidthInput,
 ) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
-		return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", self.Status)
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", guest.Status)
 	}
 
 	bandwidth := input.Bandwidth
@@ -3041,7 +3041,7 @@ func (self *SGuest) PerformChangeBandwidth(
 		return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
 	}
 
-	guestnic, err := self.findGuestnetworkByInfo(input.ServerNetworkInfo)
+	guestnic, err := guest.findGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "findGuestnetworkByInfo")
 	}
@@ -3054,9 +3054,14 @@ func (self *SGuest) PerformChangeBandwidth(
 		if err != nil {
 			return nil, err
 		}
-		db.OpsLog.LogEvent(self, db.ACT_CHANGE_BANDWIDTH, diff, userCred)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_BANDWIDTH, diff, userCred, true)
-		return nil, self.StartSyncTask(ctx, userCred, false, "")
+		db.OpsLog.LogEvent(guest, db.ACT_CHANGE_BANDWIDTH, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_CHANGE_BANDWIDTH, diff, userCred, true)
+		if guest.Status == api.VM_READY || (input.NoSync != nil && *input.NoSync) {
+			// if no sync, just update db
+			return nil, nil
+		}
+		// otherwise, sync configure to host
+		return nil, guest.StartSyncTask(ctx, userCred, false, "")
 	}
 	return nil, nil
 }

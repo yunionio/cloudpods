@@ -1303,6 +1303,8 @@ type ServerChangeBandwidthInput struct {
 	ServerNetworkInfo
 
 	Bandwidth int `json:"bandwidth"`
+
+	NoSync *bool `json:"no_sync"`
 }
 
 type ServerChangeConfigSpecs struct {
