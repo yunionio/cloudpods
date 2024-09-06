@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"reflect"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -290,9 +291,24 @@ func (dm *SDiskBackupManager) ValidateCreateData(
 			return input, httperrors.NewNotFoundError("fetch container by %s", input.BackupAsTar.ContainerId)
 		}
 		input.BackupAsTar.ContainerId = ctr.GetId()
+		if err := dm.validateBackupAsTarFiles(input.BackupAsTar.IncludeFiles); err != nil {
+			return input, httperrors.NewInputParameterError("validate include_files: %s", err)
+		}
+		if err := dm.validateBackupAsTarFiles(input.BackupAsTar.ExcludeFiles); err != nil {
+			return input, httperrors.NewInputParameterError("validate exclude_files: %s", err)
+		}
 	}
 
 	return input, nil
+}
+
+func (dm *SDiskBackupManager) validateBackupAsTarFiles(paths []string) error {
+	for _, p := range paths {
+		if strings.HasPrefix(p, "/") {
+			return httperrors.NewInputParameterError("%s can't start with /", p)
+		}
+	}
+	return nil
 }
 
 func (db *SDiskBackup) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
