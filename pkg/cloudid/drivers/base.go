@@ -247,8 +247,8 @@ func (base SProviderBaseProviderDriver) RequestSyncCloudproviderResources(ctx co
 	}()
 
 	func() {
-		lockman.LockRawObject(ctx, account.Id, models.SAMLProviderManager.Keyword())
-		defer lockman.ReleaseRawObject(ctx, account.Id, models.SAMLProviderManager.Keyword())
+		lockman.LockRawObject(ctx, cp.Id, models.SAMLProviderManager.Keyword())
+		defer lockman.ReleaseRawObject(ctx, cp.Id, models.SAMLProviderManager.Keyword())
 
 		samls, err := provider.GetICloudSAMLProviders()
 		if err != nil {
@@ -456,8 +456,8 @@ func (base SProviderBaseProviderDriver) RequestCreateSAMLProvider(ctx context.Co
 	}
 	for i := range providers {
 		err = func() error {
-			lockman.LockRawObject(ctx, account.Id, models.SAMLProviderManager.Keyword())
-			defer lockman.ReleaseRawObject(ctx, account.Id, models.SAMLProviderManager.Keyword())
+			lockman.LockRawObject(ctx, providers[i].Id, models.SAMLProviderManager.Keyword())
+			defer lockman.ReleaseRawObject(ctx, providers[i].Id, models.SAMLProviderManager.Keyword())
 
 			samlProviders, err := providers[i].GetSamlProviders()
 			if err != nil {
@@ -589,7 +589,7 @@ func (base SProviderBaseProviderDriver) RequestCreateRoleForSamlUser(ctx context
 		return errors.Wrapf(err, "GetProvider")
 	}
 	opts := &cloudprovider.SRoleCreateOptions{
-		Name:         fmt.Sprintf("%s-%s", user.Name, group.Name),
+		Name:         fmt.Sprintf("%s-%s", group.Name, utils.GenRequestId(5)),
 		Desc:         fmt.Sprintf("auto create by cloudpods"),
 		SAMLProvider: samlProvider.ExternalId,
 	}

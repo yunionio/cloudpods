@@ -236,12 +236,15 @@ func (conf *SCloudConfig) UserDataScript() string {
 
 	if conf.DisableRoot == 0 {
 		shells = append(shells, `sed -i "s/.*PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config`)
+		shells = append(shells, `sed -i "s/.*PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config.d/*.conf`)
 	}
 	if conf.SshPwauth == SSH_PASSWORD_AUTH_ON {
 		shells = append(shells, `sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config`)
+		shells = append(shells, `sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config.d/*.conf`)
 	}
 	if conf.DisableRoot == 0 || conf.SshPwauth == SSH_PASSWORD_AUTH_ON {
-		shells = append(shells, `systemctl restart sshd`)
+		// ubuntu24.04 sshd -> ssh
+		shells = append(shells, `systemctl restart sshd ssh`)
 	}
 
 	for _, pkg := range conf.Packages {

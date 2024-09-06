@@ -70,7 +70,7 @@ func (self *SRole) GetDocument() *jsonutils.JSONDict {
 	return document.(*jsonutils.JSONDict)
 }
 
-//[{"Action":"sts:AssumeRoleWithSAML","Condition":{"StringEquals":{"SAML:aud":"https://signin.aws.amazon.com/saml"}},"Effect":"Allow","Principal":{"Federated":"arn:aws:iam::879324515906:saml-provider/quxuan"}}]
+// [{"Action":"sts:AssumeRoleWithSAML","Condition":{"StringEquals":{"SAML:aud":"https://signin.aws.amazon.com/saml"}},"Effect":"Allow","Principal":{"Federated":"arn:aws:iam::879324515906:saml-provider/quxuan"}}]
 func (self *SRole) GetSAMLProvider() string {
 	document := self.GetDocument()
 	if document != nil {
@@ -90,11 +90,11 @@ func (self *SRole) GetSAMLProvider() string {
 }
 
 func (self *SRole) AttachPolicy(id string, policyType cloudid.TPolicyType) error {
-	return self.client.AttachRolePolicy(self.RoleName, self.client.getIamArn(id))
+	return self.client.AttachRolePolicy(self.RoleName, id)
 }
 
 func (self *SRole) DetachPolicy(id string, polityType cloudid.TPolicyType) error {
-	return self.client.DetachRolePolicy(self.RoleName, self.client.getIamArn(id))
+	return self.client.DetachRolePolicy(self.RoleName, id)
 }
 
 func (self *SRole) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {

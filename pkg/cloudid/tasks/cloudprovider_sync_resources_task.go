@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	CloudproviderSyncWorkerManager = appsrv.NewWorkerManager("CloudproviderSyncWorkerManager", 10, 1024, false)
+	CloudproviderSyncWorkerManager = appsrv.NewWorkerManager("CloudproviderSyncWorkerManager", 30, 1024, false)
 	taskman.RegisterTaskAndWorker(CloudproviderSyncResourcesTask{}, CloudproviderSyncWorkerManager)
 }
 
