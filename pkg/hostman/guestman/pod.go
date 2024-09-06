@@ -1851,27 +1851,37 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 			return nil, errors.Wrapf(err, "bind mount %s to %s: %s", mntPath, targetBindMntPath, out)
 		}
 	}
+	deferUmount := func() error {
+		for _, vol := range vols {
+			// unbind mount
+			// umount
+			targetBindMntPath := filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
+			if vol.Disk.StorageSizeFile != "" {
+				targetBindMntPath = filepath.Join(tmpBackRootDir, vol.Disk.StorageSizeFile)
+			}
+			out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", targetBindMntPath).Output()
+			if err != nil {
+				return errors.Wrapf(err, "umount bind point %s: %s", targetBindMntPath, out)
+			}
+		}
+		for _, vol := range vols {
+			drv := volume_mount.GetDriver(vol.Type)
+			if err := drv.Unmount(s, input.ContainerId, vol); err != nil {
+				return errors.Wrapf(err, "unmount %s to %s", input.ContainerId, jsonutils.Marshal(vol))
+			}
+		}
+		return nil
+	}
+	defer func() {
+		if err := deferUmount(); err != nil {
+			log.Errorf("deferUmount after snapshot error: %s", err)
+		} else {
+			log.Infof("defer umount success")
+		}
+	}()
 	snapshotPath, err := s.createSnapshot(params, tmpBackRootDir)
 	if err != nil {
 		return nil, errors.Wrap(err, "create snapshot")
-	}
-	for _, vol := range vols {
-		// unbind mount
-		// umount
-		targetBindMntPath := filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
-		if vol.Disk.StorageSizeFile != "" {
-			targetBindMntPath = filepath.Join(tmpBackRootDir, vol.Disk.StorageSizeFile)
-		}
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", targetBindMntPath).Output()
-		if err != nil {
-			return nil, errors.Wrapf(err, "umount bind point %s: %s", targetBindMntPath, out)
-		}
-	}
-	for _, vol := range vols {
-		drv := volume_mount.GetDriver(vol.Type)
-		if err := drv.Unmount(s, input.ContainerId, vol); err != nil {
-			return nil, errors.Wrapf(err, "unmount %s to %s", input.ContainerId, jsonutils.Marshal(vol))
-		}
 	}
 	res := jsonutils.NewDict()
 	res.Set("location", jsonutils.NewString(snapshotPath))
