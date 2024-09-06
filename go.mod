@@ -89,12 +89,12 @@ require (
 	k8s.io/cluster-bootstrap v0.19.3
 	k8s.io/cri-api v0.22.17
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240827090454-97d9840e0939
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240906024748-a9bd6344aaf8
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.1-0.20240826001854-ac73b70d75b7
+	yunion.io/x/pkg v1.10.1-0.20240905110705-77c46e716318
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v1.1.3-0.20240831153043-4030cea8d4b9
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c

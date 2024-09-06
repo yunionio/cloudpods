@@ -60,7 +60,7 @@ func (d *SAWSSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred 
 		{
 			name:         "https://aws.amazon.com/SAML/Attributes/RoleSessionName",
 			friendlyName: "RoleSessionName",
-			value:        userCred.GetUserId(),
+			value:        userCred.GetUserName(),
 		},
 		{
 			name:         "urn:oid:1.3.6.1.4.1.5923.1.1.1.3",

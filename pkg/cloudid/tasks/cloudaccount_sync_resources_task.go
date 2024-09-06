@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	CloudaccountSyncWorkerManager = appsrv.NewWorkerManager("CloudaccountSyncWorkerManager", 10, 1024, false)
+	CloudaccountSyncWorkerManager = appsrv.NewWorkerManager("CloudaccountSyncWorkerManager", 20, 1024, false)
 	taskman.RegisterTaskAndWorker(CloudaccountSyncResourcesTask{}, CloudaccountSyncWorkerManager)
 }
 
