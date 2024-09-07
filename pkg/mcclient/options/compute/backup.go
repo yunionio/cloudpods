@@ -56,9 +56,10 @@ func (opts *DiskBackupDeleteOptions) QueryParams() (jsonutils.JSONObject, error)
 
 type DiskBackupCreateOptions struct {
 	options.BaseCreateOptions
-	AsTarContainerId string   `help:"container id of tar process"`
-	AsTarIncludeFile []string `help:"include file path of tar process"`
-	AsTarExcludeFile []string `help:"exclude file path of tar process"`
+	AsTarContainerId        string   `help:"container id of tar process"`
+	AsTarIncludeFile        []string `help:"include file path of tar process"`
+	AsTarExcludeFile        []string `help:"exclude file path of tar process"`
+	AsTarIgnoreNotExistFile bool     `help:"ignore not exist file when using tar"`
 
 	DISKID          string `help:"disk id" json:"disk_id"`
 	BACKUPSTORAGEID string `help:"back storage id" json:"backup_storage_id"`
@@ -80,6 +81,9 @@ func (opts *DiskBackupCreateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if len(opts.AsTarExcludeFile) > 0 {
 		input.BackupAsTar.ExcludeFiles = opts.AsTarExcludeFile
+	}
+	if opts.AsTarIgnoreNotExistFile {
+		input.BackupAsTar.IgnoreNotExistFile = opts.AsTarIgnoreNotExistFile
 	}
 	return jsonutils.Marshal(input), nil
 }

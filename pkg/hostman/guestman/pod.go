@@ -1902,14 +1902,29 @@ func (s *sPodGuestInstance) createSnapshot(params *SDiskSnapshot, hostPath strin
 	snapshotPath := s.getSnapshotPath(d, params.SnapshotId)
 	// tar hostPath to snapshotPath
 	input := params.BackupDiskConfig.BackupAsTar
-	if err := s.tarHostDir(hostPath, snapshotPath, input.IncludeFiles, input.ExcludeFiles); err != nil {
+	if err := s.tarHostDir(hostPath, snapshotPath, input.IncludeFiles, input.ExcludeFiles, input.IgnoreNotExistFile); err != nil {
 		return "", errors.Wrapf(err, "tar host dir %s to %s", hostPath, snapshotPath)
 	}
 	return snapshotPath, nil
 }
 
-func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string, includeFiles, excludeFiles []string) error {
+func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
+	includeFiles, excludeFiles []string,
+	ignoreNotExistFile bool) error {
 	baseCmd := "tar"
+	filterNotExistFiles := func(files []string) []string {
+		result := []string{}
+		for i := range files {
+			if fileutils2.Exists(filepath.Join(srcDir, files[i])) {
+				result = append(result, files[i])
+			}
+		}
+		return result
+	}
+	if ignoreNotExistFile {
+		includeFiles = filterNotExistFiles(includeFiles)
+		excludeFiles = filterNotExistFiles(excludeFiles)
+	}
 	for _, exclude := range excludeFiles {
 		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
 	}
