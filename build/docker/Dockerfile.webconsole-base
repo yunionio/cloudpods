@@ -6,5 +6,5 @@ ENV TZ UTC
 
 RUN mkdir -p /opt/yunion/bin
 
-RUN apk add --no-cache sshpass ipmitool openssh-client tzdata ca-certificates && \
+RUN apk add --no-cache sshpass ipmitool openssh-client tzdata ca-certificates bash && \
     rm -rf /var/cache/apk/*

@@ -31,7 +31,7 @@ kubectl:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
 		-t registry.cn-beijing.aliyuncs.com/yunionio/kubectl:$(KUBECTL_VERSION) -f ./Dockerfile.kubectl .
 
-WEBCONSOLE_BASE_VERSION = 20240514.0
+WEBCONSOLE_BASE_VERSION = 20240909.0
 webconsole-base:
 	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION) -f ./Dockerfile.webconsole-base .
 
