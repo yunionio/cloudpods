@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -79,22 +78,25 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 	query.Add(jsonutils.NewString("system-default"), "name")
 	clusters, err := k8s.KubeClusters.List(adminSession, query)
 
-	climcSshConnect := func(s *mcclient.ClientSession) (jsonutils.JSONObject, error) {
+	climcSshConnect := func(s *mcclient.ClientSession, hostname string) (jsonutils.JSONObject, error) {
+		if hostname == "" {
+			hostname = "climc"
+		}
 		// maybe running in docker compose environment, so try to use ssh way
-		if data, err := m.DoClimcSshConnect(s, "climc", 22); err != nil {
-			return nil, httperrors.NewNotFoundError(errors.Wrap(err, "cluster system-default not found, try to use ssh way").Error())
+		if data, err := m.DoClimcSshConnect(s, hostname, 22); err != nil {
+			return nil, errors.Wrap(err, "DoClimcSshConnect")
 		} else {
 			return data, nil
 		}
 	}
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound && strings.Contains(err.Error(), "No such service k8s") {
-			return climcSshConnect(s)
+			return climcSshConnect(s, "")
 		}
 		return nil, errors.Wrap(err, "KubeClusters")
 	}
 	if len(clusters.Data) == 0 {
-		return climcSshConnect(s)
+		return climcSshConnect(s, "")
 	}
 	clusterId, _ := clusters.Data[0].GetString("id")
 	if len(clusterId) == 0 {
@@ -105,6 +107,7 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 	query.Add(jsonutils.NewString(clusterId), "cluster")
 	query.Add(jsonutils.NewString("onecloud"), "namespace")
 	query.Add(jsonutils.NewString("climc"), "search")
+	query.Add(jsonutils.JSONTrue, "details")
 	pods, err := k8s.Pods.List(adminSession, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "Pods")
@@ -112,37 +115,13 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 	if len(pods.Data) == 0 {
 		return nil, httperrors.NewNotFoundError("pod climc not found")
 	}
-	podName, _ := pods.Data[0].GetString("name")
-	if len(podName) == 0 {
-		return nil, httperrors.NewNotFoundError("pod climc no name")
+	pod := pods.Data[0]
+	podIP, _ := pod.GetString("podIP")
+	if len(podIP) == 0 {
+		return nil, httperrors.NewNotFoundError("podIP not found from: %s", pod.String())
 	}
 
-	req := webconsole_api.SK8sShellRequest{}
-	req.Cluster = clusterId
-	req.Namespace = "onecloud"
-	req.Container = "climc"
-	req.Command = "/bin/bash"
-	endpointType := "internal"
-	authUrl, _ := s.GetServiceURL("identity", endpointType)
-	if err != nil {
-		return nil, httperrors.NewNotFoundError("auth_url not found")
-	}
-	req.Env = map[string]string{
-		"OS_AUTH_TOKEN":           s.GetToken().GetTokenString(),
-		"OS_PROJECT_NAME":         s.GetProjectName(),
-		"OS_PROJECT_DOMAIN":       s.GetProjectDomain(),
-		"OS_AUTH_URL":             authUrl,
-		"OS_ENDPOINT_TYPE":        endpointType,
-		"YUNION_USE_CACHED_TOKEN": "false",
-		"YUNION_INSECURE":         "true",
-		"OS_USERNAME":             "",
-		"OS_PASSWORD":             "",
-		"OS_DOMAIN_NAME":          "",
-		"OS_ACCESS_KEY":           "",
-		"OS_SECRET_KEY":           "",
-		"OS_TRY_TERM_WIDTH":       "false",
-	}
-	return m.DoK8sConnect(s, podName, "shell", jsonutils.Marshal(req))
+	return climcSshConnect(adminSession, podIP)
 }
 
 func (m WebConsoleManager) DoK8sLogConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
