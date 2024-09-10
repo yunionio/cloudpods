@@ -180,12 +180,16 @@ func init() {
 		SERVER  string `help:"ID or Name of server"`
 		MACORIP string `help:"Mac Or IP of NIC"`
 		Reserve bool   `help:"Put the release IP address into reserved address pool"`
+		Force   bool   `help:"detach server network by force"`
 	}
 	R(&ServerDetachNetworkOptions{}, "server-detach-network", "Detach the virtual network fron a virtual server", func(s *mcclient.ClientSession, args *ServerDetachNetworkOptions) error {
 		params := jsonutils.NewDict()
 		// params.Add(jsonutils.NewString(args.NETWORK), "net_id")
 		if args.Reserve {
 			params.Add(jsonutils.JSONTrue, "reserve")
+		}
+		if args.Force {
+			params.Add(jsonutils.JSONTrue, "force")
 		}
 		if regutils.MatchMacAddr(args.MACORIP) {
 			params.Add(jsonutils.NewString(args.MACORIP), "mac")
