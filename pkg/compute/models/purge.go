@@ -800,6 +800,8 @@ func (self *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	guestdisks := GuestdiskManager.Query("row_id").Equals("guest_id", self.Id)
 	guestnetworks := GuestnetworkManager.Query("row_id").Equals("guest_id", self.Id)
+	// 辅助IP
+	networkaddress := NetworkAddressManager.Query("id").In("parent_id", guestnetworks.SubQuery())
 	guestcdroms := GuestcdromManager.Query("row_id").Equals("id", self.Id)
 	guestvfd := GuestFloppyManager.Query("row_id").Equals("id", self.Id)
 	guestgroups := GroupguestManager.Query("row_id").Equals("guest_id", self.Id)
@@ -823,6 +825,7 @@ func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential
 		{manager: GroupguestManager, key: "row_id", q: guestgroups},
 		{manager: GuestcdromManager, key: "row_id", q: guestcdroms},
 		{manager: GuestFloppyManager, key: "row_id", q: guestvfd},
+		{manager: NetworkAddressManager, key: "id", q: networkaddress},
 		{manager: GuestnetworkManager, key: "row_id", q: guestnetworks},
 		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
 		// {manager: InstanceSnapshotManager, key: "id", q: instancesnapshots},
