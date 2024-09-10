@@ -1325,6 +1325,10 @@ func init() {
 		EN("Server Sku").
 		CN("虚拟机套餐"),
 	)
+	o.Set("offline_export", i18n.NewTableEntry().
+		EN("Offline Export").
+		CN("离线导出"),
+	)
 	o.Set("process_definition", i18n.NewTableEntry().EN("Process Definition").CN("工单定义"))
 	o.Set("process_instance", i18n.NewTableEntry().EN("Process Instance").CN("工单"))
 	o.Set("process_task", i18n.NewTableEntry().EN("Process Task").CN("工单任务"))
