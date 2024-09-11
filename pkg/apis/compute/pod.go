@@ -31,6 +31,8 @@ const (
 	POD_STATUS_DELETE_CONTAINER_FAILED         = "delete_container_failed"
 	POD_STATUS_SYNCING_CONTAINER_STATUS        = "syncing_container_status"
 	POD_STATUS_SYNCING_CONTAINER_STATUS_FAILED = "sync_container_status_failed"
+	POD_STATUS_CRASH_LOOP_BACK_OFF             = "crash_loop_back_off"
+	POD_STATUS_CONTAINER_EXITED                = "container_exited"
 )
 
 const (

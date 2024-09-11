@@ -72,6 +72,14 @@ type SContainer struct {
 	GuestId string `width:"36" charset:"ascii" create:"required" list:"user" index:"true"`
 	// Spec stores all container running options
 	Spec *api.ContainerSpec `length:"long" create:"required" list:"user" update:"user"`
+
+	// 启动时间
+	StartedAt time.Time `nullable:"false" created_at:"false" index:"true" get:"user" list:"user" json:"started_at"`
+	// 上次退出时间
+	LastFinishedAt time.Time `nullable:"true" created_at:"false" index:"true" get:"user" list:"user" json:"last_finished_at"`
+
+	// 重启次数
+	RestartCount int `nullable:"true" list:"user"`
 }
 
 func (m *SContainerManager) CreateOnPod(
@@ -593,9 +601,12 @@ func (c *SContainer) GetJsonDescAtHost(ctx context.Context, userCred mcclient.To
 		return nil, errors.Wrap(err, "ToHostContainerSpec")
 	}
 	return &hostapi.ContainerDesc{
-		Id:   c.GetId(),
-		Name: c.GetName(),
-		Spec: spec,
+		Id:             c.GetId(),
+		Name:           c.GetName(),
+		Spec:           spec,
+		StartedAt:      c.StartedAt,
+		LastFinishedAt: c.LastFinishedAt,
+		RestartCount:   c.RestartCount,
 	}, nil
 }
 
@@ -755,13 +766,27 @@ func (c *SContainer) GetReleasedDevices(ctx context.Context, userCred mcclient.T
 	return out, nil
 }
 
-func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	if c.GetStatus() == api.CONTAINER_STATUS_EXITED {
+func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ContainerPerformStatusInput) (jsonutils.JSONObject, error) {
+	if api.ContainerExitedStatus.Has(c.GetStatus()) {
 		if input.Status == api.CONTAINER_STATUS_PROBE_FAILED {
 			return nil, httperrors.NewInputParameterError("can't set container status to %s when %s", input.Status, c.Status)
 		}
 	}
-	return c.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
+	if _, err := db.Update(c, func() error {
+		if input.RestartCount > 0 {
+			c.RestartCount = input.RestartCount
+		}
+		if input.StartedAt != nil {
+			c.StartedAt = *input.StartedAt
+		}
+		if input.LastFinishedAt != nil {
+			c.LastFinishedAt = *input.LastFinishedAt
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "Update container status")
+	}
+	return c.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input.PerformStatusInput)
 }
 
 func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerCommitInput) (*hostapi.ContainerCommitInput, error) {

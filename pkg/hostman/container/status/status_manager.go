@@ -42,9 +42,11 @@ func (m *manager) SetContainerStartup(podId string, containerId string, started 
 	if started {
 		status = computeapi.CONTAINER_STATUS_RUNNING
 	}
-	input := &apis.PerformStatusInput{
-		Status: status,
-		Reason: result.Reason,
+	input := &computeapi.ContainerPerformStatusInput{
+		PerformStatusInput: apis.PerformStatusInput{
+			Status: status,
+			Reason: result.Reason,
+		},
 	}
 	if _, err := hostutils.UpdateContainerStatus(context.Background(), containerId, input); err != nil {
 		log.Errorf("set container(%s/%s) status failed: %s", podId, containerId, err)

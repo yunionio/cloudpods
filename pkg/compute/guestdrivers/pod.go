@@ -426,9 +426,10 @@ func (p *SPodDriver) getContainerCreateInput(ctx context.Context, userCred mccli
 		return nil, errors.Wrap(err, "ToHostContainerSpec")
 	}
 	input := &hostapi.ContainerCreateInput{
-		Name:    ctr.GetName(),
-		GuestId: ctr.GuestId,
-		Spec:    spec,
+		Name:         ctr.GetName(),
+		GuestId:      ctr.GuestId,
+		Spec:         spec,
+		RestartCount: ctr.RestartCount,
 	}
 	return input, nil
 }
