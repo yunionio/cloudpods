@@ -15,7 +15,6 @@
 package monitor
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"yunion.io/x/pkg/errors"
@@ -46,11 +45,7 @@ func init() {
 			if err != nil {
 				return errors.Wrap(err, "DoTestRun")
 			}
-			jsonBytes, err := json.MarshalIndent(ret, "", "  ")
-			if err != nil {
-				return errors.Wrap(err, "MarshalIndent")
-			}
-			fmt.Printf("%s\n", jsonBytes)
+			fmt.Printf("%s\n", ret.PrettyString())
 			return nil
 		})
 }
