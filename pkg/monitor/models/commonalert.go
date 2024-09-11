@@ -1541,25 +1541,25 @@ func RationalizeValueFromUnit(value float64, unit string, opt string) string {
 		return FormatFileSize(value, unit, float64(1000))
 	}
 	if unit == "%" && monitor.CommonAlertFieldOpt_Division == opt {
-		return fmt.Sprintf("%0.4f%s", value*100, unit)
+		return fmt.Sprintf("%0.2f%s", value*100, unit)
 	}
-	return fmt.Sprintf("%0.4f%s", value, unit)
+	return fmt.Sprintf("%0.2f%s", value, unit)
 }
 
-// 单位转换 保留四位小数
+// 单位转换 保留2位小数
 func FormatFileSize(fileSize float64, unit string, unitsize float64) (size string) {
 	if fileSize < unitsize {
-		return fmt.Sprintf("%.4f%s", fileSize, unit)
+		return fmt.Sprintf("%.2f%s", fileSize, unit)
 	} else if fileSize < (unitsize * unitsize) {
-		return fmt.Sprintf("%.4fK%s", float64(fileSize)/float64(unitsize), unit)
+		return fmt.Sprintf("%.2fK%s", float64(fileSize)/float64(unitsize), unit)
 	} else if fileSize < (unitsize * unitsize * unitsize) {
-		return fmt.Sprintf("%.4fM%s", float64(fileSize)/float64(unitsize*unitsize), unit)
+		return fmt.Sprintf("%.2fM%s", float64(fileSize)/float64(unitsize*unitsize), unit)
 	} else if fileSize < (unitsize * unitsize * unitsize * unitsize) {
-		return fmt.Sprintf("%.4fG%s", float64(fileSize)/float64(unitsize*unitsize*unitsize), unit)
+		return fmt.Sprintf("%.2fG%s", float64(fileSize)/float64(unitsize*unitsize*unitsize), unit)
 	} else if fileSize < (unitsize * unitsize * unitsize * unitsize * unitsize) {
-		return fmt.Sprintf("%.4fT%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize), unit)
+		return fmt.Sprintf("%.2fT%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize), unit)
 	} else { //if fileSize < (1024 * 1024 * 1024 * 1024 * 1024 * 1024)
-		return fmt.Sprintf("%.4fE%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize*unitsize), unit)
+		return fmt.Sprintf("%.2fE%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize*unitsize), unit)
 	}
 }
 
