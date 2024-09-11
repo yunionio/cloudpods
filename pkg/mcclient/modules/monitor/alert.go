@@ -15,8 +15,6 @@
 package monitor
 
 import (
-	"encoding/json"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -125,14 +123,10 @@ func (m *SAlertManager) DoCreate(s *mcclient.ClientSession, config *AlertConfig)
 	return m.Create(s, input.JSON(input))
 }
 
-func (m *SAlertManager) DoTestRun(s *mcclient.ClientSession, id string, input *monitor.AlertTestRunInput) (*monitor.AlertTestRunOutput, error) {
+func (m *SAlertManager) DoTestRun(s *mcclient.ClientSession, id string, input *monitor.AlertTestRunInput) (jsonutils.JSONObject, error) {
 	ret, err := m.PerformAction(s, id, "test-run", input.JSON(input))
 	if err != nil {
 		return nil, errors.Wrap(err, "call test-run")
 	}
-	out := new(monitor.AlertTestRunOutput)
-	if err := json.Unmarshal([]byte(ret.String()), out); err != nil {
-		return nil, errors.Wrapf(err, "Unmarshal %s", ret.String())
-	}
-	return out, nil
+	return ret, nil
 }
