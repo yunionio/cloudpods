@@ -63,6 +63,7 @@ type ContainerCreateCommonOptions struct {
 	ShmSizeMb         int      `help:"Shm size MB"`
 	Uid               int64    `help:"UID of container" default:"0"`
 	Gid               int64    `help:"GID of container" default:"0"`
+	DisableNoNewPrivs bool     `help:"Disable no_new_privs flag of the container"`
 }
 
 func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
@@ -77,6 +78,7 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 			Capabilities:       &apis.ContainerCapability{},
 			CgroupDevicesAllow: o.CgroupDeviceAllow,
 			SimulateCpu:        o.SimulateCpu,
+			DisableNoNewPrivs:  o.DisableNoNewPrivs,
 			SecurityContext: &apis.ContainerSecurityContext{
 				RunAsUser:  nil,
 				RunAsGroup: nil,

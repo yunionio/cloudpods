@@ -1333,7 +1333,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				RunAsUsername:      "",
 				ReadonlyRootfs:     false,
 				SupplementalGroups: nil,
-				NoNewPrivs:         true,
+				NoNewPrivs:         !spec.DisableNoNewPrivs,
 				MaskedPaths:        nil,
 				ReadonlyPaths:      nil,
 				Seccomp: &runtimeapi.SecurityProfile{
