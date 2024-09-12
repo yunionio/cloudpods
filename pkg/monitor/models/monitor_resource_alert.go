@@ -179,6 +179,8 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 	if err != nil {
 		return q, errors.Wrap(err, "SJointResourceBaseManager ListItemFilter err")
 	}
+	alertSq := AlertManager.Query("id").SubQuery()
+	q = q.In("alert_id", alertSq)
 	if len(input.AlertState) > 0 {
 		q = q.Equals("alert_state", input.AlertState)
 	}
@@ -244,6 +246,8 @@ func (man *SMonitorResourceAlertManager) FetchCustomizeColumns(
 }
 
 func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJointDetails) monitor.MonitorResourceJointDetails {
+	detail.ResType = obj.ResType
+	detail.ResId = obj.MonitorResourceId
 	resources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: []string{obj.
 		MonitorResourceId}})
 	if err != nil {
@@ -253,9 +257,11 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 	if len(resources) == 0 {
 		return detail
 	}
-	detail.ResType = resources[0].ResType
+	if detail.ResType == "" {
+		detail.ResType = resources[0].ResType
+	}
 	detail.ResName = resources[0].Name
-	detail.ResId = resources[0].ResId
+	//detail.ResId = resources[0].ResId
 
 	if len(obj.AlertRecordId) != 0 {
 		record, err := AlertRecordManager.GetAlertRecord(obj.AlertRecordId)
