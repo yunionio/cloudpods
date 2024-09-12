@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -227,6 +228,30 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		q = q.Filter(sqlchemy.In(q.Field("alert_record_id"), AlertRecordManager.Query("id").SubQuery()))
 	}
 	return q, nil
+}
+
+func (m *SMonitorResourceAlertManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+
+	if query.Contains("ip") {
+		ip, _ := query.GetString("ip")
+		ipF := func(obj jsonutils.JSONObject) (bool, error) {
+			match := new(monitor.EvalMatch)
+			if err := obj.Unmarshal(match, "data"); err != nil {
+				log.Warningf("unmarshal data of object %s: %v", obj, err)
+				return false, nil
+			}
+			if tagIp, ok := match.Tags["ip"]; ok {
+				if strings.Contains(tagIp, ip) {
+					return true, nil
+				}
+			}
+			return false, nil
+		}
+		filters.Append(ipF)
+	}
+
+	return filters, nil
 }
 
 func (man *SMonitorResourceAlertManager) FetchCustomizeColumns(
