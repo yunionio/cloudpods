@@ -76,6 +76,7 @@ type ContainerSpec struct {
 	EnableLxcfs        bool                      `json:"enable_lxcfs"`
 	Capabilities       *ContainerCapability      `json:"capabilities"`
 	Privileged         bool                      `json:"privileged"`
+	DisableNoNewPrivs  bool                      `json:"disable_no_new_privs"`
 	Lifecyle           *ContainerLifecyle        `json:"lifecyle"`
 	CgroupDevicesAllow []string                  `json:"cgroup_devices_allow"`
 	CgroupPidsMax      int                       `json:"cgroup_pids_max"`
