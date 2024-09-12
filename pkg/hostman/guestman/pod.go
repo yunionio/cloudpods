@@ -701,30 +701,32 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 
-	/*metaPms, err := s.GetPortMappings()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetPortMappings")
-	}
-	if len(metaPms) != 0 {
-		pms := make([]*runtimeapi.PortMapping, len(metaPms))
-		for idx := range metaPms {
-			pm := metaPms[idx]
-			proto := runtimeapi.Protocol_TCP
-			switch pm.Protocol {
-			case computeapi.PodPortMappingProtocolTCP:
-				proto = runtimeapi.Protocol_TCP
-			case computeapi.PodPortMappingProtocolUDP:
-				proto = runtimeapi.Protocol_UDP
-			}
-			pms[idx] = &runtimeapi.PortMapping{
-				Protocol:      proto,
-				ContainerPort: pm.ContainerPort,
-				HostPort:      pm.HostPort,
-				HostIp:        pm.HostIp,
-			}
+	if options.HostOptions.EnableContainerCniPortmap {
+		metaPms, err := s.GetPortMappings()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetPortMappings")
 		}
-		podCfg.PortMappings = pms
-	}*/
+		if len(metaPms) != 0 {
+			pms := make([]*runtimeapi.PortMapping, len(metaPms))
+			for idx := range metaPms {
+				pm := metaPms[idx]
+				proto := runtimeapi.Protocol_TCP
+				switch pm.Protocol {
+				case computeapi.PodPortMappingProtocolTCP:
+					proto = runtimeapi.Protocol_TCP
+				case computeapi.PodPortMappingProtocolUDP:
+					proto = runtimeapi.Protocol_UDP
+				}
+				pms[idx] = &runtimeapi.PortMapping{
+					Protocol:      proto,
+					ContainerPort: int32(pm.Port),
+					HostPort:      int32(*pm.HostPort),
+					HostIp:        pm.HostIp,
+				}
+			}
+			podCfg.PortMappings = pms
+		}
+	}
 
 	criId, err := s.getCRI().RunPod(ctx, podCfg, "")
 	if err != nil {

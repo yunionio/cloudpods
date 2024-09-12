@@ -228,7 +228,8 @@ type SHostOptions struct {
 
 	EnableContainerAscendNPU bool `help:"enable container npu" default:"false"`
 
-	EnableDirtyRecoverySeconds int `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
+	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
+	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`
 }
 
 func (o SHostOptions) HostLocalNetconfPath(br string) string {
