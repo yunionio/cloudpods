@@ -37,6 +37,8 @@ func initContainerRegistry() {
 	cmd.Create(new(o.RegistryCreateOptions))
 	cmd.Get("images", new(o.RegistryGetImagesOptions))
 	cmd.Get("image-tags", new(o.RegistryGetImageTagsOptions))
+	cmd.BatchPerform("public", new(o.RegistryPublicOptions))
+	cmd.Perform("private", new(o.RegistryGetOptions))
 
 	type UploadOptions struct {
 		REGISTRY string `help:"The name or id of registry" json:"-"`
