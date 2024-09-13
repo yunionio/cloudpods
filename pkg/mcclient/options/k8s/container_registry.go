@@ -91,3 +91,18 @@ func (o RegistryGetImageTagsOptions) Params() (jsonutils.JSONObject, error) {
 		"repository": o.REPOSITORY,
 	}), nil
 }
+
+type RegistryPublicOptions struct {
+	ID             []string `help:"ID or name of image" json:"-"`
+	Scope          string   `help:"sharing scope" choices:"system|domain|project" json:"scope"`
+	SharedProjects []string `help:"Share to projects" json:"shared_projects"`
+	SharedDomains  []string `help:"Share to domains" json:"shared_domains"`
+}
+
+func (o RegistryPublicOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+func (o RegistryPublicOptions) GetIds() []string {
+	return o.ID
+}
