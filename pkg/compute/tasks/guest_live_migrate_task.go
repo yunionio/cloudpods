@@ -130,8 +130,6 @@ func (task *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	body.Set("target_host_id", jsonutils.NewString(targetHostId))
 	if len(target.CpuNumaPin) > 0 {
 		body.Set("target_cpu_numa_pin", jsonutils.Marshal(target.CpuNumaPin))
-	} else {
-		body.Set("target_cpu_numa_pin", jsonutils.JSONNull)
 	}
 
 	// for params notes
