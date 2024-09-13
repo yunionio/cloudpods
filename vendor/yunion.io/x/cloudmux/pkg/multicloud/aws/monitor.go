@@ -95,7 +95,7 @@ type Datapoint struct {
 }
 
 func (self Datapoint) GetValue() float64 {
-	return self.Average + self.Average + self.Minimum + self.Sum
+	return self.Average + self.Minimum + self.Sum
 }
 
 type Datapoints struct {
