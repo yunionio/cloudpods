@@ -630,8 +630,10 @@ func (b *SBaremetalInstance) SaveDesc(ctx context.Context, desc jsonutils.JSONOb
 	b.descLock.Lock()
 	defer b.descLock.Unlock()
 	if desc != nil {
+		if desc != nil && b.desc != nil && b.desc.Contains("server_id") && !desc.Contains("server_id") {
+			desc.(*jsonutils.JSONDict).Set("server_id", jsonutils.NewString(b.server.GetId()))
+		}
 		b.desc = desc.(*jsonutils.JSONDict)
-
 		if b.desc.Contains("sys_info") {
 			sysInfo := types.SSystemInfo{}
 			err := b.desc.Unmarshal(&sysInfo, "sys_info")
