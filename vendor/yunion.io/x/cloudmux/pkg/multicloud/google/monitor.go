@@ -111,6 +111,9 @@ func (self *SGoogleClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 			metricValue := cloudprovider.MetricValue{}
 			metricValue.Timestamp = data[i].Points[j].Interval.StartTime
 			metricValue.Value = data[i].Points[j].Value.GetValue()
+			if opts.MetricType == cloudprovider.VM_METRIC_TYPE_CPU_USAGE {
+				metricValue.Value *= 100
+			}
 			value.Values = append(value.Values, metricValue)
 		}
 		ret = append(ret, value)
