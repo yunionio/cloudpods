@@ -30,7 +30,7 @@ import (
 
 var (
 	GUEST_USER  = "guest"
-	GUEST_TOKEN = "guest_token"
+	GUEST_TOKEN = rbacutils.GUEST_TOKEN // "guest_token"
 	GuestToken  = mcclient.SSimpleToken{
 		User:  GUEST_USER,
 		Token: GUEST_TOKEN,
