@@ -353,7 +353,7 @@ func (manager *SRolePolicyManager) FetchCustomizeColumns(
 
 func (manager *SRolePolicyManager) getMatchPolicyIds(userCred rbacutils.IRbacIdentity, tm time.Time) ([]string, error) {
 	isGuest := true
-	if userCred != nil && !auth.IsGuestToken(userCred) {
+	if userCred != nil && len(userCred.GetProjectId()) > 0 && len(userCred.GetRoleIds()) > 0 && !auth.IsGuestToken(userCred) {
 		isGuest = false
 	}
 	return manager.getMatchPolicyIds2(isGuest, userCred.GetRoleIds(), userCred.GetProjectId(), userCred.GetLoginIp(), tm)
@@ -437,6 +437,9 @@ func (p sUserProjectPair) GetProjectId() string {
 }
 
 func (p sUserProjectPair) GetRoleIds() []string {
+	if len(p.userId) == 0 || len(p.projectId) == 0 {
+		return nil
+	}
 	roles, _ := AssignmentManager.FetchUserProjectRoles(p.userId, p.projectId)
 	ret := make([]string, len(roles))
 	for i := range roles {
@@ -446,7 +449,7 @@ func (p sUserProjectPair) GetRoleIds() []string {
 }
 
 func (p sUserProjectPair) GetUserId() string {
-	return ""
+	return p.userId
 }
 
 func (p sUserProjectPair) GetLoginIp() string {
@@ -454,6 +457,9 @@ func (p sUserProjectPair) GetLoginIp() string {
 }
 
 func (p sUserProjectPair) GetTokenString() string {
+	if len(p.userId) == 0 {
+		return auth.GUEST_TOKEN
+	}
 	return p.userId
 }
 
@@ -479,6 +485,7 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(ctx context.Context
 	userId := userCred.GetUserId()
 	if len(userId) == 0 {
 		// anonymous access
+		log.Debugf("anomymouse accessed policies: %s", jsonutils.Marshal(names))
 		return names, policies, nil
 	}
 	usr, err := UserManager.fetchUserById(userId)
