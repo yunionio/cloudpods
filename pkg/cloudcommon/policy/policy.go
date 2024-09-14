@@ -167,7 +167,7 @@ func getMaskedLoginIp(userCred mcclient.TokenCredential) string {
 }
 
 func policyKey(userCred mcclient.TokenCredential) string {
-	if userCred == nil || auth.IsGuestToken(userCred) {
+	if userCred == nil || len(userCred.GetTokenString()) == 0 || auth.IsGuestToken(userCred) {
 		return auth.GUEST_TOKEN
 	}
 	keys := []string{userCred.GetProjectId()}
@@ -305,12 +305,6 @@ func (manager *SPolicyManager) fetchMatchedPolicies(userCred mcclient.TokenCrede
 }
 
 func (manager *SPolicyManager) allow(scope rbacscope.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
-	// first download userCred policy
-	policies, err := manager.fetchMatchedPolicies(userCred)
-	if err != nil {
-		log.Errorf("fetchMatchedPolicyGroup fail %s", err)
-		return rbacutils.PolicyDeny
-	}
 	// check permission
 	key := permissionKey(scope, userCred, service, resource, action, extra...)
 	val := manager.permissionCache.AtomicGet(key)
@@ -321,6 +315,12 @@ func (manager *SPolicyManager) allow(scope rbacscope.TRbacScope, userCred mcclie
 		return val.(rbacutils.SPolicyResult)
 	}
 
+	// first download userCred policy
+	policies, err := manager.fetchMatchedPolicies(userCred)
+	if err != nil {
+		log.Errorf("fetchMatchedPolicyGroup fail %s", err)
+		return rbacutils.PolicyDeny
+	}
 	policySet, ok := policies.Policies[scope]
 	if !ok {
 		policySet = rbacutils.TPolicySet{}
