@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -71,6 +72,7 @@ func doCheckPolicies(ctx context.Context, input mcclient.SCheckPoliciesInput) (*
 	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminToken, api.SERVICE_TYPE, "tokens", "perform", "check_policies").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to check policies", adminToken.GetUserName())
 	}
+	log.Debugf("doCheckPolicies userId: %s projectId: %s", input.UserId, input.ProjectId)
 	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByInput(ctx, input.UserId, input.ProjectId, time.Now(), false)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMatchPolicyGroupByInput")

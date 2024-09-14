@@ -53,6 +53,28 @@ type SRbacPolicy struct {
 	Rules TPolicy
 }
 
+func (p SRbacPolicy) needAuth() bool {
+	if len(p.Condition) > 0 {
+		return true
+	}
+	if len(p.DomainId) > 0 {
+		return true
+	}
+	if len(p.SharedDomainIds) > 0 {
+		return true
+	}
+	if len(p.Projects) > 0 {
+		return true
+	}
+	if len(p.Roles) > 0 {
+		return true
+	}
+	if p.Auth {
+		return true
+	}
+	return false
+}
+
 var (
 	tenantEqualsPattern = regexp.MustCompile(`tenant\s*==\s*['"]?(\w+)['"]?`)
 	roleContainsPattern = regexp.MustCompile(`roles.contains\(['"]?(\w+)['"]?\)`)
@@ -221,10 +243,15 @@ func (policy *SRbacPolicy) MatchRoles(roleNames []string) bool {
 // int  match weight, the higher the value, the more exact the match
 // the more exact match wins
 func (policy *SRbacPolicy) Match(userCred IRbacIdentity2) (bool, int) {
-	if !policy.Auth && len(policy.Roles) == 0 && len(policy.Projects) == 0 && len(policy.Ips) == 0 {
-		return true, 1
+	if !policy.needAuth() {
+		if len(policy.Ips) == 0 {
+			return true, 1
+		}
+		if containsIp(policy.Ips, userCred.GetLoginIp()) {
+			return true, 1
+		}
 	}
-	if userCred == nil || len(userCred.GetTokenString()) == 0 {
+	if userCred == nil || len(userCred.GetTokenString()) == 0 || userCred.GetTokenString() == GUEST_TOKEN {
 		return false, 0
 	}
 	weight := 0

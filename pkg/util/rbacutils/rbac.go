@@ -40,6 +40,8 @@ const (
 	// ScopeObject  = "object"
 	ScopeUser = rbacscope.ScopeUser
 	ScopeNone = rbacscope.ScopeNone*/
+
+	GUEST_TOKEN = "guest_token"
 )
 
 func (r TRbacResult) IsAllow() bool {
