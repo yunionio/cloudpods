@@ -97,7 +97,7 @@ func (region *SRegion) GetSecurityGroups(projectId, name string) ([]SSecurityGro
 }
 
 func (secgroup *SSecurityGroup) GetVpcId() string {
-	return "normal"
+	return ""
 }
 
 func (secgroup *SSecurityGroup) GetId() string {
