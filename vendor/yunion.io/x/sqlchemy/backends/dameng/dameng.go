@@ -15,6 +15,7 @@
 package dameng
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"reflect"
@@ -277,4 +278,14 @@ func (dameng *SDamengBackend) GetColumnSpecByFieldType(table *sqlchemy.STableSpe
 
 func (dameng *SDamengBackend) QuoteChar() string {
 	return "\""
+}
+
+func (dameng *SDamengBackend) RegexpWhereClause(cond *sqlchemy.SRegexpConition) string {
+	var buf bytes.Buffer
+	buf.WriteString("REGEXP_LIKE(")
+	buf.WriteString(cond.GetLeft().Reference())
+	buf.WriteString(", ")
+	buf.WriteString(sqlchemy.VarConditionWhereClause(cond.GetRight()))
+	buf.WriteString(")")
+	return buf.String()
 }
