@@ -84,31 +84,19 @@ func NextDeviceName(curDeviceNames []string) (string, error) {
 		currents = append(currents, strings.ToLower(item))
 	}
 
-	for i := 0; i < 25; i++ {
-		device := fmt.Sprintf("/dev/sd%c", byte(98+i))
-		found := false
-		for _, item := range currents {
-			if strings.HasPrefix(item, device) {
-				found = true
+	for _, prefix := range []string{"/dev/sd", "dev/vxd"} {
+		for s := rune('a'); s < rune('z'); s++ {
+			device := fmt.Sprintf("%s%c", prefix, s)
+			found := false
+			for _, item := range currents {
+				if strings.HasPrefix(item, device) {
+					found = true
+				}
 			}
-		}
 
-		if !found {
-			return device, nil
-		}
-	}
-
-	for i := 0; i < 25; i++ {
-		device := fmt.Sprintf("/dev/vxd%c", byte(98+i))
-		found := false
-		for _, item := range currents {
-			if !strings.HasPrefix(item, device) {
+			if !found {
 				return device, nil
 			}
-		}
-
-		if !found {
-			return device, nil
 		}
 	}
 

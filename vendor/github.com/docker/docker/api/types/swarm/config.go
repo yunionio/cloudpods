@@ -1,4 +1,4 @@
-package swarm // import "github.com/docker/docker/api/types/swarm"
+package swarm
 
 import "os"
 
@@ -13,10 +13,6 @@ type Config struct {
 type ConfigSpec struct {
 	Annotations
 	Data []byte `json:",omitempty"`
-
-	// Templating controls whether and how to evaluate the config payload as
-	// a template. If it is not set, no templating is used.
-	Templating *Driver `json:",omitempty"`
 }
 
 // ConfigReferenceFileTarget is a file target in a config reference
@@ -27,14 +23,9 @@ type ConfigReferenceFileTarget struct {
 	Mode os.FileMode
 }
 
-// ConfigReferenceRuntimeTarget is a target for a config specifying that it
-// isn't mounted into the container but instead has some other purpose.
-type ConfigReferenceRuntimeTarget struct{}
-
 // ConfigReference is a reference to a config in swarm
 type ConfigReference struct {
-	File       *ConfigReferenceFileTarget    `json:",omitempty"`
-	Runtime    *ConfigReferenceRuntimeTarget `json:",omitempty"`
+	File       *ConfigReferenceFileTarget
 	ConfigID   string
 	ConfigName string
 }

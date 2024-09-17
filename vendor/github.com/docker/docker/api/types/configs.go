@@ -1,4 +1,4 @@
-package types // import "github.com/docker/docker/api/types"
+package types
 
 import (
 	"github.com/docker/docker/api/types/container"
@@ -23,6 +23,19 @@ type ContainerCreateConfig struct {
 // to perform.
 type ContainerRmConfig struct {
 	ForceRemove, RemoveVolume, RemoveLink bool
+}
+
+// ContainerCommitConfig contains build configs for commit operation,
+// and is used when making a commit with the current state of the container.
+type ContainerCommitConfig struct {
+	Pause   bool
+	Repo    string
+	Tag     string
+	Author  string
+	Comment string
+	// merge container config into commit config before commit
+	MergeConfigs bool
+	Config       *container.Config
 }
 
 // ExecConfig is a small subset of the Config struct that holds the configuration
@@ -54,11 +67,4 @@ type PluginEnableConfig struct {
 // PluginDisableConfig holds arguments for plugin disable.
 type PluginDisableConfig struct {
 	ForceDisable bool
-}
-
-// NetworkListConfig stores the options available for listing networks
-type NetworkListConfig struct {
-	// TODO(@cpuguy83): naming is hard, this is pulled from what was being used in the router before moving here
-	Detailed bool
-	Verbose  bool
 }
