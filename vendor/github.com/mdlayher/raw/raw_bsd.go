@@ -17,8 +17,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// osFreeBSD is the GOOS name for FreeBSD.
-const osFreeBSD = "freebsd"
+const (
+
+	// osFreeBSD is the GOOS name for FreeBSD.
+	osFreeBSD = "freebsd"
+)
 
 // bpfLen returns the length of the BPF header prepended to each incoming ethernet
 // frame.  FreeBSD uses a slightly modified header from other BSD variants.
@@ -37,8 +40,10 @@ func bpfLen() int {
 	return bpfHeaderLen
 }
 
-// Must implement net.PacketConn at compile-time.
-var _ net.PacketConn = &packetConn{}
+var (
+	// Must implement net.PacketConn at compile-time.
+	_ net.PacketConn = &packetConn{}
+)
 
 // packetConn is the Linux-specific implementation of net.PacketConn for this
 // package.
@@ -105,9 +110,11 @@ func listenPacket(ifi *net.Interface, proto uint16, cfg Config) (*packetConn, er
 	}, nil
 }
 
-// Maximum read timeout per syscall.
-// It is required because read/recvfrom won't be interrupted on closing of the file descriptor.
-const readTimeout = 200 * time.Millisecond
+const (
+	// Maximum read timeout per syscall.
+	// It is required because read/recvfrom won't be interrupted on closing of the file descriptor.
+	readTimeout = 200 * time.Millisecond
+)
 
 // ReadFrom implements the net.PacketConn.ReadFrom method.
 func (p *packetConn) ReadFrom(b []byte) (int, net.Addr, error) {
