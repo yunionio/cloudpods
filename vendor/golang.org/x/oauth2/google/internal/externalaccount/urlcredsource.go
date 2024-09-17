@@ -9,10 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/oauth2"
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"golang.org/x/oauth2"
 )
 
 type urlCredentialSource struct {
@@ -20,6 +21,10 @@ type urlCredentialSource struct {
 	Headers map[string]string
 	Format  format
 	ctx     context.Context
+}
+
+func (cs urlCredentialSource) credentialSourceType() string {
+	return "url"
 }
 
 func (cs urlCredentialSource) subjectToken() (string, error) {
