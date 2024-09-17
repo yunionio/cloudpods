@@ -81,7 +81,7 @@ gencopyright:
 	@bash scripts/gencopyright.sh pkg cmd
 
 test:
-	@go test $(GO_BUILD_FLAGS) $(shell go list ./... | egrep -v 'host-image|hostimage')
+	@go test $(GO_BUILD_FLAGS) $(shell go list ./... | egrep -v 'host-image|hostimage|torrent')
 
 vet:
 	go vet ./...

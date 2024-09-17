@@ -10,9 +10,11 @@ import (
 	"golang.org/x/net/bpf"
 )
 
-// ErrNotImplemented is returned when certain functionality is not yet
-// implemented for the host operating system.
-var ErrNotImplemented = errors.New("raw: not implemented")
+var (
+	// ErrNotImplemented is returned when certain functionality is not yet
+	// implemented for the host operating system.
+	ErrNotImplemented = errors.New("raw: not implemented")
+)
 
 var _ net.Addr = &Addr{}
 

@@ -22,15 +22,15 @@ import (
 )
 
 /*
-	ErrInvalid = fs.ErrInvalid // "invalid argument"
+ErrInvalid = fs.ErrInvalid // "invalid argument"
 
-	ErrPermission = fs.ErrPermission // "permission denied"
-	ErrExist      = fs.ErrExist      // "file already exists"
-	ErrNotExist   = fs.ErrNotExist   // "file does not exist"
-	ErrClosed     = fs.ErrClosed     // "file already closed"
+ErrPermission = fs.ErrPermission // "permission denied"
+ErrExist      = fs.ErrExist      // "file already exists"
+ErrNotExist   = fs.ErrNotExist   // "file does not exist"
+ErrClosed     = fs.ErrClosed     // "file already closed"
 
-	ErrNoDeadline       = errNoDeadline()       // "file type does not support deadline"
-	ErrDeadlineExceeded = errDeadlineExceeded() // "i/o timeout"
+ErrNoDeadline       = errNoDeadline()       // "file type does not support deadline"
+ErrDeadlineExceeded = errDeadlineExceeded() // "i/o timeout"
 */
 func FsErrorNormalize(err error) error {
 	switch errors.Cause(err) {
