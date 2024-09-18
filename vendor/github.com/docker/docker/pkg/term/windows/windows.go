@@ -2,14 +2,14 @@
 // When asked for the set of standard streams (e.g., stdin, stdout, stderr), the code will create
 // and return pseudo-streams that convert ANSI sequences to / from Windows Console API calls.
 
-package windowsconsole // import "github.com/docker/docker/pkg/term/windows"
+package windowsconsole
 
 import (
 	"io/ioutil"
 	"os"
 	"sync"
 
-	"github.com/Azure/go-ansiterm"
+	ansiterm "github.com/Azure/go-ansiterm"
 	"github.com/sirupsen/logrus"
 )
 

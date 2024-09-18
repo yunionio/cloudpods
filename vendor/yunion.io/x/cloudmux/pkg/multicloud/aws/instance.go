@@ -756,18 +756,20 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 	zoneId string, desc string, disks []cloudprovider.SDiskInfo, ipAddr string,
 	keypair string, userData string, tags map[string]string, enableMonitorAgent bool,
 ) (*SInstance, error) {
-	params := map[string]string{}
+	params, devNames := map[string]string{}, image.GetBlockDeviceNames()
 	for i, disk := range disks {
 		deviceName := image.RootDeviceName
 		if i == 0 && len(deviceName) == 0 {
 			deviceName = "/dev/sda1"
+			devNames = append(devNames, deviceName)
 		}
 		if i > 0 {
 			var err error
-			deviceName, err = NextDeviceName(image.GetBlockDeviceNames())
+			deviceName, err = NextDeviceName(devNames)
 			if err != nil {
 				return nil, errors.Wrapf(err, "NextDeviceName")
 			}
+			devNames = append(devNames, deviceName)
 		}
 		params[fmt.Sprintf("BlockDeviceMapping.%d.DeviceName", i+1)] = deviceName
 		params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.DeleteOnTermination", i+1)] = "true"
@@ -804,6 +806,15 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 		params[fmt.Sprintf("TagSpecification.1.Tag.%d.Value", tagIdx)] = v
 		tagIdx++
 	}
+
+	tagIdx = 1
+	for k, v := range tags {
+		params[fmt.Sprintf("TagSpecification.2.ResourceType")] = "volume"
+		params[fmt.Sprintf("TagSpecification.2.Tag.%d.Key", tagIdx)] = k
+		params[fmt.Sprintf("TagSpecification.2.Tag.%d.Value", tagIdx)] = v
+		tagIdx++
+	}
+
 	params["ImageId"] = image.ImageId
 	params["InstanceType"] = instanceType
 	params["MaxCount"] = "1"

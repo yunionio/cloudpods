@@ -1,11 +1,11 @@
-package api // import "github.com/docker/docker/api"
+package api
 
 // Common constants for daemon and client.
 const (
 	// DefaultVersion of Current REST API
-	DefaultVersion = "1.40"
+	DefaultVersion string = "1.35"
 
 	// NoBaseImageSpecifier is the symbol used by the FROM
 	// command to specify that no base image is to be used.
-	NoBaseImageSpecifier = "scratch"
+	NoBaseImageSpecifier string = "scratch"
 )

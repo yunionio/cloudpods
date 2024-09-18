@@ -13,7 +13,7 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.18'
+        go-version: '1.21'
 
     - name: Install check tools
       shell: bash
@@ -32,7 +32,7 @@ jobs:
         export GO111MODULE=on
         make -j3 check
         make test
-        targets="$(find cmd -mindepth 1 -maxdepth 1 -type d | grep -v cmd/host-image)"
+        targets="$(find cmd -mindepth 1 -maxdepth 1 -type d | grep -v cmd/host-image | grep -v torrent)"
         echo $targets | tr ' ' '\n'
         make $targets
         ls -lh _output/bin

@@ -1,10 +1,11 @@
-package client // import "github.com/docker/docker/client"
+package client
 
 import (
-	"context"
 	"net/url"
 
 	"github.com/docker/docker/api/types"
+
+	"golang.org/x/net/context"
 )
 
 // NodeRemove removes a Node.
@@ -15,6 +16,6 @@ func (cli *Client) NodeRemove(ctx context.Context, nodeID string, options types.
 	}
 
 	resp, err := cli.delete(ctx, "/nodes/"+nodeID, query, nil)
-	defer ensureReaderClosed(resp)
+	ensureReaderClosed(resp)
 	return wrapResponseError(err, resp, "node", nodeID)
 }

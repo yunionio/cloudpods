@@ -1,14 +1,15 @@
-package client // import "github.com/docker/docker/client"
+package client
 
 import (
-	"context"
 	"errors"
 	"io"
+	"net/http"
 	"net/url"
+
+	"golang.org/x/net/context"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/errdefs"
 )
 
 // ImagePush requests the docker host to push an image to a remote registry.
@@ -36,7 +37,7 @@ func (cli *Client) ImagePush(ctx context.Context, image string, options types.Im
 	query.Set("tag", tag)
 
 	resp, err := cli.tryImagePush(ctx, name, query, options.RegistryAuth)
-	if errdefs.IsUnauthorized(err) && options.PrivilegeFunc != nil {
+	if resp.statusCode == http.StatusUnauthorized && options.PrivilegeFunc != nil {
 		newAuthHeader, privilegeErr := options.PrivilegeFunc()
 		if privilegeErr != nil {
 			return nil, privilegeErr
