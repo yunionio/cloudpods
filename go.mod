@@ -15,7 +15,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-iptables v0.6.0
-	github.com/creack/pty v1.1.11
+	github.com/creack/pty v1.1.18
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200916142827-bd33bbf0497b+incompatible
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96
 	github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
@@ -92,9 +92,9 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	k8s.io/cri-api v0.22.17
-	k8s.io/klog/v2 v2.2.0
+	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240918084444-055975366c2f
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240918093754-91627585360f
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
 	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
@@ -183,7 +183,7 @@ require (
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
-	github.com/go-logr/logr v1.4.1 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.13.0 // indirect
@@ -237,6 +237,7 @@ require (
 	github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/moby/sys/mountinfo v0.1.3 // indirect
+	github.com/moby/term v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
@@ -313,6 +314,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.0.1 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
@@ -322,4 +324,4 @@ replace github.com/influxdata/promql/v2 => github.com/zexi/promql/v2 v2.12.1
 
 replace github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 
-replace github.com/docker/docker => github.com/docker/docker v17.12.1-ce+incompatible
+replace github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible
