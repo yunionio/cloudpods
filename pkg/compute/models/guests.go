@@ -4543,6 +4543,13 @@ func (self *SGuest) CreateDiskOnStorage(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
+	if isWithServerCreate {
+		meta, _ := self.GetAllUserMetadata()
+		if len(meta) > 0 {
+			disk.SetUserMetadataAll(ctx, meta, userCred)
+		}
+	}
+
 	if pendingUsage != nil {
 		cancelUsage := SQuota{}
 		cancelUsage.Storage = disk.DiskSize
