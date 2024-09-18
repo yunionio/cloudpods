@@ -32,10 +32,10 @@ import (
 	"yunion.io/x/onecloud/pkg/notify/models"
 )
 
-//无需修改,用于格式化鉴权头域,给"X-WSSE"参数赋值
+// 无需修改,用于格式化鉴权头域,给"X-WSSE"参数赋值
 const WSSE_HEADER_FORMAT = "UsernameToken Username=\"%s\",PasswordDigest=\"%s\",Nonce=\"%s\",Created=\"%s\""
 
-//无需修改,用于格式化鉴权头域,给"Authorization"参数赋值
+// 无需修改,用于格式化鉴权头域,给"Authorization"参数赋值
 const AUTH_HEADER_VALUE = "WSSE realm=\"SDP\",profile=\"UsernameToken\",type=\"Appkey\""
 
 type SHuaweiSMSDriver struct{}
