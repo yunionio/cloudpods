@@ -569,6 +569,12 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		name = pinyinutils.Text2Pinyin(name)
 		return strings.ToLower(name)
 	}
+
+	labels := map[string]string{}
+	for k, v := range desc.Tags {
+		labels[encode.EncodeGoogleLabel(k)] = encode.EncodeGoogleLabel(v)
+	}
+
 	disks = append(disks, map[string]interface{}{
 		"boot": true,
 		"initializeParams": map[string]interface{}{
@@ -576,6 +582,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 			"sourceImage": desc.ExternalImageId,
 			"diskSizeGb":  desc.SysDisk.SizeGB,
 			"diskType":    fmt.Sprintf("zones/%s/diskTypes/%s", zone, desc.SysDisk.StorageType),
+			"labels":      labels,
 		},
 		"autoDelete": true,
 	})
@@ -589,6 +596,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 				"diskName":   nameConv(disk.Name),
 				"diskSizeGb": disk.SizeGB,
 				"diskType":   fmt.Sprintf("zones/%s/diskTypes/%s", zone, disk.StorageType),
+				"labels":     labels,
 			},
 			"autoDelete": true,
 		})
@@ -608,11 +616,6 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 			networkInterface,
 		},
 		"disks": disks,
-	}
-
-	labels := map[string]string{}
-	for k, v := range desc.Tags {
-		labels[encode.EncodeGoogleLabel(k)] = encode.EncodeGoogleLabel(v)
 	}
 
 	if len(labels) > 0 {
@@ -642,24 +645,6 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 			},
 		}
 	}
-	//if len(serviceAccounts) > 0 {
-	//	params["serviceAccounts"] = []struct {
-	//		Email  string
-	//		Scopes []string
-	//	}{
-	//		{
-	//			Email: serviceAccounts[0],
-	//			Scopes: []string{
-	//				"https://www.googleapis.com/auth/devstorage.read_only",
-	//				"https://www.googleapis.com/auth/logging.write",
-	//				"https://www.googleapis.com/auth/monitoring.write",
-	//				"https://www.googleapis.com/auth/servicecontrol",
-	//				"https://www.googleapis.com/auth/service.management.readonly",
-	//				"https://www.googleapis.com/auth/trace.append",
-	//			},
-	//		},
-	//	}
-	//}
 	log.Debugf("create google instance params: %s", jsonutils.Marshal(params).String())
 	instance := &SInstance{}
 	resource := fmt.Sprintf("zones/%s/instances", zone)
