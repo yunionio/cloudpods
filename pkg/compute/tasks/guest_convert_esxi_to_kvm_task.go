@@ -28,6 +28,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -185,6 +186,12 @@ func (task *GuestConvertEsxiToKvmTask) RequestHostCreateGuestFromEsxi(
 	host, _ := guest.GetHost()
 	params := jsonutils.NewDict()
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	if len(desc.UserData) > 0 {
+		userData, _ := userdata.Decode(desc.UserData)
+		if len(userData) > 0 {
+			desc.UserData = userData
+		}
+	}
 	params.Set("desc", jsonutils.Marshal(desc))
 	params.Set("esxi_access_info", esxiAccessInfo)
 	url := fmt.Sprintf("%s/servers/%s/create-form-esxi", host.ManagerUri, guest.Id)

@@ -5291,14 +5291,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 
 	desc.Metadata, _ = self.GetAllMetadata(ctx, nil)
 
-	userData, _ := desc.Metadata["user_data"]
-	if len(userData) > 0 {
-		decodeData, _ := userdata.Decode(userData)
-		if len(decodeData) > 0 {
-			userData = decodeData
-		}
-		desc.UserData = userData
-	}
+	desc.UserData, _ = desc.Metadata["user_data"]
 	desc.PendingDeleted = self.PendingDeleted
 
 	// add scaling group

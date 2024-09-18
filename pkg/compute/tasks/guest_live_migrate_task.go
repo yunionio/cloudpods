@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -494,6 +495,12 @@ func (task *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, gues
 	body.Set("is_local_storage", jsonutils.JSONFalse)
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(task.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
+	if len(targetDesc.UserData) > 0 {
+		userData, _ := userdata.Decode(targetDesc.UserData)
+		if len(userData) > 0 {
+			targetDesc.UserData = userData
+		}
+	}
 	if task.Params.Contains("target_cpu_numa_pin") {
 		if err := task.setCpuNumaPin(targetDesc); err != nil {
 			return nil, errors.Wrap(err, "setCpuNumaPin")
@@ -551,6 +558,12 @@ func (task *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	}
 
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
+	if len(targetDesc.UserData) > 0 {
+		userData, _ := userdata.Decode(targetDesc.UserData)
+		if len(userData) > 0 {
+			targetDesc.UserData = userData
+		}
+	}
 	if len(targetDesc.Disks) == 0 {
 		return nil, errors.Errorf("Get disksDesc error")
 	}

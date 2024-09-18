@@ -16,7 +16,6 @@ package guestdrivers
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -299,10 +298,6 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 
 func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
-	if len(desc.UserData) > 0 {
-		// host 需要加密后的user-data以提供 http://169.254.169.254/latest/user-data 解密访问
-		desc.UserData = base64.StdEncoding.EncodeToString([]byte(desc.UserData))
-	}
 	return jsonutils.Marshal(desc), nil
 }
 

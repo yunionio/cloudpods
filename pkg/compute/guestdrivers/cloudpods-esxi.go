@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -309,6 +310,12 @@ func (self *SCloudpodsESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, 
 
 func (self *SCloudpodsESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	if len(desc.UserData) > 0 {
+		userData, _ := userdata.Decode(desc.UserData)
+		if len(userData) > 0 {
+			desc.UserData = userData
+		}
+	}
 	// add image_info
 	if len(desc.Disks) == 0 {
 		return jsonutils.Marshal(desc), nil

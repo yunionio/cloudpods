@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -55,7 +55,7 @@ func Decode(encodeUserdata string) (string, error) {
 		return "", errors.Wrap(err, "new reader")
 	}
 	defer gr.Close()
-	data, err := ioutil.ReadAll(gr)
+	data, err := io.ReadAll(gr)
 	if err != nil {
 		return "", errors.Wrap(err, "read data")
 	}

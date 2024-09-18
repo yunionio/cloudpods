@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -177,6 +178,12 @@ func (self *HostImportLibvirtServersTask) CreateImportedLibvirtGuestOnHost(
 	}
 	body := jsonutils.NewDict()
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	if len(desc.UserData) > 0 {
+		userData, _ := userdata.Decode(desc.UserData)
+		if len(userData) > 0 {
+			desc.UserData = userData
+		}
+	}
 	body.Set("desc", jsonutils.Marshal(desc))
 	body.Set("disks_path", disksPath)
 	if len(guestDesc.MonitorPath) > 0 {
