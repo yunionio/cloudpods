@@ -21,13 +21,17 @@
 package manual
 
 import (
+	"sync"
+
 	"google.golang.org/grpc/resolver"
 )
 
 // NewBuilderWithScheme creates a new test resolver builder with the given scheme.
 func NewBuilderWithScheme(scheme string) *Resolver {
 	return &Resolver{
+		BuildCallback:      func(resolver.Target, resolver.ClientConn, resolver.BuildOptions) {},
 		ResolveNowCallback: func(resolver.ResolveNowOptions) {},
+		CloseCallback:      func() {},
 		scheme:             scheme,
 	}
 }
@@ -35,13 +39,20 @@ func NewBuilderWithScheme(scheme string) *Resolver {
 // Resolver is also a resolver builder.
 // It's build() function always returns itself.
 type Resolver struct {
+	// BuildCallback is called when the Build method is called.  Must not be
+	// nil.  Must not be changed after the resolver may be built.
+	BuildCallback func(resolver.Target, resolver.ClientConn, resolver.BuildOptions)
 	// ResolveNowCallback is called when the ResolveNow method is called on the
 	// resolver.  Must not be nil.  Must not be changed after the resolver may
 	// be built.
 	ResolveNowCallback func(resolver.ResolveNowOptions)
-	scheme             string
+	// CloseCallback is called when the Close method is called.  Must not be
+	// nil.  Must not be changed after the resolver may be built.
+	CloseCallback func()
+	scheme        string
 
 	// Fields actually belong to the resolver.
+	mu             sync.Mutex // Guards access to CC.
 	CC             resolver.ClientConn
 	bootstrapState *resolver.State
 }
@@ -54,7 +65,10 @@ func (r *Resolver) InitialState(s resolver.State) {
 
 // Build returns itself for Resolver, because it's both a builder and a resolver.
 func (r *Resolver) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+	r.mu.Lock()
 	r.CC = cc
+	r.mu.Unlock()
+	r.BuildCallback(target, cc, opts)
 	if r.bootstrapState != nil {
 		r.UpdateState(*r.bootstrapState)
 	}
@@ -72,9 +86,20 @@ func (r *Resolver) ResolveNow(o resolver.ResolveNowOptions) {
 }
 
 // Close is a noop for Resolver.
-func (*Resolver) Close() {}
+func (r *Resolver) Close() {
+	r.CloseCallback()
+}
 
 // UpdateState calls CC.UpdateState.
 func (r *Resolver) UpdateState(s resolver.State) {
+	r.mu.Lock()
 	r.CC.UpdateState(s)
+	r.mu.Unlock()
+}
+
+// ReportError calls CC.ReportError.
+func (r *Resolver) ReportError(err error) {
+	r.mu.Lock()
+	r.CC.ReportError(err)
+	r.mu.Unlock()
 }
