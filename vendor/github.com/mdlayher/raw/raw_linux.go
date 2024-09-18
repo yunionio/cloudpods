@@ -14,8 +14,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Must implement net.PacketConn at compile-time.
-var _ net.PacketConn = &packetConn{}
+var (
+	// Must implement net.PacketConn at compile-time.
+	_ net.PacketConn = &packetConn{}
+)
 
 // packetConn is the Linux-specific implementation of net.PacketConn for this
 // package.
