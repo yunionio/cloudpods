@@ -952,7 +952,19 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			return nil
 		}
 	}
+	var vdev bool
+	var hypervisor string
+	if utils.IsInStringArray(self.DevType, api.VITRUAL_DEVICE_TYPES) {
+		vdev = true
+	}
+	if utils.IsInStringArray(self.DevType, api.VALID_CONTAINER_DEVICE_TYPES) {
+		hypervisor = api.HYPERVISOR_POD
+	} else {
+		hypervisor = api.HYPERVISOR_KVM
+	}
 	ret := jsonutils.NewDict()
+	ret.Set("virtual_dev", jsonutils.NewBool(vdev))
+	ret.Set("hypervisor", jsonutils.NewString(hypervisor))
 	ret.Set("dev_type", jsonutils.NewString(self.DevType))
 	ret.Set("model", jsonutils.NewString(self.Model))
 	ret.Set("pci_id", jsonutils.NewString(self.VendorDeviceId))
