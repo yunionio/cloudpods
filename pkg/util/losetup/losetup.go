@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -121,16 +122,34 @@ func AttachDevice(filePath string, partScan bool) (*Device, error) {
 }
 
 func DetachDevice(devPath string) error {
-	devs, err := ListDevices()
+	getDev := func() (*Device, error) {
+		devs, err := ListDevices()
+		if err != nil {
+			return nil, errors.Wrapf(err, "list devices")
+		}
+		dev := devs.GetDeviceByName(devPath)
+		return dev, nil
+	}
+	dev, err := getDev()
 	if err != nil {
 		return err
 	}
-	dev := devs.GetDeviceByName(devPath)
 	if dev == nil {
 		return nil
 	}
 	_, err = NewLosetupCommand().AddArgs("-d", dev.Name).Run()
-	return err
+	if err != nil {
+		return errors.Wrapf(err, "detach device")
+	}
+	// recheck
+	dev, err = getDev()
+	if err != nil {
+		return errors.Wrapf(err, "get device by %s for rechecking", devPath)
+	}
+	if dev != nil {
+		return errors.Errorf("device %s still exists, %s", devPath, jsonutils.Marshal(dev))
+	}
+	return nil
 }
 
 func DetachDeviceByFile(filePath string) error {
