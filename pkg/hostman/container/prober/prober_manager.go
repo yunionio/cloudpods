@@ -75,6 +75,8 @@ type Manager interface {
 
 	// Start starts the Manager sync loops.
 	Start()
+
+	SetDirtyContainer(ctrId string)
 }
 
 type manager struct {
@@ -96,6 +98,8 @@ type manager struct {
 
 	// prober executes the probe actions
 	prober *prober
+
+	dirtyContainers sync.Map
 }
 
 func NewManager(
@@ -111,7 +115,16 @@ func NewManager(
 		startupManager:  startupManager,
 		workers:         make(map[probeKey]*worker),
 		workerLock:      sync.RWMutex{},
+		dirtyContainers: sync.Map{},
 	}
+}
+
+func (m *manager) SetDirtyContainer(ctrId string) {
+	m.dirtyContainers.Store(ctrId, true)
+}
+
+func (m *manager) cleanDirtyContainer(ctrId string) {
+	m.dirtyContainers.Delete(ctrId)
 }
 
 // Start syncing probe status. This should only be called once.

@@ -1593,6 +1593,10 @@ func (s *sPodGuestInstance) SyncContainerStatus(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, errors.Wrap(err, "get container status")
 	}
+	if status == computeapi.CONTAINER_STATUS_PROBING {
+		log.Infof("mark container %s to dirty after syncing status", ctrId)
+		s.getProbeManager().SetDirtyContainer(ctrId)
+	}
 	return jsonutils.Marshal(computeapi.ContainerSyncStatusResponse{Status: status}), nil
 }
 
