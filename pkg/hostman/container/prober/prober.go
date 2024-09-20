@@ -91,7 +91,7 @@ func (pb *prober) probe(probeType apis.ContainerProbeType, pod *desc.SGuestDesc,
 		// Probe failed in one way or another
 		if err != nil {
 			msg = fmt.Sprintf("%s probe for %q errored: %v", probeType, ctrName, err)
-			log.Debugf(msg)
+			log.Errorf(msg)
 		} else {
 			// result != probe.Success
 			msg = fmt.Sprintf("%s probe for %q failed (%v): %s", probeType, ctrName, result, output)
@@ -101,7 +101,7 @@ func (pb *prober) probe(probeType apis.ContainerProbeType, pod *desc.SGuestDesc,
 	}
 	if result == probe.Warning {
 		msg = fmt.Sprintf("%s probe for %q succeeded with a warning: %s", probeType, ctrName, output)
-		log.Infof(msg)
+		log.Warningf(msg)
 	} else {
 		msg = fmt.Sprintf("%s probe for %q succeeded", probeType, ctrName)
 		log.Debugf(msg)

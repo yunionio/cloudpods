@@ -103,7 +103,7 @@ type Manager interface {
 	Get(containerId string) (Result, bool)
 	// Set sets the cached result for the container with the given ID.
 	// The pod is only included to be sent with the update.
-	Set(containerId string, result ProbeResult, pod *desc.SGuestDesc)
+	Set(containerId string, result ProbeResult, pod *desc.SGuestDesc, force bool)
 	// Remove clears the cached result for the container with the given ID.
 	Remove(containerId string)
 	// Updates creates a channel that receives an Update whenever its result changes (but not
@@ -137,18 +137,18 @@ func (m *manager) Get(id string) (Result, bool) {
 	return result, found
 }
 
-func (m *manager) Set(id string, result ProbeResult, pod *desc.SGuestDesc) {
-	if m.setInternal(id, result) {
+func (m *manager) Set(id string, result ProbeResult, pod *desc.SGuestDesc, force bool) {
+	if m.setInternal(id, result, force) {
 		m.updates <- Update{ContainerID: id, Result: result, PodUID: pod.Uuid}
 	}
 }
 
 // Internal helper for locked portion of set. Returns whether an update should be sent.
-func (m *manager) setInternal(id string, result ProbeResult) bool {
+func (m *manager) setInternal(id string, result ProbeResult, force bool) bool {
 	m.Lock()
 	defer m.Unlock()
 	prev, exists := m.cache[id]
-	if !exists || prev != result.Result {
+	if !exists || prev != result.Result || force {
 		m.cache[id] = result.Result
 		return true
 	}

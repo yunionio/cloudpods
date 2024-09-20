@@ -34,6 +34,7 @@ import (
 	"math/rand"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/runtime"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -161,6 +162,7 @@ func (w *worker) doProbe() (keepGoing bool) {
 
 	result, err := w.probeManager.prober.probe(w.probeType, w.pod, w.container)
 	if err != nil {
+		log.Errorf("probe: %s, pod: %s, container: %s, error: %v", w.probeType, w.pod.Uuid, w.container.Id, err)
 		// prober error, throw away the result.
 		return true
 	}
@@ -171,12 +173,17 @@ func (w *worker) doProbe() (keepGoing bool) {
 		w.lastResult = result.Result
 		w.resultRun = 1
 	}
+	_, isContainerDirty := w.probeManager.dirtyContainers.Load(w.container.Id)
 
 	if (result.Result == results.Failure && w.resultRun < int(w.spec.FailureThreshold)) ||
 		(result.Result == results.Success && w.resultRun < int(w.spec.SuccessThreshold)) {
 		return true
 	}
-	w.resultsManager.Set(w.containerId, result, w.pod)
+	w.resultsManager.Set(w.containerId, result, w.pod, isContainerDirty)
+	if isContainerDirty {
+		log.Infof("clean dirty container %s of probe manager", w.container.Id)
+		w.probeManager.cleanDirtyContainer(w.container.Id)
+	}
 
 	if (w.probeType == apis.ContainerProbeTypeLiveness || w.probeType == apis.ContainerProbeTypeStartup) && result.Result == results.Failure {
 		// The container fails a liveness/startup check, it will need to be restarted.
