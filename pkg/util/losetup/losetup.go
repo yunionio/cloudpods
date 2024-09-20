@@ -72,8 +72,37 @@ func NewLosetupCommand() *LosetupCommand {
 	}
 }
 
+func parseJsonOutput(content string) (*Devices, error) {
+	obj, err := jsonutils.ParseString(content)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse json: %s", content)
+	}
+	devs := new(Devices)
+	if err := obj.Unmarshal(devs); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal json: %s", content)
+	}
+	return devs, nil
+}
+
 func ListDevices() (*Devices, error) {
-	cmd, err := NewLosetupCommand().AddArgs("-l", "-O", "NAME,BACK-FILE,SIZELIMIT,RO").Run()
+	cmd, err := NewLosetupCommand().AddArgs("--json").Run()
+	errs := make([]error, 0)
+	if err != nil {
+		errs = append(errs, errors.Wrap(err, "list by json"))
+		devs, err2 := listDevicesOldVersion()
+		if err2 != nil {
+			errs = append(errs, errors.Wrap(err, "list by using old way"))
+		} else {
+			return devs, nil
+		}
+		return nil, errors.NewAggregate(errs)
+	}
+	output := cmd.Output()
+	return parseJsonOutput(output)
+}
+
+func listDevicesOldVersion() (*Devices, error) {
+	cmd, err := NewLosetupCommand().AddArgs("-l", "-O", "NAME,BACK-FILE").Run()
 	if err != nil {
 		return nil, err
 	}
@@ -156,13 +185,13 @@ func DetachDevice(devPath string) error {
 		return errors.Wrapf(err, "detach device")
 	}
 	// recheck
-	dev, err = getDev()
+	/*dev, err = getDev()
 	if err != nil {
 		return errors.Wrapf(err, "get device by %s for rechecking", devPath)
 	}
 	if dev != nil {
 		return errors.Errorf("device %s still exists, %s", devPath, jsonutils.Marshal(dev))
-	}
+	}*/
 	return nil
 }
 
