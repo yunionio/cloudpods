@@ -27,11 +27,20 @@ type ContainerVolumeMountDisk struct {
 	Overlay         *apis.ContainerVolumeMountDiskOverlay `json:"overlay"`
 }
 
+type ContainerVolumeMountCephFS struct {
+	Id      string `json:"id"`
+	MonHost string `json:"mon_host"`
+	Path    string `json:"path"`
+	Secret  string `json:"secret"`
+	Name    string `json:"name"`
+}
+
 type ContainerVolumeMount struct {
 	Type     apis.ContainerVolumeMountType      `json:"type"`
 	Disk     *ContainerVolumeMountDisk          `json:"disk"`
 	HostPath *apis.ContainerVolumeMountHostPath `json:"host_path"`
 	Text     *apis.ContainerVolumeMountText     `json:"text"`
+	CephFS   *ContainerVolumeMountCephFS        `json:"ceph_fs"`
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	ReadOnly bool `json:"read_only"`
 	// Path within the container at which the volume should be mounted.  Must

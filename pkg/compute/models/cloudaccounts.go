@@ -683,6 +683,18 @@ func (acnt *SCloudaccount) getPassword() (string, error) {
 	return utils.DescryptAESBase64(acnt.Id, acnt.Secret)
 }
 
+func (acnt *SCloudaccount) GetOptionPassword() (string, error) {
+	passwd, err := acnt.getPassword()
+	if err != nil {
+		return "", err
+	}
+	passwdStr, _ := acnt.Options.GetString("password")
+	if len(passwdStr) == 0 {
+		return "", fmt.Errorf("missing password")
+	}
+	return utils.DescryptAESBase64(passwd, passwdStr)
+}
+
 func (acnt *SCloudaccount) regionId() string {
 	if len(acnt.RegionId) > 0 {
 		return acnt.RegionId

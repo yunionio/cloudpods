@@ -157,7 +157,19 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 	input.CloudregionId = region.Id
 
 	if len(input.ManagerId) == 0 {
-		return input, httperrors.NewMissingParameterError("manager_id")
+		sq := CloudproviderManager.Query().Equals("provider", api.CLOUD_PROVIDER_CEPHFS).SubQuery()
+		q := CloudproviderRegionManager.Query().Equals("cloudregion_id", input.CloudregionId)
+		q = q.Join(sq, sqlchemy.Equals(q.Field("cloudprovider_id"), sq.Field("id")))
+		cprgs := []SCloudproviderregion{}
+		err = q.All(&cprgs)
+		if err != nil {
+			return input, err
+		}
+		if len(cprgs) == 1 {
+			input.ManagerId = cprgs[0].CloudproviderId
+		} else {
+			return input, httperrors.NewMissingParameterError("manager_id")
+		}
 	}
 
 	if len(input.Duration) > 0 {
