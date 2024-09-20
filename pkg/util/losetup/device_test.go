@@ -21,9 +21,9 @@ import (
 
 var (
 	losetupOutput string = `
-NAME       BACK-FILE                                   SIZELIMIT RO
-/dev/loop0 /disks/2b917686-2ace-4a57-a4af-44ece2303dd2         0  0
-/dev/loop1 /disks/033d6bc0-4ce4-48c4-89d3-125077bcc28e         0  1
+NAME       BACK-FILE                                  
+/dev/loop0 /disks/2b917686-2ace-4a57-a4af-44ece2303dd2 (deleted)
+/dev/loop1 /disks/033d6bc0-4ce4-48c4-89d3-125077bcc28e
 `
 )
 
@@ -42,17 +42,13 @@ func Test_parseDevices(t *testing.T) {
 			args: args{losetupOutput},
 			want: &Devices{
 				[]Device{
-					Device{
-						Name:      "/dev/loop0",
-						BackFile:  "/disks/2b917686-2ace-4a57-a4af-44ece2303dd2",
-						SizeLimit: false,
-						ReadOnly:  false,
+					{
+						Name:     "/dev/loop0",
+						BackFile: "/disks/2b917686-2ace-4a57-a4af-44ece2303dd2 (deleted)",
 					},
-					Device{
-						Name:      "/dev/loop1",
-						BackFile:  "/disks/033d6bc0-4ce4-48c4-89d3-125077bcc28e",
-						SizeLimit: false,
-						ReadOnly:  true,
+					{
+						Name:     "/dev/loop1",
+						BackFile: "/disks/033d6bc0-4ce4-48c4-89d3-125077bcc28e",
 					},
 				},
 			},

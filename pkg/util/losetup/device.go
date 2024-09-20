@@ -67,19 +67,12 @@ func parseDevice(line string) (Device, error) {
 	if len(fields) == 0 {
 		return Device{}, fmt.Errorf("Invalid line: %q", line)
 	}
-	sizeLimit := false
-	ro := false
-	if fields[2] != "0" {
-		sizeLimit = true
-	}
-	if fields[3] != "0" {
-		ro = true
+	if len(fields) < 2 {
+		return Device{}, fmt.Errorf("Invalid line: %q", line)
 	}
 	return Device{
-		Name:      fields[0],
-		BackFile:  fields[1],
-		SizeLimit: sizeLimit,
-		ReadOnly:  ro,
+		Name:     fields[0],
+		BackFile: strings.Join(fields[1:], " "),
 	}, nil
 }
 
