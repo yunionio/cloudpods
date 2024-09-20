@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -137,6 +138,19 @@ func DetachDevice(devPath string) error {
 	if dev == nil {
 		return nil
 	}
+	// check mountpoints
+	checkMntCmd, _ := NewCommand("sh", "-c", fmt.Sprintf("mount | grep %s | awk '{print $3}'", dev.Name)).Run()
+	if out := checkMntCmd.Output(); out != "" {
+		mntPoints := strings.Split(out, "\n")
+		for _, mntPoint := range mntPoints {
+			if mntPoint != "" {
+				if err := mountutils.Unmount(mntPoint); err != nil {
+					return errors.Wrapf(err, "umount %s of %s", mntPoint, dev.Name)
+				}
+			}
+		}
+	}
+
 	_, err = NewLosetupCommand().AddArgs("-d", dev.Name).Run()
 	if err != nil {
 		return errors.Wrapf(err, "detach device")
