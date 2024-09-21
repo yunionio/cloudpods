@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hosthandler"
@@ -35,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/kubehandlers"
-	"yunion.io/x/onecloud/pkg/hostman/metadata"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
@@ -124,19 +122,6 @@ func (host *SHostService) RunService() {
 	}
 
 	host.initHandlers(app)
-
-	// Init Metadata handler
-	go metadata.Start(
-		app_common.InitApp(&options.HostOptions.BaseOptions, false),
-		&metadata.Service{
-			Address: options.HostOptions.Address,
-			Port:    options.HostOptions.Port + 1000,
-			DescGetter: metadata.DescGetterFunc(func(ip string) *desc.SGuestDesc {
-				guestDesc, _ := guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
-				return guestDesc
-			}),
-		},
-	)
 
 	{
 		cronManager.AddJobEveryFewDays(
