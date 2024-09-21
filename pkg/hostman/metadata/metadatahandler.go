@@ -135,7 +135,10 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 			"ami-launch-index",
 			"block-device-mapping/", "hostname",
 			"instance-id", "instance-type",
-			"local-hostname", "local-ipv4", "mac",
+			"local-hostname",
+			"local-ipv4",
+			"local-ipv6",
+			"mac",
 			"public-hostname", "public-ipv4",
 			"network_config/",
 			"local-sub-ipv4s",
@@ -173,8 +176,11 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 					return
 				}
 			}
-		case "hostname", "public-hostname", "local-hostname":
+		case "hostname":
 			hostutils.Response(ctx, w, guestDesc.Name)
+			return
+		case "public-hostname", "local-hostname":
+			hostutils.Response(ctx, w, guestDesc.Hostname)
 			return
 		case "instance-id":
 			hostutils.Response(ctx, w, guestDesc.Uuid)
@@ -199,6 +205,16 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 			guestNics := guestDesc.Nics
 			for _, nic := range guestNics {
 				ips = append(ips, nic.Ip)
+			}
+			hostutils.Response(ctx, w, strings.Join(ips, "\n"))
+			return
+		case "local-ipv6":
+			ips := make([]string, 0)
+			guestNics := guestDesc.Nics
+			for _, nic := range guestNics {
+				if len(nic.Ip6) > 0 {
+					ips = append(ips, nic.Ip6)
+				}
 			}
 			hostutils.Response(ctx, w, strings.Join(ips, "\n"))
 			return
