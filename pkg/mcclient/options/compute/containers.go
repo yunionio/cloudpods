@@ -260,6 +260,11 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 			vm.Text = &apis.ContainerVolumeMountText{
 				Content: string(content),
 			}
+		case "cephfs":
+			vm.Type = apis.CONTAINER_VOLUME_MOUNT_TYPE_CEPHF_FS
+			vm.CephFS = &apis.ContainerVolumeMountCephFS{
+				Id: val,
+			}
 		}
 	}
 	return vm, nil

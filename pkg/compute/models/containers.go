@@ -16,10 +16,12 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
@@ -392,10 +394,39 @@ func (vm *ContainerVolumeMountRelation) toHostDiskMount(disk *apis.ContainerVolu
 	return ret, nil
 }
 
+func (vm *ContainerVolumeMountRelation) toCephFSMount(fs *apis.ContainerVolumeMountCephFS) (*hostapi.ContainerVolumeMountCephFS, error) {
+	fsObj, err := FileSystemManager.FetchById(fs.Id)
+	if err != nil {
+		return nil, errors.Errorf("fetch cephfs by id %s", fs.Id)
+	}
+
+	filesystem := fsObj.(*SFileSystem)
+	ret := &hostapi.ContainerVolumeMountCephFS{
+		Id:   filesystem.Id,
+		Path: filesystem.ExternalId,
+	}
+
+	account := filesystem.GetCloudaccount()
+	if gotypes.IsNil(account) {
+		return nil, fmt.Errorf("invalid cephfs %s", filesystem.Name)
+	}
+	ret.Secret, err = account.GetOptionPassword()
+	if err != nil {
+		return nil, err
+	}
+	ret.Name, _ = account.Options.GetString("name")
+	if len(ret.Name) == 0 {
+		ret.Name = "admin"
+	}
+	ret.MonHost, _ = account.Options.GetString("mon_host")
+	return ret, nil
+}
+
 func (vm *ContainerVolumeMountRelation) ToHostMount(ctx context.Context, userCred mcclient.TokenCredential) (*hostapi.ContainerVolumeMount, error) {
 	ret := &hostapi.ContainerVolumeMount{
 		Type:           vm.VolumeMount.Type,
 		Disk:           nil,
+		CephFS:         nil,
 		Text:           vm.VolumeMount.Text,
 		HostPath:       vm.VolumeMount.HostPath,
 		ReadOnly:       vm.VolumeMount.ReadOnly,
@@ -411,6 +442,13 @@ func (vm *ContainerVolumeMountRelation) ToHostMount(ctx context.Context, userCre
 			return nil, errors.Wrap(err, "toHostDiskMount")
 		}
 		ret.Disk = disk
+	}
+	if vm.VolumeMount.CephFS != nil {
+		fs, err := vm.toCephFSMount(vm.VolumeMount.CephFS)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getCephFSSecret")
+		}
+		ret.CephFS = fs
 	}
 	return ret, nil
 }
