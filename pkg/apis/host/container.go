@@ -91,22 +91,15 @@ type ContainerCreateInput struct {
 	Spec    *ContainerSpec `json:"spec"`
 }
 
-type ContainerPullImageAuthConfig struct {
-	Username      string `json:"username,omitempty"`
-	Password      string `json:"password,omitempty"`
-	Auth          string `json:"auth,omitempty"`
-	ServerAddress string `json:"server_address,omitempty"`
-	// IdentityToken is used to authenticate the user and get
-	// an access token for the registry.
-	IdentityToken string `json:"identity_token,omitempty"`
-	// RegistryToken is a bearer token to be sent to a registry
-	RegistryToken string `json:"registry_token,omitempty"`
+type ContainerPullImageInput struct {
+	Image      string                             `json:"image"`
+	PullPolicy apis.ImagePullPolicy               `json:"pull_policy"`
+	Auth       *apis.ContainerPullImageAuthConfig `json:"auth"`
 }
 
-type ContainerPullImageInput struct {
-	Image      string                        `json:"image"`
-	PullPolicy apis.ImagePullPolicy          `json:"pull_policy"`
-	Auth       *ContainerPullImageAuthConfig `json:"auth"`
+type ContainerPushImageInput struct {
+	Image string                             `json:"image"`
+	Auth  *apis.ContainerPullImageAuthConfig `json:"auth"`
 }
 
 type ContainerDesc struct {
@@ -120,4 +113,9 @@ type ContainerSaveVolumeMountToImageInput struct {
 
 	VolumeMountIndex int                   `json:"volume_mount_index"`
 	VolumeMount      *ContainerVolumeMount `json:"volume_mount"`
+}
+
+type ContainerCommitInput struct {
+	Repository string                             `json:"repository"`
+	Auth       *apis.ContainerPullImageAuthConfig `json:"auth"`
 }

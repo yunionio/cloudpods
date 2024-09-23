@@ -74,6 +74,8 @@ const (
 	CONTAINER_STATUS_RUNNING            = "running"
 	CONTAINER_STATUS_DELETING           = "deleting"
 	CONTAINER_STATUS_DELETE_FAILED      = "delete_failed"
+	CONTAINER_STATUS_COMMITTING         = "committing"
+	CONTAINER_STATUS_COMMIT_FAILED      = "commit_failed"
 	// for health check
 	CONTAINER_STATUS_PROBING      = "probing"
 	CONTAINER_STATUS_PROBE_FAILED = "probe_failed"
@@ -184,4 +186,48 @@ type ContainerExecSyncResponse struct {
 	Stdout   string `json:"stdout"`
 	Stderr   string `json:"stderr"`
 	ExitCode int32  `json:"exit_code"`
+}
+
+type ContainerCommitExternalRegistry struct {
+	// e.g.: registry.cn-beijing.aliyuncs.com/yunionio
+	Url string `json:"url"`
+	// authentication configuration
+	Auth *apis.ContainerPullImageAuthConfig `json:"auth"`
+}
+
+type ContainerCommitInput struct {
+	// Container registry id from kubeserver
+	RegistryId       string                           `json:"registry_id"`
+	ExternalRegistry *ContainerCommitExternalRegistry `json:"external_registry"`
+	// image name
+	ImageName string `json:"image_name"`
+	// image tag
+	Tag string `json:"tag"`
+}
+
+type ContainerCommitOutput struct {
+	Repository string `json:"repository"`
+}
+
+type KubeServerContainerRegistryConfigCommon struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type KubeServerContainerRegistryConfigHarbor struct {
+	KubeServerContainerRegistryConfigCommon
+}
+
+type KubeServerContainerRegistryConfig struct {
+	Type   string                                   `json:"type"`
+	Common *KubeServerContainerRegistryConfigCommon `json:"common"`
+	Harbor *KubeServerContainerRegistryConfigHarbor `json:"harbor"`
+}
+
+type KubeServerContainerRegistryDetails struct {
+	Id     string                             `json:"id"`
+	Name   string                             `json:"name"`
+	Url    string                             `json:"url"`
+	Type   string                             `json:"type"`
+	Config *KubeServerContainerRegistryConfig `json:"config"`
 }

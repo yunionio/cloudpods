@@ -17,6 +17,9 @@ package models
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,10 +32,13 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	kubemod "yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 var containerManager *SContainerManager
@@ -756,4 +762,86 @@ func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 		}
 	}
 	return c.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
+}
+
+func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerCommitInput) (*hostapi.ContainerCommitInput, error) {
+	var hostInput = &hostapi.ContainerCommitInput{
+		Auth: new(apis.ContainerPullImageAuthConfig),
+	}
+	var repoUrl string
+	imageName := input.ImageName
+	tag := input.Tag
+	if imageName == "" {
+		imageName = c.GetName()
+	}
+	if tag == "" {
+		tag = time.Now().Format("20060102150405")
+	}
+	if input.RegistryId != "" {
+		s := auth.GetSession(ctx, userCred, consts.GetRegion())
+		obj, err := kubemod.ContainerRegistries.Get(s, input.RegistryId, nil)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		reg := new(api.KubeServerContainerRegistryDetails)
+		if err := obj.Unmarshal(reg); err != nil {
+			return nil, errors.Wrap(err, "Unmarshal kube server registry details")
+		}
+		if reg.Config == nil {
+			confObj, err := kubemod.ContainerRegistries.GetSpecific(s, input.RegistryId, "config", nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "Get kube server registry config")
+			}
+			reg.Config = new(api.KubeServerContainerRegistryConfig)
+			if err := confObj.Unmarshal(reg.Config); err != nil {
+				return nil, errors.Wrap(err, "Unmarshal kube server registry config")
+			}
+		}
+		repoUrl = reg.Url
+		if reg.Config != nil {
+			switch reg.Type {
+			case "common":
+				cfg := reg.Config.Common
+				hostInput.Auth.Username = cfg.Username
+				hostInput.Auth.Password = cfg.Password
+			case "harbor":
+				cfg := reg.Config.Harbor
+				hostInput.Auth.Username = cfg.Username
+				hostInput.Auth.Password = cfg.Password
+			default:
+				return nil, httperrors.NewInputParameterError("invalid registry type %s", reg.Type)
+			}
+		}
+	} else if input.ExternalRegistry != nil {
+		repoUrl = input.ExternalRegistry.Url
+		if repoUrl == "" {
+			return nil, httperrors.NewNotEmptyError("empty external registry url")
+		}
+		hostInput.Auth = input.ExternalRegistry.Auth
+	} else {
+		return nil, httperrors.NewInputParameterError("one of registry_id or external_registry must provided")
+	}
+	repoPrefix := strings.TrimPrefix(strings.TrimPrefix(repoUrl, "http://"), "https://")
+	hostInput.Repository = fmt.Sprintf("%s:%s", filepath.Join(repoPrefix, imageName), tag)
+	return hostInput, nil
+}
+
+func (c *SContainer) PerformCommit(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ContainerCommitInput) (*api.ContainerCommitOutput, error) {
+	hostInput, err := c.getContainerHostCommitInput(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	out := &api.ContainerCommitOutput{
+		Repository: hostInput.Repository,
+	}
+	return out, c.StartCommit(ctx, userCred, hostInput, "")
+}
+
+func (c *SContainer) StartCommit(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerCommitInput, parentTaskId string) error {
+	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_COMMITTING, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "ContainerCommitTask", c, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
 }

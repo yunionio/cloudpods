@@ -118,6 +118,7 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 		"sync-status":                syncContainerStatus,
 		"pull-image":                 pullImage,
 		"save-volume-mount-to-image": saveVolumeMountToImage,
+		"commit":                     commitContainer,
 	}
 	for action, f := range ctrHandlers {
 		app.AddHandler("POST",
@@ -308,4 +309,12 @@ func containerSetResourcesLimit(ctx context.Context, userCred mcclient.TokenCred
 		return nil, errors.Wrap(err, "unmarshal to ContainerExecSyncInput")
 	}
 	return pod.SetContainerResourceLimit(containerId, input)
+}
+
+func commitContainer(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(hostapi.ContainerCommitInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to ContainerCommitInput")
+	}
+	return pod.CommitContainer(ctx, userCred, ctrId, input)
 }

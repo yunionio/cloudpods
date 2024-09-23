@@ -230,3 +230,15 @@ type ContainerVolumeMountText struct {
 type ContainerVolumeMountCephFS struct {
 	Id string `json:"id"`
 }
+
+type ContainerPullImageAuthConfig struct {
+	Username      string `json:"username,omitempty"`
+	Password      string `json:"password,omitempty"`
+	Auth          string `json:"auth,omitempty"`
+	ServerAddress string `json:"server_address,omitempty"`
+	// IdentityToken is used to authenticate the user and get
+	// an access token for the registry.
+	IdentityToken string `json:"identity_token,omitempty"`
+	// RegistryToken is a bearer token to be sent to a registry
+	RegistryToken string `json:"registry_token,omitempty"`
+}
