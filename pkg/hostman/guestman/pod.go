@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1488,6 +1489,16 @@ func (s *sPodGuestInstance) simulateContainerSystemCpu(ctx context.Context, ctrI
 	if err := s.ensureContainerSystemCpuDir(cpuDir, cpuCnt); err != nil {
 		return nil, err
 	}
+
+	cpufreqConfig := s.manager.host.GetContainerCpufreqSimulateConfig()
+	if cpufreqConfig != nil {
+		cpufreqDir := path.Join(cpuDir, "cpufreq")
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", cpufreqDir).Output()
+		if err != nil {
+			return nil, errors.Wrapf(err, "mkdir %s: %s", cpufreqDir, out)
+		}
+	}
+
 	sysCpuPath := "/sys/devices/system/cpu"
 	ret := []*runtimeapi.Mount{
 		{
@@ -1501,10 +1512,16 @@ func (s *sPodGuestInstance) simulateContainerSystemCpu(ctx context.Context, ctrI
 			return nil, errors.Wrapf(err, "find host cpu by container %s with index %d", ctrId, i)
 		}
 		hostCpuPath := filepath.Join(sysCpuPath, fmt.Sprintf("cpu%d", hostCpuIdx))
-		ret = append(ret, &runtimeapi.Mount{
-			ContainerPath: filepath.Join(sysCpuPath, fmt.Sprintf("cpu%d", i)),
-			HostPath:      hostCpuPath,
-		})
+		if cpufreqConfig != nil {
+			if err := s.ensureContainerSystemCpufreqHostDir(cpuDir, hostCpuPath, i, cpufreqConfig); err != nil {
+				return nil, errors.Wrap(err, "ensureContainerSystemCpufreqHostDir")
+			}
+		} else {
+			ret = append(ret, &runtimeapi.Mount{
+				ContainerPath: filepath.Join(sysCpuPath, fmt.Sprintf("cpu%d", i)),
+				HostPath:      hostCpuPath,
+			})
+		}
 	}
 	pathMap := func(baseName string) *runtimeapi.Mount {
 		p := filepath.Join(sysCpuPath, baseName)
@@ -1514,18 +1531,76 @@ func (s *sPodGuestInstance) simulateContainerSystemCpu(ctx context.Context, ctrI
 			Readonly:      true,
 		}
 	}
-	for _, baseName := range []string{
-		"modalias",
-		"power",
-		"cpuidle",
-		"hotplug",
-		"isolated",
-		"cpufreq",
-		"uevent",
-	} {
+	cpuConfigs := []string{"modalias", "power", "cpuidle", "hotplug", "isolated", "uevent"}
+	if cpufreqConfig == nil {
+		cpuConfigs = append(cpuConfigs, "cpufreq")
+	}
+
+	for _, baseName := range cpuConfigs {
 		ret = append(ret, pathMap(baseName))
 	}
+
 	return ret, nil
+}
+
+func (s *sPodGuestInstance) ensureContainerSystemCpufreqHostDir(cpuDir, hostCpuPath string, cpuIdx int, cpufreqConfig *jsonutils.JSONDict) error {
+	cpufreqPolicyDir := path.Join(cpuDir, "cpufreq", fmt.Sprintf("policy%d", cpuIdx))
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", cpufreqPolicyDir).Output()
+	if err != nil {
+		return errors.Wrapf(err, "mkdir %s: %s", cpufreqPolicyDir, out)
+	}
+
+	cpuiDir := path.Join(cpuDir, fmt.Sprintf("cpu%d", cpuIdx))
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("cp", "-rf", hostCpuPath, cpuiDir).Output()
+	if err != nil {
+		log.Warningf("cp %s to %s: %s %s", hostCpuPath, cpuiDir, out, err)
+	}
+
+	cpufreqDir := path.Join(cpuiDir, "cpufreq")
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", cpufreqDir).Output()
+	if err != nil {
+		return errors.Wrapf(err, "rm -f %s: %s", cpufreqDir, out)
+	}
+
+	for _, fname := range []string{
+		"affected_cpus",
+		"cpuinfo_max_freq",
+		"cpuinfo_min_freq",
+		"cpuinfo_transition_latency",
+		"related_cpus",
+		"scaling_available_governors",
+		"scaling_cur_freq",
+		"scaling_driver",
+		"scaling_governor",
+		"scaling_max_freq",
+		"scaling_min_freq",
+		"scaling_setspeed",
+	} {
+		switch fname {
+		case "affected_cpus", "related_cpus":
+			val := strconv.Itoa(cpuIdx)
+			cpath := path.Join(cpufreqPolicyDir, fname)
+			if err := fileutils2.FilePutContents(cpath, val+"\n", false); err != nil {
+				return errors.Wrapf(err, "failed write %s", cpath)
+			}
+		default:
+			val, err := cpufreqConfig.GetString(fname)
+			if err != nil {
+				log.Warningf("simulate cpufreq no %s", fname)
+				continue
+			}
+			cpath := path.Join(cpufreqPolicyDir, fname)
+			if err := fileutils2.FilePutContents(cpath, val+"\n", false); err != nil {
+				return errors.Wrapf(err, "failed write %s", cpath)
+			}
+		}
+	}
+
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("ln", "-s", fmt.Sprintf("../cpufreq/policy%d", cpuIdx), cpufreqDir).Output()
+	if err != nil {
+		return errors.Wrapf(err, "ln -s ../cpufreq/policy%d %s: %s", cpuIdx, cpufreqDir, out)
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error) {

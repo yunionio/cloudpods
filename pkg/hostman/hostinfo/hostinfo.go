@@ -121,13 +121,18 @@ type SHostInfo struct {
 	IoScheduler string
 
 	// container related members
-	cri                    pod.CRI
-	containerCPUMap        *pod.HostContainerCPUMap
-	containerStatsProvider stats.ContainerStatsProvider
+	cri                            pod.CRI
+	containerCPUMap                *pod.HostContainerCPUMap
+	containerStatsProvider         stats.ContainerStatsProvider
+	containerCpufreqSimulateConfig *jsonutils.JSONDict
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
 	return options.HostOptions.ContainerDeviceConfigFile
+}
+
+func (h *SHostInfo) GetContainerCpufreqSimulateConfig() *jsonutils.JSONDict {
+	return h.containerCpufreqSimulateConfig
 }
 
 func (h *SHostInfo) GetIsolatedDeviceManager() isolated_device.IsolatedDeviceManager {
@@ -236,8 +241,30 @@ func (h *SHostInfo) Init(ctx context.Context) error {
 		if err := h.startContainerStatsProvider(h.cri); err != nil {
 			return errors.Wrap(err, "start container stats provider")
 		}
+		if fileutils2.Exists(options.HostOptions.ContainerSystemCpufreqSimulateConfigFile) {
+			if err := h.getContainerCpufreqSimulateConfig(); err != nil {
+				return errors.Wrap(err, "getContainerCpuSimulateConfig")
+			}
+		}
 	}
 
+	return nil
+}
+
+func (h *SHostInfo) getContainerCpufreqSimulateConfig() error {
+	content, err := fileutils2.FileGetContents(options.HostOptions.ContainerSystemCpufreqSimulateConfigFile)
+	if err != nil {
+		return errors.Wrapf(err, "FileGetContents %s", options.HostOptions.ContainerSystemCpufreqSimulateConfigFile)
+	}
+	obj, err := jsonutils.ParseYAML(content)
+	if err != nil {
+		return errors.Wrapf(err, "parse YAML content: %s", content)
+	}
+	cfg := new(hostutils.SContainerCpufreqSimulateConfig)
+	if err := obj.Unmarshal(cfg); err != nil {
+		return errors.Wrapf(err, "unmarshal object to SContainerCpufreqSimulateConfig")
+	}
+	h.containerCpufreqSimulateConfig = jsonutils.Marshal(cfg).(*jsonutils.JSONDict)
 	return nil
 }
 
