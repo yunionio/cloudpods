@@ -1275,13 +1275,20 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	var region *SCloudregion
 
 	if len(query.ZoneId) > 0 {
-		_, err := validators.ValidateModel(ctx, userCred, ZoneManager, &query.ZoneId)
+		zoneObj, err := validators.ValidateModel(ctx, userCred, ZoneManager, &query.ZoneId)
 		if err != nil {
 			return nil, err
 		}
-		vpcs := VpcManager.Query("manager_id").Distinct()
-		wires := WireManager.Query().Equals("zone_id", query.ZoneId).SubQuery()
-		vpcs = vpcs.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		zone = zoneObj.(*SZone)
+		region, err = zone.GetRegion()
+		if err != nil {
+			return nil, err
+		}
+		vpcs := VpcManager.Query("manager_id").Equals("cloudregion_id", region.Id).Distinct()
+		if !utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+			wires := WireManager.Query().Equals("zone_id", query.ZoneId).SubQuery()
+			vpcs = vpcs.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		}
 		wireManager := WireManager.Query("manager_id").Equals("zone_id", query.ZoneId).Distinct().SubQuery()
 		q = q.Filter(
 			sqlchemy.OR(
