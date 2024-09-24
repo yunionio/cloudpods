@@ -17,6 +17,7 @@ package volume_mount
 import (
 	"fmt"
 
+	pdisk "github.com/shirou/gopsutil/v3/disk"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -53,6 +54,21 @@ type IVolumeMount interface {
 	GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) (string, error)
 	Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
 	Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
+}
+
+type ContainerVolumeMountUsage struct {
+	Id         string
+	HostPath   string
+	MountPath  string
+	VolumeType string
+	Usage      *pdisk.UsageStat
+	Tags       map[string]string
+}
+
+type IUsageVolumeMount interface {
+	IVolumeMount
+
+	InjectUsageTags(usage *ContainerVolumeMountUsage, vol *hostapi.ContainerVolumeMount)
 }
 
 func GetRuntimeVolumeMountPropagation(input apis.ContainerMountPropagation) runtimeapi.MountPropagation {

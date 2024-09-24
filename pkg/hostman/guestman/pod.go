@@ -107,6 +107,7 @@ func (cr *containerRunner) RunInContainer(pod *desc.SGuestDesc, containerId stri
 type PodInstance interface {
 	GuestRuntimeInstance
 
+	GetContainerById(ctrId string) *hostapi.ContainerDesc
 	CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, id string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
 	StartContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
 	DeleteContainer(ctx context.Context, cred mcclient.TokenCredential, id string) (jsonutils.JSONObject, error)
@@ -120,6 +121,9 @@ type PodInstance interface {
 	CommitContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCommitInput) (jsonutils.JSONObject, error)
 
 	ReadLogs(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.PodLogOptions, stdout, stderr io.Writer) error
+
+	// for monitoring
+	GetVolumeMountUsages() (map[ContainerVolumeKey]*volume_mount.ContainerVolumeMountUsage, error)
 }
 
 type sContainer struct {

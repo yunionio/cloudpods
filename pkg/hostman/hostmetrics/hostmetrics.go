@@ -17,6 +17,7 @@ package hostmetrics
 import (
 	"context"
 	"fmt"
+	"io"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -111,7 +112,8 @@ func (m *SHostMetricsCollector) reportUsageToTelegraf(data string) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 204 {
-		log.Errorf("upload guest metric failed %d", res.StatusCode)
+		resBody, _ := io.ReadAll(res.Body)
+		log.Errorf("upload guest metric failed %d: %s", res.StatusCode, string(resBody))
 		timestamp := time.Now().UnixNano()
 		for _, line := range strings.Split(data, "\n") {
 			m.waitingReportData = append(m.waitingReportData,
@@ -199,7 +201,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 					gm.MemMB = instance.GetDesc().Mem
 				} else {
 					delete(s.monitors, guestId)
-					gm, err = NewGuestMonitor(guestName, guestId, pid, nicsDesc, int(vcpuCount))
+					gm, err = NewGuestMonitor(instance, guestName, guestId, pid, nicsDesc, int(vcpuCount))
 					if err != nil {
 						log.Errorf("NewGuestMonitor for %s(%s), pid: %d, nics: %#v", guestName, guestId, pid, nicsDesc)
 						return true
@@ -225,7 +227,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 			}
 			podStat := GetPodStatsById(podStats, guestId)
 			if podStat != nil {
-				gm, err := NewGuestPodMonitor(guestName, guestId, podStat, nicsDesc, int(vcpuCount))
+				gm, err := NewGuestPodMonitor(instance, guestName, guestId, podStat, nicsDesc, int(vcpuCount))
 				if err != nil {
 					return true
 				}
@@ -544,18 +546,19 @@ type SGuestMonitor struct {
 	DomainId       string
 	ProjectDomain  string
 	podStat        *stats.PodStats
+	instance       guestman.GuestRuntimeInstance
 }
 
-func NewGuestMonitor(name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
+func NewGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err
 	}
-	return newGuestMonitor(name, id, proc, nics, cpuCount)
+	return newGuestMonitor(instance, name, id, proc, nics, cpuCount)
 }
 
-func NewGuestPodMonitor(name, id string, stat *stats.PodStats, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
-	m, err := newGuestMonitor(name, id, nil, nics, cpuCount)
+func NewGuestPodMonitor(instance guestman.GuestRuntimeInstance, name, id string, stat *stats.PodStats, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
+	m, err := newGuestMonitor(instance, name, id, nil, nics, cpuCount)
 	if err != nil {
 		return nil, errors.Wrap(err, "new pod GuestMonitor")
 	}
@@ -563,7 +566,7 @@ func NewGuestPodMonitor(name, id string, stat *stats.PodStats, nics []*desc.SGue
 	return m, nil
 }
 
-func newGuestMonitor(name, id string, proc *process.Process, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
+func newGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, proc *process.Process, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
 	var ip string
 	if len(nics) >= 1 {
 		ip = nics[0].Ip
@@ -573,13 +576,14 @@ func newGuestMonitor(name, id string, proc *process.Process, nics []*desc.SGuest
 		pid = int(proc.Pid)
 	}
 	return &SGuestMonitor{
-		Name:    name,
-		Id:      id,
-		Pid:     pid,
-		Nics:    nics,
-		CpuCnt:  cpuCount,
-		Ip:      ip,
-		Process: proc,
+		Name:     name,
+		Id:       id,
+		Pid:      pid,
+		Nics:     nics,
+		CpuCnt:   cpuCount,
+		Ip:       ip,
+		Process:  proc,
+		instance: instance,
 	}, nil
 }
 

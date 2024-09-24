@@ -5,6 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/util/pod/stats"
 )
 
@@ -17,11 +20,21 @@ const (
 	MEMORY_WORKING_SET_BYTES = "working_set_bytes"
 	// memory usage rate
 	MEMORY_USAGE_RATE = "usage_rate"
+
+	VOLUME_TOTAL               = "total"
+	VOLUME_FREE                = "free"
+	VOLUME_USED                = "used"
+	VOLUME_USED_PERCENT        = "used_percent"
+	VOLUME_INODES_TOTAL        = "inodes_total"
+	VOLUME_INODES_FREE         = "inodes_free"
+	VOLUME_INODES_USED         = "inodes_used"
+	VOLUME_INODES_USED_PERCENT = "inodes_used_percent"
 )
 
 type PodMetrics struct {
 	PodCpu     *PodCpuMetric       `json:"pod_cpu"`
 	PodMemory  *PodMemoryMetric    `json:"pod_memory"`
+	PodVolumes []*PodVolumeMetric  `json:"pod_volume"`
 	Containers []*ContainerMetrics `json:"containers"`
 }
 
@@ -72,6 +85,59 @@ func (m PodMemoryMetric) ToMap() map[string]interface{} {
 		MEMORY_WORKING_SET_BYTES: m.MemoryWorkingSetBytes,
 		MEMORY_USAGE_RATE:        m.MemoryUsageRate,
 	}
+}
+
+type PodVolumeMetric struct {
+	ContainerMetricMeta
+	// 容器内挂载路径
+	MountPath string `json:"mount_path"`
+	// 宿主机路径
+	HostPath          string            `json:"host_path"`
+	Type              string            `json:"type"`
+	Fstype            string            `json:"fstype"`
+	Total             uint64            `json:"total"`
+	Free              uint64            `json:"free"`
+	Used              uint64            `json:"used"`
+	UsedPercent       float64           `json:"used_percent"`
+	InodesTotal       uint64            `json:"inodes_total"`
+	InodesUsed        uint64            `json:"inodes_used"`
+	InodesFree        uint64            `json:"inodes_free"`
+	InodesUsedPercent float64           `json:"inodes_used_percent"`
+	Tags              map[string]string `json:"tags"`
+}
+
+func (m PodVolumeMetric) GetName() string {
+	return "pod_volume"
+}
+
+func (m PodVolumeMetric) ToMap() map[string]interface{} {
+	r := map[string]interface{}{
+		VOLUME_TOTAL:               m.Total,
+		VOLUME_FREE:                m.Free,
+		VOLUME_USED:                m.Used,
+		VOLUME_USED_PERCENT:        m.UsedPercent,
+		VOLUME_INODES_TOTAL:        m.InodesTotal,
+		VOLUME_INODES_FREE:         m.InodesFree,
+		VOLUME_INODES_USED:         m.InodesUsed,
+		VOLUME_INODES_USED_PERCENT: m.InodesUsedPercent,
+	}
+	return r
+}
+
+func (m PodVolumeMetric) GetTag() map[string]string {
+	baseTags := m.ContainerMetricMeta.GetTag()
+	curTags := map[string]string{
+		"mount_path": m.MountPath,
+		"host_path":  m.HostPath,
+		"type":       m.Type,
+	}
+	for k, v := range curTags {
+		baseTags[k] = v
+	}
+	for k, v := range m.Tags {
+		baseTags[k] = v
+	}
+	return baseTags
 }
 
 type ContainerMetrics struct {
@@ -163,6 +229,44 @@ func (m *SGuestMonitor) HasPodMetrics() bool {
 	return m.podStat != nil
 }
 
+func (m *SGuestMonitor) getVolumeMetrics() []*PodVolumeMetric {
+	pi := m.instance.(guestman.PodInstance)
+	if !pi.IsRunning() {
+		return nil
+	}
+	vus, err := pi.GetVolumeMountUsages()
+	if err != nil {
+		log.Warningf("get volume mount usages: %v", err)
+	}
+	result := make([]*PodVolumeMetric, 0)
+	for i := range vus {
+		vu := vus[i]
+		ctr := pi.GetContainerById(vu.Id)
+		if ctr == nil {
+			log.Warningf("not found container by %s", vu.Id)
+			continue
+		}
+		meta := NewContainerMetricMeta(pi.GetId(), vu.Id, ctr.Name, time.Now())
+		result = append(result, &PodVolumeMetric{
+			ContainerMetricMeta: meta,
+			MountPath:           vu.MountPath,
+			HostPath:            vu.HostPath,
+			Type:                vu.VolumeType,
+			Fstype:              vu.Usage.Fstype,
+			Total:               vu.Usage.Total,
+			Free:                vu.Usage.Free,
+			Used:                vu.Usage.Used,
+			UsedPercent:         vu.Usage.UsedPercent,
+			InodesTotal:         vu.Usage.InodesTotal,
+			InodesUsed:          vu.Usage.InodesUsed,
+			InodesFree:          vu.Usage.InodesFree,
+			InodesUsedPercent:   vu.Usage.InodesUsedPercent,
+			Tags:                vu.Tags,
+		})
+	}
+	return result
+}
+
 func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	stat := m.podStat
 	podCpu := &PodCpuMetric{
@@ -208,6 +312,7 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	return &PodMetrics{
 		PodCpu:     podCpu,
 		PodMemory:  podMemory,
+		PodVolumes: m.getVolumeMetrics(),
 		Containers: containers,
 	}
 }
@@ -221,6 +326,9 @@ type iPodMetric interface {
 func (d *GuestMetrics) toPodTelegrafData(tagStr string) []string {
 	m := d.PodMetrics
 	ims := []iPodMetric{m.PodCpu, m.PodMemory}
+	for i := range m.PodVolumes {
+		ims = append(ims, m.PodVolumes[i])
+	}
 	for _, c := range m.Containers {
 		ims = append(ims, c.ContainerCpu)
 		ims = append(ims, c.ContainerMemory)

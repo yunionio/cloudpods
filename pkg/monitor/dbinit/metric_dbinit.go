@@ -509,6 +509,17 @@ func init() {
 		newMetricFieldCreateInput("usage_rate", "Pod memory usage rate", monitor.METRIC_UNIT_PERCENT, 1),
 		newMetricFieldCreateInput("working_set_bytes", "Pod memory working set bytes", monitor.METRIC_UNIT_BYTE, 2),
 	})
+	RegistryMetricCreateInput("pod_volume", "Pod volume",
+		monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("total", "Pod volume total size", monitor.METRIC_UNIT_BYTE, 1),
+			newMetricFieldCreateInput("free", "Pod volume free size", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("used", "Pod volume used size", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("used_percent", "Pod volume used percent", monitor.METRIC_UNIT_PERCENT, 4),
+			newMetricFieldCreateInput("inodes_total", "Pod volume inodes total count", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("inodes_free", "Pod volume inodes free count", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("inodes_used", "Pod volume inodes used count", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("inodes_used_percent", "Pod volume inodes used percent", monitor.METRIC_UNIT_PERCENT, 8),
+		})
 
 	RegistryMetricCreateInput("container_cpu", "Container cpu", monitor.METRIC_RES_TYPE_CONTAINER,
 		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
