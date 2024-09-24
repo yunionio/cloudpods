@@ -57,8 +57,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/pod"
-	"yunion.io/x/onecloud/pkg/util/pod/image"
 	"yunion.io/x/onecloud/pkg/util/pod/logs"
+	"yunion.io/x/onecloud/pkg/util/pod/nerdctl"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -117,6 +117,7 @@ type PodInstance interface {
 	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
 	ContainerExecSync(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error)
 	SetContainerResourceLimit(ctrId string, limit *apis.ContainerResources) (jsonutils.JSONObject, error)
+	CommitContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCommitInput) (jsonutils.JSONObject, error)
 
 	ReadLogs(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.PodLogOptions, stdout, stderr io.Writer) error
 }
@@ -1624,27 +1625,8 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 }
 
 func (s *sPodGuestInstance) pullImageByCtrCmd(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error) {
-	opt := &image.PullOptions{
-		SkipVerify: true,
-	}
-	if input.Auth != nil {
-		opt.Username = input.Auth.Username
-		opt.Password = input.Auth.Password
-	}
-	addr := options.HostOptions.ContainerRuntimeEndpoint
-	addr = strings.TrimPrefix(addr, "unix://")
-	imgTool := image.NewImageTool(addr, "k8s.io")
-	output, err := imgTool.Pull(input.Image, opt)
-	errs := make([]error, 0)
-	if err != nil {
-		// try http protocol
-		errs = append(errs, errors.Wrapf(err, "pullImageByCtrCmd: %s", output))
-		opt.PlainHttp = true
-		log.Infof("try pull image %s by http", input.Image)
-		if output2, err := imgTool.Pull(input.Image, opt); err != nil {
-			errs = append(errs, errors.Wrapf(err, "pullImageByCtrCmd by http: %s", output2))
-			return nil, errors.NewAggregate(errs)
-		}
+	if err := PullContainerdImage(input); err != nil {
+		return nil, errors.Wrap(err, "pull containerd image")
 	}
 	return jsonutils.Marshal(&runtimeapi.PullImageResponse{
 		ImageRef: input.Image,
@@ -2002,4 +1984,32 @@ func (s *sPodGuestInstance) ReadLogs(ctx context.Context, userCred mcclient.Toke
 	logPath := resp.GetStatus().GetLogPath()
 	opts := logs.NewLogOptions(input, time.Now())
 	return logs.ReadLogs(ctx, logPath, ctrCriId, opts, s.getCRI().GetRuntimeClient(), stdout, stderr)
+}
+
+func (s *sPodGuestInstance) CommitContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCommitInput) (jsonutils.JSONObject, error) {
+	criId, err := s.getContainerCRIId(ctrId)
+	if err != nil {
+		return nil, errors.Wrap(err, "get container cri id")
+	}
+
+	// 1. commit
+	tool := NewContainerdNerdctl()
+	imgRepo, err := tool.Commit(criId, &nerdctl.CommitOptions{Repository: input.Repository})
+	if err != nil {
+		return nil, errors.Wrapf(err, "commit container %s image", ctrId)
+	}
+	log.Infof("container %s was commited to %s", ctrId, imgRepo)
+
+	// 2. push to repository
+	if err := PushContainerdImage(&hostapi.ContainerPushImageInput{
+		Image: imgRepo,
+		Auth:  input.Auth,
+	}); err != nil {
+		return nil, errors.Wrapf(err, "push container %s image", ctrId)
+	}
+	log.Infof("container %s was pushed to %s", ctrId, imgRepo)
+
+	return jsonutils.Marshal(map[string]interface{}{
+		"image_repository": imgRepo,
+	}), nil
 }
