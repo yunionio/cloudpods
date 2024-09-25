@@ -53,14 +53,15 @@ func (h cephFS) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMou
 func (h cephFS) Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	dir, err := h.GetRuntimeMountHostPath(pod, ctrId, vm)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetRuntimeMountHostPath")
 	}
-	err = container_storage.Unmount(dir)
-	if err != nil {
+	if err := container_storage.Unmount(dir); err != nil {
 		return errors.Wrapf(err, "unmount %s", dir)
 	}
-	_, err = procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", dir).Output()
-	return err
+	if out, err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", dir).Output(); err != nil {
+		return errors.Wrapf(err, "rm -f %s: %s", dir, string(out))
+	}
+	return nil
 }
 
 func newCephFS() IVolumeMount {
