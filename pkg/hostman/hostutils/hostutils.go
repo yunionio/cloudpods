@@ -46,6 +46,20 @@ import (
 	"yunion.io/x/onecloud/pkg/util/pod"
 )
 
+type SContainerCpufreqSimulateConfig struct {
+	CpuinfoMaxFreq            int    `json:"cpuinfo_max_freq"`
+	CpuinfoMinFreq            int    `json:"cpuinfo_min_freq"`
+	CpuinfoCurFreq            int    `json:"cpuinfo_cur_freq"`
+	CpuinfoTransitionLatency  int    `json:"cpuinfo_transition_latency"`
+	ScalingDriver             string `json:"scaling_driver"`
+	ScalingGovernors          string `json:"scaling_governor"`
+	ScalingMaxFreq            int    `json:"scaling_max_freq"`
+	ScalingMinFreq            int    `json:"scaling_min_freq"`
+	ScalingCurFreq            int    `json:"scaling_cur_freq"`
+	ScalingSetspeed           string `json:"scaling_setspeed"`
+	ScalingAvailableGovernors string `json:"scaling_available_governors"`
+}
+
 type IHost interface {
 	GetZoneId() string
 	GetHostId() string
@@ -80,6 +94,7 @@ type IHost interface {
 	GetContainerRuntimeEndpoint() string
 	GetCRI() pod.CRI
 	GetContainerCPUMap() *pod.HostContainerCPUMap
+	GetContainerCpufreqSimulateConfig() *jsonutils.JSONDict
 
 	OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3)
 }
