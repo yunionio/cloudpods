@@ -236,6 +236,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		delSftpClient(s.Session.Id)
 		s.sftp.Close()
 		s.conn.Close()
+		s.Session.Close()
 	}()
 
 	stop := make(chan bool)
@@ -265,11 +266,12 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		err = s.session.Wait()
 		if err != nil {
+			log.Warningf("session %s wait error: %v", s.Session.Id, err)
 			s.StdinPipe.Write([]byte(err.Error()))
 		}
 	}()
 
 	<-done
 	stop <- true
-	log.Infof("ssh %s@%s:%d complete", s.Username, s.Host, s.Port)
+	log.Infof("ssh %s@%s:%d complete, session_id: %s", s.Username, s.Host, s.Port, s.Session.Id)
 }
