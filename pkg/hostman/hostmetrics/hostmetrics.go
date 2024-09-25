@@ -411,18 +411,24 @@ func (d *GuestMetrics) mapToStatStr(m map[string]interface{}) string {
 	return strings.Join(statArr, ",")
 }
 
-func (d *GuestMetrics) toVmTelegrafData(tagStr string) []string {
-	var res = []string{}
-	res = append(res, fmt.Sprintf("%s,%s %s", "vm_cpu", tagStr, d.mapToStatStr(d.VmCpu.ToMap())))
-	res = append(res, fmt.Sprintf("%s,%s %s", "vm_mem", tagStr, d.mapToStatStr(d.VmMem.ToMap())))
-	res = append(res, fmt.Sprintf("%s,%s %s", "vm_diskio", tagStr, d.mapToStatStr(d.VmDiskio.ToMap())))
+func (d *GuestMetrics) netioToTelegrafData(measurement string, tagStr string) []string {
+	res := []string{}
 	for i := range d.VmNetio {
 		netTagMap := d.VmNetio[i].ToTag()
 		for k, v := range netTagMap {
 			tagStr = fmt.Sprintf("%s,%s=%s", tagStr, k, v)
 		}
-		res = append(res, fmt.Sprintf("%s,%s %s", "vm_netio", tagStr, d.mapToStatStr(d.VmNetio[i].ToMap())))
+		res = append(res, fmt.Sprintf("%s,%s %s", measurement, tagStr, d.mapToStatStr(d.VmNetio[i].ToMap())))
 	}
+	return res
+}
+
+func (d *GuestMetrics) toVmTelegrafData(tagStr string) []string {
+	var res = []string{}
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_cpu", tagStr, d.mapToStatStr(d.VmCpu.ToMap())))
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_mem", tagStr, d.mapToStatStr(d.VmMem.ToMap())))
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_diskio", tagStr, d.mapToStatStr(d.VmDiskio.ToMap())))
+	res = append(res, d.netioToTelegrafData("vm_netio", tagStr)...)
 	return res
 }
 

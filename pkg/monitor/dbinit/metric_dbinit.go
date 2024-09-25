@@ -65,6 +65,16 @@ func newMetricFieldCreateInput(name, displayName, unit string, score int) monito
 	}
 }
 
+func registryNetio(measurement string, displayName string, resType string, score int) {
+	RegistryMetricCreateInput(measurement, displayName, resType,
+		monitor.METRIC_DATABASE_TELE, score, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
+			newMetricFieldCreateInput("pps_recv", "Received packets per second", monitor.METRIC_UNIT_PPS, 3),
+			newMetricFieldCreateInput("pps_sent", "Send packets per second", monitor.METRIC_UNIT_PPS, 4),
+		})
+}
+
 // order by score asc
 // score default:99
 func init() {
@@ -180,13 +190,7 @@ func init() {
 		})
 
 	// vm_netio
-	RegistryMetricCreateInput("vm_netio", "Guest network traffic", monitor.METRIC_RES_TYPE_GUEST,
-		monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
-			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
-			newMetricFieldCreateInput("pps_recv", "Received packets per second", monitor.METRIC_UNIT_PPS, 3),
-			newMetricFieldCreateInput("pps_sent", "Send packets per second", monitor.METRIC_UNIT_PPS, 4),
-		})
+	registryNetio("vm_netio", "Guest network traffic", monitor.METRIC_RES_TYPE_GUEST, 4)
 
 	// oss_latency
 	RegistryMetricCreateInput("oss_latency", "Object storage latency",
@@ -502,15 +506,15 @@ func init() {
 
 	//  metrics of pod and container
 	RegistryMetricCreateInput("pod_cpu", "Pod cpu", monitor.METRIC_RES_TYPE_CONTAINER,
-		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_rate", "Pod cpu usage rate", monitor.METRIC_UNIT_PERCENT, 1),
 		})
-	RegistryMetricCreateInput("pod_mem", "Pod memory", monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+	RegistryMetricCreateInput("pod_mem", "Pod memory", monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
 		newMetricFieldCreateInput("usage_rate", "Pod memory usage rate", monitor.METRIC_UNIT_PERCENT, 1),
 		newMetricFieldCreateInput("working_set_bytes", "Pod memory working set bytes", monitor.METRIC_UNIT_BYTE, 2),
 	})
 	RegistryMetricCreateInput("pod_volume", "Pod volume",
-		monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 6, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("total", "Pod volume total size", monitor.METRIC_UNIT_BYTE, 1),
 			newMetricFieldCreateInput("free", "Pod volume free size", monitor.METRIC_UNIT_BYTE, 2),
 			newMetricFieldCreateInput("used", "Pod volume used size", monitor.METRIC_UNIT_BYTE, 3),
@@ -520,12 +524,13 @@ func init() {
 			newMetricFieldCreateInput("inodes_used", "Pod volume inodes used count", monitor.METRIC_UNIT_COUNT, 7),
 			newMetricFieldCreateInput("inodes_used_percent", "Pod volume inodes used percent", monitor.METRIC_UNIT_PERCENT, 8),
 		})
+	registryNetio("pod_netio", "Pod network traffic", monitor.METRIC_RES_TYPE_CONTAINER, 7)
 
 	RegistryMetricCreateInput("container_cpu", "Container cpu", monitor.METRIC_RES_TYPE_CONTAINER,
-		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 8, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_rate", "Container cpu usage rate", monitor.METRIC_UNIT_PERCENT, 1),
 		})
-	RegistryMetricCreateInput("container_mem", "Container memory", monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+	RegistryMetricCreateInput("container_mem", "Container memory", monitor.METRIC_RES_TYPE_CONTAINER, monitor.METRIC_DATABASE_TELE, 9, []monitor.MetricFieldCreateInput{
 		newMetricFieldCreateInput("usage_rate", "Container memory usage rate", monitor.METRIC_UNIT_PERCENT, 1),
 		newMetricFieldCreateInput("working_set_bytes", "Container memory working set bytes", monitor.METRIC_UNIT_BYTE, 2),
 	})

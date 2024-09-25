@@ -213,6 +213,13 @@ func GetPodStatsById(stats []stats.PodStats, podId string) *stats.PodStats {
 func (s *SGuestMonitorCollector) collectPodMetrics(gm *SGuestMonitor, prevUsage *GuestMetrics) *GuestMetrics {
 	gmData := new(GuestMetrics)
 	gmData.PodMetrics = gm.PodMetrics(prevUsage)
+
+	// netio
+	gmData.VmNetio = gm.Netio()
+	netio1 := gmData.VmNetio
+	netio2 := prevUsage.VmNetio
+	s.addNetio(netio1, netio2)
+
 	return gmData
 }
 
@@ -336,14 +343,16 @@ func (d *GuestMetrics) toPodTelegrafData(tagStr string) []string {
 	res := []string{}
 	for _, im := range ims {
 		tagMap := im.GetTag()
+		newTagStr := tagStr
 		if len(tagMap) != 0 {
 			var newTagArr []string
 			for k, v := range tagMap {
 				newTagArr = append(newTagArr, fmt.Sprintf("%s=%s", k, v))
 			}
-			tagStr = strings.Join([]string{tagStr, strings.Join(newTagArr, ",")}, ",")
+			newTagStr = strings.Join([]string{tagStr, strings.Join(newTagArr, ",")}, ",")
 		}
-		res = append(res, fmt.Sprintf("%s,%s %s", im.GetName(), tagStr, d.mapToStatStr(im.ToMap())))
+		res = append(res, fmt.Sprintf("%s,%s %s", im.GetName(), newTagStr, d.mapToStatStr(im.ToMap())))
 	}
+	res = append(res, d.netioToTelegrafData("pod_netio", tagStr)...)
 	return res
 }
