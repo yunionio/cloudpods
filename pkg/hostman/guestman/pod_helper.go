@@ -17,10 +17,14 @@ package guestman
 import (
 	"strings"
 
+	"github.com/shirou/gopsutil/v3/disk"
+
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/pod/image"
 	"yunion.io/x/onecloud/pkg/util/pod/nerdctl"
@@ -93,4 +97,53 @@ func PushContainerdImage(input *hostapi.ContainerPushImageInput) error {
 		}
 	}
 	return nil
+}
+
+type ContainerVolumeKey struct {
+	Id       string
+	HostPath string
+}
+
+func (s *sPodGuestInstance) GetVolumeMountUsages() (map[ContainerVolumeKey]*volume_mount.ContainerVolumeMountUsage, error) {
+	errs := []error{}
+	result := make(map[ContainerVolumeKey]*volume_mount.ContainerVolumeMountUsage)
+	for ctrId, vols := range s.getContainerVolumeMounts() {
+		for i := range vols {
+			vol := vols[i]
+			drv, ok := volume_mount.GetDriver(vol.Type).(volume_mount.IUsageVolumeMount)
+			if !ok {
+				continue
+			}
+			vu, err := s.getVolumeMountUsage(drv, ctrId, vol)
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "get container %s %s volume usage: %s", ctrId, drv.GetType(), jsonutils.Marshal(vol)))
+			}
+			result[ContainerVolumeKey{
+				Id:       ctrId,
+				HostPath: vu.HostPath,
+			}] = vu
+		}
+	}
+	return result, errors.NewAggregate(errs)
+}
+
+func (s *sPodGuestInstance) getVolumeMountUsage(drv volume_mount.IUsageVolumeMount, ctrId string, vol *hostapi.ContainerVolumeMount) (*volume_mount.ContainerVolumeMountUsage, error) {
+	hp, err := drv.GetRuntimeMountHostPath(s, ctrId, vol)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRuntimeMountHostPath")
+	}
+	us, err := disk.Usage(hp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "disk.Usage of %s", hp)
+	}
+	usage := &volume_mount.ContainerVolumeMountUsage{
+		Id:         ctrId,
+		MountPath:  vol.MountPath,
+		HostPath:   hp,
+		VolumeType: string(drv.GetType()),
+		Usage:      us,
+		Tags:       make(map[string]string),
+	}
+	drv.InjectUsageTags(usage, vol)
+	return usage, nil
 }

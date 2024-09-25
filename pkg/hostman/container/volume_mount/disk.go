@@ -264,6 +264,10 @@ func (d disk) doTemplateOverlayAction(
 	return nil
 }
 
+func (d disk) InjectUsageTags(usage *ContainerVolumeMountUsage, vol *hostapi.ContainerVolumeMount) {
+	usage.Tags["disk_id"] = vol.Disk.Id
+}
+
 type diskOverlayDir struct{}
 
 func newDiskOverlayDir() iDiskOverlay {
