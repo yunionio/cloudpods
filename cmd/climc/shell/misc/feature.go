@@ -104,6 +104,7 @@ func init() {
 		"volcengine",
 		"oraclecloud",
 		"sangfor",
+		"cephfs",
 	}
 
 	features = append(features, storageFeatures...)
