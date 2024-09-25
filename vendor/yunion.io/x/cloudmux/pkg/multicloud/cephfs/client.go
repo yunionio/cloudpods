@@ -120,7 +120,11 @@ func (cli *SCephFSClient) getDefaultClient() *http.Client {
 }
 
 func (cli *SCephFSClient) baseUrl() string {
-	return fmt.Sprintf("https://%s:%d/api", cli.host, cli.port)
+	protocol := "http"
+	if strings.Contains(fmt.Sprintf("%d", cli.port), "443") {
+		protocol = "https"
+	}
+	return fmt.Sprintf("%s://%s:%d/api", protocol, cli.host, cli.port)
 }
 
 func (cli *SCephFSClient) auth() error {
