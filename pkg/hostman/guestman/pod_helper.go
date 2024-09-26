@@ -117,11 +117,12 @@ func (s *sPodGuestInstance) GetVolumeMountUsages() (map[ContainerVolumeKey]*volu
 			vu, err := s.getVolumeMountUsage(drv, ctrId, vol)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "get container %s %s volume usage: %s", ctrId, drv.GetType(), jsonutils.Marshal(vol)))
+			} else {
+				result[ContainerVolumeKey{
+					Id:       ctrId,
+					HostPath: vu.HostPath,
+				}] = vu
 			}
-			result[ContainerVolumeKey{
-				Id:       ctrId,
-				HostPath: vu.HostPath,
-			}] = vu
 		}
 	}
 	return result, errors.NewAggregate(errs)
