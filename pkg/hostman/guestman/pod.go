@@ -642,6 +642,14 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 	return resp, err
 }
 
+func (s *sPodGuestInstance) namespacesFroPod(input *computeapi.PodCreateInput) *runtimeapi.NamespaceOption {
+	return &runtimeapi.NamespaceOption{
+		Ipc:     runtimeapi.NamespaceMode_POD,
+		Network: runtimeapi.NamespaceMode_POD,
+		Pid:     runtimeapi.NamespaceMode_CONTAINER,
+	}
+}
+
 func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	podInput, err := s.getPodCreateParams()
 	if err != nil {
@@ -669,7 +677,7 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		Linux: &runtimeapi.LinuxPodSandboxConfig{
 			CgroupParent: s.getCgroupParent(),
 			SecurityContext: &runtimeapi.LinuxSandboxSecurityContext{
-				NamespaceOptions:   nil,
+				NamespaceOptions:   s.namespacesFroPod(podInput),
 				SelinuxOptions:     nil,
 				RunAsUser:          nil,
 				RunAsGroup:         nil,
@@ -1332,7 +1340,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			SecurityContext: &runtimeapi.LinuxContainerSecurityContext{
 				Capabilities:       &runtimeapi.Capability{},
 				Privileged:         spec.Privileged,
-				NamespaceOptions:   nil,
+				NamespaceOptions:   podCfg.Linux.SecurityContext.GetNamespaceOptions(),
 				SelinuxOptions:     nil,
 				RunAsUser:          nil,
 				RunAsGroup:         nil,
@@ -1357,6 +1365,12 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		Devices: []*runtimeapi.Device{},
 		Mounts:  mounts,
 	}
+
+	// set container namespace options to target
+	/*if ctrCfg.Linux.SecurityContext.NamespaceOptions.Pid == runtimeapi.NamespaceMode_CONTAINER {
+		ctrCfg.Linux.SecurityContext.NamespaceOptions.Pid = runtimeapi.NamespaceMode_TARGET
+		ctrCfg.Linux.SecurityContext.NamespaceOptions.TargetId = s.getCRIId()
+	}*/
 
 	// inherit security context
 	if spec.SecurityContext != nil {
