@@ -51,19 +51,22 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 
 func Unmount(mountPoint string) error {
 	err := unmount(mountPoint)
+	errs := []error{}
 	if err != nil {
+		errs = append(errs, errors.Wrap(err, "umount firstly"))
 		if strings.Contains(err.Error(), "target is busy") {
 			// use lsof to find process using this mountpoint and kill it
 			if err := cleanProcessUseMountPoint(mountPoint); err != nil {
-				return errors.Wrapf(err, "clean process use mountpoint: %s", mountPoint)
+				errs = append(errs, errors.Wrapf(err, "clean process use mountpoint: %s", mountPoint))
 			}
 			// umount again
 			if err := unmount(mountPoint); err != nil {
-				return errors.Wrapf(err, "unmount %s after clean process using it", mountPoint)
+				errs = append(errs, errors.Wrapf(err, "unmount %s after clean process using it", mountPoint))
+				return errors.NewAggregate(errs)
 			}
 			return nil
 		} else {
-			return err
+			return errors.NewAggregate(errs)
 		}
 	}
 	return nil
@@ -119,7 +122,7 @@ func killProcess(pids []int) error {
 func useLsofFindDevProcess(dev string) ([]int, error) {
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("lsof", "+f", "--", dev).Output()
 	if err != nil {
-		return nil, errors.Wrapf(err, "'lsof +f -- %s' failed", dev)
+		return nil, errors.Wrapf(err, "'lsof +f -- %s' failed: %s", dev, out)
 	}
 	pids := sets.NewInt()
 	for _, line := range strings.Split(string(out), "\n") {
