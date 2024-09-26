@@ -58,8 +58,8 @@ func (h cephFS) Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeM
 	if err := container_storage.Unmount(dir); err != nil {
 		return errors.Wrapf(err, "unmount %s", dir)
 	}
-	if out, err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", dir).Output(); err != nil {
-		return errors.Wrapf(err, "rm -f %s: %s", dir, string(out))
+	if out, err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-fd", dir).Output(); err != nil {
+		return errors.Wrapf(err, "rm -fd %s: %s", dir, string(out))
 	}
 	return nil
 }
