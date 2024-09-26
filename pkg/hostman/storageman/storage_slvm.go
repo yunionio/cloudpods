@@ -121,7 +121,7 @@ func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (
 			return nil, errors.Wrap(err, "lvactive exclusive")
 		}
 
-		err = ConvertLVMDisk(s.GetPath(), input.DiskId)
+		err = ConvertLVMDisk(s.GetPath(), input.DiskId, input.EncryptInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (
 			return nil, errors.Wrap(err, "lvactive exclusive")
 		}
 
-		if err := ConvertLVMDisk(s.GetPath(), convertSnapshotName); err != nil {
+		if err := ConvertLVMDisk(s.GetPath(), convertSnapshotName, input.EncryptInfo); err != nil {
 			return nil, err
 		}
 	}

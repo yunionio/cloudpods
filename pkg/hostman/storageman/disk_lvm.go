@@ -387,23 +387,12 @@ func (d *SLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	}
 
 	backupPath := path.Join(destDir, fmt.Sprintf("%s.%s", d.Id, appctx.AppContextTaskId(ctx)))
-	srcInfo := qemuimg.SImageInfo{
-		Path:     d.GetPath(),
-		Format:   qemuImg.Format,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: "",
-	}
-	destInfo := qemuimg.SImageInfo{
-		Path:     backupPath,
-		Format:   qemuimgfmt.QCOW2,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: "",
-	}
-	if err = qemuimg.Convert(srcInfo, destInfo, true, nil); err != nil {
+	if err := procutils.NewCommand("cp", "--sparse=always", "-f", d.GetPath(), backupPath).Run(); err != nil {
 		log.Errorln(err)
 		procutils.NewCommand("rm", "-f", backupPath).Run()
 		return nil, err
 	}
+
 	res := jsonutils.NewDict()
 	res.Set("backup", jsonutils.NewString(backupPath))
 	return res, nil
@@ -595,13 +584,13 @@ func (d *SLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (j
 	return nil, nil
 }
 
-func (d *SLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error {
+func (d *SLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
 	if blockStream {
-		if err := ConvertLVMDisk(d.Storage.GetPath(), d.Id); err != nil {
+		if err := ConvertLVMDisk(d.Storage.GetPath(), d.Id, encryptInfo); err != nil {
 			return err
 		}
 	} else if len(convertSnapshot) > 0 {
-		if err := d.ConvertSnapshot(convertSnapshot); err != nil {
+		if err := d.ConvertSnapshot(convertSnapshot, encryptInfo); err != nil {
 			return err
 		}
 	}
@@ -626,9 +615,9 @@ func (d *SLVMDisk) DeleteAllSnapshot(skipRecycle bool) error {
 	return nil
 }
 
-func (d *SLVMDisk) ConvertSnapshot(convertSnapshot string) error {
+func (d *SLVMDisk) ConvertSnapshot(convertSnapshot string, encryptInfo apis.SEncryptInfo) error {
 	convertSnapshotName := d.GetSnapshotName(convertSnapshot)
-	return ConvertLVMDisk(d.Storage.GetPath(), convertSnapshotName)
+	return ConvertLVMDisk(d.Storage.GetPath(), convertSnapshotName, encryptInfo)
 }
 
 func (d *SLVMDisk) DoDeleteSnapshot(snapshotId string) error {
