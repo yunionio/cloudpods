@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -141,6 +142,7 @@ type SDeleteDiskSnapshot struct {
 	Disk            storageman.IDisk
 	ConvertSnapshot string
 	BlockStream     bool
+	EncryptInfo     apis.SEncryptInfo
 }
 
 type SLibvirtServer struct {

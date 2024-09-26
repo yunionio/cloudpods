@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -56,6 +57,7 @@ type SStorageDeleteSnapshot struct {
 	SnapshotId      string
 	ConvertSnapshot string
 	BlockStream     bool
+	EncryptInfo     apis.SEncryptInfo
 }
 
 type SDiskBakcup struct {

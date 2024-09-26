@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -692,6 +693,14 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 		Sid:            sid,
 		DeleteSnapshot: deleteSnapshot,
 		Disk:           disk,
+	}
+
+	if body.Contains("encrypt_info") {
+		encryptInfo := apis.SEncryptInfo{}
+		if err = body.Unmarshal(&encryptInfo, "encrypt_info"); err != nil {
+			return nil, httperrors.NewInputParameterError("unmarshal encrypt_info failed %s", err)
+		}
+		params.EncryptInfo = encryptInfo
 	}
 
 	// blockStream indicate snapshot<-disk

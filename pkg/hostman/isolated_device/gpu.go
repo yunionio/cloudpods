@@ -78,6 +78,18 @@ func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
 			continue
 		}
+		if o.HostOptions.BootVgaPciAddr != "" {
+			if dev.Addr == o.HostOptions.BootVgaPciAddr && !o.HostOptions.UseBootVga {
+				continue
+			}
+		} else {
+			if ok, err := dev.IsBootVGA(); err != nil {
+				return nil, err, nil
+			} else if ok && !o.HostOptions.UseBootVga {
+				continue
+			}
+		}
+
 		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
 			continue
 		}
@@ -99,7 +111,7 @@ func getPassthroughGPUS(filteredAddrs []string) ([]*PCIDevice, error, []error) {
 			continue
 		}
 
-		if err := dev.forceBindVFIOPCIDriver(); err != nil {
+		if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga, o.HostOptions.BootVgaPciAddr); err != nil {
 			warns = append(warns, errors.Wrapf(err, "force bind vfio-pci driver %s", dev.Addr))
 			continue
 		}
@@ -157,7 +169,7 @@ func NewPCIDevice(line string) (*PCIDevice, error) {
 	if err := dev.checkSameIOMMUGroupDevice(); err != nil {
 		return nil, err
 	}
-	if err := dev.forceBindVFIOPCIDriver(); err != nil {
+	if err := dev.forceBindVFIOPCIDriver(o.HostOptions.UseBootVga, o.HostOptions.BootVgaPciAddr); err != nil {
 		return nil, fmt.Errorf("Force bind vfio-pci driver: %v", err)
 	}
 	return dev, nil
@@ -327,10 +339,32 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 	return false, nil
 }
 
-func (d *PCIDevice) forceBindVFIOPCIDriver() error {
-	if !utils.IsInArray(d.ClassCode, GpuClassCodes) {
+func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool, bootVgaPciAddr string) error {
+	if !utils.IsInStringArray(d.ClassCode, []string{CLASS_CODE_VGA, CLASS_CODE_3D}) {
 		return nil
 	}
+
+	if !useBootVGA && bootVgaPciAddr != "" {
+		if d.Addr == bootVgaPciAddr {
+			log.Infof("device %#v is specific boot vga addr, skip it", d)
+			return nil
+		}
+	} else {
+		isBootVGA, err := d.IsBootVGA()
+		if err != nil {
+			return err
+		}
+		if !useBootVGA && isBootVGA {
+			log.Infof("%#v is boot vga card, skip it", d)
+			return nil
+		}
+	}
+
+	if d.IsVFIOPCIDriverUsed() {
+		log.Infof("%s already use vfio-pci driver", d)
+		return nil
+	}
+
 	devs := []*PCIDevice{}
 	devs = append(devs, d.RestIOMMUGroupDevs...)
 	devs = append(devs, d)
