@@ -369,10 +369,13 @@ func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []s
 	if err != nil {
 		return errors.Wrapf(err, "NewQemuImage dest %s", destInfo.Path)
 	}
-	err = target.CreateQcow2(source.GetSizeMB(), compact, "", destInfo.Password, destInfo.EncryptFormat, destInfo.EncryptAlg)
-	if err != nil {
-		return errors.Wrapf(err, "Create target image %s", destInfo.Path)
+	if target.Format != QCOW2 {
+		err = target.CreateQcow2(source.GetSizeMB(), compact, "", destInfo.Password, destInfo.EncryptFormat, destInfo.EncryptAlg)
+		if err != nil {
+			return errors.Wrapf(err, "Create target image %s", destInfo.Path)
+		}
 	}
+
 	cmdline := []string{"-c", strconv.Itoa(int(srcInfo.IoLevel)), qemutils.GetQemuImg(), "convert"}
 	if compact {
 		cmdline = append(cmdline, "-c")

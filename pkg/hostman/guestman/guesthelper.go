@@ -17,6 +17,7 @@ package guestman
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -132,6 +133,7 @@ type SDeleteDiskSnapshot struct {
 	Disk            storageman.IDisk
 	ConvertSnapshot string
 	BlockStream     bool
+	EncryptInfo     apis.SEncryptInfo
 }
 
 type SLibvirtServer struct {

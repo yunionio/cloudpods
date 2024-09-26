@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -35,11 +36,14 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SLVMStorage struct {
@@ -204,12 +208,12 @@ func (s *SLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (j
 		return nil, hostutils.ParamsError
 	}
 	if input.BlockStream {
-		if err := ConvertLVMDisk(s.GetPath(), input.DiskId); err != nil {
+		if err := ConvertLVMDisk(s.GetPath(), input.DiskId, input.EncryptInfo); err != nil {
 			return nil, err
 		}
 	} else if len(input.ConvertSnapshot) > 0 {
 		convertSnapshotName := "snap_" + input.ConvertSnapshot
-		if err := ConvertLVMDisk(s.GetPath(), convertSnapshotName); err != nil {
+		if err := ConvertLVMDisk(s.GetPath(), convertSnapshotName, input.EncryptInfo); err != nil {
 			return nil, err
 		}
 	}
@@ -267,9 +271,28 @@ func (s *SLVMStorage) SaveToGlance(ctx context.Context, input interface{}) (json
 		imageId, _   = data.GetString("image_id")
 		imagePath, _ = data.GetString("image_path")
 		compress     = jsonutils.QueryBoolean(data, "compress", true)
+		encKeyId, _  = data.GetString("encrypt_key_id")
 		err          error
 	)
-	if err = s.saveToGlance(ctx, imageId, imagePath, compress); err != nil {
+
+	var (
+		encKey    string
+		encFormat qemuimg.TEncryptFormat
+		encAlg    seclib2.TSymEncAlg
+	)
+
+	if len(encKeyId) > 0 {
+		session := auth.GetSession(ctx, info.UserCred, consts.GetRegion())
+		key, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetEncryptKey")
+		}
+		encKey = key.Key
+		encFormat = qemuimg.EncryptFormatLuks
+		encAlg = key.Alg
+	}
+
+	if err = s.saveToGlance(ctx, imageId, imagePath, compress, encKey, encFormat, encAlg); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
 		s.onSaveToGlanceFailed(ctx, imageId, err.Error())
 	}
@@ -292,10 +315,18 @@ func (s *SLVMStorage) SaveToGlance(ctx context.Context, input interface{}) (json
 	return nil, nil
 }
 
-func (s *SLVMStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool) error {
+func (s *SLVMStorage) saveToGlance(
+	ctx context.Context, imageId, imagePath string, compress bool,
+	encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg,
+) error {
 	log.Infof("saveToGlance %s", imagePath)
 	diskInfo := &deployapi.DiskInfo{
 		Path: imagePath,
+	}
+	if len(encryptKey) > 0 {
+		diskInfo.EncryptPassword = encryptKey
+		diskInfo.EncryptFormat = string(encFormat)
+		diskInfo.EncryptAlg = string(encAlg)
 	}
 	ret, err := deployclient.GetDeployClient().SaveToGlance(ctx,
 		&deployapi.SaveToGlanceParams{DiskInfo: diskInfo, Compress: compress})
@@ -538,13 +569,37 @@ func (s *SLVMStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, inpu
 	}
 
 	destImgPath := disk.GetPath()
-	format := info.Format
-	if len(format) == 0 {
-		format = qemuimg.QCOW2.String()
-	}
-	_, err = img.Clone(destImgPath, qemuimg.String2ImageFormat(format), false)
+	newImg, err := qemuimg.NewQemuImage(disk.GetPath())
 	if err != nil {
-		return errors.Wrapf(err, "Clone %s", destImgPath)
+		return errors.Wrapf(err, "NewQemuImage(%s)", destImgPath)
+	}
+	if info.Encryption {
+		err = newImg.CreateQcow2(int(img.SizeBytes/1024/1024), true, "", info.EncryptInfo.Key, qemuimg.EncryptFormatLuks, info.EncryptInfo.Alg)
+	} else {
+		err = newImg.CreateQcow2(0, false, "", "", "", "")
+	}
+	if err != nil {
+		return errors.Wrapf(err, "CreateQcow2(%s)", destImgPath)
+	}
+
+	srcInfo := qemuimg.SImageInfo{
+		Path:          backupPath,
+		Format:        img.Format,
+		IoLevel:       qemuimg.IONiceNone,
+		Password:      info.EncryptInfo.Key,
+		EncryptFormat: qemuimg.EncryptFormatLuks,
+		EncryptAlg:    info.EncryptInfo.Alg,
+	}
+	destInfo := qemuimg.SImageInfo{
+		Path:          destImgPath,
+		Format:        qemuimg.QCOW2,
+		IoLevel:       qemuimg.IONiceNone,
+		Password:      info.EncryptInfo.Key,
+		EncryptFormat: qemuimg.EncryptFormatLuks,
+		EncryptAlg:    info.EncryptInfo.Alg,
+	}
+	if err = qemuimg.Convert(srcInfo, destInfo, false, nil); err != nil {
+		return errors.Wrap(err, "failed convert tmp disk")
 	}
 	return nil
 }
@@ -647,7 +702,7 @@ func (s *SLVMStorage) CloneDiskFromStorage(
 	}, nil
 }
 
-func ConvertLVMDisk(vgName, lvName string) error {
+func ConvertLVMDisk(vgName, lvName string, encryptInfo apis.SEncryptInfo) error {
 	diskPath := path.Join("/dev", vgName, lvName)
 	qemuImg, err := qemuimg.NewQemuImage(diskPath)
 	if err != nil {
@@ -666,16 +721,22 @@ func ConvertLVMDisk(vgName, lvName string) error {
 		return errors.Wrap(err, "delete snapshot LvCreate")
 	}
 	srcInfo := qemuimg.SImageInfo{
-		Path:     diskPath,
-		Format:   qemuImg.Format,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: "",
+		Path:    diskPath,
+		Format:  qemuImg.Format,
+		IoLevel: qemuimg.IONiceNone,
+
+		Password:      encryptInfo.Key,
+		EncryptAlg:    encryptInfo.Alg,
+		EncryptFormat: qemuimg.EncryptFormatLuks,
 	}
 	destInfo := qemuimg.SImageInfo{
-		Path:     tmpVolumePath,
-		Format:   qemuimg.QCOW2,
-		IoLevel:  qemuimg.IONiceNone,
-		Password: "",
+		Path:    tmpVolumePath,
+		Format:  qemuimg.QCOW2,
+		IoLevel: qemuimg.IONiceNone,
+
+		Password:      encryptInfo.Key,
+		EncryptAlg:    encryptInfo.Alg,
+		EncryptFormat: qemuimg.EncryptFormatLuks,
 	}
 	// convert /dev/vg/disk to /dev/vg/disk-convert.tmp
 	if err = qemuimg.Convert(srcInfo, destInfo, false, nil); err != nil {
