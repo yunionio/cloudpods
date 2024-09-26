@@ -256,11 +256,11 @@ func (d *SRBDDisk) CreateSnapshot(snapshotId string, encryptKey string, encForma
 	return storage.createSnapshot(d.Id, snapshotId)
 }
 
-func (d *SRBDDisk) ConvertSnapshot(convertSnapshotId string) error {
+func (d *SRBDDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error {
 	return nil
 }
 
-func (d *SRBDDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool) error {
+func (d *SRBDDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
 	storage := d.Storage.(*SRbdStorage)
 	return storage.deleteSnapshot(d.Id, snapshotId)
 }
@@ -278,7 +278,7 @@ func (d *SRBDDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	err := d.DeleteSnapshot(snapshotId, "", false)
+	err := d.DeleteSnapshot(snapshotId, "", false, apis.SEncryptInfo{})
 	if err != nil {
 		return nil, err
 	} else {

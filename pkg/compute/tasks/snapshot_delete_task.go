@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -112,6 +113,21 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 	}
 	if snapshot.FakeDeleted {
 		params := jsonutils.NewDict()
+		disk, err := models.DiskManager.FetchById(snapshot.DiskId)
+		if err != nil && err != sql.ErrNoRows {
+			self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
+			return
+		}
+		sDisk, _ := disk.(*models.SDisk)
+		if sDisk.IsEncrypted() {
+			if encryptInfo, err := sDisk.GetEncryptInfo(ctx, self.GetUserCred()); err != nil {
+				self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
+				return
+			} else {
+				params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+			}
+		}
+
 		params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
 		params.Set("auto_deleted", jsonutils.JSONTrue)
