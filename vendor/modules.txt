@@ -837,8 +837,8 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/mattn/go-sqlite3 v1.14.12
-## explicit; go 1.12
+# github.com/mattn/go-sqlite3 v1.14.19
+## explicit; go 1.16
 github.com/mattn/go-sqlite3
 # github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f
 ## explicit
@@ -1785,7 +1785,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240925082430-67169b24a255
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240926044416-87330751124e
 ## explicit; go 1.21
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1937,7 +1937,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20240916001724-cb6bf30b6f63
+# yunion.io/x/sqlchemy v1.1.3-0.20240926163039-d41512b264e1
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
