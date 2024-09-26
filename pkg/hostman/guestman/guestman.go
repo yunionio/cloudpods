@@ -507,6 +507,10 @@ func (m *SGuestManager) GetQgaRunningGuests() []string {
 			return true
 		}
 
+		if guest.guestAgent == nil {
+			// in case guestAgent not init
+			return true
+		}
 		if guest.guestAgent.TryLock() {
 			defer guest.guestAgent.Unlock()
 			err := guest.guestAgent.GuestPing(1)
