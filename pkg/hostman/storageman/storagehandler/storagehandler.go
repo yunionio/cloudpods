@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -464,6 +465,15 @@ func storageDeleteSnapshot(ctx context.Context, w http.ResponseWriter, r *http.R
 		DiskId:      diskId,
 		BlockStream: blockStream,
 		SnapshotId:  snapshotId,
+	}
+
+	if body.Contains("encrypt_info") {
+		encryptInfo := apis.SEncryptInfo{}
+		if err = body.Unmarshal(&encryptInfo, "encrypt_info"); err != nil {
+			hostutils.Response(ctx, w, httperrors.NewInputParameterError("unmarshal encrypt_info failed %s", err))
+			return
+		}
+		input.EncryptInfo = encryptInfo
 	}
 
 	if !blockStream && !autoDeleted {
