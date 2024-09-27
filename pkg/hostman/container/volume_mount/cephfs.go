@@ -72,6 +72,12 @@ func (h cephFS) GetType() apis.ContainerVolumeMountType {
 	return apis.CONTAINER_VOLUME_MOUNT_TYPE_CEPHF_FS
 }
 
+func (d cephFS) InjectUsageTags(usage *ContainerVolumeMountUsage, vol *hostapi.ContainerVolumeMount) {
+	if vol.CephFS != nil {
+		usage.Tags["disk_id"] = vol.CephFS.Id
+	}
+}
+
 func (h cephFS) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) (string, error) {
 	if vm.CephFS == nil {
 		return "", fmt.Errorf("cephfs is nil")
