@@ -840,6 +840,9 @@ type PCIDevModelTypes struct {
 	Model   string
 	DevType string
 	SizeMB  int
+
+	VirtualDev bool
+	Hypervisor string
 }
 
 func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) ([]string, []PCIDevModelTypes) {
@@ -881,12 +884,23 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 	for rows.Next() {
 		var m, t string
 		var sizeMB int
+		var vdev bool
+		var hypervisor string
 		rows.Scan(&m, &t, &sizeMB)
 
 		if m == "" {
 			continue
 		}
-		gpus = append(gpus, PCIDevModelTypes{m, t, sizeMB})
+		if utils.IsInStringArray(t, api.VITRUAL_DEVICE_TYPES) {
+			vdev = true
+		}
+		if utils.IsInStringArray(t, api.VALID_CONTAINER_DEVICE_TYPES) {
+			hypervisor = api.HYPERVISOR_POD
+		} else {
+			hypervisor = api.HYPERVISOR_KVM
+		}
+
+		gpus = append(gpus, PCIDevModelTypes{m, t, sizeMB, vdev, hypervisor})
 
 		if !utils.IsInStringArray(m, gpuModels) {
 			gpuModels = append(gpuModels, m)
