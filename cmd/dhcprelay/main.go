@@ -62,10 +62,10 @@ func relayMain() error {
 		return errors.Error("Missing DHCP relay server")
 	}
 
-	srv, err := hostdhcp.NewGuestDHCPServer(options.Interface, options.Port, []string{
-		options.Relay, "67",
-	})
-
+	relayConfig := &hostdhcp.SDHCPRelayUpstream{}
+	relayConfig.IP = options.Relay
+	relayConfig.Port = 67
+	srv, err := hostdhcp.NewGuestDHCPServer(options.Interface, options.Port, relayConfig)
 	if err != nil {
 		return errors.Wrap(err, "NewGuestDHCPServer")
 	}

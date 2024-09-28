@@ -26,22 +26,12 @@ import (
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
 
-type recvFunc func(pkt *dhcp.Packet)
-
-type SRelayCache struct {
-	mac     net.HardwareAddr
-	srcPort int
-	// dstPort int
-
-	timer time.Time
-}
-
-type SDHCPRelay struct {
-	server *dhcp.DHCPServer
+type SDHCP6Relay struct {
+	server *dhcp.DHCP6Server
 	OnRecv recvFunc
 
 	guestDHCPConn *dhcp.Conn
-	ipv4srcAddr   net.IP
+	ipv6srcAddr   net.IP
 
 	destaddr net.IP
 	destport int
@@ -49,8 +39,8 @@ type SDHCPRelay struct {
 	cache sync.Map
 }
 
-func NewDHCPRelay(guestDHCPConn *dhcp.Conn, config *SDHCPRelayUpstream) (*SDHCPRelay, error) {
-	relay := new(SDHCPRelay)
+func NewDHCP6Relay(guestDHCPConn *dhcp.Conn, config *SDHCPRelayUpstream) (*SDHCP6Relay, error) {
+	relay := new(SDHCP6Relay)
 	relay.guestDHCPConn = guestDHCPConn
 
 	log.Infof("Set Relay To Address: %s, %d", config.IP, config.Port)
@@ -61,14 +51,14 @@ func NewDHCPRelay(guestDHCPConn *dhcp.Conn, config *SDHCPRelayUpstream) (*SDHCPR
 	return relay, nil
 }
 
-func (r *SDHCPRelay) Setup(ctx context.Context, addr string) error {
-	r.ipv4srcAddr = net.ParseIP(addr)
-	if len(r.ipv4srcAddr) == 0 {
+func (r *SDHCP6Relay) Setup(ctx context.Context, addr string) error {
+	r.ipv6srcAddr = net.ParseIP(addr)
+	if len(r.ipv6srcAddr) == 0 {
 		return fmt.Errorf("Wrong ip address %s", addr)
 	}
-	log.Infof("DHCP Relay Setup on %s %d", addr, DEFAULT_DHCP_RELAY_PORT)
+	log.Infof("DHCP6 Relay Setup on %s %d", addr, DEFAULT_DHCP6_RELAY_PORT)
 	var err error
-	r.server, err = dhcp.NewDHCPServer3(addr, DEFAULT_DHCP_RELAY_PORT)
+	r.server, err = dhcp.NewDHCP6Server3(addr, DEFAULT_DHCP6_RELAY_PORT)
 	if err != nil {
 		return err
 	}
@@ -76,12 +66,17 @@ func (r *SDHCPRelay) Setup(ctx context.Context, addr string) error {
 	return nil
 }
 
-func (r *SDHCPRelay) ServeDHCP(ctx context.Context, pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, []string, error) {
+func (r *SDHCP6Relay) ServeDHCP(ctx context.Context, pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, []string, error) {
 	pkg, err := r.serveDHCPInternal(pkt, addr)
 	return pkg, nil, err
 }
 
-func (r *SDHCPRelay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr) (dhcp.Packet, error) {
+func (r *SDHCP6Relay) ServeRA(ctx context.Context, pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, error) {
+	pkg, err := r.serveDHCPInternal(pkt, addr)
+	return pkg, err
+}
+
+func (r *SDHCP6Relay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr) (dhcp.Packet, error) {
 	log.Infof("DHCP Relay Reply TO %s", pkt.CHAddr())
 	v, ok := r.cache.Load(pkt.TransactionID())
 	if ok {
@@ -98,8 +93,8 @@ func (r *SDHCPRelay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr) (dhcp.Pa
 	return nil, nil
 }
 
-func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, error) {
-	if addr.IP.Equal(r.ipv4srcAddr) {
+func (r *SDHCP6Relay) Relay(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, error) {
+	if addr.IP.Equal(r.ipv6srcAddr) {
 		return nil, nil
 	}
 
@@ -121,7 +116,7 @@ func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, err
 		timer:   time.Now(),
 	})
 
-	pkt.SetGIAddr(r.ipv4srcAddr)
+	pkt.SetGIAddr(r.ipv6srcAddr)
 
 	err := r.server.GetConn().SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, nil)
 	return nil, err
