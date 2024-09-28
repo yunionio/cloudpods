@@ -731,10 +731,12 @@ func (h *SHostInfo) EnableKsm(sleepSec int) {
 	sysutils.SetSysConfig("/sys/kernel/mm/ksm/run", "1")
 	sysutils.SetSysConfig("/sys/kernel/mm/ksm/sleep_millisecs",
 		fmt.Sprintf("%d", sleepSec*1000))
+	h.sysinfo.EnableKsm = true
 }
 
 func (h *SHostInfo) DisableKsm() {
 	sysutils.SetSysConfig("/sys/kernel/mm/ksm/run", "0")
+	h.sysinfo.EnableKsm = false
 }
 
 func (h *SHostInfo) PreventArpFlux() {
@@ -1088,8 +1090,12 @@ func (h *SHostInfo) detectOvsKOVersion() error {
 	lines := strings.Split(string(output), "\n")
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
-		if strings.HasPrefix(line, "version:") || strings.HasPrefix(line, "vermagic") {
+		if strings.HasPrefix(line, "version:") || strings.HasPrefix(line, "vermagic:") {
 			log.Infof("kernel module openvswitch %s", line)
+			parts := strings.Split(line, ":")
+			if len(parts) > 1 {
+				h.sysinfo.OvsKmodVersion = strings.TrimSpace(parts[1])
+			}
 			return nil
 		}
 	}
