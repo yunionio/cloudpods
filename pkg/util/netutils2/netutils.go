@@ -208,6 +208,11 @@ type SNetInterface struct {
 	Mask net.IPMask
 	mac  string
 
+	Addr6 string
+	Mask6 net.IPMask
+
+	Addr6LinkLocal string
+
 	Mtu int
 
 	VlanId     int
@@ -231,10 +236,10 @@ func NewNetInterface(name string) *SNetInterface {
 	return n
 }
 
-func NewNetInterfaceWithExpectIp(name string, expectIp string) *SNetInterface {
+func NewNetInterfaceWithExpectIp(name string, expectIp string, expectIp6 string) *SNetInterface {
 	n := new(SNetInterface)
 	n.name = name
-	n.fetchConfig(expectIp)
+	n.FetchConfig2(expectIp, expectIp6)
 	return n
 }
 
@@ -257,10 +262,11 @@ func (n *SNetInterface) FetchInter() *net.Interface {
 }
 
 func (n *SNetInterface) FetchConfig() {
-	n.fetchConfig("")
+	n.FetchConfig2("", "")
 }
 
-func (n *SNetInterface) fetchConfig(expectIp string) {
+// FetchConfig2 is used to fetch config with expectIp and expectIp6
+func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
 	n.Addr = ""
 	n.Mask = nil
 	n.mac = ""
@@ -278,12 +284,16 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
-					n.Addr = ipnet.IP.String()
-					n.Mask = ipnet.Mask
-					if len(expectIp) > 0 && n.Addr != expectIp {
-						continue
-					} else {
-						break
+					if (len(expectIp) > 0 && ipnet.IP.String() == expectIp) || (len(expectIp) == 0 && n.Addr == "") {
+						n.Addr = ipnet.IP.String()
+						n.Mask = ipnet.Mask
+					}
+				} else if ipnet.IP.To16() != nil {
+					if ipnet.IP.IsLinkLocalUnicast() {
+						n.Addr6LinkLocal = ipnet.IP.String()
+					} else if (len(expectIp6) > 0 && ipnet.IP.String() == expectIp6) || (len(expectIp6) == 0 && n.Addr6 == "") {
+						n.Addr6 = ipnet.IP.String()
+						n.Mask6 = ipnet.Mask
 					}
 				}
 			}
@@ -349,6 +359,10 @@ func (n *SNetInterface) IsSecretInterface() bool {
 	return n.IsSecretAddress(n.Addr, n.Mask)
 }
 
+func (n *SNetInterface) IsSecretInterface6() bool {
+	return n.Addr6LinkLocal != "" && n.Addr6 == ""
+}
+
 func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
 	log.Infof("MASK --- %s", mask)
 	if reflect.DeepEqual(mask, SECRET_MASK) && strings.HasPrefix(addr, SECRET_PREFIX) {
@@ -364,11 +378,11 @@ func GetSecretInterfaceAddress() (string, int) {
 	return addr, SECRET_MASK_LEN
 }
 
-func (n *SNetInterface) GetSlaveAddresses() [][]string {
+func (n *SNetInterface) GetSlaveAddresses() []SNicAddress {
 	addrs := n.GetAddresses()
-	var slaves = make([][]string, 0)
+	var slaves = make([]SNicAddress, 0)
 	for _, addr := range addrs {
-		if addr[0] != n.Addr {
+		if addr.Addr != n.Addr && addr.Addr != n.Addr6 {
 			slaves = append(slaves, addr)
 		}
 	}

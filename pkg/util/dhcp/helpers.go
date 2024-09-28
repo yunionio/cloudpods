@@ -49,6 +49,10 @@ type ResponseConfig struct {
 	NTPServers    []net.IP      // OptNTPServers 42
 	MTU           uint16        // OptMTU 26
 
+	ClientIP6  net.IP
+	Gateway6   net.IP
+	PrefixLen6 uint8
+
 	// Relay Info https://datatracker.ietf.org/doc/html/rfc3046
 	RelayInfo []byte
 
