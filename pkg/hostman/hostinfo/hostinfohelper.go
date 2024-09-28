@@ -186,7 +186,7 @@ func (n *SNIC) EnableDHCPRelay() bool {
 		log.Errorf("EnableDHCPRelay netutils.NewIPV4Addr(%s) error: %v", n.Ip, err)
 		return false
 	}
-	if len(options.HostOptions.DhcpRelay) > 0 && !netutils.IsExitAddress(v4Ip) {
+	if len(options.HostOptions.DhcpRelay) == 2 && !netutils.IsExitAddress(v4Ip) {
 		return true
 	} else {
 		return false
@@ -303,14 +303,20 @@ func NewNIC(desc string) (*SNIC, error) {
 		Instance().AppendHostError("dhcp client is enabled before host agent start, please disable it")
 	}
 
-	var dhcpRelay []string
+	var relayConf *hostdhcp.SDHCPRelayUpstream
 	if nic.EnableDHCPRelay() {
 		log.Infof("EnableDHCPRelay on nic %#v", nic)
-		dhcpRelay = options.HostOptions.DhcpRelay
+		relayConf = &hostdhcp.SDHCPRelayUpstream{}
+		relayConf.IP = options.HostOptions.DhcpRelay[0]
+		relayConf.Port, err = strconv.Atoi(options.HostOptions.DhcpRelay[1])
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid relay port %s", options.HostOptions.DhcpRelay[1])
+		}
 	}
-	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, options.HostOptions.DhcpServerPort, dhcpRelay)
+
+	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
 	if err != nil {
-		return nil, errors.Wrapf(err, "NewGuestDHCPServer(%s, %d, %#v)", nic.Bridge, options.HostOptions.DhcpServerPort, dhcpRelay)
+		return nil, errors.Wrapf(err, "NewGuestDHCPServer(%s, %d, %#v)", nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
 	}
 	// dhcp server start after guest manager init
 	return nic, nil

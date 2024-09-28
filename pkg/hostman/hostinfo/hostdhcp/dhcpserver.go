@@ -16,7 +16,6 @@ package hostdhcp
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -33,7 +32,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
-const DEFAULT_DHCP_CLIENT_PORT = 68
+const (
+	DEFAULT_DHCP_SERVER_PORT = 67
+	// DEFAULT_DHCP_CLIENT_PORT = 68
+	DEFAULT_DHCP_RELAY_PORT = 68
+)
 
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
@@ -43,22 +46,23 @@ type SGuestDHCPServer struct {
 	iface string
 }
 
-func NewGuestDHCPServer(iface string, port int, relay []string) (*SGuestDHCPServer, error) {
+type SDHCPRelayUpstream struct {
+	IP   string
+	Port int
+}
+
+func NewGuestDHCPServer(iface string, port int, relay *SDHCPRelayUpstream) (*SGuestDHCPServer, error) {
 	var (
 		err       error
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
-	if len(relay) > 0 && len(relay) != 2 {
-		return nil, fmt.Errorf("Wrong dhcp relay address")
-	}
-
-	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, uint16(port), DEFAULT_DHCP_CLIENT_PORT)
+	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, DEFAULT_DHCP_SERVER_PORT)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(relay) == 2 {
+	if relay != nil {
 		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay)
 		if err != nil {
 			return nil, err
@@ -69,10 +73,10 @@ func NewGuestDHCPServer(iface string, port int, relay []string) (*SGuestDHCPServ
 	return guestdhcp, nil
 }
 
-func (s *SGuestDHCPServer) Start(blocking bool) {
+func (s *SGuestDHCPServer) Start(ctx context.Context, blocking bool) {
 	log.Infof("SGuestDHCPServer starting ...")
 	serve := func() {
-		err := s.server.ListenAndServe(s)
+		err := s.server.ListenAndServe(ctx, s)
 		if err != nil {
 			log.Errorf("DHCP serve error: %s", err)
 		}
@@ -84,9 +88,9 @@ func (s *SGuestDHCPServer) Start(blocking bool) {
 	}
 }
 
-func (s *SGuestDHCPServer) RelaySetup(addr string) error {
+func (s *SGuestDHCPServer) RelaySetup(ctx context.Context, addr string) error {
 	if s.relay != nil {
-		return s.relay.Setup(addr)
+		return s.relay.Setup(ctx, addr)
 	}
 	return nil
 }
@@ -143,7 +147,7 @@ func GetMainNic(nics []*desc.SGuestNetwork) *desc.SGuestNetwork {
 	return nil
 }
 
-func (s *SGuestDHCPServer) getGuestConfig(
+func getGuestConfig(
 	guestDesc *desc.SGuestDesc, guestNic *desc.SGuestNetwork,
 ) *dhcp.ResponseConfig {
 	var nicdesc = new(types.SServerNic)
@@ -168,6 +172,13 @@ func (s *SGuestDHCPServer) getGuestConfig(
 	}
 	conf.Hostname = strings.ToLower(conf.Hostname)
 	conf.Domain = nicdesc.Domain
+
+	if len(nicdesc.Ip6) > 0 {
+		// ipv6
+		conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
+		conf.PrefixLen6 = uint8(nicdesc.Masklen6)
+		conf.ClientIP6 = net.ParseIP(nicdesc.Ip6)
+	}
 
 	// get main ip
 	guestNics := guestDesc.Nics
@@ -232,7 +243,7 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, !isCandidate)
 	}
 	if guestNic != nil && !guestNic.Virtual {
-		return s.getGuestConfig(guestDesc, guestNic)
+		return getGuestConfig(guestDesc, guestNic)
 	}
 	return nil
 }
@@ -241,12 +252,12 @@ func (s *SGuestDHCPServer) IsDhcpPacket(pkt dhcp.Packet) bool {
 	return pkt != nil && (pkt.Type() == dhcp.Request || pkt.Type() == dhcp.Discover)
 }
 
-func (s *SGuestDHCPServer) ServeDHCP(ctx context.Context, pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
-	pkg, err := s.serveDHCPInternal(pkt, addr, intf)
+func (s *SGuestDHCPServer) ServeDHCP(ctx context.Context, pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, []string, error) {
+	pkg, err := s.serveDHCPInternal(pkt, addr)
 	return pkg, nil, err
 }
 
-func (s *SGuestDHCPServer) serveDHCPInternal(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
+func (s *SGuestDHCPServer) serveDHCPInternal(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, error) {
 	if !s.IsDhcpPacket(pkt) {
 		return nil, nil
 	}
@@ -257,7 +268,7 @@ func (s *SGuestDHCPServer) serveDHCPInternal(pkt dhcp.Packet, addr *net.UDPAddr,
 		return dhcp.MakeReplyPacket(pkt, conf)
 	} else if s.relay != nil && s.relay.server != nil {
 		// Host agent as dhcp relay, relay to baremetal
-		return s.relay.Relay(pkt, addr, intf)
+		return s.relay.Relay(pkt, addr)
 	}
 	return nil, nil
 }
