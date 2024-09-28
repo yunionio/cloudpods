@@ -325,6 +325,7 @@ type SSysInfo struct {
 	KernelVersion  string `json:"kernel_version"`
 	QemuVersion    string `json:"qemu_version"`
 	OvsVersion     string `json:"ovs_version"`
+	OvsKmodVersion string `json:"ovs_kmod_version"`
 	KvmModule      string `json:"kvm_module"`
 	CpuModelName   string `json:"cpu_model_name"`
 	CpuMicrocode   string `json:"cpu_microcode"`
@@ -335,6 +336,7 @@ type SSysInfo struct {
 	HugepageSizeKb  int                          `json:"hugepage_size_kb"`
 	HugepageNr      *int                         `json:"hugepage_nr"`
 	NodeHugepages   []hostapi.HostNodeHugepageNr `json:"node_hugepages"`
+	EnableKsm       bool                         `json:"enable_ksm"`
 
 	Topology        *hostapi.HostTopology `json:"topology"`
 	CPUInfo         *hostapi.HostCPUInfo  `json:"cpu_info"`
