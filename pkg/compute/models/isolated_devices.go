@@ -475,7 +475,7 @@ func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCr
 
 	if len(devId) == 0 {
 		if matchDev == nil {
-			return nil, fmt.Errorf("Isolated device info not contains either deviceID or model name")
+			return nil, httperrors.NewNotFoundError("Not found matched device by model: %q, dev_type: %q", devConfig.Model, devConfig.DevType)
 		}
 		devConfig.Model = matchDev.Model
 		if len(devVendor) > 0 {
