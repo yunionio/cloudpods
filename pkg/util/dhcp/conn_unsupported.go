@@ -49,3 +49,7 @@ func NewSnooperConn(addr string) (*Conn, error) {
 func newRawSocketConn(iface string, filter []bpf.RawInstruction, dhcpServerPort uint16) (conn, error) {
 	return nil, errors.New("raw socket Conns not supported on this OS")
 }
+
+func newRawSocketConn6(iface string, filter []bpf.RawInstruction, dhcpServerPort uint16) (conn, error) {
+	return nil, errors.New("raw IPv6 socket Conns not supported on this OS")
+}

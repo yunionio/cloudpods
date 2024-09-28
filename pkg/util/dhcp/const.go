@@ -44,6 +44,10 @@ const (
 	CLIENT_ARCH_EFI_ARM64
 )
 
+const (
+	icmpRAFakePort = int(-1111)
+)
+
 func IsUEFIPxeArch(arch uint16) bool {
 	switch arch {
 	case CLIENT_ARCH_EFI_IA32:

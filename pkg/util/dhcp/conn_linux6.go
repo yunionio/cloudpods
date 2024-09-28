@@ -34,7 +34,6 @@ package dhcp
 
 import (
 	"net"
-	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -45,28 +44,19 @@ import (
 	"yunion.io/x/pkg/errors"
 )
 
-type rawSocketConn struct {
-	conn *packet.Conn
-
-	iface *net.Interface
-	ip    net.IP
-
-	serverPort uint16
-}
-
-func newRawSocketConn(iface string, filter []bpf.RawInstruction, serverPort uint16) (conn, error) {
+func newRawSocketConn6(iface string, filter []bpf.RawInstruction, serverPort uint16) (conn, error) {
 	ifi, err := net.InterfaceByName(iface)
 	if err != nil {
 		return nil, errors.Wrap(err, "interface by name")
 	}
 
-	ip, err := interfaceToIPv4Addr(ifi)
+	ip, err := interfaceToIPv6Addr(ifi)
 	if err != nil {
 		return nil, err
 	}
 
 	// unix.ETH_P_ALL
-	conn, err := packet.Listen(ifi, packet.Raw, unix.ETH_P_IP, &packet.Config{
+	conn, err := packet.Listen(ifi, packet.Raw, unix.ETH_P_IPV6, &packet.Config{
 		Filter: filter,
 	})
 	if err != nil {
@@ -80,11 +70,7 @@ func newRawSocketConn(iface string, filter []bpf.RawInstruction, serverPort uint
 	}, nil
 }
 
-func (s *rawSocketConn) Close() error {
-	return s.conn.Close()
-}
-
-func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
 	// read packet
 	n, addr, err := s.conn.ReadFrom(b)
 	if err != nil {
@@ -104,13 +90,29 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 
 	var srcIp net.IP
 	{
-		ipLayer := p.Layer(layers.LayerTypeIPv4)
+		ipLayer := p.Layer(layers.LayerTypeIPv6)
 		if ipLayer != nil {
-			// ipv4
-			ip4 := ipLayer.(*layers.IPv4)
-			srcIp = ip4.SrcIP
+			// ipv6
+			ip6 := ipLayer.(*layers.IPv6)
+			srcIp = ip6.SrcIP
 		} else {
-			return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect IP packet")
+			return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect IPv6 packet")
+		}
+	}
+
+	icmpLayer := p.Layer(layers.LayerTypeICMPv6)
+	if icmpLayer != nil {
+		raLayer := p.Layer(layers.LayerTypeICMPv6RouterSolicitation)
+		if raLayer != nil {
+			// icmp6, ra solitation
+			raPkt := raLayer.(*layers.ICMPv6RouterSolicitation)
+			sbf := gopacket.NewSerializeBuffer()
+			if err := raPkt.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
+				return nil, nil, nil, 0, errors.Wrap(err, "Serialize ICMPv6 ra solitation packet error")
+			}
+			return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: icmpRAFakePort}, srcMac, 0, nil
+		} else {
+			return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "expect an ICMPv6 RA solitation packet")
 		}
 	}
 
@@ -120,24 +122,24 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 		udpInfo := udpLayer.(*layers.UDP)
 		srcPort = uint16(udpInfo.SrcPort)
 	} else {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect UDP packet")
+		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "expect UDP packet")
 	}
 
-	dhcpLayer := p.Layer(layers.LayerTypeDHCPv4)
+	dhcpLayer := p.Layer(layers.LayerTypeDHCPv6)
 	if dhcpLayer != nil {
-		// dhcpv4
-		dhcp4 := dhcpLayer.(*layers.DHCPv4)
+		// dhcpv6
+		dhcp6 := dhcpLayer.(*layers.DHCPv6)
 		sbf := gopacket.NewSerializeBuffer()
-		if err := dhcp4.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
-			return nil, nil, nil, 0, errors.Wrap(err, "Serialize dhcp packet error")
+		if err := dhcp6.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
+			return nil, nil, nil, 0, errors.Wrap(err, "Serialize dhcp6 packet error")
 		}
 		return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: int(srcPort)}, srcMac, 0, nil
 	} else {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect DHCP packet")
+		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Fetch dhcp layer failed")
 	}
 }
 
-func (s *rawSocketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error {
+func (s *rawSocketConn) Send6(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error {
 	var dhcp = new(layers.DHCPv4)
 	if err := dhcp.DecodeFromBytes(b, gopacket.NilDecodeFeedback); err != nil {
 		return errors.Wrap(err, "Decode dhcp bytes error")
@@ -149,12 +151,12 @@ func (s *rawSocketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAd
 		DstMAC:       destMac,
 	}
 
-	var ip = &layers.IPv4{
-		Version:  4,
-		TTL:      64,
-		SrcIP:    s.ip,
-		DstIP:    addr.IP,
-		Protocol: layers.IPProtocolUDP,
+	var ip = &layers.IPv6{
+		Version:    6,
+		HopLimit:   64,
+		SrcIP:      s.ip,
+		DstIP:      addr.IP,
+		NextHeader: layers.IPProtocolUDP,
 	}
 
 	var (
@@ -181,12 +183,4 @@ func (s *rawSocketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAd
 		return errors.Wrap(err, "Send dhcp packet error")
 	}
 	return nil
-}
-
-func (s *rawSocketConn) SetReadDeadline(t time.Time) error {
-	return s.conn.SetReadDeadline(t)
-}
-
-func (s *rawSocketConn) SetWriteDeadline(t time.Time) error {
-	return s.conn.SetWriteDeadline(t)
 }
