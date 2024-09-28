@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
 
@@ -70,7 +71,7 @@ type dhcpRequest struct {
 	netConfig *types.SNetworkConfig
 }
 
-func (h *DHCPHandler) ServeDHCP(ctx context.Context, pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, []string, error) {
+func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ net.HardwareAddr, _ *net.UDPAddr) (dhcp.Packet, []string, error) {
 	req, err := h.newRequest(pkt, h.baremetalManager)
 	if err != nil {
 		log.Errorf("[DHCP] new request by packet error: %v", err)
@@ -82,7 +83,7 @@ func (h *DHCPHandler) ServeDHCP(ctx context.Context, pkt dhcp.Packet, _ *net.UDP
 		return nil, nil, fmt.Errorf("Request not from a DHCP relay, ignore mac: %s", req.ClientMac)
 	}
 	log.Infof("[DHCP] from relay %s packet, mac: %s", req.RelayAddr, req.ClientMac)
-	conf, targets, err := req.fetchConfig(ctx, h.baremetalManager.GetClientSession())
+	conf, targets, err := req.fetchConfig(ctx.CtxWithTime(), h.baremetalManager.GetClientSession())
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fetchConfig for %s", req.ClientMac.String())
 	}
