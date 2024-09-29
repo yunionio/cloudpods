@@ -511,12 +511,12 @@ func (m *SGuestManager) GetQgaRunningGuests() []string {
 			// in case guestAgent not init
 			return true
 		}
-		if guest.guestAgent.TryLock() {
-			defer guest.guestAgent.Unlock()
-			err := guest.guestAgent.GuestPing(1)
-			if err == nil {
-				qgaRunningGuestIds = append(qgaRunningGuestIds, guest.Id)
-			}
+
+		err := guest.guestAgent.GuestPing(1)
+		if err == nil {
+			qgaRunningGuestIds = append(qgaRunningGuestIds, guest.Id)
+		} else {
+			log.Debugf("failed exec guest-ping %s", err)
 		}
 		return true
 	})
