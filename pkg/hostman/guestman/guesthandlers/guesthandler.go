@@ -984,7 +984,6 @@ func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid s
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().QgaSetNetwork, &guestman.SQgaGuestSetNetwork{
 		Sid:     sid,
-		Timeout: input.Timeout,
 		Device:  input.Device,
 		Ipmask:  input.Ipmask,
 		Gateway: input.Gateway,
